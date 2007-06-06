@@ -1,0 +1,23 @@
+1) to make separate em_fire test case:
+
+  add em_fire to Makefile in WRF root
+  create dyn_em/module_initialize_fire.F (following quarter_ss)
+  modify dyn_em/Makefile to compile module_initialize_fire.F (following quarter_ss)
+  create test/em_fire directory
+  create test/em_fire/input_sounding
+  create test/em_fire/namelist.input
+
+2) Added complete fire package/section to Registry/Registry.EM
+3) Copied module_fire_driver.F to phys/module_fire_driver.F
+4) Copied module_fr_cawfe.F to phys/module_fr_cawfe.F
+5) Added module_fr_cawfe.o and module_fire_driver.o to phys/Makefile
+
+6) Added fire namelist variables to namelist.input (&fire)
+7) namelist variables sr_x and sr_y in &domain define the refinement
+
+8) Modified dyn_em/solve_em.F so that the fire tendencies propagate 
+	into sr. update_phy_tend 
+   (note that we skip calling 'calculate_phy_tend' because we take care of
+	multiplying by mu in the fire module)
+9) Modified phys/module_physics_addtendc.F so that the fire tendencies 
+	are added into heat and moisture tendencies
