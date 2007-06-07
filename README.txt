@@ -5,7 +5,7 @@ BRANCHES
 The repository contains these main branches:
 
 * master : stable branch 
-* 
+* jbeezley  
 *
 *
 
