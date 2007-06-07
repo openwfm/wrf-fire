@@ -25,7 +25,6 @@ Using the repository:
 
 4.  "cvs update" (updating the branch called <branch>)
 
-  git remote update
   git checkout <branch>
   git pull 
 
