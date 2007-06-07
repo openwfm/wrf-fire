@@ -16,7 +16,7 @@ or env.csh (for csh shells) to set up environment
 variables for building. Then,
 
 cd wrfv2_fire
-./configure # select an option for building
+./configure # select option #5 for building
 ./compile em_fire &> compile.log
 
 This will take a while.  Make sure that compile.log contains 
