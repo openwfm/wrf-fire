@@ -2,19 +2,53 @@ WARNING:  I am just learning git, so the following could have mistakes.
 	  For now, I am making backups of the repository regularly
 	  in case anyone, including myself, screws it up.
 
-Basic git usage:
+Using the repository:
 
+***************************************
+*Command list (see explanations below)*
+***************************************
+
+1.  Initial setup (substitute your information)
+
+  git config --global user.name "FirstName LastName"
+  git config --global user.email "user@example.com"
+
+2.  Local repository setup
+
+  git clone /home/wrf.git
+
+3.  Branch setup (substitute <branch> with what you 
+                  want to name your branch)
+
+  git checkout -b <branch> origin/master
+  git push origin <branch>:<branch>
+
+4.  "cvs update" (updating the branch called <branch>)
+
+  git remote update
+  git checkout <branch>
+  git pull 
+
+5.  "cvs commit" (committing <branch> to the shared repository)
+
+  git commit -a
+  git push origin <branch>:<branch>
+
+***********************************
+*Explanation of the commands above*
+***********************************
+  
 1.  Initial setup
   
   git requires that each user be identified with a name and email, set
   these with:
 
-    $ git config --global user.name "FirstName LastName"
-    $ git config --global user.email "user@example.com"
+    git config --global user.name "FirstName LastName"
+    git config --global user.email "user@example.com"
 
   or edit ~/.gitconfig
 
-2.  Local repository
+2.  Local repository setup
 
   The main development repository is located on wrf.cudenver.edu at
 
@@ -87,7 +121,7 @@ Basic git usage:
   (see also 'git rm' and 'git mv') Finally, the changes can be 
   committed with 
 
-    git commit
+    git commit -a
 
   This will only commit to your local repository.  To add your commits to
   the shared repository
