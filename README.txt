@@ -10,8 +10,8 @@ The repository contains these main branches:
 
 * master : stable branch 
 * jbeezley  
-*
-*
+* jm: current working branch
+* jm-base: early snapshot that gives the same output as Ned had
 
 Only Jon should commit to master branch.
 
