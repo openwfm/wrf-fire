@@ -1,6 +1,7 @@
 See documentation in 'doc' directory for more information.
 See file doc/README_git.txt on version control
 
+*** Currently all is set up to run on wf.cudenver.edu ONLY ***
 
 
 BRANCHES
@@ -11,6 +12,8 @@ The repository contains these main branches:
 * jbeezley  
 *
 *
+
+Only Jon should commit to master branch.
 
 RUNNING
 
