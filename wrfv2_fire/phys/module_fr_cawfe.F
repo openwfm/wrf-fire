@@ -830,7 +830,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    END DO
 
    WRITE(msg,93)grndhx,grndqx,canhx,canqx
-93 FORMAT(1x,'GRNDHX=',e11.4,' GRNDQX=',e11.4,' CANHX=',e11.4,' CANQX=',e11.4/2x)
+93 FORMAT(1x,'GRNDHX=',e11.4,' GRNDQX=',e11.4,' CANHX=',e11.4,' CANQX=',e11.4)
    CALL wrf_message( msg )
 
    WRITE(msg,68)grnhsum,canhsum
@@ -867,7 +867,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    IF (ratg > 1. .OR. ratc > 1.) THEN
       WRITE(msg,441)ratg,ig,jg,ratc,ic,jc,     &
          grnhfx(ig,jg),grnqfx(ig,jg),canhfx(ic,jc),canqfx(ic,jc)
-441   FORMAT(1x,'RATG(I,J)=',e11.4,2i3,' RATC(I,J)=',e11.4,2i3/1x, &
+441   FORMAT(1x,'RATG(I,J)=',e11.4,2i3,' RATC(I,J)=',e11.4,2i3, &
          'GRNH/QFX=',2e11.4,' CANH/CANQFX=',2e11.4)
       CALL wrf_message( msg )
    END IF
