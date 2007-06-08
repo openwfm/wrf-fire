@@ -214,9 +214,13 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 !  mu            
 !  rho            incoming atmos. density (kg/m^3 at arakawa-c grid mass points)
 !
+!
 ! ---- in and out fire variables
 !
 !  nfuel_cat(i,j) integer NFFL fuel category at each fire grid cell
+! jm data, read at initialization, then IN only
+
+! jm part of tracer data structure
 !  nfl(i,j) = 0   means no fire line points in that cell
 !  nfl(i,j) = 1   means there are some fire line points in that cell
 !  ncod(i,j,it)   is number of fire line coordinates in fire grid (i,j)
@@ -230,16 +234,32 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 !  iyb(i,j,it)    = 1 means the y coord of the it tracer is an interior point
 !  icn(i,j,it)    = 0 means the it coord is not a corner point
 !  icn(i,j,it)    = 1 means the it coord is a corner point
+! jm end of tracer data structure it=1:4
+
 !  fg(i,j)        mass of surface fuel (kg/m^2)
+! jm mass of fuel remaning
+
 !  fc(i,j)        total mass of canopy fuel  (kg/m^2)
+! jm mass of fuel remaining
+
 !  r_0(i,j)       is the spread rate for a fire on flat ground with no wind
+! jm something like diffusion coefficient; here does not change with time
+
 !  bbb(i,j)       is a constant in the wind correction for fire spread
 !  betafl(i,j)    is a constant in the wind correction for fire spread
 !  phiwc(i,j)     is a constant in the wind correction for fire spread
 !  area(i,j)      
+! jm relative area of cell burning, from 0 to 1, stays at 1 after burned out
+
 !  area2(i,j)     the sum over this is the fire area (m^2)
+! jm about the same thing, used for calculation, have to store it somewhere
+
 !  zf(i,j)        hgt of kds+1 mass point above sea level interp. to fire grid (m)
+! jm topography, vertical index to range from kds to kde
+
 !  zsf(i,j)       hgt of surface above sea level interpolated to fire grid (m)
+! jm topography
+
 !  tign_g(i,j)    time this cell ignited ground fire (s); < 0 -> no ignition
 !  tign_c(i,j)    time this cell ignited crown fire (s); < 0 -> no ignition
 !  tign_crt(i,j)  time this cell ignited completely (s); < 0 -> not entirely aflame
@@ -249,51 +269,94 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 !  ycd(i,j,it)    y coord of the it fire line coordinate in grid (i,j)
 !  xcn(i,j,it)    x coord of the normal vector at point (i,j)
 !  ycn(i,j,it)    y coord of the normal vector at point (i,j)
+! jm tracer things
+
 !  sprdx(i,j,it)  spread rate in x normalized units (mostly for debug)
 !  sprdy(i,j,it)  spread rate in y normalized units (mostly for debug)
+! jm ???
 !
 ! ---- key output variables from fire
 !
-!  rthfrten       theta tendency due to fire induced heat flux divergence 
+!  rthfrten       theta tendency due to fire induced heat flux divergence
+! jm  3D, potential temperature indexed by atmospheric grid
+
 !  rqvfrten       Qv tendency due to fire induced moisture flux divergence
+! jm  water vapor mixing ratio = mass of water vapor/unit mass of dry air
+
 !
 !  grnhfx         heat flux from ground fire (W/m^2) 
 !  grnqfx         moisture flux from ground fire (W/m^2) 
 !  canhfx         heat flux from crown fire (W/m^2) 
 !  canqfx         moisture flux from crown fire (W/m^2) 
+! jm 2d, specified at surface
 !
 ! ---- local fire variables
 !
 !  fgi            initial total mass of surface fuel (kg/m^2)
+! jm in this code constant everywhere, should be from a fuels
+
 !  fci            initial total mass of crown fuel
 !  fci_d          initial dry mass of crown fuel
 !  fuelmc_c       initial moisture/dry mass ratio for crown fuel
+! jm the ground fuel was done in a different way
+
 !  fct            burn out time for crown fuel, after dry (s)
+! jm in ground fire, "weight" plays similar role 
+
 !  fcbr           crown fuel burn rate (kg/m^2/s)
+! jm calculated
+
 !  cmbcnst        joules per kg of dry fuel
+! jm data
+
 !  fuelmc_g       fuel particle (surface) moisture content
 !                 fuel moisture fuelmc_g = (h2o)/(dry) 
+! jm water contents in surface fuels
+
 !  bmst           ratio of latent to sensible heat from sfc burn: 
 !                   % of total fuel mass that is water (not quite 
 !                   = % fuel moisture).    bmst= (h2o)/(h2o+dry) 
 !                   so bmst = fuelmc_g / (1 + fuelmc_g)  where 
 !                   fuelmc_g = ground fuel moisture
+! jm calculated
+
 !  hfgl           surface fire heat flux threshold to ignite canopy (W/m^2)
+! jm data
+
 !  fuelloadm      ovendry fuel loading, kg/m^2 (converted to lb/ft^2)
+! jm calculated?
+
 !  fueldepthm     fuel depth, in m  (converted to ft)
+! jm data
+
 !  savr           fuel particle surface-area-to-volume ratio (1/ft)
 !                    grass: 3500., 10 hr fuel: 109.,  100 hr fuel: 30.
+! jm data
+
 !  fuelheat       fuel particle low heat content (btu/lb)
+! jm computed scalar  
+
 !  fueldens       ovendry particle density (lb/ft^3)
+! jm how packed, ought to be data array but now a scalar
+
 !  st             fuel particle total mineral content
+! jm data, scalar
+
 !  se             fuel particle effective mineral content
+! jm data, scalar
+
 !  fuelmce        moisture content of extinction; 
 !                    0.30 for many dead fuels; 0.15 for grass
+! jm data, scalar
+
 !  weight         weighting parameter determining the slope of the mass loss curve
 !                    ranges from ~5 (fast burnup) to 1000 ( ~40% decr over 10 min).
+! jm determines speed of burning of ground fuel, add-on to fuel type table
+
 !  sfcu(i,j,6)    surface wind in x-direction interpolated to grid corners (m/s)
 !  sfcv(i,j,6)    surface wind in y-direction interpolated to grid corners (m/s)
-!
+! jm calculated
+! 
 !    when deriving fireline coordinates we always keep the fire to our left
 !
 ! -------------------------------------------------------------------------
