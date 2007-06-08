@@ -49,19 +49,20 @@ Using the repository:
 
 2.  Local repository setup
 
-  The main development repository is located on wrf.cudenver.edu at
+  The main development repository is located on wf.cudenver.edu at
 
     /home/wrf.git
 
-  It can be accessed through other computers by instead refering to 
+  It can be accessed from other computers by instead refering to 
 
-    ssh://wrf.cudenver.edu/home/wrf.git
+    ssh://wf.cudenver.edu/home/wrf.git
 
   To "checkout" this repository, use the clone command
 
     git clone /home/wrf.git
 
-  This will create a directory ./wrf containing the cloned repository. 
+  This will create a directory ./wrf with the files. The cloned repository
+  will be created in the hidden directory ./wrf/.git 
 
 3.  Branches
 
@@ -135,9 +136,10 @@ Using the repository:
 
 6.  Other commands
 
-  For a log of everything you have done in your repository, see the command reflog. 
-  You can undo changes with reset.  The cvs style commands status, log, and diff also
-  work in git.
+  For a log of everything you have done in your repository, see the command
+  reflog. 
+  You can undo changes with reset.  The cvs style commands status, log, and
+  diff also work in git.
 
 7.  Getting help
 
