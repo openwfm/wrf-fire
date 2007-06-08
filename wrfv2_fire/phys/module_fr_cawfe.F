@@ -429,7 +429,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    REAL, DIMENSION( ifms:ifme,jfms:jfme ) :: grnhft,grnqft
    REAL, DIMENSION( ifms:ifme,jfms:jfme ) :: canhft,canqft
 
-   CHARACTER (LEN=80) :: msg
+   CHARACTER (LEN=256) :: msg
 
 ! --- take incoming horizontal atmos. winds on arakawa-c grid and 
 !     interpolate them to the cube corners.  resulting winds (sfcu,sfcv)
