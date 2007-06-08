@@ -20,7 +20,7 @@ variables for building. Then,
 
 cd wrfv2_fire
 ./configure # select option #5 for building
-./compile em_fire &> compile.log
+./compile em_fire >& compile.log
 
 This will take a while.  Make sure that compile.log contains 
 no errors.  ("grep Error compile.log" shouldn't return anything).
