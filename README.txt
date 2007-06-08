@@ -1,4 +1,7 @@
 See documentation in 'doc' directory for more information.
+See file doc/README_git.txt on version control
+
+
 
 BRANCHES
 
