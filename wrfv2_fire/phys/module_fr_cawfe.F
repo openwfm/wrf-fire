@@ -414,23 +414,29 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    INTEGER, INTENT(in) :: moad_s_we,moad_e_we	    ! strt/stop grd pts in x moad
    INTEGER, INTENT(in) :: moad_s_sn,moad_e_sn       ! strt/stop grd pts in y moad
 
-   INTEGER, INTENT(in) :: nfrx,nfry
-   REAL, INTENT(in)    :: tlat_stf
-   REAL, INTENT(in)    :: tlon_stf
-   REAL, INTENT(in)    :: t_ignite
-   INTEGER, INTENT(in) :: ifuelread
-   INTEGER, INTENT(in) :: ishape
-   REAL, INTENT(in)    :: z1can
-   REAL, INTENT(in)    :: alfg
-   REAL, INTENT(in)    :: alfc
-   INTEGER, INTENT(in) :: ibeh
-   INTEGER, INTENT(in) :: nfuel_cat0
+   INTEGER, INTENT(in) :: nfrx,nfry   ! innermost atmos. grid refinement for fire grid in x,y
+   REAL, INTENT(in)    :: tlat_stf    ! latitude of inital fire location (degrees lat)
+   REAL, INTENT(in)    :: tlon_stf    ! longitude of inital fire location (degrees lon) 
+   REAL, INTENT(in)    :: t_ignite    ! time of fire initiation (s)
+   INTEGER, INTENT(in) :: ifuelread   ! read fuel parameters from file? or specify them?
+   INTEGER, INTENT(in) :: ishape      ! what initial fire shape? 
+   REAL, INTENT(in)    :: z1can       ! lowest height crown fire heat is released (m)
+   REAL, INTENT(in)    :: alfg        ! extinction depth of ground fire heat (m)
+   REAL, INTENT(in)    :: alfc        !  extinction depth of crown fire heat (m)
+   INTEGER, INTENT(in) :: ibeh        ! which fire spread model?  = 0 McArthur, =1 BEHAVE
+   INTEGER, INTENT(in) :: nfuel_cat0  ! if fuel parameters are specified, what category?
 
+   ! incoming atmos. winds (m/s at arakawa-c grid locations)
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u,v
+   ! height above sea level of w points (m)
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: z,z_at_w
+   ! incoming atmos. density (kg/m^3 at arakawa-c grid mass points)
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: rho
+   ! delta z between w points (m)
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: dz8w
+   ! dry air mass (Pa)
    REAL, INTENT(in), DIMENSION( ims:ime, jms:jme )          :: mu
+   ! topography (m abv sealvl)
    REAL, INTENT(in), DIMENSION( ims:ime, jms:jme )          :: zs
 
 ! ----- inout variables
