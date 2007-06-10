@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>WRF ARW Practical</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+<!--
+.body {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10pt;
+	color: 090706;
+}
+.toplinks {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10pt;
+	font-weight: bolder;
+	color: ebe3de;
+	text-decoration: none;
+}
+-->
+</style>
+</head>
+
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr> 
+    <td width="197" align="left" bgcolor="ebe3de"><a href="../HansOnTutorial.htm"><img src="../assets/handson.jpg" width="190" height="125" border="0"></a></td>
+    <td colspan="4" bgcolor="ebe3de"><div align="center"><font color="090706" face="Verdana, Arial, Helvetica, sans-serif"><strong><font size="6">WRF 
+        ARW Practical Sessions</font><br>
+        <em>July 24 - 28, 2006</em></strong></font></div></td>
+  </tr>
+  <tr bgcolor="090706" class="body"> 
+    <td bgcolor="090706" class="toplinks"><font color="ebe3de"><strong></strong></font></td>
+    <td width="211" bgcolor="090706" class="toplinks"><font color="ebe3de"><strong><a href="../Environment.htm" class="toplinks">Environment</a></strong></font></td>
+    <td width="211" bgcolor="090706" class="toplinks"><a href="../wps_arw.htm" class="toplinks"><font color="ebe3de"><strong>WPS 
+      &amp; ARW</strong></font></a></td>
+    <td width="150" bgcolor="090706" class="toplinks"><a href="../var.htm" class="toplinks"><font color="ebe3de"><strong>WRF-VAR</strong></font></a></td>
+    <td bgcolor="090706"><font color="ebe3de"><strong><a href="../feedback.htm" class="toplinks">Feedback</a></strong></font><font color="ebe3de">&nbsp;</font></td>
+  </tr>
+  <tr> 
+    <td colspan="5" bgcolor="ebe3de"> <table width="100%" border="0" cellspacing="20" cellpadding="0">
+        <tr> 
+          <td><p class="body"><strong><font color="090706" size="2" face="Verdana, Arial, Helvetica, sans-serif">ndown<br>
+              &nbsp; </font></strong></p>
+            <blockquote>
+              <p class="body"><font color="090706" size="2" face="Verdana, Arial, Helvetica, sans-serif">This 
+                will <strong>overwrite</strong> a lot of your files, so keep copies 
+                of important files. Specifically <strong>wrfinput*, wrfbdy</strong> 
+                and<strong> wrfout*</strong> <br>
+                &nbsp; </font></p>
+              <p class="body"><strong>Run WPS</strong></p>
+              <blockquote> 
+                <p><span class="body">Follow instruction for <font color="090706" size="2" face="Verdana, Arial, Helvetica, sans-serif"><a href="nest2.htm">generating 
+                  input data for the nest domain</a></font>.</span><br>
+                  &nbsp; <br>
+                </p>
+              </blockquote>
+              <p class="body"><strong>Run WRF</strong></p>
+              <ul>
+                <li class="body">Make sure you are in the <strong>WRFV2/test/em_real 
+                  directory<br>
+                  &nbsp;<br>
+                  &nbsp; </strong></li>
+                <li class="body"><strong>COPY</strong> your namelist (this is 
+                  just to save it, as you will need it later)<br>
+                  cp namelist.input namelist.input_d01<span class="body"><br>
+                  &nbsp;<br>
+                  &nbsp; </span></li>
+                <li class="body">Edit namelist, to set it up to generate input 
+                  for domain2 (shown below is the JAN00 case, but it will work 
+                  the same for any case you are running) <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;start_year = 2000, <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;start_month = 01,<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;start_day = 24,<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;start_hour = 12, <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end_year = 2000, <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end_month = 01, <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end_day = 24, <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end_hour = 12, <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;interval_seconds = 10800,<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e_we = 112, <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e_sn = 97,<br>
+                  &nbsp;<br>
+                  &nbsp;<strong>NOTE:</strong> <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Start and End times are the 
+                  same - we only have one met_em* input file<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- interval_seconds is set to 3 
+                  hour (output frequency we used when running the default case, 
+                  <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; i.e., history_interval 
+                  = 60 for <a href="jan00.htm">initial run</a>)<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <strong>e_we</strong> and <strong>e_sn</strong> 
+                  are set for default domain d02<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- All domain information is in 
+                  COLUMN 1, as for a d01 run <br>
+                  &nbsp;<br>
+                  &nbsp; </li>
+                <li class="body"><strong>Link</strong> met_em data from WPS (<strong>domain2</strong>)<br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ln -sf ../../../WPS/met_em.d02.2000-01-24_12:00:00.nc 
+                  met_em.d01.2000-01-24_12:00:00.nc<br>
+                  &nbsp; <br>
+                  <strong>NOTE:</strong> met_em* data from <strong>d02</strong> 
+                  is linked to <strong>d01</strong><br>
+                  &nbsp; <br>
+                  &nbsp; </li>
+                <li class="body">run real.exe<br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This will generate a <strong>wrfinput_d01</strong> 
+                  file (this file contain information of <strong>d02</strong>)<br>
+                  &nbsp;<br>
+                  &nbsp; </li>
+                <li><span class="body">run ndown.exe, but first:<br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- first rename the new wrfinput_d01<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>mv wrfinput_d01 
+                  wrf_real_input_em.d02.2000-01-24_12:00:00 </strong><br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Note we are using 
+                  an old file format here, since ndown cannot yet work with new 
+                  WPS files)<br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- save your new namelist.input 
+                  file <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>mv namelist.input 
+                  namelist.input_d02</strong><br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- copy the d01 namelist back <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>&nbsp;cp namelist.input_d01 
+                  namelist.input</strong><br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- edit this namelist<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;make sure 
+                  the start and end times for d01 and d02 is set up for the same 
+                  period as for your <a href="jan00.htm">initial run</a><br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;set <strong>max_dom 
+                  =2</strong><br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- run ndown.exe<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this will create the 
+                  files: <strong>wrfinput_d02 and wrfbdy_d02<br>
+                  &nbsp;<br>
+                  &nbsp; </strong></span></li>
+                <li><span class="body">run wrf.exe, but first:<br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <strong>RENAME</strong> the 
+                  ndown output file to <strong>wrfinput_d01</strong> and <strong>wrfbdy_d01</strong><br>
+                  &nbsp; <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- run wrf.exe with these two files 
+                  as input<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>NOTE:</strong> 
+                  <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;your 
+                  namelist.input needs to be set up for <strong>d02</strong>, 
+                  <strong>AS IF</strong> your where running a single domain run 
+                  <br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(i.e., 
+                  all the domain information needs to be in column 1)<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A 
+                  good place to start setting up your namelist is the namelist.input_d02 
+                  you saved before<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Two 
+                  commonly forgotten variables to change are <strong>max_dom</strong> 
+                  (=1) and <strong><br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+                  time_step</strong> (make sure this is set up for d02)<br>
+                  &nbsp;</span><br>
+                  &nbsp; </li>
+              </ul>
+              <p class="body">If this was successful, you can <a href="../wps_arw.htm"><strong>continue</strong></a> 
+                to run another case of your choice, or generate graphics for your 
+                case.</p>
+            </blockquote></td>
+        </tr>
+      </table></td>
+  </tr>
+  <tr> 
+    <td colspan="5" bgcolor="090706">&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>
