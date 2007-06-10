@@ -1,0 +1,9 @@
+
+In order to build this you must set the environment variable
+UTIL_LIB
+containing libutil1_jan built with the same compilers FC and CC
+
+on WF:
+
+  CC=gcc CFLAGS="-DpgiFortran" FC="ifort" FCFLAGS="-nofor_main" ./configure
+  make
