@@ -106,7 +106,21 @@ Using the repository:
 
     git pull
 
-  This is like 'cvs update'.
+  This is like 'cvs update', but this will not restore deleted files, 
+  for that you need
+
+    git checkout-index -a
+ 
+  To get rid of all local changes (like cvs update -C)
+
+    git checkout -f 
+  
+  Magic sequence to get all updates from master brach:
+
+    git checkout <branch> 
+    git pull origin master
+    git merge master
+    git push origin <branch>:<branch> 
 
 5.  Committing changes
 
