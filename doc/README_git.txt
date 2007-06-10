@@ -2,11 +2,16 @@ WARNING:  I am just learning git, so the following could have mistakes.
 	  For now, I am making backups of the repository regularly
 	  in case anyone, including myself, screws it up.
 
+NOTE: It is strongly recommended to work on wf.cudenver.edu only,
+      at least to get started. 
+
 Using the repository:
 
 ***************************************
-*Command list (see explanations below)*
+*Initial command list (see explanations below)*
 ***************************************
+
+This will create a directory ./wrf under your current directory.
 
 1.  Initial setup (substitute your information)
 
@@ -32,6 +37,7 @@ Using the repository:
 
   git commit -a
   git push origin <branch>:<branch>
+
 
 ***********************************
 *Explanation of the commands above*
@@ -62,7 +68,9 @@ Using the repository:
     git clone /home/wrf.git
 
   This will create a directory ./wrf with the files. The cloned repository
-  will be created in the hidden directory ./wrf/.git 
+  will be created in a hidden directory in ./wrf
+
+  Only changes comitted in the main repository can be seen by others.
 
 3.  Branches
 
@@ -137,8 +145,17 @@ Using the repository:
 
     git commit -a
 
+  You have to be somewhere in the wrf directory, but it does no matter
+  where, the wrf directory and subdirectories are always committed. 
+
   This will only commit to your local repository.  To add your commits to
-  the shared repository
+  *your branch* in the shared repository
+
+    git push origin <branch>:<branch>
+
+  Ask Jon to add your commits to the master branch.
+
+  Advanced:
 
     git push origin <local branch>:<destination branch>
 
