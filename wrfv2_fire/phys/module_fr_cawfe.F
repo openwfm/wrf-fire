@@ -676,6 +676,8 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    END DO
    END DO
 
+! all sort of fixes to the fireline variables
+
    CALL fire_stat(1,dt,time,                       & ! send
                   zs,xcd,ycd,xcn,ycn,sprdx,sprdy,  &
                   ids,ide, kds,kde, jds,jde,       &
@@ -747,7 +749,8 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
                  nfrx,nfry,                        &
                  nfl,tign_g,xfg,yfg)                           ! send&recv
 
-! ----- 
+! ----- all sort of fixes to the fireline variables
+
 
    CALL fire_stat(2,dt,time,                       & ! send
                   zs,xcd,ycd,xcn,ycn,sprdx,sprdy,  &
