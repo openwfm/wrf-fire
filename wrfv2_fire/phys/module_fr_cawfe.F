@@ -710,10 +710,11 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 
 ! ----- create points outlining fire
 
-   CALL fire_ln(dt,time,zs,sprdx,sprdy,               & ! send
-                ids,ide, kds,kde, jds,jde,            &
-                ims,ime, kms,kme, jms,jme,            &
-                its,ite, kts,kte, jts,jte,            &
+   CALL fire_ln(dt,time,sprdx,sprdy,               & ! send
+!   CALL fire_ln(dt,time,zs,sprdx,sprdy,               & ! send
+!                ids,ide, kds,kde, jds,jde,            &
+!                ims,ime, kms,kme, jms,jme,            &
+!                its,ite, kts,kte, jts,jte,            &
                 ifms,ifme, kfms,kfme, jfms,jfme,      &
                 if_st,if_en,jf_st,jf_en,              &
                 nfrx,nfry,                            &
@@ -2889,10 +2890,11 @@ END SUBROUTINE fire_stat
 
 ! =========================================================================
 
-SUBROUTINE fire_ln(dt,time,zs,sprdx,sprdy,              & ! incoming
-                   ids,ide, kds,kde, jds,jde,           &
-                   ims,ime, kms,kme, jms,jme,           &
-                   its,ite, kts,kte, jts,jte,           &
+SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! incoming
+!SUBROUTINE fire_ln(dt,time,zs,sprdx,sprdy,              & ! incoming
+!                   ids,ide, kds,kde, jds,jde,           &
+!                   ims,ime, kms,kme, jms,jme,           &
+!                   its,ite, kts,kte, jts,jte,           &
                    ifms,ifme, kfms,kfme, jfms,jfme,     &
                    if_st,if_en,jf_st,jf_en,             &
                    nfrx,nfry,                           &
@@ -2906,16 +2908,16 @@ SUBROUTINE fire_ln(dt,time,zs,sprdx,sprdy,              & ! incoming
 
 ! ----- incoming variables
 
-   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
-   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
-   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
+!   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
+!   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
+!   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
    INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
    INTEGER, INTENT(in) :: if_st,if_en, jf_st,jf_en
    INTEGER, INTENT(in) :: nfrx,nfry
 
    REAL, INTENT(in)    :: dt,time
 
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )      :: zs
+!   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )      :: zs
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: sprdx,sprdy
 
 ! ----- inout variables
@@ -3993,7 +3995,7 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
                    sprdx,sprdy)                                    ! outgoing
 
 ! --------------------------------------------------------------------
-!   this routine advects fire line coordinates after fire_ln call           
+!   this routine advects fire line coordinates after Fire_ln call           
 !      all xcd ycd xcn and ycn points are calculated and used to 
 !      calculate local velocities and spread rates
 ! --------------------------------------------------------------------
