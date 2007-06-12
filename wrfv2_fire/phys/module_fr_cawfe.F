@@ -565,15 +565,17 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
                          nfrx,nfry,                            &
                          zf,zsf)                            ! outgoing
  
-      CALL fire_startup( grid_id,z,zs,                         & ! send
-                         ids,ide, kds,kde, jds,jde,            &
-                         ims,ime, kms,kme, jms,jme,            &
-                         its,ite, kts,kte, jts,jte,            &
+      CALL fire_startup( grid_id,                              & ! in
+!                         z,zs,                                & 
+!                         ids,ide, kds,kde, jds,jde,            &
+!                         ims,ime, kms,kme, jms,jme,            &
+!                         its,ite, kts,kte, jts,jte,            &
                          ifms,ifme, kfms,kfme, jfms,jfme,      &
                          if_st,if_en,jf_st,jf_en,              &
                          nfrx,nfry,                            &
                          ifuelread, nfuel_cat0,                &
-                         zf,zsf,nfuel_cat,betafl,bbb,r_0,phiwc ) ! recv
+                         zf,zsf,                               &
+                         nfuel_cat,betafl,bbb,r_0,phiwc ) ! out
 
 ! -- EGP converted data statements from blockdata.f (check this for restarts...)
 
@@ -1045,15 +1047,17 @@ SUBROUTINE fire_topography( z,zs,                         &  ! incoming
    END SUBROUTINE fire_topography
 
 
-SUBROUTINE fire_startup( grid_id,z,zs,                         &  ! incoming
-                         ids,ide, kds,kde, jds,jde,            &
-                         ims,ime, kms,kme, jms,jme,            &
-                         its,ite, kts,kte, jts,jte,            &
+SUBROUTINE fire_startup( grid_id,                              & ! incoming
+!                         z,zs,                         &  ! incoming
+!                         ids,ide, kds,kde, jds,jde,            &
+!                         ims,ime, kms,kme, jms,jme,            &
+!                         its,ite, kts,kte, jts,jte,            &
                          ifms,ifme, kfms,kfme, jfms,jfme,      &
                          if_st,if_en,jf_st,jf_en,              &
                          nfrx,nfry,                            &
                          ifuelread,nfuel_cat0,                 &
-                         zf,zsf,nfuel_cat,betafl,bbb,r_0,phiwc )  ! outgoing
+                         zf,zsf,                               &
+                         nfuel_cat,betafl,bbb,r_0,phiwc )  ! outgoing
  
 !     ...  Initialize things that need to be set every time the
 !          model starts up,
@@ -1067,9 +1071,9 @@ SUBROUTINE fire_startup( grid_id,z,zs,                         &  ! incoming
 
 ! ----- incoming variables
 
-   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
-   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
-   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
+!   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
+!   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
+!   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
    INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
    INTEGER, INTENT(in) :: if_st,if_en,jf_st,jf_en 
    INTEGER, INTENT(in) :: nfrx,nfry
@@ -1079,14 +1083,14 @@ SUBROUTINE fire_startup( grid_id,z,zs,                         &  ! incoming
 
    INTEGER, INTENT(in) :: grid_id
 
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ):: zs
-   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: z
+!   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ):: zs
+!   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: z
 
 ! ----- outgoing variables
 
    INTEGER, INTENT(out), DIMENSION( ifms:ifme,jfms:jfme ) :: nfuel_cat
 
-   REAL, INTENT(out), DIMENSION( ifms:ifme,jfms:jfme ) :: zf,zsf
+   REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme ) :: zf,zsf
    REAL, INTENT(out), DIMENSION( ifms:ifme,jfms:jfme ) :: betafl,bbb,r_0,phiwc
 
 ! ----- local variables
