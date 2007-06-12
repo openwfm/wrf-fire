@@ -149,7 +149,9 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
                  fg,fc,r_0,bbb,betafl,phiwc,area,area2,        &
                  zf,zsf,tign_g,tign_c,tign_crt,                &
                  xfg,yfg,xcd,ycd,xcn,ycn,sprdx,sprdy,          &
-                 rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx)  ! outgoing
+                 rthfrten,rqvfrten)
+!                 rthfrten,rqvfrten,                            & ! outgoing
+!                 grnhfx,grnqfx,canhfx,canqfx)  ! temp? 
   
 ! -------------------------------------------------------------------------
 !
@@ -462,8 +464,10 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 
 ! ----- out variables
 
-   REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx
-   REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx
+   REAL,  DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx
+   REAL,  DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx
+!   REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx
+!   REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx
 
 ! ----- local variables
 

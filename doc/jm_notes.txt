@@ -1,0 +1,31 @@
+6/12/07
+
+atm grid variables
+[in the order declared in subroutine cawfe]
+! in
+! 3D, DIMENSION( ims:ime,kms:kme,jms:jme ) 
+!  u,v            incoming atmos. winds (m/s at arakawa-c grid locations)
+!  z              height above sea level of mass points (m)
+!  z_at_w         height above sea level of w points (m)
+!  rho            incoming atmos. density (kg/m^3 at arakawa-c grid mass points) 
+!  dz8w           delta z between w points (m)
+! 2D, DIMENSION( ims:ime, jms:jme )
+!  mu		  topography (m abv sealvl)
+!  zs             height of surface above sea level (m)
+! out
+! 3D
+!  rthfrten       theta tendency due to fire induced heat flux divergence
+!  rqvfrten       Qv tendency due to fire induced moisture flux divergence
+! 2D
+!  grnhfx         heat flux from ground fire (W/m^2)
+!  grnqfx         moisture flux from ground fire (W/m^2)
+!  canhfx         heat flux from crown fire (W/m^2)
+!  canqfx         moisture flux from crown fire (W/m^2)
+!*** temporaries only, not passing them to the driver makes no difference
+ 
+
+
+subroutine fire_winds: physics atm grid -> fire grid
+
+subroutine fire_startup: fire only
+	unused atm arguments (kts,...)	
