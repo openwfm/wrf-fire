@@ -691,10 +691,10 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 ! all sort of fixes to the fireline variables
 
    CALL fire_stat(1,dt,time,                       & ! send
-                  zs,xcd,ycd,xcn,ycn,sprdx,sprdy,  &
-                  ids,ide, kds,kde, jds,jde,       &
-                  ims,ime, kms,kme, jms,jme,       &
-                  its,ite, kts,kte, jts,jte,       &
+                  xcd,ycd,xcn,ycn,sprdx,sprdy,  &
+!                  ids,ide, kds,kde, jds,jde,       &
+!                  ims,ime, kms,kme, jms,jme,       &
+!                  its,ite, kts,kte, jts,jte,       &
                   ifms,ifme, kfms,kfme, jfms,jfme, &
                   if_st,if_en,jf_st,jf_en,         &
                   nfrx,nfry,                       &
@@ -765,10 +765,11 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 
 
    CALL fire_stat(2,dt,time,                       & ! send
-                  zs,xcd,ycd,xcn,ycn,sprdx,sprdy,  &
-                  ids,ide, kds,kde, jds,jde,       &
-                  ims,ime, kms,kme, jms,jme,       &
-                  its,ite, kts,kte, jts,jte,       &
+!                  zs,xcd,ycd,xcn,ycn,sprdx,sprdy,  &
+                  xcd,ycd,xcn,ycn,sprdx,sprdy,  &
+!                  ids,ide, kds,kde, jds,jde,       &
+!                  ims,ime, kms,kme, jms,jme,       &
+!                  its,ite, kts,kte, jts,jte,       &
                   ifms,ifme, kfms,kfme, jfms,jfme, &
                   if_st,if_en,jf_st,jf_en,         &
                   nfrx,nfry,                       &
@@ -1987,10 +1988,11 @@ END SUBROUTINE fire_init
 ! =========================================================================
 
 SUBROUTINE fire_stat(iffg,dt,time,                    &  ! incoming
-                     zs,xcd,ycd,xcn,ycn,sprdx,sprdy,  &
-                     ids,ide, kds,kde, jds,jde,       &
-                     ims,ime, kms,kme, jms,jme,       &
-                     its,ite, kts,kte, jts,jte,       &
+!                     zs, 
+                      xcd,ycd,xcn,ycn,sprdx,sprdy,  &
+!                     ids,ide, kds,kde, jds,jde,       &
+!                     ims,ime, kms,kme, jms,jme,       &
+!                     its,ite, kts,kte, jts,jte,       &
                      ifms,ifme, kfms,kfme, jfms,jfme, &
                      if_st,if_en,jf_st,jf_en,         &
                      nfrx,nfry,                       &
@@ -2007,9 +2009,9 @@ SUBROUTINE fire_stat(iffg,dt,time,                    &  ! incoming
 
 ! ----- incoming variables
 
-   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
-   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
-   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
+!   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
+!  INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
+!   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
    INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
    INTEGER, INTENT(in) :: if_st,if_en, jf_st,jf_en
    INTEGER, INTENT(in) :: nfrx,nfry
@@ -2018,7 +2020,7 @@ SUBROUTINE fire_stat(iffg,dt,time,                    &  ! incoming
 
    REAL, INTENT(in)    :: dt,time
 
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )      :: zs
+!   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )      :: zs
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: xcd,ycd
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: xcn,ycn
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: sprdx,sprdy
@@ -3034,10 +3036,10 @@ SUBROUTINE fire_ln(dt,time,zs,sprdx,sprdy,              & ! incoming
 
     write(*,*)'in fire_ln: 4'
     CALL fire_stat(0,dt,time,                       & ! send
-                   zs,xcd,ycd,xcn,ycn,sprdx,sprdy,  &
-                   ids,ide, kds,kde, jds,jde,       &
-                   ims,ime, kms,kme, jms,jme,       &
-                   its,ite, kts,kte, jts,jte,       &
+                   xcd,ycd,xcn,ycn,sprdx,sprdy,  &
+!                   ids,ide, kds,kde, jds,jde,       &
+!                   ims,ime, kms,kme, jms,jme,       &
+!                   its,ite, kts,kte, jts,jte,       &
                    ifms,ifme, kfms,kfme, jfms,jfme, &
                    if_st,if_en,jf_st,jf_en,         &
                    nfrx,nfry,                       &
