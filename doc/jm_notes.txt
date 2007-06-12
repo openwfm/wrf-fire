@@ -21,11 +21,14 @@ atm grid variables
 !  grnqfx         moisture flux from ground fire (W/m^2)
 !  canhfx         heat flux from crown fire (W/m^2)
 !  canqfx         moisture flux from crown fire (W/m^2)
-!*** temporaries only, not passing them to the driver makes no difference
+
+grndhx,grndqx,canhx,canqx are temporaries only
+not passing them to the driver makes no difference
+removed from cawfe argument list
  
 
 
 subroutine fire_winds: physics atm grid -> fire grid
 
-subroutine fire_startup: fire only
-	unused atm arguments (kts,...)	
+subroutine fire_topography atm grid topo -> fire grid
+subroutine fire_startup: separated into operations on fire only

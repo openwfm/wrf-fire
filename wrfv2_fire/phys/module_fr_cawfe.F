@@ -285,7 +285,8 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 !  rqvfrten       Qv tendency due to fire induced moisture flux divergence
 ! jm  water vapor mixing ratio = mass of water vapor/unit mass of dry air
 
-!
+! ---- local variables - interface of atmosphere and fire
+
 !  grnhfx         heat flux from ground fire (W/m^2) 
 !  grnqfx         moisture flux from ground fire (W/m^2) 
 !  canhfx         heat flux from crown fire (W/m^2) 
@@ -555,6 +556,15 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 
 ! ----- initialize fire-related constants, and fuel category data
 
+      call fire_topography( z,zs,                         &  ! incoming
+                         ids,ide, kds,kde, jds,jde,            &
+                         ims,ime, kms,kme, jms,jme,            &
+                         its,ite, kts,kte, jts,jte,            &
+                         ifms,ifme, kfms,kfme, jfms,jfme,      &
+                         if_st,if_en,jf_st,jf_en,              &
+                         nfrx,nfry,                            &
+                         zf,zsf)                            ! outgoing
+ 
       CALL fire_startup( grid_id,z,zs,                         & ! send
                          ids,ide, kds,kde, jds,jde,            &
                          ims,ime, kms,kme, jms,jme,            &
@@ -964,6 +974,77 @@ END SUBROUTINE cawfe
 
 ! =========================================================================
 
+SUBROUTINE fire_topography( z,zs,                         &  ! incoming
+                         ids,ide, kds,kde, jds,jde,            &
+                         ims,ime, kms,kme, jms,jme,            &
+                         its,ite, kts,kte, jts,jte,            &
+                         ifms,ifme, kfms,kfme, jfms,jfme,      &
+                         if_st,if_en,jf_st,jf_en,              &
+                         nfrx,nfry,                            &
+                         zf,zsf)                            ! outgoing
+ 
+   USE module_wrf_error
+
+   IMPLICIT NONE
+
+! ----- incoming variables
+
+   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
+   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
+   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
+   INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
+   INTEGER, INTENT(in) :: if_st,if_en,jf_st,jf_en 
+   INTEGER, INTENT(in) :: nfrx,nfry
+
+   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ):: zs
+   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: z
+
+! ----- outgoing variables
+
+   REAL, INTENT(out), DIMENSION( ifms:ifme,jfms:jfme ) :: zf,zsf
+
+! ----- local variables
+
+   INTEGER :: i,j,ii,jj
+   INTEGER :: nvl
+   INTEGER :: iu1
+
+   REAL    :: t1
+   REAL    :: fuelloadm,fuelload,fueldepth,qig,epsilon,rhob
+   REAL    :: rtemp2,gammax,a,ratio,gamma,wn,rtemp1,etam,etas,ir,irm,xifr
+   REAL    :: tii,tjj,epx,epy
+
+   INTEGER  :: nfxy,nf,ni,nj,ci,cj,ip,jp
+
+   CHARACTER (LEN=128) :: msg
+
+
+! ----- begin subroutine
+
+!
+!     interpolates topography on atm grid to fire/fuel grid (zs -> zsf)
+!     and also interpolates height above sea level of first grid 
+!     point to fire grid (z -> zf).  Note that these are valid at
+!     the center of the cell.
+
+   DO j = jf_st,jf_en
+       tjj = 1.5 + (FLOAT(j) - 1.5) / FLOAT(nfry)
+       jj = INT(tjj)
+       epy = tjj - FLOAT(jj)
+       DO i = if_st,if_en
+          tii = 1.5 + (FLOAT(i)-1.5)/FLOAT(nfrx)
+          ii = INT(tii)
+          epx = tii - FLOAT(ii)
+          zsf(i,j) = (1.-epy)*((1.-epx)*zs(ii,jj)+epx*zs(ii+1,jj)) &
+             + epy*((1.-epx)*zs(ii,jj+1)+epx*zs(ii+1,jj+1))
+          zf(i,j) = (1.-epy)*((1.-epx)*z(ii,kds+1,jj)+epx*z(ii+1,kds+1,jj)) &
+             + epy*((1.-epx)*z(ii,kds+1,jj+1)+epx*z(ii+1,kds+1,jj+1))
+      enddo
+   enddo
+
+   END SUBROUTINE fire_topography
+
+
 SUBROUTINE fire_startup( grid_id,z,zs,                         &  ! incoming
                          ids,ide, kds,kde, jds,jde,            &
                          ims,ime, kms,kme, jms,jme,            &
@@ -1020,14 +1101,14 @@ SUBROUTINE fire_startup( grid_id,z,zs,                         &  ! incoming
    REAL    :: tii,tjj,epx,epy
 
    INTEGER                                     :: nfxy,nf,ni,nj,ci,cj,ip,jp
-   REAL, DIMENSION( ims:ime,jms:jme,nfrx*nfry) :: ztmp,zstmp
-   LOGICAL, DIMENSION(ims:ime, jms:jme )       :: icmask
 
    CHARACTER (LEN=80) :: lfile2
    CHARACTER (LEN=128) :: msg
 
 
 ! ----- begin subroutine
+
+! ----- constants 
 
    xlm(1) = -.5
    xlm(3) = -.5
@@ -1038,27 +1119,6 @@ SUBROUTINE fire_startup( grid_id,z,zs,                         &  ! incoming
    ylm(3) = +.5
    ylm(4) = +.5
 
-! ----- constants
-!
-!     interpolates topography on atm grid to fire/fuel grid (zs -> zsf)
-!     and also interpolates height above sea level of first grid 
-!     point to fire grid (z -> zf).  Note that these are valid at
-!     the center of the cell.
-
-   DO j = jf_st,jf_en
-       tjj = 1.5 + (FLOAT(j) - 1.5) / FLOAT(nfry)
-       jj = INT(tjj)
-       epy = tjj - FLOAT(jj)
-       DO i = if_st,if_en
-          tii = 1.5 + (FLOAT(i)-1.5)/FLOAT(nfrx)
-          ii = INT(tii)
-          epx = tii - FLOAT(ii)
-          zsf(i,j) = (1.-epy)*((1.-epx)*zs(ii,jj)+epx*zs(ii+1,jj)) &
-             + epy*((1.-epx)*zs(ii,jj+1)+epx*zs(ii+1,jj+1))
-          zf(i,j) = (1.-epy)*((1.-epx)*z(ii,kds+1,jj)+epx*z(ii+1,kds+1,jj)) &
-             + epy*((1.-epx)*z(ii,kds+1,jj+1)+epx*z(ii+1,kds+1,jj+1))
-      enddo
-   enddo
 
 ! ----- load fuel categories (or constant) here
 !
