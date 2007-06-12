@@ -711,10 +711,6 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 ! ----- create points outlining fire
 
    CALL fire_ln(dt,time,sprdx,sprdy,               & ! send
-!   CALL fire_ln(dt,time,zs,sprdx,sprdy,               & ! send
-!                ids,ide, kds,kde, jds,jde,            &
-!                ims,ime, kms,kme, jms,jme,            &
-!                its,ite, kts,kte, jts,jte,            &
                 ifms,ifme, kfms,kfme, jfms,jfme,      &
                 if_st,if_en,jf_st,jf_en,              &
                 nfrx,nfry,                            &
@@ -2891,10 +2887,6 @@ END SUBROUTINE fire_stat
 ! =========================================================================
 
 SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! incoming
-!SUBROUTINE fire_ln(dt,time,zs,sprdx,sprdy,              & ! incoming
-!                   ids,ide, kds,kde, jds,jde,           &
-!                   ims,ime, kms,kme, jms,jme,           &
-!                   its,ite, kts,kte, jts,jte,           &
                    ifms,ifme, kfms,kfme, jfms,jfme,     &
                    if_st,if_en,jf_st,jf_en,             &
                    nfrx,nfry,                           &
@@ -2908,16 +2900,12 @@ SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! incoming
 
 ! ----- incoming variables
 
-!   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
-!   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
-!   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
    INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
    INTEGER, INTENT(in) :: if_st,if_en, jf_st,jf_en
    INTEGER, INTENT(in) :: nfrx,nfry
 
    REAL, INTENT(in)    :: dt,time
 
-!   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )      :: zs
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: sprdx,sprdy
 
 ! ----- inout variables
@@ -3606,7 +3594,6 @@ x_in: DO i = if_st+1,if_en-1
 !               iflt = 84
 !               CALL fire_error_debug(i,j,iflt,                        &
 !                                        time,in1,in2,tign_g,          &
-!                                     nfl,ncod,xcd,ycd,xcn,ycn,icn,    &
 !                                     ixb,iyb,xfg,yfg,                 &
 !                                     ifms,ifme, kfms,kfme, jfms,jfme, &
 !                                     if_st,if_en,jf_st,jf_en)
