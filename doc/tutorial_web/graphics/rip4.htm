@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>WRF ARW Practical</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css"><!--
+.body {font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10pt;
+	color: 090706;}
+.toplinks {font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10pt;
+	font-weight: bolder;
+	color: ebe3de;
+	text-decoration: none;}
+-->
+</style>
+</head>
+<body bgcolor="#FFFFFF">
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr> 
+    <td width="197" align="left" bgcolor="ebe3de"><a href="../HansOnTutorial.htm"><img src="../assets/handson.jpg" width="190" height="125" border="0"></a></td>
+    <td colspan="4" bgcolor="ebe3de"><div align="center"><font color="090706" face="Verdana, Arial, Helvetica, sans-serif"><strong><font size="6">WRF 
+        ARW Practical Sessions</font><br>
+        <em>July 24 - 28, 2006</em></strong></font></div></td>
+  </tr>
+  <tr bgcolor="090706" class="body"> 
+    <td bgcolor="090706" class="toplinks"><font color="ebe3de">&nbsp;</font></td>
+    <td width="211" bgcolor="090706" class="toplinks"><font color="ebe3de"><strong><a href="../Environment.htm" class="toplinks">Environment</a></strong></font></td>
+    <td width="211" bgcolor="090706" class="toplinks"><a href="../wps_arw.htm" class="toplinks"><font color="ebe3de"><strong>WPS 
+      &amp; ARW</strong></font></a></td>
+    <td width="150" bgcolor="090706" class="toplinks"><a href="../var.htm" class="toplinks"><font color="ebe3de"><strong>WRF-VAR</strong></font></a></td>
+    <td bgcolor="090706"><font color="ebe3de"><strong><a href="http://surveys.comet.ucar.edu/M3s/showSurvey.jsp?surveyName=ARW%2BTutorial%2BQuestionnaire&surveyID=26" class="toplinks">Feedback</a></strong></font><font color="ebe3de">&nbsp;</font></td>
+  </tr>
+  <tr> 
+    <td colspan="5" bgcolor="ebe3de"> <table width="100%" border="0" cellspacing="20" cellpadding="0">
+        <tr> 
+          <td><p class="body"><font color="090706" size="2" face="Verdana, Arial, Helvetica, sans-serif"><strong>Graphics: 
+              RIP4<br>
+              &nbsp; </strong></font></p>
+            <blockquote>
+              <p class="Body"><b>Get the tar file:</b></p>
+              <blockquote>
+                <p class="Body"><span
+class=GramE>tar</span></span> –xvf</span>  /wrfhelp/SOURCE_CODE/RIP4.tar</span> </span> 
+                  <br>
+                  &nbsp; </p>
+              </blockquote>
+              <p class="Body"><b>Environment variables:</b></p>
+              <blockquote> 
+                <p class="Body"><font face="Courier New, Courier, mono">setenv 
+                   RIP_ROOT  <i>your-rip4-directory</i><br>
+                  </font><font face="Courier New, Courier, mono"><i> </i><span
+class=GramE>setenv</span><span
+class=GramE>  NCARG</span>_ROOT /usr/local/ncarg <br>
+                  &nbsp; </font></p>
+              </blockquote>
+              <p class="Body"><b>Compile:</b></p>
+              <blockquote> 
+                <p class="Body"><font face="Courier New, Courier, mono">make linux</span></span></font></p>
+                <p class="Body"><i>(<b>Tip:</b> Once back at your home institute, 
+                  you may need to make sure the netCDF</span> paths are set correctly 
+                  in the Makefile</span> before your compile.)<br>
+                  &nbsp; </i></p>
+              </blockquote>
+              <p class="Body"><b>Run ripdp_wrf</span>:</b></p>
+              <blockquote>
+                <p class="Body"><font face="Courier New, Courier, mono">mkdir</span></span> 
+                  TUTDATA <br>
+                  ./</span>ripdp_wrf</span>  TUTDATA/myCase</span>  all  WorkingDirectory/WRFV2/run/wrfout*<br>
+                  &nbsp; </font></p>
+              </blockquote>
+              <p class="Body"><b>Run rip:</b></p>
+              <blockquote>
+                <p class="Body">Edit rip_sample.in</span><i><span class="body"> 
+                  (initially at least set the time information)</span><br>
+                  <font face="Courier New, Courier, mono">./</span>rip  -f  TUTDATA/myCase</span>  
+                  rip_sample</span><br>
+                  &nbsp; </font></p>
+              </blockquote>
+              <p class="Body"><b>Detailed running instruction:</b></p>
+              <blockquote>
+                <p class="Body"><a
+href="http://www.mmm.ucar.edu/wrf/users/graphics/RIP4/RIP4.htm">http://www.mmm.ucar.edu/wrf/users/graphics/RIP4/RIP4.htm</a> 
+                </p>
+              </blockquote>
+            </blockquote></td>
+        </tr>
+      </table></td>
+  </tr>
+  <tr> 
+    <td colspan="5" bgcolor="090706">&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

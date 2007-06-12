@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>WRF ARW Practical</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css"><!--
+.body {font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10pt;
+	color: 090706;}
+.toplinks {font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10pt;
+	font-weight: bolder;
+	color: ebe3de;
+	text-decoration: none;}
+-->
+</style>
+</head>
+<body bgcolor="#FFFFFF">
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr> 
+    <td width="197" align="left" bgcolor="ebe3de"><a href="HansOnTutorial.htm"><img src="assets/handson.jpg" width="190" height="125" border="0"></a></td>
+    <td colspan="4" bgcolor="ebe3de"><div align="center"><font color="090706" face="Verdana, Arial, Helvetica, sans-serif"><strong><font size="6">WRF 
+        ARW Practical Sessions</font><br>
+        <em>July 24 - 28, 2006</em></strong></font></div></td>
+  </tr>
+  <tr bgcolor="090706" class="body"> 
+    <td bgcolor="090706" class="toplinks"><font color="ebe3de"><strong></strong></font></td>
+    <td width="211" bgcolor="090706" class="toplinks"><font color="ebe3de"><strong><a href="Environment.htm" class="toplinks">Environment</a></strong></font></td>
+    <td width="211" bgcolor="090706" class="toplinks"><a href="wps_arw.htm" class="toplinks"><font color="ebe3de"><strong>WPS 
+      &amp; ARW</strong></font></a></td>
+    <td width="150" bgcolor="090706" class="toplinks"><a href="var.htm" class="toplinks"><font color="ebe3de"><strong>WRF-VAR</strong></font></a></td>
+    <td bgcolor="090706"><font color="ebe3de"><strong><a href="feedback.htm" class="toplinks">Feedback</a></strong></font><font color="ebe3de">&nbsp;</font></td>
+  </tr>
+  <tr> 
+    <td colspan="5" bgcolor="ebe3de"> <table width="100%" border="0" cellspacing="20" cellpadding="0">
+        <tr> 
+          <td><p class="body"><font color="090706" size="2" face="Verdana, Arial, Helvetica, sans-serif"><strong>Computer 
+              Environment<br>
+              &nbsp; </strong></font></p>
+            <blockquote> 
+              <p class="body"><strong> <span class="body"> Getting started on 
+                the local workstation</span></strong></p>
+              <blockquote> 
+                <p class="body">Opening  Terminal Windows:<br>
+                  <span class="body"> <span style='font-family:Symbol;
+'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+                  </span></span></span> <span class="body"> Applications on Top 
+                  Menu Bar<br>
+                  </span><span class="body"> <span style='font-family:Symbol;
+'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+                  </span></span></span> <span class="body"> Accessories<br>
+                  </span><span class="body"> <span style='font-family:Symbol;
+'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+                  </span></span></span> <span class="body"> Terminal</span></p>
+                <p class="body">&nbsp;Logging out:<br>
+                  <span class="body"> <span style='font-family:Symbol;
+'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+                  </span></span></span> <span class="body"> System on Top menu 
+                  bar<br>
+                  </span><span class="body"> <span style='font-family:Symbol;
+'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+                  </span></span></span> <span class="body"> Logout</span></p>
+                <p class="body"><span class="body">In your xterm<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;source ~wrfhelp/.login2<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;source ~wrfhelp/.cshrc2<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;rehash</span><span class="body"><em><br>
+                  This must be done for all open xterm windows</em><br>
+                  &nbsp; </span><br>
+                  &nbsp; </p>
+                </blockquote>
+              <p class="body"><strong>Documentation</strong></p>
+              <blockquote> 
+                <p class="body">While working through the practical case, you 
+                  can also consult the following documents for further information.</p>
+                <p class="Body"><span class="body">            </span><span class="body">The 
+                  <b>WRF ARW Users Web</b> site – <a
+href="http://www.mmm.ucar.edu/wrf/users/">http://www.mmm.ucar.edu/wrf/users/</a> 
+                  </span></p>
+                <p class="Body"><span class="body">            </span><span class="body">The 
+                  <b>WRF ARW OnLine Tutorial Web</b> site - <a
+href="http://box.mmm.ucar.edu/wrf/OnLineTutorial/index.htm">http://box.mmm.ucar.edu/wrf/OnLineTutorial/index.htm</a> 
+                  </span></p>
+                <p class="Body"><span class="body">            </span><span class="body">Your 
+                  copies of the <b>User’s Guide</b> and the <b>WRF ARW Technical 
+                  Note<br>
+                  &nbsp;<br>
+                  &nbsp; </b></span></p>
+              </blockquote>
+              <p class="body"><strong>Program tar files</strong>&nbsp;</p>
+              <blockquote> 
+                <p class="body" style="All the source 
+                  code for the tutorial (WRF model, WRFSI, and your choice of 
+                  graphical packages) is available in the directory:<br>
+                  <br>
+                  <span class="body">  </span><span class="body" style='font-family:"Courier New";
+'><font face="Courier New, Courier, mono">/wrfhelp/SOURCE_CODE/</font></span></p>
+                <blockquote> 
+                  <blockquote> 
+                    <p class="body"><font face="Courier New, Courier, mono">WPS 
+                      &amp; WRF Model  : WPS+WRFV2.tar<br>
+                      RIP4          &nbsp;&nbsp;&nbsp;: RIP4.tar<br>
+                      WRF to GrADS  &nbsp;&nbsp;&nbsp;: WRF2GrADS.tar<br>
+                      WRF to NCL    &nbsp;&nbsp;&nbsp;: WRF_NCL.tar</font></p>
+                  </blockquote>
+                </blockquote>
+              </blockquote>
+              <p class="body"><strong>Data files</strong></p>
+              <blockquote> 
+                <p class="body" style="All the source 
+                  code for the tutorial (WRF model, WRFSI, and your choice of 
+                  graphical packages) is available in the directory:<br>
+                  <br>
+                  <span class="body">  <span class="body" style='font-family:"Courier New";
+'><font face="Courier New, Courier, mono">/wrfhelp/DATA/</font></span></p>
+              </blockquote>
+              </blockquote></td>
+        </tr>
+      </table></td>
+  </tr>
+  <tr> 
+    <td colspan="5" bgcolor="090706">&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>
