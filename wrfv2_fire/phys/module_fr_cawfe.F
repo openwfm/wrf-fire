@@ -611,10 +611,11 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
                          moad_cen_lat,moad_cen_lon,moad_dx,moad_dy,&
                          moad_s_we,moad_e_we,moad_s_sn,moad_e_sn,  &
                          nfl_t,time,dx,dy,nfuel_cat,               &
-                         zs,xcd,ycd,xcn,ycn,sprdx,sprdy,           &
-                         ids,ide, kds,kde, jds,jde,                &
-                         ims,ime, kms,kme, jms,jme,                &
-                         its,ite, kts,kte, jts,jte,                &
+                         xcd,ycd,xcn,ycn,sprdx,sprdy,           &
+               !          zs,xcd,ycd,xcn,ycn,sprdx,sprdy,           &
+              !           ids,ide, kds,kde, jds,jde,                &
+              !           ims,ime, kms,kme, jms,jme,                &
+              !           its,ite, kts,kte, jts,jte,                &
                          ifds,ifde, kfds,kfde, jfds,jfde,          &
                          ifms,ifme, kfms,kfme, jfms,jfme,          &
                          if_st,if_en,jf_st,jf_en,                  &
@@ -653,10 +654,11 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
                   moad_cen_lat,moad_cen_lon,moad_dx,moad_dy,    &
                   moad_s_we,moad_e_we,moad_s_sn,moad_e_sn,      &
                   nfl_t,time,dx,dy,nfuel_cat,                   &
-                  zs,xcd,ycd,xcn,ycn,sprdx,sprdy,               &
-                  ids,ide, kds,kde, jds,jde,                    &
-                  ims,ime, kms,kme, jms,jme,                    &
-                  its,ite, kts,kte, jts,jte,                    &
+                  !zs,xcd,ycd,xcn,ycn,sprdx,sprdy,               &
+                  xcd,ycd,xcn,ycn,sprdx,sprdy,               &
+        !          ids,ide, kds,kde, jds,jde,                    &
+        !          ims,ime, kms,kme, jms,jme,                    &
+        !          its,ite, kts,kte, jts,jte,                    &
                   ifds,ifde, kfds,kfde, jfds,jfde,              &
                   ifms,ifme, kfms,kfme, jfms,jfme,              &
                   if_st,if_en,jf_st,jf_en,                      &
@@ -1250,10 +1252,11 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
                      moad_cen_lat,moad_cen_lon,moad_dx,moad_dy,    &
                      moad_s_we,moad_e_we,moad_s_sn,moad_e_sn,      &
                      nfl_t,time,dx,dy,nfuel_cat,                   &
-                     zs,xcd,ycd,xcn,ycn,sprdx,sprdy,               &
-                     ids,ide, kds,kde, jds,jde,                    &
-                     ims,ime, kms,kme, jms,jme,                    &
-                     its,ite, kts,kte, jts,jte,                    &
+                     xcd,ycd,xcn,ycn,sprdx,sprdy,               &
+                     !zs,xcd,ycd,xcn,ycn,sprdx,sprdy,               &
+!                     ids,ide, kds,kde, jds,jde,                    &
+!                     ims,ime, kms,kme, jms,jme,                    &
+!                     its,ite, kts,kte, jts,jte,                    &
                      ifds,ifde, kfds,kfde, jfds,jfde,              &
                      ifms,ifme, kfms,kfme, jfms,jfme,              &
                      if_st,if_en,jf_st,jf_en,                      &
@@ -1277,9 +1280,9 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
 
    INTEGER, INTENT(in) :: iof
 
-   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
-   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
-   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
+!   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
+!   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
+!   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
    INTEGER, INTENT(in) :: ifds,ifde, kfds,kfde, jfds,jfde
    INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
    INTEGER, INTENT(in) :: if_st,if_en, jf_st,jf_en
@@ -1303,7 +1306,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
    REAL, INTENT(in)  :: time,dt
    REAL, INTENT(in)  :: dx,dy
 
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )      :: zs
+!   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )      :: zs
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: xcd,ycd
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: xcn,ycn
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: sprdx,sprdy
@@ -1824,8 +1827,14 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
 
       IF (ishape == 2) THEN          !windmill fire
 
-         nxmm = (ide-ids+1)-2
-         nymm = (jde-jds+1)-2
+
+!jm WARNING: DEAD CODE
+!jm was in atm grid indices (error?), change to fire grid indices
+!         nxmm = (ide-ids+1)-2
+!         nymm = (jde-jds+1)-2
+
+         nxmm = (ifde-ifds+1)-2
+         nymm = (jfde-jfds+1)-2
 
          iym = 14
          j1 = 2 + nfry*(nymm/2-iym-1)
