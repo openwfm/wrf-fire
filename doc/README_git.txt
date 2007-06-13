@@ -95,8 +95,9 @@ This will create a directory ./wrf under your current directory.
     git push origin <branch name>:<branch name>
 
   The first command creats a local branch starting from "master".  The 
-  second command commits (pushes) this branch to the shared repository.  To
-  get a list of local branches
+  second command commits (pushes) this branch to the shared repository.  
+
+  To get a list of local branches and see what branch you are on
 
     git branch
 
@@ -206,12 +207,13 @@ This will create a directory ./wrf under your current directory.
     end
     [now look at the files]
     git checkout <your_own_branch>
+    git branch        (look for * to make sure you are on your own branch)
     
     Note: it may be better to set up a separate clone (see the top) for that.
     Each clone has its own local repository. 
 
   Magic sequence to get all updates from master brach from the remote
-  repository: 
+  repository and merge them into your branch: 
 
     git checkout <branch> 
     git pull origin master:master
