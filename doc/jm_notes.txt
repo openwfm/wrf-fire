@@ -37,3 +37,6 @@ subroutine fire_ln: got rid of extra atm args
 6/13/07
 
 subroutine fire_init: got rid of some extra atm args (its and so on)
+        ditto fire_ds, fire_igs
+nfrx, nfry: ratio atm/fire grid; no business in fire routines
+        took out of fire_startup

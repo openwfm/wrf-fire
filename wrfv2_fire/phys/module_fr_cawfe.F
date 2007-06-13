@@ -568,7 +568,6 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
       CALL fire_startup( grid_id,                              & ! in
                          ifms,ifme, kfms,kfme, jfms,jfme,      &
                          if_st,if_en,jf_st,jf_en,              &
-                         nfrx,nfry,                            &
                          ifuelread, nfuel_cat0,                &
                          zf,zsf,                               &
                          nfuel_cat,betafl,bbb,r_0,phiwc ) ! out
@@ -1025,7 +1024,6 @@ SUBROUTINE fire_topography( z,zs,                         &  ! incoming
 SUBROUTINE fire_startup( grid_id,                              & ! incoming
                          ifms,ifme, kfms,kfme, jfms,jfme,      &
                          if_st,if_en,jf_st,jf_en,              &
-                         nfrx,nfry,                            &
                          ifuelread,nfuel_cat0,                 &
                          zf,zsf,                               &
                          nfuel_cat,betafl,bbb,r_0,phiwc )  ! outgoing
@@ -1044,7 +1042,6 @@ SUBROUTINE fire_startup( grid_id,                              & ! incoming
 
    INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
    INTEGER, INTENT(in) :: if_st,if_en,jf_st,jf_en 
-   INTEGER, INTENT(in) :: nfrx,nfry
 
    INTEGER, INTENT(in) :: ifuelread
    INTEGER, INTENT(in) :: nfuel_cat0
