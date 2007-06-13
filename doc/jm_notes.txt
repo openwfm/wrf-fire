@@ -41,3 +41,4 @@ subroutine fire_init: got rid of some extra atm args (its and so on)
 nfrx, nfry: ratio atm/fire grid; no business in fire routines
         took out of fire_startup, fire_stat, fire_ln, fire_ds, fire_igs
 subroutine fire_burn_fcn: took extra atm args out
+found use of atm grid in fire_init fire_tr
