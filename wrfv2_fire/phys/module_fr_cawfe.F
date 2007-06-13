@@ -704,13 +704,13 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 
 ! ----- create points outlining fire
 
-   CALL fire_ln(dt,time,sprdx,sprdy,               & ! send
+   CALL fire_ln(dt,time,sprdx,sprdy,               & ! in
                 ifms,ifme, kfms,kfme, jfms,jfme,      &
                 if_st,if_en,jf_st,jf_en,              &
                 nfrx,nfry,                            &
-                ncod,in1,in2,ixb,iyb,icn,             & ! send&recv
+                ncod,in1,in2,ixb,iyb,icn,             & ! inout
                 tign_g,tign_crt,area,area2,xfg,yfg,   &
-                nfl,nfl_t,rad,xcd,ycd,xcn,ycn)          ! recv
+                nfl,nfl_t,rad,xcd,ycd,xcn,ycn)          ! int
 
 ! ----- advect fire line points using spread rate
 
