@@ -612,10 +612,6 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
                          moad_s_we,moad_e_we,moad_s_sn,moad_e_sn,  &
                          nfl_t,time,dx,dy,nfuel_cat,               &
                          xcd,ycd,xcn,ycn,sprdx,sprdy,           &
-               !          zs,xcd,ycd,xcn,ycn,sprdx,sprdy,           &
-              !           ids,ide, kds,kde, jds,jde,                &
-              !           ims,ime, kms,kme, jms,jme,                &
-              !           its,ite, kts,kte, jts,jte,                &
                          ifds,ifde, kfds,kfde, jfds,jfde,          &
                          ifms,ifme, kfms,kfme, jfms,jfme,          &
                          if_st,if_en,jf_st,jf_en,                  &
@@ -654,11 +650,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
                   moad_cen_lat,moad_cen_lon,moad_dx,moad_dy,    &
                   moad_s_we,moad_e_we,moad_s_sn,moad_e_sn,      &
                   nfl_t,time,dx,dy,nfuel_cat,                   &
-                  !zs,xcd,ycd,xcn,ycn,sprdx,sprdy,               &
                   xcd,ycd,xcn,ycn,sprdx,sprdy,               &
-        !          ids,ide, kds,kde, jds,jde,                    &
-        !          ims,ime, kms,kme, jms,jme,                    &
-        !          its,ite, kts,kte, jts,jte,                    &
                   ifds,ifde, kfds,kfde, jfds,jfde,              &
                   ifms,ifme, kfms,kfme, jfms,jfme,              &
                   if_st,if_en,jf_st,jf_en,                      &
@@ -1253,10 +1245,6 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
                      moad_s_we,moad_e_we,moad_s_sn,moad_e_sn,      &
                      nfl_t,time,dx,dy,nfuel_cat,                   &
                      xcd,ycd,xcn,ycn,sprdx,sprdy,               &
-                     !zs,xcd,ycd,xcn,ycn,sprdx,sprdy,               &
-!                     ids,ide, kds,kde, jds,jde,                    &
-!                     ims,ime, kms,kme, jms,jme,                    &
-!                     its,ite, kts,kte, jts,jte,                    &
                      ifds,ifde, kfds,kfde, jfds,jfde,              &
                      ifms,ifme, kfms,kfme, jfms,jfme,              &
                      if_st,if_en,jf_st,jf_en,                      &
@@ -1306,7 +1294,6 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
    REAL, INTENT(in)  :: time,dt
    REAL, INTENT(in)  :: dx,dy
 
-!   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )      :: zs
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: xcd,ycd
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: xcn,ycn
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 )    :: sprdx,sprdy
