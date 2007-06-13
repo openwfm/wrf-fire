@@ -512,11 +512,11 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 !     interpolated to the needed locations behind the fire line in
 !     sr. fire_tr.
 
-   CALL fire_winds(u,v,                       &  ! send
+   CALL fire_winds(u,v,                       &  ! in
                    ids,ide, kds,kde, jds,jde, &
                    ims,ime, kms,kme, jms,jme, &
                    its,ite, kts,kte, jts,jte, &
-                   sfcu,sfcv)                    ! receive
+                   sfcu,sfcv)                    ! out
 
 ! ----- get the time from model start (assumes non-variable dt)
  
@@ -729,9 +729,9 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 
    CALL fire_ds(ixb,iyb,icn,nfl,ncod,in1,in2,      & ! send
                 time,xcn,ycn,xcd,ycd,              &
-                ids,ide, kds,kde, jds,jde,         &
-                ims,ime, kms,kme, jms,jme,         &
-                its,ite, kts,kte, jts,jte,         &
+!                ids,ide, kds,kde, jds,jde,         &
+!                ims,ime, kms,kme, jms,jme,         &
+!                its,ite, kts,kte, jts,jte,         &
                 ifms,ifme, kfms,kfme, jfms,jfme,   &
                 if_st,if_en,jf_st,jf_en,           &
                 nfrx,nfry,                         &
@@ -740,10 +740,11 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 ! ----- identify and treat newly ignited cells
 
    CALL fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! send
-                 xcn,ycn,zs,xcd,ycd,sprdx,sprdy,   &
-                 ids,ide, kds,kde, jds,jde,        &
-                 ims,ime, kms,kme, jms,jme,        &
-                 its,ite, kts,kte, jts,jte,        &
+                 xcn,ycn,xcd,ycd,sprdx,sprdy,   &
+!                 xcn,ycn,zs,xcd,ycd,sprdx,sprdy,   &
+!                 ids,ide, kds,kde, jds,jde,        &
+!                 ims,ime, kms,kme, jms,jme,        &
+!                 its,ite, kts,kte, jts,jte,        &
                  ifms,ifme, kfms,kfme, jfms,jfme,  &
                  if_st,if_en,jf_st,jf_en,          &
                  nfrx,nfry,                        &
@@ -4216,9 +4217,9 @@ END SUBROUTINE fire_tr
 
 SUBROUTINE fire_ds(ixb,iyb,icn,nfl,ncod,in1,in2,      & ! incoming
                    time,xcn,ycn,xcd,ycd,              &
-                   ids,ide, kds,kde, jds,jde,         &
-                   ims,ime, kms,kme, jms,jme,         &
-                   its,ite, kts,kte, jts,jte,         &
+!                   ids,ide, kds,kde, jds,jde,         &
+!                   ims,ime, kms,kme, jms,jme,         &
+!                   its,ite, kts,kte, jts,jte,         &
                    ifms,ifme, kfms,kfme, jfms,jfme,   &
                    if_st,if_en,jf_st,jf_en,           &
                    nfrx,nfry,                         &
@@ -4238,9 +4239,9 @@ SUBROUTINE fire_ds(ixb,iyb,icn,nfl,ncod,in1,in2,      & ! incoming
 
 ! ----- incoming variables
 
-   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
-   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
-   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
+!   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
+!   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
+!   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
    INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
    INTEGER, INTENT(in) :: if_st,if_en, jf_st,jf_en
    INTEGER, INTENT(in) :: nfrx,nfry
@@ -4632,10 +4633,11 @@ END SUBROUTINE fire_ds
 ! =========================================================================
 
 SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
-                    xcn,ycn,zs,xcd,ycd,sprdx,sprdy,   &
-                    ids,ide, kds,kde, jds,jde,        &
-                    ims,ime, kms,kme, jms,jme,        &
-                    its,ite, kts,kte, jts,jte,        &
+                    xcn,ycn,xcd,ycd,sprdx,sprdy,   &
+!                    xcn,ycn,zs,xcd,ycd,sprdx,sprdy,   &
+!                    ids,ide, kds,kde, jds,jde,        &
+!                   ims,ime, kms,kme, jms,jme,        &
+!                   its,ite, kts,kte, jts,jte,        &
                     ifms,ifme, kfms,kfme, jfms,jfme,  &
                     if_st,if_en,jf_st,jf_en,          &
                     nfrx,nfry,                        &
@@ -4654,9 +4656,9 @@ SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
 
 ! ----- incoming variables
 
-   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
-   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
-   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
+!   INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde
+!   INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme
+!   INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte
    INTEGER, INTENT(in) :: ifms,ifme, kfms,kfme, jfms,jfme
    INTEGER, INTENT(in) :: if_st,if_en, jf_st,jf_en
    INTEGER, INTENT(in) :: nfrx,nfry
@@ -4668,7 +4670,7 @@ SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
    REAL, INTENT(in) :: time
 
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 ) :: xcn,ycn
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )   :: zs
+!   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme )   :: zs
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 ) :: xcd,ycd
    REAL, INTENT(in), DIMENSION( ifms:ifme,jfms:jfme,4 ) :: sprdx,sprdy
 
