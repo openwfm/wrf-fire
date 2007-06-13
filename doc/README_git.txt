@@ -86,6 +86,7 @@ This will create a directory ./wrf under your current directory.
 
   This will create a local branch, jbeezley, that will automatically be
   updated by the remote branch, jbeezley, on the shared repository.
+  "origin" is the default name of the shared repository.
 
   You should create your own branch at this point, (substitute <branch name>
   with what you wish to name your branch).
@@ -123,13 +124,6 @@ This will create a directory ./wrf under your current directory.
 
     git checkout -f 
   
-  Magic sequence to get all updates from master brach:
-
-    git checkout <branch> 
-    git pull origin master
-    git merge master
-    git push origin <branch>:<branch> 
-
 5.  Committing changes
 
   If you create any new files, you must tell git about it
@@ -198,5 +192,29 @@ This will create a directory ./wrf under your current directory.
 
     http://www.kernel.org/pub/software/scm/git/docs/user-manual.html
 
+8. Magic sequences for specific tasks
+
+  Magic sequence to see files from somebody else's branch
+
+    git remote update
+    git branch -r     (to see the list of branches, then pick the <other_branch> name)
+    git branch        
+    if the <other_branch> is not there then (first time only)
+    	git checkout --track -b <other_branch> origin/<other_branch>
+    else
+    	git checkout <other_branch> 
+    end
+    [now look at the files]
+    git checkout <your_own_branch>
     
+    Note: it may be better to set up a separate clone (see the top) for that.
+    Each clone has its own local repository. 
+
+  Magic sequence to get all updates from master brach from the remote
+  repository: 
+
+    git checkout <branch> 
+    git pull origin master:master
+    git merge master
+    git push origin <branch>:<branch> 
 
