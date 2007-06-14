@@ -46,7 +46,14 @@ found use of atm grid in fire_init fire_tr
 6/14/07
 
 I have removed unnecesary atmospheric grid related arguments from all fire
-routines. The following subroutines still use the atm grid:
+routines. I have put back grnhfx,grnqfx,canhfx,canqfx on the argument list of
+cawfee so that they are now passed to wrf, but wrf does not use them for
+anything (I tested that). 
+
+Nothing I did so far should have resulted in any change to the code behavior,
+the output from wrf.exe is still exactly the same.
+
+The following subroutines still use the atm grid:
 
 fire_winds despite the name does NOT interpolate to fire grid. 
 Instead it interpolates only from midpoints of mesh cells to corners on atmospheric grid.
