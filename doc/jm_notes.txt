@@ -32,3 +32,8 @@ subroutine fire_winds: physics atm grid -> fire grid
 
 subroutine fire_topography atm grid topo -> fire grid
 subroutine fire_startup: separated into operations on fire only
+subroutine fire_ln: got rid of extra atm args
+
+6/13/07
+
+subroutine fire_init: got rid of some extra atm args (its and so on)
