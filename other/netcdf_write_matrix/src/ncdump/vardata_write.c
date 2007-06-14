@@ -30,13 +30,24 @@ vardata_write(
     int vrank = vp->ndims;
     int d1,d2,d3,mone,i;
     char name_l[NC_MAX_NAME];
+    int effective_dims=0;
 
     /*pointer to an array containing the array in double precision*/
     double *dvals, *dvals1;
 
-    if(vrank > 3){
-        printf(vp->name);
-        printf(": write_matrix doesn't support >3 diminsional arrays\n");
+    d1=1;d2=1;d3=1;
+    for(i=vrank-1;i>=0;i--) {
+      if(vdims[i]>1) {
+	effective_dims++;
+	if(effective_dims == 1) d1=vdims[i];
+	else if(effective_dims == 2) d2=vdims[i];
+	else if(effective_dims == 3) d3=vdims[i];
+      }
+    }
+
+    if(effective_dims>3) {
+      printf(vp->name);
+      printf(": write_matrix doesn't support >3 diminsional arrays\n");
 	return 1;
     }
 
@@ -64,12 +75,14 @@ vardata_write(
     nc_get_var_double(ncid, varid, dvals);
     if(dvals != dvals1)return 1;
 
+    /* moved above ^^
     d1=1;
     d2=1;
     d3=1;
-    if(vrank >= 1)d1=vdims[0];
+    if(vrank >= 1)d1=vdims[2];
     if(vrank >= 2)d2=vdims[1];
-    if(vrank >= 3)d3=vdims[2];
+    if(vrank >= 3)d3=vdims[0];
+    */
 
 /*
     for (i=0;i<NC_MAX_NAME && vp->name[i] != ' ' && vp->name[i] != '\0';i++){
