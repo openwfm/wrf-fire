@@ -71,16 +71,16 @@ When a netCDF dataset is created, is is opened
 \fBNF_WRITE\fR.
 The new netCDF dataset is in define mode.
 \fBNF_64BIT_OFFSET\fR.
-to create a file in the 64-bit offset  
-(as opposed to classic , the default). 64-bit 
-offset  allows the creation of very large files 
-with far fewer restrictions than netCDF classic , 
+to create a file in the 64-bit offset format 
+(as opposed to classic format, the default). 64-bit 
+offset format allows the creation of very large files 
+with far fewer restrictions than netCDF classic format, 
 but can only be read by the netCDF library version 3.6 
-or greater. Users are cautioned that files that use the 64-bit offset 
+or greater. Users are cautioned that files that use the 64-bit offset format
 will not be recognized by netCDF applications linked to an earlier
 version of the netCDF library than 3.6.  Applications linked to
 version 3.6 or later will be able to transparently access either the
-classic  or 64-bit offset .
+classic format or 64-bit offset format.
 .HP
 \fBinteger function nf__create(character*(*) \fIpath\fP, integer \fIcmode\fP, integer \fIinitialsize\fP, integer \fIchunksize\fP, integer \fIncid\fP)\fR
 .sp
@@ -278,7 +278,7 @@ number of dimensions defined for this netCDF dataset,
 \fIunlimdimid\fP will contain the
 dimension ID of the unlimited dimension if one exists, or
 0 otherwise.
-\fIformatn\fP will contain the version number of the dataset <>, one of
+\fIformatn\fP will contain the version number of the dataset <format>, one of
 \fBNF_FORMAT_CLASSIC\fR, \fBNF_FORMAT_64BIT\fR, \fBNF_FORMAT_NETCDF4\fR, or
 \fBNF_FORMAT_NETCDF4_CLASSIC\fR.
 
