@@ -42,3 +42,32 @@ nfrx, nfry: ratio atm/fire grid; no business in fire routines
         took out of fire_startup, fire_stat, fire_ln, fire_ds, fire_igs
 subroutine fire_burn_fcn: took extra atm args out
 found use of atm grid in fire_init fire_tr
+
+6/14/07
+
+I have removed unnecesary atmospheric grid related arguments from all fire
+routines. The following subroutines still use the atm grid:
+
+fire_winds despite the name does NOT interpolate to fire grid. 
+Instead it interpolates only from midpoints of mesh cells to corners on atmospheric grid.
+
+fire_topography (a part of fire_startup I split off) interpolates terrain
+height to arrays zf and zsf (fire grid). This is used only in one place, in
+fire_tr to get "integer height of fuel". It is NOT used to determine the
+terrain gradient.
+
+fire_tr interpolates wind from corners of atmospheric grid only at the few points 
+it needs. It also uses wind at several grid heights and interpolates
+gradient topography from atmospheric grid (array zs). The wind is never 
+interpolated to  the whole fire grid. This is good for efficiency.
+But the double interpolation (from midpoints to corners, then to selected points in fire_tr) can only decrease accuracy.
+
+fire_init uses atmospheric grid numbers for unclear (historical) reasons.
+
+fire_tendency needs to modify variables on the atm grid, of course.
+
+fire_emissions has unclear function and is never called.
+
+At some point in near future we'll have to decide where to draw the line to
+isolate the fire model (=specify what the interface is) so that we can play
+with a replacement.
