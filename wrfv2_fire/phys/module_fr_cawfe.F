@@ -5952,6 +5952,11 @@ SUBROUTINE fire_error_debug(i,j,iflt,time,in1,in2,tign_g,          &
 
 ! ---------- end declarations, begin processing
  
+!jbeezley : this whole block of code needs to be fixed up :
+!           skipping for now
+
+   GOTO 9999
+
    DO jj = jf_st,jf_en
    DO ii = if_st,if_en
       nc(ii,jj) = 0
@@ -6114,8 +6119,9 @@ SUBROUTINE fire_error_debug(i,j,iflt,time,in1,in2,tign_g,          &
  
    WRITE (iflg,'(I5.5)') iflt
    WRITE (msg,*) 'fire_error_debug: FATAL '//iflg
-!   CALL wrf_error_fatal ( msg )
-  
+   CALL wrf_error_fatal ( msg )
+
+9999 CONTINUE
    RETURN
 
 END SUBROUTINE fire_error_debug
