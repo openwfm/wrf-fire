@@ -173,8 +173,8 @@ CONTAINS
                                                          rthfrten, &
                                                          rqvfrten
 
-   REAL, INTENT(inout), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx
-   REAL, INTENT(inout), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx
+   REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx
+   REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx
 
 ! ---- local variables
 
@@ -246,9 +246,9 @@ CONTAINS
             ,icn,fg,fc,r_0,bbb,betafl,phiwc,area,area2          &
             ,zf,zsf,tign_g,tign_c,tign_crt,xfg,yfg,xcd          &
             ,ycd,xcn,ycn,sprdx,sprdy                            &
-            ,rthfrten,rqvfrten)                                 
-!            ,rthfrten,rqvfrten                                  &
-!            ,grnhfx,grnqfx,canhfx,canqfx)                         ! recv
+!            ,rthfrten,rqvfrten)                                 
+            ,rthfrten,rqvfrten                                  &
+            ,grnhfx,grnqfx,canhfx,canqfx)                         ! recv
 
         CALL wrf_debug(100,'exiting CAWFE fire scheme')
 
