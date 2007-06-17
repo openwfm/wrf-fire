@@ -546,7 +546,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
       dyf = dy / FLOAT(nfry)
 
       WRITE(msg,*)'fire: dx,dy, dxf,dyf=', dx,dy, dxf,dyf
-      CALL wrf_message ( msg )
+      CALL wrf_debug ( _FR_DBG_LEVEL_, msg )
 
 ! ----- fuel moisture parameters
 
@@ -634,16 +634,16 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 !        - sets tignm=now (a time > 0.).
 
    WRITE(msg,*)'tignm = ',tignm
-   CALL wrf_message ( msg )
+   CALL wrf_debug (_FR_DBG_LEVEL_, msg )
 
    WRITE(msg,*)'t_ignite = ',t_ignite
-   CALL wrf_message ( msg )
+   CALL wrf_debug (_FR_DBG_LEVEL_, msg )
 
    WRITE(msg,*)'time     = ',time
-   CALL wrf_message ( msg )
+   CALL wrf_debug (_FR_DBG_LEVEL_, msg )
 
    WRITE(msg,*)'diff     = ',t_ignite-time,dt
-   CALL wrf_message ( msg )
+   CALL wrf_debug (_FR_DBG_LEVEL_, msg )
 
    CALL fire_init(2,dt,                                         & ! send
                   cen_lat,cen_lon,lat_ll,lon_ll,                &
@@ -855,7 +855,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 
    WRITE(msg,23)'time (min)=',time/60.,' AREA (acre)=',sumarea/4047.
 23 FORMAT (1x,a11,f10.4,3x,a13,f15.5)
-   CALL wrf_message ( msg )
+   CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
 ! ----- end calculation of flux feedback to atmosphere
  
@@ -885,11 +885,11 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 
    WRITE(msg,93)grndhx,grndqx,canhx,canqx
 93 FORMAT(1x,'GRNDHX=',e11.4,' GRNDQX=',e11.4,' CANHX=',e11.4,' CANQX=',e11.4)
-   CALL wrf_message( msg )
+   CALL wrf_debug( _FR_DBG_LEVEL_,msg )
 
    WRITE(msg,68)grnhsum,canhsum
 68 FORMAT(1x,'TOTAL FIRE SENS-HEAT FLUXES GRNH/CANH = ',2e11.4,' WATTS')
-   CALL wrf_message( msg )
+   CALL wrf_debug( _FR_DBG_LEVEL_,msg )
    
 ! ----- end of statistics print out
  
@@ -923,7 +923,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
          grnhfx(ig,jg),grnqfx(ig,jg),canhfx(ic,jc),canqfx(ic,jc)
 441   FORMAT(1x,'RATG(I,J)=',e11.4,2i3,' RATC(I,J)=',e11.4,2i3, &
          'GRNH/QFX=',2e11.4,' CANH/CANQFX=',2e11.4)
-      CALL wrf_message( msg )
+      CALL wrf_debug( _FR_DBG_LEVEL_,msg )
    END IF
 
    ! --- add heat and moisture fluxes to tendency variables
@@ -1085,7 +1085,7 @@ SUBROUTINE fire_startup( grid_id,                              & ! incoming
 !            1 - user-prescribed algorithm; 2 - read files
  
    WRITE(msg,*)'fire_startup: ifuelread=', ifuelread
-   CALL wrf_message ( msg )
+   CALL wrf_debug( _FR_DBG_LEVEL_,msg )
 
    IF (ifuelread == 0) THEN
  
@@ -1214,7 +1214,7 @@ SUBROUTINE fire_startup( grid_id,                              & ! incoming
       r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
       IF (nfuel_cat(i,j) == 14) r_0(i,j) = 0.   ! no fuel, no spread.
 !     WRITE (msg,*) 'irm,r0 (m/s)=',i,j,irm, (r_0(i,j)/196.85)
-!     CALL wrf_message ( msg )
+!     CALL wrf_debug( _FR_DBG_LEVEL_, msg )
 
 
    END DO
@@ -1366,7 +1366,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
 ! set tlat_stf,tlon_stf: latitude and longitude of the center of ignition location
 
       WRITE (msg,*) 'FIRE IGNITION AT: TLAT_STF, TLON_STF=',tlat_stf,tlon_stf
-      CALL wrf_message ( msg )
+      CALL wrf_debug( _FR_DBG_LEVEL_,msg )
 
 
 
@@ -1382,7 +1382,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
       dyst = 0.
 
       WRITE (msg,*) 'fire dist dom1 center (m): dxst,dyst=',dxst,dyst
-      CALL wrf_message ( msg )
+      CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
       
 ! get xcntr,ycntr:  distance from SW corner domain 1 to center of domain 1 (m)
 
@@ -1394,21 +1394,19 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
 
       WRITE (msg,*) 'dist SW corner dom1 to center dom1 (m): ', &
             'xcntr,ycntr=',xcntr,ycntr
-      CALL wrf_message ( msg )
+      CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
 
 ! get stx,sty: coords (in m) of fire start wrt the sw corner of model 1 in m
 
 !     WRITE (msg,*) 'ycntr, dyst, sum=',ycntr,dyst, ycntr+dyst
-!     CALL wrf_message ( msg )
-
+!     CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
       stx = xcntr + dxst  ! in m
       sty = ycntr + dyst
 
       WRITE (msg,*) &
       'coords fire rel to SW corner mod 1 (m): stx,sty:',stx,sty     
-      CALL wrf_message ( msg )
-            
+      CALL wrf_debug ( _FR_DBG_LEVEL_,msg ) 
 
 ! EGP --- FIX this for WRF... currently writing over
 ! get xf1,yf1: position of SW corner of fire domain (in m)
@@ -1427,7 +1425,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
       yf1 = 0.
 
       WRITE (msg,*) 'pos of sw corner of fire domain (m): xfx1,xfy1:',xf1,yf1
-      CALL wrf_message ( msg )
+      CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
 
 ! get xx1,yy1:  position of fire relative to fire domain (in m)
@@ -1436,7 +1434,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
       yy1 = sty - yf1
 
       WRITE (msg,*) 'Fire position relative to fire domain (m):',xx1,yy1
-      CALL wrf_message ( msg )
+      CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
 
 ! get istf,jstf: position of fire in fire domain in atm grid cells
@@ -1445,7 +1443,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
       jstf = INT( yy1 / dy ) + 1  
 
       WRITE (msg,*) 'Fire position in domain atm grid pts:', istf,jstf
-      CALL wrf_message ( msg )
+      CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
 ! get fii,fjj: dist in m from this model level's SE corner
 
@@ -1453,13 +1451,13 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
       fjj= ( yy1 / dyf ) + 1.
 
 !     WRITE (msg,*) 'calc fii,fjj=',fii,fjj
-!     CALL wrf_message ( msg )
+!     CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
       ii = AINT(fii)
       jj = AINT(fjj)
 
       WRITE (msg,*) 'Fire position in domain in fuel cells:',ii,jj
-      CALL wrf_message ( msg )
+      CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
 !      .... Or set fire location this way.
 !       ... ISTF LSTF  are the model dynamic grid positions of ignition point
@@ -1495,7 +1493,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
 
          WRITE (msg,*) 'Spot fire initialized with rad=',rad,' at ', &
                 ii,jj,' fuel cell location'
-         CALL wrf_message ( msg )
+         CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
          DO j = jf_st+1,jf_en-1
          DO i = if_st+1,if_en-1
@@ -3712,7 +3710,7 @@ x_in: DO i = if_st+1,if_en-1
              WRITE(msg,*) 'I2TST J2TST=',i2tst,j2tst 
              call wrf_debug(_FR_DBG_LEVEL_ ,msg)
              WRITE (msg,*) 'i,i2,i1=',i,i2,i1,' j,j2,j1=',j,j2,j1
-             CALL wrf_message( msg )
+             CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
              CALL fire_error_debug(i,j,iflt,             &
                         time,in1,in2,tign_g,             &
                         nfl,ncod,xcd,ycd,xcn,ycn,icn,    &
@@ -4163,8 +4161,8 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
                x = xcd(i,j,it) - (xcn(i,j,it)-xcd(i,j,it))*t1
                y = ycd(i,j,it) - (ycn(i,j,it)-ycd(i,j,it))*t1
              ELSE
-               x = 0
-               y = 0
+               x = xcd(i,j,it)
+               y = ycd(i,j,it)
              ENDIF
 
              tib = 1. + (FLOAT(i)-1.5+x)*tirx
@@ -4219,8 +4217,8 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
                x = xcd(i,j,it) - (xcn(i,j,it)-xcd(i,j,it))*t1
                y = ycd(i,j,it) - (ycn(i,j,it)-ycd(i,j,it))*t1
              ELSE
-               x = 0
-               y = 0
+               x = xcd(i,j,it)
+               y = ycd(i,j,it)
              ENDIF
 
              tib = 1.5 + (FLOAT(i)-1.5+x)*tirx
@@ -4292,7 +4290,7 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
  
     WRITE(msg,21) tspmax, tspmin
 21  FORMAT(1x,'MAX/MIN SPREAD RATE (m/s)=',2(1x,f10.5))
-    CALL wrf_message( msg )
+    CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
  
     RETURN
 
@@ -5778,7 +5776,7 @@ SUBROUTINE fire_ros( i,j,                             &    ! incoming
 
          WRITE (msg,'(x,a,2i4,5(x,e12.3) )') 'i,j,ros,r0,phiw,phis=',  &
                                               i,j,ros,r_0(i,j),phiw,phis
-         CALL wrf_message( msg )
+         CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
          IF (ros  >  1.) WRITE(msg,*)  'speed=',speed,' tanphi=',tanphi 
               call wrf_debug(_FR_DBG_LEVEL_ ,msg)

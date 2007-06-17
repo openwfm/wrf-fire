@@ -15,7 +15,7 @@
  end_hour                            = 00,   00,   00,
  end_minute                          = 30,   30,   30,
  end_second                          = 00,   00,   00,
- history_interval                    = 1,   10,   10,
+ history_interval                    = 10,   10,   10,
  frames_per_outfile                  = 1000, 1000, 1000,
  restart                             = .false.,
  restart_interval                    = 1,
@@ -23,7 +23,7 @@
  io_form_restart                     = 2
  io_form_input                       = 2
  io_form_boundary                    = 2
- debug_level                         = 0
+ debug_level                         = 101 
  /
 
  &domains
