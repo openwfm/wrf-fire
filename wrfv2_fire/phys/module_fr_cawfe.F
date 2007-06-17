@@ -1,3 +1,5 @@
+#define _FR_DBG_LEVEL_ 100
+
 ! =============================================================================
 !
 !  This set of modules contains the fire code ported from the CAWFE model.
@@ -1134,6 +1136,10 @@ SUBROUTINE fire_startup( grid_id,                              & ! incoming
          
 !     nvl = nvlm      ! Load fuel for innermost domain.
       nvl = grid_id      ! Load fuel for innermost domain.
+
+!jbeezley : file io here needs to conform to wrf standards :
+!           should be put into registry if needed
+      
       IF (nvl  <=  9) THEN
          WRITE(lfile2,80) nvl
 80       FORMAT('fuel_layer_',I1,'.dat')
@@ -2012,6 +2018,7 @@ SUBROUTINE fire_stat(iffg,dt,time,                    &  ! incoming
    INTEGER :: ita,itb,itc
 
    INTEGER, DIMENSION( ifms:ifme,jfms:jfme ) :: nc,icl,islsum
+   CHARACTER(LEN=256) :: msg
 
    REAL :: x1,y1
    REAL :: x2,y2
@@ -2191,8 +2198,10 @@ SUBROUTINE fire_stat(iffg,dt,time,                    &  ! incoming
                   jss = js + INT(SIGN(1.,yfg(i,j,ic2)-yfg(i,j,ic4)))  &
                                *    iyb(i,j,ic3)
 
-!                   PRINT *,'debug STAT 23 CONVERSION I J=',i,j
-!                   PRINT *,'debug IS JS ISS JSS=',is,js,iss,jss
+!                   WRITE(msg,*) 'debug STAT 23 CONVERSION I J=',i,j 
+!                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!                   WRITE(msg,*) 'debug IS JS ISS JSS=',is,js,iss,jss 
+!                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
                   xfg(is,js,ic1) = FLOAT(1-iyb(i,j,ic3))*xlm(ic1)    &
                     + FLOAT(iyb(i,j,ic3))*(                          &
@@ -2214,9 +2223,12 @@ SUBROUTINE fire_stat(iffg,dt,time,                    &  ! incoming
                   nfl(is,js) = 1
                   tign_g(is,js) = time
 
-!                 PRINT *,'debug XFG(IS,JS=',(XFG(IS,JS,IT),IT=1,4)
-!                 PRINT *,'debug YFG(IS,JS=',(YFG(IS,JS,IT),IT=1,4)
-!                 PRINT *,'debug IC1 IC2 IC3 IC4=',IC1,IC2,IC3,IC4
+!                 WRITE(msg,*) 'debug XFG(IS,JS=',(XFG(IS,JS,IT),IT=1,4) 
+!                 call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!                 WRITE(msg,*) 'debug YFG(IS,JS=',(YFG(IS,JS,IT),IT=1,4) 
+!                 call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!                 WRITE(msg,*) 'debug IC1 IC2 IC3 IC4=',IC1,IC2,IC3,IC4 
+!                 call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 !
                END IF
             END IF                              !2/3 TREATMENT
@@ -2612,7 +2624,8 @@ SUBROUTINE fire_stat(iffg,dt,time,                    &  ! incoming
                   ic4 = 10 - ic1 - ic2 - ic3
                   t1 = ABS(ABS(xfg(i,j,ic2))-.5) + ABS(ABS(yfg(i,j,ic2))-.5)
                   IF (t1 < 10.*ep) THEN
-                     PRINT *,'debug 3/1 to 3/2 conversion hit'
+                     WRITE(msg,*) 'debug 3/1 to 3/2 conversion hit' 
+                     call wrf_debug(_FR_DBG_LEVEL_ ,msg)
                      xfg(i,j,ic2) = .5*(xfg(i,j,ic3)+xfg(i,j,ic4))
                      yfg(i,j,ic2) = .5*(yfg(i,j,ic3)+yfg(i,j,ic4))
                      ixb(i,j,ic2) = 1
@@ -2947,7 +2960,7 @@ SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! in
 
 ! ----- when deriving fireline coordinates we always keep the fire to our left
 
-    write(*,*)'in fire_ln: 1'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 1')
  
 ! -----   calculate nfl(i,j)
 
@@ -2959,7 +2972,7 @@ SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! in
     END DO
     END DO
 
-    write(*,*)'in fire_ln: 2'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 2')
     DO j = jf_st+1,jf_en-1
     DO i = if_st+1,if_en-1
        nfl_t(i,j) = (1-INT(area(i,j)+ep-2.*ep*               &
@@ -2971,7 +2984,7 @@ SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! in
           )/4))))         !test
     END DO
     END DO
-    write(*,*)'in fire_ln: 3'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 3')
 
     DO j = jf_st,jf_en
     DO i = if_st,if_en
@@ -2985,7 +2998,7 @@ SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! in
     END DO
     END DO
 
-    write(*,*)'in fire_ln: 4'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 4')
     CALL fire_stat(0,dt,time,                       & ! send
                    xcd,ycd,xcn,ycn,sprdx,sprdy,  &
                    ifms,ifme, kfms,kfme, jfms,jfme, &
@@ -2994,7 +3007,7 @@ SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! in
                    area,area2,xfg,yfg,              &
                    ixb,iyb,icn)                       ! recv
  
-    write(*,*)'in fire_ln: 5'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 5')
     DO j = jf_st,jf_en
     DO i = if_st,if_en
        icl(i,j) = ixb(i,j,1) + ixb(i,j,2) + ixb(i,j,3) + ixb(i,j,4) +   &
@@ -3002,7 +3015,7 @@ SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! in
        nc(i,j)  = icn(i,j,1) + icn(i,j,2) + icn(i,j,3) + icn(i,j,4)
     END DO
     END DO
-    write(*,*)'in fire_ln: 6'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 6')
  
 ! ----- get xcd,ycd
  
@@ -3323,7 +3336,8 @@ x_cd: DO i = if_st+1,if_en-1
                 nfl(i,j) = 0
              ELSE
                 iflt = 2
-                PRINT *,'ISTAT=',istat
+                WRITE(msg,*) 'ISTAT=',istat 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
                 CALL fire_error_debug(i,j,iflt,          &
                         time,in1,in2,tign_g,             &
                         nfl,ncod,xcd,ycd,xcn,ycn,icn,    &
@@ -3338,7 +3352,7 @@ x_cd: DO i = if_st+1,if_en-1
     END DO x_cd
     END DO y_cd
 
-    write(*,*)'in fire_ln: 7'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 7')
 
 ! ----- test prints for missed grids
 
@@ -3355,7 +3369,7 @@ x_cd: DO i = if_st+1,if_en-1
        END IF
     END DO
     END DO
-    write(*,*)'in fire_ln: 8'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 8')
 
 !        ...CALCULATING INDEX LOCATIONS OF NEIGHBORS
 !
@@ -3369,7 +3383,8 @@ x_in: DO i = if_st+1,if_en-1
 
        IF (nfl(i,j) == 1) THEN    !NFL=1 loop
 
-    write(*,*)'in fire_ln: 8.1 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.1 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           nh0 = ncod(i,j)
           nct = icn(i,j,1) + icn(i,j,2) + icn(i,j,3) + icn(i,j,4)
           icls = icl(i,j)
@@ -3381,22 +3396,32 @@ x_in: DO i = if_st+1,if_en-1
           tly = SIGN(1.,ycd(i,j,itt))                         
           i2 = i + INT(tlx*1.5)
           j2 = j + INT(tly*1.5) 
-    write(*,*)'in fire_ln: 8.1.1 : nh0   = ',nh0
-    write(*,*)'in fire_ln: 8.1.2 : nct   = ',nct
-    write(*,*)'in fire_ln: 8.1.3 : icls  = ',icls
-    write(*,*)'in fire_ln: 8.1.4 : itt   = ',itt
-    write(*,*)'in fire_ln: 8.1.5 : i,j   = ',i,j
-    write(*,*)'in fire_ln: 8.1.6 : tlx   = ',tlx,tly
-    write(*,*)'in fire_ln: 8.1.7 : int   = ',INT(tlx*1.5),INT(tly*1.5)
-    write(*,*)'in fire_ln: 8.1.8 : i2,j2 =',i2,j2
+          WRITE(msg,*) 'in fire_ln: 8.1.1 : nh0   = ',nh0 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.1.2 : nct   = ',nct 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.1.3 : icls  = ',icls 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.1.4 : itt   = ',itt 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.1.5 : i,j   = ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.1.6 : tlx   = ',tlx,tly 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.1.7 : int   = ',INT(tlx*1.5),INT(tly*1.5) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.1.8 : i2,j2 =',i2,j2 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
  
           ihit = 0
           j2tst = j2
           i2tst = i2
 
-    write(*,*)'in fire_ln: 8.2 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.2 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           IF (nct == 3 .AND. icls == 1) THEN     !test code follows 
-    write(*,*)'in fire_ln: 8.2.1 : ',i,j
+             WRITE(msg,*) 'in fire_ln: 8.2.1 : ',i,j 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 ! -----     ... looking for anomolous 3/1 situations
              ic1 = 1 - icn(i,j,1) + 2*(1-icn(i,j,2)) + 3*(1-icn(i,j,3))    &
                                   + 4*(1-icn(i,j,4))
@@ -3417,7 +3442,8 @@ x_in: DO i = if_st+1,if_en-1
              END IF
           END IF                               !test code above
 !
-    write(*,*)'in fire_ln: 8.3 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.3 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           x02 = xcd(i,j2,1) + SIGN(ep,xcd(i,j2,2)-xcd(i,j2,1))
           y02 = ycd(i,j2,1) + SIGN(ep,ycd(i,j2,2)-ycd(i,j2,1))
           x20 = xcd(i2,j,1) + SIGN(ep,xcd(i2,j,2)-xcd(i2,j,1))
@@ -3430,14 +3456,16 @@ x_in: DO i = if_st+1,if_en-1
                + FLOAT(1-nfl(i2,j))
           r22 = (xcd(i,j,itt)-tlx-x22)**2 + (ycd(i,j,itt)-tly-y22)**2  &
                + FLOAT(1-nfl(i2,j2))
-    write(*,*)'in fire_ln: 8.3.1 : ',i2,j2
+          WRITE(msg,*) 'in fire_ln: 8.3.1 : ',i2,j2 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           is = i2
           js = j2
           IF (r02 < r22 .AND. r02 < r20) is = i
           IF (r20 < r22 .AND. r20 < r02) js = j
           i2 = is
           j2 = js
-    write(*,*)'in fire_ln: 8.3.2 : ',i2,j2
+          WRITE(msg,*) 'in fire_ln: 8.3.2 : ',i2,j2 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
  
           itt = 1
           t1 = ABS(xcd(i,j,2)) + ABS(ycd(i,j,2))        
@@ -3449,10 +3477,12 @@ x_in: DO i = if_st+1,if_en-1
  
           j1tst = j1
           i1tst = i1
-    write(*,*)'in fire_ln: 8.4 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.4 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
  
           IF (nct == 3 .AND. icls == 1) THEN     !test code follows 
-    write(*,*)'in fire_ln: 8.4.1 : ',i,j
+             WRITE(msg,*) 'in fire_ln: 8.4.1 : ',i,j 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 ! -----      ... looking for anomolous 3/1 situations
              ic1 = 1 - icn(i,j,1) + 2*(1-icn(i,j,2)) + 3*(1-icn(i,j,3))  &
                 + 4*(1-icn(i,j,4))
@@ -3473,15 +3503,18 @@ x_in: DO i = if_st+1,if_en-1
              END IF
           END IF                               !test code above
 !
-    write(*,*)'in fire_ln: 8.5 : ',i,j
-    write(*,*)'in fire_ln: 8.5.1 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.5 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.1 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           nh11 = nfl(i1,j1)*ncod(i1,j1) + 1 - nfl(i1,j1)        
           nh01 = nfl(i ,j1)*ncod(i ,j1) + 1 - nfl(i ,j1)        
           nh10 = nfl(i1, j)*ncod(i1, j) + 1 - nfl(i1, j)        
           nhtmp = nh01 - nfl(i,j1)
           x01 = xcd(i,j1,nh01) + SIGN(ep,xcd(i,j1,nhtmp)-xcd(i,j1,nh01))
           y01 = ycd(i,j1,nh01) + SIGN(ep,ycd(i,j1,nhtmp)-ycd(i,j1,nh01))
-    write(*,*)'in fire_ln: 8.5.2 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.5.2 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           nhtmp = nh10 - nfl(i1,j)
           x10 = xcd(i1,j,nh10) + SIGN(ep,xcd(i1,j,nhtmp)-xcd(i1,j,nh10))
           y10 = ycd(i1,j,nh10) + SIGN(ep,ycd(i1,j,nhtmp)-ycd(i1,j,nh10))
@@ -3494,14 +3527,16 @@ x_in: DO i = if_st+1,if_en-1
                 + (1.-FLOAT(nfl(i1,j)))
           r11 = (xcd(i,j,itt)-tlx-x11)**2 + (ycd(i,j,itt)-tly-y11)**2  &
                + (1.-FLOAT(nfl(i1,j1)))
-    write(*,*)'in fire_ln: 8.5.3 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.5.3 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           is = i1
           js = j1
           IF (r01 < r11 .AND. r01 < r10) is = i
           IF (r10 < r11 .AND. r10 < r01) js = j
           i1 = is
           j1 = js
-    write(*,*)'in fire_ln: 8.5.4 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.5.4 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 ! -----   ... end of evaluation
           in1(i,j,1) = i1
           in1(i,j,2) = j1
@@ -3511,22 +3546,37 @@ x_in: DO i = if_st+1,if_en-1
           nh2 = ncod(i2,j2)
           nht = nh0 + nh1 + nh2
  
-    write(*,*)'in fire_ln: 8.5.5 : ',i,j
-    write(*,*)'in fire_ln: 8.5.5 : ncod(',i1,j1,') = ',ncod(i1,j1),nfl(i1,j1)
-    write(*,*)'in fire_ln: 8.5.5 : ncod(',i2,j2,') = ',ncod(i2,j2),nfl(i2,j2)
-    write(*,*)'in fire_ln: 8.5.5 : xcd(',i,j,1,') = ',xcd(i,j,1)
-    write(*,*)'in fire_ln: 8.5.5 : xcd(',i2,j2,nh2,') = ',xcd(i2,j2,nh2)
-    write(*,*)'in fire_ln: 8.5.5 : i2-i  = ',i2-i
-    write(*,*)'in fire_ln: 8.5.5 : ycd(',i,j,1,') = ',ycd(i,j,1)
-    write(*,*)'in fire_ln: 8.5.5 : ycd(',i2,j2,nh2,') = ',ycd(i2,j2,nh2)
-    write(*,*)'in fire_ln: 8.5.5 : j2-j  = ',j2-j
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : ncod(',i1,j1,') = ',ncod(i1,j1),nfl(i1,j1) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : ncod(',i2,j2,') = ',ncod(i2,j2),nfl(i2,j2) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : xcd(',i,j,1,') = ',xcd(i,j,1) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : xcd(',i2,j2,nh2,') = ',xcd(i2,j2,nh2) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : i2-i  = ',i2-i 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : ycd(',i,j,1,') = ',ycd(i,j,1) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : ycd(',i2,j2,nh2,') = ',ycd(i2,j2,nh2) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : j2-j  = ',j2-j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
-    write(*,*)'in fire_ln: 8.5.5 : xcd(',i,j,nh0,') = ',xcd(i,j,nh0)
-    write(*,*)'in fire_ln: 8.5.5 : xcd(',i1,j1,1,') = ',xcd(i1,j1,1)
-    write(*,*)'in fire_ln: 8.5.5 : i1-i  = ',i1-i
-    write(*,*)'in fire_ln: 8.5.5 : ycd(',i,j,nh0,') = ',ycd(i,j,nh0)
-    write(*,*)'in fire_ln: 8.5.5 : ycd(',i1,j1,1,') = ',ycd(i1,j1,1)
-    write(*,*)'in fire_ln: 8.5.5 : j1-j  = ',j1-j
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : xcd(',i,j,nh0,') = ',xcd(i,j,nh0) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : xcd(',i1,j1,1,') = ',xcd(i1,j1,1) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : i1-i  = ',i1-i 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : ycd(',i,j,nh0,') = ',ycd(i,j,nh0) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : ycd(',i1,j1,1,') = ',ycd(i1,j1,1) 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+          WRITE(msg,*) 'in fire_ln: 8.5.5 : j1-j  = ',j1-j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           r2sq = (xcd(i,j,1)-xcd(i2,j2,nh2)-FLOAT(i2-i))**2 +    &
                  (ycd(i,j,1)-ycd(i2,j2,nh2)-FLOAT(j2-j))**2
           r1sq = (xcd(i,j,nh0)-xcd(i1,j1,1)-FLOAT(i1-i))**2 +    &
@@ -3562,7 +3612,8 @@ x_in: DO i = if_st+1,if_en-1
 !            r1sq = (xcd(i,j,nh0)-xcd(i1,j1,1)-FLOAT(i1-i))**2 +    &
 !                   (ycd(i,j,nh0)-ycd(i1,j1,1)-FLOAT(j1-j))**2
 !            IF (r1sq < ep_sq .OR. r2sq < ep_sq) THEN
-!               PRINT *,'DEBUG R1SQ R2SQ=',r1sq,r2sq
+!               WRITE(msg,*) 'DEBUG R1SQ R2SQ=',r1sq,r2sq 
+!               call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 !               iflt = 84
 !               CALL fire_error_debug(i,j,iflt,                        &
 !                                        time,in1,in2,tign_g,          &
@@ -3573,10 +3624,12 @@ x_in: DO i = if_st+1,if_en-1
 !             END IF
 !          END IF
 
-    write(*,*)'in fire_ln: 8.5.6 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.5.6 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
 !         IF (r1sq < ep_sq .OR. r2sq < ep_sq) THEN
-!            PRINT *,'DEBUG R1SQ R2SQ=',r1sq,r2sq
+!            WRITE(msg,*) 'DEBUG R1SQ R2SQ=',r1sq,r2sq 
+!            call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 !            iflt = 84
 !            CALL fire_error_debug(i,j,iflt,                        &
 !                                  time,in1,in2,tign_g,             &
@@ -3587,7 +3640,8 @@ x_in: DO i = if_st+1,if_en-1
 
 !         END IF
  
-    write(*,*)'in fire_ln: 8.6 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.6 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           IF (i1 < if_st .OR. i1 > if_en .OR. j1 < jf_st .OR. j1 > jf_en) THEN
              iflt = 85
              CALL fire_error_debug(i,j,iflt,             &
@@ -3607,13 +3661,15 @@ x_in: DO i = if_st+1,if_en-1
                         if_st,if_en,jf_st,jf_en)
           END IF
   
-    write(*,*)'in fire_ln: 8.7 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.7 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           ilm1 = IABS(in1(i,j,1)-i)
           ilm2 = IABS(in2(i,j,1)-i)
           ilm3 = IABS(in1(i,j,2)-j)
           ilm4 = IABS(in2(i,j,2)-j)
 
-    write(*,*)'in fire_ln: 8.8 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.8 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           IF (ilm1 > 1 .OR. ilm2 > 1 .OR. ilm3 > 1 .OR. ilm4 > 1) THEN
              iflt = 83
              CALL fire_error_debug(i,j,iflt,             &
@@ -3647,10 +3703,14 @@ x_in: DO i = if_st+1,if_en-1
           IF (i2 == i1 .AND. j2 == j1) THEN
 ! -----      ... fireline brushes corner of 3/1.  Odd normal vector pts inwards.
              iflt = 6
-             PRINT *,'IC1 T1TST=',ic1,t1tst
-             PRINT *,'IHIT=',ihit
-             PRINT *,'I1TST J1TST=',i1tst,j1tst
-             PRINT *,'I2TST J2TST=',i2tst,j2tst
+             WRITE(msg,*) 'IC1 T1TST=',ic1,t1tst 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+             WRITE(msg,*) 'IHIT=',ihit 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+             WRITE(msg,*) 'I1TST J1TST=',i1tst,j1tst 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+             WRITE(msg,*) 'I2TST J2TST=',i2tst,j2tst 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
              WRITE (msg,*) 'i,i2,i1=',i,i2,i1,' j,j2,j1=',j,j2,j1
              CALL wrf_message( msg )
              CALL fire_error_debug(i,j,iflt,             &
@@ -3661,7 +3721,8 @@ x_in: DO i = if_st+1,if_en-1
                         if_st,if_en,jf_st,jf_en)
           END IF
  
-    write(*,*)'in fire_ln: 8.9 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.9 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
           itest = 0
           IF (itest == 0) THEN
 
@@ -3697,13 +3758,15 @@ x_in: DO i = if_st+1,if_en-1
              END IF
 
           END IF
-    write(*,*)'in fire_ln: 8.10 : ',i,j
+          WRITE(msg,*) 'in fire_ln: 8.10 : ',i,j 
+          call wrf_debug(_FR_DBG_LEVEL_ ,msg)
        END IF                     !NFL=1 LOOP
 !
     END DO x_in
     END DO y_in
 
-    write(*,*)'in fire_ln: 9'
+    WRITE(msg,*) 'in fire_ln: 9' 
+    call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 !
     radmax = -1.e5
     radmin =  1.e5
@@ -3783,17 +3846,28 @@ x_cn: DO i = if_st+1,if_en-1
           ELSE
              rad = SQRT((y3-y1)**2 + (x3-x1)**2)
              IF (ABS(rad) < ep) THEN
-                WRITE (6,*) 'HEY1 START'
-                WRITE (6,*) 'HEY1 RAD,ILOC',rad,iloc
-                WRITE (6,*) 'HEY1 I,J,NH0',i,j,nh0
-                WRITE (6,*) 'HEY1 I1,J1',i1,j1,nh1
-                WRITE (6,*) 'HEY1 R01,R10,R11',r01,r10,r11
-                WRITE (6,*) 'HEY1 X1,X2,X3',x1,x2,x3
-                WRITE (6,*) 'HEY1 Y1,Y2,Y3',y1,y2,y3
-                WRITE (6,*) 'HEY1 XCD(I)=',(xcd(i,j,it),it=1,nh0)
-                WRITE (6,*) 'HEY1 YCD(I)=',(ycd(i,j,it),it=1,nh0)
-                WRITE (6,*) 'HEY1 XCD(I1)=',(xcd(i1,j1,it),it=1,nh1)
-                WRITE (6,*) 'HEY1 YCD(I1)=',(ycd(i1,j1,it),it=1,nh1)
+                WRITE(msg,*)  'HEY1 START' 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 RAD,ILOC',rad,iloc 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 I,J,NH0',i,j,nh0 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 I1,J1',i1,j1,nh1 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 R01,R10,R11',r01,r10,r11 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 X1,X2,X3',x1,x2,x3 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 Y1,Y2,Y3',y1,y2,y3 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 XCD(I)=',(xcd(i,j,it),it=1,nh0) 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 YCD(I)=',(ycd(i,j,it),it=1,nh0) 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 XCD(I1)=',(xcd(i1,j1,it),it=1,nh1) 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY1 YCD(I1)=',(ycd(i1,j1,it),it=1,nh1) 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
                 iflt = 111
                 CALL fire_error_debug(i,j,iflt,          &
                         time,in1,in2,tign_g,             &
@@ -3873,17 +3947,28 @@ x_cn: DO i = if_st+1,if_en-1
           ELSE
              rad = SQRT((y3-y1)**2 + (x3-x1)**2)
              IF (abs(rad) < ep) THEN
-                WRITE (6,*) 'HEY2 START'
-                WRITE (6,*) 'HEY2 RAD,ILOC',rad,iloc
-                WRITE (6,*) 'HEY2 I,J,NH0',i,j,nh0
-                WRITE (6,*) 'HEY2 I2,J2,NH2',i2,j2,nh2
-                WRITE (6,*) 'HEY2 R02,R20,R22',r02,r20,r22
-                WRITE (6,*) 'HEY2 X1,X2,X3',x1,x2,x3
-                WRITE (6,*) 'HEY2 Y1,Y2,Y3',y1,y2,y3
-                WRITE (6,*) 'HEY2 XCD(I)=',(xcd(i,j,it),it=1,nh0)
-                WRITE (6,*) 'HEY2 YCD(I)=',(ycd(i,j,it),it=1,nh0)
-                WRITE (6,*) 'HEY2 XCD(I2)=',(xcd(i2,j2,it),it=1,nh2)
-                WRITE (6,*) 'HEY2 YCD(I2)=',(ycd(i2,j2,it),it=1,nh2)
+                WRITE(msg,*)  'HEY2 START' 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 RAD,ILOC',rad,iloc 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 I,J,NH0',i,j,nh0 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 I2,J2,NH2',i2,j2,nh2 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 R02,R20,R22',r02,r20,r22 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 X1,X2,X3',x1,x2,x3 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 Y1,Y2,Y3',y1,y2,y3 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 XCD(I)=',(xcd(i,j,it),it=1,nh0) 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 YCD(I)=',(ycd(i,j,it),it=1,nh0) 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 XCD(I2)=',(xcd(i2,j2,it),it=1,nh2) 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'HEY2 YCD(I2)=',(ycd(i2,j2,it),it=1,nh2) 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
                 iflt = 112
                 CALL fire_error_debug(i,j,iflt,          &
                         time,in1,in2,tign_g,             &
@@ -3909,9 +3994,10 @@ x_cn: DO i = if_st+1,if_en-1
              y3 = ycd(i,j,3)
              rad = SQRT((y3-y1)**2 + (x3-x1)**2)
              IF (ABS(rad) < ep) THEN
-                WRITE (6,*) 'HEY3 I,J,RAD,Y1,Y2,Y3,X1,X2,X3',     &
-                                  i,j,rad,y1,y2,y3,x1,x2,x3
+                 WRITE(msg,*)  'HEY3 I,J,RAD,Y1,Y2,Y3,X1,X2,X3', &
+                 i,j,rad,y1,y2,y3,x1,x2,x3
                 iflt = 113
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
                 CALL fire_error_debug(i,j,iflt,          &
                         time,in1,in2,tign_g,             &
                         nfl,ncod,xcd,ycd,xcn,ycn,icn,    &
@@ -3927,14 +4013,16 @@ x_cn: DO i = if_st+1,if_en-1
     END DO x_cn
     END DO y_cn
 
-    write(*,*)'in fire_ln: 10'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 10')
     IF (ABS(radsum) > ep_sq) THEN
       radavg = radavg/radsum
-      PRINT *,'RADMAX MIN AVG SUM',radmax,radmin,radavg,radsum
+      WRITE(msg,*) 'RADMAX MIN AVG SUM',radmax,radmin,radavg,radsum 
+      call wrf_debug(_FR_DBG_LEVEL_ ,msg)
     ELSE
-      PRINT *,'RADMAX MIN SUM, CANT CALC RADAVG',radmax,radmin,radsum
+      WRITE(msg,*) 'RADMAX MIN SUM, CANT CALC RADAVG',radmax,radmin,radsum 
+      call wrf_debug(_FR_DBG_LEVEL_ ,msg)
     END IF
-    write(*,*)'in fire_ln: 11'
+    call wrf_debug(_FR_DBG_LEVEL_,'in fire_ln: 11')
 
     RETURN
 
@@ -4148,7 +4236,8 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
        ! --- calculate  tangent of terrain slope in direction of spread.
 
              tanphi = (zs1-zs2) / (2.*dist)
-             PRINT *,'debug ZS1 ZS2 TANPHI=',zs1,zs2,tanphi
+             WRITE(msg,*) 'debug ZS1 ZS2 TANPHI=',zs1,zs2,tanphi 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
  
        ! --- calculate wind speed in direction of spread.
 
@@ -4276,7 +4365,8 @@ SUBROUTINE fire_ds(ixb,iyb,icn,nfl,ncod,in1,in2,      & ! incoming
    REAL :: xfg_ic3,yfg_ic4
    REAL :: tia3,tib3,tic3,tid3
    REAL :: tja4,tjb4,tjc4,tjd4
- 
+
+   CHARACTER(LEN=256) :: msg
 !  when deriving fireline coordinates we always keep the fire to our left
  
     DO j = jf_st,jf_en
@@ -4424,12 +4514,14 @@ xl: DO i = if_st+1,if_en-1
              ic3 = ixb(i,j,1)*(1-iyb(i,j,1)) + 2*ixb(i,j,2)*(1-iyb(i,j,2)) +  &
                  3*ixb(i,j,3)*(1-iyb(i,j,3)) + 4*ixb(i,j,4)*(1-iyb(i,j,4))
              ic4 = 10 - ic1 - ic2 - ic3
-!            WRITE (6,*) 'ic1,ic2,ic3,ic4=',ic1,ic2,ic3,ic4
+!            WRITE(msg,*)  'ic1,ic2,ic3,ic4=',ic1,ic2,ic3,ic4 
+!            call wrf_debug(_FR_DBG_LEVEL_ ,msg)
              iod = ic1 - 2*(ic1/2)
              is = 1 - 2*iod
              js = -1 + 2*(ic1/3)
              isen = is*js
-!            WRITE (6,*) 'iod,is,js,isen=',iod,is,js,isen
+!            WRITE(msg,*)  'iod,is,js,isen=',iod,is,js,isen 
+!            call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
              x1 = xcn(i2,j2,2) + float(i2-i)
              y1 = ycn(i2,j2,2) + float(j2-j)
@@ -4454,8 +4546,10 @@ xl: DO i = if_st+1,if_en-1
                 y6 = ycn(i2,j2,1) + FLOAT(j2-j)
                 x7 = xcn(i2,j2,2) + FLOAT(i2-i)
                 y7 = ycn(i2,j2,2) + FLOAT(j2-j)
-!               WRITE (6,*) 'ad: x1,x2,x3,x4,x5,x6,x7=',x1,x2,x3,x4,x5,x6,x7
-!               WRITE (6,*) 'ad: y1,y2,y3,y4,y5,y6,y7=',y1,y2,y3,y4,y5,y6,y7
+!               WRITE(msg,*)  'ad: x1,x2,x3,x4,x5,x6,x7=',x1,x2,x3,x4,x5,x6,x7 
+!               call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!               WRITE(msg,*)  'ad: y1,y2,y3,y4,y5,y6,y7=',y1,y2,y3,y4,y5,y6,y7 
+!               call wrf_debug(_FR_DBG_LEVEL_ ,msg)
              END IF
 
 ! -----  first choice
@@ -4474,10 +4568,14 @@ xl: DO i = if_st+1,if_en-1
              xfg_d3 = x5
              yfg_d4 = y3
 
-!            WRITE (6,*) '1st choice xfg_a3, yfg_a4=',xfg_a3, yfg_a4
-!            WRITE (6,*) '2nd choice xfg_b3, yfg_b4=',xfg_b3, yfg_b4
-!            WRITE (6,*) '3nd choice xfg_c3, yfg_c4=',xfg_c3, yfg_c4
-!            WRITE (6,*) '4th choice xfg_d3, yfg_d4=',xfg_d3, yfg_d4
+!            WRITE(msg,*)  '1st choice xfg_a3, yfg_a4=',xfg_a3, yfg_a4 
+!            call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!            WRITE(msg,*)  '2nd choice xfg_b3, yfg_b4=',xfg_b3, yfg_b4 
+!            call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!            WRITE(msg,*)  '3nd choice xfg_c3, yfg_c4=',xfg_c3, yfg_c4 
+!            call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!            WRITE(msg,*)  '4th choice xfg_d3, yfg_d4=',xfg_d3, yfg_d4 
+!            call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
 ! ----- test constraints
 !            tia3 = ((xfg_a3-xfg(i,j,ic3))*(xlm(ic3)-xlm(ic1)) &
@@ -4539,23 +4637,39 @@ xl: DO i = if_st+1,if_en-1
 
              IF (iit*jjt == 0) THEN
                 iflt = 884
-                PRINT *,'IC1 2 3 4=',ic1,ic2,ic3,ic4
-                PRINT *,'XFG_A YFG_A=',xfg_a3,yfg_a4
-                PRINT *,'XFG_B YFG_B=',xfg_b3,yfg_b4
-                PRINT *,'XFG_C YFG_C=',xfg_c3,yfg_c4
-                PRINT *,'XFG_D YFG_D=',xfg_d3,yfg_d4
-                PRINT *,'TIA3 TJA4=',tia3,tja4
-                PRINT *,'TIB3 TJB4=',tib3,tjb4
-                PRINT *,'TIC3 TJC4=',tic3,tjc4
-                PRINT *,'TID3 TJD4=',tid3,tjd4
-                PRINT *,'IIA3 JJA4=',iia3,jja4
-                PRINT *,'IIB3 JJB4=',iib3,jjb4
-                PRINT *,'IIC3 JJC4=',iic3,jjc4
-                PRINT *,'IID3 JJD4=',iid3,jjd4
+                WRITE(msg,*) 'IC1 2 3 4=',ic1,ic2,ic3,ic4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'XFG_A YFG_A=',xfg_a3,yfg_a4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'XFG_B YFG_B=',xfg_b3,yfg_b4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'XFG_C YFG_C=',xfg_c3,yfg_c4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'XFG_D YFG_D=',xfg_d3,yfg_d4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'TIA3 TJA4=',tia3,tja4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'TIB3 TJB4=',tib3,tjb4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'TIC3 TJC4=',tic3,tjc4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'TID3 TJD4=',tid3,tjd4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'IIA3 JJA4=',iia3,jja4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'IIB3 JJB4=',iib3,jjb4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'IIC3 JJC4=',iic3,jjc4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'IID3 JJD4=',iid3,jjd4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
-                WRITE (6,*) 'debug:  iit,jjt=',iit,jjt
-                WRITE (6,*) 'debug:IIT=IIA3+IIB3+IIC3+IID3',iit,iia3,iib3,iic3,iid3
-                WRITE (6,*) 'debug:JJT=JJA4+JJB4+JJC4+JJD4',jjt,jja4,jjb4,jjc4,jjd4
+                WRITE(msg,*)  'debug:  iit,jjt=',iit,jjt 
+              call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'debug:IIT=IIA3+IIB3+IIC3+IID3',iit,iia3,iib3,iic3,iid3 
+              call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*)  'debug:JJT=JJA4+JJB4+JJC4+JJD4',jjt,jja4,jjb4,jjc4,jjd4 
+              call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
                 CALL fire_error_debug(i,j,iflt,                        &
                                       time,in1,in2,tign_g,             &
@@ -4587,19 +4701,32 @@ xl: DO i = if_st+1,if_en-1
  
              IF (ABS(xfg(i,j,ic3)) > .5+ep .OR. ABS(yfg(i,j,ic4)) > .5+ep) THEN
                 iflt = 885
-                PRINT *,'IC1 2 3 4=',ic1,ic2,ic3,ic4
-                PRINT *,'XFG_A YFG_A=',xfg_a3,yfg_a4
-                PRINT *,'XFG_B YFG_B=',xfg_b3,yfg_b4
-                PRINT *,'XFG_C YFG_C=',xfg_c3,yfg_c4
-                PRINT *,'XFG_D YFG_D=',xfg_d3,yfg_d4
-                PRINT *,'TIA3 TJA4=',tia3,tja4
-                PRINT *,'TIB3 TJB4=',tib3,tjb4
-                PRINT *,'TIC3 TJC4=',tic3,tjc4
-                PRINT *,'TID3 TJD4=',tid3,tjd4
-                PRINT *,'IIA3 JJA4=',iia3,jja4
-                PRINT *,'IIB3 JJB4=',iib3,jjb4
-                PRINT *,'IIC3 JJC4=',iic3,jjc4
-                PRINT *,'IID3 JJD4=',iid3,jjd4
+                WRITE(msg,*) 'IC1 2 3 4=',ic1,ic2,ic3,ic4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'XFG_A YFG_A=',xfg_a3,yfg_a4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'XFG_B YFG_B=',xfg_b3,yfg_b4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'XFG_C YFG_C=',xfg_c3,yfg_c4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'XFG_D YFG_D=',xfg_d3,yfg_d4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'TIA3 TJA4=',tia3,tja4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'TIB3 TJB4=',tib3,tjb4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'TIC3 TJC4=',tic3,tjc4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'TID3 TJD4=',tid3,tjd4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'IIA3 JJA4=',iia3,jja4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'IIB3 JJB4=',iib3,jjb4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'IIC3 JJC4=',iic3,jjc4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                WRITE(msg,*) 'IID3 JJD4=',iid3,jjd4 
+                call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
                 CALL fire_error_debug(i,j,iflt,                        &
                                       time,in1,in2,tign_g,             &
@@ -5210,22 +5337,38 @@ SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
                 END IF
 !               IF (ihita == 1) THEN
                 IF (ihita == 3) THEN
-                   PRINT *,'debug IHITA results follow'
-                   PRINT *,'debug IC1 2 3 4=',ic1,ic2,ic3,ic4
-                   PRINT *,'debug I J=',i,j
-                   PRINT *,'debug I1 J1=',i1,j1
-                   PRINT *,'debug I2 J2=',i2,j2
-                   PRINT *,'debug IOD IS JS=',iod,is,js
-                   PRINT *,'debug XFG_A4 YFG_A4=',xfg_a4,yfg_a4
-                   PRINT *,'debug IA4 JA4=',ia4,ja4
-                   PRINT *,'debug XFG_A6 YFG_A6=',xfg_a6,yfg_a6
-                   PRINT *,'debug IA6 JA6=',ia6,ja6
-                   PRINT *,'debug X1 X2=',x1,x2
-                   PRINT *,'debug Y1 Y2=',y1,y2
-                   PRINT *,'debug X3 X4 X5=',x3,x4,x5
-                   PRINT *,'debug Y3 Y4 Y5=',y3,y4,y5
-                   PRINT *,'debug X6 X7=',x6,x7
-                   PRINT *,'debug Y6 Y7=',y6,y7
+                   WRITE(msg,*) 'debug IHITA results follow' 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug IC1 2 3 4=',ic1,ic2,ic3,ic4 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug I J=',i,j 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug I1 J1=',i1,j1 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug I2 J2=',i2,j2 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug IOD IS JS=',iod,is,js 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug XFG_A4 YFG_A4=',xfg_a4,yfg_a4 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug IA4 JA4=',ia4,ja4 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug XFG_A6 YFG_A6=',xfg_a6,yfg_a6 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug IA6 JA6=',ia6,ja6 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug X1 X2=',x1,x2 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug Y1 Y2=',y1,y2 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug X3 X4 X5=',x3,x4,x5 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug Y3 Y4 Y5=',y3,y4,y5 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug X6 X7=',x6,x7 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug Y6 Y7=',y6,y7 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 
                 END IF
              END IF                                !NFL(I-IS,J) NE 1
@@ -5281,20 +5424,34 @@ SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
                 END IF
 !               IF (ihitb == 1) THEN
                 IF (ihitb == 3) THEN
-                   PRINT *,'debug IHITB results follow'
-                   PRINT *,'debug IC1 2 3 4=',ic1,ic2,ic3,ic4
-                   PRINT *,'debug I J=',i,j
-                   PRINT *,'debug I1 J1=',i1,j1
-                   PRINT *,'debug I2 J2=',i2,j2
-                   PRINT *,'debug IOD IS JS=',iod,is,js
-                   PRINT *,'debug XFG_B1 YFG_B1=',xfg_b1,yfg_b1
-                   PRINT *,'debug XFG_B3 YFG_B3=',xfg_b3,yfg_b3
-                   PRINT *,'debug X1 X2=',x1,x2
-                   PRINT *,'debug Y1 Y2=',y1,y2
-                   PRINT *,'debug X3 X4 X5=',x3,x4,x5
-                   PRINT *,'debug Y3 Y4 Y5=',y3,y4,y5
-                   PRINT *,'debug X6 X7=',x6,x7
-                   PRINT *,'debug Y6 Y7=',y6,y7
+                   WRITE(msg,*) 'debug IHITB results follow' 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug IC1 2 3 4=',ic1,ic2,ic3,ic4 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug I J=',i,j 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug I1 J1=',i1,j1 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug I2 J2=',i2,j2 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug IOD IS JS=',iod,is,js 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug XFG_B1 YFG_B1=',xfg_b1,yfg_b1 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug XFG_B3 YFG_B3=',xfg_b3,yfg_b3 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug X1 X2=',x1,x2 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug Y1 Y2=',y1,y2 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug X3 X4 X5=',x3,x4,x5 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug Y3 Y4 Y5=',y3,y4,y5 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug X6 X7=',x6,x7 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+                   WRITE(msg,*) 'debug Y6 Y7=',y6,y7 
+                   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
                 END IF
              END IF                             !NFL(I,J-JS) NE 1
           END IF                                !1/4 likely
@@ -5317,7 +5474,8 @@ SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
           isumc = icn(i-1,j,2) + icn(i,j-1,3)
           isum = iyb(i-1,j,4) + ixb(i,j-1,4)
           IF (isumc == 2 .AND. isum >= 1) THEN
-             PRINT *,'debug CN=1 redund igs hit at I J=',i,j
+             WRITE(msg,*) 'debug CN=1 redund igs hit at I J=',i,j 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
              tign_g(i,j) = time
              nfl(i,j) = 1
              x1 = xfg(i,j-1,4)
@@ -5341,7 +5499,8 @@ SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
           isumc = icn(i+1,j,1) + icn(i,j-1,4)
           isum = iyb(i+1,j,3) + ixb(i,j-1,3)
           IF (isumc == 2 .AND. isum >= 1) THEN
-             PRINT *,'debug CN=2 redund igs hit at I J=',i,j
+             WRITE(msg,*) 'debug CN=2 redund igs hit at I J=',i,j 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
              tign_g(i,j) = time
              nfl(i,j) = 1
              x1 = xfg(i+1,j,3) + 1.
@@ -5365,7 +5524,8 @@ SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
           isumc = icn(i-1,j,4) + icn(i,j+1,1)
           isum = iyb(i-1,j,2) + ixb(i,j+1,2)
           IF (isumc == 2 .AND. isum >= 1) THEN
-             PRINT *,'debug CN=3 redund igs hit at I J=',i,j
+             WRITE(msg,*) 'debug CN=3 redund igs hit at I J=',i,j 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
              tign_g(i,j) = time
              nfl(i,j) = 1
              x1 = xfg(i-1,j,2) - 1.
@@ -5388,7 +5548,8 @@ SUBROUTINE fire_igs(ixb,iyb,icn,in1,in2,ncod,time,    & ! incoming
           isumc = icn(i+1,j,3) + icn(i,j+1,2)
           isum = iyb(i+1,j,1) + ixb(i,j+1,1)
           IF (isumc == 2 .AND. isum >= 1) THEN
-             PRINT *,'debug CN=4 redund igs hit at I J=',i,j
+             WRITE(msg,*) 'debug CN=4 redund igs hit at I J=',i,j 
+             call wrf_debug(_FR_DBG_LEVEL_ ,msg)
              tign_g(i,j) = time
              nfl(i,j) = 1
              x1 = xfg(i,j+1,1)
@@ -5478,6 +5639,8 @@ SUBROUTINE fire_burn_fcn(i,j,                              & ! incoming
    REAL :: burn_fracc
    REAL :: tmcrit
 
+   CHARACTER(LEN=256) :: msg
+
 ! --------------------------------------------------------------------------
 
    are1 = area2(i,j)
@@ -5514,16 +5677,18 @@ SUBROUTINE fire_burn_fcn(i,j,                              & ! incoming
          IF (tign_crt(i,j) > ep .AND. ABS(time-tign_crt(i,j)) < ep)  &
                   THEN    !avoid initialization cases
 
-            PRINT 66,tmcrit,burn_frac,i,j,time
+            WRITE(msg,66) tmcrit,burn_frac,i,j,time 
+            call wrf_debug(_FR_DBG_LEVEL_ ,msg)
   66        FORMAT(1X,'Warning 215- TMCRIT BURN_FRAC =',2F5.2,   &
                   ', I J =',2I4,', TIME =',F8.2)
          END IF
       END IF
 !
       IF (tmcrit > tcell) THEN 
-         WRITE (6,*) 'STOP 213: BURN_FRAC,ARE1,WEIGHT,TCELL,TMCRIT=',  &
-              i,j,burn_frac,are1,weight(nfuel_cat(i,j)),tcell,tmcrit
-         iflt = 213
+        WRITE(msg,*)  'STOP 213: BURN_FRAC,ARE1,WEIGHT,TCELL,TMCRIT=', &
+        i,j,burn_frac,are1,weight(nfuel_cat(i,j)),tcell,tmcrit
+         call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+         iflt = 213 
          CALL fire_error_debug(i,j,iflt,                        &
                                time,in1,in2,tign_g,             &
                                nfl,ncod,xcd,ycd,xcn,ycn,icn,    &
@@ -5615,7 +5780,8 @@ SUBROUTINE fire_ros( i,j,                             &    ! incoming
                                               i,j,ros,r_0(i,j),phiw,phis
          CALL wrf_message( msg )
 
-         IF (ros  >  1.) WRITE (6,*) 'speed=',speed,' tanphi=',tanphi
+         IF (ros  >  1.) WRITE(msg,*)  'speed=',speed,' tanphi=',tanphi 
+              call wrf_debug(_FR_DBG_LEVEL_ ,msg)
  
       ELSE IF (ibeh == 0) THEN                              !MACARTHUR FORMULA
 
@@ -5797,92 +5963,131 @@ SUBROUTINE fire_error_debug(i,j,iflt,time,in1,in2,tign_g,          &
    END DO
    END DO
 
-   PRINT 11,time,i,j,iflt
+   WRITE(msg,11) time,i,j,iflt 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 11 FORMAT(1x,'ERROR DEBUG AT TIME=',f9.3,' I J=',2i4,' IFLT=',i4)
 
-   PRINT 80,i,j,ncod(i,j),(in1(i,j,ic),ic=1,2),(in2(i,j,ic),ic=1,2)
+   WRITE(msg,80) i,j,ncod(i,j),(in1(i,j,ic),ic=1,2),(in2(i,j,ic),ic=1,2) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 80 FORMAT(1x,'I J NCOD=',3i4/4x,'IN1=',2i4/4x,'IN2=',2i4)
  
-   PRINT 84,((time-tign_g(ii,jj),ii=i-1,i+1),jj=j+1,j-1,-1)
+   WRITE(msg,84) ((time-tign_g(ii,jj),ii=i-1,i+1),jj=j+1,j-1,-1) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 84 FORMAT(1x,'TIME-TIGN_G=',3f14.4)
  
-   PRINT 85,((nfl(ii,jj),ii=i-1,i+1),jj=j+1,j-1,-1)
+   WRITE(msg,85) ((nfl(ii,jj),ii=i-1,i+1),jj=j+1,j-1,-1) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 85 FORMAT(1x,'  NFL      =',3i10)
-   PRINT 135,((nc(ii,jj),ii=i-1,i+1),jj=j+1,j-1,-1)
+   WRITE(msg,135) ((nc(ii,jj),ii=i-1,i+1),jj=j+1,j-1,-1) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 135 FORMAT(1X,'  NC       =',3i10)
-   PRINT 136,((icc(ii,jj),ii=i-1,i+1),jj=j+1,j-1,-1)
+   WRITE(msg,136) ((icc(ii,jj),ii=i-1,i+1),jj=j+1,j-1,-1) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 136 FORMAT(1X,'  ICLS     =',3i10)
  
-   PRINT 63,(xcd(i,j,it),it=1,4),(ycd(i,j,it),it=1,4)
+   WRITE(msg,63) (xcd(i,j,it),it=1,4),(ycd(i,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 63 FORMAT(1x,'XCD(I  J )=',4f10.7/1x,'YCD(I  J =',4f10.7)
-   PRINT 67,(xcd(i+1,j,it),it=1,4),(ycd(i+1,j,it),it=1,4)
+   WRITE(msg,67) (xcd(i+1,j,it),it=1,4),(ycd(i+1,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 67 FORMAT(1x,'XCD(IP J )=',4f10.7/1x,'YCD(IP J =',4f10.7)
-   PRINT 68,(xcd(i-1,j,it),it=1,4),(ycd(i-1,j,it),it=1,4)
+   WRITE(msg,68) (xcd(i-1,j,it),it=1,4),(ycd(i-1,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 68 FORMAT(1x,'XCD(IM J )=',4f10.7/1x,'YCD(IM J =',4f10.7)
-   PRINT 69,(xcd(i,j+1,it),it=1,4),(ycd(i,j+1,it),it=1,4)
+   WRITE(msg,69) (xcd(i,j+1,it),it=1,4),(ycd(i,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 69 FORMAT(1x,'XCD(I  JP)=',4f10.7/1x,'YCD(I  JP=',4f10.7)
-   PRINT 70,(xcd(i,j-1,it),it=1,4),(ycd(i,j-1,it),it=1,4)
+   WRITE(msg,70) (xcd(i,j-1,it),it=1,4),(ycd(i,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 70 FORMAT(1x,'XCD(I  JM)=',4f10.7/1x,'YCD(I  JM=',4f10.7)
-   PRINT 71,(xcd(i+1,j+1,it),it=1,4),(ycd(i+1,j+1,it),it=1,4)
+   WRITE(msg,71) (xcd(i+1,j+1,it),it=1,4),(ycd(i+1,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 71 FORMAT(1x,'XCD(IP JP)=',4f10.7/1x,'YCD(IP JP=',4f10.7)
-   PRINT 72,(xcd(i-1,j-1,it),it=1,4),(ycd(i-1,j-1,it),it=1,4)
+   WRITE(msg,72) (xcd(i-1,j-1,it),it=1,4),(ycd(i-1,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 72 FORMAT(1x,'XCD(IM JM)=',4f10.7/1x,'YCD(IM JM=',4f10.7)
-   PRINT 79,(xcd(i+1,j-1,it),it=1,4),(ycd(i+1,j-1,it),it=1,4)
+   WRITE(msg,79) (xcd(i+1,j-1,it),it=1,4),(ycd(i+1,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 79 FORMAT(1x,'XCD(IP JM)=',4f10.7/1x,'YCD(IP JM=',4f10.7)
-   PRINT 83,(xcd(i-1,j+1,it),it=1,4),(ycd(i-1,j+1,it),it=1,4)
+   WRITE(msg,83) (xcd(i-1,j+1,it),it=1,4),(ycd(i-1,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 83 FORMAT(1x,'XCD(IM JP)=',4f10.7/1x,'YCD(IM JP=',4f10.7)
  
-   PRINT 65,(xcn(i,j,it),it=1,4),(ycn(i,j,it),it=1,4)
+   WRITE(msg,65) (xcn(i,j,it),it=1,4),(ycn(i,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 65 FORMAT(1x,'XCN(I  J =',4f10.7/1x,'YCN(I  J =',4f10.7)
-   PRINT 73,(xcn(i+1,j,it),it=1,4),(ycn(i+1,j,it),it=1,4)
+   WRITE(msg,73) (xcn(i+1,j,it),it=1,4),(ycn(i+1,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 73 FORMAT(1x,'XCN(IP J =',4f10.7/1x,'YCN(IP J =',4f10.7)
-   PRINT 74,(xcn(i-1,j,it),it=1,4),(ycn(i-1,j,it),it=1,4)
+   WRITE(msg,74) (xcn(i-1,j,it),it=1,4),(ycn(i-1,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 74 FORMAT(1x,'XCN(IM J =',4f10.7/1x,'YCN(IM J =',4f10.7)
-   PRINT 75,(xcn(i,j+1,it),it=1,4),(ycn(i,j+1,it),it=1,4)
+   WRITE(msg,75) (xcn(i,j+1,it),it=1,4),(ycn(i,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 75 FORMAT(1x,'XCN(I  JP=',4f10.7/1x,'YCN(I  JP=',4f10.7)
-   PRINT 76,(xcn(i,j-1,it),it=1,4),(ycn(i,j-1,it),it=1,4)
+   WRITE(msg,76) (xcn(i,j-1,it),it=1,4),(ycn(i,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 76 FORMAT(1x,'XCN(I  JM=',4f10.7/1x,'YCN(I  JM=',4f10.7)
-   PRINT 77,(xcn(i+1,j+1,it),it=1,4),(ycn(i+1,j+1,it),it=1,4)
+   WRITE(msg,77) (xcn(i+1,j+1,it),it=1,4),(ycn(i+1,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 77 FORMAT(1x,'XCN(IP JP=',4f10.7/1x,'YCN(IP JP=',4f10.7)
-   PRINT 78,(xcn(i-1,j-1,it),it=1,4),(ycn(i-1,j-1,it),it=1,4)
+   WRITE(msg,78) (xcn(i-1,j-1,it),it=1,4),(ycn(i-1,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 78 FORMAT(1x,'XCN(IM JM=',4f10.7/1x,'YCN(IM JM=',4f10.7)
-   PRINT 81,(xcn(i+1,j-1,it),it=1,4),(ycn(i+1,j-1,it),it=1,4)
+   WRITE(msg,81) (xcn(i+1,j-1,it),it=1,4),(ycn(i+1,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 81 FORMAT(1x,'XCN(IP JM=',4f10.7/1x,'YCN(IP JM=',4f10.7)
-   PRINT 82,(xcn(i-1,j+1,it),it=1,4),(ycn(i-1,j+1,it),it=1,4)
+   WRITE(msg,82) (xcn(i-1,j+1,it),it=1,4),(ycn(i-1,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 82 FORMAT(1x,'XCN(IM JP=',4f10.7/1x,'YCN(IM JP=',4f10.7)
  
    nct  = icn(i,j,1) + icn(i,j,2) + icn(i,j,3) + icn(i,j,4)
    icls = ixb(i,j,1) + ixb(i,j,2) + ixb(i,j,3) + ixb(i,j,4) + &
           iyb(i,j,1) + iyb(i,j,2) + iyb(i,j,3) + iyb(i,j,4)
  
-   PRINT 32,nct,icls,(icn(i,j,it),it=1,4),nfl(i,j)
+   WRITE(msg,32) nct,icls,(icn(i,j,it),it=1,4),nfl(i,j) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 32 FORMAT(1x,'NCT ICLS=',2i4/5x,'ICN=',4i4/5x,'NFL=',i4)
  
-   PRINT 49,i  ,j,(xfg(i  ,j,it),it=1,4),(yfg(i  ,j,it),it=1,4)
-   PRINT 50,i+1,j,(xfg(i+1,j,it),it=1,4),(yfg(i+1,j,it),it=1,4)
-   PRINT 51,i-1,j,(xfg(i-1,j,it),it=1,4),(yfg(i-1,j,it),it=1,4)
-   PRINT 52,i,j+1,(xfg(i,j+1,it),it=1,4),(yfg(i,j+1,it),it=1,4)
-   PRINT 53,i,j-1,(xfg(i,j-1,it),it=1,4),(yfg(i,j-1,it),it=1,4)
+   WRITE(msg,49) i  ,j,(xfg(i  ,j,it),it=1,4),(yfg(i  ,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,50) i+1,j,(xfg(i+1,j,it),it=1,4),(yfg(i+1,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,51) i-1,j,(xfg(i-1,j,it),it=1,4),(yfg(i-1,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,52) i,j+1,(xfg(i,j+1,it),it=1,4),(yfg(i,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,53) i,j-1,(xfg(i,j-1,it),it=1,4),(yfg(i,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 49 FORMAT(1x,'I  J  =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
 50 FORMAT(1x,'IP J  =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
 51 FORMAT(1x,'IM J  =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
 52 FORMAT(1x,'I  JP =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
 53 FORMAT(1x,'I  JM =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
 
-   PRINT 54,i+1,j+1,(xfg(i+1,j+1,it),it=1,4),(yfg(i+1,j+1,it),it=1,4)
-   PRINT 55,i+1,j-1,(xfg(i+1,j-1,it),it=1,4),(yfg(i+1,j-1,it),it=1,4)
-   PRINT 56,i-1,j+1,(xfg(i-1,j+1,it),it=1,4),(yfg(i-1,j+1,it),it=1,4)
-   PRINT 57,i-1,j-1,(xfg(i-1,j-1,it),it=1,4),(yfg(i-1,j-1,it),it=1,4)
+   WRITE(msg,54) i+1,j+1,(xfg(i+1,j+1,it),it=1,4),(yfg(i+1,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,55) i+1,j-1,(xfg(i+1,j-1,it),it=1,4),(yfg(i+1,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,56) i-1,j+1,(xfg(i-1,j+1,it),it=1,4),(yfg(i-1,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,57) i-1,j-1,(xfg(i-1,j-1,it),it=1,4),(yfg(i-1,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 54 FORMAT(1x,'IP JP =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
 55 FORMAT(1x,'IP JM =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
 56 FORMAT(1x,'IM JP =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
 57 FORMAT(1x,'IM JM =',2i4,' XFG=',4f10.7/16x,' YFG=',4f10.7)
  
-   PRINT 33,(ixb(i,j,it),it=1,4),(iyb(i,j,it),it=1,4)
-   PRINT 34,(ixb(i+1,j,it),it=1,4),(iyb(i+1,j,it),it=1,4)
-   PRINT 35,(ixb(i-1,j,it),it=1,4),(iyb(i-1,j,it),it=1,4)
-   PRINT 36,(ixb(i,j+1,it),it=1,4),(iyb(i,j+1,it),it=1,4)
-   PRINT 37,(ixb(i,j-1,it),it=1,4),(iyb(i,j-1,it),it=1,4)
+   WRITE(msg,33) (ixb(i,j,it),it=1,4),(iyb(i,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,34) (ixb(i+1,j,it),it=1,4),(iyb(i+1,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,35) (ixb(i-1,j,it),it=1,4),(iyb(i-1,j,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,36) (ixb(i,j+1,it),it=1,4),(iyb(i,j+1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+   WRITE(msg,37) (ixb(i,j-1,it),it=1,4),(iyb(i,j-1,it),it=1,4) 
+   call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 33 FORMAT(1x,'IXB(I  J )=',4i4/1x,'IYB(I  J )=',4i4)
 34 FORMAT(1x,'IXB(IP J )=',4i4/1x,'IYB(IP J )=',4i4)
 35 FORMAT(1x,'IXB(IM J )=',4i4/1x,'IYB(IM J )=',4i4)
@@ -5891,11 +6096,16 @@ SUBROUTINE fire_error_debug(i,j,iflt,time,in1,in2,tign_g,          &
 
 ! ---- EGP commented out printing the winds...
 !     ... print winds used to spread fire
-!  PRINT 180,i  ,j,(ug(i  ,j,it),it=1,4),(vg(i  ,j,it),it=1,4)
-!  PRINT 181,i+1,j,(ug(i+1,j,it),it=1,4),(vg(i+1,j,it),it=1,4)
-!  PRINT 182,i-1,j,(ug(i-1,j,it),it=1,4),(vg(i-1,j,it),it=1,4)
-!  PRINT 183,i,j+1,(ug(i,j+1,it),it=1,4),(vg(i,j+1,it),it=1,4)
-!  PRINT 184,i,j-1,(ug(i,j-1,it),it=1,4),(vg(i,j-1,it),it=1,4)
+!  WRITE(msg,180) i  ,j,(ug(i  ,j,it),it=1,4),(vg(i  ,j,it),it=1,4) 
+!  call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!  WRITE(msg,181) i+1,j,(ug(i+1,j,it),it=1,4),(vg(i+1,j,it),it=1,4) 
+!  call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!  WRITE(msg,182) i-1,j,(ug(i-1,j,it),it=1,4),(vg(i-1,j,it),it=1,4) 
+!  call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!  WRITE(msg,183) i,j+1,(ug(i,j+1,it),it=1,4),(vg(i,j+1,it),it=1,4) 
+!  call wrf_debug(_FR_DBG_LEVEL_ ,msg)
+!  WRITE(msg,184) i,j-1,(ug(i,j-1,it),it=1,4),(vg(i,j-1,it),it=1,4) 
+!  call wrf_debug(_FR_DBG_LEVEL_ ,msg)
 180 FORMAT(1x,'I  J  =',2i4,' UG=',4f9.3/16x,' VG=',4f9.3)
 181 FORMAT(1x,'IP J  =',2i4,' UG=',4f9.3/16x,' VG=',4f9.3)
 182 FORMAT(1x,'IM J  =',2i4,' UG=',4f9.3/16x,' VG=',4f9.3)
