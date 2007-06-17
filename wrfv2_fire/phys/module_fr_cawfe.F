@@ -2944,7 +2944,7 @@ SUBROUTINE fire_ln(dt,time,sprdx,sprdy,              & ! in
    REAL :: x3,y3
    REAL :: det,aa,bb,x_0,y_0,rad,vtsgn
 
-   CHARACTER(LEN=80) :: msg
+   CHARACTER(LEN=256) :: msg
 
 ! ----- when deriving fireline coordinates we always keep the fire to our left
 
@@ -5884,7 +5884,7 @@ SUBROUTINE fire_error_debug(i,j,iflt,time,in1,in2,tign_g,          &
  
    WRITE (iflg,'(I5.5)') iflt
    WRITE (msg,*) 'fire_error_debug: FATAL '//iflg
-   CALL wrf_error_fatal ( msg )
+!   CALL wrf_error_fatal ( msg )
   
    RETURN
 

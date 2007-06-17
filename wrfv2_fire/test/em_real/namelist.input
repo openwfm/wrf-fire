@@ -17,10 +17,10 @@
  end_second                          = 00,   00,   00,
  interval_seconds                    = 21600
  input_from_file                     = .true.,.false.,.false.,
- history_interval                    = 180,  60,   60,
+ history_interval                    = 3,  60,   60,
  frames_per_outfile                  = 1000, 1000, 1000,
  restart                             = .false.,
- restart_interval                    = 5000,
+ restart_interval                    = 3,
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
@@ -49,53 +49,101 @@
  parent_grid_ratio                   = 1,     3,     3,
  parent_time_step_ratio              = 1,     3,     3,
  feedback                            = 1,
- smooth_option                       = 0
+ smooth_option                       = 0,
+ sr_x = 10,
+ sr_y = 10,
  /
 
+! &physics
+! mp_physics                          = 3,     3,     3,
+! ra_lw_physics                       = 1,     1,     1,
+! ra_sw_physics                       = 1,     1,     1,
+! radt                                = 30,    30,    30,
+! sf_sfclay_physics                   = 1,     1,     1,
+! sf_surface_physics                  = 1,     1,     1,
+! bl_pbl_physics                      = 1,     1,     1,
+! bldt                                = 0,     0,     0,
+! cu_physics                          = 1,     1,     0,
+! cudt                                = 5,     5,     5,
+! isfflx                              = 1,
+! ifsnow                              = 0,
+! icloud                              = 1,
+! surface_input_source                = 1,
+! num_soil_layers                     = 5,
+! ucmcall                             = 0,
+! mp_zero_out                         = 0,
+! maxiens                             = 1,
+! maxens                              = 3,
+! maxens2                             = 3,
+! maxens3                             = 16,
+! ensdim                              = 144,
+! /
+
  &physics
- mp_physics                          = 3,     3,     3,
- ra_lw_physics                       = 1,     1,     1,
- ra_sw_physics                       = 1,     1,     1,
+ mp_physics                          = 0,     0,     0,
+ ra_lw_physics                       = 0,     0,     0,
+ ra_sw_physics                       = 0,     0,     0,
  radt                                = 30,    30,    30,
- sf_sfclay_physics                   = 1,     1,     1,
- sf_surface_physics                  = 1,     1,     1,
- bl_pbl_physics                      = 1,     1,     1,
+ sf_sfclay_physics                   = 0,     0,     0,
+ sf_surface_physics                  = 0,     0,     0,
+ bl_pbl_physics                      = 0,     0,     0,
  bldt                                = 0,     0,     0,
- cu_physics                          = 1,     1,     0,
- cudt                                = 5,     5,     5,
+ cu_physics                          = 0,     0,     0,
+ cudt                                = 0,     0,     0,
  isfflx                              = 1,
  ifsnow                              = 0,
- icloud                              = 1,
- surface_input_source                = 1,
+ icloud                              = 0,
  num_soil_layers                     = 5,
- ucmcall                             = 0,
  mp_zero_out                         = 0,
- maxiens                             = 1,
- maxens                              = 3,
- maxens2                             = 3,
- maxens3                             = 16,
- ensdim                              = 144,
  /
+
 
  &fdda
  /
 
+! &dynamics
+! w_damping                           = 0,
+! diff_opt                            = 1,
+! km_opt                              = 4,
+! diff_6th_opt                        = 0,
+! diff_6th_factor                     = 0.12,
+! base_temp                           = 290.
+! damp_opt                            = 0,
+! zdamp                               = 5000.,  5000.,  5000.,
+! dampcoef                            = 0.01,   0.01,   0.01
+! khdif                               = 0,      0,      0,
+! kvdif                               = 0,      0,      0,
+! non_hydrostatic                     = .true., .true., .true.,
+! pd_moist                            = .false., .false., .false.,
+! pd_scalar                           = .false., .false., .false.,
+! /
+
  &dynamics
- w_damping                           = 0,
- diff_opt                            = 1,
- km_opt                              = 4,
- diff_6th_opt                        = 0,
- diff_6th_factor                     = 0.12,
- base_temp                           = 290.
+ dyn_opt                             = 2,
+ rk_ord                              = 3,
+ diff_opt                            = 2,
+ km_opt                              = 2,
  damp_opt                            = 0,
  zdamp                               = 5000.,  5000.,  5000.,
- dampcoef                            = 0.01,   0.01,   0.01
- khdif                               = 0,      0,      0,
- kvdif                               = 0,      0,      0,
+ dampcoef                            = 0.2,    0.2,    0.2
+ khdif                               = 0.05,   0.05,   0.05,
+ kvdif                               = 0.05,   0.05,   0.05,
+ smdiv                               = 0.1,    0.1,    0.1,
+ emdiv                               = 0.01,   0.01,   0.01,
+ epssm                               = 0.1,    0.1,    0.1
+ mix_full_fields                     = .true., .true., .true.,
  non_hydrostatic                     = .true., .true., .true.,
+ time_step_sound                     = 20,     20,     20,
+ h_mom_adv_order                     = 5,      5,      5,
+ v_mom_adv_order                     = 3,      3,      3,
+ h_sca_adv_order                     = 5,      5,      5,
+ v_sca_adv_order                     = 3,      3,      3,
  pd_moist                            = .false., .false., .false.,
  pd_scalar                           = .false., .false., .false.,
+ pd_chem                             = .false., .false., .false.,
+ pd_tke                              = .false., .false., .false., 
  /
+
 
  &bdy_control
  spec_bdy_width                      = 5,
@@ -112,3 +160,20 @@
  nio_tasks_per_group = 0,
  nio_groups = 1,
  /
+
+ &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
+ ifire              = 1,        ! integer, = 0: no fire, = 1: cc_fire
+!fire_lat_init      =   40.,    ! real   , initial fire latitude (deg)
+!fire_lon_init      = -105.,    ! real   , initial fire longitude (deg)
+ fire_lat_init      = 6.75e-3,  ! real   , initial fire latitude (deg)
+ fire_lon_init      = 6.75e-3,  ! real   , initial fire longitude (deg)
+ fire_ign_time      = 2.0,      ! real   , time of fire ignition (s)
+ fire_shape         = 0,        ! integer, initial fire shape
+ fire_sprd_mdl      = 1,        ! integer, = 0: Macarthur, = 1: BEHAVE
+ fire_crwn_hgt      = 15.,      ! real   , height of canopy crown (m)
+ fire_ext_grnd      = 50.,      ! real   , extinction coeff ground fire
+ fire_ext_crwn      = 50.,      ! real   , extinction coeff crown fire
+ fire_fuel_read     = 1,        ! integer, = 1: fuels specified; = 2: read from file
+ fire_fuel_cat      = 8,        ! integer, if specified which fuel category?
+ /
+ 
