@@ -4069,9 +4069,17 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
        !     note that ib, jb are atmospheric grid coords. (where 
        !     zs is defined), not fuel cell grid coords.
 
-             t1 = dist / SQRT( dlx**2 + dly**2 )                      
-             x = xcd(i,j,it) - (xcn(i,j,it)-xcd(i,j,it))*t1
-             y = ycd(i,j,it) - (ycn(i,j,it)-ycd(i,j,it))*t1
+       !jbeezley : added to fix the case with dlx==dly==0 :
+       !           perhaps the physics is wrong?
+             IF(dlx.ne.0.or.dly.ne.0) THEN
+               t1 = dist / SQRT( dlx**2 + dly**2 )                      
+               x = xcd(i,j,it) - (xcn(i,j,it)-xcd(i,j,it))*t1
+               y = ycd(i,j,it) - (ycn(i,j,it)-ycd(i,j,it))*t1
+             ELSE
+               x = 0
+               y = 0
+             ENDIF
+
              tib = 1. + (FLOAT(i)-1.5+x)*tirx
              tjb = 1. + (FLOAT(j)-1.5+y)*tiry
              ib = INT(tib)
@@ -4119,9 +4127,14 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
        ! --- find elevation at twice the specified distance behind 
        !     the fire line in the direction of the normal vector
 
-             t1 = (2.*dist) / SQRT(dlx**2 + dly**2)
-             x = xcd(i,j,it) - (xcn(i,j,it)-xcd(i,j,it))*t1
-             y = ycd(i,j,it) - (ycn(i,j,it)-ycd(i,j,it))*t1
+             IF(dlx.ne.0.or.dly.ne.0) THEN
+               t1 = dist / SQRT( dlx**2 + dly**2 )
+               x = xcd(i,j,it) - (xcn(i,j,it)-xcd(i,j,it))*t1
+               y = ycd(i,j,it) - (ycn(i,j,it)-ycd(i,j,it))*t1
+             ELSE
+               x = 0
+               y = 0
+             ENDIF
 
              tib = 1.5 + (FLOAT(i)-1.5+x)*tirx
              tjb = 1.5 + (FLOAT(j)-1.5+y)*tiry
@@ -4145,9 +4158,17 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
              dlx = dlx + SIGN(ep,dlx)
              dly = dly + SIGN(ep,dly)
              dl = SQRT(dlx**2 + dly**2)
-             t1 = 1./dl
 
-             speed = t1*(uu*dlx + vv*dly)
+             IF(dlx.ne.0.or.dly.ne.0) THEN
+
+               t1 = 1./dl
+               speed = t1*(uu*dlx + vv*dly)
+
+             ELSE
+               
+               speed = 0
+
+             ENDIF
 
 !            fuelloadm = (1.-bmst) * fgi(nfuel_cat(i,j)) ! fueload w/out moisture
 
