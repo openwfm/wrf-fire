@@ -61,11 +61,6 @@ EXAMPLE:
 LIMITATION:
   ncdump will not output any variables with metadata indicated that it is > 3 diminnsional.
 
-TODO:
-  The storage order is not correct in the current form, so a resize(...) in matlab is currently
-  necessary.  Also, all of the variables that WRF outputs have leading diminsion size 1, a
-  simple check could detect this and ignore the first diminsion.
-
 3. NCARG and NCL
 
 I have had limited luck using these for several reasons, mostly because NCL 
@@ -73,6 +68,13 @@ is closed source and the scripts are poorly written (pgf77 hard coded, etc.)
 I'll update here if I figure out some repeatable instructions, until then
 GOOD LUCK.
 
-4.  OTHERS
+4.  MEXCDF
+
+Matlab scripts for visualization and importation of netCDF data.  These
+scripts seem to be very useful, but they don't work with Matlab versions >6.
+Perhaps there is a simple fix somewhere, but I haven't been able to get it to
+work.
+
+5.  OTHERS
 
 ??
