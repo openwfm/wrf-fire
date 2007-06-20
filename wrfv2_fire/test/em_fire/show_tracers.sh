@@ -18,8 +18,8 @@ git_head=$(git-rev-parse --git-dir)/..
 matlab_head=${git_head}/other/Matlab
 cd ${matlab_head}/plot_tracer
 ln -sf ${start_dir}/wrfrst* .
-nohup matlab < go.m &> ${start_dir}/matlab.log 
-for i in $(ls vars*) ; do
+matlab < go.m &> ${start_dir}/matlab.log 
+for i in $(ls -d vars*) ; do
   if [ -d $i ] ; then
     mv $i $start_dir
   fi
