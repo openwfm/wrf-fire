@@ -6949,7 +6949,7 @@ RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
 FCDEBUG         =       # -g
 FCBASEOPTS      =       -w -FR -cm -I. -Vaxlib -convert big_endian -mp
-FCOPTIM		=	-O3
+FCOPTIM		=	-O3 -no-ipo
 FCFLAGS		=	$(FCOPTIM) $(FCBASEOPTS) $(OMP)
 CFLAGS		=       -w
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)

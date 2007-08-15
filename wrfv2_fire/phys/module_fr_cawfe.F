@@ -5906,6 +5906,9 @@ SUBROUTINE fire_error_debug(i,j,iflt,time,in1,in2,tign_g,          &
 ! ------- this routine writes debug to stdout and to ncar graphics
 
     USE module_wrf_error
+#ifndef DM_PARALLEL
+    USE module_fire_debug
+#endif
 
     IMPLICIT NONE
 
@@ -6065,10 +6068,14 @@ SUBROUTINE fire_error_debug(i,j,iflt,time,in1,in2,tign_g,          &
 182 FORMAT(1x,'IM J  =',2i4,' UG=',4f9.3/16x,' VG=',4f9.3)
 183 FORMAT(1x,'I  JP =',2i4,' UG=',4f9.3/16x,' VG=',4f9.3)
 184 FORMAT(1x,'I  JM =',2i4,' UG=',4f9.3/16x,' VG=',4f9.3)
+
+   CALL fire_debug_write
  
    WRITE (iflg,'(I5.5)') iflt
    WRITE (msg,*) 'fire_error_debug: FATAL '//iflg
+#ifndef DM_PARALLEL
    CALL wrf_error_fatal ( msg )
+#endif
   
    RETURN
 

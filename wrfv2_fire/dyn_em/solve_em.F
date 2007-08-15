@@ -40,6 +40,9 @@ SUBROUTINE solve_em ( grid , config_flags  &
    USE module_input_chem_data
    USE module_chem_utilities
 #endif
+#ifndef DM_PARALLEL
+   USE module_fire_debug
+#endif
 
    IMPLICIT NONE
 
@@ -750,6 +753,10 @@ BENCH_START(fire_driver_tim)
          CALL nl_get_dy(1,moad_dy)
          CALL nl_get_cen_lat(1,moad_cen_lat)
          CALL nl_get_cen_lon(1,moad_cen_lon)
+
+#ifndef DM_PARALLEL
+         CALL set_fire_debug_vars(grid,config_flags)
+#endif
 
          CALL fire_driver(config_flags%ifire                        & ! send
             ,u_phy,v_phy,grid%u_frame,grid%v_frame,grid%em_mut,rho  &

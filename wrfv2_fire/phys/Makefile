@@ -57,7 +57,8 @@ MODULES = \
         module_fddaobs_rtfdda.o \
 	module_fddaobs_driver.o \
 	module_fire_driver.o \
-	module_fr_cawfe.o
+	module_fr_cawfe.o \
+	module_fire_debug_output.o
   
 OBJS    =
 
@@ -254,6 +255,12 @@ module_fire_driver.o: \
 
 module_fr_cawfe.o: \
 		../share/module_model_constants.o  \
-		../frame/module_wrf_error.o
+		../frame/module_wrf_error.o \
+	        module_fire_debug_output.o
+
+module_fire_debug_output.o: \
+	        ../frame/module_domain.o \
+	        ../frame/module_configure.o \
+	        ../share/mediation_integrate.o
 
 # DO NOT DELETE
