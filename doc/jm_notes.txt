@@ -77,4 +77,7 @@ fire_emissions has unclear function and is never called.
 
 At some point in near future we'll have to decide where to draw the line to
 isolate the fire model (=specify what the interface is) so that we can play
-with a replacement.
+with a replacement. In particular we'll have to decide if to keep the
+atmospheric grid in the fire model interface and in which form. At the moment
+the atm grid is too tightly interwoven in the fire model and I cannot take it
+out without probably changing model behavior by different rounding.
