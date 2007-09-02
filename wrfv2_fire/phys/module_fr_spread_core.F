@@ -4,14 +4,16 @@ module module_fr_spread_core
 !
 contains
 
-subroutine fire_spread_core( m1,m2,n1,n2,                &
-time_start,time_end,fire_dx,fire_dy,fuel_time,           & 
-vx,vy,r,                                                 &
+subroutine fire_spread_core( ids,ide,jds,jde,ims,ime,jms,jme,&
+time_start,time_end,fire_dx,fire_dy,fuel_time,               & 
+vx,vy,r,                                                     &
 phi,tign,frac_lost,frac_end) 
 
 !*** purpose
 !
 ! Dynamical core of the fire spread model, insulated from the physics. 
+! References the fire grid ONLY. Keep separated from the coupling
+! with atm. model and data input.
 !
 
 use module_fr_fuelused
@@ -21,16 +23,17 @@ implicit none
 
 !*** arguments
 
-integer, intent(in) :: m1,m2,n1,n2
-real(kind=8), intent(inout), dimension(m1:m2,n1:n2)::phi,tign ! state
-real(kind=8), intent(in), dimension(m1:m2,n1:n2)::vx,vy,r  
-real(kind=8), intent(in), dimension(m1:m2-1,n1:n2-1)::fuel_time
-real(kind=8), intent(out), dimension(m1:m2-1,n1:n2-1)::frac_lost,frac_end
+integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
+real(kind=8), intent(inout), dimension(ims:ime,jms:jme)::phi,tign ! state
+real(kind=8), intent(in), dimension(ims:ime,jms:jme)::vx,vy,r  
+real(kind=8), intent(in), dimension(ims:ime-1,jms:jme-1)::fuel_time
+real(kind=8), intent(out), dimension(ims:ime-1,jms:jme-1)::frac_lost,frac_end
 real(kind=8), intent(in):: time_start,time_end,fire_dx,fire_dy
 
 ! argument          intent  description                     (unit)  lives at
 !
-! m1,m2,n1,n2       in   mesh dimensions                     (1)
+! ids,ide,jds,jde   in   mesh domain dimensions              (1)
+! ims,ime,jms,jme   in   mesh aray dimensions                (1)
 ! time_start        in   the starting time                   (s)
 ! time_end          in   the ending time                     (s)
 ! fire_dx,fire_dy   in   fire mesh spacings                  (m)
@@ -88,33 +91,42 @@ real(kind=8), intent(in):: time_start,time_end,fire_dx,fire_dy
 !      and sum up the the fluxes over atmopheric grid cells
 !
 !*** local
-real(kind=8), dimension(m1:m2-1,n1:n2-1)::frac_start
-real(kind=8), dimension(m1:m2,n1:n2)::phi_start
+real(kind=8), dimension(ims:ime-1,jms:jme-1)::frac_start
+real(kind=8), dimension(ims:ime,jms:jme)::phi_start
 real(kind=8)::dummy
 integer::i,j
+real(kind=8), dimension(ids:ide,jds:jde)::phi_d,vx_d,vy_d,r_d
+
 
 !*** executable
 
 ! compute the fuel fraction at time_start
-call fuel_left(m1,m2,n1,n2,phi,tign,fuel_time,time_start,frac_start)
+call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
+    phi,tign,fuel_time,time_start,frac_start)
 
 ! save the level function for interpolation between the old and the new one later
-do j=n1,n2
-    do i=m1,m2
+do i=ids,ide
+    do j=jds,jde
         phi_start(i,j)=phi(i,j)
     enddo
 enddo 
 
 ! advance the level function from time_start to time_end
-call prop_ls(m1,m2,n1,n2,phi,dummy,time_start,time_end,vx,vy,r,fire_dx,fire_dy)
+! prop_ls will be replaced anyway, do not bother adding overlaps
+phi_d=phi(ids:ide,jds:jde)
+vx_d=vx(ids:ide,jds:jde)
+vy_d=vy(ids:ide,jds:jde)
+r_d=r(ids:ide,jds:jde)
+call prop_ls(ids,ide,jds,jde,phi_d,dummy,time_start,time_end,vx_d,vy_d,r_d,fire_dx,fire_dy)
+phi(ids:ide,jds:jde)=phi_d
 
 ! set ignition time at the nodes the fireline moved over
-do j=n1,n2
-    do i=m1,m2
+do j=jds,jde
+    do i=ids,ide
         if(phi_start(i,j)>0 .and. .not. phi(i,j)>0)then
             ! node was not burning at start but it is burning at end
             ! interpolate from the level functions at start and at end
-	    ! phi_start(i,j) is the level function value at time_start
+        ! phi_start(i,j) is the level function value at time_start
             ! phi(i,j)       is the level function value at time_end
             ! 0              is the level function value at tign(i,j)
             tign(i,j)=time_start + (time_end-time_start) &
@@ -124,11 +136,12 @@ do j=n1,n2
 enddo 
 
 ! compute the fuel fraction at time_end 
-call fuel_left(m1,m2,n1,n2,phi,tign,fuel_time,time_end,frac_end)
+call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
+    phi,tign,fuel_time,time_end,frac_end)
 
 ! compute the fuel fraction lost
-do j=n1,n2-1
-    do i=m1,m2-1
+do j=jds,jde-1
+    do i=ids,ide-1
         frac_lost(i,j)=frac_end(i,j)-frac_start(i,j)
     enddo
 enddo

@@ -5,7 +5,7 @@ public:: fuel_left
 
 contains
 
-subroutine fuel_left(m1,m2,n1,n2,phi,tign,w,tnow,fuel_frac)
+subroutine fuel_left(ids,ide,jds,jde,ims,ime,jms,jme,phi,tign,w,tnow,fuel_frac)
 implicit none
 
 !*** purpose: determine fraction of fuel remaining
@@ -14,13 +14,14 @@ implicit none
 
 !*** arguments
 
-integer, intent(in) :: m1,m2,n1,n2
-real(kind=8), intent(in), dimension(m1:m2,n1:n2)::phi,tign
-real(kind=8), intent(in), dimension(m1:m2-1,n1:n2-1)::w
+integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
+real(kind=8), intent(in), dimension(ims:ime,jms:jme)::phi,tign
+real(kind=8), intent(in), dimension(ims:ime-1,jms:jme-1)::w
 real(kind=8), intent(in):: tnow
-real(kind=8), intent(out), dimension(m1:m2-1,n1:n2-1)::fuel_frac
+real(kind=8), intent(out), dimension(ims:ime-1,jms:jme-1)::fuel_frac
 
-! m1,m2,n1,n2       in   mesh dimensions
+! ids,ide,jds,jde   in   mesh domain dimensions              (1)
+! ims,ime,jms,jme   in   mesh aray dimensions                (1)
 ! phi               in   level function, at nodes
 ! tign              in   ignition time, at nodes
 ! w                 in   time constant of fuel, per cell
@@ -84,14 +85,14 @@ real(kind=8), intent(out), dimension(m1:m2-1,n1:n2-1)::fuel_frac
 !*** local
 
 integer::i,j
-real(kind=8),dimension(m1:m2,n1:n2)::t,ap
+real(kind=8),dimension(ims:ime,jms:jme)::t,ap
 real(kind=8):: ta,pf,aps,ps,a
 
 ! a very crude approximation - replace by a better code
 ! just an idea - not debugged yet
 
-do j=n1,n2     ! note the order of indices for fast  execution
-    do i=m1,m2  
+do j=jds,jde     ! note the order of indices for fast  execution
+    do i=ids,ide  
         if (phi(i,j)>0) then
             t(i,j)=1.0  ! add missing values - should be > tnow what the hell
         else
@@ -101,8 +102,8 @@ do j=n1,n2     ! note the order of indices for fast  execution
     enddo
 enddo
 
-do j=n1,n2-1
-    do i=m1,m2-1 ! it is OK to introduce extra scalars, just as fast
+do j=jds,jde-1
+    do i=ids,ide-1 ! it is OK to introduce extra scalars, just as fast
     
         ! average unscaled fuel fraction since ignition
         ta=0.25d0*(t(i+1,j+1)+t(i+1,j)+t(i,j+1)+t(i,j))  

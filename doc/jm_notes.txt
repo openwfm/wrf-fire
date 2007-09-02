@@ -28,7 +28,7 @@ removed from cawfe argument list
  
 
 
-subroutine fire_winds: physics atm grid -> fire grid
+subroutine fire_winds: physics atm grid midpoints -> atm grid corners
 
 subroutine fire_topography atm grid topo -> fire grid
 subroutine fire_startup: separated into operations on fire only

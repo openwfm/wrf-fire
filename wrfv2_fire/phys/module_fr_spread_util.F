@@ -2,13 +2,14 @@ module module_fr_spread_util
 
 contains
 
-! from module_fr_cawfe
+
 SUBROUTINE fire_winds(u,v,                       &  ! incoming
                      ids,ide, kds,kde, jds,jde, &
                      ims,ime, kms,kme, jms,jme, &
                      its,ite, kts,kte, jts,jte, &
                      u_i,v_i)                      ! outgoing
 
+! from module_fr_cawfe by Ned Patton
 ! --- this routine takes u and v from the arakawa c-grid and interpolates
 !     them horizontally and upward to the w-level (i.e. to the grid cube corners)
 !     as desired by the fire code.  note that the final values are two 
@@ -62,6 +63,4 @@ SUBROUTINE fire_winds(u,v,                       &  ! incoming
 
 END SUBROUTINE fire_winds
 
-end 
-
-module module_fr_spread_util
+end module module_fr_spread_util
