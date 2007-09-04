@@ -267,10 +267,18 @@ module_fr_cawfe.o: \
 module_fr_spread_model.o: \
 		../share/module_model_constants.o  \
 		../frame/module_wrf_error.o \
+		module_fr_wrfstubs.o \
 	        module_fr_spread_core.o \
 	        module_fr_spread_util.o 
 
+module_fr_spread_util.o: \
+		module_fr_wrfstubs.o \
+
+module_fr_wrfstubs.o: \
+		../frame/module_wrf_error.o \
+
 module_fr_spread_core.o: \
+		module_fr_wrfstubs.o \
 	        module_fr_fuelused.o \
 	        module_fr_propagate.o 
 
