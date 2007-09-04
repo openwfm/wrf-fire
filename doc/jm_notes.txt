@@ -3,14 +3,14 @@
 atm grid variables
 [in the order declared in subroutine cawfe]
 ! in
-! 3D, DIMENSION( ims:ime,kms:kme,jms:jme ) 
+! 3D, DIMENSION( ims:ime,kms:kme,jms:jme )
 !  u,v            incoming atmos. winds (m/s at arakawa-c grid locations)
 !  z              height above sea level of mass points (m)
 !  z_at_w         height above sea level of w points (m)
-!  rho            incoming atmos. density (kg/m^3 at arakawa-c grid mass points) 
+!  rho            incoming atmos. density (kg/m^3 at arakawa-c grid mass points)
 !  dz8w           delta z between w points (m)
 ! 2D, DIMENSION( ims:ime, jms:jme )
-!  mu		  topography (m abv sealvl)
+!  mu         topography (m abv sealvl)
 !  zs             height of surface above sea level (m)
 ! out
 ! 3D
@@ -25,7 +25,7 @@ atm grid variables
 grndhx,grndqx,canhx,canqx are temporaries only
 not passing them to the driver makes no difference
 removed from cawfe argument list
- 
+
 
 
 subroutine fire_winds: physics atm grid midpoints -> atm grid corners
@@ -48,14 +48,14 @@ found use of atm grid in fire_init fire_tr
 I have removed unnecesary atmospheric grid related arguments from all fire
 routines. I have put back grnhfx,grnqfx,canhfx,canqfx on the argument list of
 cawfee so that they are now passed to wrf, but wrf does not use them for
-anything (I tested that). 
+anything (I tested that).
 
 Nothing I did so far should have resulted in any change to the code behavior,
 the output from wrf.exe is still exactly the same.
 
 The following subroutines still use the atm grid:
 
-fire_winds despite the name does NOT interpolate to fire grid. 
+fire_winds despite the name does NOT interpolate to fire grid.
 Instead it interpolates only from midpoints of mesh cells to corners on atmospheric grid.
 
 fire_topography (a part of fire_startup I split off) interpolates terrain
@@ -63,9 +63,9 @@ height to arrays zf and zsf (fire grid). This is used only in one place, in
 fire_tr to get "integer height of fuel". It is NOT used to determine the
 terrain gradient.
 
-fire_tr interpolates wind from corners of atmospheric grid only at the few points 
+fire_tr interpolates wind from corners of atmospheric grid only at the few points
 it needs. It also uses wind at several grid heights and interpolates
-gradient topography from atmospheric grid (array zs). The wind is never 
+gradient topography from atmospheric grid (array zs). The wind is never
 interpolated to  the whole fire grid. This is good for efficiency.
 But the double interpolation (from midpoints to corners, then to selected points in fire_tr) can only decrease accuracy.
 
@@ -81,3 +81,5 @@ with a replacement. In particular we'll have to decide if to keep the
 atmospheric grid in the fire model interface and in which form. At the moment
 the atm grid is too tightly interwoven in the fire model and I cannot take it
 out without probably changing model behavior by different rounding.
+
+9/4/07

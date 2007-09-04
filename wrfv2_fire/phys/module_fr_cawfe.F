@@ -448,19 +448,6 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 !     interpolated to the needed locations behind the fire line in
 !     sr. fire_tr.
 
-write(*,7001) &
-                 ids,ide, kds,kde, jds,jde,                    & ! incoming
-                 ims,ime, kms,kme, jms,jme,                    &
-                 its,ite, kts,kte, jts,jte,                    &
-                 ifds,ifde, kfds,kfde, jfds,jfde,              &
-                 ifms,ifme, kfms,kfme, jfms,jfme
-7001 format('FR: mesh bounds on input to cawfe:' &
-		/'ids ',6i8 &
-		/'ims ',6i8 &
-		/'its ',6i8 &
-		/'idfs',6i8 &
-		/'imfs',6i8)
-
    CALL fire_winds(u,v,                       &  ! in
                    ids,ide, kds,kde, jds,jde, &
                    ims,ime, kms,kme, jms,jme, &
@@ -484,6 +471,24 @@ write(*,7001) &
    jf_st = MAX( (jts-1)*nfry+1, jds*nfry+1   ) 
    jf_en = MIN( (jte)*nfry    , (jde-1)*nfry )
 
+write(*,7001) &
+                 ids,ide, kds,kde, jds,jde,                    & ! incoming
+                 ims,ime, kms,kme, jms,jme,                    &
+                 its,ite, kts,kte, jts,jte,                    &
+                 ifds,ifde, kfds,kfde, jfds,jfde,              &
+                 ifms,ifme, kfms,kfme, jfms,jfme,              &
+                 if_st,if_en,jf_st,jf_en                       
+7001 format('FR: mesh bounds on input to cawfe:' &
+        /'ids ',6i8 &
+        /'ims ',6i8 &
+        /'its ',6i8 &
+        /'idfs',6i8 &
+        /'imfs',6i8 &
+                /'ifst',6i8)
+write(*,*)'atm/fire refinement ratio nfrx,nfry=',nfrx,nfry
+write(*,*)'used size of fire arrays',if_st,if_en,jf_st,jf_en
+write(*,*)'decl size of fire arrays',ifms,ifme,jfms,jfme
+
 ! ----- begin initialization for all runs, including restart
  
    IF (igwiz == 0) THEN         ! igwiz loop
@@ -497,11 +502,8 @@ write(*,7001) &
       CALL wrf_debug ( _FR_DBG_LEVEL_, msg )
 
 ! ----- fuel moisture parameters
-
-      DO nf = 1,nfuelcats
-         fci(nf) = (1.+fuelmc_c)*fci_d(nf)
-         fcbr(nf) = fci_d(nf)/fct(nf)
-      END DO
+      call init_fuel_cats
+      
 
 ! ----- initialize fire-related constants, and fuel category data
 

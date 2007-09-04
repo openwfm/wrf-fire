@@ -82,5 +82,16 @@ MODULE module_fr_cawfe_fuel
 CONTAINS
    SUBROUTINE init_module_fire_fuel
    END SUBROUTINE init_module_fire_fuel
-END MODULE module_fr_cawfe_fuel
+   
+   ! ----- fuel moisture parameters
+      subroutine init_fuel_cats
+      integer nf      
 
+      DO nf = 1,nfuelcats
+         fci(nf) = (1.+fuelmc_c)*fci_d(nf)
+         fcbr(nf) = fci_d(nf)/fct(nf)
+      END DO
+      
+      end subroutine init_fuel_cats
+
+END MODULE module_fr_cawfe_fuel
