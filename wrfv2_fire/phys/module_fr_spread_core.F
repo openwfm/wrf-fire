@@ -24,11 +24,11 @@ implicit none
 !*** arguments
 
 integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
-real(kind=8), intent(inout), dimension(ims:ime,jms:jme)::phi,tign ! state
-real(kind=8), intent(in), dimension(ims:ime,jms:jme)::vx,vy,r  
-real(kind=8), intent(in), dimension(ims:ime-1,jms:jme-1)::fuel_time
-real(kind=8), intent(out), dimension(ims:ime-1,jms:jme-1)::frac_lost,frac_end
-real(kind=8), intent(in):: time_start,time_end,fire_dx,fire_dy
+real, intent(inout), dimension(ims:ime,jms:jme)::phi,tign ! state
+real, intent(in), dimension(ims:ime,jms:jme)::vx,vy,r  
+real, intent(in), dimension(ims:ime-1,jms:jme-1)::fuel_time
+real, intent(out), dimension(ims:ime-1,jms:jme-1)::frac_lost,frac_end
+real, intent(in):: time_start,time_end,fire_dx,fire_dy
 
 ! argument          intent  description                     (unit)  lives at
 !
@@ -91,11 +91,11 @@ real(kind=8), intent(in):: time_start,time_end,fire_dx,fire_dy
 !      and sum up the the fluxes over atmopheric grid cells
 !
 !*** local
-real(kind=8), dimension(ims:ime-1,jms:jme-1)::frac_start
-real(kind=8), dimension(ims:ime,jms:jme)::phi_start
-real(kind=8)::dummy
+real, dimension(ims:ime-1,jms:jme-1)::frac_start
+real, dimension(ims:ime,jms:jme)::phi_start
+real::dummy
 integer::i,j
-real(kind=8), dimension(ids:ide,jds:jde)::phi_d,vx_d,vy_d,r_d
+real, dimension(ids:ide,jds:jde)::phi_d,vx_d,vy_d,r_d
 
 
 !*** executable

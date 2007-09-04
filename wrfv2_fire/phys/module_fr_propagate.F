@@ -69,14 +69,14 @@ subroutine prop_ls(m1,m,n1,n,phi,t,ts,te,vx,vy,r,dx,dy)
   ! dx,dy   grid spacing
   
   integer,intent(in)::m1,m,n1,n
-  real(kind=8),dimension(m1:m,n1:n),intent(inout)::phi
-  real(kind=8),intent(out)::t
-  real(kind=8),dimension(m1:m,n1:n),intent(in)::vx,vy,r
-  real(kind=8),intent(in)::dx,dy,ts,te
+  real,dimension(m1:m,n1:n),intent(inout)::phi
+  real,intent(out)::t
+  real,dimension(m1:m,n1:n),intent(in)::vx,vy,r
+  real,intent(in)::dx,dy,ts,te
 
   !*** local arrays, same dimension as phi
   
-  real(kind=8),dimension(m1:m,n1:n)::tend,grad, &
+  real,dimension(m1:m,n1:n)::tend,grad, &
     diff2x,diff2y, &
     diffLx,diffLy,diffRx,diffRy, &
     flowLx,flowRx,flowLy,flowRy, &
@@ -87,7 +87,7 @@ subroutine prop_ls(m1,m,n1,n,phi,t,ts,te,vx,vy,r,dx,dy)
   !*** local variables
   
   integer::istep,mstep
-  real(kind=8)::dt,tol,tbound,tbound_n,tbound_a,zero,one
+  real::dt,tol,tbound,tbound_n,tbound_a,zero,one
   parameter(zero=0.0,one=1.0)
   
   ! f90 intrinsic function

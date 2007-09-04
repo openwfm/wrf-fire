@@ -15,10 +15,10 @@ implicit none
 !*** arguments
 
 integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
-real(kind=8), intent(in), dimension(ims:ime,jms:jme)::phi,tign
-real(kind=8), intent(in), dimension(ims:ime-1,jms:jme-1)::w
-real(kind=8), intent(in):: tnow
-real(kind=8), intent(out), dimension(ims:ime-1,jms:jme-1)::fuel_frac
+real, intent(in), dimension(ims:ime,jms:jme)::phi,tign
+real, intent(in), dimension(ims:ime-1,jms:jme-1)::w
+real, intent(in):: tnow
+real, intent(out), dimension(ims:ime-1,jms:jme-1)::fuel_frac
 
 ! ids,ide,jds,jde   in   mesh domain dimensions              (1)
 ! ims,ime,jms,jme   in   mesh aray dimensions                (1)
@@ -85,8 +85,8 @@ real(kind=8), intent(out), dimension(ims:ime-1,jms:jme-1)::fuel_frac
 !*** local
 
 integer::i,j
-real(kind=8),dimension(ims:ime,jms:jme)::t,ap
-real(kind=8):: ta,pf,aps,ps,a
+real,dimension(ims:ime,jms:jme)::t,ap
+real:: ta,pf,aps,ps,a
 
 ! a very crude approximation - replace by a better code
 ! just an idea - not debugged yet

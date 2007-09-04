@@ -16,7 +16,8 @@ implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
 msg=s
-call wrf_debug(0,msg)
+print *,msg
+!call wrf_debug(1,msg)
 end subroutine warning
 
 
