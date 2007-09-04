@@ -43,12 +43,12 @@ jsz2 = jde2-jds2+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
-	call warning('all mesh sizes must be positive')
-	goto 9
+    call message('all mesh sizes must be positive')
+    goto 9
 endif
 if(mod(isz2,isz1).ne.0.or.mod(jsz2,jsz1).ne.0)then
-	call warning('input mesh size must be multiple of output mesh size')
-	goto 9
+    call message('input mesh size must be multiple of output mesh size')
+    goto 9
 endif
 
 ! compute mesh ratios
@@ -73,14 +73,14 @@ enddo
 return
 9 continue
 write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
-call warning(msg)
+call message(msg)
 write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-call warning(msg)
+call message(msg)
 write(msg,92)'input  mesh size:',isz2,jsz2
-call warning(msg)
+call message(msg)
 91 format('dimensions: ',8i8)
 write(msg,92)'output mesh size:',isz1,jsz1
-call warning(msg)
+call message(msg)
 92 format(a,2i8)
 call crash('module_fr_spread_util:sum_mesh_cells: bad mesh sizes')
 end subroutine sum_2dmesh_cells
@@ -151,7 +151,7 @@ do j2=jds2,jde2-1
                  +    tx*(1-ty)  *v2(i2,j2+1)  &
                  +    (1-tx)*ty  *v2(i2+1,j2)  &
                  +        tx*ty  *v2(i2+1,j2+1)  
-		!print *,'coarse ',i2,j2,' fine ',i1,j1, 'weights ',tx,ty, &
+        !print *,'coarse ',i2,j2,' fine ',i1,j1, 'weights ',tx,ty, &
                 ! 'in ',v2(i2,j2),v2(i2,j2+1),v2(i2+1,j2),v2(i2+1,j2+1),' out ',v1(i1,j1)
            enddo
        enddo
@@ -161,14 +161,14 @@ enddo
 return
 9 continue
 write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
-call warning(msg)
+call message(msg)
 write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-call warning(msg)
+call message(msg)
 write(msg,92)'input  mesh size:',isz2,jsz2
-call warning(msg)
+call message(msg)
 91 format('dimensions: ',8i8)
 write(msg,92)'output mesh size:',isz1,jsz1
-call warning(msg)
+call message(msg)
 92 format(a,2i8)
 call crash("module_fr_spread_util:interpolate_mesh_nodes: bad mesh sizes")
 end subroutine interpolate_2dmesh_nodes
