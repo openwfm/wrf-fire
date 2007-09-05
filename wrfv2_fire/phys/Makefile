@@ -61,11 +61,10 @@ MODULES = \
         module_fr_cawfe_fuel.o \
 	module_fire_debug_output.o \
 #        module_fr_spread_model.o \
-        module_fr_spread_core.o \
-        module_fr_propagate.o \
-        module_fr_fuelused.o \
-        module_fr_spread_util.o \
-        module_fr_wrfstubs.o 
+        module_fr_sfire_core.o \
+        module_fr_sfire_prop.o \
+        module_fr_sfire_fuel.o \
+        module_fr_sfire_util.o
   
 OBJS    =
 
@@ -271,20 +270,13 @@ module_fr_spread_model.o: \
 		../share/module_model_constants.o  \
 		../frame/module_wrf_error.o \
                 module_fr_cawfe_fuel.o \
-		module_fr_wrfstubs.o \
-	        module_fr_spread_core.o \
-	        module_fr_spread_util.o 
-
-module_fr_spread_util.o: \
-		module_fr_wrfstubs.o \
-
-module_fr_wrfstubs.o: \
-		../frame/module_wrf_error.o \
+	        module_fr_sfire_core.o \
+	        module_fr_sfire_util.o 
 
 module_fr_spread_core.o: \
-		module_fr_wrfstubs.o \
-	        module_fr_fuelused.o \
-	        module_fr_propagate.o 
+		module_fr_sfire_util.o \
+	        module_fr_sfire_fuel.o \
+	        module_fr_sfire_prop.o 
 
 module_fire_debug_output.o: \
 	        ../frame/module_domain.o \
