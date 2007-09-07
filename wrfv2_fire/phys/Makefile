@@ -63,7 +63,7 @@ MODULES = \
 #        module_fr_spread_model.o \
         module_fr_sfire_core.o \
         module_fr_sfire_prop.o \
-        module_fr_sfire_fuel.o \
+        module_fr_sfire_burn.o \
         module_fr_sfire_util.o
   
 OBJS    =
