@@ -16,7 +16,7 @@ phi,tign,frac_lost,frac_end)
 ! with atm. model and data input.
 !
 
-use module_fr_sfire_fuel
+use module_fr_sfire_burn
 use module_fr_sfire_prop
 
 implicit none

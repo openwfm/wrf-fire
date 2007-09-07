@@ -1,4 +1,4 @@
-module module_fr_fuelused
+module module_fr_sfire_burn
 
 private
 public:: fuel_left
@@ -123,4 +123,4 @@ enddo
 
 end subroutine fuel_left
 
-end module module_fr_fuelused
+end module module_fr_sfire_burn
