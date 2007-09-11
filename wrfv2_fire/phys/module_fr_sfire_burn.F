@@ -1,11 +1,9 @@
 module module_fr_sfire_burn
 
-private
-public:: fuel_left
-
 contains
 
-subroutine fuel_left(ids,ide,jds,jde,ims,ime,jms,jme,phi,tign,w,tnow,fuel_frac)
+subroutine fuel_left(ids,ide,jds,jde,ims,ime,jms,jme,phi,tign,fuel_time,tnow,fuel_frac)
+use module_fr_sfire_util
 implicit none
 
 !*** purpose: determine fraction of fuel remaining
@@ -15,16 +13,15 @@ implicit none
 !*** arguments
 
 integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
-real, intent(in), dimension(ims:ime,jms:jme)::phi,tign
-real, intent(in), dimension(ims:ime-1,jms:jme-1)::w
+real, intent(in), dimension(ims:ime,jms:jme)::phi,tign,fuel_time
 real, intent(in):: tnow
-real, intent(out), dimension(ims:ime-1,jms:jme-1)::fuel_frac
+real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 
-! ids,ide,jds,jde   in   mesh domain dimensions              (1)
+! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
 ! ims,ime,jms,jme   in   mesh aray dimensions                (1)
 ! phi               in   level function, at nodes
 ! tign              in   ignition time, at nodes
-! w                 in   time constant of fuel, per cell
+! fuel_time         in   time constant of fuel, per cell
 ! tnow              in   time now
 ! fuel_frac         out  fraction of fuel remaining
 
@@ -86,13 +83,14 @@ real, intent(out), dimension(ims:ime-1,jms:jme-1)::fuel_frac
 
 integer::i,j
 real,dimension(ims:ime,jms:jme)::t,ap
-real:: ta,pf,aps,ps,a
+real:: ta,aps,ps,a
 
 ! a very crude approximation - replace by a better code
-! just an idea - not debugged yet
 
-do j=jds,jde     ! note the order of indices for fast  execution
-    do i=ids,ide  
+call check_mesh_dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+
+do j=jds,jde+1     ! note the order of indices for fast  execution
+    do i=ids,ide+1  
         if (phi(i,j)>0) then
             t(i,j)=1.0  ! add missing values - should be > tnow what the hell
         else
@@ -102,8 +100,8 @@ do j=jds,jde     ! note the order of indices for fast  execution
     enddo
 enddo
 
-do j=jds,jde-1
-    do i=ids,ide-1 ! it is OK to introduce extra scalars, just as fast
+do j=jds,jde
+    do i=ids,ide ! it is OK to introduce extra scalars, just as fast
     
         ! average unscaled fuel fraction since ignition
         ta=0.25d0*(t(i+1,j+1)+t(i+1,j)+t(i,j+1)+t(i,j))  
@@ -117,7 +115,7 @@ do j=jds,jde-1
                a=0.5d0 ! just to have something, if all phi=0 it is junk anyway
         endif
         
-        fuel_frac(i,j)=a*ta**(1.0/w(i,j))+(1.0-a)
+        fuel_frac(i,j)=a*ta**(1.0/fuel_time(i,j))+(1.0-a)
     enddo
 enddo
 

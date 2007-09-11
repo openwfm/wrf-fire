@@ -1,6 +1,6 @@
-#FC = ifort -fast/
+#FC = ifort -fast -free
 
-FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free
+FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free 
 #FC = g95 -ftrace=frame -g -ffree-form
 
 .SUFFIXES:
@@ -9,9 +9,15 @@ FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stan
 .F.o: 
 	$(FC) -c $*.F
 
+# default speed test function
+SPEED = normal_spread
+
 # module dependencies
+module_fr_cawfe_fuel.o: \
+     ../share/module_model_constants.o
 
 module_fr_sfire_model.o: \
+     $(SPEED).o \
      module_fr_sfire_core.o  \
      module_fr_cawfe_fuel.o \
      module_fr_sfire_util.o 
@@ -22,12 +28,12 @@ module_fr_sfire_core.o: \
      module_fr_sfire_util.o 
       
 module_fr_sfire_burn.o: \
-     module_fr_sfire_util.o \
-     module_fr_sfire_prop.o 
-      
-module_fr_sfire_prop.o: \
      module_fr_sfire_util.o 
 
+module_fr_sfire_prop.o: \
+     $(SPEED).o \
+     module_fr_sfire_util.o 
+      
 module_fr_sfire_util.o: \
      wrf_fakes.o
 
@@ -35,15 +41,17 @@ module_fr_sfire_util.o: \
 
 # the propagation alone 
 PROP_OBJ = \
+     prop_test.F \
+     $(SPEED).o \
      module_fr_sfire_prop.o \
      module_fr_sfire_util.o \
      wrf_fakes.o 
 
-prop_test.exe: $(PROP_OBJ) prop_test.F
-	$(FC) -o prop_test.exe $(PROP_OBJ) prop_test.F
+prop_test.exe: $(PROP_OBJ)  
+	$(FC) -o prop_test.exe $(PROP_OBJ)
 
 prop_test: prop_test.exe
-	# run prop_driver from matlab to test
+	# run prop_test from matlab to test
 
 # burn balance
 FUEL_TEST_OBJ=\
@@ -85,14 +93,16 @@ level_test: level_test.exe
 
 # all object files with the model
 CORE_OBJ= \
-    module_fr_sfire_core.o \
-    module_fr_sfire_prop.o \
+    core_test.F \
+    $(SPEED).o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o  \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_core.o \
     wrf_fakes.o
-
-core_test.exe: $(CORE_OBJ)
-	$(FC) -o core_test.exe core_test.F $(CORE_OBJ)
+    
+core_test.exe: $(CORE_OBJ) 
+	$(FC) -o core_test.exe $(CORE_OBJ)
 
 core_test: core_test.exe
 	# run core_test in Matlab
@@ -100,6 +110,7 @@ core_test: core_test.exe
 # the whole model
 MODEL_OBJ = \
     module_fr_sfire_model.o \
+    ../share/module_model_constants.o \
     module_fr_cawfe_fuel.o \
     module_fr_sfire_core.o \
     module_fr_sfire_prop.o \
@@ -107,9 +118,12 @@ MODEL_OBJ = \
     module_fr_sfire_util.o  \
     module_wrf_fakes.o
 
-model_test: $(MODEL_OBJ) 
+model_test:
+	make -f Makefile_test model_test.exe SPEED=module_fr_sfire_speed
+
+model_test.exe: $(MODEL_OBJ) 
 	$(FC) -o model_test.exe model_test.F $(MODEL_OBJ)
 
 clean:
-	rm *.{exe,o,mod}
+	-rm -f *.{exe,o,mod}
 
