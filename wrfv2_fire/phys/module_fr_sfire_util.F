@@ -31,10 +31,21 @@ end subroutine message
 !****************
 !
 
-subroutine check_mesh_dim(ids,ide,jds,jde,ims,ime,jms,jme)
+subroutine check_mesh_2dim(ids,ide,jds,jde,ims,ime,jms,jme)
 integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme
 if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme)call crash('memory dimensions too small')
-end subroutine check_mesh_dim
+end subroutine check_mesh_2dim
+
+!
+!****************
+!
+
+subroutine check_mesh_3dim(ids,ide,kds,kde,jds,jde,ims,ime,kms,kme,jms,jme)
+integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme,kds,kde,kms,kme
+if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme.or.kds<kms.or.kde>kme) then
+    call crash('memory dimensions too small')
+endif
+end subroutine check_mesh_3dim
 
 !
 !****************
@@ -64,8 +75,8 @@ character(len=128)msg
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
-call check_mesh_dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
+call check_mesh_2dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
+call check_mesh_2dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
 
 ! compute mesh sizes
 isz1 = ide1-ids1+1
@@ -145,14 +156,14 @@ character(len=128)msg
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
-call check_mesh_dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
+call check_mesh_2dim(ids1,ide1+1,jds1,jde1+1,ims1,ime1,jms1,jme1)
+call check_mesh_2dim(ids2,ide2+1,jds2,jde2+1,ims2,ime2,jms2,jme2)
 
 ! compute mesh sizes
-isz1 = ide1-ids1
-jsz1 = jde1-jds1
-isz2 = ide2-ids2
-jsz2 = jde2-jds2
+isz1 = ide1-ids1+1
+jsz1 = jde1-jds1+1
+isz2 = ide2-ids2+1
+jsz2 = jde2-jds2+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)goto 9
@@ -165,8 +176,8 @@ rx=ir
 ry=jr
 
 ! this loop goes over coarse mesh lines twice but avoid complications
-do j2=jds2,jde2-1
-    do i2=ids2,ide2-1
+do j2=jds2,jde2
+    do i2=ids2,ide2
         do ioff=0,ir
             do joff=0,jr
                 ! compute fine mesh coordinate
@@ -236,8 +247,8 @@ character(len=128)msg
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
-call check_mesh_dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
+call check_mesh_2dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
+call check_mesh_2dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
 
 ! compute mesh sizes
 isz1 = ide1-ids1+1
@@ -331,12 +342,12 @@ character(len=128)msg
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
-call check_mesh_dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
+call check_mesh_2dim(ids1,ide1+1,jds1,jde1+1,ims1,ime1,jms1,jme1)
+call check_mesh_2dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
 
 ! compute mesh sizes
-isz1 = ide1-ids1
-jsz1 = jde1-jds1
+isz1 = ide1-ids1+1
+jsz1 = jde1-jds1+1
 isz2 = ide2-ids2+1
 jsz2 = jde2-jds2+1
 
@@ -367,7 +378,7 @@ jp=mod(jr,2)
 
 call interpolate_2d_w(ip,jp,ih,jh,ir,jr,              &
       ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2,v2, &  ! in  
-      ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1,v1  )  ! out
+      ids1,ide1+1,jds1,jde1+1,ims1,ime1,jms1,jme1,v1  )  ! out
 
 
 return
@@ -391,6 +402,8 @@ end subroutine interpolate_2d_cells2nodes
 subroutine interpolate_2d_w(ip,jp,ih,jh,ir,jr,             &
       ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2,v2, &  ! in  
       ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1,v1  )  ! out
+implicit none
+!*** EXCEPTION: THIS SUBROUTINE IS NEITHER CELL NOR NODE BASED.
 
 integer, intent(in)::ip,jp,ih,jh,ir,jr
 integer, intent(in)::ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
@@ -546,8 +559,8 @@ real:: tmpx,tmpy
 
 !*** executable
 
-    call check_mesh_dim(ids,ide+1,jds,jde+1,ims1,ime1,jms1,jme1)
-    call check_mesh_dim(ids,ide+1,jds,jde+1,ims2,ime2,jms2,jme2)
+    call check_mesh_2dim(ids,ide+1,jds,jde+1,ims1,ime1,jms1,jme1)
+    call check_mesh_2dim(ids,ide+1,jds,jde+1,ims2,ime2,jms2,jme2)
   
     ! the bulk of the work
     do j=jds,jde
@@ -586,5 +599,52 @@ real:: tmpx,tmpy
     enddo    
 
 end subroutine meshdiff_2d
+
+!
+!****************
+!
+
+subroutine atm2fire_winds(&
+                          iats,iate,jats,jate,                &
+                          ims,ime, kms,kme,jms,jme,           & 
+                          ifts,ifte,jfts,jfte,kfts,kfte,      &
+                          ifms,ifme,jfms,jfme,kfms,kfme,      &
+                          u,v,vfx,vfy)
+implicit none
+!*** arguments
+INTEGER, INTENT(in)::ims,ime, kms,kme, jms,jme                     ! atmosphere memory bounds
+integer, intent(in)::iats,iate,jats,jate                           ! atm grid size used
+integer, intent(in)::ifms,ifme,jfms,jfme,kfms,kfme                 ! fire memory bounds
+integer, intent(in)::ifts,ifte,jfts,jfte,kfts,kfte                 ! fire grid size used
+real, intent(in),dimension(ims:ime, kms:kme, jms:jme):: u,v        ! atm wind speed
+real, intent(out),dimension(ifms:ifme,jfms:jfme,kfms:kfme)::vfx,vfy ! fire wind speed
+
+!*** local
+integer::i,j,k
+real, dimension(ims:ime,jms:jme)::vxatm,vyatm
+
+! vxatm and vyatm are the velocities at the upper South-East corner of cube (i,j,k)
+! u(i,k,j) is the x velocity at the smallest x face of the cube cell (i,j,k)
+! v(i,k,j) is the y velocity at the smallest y face of the cube cell (i,j,k)                                            
+! kw=the number of wind layers is defined in module_fr_sfire_speed
+
+call check_mesh_3dim(iats-1,iate+1,jats-1,jate+1,kfms,kfme,ims,ime,jms,jme,kms,kme)
+
+DO k = kfms,kfme
+    DO j = jats,jate+1  ! +1 to get winds on the high x and high y nodes 
+        DO i = iats,iate+1
+             vxatm(i,j) = .25*( u(i,k,j) + u(i,k,j-1) + v(i,k+1,j) + v(i,k+1,j-1) )
+             vyatm(i,j) = .25*( v(i-1,k,j) + v(i,k,j) + v(i-1,k+1,j) + v(i,k+1,j) )
+        END DO
+    END DO
+    call interpolate_2d_nodes2nodes(              &
+      iats,iate,jats,jate,ims,ime,jms,jme,vxatm, &  ! in  
+      ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vfx(:,:,k ))  ! out
+    call interpolate_2d_nodes2nodes(              &
+      iats,iate,jats,jate,ims,ime,jms,jme,vyatm, &  ! in  
+      ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vfy(:,:,k ))  ! out
+END DO
+
+end subroutine atm2fire_winds
 
 end module module_fr_sfire_util

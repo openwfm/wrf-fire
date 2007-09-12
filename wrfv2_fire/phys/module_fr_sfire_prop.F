@@ -73,6 +73,9 @@ implicit none
 !*** global
 ! in module_fr_sfire_speed:
 !
+! vx,vy             in    background advection speed
+! r                 in    background spread rate in normal direction
+!
 ! subroutine normal_spread(t,n,rii,rjj,ims,ime,jms,jme,nvx,nvy,scale,speed)
 ! t               in time
 ! n               in number of points to evaluate the speed at
@@ -82,7 +85,7 @@ implicit none
 ! scale           in norm of gradient of level function
 ! speed           out the spread rate in the normal directin
 !
-! Notes
+! Note
 ! t may be used to interpolate data in time.
 ! when scale is small then normal direction is not meaningful
 
@@ -124,7 +127,7 @@ intrinsic max,min,sqrt,nint,epsilon
   
 !*** executable
 
-call check_mesh_dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 
 if (td < 0) then
     write(msg,*)'prop_ls: time advance td=',td,' must be non-negative' 

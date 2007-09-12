@@ -87,7 +87,7 @@ real:: ta,aps,ps,a
 
 ! a very crude approximation - replace by a better code
 
-call check_mesh_dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 
 do j=jds,jde+1     ! note the order of indices for fast  execution
     do i=ids,ide+1  
@@ -104,13 +104,13 @@ do j=jds,jde
     do i=ids,ide ! it is OK to introduce extra scalars, just as fast
     
         ! average unscaled fuel fraction since ignition
-        ta=0.25d0*(t(i+1,j+1)+t(i+1,j)+t(i,j+1)+t(i,j))  
+        ta=0.25*(t(i+1,j+1)+t(i+1,j)+t(i,j+1)+t(i,j))  
         ps=phi(i+1,j+1)+phi(i+1,j)+phi(i,j+1)+phi(i,j)   
         aps=ap(i+1,j+1)+ ap(i+1,j)+ ap(i,j+1)+ ap(i,j)
         
         ! a=0 if all phi>0, 1 if all <0, transition except when all phi=0
         if (aps>0.0 .or. aps<0.0) then  ! never compare =0.0, slow
-               a=(-ps/aps+1.0)*0.5d0
+               a=(-ps/aps+1.0)*0.5
         else ! for fast code, the else clause should happen less often
                a=0.5d0 ! just to have something, if all phi=0 it is junk anyway
         endif

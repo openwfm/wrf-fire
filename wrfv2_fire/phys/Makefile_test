@@ -34,6 +34,10 @@ module_fr_sfire_prop.o: \
      $(SPEED).o \
      module_fr_sfire_util.o 
       
+module_fr_sfire_level.o: \
+     $(SPEED).o \
+     module_fr_sfire_util.o 
+      
 module_fr_sfire_util.o: \
      wrf_fakes.o
 
@@ -78,20 +82,9 @@ util_test.exe: $(UTIL_OBJ)
 util_test: util_test.exe
 	./util_test.exe
 
-LEVEL_OBJ=\
-    module_fr_level.o \
-    module_fr_sfire_util.o  \
-    level_test.F
-
-level_test.exe: $(LEVEL_OBJ)
-	$(FC) -o level_test.exe $(LEVEL_OBJ)
-
-level_test: level_test.exe
-	./level_test.exe
-
 # widfire model code
 
-# all object files with the model
+# all object files with the core model
 CORE_OBJ= \
     core_test.F \
     $(SPEED).o \
@@ -106,6 +99,22 @@ core_test.exe: $(CORE_OBJ)
 
 core_test: core_test.exe
 	# run core_test in Matlab
+
+# core model with improved level set
+LEVEL_OBJ= \
+    core_test.F \
+    $(SPEED).o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o  \
+    module_fr_sfire_level.o \
+    module_fr_sfire_core.o \
+    wrf_fakes.o
+    
+level_test.exe: $(LEVEL_OBJ) 
+	$(FC) -o level_test.exe $(LEVEL_OBJ)
+
+level_test: level_test.exe
+	# run level_test in Matlab
 
 # the whole model
 MODEL_OBJ = \

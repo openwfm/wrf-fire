@@ -5,7 +5,7 @@
 module module_fr_sfire_core
 contains
 
-subroutine sfire_core( ids,ide,jds,jde,  &
+subroutine sfire_core(       ids,ide,jds,jde,  &
                              ims,ime,jms,jme,  &
                              time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
                              phi,tign,fuel_frac,fuel_frac_burnt ) 
@@ -94,7 +94,7 @@ integer::i,j
 
 !*** executable
 
-call check_mesh_dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 
 ! compute the fuel fraction at time_start
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &

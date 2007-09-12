@@ -68,23 +68,23 @@ real, intent(inout), dimension(ifms,ifme, jfms,jfme):: &
             
 !*** local
 
-integer::iats,iate,jats,jate         % atm grid size
+integer::iats,iate,jats,jate         ! atm grid size
 ! fire grid size declared in module_fr_sfire_speed
 real, dimension(ifms:ifme, jfms:jfme):: & 
     phi_start,      & ! the level function at start (of this call)
     fuel_time,      & ! time for fuel to burn down to 1/e original amount (data)
     fuel_frac_start,& ! the fuel fraction at start
+    zf,zsf          & ! terrain height
     
-integer::i,j,k
-real, dimension(ims:ime,jms:jme)::vxatm,vyatm
 ! winds, kw defined in the speed function module
-real, target, dimension(ifms:ifme, jfms:jfme,kw):: t_vx,t_vy 
-real:: fdx,fdy,time_start,err
+real, dimension(ifms:ifme, jfms:jfme,1:kw):: vfx,vfy
+real, target, dimension(ifms:ifme, jfms:jfme)::t_vx,t_vy  ! the advection field for the speed function 
+real:: fdx,fdy,time_start
 
 !*** executable
 
-! associate the data arrays with pointers in module_fr_sfire_speed
-! for use in the speed function
+! associate the data arrays with pointers in module_fr_sfire_speed, avoid prohibited heap storage
+! for use in the speed function as arrays vx, vy
 vx => t_vx
 vy => t_vy
 
@@ -129,84 +129,45 @@ call message(msg)
 write(msg,'(a,2i9)')'refinement ratio:',nfrx,nfry
 call message(msg)
 
-! check if nodal mesh fits into the declared memory
-check_mesh_dim(iats,iate+1,jats,jate+1,ims,ime,jms,jme)
-check_mesh_dim(ifts,ifte+1,jfts,jfte+1,imfs,imfe,jmfs,jmfe)
+! check if nodal mesh fits into the declared memory 
+check_mesh_2dim(iats,iate+1,jats,jate+1,ims,ime,jms,jme)
+check_mesh_2dim(ifts,ifte+1,jfts,jfte+1,imfs,imfe,jmfs,jmfe)
 
-! interpolate winds from the arakawa c-grid (midpoints of faces)
-! to nodes of atm grid (cube corners) and then the fire grid
-! vxatm and vyatm are the velocities at the upper South-East corner of cube (i,j,k)
-! u(i,k,j) is the x velocity at the smallest x face of the cube cell (i,j,k)
-! v(i,k,j) is the y velocity at the smallest y face of the cube cell (i,j,k)                                            
-! kw=the number of wind layers is defined in module_fr_sfire_speed
-DO k = 1,kw
-    DO j = jats,jate+1  ! +1 to get winds on the high x and high y nodes 
-        DO i = iats,iate+1
-             vxatm(i,j) = .25*( u(i,k,j) + u(i,k,j-1) + v(i,k+1,j) + v(i,k+1,j-1) )
-             vyatm(i,j) = .25*( v(i-1,k,j) + v(i,k,j) + v(i-1,k+1,j) + v(i,k+1,j) )
-        END DO
-    END DO
-    call interpolate_2d_nodes2nodes(              &
-      iats,iate+1,jats,jate+1,ims,ime,jms,jme,vxatm, &  ! in  
-      ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vx(:,:,k ))  ! out
-    call interpolate_2d_nodes2nodes(              &
-      iats,iate+1,jats,jate+1,ims,ime,jms,jme,vyatm, &  ! in  
-      ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vy(:,:,k ))  ! out
-END DO
+! interpolate winds from u,v on the 3d arakawa c-grid (midpoints of faces)
+! to vfx,vfy on nodes of the fire grid, in layers 1 to kw
+! kw, vx,vy is declared in module_fr_sfire_speed
+! *** this might be optimized away and the advection field computed from
+! the atm c-grid points directly ***
+call atm2fire_winds(                      &
+    iats,iate,jats,jate,                &
+    ims,ime, kms,kme,jms,jme,           & 
+    ifts,ifte,jfts,jfte,1,kw,           &
+    ifms,ifme,jfms,jfme,1,kw,           &
+    u,v,vfx,vfy)
+
+!interpolate topography from cell centers on atm grid to nodes on fire grid (zs -> zsf)
+call interpolate_2d_cells2nodes(              &
+    iats,iate,jats,jate, &
+    ims, ime, jms, jme, z, &  ! in  
+    ifts,ifte,jfts,jfte, &
+    ifms,ifme,jfms,jfme,zf  )  ! out
+
+!***** set up the rest of the data here:
+! vx, vy - background advection field (winds) for prop_ls
+! 
+
+!???????????
       
-! set up the rest of the data
-      
+! advance the model from time_start to time_start+dt
+! will call module_fr_sfire_speed%%normal_speed for advection info 
+subroutine sfire_core(     &
+    ifts,ifte,jfts,jfte,                              &
+    ifms,ifme,jfms,jfme,                              &
+    time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
+    phi,tign,fuel_frac,fuel_frac_burnt ) 
 
-! save the level function for interpolation between the old and the new one later
-do i=ifts,ifte+1
-    do j=jfts,jfte+1
-        phi_start(i,j)=phi(i,j)
-    enddo
-enddo 
 
-! compute the fuel fraction at start
-! this should not have to be done every timestep
-! should be same as saved
-! but needs to be redone at initialization
-call fuel_left(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme, &
-    phi,tign,fuel_time,time,fuel_frac_start)
-
-err=0
-do i=ifts,ifte ! fuel fraction is cell based
-    do j=jfts,jfte
-        err=max(err,abs(fuel_frac_start(i,j)-fuel_frac(i,j)))
-    enddo
-enddo 
-! will need reduction for MPI
-write(msg,*)'fuel fraction error:',err    
-
-! advance the level function from time_start to time_end
-! prop_ls will call module_fr_sfire_speed%%normal_speed for advection info 
-
-call prop_ls &
-  (ids,ide,jds,jde,ids,ide,jds,jde,phi,time_start,time_end,fdx,fdy)
-
-! set ignition time at the nodes the fireline moved over
-do j=jfts,jfte+1
-    do i=ifts,ifte+1
-        if(phi_start(i,j)>0 .and. .not. phi(i,j)>0)then
-            ! node was not burning at start but it is burning at end
-            ! interpolate from the level functions at start and at end
-            ! phi_start(i,j) is the level function value at time_start
-            ! phi(i,j)       is the level function value at time_end
-            ! 0              is the level function value at tign(i,j)
-            tign(i,j)=time_start   &
-                      + dt * phi_start(i,j) / (phi_start(i,j) - phi(i,j))
-        endif
-    enddo
-enddo 
-
-! compute the fuel fraction at time_end 
-
-call fuel_left(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme, &
-    phi,tign,fuel_time,time,fuel_frac_start)
-
-! compute the heat fluxes on the fire grid
+! compute the heat fluxes on the fire grid cells
 do j=jfts,jfte
     do i=ifts,ifte
          ff = frac_end(i,j)-frac_start(i,j)  !
