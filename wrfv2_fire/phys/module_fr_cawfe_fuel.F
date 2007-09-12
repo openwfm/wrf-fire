@@ -32,6 +32,13 @@
 
 
 MODULE module_fr_cawfe_fuel
+   REAL, PARAMETER :: cmbcnst  = 17.433e+06             ! J/kg dry fuel
+   REAL, PARAMETER :: hfgl     = 17.e4                  ! W/m^2
+   REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
+   REAL, PARAMETER :: fuelmc_g = 0.08                   ! set = 0 for dry ground fuel
+   REAL, PARAMETER :: fuelmc_c = 1.00                   ! set = 0 for dry canopy
+   REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
+
    INTEGER, PARAMETER :: nfuelcats = 14
    INTEGER, DIMENSION( nfuelcats ) :: ichap
    REAL   , DIMENSION( nfuelcats ) :: weight,fgi,fci,fci_d,fct,fcbr, &

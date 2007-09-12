@@ -99,7 +99,7 @@ implicit none
 ! scale           in norm of gradient of level function
 ! speed           out the spread rate in the normal directin
 !
-! Notes
+! Note
 ! t may be used to interpolate data in time.
 ! when scale is small then normal direction is not meaningful
 
@@ -204,7 +204,7 @@ do while ( tr + td*tol < td .and. istep < mstep )
     enddo
     
     ! get propagation speed
-    call normal_spread(t,k,rii,rjj,ids,ide+1,jds,jde+1,nvx,nvy,scale,speedp) 
+    call normal_spread(t,dx,dy,k,rii,rjj,ids,ide,jds,jde,nvx,nvy,scale,speedp) 
     do kk=1,k
        i=nint(rii(kk))
        j=nint(rjj(kk))

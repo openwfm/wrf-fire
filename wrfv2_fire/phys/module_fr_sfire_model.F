@@ -12,7 +12,6 @@ subroutine sfire_model &
                  ifms,ifme, kfms,kfme, jfms,jfme,              &
                  nfrx,nfry,                                    &
                  itimestep,dt,dx,dy,                           &
-                 u,v,                                          )  
                  grid_id,cen_lat,cen_lon,lat_ll,lon_ll,        &
                  moad_cen_lat,moad_cen_lon,                    &
                  moad_lat_ll,moad_lon_ll,moad_dx,moad_dy,      &
@@ -63,7 +62,7 @@ REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u,v
 real, intent(inout), dimension(ifms,ifme, jfms,jfme):: &
             phi,        & ! the level function, node based, fire is where phi<0
             tign,       & ! ignition time, node based          
-            fuel_frac   & ! fuel fraction, cell based (dependent)
+            fuel_frac     ! fuel fraction, cell based (dependent)
             
             
 !*** local
@@ -74,19 +73,22 @@ real, dimension(ifms:ifme, jfms:jfme):: &
     phi_start,      & ! the level function at start (of this call)
     fuel_time,      & ! time for fuel to burn down to 1/e original amount (data)
     fuel_frac_start,& ! the fuel fraction at start
-    zf,zsf          & ! terrain height
+    zf,zsf            ! terrain height
     
 ! winds, kw defined in the speed function module
 real, dimension(ifms:ifme, jfms:jfme,1:kw):: vfx,vfy
-real, target, dimension(ifms:ifme, jfms:jfme)::t_vx,t_vy  ! the advection field for the speed function 
+real, target, dimension(ifms:ifme, jfms:jfme):: &  ! arrays for the speed function
+    t_vx,t_vy,     & ! wind 
+    t_dzsdx,t_dzsdy  ! terrain gradient
 real:: fdx,fdy,time_start
 
 !*** executable
 
-! associate the data arrays with pointers in module_fr_sfire_speed, avoid prohibited heap storage
-! for use in the speed function as arrays vx, vy
+! pass local automatic arrays to the speed function in module_fr_sfire_speed
 vx => t_vx
 vy => t_vy
+dzsdx => t_dzsdx
+dzsdy => t_dzsdy
 
 ! time - assume dt does not change
 time_start = itimestep * dt
@@ -130,8 +132,8 @@ write(msg,'(a,2i9)')'refinement ratio:',nfrx,nfry
 call message(msg)
 
 ! check if nodal mesh fits into the declared memory 
-check_mesh_2dim(iats,iate+1,jats,jate+1,ims,ime,jms,jme)
-check_mesh_2dim(ifts,ifte+1,jfts,jfte+1,imfs,imfe,jmfs,jmfe)
+call check_mesh_2dim(iats,iate+1,jats,jate+1,ims,ime,jms,jme)
+call check_mesh_2dim(ifts,ifte+1,jfts,jfte+1,imfs,imfe,jmfs,jmfe)
 
 ! interpolate winds from u,v on the 3d arakawa c-grid (midpoints of faces)
 ! to vfx,vfy on nodes of the fire grid, in layers 1 to kw
@@ -152,15 +154,36 @@ call interpolate_2d_cells2nodes(              &
     ifts,ifte,jfts,jfte, &
     ifms,ifme,jfms,jfme,zf  )  ! out
 
-!***** set up the rest of the data here:
-! vx, vy - background advection field (winds) for prop_ls
-! 
+!***** set up arrays to be passed to the speed function
+! We cannot simply compute the spread rate here because that will change with the
+! angle of the wind and the direction of propagation, thus it is done in subroutine
+! normal_spread at each fire time step. Instead, we set some quantities that 
+! subroutine normal_spread may use.
+do j=jfts,jfte+1
+    do i=ifts,ifte+1
+        vx(i,j)=vfx(i,j,1)
+        vy(i,j)=vfy(i,j,1)
+        dzsdx(i,j)=0.5*(zs(i+1,j)-zs(i-1,j))/dx
+        dzsdy(i,j)=0.5*(zs(i,j+1)-zs(i,j-1))/dy
+    enddo
+enddo
+
+
+
+do j=jfts,jfte
+    do i=ifts,ifte
+
+! --- get integer height of fuel
+      ks = nint(1. + fueldepthm(nfuel_cat(i,j)) / (zf(i,j)-zsf(i,j)))
+    enddo
+enddo
 
 !???????????
       
 ! advance the model from time_start to time_start+dt
-! will call module_fr_sfire_speed%%normal_speed for advection info 
-subroutine sfire_core(     &
+! will call module_fr_sfire_speed%%normal_speed for propagation speed
+! uses vx,vy,r as a background propagation field 
+call sfire_core(     &
     ifts,ifte,jfts,jfte,                              &
     ifms,ifme,jfms,jfme,                              &
     time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
@@ -173,9 +196,6 @@ do j=jfts,jfte
          ff = frac_end(i,j)-frac_start(i,j)  !
     enddo
 enddo
-
-      
-
 
 end subroutine sfire_model
 

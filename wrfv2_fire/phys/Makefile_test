@@ -13,6 +13,10 @@ FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stan
 SPEED = normal_spread
 
 # module dependencies
+
+$(SPEED).o: \
+     module_fr_sfire_util.o 
+
 module_fr_cawfe_fuel.o: \
      ../share/module_model_constants.o
 

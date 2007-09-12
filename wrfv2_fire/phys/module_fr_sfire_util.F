@@ -487,53 +487,84 @@ end subroutine interpolate_2d_w
 !****************
 !
                 
-real function interp(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1,ip1,jp1,x1,y1,dx1,dy1,v1,x,y)
+real function interp(ids,ide,jds,jde,ims,ime,jms,jme,x,y,v)
 implicit none
 !*** purpose
-! general interpolation in a mesh aligned with coordinates
+! general interpolation in a rectangular
 
 !*** arguments
-! the mesh is given by the position (x1,y1) of the node (ip1,ip2) and the spacing (dx1,dy1)
-! the coordinates to interpolate to are x y 
-! returns the interpolation from v1 at mesh nodes
 
-integer, intent(in)::ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1,ip1,jp1
-real, intent(in)::x1,y1,dx1,dy1,v1(ims1:ime1,jms1:jme1),x,y
+integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme
+real, intent(in)::x,y,v(ims:ime,jms:jme)
+! the mesh is cell based so the used dimension of v is ids:ide+1,jds:jde+1
 
 !*** calls
-intrinsic floor
+intrinsic floor,min,max
 
 !*** local
-integer i1,j1
-real tx,ty,xx,yy
+integer i,j
+real tx,ty
 
 ! executable
 
-! indices of the lower left corner of the cell in mesh 1 that contains (x,y)
-i1 = ip1+floor((x - x1)/dx1)
-i1=max(min(i1,ide1-1),ids1)
-j1 = jp1+floor((y - y1)/dy1)
-j1=max(min(j1,jde1-1),jds1)
-
-! position of node (i1,j1)
-xx = x1 + dx1*(i1-ip1)
-yy = y1 + dy1*(j1-jp1)
+! indices of the lower left corner of the cell in the mesh that contains (x,y)
+i = floor(x)
+i=max(min(i,ide),ids)
+j = floor(y)
+j=max(min(j,jde),jds)
 
 ! the leftover
-tx = x - xx
-ty = y - yy
-if(tx.gt.1.0)call crash('bad tx')
-if(ty.gt.1.0)call crash('bad ty')
+tx = x - real(i)
+ty = y - real(j)
 
 ! interpolate the values
 interp = &
-                    (1-tx)*(1-ty)*v1(i1,j1)    &
-                 +    tx*(1-ty)  *v1(i1+1,j1)  &
-                 +    (1-tx)*ty  *v1(i1,j1+1)  &
-                 +        tx*ty  *v1(i1+1,j1+1)  
+                    (1-tx)*(1-ty)*v(i,j)    &
+                 +    tx*(1-ty)  *v(i+1,j)  &
+                 +    (1-tx)*ty  *v(i,j+1)  &
+                 +        tx*ty  *v(i+1,j+1)  
 
-print *,'x,y=',x,y,'i1,i2=',i1,j1,'tx,ty=',tx,ty,' interp=',interp
+!print *,'x,y=',x,y,'i1,i2=',i1,j1,'tx,ty=',tx,ty,' interp=',interp
 end function interp
+
+subroutine meshdiffc_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
+                   ims1,ime1,jms1,jme1, &       ! dimensions of phi 
+                   ims2,ime2,jms2,jme2, &       ! dimensions of the outputs
+                   dx,dy,               &       ! mesh spacing
+                   phi,                 &       ! input
+                   diffCx,diffCy) ! output
+implicit none
+
+!*** purpose
+! one-sided differences on a 2d mesh
+
+!*** arguments
+
+integer, intent(in)::ids,ide,jds,jde,ims1,ime1,jms1,jme1,ims2,ime2,jms2,jme2
+real, intent(in):: dx,dy
+real, intent(in), dimension(ims1:ime1,jms1:jme1):: phi
+real, intent(out), dimension(ims2:ime2,jms2:jme2):: diffCx,diffCy
+
+!*** local
+integer:: i,j
+real, dimension(ims2:ime2,jms2:jme2):: diffLx,diffRx,diffLy,diffRy
+
+! get one-sided differences; dumb but had that already...
+call meshdiff_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
+                   ims1,ime1,jms1,jme1, &       ! dimensions of phi 
+                   ims2,ime2,jms2,jme2, &       ! dimensions of the outputs
+                   dx,dy,               &       ! mesh spacing
+                   phi,                 &       ! input
+                   diffLx,diffRx,diffLy,diffRy) ! output
+
+! make into central
+do j=jds,jde+1
+    do i=ids,ide+1
+        diffCx(i,j)=0.5*(diffLx(i,j) + diffRx(i,j))
+        diffCy(i,j)=0.5*(diffLy(i,j) + diffRy(i,j))
+    enddo
+enddo
+end subroutine meshdiffc_2d 
 
 subroutine meshdiff_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
                    ims1,ime1,jms1,jme1, &       ! dimensions of phi 

@@ -190,7 +190,7 @@ do while ( tr + td*tol < td .and. istep < mstep )
     enddo
     
     ! get propagation speed
-    call normal_spread(t,k,rii,rjj,ids,ide+1,jds,jde+1,nvx,nvy,scale,speedp) 
+    call normal_spread(t,dx,dy,k,rii,rjj,ids,ide,jds,jde,nvx,nvy,scale,speedp) 
     do kk=1,k
        i=nint(rii(kk))
        j=nint(rjj(kk))
