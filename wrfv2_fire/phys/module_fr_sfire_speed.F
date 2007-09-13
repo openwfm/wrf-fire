@@ -3,8 +3,8 @@ module module_fr_sfire_speed
 ! speed function data - will be assigned by model to actual arrays so that they can be used here
  
 real,pointer,dimension(:,:):: &
-    vx,vy,                 &  ! wind velocity
-    dzsdx,dzsdy,           &  ! terrain gradient
+    vx,vy,                   &  ! wind velocity
+    dzfsdx,dzfsdy,           &  ! terrain gradient
     bbb,betafl,phiwc,r_0      ! spread formula coefficients
     
 real:: betaop                 ! spread formula coefficients
@@ -42,7 +42,7 @@ do j=jds,jde+1
         spd_ms =  vx(i,j)*nvx(i,j) + vy(i,j)*nvy(i,j)
         
         ! slope in direction of spread
-        tanphi =  dzsdx(i,j)*nvx(i,j) + dzsdy(i,j)*nvy(i,j)
+        tanphi =  dzfsdx(i,j)*nvx(i,j) + dzfsdy(i,j)*nvy(i,j)
   
         ! get rate of spread from wind speed and slope
         
