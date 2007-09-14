@@ -2,10 +2,9 @@ module module_fr_sfire_speed
 
 ! speed function data - will be assigned by model to actual arrays so that they can be used here
  
-real,pointer,dimension(:,:):: &
-    vx,vy,                   &  ! wind velocity
-    dzfsdx,dzfsdy,           &  ! terrain gradient
-    bbb,betafl,phiwc,r_0        ! spread formula coefficients
+real,pointer,dimension(:,:):: vx,vy                    ! wind velocity
+real,pointer,dimension(:,:):: dzfsdx,dzfsdy            ! terrain gradient
+real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0     ! spread formula coefficients
 integer, pointer, dimension(:,:):: ischap    
 
 

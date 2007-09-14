@@ -22,6 +22,7 @@ module_fr_cawfe_fuel.o: \
 
 module_fr_sfire_model.o: \
      $(SPEED).o \
+     ../share/module_model_constants.o \
      module_fr_sfire_core.o  \
      module_fr_cawfe_fuel.o \
      module_fr_sfire_util.o 
@@ -44,6 +45,10 @@ module_fr_sfire_level.o: \
       
 module_fr_sfire_util.o: \
      wrf_fakes.o
+
+# compile out of this directory
+../share/module_model_constants.o: ../share/module_model_constants.F
+	cd ../share; $(FC) -c module_model_constants.F	
 
 # test binaries and targers
 
@@ -123,6 +128,7 @@ level_test: level_test.exe
 # the whole model
 MODEL_OBJ = \
     model_test.F \
+    $(SPEED).o \
     module_fr_sfire_model.o \
     ../share/module_model_constants.o \
     module_fr_cawfe_fuel.o \
@@ -132,12 +138,14 @@ MODEL_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-model_test:
-	make -f Makefile_test model_test.exe SPEED=module_fr_sfire_speed
+model_test: 
+	make -f Makefile_test model_test.exe \
+		SPEED=module_fr_sfire_speed FC="$(FC)"
 
 model_test.exe: $(MODEL_OBJ) 
 	$(FC) -o model_test.exe $(MODEL_OBJ)
 
+
 clean:
-	-rm -f *.{exe,o,mod}
+	-rm -f *.{exe,o,mod} ../*/*.{o,mod}
 

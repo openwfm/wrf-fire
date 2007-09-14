@@ -20,9 +20,9 @@ subroutine sfire_model ( &
 ! and outputs the heat fluxes on the cells of the fire grid.
 ! This subroutine has no knowledge of the atmospheric model.
 
+use module_fr_sfire_speed
 use module_fr_sfire_core
 use module_fr_sfire_util
-use module_fr_sfire_speed
 use module_fr_cawfe_fuel
 use module_model_constants
 implicit none
@@ -57,8 +57,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 integer::i,j        
 ! fire grid size declared in module_fr_sfire_speed
 real, dimension(ifms:ifme, jfms:jfme):: & 
-    fuel_frac_start,& ! the fuel fraction at start
-    fuel_time, &      ! derived data
+    time_fuel, &      ! derived data
     fuel_frac_burnt,& ! 
     zf,zsf            ! terrain height
     
@@ -66,8 +65,9 @@ real, target, dimension(ifms:ifme, jfms:jfme):: &  ! arrays for the speed functi
     t_vx,t_vy,     &             ! wind 
     t_dzfsdx,t_dzfsdy,&          ! terrain gradient
     t_bbb,t_betafl,t_phiwc,t_r_0 ! fuel model params
+
 integer, target, dimension(ifms:ifme, jfms:jfme)::t_ischap ! chapparall switch
-real,  dimension(ifms:ifme, jfms:jfme)::time_fuel,fgip  ! fuel burns off as exp(t/time_fuel)
+real,  dimension(ifms:ifme, jfms:jfme)::fgip  ! fuel burns off as exp(-t/time_fuel)
 real:: dmass
 
 !*** executable
@@ -102,7 +102,7 @@ enddo
 ! compute only once fuel parameter arrays, these do not change
 call fire_startup(ifts,ifte,jfts,ifte, &
                   ifms,ifme,jfms,jfme, &
-                  fdx,fdy,zsf,fuel_time,fgip)
+                  fdx,fdy,zsf,time_fuel,fgip)
 
 
 ! advance the model from time_start to time_start+dt
@@ -112,7 +112,7 @@ call fire_startup(ifts,ifte,jfts,ifte, &
 call sfire_core(     &
     ifts,ifte,jfts,jfte,                      &
     ifms,ifme,jfms,jfme,                      &
-    time_start,dt,fdx,fdy,fuel_time,          &
+    time_start,dt,fdx,fdy,time_fuel,          &
     phi,tign,fuel_frac,fuel_frac_burnt ) 
 
 ! compute the heat fluxes on the fire grid cells
@@ -135,9 +135,10 @@ end subroutine sfire_model
 
 subroutine fire_startup(ifts,ifte,jfts,jfte, &
                         ifms,ifme,jfms,jfme, &
-                        fdx,fdy,zsf,fuel_time,fgip)
+                        fdx,fdy,zsf,time_fuel,fgip)
 use module_fr_cawfe_fuel
 use module_fr_sfire_speed
+use module_fr_sfire_util
 implicit none
 
 !*** purpose: set arrays that do not change over time
@@ -148,17 +149,17 @@ integer, intent(in)::ifts,ifte,jfts,jfte     ! fire mesh cell bounds
 integer, intent(in)::ifms,ifme,jfms,jfme     ! memory array bounds
 real, intent(in):: fdx,fdy                   ! fire mesh spacing
 real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf ! surface altitude
-real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time, & ! time const of burn
+real, intent(out), dimension(ifms:ifme, jfms:jfme)::time_fuel, & ! time const of burn
                    fgip                      ! FGI
 !*** local
 
-! temporary
-real:: umid, fuelload, fueldepth, rtemp1, rtemp2, tanphi, &
-         qig, epsilon, rhob, phis, wn, betaop, e, c, phiw, &
-         xifr, etas, etam, a, gammax, gamma, ratio, ir, irm, rosm, t1, &
-         slngth, fuelloadm
+real::  fuelload, fueldepth, rtemp1, rtemp2, &
+         qig, epsilon, rhob, wn, betaop, e, c, &
+         xifr, etas, etam, a, gammax, gamma, ratio, ir, t1, &
+         fuelloadm
+! real:: irm, phiw, tanphi, rosm, phis, slngth, umid   ! jm: not used
 integer:: i,j,iu1
-! what the $#% is slngth??
+! what the $#% is slngth?? 
       
 integer, dimension(ifts:ifte,jfts:jfte)::nfuel_cat ! fuel distribution
 ! Hey we need to make up our mind - do we want to carry around nfuel_cat or
@@ -176,8 +177,8 @@ integer:: ifuelread,nfuel_cat0
 ! gradient of surface altitude, node based
 do j=jfts,jfte+1
     do i=ifts,ifte+1
-        dzfsdx(i,j)=0.5*(zsf(i+1,j)-zsf(i-1,j))/fdx ! terrain slope in x direction
-        dzfsdy(i,j)=0.5*(zsf(i,j+1)-zsf(i,j-1))/fdy ! terrain slope in y direction
+        dzfsdx(i,j)=0.5*(zsf(i+1,j)-zsf(i-1,j))/fdx ! terrain slope in x 
+        dzfsdy(i,j)=0.5*(zsf(i,j+1)-zsf(i,j-1))/fdy ! terrain slope in y 
     enddo
 enddo
 
@@ -202,7 +203,8 @@ else if (ifuelread .eq. 1) then
     do j=jfte,jfte
         do  i=ifts,ifte
             nfuel_cat(i,j)= 2     ! grass with understory
-            t1=zsf(i,j)*slngth/100.
+            !jm t1=zsf(i,j)*slngth/100.
+            t1 = zsf(i,j)  ! this is in m
             if(t1.le.1524.)then   !  up to 5000 ft
                 nfuel_cat(i,j)= 3  ! tall grass
             else if(t1.ge.1524. .and. t1.le.2073.)then  ! 5.0-6.8 kft.
@@ -257,10 +259,10 @@ do j=jfts,jfte+1
         
         ! jm: do not understand calculations of stime in binit.m4
         ! set fuel time constant: weight=1000=>40% decrease over 10 min
-        ! fuel decreases as exp(-t/fuel_time) 
+        ! fuel decreases as exp(-t/time_fuel) 
         ! exp(-600*0.85/1000) = approx 0.6 
-        fuel_time(i,j)=weight(nfuel_cat(i,j))/0.85
-        ischap(i,j)=ichap(nfuel_cat(i,j))  ! nfuel_cat is UNKNOWN outside of here
+        time_fuel(i,j)=weight(nfuel_cat(i,j))/0.85
+        ischap(i,j)=ichap(nfuel_cat(i,j))
         fgip(i,j)=fgi(nfuel_cat(i,j))
         ! end jm addition
         
@@ -268,7 +270,7 @@ do j=jfts,jfte+1
         fuelloadm= (1.-bmst) * fgi(nfuel_cat(i,j))  !  fuelload without moisture
         fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
         fueldepth = fueldepthm(nfuel_cat(i,j))/0.3048               ! to ft
-        betafl(i,j) = fuelload/(fueldepth * fueldens(nfuel_cat(i,j)))    ! packing ratio
+        betafl(i,j) = fuelload/(fueldepth * fueldens(nfuel_cat(i,j)))! packing ratio
         betaop = 3.348 * savr(nfuel_cat(i,j))**(-0.8189)     ! optimum packing ratio
         qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
         epsilon = exp(-138./savr(nfuel_cat(i,j)) )    ! effective heating number
@@ -290,7 +292,8 @@ do j=jfts,jfte+1
         etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
         etas = 0.174* se(nfuel_cat(i,j))**(-0.19)                ! mineral damping coef
         ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
-        irm = ir * 1055./( 0.3048**2 * 60.) * 1.e-6     !for mw/m^2
+        ! jm irm = ir * 1055./( 0.3048**2 * 60.) * 1.e-6     !for mw/m^2
+        ! jm: irm set but never used??
 
         xifr = exp( (0.792 + 0.681*savr(nfuel_cat(i,j))**0.5) &
             * (betafl(i,j)+0.1)) /(192. + 0.2595*savr(nfuel_cat(i,j))) ! propagating flux ratio
