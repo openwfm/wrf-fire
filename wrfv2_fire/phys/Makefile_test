@@ -122,6 +122,7 @@ level_test: level_test.exe
 
 # the whole model
 MODEL_OBJ = \
+    model_test.F \
     module_fr_sfire_model.o \
     ../share/module_model_constants.o \
     module_fr_cawfe_fuel.o \
@@ -129,13 +130,13 @@ MODEL_OBJ = \
     module_fr_sfire_prop.o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o  \
-    module_wrf_fakes.o
+    wrf_fakes.o
 
 model_test:
 	make -f Makefile_test model_test.exe SPEED=module_fr_sfire_speed
 
 model_test.exe: $(MODEL_OBJ) 
-	$(FC) -o model_test.exe model_test.F $(MODEL_OBJ)
+	$(FC) -o model_test.exe $(MODEL_OBJ)
 
 clean:
 	-rm -f *.{exe,o,mod}

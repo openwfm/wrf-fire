@@ -4,194 +4,107 @@ module module_fr_sfire_model
 !
 contains
 
-subroutine sfire_model &
-                (ids,ide, kds,kde, jds,jde,                    & ! incoming
-                 ims,ime, kms,kme, jms,jme,                    &
-                 its,ite, kts,kte, jts,jte,                    &
-                 ifds,ifde, kfds,kfde, jfds,jfde,              &
-                 ifms,ifme, kfms,kfme, jfms,jfme,              &
-                 nfrx,nfry,                                    &
-                 itimestep,dt,dx,dy,                           &
-                 grid_id,cen_lat,cen_lon,lat_ll,lon_ll,        &
-                 moad_cen_lat,moad_cen_lon,                    &
-                 moad_lat_ll,moad_lon_ll,moad_dx,moad_dy,      &
-                 moad_s_we,moad_e_we,moad_s_sn,moad_e_sn,      &
-                 tlat_stf,tlon_stf,t_ignite,ishape,ibeh,       &
-                 z1can,alfg,alfc,ifuelread,nfuel_cat0,         &
-                 z,z_at_w,dz8w,zs,u,v,mu,rho,                  &
-                 nfuel_cat,nfl,nfl_t,nfl_c,ncod,               & ! in and out
-                 in1,in2,ixb,iyb,icn,                          &
-                 fg,fc,r_0,bbb,betafl,phiwc,area,area2,        &
-                 zf,zsf,tign_g,tign_c,tign_crt,                &
-                 xfg,yfg,xcd,ycd,xcn,ycn,sprdx,sprdy,          &
-                 rthfrten,rqvfrten,                            & ! outgoing
-                 grnhfx,grnqfx,canhfx,canqfx)  ! temp? 
+subroutine sfire_model ( &
+                 ifts,ifte,jfts,jfte,               &
+                 ifms,ifme,jfms,jfme,               &
+                 kw,                                &
+                 time_start,dt,                     &
+                 fdx,fdy,                           &
+                 nfuel_cat,zsf,vfx,vfy,             &
+                 phi,tign,fuel_frac,                &
+                 grnhft,grnqft) 
 
+! This subroutine implements the fire spread model.
+! All quantities are on the fire grid. It inputs
+! winds on given on the nodes of the fire grid
+! and outputs the heat fluxes on the cells of the fire grid.
+! This subroutine has no knowledge of the atmospheric model.
 
 use module_fr_sfire_core
 use module_fr_sfire_util
 use module_fr_sfire_speed
-
+use module_fr_cawfe_fuel
+use module_model_constants
 implicit none
 
 !*** arguments
 
-INTEGER, INTENT(in) :: ids,ide, kds,kde, jds,jde    ! atmosphere domain indices
-INTEGER, INTENT(in) :: ims,ime, kms,kme, jms,jme    ! atmosphere memory indices
-INTEGER, INTENT(in) :: its,ite, kts,kte, jts,jte    ! atmosphere tile   indices
- 
-INTEGER, INTENT(in) :: ifds,ifde, jfds,jfde  ! fire domain indices
-INTEGER, INTENT(in) :: ifms,ifme, jfms,jfme  ! fire memory indices
+! input
 
-INTEGER, INTENT(in) :: itimestep         ! current time step (cumulative)
-REAL,    INTENT(in) :: dt                ! time step
-REAL,    INTENT(in) :: dx,dy             ! dx,dy on innermost atm mesh
+INTEGER, INTENT(in) :: ifts,ifte,jfts,jfte  ! fire domain bounds
+INTEGER, INTENT(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
+INTEGER, INTENT(in) :: kw                   ! number of vertical layers of wind (1=surface)
+REAL,INTENT(in) :: time_start,dt            ! starting time, time step
+REAL,INTENT(in) :: fdx,fdy                  ! dx,dy on innermost atm mesh
+INTEGER, INTENT(in), dimension(ifms:ifme,jfms:jfme):: &
+    nfuel_cat                               ! fuel category (cell)
+REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme,kw):: &
+    vfx,vfy                                 ! wind m/s (node)
+    
+! state
 
-!  ***** data (constant in time) *****
-! height above sea level of w points (m)
-REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: zs ! constant
-
-REAL, INTENT(in), DIMENSION( ifms,ifme, jfms,jfme ):: &
-           fgi !initial total mass of surface fuel (kg/m^2), at fire cells
-
-!  ***** inputs *****
-! incoming atmos. winds (m/s at arakawa-c grid locations)
-REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u,v
-
-!  ***** outputs *****
-real, intent(out) DIMENSION( ims:ime, jms:jme ) grndhx,grndqx
-
-!  ***** state *****
-! these are state vectors, to be used in data assimilation 
-real, intent(inout), dimension(ifms,ifme, jfms,jfme):: &
-            phi,        & ! the level function, node based, fire is where phi<0
-            tign,       & ! ignition time, node based
-            fuel_frac     ! fuel fraction, cell based (redundant)
-            
-!
-            
+REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme,kw):: &
+    phi   , &                               ! level function: fire is where phi<0 (node)
+    tign  , &                               ! absolute time of ignition (node)
+    fuel_frac                               ! fuel fraction (node), currently redundant
+    
+! output
+REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
+    grnhft,grnqft                           ! heat fluxes J/m^2/s  (cell)             
             
 !*** local
 
-integer::iats,iate,jats,jate         ! atm grid size
+integer::i,j        
 ! fire grid size declared in module_fr_sfire_speed
 real, dimension(ifms:ifme, jfms:jfme):: & 
-    phi_start,      & ! the level function at start (of this call)
-    fuel_time,      & ! time for fuel to burn down to 1/e original amount (data)
     fuel_frac_start,& ! the fuel fraction at start
+    fuel_time, &      ! derived data
+    fuel_frac_burnt,& ! 
     zf,zsf            ! terrain height
     
-! kw defined in module_fr_sfire_speed
-real, dimension(ifms:ifme, jfms:jfme,1:kw):: vfx,vfy
 real, target, dimension(ifms:ifme, jfms:jfme):: &  ! arrays for the speed function
-    t_vx,t_vy,     &   ! wind 
-    t_dzfsdx,t_dzfsdy  ! terrain gradient
-
-real, dimension(ims:ime, jms:jme)::grnhft,grnqft
-real:: fdx,fdy,time_start,dmass
+    t_vx,t_vy,     &             ! wind 
+    t_dzfsdx,t_dzfsdy,&          ! terrain gradient
+    t_bbb,t_betafl,t_phiwc,t_r_0 ! fuel model params
+integer, target, dimension(ifms:ifme, jfms:jfme)::t_ischap ! chapparall switch
+real,  dimension(ifms:ifme, jfms:jfme)::time_fuel,fgip  ! fuel burns off as exp(t/time_fuel)
+real:: dmass
 
 !*** executable
 
-! pass local automatic arrays to the speed function in module_fr_sfire_speed
-vx => t_vx
-vy => t_vy
-dzfsdx => t_dzfsdx
-dzfsdy => t_dzfsdy
+! pass local automatic arrays to module_fr_sfire_speed by associating pointers
+! cannot use the allocate statement because of wrf restrictions
+vx      => t_vx
+vy      => t_vy
+dzfsdx  => t_dzfsdx
+dzfsdy  => t_dzfsdy
+bbb     => t_bbb
+betafl  => t_betafl
+phiwc   => t_phiwc
+r_0     => t_r_0
+ischap  => t_ischap
 
-! time - assume dt does not change
-time_start = itimestep * dt
 
-! mesh step
-fdx=dx/nfrx
-fdy=dy/nfrx
-
-! init rest of fuel tables with derived quantities
-call init_fuel_cats
-
-! get the index range of atm cells over the fire domain
-! leave out one cell strip at domain boundary
-iats = MAX( its, ids+1)
-iate = MIN( ite, ide-1)
-jats = MAX( jts, jds+1)
-jate = MIN( jte, jde-1)
-
-! get the index range of the matching cells on the refined fire grid
-ifts = (iats-1)* nfrx + 1
-ifte = iate * nfrx
-jfts = (jats-1)* nfry + 1
-jfte = jate * nfry
-
-write(msg,7001)'atm domain ','ids',ids,ide,jds,jde
-call message(msg)                    
-write(msg,7001)'atm memory ','ims',ims,ime,jms,jme
-call message(msg)                    
-write(msg,7001)'atm patch  ','its',its,ite,jts,jte
-call message(msg)                    
-write(msg,7001)'fire domain','ifds',ifds,ifde,jfds,jfde
-call message(msg)                    
-write(msg,7001)'fire memory','ifms',ifms,ifme,jfms,jfme
-call message(msg)                    
-write(msg,7001)'atm used   ','iats',iats,iate,jats,jate
-call message(msg)                   
-write(msg,7001)'fire used  ','ifts',ifts,ifte,jfts,jfte
-call message(msg)                    
-7001 format(a,' dimensions ',a4,':',i8,' to ',i8,' by ',i8,' to ',i8)
-write(msg,'(a,2i9)')'refinement ratio:',nfrx,nfry
-call message(msg)
-write(msg,'(a,2f15.6)')'atmosphere mesh step:',dx,dy
-call message(msg)
-write(msg,'(a,2f15.6)')'fire mesh step:      ',fdx,fdy
-call message(msg)
-
-! check if nodal mesh fits into the declared memory 
-call check_mesh_2dim(iats,iate+1,jats,jate+1,ims,ime,jms,jme)
-call check_mesh_2dim(ifts,ifte+1,jfts,jfte+1,imfs,imfe,jmfs,jmfe)
-
-! interpolate winds from u,v on the 3d arakawa c-grid (midpoints of faces)
-! to vfx,vfy on nodes of the fire grid, in layers 1 to kw
-! kw, vx,vy is declared in module_fr_sfire_speed
-! *** this might be optimized away and the advection field computed from
-! the atm c-grid points directly ***
-call atm2fire_winds(                      &
-    iats,iate,jats,jate,                &
-    ims,ime, kms,kme,jms,jme,           & 
-    ifts,ifte,jfts,jfte,1,kw,           &
-    ifms,ifme,jfms,jfme,1,kw,           &
-    u,v,vfx,vfy)
-
-!interpolate topography from cell centers on atm grid to nodes on fire grid (zs -> zsf)
-call interpolate_2d_cells2nodes(              &
-    iats,iate,jats,jate, &
-    ims, ime, jms, jme, zs, &  ! in  
-    ifts,ifte,jfts,jfte, &
-    ifms,ifme,jfms,jfme,zsf  )  ! out
-
-!***** set up arrays to be passed to the speed function
+!***** set up the model data arrays
+! copy the ground winds - different every call
 ! We cannot simply compute the spread rate here because that will change with the
 ! angle of the wind and the direction of propagation, thus it is done in subroutine
 ! normal_spread at each fire time step. Instead, we set some quantities that 
 ! subroutine normal_spread may use.
+! used in the speed function and possibly as background advection field in propagation
 do j=jfts,jfte+1
     do i=ifts,ifte+1
         vx(i,j)=vfx(i,j,1)
         vy(i,j)=vfy(i,j,1)
-        dzfsdx(i,j)=0.5*(zsf(i+1,j)-zsf(i-1,j))/fdx
-        dzfsdy(i,j)=0.5*(zsf(i,j+1)-zsf(i,j-1))/fdy
     enddo
 enddo
 
+! compute only once fuel parameter arrays, these do not change
+call fire_startup(ifts,ifte,jfts,ifte, &
+                  ifms,ifme,jfms,jfme, &
+                  fdx,fdy,zsf,fuel_time,fgip)
 
 
-do j=jfts,jfte
-    do i=ifts,ifte
-
-! --- get integer height of fuel
-      ks = nint(1. + fueldepthm(nfuel_cat(i,j)) / (zf(i,j)-zsf(i,j)))
-    enddo
-enddo
-
-!???????????
-      
 ! advance the model from time_start to time_start+dt
 ! return the fuel fraction burnt this call in each fire cell
 ! will call module_fr_sfire_speed%%normal_speed for propagation speed
@@ -199,40 +112,20 @@ enddo
 call sfire_core(     &
     ifts,ifte,jfts,jfte,                      &
     ifms,ifme,jfms,jfme,                      &
-    time_start,time_diff,fdx,fdy,fuel_time,   &
+    time_start,dt,fdx,fdy,fuel_time,          &
     phi,tign,fuel_frac,fuel_frac_burnt ) 
 
 ! compute the heat fluxes on the fire grid cells
 do j=jfts,jfte
     do i=ifts,ifte
          dmass =                     &     ! ground fuel mass burnt this call (kg/m^2)
-             fgi(nfuel_cat(i,j))     &     ! init mass from fuel model no (kg/m^2)
-             * fuel_frac_burnt(i,j)  &     ! fraction burned this call    (1)
-             / (nfrx*nfry)                 ! scale so that sum over atm cell = average
+             fgip(i,j)               &     ! init mass from fuel model no (kg/m^2)
+             * fuel_frac_burnt(i,j)        ! fraction burned this call    (1)
          grnhft(i,j) = (dmass/dt)*(1.-bmst)*cmbcnst         ! J/m^2/sec
-         grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! what the #!@* ????
-         ! xlv is defined in module_model_constants
+         grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! what the #!@* is that??
+         ! xlv is defined in module_model_constants.. who knows that it is.. why .56 ??
     enddo
 enddo
-
-! sum up the fluxes over atm cells
-call sum_2d_cells(                                  &
-    ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,grnhft, &
-    iats,iate,jats,jate,ims, ime, jms, jme, grnht)
-call sum_2d_cells(                                  &
-    ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,grnqft, &
-    iats,iate,jats,jate,ims, ime, jms, jme, grnqt)
-
-! --- add heat and moisture fluxes to tendency variables
-
-CALL fire_tendency(grnhfx,grnqfx,canhfx,canqfx,    &  ! send
-                      alfg,alfc,z1can,                &
-                      zs,z_at_w,dz8w,mu,rho,          &
-                      ids,ide, kds,kde, jds,jde,      &
-                      ims,ime, kms,kme, jms,jme,      &
-                      its,ite, kts,kte, jts,jte,      &
-                      rthfrten,rqvfrten)                 ! recv
-
 
 end subroutine sfire_model
 
@@ -240,126 +133,174 @@ end subroutine sfire_model
 !*****************
 !
 
-SUBROUTINE fire_tendency(grnhfx,grnqfx,canhfx,canqfx, &  ! incoming
-                         alfg,alfc,z1can,             &
-                         zs,z_at_w,dz8w,mu,rho,       &
-                         ids,ide, kds,kde, jds,jde,   &
-                         ims,ime, kms,kme, jms,jme,   &
-                         its,ite, kts,kte, jts,jte,   &
-                         rthfrten,rqvfrten)              ! outgoing
+subroutine fire_startup(ifts,ifte,jfts,jfte, &
+                        ifms,ifme,jfms,jfme, &
+                        fdx,fdy,zsf,fuel_time,fgip)
+use module_fr_cawfe_fuel
+use module_fr_sfire_speed
+implicit none
 
-! --- this routine takes fire generated heat and moisture fluxes and
-!     calculates their influence on the theta and water vapor 
+!*** purpose: set arrays that do not change over time
+! copied from wf2_janice/fire_startup.m4 with minimal changes
 
-! --- note that these tendencies are valid at the Arakawa-A location
+!*** arguments
+integer, intent(in)::ifts,ifte,jfts,jfte     ! fire mesh cell bounds
+integer, intent(in)::ifms,ifme,jfms,jfme     ! memory array bounds
+real, intent(in):: fdx,fdy                   ! fire mesh spacing
+real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf ! surface altitude
+real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time, & ! time const of burn
+                   fgip                      ! FGI
+!*** local
 
-   IMPLICIT NONE
+! temporary
+real:: umid, fuelload, fueldepth, rtemp1, rtemp2, tanphi, &
+         qig, epsilon, rhob, phis, wn, betaop, e, c, phiw, &
+         xifr, etas, etam, a, gammax, gamma, ratio, ir, irm, rosm, t1, &
+         slngth, fuelloadm
+integer:: i,j,iu1
+! what the $#% is slngth??
+      
+integer, dimension(ifts:ifte,jfts:jfte)::nfuel_cat ! fuel distribution
+! Hey we need to make up our mind - do we want to carry around nfuel_cat or
+! the spatial arrays of its values?? The original code is mostly carrying the
+! spatial arrays but slips in few places and uses nfuel_cat anyway. Here 
+! nfuel_cat(i,j) is *local* to this subroutine. Only the values of the fuel
+! parameters at (i,j) are known outside. This will allow more generality in future,
+! if needed, and it is consistent.
 
-! --- incoming variables
+! parameters to control execution
+integer:: ifuelread,nfuel_cat0
 
-   INTEGER , INTENT(in) :: ids,ide, kds,kde, jds,jde, &
-                           ims,ime, kms,kme, jms,jme, &
-                           its,ite, kts,kte, jts,jte
+!*** executable
 
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx  ! W/m^2
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx  ! W/m^2
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ) :: zs  ! topography (m abv sealvl)
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ) :: mu  ! dry air mass (Pa)
+! gradient of surface altitude, node based
+do j=jfts,jfte+1
+    do i=ifts,ifte+1
+        dzfsdx(i,j)=0.5*(zsf(i+1,j)-zsf(i-1,j))/fdx ! terrain slope in x direction
+        dzfsdy(i,j)=0.5*(zsf(i,j+1)-zsf(i,j-1))/fdy ! terrain slope in y direction
+    enddo
+enddo
 
-   REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: z_at_w ! m abv sealvl
-   REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: dz8w   ! dz across w-lvl
-   REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: rho    ! density
+! set fuel distributions for testing
 
-   REAL, INTENT(in) :: alfg ! extinction depth ground fire heat (m)
-   REAL, INTENT(in) :: alfc ! extinction depth crown  fire heat (m)
-   REAL, INTENT(in) :: z1can    ! height of crown fire heat release (m)
-
-! --- outgoing variables
-
-   REAL, INTENT(out), DIMENSION( ims:ime,kms:kme,jms:jme ) ::   &
-       rthfrten, & ! theta tendency from fire (in mass units)
-       rqvfrten    ! Qv tendency from fire (in mass units)
-! --- local variables
-
-   INTEGER :: i,j,k
-   INTEGER :: i_st,i_en, j_st,j_en, k_st,k_en
-
-   REAL :: cp_i
-   REAL :: rho_i
-   REAL :: xlv_i
-   REAL :: z_w,dz
-   REAL :: fact_g, fact_c
-
-   REAL, DIMENSION( ims:ime,kms:kme,jms:jme ) :: hfx,qfx
-
-! --- set some local constants
-
-   cp_i = 1./cp     ! inverse of specific heat
-   xlv_i = 1./xlv   ! inverse of latent heat
-
-! --- set loop indicies : note that 
-
-   i_st = MAX(its,ids+1)
-   i_en = MIN(ite,ide-1)
-   k_st = kts
-   k_en = MIN(kte,kde-1)
-   j_st = MAX(jts,jds+1)
-   j_en = MIN(jte,jde-1)
-
-! --- distribute fluxes
-
-   DO j = j_st,j_en
-      DO k = k_st,k_en
-         DO i = i_st,i_en
-
-            ! --- set z (in meters above ground)
-
-            z_w = z_at_w(i,k,j) - zs(i,j) ! should be zero when k=k_st
-
-            ! --- heat flux
-
-            fact_g = cp_i * EXP( - alfg * z_w )
-            IF ( z_w < z1can ) THEN
-               fact_c = cp_i
-            ELSE
-               fact_c = cp_i * EXP( - alfc * (z_w - z1can) )
-            END IF
-            hfx(i,k,j) = fact_g * grnhfx(i,j) + fact_c * canhfx(i,j) 
-
-            ! --- vapor flux
-
-            fact_g = xlv_i * EXP( - alfg * z_w )
-            IF (z_w < z1can) THEN
-               fact_c = xlv_i
-            ELSE
-               fact_c = xlv_i * EXP( - alfc * (z_w - z1can) )
-            END IF
-            qfx(i,k,j) = fact_g * grnqfx(i,j) + fact_c * canqfx(i,j) 
-
-         END DO
-      END DO
-   END DO
-
-! --- add flux divergence to tendencies
+ifuelread = 0
+if (ifuelread .eq. 0) then
 !
-!   multiply by dry air mass (mu) to eliminate the need to 
-!   call sr. calculate_phy_tend (in dyn_em/module_em.F)
+    nfuel_cat0= 8             ! param! set category
+    do j=jfte,jfte
+        do  i=ifts,ifte
+            nfuel_cat(i,j)=nfuel_cat0
+        enddo
+    enddo
+         
+else if (ifuelread .eq. 1) then
+!
+!         make dependent on altitude (co mountains/forest vs. plains)
+!          2000 m : 6562 ft   ;    1600 m: 5249 ft
 
-   DO j = j_st,j_en
-      DO k = k_st,k_en-1
-         DO i = i_st,i_en
+!        ... user defines fuel category spatial variability ! param!
+    do j=jfte,jfte
+        do  i=ifts,ifte
+            nfuel_cat(i,j)= 2     ! grass with understory
+            t1=zsf(i,j)*slngth/100.
+            if(t1.le.1524.)then   !  up to 5000 ft
+                nfuel_cat(i,j)= 3  ! tall grass
+            else if(t1.ge.1524. .and. t1.le.2073.)then  ! 5.0-6.8 kft.
+                nfuel_cat(i,j)= 2  ! grass with understory
+            else if(t1.ge.2073..and.t1.le.2438.)then  ! 6.8-8.0 kft.
+                nfuel_cat(i,j)= 8  ! timber litter - 10 (ponderosa)
+            else if(t1.gt.2438. .and. t1.le. 3354.) then ! 8.0-11.0 kft.
+!                 ... could also be mixed conifer.
+                nfuel_cat(i,j)= 10 ! timber litter - 8 (lodgepole)
+            else if(t1.gt.3354. .and. t1.le. 3658.) then ! 11.0-12.0 kft
+                nfuel_cat(i,j)= 1  ! alpine meadow - 1
+            else if(t1.gt.3658. ) then  ! > 12.0 kft
+                nfuel_cat(i,j)= 14 ! no fuel.
+            endif
+        enddo
+    enddo
 
-            rho_i = 1./rho(i,k,j)
+else if (ifuelread .eq. 2) then
 
-            rthfrten(i,k,j) = - mu(i,j) * rho_i * (hfx(i,k+1,j)-hfx(i,k,j)) / dz8w(i,k,j)
-            rqvfrten(i,k,j) = - mu(i,j) * rho_i * (qfx(i,k+1,j)-qfx(i,k,j)) / dz8w(i,k,j)
+! read it somewhere else?? how to read data in wrf and preserve from one call 
+! to the next? jm
 
-         END DO
-      END DO
-   END DO
+!        ...  read fuel files
 
-   RETURN
+    iu1=10
+         open(iu1,file='fuel_layer',status='unknown',form='formatted')
+    do j=jfte,jfte
+        do  i=ifts,ifte
+            read(iu1,'(i2)') nfuel_cat(i,j)
+!           ... if no fuel category specified (i.e. '99'), set to '14',
+!               which (in the current 13 category nffl category system)
+!               is 'no fuel'
+            if (nfuel_cat(i,j).lt.1) nfuel_cat(i,j)=14     ! not generalized
+            if (nfuel_cat(i,j).gt.nfuelcats) nfuel_cat(i,j)=14     ! not generalized
+        enddo
+    enddo
 
-END SUBROUTINE fire_tendency
+    close (iu1)
 
+else
+    call crash('fire_startup: bad ifuelread')
+endif
+!     .............end  load fuel categories (or constant) here.
+
+
+
+!     ...Settings of fire spread parameters from BEHAVE follows. These
+!        don't need to be recalculated later.
+!
+do j=jfts,jfte+1
+    do i=ifts,ifte+1
+        
+        ! jm: do not understand calculations of stime in binit.m4
+        ! set fuel time constant: weight=1000=>40% decrease over 10 min
+        ! fuel decreases as exp(-t/fuel_time) 
+        ! exp(-600*0.85/1000) = approx 0.6 
+        fuel_time(i,j)=weight(nfuel_cat(i,j))/0.85
+        ischap(i,j)=ichap(nfuel_cat(i,j))  ! nfuel_cat is UNKNOWN outside of here
+        fgip(i,j)=fgi(nfuel_cat(i,j))
+        ! end jm addition
+        
+        ! orig code from wf2_janice/fire_startup.m4 follows   
+        fuelloadm= (1.-bmst) * fgi(nfuel_cat(i,j))  !  fuelload without moisture
+        fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
+        fueldepth = fueldepthm(nfuel_cat(i,j))/0.3048               ! to ft
+        betafl(i,j) = fuelload/(fueldepth * fueldens(nfuel_cat(i,j)))    ! packing ratio
+        betaop = 3.348 * savr(nfuel_cat(i,j))**(-0.8189)     ! optimum packing ratio
+        qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
+        epsilon = exp(-138./savr(nfuel_cat(i,j)) )    ! effective heating number
+        rhob = fuelload/fueldepth    ! ovendry bulk density, lb/ft^3
+
+        c = 7.47 * exp( -0.133 * savr(nfuel_cat(i,j))**0.55)    ! const in wind coef
+        bbb(i,j) = 0.02526 * savr(nfuel_cat(i,j))**0.54                ! const in wind coef
+        e = 0.715 * exp( -3.59e-4 * savr(nfuel_cat(i,j)))       ! const in wind coef
+        phiwc(i,j) = c * (betafl(i,j)/betaop)**(-e)
+
+        rtemp2 = savr(nfuel_cat(i,j))**1.5
+        gammax = rtemp2/(495. + 0.0594*rtemp2)              ! maximum rxn vel, 1/min
+        a = 1./(4.774 * savr(nfuel_cat(i,j))**0.1 - 7.27)   ! coef for optimum rxn vel
+        ratio = betafl(i,j)/betaop
+        gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
+
+        wn = fuelload/(1 + st(nfuel_cat(i,j)))       ! net fuel loading, lb/ft^2
+        rtemp1 = fuelmc_g/fuelmce(nfuel_cat(i,j))
+        etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
+        etas = 0.174* se(nfuel_cat(i,j))**(-0.19)                ! mineral damping coef
+        ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
+        irm = ir * 1055./( 0.3048**2 * 60.) * 1.e-6     !for mw/m^2
+
+        xifr = exp( (0.792 + 0.681*savr(nfuel_cat(i,j))**0.5) &
+            * (betafl(i,j)+0.1)) /(192. + 0.2595*savr(nfuel_cat(i,j))) ! propagating flux ratio
+
+!        ... r_0 is the spread rate for a fire on flat ground with no wind.
+
+        r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
+        if (nfuel_cat(i,j) .eq. 14) r_0(i,j)=0.     ! no fuel, no spread.
+    enddo
+enddo
+
+end subroutine fire_startup
 end module module_fr_sfire_model
