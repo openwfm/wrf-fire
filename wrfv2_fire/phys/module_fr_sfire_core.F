@@ -8,7 +8,7 @@ contains
 subroutine sfire_core(       ids,ide,jds,jde,  &
                              ims,ime,jms,jme,  &
                              time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
-                             phi,tign,fuel_frac,fuel_frac_burnt ) 
+                             lfn,tign,fuel_frac,fuel_frac_burnt ) 
 
 !*** purpose
 !
@@ -25,7 +25,7 @@ implicit none
 !*** arguments
 
 integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
-real, intent(inout), dimension(ims:ime,jms:jme)::phi,tign,fuel_frac,fuel_time,fuel_frac_burnt
+real, intent(inout), dimension(ims:ime,jms:jme)::lfn,tign,fuel_frac,fuel_time,fuel_frac_burnt
 real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 
 ! argument          intent  description                     (unit)  lives at
@@ -36,7 +36,7 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 ! time_diff          in   the length of simulation            (s)
 ! fire_dx,fire_dy   in   fire mesh spacings                  (m)
 ! fuel_time         in   time fuel burns down to 1/e         (s)      cells
-! phi             inout  level function (state)              (1)      nodes
+! lfn             inout  level function (state)              (1)      nodes
 ! tign            inout  ignition time (state)               (s)      nodes
 ! fuel_frac       inout  the fuel fraction at the end        (1)      cells
 ! fuel_frac_burnt   out  the fuel fraction burnt this call   (1)      cells 
@@ -52,9 +52,9 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 ! The physics should be done in the pre- and postprocessing, and in 
 ! the speed function for the fireline propagation (future).
 !
-! The state of the model is the level function phi, which determines the fire 
+! The state of the model is the level function lfn, which determines the fire 
 ! area, and the ignition time tign, both interpolated from values at nodes.
-! The fire area is the level set where phi <= 0.  The fireline is where phi=0. 
+! The fire area is the level set where lfn <= 0.  The fireline is where lfn=0. 
 ! The array tign outside of the fire area is not set or referenced. 
 ! The state should be preserved between the calls, and it can be modified by
 ! data assimilation. All other quantities are derived from the state in each call.
@@ -98,16 +98,16 @@ call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 
 ! compute the fuel fraction at time_start
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
-    phi,tign,fuel_time,time_start,frac_start)
+    lfn,tign,fuel_time,time_start,frac_start)
 
 ! propagate the fireline: advance the level function 
 ! from time_start to time_start + time_diff
 call prop_ls &
-  (ids,ide,jds,jde,ims,ime,jms,jme,phi,tign,time_start,time_diff,fire_dx,fire_dy)
+  (ids,ide,jds,jde,ims,ime,jms,jme,lfn,tign,time_start,time_diff,fire_dx,fire_dy)
 
 ! compute the fuel fraction at time_end 
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
-    phi,tign,fuel_time,time_start+time_diff,fuel_frac)
+    lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
 
 ! compute the fuel fraction lost
 do j=jds,jde

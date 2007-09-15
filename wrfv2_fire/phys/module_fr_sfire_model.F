@@ -44,7 +44,7 @@ REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme,kw):: &
 ! state
 
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme,kw):: &
-    phi   , &                               ! level function: fire is where phi<0 (node)
+    lfn   , &                               ! level function: fire is where lfn<0 (node)
     tign  , &                               ! absolute time of ignition (node)
     fuel_frac                               ! fuel fraction (node), currently redundant
     
@@ -104,7 +104,6 @@ call fire_startup(ifts,ifte,jfts,ifte, &
                   ifms,ifme,jfms,jfme, &
                   fdx,fdy,zsf,time_fuel,fgip)
 
-
 ! advance the model from time_start to time_start+dt
 ! return the fuel fraction burnt this call in each fire cell
 ! will call module_fr_sfire_speed%%normal_speed for propagation speed
@@ -113,7 +112,7 @@ call sfire_core(     &
     ifts,ifte,jfts,jfte,                      &
     ifms,ifme,jfms,jfme,                      &
     time_start,dt,fdx,fdy,time_fuel,          &
-    phi,tign,fuel_frac,fuel_frac_burnt ) 
+    lfn,tign,fuel_frac,fuel_frac_burnt ) 
 
 ! compute the heat fluxes on the fire grid cells
 do j=jfts,jfte

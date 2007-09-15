@@ -142,3 +142,5 @@ idfs:idfe,jdfs:jdfe.
 
 9/7/07
 !$OMP PARALLEL DO in module_cumulus_driver
+
+#include "HALO.EM_A.inc"

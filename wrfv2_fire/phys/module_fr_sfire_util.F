@@ -528,10 +528,10 @@ interp = &
 end function interp
 
 subroutine meshdiffc_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
-                   ims1,ime1,jms1,jme1, &       ! dimensions of phi 
+                   ims1,ime1,jms1,jme1, &       ! dimensions of lfn 
                    ims2,ime2,jms2,jme2, &       ! dimensions of the outputs
                    dx,dy,               &       ! mesh spacing
-                   phi,                 &       ! input
+                   lfn,                 &       ! input
                    diffCx,diffCy) ! output
 implicit none
 
@@ -542,7 +542,7 @@ implicit none
 
 integer, intent(in)::ids,ide,jds,jde,ims1,ime1,jms1,jme1,ims2,ime2,jms2,jme2
 real, intent(in):: dx,dy
-real, intent(in), dimension(ims1:ime1,jms1:jme1):: phi
+real, intent(in), dimension(ims1:ime1,jms1:jme1):: lfn
 real, intent(out), dimension(ims2:ime2,jms2:jme2):: diffCx,diffCy
 
 !*** local
@@ -551,10 +551,10 @@ real, dimension(ims2:ime2,jms2:jme2):: diffLx,diffRx,diffLy,diffRy
 
 ! get one-sided differences; dumb but had that already...
 call meshdiff_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
-                   ims1,ime1,jms1,jme1, &       ! dimensions of phi 
+                   ims1,ime1,jms1,jme1, &       ! dimensions of lfn 
                    ims2,ime2,jms2,jme2, &       ! dimensions of the outputs
                    dx,dy,               &       ! mesh spacing
-                   phi,                 &       ! input
+                   lfn,                 &       ! input
                    diffLx,diffRx,diffLy,diffRy) ! output
 
 ! make into central
@@ -567,10 +567,10 @@ enddo
 end subroutine meshdiffc_2d 
 
 subroutine meshdiff_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
-                   ims1,ime1,jms1,jme1, &       ! dimensions of phi 
+                   ims1,ime1,jms1,jme1, &       ! dimensions of lfn 
                    ims2,ime2,jms2,jme2, &       ! dimensions of the outputs
                    dx,dy,               &       ! mesh spacing
-                   phi,                 &       ! input
+                   lfn,                 &       ! input
                    diffLx,diffRx,diffLy,diffRy) ! output
 implicit none
 
@@ -581,7 +581,7 @@ implicit none
 
 integer, intent(in)::ids,ide,jds,jde,ims1,ime1,jms1,jme1,ims2,ime2,jms2,jme2
 real, intent(in):: dx,dy
-real, intent(in), dimension(ims1:ime1,jms1:jme1):: phi
+real, intent(in), dimension(ims1:ime1,jms1:jme1):: lfn
 real, intent(out), dimension(ims2:ime2,jms2:jme2):: diffLx,diffRx,diffLy,diffRy
 
 !*** local
@@ -596,10 +596,10 @@ real:: tmpx,tmpy
     ! the bulk of the work
     do j=jds,jde
         do i=ids,ide
-            tmpx = (phi(i+1,j)-phi(i,j))/dx
+            tmpx = (lfn(i+1,j)-lfn(i,j))/dx
             diffLx(i+1,j) = tmpx
             diffRx(i,j)   = tmpx
-            tmpy = (phi(i,j+1)-phi(i,j))/dy
+            tmpy = (lfn(i,j+1)-lfn(i,j))/dy
             diffLy(i,j+1) = tmpy
             diffRy(i,j)   = tmpy
         enddo
@@ -610,13 +610,13 @@ real:: tmpx,tmpy
     ! cleanup
     ! j=jde+1 from above loop
     do i=ids,ide
-        tmpx = (phi(i+1,j)-phi(i,j))/dx
+        tmpx = (lfn(i+1,j)-lfn(i,j))/dx
         diffLx(i+1,j) = tmpx
         diffRx(i,j)   = tmpx
     enddo
     ! i=ide+1 from above loop
     do j=jds,jde
-        tmpy = (phi(i,j+1)-phi(i,j))/dy
+        tmpy = (lfn(i,j+1)-lfn(i,j))/dy
         diffLy(i,j+1) = tmpy
         diffRy(i,j)   = tmpy
     enddo

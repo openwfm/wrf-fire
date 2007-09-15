@@ -2,7 +2,7 @@ module module_fr_sfire_prop
 
 contains
 
-subroutine prop_ls(ids,ide,jds,jde,ims,ime,jms,jme,phi,tc,ts,td,dx,dy)
+subroutine prop_ls(ids,ide,jds,jde,ims,ime,jms,jme,lfn,tc,ts,td,dx,dy)
 use module_fr_sfire_util
 use module_fr_sfire_speed
 implicit none
@@ -15,9 +15,9 @@ implicit none
 !*** description
 !
 ! Propagation of closed curve by a level function method. The level function
-! phi is defined by its values at the nodes of a rectangular grid. 
-! The area where phi < 0 is inside the curve. The curve is 
-! described implicitly by phi=0. Points where the curve intersects gridlines
+! lfn is defined by its values at the nodes of a rectangular grid. 
+! The area where lfn < 0 is inside the curve. The curve is 
+! described implicitly by lfn=0. Points where the curve intersects gridlines
 ! can be found by linear interpolation from nodes.
 !
 ! The level function is advanced from time ts to time ts + dt. 
@@ -64,7 +64,7 @@ implicit none
 
 ! ims,ime,jms,jme   in    array dimensions
 ! ids,ide,jds,jde   in    grid dimensions in the array, in cells (in nodes, +1)
-! phi               inout the level function
+! lfn               inout the level function
 ! tc                inout the time the contour=zero level set crossed the node
 ! ts                in    start time
 ! td                in    end time is ts+td (given this way because of rounding)
@@ -94,12 +94,12 @@ implicit none
 !   speed = r + max(vx*nvx + vy*nvy,0.0)
       
 integer,intent(in)::ims,ime,jms,jme,ids,ide,jds,jde
-real,dimension(ims:ime,jms:jme),intent(inout)::phi,tc
+real,dimension(ims:ime,jms:jme),intent(inout)::lfn,tc
 real,intent(in)::dx,dy,ts,td
 
 !*** local 
 ! arrays
-real,dimension(ids:ide+1,jds:jde+1):: & ! same mesh as phi, but declare only the mesh used
+real,dimension(ids:ide+1,jds:jde+1):: & ! same mesh as lfn, but declare only the mesh used
    tend,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy, &
    tbound_n, tbound_ax, tbound_ay, &
@@ -110,7 +110,7 @@ real:: diff2x,diff2y, &
    a,tend_n,tend_a,  &
    rr, vvx, vvy,grad, &
    m_tbound_n, m_tbound_ax, m_tbound_ay, &
-   t,dt,tr,tbound,phi_old,phi_new
+   t,dt,tr,tbound,lfn_old,lfn_new
 integer::istep
 ! integer::m1,m,n1,n
 integer:: i,j,k,kk
@@ -165,10 +165,10 @@ do while ( tr + td*tol < td .and. istep < mstep )
     
     call meshdiff_2d(        &           ! get all 4 one-sided differences
         ids,ide,  jds,jde ,  &           ! mesh area used (in cells, end +1)
-        ims,ime,  jms,jme,   &           ! dimensions of phi 
+        ims,ime,  jms,jme,   &           ! dimensions of lfn 
         ids,ide+1,jds,jde+1, &           ! dimensions of the outputs
         dx,dy,               &           ! mesh spacing
-        phi,                 &           ! input
+        lfn,                 &           ! input
         diffLx,diffRx,diffLy,diffRy) ! output        
     !print *,'err=', &
     !    sum(abs(diffLx2-diffLx))+sum(abs(diffRx2-diffRx)) &
@@ -249,7 +249,7 @@ do while ( tr + td*tol < td .and. istep < mstep )
 
             !  trailing edge correction - do not allow fireline to go backwards
             ! THIS IS DIFFERENT FROM THE TOOLBOX!!
-            if(phi(i,j)<=0.0)then
+            if(lfn(i,j)<=0.0)then
                 tend(i,j)=min(tend(i,j),-0.5*one)
             endif           
         enddo
@@ -273,26 +273,26 @@ do while ( tr + td*tol < td .and. istep < mstep )
     dt = min(td-tr, 0.5*tbound)
     !print *,'prop_ls:step,time,dt=',istep,t,dt    
 
-    ! the rhs of the diff eq, a.k.a. phi dot, a.k.a. the phi "tendency"
+    ! the rhs of the diff eq, a.k.a. lfn dot, a.k.a. the lfn "tendency"
     ! 0. because max requires both arguments same type (real) 
         
     do j=jds,jde+1
         do i=ids,ide+1
-            phi_old = phi(i,j)
-            phi_new = phi(i,j) + dt*tend(i,j) 
+            lfn_old = lfn(i,j)
+            lfn_new = lfn(i,j) + dt*tend(i,j) 
             ! interpolate the cross-over time
-            if(phi_old>0 .and. .not. phi_new>0)then
+            if(lfn_old>0 .and. .not. lfn_new>0)then
                 ! the node was not burning at start but it is burning at end
                 ! interpolate from the level functions at start and at end
-                ! phi_old is the level function value at time t
-                ! phi_new is the level function value at time t+dt
+                ! lfn_old is the level function value at time t
+                ! lfn_new is the level function value at time t+dt
                 ! 0       should the level function value at time tc(i,j)
                 ! thus assuming the level function is approximately linear =>
-                ! tc(i,j)=t + ((t + td) - t) * phi_old / (phi_old - phi_new)
-                tc(i,j) = t - phi_old / tend(i,j)
+                ! tc(i,j)=t + ((t + td) - t) * lfn_old / (lfn_old - lfn_new)
+                tc(i,j) = t - lfn_old / tend(i,j)
             endif
             ! advance one step
-            phi(i,j) = phi_new
+            lfn(i,j) = lfn_new
         enddo
     enddo
 

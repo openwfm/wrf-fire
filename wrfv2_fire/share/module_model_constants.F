@@ -13,7 +13,6 @@
 
    !  These are the physical constants used within the model.
 
-! JM NOTE -- can we name this grav instead?
    REAL    , PARAMETER :: g = 9.81  ! acceleration due to gravity (m {s}^-2)
 
 #if ( NMM_CORE == 1 )
