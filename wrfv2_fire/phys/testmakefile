@@ -19,7 +19,7 @@ SPEED = normal_spread
 $(SPEED).o: \
      module_fr_sfire_util.o 
 
-module_fr_cawfe_fuel.o: \
+module_fr_sfire_fuel.o: \
      ../share/module_model_constants.o
 
 module_fr_sfire_atm.o: \
@@ -27,14 +27,14 @@ module_fr_sfire_atm.o: \
      $(SPEED).o \
      ../share/module_model_constants.o \
      module_fr_sfire_core.o  \
-     module_fr_cawfe_fuel.o \
+     module_fr_sfire_fuel.o \
      module_fr_sfire_util.o 
 
 module_fr_sfire_model.o: \
      $(SPEED).o \
      ../share/module_model_constants.o \
      module_fr_sfire_core.o  \
-     module_fr_cawfe_fuel.o \
+     module_fr_sfire_fuel.o \
      module_fr_sfire_util.o 
 
 module_fr_sfire_core.o: \
@@ -66,16 +66,16 @@ module_fr_sfire_util.o: \
 # the propagation alone 
 #
 PROP_OBJ = \
-     prop_test.F \
+     prop_test_main.F \
      $(SPEED).o \
      module_fr_sfire_prop.o \
      module_fr_sfire_util.o \
      wrf_fakes.o 
 
-prop_test.exe: $(PROP_OBJ)  
-	$(FC) -o prop_test.exe $(PROP_OBJ)
+prop_test_prog.exe: $(PROP_OBJ)  
+	$(FC) -o prop_test_prog.exe $(PROP_OBJ)
 
-prop_test: prop_test.exe
+prop_test: prop_test_prog.exe
 	# run prop_test from matlab to test
 
 #
@@ -85,33 +85,33 @@ FUEL_TEST_OBJ=\
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o \
     wrf_fakes.o \
-    burn_test.F
+    burn_test_main.F
 
-burn_test.exe: $(FUEL_TEST_OBJ)
-	$(FC) -o burn_test.exe $(FUEL_TEST_OBJ)
+burn_test_prog.exe: $(FUEL_TEST_OBJ)
+	$(FC) -o burn_test_prog.exe $(FUEL_TEST_OBJ)
 
-burn_test: burn_test.exe
-	./burn_test.exe
+burn_test: burn_test_prog.exe
+	./burn_test_prog.exe
 
 #
 # utilities
 #
 UTIL_OBJ= \
-    util_test.F   \
+    util_test_main.F   \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-util_test.exe: $(UTIL_OBJ)
-	$(FC) -o util_test.exe $(UTIL_OBJ)
+util_test_prog.exe: $(UTIL_OBJ)
+	$(FC) -o util_test_prog.exe $(UTIL_OBJ)
 
-util_test: util_test.exe
-	./util_test.exe
+util_test: util_test_prog.exe
+	./util_test_prog.exe
 
 #
 # the core: whole math model
 #
 CORE_OBJ= \
-    core_test.F \
+    core_test_main.F \
     $(SPEED).o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o  \
@@ -119,17 +119,17 @@ CORE_OBJ= \
     module_fr_sfire_core.o \
     wrf_fakes.o
     
-core_test.exe: $(CORE_OBJ) 
-	$(FC) -o core_test.exe $(CORE_OBJ)
+core_test_prog.exe: $(CORE_OBJ) 
+	$(FC) -o core_test_prog.exe $(CORE_OBJ)
 
-core_test: core_test.exe
+core_test: core_test_prog.exe
 	# run core_test in Matlab
 
 #
 # the core with improved level set
 #
 LEVEL_OBJ= \
-    core_test.F \
+    core_test_main.F \
     $(SPEED).o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o  \
@@ -137,21 +137,20 @@ LEVEL_OBJ= \
     module_fr_sfire_core.o \
     wrf_fakes.o
     
-level_test.exe: $(LEVEL_OBJ) 
-	$(FC) -o level_test.exe $(LEVEL_OBJ)
+level_test_prog.exe: $(LEVEL_OBJ) 
+	$(FC) -o level_test_prog.exe $(LEVEL_OBJ)
 
-level_test: level_test.exe
+level_test: level_test_prog.exe
 	# run level_test in Matlab
 
 #
 # the whole fire model, fire variables only
 #
 MODEL_OBJ = \
-    model_test.F \
+    model_test_main.F \
     $(SPEED).o \
     module_fr_sfire_model.o \
-    ../share/module_model_constants.o \
-    module_fr_cawfe_fuel.o \
+    module_fr_sfire_fuel.o \
     module_fr_sfire_core.o \
     module_fr_sfire_prop.o \
     module_fr_sfire_burn.o \
@@ -159,24 +158,24 @@ MODEL_OBJ = \
     wrf_fakes.o
 
 
-model_test: 
-	make -f $(MAKEFILE) model_test.exe \
+model_test:
+	make -f $(MAKEFILE) model_test_prog.exe \
 		SPEED=module_fr_sfire_speed FC="$(FC)"
 
 
-model_test.exe: $(MODEL_OBJ) 
-	$(FC) -o model_test.exe $(MODEL_OBJ)
+model_test_prog.exe: $(MODEL_OBJ) 
+	$(FC) -o model_test_prog.exe $(MODEL_OBJ)
 
 #
 # the whole fire model through atmosphere coupling 
 #
 ATM_OBJ = \
-    atm_test.F \
+    atm_test_main.F \
     module_fr_sfire_atm.o \
     $(SPEED).o \
     module_fr_sfire_model.o \
     ../share/module_model_constants.o \
-    module_fr_cawfe_fuel.o \
+    module_fr_sfire_fuel.o \
     module_fr_sfire_core.o \
     module_fr_sfire_prop.o \
     module_fr_sfire_burn.o \
@@ -184,11 +183,11 @@ ATM_OBJ = \
     wrf_fakes.o
 
 atm_test: 
-	make -f $(MAKEFILE) atm_test.exe \
+	make -f $(MAKEFILE) atm_test_prog.exe \
 		SPEED=module_fr_sfire_speed FC="$(FC)"
 
-atm_test.exe: $(ATM_OBJ) 
-	$(FC) -o atm_test.exe $(ATM_OBJ)
+atm_test_prog.exe: $(ATM_OBJ) 
+	$(FC) -o atm_test_prog.exe $(ATM_OBJ)
 
 # end test targets
 

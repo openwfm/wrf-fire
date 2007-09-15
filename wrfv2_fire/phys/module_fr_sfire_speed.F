@@ -9,6 +9,35 @@ integer, pointer, dimension(:,:):: ischap
 
 
 contains
+
+subroutine allocate_fire_params(ifms,ifme,jfms,jfme)
+implicit none
+integer, intent(in):: ifms,ifme,jfms,jfme
+allocate(vx(ifms:ifme,jfms:jfme))
+allocate(vy(ifms:ifme,jfms:jfme)) 
+allocate(dzfsdx(ifms:ifme,jfms:jfme)) 
+allocate(dzfsdy(ifms:ifme,jfms:jfme)) 
+allocate(bbb(ifms:ifme,jfms:jfme)) 
+allocate(betafl(ifms:ifme,jfms:jfme)) 
+allocate(phiwc(ifms:ifme,jfms:jfme)) 
+allocate(r_0(ifms:ifme,jfms:jfme)) 
+end subroutine allocate_fire_params
+
+subroutine deallocate_fire_params
+implicit none
+deallocate(vx)
+deallocate(vy) 
+deallocate(dzfsdx) 
+deallocate(dzfsdy) 
+deallocate(bbb) 
+deallocate(betafl) 
+deallocate(phiwc) 
+deallocate(r_0) 
+end subroutine deallocate_fire_params
+
+
+
+   
 ! the speed function
     
 subroutine normal_spread(t,dx,dy,n,rii,rjj,ids,ide,jds,jde,nvx,nvy,scale,ros)

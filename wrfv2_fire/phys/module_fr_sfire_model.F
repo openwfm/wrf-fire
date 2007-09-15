@@ -4,33 +4,33 @@ module module_fr_sfire_model
 !
 contains
 
-subroutine sfire_model ( &
+subroutine sfire_model (initialize, ignition,       &
                  ifts,ifte,jfts,jfte,               &
                  ifms,ifme,jfms,jfme,               &
                  kw,                                &
                  time_start,dt,                     &
                  fdx,fdy,                           &
                  nfuel_cat,zsf,vfx,vfy,             &
-                 phi,tign,fuel_frac,                &
+                 lfn,tign,fuel_frac,                &
                  grnhft,grnqft) 
 
 ! This subroutine implements the fire spread model.
 ! All quantities are on the fire grid. It inputs
-! winds on given on the nodes of the fire grid
+! winds given on the nodes of the fire grid
 ! and outputs the heat fluxes on the cells of the fire grid.
-! This subroutine has no knowledge of the atmospheric model.
+! This subroutine has no knowledge of any atmospheric model.
 
 use module_fr_sfire_speed
 use module_fr_sfire_core
 use module_fr_sfire_util
-use module_fr_cawfe_fuel
-use module_model_constants
+use module_fr_sfire_fuel
 implicit none
 
 !*** arguments
 
 ! input
 
+integer, intent(in) :: initialize, ignition ! if not 0, do this and proceed with timestep
 INTEGER, INTENT(in) :: ifts,ifte,jfts,jfte  ! fire domain bounds
 INTEGER, INTENT(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 INTEGER, INTENT(in) :: kw                   ! number of vertical layers of wind (1=surface)
@@ -59,33 +59,35 @@ integer::i,j
 real, dimension(ifms:ifme, jfms:jfme):: & 
     time_fuel, &      ! derived data
     fuel_frac_burnt,& ! 
-    zf,zsf            ! terrain height
+    zsf            ! terrain height
     
-real, target, dimension(ifms:ifme, jfms:jfme):: &  ! arrays for the speed function
-    t_vx,t_vy,     &             ! wind 
-    t_dzfsdx,t_dzfsdy,&          ! terrain gradient
-    t_bbb,t_betafl,t_phiwc,t_r_0 ! fuel model params
-
-integer, target, dimension(ifms:ifme, jfms:jfme)::t_ischap ! chapparall switch
 real,  dimension(ifms:ifme, jfms:jfme)::fgip  ! fuel burns off as exp(-t/time_fuel)
-real:: dmass
+real:: dmass,ctri,ctrj,diam
 
 !*** executable
 
-! pass local automatic arrays to module_fr_sfire_speed by associating pointers
-! cannot use the allocate statement because of wrf restrictions
-vx      => t_vx
-vy      => t_vy
-dzfsdx  => t_dzfsdx
-dzfsdy  => t_dzfsdy
-bbb     => t_bbb
-betafl  => t_betafl
-phiwc   => t_phiwc
-r_0     => t_r_0
-ischap  => t_ischap
+if (initialize.ne.0) then
 
+    ! we do this in violation of wrf coding conventions. will fix later.
+    call allocate_fire_params(ifms,ifme,jfms,jfme)
 
-!***** set up the model data arrays
+    ! compute only once fuel parameter arrays, these do not change
+    call fire_startup(ifts,ifte,jfts,ifte, &
+        ifms,ifme,jfms,jfme, &
+        fdx,fdy,zsf,time_fuel,fgip)
+endif
+
+if (ignition.ne.0) then
+    ! fire in the middle
+    ctri=(ifts+ifte+1)*0.5
+    ctrj=(jfts+jfte+1)*0.5
+    ! at least 3 by 3 cells but no less than 5 m
+    diam = max(5,3*max(fdx,fdy))    
+    call ignite_fire( ifts,ifte,jfts,jfte,                      &
+                        ifms,ifme,jfms,jfme,                      &
+                        time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
+endif
+
 ! copy the ground winds - different every call
 ! We cannot simply compute the spread rate here because that will change with the
 ! angle of the wind and the direction of propagation, thus it is done in subroutine
@@ -98,11 +100,6 @@ do j=jfts,jfte+1
         vy(i,j)=vfy(i,j,1)
     enddo
 enddo
-
-! compute only once fuel parameter arrays, these do not change
-call fire_startup(ifts,ifte,jfts,ifte, &
-                  ifms,ifme,jfms,jfme, &
-                  fdx,fdy,zsf,time_fuel,fgip)
 
 ! advance the model from time_start to time_start+dt
 ! return the fuel fraction burnt this call in each fire cell
@@ -135,7 +132,7 @@ end subroutine sfire_model
 subroutine fire_startup(ifts,ifte,jfts,jfte, &
                         ifms,ifme,jfms,jfme, &
                         fdx,fdy,zsf,time_fuel,fgip)
-use module_fr_cawfe_fuel
+use module_fr_sfire_fuel
 use module_fr_sfire_speed
 use module_fr_sfire_util
 implicit none
@@ -187,8 +184,8 @@ ifuelread = 0
 if (ifuelread .eq. 0) then
 !
     nfuel_cat0= 8             ! param! set category
-    do j=jfte,jfte
-        do  i=ifts,ifte
+    do j=jfte,jfte+1
+        do  i=ifts,ifte+1
             nfuel_cat(i,j)=nfuel_cat0
         enddo
     enddo
@@ -305,4 +302,40 @@ do j=jfts,jfte+1
 enddo
 
 end subroutine fire_startup
+
+subroutine ignite_fire( ifts,ifte,jfts,jfte,                      &
+                        ifms,ifme,jfms,jfme,                      &
+                        time_ign,ctri,ctrj,diam,fdx,fdy,lfn,tign)
+
+!*** purpose: ignite a circular fire 
+
+!*** arguments
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire domain bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+real, intent(in):: time_ign                 ! the ignition time of the fire
+real, intent(in):: ctri,ctrj                ! mesh coordinates of the center of the fire
+!                         dimensionless, if integers, the center is is a mesh node
+real, intent(in):: diam                     ! diam of the ignited area (m)
+real, intent(in):: fdx,fdy                  ! mesh spacing (m)
+real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
+                   lfn, tign                ! level function, ignition time (state)
+!*** calls
+intrinsic huge
+                        
+!*** local
+integer:: i,j
+real, parameter:: faraway = huge(diam)
+
+do j=jfts,jfte+1      ! node based loops, hence the +1
+    do i=ifts,ifte+1                   
+        lfn(i,j)=sqrt(((i-ctri)*fdx)**2+((j-ctrj)*fdy)**2)-diam/2
+        if(lfn(i,j)>0) then
+            tign(i,j)=faraway   ! long way in future
+        else
+            tign(i,j)=time_ign  ! now
+        endif
+    enddo
+enddo
+end subroutine ignite_fire
+            
 end module module_fr_sfire_model
