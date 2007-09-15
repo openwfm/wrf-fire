@@ -2,16 +2,16 @@ program fuel_test
 use module_fr_sfire_burn
 implicit none
 integer :: ids,ide,jds,jde,ims,ime,jms,jme
-parameter(ids=1,ide=2,jds=1,jde=2,ims=1,ime=2,jms=1,jme=2)
+parameter(ids=1,ide=1,jds=1,jde=1,ims=1,ime=2,jms=1,jme=2)
 real,  dimension(ims:ime,jms:jme)::lfn,tign
-real,  dimension(ims:ime-1,jms:jme-1)::w
+real,  dimension(ims:ime,jms:jme)::w
 real  tnow
-real,  dimension(ims:ime-1,jms:jme-1)::fuel_frac
+real,  dimension(ims:ime,jms:jme)::fuel_frac
 integer ::k,i,j
 parameter(k=3) ! number of test cases 
 real,  dimension(ims:ime,jms:jme,k)::lfn_t,tign_t
-real,  dimension(ims:ime-1,jms:jme-1,k)::frac_t
-real,  dimension(ims:ime-1,jms:jme-1,k)::w_t
+real,  dimension(ims:ime,jms:jme,k)::frac_t
+real,  dimension(ims:ime,jms:jme,k)::w_t
 real,  dimension(k)::tnow_t
 character(len=20),dimension(k)::desc
 
@@ -44,8 +44,8 @@ do i=1,k
     w=w_t(:,:,i)
     tnow=tnow_t(i)
     call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme,lfn,tign,w,tnow,fuel_frac)
-    write(*,1)i,desc(i),fuel_frac,frac_t(1,1,i),fuel_frac-frac_t(1,1,i) 
-1   format(i3,1x,a,' fuel_frac',f8.5,' should be',f8.5,' error',g11.3)
+    write(*,1) i, desc(i), fuel_frac(1,1), frac_t(1,1,i), (fuel_frac(1,1)-frac_t(1,1,i)) 
+1   format( i3,1x, a,' fuel_frac', f8.5,' should be', f8.5,' error', g11.3)
 enddo
 
 end

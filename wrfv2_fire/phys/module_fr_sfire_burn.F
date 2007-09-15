@@ -2,7 +2,9 @@ module module_fr_sfire_burn
 
 contains
 
-subroutine fuel_left(ids,ide,jds,jde,ims,ime,jms,jme,lfn,tign,fuel_time,tnow,fuel_frac)
+subroutine fuel_left(ids,ide,jds,jde, &
+                     ims,ime,jms,jme, &
+                     lfn, tign, fuel_time, tnow, fuel_frac)
 use module_fr_sfire_util
 implicit none
 
