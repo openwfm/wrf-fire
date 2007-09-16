@@ -2,7 +2,11 @@ module module_fr_sfire_prop
 
 contains
 
-subroutine prop_ls(ids,ide,jds,jde,ims,ime,jms,jme,lfn,tc,ts,td,dx,dy)
+subroutine prop_ls(ids,ide,jds,jde, & ! dims
+                   ims,ime,jms,jme, & ! dims
+                   ts,td,dx,dy,     & ! scalars in
+                   vx,vy,r,         & ! arrays in 
+                   lfn,tc)            ! arrays out
 use module_fr_sfire_util
 use module_fr_sfire_speed
 implicit none
@@ -64,17 +68,15 @@ implicit none
 
 ! ims,ime,jms,jme   in    array dimensions
 ! ids,ide,jds,jde   in    grid dimensions in the array, in cells (in nodes, +1)
-! lfn               inout the level function
-! tc                inout the time the contour=zero level set crossed the node
 ! ts                in    start time
 ! td                in    end time is ts+td (given this way because of rounding)
 ! dx,dy             in    grid spacing
-
-!*** global
-! in module_fr_sfire_speed:
-!
 ! vx,vy             in    background advection speed
 ! r                 in    background spread rate in normal direction
+! lfn               inout the level function
+! tc                inout the time the contour=zero level set crossed the node
+
+!*** calls
 !
 ! subroutine normal_spread(t,n,rii,rjj,ims,ime,jms,jme,nvx,nvy,scale,speed)
 ! t               in time
@@ -95,6 +97,7 @@ implicit none
       
 integer,intent(in)::ims,ime,jms,jme,ids,ide,jds,jde
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn,tc
+real,dimension(ims:ime,jms:jme),intent(in)::vx,vy,r
 real,intent(in)::dx,dy,ts,td
 
 !*** local 

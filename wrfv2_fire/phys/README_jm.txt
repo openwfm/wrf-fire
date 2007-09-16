@@ -1,21 +1,20 @@
-This directory contains the fire model in development. 
+This directory contains the fire model in development. It is possible to test
+the model independently of wrf.
 
-To test the abstract core:
-./ifmake core_test
+To test the abstract core (mathematical model):
+./ifmake clean core_test
 
-To test the complete fire model: 
-./ifmake model_test
+To test the complete fire model (with physics):
+./ifmake clean model_test
 
-To test the complete fire model with atm inteface (not even compiling yet): 
-./ifmake atm_test
+To test the complete fire model through atm inteface: 
+./ifmake clean atm_test
 
-If something strange happens try
+When repeating the build on the same test, you can omit the "clean".
 
-./ifmake clean
+ifmake is for the Intel compiler. There is also g95make for g95. These use
+testmakefile not Makefile. Makefile is for wrf only.
 
-ifmake is for the Intel compiler. There is also g95make. These use
-Makefile_cvs not Makefile. Makefile is for wrf only.
+Jan Mandel
+September 2007
 
-See ../../README_cvs.txt for more.
-
-Jan Mandel September 13 2007

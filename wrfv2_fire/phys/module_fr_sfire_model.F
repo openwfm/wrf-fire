@@ -20,7 +20,7 @@ subroutine sfire_model (initialize, ignition,       &
 ! and outputs the heat fluxes on the cells of the fire grid.
 ! This subroutine has no knowledge of any atmospheric model.
 
-use module_fr_sfire_speed
+use module_fr_sfire_params
 use module_fr_sfire_core
 use module_fr_sfire_util
 use module_fr_sfire_fuel
@@ -35,10 +35,10 @@ INTEGER, INTENT(in) :: ifts,ifte,jfts,jfte  ! fire domain bounds
 INTEGER, INTENT(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 INTEGER, INTENT(in) :: kw                   ! number of vertical layers of wind (1=surface)
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
-REAL,INTENT(in) :: fdx,fdy                  ! dx,dy on innermost atm mesh
-INTEGER, INTENT(in), dimension(ifms:ifme,jfms:jfme):: &
-    nfuel_cat                               ! fuel category (cell)
-REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme,kw):: &
+REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
+integer, intent(in), dimension(ifms:ifme, jfms:jfme)::nfuel_cat
+REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme,kw):: & 
+    zsf,   &                                ! terrain         
     vfx,vfy                                 ! wind m/s (node)
     
 ! state
@@ -56,12 +56,8 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 
 integer::i,j        
 ! fire grid size declared in module_fr_sfire_speed
-real, dimension(ifms:ifme, jfms:jfme):: & 
-    time_fuel, &      ! derived data
-    fuel_frac_burnt,& ! 
-    zsf            ! terrain height
+real, dimension(ifms:ifme, jfms:jfme)::    fuel_frac_burnt
     
-real,  dimension(ifms:ifme, jfms:jfme)::fgip  ! fuel burns off as exp(-t/time_fuel)
 real:: dmass,ctri,ctrj,diam
 
 !*** executable
@@ -71,10 +67,17 @@ if (initialize.ne.0) then
     ! we do this in violation of wrf coding conventions. will fix later.
     call allocate_fire_params(ifms,ifme,jfms,jfme)
 
-    ! compute only once fuel parameter arrays, these do not change
-    call fire_startup(ifts,ifte,jfts,ifte, &
-        ifms,ifme,jfms,jfme, &
-        fdx,fdy,zsf,time_fuel,fgip)
+    ! initialize all arrays that the model will not change later
+    call set_fire_params(  ifts,ifte,jfts,ifte, &
+                            ifms,ifme,jfms,jfme, &
+                            fdx,fdy,             &
+                            zsf,nfuel_cat)
+                        
+    ! initialize variable model arrays to no fire
+    call init_model_no_fire(ifts,ifte,jfts,ifte, &
+                            ifms,ifme,jfms,jfme, &
+                            fuel_frac,lfn,tign)                            
+                            
 endif
 
 if (ignition.ne.0) then
@@ -82,8 +85,8 @@ if (ignition.ne.0) then
     ctri=(ifts+ifte+1)*0.5
     ctrj=(jfts+jfte+1)*0.5
     ! at least 3 by 3 cells but no less than 5 m
-    diam = max(5,3*max(fdx,fdy))    
-    call ignite_fire( ifts,ifte,jfts,jfte,                      &
+    diam = max(5.0,3*max(fdx,fdy))    
+    call ignite_fire(   ifts,ifte,jfts,jfte,                      &
                         ifms,ifme,jfms,jfme,                      &
                         time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
 endif
@@ -108,7 +111,7 @@ enddo
 call sfire_core(     &
     ifts,ifte,jfts,jfte,                      &
     ifms,ifme,jfms,jfme,                      &
-    time_start,dt,fdx,fdy,time_fuel,          &
+    time_start,dt,fdx,fdy,fuel_time,vx,vy,r_0,  &
     lfn,tign,fuel_frac,fuel_frac_burnt ) 
 
 ! compute the heat fluxes on the fire grid cells
@@ -129,58 +132,208 @@ end subroutine sfire_model
 !*****************
 !
 
-subroutine fire_startup(ifts,ifte,jfts,jfte, &
-                        ifms,ifme,jfms,jfme, &
-                        fdx,fdy,zsf,time_fuel,fgip)
+subroutine set_fire_params(ifts,ifte,jfts,jfte, &
+                           ifms,ifme,jfms,jfme, &
+                           fdx,fdy,             &
+                           zsf,nfuel_cat)
 use module_fr_sfire_fuel
-use module_fr_sfire_speed
+use module_fr_sfire_params
 use module_fr_sfire_util
 implicit none
 
-!*** purpose: set arrays that do not change over time
-! copied from wf2_janice/fire_startup.m4 with minimal changes
+!*** purpose: set all fire model arrays that do not change over time
 
 !*** arguments
 integer, intent(in)::ifts,ifte,jfts,jfte     ! fire mesh cell bounds
 integer, intent(in)::ifms,ifme,jfms,jfme     ! memory array bounds
 real, intent(in):: fdx,fdy                   ! fire mesh spacing
 real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf ! surface altitude
-real, intent(out), dimension(ifms:ifme, jfms:jfme)::time_fuel, & ! time const of burn
-                   fgip                      ! FGI
+integer, intent(in), dimension(ifms:ifme, jfms:jfme)::nfuel_cat
 !*** local
 
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
-         qig, epsilon, rhob, wn, betaop, e, c, &
-         xifr, etas, etam, a, gammax, gamma, ratio, ir, t1, &
-         fuelloadm
-! real:: irm, phiw, tanphi, rosm, phis, slngth, umid   ! jm: not used
-integer:: i,j,iu1
-! what the $#% is slngth?? 
-      
-integer, dimension(ifts:ifte,jfts:jfte)::nfuel_cat ! fuel distribution
-! Hey we need to make up our mind - do we want to carry around nfuel_cat or
-! the spatial arrays of its values?? The original code is mostly carrying the
-! spatial arrays but slips in few places and uses nfuel_cat anyway. Here 
-! nfuel_cat(i,j) is *local* to this subroutine. Only the values of the fuel
-! parameters at (i,j) are known outside. This will allow more generality in future,
-! if needed, and it is consistent.
+        qig, epsilon, rhob, wn, betaop, e, c, &
+        xifr, etas, etam, a, gammax, gamma, ratio, ir, &
+        fuelloadm
+! real:: irm, phiw, tanphi, rosm, phis, slngth, umid, t1   ! jm: not used
+integer:: i,j
 
-! parameters to control execution
-integer:: ifuelread,nfuel_cat0
 
 !*** executable
 
 ! gradient of surface altitude, node based
 do j=jfts,jfte+1
-    do i=ifts,ifte+1
-        dzfsdx(i,j)=0.5*(zsf(i+1,j)-zsf(i-1,j))/fdx ! terrain slope in x 
-        dzfsdy(i,j)=0.5*(zsf(i,j+1)-zsf(i,j-1))/fdy ! terrain slope in y 
+    do i=ifts,ifte+1  ! node based
+        dzfsdx(i,j)=(zsf(i+1,j)-zsf(i-1,j))/(2*fdx) ! terrain slope in x 
+        dzfsdy(i,j)=(zsf(i,j+1)-zsf(i,j-1))/(2*fdy) ! terrain slope in y 
+    enddo
+enddo
+do j=jfts,jfte
+    do i=ifts,ifte
+        fuel_time(i,j)=weight(nfuel_cat(i,j))/0.85 ! cell based
     enddo
 enddo
 
-! set fuel distributions for testing
+do j=jfts,jfte+1
+    do i=ifts,ifte+1
+        
+        ! do not understand calculations of stime in binit.m4
+        ! set fuel time constant: weight=1000=>40% decrease over 10 min
+        ! fuel decreases as exp(-t/fuel_time) 
+        ! exp(-600*0.85/1000) = approx 0.6 
 
-ifuelread = 0
+        ischap(i,j)=ichap(nfuel_cat(i,j))
+        fgip(i,j)=fgi(nfuel_cat(i,j))
+
+        ! end jm addition
+
+        !
+        !*** rest copied from wf2_janice/fire_startup.m4 with minimal changes
+        !
+
+        !     ...Settings of fire spread parameters from BEHAVE follows. These
+        !        don't need to be recalculated later.
+        
+        fuelloadm= (1.-bmst) * fgi(nfuel_cat(i,j))  !  fuelload without moisture
+        fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
+        fueldepth = fueldepthm(nfuel_cat(i,j))/0.3048               ! to ft
+        betafl(i,j) = fuelload/(fueldepth * fueldens(nfuel_cat(i,j)))! packing ratio
+        betaop = 3.348 * savr(nfuel_cat(i,j))**(-0.8189)     ! optimum packing ratio
+        qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
+        epsilon = exp(-138./savr(nfuel_cat(i,j)) )    ! effective heating number
+        rhob = fuelload/fueldepth    ! ovendry bulk density, lb/ft^3
+
+        c = 7.47 * exp( -0.133 * savr(nfuel_cat(i,j))**0.55)    ! const in wind coef
+        bbb(i,j) = 0.02526 * savr(nfuel_cat(i,j))**0.54                ! const in wind coef
+        e = 0.715 * exp( -3.59e-4 * savr(nfuel_cat(i,j)))       ! const in wind coef
+        phiwc(i,j) = c * (betafl(i,j)/betaop)**(-e)
+
+        rtemp2 = savr(nfuel_cat(i,j))**1.5
+        gammax = rtemp2/(495. + 0.0594*rtemp2)              ! maximum rxn vel, 1/min
+        a = 1./(4.774 * savr(nfuel_cat(i,j))**0.1 - 7.27)   ! coef for optimum rxn vel
+        ratio = betafl(i,j)/betaop
+        gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
+
+        wn = fuelload/(1 + st(nfuel_cat(i,j)))       ! net fuel loading, lb/ft^2
+        rtemp1 = fuelmc_g/fuelmce(nfuel_cat(i,j))
+        etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
+        etas = 0.174* se(nfuel_cat(i,j))**(-0.19)                ! mineral damping coef
+        ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
+        ! jm irm = ir * 1055./( 0.3048**2 * 60.) * 1.e-6     !for mw/m^2
+        ! jm: irm set but never used??
+
+        xifr = exp( (0.792 + 0.681*savr(nfuel_cat(i,j))**0.5) &
+            * (betafl(i,j)+0.1)) /(192. + 0.2595*savr(nfuel_cat(i,j))) ! propagating flux ratio
+
+!        ... r_0 is the spread rate for a fire on flat ground with no wind.
+
+        r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
+        if (nfuel_cat(i,j) .eq. 14) r_0(i,j)=0.     ! no fuel, no spread.
+    enddo
+enddo
+
+end subroutine set_fire_params
+
+!
+!*******************
+!
+
+subroutine init_model_no_fire(ifts,ifte,jfts,jfte, &
+                             ifms,ifme,jfms,jfme, &
+                             fuel_frac,lfn,tign)                            
+!*** purpose: initialize model to no fire
+
+!*** arguments
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire domain bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
+                   fuel_frac,lfn,tign       ! model state
+
+!*** calls
+intrinsic huge
+                        
+!*** local
+integer:: i,j
+real, parameter:: faraway = huge(tign)
+
+do j=jfts,jfte
+    do i=ifts,ifte
+        fuel_frac(i,j)=1.  ! fuel at start is 1 by definition
+    enddo
+enddo
+
+do j=jfts,jfte+1
+    do i=ifts,ifte+1
+        tign(i,j) = faraway ! ignition way in future
+        lfn(i,j) = 1        ! no fire 
+    enddo
+enddo
+
+end subroutine init_model_no_fire
+
+!
+!******************
+!
+
+subroutine ignite_fire( ifts,ifte,jfts,jfte,                      &
+                        ifms,ifme,jfms,jfme,                      &
+                        time_ign,ctri,ctrj,diam,fdx,fdy,lfn,tign)
+
+!*** purpose: ignite a circular fire 
+
+!*** arguments
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire domain bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+real, intent(in):: time_ign                 ! the ignition time of the fire
+real, intent(in):: ctri,ctrj                ! mesh coordinates of the center of the fire
+!                         dimensionless, if integers, the center is is a mesh node
+real, intent(in):: diam                     ! diam of the ignited area (m)
+real, intent(in):: fdx,fdy                  ! mesh spacing (m)
+real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
+                   lfn, tign                ! level function, ignition time (state)
+!*** calls
+intrinsic huge
+                        
+!*** local
+integer:: i,j
+real, parameter:: faraway = huge(diam)
+
+do j=jfts,jfte+1      ! node based loops, hence the +1
+    do i=ifts,ifte+1                   
+        lfn(i,j)=sqrt(((i-ctri)*fdx)**2+((j-ctrj)*fdy)**2)-diam/2
+        if(lfn(i,j)<=0) then
+            tign(i,j)=time_ign  ! ignited now
+        endif
+    enddo
+enddo
+end subroutine ignite_fire
+
+!
+!**********************
+!            
+
+subroutine set_nfuel_cat(   ifts,ifte,jfts,jfte,               &
+                            ifms,ifme,jfms,jfme,               &
+                            ifuelread,zsf,nfuel_cat)
+use module_fr_sfire_fuel
+use module_fr_sfire_util
+implicit none
+
+! set fuel distributions for testing
+integer, intent(in)::   ifts,ifte,jfts,jfte,               &
+                        ifms,ifme,jfms,jfme               
+
+integer, intent(in)::ifuelread
+real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf
+integer, intent(out), dimension(ifms:ifme, jfms:jfme)::nfuel_cat
+
+!*** local
+
+! parameters to control execution
+integer:: nfuel_cat0,i,j,iu1
+real:: t1
+
+
 if (ifuelread .eq. 0) then
 !
     nfuel_cat0= 8             ! param! set category
@@ -241,101 +394,11 @@ else if (ifuelread .eq. 2) then
     close (iu1)
 
 else
-    call crash('fire_startup: bad ifuelread')
+    call crash('set_nfuel_cat: bad ifuelread')
 endif
 !     .............end  load fuel categories (or constant) here.
 
 
-
-!     ...Settings of fire spread parameters from BEHAVE follows. These
-!        don't need to be recalculated later.
-!
-do j=jfts,jfte+1
-    do i=ifts,ifte+1
-        
-        ! jm: do not understand calculations of stime in binit.m4
-        ! set fuel time constant: weight=1000=>40% decrease over 10 min
-        ! fuel decreases as exp(-t/time_fuel) 
-        ! exp(-600*0.85/1000) = approx 0.6 
-        time_fuel(i,j)=weight(nfuel_cat(i,j))/0.85
-        ischap(i,j)=ichap(nfuel_cat(i,j))
-        fgip(i,j)=fgi(nfuel_cat(i,j))
-        ! end jm addition
-        
-        ! orig code from wf2_janice/fire_startup.m4 follows   
-        fuelloadm= (1.-bmst) * fgi(nfuel_cat(i,j))  !  fuelload without moisture
-        fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
-        fueldepth = fueldepthm(nfuel_cat(i,j))/0.3048               ! to ft
-        betafl(i,j) = fuelload/(fueldepth * fueldens(nfuel_cat(i,j)))! packing ratio
-        betaop = 3.348 * savr(nfuel_cat(i,j))**(-0.8189)     ! optimum packing ratio
-        qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
-        epsilon = exp(-138./savr(nfuel_cat(i,j)) )    ! effective heating number
-        rhob = fuelload/fueldepth    ! ovendry bulk density, lb/ft^3
-
-        c = 7.47 * exp( -0.133 * savr(nfuel_cat(i,j))**0.55)    ! const in wind coef
-        bbb(i,j) = 0.02526 * savr(nfuel_cat(i,j))**0.54                ! const in wind coef
-        e = 0.715 * exp( -3.59e-4 * savr(nfuel_cat(i,j)))       ! const in wind coef
-        phiwc(i,j) = c * (betafl(i,j)/betaop)**(-e)
-
-        rtemp2 = savr(nfuel_cat(i,j))**1.5
-        gammax = rtemp2/(495. + 0.0594*rtemp2)              ! maximum rxn vel, 1/min
-        a = 1./(4.774 * savr(nfuel_cat(i,j))**0.1 - 7.27)   ! coef for optimum rxn vel
-        ratio = betafl(i,j)/betaop
-        gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
-
-        wn = fuelload/(1 + st(nfuel_cat(i,j)))       ! net fuel loading, lb/ft^2
-        rtemp1 = fuelmc_g/fuelmce(nfuel_cat(i,j))
-        etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
-        etas = 0.174* se(nfuel_cat(i,j))**(-0.19)                ! mineral damping coef
-        ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
-        ! jm irm = ir * 1055./( 0.3048**2 * 60.) * 1.e-6     !for mw/m^2
-        ! jm: irm set but never used??
-
-        xifr = exp( (0.792 + 0.681*savr(nfuel_cat(i,j))**0.5) &
-            * (betafl(i,j)+0.1)) /(192. + 0.2595*savr(nfuel_cat(i,j))) ! propagating flux ratio
-
-!        ... r_0 is the spread rate for a fire on flat ground with no wind.
-
-        r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
-        if (nfuel_cat(i,j) .eq. 14) r_0(i,j)=0.     ! no fuel, no spread.
-    enddo
-enddo
-
-end subroutine fire_startup
-
-subroutine ignite_fire( ifts,ifte,jfts,jfte,                      &
-                        ifms,ifme,jfms,jfme,                      &
-                        time_ign,ctri,ctrj,diam,fdx,fdy,lfn,tign)
-
-!*** purpose: ignite a circular fire 
-
-!*** arguments
-integer, intent(in):: ifts,ifte,jfts,jfte   ! fire domain bounds
-integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(in):: time_ign                 ! the ignition time of the fire
-real, intent(in):: ctri,ctrj                ! mesh coordinates of the center of the fire
-!                         dimensionless, if integers, the center is is a mesh node
-real, intent(in):: diam                     ! diam of the ignited area (m)
-real, intent(in):: fdx,fdy                  ! mesh spacing (m)
-real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
-                   lfn, tign                ! level function, ignition time (state)
-!*** calls
-intrinsic huge
-                        
-!*** local
-integer:: i,j
-real, parameter:: faraway = huge(diam)
-
-do j=jfts,jfte+1      ! node based loops, hence the +1
-    do i=ifts,ifte+1                   
-        lfn(i,j)=sqrt(((i-ctri)*fdx)**2+((j-ctrj)*fdy)**2)-diam/2
-        if(lfn(i,j)>0) then
-            tign(i,j)=faraway   ! long way in future
-        else
-            tign(i,j)=time_ign  ! now
-        endif
-    enddo
-enddo
-end subroutine ignite_fire
+end subroutine set_nfuel_cat            
             
 end module module_fr_sfire_model

@@ -16,49 +16,50 @@ SPEED = normal_spread
 
 # module dependencies
 
-$(SPEED).o: \
-     module_fr_sfire_util.o 
+normal_spread.o: \
+    module_fr_sfire_util.o 
+
+module_fr_sfire_speed.o: \
+    module_fr_sfire_util.o \
+    module_fr_sfire_params.o 
 
 module_fr_sfire_fuel.o: \
-     ../share/module_model_constants.o
+    module_fr_sfire_util.o 
 
 module_fr_sfire_atm.o: \
-     module_fr_sfire_model.o \
-     $(SPEED).o \
-     ../share/module_model_constants.o \
-     module_fr_sfire_core.o  \
-     module_fr_sfire_fuel.o \
-     module_fr_sfire_util.o 
+    module_fr_sfire_model.o \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_fuel.o \
+    module_fr_sfire_util.o 
 
 module_fr_sfire_model.o: \
-     $(SPEED).o \
-     ../share/module_model_constants.o \
-     module_fr_sfire_core.o  \
-     module_fr_sfire_fuel.o \
-     module_fr_sfire_util.o 
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_fuel.o \
+    module_fr_sfire_util.o 
 
 module_fr_sfire_core.o: \
-     module_fr_sfire_prop.o \
-     module_fr_sfire_burn.o \
-     module_fr_sfire_util.o 
+    $(SPEED).o \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o 
       
 module_fr_sfire_burn.o: \
-     module_fr_sfire_util.o 
+    module_fr_sfire_util.o 
 
 module_fr_sfire_prop.o: \
-     $(SPEED).o \
-     module_fr_sfire_util.o 
+    $(SPEED).o \
+    module_fr_sfire_util.o 
       
 module_fr_sfire_level.o: \
-     $(SPEED).o \
-     module_fr_sfire_util.o 
+    $(SPEED).o \
+    module_fr_sfire_util.o 
       
 module_fr_sfire_util.o: \
-     wrf_fakes.o
-
-# compile out of this directory
-../share/module_model_constants.o: ../share/module_model_constants.F
-	cd ../share; $(FC) -c module_model_constants.F	
+    wrf_fakes.o
 
 # test binaries and targets
 
@@ -66,11 +67,11 @@ module_fr_sfire_util.o: \
 # the propagation alone 
 #
 PROP_OBJ = \
-     prop_test_main.F \
-     $(SPEED).o \
-     module_fr_sfire_prop.o \
-     module_fr_sfire_util.o \
-     wrf_fakes.o 
+    prop_test_main.F \
+    $(SPEED).o \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_util.o \
+    wrf_fakes.o 
 
 prop_test_prog.exe: $(PROP_OBJ)  
 	$(FC) -o prop_test_prog.exe $(PROP_OBJ)
@@ -112,7 +113,7 @@ util_test: util_test_prog.exe
 #
 CORE_OBJ= \
     core_test_main.F \
-    $(SPEED).o \
+    normal_spread.o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o  \
     module_fr_sfire_prop.o \
@@ -130,7 +131,7 @@ core_test: core_test_prog.exe
 #
 LEVEL_OBJ= \
     core_test_main.F \
-    $(SPEED).o \
+    .o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o  \
     module_fr_sfire_level.o \
@@ -148,7 +149,8 @@ level_test: level_test_prog.exe
 #
 MODEL_OBJ = \
     model_test_main.F \
-    $(SPEED).o \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
     module_fr_sfire_model.o \
     module_fr_sfire_fuel.o \
     module_fr_sfire_core.o \
@@ -159,8 +161,8 @@ MODEL_OBJ = \
 
 
 model_test:
-	make -f $(MAKEFILE) model_test_prog.exe \
-		SPEED=module_fr_sfire_speed FC="$(FC)"
+	make -f $(MAKEFILE) model_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	./model_test_prog.exe
 
 
 model_test_prog.exe: $(MODEL_OBJ) 
@@ -172,9 +174,10 @@ model_test_prog.exe: $(MODEL_OBJ)
 ATM_OBJ = \
     atm_test_main.F \
     module_fr_sfire_atm.o \
-    $(SPEED).o \
+    module_fr_sfire_params.o \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
     module_fr_sfire_model.o \
-    ../share/module_model_constants.o \
     module_fr_sfire_fuel.o \
     module_fr_sfire_core.o \
     module_fr_sfire_prop.o \
@@ -182,9 +185,9 @@ ATM_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-atm_test: 
-	make -f $(MAKEFILE) atm_test_prog.exe \
-		SPEED=module_fr_sfire_speed FC="$(FC)"
+atm_test:
+	make -f $(MAKEFILE) atm_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	./atm_test_prog.exe
 
 atm_test_prog.exe: $(ATM_OBJ) 
 	$(FC) -o atm_test_prog.exe $(ATM_OBJ)

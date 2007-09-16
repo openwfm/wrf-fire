@@ -7,7 +7,7 @@ contains
 
 subroutine sfire_core(       ids,ide,jds,jde,  &
                              ims,ime,jms,jme,  &
-                             time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
+                             time_start,time_diff,fire_dx,fire_dy,fuel_time,vx,vy,r,   &
                              lfn,tign,fuel_frac,fuel_frac_burnt ) 
 
 !*** purpose
@@ -27,6 +27,8 @@ implicit none
 integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
 real, intent(inout), dimension(ims:ime,jms:jme)::lfn,tign,fuel_frac,fuel_time,fuel_frac_burnt
 real, intent(in):: time_start,time_diff,fire_dx,fire_dy
+real,dimension(ims:ime,jms:jme),intent(in)::vx,vy,r
+
 
 ! argument          intent  description                     (unit)  lives at
 !
@@ -36,6 +38,8 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 ! time_diff          in   the length of simulation            (s)
 ! fire_dx,fire_dy   in   fire mesh spacings                  (m)
 ! fuel_time         in   time fuel burns down to 1/e         (s)      cells
+! vx,vy             in    background advection speed
+! r                 in    background spread rate in normal direction
 ! lfn             inout  level function (state)              (1)      nodes
 ! tign            inout  ignition time (state)               (s)      nodes
 ! fuel_frac       inout  the fuel fraction at the end        (1)      cells
@@ -96,14 +100,17 @@ integer::i,j
 
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 
-! compute the fuel fraction at time_start
+! compute the fuel fraction at time_start - not needed if passed in
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start,frac_start)
 
 ! propagate the fireline: advance the level function 
 ! from time_start to time_start + time_diff
-call prop_ls &
-  (ids,ide,jds,jde,ims,ime,jms,jme,lfn,tign,time_start,time_diff,fire_dx,fire_dy)
+call prop_ls(      ids,ide,jds,jde, & ! dims
+                   ims,ime,jms,jme, & ! dims
+                   time_start,time_diff,fire_dx,fire_dy,     & ! scalars in
+                   vx,vy,r,         & ! arrays in 
+                   lfn,tign)            ! arrays out
 
 ! compute the fuel fraction at time_end 
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
