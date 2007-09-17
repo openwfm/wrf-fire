@@ -156,23 +156,32 @@ real::  fuelload, fueldepth, rtemp1, rtemp2, &
         xifr, etas, etam, a, gammax, gamma, ratio, ir, &
         fuelloadm
 ! real:: irm, phiw, tanphi, rosm, phis, slngth, umid, t1   ! jm: not used
-integer:: i,j
-
+integer:: i,j,k
+logical:: err
 
 !*** executable
 
 ! gradient of surface altitude, node based
-do j=jfts,jfte+1
-    do i=ifts,ifte+1  ! node based
-        dzfsdx(i,j)=(zsf(i+1,j)-zsf(i-1,j))/(2*fdx) ! terrain slope in x 
-        dzfsdy(i,j)=(zsf(i,j+1)-zsf(i,j-1))/(2*fdy) ! terrain slope in y 
-    enddo
-enddo
+call   meshdiffc_2d(ifts,ifte,jfts,jfte, &    ! mesh area used (in cells, end +1)
+                   ifms,ifme,jfms,jfme, &       ! dimensions of input 
+                   ifms,ifme,jfms,jfme, &       ! dimensions of the outputs
+                   fdx,fdy,               &       ! mesh spacing
+                   zsf,                 &       ! input
+                   dzfsdx,dzfsdy) ! output
+
+! fuel time constant, cell based
+err=.false.
 do j=jfts,jfte
     do i=ifts,ifte
-        fuel_time(i,j)=weight(nfuel_cat(i,j))/0.85 ! cell based
+        k=nfuel_cat(i,j)
+        if(k.lt.1.or.k.gt.nfuelcats)then
+            k=nfuelcats
+            err=.true.
+        endif
+        fuel_time(i,j)=weight(k)/0.85 ! cell based
     enddo
 enddo
+if(err)call crash('set_fire_params: fuel category out of bounds')
 
 do j=jfts,jfte+1
     do i=ifts,ifte+1
@@ -337,7 +346,7 @@ real:: t1
 if (ifuelread .eq. 0) then
 !
     nfuel_cat0= 8             ! param! set category
-    do j=jfte,jfte+1
+    do j=jfts,jfte+1
         do  i=ifts,ifte+1
             nfuel_cat(i,j)=nfuel_cat0
         enddo
@@ -349,9 +358,9 @@ else if (ifuelread .eq. 1) then
 !          2000 m : 6562 ft   ;    1600 m: 5249 ft
 
 !        ... user defines fuel category spatial variability ! param!
-    do j=jfte,jfte
-        do  i=ifts,ifte
-            nfuel_cat(i,j)= 2     ! grass with understory
+    do j=jfts,jfte+1
+        do  i=ifts,ifte+1
+            ! nfuel_cat(i,j)= 2     ! grass with understory ! jm does nothing
             !jm t1=zsf(i,j)*slngth/100.
             t1 = zsf(i,j)  ! this is in m
             if(t1.le.1524.)then   !  up to 5000 ft
@@ -380,8 +389,8 @@ else if (ifuelread .eq. 2) then
 
     iu1=10
          open(iu1,file='fuel_layer',status='unknown',form='formatted')
-    do j=jfte,jfte
-        do  i=ifts,ifte
+    do j=jfts,jfte+1
+        do  i=ifts,ifte+1
             read(iu1,'(i2)') nfuel_cat(i,j)
 !           ... if no fuel category specified (i.e. '99'), set to '14',
 !               which (in the current 13 category nffl category system)

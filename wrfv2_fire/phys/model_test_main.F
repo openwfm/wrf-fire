@@ -5,7 +5,7 @@ implicit none
 !*** declarations
 integer, parameter:: nx=100,ny=130          ! problem dimension, in cells
 integer, parameter:: ifts=1,ifte=nx,jfts=1,jfte=ny
-integer, parameter:: ifms=1,ifme=nx+1,jfms=1,jfme=nx+1
+integer, parameter:: ifms=1,ifme=nx+1,jfms=1,jfme=ny+1
 integer, parameter:: kw=1                   ! number of wind layers
 real, parameter:: fdx=50.,fdy=50.           ! fire mesh spacing (m)
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
