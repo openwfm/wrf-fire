@@ -12,7 +12,7 @@ real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhft,grnqft
 real, dimension(ifms:ifme,jfms:jfme,kw):: vfx,vfy
-integer:: initialize, ignition,i,j,ifuelread
+integer:: initialize, ignition,i,j,ifuelread,istep
 real:: t0,dt,time_start
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat
 
@@ -35,8 +35,10 @@ call set_nfuel_cat( ifts,ifte,jfts,jfte,               &
                     ifms,ifme,jfms,jfme,               &
                     ifuelread,zsf,nfuel_cat)
 
-do i=1,100
-    time_start=t0+i*dt
+open(1,file='model_test_out.txt')
+write(1,'(i6)')nx,ny
+do istep=0,100
+    time_start=t0+istep*dt
     if(i.eq.1)then
         initialize=1
         ignition=1
@@ -52,7 +54,11 @@ do i=1,100
                  fdx,fdy,                           &
                  nfuel_cat,zsf,vfx,vfy,             &
                  lfn,tign,fuel_frac,                &
-                 grnhft,grnqft) 
+                 grnhft,grnqft)
+    write(1,1)((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
+    write(1,1)((tign(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
+    write(1,1)((grnhft(i,j),i=ifts,ifte),j=jfts,jfte) 
+1   format(e25.15)
 enddo
 
 
