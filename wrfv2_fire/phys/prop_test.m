@@ -59,6 +59,7 @@ y=dy*[0:n-1];
 switch wind
     case {'straight','s'}
         alpha=-1.3*pi
+        alpha=0.75*pi
         vx=speed*cos(alpha)*ones(m,n);
         vy=speed*sin(alpha)*ones(m,n);
     case {'circular','c'}
@@ -117,7 +118,6 @@ for i=1:plotSteps
     %call own imp
     %[ux,uy]=get_advection(phi,r,vx,vy,dx,dy);
     %vis_wind(ux,uy,dx,dy)
-    if(i==9),keyboard,end
     [tNow,data2]=prop_ls(data2,tNow,tNext,vx,vy,r,dx,dy,@spread_rate);
     %[tNow,data2]=prop_ls(data2,tNow,tNext,ux,uy,0,dx,dy);
     err_fort=norm(data3(:)-data2(:))
@@ -125,7 +125,7 @@ for i=1:plotSteps
         i,warning('large difference between matlab and fortran')
     end
     % display
-    vis(data2,vx,vy,dx,dy,tNow);
+    vis(data3,vx,vy,dx,dy,tNow);
 end
 %err_fort=norm(data3(:)-data2(:))
 % call the toolbox routines 
@@ -146,7 +146,7 @@ x=[0:m-1]*dx;
 y=[0:n-1]*dy;
 figure(1);clf
 hold off
-vis_type= '2d';
+vis_type= '3d';
 drawn=false;
 switch vis_type
     case '3d'

@@ -74,9 +74,10 @@ while t<time1-tol & istep < msteps
     % decide on timestep
     dt=min(time1-t,0.5*tbound);
     % trailing edge correction - do not allow fireline to go backwards
-    tt=max(dx,dy);
-    ins=find(phi<=-0);
-    tend(ins)=min(tend(ins),0);
+    %tt=max(dx,dy);
+    %ins=find(phi<=-0);
+    %tend(ins)=min(tend(ins),0);
+    tend=min(tend,0);
     % advance
     phi=phi+dt*tend;
     t=t+dt;

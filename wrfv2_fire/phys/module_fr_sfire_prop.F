@@ -1,5 +1,7 @@
 module module_fr_sfire_prop
 
+!#define DEBUG_OUT
+
 contains
 
 subroutine prop_ls(ids,ide,jds,jde, & ! dims
@@ -105,7 +107,10 @@ real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
    tend,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy, &
    tbound_n, tbound_ax, tbound_ay, &
-   nvx, nvy,speed, scale, vvxx,vvyy,aa,nvvv
+   nvx, nvy,speed, scale
+#ifdef DEBUG_OUT
+real,dimension(ims:ime,jms:jme)::    vvxx,vvyy,aa
+#endif
 real, dimension((jde-jds+2)*(ide-ids+2))::rii,rjj,speedp
 ! scalars
 real:: diff2x,diff2y, &
@@ -159,11 +164,11 @@ last = .false. ! stopping test
 
 do while ( .not.last )
     istep=istep+1
-    
-    if (printl.ge.3)then
+
+#ifdef DEBUG_OUT    
         call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',istep)
-    endif
+#endif
 
     t = ts + tr  ! advance tr instead of t because of rounding
 
@@ -212,7 +217,7 @@ do while ( .not.last )
     ! r = 0 & (normal,v) > const*speed => vv=speed*v/(normal,v) & rr=0
     ! speed >> (normal,v) => vv=0 & rr=speed
 
-    if(printl.ge.3)then
+#ifdef DEBUG_OUT
             call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,nvx,'nvx',istep)
             call write_array_m(ids,ide+1,jds,jde+1,           &
@@ -223,7 +228,8 @@ do while ( .not.last )
                                 ims,ime,jms,jme,vx,'vx',istep)
             call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,vy,'vy',istep)
-    endif
+#endif
+
     do j=jds,jde+1
         do i=ids,ide+1
             nvv=nvx(i,j) * vx(i,j) + nvy(i,j) * vy(i,j)
@@ -238,9 +244,11 @@ do while ( .not.last )
             rr=speed(i,j)*(1-a)
             vvx = vx(i,j) * speed(i,j) * a / nvv
             vvy = vy(i,j) * speed(i,j) * a / nvv
+#ifdef DEBUG_OUT
             vvxx(i,j)=vvx
             vvyy(i,j)=vvy
             aa(i,j)=a
+#endif
             
             ! Godunov scheme: choose the upwind direction, L or R or none    
             ! always test on > or < never = , much faster because of IEEE
@@ -278,10 +286,11 @@ do while ( .not.last )
             if(lfn(i,j)<=0.0)then  ! correction
                 tend(i,j)=min(tend(i,j),-0.0*max(dx,dy))
             endif           
+            tend(i,j)=min(tend(i,j),0.)  ! level function goes always up
         enddo
     enddo        
 
-    if(printl.ge.3)then
+#ifdef DEBUG_OUT
             call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,tend,'tend',istep)
             call write_array_m(ids,ide+1,jds,jde+1,           &
@@ -292,7 +301,8 @@ do while ( .not.last )
     
             call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,vvyy,'vvyy',istep)
-    endif
+#endif
+
     ! max time bound in each category
     ! in MPI replace by reduction operation
     m_tbound_n=0
@@ -336,10 +346,11 @@ do while ( .not.last )
             lfn(i,j) = lfn_new
         enddo
     enddo
-    if(printl.ge.3)then
+
+#ifdef DEBUG_OUT
             call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,lfn,'lfn_new',istep)
-    endif
+#endif
     
     tr = tr + dt
     last = .not.(tr + td*tol < td .and. istep < mstep)   !  last pass
