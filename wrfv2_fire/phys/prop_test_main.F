@@ -2,7 +2,7 @@
  
     program prop_test
     use module_fr_sfire_prop
-    use module_fr_sfire_speed
+    use module_fr_sfire_params
     
     implicit none
     integer::m1,m2,n1,n2,i,j,m1m,m2m,n1m,n2m,halo
@@ -40,12 +40,16 @@
     !print *,'prop_test_m: read vy'
     !print *,'prop_test_m: calling prop_test'
     close(1)
-    ! prop_ls(ims,ime,jms,jme,ids,ide,jds,jde,lfn,ts,te,dx,dy)
-    ! print *,'lfn   :',lfn(m1:m1+2,n1:n1:2)
-    call prop_ls(m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,lfn,tc,ts,te-ts,dx,dy)
+    !subroutine prop_ls(ids,ide,jds,jde, & ! dims
+    !               ims,ime,jms,jme, & ! dims
+    !               ts,td,dx,dy,     & ! scalars in
+    !               vx,vy,r,         & ! arrays in 
+    !               lfn,tc)            ! arrays out 
+    call prop_ls(m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,ts,te-ts,dx,dy,vx,vy,r,lfn,tc)
     open (2,form='formatted',file='prop_test_out.txt')
     write(2,1)((lfn(i,j),i=m1,m2),j=n1,n2)
     close(2)
+
     deallocate(r,vx,vy)
 1   format((e25.15,1x)) 
 

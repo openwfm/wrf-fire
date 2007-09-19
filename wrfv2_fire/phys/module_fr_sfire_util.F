@@ -680,4 +680,81 @@ END DO
 
 end subroutine atm2fire_winds
 
+real pure function sum_2darray( ifts,ifte,jfts,jfte,               &
+                                ifms,ifme,jfms,jfme,               &
+                                a)
+integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme
+real, intent(in)::a(ifts:ifte,jfts:jfte)
+!*** local
+integer:: i,j
+real:: t
+t=0.
+do j=jfts,jfte
+    do i=ifts,ifte
+        t=t+a(i,j)
+    enddo
+enddo
+sum_2darray = t
+end function sum_2darray
+
+real pure function avg_2darray( ifts,ifte,jfts,jfte,               &
+                                ifms,ifme,jfms,jfme,               &
+                                a)
+integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme
+real, intent(in)::a(ifts:ifte,jfts:jfte)
+!*** local
+integer:: i,j
+real:: t
+t=0.
+do j=jfts,jfte
+    do i=ifts,ifte
+        t=t+a(i,j)
+    enddo
+enddo
+avg_2darray = t/((ifte-ifts+1)*(jfte-jfts+1))
+end function avg_2darray
+
+real pure function avg_2darray_vec( ifts,ifte,jfts,jfte,           &
+                                ifms,ifme,jfms,jfme,               &
+                                ax,ay)
+integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme
+real, intent(in), dimension(ifts:ifte,jfts:jfte):: ax,ay
+!*** local
+integer:: i,j
+real:: t
+t=0.
+do j=jfts,jfte
+    do i=ifts,ifte
+        t=t+sqrt(ax(i,j)**2+ay(i,j)**2)
+    enddo
+enddo
+avg_2darray_vec = t/((ifte-ifts+1)*(jfte-jfts+1))
+end function avg_2darray_vec
+
+subroutine write_array_m(ifts,ifte,jfts,jfte,           &
+                         ifms,ifme,jfms,jfme,               &
+                         a,name,id)
+! debug
+integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,id
+real, intent(in), dimension(ifms:ifme,jfms:jfme):: a
+!****
+integer i,j,iu
+character(len=*),intent(in)::name
+character(len=128)::fname
+!****
+call check_mesh_2dim(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme)
+iu=17
+write(fname,3)name,'_',id,'.txt'
+open(iu,file=fname)
+write(iu,1)real(ifte-ifts+1)
+write(iu,1)real(jfte-jfts+1)
+write(iu,1)((a(i,j),i=ifts,ifte),j=jfts,jfte)
+close(iu)
+write(*,2)'wrote matrix ',name,' dimensions',ifts,':',ifte,jfts,':',jfte, &
+' to file ',fname  
+1 format(e20.12)
+2 format(3a,2(i5,a,i5),2a)
+3 format(a,a,i5.5,a)
+end subroutine write_array_m
+
 end module module_fr_sfire_util

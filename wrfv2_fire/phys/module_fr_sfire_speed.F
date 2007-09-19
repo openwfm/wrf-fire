@@ -4,7 +4,7 @@ contains
    
 ! the speed function
     
-subroutine normal_spread(t,dx,dy,n,rii,rjj,ids,ide,jds,jde,nvx,nvy,scale,ros)
+subroutine normal_spread(t,dx,dy,n,rii,rjj,ids,ide,jds,jde,ims,ime,jms,jme,nvx,nvy,scale,ros)
 use module_fr_sfire_util
 use module_fr_sfire_params
 implicit none
@@ -13,8 +13,8 @@ implicit none
 
 !*** arguments
 real, intent(in)::t,dx,dy  ! currently not used
-integer, intent(in)::n,ids,ide,jds,jde
-real,intent(in),dimension(ids:ide+1,jds:jde+1)::nvx,nvy,scale
+integer, intent(in)::n,ids,ide,jds,jde,ims,ime,jms,jme
+real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy,scale
 real, intent(in),dimension(n)::rii,rjj
 real,intent(out),dimension(n)::ros
 
@@ -39,7 +39,8 @@ do j=jds,jde+1
   
         ! get rate of spread from wind speed and slope
          
-        ros_all(i,j) = fire_ros(speed,tanphi,i,j)
+        ros_all(i,j) = max(speed,0.0)  ! debug only 
+        !ros_all(i,j) = fire_ros(speed,tanphi,i,j)
 
     enddo
 enddo

@@ -163,6 +163,7 @@ MODEL_OBJ = \
 model_test:
 	make -f $(MAKEFILE) model_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
 	./model_test_prog.exe
+	# run model_test in Matlab to visualize
 
 
 model_test_prog.exe: $(MODEL_OBJ) 

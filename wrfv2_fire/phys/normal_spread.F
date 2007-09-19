@@ -1,17 +1,21 @@
-    module module_fr_sfire_speed
+    module module_fr_sfire_params
     ! speed function data
-    real,pointer,dimension(:,:)::vx,vy,r
-
+    real,allocatable,dimension(:,:)::vx,vy,r
+    end module module_fr_sfire_params
+    
+    module module_fr_sfire_speed
+    
     contains
     ! the speed function
     
-    subroutine normal_spread(t,dx,dy,n,rii,rjj,ids,ide,jds,jde,nvx,nvy,scale,speed)
+    subroutine normal_spread(t,dx,dy,n,rii,rjj,ids,ide,jds,jde,ims,ime,jms,jme,nvx,nvy,scale,speed)
     use module_fr_sfire_util
+    use module_fr_sfire_params
     implicit none
 !   arguments
     real, intent(in)::t,dx,dy ! not used right now
-    integer, intent(in)::n,ids,ide,jds,jde
-    real,intent(in),dimension(ids:ide+1,jds:jde+1)::nvx,nvy,scale
+    integer, intent(in)::n,ids,ide,jds,jde,ims,ime,jms,jme
+    real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy,scale
     real, intent(in),dimension(n)::rii,rjj
     real,intent(out),dimension(n)::speed
     ! calls

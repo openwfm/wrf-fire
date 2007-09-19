@@ -1,24 +1,37 @@
-program model_test
+! the main program is at the end because of fortran limitations
+
+module module_model_test
+contains
+
+!
+!******************************
+!
+
+subroutine model_test(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fdx,fdy,dt,msteps)
+use module_fr_sfire_util
 use module_fr_sfire_model
 implicit none
 
-!*** declarations
-integer, parameter:: nx=100,ny=130          ! problem dimension, in cells
-integer, parameter:: ifts=1,ifte=nx,jfts=1,jfte=ny
-integer, parameter:: ifms=1,ifme=nx+1,jfms=1,jfme=ny+1
+!*** arguments
+integer, intent(in):: ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, msteps
+real, intent(in)::fdx,fdy,dt
+
+!*** local
 integer, parameter:: kw=1                   ! number of wind layers
-real, parameter:: fdx=50.,fdy=50.           ! fire mesh spacing (m)
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhft,grnqft
 real, dimension(ifms:ifme,jfms:jfme,kw):: vfx,vfy
 integer:: initialize, ignition,i,j,ifuelread,istep
-real:: t0,dt,time_start
+real:: t0,time_start,ddt,sflux,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat
 
 !*** executable
-t0=1                                        ! starting time, arbitrary
-dt=10                                       ! the fire time step (can be large)
+
+print *,'mesh size in cells: ',ifts,ifte,jfts,jfte
+print *,'array allocation:   ',ifms,ifme,jfms,jfme
+
+t0=0                                        ! starting time, arbitrary
 
 ! populate the arrays somehow
 do j=jfts,jfte+1
@@ -35,31 +48,77 @@ call set_nfuel_cat( ifts,ifte,jfts,jfte,               &
                     ifms,ifme,jfms,jfme,               &
                     ifuelread,zsf,nfuel_cat)
 
-open(1,file='model_test_out.txt')
-write(1,'(i6)')nx,ny
-do istep=0,100
-    time_start=t0+istep*dt
-    if(i.eq.1)then
-        initialize=1
-        ignition=1
+
+! for matlab
+open(1,file='model_test_out.txt',form='formatted')
+1   format(e25.12e3)
+sm=ifte-ifts+1
+sn=jfte-jfts+1
+write(1,1)1.,1.,fdx
+write(1,1)1.,1.,fdy
+
+time_start=t0
+do istep=1,msteps
+    if(istep.eq.1)then
+            initialize=1
+            ignition=0
+            ddt=0
+    elseif(istep.eq.2)then
+            initialize=0
+            ignition=1
+            ddt=0
     else
-        initialize=0
-        ignition=0
+            ddt=dt
     endif
     call sfire_model (initialize, ignition,       &
                  ifts,ifte,jfts,jfte,               &
                  ifms,ifme,jfms,jfme,               &
                  kw,                                &
-                 time_start,dt,                     &
+                 time_start,ddt,                     &
                  fdx,fdy,                           &
                  nfuel_cat,zsf,vfx,vfy,             &
                  lfn,tign,fuel_frac,                &
                  grnhft,grnqft)
-    write(1,1)((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-    write(1,1)((tign(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-    write(1,1)((grnhft(i,j),i=ifts,ifte),j=jfts,jfte) 
-1   format(e25.15)
+    write(1,1)1.,1.,time_start
+    write(1,1)sm+1,sn+1,((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
+    write(1,1)sm+1,sn+1,((tign(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
+    write(1,1)sm+1,sn+1,((vfx(i,j,1),i=ifts,ifte+1),j=jfts,jfte+1)
+    write(1,1)sm+1,sn+1,((vfy(i,j,1),i=ifts,ifte+1),j=jfts,jfte+1)
+    write(1,1)sm,sn,((grnhft(i,j),i=ifts,ifte),j=jfts,jfte) 
+    sflux=avg_2darray      ( ifts,ifte,jfts,jfte,               &
+                             ifms,ifme,jfms,jfme,               &
+                             grnhft)
+    print *,'step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
+    time_start=time_start+ddt 
 enddo
 
+close(1)
 
-end program model_test
+end subroutine model_test
+
+end module module_model_test
+
+!
+!******************************
+!
+
+program model_test_main
+use module_model_test
+implicit none
+
+!*** declarations
+
+integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
+real:: fdx,fdy, dt       ! fire mesh spacing (m), time step (s)
+
+nx=100
+ny=100
+msteps=20
+fdx=10
+fdy=10
+dt=50
+
+print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt
+call model_test(1,nx,1,ny,1,nx+1,1,ny+1,fdx,fdy,dt,msteps)
+
+end program model_test_main

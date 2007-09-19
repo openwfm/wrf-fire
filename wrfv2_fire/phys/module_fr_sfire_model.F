@@ -57,8 +57,9 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 integer::i,j        
 ! fire grid size declared in module_fr_sfire_speed
 real, dimension(ifms:ifme, jfms:jfme)::    fuel_frac_burnt
-    
 real:: dmass,ctri,ctrj,diam
+integer, parameter:: printl=1
+character(len=128)msg
 
 !*** executable
 
@@ -84,8 +85,8 @@ if (ignition.ne.0) then
     ! fire in the middle
     ctri=(ifts+ifte+1)*0.5
     ctrj=(jfts+jfte+1)*0.5
-    ! at least 3 by 3 cells but no less than 5 m
-    diam = max(5.0,3*max(fdx,fdy))    
+    ! at least 6 by 6 cells but no less than 5 m
+    diam = max(5.0,6*max(fdx,fdy))    
     call ignite_fire(   ifts,ifte,jfts,jfte,                      &
                         ifms,ifme,jfms,jfme,                      &
                         time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
@@ -103,7 +104,6 @@ do j=jfts,jfte+1
         vy(i,j)=vfy(i,j,1)
     enddo
 enddo
-
 ! advance the model from time_start to time_start+dt
 ! return the fuel fraction burnt this call in each fire cell
 ! will call module_fr_sfire_speed%%normal_speed for propagation speed

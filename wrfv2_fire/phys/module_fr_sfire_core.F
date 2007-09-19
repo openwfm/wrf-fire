@@ -119,7 +119,7 @@ call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
 ! compute the fuel fraction lost
 do j=jds,jde
     do i=ids,ide
-        fuel_frac_burnt(i,j)=fuel_frac(i,j)-frac_start(i,j)
+        fuel_frac_burnt(i,j)=frac_start(i,j)-fuel_frac(i,j)
     enddo
 enddo
 

@@ -5,7 +5,7 @@
 
 
 program core_test
-use module_fr_sfire_speed
+use module_fr_sfire_params
 use module_fr_sfire_core
 use module_fr_sfire_burn
 
@@ -14,13 +14,11 @@ implicit none
 integer :: m1,m2,n1,n2,i,j,m1m,m2m,n1m,n2m,halo
 real,allocatable,dimension(:,:):: &
     lfn,tign,fuel_time,frac_lost,frac_end
-real,allocatable,target,dimension(:,:):: tvx,tvy,tr
 real:: rm1,rm2,rn1,rn2,time_start,time_end,fire_dx,fire_dy
 
 !*** executable
 
 ! read the inputs from a file
-
 open(1,form='formatted',file='core_test_in.txt')
 read(1,1)rm1,rm2,rn1,rn2,time_start,time_end,fire_dx,fire_dy
 print *,rm1,rm2,rn1,rn2,time_start,time_end,fire_dx,fire_dy
@@ -35,12 +33,9 @@ n1m=n1-halo
 n2m=n2+halo
 print *,'core_test:',m1,m2,n1,n2
 allocate (lfn(m1m:m2m,n1m:n2m),tign(m1m:m2m,n1m:n2m), &
-  tvx(m1m:m2m,n1m:n2m),tvy(m1m:m2m,n1m:n2m),            &
-  fuel_time(m1m:m2m,n1m:n2m),tr(m1m:m2m,n1m:n2m),  &
+  vx(m1m:m2m,n1m:n2m),vy(m1m:m2m,n1m:n2m),            &
+  fuel_time(m1m:m2m,n1m:n2m),r(m1m:m2m,n1m:n2m),  &
   frac_lost(m1m:m2m,n1m:n2m),frac_end(m1m:m2m,n1m:n2m))
-  vx => tvx
-  vy => tvy
-  r  => tr
 read(1,1)((lfn(i,j),i=m1,m2),j=n1,n2)
 read(1,1)((tign(i,j),i=m1,m2),j=n1,n2)
 read(1,1)((fuel_time(i,j),i=m1,m2-1),j=n1,n2-1)
@@ -51,9 +46,14 @@ close(1)
 
 ! run the code
 
+!subroutine sfire_core(       ids,ide,jds,jde,  &
+!                             ims,ime,jms,jme,  &
+!                             time_start,time_diff,fire_dx,fire_dy,fuel_time,vx,vy,r,   &
+!                             lfn,tign,fuel_frac,fuel_frac_burnt ) 
+
 call sfire_core( m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,          &
 time_start,time_end-time_start,fire_dx,fire_dy,fuel_time,           & 
-lfn,tign,frac_end,frac_lost)
+vx,vy,r,lfn,tign,frac_end,frac_lost)
 
 ! write the output to a file
 
@@ -63,10 +63,6 @@ write(1,1)((tign(i,j),i=m1,m2),j=n1,n2)
 write(1,1)((frac_lost(i,j),i=m1,m2-1),j=n1,n2-1)
 write(1,1)((frac_end(i,j),i=m1,m2-1),j=n1,n2-1)
 close(1)
-deallocate (lfn,tign, &
-  tvx,tvy,            &
-  fuel_time,tr,  &
-  frac_lost,frac_end)
 
 1   format((e25.15,1x)) 
 
