@@ -18,7 +18,7 @@ module_fr_sfire_util    utilities           ifmake util_test
 module_fr_sfire_fuel    fuel tables         used by model_test
 module_fr_sfire_params  arrays passed to speed
 
-Each module isit its own .F file. All files are in
+Each module is in its own .F file. All files are in
 wrf/wrfv2_fire/phys.
 
 ifmake is a script for the Intel compiler. There is also g95make for
