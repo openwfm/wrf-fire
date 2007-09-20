@@ -18,6 +18,9 @@ phi=phi0; % allocate level function
 [m,n]=size(phi);
 t=time0;  % current time
 tol=300*eps;
+split='spread';
+% split='wind';
+% split = 'orig';
 istep=0;
 msteps=1000;
 diffLx=zeros(m,n);
@@ -41,14 +44,11 @@ while t<time1-tol & istep < msteps
     % r = 0 & (normal,v) > const*speed => vv=speed*v/(normal,v) & rr=0
     % speed >> (normal,v) => vv=0 & rr=speed    
     nvv = nvx .* vx + nvy .* vy;
-    split='spread';
-    % split='wind';
-    % split = 'orig';
     switch split
         case 'wind'
             a=2*nvv>speed;
             nvv(a==0)=1;
-            a=zeros(size(a));
+            ! a=zeros(size(a));
             %no_wind_cases=sum(sum(1-a))
             rr=speed.*(1-a);
             corr = a .* speed ./ nvv
