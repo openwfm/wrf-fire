@@ -17,9 +17,11 @@ SPEED = normal_spread
 # module dependencies
 
 normal_spread.o: \
+    clean_sfire_speed \
     module_fr_sfire_util.o 
 
 module_fr_sfire_speed.o: \
+    clean_normal_spread  \
     module_fr_sfire_util.o \
     module_fr_sfire_params.o 
 
@@ -60,6 +62,14 @@ module_fr_sfire_level.o: \
       
 module_fr_sfire_util.o: \
     wrf_fakes.o
+
+# switching between the two speed functions
+
+clean_normal_spread:
+	-rm -f normal_spread.o 
+
+clean_sfire_speed:
+	-rm -f module_fr_sfire_speed.o
 
 # test binaries and targets
 
