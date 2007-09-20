@@ -64,6 +64,9 @@ MODULES = \
         module_fr_sfire_core.o \
         module_fr_sfire_prop.o \
         module_fr_sfire_burn.o \
+        module_fr_sfire_speed.o \
+        module_fr_sfire_fuel.o \
+        module_fr_sfire_params.o \
         module_fr_sfire_util.o
   
 OBJS    =
@@ -267,28 +270,33 @@ module_fr_cawfe.o: \
 	        module_fire_debug_output.o
 
 module_fr_sfire_model.o: \
-                module_fr_cawfe_fuel.o \
-		module_fr_sfire_util.o \
-                module_fr_sfire_speed.o \
+                module_fr_sfire_fuel.o \
+                module_fr_sfire_params.o \
 	        module_fr_sfire_core.o \
+		module_fr_sfire_util.o 
 
 module_fr_sfire_core.o: \
 		module_fr_sfire_util.o \
 	        module_fr_sfire_burn.o \
 	        module_fr_sfire_prop.o 
 
-module_fr_sfire_speed.o: 
-		../share/module_model_constants.o  \
+module_fr_sfire_prop.o: \ 
+		module_fr_sfire_speed.o \
 		module_fr_sfire_util.o 
 
-module_fr_sfire_util.o: 
+module_fr_sfire_speed.o: \
+                module_fr_sfire_fuel.o \
+                module_fr_sfire_params.o \
+		module_fr_sfire_util.o 
+
+module_fr_sfire_burn.o: \ 
+		module_fr_sfire_util.o 
+
+module_fr_sfire_params.o: \ 
+		module_fr_sfire_util.o 
+
+module_fr_sfire_util.o: \ 
 		../frame/module_wrf_error.o 
-
-module_fr_sfire_burn.o: 
-		module_fr_sfire_util.o 
-
-module_fr_sfire_prop.o: 
-		module_fr_sfire_util.o 
 
 module_fire_debug_output.o: \
 	        ../frame/module_domain.o \

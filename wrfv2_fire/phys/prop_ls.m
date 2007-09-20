@@ -39,15 +39,29 @@ while t<time1-tol & istep < msteps
     speed=max(speed,0);
     % to recover advection vv and spread r, transition between:
     % r = 0 & (normal,v) > const*speed => vv=speed*v/(normal,v) & rr=0
-    % speed >> (normal,v) => vv=0 & rr=speed
+    % speed >> (normal,v) => vv=0 & rr=speed    
     nvv = nvx .* vx + nvy .* vy;
-    a=2*nvv>speed;
-    nvv(a==0)=1;
-    %no_wind_cases=sum(sum(1-a))
-    rr=speed.*(1-a);
-    vvx = vx .* a .* speed ./ nvv;
-    vvy = vy .* a .* speed ./ nvv;
-    % vvx=vx;vvy=vy;
+    split='spread';
+    % split='wind';
+    % split = 'orig';
+    switch split
+        case 'wind'
+            a=2*nvv>speed;
+            nvv(a==0)=1;
+            a=zeros(size(a));
+            %no_wind_cases=sum(sum(1-a))
+            rr=speed.*(1-a);
+            corr = a .* speed ./ nvv
+            vvx = vx .* corr;
+            vvy = vy .* corr;
+        case 'orig'
+            vvx = vx;vvy= vy;rr=r;  % all original, if r=0 pure upwinding
+        case 'spread'
+            rr = speed; vvx=0*vx; vvy=0*vy; % all in normal speed, Godunov meth.
+            % vvx=vx;vvy=vy;
+        otherwise
+            error('unknown split')
+        end
     % Godunov scheme for normal motion
     flowLx=(diffLx>=0 & diffCx>=0);
     flowRx=(diffRx<=0 & diffCx<0);
@@ -59,7 +73,7 @@ while t<time1-tol & istep < msteps
     nz=find(grad);
     %tbound_n(1)=max(abs(r.*sqrt(diff2x(nz)))./grad(nz))/dx; % time step bnd
     %tbound_n(2)=max(abs(r.*sqrt(diff2y(nz)))./grad(nz))/dy;
-    tbound_np=r.*(abs(diff2x)./dx+abs(diff2y)./dy); % pointwise time step bnd
+    tbound_np=rr.*(abs(diff2x)./dx+abs(diff2y)./dy); % pointwise time step bnd
     tbound_n=max(tbound_np(nz)./abs(grad(nz))); % worst case
     tend_n =-rr.*grad;   % the result, tendency
     % standard upwinding for advection
@@ -82,6 +96,6 @@ while t<time1-tol & istep < msteps
     phi=phi+dt*tend;
     t=t+dt;
 end
-fprintf('prop_ls: %g steps from %g to %g\n',istep,time0,t)
+fprintf('prop_ls: %g steps from %g to %g, split %s\n',istep,time0,t,split)
 end % of the function prop_ls
 

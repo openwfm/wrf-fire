@@ -109,7 +109,7 @@ real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
    tbound_n, tbound_ax, tbound_ay, &
    nvx, nvy,speed, scale
 #ifdef DEBUG_OUT
-real,dimension(ims:ime,jms:jme)::    vvxx,vvyy,aa
+real,dimension(ims:ime,jms:jme)::    vvxx,vvyy,aa,rrr
 #endif
 real, dimension((jde-jds+2)*(ide-ids+2))::rii,rjj,speedp
 ! scalars
@@ -118,7 +118,7 @@ real:: diff2x,diff2y, &
    rr, vvx, vvy,grad, &
    m_tbound_n, m_tbound_ax, m_tbound_ay, &
    t,dt,tr,tbound,lfn_old,lfn_new,nvv
-integer::istep
+integer::istep,id
 ! integer::m1,m,n1,n
 integer:: i,j,k,kk
 character(len=128)msg
@@ -127,6 +127,8 @@ logical last
 ! constants
 integer,parameter :: mstep=1000, printl=1
 real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps
+integer, save:: ncall
+data ncall/0/
 
 
 ! f90 intrinsic function
@@ -134,6 +136,8 @@ real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps
 intrinsic max,min,sqrt,nint,epsilon
   
 !*** executable
+
+ncall=ncall+1
 
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 
@@ -164,11 +168,12 @@ last = .false. ! stopping test
 
 do while ( .not.last )
     istep=istep+1
+    id = istep+100*ncall
 
-#ifdef DEBUG_OUT    
-        call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,lfn,'lfn',istep)
-#endif
+!#ifdef DEBUG_OUT    
+        if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,lfn,'lfn',id)
+!#endif
 
     t = ts + tr  ! advance tr instead of t because of rounding
 
@@ -218,16 +223,16 @@ do while ( .not.last )
     ! speed >> (normal,v) => vv=0 & rr=speed
 
 #ifdef DEBUG_OUT
+            if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,speed,'speed',id)
             call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,nvx,'nvx',istep)
+                                ims,ime,jms,jme,nvx,'nvx',id)
             call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,speed,'speed',istep)
+                                ims,ime,jms,jme,nvy,'nvy',id)
             call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,nvy,'nvy',istep)
+                                ims,ime,jms,jme,vx,'vx',id)
             call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,vx,'vx',istep)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,vy,'vy',istep)
+                                ims,ime,jms,jme,vy,'vy',id)
 #endif
 
     do j=jds,jde+1
@@ -235,7 +240,8 @@ do while ( .not.last )
             nvv=nvx(i,j) * vx(i,j) + nvy(i,j) * vy(i,j)
             speed(i,j)=max(speed(i,j),0.)
             ! normal component of the advection velocity large
-            if(2*nvv>speed(i,j)) then
+ !           if((nvv>0.5*speed(i,j)) then 
+            if (.false.)then 
                 a=1  ! spread by advection
             else
                 a=0  ! spread by normal motion
@@ -243,11 +249,12 @@ do while ( .not.last )
             endif ! may want a transition?
             rr=speed(i,j)*(1-a)
             vvx = vx(i,j) * speed(i,j) * a / nvv
-            vvy = vy(i,j) * speed(i,j) * a / nvv
+            vvy = vy(i,j) * speed(i,j) * a / nvv                
 #ifdef DEBUG_OUT
-            vvxx(i,j)=vvx
-            vvyy(i,j)=vvy
-            aa(i,j)=a
+                vvxx(i,j)=vvx
+                vvyy(i,j)=vvy
+                aa(i,j)=a
+                rrr(i,j)=rr
 #endif
             
             ! Godunov scheme: choose the upwind direction, L or R or none    
@@ -292,15 +299,18 @@ do while ( .not.last )
 
 #ifdef DEBUG_OUT
             call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,tend,'tend',istep)
+                                ims,ime,jms,jme,tend,'tend',id)
             call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,vvxx,'vvxx',istep)
+                                ims,ime,jms,jme,vvxx,'vvxx',id)
     
             call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,aa,'aa',istep)
+                                ims,ime,jms,jme,aa,'aa',id)
     
             call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,vvyy,'vvyy',istep)
+                                ims,ime,jms,jme,rrr,'rrr',id)
+    
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,vvyy,'vvyy',id)
 #endif
 
     ! max time bound in each category
@@ -348,8 +358,8 @@ do while ( .not.last )
     enddo
 
 #ifdef DEBUG_OUT
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,lfn,'lfn_new',istep)
+            if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,lfn,'lfn_new',id)
 #endif
     
     tr = tr + dt

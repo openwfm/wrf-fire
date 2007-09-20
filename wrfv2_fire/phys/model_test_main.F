@@ -7,14 +7,14 @@ contains
 !******************************
 !
 
-subroutine model_test(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fdx,fdy,dt,msteps)
+subroutine model_test(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fdx,fdy,wind,alpha,dt,msteps)
 use module_fr_sfire_util
 use module_fr_sfire_model
 implicit none
 
 !*** arguments
 integer, intent(in):: ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, msteps
-real, intent(in)::fdx,fdy,dt
+real, intent(in)::fdx,fdy,dt,wind,alpha
 
 !*** local
 integer, parameter:: kw=1                   ! number of wind layers
@@ -23,7 +23,7 @@ real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  grnhft,grnqft
 real, dimension(ifms:ifme,jfms:jfme,kw):: vfx,vfy
 integer:: initialize, ignition,i,j,ifuelread,istep
-real:: t0,time_start,ddt,sflux,sm,sn
+real:: t0,time_start,sflux,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat
 
 !*** executable
@@ -37,8 +37,8 @@ t0=0                                        ! starting time, arbitrary
 do j=jfts,jfte+1
     do i=ifts,ifte+1
         zsf(i,j)=1000   ! flat ground
-        vfx(i,j,1)=5    ! constant wind
-        vfy(i,j,1)=-3
+        vfx(i,j,1)=wind*cos(alpha)    ! constant wind
+        vfy(i,j,1)=wind*sin(alpha)
     enddo
 enddo
 
@@ -62,19 +62,18 @@ do istep=1,msteps
     if(istep.eq.1)then
             initialize=1
             ignition=0
-            ddt=0
     elseif(istep.eq.2)then
             initialize=0
             ignition=1
-            ddt=0
     else
-            ddt=dt
+            initialize=0
+            ignition=0
     endif
     call sfire_model (initialize, ignition,       &
                  ifts,ifte,jfts,jfte,               &
                  ifms,ifme,jfms,jfme,               &
                  kw,                                &
-                 time_start,ddt,                     &
+                 time_start,dt,                     &
                  fdx,fdy,                           &
                  nfuel_cat,zsf,vfx,vfy,             &
                  lfn,tign,fuel_frac,                &
@@ -89,7 +88,7 @@ do istep=1,msteps
                              ifms,ifme,jfms,jfme,               &
                              grnhft)
     print *,'step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
-    time_start=time_start+ddt 
+    time_start=time_start+dt 
 enddo
 
 close(1)
@@ -109,16 +108,18 @@ implicit none
 !*** declarations
 
 integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
-real:: fdx,fdy, dt       ! fire mesh spacing (m), time step (s)
+real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s)
 
-nx=100
-ny=100
-msteps=20
-fdx=10
-fdy=10
-dt=50
+nx=200
+ny=200
+msteps=100
+fdx=50
+fdy=50
+dt=5
+wind=5
+alpha=1.3
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt
-call model_test(1,nx,1,ny,1,nx+1,1,ny+1,fdx,fdy,dt,msteps)
+call model_test(1,nx,1,ny,1,nx+1,1,ny+1,fdx,fdy,wind,alpha,dt,msteps)
 
 end program model_test_main

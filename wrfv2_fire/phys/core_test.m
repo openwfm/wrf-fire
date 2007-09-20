@@ -12,7 +12,7 @@ n=101
 time0=0
 time1=10
 r=0
-example='c'
+example='g'
 
 switch example
     case {'circlespin','c'}
@@ -142,9 +142,10 @@ for i=1:plotSteps
 
     % display
     clf;figure(1)
-    subplot(1,3,1);vis(phi,frac_tend,vx,vy,dx,dy,tNow)
-    subplot(1,3,2);mesh(tign_d);title('tign')
-    subplot(1,3,3);mesh(phi);title('phi')
+    vis(phi,-frac_tend,vx,vy,dx,dy,tNow)
+    %subplot(1,3,1);vis(phi,frac_tend,vx,vy,dx,dy,tNow)
+    %subplot(1,3,2);mesh(tign_d);title('tign')
+    %subplot(1,3,3);mesh(phi);title('phi')
     drawnow
     pause(0.3); % for ctrl-c
     tNow = tNext;
@@ -159,16 +160,24 @@ function vis(u,f,vx,vy,dx,dy,tNow)
 x=[0:m-1]*dx;
 y=[0:n-1]*dy;
 hold off
-vis_type= '2d';
+vis_type= '3d';
 drawn=false;
 switch vis_type
     case '3d'
+    figure(1);clf
     h=surf(y,x,u);
     set(h,'edgecolor','none')
     alpha(0.3)
     hold on
     contour3(y,x,u,[0 0],'k')
     drawn=true;
+    figure(2);clf
+    xh=[1/2:m-3/2]*dx;
+    yh=[1/2:n-3/2]*dy;
+    h=pcolor(xh,yh,-f');
+    set(h,'edgecolor','none')
+    colorbar
+
     case '2d'
     [m,n]=size(u);
     axis equal

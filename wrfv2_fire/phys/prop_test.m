@@ -14,7 +14,7 @@ r=0
 speed=2  % wind speed
 wind='c'
 
-example='g'
+example='w'
 
 switch example
     case {'circlespin','c'}
@@ -111,21 +111,30 @@ r=ones(m,n).*r;  % make sure it is array
 data2=phi;
 data3=phi;
 tNow=time0;
+dofort=1;
 for i=1:plotSteps
     tNext=min(time1, tNow + tPlot);
 %    % call the fortran implementation
-    [data3]=prop_test_f(data3,tNow,tNext,vx,vy,r,dx,dy);
+    if dofort,
+        [data3]=prop_test_f(data3,tNow,tNext,vx,vy,r,dx,dy);
+    end
     %call own imp
     %[ux,uy]=get_advection(phi,r,vx,vy,dx,dy);
     %vis_wind(ux,uy,dx,dy)
     [tNow,data2]=prop_ls(data2,tNow,tNext,vx,vy,r,dx,dy,@spread_rate);
     %[tNow,data2]=prop_ls(data2,tNow,tNext,ux,uy,0,dx,dy);
-    err_fort=norm(data3(:)-data2(:))
-    if err_fort>1e-10,
-        i,warning('large difference between matlab and fortran')
+    if dofort, 
+        err_fort=norm(data3(:)-data2(:))
+        if err_fort>1e-10,
+            i,warning('large difference between matlab and fortran')
+        end
     end
     % display
-    vis(data3,vx,vy,dx,dy,tNow);
+    if dofort,
+        vis(data3,vx,vy,dx,dy,tNow);
+    else
+        vis(data2,vx,vy,dx,dy,tNow);
+    end
 end
 %err_fort=norm(data3(:)-data2(:))
 % call the toolbox routines 

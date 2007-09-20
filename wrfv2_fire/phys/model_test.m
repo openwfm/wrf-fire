@@ -8,11 +8,11 @@ eof=0;
 i=0;
 t=next(f);
 while ~isempty(t),
-    i=i+1
+    i=i+1;
     lfn=next(f);
     if(i>1),
-        fprintf('step %i time %g ')
-        fprintf('lfn change %g\n',i,t,...
+        fprintf('step %i time %g ',i,t),
+        fprintf('lfn change %g\n',...
             max(max(abs(lfn-lfn_last))));
     end
     lfn_last=lfn;
@@ -39,7 +39,7 @@ end
         case 1
             error('not enough terms in size')
         otherwise
-        fprintf('reading matrix size %g %g\n',sz)
+        %fprintf('reading matrix size %g %g\n',sz)
         if any(any(sz~=round(sz) | sz < 0)),
             error('bad size')
         end
