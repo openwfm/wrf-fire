@@ -170,10 +170,10 @@ do while ( .not.last )
     istep=istep+1
     id = istep+100*ncall
 
-!#ifdef DEBUG_OUT    
+#ifdef DEBUG_OUT    
         if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',id)
-!#endif
+#endif
 
     t = ts + tr  ! advance tr instead of t because of rounding
 
