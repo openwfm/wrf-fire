@@ -10,14 +10,14 @@ contains
 !******************************
 !
 
-subroutine model_test(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fdx,fdy,wind,alpha,dt,msteps)
+subroutine model_test(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fdx,fdy,wind,alpha,dt)
 use module_fr_sfire_util
 use module_fr_sfire_model
 use netcdf
 implicit none
 
 !*** arguments
-integer, intent(in):: ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, msteps
+integer, intent(in):: ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme
 real, intent(in)::fdx,fdy,dt,wind,alpha
 
 !*** local
@@ -31,7 +31,7 @@ real:: t0,time_start,sflux,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat
 character (len=NF90_MAX_NAME), parameter :: iofile = "fire_io.nc"
 integer :: ncid,xid,yid,tid,lfnid,vfxid,vfyid,tignid,grnhftid,itmp,tdim,tvalsid
-integer :: ostat
+integer :: ostat,stepnum
 real :: tvals
 integer,parameter :: ndims = 3
 integer,dimension(ndims):: dimids,count,start,atmp
@@ -64,6 +64,8 @@ call check( nf90_def_dim(ncid,"Time",NF90_UNLIMITED,tid) )
 dimids=(/xid,yid,tid/)
 call check( nf90_put_att(ncid,NF90_GLOBAL,"DX",fdx) )
 call check( nf90_put_att(ncid,NF90_GLOBAL,"DY",fdy) )
+stepnum=0
+call check( nf90_put_att(ncid,NF90_GLOBAL,"stepnum",stepnum) )
 call check( nf90_def_var(ncid,"lfn",NF_TYPE,dimids,lfnid) )
 call check( nf90_def_var(ncid,"vfx",NF_TYPE,dimids,vfxid) )
 call check( nf90_def_var(ncid,"vfy",NF_TYPE,dimids,vfyid) )
@@ -95,6 +97,7 @@ call check( nf90_inq_varid(ncid,"Times",tvalsid) )
 call check( nf90_get_var(ncid,tvalsid,atmp,start=(/tdim/),count=(/1/)) )
 tvals=atmp(1)
 dimids=(/xid,yid,tid/)
+call check( nf90_get_att(ncid,nf90_global,"stepnum",stepnum) )
 
 endif
 
@@ -116,7 +119,9 @@ sn=jfte-jfts+1
 !write(1,1)1.,1.,fdy
 
 time_start=t0
-do istep=1,msteps
+stepnum=stepnum+1
+istep=stepnum
+!do istep=stepnum,msteps
     if(istep.eq.1)then
             initialize=1
             ignition=0
@@ -147,6 +152,7 @@ do istep=1,msteps
     call check( nf90_put_var(ncid,vfxid,vfx,start=start,count=count) )
     call check( nf90_put_var(ncid,vfyid,vfy,start=start,count=count) )
     call check( nf90_put_var(ncid,grnhftid,grnhft,start=start,count=count) )
+    call check( nf90_put_att(ncid,nf90_global,"stepnum",istep) )
     call check( nf90_sync(ncid) )
 !    write(1,1)1.,1.,time_start
 !    write(1,1)sm+1,sn+1,((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
@@ -159,23 +165,12 @@ do istep=1,msteps
                              grnhft)
 !    print *,'step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
     time_start=time_start+dt 
-enddo
+!enddo
 
 !close(1)
 call check( nf90_close(ncid) )
 
 end subroutine model_test
-
-subroutine check(status)
-use netcdf
-  integer, intent ( in) :: status
-  
-  if(status /= nf90_noerr) then 
-    print *, nf90_strerror(status)
-    stop "Stopped"
-  end if
-end subroutine check 
-
 end module module_model_test
 
 !
@@ -193,7 +188,6 @@ real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s)
 
 nx=200
 ny=200
-msteps=100
 fdx=50
 fdy=50
 dt=5
@@ -201,6 +195,6 @@ wind=5
 alpha=1.3
 
 !print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt
-call model_test(1,nx,1,ny,1,nx+1,1,ny+1,fdx,fdy,wind,alpha,dt,msteps)
+call model_test(1,nx,1,ny,1,nx+1,1,ny+1,fdx,fdy,wind,alpha,dt)
 
 end program model_test_main
