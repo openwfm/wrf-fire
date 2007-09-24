@@ -24,7 +24,7 @@ implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
 msg='SFIRE:'//s
-call wrf_message(msg)
+!call wrf_message(msg)
 end subroutine message
 
 !

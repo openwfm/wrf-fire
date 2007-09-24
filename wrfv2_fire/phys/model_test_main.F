@@ -99,10 +99,21 @@ tvals=atmp(1)
 dimids=(/xid,yid,tid/)
 call check( nf90_get_att(ncid,nf90_global,"stepnum",stepnum) )
 
-endif
 
 count=(/ifme-ifms+1,jfme-jfms+1,1/)
+    start=(/1,1,tdim/)
 
+    call check( nf90_get_var(ncid,lfnid,lfn,start=start,count=count) )
+    call check( nf90_get_var(ncid,tignid,tign,start=start,count=count) )
+    call check( nf90_get_var(ncid,vfxid,vfx,start=start,count=count) )
+    call check( nf90_get_var(ncid,vfyid,vfy,start=start,count=count) )
+    call check( nf90_get_var(ncid,grnhftid,grnhft,start=start,count=count) )
+
+
+endif
+
+
+count=(/ifme-ifms+1,jfme-jfms+1,1/)
 ! fuel data
 ifuelread=1
 call set_nfuel_cat( ifts,ifte,jfts,jfte,               &
@@ -121,7 +132,6 @@ sn=jfte-jfts+1
 time_start=t0
 stepnum=stepnum+1
 istep=stepnum
-!do istep=stepnum,msteps
     if(istep.eq.1)then
             initialize=1
             ignition=0
@@ -165,7 +175,6 @@ istep=stepnum
                              grnhft)
 !    print *,'step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
     time_start=time_start+dt 
-!enddo
 
 !close(1)
 call check( nf90_close(ncid) )

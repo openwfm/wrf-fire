@@ -63,8 +63,6 @@ character(len=128)msg
 
 !*** executable
 
-if (initialize.ne.0) then
-
     ! we do this in violation of wrf coding conventions. will fix later.
     call allocate_fire_params(ifms,ifme,jfms,jfme)
 
@@ -73,7 +71,9 @@ if (initialize.ne.0) then
                             ifms,ifme,jfms,jfme, &
                             fdx,fdy,             &
                             zsf,nfuel_cat)
-                        
+    
+if (initialize.ne.0) then
+                    
     ! initialize variable model arrays to no fire
     call init_model_no_fire(ifts,ifte,jfts,ifte, &
                             ifms,ifme,jfms,jfme, &
@@ -125,6 +125,8 @@ do j=jfts,jfte
          ! xlv is defined in module_model_constants.. who knows that it is.. why .56 ??
     enddo
 enddo
+
+call deallocate_fire_params
 
 end subroutine sfire_model
 

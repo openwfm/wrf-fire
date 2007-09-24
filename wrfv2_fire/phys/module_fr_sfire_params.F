@@ -25,7 +25,7 @@ allocate(r_0(ifms:ifme,jfms:jfme))
 allocate(fgip(ifms:ifme,jfms:jfme))
 allocate(ischap(ifms:ifme,jfms:jfme))
 allocate(fuel_time(ifms:ifme,jfms:jfme))
-print *,'allocated: ',ifms,ifme,jfms,jfme
+!print *,'allocated: ',ifms,ifme,jfms,jfme
 end subroutine allocate_fire_params
 
 subroutine deallocate_fire_params
