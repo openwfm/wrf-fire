@@ -173,6 +173,7 @@ MODEL_OBJ = \
 model_test:
 	make -f $(MAKEFILE) model_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
 	- rm -f fire_io.nc
+	- cp fire_io_save.nc fire_io.nc &> /dev/null
 	./model_test_prog.exe
 	# run model_test in Matlab to visualize
 
