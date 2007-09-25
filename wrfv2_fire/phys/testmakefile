@@ -231,5 +231,5 @@ atm_test_prog.exe: $(ATM_OBJ)
 # end test targets
 
 clean:
-	-rm -f *.{exe,o,mod} ../*/*.{o,mod} *_test
+	-rm -f *.{exe,o,mod} ../*/*.{o,mod} *_test core.*
 
