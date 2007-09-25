@@ -155,6 +155,21 @@ level_test: level_test_prog.exe
 	# run level_test in Matlab
 
 #
+# the whole fire model with netcdf interface, fire variables only
+#
+MODEL_NETCDF_OBJ = \
+    model_netcdf_main.F \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
+    module_fr_sfire_model.o \
+    module_fr_sfire_fuel.o \
+    module_fr_sfire_core.o \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+
+#
 # the whole fire model, fire variables only
 #
 MODEL_OBJ = \
@@ -169,17 +184,25 @@ MODEL_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
+model_netcdf:
+	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	- rm -f fire_io.nc
+	- cp fire_io_save.nc fire_io.nc &> /dev/null
+	./model_netcdf_prog.exe
+
+model_netcdf_prog.exe: $(MODEL_NETCDF_OBJ) 
+	$(FC) -o model_netcdf_prog.exe $(MODEL_NETCDF_OBJ) -L$(NETCDF)/lib -lnetcdf 
+
+
 
 model_test:
 	make -f $(MAKEFILE) model_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
-	- rm -f fire_io.nc
-	- cp fire_io_save.nc fire_io.nc &> /dev/null
 	./model_test_prog.exe
 	# run model_test in Matlab to visualize
 
 
 model_test_prog.exe: $(MODEL_OBJ) 
-	$(FC) -o model_test_prog.exe $(MODEL_OBJ) -L$(NETCDF)/lib -lnetcdf 
+	$(FC) -o model_test_prog.exe $(MODEL_OBJ) 
 
 #
 # the whole fire model through atmosphere coupling 

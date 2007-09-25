@@ -121,6 +121,13 @@ This will create a directory ./wrf under your current directory.
 
     git checkout-index -a
  
+  To synchronize the local repository with the shared one do
+
+    git fetch
+
+  This will not change your files, only the local repository.  
+  Note that git pull is equivalent to git fetch; git merge
+ 
   To get rid of all local changes (like cvs update -C)
 
     git checkout -f 
@@ -166,6 +173,11 @@ This will create a directory ./wrf under your current directory.
   reflog. 
   You can undo changes with reset.  The cvs style commands status, log, and
   diff also work in git.
+
+7. diff with other branch:
+
+  git fetch                       (to make sure you have current repository)
+  git diff <branch>               (for example git diff origin/jb/fire_da)
 
 7.  Getting help
 

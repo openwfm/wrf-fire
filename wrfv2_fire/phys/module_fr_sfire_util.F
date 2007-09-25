@@ -757,15 +757,5 @@ write(*,2)'wrote matrix ',name,' dimensions',ifts,':',ifte,jfts,':',jfte, &
 3 format(a,a,i5.5,a)
 end subroutine write_array_m
 
-subroutine check(status)
-use netcdf
-  integer, intent ( in) :: status
-  
-  if(status /= nf90_noerr) then 
-    print *, nf90_strerror(status)
-    stop "Stopped"
-  end if
-end subroutine check 
-
 
 end module module_fr_sfire_util
