@@ -91,12 +91,14 @@ real:: ta,aps,ps,a
 
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 
+! t = fuel fraction at node
 do j=jds,jde+1     ! note the order of indices for fast  execution
     do i=ids,ide+1  
         if (lfn(i,j)>0) then
-            t(i,j)=1.0  ! add missing values - should be > tnow what the hell
+            t(i,j)=1.0  ! add missing values as all fuel
         else
-            t(i,j)=exp(tign(i,j)-tnow)
+            ! ignore ignition times in future
+            t(i,j)=exp(min(tign(i,j)-tnow,0.)/fuel_time(i,j))
         endif
         ap(i,j)=abs(lfn(i,j))
     enddo
@@ -105,7 +107,7 @@ enddo
 do j=jds,jde
     do i=ids,ide ! it is OK to introduce extra scalars, just as fast
     
-        ! average unscaled fuel fraction since ignition
+        ! average fuel fraction since ignition
         ta=0.25*(t(i+1,j+1)+t(i+1,j)+t(i,j+1)+t(i,j))  
         ps=lfn(i+1,j+1)+lfn(i+1,j)+lfn(i,j+1)+lfn(i,j)   
         aps=ap(i+1,j+1)+ ap(i+1,j)+ ap(i,j+1)+ ap(i,j)
@@ -116,8 +118,9 @@ do j=jds,jde
         else ! for fast code, the else clause should happen less often
                a=0.5d0 ! just to have something, if all lfn=0 it is junk anyway
         endif
-        
-        fuel_frac(i,j)=a*ta**(1.0/fuel_time(i,j))+(1.0-a)
+
+        fuel_frac(i,j)=a*ta+(1.0-a)
+
     enddo
 enddo
 

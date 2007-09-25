@@ -41,7 +41,7 @@ data tnow_t(3)/2.0/
 do i=1,k
     lfn=lfn_t(:,:,i)
     tign=tign_t(:,:,i)
-    w=w_t(:,:,i)
+    w=w_t(1,1,i)
     tnow=tnow_t(i)
     call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme,lfn,tign,w,tnow,fuel_frac)
     write(*,1) i, desc(i), fuel_frac(1,1), frac_t(1,1,i), (fuel_frac(1,1)-frac_t(1,1,i)) 
