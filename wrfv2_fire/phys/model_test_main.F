@@ -31,7 +31,7 @@ real:: t0,time_start,sflux,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat
 character (len=NF90_MAX_NAME), parameter :: iofile = "fire_io.nc"
 integer :: ncid,xid,yid,tid,lfnid,vfxid,vfyid,tignid,grnhftid,itmp,tdim,tvalsid
-integer :: ostat,stepnum
+integer :: ostat,stepnum,grnqftid,fuel_fracid,zsfid
 real :: tvals
 integer,parameter :: ndims = 3
 integer,dimension(ndims):: dimids,count,start,atmp
@@ -70,8 +70,11 @@ call check( nf90_def_var(ncid,"lfn",NF_TYPE,dimids,lfnid) )
 call check( nf90_def_var(ncid,"vfx",NF_TYPE,dimids,vfxid) )
 call check( nf90_def_var(ncid,"vfy",NF_TYPE,dimids,vfyid) )
 call check( nf90_def_var(ncid,"tign",NF_TYPE,dimids,tignid) )
-call check( nf90_def_var(ncid,"grnhft",NF_TYPE,dimids,grnhftid) )
 call check( nf90_def_var(ncid,"Times",NF_TYPE,(/tid/),tvalsid) )
+call check( nf90_def_var(ncid,"grnhft",NF_TYPE,dimids,grnhftid) )
+call check( nf90_def_var(ncid,"grnqft",NF_TYPE,dimids,grnqftid) )
+call check( nf90_def_var(ncid,"fuel_frac",NF_TYPE,dimids,fuel_fracid) )
+call check( nf90_def_var(ncid,"zsf",NF_TYPE,dimids,zsfid) ) 
 call check( nf90_enddef(ncid) )
 tvals=0.0
 tdim=0
@@ -92,6 +95,9 @@ call check( nf90_inq_varid(ncid,"vfx",vfxid) )
 call check( nf90_inq_varid(ncid,"vfy",vfyid) )
 call check( nf90_inq_varid(ncid,"tign",tignid) )
 call check( nf90_inq_varid(ncid,"grnhft",grnhftid) )
+call check( nf90_inq_varid(ncid,"grnqft",grnqftid) )
+call check( nf90_inq_varid(ncid,"fuel_frac",fuel_fracid) )
+call check( nf90_inq_varid(ncid,"zsf",zsfid) )
 call check( nf90_inquire_dimension(ncid,tid,len=tdim) )
 call check( nf90_inq_varid(ncid,"Times",tvalsid) )
 call check( nf90_get_var(ncid,tvalsid,atmp,start=(/tdim/),count=(/1/)) )
@@ -108,8 +114,9 @@ count=(/ifme-ifms+1,jfme-jfms+1,1/)
     call check( nf90_get_var(ncid,vfxid,vfx,start=start,count=count) )
     call check( nf90_get_var(ncid,vfyid,vfy,start=start,count=count) )
     call check( nf90_get_var(ncid,grnhftid,grnhft,start=start,count=count) )
-
-
+    call check( nf90_get_var(ncid,grnqftid,grnqft,start=start,count=count) )
+    call check( nf90_get_var(ncid,fuel_fracid,fuel_frac,start=start,count=count) )
+    call check( nf90_get_var(ncid,zsfid,zsf,start=start,count=count) )
 endif
 
 
@@ -153,7 +160,7 @@ istep=stepnum
                  grnhft,grnqft)
     tdim=tdim+1
     start=(/1,1,tdim/)
-    atmp(1)=time_start+tvals
+    atmp(1)=tvals+dt
     call check( &
     nf90_put_var(ncid,tvalsid,atmp,start=(/start(3)/),count=(/count(3)/)) &
                )
@@ -162,6 +169,10 @@ istep=stepnum
     call check( nf90_put_var(ncid,vfxid,vfx,start=start,count=count) )
     call check( nf90_put_var(ncid,vfyid,vfy,start=start,count=count) )
     call check( nf90_put_var(ncid,grnhftid,grnhft,start=start,count=count) )
+    call check( nf90_put_var(ncid,grnqftid,grnqft,start=start,count=count) )
+    call check( nf90_put_var(ncid,fuel_fracid,fuel_frac,start=start,count=count) )
+    call check( nf90_put_var(ncid,zsfid,zsf,start=start,count=count) )
+    call check( nf90_put_var(ncid,tvalsid,atmp,start=(/tdim/),count=(/1/)) )
     call check( nf90_put_att(ncid,nf90_global,"stepnum",istep) )
     call check( nf90_sync(ncid) )
 !    write(1,1)1.,1.,time_start
