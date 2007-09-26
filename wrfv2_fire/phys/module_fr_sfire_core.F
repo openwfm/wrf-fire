@@ -93,7 +93,11 @@ real,dimension(ims:ime,jms:jme),intent(in)::vx,vy,r
 !
 !*** local
 real, dimension(ims:ime,jms:jme)::frac_start
+real:: time_now
 integer::i,j
+
+!*** calls
+intrinsic epsilon
 
 
 !*** executable
@@ -116,10 +120,20 @@ call prop_ls(      ids,ide,jds,jde, & ! dims
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
 
-! compute the fuel fraction lost
+! compute the fuel fraction lost 
 do j=jds,jde
     do i=ids,ide
         fuel_frac_burnt(i,j)=frac_start(i,j)-fuel_frac(i,j)
+    enddo
+enddo
+
+! set the ignition time outside of burning region to now
+! this is consistent with the fuel fraction
+time_now = time_start + time_diff
+time_now = time_now + abs(time_now)*epsilon(time_now)*2.
+do j=jds,jde
+    do i=ids,ide
+	if(lfn(i,j)>0.)tign(i,j)=time_now
     enddo
 enddo
 
