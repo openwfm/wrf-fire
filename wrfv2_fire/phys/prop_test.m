@@ -4,9 +4,11 @@ function prop_test
 
 % defaults
 % grid
-xs=10; % domain size
+%xs=15; % domain size
+xs=10;
 ys=10;
-m=101 % domain mesh
+%m=121 % domain mesh
+m=101
 n=101
 time0=0
 time1=10
@@ -14,7 +16,7 @@ r=0
 speed=2  % wind speed
 wind='c'
 
-example='w'
+example='g'
 
 switch example
     case {'circlespin','c'}
@@ -91,7 +93,7 @@ switch ignition
         end
     case {'widmill','w'}
         phi=ones(m,n);
-        phi(floor(m*0.20):ceil(m*0.45),floor(n*0.49):ceil(n*0.51))=-1;
+         phi(floor(m*0.20):ceil(m*0.45),floor(n*0.49):ceil(n*0.51))=-1;
         phi(floor(m*0.55):ceil(m*0.80),floor(n*0.49):ceil(n*0.51))=-1;
         phi(floor(m*0.49):ceil(m*0.51),floor(n*0.20):ceil(n*0.45))=-1;
         phi(floor(m*0.49):ceil(m*0.51),floor(n*0.55):ceil(n*0.80))=-1;
@@ -121,7 +123,7 @@ for i=1:plotSteps
     %call own imp
     %[ux,uy]=get_advection(phi,r,vx,vy,dx,dy);
     %vis_wind(ux,uy,dx,dy)
-    [tNow,data2]=prop_ls(data2,tNow,tNext,vx,vy,r,dx,dy,@spread_rate);
+    [tNow,data2]=prop_ls_cir(data2,tNow,tNext,vx,vy,r,dx,dy,@spread_rate);
     %[tNow,data2]=prop_ls(data2,tNow,tNext,ux,uy,0,dx,dy);
     if dofort, 
         err_fort=norm(data3(:)-data2(:))
@@ -155,7 +157,7 @@ x=[0:m-1]*dx;
 y=[0:n-1]*dy;
 figure(1);clf
 hold off
-vis_type= '3d';
+vis_type= '2d';
 drawn=false;
 switch vis_type
     case '3d'
@@ -168,7 +170,7 @@ switch vis_type
     drawn=true;
     case '2d'
     [m,n]=size(u);
-    contour(y,x,u',[0 0],'k')
+    contour(y,x,u,[0 0],'k')
     hold on
     vis_wind(vx,vy,dx,dy)
     axis equal

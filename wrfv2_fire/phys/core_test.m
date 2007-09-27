@@ -7,7 +7,9 @@ exe
 % grid
 xs=10; % domain size
 ys=10;
-m=101 % domain mesh
+%ys=12;
+%m=111 % domain mesh
+m=101
 n=101
 time0=0
 time1=10
