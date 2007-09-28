@@ -226,7 +226,7 @@ nx=200
 ny=200
 fdx=50
 fdy=50
-dt=5
+dt=100
 wind=5
 alpha=1.3
 
