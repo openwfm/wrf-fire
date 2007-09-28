@@ -67,6 +67,8 @@ if(ostat.ne.NF90_NOERR)then
 ! populate the arrays somehow
 do j=jfts,jfte+1
     do i=ifts,ifte+1
+        grnhft(i,j)=0d0
+        grnqft(i,j)=0d0
         zsf(i,j)=1000   ! flat ground
         vfx(i,j,1)=wind*cos(alpha)    ! constant wind
         vfy(i,j,1)=wind*sin(alpha)
@@ -90,7 +92,7 @@ call check( nf90_def_var(ncid,"Times",NF_TYPE,(/tid/),tvalsid) )
 call check( nf90_def_var(ncid,"grnhft",NF_TYPE,dimids,grnhftid) )
 call check( nf90_def_var(ncid,"grnqft",NF_TYPE,dimids,grnqftid) )
 call check( nf90_def_var(ncid,"fuelfrac",NF_TYPE,dimids,fuel_fracid) )
-call check( nf90_def_var(ncid,"zsf",NF_TYPE,dimids,zsfid) ) 
+!call check( nf90_def_var(ncid,"zsf",NF_TYPE,dimids,zsfid) ) 
 call check( nf90_enddef(ncid) )
 tvals=0.0
 tdim=0
@@ -113,7 +115,7 @@ call check( nf90_inq_varid(ncid,"tign",tignid) )
 call check( nf90_inq_varid(ncid,"grnhft",grnhftid) )
 call check( nf90_inq_varid(ncid,"grnqft",grnqftid) )
 call check( nf90_inq_varid(ncid,"fuelfrac",fuel_fracid) )
-call check( nf90_inq_varid(ncid,"zsf",zsfid) )
+!call check( nf90_inq_varid(ncid,"zsf",zsfid) )
 call check( nf90_inquire_dimension(ncid,tid,len=tdim) )
 call check( nf90_inq_varid(ncid,"Times",tvalsid) )
 call check( nf90_get_var(ncid,tvalsid,atmp,start=(/tdim/),count=(/1/)) )
@@ -129,12 +131,8 @@ count=(/ifme-ifms+1,jfme-jfms+1,1/)
     call check( nf90_get_var(ncid,tignid,tign,start=start,count=count) )
     call check( nf90_get_var(ncid,vfxid,vfx,start=start,count=count) )
     call check( nf90_get_var(ncid,vfyid,vfy,start=start,count=count) )
-    call check( nf90_get_var(ncid,grnhftid,grnhft,start=start,count=count) )
-    call check( nf90_get_var(ncid,grnqftid,grnqft,start=start,count=count) )
-    call check( nf90_get_var(ncid,fuel_fracid,fuel_frac,start=start,count=count) )
-    call check( nf90_get_var(ncid,zsfid,zsf,start=start,count=count) )
 endif
-
+t0=tvals
 
 count=(/ifme-ifms+1,jfme-jfms+1,1/)
 ! fuel data
@@ -177,6 +175,13 @@ istep=stepnum
     tdim=tdim+1
     start=(/1,1,tdim/)
     atmp(1)=tvals+dt
+    sflux=avg_2darray      ( ifts,ifte,jfts,jfte,               &
+                             ifms,ifme,jfms,jfme,               &
+                             grnhft)
+    print *,'step ',istep,' time ',time_start,' avg flux ',sflux
+    
+    time_start=time_start+dt 
+
     call check( &
     nf90_put_var(ncid,tvalsid,atmp,start=(/start(3)/),count=(/count(3)/)) &
                )
@@ -187,22 +192,10 @@ istep=stepnum
     call check( nf90_put_var(ncid,grnhftid,grnhft,start=start,count=count) )
     call check( nf90_put_var(ncid,grnqftid,grnqft,start=start,count=count) )
     call check( nf90_put_var(ncid,fuel_fracid,fuel_frac,start=start,count=count) )
-    call check( nf90_put_var(ncid,zsfid,zsf,start=start,count=count) )
+!    call check( nf90_put_var(ncid,zsfid,zsf,start=start,count=count) )
     call check( nf90_put_var(ncid,tvalsid,atmp,start=(/tdim/),count=(/1/)) )
     call check( nf90_put_att(ncid,nf90_global,"stepnum",istep) )
     call check( nf90_sync(ncid) )
-!    write(1,1)1.,1.,time_start
-!    write(1,1)sm+1,sn+1,((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-!    write(1,1)sm+1,sn+1,((tign(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-!    write(1,1)sm+1,sn+1,((vfx(i,j,1),i=ifts,ifte+1),j=jfts,jfte+1)
-!    write(1,1)sm+1,sn+1,((vfy(i,j,1),i=ifts,ifte+1),j=jfts,jfte+1)
-!    write(1,1)sm,sn,((grnhft(i,j),i=ifts,ifte),j=jfts,jfte) 
-    sflux=avg_2darray      ( ifts,ifte,jfts,jfte,               &
-                             ifms,ifme,jfms,jfme,               &
-                             grnhft)
-!    print *,'step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
-    time_start=time_start+dt 
-
 !close(1)
 call check( nf90_close(ncid) )
 
@@ -226,7 +219,7 @@ nx=200
 ny=200
 fdx=50
 fdy=50
-dt=100
+dt=10
 wind=5
 alpha=1.3
 
