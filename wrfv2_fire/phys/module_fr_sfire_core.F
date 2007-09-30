@@ -133,7 +133,7 @@ time_now = time_start + time_diff
 time_now = time_now + abs(time_now)*epsilon(time_now)*2.
 do j=jds,jde
     do i=ids,ide
-	if(lfn(i,j)>0.)tign(i,j)=time_now
+        if(lfn(i,j)>0.)tign(i,j)=time_now
     enddo
 enddo
 
