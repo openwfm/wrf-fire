@@ -112,10 +112,10 @@ real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s)
 
 nx=200
 ny=200
-msteps=100
+msteps=200
 fdx=50
 fdy=50
-dt=5
+dt=10
 wind=5
 alpha=1.3
 
