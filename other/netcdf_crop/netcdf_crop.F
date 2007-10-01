@@ -23,6 +23,7 @@ program netcdf_crop
     print*,'outfilename: netcdf file to export'
     print*,'timename: name of time dimension in netcdf file'
     print*,'time: time to export'
+    goto 999
   endif
   call getarg(1,fin)
   call getarg(2,fout)
@@ -101,6 +102,7 @@ program netcdf_crop
  
   call check(nf90_close(ncidin))
   call check(nf90_close(ncidout))
+  999 continue
 contains
   subroutine check(status)
     integer, intent ( in) :: status
