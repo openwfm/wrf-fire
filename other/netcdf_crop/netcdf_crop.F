@@ -5,7 +5,7 @@ program netcdf_crop
 
   integer n,i,j
   character (len=256) :: carg,fin,fout
-  character (len=nf90_max_name) nname,tname
+  character (len=nf90_max_name) nname,tname,aname
   integer tval,ncidin,ncidout,ndims,nvars,ngattr,nvattr,nunlim,nvdims
   integer ilen,itmp,nlen,tid
   integer,dimension(nf90_max_var_dims) :: dimids,odimids
@@ -40,10 +40,15 @@ program netcdf_crop
   call check(nf90_inq_dimid(ncidin,tname,tid))
   do i=1,ndims
     call check(nf90_inquire_dimension(ncidin,i,name=nname,len=dlens(i)))
-    call check(nf90_def_dim(ncidout,nname,dlens(i),dconv(i)))
+    if(i.ne.tid)then
+      call check(nf90_def_dim(ncidout,nname,dlens(i),dconv(i)))
+    else
+      call check(nf90_def_dim(ncidout,nname,nf90_unlimited,dconv(i)))
+    endif
   enddo
   do i=1,ngattr
-    call check(nf90_inquire_attribute(ncidin,nf90_global,nname))
+    call check(nf90_inq_attname(ncidin,nf90_global,i,nname))
+!    call check(nf90_inquire_attribute(ncidin,nf90_global,nname))
     call check(nf90_copy_att(ncidin,nf90_global,nname,ncidout,nf90_global))
   enddo
   do i=1,nvars
@@ -53,7 +58,11 @@ program netcdf_crop
                                               dimids=dimids,&
                                               nAtts=nvattr))
     call convert_dimids(dconv,nvdims,dimids,odimids)
-    call check(nf90_def_var(ncidout,nname,xtype(i),odimids,varids(i)))
+    call check(nf90_def_var(ncidout,nname,xtype(i),odimids(1:nvdims),varids(i)))
+    do j=1,nvattr
+      call check(nf90_inq_attname(ncidin,i,j,aname))
+      call check(nf90_copy_att(ncidin,i,aname,ncidout,varids(i)))
+    enddo
   enddo
   call check(nf90_enddef(ncidout))
   do i=1,nvars
@@ -84,14 +93,14 @@ program netcdf_crop
            xtype(i).eq.nf90_int)then
       allocate(ivals(1:nlen))
       call check(nf90_get_var(ncidin,i,ivals,start=start,count=count))
-      call check(nf90_put_var(ncidout,varids(i),cvals,start=ostart,&
+      call check(nf90_put_var(ncidout,varids(i),ivals,start=ostart,&
                                                       count=ocount))
       deallocate(ivals)
     elseif(xtype(i).eq.nf90_float.or.&
            xtype(i).eq.nf90_double)then
       allocate(fvals(1:nlen))
       call check(nf90_get_var(ncidin,i,fvals,start=start,count=count))
-      call check(nf90_put_var(ncidout,varids(i),cvals,start=ostart,&
+      call check(nf90_put_var(ncidout,varids(i),fvals,start=ostart,&
                                                       count=ocount))
       deallocate(fvals)
     else
