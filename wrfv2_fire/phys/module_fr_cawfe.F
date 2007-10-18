@@ -30,71 +30,6 @@
 !  There are two modules:  1) module_fr_cawfe_fuel  (sets fuel params)
 !                          2) module_fr_cawfe       (the fire code)
 ! 
-! =============================================================================
-
-MODULE module_fr_cawfe_fuel
-
-   INTEGER, PARAMETER :: nfuelcats = 14
-
-   INTEGER, DIMENSION( nfuelcats ) :: ichap
-   REAL   , DIMENSION( nfuelcats ) :: weight,fgi,fci,fci_d,fct,fcbr, &
-                                            fueldepthm,fueldens,fuelmce,   &
-                                            savr,st,se
-
-! =============================================================================
-! ----- Specification of fuel properties for the standard 13 fire 
-!          behavior fuel models (for surface fires), along with some
-!          estimated canopy properties (for crown fire).
-! =============================================================================
-!  FUEL MODEL 1: Short grass (1 ft)
-!  FUEL MODEL 2: Timber (grass and understory)
-!  FUEL MODEL 3: Tall grass (2.5 ft)
-!  FUEL MODEL 4: Chaparral (6 ft)
-!  FUEL MODEL 5: Brush (2 ft) 
-!  FUEL MODEL 6: Dormant brush, hardwood slash
-!  FUEL MODEL 7: Southern rough
-!  FUEL MODEL 8: Closed timber litter
-!  FUEL MODEL 9: Hardwood litter
-!  FUEL MODEL 10: Timber (litter + understory)
-!  FUEL MODEL 11: Light logging slash
-!  FUEL MODEL 12: Medium logging slash
-!  FUEL MODEL 13: Heavy logging slash
-!
-   DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
-              1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7 /
-   DATA fueldepthm /0.305,  0.305,  0.762, 1.829, 0.61,  0.762,0.762, &
-                    0.0610, 0.0610, 0.305, 0.305, 0.701, 0.914, 0.305 /
-   DATA savr / 3500., 2784., 1500., 1739., 1683., 1564., 1562.,  &
-               1889., 2484., 1764., 1182., 1145., 1159., 3500. /
-   DATA fuelmce / 0.12, 0.15, 0.25, 0.20, 0.20, 0.25, 0.40,  &
-                  0.30, 0.25, 0.25, 0.15, 0.20, 0.25, 0.12  / 
-   DATA fueldens / nfuelcats * 32. /   ! 32 if solid, 19 if rotten.
-   DATA st / nfuelcats* 0.0555 /
-   DATA se / nfuelcats* 0.010 /
-
-! ----- Notes on weight: (4) - best fit of Latham data;
-!                 (5)-(7) could be 60-120; (8)-(10) could be 300-1600;
-!                 (11)-(13) could be 300-1600
-   DATA weight / 7.,  7.,  7., 180., 100., 100., 100.,  &
-              900., 900., 900., 900., 900., 900., 7. / 
-
-! ----- 1.12083 is 5 tons/acre.  5-50 tons/acre orig., 100-300 after blowdown
-   DATA fci_d / 0., 0., 0., 1.123, 0., 0., 0.,  &
-            1.121, 1.121, 1.121, 1.121, 1.121, 1.121, 0./
-   DATA fct / 60., 60., 60., 60., 60., 60., 60.,  &
-            60., 120., 180., 180., 180., 180. , 60.    /
-   DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 / 
-
-! =========================================================================
-
-CONTAINS
-
-   SUBROUTINE init_module_fire_fuel
-   END SUBROUTINE init_module_fire_fuel
-
-END MODULE module_fr_cawfe_fuel
-
-
 ! =========================================================================
 !
 !  The following module contains the fire code ported from the Clark-Hall model.
@@ -108,12 +43,6 @@ MODULE module_fr_cawfe
 
    INTEGER, SAVE :: igwiz
 
-   REAL, PARAMETER :: cmbcnst  = 17.433e+06             ! J/kg dry fuel
-   REAL, PARAMETER :: hfgl     = 17.e4                  ! W/m^2
-   REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
-   REAL, PARAMETER :: fuelmc_g = 0.08                   ! set = 0 for dry ground fuel
-   REAL, PARAMETER :: fuelmc_c = 1.00                   ! set = 0 for dry canopy
-   REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
 !  REAL, PARAMETER :: ep       = epsilon                ! epsilon a very small number
 !  REAL, PARAMETER :: ep_sq    = epsilon**2
    REAL, PARAMETER :: ep       = 1.e-7                  ! epsilon a very small number
@@ -406,16 +335,16 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    INTEGER, INTENT(in) :: ifds,ifde, jfds,jfde, kfds,kfde  ! fire domain indices
    INTEGER, INTENT(in) :: ifms,ifme, jfms,jfme, kfms,kfme  ! fire memory indices
 
-   INTEGER, INTENT(in) :: itimestep		    ! current time step (cumulative)
-   REAL,    INTENT(in) :: dt			    ! time step
-   REAL,    INTENT(in) :: dx,dy			    ! dx,dy on innermost atm mesh
-   INTEGER, INTENT(in) :: grid_id		    ! grid id of innermost atm mesh
-   REAL, INTENT(in)    :: cen_lat,cen_lon	    ! center lat,lon of " " "
-   REAL, INTENT(in)    :: lat_ll,lon_ll		    ! lat,lon of sw corner of " " "
+   INTEGER, INTENT(in) :: itimestep         ! current time step (cumulative)
+   REAL,    INTENT(in) :: dt                ! time step
+   REAL,    INTENT(in) :: dx,dy             ! dx,dy on innermost atm mesh
+   INTEGER, INTENT(in) :: grid_id           ! grid id of innermost atm mesh
+   REAL, INTENT(in)    :: cen_lat,cen_lon       ! center lat,lon of " " "
+   REAL, INTENT(in)    :: lat_ll,lon_ll         ! lat,lon of sw corner of " " "
    REAL, INTENT(in)    :: moad_cen_lat,moad_cen_lon ! lat,lon of center of moad
    REAL, INTENT(in)    :: moad_lat_ll,moad_lon_ll   ! lat,lon of sw corner of moad
-   REAL, INTENT(in)    :: moad_dx,moad_dy	    ! dx,dy of moad
-   INTEGER, INTENT(in) :: moad_s_we,moad_e_we	    ! strt/stop grd pts in x moad
+   REAL, INTENT(in)    :: moad_dx,moad_dy       ! dx,dy of moad
+   INTEGER, INTENT(in) :: moad_s_we,moad_e_we       ! strt/stop grd pts in x moad
    INTEGER, INTENT(in) :: moad_s_sn,moad_e_sn       ! strt/stop grd pts in y moad
 
    INTEGER, INTENT(in) :: nfrx,nfry   ! innermost atmos. grid refinement for fire grid in x,y
@@ -536,6 +465,24 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    jf_st = MAX( (jts-1)*nfry+1, jds*nfry+1   ) 
    jf_en = MIN( (jte)*nfry    , (jde-1)*nfry )
 
+write(*,7001) &
+                 ids,ide, kds,kde, jds,jde,                    & ! incoming
+                 ims,ime, kms,kme, jms,jme,                    &
+                 its,ite, kts,kte, jts,jte,                    &
+                 ifds,ifde, kfds,kfde, jfds,jfde,              &
+                 ifms,ifme, kfms,kfme, jfms,jfme,              &
+                 if_st,if_en,jf_st,jf_en                       
+7001 format('FR: mesh bounds on input to cawfe:' &
+        /'ids ',6i8 &
+        /'ims ',6i8 &
+        /'its ',6i8 &
+        /'idfs',6i8 &
+        /'imfs',6i8 &
+                /'ifst',6i8)
+write(*,*)'atm/fire refinement ratio nfrx,nfry=',nfrx,nfry
+write(*,*)'used size of fire arrays',if_st,if_en,jf_st,jf_en
+write(*,*)'decl size of fire arrays',ifms,ifme,jfms,jfme
+
 ! ----- begin initialization for all runs, including restart
  
    IF (igwiz == 0) THEN         ! igwiz loop
@@ -549,11 +496,8 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
       CALL wrf_debug ( _FR_DBG_LEVEL_, msg )
 
 ! ----- fuel moisture parameters
-
-      DO nf = 1,nfuelcats
-         fci(nf) = (1.+fuelmc_c)*fci_d(nf)
-         fcbr(nf) = fci_d(nf)/fct(nf)
-      END DO
+      call init_fuel_cats
+      
 
 ! ----- initialize fire-related constants, and fuel category data
 
@@ -1126,10 +1070,10 @@ SUBROUTINE fire_startup( grid_id,                              & ! incoming
    ELSE IF (ifuelread == 2) THEN
 
 ! -- EGP need to fix this so that when reading fuel data from
-!	a file that each if_st:if_en and jf_st:jf_en reads the 
+!   a file that each if_st:if_en and jf_st:jf_en reads the 
 !       correct chunk of the file....
 !
-!	NOTE: changed nvl=nvlm to nvl=model
+!   NOTE: changed nvl=nvlm to nvl=model
 
 ! -----   written assuming NVERT=0, no parallelization
 !        ...  Read fuel files 
@@ -1242,7 +1186,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
  
 ! -------------------------------------------------------------------
 !  If iof = 1:  this routine sets some variables to zero and initializes
-!		some parameters
+!       some parameters
 !
 !  If iof = 2:  this routine ignites a fire with shape: ishape
 ! -------------------------------------------------------------------
@@ -1267,7 +1211,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
    REAL, INTENT(in)    :: lat_ll,lon_ll             ! lat,lon lower left of " "
    REAL, INTENT(in)    :: moad_cen_lat,moad_cen_lon ! lat,lon center of moad
    REAL, INTENT(in)    :: moad_dx,moad_dy           ! dx,dy of moad
-   INTEGER, INTENT(in) :: moad_s_we,moad_e_we	    ! strt & end indices in x on moad
+   INTEGER, INTENT(in) :: moad_s_we,moad_e_we       ! strt & end indices in x on moad
    INTEGER, INTENT(in) :: moad_s_sn,moad_e_sn       ! strt & end indices in y on moad
 
    INTEGER, INTENT(in) :: ishape
@@ -1475,8 +1419,8 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
        jstf = moad_num_pnts_y / 2   !  param !
 !
 ! --- EGP need to fix initialization for MPI...  currently the ishape
-!	query happens on every CPU, therefore an equivalent fire will 
-!	be initiated on every CPU
+!   query happens on every CPU, therefore an equivalent fire will 
+!   be initiated on every CPU
 !
 !  ------------------------------------------------------------------------
       IF (ishape == 0) THEN           ! spot fire 
@@ -1918,7 +1862,7 @@ SUBROUTINE fire_init(iof,dt,                                       & ! incoming
   799    CONTINUE
  
 ! ---- EGP need to make sure only the grid that contains
-!	the fire center gets set
+!   the fire center gets set
 !
          x = (i2-(nfrx*(ifde-ifds+1)-2)/2-1.5)*dxf   !grid center
          spd = alpha*ABS(x)/rmax
@@ -4099,14 +4043,14 @@ SUBROUTINE fire_tr(dt,ibeh,nfuel_cat,ncod,nfl,zf,zsf,zs,        &  ! incoming
    REAL :: ss
    REAL :: fuel_hgt
 
-   REAL, PARAMETER :: dist = 2.		! distance behind fire line in the
-					! direction of the normal vector that
-					! winds are taken to advect fire.
-					! terrain slope taken to be the
-					! difference between the elevation at
-					! the fire line and the elevation twice
-					! this distance from the fire line in
-					! the direction of the normal vector.
+   REAL, PARAMETER :: dist = 2.     ! distance behind fire line in the
+                    ! direction of the normal vector that
+                    ! winds are taken to advect fire.
+                    ! terrain slope taken to be the
+                    ! difference between the elevation at
+                    ! the fire line and the elevation twice
+                    ! this distance from the fire line in
+                    ! the direction of the normal vector.
 
    CHARACTER(LEN=80) :: msg
 
@@ -6115,6 +6059,7 @@ SUBROUTINE fire_emissions(grnhfx,canhfx,dt,dz8w,rho,num_scalars,  &  ! incoming
 !  this routine will serve as a template for further chemical emissions.
 ! -------------------------------------------------------------------------
 
+   USE module_fr_cawfe_fuel
    IMPLICIT NONE
 
 ! --- incoming variables
@@ -6146,7 +6091,7 @@ SUBROUTINE fire_emissions(grnhfx,canhfx,dt,dz8w,rho,num_scalars,  &  ! incoming
 
 ! ---------------------------------------------------------------------
 
-   smoke_fac = 0.02	! 2% of fuel mass becomes smoke
+   smoke_fac = 0.02 ! 2% of fuel mass becomes smoke
 
    DO j = MAX(jts,jds+1),MIN(jte,jde-1)
       DO i = MAX(its,ids+1),MIN(ite,ide-1)
@@ -6266,9 +6211,9 @@ SUBROUTINE fire_tendency(grnhfx,grnqfx,canhfx,canqfx, &  ! incoming
    REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: dz8w   ! dz across w-lvl
    REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: rho    ! density
 
-   REAL, INTENT(in) :: alfg	! extinction depth ground fire heat (m)
-   REAL, INTENT(in) :: alfc	! extinction depth crown  fire heat (m)
-   REAL, INTENT(in) :: z1can	! height of crown fire heat release (m)
+   REAL, INTENT(in) :: alfg ! extinction depth ground fire heat (m)
+   REAL, INTENT(in) :: alfc ! extinction depth crown  fire heat (m)
+   REAL, INTENT(in) :: z1can    ! height of crown fire heat release (m)
 
 ! --- outgoing variables
 
@@ -6290,8 +6235,8 @@ SUBROUTINE fire_tendency(grnhfx,grnqfx,canhfx,canqfx, &  ! incoming
 
 ! --- set some local constants
 
-   cp_i = 1./cp		! inverse of specific heat
-   xlv_i = 1./xlv	! inverse of latent heat
+   cp_i = 1./cp     ! inverse of specific heat
+   xlv_i = 1./xlv   ! inverse of latent heat
 
 ! --- set loop indicies : note that 
 
@@ -6338,8 +6283,8 @@ SUBROUTINE fire_tendency(grnhfx,grnqfx,canhfx,canqfx, &  ! incoming
 
 ! --- add flux divergence to tendencies
 !
-!	multiply by dry air mass (mu) to eliminate the need to 
-!	call sr. calculate_phy_tend (in dyn_em/module_em.F)
+!   multiply by dry air mass (mu) to eliminate the need to 
+!   call sr. calculate_phy_tend (in dyn_em/module_em.F)
 
    DO j = j_st,j_en
       DO k = k_st,k_en-1

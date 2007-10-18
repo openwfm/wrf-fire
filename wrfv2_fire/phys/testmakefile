@@ -1,0 +1,235 @@
+#FC = ifort -fast -free
+
+FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free -I$(NETCDF)/include 
+#FC = g95 -ftrace=frame -g -ffree-form
+
+MAKEFILE=testmakefile
+
+.SUFFIXES:
+.SUFFIXES: .F .o
+
+.F.o: 
+	$(FC) -c $*.F
+
+# default speed test function
+SPEED = normal_spread
+
+# module dependencies
+
+normal_spread.o: \
+    clean_sfire_speed \
+    module_fr_sfire_util.o 
+
+module_fr_sfire_speed.o: \
+    clean_normal_spread  \
+    module_fr_sfire_util.o \
+    module_fr_sfire_params.o 
+
+module_fr_sfire_fuel.o: \
+    module_fr_sfire_util.o 
+
+module_fr_sfire_atm.o: \
+    module_fr_sfire_model.o \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_fuel.o \
+    module_fr_sfire_util.o 
+
+module_fr_sfire_model.o: \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_fuel.o \
+    module_fr_sfire_util.o 
+
+module_fr_sfire_core.o: \
+    $(SPEED).o \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o 
+      
+module_fr_sfire_burn.o: \
+    module_fr_sfire_util.o 
+
+module_fr_sfire_prop.o: \
+    $(SPEED).o \
+    module_fr_sfire_util.o 
+      
+module_fr_sfire_level.o: \
+    $(SPEED).o \
+    module_fr_sfire_util.o 
+      
+module_fr_sfire_util.o: \
+    wrf_fakes.o
+
+# switching between the two speed functions
+
+clean_normal_spread:
+	-rm -f normal_spread.o 
+
+clean_sfire_speed:
+	-rm -f module_fr_sfire_speed.o
+
+# test binaries and targets
+
+#
+# the propagation alone 
+#
+PROP_OBJ = \
+    prop_test_main.F \
+    $(SPEED).o \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_util.o \
+    wrf_fakes.o 
+
+prop_test_prog.exe: $(PROP_OBJ)  
+	$(FC) -o prop_test_prog.exe $(PROP_OBJ)
+
+prop_test: prop_test_prog.exe
+	# run prop_test from matlab to test
+
+#
+# burn balance
+#
+FUEL_TEST_OBJ=\
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o \
+    wrf_fakes.o \
+    burn_test_main.F
+
+burn_test_prog.exe: $(FUEL_TEST_OBJ)
+	$(FC) -o burn_test_prog.exe $(FUEL_TEST_OBJ)
+
+burn_test: burn_test_prog.exe
+	./burn_test_prog.exe
+
+#
+# utilities
+#
+UTIL_OBJ= \
+    util_test_main.F   \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+
+util_test_prog.exe: $(UTIL_OBJ)
+	$(FC) -o util_test_prog.exe $(UTIL_OBJ)
+
+util_test: util_test_prog.exe
+	./util_test_prog.exe
+
+#
+# the core: whole math model
+#
+CORE_OBJ= \
+    core_test_main.F \
+    normal_spread.o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o  \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_core.o \
+    wrf_fakes.o
+    
+core_test_prog.exe: $(CORE_OBJ) 
+	$(FC) -o core_test_prog.exe $(CORE_OBJ)
+
+core_test: core_test_prog.exe
+	# run core_test in Matlab
+
+#
+# the core with improved level set
+#
+LEVEL_OBJ= \
+    core_test_main.F \
+    .o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o  \
+    module_fr_sfire_level.o \
+    module_fr_sfire_core.o \
+    wrf_fakes.o
+    
+level_test_prog.exe: $(LEVEL_OBJ) 
+	$(FC) -o level_test_prog.exe $(LEVEL_OBJ)
+
+level_test: level_test_prog.exe
+	# run level_test in Matlab
+
+#
+# the whole fire model with netcdf interface, fire variables only
+#
+MODEL_NETCDF_OBJ = \
+    model_netcdf_main.F \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
+    module_fr_sfire_model.o \
+    module_fr_sfire_fuel.o \
+    module_fr_sfire_core.o \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+
+#
+# the whole fire model, fire variables only
+#
+MODEL_OBJ = \
+    model_test_main.F \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
+    module_fr_sfire_model.o \
+    module_fr_sfire_fuel.o \
+    module_fr_sfire_core.o \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+
+model_netcdf_test:
+	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	- rm -f fire_io.nc
+	- cp fire_io_save.nc fire_io.nc &> /dev/null
+	./model_netcdf_prog.exe
+
+model_netcdf_prog.exe: $(MODEL_NETCDF_OBJ) 
+	$(FC) -o model_netcdf_prog.exe $(MODEL_NETCDF_OBJ) -L$(NETCDF)/lib -lnetcdf 
+
+
+
+model_test:
+	make -f $(MAKEFILE) model_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	./model_test_prog.exe
+	# run model_test in Matlab to visualize
+
+
+model_test_prog.exe: $(MODEL_OBJ) 
+	$(FC) -o model_test_prog.exe $(MODEL_OBJ) 
+
+#
+# the whole fire model through atmosphere coupling 
+#
+ATM_OBJ = \
+    atm_test_main.F \
+    module_fr_sfire_atm.o \
+    module_fr_sfire_params.o \
+    module_fr_sfire_params.o \
+    module_fr_sfire_speed.o \
+    module_fr_sfire_model.o \
+    module_fr_sfire_fuel.o \
+    module_fr_sfire_core.o \
+    module_fr_sfire_prop.o \
+    module_fr_sfire_burn.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+
+atm_test:
+	make -f $(MAKEFILE) atm_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	./atm_test_prog.exe
+
+atm_test_prog.exe: $(ATM_OBJ) 
+	$(FC) -o atm_test_prog.exe $(ATM_OBJ)
+
+# end test targets
+
+clean:
+	-rm -f *.{exe,o,mod} ../*/*.{o,mod} *_test core.* *_?????.txt
+

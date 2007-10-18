@@ -1,0 +1,393 @@
+module module_fr_sfire_prop
+
+!#define DEBUG_OUT
+
+contains
+
+subroutine prop_ls(ids,ide,jds,jde, & ! dims
+                   ims,ime,jms,jme, & ! dims
+                   ts,td,dx,dy,     & ! scalars in
+                   vx,vy,r,         & ! arrays in 
+                   lfn,tc)            ! arrays out
+use module_fr_sfire_util
+use module_fr_sfire_speed
+implicit none
+
+!*** purpose: advance level function in time
+
+! Jan Mandel and Minjeong Kim August 2007
+
+!*** description
+!
+! Propagation of closed curve by a level function method. The level function
+! lfn is defined by its values at the nodes of a rectangular grid. 
+! The area where lfn < 0 is inside the curve. The curve is 
+! described implicitly by lfn=0. Points where the curve intersects gridlines
+! can be found by linear interpolation from nodes.
+!
+! The level function is advanced from time ts to time ts + dt. 
+!
+! The level function should be initialized to (an approximation of) the signed
+! distance from the curve. If the initial curve is a circle, the initial level
+! function is simply the distance from the center minus the radius.
+! 
+! The curve moves outside with speed rr in normal direction and by
+! advection by velocity field (vvx,vvy), given by values at grid nodes.
+! Thus, the speed of the curve evolution in the normal direction is
+!  rr + (vvx,vvy) dot normal vector. This speed and advection are computed by
+! modifying an external speed r and advection field (vx,vy) to match the speed
+! in the normal direction given by call to subroutine normal_spread in 
+! module_fr_sfire_speed.
+! 
+! ------------------------------------
+! Based on S. Osher and R. Fedkiw, Level set methods and dynamic implicit surfaces,
+! Springer, 2003, Sec. 6.4, as implemented in toolboxLS for Matlab by 
+! I. Mitchell, A toolbox of Level Set Methods (Version 1.1), TR-2007-11,
+! Dept. Computer Science, University of British Columbia, 2007
+! http://www.cs.ubc.ca/\~mitchell/Toolbo\LS
+! 
+! This code can reproduce (up to rounding) spinStarDemo from 
+! toolboxLS with accuracy='low'. See prop_ls_readme.txt how.
+!   
+! Method: Upwinding based on 1st order one-sided differences in space, 
+! Euler method in time. Godunov method for the normal motion combined with
+! simple upwinding for advection. The timestep is set automatically based on
+! CFL condition. For a straight segment in a constant field and locally linear
+! level function, the method reduces to the exact normal motion. The advantage of 
+! the level set method is that it treats automatically special cases such as
+! the curve approaching itself and merging components of the area inside the curve.
+!
+! IMPORTANT NOTE: This code passed all test except for a circular curve
+! moving in a circular field with center outside of the curve at the distance
+! of several diameters. The curve should travel on a circular path and grow;
+! instead it slowly shrinks. This seems to be an artefact of the low order
+! of the method. In toolboxLS, one has to set accuracy='high' to make it grow.
+! But this involves a high-order Runge-Kutta scheme in time and a quite complicated 
+! high-order ENO method in space, and is much more expensive.
+  
+!*** arguments 
+
+! ims,ime,jms,jme   in    array dimensions
+! ids,ide,jds,jde   in    grid dimensions in the array, in cells (in nodes, +1)
+! ts                in    start time
+! td                in    end time is ts+td (given this way because of rounding)
+! dx,dy             in    grid spacing
+! vx,vy             in    background advection speed
+! r                 in    background spread rate in normal direction
+! lfn               inout the level function
+! tc                inout the time the contour=zero level set crossed the node
+
+!*** calls
+!
+! subroutine normal_spread(t,n,rii,rjj,ims,ime,jms,jme,nvx,nvy,scale,speed)
+! t               in time
+! n               in number of points to evaluate the speed at
+! rii,rjj         in their grid coordinates i,j (may not be integer)
+! ims,ime,jms,jme in array dimensions (in cells)
+! nvx,nvy         in normal direction (gradient of level function)
+! scale           in norm of gradient of level function
+! speed           out the spread rate in the normal directin
+!
+! Note
+! t may be used to interpolate data in time.
+! when scale is small then normal direction is not meaningful
+
+! for essentially the same result as using advection vx, vy, and 
+! spread rate r directly, use instead of call normal_spread:
+!   speed = r + max(vx*nvx + vy*nvy,0.0)
+      
+integer,intent(in)::ims,ime,jms,jme,ids,ide,jds,jde
+real,dimension(ims:ime,jms:jme),intent(inout)::lfn,tc
+real,dimension(ims:ime,jms:jme),intent(in)::vx,vy,r
+real,intent(in)::dx,dy,ts,td
+
+!*** local 
+! arrays
+real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
+   tend,diffLx,diffLy,diffRx,diffRy, & 
+   diffCx,diffCy, &
+   tbound_n, tbound_ax, tbound_ay, &
+   nvx, nvy,speed, scale
+#ifdef DEBUG_OUT
+real,dimension(ims:ime,jms:jme)::    vvxx,vvyy,aa,rrr
+#endif
+real, dimension((jde-jds+2)*(ide-ids+2))::rii,rjj,speedp
+! scalars
+real:: diff2x,diff2y, &
+   a,tend_n,tend_a,  &
+   rr, vvx, vvy,grad, &
+   m_tbound_n, m_tbound_ax, m_tbound_ay, &
+   t,dt,tr,tbound,lfn_old,lfn_new,nvv
+integer::istep,id
+! integer::m1,m,n1,n
+integer:: i,j,k,kk
+character(len=128)msg
+logical last
+
+! constants
+integer,parameter :: mstep=1000, printl=1
+real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps
+integer, save:: ncall
+data ncall/0/
+
+
+! f90 intrinsic function
+
+intrinsic max,min,sqrt,nint,epsilon
+  
+!*** executable
+
+ncall=ncall+1
+
+call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+
+if (td < 0) then
+    write(msg,*)'prop_ls: time advance td=',td,' must be non-negative' 
+    call crash(msg)
+endif    
+if (.not. td > 0) return ! td=0, nothing to do
+
+! prepare the index list for the speed function
+! in this version, we will want speed at all mesh nodes.
+! in general only a subset may be asked
+
+kk=0
+do j=jds,jde+1
+    do i=ids,ide+1
+         kk=kk+1
+         rii(kk)=i
+         rjj(kk)=j
+    enddo
+enddo
+k=kk    
+
+! initialize
+tr=0       ! relative time offset from ts
+istep = 0  ! step number - just to prevent an infinite loop, should never be reached
+last = .false. ! stopping test
+
+do while ( .not.last )
+    istep=istep+1
+    id = istep+100*ncall
+
+#ifdef DEBUG_OUT    
+        if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,lfn,'lfn',id)
+#endif
+
+    t = ts + tr  ! advance tr instead of t because of rounding
+
+    ! one sided differences
+    ! we waste a little and store them separately to make the code more
+    ! readable, and to allow for higher order scheme in future if needed
+    ! allow for general array bounds n1:n,m1:m - may be useful in parallel
+    
+    call meshdiff_2d(        &           ! get all 4 one-sided differences
+        ids,ide,  jds,jde ,  &           ! mesh area used (in cells, end +1)
+        ims,ime,  jms,jme,   &           ! dimensions of lfn 
+        ims,ime,  jms,jme,   &           ! dimensions of the outputs
+        dx,dy,               &           ! mesh spacing
+        lfn,                 &           ! input
+        diffLx,diffRx,diffLy,diffRy) ! output        
+    !print *,'err=', &
+    !    sum(abs(diffLx2-diffLx))+sum(abs(diffRx2-diffRx)) &
+    !   +sum(abs(diffLy2-diffLy))+sum(abs(diffRy2-diffRy)) 
+
+    do j=jds,jde+1
+        do i=ids,ide+1
+        
+            ! 2 times central differences
+            diffCx(i,j)=diffLx(i,j) + diffRx(i,j)
+            diffCy(i,j)=diffLy(i,j) + diffRy(i,j)
+    
+            ! normal direction
+            scale(i,j)=sqrt(diffCx(i,j)*diffCx(i,j)+diffCy(i,j)*diffCy(i,j)+eps) 
+            nvx(i,j)=diffCx(i,j)/scale(i,j);
+            nvy(i,j)=diffCy(i,j)/scale(i,j);
+            
+        enddo
+    enddo
+    
+    ! get propagation speed
+    call normal_spread(t,dx,dy,k,rii,rjj,ids,ide,jds,jde,ims,ime,jms,jme,nvx,nvy,scale,speedp) 
+    do kk=1,k
+       i=nint(rii(kk))
+       j=nint(rjj(kk))
+       speed(i,j)=speedp(kk)
+    enddo
+    !print *,'speed: ',speed(1:3,1:3)
+    !speed = r + max(vx*nvx + vy*nvy,0.0)
+  
+    ! recover advection vv and spread r, transition between:
+    ! r = 0 & (normal,v) > const*speed => vv=speed*v/(normal,v) & rr=0
+    ! speed >> (normal,v) => vv=0 & rr=speed
+
+#ifdef DEBUG_OUT
+            if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,speed,'speed',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,nvx,'nvx',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,nvy,'nvy',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,vx,'vx',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,vy,'vy',id)
+#endif
+
+    do j=jds,jde+1
+        do i=ids,ide+1
+            nvv=nvx(i,j) * vx(i,j) + nvy(i,j) * vy(i,j)
+            speed(i,j)=max(speed(i,j),0.)
+            ! normal component of the advection velocity large
+ !           if((nvv>0.5*speed(i,j)) then 
+            if (.false.)then 
+                a=1  ! spread by advection
+            else
+                a=0  ! spread by normal motion
+                nvv=1 ! prevent div by 0
+            endif ! may want a transition?
+            rr=speed(i,j)*(1-a)
+            vvx = vx(i,j) * speed(i,j) * a / nvv
+            vvy = vy(i,j) * speed(i,j) * a / nvv                
+#ifdef DEBUG_OUT
+                vvxx(i,j)=vvx
+                vvyy(i,j)=vvy
+                aa(i,j)=a
+                rrr(i,j)=rr
+#endif
+            
+            ! Godunov scheme: choose the upwind direction, L or R or none    
+            ! always test on > or < never = , much faster because of IEEE
+     
+            diff2x=0
+            diff2y=0
+            if (.not.diffLx(i,j)<0.and..not.diffCx(i,j)<0)diff2x=diff2x+diffLx(i,j)
+            if (.not.diffRx(i,j)>0.and.     diffCx(i,j)<0)diff2x=diff2x+diffRx(i,j)
+            if (.not.diffLy(i,j)<0.and..not.diffCy(i,j)<0)diff2y=diff2y+diffLy(i,j)
+            if (.not.diffRy(i,j)>0.and.     diffCy(i,j)<0)diff2y=diff2y+diffRy(i,j)
+    
+            ! magnitude of the gradient
+            ! do not use **2 who knows if the compiler is smart enough  
+            grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+    
+            ! time step bound - CFL condition
+            ! contribution of the normal term
+            if (grad > 0.) then
+                tbound_n(i,j) = rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad
+            else
+                tbound_n(i,j) = 0.
+            endif
+            ! contribution of the advection term
+            tbound_ax(i,j)=abs(vvx)/dx
+            tbound_ay(i,j)=abs(vvy)/dy
+            
+            ! tendencies
+            tend_n = -rr*grad   ! normal term rhs
+            tend_a = -(diffLx(i,j)*max(vvx,zero)+diffRx(i,j)*min(vvx,zero)+ & ! advection term
+               diffLy(i,j)*max(vvy,zero)+diffRy(i,j)*min(vvy,zero)) ! advection term
+            tend(i,j)=tend_n + tend_a
+
+            !  trailing edge correction - do not allow fireline to go backwards
+            ! THIS IS DIFFERENT FROM THE TOOLBOX!!
+            if(lfn(i,j)<=0.0)then  ! correction
+                tend(i,j)=min(tend(i,j),-0.0*max(dx,dy))
+            endif           
+            tend(i,j)=min(tend(i,j),0.)  ! level function goes always up
+        enddo
+    enddo        
+
+#ifdef DEBUG_OUT
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,tend,'tend',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,vvxx,'vvxx',id)
+    
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,aa,'aa',id)
+    
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,rrr,'rrr',id)
+    
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,vvyy,'vvyy',id)
+#endif
+
+    ! max time bound in each category
+    ! in MPI replace by reduction operation
+    m_tbound_n=0
+    m_tbound_ax=0
+    m_tbound_ay=0
+    do j=jds,jde+1
+        do i=ids,ide+1
+             m_tbound_n=max(m_tbound_n,tbound_n(i,j))
+             m_tbound_ax=max(m_tbound_ax,tbound_ax(i,j))
+             m_tbound_ay=max(m_tbound_ay,tbound_ay(i,j))
+        enddo
+    enddo        
+    if(printl.ge.2)then
+        print *,'dx,dy=',dx,dy
+        print *,'inverse time bounds:',m_tbound_n,m_tbound_ax,m_tbound_ay
+    endif
+         
+    ! the final CFL bound and the timestep
+    tbound = 1/(m_tbound_n+m_tbound_ax+m_tbound_ay+tol)
+    dt = min(td-tr, 0.5*tbound)
+    
+    ! the rhs of the diff eq, a.k.a. lfn dot, a.k.a. the lfn "tendency"
+    ! 0. because max requires both arguments same type (real) 
+        
+    do j=jds,jde+1
+        do i=ids,ide+1
+            lfn_old = lfn(i,j)
+            lfn_new = lfn(i,j) + dt*tend(i,j) 
+            ! interpolate the cross-over time
+            if(lfn_old>0 .and. .not. lfn_new>0)then
+                ! the node was not burning at start but it is burning at end
+                ! interpolate from the level functions at start and at end
+                ! lfn_old is the level function value at time t
+                ! lfn_new is the level function value at time t+dt
+                ! 0       should the level function value at time tc(i,j)
+                ! thus assuming the level function is approximately linear =>
+                ! tc(i,j)=t + ((t + td) - t) * lfn_old / (lfn_old - lfn_new)
+                tc(i,j) = t - lfn_old / tend(i,j)
+            endif
+            ! advance one step
+            lfn(i,j) = lfn_new
+        enddo
+    enddo
+
+#ifdef DEBUG_OUT
+            if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,lfn,'lfn_new',id)
+#endif
+    
+    tr = tr + dt
+    last = .not.(tr + td*tol < td .and. istep < mstep)   !  last pass
+
+    if(printl>=2 .or. (printl>=1 .and. (last .or. istep==1) ) )then
+        write(msg,'(7(a,f15.6))')'prop_ls:time',t,' dt',dt, &
+        ' avg speed',avg_2darray(1,k,1,1,1,k,1,1,speedp), &
+        ' avg tend',avg_2darray(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend), &
+        ' avg wind',avg_2darray_vec(ids,ide+1,jds,jde+1,ims,ime,jms,jme,vx,vy)
+        call message(msg)
+    endif
+    
+end do !while
+
+if (printl>=1)then
+    write(msg,*)'prop_ls: total number of time steps ',istep
+    call message(msg)
+endif
+    
+if (abs(tr - td) > 2*tol .or. istep >= mstep) then
+    write(msg,*)'prop_ls: time advanced by ',tr,' of ',td
+    call message(msg)
+    write(msg,*)'diff ',tr-td, ' in ',istep,' steps of ',mstep
+    call message(msg)    
+    call crash('prop_ls: end time not reached or max steps exceeded')
+endif
+
+end subroutine prop_ls
+
+end module module_fr_sfire_prop
