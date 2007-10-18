@@ -80,6 +80,9 @@ This will create a directory ./wrf under your current directory.
 
     git branch -r
 
+  or
+    git branch -a
+
   Among others, you should see 'origin/jbeezley'.  To use this branch,
 
     git checkout --track -b jbeezley origin/jbeezley
