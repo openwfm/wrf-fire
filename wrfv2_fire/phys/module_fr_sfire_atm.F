@@ -1,6 +1,8 @@
 module module_fr_sfire_atm
 
+use module_fr_sfire_model
 
+contains
 
 subroutine sfire_atm_driver &
                 (ids,ide, kds,kde, jds,jde,                    & ! incoming
@@ -10,26 +12,36 @@ subroutine sfire_atm_driver &
                  ifms,ifme, kfms,kfme, jfms,jfme,              &
                  nfrx,nfry,                                    &
                  itimestep,dt,dx,dy,                           &
+                 rthfrten,rqvfrten,                            & ! outgoing
+                 grnhfx,grnqfx,canhfx,canqfx)  ! temp? 
+use module_fr_sfire_model
                  grid_id,cen_lat,cen_lon,lat_ll,lon_ll,        &
                  moad_cen_lat,moad_cen_lon,                    &
                  moad_lat_ll,moad_lon_ll,moad_dx,moad_dy,      &
                  moad_s_we,moad_e_we,moad_s_sn,moad_e_sn,      &
                  tlat_stf,tlon_stf,t_ignite,ishape,ibeh,       &
                  z1can,alfg,alfc,ifuelread,nfuel_cat0,         &
-                 z,z_at_w,dz8w,zs,u,v,mu,rho,                  &
+                 zs,u,v,mu,rho,                  &
                  nfuel_cat,nfl,nfl_t,nfl_c,ncod,               & ! in and out
                  in1,in2,ixb,iyb,icn,                          &
                  fg,fc,r_0,bbb,betafl,phiwc,area,area2,        &
                  zf,zsf,tign_g,tign_c,tign_crt,                &
                  xfg,yfg,xcd,ycd,xcn,ycn,sprdx,sprdy,          &
-                 rthfrten,rqvfrten,                            & ! outgoing
-                 grnhfx,grnqfx,canhfx,canqfx)  ! temp? 
-use module_fr_sfire_model
+
 implicit none
 
+!*** arguments
+! dimensions
+integer, intent(in)::ids,ide, kds,kde, jds,jde,                & ! atm domain dims
+                 ims,ime, kms,kme, jms,jme,                    & ! atm memory dims
+                 its,ite, kts,kte, jts,jte,                    & ! atm tile dims
+                 ifds,ifde, kfds,kfde, jfds,jfde,              & ! fire domain dims
+                 ifms,ifme, kfms,kfme, jfms,jfme,              & ! fire memory dims
+                 nfrx,nfry
+
 !  ***** data (constant in time) *****
-! height above sea level of w points (m)
-REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: zs ! constant
+! height above sea level of w points (m) (w = vertical velocity, middle of horizontal faces)
+REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: zs ! atm node height, constant
 
 !  ***** inputs *****
 ! incoming atmos. winds (m/s at arakawa-c grid locations)
