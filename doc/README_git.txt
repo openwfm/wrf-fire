@@ -20,11 +20,18 @@ This will create a directory ./wrf under your current directory.
 
 2.  Local repository setup
 
-  git clone /home/wrf.git
+  Make sure that you have an account on math.cudenver.edu and you are in
+  group mandel there. Then:
+
+    git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git 
+
+  This will create a directory ./wrf with the files. The cloned repository
+  will be created in a hidden directory in ./wrf
 
 3.  Branch setup (substitute <branch> with what you 
                   want to name your branch)
 
+  cd ./wrf
   git checkout -b <branch> origin/master
   git push origin <branch>:<branch>
 
@@ -54,14 +61,6 @@ This will create a directory ./wrf under your current directory.
   or edit ~/.gitconfig
 
 2.  Local repository setup
-
-  Make sure that you have an account on math.cudenver.edu and you are in
-  group mandel there. Then:
-
-    git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git 
-
-  This will create a directory ./wrf with the files. The cloned repository
-  will be created in a hidden directory in ./wrf
 
   Only changes comitted in the main repository can be seen by others.
 
