@@ -5,9 +5,7 @@ module module_fr_sfire_model
 !
 contains
 
-! subroutine sfire_model
-
-subroutine sfire_model (initialize, ignition,       &
+subroutine sfire_model (initialize, ignition,       & ! switches
                  ifds,ifde,jfds,jfde,               & ! fire domain dims
                  ifms,ifme,jfms,jfme,               & ! fire memory dims
                  num_tiles,i_start,i_end,j_start,j_end, & ! fire grid tiling

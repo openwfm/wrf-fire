@@ -13,10 +13,8 @@ module_fr_sfire_model   fire model w/phys   ifmake model_test runs
 module_fr_sfire_core    complete math model ifmake core_test  runs
 module_fr_sfire_prop    math propagation    ifmake prop_test  runs
 module_fr_sfire_burn    fuel consumption    used by core_test
-module_fr_sfire_speed   spread formulas     used by model_test
 module_fr_sfire_util    utilities           ifmake util_test
-module_fr_sfire_fuel    fuel tables         used by model_test
-module_fr_sfire_params  arrays passed to speed
+module_fr_sfire_phys    all physics         used by model_test
 
 Each module is in its own .F file. All files are in
 wrf/wrfv2_fire/phys.
@@ -26,37 +24,37 @@ g95.
 
 These use testmakefile not Makefile. Makefile is for wrf only.
 core_test and prop_test use their own simplified spread function and
-so they do notrefer to the physics in any way. model_test uses the
+so they do not refer to the physics in any way. model_test uses the
 actual Rothermel's formulas from module_fr_sfire_speed. Visualization
 in testers is by Matlab. Instructions are provided when running the
 tester.
 
 Dependencies:  --> means call/use
 
-WRF --> atm --> model --> core --> prop --> speed
-                 |         |                |   |
-                 |         ------> burn     |   |
-                 |                          |   |
-                 |                          V   |
-                  -----------------------> fuel |
-                 |                              V
-                 |----------------------- > params
+WRF --> atm --> model --> core --> prop ----|
+                 |         |                |
+                 |         ------> burn     |
+                 |                          |
+                 |                          V
+                  -----------------------> phys
 
 Everybody uses util. Other than that, use of modules is permitted
 only along the arrows above. For example, atm may call only
-subroutines from model, model may not call a subroutine from prop,
-and prop may not use an array declared in params. This is to make
-possible the development and testing of the math algorithms
-independently of the physics.
+subroutines from model, model may not call a subroutine from prop.
+This is to make possible the development and testing of the math
+algorithms independently of the physics.
 
 Only util may call WRF procedures directly, everybody else must call
 WRF wrappers provided in util. This is to keep the fire code
 independent of WRF. Fake versions of some WRF procedures are linked
 in the testers.
 
-The code currently violates some WRF conventions, esp. uses heap
-memory, and will not run in parallel. This will be fixed later, after
-the whole coupled atmosphere-fire model runs correctly.
+Arrays that need to be passed to subroutine normal_spread in the phys
+module module_fr_sfire_phys are added to argument lists of all
+subroutines in the calling chain.
+
+The code may not maintain any non-constant variables or arrays, and
+may not maintain any arrays with variable bounds.
 
 How to call model from atm should be clear from model_test_main.F.
 

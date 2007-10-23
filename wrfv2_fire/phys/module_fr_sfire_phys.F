@@ -103,21 +103,25 @@ private fire_ros
 ! =========================================================================
 
 contains
-
-   SUBROUTINE init_module_fire_fuel
-   END SUBROUTINE init_module_fire_fuel
    
-   ! ----- fuel moisture parameters
-      subroutine init_fuel_cats
-      integer nf      
+subroutine init_fuel_cats
+implicit none
+!*** purpose: initialize fuel tables by constants
+!*** arguments: none
+!*** local
+integer:: nf      
+!*** executable
 
-      DO nf = 1,nfuelcats
-         fci(nf) = (1.+fuelmc_c)*fci_d(nf)
-         fcbr(nf) = fci_d(nf)/fct(nf)
-      END DO
+DO nf = 1,nfuelcats
+    fci(nf) = (1.+fuelmc_c)*fci_d(nf)
+    fcbr(nf) = fci_d(nf)/fct(nf)
+END DO
       
-      end subroutine init_fuel_cats
+end subroutine init_fuel_cats
 
+!
+!*******************
+!
 
 subroutine set_fire_params(ifts,ifte,jfts,jfte, &
                            ifms,ifme,jfms,jfme, &
@@ -129,18 +133,19 @@ subroutine set_fire_params(ifts,ifte,jfts,jfte, &
 use module_fr_sfire_util
 implicit none
 
-!*** purpose: set all fire model arrays that do not change over time
+!*** purpose: Set all fire model params arrays, constant values.
 
 !*** arguments
-integer, intent(in)::ifts,ifte,jfts,jfte     ! fire mesh cell bounds
-integer, intent(in)::ifms,ifme,jfms,jfme     ! memory array bounds
-real, intent(in):: fdx,fdy                   ! fire mesh spacing
-real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf ! surface altitude
-real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time
-integer, intent(in), dimension(ifms:ifme, jfms:jfme)::nfuel_cat
+integer, intent(in)::ifts,ifte,jfts,jfte                        ! fire mesh cell bounds
+integer, intent(in)::ifms,ifme,jfms,jfme                        ! memory array bounds
+real, intent(in):: fdx,fdy                                      ! fire mesh spacing
+real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf          ! surface altitude
+integer, intent(in),dimension(ifms:ifme, jfms:jfme)::nfuel_cat  ! fuel data
+real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 #define IN out  /* the fire param arrays are set here, elsewhere read only */
 #include "fr_sfire_params_decl.inc" 
 #undef IN
+
 !*** local
 
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
@@ -241,7 +246,9 @@ end subroutine set_fire_params
 
 subroutine init_model_no_fire(ifts,ifte,jfts,jfte, &
                              ifms,ifme,jfms,jfme, &
-                             fuel_frac,lfn,tign)                            
+                             fuel_frac,lfn,tign)               
+implicit none
+             
 !*** purpose: initialize model to no fire
 
 !*** arguments
@@ -279,6 +286,7 @@ end subroutine init_model_no_fire
 subroutine ignite_fire( ifts,ifte,jfts,jfte,                      &
                         ifms,ifme,jfms,jfme,                      &
                         time_ign,ctri,ctrj,diam,fdx,fdy,lfn,tign)
+implicit none
 
 !*** purpose: ignite a circular fire 
 
@@ -299,6 +307,8 @@ intrinsic huge
 integer:: i,j
 real, parameter:: faraway = huge(diam)
 
+!jmtodo this will not work on tiles
+
 do j=jfts,jfte+1      ! node based loops, hence the +1
     do i=ifts,ifte+1                   
         lfn(i,j)=sqrt(((i-ctri)*fdx)**2+((j-ctrj)*fdy)**2)-diam/2
@@ -318,10 +328,10 @@ subroutine heat_fluxes(dt,                        &
         ifms,ifme,jfms,jfme,                      &
         fgip,fuel_frac_burnt,                     & !in
         grnhft,grnqft)                              !out
+implicit none
 
 !*** purpose        
 ! compute the heat fluxes on the fire grid cells
-implicit none
 
 !*** arguments
 real, intent(in)::dt          ! dt  the fire time step (the fire model advances time by this)
@@ -329,8 +339,6 @@ integer, intent(in)::ifts,ifte,jfts,jfte,&
         ifms,ifme,jfms,jfme   ! dimensions                   
 real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip,fuel_frac_burnt
 real, intent(out),dimension(ifms:ifme,jfms:jfme):: grnhft,grnqft
-
-
 
 !*** local
 integer::i,j
@@ -349,6 +357,11 @@ do j=jfts,jfte
 enddo
 
 end subroutine heat_fluxes
+
+!
+!**********************
+!            
+
 
 subroutine set_nfuel_cat(   ifts,ifte,jfts,jfte,               &
                             ifms,ifme,jfms,jfme,               &
@@ -436,8 +449,11 @@ else
 endif
 !     .............end  load fuel categories (or constant) here.
 
-
 end subroutine set_nfuel_cat            
+
+!
+!**********************
+!            
 
 subroutine normal_spread(t,dx,dy,n,rii,rjj,&
 ids,ide,jds,jde,ims,ime,jms,jme,&
@@ -446,12 +462,11 @@ nvx,nvy,scale,ros &
 )
 
 use module_fr_sfire_util
-
 implicit none
-!  the speed function
-!  see module_fr_sfire_prop for argument description
+!***  purpose: the speed function
 
 !*** arguments
+!  see module_fr_sfire_prop for argument description
 real, intent(in)::t,dx,dy  ! currently not used
 integer, intent(in)::n,ids,ide,jds,jde,ims,ime,jms,jme
 real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy,scale
@@ -469,6 +484,7 @@ real speed
 real,dimension(ids:ide+1,jds:jde+1)::ros_all
 
 !*** executable
+
 !  compute speed at all nodes
 do j=jds,jde+1
     do i=ids,ide+1
@@ -481,8 +497,10 @@ do j=jds,jde+1
   
         ! get rate of spread from wind speed and slope
          
-        ros_all(i,j) = max(speed,0.0)  ! debug only 
-        !ros_all(i,j) = fire_ros(speed,tanphi,i,j)
+        !ros_all(i,j) = max(speed,0.0)  ! debug only 
+        ros_all(i,j) = fire_ros(speed,tanphi,i,j &
+#       include "fr_sfire_params_args.inc"
+        )
 
     enddo
 enddo
@@ -494,6 +512,9 @@ enddo
     
 end subroutine normal_spread
 
+!
+!**********************
+!            
 
 real function fire_ros(speed,tanphi,i,j &
 #include "fr_sfire_params_args.inc"
@@ -535,7 +556,6 @@ parameter(ibeh=1)
 
 !*** executable
 
-!
 if (ischap(i,j) .eq. 0) then            ! not chaparral
     if (ibeh .eq. 1) then                ! behave
 !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
@@ -576,6 +596,5 @@ rosm= min(rosm, 6.)         ! no faster than this cap   ! param !
 !
       return
 end function fire_ros 
-
 
 end module module_fr_sfire_phys
