@@ -55,17 +55,10 @@ This will create a directory ./wrf under your current directory.
 
 2.  Local repository setup
 
-  The main development repository is located on wf.cudenver.edu at
+  Make sure that you have an account on math.cudenver.edu and you are in
+  group mandel there. Then:
 
-    /home/wrf.git
-
-  It can be accessed from other computers by instead refering to 
-
-    ssh://wf.cudenver.edu/home/wrf.git
-
-  To "checkout" this repository, use the clone command
-
-    git clone /home/wrf.git
+    git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git 
 
   This will create a directory ./wrf with the files. The cloned repository
   will be created in a hidden directory in ./wrf
