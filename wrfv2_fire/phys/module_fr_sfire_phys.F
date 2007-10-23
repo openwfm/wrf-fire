@@ -136,9 +136,11 @@ integer, intent(in)::ifts,ifte,jfts,jfte     ! fire mesh cell bounds
 integer, intent(in)::ifms,ifme,jfms,jfme     ! memory array bounds
 real, intent(in):: fdx,fdy                   ! fire mesh spacing
 real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf ! surface altitude
-real, intent(inout), dimension(ifms:ifme, jfms:jfme)::fuel_time
+real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time
 integer, intent(in), dimension(ifms:ifme, jfms:jfme)::nfuel_cat
+#define IN out  /* the fire param arrays are set here, elsewhere read only */
 #include "fr_sfire_params_decl.inc" 
+#undef IN
 !*** local
 
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
@@ -310,6 +312,43 @@ end subroutine ignite_fire
 !
 !**********************
 !            
+
+subroutine heat_fluxes(dt,                        &
+        ifts,ifte,jfts,jfte,                      &
+        ifms,ifme,jfms,jfme,                      &
+        fgip,fuel_frac_burnt,                     & !in
+        grnhft,grnqft)                              !out
+
+!*** purpose        
+! compute the heat fluxes on the fire grid cells
+implicit none
+
+!*** arguments
+real, intent(in)::dt          ! dt  the fire time step (the fire model advances time by this)
+integer, intent(in)::ifts,ifte,jfts,jfte,& 
+        ifms,ifme,jfms,jfme   ! dimensions                   
+real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip,fuel_frac_burnt
+real, intent(out),dimension(ifms:ifme,jfms:jfme):: grnhft,grnqft
+
+
+
+!*** local
+integer::i,j
+real:: dmass
+
+!*** executable        
+do j=jfts,jfte
+    do i=ifts,ifte
+         dmass =                     &     ! ground fuel dry mass burnt this call (kg/m^2)
+             fgip(i,j)               &     ! init mass from fuel model no (kg/m^2)
+             * fuel_frac_burnt(i,j)        ! fraction burned this call    (1)
+         grnhft(i,j) = (dmass/dt)*(1.-bmst)*cmbcnst         ! J/m^2/sec
+         grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! what the #!@* is that??
+         ! xlv is defined in module_model_constants.. who knows that it is.. why .56 ??
+    enddo
+enddo
+
+end subroutine heat_fluxes
 
 subroutine set_nfuel_cat(   ifts,ifte,jfts,jfte,               &
                             ifms,ifme,jfms,jfme,               &

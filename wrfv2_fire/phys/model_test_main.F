@@ -22,20 +22,14 @@ integer, parameter:: kw=1                   ! number of wind layers
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhft,grnqft
-real, dimension(ifms:ifme,jfms:jfme,kw):: vfx,vfy
 integer:: initialize, ignition,i,j,ifuelread,istep
 real:: t0,time_start,sflux,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
 real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
-integer::xifms,xifme,xjfms,xjfme
 integer::num_tiles
 integer, dimension(100)::i_start,i_end,j_start,j_end
 
 !*** executable
-xifms=ifms
-xifme=ifme
-xjfms=jfms
-xjfme=jfme
 
 call set_tiles(1,1,ifts,ifte,jfts,jfte,num_tiles,i_start,i_end,j_start,j_end)
 
@@ -48,8 +42,8 @@ t0=0                                        ! starting time, arbitrary
 do j=jfts,jfte+1
     do i=ifts,ifte+1
         zsf(i,j)=1000   ! flat ground
-        vfx(i,j,1)=wind*cos(alpha)    ! constant wind
-        vfy(i,j,1)=wind*sin(alpha)
+        vx(i,j)=wind*cos(alpha)    ! constant wind
+        vy(i,j)=wind*sin(alpha)
     enddo
 enddo
 
@@ -84,19 +78,19 @@ do istep=1,msteps
                  ifts,ifte,jfts,jfte,               &
                  ifms,ifme,jfms,jfme,               &
                  num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                 kw,                                &
                  time_start,dt,                     &
                  fdx,fdy,                           &
-                 nfuel_cat,fuel_time,zsf,vfx,vfy,   &
-                 lfn,tign,fuel_frac,                &
-                 grnhft,grnqft                      &
-#                include "fr_sfire_params_args.inc" 
+                 nfuel_cat,zsf,vx,vy,              &! in arrays
+                 lfn,tign,fuel_frac,                & ! state arrays
+                 grnhft,grnqft,                      & ! out arrays
+                 fuel_time,                         & ! const arrays
+                 dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
                  )
     write(1,1)1.,1.,time_start
     write(1,1)sm+1,sn+1,((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
     write(1,1)sm+1,sn+1,((tign(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-    write(1,1)sm+1,sn+1,((vfx(i,j,1),i=ifts,ifte+1),j=jfts,jfte+1)
-    write(1,1)sm+1,sn+1,((vfy(i,j,1),i=ifts,ifte+1),j=jfts,jfte+1)
+    write(1,1)sm+1,sn+1,((vx(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
+    write(1,1)sm+1,sn+1,((vy(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
     write(1,1)sm,sn,((grnhft(i,j),i=ifts,ifte),j=jfts,jfte) 
     sflux=avg_2darray      ( ifts,ifte,jfts,jfte,               &
                              ifms,ifme,jfms,jfme,               &

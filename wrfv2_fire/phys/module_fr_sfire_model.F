@@ -1,24 +1,25 @@
+! WRF MEDIATION LAYER: PHYSICS
 module module_fr_sfire_model
 !
-!*** Jan Mandel September 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
+!*** Jan Mandel October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 contains
-
-! entry points
 
 ! subroutine sfire_model
 
 subroutine sfire_model (initialize, ignition,       &
-                 ifds,ifde,jfds,jfde,               & ! domain dims
-                 ifms,ifme,jfms,jfme,               & ! memory dims
-                 num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                 kw,                                &
-                 time_start,dt,                     &
-                 fdx,fdy,                           &
-                 nfuel_cat,fuel_time,zsf,vfx,vfy,   &
-                 lfn,tign,fuel_frac,                &
-                 grnhft,grnqft                      &
-#                include "fr_sfire_params_args.inc" 
+                 ifds,ifde,jfds,jfde,               & ! fire domain dims
+                 ifms,ifme,jfms,jfme,               & ! fire memory dims
+                 num_tiles,i_start,i_end,j_start,j_end, & ! fire grid tiling
+                 time_start,dt,                     & ! time and increment
+                 fdx,fdy,                           & ! fire mesh spacing
+                 nfuel_cat,                         & ! fuel data per point 
+                 zsf,                               & ! terrain height (for gradient)
+                 vx,vy,                             & ! input: wind
+                 lfn,tign,fuel_frac,                & ! state: level function, ign time, fuel left
+                 grnhft,grnqft,                     & ! output: heat fluxes
+                 fuel_time,                         & ! save derived internal data
+                 dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
                  ) 
 
 ! This subroutine implements the fire spread model.
@@ -41,18 +42,15 @@ INTEGER, INTENT(in) :: ifds,ifde,jfds,jfde  ! fire domain bounds
 INTEGER, INTENT(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 integer,intent(in)::num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
-INTEGER, INTENT(in) :: kw                   ! number of vertical layers of wind (1=surface)
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
-integer, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat
-REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme)::fuel_time
-REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme,kw):: & 
-    zsf,   &                                ! terrain         
-    vfx,vfy                                 ! wind m/s (node)
+integer, intent(in), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
+REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
+    zsf,   &                                ! terrain height, node based, data, constant        
+    vx,vy                                 ! wind m/s (node based), data, variable
     
 ! state
-
-REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme,kw):: &
+REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
     lfn   , &                               ! level function: fire is where lfn<0 (node)
     tign  , &                               ! absolute time of ignition (node)
     fuel_frac                               ! fuel fraction (node), currently redundant
@@ -60,23 +58,27 @@ REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme,kw):: &
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     grnhft,grnqft                           ! heat fluxes J/m^2/s  (cell)             
-    
-! passed to subroutine normal_spread
-#include "fr_sfire_params_decl.inc" 
-    
-            
-!*** local
-INTEGER :: ifts,ifte,jfts,jfte  ! fire tile bounds
+ 
+! constant arrays - set at initialization
+real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
+real,intent(inout),dimension(ifms:ifme,jfms:jfme):: dzfsdx,dzfsdy        ! (node) terrain gradient (1)
+real,intent(inout),dimension(ifms:ifme,jfms:jfme):: bbb,betafl,phiwc,r_0 ! (node) spread formula coefficients
+real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fgip                 ! (cell) init mass of surface fuel (kg/m^2)
+integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node) .ne.0 if chapparal
 
-integer::i,j,ij        
-! fire grid size declared in module_fr_sfire_speed
-real, dimension(ifms:ifme, jfms:jfme)::    fuel_frac_burnt
-real:: dmass,ctri,ctrj,diam
-integer, parameter:: printl=1
-character(len=128)msg
+!*** local
+INTEGER :: ifts,ifte,jfts,jfte      ! fire tile bounds
+integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
+integer::ij        
+real, dimension(ifms:ifme, jfms:jfme)::fuel_frac_burnt
+real:: ctri,ctrj,diam ! for ignition
 
 !*** executable
 
+xifms=ifms  ! dimensions for the include file
+xifme=ifme
+xjfms=jfms
+xjfme=jfme
 
 do ij=1,num_tiles
     ifts=i_start(ij)
@@ -113,26 +115,18 @@ do ij=1,num_tiles
                             ifms,ifme,jfms,jfme,                      &
                             time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
     endif
-
-    ! copy the ground winds - different every call
-    ! We cannot simply compute the spread rate here because that will change with the
-    ! angle of the wind and the direction of propagation, thus it is done in subroutine
-    ! normal_spread at each fire time step. Instead, we set some quantities that 
-    ! subroutine normal_spread may use.
-
-    do j=jfts,jfte+1
-        do i=ifts,ifte+1
-            vx(i,j)=vfx(i,j,1)
-            vy(i,j)=vfy(i,j,1)
-        enddo
-    enddo
     
 enddo ! end tile loop
 
 ! advance the model from time_start to time_start+dt
 ! return the fuel fraction burnt this call in each fire cell
-! will call module_fr_sfire_speed%%normal_speed for propagation speed
-! uses vx,vy,r as a background propagation field 
+! will call module_fr_sfire_speed::normal_spread for propagation speed
+! We cannot simply compute the spread rate here because that will change with the
+! angle of the wind and the direction of propagation, thus it is done in subroutine
+! normal_spread at each fire time step. Instead, we pass arguments that 
+! subroutine normal_spread may use. The include is to guarantee this is done consistently
+! over the call chain.
+
 call sfire_core(     &
     ifts,ifte,jfts,jfte,                      &
     ifms,ifme,jfms,jfme,                      &
@@ -142,24 +136,18 @@ call sfire_core(     &
 #   include "fr_sfire_params_args.inc" 
     ) 
 
-
+! compute the heat fluxes from the fuel burned
 do ij=1,num_tiles
     ifts=i_start(ij)
     ifte=i_end(ij)
     jfts=j_start(ij)
     jfte=j_end(ij)
     
-! compute the heat fluxes on the fire grid cells
-do j=jfts,jfte
-    do i=ifts,ifte
-         dmass =                     &     ! ground fuel mass burnt this call (kg/m^2)
-             fgip(i,j)               &     ! init mass from fuel model no (kg/m^2)
-             * fuel_frac_burnt(i,j)        ! fraction burned this call    (1)
-         grnhft(i,j) = (dmass/dt)*(1.-bmst)*cmbcnst         ! J/m^2/sec
-         grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! what the #!@* is that??
-         ! xlv is defined in module_model_constants.. who knows that it is.. why .56 ??
-    enddo
-enddo
+    call heat_fluxes(dt,                          &
+        ifts,ifte,jfts,jfte,                      &
+        ifms,ifme,jfms,jfme,                      &
+        fgip,fuel_frac_burnt,                     & !in
+        grnhft,grnqft)                              !out
 
 enddo ! tiles
 

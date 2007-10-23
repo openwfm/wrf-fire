@@ -84,6 +84,28 @@ enddo
 call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
 end subroutine set_tiles
 
+!
+!****************
+!
+integer function endtilenode(ifte,ifde)
+    implicit none
+    integer, intent(in)::ifte,ifde
+! purpose: find the upper bound for tile loops for nodal array
+! Nodal arrays are by 1 larger than cell arrays, so the upper bound for tile
+! loops has to be increased by one if the tile is at the upper end of the domain.
+! The upper bound cannot be increased by 1 always because then two tile loops would try
+! to write into the same memory location.   
+    if(ifte.ne.ifde)then
+        endtilenode=ifte
+    else
+        endtilenode=ifte+1
+    endif
+end function endtilenode
+
+!
+!****************
+!
+
 subroutine check_mesh_3dim(ids,ide,kds,kde,jds,jde,ims,ime,kms,kme,jms,jme)
 integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme,kds,kde,kms,kme
 if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme.or.kds<kms.or.kde>kme) then
