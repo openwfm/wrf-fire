@@ -5,16 +5,19 @@
 
 
 program core_test
-use module_fr_sfire_params
 use module_fr_sfire_core
-use module_fr_sfire_burn
+!use module_fr_sfire_burn
+use module_fr_sfire_util
+ 
 
 implicit none
 !*** variables
 integer :: m1,m2,n1,n2,i,j,m1m,m2m,n1m,n2m,halo
 real,allocatable,dimension(:,:):: &
-    lfn,tign,fuel_time,frac_lost,frac_end
+    lfn,tign,fuel_time,frac_lost,frac_end,vx,vy,r
 real:: rm1,rm2,rn1,rn2,time_start,time_end,fire_dx,fire_dy
+integer::num_tiles
+integer, dimension(100)::i_start,i_end,j_start,j_end
 
 !*** executable
 
@@ -44,16 +47,18 @@ read(1,1)((vx(i,j),i=m1,m2),j=n1,n2)
 read(1,1)((vy(i,j),i=m1,m2),j=n1,n2)
 close(1)
 
+call set_tiles(1,1,m1,m2-1,n1,n2-1,num_tiles,i_start,i_end,j_start,j_end)
+
 ! run the code
 
-!subroutine sfire_core(       ids,ide,jds,jde,  &
-!                             ims,ime,jms,jme,  &
-!                             time_start,time_diff,fire_dx,fire_dy,fuel_time,vx,vy,r,   &
-!                             lfn,tign,fuel_frac,fuel_frac_burnt ) 
-
 call sfire_core( m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,          &
+num_tiles,i_start,i_end,j_start,j_end, &
 time_start,time_end-time_start,fire_dx,fire_dy,fuel_time,           & 
-vx,vy,r,lfn,tign,frac_end,frac_lost)
+lfn,tign,frac_end,frac_lost &
+#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#include SPEED_VARS_ARGS
+#endif
+)
 
 ! write the output to a file
 

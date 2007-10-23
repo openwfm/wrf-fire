@@ -2,6 +2,10 @@
 
 FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free -I$(NETCDF)/include 
 #FC = g95 -ftrace=frame -g -ffree-form
+DEFS = \
+  -DPHYS=$(PHYS) \
+  -DSPEED_VARS_ARGS=$(SPEED_VARS_ARGS) \
+  -DSPEED_VARS_DECL=$(SPEED_VARS_DECL) 
 
 MAKEFILE=testmakefile
 
@@ -9,42 +13,34 @@ MAKEFILE=testmakefile
 .SUFFIXES: .F .o
 
 .F.o: 
-	$(FC) -c $*.F
+	$(FC) $(DEFS) -E $*.F > $*.f90
+	$(FC) -c $*.f90
 
-# default speed test function
-SPEED = normal_spread
+PHYS = normal_spread
+ARGS = normal_spread_args
+DECL = normal_spread_decl
+SPEED_VARS_ARGS = \"$(ARGS).inc\"
+SPEED_VARS_DECL = \"$(DECL).inc\"
+INC = $(ARGS).inc $(DECL).inc
 
 # module dependencies
 
-normal_spread.o: \
-    clean_sfire_speed \
-    module_fr_sfire_util.o 
-
-module_fr_sfire_speed.o: \
-    clean_normal_spread  \
-    module_fr_sfire_util.o \
-    module_fr_sfire_params.o 
-
-module_fr_sfire_fuel.o: \
+normal_spread.o: $(INC)\
     module_fr_sfire_util.o 
 
 module_fr_sfire_atm.o: \
     module_fr_sfire_model.o \
-    module_fr_sfire_params.o \
-    module_fr_sfire_speed.o \
     module_fr_sfire_core.o  \
-    module_fr_sfire_fuel.o \
+    module_fr_sfire_phys.o \
     module_fr_sfire_util.o 
 
-module_fr_sfire_model.o: \
-    module_fr_sfire_params.o \
-    module_fr_sfire_speed.o \
+module_fr_sfire_model.o: $(INC)\
     module_fr_sfire_core.o  \
-    module_fr_sfire_fuel.o \
+    module_fr_sfire_phys.o \
     module_fr_sfire_util.o 
 
-module_fr_sfire_core.o: \
-    $(SPEED).o \
+module_fr_sfire_core.o: $(INC)\
+    $(PHYS).o \
     module_fr_sfire_prop.o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o 
@@ -52,36 +48,36 @@ module_fr_sfire_core.o: \
 module_fr_sfire_burn.o: \
     module_fr_sfire_util.o 
 
-module_fr_sfire_prop.o: \
-    $(SPEED).o \
+module_fr_sfire_phys.o: \
     module_fr_sfire_util.o 
+
+module_fr_sfire_prop.o: \
+    $(INC) \
+    $(PHYS).o \
+    module_fr_sfire_util.o
       
 module_fr_sfire_level.o: \
-    $(SPEED).o \
+    $(PHYS).o \
     module_fr_sfire_util.o 
       
 module_fr_sfire_util.o: \
     wrf_fakes.o
 
-# switching between the two speed functions
-
-clean_normal_spread:
-	-rm -f normal_spread.o 
-
-clean_sfire_speed:
-	-rm -f module_fr_sfire_speed.o
-
 # test binaries and targets
 
 #
-# the propagation alone 
+# the propagation alone$(INC) 
 #
 PROP_OBJ = \
-    prop_test_main.F \
-    $(SPEED).o \
+    prop_test_main.o \
     module_fr_sfire_prop.o \
+    $(PHYS).o \
     module_fr_sfire_util.o \
     wrf_fakes.o 
+
+prop_test_main.o: \
+    module_fr_sfire_util.o \
+    module_fr_sfire_prop.o 
 
 prop_test_prog.exe: $(PROP_OBJ)  
 	$(FC) -o prop_test_prog.exe $(PROP_OBJ)
@@ -122,13 +118,17 @@ util_test: util_test_prog.exe
 # the core: whole math model
 #
 CORE_OBJ= \
-    core_test_main.F \
+    core_test_main.o \
     normal_spread.o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o  \
     module_fr_sfire_prop.o \
     module_fr_sfire_core.o \
     wrf_fakes.o
+
+core_test_main.o: \
+    module_fr_sfire_util.o \
+    module_fr_sfire_core.o 
     
 core_test_prog.exe: $(CORE_OBJ) 
 	$(FC) -o core_test_prog.exe $(CORE_OBJ)
@@ -141,7 +141,6 @@ core_test: core_test_prog.exe
 #
 LEVEL_OBJ= \
     core_test_main.F \
-    .o \
     module_fr_sfire_burn.o \
     module_fr_sfire_util.o  \
     module_fr_sfire_level.o \
@@ -157,15 +156,13 @@ level_test: level_test_prog.exe
 #
 # the whole fire model with netcdf interface, fire variables only
 #
-MODEL_NETCDF_OBJ = \
+MODEL_NETCDF_OBJ = $(INC) \
     model_netcdf_main.F \
-    module_fr_sfire_params.o \
-    module_fr_sfire_speed.o \
     module_fr_sfire_model.o \
-    module_fr_sfire_fuel.o \
     module_fr_sfire_core.o \
     module_fr_sfire_prop.o \
     module_fr_sfire_burn.o \
+    module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
@@ -173,19 +170,21 @@ MODEL_NETCDF_OBJ = \
 # the whole fire model, fire variables only
 #
 MODEL_OBJ = \
-    model_test_main.F \
-    module_fr_sfire_params.o \
-    module_fr_sfire_speed.o \
+    model_test_main.o \
     module_fr_sfire_model.o \
-    module_fr_sfire_fuel.o \
     module_fr_sfire_core.o \
     module_fr_sfire_prop.o \
     module_fr_sfire_burn.o \
+    module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
+model_test_main.o: $(INC) \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_model.o 
+ 
 model_netcdf_test:
-	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" PHYS=module_fr_sfire_phys
 	- rm -f fire_io.nc
 	- cp fire_io_save.nc fire_io.nc &> /dev/null
 	./model_netcdf_prog.exe
@@ -193,10 +192,11 @@ model_netcdf_test:
 model_netcdf_prog.exe: $(MODEL_NETCDF_OBJ) 
 	$(FC) -o model_netcdf_prog.exe $(MODEL_NETCDF_OBJ) -L$(NETCDF)/lib -lnetcdf 
 
-
-
 model_test:
-	make -f $(MAKEFILE) model_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	make -f $(MAKEFILE) model_test_prog.exe FC="$(FC)" \
+	PHYS=module_fr_sfire_phys \
+	ARGS=fr_sfire_params_args \
+	DECL=fr_sfire_params_decl
 	./model_test_prog.exe
 	# run model_test in Matlab to visualize
 
@@ -207,12 +207,9 @@ model_test_prog.exe: $(MODEL_OBJ)
 #
 # the whole fire model through atmosphere coupling 
 #
-ATM_OBJ = \
+ATM_OBJ = $(INC) \
     atm_test_main.F \
     module_fr_sfire_atm.o \
-    module_fr_sfire_params.o \
-    module_fr_sfire_params.o \
-    module_fr_sfire_speed.o \
     module_fr_sfire_model.o \
     module_fr_sfire_fuel.o \
     module_fr_sfire_core.o \
@@ -222,7 +219,7 @@ ATM_OBJ = \
     wrf_fakes.o
 
 atm_test:
-	make -f $(MAKEFILE) atm_test_prog.exe FC="$(FC)" SPEED=module_fr_sfire_speed
+	make -f $(MAKEFILE) atm_test_prog.exe FC="$(FC)" PHYS=module_fr_sfire_phys
 	./atm_test_prog.exe
 
 atm_test_prog.exe: $(ATM_OBJ) 
@@ -231,5 +228,5 @@ atm_test_prog.exe: $(ATM_OBJ)
 # end test targets
 
 clean:
-	-rm -f *.{exe,o,mod} ../*/*.{o,mod} *_test core.* *_?????.txt
+	-rm -f *.{exe,o,mod} ../*/*.{o,mod} *_test core.* *_?????.txt *.f90
 

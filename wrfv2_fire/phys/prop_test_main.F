@@ -2,12 +2,14 @@
  
     program prop_test
     use module_fr_sfire_prop
-    use module_fr_sfire_params
+    use module_fr_sfire_util
     
     implicit none
     integer::m1,m2,n1,n2,i,j,m1m,m2m,n1m,n2m,halo
     real::rm,rn,ts,te,dx,dy
-    real,allocatable,dimension(:,:)::lfn,tc
+    integer::num_tiles
+    integer, dimension(100)::i_start,i_end,j_start,j_end
+    real,allocatable,dimension(:,:)::lfn,tc,vx,vy,r
     !external spread_rate
     open(1,form='formatted',file='prop_test_in.txt')
     read(1,1)rm,rn
@@ -40,17 +42,18 @@
     !print *,'prop_test_m: read vy'
     !print *,'prop_test_m: calling prop_test'
     close(1)
-    !subroutine prop_ls(ids,ide,jds,jde, & ! dims
-    !               ims,ime,jms,jme, & ! dims
-    !               ts,td,dx,dy,     & ! scalars in
-    !               vx,vy,r,         & ! arrays in 
-    !               lfn,tc)            ! arrays out 
-    call prop_ls(m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,ts,te-ts,dx,dy,vx,vy,r,lfn,tc)
+    call set_tiles(1,1,m1,m2-1,n1,n2-1,num_tiles,i_start,i_end,j_start,j_end)
+    call prop_ls(m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,&
+        num_tiles,i_start,i_end,j_start,j_end,&
+        ts,te-ts,dx,dy,lfn,tc &
+#       ifdef SPEED_VARS_ARGS  /* extra arguments for the speed function */
+#           include SPEED_VARS_ARGS
+#       endif        
+    )
     open (2,form='formatted',file='prop_test_out.txt')
     write(2,1)((lfn(i,j),i=m1,m2),j=n1,n2)
     close(2)
 
-    deallocate(r,vx,vy)
 1   format((e25.15,1x)) 
 
     end program prop_test

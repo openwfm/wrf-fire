@@ -24,7 +24,7 @@ implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
 msg='SFIRE:'//s
-!call wrf_message(msg)
+call wrf_message(msg)
 end subroutine message
 
 !
@@ -32,6 +32,7 @@ end subroutine message
 !
 
 subroutine check_mesh_2dim(ids,ide,jds,jde,ims,ime,jms,jme)
+implicit none
 integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme
 if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme)call crash('memory dimensions too small')
 end subroutine check_mesh_2dim
@@ -39,6 +40,49 @@ end subroutine check_mesh_2dim
 !
 !****************
 !
+
+subroutine check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+implicit none
+integer,intent(in)::ids,ide,jds,jde,num_tiles
+integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
+character(len=128)msg
+if(num_tiles.ne.1)call crash('sfire_prop: only 1 cpu supported')
+if(i_start(1).ne.ids.or.i_end(1).ne.ide.or.j_start(1).ne.jds.or.j_end(1).ne.jde)then
+    write(msg,*)ids,ide,jds,jde
+    call message(msg)
+    write(msg,*)i_start,i_end,j_start,j_end
+    call message(msg)    
+    call crash('bad tile bounds')
+endif
+end subroutine check_tiles
+
+!
+!****************
+!
+
+subroutine set_tiles(itiles,jtiles,ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+!*** set tiles for standalone/testing
+implicit none
+!*** arguments
+integer,intent(in)::itiles,jtiles,ids,ide,jds,jde
+integer,intent(out)::num_tiles
+integer,intent(out),dimension(itiles*jtiles)::i_start,i_end,j_start,j_end
+!*** local
+integer::i,j,istep,jstep,ij
+num_tiles=itiles*jtiles
+istep=(ide-ids+itiles)/itiles
+jstep=(jde-jds+jtiles)/jtiles
+do i=1,itiles
+    do j=1,jtiles
+        ij=j+(i-1)*jtiles
+        i_start(ij)=min(ide,ids+(i-1)*istep)
+        i_end(ij)  =min(ide,ids+(i  )*istep)
+        j_start(ij)=min(jde,jds+(j-1)*jstep)
+        j_end(ij)  =min(jde,jds+(j  )*jstep)
+    enddo
+enddo
+call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+end subroutine set_tiles
 
 subroutine check_mesh_3dim(ids,ide,kds,kde,jds,jde,ims,ime,kms,kme,jms,jme)
 integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme,kds,kde,kms,kme

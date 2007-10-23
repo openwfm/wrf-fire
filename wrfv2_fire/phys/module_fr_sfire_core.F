@@ -7,8 +7,15 @@ contains
 
 subroutine sfire_core(       ids,ide,jds,jde,  &
                              ims,ime,jms,jme,  &
-                             time_start,time_diff,fire_dx,fire_dy,fuel_time,vx,vy,r,   &
-                             lfn,tign,fuel_frac,fuel_frac_burnt ) 
+                             num_tiles,i_start,i_end,j_start,j_end, & ! tiling
+                             time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
+                             lfn,tign,fuel_frac,fuel_frac_burnt &
+#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#include SPEED_VARS_ARGS
+#else
+#include "fr_sfire_params_args.inc"
+#endif
+                             ) 
 
 !*** purpose
 !
@@ -25,9 +32,15 @@ implicit none
 !*** arguments
 
 integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
+integer,intent(in)::num_tiles
+integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 real, intent(inout), dimension(ims:ime,jms:jme)::lfn,tign,fuel_frac,fuel_time,fuel_frac_burnt
 real, intent(in):: time_start,time_diff,fire_dx,fire_dy
-real,dimension(ims:ime,jms:jme),intent(in)::vx,vy,r
+#ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
+#include SPEED_VARS_DECL
+#else
+#include "fr_sfire_params_decl.inc"
+#endif
 
 
 ! argument          intent  description                     (unit)  lives at
@@ -38,8 +51,8 @@ real,dimension(ims:ime,jms:jme),intent(in)::vx,vy,r
 ! time_diff          in   the length of simulation            (s)
 ! fire_dx,fire_dy   in   fire mesh spacings                  (m)
 ! fuel_time         in   time fuel burns down to 1/e         (s)      cells
-! vx,vy             in    background advection speed
-! r                 in    background spread rate in normal direction
+! avx,avy             in    background advection speed
+! sr                 in    background spread rate in normal direction
 ! lfn             inout  level function (state)              (1)      nodes
 ! tign            inout  ignition time (state)               (s)      nodes
 ! fuel_frac       inout  the fuel fraction at the end        (1)      cells
@@ -103,6 +116,7 @@ intrinsic epsilon
 !*** executable
 
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
 
 ! compute the fuel fraction at time_start - not needed if passed in
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
@@ -112,9 +126,13 @@ call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
 ! from time_start to time_start + time_diff
 call prop_ls(      ids,ide,jds,jde, & ! dims
                    ims,ime,jms,jme, & ! dims
+                   num_tiles,i_start,i_end,j_start,j_end, &
                    time_start,time_diff,fire_dx,fire_dy,     & ! scalars in
-                   vx,vy,r,         & ! arrays in 
-                   lfn,tign)            ! arrays out
+                   lfn,tign &            ! arrays out
+#                  ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#                       include SPEED_VARS_ARGS
+#                  endif
+             )
 
 ! compute the fuel fraction at time_end 
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &

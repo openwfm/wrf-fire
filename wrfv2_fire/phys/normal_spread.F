@@ -1,16 +1,15 @@
-    module module_fr_sfire_params
-    ! speed function data
-    real,allocatable,dimension(:,:)::vx,vy,r
-    end module module_fr_sfire_params
-    
-    module module_fr_sfire_speed
+    module module_fr_sfire_phys
     
     contains
     ! the speed function
     
-    subroutine normal_spread(t,dx,dy,n,rii,rjj,ids,ide,jds,jde,ims,ime,jms,jme,nvx,nvy,scale,speed)
+    subroutine normal_spread(t,dx,dy,n,rii,rjj, &
+       ids,ide,jds,jde,ims,ime,jms,jme,nvx,nvy,scale,speed&
+#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#include SPEED_VARS_ARGS
+#endif
+    )
     use module_fr_sfire_util
-    use module_fr_sfire_params
     implicit none
 !   arguments
     real, intent(in)::t,dx,dy ! not used right now
@@ -18,6 +17,9 @@
     real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy,scale
     real, intent(in),dimension(n)::rii,rjj
     real,intent(out),dimension(n)::speed
+#ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
+#include SPEED_VARS_DECL
+#endif
     ! calls
     intrinsic nint
     !  internal
@@ -37,4 +39,4 @@
     enddo
     end subroutine normal_spread
 
-    end module module_fr_sfire_speed
+    end module module_fr_sfire_phys

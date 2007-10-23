@@ -10,6 +10,7 @@ contains
 subroutine model_test(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fdx,fdy,wind,alpha,dt,msteps)
 use module_fr_sfire_util
 use module_fr_sfire_model
+use module_fr_sfire_phys
 implicit none
 
 !*** arguments
@@ -24,9 +25,19 @@ real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
 real, dimension(ifms:ifme,jfms:jfme,kw):: vfx,vfy
 integer:: initialize, ignition,i,j,ifuelread,istep
 real:: t0,time_start,sflux,sm,sn
-integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat
+integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
+real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
+integer::xifms,xifme,xjfms,xjfme
+integer::num_tiles
+integer, dimension(100)::i_start,i_end,j_start,j_end
 
 !*** executable
+xifms=ifms
+xifme=ifme
+xjfms=jfms
+xjfme=jfme
+
+call set_tiles(1,1,ifts,ifte,jfts,jfte,num_tiles,i_start,i_end,j_start,j_end)
 
 print *,'mesh size in cells: ',ifts,ifte,jfts,jfte
 print *,'array allocation:   ',ifms,ifme,jfms,jfme
@@ -72,12 +83,15 @@ do istep=1,msteps
     call sfire_model (initialize, ignition,       &
                  ifts,ifte,jfts,jfte,               &
                  ifms,ifme,jfms,jfme,               &
+                 num_tiles,i_start,i_end,j_start,j_end, & ! tiling
                  kw,                                &
                  time_start,dt,                     &
                  fdx,fdy,                           &
-                 nfuel_cat,zsf,vfx,vfy,             &
+                 nfuel_cat,fuel_time,zsf,vfx,vfy,   &
                  lfn,tign,fuel_frac,                &
-                 grnhft,grnqft)
+                 grnhft,grnqft                      &
+#                include "fr_sfire_params_args.inc" 
+                 )
     write(1,1)1.,1.,time_start
     write(1,1)sm+1,sn+1,((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
     write(1,1)sm+1,sn+1,((tign(i,j),i=ifts,ifte+1),j=jfts,jfte+1)

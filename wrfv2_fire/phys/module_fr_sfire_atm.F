@@ -1,3 +1,5 @@
+!WRF:MEDIATION_LAYER:PHYSICS
+
 module module_fr_sfire_atm
 
 use module_fr_sfire_model
@@ -5,9 +7,9 @@ use module_fr_sfire_model
 contains
 
 subroutine sfire_atm_driver &
-                (ids,ide, kds,kde, jds,jde,                    & ! incoming
+                (u,v,u_frame,v_frame,mu,rho,
+		 ids,ide, kds,kde, jds,jde,                    & ! incoming
                  ims,ime, kms,kme, jms,jme,                    &
-                 its,ite, kts,kte, jts,jte,                    &
                  ifds,ifde, kfds,kfde, jfds,jfde,              &
                  ifms,ifme, kfms,kfme, jfms,jfme,              &
                  nfrx,nfry,                                    &
@@ -34,7 +36,6 @@ implicit none
 ! dimensions
 integer, intent(in)::ids,ide, kds,kde, jds,jde,                & ! atm domain dims
                  ims,ime, kms,kme, jms,jme,                    & ! atm memory dims
-                 its,ite, kts,kte, jts,jte,                    & ! atm tile dims
                  ifds,ifde, kfds,kfde, jfds,jfde,              & ! fire domain dims
                  ifms,ifme, kfms,kfme, jfms,jfme,              & ! fire memory dims
                  nfrx,nfry
@@ -49,6 +50,8 @@ REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u,v
 
 !  ***** outputs *****
 real, intent(out) DIMENSION( ims:ime, jms:jme ) grndhx,grndqx
+
+!*** local
 
 ! time - assume dt does not change
 time_start = itimestep * dt
