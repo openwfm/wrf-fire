@@ -4,7 +4,7 @@ set host=`hostname`
 if ( ${host} == "wf.cudenver.edu" )  then
   set base="/opt/wrf-libs"
 else if ( ${host} == "opt4.cudenver.edu" ) then
-  set base="/scratch0/jbeezley/wrf-libs"
+  set base="/home/grads/jbeezley/wrf-libs"
 else
   echo "unknown host: " ${host}
   set cont=0
