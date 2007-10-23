@@ -31,6 +31,7 @@ This will create a directory ./wrf under your current directory.
 3.  Branch setup (substitute <branch> with what you 
                   want to name your branch)
 
+  cd ./wrf
   git checkout -b <branch> origin/master
   git push origin <branch>:<branch>
 
