@@ -61,12 +61,10 @@ MODULES = \
         module_fr_cawfe_fuel.o \
 	module_fire_debug_output.o \
         module_fr_sfire_model.o \
-        module_fr_sfire_core.o \
         module_fr_sfire_prop.o \
+        module_fr_sfire_core.o \
         module_fr_sfire_burn.o \
-        module_fr_sfire_speed.o \
-        module_fr_sfire_fuel.o \
-        module_fr_sfire_params.o \
+        module_fr_sfire_phys.o \
         module_fr_sfire_util.o
   
 OBJS    =
@@ -270,29 +268,32 @@ module_fr_cawfe.o: \
 	        module_fire_debug_output.o
 
 module_fr_sfire_model.o: \
-                module_fr_sfire_fuel.o \
-                module_fr_sfire_params.o \
+                fr_sfire_params_args.inc \
+                fr_sfire_params_decl.inc \
+                module_fr_sfire_phys.o \
 	        module_fr_sfire_core.o \
 		module_fr_sfire_util.o 
 
 module_fr_sfire_core.o: \
+                fr_sfire_params_args.inc \
+                fr_sfire_params_decl.inc \
 		module_fr_sfire_util.o \
 	        module_fr_sfire_burn.o \
+	        module_fr_sfire_phys.o \
 	        module_fr_sfire_prop.o 
 
 module_fr_sfire_prop.o: \ 
-		module_fr_sfire_speed.o \
+                fr_sfire_params_args.inc \
+                fr_sfire_params_decl.inc \
+		module_fr_sfire_phys.o \
 		module_fr_sfire_util.o 
 
-module_fr_sfire_speed.o: \
-                module_fr_sfire_fuel.o \
-                module_fr_sfire_params.o \
+module_fr_sfire_phys.o: \ 
+                fr_sfire_params_args.inc \
+                fr_sfire_params_decl.inc \
 		module_fr_sfire_util.o 
 
 module_fr_sfire_burn.o: \ 
-		module_fr_sfire_util.o 
-
-module_fr_sfire_params.o: \ 
 		module_fr_sfire_util.o 
 
 module_fr_sfire_util.o: \ 

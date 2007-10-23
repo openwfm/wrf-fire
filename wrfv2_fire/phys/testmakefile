@@ -34,12 +34,13 @@ module_fr_sfire_atm.o: \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o 
 
-module_fr_sfire_model.o: $(INC)\
+module_fr_sfire_model.o: \
+    $(INC) \
     module_fr_sfire_core.o  \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o 
 
-module_fr_sfire_core.o: $(INC)\
+module_fr_sfire_core.o: \
     $(PHYS).o \
     module_fr_sfire_prop.o \
     module_fr_sfire_burn.o \
@@ -49,6 +50,7 @@ module_fr_sfire_burn.o: \
     module_fr_sfire_util.o 
 
 module_fr_sfire_phys.o: \
+    $(INC) \
     module_fr_sfire_util.o 
 
 module_fr_sfire_prop.o: \
@@ -62,6 +64,10 @@ module_fr_sfire_level.o: \
       
 module_fr_sfire_util.o: \
     wrf_fakes.o
+
+module_fr_sfire_phys.o: \
+    $(INC) \
+    module_fr_sfire_util.o 
 
 # test binaries and targets
 
