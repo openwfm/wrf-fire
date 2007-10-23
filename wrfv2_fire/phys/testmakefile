@@ -162,8 +162,8 @@ level_test: level_test_prog.exe
 #
 # the whole fire model with netcdf interface, fire variables only
 #
-MODEL_NETCDF_OBJ = $(INC) \
-    model_netcdf_main.F \
+MODEL_NETCDF_OBJ = \
+    model_netcdf_main.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_prop.o \
@@ -188,9 +188,16 @@ MODEL_OBJ = \
 model_test_main.o: $(INC) \
     module_fr_sfire_phys.o \
     module_fr_sfire_model.o 
- 
+
+model_netcdf_main.o: $(INC) \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_model.o
+
 model_netcdf_test:
-	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" PHYS=module_fr_sfire_phys
+	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" \
+	PHYS=module_fr_sfire_phys \
+	ARGS=fr_sfire_params_args \
+	DECL=fr_sfire_params_decl
 	- rm -f fire_io.nc
 	- cp fire_io_save.nc fire_io.nc &> /dev/null
 	./model_netcdf_prog.exe

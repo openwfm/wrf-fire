@@ -28,6 +28,7 @@ contains
 subroutine model_test(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fdx,fdy,wind,alpha,dt)
 use module_fr_sfire_util
 use module_fr_sfire_model
+use module_fr_sfire_phys
 use netcdf
 use jb_utils
 implicit none
@@ -41,10 +42,12 @@ integer, parameter:: kw=1                   ! number of wind layers
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhft,grnqft
-real, dimension(ifms:ifme,jfms:jfme,kw):: vfx,vfy
 integer:: initialize, ignition,i,j,ifuelread,istep
 real:: t0,time_start,sflux,sm,sn
-integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat
+integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
+real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
+integer::num_tiles
+integer, dimension(100)::i_start,i_end,j_start,j_end
 character (len=NF90_MAX_NAME), parameter :: iofile = "fire_io.nc"
 integer :: ncid,xid,yid,tid,lfnid,vfxid,vfyid,tignid,grnhftid,itmp,tdim,tvalsid
 integer :: ostat,stepnum,grnqftid,fuel_fracid,zsfid
@@ -54,6 +57,7 @@ integer,dimension(ndims):: dimids,count,start,atmp
 
 !*** executable
 
+call set_tiles(1,1,ifts,ifte,jfts,jfte,num_tiles,i_start,i_end,j_start,j_end)
 
 !print *,'mesh size in cells: ',ifts,ifte,jfts,jfte
 !print *,'array allocation:   ',ifms,ifme,jfms,jfme
@@ -68,8 +72,8 @@ if(ostat.ne.NF90_NOERR)then
 do j=jfts,jfte+1
     do i=ifts,ifte+1
         zsf(i,j)=1000   ! flat ground
-        vfx(i,j,1)=wind*cos(alpha)    ! constant wind
-        vfy(i,j,1)=wind*sin(alpha)
+        vx(i,j)=wind*cos(alpha)    ! constant wind
+        vy(i,j)=wind*sin(alpha)
     enddo
 enddo
 
@@ -83,8 +87,8 @@ call check( nf90_put_att(ncid,NF90_GLOBAL,"DY",fdy) )
 stepnum=0
 call check( nf90_put_att(ncid,NF90_GLOBAL,"stepnum",stepnum) )
 call check( nf90_def_var(ncid,"lfn",NF_TYPE,dimids,lfnid) )
-call check( nf90_def_var(ncid,"vfx",NF_TYPE,dimids,vfxid) )
-call check( nf90_def_var(ncid,"vfy",NF_TYPE,dimids,vfyid) )
+call check( nf90_def_var(ncid,"vx",NF_TYPE,dimids,vfxid) )
+call check( nf90_def_var(ncid,"vy",NF_TYPE,dimids,vfyid) )
 call check( nf90_def_var(ncid,"tign",NF_TYPE,dimids,tignid) )
 call check( nf90_def_var(ncid,"Times",NF_TYPE,(/tid/),tvalsid) )
 call check( nf90_def_var(ncid,"grnhft",NF_TYPE,dimids,grnhftid) )
@@ -107,8 +111,8 @@ call check( nf90_inq_dimid(ncid,"Time",tid) )
 call check( nf90_inquire(ncid,unlimitedDimID=itmp) )
 if(itmp.ne.tid)call check(NF90_EVARSIZE)
 call check( nf90_inq_varid(ncid,"lfn",lfnid) )
-call check( nf90_inq_varid(ncid,"vfx",vfxid) )
-call check( nf90_inq_varid(ncid,"vfy",vfyid) )
+call check( nf90_inq_varid(ncid,"vx",vfxid) )
+call check( nf90_inq_varid(ncid,"vy",vfyid) )
 call check( nf90_inq_varid(ncid,"tign",tignid) )
 call check( nf90_inq_varid(ncid,"grnhft",grnhftid) )
 call check( nf90_inq_varid(ncid,"grnqft",grnqftid) )
@@ -127,8 +131,8 @@ count=(/ifme-ifms+1,jfme-jfms+1,1/)
 
     call check( nf90_get_var(ncid,lfnid,lfn,start=start,count=count) )
     call check( nf90_get_var(ncid,tignid,tign,start=start,count=count) )
-    call check( nf90_get_var(ncid,vfxid,vfx,start=start,count=count) )
-    call check( nf90_get_var(ncid,vfyid,vfy,start=start,count=count) )
+    call check( nf90_get_var(ncid,vfxid,vx,start=start,count=count) )
+    call check( nf90_get_var(ncid,vfyid,vy,start=start,count=count) )
     call check( nf90_get_var(ncid,grnhftid,grnhft,start=start,count=count) )
     call check( nf90_get_var(ncid,grnqftid,grnqft,start=start,count=count) )
     call check( nf90_get_var(ncid,fuel_fracid,fuel_frac,start=start,count=count) )
@@ -168,12 +172,15 @@ istep=stepnum
     call sfire_model (initialize, ignition,       &
                  ifts,ifte,jfts,jfte,               &
                  ifms,ifme,jfms,jfme,               &
-                 kw,                                &
+                 num_tiles,i_start,i_end,j_start,j_end, & ! tiling
                  time_start,dt,                     &
                  fdx,fdy,                           &
-                 nfuel_cat,zsf,vfx,vfy,             &
-                 lfn,tign,fuel_frac,                &
-                 grnhft,grnqft)
+                 nfuel_cat,zsf,vx,vy,              &! in arrays
+                 lfn,tign,fuel_frac,                & ! state arrays
+                 grnhft,grnqft,                      & ! out arrays
+                 fuel_time,                         & ! const arrays
+                 dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
+                 )
     tdim=tdim+1
     start=(/1,1,tdim/)
     atmp(1)=tvals+dt
@@ -182,8 +189,8 @@ istep=stepnum
                )
     call check( nf90_put_var(ncid,lfnid,lfn,start=start,count=count) )
     call check( nf90_put_var(ncid,tignid,tign,start=start,count=count) )
-    call check( nf90_put_var(ncid,vfxid,vfx,start=start,count=count) )
-    call check( nf90_put_var(ncid,vfyid,vfy,start=start,count=count) )
+    call check( nf90_put_var(ncid,vfxid,vx,start=start,count=count) )
+    call check( nf90_put_var(ncid,vfyid,vy,start=start,count=count) )
     call check( nf90_put_var(ncid,grnhftid,grnhft,start=start,count=count) )
     call check( nf90_put_var(ncid,grnqftid,grnqft,start=start,count=count) )
     call check( nf90_put_var(ncid,fuel_fracid,fuel_frac,start=start,count=count) )
@@ -191,12 +198,6 @@ istep=stepnum
     call check( nf90_put_var(ncid,tvalsid,atmp,start=(/tdim/),count=(/1/)) )
     call check( nf90_put_att(ncid,nf90_global,"stepnum",istep) )
     call check( nf90_sync(ncid) )
-!    write(1,1)1.,1.,time_start
-!    write(1,1)sm+1,sn+1,((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-!    write(1,1)sm+1,sn+1,((tign(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-!    write(1,1)sm+1,sn+1,((vfx(i,j,1),i=ifts,ifte+1),j=jfts,jfte+1)
-!    write(1,1)sm+1,sn+1,((vfy(i,j,1),i=ifts,ifte+1),j=jfts,jfte+1)
-!    write(1,1)sm,sn,((grnhft(i,j),i=ifts,ifte),j=jfts,jfte) 
     sflux=avg_2darray      ( ifts,ifte,jfts,jfte,               &
                              ifms,ifme,jfms,jfme,               &
                              grnhft)
