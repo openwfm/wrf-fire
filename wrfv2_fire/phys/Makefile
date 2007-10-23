@@ -293,11 +293,11 @@ module_fr_sfire_phys.o: \
                 fr_sfire_params_decl.inc \
 		module_fr_sfire_util.o 
 
-module_fr_sfire_burn.o: \ 
+module_fr_sfire_burn.o: \
 		module_fr_sfire_util.o 
 
-module_fr_sfire_util.o: \ 
-		../frame/module_wrf_error.o 
+module_fr_sfire_util.o: \
+                ../frame/module_wrf_error.o 
 
 module_fire_debug_output.o: \
 	        ../frame/module_domain.o \

@@ -130,7 +130,9 @@ call prop_ls(      ids,ide,jds,jde, & ! dims
                    time_start,time_diff,fire_dx,fire_dy,     & ! scalars in
                    lfn,tign &            ! arrays out
 #                  ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
-#                       include SPEED_VARS_ARGS
+#                        include SPEED_VARS_ARGS
+#    		   else
+#                        include "fr_sfire_params_args.inc"
 #                  endif
              )
 
