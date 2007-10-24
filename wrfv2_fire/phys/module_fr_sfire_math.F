@@ -63,8 +63,7 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 ! fuel_frac       inout  the fuel fraction at the end        (1)      cells
 ! fuel_frac_burnt   out  the fuel fraction burnt this call   (1)      cells 
 
-! A speed function is called for the spread rate at selected points in 
-! module_fr_sfire_prop. 
+! A speed function is called for the spread rate at selected points.
 ! fuel_frac is currently ignored on input and computed from tign but it may not
 ! be in future.
 
