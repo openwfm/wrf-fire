@@ -31,18 +31,21 @@ tester.
 
 Dependencies:  --> means call/use
 
-WRF --> atm --> model --> core --> prop ----|
-                 |         |                |
-                 |         ------> burn     |
-                 |                          |
-                 |                          V
-                  -----------------------> phys
+                 |------------------|
+                 |                  V
+WRF --> atm --> model --> math --> phys
+                 |         |        |
+                 |         V        |
+                 |-----> util <-----|
+                           |
+                           V
+                          WRF
+
 
 Everybody uses util. Other than that, use of modules is permitted
 only along the arrows above. For example, atm may call only
-subroutines from model, model may not call a subroutine from prop.
-This is to make possible the development and testing of the math
-algorithms independently of the physics.
+subroutines from model. This is to make possible the development and
+testing of the math algorithms independently of the physics.
 
 Only util may call WRF procedures directly, everybody else must call
 WRF wrappers provided in util. This is to keep the fire code
@@ -68,5 +71,4 @@ is in there works but may not be accurate and is not optimized. For
 example, the current version seems to add a bit of spread rate even
 in examples with wind only and zero spread rate.
 
-Jan Mandel
-September 2007
+Jan Mandel September-October 2007
