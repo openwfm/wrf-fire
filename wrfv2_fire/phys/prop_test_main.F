@@ -1,7 +1,7 @@
 !   test driver for subroutine prop_ls
  
     program prop_test
-    use module_fr_sfire_prop
+    use module_fr_sfire_math
     use module_fr_sfire_util
     
     implicit none

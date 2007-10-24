@@ -30,38 +30,21 @@ normal_spread.o: $(INC)\
 
 module_fr_sfire_atm.o: \
     module_fr_sfire_model.o \
-    module_fr_sfire_core.o  \
-    module_fr_sfire_phys.o \
-    module_fr_sfire_util.o 
 
 module_fr_sfire_model.o: \
     $(INC) \
-    module_fr_sfire_core.o  \
+    module_fr_sfire_math.o  \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o 
 
-module_fr_sfire_core.o: \
+module_fr_sfire_math.o: \
     $(PHYS).o \
-    module_fr_sfire_prop.o \
-    module_fr_sfire_burn.o \
     module_fr_sfire_util.o 
       
-module_fr_sfire_burn.o: \
-    module_fr_sfire_util.o 
-
 module_fr_sfire_phys.o: \
     $(INC) \
     module_fr_sfire_util.o 
 
-module_fr_sfire_prop.o: \
-    $(INC) \
-    $(PHYS).o \
-    module_fr_sfire_util.o
-      
-module_fr_sfire_level.o: \
-    $(PHYS).o \
-    module_fr_sfire_util.o 
-      
 module_fr_sfire_util.o: \
     wrf_fakes.o
 
@@ -76,14 +59,12 @@ module_fr_sfire_phys.o: \
 #
 PROP_OBJ = \
     prop_test_main.o \
-    module_fr_sfire_prop.o \
+    module_fr_sfire_math.o \
     $(PHYS).o \
     module_fr_sfire_util.o \
     wrf_fakes.o 
 
-prop_test_main.o: \
-    module_fr_sfire_util.o \
-    module_fr_sfire_prop.o 
+prop_test_main.o: module_fr_sfire_math.o 
 
 prop_test_prog.exe: $(PROP_OBJ)  
 	$(FC) -o prop_test_prog.exe $(PROP_OBJ)
@@ -95,10 +76,12 @@ prop_test: prop_test_prog.exe
 # burn balance
 #
 FUEL_TEST_OBJ=\
-    module_fr_sfire_burn.o \
+    module_fr_sfire_math.o \
     module_fr_sfire_util.o \
     wrf_fakes.o \
-    burn_test_main.F
+    burn_test_main.o
+
+burn_test_main.o: module_fr_sfire_math.o
 
 burn_test_prog.exe: $(FUEL_TEST_OBJ)
 	$(FC) -o burn_test_prog.exe $(FUEL_TEST_OBJ)
@@ -110,9 +93,11 @@ burn_test: burn_test_prog.exe
 # utilities
 #
 UTIL_OBJ= \
-    util_test_main.F   \
+    util_test_main.o   \
     module_fr_sfire_util.o  \
     wrf_fakes.o
+
+util_test_main.o: module_fr_sfire_util.o
 
 util_test_prog.exe: $(UTIL_OBJ)
 	$(FC) -o util_test_prog.exe $(UTIL_OBJ)
@@ -126,15 +111,13 @@ util_test: util_test_prog.exe
 CORE_OBJ= \
     core_test_main.o \
     normal_spread.o \
-    module_fr_sfire_burn.o \
-    module_fr_sfire_util.o  \
-    module_fr_sfire_prop.o \
-    module_fr_sfire_core.o \
+    module_fr_sfire_math.o \
+    module_fr_sfire_util.o \
     wrf_fakes.o
 
 core_test_main.o: \
-    module_fr_sfire_util.o \
-    module_fr_sfire_core.o 
+    module_fr_sfire_math.o \
+    normal_spread.o
     
 core_test_prog.exe: $(CORE_OBJ) 
 	$(FC) -o core_test_prog.exe $(CORE_OBJ)
@@ -143,34 +126,17 @@ core_test: core_test_prog.exe
 	# run core_test in Matlab
 
 #
-# the core with improved level set
-#
-LEVEL_OBJ= \
-    core_test_main.F \
-    module_fr_sfire_burn.o \
-    module_fr_sfire_util.o  \
-    module_fr_sfire_level.o \
-    module_fr_sfire_core.o \
-    wrf_fakes.o
-    
-level_test_prog.exe: $(LEVEL_OBJ) 
-	$(FC) -o level_test_prog.exe $(LEVEL_OBJ)
-
-level_test: level_test_prog.exe
-	# run level_test in Matlab
-
-#
 # the whole fire model with netcdf interface, fire variables only
 #
 MODEL_NETCDF_OBJ = $(INC) \
-    model_netcdf_main.F \
+    model_netcdf_main.o \
     module_fr_sfire_model.o \
-    module_fr_sfire_core.o \
-    module_fr_sfire_prop.o \
-    module_fr_sfire_burn.o \
+    module_fr_sfire_math.o \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
+
+model_netcdf_main.o: module_fr_sfire_model.o 
 
 #
 # the whole fire model, fire variables only
@@ -178,16 +144,12 @@ MODEL_NETCDF_OBJ = $(INC) \
 MODEL_OBJ = \
     model_test_main.o \
     module_fr_sfire_model.o \
-    module_fr_sfire_core.o \
-    module_fr_sfire_prop.o \
-    module_fr_sfire_burn.o \
+    module_fr_sfire_math.o \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-model_test_main.o: $(INC) \
-    module_fr_sfire_phys.o \
-    module_fr_sfire_model.o 
+model_test_main.o: module_fr_sfire_model.o 
  
 model_netcdf_test:
 	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" PHYS=module_fr_sfire_phys

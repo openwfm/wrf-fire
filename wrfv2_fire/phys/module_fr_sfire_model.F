@@ -26,7 +26,7 @@ subroutine sfire_model (initialize, ignition,       & ! switches
 ! and outputs the heat fluxes on the cells of the fire grid.
 ! This subroutine has no knowledge of any atmospheric model.
 
-use module_fr_sfire_core
+use module_fr_sfire_math
 use module_fr_sfire_util
 use module_fr_sfire_phys
 implicit none
