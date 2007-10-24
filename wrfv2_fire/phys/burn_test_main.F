@@ -1,5 +1,5 @@
-program fuel_test
-use module_fr_sfire_burn
+program burn_test
+use module_fr_sfire_core
 implicit none
 integer :: ids,ide,jds,jde,ims,ime,jms,jme
 parameter(ids=1,ide=1,jds=1,jde=1,ims=1,ime=2,jms=1,jme=2)
@@ -48,4 +48,4 @@ do i=1,k
 1   format( i3,1x, a,' fuel_frac', f8.5,' should be', f8.5,' error', g11.3)
 enddo
 
-end
+end program burn_test

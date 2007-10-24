@@ -2,13 +2,13 @@
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 
-module module_fr_sfire_math
+module module_fr_sfire_core
 
-! The mathematical method for the fire spread model. No physical constants here.
+! The mathematical core of the fire spread model. No physical constants here.
 ! 
-! subroutine sfire_core: only this routine should be called from the outside
+! subroutine sfire_core: only this routine should be called from the outside.
 ! subroutine fuel_left:  compute remaining fuel from time of ignition.
-! subroutine prop_ls: propagation of curve in normal direction
+! subroutine prop_ls: propagation of curve in normal direction.
 
 contains
 
@@ -613,4 +613,4 @@ endif
 
 end subroutine prop_ls
 
-end module module_fr_sfire_math
+end module module_fr_sfire_core

@@ -28,16 +28,16 @@ INC = $(ARGS).inc $(DECL).inc
 normal_spread.o: $(INC)\
     module_fr_sfire_util.o 
 
-module_fr_sfire_atm.o: \
+module_fr_sfire_driver.o: \
     module_fr_sfire_model.o \
 
 module_fr_sfire_model.o: \
     $(INC) \
-    module_fr_sfire_math.o  \
+    module_fr_sfire_core.o  \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o 
 
-module_fr_sfire_math.o: \
+module_fr_sfire_core.o: \
     $(PHYS).o \
     module_fr_sfire_util.o 
       
@@ -59,12 +59,12 @@ module_fr_sfire_phys.o: \
 #
 PROP_OBJ = \
     prop_test_main.o \
-    module_fr_sfire_math.o \
+    module_fr_sfire_core.o \
     $(PHYS).o \
     module_fr_sfire_util.o \
     wrf_fakes.o 
 
-prop_test_main.o: module_fr_sfire_math.o 
+prop_test_main.o: module_fr_sfire_core.o 
 
 prop_test_prog.exe: $(PROP_OBJ)  
 	$(FC) -o prop_test_prog.exe $(PROP_OBJ)
@@ -76,12 +76,12 @@ prop_test: prop_test_prog.exe
 # burn balance
 #
 FUEL_TEST_OBJ=\
-    module_fr_sfire_math.o \
+    module_fr_sfire_core.o \
     module_fr_sfire_util.o \
     wrf_fakes.o \
     burn_test_main.o
 
-burn_test_main.o: module_fr_sfire_math.o
+burn_test_main.o: module_fr_sfire_core.o
 
 burn_test_prog.exe: $(FUEL_TEST_OBJ)
 	$(FC) -o burn_test_prog.exe $(FUEL_TEST_OBJ)
@@ -111,12 +111,12 @@ util_test: util_test_prog.exe
 CORE_OBJ= \
     core_test_main.o \
     normal_spread.o \
-    module_fr_sfire_math.o \
+    module_fr_sfire_core.o \
     module_fr_sfire_util.o \
     wrf_fakes.o
 
 core_test_main.o: \
-    module_fr_sfire_math.o \
+    module_fr_sfire_core.o \
     normal_spread.o
     
 core_test_prog.exe: $(CORE_OBJ) 
@@ -131,7 +131,7 @@ core_test: core_test_prog.exe
 MODEL_NETCDF_OBJ = $(INC) \
     model_netcdf_main.o \
     module_fr_sfire_model.o \
-    module_fr_sfire_math.o \
+    module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
@@ -144,7 +144,7 @@ model_netcdf_main.o: module_fr_sfire_model.o
 MODEL_OBJ = \
     model_test_main.o \
     module_fr_sfire_model.o \
-    module_fr_sfire_math.o \
+    module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
@@ -176,8 +176,8 @@ model_test_prog.exe: $(MODEL_OBJ)
 # the whole fire model through atmosphere coupling 
 #
 ATM_OBJ = $(INC) \
-    atm_test_main.F \
-    module_fr_sfire_atm.o \
+    driver_test_main.F \
+    module_fr_sfire_driver.o \
     module_fr_sfire_model.o \
     module_fr_sfire_fuel.o \
     module_fr_sfire_core.o \
@@ -186,12 +186,12 @@ ATM_OBJ = $(INC) \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-atm_test:
-	make -f $(MAKEFILE) atm_test_prog.exe FC="$(FC)" PHYS=module_fr_sfire_phys
-	./atm_test_prog.exe
+driver_test:
+	make -f $(MAKEFILE) driver_test_prog.exe FC="$(FC)" PHYS=module_fr_sfire_phys
+	./driver_test_prog.exe
 
-atm_test_prog.exe: $(ATM_OBJ) 
-	$(FC) -o atm_test_prog.exe $(ATM_OBJ)
+driver_test_prog.exe: $(ATM_OBJ) 
+	$(FC) -o driver_test_prog.exe $(ATM_OBJ)
 
 # end test targets
 

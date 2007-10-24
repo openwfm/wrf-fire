@@ -8,13 +8,11 @@ Overall structure:
 layer                   description         tester            status
 
 WRF                     atmospheric model   compile em_fire
-module_fr_sfire_atm     atm-fire coupling   ifmake atm_test   compiles
+module_fr_sfire_driver  atm-fire coupling   ifmake driver_test compiles
 module_fr_sfire_model   fire model w/phys   ifmake model_test runs
 module_fr_sfire_core    complete math model ifmake core_test  runs
-module_fr_sfire_prop    math propagation    ifmake prop_test  runs
-module_fr_sfire_burn    fuel consumption    used by core_test
+module_fr_sfire_phys    all physics         used by model and core
 module_fr_sfire_util    utilities           ifmake util_test
-module_fr_sfire_phys    all physics         used by model_test
 
 Each module is in its own .F file. All files are in
 wrf/wrfv2_fire/phys.
@@ -29,28 +27,27 @@ actual Rothermel's formulas from module_fr_sfire_speed. Visualization
 in testers is by Matlab. Instructions are provided when running the
 tester.
 
-Dependencies:  --> means call/use
+Software dependencies:
 
-                 |------------------|
-                 |                  V
-WRF --> atm --> model --> math --> phys
-                 |         |        |
-                 |         V        |
-                 |-----> util <-----|
-                           |
-                           V
-                          WRF
+                  ----------------------> util --> WRF utilities
+                 |          |         |
+WRF --> driver --> model --> core --->   |
+         |       |          |       phys
+          ------------------------>
 
+         WRF MEDIATION LAYER <--|-->  WRF PHYSICS LAYER
 
 Everybody uses util. Other than that, use of modules is permitted
-only along the arrows above. For example, atm may call only
-subroutines from model. This is to make possible the development and
+only along the arrows above. For example, atm may not call directly
+subroutines from core. This is to make possible the development and
 testing of the math algorithms independently of the physics.
 
 Only util may call WRF procedures directly, everybody else must call
 WRF wrappers provided in util. This is to keep the fire code
 independent of WRF. Fake versions of some WRF procedures are linked
 in the testers.
+
+atm and model are really just drivers. There are two because we want to
 
 Arrays that need to be passed to subroutine normal_spread in the phys
 module module_fr_sfire_phys are added to argument lists of all
