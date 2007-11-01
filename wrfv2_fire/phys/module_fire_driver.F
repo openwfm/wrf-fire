@@ -29,18 +29,23 @@ CONTAINS
             ,zf,zsf,tign_g,tign_c,tign_crt,xfg,yfg,xcd          &
             ,ycd,xcn,ycn,sprdx,sprdy                            &
             ,rthfrten,rqvfrten                                  &
-            ,grnhfx,grnqfx,canhfx,canqfx)                         ! recv
+            ,lfn,fuel_frac                                      & ! i/o sfire
+            ,grnhfx,grnqfx,canhfx,canqfx                        & ! recv
+            ,fuel_time,dzfsdx,dzfsdy,fgip                       & 
+            ,ischap                                          )    ! data
+
 
 !------------------------------------------------------------------
 
    USE module_state_description, ONLY :                         &
-                   FIRE_CAWFE
+                   FIRE_CAWFE,FIRE_SFIRE
 
    USE module_model_constants
 
 ! --- add new modules of schemes here
 
    USE module_fr_cawfe
+   USE module_fr_sfire_driver
 
    !  This driver calls subroutines for the fire parameterizations.
    !
@@ -176,6 +181,11 @@ CONTAINS
    REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx
    REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx
 
+   REAL, INTENT(inout),DIMENSION( ifms:ifme,jfms:jfme ) :: &
+                                lfn,fuel_frac,fuel_time,dzfsdx,dzfsdy,fgip
+   INTEGER,intent(inout),DIMENSION( ifms:ifme,jfms:jfme ) :: ischap
+
+
 ! ---- local variables
 
    INTEGER :: i,j,k,nk,jj,ij,its,ite,jts,jte
@@ -252,6 +262,37 @@ CONTAINS
 
         CALL wrf_debug(100,'exiting CAWFE fire scheme')
 
+      CASE (FIRE_SFIRE)
+
+        CALL wrf_debug(100,'entering SFIRE fire scheme')
+!***    for now until I can call set_nfuel_cat
+        nfuel_cat=8
+        CALL set_nfuel_cat( ifps,ifpe,jfps,jfpe, &
+                            ifms,ifme,jfms,jfme, &
+                            0,zsf,nfuel_cat)
+!                          ^^^ put this in the namelist
+        CALL sfire_driver(                                      &
+             ids,ide, kds,kde, jds,jde                          & ! send
+            ,ims,ime, kms,kme, jms,jme                          &
+            ,its,ite, kts,kte, jts,jte                          &
+            ,ifds,ifde, jfds,jfde                    &
+            ,ifms,ifme, jfms,jfme                    &
+            ,ifps,ifpe, jfps,jfpe                    &
+            ,sr_x,sr_y                                          &
+            ,num_tiles,i_start,i_end,j_start,j_end              &
+            ,itimestep,dt,dx,dy                                 &
+            ,u_frame,v_frame                                    &
+            ,fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt          &
+            ,u,v,mu,rho,ht                                      &
+            ,z_at_w,dz8w                                        &
+            ,nfuel_cat,lfn,tign_c,fuel_frac                     & ! send&recv
+            ,rthfrten,rqvfrten                                  &
+            ,grnhfx,grnqfx,canhfx,canqfx                        &
+            ,fuel_time,zsf                                      &
+            ,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap     &
+            )
+
+        CALL wrf_debug(100,'exiting SFIRE fire scheme')
      CASE DEFAULT
 
        WRITE( msg , * ) 'This fire option does not exist: ifire = ', ifire

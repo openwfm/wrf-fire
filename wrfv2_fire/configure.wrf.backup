@@ -77,93 +77,83 @@ ESMF_TARGET         = esmf_time
 
 #### Architecture specific settings ####
 
-# Settings for Darwin		(single-threaded, no nesting, USES: gcc-3.3, xlf cpp, SystemStubs)
-#     
-#     Using -qfloat=nomaf option can result in identical results with
-#           non-optimized and optimized results (suggested by Fovell of UCLA)
-#           One may turn on by uncommenting it in FCOPTIM line
+# Settings for AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler (single-threaded, no nesting) debug
 #
-FC              =       xlf90_r
-SFC		=	$(FC)
-LD              =       xlf90_r
-#CC              =       cc_r
-CC              =       gcc-3.3
+OMP             =
+OMPCPP          =
+FC		=	ifort -g  -debug extended -debug-parameters all -traceback
+CC              =       gcc -DFSEEKO64_OK 
 SCC		=	$(CC)
-RWORDSIZE       = $(NATIVE_RWORDSIZE)
-PROMOTION	=	-qrealsize=$(RWORDSIZE) -qintsize=4
-CFLAGS          =       -DNOUNDERSCORE -DLANDREAD_STUB -I /usr/include/sys -DMACOS
-FCOPTIM         =       #-O3 -qarch=auto #-qfloat=nomaf
-FCDEBUG         =       #-qnoopt -qfullpath
-FCBASEOPTS      =       -qsave $(FCDEBUG) -qmaxmem=32767 -qspillsize=32767 -w 
-FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
-FCSUFFIX        =       -qsuffix=f=f90
+SFC		=	$(FC)
+RWORDSIZE       =       $(NATIVE_RWORDSIZE)
+RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
+PROMOTION	=	-real_size $(RSIZEBITS)
+FCDEBUG         =       
+FCBASEOPTS      =       -w -FR -cm -I. -Vaxlib -convert big_endian -mp
+FCOPTIM		=	-O0
+FCFLAGS		=	$(FCOPTIM) $(FCBASEOPTS) $(OMP)
+CFLAGS		=       -w
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =       
 ESMF_IO_LIB     =       -L../external/esmf_time_f90 -lesmf_time
 ESMF_IO_LIB_EXT =       -L../../external/esmf_time_f90 -lesmf_time
-INCLUDE_MODULES =       -I../external/io_netcdf -I../external/io_int  -I../external/esmf_time_f90 \
-                        -I../frame -I../share -I../phys -I../inc -I../chem
-ARCHFLAGS       =       $(COREDEFS) -DGRIB1  -DINTIO -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 \
-                        -DNETCDF \
-			-DLIMIT_ARGS -DNO_NAMELIST_PRINT -DLANDREAD_STUB -DMAC_KLUDGE
-#			-DLIMIT_ARGS -DNO_NAMELIST_PRINT -DNATIVE_MASSV -DMACOS
-PERL            =       perl
-REGISTRY        =       Registry
-#LIB             =       -L../external/io_netcdf -lwrfio_nf -L/usr/local/netcdf-xlf/lib -lnetcdf -lmass -lmassv 
-LIB             =       -L../external/io_netcdf -lwrfio_nf -L/usr/local/netcdf-xlf/lib -lnetcdf \
-                        -L../external/io_int -lwrfio_int \
-                        -L../external/io_grib1 -lio_grib1 \
-                         \
-                        -L../external/io_grib_share -lio_grib_share \
-			../frame/module_internal_header_util.o ../frame/pack_utils.o -L../external/esmf_time_f90 -lesmf_time 
-
-LDFLAGS         =	 -Wl,-stack_size,10000000,-stack_addr,0xc0000000  -L/usr/lib -lSystemStubs
+INCLUDE_MODULES =       -module ../main -I../external/io_netcdf -I../external/io_int -I../external/esmf_time_f90 \
+                        -I../external -I../frame -I../share -I../phys -I../inc -I../chem
+ARCHFLAGS       =       $(COREDEFS)  -DLIMIT_ARGS -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) \
+                        -DLWORDSIZE=4 -DNETCDF -DGRIB1 -DGRIB2
+LD		=	$(FC)
+LDFLAGS		=	$(FCFLAGS) $(OMP) 
 ENVCOMPDEFS	=	
 WRF_CHEM	=	0 
-CPP             =       /opt/ibmcmp/xlf/8.1/exe/cpp -C -P
-#CPP             =       /usr/bin/cpp  -C -P -xassembler-with-cpp
-POUND_DEF	=	-DNONSTANDARD_SYSTEM -DCONFIG_BUF_LEN=$(CONFIG_BUF_LEN) -DMAX_DOMAINS_F=$(MAX_DOMAINS)
-CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) $(COREDEFS) $(ENVCOMPDEFS) $(POUND_DEF) 
+CPP		=	/lib/cpp -traditional
+POUND_DEF	=	$(OMPCPP) $(COREDEFS) -DNONSTANDARD_SYSTEM \
+                        -DCONFIG_BUF_LEN=$(CONFIG_BUF_LEN) -DMAX_DOMAINS_F=$(MAX_DOMAINS)
+CPPFLAGS	=	-I$(LIBINCLUDE) -C -P $(ARCHFLAGS) $(ENVCOMPDEFS) $(POUND_DEF)
+PERL            =       perl
+REGISTRY        =       Registry
+LIB             =	-L../external/io_netcdf -lwrfio_nf -L/opt/wrf-libs/netcdf/lib -lnetcdf ../frame/module_internal_header_util.o ../frame/pack_utils.o \
+                        -L../external/esmf_time_f90 -lesmf_time \
+			-L../external/io_grib1 -lio_grib1 \
+                        -L../external/io_grib2 -lio_grib2 -L/opt/wrf-libs/jasper/lib -ljasper \
+                        -L../external/io_grib_share -lio_grib_share
 AR              =       ar ru
-M4              =       m4 -B 14000
+M4              =       m4 -B14000
 RANLIB          =       ranlib
-NETCDFPATH	=	/usr/local/netcdf-xlf
-CC_TOOLS        =       cc
+NETCDFPATH	=	/opt/wrf-libs/netcdf
+CC_TOOLS        =       $(CC)
 
-externals : wrf_ioapi_includes wrfio_nf wrfio_grib_share wrfio_grib1  wrfio_int module_dm.F esmf_time
+externals : wrf_ioapi_includes wrfio_nf wrfio_grib_share wrfio_grib1 wrfio_grib2 wrfio_int module_dm.F esmf_time
 
 module_dm.F :
 	( /bin/cp module_dm_warning module_dm.F ; cat module_dm_stubs.F >> module_dm.F )
 
 wrfio_nf : 
-	( cd ../external/io_netcdf ; make NETCDFPATH=/usr/local/netcdf-xlf RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(FC) $(PROMOTION) $(FCDEBUG) -qarch=auto -qzerosize" )
+	( cd ../external/io_netcdf ; \
+	  make NETCDFPATH=/opt/wrf-libs/netcdf RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -FR -I. -w" )
+
+wrfio_grib_share : 
+	( cd ../external/io_grib_share ; \
+          make CC="$(SCC)" CFLAGS="$(CFLAGS)" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" \
+	  FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCFLAGS) -w" archive)
+
+wrfio_grib1 : 
+	( cd ../external/io_grib1 ; \
+          make CC="$(SCC)" CFLAGS="$(CFLAGS)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCFLAGS) -w" archive)
+
+wrfio_grib2 : 
+	( cd ../external/io_grib2 ; \
+          make CC="$(SCC)" CFLAGS="$(CFLAGS) -I/opt/wrf-libs/jasper/include" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCFLAGS) -w" FIXED="-fixed" archive)
 
 wrfio_int : 
 	( cd ../external/io_int ; \
-          make CC="$(CC)" RANLIB="$(RANLIB)" CPP="$(CPP)" SFC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" FC="$(FC) $(PROMOTION) $(FCDEBUG) -qarch=auto -qzerosize" all )
-
-wrfio_grib_share :
-	( cd ../external/io_grib_share ; \
-          make CC="$(SCC)" CFLAGS="$(CFLAGS)" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCSUFFIX) -qarch=auto -qzerosize" archive)
-
-wrfio_grib1 :
-	( cd ../external/io_grib1 ; \
-          make CC="$(SCC)" CFLAGS="$(CFLAGS)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCSUFFIX) -qarch=auto -qzerosize" archive)
-
-wrfio_grib2 :
-	( cd ../external/io_grib2 ; \
-          make CC="$(SCC)" CFLAGS="$(CFLAGS)  -qcpluscmt" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCSUFFIX) -qarch=auto -qzerosize" FREE="" FIXED="-qfixed" archive)
+          make CC="$(CC)" RANLIB="$(RANLIB)" CPP="$(CPP)" SFC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCFLAGS) -w" all )
 
 esmf_time : 
 	( cd ../external/esmf_time_f90 ; \
-	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
-
-solve_interface.o : solve_interface.F
-	$(RM) $@
-	$(CPP) -I../inc $(CPPFLAGS) $*.F > $*.f90
-	$(FC) -c -qfree=f90 -qspillsize=32767 -I. $(PROMOTION) $(MODULE_DIRS) $(FCSUFFIX) $*.f90
+	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCFLAGS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
 
 # compile these without high optimization to speed compile
+solve_interface.o : solve_interface.F
 shift_domain_em.o : shift_domain_em.F
 module_io_mm5.o : module_io_mm5.F
 module_si_io.o : module_si_io.F
@@ -177,30 +167,45 @@ module_initialize_quarter_ss.o : module_initialize_quarter_ss.F
 module_initialize_squall2d_x.o : module_initialize_squall2d_x.F
 module_initialize_squall2d_y.o : module_initialize_squall2d_y.F
 module_initialize_real.o : module_initialize_real.F
-module_dm.o : module_dm.F
 start_domain.o : start_domain.F
-solve_em.o : solve_em.F
-mediation_interp_domain.o : mediation_interp_domain.F
-mediation_force_domain.o : mediation_force_domain.F
-mediation_feedback_domain.o : mediation_feedback_domain.F
-convert_nmm.o : convert_nmm.F
-module_configure.o : module_configure.F
+wrf_bdyin.o : wrf_bdyin.F
+wrf_bdyout.o : wrf_bdyout.F
+wrf_histin.o : wrf_histin.F
+wrf_histout.o : wrf_histout.F
+wrf_inputin.o : wrf_inputin.F
+wrf_inputout.o : wrf_inputout.F
+wrf_restartin.o : wrf_restartin.F
+wrf_restartout.o : wrf_restartout.F
 
+wrf_bdyin.o wrf_bdyout.o  \
+wrf_histin.o wrf_histout.o  \
+wrf_inputin.o wrf_inputout.o  \
+wrf_restartin.o wrf_restartout.o  \
+solve_interface.o                                              \
+shift_domain_em.o                                              \
 module_io_mm5.o module_si_io.o module_io_wrf.o module_domain.o \
 module_start.o module_initialize.o module_initialize_b_wave.o  \
 module_initialize_hill2d_x.o module_initialize_quarter_ss.o    \
 module_initialize_squall2d_x.o module_initialize_squall2d_y.o  \
-module_initialize_real.o module_dm.o \
-shift_domain_em.o                                              \
-mediation_interp_domain.o \
-module_configure.o                                             \
-solve_em.o \
-convert_nmm.o :
+module_initialize_real.o module_dm.o  start_domain.o :
 	$(RM) $@
 	$(SED_FTN) $*.F > $*.b 
 	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
 	$(RM) $*.b
-	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $(FCSUFFIX) $*.f90
+	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -O0 $*.f90
+
+module_dm.o : module_dm.F
+module_configure.o : module_configure.F
+
+module_configure.o \
+module_dm.o :
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b 
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -g -O0 $*.f90
+
+
 
 ###########################################################
 

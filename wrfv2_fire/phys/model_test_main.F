@@ -7,21 +7,27 @@ contains
 !******************************
 !
 
-subroutine model_test(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fdx,fdy,wind,alpha,dt,msteps)
+subroutine model_test(  &
+    ifds,ifde,jfds,jfde, &
+    ifps,ifpe,jfps,jfpe, &
+    ifms,ifme,jfms,jfme, &
+    fdx,fdy,wind,alpha,dt,msteps)
 use module_fr_sfire_util
 use module_fr_sfire_model
 use module_fr_sfire_phys
 implicit none
 
 !*** arguments
-integer, intent(in):: ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, msteps
+integer, intent(in):: &
+    ifds,ifde,jfds,jfde, &
+    ifps,ifpe,jfps,jfpe, &
+    ifms,ifme,jfms,jfme, msteps
 real, intent(in)::fdx,fdy,dt,wind,alpha
 
 !*** local
-integer, parameter:: kw=1                   ! number of wind layers
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
-                 grnhft,grnqft
+                 grnhfx,grnqfx
 integer:: initialize, ignition,i,j,ifuelread,istep
 real:: t0,time_start,sflux,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
@@ -31,16 +37,16 @@ integer, dimension(100)::i_start,i_end,j_start,j_end
 
 !*** executable
 
-call set_tiles(1,1,ifts,ifte,jfts,jfte,num_tiles,i_start,i_end,j_start,j_end)
+call set_tiles(1,1,ifps,ifpe,jfps,jfpe,num_tiles,i_start,i_end,j_start,j_end)
 
-print *,'mesh size in cells: ',ifts,ifte,jfts,jfte
+print *,'mesh size in cells: ',ifps,ifpe,jfps,jfpe
 print *,'array allocation:   ',ifms,ifme,jfms,jfme
 
 t0=0                                        ! starting time, arbitrary
 
 ! populate the arrays somehow
-do j=jfts,jfte+1
-    do i=ifts,ifte+1
+do j=jfps,jfpe+1
+    do i=ifps,ifpe+1
         zsf(i,j)=1000   ! flat ground
         vx(i,j)=wind*cos(alpha)    ! constant wind
         vy(i,j)=wind*sin(alpha)
@@ -49,7 +55,7 @@ enddo
 
 ! fuel data
 ifuelread=1
-call set_nfuel_cat( ifts,ifte,jfts,jfte,               &
+call set_nfuel_cat( ifps,ifpe,jfps,jfpe,               &
                     ifms,ifme,jfms,jfme,               &
                     ifuelread,zsf,nfuel_cat)
 
@@ -57,8 +63,8 @@ call set_nfuel_cat( ifts,ifte,jfts,jfte,               &
 ! for matlab
 open(1,file='model_test_out.txt',form='formatted')
 1   format(e25.12e3)
-sm=ifte-ifts+1
-sn=jfte-jfts+1
+sm=ifpe-ifps+1
+sn=jfpe-jfps+1
 write(1,1)1.,1.,fdx
 write(1,1)1.,1.,fdy
 
@@ -74,27 +80,31 @@ do istep=1,msteps
             initialize=0
             ignition=0
     endif
-    call sfire_model (initialize, ignition,       &
-                 ifts,ifte,jfts,jfte,               &
-                 ifms,ifme,jfms,jfme,               &
-                 num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                 time_start,dt,                     &
-                 fdx,fdy,                           &
-                 nfuel_cat,zsf,vx,vy,              &! in arrays
-                 lfn,tign,fuel_frac,                & ! state arrays
-                 grnhft,grnqft,                      & ! out arrays
-                 fuel_time,                         & ! const arrays
-                 dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
-                 )
+    call   sfire_model (                    &
+    initialize, ignition,                   & ! switches
+    ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
+    ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+    num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
+    time_start,dt,                          & ! time and increment
+    fdx,fdy,                                & ! fire mesh spacing
+    nfuel_cat,                              & ! fuel data per point 
+    zsf,                                    & ! terrain height (for gradient)
+    vx,vy,                                  & ! input: wind
+    lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+    grnhfx,grnqfx,                          & ! output: heat fluxes
+    fuel_time,                              & ! save derived internal data
+    dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
+    ) 
     write(1,1)1.,1.,time_start
-    write(1,1)sm+1,sn+1,((lfn(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-    write(1,1)sm+1,sn+1,((tign(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-    write(1,1)sm+1,sn+1,((vx(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-    write(1,1)sm+1,sn+1,((vy(i,j),i=ifts,ifte+1),j=jfts,jfte+1)
-    write(1,1)sm,sn,((grnhft(i,j),i=ifts,ifte),j=jfts,jfte) 
-    sflux=avg_2darray      ( ifts,ifte,jfts,jfte,               &
+    write(1,1)sm+1,sn+1,((lfn(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+    write(1,1)sm+1,sn+1,((tign(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+    write(1,1)sm+1,sn+1,((vx(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+    write(1,1)sm+1,sn+1,((vy(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+    write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
+    sflux=avg_2darray      ( ifps,ifpe,jfps,jfpe,               &
                              ifms,ifme,jfms,jfme,               &
-                             grnhft)
+                             grnhfx)
     print *,'step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
     time_start=time_start+dt 
 enddo
@@ -128,6 +138,6 @@ wind=5
 alpha=1.3
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt
-call model_test(1,nx,1,ny,1,nx+1,1,ny+1,fdx,fdy,wind,alpha,dt,msteps)
+call model_test(1,nx,1,ny,1,nx,1,ny,1,nx+1,1,ny+1,fdx,fdy,wind,alpha,dt,msteps)
 
 end program model_test_main
