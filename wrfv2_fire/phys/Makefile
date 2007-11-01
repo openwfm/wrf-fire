@@ -266,8 +266,10 @@ module_fr_cawfe.o: \
                 module_fr_cawfe_fuel.o \
 	        module_fire_debug_output.o
 
-module_fr_sfire_driver.o \
+module_fr_sfire_driver.o: \
+		../share/module_model_constants.o  \
 		module_fr_sfire_phys.o \
+		module_fr_sfire_model.o \
 		module_fr_sfire_util.o 
 
 module_fr_sfire_model.o: \

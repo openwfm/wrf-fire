@@ -37,7 +37,8 @@ module_fr_sfire_model.o: \
     $(INC) \
     module_fr_sfire_core.o  \
     module_fr_sfire_phys.o \
-    module_fr_sfire_util.o 
+    module_fr_sfire_util.o \
+    module_model_constants.o
 
 module_fr_sfire_core.o: \
     $(PHYS).o \
@@ -45,6 +46,7 @@ module_fr_sfire_core.o: \
       
 module_fr_sfire_phys.o: \
     $(INC) \
+    module_model_constants.o \
     module_fr_sfire_util.o 
 
 module_fr_sfire_util.o: \
@@ -188,7 +190,7 @@ DRIVER_OBJ =  \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o \
-    #module_model_constants.o
+    module_model_constants.o
 
 driver_test:
 	make -f $(MAKEFILE) driver_test_prog.exe FC="$(FC)" \

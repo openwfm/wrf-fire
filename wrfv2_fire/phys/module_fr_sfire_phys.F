@@ -1,5 +1,7 @@
 module module_fr_sfire_phys
 
+use module_model_constants, only: cp,xlv
+
 private fire_ros
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
@@ -70,8 +72,8 @@ private fire_ros
    REAL, PARAMETER :: fuelmc_g = 0.08                   ! set = 0 for dry ground fuel
    REAL, PARAMETER :: fuelmc_c = 1.00                   ! set = 0 for dry canopy
    REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
-   real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
-   real, parameter :: cp      =  7.*287./2              ! to make it selfcontained
+   !real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
+   !real, parameter :: cp      =  7.*287./2              ! to make it selfcontained
    
 
    INTEGER, PARAMETER :: nfuelcats = 14

@@ -40,7 +40,7 @@
 
 module module_fr_sfire_driver
 
-!use module_model_constants
+use module_model_constants
 use module_fr_sfire_model
 use module_fr_sfire_phys
 use module_fr_sfire_util
