@@ -96,7 +96,7 @@ do ij=1,num_tiles
                             ifms,ifme,jfms,jfme, &
                             fdx,fdy,             &
                             zsf,nfuel_cat,fuel_time &
-#                           include "fr_sfire_params_args.inc" 
+#                           include "fr_sfire_params_args.h" 
 )
     
     if (initialize.ne.0) then
@@ -141,7 +141,7 @@ call sfire_core(     &
     num_tiles,i_start,i_end,j_start,j_end, & ! tiling
     time_start,dt,fdx,fdy,fuel_time,  &
     lfn,tign,fuel_frac,fuel_frac_burnt &
-#   include "fr_sfire_params_args.inc" 
+#   include "fr_sfire_params_args.h" 
     ) 
 
 ! compute the heat fluxes from the fuel burned

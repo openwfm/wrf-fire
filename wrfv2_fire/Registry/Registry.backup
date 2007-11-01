@@ -1375,6 +1375,7 @@ state fdob_type fdob - -
 #         name>          namelist choice>          state vars>
 # 
 package   fire_cawfe     fire==1                     -             -
+package   fire_sfire     fire==2                     -             -
 
 # fire dimensions on fire grid
 #
@@ -1385,22 +1386,22 @@ dimspec    o      -     constant=4                z          fire_particle_dim
 # fire variables on fire grid
 #
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
-state    integer  nfuel_cat *i*j     fire        1         z     hr
+state    integer  nfuel_cat *i*j     fire        1         z     hr        "NFUEL_CAT"        "fuel data"   
 state    integer  nfl       *i*j     fire        1         z     hr
 state    integer  nfl_t     *i*j     fire        1         z     hr
 state    integer  nfl_c     *i*j     fire        1         z     hr
 state    integer  ncod      *i*j     fire        1         z     hr
 state    real     fg        *i*j     fire        1         z     hr
 state    real     fc        *i*j     fire        1         z     hr
-state    real     r_0       *i*j     fire        1         z     hr
-state    real     bbb       *i*j     fire        1         z     hr
-state    real     betafl    *i*j     fire        1         z     hr
-state    real     phiwc     *i*j     fire        1         z     hr
+#state    real     r_0       *i*j     fire        1         z     hr
+#state    real     bbb       *i*j     fire        1         z     hr
+#state    real     betafl    *i*j     fire        1         z     hr
+#state    real     phiwc     *i*j     fire        1         z     hr
 state    real     area      *i*j     fire        1         z     hr
 state    real     area2     *i*j     fire        1         z     hr
 state    real     zf        *i*j     fire        1         z     hr
-state    real     zsf       *i*j     fire        1         z     hr
-state    real     tign_g    *i*j     fire        1         z     hr
+state    real     zsf       *i*j     fire        1         z     hr   "ZSF"      "height of surface above sea level" "m"
+state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"   "ignition time on ground" "s"
 state    real     tign_c    *i*j     fire        1         z     hr
 state    real     tign_crt  *i*j     fire        1         z     hr
 #
@@ -1420,12 +1421,27 @@ state    real     sprdy     *i*jo    fire        1         z     hr
  
 # fire variables on atm grid
 #
-state    real     rthfrten  ikj      fire        1         z     hr
-state    real     rqvfrten  ikj      fire        1         z     hr
-state    real     grnhfx    ij       fire        1         z     hr
-state    real     grnqfx    ij       fire        1         z     hr
-state    real     canhfx    ij       fire        1         z     hr
-state    real     canqfx    ij       fire        1         z     hr
+state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
+state    real     rqvfrten  ikj      fire        1         z     hr   "RQVFRTEN" "humidity tendency" 
+state    real     grnhfx    ij       fire        1         z     hr   "GRNHFX"   "heat flux from ground fire" "W/m^2"
+state    real     grnqfx    ij       fire        1         z     hr   "GRNQFX"   "moisture flux from ground fire" "W/m^2"
+state    real     canhfx    ij       fire        1         z     hr   "CANHFX"   "heat flux from crown fire" "W/m^2"
+state    real     canqfx    ij       fire        1         z     hr   "CANQFX"   "moisture flux from crown fire" "W/m^2"
+
+# sfire variables on fire grid
+# (also using tign_g,zs,z_at_w,dz8w,nfuel_cat,fluxes,zsf)
+state    real     lfn       *i*j      fire        1         z    hr    "LFN" "level function" 
+state    real     fuel_frac *i*j      fire        1         z    hr    "FUEL_FRAC" "fuel remaining"
+# constant data arrays
+state    real     fuel_time *i*j      fire        1         z    hr    "FUEL_TIME" "unknown"
+state    real     dzfsdx    *i*j      fire        1         z    hr    "DXFSDX"    "unknown"
+state    real     dzfsdy    *i*j      fire        1         z    hr    "DXFSDY"    "unknown"
+state    real     bbb       *i*j      fire        1         z    hr    "BBB"       "unknown"
+state    real     betafl    *i*j      fire        1         z    hr    "BETAFL"    "unknown"
+state    real     phiwc     *i*j      fire        1         z    hr    "PHIWC"     "unknown"
+state    real     r_0       *i*j      fire        1         z    hr    "R_0"       "unknown"
+state    real     fgip      *i*j      fire        1         z    hr    "FGIP"      "unknown"
+state    integer  ischap    *i*j      fire        1         z    hr    "ISCHAP"    "unknown"
 
 #
 # fire configure namelist variables

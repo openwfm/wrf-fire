@@ -77,20 +77,20 @@ ESMF_TARGET         = esmf_time
 
 #### Architecture specific settings ####
 
-# Settings for AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler (single-threaded, no nesting) -03
+# Settings for AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler (single-threaded, no nesting) debug
 #
 OMP             =
 OMPCPP          =
-FC		=	ifort
+FC		=	ifort -g  -debug extended -debug-parameters all -traceback
 CC              =       gcc -DFSEEKO64_OK 
 SCC		=	$(CC)
 SFC		=	$(FC)
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
-FCDEBUG         =       # -g
+FCDEBUG         =       
 FCBASEOPTS      =       -w -FR -cm -I. -Vaxlib -convert big_endian -mp
-FCOPTIM		=	-O3 -no-ipo
+FCOPTIM		=	-O0
 FCFLAGS		=	$(FCOPTIM) $(FCBASEOPTS) $(OMP)
 CFLAGS		=       -w
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
@@ -204,6 +204,8 @@ module_dm.o :
 	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
 	$(RM) $*.b
 	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -g -O0 $*.f90
+
+
 
 ###########################################################
 

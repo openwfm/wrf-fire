@@ -20,7 +20,7 @@ subroutine sfire_core(       ids,ide,jds,jde,  &
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
-#include "fr_sfire_params_args.inc"
+#include "fr_sfire_params_args.h"
 #endif
                              ) 
 
@@ -44,7 +44,7 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 #ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
 #include SPEED_VARS_DECL
 #else
-#include "fr_sfire_params_decl.inc"
+#include "fr_sfire_params_decl.h"
 #endif
 
 
@@ -136,7 +136,7 @@ call prop_ls(      ids,ide,jds,jde, & ! dims
 #                  ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #                        include SPEED_VARS_ARGS
 #              else
-#                        include "fr_sfire_params_args.inc"
+#                        include "fr_sfire_params_args.h"
 #                  endif
              )
 
@@ -303,7 +303,7 @@ subroutine prop_ls(ids,ide,jds,jde, &                       ! domain dims
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
-#include "fr_sfire_params_args.inc"
+#include "fr_sfire_params_args.h"
 #endif
                    )
 
@@ -382,7 +382,7 @@ real,intent(in)::dx,dy,ts,td
 #ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
 #include SPEED_VARS_DECL
 #else
-#include "fr_sfire_params_decl.inc"
+#include "fr_sfire_params_decl.h"
 #endif
 
 !*** local 
@@ -485,7 +485,7 @@ do while ( .not.last )
 #ifdef SPEED_VARS_ARGS  /* extra arguments for the speed functions*/
 #include SPEED_VARS_ARGS
 #else
-#include "fr_sfire_params_args.inc"
+#include "fr_sfire_params_args.h"
 #endif    
     ) 
     do kk=1,k

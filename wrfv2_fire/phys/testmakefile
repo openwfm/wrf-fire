@@ -20,9 +20,9 @@ MAKEFILE=testmakefile
 PHYS = normal_spread
 ARGS = normal_spread_args
 DECL = normal_spread_decl
-SPEED_VARS_ARGS = \"$(ARGS).inc\"
-SPEED_VARS_DECL = \"$(DECL).inc\"
-INC = $(ARGS).inc $(DECL).inc
+SPEED_VARS_ARGS = \"$(ARGS).h\"
+SPEED_VARS_DECL = \"$(DECL).h\"
+INC = $(ARGS).h $(DECL).h
 
 # module dependencies
 

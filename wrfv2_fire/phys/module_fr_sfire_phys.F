@@ -131,7 +131,7 @@ subroutine set_fire_params(ifts,ifte,jfts,jfte, &
                            ifms,ifme,jfms,jfme, &
                            fdx,fdy,             &
                            zsf,nfuel_cat,fuel_time  &
-#                          include "fr_sfire_params_args.inc" 
+#                          include "fr_sfire_params_args.h" 
 )
 
 use module_fr_sfire_util
@@ -147,7 +147,7 @@ real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf          ! surface altitu
 integer, intent(in),dimension(ifms:ifme, jfms:jfme)::nfuel_cat  ! fuel data
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 #define IN out  /* the fire param arrays are set here, elsewhere read only */
-#include "fr_sfire_params_decl.inc" 
+#include "fr_sfire_params_decl.h" 
 #undef IN
 
 !*** local
@@ -462,7 +462,7 @@ end subroutine set_nfuel_cat
 subroutine normal_spread(t,dx,dy,n,rii,rjj,&
 ids,ide,jds,jde,ims,ime,jms,jme,&
 nvx,nvy,scale,ros &
-#include "fr_sfire_params_args.inc"
+#include "fr_sfire_params_args.h"
 )
 
 use module_fr_sfire_util
@@ -476,7 +476,7 @@ integer, intent(in)::n,ids,ide,jds,jde,ims,ime,jms,jme
 real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy,scale
 real, intent(in),dimension(n)::rii,rjj
 real,intent(out),dimension(n)::ros
-#include "fr_sfire_params_decl.inc"
+#include "fr_sfire_params_decl.h"
 
 !*** calls
 intrinsic nint,max,min
@@ -503,7 +503,7 @@ do j=jds,jde+1
          
         !ros_all(i,j) = max(speed,0.0)  ! debug only 
         ros_all(i,j) = fire_ros(speed,tanphi,i,j &
-#       include "fr_sfire_params_args.inc"
+#       include "fr_sfire_params_args.h"
         )
 
     enddo
@@ -521,10 +521,10 @@ end subroutine normal_spread
 !            
 
 real function fire_ros(speed,tanphi,i,j &
-#include "fr_sfire_params_args.inc"
+#include "fr_sfire_params_args.h"
 )
 implicit none
-#include "fr_sfire_params_decl.inc"
+#include "fr_sfire_params_decl.h"
 
 ! copied from wf2_janice 
 ! changes only:
