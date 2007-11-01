@@ -1,24 +1,27 @@
 ! WRF MEDIATION LAYER: PHYSICS
-module module_fr_sfire_model
 !
 !*** Jan Mandel October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
+
+module module_fr_sfire_model
 contains
 
-subroutine sfire_model (initialize, ignition,       & ! switches
-                 ifds,ifde,jfds,jfde,               & ! fire domain dims
-                 ifms,ifme,jfms,jfme,               & ! fire memory dims
-                 num_tiles,i_start,i_end,j_start,j_end, & ! fire grid tiling
-                 time_start,dt,                     & ! time and increment
-                 fdx,fdy,                           & ! fire mesh spacing
-                 nfuel_cat,                         & ! fuel data per point 
-                 zsf,                               & ! terrain height (for gradient)
-                 vx,vy,                             & ! input: wind
-                 lfn,tign,fuel_frac,                & ! state: level function, ign time, fuel left
-                 grnhft,grnqft,                     & ! output: heat fluxes
-                 fuel_time,                         & ! save derived internal data
-                 dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
-                 ) 
+subroutine sfire_model (                    &
+    initialize, ignition,                   & ! switches
+    ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
+    ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+    num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
+    time_start,dt,                          & ! time and increment
+    fdx,fdy,                                & ! fire mesh spacing
+    nfuel_cat,                              & ! fuel data per point 
+    zsf,                                    & ! terrain height (for gradient)
+    vx,vy,                                  & ! input: wind
+    lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+    grnhfx,grnqfx,                          & ! output: heat fluxes
+    fuel_time,                              & ! save derived internal data
+    dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
+) 
 
 ! This subroutine implements the fire spread model.
 ! All quantities are on the fire grid. It inputs
@@ -26,7 +29,7 @@ subroutine sfire_model (initialize, ignition,       & ! switches
 ! and outputs the heat fluxes on the cells of the fire grid.
 ! This subroutine has no knowledge of any atmospheric model.
 
-use module_fr_sfire_math
+use module_fr_sfire_core
 use module_fr_sfire_util
 use module_fr_sfire_phys
 implicit none
@@ -36,8 +39,9 @@ implicit none
 ! input
 
 integer, intent(in) :: initialize, ignition ! if not 0, do this and proceed with timestep
-INTEGER, INTENT(in) :: ifds,ifde,jfds,jfde  ! fire domain bounds
-INTEGER, INTENT(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
+integer, intent(in) :: ifds,ifde,jfds,jfde  ! fire domain bounds
+integer, intent(in) :: ifps,ifpe,jfps,jfpe  ! fire patch bounds
+integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 integer,intent(in)::num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
@@ -45,7 +49,7 @@ REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 integer, intent(in), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
 REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
     zsf,   &                                ! terrain height, node based, data, constant        
-    vx,vy                                 ! wind m/s (node based), data, variable
+    vx,vy                                   ! wind m/s (node based), data, variable
     
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
@@ -55,7 +59,7 @@ REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
     
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
-    grnhft,grnqft                           ! heat fluxes J/m^2/s  (cell)             
+    grnhfx,grnqfx                           ! heat fluxes J/m^2/s  (cell)             
  
 ! constant arrays - set at initialization
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
@@ -65,6 +69,7 @@ real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fgip                 ! (cell
 integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node) .ne.0 if chapparal
 
 !*** local
+
 INTEGER :: ifts,ifte,jfts,jfte      ! fire tile bounds
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 integer::ij        
@@ -103,8 +108,10 @@ do ij=1,num_tiles
                             
     endif
 
-    if (ignition.ne.0) then
-        ! fire in the middle
+    select case(ignition)
+    case(0)
+    case(1)
+        ! ignite fire in the middle
         ctri=(ifds+ifde+1)*0.5
         ctrj=(jfds+jfde+1)*0.5
         ! at least 6 by 6 cells but no less than 5 m
@@ -112,7 +119,10 @@ do ij=1,num_tiles
         call ignite_fire(   ifts,ifte,jfts,jfte,                      &
                             ifms,ifme,jfms,jfme,                      &
                             time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
-    endif
+        ! more complicated ignition can come here, or load from data
+    case default
+        call crash('model: unsupported ignition value')
+    end select
     
 enddo ! end tile loop
 
@@ -145,7 +155,7 @@ do ij=1,num_tiles
         ifts,ifte,jfts,jfte,                      &
         ifms,ifme,jfms,jfme,                      &
         fgip,fuel_frac_burnt,                     & !in
-        grnhft,grnqft)                              !out
+        grnhfx,grnqfx)                              !out
 
 enddo ! tiles
 

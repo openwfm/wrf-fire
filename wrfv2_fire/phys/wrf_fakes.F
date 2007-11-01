@@ -3,6 +3,7 @@ contains
 
 subroutine wrf_error_fatal(s)
 character(len=*), intent(in)::s
+call latch
 print *,s
 call abort()
 end subroutine wrf_error_fatal
@@ -19,4 +20,7 @@ print *,s
 end subroutine wrf_message
 
 end module module_wrf_error
+
+subroutine latch
+end
 

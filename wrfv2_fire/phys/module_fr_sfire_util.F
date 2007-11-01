@@ -87,15 +87,15 @@ end subroutine set_tiles
 !
 !****************
 !
-integer function endtilenode(ifte,ifde)
+integer function endtilenode(ifte,ifpe)
     implicit none
-    integer, intent(in)::ifte,ifde
+    integer, intent(in)::ifte,ifpe
 ! purpose: find the upper bound for tile loops for nodal array
 ! Nodal arrays are by 1 larger than cell arrays, so the upper bound for tile
 ! loops has to be increased by one if the tile is at the upper end of the domain.
 ! The upper bound cannot be increased by 1 always because then two tile loops would try
 ! to write into the same memory location.   
-    if(ifte.ne.ifde)then
+    if(ifte.ne.ifpe)then ! most frequent, first
         endtilenode=ifte
     else
         endtilenode=ifte+1
@@ -198,86 +198,138 @@ end subroutine sum_2d_cells
 !****************
 !
 
-subroutine interpolate_2d_nodes2nodes(              &
-      ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2,v2, &  ! in  
-      ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1,v1  )  ! out
+
+subroutine interpolate_2d_nodes2nodes3(  &
+    ids2,ide2,kds2,kde2,jds2,jde2, & ! dimensions coarse grid
+    ims2,ime2,kms2,kme2,jms2,jme2, & ! array coarse grid
+    ids1,ide1,jds1,jde1,kds1,kde1, & ! dimensions fine grid
+    ims1,ime1,jms1,jme1,kms1,kme1, & ! array coarse grid
+    ir,jr,               & ! refinement ratio
+    ip2,jp2,ip1,jp1,     & ! (ip2,jp2) on grid 2 lines up with (ip1,jp1) on grid 1 
+    v2, &                  ! in coarse grid  
+    v1  )                  ! out fine grid
 implicit none
 
 !*** purpose
 ! interpolate nodal values in mesh2 to nodal values in mesh1
 ! input mesh 2 is coarse output mesh 1 is fine
+! interpolation runs over mesh2 region ids2:ide2,jds2:jde2 
+! only the part of mesh 1 region ids1:ide1,jds1:jde1 is modified
 
 !*** arguments
 
-integer, intent(in)::ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-real, intent(out)::v1(ims1:ime1,jms1:jme1)
-integer, intent(in)::ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
-real, intent(in)::v2(ims2:ime2,jms2:jme2)
+integer, intent(in)::ids1,ide1,jds1,jde1,kds1,kde1,ims1,ime1,jms1,jme1,kms1,kme1
+integer, intent(in)::ids2,ide2,kds2,kde2,jds2,jde2,ims2,ime2,kms2,kme2,jms2,jme2
+integer, intent(in)::ir,jr,ip2,jp2,ip1,jp1 
+real, intent(out)::v1(ims1:ime1,jms1:jme1,kms1:kme1)
+real, intent(in)::v2(ims2:ime2,kms2:kme2,jms2:jme2)
 
 !*** local
-integer:: i1,i2,j1,j2,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff
+integer:: i1,i2,j1,j2,is,ie,js,je,io,jo,k1,k2
 real:: tx,ty,rx,ry
-character(len=128)msg
 
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_2dim(ids1,ide1+1,jds1,jde1+1,ims1,ime1,jms1,jme1)
-call check_mesh_2dim(ids2,ide2+1,jds2,jde2+1,ims2,ime2,jms2,jme2)
-
-! compute mesh sizes
-isz1 = ide1-ids1+1
-jsz1 = jde1-jds1+1
-isz2 = ide2-ids2+1
-jsz2 = jde2-jds2+1
-
-! check mesh sizes
-if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)goto 9
-if(mod(isz1,isz2).ne.0.or.mod(jsz1,jsz2).ne.0)goto 9
+call check_mesh_2dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
+call check_mesh_2dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
 
 ! compute mesh ratios
-ir=isz1/isz2
-jr=jsz1/jsz2
 rx=ir
 ry=jr
 
-! this loop goes over coarse mesh lines twice but avoid complications
-do j2=jds2,jde2
-    do i2=ids2,ide2
-        do ioff=0,ir
-            do joff=0,jr
-                ! compute fine mesh coordinate
-                i1=ioff+ids1+ir*(i2-ids2)
-                j1=joff+jds1+jr*(j2-jds2)
-                ! weights
-                tx = ioff/rx
-                ty = joff/ry
-                ! interpolation
+do k1=kds1,kds2
+k2=(k1-kds1)+kds2
+do j2=jds2,jde2-1
+    jo=jp1+jr*(j2-jp2)
+    js=max(jds1,jo)
+    je=min(jde1,jo+jr)
+    do i2=ids2,ide2-1
+        io=ip1+ir*(i2-ip2)
+        is=max(ids1,io)
+        ie=min(ide1,io+ir)
+        do j1=js,je
+            ty = (j1-jo)/ry
+            do i1=is,ie
+                tx = (i1-io)/rx
+                v1(i1,j1,k1)=                     &
+                      (1-tx)*(1-ty)*v2(i2,k2,j2)  &
+                 +    (1-tx)*ty  *v2(i2,k2,j2+1)  &
+                 +      tx*(1-ty)*v2(i2+1,k2,j2)  &
+                 +        tx*ty  *v2(i2+1,k2,j2+1)  
+                !print *,'coarse ',i2,j2,' fine ',i1,j1, ' offset ',io,jo,' weights ',tx,ty, &
+                ! 'in ',v2(i2,j2),v2(i2,j2+1),v2(i2+1,j2),v2(i2+1,j2+1),' out ',v1(i1,j1)
+           enddo
+       enddo
+    enddo
+enddo
+enddo
+
+end subroutine interpolate_2d_nodes2nodes3
+
+subroutine interpolate_2d_nodes2nodes(  &
+    ids2,ide2,jds2,jde2, & ! dimensions coarse grid
+    ims2,ime2,jms2,jme2, & ! array coarse grid
+    ids1,ide1,jds1,jde1, & ! dimensions fine grid
+    ims1,ime1,jms1,jme1, & ! array coarse grid
+    ir,jr,               & ! refinement ratio
+    ip2,jp2,ip1,jp1,     & ! (ip2,jp2) on grid 2 lines up with (ip1,jp1) on grid 1 
+    v2, &                  ! in coarse grid  
+    v1  )                  ! out fine grid
+implicit none
+
+!*** purpose
+! interpolate nodal values in mesh2 to nodal values in mesh1
+! input mesh 2 is coarse output mesh 1 is fine
+! interpolation runs over mesh2 region ids2:ide2,jds2:jde2 
+! only the part of mesh 1 region ids1:ide1,jds1:jde1 is modified
+
+!*** arguments
+
+integer, intent(in)::ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
+integer, intent(in)::ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
+integer, intent(in)::ir,jr,ip2,jp2,ip1,jp1 
+real, intent(out)::v1(ims1:ime1,jms1:jme1)
+real, intent(in)::v2(ims2:ime2,jms2:jme2)
+
+!*** local
+integer:: i1,i2,j1,j2,is,ie,js,je,io,jo
+real:: tx,ty,rx,ry
+
+!*** executable
+
+!check mesh dimensions and domain dimensions
+call check_mesh_2dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
+call check_mesh_2dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
+
+! compute mesh ratios
+rx=ir
+ry=jr
+
+do j2=jds2,jde2-1
+    jo=jp1+jr*(j2-jp2)
+    js=max(jds1,jo)
+    je=min(jde1,jo+jr)
+    do i2=ids2,ide2-1
+        io=ip1+ir*(i2-ip2)
+        is=max(ids1,io)
+        ie=min(ide1,io+ir)
+        do j1=js,je
+            ty = (j1-jo)/ry
+            do i1=is,ie
+                tx = (i1-io)/rx
                 v1(i1,j1)=                     &
                       (1-tx)*(1-ty)*v2(i2,j2)  &
                  +    (1-tx)*ty  *v2(i2,j2+1)  &
                  +      tx*(1-ty)*v2(i2+1,j2)  &
                  +        tx*ty  *v2(i2+1,j2+1)  
-                ! print *,'coarse ',i2,j2,' fine ',i1,j1, ' offset ',ioff,joff,' weights ',tx,ty, &
+                !print *,'coarse ',i2,j2,' fine ',i1,j1, ' offset ',io,jo,' weights ',tx,ty, &
                 ! 'in ',v2(i2,j2),v2(i2,j2+1),v2(i2+1,j2),v2(i2+1,j2+1),' out ',v1(i1,j1)
            enddo
        enddo
     enddo
 enddo
 
-return
-9 continue
-write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
-call message(msg)
-write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-call message(msg)
-write(msg,92)'input  mesh size:',isz2,jsz2
-call message(msg)
-91 format('dimensions: ',8i8)
-write(msg,92)'output mesh size:',isz1,jsz1
-call message(msg)
-92 format(a,2i8)
-call crash("module_fr_sfire_util:interpolate_2d_nodes: bad mesh sizes")
 end subroutine interpolate_2d_nodes2nodes
 
 !
@@ -699,52 +751,6 @@ end subroutine meshdiff_2d
 
 
 
-!
-!****************
-!
-
-subroutine atm2fire_winds(&
-                          iats,iate,jats,jate,                &
-                          ims,ime, kms,kme,jms,jme,           & 
-                          ifts,ifte,jfts,jfte,kfts,kfte,      &
-                          ifms,ifme,jfms,jfme,kfms,kfme,      &
-                          u,v,vfx,vfy)
-implicit none
-!*** arguments
-INTEGER, INTENT(in)::ims,ime, kms,kme, jms,jme                     ! atmosphere memory bounds
-integer, intent(in)::iats,iate,jats,jate                           ! atm grid size used
-integer, intent(in)::ifms,ifme,jfms,jfme,kfms,kfme                 ! fire memory bounds
-integer, intent(in)::ifts,ifte,jfts,jfte,kfts,kfte                 ! fire grid size used
-real, intent(in),dimension(ims:ime, kms:kme, jms:jme):: u,v        ! atm wind speed
-real, intent(out),dimension(ifms:ifme,jfms:jfme,kfms:kfme)::vfx,vfy ! fire wind speed
-
-!*** local
-integer::i,j,k
-real, dimension(ims:ime,jms:jme)::vxatm,vyatm
-
-! vxatm and vyatm are the velocities at the upper South-East corner of cube (i,j,k)
-! u(i,k,j) is the x velocity at the smallest x face of the cube cell (i,j,k)
-! v(i,k,j) is the y velocity at the smallest y face of the cube cell (i,j,k)                                            
-! kw=the number of wind layers is defined in module_fr_sfire_speed
-
-call check_mesh_3dim(iats-1,iate+1,jats-1,jate+1,kfms,kfme,ims,ime,jms,jme,kms,kme)
-
-DO k = kfms,kfme
-    DO j = jats,jate+1  ! +1 to get winds on the high x and high y nodes 
-        DO i = iats,iate+1
-             vxatm(i,j) = .25*( u(i,k,j) + u(i,k,j-1) + u(i,k+1,j) + u(i,k+1,j-1) )
-             vyatm(i,j) = .25*( v(i-1,k,j) + v(i,k,j) + v(i-1,k+1,j) + v(i,k+1,j) )
-        END DO
-    END DO
-    call interpolate_2d_nodes2nodes(              &
-      iats,iate,jats,jate,ims,ime,jms,jme,vxatm, &  ! in  
-      ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vfx(:,:,k ))  ! out
-    call interpolate_2d_nodes2nodes(              &
-      iats,iate,jats,jate,ims,ime,jms,jme,vyatm, &  ! in  
-      ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vfy(:,:,k ))  ! out
-END DO
-
-end subroutine atm2fire_winds
 
 real pure function sum_2darray( ifts,ifte,jfts,jfte,               &
                                 ifms,ifme,jfms,jfme,               &

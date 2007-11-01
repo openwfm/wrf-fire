@@ -1,4 +1,4 @@
-program atm_test
-use module_fr_sfire_atm
-end program atm_test
+program driver_test
+use module_fr_sfire_driver
+end program driver_test
 

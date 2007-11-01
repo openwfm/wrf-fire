@@ -71,6 +71,8 @@ private fire_ros
    REAL, PARAMETER :: fuelmc_c = 1.00                   ! set = 0 for dry canopy
    REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
    real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
+   real, parameter :: cp      =  7.*287./2              ! to make it selfcontained
+   
 
    INTEGER, PARAMETER :: nfuelcats = 14
    INTEGER, DIMENSION( nfuelcats ), save :: ichap
