@@ -97,7 +97,7 @@ real, intent(in):: &
 real, intent(in), dimension(ims:ime, kms:kme, jms:jme):: &
     u,v,                                          & ! wind velocity (m/s) (node based, atm grid)
     mu,                                           & ! dry air mass (Pa)  pressure??  (cell based, atm grid)
-    rho                                           & ! air density  (kg/m^3) (cell based, atm grid)
+    rho                                             ! air density  (kg/m^3) (cell based, atm grid)
 
 
 real, intent(in), dimension(ims:ime, jms:jme)::   & ! from Ned's code, who knows that this means
@@ -106,10 +106,10 @@ real, intent(in), dimension(ims:ime, jms:jme)::   & ! from Ned's code, who knows
     dz8w                                            ! dz across w-lvl`
     
 integer, intent(in), dimension(ifms:ifme,jfms:jfme):: &
-    nfuel_cat                                     & ! fuel data; can be also set inside (cell based, fire grid)
+    nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
-    lfn,tign,fuel_frac                            & ! state: level function, ign time, fuel left
+    lfn,tign,fuel_frac                              ! state: level function, ign time, fuel left
 
 real, intent(out), dimension(ims:ime, kms:kme, jms:jme):: &
     rthfrten,rqvfrten                              ! temperature and humidity tendencies (atm grid)
@@ -179,7 +179,7 @@ dyf=dy/ir
 ! init rest of fuel tables with derived constants
 call init_fuel_cats
 
-!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg)
+!OMP PARALLEL DO PRIVATE(ij,i,j,k,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg)
 do ij=1,num_tiles
 
     ! set up tile bounds
@@ -219,7 +219,7 @@ do ij=1,num_tiles
     call check_mesh_2dim(its,ite+1,jts,jte+1,ims,ime,jms,jme)        ! check if atm node tile fits in memory 
     call check_mesh_2dim(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-
+    k=1       !??
     do j = jts,jte
         do i = its,ite 
             ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j))
@@ -480,7 +480,7 @@ SUBROUTINE fire_tendency( &
    REAL :: cp_i
    REAL :: rho_i
    REAL :: xlv_i
-   REAL :: z_w,dz
+   REAL :: z_w
    REAL :: fact_g, fact_c
 
    REAL, DIMENSION( ims:ime,kms:kme,jms:jme ) :: hfx,qfx
