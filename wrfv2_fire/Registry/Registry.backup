@@ -1379,53 +1379,53 @@ package   fire_cawfe     fire==1                     -             -
 # fire dimensions on fire grid
 #
 #<Table>  <Dim>  <Order> <How defined>         <Coord-axis>  <Dimname in Datasets>
-dimspec    n      -     constant=2                c          fire_index_dim
-dimspec    o      -     constant=4                c          fire_particle_dim
+dimspec    n      -     constant=2                z          fire_index_dim
+dimspec    o      -     constant=4                z          fire_particle_dim
 
 # fire variables on fire grid
 #
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
-state    integer  nfuel_cat *i*j     fire        1         -     -
-state    integer  nfl       *i*j     fire        1         -     -
-state    integer  nfl_t     *i*j     fire        1         -     -
-state    integer  nfl_c     *i*j     fire        1         -     -
-state    integer  ncod      *i*j     fire        1         -     -
-state    real     fg        *i*j     fire        1         -     -
-state    real     fc        *i*j     fire        1         -     -
-state    real     r_0       *i*j     fire        1         -     -
-state    real     bbb       *i*j     fire        1         -     -
-state    real     betafl    *i*j     fire        1         -     -
-state    real     phiwc     *i*j     fire        1         -     -
-state    real     area      *i*j     fire        1         -     -
-state    real     area2     *i*j     fire        1         -     -
-state    real     zf        *i*j     fire        1         -     -
-state    real     zsf       *i*j     fire        1         -     -
-state    real     tign_g    *i*j     fire        1         -     -
-state    real     tign_c    *i*j     fire        1         -     -
-state    real     tign_crt  *i*j     fire        1         -     -
+state    integer  nfuel_cat *i*j     fire        1         z     hr
+state    integer  nfl       *i*j     fire        1         z     hr
+state    integer  nfl_t     *i*j     fire        1         z     hr
+state    integer  nfl_c     *i*j     fire        1         z     hr
+state    integer  ncod      *i*j     fire        1         z     hr
+state    real     fg        *i*j     fire        1         z     hr
+state    real     fc        *i*j     fire        1         z     hr
+state    real     r_0       *i*j     fire        1         z     hr
+state    real     bbb       *i*j     fire        1         z     hr
+state    real     betafl    *i*j     fire        1         z     hr
+state    real     phiwc     *i*j     fire        1         z     hr
+state    real     area      *i*j     fire        1         z     hr
+state    real     area2     *i*j     fire        1         z     hr
+state    real     zf        *i*j     fire        1         z     hr
+state    real     zsf       *i*j     fire        1         z     hr
+state    real     tign_g    *i*j     fire        1         z     hr
+state    real     tign_c    *i*j     fire        1         z     hr
+state    real     tign_crt  *i*j     fire        1         z     hr
 #
-state    integer  in1       *i*jn    fire        1         -     h
-state    integer  in2       *i*jn    fire        1         -     h
-state    integer  ixb       *i*jo    fire        1         -     h
-state    integer  iyb       *i*jo    fire        1         -     h
-state    integer  icn       *i*jo    fire        1         -     h
-state    real     xfg       *i*jo    fire        1         -     h
-state    real     yfg       *i*jo    fire        1         -     h
-state    real     xcd       *i*jo    fire        1         -     h
-state    real     ycd       *i*jo    fire        1         -     h
-state    real     xcn       *i*jo    fire        1         -     h
-state    real     ycn       *i*jo    fire        1         -     h
-state    real     sprdx     *i*jo    fire        1         -     h
-state    real     sprdy     *i*jo    fire        1         -     h
+state    integer  in1       *i*jn    fire        1         z     hr
+state    integer  in2       *i*jn    fire        1         z     hr
+state    integer  ixb       *i*jo    fire        1         z     hr
+state    integer  iyb       *i*jo    fire        1         z     hr
+state    integer  icn       *i*jo    fire        1         z     hr
+state    real     xfg       *i*jo    fire        1         z     hr
+state    real     yfg       *i*jo    fire        1         z     hr
+state    real     xcd       *i*jo    fire        1         z     hr
+state    real     ycd       *i*jo    fire        1         z     hr
+state    real     xcn       *i*jo    fire        1         z     hr
+state    real     ycn       *i*jo    fire        1         z     hr
+state    real     sprdx     *i*jo    fire        1         z     hr
+state    real     sprdy     *i*jo    fire        1         z     hr
  
 # fire variables on atm grid
 #
-state    real     rthfrten  ij       fire        1         -     h
-state    real     rqvfrten  ij       fire        1         -     h
-state    real     grnhfx    ij       fire        1         -     h
-state    real     grnqfx    ij       fire        1         -     h
-state    real     canhfx    ij       fire        1         -     h
-state    real     canqfx    ij       fire        1         -     h
+state    real     rthfrten  ikj      fire        1         z     hr
+state    real     rqvfrten  ikj      fire        1         z     hr
+state    real     grnhfx    ij       fire        1         z     hr
+state    real     grnqfx    ij       fire        1         z     hr
+state    real     canhfx    ij       fire        1         z     hr
+state    real     canqfx    ij       fire        1         z     hr
 
 #
 # fire configure namelist variables

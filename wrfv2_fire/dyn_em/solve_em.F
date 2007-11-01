@@ -793,7 +793,10 @@ BENCH_START(fire_driver_tim)
             ,grid%tign_crt,grid%xfg,grid%yfg,grid%xcd               &
             ,grid%ycd,grid%xcn,grid%ycn,grid%sprdx,grid%sprdy       &
             ,grid%rthfrten,grid%rqvfrten                            &
-            ,grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx)         ! recv
+            ,grid%lfn,grid%fuel_frac                                & ! i/o sfire
+            ,grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx        & ! recv
+            ,grid%fuel_time,grid%dzfsdx,grid%dzfsdy,grid%fgip       & 
+            ,grid%ischap                                         )    ! data
 
 BENCH_END(fire_driver_tim)
 
