@@ -105,7 +105,7 @@ do istep=1,msteps
     sflux=avg_2darray      ( ifps,ifpe,jfps,jfpe,               &
                              ifms,ifme,jfms,jfme,               &
                              grnhfx)
-    print *,'step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
+    print *,'test_main: step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
     time_start=time_start+dt 
 enddo
 
@@ -127,12 +127,22 @@ implicit none
 
 integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
 real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s)
+integer::rfx,rfy ! refinement, convenience only
 
 nx=200
 ny=200
 msteps=200
 fdx=50
 fdy=50
+
+rfx=2
+rfy=2
+
+nx=nx*rfx
+ny=ny*rfy
+fdx=fdx/rfx
+fdy=fdy/rfy
+
 dt=10
 wind=5
 alpha=1.3

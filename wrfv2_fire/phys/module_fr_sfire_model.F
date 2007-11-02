@@ -75,6 +75,7 @@ integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments t
 integer::ij        
 real, dimension(ifms:ifme, jfms:jfme)::fuel_frac_burnt
 real:: ctri,ctrj,diam ! for ignition
+character(len=128)msg
 
 !*** executable
 
@@ -90,6 +91,10 @@ do ij=1,num_tiles
     jfte=j_end(ij)
     
     call check_tiles(ifts,ifte,jfts,ifte,num_tiles,i_start,i_end,j_start,j_end)
+    
+    write(msg,'(a,i5,a,f8.2)')'fire tile',ij,' avg wind speed', &
+        avg_2darray_vec(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vx,vy)
+    call message(msg)
     
     ! initialize all arrays that the model will not change later
     call set_fire_params(   ifts,ifte,jfts,ifte, &

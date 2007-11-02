@@ -28,10 +28,19 @@ cd wrfv2_fire
 
 This will take a while.  Make sure that compile.log contains 
 no errors.  ("grep Error compile.log" shouldn't return anything).
+Or, just run
+
+./compile_fire
+
 Finally, run the code with:
 
 cd test/em_fire 
 ./run_me_first.csh
 ./wrf.exe
 
+Or, just run the debugger, it is set up to load the program automatically and set 
+a breakpoint at exit, esp. error exit:
+
+cd test/em_fire 
+idb
 

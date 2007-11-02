@@ -142,6 +142,12 @@ real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 ! time - assume dt does not change
 time_start = itimestep * dt
 
+! fire mesh step
+dxf=dx/ir
+dyf=dy/ir
+
+write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
+call message(msg)
 7001 format(a,' dimensions ',a4,':',i8,' to ',i8,' by ',i8,' to ',i8)
 write(msg,'(a,2i9)')'refinement ratio:',ir,jr
 call message(msg)
@@ -172,9 +178,6 @@ call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme) ! check if fire pa
 call check_mesh_2dim(ips,ipe,jps,jpe,ids,ide,jds,jde)        ! check if atm patch fits in atm domain
 call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifds,ifde,jfds,jfde) ! check if fire patch fits in fire domain
 
-! fire mesh step
-dxf=dx/ir
-dyf=dy/ir
 
 ! init rest of fuel tables with derived constants
 call init_fuel_cats
@@ -226,6 +229,7 @@ do ij=1,num_tiles
             va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j))            
         enddo
     enddo
+    write(msg,'(a,i5,a,f10.5)')'driver: tile',ij,' in avg atm wind',avg_2darray_vec(its,ite,jts,jte,ims,ime,jms,jme,ua,va)
 enddo ! num_tiles
 
 

@@ -4,6 +4,8 @@
 
 module module_fr_sfire_core
 
+use module_fr_sfire_util
+
 ! The mathematical core of the fire spread model. No physical constants here.
 ! 
 ! subroutine sfire_core: only this routine should be called from the outside.
@@ -31,7 +33,6 @@ subroutine sfire_core(       ids,ide,jds,jde,  &
 ! with atm. model and data input.
 !
 
-use module_fr_sfire_util
 implicit none
 
 !*** arguments
@@ -110,8 +111,9 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !
 !*** local
 real, dimension(ims:ime,jms:jme)::frac_start
-real:: time_now
+real:: time_now,burn_rate
 integer::i,j
+character(len=128)msg
 
 !*** calls
 intrinsic epsilon
@@ -144,12 +146,18 @@ call prop_ls(      ids,ide,jds,jde, & ! dims
 call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
 
-! compute the fuel fraction lost 
+! compute the fuel fraction lost
+burn_rate=0 
 do j=jds,jde
     do i=ids,ide
         fuel_frac_burnt(i,j)=frac_start(i,j)-fuel_frac(i,j)
+        burn_rate=burn_rate+fuel_frac_burnt(i,j)
     enddo
 enddo
+burn_rate=burn_rate/time_diff
+
+write(msg,'(a,e12.6,a)')'average burn rate ',burn_rate,'/s'
+call message(msg)
 
 ! set the ignition time outside of burning region to now
 ! this is consistent with the fuel fraction
@@ -170,7 +178,6 @@ end subroutine sfire_core
 subroutine fuel_left(ids,ide,jds,jde, &
                      ims,ime,jms,jme, &
                      lfn, tign, fuel_time, tnow, fuel_frac)
-use module_fr_sfire_util
 implicit none
 
 !*** purpose: determine fraction of fuel remaining
@@ -307,7 +314,6 @@ subroutine prop_ls(ids,ide,jds,jde, &                       ! domain dims
 #endif
                    )
 
-use module_fr_sfire_util
 use module_fr_sfire_phys
 implicit none
 
@@ -589,17 +595,19 @@ do while ( .not.last )
     last = .not.(tr + td*tol < td .and. istep < mstep)   !  last pass
 
     if(printl>=2 .or. (printl>=1 .and. (last .or. istep==1) ) )then
-        write(msg,'(7(a,f15.6))')'prop_ls:time',t,' dt',dt, &
-        ' avg speed',avg_2darray(1,k,1,1,1,k,1,1,speedp), &
-        ' avg tend',avg_2darray(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend), &
-        ' avg wind',avg_2darray_vec(ids,ide+1,jds,jde+1,ims,ime,jms,jme,vx,vy)
+        write(msg,'(7(a,f10.5))')  &
+        'prop_ls:time',t,' dt',dt, &
+        'in avg front speed',avg_2darray(1,k,1,1,1,k,1,1,speedp)
+        call message(msg)
+         write(msg,'(7(a,f10.5))') &
+        'out avg level tend',avg_2darray(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend)
         call message(msg)
     endif
     
 end do !while
 
 if (printl>=1)then
-    write(msg,*)'prop_ls: total number of time steps ',istep
+    write(msg,'(a,i5)')'prop_ls: total number of time steps ',istep
     call message(msg)
 endif
     
