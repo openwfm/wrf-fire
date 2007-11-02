@@ -40,7 +40,7 @@
 
 module module_fr_sfire_driver
 
-use module_model_constants
+use module_model_constants, only: cp,xlv
 use module_fr_sfire_model
 use module_fr_sfire_phys
 use module_fr_sfire_util
@@ -190,10 +190,10 @@ do ij=1,num_tiles
     ite = min(i_end(ij),ide-1)    ! end atmospheric tile in i
     jts = max(j_start(ij),jds+1)  ! start atmospheric tile in j
     jte = min(j_end(ij),jde-1)    ! end atmospheric tile in j
-    ifts= (its-ids)*ir+ifds     ! start fire tile in i
-    ifte= (ite-ids)*ir+ifds-1   ! end fire tile in i
-    jfts= (jts-jds)*jr+jfds     ! start fire tile in j
-    jfte= (jte-jds+1)*jr+jfds-1 ! end fire tile in j
+    ifts= (its-ids)*ir+ifds       ! start fire tile in i
+    ifte= (ite-ids+1)*ir+ifds-1   ! end fire tile in i
+    jfts= (jts-jds)*jr+jfds       ! start fire tile in j
+    jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
     
     ! store tile bounds for future loops
     
