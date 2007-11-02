@@ -11,6 +11,7 @@ CONTAINS
             ,itimestep,dt,dx,dy,z,z_at_w,dz8w,ht                &
             ,ids,  ide,  kds,  kde,  jds,  jde                  & 
             ,ims,  ime,  kms,  kme,  jms,  jme                  &
+            ,ips,  ipe,  kps,  kpe,  jps,  jpe                  &
             ,ifds, ifde, kfds, kfde, jfds, jfde                 &
             ,ifms, ifme, kfms, kfme, jfms, jfme                 &
             ,ifps, ifpe, kfps, kfpe, jfps, jfpe                 & 
@@ -120,6 +121,7 @@ CONTAINS
 
    INTEGER, INTENT(in) :: ids,ide, jds,jde, kds,kde  ! atmosphere domain dimensions
    INTEGER, INTENT(in) :: ims,ime, jms,jme, kms,kme  ! atmosphere memory dimensions
+   INTEGER, INTENT(in) :: ips,ipe, kps,kpe, jps,jpe  ! atmosphere patch dimensions 
    INTEGER, INTENT(in) :: kts,kte, num_tiles         ! atmosphere tile dimensions
 
    INTEGER, DIMENSION(num_tiles), INTENT(in) ::                   &
@@ -274,7 +276,7 @@ CONTAINS
         CALL sfire_driver(                                      &
              ids,ide, kds,kde, jds,jde                          & ! send
             ,ims,ime, kms,kme, jms,jme                          &
-            ,its,ite, kts,kte, jts,jte                          &
+            ,ips,ipe, kps,kpe, jps,jpe                          & 
             ,ifds,ifde, jfds,jfde                    &
             ,ifms,ifme, jfms,jfme                    &
             ,ifps,ifpe, jfps,jfpe                    &

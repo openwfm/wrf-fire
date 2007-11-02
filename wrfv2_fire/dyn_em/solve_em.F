@@ -764,6 +764,7 @@ BENCH_START(fire_driver_tim)
             ,grid%em_z,z_at_w,dz8w,grid%ht                          &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
             ,sids,side, skds,skde, sjds,sjde                        &
             ,sims,sime, skms,skme, sjms,sjme                        &
             ,sips,sipe, skps,skpe, sjps,sjpe                        &
