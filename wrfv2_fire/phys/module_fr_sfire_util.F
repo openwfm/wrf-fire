@@ -799,7 +799,7 @@ integer:: i,j
 real:: t 
 real:: avg_a,max_a,min_a 
 character(len=128)msg
-character(len=27)id
+character(len=25)id
 id=name
 call print_2d_stats(ips,ipe,jps,jpe, &
                          ims,ime,jms,jme, &
@@ -819,7 +819,7 @@ do j=jps,jpe
     enddo
 enddo
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1))
-write(msg,'(a27,a3,3(a,g15.6))')id,'/sz',': min',min_a,' max',max_a,' avg',avg_a
+write(msg,'(a25,a3,3(a,g10.3))')id,'/sz',':min ',min_a,' max ',max_a,' avg ',avg_a
 call message(msg)
 end subroutine print_2d_stats_vec
 
@@ -846,7 +846,7 @@ do j=jps,jpe
     enddo
 enddo
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1))
-write(msg,'(a30,3(a,g15.6))')id,': min',min_a,' max',max_a,' avg',avg_a
+write(msg,'(a28,3(a,g10.3))')id,':min ',min_a,' max ',max_a,' avg ',avg_a
 call message(msg)
 end subroutine print_2d_stats
 

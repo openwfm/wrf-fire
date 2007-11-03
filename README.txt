@@ -49,7 +49,8 @@ STANDALONE FIRE MODEL TEST
 cd phys
 ./ifmake clean
 ./ifmake model_test
+./ifmake clean
 ./ifmake prop_test
 ./ifmake clean
 
-Without the clean betweed wrf built and standalone build, neither will work.
+Without the clean between different kind of builds nothing will work.

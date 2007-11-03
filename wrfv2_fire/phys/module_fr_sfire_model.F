@@ -94,10 +94,6 @@ do ij=1,num_tiles
     
     call check_tiles(ifts,ifte,jfts,ifte,num_tiles,i_start,i_end,j_start,j_end)
     
-    write(msg,'(a,i5,a,f8.2)')'model: fire tile',ij,' avg fire wind', &
-        avg_2darray_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vx,vy)
-    call message(msg)
-    
     ! initialize all arrays that the model will not change later
     call set_fire_params(   ifts,ifte,jfts,ifte, &
                             ifms,ifme,jfms,jfme, &
@@ -170,7 +166,7 @@ enddo ! tiles
 
 call print_2d_stats(ifps,ifpe,jfps,jfpe, &
                    ifms,ifme,jfms,jfme, &
-                   grnhfx,'model: heat flux')
+                   grnhfx,'model: heat flux(J/m^2/s)')
 
 end subroutine sfire_model
 

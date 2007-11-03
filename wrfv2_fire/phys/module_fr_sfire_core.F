@@ -495,7 +495,7 @@ do while ( .not.last )
        j=nint(rjj(kk))
        speed(i,j)=speedp(kk)
     enddo
-    call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,speed,'prop_ls:in: fireline speed (m/s)')
+    call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,speed,'prop_ls:in: frln speed (m/s)')
 
 #ifdef DEBUG_OUT
             if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
@@ -595,7 +595,7 @@ do while ( .not.last )
         write(msg,'(7(a,f10.5))')  &
             'prop_ls:time',t,' dt',dt
         call message(msg)
-        call print_2d_stats(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend,'prop_ls: level func tend (1/s)')
+        call print_2d_stats(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend,'prop_ls:lvl fcn tend(1/s)')
     endif
     
 end do !while

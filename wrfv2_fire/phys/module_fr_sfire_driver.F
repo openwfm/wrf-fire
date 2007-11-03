@@ -54,7 +54,7 @@ subroutine sfire_driver (                         &
     ips,ipe, kps,kpe, jps,jpe,                    &
     ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
     ifms, ifme, jfms, jfme,                       &
-    ifps, ifpe, jfps, jfpe,                       & 
+    igps, igpe, jgps, jgpe,                       & ! fire patch in - will use smaller
     ir,jr,                                        & ! atm/fire grid ratio
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
     itimestep,dt,dx,dy,                           & ! in scalars
@@ -80,7 +80,7 @@ integer, intent(in)::                             &
     ips,ipe, kps,kpe, jps,jpe,                    & ! atm patch bounds
     ifds, ifde, jfds, jfde,                       & ! fire domain bounds
     ifms, ifme, jfms, jfme,                       & ! fire memory bounds
-    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+    igps, igpe, jgps, jgpe,                       & ! fire patch bounds given
     ir,jr,                                    & ! atm/fire grid refinement ratio
     itimestep,                                    & ! number of this timestep
     num_tiles                                       ! number of tiles
@@ -132,7 +132,11 @@ integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
 real :: dxf,dyf,time_start
 integer,dimension(num_tiles) :: if_start,if_end,jf_start,jf_end, &  ! fire grid tiling
                                 ia_start,ia_end,ja_start,ja_end     ! atm grid tiling
-integer :: its,ite,jts,jte,kts,kte,ifts,ifte,jfts,jfte,ifte1,jfte1,ij,i,j,k,initialize,ignition
+integer :: its,ite,jts,jte,kts,kte, &
+    ij,i,j,k,initialize,ignition, &
+    ifts,ifte,jfts,jfte,ifte1,jfte1, &           ! fire tile
+    ifps, ifpe, jfps, jfpe, &                     ! fixed fire patch bounds
+    iaps, iape, japs, jape                        ! fixed atm  patch bounds
 real, dimension(ifms:ifme,jfms:jfme) :: uf,vf   ! fire wind velocities
 real, dimension(ims:ime, jms:jme):: ua,va ! atm winds, averaged over height
 character(len=128)msg
@@ -147,41 +151,60 @@ time_start = itimestep * dt
 dxf=dx/ir
 dyf=dy/ir
 
+! fix fire patch to leave out one strip on domain boundary
+! need fixed atm patch first, but that is never used except for checking 
+! note the patch is the union of tiles 
+iaps=max(ips,ids+1)
+iape=min(ipe,ide-1)
+japs=max(jps,jds+1)
+jape=min(jpe,jde-1)
+ifps= (iaps-ids)*ir+ifds    
+ifpe= (iape-ids+1)*ir+ifds-1
+jfps= (japs-jds)*jr+jfds    
+jfpe= (jape-jds+1)*jr+jfds-1 
+
 write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
 call message(msg)
-7001 format(a,' dimensions ',a4,':',i8,' to ',i8,' by ',i8,' to ',i8)
+7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
 write(msg,'(a,2i9)')'refinement ratio:',ir,jr
 call message(msg)
 write(msg,'(a,2f15.6)')'atmosphere mesh step:',dx,dy
 call message(msg)
 write(msg,'(a,2f15.6)')'fire mesh step:      ',dxf,dyf
 call message(msg)
-write(msg,7001)'atm domain ','ids',ids,ide,jds,jde
+write(msg,7001)'atm domain      ','ids',ids,ide,jds,jde
 call message(msg)                    
-write(msg,7001)'atm memory ','ims',ims,ime,jms,jme
+write(msg,7001)'atm memory      ','ims',ims,ime,jms,jme
 call message(msg)                    
-write(msg,7001)'atm patch  ','ips',ips,ipe,jps,jpe
+write(msg,7001)'atm patch       ','ips',ips,ipe,jps,jpe
 call message(msg)                    
-write(msg,7001)'fire domain','ifds',ifds,ifde,jfds,jfde
+write(msg,7001)'atm patch fixed ','iaps',iaps,iape,japs,jape
 call message(msg)                    
-write(msg,7001)'fire memory','ifms',ifms,ifme,jfms,jfme
+write(msg,7001)'fire domain     ','ifds',ifds,ifde,jfds,jfde
+write(msg,7001)'fire domain     ','ifds',ifds,ifde,jfds,jfde
 call message(msg)                    
-write(msg,7001)'fire patch ','ifps',ifps,ifpe,jfps,jfpe
+write(msg,7001)'fire memory     ','ifms',ifms,ifme,jfms,jfme
+call message(msg)                    
+write(msg,7001)'fire patch given','igps',igps,igpe,jgps,jgpe
+call message(msg)                    
+write(msg,7001)'fire patch fixed','ifps',ifps,ifpe,jfps,jfpe
 call message(msg)                    
 
 ! check mesh dimensions
 call check_fmesh(ids,ide,ifds,ifde,ir,'id')           ! check if atm and fire grids line up
 call check_fmesh(jds,jde,jfds,jfde,jr,'jd')
-call check_fmesh(ips,ipe,ifps,ifpe,ir,'ip')
-call check_fmesh(jps,jpe,jfps,jfpe,jr,'jp')
+call check_fmesh(iaps,iape,ifps,ifpe,ir,'ip')
+call check_fmesh(japs,jape,jfps,jfpe,jr,'jp')
 call check_mesh_2dim(ips,ipe,jps,jpe,ims,ime,jms,jme)        ! check if atm patch fits in atm array
 call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme) ! check if fire patch fits in fire array
+call check_mesh_2dim(ifps,ifpe,jfps,jfpe,igps,igpe,jgps,jgpe) ! check if fixed fire patch fits in given one 
 call check_mesh_2dim(ips,ipe,jps,jpe,ids,ide,jds,jde)        ! check if atm patch fits in atm domain
 call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifds,ifde,jfds,jfde) ! check if fire patch fits in fire domain
 
 
 ! init rest of fuel tables with derived constants
 call init_fuel_cats
+
 
 !OMP PARALLEL DO PRIVATE(ij,i,j,k,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg)
 do ij=1,num_tiles
@@ -233,7 +256,7 @@ do ij=1,num_tiles
 
 enddo ! num_tiles
 
-call print_2d_stats_vec(ids,ide,jds,jde,ims,ime,jms,jme,ua,va,'driver: atm wind speed (m/s)')
+call print_2d_stats_vec(ids,ide,jds,jde,ims,ime,jms,jme,ua,va,'driver: atm wind (m/s)')
 
 ! The interpolation routine goes over each atm array tile
 ! and interpolate to the fire grid, and modify within the corresponding
@@ -350,7 +373,7 @@ call sfire_model (                    &
     ifds,ifde,jfds,jfde,                    & ! fire domain dims
     ifms,ifme,jfms,jfme,                    & ! fire memory dims
     ifps,ifpe,jfps,jfpe,                    & ! fire patch dims
-    num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling
+    num_tiles,if_start,if_end,jf_start,jf_end,  & ! fire grid tiling
     time_start,dt,                          & ! time and increment
     dxf,dyf,                                & ! fire mesh spacing
     nfuel_cat,                              & ! fuel data per point 
