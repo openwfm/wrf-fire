@@ -44,3 +44,12 @@ a breakpoint at exit, esp. error exit:
 cd test/em_fire 
 idb
 
+STANDALONE FIRE MODEL TEST
+
+cd phys
+./ifmake clean
+./ifmake model_test
+./ifmake prop_test
+./ifmake clean
+
+Without the clean betweed wrf built and standalone build, neither will work.
