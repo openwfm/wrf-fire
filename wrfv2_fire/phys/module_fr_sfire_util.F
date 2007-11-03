@@ -771,6 +771,85 @@ enddo
 sum_2darray = t
 end function sum_2darray
 
+real pure function max_2darray( its,ite,jts,jte,               &
+                                ims,ime,jms,jme,               &
+                                a)
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
+real, intent(in)::a(ims:ime,jms:jme)
+!*** local
+integer:: i,j
+real:: t
+t=0.
+do j=jts,jte
+    do i=its,ite
+        t=max(t,a(i,j))
+    enddo
+enddo
+max_2darray = t
+end function max_2darray
+
+subroutine print_2d_stats_vec(ips,ipe,jps,jpe, &
+                         ims,ime,jms,jme, &
+                         ax,ay,name)
+implicit none
+integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
+real, intent(in), dimension(ims:ime,jms:jme)::ax,ay
+character(len=*),intent(in)::name
+integer:: i,j
+real:: t 
+real:: avg_a,max_a,min_a 
+character(len=128)msg
+character(len=27)id
+id=name
+call print_2d_stats(ips,ipe,jps,jpe, &
+                         ims,ime,jms,jme, &
+                         ax,id//'/x ')
+call print_2d_stats(ips,ipe,jps,jpe, &
+                         ims,ime,jms,jme, &
+                         ay,id//'/y ')
+avg_a=0
+max_a=-huge(max_a)
+min_a= huge(min_a)
+do j=jps,jpe
+    do i=ips,ipe
+        t=sqrt(ax(i,j)**2+ay(i,j)**2)
+        max_a=max(max_a,t)
+        min_a=min(min_a,t)
+        avg_a=avg_a+t
+    enddo
+enddo
+avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1))
+write(msg,'(a27,a3,3(a,g15.6))')id,'/sz',': min',min_a,' max',max_a,' avg',avg_a
+call message(msg)
+end subroutine print_2d_stats_vec
+
+subroutine print_2d_stats(ips,ipe,jps,jpe, &
+                         ims,ime,jms,jme, &
+                         a,name)
+implicit none
+integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
+real, intent(in)::a(ims:ime,jms:jme)
+character(len=*),intent(in)::name
+integer:: i,j
+real:: avg_a,max_a,min_a 
+character(len=128)msg
+character(len=30)id
+id=name
+avg_a=0
+max_a=-huge(max_a)
+min_a= huge(min_a)
+do j=jps,jpe
+    do i=ips,ipe
+        max_a=max(max_a,a(i,j))
+        min_a=min(min_a,a(i,j))
+        avg_a=avg_a+a(i,j)
+    enddo
+enddo
+avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1))
+write(msg,'(a30,3(a,g15.6))')id,': min',min_a,' max',max_a,' avg',avg_a
+call message(msg)
+end subroutine print_2d_stats
+
 real pure function avg_2darray( its,ite,jts,jte,               &
                                 ims,ime,jms,jme,               &
                                 a)

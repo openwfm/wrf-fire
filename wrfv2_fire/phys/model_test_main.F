@@ -102,15 +102,7 @@ do istep=1,msteps
     write(1,1)sm+1,sn+1,((vx(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
     write(1,1)sm+1,sn+1,((vy(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
     write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
-    shflx=avg_2darray      ( ifps,ifpe,jfps,jfpe,               &
-                             ifms,ifme,jfms,jfme,               &
-                             grnhfx)
-    sqflx=avg_2darray      ( ifps,ifpe,jfps,jfpe,               &
-                             ifms,ifme,jfms,jfme,               &
-                             grnhfx)
     print *,'test_main: step ',istep,' of ',msteps,' time ',time_start
-    print *,'test_main: step ',istep,' of ',msteps,' time ',time_start
-    print *,'test_main: avg heat fluxes ',shflx,sqflx
     time_start=time_start+dt 
 enddo
 

@@ -111,7 +111,7 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !
 !*** local
 real, dimension(ims:ime,jms:jme)::frac_start
-real:: time_now,burn_rate
+real:: time_now,avg_rate,max_rate
 integer::i,j
 character(len=128)msg
 
@@ -147,17 +147,13 @@ call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
 
 ! compute the fuel fraction lost
-burn_rate=0 
 do j=jds,jde
     do i=ids,ide
         fuel_frac_burnt(i,j)=frac_start(i,j)-fuel_frac(i,j)
-        burn_rate=burn_rate+fuel_frac_burnt(i,j)
     enddo
 enddo
-burn_rate=burn_rate/time_diff
 
-write(msg,'(a,e12.6,a)')'average burn rate ',burn_rate,'/s'
-call message(msg)
+call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,fuel_frac_burnt,'core: fuel frac burned (1)')
 
 ! set the ignition time outside of burning region to now
 ! this is consistent with the fuel fraction
@@ -499,6 +495,7 @@ do while ( .not.last )
        j=nint(rjj(kk))
        speed(i,j)=speedp(kk)
     enddo
+    call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,speed,'prop_ls:in: fireline speed (m/s)')
 
 #ifdef DEBUG_OUT
             if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
@@ -598,12 +595,7 @@ do while ( .not.last )
         write(msg,'(7(a,f10.5))')  &
             'prop_ls:time',t,' dt',dt
         call message(msg)
-        write(msg,'(7(a,f10.5))')  &
-            'in avg front speed',avg_2darray(1,k,1,1,1,k,1,1,speedp)
-        call message(msg)
-        write(msg,'(7(a,f10.5))') &
-            'out avg level tend',avg_2darray(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend)
-        call message(msg)
+        call print_2d_stats(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend,'prop_ls: level func tend (1/s)')
     endif
     
 end do !while

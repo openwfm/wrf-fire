@@ -84,6 +84,8 @@ xifme=ifme
 xjfms=jfms
 xjfme=jfme
 
+call print_2d_stats_vec(ifds,ifde+1,jfds,jfde+1,ifms,ifme,jfms,jfme,vx,vy,'model: fire wind (m/s)')
+
 do ij=1,num_tiles
     ifts=i_start(ij)
     ifte=i_end(ij)
@@ -162,7 +164,13 @@ do ij=1,num_tiles
         fgip,fuel_frac_burnt,                     & !in
         grnhfx,grnqfx)                              !out
 
+
+
 enddo ! tiles
+
+call print_2d_stats(ifps,ifpe,jfps,jfpe, &
+                   ifms,ifme,jfms,jfme, &
+                   grnhfx,'model: heat flux')
 
 end subroutine sfire_model
 

@@ -230,11 +230,10 @@ do ij=1,num_tiles
             va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j)) - v_frame           
         enddo
     enddo
-    write(msg,'(a,i5,a,f10.5)')'driver: tile',ij, &
-        ' in avg atm wind',avg_2darray_vec(its,ite,jts,jte,ims,ime,jms,jme,ua,va)
-    call message(msg)
+
 enddo ! num_tiles
 
+call print_2d_stats_vec(ids,ide,jds,jde,ims,ime,jms,jme,ua,va,'driver: atm wind speed (m/s)')
 
 ! The interpolation routine goes over each atm array tile
 ! and interpolate to the fire grid, and modify within the corresponding
