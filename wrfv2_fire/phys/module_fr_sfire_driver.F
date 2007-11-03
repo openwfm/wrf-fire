@@ -47,6 +47,7 @@ use module_fr_sfire_util
 
 contains
 
+! module_fr_sfire_driver%%sfire_driver
 subroutine sfire_driver (                         &
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
@@ -224,9 +225,9 @@ do ij=1,num_tiles
 
     k=kds             ! the ground
     do j = jts,jte
-        do i = its,ite 
-            ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j))
-            va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j))            
+        do i = its,ite ! average 1st 2 layers, correct const shift
+            ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j)) - u_frame
+            va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j)) - v_frame           
         enddo
     enddo
     write(msg,'(a,i5,a,f10.5)')'driver: tile',ij, &
