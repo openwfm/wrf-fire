@@ -1,6 +1,7 @@
 !
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
+! With contributions by Minjeong Kim.
 
 module module_fr_sfire_core
 

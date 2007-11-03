@@ -1,9 +1,15 @@
 !WRF:MEDIATION_LAYER:FIRE_MODEL
 
 !
-!*** Jan Mandel October 2007 
+!*** Jan Mandel August-October 2007 
 !*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
 !
+! This file contains parts copied and/or adapted from earlier codes by
+! Terry Clark, Janice Coen, Don Latham, and Net Patton.
+!
+! With contributions by Jonathan Beezley.
+
+
 
 ! This module is the only entry point from WRF-ARW to the wildland 
 ! fire model. The call to sfire_driver advances the fire model by 

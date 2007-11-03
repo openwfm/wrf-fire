@@ -1,3 +1,13 @@
+!
+!*** Jan Mandel August-October 2007
+!*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
+!
+! This module contains general purpose utilities and WRF wrappers because I want the
+! model to be able to run standalone. No physics here.
+! Some are dependent on WRF indexing scheme. Some violate WRF conventions but these
+! are not called from the WRF dependent code. Some are not called at all.
+! 
+
 module module_fr_sfire_util
 
 contains

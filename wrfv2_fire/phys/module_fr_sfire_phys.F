@@ -1,3 +1,9 @@
+!
+!*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
+!
+! This file contains parts copied and/or adapted from earlier codes by 
+! Terry Clark, Janice Coen, Don Latham, and Net Patton.
+
 module module_fr_sfire_phys
 
 use module_model_constants, only: cp,xlv
