@@ -222,14 +222,16 @@ do ij=1,num_tiles
     call check_mesh_2dim(its,ite+1,jts,jte+1,ims,ime,jms,jme)        ! check if atm node tile fits in memory 
     call check_mesh_2dim(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-    k=1       !??
+    k=kds             ! the ground
     do j = jts,jte
         do i = its,ite 
             ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j))
             va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j))            
         enddo
     enddo
-    write(msg,'(a,i5,a,f10.5)')'driver: tile',ij,' in avg atm wind',avg_2darray_vec(its,ite,jts,jte,ims,ime,jms,jme,ua,va)
+    write(msg,'(a,i5,a,f10.5)')'driver: tile',ij, &
+        ' in avg atm wind',avg_2darray_vec(its,ite,jts,jte,ims,ime,jms,jme,ua,va)
+    call message(msg)
 enddo ! num_tiles
 
 

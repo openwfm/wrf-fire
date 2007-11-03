@@ -9,8 +9,8 @@ contains
 subroutine sfire_model (                    &
     initialize, ignition,                   & ! switches
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
-    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
     num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing
@@ -92,8 +92,8 @@ do ij=1,num_tiles
     
     call check_tiles(ifts,ifte,jfts,ifte,num_tiles,i_start,i_end,j_start,j_end)
     
-    write(msg,'(a,i5,a,f8.2)')'fire tile',ij,' avg wind speed', &
-        avg_2darray_vec(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vx,vy)
+    write(msg,'(a,i5,a,f8.2)')'model: fire tile',ij,' avg fire wind', &
+        avg_2darray_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vx,vy)
     call message(msg)
     
     ! initialize all arrays that the model will not change later

@@ -9,8 +9,8 @@ contains
 
 subroutine model_test(  &
     ifds,ifde,jfds,jfde, &
-    ifps,ifpe,jfps,jfpe, &
     ifms,ifme,jfms,jfme, &
+    ifps,ifpe,jfps,jfpe, &
     fdx,fdy,wind,alpha,dt,msteps)
 use module_fr_sfire_util
 use module_fr_sfire_model
@@ -83,8 +83,8 @@ do istep=1,msteps
     call   sfire_model (                    &
     initialize, ignition,                   & ! switches
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
-    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
     num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing
@@ -148,6 +148,6 @@ wind=5
 alpha=1.3
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt
-call model_test(1,nx,1,ny,1,nx,1,ny,1,nx+1,1,ny+1,fdx,fdy,wind,alpha,dt,msteps)
+call model_test(1,nx,1,ny,nx+1,1,ny+1,1,nx,1,ny,1,fdx,fdy,wind,alpha,dt,msteps)
 
 end program model_test_main

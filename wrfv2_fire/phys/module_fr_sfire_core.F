@@ -596,11 +596,13 @@ do while ( .not.last )
 
     if(printl>=2 .or. (printl>=1 .and. (last .or. istep==1) ) )then
         write(msg,'(7(a,f10.5))')  &
-        'prop_ls:time',t,' dt',dt, &
-        'in avg front speed',avg_2darray(1,k,1,1,1,k,1,1,speedp)
+            'prop_ls:time',t,' dt',dt
         call message(msg)
-         write(msg,'(7(a,f10.5))') &
-        'out avg level tend',avg_2darray(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend)
+        write(msg,'(7(a,f10.5))')  &
+            'in avg front speed',avg_2darray(1,k,1,1,1,k,1,1,speedp)
+        call message(msg)
+        write(msg,'(7(a,f10.5))') &
+            'out avg level tend',avg_2darray(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend)
         call message(msg)
     endif
     

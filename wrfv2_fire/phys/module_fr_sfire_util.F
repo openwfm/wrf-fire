@@ -198,7 +198,6 @@ end subroutine sum_2d_cells
 !****************
 !
 
-
 subroutine interpolate_2d_nodes2nodes3(  &
     ids2,ide2,kds2,kde2,jds2,jde2, & ! dimensions coarse grid
     ims2,ime2,kms2,kme2,jms2,jme2, & ! array coarse grid
@@ -267,6 +266,8 @@ enddo
 
 end subroutine interpolate_2d_nodes2nodes3
 
+
+! module_fr_sfire_util%%interpolate_2d_nodes2nodes
 subroutine interpolate_2d_nodes2nodes(  &
     ids2,ide2,jds2,jde2, & ! dimensions coarse grid
     ims2,ime2,jms2,jme2, & ! array coarse grid
@@ -318,6 +319,7 @@ do j2=jds2,jde2-1
             ty = (j1-jo)/ry
             do i1=is,ie
                 tx = (i1-io)/rx
+                !print *,'coarse ',i2,j2,'to',i2+1,j2+1,' fine ',is,js,' to ',ie,je
                 v1(i1,j1)=                     &
                       (1-tx)*(1-ty)*v2(i2,j2)  &
                  +    (1-tx)*ty  *v2(i2,j2+1)  &
@@ -752,77 +754,73 @@ end subroutine meshdiff_2d
 
 
 
-real pure function sum_2darray( ifts,ifte,jfts,jfte,               &
-                                ifms,ifme,jfms,jfme,               &
+real pure function sum_2darray( its,ite,jts,jte,               &
+                                ims,ime,jms,jme,               &
                                 a)
-integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme
-real, intent(in)::a(ifts:ifte,jfts:jfte)
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
+real, intent(in)::a(ims:ime,jms:jme)
 !*** local
 integer:: i,j
 real:: t
 t=0.
-do j=jfts,jfte
-    do i=ifts,ifte
+do j=jts,jte
+    do i=its,ite
         t=t+a(i,j)
     enddo
 enddo
 sum_2darray = t
 end function sum_2darray
 
-real pure function avg_2darray( ifts,ifte,jfts,jfte,               &
-                                ifms,ifme,jfms,jfme,               &
+real pure function avg_2darray( its,ite,jts,jte,               &
+                                ims,ime,jms,jme,               &
                                 a)
-integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme
-real, intent(in)::a(ifts:ifte,jfts:jfte)
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
+real, intent(in)::a(ims:ime,jms:jme)
 !*** local
-integer:: i,j
-real:: t
-t=0.
-do j=jfts,jfte
-    do i=ifts,ifte
-        t=t+a(i,j)
-    enddo
-enddo
-avg_2darray = t/((ifte-ifts+1)*(jfte-jfts+1))
+!*** executable
+avg_2darray = sum_2darray( its,ite,jts,jte,               &
+                           ims,ime,jms,jme,               &
+                           a)/((ite-its+1)*(jte-jts+1))
 end function avg_2darray
 
-real pure function avg_2darray_vec( ifts,ifte,jfts,jfte,           &
-                                ifms,ifme,jfms,jfme,               &
+real pure function avg_2darray_vec( its,ite,jts,jte,           &
+                                ims,ime,jms,jme,               &
                                 ax,ay)
-integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme
-real, intent(in), dimension(ifts:ifte,jfts:jfte):: ax,ay
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
+real, intent(in), dimension(ims:ime,jms:jme):: ax,ay
 !*** local
 integer:: i,j
 real:: t
 t=0.
-do j=jfts,jfte
-    do i=ifts,ifte
+do j=jts,jte
+    do i=its,ite
         t=t+sqrt(ax(i,j)**2+ay(i,j)**2)
     enddo
 enddo
-avg_2darray_vec = t/((ifte-ifts+1)*(jfte-jfts+1))
+t = t/((ite-its+1)*(jte-jts+1))
+avg_2darray_vec = t
 end function avg_2darray_vec
 
-subroutine write_array_m(ifts,ifte,jfts,jfte,           &
-                         ifms,ifme,jfms,jfme,               &
+subroutine write_array_m(its,ite,jts,jte,           &
+                         ims,ime,jms,jme,               &
                          a,name,id)
 ! debug
-integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,id
-real, intent(in), dimension(ifms:ifme,jfms:jfme):: a
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme,id
+real, intent(in), dimension(ims:ime,jms:jme):: a
 !****
 integer i,j,iu
 character(len=*),intent(in)::name
 character(len=128)::fname
 !****
-call check_mesh_2dim(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme)
+call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 iu=17
 write(fname,3)name,'_',id,'.txt'
 open(iu,file=fname)
-write(iu,1)real(ifte-ifts+1)
-write(iu,1)real(jfte-jfts+1)
-write(iu,1)((a(i,j),i=ifts,ifte),j=jfts,jfte)
+write(iu,1)real(ite-its+1)
+write(iu,1)real(jte-jts+1)
+write(iu,1)((a(i,j),i=its,ite),j=jts,jte)
 close(iu)
-write(*,2)'wrote matrix ',name,' dimensions',ifts,':',ifte,jfts,':',jfte, &
+write(*,2)'wrote matrix ',name,' dimensions',its,':',ite,jts,':',jte, &
 ' to file ',fname  
 1 format(e20.12)
 2 format(3a,2(i5,a,i5),2a)
