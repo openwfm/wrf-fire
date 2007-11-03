@@ -16,7 +16,15 @@ end subroutine wrf_debug
 
 subroutine wrf_message(s)
 character(len=*), intent(in)::s
-print *,s
+integer i
+do i=len(s),2,-1
+    select case(s(i:i))
+    case(' ')
+    case default
+        goto 1
+    end select
+enddo
+1 write(*,'(a)')s(1:i)
 end subroutine wrf_message
 
 end module module_wrf_error

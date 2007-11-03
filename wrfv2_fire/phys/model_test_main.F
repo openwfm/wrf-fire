@@ -29,7 +29,7 @@ real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhfx,grnqfx
 integer:: initialize, ignition,i,j,ifuelread,istep
-real:: t0,time_start,sflux,sm,sn
+real:: t0,time_start,shflx,sqflx,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
 real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
 integer::num_tiles
@@ -102,10 +102,15 @@ do istep=1,msteps
     write(1,1)sm+1,sn+1,((vx(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
     write(1,1)sm+1,sn+1,((vy(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
     write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
-    sflux=avg_2darray      ( ifps,ifpe,jfps,jfpe,               &
+    shflx=avg_2darray      ( ifps,ifpe,jfps,jfpe,               &
                              ifms,ifme,jfms,jfme,               &
                              grnhfx)
-    print *,'test_main: step ',istep,' of ',msteps,' time ',time_start,' avg flux ',sflux
+    sqflx=avg_2darray      ( ifps,ifpe,jfps,jfpe,               &
+                             ifms,ifme,jfms,jfme,               &
+                             grnhfx)
+    print *,'test_main: step ',istep,' of ',msteps,' time ',time_start
+    print *,'test_main: step ',istep,' of ',msteps,' time ',time_start
+    print *,'test_main: avg heat fluxes ',shflx,sqflx
     time_start=time_start+dt 
 enddo
 
@@ -148,6 +153,9 @@ wind=5
 alpha=1.3
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt
-call model_test(1,nx,1,ny,nx+1,1,ny+1,1,nx,1,ny,1,fdx,fdy,wind,alpha,dt,msteps)
+call model_test(1,nx,1,ny, &
+   1,nx+1,1,ny+1, &
+   1,nx,1,ny, &
+   fdx,fdy,wind,alpha,dt,msteps)
 
 end program model_test_main
