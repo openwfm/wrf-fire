@@ -215,8 +215,8 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! fuel_frac(i,j)  =  -----     |    exp( -  ------------ ) dxdy
 !                    dx*dy     |              w(i,j)
 !                             \/
-!                       dx*(i-1)<x<dx*(i+1)
-!                       dy*(j-1)<y<dy*(j+1)
+!                       dx*(i-1)<x<dx*i
+!                       dy*(j-1)<y<dy*j
 !                        lfn(x,y)<=0
 !
 ! When the cell is not burning at all (all lfn>=0), then fuel_frac(i,j)=1.
@@ -244,8 +244,16 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! lfn(i,j)=0 implies tign(i,j)=tnow.  
 ! The output should be invariant to the symmetries of the input in each cell.
 ! Arbitrary combinations of the signs of lfn(i,j) should work.
-! The result should be at least 1st order accurate, i.e. exact when 
-! exp(T) is replaced by a linear function equal to one at the fireline
+! The result should be at least 1st order accurate in the sense that it is exact when 
+! the time from ignition is replaced by a linear function equal to zero on the fireline.
+!
+! Note: If time from ignition is approximated by polynomial in the burnt
+! region of the cell, this is integral of polynomial times exponential
+! over a polygon, which can be computed exactly.
+! If fuel_time*dt is large  the fuel burnt  in one timestep
+! the cell is approx. proportional to length of  fireline in that cell;
+! if small, to the burning region (area behind the filreline).
+!
 !
 ! IMPORTANT: follow WRF coding conventions 
 ! http://www.mmm.ucar.edu/wrf/WG2/WRF_conventions.html
