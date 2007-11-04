@@ -244,8 +244,8 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! lfn(i,j)=0 implies tign(i,j)=tnow.  
 ! The output should be invariant to the symmetries of the input in each cell.
 ! Arbitrary combinations of the signs of lfn(i,j) should work.
-! The result should be at least 1st order accurate in the sense that it is exact when 
-! the time from ignition is replaced by a linear function equal to zero on the fireline.
+! The result should be at least 1st order accurate in the sense that it is exact if 
+! the time from ignition is a linear function.
 !
 ! Note: If time from ignition is approximated by polynomial in the burnt
 ! region of the cell, this is integral of polynomial times exponential
