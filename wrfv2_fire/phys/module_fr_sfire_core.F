@@ -256,7 +256,7 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! rate of fuel decrease right behind the fireline is much larger 
 ! (exponential...). This will happen when
 ! 
-!      change of time from ignition withing one mesh cell
+!      change of time from ignition within one mesh cell
 ! X =  --------------------------------------------------  is not << 1
 !                     fuel_time.
 !
@@ -270,11 +270,11 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 !         
 ! (This subroutine does not have that data so it cannot compute and print this).
 !
-! When X is large then the fuel burnt in one timestep in the cell is approximately
-! proportional to length of  fireline in that cell.
+! When X is large then the fuel burnt in one timestep in the cell is
+! approximately proportional to length of  fireline in that cell.
 !
-! When X is small then the fuel burnt in one timestep in the cell is approximately
-! proportional to the area of the burning region.
+! When X is small then the fuel burnt in one timestep in the cell is
+! approximately proportional to the area of the burning region.
 !
 
 !
