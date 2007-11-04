@@ -240,19 +240,41 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! When all cell is burning, approximation by 1 point Gaussian quadrature is OK.
 ! 
 ! Requirements:
-! The output should be a continuous function of the arrays lfn and tign whenever 
-! lfn(i,j)=0 implies tign(i,j)=tnow.  
-! The output should be invariant to the symmetries of the input in each cell.
-! Arbitrary combinations of the signs of lfn(i,j) should work.
-! The result should be at least 1st order accurate in the sense that it is exact if 
-! the time from ignition is a linear function.
+! 1. The output should be a continuous function of the arrays lfn and tign whenever 
+!    lfn(i,j)=0 implies tign(i,j)=tnow.  
+! 2. The output should be invariant to the symmetries of the input in each cell.
+! 3. Arbitrary combinations of the signs of lfn(i,j) should work.
+! 4. The result should be at least 1st order accurate in the sense that it is exact if 
+!    the time from ignition is a linear function.
 !
 ! Note: If time from ignition is approximated by polynomial in the burnt
 ! region of the cell, this is integral of polynomial times exponential
 ! over a polygon, which can be computed exactly.
-! If dt/fuel_time is large  the fuel burnt  in one timestep
-! the cell is approx. proportional to length of  fireline in that cell;
-! if small, to the burning region (area behind the filreline).
+!
+! Requirement 4 is particularly important when there is a significant decrease
+! of the fuel fraction behind the fireline on the mesh scale, because the rate of fuel
+! decrease right behind the fireline is much larger (exponential...). This will happen when
+! 
+!      change of time from ignition withing one mesh cell
+! X =  --------------------------------------------------  is not << 1
+!                     fuel_time.
+!
+! (The code should compute and print this quantitity, max min avg)
+!
+! This is the same as
+!
+!               mesh cell size
+!         --------------------------   is not << 1
+!         fuel_time * fireline speed
+!         
+! (This subroutine does not have that data so it cannot compute and print this).
+!
+! When X is large then the fuel burnt then in one timestep in the cell is approximately
+! proportional to length of  fireline in that cell.
+! When X is small then the fuel burnt then in one timestep in the cell is approximately
+! proportional to the area of the burning region.
+!
+
 !
 !
 ! IMPORTANT: follow WRF coding conventions 
