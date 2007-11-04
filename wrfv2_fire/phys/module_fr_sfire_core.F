@@ -240,20 +240,21 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! When all cell is burning, approximation by 1 point Gaussian quadrature is OK.
 ! 
 ! Requirements:
-! 1. The output should be a continuous function of the arrays lfn and tign whenever 
-!    lfn(i,j)=0 implies tign(i,j)=tnow.  
+! 1. The output should be a continuous function of the arrays lfn and
+!  tign whenever lfn(i,j)=0 implies tign(i,j)=tnow.  
 ! 2. The output should be invariant to the symmetries of the input in each cell.
 ! 3. Arbitrary combinations of the signs of lfn(i,j) should work.
-! 4. The result should be at least 1st order accurate in the sense that it is exact if 
-!    the time from ignition is a linear function.
+! 4. The result should be at least 1st order accurate in the sense that it is
+!    exact if the time from ignition is a linear function.
 !
 ! Note: If time from ignition is approximated by polynomial in the burnt
 ! region of the cell, this is integral of polynomial times exponential
 ! over a polygon, which can be computed exactly.
 !
 ! Requirement 4 is particularly important when there is a significant decrease
-! of the fuel fraction behind the fireline on the mesh scale, because the rate of fuel
-! decrease right behind the fireline is much larger (exponential...). This will happen when
+! of the fuel fraction behind the fireline on the mesh scale, because the
+! rate of fuel decrease right behind the fireline is much larger 
+! (exponential...). This will happen when
 ! 
 !      change of time from ignition withing one mesh cell
 ! X =  --------------------------------------------------  is not << 1
@@ -269,9 +270,10 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 !         
 ! (This subroutine does not have that data so it cannot compute and print this).
 !
-! When X is large then the fuel burnt then in one timestep in the cell is approximately
+! When X is large then the fuel burnt in one timestep in the cell is approximately
 ! proportional to length of  fireline in that cell.
-! When X is small then the fuel burnt then in one timestep in the cell is approximately
+!
+! When X is small then the fuel burnt in one timestep in the cell is approximately
 ! proportional to the area of the burning region.
 !
 
