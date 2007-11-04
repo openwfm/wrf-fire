@@ -207,13 +207,13 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! The values of tign(i,j) where lfn(i,j)>0 are ignored.
 !
 ! The subroutine computes for each mesh cell [dx*(i-1),dx*i] by [dy*(j-1),dy*j]
-! an approximation of the average of exp(-T(x,y)/w(i,j)) over the burning area
+! an approximation of the average of exp(-T(x,y)/fuel_time(i,j)) over the burning area
 ! in the cell, that is an approximation of the integral
 !
 !                              /\
 !                     1        |            T(x,y)-tnow
-! fuel_frac(i,j)  =  -----     |    exp( -  ------------ ) dxdy
-!                    dx*dy     |              w(i,j)
+! fuel_frac(i,j)  =  -----     |    exp( - ------------- ) dxdy
+!                    dx*dy     |           fuel_time(i,j)
 !                             \/
 !                       dx*(i-1)<x<dx*i
 !                       dy*(j-1)<y<dy*j
@@ -250,7 +250,7 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! Note: If time from ignition is approximated by polynomial in the burnt
 ! region of the cell, this is integral of polynomial times exponential
 ! over a polygon, which can be computed exactly.
-! If fuel_time*dt is large  the fuel burnt  in one timestep
+! If dt/fuel_time is large  the fuel burnt  in one timestep
 ! the cell is approx. proportional to length of  fireline in that cell;
 ! if small, to the burning region (area behind the filreline).
 !
