@@ -24,6 +24,8 @@ variables for building. Then,
 
 cd wrfv2_fire
 ./configure # select option #5 for building
+            # if running on walnut select #1 or #2 
+            # as prefixed by (WALNUT)
 ./compile em_fire >& compile.log
 
 This will take a while.  Make sure that compile.log contains 
@@ -54,3 +56,12 @@ cd phys
 ./ifmake clean
 
 Without the clean between different kind of builds nothing will work.
+
+*NOTE*
+On walnut, the ifmake script will not work, but you can use the makefile, 
+'testmakefile.walnut' like this:
+
+make -f testmakefile.walnut clean model_test
+
+this will run the standalone model test.
+
