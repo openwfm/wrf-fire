@@ -1,16 +1,23 @@
 
 set cont=1
 set host=`hostname`
+set myhost=1
 if ( ${host} == "wf.cudenver.edu" )  then
   set base="/opt/wrf-libs"
 else if ( ${host} == "opt4.cudenver.edu" ) then
   set base="/home/grads/jbeezley/wrf-libs"
+else if ( ${host} == "walnut" ) then
+  set base="/local"
+  set myhost=0
 else
   echo "unknown host: " ${host}
   set cont=0
 endif
 
 if ( $cont == 1 ) then
+
+if ( $myhost == 1 ) then
+
 setenv NETCDF ${base}/netcdf
 setenv JASPERLIB ${base}/jasper/lib
 setenv JASPERINC ${base}/jasper/include
@@ -23,6 +30,22 @@ if ( -f ${ifvars} ) then
   source ${ifvars}
 else
   echo "WARNING: couldn't find ifort setup script"
+endif
+
+else
+
+setenv NETCDF ${base}/netcdf
+setenv NCARG ${base}/ncarg
+setenv NCARG_ROOT $NCARG
+unlimit 
+
+setenv PGI /usr/pgi
+setenv PATH $PGI/linux86-64/6.2/bin:$PATH
+setenv MANPATH $PGI/linux86-64/6.2/man
+setenv LM_LICENSE_FILE $PGI/license.dat
+setenv FC pgf77
+setenv F90 pgf90
+
 endif
 
 else
