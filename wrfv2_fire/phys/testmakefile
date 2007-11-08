@@ -159,7 +159,10 @@ MODEL_OBJ = \
 model_test_main.o: module_fr_sfire_model.o 
  
 model_netcdf_test:
-	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" PHYS=module_fr_sfire_phys
+	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" \
+        PHYS=module_fr_sfire_phys \
+	ARGS=fr_sfire_params_args \
+	DECL=fr_sfire_params_decl
 	- rm -f fire_io.nc
 	- cp fire_io_save.nc fire_io.nc &> /dev/null
 	./model_netcdf_prog.exe
