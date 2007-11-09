@@ -1,4 +1,5 @@
 !WRF:MEDIATION_LAYER:FIRE_MODEL
+#define DEBUG_WRITE_M   /* write debug matrices in util1_jan.a format */
 
 !
 !*** Jan Mandel August-October 2007 
@@ -260,6 +261,12 @@ do ij=1,num_tiles
         enddo
     enddo
 
+#ifdef DEBUG_WRITE_M
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'ua',itimestep)
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'va',itimestep)
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,zs,'zs',itimestep)
+#endif
+
 enddo ! num_tiles
 
 call print_2d_stats_vec(ids,ide,jds,jde,ims,ime,jms,jme,ua,va,'driver: atm wind (m/s)')
@@ -365,6 +372,11 @@ do ij=1,num_tiles
         zsf)                      ! out fire grid
         
 enddo
+#ifdef DEBUG_WRITE_M
+    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,'uf',itimestep)
+    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vf,'vf',itimestep)
+    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'zsf',itimestep)
+#endif
 ! the model is parallel itself, call on the whole patch not just a tile
 
 if(itimestep .eq. 1 )then
@@ -413,14 +425,23 @@ do ij=1,num_tiles
         enddo
     enddo
 
+#ifdef DEBUG_WRITE_M
+    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',itimestep)
+    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',itimestep)
+#endif
     
     ! sum up the fluxes over atm cells
     call sum_2d_cells(                                  &
-        ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,grnhfx, &
+        ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx, &
         its,ite,jts,jte,ims, ime, jms, jme, grnhfx)
     call sum_2d_cells(                                  &
-        ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,grnqfx, &
+        ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx, &
         its,ite,jts,jte,ims, ime, jms, jme, grnqfx)
+
+#ifdef DEBUG_WRITE_M
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'grnhfx',itimestep)
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'grnqfx',itimestep)
+#endif
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     
