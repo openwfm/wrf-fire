@@ -894,25 +894,35 @@ subroutine write_array_m(its,ite,jts,jte,           &
                          ims,ime,jms,jme,               &
                          a,name,id)
 ! debug
+!*** arguments
 integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme,id
 real, intent(in), dimension(ims:ime,jms:jme):: a
-!****
-integer i,j,iu
 character(len=*),intent(in)::name
+!****
+integer i,j,iu,ilen
+logical op
 character(len=128)::fname
 !****
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
-iu=17
-write(fname,3)name,'_',id,'.txt'
-open(iu,file=fname)
+do iu=6,99
+    inquire(unit=iu,opened=op)
+    if(.not.op)goto 17
+enddo
+call crash('write_array_m: cannot find available fortran unit')
+17 write(fname,3)name,'_',id,'.txt'
+do ilen=len(fname),2,-1
+    if(fname(ilen:ilen).ne.' ')goto 19
+enddo
+19 continue
+open(iu,file=fname(1:ilen))
 write(iu,1)real(ite-its+1)
 write(iu,1)real(jte-jts+1)
 write(iu,1)((a(i,j),i=its,ite),j=jts,jte)
 close(iu)
 write(*,2)'wrote matrix ',name,' dimensions',its,':',ite,jts,':',jte, &
-' to file ',fname  
+' to file ',fname(1:ilen),' unit',iu 
 1 format(e20.12)
-2 format(3a,2(i5,a,i5),2a)
+2 format(3a,2(i5,a,i5),2a,a,i3)
 3 format(a,a,i5.5,a)
 end subroutine write_array_m
 

@@ -431,7 +431,7 @@ real,dimension(ims:ime,jms:jme)::    vvxx,vvyy,aa,rrr
 real, dimension((jde-jds+2)*(ide-ids+2))::rii,rjj,speedp
 ! scalars
 real:: diff2x,diff2y,rr,grad,t,dt,tr,tbound,lfn_old,lfn_new
-integer::istep
+integer::istep,id
 integer:: i,j,k,kk
 character(len=128)msg
 logical last
@@ -476,6 +476,7 @@ last = .false. ! stopping test
 
 do while ( .not.last )
     istep=istep+1
+    id=istep
 
 #ifdef DEBUG_OUT    
         if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
