@@ -426,6 +426,9 @@ do ij=1,num_tiles
     enddo
 
 #ifdef DEBUG_WRITE_M
+    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn',itimestep)
+    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign,'tign',itimestep)
+    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',itimestep)
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',itimestep)
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',itimestep)
 #endif
