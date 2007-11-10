@@ -99,10 +99,15 @@ This will create a directory ./wrf under your current directory.
   with what you wish to name your branch).
 
     git checkout -b <branch> origin/master
-    git push origin <branch>:<branch>
+    git push origin <branch>:refs/heads/<branch>
 
   The first command creates a local branch starting from "master".  The
-  second command commits (pushes) this branch to the shared repository.
+  second command commits (pushes) this branch to the shared repository.  
+  The "refs/heads/" part in the remote branch is now necessary in order
+  to create a new branch in a remote repository.  This is known as a 
+  long branch reference, as opposed to the short branch reference "<branch>".
+  While long branch references will work in any git operation, they are
+  only necessary in creating a remote branch.
 
   To switch to a different local branch
 
@@ -168,21 +173,29 @@ This will create a directory ./wrf under your current directory.
   branch which you control.  There is a way to automate this so that the
   branches don't have to be specified (the --track flag may actually take
   care of this), but I'm not sure how this works.  For now, I suggest
-  specifying the branches to be safe.
+  specifying the branches to be safe. 
 
-6.  Other commands
+6.  Deleting a remote branch
+
+  A remote branch can be deleted by pushing "nothing" to the branch.  For
+  example, if you want to delete the remote branch "oldbranch" on origin, 
+  you would do:
+
+  git push origin :oldbranch
+
+7.  Other commands
 
   For a log of everything you have done in your repository, see the command
   reflog.
   You can undo changes with reset.  The cvs style commands status, log, and
   diff also work in git.
 
-7. diff with other branch:
+8. diff with other branch:
 
   git fetch                       (to make sure you have current repository)
   git diff <branch>               (for example git diff origin/jb/fire_da)
 
-7.  Getting help
+9.  Getting help
 
   man git : Overview of git commands
   man git-commit : man page for "git commit" (replace commit with other commands as well)
@@ -208,7 +221,7 @@ This will create a directory ./wrf under your current directory.
 
     http://www.kernel.org/pub/software/scm/git/docs/user-manual.html
 
-8. Magic sequences for specific tasks
+10. Magic sequences for specific tasks
 
   Magic sequence to see files from somebody else's branch
 
