@@ -1,5 +1,5 @@
 !WRF:MEDIATION_LAYER:FIRE_MODEL
-!#define DEBUG_WRITE_M   /* write debug matrices in util1_jan.a format */
+#define DEBUG_WRITE_M   /* write debug matrices in util1_jan.a format */
 
 !
 !*** Jan Mandel August-October 2007 
