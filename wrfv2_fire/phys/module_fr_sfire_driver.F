@@ -1,5 +1,4 @@
 !WRF:MEDIATION_LAYER:FIRE_MODEL
-!#define DEBUG_WRITE_M   /* write debug matrices in util1_jan.a format */
 
 !
 !*** Jan Mandel August-October 2007 
@@ -51,6 +50,8 @@ use module_model_constants, only: cp,xlv
 use module_fr_sfire_model
 use module_fr_sfire_phys
 use module_fr_sfire_util
+
+logical write_m
 
 contains
 
@@ -153,6 +154,9 @@ real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 
 ! time - assume dt does not change
 time_start = itimestep * dt
+
+! debug write switch
+write_m = itimestep.le.2.or.mod(itimestep,100).eq.0
 
 ! fire mesh step
 dxf=dx/ir
@@ -261,11 +265,11 @@ do ij=1,num_tiles
         enddo
     enddo
 
-#ifdef DEBUG_WRITE_M
-    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'ua',itimestep)
-    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'va',itimestep)
-    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,zs,'zs',itimestep)
-#endif
+    if (write_m) then
+        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'ua',itimestep)
+        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'va',itimestep)
+        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,zs,'zs',itimestep)
+    endif
 
 enddo ! num_tiles
 
@@ -372,11 +376,11 @@ do ij=1,num_tiles
         zsf)                      ! out fire grid
         
 enddo
-#ifdef DEBUG_WRITE_M
+if(write_m)then
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,'uf',itimestep)
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vf,'vf',itimestep)
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'zsf',itimestep)
-#endif
+endif
 ! the model is parallel itself, call on the whole patch not just a tile
 
 if(itimestep .eq. 1 )then
@@ -425,13 +429,13 @@ do ij=1,num_tiles
         enddo
     enddo
 
-#ifdef DEBUG_WRITE_M
+    if(write_m)then
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn',itimestep)
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign,'tign',itimestep)
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',itimestep)
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',itimestep)
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',itimestep)
-#endif
+    endif
     
     ! sum up the fluxes over atm cells
     call sum_2d_cells(                                  &
@@ -441,10 +445,10 @@ do ij=1,num_tiles
         ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx, &
         its,ite,jts,jte,ims, ime, jms, jme, grnqfx)
 
-#ifdef DEBUG_WRITE_M
+    if(write_m)then
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'grnhfx',itimestep)
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'grnqfx',itimestep)
-#endif
+    endif
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     

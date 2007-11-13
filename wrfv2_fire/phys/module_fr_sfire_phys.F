@@ -490,7 +490,7 @@ intrinsic nint,max,min
 !***  internal
 integer i,j,k
 real tanphi
-real speed
+real speed,ros1
 real,dimension(ids:ide+1,jds:jde+1)::ros_all
 
 !*** executable
@@ -507,10 +507,11 @@ do j=jds,jde+1
   
         ! get rate of spread from wind speed and slope
          
-        !ros_all(i,j) = max(speed,0.0)  ! debug only 
-        ros_all(i,j) = fire_ros(speed,tanphi,i,j &
+        !ros1 = speed  ! debug only 
+        ros1 = fire_ros(speed,tanphi,i,j &
 #       include "fr_sfire_params_args.h"
         )
+        ros_all(i,j)=max(ros1,0.0)
 
     enddo
 enddo
@@ -602,7 +603,8 @@ rosm= min(rosm, 6.)         ! no faster than this cap   ! param !
 
 !     ... to rescale to veloc. carried by model, mult x (svel*snorm(1,3))= .1
 !jm: huh ???
-      fire_ros = 0.1*rosm
+!     fire_ros = 0.1*rosm
+      fire_ros = rosm
 !
       return
 end function fire_ros 
