@@ -123,28 +123,28 @@ implicit none
 !*** declarations
 
 integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
-real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s)
+real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s), wind azimuth
 integer::rfx,rfy ! refinement, convenience only
 
 nx=200
 ny=200
 msteps=200
-fdx=50
-fdy=50
+fdx=6
+fdy=6
 
-rfx=2
-rfy=2
+rfx=1
+rfy=1
 
 nx=nx*rfx
 ny=ny*rfy
 fdx=fdx/rfx
 fdy=fdy/rfy
 
-dt=10
-wind=5
-alpha=1.3
+dt=1
+wind=10
+alpha=0.0
 
-print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt
+print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
 call model_test(1,nx,1,ny, &
    1,nx+1,1,ny+1, &
    1,nx,1,ny, &
