@@ -131,7 +131,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
 !  tlon_stf       longitude of inital fire location (degrees lon)
 !  t_ignite       time of fire initiation (s)
 !  ishape         what initial fire shape? 
-!  ibeh           which fire spread model?  = 0 McArthur, =1 BEHAVE
+!  ibeh           which fire spread model?  = 0 McArthur, =1 Rothermel formula
 !  z1can          lowest height crown fire heat is released (m)
 !  alfc           extinction depth of crown fire heat (m)
 !  alfg           extinction depth of ground fire heat (m)
@@ -356,7 +356,7 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    REAL, INTENT(in)    :: z1can       ! lowest height crown fire heat is released (m)
    REAL, INTENT(in)    :: alfg        ! extinction depth of ground fire heat (m)
    REAL, INTENT(in)    :: alfc        !  extinction depth of crown fire heat (m)
-   INTEGER, INTENT(in) :: ibeh        ! which fire spread model?  = 0 McArthur, =1 BEHAVE
+   INTEGER, INTENT(in) :: ibeh        ! which fire spread model?  = 0 McArthur, =1 Rothermel formula
    INTEGER, INTENT(in) :: nfuel_cat0  ! if fuel parameters are specified, what category?
 
    ! incoming atmos. winds (m/s at arakawa-c grid locations)
@@ -1118,7 +1118,7 @@ SUBROUTINE fire_startup( grid_id,                              & ! incoming
 
 ! ----- end  LOAD FUEL CATEGORIES (OR CONSTANT) HERE.
 
-! -----  Settings of fire spread parameters from BEHAVE follows. These
+! -----  Settings of fire spread parameters from Rothermel follows. These
 !         don't need to be recalculated later.
 !
    DO j = jf_st,jf_en
@@ -5694,7 +5694,7 @@ SUBROUTINE fire_ros( i,j,                             &    ! incoming
 
    IF (ichap(nfuel_cat(i,j)) == 0) THEN  ! not chaparral 
 
-      IF (ibeh == 1) THEN                ! BEHAVE
+      IF (ibeh == 1) THEN                ! Rothermel formulas used
 
 ! --- if wind is 0 or into fireline, phiw=0, this reduces to backing r.o.s.
 

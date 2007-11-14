@@ -207,7 +207,7 @@ do j=jfts,jfte+1
         !*** rest copied from wf2_janice/fire_startup.m4 with minimal changes
         !
 
-        !     ...Settings of fire spread parameters from BEHAVE follows. These
+        !     ...Settings of fire spread parameters from Rothermel follows. These
         !        don't need to be recalculated later.
         
         fuelloadm= (1.-bmst) * fgi(nfuel_cat(i,j))  !  fuelload without moisture
@@ -545,7 +545,7 @@ implicit none
 !   betaop is module variable instead of local, in  case when needed 
 !       (set in module_fr_sfire_model/fire_startup)
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!     ... calculates fire spread rate with mcarthur formula or behave
+!     ... calculates fire spread rate with mcarthur formula or Rothermel
 !           using fuel type of fuel cell
 !
 !      
@@ -566,31 +566,34 @@ parameter(ibeh=1)
 
 !*** executable
 
-if (ischap(i,j) .eq. 0) then            ! not chaparral
-    if (ibeh .eq. 1) then                ! behave
+if (ischap(i,j) .eq. 0) then            ! if not chaparral
+    if (ibeh .eq. 1) then                ! use Rothermel formula
 !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-        spdms = max(speed,0.)          ! unscale model to m/s 10*.5
-        umidm = min(spdms,10.)       ! max input wind spd is 10 m/s   !param!
+        spdms = max(speed,0.)          ! 
+        umidm = min(spdms,30.)       ! max input wind spd is 30 m/s   !param!
         umid = umidm * 196.850                    ! m/s to ft/min
         !  eqn.: phiw = c * umid**bbb(i,j) * (betafl(i,j)/betaop)**(-e) ! wind coef
         phiw = umid**bbb(i,j) * phiwc(i,j) ! wind coef
-        phis=0  !*** jm added ??
+        phis=0.
         if (tanphi .gt. 0.) then
             phis = 5.275 *(betafl(i,j))**(-0.3) *tanphi**2   ! slope factor
         endif
         rosm = r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
             
-        !write (6,'(x,a,2i4,4(x,e12.3) )') 'i,l,rosm,r0,phiw,phis=', &
-        !   i,l,rosm,r_0(i,j),phiw,phis
-        !if (rosm .gt. 1) write (6,*) 'speed=',speed,' tanphi=',tanphi
+        !write (6,'(x,a,2i4,4(x,2e12.3,x,e12.3) )') &
+        !   'i,j,speed,umidm,rosm,r0,phiw,phis=', &
+        !   i,j,speed,umidm,rosm,r_0(i,j),phiw,phis
+        write (6,"(1x,a,e11.3,a,e11.3,a,e11.3,a,2e11.3)") &
+        'umidm=',umidm,'rosm=',rosm,'Ro',r_0(i,j), &
+        'phiw,phis=',phiw,phis
 !
-    else                                   !macarthur formula
+    else                                   ! MacArthur formula (Australian)
         rosm = 0.18*exp(0.8424*max(speed,0.))
     endif
 !
 else   ! chaparral
 !        .... spread rate has no dependency on fuel character, only windspeed.
-    spdms = max(speed,0.)       ! unscale model to m/s 10*.5
+    spdms = max(speed,0.)      
     rosm = 1.2974 * spdms**1.41       ! spread rate, m/s
     ! note: backing ros is 0 for chaparral without setting nozero value below
     sp_n=.03333    ! chaparral backing fire spread rate 0.033 m/s   ! param!
@@ -599,10 +602,6 @@ endif
 !
 !     ----------note!  put an 6 m/s cap on max spread rate -----------
 rosm= min(rosm, 6.)         ! no faster than this cap   ! param !
-
-!     ... to rescale to veloc. carried by model, mult x (svel*snorm(1,3))= .1
-!jm: huh ???
-      fire_ros = 0.1*rosm
 !
       return
 end function fire_ros 

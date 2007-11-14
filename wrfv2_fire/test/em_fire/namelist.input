@@ -27,7 +27,7 @@
  /
 
  &domains
- time_step                           = 3,
+ time_step                           = 5,
  time_step_fract_num                 = 0,
  time_step_fract_den                 = 1,
  max_dom                             = 1,
@@ -126,8 +126,8 @@
 !fire_lat_init      =   40.,	! real   , initial fire latitude (deg)
 !fire_lon_init      = -105.,	! real   , initial fire longitude (deg)
  fire_lat_init      = 6.75e-3,	! real   , initial fire latitude (deg)
- fire_lon_init      = 6.75e-3,	! real   , initial fire longitude (deg)
- fire_ign_time      = 120.,	! real   , time of fire ignition (s)
+ fire_lon_init      = 6.70e-3,	! real   , initial fire longitude (deg)
+ fire_ign_time      = 30.,  	! real   , time of fire ignition (s)
  fire_shape         = 1,	! integer, initial fire shape
  fire_sprd_mdl      = 1,	! integer, = 0: Macarthur, = 1: BEHAVE
  fire_crwn_hgt      = 15.,	! real   , height of canopy crown (m)
