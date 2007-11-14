@@ -134,9 +134,5 @@
  fire_ext_grnd      = 50.,	! real   , extinction coeff ground fire
  fire_ext_crwn      = 50.,	! real   , extinction coeff crown fire
  fire_fuel_read     = 1,	! integer, = 1: fuels specified; = 2: read from file
-<<<<<<< HEAD:wrfv2_fire/test/em_fire/namelist.input
- fire_fuel_cat      = 3,	! integer, if specified which fuel category?
-=======
  fire_fuel_cat      = 1,	! integer, if specified which fuel category?
->>>>>>> f1b2ffe0e81b811f5e88a0952fe745e3ad61386b:wrfv2_fire/test/em_fire/namelist.input
  /
