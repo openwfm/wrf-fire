@@ -808,7 +808,6 @@ character(len=*),intent(in)::name
 integer:: i,j
 real:: t 
 real:: avg_a,max_a,min_a 
-character(len=128)msg
 character(len=25)id
 id=name
 call print_2d_stats(ips,ipe,jps,jpe, &
@@ -829,9 +828,24 @@ do j=jps,jpe
     enddo
 enddo
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1))
-write(msg,'(a25,a3,3(a,g10.3))')id,'/sz',':min ',min_a,' max ',max_a,' avg ',avg_a
-call message(msg)
+call print_stat_line(id//'/sz',min_a,max_a,avg_a)
 end subroutine print_2d_stats_vec
+
+
+subroutine print_stat_line(name,min_a,max_a,avg_a)
+!*** encapsulate line with statistics
+implicit none
+!*** arguments
+character(len=*),intent(in)::name
+real,intent(in)::min_a,max_a,avg_a
+!*** local
+character(len=128)msg
+character(len=28)id
+id=name
+write(msg,'(a,3(a,g10.3))')id,':min ',min_a,' max ',max_a,' avg ',avg_a
+call message(msg)
+end subroutine print_stat_line
+
 
 subroutine print_2d_stats(ips,ipe,jps,jpe, &
                          ims,ime,jms,jme, &
@@ -842,9 +856,6 @@ real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
 integer:: i,j
 real:: avg_a,max_a,min_a 
-character(len=128)msg
-character(len=30)id
-id=name
 avg_a=0
 max_a=-huge(max_a)
 min_a= huge(min_a)
@@ -856,8 +867,7 @@ do j=jps,jpe
     enddo
 enddo
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1))
-write(msg,'(a28,3(a,g10.3))')id,':min ',min_a,' max ',max_a,' avg ',avg_a
-call message(msg)
+call print_stat_line(name,min_a,max_a,avg_a)
 end subroutine print_2d_stats
 
 real pure function avg_2darray( its,ite,jts,jte,               &

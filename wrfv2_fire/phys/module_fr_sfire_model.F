@@ -76,7 +76,6 @@ integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments t
 integer::ij        
 real, dimension(ifms:ifme, jfms:jfme)::fuel_frac_burnt
 real:: ctri,ctrj,diam ! for ignition
-character(len=128)msg
 
 !*** executable
 

@@ -29,7 +29,7 @@ real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhfx,grnqfx
 integer:: initialize, ignition,i,j,ifuelread,istep,nfuel_cat0
-real:: t0,time_start,shflx,sqflx,sm,sn
+real:: t0,time_start,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
 real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
 integer::num_tiles
@@ -55,7 +55,7 @@ enddo
 
 ! fuel data
 ifuelread=0
-nfuel_cat0=8
+nfuel_cat0=3
 
 ! for matlab
 open(1,file='model_test_out.txt',form='formatted')
@@ -124,8 +124,8 @@ integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
 real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s), wind azimuth
 integer::rfx,rfy ! refinement, convenience only
 
-nx=200
-ny=200
+nx=400
+ny=400
 msteps=200
 fdx=6
 fdy=6

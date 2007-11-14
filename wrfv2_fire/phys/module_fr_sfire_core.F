@@ -112,9 +112,8 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !
 !*** local
 real, dimension(ims:ime,jms:jme)::frac_start
-real:: time_now,avg_rate,max_rate
+real:: time_now
 integer::i,j
-character(len=128)msg
 
 !*** calls
 intrinsic epsilon
@@ -430,19 +429,27 @@ real,dimension(ims:ime,jms:jme)::    vvxx,vvyy,aa,rrr
 #endif
 real, dimension((jde-jds+2)*(ide-ids+2))::rii,rjj,speedp
 ! scalars
-real:: diff2x,diff2y,rr,grad,t,dt,tr,tbound,lfn_old,lfn_new
-integer::istep,id
-integer:: i,j,k,kk
+real::diff2x,diff2y,rr,grad,t,dt,tr,tbound,lfn_old,lfn_new
+real::gradx,grady,aspeed,err,aerr
+integer::istep
+integer::i,j,k,kk
 character(len=128)msg
 logical last
+integer::nfire,nfireline
+real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr    
+#ifdef DEBUG_OUT    
+integer::id
+#endif
+
 
 ! constants
 integer,parameter :: mstep=1000, printl=1
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps
+real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
+    safe=2.,rmin=safe*tiny(zero),rmax=huge(zero)/safe
 
 ! f90 intrinsic function
 
-intrinsic max,min,sqrt,nint,epsilon
+intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
 
@@ -476,9 +483,9 @@ last = .false. ! stopping test
 
 do while ( .not.last )
     istep=istep+1
-    id=istep
 
 #ifdef DEBUG_OUT    
+        id=istep
         if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',id)
 #endif
@@ -622,6 +629,47 @@ do while ( .not.last )
                                 ims,ime,jms,jme,lfn,'lfn_new',id)
 #endif
     
+    ! check local speed error and stats 
+    ! init stats
+    nfire=0
+    nfireline=0
+    sum_err=0.
+    min_err=rmax
+    max_err=rmin     
+    sum_aerr=0.
+    min_aerr=rmax
+    max_aerr=rmin    
+    ! loop over the inside of the domain
+    do j=jds+1,jde+1-1
+        do i=ids+1,ide+1-1
+            if(lfn(i,j)<=0.0)then                      ! a point in burning region
+                nfire=nfire+1
+                if(lfn(i+1,j)>=0.or.lfn(i,j+1)>=0.or. &
+                   lfn(i-1,j)>=0.or.lfn(i,j-1)>=0)then ! point next to fireline
+                   gradx=(lfn(i+1,j)-lfn(i-1,j))/(2.0*dx)
+                   grady=(lfn(i,j+1)-lfn(i,j-1))/(2.0*dy)
+                   grad=sqrt(gradx*gradx+grady*grady)
+                   aspeed = -tend(i,j)/max(grad,rmin)
+                   err=aspeed-speed(i,j)
+                   sum_err=sum_err+err
+                   min_err=min(min_err,err)
+                   max_err=max(max_err,err)     
+                   aerr=abs(err)
+                   sum_aerr=sum_aerr+aerr
+                   min_aerr=min(min_aerr,aerr)
+                   max_aerr=max(max_aerr,aerr)
+                   nfireline=nfireline+1
+                endif
+            endif
+        enddo
+    enddo
+    write(msg,'(2(a,i6))')'prop_ls: nodes burning',nfire,' next to fireline',nfireline
+    call message(msg)
+    if(nfireline>0)then
+        call print_stat_line('speed error',min_err,max_err,sum_err/nfireline)
+        call print_stat_line('abs(speed error)',min_aerr,max_aerr,sum_aerr/nfireline)
+    endif
+        
     tr = tr + dt
     last = .not.(tr + td*tol < td .and. istep < mstep)   !  last pass
 
