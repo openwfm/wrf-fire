@@ -134,5 +134,5 @@
  fire_ext_grnd      = 50.,	! real   , extinction coeff ground fire
  fire_ext_crwn      = 50.,	! real   , extinction coeff crown fire
  fire_fuel_read     = 1,	! integer, = 1: fuels specified; = 2: read from file
- fire_fuel_cat      = 8,	! integer, if specified which fuel category?
+ fire_fuel_cat      = 3,	! integer, if specified which fuel category?
  /

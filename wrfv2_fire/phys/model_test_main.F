@@ -28,7 +28,7 @@ real, intent(in)::fdx,fdy,dt,wind,alpha
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhfx,grnqfx
-integer:: initialize, ignition,i,j,ifuelread,istep
+integer:: initialize, ignition,i,j,ifuelread,istep,nfuel_cat0
 real:: t0,time_start,shflx,sqflx,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
 real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
@@ -54,11 +54,8 @@ do j=jfps,jfpe+1
 enddo
 
 ! fuel data
-ifuelread=1
-call set_nfuel_cat( ifps,ifpe,jfps,jfpe,               &
-                    ifms,ifme,jfms,jfme,               &
-                    ifuelread,zsf,nfuel_cat)
-
+ifuelread=0
+nfuel_cat0=8
 
 ! for matlab
 open(1,file='model_test_out.txt',form='formatted')
@@ -82,17 +79,18 @@ do istep=1,msteps
     endif
     call   sfire_model (                    &
     initialize, ignition,                   & ! switches
+    ifuelread,nfuel_cat0,                   &
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
     ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
     num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing
-    nfuel_cat,                              & ! fuel data per point 
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
     lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
     grnhfx,grnqfx,                          & ! output: heat fluxes
+    nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
     ) 

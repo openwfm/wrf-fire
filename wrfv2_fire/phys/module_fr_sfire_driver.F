@@ -65,15 +65,15 @@ subroutine sfire_driver (                         &
     igps, igpe, jgps, jgpe,                       & ! fire patch in - will use smaller
     ir,jr,                                        & ! atm/fire grid ratio
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
-    itimestep,dt,dx,dy,                           & ! in scalars
+    itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
     u_frame,v_frame,                              &
     alfg,alfc,z1can,                              &
     u,v,mu,rho,zs,                                & ! in arrays, atm grid
     z_at_w,dz8w,                                  &
-    nfuel_cat,                                    & ! in array, data, fire grid
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
+    nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,zsf,                                & ! save constant internal data, fire grid
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap&
     )
@@ -91,6 +91,8 @@ integer, intent(in)::                             &
     igps, igpe, jgps, jgpe,                       & ! fire patch bounds given
     ir,jr,                                    & ! atm/fire grid refinement ratio
     itimestep,                                    & ! number of this timestep
+    ifuelread,                                    & ! how to initialize nfuel_cat: 0=from nfuel_cat0
+    nfuel_cat0,                                   & ! fuel category to initialize everything to
     num_tiles                                       ! number of tiles
 
 integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! fire grid tiling
@@ -114,7 +116,7 @@ real, intent(in), dimension(ims:ime, jms:jme)::   & ! from Ned's code, who knows
     z_at_w,                                       & ! m abv sealvl
     dz8w                                            ! dz across w-lvl`
     
-integer, intent(in), dimension(ifms:ifme,jfms:jfme):: &
+integer, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
     nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
@@ -151,6 +153,16 @@ character(len=128)msg
 real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 
 !*** executable
+
+! initialize and ignition should be really passed in arguments
+! and set to 1 at the right time by the caller
+if(itimestep .eq. 1 )then
+    initialize=1
+    ignition=1
+else
+    initialize=0
+    ignition=0
+endif
 
 ! time - assume dt does not change
 time_start = itimestep * dt
@@ -257,6 +269,7 @@ do ij=1,num_tiles
     call check_mesh_2dim(its,ite+1,jts,jte+1,ims,ime,jms,jme)        ! check if atm node tile fits in memory 
     call check_mesh_2dim(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
+    ! get atm winds at midpoints of sides
     k=kds             ! the ground
     do j = jts,jte
         do i = its,ite ! average 1st 2 layers, correct const shift
@@ -383,26 +396,20 @@ if(write_m)then
 endif
 ! the model is parallel itself, call on the whole patch not just a tile
 
-if(itimestep .eq. 1 )then
-    initialize=1
-    ignition=1
-else
-    initialize=0
-    ignition=0
-endif
 call sfire_model (                    &
     initialize, ignition,                   & ! switches
+    ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims
     ifms,ifme,jfms,jfme,                    & ! fire memory dims
     ifps,ifpe,jfps,jfpe,                    & ! fire patch dims
     num_tiles,if_start,if_end,jf_start,jf_end,  & ! fire grid tiling
     time_start,dt,                          & ! time and increment
     dxf,dyf,                                & ! fire mesh spacing
-    nfuel_cat,                              & ! fuel data per point 
     zsf,                                    & ! terrain height (for gradient)
     uf,vf,                                  & ! input: wind
     lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
     fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
+    nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
 ) 

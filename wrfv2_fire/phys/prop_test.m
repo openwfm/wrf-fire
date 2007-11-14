@@ -25,6 +25,13 @@ switch example
     case {'gostraight','g'}
     wind='s'
     ignition='c'
+    case {'physical','p'}
+    wind='s';
+    alpha=0;
+    r=0.2;
+    speed=3.8;
+    zs=6*(m-1);
+    ys=6*(n-1);
     case {'windmill','w'}
     time1=3;
     r=0.1;

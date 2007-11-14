@@ -7,6 +7,7 @@
 module module_fr_sfire_phys
 
 use module_model_constants, only: cp,xlv
+use module_fr_sfire_util
 
 private fire_ros
 
@@ -140,7 +141,6 @@ subroutine set_fire_params(ifts,ifte,jfts,jfte, &
 #                          include "fr_sfire_params_args.h" 
 )
 
-use module_fr_sfire_util
 implicit none
 
 !*** purpose: Set all fire model params arrays, constant values.
@@ -286,6 +286,7 @@ do j=jfts,jfte+1
         lfn(i,j) = 1        ! no fire 
     enddo
 enddo
+call message('init_model_no_fire: state set to no fire')
 
 end subroutine init_model_no_fire
 
@@ -314,19 +315,25 @@ real, intent(out), dimension (ifms:ifme,jfms:jfme) :: &
 intrinsic huge
                         
 !*** local
-integer:: i,j
+integer:: i,j,k
 real, parameter:: faraway = huge(diam)
+character(len=128):: msg
 
 !jmtodo this will not work on tiles
 
+k=0
 do j=jfts,jfte+1      ! node based loops, hence the +1
     do i=ifts,ifte+1                   
         lfn(i,j)=sqrt(((i-ctri)*fdx)**2+((j-ctrj)*fdy)**2)-diam/2
         if(lfn(i,j)<=0) then
             tign(i,j)=time_ign  ! ignited now
+            k=k+1
         endif
     enddo
 enddo
+write(msg,'(a,2f10.1,a,f8.1,a,f8.1,a,i3)')'ignite_fire: at',ctri,ctrj,&
+    ' diam',diam,' time',time_ign,' nodes',k
+call message(msg)
 end subroutine ignite_fire
 
 !
@@ -375,34 +382,37 @@ end subroutine heat_fluxes
 
 subroutine set_nfuel_cat(   ifts,ifte,jfts,jfte,               &
                             ifms,ifme,jfms,jfme,               &
-                            ifuelread,zsf,nfuel_cat)
+                            ifuelread,nfuel_cat0,zsf,nfuel_cat)
 
-use module_fr_sfire_util
 implicit none
 
 ! set fuel distributions for testing
 integer, intent(in)::   ifts,ifte,jfts,jfte,               &
                         ifms,ifme,jfms,jfme               
 
-integer, intent(in)::ifuelread
+integer, intent(in)::ifuelread,nfuel_cat0
 real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf
 integer, intent(out), dimension(ifms:ifme, jfms:jfme)::nfuel_cat
 
 !*** local
 
 ! parameters to control execution
-integer:: nfuel_cat0,i,j,iu1
+integer:: i,j,iu1
 real:: t1
+character(len=128)msg
 
 
-if (ifuelread .eq. 0) then
+if (ifuelread .eq. -1) then
+    call message('set_nfuel_cat: assuming nfuel_cat initialized elsewhere') 
+else if (ifuelread .eq. 0) then
 !
-    nfuel_cat0= 8             ! param! set category
     do j=jfts,jfte+1
         do  i=ifts,ifte+1
             nfuel_cat(i,j)=nfuel_cat0
         enddo
     enddo
+    write(msg,'(a,i3)')'set_nfuel_cat: fuel initialized with category',nfuel_cat0
+    call message(msg)
          
 else if (ifuelread .eq. 1) then
 !
@@ -471,7 +481,6 @@ nvx,nvy,scale,ros &
 #include "fr_sfire_params_args.h"
 )
 
-use module_fr_sfire_util
 implicit none
 !***  purpose: the speed function
 
@@ -512,7 +521,8 @@ do j=jds,jde+1
 #       include "fr_sfire_params_args.h"
         )
         ros_all(i,j)=max(ros1,0.0)
-
+!        write(90,1)i,j,'speed',speed,'tanphi',tanphi,'ros',ros1
+!1       format(2i5,3(1x,a,f10.4))
     enddo
 enddo
 

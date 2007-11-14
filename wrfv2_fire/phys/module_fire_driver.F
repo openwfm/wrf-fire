@@ -267,14 +267,8 @@ CONTAINS
       CASE (FIRE_SFIRE)
 
         CALL wrf_debug(100,'entering SFIRE fire scheme')
-!***    for now until I can call set_nfuel_cat
-        nfuel_cat=8
-        CALL set_nfuel_cat( ifps,ifpe,jfps,jfpe, &
-                            ifms,ifme,jfms,jfme, &
-                            0,zsf,nfuel_cat)
-!                          ^^^ put this in the namelist
         CALL sfire_driver(                                      &
-             ids,ide, kds,kde, jds,jde                          & ! send
+             ids,ide, kds,kde, jds,jde                          &
             ,ims,ime, kms,kme, jms,jme                          &
             ,ips,ipe, kps,kpe, jps,jpe                          & 
             ,ifds,ifde, jfds,jfde                    &
@@ -282,14 +276,17 @@ CONTAINS
             ,ifps,ifpe, jfps,jfpe                    &
             ,sr_x,sr_y                                          &
             ,num_tiles,i_start,i_end,j_start,j_end              &
-            ,itimestep,dt,dx,dy                                 &
+            ,itimestep                                          &
+            ,fire_fuel_read,fire_fuel_cat                       &
+            ,dt,dx,dy                                           &
             ,u_frame,v_frame                                    &
             ,fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt          &
             ,u,v,mu,rho,ht                                      &
             ,z_at_w,dz8w                                        &
-            ,nfuel_cat,lfn,tign_c,fuel_frac                     & ! send&recv
+            ,lfn,tign_c,fuel_frac                     & 
             ,rthfrten,rqvfrten                                  &
             ,grnhfx,grnqfx,canhfx,canqfx                        &
+            ,nfuel_cat                                          &
             ,fuel_time,zsf                                      &
             ,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap     &
             )
