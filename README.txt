@@ -37,7 +37,9 @@ Or, just run
 Finally, run the code with:
 
 cd test/em_fire 
-./run_me_first.csh
+./run_me_first.csh (needs to be done only once)
+./ideal.exe >& ideal.log (this creates file wrfinput_d01, needs to be done only
+when input_sounding changes)
 ./wrf.exe
 
 Or, just run the debugger, it is set up to load the program automatically and set 
