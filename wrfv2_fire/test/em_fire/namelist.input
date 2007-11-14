@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 30,
+ run_minutes                         = 60,
  run_seconds                         = 0,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
@@ -13,9 +13,9 @@
  end_month                           = 01,   01,   01,
  end_day                             = 01,   01,   01,
  end_hour                            = 00,   00,   00,
- end_minute                          = 30,   30,   30,
+ end_minute                          = 60,   60,   60,
  end_second                          = 00,   00,   00,
- history_interval                    = 10,   10,   10,
+ history_interval                    = 30,   30,   30,
  frames_per_outfile                  = 1000, 1000, 1000,
  restart                             = .false.,
  restart_interval                    = 1,
@@ -27,7 +27,7 @@
  /
 
  &domains
- time_step                           = 1,
+ time_step                           = 5,
  time_step_fract_num                 = 0,
  time_step_fract_den                 = 1,
  max_dom                             = 1,
@@ -48,8 +48,8 @@
  parent_time_step_ratio              = 1,     2,     3,
  feedback                            = 1,
  smooth_option                       = 0
- sr_x                                = 10,     0,     0	! subgrid ratio in x
- sr_y                                = 10,     0,     0	! subgrid ratio in y
+ sr_x                                = 20,     0,     0	! subgrid ratio in x
+ sr_y                                = 20,     0,     0	! subgrid ratio in y
  /
 
  &physics
@@ -126,13 +126,17 @@
 !fire_lat_init      =   40.,	! real   , initial fire latitude (deg)
 !fire_lon_init      = -105.,	! real   , initial fire longitude (deg)
  fire_lat_init      = 6.75e-3,	! real   , initial fire latitude (deg)
- fire_lon_init      = 6.75e-3,	! real   , initial fire longitude (deg)
- fire_ign_time      = 2.0,	! real   , time of fire ignition (s)
- fire_shape         = 0,	! integer, initial fire shape
+ fire_lon_init      = 6.70e-3,	! real   , initial fire longitude (deg)
+ fire_ign_time      = 30.,  	! real   , time of fire ignition (s)
+ fire_shape         = 1,	! integer, initial fire shape
  fire_sprd_mdl      = 1,	! integer, = 0: Macarthur, = 1: BEHAVE
  fire_crwn_hgt      = 15.,	! real   , height of canopy crown (m)
  fire_ext_grnd      = 50.,	! real   , extinction coeff ground fire
  fire_ext_crwn      = 50.,	! real   , extinction coeff crown fire
  fire_fuel_read     = 1,	! integer, = 1: fuels specified; = 2: read from file
+<<<<<<< HEAD:wrfv2_fire/test/em_fire/namelist.input
  fire_fuel_cat      = 3,	! integer, if specified which fuel category?
+=======
+ fire_fuel_cat      = 1,	! integer, if specified which fuel category?
+>>>>>>> f1b2ffe0e81b811f5e88a0952fe745e3ad61386b:wrfv2_fire/test/em_fire/namelist.input
  /
