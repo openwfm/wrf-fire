@@ -401,9 +401,12 @@ integer:: i,j,iu1
 real:: t1
 character(len=128)msg
 
+    write(msg,'(a,i3)')'set_nfuel_cat: ifuelread=',ifuelread 
+    call message(msg)
 
 if (ifuelread .eq. -1) then
     call message('set_nfuel_cat: assuming nfuel_cat initialized elsewhere') 
+    call message(msg)
 else if (ifuelread .eq. 0) then
 !
     do j=jfts,jfte+1
@@ -442,12 +445,15 @@ else if (ifuelread .eq. 1) then
         enddo
     enddo
 
+    call message('set_nfuel_cat: fuel initialized by altitude')
 else if (ifuelread .eq. 2) then
 
 ! read it somewhere else?? how to read data in wrf and preserve from one call 
 ! to the next? jm
 
 !        ...  read fuel files
+
+    call message('set_nfuel_cat: reading from file fuel_layer')
 
     iu1=10
          open(iu1,file='fuel_layer',status='unknown',form='formatted')
@@ -594,9 +600,9 @@ if (ischap(i,j) .eq. 0) then            ! if not chaparral
         !write (6,'(x,a,2i4,4(x,2e12.3,x,e12.3) )') &
         !   'i,j,speed,umidm,rosm,r0,phiw,phis=', &
         !   i,j,speed,umidm,rosm,r_0(i,j),phiw,phis
-        write (6,"(1x,a,e11.3,a,e11.3,a,e11.3,a,2e11.3)") &
-        'umidm=',umidm,'rosm=',rosm,'Ro',r_0(i,j), &
-        'phiw,phis=',phiw,phis
+        !write (6,"(1x,a,e11.3,a,e11.3,a,e11.3,a,2e11.3)") &
+        !'umidm=',umidm,'rosm=',rosm,'Ro',r_0(i,j), &
+        !'phiw,phis=',phiw,phis
 !
     else                                   ! MacArthur formula (Australian)
         rosm = 0.18*exp(0.8424*max(speed,0.))
