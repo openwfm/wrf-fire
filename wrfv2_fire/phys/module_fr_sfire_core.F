@@ -639,14 +639,14 @@ do while ( .not.last )
     sum_aerr=0.
     min_aerr=rmax
     max_aerr=rmin    
-    ! loop over the inside of the domain
+    ! loop over right outside of the domain
     do j=jds+1,jde+1-1
         do i=ids+1,ide+1-1
-            if(lfn(i,j)<=0.0)then                      ! a point in burning region
+            if(lfn(i,j)>0.0)then                      ! a point out of burning region
                 nfire=nfire+1
-                if(lfn(i+1,j)>=0.or.lfn(i,j+1)>=0.or. &
-                   lfn(i-1,j)>=0.or.lfn(i,j-1)>=0)then ! point next to fireline
-                   gradx=(lfn(i+1,j)-lfn(i-1,j))/(2.0*dx)
+                if(lfn(i+1,j)<=0.or.lfn(i,j+1)<=0.or. & ! neighbor in burning region
+                   lfn(i-1,j)<=0.or.lfn(i,j-1)<=0)then ! point next to fireline
+                   gradx=(lfn(i+1,j)-lfn(i-1,j))/(2.0*dx) ! central differences
                    grady=(lfn(i,j+1)-lfn(i,j-1))/(2.0*dy)
                    grad=sqrt(gradx*gradx+grady*grady)
                    aspeed = -tend(i,j)/max(grad,rmin)
