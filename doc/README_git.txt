@@ -183,19 +183,53 @@ This will create a directory ./wrf under your current directory.
 
   git push origin :oldbranch
 
-7.  Other commands
+7.  Reverting local changes
+
+  If you make a change to some files, and you wish to revert those files to
+  a state as in the repository, you can do this with git checkout.  To revert
+  all files and restore the state to the last commit:
+
+  git checkout -f HEAD
+
+  To revert only a single file (<filename>) and to keep all other changes intact:
+
+  git checkout-index -f <filename>
+
+  Remember, git by default won't let you do anything that will lose any
+  changes that you've made.  Generally, git commands support a '-f' flag that
+  will allow it over-write any changes that you have made; however, once you
+  do this, you will not be able to get the changes back.  If you really don't
+  want to lose these changes, then you can just create a temporary local
+  branch to keep them in.
+
+  git branch <tempbranch>
+  git checkout <tempbranch>
+  git commit -a
+
+  This way you can get back to the original branch with the usual git checkout
+  command, and you won't lose the changes.  If, later, you wish to put these
+  changes into your main branch (<mainbranch>):
+
+  git checkout <mainbranch>
+  git merge <tempbranch>
+
+  You can delete the temporary branch at any time with:
+
+  git branch -d <tempbranch>
+
+8.  Other commands
 
   For a log of everything you have done in your repository, see the command
   reflog.
   You can undo changes with reset.  The cvs style commands status, log, and
   diff also work in git.
 
-8. diff with other branch:
+9. diff with other branch:
 
   git fetch                       (to make sure you have current repository)
   git diff <branch>               (for example git diff origin/jb/fire_da)
 
-9.  Getting help
+10.  Getting help
 
   man git : Overview of git commands
   man git-commit : man page for "git commit" (replace commit with other commands as well)
@@ -221,7 +255,7 @@ This will create a directory ./wrf under your current directory.
 
     http://www.kernel.org/pub/software/scm/git/docs/user-manual.html
 
-10. Magic sequences for specific tasks
+11. Magic sequences for specific tasks
 
   Magic sequence to see files from somebody else's branch
 
