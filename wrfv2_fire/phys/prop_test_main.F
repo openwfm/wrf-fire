@@ -10,6 +10,8 @@
     integer::num_tiles
     integer, dimension(100)::i_start,i_end,j_start,j_end
     real,allocatable,dimension(:,:)::lfn,tc,vx,vy,r
+    real::normal_spread_c,normal_spread_e
+    
     !external spread_rate
     open(1,form='formatted',file='prop_test_in.txt')
     read(1,1)rm,rn
@@ -31,6 +33,8 @@
               vx(m1m:m2m,n1m:n2m),&
               vy(m1m:m2m,n1m:n2m))
     read(1,1)ts,te
+    read(1,1)normal_spread_c,normal_spread_e
+    print *,'prop_test_main: ts=',ts,' te=',te,' c=',normal_spread_c,' e=',normal_spread_e
     read(1,1)((r(i,j),i=m1,m2),j=n1,n2)
     !print *,'prop_test_m: read r'
     read(1,1)dx,dy
@@ -54,6 +58,6 @@
     write(2,1)((lfn(i,j),i=m1,m2),j=n1,n2)
     close(2)
 
-1   format((e25.15,1x)) 
+1   format((e25.15)) 
 
     end program prop_test

@@ -4,7 +4,7 @@
     ! the speed function
     
     subroutine normal_spread(t,dx,dy,n,rii,rjj, &
-       ids,ide,jds,jde,ims,ime,jms,jme,nvx,nvy,scale,speed&
+       ids,ide,jds,jde,ims,ime,jms,jme,nvx,nvy,scale,speed &
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #endif
@@ -20,6 +20,7 @@
 #ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
 #include SPEED_VARS_DECL
 #endif
+    real::e,c
     ! calls
     intrinsic nint
     !  internal
@@ -28,9 +29,12 @@
  !  the speed function
  !  see module_fr_sfire_prop for argument description
  !  compute speed at all nodes
+    e=normal_spread_e
+    c=normal_spread_c
+    write(*,*)'c=',normal_spread_c,' e=',normal_spread_e
     do j=jds,jde+1
         do i=ids,ide+1
-            sn(i,j) = r(i,j) + max(vx(i,j)*nvx(i,j) + vy(i,j)*nvy(i,j),0.0)
+            sn(i,j) = r(i,j) + max(vx(i,j)*nvx(i,j) + vy(i,j)*nvy(i,j),0.0)**e * c
         enddo
     enddo
  ! interpolate to the requested points

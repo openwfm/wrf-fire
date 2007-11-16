@@ -577,7 +577,7 @@ integer, intent(in)::i,j         ! node mesh coordinates
 
 !*** local
 real:: umid, phis, phiw, rosm, spdms, umidm, sp_n
-!real:: e,  c
+! real:: e, c, r      !! for prints only
 integer:: ibeh
 parameter(ibeh=1)
 
@@ -596,8 +596,16 @@ if (ischap(i,j) .eq. 0) then            ! if not chaparral
             phis = 5.275 *(betafl(i,j))**(-0.3) *tanphi**2   ! slope factor
         endif
         rosm = r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
-            
-        !write (6,'(x,a,2i4,4(x,2e12.3,x,e12.3) )') &
+
+        ! debug prints. uncomment also the declarations if used
+        ! if(spdms>0)then
+        !    r = r_0(i,j) * .00508
+        !    e = bbb(i,j)
+        !    c = 196.850**bbb(i,j)*phiwc(i,j)*r            
+        !    write(*,'(5(a,f12.9,1x))')'speed=',r,'+',spdms,'**',e,'*',c, &
+        !        ' err=',rosm-(r+spdms**e*c)
+        ! endif    
+        ! write (6,'(x,a,2i4,4(x,2e12.3,x,e12.3) )') &
         !   'i,j,speed,umidm,rosm,r0,phiw,phis=', &
         !   i,j,speed,umidm,rosm,r_0(i,j),phiw,phis
         !write (6,"(1x,a,e11.3,a,e11.3,a,e11.3,a,2e11.3)") &

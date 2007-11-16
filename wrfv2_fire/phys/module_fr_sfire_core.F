@@ -454,6 +454,10 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
 
+write(msg,'(a,i5,a,i5,a,f6.2,a,f6.2)')'prop_ls: mesh ',ide-ids+1,' by',jde-jds+1,&
+    ' spacing',dx,' by',dy
+call message(msg)
+
 if (td < 0) then
     write(msg,*)'prop_ls: time advance td=',td,' must be non-negative' 
     call crash(msg)

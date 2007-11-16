@@ -17,7 +17,7 @@ real,allocatable,dimension(:,:):: &
 real:: rm1,rm2,rn1,rn2,time_start,time_end,fire_dx,fire_dy
 integer::num_tiles
 integer, dimension(100)::i_start,i_end,j_start,j_end
-
+real::normal_spread_c,normal_spread_e
 !*** executable
 
 ! read the inputs from a file
@@ -50,6 +50,10 @@ call set_tiles(1,1,m1,m2-1,n1,n2-1,num_tiles,i_start,i_end,j_start,j_end)
 
 ! run the code
 
+!normal_spread_c=0.185060861
+!normal_spread_e=1.310758329
+normal_spread_c=1
+normal_spread_e=1
 call sfire_core( m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,          &
 num_tiles,i_start,i_end,j_start,j_end, &
 time_start,time_end-time_start,fire_dx,fire_dy,fuel_time,           & 

@@ -14,7 +14,7 @@ n=101
 time0=0
 time1=10
 r=0
-example='g'
+example='w'
 
 switch example
     case {'circlespin','c'}

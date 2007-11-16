@@ -6,5 +6,5 @@ function vis_wind(vx,vy,dx,dy)
     ix=1:ceil(m/s):m;
     iy=1:ceil(n/s):n;
     [xx,yy]=ndgrid(x,y);
-    quiver(xx(ix,iy),yy(ix,iy),vx(ix,iy),vy(ix,iy))
+    quiver(yy(ix,iy),xx(ix,iy),vy(ix,iy),vx(ix,iy))
 end

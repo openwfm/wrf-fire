@@ -15,8 +15,13 @@ time1=10
 r=0
 speed=2  % wind speed
 wind='c'
+alpha=0.75*pi
+dt=0.2;
+plotSteps=50
+normal_spread_c=1  % speed = r + wind^e * c
+normal_spread_e=1
 
-example='g'
+example='w'
 
 switch example
     case {'circlespin','c'}
@@ -27,11 +32,19 @@ switch example
     ignition='c'
     case {'physical','p'}
     wind='s';
-    alpha=0;
-    r=0.2;
-    speed=3.8;
-    zs=6*(m-1);
+    ignition='c';
+    alpha=pi;
+    r=0.02;
+    m=401
+    n=401
+    speed=10;
+    xs=6*(m-1);
     ys=6*(n-1);
+    time1=200;
+    dt=1;
+    plotSteps=400
+    normal_spread_c=0.185060861
+    normal_spread_e=1.310758329
     case {'windmill','w'}
     time1=3;
     r=0.1;
@@ -67,8 +80,6 @@ y=dy*[0:n-1];
 
 switch wind
     case {'straight','s'}
-        alpha=-1.3*pi
-        alpha=0.75*pi
         vx=speed*cos(alpha)*ones(m,n);
         vy=speed*sin(alpha)*ones(m,n);
     case {'circular','c'}
@@ -90,8 +101,8 @@ switch ignition
         [ theta, rad ] = cart2pol(xx, yy);
         phi = rad - scale * (cos(points * theta) + shift);
     case {'circle','c'}
-        c=[0.8*xs,0.5*ys]; % center
-        d=0.5;      % radius
+        c=[0.5*xs,0.5*ys]; % center
+        d=3*max(dx,dy);      % radius
         for i=1:m
             for j=1:n
 %               phi(i,j)=sign(norm([i*dx,j*dy]-c)-d);
@@ -100,7 +111,7 @@ switch ignition
         end
     case {'widmill','w'}
         phi=ones(m,n);
-         phi(floor(m*0.20):ceil(m*0.45),floor(n*0.49):ceil(n*0.51))=-1;
+        phi(floor(m*0.20):ceil(m*0.45),floor(n*0.49):ceil(n*0.51))=-1;
         phi(floor(m*0.55):ceil(m*0.80),floor(n*0.49):ceil(n*0.51))=-1;
         phi(floor(m*0.49):ceil(m*0.51),floor(n*0.20):ceil(n*0.45))=-1;
         phi(floor(m*0.49):ceil(m*0.51),floor(n*0.55):ceil(n*0.80))=-1;
@@ -108,11 +119,6 @@ switch ignition
         error('no ignition')
 end
 
-plotSteps = 50;               % How many intermediate plots to produce?
-t0 = time0;                      % Start time.
-
-% Period at which intermediate plots should be produced.
-tPlot = (time1 - time0) / (plotSteps - 1);
 
 %r=ones(m,n).*r + 0.04*sqrt(vx.*vx+vy.*vy); % shrinkage correction
 r=ones(m,n).*r;  % make sure it is array
@@ -121,18 +127,22 @@ data2=phi;
 data3=phi;
 tNow=time0;
 dofort=1;
+domat=0;
 for i=1:plotSteps
-    tNext=min(time1, tNow + tPlot);
+    tNext=tNow+dt
 %    % call the fortran implementation
     if dofort,
-        [data3]=prop_test_f(data3,tNow,tNext,vx,vy,r,dx,dy);
+        [data3]=prop_test_f(data3,tNow,tNext,...
+            normal_spread_c,normal_spread_e,vx,vy,r,dx,dy);
     end
     %call own imp
     %[ux,uy]=get_advection(phi,r,vx,vy,dx,dy);
     %vis_wind(ux,uy,dx,dy)
-    [tNow,data2]=prop_ls_cir(data2,tNow,tNext,vx,vy,r,dx,dy,@spread_rate);
+    if domat,
+        [dummy,data2]=prop_ls_cir(data2,tNow,tNext,vx,vy,r,dx,dy,@spread_rate);
+    end
     %[tNow,data2]=prop_ls(data2,tNow,tNext,ux,uy,0,dx,dy);
-    if dofort, 
+    if dofort & domat, 
         err_fort=norm(data3(:)-data2(:))
         if err_fort>1e-10,
             i,warning('large difference between matlab and fortran')
@@ -144,6 +154,7 @@ for i=1:plotSteps
     else
         vis(data2,vx,vy,dx,dy,tNow);
     end
+    tNow = tNext;
 end
 %err_fort=norm(data3(:)-data2(:))
 % call the toolbox routines 
@@ -192,12 +203,12 @@ if drawn,
 end
 end
 
-function [phi_out]=prop_test_f(phi,ts,te,vx,vy,r,dx,dy)
+function [phi_out]=prop_test_f(phi,ts,te,c,e,vx,vy,r,dx,dy)
 fmt='%25.15e \n';
 if any(any(isnan(phi))), error('phi NaN'), end
 [m,n]=size(phi);
 fid = fopen('prop_test_in.txt','wt');
-fprintf(fid,fmt,m,n,ts,te,r,dx,dy);
+fprintf(fid,fmt,m,n,ts,te,c,e,r,dx,dy);
 fprintf(fid,fmt,phi,vx,vy);
 fclose(fid);
 ! prop_test_prog.exe
