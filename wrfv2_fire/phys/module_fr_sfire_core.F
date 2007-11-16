@@ -2,6 +2,7 @@
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! With contributions by Minjeong Kim.
+#define DEBUG_OUT
 
 module module_fr_sfire_core
 
@@ -423,19 +424,16 @@ real,intent(in)::dx,dy,ts,td
 ! arrays
 real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
    tend,diffLx,diffLy,diffRx,diffRy, & 
-   diffCx,diffCy,nvx, nvy,speed, scale
-#ifdef DEBUG_OUT
-real,dimension(ims:ime,jms:jme)::    vvxx,vvyy,aa,rrr
-#endif
+   diffCx,diffCy,nvx, nvy,speed, scale,diff2x,diff2y,grad
 real, dimension((jde-jds+2)*(ide-ids+2))::rii,rjj,speedp
 ! scalars
-real::diff2x,diff2y,rr,grad,t,dt,tr,tbound,lfn_old,lfn_new
+real::rr,t,dt,tr,tbound,lfn_old,lfn_new,grad2
 real::gradx,grady,aspeed,err,aerr
 integer::istep
 integer::i,j,k,kk
 character(len=128)msg
 logical last
-integer::nfire,nfireline
+integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr    
 #ifdef DEBUG_OUT    
 integer::id
@@ -504,9 +502,6 @@ do while ( .not.last )
         dx,dy,               &           ! mesh spacing
         lfn,                 &           ! input
         diffLx,diffRx,diffLy,diffRy) ! output        
-    !print *,'err=', &
-    !    sum(abs(diffLx2-diffLx))+sum(abs(diffRx2-diffRx)) &
-    !   +sum(abs(diffLy2-diffLy))+sum(abs(diffRy2-diffRy)) 
 
     do j=jds,jde+1
         do i=ids,ide+1
@@ -515,10 +510,34 @@ do while ( .not.last )
             diffCx(i,j)=diffLx(i,j) + diffRx(i,j)
             diffCy(i,j)=diffLy(i,j) + diffRy(i,j)
     
+            ! Godunov scheme: upwind differences, L or R or none    
+            ! always test on > or < never = , much faster because of IEEE
+     
+            ! central diff >= 0 => take left diff if >=0, ortherwise 0
+            ! central diff <= 0 => take right diff if <=0, ortherwise 0
+            diff2x(i,j)=0
+            diff2y(i,j)=0
+            if (.not.diffLx(i,j)<0.and..not.diffCx(i,j)<0)diff2x(i,j)=diff2x(i,j)+diffLx(i,j)
+            if (.not.diffRx(i,j)>0.and.     diffCx(i,j)<0)diff2x(i,j)=diff2x(i,j)+diffRx(i,j)
+            if (.not.diffLy(i,j)<0.and..not.diffCy(i,j)<0)diff2y(i,j)=diff2y(i,j)+diffLy(i,j)
+            if (.not.diffRy(i,j)>0.and.     diffCy(i,j)<0)diff2y(i,j)=diff2y(i,j)+diffRy(i,j)
+!            if (diffLx(i,j)>0.and.diffCx(i,j)>0)diff2x(i,j)=diffLx(i,j)
+!            if (diffRx(i,j)<0.and.diffCx(i,j)<0)diff2x(i,j)=diffRx(i,j)
+!            if (diffLy(i,j)>0.and.diffCy(i,j)>0)diff2y(i,j)=diffLy(i,j)
+!            if (diffRy(i,j)<0.and.diffCy(i,j)<0)diff2y(i,j)=diffRy(i,j)
+            
+            ! magnitude of the gradient
+            grad(i,j)=sqrt(diff2x(i,j)*diff2x(i,j) + diff2y(i,j)*diff2y(i,j))
+
             ! normal direction
             scale(i,j)=sqrt(diffCx(i,j)*diffCx(i,j)+diffCy(i,j)*diffCy(i,j)+eps) 
             nvx(i,j)=diffCx(i,j)/scale(i,j);
             nvy(i,j)=diffCy(i,j)/scale(i,j);
+            
+!            scale(i,j)=grad(i,j)+rmin 
+!            nvx(i,j)=diff2x(i,j)/scale(i,j);
+!            nvy(i,j)=diff2y(i,j)/scale(i,j);
+
             
         enddo
     enddo
@@ -538,63 +557,22 @@ do while ( .not.last )
     enddo
     call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,speed,'prop_ls:in: frln speed (m/s)')
 
-#ifdef DEBUG_OUT
-            if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,speed,'speed',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,nvx,'nvx',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,nvy,'nvy',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,vx,'vx',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,vy,'vy',id)
-#endif
     tbound=0
     do j=jds,jde+1
         do i=ids,ide+1
             rr=max(speed(i,j),0.)  ! just making sure
-            
-            ! Godunov scheme: choose the upwind direction, L or R or none    
-            ! always test on > or < never = , much faster because of IEEE
-     
-            diff2x=0
-            diff2y=0
-            if (.not.diffLx(i,j)<0.and..not.diffCx(i,j)<0)diff2x=diff2x+diffLx(i,j)
-            if (.not.diffRx(i,j)>0.and.     diffCx(i,j)<0)diff2x=diff2x+diffRx(i,j)
-            if (.not.diffLy(i,j)<0.and..not.diffCy(i,j)<0)diff2y=diff2y+diffLy(i,j)
-            if (.not.diffRy(i,j)>0.and.     diffCy(i,j)<0)diff2y=diff2y+diffRy(i,j)
-    
-            ! magnitude of the gradient
-            grad=sqrt(diff2x*diff2x + diff2y*diff2y)
-    
+                
             ! time step bound - CFL condition
             ! contribution of the normal term
-            if (grad > 0.) then
-                tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
+            if (grad(i,j) > 0.) then
+                tbound = max(tbound,rr*(abs(diff2x(i,j))/dx+abs(diff2y(i,j))/dy)/grad(i,j))
             endif
             
             ! tendencies
-            tend(i,j) = -rr*grad   ! normal term rhs
+            tend(i,j) = -rr*grad(i,j)   ! normal term rhs
         enddo
     enddo        
 
-#ifdef DEBUG_OUT
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,tend,'tend',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,vvxx,'vvxx',id)
-    
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,aa,'aa',id)
-    
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,rrr,'rrr',id)
-    
-            call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,vvyy,'vvyy',id)
-#endif
-         
     ! the final CFL bound and the timestep
     tbound = 1/(tbound+tol)
     dt = min(td-tr, 0.5*tbound)
@@ -625,13 +603,35 @@ do while ( .not.last )
     enddo
 
 #ifdef DEBUG_OUT
+    if(mod(id,50).eq.0)then
             if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
-                                ims,ime,jms,jme,lfn,'lfn_new',id)
+                                ims,ime,jms,jme,speed,'speed',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,diff2x,'diff2x',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,diff2y,'diff2y',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,diff2x,'diffCx',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,diff2y,'diffCy',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,nvx,'nvx',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,nvy,'nvy',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,vx,'vx',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,vy,'vy',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,tend,'tend',id)
+            call write_array_m(ids,ide+1,jds,jde+1,           &
+                                ims,ime,jms,jme,lfn,'lfn',id)
+    endif
 #endif
     
     ! check local speed error and stats 
     ! init stats
-    nfire=0
+    nfirenodes=0
     nfireline=0
     sum_err=0.
     min_err=rmax
@@ -643,13 +643,12 @@ do while ( .not.last )
     do j=jds+1,jde+1-1
         do i=ids+1,ide+1-1
             if(lfn(i,j)>0.0)then                      ! a point out of burning region
-                nfire=nfire+1
                 if(lfn(i+1,j)<=0.or.lfn(i,j+1)<=0.or. & ! neighbor in burning region
                    lfn(i-1,j)<=0.or.lfn(i,j-1)<=0)then ! point next to fireline
                    gradx=(lfn(i+1,j)-lfn(i-1,j))/(2.0*dx) ! central differences
                    grady=(lfn(i,j+1)-lfn(i,j-1))/(2.0*dy)
-                   grad=sqrt(gradx*gradx+grady*grady)
-                   aspeed = -tend(i,j)/max(grad,rmin)
+                   grad2=sqrt(gradx*gradx+grady*grady)
+                   aspeed = -tend(i,j)/max(grad2,rmin)
                    err=aspeed-speed(i,j)
                    sum_err=sum_err+err
                    min_err=min(min_err,err)
@@ -660,10 +659,12 @@ do while ( .not.last )
                    max_aerr=max(max_aerr,aerr)
                    nfireline=nfireline+1
                 endif
+            else
+                nfirenodes=nfirenodes+1
             endif
         enddo
     enddo
-    write(msg,'(2(a,i6))')'prop_ls: nodes burning',nfire,' next to fireline',nfireline
+    write(msg,'(2(a,i6))')'prop_ls: nodes burning',nfirenodes,' next to fireline',nfireline
     call message(msg)
     if(nfireline>0)then
         call print_stat_line('speed error',min_err,max_err,sum_err/nfireline)

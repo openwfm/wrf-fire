@@ -94,12 +94,14 @@ do istep=1,msteps
     fuel_time,                              & ! save derived internal data
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
     ) 
-    write(1,1)1.,1.,time_start
-    write(1,1)sm+1,sn+1,((lfn(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
-    write(1,1)sm+1,sn+1,((tign(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
-    write(1,1)sm+1,sn+1,((vx(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
-    write(1,1)sm+1,sn+1,((vy(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
-    write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
+    if(mod(istep,50).eq.0)then
+        write(1,1)1.,1.,time_start
+        write(1,1)sm+1,sn+1,((lfn(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+        write(1,1)sm+1,sn+1,((tign(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+        write(1,1)sm+1,sn+1,((vx(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+        write(1,1)sm+1,sn+1,((vy(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+        write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
+    endif
     print *,'test_main: step ',istep,' of ',msteps,' time ',time_start
     time_start=time_start+dt 
 enddo
