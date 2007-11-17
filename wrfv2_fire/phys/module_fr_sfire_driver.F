@@ -475,6 +475,11 @@ do ij=1,num_tiles
         zs,z_at_w,dz8w,mu,rho,          &
         rthfrten,rqvfrten)                ! out
 
+    if(write_m)then
+    call write_array_m3(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',itimestep)
+    call write_array_m3(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',itimestep)
+    endif
+
 enddo ! tiles
 
 end subroutine sfire_driver
