@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 60,
+ run_minutes                         = 600,
  run_seconds                         = 0,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
@@ -13,7 +13,7 @@
  end_month                           = 01,   01,   01,
  end_day                             = 01,   01,   01,
  end_hour                            = 00,   00,   00,
- end_minute                          = 60,   60,   60,
+ end_minute                          = 600,   600,   600,
  end_second                          = 00,   00,   00,
  history_interval                    = 30,   30,   30,
  frames_per_outfile                  = 1000, 1000, 1000,
