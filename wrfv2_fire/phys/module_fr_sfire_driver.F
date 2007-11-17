@@ -91,7 +91,11 @@ integer, intent(in)::                             &
     igps, igpe, jgps, jgpe,                       & ! fire patch bounds given
     ir,jr,                                    & ! atm/fire grid refinement ratio
     itimestep,                                    & ! number of this timestep
-    ifuelread,                                    & ! how to initialize nfuel_cat: 0=from nfuel_cat0
+    ifuelread,                                    & ! how to initialize nfuel_cat:
+                                                       ! -1=not at all, done outside 
+                                                       ! 0=from nfuel_cat0
+                                                       ! 1=from altitude
+                                                       ! 2=from file
     nfuel_cat0,                                   & ! fuel category to initialize everything to
     num_tiles                                       ! number of tiles
 
@@ -412,7 +416,7 @@ call sfire_model (                    &
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
-) 
+    )
 
 
 !OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg)
@@ -423,7 +427,7 @@ do ij=1,num_tiles
     ite = ia_end(ij)               ! end atmospheric tile in i
     jts = ja_start(ij)             ! start atmospheric tile in j
     jte = ja_end(ij)               ! end atmospheric tile in j
-    ifts= if_start(ij)            ! matching fire tile
+    ifts= if_start(ij)             ! matching fire tile
     ifte= if_end(ij)
     jfts= jf_start(ij)
     jfte= jf_end(ij)
