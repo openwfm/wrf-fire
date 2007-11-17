@@ -122,7 +122,7 @@
  /
 
  &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
- ifire              = 2, 	! integer, = 0: no fire, = 1: cc_fire
+ ifire              = 2, 	! integer, = 0: no fire, = 1: cc_fire, 2=sfire
 !fire_lat_init      =   40.,	! real   , initial fire latitude (deg)
 !fire_lon_init      = -105.,	! real   , initial fire longitude (deg)
  fire_lat_init      = 6.75e-3,	! real   , initial fire latitude (deg)
@@ -132,7 +132,7 @@
  fire_sprd_mdl      = 1,	! integer, = 0: Macarthur, = 1: BEHAVE
  fire_crwn_hgt      = 15.,	! real   , height of canopy crown (m)
  fire_ext_grnd      = 50.,	! real   , extinction coeff ground fire
- fire_ext_crwn      = 50.,	! real   , extinction coeff crown fire
- fire_fuel_read     = 1,	! integer, = 1: fuels specified; = 2: read from file
- fire_fuel_cat      = 1,	! integer, if specified which fuel category?
+ fire_ext_crwn      = 50.,	! real   , extinction coeff crown fire 
+ fire_fuel_read     = 0,	! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
+ fire_fuel_cat      = 3,	! integer, if specified which fuel category?
  /
