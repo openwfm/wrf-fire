@@ -896,6 +896,7 @@ t = t/((ite-its+1)*(jte-jts+1))
 avg_2darray_vec = t
 end function avg_2darray_vec
 
+
 subroutine write_array_m(its,ite,jts,jte,           &
                          ims,ime,jms,jme,               &
                          a,name,id)
@@ -905,7 +906,22 @@ integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme,id
 real, intent(in), dimension(ims:ime,jms:jme):: a
 character(len=*),intent(in)::name
 !****
-integer i,j,iu,ilen
+call write_array_m3(its,ite,1,1,jts,jte,           &
+                         ims,ime,1,1,jms,jme,               &
+                         a,name,id)
+end subroutine write_array_m
+
+
+subroutine write_array_m3(its,ite,kts,kte,jts,jte,           &
+                         ims,ime,kms,kme,jms,jme,               &
+                         a,name,id)
+! debug
+!*** arguments
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme,kts,kte,kms,kme,id
+real, intent(in), dimension(ims:ime,kms:kme,jms:jme):: a
+character(len=*),intent(in)::name
+!****
+integer i,j,k,iu,ilen
 logical op
 character(len=128)::fname
 !****
@@ -923,14 +939,15 @@ enddo
 open(iu,file=fname(1:ilen))
 write(iu,1)real(ite-its+1)
 write(iu,1)real(jte-jts+1)
-write(iu,1)((a(i,j),i=its,ite),j=jts,jte)
+write(iu,1)real(kte-kts+1)
+write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
 write(*,2)'wrote matrix ',name,' dimensions',its,':',ite,jts,':',jte, &
 ' to file ',fname(1:ilen),' unit',iu 
 1 format(e20.12)
 2 format(3a,2(i5,a,i5),2a,a,i3)
 3 format(a,a,i5.5,a)
-end subroutine write_array_m
+end subroutine write_array_m3
 
 
 end module module_fr_sfire_util
