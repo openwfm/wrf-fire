@@ -658,31 +658,29 @@ interp = &
 end function interp
 
 subroutine meshdiffc_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
-                   ims1,ime1,jms1,jme1, &       ! dimensions of lfn 
-                   ims2,ime2,jms2,jme2, &       ! dimensions of the outputs
+                   ims1,ime1,jms1,jme1, &       ! memory dimensiuons 
                    dx,dy,               &       ! mesh spacing
                    lfn,                 &       ! input
                    diffCx,diffCy) ! output
 implicit none
 
 !*** purpose
-! one-sided differences on a 2d mesh
+! central differences on a 2d mesh
 
 !*** arguments
 
-integer, intent(in)::ids,ide,jds,jde,ims1,ime1,jms1,jme1,ims2,ime2,jms2,jme2
+integer, intent(in)::ids,ide,jds,jde,ims1,ime1,jms1,jme1
 real, intent(in):: dx,dy
 real, intent(in), dimension(ims1:ime1,jms1:jme1):: lfn
-real, intent(out), dimension(ims2:ime2,jms2:jme2):: diffCx,diffCy
+real, intent(out), dimension(ims1:ime1,jms1:jme1):: diffCx,diffCy
 
 !*** local
 integer:: i,j
-real, dimension(ims2:ime2,jms2:jme2):: diffLx,diffRx,diffLy,diffRy
+real, dimension(ims1:ime1,jms1:jme1):: diffLx,diffRx,diffLy,diffRy
 
 ! get one-sided differences; dumb but had that already...
 call meshdiff_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
                    ims1,ime1,jms1,jme1, &       ! dimensions of lfn 
-                   ims2,ime2,jms2,jme2, &       ! dimensions of the outputs
                    dx,dy,               &       ! mesh spacing
                    lfn,                 &       ! input
                    diffLx,diffRx,diffLy,diffRy) ! output
@@ -698,7 +696,6 @@ end subroutine meshdiffc_2d
 
 subroutine meshdiff_2d(ids, ide, jds,jde , &    ! mesh area used (in cells, end +1)
                    ims1,ime1,jms1,jme1, &       ! dimensions of lfn 
-                   ims2,ime2,jms2,jme2, &       ! dimensions of the outputs
                    dx,dy,               &       ! mesh spacing
                    lfn,                 &       ! input
                    diffLx,diffRx,diffLy,diffRy) ! output
@@ -709,10 +706,10 @@ implicit none
 
 !*** arguments
 
-integer, intent(in)::ids,ide,jds,jde,ims1,ime1,jms1,jme1,ims2,ime2,jms2,jme2
+integer, intent(in)::ids,ide,jds,jde,ims1,ime1,jms1,jme1
 real, intent(in):: dx,dy
 real, intent(in), dimension(ims1:ime1,jms1:jme1):: lfn
-real, intent(out), dimension(ims2:ime2,jms2:jme2):: diffLx,diffRx,diffLy,diffRy
+real, intent(out), dimension(ims1:ime1,jms1:jme1):: diffLx,diffRx,diffLy,diffRy
 
 !*** local
 integer:: i,j
@@ -721,7 +718,6 @@ real:: tmpx,tmpy
 !*** executable
 
     call check_mesh_2dim(ids,ide+1,jds,jde+1,ims1,ime1,jms1,jme1)
-    call check_mesh_2dim(ids,ide+1,jds,jde+1,ims2,ime2,jms2,jme2)
   
     ! the bulk of the work
     do j=jds,jde

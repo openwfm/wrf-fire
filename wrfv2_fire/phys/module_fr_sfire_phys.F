@@ -170,8 +170,7 @@ logical:: err
 
 ! gradient of surface altitude, node based
 call   meshdiffc_2d(ifts,ifte,jfts,jfte, &    ! mesh area used (in cells, end +1)
-                   ifms,ifme,jfms,jfme, &       ! dimensions of input 
-                   ifms,ifme,jfms,jfme, &       ! dimensions of the outputs
+                   ifms,ifme,jfms,jfme, &       ! memory dimensions 
                    fdx,fdy,               &       ! mesh spacing
                    zsf,                 &       ! input
                    dzfsdx,dzfsdy) ! output
