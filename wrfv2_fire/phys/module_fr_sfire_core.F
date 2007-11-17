@@ -578,7 +578,8 @@ do while ( .not.last )
             endif
         enddo
     enddo
-    write(msg,'(2(a,i6))')'prop_ls: nodes burning',nfirenodes,' next to fireline',nfireline
+    write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
+        (100.*nfirenodes)/((ide+1-ids)*(jde+1-jds)),'% next to fireline',nfireline
     call message(msg)
     if(nfireline>0)then
         call print_stat_line('speed error',min_err,max_err,sum_err/nfireline)
