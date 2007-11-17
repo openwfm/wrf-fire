@@ -466,7 +466,7 @@ do ij=1,num_tiles
     kts = kps
     kte = kpe
 
-    CALL fire_tendency(                 &
+    call fire_tendency(                 &
         ids,ide, kds,kde, jds,jde,      & ! dimensions
         ims,ime, kms,kme, jms,jme,      &
         its,ite, kts,kte, jts,jte,      & ! ???
@@ -474,6 +474,15 @@ do ij=1,num_tiles
         alfg,alfc,z1can,                &
         zs,z_at_w,dz8w,mu,rho,          &
         rthfrten,rqvfrten)                ! out
+
+    call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
+    call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
+    do k=kts,min(kts+4,kte)
+        write(msg,'(a,i4)')'driver:rthfrten layer k=',k
+        call print_3d_stats(its,ite,k,k,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,msg)
+        write(msg,'(a,i4)')'driver:rqvfrten layer k=',k
+        call print_3d_stats(its,ite,k,k,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,msg)
+    enddo
 
     if(write_m)then
     call write_array_m3(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',itimestep)

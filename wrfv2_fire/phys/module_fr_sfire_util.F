@@ -843,6 +843,31 @@ call message(msg)
 end subroutine print_stat_line
 
 
+subroutine print_3d_stats(ips,ipe,kps,kpe,jps,jpe, &
+                         ims,ime,kms,kme,jms,jme, &
+                         a,name)
+implicit none
+integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme,kms,kme,kps,kpe
+real, intent(in)::a(ims:ime,kms:kme,jms:jme)
+character(len=*),intent(in)::name
+integer:: i,j,k
+real:: avg_a,max_a,min_a 
+avg_a=0
+max_a=-huge(max_a)
+min_a= huge(min_a)
+do j=jps,jpe
+  do k=kps,kpe
+    do i=ips,ipe
+        max_a=max(max_a,a(i,k,j))
+        min_a=min(min_a,a(i,k,j))
+        avg_a=avg_a+a(i,k,j)
+    enddo
+  enddo
+enddo
+avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1)*(kpe-kps+1))
+call print_stat_line(name,min_a,max_a,avg_a)
+end subroutine print_3d_stats
+
 subroutine print_2d_stats(ips,ipe,jps,jpe, &
                          ims,ime,jms,jme, &
                          a,name)
@@ -850,20 +875,9 @@ implicit none
 integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
-integer:: i,j
-real:: avg_a,max_a,min_a 
-avg_a=0
-max_a=-huge(max_a)
-min_a= huge(min_a)
-do j=jps,jpe
-    do i=ips,ipe
-        max_a=max(max_a,a(i,j))
-        min_a=min(min_a,a(i,j))
-        avg_a=avg_a+a(i,j)
-    enddo
-enddo
-avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1))
-call print_stat_line(name,min_a,max_a,avg_a)
+call print_3d_stats(ips,ipe,1,1,jps,jpe, &
+                         ims,ime,1,1,jms,jme, &
+                         a,name)
 end subroutine print_2d_stats
 
 real pure function avg_2darray( its,ite,jts,jte,               &
