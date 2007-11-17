@@ -21,7 +21,7 @@ plotSteps=50
 normal_spread_c=1  % speed = r + wind^e * c
 normal_spread_e=1
 
-example='w'
+example='p'
 
 switch example
     case {'circlespin','c'}
@@ -37,6 +37,8 @@ switch example
     r=0.02;
     m=401
     n=401
+    %m=151
+    %n=151
     speed=10;
     xs=6*(m-1);
     ys=6*(n-1);
@@ -45,6 +47,8 @@ switch example
     plotSteps=400
     normal_spread_c=0.185060861
     normal_spread_e=1.310758329
+    %normal_spread_c=1
+    %normal_spread_e=1
     case {'windmill','w'}
     time1=3;
     r=0.1;
@@ -101,7 +105,7 @@ switch ignition
         [ theta, rad ] = cart2pol(xx, yy);
         phi = rad - scale * (cos(points * theta) + shift);
     case {'circle','c'}
-        c=[0.5*xs,0.5*ys]; % center
+        c=[0.8*xs,0.5*ys]; % center
         d=3*max(dx,dy);      % radius
         for i=1:m
             for j=1:n

@@ -412,9 +412,9 @@ real,intent(in)::dx,dy,ts,td
 !*** local 
 ! arrays
 real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
-   tend, speed
+   tend, speed, lfn0, lfn1
 ! scalars
-real::t,dt,tr,tbound,lfn_old,lfn_new,grad2
+real::t,dt,tr,tbound,grad2,a
 real::gradx,grady,aspeed,err,aerr
 integer::istep
 integer::i,j
@@ -460,17 +460,21 @@ do while ( .not.last )
     istep=istep+1
 
 #ifdef DEBUG_OUT    
-    id=istep
+    id=istep*10
     if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',id)
 #endif
 
+    ! time at the beginning of the timestep
     t = ts + tr  ! advance tr instead of t because of rounding
+    
+    
+    ! tend = F(lfn)
 
     call  tend_ls(ids,ide,jds,jde, &                       ! domain dims
                    ims,ime,jms,jme, &                       ! memory dims
                    num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                   id,t,dx,dy,        &                       ! scalars in
+                   id+1,t,dx,dy,        &                       ! scalars in
                    lfn, &                                   ! arrays in
                    tbound, &                                ! scalars out 
                    tend,speed &                             ! arrays out
@@ -482,27 +486,60 @@ do while ( .not.last )
 )
 
     dt = min(td-tr, 0.5*tbound)
+
+    ! lfn1 = lfn+dt*tend
+    ! lfn0 = lfn
+    
+    do j=jds,jde+1
+        do i=ids,ide+1
+            lfn0(i,j) = lfn(i,j)
+            lfn1(i,j) = lfn(i,j) + dt*tend(i,j)
+        enddo
+    enddo
+    
+    ! tend = F(lfn1)
+
+    call  tend_ls(ids,ide,jds,jde, &                       ! domain dims
+                   ims,ime,jms,jme, &                       ! memory dims
+                   num_tiles,i_start,i_end,j_start,j_end, & ! tiling
+                   id+2,t,dx,dy,        &                       ! scalars in
+                   lfn1, &                                   ! arrays in
+                   tbound, &                                ! scalars out 
+                   tend,speed &                             ! arrays out
+#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#include SPEED_VARS_ARGS
+#else
+#include "fr_sfire_params_args.h"
+#endif
+)
+
+    ! combine lfn1 and lfn0 + dt*tend -> lfn
+    
+    a=0.5    ! 0 = euler, 1/2 = heun
+    do j=jds,jde+1
+        do i=ids,ide+1
+            lfn(i,j) = (1.-a)* lfn1(i,j) + a*(lfn0(i,j) + dt*tend(i,j))
+            ! lfn(i,j) = min( lfn1(i,j) , lfn0(i,j) + dt*tend(i,j) )
+        enddo
+    enddo      
     
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
     ! interpolate from the level functions at start and at end
-    ! lfn_old is the level function value at time t
-    ! lfn_new is the level function value at time t+dt
+    ! lfn0 is the level function value at time t
+    ! lfn  is the level function value at time t+dt
     ! 0       should the level function value at time tc(i,j)
     ! thus assuming the level function is approximately linear =>
-    ! tc(i,j)=t + ((t + td) - t) * lfn_old / (lfn_old - lfn_new)
+    ! tc(i,j)= t + ((t + td) - t) * lfn0 / (lfn0 - lfn)
+    !        = t + dt * lfn0 / (lfn0 - lfn)
         
 
     do j=jds,jde+1
         do i=ids,ide+1
-            lfn_old = lfn(i,j)
-            lfn_new = lfn(i,j) + dt*tend(i,j) 
             ! interpolate the cross-over time
-            if(lfn_old>0 .and. .not. lfn_new>0)then
-                tc(i,j) = t - lfn_old / tend(i,j)
+            if (.not. lfn(i,j)>0 .and. lfn0(i,j)>0)then
+                tc(i,j) = t - dt * lfn0(i,j) / (lfn0(i,j) - lfn(i,j))
             endif
-            ! advance one step
-            lfn(i,j) = lfn_new
         enddo
     enddo
     
@@ -525,7 +562,7 @@ do while ( .not.last )
                    gradx=(lfn(i+1,j)-lfn(i-1,j))/(2.0*dx) ! central differences
                    grady=(lfn(i,j+1)-lfn(i,j-1))/(2.0*dy)
                    grad2=sqrt(gradx*gradx+grady*grady)
-                   aspeed = -tend(i,j)/max(grad2,rmin)
+                   aspeed = (lfn0(i,j)-lfn(i,j))/(dt*max(grad2,rmin))
                    err=aspeed-speed(i,j)
                    sum_err=sum_err+err
                    min_err=min(min_err,err)
@@ -630,7 +667,7 @@ real, dimension((jde-jds+2)*(ide-ids+2))::rii,rjj,speedp
 ! scalars
 real::rr
 integer::i,j,k,kk
-character(len=128)msg
+!character(len=128)msg
 
 ! constants
 real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
