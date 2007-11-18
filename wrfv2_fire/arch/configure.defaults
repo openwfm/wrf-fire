@@ -6919,7 +6919,7 @@ module_initialize_real.o module_dm.o start_domain.o :
 #
 OMP             =
 OMPCPP          =
-FC		=	ifort -g  -debug extended -debug-parameters all -traceback
+FC		=	ifort -g  -debug extended -debug-parameters all -traceback -fpe0
 CC              =       gcc
 SCC		=	$(CC)
 SFC		=	$(FC)
