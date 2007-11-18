@@ -114,7 +114,7 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !*** local
 real, dimension(ims:ime,jms:jme)::frac_start
 real:: time_now
-integer::i,j
+integer::i,j,fuel_left_type
 
 !*** calls
 intrinsic epsilon
@@ -125,9 +125,17 @@ intrinsic epsilon
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
 
+fuel_left_type=2
+
 ! compute the fuel fraction at time_start - not needed if passed in
-call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
+if (fuel_left_type .eq. 1)then
+    call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start,frac_start)
+else
+    call fuel_left_jm(ids,ide,jds,jde,ims,ime,jms,jme, &
+    lfn,tign,fuel_time,time_start,frac_start)
+endif
+    
 
 ! propagate the fireline: advance the level function 
 ! from time_start to time_start + time_diff
@@ -144,8 +152,13 @@ call prop_ls(      ids,ide,jds,jde, & ! dims
              )
 
 ! compute the fuel fraction at time_end 
-call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
+if (fuel_left_type .eq. 1)then
+    call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
+else    
+    call fuel_left_jm(ids,ide,jds,jde,ims,ime,jms,jme, &
+    lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
+endif
 
 ! compute the fuel fraction lost
 do j=jds,jde
@@ -167,6 +180,164 @@ do j=jds,jde
 enddo
 
 end subroutine sfire_core
+!
+!****************************************
+!
+
+subroutine fuel_left_jm(ids,ide,jds,jde, &
+                     ims,ime,jms,jme, &
+                     lfn, tign, fuel_time, tnow, fuel_frac)
+implicit none
+
+!*** purpose: determine fraction of fuel remaining
+
+!*** Jan Mandel August 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
+
+!*** arguments
+
+integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
+real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
+real, intent(in):: tnow
+real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
+
+! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
+! ims,ime,jms,jme   in   mesh aray dimensions                (1)
+! lfn               in   level function, at nodes
+! tign              in   ignition time, at nodes
+! fuel_time         in   time constant of fuel, per cell
+! tnow              in   time now
+! fuel_frac         out  fraction of fuel remaining, per cell
+
+!*** Description
+! The area burning is given by the condition P(x,y) <= 0, where the function P is
+! interpolated from the values of lfn at mesh nodes,
+! P(dx*(i-1),dy*(j-1))=lfn(i,j).
+!
+! The time since ignition in location (x,y) is the function T, interpolated in 
+! each mesh cell from the values T(dx*(i-1),dy*(j-1))=tign(i,j) at the nodes
+! where lfn(i,j)<=0, and T(x,y)=tnow on all points on the grid lines where P(x,y) = 0.
+! The values of tign(i,j) where lfn(i,j)>0 are ignored.
+!
+! The subroutine computes for each mesh cell [dx*(i-1),dx*i] by [dy*(j-1),dy*j]
+! an approximation of the average of exp(-T(x,y)/fuel_time(i,j)) over the burning area
+! in the cell, that is an approximation of the integral
+!
+!                              /\
+!                     1        |            T(x,y)-tnow
+! fuel_frac(i,j)  =  -----     |    exp( - ------------- ) dxdy
+!                    dx*dy     |           fuel_time(i,j)
+!                             \/
+!                       dx*(i-1)<x<dx*i
+!                       dy*(j-1)<y<dy*j
+!                        lfn(x,y)<=0
+!
+! When the cell is not burning at all (all lfn>=0), then fuel_frac(i,j)=1.
+! Because of symmetries, the result should not depend on the mesh spacing dx dy
+! so dx and dy are not in the argument list.
+!
+! Example:
+!
+!        lfn<0         lfn>0
+!      (i,j+1)-----O--(i+1,j+1)            O = points on the fireline, T=tnow
+!            |      \ |                    A = the burning area for computing
+!            |       \|                        fuel_frac(i,j)
+!            |   A    O 
+!            |        |
+!            |        |
+!       (i,j)---------(i+1,j)
+!       lfn<0          lfn<0
+!
+! Approximations allowed: 
+! The fireline can be approximated by straight line(s).
+! When all cell is burning, approximation by 1 point Gaussian quadrature is OK.
+! 
+! Requirements:
+! 1. The output should be a continuous function of the arrays lfn and
+!  tign whenever lfn(i,j)=0 implies tign(i,j)=tnow.  
+! 2. The output should be invariant to the symmetries of the input in each cell.
+! 3. Arbitrary combinations of the signs of lfn(i,j) should work.
+! 4. The result should be at least 1st order accurate in the sense that it is
+!    exact if the time from ignition is a linear function.
+!
+! Note: If time from ignition is approximated by polynomial in the burnt
+! region of the cell, this is integral of polynomial times exponential
+! over a polygon, which can be computed exactly.
+!
+! Requirement 4 is particularly important when there is a significant decrease
+! of the fuel fraction behind the fireline on the mesh scale, because the
+! rate of fuel decrease right behind the fireline is much larger 
+! (exponential...). This will happen when
+! 
+!      change of time from ignition within one mesh cell
+! X =  --------------------------------------------------  is not << 1
+!                     fuel_time.
+!
+! (The code should compute and print this quantitity, max min avg)
+!
+! This is the same as
+!
+!               mesh cell size
+!         --------------------------   is not << 1
+!         fuel_time * fireline speed
+!         
+! (This subroutine does not have that data so it cannot compute and print this).
+!
+! When X is large then the fuel burnt in one timestep in the cell is
+! approximately proportional to length of  fireline in that cell.
+!
+! When X is small then the fuel burnt in one timestep in the cell is
+! approximately proportional to the area of the burning region.
+!
+
+!
+!
+! IMPORTANT: follow WRF coding conventions 
+! http://www.mmm.ucar.edu/wrf/WG2/WRF_conventions.html
+
+!*** local
+
+integer::i,j
+real,dimension(ims:ime,jms:jme)::t,ap
+real:: ta,aps,ps,area
+
+! a better approximation - replace by a still better code
+
+call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+
+! precompute nodal quantities
+do j=jds,jde+1     ! note the order of indices for fast  execution
+    do i=ids,ide+1  
+        ap(i,j)=abs(lfn(i,j))
+        ! scaled time since ignition         
+        if (lfn(i,j)>0) then
+            t(i,j)=0.
+        else
+            t(i,j)=tnow - tign(i,j)
+        endif
+    enddo
+enddo
+
+do j=jds,jde
+    do i=ids,ide ! it is OK to introduce extra scalars, just as fast
+
+        ! approximate relative burning area, between 0 and 1   
+        ps=lfn(i+1,j+1)+lfn(i+1,j)+lfn(i,j+1)+lfn(i,j)   
+        aps=ap(i+1,j+1)+ ap(i+1,j)+ ap(i,j+1)+ ap(i,j)
+        area=(-ps/aps+1.)*.5
+    
+        ! average time since ignition
+        ta=0.25*(t(i+1,j+1)+t(i+1,j)+t(i,j+1)+t(i,j))
+
+        ! exp decay in the burning area
+        fuel_frac(i,j)=area*exp(-ta/fuel_time(i,j)) + (1. - area)
+        
+        ! note: this is exact in the limit 
+        ! fuel_time/ta= fuel_time*fire_speed/cell_size -> 0
+
+    enddo
+enddo
+
+end subroutine fuel_left_jm
 
 !
 !****************************************
