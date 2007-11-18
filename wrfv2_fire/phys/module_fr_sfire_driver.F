@@ -109,11 +109,9 @@ real, intent(in):: &
     alfg,                                         & ! extinction depth of ground fire heat (m)
     alfc                                            !  extinction depth of crown fire heat (m)
 
-real, intent(in), dimension(ims:ime, kms:kme, jms:jme):: &
-    u,v,                                          & ! wind velocity (m/s) (node based, atm grid)
-    mu,                                           & ! dry air mass (Pa)  pressure??  (cell based, atm grid)
-    rho                                             ! air density  (kg/m^3) (cell based, atm grid)
-
+real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v ! wind velocity (m/s) (node based, atm grid) 
+real,intent(in),dimension(ims:ime,jms:jme)::mu          ! dry air mass (Pa)  pressure??  (cell based, atm grid)
+real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho  ! air density  (kg/m^3) (cell based, atm grid) 
 
 real, intent(in), dimension(ims:ime, jms:jme)::   & ! from Ned's code, who knows that this means
     zs,                                           & ! terrain height  
@@ -462,10 +460,15 @@ do ij=1,num_tiles
     endif
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
-    
+
     kts = kps
     kte = kpe
 
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,mu,'driver:mu')
+    call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
+    
     call fire_tendency(                 &
         ids,ide, kds,kde, jds,jde,      & ! dimensions
         ims,ime, kms,kme, jms,jme,      &
