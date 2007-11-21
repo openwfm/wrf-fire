@@ -171,6 +171,7 @@ time_start = itimestep * dt
 
 ! debug write switch
 write_m = itimestep.le.2.or.mod(itimestep,100).eq.0
+write_m = .false.
 
 ! fire mesh step
 dxf=dx/ir
