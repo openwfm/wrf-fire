@@ -222,20 +222,20 @@ CONTAINS
    ENDDO
    !$OMP END PARALLEL DO
 !
-  !$OMP PARALLEL DO   &
-  !$OMP PRIVATE ( ij, i,j,k, its, ite, jts, jte )
-   DO ij = 1 , num_tiles
+   fire_select: SELECT CASE(ifire)
+
+   CASE (FIRE_CAWFE)
+
+     CALL wrf_debug(100,'entering CAWFE fire scheme')
+     !$OMP PARALLEL DO   &
+     !$OMP PRIVATE ( ij, i,j,k, its, ite, jts, jte )
+     DO ij = 1 , num_tiles
 
       its = i_start(ij)   ! start atmospheric tile in i
       ite = i_end(ij)     ! end atmospheric tile in i
       jts = j_start(ij)   ! start atmospheric tile in j
       jte = j_end(ij)     ! end atmospheric tile in j
 
-      fire_select: SELECT CASE(ifire)
-
-      CASE (FIRE_CAWFE)
-
-        CALL wrf_debug(100,'entering CAWFE fire scheme')
 
         CALL cawfe(                                             &
              ids,ide, kds,kde, jds,jde                          & ! send
@@ -262,12 +262,19 @@ CONTAINS
             ,rthfrten,rqvfrten                                  &
             ,grnhfx,grnqfx,canhfx,canqfx)                         ! recv
 
-        CALL wrf_debug(100,'exiting CAWFE fire scheme')
+     ENDDO
+     !$OMP END PARALLEL DO
 
-      CASE (FIRE_SFIRE)
+     CALL wrf_debug(100,'exiting CAWFE fire scheme')
 
-        CALL wrf_debug(100,'entering SFIRE fire scheme')
-        CALL sfire_driver(                                      &
+   CASE (FIRE_SFIRE)
+
+     CALL wrf_debug(100,'entering SFIRE fire scheme')
+
+     ! sfire_driver is in mediation layer, will have its own loops over tile inside
+     ! do NOT call from OMP loop!!
+
+     CALL sfire_driver(                                      &
              ids,ide, kds,kde, jds,jde                          &
             ,ims,ime, kms,kme, jms,jme                          &
             ,ips,ipe, kps,kpe, jps,jpe                          & 
@@ -292,15 +299,20 @@ CONTAINS
             )
 
         CALL wrf_debug(100,'exiting SFIRE fire scheme')
-     CASE DEFAULT
+   CASE DEFAULT
 
        WRITE( msg , * ) 'This fire option does not exist: ifire = ', ifire
        CALL wrf_error_fatal ( msg )
 
    END SELECT fire_select
 
-   ENDDO
-   !$OMP END PARALLEL DO
+   ! common print to compare
+   ! NOTE: this will not work even on OMP - debug only
+   if(num_tiles.ne.1)call wrf_error_fatal('fire_driver:print_3d_stats debug print supported on 1 tile only')
+   call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
+   call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
+   call print_3d_stats(ids,ide,kds,kde,jds,jde,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver:rthfrten')
+   call print_3d_stats(ids,ide,kds,kde,jds,jde,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver:rqvfrten')
 
    END SUBROUTINE fire_driver
 
