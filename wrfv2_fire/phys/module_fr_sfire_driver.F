@@ -283,7 +283,7 @@ do ij=1,num_tiles
 
     if (write_m) then
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'ua',itimestep)
-        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'va',itimestep)
+        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,va,'va',itimestep)
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,zs,'zs',itimestep)
     endif
 
