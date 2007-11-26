@@ -181,7 +181,7 @@ if(istep.eq.1)then
         ignition=0
 elseif(istep.eq.2)then
         initialize=0
-        ignition=1
+        ignition=2
 else
         initialize=0
         ignition=0

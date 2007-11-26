@@ -128,6 +128,14 @@ do ij=1,num_tiles
         call ignite_fire(   ifts,ifte,jfts,jfte,                      &
                             ifms,ifme,jfms,jfme,                      &
                             time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
+    case(2)
+        ! like above but ignite in the corner
+        ctri=(ifds+ifde+1)*0.25
+        ctrj=(jfds+jfde+1)*0.25
+        diam = max(5.0,6*max(fdx,fdy))
+        call ignite_fire(   ifts,ifte,jfts,jfte,                      &
+                            ifms,ifme,jfms,jfme,                      &
+                            time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
         ! more complicated ignition can come here, or load from data
     case default
         call crash('model: unsupported ignition value')
