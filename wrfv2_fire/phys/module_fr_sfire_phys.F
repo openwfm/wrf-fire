@@ -364,7 +364,7 @@ real:: dmass
 do j=jfts,jfte
     do i=ifts,ifte
          dmass =                     &     ! ground fuel dry mass burnt this call (kg/m^2)
-             fgip(i,j)               &     ! init mass from fuel model no (kg/m^2)
+             fgip(i,j)               &     ! init mass from fuel model no (kg/m^2) = fgi(nfuel_cat(i,j)
              * fuel_frac_burnt(i,j)        ! fraction burned this call    (1)
          grnhft(i,j) = (dmass/dt)*(1.-bmst)*cmbcnst         ! J/m^2/sec
          grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! what the #!@* is that??

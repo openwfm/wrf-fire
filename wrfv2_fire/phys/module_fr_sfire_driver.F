@@ -171,10 +171,11 @@ time_start = itimestep * dt
 
 ! debug write switch
 write_m = itimestep.le.2.or.mod(itimestep,100).eq.0
+write_m = .false.
 
 ! fire mesh step
 dxf=dx/ir
-dyf=dy/ir
+dyf=dy/jr
 
 ! fix fire patch to leave out one strip on domain boundary
 ! need fixed atm patch first, but that is never used except for checking 
@@ -282,7 +283,7 @@ do ij=1,num_tiles
 
     if (write_m) then
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'ua',itimestep)
-        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'va',itimestep)
+        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,va,'va',itimestep)
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,zs,'zs',itimestep)
     endif
 
@@ -430,13 +431,6 @@ do ij=1,num_tiles
     jfts= jf_start(ij)
     jfte= jf_end(ij)
 
-    ! we do not have canopy fluxes yet...
-    do j=jts,jte
-        do i=its,ite
-            canhfx(i,j)=0
-            canqfx(i,j)=0
-        enddo
-    enddo
 
     if(write_m)then
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn',itimestep)
@@ -446,13 +440,24 @@ do ij=1,num_tiles
     call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',itimestep)
     endif
     
-    ! sum up the fluxes over atm cells
+    ! sum the fluxes over atm cells
     call sum_2d_cells(                                  &
         ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx, &
         its,ite,jts,jte,ims, ime, jms, jme, grnhfx)
     call sum_2d_cells(                                  &
         ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx, &
         its,ite,jts,jte,ims, ime, jms, jme, grnqfx)
+
+    do j=jts,jte
+        do i=its,ite
+            ! scale ground fluxes to get the averages
+            grnhfx(i,j)=grnhfx(i,j)/(ir*jr)
+            grnqfx(i,j)=grnqfx(i,j)/(ir*jr)
+            ! we do not have canopy fluxes yet...
+            canhfx(i,j)=0
+            canqfx(i,j)=0
+        enddo
+    enddo
 
     if(write_m)then
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'grnhfx',itimestep)

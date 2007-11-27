@@ -761,7 +761,7 @@ do while ( .not.last )
     last = .not.(tr + td*tol < td .and. istep < mstep)   !  last pass
 
     if(printl>=2 .or. (printl>=1 .and. (last .or. istep==1) ) )then
-        write(msg,'(7(a,f10.5))')  &
+        write(msg,'(7(a,f12.2))')  &
             'prop_ls:time',t,' dt',dt
         call message(msg)
         call print_2d_stats(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend,'prop_ls:lvl fcn tend(1/s)')
