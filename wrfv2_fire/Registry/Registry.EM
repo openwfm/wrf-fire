@@ -1447,6 +1447,11 @@ state    integer  ischap    *i*j      fire        1         z    hr    "ISCHAP" 
 #
 #<Table>  <Type>  <Sym>                   <How set>          <Nentries>   <Default>
 rconfig   integer ifire                  namelist,fire          1            0
+rconfig   real    fire_ignition_start_x  namelist,fire          1            0.      -      "fire_ignition_start_x" "x coord of start of ignition line" "m"
+rconfig   real    fire_ignition_start_y  namelist,fire          1            0.      -      "fire_ignition_start_y" "y coord of start of ignition line" "m"
+rconfig   real    fire_ignition_end_x    namelist,fire          1            0.      -      "fire_ignition_end_x"   "x coord of end of ignition line" "m"
+rconfig   real    fire_ignition_end_y    namelist,fire          1            0.      -      "fire_ignition_end_y"   "y coord of end of ignition line" "m"
+rconfig   real    fire_ignition_time     namelist,fire          1            0.      -      "fire_ignition_time"    "ignition time" "s"
 rconfig   real    fire_lat_init          namelist,fire          1            0.      -      "fire_lat_init"    "latitude to start fire"           "degrees"
 rconfig   real    fire_lon_init          namelist,fire          1            0.      -      "fire_lon_init"    "longitude to start fire"          "degrees"
 rconfig   real    fire_ign_time          namelist,fire          1            0.      -      "fire_ign_time"    "time when fire should be ignited" "min"
