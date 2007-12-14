@@ -780,6 +780,11 @@ BENCH_START(fire_driver_tim)
             ,model_config_rec%s_we(1), model_config_rec%e_we(1)     &
             ,model_config_rec%s_sn(1), model_config_rec%e_sn(1)     &
             ,grid%sr_x,grid%sr_y                                    &
+            ,config_flags%fire_num_ignitions                        & ! start ignition for SFIRE
+            ,config_flags%fire_ignition_start_x,config_flags%fire_ignition_start_y        & ! ignition - small arrays
+            ,config_flags%fire_ignition_end_x,config_flags%fire_ignition_end_y            &
+            ,config_flags%fire_ignition_radius                              &
+            ,config_flags%fire_ignition_time                        & ! end ignitin for SFIRE
             ,config_flags%fire_lat_init,config_flags%fire_lon_init  &
             ,config_flags%fire_ign_time                             &
             ,config_flags%fire_shape,config_flags%fire_crwn_hgt     &
@@ -3513,4 +3518,3 @@ BENCH_END(bc_2d_tim)
    RETURN
 
 END SUBROUTINE solve_em
-

@@ -21,6 +21,11 @@ CONTAINS
             ,moad_lat_ll,moad_lon_ll,moad_dx,moad_dy            &
             ,moad_s_we,moad_e_we,moad_s_sn,moad_e_sn            &
             ,sr_x,sr_y                                          &
+            ,fire_num_ignitions                                 &
+            ,fire_ignition_start_x,fire_ignition_start_y        & ! ignition - small arrays
+            ,fire_ignition_end_x,fire_ignition_end_y            &
+            ,fire_ignition_radius                              &
+            ,fire_ignition_time                                &
             ,fire_lat_init,fire_lon_init,fire_ign_time          &
             ,fire_shape,fire_crwn_hgt                           &
             ,fire_ext_grnd,fire_ext_crwn,fire_sprd_mdl          &
@@ -187,10 +192,17 @@ CONTAINS
                                 lfn,fuel_frac,fuel_time,dzfsdx,dzfsdy,fgip
    INTEGER,intent(inout),DIMENSION( ifms:ifme,jfms:jfme ) :: ischap
 
+!   ignition variables for SFIRE
+    integer, intent(in):: fire_num_ignitions                  ! number of ignitions, can be 0
+    real, dimension(fire_num_ignitions), intent(in):: &   
+    fire_ignition_start_x,fire_ignition_start_y, &
+    fire_ignition_end_x,fire_ignition_end_y,fire_ignition_radius, & ! start, end, radius, time
+    fire_ignition_time                           !  of ignition lines
+
 
 ! ---- local variables
 
-   INTEGER :: i,j,k,nk,jj,ij,its,ite,jts,jte
+   INTEGER :: i,j,k,nk,jj,ij,its,ite,jts,jte, num_ignitions
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: v_tmp
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: u_tmp
@@ -288,6 +300,11 @@ CONTAINS
             ,dt,dx,dy                                           &
             ,u_frame,v_frame                                    &
             ,fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt          &
+            ,fire_num_ignitions                                 &
+            ,fire_ignition_start_x,fire_ignition_start_y        & ! ignition - small arrays
+            ,fire_ignition_end_x,fire_ignition_end_y            &
+            ,fire_ignition_radius                              &
+            ,fire_ignition_time                                &
             ,u,v,mu,rho,ht                                      &
             ,z_at_w,dz8w                                        &
             ,lfn,tign_c,fuel_frac                     & 

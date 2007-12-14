@@ -3,10 +3,16 @@
 !
 
 module module_fr_sfire_model
+
+use module_fr_sfire_core
+use module_fr_sfire_util
+use module_fr_sfire_phys
+
 contains
 
 subroutine sfire_model (                    &
-    initialize, ignition,                   & ! switches
+    initialize,                             & ! switch
+    num_ignitions,                          & ! number of ignitions before advancing
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -14,6 +20,10 @@ subroutine sfire_model (                    &
     num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing
+    ignition_start_x,ignition_start_y,      & ! ignition - small arrays
+    ignition_end_x,ignition_end_y,          &
+    ignition_radius,                        &
+    ignition_time,                          &
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
     lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
@@ -29,16 +39,13 @@ subroutine sfire_model (                    &
 ! and outputs the heat fluxes on the cells of the fire grid.
 ! This subroutine has no knowledge of any atmospheric model.
 
-use module_fr_sfire_core
-use module_fr_sfire_util
-use module_fr_sfire_phys
 implicit none
 
 !*** arguments
 
 ! input
-
-integer, intent(in) :: initialize, ignition ! if not 0, do this and proceed with timestep
+integer, intent(in) :: initialize           ! if not 0, initialize proceed with timestep
+integer, intent(in) :: num_ignitions        ! number of ignition locations/times 
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
 integer, intent(in) :: ifds,ifde,jfds,jfde  ! fire domain bounds
 integer, intent(in) :: ifps,ifpe,jfps,jfpe  ! fire patch bounds
@@ -47,6 +54,10 @@ integer,intent(in)::num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
+real, dimension(num_ignitions), intent(in):: &   
+    ignition_start_x,ignition_start_y, &
+    ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
+    ignition_time                           !  of ignition lines
 REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
     zsf,   &                                ! terrain height, node based, data, constant        
     vx,vy                                   ! wind m/s (node based), data, variable
@@ -73,9 +84,8 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 
 INTEGER :: ifts,ifte,jfts,jfte      ! fire tile bounds
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
-integer::ij        
+integer::ij,ignited,ig        
 real, dimension(ifms:ifme, jfms:jfme)::fuel_frac_burnt
-real:: ctri,ctrj,diam ! for ignition
 
 !*** executable
 
@@ -111,28 +121,29 @@ do ij=1,num_tiles
 )
     
         ! initialize variable model arrays to no fire
-        call init_model_no_fire(ifts,ifte,jfts,ifte, &
-                                ifms,ifme,jfms,jfme, &
-                                fuel_frac,lfn,tign)                            
+        call init_no_fire   (ifds,ifde,jfds,jfde, &
+                             ifts,ifte,jfts,jfte, &
+                             ifms,ifme,jfms,jfme, &
+                             fdx,fdy,time_start,  &
+                             fuel_frac,lfn,tign) 
                             
     endif
 
-    select case(ignition)
-    case(0)
-    case(1)
-        ! ignite fire in the middle
-        ctri=(ifds+ifde+1)*0.5
-        ctrj=(jfds+jfde+1)*0.5
-        ! at least 6 by 6 cells but no less than 5 m
-        diam = max(5.0,6*max(fdx,fdy))    
-        call ignite_fire(   ifts,ifte,jfts,jfte,                      &
-                            ifms,ifme,jfms,jfme,                      &
-                            time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
-        ! more complicated ignition can come here, or load from data
-    case default
-        call crash('model: unsupported ignition value')
-    end select
-    
+    do ig = 1,num_ignitions
+        if(ignition_time(ig)>=time_start.and.ignition_time(ig)<time_start+dt)then 
+            call ignite_fire(                             &
+                ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
+                ifts,ifte,jfts,jfte,                      &
+                ifms,ifme,jfms,jfme,                      &
+                ignition_start_x(ig),ignition_start_y(ig),&
+                ignition_end_x(ig),ignition_end_y(ig),    &
+                ignition_radius(ig),                      &
+                ignition_time(ig),                        &  
+                fdx,fdy,                                  &
+                lfn,tign,ignited)
+        endif
+    enddo
+        
 enddo ! end tile loop
 
 ! advance the model from time_start to time_start+dt

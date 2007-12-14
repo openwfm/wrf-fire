@@ -68,6 +68,11 @@ subroutine sfire_driver (                         &
     itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
     u_frame,v_frame,                              &
     alfg,alfc,z1can,                              &
+    num_ignitions,                                & 
+    ignition_start_x,ignition_start_y,            & ! ignition - small arrays
+    ignition_end_x,ignition_end_y,                &
+    ignition_radius,                              &
+    ignition_time,                                &
     u,v,mu,rho,zs,                                & ! in arrays, atm grid
     z_at_w,dz8w,                                  &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
@@ -109,6 +114,12 @@ real, intent(in):: &
     alfg,                                         & ! extinction depth of ground fire heat (m)
     alfc                                            !  extinction depth of crown fire heat (m)
 
+integer, intent(in):: num_ignitions                  ! number of ignitions, can be 0
+real, dimension(num_ignitions), intent(in):: &   
+    ignition_start_x,ignition_start_y, &
+    ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
+    ignition_time                           !  of ignition lines
+
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v ! wind velocity (m/s) (node based, atm grid) 
 real,intent(in),dimension(ims:ime,jms:jme)::mu          ! dry air mass (Pa)  pressure??  (cell based, atm grid)
 real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho  ! air density  (kg/m^3) (cell based, atm grid) 
@@ -145,7 +156,7 @@ real :: dxf,dyf,time_start
 integer,dimension(num_tiles) :: if_start,if_end,jf_start,jf_end, &  ! fire grid tiling
                                 ia_start,ia_end,ja_start,ja_end     ! atm grid tiling
 integer :: its,ite,jts,jte,kts,kte, &
-    ij,i,j,k,initialize,ignition, &
+    ij,i,j,k,initialize, &
     ifts,ifte,jfts,jfte,ifte1,jfte1, &           ! fire tile
     ifps, ifpe, jfps, jfpe, &                     ! fixed fire patch bounds
     iaps, iape, japs, jape                        ! fixed atm  patch bounds
@@ -160,10 +171,8 @@ real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 ! and set to 1 at the right time by the caller
 if(itimestep .eq. 1 )then
     initialize=1
-    ignition=1
 else
     initialize=0
-    ignition=0
 endif
 
 ! time - assume dt does not change
@@ -400,7 +409,7 @@ endif
 ! the model is parallel itself, call on the whole patch not just a tile
 
 call sfire_model (                    &
-    initialize, ignition,                   & ! switches
+    initialize, num_ignitions,                   & ! switches
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims
     ifms,ifme,jfms,jfme,                    & ! fire memory dims
@@ -408,6 +417,10 @@ call sfire_model (                    &
     num_tiles,if_start,if_end,jf_start,jf_end,  & ! fire grid tiling
     time_start,dt,                          & ! time and increment
     dxf,dyf,                                & ! fire mesh spacing
+    ignition_start_x,ignition_start_y,      & ! ignition - small arrays
+    ignition_end_x,ignition_end_y,          &
+    ignition_radius,                        &
+    ignition_time,                          &
     zsf,                                    & ! terrain height (for gradient)
     uf,vf,                                  & ! input: wind
     lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left

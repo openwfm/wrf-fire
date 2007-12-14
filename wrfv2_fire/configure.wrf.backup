@@ -81,7 +81,7 @@ ESMF_TARGET         = esmf_time
 #
 OMP             =
 OMPCPP          =
-FC		=	ifort -g  -debug extended -debug-parameters all -traceback
+FC		=	ifort -g  -debug extended -debug-parameters all -traceback -fpe0
 CC              =       gcc -DFSEEKO64_OK 
 SCC		=	$(CC)
 SFC		=	$(FC)

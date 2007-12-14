@@ -180,9 +180,150 @@ do j=jds,jde
 enddo
 
 end subroutine sfire_core
+
 !
 !****************************************
 !
+
+subroutine init_no_fire     (ifds,ifde,jfds,jfde, & ! dimensions
+                             ifts,ifte,jfts,jfte, &
+                             ifms,ifme,jfms,jfme, &
+                             fdx,fdy,time_now,    & ! scalars in
+                             fuel_frac,lfn,tign)    ! arrays out            
+implicit none
+             
+!*** purpose: initialize model to no fire
+
+!*** arguments
+integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+real, intent(in) :: fdx,fdy,time_now        ! mesh spacing, time
+real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
+                   fuel_frac,lfn,tign       ! model state
+
+!*** calls
+intrinsic epsilon
+                                                
+!*** local
+integer:: i,j
+real lfn_init,time_init
+
+
+do j=jfts,jfte
+    do i=ifts,ifte
+        fuel_frac(i,j)=1.  ! fuel at start is 1 by definition
+    enddo
+enddo
+
+lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
+time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
+ 
+do j=jfts,jfte+1
+    do i=ifts,ifte+1
+        tign(i,j) = time_init      ! ignition in future
+        lfn(i,j) = lfn_init        ! no fire 
+    enddo
+enddo
+call message('init_model_no_fire: state set to no fire')
+
+end subroutine init_no_fire
+
+!
+!******************
+!
+ 
+
+subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+                        ifts,ifte,jfts,jfte,                      &
+                        ifms,ifme,jfms,jfme,                      &
+                        sx,sy,ex,ey,r,time_ign,fdx,fdy,           &
+                        lfn,tign,ignited)
+implicit none
+
+!*** purpose: ignite a circular fire 
+
+!*** arguments
+integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+real, intent(in):: time_ign                 ! the ignition time of the fire
+real, intent(in):: sx,sy                    ! start of ignition line, from lower left corner
+real, intent(in):: ex,ey                    ! end of ignition line, or zero
+real, intent(in):: r                        ! all within the radius of the line will ignite
+real, intent(in):: fdx,fdy                  ! mesh spacing (m)
+real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
+                   lfn, tign                ! level function, ignition time (state)
+integer, intent(out):: ignited              ! number of nodes newly ignited
+                        
+!*** local
+integer:: i,j
+real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2
+logical::point
+character(len=128):: msg
+
+ignited=0
+point = ex .eq. 0.0 .or. ey .eq. 0.0
+if (.not.point)then
+    ! midpoint m = (mx,my)
+    mx = (sx + ex)/2
+    my = (sy + ey)/2
+else    
+    mx = sx
+    my = sy
+endif
+do j=jfts,jfte+1      ! node based loops, hence the +1
+    do i=ifts,ifte+1
+        ! coordinates of the point a=(ax ay), the lower left corner of the domain is (0 0)
+        ax = fdx*(i - ifds)
+        ay = fdy*(j - jfds)
+        dam2=(ax-mx)*(ax-mx)+(ay-my)*(ay-my)      ! |a-m|^2
+        if(point)then
+            d=sqrt(dam2)
+        else
+            ! compute distance as distance from midpoint minus correction
+            ! |a-c|^2 = |a-m|^2 - |m-c|^2
+            ! when |m-c| >= |s-e|/2 use distance from the endpoint instead
+            !
+            !           a    
+            !          /| \ 
+            !     s---m-c--e
+            !
+            ! |m-c| = |a-m| cos (a-m,e-s) 
+            !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
+            des2 = (ex-sx)*(ex-sx)+(ey-sy)*(ey-sy)          ! |e-s|^2
+            dames = dam2*des2
+            if(dames>0)then
+                am_es=(ax-mx)*(ex-sx)+(ay-my)*(ey-sy)       ! (a-m).(e-s)
+                cos2 = (am_es*am_es)/dames                  ! cos^2 (a-m,e-s)
+            else
+                cos2 = 0.
+            endif
+            dmc2 = dam2*cos2                                ! |m-c|^2
+            if(4.*dmc2 <= des2)then
+                d = sqrt(max(dam2 - dmc2,0.))               ! just in case, rounding
+            elseif(am_es>0)then                             ! cos > 0, closest is e
+                d = sqrt((ax-ex)*(ax-ex)+(ay-ey)*(ay-ey))   ! |a-e|
+            else
+                d = sqrt((ax-sx)*(ax-sx)+(ay-sy)*(ay-sy))   ! |a-s|
+            endif
+        endif
+        lfn_new=d-r
+        if(lfn(i,j)>0 .and. lfn_new<=0) then
+            tign(i,j)=time_ign  ! newly ignited now
+            ignited=ignited+1   ! count
+        endif
+        lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
+    enddo
+enddo
+write(msg,'(a,2f10.1,a,2f10.1,a,f8.1,a,f8.1,a,i3)')'ignite_fire: from',sx,sy,' to ',&
+    ex,ey,' radius ',r,' time',time_ign,' ignited nodes',ignited
+call message(msg)
+end subroutine ignite_fire
+
+!
+!**********************
+!            
 
 subroutine fuel_left_jm(ids,ide,jds,jde, &
                      ims,ime,jms,jme, &

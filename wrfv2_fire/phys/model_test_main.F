@@ -28,12 +28,15 @@ real, intent(in)::fdx,fdy,dt,wind,alpha
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhfx,grnqfx
-integer:: initialize, ignition,i,j,ifuelread,istep,nfuel_cat0
+integer:: initialize, num_ignitions,i,j,ifuelread,istep,nfuel_cat0
 real:: t0,time_start,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
 real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
 integer::num_tiles
 integer, dimension(100)::i_start,i_end,j_start,j_end
+integer, parameter :: max_ignitions=1
+real, dimension(max_ignitions) :: ignition_start_x,ignition_start_y, &
+    ignition_end_x,ignition_end_y,ignition_radius,ignition_time
 
 !*** executable
 
@@ -69,16 +72,27 @@ time_start=t0
 do istep=1,msteps
     if(istep.eq.1)then
             initialize=1
-            ignition=0
+            num_ignitions=0
     elseif(istep.eq.2)then
             initialize=0
-            ignition=1
+            num_ignitions=1
+            ignition_start_x(1)=0.5*fdx*(ifde-ifds)
+            ignition_start_y(1)=0.5*fdy*(jfde-jfds)
+            ignition_end_x(1)=0.5*fdx*(ifde-ifds)*0.9999999
+            ignition_end_y(1)=0.5*fdy*(jfde-jfds)*1.0000001
+            ignition_start_x(1)=1000
+            ignition_start_y(1)=500
+            ignition_end_x(1)=1000
+            ignition_end_y(1)=1500
+            ! at least 6 by 6 cells but no less than 5 m
+            ignition_radius(1) = 0.5*max(5.0,6*max(fdx,fdy))
+            ignition_time(1)=time_start
     else
             initialize=0
-            ignition=0
+            num_ignitions=0
     endif
     call   sfire_model (                    &
-    initialize, ignition,                   & ! switches
+    initialize, num_ignitions,              & 
     ifuelread,nfuel_cat0,                   &
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -86,6 +100,10 @@ do istep=1,msteps
     num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing
+    ignition_start_x,ignition_start_y,      &
+    ignition_end_x,ignition_end_y,          &  
+    ignition_radius,                        &
+    ignition_time,                          &
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
     lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
@@ -94,7 +112,7 @@ do istep=1,msteps
     fuel_time,                              & ! save derived internal data
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
     ) 
-    if(mod(istep,50).eq.0)then
+    if(istep.le.10.or.mod(istep,50).eq.0)then
         write(1,1)1.,1.,time_start
         write(1,1)sm+1,sn+1,((lfn(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
         write(1,1)sm+1,sn+1,((tign(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)

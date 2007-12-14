@@ -126,12 +126,22 @@
 
  &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
  ifire              = 2, 	! integer, = 0: no fire, = 1: cc_fire, 2=sfire
+! ignition for cawfe
 !fire_lat_init      =   40.,	! real   , initial fire latitude (deg)
 !fire_lon_init      = -105.,	! real   , initial fire longitude (deg)
  fire_lat_init      = 6.75e-3,	! real   , initial fire latitude (deg)
  fire_lon_init      = 6.70e-3,	! real   , initial fire longitude (deg)
  fire_ign_time      = 30.,  	! real   , time of fire ignition (s)
  fire_shape         = 1,	! integer, initial fire shape
+! ignition for sfire
+ fire_num_ignitions = 1,        ! integer, must be 1 for now 
+ fire_ignition_start_x = 1000,  ! start of ignition line, in m from lower left corner
+ fire_ignition_start_y = 500,   ! start of ignition line, in m from lower left corner
+ fire_ignition_end_x = 1000,    ! end of ignition line, in m from lower left corner
+ fire_ignition_end_y = 1500,    ! end of ignition line, in m from lower left corner
+ fire_ignition_radius = 18,    ! all within this radius will ignite, > fire mesh step
+ fire_ignition_time  = 2,       ! sec for ignition from the start
+! end ignition for sfire
  fire_sprd_mdl      = 1,	! integer, = 0: Macarthur, = 1: BEHAVE
  fire_crwn_hgt      = 15.,	! real   , height of canopy crown (m)
  fire_ext_grnd      = 50.,	! real   , extinction coeff ground fire
