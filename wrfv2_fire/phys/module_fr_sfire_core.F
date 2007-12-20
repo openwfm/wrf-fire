@@ -113,6 +113,7 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !
 !*** local
 real, dimension(ims:ime,jms:jme)::frac_start
+!double precision frac_start(ims:ime,jms:jme)
 real:: time_now
 integer::i,j,fuel_left_type
 
@@ -125,17 +126,19 @@ intrinsic epsilon
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
 
-fuel_left_type=2
+fuel_left_type=3
 
 ! compute the fuel fraction at time_start - not needed if passed in
 if (fuel_left_type .eq. 1)then
     call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start,frac_start)
-else
+else if (fuel_left_type .eq. 2) then
     call fuel_left_jm(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start,frac_start)
+else if (fuel_left_type .eq. 3) then
+    call fuel_burnt(ids,ide,jds,jde,fire_dx,fire_dy,ims,ime,jms,jme,&
+    lfn,tign,fuel_time,time_start,frac_start)        
 endif
-    
 
 ! propagate the fireline: advance the level function 
 ! from time_start to time_start + time_diff
@@ -155,9 +158,12 @@ call prop_ls(      ids,ide,jds,jde, & ! dims
 if (fuel_left_type .eq. 1)then
     call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
-else    
+else if (fuel_left_type .eq. 2) then
     call fuel_left_jm(ids,ide,jds,jde,ims,ime,jms,jme, &
     lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
+else if (fuel_left_type .eq. 3) then
+    call fuel_burnt(ids,ide,jds,jde,fire_dx,fire_dy,ims,ime,jms,jme,&
+    lfn,tign,fuel_time,time_start+time_diff,fuel_frac)        
 endif
 
 ! compute the fuel fraction lost
@@ -364,7 +370,7 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! in the cell, that is an approximation of the integral
 !
 !                              /\
-!                     1        |            T(x,y)-tnow
+!                     1        |            T(x,y)-now
 ! fuel_frac(i,j)  =  -----     |    exp( - ------------- ) dxdy
 !                    dx*dy     |           fuel_time(i,j)
 !                             \/
@@ -642,7 +648,399 @@ end subroutine fuel_left
 !
 !****************************************
 !
+subroutine fuel_burnt(ids,ide,jds,jde,dx,dy,&
+                     ims,ime,jms,jme, &
+                     lfn, tign, fuel_time, tnow, fuel_burn)                     
+implicit none
+!*** arguments
+integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
+real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
+real, intent(in):: tnow,dx,dy
+real, intent(out), dimension(ims:ime,jms:jme)::fuel_burn
 
+! lfn       - level set function, size (2,2)
+! tign      - time of ignition, size (2,2)
+! tnow      - time now
+! fd        - mesh cell size (2)
+! fuel_time - time constant of fuel
+!
+! output: approximation of
+!                              /\
+!                     1        |                   T(x,y)
+!  fuel_burnt  =  ----------   |  ( 1  -  exp( - ----------- ) ) dxdy
+!                 fd(1)*fd(2)  |                  fuel_time
+!                             \/
+!                        (x,y) in R; 
+!                         L(x,y)<=0
+!
+! where R is the rectangle [0,fd(1)] * [0,fd(2)]
+!       T is given by tign and L is given by lfn at the 4 vertices of R
+!
+! Requirements:
+!       exact in the case when T and L are linear 
+!       varies continuously with input
+!       value of tign-tnow where lfn>0 ignored
+!       assume T=0 when lfn=0
+
+! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
+! ims,ime,jms,jme   in   mesh aray dimensions                (1)
+! lfn               in   level function, at nodes
+! tign              in   ignition time, at nodes
+! fuel_time         in   time constant of fuel, per cell
+! tnow              in   time now
+! fuel_frac         out  fraction of fuel remaining
+
+!*** local
+integer::i,j,k
+
+! least squares
+integer::mmax,nb,nmax,pmax,nin,nout
+parameter(mmax=3,nb=64,nmax=8,pmax=8)
+integer lda, ldb, lwork, info
+parameter (lda=nmax, ldb=nmax, lwork=mmax+nmax+nb*(nmax+pmax))
+integer n,m,p
+
+real,dimension(lda,mmax):: mA
+real,dimension(nmax):: vecD
+real,dimension(lwork):: WORK
+real,dimension(pmax):: vecY
+real,dimension(mmax):: vecX
+real,dimension(ldb,pmax)::mB
+real,dimension(mmax)::u
+
+real::tweight,tdist
+integer::kk,ll,ss
+real::rnorm
+real,dimension(8,2)::xylist,xytlist
+real,dimension(8)::tlist,llist,xt
+real,dimension(5)::xx,yy
+integer,dimension(5)::ii,jj
+data (ii(i),i=1,5)/1,2,2,1,1/
+data (jj(i),i=1,5)/1,1,2,2,1/
+integer:: npoint
+real::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
+real::lfn0,lfn1,dist,nr,c,s,errQ,ae,ce
+real::s1,s2,s3
+real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
+real,dimension(2,2)::mQ
+real,dimension(2)::ut
+
+! external functions    
+real::dnrm2
+external dnrm2
+! external subroutines
+!external dggglm
+external sggglm
+external dgemv
+external dgemm
+!executable statements
+
+real::eps
+eps = 2.2204*(10.0**(-8))! because of 'real'
+
+! a very crude approximation - replace by a better code
+call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)       
+
+do j=jds,jde      ! cell by cell
+    do i=ids,ide  ! [dx*(i-1),dx*i] by [dy*(j-1),dy*j]
+        !*** case0 Do nothing
+        if ( lfn(i,j)>=0 .and. lfn(i+1,j)>=0 .and. &
+             lfn(i,j+1)>=0  .and. lfn(i+1,j+1)>=0 ) then
+            fuel_burn(i,j)= 0.0 !  fuel_burnt
+        !*** case4 all four coners are burning
+        else if ( lfn(i,j)<=0 .and. lfn(i+1,j)<=0 .and. &
+                  lfn(i,j+1)<=0  .and. lfn(i+1,j+1)<=0 ) then
+            ! least squares, A matrix for points
+            mA(1,1)=0.0
+            mA(2,1)=dx
+            mA(3,1)=0.0
+            mA(4,1)=dx
+            mA(1,2)=0.0
+            mA(2,2)=0.0
+            mA(3,2)=dy
+            mA(4,2)=dy
+            mA(1,3)=1.0
+            mA(2,3)=1.0
+            mA(3,3)=1.0
+            mA(4,3)=1.0
+            ! D vector, time from ignition
+            vecD(1)=tnow-tign(i  ,j  )
+            vecD(2)=tnow-tign(i+1,j  )
+            vecD(3)=tnow-tign(i  ,j+1)
+            vecD(4)=tnow-tign(i+1,j+1)
+            ! B matrix, weights
+            do kk=1,4
+            do ll=1,4
+              mB(kk,ll)=0.0
+            end do
+            mB(kk,kk)=2.0
+            end do
+            ! set the m,n,p
+            n=4 ! rows of matrix A and B
+            m=3 ! columns of matrix A
+            p=4 ! columns of matrix B
+            ! call least squqres in LAPACK            
+            call SGGGLM(N,M,P,mA,LDA,mB,LDB,vecD,vecX,vecY, &
+                        WORK,LWORK,INFO)
+            rnorm=dnrm2(p,vecY,1)            
+            ! integrate
+            u(1)=-vecX(1)/fuel_time(i,j)
+            u(2)=-vecX(2)/fuel_time(i,j)
+            u(3)=-vecX(3)/fuel_time(i,j)            
+            !fuel_burn(i,j)=1-exp(u(3))*intexp(u(1)*dx)*intexp(u(2)*dy)
+            s1=u(1)*dx
+            s2=u(2)*dy            
+            fuel_burn(i,j)=1-exp(u(3))*intexp(s1)*intexp(s2)
+            !print *,'intexp
+            if ( fuel_burn(i,j)<0 .or. fuel_burn(i,j)>1.0 ) then
+                print *,'case4, fuel_burnt should be between 0 and 1'
+            end if
+        !*** case 1,2,3
+        else
+            ! set xx, yy for the coner points
+            ! move these values out of i and j loop to speed up
+            xx(1) = -dx/2
+            xx(2) = dx/2
+            xx(3) = dx/2
+            xx(4) = -dx/2
+            xx(5) = -dx/2
+            yy(1) = -dy/2
+            yy(2) = -dy/2
+            yy(3) = dy/2
+            yy(4) = dy/2
+            yy(5) = -dy/2       
+        
+            npoint = 0 ! number of points in polygon
+            do k=1,4
+                lfn0=lfn(i+ii(k  )-1,j+jj(k  )-1)
+                lfn1=lfn(i+ii(k+1)-1,j+jj(k+1)-1)
+                if ( lfn0 <= 0.0 ) then
+                    npoint = npoint + 1
+                    xylist(npoint,1)=xx(k)
+                    xylist(npoint,2)=yy(k)
+                    tlist(npoint)=tnow-tign(ii(k),jj(k))
+                    llist(npoint)=lfn0
+                end if
+                if ( lfn0*lfn1 < 0 ) then
+                    npoint = npoint + 1
+                    tt=lfn0/(lfn0-lfn1)
+                    x0=xx(k)+( xx(k+1)-xx(k) )*tt
+                    y0=yy(k)+( yy(k+1)-yy(k) )*tt
+                    xylist(npoint,1)=x0
+                    xylist(npoint,2)=y0
+                    tlist(npoint)=0 ! on fireline
+                    llist(npoint)=0
+                end if
+            end do
+            ! make the list circular
+            tlist(npoint+1)=tlist(1)
+            llist(npoint+1)=llist(1)   
+            xylist(npoint+1,1)=xylist(1,1)
+            xylist(npoint+1,2)=xylist(1,2)
+                        
+            !* least squares, A matrix for points
+            do kk=1,npoint
+              mA(kk,1)=xylist(kk,1)
+              mA(kk,2)=xylist(kk,2)
+              mA(kk,3)=1.0
+              vecD(kk)=tlist(kk) ! D vector,time from ignition
+            end do            
+            ! B matrix, weights
+            do kk=1,ldb
+            do ll=1,pmax
+              mB(kk,ll)=0.0 ! clear
+            end do
+            end do
+        
+            do kk=1,npoint
+              mb(kk,kk)=dx ! large enough
+              do ll=1,npoint
+                if ( kk .ne. ll ) then
+                  dist = sqrt( (xylist(kk,1)-xylist(ll,1))**2+ &
+                               (xylist(kk,2)-xylist(ll,2))**2 )                   
+                  mB(kk,kk)=min( mB(kk,kk) , dist )
+                end if              
+              end do !ll
+              mB(kk,kk)=mB(kk,kk)+1.
+            end do ! kk
+            ! set the m,n,p
+            n=npoint ! rows of matrix A and B
+            m=3 ! columns of matrix A
+            p=npoint ! columns of matrix B
+            !* call least squqres in LAPACK                  
+            call SGGGLM(N,M,P,mA,LDA,mB,LDB,vecD,vecX,vecY, &
+                        WORK,LWORK,INFO)
+            rnorm=dnrm2(p,vecY,1)
+            u(1)=vecX(1)
+            u(2)=vecX(2)
+            u(3)=vecX(3)            
+            ! rotate to gradient on x only
+            nr = sqrt(u(1)**2+u(2)**2)
+            c = u(1)/nr
+            s = u(2)/nr
+            mQ(1,1)=c
+            mQ(1,2)=s
+            mQ(2,1)=-s
+            mQ(2,2)=c            
+            ! mat vec multiplication
+            call matvec(mQ,2,2,u,3,ut,2,2,2)            
+            errQ = ut(2) ! should be zero            
+            ae = -ut(1)/fuel_time(i,j)
+            ce = -u(3)/fuel_time(i,j)            
+            !* mat mat' multiplication
+            !* call DGEMM('N','T',npoint+1,2,2,1.0,xylist,8,mQ,2,0.0,xytlist,npoint+1)
+            !*(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)            
+            
+            call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)            
+            call sortxt( xytlist, 8,2, xt,8,npoint )
+            
+            fuel_burn(i,j)=0.0
+            aupp=0.0
+            cupp=0.0
+            alow=0.0
+            clow=0.0
+            do k=1,npoint-1
+              xt1=xt(k)
+              xt2=xt(k+1)
+              
+              upper=0
+              lower=0
+              ah=0
+              ch=0
+                           
+              if ( xt2-xt1 > eps*dx*100 ) then
+                
+                do ss=1,npoint
+                  xts=xytlist(ss,1)
+                  yts=xytlist(ss,2)
+                  xte=xytlist(ss+1,1)
+                  yte=xytlist(ss+1,2)
+                  
+                  if ( (xts>xt1 .and. xte>xt1) .or. &
+                       (xts<xt2 .and. xte<xt2) ) then
+                    aa = 0 ! do nothing
+                    cc = 0
+                  else
+                    aa = (yts-yte)/(xts-xte)
+                    cc = (xts*yte-xte*yts)/(xts-xte)              
+                    if (xte<xts) then
+                      aupp = aa
+                      cupp = cc
+                      ah=ah+aa
+                      ch=ch+cc
+                      upper=upper+1
+                    else
+                      alow = aa
+                      clow = cc
+                      lower=lower+1
+                    end if
+                  end if!(xts>xt1 .and. xte>xt1)                                    
+                end do ! ss
+                              
+                ah = aupp-alow
+                ch = cupp-clow
+                
+                ! integrate (ah*x+ch)*(1-exp(ae*x+ce)) from xt1 to xt2
+                s1 = (xt2-xt1)*(1./2.*ah*(xt2+xt1)+ch)
+                s2 = -ch*exp(ae*xt1+ce)*(xt2-xt1)*intexp(ae*(xt2-xt1))              
+                s3 = ah*(-exp(ae*xt1+ce)+exp(ae*xt1+ce)*ae*xt1 &
+                   -exp(ae*xt2+ce)*ae*xt2+exp(ae*xt2+ce))/(ae**2)                
+                fuel_burn(i,j)=fuel_burn(i,j)+s1+s2+s3
+                if(fuel_burn(i,j)<0 .or. fuel_burn(i,j)>dx*dy) then                
+                  print *,'fuel_fraction should be between 0 and 1'
+                end if
+              end if
+            end do ! k     
+            fuel_burn(i,j)=fuel_burn(i,j)/(dx*dy)
+        end if ! if case0, elseif case4 ,else case123
+    
+    end do !j
+end do ! i
+            
+end subroutine ! fuel_burnt                  
+!
+!****************************************
+!
+subroutine sortxt(xytlist,nrow,ncolumn,xt,nxt,nvec)
+implicit none
+integer::nrow,ncolumn,nxt,nvec
+real,dimension(nrow,ncolumn)::xytlist
+real,dimension(nxt)::xt
+
+integer::i,j
+real::temp
+
+do i=1,nvec
+  xt(i)=xytlist(i,1)
+end do
+
+do i=1,nvec-1
+  do j=i+1,nvec
+    if ( xt(i) > xt(j) ) then
+      temp = xt(i)
+      xt(i)=xt(j)
+      xt(j)=temp
+    end if
+  end do
+end do
+
+end subroutine !sortxt
+!
+!****************************************
+!
+real function intexp(ab)
+implicit none
+real::ab,eps
+eps = 1.0**(-16)
+if ( eps < abs(ab)**3/6. ) then
+    intexp=(exp(ab)-1)/ab
+else
+    intexp=1+ab/2.
+end if
+end function
+!
+!****************************************
+!
+subroutine matvec(A,m,n,V,nv,out,nout,nrow,ncolumn)
+implicit none
+integer::m,n,nv,nout,nrow,ncolumn
+real,dimension(m,n)::A   ! allocated m by n 
+real,dimension(nv)::V    ! allocated nv
+real,dimension(nout)::out! allocated nout 
+
+integer::i,j
+
+do i=1,nrow
+  out(i)=0.0
+  do j=1,ncolumn
+    out(i)=out(i)+A(i,j)*V(j)
+  end do
+end do
+end subroutine
+!
+!****************************************
+!
+subroutine matmatp(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)
+implicit none
+integer::mA,nA,mB,nB,mC,nC,nrow,ncolumn,nP
+real,dimension(mA,nA)::A   ! allocated m by n 
+real,dimension(mB,nB)::B   ! allocated m by n 
+real,dimension(mC,nC)::C   ! allocated m by n 
+
+integer::i,j,k
+
+do i=1,nrow  
+  do j=1,ncolumn
+    C(i,j)=0.0
+    do k=1,nP
+      C(i,j)=C(i,j)+A(i,k)*B(j,k) ! B'
+    end do
+  end do
+end do
+end subroutine
+!
+!****************************************
+!
 subroutine prop_ls(ids,ide,jds,jde, &                       ! domain dims
                    ims,ime,jms,jme, &                       ! memory dims
                    num_tiles,i_start,i_end,j_start,j_end, & ! tiling

@@ -1,5 +1,5 @@
 #FC = ifort -fast -free
-
+LAPACK=/opt/intel9.1-64-ser/lib/
 FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free -I$(NETCDF)/include  
 #FC = g95 -ftrace=frame -g -ffree-form
 FFLAGS = -I$(NETCDF)/include 
@@ -127,7 +127,7 @@ core_test_main.o: \
     normal_spread.o
     
 core_test_prog.exe: $(CORE_OBJ) 
-	$(FC) -o core_test_prog.exe $(CORE_OBJ)
+	$(FC) -o core_test_prog.exe $(CORE_OBJ) 
 
 core_test: core_test_prog.exe
 	# run core_test in Matlab
@@ -159,10 +159,7 @@ MODEL_OBJ = \
 model_test_main.o: module_fr_sfire_model.o 
  
 model_netcdf_test:
-	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" \
-        PHYS=module_fr_sfire_phys \
-	ARGS=fr_sfire_params_args \
-	DECL=fr_sfire_params_decl
+	make -f $(MAKEFILE) model_netcdf_prog.exe FC="$(FC)" PHYS=module_fr_sfire_phys
 	- rm -f fire_io.nc
 	- cp fire_io_save.nc fire_io.nc &> /dev/null
 	./model_netcdf_prog.exe
@@ -177,11 +174,36 @@ model_test:
 	DECL=fr_sfire_params_decl
 	./model_test_prog.exe
 	# run model_test in Matlab to visualize
-
-
+	
 model_test_prog.exe: $(MODEL_OBJ) 
-	$(FC) -o model_test_prog.exe $(MODEL_OBJ) 
+	$(FC) -o model_test_prog.exe $(MODEL_OBJ) -L$(LAPACK) -llapack -lblas
 
+LS_test_OBJ = \
+    LS_test_driver.o    
+
+LS_test.exe: $(LS_test_OBJ) 
+	$(FC) -o LS_test.exe $(LS_test_OBJ) -L$(LAPACK) -llapack -lblas
+
+LS_test:
+	make -f $(MAKEFILE) LS_test.exe FC="$(FC)"
+	./LS_test.exe
+	
+burnt_test_OBJ=\
+    module_fr_sfire_core.o \
+    module_fr_sfire_util.o \
+    module_fr_sfire_phys.o \
+    wrf_fakes.o \
+    fuel_burnt_test.o
+
+fuel_burnt_test.o: module_fr_sfire_core.o
+
+fuel_burnt_test.exe: $(burnt_test_OBJ)
+	$(FC) -o fuel_burnt_test.exe $(burnt_test_OBJ) -L$(LAPACK) -llapack -lblas
+
+fuel_burnt_test:
+	make -f $(MAKEFILE) fuel_burnt_test.exe FC="$(FC)"
+	./fuel_burnt_test.exe	
+	
 #
 # the whole fire model through atmosphere coupling 
 #
