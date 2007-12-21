@@ -658,30 +658,6 @@ real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: tnow,dx,dy
 real, intent(out), dimension(ims:ime,jms:jme)::fuel_burn
 
-! lfn       - level set function, size (2,2)
-! tign      - time of ignition, size (2,2)
-! tnow      - time now
-! fd        - mesh cell size (2)
-! fuel_time - time constant of fuel
-!
-! output: approximation of
-!                              /\
-!                     1        |                   T(x,y)
-!  fuel_burnt  =  ----------   |  ( 1  -  exp( - ----------- ) ) dxdy
-!                 fd(1)*fd(2)  |                  fuel_time
-!                             \/
-!                        (x,y) in R; 
-!                         L(x,y)<=0
-!
-! where R is the rectangle [0,fd(1)] * [0,fd(2)]
-!       T is given by tign and L is given by lfn at the 4 vertices of R
-!
-! Requirements:
-!       exact in the case when T and L are linear 
-!       varies continuously with input
-!       value of tign-tnow where lfn>0 ignored
-!       assume T=0 when lfn=0
-
 ! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
 ! ims,ime,jms,jme   in   mesh aray dimensions                (1)
 ! lfn               in   level function, at nodes
@@ -699,7 +675,8 @@ parameter(mmax=3,nb=64,nmax=8,pmax=8)
 integer lda, ldb, lwork, info
 parameter (lda=nmax, ldb=nmax, lwork=mmax+nmax+nb*(nmax+pmax))
 integer n,m,p
-
+!double precision mA(lda,mmax), vecD(nmax), &
+!                 WORK(lwork), vecY(pmax),vecX(mmax)
 real,dimension(lda,mmax):: mA
 real,dimension(nmax):: vecD
 real,dimension(lwork):: WORK
@@ -715,11 +692,12 @@ real,dimension(8,2)::xylist,xytlist
 real,dimension(8)::tlist,llist,xt
 real,dimension(5)::xx,yy
 integer,dimension(5)::ii,jj
+!ii,jj data here
 data (ii(i),i=1,5)/1,2,2,1,1/
 data (jj(i),i=1,5)/1,1,2,2,1/
 integer:: npoint
 real::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
-real::lfn0,lfn1,dist,nr,c,s,errQ,ae,ce
+real::lfn0,lfn1,dist,nr,c,s,errQ,ae,ce,ceae,a0,a1,a2,d
 real::s1,s2,s3
 real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
 real,dimension(2,2)::mQ
@@ -736,7 +714,7 @@ external dgemm
 !executable statements
 
 real::eps
-eps = 2.2204*(10.0**(-8))! because of 'real'
+eps = 2.2204*(10.0**(-8))!from matlab
 
 ! a very crude approximation - replace by a better code
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)       
@@ -837,7 +815,7 @@ do j=jds,jde      ! cell by cell
             llist(npoint+1)=llist(1)   
             xylist(npoint+1,1)=xylist(1,1)
             xylist(npoint+1,2)=xylist(1,2)
-                        
+                      
             !* least squares, A matrix for points
             do kk=1,npoint
               mA(kk,1)=xylist(kk,1)
@@ -886,14 +864,13 @@ do j=jds,jde      ! cell by cell
             call matvec(mQ,2,2,u,3,ut,2,2,2)            
             errQ = ut(2) ! should be zero            
             ae = -ut(1)/fuel_time(i,j)
-            ce = -u(3)/fuel_time(i,j)            
-            !* mat mat' multiplication
-            !* call DGEMM('N','T',npoint+1,2,2,1.0,xylist,8,mQ,2,0.0,xytlist,npoint+1)
-            !*(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)            
+            ce = -u(3)/fuel_time(i,j)
             
+            ! mat mat' multiplication
+            !call DGEMM('N','T',npoint+1,2,2,1.0,xylist,8,mQ,2,0.0,xytlist,npoint+1)
+            !(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)            
             call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)            
-            call sortxt( xytlist, 8,2, xt,8,npoint )
-            
+            call sortxt( xytlist, 8,2, xt,8,npoint )            
             fuel_burn(i,j)=0.0
             aupp=0.0
             cupp=0.0
@@ -902,12 +879,10 @@ do j=jds,jde      ! cell by cell
             do k=1,npoint-1
               xt1=xt(k)
               xt2=xt(k+1)
-              
               upper=0
               lower=0
               ah=0
               ch=0
-                           
               if ( xt2-xt1 > eps*dx*100 ) then
                 
                 do ss=1,npoint
@@ -922,7 +897,7 @@ do j=jds,jde      ! cell by cell
                     cc = 0
                   else
                     aa = (yts-yte)/(xts-xte)
-                    cc = (xts*yte-xte*yts)/(xts-xte)              
+                    cc = (xts*yte-xte*yts)/(xts-xte)                    
                     if (xte<xts) then
                       aupp = aa
                       cupp = cc
@@ -934,17 +909,48 @@ do j=jds,jde      ! cell by cell
                       clow = cc
                       lower=lower+1
                     end if
-                  end if!(xts>xt1 .and. xte>xt1)                                    
+                  end if!(xts>xt1 .and. xte>xt1)              
                 end do ! ss
-                              
                 ah = aupp-alow
-                ch = cupp-clow
-                
-                ! integrate (ah*x+ch)*(1-exp(ae*x+ce)) from xt1 to xt2
-                s1 = (xt2-xt1)*(1./2.*ah*(xt2+xt1)+ch)
-                s2 = -ch*exp(ae*xt1+ce)*(xt2-xt1)*intexp(ae*(xt2-xt1))              
-                s3 = ah*(-exp(ae*xt1+ce)+exp(ae*xt1+ce)*ae*xt1 &
-                   -exp(ae*xt2+ce)*ae*xt2+exp(ae*xt2+ce))/(ae**2)                
+                ch = cupp-clow                
+                ! integrate (ah*x+ch)*(1-exp(ae*x+ce) from xt1 to xt2
+                ! numerically sound for ae->0, ae -> infty
+                ! this can be important for different model scales
+                ! esp. if someone runs the model in single precision!!
+                ! s1=int((ah*x+ch),x,xt1,xt2)
+                s1 = (xt2-xt1)*((1./2.)*ah*(xt2+xt1)+ch)            
+                ! s2=int((ch)*(-exp(ae*x+ce)),x,xt1,xt2)
+                ceae=ce/ae;
+                s2 = -ch*exp(ae*(xt1+ceae))*(xt2-xt1)*intexp(ae*(xt2-xt1))                
+                ! s3=int((ah*x)*(-exp(ae*x+ce)),x,xt1,xt2)
+                ! s3=int((ah*x)*(-exp(ae*(x+ceae))),x,xt1,xt2)
+                ! expand in Taylor series around ae=0
+                ! collect(expand(taylor(int(x*(-exp(ae*(x+ceae))),x,xt1,xt2)*ae^2,ae,4)/ae^2),ae)
+                ! =(1/8*xt1^4+1/3*xt1^3*ceae+1/4*xt1^2*ceae^2-1/8*xt2^4-1/3*xt2^3*ceae-1/4*xt2^2*ceae^2)*ae^2
+                !     + (-1/3*xt2^3-1/2*xt2^2*ceae+1/3*xt1^3+1/2*xt1^2*ceae)*ae 
+                !     + 1/2*xt1^2-1/2*xt2^2
+                !
+                ! coefficient at ae^2 in the expansion, after some algebra            
+                a2=(xt1-xt2)*((1./4.)*(xt1+xt2)*ceae**2+(1./3.)* &
+                   (xt1**2+xt1*xt2+xt2**2)*ceae+(1./8.)* &
+                   (xt1**3+xt1*(xt2**2)+xt1**2*xt2+xt2**3))               
+                d=(ae**4)*a2
+            
+                if (abs(d)>eps) then
+                ! since ae*xt1+ce<=0 ae*xt2+ce<=0 all fine for large ae
+                ! for ae, ce -> 0 rounding error approx eps/ae^2
+                s3=( exp(ae*(xt1+ceae))*(ae*xt1-1)-&
+                     exp(ae*(xt2+ceae))*(ae*xt2-1) )/(ae**2)
+                !we do not worry about rounding as xt1 -> xt2, then s3 -> 0
+                else
+                ! coefficient at ae^1 in the expansion
+                a1=(xt1-xt2)*((1./2.)*ceae*(xt1+xt2)+(1./3.)*&
+                   (xt1**2+xt1*xt2+xt2**2))
+                ! coefficient at ae^0 in the expansion for ae->0
+                a0=(1./2.)*(xt1-xt2)*(xt1+xt2)
+                s3=a0+a1*ae+a2*ae**2; ! approximate the integral
+                end if
+                s3=ah*s3                                                
                 fuel_burn(i,j)=fuel_burn(i,j)+s1+s2+s3
                 if(fuel_burn(i,j)<0 .or. fuel_burn(i,j)>dx*dy) then                
                   print *,'fuel_fraction should be between 0 and 1'
@@ -991,7 +997,7 @@ end subroutine !sortxt
 real function intexp(ab)
 implicit none
 real::ab,eps
-eps = 1.0**(-16)
+eps = 2.2204*(10.0**(-8))!from matlab
 if ( eps < abs(ab)**3/6. ) then
     intexp=(exp(ab)-1)/ab
 else
