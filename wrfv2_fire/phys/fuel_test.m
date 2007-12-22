@@ -5,28 +5,28 @@ fd=[.5,.5];
 [c1,c2]=ndgrid([0,fd(1)],[0,fd(2)]); % corners of the mesh cell
 tnow=1;
 maxerr=0;
-fuel_time=0.1;
+fuel_time=1;
 lfn0=[0    0.3479;0.6521    1.0000]; % to debug fortran
 f_debug=[];
 !./ifmake clean
 !./ifmake fuel_burnt_test
-
+tmp=zeros(23,1);
+k=1;
 for off=[0:0.05:1.1]
-    k=1;
     if off >= 1.0 
         disp(off)
     end    
     lfn=lfn0-off;
     tign=tnow+2*lfn+0.0*randn(2,2);
-    tmp=[];
     f=fuel_burnt_debug(lfn,tign,tnow,fd,fuel_time); 
+    f_debug=[f_debug f];
     tmp(k)=f;
     k=k+1;
     f_debug=[f_debug f];
     err=[];
     for i=[1:9]
-        n=2^(i+1);
-        fq=fuel_burnt_quad(lfn,tign,tnow,fd,fuel_time,n);
+       n=2^(i+1);
+       fq=fuel_burnt_quad(lfn,tign,tnow,fd,fuel_time,n);
         nn(i)=n;
         err(i)=abs(f-fq);
         last=max(1,i-1);
@@ -35,13 +35,15 @@ for off=[0:0.05:1.1]
         xlabel n,ylabel difference,title('Comparison with numerical quadrature')
         axis([3 1100 1e-8 1]),grid on, hold on
     end
-    hold off
+     hold off
 end
+
 fid=fopen('fort.1','r');
-A= fread(fid);
+A= fscanf(fid,'%g'); 
 fclose(fid);
 err_mat_fortran=abs(A-tmp)
 save('err.mat','err_mat_fortran')
+disp(f_debug);
 end
 
 

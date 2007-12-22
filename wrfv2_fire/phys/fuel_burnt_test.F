@@ -45,7 +45,7 @@ do i=1,23
   call fuel_burnt(ids,ide,jds,jde,dx,dy,&
                      ims,ime,jms,jme, &
                      lfn, tign, fuel_time, tnow, fuel_burn)
-  !print *,'off,fuel burnt=',off,fuel_burn(1,1)    
+  print *,'fuel burnt=',fuel_burn(1,1)    
   write(iu,*) fuel_burn(1,1)  
   close(iu)
   

@@ -703,6 +703,12 @@ real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
 real,dimension(2,2)::mQ
 real,dimension(2)::ut
 
+!calls
+intrinsic epsilon
+
+real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
+
+
 ! external functions    
 real::dnrm2
 external dnrm2
@@ -713,8 +719,8 @@ external dgemv
 external dgemm
 !executable statements
 
-real::eps
-eps = 2.2204*(10.0**(-8))!from matlab
+!real::eps
+!eps = 2.2204*(10.0**(-8))!from matlab
 
 ! a very crude approximation - replace by a better code
 call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)       
@@ -996,8 +1002,13 @@ end subroutine !sortxt
 !
 real function intexp(ab)
 implicit none
-real::ab,eps
-eps = 2.2204*(10.0**(-8))!from matlab
+real::ab
+!calls
+intrinsic epsilon
+
+real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
+
+!eps = 2.2204*(10.0**(-8))!from matlab
 if ( eps < abs(ab)**3/6. ) then
     intexp=(exp(ab)-1)/ab
 else
