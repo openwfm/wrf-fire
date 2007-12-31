@@ -484,12 +484,6 @@ do ij=1,num_tiles
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
 
-
-    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
-    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
-    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,mu,'driver:mu')
-    call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
-    
     call fire_tendency(                 &
         ids,ide, kds,kde, jds,jde,      & ! dimensions
         ims,ime, kms,kme, jms,jme,      &
@@ -499,17 +493,20 @@ do ij=1,num_tiles
         zs,z_at_w,dz8w,mu,rho,          &
         rthfrten,rqvfrten)                ! out
 
-    call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
-    call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
-    do k=kts,min(kts+4,kte)
-        write(msg,'(a,i4)')'driver:rthfrten layer k=',k
-        call print_3d_stats(its,ite,k,k,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,msg)
-        write(msg,'(a,i4)')'driver:rqvfrten layer k=',k
-        call print_3d_stats(its,ite,k,k,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,msg)
-    enddo
-
-
 enddo ! tiles
+
+call print_2d_stats(iaps,iape,japs,jape,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
+call print_2d_stats(iaps,iape,japs,jape,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
+call print_2d_stats(iaps,iape,japs,jape,ims,ime,jms,jme,mu,'driver:mu')
+call print_3d_stats(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
+call print_3d_stats(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
+call print_3d_stats(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
+do k=kaps,min(kaps+1,kape)
+    write(msg,'(a,i4)')'driver:rthfrten layer k=',k
+    call print_3d_stats(iaps,iape,k,k,japs,jape,ims,ime,kms,kme,jms,jme,rthfrten,msg)
+    write(msg,'(a,i4)')'driver:rqvfrten layer k=',k
+    call print_3d_stats(iaps,iape,k,k,japs,jape,ims,ime,kms,kme,jms,jme,rqvfrten,msg)
+enddo
 
 if(write_m)then
     call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,grnhfx,'grnhfx',itimestep)
