@@ -179,7 +179,7 @@ endif
 time_start = itimestep * dt
 
 ! debug write switch
-write_m = itimestep.le.2.or.mod(itimestep,100).eq.0
+write_m = itimestep.le.10.or.mod(itimestep,100).eq.0
 !write_m = .false.
 write(msg,'(a,i5,a,l1)')'itimestep=',itimestep,' write_m=',write_m
 call message(msg)
