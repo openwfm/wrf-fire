@@ -159,7 +159,7 @@ integer :: its,ite,jts,jte,kts,kte, &
     ij,i,j,k,initialize, &
     ifts,ifte,jfts,jfte,ifte1,jfte1, &           ! fire tile
     ifps, ifpe, jfps, jfpe, &                     ! fixed fire patch bounds
-    iaps, iape, japs, jape                        ! fixed atm  patch bounds
+    iaps, iape, japs, jape, kaps, kape           ! fixed atm  patch bounds
 real, dimension(ifms:ifme,jfms:jfme) :: uf,vf   ! fire wind velocities
 real, dimension(ims:ime, jms:jme):: ua,va ! atm winds, averaged over height
 character(len=128)msg
@@ -189,16 +189,21 @@ dxf=dx/ir
 dyf=dy/jr
 
 ! fix fire patch to leave out one strip on domain boundary
-! need fixed atm patch first, but that is never used except for checking 
+! need fixed atm patch first, but that is never used except for checking and prints
 ! note the patch is the union of tiles 
 iaps=max(ips,ids+1)
 iape=min(ipe,ide-1)
 japs=max(jps,jds+1)
 jape=min(jpe,jde-1)
+kaps = kps
+kape = kpe
 ifps= (iaps-ids)*ir+ifds    
 ifpe= (iape-ids+1)*ir+ifds-1
 jfps= (japs-jds)*jr+jfds    
 jfpe= (jape-jds+1)*jr+jfds-1 
+! fake tile bounds
+kts=kps
+kte=kpe
 
 write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
 call message(msg)
@@ -292,15 +297,15 @@ do ij=1,num_tiles
         enddo
     enddo
 
-    if (write_m) then
-        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ua,'ua',itimestep)
-        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,va,'va',itimestep)
-        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,zs,'zs',itimestep)
-    endif
-
 enddo ! num_tiles
 
-call print_2d_stats_vec(ids,ide,jds,jde,ims,ime,jms,jme,ua,va,'driver: atm wind (m/s)')
+if (write_m) then
+    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,ua,'ua',itimestep)
+    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,va,'va',itimestep)
+    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,zs,'zs',itimestep)
+endif
+
+call print_2d_stats_vec(iaps,iape,japs,jape,ims,ime,jms,jme,ua,va,'driver: atm wind (m/s)')
 
 ! The interpolation routine goes over each atm array tile
 ! and interpolate to the fire grid, and modify within the corresponding
@@ -404,14 +409,15 @@ do ij=1,num_tiles
         
 enddo
 if(write_m)then
-    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,'uf',itimestep)
-    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vf,'vf',itimestep)
-    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'zsf',itimestep)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',itimestep)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',itimestep)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',itimestep)
 endif
+
 ! the model is parallel itself, call on the whole patch not just a tile
 
-call sfire_model (                    &
-    initialize, num_ignitions,                   & ! switches
+call sfire_model (                          &
+    initialize, num_ignitions,              & ! switches
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims
     ifms,ifme,jfms,jfme,                    & ! fire memory dims
@@ -447,13 +453,6 @@ do ij=1,num_tiles
     jfte= jf_end(ij)
 
 
-    if(write_m)then
-    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn',itimestep)
-    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign,'tign',itimestep)
-    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',itimestep)
-    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',itimestep)
-    call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',itimestep)
-    endif
     
     ! sum the fluxes over atm cells
     call sum_2d_cells(        &
@@ -482,15 +481,9 @@ do ij=1,num_tiles
         enddo
     enddo
 
-    if(write_m)then
-    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'grnhfx',itimestep)
-    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'grnqfx',itimestep)
-    endif
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
 
-    kts = kps
-    kte = kpe
 
     call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
     call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
@@ -515,12 +508,20 @@ do ij=1,num_tiles
         call print_3d_stats(its,ite,k,k,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,msg)
     enddo
 
-    if(write_m)then
-    call write_array_m3(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',itimestep)
-    call write_array_m3(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',itimestep)
-    endif
 
 enddo ! tiles
+
+if(write_m)then
+    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,grnhfx,'grnhfx',itimestep)
+    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,grnqfx,'grnqfx',itimestep)
+    call write_array_m3(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',itimestep)
+    call write_array_m3(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',itimestep)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',itimestep)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',itimestep)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',itimestep)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',itimestep)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',itimestep)
+endif
 
 end subroutine sfire_driver
 
