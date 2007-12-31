@@ -976,10 +976,9 @@ real,dimension(ims:ime,jms:jme),intent(out)::speed     ! normal propagation (tes
 real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
    diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,nvx,nvy,scale,diff2x,diff2y,grad
-real, dimension((jde-jds+2)*(ide-ids+2))::rii,rjj,speedp
 ! scalars
 real::rr
-integer::i,j,k,kk
+integer::i,j
 !character(len=128)msg
 
 ! constants
@@ -991,21 +990,6 @@ real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
 intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
-
-! prepare the index list for the speed function
-! in this version, we will want speed at all mesh nodes.
-! in general only a subset may be asked
-
-kk=0
-do j=jds,jde+1
-    do i=ids,ide+1
-         kk=kk+1
-         rii(kk)=i
-         rjj(kk)=j
-    enddo
-enddo
-k=kk    
-
 
     ! one sided differences
     ! we waste a little and store them separately to make the code more
@@ -1058,18 +1042,17 @@ k=kk
     enddo
     
     ! get propagation speed
-    call normal_spread(t,dx,dy,k,rii,rjj,ids,ide,jds,jde,ims,ime,jms,jme,nvx,nvy,scale,speedp &
+    call normal_spread(  &
+        ids,ide,jds,jde, &  ! domain bounds
+        ims,ime,jms,jme, &  ! memory bounds
+        nvx,nvy,         &  ! in: directions to compute the speed in
+        speed            &  ! out: the spread speed
 #ifdef SPEED_VARS_ARGS  /* extra arguments for the speed functions*/
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
 #endif    
     ) 
-    do kk=1,k
-       i=nint(rii(kk))
-       j=nint(rjj(kk))
-       speed(i,j)=speedp(kk)
-    enddo
     call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,speed,'prop_ls:in: frln speed (m/s)')
 
     tbound=0

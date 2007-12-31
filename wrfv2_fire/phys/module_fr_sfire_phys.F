@@ -394,9 +394,11 @@ end subroutine set_nfuel_cat
 !**********************
 !            
 
-subroutine normal_spread(t,dx,dy,n,rii,rjj,&
-ids,ide,jds,jde,ims,ime,jms,jme,&
-nvx,nvy,scale,ros &
+subroutine normal_spread(  &
+ids,ide,jds,jde, &  ! domain bounds
+ims,ime,jms,jme, &  ! memory bounds
+nvx,nvy,         &  ! in: directions to compute the speed in
+ros              &  ! out: the spread speed
 #include "fr_sfire_params_args.h"
 )
 
@@ -405,21 +407,18 @@ implicit none
 
 !*** arguments
 !  see module_fr_sfire_prop for argument description
-real, intent(in)::t,dx,dy  ! currently not used
-integer, intent(in)::n,ids,ide,jds,jde,ims,ime,jms,jme
-real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy,scale
-real, intent(in),dimension(n)::rii,rjj
-real,intent(out),dimension(n)::ros
+integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme ! bounds
+real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy
+real,intent(out),dimension(ims:ime,jms:jme)::ros
 #include "fr_sfire_params_decl.h"
 
 !*** calls
 intrinsic nint,max,min
 
 !***  internal
-integer i,j,k
+integer i,j
 real tanphi
 real speed,ros1
-real,dimension(ids:ide+1,jds:jde+1)::ros_all
 
 !*** executable
 
@@ -434,20 +433,14 @@ do j=jds,jde+1
         tanphi =  dzfsdx(i,j)*nvx(i,j) + dzfsdy(i,j)*nvy(i,j)
   
         ! get rate of spread from wind speed and slope
-         
-        !ros1 = speed  ! debug only 
+
         ros1 = fire_ros(speed,tanphi,i,j &
 #       include "fr_sfire_params_args.h"
         )
-        ros_all(i,j)=max(ros1,0.0)
+        ros(i,j)=max(ros1,0.0)
 !        write(90,1)i,j,'speed',speed,'tanphi',tanphi,'ros',ros1
 !1       format(2i5,3(1x,a,f10.4))
     enddo
-enddo
-
-! interpolate to the requested points
-do k=1,n
-    ros(k)=interp(ids,ide,jds,jde,ids,ide+1,jds,jde+1,rii(k),rjj(k),ros_all)
 enddo
     
 end subroutine normal_spread

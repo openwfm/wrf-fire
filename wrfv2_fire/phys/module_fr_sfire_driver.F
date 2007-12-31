@@ -180,7 +180,7 @@ time_start = itimestep * dt
 
 ! debug write switch
 write_m = itimestep.le.2.or.mod(itimestep,100).eq.0
-write_m = .false.
+!write_m = .false.
 
 ! fire mesh step
 dxf=dx/ir
@@ -369,10 +369,10 @@ do ij=1,num_tiles
 
     ! interpolate u velocity - staggered 1/2 atm grid cell up
     call interpolate_2d_nodes2nodes(  &
-        its,ite,jts,jte,        & ! tile dims atm grid
         ims,ime,jms,jme,        & ! memory dims atm grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
+        its,ite,jts,jte,        & ! tile dims atm grid
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
         ir,jr,                  & ! refinement ratio
         ids,jds,ifds,jfds+jr/2, & ! line up by lower left corner of domain
         ua,                     & ! in atm grid     
@@ -380,10 +380,10 @@ do ij=1,num_tiles
 
     ! interpolate v velocity - staggered 1/2 atm grid cell right
     call interpolate_2d_nodes2nodes(  &
-        its,ite,jts,jte,        & ! tile dims atm grid
         ims,ime,jms,jme,        & ! memory dims atm grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
+        its,ite,jts,jte,        & ! tile dims atm grid
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
         ir,jr,                  & ! refinement ratio
         ids,jds,ifds+ir/2,jfds, & ! line up by lower left corner of domain
         va,                     & ! in atm grid     
@@ -391,10 +391,10 @@ do ij=1,num_tiles
 
     ! interpolate terrain height zs -> zsf
     call interpolate_2d_nodes2nodes(  &
-        its,ite,jts,jte,        & ! tile dims atm grid
         ims,ime,jms,jme,        & ! memory dims atm grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
+        its,ite,jts,jte,        & ! tile dims atm grid
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
         ir,jr,                  & ! refinement ratio
         ids,jds,ifds+ir/2,jfds+jr/2, & ! line up by lower left corner of domain
         zs,                     & ! in atm grid     
@@ -454,12 +454,20 @@ do ij=1,num_tiles
     endif
     
     ! sum the fluxes over atm cells
-    call sum_2d_cells(                                  &
-        ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx, &
-        its,ite,jts,jte,ims, ime, jms, jme, grnhfx)
-    call sum_2d_cells(                                  &
-        ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx, &
-        its,ite,jts,jte,ims, ime, jms, jme, grnqfx)
+    call sum_2d_cells(        &
+        ifms,ifme,jfms,jfme,  &
+        ifts,ifte,jfts,jfte,  &
+        fgrnhfx,              &
+        ims, ime, jms, jme,   &
+        its,ite,jts,jte,      &
+        grnhfx)
+    call sum_2d_cells(        &
+        ifms,ifme,jfms,jfme,  &
+        ifts,ifte,jfts,jfte,  &
+        fgrnhfx,              &
+        ims, ime, jms, jme,   &
+        its,ite,jts,jte,      &
+        grnhfx)
 
     do j=jts,jte
         do i=its,ite

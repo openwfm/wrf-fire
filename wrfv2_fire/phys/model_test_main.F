@@ -34,7 +34,7 @@ integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
 real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
 integer::num_tiles
 integer, dimension(100)::i_start,i_end,j_start,j_end
-integer, parameter :: max_ignitions=1
+integer, parameter :: max_ignitions=10
 real, dimension(max_ignitions) :: ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius,ignition_time
 
@@ -75,18 +75,20 @@ do istep=1,msteps
             num_ignitions=0
     elseif(istep.eq.2)then
             initialize=0
-            num_ignitions=1
+            num_ignitions=2
             ignition_start_x(1)=0.5*fdx*(ifde-ifds)
             ignition_start_y(1)=0.5*fdy*(jfde-jfds)
             ignition_end_x(1)=0.5*fdx*(ifde-ifds)*0.9999999
             ignition_end_y(1)=0.5*fdy*(jfde-jfds)*1.0000001
-            ignition_start_x(1)=1000
-            ignition_start_y(1)=500
-            ignition_end_x(1)=1000
-            ignition_end_y(1)=1500
-            ! at least 6 by 6 cells but no less than 5 m
             ignition_radius(1) = 0.5*max(5.0,6*max(fdx,fdy))
-            ignition_time(1)=time_start
+            ignition_time(1)=1
+            ignition_start_x(2)=1000
+            ignition_start_y(2)=500
+            ignition_end_x(2)=1500
+            ignition_end_y(2)=1500
+            ! at least 6 by 6 cells but no less than 5 m
+            ignition_radius(2) = 0.5*max(5.0,6*max(fdx,fdy))
+            ignition_time(2)=2
     else
             initialize=0
             num_ignitions=0

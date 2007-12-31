@@ -18,18 +18,18 @@ call testn2n(2,3,1,1,2,2,     &
 call testn2n(2,3,1,1,2,2,     &
     1,2,1,3,-1,5,1,4,      &
     1,3,2,6,1,3,1,8)
-call test(interpolate_2d_cells2cells,'interpolate_2d_cells2cells',0,0,  &
-    1,2,1,2,1,2,1,2,      &
-    1,4,1,4,1,4,1,4)    
-call test(interpolate_2d_cells2cells,'interpolate_2d_cells2cells',0,0,  &
-    1,2,1,2,1,2,1,2,      &
-    1,6,1,6,1,6,1,6)    
-call test(interpolate_2d_cells2nodes,'interpolate_2d_cells2nodes',0,1,  &
-    1,2,1,2,1,2,1,2,      &
-    1,4,1,4,1,5,1,5)    
-call test(interpolate_2d_cells2nodes,'interpolate_2d_cells2nodes',0,1,  &
-    1,2,1,2,1,2,1,2,      &
-    1,6,1,6,1,7,1,7)    
+!call test(interpolate_2d_cells2cells,'interpolate_2d_cells2cells',0,0,  &
+!    1,2,1,2,1,2,1,2,      &
+!    1,4,1,4,1,4,1,4)    
+!call test(interpolate_2d_cells2cells,'interpolate_2d_cells2cells',0,0,  &
+!    1,2,1,2,1,2,1,2,      &
+!    1,6,1,6,1,6,1,6)    
+!call test(interpolate_2d_cells2nodes,'interpolate_2d_cells2nodes',0,1,  &
+!    1,2,1,2,1,2,1,2,      &
+!    1,4,1,4,1,5,1,5)    
+!call test(interpolate_2d_cells2nodes,'interpolate_2d_cells2nodes',0,1,  &
+!    1,2,1,2,1,2,1,2,      &
+!    1,6,1,6,1,7,1,7)    
 end subroutine util_test_sub
 
 
@@ -61,8 +61,8 @@ enddo
 1 format(20f7.3)
 2 format(a,i4,':',i4,' by ',i4,':',i4)
 call sub(      &
-       ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1,v1, &
-       ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2,v2)
+       ims1,ime1,jms1,jme1,ids1,ide1,jds1,jde1,v1, &
+       ims2,ime2,jms2,jme2,ids2,ide2,jds2,jde2,v2)
 write(*,2)'mesh 2, interpolated, size',ids2,ide2,jds2,jde2
 do i=ids2,ide2+n2
     write(*,1)(v2(i,j),j=jds2,jde2+n2)
@@ -98,10 +98,10 @@ v2=-1
 2 format(a,i4,':',i4,' by ',i4,':',i4)
 
 call interpolate_2d_nodes2nodes(  &
-    ids1,ide1,jds1,jde1, & ! dimensions fine grid
     ims1,ime1,jms1,jme1, & ! array coarse grid
-    ids2,ide2,jds2,jde2, & ! dimensions coarse grid
+    ids1,ide1,jds1,jde1, & ! dimensions fine grid
     ims2,ime2,jms2,jme2, & ! array coarse grid
+    ids2,ide2,jds2,jde2, & ! dimensions coarse grid
     ir,jr,               & ! refinement ration
     ip1,jp1,ip2,jp2,     & ! 
     v1,                  & ! in coarse grid  

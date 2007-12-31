@@ -127,9 +127,13 @@ end subroutine check_mesh_3dim
 !****************
 !
 
-subroutine sum_2d_cells(                      &
-       ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2,v2,&  ! input
-       ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1,v1)   ! output
+subroutine sum_2d_cells(       &
+       ims2,ime2,jms2,jme2,    &
+       its2,ite2,jts2,jte2,    &
+       v2,                     &  ! input       
+       ims1,ime1,jms1,jme1,    &
+       its1,ite1,jts1,jte1,    &
+       v1)                        ! output
 implicit none
 
 !*** purpose
@@ -138,9 +142,9 @@ implicit none
 !*** arguments
 ! the dimensions are in cells, not nodes!
 
-integer, intent(in)::ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
+integer, intent(in)::its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
 real, intent(out)::v1(ims1:ime1,jms1:jme1)
-integer, intent(in)::ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
+integer, intent(in)::its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
 real, intent(in)::v2(ims2:ime2,jms2:jme2)
 
 !*** local
@@ -151,14 +155,14 @@ character(len=128)msg
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_2dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
-call check_mesh_2dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
+call check_mesh_2dim(its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1)
+call check_mesh_2dim(its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2)
 
 ! compute mesh sizes
-isz1 = ide1-ids1+1
-jsz1 = jde1-jds1+1
-isz2 = ide2-ids2+1
-jsz2 = jde2-jds2+1
+isz1 = ite1-its1+1
+jsz1 = jte1-jts1+1
+isz2 = ite2-its2+1
+jsz2 = jte2-jts2+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
@@ -175,13 +179,13 @@ ir=isz2/isz1
 jr=jsz2/jsz1
 
 ! v1 = v1 + sum(v2)
-do j1=jds1,jde1
-    do i1=ids1,ide1
+do j1=jts1,jte1
+    do i1=its1,ite1
        t=0
        do joff=0,jr-1
            do ioff=0,ir-1
-               i2=ioff+ids2+ir*(i1-ids1)
-               j2=joff+jds2+jr*(j1-jds1)
+               i2=ioff+its2+ir*(i1-its1)
+               j2=joff+jts2+jr*(j1-jts1)
                t=t+v2(i2,j2)
            enddo
        enddo
@@ -191,9 +195,9 @@ enddo
 
 return
 9 continue
-write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
+write(msg,91)its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
 call message(msg)
-write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
+write(msg,91)its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
 call message(msg)
 write(msg,92)'input  mesh size:',isz2,jsz2
 call message(msg)
@@ -266,7 +270,7 @@ do j2=jds2,jde2-1
                  +    (1-tx)*ty  *v2(i2,k2,j2+1)  &
                  +      tx*(1-ty)*v2(i2+1,k2,j2)  &
                  +        tx*ty  *v2(i2+1,k2,j2+1)  
-                !print *,'coarse ',i2,j2,' fine ',i1,j1, ' offset ',io,jo,' weights ',tx,ty, &
+                !pr`int *,'coarse ',i2,j2,' fine ',i1,j1, ' offset ',io,jo,' weights ',tx,ty, &
                 ! 'in ',v2(i2,j2),v2(i2,j2+1),v2(i2+1,j2),v2(i2+1,j2+1),' out ',v1(i1,j1)
            enddo
        enddo
@@ -279,10 +283,10 @@ end subroutine interpolate_2d_nodes2nodes3
 
 ! module_fr_sfire_util%%interpolate_2d_nodes2nodes
 subroutine interpolate_2d_nodes2nodes(  &
-    ids2,ide2,jds2,jde2, & ! dimensions coarse grid
     ims2,ime2,jms2,jme2, & ! array coarse grid
-    ids1,ide1,jds1,jde1, & ! dimensions fine grid
+    its2,ite2,jts2,jte2, & ! dimensions coarse grid
     ims1,ime1,jms1,jme1, & ! array coarse grid
+    its1,ite1,jts1,jte1, & ! dimensions fine grid
     ir,jr,               & ! refinement ratio
     ip2,jp2,ip1,jp1,     & ! (ip2,jp2) on grid 2 lines up with (ip1,jp1) on grid 1 
     v2, &                  ! in coarse grid  
@@ -292,13 +296,13 @@ implicit none
 !*** purpose
 ! interpolate nodal values in mesh2 to nodal values in mesh1
 ! input mesh 2 is coarse output mesh 1 is fine
-! interpolation runs over mesh2 region ids2:ide2,jds2:jde2 
-! only the part of mesh 1 region ids1:ide1,jds1:jde1 is modified
+! interpolation runs over mesh2 region its2:ite2,jts2:jte2 
+! only the part of mesh 1 region its1:ite1,jts1:jte1 is modified
 
 !*** arguments
 
-integer, intent(in)::ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-integer, intent(in)::ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
+integer, intent(in)::its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
+integer, intent(in)::its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
 integer, intent(in)::ir,jr,ip2,jp2,ip1,jp1 
 real, intent(out)::v1(ims1:ime1,jms1:jme1)
 real, intent(in)::v2(ims2:ime2,jms2:jme2)
@@ -310,21 +314,21 @@ real:: tx,ty,rx,ry
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_2dim(ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1)
-call check_mesh_2dim(ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2)
+call check_mesh_2dim(its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1)
+call check_mesh_2dim(its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2)
 
 ! compute mesh ratios
 rx=ir
 ry=jr
 
-do j2=jds2,jde2-1
+do j2=jts2,jte2-1
     jo=jp1+jr*(j2-jp2)
-    js=max(jds1,jo)
-    je=min(jde1,jo+jr)
-    do i2=ids2,ide2-1
+    js=max(jts1,jo)
+    je=min(jte1,jo+jr)
+    do i2=its2,ite2-1
         io=ip1+ir*(i2-ip2)
-        is=max(ids1,io)
-        ie=min(ide1,io+ir)
+        is=max(its1,io)
+        ie=min(ite1,io+ir)
         do j1=js,je
             ty = (j1-jo)/ry
             do i1=is,ie
