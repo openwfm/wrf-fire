@@ -134,8 +134,9 @@ end subroutine init_fuel_cats
 !*******************
 !
 
-subroutine set_fire_params(ifts,ifte,jfts,jfte, &
+subroutine set_fire_params( &
                            ifms,ifme,jfms,jfme, &
+                           ifts,ifte,jfts,jfte, &
                            fdx,fdy,             &
                            zsf,nfuel_cat,fuel_time  &
 #                          include "fr_sfire_params_args.h" 
@@ -293,8 +294,9 @@ end subroutine heat_fluxes
 !            
 
 
-subroutine set_nfuel_cat(   ifts,ifte,jfts,jfte,               &
+subroutine set_nfuel_cat(   &
                             ifms,ifme,jfms,jfme,               &
+			    ifts,ifte,jfts,jfte,               &
                             ifuelread,nfuel_cat0,zsf,nfuel_cat)
 
 implicit none

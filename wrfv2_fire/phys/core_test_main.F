@@ -54,7 +54,10 @@ call set_tiles(1,1,m1,m2-1,n1,n2-1,num_tiles,i_start,i_end,j_start,j_end)
 !normal_spread_e=1.310758329
 normal_spread_c=1
 normal_spread_e=1
-call sfire_core( m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,          &
+call sfire_core( &
+m1,m2-1,n1,n2-1, &
+m1m,m2m,n1m,n2m,          &
+m1,m2-1,n1,n2-1,  &
 num_tiles,i_start,i_end,j_start,j_end, &
 time_start,time_end-time_start,fire_dx,fire_dy,fuel_time,           & 
 lfn,tign,frac_end,frac_lost &

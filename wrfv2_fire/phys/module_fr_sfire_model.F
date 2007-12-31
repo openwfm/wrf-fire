@@ -108,23 +108,26 @@ do ij=1,num_tiles
     if (initialize.ne.0) then
                     
         ! initialize all arrays that the model will not change later
-        call set_nfuel_cat( ifts,ifte,jfts,jfte, &
+        call set_nfuel_cat( &
                             ifms,ifme,jfms,jfme, &
+                            ifts,ifte,jfts,jfte, &
                             ifuelread,nfuel_cat0,&
                             zsf,nfuel_cat)
 
         ! set_fire_params treats nfuel_cat as data
-        call set_fire_params(   ifts,ifte,jfts,ifte, &
+        call set_fire_params(   & 
                                 ifms,ifme,jfms,jfme, &
+                                ifts,ifte,jfts,ifte, &
                                 fdx,fdy,             &
                                 zsf,nfuel_cat,fuel_time &
 #                               include "fr_sfire_params_args.h" 
 )
     
         ! initialize variable model arrays to no fire
-        call init_no_fire   (ifds,ifde,jfds,jfde, &
-                             ifts,ifte,jfts,jfte, &
+        call init_no_fire   ( &
+                             ifds,ifde,jfds,jfde, &
                              ifms,ifme,jfms,jfme, &
+                             ifts,ifte,jfts,jfte, &
                              fdx,fdy,time_start,  &
                              fuel_frac,lfn,tign) 
                             
@@ -134,8 +137,8 @@ do ij=1,num_tiles
         if(ignition_time(ig)>=time_start.and.ignition_time(ig)<time_start+dt)then 
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
-                ifts,ifte,jfts,jfte,                      &
                 ifms,ifme,jfms,jfme,                      &
+                ifts,ifte,jfts,jfte,                      &
                 ignition_start_x(ig),ignition_start_y(ig),&
                 ignition_end_x(ig),ignition_end_y(ig),    &
                 ignition_radius(ig),                      &
@@ -157,8 +160,9 @@ enddo ! end tile loop
 ! over the call chain.
 
 call sfire_core(     &
-    ifps,ifpe,jfps,jfpe,                      &
+    ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                      &
+    ifps,ifpe,jfps,jfpe,                      &
     num_tiles,i_start,i_end,j_start,j_end, & ! tiling
     time_start,dt,fdx,fdy,fuel_time,  &
     lfn,tign,fuel_frac,fuel_frac_burnt &

@@ -16,8 +16,9 @@ use module_fr_sfire_util
 
 contains
 
-subroutine sfire_core(       ids,ide,jds,jde,  &
+subroutine sfire_core(       idds,idde,jdds,jdde,  &
                              ims,ime,jms,jme,  &
+                             ips,ipe,jps,jpe,  &
                              num_tiles,i_start,i_end,j_start,j_end, & ! tiling
                              time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
                              lfn,tign,fuel_frac,fuel_frac_burnt &
@@ -39,7 +40,7 @@ implicit none
 
 !*** arguments
 
-integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
+integer, intent(in) :: idds,idde,jdds,jdde,ims,ime,jms,jme,ips,ipe,jps,jpe
 integer,intent(in)::num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 real, intent(inout), dimension(ims:ime,jms:jme)::lfn,tign,fuel_frac,fuel_time,fuel_frac_burnt
@@ -55,6 +56,7 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !
 ! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
 ! ims,ime,jms,jme   in   mesh aray dimensions                (1)
+! ips,ipe,jps,jpe   in   updated by this process             (1)
 ! time_start        in   the starting time                   (s)
 ! time_diff          in   the length of simulation            (s)
 ! fire_dx,fire_dy   in   fire mesh spacings                  (m)
@@ -118,6 +120,13 @@ integer::i,j,fuel_left_type
 
 !*** calls
 intrinsic epsilon
+integer ids,ide,jds,jde
+
+! rename later
+ids=ips
+ide=ipe
+jds=jps
+jde=jpe
 
 
 !*** executable
@@ -185,9 +194,10 @@ end subroutine sfire_core
 !****************************************
 !
 
-subroutine init_no_fire     (ifds,ifde,jfds,jfde, & ! dimensions
-                             ifts,ifte,jfts,jfte, &
+subroutine init_no_fire     (&
+                             ifds,ifde,jfds,jfde, & ! dimensions
                              ifms,ifme,jfms,jfme, &
+                             ifts,ifte,jfts,jfte, &
                              fdx,fdy,time_now,    & ! scalars in
                              fuel_frac,lfn,tign)    ! arrays out            
 implicit none
@@ -235,8 +245,8 @@ end subroutine init_no_fire
  
 
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
-                        ifts,ifte,jfts,jfte,                      &
                         ifms,ifme,jfms,jfme,                      &
+                        ifts,ifte,jfts,jfte,                      &
                         sx,sy,ex,ey,r,time_ign,fdx,fdy,           &
                         lfn,tign,ignited)
 implicit none
