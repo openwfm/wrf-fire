@@ -96,6 +96,7 @@ xjfme=jfme
 
 call print_2d_stats_vec(ifds,ifde+1,jfds,jfde+1,ifms,ifme,jfms,jfme,vx,vy,'model: fire wind (m/s)')
 
+!OMP PARALLEL DO PRIVATE(ij,ig,ifts,ifte,jfts,jfte)
 do ij=1,num_tiles
     ifts=i_start(ij)
     ifte=i_end(ij)
@@ -156,7 +157,7 @@ enddo ! end tile loop
 ! over the call chain.
 
 call sfire_core(     &
-    ifts,ifte,jfts,jfte,                      &
+    ifps,ifpe,jfps,jfpe,                      &
     ifms,ifme,jfms,jfme,                      &
     num_tiles,i_start,i_end,j_start,j_end, & ! tiling
     time_start,dt,fdx,fdy,fuel_time,  &
@@ -165,6 +166,7 @@ call sfire_core(     &
     ) 
 
 ! compute the heat fluxes from the fuel burned
+!OMP PARALLEL DO PRIVATE(ij,ifts,ifte,jfts,jfte)
 do ij=1,num_tiles
     ifts=i_start(ij)
     ifte=i_end(ij)
@@ -176,9 +178,6 @@ do ij=1,num_tiles
         ifms,ifme,jfms,jfme,                      &
         fgip,fuel_frac_burnt,                     & !in
         grnhfx,grnqfx)                              !out
-
-
-
 enddo ! tiles
 
 call print_2d_stats(ifps,ifpe,jfps,jfpe, &

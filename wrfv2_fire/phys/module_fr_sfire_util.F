@@ -941,7 +941,7 @@ character(len=*),intent(in)::name
 !****
 integer i,j,k,iu,ilen
 logical op
-character(len=128)::fname
+character(len=128)::fname,msg
 !****
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 do iu=6,99
@@ -960,8 +960,9 @@ write(iu,1)real(jte-jts+1)
 write(iu,1)real(kte-kts+1)
 write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
-write(*,2)'wrote matrix ',name,' dimensions',its,':',ite,jts,':',jte, &
+write(msg,2)'wrote matrix ',name,' dimensions',its,':',ite,jts,':',jte, &
 ' to file ',fname(1:ilen),' unit',iu 
+call message(msg)
 1 format(e20.12)
 2 format(3a,2(i5,a,i5),2a,a,i3)
 3 format(a,a,i5.5,a)

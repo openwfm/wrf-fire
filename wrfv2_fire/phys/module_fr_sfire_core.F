@@ -2,7 +2,7 @@
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! With contributions by Minjeong Kim.
-#define DEBUG_OUT
+!#define DEBUG_OUT
 
 module module_fr_sfire_core
 
@@ -734,9 +734,7 @@ character(len=128)msg
 logical last
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr    
-#ifdef DEBUG_OUT    
 integer::id
-#endif
 
 
 ! constants
@@ -771,8 +769,8 @@ last = .false. ! stopping test
 do while ( .not.last )
     istep=istep+1
 
-#ifdef DEBUG_OUT    
     id=istep*10
+#ifdef DEBUG_OUT    
     if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',id)
 #endif

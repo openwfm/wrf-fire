@@ -94,7 +94,7 @@ integer, intent(in)::                             &
     ifds, ifde, jfds, jfde,                       & ! fire domain bounds
     ifms, ifme, jfms, jfme,                       & ! fire memory bounds
     igps, igpe, jgps, jgpe,                       & ! fire patch bounds given
-    ir,jr,                                    & ! atm/fire grid refinement ratio
+    ir,jr,                                        & ! atm/fire grid refinement ratio
     itimestep,                                    & ! number of this timestep
     ifuelread,                                    & ! how to initialize nfuel_cat:
                                                        ! -1=not at all, done outside 
@@ -181,6 +181,8 @@ time_start = itimestep * dt
 ! debug write switch
 write_m = itimestep.le.2.or.mod(itimestep,100).eq.0
 !write_m = .false.
+write(msg,'(a,i5,a,l1)')'itimestep=',itimestep,' write_m=',write_m
+call message(msg)
 
 ! fire mesh step
 dxf=dx/ir
@@ -498,7 +500,7 @@ do ij=1,num_tiles
     call fire_tendency(                 &
         ids,ide, kds,kde, jds,jde,      & ! dimensions
         ims,ime, kms,kme, jms,jme,      &
-        its,ite, kts,kte, jts,jte,      & ! ???
+        its,ite, kts,kte, jts,jte,      & ! 
         grnhfx,grnqfx,canhfx,canqfx,        & ! fluxes on atm grid 
         alfg,alfc,z1can,                &
         zs,z_at_w,dz8w,mu,rho,          &
