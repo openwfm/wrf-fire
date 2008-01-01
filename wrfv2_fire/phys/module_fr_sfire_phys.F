@@ -397,8 +397,8 @@ end subroutine set_nfuel_cat
 !            
 
 subroutine normal_spread(  &
-ids,ide,jds,jde, &  ! domain bounds
 ims,ime,jms,jme, &  ! memory bounds
+ids,ide,jds,jde, &  ! tile bounds
 nvx,nvy,         &  ! in: directions to compute the speed in
 ros              &  ! out: the spread speed
 #include "fr_sfire_params_args.h"

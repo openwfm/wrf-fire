@@ -44,24 +44,49 @@ end subroutine message
 subroutine check_mesh_2dim(ids,ide,jds,jde,ims,ime,jms,jme)
 implicit none
 integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme
-if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme)call crash('memory dimensions too small')
+character(len=128)msg
+if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme)then
+    write(msg,*)'mesh dimensions:  ',ids,ide,jds,jde
+    call message(msg)
+    write(msg,*)'memory dimensions:',ims,ime,jms,jme
+    call message(msg)
+    call crash('check_mesh_2dim: memory dimensions too small')
+endif
 end subroutine check_mesh_2dim
 
 !
 !****************
 !
 
-subroutine check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+subroutine check_tiles(ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end)
 implicit none
-integer,intent(in)::ids,ide,jds,jde,num_tiles
+!*** purpose: check if tiles fit
+!*** arguments
+integer,intent(in)::ips,ipe,jps,jpe,num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
-character(len=128)msg
-if(num_tiles.ne.1)call crash('sfire_prop: only 1 cpu supported')
-if(i_start(1).ne.ids.or.i_end(1).ne.ide.or.j_start(1).ne.jds.or.j_end(1).ne.jde)then
-    write(msg,*)ids,ide,jds,jde
+!*** local
+character(len=128)::msg
+integer:: ij,ie
+!*** executable
+if(num_tiles.lt.1)call crash('check_tiles: need at least one tile')
+ie=0
+if (num_tiles.eq.1) then
+    if(i_start(1).ne.ips.or.i_end(1).ne.ipe.or.j_start(1).ne.jps.or.j_end(1).ne.jpe)ie=1
+else
+    do ij=1,num_tiles
+        if(i_start(ij).lt.ips.or.i_end(ij).gt.ipe &
+        .or.j_start(ij).lt.jps.or.j_end(ij).gt.jpe)ie=ij
+    enddo
+endif
+if(ie.ne.0)then        
+    write(msg,*)'bad tile ',ie
     call message(msg)
-    write(msg,*)i_start,i_end,j_start,j_end
-    call message(msg)    
+    write(msg,*)'patch dimensions:',ips,ipe,jps,jpe
+    call message(msg)
+    do ij=1,num_tiles
+        write(msg,*)'tile',ij,i_start(ij),i_end(ij),j_start(ij),j_end(ij)
+        call message(msg)
+    enddo
     call crash('bad tile bounds')
 endif
 end subroutine check_tiles
@@ -960,11 +985,11 @@ write(iu,1)real(jte-jts+1)
 write(iu,1)real(kte-kts+1)
 write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
-write(msg,2)'wrote matrix ',name,' dimensions',its,':',ite,jts,':',jte, &
-' to file ',fname(1:ilen),' unit',iu 
+write(msg,2)name,'(',its,':',ite,',',jts,':',jte,',', &
+kts,':',kte,') -> ',fname(1:ilen) 
 call message(msg)
 1 format(e20.12)
-2 format(3a,2(i5,a,i5),2a,a,i3)
+2 format(2a,3(i5,a,i5,a),2a)
 3 format(a,a,i5.5,a)
 end subroutine write_array_m3
 

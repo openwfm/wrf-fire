@@ -47,7 +47,9 @@
     !print *,'prop_test_m: calling prop_test'
     close(1)
     call set_tiles(1,1,m1,m2-1,n1,n2-1,num_tiles,i_start,i_end,j_start,j_end)
-    call prop_ls(m1,m2-1,n1,n2-1,m1m,m2m,n1m,n2m,&
+    call prop_ls( &
+        m1m,m2m,n1m,n2m,&
+        m1,m2-1,n1,n2-1, &
         num_tiles,i_start,i_end,j_start,j_end,&
         ts,te-ts,dx,dy,lfn,tc &
 #       ifdef SPEED_VARS_ARGS  /* extra arguments for the speed function */

@@ -6,8 +6,8 @@
     ! the speed function
     
     subroutine normal_spread(  &
-        ids,ide,jds,jde, &  ! domain bounds
         ims,ime,jms,jme, &  ! memory bounds
+        its,ite,jts,jte, &  ! tile bounds
         nvx,nvy,         &  ! in: directions to compute the speed in
         speed            &  ! out: the spread speed
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
@@ -17,7 +17,7 @@
     use module_fr_sfire_util
     implicit none
 !   arguments
-    integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme
+    integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
     real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy
     real,intent(out),dimension(ims:ime,jms:jme)::speed
 #ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
@@ -36,8 +36,8 @@
     e=normal_spread_e
     c=normal_spread_c
     write(*,*)'c=',normal_spread_c,' e=',normal_spread_e
-    do j=jds,jde+1
-        do i=ids,ide+1
+    do j=jts,jte+1
+        do i=its,ite+1
             speed(i,j) = r(i,j) + max(vx(i,j)*nvx(i,j) + vy(i,j)*nvy(i,j),0.0)**e * c
         enddo
     enddo

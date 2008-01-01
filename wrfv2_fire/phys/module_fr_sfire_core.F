@@ -16,12 +16,13 @@ use module_fr_sfire_util
 
 contains
 
-subroutine sfire_core(       idds,idde,jdds,jdde,  &
-                             ims,ime,jms,jme,  &
-                             ips,ipe,jps,jpe,  &
-                             num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                             time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
-                             lfn,tign,fuel_frac,fuel_frac_burnt &
+subroutine sfire_core(&
+    ids,ide,jds,jde,  &
+    ims,ime,jms,jme,  &
+    ips,ipe,jps,jpe,  &
+    num_tiles,i_start,i_end,j_start,j_end, & ! tiling
+    time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
+    lfn,tign,fuel_frac,fuel_frac_burnt &
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
@@ -40,7 +41,7 @@ implicit none
 
 !*** arguments
 
-integer, intent(in) :: idds,idde,jdds,jdde,ims,ime,jms,jme,ips,ipe,jps,jpe
+integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme,ips,ipe,jps,jpe
 integer,intent(in)::num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 real, intent(inout), dimension(ims:ime,jms:jme)::lfn,tign,fuel_frac,fuel_time,fuel_frac_burnt
@@ -56,7 +57,7 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !
 ! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
 ! ims,ime,jms,jme   in   mesh aray dimensions                (1)
-! ips,ipe,jps,jpe   in   updated by this process             (1)
+! ips,ipe,jps,jpe   in   mesh span updated by this process   (1)
 ! time_start        in   the starting time                   (s)
 ! time_diff          in   the length of simulation            (s)
 ! fire_dx,fire_dy   in   fire mesh spacings                  (m)
@@ -116,84 +117,121 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !*** local
 real, dimension(ims:ime,jms:jme)::frac_start
 real:: time_now
-integer::i,j,fuel_left_type
+integer:: i,j,its,ite,jts,jte,ij
+
 
 !*** calls
 intrinsic epsilon
-integer ids,ide,jds,jde
-
-! rename later
-ids=ips
-ide=ipe
-jds=jps
-jde=jpe
-
 
 !*** executable
 
-call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
-call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+call check_mesh_2dim(ips,ipe+1,jps,jpe+1,ims,ime,jms,jme)               ! patch fits in memory?
+call check_tiles(ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end) ! tiles fit in patch?
 
-fuel_left_type=2
 
 ! compute the fuel fraction at time_start - not needed if passed in
-if (fuel_left_type .eq. 1)then
-    call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
-    lfn,tign,fuel_time,time_start,frac_start)
-else
-    call fuel_left_jm(ids,ide,jds,jde,ims,ime,jms,jme, &
-    lfn,tign,fuel_time,time_start,frac_start)
-endif
-    
+!OMP PARALLEL DO PRIVATE(its,ite,jts,jte,ij)
+do ij=1,num_tiles
+    its=i_start(ij)
+    ite=i_end(ij)
+    jts=j_start(ij)
+    jte=j_end(ij)
+    call get_fuel_left( &
+        ims,ime,jms,jme, &
+        its,ite,jts,jte, &
+        fire_dx,fire_dy,                        &
+        lfn,tign,fuel_time,time_start,frac_start)
+enddo
 
 ! propagate the fireline: advance the level function 
 ! from time_start to time_start + time_diff
-call prop_ls(      ids,ide,jds,jde, & ! dims
-                   ims,ime,jms,jme, & ! dims
+call prop_ls(      &
+                   ims,ime,jms,jme, & ! memory
+                   ips,ipe,jps,jpe, & ! patch
                    num_tiles,i_start,i_end,j_start,j_end, &
                    time_start,time_diff,fire_dx,fire_dy,     & ! scalars in
                    lfn,tign &            ! arrays out
-#                  ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
-#                        include SPEED_VARS_ARGS
-#              else
-#                        include "fr_sfire_params_args.h"
-#                  endif
+#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#include SPEED_VARS_ARGS
+#else
+#include "fr_sfire_params_args.h"
+#endif
              )
 
-! compute the fuel fraction at time_end 
-if (fuel_left_type .eq. 1)then
-    call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
-    lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
-else    
-    call fuel_left_jm(ids,ide,jds,jde,ims,ime,jms,jme, &
-    lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
-endif
-
-! compute the fuel fraction lost
-do j=jds,jde
-    do i=ids,ide
-        fuel_frac_burnt(i,j)=frac_start(i,j)-fuel_frac(i,j)
-    enddo
-enddo
-
-call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,fuel_frac_burnt,'core: fuel frac burned (1)')
-
-! set the ignition time outside of burning region to now
-! this is consistent with the fuel fraction
 time_now = time_start + time_diff
 time_now = time_now + abs(time_now)*epsilon(time_now)*2.
-do j=jds,jde
-    do i=ids,ide
-        if(lfn(i,j)>0.)tign(i,j)=time_now
+
+!OMP PARALLEL DO PRIVATE(its,ite,jts,jte,ij,i,j)
+do ij=1,num_tiles
+    its=i_start(ij)
+    ite=i_end(ij)
+    jts=j_start(ij)
+    jte=j_end(ij)
+
+    ! compute the fuel fraction at time_end 
+    call get_fuel_left( &
+        ims,ime,jms,jme, &
+        its,ite,jts,jte, &
+        fire_dx,fire_dy,                        &
+        lfn,tign,fuel_time,time_start+time_diff,fuel_frac) ! replace by time_now later
+
+    do j=jts,jte
+        do i=its,ite
+            ! compute the fuel fraction lost
+            fuel_frac_burnt(i,j)=frac_start(i,j)-fuel_frac(i,j)
+            ! set the ignition time outside of burning region to now
+            if(lfn(i,j)>0.)tign(i,j)=time_now
+        enddo
     enddo
 enddo
+
+call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,fuel_frac_burnt,'core: fuel frac burned (1)')
 
 end subroutine sfire_core
 
 !
 !****************************************
 !
+    
+subroutine  get_fuel_left(                  &
+    ims,ime,jms,jme,                        &
+    its,ite,jts,jte,                        &
+    fire_dx,fire_dy,                        &
+    lfn,tign,fuel_time,time_now,fuel_frac)
+implicit none
+!*** purpose: wrapper for fuel_left
 
+!*** arguments     
+integer, intent(in) ::ims,ime,jms,jme,its,ite,jts,jte
+real, intent(in):: fire_dx,fire_dy,time_now
+real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
+real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
+
+!*** local
+integer:: fuel_left_type
+
+!*** executable
+
+fuel_left_type=2
+if (fuel_left_type .eq. 1)then
+    ! leaving original call sequence for now for compatibility
+    call fuel_left(its,ite,jts,jte,ims,ime,jms,jme, &
+        lfn,tign,fuel_time,time_now,fuel_frac)
+elseif (fuel_left_type .eq. 2)then
+    ! somewhat improved but still bumpy
+    call fuel_left_jm( &
+        ims,ime,jms,jme, &
+        its,ite,jts,jte, &
+        lfn,tign,fuel_time,time_now,fuel_frac)
+else
+        ! the new version comes here
+endif
+end subroutine get_fuel_left
+
+!
+!****************************************
+!
+    
 subroutine init_no_fire     (&
                              ifds,ifde,jfds,jfde, & ! dimensions
                              ifms,ifme,jfms,jfme, &
@@ -296,7 +334,7 @@ do j=jfts,jfte+1      ! node based loops, hence the +1
             ! when |m-c| >= |s-e|/2 use distance from the endpoint instead
             !
             !           a    
-            !          /| \ 
+            !          /| \
             !     s---m-c--e
             !
             ! |m-c| = |a-m| cos (a-m,e-s) 
@@ -335,8 +373,9 @@ end subroutine ignite_fire
 !**********************
 !            
 
-subroutine fuel_left_jm(ids,ide,jds,jde, &
+subroutine fuel_left_jm( &
                      ims,ime,jms,jme, &
+                     its,ite,jts,jte, &
                      lfn, tign, fuel_time, tnow, fuel_frac)
 implicit none
 
@@ -346,13 +385,13 @@ implicit none
 
 !*** arguments
 
-integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
+integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: tnow
 real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 
-! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
-! ims,ime,jms,jme   in   mesh aray dimensions                (1)
+! ims,ime,jms,jme   in   memory dimensions                (1)
+! its,ite,jts,jte   in   tile dimensions (cells)          (1)
 ! lfn               in   level function, at nodes
 ! tign              in   ignition time, at nodes
 ! fuel_time         in   time constant of fuel, per cell
@@ -453,11 +492,11 @@ real:: ta,aps,ps,area
 
 ! a better approximation - replace by a still better code
 
-call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+call check_mesh_2dim(its,ite+1,jts,jte+1,ims,ime,jms,jme)
 
 ! precompute nodal quantities
-do j=jds,jde+1     ! note the order of indices for fast  execution
-    do i=ids,ide+1  
+do j=jts,jte+1     ! note the order of indices for fast  execution
+    do i=its,ite+1  
         ap(i,j)=abs(lfn(i,j))
         ! scaled time since ignition         
         if (lfn(i,j)>0) then
@@ -468,8 +507,8 @@ do j=jds,jde+1     ! note the order of indices for fast  execution
     enddo
 enddo
 
-do j=jds,jde
-    do i=ids,ide ! it is OK to introduce extra scalars, just as fast
+do j=jts,jte
+    do i=its,ite ! it is OK to introduce extra scalars, just as fast
 
         ! approximate relative burning area, between 0 and 1   
         ps=lfn(i+1,j+1)+lfn(i+1,j)+lfn(i,j+1)+lfn(i,j)   
@@ -653,11 +692,12 @@ end subroutine fuel_left
 !****************************************
 !
 
-subroutine prop_ls(ids,ide,jds,jde, &                       ! domain dims
-                   ims,ime,jms,jme, &                       ! memory dims
-                   num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                   ts,td,dx,dy,     &                       ! scalars in
-                   lfn,tc           &                       ! arrays inout                   
+subroutine prop_ls(&
+                ims,ime,jms,jme, &                       ! memory dims
+                ips,ipe,jps,jpe, &                       ! patch dims
+                num_tiles,i_start,i_end,j_start,j_end, & ! tiling
+                ts,td,dx,dy,     &                       ! scalars in
+                lfn,tc           &                       ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
@@ -703,8 +743,8 @@ implicit none
   
 !*** arguments 
 
-! ims,ime,jms,jme   in    array dimensions
-! ids,ide,jds,jde   in    grid dimensions in the array, in cells (in nodes, +1)
+! ims,ime,jms,jme   in    memory dimensions
+! ips,ipe,jps,jpe   in    patch dimensions, in cells (in nodes, +1)
 ! ts                in    start time
 ! td                in    end time is ts+td (given this way because of rounding)
 ! dx,dy             in    grid spacing
@@ -720,7 +760,7 @@ implicit none
 ! spread rate r directly, use instead of call normal_spread:
 !   speed = sr + max(vx*nvx + vy*nvy,0.0)
 !      
-integer,intent(in)::ims,ime,jms,jme,ids,ide,jds,jde
+integer,intent(in)::ims,ime,jms,jme,ips,ipe,jps,jpe
 integer,intent(in)::num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn,tc
@@ -740,6 +780,7 @@ real::t,dt,tr,tbound,grad2,a
 real::gradx,grady,aspeed,err,aerr
 integer::istep
 integer::i,j
+!integer::its,ite,jts,jte
 character(len=128)msg
 logical last
 integer::nfirenodes,nfireline
@@ -758,10 +799,10 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
 
-call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
-call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+call check_mesh_2dim(ips,ipe+1,jps,jpe+1,ims,ime,jms,jme)
+call check_tiles(ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end)
 
-write(msg,'(a,i5,a,i5,a,f6.2,a,f6.2)')'prop_ls: mesh ',ide-ids+1,' by',jde-jds+1,&
+write(msg,'(a,i5,a,i5,a,f6.2,a,f6.2)')'prop_ls: patch ',ipe-ips+1,' by',jpe-jps+1,&
     ' spacing',dx,' by',dy
 call message(msg)
 
@@ -781,7 +822,7 @@ do while ( .not.last )
 
     id=istep*10
 #ifdef DEBUG_OUT    
-    if(istep.eq.1)call write_array_m(ids,ide+1,jds,jde+1,           &
+    if(istep.eq.1)call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',id)
 #endif
 
@@ -791,13 +832,14 @@ do while ( .not.last )
     
     ! tend = F(lfn)
 
-    call  tend_ls(ids,ide,jds,jde, &                       ! domain dims
-                   ims,ime,jms,jme, &                       ! memory dims
-                   num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                   id+1,t,dx,dy,        &                       ! scalars in
-                   lfn, &                                   ! arrays in
-                   tbound, &                                ! scalars out 
-                   tend,speed &                             ! arrays out
+    call  tend_ls(&
+        ims,ime,jms,jme, &                       ! memory dims
+        ips,ipe,jps,jpe, &                       ! patch dims
+        num_tiles,i_start,i_end,j_start,j_end, & ! tiling
+        id+1,t,dx,dy,        &                       ! scalars in
+        lfn, &                                   ! arrays in
+        tbound, &                                ! scalars out 
+        tend,speed &                             ! arrays out
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
@@ -810,22 +852,23 @@ do while ( .not.last )
     ! lfn1 = lfn+dt*tend
     ! lfn0 = lfn
     
-    do j=jds,jde+1
-        do i=ids,ide+1
-            lfn0(i,j) = lfn(i,j)
-            lfn1(i,j) = lfn(i,j) + dt*tend(i,j)
+        do j=jps,jpe+1
+            do i=ips,ipe+1
+                lfn0(i,j) = lfn(i,j)
+                lfn1(i,j) = lfn(i,j) + dt*tend(i,j)
+            enddo
         enddo
-    enddo
     
     ! tend = F(lfn1)
 
-    call  tend_ls(ids,ide,jds,jde, &                       ! domain dims
-                   ims,ime,jms,jme, &                       ! memory dims
-                   num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                   id+2,t,dx,dy,        &                       ! scalars in
-                   lfn1, &                                   ! arrays in
-                   tbound, &                                ! scalars out 
-                   tend,speed &                             ! arrays out
+    call  tend_ls( &
+        ims,ime,jms,jme, &                       ! memory dims
+        ips,ipe,jps,jpe, &                       ! patch dims
+        num_tiles,i_start,i_end,j_start,j_end, & ! tiling
+        id+2,t,dx,dy,        &                       ! scalars in
+        lfn1, &                                   ! arrays in
+        tbound, &                                ! scalars out 
+        tend,speed &                             ! arrays out
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
@@ -836,8 +879,8 @@ do while ( .not.last )
     ! combine lfn1 and lfn0 + dt*tend -> lfn
     
     a=0.5    ! 0 = euler, 1/2 = heun
-    do j=jds,jde+1
-        do i=ids,ide+1
+    do j=jps,jpe+1
+        do i=ips,ipe+1
             lfn(i,j) = (1.-a)* lfn1(i,j) + a*(lfn0(i,j) + dt*tend(i,j))
             ! lfn(i,j) = min( lfn1(i,j) , lfn0(i,j) + dt*tend(i,j) )
         enddo
@@ -854,8 +897,8 @@ do while ( .not.last )
     !        = t + dt * lfn0 / (lfn0 - lfn)
         
 
-    do j=jds,jde+1
-        do i=ids,ide+1
+    do j=jps,jpe+1
+        do i=ips,ipe+1
             ! interpolate the cross-over time
             if (.not. lfn(i,j)>0 .and. lfn0(i,j)>0)then
                 tc(i,j) = t - dt * lfn0(i,j) / (lfn0(i,j) - lfn(i,j))
@@ -874,8 +917,8 @@ do while ( .not.last )
     min_aerr=rmax
     max_aerr=rmin    
     ! loop over right outside of the domain
-    do j=jds+1,jde+1-1
-        do i=ids+1,ide+1-1
+    do j=jps+1,jpe+1-1
+        do i=ips+1,ipe+1-1
             if(lfn(i,j)>0.0)then                      ! a point out of burning region
                 if(lfn(i+1,j)<=0.or.lfn(i,j+1)<=0.or. & ! neighbor in burning region
                    lfn(i-1,j)<=0.or.lfn(i,j-1)<=0)then ! point next to fireline
@@ -899,7 +942,7 @@ do while ( .not.last )
         enddo
     enddo
     write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
-        (100.*nfirenodes)/((ide+1-ids)*(jde+1-jds)),'% next to fireline',nfireline
+        (100.*nfirenodes)/((ipe+1-ips)*(jpe+1-jps)),'% next to fireline',nfireline
     call message(msg)
     if(nfireline>0)then
         call print_stat_line('speed error',min_err,max_err,sum_err/nfireline)
@@ -913,7 +956,7 @@ do while ( .not.last )
         write(msg,'(7(a,f12.2))')  &
             'prop_ls:time',t,' dt',dt
         call message(msg)
-        call print_2d_stats(ids,ide+1,jds,jde+1,ims,ime,jms,jme,tend,'prop_ls:lvl fcn tend(1/s)')
+        call print_2d_stats(ips,ipe+1,jps,jpe+1,ims,ime,jms,jme,tend,'prop_ls:lvl fcn tend(1/s)')
     endif
     
 end do !while
@@ -937,13 +980,14 @@ end subroutine prop_ls
 !*****************************
 !
 
-subroutine tend_ls(ids,ide,jds,jde, &                       ! domain dims
-                   ims,ime,jms,jme, &                       ! memory dims
-                   num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                   id,t,dx,dy,      &                       ! scalars in
-                   lfn, &                                   ! arrays in
-                   tbound, &                                ! scalars out 
-                   tend, speed  &                           ! arrays out
+subroutine tend_ls( &
+    ims,ime,jms,jme, &                       ! memory dims
+    ips,ipe,jps,jpe, &                       ! patch dims
+    num_tiles,i_start,i_end,j_start,j_end, & ! tiling
+    id,t,dx,dy,      &                       ! scalars in
+    lfn, &                                   ! arrays in
+    tbound, &                                ! scalars out 
+    tend, speed  &                           ! arrays out
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
@@ -963,7 +1007,7 @@ implicit none
 ! spread rate r directly, use instead of call normal_spread:
 !   speed = sr + max(vx*nvx + vy*nvy,0.0)
 !      
-integer,intent(in)::ims,ime,jms,jme,ids,ide,jds,jde
+integer,intent(in)::ims,ime,jms,jme,ips,ipe,jps,jpe
 integer,intent(in)::num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 integer,intent(in)::id                                 ! for debug dumps
@@ -1005,14 +1049,14 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
     ! allow for general array bounds n1:n,m1:m - may be useful in parallel
     
     call meshdiff_2d(        &           ! get all 4 one-sided differences
-        ids,ide,  jds,jde ,  &           ! mesh area used (in cells, end +1)
+        ips,ipe,  jps,jpe ,  &           ! mesh area used (in cells, end +1)
         ims,ime,  jms,jme,   &           ! memory dimensions  
         dx,dy,               &           ! mesh spacing
         lfn,                 &           ! input
         diffLx,diffRx,diffLy,diffRy) ! output        
 
-    do j=jds,jde+1
-        do i=ids,ide+1
+    do j=jps,jpe+1
+        do i=ips,ipe+1
         
             ! 2 times central differences
             diffCx(i,j)=diffLx(i,j) + diffRx(i,j)
@@ -1051,8 +1095,8 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
     
     ! get propagation speed
     call normal_spread(  &
-        ids,ide,jds,jde, &  ! domain bounds
         ims,ime,jms,jme, &  ! memory bounds
+        ips,ipe,jps,jpe, &  ! domain bounds
         nvx,nvy,         &  ! in: directions to compute the speed in
         speed            &  ! out: the spread speed
 #ifdef SPEED_VARS_ARGS  /* extra arguments for the speed functions*/
@@ -1061,11 +1105,11 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 #include "fr_sfire_params_args.h"
 #endif    
     ) 
-    call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,speed,'prop_ls:in: frln speed (m/s)')
+    call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,speed,'prop_ls:in: frln speed (m/s)')
 
     tbound=0
-    do j=jds,jde+1
-        do i=ids,ide+1
+    do j=jps,jpe+1
+        do i=ips,ipe+1
             rr=speed(i,j)
                 
             ! time step bound - CFL condition
@@ -1085,27 +1129,27 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 
 #ifdef DEBUG_OUT
     if(mod(id,50).eq.0)then
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,speed,'speed',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,diff2x,'diff2x',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,diff2y,'diff2y',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,diff2x,'diffCx',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,diff2y,'diffCy',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,nvx,'nvx',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,nvy,'nvy',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,vx,'vx',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,vy,'vy',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,tend,'tend',id)
-            call write_array_m(ids,ide+1,jds,jde+1,           &
+            call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',id)
     endif
 #endif
