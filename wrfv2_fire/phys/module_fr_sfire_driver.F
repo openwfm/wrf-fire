@@ -369,8 +369,8 @@ do ij=1,num_tiles
     ifte=if_end(ij)
     jfts=jf_start(ij)
     jfte=jf_end(ij)
-    ifte1=endtilenode(ifte,ifpe) ! extend by one if last tile in patch
-    jfte1=endtilenode(jfte,jfpe)
+    ifte1=enode(ifte,ifpe) ! extend by one if last tile in patch
+    jfte1=enode(jfte,jfpe)
 
     ! interpolate winds from u,v on midpoints of cell faces to nodes on fire grid (u,v -> uf,vf)
 

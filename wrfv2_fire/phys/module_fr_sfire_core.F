@@ -232,18 +232,20 @@ end subroutine get_fuel_left
 !****************************************
 !
     
-subroutine init_no_fire     (&
-                             ifds,ifde,jfds,jfde, & ! dimensions
-                             ifms,ifme,jfms,jfme, &
-                             ifts,ifte,jfts,jfte, &
-                             fdx,fdy,time_now,    & ! scalars in
-                             fuel_frac,lfn,tign)    ! arrays out            
+subroutine init_no_fire(&
+    ifds,ifde,jfds,jfde, &
+    ifms,ifme,jfms,jfme, &
+    ifps,ifpe,jfps,jfpe, & ! dimensions
+    ifts,ifte,jfts,jfte, &
+    fdx,fdy,time_now,    & ! scalars in
+    fuel_frac,lfn,tign)    ! arrays out            
 implicit none
              
 !*** purpose: initialize model to no fire
 
 !*** arguments
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
+integer, intent(in):: ifps,ifpe,jfps,jfpe   ! fire patch bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 real, intent(in) :: fdx,fdy,time_now        ! mesh spacing, time
@@ -267,8 +269,8 @@ enddo
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
  
-do j=jfts,jfte+1
-    do i=ifts,ifte+1
+do j=jfts,enode(jfte,jfpe)
+    do i=ifts,enode(ifte,ifpe)
         tign(i,j) = time_init      ! ignition in future
         lfn(i,j) = lfn_init        ! no fire 
     enddo
@@ -284,6 +286,7 @@ end subroutine init_no_fire
 
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
+                        ifps,ifpe,jfps,jfpe, &
                         ifts,ifte,jfts,jfte,                      &
                         sx,sy,ex,ey,r,time_ign,fdx,fdy,           &
                         lfn,tign,ignited)
@@ -293,6 +296,7 @@ implicit none
 
 !*** arguments
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
+integer, intent(in):: ifps,ifpe,jfps,jfpe   ! fire patch
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 real, intent(in):: time_ign                 ! the ignition time of the fire
@@ -320,8 +324,8 @@ else
     mx = sx
     my = sy
 endif
-do j=jfts,jfte+1      ! node based loops, hence the +1
-    do i=ifts,ifte+1
+do j=jfts,enode(jfte,jfpe)      ! node based loops, hence the +1
+    do i=ifts,enode(ifte,ifpe)
         ! coordinates of the point a=(ax ay), the lower left corner of the domain is (0 0)
         ax = fdx*(i - ifds)
         ay = fdy*(j - jfds)
@@ -412,14 +416,15 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! an approximation of the average of exp(-T(x,y)/fuel_time(i,j)) over the burning area
 ! in the cell, that is an approximation of the integral
 !
-!                              /\
-!                     1        |            T(x,y)-tnow
-! fuel_frac(i,j)  =  -----     |    exp( - ------------- ) dxdy
-!                    dx*dy     |           fuel_time(i,j)
-!                             \/
-!                       dx*(i-1)<x<dx*i
-!                       dy*(j-1)<y<dy*j
-!                        lfn(x,y)<=0
+!
+!                                  /\
+!                         1        |              T(x,y)-tnow
+! fuel_frac(i,j)  =  1 - -----     | 1 -  exp( - ------------- ) dxdy
+!                        dx*dy     |             fuel_time(i,j)
+!                                 \/
+!                           dx*(i-1)<x<dx*i
+!                           dy*(j-1)<y<dy*j
+!                             lfn(x,y)<=0
 !
 ! When the cell is not burning at all (all lfn>=0), then fuel_frac(i,j)=1.
 ! Because of symmetries, the result should not depend on the mesh spacing dx dy
@@ -571,14 +576,14 @@ real, intent(out), dimension(ims:ime,jms:jme)::fuel_frac
 ! an approximation of the average of exp(-T(x,y)/fuel_time(i,j)) over the burning area
 ! in the cell, that is an approximation of the integral
 !
-!                              /\
-!                     1        |            T(x,y)-tnow
-! fuel_frac(i,j)  =  -----     |    exp( - ------------- ) dxdy
-!                    dx*dy     |           fuel_time(i,j)
-!                             \/
-!                       dx*(i-1)<x<dx*i
-!                       dy*(j-1)<y<dy*j
-!                        lfn(x,y)<=0
+!                                  /\
+!                         1        |              T(x,y)-tnow
+! fuel_frac(i,j)  =  1 - -----     | 1 -  exp( - ------------- ) dxdy
+!                        dx*dy     |             fuel_time(i,j)
+!                                 \/
+!                           dx*(i-1)<x<dx*i
+!                           dy*(j-1)<y<dy*j
+!                             lfn(x,y)<=0
 !
 ! When the cell is not burning at all (all lfn>=0), then fuel_frac(i,j)=1.
 ! Because of symmetries, the result should not depend on the mesh spacing dx dy

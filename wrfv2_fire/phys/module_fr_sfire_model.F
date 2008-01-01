@@ -125,11 +125,12 @@ do ij=1,num_tiles
     
         ! initialize variable model arrays to no fire
         call init_no_fire   ( &
-                             ifds,ifde,jfds,jfde, &
-                             ifms,ifme,jfms,jfme, &
-                             ifts,ifte,jfts,jfte, &
-                             fdx,fdy,time_start,  &
-                             fuel_frac,lfn,tign) 
+            ifds,ifde,jfds,jfde, &
+            ifms,ifme,jfms,jfme, &
+            ifps,ifpe,jfps,jfpe, &
+            ifts,ifte,jfts,jfte, &
+            fdx,fdy,time_start,  &
+            fuel_frac,lfn,tign) 
                             
     endif
 
@@ -138,6 +139,7 @@ do ij=1,num_tiles
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
+                ifps,ifpe,jfps,jfpe,                      &
                 ifts,ifte,jfts,jfte,                      &
                 ignition_start_x(ig),ignition_start_y(ig),&
                 ignition_end_x(ig),ignition_end_y(ig),    &
