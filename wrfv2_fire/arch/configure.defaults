@@ -10972,11 +10972,11 @@ module_initialize_squall2d_x.o module_initialize_squall2d_y.o  \
 mediation_integrate.o \
 module_configure.o                                             \
 module_initialize_real.o module_dm.o start_domain.o :
-        $(RM) $@
-        $(SED_FTN) $*.F > $*.b
-        $(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
-        $(RM) $*.b
-        $(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $*.f90
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $*.f90
 
 ##################################################################
 #ARCH  NULL
