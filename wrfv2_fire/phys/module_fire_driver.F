@@ -244,9 +244,12 @@ CONTAINS
      DO ij = 1 , num_tiles
 
       its = i_start(ij)   ! start atmospheric tile in i
-      ite = i_end(ij)     ! end atmospheric tile in i
+!jm      ite = i_end(ij)     ! end atmospheric tile in i
+      ite = min(i_end(ij),ide-1)     ! end atmospheric tile in i
       jts = j_start(ij)   ! start atmospheric tile in j
-      jte = j_end(ij)     ! end atmospheric tile in j
+!jm      jte = j_end(ij)     ! end atmospheric tile in j
+      jte = min(j_end(ij),jde-1)     ! end atmospheric tile in j
+!jm the decrease of the upper tile bound was done before in call fire_driver in solve_em
 
 
         CALL cawfe(                                             &
@@ -286,15 +289,22 @@ CONTAINS
      ! sfire_driver is in mediation layer, will have its own loops over tile inside
      ! do NOT call from OMP loop!!
 
+     ! the last row (i=ide or j=jde) is not valid because wind at cell center was
+     ! interpolated from staggered grid by a loop like 
+     ! do i=1,min(its,ide-1); u_phy(i,...)=0.5*(u(i+1,...)+u(i,...))
+     ! then u_phy was passed here as u 
+
+     ! call on domain one less
+          
      CALL sfire_driver(                                      &
-             ids,ide, kds,kde, jds,jde                          &
+             ids,ide-1, kds,kde, jds,jde-1                          &
             ,ims,ime, kms,kme, jms,jme                          &
-            ,ips,ipe, kps,kpe, jps,jpe                          & 
-            ,ifds,ifde, jfds,jfde                    &
+            ,ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1)                          & 
+            ,ifds,ifde-sr_x, jfds,jfde-sr_y                    &
             ,ifms,ifme, jfms,jfme                    &
-            ,ifps,ifpe, jfps,jfpe                    &
+            ,ifps,min(ifpe,ifde-sr_x), jfps,min(jfpe,jfde-sr_y)      &
             ,sr_x,sr_y                                          &
-            ,num_tiles,i_start,i_end,j_start,j_end              &
+            ,num_tiles,i_start,min(i_end,ide-1),j_start,min(j_end,jde-1)              &
             ,itimestep                                          &
             ,fire_fuel_read,fire_fuel_cat                       &
             ,dt,dx,dy                                           &

@@ -122,20 +122,36 @@ end subroutine set_tiles
 !
 !****************
 !
-integer function enode(ifte,ifpe)
+
+pure integer function enode(ite,ipe)
     implicit none
-    integer, intent(in)::ifte,ifpe
+    integer, intent(in)::ite,ipe
 ! purpose: find the upper bound for tile loops for nodal array
 ! Nodal arrays are by 1 larger than cell arrays, so the upper bound for tile
 ! loops has to be increased by one if the tile is at the upper end of the domain.
 ! The upper bound cannot be increased by 1 always because then two tile loops would try
 ! to write into the same memory location.   
-    if(ifte.ne.ifpe)then ! most frequent, first
-        enode=ifte
+    if(ite.ne.ipe)then ! most frequent, first
+        enode=ite
     else
-        enode=ifte+1
+        enode=ite+1
     endif
 end function enode
+
+!
+!****************
+!
+
+pure integer function snode(its,ips)
+    implicit none
+    integer, intent(in)::its,ips
+! purpose: similar to enode, but for the start
+    if(its.ne.ips)then ! most frequent, first
+        snode=its
+    else
+        snode=its-1
+    endif
+end function snode
 
 !
 !****************

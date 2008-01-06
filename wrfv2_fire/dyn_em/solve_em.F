@@ -769,8 +769,10 @@ BENCH_START(fire_driver_tim)
             ,sims,sime, skms,skme, sjms,sjme                        &
             ,sips,sipe, skps,skpe, sjps,sjpe                        &
             ,k_start,min(k_end,kde-1),grid%num_tiles                &
-            ,grid%i_start,min(grid%i_end,ide-1)                     &
-            ,grid%j_start,min(grid%j_end,jde-1)                     &
+!jm         ,grid%i_start,min(grid%i_end,ide-1)                    & conflicts with sfire
+!jm         ,grid%j_start,min(grid%j_end,jde-1)                    & done in module_fire_driver now
+            ,grid%i_start,grid%i_end                                &
+            ,grid%j_start,grid%j_end                                &
             ,grid%grid_id                                           &
             ,config_flags%cen_lat,config_flags%cen_lon              &
             ,grid%em_lat_ll_d,grid%em_lon_ll_d                      &

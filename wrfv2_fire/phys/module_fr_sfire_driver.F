@@ -1,15 +1,7 @@
 !WRF:MEDIATION_LAYER:FIRE_MODEL
 
-!
-!*** Jan Mandel August-October 2007 
+!*** Jan Mandel August 2007 - January 2008
 !*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
-!
-! This file contains parts copied and/or adapted from earlier codes by
-! Terry Clark, Janice Coen, Don Latham, and Net Patton.
-!
-! With contributions by Jonathan Beezley.
-
-
 
 ! This module is the only entry point from WRF-ARW to the wildland 
 ! fire model. The call to sfire_driver advances the fire model by 
@@ -26,13 +18,14 @@
 ! model uses a level set function method for advancing the fireline. 
 ! It is a reimplementation of an earlier model, which used fireline 
 ! propagation by tracers and was coupled with the Clark-Hall 
-! atmospheric code, described in [2].
+! atmospheric code, described in [2]. For WRF documentation see [3].
 
 ! Acknowledgements: Contributions to the level set method by Mijeong 
 ! Kim. The fire physics is adapted from an earlier code by Terry  
 ! L. Clark, Janice L. Coen, and Don Latham. The coupling with WRF is 
 ! adapted from a code by Ned Patton for coupling of the earlier fire
-! model with WRF, with contributions by Jonathan D. Beezley. 
+! model with WRF, with contributions by Jonathan D. Beezley. The
+! WRF build and execution environment was set up by Jonathan Beezley.
 
 ! [1] Jan Mandel, Jonathan D. Beezley, Janice L. Coen, and Minjeong Kim,
 ! Data Asimilation for Wildland Fires: Ensemble Kalman filters in 
@@ -42,7 +35,8 @@
 ! [2] T. L. Clark, J. Coen, and D. Latham, Description of a coupled 
 ! atmosphere-fire model, Intl. J. Wildland Fire, vol. 13, pp. 49–64, 
 ! 2004
-
+!
+! [3] http://www.mmm.ucar.edu/wrf/OnLineTutorial/Introduction/index.html
 
 module module_fr_sfire_driver
 
@@ -50,8 +44,6 @@ use module_model_constants, only: cp,xlv
 use module_fr_sfire_model
 use module_fr_sfire_phys
 use module_fr_sfire_util
-
-logical write_m
 
 contains
 
@@ -62,7 +54,7 @@ subroutine sfire_driver (                         &
     ips,ipe, kps,kpe, jps,jpe,                    &
     ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
     ifms, ifme, jfms, jfme,                       &
-    igps, igpe, jgps, jgpe,                       & ! fire patch in - will use smaller
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch in - will use smaller
     ir,jr,                                        & ! atm/fire grid ratio
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
     itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
@@ -93,7 +85,7 @@ integer, intent(in)::                             &
     ips,ipe, kps,kpe, jps,jpe,                    & ! atm patch bounds
     ifds, ifde, jfds, jfde,                       & ! fire domain bounds
     ifms, ifme, jfms, jfme,                       & ! fire memory bounds
-    igps, igpe, jgps, jgpe,                       & ! fire patch bounds given
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
     ir,jr,                                        & ! atm/fire grid refinement ratio
     itimestep,                                    & ! number of this timestep
     ifuelread,                                    & ! how to initialize nfuel_cat:
@@ -104,7 +96,7 @@ integer, intent(in)::                             &
     nfuel_cat0,                                   & ! fuel category to initialize everything to
     num_tiles                                       ! number of tiles
 
-integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! fire grid tiling
+integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! atm grid tiling
 
 real, intent(in):: &
     dt,                                           & ! time step
@@ -114,7 +106,7 @@ real, intent(in):: &
     alfg,                                         & ! extinction depth of ground fire heat (m)
     alfc                                            !  extinction depth of crown fire heat (m)
 
-integer, intent(in):: num_ignitions                  ! number of ignitions, can be 0
+integer, intent(in):: num_ignitions                 ! number of ignitions, can be 0
 real, dimension(num_ignitions), intent(in):: &   
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
@@ -153,15 +145,11 @@ integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
     
 !*** local
 real :: dxf,dyf,time_start
-integer,dimension(num_tiles) :: if_start,if_end,jf_start,jf_end, &  ! fire grid tiling
-                                ia_start,ia_end,ja_start,ja_end     ! atm grid tiling
-integer :: its,ite,jts,jte,kts,kte, &
-    ij,i,j,k,initialize, &
-    ifts,ifte,jfts,jfte,ifte1,jfte1, &           ! fire tile
-    ifps, ifpe, jfps, jfpe, &                     ! fixed fire patch bounds
-    iaps, iape, japs, jape, kaps, kape           ! fixed atm  patch bounds
+integer,dimension(num_tiles) :: if_start,if_end,jf_start,jf_end   ! fire grid tiling
+integer :: its,ite,jts,jte,kts,kte, &            ! tile
+    ij,i,j,k,initialize,id, &
+    ifts,ifte,jfts,jfte                          ! fire tile
 real, dimension(ifms:ifme,jfms:jfme) :: uf,vf   ! fire wind velocities
-real, dimension(ims:ime, jms:jme):: ua,va ! atm winds, averaged over height
 character(len=128)msg
 real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 
@@ -179,28 +167,17 @@ endif
 time_start = itimestep * dt
 
 ! debug write switch
-write_m = itimestep.le.10.or.mod(itimestep,100).eq.0
+id=0
+if(itimestep.le.10.or.mod(itimestep,100).eq.0)id=itimestep
 !write_m = .false.
-write(msg,'(a,i5,a,l1)')'itimestep=',itimestep,' write_m=',write_m
+write(msg,'(a,i5,a,l1)')'itimestep=',itimestep,' id=',id
 call message(msg)
 
 ! fire mesh step
 dxf=dx/ir
 dyf=dy/jr
 
-! fix fire patch to leave out one strip on domain boundary
-! need fixed atm patch first, but that is never used except for checking and prints
-! note the patch is the union of tiles 
-iaps=max(ips,ids+1)
-iape=min(ipe,ide-1)
-japs=max(jps,jds+1)
-jape=min(jpe,jde-1)
-kaps = kps
-kape = kpe
-ifps= (iaps-ids)*ir+ifds    
-ifpe= (iape-ids+1)*ir+ifds-1
-jfps= (japs-jds)*jr+jfds    
-jfpe= (jape-jds+1)*jr+jfds-1 
+! atm bounds 
 ! fake tile bounds
 kts=kps
 kte=kpe
@@ -220,45 +197,36 @@ write(msg,7001)'atm memory      ','ims',ims,ime,jms,jme
 call message(msg)                    
 write(msg,7001)'atm patch       ','ips',ips,ipe,jps,jpe
 call message(msg)                    
-write(msg,7001)'atm patch fixed ','iaps',iaps,iape,japs,jape
-call message(msg)                    
-write(msg,7001)'fire domain     ','ifds',ifds,ifde,jfds,jfde
 write(msg,7001)'fire domain     ','ifds',ifds,ifde,jfds,jfde
 call message(msg)                    
 write(msg,7001)'fire memory     ','ifms',ifms,ifme,jfms,jfme
 call message(msg)                    
-write(msg,7001)'fire patch given','igps',igps,igpe,jgps,jgpe
-call message(msg)                    
-write(msg,7001)'fire patch fixed','ifps',ifps,ifpe,jfps,jfpe
+write(msg,7001)'fire patch      ','ifps',ifps,ifpe,jfps,jfpe
 call message(msg)                    
 
 ! check mesh dimensions
 call check_fmesh(ids,ide,ifds,ifde,ir,'id')           ! check if atm and fire grids line up
 call check_fmesh(jds,jde,jfds,jfde,jr,'jd')
-call check_fmesh(iaps,iape,ifps,ifpe,ir,'ip')
-call check_fmesh(japs,jape,jfps,jfpe,jr,'jp')
+call check_fmesh(ips,ipe,ifps,ifpe,ir,'ip')
+call check_fmesh(jps,jpe,jfps,jfpe,jr,'jp')
 call check_mesh_2dim(ips,ipe,jps,jpe,ims,ime,jms,jme)        ! check if atm patch fits in atm array
 call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme) ! check if fire patch fits in fire array
-call check_mesh_2dim(ifps,ifpe,jfps,jfpe,igps,igpe,jgps,jgpe) ! check if fixed fire patch fits in given one 
 call check_mesh_2dim(ips,ipe,jps,jpe,ids,ide,jds,jde)        ! check if atm patch fits in atm domain
 call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifds,ifde,jfds,jfde) ! check if fire patch fits in fire domain
-
 
 ! init rest of fuel tables with derived constants
 call init_fuel_cats
 
-
-!OMP PARALLEL DO PRIVATE(ij,i,j,k,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg)
+! set up fire tiles & interpolate to fire grid
+!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg)
 do ij=1,num_tiles
 
     ! set up tile bounds
     
-    ! atm tiles leave out a strip on each side of domain
-    ! fire tiles leave out a refined strip then
-    its = max(i_start(ij),ids+1)  ! start atmospheric tile in i
-    ite = min(i_end(ij),ide-1)    ! end atmospheric tile in i
-    jts = max(j_start(ij),jds+1)  ! start atmospheric tile in j
-    jte = min(j_end(ij),jde-1)    ! end atmospheric tile in j
+    its = i_start(ij)  ! start atmospheric tile in i
+    ite = i_end(ij)    ! end atmospheric tile in i
+    jts = j_start(ij)  ! start atmospheric tile in j
+    jte = j_end(ij)    ! end atmospheric tile in j
     ifts= (its-ids)*ir+ifds       ! start fire tile in i
     ifte= (ite-ids+1)*ir+ifds-1   ! end fire tile in i
     jfts= (jts-jds)*jr+jfds       ! start fire tile in j
@@ -266,10 +234,6 @@ do ij=1,num_tiles
     
     ! store tile bounds for future loops
     
-    ia_start(ij)=its              
-    ia_end(ij)=ite
-    ja_start(ij)=jts
-    ja_end(ij)=jte
     if_start(ij)=ifts             
     if_end(ij)=ifte
     jf_start(ij)=jfts
@@ -285,133 +249,30 @@ do ij=1,num_tiles
     ! check the tiles
     call check_mesh_2dim(its,ite,jts,jte,ips,ipe,jps,jpe)                 ! check if atm tile fits in atm patch
     call check_mesh_2dim(ifts,ifte,jfts,jfte,ifps,ifpe,jfps,jfpe)         ! check if fire tile fits in fire patch
-    call check_mesh_2dim(its,ite+1,jts,jte+1,ims,ime,jms,jme)        ! check if atm node tile fits in memory 
     call check_mesh_2dim(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-    ! get atm winds at midpoints of sides
-    k=kds             ! the ground
-    do j = jts,jte
-        do i = its,ite ! average 1st 2 layers, correct const shift
-            ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j)) - u_frame
-            va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j)) - v_frame           
-        enddo
-    enddo
+    ! interpolate winds and height to the fire grid
+    call interpolate_atm2fire(id,                     & ! flag for debug output
+        ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+        ims,ime, kms,kme, jms,jme,                    &
+        ips,ipe, kps,kpe, jps,jpe,                    &
+        its,ite,jts,jte,                              &                    
+        ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+        ifms, ifme, jfms, jfme,                       &
+        ifps, ifpe, jfps, jfpe,                       &
+        ifts,ifte,jfts,jfte,                          &
+        ir,jr,                                        & ! atm/fire grid ratio
+        u_frame, v_frame,                             & ! velocity frame correction
+        u,v,zs,                                       & ! atm grid arrays in
+        uf,vf,zsf)                                      ! fire grid arrays out
 
-enddo ! num_tiles
-
-if (write_m) then
-    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,ua,'ua',itimestep)
-    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,va,'va',itimestep)
-    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,zs,'zs',itimestep)
-endif
-
-call print_2d_stats_vec(iaps,iape,japs,jape,ims,ime,jms,jme,ua,va,'driver: atm wind (m/s)')
-
-! The interpolation routine goes over each atm array tile
-! and interpolate to the fire grid, and modify within the corresponding
-! fire tile dimensions only. Since the fire grid tiles do not overlap
-! this guarantees that two threads will not try to write to the same
-! memory location, which might have unpredicable (bad) results.
-!
-! The relation between the atm and the fire grid is defined by the refinement ratio
-! and a pair of nodes that line up. These nodes to not need to be within
-! the present tile. These node pairs are different for the u and the v grid
-! because on the atmospheric grid they are defined at different location.
-!
-! The fire model uses arrays based at corners of the cells. All arrays are cell centered.
-! Each cell owns its lower left corner.
-!
-! The domain lower bounds are used to line up the atmospheric and the fire grids
-! by the lower left corner of the domain.
-! 
-! The fire patch upper dimensions are used to decide if the interpolation should be done
-! to fire nodes with index one higher than the tile dimension, this is the case when
-! the tile is at the right edge or the top edge of the patch.
-!
-! For the interpolation to work properly the fire tiles that are adjacent to the
-! domain boundary need to be smaller by one coarse atmospheric grid cell,
-! because u and v do not carry enough information to interpolate there, and the 
-! fire grid arrays would not be updated there completely anyway.
-! In distributed parallel execution, on each patch the values of a  
-! with offset on strip around the patch are also used and must be present.
-!
-! The same interpolation routine with different offsets is used:
-!
-! Interpolating u: atm grid shifted jr/2 up
-! Interpolating v: atm grid shifted ir/2 right
-! Interpolating z: atm grid shifted ir/2 right and jr/2 up
-!
-!                 F---v---F           
-!                 |       |                  
-!                 u   z   u 
-!                 |       |              
-!                 F---v---F                      
-!                 |       |                  
-!                 u   z   u 
-!                 |       |              
-!                 F---v---F                      
-!
-!                 F---v---F                   F---v---F                         
-!                 |       |                   |       |                 
-!                 u   z   u                   u   z   u
-!                 |       |                   |       |        
-!                 F---v---F                   F---v---F                     
-
-
-!OMP PARALLEL DO PRIVATE(ij,i,j,its,ite,jts,jte,ifts,ifte,jfts,jfte,ifte1,jfte1)                  
-do ij=1,num_tiles
-
-    its=ia_start(ij)
-    ite=ia_end(ij)
-    jts=ja_start(ij)
-    jte=ja_end(ij)
-    ifts=if_start(ij)           ! fire tile
-    ifte=if_end(ij)
-    jfts=jf_start(ij)
-    jfte=jf_end(ij)
-    ifte1=enode(ifte,ifpe) ! extend by one if last tile in patch
-    jfte1=enode(jfte,jfpe)
-
-    ! interpolate winds from u,v on midpoints of cell faces to nodes on fire grid (u,v -> uf,vf)
-
-    ! interpolate u velocity - staggered 1/2 atm grid cell up
-    call interpolate_2d_nodes2nodes(  &
-        ims,ime,jms,jme,        & ! memory dims atm grid
-        its,ite,jts,jte,        & ! tile dims atm grid
-        ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
-        ir,jr,                  & ! refinement ratio
-        ids,jds,ifds,jfds+jr/2, & ! line up by lower left corner of domain
-        ua,                     & ! in atm grid     
-        uf)                       ! out fire grid
-
-    ! interpolate v velocity - staggered 1/2 atm grid cell right
-    call interpolate_2d_nodes2nodes(  &
-        ims,ime,jms,jme,        & ! memory dims atm grid
-        its,ite,jts,jte,        & ! tile dims atm grid
-        ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
-        ir,jr,                  & ! refinement ratio
-        ids,jds,ifds+ir/2,jfds, & ! line up by lower left corner of domain
-        va,                     & ! in atm grid     
-        vf)                       ! out fire grid
-
-    ! interpolate terrain height zs -> zsf
-    call interpolate_2d_nodes2nodes(  &
-        ims,ime,jms,jme,        & ! memory dims atm grid
-        its,ite,jts,jte,        & ! tile dims atm grid
-        ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid
-        ir,jr,                  & ! refinement ratio
-        ids,jds,ifds+ir/2,jfds+jr/2, & ! line up by lower left corner of domain
-        zs,                     & ! in atm grid     
-        zsf)                      ! out fire grid
-        
 enddo
-if(write_m)then
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',itimestep)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',itimestep)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',itimestep)
+
+if(id.gt.0)then
+    call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',id)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',id)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',id)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',id)
 endif
 
 ! the model is parallel itself, call on the whole patch not just a tile
@@ -438,22 +299,19 @@ call sfire_model (                          &
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
     )
 
-
-!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg)
+!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte)
 do ij=1,num_tiles
 
     !get the tile
-    its = ia_start(ij)             ! start atmospheric tile in i
-    ite = ia_end(ij)               ! end atmospheric tile in i
-    jts = ja_start(ij)             ! start atmospheric tile in j
-    jte = ja_end(ij)               ! end atmospheric tile in j
+    its = i_start(ij)             ! start atmospheric tile in i
+    ite = i_end(ij)               ! end atmospheric tile in i
+    jts = j_start(ij)             ! start atmospheric tile in j
+    jte = j_end(ij)               ! end atmospheric tile in j
     ifts= if_start(ij)             ! matching fire tile
     ifte= if_end(ij)
     jfts= jf_start(ij)
     jfte= jf_end(ij)
 
-
-    
     ! sum the fluxes over atm cells
     call sum_2d_cells(        &
         ifms,ifme,jfms,jfme,  &
@@ -495,32 +353,199 @@ do ij=1,num_tiles
 
 enddo ! tiles
 
-call print_2d_stats(iaps,iape,japs,jape,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
-call print_2d_stats(iaps,iape,japs,jape,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
-call print_2d_stats(iaps,iape,japs,jape,ims,ime,jms,jme,mu,'driver:mu')
-call print_3d_stats(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
-call print_3d_stats(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
-call print_3d_stats(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
-do k=kaps,min(kaps+1,kape)
+call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
+call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
+call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
+call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
+call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
+call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
+do k=kps,min(kps+1,kpe)
     write(msg,'(a,i4)')'driver:rthfrten layer k=',k
-    call print_3d_stats(iaps,iape,k,k,japs,jape,ims,ime,kms,kme,jms,jme,rthfrten,msg)
+    call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,msg)
     write(msg,'(a,i4)')'driver:rqvfrten layer k=',k
-    call print_3d_stats(iaps,iape,k,k,japs,jape,ims,ime,kms,kme,jms,jme,rqvfrten,msg)
+    call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,msg)
 enddo
 
-if(write_m)then
-    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,grnhfx,'grnhfx',itimestep)
-    call write_array_m(iaps,iape,japs,jape,ims,ime,jms,jme,grnqfx,'grnqfx',itimestep)
-    call write_array_m3(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',itimestep)
-    call write_array_m3(iaps,iape,kaps,kape,japs,jape,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',itimestep)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',itimestep)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',itimestep)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',itimestep)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',itimestep)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',itimestep)
+if(id.gt.0)then
+    call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',id)
+    call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',id)
+    call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',id)
+    call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',id)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',id)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',id)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',id)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',id)
+    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',id)
 endif
 
 end subroutine sfire_driver
+
+!
+!*****************************
+!
+
+subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no output
+    ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+    ims,ime, kms,kme, jms,jme,                    &
+    ips,ipe, kps,kpe, jps,jpe,                    &
+    its,ite,jts,jte,                              &
+    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,                       &
+    ifps, ifpe, jfps, jfpe,                       & 
+    ifts,ifte,jfts,jfte,                          &
+    ir,jr,                                        & ! atm/fire grid ratio
+    u_frame, v_frame,                             & ! velocity frame correction
+    u,v,zs,                                       & ! atm grid arrays in
+    uf,vf,zsf)                                      ! fire grid arrays out
+    
+implicit none
+!*** purpose: interpolate winds and height
+
+!*** arguments
+integer, intent(in)::id,                          &
+    ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
+    ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
+    ips,ipe, kps,kpe, jps,jpe,                    & ! atm patch bounds
+    its,ite,jts,jte,                              & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real, intent(in):: u_frame, v_frame                 ! velocity frame correction
+real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::&
+    u,v                                             ! wind velocity at atm cell centers  
+real, intent(in), dimension(ims:ime, jms:jme):: zs  ! terrain height at atm cell centers                                        & ! terrain height  
+real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
+    uf,vf,&                                         ! wind velocity fire grid nodes 
+    zsf                                             ! terrain height fire grid nodes
+    
+! the atm quantities u,v,zs are given at cell centers ids:ide,jds:jde
+    
+!*** local
+real, dimension(its-1:ite+1, jts-1:jte+1):: ua,va, &    ! atm winds, averaged over height
+                                                za      ! terrain height
+integer:: i,j,k,ifte1,jfte1,jts1,jte1,its1,ite1
+
+!*** executable
+
+    k=kds             ! the ground
+    jts1=max(jts-1,jds) ! lower loop limit by one less when at end of patch or domain
+    its1=max(its-1,ids) ! ASSUMES THE HALO IS THERE if patch != domain
+    jte1=min(jte+1,jde) 
+    ite1=min(ite+1,ide)
+    do j = jts1,jte1
+        do i = its1,ite1 
+            ! average 1st 2 layers, correct const shift
+            ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j)) - u_frame
+            va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j)) - v_frame
+            ! copy to local array
+            za(i,j)=zs(i,j)           
+        enddo
+    enddo
+    ! extend beyond the domain boundary to tile+one row of cells as constant
+    do i=ide+1,ite+1
+        do j = jts-1,jte+1    
+            va(i,j)=va(ide,j)
+            ua(i,j)=ua(ide,j)
+            za(i,j)=za(ide,j)
+        enddo
+    enddo
+    do i=its-1,ids-1
+        do j = jts-1,jte+1    
+            va(i,j)=va(ids,j)
+            ua(i,j)=ua(ids,j)
+            za(i,j)=za(ids,j)
+        enddo
+    enddo
+    do j=ide+1,jte+1
+        do i = its-1,ite+1    
+            ua(i,j)=ua(i,jde)
+            va(i,j)=va(i,jde)
+            za(i,j)=za(i,jde)
+        enddo
+    enddo
+    do j=jts-1,jds-1
+        do i = its-1,ite+1    
+            ua(i,j)=ua(i,jds)
+            va(i,j)=va(i,jds)
+            za(i,j)=za(i,jds)
+        enddo
+    enddo
+
+if (id.gt.0) then
+    call write_array_m(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,ua,'ua',id)
+    call write_array_m(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,va,'va',id)
+endif
+
+call print_2d_stats_vec(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,ua,va, &
+    'driver: atm wind (m/s)')
+
+! The interpolation routine goes over each atm array tile
+! and interpolates to the fire grid, and modify within the corresponding
+! fire tile dimensions only. Since the fire grid tiles do not overlap
+! this guarantees that two threads will not try to write to the same
+! memory location, which might have unpredicable (bad) results.
+!
+! The relation between the atm and the fire grid is defined by the refinement ratio
+! and a pair of nodes that line up. These nodes to not need to be within
+! the present tile. These node pairs are different for the u and the v grid
+! because on the atmospheric grid they are defined at different location.
+!
+! The fire model uses arrays based at corners of the cells. All arrays are cell centered.
+! Each cell owns its lower left corner.
+!
+! The domain lower bounds are used to line up the atmospheric and the fire grids
+! by the lower left corner of the domain.
+! 
+! The fire patch upper dimensions are used to decide if the interpolation should be done
+! to fire nodes with index one higher than the tile dimension, this is the case when
+! the tile is at the right edge or the top edge of the patch.
+!
+
+!                     
+!                 F-------F                                       
+!                 |       |                               
+!                 |   * zs(ids,jds)=zsf(ifds+ir/2,jfds+jr/2)         
+!                 |       |                      
+!  zsf(ifds,jfds) *-------F      F = corners of atm cells on the fire grid                                  
+
+    ! go up one when at end of patch
+    ifte1 = enode(ifte,ifpe)
+    jfte1 = enode(jfte,jfpe)
+    
+    call interpolate_2d_nodes2nodes(  &
+        its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
+        its-1,ite+1,jts-1,jte+1, & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid tile
+        ir,jr,                  & ! refinement ratio
+        ids,jds,ifds+ir/2,jfds+jr/2, & ! line up by lower left corner of domain
+        ua,                     & ! in atm grid     
+        uf)                      ! out fire grid
+
+    call interpolate_2d_nodes2nodes(  &
+        its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
+        its-1,ite+1,jts-1,jte+1, & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid tile
+        ir,jr,                  & ! refinement ratio
+        ids,jds,ifds+ir/2,jfds+jr/2, & ! line up by lower left corner of domain
+        va,                     & ! in atm grid     
+        vf)                      ! out fire grid
+
+    call interpolate_2d_nodes2nodes(  &
+        its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
+        its-1,ite+1,jts-1,jte+1, & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid tile
+        ir,jr,                  & ! refinement ratio
+        ids,jds,ifds+ir/2,jfds+jr/2, & ! line up by lower left corner of domain
+        za,                     & ! in atm grid     
+        zsf)                      ! out fire grid
+
+
+end subroutine interpolate_atm2fire
 
 !
 !*****************************
