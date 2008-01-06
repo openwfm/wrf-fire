@@ -33,7 +33,7 @@ if ( -f ${ifvars} ) then
 else
   echo "WARNING: couldn't find ifort setup script"
 endif
-setenv PATH $mpibins:$PATH
+setenv PATH ${mpibins}:${PATH}
 
 else
 
