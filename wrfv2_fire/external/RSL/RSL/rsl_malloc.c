@@ -65,7 +65,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc.h>
+#ifdef MACOS
+  #include <sys/malloc.h>
+#else
+  #include <malloc.h>
+#endif
 #ifdef T3D
 #include <errno.h>
 #endif

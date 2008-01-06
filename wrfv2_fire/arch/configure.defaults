@@ -10865,7 +10865,7 @@ module_initialize_real.o module_dm.o start_domain.o :
 	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $*.f90
 
 ###########################################################
-#ARCH    Darwin Intel, g95 compiler  (Single-threaded, no nesting)
+#ARCH    Darwin Intel, g95 compiler  (Single-threaded, no nesting, debug)
 #
 FC              =       g95 -g
 LD              =       g95 -g
@@ -10883,7 +10883,7 @@ FCBASEOPTS      =       -Wno=101,139,155,158 -fendian=big -ffree-form -ffree-lin
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
 ARCHFLAGS       =       $(COREDEFS) -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 \
                          CONFIGURE_NETCDF_FLAG -DGRIB1 CONFIGURE_GRIB2_FLAG \
-                        -DLIMIT_ARGS -DG95
+                        -DLIMIT_ARGS -DG95 -DMACOS
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =
 ESMF_IO_LIB     =       ESMFIOLIB
