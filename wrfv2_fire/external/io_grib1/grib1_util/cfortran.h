@@ -57,7 +57,11 @@
 #if !( defined(VAXUltrix) || defined(sun) || (defined(apollo)&&!defined(__STDCPP__)) )
 #include <stdlib.h>    /* malloc,free                                         */
 #else
-#include <malloc.h>    /* Had to be removed for DomainOS h105 10.4 sys5.3 425t*/
+#ifdef MACOS
+  #include <sys/malloc.h>
+#else
+  #include <malloc.h>
+#endif
 #ifdef apollo
 #define __CF__APOLLO67 /* __STDCPP__ is in Apollo 6.8 (i.e. ANSI) and onwards */
 #endif
