@@ -10876,7 +10876,7 @@ SFC             =       $(FC)
 # g95 does not like -r4. if you want promotion to -r8 add it to PROMOTION below
 #PROMOTION      =       -r$(RWORDSIZE) -i4
 PROMOTION       =       -i4
-CFLAGS          =       -w -DF2CSTYLE
+CFLAGS          =       -w -DF2CSTYLE -DMACOS
 FCOPTIM         =       -O0 # -fast
 FCDEBUG         =       -g -O0
 FCBASEOPTS      =       -Wno=101,139,155,158 -fendian=big -ffree-form -ffree-line-length-huge $(FCDEBUG) # -Mlfs
