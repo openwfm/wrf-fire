@@ -4,8 +4,10 @@ set host=`hostname`
 set myhost=1
 if ( ${host} == "wf.cudenver.edu" )  then
   set base="/opt/wrf-libs"
+  set mpibins="/opt/intel9.1-64-par/bin"
 else if ( ${host} == "opt4.cudenver.edu" ) then
   set base="/home/grads/jbeezley/wrf-libs"
+  set mpibins="/home/grads/jbeezley/intel9.1-libs-par-64/bin"
 else if ( ${host} == "walnut" ) then
   set base="/local"
   set myhost=0
@@ -31,6 +33,7 @@ if ( -f ${ifvars} ) then
 else
   echo "WARNING: couldn't find ifort setup script"
 endif
+setenv PATH $mpibins:$PATH
 
 else
 

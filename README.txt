@@ -23,9 +23,13 @@ or env.csh (for csh shells) to set up environment
 variables for building. Then,
 
 cd wrfv2_fire
-./configure # select option #5 for building
-            # if running on walnut select #1 or #2 
-            # as prefixed by (WALNUT)
+./configure # select an option for your computer,
+            # the configuration options present have all been tested
+	    # and should work correctly for the intended computer
+	    # If you are trying to get this working on a different
+	    # computer, try copying wrfv2_fire/arch/configure.defaults_orig
+	    # to configure.defaults, this file contains all standard
+	    # configuration options, but are untested... good luck.
 ./compile em_fire >& compile.log
 
 This will take a while.  Make sure that compile.log contains 

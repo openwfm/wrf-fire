@@ -4,8 +4,10 @@ host=`hostname`
 myhost=1
 if [ ${host} = "wf.cudenver.edu" ] ; then
   base="/opt/wrf-libs"
+  mpibins="/opt/intel9.1-64-par/bin"
 elif [ ${host} = "opt4.cudenver.edu" ] ; then
   base="/home/grads/jbeezley/wrf-libs"
+  mpibins="/home/grads/jbeezley/intel9.1-libs-par-64/bin"
 elif [ ${host} = "walnut" ] ; then
   base="/local"
   myhost=0
@@ -30,6 +32,7 @@ if [ -f ${ifvars} ] ; then
 else
   echo "WARNING: couldn't find ifort setup script"
 fi
+export PATH=$mpibins:$PATH
 
 else
 
