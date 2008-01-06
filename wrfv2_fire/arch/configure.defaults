@@ -10916,31 +10916,31 @@ SED_FTN = sed -f ../arch/no_file_line.sed
 externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 wrfio_int module_dm.F esmf_time
 
 module_dm.F :
-        ( /bin/cp module_dm_warning module_dm.F ; cat module_dm_stubs.F >> module_dm.F )
+	( /bin/cp module_dm_warning module_dm.F ; cat module_dm_stubs.F >> module_dm.F )
 
 wrfio_nf :
-        ( cd ../external/io_netcdf ; \
+	( cd ../external/io_netcdf ; \
           make NETCDFPATH=CONFIGURE_NETCDF_PATH RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(FC) $(PROMOTION) $(FCFLAGS) -w" TRADFLAG="-traditional" )
 
 wrfio_grib_share :
-        ( cd ../external/io_grib_share ; \
+	( cd ../external/io_grib_share ; \
           make CC="$(SCC)" CFLAGS="$(CFLAGS)" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCBASEOPTS) -w" TRADFLAG="-traditional" archive)
 
 wrfio_grib1 :
-        ( cd ../external/io_grib1 ; \
+	( cd ../external/io_grib1 ; \
           make CC="$(SCC)" CFLAGS="$(CFLAGS)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCBASEOPTS) -w" TRADFLAG="-traditional" archive )
 
 wrfio_grib2 :
-        ( cd ../external/io_grib2 ; \
+	( cd ../external/io_grib2 ; \
           make CC="$(SCC)" CFLAGS="$(CFLAGS) CONFIGURE_GRIB2_INC" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCBASEOPTS) -w" TRADFLAG="-traditional" FIXED="-ffix
 
 wrfio_int :
-        ( cd ../external/io_int ; \
+	( cd ../external/io_int ; \
           make CC="$(CC)" RANLIB="$(RANLIB)" CPP="$(CPP)" SFC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" FC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS) -w" \
           TRADFLAG="-traditional" all )
 
 esmf_time :
-        ( cd ../external/esmf_time_f90 ; \
+	( cd ../external/esmf_time_f90 ; \
           make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
 
 # compile these without high optimization to speed compile
