@@ -77,50 +77,54 @@ ESMF_TARGET         = esmf_time
 
 #### Architecture specific settings ####
 
-# Settings for AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler (single-threaded, no nesting) debug
+# Settings for Darwin Intel, g95 compiler  (Single-threaded, no nesting)
 #
-OMP             =
-OMPCPP          =
-FC		=	ifort -g  -debug extended -debug-parameters all -traceback
-CC              =       gcc -DFSEEKO64_OK 
+FC              =       g95 -g
+LD              =       g95 -g
+CC              =       gcc -g -DFSEEKO_OK 
 SCC		=	$(CC)
-SFC		=	$(FC)
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
-RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
-PROMOTION	=	-real_size $(RSIZEBITS)
-FCDEBUG         =       
-FCBASEOPTS      =       -w -FR -cm -I. -Vaxlib -convert big_endian -mp
-FCOPTIM		=	-O0
-FCFLAGS		=	$(FCOPTIM) $(FCBASEOPTS) $(OMP)
-CFLAGS		=       -w
+SFC             =       $(FC)
+# g95 does not like -r4. if you want promotion to -r8 add it to PROMOTION below
+#PROMOTION	=	-r$(RWORDSIZE) -i4
+PROMOTION	=	-i4
+CFLAGS          =       -w -DF2CSTYLE
+FCOPTIM		=	-O0 # -fast
+FCDEBUG		=       -g -O0
+FCBASEOPTS      =       -Wno=101,139,155,158 -fendian=big -ffree-form -ffree-line-length-huge $(FCDEBUG) # -Mlfs
+FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
+ARCHFLAGS       =       $(COREDEFS) -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 \
+                         -DNETCDF -DGRIB1 -DGRIB2 \
+			-DLIMIT_ARGS -DG95
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =       
 ESMF_IO_LIB     =       -L../external/esmf_time_f90 -lesmf_time
 ESMF_IO_LIB_EXT =       -L../../external/esmf_time_f90 -lesmf_time
-INCLUDE_MODULES =       -module ../main -I../external/io_netcdf -I../external/io_int -I../external/esmf_time_f90 \
-                        -I../external -I../frame -I../share -I../phys -I../inc -I../chem
-ARCHFLAGS       =       $(COREDEFS)  -DLIMIT_ARGS -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) \
-                        -DLWORDSIZE=4 -DNETCDF -DGRIB1 -DGRIB2
-LD		=	$(FC)
-LDFLAGS		=	$(FCFLAGS) $(OMP) 
-ENVCOMPDEFS	=	
-WRF_CHEM	=	0 
-CPP		=	/lib/cpp -traditional
-POUND_DEF	=	$(OMPCPP) $(COREDEFS) -DNONSTANDARD_SYSTEM \
-                        -DCONFIG_BUF_LEN=$(CONFIG_BUF_LEN) -DMAX_DOMAINS_F=$(MAX_DOMAINS)
-CPPFLAGS	=	-I$(LIBINCLUDE) -C -P $(ARCHFLAGS) $(ENVCOMPDEFS) $(POUND_DEF)
+INCLUDE_MODULES =       -fmod=../main -I../main -I../external/io_netcdf -I../external/io_int -I../external/esmf_time_f90 \
+                        -I../frame -I../share -I../phys -I../chem -I../inc
 PERL            =       perl
 REGISTRY        =       Registry
-LIB             =	-L../external/io_netcdf -lwrfio_nf -L/opt/wrf-libs/netcdf/lib -lnetcdf ../frame/module_internal_header_util.o ../frame/pack_utils.o \
-                        -L../external/esmf_time_f90 -lesmf_time \
-			-L../external/io_grib1 -lio_grib1 \
-                        -L../external/io_grib2 -lio_grib2 -L/opt/wrf-libs/jasper/lib -ljasper \
-                        -L../external/io_grib_share -lio_grib_share
+LIB             =       -L../external/io_netcdf -lwrfio_nf -L/Users/jbeezley/dddas_libs/lib -lnetcdf \
+                        -L../external/io_grib1 -lio_grib1 \
+                        -L../external/io_grib2 -lio_grib2 -L/Users/jbeezley/dddas_libs/lib -ljasper \
+                        -L../external/io_grib_share -lio_grib_share \
+			../frame/module_internal_header_util.o ../frame/pack_utils.o -L../external/esmf_time_f90 -lesmf_time 
+LDFLAGS         =       $(FCFLAGS) 
+ENVCOMPDEFS	=	
+WRF_CHEM	=	0 
+CPP             =       cpp -C -P -traditional
+POUND_DEF	=	$(COREDEFS) -DNONSTANDARD_SYSTEM -DCONFIG_BUF_LEN=$(CONFIG_BUF_LEN) -DMAX_DOMAINS_F=$(MAX_DOMAINS)
+CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) $(ENVCOMPDEFS) $(POUND_DEF)
 AR              =       ar ru
-M4              =       m4 -B14000
+M4              =       m4 -B 14000
 RANLIB          =       ranlib
-NETCDFPATH	=	/opt/wrf-libs/netcdf
+NETCDFPATH	=	/Users/jbeezley/dddas_libs
 CC_TOOLS        =       $(CC)
+
+#### Override default sed command and script for Fortran source files         ####
+#### This sed script does not pass __FILE__ and __LINE__ to wrf_error_fatal() ####
+#### because the Fortran compiler complains about long source lines.          ####
+SED_FTN = sed -f ../arch/no_file_line.sed
 
 externals : wrf_ioapi_includes wrfio_nf wrfio_grib_share wrfio_grib1 wrfio_grib2 wrfio_int module_dm.F esmf_time
 
@@ -129,28 +133,28 @@ module_dm.F :
 
 wrfio_nf : 
 	( cd ../external/io_netcdf ; \
-	  make NETCDFPATH=/opt/wrf-libs/netcdf RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -FR -I. -w" )
+	  make NETCDFPATH=/Users/jbeezley/dddas_libs RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(FC) $(PROMOTION) $(FCFLAGS) -w" TRADFLAG="-traditional" )
 
-wrfio_grib_share : 
+wrfio_grib_share :
 	( cd ../external/io_grib_share ; \
-          make CC="$(SCC)" CFLAGS="$(CFLAGS)" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" \
-	  FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCFLAGS) -w" archive)
+          make CC="$(SCC)" CFLAGS="$(CFLAGS)" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCBASEOPTS) -w" TRADFLAG="-traditional" archive)
 
-wrfio_grib1 : 
+wrfio_grib1 :
 	( cd ../external/io_grib1 ; \
-          make CC="$(SCC)" CFLAGS="$(CFLAGS)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCFLAGS) -w" archive)
+          make CC="$(SCC)" CFLAGS="$(CFLAGS)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCBASEOPTS) -w" TRADFLAG="-traditional" archive )
 
-wrfio_grib2 : 
+wrfio_grib2 :
 	( cd ../external/io_grib2 ; \
-          make CC="$(SCC)" CFLAGS="$(CFLAGS) -I/opt/wrf-libs/jasper/include" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCFLAGS) -w" FIXED="-fixed" archive)
+          make CC="$(SCC)" CFLAGS="$(CFLAGS) -I/Users/jbeezley/dddas_libs/include" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" FC="$(SFC) $(PROMOTION) -I. $(FCDEBUG) $(FCBASEOPTS) -w" TRADFLAG="-traditional" FIXED="-ffixed-form" archive )
 
 wrfio_int : 
 	( cd ../external/io_int ; \
-          make CC="$(CC)" RANLIB="$(RANLIB)" CPP="$(CPP)" SFC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCFLAGS) -w" all )
+          make CC="$(CC)" RANLIB="$(RANLIB)" CPP="$(CPP)" SFC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" FC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS) -w" \
+          TRADFLAG="-traditional" all )
 
 esmf_time : 
 	( cd ../external/esmf_time_f90 ; \
-	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCFLAGS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
+	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
 
 # compile these without high optimization to speed compile
 solve_interface.o : solve_interface.F
@@ -167,44 +171,25 @@ module_initialize_quarter_ss.o : module_initialize_quarter_ss.F
 module_initialize_squall2d_x.o : module_initialize_squall2d_x.F
 module_initialize_squall2d_y.o : module_initialize_squall2d_y.F
 module_initialize_real.o : module_initialize_real.F
+module_dm.o : module_dm.F
 start_domain.o : start_domain.F
-wrf_bdyin.o : wrf_bdyin.F
-wrf_bdyout.o : wrf_bdyout.F
-wrf_histin.o : wrf_histin.F
-wrf_histout.o : wrf_histout.F
-wrf_inputin.o : wrf_inputin.F
-wrf_inputout.o : wrf_inputout.F
-wrf_restartin.o : wrf_restartin.F
-wrf_restartout.o : wrf_restartout.F
+mediation_integrate.o : mediation_integrate.F
+module_configure.o : module_configure.F
 
-wrf_bdyin.o wrf_bdyout.o  \
-wrf_histin.o wrf_histout.o  \
-wrf_inputin.o wrf_inputout.o  \
-wrf_restartin.o wrf_restartout.o  \
 solve_interface.o                                              \
 shift_domain_em.o                                              \
 module_io_mm5.o module_si_io.o module_io_wrf.o module_domain.o \
 module_start.o module_initialize.o module_initialize_b_wave.o  \
 module_initialize_hill2d_x.o module_initialize_quarter_ss.o    \
 module_initialize_squall2d_x.o module_initialize_squall2d_y.o  \
-module_initialize_real.o module_dm.o  start_domain.o :
+mediation_integrate.o \
+module_configure.o                                             \
+module_initialize_real.o module_dm.o start_domain.o :
 	$(RM) $@
 	$(SED_FTN) $*.F > $*.b 
 	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
 	$(RM) $*.b
-	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -O0 $*.f90
-
-module_dm.o : module_dm.F
-module_configure.o : module_configure.F
-
-module_configure.o \
-module_dm.o :
-	$(RM) $@
-	$(SED_FTN) $*.F > $*.b 
-	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
-	$(RM) $*.b
-	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -g -O0 $*.f90
-
+	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $*.f90
 
 
 ###########################################################

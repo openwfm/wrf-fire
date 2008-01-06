@@ -12,7 +12,11 @@ static char yyrcsid[] = "$Id: skeleton.c,v 1.4 1993/12/21 18:45:32 jtc Exp $";
 #line 35 "scan.y"
   #include <stdio.h>
   #include <stdlib.h>
+#ifdef MACOS
+  #include <sys/malloc.h>
+#else
   #include <malloc.h>
+#endif
   #include <string.h>
   #include <unistd.h>
   #include "scan.h"

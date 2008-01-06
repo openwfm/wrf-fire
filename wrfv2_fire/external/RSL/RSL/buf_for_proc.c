@@ -75,7 +75,11 @@ static int first = 1 ;
    to aid in performance of MPI Message Passing on Multi-node SX machines.
 */
 #include <mpi.h>
-#include <malloc.h>
+#ifdef MACOS
+  #include <sys/malloc.h>
+#else
+  #include <malloc.h>
+#endif
 #define MAXBUFSIZE 1024*1024*64 /* NEC Global Memory buffer size */
 #endif
 /* 

@@ -32,7 +32,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc.h>
+#ifdef MACOS
+  #include <sys/malloc.h>
+#else
+  #include <malloc.h>
+#endif
 #include <unistd.h>
 #include <string.h>
 #include "gdata.h"
