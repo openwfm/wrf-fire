@@ -495,13 +495,13 @@ SFC             =       ifort
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
-FCOPTIM		=	-O3 # -xW
+FCOPTIM		=	-O3 -no-ipo  # -xW
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -mp
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DWRF_RSL_IO -DRSL -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
-			-DLIMIT_ARGS -DSTUBMPI \
+			-DLIMIT_ARGS -DSTUBMPI -DLIMIT_ARGS
 CFLAGS          =       -w -DDM_PARALLEL -DWRF_RSL_IO \
                         -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL/RSL $(ARCHFLAGS)
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
@@ -569,6 +569,7 @@ esmf_time :
           make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST stub )
 
 # compile these without high optimization to speed compile
+solve_em.o : solve_em.F
 solve_interface.o : solve_interface.F
 shift_domain_em.o : shift_domain_em.F
 module_io_mm5.o : module_io_mm5.F
@@ -586,7 +587,7 @@ module_initialize_real.o : module_initialize_real.F
 start_domain.o : start_domain.F
 mediation_integrate.o : mediation_integrate.F
 
-solve_interface.o                                              \
+solve_em.o solve_interface.                                    \
 shift_domain_em.o                                              \
 module_io_mm5.o module_si_io.o module_io_wrf.o module_domain.o \
 module_start.o module_initialize.o module_initialize_b_wave.o  \

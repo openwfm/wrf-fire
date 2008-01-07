@@ -6013,11 +6013,12 @@ SUBROUTINE fire_error_debug(i,j,iflt,time,in1,in2,tign_g,          &
 183 FORMAT(1x,'I  JP =',2i4,' UG=',4f9.3/16x,' VG=',4f9.3)
 184 FORMAT(1x,'I  JM =',2i4,' UG=',4f9.3/16x,' VG=',4f9.3)
 
+
+#ifndef DM_PARALLEL
    CALL fire_debug_write
  
    WRITE (iflg,'(I5.5)') iflt
    WRITE (msg,*) 'fire_error_debug: FATAL '//iflg
-#ifndef DM_PARALLEL
    CALL wrf_error_fatal ( msg )
 #endif
   
