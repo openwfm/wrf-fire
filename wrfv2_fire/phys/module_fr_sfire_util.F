@@ -885,6 +885,7 @@ character(len=28)id
 id=name
 write(msg,'(a,3(a,g10.3))')id,':min ',min_a,' max ',max_a,' avg ',avg_a
 call message(msg)
+if(.not.avg_a.eq.avg_a)call crash('NaN detected')
 end subroutine print_stat_line
 
 
