@@ -317,7 +317,7 @@ CONTAINS
             ,fire_ignition_end_x,fire_ignition_end_y            &
             ,fire_ignition_radius                              &
             ,fire_ignition_time                                &
-            ,u_phy,v_phy,mu,rho,ht                                      &
+            ,u,v,mu,rho,ht                                      &
             ,z_at_w,dz8w                                        &
             ,lfn,tign_c,fuel_frac                     & 
             ,rthfrten,rqvfrten                                  &

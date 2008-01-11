@@ -414,13 +414,12 @@ integer, intent(in)::id,                          &
     ir,jr                                         ! atm/fire grid refinement ratio
 real, intent(in):: u_frame, v_frame                 ! velocity frame correction
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::&
-    u,v                                             ! wind velocity at atm cell centers  
+    u,v                                             ! atm wind velocity, staggered  
 real, intent(in), dimension(ims:ime, jms:jme):: zs  ! terrain height at atm cell centers                                        & ! terrain height  
 real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
     uf,vf,&                                         ! wind velocity fire grid nodes 
     zsf                                             ! terrain height fire grid nodes
     
-! the atm quantities u,v,zs are given at cell centers ids:ide,jds:jde
     
 !*** local
 real, dimension(its-1:ite+1, jts-1:jte+1):: ua,va, &    ! atm winds, averaged over height
@@ -503,16 +502,16 @@ call print_2d_stats_vec(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,ua,va, &
 ! the tile is at the right edge or the top edge of the patch.
 !
 
-!                     
-!                 F-------F                                       
-!                 |       |                               
-!                 |   * zs(ids,jds)=zsf(ifds+ir/2,jfds+jr/2)         
-!                 |       |                      
-!  zsf(ifds,jfds) *-------F      F = corners of atm cells on the fire grid                                  
 
     ! go up one when at end of patch
     ifte1 = enode(ifte,ifpe)
     jfte1 = enode(jfte,jfpe)
+                     
+!                 F-------F                                       
+!                 |       |                               
+!                 * ua(ids,jds)=uf(ifds,jfds+jr/2)         
+!                 |       |                      
+!  zsf(ifds,jfds) *-------F      F = corners of atm cells on the fire grid                                  
     
     call interpolate_2d_nodes2nodes(  &
         its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
@@ -520,9 +519,16 @@ call print_2d_stats_vec(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,ua,va, &
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
-        ids,jds,ifds+ir/2,jfds+jr/2, & ! line up by lower left corner of domain
+        ids,jds,ifds,jfds+jr/2, & ! line up by lower left corner of domain
         ua,                     & ! in atm grid     
         uf)                      ! out fire grid
+                     
+!                 F-------F                                       
+!                 |       |                               
+!                 |       |         
+!                 |       |                      
+!  zsf(ifds,jfds) *---*---F      F = corners of atm cells on the fire grid
+!                     va(ids,jds)=zsf(ifds+ir/2,jfds)
 
     call interpolate_2d_nodes2nodes(  &
         its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
@@ -530,9 +536,15 @@ call print_2d_stats_vec(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,ua,va, &
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
-        ids,jds,ifds+ir/2,jfds+jr/2, & ! line up by lower left corner of domain
+        ids,jds,ifds+ir/2,jfds, & ! line up by lower left corner of domain
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
+                     
+!                 F-------F                                       
+!                 |       |                               
+!                 |   * zs(ids,jds)=zsf(ifds+ir/2,jfds+jr/2)         
+!                 |       |                      
+!  zsf(ifds,jfds) *-------F      F = corners of atm cells on the fire grid                                  
 
     call interpolate_2d_nodes2nodes(  &
         its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
