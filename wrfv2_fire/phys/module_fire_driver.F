@@ -7,7 +7,7 @@ CONTAINS
 !------------------------------------------------------------------
 
    SUBROUTINE fire_driver(ifire                                 &
-            ,u,v,u_frame,v_frame,mu,rho                         & ! send
+            ,u_phy,v_phy,u_frame,v_frame,mu,rho                         & ! send
             ,itimestep,dt,dx,dy,z,z_at_w,dz8w,ht                &
             ,ids,  ide,  kds,  kde,  jds,  jde                  & 
             ,ims,  ime,  kms,  kme,  jms,  jme                  &
@@ -156,7 +156,7 @@ CONTAINS
    INTEGER, INTENT(in) :: fire_fuel_cat
    REAL, INTENT(in)    :: u_frame, v_frame
 
-   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u,v
+   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u_phy,v_phy
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: z,z_at_w
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: rho
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: dz8w
@@ -220,8 +220,8 @@ CONTAINS
       DO j=j_start(ij),j_end(ij)
          DO k=kts,kte
             DO i=i_start(ij),i_end(ij)
-               v_tmp(i,k,j) = v(i,k,j) + v_frame
-               u_tmp(i,k,j) = u(i,k,j) + u_frame
+               v_tmp(i,k,j) = v_phy(i,k,j) + v_frame
+               u_tmp(i,k,j) = u_phy(i,k,j) + u_frame
             ENDDO
          ENDDO
          DO k=kts,min(kte+1,kde)
@@ -315,7 +315,7 @@ CONTAINS
             ,fire_ignition_end_x,fire_ignition_end_y            &
             ,fire_ignition_radius                              &
             ,fire_ignition_time                                &
-            ,u,v,mu,rho,ht                                      &
+            ,u_phy,v_phy,mu,rho,ht                                      &
             ,z_at_w,dz8w                                        &
             ,lfn,tign_c,fuel_frac                     & 
             ,rthfrten,rqvfrten                                  &
