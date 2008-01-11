@@ -7,7 +7,8 @@ CONTAINS
 !------------------------------------------------------------------
 
    SUBROUTINE fire_driver(ifire                                 &
-            ,u_phy,v_phy,u_frame,v_frame,mu,rho                         & ! send
+            ,u_phy,v_phy,u,v                                    &
+            ,u_frame,v_frame,mu,rho                             & ! send
             ,itimestep,dt,dx,dy,z,z_at_w,dz8w,ht                &
             ,ids,  ide,  kds,  kde,  jds,  jde                  & 
             ,ims,  ime,  kms,  kme,  jms,  jme                  &
@@ -156,7 +157,8 @@ CONTAINS
    INTEGER, INTENT(in) :: fire_fuel_cat
    REAL, INTENT(in)    :: u_frame, v_frame
 
-   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u_phy,v_phy
+   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u_phy,v_phy  ! centered
+   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u,v          ! staggered
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: z,z_at_w
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: rho
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: dz8w

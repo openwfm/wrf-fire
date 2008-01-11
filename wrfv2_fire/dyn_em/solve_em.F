@@ -759,7 +759,8 @@ BENCH_START(fire_driver_tim)
 #endif
 
          CALL fire_driver(config_flags%ifire                        & ! send
-            ,u_phy,v_phy,grid%u_frame,grid%v_frame,grid%em_mut,rho  &
+            ,u_phy,v_phy,grid%em_u_2,grid%em_v_2                    &
+            ,grid%u_frame,grid%v_frame,grid%em_mut,rho              &
             ,grid%itimestep,grid%dt,grid%dx,grid%dy                 &
             ,grid%em_z,z_at_w,dz8w,grid%ht                          &
             ,ids,ide, kds,kde, jds,jde                              &
