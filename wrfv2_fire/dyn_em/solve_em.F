@@ -104,6 +104,13 @@ SUBROUTINE solve_em ( grid , config_flags  &
 ! fire related variables
    REAL :: moad_dx, moad_dy
    REAL :: moad_cen_lat, moad_cen_lon
+   INTEGER:: fire_num_ignitions
+   REAL, DIMENSION(5)::  fire_ignition_start_x, &
+        fire_ignition_start_y, &
+        fire_ignition_end_x, &
+        fire_ignition_end_y, &
+        fire_ignition_time, &
+        fire_ignition_radius
 
 ! Define benchmarking timers if -DBENCH is compiled
 #include <bench_solve_em_def.h>
@@ -758,6 +765,42 @@ BENCH_START(fire_driver_tim)
          CALL set_fire_debug_vars(grid,config_flags)
 #endif
 
+        ! this is only until I figure out how to input arrays through the namelist...
+        fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
+        fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
+        fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
+        fire_ignition_end_y(1)=config_flags%fire_ignition_end_y1
+        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
+        fire_ignition_time(1)=config_flags%fire_ignition_time1 
+        fire_ignition_start_x(2)=config_flags%fire_ignition_start_x2
+        fire_ignition_start_y(2)=config_flags%fire_ignition_start_y2
+        fire_ignition_end_x(2)=config_flags%fire_ignition_end_x2
+        fire_ignition_end_y(2)=config_flags%fire_ignition_end_y2
+        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
+        fire_ignition_time(2)=config_flags%fire_ignition_time2 
+        fire_ignition_start_x(3)=config_flags%fire_ignition_start_x3
+        fire_ignition_start_y(3)=config_flags%fire_ignition_start_y3
+        fire_ignition_end_x(3)=config_flags%fire_ignition_end_x3
+        fire_ignition_end_y(3)=config_flags%fire_ignition_end_y3
+        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
+        fire_ignition_time(3)=config_flags%fire_ignition_time3 
+        fire_ignition_start_x(4)=config_flags%fire_ignition_start_x4
+        fire_ignition_start_y(4)=config_flags%fire_ignition_start_y4
+        fire_ignition_end_x(4)=config_flags%fire_ignition_end_x4
+        fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
+        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
+        fire_ignition_time(4)=config_flags%fire_ignition_time4 
+        fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
+        fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
+        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
+        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
+        fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
+        fire_ignition_time(5)=config_flags%fire_ignition_time5
+        fire_num_ignitions=0       
+        do i=1,min(5,config_flags%fire_num_ignitions)
+            if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i
+        enddo
+
          CALL fire_driver(config_flags%ifire                        & ! send
             ,u_phy,v_phy,grid%em_u_2,grid%em_v_2                    &
             ,grid%u_frame,grid%v_frame,grid%em_mut,rho              &
@@ -783,11 +826,11 @@ BENCH_START(fire_driver_tim)
             ,model_config_rec%s_we(1), model_config_rec%e_we(1)     &
             ,model_config_rec%s_sn(1), model_config_rec%e_sn(1)     &
             ,grid%sr_x,grid%sr_y                                    &
-            ,config_flags%fire_num_ignitions                        & ! start ignition for SFIRE
-            ,config_flags%fire_ignition_start_x,config_flags%fire_ignition_start_y        & ! ignition - small arrays
-            ,config_flags%fire_ignition_end_x,config_flags%fire_ignition_end_y            &
-            ,config_flags%fire_ignition_radius                              &
-            ,config_flags%fire_ignition_time                        & ! end ignitin for SFIRE
+            ,fire_num_ignitions                                     & ! start ignition for SFIRE
+            ,fire_ignition_start_x,fire_ignition_start_y            & ! ignition - small arrays
+            ,fire_ignition_end_x,fire_ignition_end_y                &
+            ,fire_ignition_radius                                   &
+            ,fire_ignition_time                                     & ! end ignitin for SFIRE
             ,config_flags%fire_lat_init,config_flags%fire_lon_init  &
             ,config_flags%fire_ign_time                             &
             ,config_flags%fire_shape,config_flags%fire_crwn_hgt     &

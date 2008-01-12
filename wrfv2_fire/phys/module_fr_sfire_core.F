@@ -368,7 +368,7 @@ do j=jfts,enode(jfte,jfpe)      ! node based loops, hence the +1
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
     enddo
 enddo
-write(msg,'(a,2f10.1,a,2f10.1,a,f8.1,a,f8.1,a,i3)')'ignite_fire: from',sx,sy,' to ',&
+write(msg,'(a,2f10.1,a,2f10.1,a,f8.1,a,f8.1,a,i6)')'ignite_fire: from',sx,sy,' to ',&
     ex,ey,' radius ',r,' time',time_ign,' ignited nodes',ignited
 call message(msg)
 end subroutine ignite_fire

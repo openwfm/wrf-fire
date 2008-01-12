@@ -69,29 +69,26 @@ write(1,1)1.,1.,fdx
 write(1,1)1.,1.,fdy
 
 time_start=t0
+num_ignitions=2
+ignition_start_x(1)=0.5*fdx*(ifde-ifds)
+ignition_start_y(1)=0.5*fdy*(jfde-jfds)
+ignition_end_x(1)=0.5*fdx*(ifde-ifds)*0.9999999
+ignition_end_y(1)=0.5*fdy*(jfde-jfds)*1.0000001
+ignition_radius(1) = 0.5*max(5.0,6*max(fdx,fdy))
+ignition_time(1)=1
+ignition_start_x(2)=1000
+ignition_start_y(2)=500
+ignition_end_x(2)=1500
+ignition_end_y(2)=1500
+! at least 6 by 6 cells but no less than 5 m
+ignition_radius(2) = 0.5*max(5.0,6*max(fdx,fdy))
+ignition_time(2)=2
+
 do istep=1,msteps
     if(istep.eq.1)then
             initialize=1
-            num_ignitions=0
-    elseif(istep.eq.2)then
-            initialize=0
-            num_ignitions=2
-            ignition_start_x(1)=0.5*fdx*(ifde-ifds)
-            ignition_start_y(1)=0.5*fdy*(jfde-jfds)
-            ignition_end_x(1)=0.5*fdx*(ifde-ifds)*0.9999999
-            ignition_end_y(1)=0.5*fdy*(jfde-jfds)*1.0000001
-            ignition_radius(1) = 0.5*max(5.0,6*max(fdx,fdy))
-            ignition_time(1)=1
-            ignition_start_x(2)=1000
-            ignition_start_y(2)=500
-            ignition_end_x(2)=1500
-            ignition_end_y(2)=1500
-            ! at least 6 by 6 cells but no less than 5 m
-            ignition_radius(2) = 0.5*max(5.0,6*max(fdx,fdy))
-            ignition_time(2)=2
     else
             initialize=0
-            num_ignitions=0
     endif
     call   sfire_model (                    &
     initialize, num_ignitions,              & 
