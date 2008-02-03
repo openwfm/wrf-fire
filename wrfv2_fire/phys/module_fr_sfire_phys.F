@@ -9,7 +9,6 @@ module module_fr_sfire_phys
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_util
 
-private fire_ros
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
@@ -296,7 +295,7 @@ end subroutine heat_fluxes
 
 subroutine set_nfuel_cat(   &
                             ifms,ifme,jfms,jfme,               &
-			    ifts,ifte,jfts,jfte,               &
+                ifts,ifte,jfts,jfte,               &
                             ifuelread,nfuel_cat0,zsf,nfuel_cat)
 
 implicit none
@@ -440,6 +439,7 @@ do j=jds,jde+1
 #       include "fr_sfire_params_args.h"
         )
         ros(i,j)=max(ros1,0.0)
+        ! write(10,*),i,j,nvx,nvy,speed,tanphi,r
 !        write(90,1)i,j,'speed',speed,'tanphi',tanphi,'ros',ros1
 !1       format(2i5,3(1x,a,f10.4))
     enddo

@@ -6,6 +6,7 @@
 
 module module_fr_sfire_core
 
+use module_fr_sfire_phys
 use module_fr_sfire_util
 
 ! The mathematical core of the fire spread model. No physical constants here.
@@ -779,9 +780,9 @@ real,intent(in)::dx,dy,ts,td
 !*** local 
 ! arrays
 real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
-   tend, speed, lfn0, lfn1
+   tend,  lfn0, lfn1
 ! scalars
-real::t,dt,tr,tbound,grad2,a
+real::t,dt,tr,tbound,grad2,a,rr
 real::gradx,grady,aspeed,err,aerr
 integer::istep
 integer::i,j
@@ -790,8 +791,10 @@ character(len=128)msg
 logical last
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr    
-integer::id
 
+#ifdef DEBUG_OUT
+integer::id
+#endif
 
 ! constants
 integer,parameter :: mstep=1000, printl=1
@@ -824,10 +827,10 @@ last = .false. ! stopping test
 
 do while ( .not.last )
     istep=istep+1
+    id = istep*10
 
-    id=istep*10
 #ifdef DEBUG_OUT    
-    if(istep.eq.1)call write_array_m(ips,ipe+1,jps,jpe+1,           &
+    call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',id)
 #endif
 
@@ -838,19 +841,26 @@ do while ( .not.last )
     ! tend = F(lfn)
 
     call  tend_ls(&
-        ims,ime,jms,jme, &                       ! memory dims
-        ips,ipe,jps,jpe, &                       ! patch dims
-        num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-        id+1,t,dx,dy,        &                       ! scalars in
-        lfn, &                                   ! arrays in
-        tbound, &                                ! scalars out 
-        tend,speed &                             ! arrays out
+    ims,ime,jms,jme, &                   ! memory dims for lfn
+    ims,ime,jms,jme, &                   ! memory dims for tend 
+    ips,ipe,jps,jpe, &                       ! domain dims
+    ips,ipe,jps,jpe, &                       ! tile dims - indices where is tend computed
+    t,dx,dy,      &                          ! scalars in
+    lfn, &                                   ! arrays in
+    tbound, &                                ! scalars out 
+    tend &                                  ! arrays out        
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
 #endif
 )
+
+#ifdef DEBUG_OUT    
+    call write_array_m(ips,ipe+1,jps,jpe+1,           &
+                                ims,ime,jms,jme,tend,'tend',id)
+    stop
+#endif
 
     dt = min(td-tr, 0.5*tbound)
 
@@ -867,13 +877,14 @@ do while ( .not.last )
     ! tend = F(lfn1)
 
     call  tend_ls( &
-        ims,ime,jms,jme, &                       ! memory dims
-        ips,ipe,jps,jpe, &                       ! patch dims
-        num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-        id+2,t,dx,dy,        &                       ! scalars in
-        lfn1, &                                   ! arrays in
-        tbound, &                                ! scalars out 
-        tend,speed &                             ! arrays out
+    ims,ime,jms,jme, &                   ! memory dims for lfn
+    ims,ime,jms,jme, &                   ! memory dims for tend 
+    ips,ipe,jps,jpe, &                       ! domain dims
+    ips,ipe,jps,jpe, &                       ! tile dims - indices where is tend computed
+    t,dx,dy,      &                          ! scalars in
+    lfn1, &                                   ! arrays in
+    tbound, &                                ! scalars out 
+    tend &                                  ! arrays out        
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
@@ -930,8 +941,11 @@ do while ( .not.last )
                    gradx=(lfn(i+1,j)-lfn(i-1,j))/(2.0*dx) ! central differences
                    grady=(lfn(i,j+1)-lfn(i,j-1))/(2.0*dy)
                    grad2=sqrt(gradx*gradx+grady*grady)
-                   aspeed = (lfn0(i,j)-lfn(i,j))/(dt*max(grad2,rmin))
-                   err=aspeed-speed(i,j)
+                   aspeed = (lfn0(i,j)-lfn(i,j))/(dt*max(grad2,rmin))                   
+                    rr = speed_func(gradx,grady,i,j  &
+#                   include "fr_sfire_params_args.h"
+                    )
+                   err=aspeed-rr
                    sum_err=sum_err+err
                    min_err=min(min_err,err)
                    max_err=max(max_err,err)     
@@ -985,14 +999,62 @@ end subroutine prop_ls
 !*****************************
 !
 
+subroutine continue_at_boundary(ix,iy, & ! do x direction or y direction
+    ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                ! domain dims
+    its,ite,jts,jte, &                ! tile dims
+    lfn)                              ! array
+implicit none
+!*** description
+! extend array by one beyond the domain by linear continuation
+! if array is node based, call with ids jde ite jte larger by 1
+!*** arguments
+integer, intent(in)::ix,iy              ! not 0 = do x or y (1 or 2) direction
+integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                ! domain dims
+    its,ite,jts,jte                 ! tile dims
+real,intent(inout),dimension(ims:ime,jms:jme)::lfn
+!*** local
+integer i,j
+if(ix.ne.0)then
+    if(its.eq.ids)then
+        do j=jts,jte
+            lfn(ids-1,j)=2*lfn(ids,j)-lfn(ids+1,j)
+        enddo
+    endif
+    if(ite.eq.ide)then
+        do j=jts,jte
+            lfn(ide+1,j)=2*lfn(ide,j)-lfn(ide-1,j)
+        enddo
+    endif
+endif
+if(iy.ne.0)then
+    if(jts.eq.jds)then
+        do i=its,ite
+            lfn(i,jds-1)=2*lfn(i,jds)-lfn(i,jds+1)
+        enddo
+    endif
+    if(jte.eq.jde)then
+        do i=its,ite
+            lfn(i,jde+1)=2*lfn(i,jde)-lfn(i,jde-1)
+        enddo
+    endif
+endif
+end subroutine continue_at_boundary
+
+!
+!*****************************
+!
+
 subroutine tend_ls( &
-    ims,ime,jms,jme, &                       ! memory dims
-    ips,ipe,jps,jpe, &                       ! patch dims
-    num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-    id,t,dx,dy,      &                       ! scalars in
+    lims,lime,ljms,ljme, &                   ! memory dims for lfn
+    tims,time,tjms,tjme, &                   ! memory dims for tend 
+    ids,ide,jds,jde, &                       ! domain dims
+    its,ite,jts,jte, &                       ! tile dims - indices where is tend computed
+    t,dx,dy,      &                          ! scalars in
     lfn, &                                   ! arrays in
     tbound, &                                ! scalars out 
-    tend, speed  &                           ! arrays out
+    tend &                                  ! arrays out
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
@@ -1000,28 +1062,18 @@ subroutine tend_ls( &
 #endif
 )
 
-use module_fr_sfire_phys
 implicit none
+! purpose
+! compute the right hand side of the level set equation
 
-!*** calls
-!
-! normal_spread
-!
-
-! for essentially the same result as using advection vx, vy, and 
-! spread rate r directly, use instead of call normal_spread:
-!   speed = sr + max(vx*nvx + vy*nvy,0.0)
-!      
-integer,intent(in)::ims,ime,jms,jme,ips,ipe,jps,jpe
-integer,intent(in)::num_tiles
-integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
-integer,intent(in)::id                                 ! for debug dumps
+!*** arguments
+integer,intent(in)::lims,lime,ljms,ljme,tims,time,tjms,tjme,its,ite,jts,jte
+integer, intent(in)::ids,ide,jds,jde
 real,intent(in)::t                                     ! time
 real,intent(in)::dx,dy                                 ! mesh step
-real,dimension(ims:ime,jms:jme),intent(in)::lfn        ! level function
+real,dimension(lims:lime,ljms:ljme),intent(inout)::lfn ! level set function
 real,intent(out)::tbound                               ! max allowed time step
-real,dimension(ims:ime,jms:jme),intent(out)::tend      ! tendency (rhs of the diff eq)
-real,dimension(ims:ime,jms:jme),intent(out)::speed     ! normal propagation (testing only)
+real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the level set pde)
 #ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
 #include SPEED_VARS_DECL
 #else
@@ -1029,14 +1081,11 @@ real,dimension(ims:ime,jms:jme),intent(out)::speed     ! normal propagation (tes
 #endif
 
 !*** local 
-! arrays
-real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
-   diffLx,diffLy,diffRx,diffRy, & 
-   diffCx,diffCy,nvx,nvy,scale,diff2x,diff2y,grad
-! scalars
-real::rr
+real:: diffLx,diffLy,diffRx,diffRy, & 
+   diffCx,diffCy,diff2x,diff2y,grad,rr
 integer::i,j
-!character(len=128)msg
+! debug
+!real, dimension(its:ite+1,jts:jte+1)::d_rr,d_nvx,d_nvy
 
 ! constants
 real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
@@ -1048,117 +1097,107 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
 
-    ! one sided differences
-    ! we waste a little and store them separately to make the code more
-    ! readable, and to allow for higher order scheme in future if needed
-    ! allow for general array bounds n1:n,m1:m - may be useful in parallel
-    
-    call meshdiff_2d(        &           ! get all 4 one-sided differences
-        ips,ipe,  jps,jpe ,  &           ! mesh area used (in cells, end +1)
-        ims,ime,  jms,jme,   &           ! memory dimensions  
-        dx,dy,               &           ! mesh spacing
-        lfn,                 &           ! input
-        diffLx,diffRx,diffLy,diffRy) ! output        
+    call continue_at_boundary(1,1, &
+    lims,lime,ljms,ljme, &                ! memory dims
+    ids,ide+1,jds,jde+1, &                ! domain dims
+    its,ite+1,jts,jte+1, &                ! tile dims
+    lfn)                                  ! array
 
-    do j=jps,jpe+1
-        do i=ips,ipe+1
-        
-            ! 2 times central differences
-            diffCx(i,j)=diffLx(i,j) + diffRx(i,j)
-            diffCy(i,j)=diffLy(i,j) + diffRy(i,j)
+    tbound=0    
+    do j=jts,jte+1
+        do i=its,ite+1
+            ! one sided differences
+            diffRx = (lfn(i+1,j)-lfn(i,j))/dx
+            diffLx = (lfn(i,j)-lfn(i-1,j))/dx
+            diffRy = (lfn(i,j+1)-lfn(i,j))/dy
+            diffLy = (lfn(i,j)-lfn(i,j-1))/dy
+            ! const*central differences
+            diffCx = lfn(i+1,j)-lfn(i-1,j)
+            diffCy = lfn(i,j+1)-lfn(i,j-1)
     
             ! Godunov scheme: upwind differences, L or R or none    
             ! always test on > or < never = , much faster because of IEEE
-     
             ! central diff >= 0 => take left diff if >=0, ortherwise 0
             ! central diff <= 0 => take right diff if <=0, ortherwise 0
-            diff2x(i,j)=0
-            diff2y(i,j)=0
-            if (.not.diffLx(i,j)<0.and..not.diffCx(i,j)<0)diff2x(i,j)=diff2x(i,j)+diffLx(i,j)
-            if (.not.diffRx(i,j)>0.and.     diffCx(i,j)<0)diff2x(i,j)=diff2x(i,j)+diffRx(i,j)
-            if (.not.diffLy(i,j)<0.and..not.diffCy(i,j)<0)diff2y(i,j)=diff2y(i,j)+diffLy(i,j)
-            if (.not.diffRy(i,j)>0.and.     diffCy(i,j)<0)diff2y(i,j)=diff2y(i,j)+diffRy(i,j)
-!            if (diffLx(i,j)>0.and.diffCx(i,j)>0)diff2x(i,j)=diffLx(i,j)
-!            if (diffRx(i,j)<0.and.diffCx(i,j)<0)diff2x(i,j)=diffRx(i,j)
-!            if (diffLy(i,j)>0.and.diffCy(i,j)>0)diff2y(i,j)=diffLy(i,j)
-!            if (diffRy(i,j)<0.and.diffCy(i,j)<0)diff2y(i,j)=diffRy(i,j)
+            diff2x=0
+            diff2y=0
+            if (.not.diffLx<0.and..not.diffCx<0)diff2x=diff2x+diffLx
+            if (.not.diffRx>0.and.     diffCx<0)diff2x=diff2x+diffRx
+            if (.not.diffLy<0.and..not.diffCy<0)diff2y=diff2y+diffLy
+            if (.not.diffRy>0.and.     diffCy<0)diff2y=diff2y+diffRy
+!            if (diffLx>0.and.diffCx>0)diff2x=diffLx
+!            if (diffRx<0.and.diffCx<0)diff2x=diffRx
+!            if (diffLy>0.and.diffCy>0)diff2y=diffLy
+!            if (diffRy<0.and.diffCy<0)diff2y=diffRy
             
             ! magnitude of the gradient
-            grad(i,j)=sqrt(diff2x(i,j)*diff2x(i,j) + diff2y(i,j)*diff2y(i,j))
+            grad=sqrt(diff2x*diff2x + diff2y*diff2y)
 
-            ! normal direction
-            scale(i,j)=sqrt(diffCx(i,j)*diffCx(i,j)+diffCy(i,j)*diffCy(i,j)+eps) 
-            nvx(i,j)=diffCx(i,j)/scale(i,j);
-            nvy(i,j)=diffCy(i,j)/scale(i,j);
-            
-!            scale(i,j)=grad(i,j)+rmin 
-!            nvx(i,j)=diff2x(i,j)/scale(i,j);
-!            nvy(i,j)=diff2y(i,j)/scale(i,j);
+            ! get rate of spread
 
-        enddo
-    enddo
-    
-    ! get propagation speed
-    call normal_spread(  &
-        ims,ime,jms,jme, &  ! memory bounds
-        ips,ipe,jps,jpe, &  ! domain bounds
-        nvx,nvy,         &  ! in: directions to compute the speed in
-        speed            &  ! out: the spread speed
-#ifdef SPEED_VARS_ARGS  /* extra arguments for the speed functions*/
-#include SPEED_VARS_ARGS
-#else
-#include "fr_sfire_params_args.h"
-#endif    
-    ) 
-    call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,speed,'prop_ls:in: frln speed (m/s)')
-
-    tbound=0
-    do j=jps,jpe+1
-        do i=ips,ipe+1
-            rr=speed(i,j)
-                
+            rr = speed_func(diffCx,diffCy,i,j &
+#           include "fr_sfire_params_args.h"
+            )
             ! time step bound - CFL condition
             ! contribution of the normal term
-            if (grad(i,j) > 0.) then
-                tbound = max(tbound,rr*(abs(diff2x(i,j))/dx+abs(diff2y(i,j))/dy)/grad(i,j))
+            if (grad > 0.) then
+                tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
             endif
             
             ! the rhs of the diff eq, a.k.a. lfn dot, a.k.a. the lfn "tendency"
-            tend(i,j) = -rr*grad(i,j)   ! normal term rhs
+            tend(i,j) = -rr*grad   ! normal term 
         enddo
     enddo        
 
     ! the final CFL bound
     tbound = 1/(tbound+tol)
-    
-
-#ifdef DEBUG_OUT
-    if(mod(id,50).eq.0)then
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,speed,'speed',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,diff2x,'diff2x',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,diff2y,'diff2y',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,diff2x,'diffCx',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,diff2y,'diffCy',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,nvx,'nvx',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,nvy,'nvy',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,vx,'vx',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,vy,'vy',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,tend,'tend',id)
-            call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,lfn,'lfn',id)
-    endif
-#endif
 
 end subroutine tend_ls
+
+!
+!**************************
+!
+
+real function speed_func(diffCx,diffCy,i,j &
+#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#include SPEED_VARS_ARGS
+#else
+#include "fr_sfire_params_args.h"
+#endif
+)
+use module_fr_sfire_phys
+implicit none
+!*** arguments
+integer, intent(in)::i,j
+real, intent(in)::diffCx,diffCy
+#ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
+#include SPEED_VARS_DECL
+#else
+#include "fr_sfire_params_decl.h"
+#endif
+!*** local
+real::scale,nvx,nvy,speed,tanphi,r
+real, parameter:: eps=epsilon(0.0)
+!*** executable
+            ! normal direction, from central differences
+            scale=sqrt(diffCx*diffCx+diffCy*diffCy+eps) 
+            nvx=diffCx/scale
+            nvy=diffCy/scale
+                      
+            ! wind speed in direction of spread
+            speed =  vx(i,j)*nvx + vy(i,j)*nvy
+        
+            ! slope in direction of spread
+            tanphi =  dzfsdx(i,j)*nvx + dzfsdy(i,j)*nvy
+    
+            ! get rate of spread from wind speed and slope
+
+            r = fire_ros(speed,tanphi,i,j &
+#           include "fr_sfire_params_args.h"
+            )
+            ! write(10,*),i,j,nvx,nvy,speed,tanphi,r
+            speed_func=max(r,0.0)
+
+end function speed_func
 
 end module module_fr_sfire_core

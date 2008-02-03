@@ -146,6 +146,8 @@ integer::rfx,rfy ! refinement, convenience only
 nx=400
 ny=400
 msteps=200
+msteps=6
+!msteps=3
 fdx=6
 fdy=6
 
@@ -157,13 +159,13 @@ ny=ny*rfy
 fdx=fdx/rfx
 fdy=fdy/rfy
 
-dt=1
+dt=0.5
 wind=10
 alpha=0.0
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
 call model_test(1,nx,1,ny, &
-   1,nx+1,1,ny+1, &
+   0,nx+2,0,ny+2, &
    1,nx,1,ny, &
    fdx,fdy,wind,alpha,dt,msteps)
 
