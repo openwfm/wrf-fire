@@ -703,14 +703,13 @@ subroutine prop_ls(&
                 ips,ipe,jps,jpe, &                       ! patch dims
                 num_tiles,i_start,i_end,j_start,j_end, & ! tiling
                 ts,td,dx,dy,     &                       ! scalars in
-                lfn,tc           &                       ! arrays inout                   
+                lfn,tign           &                       ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
 #endif
                    )
-
 implicit none
 
 !*** purpose: advance level function in time
@@ -755,21 +754,17 @@ implicit none
 ! td                in    end time is ts+td (given this way because of rounding)
 ! dx,dy             in    grid spacing
 ! lfn               inout the level function
-! tc                inout the time the contour=zero level set crossed the node
+! tign                inout the time the contour=zero level set crossed the node
 
 !*** calls
 !
 ! tend_ls
 !
 
-! for essentially the same result as using advection vx, vy, and 
-! spread rate r directly, use instead of call normal_spread:
-!   speed = sr + max(vx*nvx + vy*nvy,0.0)
-!      
 integer,intent(in)::ims,ime,jms,jme,ips,ipe,jps,jpe
 integer,intent(in)::num_tiles
 integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
-real,dimension(ims:ime,jms:jme),intent(inout)::lfn,tc
+real,dimension(ims:ime,jms:jme),intent(inout)::lfn,tign
 real,intent(in)::dx,dy,ts,td
 #ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
 #include SPEED_VARS_DECL
@@ -827,9 +822,9 @@ last = .false. ! stopping test
 
 do while ( .not.last )
     istep=istep+1
-    id = istep*10
 
 #ifdef DEBUG_OUT    
+    id = istep*10
     call write_array_m(ips,ipe+1,jps,jpe+1,           &
                                 ims,ime,jms,jme,lfn,'lfn',id)
 #endif
@@ -905,11 +900,11 @@ do while ( .not.last )
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
     ! interpolate from the level functions at start and at end
-    ! lfn0 is the level function value at time t
-    ! lfn  is the level function value at time t+dt
-    ! 0       should the level function value at time tc(i,j)
+    ! lfn0 is the level set function value at time t
+    ! lfn  is the level set function value at time t+dt
+    ! 0    is the level set function value at time tign(i,j)
     ! thus assuming the level function is approximately linear =>
-    ! tc(i,j)= t + ((t + td) - t) * lfn0 / (lfn0 - lfn)
+    ! tign(i,j)= t + ((t + td) - t) * lfn0 / (lfn0 - lfn)
     !        = t + dt * lfn0 / (lfn0 - lfn)
         
 
@@ -917,7 +912,7 @@ do while ( .not.last )
         do i=ips,ipe+1
             ! interpolate the cross-over time
             if (.not. lfn(i,j)>0 .and. lfn0(i,j)>0)then
-                tc(i,j) = t - dt * lfn0(i,j) / (lfn0(i,j) - lfn(i,j))
+                tign(i,j) = t - dt * lfn0(i,j) / (lfn0(i,j) - lfn(i,j))
             endif
         enddo
     enddo
@@ -999,53 +994,6 @@ end subroutine prop_ls
 !*****************************
 !
 
-subroutine continue_at_boundary(ix,iy, & ! do x direction or y direction
-    ims,ime,jms,jme, &                ! memory dims
-    ids,ide,jds,jde, &                ! domain dims
-    its,ite,jts,jte, &                ! tile dims
-    lfn)                              ! array
-implicit none
-!*** description
-! extend array by one beyond the domain by linear continuation
-! if array is node based, call with ids jde ite jte larger by 1
-!*** arguments
-integer, intent(in)::ix,iy              ! not 0 = do x or y (1 or 2) direction
-integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
-    ids,ide,jds,jde, &                ! domain dims
-    its,ite,jts,jte                 ! tile dims
-real,intent(inout),dimension(ims:ime,jms:jme)::lfn
-!*** local
-integer i,j
-if(ix.ne.0)then
-    if(its.eq.ids)then
-        do j=jts,jte
-            lfn(ids-1,j)=2*lfn(ids,j)-lfn(ids+1,j)
-        enddo
-    endif
-    if(ite.eq.ide)then
-        do j=jts,jte
-            lfn(ide+1,j)=2*lfn(ide,j)-lfn(ide-1,j)
-        enddo
-    endif
-endif
-if(iy.ne.0)then
-    if(jts.eq.jds)then
-        do i=its,ite
-            lfn(i,jds-1)=2*lfn(i,jds)-lfn(i,jds+1)
-        enddo
-    endif
-    if(jte.eq.jde)then
-        do i=its,ite
-            lfn(i,jde+1)=2*lfn(i,jde)-lfn(i,jde-1)
-        enddo
-    endif
-endif
-end subroutine continue_at_boundary
-
-!
-!*****************************
-!
-
 subroutine tend_ls( &
     lims,lime,ljms,ljme, &                   ! memory dims for lfn
     tims,time,tjms,tjme, &                   ! memory dims for tend 
@@ -1121,14 +1069,10 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
             ! central diff <= 0 => take right diff if <=0, ortherwise 0
             diff2x=0
             diff2y=0
-            if (.not.diffLx<0.and..not.diffCx<0)diff2x=diff2x+diffLx
-            if (.not.diffRx>0.and.     diffCx<0)diff2x=diff2x+diffRx
-            if (.not.diffLy<0.and..not.diffCy<0)diff2y=diff2y+diffLy
-            if (.not.diffRy>0.and.     diffCy<0)diff2y=diff2y+diffRy
-!            if (diffLx>0.and.diffCx>0)diff2x=diffLx
-!            if (diffRx<0.and.diffCx<0)diff2x=diffRx
-!            if (diffLy>0.and.diffCy>0)diff2y=diffLy
-!            if (diffRy<0.and.diffCy<0)diff2y=diffRy
+            if (diffLx>0.and..not.diffCx<0)diff2x=diffLx
+            if (diffRx<0.and.     diffCx<0)diff2x=diffRx
+            if (diffLy>0.and..not.diffCy<0)diff2y=diffLy
+            if (diffRy<0.and.     diffCy<0)diff2y=diffRy
             
             ! magnitude of the gradient
             grad=sqrt(diff2x*diff2x + diff2y*diff2y)
@@ -1165,12 +1109,14 @@ real function speed_func(diffCx,diffCy,i,j &
 #include "fr_sfire_params_args.h"
 #endif
 )
+!*** purpose
+!    the level set method speed function
 use module_fr_sfire_phys
 implicit none
 !*** arguments
-integer, intent(in)::i,j
-real, intent(in)::diffCx,diffCy
-#ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
+real, intent(in)::diffCx,diffCy  ! x and y direction of propagation
+integer, intent(in)::i,j         ! indices of the node to compute the speed
+#ifdef SPEED_VARS_DECL      /* extra arguments for fire_ros */
 #include SPEED_VARS_DECL
 #else
 #include "fr_sfire_params_decl.h"

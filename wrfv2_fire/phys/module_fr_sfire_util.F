@@ -41,6 +41,53 @@ end subroutine message
 !****************
 !
 
+subroutine continue_at_boundary(ix,iy, & ! do x direction or y direction
+    ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                ! domain dims
+    its,ite,jts,jte, &                ! tile dims
+    lfn)                              ! array
+implicit none
+!*** description
+! extend array by one beyond the domain by linear continuation
+! if array is node based, call with ids jde ite jte larger by 1
+!*** arguments
+integer, intent(in)::ix,iy              ! not 0 = do x or y (1 or 2) direction
+integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                ! domain dims
+    its,ite,jts,jte                 ! tile dims
+real,intent(inout),dimension(ims:ime,jms:jme)::lfn
+!*** local
+integer i,j
+if(ix.ne.0)then
+    if(its.eq.ids)then
+        do j=jts,jte
+            lfn(ids-1,j)=2*lfn(ids,j)-lfn(ids+1,j)
+        enddo
+    endif
+    if(ite.eq.ide)then
+        do j=jts,jte
+            lfn(ide+1,j)=2*lfn(ide,j)-lfn(ide-1,j)
+        enddo
+    endif
+endif
+if(iy.ne.0)then
+    if(jts.eq.jds)then
+        do i=its,ite
+            lfn(i,jds-1)=2*lfn(i,jds)-lfn(i,jds+1)
+        enddo
+    endif
+    if(jte.eq.jde)then
+        do i=its,ite
+            lfn(i,jde+1)=2*lfn(i,jde)-lfn(i,jde-1)
+        enddo
+    endif
+endif
+end subroutine continue_at_boundary
+
+!
+!*****************************
+!
+
 subroutine check_mesh_2dim(ids,ide,jds,jde,ims,ime,jms,jme)
 implicit none
 integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme

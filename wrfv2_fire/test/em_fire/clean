@@ -1,0 +1,3 @@
+#!/bin/csh -f
+find . -name \*.txt -exec rm -f {} \;
+find . -name wrfrst\* -exec rm -f {} \;
