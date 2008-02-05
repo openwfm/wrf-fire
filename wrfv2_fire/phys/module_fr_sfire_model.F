@@ -84,8 +84,9 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 
 INTEGER :: ifts,ifte,jfts,jfte      ! fire tile bounds
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
-integer::ij,ignited,ig        
-real, dimension(ifms:ifme, jfms:jfme)::fuel_frac_burnt
+integer::ij,ignited,ig,i,j        
+real, dimension(ifms:ifme, jfms:jfme)::fuel_frac_burnt,fuel_frac_start,lfn_out
+real::tbound
 
 !*** executable
 
@@ -161,15 +162,31 @@ enddo ! end tile loop
 ! subroutine normal_spread may use. The include is to guarantee this is done consistently
 ! over the call chain.
 
-call sfire_core(     &
+!OMP PARALLEL DO PRIVATE(ij,ig,ifts,ifte,jfts,jfte)
+do ij=1,num_tiles
+    ifts=i_start(ij)
+    ifte=i_end(ij)
+    jfts=j_start(ij)
+    jfte=j_end(ij)
+
+!   compute fuel fraction at start
+    call get_fuel_left( &
+        ifms,ifme,jfms,jfme, &
+        ifts,ifte,jfts,jfte, &
+        fdx,fdy,                        &
+        lfn,tign,fuel_time,time_start,fuel_frac_start) ! 
+
+!   do time step
+    call prop_ls(ij,     &
     ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                      &
-    ifps,ifpe,jfps,jfpe,                      &
-    num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-    time_start,dt,fdx,fdy,fuel_time,  &
-    lfn,tign,fuel_frac,fuel_frac_burnt &
+    ifts,ifte,jfts,jfte,                      &
+    time_start,dt,fdx,fdy,tbound,  &
+    lfn,lfn_out,tign &
 #   include "fr_sfire_params_args.h" 
     ) 
+enddo
+lfn=lfn_out
 
 ! compute the heat fluxes from the fuel burned
 !OMP PARALLEL DO PRIVATE(ij,ifts,ifte,jfts,jfte)
@@ -178,7 +195,20 @@ do ij=1,num_tiles
     ifte=i_end(ij)
     jfts=j_start(ij)
     jfte=j_end(ij)
+
+!   compute fuel fraction at end
+    call get_fuel_left( &
+        ifms,ifme,jfms,jfme, &
+        ifts,ifte,jfts,jfte, &
+        fdx,fdy,                        &
+        lfn,tign,fuel_time,time_start+dt,fuel_frac) ! replace by time_now later
     
+    do j=jfts,jfte
+        do i=ifts,ifte
+            fuel_frac_burnt(i,j)=fuel_frac_start(i,j)-fuel_frac(i,j)
+        enddo
+    enddo
+        
     call heat_fluxes(dt,                          &
         ifts,ifte,jfts,jfte,                      &
         ifms,ifme,jfms,jfme,                      &
