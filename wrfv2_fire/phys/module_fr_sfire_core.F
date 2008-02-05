@@ -710,6 +710,7 @@ subroutine prop_ls(&
 #include "fr_sfire_params_args.h"
 #endif
                    )
+
 implicit none
 
 !*** purpose: advance level function in time
