@@ -117,8 +117,9 @@ real, intent(in):: time_start,time_diff,fire_dx,fire_dy
 !
 !*** local
 real, dimension(ims:ime,jms:jme)::frac_start
-real:: time_now
-integer:: i,j,its,ite,jts,jte,ij
+real:: time_now,tbound
+integer:: i,j,its,ite,jts,jte,ij,id
+real, dimension(ims:ime,jms:jme)::lfn_out,tign_out
 
 
 !*** calls
@@ -142,22 +143,42 @@ do ij=1,num_tiles
         its,ite,jts,jte, &
         fire_dx,fire_dy,                        &
         lfn,tign,fuel_time,time_start,frac_start)
-enddo
 
 ! propagate the fireline: advance the level function 
 ! from time_start to time_start + time_diff
-call prop_ls(      &
-                   ims,ime,jms,jme, & ! memory
-                   ips,ipe,jps,jpe, & ! patch
-                   num_tiles,i_start,i_end,j_start,j_end, &
-                   time_start,time_diff,fire_dx,fire_dy,     & ! scalars in
-                   lfn,tign &            ! arrays out
+id=ij
+call prop_ls( id, &                                ! for debug
+                ips,ipe,jps,jpe, & ! patch
+                !ids,ide,jds,jde, &                       ! domain dims
+                ims,ime,jms,jme, &                       ! memory dims
+                its,ite+1,jts,jte+1, &                       ! tile dims
+                time_start,time_diff,fire_dx,fire_dy,     & ! scalars in
+                tbound,          &                       ! scalars out
+                lfn,tign,         &                     ! arrays inout                   
+                lfn_out,tign_out         &                     ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
 #endif
              )
+if(time_diff>tbound)call crash('time step too large')
+enddo
+lfn=lfn_out ! testing hack
+tign=tign_out
+
+!call prop_ls(      &
+!                   ims,ime,jms,jme, & ! memory
+!                   ips,ipe,jps,jpe, & ! patch
+!                   num_tiles,i_start,i_end,j_start,j_end, &
+!                   time_start,time_diff,fire_dx,fire_dy,     & ! scalars in
+!                   lfn,tign &            ! arrays out
+!#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+!#include SPEED_VARS_ARGS
+!#else
+!#include "fr_sfire_params_args.h"
+!#endif
+!             )
 
 time_now = time_start + time_diff
 time_now = time_now + abs(time_now)*epsilon(time_now)*2.
@@ -698,24 +719,25 @@ end subroutine fuel_left
 !****************************************
 !
 
-subroutine prop_ls(&
+subroutine prop_ls( id, &                                ! for debug
+                ids,ide,jds,jde, &                       ! domain dims
                 ims,ime,jms,jme, &                       ! memory dims
-                ips,ipe,jps,jpe, &                       ! patch dims
-                num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                ts,td,dx,dy,     &                       ! scalars in
-                lfn,tign           &                       ! arrays inout                   
+                its,ite,jts,jte, &                       ! tile dims
+                ts,dt,dx,dy,     &                       ! scalars in
+                tbound,          &                       ! scalars out
+                lfn_in,tign_in,         &                     ! arrays inout                   
+                lfn_out,tign_out         &                     ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
 #endif
                    )
-
 implicit none
 
 !*** purpose: advance level function in time
 
-! Jan Mandel and Minjeong Kim August 2007
+! Jan Mandel August 2007 - February 2008
 
 !*** description
 !
@@ -732,41 +754,58 @@ implicit none
 ! function is simply the distance from the center minus the radius.
 ! 
 ! The curve moves outside with speed given by function normal_spread.
-! 
-! ------------------------------------
-! Based on S. Osher and R. Fedkiw, Level set methods and dynamic implicit surfaces,
-! Springer, 2003, Sec. 6.4, as implemented in toolboxLS for Matlab by 
-! I. Mitchell, A toolbox of Level Set Methods (Version 1.1), TR-2007-11,
-! Dept. Computer Science, University of British Columbia, 2007
-! http://www.cs.ubc.ca/\~mitchell/Toolbo\LS
 !   
-! Method: Godunov method for the normal motion. The timestep is set automatically based on
+! Method: Godunov method for the normal motion. The timestep is checked for
 ! CFL condition. For a straight segment in a constant field and locally linear
 ! level function, the method reduces to the exact normal motion. The advantage of 
 ! the level set method is that it treats automatically special cases such as
 ! the curve approaching itself and merging components of the area inside the curve.
 !
+! Based on S. Osher and R. Fedkiw, Level set methods and dynamic implicit surfaces,
+! Springer, 2003, Sec. 6.4, as implemented in toolboxLS for Matlab by 
+! I. Mitchell, A toolbox of Level Set Methods (Version 1.1), TR-2007-11,
+! Dept. Computer Science, University of British Columbia, 2007
+! http://www.cs.ubc.ca/\~mitchell/Toolbo\LS
+! 
   
 !*** arguments 
 
+! id                in    unique identification for prints and dumps
+! ids,ide,jds,jde   in    domain dimensions
 ! ims,ime,jms,jme   in    memory dimensions
-! ips,ipe,jps,jpe   in    patch dimensions, in cells (in nodes, +1)
+! its,ite,jts,jte   in    tile dimensions
 ! ts                in    start time
-! td                in    end time is ts+td (given this way because of rounding)
+! dt                in    time step
 ! dx,dy             in    grid spacing
-! lfn               inout the level function
-! tign                inout the time the contour=zero level set crossed the node
+! lfn_in,lfn_out    in,out the level set function at nodes
+! tign_in,tign_out  in,out inout the ignition time at nodes
+
+! The dimensions are cell-based, the nodal value is associated with the south-west corner.
+! The whole computation is on domain indices ids:ide+1,jds:jde+1.
+!
+! The region where new lfn and tign are computed is the tile its:ite,jts:jte 
+! except when the tile is at domain upper boundary, an extra band of points is added:
+! if ite=ide then region goes up to ite+1, if jte=jde then region goes up to jte+1.
+
+! The time step requires values from 2 rows of nodes beyond the region except when at the 
+! domain boundary one-sided derivatives are used. This is implemented by extending the input
+! beyond the domain boundary so sufficient memory bounds must be allocated. 
+! The update on all tiles can be done in parallel. To avoid the race condition (different regions
+! of the same array updated by different threads), the in and out versions of the
+! arrays lft and tign are distinct. If the time step dt is larger
+! that the returned tbound, the routine should be called again with timestep td<=tbound, and then
+! having distinct inputs and outputs comes handy.
 
 !*** calls
 !
 ! tend_ls
 !
 
-integer,intent(in)::ims,ime,jms,jme,ips,ipe,jps,jpe
-integer,intent(in)::num_tiles
-integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
-real,dimension(ims:ime,jms:jme),intent(inout)::lfn,tign
-real,intent(in)::dx,dy,ts,td
+integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte
+real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign_in
+real,dimension(ims:ime,jms:jme),intent(out)::lfn_out,tign_out
+real,intent(in)::dx,dy,ts,dt
+real,intent(out)::tbound
 #ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
 #include SPEED_VARS_DECL
 #else
@@ -775,21 +814,24 @@ real,intent(in)::dx,dy,ts,td
 
 !*** local 
 ! arrays
-real,dimension(ims:ime,jms:jme):: & ! same mesh as lfn
-   tend,  lfn0, lfn1
+#define IMTS its-1
+#define IMTE ite+2
+#define JMTS jts-1
+#define JMTE jte+2
+real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 ! scalars
-real::t,dt,tr,tbound,grad2,a,rr
+real::tr,grad2,rr,tbound2
+real, parameter::a=0.5, a1=1.0-a ! a=0 euler, a=0.5 heun
+
 real::gradx,grady,aspeed,err,aerr
-integer::istep
+integer::ihs,ihe,jhs,jhe,irs,ire,jrs,jre
 integer::i,j
-!integer::its,ite,jts,jte
 character(len=128)msg
-logical last
 integer::nfirenodes,nfireline
-real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr    
+real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
 
 #ifdef DEBUG_OUT
-integer::id
+integer,save::id=0
 #endif
 
 ! constants
@@ -803,48 +845,37 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
 
-call check_mesh_2dim(ips,ipe+1,jps,jpe+1,ims,ime,jms,jme)
-call check_tiles(ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end)
+! bounds of the computed region 
+irs=its
+jrs=jts
+ire=ite
+if(ide.eq.ite)ire=ire+1
+jre=jte
+if(jde.eq.jre)jre=jre+1
 
-write(msg,'(a,i5,a,i5,a,f6.2,a,f6.2)')'prop_ls: patch ',ipe-ips+1,' by',jpe-jps+1,&
-    ' spacing',dx,' by',dy
+write(msg,'(a,2i5,a,2i5,a,i5)')'prop_ls: tile region ',id,irs,':',ire,jrs,':',jre
 call message(msg)
 
-if (td < 0) then
-    write(msg,*)'prop_ls: time advance td=',td,' must be non-negative' 
-    call crash(msg)
-endif    
-if (.not. td > 0) return ! td=0, nothing to do
-
-! initialize
-tr=0       ! relative time offset from ts
-istep = 0  ! step number - just to prevent an infinite loop, should never be reached
-last = .false. ! stopping test
-
-do while ( .not.last )
-    istep=istep+1
-
 #ifdef DEBUG_OUT    
-    id = istep*10
-    call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,lfn,'lfn',id)
+    call write_array_m(its,ite1,jts,jte1,ims,ime,jms,jme,lfn_in,'lfn_in',id)
 #endif
-
-    ! time at the beginning of the timestep
-    t = ts + tr  ! advance tr instead of t because of rounding
-    
     
     ! tend = F(lfn)
 
+    ihs=max(irs-1,ids)   ! compute tend one beyond the region but not outside domain 
+    ihe=min(ire,ide+1)
+    jhs=max(jrs,jds)   ! compute tend one beyond the region but not outside domain 
+    jhe=min(jre,jde+1)
+    
     call  tend_ls(&
-    ims,ime,jms,jme, &                   ! memory dims for lfn
-    ims,ime,jms,jme, &                   ! memory dims for tend 
-    ips,ipe,jps,jpe, &                       ! domain dims
-    ips,ipe,jps,jpe, &                       ! tile dims - indices where is tend computed
-    t,dx,dy,      &                          ! scalars in
-    lfn, &                                   ! arrays in
+    ims,ime,jms,jme, &                       ! memory dims for lfn_in
+    IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
+    ids,ide+1,jds,jde+1, &                   ! domain dims - where lfn exists
+    ihs,ihe,jhs,jhe, &                       ! where tend computed
+    ts,dx,dy,      &                          ! scalars in
+    lfn_in, &                                   ! arrays in
     tbound, &                                ! scalars out 
-    tend &                                  ! arrays out        
+    tend &                                   ! arrays out        
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
 #else
@@ -853,33 +884,27 @@ do while ( .not.last )
 )
 
 #ifdef DEBUG_OUT    
-    call write_array_m(ips,ipe+1,jps,jpe+1,           &
-                                ims,ime,jms,jme,tend,'tend',id)
-    stop
+    call write_array_m(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,tend,'tendh',id)
 #endif
 
-    dt = min(td-tr, 0.5*tbound)
-
+    ! Euler method, the half-step
     ! lfn1 = lfn+dt*tend
-    ! lfn0 = lfn
-    
-        do j=jps,jpe+1
-            do i=ips,ipe+1
-                lfn0(i,j) = lfn(i,j)
-                lfn1(i,j) = lfn(i,j) + dt*tend(i,j)
-            enddo
+    do j=jhs,jhe
+        do i=ihs,ihe
+            lfn1(i,j) = lfn_in(i,j) + dt*tend(i,j)
         enddo
+    enddo
     
     ! tend = F(lfn1)
 
     call  tend_ls( &
-    ims,ime,jms,jme, &                   ! memory dims for lfn
-    ims,ime,jms,jme, &                   ! memory dims for tend 
-    ips,ipe,jps,jpe, &                       ! domain dims
-    ips,ipe,jps,jpe, &                       ! tile dims - indices where is tend computed
-    t,dx,dy,      &                          ! scalars in
+    IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
+    IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
+    ids,ide+1,jds,jde+1, &                   ! domain dims - where lfn exists
+    its,ite,jts,jte, &                       ! tile dims - indices where is tend computed
+    ts+dt,dx,dy,      &                          ! scalars in
     lfn1, &                                   ! arrays in
-    tbound, &                                ! scalars out 
+    tbound2, &                                ! scalars out 
     tend &                                  ! arrays out        
 #ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
 #include SPEED_VARS_ARGS
@@ -887,33 +912,39 @@ do while ( .not.last )
 #include "fr_sfire_params_args.h"
 #endif
 )
-
-    ! combine lfn1 and lfn0 + dt*tend -> lfn
     
-    a=0.5    ! 0 = euler, 1/2 = heun
-    do j=jps,jpe+1
-        do i=ips,ipe+1
-            lfn(i,j) = (1.-a)* lfn1(i,j) + a*(lfn0(i,j) + dt*tend(i,j))
-            ! lfn(i,j) = min( lfn1(i,j) , lfn0(i,j) + dt*tend(i,j) )
+    tbound=min(tbound,tbound2)
+
+    write(msg,'(a,f10.2,4(a,f6.2))')'prop_ls: time',ts,' dt=',dt,' bound',tbound, &
+        ' dx=',dx,' dy=',dy
+    call message(msg)
+
+    ! combine lfn1 and lfn_in + dt*tend -> lfn_out
+    
+    do j=jrs,jre
+        do i=irs,ire
+            lfn_out(i,j) = a1*lfn1(i,j) + a*(lfn_in(i,j) + dt*tend(i,j))
         enddo
     enddo      
-    
+
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
     ! interpolate from the level functions at start and at end
-    ! lfn0 is the level set function value at time t
-    ! lfn  is the level set function value at time t+dt
-    ! 0    is the level set function value at time tign(i,j)
+    ! lfn_in   is the level set function value at time ts
+    ! lfn_out  is the level set function value at time ts+dt
+    ! 0        is the level set function value at time tign(i,j)
     ! thus assuming the level function is approximately linear =>
-    ! tign(i,j)= t + ((t + td) - t) * lfn0 / (lfn0 - lfn)
-    !        = t + dt * lfn0 / (lfn0 - lfn)
-        
+    ! tign(i,j)= ts + ((ts + td) - ts) * lfn_in / (lfn_in - lfn_out)
+    !        = ts + dt * lfn_in / (lfn_in - lfn_out)
 
-    do j=jps,jpe+1
-        do i=ips,ipe+1
+    do j=jrs,jre
+        do i=irs,ire
             ! interpolate the cross-over time
-            if (.not. lfn(i,j)>0 .and. lfn0(i,j)>0)then
-                tign(i,j) = t - dt * lfn0(i,j) / (lfn0(i,j) - lfn(i,j))
+            if (lfn_out(i,j)>0 .or. .not. lfn_in(i,j)>0)then
+                tign_out(i,j)=tign_in(i,j)
+            else
+            !   if (.not. lfn_out(i,j)>0 .and. lfn_in(i,j)>0)then
+                tign_out(i,j) = ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j))
             endif
         enddo
     enddo
@@ -928,16 +959,16 @@ do while ( .not.last )
     sum_aerr=0.
     min_aerr=rmax
     max_aerr=rmin    
-    ! loop over right outside of the domain
-    do j=jps+1,jpe+1-1
-        do i=ips+1,ipe+1-1
-            if(lfn(i,j)>0.0)then                      ! a point out of burning region
-                if(lfn(i+1,j)<=0.or.lfn(i,j+1)<=0.or. & ! neighbor in burning region
-                   lfn(i-1,j)<=0.or.lfn(i,j-1)<=0)then ! point next to fireline
-                   gradx=(lfn(i+1,j)-lfn(i-1,j))/(2.0*dx) ! central differences
-                   grady=(lfn(i,j+1)-lfn(i,j-1))/(2.0*dy)
+    ! loop over right inside of the domain
+    do j=jrs+1,jre-1
+        do i=irs+1,ire-1
+            if(lfn_out(i,j)>0.0)then   ! a point out of burning region
+                if(lfn_out(i+1,j)<=0.or.lfn_out(i,j+1)<=0.or. & ! neighbor in burning region
+                   lfn_out(i-1,j)<=0.or.lfn_out(i,j-1)<=0)then ! point next to fireline
+                   gradx=(lfn_out(i+1,j)-lfn_out(i-1,j))/(2.0*dx) ! central differences
+                   grady=(lfn_out(i,j+1)-lfn_out(i,j-1))/(2.0*dy)
                    grad2=sqrt(gradx*gradx+grady*grady)
-                   aspeed = (lfn0(i,j)-lfn(i,j))/(dt*max(grad2,rmin))                   
+                   aspeed = (lfn_in(i,j)-lfn_out(i,j))/(dt*max(grad2,rmin))                   
                     rr = speed_func(gradx,grady,i,j  &
 #                   include "fr_sfire_params_args.h"
                     )
@@ -957,37 +988,15 @@ do while ( .not.last )
         enddo
     enddo
     write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
-        (100.*nfirenodes)/((ipe+1-ips)*(jpe+1-jps)),'% next to fireline',nfireline
+        (100.*nfirenodes)/((ire-irs+1)*(jre-jrs+1)),'% next to fireline',nfireline
     call message(msg)
     if(nfireline>0)then
         call print_stat_line('speed error',min_err,max_err,sum_err/nfireline)
         call print_stat_line('abs(speed error)',min_aerr,max_aerr,sum_aerr/nfireline)
     endif
-        
-    tr = tr + dt
-    last = .not.(tr + td*tol < td .and. istep < mstep)   !  last pass
 
-    if(printl>=2 .or. (printl>=1 .and. (last .or. istep==1) ) )then
-        write(msg,'(7(a,f12.2))')  &
-            'prop_ls:time',t,' dt',dt
-        call message(msg)
-        call print_2d_stats(ips,ipe+1,jps,jpe+1,ims,ime,jms,jme,tend,'prop_ls:lvl fcn tend(1/s)')
-    endif
+    call print_2d_stats(irs,ire,jrs,jre,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
     
-end do !while
-
-if (printl>=1)then
-    write(msg,'(a,i5)')'prop_ls: total number of time steps ',istep
-    call message(msg)
-endif
-    
-if (abs(tr - td) > 2*tol .or. istep >= mstep) then
-    write(msg,*)'prop_ls: time advanced by ',tr,' of ',td
-    call message(msg)
-    write(msg,*)'diff ',tr-td, ' in ',istep,' steps of ',mstep
-    call message(msg)    
-    call crash('prop_ls: end time not reached or max steps exceeded')
-endif
 
 end subroutine prop_ls
 
@@ -1045,16 +1054,20 @@ real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
 intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
-
+    
+    ! check array dimensions
+    call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,lims,lime,ljms,ljme)
+    call check_mesh_2dim(its  ,ite+1,jts  ,jte+1,tims,time,tjms,tjme)
+    
     call continue_at_boundary(1,1, &
     lims,lime,ljms,ljme, &                ! memory dims
     ids,ide+1,jds,jde+1, &                ! domain dims
-    its,ite+1,jts,jte+1, &                ! tile dims
+    its,ite,jts,jte, &                ! tile dims
     lfn)                                  ! array
 
     tbound=0    
-    do j=jts,jte+1
-        do i=its,ite+1
+    do j=jts,jte
+        do i=its,ite
             ! one sided differences
             diffRx = (lfn(i+1,j)-lfn(i,j))/dx
             diffLx = (lfn(i,j)-lfn(i-1,j))/dx
@@ -1115,8 +1128,8 @@ real function speed_func(diffCx,diffCy,i,j &
 use module_fr_sfire_phys
 implicit none
 !*** arguments
-real, intent(in)::diffCx,diffCy  ! x and y direction of propagation
-integer, intent(in)::i,j         ! indices of the node to compute the speed
+real, intent(in)::diffCx,diffCy  ! x and y coordinates of the direction of propagation
+integer, intent(in)::i,j         ! indices of the node to compute the speed at
 #ifdef SPEED_VARS_DECL      /* extra arguments for fire_ros */
 #include SPEED_VARS_DECL
 #else

@@ -58,6 +58,9 @@ integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
 real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 !*** local
 integer i,j
+!*** executable
+! check if there is space for the extension
+call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 if(ix.ne.0)then
     if(its.eq.ids)then
         do j=jts,jte
