@@ -1061,7 +1061,7 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
     
     call continue_at_boundary(1,1, &
     lims,lime,ljms,ljme, &                ! memory dims
-    ids,ide+1,jds,jde+1, &                ! domain dims
+    ids,ide,jds,jde, &                ! domain dims
     its,ite,jts,jte, &                ! tile dims
     lfn)                                  ! array
 
