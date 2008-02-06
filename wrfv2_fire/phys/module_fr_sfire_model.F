@@ -11,13 +11,14 @@ use module_fr_sfire_phys
 contains
 
 subroutine sfire_model (                    &
-    initialize,                             & ! switch
+    id,                                     &
+    ifun,                                   & ! switches
+    initialize,                             & ! 
     num_ignitions,                          & ! number of ignitions before advancing
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
-    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
-    num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
+    ifts,ifte,jfts,jfte,                    & ! fire patch dims  - this processor
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing
     ignition_start_x,ignition_start_y,      & ! ignition - small arrays
@@ -38,20 +39,23 @@ subroutine sfire_model (                    &
 ! winds given on the nodes of the fire grid
 ! and outputs the heat fluxes on the cells of the fire grid.
 ! This subroutine has no knowledge of any atmospheric model.
+!
+! All computation is done on the tile. 
 
 implicit none
 
 !*** arguments
 
 ! input
-integer, intent(in) :: initialize           ! if not 0, initialize proceed with timestep
+integer, intent(in) :: id
+integer, intent(in) :: ifun
+integer, intent(in) :: initialize           ! 0 = initialize simulation
+                                            ! 1 = initialize timestep (in
 integer, intent(in) :: num_ignitions        ! number of ignition locations/times 
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
 integer, intent(in) :: ifds,ifde,jfds,jfde  ! fire domain bounds
-integer, intent(in) :: ifps,ifpe,jfps,jfpe  ! fire patch bounds
+integer, intent(in) :: ifts,ifte,jfts,jfte  ! fire tile bounds
 integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
-integer,intent(in)::num_tiles
-integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 real, dimension(num_ignitions), intent(in):: &   
@@ -82,10 +86,10 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 
 !*** local
 
-INTEGER :: ifts,ifte,jfts,jfte      ! fire tile bounds
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
-integer::ij,ignited,ig,i,j        
-real, dimension(ifms:ifme, jfms:jfme)::fuel_frac_burnt,fuel_frac_start,lfn_out
+integer::ignited,ig,i,j
+real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_start
+real,dimension(ifms:ifme,jfms:jfme):: lfn_out
 real::tbound
 
 !*** executable
@@ -95,17 +99,11 @@ xifme=ifme
 xjfms=jfms
 xjfme=jfme
 
-call print_2d_stats_vec(ifds,ifde+1,jfds,jfde+1,ifms,ifme,jfms,jfme,vx,vy,'model: fire wind (m/s)')
+call print_2d_stats_vec(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vx,vy,'model: fire wind (m/s)')
 
-!OMP PARALLEL DO PRIVATE(ij,ig,ifts,ifte,jfts,jfte)
-do ij=1,num_tiles
-    ifts=i_start(ij)
-    ifte=i_end(ij)
-    jfts=j_start(ij)
-    jfte=j_end(ij)
-    
-    call check_tiles(ifts,ifte,jfts,ifte,num_tiles,i_start,i_end,j_start,j_end)
-    
+
+!if(ifun.eq.1)then  ! check for init and ignition
+
     if (initialize.ne.0) then
                     
         ! initialize all arrays that the model will not change later
@@ -128,7 +126,6 @@ do ij=1,num_tiles
         call init_no_fire   ( &
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
-            ifps,ifpe,jfps,jfpe, &
             ifts,ifte,jfts,jfte, &
             fdx,fdy,time_start,  &
             fuel_frac,lfn,tign) 
@@ -140,7 +137,6 @@ do ij=1,num_tiles
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
-                ifps,ifpe,jfps,jfpe,                      &
                 ifts,ifte,jfts,jfte,                      &
                 ignition_start_x(ig),ignition_start_y(ig),&
                 ignition_end_x(ig),ignition_end_y(ig),    &
@@ -150,8 +146,8 @@ do ij=1,num_tiles
                 lfn,tign,ignited)
         endif
     enddo
-        
-enddo ! end tile loop
+    
+!elseif (ifun.eq.2) then
 
 ! advance the model from time_start to time_start+dt
 ! return the fuel fraction burnt this call in each fire cell
@@ -162,13 +158,6 @@ enddo ! end tile loop
 ! subroutine normal_spread may use. The include is to guarantee this is done consistently
 ! over the call chain.
 
-!OMP PARALLEL DO PRIVATE(ij,ig,ifts,ifte,jfts,jfte)
-do ij=1,num_tiles
-    ifts=i_start(ij)
-    ifte=i_end(ij)
-    jfts=j_start(ij)
-    jfte=j_end(ij)
-
 !   compute fuel fraction at start
     call get_fuel_left( &
         ifms,ifme,jfms,jfme, &
@@ -177,7 +166,7 @@ do ij=1,num_tiles
         lfn,tign,fuel_time,time_start,fuel_frac_start) ! 
 
 !   do time step
-    call prop_ls(ij,     &
+    call prop_ls(id,     &
     ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                      &
     ifts,ifte,jfts,jfte,                      &
@@ -185,18 +174,11 @@ do ij=1,num_tiles
     lfn,lfn_out,tign &
 #   include "fr_sfire_params_args.h" 
     ) 
-enddo
-lfn=lfn_out
+    lfn=lfn_out
 
+!elseif (ifun.eq.3) then
 ! compute the heat fluxes from the fuel burned
-!OMP PARALLEL DO PRIVATE(ij,ifts,ifte,jfts,jfte)
-do ij=1,num_tiles
-    ifts=i_start(ij)
-    ifte=i_end(ij)
-    jfts=j_start(ij)
-    jfte=j_end(ij)
 
-!   compute fuel fraction at end
     call get_fuel_left( &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
@@ -214,9 +196,8 @@ do ij=1,num_tiles
         ifms,ifme,jfms,jfme,                      &
         fgip,fuel_frac_burnt,                     & !in
         grnhfx,grnqfx)                              !out
-enddo ! tiles
 
-call print_2d_stats(ifps,ifpe,jfps,jfpe, &
+call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
                    grnhfx,'model: heat flux(J/m^2/s)')
 
