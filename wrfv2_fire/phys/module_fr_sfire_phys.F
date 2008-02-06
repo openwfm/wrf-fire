@@ -254,8 +254,8 @@ end subroutine set_fire_params
 !
 
 subroutine heat_fluxes(dt,                        &
-        ifts,ifte,jfts,jfte,                      &
         ifms,ifme,jfms,jfme,                      &
+        ifts,ifte,jfts,jfte,                      &
         fgip,fuel_frac_burnt,                     & !in
         grnhft,grnqft)                              !out
 implicit none
@@ -267,7 +267,8 @@ implicit none
 real, intent(in)::dt          ! dt  the fire time step (the fire model advances time by this)
 integer, intent(in)::ifts,ifte,jfts,jfte,& 
         ifms,ifme,jfms,jfme   ! dimensions                   
-real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip,fuel_frac_burnt
+real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip
+real, intent(in),dimension(ifms:ifme,jfms:jfme):: fuel_frac_burnt
 real, intent(out),dimension(ifms:ifme,jfms:jfme):: grnhft,grnqft
 
 !*** local

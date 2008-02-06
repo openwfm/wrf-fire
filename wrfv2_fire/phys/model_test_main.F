@@ -27,7 +27,7 @@ real, intent(in)::fdx,fdy,dt,wind,alpha
 !*** local
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
-                 grnhfx,grnqfx
+                 grnhfx,grnqfx,lfn_out
 integer:: initialize, num_ignitions,i,j,ifuelread,istep,nfuel_cat0,ifun
 real:: t0,time_start,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
@@ -90,6 +90,7 @@ do istep=1,msteps
     else
             initialize=0
     endif
+    do ifun=1,3
     call   sfire_model (istep,ifun,         &
     initialize, num_ignitions,              & 
     ifuelread,nfuel_cat0,                   &
@@ -104,12 +105,14 @@ do istep=1,msteps
     ignition_time,                          &
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
-    lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+    lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
     grnhfx,grnqfx,                          & ! output: heat fluxes
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
     ) 
+    if(ifun.eq.2)lfn=lfn_out
+    enddo
     if(istep.le.10.or.mod(istep,50).eq.0)then
         write(1,1)1.,1.,time_start
         write(1,1)sm+1,sn+1,((lfn(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)

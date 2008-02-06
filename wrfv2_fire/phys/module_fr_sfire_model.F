@@ -27,7 +27,7 @@ subroutine sfire_model (                    &
     ignition_time,                          &
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
-    lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+    lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
     grnhfx,grnqfx,                          & ! output: heat fluxes
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
@@ -74,6 +74,7 @@ REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
     
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
+    lfn_out, &                              !                              
     grnhfx,grnqfx                           ! heat fluxes J/m^2/s  (cell)             
  
 ! constant arrays - set at initialization
@@ -88,8 +89,9 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 integer::ignited,ig,i,j
-real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_start
-real,dimension(ifms:ifme,jfms:jfme):: lfn_out
+real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
+!real,dimension(ifms:ifme,jfms:jfme):: fuel_frac_burnt,fuel_frac_end
+!real,dimension(ifms:ifme,jfms:jfme):: lfn_out
 real::tbound
 
 !*** executable
@@ -102,7 +104,7 @@ xjfme=jfme
 call print_2d_stats_vec(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vx,vy,'model: fire wind (m/s)')
 
 
-!if(ifun.eq.1)then  ! check for init and ignition
+if(ifun.eq.1)then  ! check for init and ignition
 
     if (initialize.ne.0) then
                     
@@ -146,8 +148,16 @@ call print_2d_stats_vec(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vx,vy,'model
                 lfn,tign,ignited)
         endif
     enddo
+
+!   compute fuel fraction at start
+    call get_fuel_left( &
+        ifms,ifme,jfms,jfme, &
+        ifts,ifte,jfts,jfte, &
+        ifms,ifme,jfms,jfme, &
+        fdx,fdy,                        &
+        lfn,tign,fuel_time,time_start,fuel_frac) ! fuel frac is shared
     
-!elseif (ifun.eq.2) then
+elseif (ifun.eq.2) then
 
 ! advance the model from time_start to time_start+dt
 ! return the fuel fraction burnt this call in each fire cell
@@ -158,13 +168,6 @@ call print_2d_stats_vec(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vx,vy,'model
 ! subroutine normal_spread may use. The include is to guarantee this is done consistently
 ! over the call chain.
 
-!   compute fuel fraction at start
-    call get_fuel_left( &
-        ifms,ifme,jfms,jfme, &
-        ifts,ifte,jfts,jfte, &
-        fdx,fdy,                        &
-        lfn,tign,fuel_time,time_start,fuel_frac_start) ! 
-
 !   do time step
     call prop_ls(id,     &
     ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
@@ -174,32 +177,37 @@ call print_2d_stats_vec(ifts,ifte+1,jfts,jfte+1,ifms,ifme,jfms,jfme,vx,vy,'model
     lfn,lfn_out,tign &
 #   include "fr_sfire_params_args.h" 
     ) 
-    lfn=lfn_out
+!    lfn=lfn_out
 
-!elseif (ifun.eq.3) then
+elseif (ifun.eq.3) then
 ! compute the heat fluxes from the fuel burned
 
     call get_fuel_left( &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
+        ifts,ifte,jfts,jfte, &
         fdx,fdy,                        &
-        lfn,tign,fuel_time,time_start+dt,fuel_frac) ! replace by time_now later
+        lfn,tign,fuel_time,time_start+dt,fuel_frac_end) !fuel_frac_end is private and tile based
     
     do j=jfts,jfte
         do i=ifts,ifte
-            fuel_frac_burnt(i,j)=fuel_frac_start(i,j)-fuel_frac(i,j)
+            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j)
         enddo
     enddo
         
     call heat_fluxes(dt,                          &
-        ifts,ifte,jfts,jfte,                      &
         ifms,ifme,jfms,jfme,                      &
-        fgip,fuel_frac_burnt,                     & !in
+        ifts,ifte,jfts,jfte,                      &
+        fgip,                                     &
+        fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 
-call print_2d_stats(ifts,ifte,jfts,jfte, &
+
+    call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
                    grnhfx,'model: heat flux(J/m^2/s)')
+
+endif
 
 end subroutine sfire_model
 

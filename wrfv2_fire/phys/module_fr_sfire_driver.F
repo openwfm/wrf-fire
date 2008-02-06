@@ -149,7 +149,8 @@ integer,dimension(num_tiles) :: if_start,if_end,jf_start,jf_end   ! fire grid ti
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ij,i,j,k,initialize,id, &
     ifts,ifte,jfts,jfte                          ! fire tile
-real, dimension(ifms:ifme,jfms:jfme) :: uf,vf   ! fire wind velocities
+integer::ifun
+real, dimension(ifms:ifme,jfms:jfme) :: uf,vf,lfn_out   ! fire wind velocities
 character(len=128)msg
 real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 
@@ -277,13 +278,13 @@ endif
 
 ! the model is parallel itself, call on the whole patch not just a tile
 
-call sfire_model (                          &
+do ifun=1,3
+    call sfire_model (id,ifun,              &
     initialize, num_ignitions,              & ! switches
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims
     ifms,ifme,jfms,jfme,                    & ! fire memory dims
     ifps,ifpe,jfps,jfpe,                    & ! fire patch dims
-    num_tiles,if_start,if_end,jf_start,jf_end,  & ! fire grid tiling
     time_start,dt,                          & ! time and increment
     dxf,dyf,                                & ! fire mesh spacing
     ignition_start_x,ignition_start_y,      & ! ignition - small arrays
@@ -292,12 +293,14 @@ call sfire_model (                          &
     ignition_time,                          &
     zsf,                                    & ! terrain height (for gradient)
     uf,vf,                                  & ! input: wind
-    lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+    lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
     fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
     )
+    if(ifun.eq.2)lfn=lfn_out
+enddo
 
 !OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte)
 do ij=1,num_tiles
