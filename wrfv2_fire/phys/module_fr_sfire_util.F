@@ -180,12 +180,9 @@ pure integer function enode(ite,ipe)
 ! Nodal arrays are by 1 larger than cell arrays, so the upper bound for tile
 ! loops has to be increased by one if the tile is at the upper end of the domain.
 ! The upper bound cannot be increased by 1 always because then two tile loops would try
-! to write into the same memory location.   
-    if(ite.ne.ipe)then ! most frequent, first
-        enode=ite
-    else
-        enode=ite+1
-    endif
+! to write into the same memory location.
+    enode=ite   
+    if(ite.eq.ipe)enode=enode+1
 end function enode
 
 !

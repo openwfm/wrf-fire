@@ -198,6 +198,7 @@ elseif (ifun.eq.3) then
     call heat_fluxes(dt,                          &
         ifms,ifme,jfms,jfme,                      &
         ifts,ifte,jfts,jfte,                      &
+        ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned
         fgip,                                     &
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out

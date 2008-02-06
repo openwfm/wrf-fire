@@ -276,15 +276,40 @@ if(id.gt.0)then
     call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',id)
 endif
 
-! the model is parallel itself, call on the whole patch not just a tile
 
 do ifun=1,3
+! 1 = initialize (winds come here too)
+! 2 = timestep
+! 3 = fuel and fluxes
+
+!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte)
+  do ij=1,num_tiles
+
+    !get the tile
+    its = i_start(ij)             ! start atmospheric tile in i
+    ite = i_end(ij)               ! end atmospheric tile in i
+    jts = j_start(ij)             ! start atmospheric tile in j
+    jte = j_end(ij)               ! end atmospheric tile in j
+    ifts= if_start(ij)             ! matching fire tile
+    ifte= if_end(ij)
+    jfts= jf_start(ij)
+    jfte= jf_end(ij)
+
+    if(ifun.eq.3)then ! an also 2 if timestep 2 or more
+        do j=jts,enode(jte,jde)
+            do i=its,enode(ite,ide)
+                lfn(i,j)=lfn_out(i,j)
+            enddo
+        enddo
+    endif
+! halo exchange for lfn comes here in any case: need 2 rows before timestep, 1 before fuel 
+
     call sfire_model (id,ifun,              &
     initialize, num_ignitions,              & ! switches
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims
     ifms,ifme,jfms,jfme,                    & ! fire memory dims
-    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims
+    ifts,ifte,jfts,jfte,                    & ! fire patch dims
     time_start,dt,                          & ! time and increment
     dxf,dyf,                                & ! fire mesh spacing
     ignition_start_x,ignition_start_y,      & ! ignition - small arrays
@@ -299,22 +324,9 @@ do ifun=1,3
     fuel_time,                              & ! save derived internal data
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
     )
-    if(ifun.eq.2)lfn=lfn_out
-enddo
-
-!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte)
-do ij=1,num_tiles
-
-    !get the tile
-    its = i_start(ij)             ! start atmospheric tile in i
-    ite = i_end(ij)               ! end atmospheric tile in i
-    jts = j_start(ij)             ! start atmospheric tile in j
-    jte = j_end(ij)               ! end atmospheric tile in j
-    ifts= if_start(ij)             ! matching fire tile
-    ifte= if_end(ij)
-    jfts= jf_start(ij)
-    jfte= jf_end(ij)
-
+    
+    if(ifun.eq.3)then
+        
     ! sum the fluxes over atm cells
     call sum_2d_cells(        &
         ifms,ifme,jfms,jfme,  &
@@ -353,8 +365,11 @@ do ij=1,num_tiles
         alfg,alfc,z1can,                &
         zs,z_at_w,dz8w,mu,rho,          &
         rthfrten,rqvfrten)                ! out
+    endif
+    
+ enddo ! tiles
 
-enddo ! tiles
+enddo ! ifun
 
 call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
 call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'driver:grnqfx')

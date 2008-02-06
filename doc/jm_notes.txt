@@ -144,3 +144,13 @@ idfs:idfe,jdfs:jdfe.
 !$OMP PARALLEL DO in module_cumulus_driver
 
 #include "HALO.EM_A.inc"
+
+2/6/08
+commit 9e705d9f1ed7f95ff3783624c21dfde54fd7b338
+added multiple ignitions (up to 5) via namelist.input
+~/out0
+
+commit 22620cde191107c0c504cf898874a3f443d1a506
+cleanup; moved continue_at_boundary to util, may be useful for winds also
+ounding errors only
+~/out2

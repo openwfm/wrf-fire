@@ -167,7 +167,7 @@ alpha=0.0
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
 call model_test(1,nx,1,ny, &
-   0,nx+2,0,ny+2, &
+   -1,nx+3,0,ny+2, &
    1,nx,1,ny, &
    fdx,fdy,wind,alpha,dt,msteps)
 
