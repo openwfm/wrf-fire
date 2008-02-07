@@ -296,9 +296,9 @@ do ifun=1,3
     jfte= jf_end(ij)
 
     if(ifun.eq.3)then ! an also 2 if timestep 2 or more
-        do j=jts,enode(jte,jde)
-            do i=its,enode(ite,ide)
-                lfn(i,j)=lfn_out(i,j)
+        do j=jfts,enode(jfte,jfde)
+            do i=ifts,enode(ifte,ifde)
+                lfn(i,j)=lfn_out(i,j) ! at this point lfn_out is synchronized, can copy
             enddo
         enddo
     endif
