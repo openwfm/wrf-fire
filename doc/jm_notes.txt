@@ -152,5 +152,8 @@ added multiple ignitions (up to 5) via namelist.input
 
 commit 22620cde191107c0c504cf898874a3f443d1a506
 cleanup; moved continue_at_boundary to util, may be useful for winds also
-ounding errors only
+rounding errors only
 ~/out2
+
+commit 4ccd502e0682b9846b866b5639b0b61913bc4c2f
+works on single tile, in out3
