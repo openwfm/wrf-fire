@@ -116,7 +116,7 @@ do istep=1,msteps
                 ifuelread,nfuel_cat0,                   &
                 ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
-                ifts,ifte,jfts,jfte,                    & ! fire patch dims  - this processor
+                ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
                 time_start,dt,                          & ! time and increment
                 fdx,fdy,                                & ! fire mesh spacing
                 ignition_start_x,ignition_start_y,      &
