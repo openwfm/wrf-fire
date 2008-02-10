@@ -154,7 +154,6 @@ if(ifun.eq.1)then  ! check for init and ignition
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifms,ifme,jfms,jfme, &
-        fdx,fdy,                        &
         lfn,tign,fuel_time,time_start,fuel_frac) ! fuel frac is shared
     
 elseif (ifun.eq.2) then
@@ -186,7 +185,6 @@ elseif (ifun.eq.3) then
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
-        fdx,fdy,                        &
         lfn,tign,fuel_time,time_start+dt,fuel_frac_end) !fuel_frac_end is private and tile based
     
     do j=jfts,jfte

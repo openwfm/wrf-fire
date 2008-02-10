@@ -17,40 +17,6 @@ use module_fr_sfire_util
 
 contains
 
-    
-subroutine  get_fuel_left(                  &
-    ims,ime,jms,jme,                        &
-    its,ite,jts,jte,                        &
-    ifs,ife,jfs,jfe,                        &
-    fire_dx,fire_dy,                        &
-    lfn,tign,fuel_time,time_now,fuel_frac)
-implicit none
-!*** purpose: wrapper for fuel_left
-
-!*** arguments     
-integer, intent(in) ::ims,ime,jms,jme,its,ite,jts,jte,ifs,ife,jfs,jfe
-real, intent(in):: fire_dx,fire_dy,time_now
-real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
-real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
-
-!*** local
-integer:: fuel_left_type
-
-!*** executable
-
-fuel_left_type=1
-if (fuel_left_type .eq. 1)then
-    ! somewhat improved but still bumpy
-    call fuel_left_jm( &
-        ims,ime,jms,jme, &
-        its,ite,jts,jte, &
-        ifs,ife,jfs,jfe, &
-        lfn,tign,fuel_time,time_now,fuel_frac)
-else
-        ! the new version comes here
-endif
-end subroutine get_fuel_left
-
 !
 !****************************************
 !
@@ -200,7 +166,7 @@ end subroutine ignite_fire
 !**********************
 !            
 
-subroutine fuel_left_jm( &
+subroutine get_fuel_left( &
     ims,ime,jms,jme, &
     its,ite,jts,jte, &
     ifs,ife,jfs,jfe, &
@@ -234,15 +200,15 @@ call check_mesh_2dim(its,ite+1,jts,jte+1,ims,ime,jms,jme)
 
 do j=jts,jte
     do i=its,ite 
-        fuel_frac(i,j)=fuel_frac_left(lfn(i,j),lfn(i,j+1),lfn(i+1,j),lfn(i+1,j+1),&
+        fuel_frac(i,j)=fuel_left_cell(lfn(i,j),lfn(i,j+1),lfn(i+1,j),lfn(i+1,j+1),&
                         tign(i,j),tign(i,j+1),tign(i+1,j),tign(i+1,j+1),&
                         time_now, fuel_time(i,j))
     enddo
 enddo
 
-end subroutine fuel_left_jm
+end subroutine get_fuel_left
 
-pure real function fuel_frac_left(  &
+pure real function fuel_left_cell(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_const)
@@ -357,12 +323,16 @@ area =(-ps/aps+1.)*.5
 ta=0.25*(t00+t01+t10+t11)
 
 ! exp decay in the burning area
-fuel_frac_left=area*exp(-ta/fuel_time_const) + (1. - area)
+if(area>0)then
+    fuel_left_cell=area*exp(-ta/fuel_time_const) + (1. - area)
+else
+    fuel_left_cell=1.
+endif
 
 ! note: this is exact in the limit as
 !   fuel_time/ta= fuel_time*fire_speed/cell_size -> 0
 
-end function fuel_frac_left
+end function fuel_left_cell
 
 !
 !****************************************
