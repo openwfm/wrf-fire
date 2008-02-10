@@ -440,17 +440,21 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
     
     
 !*** local
-real, dimension(its-1:ite+1, jts-1:jte+1):: ua,va, &    ! atm winds, averaged over height
-                                                za      ! terrain height
+#define IWS its-1
+#define IWE ite+1
+#define JWS jts-1
+#define JWE jte+1
+real, dimension(IWS:IWE,JWS:JWE):: ua,va, &    ! atm winds, averaged over height
+                                       za      ! terrain height
 integer:: i,j,k,ifte1,jfte1,jts1,jte1,its1,ite1
 
 !*** executable
 
     k=kds             ! the ground
-    jts1=max(jts-1,jds) ! lower loop limit by one less when at end of patch or domain
-    its1=max(its-1,ids) ! ASSUMES THE HALO IS THERE if patch != domain
-    jte1=min(jte+1,jde) 
-    ite1=min(ite+1,ide)
+    jts1=max(JWS,jds) ! lower loop limit by one less when at end of domain
+    its1=max(IWS,ids) ! ASSUMES THE HALO IS THERE if patch != domain
+    jte1=min(JWE,jde) 
+    ite1=min(IWE,ide)
     do j = jts1,jte1
         do i = its1,ite1 
             ! average 1st 2 layers, correct const shift
@@ -460,42 +464,25 @@ integer:: i,j,k,ifte1,jfte1,jts1,jte1,its1,ite1
             za(i,j)=zs(i,j)           
         enddo
     enddo
-    ! extend beyond the domain boundary to tile+one row of cells as constant
-    do i=ide+1,ite+1
-        do j = jts-1,jte+1    
-            va(i,j)=va(ide,j)
-            ua(i,j)=ua(ide,j)
-            za(i,j)=za(ide,j)
-        enddo
-    enddo
-    do i=its-1,ids-1
-        do j = jts-1,jte+1    
-            va(i,j)=va(ids,j)
-            ua(i,j)=ua(ids,j)
-            za(i,j)=za(ids,j)
-        enddo
-    enddo
-    do j=ide+1,jte+1
-        do i = its-1,ite+1    
-            ua(i,j)=ua(i,jde)
-            va(i,j)=va(i,jde)
-            za(i,j)=za(i,jde)
-        enddo
-    enddo
-    do j=jts-1,jds-1
-        do i = its-1,ite+1    
-            ua(i,j)=ua(i,jds)
-            va(i,j)=va(i,jds)
-            za(i,j)=za(i,jds)
-        enddo
-    enddo
+    ! extend beyond the domain boundary 
+    call continue_at_boundary(1,0, & ! do x direction or y direction
+    ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                ! domain dims
+    its,ite,jts,jte, &                ! tile dims
+    va)                               ! array
+
+    call continue_at_boundary(0,1, & ! do x direction or y direction
+    ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                ! domain dims
+    its,ite,jts,jte, &                ! tile dims
+    ua)                               ! array
 
 if (id.gt.0) then
-    call write_array_m(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,ua,'ua',id)
-    call write_array_m(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,va,'va',id)
+    call write_array_m(its1,ite1,jts1,jte1,IWS,IWE,JWS,JWE,ua,'ua',id)
+    call write_array_m(its1,ite1,jts1,jte1,IWS,IWE,JWS,JWE,va,'va',id)
 endif
 
-call print_2d_stats_vec(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,ua,va, &
+call print_2d_stats_vec(its1,ite1,jts1,jte1,IWS,IWE,JWS,JWE,ua,va, &
     'driver: atm wind (m/s)')
 
 ! The interpolation routine goes over each atm array tile

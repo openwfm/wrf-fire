@@ -409,10 +409,10 @@ call check_mesh_2dim(its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2)
 rx=ir
 ry=jr
 
-do j2=jts2,jte2-1
-    jo=jp1+jr*(j2-jp2)
-    js=max(jts1,jo)
-    je=min(jte1,jo+jr)
+do j2=jts2,jte2-1       ! loop over coarse mesh cells
+    jo=jp1+jr*(j2-jp2)  ! fine grid coordinate of the coarse grid patch start
+    js=max(jts1,jo)     ! lower bound of fine grid patch for this cell
+    je=min(jte1,jo+jr)  ! upper bound of fine grid patch for this cell
     do i2=its2,ite2-1
         io=ip1+ir*(i2-ip2)
         is=max(its1,io)
@@ -420,6 +420,9 @@ do j2=jts2,jte2-1
         do j1=js,je
             ty = (j1-jo)/ry
             do i1=is,ie
+                ! in case fine grid lies on the boundary of several cells
+                ! the result will be written multiple times with the same value
+                ! up to a rounding error
                 tx = (i1-io)/rx
                 !print *,'coarse ',i2,j2,'to',i2+1,j2+1,' fine ',is,js,' to ',ie,je
                 v1(i1,j1)=                     &

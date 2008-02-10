@@ -49,8 +49,8 @@ switch vis_type
     contour3(y,x,u,[0 0],'k')
     drawn=true;
     case '2d'
-    xh=[1/2:m-3/2]*dx;
-    yh=[1/2:n-3/2]*dy;
+    xh=[1/2:m-1/2]*dx;
+    yh=[1/2:n-1/2]*dy;
     h=pcolor(xh,yh,f');
     % shading('interp')
     set(h,'edgecolor','none')

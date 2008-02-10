@@ -149,7 +149,7 @@ do istep=1,msteps
             enddo
         endif
     enddo
-    if(istep.le.10.or.mod(istep,50).eq.0)then
+    if(istep.le.10.or.mod(istep,10).eq.0)then
         write(1,1)1.,1.,time_start
         write(1,1)sm,sn,((lfn(i,j),i=ifps,ifpe),j=jfps,jfpe)
         write(1,1)sm,sn,((tign(i,j),i=ifps,ifpe),j=jfps,jfpe)
@@ -185,7 +185,7 @@ nx=400
 ny=400
 msteps=200
 msteps=6
-!msteps=3
+! msteps=100
 fdx=6
 fdy=6
 

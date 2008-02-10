@@ -183,11 +183,13 @@ call continue_at_boundary(1,1, &          ! do x direction or y direction
     ifts,ifte,jfts,jfte, &                ! tile dims
     zsfc)                                 ! array
 
+fdxinv=1./fdx
+fdyinv=1./fdy
 do j=jfts,jfte
     do i=ifts,ifte
         ! central differences
-        dzfsdx(i,j) = (zsfc(i+1,j)-zsfc(i-1,j))/fdx
-        dzfsdy(i,j) = (zsfc(i,j+1)-zsfc(i,j-1))/fdy
+        dzfsdx(i,j) = (zsfc(i+1,j)-zsfc(i-1,j))*fdxinv
+        dzfsdy(i,j) = (zsfc(i,j+1)-zsfc(i,j-1))*fdyinv
     enddo
 enddo
 
