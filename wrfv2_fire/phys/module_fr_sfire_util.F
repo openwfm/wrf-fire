@@ -358,7 +358,7 @@ do j2=jds2,jde2-1
                  +    (1-tx)*ty  *v2(i2,k2,j2+1)  &
                  +      tx*(1-ty)*v2(i2+1,k2,j2)  &
                  +        tx*ty  *v2(i2+1,k2,j2+1)  
-                !pr`int *,'coarse ',i2,j2,' fine ',i1,j1, ' offset ',io,jo,' weights ',tx,ty, &
+                !print *,'coarse ',i2,j2,' fine ',i1,j1, ' offset ',io,jo,' weights ',tx,ty, &
                 ! 'in ',v2(i2,j2),v2(i2,j2+1),v2(i2+1,j2),v2(i2+1,j2+1),' out ',v1(i1,j1)
            enddo
        enddo

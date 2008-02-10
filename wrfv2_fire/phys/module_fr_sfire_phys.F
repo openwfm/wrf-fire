@@ -134,6 +134,7 @@ end subroutine init_fuel_cats
 !
 
 subroutine set_fire_params( &
+                           ifds,ifde,jfds,jfde, &
                            ifms,ifme,jfms,jfme, &
                            ifts,ifte,jfts,jfte, &
                            fdx,fdy,             &
@@ -146,7 +147,8 @@ implicit none
 !*** purpose: Set all fire model params arrays, constant values.
 
 !*** arguments
-integer, intent(in)::ifts,ifte,jfts,jfte                        ! fire mesh cell bounds
+integer, intent(in)::ifds,ifde,jfds,jfde                        ! fire domain bounds
+integer, intent(in)::ifts,ifte,jfts,jfte                        ! fire tile bounds
 integer, intent(in)::ifms,ifme,jfms,jfme                        ! memory array bounds
 real, intent(in):: fdx,fdy                                      ! fire mesh spacing
 real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf          ! surface altitude
@@ -161,24 +163,38 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params ar
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
         qig, epsilon, rhob, wn, betaop, e, c, &
         xifr, etas, etam, a, gammax, gamma, ratio, ir, &
-        fuelloadm
-! real:: irm, phiw, tanphi, rosm, phis, slngth, umid, t1   ! jm: not used
+        fuelloadm,fdxinv,fdyinv
 integer:: i,j,k
 logical:: err
+real, dimension(ifts-1:ifte+1,jfts-1:jfte+1)::zsfc
 
 !*** executable
 
-! gradient of surface altitude, node based
-call   meshdiffc_2d(ifts,ifte,jfts,jfte, &    ! mesh area used (in cells, end +1)
-                   ifms,ifme,jfms,jfme, &       ! memory dimensions 
-                   fdx,fdy,               &       ! mesh spacing
-                   zsf,                 &       ! input
-                   dzfsdx,dzfsdy) ! output
+! copy plus one but not over domain boundary
+do j=max(jfts-1,ifds),min(jfte+1,ifde)
+    do i=max(ifts-1,ifds),min(ifte+1,ifde)
+        zsfc(i,j)=zsf(i,j)
+    enddo
+enddo
 
-! fuel time constant, cell based
+call continue_at_boundary(1,1, &          ! do x direction or y direction
+    ifts-1,ifte+1,jfts-1,jfte+1, &        ! memory dims
+    ifds,ifde,jfds,jfde, &                ! domain dims
+    ifts,ifte,jfts,jfte, &                ! tile dims
+    zsfc)                                 ! array
+
+do j=jfts,jfte
+    do i=ifts,ifte
+        ! central differences
+        dzfsdx(i,j) = (zsfc(i+1,j)-zsfc(i-1,j))/fdx
+        dzfsdy(i,j) = (zsfc(i,j+1)-zsfc(i,j-1))/fdy
+    enddo
+enddo
+
 err=.false.
 do j=jfts,jfte
     do i=ifts,ifte
+        ! fuel time constant, cell based
         k=nfuel_cat(i,j)
         if(k.lt.1.or.k.gt.nfuelcats)then
             k=nfuelcats
@@ -187,10 +203,11 @@ do j=jfts,jfte
         fuel_time(i,j)=weight(k)/0.85 ! cell based
     enddo
 enddo
+
 if(err)call crash('set_fire_params: fuel category out of bounds')
 
-do j=jfts,jfte+1
-    do i=ifts,ifte+1
+do j=jfts,jfte
+    do i=ifts,ifte
         
         ! do not understand calculations of stime in binit.m4
         ! set fuel time constant: weight=1000=>40% decrease over 10 min
@@ -324,8 +341,8 @@ if (ifuelread .eq. -1) then
     call message(msg)
 else if (ifuelread .eq. 0) then
 !
-    do j=jfts,jfte+1
-        do  i=ifts,ifte+1
+    do j=jfts,jfte
+        do  i=ifts,ifte
             nfuel_cat(i,j)=nfuel_cat0
         enddo
     enddo
@@ -338,8 +355,8 @@ else if (ifuelread .eq. 1) then
 !          2000 m : 6562 ft   ;    1600 m: 5249 ft
 
 !        ... user defines fuel category spatial variability ! param!
-    do j=jfts,jfte+1
-        do  i=ifts,ifte+1
+    do j=jfts,jfte
+        do  i=ifts,ifte
             ! nfuel_cat(i,j)= 2     ! grass with understory ! jm does nothing
             !jm t1=zsf(i,j)*slngth/100.
             t1 = zsf(i,j)  ! this is in m
@@ -372,8 +389,8 @@ else if (ifuelread .eq. 2) then
 
     iu1=10
          open(iu1,file='fuel_layer',status='unknown',form='formatted')
-    do j=jfts,jfte+1
-        do  i=ifts,ifte+1
+    do j=jfts,jfte
+        do  i=ifts,ifte
             read(iu1,'(i2)') nfuel_cat(i,j)
 !           ... if no fuel category specified (i.e. '99'), set to '14',
 !               which (in the current 13 category nffl category system)
@@ -391,62 +408,6 @@ endif
 !     .............end  load fuel categories (or constant) here.
 
 end subroutine set_nfuel_cat            
-
-!
-!**********************
-!            
-
-subroutine normal_spread(  &
-ims,ime,jms,jme, &  ! memory bounds
-ids,ide,jds,jde, &  ! tile bounds
-nvx,nvy,         &  ! in: directions to compute the speed in
-ros              &  ! out: the spread speed
-#include "fr_sfire_params_args.h"
-)
-
-implicit none
-!***  purpose: the speed function
-
-!*** arguments
-!  see module_fr_sfire_prop for argument description
-integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme ! bounds
-real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy
-real,intent(out),dimension(ims:ime,jms:jme)::ros
-#include "fr_sfire_params_decl.h"
-
-!*** calls
-intrinsic nint,max,min
-
-!***  internal
-integer i,j
-real tanphi
-real speed,ros1
-
-!*** executable
-
-!  compute speed at all nodes
-do j=jds,jde+1
-    do i=ids,ide+1
-
-        ! wind speed in direction of spread
-        speed =  vx(i,j)*nvx(i,j) + vy(i,j)*nvy(i,j)
-        
-        ! slope in direction of spread
-        tanphi =  dzfsdx(i,j)*nvx(i,j) + dzfsdy(i,j)*nvy(i,j)
-  
-        ! get rate of spread from wind speed and slope
-
-        ros1 = fire_ros(speed,tanphi,i,j &
-#       include "fr_sfire_params_args.h"
-        )
-        ros(i,j)=max(ros1,0.0)
-        ! write(10,*),i,j,nvx,nvy,speed,tanphi,r
-!        write(90,1)i,j,'speed',speed,'tanphi',tanphi,'ros',ros1
-!1       format(2i5,3(1x,a,f10.4))
-    enddo
-enddo
-    
-end subroutine normal_spread
 
 !
 !**********************

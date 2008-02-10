@@ -49,8 +49,8 @@ print *,'array allocation:   ',ifms,ifme,jfms,jfme
 t0=0                                        ! starting time, arbitrary
 
 ! populate the arrays somehow
-do j=jfps,jfpe+1
-    do i=ifps,ifpe+1
+do j=jfps,jfpe
+    do i=ifps,ifpe
         zsf(i,j)=1000   ! flat ground
         vx(i,j)=wind*cos(alpha)    ! constant wind
         vy(i,j)=wind*sin(alpha)
@@ -151,10 +151,10 @@ do istep=1,msteps
     enddo
     if(istep.le.10.or.mod(istep,50).eq.0)then
         write(1,1)1.,1.,time_start
-        write(1,1)sm+1,sn+1,((lfn(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
-        write(1,1)sm+1,sn+1,((tign(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
-        write(1,1)sm+1,sn+1,((vx(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
-        write(1,1)sm+1,sn+1,((vy(i,j),i=ifps,ifpe+1),j=jfps,jfpe+1)
+        write(1,1)sm,sn,((lfn(i,j),i=ifps,ifpe),j=jfps,jfpe)
+        write(1,1)sm,sn,((tign(i,j),i=ifps,ifpe),j=jfps,jfpe)
+        write(1,1)sm,sn,((vx(i,j),i=ifps,ifpe),j=jfps,jfpe)
+        write(1,1)sm,sn,((vy(i,j),i=ifps,ifpe),j=jfps,jfpe)
         write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
     endif
     print *,'test_main: step ',istep,' of ',msteps,' time ',time_start

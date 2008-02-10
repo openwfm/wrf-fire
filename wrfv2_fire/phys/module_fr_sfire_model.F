@@ -93,6 +93,7 @@ real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 !real,dimension(ifms:ifme,jfms:jfme):: fuel_frac_burnt,fuel_frac_end
 !real,dimension(ifms:ifme,jfms:jfme):: lfn_out
 real::tbound
+integer,parameter::ifl=2,jfl=2   ! quadrature mesh size per cell for fuel_left
 
 !*** executable
 
@@ -117,6 +118,7 @@ if(ifun.eq.1)then  ! check for init and ignition
 
         ! set_fire_params treats nfuel_cat as data
         call set_fire_params(   & 
+                                ifds,ifde,jfds,jfde, &
                                 ifms,ifme,jfms,jfme, &
                                 ifts,ifte,jfts,ifte, &
                                 fdx,fdy,             &
@@ -150,10 +152,11 @@ if(ifun.eq.1)then  ! check for init and ignition
     enddo
 
 !   compute fuel fraction at start
-    call get_fuel_left( &
+    call fuel_left( &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifms,ifme,jfms,jfme, &
+        ifl,jfl,             &
         lfn,tign,fuel_time,time_start,fuel_frac) ! fuel frac is shared
     
 elseif (ifun.eq.2) then
@@ -181,10 +184,11 @@ elseif (ifun.eq.2) then
 elseif (ifun.eq.3) then
 ! compute the heat fluxes from the fuel burned
 
-    call get_fuel_left( &
+    call fuel_left( &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
+        ifl,jfl,             &
         lfn,tign,fuel_time,time_start+dt,fuel_frac_end) !fuel_frac_end is private and tile based
     
     do j=jfts,jfte

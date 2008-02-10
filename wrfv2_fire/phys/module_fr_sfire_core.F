@@ -94,7 +94,7 @@ real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: &
 integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
-integer:: i,j,ifte1,jfte1
+integer:: i,j
 real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2
 logical::point
 character(len=128):: msg
@@ -109,15 +109,11 @@ else
     mx = sx
     my = sy
 endif
-jfte1=jfte
-if(jfte.eq.jfde)jfte1=jfte1+1
-ifte1=ifte
-if(ifte.eq.ifde)ifte1=ifte1+1
-do j=jfts,jfte1      ! node based loops, hence the +1
-    do i=ifts,ifte1
-        ! coordinates of the point a=(ax ay), the lower left corner of the domain is (0 0)
-        ax = fdx*(i - ifds)
-        ay = fdy*(j - jfds)
+do j=jfts,jfte   
+    do i=ifts,ifte
+        ! coordinates of the node (i,j), the lower left corner of the domain is (0 0)
+        ax = fdx*(i - ifds + 0.5)
+        ay = fdy*(j - jfds + 0.5)
         dam2=(ax-mx)*(ax-mx)+(ay-my)*(ay-my)      ! |a-m|^2
         if(point)then
             d=sqrt(dam2)
@@ -166,10 +162,11 @@ end subroutine ignite_fire
 !**********************
 !            
 
-subroutine get_fuel_left( &
+subroutine fuel_left( &
     ims,ime,jms,jme, &
     its,ite,jts,jte, &
     ifs,ife,jfs,jfe, &
+    ir,jr,           &
     lfn, tign, fuel_time, time_now, fuel_frac)
 implicit none
 
@@ -179,65 +176,120 @@ implicit none
 
 !*** arguments
 
-integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe
+integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe,ir,jr
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: time_now
 real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
 
-! ims,ime,jms,jme   in   memory dimensions                (1)
-! its,ite,jts,jte   in   tile dimensions (cells)          (1)
-! lfn               in   level function, at nodes
-! tign              in   ignition time, at nodes
+! ims,ime,jms,jme   in   memory dimensions
+! its,ite,jts,jte   in   tile dimensions (cells where fuel_frac computed)
+! ifs,ife,jfs,jfe   in   fuel_frac memory dimensions
+! ir,jr,            in   refinement - quadrature cells per fire cell, even, at least 2
+! lfn               in   level function, at nodes at midpoints of cells
+! tign              in   ignition time, at nodes at nodes at midpoints of cells
 ! fuel_time         in   time constant of fuel, per cell
 ! time_now          in   time now
 ! fuel_frac         out  fraction of fuel remaining, per cell
 
 !*** local
 
-integer::i,j
+integer::i,j,iccell,jccell
+real::xfcell,yfcell
+#define IFCELLS (ite-its+1)*ir
+#define JFCELLS (jte-jts+1)*jr
+real,dimension(0:IFCELLS+1,0:JFCELLS+1)::lff,tif
+real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f
 
-call check_mesh_2dim(its,ite+1,jts,jte+1,ims,ime,jms,jme)
+call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
+call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
 
-do j=jts,jte
-    do i=its,ite 
-        fuel_frac(i,j)=fuel_left_cell(lfn(i,j),lfn(i,j+1),lfn(i+1,j),lfn(i+1,j+1),&
-                        tign(i,j),tign(i,j+1),tign(i+1,j),tign(i+1,j+1),&
-                        time_now, fuel_time(i,j))
+! interpolate level function to finer grid
+call interpolate_2d_nodes2nodes(  &
+    ims,ime,jms,jme,         & ! array coarse grid
+    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid
+    0,IFCELLS+1,0,JFCELLS+1,     & ! array fine grid
+    0,IFCELLS+1,0,JFCELLS+1,     & ! dimensions fine grid
+    ir,jr,                   & ! refinement ratio
+    its,jts,ir/2,jr/2,       & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+    lfn, &                     ! in coarse grid  
+    lff  )                     ! out fine grid
+
+call interpolate_2d_nodes2nodes(  &
+    ims,ime,jms,jme,         & ! array coarse grid
+    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid
+    0,IFCELLS+1,0,JFCELLS+1,     & ! array fine grid
+    0,IFCELLS+1,0,JFCELLS+1,     & ! dimensions fine grid
+    ir,jr,                   & ! refinement ratio
+    its,jts,ir/2,jr/2,       & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+    tign, &                     ! in coarse grid  
+    tif  )                     ! out fine grid
+
+!
+! example for ir=2:
+!
+!      its-1                  coarse cell its                            ite             ite+1
+! -------X------------|-------------X-------------|--........----|--------X-------|--------X
+!           fine node 0             1             2                         2*(ite-its) 
+!                fine cell  1              2                                      2*(ite-its+1)
+
+do j=1,JFCELLS
+    do i=1,IFCELLS
+        xfcell=i-0.5  ! middle of the fine cell in fine grid coordinates
+        yfcell=j-0.5
+        iccell=nint(its+xfcell/ir-0.5) ! the indices of the nearest coarse midpoint
+        jccell=nint(jts+yfcell/jr-0.5) ! use fuel_time of the coarse cell the fine cell is in
+        fuel_left_f(i,j)=fuel_left_cell( &
+                 lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
+                 tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
+                 time_now, 1./fuel_time(iccell,jccell)) &
+                 /(ir*jr)                              ! premultiply by weight
     enddo
 enddo
 
-end subroutine get_fuel_left
+call sum_2d_cells(       &
+       1,IFCELLS,1,JFCELLS,    &
+       1,IFCELLS,1,JFCELLS,    &
+       fuel_left_f,            &  ! input       
+       ifs,ife,jfs,jfe,        &
+       its,ite,jts,jte,        &
+       fuel_frac)                 ! output
+
+end subroutine fuel_left
+
+!
+!************************
+!
 
 pure real function fuel_left_cell(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
-    time_now, fuel_time_const)
+    time_now, fuel_speed_cell)
 !*** purpose: compute the fuel fraction left in one cell
 implicit none
 !*** arguments
 real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners of the cell
 real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners of the cell
 real, intent(in)::time_now                   ! the time now
-real, intent(in)::fuel_time_const            ! length of time at which fuel burns off to 1/e
+real, intent(in)::fuel_speed_cell            ! 1/time to burns off to 1/e
 !*** Description
-! The area burning is given by the condition P <= 0, where the function P is
+! The area burning is given by the condition L <= 0, where the function P is
 ! interpolated from lfn(i,j)
 !
-! The time since ignition is the function T, interpolated in from tign(i,j).
-! The values of tign(i,j) where lfn(i,j)>=0 are ignored, tign(i,j)=time_now is taken 
+! The time since ignition is the function T, interpolated in from tign(i,j)-time_now.
+! The values of tign(i,j) where lfn(i,j)>=0 are ignored, tign(i,j)=0 is taken 
 ! when lfn(i,j)=0.
 !
 ! The function computes an approxmation  of the integral
 !
 !
 !                                  /\
-!                         1        |              T(x,y)-tnow
-! fuel_frac(i,j)  =  1 - -----     | 1 -  exp( - ------------- ) dxdy
-!                        dx*dy     |             fuel_time(i,j)
+!                                  |              
+! fuel_frac_left  =      1   -     | 1 -  exp(-T(x,y)*fuel_speed)) dxdy
+!                                  |            
 !                                 \/
-!                                0<x<dx
-!                                0<y<dy
-!                             lfn(x,y)<=0
+!                                0<x<1
+!                                0<y<1
+!                             L(x,y)<=0
 !
 ! When the cell is not burning at all (all lfn>=0), then fuel_frac(i,j)=1.
 ! Because of symmetries, the result should not depend on the mesh spacing dx dy
@@ -276,16 +328,13 @@ real, intent(in)::fuel_time_const            ! length of time at which fuel burn
 ! rate of fuel decrease right behind the fireline is much larger 
 ! (exponential...). This will happen when
 ! 
-!      change of time from ignition within one mesh cell
-! X =  --------------------------------------------------  is not << 1
-!                     fuel_time.
-!
+! change of time from ignition within one mesh cell * fuel speed is not << 1
 !
 ! This is the same as
 !
-!               mesh cell size
-!         --------------------------   is not << 1
-!         fuel_time * fireline speed
+!         mesh cell size*fuel_speed 
+!         -------------------------      is not << 1
+!             fireline speed
 !         
 !
 ! When X is large then the fuel burnt in one timestep in the cell is
@@ -324,13 +373,10 @@ ta=0.25*(t00+t01+t10+t11)
 
 ! exp decay in the burning area
 if(area>0)then
-    fuel_left_cell=area*exp(-ta/fuel_time_const) + (1. - area)
+    fuel_left_cell=area*exp(-ta*fuel_speed_cell) + (1. - area)
 else
     fuel_left_cell=1.
 endif
-
-! note: this is exact in the limit as
-!   fuel_time/ta= fuel_time*fire_speed/cell_size -> 0
 
 end function fuel_left_cell
 
@@ -345,7 +391,7 @@ subroutine prop_ls( id, &                                ! for debug
                 ts,dt,dx,dy,     &                       ! scalars in
                 tbound,          &                       ! scalars out
                 lfn_in,lfn_out,tign         &                     ! arrays inout                   
-#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
@@ -371,7 +417,7 @@ implicit none
 ! distance from the curve. If the initial curve is a circle, the initial level
 ! function is simply the distance from the center minus the radius.
 ! 
-! The curve moves outside with speed given by function normal_spread.
+! The curve moves outside with speed given by function speed_func.
 !   
 ! Method: Godunov method for the normal motion. The timestep is checked for
 ! CFL condition. For a straight segment in a constant field and locally linear
@@ -424,7 +470,7 @@ real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out
 real,intent(in)::dx,dy,ts,dt
 real,intent(out)::tbound
-#ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
+#ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */
 #include SPEED_VARS_DECL
 #else
 #include "fr_sfire_params_decl.h"
@@ -433,16 +479,16 @@ real,intent(out)::tbound
 !*** local 
 ! arrays
 #define IMTS its-1
-#define IMTE ite+2
+#define IMTE ite+1
 #define JMTS jts-1
-#define JMTE jte+2
+#define JMTE jte+1
 real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 ! scalars
 real::grad2,rr,tbound2
 real, parameter::a=0.5, a1=1.0-a ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
-integer::ihs,ihe,jhs,jhe,irs,ire,jrs,jre
+integer::ihs,ihe,jhs,jhe
 integer::i,j
 character(len=128)msg
 integer::nfirenodes,nfireline
@@ -463,40 +509,30 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
 
-! bounds of the computed region 
-irs=its
-jrs=jts
-ire=ite
-if(ide.eq.ite)ire=ire+1
-jre=jte
-if(jde.eq.jre)jre=jre+1
-
 write(msg,'(5(a,i5))')'prop_ls:',id,' tile  ',its,':',ite,',',jts,':',jte
-call message(msg)
-write(msg,'(5(a,i5))')'prop_ls:',id,' region',irs,':',ire,',',jrs,':',jre
 call message(msg)
 
 #ifdef DEBUG_OUT    
-    call write_array_m(irs,ire,jrs,jre,ims,ime,jms,jme,lfn_in,'lfn_in',id)
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,lfn_in,'lfn_in',id)
 #endif
     
     ! tend = F(lfn)
 
-    ihs=max(irs-1,ids)   ! compute tend one beyond the region but not outside domain 
-    ihe=min(ire,ide+1)
-    jhs=max(jrs,jds)   ! compute tend one beyond the region but not outside domain 
-    jhe=min(jre,jde+1)
+    ihs=max(its-1,ids)   ! compute tend one beyond the tile but not outside domain 
+    ihe=min(ite,ide+1)
+    jhs=max(jts,jds) 
+    jhe=min(jte,jde+1)
     
     call  tend_ls(&
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
-    ids,ide+1,jds,jde+1, &                   ! domain dims - where lfn exists
+    ids,ide,jds,jde, &                       ! domain dims - where lfn exists
     ihs,ihe,jhs,jhe, &                       ! where tend computed
     ts,dx,dy,      &                          ! scalars in
     lfn_in, &                                   ! arrays in
     tbound, &                                ! scalars out 
     tend &                                   ! arrays out        
-#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
@@ -520,13 +556,13 @@ call message(msg)
     call  tend_ls( &
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
-    ids,ide+1,jds,jde+1, &                   ! domain dims - where lfn exists
-    irs,ire,jrs,jre, &                       ! region dims - where is tend computed
+    ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
+    its,ite,jts,jte, &                       ! tile dims - where is tend computed
     ts+dt,dx,dy,      &                          ! scalars in
     lfn1, &                                   ! arrays in
     tbound2, &                                ! scalars out 
     tend &                                  ! arrays out        
-#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
@@ -546,8 +582,8 @@ call message(msg)
     
     ! combine lfn1 and lfn_in + dt*tend -> lfn_out
     
-    do j=jrs,jre
-        do i=irs,ire
+    do j=jts,jte
+        do i=its,ite
             lfn_out(i,j) = a1*lfn1(i,j) + a*(lfn_in(i,j) + dt*tend(i,j))
         enddo
     enddo      
@@ -564,8 +600,8 @@ call message(msg)
 
     time_now=ts+dt
     time_now = time_now + abs(time_now)*epsilon(time_now)*2.
-    do j=jrs,jre
-        do i=irs,ire
+    do j=jts,jte
+        do i=its,ite
             ! interpolate the cross-over time
             if (.not. lfn_out(i,j)>0 .and. lfn_in(i,j)>0)then
                 tign(i,j) = ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j))
@@ -586,8 +622,8 @@ call message(msg)
     min_aerr=rmax
     max_aerr=rmin    
     ! loop over right inside of the domain
-    do j=jrs+1,jre-1
-        do i=irs+1,ire-1
+    do j=jts+1,jte-1
+        do i=its+1,ite-1
             if(lfn_out(i,j)>0.0)then   ! a point out of burning region
                 if(lfn_out(i+1,j)<=0.or.lfn_out(i,j+1)<=0.or. & ! neighbor in burning region
                    lfn_out(i-1,j)<=0.or.lfn_out(i,j-1)<=0)then ! point next to fireline
@@ -614,14 +650,14 @@ call message(msg)
         enddo
     enddo
     write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
-        (100.*nfirenodes)/((ire-irs+1)*(jre-jrs+1)),'% next to fireline',nfireline
+        (100.*nfirenodes)/((ite-its+1)*(jte-jts+1)),'% next to fireline',nfireline
     call message(msg)
     if(nfireline>0)then
         call print_stat_line('speed error',min_err,max_err,sum_err/nfireline)
         call print_stat_line('abs(speed error)',min_aerr,max_aerr,sum_aerr/nfireline)
     endif
 
-    call print_2d_stats(irs,ire,jrs,jre,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
+    call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
     
 
 end subroutine prop_ls
@@ -639,7 +675,7 @@ subroutine tend_ls( &
     lfn, &                                   ! arrays in
     tbound, &                                ! scalars out 
     tend &                                  ! arrays out
-#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
@@ -658,7 +694,7 @@ real,intent(in)::dx,dy                                 ! mesh step
 real,dimension(lims:lime,ljms:ljme),intent(inout)::lfn ! level set function
 real,intent(out)::tbound                               ! max allowed time step
 real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the level set pde)
-#ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
+#ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */
 #include SPEED_VARS_DECL
 #else
 #include "fr_sfire_params_decl.h"
@@ -743,7 +779,7 @@ end subroutine tend_ls
 !
 
 real function speed_func(diffCx,diffCy,i,j &
-#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
+#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
