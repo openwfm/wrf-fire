@@ -204,23 +204,23 @@ call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
 
 ! interpolate level function to finer grid
-call interpolate_2d_nodes2nodes(  &
+call interpolate_2d(  &
     ims,ime,jms,jme,         & ! array coarse grid
     its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid
     0,IFCELLS+1,0,JFCELLS+1,     & ! array fine grid
     0,IFCELLS+1,0,JFCELLS+1,     & ! dimensions fine grid
     ir,jr,                   & ! refinement ratio
-    its,jts,ir/2,jr/2,       & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+    real(its),real(jts),ir/2.,jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
     lfn, &                     ! in coarse grid  
     lff  )                     ! out fine grid
 
-call interpolate_2d_nodes2nodes(  &
+call interpolate_2d(  &
     ims,ime,jms,jme,         & ! array coarse grid
     its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid
     0,IFCELLS+1,0,JFCELLS+1,     & ! array fine grid
     0,IFCELLS+1,0,JFCELLS+1,     & ! dimensions fine grid
     ir,jr,                   & ! refinement ratio
-    its,jts,ir/2,jr/2,       & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+    real(its),real(jts),ir/2.,jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
     tign, &                     ! in coarse grid  
     tif  )                     ! out fine grid
 

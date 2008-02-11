@@ -370,13 +370,13 @@ end subroutine interpolate_2d_nodes2nodes3
 
 
 ! module_fr_sfire_util%%interpolate_2d_nodes2nodes
-subroutine interpolate_2d_nodes2nodes(  &
+subroutine interpolate_2d(  &
     ims2,ime2,jms2,jme2, & ! array coarse grid
     its2,ite2,jts2,jte2, & ! dimensions coarse grid
     ims1,ime1,jms1,jme1, & ! array coarse grid
     its1,ite1,jts1,jte1, & ! dimensions fine grid
     ir,jr,               & ! refinement ratio
-    ip2,jp2,ip1,jp1,     & ! (ip2,jp2) on grid 2 lines up with (ip1,jp1) on grid 1 
+    rip2,rjp2,rip1,rjp1, & ! (rip2,rjp2) on grid 2 lines up with (rip1,rjp1) on grid 1 
     v2, &                  ! in coarse grid  
     v1  )                  ! out fine grid
 implicit none
@@ -391,13 +391,16 @@ implicit none
 
 integer, intent(in)::its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
 integer, intent(in)::its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
-integer, intent(in)::ir,jr,ip2,jp2,ip1,jp1 
+integer, intent(in)::ir,jr
+real,intent(in):: rjp1,rip1,rjp2,rip2
 real, intent(out)::v1(ims1:ime1,jms1:jme1)
 real, intent(in)::v2(ims2:ime2,jms2:jme2)
 
 !*** local
-integer:: i1,i2,j1,j2,is,ie,js,je,io,jo
+integer:: i1,i2,j1,j2,is,ie,js,je
 real:: tx,ty,rx,ry
+real:: rio,rjo
+intrinsic::ceiling,floor
 
 !*** executable
 
@@ -406,24 +409,24 @@ call check_mesh_2dim(its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1)
 call check_mesh_2dim(its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2)
 
 ! compute mesh ratios
-rx=ir
-ry=jr
+rx=1./ir
+ry=1./jr
 
 do j2=jts2,jte2-1       ! loop over coarse mesh cells
-    jo=jp1+jr*(j2-jp2)  ! fine grid coordinate of the coarse grid patch start
-    js=max(jts1,jo)     ! lower bound of fine grid patch for this cell
-    je=min(jte1,jo+jr)  ! upper bound of fine grid patch for this cell
+    rjo=rjp1+jr*(j2-rjp2)  ! fine grid coordinate of the coarse grid patch start
+    js=max(jts1,ceiling(rjo))     ! lower bound of fine grid patch for this cell
+    je=min(jte1,floor(rjo)+jr)  ! upper bound of fine grid patch for this cell
     do i2=its2,ite2-1
-        io=ip1+ir*(i2-ip2)
-        is=max(its1,io)
-        ie=min(ite1,io+ir)
+        rio=rip1+ir*(i2-rip2)
+        is=max(its1,ceiling(rio))
+        ie=min(ite1,floor(rio)+ir)
         do j1=js,je
-            ty = (j1-jo)/ry
+            ty = (j1-rjo)*ry
             do i1=is,ie
                 ! in case fine grid lies on the boundary of several cells
                 ! the result will be written multiple times with the same value
                 ! up to a rounding error
-                tx = (i1-io)/rx
+                tx = (i1-rio)*rx
                 !print *,'coarse ',i2,j2,'to',i2+1,j2+1,' fine ',is,js,' to ',ie,je
                 v1(i1,j1)=                     &
                       (1-tx)*(1-ty)*v2(i2,j2)  &
@@ -437,7 +440,7 @@ do j2=jts2,jte2-1       ! loop over coarse mesh cells
     enddo
 enddo
 
-end subroutine interpolate_2d_nodes2nodes
+end subroutine interpolate_2d
 
 !
 !****************

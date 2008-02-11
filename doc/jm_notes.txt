@@ -157,3 +157,9 @@ rounding errors only
 
 commit 4ccd502e0682b9846b866b5639b0b61913bc4c2f
 works on single tile, in out3
+
+2/11/08
+commit af413df0557a49ca56db20ff3436b14c7bccee21
+fire nodes now midpoint, model_test seems to work, new ref
+wrf coupling not finished yet
+

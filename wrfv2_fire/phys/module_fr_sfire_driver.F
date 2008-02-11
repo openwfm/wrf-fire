@@ -1,6 +1,6 @@
 !WRF:MEDIATION_LAYER:FIRE_MODEL
 
-!*** Jan Mandel August 2007 - January 2008
+!*** Jan Mandel August 2007 - February 2008
 !*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
 
 ! This module is the only entry point from WRF-ARW to the wildland 
@@ -440,21 +440,17 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
     
     
 !*** local
-#define IWS its-1
-#define IWE ite+1
-#define JWS jts-1
-#define JWE jte+1
-real, dimension(IWS:IWE,JWS:JWE):: ua,va, &    ! atm winds, averaged over height
+real, dimension(its-1:ite+1,jts-1:jte+1):: ua,va, &    ! atm winds, averaged over height
                                        za      ! terrain height
-integer:: i,j,k,ifte1,jfte1,jts1,jte1,its1,ite1
+integer:: i,j,k,jts1,jte1,its1,ite1
 
 !*** executable
 
     k=kds             ! the ground
-    jts1=max(JWS,jds) ! lower loop limit by one less when at end of domain
-    its1=max(IWS,ids) ! ASSUMES THE HALO IS THERE if patch != domain
-    jte1=min(JWE,jde) 
-    ite1=min(IWE,ide)
+    jts1=max(jts-1,jds) ! lower loop limit by one less when at end of domain
+    its1=max(its-1,ids) ! ASSUMES THE HALO IS THERE if patch != domain
+    jte1=min(jte+1,jde) 
+    ite1=min(ite+1,ide)
     do j = jts1,jte1
         do i = its1,ite1 
             ! average 1st 2 layers, correct const shift
@@ -464,7 +460,8 @@ integer:: i,j,k,ifte1,jfte1,jts1,jte1,its1,ite1
             za(i,j)=zs(i,j)           
         enddo
     enddo
-    ! extend beyond the domain boundary 
+
+    ! extend the winds by one beyond the domain boundary 
     call continue_at_boundary(1,0, & ! do x direction or y direction
     ims,ime,jms,jme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain dims
@@ -478,86 +475,60 @@ integer:: i,j,k,ifte1,jfte1,jts1,jte1,its1,ite1
     ua)                               ! array
 
 if (id.gt.0) then
-    call write_array_m(its1,ite1,jts1,jte1,IWS,IWE,JWS,JWE,ua,'ua',id)
-    call write_array_m(its1,ite1,jts1,jte1,IWS,IWE,JWS,JWE,va,'va',id)
+    call write_array_m(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,ua,'ua',id)
+    call write_array_m(its-1,ite+1,jts-1,jte+1,its-1,ite+1,jts-1,jte+1,va,'va',id)
 endif
 
-call print_2d_stats_vec(its1,ite1,jts1,jte1,IWS,IWE,JWS,JWE,ua,va, &
+call print_2d_stats_vec(its,ite,jts,jte,its-1,ite+1,jts-1,jte+1,ua,va, &
     'driver: atm wind (m/s)')
 
-! The interpolation routine goes over each atm array tile
-! and interpolates to the fire grid, and modify within the corresponding
-! fire tile dimensions only. Since the fire grid tiles do not overlap
-! this guarantees that two threads will not try to write to the same
-! memory location, which might have unpredicable (bad) results.
+!      ---------------
+!     | F | F | F | F |   Example of atmospheric and fire grid with
+!     |-------|-------|   ir=jr=4.
+!     | F | F | F | F |   Winds are given at the midpoints of the sides of the coarse grid,
+!     u-------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
+!     | F | F | F | F |
+!     |---------------|
+!     | * | F | F | F |
+!      -------v-------
 !
-! The relation between the atm and the fire grid is defined by the refinement ratio
-! and a pair of nodes that line up. These nodes to not need to be within
-! the present tile. These node pairs are different for the u and the v grid
-! because on the atmospheric grid they are defined at different location.
-!
-! The fire model uses arrays based at corners of the cells. All arrays are cell centered.
-! Each cell owns its lower left corner.
-!
-! The domain lower bounds are used to line up the atmospheric and the fire grids
-! by the lower left corner of the domain.
+! Meshes are aligned by the lower left cell of the domain. Then in the above figure
+! u = node with the ua component of the wind at (ids,jds), midpoint of side
+! v = node with the va component of the wind at (ids,jds), midpoint of side
+! * = fire grid node at (ifds,jfds)
+! z = node with height, midpoint of cell
 ! 
-! The fire patch upper dimensions are used to decide if the interpolation should be done
-! to fire nodes with index one higher than the tile dimension, this is the case when
-! the tile is at the right edge or the top edge of the patch.
-!
-
-
-    ! go up one when at end of patch
-    ifte1 = enode(ifte,ifpe)
-    jfte1 = enode(jfte,jfpe)
-                     
-!                 F-------F                                       
-!                 |       |                               
-!                 * ua(ids,jds)=uf(ifds,jfds+jr/2)         
-!                 |       |                      
-!  zsf(ifds,jfds) *-------F      F = corners of atm cells on the fire grid                                  
+! ua(ids,jds)=uf(ifds-0.5,jfds+jr/2+0.5)
+! va(ids,jds)=vf(ifds+ir/2+0.5,jfds-0.5)
+! za(ids,jds)=zsf(ifds+ir/2+0.5,jfds+jr/2+0.5)
     
-    call interpolate_2d_nodes2nodes(  &
+    call interpolate_2d(  &
         its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
         its-1,ite+1,jts-1,jte+1, & ! where atm grid values set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid tile
+        ifts-1,ifte+1,jfts-1,jfte+1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
-        ids,jds,ifds,jfds+jr/2, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds-.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
         ua,                     & ! in atm grid     
         uf)                      ! out fire grid
-                     
-!                 F-------F                                       
-!                 |       |                               
-!                 |       |         
-!                 |       |                      
-!  zsf(ifds,jfds) *---*---F      F = corners of atm cells on the fire grid
-!                     va(ids,jds)=zsf(ifds+ir/2,jfds)
 
-    call interpolate_2d_nodes2nodes(  &
+    call interpolate_2d(  &
         its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
         its-1,ite+1,jts-1,jte+1, & ! where atm grid values set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid tile
+        ifts-1,ifte+1,jfts-1,jfte+1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
-        ids,jds,ifds+ir/2,jfds, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds+(ir+1)*.5,jfds-0.5, & ! line up by lower left corner of domain
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
                      
-!                 F-------F                                       
-!                 |       |                               
-!                 |   * zs(ids,jds)=zsf(ifds+ir/2,jfds+jr/2)         
-!                 |       |                      
-!  zsf(ifds,jfds) *-------F      F = corners of atm cells on the fire grid                                  
-
-    call interpolate_2d_nodes2nodes(  &
+    call interpolate_2d(  &
         its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
         its-1,ite+1,jts-1,jte+1, & ! where atm grid values set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts,ifte1,jfts,jfte1,  & ! dimensions fire grid tile
+        ifts-1,ifte+1,jfts-1,jfte+1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
-        ids,jds,ifds+ir/2,jfds+jr/2, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
         za,                     & ! in atm grid     
         zsf)                      ! out fire grid
 
