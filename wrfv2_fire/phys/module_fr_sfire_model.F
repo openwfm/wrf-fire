@@ -90,8 +90,6 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 integer::ignited,ig,i,j
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
-!real,dimension(ifms:ifme,jfms:jfme):: fuel_frac_burnt,fuel_frac_end
-!real,dimension(ifms:ifme,jfms:jfme):: lfn_out
 real::tbound
 integer,parameter::ifl=2,jfl=2   ! quadrature mesh size per cell for fuel_left
 
@@ -111,19 +109,19 @@ if(ifun.eq.1)then  ! check for init and ignition
                     
         ! initialize all arrays that the model will not change later
         call set_nfuel_cat( &
-                            ifms,ifme,jfms,jfme, &
-                            ifts,ifte,jfts,jfte, &
-                            ifuelread,nfuel_cat0,&
-                            zsf,nfuel_cat)
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            ifuelread,nfuel_cat0,&
+            zsf,nfuel_cat)
 
         ! set_fire_params treats nfuel_cat as data
         call set_fire_params(   & 
-                                ifds,ifde,jfds,jfde, &
-                                ifms,ifme,jfms,jfme, &
-                                ifts,ifte,jfts,ifte, &
-                                fdx,fdy,             &
-                                zsf,nfuel_cat,fuel_time &
-#                               include "fr_sfire_params_args.h" 
+            ifds,ifde,jfds,jfde, &
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            fdx,fdy,             &
+            zsf,nfuel_cat,fuel_time &
+#           include "fr_sfire_params_args.h" 
 )
     
         ! initialize variable model arrays to no fire
@@ -150,14 +148,6 @@ if(ifun.eq.1)then  ! check for init and ignition
                 lfn,tign,ignited)
         endif
     enddo
-
-!   compute fuel fraction at start
-    call fuel_left( &
-        ifms,ifme,jfms,jfme, &
-        ifts,ifte,jfts,jfte, &
-        ifms,ifme,jfms,jfme, &
-        ifl,jfl,             &
-        lfn,tign,fuel_time,time_start,fuel_frac) ! fuel frac is shared
     
 elseif (ifun.eq.2) then
 
@@ -170,16 +160,27 @@ elseif (ifun.eq.2) then
 ! subroutine normal_spread may use. The include is to guarantee this is done consistently
 ! over the call chain.
 
+!   compute fuel fraction at start
+    call fuel_left( &
+        ifms,ifme,jfms,jfme, &
+        ifts,ifte,jfts,jfte, &
+        ifms,ifme,jfms,jfme, &
+        ifl,jfl,             &
+        lfn,tign,fuel_time,time_start,fuel_frac) ! fuel frac is shared
+
+    call print_2d_stats(ifts,ifte,jfts,jfte, &
+                   ifms,ifme,jfms,jfme, &
+                   fuel_frac,'model: fuel_frac start')
+
 !   do time step
     call prop_ls(id,     &
-    ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
-    ifms,ifme,jfms,jfme,                      &
-    ifts,ifte,jfts,jfte,                      &
-    time_start,dt,fdx,fdy,tbound,  &
-    lfn,lfn_out,tign &
-#   include "fr_sfire_params_args.h" 
+        ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
+        ifms,ifme,jfms,jfme,                      &
+        ifts,ifte,jfts,jfte,                      &
+        time_start,dt,fdx,fdy,tbound,  &
+        lfn,lfn_out,tign &
+#       include "fr_sfire_params_args.h" 
     ) 
-!    lfn=lfn_out
 
 elseif (ifun.eq.3) then
 ! compute the heat fluxes from the fuel burned
@@ -190,12 +191,20 @@ elseif (ifun.eq.3) then
         ifts,ifte,jfts,jfte, &
         ifl,jfl,             &
         lfn,tign,fuel_time,time_start+dt,fuel_frac_end) !fuel_frac_end is private and tile based
+
+    call print_2d_stats(ifts,ifte,jfts,jfte, &
+                   ifts,ifte,jfts,jfte, &
+                   fuel_frac_end,'model: fuel_frac end')
     
     do j=jfts,jfte
         do i=ifts,ifte
             fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j)
         enddo
     enddo
+
+    call print_2d_stats(ifts,ifte,jfts,jfte, &
+                   ifts,ifte,jfts,jfte, &
+                   fuel_frac_burnt,'model: fuel_frac burned')
         
     call heat_fluxes(dt,                          &
         ifms,ifme,jfms,jfme,                      &

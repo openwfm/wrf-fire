@@ -203,7 +203,7 @@ real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
 
-! interpolate level function to finer grid
+! interpolate level set function to finer grid
 call interpolate_2d(  &
     ims,ime,jms,jme,         & ! array coarse grid
     its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid
@@ -241,7 +241,7 @@ do j=1,JFCELLS
         fuel_left_f(i,j)=fuel_left_cell( &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
-                 time_now, 1./fuel_time(iccell,jccell)) &
+                 time_now, fuel_time(iccell,jccell)) &
                  /(ir*jr)                              ! premultiply by weight
     enddo
 enddo
@@ -260,17 +260,17 @@ end subroutine fuel_left
 !************************
 !
 
-pure real function fuel_left_cell(  &
+real function fuel_left_cell(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
-    time_now, fuel_speed_cell)
+    time_now, fuel_time_cell)
 !*** purpose: compute the fuel fraction left in one cell
 implicit none
 !*** arguments
 real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners of the cell
 real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners of the cell
 real, intent(in)::time_now                   ! the time now
-real, intent(in)::fuel_speed_cell            ! 1/time to burns off to 1/e
+real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !*** Description
 ! The area burning is given by the condition L <= 0, where the function P is
 ! interpolated from lfn(i,j)
@@ -348,11 +348,11 @@ real, intent(in)::fuel_speed_cell            ! 1/time to burns off to 1/e
 intrinsic tiny
 
 !*** local
-real::ps,aps,area,ta
+real::ps,aps,area,ta,out
 real::t00,t01,t10,t11
 real,parameter::safe=tiny(aps)
 
-! time since ignition
+! minus time since ignition
 t00=tign00-time_now
 if(lfn00>0.)t00=0.
 t01=tign01-time_now
@@ -368,15 +368,16 @@ aps = abs(lfn00)+abs(lfn01)+abs(lfn10)+abs(lfn11)
 aps=max(aps,safe)
 area =(-ps/aps+1.)*.5
     
-! average time since ignition
+! average negative time since ignition
 ta=0.25*(t00+t01+t10+t11)
 
 ! exp decay in the burning area
-if(area>0)then
-    fuel_left_cell=area*exp(-ta*fuel_speed_cell) + (1. - area)
-else
-    fuel_left_cell=1.
-endif
+out=1.
+if(area>0)out=area*exp(ta/fuel_time_cell) + (1. - area)
+
+if(out>1.)call crash('fuel_left_cell: fuel fraction > 1')
+
+fuel_left_cell = out
 
 end function fuel_left_cell
 

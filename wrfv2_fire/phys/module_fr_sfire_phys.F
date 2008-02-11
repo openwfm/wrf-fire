@@ -167,6 +167,7 @@ real::  fuelload, fueldepth, rtemp1, rtemp2, &
 integer:: i,j,k
 logical:: err
 real, dimension(ifts-1:ifte+1,jfts-1:jfte+1)::zsfc
+character(len=128)::msg
 
 !*** executable
 
@@ -199,8 +200,11 @@ do j=jfts,jfte
         ! fuel time constant, cell based
         k=nfuel_cat(i,j)
         if(k.lt.1.or.k.gt.nfuelcats)then
-            k=nfuelcats
-            err=.true.
+!            k=nfuelcats
+!            err=.true.
+             write(msg,'(3(a,i5))')'nfuel_cat(', i ,',',j,')=',k
+             call message(msg)
+             call crash('set_fire_params: fuel category out of bounds')
         endif
         fuel_time(i,j)=weight(k)/0.85 ! cell based
     enddo
@@ -314,9 +318,9 @@ end subroutine heat_fluxes
 
 
 subroutine set_nfuel_cat(   &
-                            ifms,ifme,jfms,jfme,               &
-                ifts,ifte,jfts,jfte,               &
-                            ifuelread,nfuel_cat0,zsf,nfuel_cat)
+    ifms,ifme,jfms,jfme,               &
+    ifts,ifte,jfts,jfte,               &
+    ifuelread,nfuel_cat0,zsf,nfuel_cat)
 
 implicit none
 

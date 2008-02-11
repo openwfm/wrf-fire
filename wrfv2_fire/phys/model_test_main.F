@@ -1,20 +1,60 @@
 ! the main program is at the end because of fortran limitations
 
 module module_model_test
+use module_fr_sfire_util
+use module_fr_sfire_model
+use module_fr_sfire_phys
+
+
 contains
 
+subroutine main_sub
+implicit none
+
+!*** declarations
+
+integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
+real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s), wind azimuth
+integer::rfx,rfy ! refinement, convenience only
+
+nx=400
+ny=400
+msteps=200
+msteps=6
+! msteps=100
+fdx=6
+fdy=6
+
+rfx=1
+rfy=1
+
+nx=nx*rfx
+ny=ny*rfy
+fdx=fdx/rfx
+fdy=fdy/rfy
+
+dt=0.5
+wind=10
+alpha=0.0
+
+print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
+call model_test(1,nx,1,ny, &
+   -1,nx+3,0,ny+2, &
+   1,nx,1,ny, &
+   fdx,fdy,wind,alpha,dt,msteps)
+
+end subroutine main_sub
+
 !
-!******************************
+!****************
 !
+
 
 subroutine model_test(  &
     ifds,ifde,jfds,jfde, &
     ifms,ifme,jfms,jfme, &
     ifps,ifpe,jfps,jfpe, &
     fdx,fdy,wind,alpha,dt,msteps)
-use module_fr_sfire_util
-use module_fr_sfire_model
-use module_fr_sfire_phys
 implicit none
 
 !*** arguments
@@ -165,46 +205,42 @@ close(1)
 
 end subroutine model_test
 
+!
+!******************************
+!
+
+subroutine set_tiles(itiles,jtiles,ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+!*** set tiles for standalone/testing
+implicit none
+!*** arguments
+integer,intent(in)::itiles,jtiles,ids,ide,jds,jde
+integer,intent(out)::num_tiles
+integer,intent(out),dimension(itiles*jtiles)::i_start,i_end,j_start,j_end
+!*** local
+integer::i,j,istep,jstep,ij
+num_tiles=itiles*jtiles
+istep=(ide-ids+itiles)/itiles
+jstep=(jde-jds+jtiles)/jtiles
+do i=1,itiles
+    do j=1,jtiles
+        ij=j+(i-1)*jtiles
+        i_start(ij)=min(ide,ids+(i-1)*istep)
+        i_end(ij)  =min(ide,ids+(i  )*istep-1)
+        j_start(ij)=min(jde,jds+(j-1)*jstep)
+        j_end(ij)  =min(jde,jds+(j  )*jstep-1)
+    enddo
+enddo
+call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+end subroutine set_tiles
+
 end module module_model_test
 
 !
 !******************************
 !
 
+
 program model_test_main
 use module_model_test
-implicit none
-
-!*** declarations
-
-integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
-real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s), wind azimuth
-integer::rfx,rfy ! refinement, convenience only
-
-nx=400
-ny=400
-msteps=200
-msteps=6
-! msteps=100
-fdx=6
-fdy=6
-
-rfx=1
-rfy=1
-
-nx=nx*rfx
-ny=ny*rfy
-fdx=fdx/rfx
-fdy=fdy/rfy
-
-dt=0.5
-wind=10
-alpha=0.0
-
-print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
-call model_test(1,nx,1,ny, &
-   -1,nx+3,0,ny+2, &
-   1,nx,1,ny, &
-   fdx,fdy,wind,alpha,dt,msteps)
-
+call  main_sub
 end program model_test_main

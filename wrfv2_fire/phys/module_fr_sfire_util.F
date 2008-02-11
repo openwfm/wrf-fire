@@ -141,33 +141,6 @@ if(ie.ne.0)then
 endif
 end subroutine check_tiles
 
-!
-!****************
-!
-
-subroutine set_tiles(itiles,jtiles,ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
-!*** set tiles for standalone/testing
-implicit none
-!*** arguments
-integer,intent(in)::itiles,jtiles,ids,ide,jds,jde
-integer,intent(out)::num_tiles
-integer,intent(out),dimension(itiles*jtiles)::i_start,i_end,j_start,j_end
-!*** local
-integer::i,j,istep,jstep,ij
-num_tiles=itiles*jtiles
-istep=(ide-ids+itiles)/itiles
-jstep=(jde-jds+jtiles)/jtiles
-do i=1,itiles
-    do j=1,jtiles
-        ij=j+(i-1)*jtiles
-        i_start(ij)=min(ide,ids+(i-1)*istep)
-        i_end(ij)  =min(ide,ids+(i  )*istep)
-        j_start(ij)=min(jde,jds+(j-1)*jstep)
-        j_end(ij)  =min(jde,jds+(j  )*jstep)
-    enddo
-enddo
-call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
-end subroutine set_tiles
 
 !
 !****************
