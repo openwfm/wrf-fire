@@ -2,7 +2,7 @@
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! With contributions by Minjeong Kim.
-!#define DEBUG_OUT
+#define DEBUG_OUT
 
 module module_fr_sfire_core
 
@@ -56,8 +56,8 @@ enddo
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
  
-do j=jfts,enode(jfte,jfde)
-    do i=ifts,enode(ifte,ifde)
+do j=jfts,jfte
+    do i=ifts,ifte
         tign(i,j) = time_init      ! ignition in future
         lfn(i,j) = lfn_init        ! no fire 
     enddo
@@ -495,10 +495,6 @@ character(len=128)msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
 
-#ifdef DEBUG_OUT
-integer,save::id=0
-#endif
-
 ! constants
 integer,parameter :: mstep=1000, printl=1
 real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
@@ -513,9 +509,6 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 write(msg,'(5(a,i5))')'prop_ls:',id,' tile  ',its,':',ite,',',jts,':',jte
 call message(msg)
 
-#ifdef DEBUG_OUT    
-    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,lfn_in,'lfn_in',id)
-#endif
     
     ! tend = F(lfn)
 
@@ -523,6 +516,10 @@ call message(msg)
     ihe=min(ite,ide+1)
     jhs=max(jts,jds) 
     jhe=min(jte,jde+1)
+
+#ifdef DEBUG_OUT    
+    call write_array_m(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme,lfn_in,'lfn_in',id)
+#endif
     
     call  tend_ls(&
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
@@ -541,7 +538,7 @@ call message(msg)
 )
 
 #ifdef DEBUG_OUT    
-    call write_array_m(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,tend,'tendh',id)
+    call write_array_m(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,tend,'tend1',id)
 #endif
 
     ! Euler method, the half-step
@@ -654,8 +651,8 @@ call message(msg)
         (100.*nfirenodes)/((ite-its+1)*(jte-jts+1)),'% next to fireline',nfireline
     call message(msg)
     if(nfireline>0)then
-        call print_stat_line('speed error',min_err,max_err,sum_err/nfireline)
-        call print_stat_line('abs(speed error)',min_aerr,max_aerr,sum_aerr/nfireline)
+        call print_stat_line('speed error',its+1,ite-1,jts+1,jte-1,min_err,max_err,sum_err/nfireline)
+        call print_stat_line('abs(speed error)',its+1,ite-1,jts+1,jte-1,min_aerr,max_aerr,sum_aerr/nfireline)
     endif
 
     call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
@@ -702,11 +699,10 @@ real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the le
 #endif
 
 !*** local 
+character(len=128)::msg
 real:: diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr
 integer::i,j
-! debug
-!real, dimension(its:ite+1,jts:jte+1)::d_rr,d_nvx,d_nvy
 
 ! constants
 real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
@@ -728,6 +724,8 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
     ints,inte,jnts,jnte, &                ! region - nodes where tend computed
     lfn)                                  ! array
 
+    write(msg,*)'tend_ls: computing on ',ints,':',inte,jnts,':',jnte
+    call message(msg)
     tbound=0    
     do j=jnts,jnte
         do i=ints,inte

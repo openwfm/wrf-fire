@@ -39,7 +39,7 @@ alpha=0.0
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
 call model_test(1,nx,1,ny, &
-   -1,nx+3,0,ny+2, &
+   -1,nx+3,-2,ny+2, &
    1,nx,1,ny, &
    fdx,fdy,wind,alpha,dt,msteps)
 
@@ -151,7 +151,7 @@ do istep=1,msteps
             jfts= jf_start(ij)
             jfte= jf_end(ij)
 
-            call   sfire_model (istep,ifun,         &
+            call   sfire_model (20*istep+ij,ifun,         &
                 initialize, num_ignitions,              & 
                 ifuelread,nfuel_cat0,                   &
                 ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
@@ -181,8 +181,8 @@ do istep=1,msteps
                 ifte= if_end(ij)
                 jfts= jf_start(ij)
                 jfte= jf_end(ij)
-                do j=jfts,enode(jfte,jfde)
-                    do i=ifts,enode(ifte,ifde)
+                do j=jfts,jfte
+                    do i=ifts,ifte
                         lfn(i,j)=lfn_out(i,j) ! at this point lfn_out is synchronized, can copy
                     enddo
                 enddo
@@ -232,6 +232,41 @@ do i=1,itiles
 enddo
 call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
 end subroutine set_tiles
+
+
+subroutine check_tiles(ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end)
+implicit none
+!*** purpose: check if tiles fit
+!*** arguments
+integer,intent(in)::ips,ipe,jps,jpe,num_tiles
+integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
+!*** local
+character(len=128)::msg
+integer:: ij,ie
+!*** executable
+if(num_tiles.lt.1)call crash('check_tiles: need at least one tile')
+ie=0
+if (num_tiles.eq.1) then
+    if(i_start(1).ne.ips.or.i_end(1).ne.ipe.or.j_start(1).ne.jps.or.j_end(1).ne.jpe)ie=1
+else
+    do ij=1,num_tiles
+        if(i_start(ij).lt.ips.or.i_end(ij).gt.ipe &
+        .or.j_start(ij).lt.jps.or.j_end(ij).gt.jpe)ie=ij
+    enddo
+endif
+if(ie.ne.0)then        
+    write(msg,*)'bad tile ',ie
+    call message(msg)
+    write(msg,*)'patch dimensions:',ips,ipe,jps,jpe
+    call message(msg)
+    do ij=1,num_tiles
+        write(msg,*)'tile',ij,i_start(ij),i_end(ij),j_start(ij),j_end(ij)
+        call message(msg)
+    enddo
+    call crash('bad tile bounds')
+endif
+end subroutine check_tiles
+
 
 end module module_model_test
 
