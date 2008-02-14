@@ -533,7 +533,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
 
-call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,uf,vf,'driver: fire wind (m/s)')
+call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
 
 
 end subroutine interpolate_atm2fire

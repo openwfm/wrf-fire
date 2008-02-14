@@ -81,7 +81,7 @@ real, dimension(max_ignitions) :: ignition_start_x,ignition_start_y, &
 
 !*** executable
 
-call set_tiles(1,1,ifps,ifpe,jfps,jfpe,num_tiles,if_start,if_end,jf_start,jf_end)
+call set_tiles(2,2,ifps,ifpe,jfps,jfpe,num_tiles,if_start,if_end,jf_start,jf_end)
 
 print *,'mesh size in cells: ',ifps,ifpe,jfps,jfpe
 print *,'array allocation:   ',ifms,ifme,jfms,jfme
@@ -151,7 +151,7 @@ do istep=1,msteps
             jfts= jf_start(ij)
             jfte= jf_end(ij)
 
-            call   sfire_model (20*istep+ij,ifun,         &
+            call   sfire_model (10*istep+ij,ifun,         &
                 initialize, num_ignitions,              & 
                 ifuelread,nfuel_cat0,                   &
                 ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain

@@ -89,14 +89,14 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 !*** local
 
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
-integer::ignited,ig,i,j,ifts2,ifte2,jfts2,jfte2
+integer::ignited,ig,i,j
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
-real::tbound,fdx2,fdy2
+real::tbound
 integer,parameter::ifl=2,jfl=2   ! quadrature mesh size per cell for fuel_left
 
 !*** executable
 
-call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)
+call check_mesh_2dim(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme)
 
 
 xifms=ifms  ! dimensions for the include file
@@ -124,7 +124,10 @@ if(ifun.eq.1)then  ! check for init and ignition
             zsf,nfuel_cat,fuel_time &
 #           include "fr_sfire_params_args.h" 
 )
-    
+
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'model: terrain height')        
+        call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,dzfsdx,dzfsdy,'terrain gradient')
+                                        
         ! initialize variable model arrays to no fire
         call init_no_fire   ( &
             ifds,ifde,jfds,jfde, &
@@ -133,31 +136,6 @@ if(ifun.eq.1)then  ! check for init and ignition
             fdx,fdy,time_start,  &
             fuel_frac,lfn,tign)             
 
-    call print_2d_stats(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme,zsf,'model: terrain height')
-
-        ! terrain gradient
-        fdx2=2./fdx
-        fdy2=2./fdy
-        fdx2=2./fdx
-        fdy2=2./fdy
-        ifts2=ifts
-        if(ifts.eq.ifds)ifts2=ifts2-1
-        jfts2=jfts
-        if(jfts.eq.jfds)jfts2=jfts2-1
-        ifte2=ifte
-        if(ifte.eq.ifde)ifte2=ifte2+1
-        jfte2=jfte
-        if(jfte.eq.jfde)jfte2=jfte2+1
-        do j=jfte2,jfte2
-            do i=ifte2,ifte2
-                dzfsdx(i,j)=(zsf(i+1,j)-zsf(i-1,j))*fdx2
-                dzfsdy(i,j)=(zsf(i,j+1)-zsf(i,j-1))*fdy2
-            enddo
-        enddo
-    call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1, &
-                   ifms,ifme,jfms,jfme, &
-                   dzfsdx,dzfsdy,'terrain gradient')
-                                    
     endif
 
     do ig = 1,num_ignitions
@@ -197,10 +175,6 @@ elseif (ifun.eq.2) then
     call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
                    fuel_frac,'model: fuel_frac start')
-
-    call print_2d_stats(ifts,ifte,jfts,jfte, &
-                   ifts,ifte,jfts,jfte, &
-                   fuel_frac_burnt,'model: fuel_frac burned')
 
 !   do time step
     call prop_ls(id,     &

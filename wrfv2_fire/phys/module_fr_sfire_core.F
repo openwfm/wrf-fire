@@ -2,7 +2,7 @@
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! With contributions by Minjeong Kim.
-#define DEBUG_OUT
+!#define DEBUG_OUT
 
 module module_fr_sfire_core
 
@@ -490,7 +490,7 @@ real, parameter::a=0.5, a1=1.0-a ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
-integer::i,j
+integer::i,j,its1,ite1,jts1,jte1
 character(len=128)msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
@@ -512,15 +512,20 @@ call message(msg)
     
     ! tend = F(lfn)
 
-    ihs=max(its-1,ids)   ! compute tend one beyond the tile but not outside domain 
-    ihe=min(ite,ide+1)
-    jhs=max(jts,jds) 
-    jhe=min(jte,jde+1)
+    ihs=max(its-1,ids)   ! compute tend one beyond the tile but not outside the domain 
+    ihe=min(ite+1,ide)
+    jhs=max(jts-1,jds) 
+    jhe=min(jte+1,jde)
 
 #ifdef DEBUG_OUT    
-    call write_array_m(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme,lfn_in,'lfn_in',id)
+    call write_array_m(ihs,ihe,jhs,jhe,ims,ime,jms,jme,lfn_in,'lfn_in',id)
 #endif
     
+    ! NOTE: tend_ls will do relection to one node strip at domain boundaries
+    ! so that it can compute gradient at domain boundaries.
+    ! To avoid copying, lfn_in is declared inout.
+    ! At tile boundaries that are not domain boundaries values of lfn_in two nodes
+    ! outside of the tile are needed.
     call  tend_ls(&
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
@@ -541,15 +546,14 @@ call message(msg)
     call write_array_m(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,tend,'tend1',id)
 #endif
 
-    ! Euler method, the half-step
-    ! lfn1 = lfn+dt*tend
+    ! Euler method, the half-step, same region as ted
     do j=jhs,jhe
         do i=ihs,ihe
             lfn1(i,j) = lfn_in(i,j) + dt*tend(i,j)
         enddo
     enddo
     
-    ! tend = F(lfn1)
+    ! tend = F(lfn1) on the tile (not beyond)
 
     call  tend_ls( &
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
@@ -566,7 +570,9 @@ call message(msg)
 #include "fr_sfire_params_args.h"
 #endif
 )
-    
+
+    call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
+        
     tbound=min(tbound,tbound2)
 
     write(msg,'(a,f10.2,4(a,f7.2))')'prop_ls: time',ts,' dt=',dt,' bound',min(tbound,999.99), &
@@ -610,6 +616,7 @@ call message(msg)
     enddo
     
     ! check local speed error and stats 
+    ! may not work correctly in parallel
     ! init stats
     nfirenodes=0
     nfireline=0
@@ -619,9 +626,16 @@ call message(msg)
     sum_aerr=0.
     min_aerr=rmax
     max_aerr=rmin    
+    its1=its+1
+    jts1=jts+1
+    ite1=ite-1
+    jte1=jte-1
     ! loop over right inside of the domain
-    do j=jts+1,jte-1
-        do i=its+1,ite-1
+    ! cannot use values outside of the domain, would have to reflect and that
+    ! would change lfn_out
+    ! cannot use values outside of tile, not synchronized yet
+    do j=jts1,jte1
+        do i=its1,ite1
             if(lfn_out(i,j)>0.0)then   ! a point out of burning region
                 if(lfn_out(i+1,j)<=0.or.lfn_out(i,j+1)<=0.or. & ! neighbor in burning region
                    lfn_out(i-1,j)<=0.or.lfn_out(i,j-1)<=0)then ! point next to fireline
@@ -648,15 +662,13 @@ call message(msg)
         enddo
     enddo
     write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
-        (100.*nfirenodes)/((ite-its+1)*(jte-jts+1)),'% next to fireline',nfireline
+        (100.*nfirenodes)/((ite1-its1+1)*(jte1-jts1+1)),'% next to fireline',nfireline
     call message(msg)
     if(nfireline>0)then
-        call print_stat_line('speed error',its+1,ite-1,jts+1,jte-1,min_err,max_err,sum_err/nfireline)
-        call print_stat_line('abs(speed error)',its+1,ite-1,jts+1,jte-1,min_aerr,max_aerr,sum_aerr/nfireline)
+        call print_stat_line('speed error',its1,ite1,jts1,jte1,min_err,max_err,sum_err/nfireline)
+        call print_stat_line('abs(speed error)',its1,ite1,jts1,jte1,min_aerr,max_aerr,sum_aerr/nfireline)
     endif
 
-    call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
-    
 
 end subroutine prop_ls
 
@@ -699,7 +711,6 @@ real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the le
 #endif
 
 !*** local 
-character(len=128)::msg
 real:: diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr
 integer::i,j
@@ -716,7 +727,6 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
     
     ! check array dimensions
     call check_mesh_2dim(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme)
-    call check_mesh_2dim(ints  ,inte+1,jnts  ,jnte+1,tims,time,tjms,tjme)
     
     call continue_at_boundary(1,1, &
     lims,lime,ljms,ljme, &                ! memory dims
@@ -724,8 +734,9 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
     ints,inte,jnts,jnte, &                ! region - nodes where tend computed
     lfn)                                  ! array
 
-    write(msg,*)'tend_ls: computing on ',ints,':',inte,jnts,':',jnte
-    call message(msg)
+    call print_2d_stats(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme, &
+                   lfn,'tend_ls: lfn in /w halo')
+    
     tbound=0    
     do j=jnts,jnte
         do i=ints,inte
@@ -767,6 +778,9 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
             tend(i,j) = -rr*grad   ! normal term 
         enddo
     enddo        
+
+    call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
+                   tend,'tend_ls: tend out')
 
     ! the final CFL bound
     tbound = 1/(tbound+tol)

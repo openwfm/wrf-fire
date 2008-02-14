@@ -184,8 +184,8 @@ call continue_at_boundary(1,1, &          ! do x direction or y direction
     ifts,ifte,jfts,jfte, &                ! tile dims
     zsfc)                                 ! array
 
-fdxinv=1./fdx
-fdyinv=1./fdy
+fdxinv=0.5/fdx
+fdyinv=0.5/fdy
 do j=jfts,jfte
     do i=ifts,ifte
         ! central differences
