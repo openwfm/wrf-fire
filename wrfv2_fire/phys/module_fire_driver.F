@@ -343,12 +343,10 @@ CONTAINS
    END SELECT fire_select
 
    ! common print to compare
-   ! NOTE: this will not work even on OMP - debug only
-   if(num_tiles.ne.1)call wrf_error_fatal('fire_driver:print_3d_stats debug print supported on 1 tile only')
-   call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
-   call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
-   call print_3d_stats(ids,ide,kds,kde,jds,jde,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver:rthfrten')
-   call print_3d_stats(ids,ide,kds,kde,jds,jde,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver:rqvfrten')
+   call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
+   call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
+   call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver:rthfrten')
+   call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver:rqvfrten')
 
    END SUBROUTINE fire_driver
 
