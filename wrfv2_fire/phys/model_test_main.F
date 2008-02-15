@@ -39,7 +39,8 @@ alpha=0.0
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
 call model_test(1,nx,1,ny, &
-   -1,nx+3,-2,ny+2, &
+!   -1,nx+3,-2,ny+2, &
+   0,nx+1,0,ny+1, &
    1,nx,1,ny, &
    fdx,fdy,wind,alpha,dt,msteps)
 
@@ -68,7 +69,8 @@ real, intent(in)::fdx,fdy,dt,wind,alpha
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,                    &
                  grnhfx,grnqfx,lfn_out
-integer:: initialize, num_ignitions,i,j,ifuelread,istep,nfuel_cat0,ifun
+integer::  num_ignitions,i,j,ifuelread,istep,nfuel_cat0,ifun,ifun_start
+logical::need_lfn_update
 real:: t0,time_start,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
 real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
@@ -127,23 +129,9 @@ ignition_time(2)=2
 
 
 do istep=1,msteps
-    if(istep.eq.1)then
-            initialize=1
-    else
-            initialize=0
-    endif
-    do ifun=1,3
-        ! 1 = initialize (winds come here too)
-        ! 2 = timestep, lfn -> lfn_out, update tign
-        ! 3 = fuel and fluxes
-
-        if(ifun.eq.3)then
-            ! halo tign lfn width 1 (just to get the nodes of the last row of cells)
-        endif
-        if(ifun.eq.2)then
-            ! halo lfn width 2 
-        endif
-
+    ifun_start=1
+    if(istep.ne.1)ifun_start=3
+    do ifun=ifun_start,6
 !OMP    PARALLEL DO PRIVATE(ij,ifts,ifte,jfts,jfte)        
         do ij=1,num_tiles
             ifts= if_start(ij)          
@@ -152,7 +140,7 @@ do istep=1,msteps
             jfte= jf_end(ij)
 
             call   sfire_model (10*istep+ij,ifun,         &
-                initialize, num_ignitions,              & 
+                need_lfn_update, num_ignitions,              & 
                 ifuelread,nfuel_cat0,                   &
                 ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -173,22 +161,8 @@ do istep=1,msteps
             )
         enddo 
         
-        if(ifun.eq.2)then 
-            ! all done, can copy lfn_out to lfn without racing someone else's input from lfn
-!OMP        PARALLEL DO PRIVATE(ij,ifts,ifte,jfts,jfte,i,j)        
-            do ij=1,num_tiles
-                ifts= if_start(ij)          
-                ifte= if_end(ij)
-                jfts= jf_start(ij)
-                jfte= jf_end(ij)
-                do j=jfts,jfte
-                    do i=ifts,ifte
-                        lfn(i,j)=lfn_out(i,j) ! at this point lfn_out is synchronized, can copy
-                    enddo
-                enddo
-            enddo
-        endif
-    enddo
+    enddo !OMP PARALLEL
+    
     if(istep.le.10.or.mod(istep,10).eq.0)then
         write(1,1)1.,1.,time_start
         write(1,1)sm,sn,((lfn(i,j),i=ifps,ifpe),j=jfps,jfpe)

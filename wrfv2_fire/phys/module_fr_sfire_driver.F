@@ -48,7 +48,7 @@ use module_fr_sfire_util
 contains
 
 ! module_fr_sfire_driver%%sfire_driver
-subroutine sfire_driver (                         &
+subroutine sfire_driver (ifun,need_lfn_update,    &
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
     ips,ipe, kps,kpe, jps,jpe,                    &
@@ -68,6 +68,7 @@ subroutine sfire_driver (                         &
     u,v,mu,rho,zs,                                & ! in arrays, atm grid
     z_at_w,dz8w,                                  &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
+    uf,vf,lfn_out,                                & ! fire wind velocities, out level set function    
     rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
@@ -79,7 +80,7 @@ implicit none
 
 !*** arguments
 
-integer, intent(in)::                             &
+integer, intent(in)::ifun,                        &
     ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
     ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
     ips,ipe, kps,kpe, jps,jpe,                    & ! atm patch bounds
@@ -95,6 +96,8 @@ integer, intent(in)::                             &
                                                        ! 2=from file
     nfuel_cat0,                                   & ! fuel category to initialize everything to
     num_tiles                                       ! number of tiles
+    
+logical, intent(out)::need_lfn_update
 
 integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! atm grid tiling
 
@@ -125,7 +128,8 @@ integer, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
     nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
-    lfn,tign,fuel_frac                              ! state: level function, ign time, fuel left
+    lfn,tign,fuel_frac,                        &     ! state: level function, ign time, fuel left
+    uf,vf,lfn_out                                    ! fire wind velocities
 
 real, intent(out), dimension(ims:ime, kms:kme, jms:jme):: &
     rthfrten,rqvfrten                              ! temperature and humidity tendencies (atm grid)
@@ -145,34 +149,17 @@ integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
     
 !*** local
 real :: dxf,dyf,time_start
-integer,dimension(num_tiles) :: if_start,if_end,jf_start,jf_end   ! fire grid tiling
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
-    ij,i,j,k,initialize,id, &
+    ij,i,j,k,id, &
     ifts,ifte,jfts,jfte                          ! fire tile
-integer::ifun
-real, dimension(ifms:ifme,jfms:jfme) :: uf,vf,lfn_out   ! fire wind velocities
 character(len=128)msg
 real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 
 !*** executable
 
-! initialize and ignition should be really passed in arguments
-! and set to 1 at the right time by the caller
-if(itimestep .eq. 1 )then
-    initialize=1
-else
-    initialize=0
-endif
 
 ! time - assume dt does not change
 time_start = itimestep * dt
-
-! debug write switch
-id=0
-if(itimestep.le.10.or.mod(itimestep,100).eq.0)id=itimestep
-!write_m = .false.
-write(msg,'(a,i5,a,l1)')'itimestep=',itimestep,' id=',id
-call message(msg)
 
 ! fire mesh step
 dxf=dx/ir
@@ -216,14 +203,18 @@ call check_mesh_2dim(ips,ipe,jps,jpe,ids,ide,jds,jde)        ! check if atm patc
 call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifds,ifde,jfds,jfde) ! check if fire patch fits in fire domain
 
 ! init rest of fuel tables with derived constants
-call init_fuel_cats
+if(ifun.eq.1)call init_fuel_cats  ! common for all threads
 
 ! set up fire tiles & interpolate to fire grid
-!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg)
+!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg,id)
 do ij=1,num_tiles
 
-    ! set up tile bounds
-    
+    id=0  ! do not print/write anything
+    !if(itimestep.le.10.or.mod(itimestep,10).eq.0)id=100*itimestep+ij-1
+    if(itimestep.le.10.or.mod(itimestep,10).eq.0)id=itimestep
+
+
+    ! set up tile bounds    
     its = i_start(ij)  ! start atmospheric tile in i
     ite = i_end(ij)    ! end atmospheric tile in i
     jts = j_start(ij)  ! start atmospheric tile in j
@@ -232,15 +223,8 @@ do ij=1,num_tiles
     ifte= (ite-ids+1)*ir+ifds-1   ! end fire tile in i
     jfts= (jts-jds)*jr+jfds       ! start fire tile in j
     jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
-    
-    ! store tile bounds for future loops
-    
-    if_start(ij)=ifts             
-    if_end(ij)=ifte
-    jf_start(ij)=jfts
-    jf_end(ij)=jfte
-    
-    write(msg,*)'tile ',ij
+        
+    write(msg,*)'tile=',ij,' id=',id,' ifun=',ifun
     call message(msg)
     write(msg,7001)'atm tile   ','its',its,ite,jts,jte
     call message(msg)                   
@@ -252,166 +236,130 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts,ifte,jfts,jfte,ifps,ifpe,jfps,jfpe)         ! check if fire tile fits in fire patch
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-    ! interpolate winds to the fire grid
-    call interpolate_atm2fire(id,                     & ! flag for debug output
-        ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
-        ims,ime, kms,kme, jms,jme,                    &
-        ips,ipe, kps,kpe, jps,jpe,                    &
-        its,ite,jts,jte,                              &                    
-        ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-        ifms, ifme, jfms, jfme,                       &
-        ifps, ifpe, jfps, jfpe,                       &
-        ifts,ifte,jfts,jfte,                          &
-        ir,jr,                                        & ! atm/fire grid ratio
-        u_frame, v_frame,                             & ! velocity frame correction
-        u,v,                                       & ! atm grid arrays in
-        uf,vf)                                      ! fire grid arrays out
-
-
-    ! interpolate winds to the fire grid
-    if(initialize.ne.0)then
-        call interpolate_z2fire(id,                     & ! flag for debug output
-        ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
-        ims,ime, kms,kme, jms,jme,                    &
-        ips,ipe, kps,kpe, jps,jpe,                    &
-        its,ite,jts,jte,                              &                    
-        ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-        ifms, ifme, jfms, jfme,                       &
-        ifps, ifpe, jfps, jfpe,                       &
-        ifts,ifte,jfts,jfte,                          &
-        ir,jr,                                        & ! atm/fire grid ratio
-        zs,                                       & ! atm grid arrays in
-        zsf)                                      ! fire grid arrays out
-    endif
+    if(ifun.eq.1)then   ! set z
     
-enddo
-
-if(id.gt.0)then
-    call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',id)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',id)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',id)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',id)
-endif
-
-
-do ifun=1,3
-! 1 = initialize (winds come here too)
-! 2 = timestep
-! 3 = fuel and fluxes
-
-!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte)
-  do ij=1,num_tiles
-
-    !get the tile
-    its = i_start(ij)             ! start atmospheric tile in i
-    ite = i_end(ij)               ! end atmospheric tile in i
-    jts = j_start(ij)             ! start atmospheric tile in j
-    jte = j_end(ij)               ! end atmospheric tile in j
-    ifts= if_start(ij)             ! matching fire tile
-    ifte= if_end(ij)
-    jfts= jf_start(ij)
-    jfte= jf_end(ij)
-
-    if(ifun.eq.3)then ! an also 2 if timestep 2 or more
-        do j=jfts,jfte
-            do i=ifts,ifte
-                lfn(i,j)=lfn_out(i,j) ! at this point lfn_out is synchronized, can copy
-            enddo
-        enddo
+        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+            ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+            ims,ime, kms,kme, jms,jme,                    &
+            ips,ipe, kps,kpe, jps,jpe,                    &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifps, ifpe, jfps, jfpe,                       & 
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            zs,                                       & ! atm grid arrays in
+            zsf)                                      ! fire grid arrays out
+            
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',id)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',id)
+               
+    elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
+    
+        call interpolate_atm2fire(id,                     & ! flag for debug output
+            ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+            ims,ime, kms,kme, jms,jme,                    &
+            ips,ipe, kps,kpe, jps,jpe,                    &
+            its,ite,jts,jte,                              &                    
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifps, ifpe, jfps, jfpe,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            u_frame, v_frame,                             & ! velocity frame correction
+            u,v,                                       & ! atm grid arrays in
+            uf,vf)                                      ! fire grid arrays out
+            
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',id)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',id)
+    
     endif
-! halo exchange for lfn comes here in any case: need 2 rows before timestep, 1 before fuel 
 
-    call sfire_model (id,ifun,              &
-    initialize, num_ignitions,              & ! switches
-    ifuelread,nfuel_cat0,                   & ! initialize fuel categories
-    ifds,ifde,jfds,jfde,                    & ! fire domain dims
-    ifms,ifme,jfms,jfme,                    & ! fire memory dims
-    ifts,ifte,jfts,jfte,                    & ! fire patch dims
-    time_start,dt,                          & ! time and increment
-    dxf,dyf,                                & ! fire mesh spacing
-    ignition_start_x,ignition_start_y,      & ! ignition - small arrays
-    ignition_end_x,ignition_end_y,          &
-    ignition_radius,                        &
-    ignition_time,                          &
-    zsf,                                    & ! terrain height (for gradient)
-    uf,vf,                                  & ! input: wind
-    lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
-    fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
-    nfuel_cat,                              & ! fuel data per point 
-    fuel_time,                              & ! save derived internal data
-    dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
+    call sfire_model (id,ifun,need_lfn_update,  &
+        num_ignitions,                          & ! switches
+        ifuelread,nfuel_cat0,                   & ! initialize fuel categories
+        ifds,ifde,jfds,jfde,                    & ! fire domain dims
+        ifms,ifme,jfms,jfme,                    & ! fire memory dims
+        ifts,ifte,jfts,jfte,                    & ! fire patch dims
+        time_start,dt,                          & ! time and increment
+        dxf,dyf,                                & ! fire mesh spacing
+        ignition_start_x,ignition_start_y,      & ! ignition - small arrays
+        ignition_end_x,ignition_end_y,          &
+        ignition_radius,                        &
+        ignition_time,                          &
+        zsf,                                    & ! terrain height (for gradient)
+        uf,vf,                                  & ! input: wind
+        lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+        fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
+        nfuel_cat,                              & ! fuel data per point 
+        fuel_time,                              & ! save derived internal data
+        dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
     )
     
-    if(ifun.eq.3)then
-        
-    ! sum the fluxes over atm cells
-    call sum_2d_cells(        &
-        ifms,ifme,jfms,jfme,  &
-        ifts,ifte,jfts,jfte,  &
-        fgrnhfx,              &
-        ims, ime, jms, jme,   &
-        its,ite,jts,jte,      &
-        grnhfx)
-    call sum_2d_cells(        &
-        ifms,ifme,jfms,jfme,  &
-        ifts,ifte,jfts,jfte,  &
-        fgrnhfx,              &
-        ims, ime, jms, jme,   &
-        its,ite,jts,jte,      &
-        grnhfx)
-
-    do j=jts,jte
-        do i=its,ite
-            ! scale ground fluxes to get the averages
-            grnhfx(i,j)=grnhfx(i,j)/(ir*jr)
-            grnqfx(i,j)=grnqfx(i,j)/(ir*jr)
-            ! we do not have canopy fluxes yet...
-            canhfx(i,j)=0
-            canqfx(i,j)=0
-        enddo
-    enddo
-
-
-    ! --- add heat and moisture fluxes to tendency variables by postulated decay
-
-    call fire_tendency(                 &
-        ids,ide, kds,kde, jds,jde,      & ! dimensions
-        ims,ime, kms,kme, jms,jme,      &
-        its,ite, kts,kte, jts,jte,      & ! 
-        grnhfx,grnqfx,canhfx,canqfx,        & ! fluxes on atm grid 
-        alfg,alfc,z1can,                &
-        zs,z_at_w,dz8w,mu,rho,          &
-        rthfrten,rqvfrten)                ! out
-    endif
+    if(ifun.eq.6)then ! heat fluxes into the atmosphere    
     
- enddo ! tiles
+        ! sum the fluxes over atm cells
+        call sum_2d_cells(        &
+            ifms,ifme,jfms,jfme,  &
+            ifts,ifte,jfts,jfte,  &
+            fgrnhfx,              &
+            ims, ime, jms, jme,   &
+            its,ite,jts,jte,      &
+            grnhfx)
+        call sum_2d_cells(        &
+            ifms,ifme,jfms,jfme,  &
+            ifts,ifte,jfts,jfte,  &
+            fgrnhfx,              &
+            ims, ime, jms, jme,   &
+            its,ite,jts,jte,      &
+            grnhfx)
 
-enddo ! ifun
+        do j=jts,jte
+            do i=its,ite
+                ! scale ground fluxes to get the averages
+                grnhfx(i,j)=grnhfx(i,j)/(ir*jr)
+                grnqfx(i,j)=grnqfx(i,j)/(ir*jr)
+                ! we do not have canopy fluxes yet...
+                canhfx(i,j)=0
+                canqfx(i,j)=0
+            enddo
+        enddo
 
-call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
-call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
-call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
-call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
-call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
-call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
-do k=kps,min(kps+1,kpe)
-    write(msg,'(a,i4)')'driver:rthfrten layer k=',k
-    call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,msg)
-    write(msg,'(a,i4)')'driver:rqvfrten layer k=',k
-    call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,msg)
-enddo
+        ! --- add heat and moisture fluxes to tendency variables by postulated decay
 
-if(id.gt.0)then
-    call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',id)
-    call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',id)
-    call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',id)
-    call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',id)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',id)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',id)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',id)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',id)
-    call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',id)
-endif
+        call fire_tendency(                 &
+            ids,ide, kds,kde, jds,jde,      & ! dimensions
+            ims,ime, kms,kme, jms,jme,      &
+            its,ite, kts,kte, jts,jte,      & ! 
+            grnhfx,grnqfx,canhfx,canqfx,        & ! fluxes on atm grid 
+            alfg,alfc,z1can,                &
+            zs,z_at_w,dz8w,mu,rho,          &
+            rthfrten,rqvfrten)                ! out
+            
+        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
+        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
+        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
+        call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
+        do k=kps,min(kps+1,kpe)
+            call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
+            call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
+        enddo
+
+    endif ! ifun=6
+    
+    if(id.gt.0)then
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',id)
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',id)
+        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',id)
+        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',id)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',id)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',id)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',id)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',id)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',id)
+    endif
+
+enddo ! tiles
 
 end subroutine sfire_driver
 
@@ -537,6 +485,10 @@ call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,uf,vf,'f
 
 
 end subroutine interpolate_atm2fire
+
+!
+!*****************************
+!
 
 subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions

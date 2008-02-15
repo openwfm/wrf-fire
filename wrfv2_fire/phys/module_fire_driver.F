@@ -209,7 +209,10 @@ CONTAINS
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: v_tmp
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: u_tmp
    CHARACTER(LEN=128) :: msg
-
+   
+   integer::ifun,ifun_first
+   logical::need_lfn_update
+   real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out ! fire wind velocities out level set function
 !------------------------------------------------------------------
 !
     CALL wrf_debug(100,'entering fire_driver')
@@ -297,8 +300,11 @@ CONTAINS
      ! then u_phy was passed here as u 
 
      ! call on domain one less
-          
-     CALL sfire_driver(                                      &
+     
+     ifun_first=3
+     if(itimestep.eq.1)ifun_first=1
+     do ifun=ifun_first,6     
+     CALL sfire_driver(ifun,need_lfn_update,                    &
              ids,ide-1, kds,kde, jds,jde-1                          &
             ,ims,ime, kms,kme, jms,jme                          &
             ,ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1)                          & 
@@ -319,14 +325,15 @@ CONTAINS
             ,fire_ignition_time                                &
             ,u,v,mu,rho,ht                                      &
             ,z_at_w,dz8w                                        &
-            ,lfn,tign_c,fuel_frac                     & 
+            ,lfn,tign_c,fuel_frac                               & 
+            ,uf,vf,lfn_out                                      & ! fire wind velocities, out level set function
             ,rthfrten,rqvfrten                                  &
             ,grnhfx,grnqfx,canhfx,canqfx                        &
             ,nfuel_cat                                          &
             ,fuel_time,zsf                                      &
             ,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap     &
             )
-
+    enddo
         CALL wrf_debug(100,'exiting SFIRE fire scheme')
    CASE DEFAULT
 
