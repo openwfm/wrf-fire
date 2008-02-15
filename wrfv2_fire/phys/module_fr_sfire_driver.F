@@ -342,6 +342,8 @@ if(ifun.eq.1)then
     endif
 elseif(ifun.eq.3)then
     if(pid.gt.0)then
+        call write_array_m(ips,ipe+1,jps,jpe+1,ifms,ifme,jfms,jfme,u,'u',pid)
+        call write_array_m(ips,ipe+1,jps,jpe+1,ifms,ifme,jfms,jfme,v,'v',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',pid)
     endif
