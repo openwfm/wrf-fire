@@ -150,7 +150,7 @@ integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
 !*** local
 real :: dxf,dyf,time_start
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
-    ij,i,j,k,id, &
+    ij,i,j,k,id,pid,kpe1, &
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)msg
 real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
@@ -205,13 +205,15 @@ call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifds,ifde,jfds,jfde) ! check if fire pa
 ! init rest of fuel tables with derived constants
 if(ifun.eq.1)call init_fuel_cats  ! common for all threads
 
+pid=0
+if(itimestep.le.10.or.mod(itimestep,10).eq.0)pid=itimestep
+
 ! set up fire tiles & interpolate to fire grid
 !OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg,id)
 do ij=1,num_tiles
 
     id=0  ! do not print/write anything
-    !if(itimestep.le.10.or.mod(itimestep,10).eq.0)id=100*itimestep+ij-1
-    if(itimestep.le.10.or.mod(itimestep,10).eq.0)id=itimestep
+    if(itimestep.le.10.or.mod(itimestep,10).eq.0)id=itimestep+ij*10000
 
 
     ! set up tile bounds    
@@ -250,34 +252,20 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             zs,                                       & ! atm grid arrays in
             zsf)                                      ! fire grid arrays out
-
-        call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver:zsf')
-        
-        if(id.ne.0)then
-            call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',id)
-            call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',id)
-        endif
                
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
         call interpolate_atm2fire(id,                     & ! flag for debug output
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
-            ips,ipe, kps,kpe, jps,jpe,                    &
             its,ite,jts,jte,                              &                    
             ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
             ifms, ifme, jfms, jfme,                       &
-            ifps, ifpe, jfps, jfpe,                       &
             ifts,ifte,jfts,jfte,                          &
             ir,jr,                                        & ! atm/fire grid ratio
             u_frame, v_frame,                             & ! velocity frame correction
             u,v,                                       & ! atm grid arrays in
             uf,vf)                                      ! fire grid arrays out
-
-        if(id.gt.0)then            
-            call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',id)
-            call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',id)
-        endif
     
     endif
 
@@ -342,30 +330,47 @@ do ij=1,num_tiles
             zs,z_at_w,dz8w,mu,rho,          &
             rthfrten,rqvfrten)                ! out
             
-        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
-        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
-        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
-        call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
-        do k=kps,min(kps+1,kpe)
-            call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
-            call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
-        enddo
-
     endif ! ifun=6
-    
-    if(id.gt.0)then
-        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',id)
-        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',id)
-        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',id)
-        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',id)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',id)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',id)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',id)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',id)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',id)
-    endif
 
 enddo ! tiles
+
+if(ifun.eq.1)then
+    call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver:zsf')        
+    if(pid.ne.0)then
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',pid)
+    endif
+elseif(ifun.eq.3)then
+    if(pid.gt.0)then
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',pid)
+    endif
+elseif(ifun.eq.5)then
+    if(pid.gt.0)then
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',pid)
+    endif
+elseif(ifun.eq.6)then
+    if(pid.gt.0)then
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
+        !call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',pid)
+        !call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)
+    endif
+    call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
+    call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
+    !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
+    !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
+    kpe1=min(kps+1,kpe)
+    kpe1=kps-1
+    do k=kps,kpe1
+        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
+        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
+    enddo
+endif
 
 end subroutine sfire_driver
 
@@ -377,11 +382,9 @@ end subroutine sfire_driver
 subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no output
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
-    ips,ipe, kps,kpe, jps,jpe,                    &
     its,ite,jts,jte,                              &
     ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
     ifms, ifme, jfms, jfme,                       &
-    ifps, ifpe, jfps, jfpe,                       & 
     ifts,ifte,jfts,jfte,                          &
     ir,jr,                                        & ! atm/fire grid ratio
     u_frame, v_frame,                             & ! velocity frame correction
@@ -395,11 +398,9 @@ implicit none
 integer, intent(in)::id,                          &
     ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
     ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
-    ips,ipe, kps,kpe, jps,jpe,                    & ! atm patch bounds
     its,ite,jts,jte,                              & ! atm tile bounds
     ifds, ifde, jfds, jfde,                       & ! fire domain bounds
     ifms, ifme, jfms, jfme,                       & ! fire memory bounds
-    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
     ifts,ifte,jfts,jfte,                          & ! fire tile bounds
     ir,jr                                         ! atm/fire grid refinement ratio
 real, intent(in):: u_frame, v_frame                 ! velocity frame correction
@@ -487,7 +488,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
 
-call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
+!call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
 
 
 end subroutine interpolate_atm2fire
@@ -526,7 +527,7 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
     
 !*** local
 real, dimension(its-1:ite+1,jts-1:jte+1):: za      ! terrain height
-integer:: i,j,jts1,jte1,its1,ite1
+integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
 
 ! terrain height
 
@@ -544,14 +545,20 @@ integer:: i,j,jts1,jte1,its1,ite1
     call continue_at_boundary(1,1, & ! do x direction or y direction
     its-1,ite+1,jts-1,jte+1,           &                ! memory dims
     ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
-    its,ite,jts,jte, &                ! tile dims
+    its1,ite1,jts1,jte1, &                ! tile dims
     za)                               ! array
+
+    ! interpolate to tile plus strip along domain boundary if at boundary
+    jfts1=snode(jfts,jfds,-1) ! lower loop limit by one less when at end of domain
+    ifts1=snode(ifts,ifds,-1)
+    jfte1=snode(jfte,jfde,1) 
+    ifte1=snode(ifte,ifde,1)
                      
     call interpolate_2d(  &
         its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
         its-1,ite+1,jts-1,jte+1, & ! where atm grid values set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts-2,ifte+2,jfts-2,jfte+2,  & ! dimensions fire grid tile
+        ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
         real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
         za,                     & ! in atm grid     

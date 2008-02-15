@@ -920,5 +920,15 @@ call message(msg)
 3 format(a,a,i5.5,a)
 end subroutine write_array_m3
 
+! function to go beyond domain boundary if tile is next to it
+pure integer function snode(t,d,i)
+implicit none
+integer, intent(in)::t,d,i
+if(t.ne.d)then
+    snode=t
+else
+    snode=t+i
+endif
+end function snode
 
 end module module_fr_sfire_util
