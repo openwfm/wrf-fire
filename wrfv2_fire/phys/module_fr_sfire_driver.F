@@ -441,10 +441,10 @@ integer:: i,j,k
     its,ite+1,jts,jte+1, &                ! tile dims
     ua)                               ! array
 
-if (id.gt.0) then
-    call write_array_m(TDIMS,TDIMS,ua,'ua',id)
-    call write_array_m(TDIMS,TDIMS,va,'va',id)
-endif
+!if (id.gt.0) then
+!    call write_array_m(TDIMS,TDIMS,ua,'ua',id)
+!    call write_array_m(TDIMS,TDIMS,va,'va',id)
+!endif
 
 call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
     'driver: atm wind (m/s)')
