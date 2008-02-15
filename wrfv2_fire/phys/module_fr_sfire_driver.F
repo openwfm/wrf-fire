@@ -269,9 +269,11 @@ do ij=1,num_tiles
             u_frame, v_frame,                             & ! velocity frame correction
             u,v,                                       & ! atm grid arrays in
             uf,vf)                                      ! fire grid arrays out
-            
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',id)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',id)
+
+        if(id.gt.0)then            
+            call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',id)
+            call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',id)
+        endif
     
     endif
 
