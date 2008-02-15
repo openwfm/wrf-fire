@@ -99,8 +99,8 @@ endif
 if(ix.ne.0.and.iy.ne.0)then
     if(its.eq.ids.and.jts.eq.jds)lfn(ids-1,jds-1)=2*lfn(ids,jds)-lfn(ids+1,jds+1)
     if(its.eq.ids.and.jte.eq.jde)lfn(ids-1,jde+1)=2*lfn(ids,jde)-lfn(ids+1,jde-1)
-    if(its.eq.ide.and.jts.eq.jds)lfn(ide+1,jds-1)=2*lfn(ide,jds)-lfn(ide-1,jds+1)
-    if(its.eq.ide.and.jte.eq.jde)lfn(ide+1,jde+1)=2*lfn(ide,jde)-lfn(ide-1,jde-1)
+    if(ite.eq.ide.and.jts.eq.jds)lfn(ide+1,jds-1)=2*lfn(ide,jds)-lfn(ide-1,jds+1)
+    if(ite.eq.ide.and.jte.eq.jde)lfn(ide+1,jde+1)=2*lfn(ide,jde)-lfn(ide-1,jde-1)
 endif
 write(msg,'(10(a,i5))')'continue_at_boundary:', &
     its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jtso,':',jteo

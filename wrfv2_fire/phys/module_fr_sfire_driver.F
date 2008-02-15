@@ -237,22 +237,26 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
     if(ifun.eq.1)then   ! set z
+
+        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
     
         call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
-            ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
-            ims,ime, kms,kme, jms,jme,                    &
-            ips,ipe, kps,kpe, jps,jpe,                    &
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
             its,ite,jts,jte,                              &
             ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
             ifms, ifme, jfms, jfme,                       &
-            ifps, ifpe, jfps, jfpe,                       & 
             ifts,ifte,jfts,jfte,                          &
             ir,jr,                                        & ! atm/fire grid ratio
             zs,                                       & ! atm grid arrays in
             zsf)                                      ! fire grid arrays out
-            
-        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',id)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',id)
+
+        call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver:zsf')
+        
+        if(id.ne.0)then
+            call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',id)
+            call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',id)
+        endif
                
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
@@ -493,13 +497,11 @@ end subroutine interpolate_atm2fire
 !
 
 subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
-    ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
-    ims,ime, kms,kme, jms,jme,                    &
-    ips,ipe, kps,kpe, jps,jpe,                    &
+    ids,ide, jds,jde,                    & ! atm grid dimensions
+    ims,ime, jms,jme,                    &
     its,ite,jts,jte,                              &
     ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
     ifms, ifme, jfms, jfme,                       &
-    ifps, ifpe, jfps, jfpe,                       & 
     ifts,ifte,jfts,jfte,                          &
     ir,jr,                                        & ! atm/fire grid ratio
     zs,                                       & ! atm grid arrays in
@@ -510,13 +512,11 @@ implicit none
 
 !*** arguments
 integer, intent(in)::id,                          &
-    ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
-    ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
-    ips,ipe, kps,kpe, jps,jpe,                    & ! atm patch bounds
+    ids,ide, jds,jde,                    & ! atm domain bounds
+    ims,ime,jms,jme,                    & ! atm memory bounds 
     its,ite,jts,jte,                              & ! atm tile bounds
     ifds, ifde, jfds, jfde,                       & ! fire domain bounds
     ifms, ifme, jfms, jfme,                       & ! fire memory bounds
-    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
     ifts,ifte,jfts,jfte,                          & ! fire tile bounds
     ir,jr                                         ! atm/fire grid refinement ratio
 real, intent(in), dimension(ims:ime, jms:jme):: zs  ! terrain height at atm cell centers                                        & ! terrain height  
@@ -556,8 +556,6 @@ integer:: i,j,jts1,jte1,its1,ite1
         real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
         za,                     & ! in atm grid     
         zsf)                      ! out fire grid
-
-    call print_2d_stats(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme,zsf,'driver: height zsf')
 
 end subroutine interpolate_z2fire
 !
