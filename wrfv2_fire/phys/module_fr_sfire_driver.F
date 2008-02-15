@@ -526,7 +526,7 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
     
     
 !*** local
-real, dimension(its-1:ite+1,jts-1:jte+1):: za      ! terrain height
+real, dimension(its-2:ite+2,jts-2:jte+2):: za      ! terrain height
 integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
 
 ! terrain height
@@ -543,7 +543,7 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
     enddo
 
     call continue_at_boundary(1,1, & ! do x direction or y direction
-    its-1,ite+1,jts-1,jte+1,           &                ! memory dims
+    its-2,ite+2,jts-2,jte+2,           &                ! memory dims
     ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
     its1,ite1,jts1,jte1, &                ! tile dims
     za)                               ! array
@@ -555,8 +555,8 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
     ifte1=snode(ifte,ifde,1)
                      
     call interpolate_2d(  &
-        its-1,ite+1,jts-1,jte+1, & ! memory dims atm grid tile
-        its-1,ite+1,jts-1,jte+1, & ! where atm grid values set
+        its-2,ite+2,jts-2,jte+2, & ! memory dims atm grid tile
+        its1-1,ite1+1,jts1-1,jte1+1, & ! where atm grid values set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
