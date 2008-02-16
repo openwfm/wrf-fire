@@ -163,3 +163,6 @@ commit af413df0557a49ca56db20ff3436b14c7bccee21
 fire nodes now midpoint, model_test seems to work, new ref
 wrf coupling not finished yet
 
+2/15/08
+commit 18a2875c23df81453f8db8eea7c615f0b19c20b3
+runs on 8 tiles, still same numbers as out6
