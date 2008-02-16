@@ -4,6 +4,7 @@ set host=`hostname`
 set myhost=1
 if ( ${host} == "wf.cudenver.edu" )  then
   set base="/opt/wrf-libs"
+  source $base/setpaths.csh
   set mpibins="/opt/intel9.1-64-par/bin"
 else if ( ${host} == "opt4.cudenver.edu" ) then
   set base="/home/grads/jbeezley/wrf-libs"
