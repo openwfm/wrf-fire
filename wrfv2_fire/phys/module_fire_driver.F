@@ -304,7 +304,7 @@ CONTAINS
      ifun_first=3
      if(itimestep.eq.1)ifun_first=1
      do ifun=ifun_first,6     
-     CALL sfire_driver(ifun,need_lfn_update,                    &
+     CALL sfire_driver_phys(ifun,need_lfn_update,                    &
              ids,ide-1, kds,kde, jds,jde-1                          &
             ,ims,ime, kms,kme, jms,jme                          &
             ,ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1)                          & 

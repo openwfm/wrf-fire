@@ -47,8 +47,99 @@ use module_fr_sfire_util
 
 contains
 
+
+subroutine sfire_driver_em ( grid , config_flags)
+! Driver layer modules
+   USE module_domain
+   USE module_configure
+   USE module_driver_constants
+   USE module_machine
+   USE module_tiles
+   USE module_dm
+
+   implicit none
+!*** arguments
+   TYPE(domain) , TARGET          :: grid   ! data
+   !  Structure that contains run-time configuration (namelist) data for domain
+   TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+!*** local
+   INTEGER:: fire_num_ignitions
+   integer, parameter::fire_max_ignitions=5
+   REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
+        fire_ignition_start_y, &
+        fire_ignition_end_x, &
+        fire_ignition_end_y, &
+        fire_ignition_time, &
+        fire_ignition_radius
+!*** executable
+    call fire_ignition_convert (config_flags,fire_max_ignitions, &
+    fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
+    fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+
+end subroutine sfire_driver_em
+
+!
+!*******************
+!
+
+subroutine fire_ignition_convert (config_flags,fire_max_ignitions, &
+    fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
+    fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+    USE module_configure
+    implicit none
+!*** arguments
+    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    integer, intent(in)::fire_max_ignitions
+    real, dimension(fire_max_ignitions), intent(out):: &
+        fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
+        fire_ignition_radius,fire_ignition_time
+    integer, intent(out)::fire_num_ignitions
+!*** local
+    integer::i
+!*** executable
+        ! this is only until I figure out how to input arrays through the namelist...
+        if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
+        fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
+        fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
+        fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
+        fire_ignition_end_y(1)=config_flags%fire_ignition_end_y1
+        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
+        fire_ignition_time(1)=config_flags%fire_ignition_time1 
+        fire_ignition_start_x(2)=config_flags%fire_ignition_start_x2
+        fire_ignition_start_y(2)=config_flags%fire_ignition_start_y2
+        fire_ignition_end_x(2)=config_flags%fire_ignition_end_x2
+        fire_ignition_end_y(2)=config_flags%fire_ignition_end_y2
+        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
+        fire_ignition_time(2)=config_flags%fire_ignition_time2 
+        fire_ignition_start_x(3)=config_flags%fire_ignition_start_x3
+        fire_ignition_start_y(3)=config_flags%fire_ignition_start_y3
+        fire_ignition_end_x(3)=config_flags%fire_ignition_end_x3
+        fire_ignition_end_y(3)=config_flags%fire_ignition_end_y3
+        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
+        fire_ignition_time(3)=config_flags%fire_ignition_time3 
+        fire_ignition_start_x(4)=config_flags%fire_ignition_start_x4
+        fire_ignition_start_y(4)=config_flags%fire_ignition_start_y4
+        fire_ignition_end_x(4)=config_flags%fire_ignition_end_x4
+        fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
+        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
+        fire_ignition_time(4)=config_flags%fire_ignition_time4 
+        fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
+        fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
+        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
+        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
+        fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
+        fire_ignition_time(5)=config_flags%fire_ignition_time5
+        fire_num_ignitions=0      
+        do i=1,min(5,config_flags%fire_num_ignitions)
+            if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i
+        enddo
+
+end subroutine fire_ignition_convert
+!
+!*******************
+!
 ! module_fr_sfire_driver%%sfire_driver
-subroutine sfire_driver (ifun,need_lfn_update,    &
+subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
     ips,ipe, kps,kpe, jps,jpe,                    &
@@ -374,7 +465,7 @@ elseif(ifun.eq.6)then
     enddo
 endif
 
-end subroutine sfire_driver
+end subroutine sfire_driver_phys
 
 !
 !*****************************
