@@ -28,6 +28,7 @@ DECL = normal_spread_decl
 SPEED_VARS_ARGS = \"$(ARGS).h\"
 SPEED_VARS_DECL = \"$(DECL).h\"
 INC = $(ARGS).h $(DECL).h
+LAPACK_OBJ = 
 
 # module dependencies
 
@@ -80,7 +81,7 @@ PROP_OBJ = \
     $(PHYS).o \
     module_fr_sfire_util.o \
     wrf_fakes.o \
-    lapack.o
+    $(LAPACK_OBJ)
 
 prop_test_main.o: module_fr_sfire_core.o 
 
@@ -98,7 +99,7 @@ FUEL_TEST_OBJ=\
     module_fr_sfire_util.o \
     wrf_fakes.o \
     burn_test_main.o \
-    lapack.o
+    $(LAPACK_OBJ)
 
 burn_test_main.o: module_fr_sfire_core.o
 
@@ -115,7 +116,7 @@ UTIL_OBJ= \
     util_test_main.o   \
     module_fr_sfire_util.o  \
     wrf_fakes.o \
-    lapack.o
+    $(LAPACK_OBJ)
 
 util_test_main.o: module_fr_sfire_util.o
 
@@ -134,12 +135,12 @@ CORE_OBJ= \
     module_fr_sfire_core.o \
     module_fr_sfire_util.o \
     wrf_fakes.o \
-    lapack.o
+    $(LAPACK_OBJ)
 
 core_test_main.o: \
     module_fr_sfire_core.o \
     normal_spread.o \
-    lapack.o
+    $(LAPACK_OBJ)
     
 core_test_prog.exe: $(CORE_OBJ) 
 	$(FC) -o core_test_prog.exe $(CORE_OBJ)
@@ -157,7 +158,7 @@ MODEL_NETCDF_OBJ = \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o \
-    lapack.o
+    $(LAPACK_OBJ)
 
 model_netcdf_main.o: module_fr_sfire_model.o 
 
@@ -171,7 +172,7 @@ MODEL_OBJ = \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o \
-    lapack.o
+    $(LAPACK_OBJ)
 
 model_test_main.o: module_fr_sfire_model.o 
  
@@ -211,7 +212,7 @@ DRIVER_OBJ =  \
     module_fr_sfire_util.o  \
     wrf_fakes.o \
     module_model_constants.o \
-    lapack.o
+    $(LAPACK_OBJ)
 
 driver_test:
 	make -f $(MAKEFILE) driver_test_prog.exe FC="$(FC)" \
