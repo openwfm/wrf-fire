@@ -415,7 +415,7 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
 !*** local
 #define TDIMS its-1,ite+2,jts-1,jte+2
 real, dimension(its-1:ite+2,jts-1:jte+2):: ua,va   ! atm winds, averaged over height
-integer:: i,j,k
+integer:: i,j,k,ifts1,ifte1,jfts1,jfte1
 
 !*** executable
 
@@ -470,11 +470,16 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
 ! va(ids,jds)=vf(ifds+ir/2+0.5,jfds-0.5)
 ! za(ids,jds)=zsf(ifds+ir/2+0.5,jfds+jr/2+0.5)
     
+    ifts1=snode(ifts,ifds,-1) ! go 1 beyond domain boundary but not between tiles
+    ifte1=snode(ifte,ifde,+1)
+    jfts1=snode(jfts,jfds,-1)
+    jfte1=snode(jfte,jfde,+1)
+    
     call interpolate_2d(  &
         TDIMS,                  & ! memory dims atm grid tile
         TDIMS,                  & ! where atm grid values set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts-1,ifte+1,jfts-1,jfte+1,  & ! dimensions fire grid tile
+        ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
         real(ids),real(jds),ifds-.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
         ua,                     & ! in atm grid     
@@ -484,7 +489,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         TDIMS,                  & ! memory dims atm grid tile
         TDIMS,                  & ! where atm grid values set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts-1,ifte+1,jfts-1,jfte+1,  & ! dimensions fire grid tile
+        ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
         real(ids),real(jds),ifds+(ir+1)*.5,jfds-0.5, & ! line up by lower left corner of domain
         va,                     & ! in atm grid     
@@ -553,8 +558,8 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
     ! interpolate to tile plus strip along domain boundary if at boundary
     jfts1=snode(jfts,jfds,-1) ! lower loop limit by one less when at end of domain
     ifts1=snode(ifts,ifds,-1)
-    jfte1=snode(jfte,jfde,1) 
-    ifte1=snode(ifte,ifde,1)
+    jfte1=snode(jfte,jfde,+1) 
+    ifte1=snode(ifte,ifde,+1)
                      
     call interpolate_2d(  &
         its-2,ite+2,jts-2,jte+2, & ! memory dims atm grid tile
