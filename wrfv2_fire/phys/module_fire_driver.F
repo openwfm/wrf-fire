@@ -239,6 +239,11 @@ CONTAINS
    ENDDO
    !$OMP END PARALLEL DO
 !
+
+#ifdef DM_PARALLEL
+            CALL wrf_error_fatal('fire_driver: DM_PARALLEL not supported')
+#endif
+
    fire_select: SELECT CASE(ifire)
 
    CASE (FIRE_CAWFE)

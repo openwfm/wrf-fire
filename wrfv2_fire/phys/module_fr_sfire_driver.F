@@ -48,33 +48,107 @@ use module_fr_sfire_util
 contains
 
 
-subroutine sfire_driver_em ( grid , config_flags)
-! Driver layer modules
-   USE module_domain
-   USE module_configure
-   USE module_driver_constants
-   USE module_machine
-   USE module_tiles
-   USE module_dm
+subroutine sfire_driver_em ( grid , config_flags                   & 
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,ifds,ifde, jfds,jfde                        &
+            ,ifms,ifme, jfms,jfme                        &
+            ,ifps,ifpe, jfps,jfpe                       &
+            ,rho,z_at_w,dz8w                            &
+)
+!*** purpose: driver from grid structure
 
-   implicit none
+! Driver layer modules
+    USE module_domain
+    USE module_configure
+    USE module_driver_constants
+    USE module_machine
+    USE module_tiles
+    USE module_dm
+
+    implicit none
 !*** arguments
-   TYPE(domain) , TARGET          :: grid   ! data
-   !  Structure that contains run-time configuration (namelist) data for domain
-   TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    TYPE(domain) , TARGET          :: grid   ! data
+    !  Structure that contains run-time configuration (namelist) data for domain
+    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    integer, intent(in):: &
+             ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,ifds,ifde, jfds,jfde                        &
+            ,ifms,ifme, jfms,jfme                        &
+            ,ifps,ifpe, jfps,jfpe
+    real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho,  &! air density  (kg/m^3) (cell based, atm grid) 
+                                z_at_w,dz8w                 ! ????????
+
 !*** local
-   INTEGER:: fire_num_ignitions
-   integer, parameter::fire_max_ignitions=5
-   REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
+    INTEGER:: fire_num_ignitions
+    integer, parameter::fire_max_ignitions=5
+    REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
         fire_ignition_start_y, &
         fire_ignition_end_x, &
         fire_ignition_end_y, &
         fire_ignition_time, &
         fire_ignition_radius
+    integer::fire_ifun,fire_ifun_start
+    logical::need_lfn_update
+    real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out
+    
 !*** executable
     call fire_ignition_convert (config_flags,fire_max_ignitions, &
-    fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-    fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+        fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
+        fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+
+    fire_ifun_start=1
+    if(grid%itimestep.ne.1)fire_ifun_start=3  ! should find a better distinction when to initialize
+    do fire_ifun=fire_ifun_start,6
+        call sfire_driver_phys ( &
+            fire_ifun,need_lfn_update,                  &
+            ids,ide, kds,kde, jds,jde,                  & ! atm grid dimensions
+            ims,ime, kms,kme, jms,jme,                  &
+            ips,ipe, kps,kpe, jps,jpe,                  &
+            ifds, ifde, jfds, jfde,                     & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                     &
+            ifps, ifpe, jfps, jfpe,                     & ! 
+            grid%sr_x,grid%sr_y,                        & ! atm/fire grid ratio
+            grid%num_tiles,                             & ! atm grid tiling
+            grid%i_start,grid%i_end,                    &
+            grid%j_start,grid%j_end,                    &                 
+            grid%itimestep,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
+            grid%dt,grid%dx,grid%dy,                    &
+            grid%u_frame,grid%v_frame,                  &
+            config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
+            fire_num_ignitions,                                & 
+            fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
+            fire_ignition_end_x,fire_ignition_end_y,     &
+            fire_ignition_radius,fire_ignition_time,     &
+            grid%em_u_2,grid%em_v_2,grid%em_mut,rho,grid%em_z,      & ! in arrays, on atm grid
+            z_at_w,dz8w,                                  &
+            grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
+            uf,vf,lfn_out,                                & ! arrays to persist only over one timestep    
+            grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
+            grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid  
+            grid%nfuel_cat,                               & ! input, or internal for safekeeping
+            grid%fuel_time,grid%zsf,                      & 
+            grid%dzfsdx,grid%dzfsdy,                      &
+            grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
+        )
+
+#ifdef DM_PARALLEL
+        if(need_lfn_update)then
+!           halo exchange on lfn width 2
+        endif   
+        if(ifun.eq.1)then
+!           halo exchange on zsf width 2
+!           halo exchange on all fuel data width 1
+        endif
+        if(ifun.eq.3)then
+!           halo exchange on uf vf width 1
+        endif
+#endif
+    
+    enddo
 
 end subroutine sfire_driver_em
 
@@ -82,62 +156,6 @@ end subroutine sfire_driver_em
 !*******************
 !
 
-subroutine fire_ignition_convert (config_flags,fire_max_ignitions, &
-    fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-    fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
-    USE module_configure
-    implicit none
-!*** arguments
-    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    integer, intent(in)::fire_max_ignitions
-    real, dimension(fire_max_ignitions), intent(out):: &
-        fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-        fire_ignition_radius,fire_ignition_time
-    integer, intent(out)::fire_num_ignitions
-!*** local
-    integer::i
-!*** executable
-        ! this is only until I figure out how to input arrays through the namelist...
-        if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
-        fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
-        fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
-        fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
-        fire_ignition_end_y(1)=config_flags%fire_ignition_end_y1
-        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
-        fire_ignition_time(1)=config_flags%fire_ignition_time1 
-        fire_ignition_start_x(2)=config_flags%fire_ignition_start_x2
-        fire_ignition_start_y(2)=config_flags%fire_ignition_start_y2
-        fire_ignition_end_x(2)=config_flags%fire_ignition_end_x2
-        fire_ignition_end_y(2)=config_flags%fire_ignition_end_y2
-        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
-        fire_ignition_time(2)=config_flags%fire_ignition_time2 
-        fire_ignition_start_x(3)=config_flags%fire_ignition_start_x3
-        fire_ignition_start_y(3)=config_flags%fire_ignition_start_y3
-        fire_ignition_end_x(3)=config_flags%fire_ignition_end_x3
-        fire_ignition_end_y(3)=config_flags%fire_ignition_end_y3
-        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
-        fire_ignition_time(3)=config_flags%fire_ignition_time3 
-        fire_ignition_start_x(4)=config_flags%fire_ignition_start_x4
-        fire_ignition_start_y(4)=config_flags%fire_ignition_start_y4
-        fire_ignition_end_x(4)=config_flags%fire_ignition_end_x4
-        fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
-        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
-        fire_ignition_time(4)=config_flags%fire_ignition_time4 
-        fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
-        fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
-        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
-        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
-        fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
-        fire_ignition_time(5)=config_flags%fire_ignition_time5
-        fire_num_ignitions=0      
-        do i=1,min(5,config_flags%fire_num_ignitions)
-            if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i
-        enddo
-
-end subroutine fire_ignition_convert
-!
-!*******************
-!
 ! module_fr_sfire_driver%%sfire_driver
 subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
@@ -150,7 +168,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
     itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
     u_frame,v_frame,                              &
-    alfg,alfc,z1can,                              &
+    fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
     num_ignitions,                                & 
     ignition_start_x,ignition_start_y,            & ! ignition - small arrays
     ignition_end_x,ignition_end_y,                &
@@ -196,9 +214,9 @@ real, intent(in):: &
     dt,                                           & ! time step
     dx,dy,                                        & ! atm grid step
     u_frame,v_frame,                              & ! velocity offset
-    z1can,                                        & ! lowest height crown fire heat is released (m)
-    alfg,                                         & ! extinction depth of ground fire heat (m)
-    alfc                                            !  extinction depth of crown fire heat (m)
+    fire_crwn_hgt,                                & ! lowest height crown fire heat is released (m)
+    fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
+    fire_ext_crwn                                   !  extinction depth of crown fire heat (m)
 
 integer, intent(in):: num_ignitions                 ! number of ignitions, can be 0
 real, dimension(num_ignitions), intent(in):: &   
@@ -208,12 +226,9 @@ real, dimension(num_ignitions), intent(in):: &
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v ! wind velocity (m/s) (node based, atm grid) 
 real,intent(in),dimension(ims:ime,jms:jme)::mu          ! dry air mass (Pa)  pressure??  (cell based, atm grid)
-real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho  ! air density  (kg/m^3) (cell based, atm grid) 
-
-real, intent(in), dimension(ims:ime, jms:jme)::   & ! from Ned's code, who knows that this means
-    zs,                                           & ! terrain height  
-    z_at_w,                                       & ! m abv sealvl
-    dz8w                                            ! dz across w-lvl`
+real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho, &  ! air density  (kg/m^3) (cell based, atm grid) 
+                z_at_w,dz8w                         ! height of some sort??
+real, intent(in), dimension(ims:ime, jms:jme)::  zs ! surface heoght                                            ! terrain height  
     
 integer, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
     nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
@@ -417,7 +432,7 @@ do ij=1,num_tiles
             ims,ime, kms,kme, jms,jme,      &
             its,ite, kts,kte, jts,jte,      & ! 
             grnhfx,grnqfx,canhfx,canqfx,        & ! fluxes on atm grid 
-            alfg,alfc,z1can,                &
+            fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                &
             zs,z_at_w,dz8w,mu,rho,          &
             rthfrten,rqvfrten)                ! out
             
@@ -466,6 +481,63 @@ elseif(ifun.eq.6)then
 endif
 
 end subroutine sfire_driver_phys
+!
+!*******************
+!
+
+subroutine fire_ignition_convert (config_flags,fire_max_ignitions, &
+    fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
+    fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+    USE module_configure
+    implicit none
+!*** arguments
+    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    integer, intent(in)::fire_max_ignitions
+    real, dimension(fire_max_ignitions), intent(out):: &
+        fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
+        fire_ignition_radius,fire_ignition_time
+    integer, intent(out)::fire_num_ignitions
+!*** local
+    integer::i
+!*** executable
+        ! this is only until I figure out how to input arrays through the namelist...
+        if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
+        fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
+        fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
+        fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
+        fire_ignition_end_y(1)=config_flags%fire_ignition_end_y1
+        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
+        fire_ignition_time(1)=config_flags%fire_ignition_time1 
+        fire_ignition_start_x(2)=config_flags%fire_ignition_start_x2
+        fire_ignition_start_y(2)=config_flags%fire_ignition_start_y2
+        fire_ignition_end_x(2)=config_flags%fire_ignition_end_x2
+        fire_ignition_end_y(2)=config_flags%fire_ignition_end_y2
+        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
+        fire_ignition_time(2)=config_flags%fire_ignition_time2 
+        fire_ignition_start_x(3)=config_flags%fire_ignition_start_x3
+        fire_ignition_start_y(3)=config_flags%fire_ignition_start_y3
+        fire_ignition_end_x(3)=config_flags%fire_ignition_end_x3
+        fire_ignition_end_y(3)=config_flags%fire_ignition_end_y3
+        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
+        fire_ignition_time(3)=config_flags%fire_ignition_time3 
+        fire_ignition_start_x(4)=config_flags%fire_ignition_start_x4
+        fire_ignition_start_y(4)=config_flags%fire_ignition_start_y4
+        fire_ignition_end_x(4)=config_flags%fire_ignition_end_x4
+        fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
+        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
+        fire_ignition_time(4)=config_flags%fire_ignition_time4 
+        fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
+        fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
+        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
+        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
+        fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
+        fire_ignition_time(5)=config_flags%fire_ignition_time5
+        fire_num_ignitions=0      
+        do i=1,min(5,config_flags%fire_num_ignitions)
+            if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i
+        enddo
+
+end subroutine fire_ignition_convert
 
 !
 !*****************************
@@ -514,8 +586,8 @@ integer:: i,j,k,ifts1,ifte1,jfts1,jfte1
     do j = jts-1,jte+2
         do i = its-1,ite+2 
             ! average 1st 2 layers, correct const shift
-            ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j)) - u_frame
-            va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j)) - v_frame
+            ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j)) + u_frame
+            va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j)) + v_frame
         enddo
     enddo
 

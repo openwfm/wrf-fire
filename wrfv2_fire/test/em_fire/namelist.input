@@ -125,7 +125,7 @@
  /
 
  &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
- ifire              = 2,    ! integer, = 0: no fire, = 1: cc_fire, 2=sfire
+ ifire              = 3,    ! integer, = 0: no fire, = 1: cc_fire, 2=sfire through Ned's driver, 3=sfire
 ! ignition for cawfe
 !fire_lat_init      =   40.,    ! real   , initial fire latitude (deg)
 !fire_lon_init      = -105.,    ! real   , initial fire longitude (deg)

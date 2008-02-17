@@ -769,7 +769,14 @@ BENCH_START(fire_driver_tim)
 
 
         if(config_flags%ifire.eq.3)then
-            call sfire_driver_em ( grid , config_flags)
+            call sfire_driver_em ( grid , config_flags    &
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,sids,side, sjds,sjde                        &
+            ,sims,sime, sjms,sjme                        &
+            ,sips,sipe, sjps,sjpe                        &
+            ,rho,z_at_w,dz8w)
         else
 
 #ifdef DM_PARALLEL

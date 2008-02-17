@@ -59,14 +59,14 @@ subroutine sfire_model (                    &
 !       call sfire_model(....)
 !   end parallel loop over tiles
 !
-!   if need_lfn_update, halo exchange on lft width 2
+!   if need_lfn_update, halo exchange on lfn width 2
 !   
 !   if ifun=0
-!       halo exchange on z width 3
-!       halo exchange on fuel data width 2
+!       halo exchange on z width 2
+!       halo exchange on fuel data width 1
 !   endif
 !   
-!   if ifun=1, halo exchange on winds width 2
+!   if ifun=3, halo exchange on winds width 2
 !    
 ! enddo
 
