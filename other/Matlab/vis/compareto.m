@@ -7,11 +7,15 @@ for i=1:n
     try
         v=read_array_m([name]);
         v1=read_array_m([d1,'/',name]);
-        diff=max(abs(v(:)-v1(:)));
+        vdiff=abs(v(:)-v1(:));
         sz=(max(abs(v(:)))+max(abs(v1(:))))*0.5;
-        rel=diff/sz;
-        err(i)=rel;
-        fprintf('%s diff %g rel %g\n',name,diff,rel)
+        maxdiff=max(vdiff);
+        meandiff=mean(vdiff);
+        stddiff=std(vdiff);
+        reldiff=maxdiff/sz;
+        err(i)=reldiff;
+        fprintf('%s diff max %g mean %g std %g max rel %g\n',...
+            name,maxdiff,meandiff,stddiff,reldiff)
     catch
     end
 end
