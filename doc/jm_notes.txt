@@ -144,3 +144,25 @@ idfs:idfe,jdfs:jdfe.
 !$OMP PARALLEL DO in module_cumulus_driver
 
 #include "HALO.EM_A.inc"
+
+2/6/08
+commit 9e705d9f1ed7f95ff3783624c21dfde54fd7b338
+added multiple ignitions (up to 5) via namelist.input
+~/out0
+
+commit 22620cde191107c0c504cf898874a3f443d1a506
+cleanup; moved continue_at_boundary to util, may be useful for winds also
+rounding errors only
+~/out2
+
+commit 4ccd502e0682b9846b866b5639b0b61913bc4c2f
+works on single tile, in out3
+
+2/11/08
+commit af413df0557a49ca56db20ff3436b14c7bccee21
+fire nodes now midpoint, model_test seems to work, new ref
+wrf coupling not finished yet
+
+2/15/08
+commit 18a2875c23df81453f8db8eea7c615f0b19c20b3
+runs on 8 tiles, still same numbers as out6

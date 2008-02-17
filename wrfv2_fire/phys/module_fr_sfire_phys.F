@@ -9,7 +9,6 @@ module module_fr_sfire_phys
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_util
 
-private fire_ros
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
@@ -134,8 +133,10 @@ end subroutine init_fuel_cats
 !*******************
 !
 
-subroutine set_fire_params(ifts,ifte,jfts,jfte, &
+subroutine set_fire_params( &
+                           ifds,ifde,jfds,jfde, &
                            ifms,ifme,jfms,jfme, &
+                           ifts,ifte,jfts,jfte, &
                            fdx,fdy,             &
                            zsf,nfuel_cat,fuel_time  &
 #                          include "fr_sfire_params_args.h" 
@@ -146,7 +147,8 @@ implicit none
 !*** purpose: Set all fire model params arrays, constant values.
 
 !*** arguments
-integer, intent(in)::ifts,ifte,jfts,jfte                        ! fire mesh cell bounds
+integer, intent(in)::ifds,ifde,jfds,jfde                        ! fire domain bounds
+integer, intent(in)::ifts,ifte,jfts,jfte                        ! fire tile bounds
 integer, intent(in)::ifms,ifme,jfms,jfme                        ! memory array bounds
 real, intent(in):: fdx,fdy                                      ! fire mesh spacing
 real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf          ! surface altitude
@@ -161,36 +163,57 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params ar
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
         qig, epsilon, rhob, wn, betaop, e, c, &
         xifr, etas, etam, a, gammax, gamma, ratio, ir, &
-        fuelloadm
-! real:: irm, phiw, tanphi, rosm, phis, slngth, umid, t1   ! jm: not used
+        fuelloadm,fdxinv,fdyinv
 integer:: i,j,k
 logical:: err
+real, dimension(ifts-1:ifte+1,jfts-1:jfte+1)::zsfc
+character(len=128)::msg
 
 !*** executable
 
-! gradient of surface altitude, node based
-call   meshdiffc_2d(ifts,ifte,jfts,jfte, &    ! mesh area used (in cells, end +1)
-                   ifms,ifme,jfms,jfme, &       ! memory dimensions 
-                   fdx,fdy,               &       ! mesh spacing
-                   zsf,                 &       ! input
-                   dzfsdx,dzfsdy) ! output
+! copy plus one but not over domain boundary
+do j=max(jfts-1,ifds),min(jfte+1,ifde)
+    do i=max(ifts-1,ifds),min(ifte+1,ifde)
+        zsfc(i,j)=zsf(i,j)
+    enddo
+enddo
 
-! fuel time constant, cell based
+call continue_at_boundary(1,1, &          ! do x direction or y direction
+    ifts-1,ifte+1,jfts-1,jfte+1, &        ! memory dims
+    ifds,ifde,jfds,jfde, &                ! domain dims
+    ifts,ifte,jfts,jfte, &                ! tile dims
+    zsfc)                                 ! array
+
+fdxinv=0.5/fdx
+fdyinv=0.5/fdy
+do j=jfts,jfte
+    do i=ifts,ifte
+        ! central differences
+        dzfsdx(i,j) = (zsfc(i+1,j)-zsfc(i-1,j))*fdxinv
+        dzfsdy(i,j) = (zsfc(i,j+1)-zsfc(i,j-1))*fdyinv
+    enddo
+enddo
+
 err=.false.
 do j=jfts,jfte
     do i=ifts,ifte
+        ! fuel time constant, cell based
         k=nfuel_cat(i,j)
         if(k.lt.1.or.k.gt.nfuelcats)then
-            k=nfuelcats
-            err=.true.
+!            k=nfuelcats
+!            err=.true.
+             write(msg,'(3(a,i5))')'nfuel_cat(', i ,',',j,')=',k
+             call message(msg)
+             call crash('set_fire_params: fuel category out of bounds')
         endif
         fuel_time(i,j)=weight(k)/0.85 ! cell based
     enddo
 enddo
+
 if(err)call crash('set_fire_params: fuel category out of bounds')
 
-do j=jfts,jfte+1
-    do i=ifts,ifte+1
+do j=jfts,jfte
+    do i=ifts,ifte
         
         ! do not understand calculations of stime in binit.m4
         ! set fuel time constant: weight=1000=>40% decrease over 10 min
@@ -253,95 +276,10 @@ end subroutine set_fire_params
 !*******************
 !
 
-subroutine init_model_no_fire(ifts,ifte,jfts,jfte, &
-                             ifms,ifme,jfms,jfme, &
-                             fuel_frac,lfn,tign)               
-implicit none
-             
-!*** purpose: initialize model to no fire
-
-!*** arguments
-integer, intent(in):: ifts,ifte,jfts,jfte   ! fire domain bounds
-integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
-                   fuel_frac,lfn,tign       ! model state
-
-!*** calls
-intrinsic huge
-                        
-!*** local
-integer:: i,j
-real, parameter:: faraway = huge(tign)
-
-do j=jfts,jfte
-    do i=ifts,ifte
-        fuel_frac(i,j)=1.  ! fuel at start is 1 by definition
-    enddo
-enddo
-
-do j=jfts,jfte+1
-    do i=ifts,ifte+1
-        tign(i,j) = faraway ! ignition way in future
-        lfn(i,j) = 1        ! no fire 
-    enddo
-enddo
-call message('init_model_no_fire: state set to no fire')
-
-end subroutine init_model_no_fire
-
-!
-!******************
-!
-
-subroutine ignite_fire( ifts,ifte,jfts,jfte,                      &
-                        ifms,ifme,jfms,jfme,                      &
-                        time_ign,ctri,ctrj,diam,fdx,fdy,lfn,tign)
-implicit none
-
-!*** purpose: ignite a circular fire 
-
-!*** arguments
-integer, intent(in):: ifts,ifte,jfts,jfte   ! fire domain bounds
-integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(in):: time_ign                 ! the ignition time of the fire
-real, intent(in):: ctri,ctrj                ! mesh coordinates of the center of the fire
-!                         dimensionless, if integers, the center is is a mesh node
-real, intent(in):: diam                     ! diam of the ignited area (m)
-real, intent(in):: fdx,fdy                  ! mesh spacing (m)
-real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
-                   lfn, tign                ! level function, ignition time (state)
-!*** calls
-intrinsic huge
-                        
-!*** local
-integer:: i,j,k
-real, parameter:: faraway = huge(diam)
-character(len=128):: msg
-
-!jmtodo this will not work on tiles
-
-k=0
-do j=jfts,jfte+1      ! node based loops, hence the +1
-    do i=ifts,ifte+1                   
-        lfn(i,j)=sqrt(((i-ctri)*fdx)**2+((j-ctrj)*fdy)**2)-diam/2
-        if(lfn(i,j)<=0) then
-            tign(i,j)=time_ign  ! ignited now
-            k=k+1
-        endif
-    enddo
-enddo
-write(msg,'(a,2f10.1,a,f8.1,a,f8.1,a,i3)')'ignite_fire: at',ctri,ctrj,&
-    ' diam',diam,' time',time_ign,' nodes',k
-call message(msg)
-end subroutine ignite_fire
-
-!
-!**********************
-!            
-
 subroutine heat_fluxes(dt,                        &
-        ifts,ifte,jfts,jfte,                      &
-        ifms,ifme,jfms,jfme,                      &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        iffs,iffe,jffs,jffe,                      &  ! fuel_frac_burnt dims
         fgip,fuel_frac_burnt,                     & !in
         grnhft,grnqft)                              !out
 implicit none
@@ -351,9 +289,9 @@ implicit none
 
 !*** arguments
 real, intent(in)::dt          ! dt  the fire time step (the fire model advances time by this)
-integer, intent(in)::ifts,ifte,jfts,jfte,& 
-        ifms,ifme,jfms,jfme   ! dimensions                   
-real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip,fuel_frac_burnt
+integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,iffs,iffe,jffs,jffe   ! dimensions                   
+real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip
+real, intent(in),dimension(iffs:iffe,jffs:jffe):: fuel_frac_burnt
 real, intent(out),dimension(ifms:ifme,jfms:jfme):: grnhft,grnqft
 
 !*** local
@@ -379,9 +317,10 @@ end subroutine heat_fluxes
 !            
 
 
-subroutine set_nfuel_cat(   ifts,ifte,jfts,jfte,               &
-                            ifms,ifme,jfms,jfme,               &
-                            ifuelread,nfuel_cat0,zsf,nfuel_cat)
+subroutine set_nfuel_cat(   &
+    ifms,ifme,jfms,jfme,               &
+    ifts,ifte,jfts,jfte,               &
+    ifuelread,nfuel_cat0,zsf,nfuel_cat)
 
 implicit none
 
@@ -408,8 +347,8 @@ if (ifuelread .eq. -1) then
     call message(msg)
 else if (ifuelread .eq. 0) then
 !
-    do j=jfts,jfte+1
-        do  i=ifts,ifte+1
+    do j=jfts,jfte
+        do  i=ifts,ifte
             nfuel_cat(i,j)=nfuel_cat0
         enddo
     enddo
@@ -422,8 +361,8 @@ else if (ifuelread .eq. 1) then
 !          2000 m : 6562 ft   ;    1600 m: 5249 ft
 
 !        ... user defines fuel category spatial variability ! param!
-    do j=jfts,jfte+1
-        do  i=ifts,ifte+1
+    do j=jfts,jfte
+        do  i=ifts,ifte
             ! nfuel_cat(i,j)= 2     ! grass with understory ! jm does nothing
             !jm t1=zsf(i,j)*slngth/100.
             t1 = zsf(i,j)  ! this is in m
@@ -456,8 +395,8 @@ else if (ifuelread .eq. 2) then
 
     iu1=10
          open(iu1,file='fuel_layer',status='unknown',form='formatted')
-    do j=jfts,jfte+1
-        do  i=ifts,ifte+1
+    do j=jfts,jfte
+        do  i=ifts,ifte
             read(iu1,'(i2)') nfuel_cat(i,j)
 !           ... if no fuel category specified (i.e. '99'), set to '14',
 !               which (in the current 13 category nffl category system)
@@ -475,68 +414,6 @@ endif
 !     .............end  load fuel categories (or constant) here.
 
 end subroutine set_nfuel_cat            
-
-!
-!**********************
-!            
-
-subroutine normal_spread(t,dx,dy,n,rii,rjj,&
-ids,ide,jds,jde,ims,ime,jms,jme,&
-nvx,nvy,scale,ros &
-#include "fr_sfire_params_args.h"
-)
-
-implicit none
-!***  purpose: the speed function
-
-!*** arguments
-!  see module_fr_sfire_prop for argument description
-real, intent(in)::t,dx,dy  ! currently not used
-integer, intent(in)::n,ids,ide,jds,jde,ims,ime,jms,jme
-real,intent(in),dimension(ims:ime,jms:jme)::nvx,nvy,scale
-real, intent(in),dimension(n)::rii,rjj
-real,intent(out),dimension(n)::ros
-#include "fr_sfire_params_decl.h"
-
-!*** calls
-intrinsic nint,max,min
-
-!***  internal
-integer i,j,k
-real tanphi
-real speed,ros1
-real,dimension(ids:ide+1,jds:jde+1)::ros_all
-
-!*** executable
-
-!  compute speed at all nodes
-do j=jds,jde+1
-    do i=ids,ide+1
-
-        ! wind speed in direction of spread
-        speed =  vx(i,j)*nvx(i,j) + vy(i,j)*nvy(i,j)
-        
-        ! slope in direction of spread
-        tanphi =  dzfsdx(i,j)*nvx(i,j) + dzfsdy(i,j)*nvy(i,j)
-  
-        ! get rate of spread from wind speed and slope
-         
-        !ros1 = speed  ! debug only 
-        ros1 = fire_ros(speed,tanphi,i,j &
-#       include "fr_sfire_params_args.h"
-        )
-        ros_all(i,j)=max(ros1,0.0)
-!        write(90,1)i,j,'speed',speed,'tanphi',tanphi,'ros',ros1
-!1       format(2i5,3(1x,a,f10.4))
-    enddo
-enddo
-
-! interpolate to the requested points
-do k=1,n
-    ros(k)=interp(ids,ide,jds,jde,ids,ide+1,jds,jde+1,rii(k),rjj(k),ros_all)
-enddo
-    
-end subroutine normal_spread
 
 !
 !**********************

@@ -64,6 +64,10 @@ MODULE module_driver_constants
 
    INTEGER , PARAMETER :: min_file_unit = 10
    INTEGER , PARAMETER :: max_file_unit = 99
+
+   ! fire model
+   ! number of ignitions  
+   INTEGER, PARAMETER :: max_fire_ignitions = 1
  CONTAINS
    SUBROUTINE init_module_driver_constants
    END SUBROUTINE init_module_driver_constants

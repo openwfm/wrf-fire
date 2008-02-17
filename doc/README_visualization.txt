@@ -1,3 +1,5 @@
+For Jan's fire visualization via .txt files see wrf/other/Matlab/vis
+--------------------------------------------------------------------
 
 WRF visualization guide
 Jonathan Beezley 

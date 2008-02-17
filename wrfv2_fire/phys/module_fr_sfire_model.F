@@ -3,20 +3,31 @@
 !
 
 module module_fr_sfire_model
+
+use module_fr_sfire_core
+use module_fr_sfire_util
+use module_fr_sfire_phys
+
 contains
 
 subroutine sfire_model (                    &
-    initialize, ignition,                   & ! switches
+    id,                                     & ! unique number for prints and debug
+    ifun,                                   & ! what to do see below
+    need_lfn_update,                          & ! if lfn needs to be synced between tiles
+    num_ignitions,                          & ! number of ignitions before advancing
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
-    ifps,ifpe,jfps,jfpe,                    & ! fire patch dims  - this processor
-    num_tiles,i_start,i_end,j_start,j_end,  & ! fire grid tiling - divide for openmp
+    ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing
+    ignition_start_x,ignition_start_y,      & ! ignition - small arrays
+    ignition_end_x,ignition_end_y,          &
+    ignition_radius,                        &
+    ignition_time,                          &
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
-    lfn,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+    lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
     grnhfx,grnqfx,                          & ! output: heat fluxes
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
@@ -28,25 +39,63 @@ subroutine sfire_model (                    &
 ! winds given on the nodes of the fire grid
 ! and outputs the heat fluxes on the cells of the fire grid.
 ! This subroutine has no knowledge of any atmospheric model.
+! This code was written to conform with the WRF parallelism model, however it
+! does not depend on it. It can be called with domain equal to tile.
+! Wind and height must be given on 1 more node beyond the domain bounds. 
+! The subroutine changes only array entries of the arguments in the tile.
+! Upon exit with ifun=2 (time step), lfn_out is to be copied into lfn by the caller.
+! When this subroutine is used on separate tiles that make a domain the value, the
+! it uses lfn on a strip of width 2 from neighboring tiles.
+!
+! All computation is done on one tile. 
+!
+! This subroutine is intended to be called in a loop like
+!
+! 
+! do ifun=1,6 (if initizalize run, otherwise 3,6)
+!   start parallel loop over tiles
+!       if ifun=1, set z and fuel data
+!       if ifun=3, set the wind arrays
+!       call sfire_model(....)
+!   end parallel loop over tiles
+!
+!   if need_lfn_update, halo exchange on lfn width 2
+!   
+!   if ifun=0
+!       halo exchange on z width 2
+!       halo exchange on fuel data width 1
+!   endif
+!   
+!   if ifun=3, halo exchange on winds width 2
+!    
+! enddo
 
-use module_fr_sfire_core
-use module_fr_sfire_util
-use module_fr_sfire_phys
 implicit none
 
 !*** arguments
 
-! input
-
-integer, intent(in) :: initialize, ignition ! if not 0, do this and proceed with timestep
+! control switches
+integer, intent(in) :: id
+integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
+                                            ! 2 = initialize run pass 2
+                                            ! 3 = initialize timestep
+                                            ! 4 = do one timestep 
+                                            ! 5 = copy timestep output to input
+                                            ! 6 = compute output fluxes
+logical, intent(out)::need_lfn_update       ! if true, halo update on lfn afterwards
+! scalar data
+integer, intent(in) :: num_ignitions        ! number of ignition locations/times 
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
 integer, intent(in) :: ifds,ifde,jfds,jfde  ! fire domain bounds
-integer, intent(in) :: ifps,ifpe,jfps,jfpe  ! fire patch bounds
+integer, intent(in) :: ifts,ifte,jfts,jfte  ! fire tile bounds
 integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
-integer,intent(in)::num_tiles
-integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
+! array data
+real, dimension(num_ignitions), intent(in):: &   
+    ignition_start_x,ignition_start_y, &
+    ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
+    ignition_time                           !  of ignition lines
 REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
     zsf,   &                                ! terrain height, node based, data, constant        
     vx,vy                                   ! wind m/s (node based), data, variable
@@ -59,6 +108,7 @@ REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
     
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
+    lfn_out, &                              !                              
     grnhfx,grnqfx                           ! heat fluxes J/m^2/s  (cell)             
  
 ! constant arrays - set at initialization
@@ -71,116 +121,173 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 
 !*** local
 
-INTEGER :: ifts,ifte,jfts,jfte      ! fire tile bounds
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
-integer::ij        
-real, dimension(ifms:ifme, jfms:jfme)::fuel_frac_burnt
-real:: ctri,ctrj,diam ! for ignition
+integer::ignited,ig,i,j
+real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
+real::tbound
+integer,parameter::ifl=2,jfl=2   ! quadrature mesh size per cell for fuel_left
+character(len=128)::msg
 
 !*** executable
+
+call check_mesh_2dim(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme)
+
 
 xifms=ifms  ! dimensions for the include file
 xifme=ifme
 xjfms=jfms
 xjfme=jfme
 
-call print_2d_stats_vec(ifds,ifde+1,jfds,jfde+1,ifms,ifme,jfms,jfme,vx,vy,'model: fire wind (m/s)')
+need_lfn_update=.false.
 
-do ij=1,num_tiles
-    ifts=i_start(ij)
-    ifte=i_end(ij)
-    jfts=j_start(ij)
-    jfte=j_end(ij)
-    
-    call check_tiles(ifts,ifte,jfts,ifte,num_tiles,i_start,i_end,j_start,j_end)
-    
-    if (initialize.ne.0) then
+if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
+elseif(ifun.eq.2)then   ! initialize the run
                     
         ! initialize all arrays that the model will not change later
-        call set_nfuel_cat( ifts,ifte,jfts,jfte, &
-                            ifms,ifme,jfms,jfme, &
-                            ifuelread,nfuel_cat0,&
-                            zsf,nfuel_cat)
+        call set_nfuel_cat( &
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            ifuelread,nfuel_cat0,&
+            zsf,nfuel_cat)
 
-        ! set_fire_params treats nfuel_cat as data
-        call set_fire_params(   ifts,ifte,jfts,ifte, &
-                                ifms,ifme,jfms,jfme, &
-                                fdx,fdy,             &
-                                zsf,nfuel_cat,fuel_time &
-#                               include "fr_sfire_params_args.h" 
+        ! uses nfuel_cat to set the other fuel data arrays
+        ! needs zsf on halo width 1 to compute the terrain gradient
+        call set_fire_params(   & 
+            ifds,ifde,jfds,jfde, &
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            fdx,fdy,             &
+            zsf,nfuel_cat,fuel_time &
+#           include "fr_sfire_params_args.h" 
 )
+
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'model: terrain height')        
+        call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,dzfsdx,dzfsdy,'terrain gradient')
+                                        
+        ! initialize model state to no fire
+        call init_no_fire   ( &
+            ifds,ifde,jfds,jfde, &
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            fdx,fdy,time_start,  &
+            fuel_frac,lfn,tign)
+            
+        need_lfn_update=.true. ! because we have set lfn 
+
+elseif(ifun.eq.3)then   ! initialize timestep
+
+    ! check for ignitions
+    do ig = 1,num_ignitions
     
-        ! initialize variable model arrays to no fire
-        call init_model_no_fire(ifts,ifte,jfts,ifte, &
-                                ifms,ifme,jfms,jfme, &
-                                fuel_frac,lfn,tign)                            
-                            
-    endif
-
-    select case(ignition)
-    case(0)
-    case(1)
-        ! ignite fire in the middle
-        ctri=(ifds+ifde+1)*0.5
-        ctrj=(jfds+jfde+1)*0.5
-        ! at least 6 by 6 cells but no less than 5 m
-        diam = max(5.0,6*max(fdx,fdy))    
-        call ignite_fire(   ifts,ifte,jfts,jfte,                      &
-                            ifms,ifme,jfms,jfme,                      &
-                            time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
-    case(2)
-        ! like above but ignite in the corner
-        ctri=(ifds+ifde+1)*0.25
-        ctrj=(jfds+jfde+1)*0.25
-        diam = max(5.0,6*max(fdx,fdy))
-        call ignite_fire(   ifts,ifte,jfts,jfte,                      &
-                            ifms,ifme,jfms,jfme,                      &
-                            time_start,ctri,ctrj,diam,fdx,fdy,lfn,tign)
-        ! more complicated ignition can come here, or load from data
-    case default
-        call crash('model: unsupported ignition value')
-    end select
+        if(ignition_time(ig)>=time_start.and.ignition_time(ig)<time_start+dt)then 
+            call ignite_fire(                             &
+                ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
+                ifms,ifme,jfms,jfme,                      &
+                ifts,ifte,jfts,jfte,                      &
+                ignition_start_x(ig),ignition_start_y(ig),&
+                ignition_end_x(ig),ignition_end_y(ig),    &
+                ignition_radius(ig),                      &
+                ignition_time(ig),                        &  
+                fdx,fdy,                                  &
+                lfn,tign,ignited)
+                
+            need_lfn_update=.true. ! if ignition, lfn changed
+        endif
+        
+    enddo
     
-enddo ! end tile loop
+elseif (ifun.eq.4) then  ! do the timestep
 
-! advance the model from time_start to time_start+dt
-! return the fuel fraction burnt this call in each fire cell
-! will call module_fr_sfire_speed::normal_spread for propagation speed
-! We cannot simply compute the spread rate here because that will change with the
-! angle of the wind and the direction of propagation, thus it is done in subroutine
-! normal_spread at each fire time step. Instead, we pass arguments that 
-! subroutine normal_spread may use. The include is to guarantee this is done consistently
-! over the call chain.
+!   compute fuel fraction at start
+    call fuel_left( &
+        ifms,ifme,jfms,jfme, &
+        ifts,ifte,jfts,jfte, &
+        ifms,ifme,jfms,jfme, &
+        ifl,jfl,             &
+        lfn,tign,fuel_time,time_start,fuel_frac) ! fuel frac is shared
 
-call sfire_core(     &
-    ifts,ifte,jfts,jfte,                      &
-    ifms,ifme,jfms,jfme,                      &
-    num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-    time_start,dt,fdx,fdy,fuel_time,  &
-    lfn,tign,fuel_frac,fuel_frac_burnt &
-#   include "fr_sfire_params_args.h" 
-    ) 
+    call print_2d_stats(ifts,ifte,jfts,jfte, &
+                   ifms,ifme,jfms,jfme, &
+                   fuel_frac,'model: fuel_frac start')
 
-! compute the heat fluxes from the fuel burned
-do ij=1,num_tiles
-    ifts=i_start(ij)
-    ifte=i_end(ij)
-    jfts=j_start(ij)
-    jfte=j_end(ij)
-    
-    call heat_fluxes(dt,                          &
-        ifts,ifte,jfts,jfte,                      &
+    ! advance the model from time_start to time_start+dt
+    ! return the fuel fraction burnt this call in each fire cell
+    ! will call module_fr_sfire_speed::normal_spread for propagation speed
+    ! We cannot simply compute the spread rate here because that will change with the
+    ! angle of the wind and the direction of propagation, thus it is done in subroutine
+    ! normal_spread at each fire time step. Instead, we pass arguments that 
+    ! the speed function may use. The include is to guarantee this is done consistently
+    ! over the call chain.
+
+!   propagate level set function in time
+!   set lfn_out tign
+!   lfn does not change, tign has no halos
+
+    call prop_ls(id,     &
+        ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
-        fgip,fuel_frac_burnt,                     & !in
+        ifts,ifte,jfts,jfte,                      &
+        time_start,dt,fdx,fdy,tbound,  &
+        lfn,lfn_out,tign &
+#       include "fr_sfire_params_args.h" 
+    ) 
+    
+elseif (ifun.eq.5) then ! copy the result of timestep back to input
+    ! this cannot be done in the time step itself because of race condition
+    ! some thread may still be using lfn as input in their tile halo
+    
+    do j=jfts,jfte
+        do i=ifts,ifte
+            lfn(i,j)=lfn_out(i,j)
+            ! if want to try timestep again treat tign the same way here
+            ! even if tign does not need a halo
+        enddo
+    enddo
+    
+    need_lfn_update=.true. ! duh
+
+elseif (ifun.eq.6) then ! timestep postprocessing
+
+    ! compute the heat fluxes from the fuel burned
+    ! needs lfn from neighbors so halo must be updated before
+    call fuel_left( &
+        ifms,ifme,jfms,jfme, &
+        ifts,ifte,jfts,jfte, &
+        ifts,ifte,jfts,jfte, &
+        ifl,jfl,             &
+        lfn,tign,fuel_time,time_start+dt,fuel_frac_end) !fuel_frac_end is private and tile based
+
+    call print_2d_stats(ifts,ifte,jfts,jfte, &
+                   ifts,ifte,jfts,jfte, &
+                   fuel_frac_end,'model: fuel_frac end')
+    
+    do j=jfts,jfte
+        do i=ifts,ifte
+            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j)
+        enddo
+    enddo
+
+    call print_2d_stats(ifts,ifte,jfts,jfte, &
+                   ifts,ifte,jfts,jfte, &
+                   fuel_frac_burnt,'model: fuel_frac burned')
+        
+    call heat_fluxes(dt,                          &
+        ifms,ifme,jfms,jfme,                      &
+        ifts,ifte,jfts,jfte,                      &
+        ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned
+        fgip,                                     &
+        fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 
 
-
-enddo ! tiles
-
-call print_2d_stats(ifps,ifpe,jfps,jfpe, &
+    call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
                    grnhfx,'model: heat flux(J/m^2/s)')
+
+else
+    write(msg,*)'sfire_model: bad ifun=',ifun
+    call crash(msg)
+endif
 
 end subroutine sfire_model
 
