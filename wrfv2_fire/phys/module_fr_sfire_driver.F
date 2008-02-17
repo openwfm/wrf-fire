@@ -123,7 +123,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
             fire_ignition_end_x,fire_ignition_end_y,     &
             fire_ignition_radius,fire_ignition_time,     &
-            grid%em_u_2,grid%em_v_2,grid%em_mut,rho,grid%em_z,      & ! in arrays, on atm grid
+            grid%em_u_2,grid%em_v_2,grid%em_mut,rho,grid%ht,      & ! in arrays, on atm grid
             z_at_w,dz8w,                                  &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             uf,vf,lfn_out,                                & ! arrays to persist only over one timestep    
