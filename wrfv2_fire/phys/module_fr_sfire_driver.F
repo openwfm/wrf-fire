@@ -91,7 +91,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         fire_ignition_end_y, &
         fire_ignition_time, &
         fire_ignition_radius
-    integer::fire_ifun,fire_ifun_start
+    integer::fire_ifun,fire_ifun_start,ir,jr
     logical::need_lfn_update
     real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out
     
@@ -100,21 +100,41 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
 
-    fire_ifun_start=1
+
+    ir=grid%sr_x ! refinement ratio
+    jr=grid%sr_y
+    
+    fire_ifun_start=1  ! initialize?
     if(grid%itimestep.ne.1)fire_ifun_start=3  ! should find a better distinction when to initialize
+
+    need_lfn_update=.false.
     do fire_ifun=fire_ifun_start,6
+
+#ifdef DM_PARALLEL
+        if(need_lfn_update.or.ifun.eq.4)then
+!           halo exchange on lfn width 2
+        endif   
+        if(ifun.eq.2)then
+!           halo exchange on zsf width 2, will compute 
+!           halo exchange on all fuel data width 1
+        endif
+        if(ifun.eq.4)then
+!           halo exchange on fire winds width 1
+        endif
+#endif
+        ! need domain by 1 smaller, in last row.col winds are not set properly
         call sfire_driver_phys ( &
             fire_ifun,need_lfn_update,                  &
-            ids,ide, kds,kde, jds,jde,                  & ! atm grid dimensions
-            ims,ime, kms,kme, jms,jme,                  &
-            ips,ipe, kps,kpe, jps,jpe,                  &
-            ifds, ifde, jfds, jfde,                     & ! fire grid dimensions
-            ifms, ifme, jfms, jfme,                     &
-            ifps, ifpe, jfps, jfpe,                     & ! 
-            grid%sr_x,grid%sr_y,                        & ! atm/fire grid ratio
+            ids,ide-1, kds,kde, jds,jde-1,                          &
+            ims,ime, kms,kme, jms,jme,                          &
+            ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1),                          & 
+            ifds,ifde-ir, jfds,jfde-jr,                    &
+            ifms,ifme, jfms,jfme,                    &
+            ifps,min(ifpe,ifde-ir), jfps,min(jfpe,jfde-jr),      &
+            ir,jr,                                      & ! atm/fire grid ratio
             grid%num_tiles,                             & ! atm grid tiling
-            grid%i_start,grid%i_end,                    &
-            grid%j_start,grid%j_end,                    &                 
+            grid%i_start,min(grid%i_end,ide-1),                    &
+            grid%j_start,min(grid%j_end,jde-1),                    &                 
             grid%itimestep,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
             grid%dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
@@ -134,19 +154,6 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%dzfsdx,grid%dzfsdy,                      &
             grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
         )
-
-#ifdef DM_PARALLEL
-        if(need_lfn_update)then
-!           halo exchange on lfn width 2
-        endif   
-        if(ifun.eq.1)then
-!           halo exchange on zsf width 2
-!           halo exchange on all fuel data width 1
-        endif
-        if(ifun.eq.3)then
-!           halo exchange on uf vf width 1
-        endif
-#endif
     
     enddo
 
@@ -448,8 +455,8 @@ if(ifun.eq.1)then
     endif
 elseif(ifun.eq.3)then
     if(pid.gt.0)then
-        call write_array_m(ips,ipe+1,jps,jpe+1,ifms,ifme,jfms,jfme,u,'u',pid)
-        call write_array_m(ips,ipe+1,jps,jpe+1,ifms,ifme,jfms,jfme,v,'v',pid)
+        call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,u,'u',pid)
+        call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,v,'v',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',pid)
     endif
