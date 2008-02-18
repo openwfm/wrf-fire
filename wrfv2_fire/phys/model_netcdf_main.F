@@ -165,8 +165,9 @@ counts=(/ifpe-ifps+2,jfpe-jfps+2,1/)
 ! fuel data
 ifuelread=0
 nfuel_cat0=3
-!call set_nfuel_cat( ifps,ifpe,jfps,jfpe,               &
+!call set_nfuel_cat( & 
 !                    ifms,ifme,jfms,jfme,               &
+!                    ifps,ifpe,jfps,jfpe,               &
 !                    ifuelread,zsf,nfuel_cat)
 
 

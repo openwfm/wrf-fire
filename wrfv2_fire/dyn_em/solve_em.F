@@ -33,6 +33,7 @@ SUBROUTINE solve_em ( grid , config_flags  &
    USE module_microphysics_zero_out
    USE module_pbl_driver
    USE module_fire_driver
+   USE module_fr_sfire_driver
    USE module_fddagd_driver
    USE module_fddaobs_driver
    USE module_diagnostics
@@ -104,6 +105,14 @@ SUBROUTINE solve_em ( grid , config_flags  &
 ! fire related variables
    REAL :: moad_dx, moad_dy
    REAL :: moad_cen_lat, moad_cen_lon
+   INTEGER:: fire_num_ignitions
+   integer, parameter::fire_max_ignitions=5
+   REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
+        fire_ignition_start_y, &
+        fire_ignition_end_x, &
+        fire_ignition_end_y, &
+        fire_ignition_time, &
+        fire_ignition_radius
 
 ! Define benchmarking timers if -DBENCH is compiled
 #include <bench_solve_em_def.h>
@@ -758,8 +767,29 @@ BENCH_START(fire_driver_tim)
          CALL set_fire_debug_vars(grid,config_flags)
 #endif
 
+
+        if(config_flags%ifire.eq.3)then
+            call sfire_driver_em ( grid , config_flags    &
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,sids,side, sjds,sjde                        &
+            ,sims,sime, sjms,sjme                        &
+            ,sips,sipe, sjps,sjpe                        &
+            ,rho,z_at_w,dz8w)
+        else
+
+#ifdef DM_PARALLEL
+            CALL wrf_error_fatal('only ifire=3 supports distributed memory parallel')
+#endif
+
+        call fire_ignition_convert (config_flags,fire_max_ignitions, &
+            fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
+            fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+            
          CALL fire_driver(config_flags%ifire                        & ! send
-            ,u_phy,v_phy,grid%u_frame,grid%v_frame,grid%em_mut,rho  &
+            ,u_phy,v_phy,grid%em_u_2,grid%em_v_2                    &
+            ,grid%u_frame,grid%v_frame,grid%em_mut,rho              &
             ,grid%itimestep,grid%dt,grid%dx,grid%dy                 &
             ,grid%em_z,z_at_w,dz8w,grid%ht                          &
             ,ids,ide, kds,kde, jds,jde                              &
@@ -769,8 +799,10 @@ BENCH_START(fire_driver_tim)
             ,sims,sime, skms,skme, sjms,sjme                        &
             ,sips,sipe, skps,skpe, sjps,sjpe                        &
             ,k_start,min(k_end,kde-1),grid%num_tiles                &
-            ,grid%i_start,min(grid%i_end,ide-1)                     &
-            ,grid%j_start,min(grid%j_end,jde-1)                     &
+!jm         ,grid%i_start,min(grid%i_end,ide-1)                    & conflicts with sfire
+!jm         ,grid%j_start,min(grid%j_end,jde-1)                    & done in module_fire_driver now
+            ,grid%i_start,grid%i_end                                &
+            ,grid%j_start,grid%j_end                                &
             ,grid%grid_id                                           &
             ,config_flags%cen_lat,config_flags%cen_lon              &
             ,grid%em_lat_ll_d,grid%em_lon_ll_d                      &
@@ -780,6 +812,11 @@ BENCH_START(fire_driver_tim)
             ,model_config_rec%s_we(1), model_config_rec%e_we(1)     &
             ,model_config_rec%s_sn(1), model_config_rec%e_sn(1)     &
             ,grid%sr_x,grid%sr_y                                    &
+            ,fire_num_ignitions                                     & ! start ignition for SFIRE
+            ,fire_ignition_start_x,fire_ignition_start_y            & ! ignition - small arrays
+            ,fire_ignition_end_x,fire_ignition_end_y                &
+            ,fire_ignition_radius                                   &
+            ,fire_ignition_time                                     & ! end ignitin for SFIRE
             ,config_flags%fire_lat_init,config_flags%fire_lon_init  &
             ,config_flags%fire_ign_time                             &
             ,config_flags%fire_shape,config_flags%fire_crwn_hgt     &
@@ -799,6 +836,7 @@ BENCH_START(fire_driver_tim)
             ,grid%fuel_time,grid%dzfsdx,grid%dzfsdy,grid%fgip       & 
             ,grid%ischap                                         )    ! data
 
+         endif
 BENCH_END(fire_driver_tim)
 
       ENDIF
@@ -3513,4 +3551,3 @@ BENCH_END(bc_2d_tim)
    RETURN
 
 END SUBROUTINE solve_em
-

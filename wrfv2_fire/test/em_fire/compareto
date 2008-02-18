@@ -1,0 +1,2 @@
+#!/bin/csh -f
+diff $2 . ~/$1 | grep -v Only | less
