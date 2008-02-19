@@ -110,16 +110,26 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     need_lfn_update=.false.
     do fire_ifun=fire_ifun_start,6
 
+        ! 1 = initialize run pass 1: interpolate height to zsf=terrain
+        ! 2 = initialize run pass 2: set fuel data, terrain gradient
+        ! 3 = initialize timestep: interpolate winds, check for ignition
+        ! 4 = do one timestep 
+        ! 5 = copy timestep output to input
+        ! 6 = compute output fluxes
+
 #ifdef DM_PARALLEL
-        if(need_lfn_update.or.ifun.eq.4)then
+        if(need_lfn_update)then
 !           halo exchange on lfn width 2
-        endif   
-        if(ifun.eq.2)then
-!           halo exchange on zsf width 2, will compute 
-!           halo exchange on all fuel data width 1
         endif
-        if(ifun.eq.4)then
+        if(fire_ifun.eq.4)then
 !           halo exchange on fire winds width 1
+        elseif(fire_ifun.eq.2)then
+!           halo exchange on zsf width 2
+        elseif(fire_ifun.eq.3)then
+            if(fire_ifun_start<3)then
+!               halo exchange on all fuel data width 1
+            endif
+            halo exchange on atm winds width 1
         endif
 #endif
         ! need domain by 1 smaller, in last row.col winds are not set properly
