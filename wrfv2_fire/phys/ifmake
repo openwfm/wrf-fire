@@ -1,1 +1,1 @@
-make -f testmakefile FC="ifort -g -r8  -debug extended -debug-parameters all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free -I . -I ../share"  $*
+make -f testmakefile FFREE="-free" FFIXED="-fixed" FC='ifort -g $(FFREE) -debug extended -debug-parameters all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -I . -I ../share'  $*

@@ -4,6 +4,7 @@ host=`hostname`
 myhost=1
 if [ ${host} = "wf.cudenver.edu" ] ; then
   base="/opt/wrf-libs"
+  source $base/setpaths.sh
   mpibins="/opt/intel9.1-64-par/bin"
 elif [ ${host} = "opt4.cudenver.edu" ] ; then
   base="/home/grads/jbeezley/wrf-libs"
