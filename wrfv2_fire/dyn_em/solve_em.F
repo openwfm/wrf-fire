@@ -44,6 +44,8 @@ SUBROUTINE solve_em ( grid , config_flags  &
 #ifndef DM_PARALLEL
    USE module_fire_debug
 #endif
+! jm debug
+   USE module_fr_sfire_util
 
    IMPLICIT NONE
 
@@ -837,6 +839,13 @@ BENCH_START(fire_driver_tim)
             ,grid%ischap                                         )    ! data
 
          endif
+
+! jm debug
+         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
+            grid%rthfrten,'rthfrten',grid%itimestep)
+         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
+            grid%rqvfrten,'rqvfrten',grid%itimestep)
+
 BENCH_END(fire_driver_tim)
 
       ENDIF
