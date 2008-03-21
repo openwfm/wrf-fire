@@ -452,6 +452,14 @@ do ij=1,num_tiles
             fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                &
             zs,z_at_w,dz8w,mu,rho,          &
             rthfrten,rqvfrten)                ! out
+
+       ! debug print to compare
+
+       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
+       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
+       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver:rthfrten')
+       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver:rqvfrten')
+
             
     endif ! ifun=6
 
