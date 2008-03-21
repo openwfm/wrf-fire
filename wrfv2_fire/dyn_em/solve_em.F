@@ -841,9 +841,17 @@ BENCH_START(fire_driver_tim)
          endif
 
 ! jm debug
-         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
+         call print_2d_stats(ips,min(ipe,ide-1),jps,min(jpe,jde-1),ims,ime,jms,jme, &
+            grid%grnhfx,'solve_em:grnhfx')
+         call print_2d_stats(ips,min(ipe,ide-1),jps,min(jpe,jde-1),ims,ime,jms,jme, &
+            grid%grnqfx,'solve_em:grnqfx')
+         call print_3d_stats(ips,min(ipe,ide-1),kps,kpe,jps,min(jpe,jde-1),ims,ime,kms,kme,jms,jme, &
+            grid%rthfrten,'solve_em:rthfrten')
+         call print_3d_stats(ips,min(ipe,ide-1),kps,kpe,jps,min(jpe,jde-1),ims,ime,kms,kme,jms,jme, &
+            grid%rqvfrten,'solve_em:rqvfrten')
+         call write_array_m3(ips,min(ipe,ide-1),kps,kpe,jps,min(jpe,jde-1),ims,ime,kms,kme,jms,jme, &
             grid%rthfrten,'rthfrten',grid%itimestep)
-         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
+         call write_array_m3(ips,min(ipe,ide-1),kps,kpe,jps,min(jpe,jde-1),ims,ime,kms,kme,jms,jme, &
             grid%rqvfrten,'rqvfrten',grid%itimestep)
 
 BENCH_END(fire_driver_tim)

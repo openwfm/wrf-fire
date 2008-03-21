@@ -442,6 +442,16 @@ do ij=1,num_tiles
             enddo
         enddo
 
+        do j=jts,jte
+            do k=kts,min(kte+1,kde)
+               do i=its,ite
+                   rthfrten(i,k,j)=0.
+                   rqvfrten(i,k,j)=0.
+               enddo
+            enddo
+        enddo
+
+
         ! --- add heat and moisture fluxes to tendency variables by postulated decay
 
         call fire_tendency(                 &
@@ -498,7 +508,7 @@ elseif(ifun.eq.6)then
     !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
     !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
     kpe1=min(kps+1,kpe)
-    kpe1=kps-1
+    !kpe1=kps-1
     do k=kps,kpe1
         call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
         call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
