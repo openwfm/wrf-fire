@@ -768,9 +768,13 @@ BENCH_START(fire_driver_tim)
 #ifndef DM_PARALLEL
          CALL set_fire_debug_vars(grid,config_flags)
 #endif
+         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
+            grid%em_u_2,'em_u_2',grid%itimestep)
+         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
+            grid%em_v_2,'em_v_2',grid%itimestep)
 
 
-        if(config_flags%ifire.eq.3)then
+        if(config_flags%ifire.eq.FIRE_SFIRED)then
             call sfire_driver_em ( grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
@@ -841,18 +845,23 @@ BENCH_START(fire_driver_tim)
          endif
 
 ! jm debug
-         call print_2d_stats(ips,min(ipe,ide-1),jps,min(jpe,jde-1),ims,ime,jms,jme, &
+         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme, &
             grid%grnhfx,'solve_em:grnhfx')
-         call print_2d_stats(ips,min(ipe,ide-1),jps,min(jpe,jde-1),ims,ime,jms,jme, &
+         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme, &
             grid%grnqfx,'solve_em:grnqfx')
-         call print_3d_stats(ips,min(ipe,ide-1),kps,kpe,jps,min(jpe,jde-1),ims,ime,kms,kme,jms,jme, &
+         call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
             grid%rthfrten,'solve_em:rthfrten')
-         call print_3d_stats(ips,min(ipe,ide-1),kps,kpe,jps,min(jpe,jde-1),ims,ime,kms,kme,jms,jme, &
+         call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
             grid%rqvfrten,'solve_em:rqvfrten')
-         call write_array_m3(ips,min(ipe,ide-1),kps,kpe,jps,min(jpe,jde-1),ims,ime,kms,kme,jms,jme, &
+         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
             grid%rthfrten,'rthfrten',grid%itimestep)
-         call write_array_m3(ips,min(ipe,ide-1),kps,kpe,jps,min(jpe,jde-1),ims,ime,kms,kme,jms,jme, &
+         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
             grid%rqvfrten,'rqvfrten',grid%itimestep)
+         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
+            grid%em_u_2,'em_u_2_out',grid%itimestep)
+         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
+            grid%em_v_2,'em_v_2_out',grid%itimestep)
+
 
 BENCH_END(fire_driver_tim)
 

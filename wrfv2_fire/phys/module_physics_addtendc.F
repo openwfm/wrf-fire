@@ -742,8 +742,9 @@ SUBROUTINE phy_fr_ten(config_flags,rk_step,n_moist,            &
 
    SELECT CASE(config_flags%ifire)
 
-      CASE (FIRE_CAWFE,FIRE_SFIRE)
+      CASE (FIRE_CAWFE,FIRE_SFIRE,FIRE_SFIRED)
 ! Jan Mandel added FIRE_SFIRE Nov 17 2007
+! Jan Mandel added FIRE_SFIRED Nov 17 2007
 
            CALL add_a2a(rt_tendf,rthfrten,                       &
                 config_flags,                                    &

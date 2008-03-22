@@ -1,8 +1,8 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 600,
- run_seconds                         = 0,
+ run_minutes                         = 0,
+ run_seconds                         = 3,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
  start_day                           = 01,   01,   01,
@@ -125,7 +125,7 @@
  /
 
  &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
- ifire              = 2,    ! integer, = 0: no fire, = 1: cc_fire, 2=sfire through Ned's driver, 3=sfire
+ ifire              = 3,    ! integer, = 0: no fire, = 1: cc_fire, 2=sfire through Ned's driver, 3=sfire
 ! ignition for cawfe
 !fire_lat_init      =   40.,    ! real   , initial fire latitude (deg)
 !fire_lon_init      = -105.,    ! real   , initial fire longitude (deg)

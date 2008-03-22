@@ -1374,7 +1374,8 @@ state fdob_type fdob - -
 #         name>          namelist choice>          state vars>
 # 
 package   fire_cawfe     fire==1                     -             -
-package   fire_sfire     fire==2                     -             -
+package   fire_sfire    fire==2                     -             -
+package   fire_sfired    fire==3                     -             -
 
 # fire dimensions on fire grid
 #
