@@ -1,8 +1,8 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 0,
- run_seconds                         = 3,
+ run_minutes                         = 30,
+ run_seconds                         = 0,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
  start_day                           = 01,   01,   01,

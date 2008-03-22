@@ -768,13 +768,18 @@ BENCH_START(fire_driver_tim)
 #ifndef DM_PARALLEL
          CALL set_fire_debug_vars(grid,config_flags)
 #endif
+
+#ifdef JM_DEBUG
          call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
             grid%em_u_2,'em_u_2',grid%itimestep)
          call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
             grid%em_v_2,'em_v_2',grid%itimestep)
+#endif
+
+!jm Janice, reading data from files to grid%nfuel_cat etc comes here
 
 
-        if(config_flags%ifire.eq.FIRE_SFIRED)then
+        if(config_flags%ifire.eq.FIRE_SFIRED)then ! case ifire=3
             call sfire_driver_em ( grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
@@ -845,6 +850,7 @@ BENCH_START(fire_driver_tim)
          endif
 
 ! jm debug
+#ifdef JM_DEBUG
          call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme, &
             grid%grnhfx,'solve_em:grnhfx')
          call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme, &
@@ -861,6 +867,7 @@ BENCH_START(fire_driver_tim)
             grid%em_u_2,'em_u_2_out',grid%itimestep)
          call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
             grid%em_v_2,'em_v_2_out',grid%itimestep)
+#endif
 
 
 BENCH_END(fire_driver_tim)
