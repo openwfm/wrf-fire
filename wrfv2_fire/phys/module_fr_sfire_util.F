@@ -10,7 +10,19 @@
 
 module module_fr_sfire_util
 
+integer,save,private::fire_print_msg=1,fire_print_file=1
+
 contains
+
+!
+!***************
+!
+subroutine fire_util_set_namelist_vals(dmsg,dfile)
+implicit none
+integer,intent(in)::dmsg,dfile
+fire_print_msg=dmsg
+fire_print_file=dfile
+end subroutine fire_util_set_namelist_vals
 
 !
 !****************
@@ -34,7 +46,9 @@ implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
 msg='SFIRE:'//s
+if(fire_print_msg.gt.0)then
 call wrf_message(msg)
+endif
 end subroutine message
 
 !
@@ -792,6 +806,7 @@ real,intent(in)::min_a,max_a,avg_a
 !*** local
 character(len=128)msg
 character(len=24)id
+if(fire_print_msg.eq.0)return
 id=name
 write(msg,'(a,4i4,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
 call message(msg)
@@ -808,6 +823,7 @@ real, intent(in)::a(ims:ime,kms:kme,jms:jme)
 character(len=*),intent(in)::name
 integer:: i,j,k
 real:: avg_a,max_a,min_a 
+if(fire_print_msg.eq.0)return
 avg_a=0
 max_a=-huge(max_a)
 min_a= huge(min_a)
@@ -831,6 +847,7 @@ implicit none
 integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
+if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &
                          a,name)
@@ -895,6 +912,7 @@ integer i,j,k,iu,ilen
 logical op
 character(len=128)::fname,msg
 !****
+if(fire_write_file.eq.0)return
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 do iu=6,99
     inquire(unit=iu,opened=op)

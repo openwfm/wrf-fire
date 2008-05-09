@@ -1489,6 +1489,8 @@ rconfig   real    fire_ext_grnd          namelist,fire          1            50.
 rconfig   real    fire_ext_crwn          namelist,fire          1            50.     -      "fire_ext_crwn"    "extinction depth of crown fire heat" "m"
 rconfig   integer fire_fuel_read         namelist,fire          1            0       -      "fire_fuel_read"   "fuel categories are set by: if 0, uniform; if 1, user-presc; if 2, read from file"   ""
 rconfig   integer fire_fuel_cat          namelist,fire          1            1       -      "fire_fuel_cat"     "fuel category if ifuelread=0"              ""
+rconfig   integer fire_print_msg         namelist,fire          1            0       -      "fire_write_msg"    "write fire statistics, 0 no writes, 1+ for more"  ""
+rconfig   integer fire_print_file        namelist,fire          1            0       -      "fire_write_file"   "write fire output text files, 0 no writes, 1+ for more" ""
 
 #
 # ----------------------------------------
