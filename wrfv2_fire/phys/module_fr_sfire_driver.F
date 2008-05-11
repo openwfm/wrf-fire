@@ -129,7 +129,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             if(fire_ifun_start<3)then
 !               halo exchange on all fuel data width 1
             endif
-            halo exchange on atm winds width 1
+!            halo exchange on atm winds width 1
         endif
 #endif
         ! need domain by 1 smaller, in last row.col winds are not set properly
