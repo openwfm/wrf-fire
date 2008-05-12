@@ -765,6 +765,9 @@ BENCH_START(fire_driver_tim)
          CALL nl_get_cen_lat(1,moad_cen_lat)
          CALL nl_get_cen_lon(1,moad_cen_lon)
 
+         call fire_util_set_namelist_vals(config_flags%fire_print_msg, &
+                                          config_flags%fire_print_file)
+
 #ifndef DM_PARALLEL
          CALL set_fire_debug_vars(grid,config_flags)
 #endif
