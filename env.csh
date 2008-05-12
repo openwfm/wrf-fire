@@ -28,7 +28,8 @@ setenv NCARG_ROOT ${base}/ncarg
 setenv NCARG $NCARG_ROOT
 unlimit
 
-set ifvars=/opt/intel/fce/9.1.036/bin/ifortvars.csh
+#set ifvars=/opt/intel/fce/9.1.036/bin/ifortvars.csh
+set ifvars=/opt/intel/fce/10.1.015/bin/ifortvars.csh
 if ( -f ${ifvars} ) then
   source ${ifvars}
 else

@@ -360,8 +360,8 @@ RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
 FCDEBUG         =       # -g
-FCBASEOPTS      =       -w -FR -cm -I. -Vaxlib -convert big_endian -mp
-FCOPTIM		=	-O3 -no-ipo
+FCBASEOPTS      =       -w -FR -cm -I. -Vaxlib -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
+FCOPTIM		=	-O3 -unroll0 -xP -fno-alias -ip
 FCFLAGS		=	$(FCOPTIM) $(FCBASEOPTS) $(OMP)
 CFLAGS		=       -w
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
@@ -495,9 +495,9 @@ SFC             =       ifort
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
-FCOPTIM		=	-O3 -no-ipo  # -xW
+FCOPTIM		=	-O3 -unroll0 -xP -fno-alias -ip
 FCDEBUG		=	#-g
-FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -mp
+FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DWRF_RSL_IO -DRSL -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
@@ -569,7 +569,7 @@ esmf_time :
           make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST stub )
 
 # compile these without high optimization to speed compile
-solve_em.o : solve_em.F
+#solve_em.o : solve_em.F
 solve_interface.o : solve_interface.F
 shift_domain_em.o : shift_domain_em.F
 module_io_mm5.o : module_io_mm5.F
@@ -587,7 +587,7 @@ module_initialize_real.o : module_initialize_real.F
 start_domain.o : start_domain.F
 mediation_integrate.o : mediation_integrate.F
 
-solve_em.o solve_interface.                                    \
+solve_interface.o                                    \
 shift_domain_em.o                                              \
 module_io_mm5.o module_si_io.o module_io_wrf.o module_domain.o \
 module_start.o module_initialize.o module_initialize_b_wave.o  \
@@ -692,7 +692,7 @@ esmf_time :
 	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
 
 # compile these without high optimization to speed compile
-solve_em.o : solve_em.F
+#solve_em.o : solve_em.F
 solve_interface.o : solve_interface.F
 shift_domain_em.o : shift_domain_em.F
 module_io_mm5.o : module_io_mm5.F
@@ -710,7 +710,7 @@ module_initialize_real.o : module_initialize_real.F
 start_domain.o : start_domain.F
 mediation_integrate.o : mediation_integrate.F
 
-solve_em.o solve_interface.o                                              \
+solve_interface.o                                              \
 shift_domain_em.o                                              \
 module_io_mm5.o module_si_io.o module_io_wrf.o module_domain.o \
 module_start.o module_initialize.o module_initialize_b_wave.o  \
@@ -756,9 +756,9 @@ SFC             =       ifort
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
-FCOPTIM		=	-O2 -no-ipo # -xW
+FCOPTIM		=       -O3 -unroll0 -xP -fno-alias -ip
 FCDEBUG		=	#-g
-FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -mp
+FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DWRF_RSL_IO -DRSL -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
@@ -828,7 +828,7 @@ esmf_time :
           make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST stub )
 
 # compile these without high optimization to speed compile
-solve_em.o : solve_em.F
+#solve_em.o : solve_em.F
 solve_interface.o : solve_interface.F
 shift_domain_em.o : shift_domain_em.F
 module_io_mm5.o : module_io_mm5.F
@@ -846,7 +846,7 @@ module_initialize_real.o : module_initialize_real.F
 start_domain.o : start_domain.F
 mediation_integrate.o : mediation_integrate.F
 
-solve_interface.o solve_em.o                                   \
+solve_interface.o                                   \
 shift_domain_em.o                                              \
 module_io_mm5.o module_si_io.o module_io_wrf.o module_domain.o \
 module_start.o module_initialize.o module_initialize_b_wave.o  \
@@ -890,9 +890,9 @@ SFC             =       ifort
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
-FCOPTIM		=	-O2 -no-ipo  # -xW
+FCOPTIM		=	-O3 -unroll0 -xP -fno-alias -ip
 FCDEBUG		=	#-g
-FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -mp
+FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DWRF_RSL_IO -DRSL -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
