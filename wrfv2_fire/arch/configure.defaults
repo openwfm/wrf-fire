@@ -1004,6 +1004,14 @@ module_initialize_real.o start_domain.o :
 	$(RM) $*.b
 	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $*.f90
 
+solve_em.o: solve_em.F
+solve_em.o:
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b 
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -O $*.f90
+
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
 
