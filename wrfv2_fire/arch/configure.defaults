@@ -495,7 +495,7 @@ SFC             =       ifort
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
-FCOPTIM		=	-O3 -unroll0 -xP -fno-alias -ip
+FCOPTIM		=	-O3 -unroll0 -xW -fno-alias -ip
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
