@@ -28,7 +28,7 @@ export NCARG_ROOT=$NCARG
 ulimit -s unlimited
 
 #ifvars=/opt/intel/fce/9.1.036/bin/ifortvars.sh
-ifvars=/opt/intel/fce/10.1.015/bin/ifortvars.sh
+ifvars=/opt/intel/fce/current/bin/ifortvars.sh
 if [ -f ${ifvars} ] ; then
   source ${ifvars}
 else
