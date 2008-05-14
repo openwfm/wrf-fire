@@ -2,7 +2,7 @@
 set cont=1
 set host=`hostname`
 set myhost=1
-if ( ${host} == "wf.cudenver.edu" )  then
+if ( ${host} == "wf" )  then
   set base="/opt/wrf-libs"
   source $base/setpaths.csh
   set mpibins="/opt/intel9.1-64-par/bin"
