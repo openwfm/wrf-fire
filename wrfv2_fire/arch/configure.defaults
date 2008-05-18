@@ -497,7 +497,7 @@ SFC             =       ifort
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
-FCOPTIM		=	-O3 -unroll0 -xP -fno-alias -ip
+FCOPTIM		=	-O3 -unroll0 -xW -fno-alias -ip
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
@@ -639,7 +639,7 @@ RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
 CFLAGS          =
-FCOPTIM		=       -O3 -unroll0 -xP -fno-alias -ip  #-O2 -no-ipo # -xW
+FCOPTIM		=       -O3 -unroll0 -xT -fno-alias -ip  #-O2 -no-ipo # -xW
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
@@ -1003,6 +1003,14 @@ module_initialize_real.o start_domain.o :
 	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
 	$(RM) $*.b
 	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $*.f90
+
+solve_em.o: solve_em.F
+solve_em.o:
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b 
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -O $*.f90
 
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
