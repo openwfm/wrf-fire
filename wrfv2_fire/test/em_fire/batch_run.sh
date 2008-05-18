@@ -13,8 +13,8 @@ sr_x=10
 sr_y=10
 
 rmesh="21 42 84"
-#datadir="${HOME}/wrffire_data/omp_gentoo"
-datadir="${HOME}/batch_test"
+datadir="${HOME}/wrffire_data"
+#datadir="${HOME}/batch_test"
 nthreads="1 2 4 8"
 #nthreads="8"
 xgrid_size=$(echo "scale=9; $mesh_x * $dx" | bc)
@@ -72,9 +72,10 @@ cd ${testdirl}
 ./ideal.exe &> ideal.log
 $gnutime -f '$timefmt' -o ${ltimefile}.tmp  ./wrf.exe &> run.log
 #$gnutime -f '$timefmt' -o ${ltimefile}.tmp  sleep 10 &> run.log
+status=\$(grep signal ${ltimefile}.tmp | wc -l)
 tail -1 ${ltimefile}.tmp > $ltimefile
 sed -i 's/%//g' $ltimefile
-status=\$(cut -d " " -f 9 $ltimefile)
+#status=\$(cut -d " " -f 9 $ltimefile)
 
 if [ \$status -eq 0 ] ; then
   rm -fr $sdata &> /dev/null
