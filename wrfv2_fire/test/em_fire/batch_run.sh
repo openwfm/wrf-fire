@@ -12,9 +12,11 @@ dy=60
 sr_x=10
 sr_y=10
 
-rmesh="21 42 84 168"
-datadir="${HOME}/wrffire_data/omp_gentoo"
+rmesh="21 42 84"
+#datadir="${HOME}/wrffire_data/omp_gentoo"
+datadir="${HOME}/batch_test"
 nthreads="1 2 4 8"
+#nthreads="8"
 xgrid_size=$(echo "scale=9; $mesh_x * $dx" | bc)
 ygrid_size=$(echo "scale=9; $mesh_y * $dy" | bc)
 gnutime="/usr/bin/time"
@@ -27,7 +29,7 @@ ncoreproc=4
 ncores=$((nprocs * ncoreproc))
 
 timefmt='%e %S %U %P %M %W %c %w %x'
-timeheader='realtime kerneltime usertime percent memory nswap iswap nwait exit'
+timeheader='nproc nthread run dt mx my mz dx dy sx sy realtime kerneltime usertime percent memory nswap iswap nwait exit'
 ltimefile="time.log"
 gtimefile="${datadir}/time_all.log"
 runs='runme.x'
@@ -69,6 +71,7 @@ function runscript
 cd ${testdirl}
 ./ideal.exe &> ideal.log
 $gnutime -f '$timefmt' -o ${ltimefile}.tmp  ./wrf.exe &> run.log
+#$gnutime -f '$timefmt' -o ${ltimefile}.tmp  sleep 10 &> run.log
 tail -1 ${ltimefile}.tmp > $ltimefile
 sed -i 's/%//g' $ltimefile
 status=\$(cut -d " " -f 9 $ltimefile)
@@ -82,6 +85,8 @@ if [ \$status -eq 0 ] ; then
   if ! [ -f $gtimefile ] ; then
     echo $timeheader > $gtimefile
   fi
+  echo -n "1 $1 $run_m $(echo "scale=1; $time_step_int + $time_step_frac /10"|bc) $mesh_x $mesh_y $mesh_z $dx $dy $sr_x $sr_y " >> $gtimefile
+
   cat $ltimefile >> $gtimefile
 
 else
@@ -96,6 +101,7 @@ exit $status
 EOF
   chmod +x $runsl
   taskset -c ${pmask} $runsl &
+  echo "taskset -c ${pmask} $runsl &"
   lpid=$!
   for ((i=0;i<$1;i++)) ; do
     pida[${pmaska[$i]}]=$lpid
@@ -125,7 +131,7 @@ function getwaitlist
   rthreads=$(( $1 - ($maxcpu -1) * $ncoreproc))
   startc=0
   startp=1000000
-  for ((i=0;i<$ncores;i++)) ; do
+  for ((i=0;i<$((ncores -$1 +1));i++)) ; do
     lp=0
     for ((j=$i;j<$1+$i;j++)) ; do
       lp=$((lp+pjob[$j]))
@@ -135,7 +141,7 @@ function getwaitlist
       startc=$i
     fi
   done
-#  echo $startp $startc
+  echo $startp $startc
   unset pwait pmask pmaska
   j=0
   dowait=1
@@ -150,7 +156,7 @@ function getwaitlist
     fi
   done
   pmask="${startc}-$((startc+$1 - 1))"
-#  echo $pmask
+  echo $pmask
   if [ $dowait -eq 0 ] ; then
 #    echo "$pwait"
     wait $pwait &> /dev/null
