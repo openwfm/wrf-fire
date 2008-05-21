@@ -1,12 +1,12 @@
 #FC = ifort -fast -free
 
-FFREE=-free
-FFIXED=-fixed
-FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free -I$(NETCDF)/include  
+#FFREE=-free
+#FFIXED=-fixed
+#FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free -I$(NETCDF)/include  
 # for g95
-#FFREE=-ffree-form
-#FFIXED=-ffixed-form
-#FC = g95 -ftrace=frame -g
+FFREE=-ffree-form
+FFIXED=-ffixed-form
+FC = g95 -ftrace=frame -g
 FFLAGS = -I$(NETCDF)/include 
 DEFS = \
   -DPHYS=$(PHYS) \
@@ -71,7 +71,7 @@ module_fr_sfire_phys.o: \
 
 module_model_constants.o: ../share/module_model_constants.F
 	cp ../share/module_model_constants.F .
-	$(FC) -c $(FFLAGS) module_model_constants.F
+	$(FC) -c $(FFLAGS) $(FFREE) module_model_constants.F
 #
 # the propagation alone 
 #
