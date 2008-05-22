@@ -351,16 +351,20 @@ intrinsic tiny
 real::ps,aps,area,ta,out
 real::t00,t01,t10,t11
 real,parameter::safe=tiny(aps)
+character(len=128)::msg
 
-! minus time since ignition
+! minus time since ignition, 0 if no ignition yet
+! it is possible to have 0 in fire region when ignitin time falls in 
+! inside the time step because lfn is updated at the beginning of the time step
+
 t00=tign00-time_now
-if(lfn00>0.)t00=0.
+if(lfn00>0. .or. t00>0.)t00=0.
 t01=tign01-time_now
-if(lfn01>0.)t01=0.
+if(lfn01>0. .or. t01>0.)t01=0.
 t10=tign10-time_now
-if(lfn10>0.)t10=0.
+if(lfn10>0. .or. t10>0.)t10=0.
 t11=tign11-time_now
-if(lfn11>0.)t11=0.
+if(lfn11>0. .or. t11>0.)t11=0.
 
 ! approximate burning area, between 0 and 1   
 ps = lfn00+lfn01+lfn10+lfn11   
