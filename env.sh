@@ -2,7 +2,7 @@
 cont=1
 host=`hostname`
 myhost=1
-if [ ${host} = "wf.cudenver.edu" ] ; then
+if [ ${host} = "wf" ] ; then
   base="/opt/wrf-libs"
   source $base/setpaths.sh
   mpibins="/opt/intel9.1-64-par/bin"
@@ -27,7 +27,8 @@ export NCARG=${base}/ncarg
 export NCARG_ROOT=$NCARG
 ulimit -s unlimited
 
-ifvars=/opt/intel/fce/9.1.036/bin/ifortvars.sh
+#ifvars=/opt/intel/fce/9.1.036/bin/ifortvars.sh
+ifvars=/opt/intel/fce/current/bin/ifortvars.sh
 if [ -f ${ifvars} ] ; then
   source ${ifvars}
 else
