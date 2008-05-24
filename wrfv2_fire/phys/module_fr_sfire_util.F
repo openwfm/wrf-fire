@@ -902,6 +902,7 @@ end subroutine write_array_m
 subroutine write_array_m3(its,ite,kts,kte,jts,jte,           &
                          ims,ime,kms,kme,jms,jme,               &
                          a,name,id)
+implicit none
 ! debug
 !*** arguments
 integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme,kts,kte,kms,kme,id
@@ -912,7 +913,7 @@ integer i,j,k,iu,ilen
 logical op
 character(len=128)::fname,msg
 !****
-if(fire_write_file.eq.0)return
+if(fire_print_file.eq.0)return
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 do iu=6,99
     inquire(unit=iu,opened=op)
