@@ -120,16 +120,21 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 #ifdef DM_PARALLEL
         if(need_lfn_update)then
 !           halo exchange on lfn width 2
+#include "HALO_FIRE_LFN.inc"
         endif
         if(fire_ifun.eq.4)then
 !           halo exchange on fire winds width 1
+#include "HALO_FIRE_WIND.inc"
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
+#include "HALO_FIRE_ZSF.inc"
         elseif(fire_ifun.eq.3)then
             if(fire_ifun_start<3)then
 !               halo exchange on all fuel data width 1
+#include "HALO_FIRE_FUEL.inc"
             endif
 !            halo exchange on atm winds width 1
+#include "HALO_FIRE_WIND.inc"
         endif
 #endif
         ! need domain by 1 smaller, in last row.col winds are not set properly

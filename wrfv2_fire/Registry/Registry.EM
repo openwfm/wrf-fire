@@ -1493,6 +1493,13 @@ rconfig   integer fire_print_msg         namelist,fire         max_domains      
 rconfig   integer fire_print_file        namelist,fire         max_domains           0       -      "fire_write_file"   "write fire output text files, 0 no writes, 1+ for more" ""
 
 #
+# Fire halo descriptions
+#
+halo      HALO_FIRE_LFN dyn_em 12:lfn
+halo      HALO_FIRE_WIND dyn_em 4:u_2,v_2
+halo      HALO_FIRE_ZSF dyn_em 12:zsf
+halo      HALO_FIRE_FUEL dyn_em 4:fuel_frac,fuel_time,dzfsdx,dxfsdy,bbb,betafl,phiwc,r_0,fgip,ischap,nfuel_cat,fnl,nfl_t,nfl_c,ncog,fg,fc,area.area2,zf,tign_g,tign_c,tign_crt
+#
 # ----------------------------------------
 #  end fire variables and configuration
 # ----------------------------------------
