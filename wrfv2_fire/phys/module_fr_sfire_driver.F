@@ -93,7 +93,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         fire_ignition_radius
     integer::fire_ifun,fire_ifun_start,ir,jr
     logical::need_lfn_update
-    real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out
+    !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
+    ! uf vf only do not need to be in the state but we need halo on them
+    real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     
 !*** executable
     call fire_ignition_convert (config_flags,fire_max_ignitions, &
@@ -124,7 +126,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         endif
         if(fire_ifun.eq.4)then
 !           halo exchange on fire winds width 1
-#include "HALO_FIRE_WIND.inc"
+#include "HALO_FIRE_WIND_F.inc"
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
@@ -134,7 +136,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 #include "HALO_FIRE_FUEL.inc"
             endif
 !            halo exchange on atm winds width 1
-#include "HALO_FIRE_WIND.inc"
+#include "HALO_FIRE_WIND_A.inc"
         endif
 #endif
         ! need domain by 1 smaller, in last row.col winds are not set properly
@@ -161,7 +163,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%em_u_2,grid%em_v_2,grid%em_mut,rho,grid%ht,      & ! in arrays, on atm grid
             z_at_w,dz8w,                                  &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
-            uf,vf,lfn_out,                                & ! arrays to persist only over one timestep    
+            grid%uf,grid%vf,lfn_out,                      & ! arrays to persist only over one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid  
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
