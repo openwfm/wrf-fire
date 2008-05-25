@@ -478,7 +478,7 @@ module_dm.o :
 	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $*.f90
 
 ###########################################################
-#ARCH (WF) AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler  (single threaded, allows nesting using RSL without MPI) -O2
+#ARCH (WF) AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler  (single threaded, allows nesting using RSL_LITE without MPI) -O2
 #
 # Note: if you use ifort 8.0, please remove option -xW (for vectorization). This option 
 #       has been identified to produce wrong results occationally.
@@ -501,11 +501,11 @@ FCOPTIM		=	-O3 -unroll0 -xW -fno-alias -ip
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
-ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DWRF_RSL_IO -DRSL -DDM_PARALLEL \
+ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
 			-DLIMIT_ARGS -DSTUBMPI -DLIMIT_ARGS
-CFLAGS          =       -w -DDM_PARALLEL -DWRF_RSL_IO \
-                        -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL/RSL $(ARCHFLAGS)
+CFLAGS          =       -w -DDM_PARALLEL  \
+                        -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL_LITE $(ARCHFLAGS)
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =       
 ESMF_IO_LIB     =       ESMFIOLIB
@@ -514,7 +514,7 @@ INCLUDE_MODULES =       -module ../main -I../external/io_netcdf -I../external/io
                         -I../external -I../frame -I../share -I../phys -I../inc -I../chem
 PERL            =       perl
 REGISTRY        =       Registry
-LIB             =       CONFIGURE_NETCDF_LIB_PATH -L../external/RSL/RSL -lrsl \
+LIB             =       CONFIGURE_NETCDF_LIB_PATH -L../external/RSL -lrsl_lite \
 			-L../external/io_int -lwrfio_int \
 			-L../external/io_grib1 -lio_grib1 \
                         CONFIGURE_GRIB2_LIB \
@@ -524,21 +524,21 @@ LDFLAGS         =       $(FCOPTIM) $(OMP) -convert big_endian CONFIGURE_LDFLAGS
 ENVCOMPDEFS	=	CONFIGURE_COMPILEFLAGS
 CPP             =       /lib/cpp -traditional
 POUND_DEF	=	-DNO_RRTM_PHYSICS $(OMPCPP) $(COREDEFS) -DNONSTANDARD_SYSTEM -DCONFIG_BUF_LEN=$(CONFIG_BUF_LEN) -DMAX_DOMAINS_F=$(MAX_DOMAINS) -DGRIB1 CONFIGURE_GRIB2_FLAG
-CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) -I../external/RSL/RSL -C -P `cat ../inc/dm_comm_cpp_flags` $(ENVCOMPDEFS) $(POUND_DEF)
+CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) -I../external/RSL_LITE -C -P `cat ../inc/dm_comm_cpp_flags` $(ENVCOMPDEFS) $(POUND_DEF)
 AR              =       ar ru
 M4              =       m4 -B 14000
 RANLIB          =       ranlib
 NETCDFPATH	=	CONFIGURE_NETCDF_PATH
 CC_TOOLS        =       gcc
 
-externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 ../external/RSL/RSL/librsl.a wrfio_int gen_comms.c module_dm.F esmf_time
+externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 ../external/RSL_LITE/librsl_lite.a wrfio_int gen_comms.c module_dm.F esmf_time
 
-gen_comms.c : ../external/RSL/gen_comms.c
+gen_comms.c : ../external/RSL_LITE/gen_comms.c
 	( /bin/cp ../tools/gen_comms_warning ../tools/gen_comms.c ; \
-          cat ../external/RSL/gen_comms.c >> ../tools/gen_comms.c )
+          cat ../external/RSL_LITE/gen_comms.c >> ../tools/gen_comms.c )
 
-module_dm.F : ../external/RSL/module_dm.F
-	( /bin/cp module_dm_warning module_dm.F ; cat ../external/RSL/module_dm.F >> module_dm.F )
+module_dm.F : ../external/RSL_LITE/module_dm.F
+	( /bin/cp module_dm_warning module_dm.F ; cat ../external/RSL_LITE/module_dm.F >> module_dm.F )
 
 wrfio_nf : 
 	( cd ../external/io_netcdf ; \
@@ -566,9 +566,9 @@ esmf_time :
 	( cd ../external/esmf_time_f90 ; \
 	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
 
-../external/RSL/RSL/librsl.a :
-	( cd ../external/RSL/RSL ; \
-          make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST stub )
+../external/RSL_LITE/librsl_lite.a :
+	( cd ../external/RSL_LITE ; \
+          make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST )
 
 # compile these without high optimization to speed compile
 #solve_em.o : solve_em.F
@@ -869,7 +869,7 @@ module_dm.o :
 	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) $*.f90
 
 ###########################################################
-#ARCH (WF) AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler SM-Parallel (OpenMP, allows nesting using RSL without MPI)
+#ARCH (WF) AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler SM-Parallel (OpenMP, allows nesting using RSL_LITE without MPI)
 #
 # Note: if you use ifort 8.0, please remove option -xW (for vectorization). This option 
 #       has been identified to produce wrong results occationally.
@@ -896,8 +896,8 @@ FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DWRF_RSL_IO -DRSL -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
 			-DLIMIT_ARGS -DSTUBMPI 
-CFLAGS          =       -w -DDM_PARALLEL -DWRF_RSL_IO \
-                        -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL/RSL $(ARCHFLAGS)
+CFLAGS          =       -w -DDM_PARALLEL  \
+                        -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL_LITE $(ARCHFLAGS)
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =       
 ESMF_IO_LIB     =       ESMFIOLIB
@@ -906,7 +906,7 @@ INCLUDE_MODULES =       -module ../main -I../external/io_netcdf -I../external/io
                         -I../external -I../frame -I../share -I../phys -I../inc -I../chem
 PERL            =       perl
 REGISTRY        =       Registry
-LIB             =       CONFIGURE_NETCDF_LIB_PATH -L../external/RSL/RSL -lrsl \
+LIB             =       CONFIGURE_NETCDF_LIB_PATH -L../external/RSL_LITE -lrsl_lite \
 			-L../external/io_int -lwrfio_int -L../external/io_grib1 -lio_grib1 \
                         CONFIGURE_GRIB2_LIB \
 			-L../external/io_grib_share -lio_grib_share \
@@ -915,21 +915,21 @@ LDFLAGS         =       $(FCOPTIM) -convert big_endian CONFIGURE_LDFLAGS
 ENVCOMPDEFS	=	CONFIGURE_COMPILEFLAGS
 CPP             =       /lib/cpp -traditional
 POUND_DEF	=	-DNO_RRTM_PHYSICS $(OMPCPP) $(COREDEFS) -DNONSTANDARD_SYSTEM -DCONFIG_BUF_LEN=$(CONFIG_BUF_LEN) -DMAX_DOMAINS_F=$(MAX_DOMAINS) -DGRIB1 CONFIGURE_GRIB2_FLAG
-CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) -I../external/RSL/RSL -C -P `cat ../inc/dm_comm_cpp_flags` $(ENVCOMPDEFS) $(POUND_DEF)
+CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) -I../external/RSL_LITE -C -P `cat ../inc/dm_comm_cpp_flags` $(ENVCOMPDEFS) $(POUND_DEF)
 AR              =       ar ru
 M4              =       m4 -B 14000
 RANLIB          =       ranlib
 NETCDFPATH	=	CONFIGURE_NETCDF_PATH
 CC_TOOLS        =       gcc
 
-externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 ../external/RSL/RSL/librsl.a wrfio_int gen_comms.c module_dm.F esmf_time
+externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 ../external/RSL_LIE/librsl_lite.a wrfio_int gen_comms.c module_dm.F esmf_time
 
-gen_comms.c : ../external/RSL/gen_comms.c
+gen_comms.c : ../external/RSL_LITE/gen_comms.c
 	( /bin/cp ../tools/gen_comms_warning ../tools/gen_comms.c ; \
-          cat ../external/RSL/gen_comms.c >> ../tools/gen_comms.c )
+          cat ../external/RSL_LITE/gen_comms.c >> ../tools/gen_comms.c )
 
-module_dm.F : ../external/RSL/module_dm.F
-	( /bin/cp module_dm_warning module_dm.F ; cat ../external/RSL/module_dm.F >> module_dm.F )
+module_dm.F : ../external/RSL_LITE/module_dm.F
+	( /bin/cp module_dm_warning module_dm.F ; cat ../external/RSL_LITE/module_dm.F >> module_dm.F )
 
 wrfio_nf : 
 	( cd ../external/io_netcdf ; \
@@ -956,9 +956,9 @@ esmf_time :
 	( cd ../external/esmf_time_f90 ; \
 	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
 
-../external/RSL/RSL/librsl.a :
-	( cd ../external/RSL/RSL ; \
-          make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST stub )
+../external/RSL_LITE/librsl_lite.a :
+	( cd ../external/RSL_LITE ; \
+          make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST )
 
 # compile these without high optimization to speed compile
 #solve_em.o : solve_em.F
@@ -1387,7 +1387,7 @@ module_initialize_real.o module_dm.o start_domain.o :
 #PGI	fi
 
 ###########################################################
-#ARCH    (WALNUT) PC Linux x86_64, PGI compiler  SM-Parallel (OpenMP, allows nesting using RSL without MPI)
+#ARCH    (WALNUT) PC Linux x86_64, PGI compiler  SM-Parallel (OpenMP, allows nesting using RSL_LITE without MPI)
 #
 # Notes: for experimental implementation of moving nests, add -DMOVE_NESTS to ARCHFLAGS
 #        for experimental implementation of vortex tracking nests, add -DMOVE_NESTS -DVORTEX_CENTER to ARCHFLAGS
@@ -1411,8 +1411,8 @@ ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DWRF_R
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
 			-DLIMIT_ARGS -DSTUBMPI
 PROMOTION	=	-r$(RWORDSIZE) -i4
-CFLAGS          =       -DDM_PARALLEL -DWRF_RSL_IO \
-                        -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL/RSL $(ARCHFLAGS)
+CFLAGS          =       -DDM_PARALLEL  \
+                        -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL_LITE $(ARCHFLAGS)
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =       
 ESMF_IO_LIB     =       ESMFIOLIB
@@ -1421,7 +1421,7 @@ INCLUDE_MODULES =       -module ../main -I../external/io_netcdf -I../external/io
                         -I../external -I../frame -I../share -I../phys -I../inc -I../chem
 PERL            =       perl
 REGISTRY        =       Registry
-LIB             =       CONFIGURE_NETCDF_LIB_PATH -L../external/RSL/RSL -lrsl \
+LIB             =       CONFIGURE_NETCDF_LIB_PATH -L../external/RSL_LITE -lrsl_lite \
                         -L../external/io_grib1 -lio_grib1 \
                         CONFIGURE_GRIB2_LIB \
                         -L../external/io_grib_share -lio_grib_share \
@@ -1431,21 +1431,21 @@ LDFLAGS         =       $(FCFLAGS) $(OMP) CONFIGURE_LDFLAGS
 ENVCOMPDEFS	=	CONFIGURE_COMPILEFLAGS
 CPP             =       /lib/cpp -C -P -traditional
 POUND_DEF	=	-DNO_RRTM_PHYSICS  $(OMPCPP) -traditional $(COREDEFS) -DNONSTANDARD_SYSTEM -DCONFIG_BUF_LEN=$(CONFIG_BUF_LEN) -DMAX_DOMAINS_F=$(MAX_DOMAINS)
-CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) -I../external/RSL/RSL -C -P `cat ../inc/dm_comm_cpp_flags` $(ENVCOMPDEFS) $(POUND_DEF)
+CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) -I../external/RSL_LITE -C -P `cat ../inc/dm_comm_cpp_flags` $(ENVCOMPDEFS) $(POUND_DEF)
 AR              =       ar ru
 M4              =       m4 -B 14000
 RANLIB          =       ranlib
 NETCDFPATH	=	CONFIGURE_NETCDF_PATH
 CC_TOOLS        =       cc
 
-externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 ../external/RSL/RSL/librsl.a wrfio_int gen_comms.c module_dm.F esmf_time
+externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 ../external/RSL_LITE/librsl_lite.a wrfio_int gen_comms.c module_dm.F esmf_time
 
-gen_comms.c : ../external/RSL/gen_comms.c
+gen_comms.c : ../external/RSL_LITE/gen_comms.c
 	( /bin/cp ../tools/gen_comms_warning ../tools/gen_comms.c ; \
-          cat ../external/RSL/gen_comms.c >> ../tools/gen_comms.c )
+          cat ../external/RSL_LITE/gen_comms.c >> ../tools/gen_comms.c )
 
-module_dm.F : ../external/RSL/module_dm.F
-	( /bin/cp module_dm_warning module_dm.F ; cat ../external/RSL/module_dm.F >> module_dm.F )
+module_dm.F : ../external/RSL_LITE/module_dm.F
+	( /bin/cp module_dm_warning module_dm.F ; cat ../external/RSL_LITE/module_dm.F >> module_dm.F )
 
 wrfio_nf : 
 	( cd ../external/io_netcdf ; \
@@ -1471,8 +1471,8 @@ esmf_time :
 	( cd ../external/esmf_time_f90 ; \
 	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
 
-../external/RSL/RSL/librsl.a :
-	( cd ../external/RSL/RSL ; make CC="$(CC)" CFLAGS='-DSTUBS' FC="$(FC) $(PROMOTION)" FFLAGS='-byteswapio' MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST stub )
+../external/RSL_LITE/librsl_lite.a :
+	( cd ../external/RSL_LITE ; make CC="$(CC)" CFLAGS='-DSTUBS' FC="$(FC) $(PROMOTION)" FFLAGS='-byteswapio' MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCASTs
 
 # compile these without high optimization to speed compile
 solve_interface.o : solve_interface.F
@@ -1652,7 +1652,7 @@ module_initialize_real.o module_dm.o start_domain.o :
 #PGI	fi
 
 ###########################################################
-#ARCH (WF) AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler  (single threaded, allows nesting using RSL without MPI) debug
+#ARCH (WF) AMD x86_64 Intel xeon i686 ia32 Xeon Linux, ifort compiler  (single threaded, allows nesting using RSL_LITE without MPI) debug
 #
 # Note: if you use ifort 8.0, please remove option -xW (for vectorization). This option 
 #       has been identified to produce wrong results occationally.
@@ -1678,8 +1678,8 @@ FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DWRF_RSL_IO -DRSL -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
 			-DLIMIT_ARGS -DSTUBMPI -DLIMIT_ARGS
-CFLAGS          =       -w -DDM_PARALLEL -DWRF_RSL_IO \
-                        -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL/RSL $(ARCHFLAGS)
+CFLAGS          =       -w -DDM_PARALLEL \
+                        -DMAXDOM_MAKE=$(MAX_DOMAINS) -DMAXPROC_MAKE=$(MAX_PROC) -I../external/RSL_LITE $(ARCHFLAGS)
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =       
 ESMF_IO_LIB     =       ESMFIOLIB
@@ -1688,7 +1688,7 @@ INCLUDE_MODULES =       -module ../main -I../external/io_netcdf -I../external/io
                         -I../external -I../frame -I../share -I../phys -I../inc -I../chem
 PERL            =       perl
 REGISTRY        =       Registry
-LIB             =       CONFIGURE_NETCDF_LIB_PATH -L../external/RSL/RSL -lrsl \
+LIB             =       CONFIGURE_NETCDF_LIB_PATH -L../external/RSL_LITE -lrsl_lite \
 			-L../external/io_int -lwrfio_int \
 			-L../external/io_grib1 -lio_grib1 \
                         CONFIGURE_GRIB2_LIB \
@@ -1698,21 +1698,21 @@ LDFLAGS         =       $(FCOPTIM) $(OMP) -convert big_endian CONFIGURE_LDFLAGS
 ENVCOMPDEFS	=	CONFIGURE_COMPILEFLAGS
 CPP             =       /lib/cpp -traditional
 POUND_DEF	=	-DNO_RRTM_PHYSICS $(OMPCPP) $(COREDEFS) -DNONSTANDARD_SYSTEM -DCONFIG_BUF_LEN=$(CONFIG_BUF_LEN) -DMAX_DOMAINS_F=$(MAX_DOMAINS) -DGRIB1 CONFIGURE_GRIB2_FLAG
-CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) -I../external/RSL/RSL -C -P `cat ../inc/dm_comm_cpp_flags` $(ENVCOMPDEFS) $(POUND_DEF)
+CPPFLAGS        =       -I$(LIBINCLUDE) -C -P $(ARCHFLAGS) -I../external/RSL_LITE -C -P `cat ../inc/dm_comm_cpp_flags` $(ENVCOMPDEFS) $(POUND_DEF)
 AR              =       ar ru
 M4              =       m4 -B 14000
 RANLIB          =       ranlib
 NETCDFPATH	=	CONFIGURE_NETCDF_PATH
 CC_TOOLS        =       gcc
 
-externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 ../external/RSL/RSL/librsl.a wrfio_int gen_comms.c module_dm.F esmf_time
+externals : wrf_ioapi_includes CONFIGURE_WRFIO_NF wrfio_grib_share wrfio_grib1 CONFIGURE_WRFIO_GRIB2 ../external/RSL_LITE/librsl_lite.a wrfio_int gen_comms.c module_dm.F esmf_time
 
-gen_comms.c : ../external/RSL/gen_comms.c
+gen_comms.c : ../external/RSL_LITE/gen_comms.c
 	( /bin/cp ../tools/gen_comms_warning ../tools/gen_comms.c ; \
-          cat ../external/RSL/gen_comms.c >> ../tools/gen_comms.c )
+          cat ../external/RSL_LITE/gen_comms.c >> ../tools/gen_comms.c )
 
-module_dm.F : ../external/RSL/module_dm.F
-	( /bin/cp module_dm_warning module_dm.F ; cat ../external/RSL/module_dm.F >> module_dm.F )
+module_dm.F : ../external/RSL_LITE/module_dm.F
+	( /bin/cp module_dm_warning module_dm.F ; cat ../external/RSL_LITE/module_dm.F >> module_dm.F )
 
 wrfio_nf : 
 	( cd ../external/io_netcdf ; \
@@ -1740,9 +1740,9 @@ esmf_time :
 	( cd ../external/esmf_time_f90 ; \
 	  make FC="$(FC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" RANLIB="$(RANLIB)" CPP="$(CPP) -I../../inc -I. $(POUND_DEF)" )
 
-../external/RSL/RSL/librsl.a :
-	( cd ../external/RSL/RSL ; \
-          make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST stub )
+../external/RSL_LITE/librsl_lite.a :
+	( cd ../external/RSL_LITE ; \
+          make CC="$(CC)" FC="$(FC) $(PROMOTION)" CFLAGS="-DSTUBS $(CFLAGS)" MAX_DOMAINS=$(MAX_DOMAINS) MAX_PROC=$(MAX_PROC) LEARN_BCAST=-DLEARN_BCAST )
 
 # compile these without high optimization to speed compile
 #solve_em.o : solve_em.F
