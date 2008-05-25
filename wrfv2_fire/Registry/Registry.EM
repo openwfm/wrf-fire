@@ -1502,7 +1502,7 @@ halo      HALO_FIRE_LFN dyn_em 12:lfn
 halo      HALO_FIRE_WIND_F dyn_em 8:uf,vf
 halo      HALO_FIRE_WIND_A dyn_em 8:u_2,v_2
 halo      HALO_FIRE_ZSF dyn_em 12:zsf
-halo      HALO_FIRE_FUEL dyn_em 8:fuel_frac,fuel_time,dzfsdx,dxfsdy,bbb,betafl,phiwc,r_0,fgip,ischap,nfuel_cat,fnl,nfl_t,nfl_c,ncog,fg,fc,area.area2,zf,tign_g,tign_c,tign_crt
+halo      HALO_FIRE_FUEL dyn_em 8:fuel_frac,fuel_time,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap,nfuel_cat,nfl,nfl_t,nfl_c,ncod,fg,fc,area,area2,zf,tign_g,tign_c,tign_crt
 #
 # ----------------------------------------
 #  end fire variables and configuration
