@@ -278,7 +278,7 @@ PROMOTION	=	-real_size $(RSIZEBITS)
 CFLAGS          =
 FCOPTIM		=       -O0 #-fno-alias -ip  #-O2 -no-ipo # -xW
 FCDEBUG		=	-g
-FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise #-switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
+FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
 ARCHFLAGS       =       $(COREDEFS) -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 \
                          CONFIGURE_NETCDF_FLAG -DGRIB1 CONFIGURE_GRIB2_FLAG \
@@ -401,7 +401,7 @@ PROMOTION	=	-real_size $(RSIZEBITS)
 CFLAGS          =
 FCOPTIM		=       -O2 #-fno-alias -ip  #-O2 -no-ipo # -xW
 FCDEBUG		=	#-g
-FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise #-switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
+FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
 ARCHFLAGS       =       $(COREDEFS) -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 \
                          CONFIGURE_NETCDF_FLAG -DGRIB1 CONFIGURE_GRIB2_FLAG \
