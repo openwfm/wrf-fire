@@ -25,6 +25,7 @@ wrf="./wrf.exe"
 testdir="${HOME}/regtest_data"
 nthreads=4
 nprocs=4
+gtime="/usr/bin/time"
 
 CFGOPTS="1 2 3 4 5 6 7 8"
 runtype[1]=1
