@@ -898,7 +898,7 @@ SUBROUTINE fire_tendency( &
             hfx(i,k,j) = fact_g * grnhfx(i,j) + fact_c * canhfx(i,j) 
 
                 write(msg,2)i,k,j,fact_g,cp_i,alfg,z_w,grnhfx(i,j),hfx(i,k,j)
-1               format('hfx:',3i4,6e11.3)
+2               format('hfx:',3i4,6e11.3)
                 call message(msg)
 
             ! --- vapor flux
