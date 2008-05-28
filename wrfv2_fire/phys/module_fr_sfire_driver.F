@@ -514,8 +514,6 @@ elseif(ifun.eq.6)then
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)
     endif
-    call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
-    call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
     !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
     !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
     kpe1=min(kps+1,kpe)
@@ -861,7 +859,7 @@ SUBROUTINE fire_tendency( &
 
    REAL, DIMENSION( ims:ime,kms:kme,jms:jme ) :: hfx,qfx
    
-   !! character(len=128)::msg
+   character(len=128)::msg
 
 ! --- set some local constants
    
@@ -869,8 +867,8 @@ SUBROUTINE fire_tendency( &
    cp_i = 1./cp     ! inverse of specific heat
    xlv_i = 1./xlv   ! inverse of latent heat
 
-!! write(msg,'(8e11.3)')cp,cp_i,xlv,xlv_i,alfg,alfc,z1can
-!! call message(msg)
+write(msg,'(8e11.3)')cp,cp_i,xlv,xlv_i,alfg,alfc,z1can
+call message(msg)
 
 ! --- set loop indicies : note that 
 
@@ -901,9 +899,9 @@ SUBROUTINE fire_tendency( &
             END IF
             hfx(i,k,j) = fact_g * grnhfx(i,j) + fact_c * canhfx(i,j) 
 
-!!            write(msg,2)i,k,j,fact_g,cp_i,alfg,z_w,grnhfx(i,j),hfx(i,k,j)
-!!2           format('hfx:',3i4,6e11.3)
-!!            call message(msg)
+            write(msg,2)i,k,j,z_w,grnhfx(i,j),hfx(i,k,j)
+2           format('hfx:',3i4,6e11.3)
+            call message(msg)
 
             ! --- vapor flux
 
@@ -915,11 +913,11 @@ SUBROUTINE fire_tendency( &
             END IF
             qfx(i,k,j) = fact_g * grnqfx(i,j) + fact_c * canqfx(i,j) 
             
-!!            if(hfx(i,k,j).ne.0. .or. qfx(i,k,j) .ne. 0.)then
-!!                write(msg,1)i,k,j,hfx(i,k,j),qfx(i,k,j)
-!!1               format('tend:',3i6,2e11.3)
-!!                call message(msg)
-!!            endif
+            if(hfx(i,k,j).ne.0. .or. qfx(i,k,j) .ne. 0.)then
+                write(msg,1)i,k,j,hfx(i,k,j),qfx(i,k,j)
+1               format('tend:',3i6,2e11.3)
+                call message(msg)
+            endif
 
          END DO
       END DO

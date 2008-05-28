@@ -174,7 +174,7 @@ integer, intent(in)::its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
 real, intent(in)::v2(ims2:ime2,jms2:jme2)
 
 !*** local
-integer:: i1,i2,j1,j2,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff
+integer:: i1,i2,j1,j2,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase
 real t
 character(len=128)msg
 
@@ -195,23 +195,27 @@ if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
     call message('all mesh sizes must be positive')
     goto 9
 endif
-if(mod(isz2,isz1).ne.0.or.mod(jsz2,jsz1).ne.0)then
-    call message('input mesh size must be multiple of output mesh size')
-    goto 9
-endif
 
 ! compute mesh ratios
 ir=isz2/isz1
 jr=jsz2/jsz1
 
-! v1 = v1 + sum(v2)
+if(isz2.ne.isz1*ir .or. jsz2.ne.jsz1*jr)then
+    call message('input mesh size must be multiple of output mesh size')
+    goto 9
+endif
+
+
+! v1 = sum(v2)
 do j1=jts1,jte1
+    jbase=jts2+jr*(j1-jts1)
     do i1=its1,ite1
-       t=0
+       ibase=its2+ir*(i1-its1)
+       t=0.
        do joff=0,jr-1
+           j2=joff+jbase
            do ioff=0,ir-1
-               i2=ioff+its2+ir*(i1-its1)
-               j2=joff+jts2+jr*(j1-jts1)
+               i2=ioff+ibase
                t=t+v2(i2,j2)
            enddo
        enddo
@@ -220,6 +224,7 @@ do j1=jts1,jte1
 enddo
 
 return
+
 9 continue
 write(msg,91)its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
 call message(msg)
@@ -232,6 +237,7 @@ write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg)
 92 format(a,2i8)
 call crash('module_fr_spread_util:sum_mesh_cells: bad mesh sizes')
+
 end subroutine sum_2d_cells
 
 
