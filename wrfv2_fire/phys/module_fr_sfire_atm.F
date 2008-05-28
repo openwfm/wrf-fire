@@ -153,6 +153,9 @@ SUBROUTINE fire_tendency( &
       END DO
    END DO
 
+   call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'fire_tendency:rthfrten')
+   call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_tendency:rqvfrten')
+
    RETURN
 
 END SUBROUTINE fire_tendency
