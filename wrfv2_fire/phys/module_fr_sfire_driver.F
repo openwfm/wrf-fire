@@ -856,6 +856,8 @@ SUBROUTINE fire_tendency( &
    REAL :: fact_g, fact_c
 
    REAL, DIMENSION( ims:ime,kms:kme,jms:jme ) :: hfx,qfx
+   
+   character(len=128)::msg
 
 ! --- set some local constants
    
@@ -901,6 +903,10 @@ SUBROUTINE fire_tendency( &
                fact_c = xlv_i * EXP( - alfc * (z_w - z1can) )
             END IF
             qfx(i,k,j) = fact_g * grnqfx(i,j) + fact_c * canqfx(i,j) 
+            
+            write(msg,1)i,k,j,hfx(i,k,j),qfx(i,k,j)
+1           format(3i6,2e11.3)
+            call message(msg)
 
          END DO
       END DO
