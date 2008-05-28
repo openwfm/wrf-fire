@@ -142,10 +142,11 @@ RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 RSIZEBITS	=	`expr $(RWORDSIZE) \* 8`
 PROMOTION	=	-real_size $(RSIZEBITS)
 FCDEBUG         =       # -g
-FCBASEOPTS      =       -w -FR -cm -I. -Vaxlib -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
+FCBASEOPTS      =       -w -FR -cm -I. -Vaxlib -convert big_endian -fp-model precise
 FCOPTIM		=	-O3 -unroll0 -xP -fno-alias -ip
 FCFLAGS		=	$(FCOPTIM) $(FCBASEOPTS) $(OMP)
 CFLAGS		=       -w
+SOLVE_EM_FLAGS  =       $(FCBASEOPTS) $(OMP) -O0
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =       
 ESMF_IO_LIB     =       ESMFIOLIB
@@ -246,7 +247,12 @@ module_initialize_real.o module_dm.o  start_domain.o :
 	$(RM) $*.b
 	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -O0 $*.f90
 
-
+solve_em.o: solve_em.F
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b 
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(SOLVE_EM_FLAGS) $(MODULE_DIRS) $*.f90
 
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
@@ -280,6 +286,7 @@ FCOPTIM		=       -O0 #-fno-alias -ip  #-O2 -no-ipo # -xW
 FCDEBUG		=	-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
+SOLVE_EM_FLAGS  =       $(FCBASEOPTS) $(OMP) -O0
 ARCHFLAGS       =       $(COREDEFS) -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 \
                          CONFIGURE_NETCDF_FLAG -DGRIB1 CONFIGURE_GRIB2_FLAG \
 			-DLIMIT_ARGS 
@@ -373,6 +380,13 @@ module_initialize_real.o start_domain.o :
 
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
+
+solve_em.o: solve_em.F
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b 
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(SOLVE_EM_FLAGS) $(MODULE_DIRS) $*.f90
 
 module_configure.o \
 module_dm.o :
@@ -403,6 +417,7 @@ FCOPTIM		=       -O2 #-fno-alias -ip  #-O2 -no-ipo # -xW
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
+SOLVE_EM_FLAGS  =       $(FCBASEOPTS) $(OMP) -O0
 ARCHFLAGS       =       $(COREDEFS) -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 \
                          CONFIGURE_NETCDF_FLAG -DGRIB1 CONFIGURE_GRIB2_FLAG \
 			-DLIMIT_ARGS 
@@ -496,6 +511,13 @@ module_initialize_real.o start_domain.o :
 
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
+
+solve_em.o: solve_em.F
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b 
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(SOLVE_EM_FLAGS) $(MODULE_DIRS) $*.f90
 
 module_configure.o \
 module_dm.o :
@@ -528,6 +550,7 @@ FCOPTIM		=
 FCDEBUG		=	
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
+SOLVE_EM_FLAGS  =       $(FCBASEOPTS) $(OMP) -O0
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
 			-DLIMIT_ARGS
@@ -641,7 +664,7 @@ solve_em.o:
 	$(SED_FTN) $*.F > $*.b 
 	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
 	$(RM) $*.b
-	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS)  $*.f90
+	$(FC) -c $(PROMOTION) $(SOLVE_EM_FLAGS) $(MODULE_DIRS)  $*.f90
 
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
@@ -677,6 +700,7 @@ FCOPTIM		=	-O2 #-O3 -unroll0 -xP -fno-alias -ip
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
+SOLVE_EM_FLAGS  =       $(FCBASEOPTS) $(OMP) -O0
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
 			-DLIMIT_ARGS
@@ -790,7 +814,7 @@ solve_em.o:
 	$(SED_FTN) $*.F > $*.b 
 	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
 	$(RM) $*.b
-	$(FC) -c $(PROMOTION) $(FCBASEOPTS) $(MODULE_DIRS) -O $*.f90
+	$(FC) -c $(PROMOTION) $(SOLVE_EM_FLAGS) $(MODULE_DIRS) $*.f90
 
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
@@ -829,6 +853,7 @@ FCOPTIM		=	-O0 #-O3 -unroll0 -xP -fno-alias -ip
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
+SOLVE_EM_FLAGS  =       $(FCBASEOPTS) $(OMP) -O0
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
 			-DLIMIT_ARGS
@@ -938,6 +963,13 @@ module_initialize_real.o start_domain.o :
 
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
+
+solve_em.o: solve_em.F
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b 
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(SOLVE_EM_FLAGS) $(MODULE_DIRS) $*.f90
 
 module_configure.o \
 module_dm.o :
@@ -972,6 +1004,7 @@ FCOPTIM		=	-O2 #-O3 -unroll0 -xP -fno-alias -ip
 FCDEBUG		=	#-g
 FCBASEOPTS      =       -FR -cm -w -I. $(FCDEBUG) -convert big_endian -fp-model precise -switch fe_use_rtl_copy_arg_inout -mP2OPT_vec_xform_level=103
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS) $(OMP)
+SOLVE_EM_FLAGS  =       $(FCBASEOPTS) $(OMP) -O0
 ARCHFLAGS       =       $(COREDEFS) -DGRIB1 CONFIGURE_GRIB2_FLAG -DINTIO -DDM_PARALLEL \
                         -DIWORDSIZE=4 -DDWORDSIZE=8 -DRWORDSIZE=$(RWORDSIZE) -DLWORDSIZE=4 CONFIGURE_NETCDF_FLAG \
 			-DLIMIT_ARGS
@@ -1081,6 +1114,13 @@ module_initialize_real.o start_domain.o :
 
 module_dm.o : module_dm.F
 module_configure.o : module_configure.F
+
+solve_em.o: solve_em.F
+	$(RM) $@
+	$(SED_FTN) $*.F > $*.b 
+	$(CPP) -I../inc $(CPPFLAGS) $*.b  > $*.f90
+	$(RM) $*.b
+	$(FC) -c $(PROMOTION) $(SOLVE_EM_FLAGS) $(MODULE_DIRS) $*.f90
 
 module_configure.o \
 module_dm.o :
