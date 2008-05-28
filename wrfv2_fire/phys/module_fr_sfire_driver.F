@@ -283,7 +283,8 @@ real :: dxf,dyf,time_start
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ij,i,j,k,id,pid,kpe1, &
     ifts,ifte,jfts,jfte                          ! fire tile
-character(len=128)msg
+character(len=128)::msg
+character(len=3)::kk
 real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 
 !*** executable
@@ -479,8 +480,8 @@ do ij=1,num_tiles
 
        ! debug print to compare
 
-       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver:rthfrten')
-       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver:rqvfrten')
+       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver_phys:rthfrten')
+       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver_phys:rqvfrten')
 
             
     endif ! ifun=6
@@ -488,7 +489,7 @@ do ij=1,num_tiles
 enddo ! tiles
 
 if(ifun.eq.1)then
-    call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver:zsf')        
+    call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        
     if(pid.ne.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',pid)
@@ -519,9 +520,10 @@ elseif(ifun.eq.6)then
     !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
     kpe1=min(kps+1,kpe)
     !kpe1=kps-1
-    do k=kps,kpe1
-        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
-        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
+    do k=kts,min(kte,kts+3)
+        write(kk,'(i2)')k
+        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,kk//'driver_phys:rthfrten')
+        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,kk//'driver_phys:rqvfrten')
     enddo
 endif
 
