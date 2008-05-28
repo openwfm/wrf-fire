@@ -865,6 +865,9 @@ SUBROUTINE fire_tendency( &
    cp_i = 1./cp     ! inverse of specific heat
    xlv_i = 1./xlv   ! inverse of latent heat
 
+   write(msg,'(8e11.3)')cp,cp_i,xlv,xlv_i,alfg,alfc,z1can
+   call message(msg)
+
 ! --- set loop indicies : note that 
 
    i_st = MAX(its,ids+1)
@@ -904,9 +907,11 @@ SUBROUTINE fire_tendency( &
             END IF
             qfx(i,k,j) = fact_g * grnqfx(i,j) + fact_c * canqfx(i,j) 
             
-            write(msg,1)i,k,j,hfx(i,k,j),qfx(i,k,j)
-1           format(3i6,2e11.3)
-            call message(msg)
+            if(hfx(i,k,j).ne.0. .or. qfx(i,k,j) .ne. 0.)then
+                write(msg,1)i,k,j,hfx(i,k,j),qfx(i,k,j)
+1               format('tend:',3i6,2e11.3)
+                call message(msg)
+            endif
 
          END DO
       END DO
