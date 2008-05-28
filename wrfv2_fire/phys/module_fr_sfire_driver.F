@@ -870,6 +870,9 @@ SUBROUTINE fire_tendency( &
 write(msg,'(8e11.3)')cp,cp_i,xlv,xlv_i,alfg,alfc,z1can
 call message(msg)
 
+       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_tendency:grnhfx')
+       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_tendency:grnqfx')
+
 ! --- set loop indicies : note that 
 
    i_st = MAX(its,ids+1)

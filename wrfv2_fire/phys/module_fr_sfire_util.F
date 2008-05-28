@@ -853,10 +853,13 @@ implicit none
 integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
+character(len=128)msg
 if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &
                          a,name)
+write(msg,'(2a,z16)')name,' address =',loc(a)
+call message(msg)
 end subroutine print_2d_stats
 
 real pure function avg_2darray( its,ite,jts,jte,               &
