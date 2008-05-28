@@ -436,10 +436,10 @@ do ij=1,num_tiles
         call sum_2d_cells(        &
             ifms,ifme,jfms,jfme,  &
             ifts,ifte,jfts,jfte,  &
-            fgrnhfx,              &
+            fgrnqfx,              &
             ims, ime, jms, jme,   &
             its,ite,jts,jte,      &
-            grnhfx)
+            grnqfx)
 
         do j=jts,jte
             do i=its,ite
