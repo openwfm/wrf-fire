@@ -284,7 +284,7 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !
 !                                  /\
 !                                  |              
-! fuel_frac_left  =      1   -     | 1 -  exp(-T(x,y)*fuel_speed)) dxdy
+! fuel_frac_left  =      1   -     | 1 -  exp(-T(x,y)/fuel_time_cell)) dxdy
 !                                  |            
 !                                 \/
 !                                0<x<1
@@ -327,14 +327,14 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 ! of the fuel fraction behind the fireline on the mesh scale, because the
 ! rate of fuel decrease right behind the fireline is much larger 
 ! (exponential...). This will happen when
-! 
-! change of time from ignition within one mesh cell * fuel speed is not << 1
+!
+! change of time from ignition within one mesh cell / fuel_time_cell is not << 1
 !
 ! This is the same as
 !
-!         mesh cell size*fuel_speed 
-!         -------------------------      is not << 1
-!             fireline speed
+!               mesh cell size
+!  X =    -------------------------      is not << 1
+!       fireline speed * fuel_time_cell
 !         
 !
 ! When X is large then the fuel burnt in one timestep in the cell is
@@ -352,6 +352,8 @@ real::ps,aps,area,ta,out
 real::t00,t01,t10,t11
 real,parameter::safe=tiny(aps)
 character(len=128)::msg
+
+! the following algorithm is a very crude approximation
 
 ! minus time since ignition, 0 if no ignition yet
 ! it is possible to have 0 in fire region when ignitin time falls in 
