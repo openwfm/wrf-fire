@@ -1144,7 +1144,7 @@ RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 PROMOTION	=	-r$(RWORDSIZE) -i4
 CFLAGS          =       -DLANDREAD_STUB
 FCOPTIM		=	#-fastsse #-Mipa=fast
-FCDEBUG		=	-g -C 
+FCDEBUG		=	-g
 #FCBASEOPTS      =       -w -byteswapio -Ktrap=fp -Mfree $(FCDEBUG)
 FCBASEOPTS      =       -w -byteswapio -Mfree $(FCDEBUG)
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
