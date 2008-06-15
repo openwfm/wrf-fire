@@ -14,10 +14,10 @@ module gridinfo_module
  
    ! Variables
    integer :: interval_seconds, max_dom, io_form_input, io_form_output, debug_level
-   character (len=128) :: opt_output_from_geogrid_path, &
+   character (len=MAX_FILENAME_LEN) :: opt_output_from_geogrid_path, &
                           opt_output_from_metgrid_path, opt_metgrid_tbl_path 
-   character (len=128), dimension(MAX_DOMAINS) :: start_date, end_date, fg_name, &
-                          constants_name
+   character (len=128), dimension(MAX_DOMAINS) :: start_date, end_date
+   character (len=MAX_FILENAME_LEN), dimension(MAX_DOMAINS) :: fg_name, constants_name
    logical :: do_tiled_input, do_tiled_output, opt_ignore_dom_center
    character (len=1) :: gridtype
  
@@ -297,6 +297,7 @@ module gridinfo_module
          end do
       end if
   
+
       ! Paths need to end with a /
       i = len_trim(opt_metgrid_tbl_path)
       if (opt_metgrid_tbl_path(i:i) /= '/') then
@@ -312,6 +313,17 @@ module gridinfo_module
       if (opt_output_from_metgrid_path(i:i) /= '/') then
          opt_output_from_metgrid_path(i+1:i+1) = '/'
       end if
+
+
+      ! Blank strings should be set to flag values
+      do i=1,max_dom
+         if (len_trim(constants_name(i)) == 0) then
+            constants_name(i) = '*'
+         end if
+         if (len_trim(fg_name(i)) == 0) then
+            fg_name(i) = '*'
+         end if
+      end do
   
       return
   

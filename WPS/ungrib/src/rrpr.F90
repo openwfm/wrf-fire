@@ -48,6 +48,7 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
   use storage_module
   use table
   use module_debug
+  use misc_definitions_module
   use stringutil
 
   implicit none
@@ -83,13 +84,13 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
   real, allocatable, dimension(:,:) :: scr2d
   real, pointer, dimension(:,:) :: ptr2d
 
-  integer :: k, kk, m, n, ierr, ifv
+  integer :: k, kk, mm, n, ierr, ifv
   integer :: iunit=13
 
   character(LEN=19) :: hdate, hend
   character(LEN=24) :: hdate_output
   character(LEN=3)  :: out_format
-  character(LEN=256)  :: prefix
+  character(LEN=MAX_FILENAME_LEN)  :: prefix
   real :: xfcst, level
   character(LEN=9) :: field
 
@@ -100,6 +101,9 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
 
 ! Decide the length of date strings to use for output file names.  
 ! DATELEN is 13 for hours, 16 for minutes, and 19 for seconds.
+
+  write(0,*) 'Begin rrpr'
+
   if (mod(interval,3600) == 0) then
      datelen = 13
   else if (mod(interval, 60) == 0) then
@@ -243,20 +247,20 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
            if ((plvl(k).gt.200100) .and. (plvl(k).lt.200200)) then
            ! We found a level between 200100 and 200200, now find the field
            ! corresponding to that level.
-              MLOOP : do m = 1, maxvar
-                 if (is_there(nint(plvl(k)), namvar(m))) then
+              MLOOP : do mm = 1, maxvar
+                 if (is_there(nint(plvl(k)), namvar(mm))) then
                     INLOOP : do kk = 200101, nint(plvl(k))
-                       if (is_there(kk, namvar(m))) then
+                       if (is_there(kk, namvar(mm))) then
                           if ( debug_level .gt. 100 ) then
                             call mprintf(.true.,DEBUG, &
-               "Copying %s at level %i to level 200100.",s1=namvar(m),i1=kk)
+               "Copying %s at level %i to level 200100.",s1=namvar(mm),i1=kk)
                           end if
-                          call get_dims(kk, namvar(m))
+                          call get_dims(kk, namvar(mm))
                           allocate(scr2d(map%nx,map%ny))
                           call get_storage &
-                               (kk, namvar(m), scr2d, map%nx, map%ny)
+                               (kk, namvar(mm), scr2d, map%nx, map%ny)
                           call put_storage &
-                               (200100,namvar(m), scr2d,map%nx,map%ny)
+                               (200100,namvar(mm), scr2d,map%nx,map%ny)
                           deallocate(scr2d)
                           EXIT INLOOP
                        endif
@@ -300,13 +304,28 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
            endif
         enddo
 
+!
+! If upper-air SPECHUMD is missing, see if we can compute SPECHUMD from QVAPOR:
+!--- Tanya's change for initializing WRF with RUC
+
+        do k = 1, nlvl
+           if (plvl(k).lt.200000.) then
+              if (.not. is_there(nint(plvl(k)), 'SPECHUMD').and. &
+                   is_there(nint(plvl(k)), 'QV')) then
+                 call get_dims(nint(plvl(k)), 'QV')
+                 call compute_spechumd_qvapor(map%nx, map%ny, plvl(k))
+              endif
+           endif
+        enddo
+
 !--- Tanya's change for initializing WRF with RUC
 !   This allows for the ingestion for RUC isentropic data
 !
         do k = 1, nlvl
            if (plvl(k).lt.200000.) then
               if (.not. is_there(nint(plvl(k)), 'TT').and. &
-                   is_there(nint(plvl(k)), 'VPTMP')) then
+                   is_there(nint(plvl(k)), 'VPTMP').and. &
+                   is_there(nint(plvl(k)), 'SPECHUMD')) then
                  call get_dims(nint(plvl(k)), 'VPTMP')
                  call compute_t_vptmp(map%nx, map%ny, plvl(k))
               endif
@@ -326,20 +345,6 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
                    ( is_there(nint(plvl(k+1)), 'TT')) ) then
                  call get_dims(nint(plvl(k+1)), 'TT')
                  call vntrp(plvl, maxlvl, k, "TT      ", map%nx, map%ny)
-              endif
-           endif
-        enddo
-
-!
-! If upper-air SPECHUMD is missing, see if we can compute SPECHUMD from QVAPOR:
-!--- Tanya's change for initializing WRF with RUC
-
-        do k = 1, nlvl
-           if (plvl(k).lt.200000.) then
-              if (.not. is_there(nint(plvl(k)), 'SPECHUMD').and. &
-                   is_there(nint(plvl(k)), 'QV')) then
-                 call get_dims(nint(plvl(k)), 'QV')
-                 call compute_spechumd_qvapor(map%nx, map%ny, plvl(k))
               endif
            endif
         enddo
@@ -417,15 +422,32 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
            endif
         enddo
 
+! Repair GFS RH
+        if (index(map%source,'NCEP GFS') .ne. 0) then
+	  call mprintf(.true.,DEBUG, &
+             "RRPR:   Adjusting GFS RH values ")
+	  do k = 1, nlvl
+	    if ( is_there(nint(plvl(k)),'RH') .and. &
+	         is_there(nint(plvl(k)),'TT') ) then
+	      call fix_gfs_rh (map%nx, map%ny, plvl(k))
+	    endif
+	  enddo
+	endif
 !
-! Check to see if we need to fill RH above 300 mb to 10%:
+! Check to see if we need to fill RH above 300 mb:
 !
         if (is_there(30000, 'RH')) then
            call get_dims(30000, 'RH')
            allocate(scr2d(map%nx,map%ny))
-           scr2d = 10.
 
            do k = 1, nlvl
+!   Set missing RH to 10% between 300 and 70 hPa. Use P/1000 above 70 hPa.
+!   The stratospheric RH will be adjusted further in real.
+              if (plvl(k).le.7000.) then
+	        scr2d = plvl(k) / 1000.
+	      else if (plvl(k).lt.30000.) then
+	        scr2d = 10.
+	      endif
               if (plvl(k).lt.30000.) then
                  if (.not. is_there(nint(plvl(k)), 'RH')) then
                     call put_storage(nint(plvl(k)),'RH',scr2d,map%nx,map%ny)
@@ -455,6 +477,33 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
               call get_dims(200100, 'TT')
               call compute_rh_depr(map%nx, map%ny, 200100.)
            endif
+        endif
+
+!
+! If surface SNOW is missing, see if we can compute SNOW and SNOWH from SNOWRUC
+! (From Wei Wang, 2007 June 21, modified 10/20/2007)
+!
+        if (.not. is_there(200100, 'SNOW') .and. &
+             is_there(200100, 'SNOWRUC')) then
+           call get_dims(200100, 'SNOWRUC')
+           allocate(scr2d(map%nx,map%ny))
+           call get_storage(200100, 'SNOWRUC', scr2d, map%nx, map%ny)
+           scr2d = scr2d * 1000.
+           call put_storage(200100, 'SNOW',   scr2d, map%nx, map%ny)
+           deallocate(scr2d)
+        endif
+!
+! Check to see if we need to fill SOILHGT from SOILGEO.
+! (From Wei Wang, 2007 June 21)
+!
+        if (.not. is_there(200100, 'SOILHGT') .and. &
+             is_there(200100, 'SOILGEO')) then
+           call get_dims(200100, 'SOILGEO')
+           allocate(scr2d(map%nx,map%ny))
+           call get_storage(200100, 'SOILGEO', scr2d, map%nx, map%ny)
+           scr2d = scr2d / 9.81
+           call put_storage(200100, 'SOILHGT', scr2d, map%nx, map%ny)
+           deallocate(scr2d)
         endif
 
 ! If we've got a SEAICE field, make sure that it is all Zeros and Ones:
@@ -703,3 +752,41 @@ subroutine vntrp(plvl, maxlvl, k, name, ix, jx)
 
 end subroutine vntrp
 
+subroutine fix_gfs_rh (ix, jx, plvl)
+! This routine replaces GFS RH (wrt ice) with RH wrt liquid (which is what is assumed in real.exe).
+  use storage_module
+  implicit none
+  integer :: ix, jx, i, j
+  real :: plvl, eis, ews, r
+  real, allocatable, dimension(:,:) :: rh, tt
+
+  allocate(rh(ix,jx))
+  allocate(tt(ix,jx))
+  call get_storage(nint(plvl), 'RH', rh, ix, jx)
+  call get_storage(nint(plvl), 'TT', tt, ix, jx)
+  do j = 1, jx
+  do i = 1, ix
+    if ( tt(i,j) .le. 273.15 ) then
+      ! Murphy and Koop 2005 ice saturation vapor pressure.
+      ! eis and ews in hPA, tt is in K
+      eis = .01 * exp (9.550426 - (5723.265 / tt(i,j)) + (3.53068 * alog(tt(i,j))) &
+         - (0.00728332 * tt(i,j)))
+      ! Bolton 1980 liquid saturation vapor pressure. For water saturation, most 
+      ! formulae are very similar from 0 to -20, so we don't need a more exact formula.
+
+      ews = 6.112 * exp(17.67 * (tt(i,j)-273.15) / ((tt(i,j)-273.15)+243.5))
+      if ( tt(i,j) .gt. 253.15 ) then
+	! A linear approximation to the GFS blending region ( -20 > T < 0 )
+        r = ((273.15 - tt(i,j)) / 20.)
+        r = (r * eis) + ((1-r)*ews)
+      else
+        r = eis
+      endif
+      rh(i,j) = rh(i,j) * (r / ews)
+    endif
+  enddo
+  enddo
+  call put_storage(nint(plvl), 'RH', rh, ix, jx)
+  deallocate (rh)
+  deallocate (tt)
+end subroutine fix_gfs_rh

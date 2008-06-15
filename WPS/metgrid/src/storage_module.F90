@@ -42,6 +42,11 @@ module storage_module
    end subroutine storage_init
 
 
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! Name: reset_next_field
+   !
+   ! Purpose: Sets the next field to the first available field
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine reset_next_field()
 
       implicit none
@@ -63,7 +68,7 @@ module storage_module
       implicit none
 
       ! Arguments
-      type (fg_input) :: store_me
+      type (fg_input), intent(in) :: store_me
 
       ! Local variables
       integer :: funit
@@ -347,7 +352,6 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
 #include "wrf_status_codes.h"
 
       ! Local variables
-      character (len=64) :: fname
       type (data_node), pointer :: data_cursor
 
       istatus = 1
@@ -432,8 +436,7 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
 #include "wrf_status_codes.h"
 
       ! Local variables
-      integer :: i, j, k
-      character (len=64) :: fname
+      integer :: k
       type (data_node), pointer :: data_cursor
       type (fg_input) :: temp_field
 
@@ -795,7 +798,6 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
       ! Local variables
       integer :: nheaders
       type (head_node), pointer :: name_cursor
-      type (data_node), pointer :: data_cursor
 
       nullify(header_list)
 
@@ -843,7 +845,6 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
       ! Local variables
       integer :: nheaders
       type (head_node), pointer :: name_cursor
-      type (data_node), pointer :: data_cursor
 
       nullify(header_list)
 
@@ -876,6 +877,142 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
       end do
 
    end subroutine storage_get_td_headers
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! Name: storage_print_fields
+   !
+   ! Purpose: 
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   subroutine storage_print_fields()
+
+      implicit none
+
+      ! Local variables
+      integer :: i, j, k, lmax, n_fields, n_levels, max_levels
+      logical, allocatable, dimension(:,:) :: field_has_level
+      integer, allocatable, dimension(:) :: all_levels
+      integer, pointer, dimension(:) :: ilevels
+      character (len=128), allocatable, dimension(:) :: fieldname_list
+      type (fg_input), pointer, dimension(:) :: header_list
+
+      call storage_get_td_headers(header_list)
+      n_fields = size(header_list)
+      
+      allocate(fieldname_list(n_fields))
+
+      max_levels = 0
+
+      do i=1,n_fields
+         fieldname_list(i) = header_list(i)%header%field
+         call storage_get_levels(header_list(i), ilevels)
+         n_levels = size(ilevels)
+         if (n_levels > max_levels) max_levels = n_levels
+         if (associated(ilevels)) deallocate(ilevels)
+      end do 
+
+! BUG: max_levels needs to be computed from union of all levels
+
+      allocate(all_levels(max_levels))
+      allocate(field_has_level(n_fields,max_levels))
+
+      field_has_level(:,:) = .false.
+
+      lmax = 0
+      do i=1,n_fields
+         call storage_get_levels(header_list(i), ilevels)
+         n_levels = size(ilevels)
+         do j=1,n_levels
+            do k=1,lmax 
+               if (all_levels(k) == ilevels(j)) exit
+            end do 
+            if (k > lmax) then
+               all_levels(k) = ilevels(j)
+               lmax = lmax + 1
+            end if
+            field_has_level(i,k) = .true.
+         end do 
+         if (associated(ilevels)) deallocate(ilevels)
+      end do 
+
+      call mprintf(.true.,DEBUG,'        ',newline=.false.)
+      do i=1,n_fields
+         call mprintf(.true.,DEBUG,fieldname_list(i)(1:9)//' ',newline=.false.)
+      end do
+      call mprintf(.true.,DEBUG,' ',newline=.true.)
+      do j=1,max_levels
+         call mprintf(.true.,DEBUG,'%i ',i1=all_levels(j),newline=.false.)
+         do i=1,n_fields
+            if (field_has_level(i,j)) then
+               call mprintf(.true.,DEBUG,'    X    ',newline=.false.)
+            else
+               call mprintf(.true.,DEBUG,'    -    ',newline=.false.)
+            end if
+         end do
+         call mprintf(.true.,DEBUG,' ',newline=.true.)
+      end do
+
+      deallocate(all_levels)
+      deallocate(field_has_level)
+      deallocate(fieldname_list)
+
+! BUG: Do something here to free up header_list
+
+   end subroutine storage_print_fields
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! Name: find_missing_values
+   !
+   ! Purpose: 
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   subroutine find_missing_values()
+
+      implicit none
+
+      ! Local variables
+      integer :: i, j
+      logical :: found_missing
+      type (head_node), pointer :: name_cursor
+      type (data_node), pointer :: data_cursor
+
+      found_missing = .false.
+
+      name_cursor => head
+      do while (associated(name_cursor))
+
+         if (associated(name_cursor%fieldlist_head)) then
+            data_cursor => name_cursor%fieldlist_head
+            do while ( associated(data_cursor) )
+               if (.not. associated(data_cursor%fg_data%valid_mask)) then
+                  call mprintf(.true.,INFORM, &
+                               'Field %s does not have a valid mask and will not be checked for missing values', &
+                               s1=data_cursor%fg_data%header%field)
+               else
+                  ILOOP: do i=1,data_cursor%fg_data%header%dim1(2)-data_cursor%fg_data%header%dim1(1)+1
+                  JLOOP: do j=1,data_cursor%fg_data%header%dim2(2)-data_cursor%fg_data%header%dim2(1)+1
+                     if (.not. bitarray_test(data_cursor%fg_data%valid_mask,i,j)) then
+                        found_missing = .true.
+                        call mprintf(.true.,WARN,'Field %s has missing values at level %i at (i,j)=(%i,%i)', &
+                                     s1=data_cursor%fg_data%header%field, &
+                                     i1=data_cursor%fg_data%header%vertical_level, &
+                                     i2=i+data_cursor%fg_data%header%dim1(1)-1, &
+                                     i3=j+data_cursor%fg_data%header%dim2(1)-1)
+                        exit ILOOP
+                     end if
+                  end do JLOOP
+                  end do ILOOP
+               end if
+               data_cursor => data_cursor%next
+            end do
+         end if
+
+         name_cursor => name_cursor%next
+      end do
+
+      call mprintf(found_missing,ERROR,'Missing values encountered in interpolated fields. Stopping.')
+
+   end subroutine find_missing_values
 
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

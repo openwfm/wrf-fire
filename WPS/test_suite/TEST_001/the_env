@@ -1,5 +1,0 @@
-#
-setenv share DATE=2006081612
-setenv geogrid CONUS_SE
-setenv ungrib SI
-setenv metgrid FILE

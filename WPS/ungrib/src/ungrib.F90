@@ -14,7 +14,7 @@
 !    Subroutine RD_GRIB2                                                      !
 !    Subroutine PUT_STORAGE                                                   !
 !    Subroutine OUTPUT                                                        !
-!    Subroutine CCLOSE                                                        !
+!    Subroutine C_CLOSE                                                       !
 !    Subroutine RRPR                                                          !
 !    Subroutine DATINT                                                        !
 !    Subroutine FILE_DELETE                                                   !
@@ -49,6 +49,7 @@ program ungrib
   use filelist
   use datarray
   use module_debug
+  use misc_definitions_module
   use stringutil
 
   implicit none
@@ -69,7 +70,7 @@ program ungrib
   real :: level
   character (LEN=9) ::  field
   character (LEN=3) ::  out_format
-  character (LEN=256) ::  prefix
+  character (LEN=MAX_FILENAME_LEN) ::  prefix
 
   logical :: readit
 
@@ -328,7 +329,7 @@ program ungrib
 ! the next file.
 
      if (grib_version.ne.2) then
-        call cclose(iuarr(nunit1), debug_level, ierr)
+        call c_close(iuarr(nunit1), debug_level, ierr)
         iuarr(nunit1) = 0
      endif 
      hsave = '0000-00-00_00:00:00'

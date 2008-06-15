@@ -251,7 +251,7 @@ contains
 !=============================================================================!
 !=============================================================================!
 !
-  integer function gribsize(trec, ilen)
+  integer function gribsize(trec, ilen, ierr)
 !-----------------------------------------------------------------------------!
 ! Return the size of a single GRIB record.                                    !
 !                                                                             !
@@ -261,6 +261,7 @@ contains
 !                                                                             !
 ! Output                                                                      !
 !    GRIBSIZE: The size of the full GRIB record                               !
+!    IERR    : 0= no errors, 1 = read error
 !                                                                             !
 ! Side Effects:                                                               !
 !    * Module variable IED is set to the GRIB Edition number.                 !
@@ -280,7 +281,9 @@ contains
     integer :: isz4 = 0
     integer :: isz5 = 32
     integer :: iflag
+    integer :: ierr
 
+    ierr = 0
 ! Unpack the GRIB Edition number, located in the eighth byte (bits 57-64)     !
 ! of array TREC.                                                              !
 
@@ -319,7 +322,7 @@ contains
        ! Total the sizes of sections 0 through 5.
        gribsize = (isz0+isz1+isz2+isz3+isz4+isz5) / 8
 
-    else
+    elseif (ied.eq.2) then
        ! Grib2
        write(*,'("I was expecting a Grib1 file, but this is a Grib2 file.")')
        write(*,'("Most likely this is because your GRIBFILE.XXX files")')
@@ -328,6 +331,12 @@ contains
        write(*,'("job must be run for each Grib type.")')
        write(*,'("\t*** stopping gribcode ***")')
        stop
+    else
+       write(*,'("Error trying to read grib edition number in gribsize.")')
+       write(*,'("Possible corrupt grib file.")')
+       write(6,*) 'Incorrect edition number  = ',ied
+       write(6,*) 'Skipping the rest of the file and continuing.'
+       ierr = 1
     endif
   end function gribsize
 !
@@ -361,8 +370,8 @@ contains
 !     MODULE_GRIB                                                             !
 !                                                                             !
 ! Externals:                                                                  !
-!     BNREAD                                                                  !
-!     BNSEEK                                                                  !
+!     BN_READ                                                                 !
+!     BN_SEEK                                                                 !
 !     GRIBSIZE                                                                !
 !                                                                             !
 !-----------------------------------------------------------------------------!
@@ -394,7 +403,7 @@ contains
 
     LOOP : DO
 ! Read LENTMP bytes into holding array TREC.
-       call bnread(nunit, trec, lentmp, isz, ierr, 0)
+       call bn_read(nunit, trec, lentmp, isz, ierr, 0)
        if (ierr.eq.1) then
           return
        elseif (ierr.eq.2) then
@@ -402,7 +411,7 @@ contains
           return
        endif
 ! Reposition the file pointer back to where we started.
-       call bnseek(nunit, -isz, 0, 0)
+       call bn_seek(nunit, -isz, 0, 0)
 
 ! Compare the first four bytes of TREC with the string 'GRIB' stored in 
 ! integer variable GTEST.
@@ -414,7 +423,7 @@ contains
        endif
 
 ! Advance the file pointer one byte.
-       call bnseek(nunit, 1, 0, 0)
+       call bn_seek(nunit, 1, 0, 0)
 
     ENDDO LOOP
 
@@ -422,7 +431,7 @@ contains
 #ifdef BYTESWAP
       call swap4(trec, isz)
 #endif
-    isize = gribsize(trec, isz)
+    isize = gribsize(trec, isz, ierr)
 
   end subroutine findgrib
 !
@@ -760,7 +769,7 @@ subroutine gribget(nunit, ierr)
 !                                                                             !
 ! Externals:                                                                  !
 !       FINDGRIB                                                              !
-!       BNREAD                                                                !
+!       BN_READ                                                               !
 !                                                                             !
 !-----------------------------------------------------------------------------!
 
@@ -783,9 +792,10 @@ subroutine gribget(nunit, ierr)
 
 ! Read the full GRIB record.
 
-  call bnread(nunit, grec, isize, isz, ierr, 1)
+  call bn_read(nunit, grec, isize, isz, ierr, 1)
 
-#if defined (DEC) || defined (ALPHA) || defined (alpha) || defined (LINUX)
+!#if defined (DEC) || defined (ALPHA) || defined (alpha) || defined (LINUX)
+#ifdef BYTESWAP
       call swap4(grec, isz)
 #endif
 
@@ -915,8 +925,8 @@ subroutine gribprint(isec)
   implicit none
   integer :: isec
   integer :: ou = 6
-  character(len=12) :: string = 't45,":",i8)'
-  character(len=15) :: rstring = 't45,":",f12.5)'
+  character(len=12) :: string = ',t45,":",i8)'
+  character(len=15) :: rstring = ',t45,":",f12.5)'
 
   if (isec.eq.0) then
      write(*,'(/,"GRIB SECTION 0:")')
@@ -1262,7 +1272,7 @@ subroutine gribheader(debug_level,ierr)
      call gbyte_g1(grec, sec0(1), 32, 24)
      iskip = 64
   elseif (ied.eq.0) then
-     sec0(1) = gribsize(grec,200)
+     sec0(1) = gribsize(grec,200, ierr)
      iskip = 32
   endif
 
@@ -1570,9 +1580,9 @@ subroutine gribheader(debug_level,ierr)
         infogrid(18) = infogrid(3)
         gridinfo(17) = gridinfo(6)
         infogrid(17) = infogrid(6)
-        call griblgg(infogrid(2), gridinfo(3), gridinfo(19))
-        infogrid(19) = nint(gridinfo(19)*1000.)
-        infogrid(3) = nint(gridinfo(3)*1000.)
+!        call griblgg(infogrid(2), gridinfo(3), gridinfo(19))
+!        infogrid(19) = nint(gridinfo(19)*1000.)
+!        infogrid(3) = nint(gridinfo(3)*1000.)
         gridinfo(6) = -gridinfo(3)
         infogrid(6) = -infogrid(3)
 
@@ -2016,3 +2026,88 @@ contains
   end subroutine lgord
 
 END SUBROUTINE GRIBLGG
+
+SUBROUTINE REORDER_IT (a, nx, ny, dx, dy, iorder)
+
+      use module_debug
+
+      implicit none
+      integer :: nx, ny, iorder
+      integer :: i, j, k, m
+      real :: dx, dy
+      real, dimension(nx*ny) :: a, z
+
+      if (iorder .eq. 0 .and. dx .gt. 0. .and. dy .lt. 0) return
+      k = 0
+      call mprintf(.true.,DEBUG, &
+        "Reordering GRIB array : dx = %f  , dy = %f  , iorder = %i",  &
+	 f1=dx,f2=dy,i1=iorder)
+      if (iorder .eq. 0 ) then
+	if ( dx .lt. 0 .and. dy .lt. 0. ) then
+	  do j = 1, ny
+	  do i = nx, 1, -1
+	    k = k + 1
+	    m = i * j
+	    z(k) = a(m)
+	  enddo
+	  enddo
+        else if ( dx .lt. 0 .and. dy .gt. 0. ) then
+	  do j = ny, 1, -1
+	  do i = nx, 1, -1
+	    k = k + 1
+	    m = i * j
+	    z(k) = a(m)
+	  enddo
+	  enddo
+        else if ( dx .gt. 0 .and. dy .gt. 0. ) then
+	  do j = ny, 1, -1
+	  do i = 1, nx
+	    k = k + 1
+	    m = i * j
+	    z(k) = a(m)
+	  enddo
+	  enddo
+        endif
+      else
+	if ( dx .gt. 0 .and. dy .lt. 0. ) then
+	  do i = 1, nx
+	  do j = 1, ny
+	    k = k + 1
+	    m = i * j
+	    z(k) = a(m)
+	  enddo
+	  enddo
+        else if ( dx .lt. 0 .and. dy .lt. 0. ) then
+	  do i = nx, 1, -1
+	  do j = 1, ny
+	    k = k + 1
+	    m = i * j
+	    z(k) = a(m)
+	  enddo
+	  enddo
+        else if ( dx .lt. 0 .and. dy .lt. 0. ) then
+	  do i = nx, 1, -1
+	  do j = ny, 1, -1
+	    k = k + 1
+	    m = i * j
+	    z(k) = a(m)
+	  enddo
+	  enddo
+        else if ( dx .gt. 0 .and. dy .gt. 0. ) then
+	  do i = 1, nx
+	  do j = ny, 1, -1
+	    k = k + 1
+	    m = i * j
+	    z(k) = a(m)
+	  enddo
+	  enddo
+        endif
+      endif
+!  now put it back in the 1-d array and reset the dx and dy
+      do k = 1, nx*ny
+        a(k) = z(k)
+      enddo
+      dx = abs ( dx)
+      dy = -1 * abs(dy)
+      return
+END SUBROUTINE REORDER_IT
