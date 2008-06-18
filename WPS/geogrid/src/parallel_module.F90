@@ -6,7 +6,7 @@
 module parallel_module
 
 #ifdef _MPI
-   use MPI
+include 'mpif.h'
 #endif
 
    integer, parameter :: IO_NODE = 0
@@ -23,8 +23,10 @@ module parallel_module
               my_minx, my_miny, my_maxx, my_maxy, &
               comm
  
+
    contains
  
+
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! Name: parallel_start
    !
@@ -218,7 +220,8 @@ module parallel_module
       implicit none
 
       ! Arguments
-      integer :: i_p, j_p, ids_p, ide_p, jds_p, jde_p, npx, npy, px, py
+      integer, intent(in) :: i_p, j_p, ids_p, ide_p, jds_p, jde_p, npx, npy
+      integer, intent(out) :: px, py
 
       ! Local variables
       integer :: a, b, rem, idim, jdim, i, j, ids, jds, ide, jde
@@ -283,9 +286,9 @@ module parallel_module
       integer, dimension(ds1:de1,ds2:de2,ds3:de3), intent(inout) :: domain_array
   
       ! Local variables
+#ifdef _MPI
       integer :: i, ii, j, jj, kk
       integer, dimension(2) :: idims, jdims
-#ifdef _MPI
       integer :: mpi_ierr
       integer, dimension(MPI_STATUS_SIZE) :: mpi_stat
 
@@ -298,7 +301,8 @@ module parallel_module
                   call MPI_Recv(idims, 2, MPI_INTEGER, processors(i,j), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
                   do kk=ds3,de3
 ! BUG: Check on mpi_stat and mpi_ierr
-                     call MPI_Recv(domain_array(idims(1):idims(2),jdims(1):jdims(2),kk), (idims(2)-idims(1)+1)*(jdims(2)-jdims(1)+1), &
+                     call MPI_Recv(domain_array(idims(1):idims(2),jdims(1):jdims(2),kk), &
+                                               (idims(2)-idims(1)+1)*(jdims(2)-jdims(1)+1), &
                                    MPI_INTEGER, processors(i,j), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
                   end do
                else
@@ -344,9 +348,9 @@ module parallel_module
       real, dimension(ds1:de1,ds2:de2,ds3:de3), intent(inout) :: domain_array
   
       ! Local variables
+#ifdef _MPI
       integer :: i, ii, j, jj, kk
       integer, dimension(2) :: idims, jdims
-#ifdef _MPI
       integer :: mpi_ierr
       integer, dimension(MPI_STATUS_SIZE) :: mpi_stat
   
@@ -406,9 +410,9 @@ module parallel_module
       integer, dimension(ds1:de1,ds2:de2,ds3:de3), intent(in) :: domain_array
   
       ! Local variables
+#ifdef _MPI
       integer :: i, ii, j, jj, kk
       integer, dimension(2) :: idims, jdims
-#ifdef _MPI
       integer :: mpi_ierr
       integer, dimension(MPI_STATUS_SIZE) :: mpi_stat
   
@@ -421,7 +425,8 @@ module parallel_module
                   call MPI_Recv(idims, 2, MPI_INTEGER, processors(i,j), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
                   do kk=ds3,de3
 ! BUG: Check on mpi_stat and mpi_ierr
-                     call MPI_Send(domain_array(idims(1):idims(2),jdims(1):jdims(2),kk), (idims(2)-idims(1)+1)*(jdims(2)-jdims(1)+1), &
+                     call MPI_Send(domain_array(idims(1):idims(2),jdims(1):jdims(2),kk), &
+                                               (idims(2)-idims(1)+1)*(jdims(2)-jdims(1)+1), &
                                    MPI_INTEGER, processors(i,j), my_proc_id, comm, mpi_ierr)
                   end do
                else
@@ -439,7 +444,8 @@ module parallel_module
          idims(2) = pe1
          call MPI_Send(idims, 2, MPI_INTEGER, 0, my_proc_id, comm, mpi_ierr)
          do kk=ps3,pe3
-            call MPI_Recv(patch_array(ps1:pe1,ps2:pe2,kk), (pe1-ps1+1)*(pe2-ps2+1), MPI_INTEGER, 0, MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
+            call MPI_Recv(patch_array(ps1:pe1,ps2:pe2,kk), (pe1-ps1+1)*(pe2-ps2+1), &
+                          MPI_INTEGER, 0, MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
 ! BUG: Check on mpi_ierr
          end do
      end if
@@ -467,9 +473,9 @@ module parallel_module
       real, dimension(ds1:de1,ds2:de2,ds3:de3), intent(in) :: domain_array
   
       ! Local variables
+#ifdef _MPI
       integer :: i, ii, j, jj, kk
       integer, dimension(2) :: idims, jdims
-#ifdef _MPI
       integer :: mpi_ierr
       integer, dimension(MPI_STATUS_SIZE) :: mpi_stat
   
@@ -482,7 +488,8 @@ module parallel_module
                   call MPI_Recv(idims, 2, MPI_INTEGER, processors(i,j), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
                   do kk=ds3,de3
 ! BUG: Check on mpi_stat and mpi_ierr
-                     call MPI_Send(domain_array(idims(1):idims(2),jdims(1):jdims(2),kk), (idims(2)-idims(1)+1)*(jdims(2)-jdims(1)+1), &
+                     call MPI_Send(domain_array(idims(1):idims(2),jdims(1):jdims(2),kk), &
+                                               (idims(2)-idims(1)+1)*(jdims(2)-jdims(1)+1), &
                                    MPI_REAL, processors(i,j), my_proc_id, comm, mpi_ierr)
                   end do
                else
@@ -500,7 +507,8 @@ module parallel_module
          idims(2) = pe1
          call MPI_Send(idims, 2, MPI_INTEGER, 0, my_proc_id, comm, mpi_ierr)
          do kk=ps3,pe3
-            call MPI_Recv(patch_array(ps1:pe1,ps2:pe2,kk), (pe1-ps1+1)*(pe2-ps2+1), MPI_REAL, 0, MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
+            call MPI_Recv(patch_array(ps1:pe1,ps2:pe2,kk), (pe1-ps1+1)*(pe2-ps2+1), &
+                          MPI_REAL, 0, MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
 ! BUG: Check on mpi_ierr
          end do
      end if
@@ -526,8 +534,8 @@ module parallel_module
       real, dimension(ms1:me1,ms2:me2,ms3:me3), intent(inout) :: patch_array
 
       ! Local variables
-      integer :: jj, kk
 #ifdef _MPI
+      integer :: jj, kk
       integer :: mpi_ierr
       integer, dimension(MPI_STATUS_SIZE) :: mpi_stat
 
@@ -536,7 +544,7 @@ module parallel_module
       !
       if (my_x /= (nproc_x - 1)) then
          do kk=ps3,pe3
-            do jj=ps2,pe2
+            do jj=ms2,me2
                call MPI_Send(patch_array(pe1-HALO_WIDTH+1:pe1,jj,kk), HALO_WIDTH, MPI_REAL, &
                              processors(my_x+1,my_y), my_proc_id, comm, mpi_ierr)
             end do
@@ -544,7 +552,7 @@ module parallel_module
       end if
       if (my_x /= 0) then
          do kk=ps3,pe3
-            do jj=ps2,pe2
+            do jj=ms2,me2
                call MPI_Recv(patch_array(ms1:ms1+HALO_WIDTH-1,jj,kk), HALO_WIDTH, MPI_REAL, &
                              processors(my_x-1,my_y), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
             end do
@@ -556,7 +564,7 @@ module parallel_module
       !
       if (my_x /= 0) then
          do kk=ps3,pe3
-            do jj=ps2,pe2
+            do jj=ms2,me2
                call MPI_Send(patch_array(ps1:ps1+HALO_WIDTH-1,jj,kk), HALO_WIDTH, MPI_REAL, &
                              processors(my_x-1,my_y), my_proc_id, comm, mpi_ierr)
             end do
@@ -564,7 +572,7 @@ module parallel_module
       end if
       if (my_x /= (nproc_x - 1)) then
          do kk=ps3,pe3
-            do jj=ps2,pe2
+            do jj=ms2,me2
                call MPI_Recv(patch_array(me1-HALO_WIDTH+1:me1,jj,kk), HALO_WIDTH, MPI_REAL, &
                              processors(my_x+1,my_y), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
             end do
@@ -577,7 +585,7 @@ module parallel_module
       if (my_y /= (nproc_y - 1)) then
          do kk=ps3,pe3
             do jj=pe2-HALO_WIDTH+1,pe2
-               call MPI_Send(patch_array(ps1:pe1,jj,kk), (pe1-ps1+1), MPI_REAL, &
+               call MPI_Send(patch_array(ms1:me1,jj,kk), (me1-ms1+1), MPI_REAL, &
                              processors(my_x,my_y+1), my_proc_id, comm, mpi_ierr)
             end do
          end do
@@ -585,7 +593,7 @@ module parallel_module
       if (my_y /= 0) then
          do kk=ps3,pe3
             do jj=ms2,ms2+HALO_WIDTH-1
-               call MPI_Recv(patch_array(ps1:pe1,jj,kk), (pe1-ps1+1), MPI_REAL, &
+               call MPI_Recv(patch_array(ms1:me1,jj,kk), (me1-ms1+1), MPI_REAL, &
                              processors(my_x,my_y-1), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
             end do
          end do
@@ -597,7 +605,7 @@ module parallel_module
       if (my_y /= 0) then
          do kk=ps3,pe3
             do jj=ps2,ps2+HALO_WIDTH-1
-               call MPI_Send(patch_array(ps1:pe1,jj,kk), (pe1-ps1+1), MPI_REAL, &
+               call MPI_Send(patch_array(ms1:me1,jj,kk), (me1-ms1+1), MPI_REAL, &
                              processors(my_x,my_y-1), my_proc_id, comm, mpi_ierr)
             end do
          end do
@@ -605,7 +613,7 @@ module parallel_module
       if (my_y /= (nproc_y - 1)) then
          do kk=ps3,pe3
             do jj=me2-HALO_WIDTH+1,me2
-               call MPI_Recv(patch_array(ps1:pe1,jj,kk), (pe1-ps1+1), MPI_REAL, &
+               call MPI_Recv(patch_array(ms1:me1,jj,kk), (me1-ms1+1), MPI_REAL, &
                              processors(my_x,my_y+1), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
             end do
          end do
@@ -712,8 +720,8 @@ module parallel_module
       integer, dimension(ms1:me1,ms2:me2,ms3:me3), intent(inout) :: patch_array
 
       ! Local variables
-      integer :: jj, kk
 #ifdef _MPI
+      integer :: jj, kk
       integer :: mpi_ierr
       integer, dimension(MPI_STATUS_SIZE) :: mpi_stat
 
@@ -722,7 +730,7 @@ module parallel_module
       !
       if (my_x /= (nproc_x - 1)) then
          do kk=ps3,pe3
-            do jj=ps2,pe2
+            do jj=ms2,me2
                call MPI_Send(patch_array(pe1-HALO_WIDTH+1:pe1,jj,kk), HALO_WIDTH, MPI_INTEGER, &
                              processors(my_x+1,my_y), my_proc_id, comm, mpi_ierr)
             end do
@@ -730,7 +738,7 @@ module parallel_module
       end if
       if (my_x /= 0) then
          do kk=ps3,pe3
-            do jj=ps2,pe2
+            do jj=ms2,me2
                call MPI_Recv(patch_array(ms1:ms1+HALO_WIDTH-1,jj,kk), HALO_WIDTH, MPI_INTEGER, &
                              processors(my_x-1,my_y), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
             end do
@@ -742,7 +750,7 @@ module parallel_module
       !
       if (my_x /= 0) then
          do kk=ps3,pe3
-            do jj=ps2,pe2
+            do jj=ms2,me2
                call MPI_Send(patch_array(ps1:ps1+HALO_WIDTH-1,jj,kk), HALO_WIDTH, MPI_INTEGER, &
                              processors(my_x-1,my_y), my_proc_id, comm, mpi_ierr)
             end do
@@ -750,7 +758,7 @@ module parallel_module
       end if
       if (my_x /= (nproc_x - 1)) then
          do kk=ps3,pe3
-            do jj=ps2,pe2
+            do jj=ms2,me2
                call MPI_Recv(patch_array(me1-HALO_WIDTH+1:me1,jj,kk), HALO_WIDTH, MPI_INTEGER, &
                              processors(my_x+1,my_y), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
             end do
@@ -763,7 +771,7 @@ module parallel_module
       if (my_y /= (nproc_y - 1)) then
          do kk=ps3,pe3
             do jj=pe2-HALO_WIDTH+1,pe2
-               call MPI_Send(patch_array(ps1:pe1,jj,kk), (pe1-ps1+1), MPI_INTEGER, &
+               call MPI_Send(patch_array(ms1:me1,jj,kk), (me1-ms1+1), MPI_INTEGER, &
                              processors(my_x,my_y+1), my_proc_id, comm, mpi_ierr)
             end do
          end do
@@ -771,7 +779,7 @@ module parallel_module
       if (my_y /= 0) then
          do kk=ps3,pe3
             do jj=ms2,ms2+HALO_WIDTH-1
-               call MPI_Recv(patch_array(ps1:pe1,jj,kk), (pe1-ps1+1), MPI_INTEGER, &
+               call MPI_Recv(patch_array(ms1:me1,jj,kk), (me1-ms1+1), MPI_INTEGER, &
                              processors(my_x,my_y-1), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
             end do
          end do
@@ -783,7 +791,7 @@ module parallel_module
       if (my_y /= 0) then
          do kk=ps3,pe3
             do jj=ps2,ps2+HALO_WIDTH-1
-               call MPI_Send(patch_array(ps1:pe1,jj,kk), (pe1-ps1+1), MPI_INTEGER, &
+               call MPI_Send(patch_array(ms1:me1,jj,kk), (me1-ms1+1), MPI_INTEGER, &
                              processors(my_x,my_y-1), my_proc_id, comm, mpi_ierr)
             end do
          end do
@@ -791,7 +799,7 @@ module parallel_module
       if (my_y /= (nproc_y - 1)) then
          do kk=ps3,pe3
             do jj=me2-HALO_WIDTH+1,me2
-               call MPI_Recv(patch_array(ps1:pe1,jj,kk), (pe1-ps1+1), MPI_INTEGER, &
+               call MPI_Recv(patch_array(ms1:me1,jj,kk), (me1-ms1+1), MPI_INTEGER, &
                              processors(my_x,my_y+1), MPI_ANY_TAG, comm, mpi_stat, mpi_ierr)
             end do
          end do

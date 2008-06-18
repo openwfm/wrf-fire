@@ -43,6 +43,7 @@ module module_fr_sfire_driver
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_model
 use module_fr_sfire_phys
+use module_fr_sfire_atm
 use module_fr_sfire_util
 
 contains
@@ -93,7 +94,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         fire_ignition_radius
     integer::fire_ifun,fire_ifun_start,ir,jr
     logical::need_lfn_update
-    real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out
+    !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
+    ! uf vf only do not need to be in the state but we need halo on them
+    real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     
 !*** executable
     call fire_ignition_convert (config_flags,fire_max_ignitions, &
@@ -120,16 +123,21 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 #ifdef DM_PARALLEL
         if(need_lfn_update)then
 !           halo exchange on lfn width 2
+#include "HALO_FIRE_LFN.inc"
         endif
         if(fire_ifun.eq.4)then
 !           halo exchange on fire winds width 1
+#include "HALO_FIRE_WIND_F.inc"
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
+#include "HALO_FIRE_ZSF.inc"
         elseif(fire_ifun.eq.3)then
             if(fire_ifun_start<3)then
 !               halo exchange on all fuel data width 1
+#include "HALO_FIRE_FUEL.inc"
             endif
 !            halo exchange on atm winds width 1
+#include "HALO_FIRE_WIND_A.inc"
         endif
 #endif
         ! need domain by 1 smaller, in last row.col winds are not set properly
@@ -156,7 +164,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%em_u_2,grid%em_v_2,grid%em_mut,rho,grid%ht,      & ! in arrays, on atm grid
             z_at_w,dz8w,                                  &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
-            uf,vf,lfn_out,                                & ! arrays to persist only over one timestep    
+            grid%uf,grid%vf,lfn_out,                      & ! arrays to persist only over one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid  
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
@@ -275,7 +283,8 @@ real :: dxf,dyf,time_start
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ij,i,j,k,id,pid,kpe1, &
     ifts,ifte,jfts,jfte                          ! fire tile
-character(len=128)msg
+character(len=128)::msg
+character(len=3)::kk
 real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 
 !*** executable
@@ -415,6 +424,9 @@ do ij=1,num_tiles
     
     if(ifun.eq.6)then ! heat fluxes into the atmosphere    
     
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fire_driver:fgrnhfx')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
+    
         ! sum the fluxes over atm cells
         call sum_2d_cells(        &
             ifms,ifme,jfms,jfme,  &
@@ -423,13 +435,15 @@ do ij=1,num_tiles
             ims, ime, jms, jme,   &
             its,ite,jts,jte,      &
             grnhfx)
+!comment out the next call to get results as before commit
+!55fd92051196b796891b60cb7ec1c4bdb8800078
         call sum_2d_cells(        &
             ifms,ifme,jfms,jfme,  &
             ifts,ifte,jfts,jfte,  &
-            fgrnhfx,              &
+            fgrnqfx,              &
             ims, ime, jms, jme,   &
             its,ite,jts,jte,      &
-            grnhfx)
+            grnqfx)
 
         do j=jts,jte
             do i=its,ite
@@ -454,7 +468,10 @@ do ij=1,num_tiles
 
         ! --- add heat and moisture fluxes to tendency variables by postulated decay
 
-        call fire_tendency(                 &
+       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
+       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
+
+       call fire_tendency(                 &
             ids,ide, kds,kde, jds,jde,      & ! dimensions
             ims,ime, kms,kme, jms,jme,      &
             its,ite, kts,kte, jts,jte,      & ! 
@@ -465,10 +482,8 @@ do ij=1,num_tiles
 
        ! debug print to compare
 
-       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
-       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
-       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver:rthfrten')
-       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver:rqvfrten')
+       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver_phys:rthfrten')
+       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver_phys:rqvfrten')
 
             
     endif ! ifun=6
@@ -476,7 +491,7 @@ do ij=1,num_tiles
 enddo ! tiles
 
 if(ifun.eq.1)then
-    call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver:zsf')        
+    call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        
     if(pid.ne.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',pid)
@@ -503,15 +518,14 @@ elseif(ifun.eq.6)then
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)
     endif
-    call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'driver:grnhfx')
-    call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'driver:grnqfx')
     !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
     !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
     kpe1=min(kps+1,kpe)
     !kpe1=kps-1
-    do k=kps,kpe1
-        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'driver:rthfrten')
-        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'driver:rqvfrten')
+    do k=kts,min(kte,kts+3)
+        write(kk,'(i2)')k
+        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,kk//'driver_phys:rthfrten')
+        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,kk//'driver_phys:rqvfrten')
     enddo
 endif
 
@@ -793,133 +807,5 @@ end subroutine check_fmesh
 !
 !*****************************
 !
-
-SUBROUTINE fire_tendency( &
-    ids,ide, kds,kde, jds,jde,   & ! dimensions
-    ims,ime, kms,kme, jms,jme,   &
-    its,ite, kts,kte, jts,jte,   &
-    grnhfx,grnqfx,canhfx,canqfx, & ! heat fluxes summed up to  atm grid 
-    alfg,alfc,z1can,             & ! coeffients, properties, geometry 
-    zs,z_at_w,dz8w,mu,rho,       &
-    rthfrten,rqvfrten)             ! theta and Qv tendencies 
-
-! This routine is atmospheric physics 
-! it does NOT go into module_fr_sfire_phys because it is not fire physics
-
-! taken from the code by Ned Patton, only order of arguments change to the convention here
-! --- this routine takes fire generated heat and moisture fluxes and
-!     calculates their influence on the theta and water vapor 
-! --- note that these tendencies are valid at the Arakawa-A location
-
-   IMPLICIT NONE
-
-! --- incoming variables
-
-   INTEGER , INTENT(in) :: ids,ide, kds,kde, jds,jde, &
-                           ims,ime, kms,kme, jms,jme, &
-                           its,ite, kts,kte, jts,jte
-
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx  ! W/m^2
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx  ! W/m^2
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ) :: zs  ! topography (m abv sealvl)
-   REAL, INTENT(in), DIMENSION( ims:ime,jms:jme ) :: mu  ! dry air mass (Pa)
-
-   REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: z_at_w ! m abv sealvl
-   REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: dz8w   ! dz across w-lvl
-   REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: rho    ! density
-
-   REAL, INTENT(in) :: alfg ! extinction depth ground fire heat (m)
-   REAL, INTENT(in) :: alfc ! extinction depth crown  fire heat (m)
-   REAL, INTENT(in) :: z1can    ! height of crown fire heat release (m)
-
-! --- outgoing variables
-
-   REAL, INTENT(out), DIMENSION( ims:ime,kms:kme,jms:jme ) ::   &
-       rthfrten, & ! theta tendency from fire (in mass units)
-       rqvfrten    ! Qv tendency from fire (in mass units)
-! --- local variables
-
-   INTEGER :: i,j,k
-   INTEGER :: i_st,i_en, j_st,j_en, k_st,k_en
-
-   REAL :: cp_i
-   REAL :: rho_i
-   REAL :: xlv_i
-   REAL :: z_w
-   REAL :: fact_g, fact_c
-
-   REAL, DIMENSION( ims:ime,kms:kme,jms:jme ) :: hfx,qfx
-
-! --- set some local constants
-   
-
-   cp_i = 1./cp     ! inverse of specific heat
-   xlv_i = 1./xlv   ! inverse of latent heat
-
-! --- set loop indicies : note that 
-
-   i_st = MAX(its,ids+1)
-   i_en = MIN(ite,ide-1)
-   k_st = kts
-   k_en = MIN(kte,kde-1)
-   j_st = MAX(jts,jds+1)
-   j_en = MIN(jte,jde-1)
-
-! --- distribute fluxes
-
-   DO j = j_st,j_en
-      DO k = k_st,k_en
-         DO i = i_st,i_en
-
-            ! --- set z (in meters above ground)
-
-            z_w = z_at_w(i,k,j) - zs(i,j) ! should be zero when k=k_st
-
-            ! --- heat flux
-
-            fact_g = cp_i * EXP( - alfg * z_w )
-            IF ( z_w < z1can ) THEN
-               fact_c = cp_i
-            ELSE
-               fact_c = cp_i * EXP( - alfc * (z_w - z1can) )
-            END IF
-            hfx(i,k,j) = fact_g * grnhfx(i,j) + fact_c * canhfx(i,j) 
-
-            ! --- vapor flux
-
-            fact_g = xlv_i * EXP( - alfg * z_w )
-            IF (z_w < z1can) THEN
-               fact_c = xlv_i
-            ELSE
-               fact_c = xlv_i * EXP( - alfc * (z_w - z1can) )
-            END IF
-            qfx(i,k,j) = fact_g * grnqfx(i,j) + fact_c * canqfx(i,j) 
-
-         END DO
-      END DO
-   END DO
-
-! --- add flux divergence to tendencies
-!
-!   multiply by dry air mass (mu) to eliminate the need to 
-!   call sr. calculate_phy_tend (in dyn_em/module_em.F)
-
-   DO j = j_st,j_en
-      DO k = k_st,k_en-1
-         DO i = i_st,i_en
-
-            rho_i = 1./rho(i,k,j)
-
-            rthfrten(i,k,j) = - mu(i,j) * rho_i * (hfx(i,k+1,j)-hfx(i,k,j)) / dz8w(i,k,j)
-            rqvfrten(i,k,j) = - mu(i,j) * rho_i * (qfx(i,k+1,j)-qfx(i,k,j)) / dz8w(i,k,j)
-
-         END DO
-      END DO
-   END DO
-
-   RETURN
-
-END SUBROUTINE fire_tendency
-
 
 end module module_fr_sfire_driver

@@ -159,6 +159,6 @@
  fire_ext_crwn      = 50.,  ! real   , extinction coeff crown fire 
  fire_fuel_read     = 0,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
- fire_print_msg     = 0,    ! 1 to print fire debugging messages
+ fire_print_msg     = 1,    ! 1 to print fire debugging messages
  fire_print_file    = 0,    ! 1 to write text output files for fire arrays
  /

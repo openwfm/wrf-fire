@@ -7,6 +7,8 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 module misc_definitions_module
 
+   integer, parameter :: MAX_FILENAME_LEN = 1024
+
    real, parameter :: NAN=1.E20
 
    real, parameter :: NOT_MASKED   = -2.,  &
@@ -30,6 +32,8 @@ module misc_definitions_module
 
    integer, parameter :: BINARY=1, NETCDF=2, GRIB1=3, HDF=4
 
+   integer, parameter :: BIG_ENDIAN=0, LITTLE_ENDIAN=1
+
    ! Projection codes for proj_info structure:
    INTEGER, PUBLIC, PARAMETER  :: PROJ_LATLON = 0
    INTEGER, PUBLIC, PARAMETER  :: PROJ_LC = 1
@@ -37,6 +41,9 @@ module misc_definitions_module
    INTEGER, PUBLIC, PARAMETER  :: PROJ_PS_WGS84 = 102
    INTEGER, PUBLIC, PARAMETER  :: PROJ_MERC = 3
    INTEGER, PUBLIC, PARAMETER  :: PROJ_GAUSS = 4
+   INTEGER, PUBLIC, PARAMETER  :: PROJ_CYL = 5
+   INTEGER, PUBLIC, PARAMETER  :: PROJ_CASSINI = 6
+   INTEGER, PUBLIC, PARAMETER  :: PROJ_ALBERS_NAD83 = 105 
    INTEGER, PUBLIC, PARAMETER  :: PROJ_ROTLL = 203
 
 end module misc_definitions_module

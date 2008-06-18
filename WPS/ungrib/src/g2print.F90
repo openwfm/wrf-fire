@@ -107,7 +107,7 @@
      enddo LOOP1
 
      if (grib_version.ne.2) then
-        call cclose(iuarr(nunit1), iprint, ierr)
+        call c_close(iuarr(nunit1), iprint, ierr)
         iuarr(nunit1) = 0
      endif 
 
@@ -191,8 +191,11 @@ end program g2print
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !  SET ARGUMENTS
 
-      call start()
-      unpack=.true.
+      if (debug_level .gt. 50 ) then
+        unpack=.true.
+      else
+        unpack=.false.
+      endif
       expand=.true.
       hdate = '0000-00-00_00:00:00'
       ierr=0
@@ -256,7 +259,7 @@ end program g2print
 
          if (lgrib.ne.lengrib) then
             print *,'G2 r_grib2: IO Error.',lgrib,".ne.",lengrib
-            call errexit(9)
+            stop 9 
          endif
          iseek=lskip+lgrib
          icount=icount+1
@@ -539,6 +542,7 @@ end program g2print
               print*, 'see Code Table 3.1: Grid Definition Template No'
            endif
          
+	    call gf_free(gfld)
          endif
 
          ! ----
@@ -843,26 +847,23 @@ end program g2print
   987     format(2i4,i5,i4,i8,i8,i8,a10,a20,i5.2)
          endif
 
-         enddo ! 1,numfields
-
-
          ! Deallocate arrays decoding GRIB2 record.
          call gf_free(gfld)
 
+         enddo ! 1,numfields
+
       enddo VERSION ! skgb
 
+       if (debug_level .gt. 50) &
+          print *, 'G2 total number of fields found = ',itot
 
-      if (debug_level .gt. 50) &
-         print *, 'G2 total number of fields found = ',itot
-      call summary()
+        CALL BACLOSE(junit,IOS)
 
-      CALL BACLOSE(junit,IOS)
-
-       ireaderr=1
+        ireaderr=1
       else 
-       print *,'open status failed because',ios
-       hdate = '9999-99-99_99:99:99'
-       ireaderr=2
+        print *,'open status failed because',ios
+        hdate = '9999-99-99_99:99:99'
+        ireaderr=2
       endif ! ireaderr check 
 
       END subroutine r_grib2
@@ -920,7 +921,6 @@ end program g2print
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !  SET ARGUMENTS
 
-      call start()
       itot=0
       icount=0
       iseek=0
@@ -991,7 +991,6 @@ end program g2print
          call gbyte(cgrib,grib_edition,iofst,8)   ! GRIB edition number
 
          print *, 'ungrib - grib edition num',  grib_edition
-         call summary()
          CALL BACLOSE(junit,IOS)
          ireaderr=1
       else if (ios .eq. -4) then

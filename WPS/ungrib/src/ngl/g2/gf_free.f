@@ -140,8 +140,9 @@
       nullify(gfld%idsect)
 
       if (associated(gfld%local)) then
-         deallocate(gfld%local)
+         !deallocate(gfld%local)
          !deallocate(gfld%local,stat=is)
+         print *,'WPS devel team - skipping deallocate - FIX THIS'
          !print *,'gfld%local: ',is
       endif
       nullify(gfld%local)

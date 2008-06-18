@@ -1,6 +1,27 @@
 #!/bin/csh
 
+#BSUB -P 64000400			# proj account to charge	
+#BSUB -R "span[ptile=2]"                # how many tasks per node (up to 8)
+#BSUB -n 1                              # number of total tasks
+#BSUB -o WPS.out                        # output filename (%J to add job id)
+#BSUB -e WPS.err                        # error filename
+#BSUB -J WPS.test                       # job name
+#BSUB -q share                          # queue
+#BSUB -W 3:00                           # wallclock time
+
+########	CHANGE THIS DIRECTORY	#######
+if ( `uname` == AIX ) then
+	if ( -d /ptmp/gill/WPS_reg ) then
+		cd /ptmp/gill/WPS_reg
+	else
+		echo "/ptmp/gill/WPS_reg does not exist - stopping"
+		exit 1
+	endif
+endif
+########	CHANGE THIS DIRECTORY	#######
+
 unalias cp rm ls
+unalias popd
 
 if ( ( ! -d WPS ) || ( ! -d WRFV2 ) ) then
 	clear
@@ -21,66 +42,71 @@ set PLOTS_ONLY = FALSE
 #	WRFV2 build
 
 clear
-if ( `uname` == Linux ) then
-	echo 1. starting WRFV2 build - takes about 7 minutes
-else if ( `uname` == AIX ) then
-	echo "1. starting WRFV2 build - takes 20 (bs) to 35 (bv) minutes"
-else
-	echo 1. starting WRFV2 build
-endif
-echo "     start: " `date`
-pushd WRFV2 >& /dev/null
 
-#	We at least want to be able to do nesting.
-
-if ( `uname` == Linux ) then
+if ( $PLOTS_ONLY == FALSE ) then
+	
+	if ( `uname` == Linux ) then
+		echo 1. starting WRFV2 build - takes about 7 minutes
+	else if ( `uname` == AIX ) then
+		echo "1. starting WRFV2 build - takes 20 (bs) to 35 (bv) minutes"
+	else
+		echo 1. starting WRFV2 build
+	endif
+	echo "     start: " `date`
+	pushd WRFV2 >& /dev/null
+	
+	#	We at least want to be able to do nesting.
+	
+	if ( `uname` == Linux ) then
+		echo 2 | ./configure >& /dev/null
+	else if ( `uname` == AIX ) then
+		echo 9 | ./configure >& /dev/null
+	else
+		echo need info on this `uname` arch
+		exit
+	endif
+	
+	./compile em_real >&! build.log
+	if ( ( -e main/wrf.exe ) && \
+	     ( -e main/real.exe ) ) then
+		echo "        WRFV2 build OK"
+	else
+		echo " "
+		echo " "
+		echo "WRFV2 build failed"
+		echo "Look at $TOP_DIR/WRFV2/build.log"
+		echo " "
+		echo " "
+		exit ( 2 ) 
+	endif
+	echo "     end:   " `date`
+	popd >& /dev/null
+	
+	#	WPS build
+	
+	echo " "
+	echo 2. starting WPS build - takes about 1 minute
+	echo "     start: " `date`
+	pushd WPS >& /dev/null
 	echo 2 | ./configure >& /dev/null
-else if ( `uname` == AIX ) then
-	echo 9 | ./configure >& /dev/null
-else
-	echo need info on this `uname` arch
-	exit
-endif
+	./compile wps >&! build.log
+	if ( ( -e geogrid.exe ) && \
+	     ( -e metgrid.exe ) && \
+	     ( -e ungrib.exe ) ) then
+		echo "        WPS build OK"
+	else
+		echo " "
+		echo " "
+		echo "WPS build failed"
+		echo "Look at $TOP_DIR/WPS/build.log"
+		echo " "
+		echo " "
+		exit ( 3 ) 
+	endif
+	echo "     end:   " `date`
+	popd >& /dev/null
 
-./compile em_real >&! build.log
-if ( ( -e main/wrf.exe ) && \
-     ( -e main/real.exe ) ) then
-	echo "        WRFV2 build OK"
-else
-	echo " "
-	echo " "
-	echo "WRFV2 build failed"
-	echo "Look at $TOP_DIR/WRFV2/build.log"
-	echo " "
-	echo " "
-	exit ( 2 ) 
 endif
-echo "     end:   " `date`
-popd >& /dev/null
-
-#	WPS build
-
-echo " "
-echo 2. starting WPS build - takes about 1 minute
-echo "     start: " `date`
-pushd WPS >& /dev/null
-echo 2 | ./configure >& /dev/null
-./compile wps >&! build.log
-if ( ( -e geogrid.exe ) && \
-     ( -e metgrid.exe ) && \
-     ( -e ungrib.exe ) ) then
-	echo "        WPS build OK"
-else
-	echo " "
-	echo " "
-	echo "WPS build failed"
-	echo "Look at $TOP_DIR/WPS/build.log"
-	echo " "
-	echo " "
-	exit ( 3 ) 
-endif
-echo "     end:   " `date`
-popd >& /dev/null
 
 #	WPS TESTS
 
@@ -88,7 +114,7 @@ echo " "
 echo 3. starting WPS tests
 echo "     start: " `date`
 pushd WPS >& /dev/null
-set count = 0
+set tcount = 0
 
 #	Loop over all of the tests
 
@@ -109,8 +135,8 @@ foreach test_num ( $all_tests )
 
 	#	Tell folks what we are doing.
 
-	@ count ++
-	echo "        Test #${count}"
+	@ tcount ++
+	echo "        Test #${tcount}"
 	echo "        share:   " $share
 	echo "        geogrid: " $geogrid
 	echo "        ungrib:  " $ungrib
@@ -184,7 +210,7 @@ foreach test_num ( $all_tests )
 	#	1 vs Edition 2.  Each has the associated Vtable, where the difference
 	#	between dir and the Vtable name is the extra "_g1" or "_g2".
 
-	set source = ( `ls -1 $datadir/$test_num` )
+	set source = ( `ls -1 $datadir/$test_num/DATA` )
 
 	#	Loop of the data sources, one run each of ungrib and one of metgrid.
 
@@ -203,7 +229,7 @@ foreach test_num ( $all_tests )
 
 		set Vtable = `echo $data_source | cut -d "_" -f1`
 		cp ungrib/Variable_Tables/Vtable.$Vtable Vtable
-		./link_grib.csh $datadir/$test_num/$data_source/*
+		./link_grib.csh $datadir/$test_num/DATA/$data_source/*
 
 		if ( $PLOTS_ONLY == FALSE ) then
 
@@ -403,6 +429,8 @@ foreach test_num ( $all_tests )
 			endif
 			ctrans -d sun plot${index}.cgm > plot${index}.ras
 			convert plot${index}.ras ${test_num}_${data_source}_${index}.gif
+			convert ${test_num}_${data_source}_${index}.gif -resize 10% \
+				${test_num}_${data_source}_${index}_small.gif
 		end
 
 		mv test.cgm plot*.cgm plot*.ras *.gif \
