@@ -28,7 +28,7 @@ DECL = normal_spread_decl
 SPEED_VARS_ARGS = \"$(ARGS).h\"
 SPEED_VARS_DECL = \"$(DECL).h\"
 INC = $(ARGS).h $(DECL).h
-LAPACK_OBJ = 
+LAPACK_OBJ = lapack.o
 
 # module dependencies
 
