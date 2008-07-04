@@ -200,6 +200,25 @@ model_test:
 model_test_prog.exe: $(MODEL_OBJ) 
 	$(FC) -o model_test_prog.exe $(MODEL_OBJ) 
 
+#fuel_burnt_test
+burnt_test_OBJ=\
+    module_fr_sfire_core.o \
+    module_fr_sfire_util.o \
+    module_fr_sfire_phys.o \
+    wrf_fakes.o \
+    fuel_burnt_test.o \
+    $(LAPACK_OBJ)
+
+fuel_burnt_test.o: module_fr_sfire_core.o
+
+fuel_burnt_test.exe: $(burnt_test_OBJ)
+	$(FC) -o fuel_burnt_test.exe $(burnt_test_OBJ) 
+
+fuel_burnt_test:
+	make -f $(MAKEFILE) fuel_burnt_test.exe FC="$(FC)"
+	./fuel_burnt_test.exe	
+
+
 #
 # the whole fire model through atmosphere coupling 
 #

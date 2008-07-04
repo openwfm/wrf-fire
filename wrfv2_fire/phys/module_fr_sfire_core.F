@@ -238,7 +238,7 @@ do j=1,JFCELLS
         yfcell=j-0.5
         iccell=nint(its+xfcell/ir-0.5) ! the indices of the nearest coarse midpoint
         jccell=nint(jts+yfcell/jr-0.5) ! use fuel_time of the coarse cell the fine cell is in
-        fuel_left_f(i,j)=fuel_left_cell( &
+                fuel_left_f(i,j)=fuel_left_cell( &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell)) &
@@ -406,7 +406,7 @@ external dggglm
 
 ! a very crude approximation - replace by a better code
 ! call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)       
-        
+               
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
     out = 1.0 !  fuel_left, no burning
@@ -470,7 +470,7 @@ else
     yy(2) = -0.5
     yy(3) =  0.5
     yy(4) =  0.5
-    yy(5) = -0.5       
+    yy(5) = -0.5     
     lfn(1)=lfn00
     lfn(2)=lfn10
     lfn(3)=lfn11
@@ -481,12 +481,11 @@ else
     tign(3)=tign11
     tign(4)=tign01
     tign(5)=tign00
-      
     npoint = 0 ! number of points in polygon
     do k=1,4
         lfn0=lfn(k  )
         lfn1=lfn(k+1)
-        
+         
         if ( lfn0 <= 0.0 ) then
             npoint = npoint + 1
             xylist(npoint,1)=xx(k)
@@ -511,14 +510,13 @@ else
     llist(npoint+1)=llist(1)   
     xylist(npoint+1,1)=xylist(1,1)
     xylist(npoint+1,2)=xylist(1,2)
-                      
     !* least squares, A matrix for points
     do kk=1,npoint
         mA(kk,1)=xylist(kk,1)
         mA(kk,2)=xylist(kk,2)
         mA(kk,3)=1.0
         vecD(kk)=tlist(kk) ! D vector,time from ignition
-    end do            
+    end do
     ! B matrix, weights
     do kk=1,ldb
     do ll=1,pmax
@@ -560,11 +558,7 @@ else
     call matvec(mQ,2,2,u,3,ut,2,2,2)            
     errQ = ut(2) ! should be zero            
     ae = -ut(1)/fuel_time_cell
-    ce = -u(3)/fuel_time_cell
-            
-    ! mat mat' multiplication
-    !call DGEMM('N','T',npoint+1,2,2,1.0,xylist,8,mQ,2,0.0,xytlist,npoint+1)
-    !(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)            
+    ce = -u(3)/fuel_time_cell       
     call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)            
     call sortxt( xytlist, 8,2, xt,8,npoint )            
     out=0.0
@@ -608,7 +602,7 @@ else
                 end if!(xts>xt1 .and. xte>xt1)              
             end do ! ss
             ah = aupp-alow
-            ch = cupp-clow                
+            ch = cupp-clow  
             ! integrate (ah*x+ch)*(1-exp(ae*x+ce) from xt1 to xt2
             ! numerically sound for ae->0, ae -> infty
             ! this can be important for different model scales
@@ -637,6 +631,7 @@ else
             ! for ae, ce -> 0 rounding error approx eps/ae^2
                 s3=( exp(ae*(xt1+ceae))*(ae*xt1-1)-&
                      exp(ae*(xt2+ceae))*(ae*xt2-1) )/(ae**2)
+                
             !we do not worry about rounding as xt1 -> xt2, then s3 -> 0
             else
                 ! coefficient at ae^1 in the expansion
@@ -645,12 +640,9 @@ else
                 ! coefficient at ae^0 in the expansion for ae->0
                 a0=(1./2.)*(xt1-xt2)*(xt1+xt2)
                 s3=a0+a1*ae+a2*ae**2; ! approximate the integral
-            end if
-                
+                            end if
             s3=ah*s3                                                
-                
-            out=out+s1+s2+s3   
-                                                
+            out=out+s1+s2+s3                                     
             if(out<0 .or. out>1) then                                  
                 print *,':fuel_fraction should be between 0 and 1'
                 !print *, 'eps= ', eps
