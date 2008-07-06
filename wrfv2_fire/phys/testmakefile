@@ -198,13 +198,13 @@ model_test:
 	# run model_test in Matlab to visualize
 	
 model_test_prog.exe: $(MODEL_OBJ) 
-	$(FC) -o model_test_prog.exe $(MODEL_OBJ) -L$(LAPACK) -llapack -lblas
+	$(FC) -o model_test_prog.exe $(MODEL_OBJ) $(LAPACK)
 
 LS_test_OBJ = \
     LS_test_driver.o    
 
 LS_test.exe: $(LS_test_OBJ) 
-	$(FC) -o LS_test.exe $(LS_test_OBJ) -L$(LAPACK) -llapack -lblas
+	$(FC) -o LS_test.exe $(LS_test_OBJ) $(LAPACK)
 
 LS_test:
 	make -f $(MAKEFILE) LS_test.exe FC="$(FC)"
@@ -220,7 +220,7 @@ burnt_test_OBJ=\
 fuel_burnt_test.o: module_fr_sfire_core.o
 
 fuel_burnt_test.exe: $(burnt_test_OBJ)
-	$(FC) -o fuel_burnt_test.exe $(burnt_test_OBJ) -L$(LAPACK) -llapack -lblas
+	$(FC) -o fuel_burnt_test.exe $(burnt_test_OBJ) $(LAPACK)
 
 <<<<<<< HEAD:wrfv2_fire/phys/testmakefile
 #fuel_burnt_test
