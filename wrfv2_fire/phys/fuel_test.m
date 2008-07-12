@@ -3,13 +3,20 @@ for i=1:4,figure(i),end
 input('Position figure windows and press Enter >');
 fd=[.5,.5];
 [c1,c2]=ndgrid([0,fd(1)],[0,fd(2)]); % corners of the mesh cell
-tnow=1;
 maxerr=0;
-fuel_time=1;
-lfn0=[0    0.3479;0.6521    1.0000]; % to debug fortran
+
+%tnow=1;
+%fuel_time=1;
+%lfn0=[0    0.3479;0.6521    1.0000]; % to debug fortran
+tnow=2
+lfn0=   [0.4192792     -1.9766893E-02    ;
+         6.310914       5.983462 ]
+fuel_time= 8.235294 ;
 f_debug=[];
-!./ifmake clean
-!./ifmake fuel_burnt_test
+
+%!./ifmake clean
+%!./ifmake fuel_burnt_test
+
 tmp=zeros(23,1);
 k=1;
 for off=[0:0.05:1.1]
@@ -17,8 +24,10 @@ for off=[0:0.05:1.1]
         disp(off)
     end    
     lfn=lfn0-off;
-    tign=tnow+2*lfn+0.0*randn(2,2);
-    f=fuel_burnt_debug(lfn,tign,tnow,fd,fuel_time); 
+%    tign=tnow+2*lfn+0.0*randn(2,2);
+    tign = [2.000000      1.565244    ;
+           2.000000       2.000000    ]
+    f=fuel_burnt(lfn,tign,tnow,fd,fuel_time); 
     f_debug=[f_debug f];
     tmp(k)=f;
     k=k+1;
@@ -38,17 +47,13 @@ for off=[0:0.05:1.1]
      hold off
 end
 
-fid=fopen('fort.1','r');
+fid=fopen('tmp.txt','r');
 A= fscanf(fid,'%g'); 
 fclose(fid);
 err_mat_fortran=abs(A-tmp)
 save('err.mat','err_mat_fortran')
 disp(f_debug);
 end
-
-
-
-
 
 
 function fuel_frac=fuel_burnt_quad(lfn,tign,tnow,fd,fuel_time,n)
