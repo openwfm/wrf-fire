@@ -1,11 +1,7 @@
 #FC = ifort -fast -free
-<<<<<<< HEAD:wrfv2_fire/phys/testmakefile
 
 FFREE=-free
 FFIXED=-fixed
-=======
-LAPACK=/opt/intel9.1-64-ser/lib/
->>>>>>> a94a96b719ea41bf0825215d4c27b62105f663f0:wrfv2_fire/phys/testmakefile
 FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free -I$(NETCDF)/include  
 # for g95
 #FFREE=-ffree-form
@@ -200,54 +196,32 @@ model_test:
 model_test_prog.exe: $(MODEL_OBJ) 
 	$(FC) -o model_test_prog.exe $(MODEL_OBJ) $(LAPACK)
 
-LS_test_OBJ = \
-    LS_test_driver.o    
-
-LS_test.exe: $(LS_test_OBJ) 
-	$(FC) -o LS_test.exe $(LS_test_OBJ) $(LAPACK)
-
-LS_test:
-	make -f $(MAKEFILE) LS_test.exe FC="$(FC)"
-	./LS_test.exe
-	
-burnt_test_OBJ=\
-    module_fr_sfire_core.o \
-    module_fr_sfire_util.o \
-    module_fr_sfire_phys.o \
-    wrf_fakes.o \
-    fuel_burnt_test.o
-
-fuel_burnt_test.o: module_fr_sfire_core.o
-
-fuel_burnt_test.exe: $(burnt_test_OBJ)
-	$(FC) -o fuel_burnt_test.exe $(burnt_test_OBJ) $(LAPACK)
-
-<<<<<<< HEAD:wrfv2_fire/phys/testmakefile
 #fuel_burnt_test
 burnt_test_OBJ=\
-    module_fr_sfire_core.o \
-    module_fr_sfire_util.o \
-    module_fr_sfire_phys.o \
-    wrf_fakes.o \
-    fuel_burnt_test.o \
-    $(LAPACK_OBJ)
+	module_fr_sfire_core.o \
+	module_fr_sfire_util.o \
+	module_fr_sfire_phys.o \
+	wrf_fakes.o \
+	fuel_burnt_test.o \
+	$(LAPACK_OBJ)
 
 fuel_burnt_test.o: module_fr_sfire_core.o
 
 fuel_burnt_test.exe: $(burnt_test_OBJ)
-	$(FC) -o fuel_burnt_test.exe $(burnt_test_OBJ) 
+	$(FC) -o fuel_burnt_test.exe $(burnt_test_OBJ)
 
-=======
->>>>>>> a94a96b719ea41bf0825215d4c27b62105f663f0:wrfv2_fire/phys/testmakefile
 fuel_burnt_test:
-	make -f $(MAKEFILE) fuel_burnt_test.exe FC="$(FC)"
-	./fuel_burnt_test.exe	
-<<<<<<< HEAD:wrfv2_fire/phys/testmakefile
+	make -f $(MAKEFILE) fuel_burnt_test.exe FC="$(FC)" \
+	PHYS=module_fr_sfire_phys \
+	ARGS=fr_sfire_params_args \
+	DECL=fr_sfire_params_decl
+	./fuel_burnt_test.exe
 
 
-=======
-	
->>>>>>> a94a96b719ea41bf0825215d4c27b62105f663f0:wrfv2_fire/phys/testmakefile
+#fuel_burnt_test:
+#	make -f $(MAKEFILE) fuel_burnt_test.exe FC="$(FC)"
+#	./fuel_burnt_test.exe
+
 #
 # the whole fire model through atmosphere coupling 
 #

@@ -17,180 +17,6 @@ use module_fr_sfire_util
 
 contains
 
-<<<<<<< HEAD:wrfv2_fire/phys/module_fr_sfire_core.F
-=======
-subroutine sfire_core(       ids,ide,jds,jde,  &
-                             ims,ime,jms,jme,  &
-                             num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                             time_start,time_diff,fire_dx,fire_dy,fuel_time,   &
-                             lfn,tign,fuel_frac,fuel_frac_burnt &
-#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
-#include SPEED_VARS_ARGS
-#else
-#include "fr_sfire_params_args.h"
-#endif
-                             ) 
-
-!*** purpose
-!
-! Dynamical core of the fire spread model, insulated from the physics. 
-! References the fire grid ONLY. Keep separated from the coupling
-! with atm. model and data input.
-!
-
-implicit none
-
-!*** arguments
-
-integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
-integer,intent(in)::num_tiles
-integer,intent(in),dimension(num_tiles)::i_start,i_end,j_start,j_end
-real, intent(inout), dimension(ims:ime,jms:jme)::lfn,tign,fuel_frac,fuel_time,fuel_frac_burnt
-real, intent(in):: time_start,time_diff,fire_dx,fire_dy
-#ifdef SPEED_VARS_DECL      /* extra arguments for normal_spread */
-#include SPEED_VARS_DECL
-#else
-#include "fr_sfire_params_decl.h"
-#endif
-
-
-! argument          intent  description                     (unit)  lives at
-!
-! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
-! ims,ime,jms,jme   in   mesh aray dimensions                (1)
-! time_start        in   the starting time                   (s)
-! time_diff          in   the length of simulation            (s)
-! fire_dx,fire_dy   in   fire mesh spacings                  (m)
-! fuel_time         in   time fuel burns down to 1/e         (s)      cells
-! avx,avy             in    background advection speed
-! sr                 in    background spread rate in normal direction
-! lfn             inout  level function (state)              (1)      nodes
-! tign            inout  ignition time (state)               (s)      nodes
-! fuel_frac       inout  the fuel fraction at the end        (1)      cells
-! fuel_frac_burnt   out  the fuel fraction burnt this call   (1)      cells 
-
-! A speed function is called for the spread rate at selected points.
-! fuel_frac is currently ignored on input and computed from tign but it may not
-! be in future.
-
-!*** description
-
-! This is a dynamical core of the fire spread model, insulated from the physics. 
-! The physics should be done in the pre- and postprocessing, and in 
-! the speed function for the fireline propagation (future).
-!
-! The state of the model is the level function lfn, which determines the fire 
-! area, and the ignition time tign, both interpolated from values at nodes.
-! The fire area is the level set where lfn <= 0.  The fireline is where lfn=0. 
-! The array tign outside of the fire area is not set or referenced. 
-! The state should be preserved between the calls, and it can be modified by
-! data assimilation. All other quantities are derived from the state in each call.
-!
-! The level function evolves the fireline with the speed in the normal direction given by
-! the spread rate r and the normal component of the wind. The level set method
-! takes care of of various special cases automagically, such as ignition of a cell 
-! surrounded by cells that all completely burning, and merging of approaching firelines.
-!
-! The fuel fraction is estimated from the the ignition times assuming 
-! exponential decrease since ignition with decrease of fule fraction to 1/e in
-! fuel_tim. The ignition times at nodes are interpolated linearly from the 
-! evolving level function at the start and at the end, i.e. by assuming that the 
-! value of the level function at a point varies linearly with time.
-!
-! ***NOTE: If a narrow band scheme is used to advance the level function in time
-! then the firelines at time_start and time_end must fit within the band 
-! at either time, and level function values away from the band should be set
-! to some large positive and negative constants to assure that the ignition times
-! in the area between the firelines are set reasonably. This is also important 
-! when the level function is used for data assimilation. ***
-!
-! It is the responsibility of the caller to:
-!
-! before the call
-!    - polulate all cells with the proper fuel_time coefficient
-!    - interpolate and correct atmospheric winds
-!
-! after the call
-!    - compute the fluxes from the fuel fraction burned
-!      and sum up the the fluxes over atmopheric grid cells
-!
-!*** local
-real, dimension(ims:ime,jms:jme)::frac_start
-!double precision frac_start(ims:ime,jms:jme)
-real:: time_now
-integer::i,j,fuel_left_type
-
-!*** calls
-intrinsic epsilon
-
-
-!*** executable
-
-call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
-call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
-
-fuel_left_type=3
-
-! compute the fuel fraction at time_start - not needed if passed in
-if (fuel_left_type .eq. 1)then
-    call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
-    lfn,tign,fuel_time,time_start,frac_start)
-else if (fuel_left_type .eq. 2) then
-    call fuel_left_jm(ids,ide,jds,jde,ims,ime,jms,jme, &
-    lfn,tign,fuel_time,time_start,frac_start)
-else if (fuel_left_type .eq. 3) then
-    call fuel_burnt(ids,ide,jds,jde,fire_dx,fire_dy,ims,ime,jms,jme,&
-    lfn,tign,fuel_time,time_start,frac_start)        
-endif
-
-! propagate the fireline: advance the level function 
-! from time_start to time_start + time_diff
-call prop_ls(      ids,ide,jds,jde, & ! dims
-                   ims,ime,jms,jme, & ! dims
-                   num_tiles,i_start,i_end,j_start,j_end, &
-                   time_start,time_diff,fire_dx,fire_dy,     & ! scalars in
-                   lfn,tign &            ! arrays out
-#                  ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
-#                        include SPEED_VARS_ARGS
-#              else
-#                        include "fr_sfire_params_args.h"
-#                  endif
-             )
-
-! compute the fuel fraction at time_end 
-if (fuel_left_type .eq. 1)then
-    call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme, &
-    lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
-else if (fuel_left_type .eq. 2) then
-    call fuel_left_jm(ids,ide,jds,jde,ims,ime,jms,jme, &
-    lfn,tign,fuel_time,time_start+time_diff,fuel_frac)
-else if (fuel_left_type .eq. 3) then
-    call fuel_burnt(ids,ide,jds,jde,fire_dx,fire_dy,ims,ime,jms,jme,&
-    lfn,tign,fuel_time,time_start+time_diff,fuel_frac)        
-endif
-
-! compute the fuel fraction lost
-do j=jds,jde
-    do i=ids,ide
-        fuel_frac_burnt(i,j)=frac_start(i,j)-fuel_frac(i,j)
-    enddo
-enddo
-
-call print_2d_stats(ids,ide,jds,jde,ims,ime,jms,jme,fuel_frac_burnt,'core: fuel frac burned (1)')
-
-! set the ignition time outside of burning region to now
-! this is consistent with the fuel fraction
-time_now = time_start + time_diff
-time_now = time_now + abs(time_now)*epsilon(time_now)*2.
-do j=jds,jde
-    do i=ids,ide
-        if(lfn(i,j)>0.)tign(i,j)=time_now
-    enddo
-enddo
-
-end subroutine sfire_core
-
->>>>>>> a94a96b719ea41bf0825215d4c27b62105f663f0:wrfv2_fire/phys/module_fr_sfire_core.F
 !
 !****************************************
 !
@@ -456,7 +282,6 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 ! The function computes an approxmation  of the integral
 !
 !
-<<<<<<< HEAD:wrfv2_fire/phys/module_fr_sfire_core.F
 !                                  /\
 !                                  |              
 ! fuel_frac_left  =      1   -     | 1 -  exp(-T(x,y)*fuel_speed)) dxdy
@@ -465,16 +290,6 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !                                0<x<1
 !                                0<y<1
 !                             L(x,y)<=0
-=======
-!                              /\
-!                     1        |            T(x,y)-now
-! fuel_frac(i,j)  =  -----     |    exp( - ------------- ) dxdy
-!                    dx*dy     |           fuel_time(i,j)
-!                             \/
-!                       dx*(i-1)<x<dx*i
-!                       dy*(j-1)<y<dy*j
-!                        lfn(x,y)<=0
->>>>>>> a94a96b719ea41bf0825215d4c27b62105f663f0:wrfv2_fire/phys/module_fr_sfire_core.F
 !
 ! When the cell is not burning at all (all lfn>=0), then fuel_frac(i,j)=1.
 ! Because of symmetries, the result should not depend on the mesh spacing dx dy
@@ -567,7 +382,7 @@ real,dimension(5)::lfn,tign
 
 integer:: npoint
 real::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
-real::lfn0,lfn1,dist,nr,c,s,errQ,ae,ce,ceae,a0,a1,a2,d
+real::lfn0,lfn1,dist,nr,c,s,errQ,ae,ce,ceae,a0,a1,a2,d,cet
 real::s1,s2,s3
 real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
 real,dimension(2,2)::mQ
@@ -743,7 +558,8 @@ else
     call matvec(mQ,2,2,u,3,ut,2,2,2)            
     errQ = ut(2) ! should be zero            
     ae = -ut(1)/fuel_time_cell
-    ce = -u(3)/fuel_time_cell       
+    ce = -u(3)/fuel_time_cell      
+    cet=ce!keep ce
     call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)            
     call sortxt( xytlist, 8,2, xt,8,npoint )            
     out=0.0
@@ -786,6 +602,14 @@ else
                     end if
                 end if!(xts>xt1 .and. xte>xt1)              
             end do ! ss
+            ce=cet !use stored ce
+            if (ae*xt1+ce > 0 ) then
+              ce=ce-(ae*xt1+ce)!shift small amounts exp(-**)
+            end if
+            if (ae*xt2+ce > 0) then
+            ce=ce-(ae*xt2+ce)
+            end if
+
             ah = aupp-alow
             ch = cupp-clow  
             ! integrate (ah*x+ch)*(1-exp(ae*x+ce) from xt1 to xt2
@@ -827,7 +651,8 @@ else
                 s3=a0+a1*ae+a2*ae**2; ! approximate the integral
                             end if
             s3=ah*s3                                                
-            out=out+s1+s2+s3                                     
+            out=out+s1+s2+s3
+            out=1-out!fuel_left
             if(out<0 .or. out>1) then                                  
                 print *,':fuel_fraction should be between 0 and 1'
                 !print *, 'eps= ', eps
@@ -914,408 +739,27 @@ end subroutine
 !
 !****************************************
 !
-          subroutine matmatp(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)
-          implicit none
-          integer::mA,nA,mB,nB,mC,nC,nrow,ncolumn,nP
-          real,dimension(mA,nA)::A   ! allocated m by n 
-          real,dimension(mB,nB)::B   ! allocated m by n 
-          real,dimension(mC,nC)::C   ! allocated m by n 
+subroutine matmatp(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)
+implicit none
+integer::mA,nA,mB,nB,mC,nC,nrow,ncolumn,nP
+real,dimension(mA,nA)::A   ! allocated m by n 
+real,dimension(mB,nB)::B   ! allocated m by n 
+real,dimension(mC,nC)::C   ! allocated m by n 
+integer::i,j,k
 
-          integer::i,j,k
-
-          do i=1,nrow  
-            do j=1,ncolumn
-                C(i,j)=0.0
-              do k=1,nP
-                C(i,j)=C(i,j)+A(i,k)*B(j,k) ! B'
-              end do
-            end do
-         end do
+do i=1,nrow  
+  do j=1,ncolumn
+    C(i,j)=0.0
+  do k=1,nP
+    C(i,j)=C(i,j)+A(i,k)*B(j,k) ! B'
+  end do
+end do
+end do
 end subroutine
 
 !
 !****************************************
 !
-subroutine fuel_burnt(ids,ide,jds,jde,dx,dy,&
-                     ims,ime,jms,jme, &
-                     lfn, tign, fuel_time, tnow, fuel_burn)                     
-implicit none
-!*** arguments
-integer, intent(in) :: ids,ide,jds,jde,ims,ime,jms,jme
-real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
-real, intent(in):: tnow,dx,dy
-real, intent(out), dimension(ims:ime,jms:jme)::fuel_burn
-
-! ids,ide,jds,jde   in   mesh domain dimensions (cells)      (1)
-! ims,ime,jms,jme   in   mesh aray dimensions                (1)
-! lfn               in   level function, at nodes
-! tign              in   ignition time, at nodes
-! fuel_time         in   time constant of fuel, per cell
-! tnow              in   time now
-! fuel_frac         out  fraction of fuel remaining
-
-!*** local
-integer::i,j,k
-
-! least squares
-integer::mmax,nb,nmax,pmax,nin,nout
-parameter(mmax=3,nb=64,nmax=8,pmax=8)
-integer lda, ldb, lwork, info
-parameter (lda=nmax, ldb=nmax, lwork=mmax+nmax+nb*(nmax+pmax))
-integer n,m,p
-!double precision mA(lda,mmax), vecD(nmax), &
-!                 WORK(lwork), vecY(pmax),vecX(mmax)
-real,dimension(lda,mmax):: mA
-real,dimension(nmax):: vecD
-real,dimension(lwork):: WORK
-real,dimension(pmax):: vecY
-real,dimension(mmax):: vecX
-real,dimension(ldb,pmax)::mB
-real,dimension(mmax)::u
-
-real::tweight,tdist
-integer::kk,ll,ss
-real::rnorm
-real,dimension(8,2)::xylist,xytlist
-real,dimension(8)::tlist,llist,xt
-real,dimension(5)::xx,yy
-integer,dimension(5)::ii,jj
-!ii,jj data here
-data (ii(i),i=1,5)/1,2,2,1,1/
-data (jj(i),i=1,5)/1,1,2,2,1/
-integer:: npoint
-real::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
-real::lfn0,lfn1,dist,nr,c,s,errQ,ae,ce,ceae,a0,a1,a2,d
-real::s1,s2,s3
-real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
-real,dimension(2,2)::mQ
-real,dimension(2)::ut
-
-!calls
-intrinsic epsilon
-
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
-
-
-! external functions    
-real::dnrm2
-external dnrm2
-! external subroutines
-!external dggglm
-external sggglm
-external dgemv
-external dgemm
-!executable statements
-
-!real::eps
-!eps = 2.2204*(10.0**(-8))!from matlab
-
-! a very crude approximation - replace by a better code
-call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)       
-
-do j=jds,jde      ! cell by cell
-    do i=ids,ide  ! [dx*(i-1),dx*i] by [dy*(j-1),dy*j]
-        !*** case0 Do nothing
-        if ( lfn(i,j)>=0 .and. lfn(i+1,j)>=0 .and. &
-             lfn(i,j+1)>=0  .and. lfn(i+1,j+1)>=0 ) then
-            fuel_burn(i,j)= 0.0 !  fuel_burnt
-        !*** case4 all four coners are burning
-        else if ( lfn(i,j)<=0 .and. lfn(i+1,j)<=0 .and. &
-                  lfn(i,j+1)<=0  .and. lfn(i+1,j+1)<=0 ) then
-            ! least squares, A matrix for points
-            mA(1,1)=0.0
-            mA(2,1)=dx
-            mA(3,1)=0.0
-            mA(4,1)=dx
-            mA(1,2)=0.0
-            mA(2,2)=0.0
-            mA(3,2)=dy
-            mA(4,2)=dy
-            mA(1,3)=1.0
-            mA(2,3)=1.0
-            mA(3,3)=1.0
-            mA(4,3)=1.0
-            ! D vector, time from ignition
-            vecD(1)=tnow-tign(i  ,j  )
-            vecD(2)=tnow-tign(i+1,j  )
-            vecD(3)=tnow-tign(i  ,j+1)
-            vecD(4)=tnow-tign(i+1,j+1)
-            ! B matrix, weights
-            do kk=1,4
-            do ll=1,4
-              mB(kk,ll)=0.0
-            end do
-            mB(kk,kk)=2.0
-            end do
-            ! set the m,n,p
-            n=4 ! rows of matrix A and B
-            m=3 ! columns of matrix A
-            p=4 ! columns of matrix B
-            ! call least squqres in LAPACK            
-            call SGGGLM(N,M,P,mA,LDA,mB,LDB,vecD,vecX,vecY, &
-                        WORK,LWORK,INFO)
-            rnorm=dnrm2(p,vecY,1)            
-            ! integrate
-            u(1)=-vecX(1)/fuel_time(i,j)
-            u(2)=-vecX(2)/fuel_time(i,j)
-            u(3)=-vecX(3)/fuel_time(i,j)            
-            !fuel_burn(i,j)=1-exp(u(3))*intexp(u(1)*dx)*intexp(u(2)*dy)
-            s1=u(1)*dx
-            s2=u(2)*dy            
-            fuel_burn(i,j)=1-exp(u(3))*intexp(s1)*intexp(s2)
-            !print *,'intexp
-            if ( fuel_burn(i,j)<0 .or. fuel_burn(i,j)>1.0 ) then
-                print *,'case4, fuel_burnt should be between 0 and 1'
-            end if
-        !*** case 1,2,3
-        else
-            ! set xx, yy for the coner points
-            ! move these values out of i and j loop to speed up
-            xx(1) = -dx/2
-            xx(2) = dx/2
-            xx(3) = dx/2
-            xx(4) = -dx/2
-            xx(5) = -dx/2
-            yy(1) = -dy/2
-            yy(2) = -dy/2
-            yy(3) = dy/2
-            yy(4) = dy/2
-            yy(5) = -dy/2       
-        
-            npoint = 0 ! number of points in polygon
-            do k=1,4
-                lfn0=lfn(i+ii(k  )-1,j+jj(k  )-1)
-                lfn1=lfn(i+ii(k+1)-1,j+jj(k+1)-1)
-                if ( lfn0 <= 0.0 ) then
-                    npoint = npoint + 1
-                    xylist(npoint,1)=xx(k)
-                    xylist(npoint,2)=yy(k)
-                    tlist(npoint)=tnow-tign(ii(k),jj(k))
-                    llist(npoint)=lfn0
-                end if
-                if ( lfn0*lfn1 < 0 ) then
-                    npoint = npoint + 1
-                    tt=lfn0/(lfn0-lfn1)
-                    x0=xx(k)+( xx(k+1)-xx(k) )*tt
-                    y0=yy(k)+( yy(k+1)-yy(k) )*tt
-                    xylist(npoint,1)=x0
-                    xylist(npoint,2)=y0
-                    tlist(npoint)=0 ! on fireline
-                    llist(npoint)=0
-                end if
-            end do
-            ! make the list circular
-            tlist(npoint+1)=tlist(1)
-            llist(npoint+1)=llist(1)   
-            xylist(npoint+1,1)=xylist(1,1)
-            xylist(npoint+1,2)=xylist(1,2)
-                      
-            !* least squares, A matrix for points
-            do kk=1,npoint
-              mA(kk,1)=xylist(kk,1)
-              mA(kk,2)=xylist(kk,2)
-              mA(kk,3)=1.0
-              vecD(kk)=tlist(kk) ! D vector,time from ignition
-            end do            
-            ! B matrix, weights
-            do kk=1,ldb
-            do ll=1,pmax
-              mB(kk,ll)=0.0 ! clear
-            end do
-            end do
-        
-            do kk=1,npoint
-              mb(kk,kk)=dx ! large enough
-              do ll=1,npoint
-                if ( kk .ne. ll ) then
-                  dist = sqrt( (xylist(kk,1)-xylist(ll,1))**2+ &
-                               (xylist(kk,2)-xylist(ll,2))**2 )                   
-                  mB(kk,kk)=min( mB(kk,kk) , dist )
-                end if              
-              end do !ll
-              mB(kk,kk)=mB(kk,kk)+1.
-            end do ! kk
-            ! set the m,n,p
-            n=npoint ! rows of matrix A and B
-            m=3 ! columns of matrix A
-            p=npoint ! columns of matrix B
-            !* call least squqres in LAPACK                  
-            call SGGGLM(N,M,P,mA,LDA,mB,LDB,vecD,vecX,vecY, &
-                        WORK,LWORK,INFO)
-            rnorm=dnrm2(p,vecY,1)
-            u(1)=vecX(1)
-            u(2)=vecX(2)
-            u(3)=vecX(3)            
-            ! rotate to gradient on x only
-            nr = sqrt(u(1)**2+u(2)**2)
-            c = u(1)/nr
-            s = u(2)/nr
-            mQ(1,1)=c
-            mQ(1,2)=s
-            mQ(2,1)=-s
-            mQ(2,2)=c            
-            ! mat vec multiplication
-            call matvec(mQ,2,2,u,3,ut,2,2,2)            
-            errQ = ut(2) ! should be zero            
-            ae = -ut(1)/fuel_time(i,j)
-            ce = -u(3)/fuel_time(i,j)
-            
-            ! mat mat' multiplication
-            !call DGEMM('N','T',npoint+1,2,2,1.0,xylist,8,mQ,2,0.0,xytlist,npoint+1)
-            !(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)            
-            call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)            
-            call sortxt( xytlist, 8,2, xt,8,npoint )            
-            fuel_burn(i,j)=0.0
-            aupp=0.0
-            cupp=0.0
-            alow=0.0
-            clow=0.0
-            do k=1,npoint-1
-              xt1=xt(k)
-              xt2=xt(k+1)
-              upper=0
-              lower=0
-              ah=0
-              ch=0
-              if ( xt2-xt1 > eps*dx*100 ) then
-                
-                do ss=1,npoint
-                  xts=xytlist(ss,1)
-                  yts=xytlist(ss,2)
-                  xte=xytlist(ss+1,1)
-                  yte=xytlist(ss+1,2)
-                  
-                  if ( (xts>xt1 .and. xte>xt1) .or. &
-                       (xts<xt2 .and. xte<xt2) ) then
-                    aa = 0 ! do nothing
-                    cc = 0
-                  else
-                    aa = (yts-yte)/(xts-xte)
-                    cc = (xts*yte-xte*yts)/(xts-xte)                    
-                    if (xte<xts) then
-                      aupp = aa
-                      cupp = cc
-                      ah=ah+aa
-                      ch=ch+cc
-                      upper=upper+1
-                    else
-                      alow = aa
-                      clow = cc
-                      lower=lower+1
-                    end if
-                  end if!(xts>xt1 .and. xte>xt1)              
-                end do ! ss
-                ah = aupp-alow
-                ch = cupp-clow                
-                ! integrate (ah*x+ch)*(1-exp(ae*x+ce) from xt1 to xt2
-                ! numerically sound for ae->0, ae -> infty
-                ! this can be important for different model scales
-                ! esp. if someone runs the model in single precision!!
-                ! s1=int((ah*x+ch),x,xt1,xt2)
-                s1 = (xt2-xt1)*((1./2.)*ah*(xt2+xt1)+ch)            
-                ! s2=int((ch)*(-exp(ae*x+ce)),x,xt1,xt2)
-                ceae=ce/ae;
-                s2 = -ch*exp(ae*(xt1+ceae))*(xt2-xt1)*intexp(ae*(xt2-xt1))                
-                ! s3=int((ah*x)*(-exp(ae*x+ce)),x,xt1,xt2)
-                ! s3=int((ah*x)*(-exp(ae*(x+ceae))),x,xt1,xt2)
-                ! expand in Taylor series around ae=0
-                ! collect(expand(taylor(int(x*(-exp(ae*(x+ceae))),x,xt1,xt2)*ae^2,ae,4)/ae^2),ae)
-                ! =(1/8*xt1^4+1/3*xt1^3*ceae+1/4*xt1^2*ceae^2-1/8*xt2^4-1/3*xt2^3*ceae-1/4*xt2^2*ceae^2)*ae^2
-                !     + (-1/3*xt2^3-1/2*xt2^2*ceae+1/3*xt1^3+1/2*xt1^2*ceae)*ae 
-                !     + 1/2*xt1^2-1/2*xt2^2
-                !
-                ! coefficient at ae^2 in the expansion, after some algebra            
-                a2=(xt1-xt2)*((1./4.)*(xt1+xt2)*ceae**2+(1./3.)* &
-                   (xt1**2+xt1*xt2+xt2**2)*ceae+(1./8.)* &
-                   (xt1**3+xt1*(xt2**2)+xt1**2*xt2+xt2**3))               
-                d=(ae**4)*a2
-            
-                if (abs(d)>eps) then
-                ! since ae*xt1+ce<=0 ae*xt2+ce<=0 all fine for large ae
-                ! for ae, ce -> 0 rounding error approx eps/ae^2
-                s3=( exp(ae*(xt1+ceae))*(ae*xt1-1)-&
-                     exp(ae*(xt2+ceae))*(ae*xt2-1) )/(ae**2)
-                !we do not worry about rounding as xt1 -> xt2, then s3 -> 0
-                else
-                ! coefficient at ae^1 in the expansion
-                a1=(xt1-xt2)*((1./2.)*ceae*(xt1+xt2)+(1./3.)*&
-                   (xt1**2+xt1*xt2+xt2**2))
-                ! coefficient at ae^0 in the expansion for ae->0
-                a0=(1./2.)*(xt1-xt2)*(xt1+xt2)
-                s3=a0+a1*ae+a2*ae**2; ! approximate the integral
-                end if
-                s3=ah*s3                                                
-                fuel_burn(i,j)=fuel_burn(i,j)+s1+s2+s3
-                if(fuel_burn(i,j)<0 .or. fuel_burn(i,j)>dx*dy) then                
-                  print *,'fuel_fraction should be between 0 and 1'
-                end if
-              end if
-            end do ! k     
-            fuel_burn(i,j)=fuel_burn(i,j)/(dx*dy)
-        end if ! if case0, elseif case4 ,else case123
-    
-    end do !j
-end do ! i
-            
-end subroutine ! fuel_burnt                  
-!
-!****************************************
-!
-subroutine sortxt(xytlist,nrow,ncolumn,xt,nxt,nvec)
-implicit none
-integer::nrow,ncolumn,nxt,nvec
-real,dimension(nrow,ncolumn)::xytlist
-real,dimension(nxt)::xt
-
-integer::i,j
-real::temp
-
-do i=1,nvec
-  xt(i)=xytlist(i,1)
-end do
-
-do i=1,nvec-1
-  do j=i+1,nvec
-    if ( xt(i) > xt(j) ) then
-      temp = xt(i)
-      xt(i)=xt(j)
-      xt(j)=temp
-    end if
-  end do
-end do
-
-end subroutine !sortxt
-!
-!****************************************
-!
-real function intexp(ab)
-implicit none
-real::ab
-!calls
-intrinsic epsilon
-
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
-
-!eps = 2.2204*(10.0**(-8))!from matlab
-if ( eps < abs(ab)**3/6. ) then
-    intexp=(exp(ab)-1)/ab
-else
-    intexp=1+ab/2.
-end if
-end function
-!
-!****************************************
-!
-subroutine matvec(A,m,n,V,nv,out,nout,nrow,ncolumn)
-implicit none
-integer::m,n,nv,nout,nrow,ncolumn
-real,dimension(m,n)::A   ! allocated m by n 
-real,dimension(nv)::V    ! allocated nv
-real,dimension(nout)::out! allocated nout 
-
-integer::i,j
-
-<<<<<<< HEAD:wrfv2_fire/phys/module_fr_sfire_core.F
 subroutine prop_ls( id, &                                ! for debug
                 ids,ide,jds,jde, &                       ! domain dims
                 ims,ime,jms,jme, &                       ! memory dims
@@ -1324,45 +768,6 @@ subroutine prop_ls( id, &                                ! for debug
                 tbound,          &                       ! scalars out
                 lfn_in,lfn_out,tign         &                     ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
-=======
-do i=1,nrow
-  out(i)=0.0
-  do j=1,ncolumn
-    out(i)=out(i)+A(i,j)*V(j)
-  end do
-end do
-end subroutine
-!
-!****************************************
-!
-subroutine matmatp(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)
-implicit none
-integer::mA,nA,mB,nB,mC,nC,nrow,ncolumn,nP
-real,dimension(mA,nA)::A   ! allocated m by n 
-real,dimension(mB,nB)::B   ! allocated m by n 
-real,dimension(mC,nC)::C   ! allocated m by n 
-
-integer::i,j,k
-
-do i=1,nrow  
-  do j=1,ncolumn
-    C(i,j)=0.0
-    do k=1,nP
-      C(i,j)=C(i,j)+A(i,k)*B(j,k) ! B'
-    end do
-  end do
-end do
-end subroutine
-!
-!****************************************
-!
-subroutine prop_ls(ids,ide,jds,jde, &                       ! domain dims
-                   ims,ime,jms,jme, &                       ! memory dims
-                   num_tiles,i_start,i_end,j_start,j_end, & ! tiling
-                   ts,td,dx,dy,     &                       ! scalars in
-                   lfn,tc           &                       ! arrays inout                   
-#ifdef SPEED_VARS_ARGS      /* extra arguments for normal_spread */
->>>>>>> a94a96b719ea41bf0825215d4c27b62105f663f0:wrfv2_fire/phys/module_fr_sfire_core.F
 #include SPEED_VARS_ARGS
 #else
 #include "fr_sfire_params_args.h"
