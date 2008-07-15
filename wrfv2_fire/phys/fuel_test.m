@@ -1,7 +1,7 @@
 function fuel_frac=fuel_test 
 for i=1:4,figure(i),end
 input('Position figure windows and press Enter >');
-fd=[.5,.5];
+fd=[1,1];
 [c1,c2]=ndgrid([0,fd(1)],[0,fd(2)]); % corners of the mesh cell
 maxerr=0;
 

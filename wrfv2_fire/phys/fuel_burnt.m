@@ -124,7 +124,7 @@ else
     errQ=ut(2)  % should be zero
     ae=-ut(1)/fuel_time;
     ce=-u(3)/fuel_time;     %  -T(xt,yt)/fuel_time=ae*xt+ce
-    cet=ce;  %keep ce fro later
+    cet=ce;  %keep ce for later
     xytlist=xylist*Q'; % rotate the points in the list
     xt=sort(xytlist(1:points,1)); % sort ascending in x
     fuel_fraction=0;
@@ -170,10 +170,10 @@ else
                 error('slice does not have one upper and one lower line')
             end
             ce=cet;% use kept ce
-            % shift samll amount to avoid negative fuel burnt
-            if ae*xt1+ce > 0;disp('ae*xt1+ce');%disp(ae*xt1+ce);pause;
+            % shift samll amounts to avoid negative fuel burnt
+            if ae*xt1+ce > 0;%disp('ae*xt1+ce');disp(ae*xt1+ce);pause;
                ce=ce-(ae*xt1+ce);end;
-            if ae*xt2+ce > 0;disp('ae*xt2+ce');%disp(ae*xt2+ce);pause;
+            if ae*xt2+ce > 0;%disp('ae*xt2+ce');disp(ae*xt2+ce);pause;
                ce=ce-(ae*xt2+ce);end;
             
             ah=aupp-alow;
