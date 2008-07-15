@@ -362,8 +362,6 @@ parameter(mmax=3,nb=64,nmax=8,pmax=8)
 integer lda, ldb, lwork, info
 parameter (lda=nmax, ldb=nmax, lwork=mmax+nmax+nb*(nmax+pmax))
 integer n,m,p
-!double precision mA(lda,mmax), vecD(nmax), &
-!                 WORK(lwork), vecY(pmax),vecX(mmax)
 real,dimension(lda,mmax):: mA
 real,dimension(nmax):: vecD
 real,dimension(lwork):: WORK
@@ -406,7 +404,7 @@ external dggglm
 
 ! a very crude approximation - replace by a better code
 ! call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)       
-               
+
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
     out = 1.0 !  fuel_left, no burning
@@ -482,10 +480,10 @@ else
     tign(4)=tign01
     tign(5)=tign00
     npoint = 0 ! number of points in polygon
+
     do k=1,4
         lfn0=lfn(k  )
         lfn1=lfn(k+1)
-         
         if ( lfn0 <= 0.0 ) then
             npoint = npoint + 1
             xylist(npoint,1)=xx(k)
@@ -652,14 +650,14 @@ else
                             end if
             s3=ah*s3                                                
             out=out+s1+s2+s3
-            out=1-out!fuel_left
+            out=1-out !fuel_left
             if(out<0 .or. out>1) then                                  
                 print *,':fuel_fraction should be between 0 and 1'
                 !print *, 'eps= ', eps
                 !print *, 'xt1= ', xt1, 'xt2= ', xt2
                 !print *,'ae= ',ae,'ce= ',ce,'ah= ',ah,'ch= ',ch
                 !print *,'a0= ', a0,'a1= ', a1,'a2= ', a2
-                !print *,'s1= ', s1,'s2= ', s2,'s3= ', s3
+                print *,'s1= ', s1,'s2= ', s2,'s3= ', s3
                 print *,':fuel_fraction =',out
             end if!print
                 
@@ -746,7 +744,6 @@ real,dimension(mA,nA)::A   ! allocated m by n
 real,dimension(mB,nB)::B   ! allocated m by n 
 real,dimension(mC,nC)::C   ! allocated m by n 
 integer::i,j,k
-
 do i=1,nrow  
   do j=1,ncolumn
     C(i,j)=0.0

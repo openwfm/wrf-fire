@@ -28,8 +28,8 @@ time_now=2.0
 fuel_time(1,1)= 8.23529
 iu=1
 open(iu,file='tmp.txt')
-
 do k=1,23
+
   off = (k-1)*0.05
   lff(1,1)=lfn0(1,1)-off
   lff(1,2)=lfn0(1,2)-off
