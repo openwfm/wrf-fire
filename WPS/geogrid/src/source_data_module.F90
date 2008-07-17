@@ -2161,6 +2161,10 @@ module source_data_module
    character(len=128),intent(in)::field_name
    character(len=128),dimension(2),intent(inout)::dimnames
    integer :: idx,nlen
+
+   sub_x=1
+   sub_y=1
+
    istatus = 1
    do idx=1,num_entries
      if ((index(source_fieldname(idx),trim(field_name)) /= 0) .and. &
@@ -2172,11 +2176,11 @@ module source_data_module
              endif
              dimnames(1)=trim(dimnames(1))//"_subgrid"
              dimnames(2)=trim(dimnames(2))//"_subgrid"
+             sub_x=sr_x(nest_num)
+             sub_y=sr_y(nest_num)
          endif
       endif
    enddo
-   sub_x=sr_x(nest_num)
-   sub_y=sr_y(nest_num)
    end subroutine get_subgrid_dim_name
 
 
