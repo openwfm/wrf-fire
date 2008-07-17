@@ -28,7 +28,7 @@ module output_module
       integer :: ndims, istagger
       integer, dimension(MAX_DIMENSIONS) :: dom_start, mem_start, patch_start
       integer, dimension(MAX_DIMENSIONS) :: dom_end, mem_end, patch_end
-  
+      integer :: sr_x, sr_y  
       real, pointer, dimension(:,:,:) :: rdata_arr
   
       character (len=128), dimension(MAX_DIMENSIONS) :: dimnames
@@ -85,7 +85,7 @@ module output_module
       character (len=MAX_FILENAME_LEN) :: output_fname
       logical :: supports_training, supports_3d_fields
   
-      call init_output_fields(grid_type, &
+      call init_output_fields(nest_number, grid_type, &
                               start_dom_1, end_dom_1, start_dom_2, end_dom_2, &
                               start_patch_1, end_patch_1, start_patch_2, end_patch_2, &
                               start_mem_1, end_mem_1, start_mem_2, end_mem_2, &
@@ -392,7 +392,7 @@ module output_module
    ! Purpose: To fill in structures describing each of the fields that will be 
    !   written to the I/O API 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
-   subroutine init_output_fields(grid_type, &
+   subroutine init_output_fields(nest_num,grid_type, &
                                  start_dom_1, end_dom_1, start_dom_2, end_dom_2, &
                                  start_patch_1, end_patch_1, start_patch_2, end_patch_2, &
                                  start_mem_1, end_mem_1, start_mem_2, end_mem_2, &
@@ -411,6 +411,7 @@ module output_module
       implicit none
   
       ! Arguments
+      integer, intent(in) :: nest_num
       integer, intent(in) :: start_dom_1, end_dom_1, start_dom_2, end_dom_2, &
                              start_patch_1, end_patch_1, start_patch_2, end_patch_2, &
                              start_mem_1, end_mem_1, start_mem_2, end_mem_2
@@ -427,6 +428,7 @@ module output_module
       character (len=128) :: fieldname
       character (len=128) :: memorder, units, description
       character (len=128), dimension(3) :: dimnames 
+      integer :: sr_x, sr_y
   
       !
       ! First find out how many fields there are
@@ -436,10 +438,10 @@ module output_module
       ifieldstatus = 0
       nfields = 0
       do while (ifieldstatus == 0)
-         call get_next_output_fieldname(fieldname, ndims, &
+         call get_next_output_fieldname(nest_num, fieldname, ndims, &
                                         min_category, max_category, &
                                         istagger, memorder, dimnames, &
-                                        units, description, ifieldstatus)
+                                        units, description, sr_x, sr_y, ifieldstatus)
    
          if (ifieldstatus == 0) nfields = nfields + 1
       end do
@@ -455,6 +457,10 @@ module output_module
       NUM_FIELDS = nfields+NUM_AUTOMATIC_FIELDS
       allocate(fields(NUM_FIELDS))
   
+!***  automatic fields will always be on the non-refined grid
+      sr_x=1
+      sr_y=1
+
       !
       ! There are some fields that will always be computed
       !   Initialize those fields first, followed by all user-specified fields
@@ -576,10 +582,10 @@ module output_module
       !
       do i=1,NUM_AUTOMATIC_FIELDS
          fields(i)%ndims = 2
-         fields(i)%dom_start(1) = start_dom_1 
+         fields(i)%dom_start(1) = start_dom_1
          fields(i)%dom_start(2) = start_dom_2
          fields(i)%dom_start(3) = 1
-         fields(i)%mem_start(1) = start_mem_1 
+         fields(i)%mem_start(1) = start_mem_1
          fields(i)%mem_start(2) = start_mem_2
          fields(i)%mem_start(3) = 1
          fields(i)%patch_start(1) = start_patch_1
@@ -597,6 +603,8 @@ module output_module
          fields(i)%dimnames(3) = ' '
          fields(i)%mem_order = 'XY'
          fields(i)%stagger = 'M'
+         fields(i)%sr_x = 1
+         fields(i)%sr_y = 1
          if (grid_type == 'C') then
             fields(i)%istagger = M
          else if (grid_type == 'E') then
@@ -754,10 +762,10 @@ module output_module
 #endif
   
       do while (ifieldstatus == 0)  !{
-         call get_next_output_fieldname(fieldname, ndims, &
+         call get_next_output_fieldname(nest_num, fieldname, ndims, &
                                       min_category, max_category, &
                                       istagger, memorder, dimnames, &
-                                      units, description, ifieldstatus)
+                                      units, description, sr_x, sr_y, ifieldstatus)
    
          if (ifieldstatus == 0) then !{
      
@@ -782,40 +790,40 @@ module output_module
             fields(nfields)%units = units
             fields(nfields)%descr = description
     
-            fields(nfields)%dom_start(1)=start_dom_1
-            fields(nfields)%dom_start(2)=start_dom_2
+            fields(nfields)%dom_start(1)=(start_dom_1-1)*sr_x+1
+            fields(nfields)%dom_start(2)=(start_dom_2-1)*sr_y+1
             fields(nfields)%dom_start(3)=min_category
-            fields(nfields)%mem_start(1)=start_mem_1
-            fields(nfields)%mem_start(2)=start_mem_2
+            fields(nfields)%mem_start(1)=(start_mem_1-1)*sr_x+1
+            fields(nfields)%mem_start(2)=(start_mem_2-1)*sr_y+1
             fields(nfields)%mem_start(3)=min_category
-            fields(nfields)%patch_start(1)=start_patch_1
-            fields(nfields)%patch_start(2)=start_patch_2
+            fields(nfields)%patch_start(1)=(start_patch_1-1)*sr_x+1
+            fields(nfields)%patch_start(2)=(start_patch_2-1)*sr_y+1
             fields(nfields)%patch_start(3)=min_category
     
-            fields(nfields)%dom_end(1)=end_dom_1
-            fields(nfields)%dom_end(2)=end_dom_2
+            fields(nfields)%dom_end(1)=(end_dom_1-1)*sr_x+1
+            fields(nfields)%dom_end(2)=(end_dom_2-1)*sr_y+1
             fields(nfields)%dom_end(3)=max_category
-            fields(nfields)%mem_end(1)=end_mem_1
-            fields(nfields)%mem_end(2)=end_mem_2
+            fields(nfields)%mem_end(1)=(end_mem_1-1)*sr_x+1
+            fields(nfields)%mem_end(2)=(end_mem_2-1)*sr_y+1
             fields(nfields)%mem_end(3)=max_category
-            fields(nfields)%patch_end(1)=end_patch_1
-            fields(nfields)%patch_end(2)=end_patch_2
+            fields(nfields)%patch_end(1)=(end_patch_1-1)*sr_x+1
+            fields(nfields)%patch_end(2)=(end_patch_2-1)*sr_y+1
             fields(nfields)%patch_end(3)=max_category
     
-            if (extra_col .and. istagger == U) then !{
-               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + 1
-               fields(nfields)%mem_end(1)=fields(nfields)%mem_end(1) + 1
-               fields(nfields)%patch_end(1)=fields(nfields)%patch_end(1) + 1
+            if (extra_col .and. istagger == U.or.sr_x.gt.1) then !{
+               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + sr_x
+               fields(nfields)%mem_end(1)=fields(nfields)%mem_end(1) + sr_x
+               fields(nfields)%patch_end(1)=fields(nfields)%patch_end(1) + sr_x
             else if (istagger == U .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
-               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + 1
+               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + sr_x
             end if !}
     
-            if (extra_row .and. istagger == V) then !{
-               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + 1
-               fields(nfields)%mem_end(2)=fields(nfields)%mem_end(2) + 1
-               fields(nfields)%patch_end(2)=fields(nfields)%patch_end(2) + 1
+            if (extra_row .and. istagger == V.or.sr_y.gt.1) then !{
+               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + sr_y
+               fields(nfields)%mem_end(2)=fields(nfields)%mem_end(2) + sr_y
+               fields(nfields)%patch_end(2)=fields(nfields)%patch_end(2) + sr_y
             else if (istagger == V .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
-               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + 1
+               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + sr_y
             end if !}
       
             nfields = nfields + 1

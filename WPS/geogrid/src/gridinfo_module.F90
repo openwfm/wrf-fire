@@ -16,6 +16,7 @@ module gridinfo_module
    ! Variables
    integer :: iproj_type, n_domains, io_form_output, dyn_opt
    integer, dimension(MAX_DOMAINS) :: parent_grid_ratio, parent_id, ixdim, jydim
+   integer, dimension(MAX_DOMAINS) :: sr_x, sr_y
    real :: known_lat, known_lon, pole_lat, pole_lon, stand_lon, truelat1, truelat2, &
            known_x, known_y, dxkm, dykm, phi, lambda, ref_lat, ref_lon, ref_x, ref_y, &
            dlatdeg, dlondeg
@@ -57,7 +58,8 @@ module gridinfo_module
                         start_day, end_day, start_hour, end_hour, &
                         start_minute, end_minute, start_second, end_second, &
                         interval_seconds, &
-                        io_form_geogrid, opt_output_from_geogrid_path, debug_level
+                        io_form_geogrid, opt_output_from_geogrid_path, debug_level, &
+                        sr_x, sr_y
       namelist /geogrid/ parent_id, parent_grid_ratio, &
                          i_parent_start, j_parent_start, s_we, e_we, s_sn, e_sn, &
                          map_proj, ref_x, ref_y, ref_lat, ref_lon, &
@@ -104,11 +106,13 @@ module gridinfo_module
          end_second(i) = 0
          start_date(i) = '0000-00-00_00:00:00'
          end_date(i) = '0000-00-00_00:00:00'
+         sr_x(i) = 1
+         sr_y(i) = 1
       end do
       opt_output_from_geogrid_path = './'
       opt_geogrid_tbl_path = 'geogrid/'
       interval_seconds = INVALID
-      
+
       ! Read parameters from Fortran namelist
       do funit=10,100
          inquire(unit=funit, opened=is_used)
@@ -229,6 +233,14 @@ module gridinfo_module
       do i=2,max_dom
          call mprintf(.true.,LOGFILE,'                    = %s',s1=geog_data_res(i))
       end do
+      call mprintf(.true.,LOGFILE,'  SR_X              = %i',i1=sr_x(1))
+      do i=2,max_dom
+         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_x(i))
+      enddo
+      call mprintf(.true.,LOGFILE,'  SR_Y              = %i',i1=sr_y(1))
+      do i=2,max_dom
+         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_y(i))
+      enddo
       call mprintf(.true.,LOGFILE,'  DX                = %f',f1=dx)
       call mprintf(.true.,LOGFILE,'  DY                = %f',f1=dy)
       call mprintf(.true.,LOGFILE,'  MAP_PROJ          = %s',s1=map_proj)

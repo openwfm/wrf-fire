@@ -152,4 +152,5 @@ name=NFUEL_CAT
 	fill_missing = 0.
 	interp_option=default:nearest_neighbor
 	rel_path=default:landfire_data/
+	subgrid=yes
 ==============================
