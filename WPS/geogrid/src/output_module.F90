@@ -790,42 +790,61 @@ module output_module
             fields(nfields)%units = units
             fields(nfields)%descr = description
     
-            fields(nfields)%dom_start(1)=(start_dom_1-1)*sr_x+1
-            fields(nfields)%dom_start(2)=(start_dom_2-1)*sr_y+1
+            fields(nfields)%dom_start(1)=start_dom_1
+            fields(nfields)%dom_start(2)=start_dom_2
             fields(nfields)%dom_start(3)=min_category
-            fields(nfields)%mem_start(1)=(start_mem_1-1)*sr_x+1
-            fields(nfields)%mem_start(2)=(start_mem_2-1)*sr_y+1
+            fields(nfields)%mem_start(1)=start_mem_1
+            fields(nfields)%mem_start(2)=start_mem_2
             fields(nfields)%mem_start(3)=min_category
-            fields(nfields)%patch_start(1)=(start_patch_1-1)*sr_x+1
-            fields(nfields)%patch_start(2)=(start_patch_2-1)*sr_y+1
+            fields(nfields)%patch_start(1)=start_patch_1
+            fields(nfields)%patch_start(2)=start_patch_2
             fields(nfields)%patch_start(3)=min_category
     
-            fields(nfields)%dom_end(1)=(end_dom_1-1)*sr_x+1
-            fields(nfields)%dom_end(2)=(end_dom_2-1)*sr_y+1
+            fields(nfields)%dom_end(1)=end_dom_1
+            fields(nfields)%dom_end(2)=end_dom_2
             fields(nfields)%dom_end(3)=max_category
-            fields(nfields)%mem_end(1)=(end_mem_1-1)*sr_x+1
-            fields(nfields)%mem_end(2)=(end_mem_2-1)*sr_y+1
+            fields(nfields)%mem_end(1)=end_mem_1
+            fields(nfields)%mem_end(2)=end_mem_2
             fields(nfields)%mem_end(3)=max_category
-            fields(nfields)%patch_end(1)=(end_patch_1-1)*sr_x+1
-            fields(nfields)%patch_end(2)=(end_patch_2-1)*sr_y+1
+            fields(nfields)%patch_end(1)=end_patch_1
+            fields(nfields)%patch_end(2)=end_patch_2
             fields(nfields)%patch_end(3)=max_category
     
-            if (extra_col .and. istagger == U.or.sr_x.gt.1) then !{
-               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + sr_x
-               fields(nfields)%mem_end(1)=fields(nfields)%mem_end(1) + sr_x
-               fields(nfields)%patch_end(1)=fields(nfields)%patch_end(1) + sr_x
+            if ((extra_col .and. istagger == U).or.sr_x.gt.1) then !{
+               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + 1
+               fields(nfields)%mem_end(1)=fields(nfields)%mem_end(1) + 1
+               fields(nfields)%patch_end(1)=fields(nfields)%patch_end(1) + 1
             else if (istagger == U .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
-               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + sr_x
+               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + 1
             end if !}
     
-            if (extra_row .and. istagger == V.or.sr_y.gt.1) then !{
-               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + sr_y
-               fields(nfields)%mem_end(2)=fields(nfields)%mem_end(2) + sr_y
-               fields(nfields)%patch_end(2)=fields(nfields)%patch_end(2) + sr_y
+            if ((extra_row .and. istagger == V).or.sr_y.gt.1) then !{
+               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + 1
+               fields(nfields)%mem_end(2)=fields(nfields)%mem_end(2) + 1
+               fields(nfields)%patch_end(2)=fields(nfields)%patch_end(2) + 1
             else if (istagger == V .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
-               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + sr_y
+               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + 1
             end if !}
-      
+
+            if (sr_x.gt.1) then
+              fields(nfields)%dom_start(1)=(fields(nfields)%dom_start(1)-1)*sr_x+1
+              fields(nfields)%mem_start(1)=(fields(nfields)%mem_start(1)-1)*sr_x+1
+              fields(nfields)%patch_start(1)=(fields(nfields)%patch_start(1)-1)*sr_x+1
+              fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1)*sr_x
+              fields(nfields)%mem_end(1)=fields(nfields)%mem_end(1)*sr_x
+              fields(nfields)%patch_end(1)=fields(nfields)%patch_end(1)*sr_x
+            endif
+    
+            if (sr_y.gt.1) then
+              fields(nfields)%dom_start(2)=(fields(nfields)%dom_start(2)-1)*sr_y+1
+              fields(nfields)%mem_start(2)=(fields(nfields)%mem_start(2)-1)*sr_y+1
+              fields(nfields)%patch_start(2)=(fields(nfields)%patch_start(2)-1)*sr_y+1
+              fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2)*sr_y
+              fields(nfields)%mem_end(2)=fields(nfields)%mem_end(2)*sr_y
+              fields(nfields)%patch_end(2)=fields(nfields)%patch_end(2)*sr_y
+           endif
+
+
             nfields = nfields + 1
    
          end if  ! the next field given by get_next_fieldname() is valid }

@@ -299,6 +299,7 @@ module source_data_module
                   is_fieldname(i) = .true.
                   source_fieldname(i) = ' '
                   source_fieldname(i)(1:ispace-idx) = buffer(idx+1:ispace-1)
+                  print*,i,' ',buffer(idx+1:ispace-1)
      
                else if (index('priority',trim(buffer(1:idx-1))) /= 0) then
                   is_priority(i) = .true.
@@ -2165,7 +2166,7 @@ module source_data_module
    sub_x=1
    sub_y=1
 
-   istatus = 1
+   istatus = 0
    do idx=1,num_entries
      if ((index(source_fieldname(idx),trim(field_name)) /= 0) .and. &
          (len_trim(source_fieldname(idx)) == len_trim(field_name))) then
