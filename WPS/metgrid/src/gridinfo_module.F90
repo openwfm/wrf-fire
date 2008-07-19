@@ -14,6 +14,7 @@ module gridinfo_module
  
    ! Variables
    integer :: interval_seconds, max_dom, io_form_input, io_form_output, debug_level
+   integer, dimension(MAX_DOMAINS) :: sr_x, sr_y
    character (len=MAX_FILENAME_LEN) :: opt_output_from_geogrid_path, &
                           opt_output_from_metgrid_path, opt_metgrid_tbl_path 
    character (len=128), dimension(MAX_DOMAINS) :: start_date, end_date
@@ -44,7 +45,8 @@ module gridinfo_module
                         start_day, end_day, start_hour, end_hour, &
                         start_minute, end_minute, start_second, end_second, &
                         interval_seconds, &
-                        io_form_geogrid, opt_output_from_geogrid_path, debug_level
+                        io_form_geogrid, opt_output_from_geogrid_path, debug_level, &
+                        sr_x, sr_y
       namelist /metgrid/ io_form_metgrid, fg_name, constants_name, opt_output_from_metgrid_path, &
                          opt_metgrid_tbl_path, opt_ignore_dom_center 
         
@@ -71,6 +73,8 @@ module gridinfo_module
          end_second(i) = 0
          start_date(i) = '0000-00-00_00:00:00'
          end_date(i) = '0000-00-00_00:00:00'
+         sr_x(i) = 1
+         sr_y(i) = 1
       end do
       opt_output_from_geogrid_path = './'
       opt_output_from_metgrid_path = './'
@@ -158,6 +162,14 @@ module gridinfo_module
       call mprintf(.true.,LOGFILE,'  INTERVAL_SECONDS = %i',i1=interval_seconds)
       call mprintf(.true.,LOGFILE,'  IO_FORM_GEOGRID  = %i',i1=io_form_geogrid)
       call mprintf(.true.,LOGFILE,'  OPT_OUTPUT_FROM_GEOGRID_PATH = %s',s1=opt_output_from_geogrid_path)
+      call mprintf(.true.,LOGFILE,'  SR_X              = %i',i1=sr_x(1))
+      do i=2,max_dom
+         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_x(i))
+      enddo
+      call mprintf(.true.,LOGFILE,'  SR_Y              = %i',i1=sr_y(1))
+      do i=2,max_dom
+         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_y(i))
+      enddo
       call mprintf(.true.,LOGFILE,'  DEBUG_LEVEL      = %i',i1=debug_level)
       call mprintf(.true.,LOGFILE,'/')
 

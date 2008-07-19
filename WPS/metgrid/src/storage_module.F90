@@ -336,15 +336,18 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
    !
    ! Purpose: 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   subroutine get_next_output_fieldname(field_name, ndims, &
+   subroutine get_next_output_fieldname(nest_num, field_name, ndims, &
                                         min_level, max_level, &
                                         istagger, mem_order, dim_names, units, description, &
+                                        sr_x, sr_y, &
                                         istatus)
 
       implicit none
 
       ! Arguments
+      integer, intent(in) :: nest_num
       integer, intent(out) :: ndims, min_level, max_level, istagger, istatus
+      integer, intent(out) :: sr_x, sr_y
       character (len=128), intent(out) :: field_name, mem_order, units, description
       character (len=128), dimension(3), intent(out) :: dim_names
 
@@ -413,8 +416,25 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
 
          next_output_field => next_output_field%next
       end if
-
+   call get_subgrid_dim_name(nest_num,field_name,dim_names(1:2), &
+                             sr_x,sr_y,istatus)
    end subroutine get_next_output_fieldname 
+
+   subroutine get_subgrid_dim_name(nest_num,field_name,dimnames, &
+                                   sub_x,sub_y,istatus)
+   use gridinfo_module
+   implicit none
+   integer,intent(in)::nest_num
+   integer,intent(out)::sub_x,sub_y,istatus
+   character(len=128),intent(in)::field_name
+   character(len=128),dimension(2),intent(inout)::dimnames
+   integer :: idx,nlen
+
+   sub_x=1
+   sub_y=1
+
+   istatus = 0
+   end subroutine get_subgrid_dim_name
 
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

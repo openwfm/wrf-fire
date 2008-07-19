@@ -586,6 +586,7 @@ integer, parameter :: BDR_WIDTH = 3
       character (len=MAX_FILENAME_LEN) :: input_name
       type (fg_input) :: field, u_field, v_field
       type (met_data) :: fg_data
+      integer :: nest_num
 
 
       ! For this time, we need to process all first-guess filename roots. When we 

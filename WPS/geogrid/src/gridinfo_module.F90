@@ -193,6 +193,15 @@ module gridinfo_module
       call mprintf(.true.,LOGFILE,'  INTERVAL_SECONDS = %i',i1=interval_seconds)
       call mprintf(.true.,LOGFILE,'  IO_FORM_GEOGRID  = %i',i1=io_form_geogrid)
       call mprintf(.true.,LOGFILE,'  OPT_OUTPUT_FROM_GEOGRID_PATH = %s',s1=opt_output_from_geogrid_path)
+      call mprintf(.true.,LOGFILE,'  SR_X              = %i',i1=sr_x(1))
+      do i=2,max_dom
+         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_x(i))
+      enddo
+      call mprintf(.true.,LOGFILE,'  SR_Y              = %i',i1=sr_y(1))
+      do i=2,max_dom
+         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_y(i))
+      enddo
+
       call mprintf(.true.,LOGFILE,'  DEBUG_LEVEL      = %i',i1=debug_level)
       call mprintf(.true.,LOGFILE,'/')
 
@@ -233,14 +242,6 @@ module gridinfo_module
       do i=2,max_dom
          call mprintf(.true.,LOGFILE,'                    = %s',s1=geog_data_res(i))
       end do
-      call mprintf(.true.,LOGFILE,'  SR_X              = %i',i1=sr_x(1))
-      do i=2,max_dom
-         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_x(i))
-      enddo
-      call mprintf(.true.,LOGFILE,'  SR_Y              = %i',i1=sr_y(1))
-      do i=2,max_dom
-         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_y(i))
-      enddo
       call mprintf(.true.,LOGFILE,'  DX                = %f',f1=dx)
       call mprintf(.true.,LOGFILE,'  DY                = %f',f1=dy)
       call mprintf(.true.,LOGFILE,'  MAP_PROJ          = %s',s1=map_proj)
