@@ -73,12 +73,10 @@ read_namelist.o:	misc_definitions_module.o module_debug.o read_namelist.F90
 .F90.o:
 			$(CPP) $(CPPFLAGS) $(FDEFS) $< > $*.f
 			$(FC) -c $(FFLAGS) $*.f
-			$(RM) $*.f
 
 .f90.o:
 			$(CPP) $(CPPFLAGS) $(FDEFS) $< > $*.f
 			$(FC) -c $(FFLAGS) $*.f
-			$(RM) $*.f
 .c.o:
 	$(RM) $@
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $<

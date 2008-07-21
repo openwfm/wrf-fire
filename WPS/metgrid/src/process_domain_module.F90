@@ -187,6 +187,7 @@ module process_domain_module
       use llxy_module
       use parallel_module
       use storage_module
+      use module_debug
 
       implicit none
 
@@ -211,7 +212,7 @@ module process_domain_module
     
       ! Local variables
       integer :: istatus, i, j, k, sp1, ep1, sp2, ep2, sp3, ep3, &
-                 lh_mult, rh_mult, bh_mult, th_mult
+                 lh_mult, rh_mult, bh_mult, th_mult, subx, suby
       real, pointer, dimension(:,:,:) :: real_array
       character (len=3) :: memorder
       character (len=128) :: grid_type, datestr, cname, stagger, cunits, cdesc
@@ -233,7 +234,8 @@ module process_domain_module
                              grid_id, parent_id, i_parent_start, &
                              j_parent_start, i_parent_end, j_parent_end, dom_dx, dom_dy, &
                              cen_lat, moad_cen_lat, cen_lon, stand_lon, truelat1, &
-                             truelat2, parent_grid_ratio, corner_lats, corner_lons)
+                             truelat2, parent_grid_ratio, corner_lats, corner_lons, &
+                             sr_x(n), sr_y(n))
 
       we_dom_s = 1
       sn_dom_s = 1
@@ -326,7 +328,8 @@ module process_domain_module
       istatus = 0
       do while (istatus == 0)  
         call read_next_field(sp1, ep1, sp2, ep2, sp3, ep3, cname, cunits, cdesc, &
-                             memorder, stagger, dimnames, real_array, istatus)
+                             memorder, stagger, dimnames, subx, suby, &
+                             real_array, istatus)
         if (istatus == 0) then
 
           call mprintf(.true.,LOGFILE, 'Read in static field %s.',s1=cname)
@@ -355,7 +358,7 @@ module process_domain_module
              allocate(xlat_u(we_mem_stag_s:we_mem_stag_e,sn_mem_s:sn_mem_e))
              xlat_u(we_patch_stag_s:we_patch_stag_e,sn_patch_s:sn_patch_e) = real_array(:,:,1)
              call exchange_halo_r(xlat_u, & 
-                                  we_mem_stag_s, we_mem_stag_e, sn_mem_s, sn_mem_e, 1, 1, &
+                                  we_mem_stag_s, we_mem_stag_e, sn_mem_s, sn_mem_e, 0, 1, &
                                   we_patch_stag_s, we_patch_stag_e, sn_patch_s, sn_patch_e, 1, 1)
 
           else if (index(cname, 'XLONG_U') /= 0 .and. &
@@ -396,6 +399,8 @@ module process_domain_module
           !   storage module; levels will be reassembled later on when they
           !   are written.
           do k=sp3,ep3
+             field%header%sr_x=subx
+             field%header%sr_y=suby
              field%header%version = 1
              field%header%date = start_date(n) 
              field%header%time_dependent = .false.
@@ -417,6 +422,7 @@ module process_domain_module
                    field%header%dim1(2) = we_mem_e
                    field%header%dim2(1) = sn_mem_s
                    field%header%dim2(2) = sn_mem_e
+
                 else if (trim(stagger) == 'U') then
                    field%map%stagger = U
                    field%header%dim1(1) = we_mem_stag_s
@@ -441,8 +447,20 @@ module process_domain_module
                 field%header%dim2(1) = sn_mem_s
                 field%header%dim2(2) = sn_mem_e
              end if
+
+             if(subx.gt.1)then
+                field%header%dim1(1) = we_mem_s*subx+1
+                field%header%dim1(2) = (we_mem_e+1)*subx
+              endif
+              if(suby.gt.1)then
+                field%header%dim2(1) = sn_mem_s*suby+1
+                field%header%dim2(2) = (sn_mem_e+1)*suby
+              endif
             
              allocate(field%valid_mask)
+
+             if(subx.eq.1.or.suby.eq.1)then
+
              if (field%map%stagger == M  .or. & 
                  field%map%stagger == HH .or. &
                  field%map%stagger == VV) then
@@ -491,6 +509,27 @@ module process_domain_module
                    end do
                 end do
              end if
+
+             else
+
+!            to be fixed at a later time
+             call mprintf((nprocs.gt.1),ERROR,'subgrid data not supported in parallel')
+             allocate(field%r_arr(field%header%dim1(2),field%header%dim2(2)))
+             field%r_arr(:,:)=real_array(:,:,k)
+
+!            need halo exchange for parallel
+
+             call bitarray_create(field%valid_mask, &
+                                  field%header%dim1(2), &
+                                  field%header%dim2(2))
+
+             do j=1,field%header%dim2(2)
+               do i=1,field%header%dim1(2)
+                 call bitarray_set(field%valid_mask,i,j)
+               enddo
+             enddo
+
+             endif
 
              nullify(field%modified_mask)
      
@@ -1086,7 +1125,7 @@ integer, parameter :: BDR_WIDTH = 3
                               grid_id, parent_id, i_parent_start, &
                               j_parent_start, i_parent_end, j_parent_end, dom_dx, dom_dy, &
                               cen_lat, moad_cen_lat, cen_lon, stand_lon, truelat1, &
-                              truelat2, parent_grid_ratio, corner_lats, corner_lons, output_flags, num_entries)
+                              truelat2, parent_grid_ratio, corner_lats, corner_lons, 1,1,output_flags, num_entries)
     
       call reset_next_field()
 

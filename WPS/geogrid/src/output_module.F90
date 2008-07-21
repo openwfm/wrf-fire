@@ -380,7 +380,8 @@ module output_module
                               nint(parent_ur_x(nest_number)), nint(parent_ur_y(nest_number)), &
                               dx, dy, cen_lat, moad_cen_lat, &
                               cen_lon, stand_lon, truelat1, truelat2, &
-                              parent_grid_ratio(nest_number), corner_lats, corner_lons)
+                              parent_grid_ratio(nest_number), corner_lats, corner_lons, &
+                              sr_x(nest_number), sr_y(nest_number))
 #endif
  
    end subroutine output_init
@@ -826,6 +827,9 @@ module output_module
                fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + 1
             end if !}
 
+            fields(nfields)%sr_x=1
+            fields(nfields)%sr_y=1
+
             if (sr_x.gt.1) then
               fields(nfields)%dom_start(1)=(fields(nfields)%dom_start(1)-1)*sr_x+1
               fields(nfields)%mem_start(1)=(fields(nfields)%mem_start(1)-1)*sr_x+1
@@ -833,6 +837,7 @@ module output_module
               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1)*sr_x
               fields(nfields)%mem_end(1)=fields(nfields)%mem_end(1)*sr_x
               fields(nfields)%patch_end(1)=fields(nfields)%patch_end(1)*sr_x
+              fields(nfields)%sr_x=sr_x
             endif
     
             if (sr_y.gt.1) then
@@ -842,6 +847,7 @@ module output_module
               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2)*sr_y
               fields(nfields)%mem_end(2)=fields(nfields)%mem_end(2)*sr_y
               fields(nfields)%patch_end(2)=fields(nfields)%patch_end(2)*sr_y
+              fields(nfields)%sr_y=sr_y
            endif
 
 
@@ -993,6 +999,10 @@ module output_module
                                                 trim(fields(i)%fieldname), trim(fields(i)%descr), istatus)
                         call ext_int_put_var_ti_char(handle, 'stagger', &
                                                 trim(fields(i)%fieldname), trim(fields(i)%stagger), istatus)
+                        call ext_int_put_var_ti_integer(handle,'sr_x', &
+                                                 trim(fields(i)%fieldname),(/fields(i)%sr_x/),1, istatus)
+                        call ext_int_put_var_ti_integer(handle,'sr_y', &
+                                                 trim(fields(i)%fieldname),(/fields(i)%sr_y/),1, istatus)
                      end if
 #endif
 #ifdef IO_NETCDF
@@ -1003,7 +1013,11 @@ module output_module
                                                 trim(fields(i)%fieldname), trim(fields(i)%descr), istatus)
                         call ext_ncd_put_var_ti_char(handle, 'stagger', &
                                                 trim(fields(i)%fieldname), trim(fields(i)%stagger), istatus)
-                     end if
+                        call ext_ncd_put_var_ti_integer(handle,'sr_x', &
+                                                 trim(fields(i)%fieldname),(/fields(i)%sr_x/),1, istatus)
+                        call ext_ncd_put_var_ti_integer(handle,'sr_y', &
+                                                 trim(fields(i)%fieldname),(/fields(i)%sr_y/),1, istatus)
+                    end if
 #endif
 #ifdef IO_GRIB1
                      if (io_form_output == GRIB1) then
@@ -1013,7 +1027,11 @@ module output_module
                                                 trim(fields(i)%fieldname), trim(fields(i)%descr), istatus)
                         call ext_gr1_put_var_ti_char(handle, 'stagger', &
                                                 trim(fields(i)%fieldname), trim(fields(i)%stagger), istatus)
-                     end if
+                        call ext_gr1_put_var_ti_integer(handle,'sr_x', &
+                                                 trim(fields(i)%fieldname),(/fields(i)%sr_x/),1, istatus)
+                        call ext_gr1_put_var_ti_integer(handle,'sr_y', &
+                                                 trim(fields(i)%fieldname),(/fields(i)%sr_y/),1, istatus)
+                    end if
 #endif
                   end if
                end if
@@ -1041,7 +1059,7 @@ module output_module
                                 grid_id, parent_id, i_parent_start, j_parent_start, &
                                 i_parent_end, j_parent_end, dx, dy, cen_lat, moad_cen_lat, cen_lon, &
                                 stand_lon, truelat1, truelat2, parent_grid_ratio, corner_lats, corner_lons, &
-                                flags, nflags)
+                                sr_x,sr_y,flags, nflags)
  
       implicit none
   
@@ -1051,7 +1069,7 @@ module output_module
                  sn_patch_s, sn_patch_e, sn_patch_s_stag, sn_patch_e_stag, &
                  map_proj, is_water, is_ice, is_urban, i_soilwater, &
                  grid_id, parent_id, i_parent_start, j_parent_start, &
-                 i_parent_end, j_parent_end, parent_grid_ratio
+                 i_parent_end, j_parent_end, parent_grid_ratio, sr_x, sr_y
       integer, intent(in), optional :: nflags
       real, intent(in) :: dx, dy, cen_lat, moad_cen_lat, cen_lon, stand_lon, truelat1, truelat2
       real, dimension(16), intent(in) :: corner_lats, corner_lons
@@ -1167,6 +1185,8 @@ module output_module
          call ext_put_dom_ti_integer_scalar('i_parent_end', i_parent_end)
          call ext_put_dom_ti_integer_scalar('j_parent_end', j_parent_end)
          call ext_put_dom_ti_integer_scalar('parent_grid_ratio', parent_grid_ratio)
+         call ext_put_dom_ti_integer_scalar('sr_x',sr_x)
+         call ext_put_dom_ti_integer_scalar('sr_y',sr_y)
 #ifdef _METGRID
          call ext_put_dom_ti_integer_scalar('FLAG_METGRID', 1)
 #endif
