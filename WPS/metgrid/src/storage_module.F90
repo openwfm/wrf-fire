@@ -413,11 +413,12 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
          end if
          units = get_units(next_output_field%fg_data)
          description = get_description(next_output_field%fg_data) 
+         call get_subgrid_dim_name(nest_num,field_name,dim_names(1:2), &
+                             sr_x,sr_y,istatus)
 
          next_output_field => next_output_field%next
+
       end if
-   call get_subgrid_dim_name(nest_num,field_name,dim_names(1:2), &
-                             sr_x,sr_y,istatus)
    end subroutine get_next_output_fieldname 
 
    subroutine get_subgrid_dim_name(nest_num,field_name,dimnames, &
@@ -430,8 +431,15 @@ call mprintf(.true.,WARN,'PLEASE REPORT THIS BUG TO THE DEVELOPER!')
    character(len=128),dimension(2),intent(inout)::dimnames
    integer :: idx,nlen
 
-   sub_x=1
-   sub_y=1
+   sub_x=next_output_field%fg_data%header%sr_x
+   sub_y=next_output_field%fg_data%header%sr_y
+
+   if(sub_x.gt.1)then
+     dimnames(1)=trim(dimnames(1))//"_subgrid"
+   endif
+   if(sub_y.gt.1)then
+     dimnames(2)=trim(dimnames(2))//"_subgrid"
+   endif
 
    istatus = 0
    end subroutine get_subgrid_dim_name
