@@ -167,7 +167,7 @@ CONTAINS
 
 ! ----- inout variables
 
-   INTEGER, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: nfuel_cat
+   REAL, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: nfuel_cat
    INTEGER, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: nfl,nfl_t,nfl_c
    INTEGER, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: ncod
    INTEGER, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme,2 ) :: in1,in2
@@ -208,6 +208,7 @@ CONTAINS
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: v_tmp
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: u_tmp
+   INTEGER, DIMENSION( ifms:ifme,jfms:jfme )   :: nfuel_cat_int
    CHARACTER(LEN=128) :: msg
    
    integer::ifun,ifun_first
@@ -216,6 +217,8 @@ CONTAINS
 !------------------------------------------------------------------
 !
     CALL wrf_debug(100,'entering fire_driver')
+
+    nfuel_cat_int(:,:)=int(nfuel_cat(:,:))
 
 ! -- get u and v, zero tendencies
 
@@ -279,7 +282,7 @@ CONTAINS
             ,fire_ext_grnd,fire_ext_crwn                        &
             ,fire_fuel_read,fire_fuel_cat                       &
             ,z,z_at_w,dz8w,ht,u_tmp,v_tmp,mu,rho                &
-            ,nfuel_cat,nfl,nfl_t,nfl_c,ncod,in1,in2,ixb,iyb     & ! send&recv
+            ,nfuel_cat_int,nfl,nfl_t,nfl_c,ncod,in1,in2,ixb,iyb     & ! send&recv
             ,icn,fg,fc,r_0,bbb,betafl,phiwc,area,area2          &
             ,zf,zsf,tign_g,tign_c,tign_crt,xfg,yfg,xcd          &
             ,ycd,xcn,ycn,sprdx,sprdy                            &
@@ -334,7 +337,7 @@ CONTAINS
             ,uf,vf,lfn_out                                      & ! fire wind velocities, out level set function
             ,rthfrten,rqvfrten                                  &
             ,grnhfx,grnqfx,canhfx,canqfx                        &
-            ,nfuel_cat                                          &
+            ,nfuel_cat_int                                          &
             ,fuel_time,zsf                                      &
             ,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap     &
             )
@@ -352,6 +355,8 @@ CONTAINS
    !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
    !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver:rthfrten')
    !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver:rqvfrten')
+
+   nfuel_cat(:,:)=real(nfuel_cat_int(:,:))
 
    END SUBROUTINE fire_driver
 
