@@ -3,7 +3,7 @@ implicit none
 
 character(len=256)::buffer,fname,oname
 integer::ncol,nrow,ierr,i,j,iread,iwrite,k,itile,jtile,ntile,mtile,l,sxtile,extile,sytile,eytile
-integer,parameter::maxtile=1000
+integer,parameter::maxtile=1000, maxcat=14
 real(kind=4)::rbuf
 
 call getarg(1,fname)
@@ -33,6 +33,7 @@ do jtile=1,ntile
          k=(j-1)*nrow+i
          l=l+1
          read(iread,rec=k,err=999) rbuf
+         if(rbuf.gt.maxcat.or.rbuf.lt.1)rbuf=0.
          write(iwrite,rec=l) int(rbuf,kind=4)
        enddo
      enddo
