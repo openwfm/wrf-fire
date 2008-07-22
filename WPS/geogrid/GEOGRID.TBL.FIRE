@@ -150,8 +150,8 @@ name=NFUEL_CAT
 	dest_type=categorical
 	dominant_only=NFUEL_CAT
 	z_dim_name=fuel_cat
-	fill_missing = 10.
-	interp_option=default:nearest_neighbor+search
+	fill_missing = 0.
+	interp_option=default:nearest_neighbor+average_16pt+search
 	rel_path=default:landfire_data/
 	subgrid=yes
 ==============================

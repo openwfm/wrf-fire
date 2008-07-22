@@ -664,6 +664,8 @@ module process_tile_module
                   mapfac_ptr_x => mapfac_array_v_x
                   mapfac_ptr_y => mapfac_array_v_y
                end if
+!                 print*,sm1,sm2,em1,em2
+!                 print*,xlat_ptr(sm1,sm2),xlon_ptr(sm1,sm2),xlat_ptr(em1,em2),xlon_ptr(em1,em2)
 
                if(sub_x.gt.1)then
                  sm1=(start_mem_i-1)*sub_x+1
@@ -683,14 +685,15 @@ module process_tile_module
                  allocate(mapfac_array_x_subgrid(sm1:em1,sm2:em2))
                  allocate(mapfac_array_y_subgrid(sm1:em1,sm2:em2))
                  call get_lat_lon_fields(xlat_array_subgrid,xlon_array_subgrid,&
-                                  sm1,em1,sm2,em2,M)
+                                  sm1,sm2,em1,em2,M,sub_x,sub_y)
                  xlat_ptr => xlat_array_subgrid
                  xlon_ptr => xlon_array_subgrid
                  call get_map_factor(xlat_ptr,xlon_ptr,mapfac_array_x_subgrid, &
                                      mapfac_array_y_subgrid,sm1,sm2,em1,em2)
                  mapfac_ptr_x => mapfac_array_x_subgrid
                  mapfac_ptr_y => mapfac_array_y_subgrid
-
+!                 print*,sm1,sm2,em1,em2
+!                 print*,xlat_ptr(sm1,sm2),xlon_ptr(sm1,sm2),xlat_ptr(em1,em2),xlon_ptr(em1,em2)
                endif
        
                call get_missing_fill_value(fieldname, msg_fill_val, istatus)
@@ -1492,7 +1495,8 @@ module process_tile_module
    !   argument.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine get_lat_lon_fields(xlat_arr, xlon_arr, start_mem_i, &
-                                 start_mem_j, end_mem_i, end_mem_j, stagger)
+                                 start_mem_j, end_mem_i, end_mem_j, stagger, &
+                                 sub_x, sub_y)
    
       use llxy_module
       use misc_definitions_module
@@ -1503,13 +1507,18 @@ module process_tile_module
       integer, intent(in) :: start_mem_i, start_mem_j, end_mem_i, &
                              end_mem_j, stagger
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(out) :: xlat_arr, xlon_arr
+      integer, optional, intent(in) :: sub_x, sub_y
 
       ! Local variables
-      integer :: i, j
+      integer :: i, j,lx,ly
     
+      lx=1
+      ly=1
+      if(present(sub_x))lx=sub_x
+      if(present(sub_y))ly=sub_y
       do i=start_mem_i, end_mem_i
          do j=start_mem_j, end_mem_j
-            call xytoll(real(i), real(j), &
+            call xytoll(real(i-1)/real(lx)+1., real(j-1)/real(ly)+1., &
                         xlat_arr(i,j), xlon_arr(i,j), stagger)
          end do
       end do
