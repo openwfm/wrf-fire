@@ -59,7 +59,9 @@ module process_tile_module
                                        f_array, e_array, &
                                        mapfac_array_m_x, mapfac_array_u_x, mapfac_array_v_x, &
                                        mapfac_array_m_y, mapfac_array_u_y, mapfac_array_v_y, &
-                                       sina_array, cosa_array
+                                       sina_array, cosa_array, &
+                                       xlat_array_subgrid, xlon_array_subgrid, &
+                                       mapfac_array_x_subgrid,mapfac_array_y_subgrid
       real, pointer, dimension(:,:) :: xlat_ptr, xlon_ptr, mapfac_ptr_x, mapfac_ptr_y, landmask, dominant_field
       real, pointer, dimension(:,:,:) :: field, slp_field
       logical :: is_water_mask, only_save_dominant, halt_on_missing
@@ -68,6 +70,8 @@ module process_tile_module
       character (len=256) :: temp_string
       type (bitarray) :: processed_domain 
       type (hashtable) :: processed_fieldnames
+      character (len=128),dimension(2) :: dimnames
+      integer :: sub_x, sub_y
    
       datestr = '0000-00-00_00:00:00'
       field_count = 0
@@ -144,6 +148,8 @@ module process_tile_module
          allocate(xlat_array_u(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_j))
          allocate(xlon_array_u(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_j))
       end if
+      nullify(xlat_array_subgrid, xlon_array_subgrid)
+      nullify(mapfac_array_x_subgrid,mapfac_array_y_subgrid)
     
       ! Initialize hash table to track which fields have been processed
       call hash_init(processed_fieldnames)
@@ -608,8 +614,11 @@ module process_tile_module
                call mprintf(.true.,STDOUT,'  Processing %s', s1=trim(fieldname))
        
                call get_output_stagger(fieldname, istagger, istatus)
+               dimnames(:)='null'
+               call get_subgrid_dim_name(which_domain,fieldname,dimnames, &
+                                         sub_x,sub_y,istatus)
        
-               if (istagger == M) then
+               if (istagger == M.or.sub_x.gt.1.or.sub_y.gt.1) then
                   sm1 = start_mem_i
                   em1 = end_mem_i
                   sm2 = start_mem_j
@@ -655,6 +664,34 @@ module process_tile_module
                   mapfac_ptr_x => mapfac_array_v_x
                   mapfac_ptr_y => mapfac_array_v_y
                end if
+
+               if(sub_x.gt.1)then
+                 sm1=(start_mem_i-1)*sub_x+1
+                 em1=(end_mem_i+1)*sub_x
+               endif
+               if(sub_y.gt.1)then
+                 sm2=(start_mem_j-1)*sub_y+1
+                 em2=(end_mem_j+1)*sub_y
+               endif
+               if(sub_x.gt.1.or.sub_y.gt.1)then
+                 if(associated(xlat_array_subgrid))deallocate(xlat_array_subgrid)
+                 if(associated(xlon_array_subgrid))deallocate(xlon_array_subgrid)
+                 if(associated(mapfac_array_x_subgrid))deallocate(mapfac_array_x_subgrid)
+                 if(associated(mapfac_array_y_subgrid))deallocate(mapfac_array_y_subgrid)
+                 allocate(xlat_array_subgrid(sm1:em1,sm2:em2))
+                 allocate(xlon_array_subgrid(sm1:em1,sm2:em2))
+                 allocate(mapfac_array_x_subgrid(sm1:em1,sm2:em2))
+                 allocate(mapfac_array_y_subgrid(sm1:em1,sm2:em2))
+                 call get_lat_lon_fields(xlat_array_subgrid,xlon_array_subgrid,&
+                                  sm1,em1,sm2,em2,M)
+                 xlat_ptr => xlat_array_subgrid
+                 xlon_ptr => xlon_array_subgrid
+                 call get_map_factor(xlat_ptr,xlon_ptr,mapfac_array_x_subgrid, &
+                                     mapfac_array_y_subgrid,sm1,sm2,em1,em2)
+                 mapfac_ptr_x => mapfac_array_x_subgrid
+                 mapfac_ptr_y => mapfac_array_y_subgrid
+
+               endif
        
                call get_missing_fill_value(fieldname, msg_fill_val, istatus)
                if (istatus /= 0) msg_fill_val = NAN 
@@ -976,6 +1013,11 @@ module process_tile_module
       if (associated(mapfac_array_v_x)) deallocate(mapfac_array_v_x)
       if (associated(mapfac_array_v_y)) deallocate(mapfac_array_v_y)
       if (associated(landmask)) deallocate(landmask)
+      if(associated(xlat_array_subgrid))deallocate(xlat_array_subgrid)
+      if(associated(xlon_array_subgrid))deallocate(xlon_array_subgrid)
+      if(associated(mapfac_array_x_subgrid))deallocate(mapfac_array_x_subgrid)
+      if(associated(mapfac_array_y_subgrid))deallocate(mapfac_array_y_subgrid)
+
       nullify(xlat_ptr)
       nullify(xlon_ptr)
    
