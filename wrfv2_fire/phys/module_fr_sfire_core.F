@@ -403,7 +403,22 @@ external dggglm
 !executable statements
 
 ! a very crude approximation - replace by a better code
-! call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)       
+! call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+t00=tign00-time_now
+if(lfn00>=0. .or. t00>0.)t00=0.
+t01=tign01-time_now
+if(lfn01>=0. .or. t01>0.)t01=0.
+t10=tign10-time_now
+if(lfn10>=0. .or. t10>0.)t10=0.
+t11=tign11-time_now
+if(lfn11>=0. .or. t11>0.)t11=0.
+
+!if (t00<0 .or. t01 <0 .or. t10<0 .or. t11<0) then
+!   print *,'tign00=',tign00,'tign10=',tign10,&
+!          'tign01=',tign01,'tign11=',tign11
+!end if
+
+
 
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
@@ -474,12 +489,17 @@ else
     lfn(3)=lfn11
     lfn(4)=lfn01
     lfn(5)=lfn00
-    tign(1)=tign00
-    tign(2)=tign10
-    tign(3)=tign11
-    tign(4)=tign01
-    tign(5)=tign00
+    tign(1)=t00
+    tign(2)=t10
+    tign(3)=t11
+    tign(4)=t01
+    tign(5)=t00
     npoint = 0 ! number of points in polygon
+    !print *,'time_now=',time_now
+    !print *,'lfn00=',lfn00,'lfn10=',lfn10,&
+    !        'lfn01=',lfn01,'lfn11=',lfn11
+    !print *,'t00=',t00,'t10=',t10,&
+    !        't01=',t01,'t11=',t11
 
     do k=1,4
         lfn0=lfn(k  )
@@ -488,7 +508,7 @@ else
             npoint = npoint + 1
             xylist(npoint,1)=xx(k)
             xylist(npoint,2)=yy(k)
-            tlist(npoint)=time_now-tign(k)
+            tlist(npoint)=-tign(k)
             llist(npoint)=lfn0
         end if
         if ( lfn0*lfn1 < 0 ) then
@@ -540,6 +560,9 @@ else
     !* call least squqres in LAPACK                  
     call SGGGLM(N,M,P,mA,LDA,mB,LDB,vecD,vecX,vecY, &
                         WORK,LWORK,INFO)
+    !print *,'after LS in case3'
+    !print *,'vecX from LS',vecX
+    !print *,'tign inputed',tign00,tign10,tign11,tign01
     rnorm=snrm2(p,vecY,1)
     u(1)=vecX(1)
     u(2)=vecX(2)
