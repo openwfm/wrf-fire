@@ -148,9 +148,10 @@ name=SLOPECAT
 name=NFUEL_CAT
         priority=1
 	dest_type=categorical
+	dominant_only=NFUEL_CAT
 	z_dim_name=fuel_cat
 	fill_missing = 0.
-	interp_option=default:nearest_neighbor
+	interp_option=default:nearest_neighbor+search
 	rel_path=default:landfire_data/
 	subgrid=yes
 ==============================
