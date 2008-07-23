@@ -103,8 +103,8 @@ idx="$output_dir/index"
 
 if [ "$proj" == "ALBERS" ] && [ "$datum" == "NAD83" ] ; then
   nproj=1
-#  echo "projection=albers_nad83" >> $idx
-  echo "projection=regular_ll" >> $idx
+  echo "projection=albers_nad83" >> $idx
+#  echo "projection=regular_ll" >> $idx
 else
   echo "Projection $proj $datum not supported"
   exit 1
@@ -126,8 +126,12 @@ echo 'known_x=1' >> $idx
 echo 'known_y=1' >> $idx
 
 echo "WARNING: reference long/lat is not implemented yet, setting to static value"
-echo 'known_lat=35.7337' >> $idx
-echo 'known_lon=-107.3452' >> $idx
+echo 'known_lat=37.0' >> $idx
+echo 'known_lon=-109.0' >> $idx
+
+echo 'truelat1=29.5' >> $idx
+echo 'truelat2=45.5' >> $idx
+echo 'stdlon=-96.0' >> $idx
 
 echo 'wordsize=2' >> $idx
 echo 'category_min=1' >> $idx
@@ -143,11 +147,12 @@ else
   echo 'endian=big' >> $idx
 fi
 
-echo "tile_x=$nrows" >> $idx
-echo "tile_y=$ncols" >> $idx
-echo "tile_z=14" >> $idx
+echo "tile_x=1000" >> $idx
+echo "tile_y=1000" >> $idx
+echo "tile_z=1" >> $idx
 
 ./convert_landfire.x ${1}/${1}.flt $ncols $nrows
-nfname="$output_dir/$(printf "%05d,%05d.%05d,%05d" 1 $ncols 1 $nrows)"
-mv "${1}/${1}.flt_tmp" "$nfname"
+mv *'-'*'.'*'-'* "$output_dir"
+#nfname="$output_dir/$(printf "%05d-%05d.%05d-%05d" 1 $ncols 1 $nrows)"
+#mv "${1}/${1}.flt_tmp" "$nfname"
 

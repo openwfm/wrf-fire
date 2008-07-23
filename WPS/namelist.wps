@@ -17,15 +17,15 @@
  j_parent_start    =   1,  15, 15, 15, 15, 15, 15, 15, 15, 15, 
  e_we              =  43,  43, 43, 43, 43, 43, 43, 43, 43, 43,
  e_sn              =  43,  43, 43, 43, 43, 43, 43, 43, 43, 43,
- geog_data_res     = '2m','2m','2m','2m','2m','2m','2m','2m','2m','2m',
- dx = 14580,
- dy = 14580,
+ geog_data_res     = '30s','2m','2m','2m','2m','2m','2m','2m','2m','2m',
+ dx = 1000,
+ dy = 1000,
  map_proj = 'lambert',
- ref_lat   =  34.83,
- ref_lon   = -81.03,
- truelat1  =  30.0,
- truelat2  =  60.0,
- stand_lon = -98.0,
+ ref_lat   =  39.70537,
+ ref_lon   = -107.2907,
+ truelat1  =  39.338,
+ truelat2  =  0,
+ stand_lon = -106.807,
  geog_data_path = '/home/jbeezley/wrfdata/geog'
 /
 

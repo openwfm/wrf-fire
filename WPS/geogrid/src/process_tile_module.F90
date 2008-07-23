@@ -854,10 +854,19 @@ module process_tile_module
                                   i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=domname)
                   end if
 
+                  if(sub_x.gt.1.or.sub_y.gt.1)then
+    call mprintf(.true.,WARN,'Skipping landmask processing for subgrid field %s', &
+                     s1=fieldname)
+                  call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
+                             sm1, em1, sm2, em2, min_category, max_category, &
+                             processed_domain, 1, interponly=.true.)
+                  else
+
                   call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                              sm1, em1, sm2, em2, min_category, max_category, &
                              processed_domain, 1, landmask)
-        
+                  endif
+       
                   ! Find fractions
                   do i=sm1, em1
                      do j=sm2, em2
@@ -948,7 +957,7 @@ module process_tile_module
                      call write_field(sm1, em1, sm2, em2, &
                                       min_category, max_category, trim(fieldname), datestr, real_array=field)
                   end if
-        
+
                   if (idomcatstatus == 0) then
                      call mprintf(.true.,STDOUT,'  Processing %s', s1=trim(domname))
                      allocate(dominant_field(sm1:em1, sm2:em2))
@@ -1037,7 +1046,8 @@ module process_tile_module
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    recursive subroutine calc_field(fieldname, field, xlat_array, xlon_array, istagger, &
                                    start_i, end_i, start_j, end_j, start_k, end_k, &
-                                   processed_domain, ilevel, landmask)
+                                   processed_domain, ilevel, landmask, &
+                                   interponly)
    
       use bitarray_module
       use interp_module
@@ -1046,6 +1056,7 @@ module process_tile_module
       use proc_point_module
       use queue_module
       use source_data_module
+      use module_debug
     
       implicit none
     
@@ -1056,6 +1067,7 @@ module process_tile_module
       real, dimension(start_i:end_i, start_j:end_j), intent(in), optional :: landmask
       character (len=128), intent(in) :: fieldname
       type (bitarray), intent(inout) :: processed_domain
+      logical, optional, intent(in) :: interponly
     
       ! Local variables
       integer :: start_src_k, end_src_k
@@ -1073,6 +1085,11 @@ module process_tile_module
       type (bitarray) :: bit_domain, level_domain
       type (queue)    :: point_queue, tile_queue
       type (q_data)   :: current_pt
+
+      if(present(interponly))then
+        call mprintf(.true.,WARN,"skipping accumulation processing on subgrid field %s", & 
+                     s1=fieldname)
+      endif
 
       ! If this is the first trip through this routine, we need to allocate the bit array that
       !  will persist through all recursive calls, tracking which grid points have been assigned
@@ -1183,7 +1200,8 @@ module process_tile_module
             !   accum_categorical. 
             if (.not. bitarray_test(bit_domain, current_pt%x-start_i+1, current_pt%y-start_j+1)) then
                call q_insert(point_queue, current_pt) 
-               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel)) then
+               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel) .and. &
+                   .not.present(interponly)) then
                   call accum_categorical(current_pt%lat, current_pt%lon, istagger, field, &
                                          start_i, end_i, start_j, end_j, start_k, end_k, &
                                          fieldname, processed_domain, level_domain, &
@@ -1199,7 +1217,8 @@ module process_tile_module
             !   accum_continuous. 
             if (.not. bitarray_test(bit_domain, current_pt%x-start_i+1, current_pt%y-start_j+1)) then
                call q_insert(point_queue, current_pt) 
-               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel)) then
+               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel).and.&
+                   .not.present(interponly)) then
                   call accum_continuous(current_pt%lat, current_pt%lon, istagger, field, data_count, &
                                          start_i, end_i, start_j, end_j, start_k, end_k, &
                                          fieldname, processed_domain, level_domain, &
