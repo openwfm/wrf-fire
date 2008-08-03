@@ -1,0 +1,45 @@
+#!/bin/bash
+
+echo fetching:
+git fetch
+stat=$?
+if [ $stat -ne 0 ] ; then
+  exit $stat
+fi
+
+echo
+echo checking for local changes:
+cmt=$(git diff --name-only | wc -l )
+if [ $cmt -ne 0 ] ; then
+  git diff --name-status | cat
+  echo
+  echo 'local changes detected, run git commit first'
+  exit 1
+fi
+cbr=$(git branch |grep \* | sed 's|\*||')
+
+echo
+branch=$( (git branch | sed 's|\*| |' ; git branch -r | sed 's|origin/||' ) | sort |uniq -d )
+j=0
+for i in $branch ; do 
+  echo merging origin/$i to $i:
+  git checkout -f $i
+  git merge origin/$i
+  stat=$?
+  if [ $stat -ne 0 ] ; then
+    mfail[$((j++))]=$i
+    git reset --hard
+  fi
+  echo
+done
+
+git checkout -f $cbr
+echo
+
+if [ $j -ne 0 ] ; then
+  echo 'automatic merging of the following branches failed due to conflicts:'
+  echo ${mfail[*]}
+else
+  echo 'all local branches merged successfully'
+fi
+
