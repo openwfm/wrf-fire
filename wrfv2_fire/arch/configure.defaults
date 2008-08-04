@@ -4,6 +4,7 @@
 #
 OMP             =
 OMPCPP          =
+LAPACK          =       -L/opt/intel9.1-64-ser/lib -llapack -lblas
 FC		=	ifort -g  -debug extended -debug-parameters all -traceback -fpe0
 CC              =       gcc
 SCC		=	$(CC)
@@ -134,6 +135,7 @@ module_dm.o :
 #
 OMP             =
 OMPCPP          =
+LAPACK          =       -L/opt/intel9.1-64-ser/lib -llapack -lblas
 FC		=	ifort
 CC              =       gcc
 SCC		=	$(CC)
@@ -275,6 +277,7 @@ OMP             =       -openmp -fpp -auto
 OMPCPP          =       -D_OPENMP
 FC              =       ifort
 LD              =       ifort
+LAPACK          =       -L/opt/intel9.1-64-ser/lib -llapack -lblas
 CC              =       gcc
 SCC		=	$(CC)
 SFC             =       $(FC)
@@ -406,6 +409,7 @@ OMP             =       -openmp -fpp -auto
 OMPCPP          =       -D_OPENMP
 FC              =       ifort
 LD              =       ifort
+LAPACK          =       -L/opt/intel9.1-64-ser/lib -llapack -lblas
 CC              =       gcc
 SCC		=	$(CC)
 SFC             =       $(FC)
@@ -538,6 +542,7 @@ module_dm.o :
 #
 DMPARALLEL      =       1
 MAX_PROC        =       1024
+LAPACK          =       -L/opt/intel9.1-64-ser/lib -llapack -lblas
 FC              =       mpif90 -f90=ifort -g -traceback -O0
 LD              =       mpif90 -f90=ifort -g -traceback -O0
 CC              =       mpicc -cc=gcc -g -O0
@@ -688,6 +693,7 @@ module_dm.o :
 #
 DMPARALLEL      =       1
 MAX_PROC        =       1024
+LAPACK          =       -L/opt/intel9.1-64-ser/lib -llapack -lblas
 FC              =       mpif90 -f90=ifort
 LD              =       mpif90 -f90=ifort
 CC              =       mpicc -cc=gcc
@@ -841,6 +847,7 @@ OMP             =       -openmp -fpp -auto
 OMPCPP          =       -D_OPENMP
 DMPARALLEL      =       1
 MAX_PROC        =       1024
+LAPACK          =       -L/opt/intel9.1-64-ser/lib -llapack -lblas
 FC              =       mpif90 -f90=ifort -g -traceback
 LD              =       mpif90 -f90=ifort -g -traceback
 CC              =       mpicc -cc=gcc -g
@@ -992,6 +999,7 @@ OMP             =       -openmp -fpp -auto
 OMPCPP          =       -D_OPENMP
 DMPARALLEL      =       1
 MAX_PROC        =       1024
+LAPACK          =       -L/opt/intel9.1-64-ser/lib -llapack -lblas
 FC              =       mpif90 -f90=ifort
 LD              =       mpif90 -f90=ifort
 CC              =       mpicc -cc=gcc
