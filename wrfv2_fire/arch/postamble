@@ -11,6 +11,10 @@ wrfio_esmf :
 LN	=	ln -sf
 MAKE	=	make -i -r
 RM	= 	rm -f
+ifdef $(LAPACK)
+LIB := $(LIB) $(LAPACK)
+endif
+
 
 #	There is probably no reason to modify these rules
 
