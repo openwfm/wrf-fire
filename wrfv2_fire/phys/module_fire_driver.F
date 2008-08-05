@@ -295,50 +295,51 @@ CONTAINS
    CASE (FIRE_SFIRE)
 
      CALL wrf_debug(100,'entering SFIRE fire scheme')
+     call wrf_error_fatal('SFIRE no longer supported through module_fire_driver')
 
-     ! sfire_driver is in mediation layer, will have its own loops over tile inside
-     ! do NOT call from OMP loop!!
-
-     ! the last row (i=ide or j=jde) is not valid because wind at cell center was
-     ! interpolated from staggered grid by a loop like 
-     ! do i=1,min(its,ide-1); u_phy(i,...)=0.5*(u(i+1,...)+u(i,...))
-     ! then u_phy was passed here as u 
-
-     ! call on domain one less
-     
-     ifun_first=3
-     if(itimestep.eq.1)ifun_first=1
-     do ifun=ifun_first,6     
-     CALL sfire_driver_phys(ifun,need_lfn_update,                    &
-             ids,ide-1, kds,kde, jds,jde-1                          &
-            ,ims,ime, kms,kme, jms,jme                          &
-            ,ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1)                          & 
-            ,ifds,ifde-sr_x, jfds,jfde-sr_y                    &
-            ,ifms,ifme, jfms,jfme                    &
-            ,ifps,min(ifpe,ifde-sr_x), jfps,min(jfpe,jfde-sr_y)      &
-            ,sr_x,sr_y                                          &
-            ,num_tiles,i_start,min(i_end,ide-1),j_start,min(j_end,jde-1)              &
-            ,itimestep                                          &
-            ,fire_fuel_read,fire_fuel_cat                       &
-            ,dt,dx,dy                                           &
-            ,u_frame,v_frame                                    &
-            ,fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt          &
-            ,fire_num_ignitions                                 &
-            ,fire_ignition_start_x,fire_ignition_start_y        & ! ignition - small arrays
-            ,fire_ignition_end_x,fire_ignition_end_y            &
-            ,fire_ignition_radius                              &
-            ,fire_ignition_time                                &
-            ,u,v,mu,rho,ht                                      &
-            ,z_at_w,dz8w                                        &
-            ,lfn,tign_c,fuel_frac                               & 
-            ,uf,vf,lfn_out                                      & ! fire wind velocities, out level set function
-            ,rthfrten,rqvfrten                                  &
-            ,grnhfx,grnqfx,canhfx,canqfx                        &
-            ,nfuel_cat                                          &
-            ,fuel_time,zsf                                      &
-            ,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap     &
-            )
-    enddo
+!!     ! sfire_driver is in mediation layer, will have its own loops over tile inside
+!!     ! do NOT call from OMP loop!!
+!!
+!!     ! the last row (i=ide or j=jde) is not valid because wind at cell center was
+!!     ! interpolated from staggered grid by a loop like 
+!!     ! do i=1,min(its,ide-1); u_phy(i,...)=0.5*(u(i+1,...)+u(i,...))
+!!     ! then u_phy was passed here as u 
+!!
+!!     ! call on domain one less
+!!     
+!!     ifun_first=3
+!!     if(itimestep.eq.1)ifun_first=1
+!!     do ifun=ifun_first,6     
+!!     CALL sfire_driver_phys(ifun,need_lfn_update,                    &
+!!             ids,ide-1, kds,kde, jds,jde-1                          &
+!!            ,ims,ime, kms,kme, jms,jme                          &
+!!            ,ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1)                          & 
+!!            ,ifds,ifde-sr_x, jfds,jfde-sr_y                    &
+!!            ,ifms,ifme, jfms,jfme                    &
+!!            ,ifps,min(ifpe,ifde-sr_x), jfps,min(jfpe,jfde-sr_y)      &
+!!            ,sr_x,sr_y                                          &
+!!            ,num_tiles,i_start,min(i_end,ide-1),j_start,min(j_end,jde-1)              &
+!!            ,itimestep                                          &
+!!            ,fire_fuel_read,fire_fuel_cat                       &
+!!            ,dt,dx,dy                                           &
+!!            ,u_frame,v_frame                                    &
+!!            ,fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt          &
+!!            ,fire_num_ignitions                                 &
+!!            ,fire_ignition_start_x,fire_ignition_start_y        & ! ignition - small arrays
+!!            ,fire_ignition_end_x,fire_ignition_end_y            &
+!!            ,fire_ignition_radius                              &
+!!            ,fire_ignition_time                                &
+!!            ,u,v,mu,rho,ht                                      &
+!!            ,z_at_w,dz8w                                        &
+!!            ,lfn,tign_c,fuel_frac                               & 
+!!            ,uf,vf,lfn_out                                      & ! fire wind velocities, out level set function
+!!            ,rthfrten,rqvfrten                                  &
+!!            ,grnhfx,grnqfx,canhfx,canqfx                        &
+!!            ,nfuel_cat                                          &
+!!            ,fuel_time,zsf                                      &
+!!            ,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap     &
+!!            )
+!!    enddo
         CALL wrf_debug(100,'exiting SFIRE fire scheme')
    CASE DEFAULT
 

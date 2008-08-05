@@ -156,6 +156,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%itimestep,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
             grid%dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
+            config_flags%fire_fuel_left_method,         &
+            config_flags%fire_fuel_left_irl,         &
+            config_flags%fire_fuel_left_jrl,         &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
             fire_num_ignitions,                                & 
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
@@ -193,6 +196,9 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
     itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
     u_frame,v_frame,                              &
+    fire_fuel_left_method,         &
+    fire_fuel_left_irl,         &
+    fire_fuel_left_jrl,         &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
     num_ignitions,                                & 
     ignition_start_x,ignition_start_y,            & ! ignition - small arrays
@@ -229,6 +235,9 @@ integer, intent(in)::ifun,                        &
                                                        ! 1=from altitude
                                                        ! 2=from file
     nfuel_cat0,                                   & ! fuel category to initialize everything to
+    fire_fuel_left_method,                        & ! for fuel_left
+    fire_fuel_left_irl,                           &
+    fire_fuel_left_jrl,                           &
     num_tiles                                       ! number of tiles
     
 logical, intent(out)::need_lfn_update
@@ -404,6 +413,9 @@ do ij=1,num_tiles
     call sfire_model (id,ifun,need_lfn_update,  &
         num_ignitions,                          & ! switches
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
+        fire_fuel_left_method,                  &
+        fire_fuel_left_irl,                     &
+        fire_fuel_left_jrl,                     &
         ifds,ifde,jfds,jfde,                    & ! fire domain dims
         ifms,ifme,jfms,jfme,                    & ! fire memory dims
         ifts,ifte,jfts,jfte,                    & ! fire patch dims

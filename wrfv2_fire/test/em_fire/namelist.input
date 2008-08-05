@@ -161,4 +161,7 @@
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
  fire_print_msg     = 1,    ! 1 to print fire debugging messages
  fire_print_file    = 0,    ! 1 to write text output files for fire arrays
+ fire_fuel_left_method=2,   ! 1=simple algebraic, 2=exact quadrature and least squares
+ fire_fuel_left_irl=2,      ! refinement to integrate fuel_left, must be even
+ fire_fuel_left_jrl=2,      ! refinement to integrate fuel_left, must be even
  /
