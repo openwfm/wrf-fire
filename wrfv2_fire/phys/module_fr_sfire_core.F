@@ -162,7 +162,7 @@ end subroutine ignite_fire
 !**********************
 !            
 
-subroutine fuel_left( &
+subroutine fuel_left(fuel_left_method, &
     ims,ime,jms,jme, &
     its,ite,jts,jte, &
     ifs,ife,jfs,jfe, &
@@ -176,11 +176,13 @@ implicit none
 
 !*** arguments
 
+integer,intent(in):: fuel_left_method
 integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe,ir,jr
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: time_now
 real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
 
+! fuel_left_method  in   1=approximate formula, 2=quadrature and least squares
 ! ims,ime,jms,jme   in   memory dimensions
 ! its,ite,jts,jte   in   tile dimensions (cells where fuel_frac computed)
 ! ifs,ife,jfs,jfe   in   fuel_frac memory dimensions
@@ -199,7 +201,6 @@ real::xfcell,yfcell
 #define JFCELLS (jte-jts+1)*jr
 real,dimension(0:IFCELLS+1,0:JFCELLS+1)::lff,tif
 real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f
-integer fuel_left_method
 	     
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
@@ -234,7 +235,6 @@ call interpolate_2d(  &
 !           fine node 0             1             2                         2*(ite-its) 
 !                fine cell  1              2                                      2*(ite-its+1)
 
-fuel_left_method=2
 do j=1,JFCELLS
     do i=1,IFCELLS
         xfcell=i-0.5  ! middle of the fine cell in fine grid coordinates

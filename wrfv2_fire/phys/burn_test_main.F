@@ -43,7 +43,7 @@ do i=1,k
     tign=tign_t(:,:,i)
     w=w_t(1,1,i)
     tnow=tnow_t(i)
-    call fuel_left(ids,ide,jds,jde,ims,ime,jms,jme,lfn,tign,w,tnow,fuel_frac)
+    call fuel_left(1,ids,ide,jds,jde,ims,ime,jms,jme,lfn,tign,w,tnow,fuel_frac)
     write(*,1) i, desc(i), fuel_frac(1,1), frac_t(1,1,i), (fuel_frac(1,1)-frac_t(1,1,i)) 
 1   format( i3,1x, a,' fuel_frac', f8.5,' should be', f8.5,' error', g11.3)
 enddo

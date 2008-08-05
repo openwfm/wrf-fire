@@ -126,6 +126,7 @@ integer::ignited,ig,i,j
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 real::tbound
 integer,parameter::ifl=2,jfl=2   ! quadrature mesh size per cell for fuel_left
+integer,parameter::fuel_left_method=2
 character(len=128)::msg
 
 !*** executable
@@ -199,7 +200,7 @@ elseif(ifun.eq.3)then   ! initialize timestep
 elseif (ifun.eq.4) then  ! do the timestep
 
 !   compute fuel fraction at start
-    call fuel_left( &
+    call fuel_left(fuel_left_method, &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifms,ifme,jfms,jfme, &
@@ -250,7 +251,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn from neighbors so halo must be updated before
-    call fuel_left( &
+    call fuel_left(fuel_left_method, &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
