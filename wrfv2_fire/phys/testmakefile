@@ -28,7 +28,7 @@ DECL = normal_spread_decl
 SPEED_VARS_ARGS = \"$(ARGS).h\"
 SPEED_VARS_DECL = \"$(DECL).h\"
 INC = $(ARGS).h $(DECL).h
-LAPACK_OBJ = 
+LAPACK_OBJ = lapack.o
 
 # module dependencies
 
@@ -195,10 +195,32 @@ model_test:
 	DECL=fr_sfire_params_decl
 	./model_test_prog.exe
 	# run model_test in Matlab to visualize
-
-
 model_test_prog.exe: $(MODEL_OBJ) 
 	$(FC) -o model_test_prog.exe $(MODEL_OBJ) 
+
+#fuel_burnt_test
+burnt_test_OBJ=\
+	module_fr_sfire_core.o \
+	module_fr_sfire_util.o \
+	module_fr_sfire_phys.o \
+	wrf_fakes.o \
+	fuel_burnt_test.o \
+	$(LAPACK_OBJ)
+
+fuel_burnt_test.o: module_fr_sfire_core.o
+
+fuel_burnt_test.exe: $(burnt_test_OBJ)
+	$(FC) -o fuel_burnt_test.exe $(burnt_test_OBJ)
+
+fuel_burnt_test:
+	make -f $(MAKEFILE) fuel_burnt_test.exe FC="$(FC)" \
+	PHYS=module_fr_sfire_phys \
+	ARGS=fr_sfire_params_args \
+	DECL=fr_sfire_params_decl
+	./fuel_burnt_test.exe
+#fuel_burnt_test:
+#	make -f $(MAKEFILE) fuel_burnt_test.exe FC="$(FC)"
+#	./fuel_burnt_test.exe
 
 #
 # the whole fire model through atmosphere coupling 
