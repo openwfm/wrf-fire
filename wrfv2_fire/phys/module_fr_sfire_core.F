@@ -713,6 +713,7 @@ else
     u(3)=vecX(3)            
     ! rotate to gradient on x only
     nr = sqrt(u(1)**2+u(2)**2)
+    if(.not.nr.gt.eps)nr=1. ! jm hack to avoid division by zero
     c = u(1)/nr
     s = u(2)/nr
     mQ(1,1)=c
