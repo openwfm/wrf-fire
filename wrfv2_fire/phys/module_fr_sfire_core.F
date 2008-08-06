@@ -569,7 +569,10 @@ else
     u(3)=vecX(3)            
     ! rotate to gradient on x only
     nr = sqrt(u(1)**2+u(2)**2)
-    if(.not.nr.gt.eps)nr=1. ! jm hack to avoid division by zero
+    if(.not.nr.gt.eps)then
+        out=1.
+        goto 900
+    endif
     c = u(1)/nr
     s = u(2)/nr
     mQ(1,1)=c
@@ -688,8 +691,9 @@ else
         end if
     end do ! k     
     
-    
 end if ! if case0, elseif case4 ,else case123
+
+900 continue 
 
 fuel_left_cell = out
 end function fuel_left_cell
