@@ -14,7 +14,11 @@ The repository contains these main branches:
 * jm: current working branch
 * jm-base: early snapshot that gives the same output as Ned had
 
-Only Jon should commit to master branch.
+Only Jon should commit to master branch in the repository.
+Each branch has owner and one the owner can commit to that branch in the
+repository.
+If you want to have more than one branch have Jon set up a branch (say, jm2)
+and then use it as a kind of directory, as in notation, as jm2/newtest
 
 RUNNING
 
@@ -22,6 +26,7 @@ Make sure you source either env.sh (for sh shells)
 or env.csh (for csh shells) to set up environment
 variables for building. Then,
 
+ 
 cd wrfv2_fire
 ./configure # select an option for your computer,
             # the configuration options present have all been tested
@@ -71,3 +76,7 @@ make -f testmakefile.walnut clean model_test
 
 this will run the standalone model test.
 
+SETUP ON A NEW MACHINE
+
+You need to install the NETCDF and LAPACK libraries, make
+your copy of env.csh, and modify the environment variables accordingly.

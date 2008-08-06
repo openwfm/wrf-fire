@@ -26,6 +26,7 @@ setenv JASPERLIB ${base}/jasper/lib
 setenv JASPERINC ${base}/jasper/include
 setenv NCARG_ROOT ${base}/ncarg
 setenv NCARG $NCARG_ROOT
+setenv LAPACK "-L/home/jmandel/lib -llapack -lblas"
 unlimit
 
 #set ifvars=/opt/intel/fce/9.1.036/bin/ifortvars.csh
