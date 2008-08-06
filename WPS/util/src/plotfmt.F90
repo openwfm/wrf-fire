@@ -1,38 +1,44 @@
-program pltfmt
+program plotfmt
 
   use read_met_module
 
   implicit none
 !
-! Utility program to plot up the files created by pregrid.
+! Utility program to plot up files created by pregrid / SI / ungrib.
 ! Uses NCAR graphics routines.  If you don't have NCAR Graphics, you're 
 ! out of luck.
 !
-   INTEGER :: istatus, version, nx, ny, iproj
+   INTEGER :: istatus
    integer :: idum, ilev
-   REAL :: xfcst, xlvl, startlat, startlon, starti, startj, &
-           deltalat, deltalon, dx, dy, xlonc, truelat1, truelat2, earth_radius
-   REAL, POINTER, DIMENSION(:,:) :: slab
-   LOGICAL :: is_wind_grid_rel
 
    CHARACTER ( LEN =132 )            :: flnm
 
-   CHARACTER ( LEN = 24 )            :: hdate
-   CHARACTER ( LEN =  9 )            :: field
-   CHARACTER ( LEN = 25 )            :: units
-   CHARACTER ( LEN = 46 )            :: desc
-   CHARACTER ( LEN = 32 )            :: map_source
+   TYPE (met_data)                   :: fg_data
 
 !
 !   Set up the graceful stop (Sun, SGI, DEC).
 !
    integer, external :: graceful_stop
+#if defined(_DOUBLEUNDERSCORE) && defined(MACOS)
+   ! we do not do any signaling
+#else
    integer, external :: signal
+#endif
    integer :: iii
 
+#if defined(_DOUBLEUNDERSCORE) && defined(MACOS)
+  ! still more no signaling
+#else
   iii = signal(2, graceful_stop, -1)
+#endif
 
   call getarg(1,flnm)
+
+   IF ( flnm(1:1) == ' ' ) THEN
+      print *,'USAGE: plotfmt.exe <filename>'
+      print *,'       where <filename> is the name of an intermediate-format file'
+      STOP
+   END IF
 
   call gopks(6,idum)
   call gopwk(1,55,1)
@@ -50,34 +56,28 @@ program pltfmt
 
    IF ( istatus == 0 ) THEN
 
-      CALL  read_next_met_field(version, field, hdate, xfcst, xlvl, units, desc, &
-                          iproj, startlat, startlon, starti, startj, deltalat, &
-                          deltalon, dx, dy, xlonc, truelat1, truelat2, earth_radius, &
-                          nx, ny, map_source, &
-                          slab, is_wind_grid_rel, istatus)
+      CALL  read_next_met_field(fg_data, istatus)
 
       DO WHILE (istatus == 0)
 
-         ilev = nint(xlvl)
+         ilev = nint(fg_data%xlvl)
 
-         if (iproj == PROJ_LATLON) then
-            call plt2d(slab, nx, ny, iproj, &
-                       startlat, startlon, deltalon, deltalat, xlonc, truelat1, truelat2, &
-                       field, ilev, units, version, desc, map_source)
+         if (fg_data%iproj == PROJ_LATLON) then
+            call plt2d(fg_data%slab, fg_data%nx, fg_data%ny, fg_data%iproj, &
+                       fg_data%startlat, fg_data%startlon, fg_data%deltalon, &
+                       fg_data%deltalat, fg_data%xlonc, fg_data%truelat1, fg_data%truelat2, &
+                       fg_data%field, ilev, fg_data%units, fg_data%version, fg_data%desc, fg_data%map_source)
          else
-            call plt2d(slab, nx, ny, iproj, &
-                       startlat, startlon, dx, dy, xlonc, truelat1, truelat2, &
-                       field, ilev, units, version, desc, map_source)
+            call plt2d(fg_data%slab, fg_data%nx, fg_data%ny, fg_data%iproj, &
+                       fg_data%startlat, fg_data%startlon, fg_data%dx, fg_data%dy, fg_data%xlonc, &
+                       fg_data%truelat1, fg_data%truelat2, fg_data%field, ilev, fg_data%units, &
+                       fg_data%version, fg_data%desc, fg_data%map_source)
          end if
 
 
-         IF (ASSOCIATED(slab)) DEALLOCATE(slab)
+         IF (ASSOCIATED(fg_data%slab)) DEALLOCATE(fg_data%slab)
 
-         CALL  read_next_met_field(version, field, hdate, xfcst, xlvl, units, desc, &
-                             iproj, startlat, startlon, starti, startj, deltalat, &
-                             deltalon, dx, dy, xlonc, truelat1, truelat2, earth_radius, &
-                             nx, ny, map_source, &
-                             slab, is_wind_grid_rel, istatus)
+         CALL  read_next_met_field(fg_data, istatus)
       END DO
 
       CALL read_met_close()
@@ -92,7 +92,7 @@ program pltfmt
 
   call stopit
 
-end program pltfmt
+end program plotfmt
 
 subroutine plt2d(scr2d, ix, jx, llflag, &
      lat1, lon1, dx, dy, lov, truelat1, truelat2, &
@@ -116,7 +116,7 @@ subroutine plt2d(scr2d, ix, jx, llflag, &
 
   integer :: iproj, ierr
   real :: pl1, pl2, pl3, pl4, plon, plat, rota, phic
-  real :: xl, xr, xb, xt, wl, wr, wb, wt
+  real :: xl, xr, xb, xt, wl, wr, wb, wt, yb
   integer :: ml, ih, i
 
   integer, parameter :: lwrk = 20000, liwk = 50000
@@ -193,7 +193,12 @@ subroutine plt2d(scr2d, ix, jx, llflag, &
   write(hlev,'(I8)') ilev
 
   call set(0., 1., 0., 1., 0., 1., 0., 1., 1)
-  call pchiqu(0.1, xb-0.04, hlev//'  '//field, .020, 0.0, -1.0)
+  if ( xb .lt. .16 ) then
+    yb = .16    ! xb depends on the projection, so fix yb and use it for labels
+  else
+    yb = xb
+  endif
+  call pchiqu(0.1, yb-0.05, hlev//'  '//field, .020, 0.0, -1.0)
   print*, field//'#'//units//'#'//trim(Desc)
 ! call pchiqu(0.1, xb-0.12, Desc, .012, 0.0, -1.0)
   hunit = '                                      '
@@ -217,10 +222,10 @@ subroutine plt2d(scr2d, ix, jx, llflag, &
   else if ( ifv .eq. 5 ) then
     tmp32 = 'WPS intermediate format'
   endif
-  call pchiqu(0.1, xb-0.08, hunit, .015, 0.0, -1.0)
-  call pchiqu(0.1, xb-0.12, Desc, .013, 0.0, -1.0)
-  call pchiqu(0.6, xb-0.12, source, .013, 0.0, -1.0)
-  call pchiqu(0.1, xb-0.15, tmp32, .013, 0.0, -1.0)
+  call pchiqu(0.1, yb-0.09, hunit, .015, 0.0, -1.0)
+  call pchiqu(0.1, yb-0.12, Desc, .013, 0.0, -1.0)
+  call pchiqu(0.6, yb-0.12, source, .013, 0.0, -1.0)
+  call pchiqu(0.1, yb-0.15, tmp32, .013, 0.0, -1.0)
 
   call set(xl,xr,xb,xt,1.,float(ix),1.,float(jx),ml)
 

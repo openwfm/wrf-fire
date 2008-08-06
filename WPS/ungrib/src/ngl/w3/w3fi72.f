@@ -3,7 +3,7 @@
      &                  IGFLAG,IGRID,IGDS,ICOMP,
      &                  IBFLAG,IBMAP,IBLEN,IBDSFL,
      &                  NPTS,KBUF,ITOT,JERR)
-C$$$  SUBPROGRAM DOCUMENTATION BLOCK
+C $$  SUBPROGRAM DOCUMENTATION BLOCK
 C                .      .    .                                       .
 C SUBPROGRAM:  W3FI72        MAKE A COMPLETE GRIB MESSAGE
 C   PRGMMR: FARLEY           ORG: NMC421      DATE:94-11-22
@@ -36,7 +36,7 @@ C   95-10-31  IREDELL      REMOVED SAVES AND PRINTS
 C   98-05-19  Gilbert      Increased array dimensions to handle grids
 C                          of up to 500,000 grid points.
 C   95-10-31  IREDELL      GENERALIZED WORD SIZE
-C   98-12-21  Gilbert      Replaced Function ICHAR with mova2i.
+C   98-12-21  Gilbert      Replaced Function ICHAR with mov_a2i.
 C   99-02-01  Gilbert      Changed the method of zeroing out array KBUF.
 C                          the old method, using W3FI01 and XSTORE was
 C                          incorrect with 4-byte integers and 8-byte reals.
@@ -170,7 +170,7 @@ C
 C ATTRIBUTES:
 C   LANGUAGE: FORTRAN 90
 C
-C$$$
+C $$
 C
       REAL            FLD(*)
 C
@@ -206,7 +206,7 @@ C
       LENBDS = 0
       ITOSS  = 0
 C
-C$           1.0   PRODUCT DEFINITION SECTION(PDS).
+C            1.0   PRODUCT DEFINITION SECTION(PDS).
 C
 C   SET ID(6) TO 1 ...OR... MODIFY PDS(8) ...
 C      REGARDLESS OF USER SPECIFICATION...
@@ -216,10 +216,10 @@ C
         ID(6) = 1
         CALL W3FI68(ID,PDS)
       ELSE IF (IPFLAG .EQ. 1) THEN
-        IF (IAND(mova2i(PDS(8)),64) .EQ. 64) THEN
+        IF (IAND(mov_a2i(PDS(8)),64) .EQ. 64) THEN
 C         BOTH GDS AND BMS
           PDS(8) = CHAR(192)
-        ELSE IF (mova2i(PDS(8)) .EQ. 0) THEN
+        ELSE IF (mov_a2i(PDS(8)) .EQ. 0) THEN
 C         GDS ONLY
           PDS(8) = CHAR(128)
         END IF
@@ -232,10 +232,10 @@ C       PRINT *,' W3FI72 ERROR, IPFLAG IS NOT 0 OR 1 IPFLAG = ',IPFLAG
 C
 C     GET LENGTH OF PDS
 C
-      IPDSL = mova2i(PDS(1)) * 65536 + mova2i(PDS(2)) * 256 +
-     &        mova2i(PDS(3))
+      IPDSL = mov_a2i(PDS(1)) * 65536 + mov_a2i(PDS(2)) * 256 +
+     &        mov_a2i(PDS(3))
 C
-C$           2.0   GRID DEFINITION SECTION (GDS).
+C            2.0   GRID DEFINITION SECTION (GDS).
 C
 C     IF IGFLAG=1 THEN USER IS SUPPLYING THE IGDS INFORMATION
 C
@@ -261,14 +261,14 @@ C       PRINT *,' W3FI72 ERROR, IGFLAG IS NOT 0 OR 1 IGFLAG = ',IGFLAG
         GO TO 900
       END IF
 C
-C$           3.0   BIT MAP SECTION (BMS).
+C            3.0   BIT MAP SECTION (BMS).
 C
 C     SET ITOSS=1 IF BITMAP BEING USED.  W3FI75 WILL TOSS DATA
 C     PRIOR TO PACKING.  LATER CODING WILL BE NEEDED WHEN THE
 C     'PREDEFINED' GRIDS ARE FINALLY 'DEFINED'.
 C
-      IF (mova2i(PDS(8)) .EQ. 64 .OR.
-     &    mova2i(PDS(8)) .EQ. 192)   THEN
+      IF (mov_a2i(PDS(8)) .EQ. 64 .OR.
+     &    mov_a2i(PDS(8)) .EQ. 192)   THEN
         ITOSS = 1
         IF (IBFLAG .EQ. 0) THEN
           IF (IBLEN .NE. NPTS) THEN
@@ -288,11 +288,11 @@ C         PRINT *,'   BIT MAP PREDEFINED BY CENTER, IBFLAG = ',IBFLAG
         END IF
       END IF
 C
-C$           4.0   BINARY DATA SECTION (BDS).
+C            4.0   BINARY DATA SECTION (BDS).
 C
-C$           4.1   SCALE THE DATA WITH D-SCALE FROM PDS(27-28)
+C            4.1   SCALE THE DATA WITH D-SCALE FROM PDS(27-28)
 C
-      JSCALE = mova2i(PDS(27)) * 256 + mova2i(PDS(28))
+      JSCALE = mov_a2i(PDS(27)) * 256 + mov_a2i(PDS(28))
       IF (IAND(JSCALE,32768).NE.0) THEN
         JSCALE = - IAND(JSCALE,32767)
       END IF
@@ -307,7 +307,7 @@ C
   411   CONTINUE
       END IF
 C
-C$           4.2   CALL W3FI75 TO PACK DATA AND MAKE BDS.
+C            4.2   CALL W3FI75 TO PACK DATA AND MAKE BDS.
 C
       ALLOCATE(PFLD(NPTS*4))
 C
@@ -344,9 +344,9 @@ C
           END IF
       END IF
 C
-C$           5.0   OUTPUT SECTION.
+C            5.0   OUTPUT SECTION.
 C
-C$           5.1   ZERO OUT THE OUTPUT ARRAY KBUF.
+C            5.1   ZERO OUT THE OUTPUT ARRAY KBUF.
 C
       ZERO    = CHAR(00)
       ITOT    = IGRIBL + IPDSL + LENGDS + LENBMS + LENBDS + 4
@@ -358,7 +358,7 @@ C     PRINT *,'LENBDS  =',LENBDS
 C     PRINT *,'ITOT    =',ITOT
       KBUF(1:ITOT)=ZERO
 C
-C$           5.2   MOVE SECTION 0 - 'IS' INTO KBUF (8 BYTES).
+C            5.2   MOVE SECTION 0 - 'IS' INTO KBUF (8 BYTES).
 C
       ISTART  = 0
       DO 520 I = 1,4
@@ -370,7 +370,7 @@ C
       KBUF(7) = CHAR(MOD(ITOT        ,256))
       KBUF(8) = CHAR(1)
 C
-C$           5.3   MOVE SECTION 1 - 'PDS' INTO KBUF (28 BYTES).
+C            5.3   MOVE SECTION 1 - 'PDS' INTO KBUF (28 BYTES).
 C
       ISTART  = ISTART + IGRIBL
       IF (IPDSL.GT.0) THEN
@@ -379,35 +379,35 @@ C
 C       PRINT *,'LENGTH OF PDS LESS OR EQUAL 0, IPDSL = ',IPDSL
       END IF
 C
-C$           5.4   MOVE SECTION 2 - 'GDS' INTO KBUF.
+C            5.4   MOVE SECTION 2 - 'GDS' INTO KBUF.
 C
       ISTART  = ISTART + IPDSL
       IF (LENGDS .GT. 0) THEN
         CALL XMOVEX(KBUF(ISTART+1),GDS,LENGDS)
       END IF
 C
-C$           5.5   MOVE SECTION 3 - 'BMS' INTO KBUF.
+C            5.5   MOVE SECTION 3 - 'BMS' INTO KBUF.
 C
       ISTART  = ISTART + LENGDS
       IF (LENBMS .GT. 0) THEN
         CALL XMOVEX(KBUF(ISTART+1),BMS,LENBMS)
       END IF
 C
-C$           5.6   MOVE SECTION 4 - 'BDS' INTO KBUF.
+C            5.6   MOVE SECTION 4 - 'BDS' INTO KBUF.
 C
-C$                 MOVE THE FIRST 11 OCTETS OF THE BDS INTO KBUF.
+C                  MOVE THE FIRST 11 OCTETS OF THE BDS INTO KBUF.
 C
       ISTART  = ISTART + LENBMS
       CALL XMOVEX(KBUF(ISTART+1),BDS11,11)
 C
-C$                 MOVE THE PACKED DATA INTO THE KBUF
+C                  MOVE THE PACKED DATA INTO THE KBUF
 C
       ISTART  = ISTART + 11
       IF (LEN.GT.0) THEN
         CALL XMOVEX(KBUF(ISTART+1),PFLD,LEN)
       END IF
 C
-C$                 ADD '7777' TO END OFF KBUF
+C                  ADD '7777' TO END OFF KBUF
 C   NOTE THAT THESE 4 OCTETS NOT INCLUDED IN ACTUAL SIZE OF BDS.
 C
       SEVEN  = CHAR(55)

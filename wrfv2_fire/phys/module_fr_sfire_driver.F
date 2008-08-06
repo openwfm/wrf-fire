@@ -97,7 +97,8 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
     ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
-    
+    integer, dimension(ifms:ifme, jfms:jfme)::nfuel_cat_int
+
 !*** executable
     call fire_ignition_convert (config_flags,fire_max_ignitions, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
@@ -140,6 +141,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 #include "HALO_FIRE_WIND_A.inc"
         endif
 #endif
+        nfuel_cat_int(:,:)=int(grid%nfuel_cat)
         ! need domain by 1 smaller, in last row.col winds are not set properly
         call sfire_driver_phys ( &
             fire_ifun,need_lfn_update,                  &
@@ -170,11 +172,12 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%uf,grid%vf,lfn_out,                      & ! arrays to persist only over one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid  
-            grid%nfuel_cat,                               & ! input, or internal for safekeeping
+            nfuel_cat_int,                               & ! input, or internal for safekeeping
             grid%fuel_time,grid%zsf,                      & 
             grid%dzfsdx,grid%dzfsdy,                      &
             grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
         )
+        grid%nfuel_cat(:,:)=real(nfuel_cat_int(:,:))
     
     enddo
 

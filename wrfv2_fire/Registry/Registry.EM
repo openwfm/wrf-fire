@@ -1386,7 +1386,7 @@ dimspec    o      -     constant=4                z          fire_particle_dim
 # fire variables on fire grid
 #
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
-state    integer  nfuel_cat *i*j     fire        1         z     hr        "NFUEL_CAT"        "fuel data"   
+state    real  nfuel_cat *i*j     fire        1         z     i012hr        "NFUEL_CAT"        "fuel data"   
 state    integer  nfl       *i*j     fire        1         z     hr
 state    integer  nfl_t     *i*j     fire        1         z     hr
 state    integer  nfl_c     *i*j     fire        1         z     hr

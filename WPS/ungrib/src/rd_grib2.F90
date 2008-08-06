@@ -77,7 +77,6 @@
 C - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 C  SET ARGUMENTS
 
-      call start()
       unpack=.true.
       expand=.true.
       hdate = '0000-00-00_00:00:00'
@@ -90,7 +89,7 @@ C  SET ARGUMENTS
       currlen=0
       ith=1
       scale_factor = 1e6
-      call mprintf(.true.,DEBUG,"Begin rd_grib2")
+      call mprintf(.true.,DEBUG,"Begin rd_grib2", newline=.true.)
 
 !/* IOS Return Codes from BACIO:  */
 !/*  0    All was well                                   */
@@ -134,19 +133,21 @@ C  SET ARGUMENTS
          call baread(junit,lskip,lgrib,lengrib,cgrib)
 
 	 call mprintf ((lgrib.ne.lengrib),ERROR,
-     &    "rd_grib2: IO Error. %i .ne. %i ",i1=lgrib,i2=lengrib)
+     &    "rd_grib2: IO Error. %i .ne. %i ", newline=.true.,
+     &    i1=lgrib,i2=lengrib)
 
          iseek=lskip+lgrib
          icount=icount+1
 
          call mprintf (.true.,DEBUG,
-     &     "G2 GRIB MESSAGE  %i starts at %i ",i1=icount,i2=lskip+1)
+     &     "G2 GRIB MESSAGE  %i starts at %i ", newline=.true.,
+     &      i1=icount,i2=lskip+1)
 
          ! Unpack GRIB2 field
          call gb_info(cgrib,lengrib,listsec0,listsec1,
      &                numfields,numlocal,maxlocal,ierr)
 	 call mprintf((ierr.ne.0),ERROR,
-     &     " ERROR querying GRIB2 message = %i",i1=ierr)
+     &     " ERROR querying GRIB2 message = %i",newline=.true.,i1=ierr)
          itot=itot+numfields
 
          grib_edition=listsec0(2)
@@ -172,7 +173,7 @@ C  SET ARGUMENTS
            ! and time information, including forecast time information:
 
            n=1
-           call gf_getfld(cgrib,lengrib,n,unpack,expand,gfld,ierr)
+           call gf_getfld(cgrib,lengrib,n,.FALSE.,expand,gfld,ierr)
            year  =gfld%idsect(6)     !(FOUR-DIGIT) YEAR OF THE DATA
            month =gfld%idsect(7)     ! MONTH OF THE DATA
            day   =gfld%idsect(8)     ! DAY OF THE DATA
@@ -195,9 +196,11 @@ C  SET ARGUMENTS
            !print *, 'hhmm  ',gfld%idsect(9),gfld%idsect(10)
    
            call build_hdate(hdate,year,month,day,hour,minute,second)
-	   call mprintf(.true.,DEBUG,"G2 hdate = %s ",s1=hdate)
+           call mprintf(.true.,DEBUG,"G2 hdate = %s ", newline=.true.,
+     &                  s1=hdate)
            call geth_newdate(hdate,hdate,3600*fcst)
-	   call mprintf(.true.,DEBUG,"G2 hdate (fcst?) = %s ",s1=hdate)
+	   call mprintf(.true.,DEBUG,"G2 hdate (fcst?) = %s ",
+     &                  newline=.true., s1=hdate)
 
            !--
 
@@ -226,9 +229,11 @@ C  SET ARGUMENTS
              else
                map%source = 'unknown model from NCEP'
 	       call mprintf(.true.,STDOUT,
-     &            "unknown model from NCEP %i ",i1=iprocess)
+     &            "unknown model from NCEP %i ",newline=.true.,
+     &            i1=iprocess)
 	       call mprintf(.true.,LOGFILE,
-     &            "unknown model from NCEP %i ",i1=iprocess)
+     &            "unknown model from NCEP %i ",newline=.true.,
+     &            i1=iprocess)
              end if
 	   else if (icenter .eq. 57) then
 	     if (iprocess .eq. 87) then
@@ -352,31 +357,37 @@ C  SET ARGUMENTS
               if ( debug_level .gt. 2 ) then
 	      call mprintf(.true.,DEBUG,
      &     "Gaussian Grid: Dx,Dy,lat,lon,nlats %f %f %f %f %i ",
-     &  f1=map%dx,f2=map%dy,f3=map%lat1,f4=map%lon1,i1=nint(map%dy))
+     &     newline=.true.,f1=map%dx,f2=map%dy,f3=map%lat1,f4=map%lon1,
+     &     i1=nint(map%dy))
               end if
 
            else
 	      call mprintf(.true.,STDOUT,"GRIB2 Unknown Projection: %i",
-     &          i1=gfld%igdtnum)
+     &          newline=.true.,i1=gfld%igdtnum)
 	      call mprintf(.true.,STDOUT,
-     &         "see Code Table 3.1: Grid Definition Template Number")
+     &          "see Code Table 3.1: Grid Definition Template Number", 
+     &          newline=.true.)
 	      call mprintf(.true.,LOGFILE,
      &          "GRIB2 Unknown Projection: %i",
-     &          i1=gfld%igdtnum)
+     &          newline=.true.,i1=gfld%igdtnum)
 	      call mprintf(.true.,LOGFILE,
-     &         "see Code Table 3.1: Grid Definition Template Number")
+     &          "see Code Table 3.1: Grid Definition Template Number",
+     &          newline=.true.)
            endif
          
 	   if (icenter.eq.7) then
 	     call ncep_grid_num (gfld%igdtnum)
 	   endif
+
+           ! Deallocate arrays decoding GRIB2 record.
+           call gf_free(gfld)
          endif
 
          ! ----
 
          ! Continue to unpack GRIB2 field.
          do n=1,numfields ! e.g. U and V would =2, otherwise its usually =1
-           call gf_getfld(cgrib,lengrib,n,unpack,expand,gfld,ierr)
+           call gf_getfld(cgrib,lengrib,n,.FALSE.,expand,gfld,ierr)
            if (ierr.ne.0) then
              write(*,*) ' ERROR extracting field gf_getfld = ',ierr
              cycle
@@ -384,7 +395,7 @@ C  SET ARGUMENTS
 
 ! ------------------------------------
          ! Additional print information for developer.
-         if ( debug_level .GT. 100 ) then
+         if ( debug_level .GT. 1000 ) then
 !MGD           print *
 !MGD           print *,'G2 FIELD ',n
 !MGD           if (n==1) then
@@ -423,11 +434,11 @@ C  SET ARGUMENTS
            if ( gfld%ibmap .ne. 255 ) then
               call mprintf(.true.,DEBUG, 
      &             'G2 Num. of Data Points = %i with BIT-MAP %i', 
-     &              i1=gfld%ndpts, i2=gfld%ibmap)
+     &             newline=.true., i1=gfld%ndpts, i2=gfld%ibmap)
            else
               call mprintf(.true.,DEBUG, 
-     &                'G2 Num. of Data Points = %i NO BIT-MAP', 
-     &                 i1=gfld%ndpts)
+     &             'G2 Num. of Data Points = %i NO BIT-MAP', 
+     &             newline=.true., i1=gfld%ndpts)
            endif
 !MGD           print *,'G2 DRS TEMPLATE 5.',gfld%idrtnum,': ',
 !MGD     &          (gfld%idrtmpl(j),j=1,gfld%idrtlen)
@@ -442,7 +453,7 @@ C  SET ARGUMENTS
 
 !MGD           print *,'G2 Data Values:'
            call mprintf(.true.,DEBUG,'G2 MIN=%f AVE=%f MAX=%f', 
-     &             f1=fldmin, f2=sum/gfld%ndpts, f3=fldmax)
+     &         newline=.true., f1=fldmin, f2=sum/gfld%ndpts, f3=fldmax)
            !do j=1,gfld%ndpts\20
            !   write(*,*) j, gfld%fld(j)
            !enddo
@@ -457,7 +468,7 @@ C  SET ARGUMENTS
 !MGD     &       gfld%ipdtmpl(2),gfld%ipdtmpl(10)
 !MGD          endif
 
-         ! Test this data record again list of desired variables 
+         ! Test this data record against list of desired variables 
          ! found in Vtable.
          ! ----
          MATCH_LOOP: do i=1,maxvar ! Max variables found in Vtable,
@@ -468,6 +479,8 @@ C  SET ARGUMENTS
      &          gfld%ipdtmpl(2) .eq. g2code(3,i) .and.   !Parameter
      &          gfld%ipdtmpl(10) .eq. g2code(4,i)) then  !Elevation
 
+            call gf_free(gfld)
+            call gf_getfld(cgrib,lengrib,n,.TRUE.,expand,gfld,ierr)
             pabbrev=param_get_abbrev(gfld%discipline,gfld%ipdtmpl(1),
      &                               gfld%ipdtmpl(2))
 
@@ -498,6 +511,7 @@ C  SET ARGUMENTS
 		  write(6,'(a,i6,a,i6,a)') 'Subsoil level ',
      &               gfld%ipdtmpl(12),' to ',gfld%ipdtmpl(15),
      &           ' in the GRIB2 file, was not found in the Vtable'
+		  cycle MATCH_LOOP
 		endif
 !MGD         if (debug_level .gt. 50) write(6,*) 'my_field is now ',my_field
 	      endif
@@ -531,6 +545,11 @@ C  SET ARGUMENTS
                  hold_array(j)=gfld%fld(j)
               enddo
 
+!   Some grids need to be reordered. Until we get an example, this is
+!   a placeholder
+!             call reorder_it (hold_array, map%nx, map%ny, map%dx, 
+!    &                 map%dy, iorder)
+
               ! When we have reached this point, we have a data array ARRAY 
               ! which has some data we want to save, with field name FIELD 
               ! at pressure level LEVEL (Pa).  Dimensions of this data are 
@@ -562,29 +581,29 @@ C  SET ARGUMENTS
 
          enddo MATCH_LOOP
 
-         enddo ! 1,numfields
-
-
          ! Deallocate arrays decoding GRIB2 record.
          call gf_free(gfld)
+
+         enddo ! 1,numfields
+
 
       enddo VERSION ! skgb
 
 
-      if ( debug_level .gt. 100 ) then
+       if ( debug_level .gt. 100 ) then
 	 call mprintf (.true.,DEBUG,
-     &     "G2 total number of fields found = %i ",i1=itot)
-         call summary()
-      end if
+     &   "G2 total number of fields found = %i ",newline=.true.,i1=itot)
+       end if
 
-      CALL BACLOSE(junit,IOS)
+       CALL BACLOSE(junit,IOS)
 
+       nullify(gfld%local)            ! must be nullified before opening next file
        ireaderr=1
       else 
-       call mprintf (.true.,DEBUG,"open status failed because %i ",
-     &    i1=ios)
-       hdate = '9999-99-99_99:99:99'
-       ireaderr=2
+        call mprintf (.true.,DEBUG,"open status failed because %i ",
+     &                newline=.true., i1=ios)
+        hdate = '9999-99-99_99:99:99'
+        ireaderr=2
       endif ! ireaderr check 
 
       END subroutine rd_grib2
@@ -644,7 +663,6 @@ C  SET ARGUMENTS
 C - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 C  SET ARGUMENTS
 
-      call start()
       itot=0
       icount=0
       iseek=0
@@ -678,7 +696,8 @@ C  SET ARGUMENTS
 
          ! Check for EOF, or problem
 	 call mprintf((lgrib.eq.0),ERROR,
-     &     "Grib2 file or date problem, stopping in edition_num.")
+     &     "Grib2 file or date problem, stopping in edition_num.",
+     &     newline=.true.)
  
          ! Check size, if needed allocate more memory.
          if (lgrib.gt.currlen) then
@@ -711,12 +730,11 @@ C  SET ARGUMENTS
          call gbyte(cgrib,grib_edition,iofst,8)   ! GRIB edition number
 
          print *, 'ungrib - grib edition num',  grib_edition
-         call summary()
          CALL BACLOSE(junit,IOS)
          ireaderr=1
       else if (ios .eq. -4) then
 	call mprintf(.true.,ERROR, 
-     &    "edition_num: unable to open %s",s1=gribflnm)
+     &    "edition_num: unable to open %s",newline=.true.,s1=gribflnm)
       else 
          print *,'edition_num: open status failed because',ios,gribflnm
          ireaderr=2
@@ -813,6 +831,6 @@ C  SET ARGUMENTS
         earth_radius = 6371229. * .001
       else
 	call mprintf(.true.,ERROR,
-     &    "unknown earth radius for code %i",i1=icode)
+     &    "unknown earth radius for code %i",newline=.true.,i1=icode)
       endif
       end function earth_radius

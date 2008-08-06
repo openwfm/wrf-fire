@@ -7,7 +7,9 @@ module process_tile_module
 
    use module_debug
 
+
    contains
+
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! Name: process_tile
@@ -16,8 +18,10 @@ module process_tile_module
    !       (tile_i_min, tile_j_min) and whose upper-right corner is at
    !       (tile_i_max, tile_j_max), of the model grid given by which_domain 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   subroutine process_tile(which_domain, grid_type, dynopt, dummy_start_dom_i, dummy_end_dom_i, &
-                           dummy_start_dom_j, dummy_end_dom_j, dummy_start_patch_i, dummy_end_patch_i, &
+   subroutine process_tile(which_domain, grid_type, dynopt,        &
+                           dummy_start_dom_i, dummy_end_dom_i,     &
+                           dummy_start_dom_j, dummy_end_dom_j,     &
+                           dummy_start_patch_i, dummy_end_patch_i, &
                            dummy_start_patch_j, dummy_end_patch_j, &
                            extra_col, extra_row)
    
@@ -39,7 +43,7 @@ module process_tile_module
       character (len=1), intent(in) :: grid_type
     
       ! Local variables
-      integer :: i, j, k, ix, iy, istatus, ifieldstatus, idomcatstatus, field_count
+      integer :: i, j, k, istatus, ifieldstatus, idomcatstatus, field_count
       integer :: landmask_value, min_category, max_category, min_level, max_level, &
                  smth_opt, smth_passes
       integer :: start_dom_i, end_dom_i, start_dom_j, end_dom_j, end_dom_stag_i, end_dom_stag_j
@@ -47,15 +51,18 @@ module process_tile_module
       integer :: start_mem_i, end_mem_i, start_mem_j, end_mem_j, end_mem_stag_i, end_mem_stag_j
       integer :: sm1, em1, sm2, em2
       integer :: istagger
-      real :: sum, dominant, scale_factor, msg_fill_val, topo_flag_val, mass_flag
+      real :: sum, dominant, msg_fill_val, topo_flag_val, mass_flag
       real, dimension(16) :: corner_lats, corner_lons
       real, pointer, dimension(:,:) :: xlat_array,   xlon_array, &
                                        xlat_array_u, xlon_array_u, &
                                        xlat_array_v, xlon_array_v, &
                                        f_array, e_array, &
-                                       mapfac_array_m, mapfac_array_u, mapfac_array_v, &
-                                       sina_array, cosa_array
-      real, pointer, dimension(:,:) :: xlat_ptr, xlon_ptr, mapfac_ptr, landmask, dominant_field
+                                       mapfac_array_m_x, mapfac_array_u_x, mapfac_array_v_x, &
+                                       mapfac_array_m_y, mapfac_array_u_y, mapfac_array_v_y, &
+                                       sina_array, cosa_array, &
+                                       xlat_array_subgrid, xlon_array_subgrid, &
+                                       mapfac_array_x_subgrid,mapfac_array_y_subgrid
+      real, pointer, dimension(:,:) :: xlat_ptr, xlon_ptr, mapfac_ptr_x, mapfac_ptr_y, landmask, dominant_field
       real, pointer, dimension(:,:,:) :: field, slp_field
       logical :: is_water_mask, only_save_dominant, halt_on_missing
       character (len=19) :: datestr
@@ -63,6 +70,8 @@ module process_tile_module
       character (len=256) :: temp_string
       type (bitarray) :: processed_domain 
       type (hashtable) :: processed_fieldnames
+      character (len=128),dimension(2) :: dimnames
+      integer :: sub_x, sub_y
    
       datestr = '0000-00-00_00:00:00'
       field_count = 0
@@ -139,6 +148,8 @@ module process_tile_module
          allocate(xlat_array_u(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_j))
          allocate(xlon_array_u(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_j))
       end if
+      nullify(xlat_array_subgrid, xlon_array_subgrid)
+      nullify(mapfac_array_x_subgrid,mapfac_array_y_subgrid)
     
       ! Initialize hash table to track which fields have been processed
       call hash_init(processed_fieldnames)
@@ -150,11 +161,11 @@ module process_tile_module
       call mprintf(.true.,STDOUT,'  Processing XLAT and XLONG')
     
       if (grid_type == 'C') then
-         call get_lat_lon_fields(which_domain, xlat_array, xlon_array, start_mem_i, &
+         call get_lat_lon_fields(xlat_array, xlon_array, start_mem_i, &
                                start_mem_j, end_mem_i, end_mem_j, M)
-         call get_lat_lon_fields(which_domain, xlat_array_v, xlon_array_v, start_mem_i, &
+         call get_lat_lon_fields(xlat_array_v, xlon_array_v, start_mem_i, &
                                start_mem_j, end_mem_i, end_mem_stag_j, V)
-         call get_lat_lon_fields(which_domain, xlat_array_u, xlon_array_u, start_mem_i, &
+         call get_lat_lon_fields(xlat_array_u, xlon_array_u, start_mem_i, &
                                start_mem_j, end_mem_stag_i, end_mem_j, U)
 
          corner_lats(1) = xlat_array(start_patch_i,start_patch_j)
@@ -193,9 +204,9 @@ module process_tile_module
          corner_lons(12) = xlon_array_v(end_patch_i,start_patch_j)
      
       else if (grid_type == 'E') then
-         call get_lat_lon_fields(which_domain, xlat_array, xlon_array, start_mem_i, &
+         call get_lat_lon_fields(xlat_array, xlon_array, start_mem_i, &
                                start_mem_j, end_mem_i, end_mem_j, HH)
-         call get_lat_lon_fields(which_domain, xlat_array_v, xlon_array_v, start_mem_i, &
+         call get_lat_lon_fields(xlat_array_v, xlon_array_v, start_mem_i, &
                                start_mem_j, end_mem_i, end_mem_stag_j, VV)
    
          corner_lats(1) = xlat_array(start_patch_i,start_patch_j)
@@ -270,23 +281,44 @@ module process_tile_module
       if (grid_type == 'C') then
          call mprintf(.true.,STDOUT,'  Processing MAPFAC')
     
-         allocate(mapfac_array_m(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
-         call get_map_factor(which_domain, xlat_array, mapfac_array_m, start_mem_i, &
+         allocate(mapfac_array_m_x(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
+         allocate(mapfac_array_m_y(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
+         call get_map_factor(xlat_array, xlon_array, mapfac_array_m_x, mapfac_array_m_y, start_mem_i, &
                              start_mem_j, end_mem_i, end_mem_j)
-         call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'MAPFAC_M', &
-                          datestr, real_array = mapfac_array_m)
+! Global WRF uses map scale factors in X and Y directions, but "regular" WRF uses a single MSF
+!    on each staggering. In the case of regular WRF, we can assume that MAPFAC_MX = MAPFAC_MY = MAPFAC_M,
+!    and so we can simply write MAPFAC_MX as the MAPFAC_M field. Ultimately, when global WRF is
+!    merged into the WRF trunk, we will need only two map scale factor fields for each staggering,
+!    in the x and y directions, and these will be the same in the case of non-Cassini projections
+         call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'MAPFAC_M',  &
+                          datestr, real_array = mapfac_array_m_x)
+         call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'MAPFAC_MX', &
+                          datestr, real_array = mapfac_array_m_x)
+         call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'MAPFAC_MY', &
+                         datestr, real_array = mapfac_array_m_y)
     
-         allocate(mapfac_array_v(start_mem_i:end_mem_i, start_mem_j:end_mem_stag_j))
-         call get_map_factor(which_domain, xlat_array_v, mapfac_array_v, start_mem_i, &
+         allocate(mapfac_array_v_x(start_mem_i:end_mem_i, start_mem_j:end_mem_stag_j))
+         allocate(mapfac_array_v_y(start_mem_i:end_mem_i, start_mem_j:end_mem_stag_j))
+         call get_map_factor(xlat_array_v, xlon_array_v, mapfac_array_v_x, mapfac_array_v_y, start_mem_i, &
                              start_mem_j, end_mem_i, end_mem_stag_j)
-         call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_stag_j, 1, 1, 'MAPFAC_V', &
-                          datestr, real_array = mapfac_array_v)
+         call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_stag_j, 1, 1, 'MAPFAC_V',  &
+                          datestr, real_array = mapfac_array_v_x)
+         call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_stag_j, 1, 1, 'MAPFAC_VX', &
+                          datestr, real_array = mapfac_array_v_x)
+         call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_stag_j, 1, 1, 'MAPFAC_VY', &
+                          datestr, real_array = mapfac_array_v_y)
     
-         allocate(mapfac_array_u(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_j))
-         call get_map_factor(which_domain, xlat_array_u, mapfac_array_u, start_mem_i, &
+         allocate(mapfac_array_u_x(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_j))
+         allocate(mapfac_array_u_y(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_j))
+         call get_map_factor(xlat_array_u, xlon_array_u, mapfac_array_u_x, mapfac_array_u_y, start_mem_i, &
                              start_mem_j, end_mem_stag_i, end_mem_j)
-         call write_field(start_mem_i, end_mem_stag_i, start_mem_j, end_mem_j, 1, 1, 'MAPFAC_U', &
-                          datestr, real_array = mapfac_array_u)
+         call write_field(start_mem_i, end_mem_stag_i, start_mem_j, end_mem_j, 1, 1, 'MAPFAC_U',  &
+                          datestr, real_array = mapfac_array_u_x)
+         call write_field(start_mem_i, end_mem_stag_i, start_mem_j, end_mem_j, 1, 1, 'MAPFAC_UX', &
+                          datestr, real_array = mapfac_array_u_x)
+         call write_field(start_mem_i, end_mem_stag_i, start_mem_j, end_mem_j, 1, 1, 'MAPFAC_UY', &
+                          datestr, real_array = mapfac_array_u_y)
+
       end if
     
     
@@ -298,11 +330,13 @@ module process_tile_module
       allocate(f_array(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
       allocate(e_array(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
     
-      call get_coriolis_parameters(which_domain, xlat_array, f_array, e_array, &
+      call get_coriolis_parameters(xlat_array, f_array, e_array, &
                                    start_mem_i, start_mem_j, end_mem_i, end_mem_j)
     
-      call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'E', datestr, real_array = e_array)
-      call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'F', datestr, real_array = f_array)
+      call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'E', &
+                       datestr, real_array = e_array)
+      call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'F', &
+                       datestr, real_array = f_array)
     
       if (associated(f_array)) deallocate(f_array)
       if (associated(e_array)) deallocate(e_array)
@@ -317,7 +351,7 @@ module process_tile_module
          allocate(sina_array(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
          allocate(cosa_array(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
     
-         call get_rotang(which_domain, xlat_array, xlon_array, cosa_array, sina_array, &
+         call get_rotang(xlat_array, xlon_array, cosa_array, sina_array, &
                          start_mem_i, start_mem_j, end_mem_i, end_mem_j)
     
          call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, 'SINALPHA', &
@@ -420,9 +454,11 @@ module process_tile_module
          end if
      
          if (is_water_mask) then
-            call mprintf(.true.,STDOUT,'  Calculating landmask from %s (WATER = %i)', s1=trim(landmask_name), i1=landmask_value)
+            call mprintf(.true.,STDOUT,'  Calculating landmask from %s (WATER = %i)', &
+                         s1=trim(landmask_name), i1=landmask_value)
          else
-            call mprintf(.true.,STDOUT,'  Calculating landmask from %s (LAND = %i)', s1=trim(landmask_name), i1=landmask_value)
+            call mprintf(.true.,STDOUT,'  Calculating landmask from %s (LAND = %i)', &
+                         s1=trim(landmask_name), i1=landmask_value)
          end if
      
          ! Calculate landmask
@@ -468,22 +504,50 @@ module process_tile_module
 
                if (grid_type == 'C') then
                   if (smth_opt == ONETWOONE) then
-                     call one_two_one(field, start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                                      min_category, max_category, smth_passes, msg_fill_val)
+                     call one_two_one(field,                      &
+                                      start_patch_i, end_patch_i, &
+                                      start_patch_j, end_patch_j, &
+                                      start_mem_i, end_mem_i,     &
+                                      start_mem_j, end_mem_j,     &
+                                      min_category, max_category, &
+                                      smth_passes, msg_fill_val)
                   else if (smth_opt == SMTHDESMTH) then
-                     call smth_desmth(field, start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                                      min_category, max_category, smth_passes, msg_fill_val)
+                     call smth_desmth(field,                      &
+                                      start_patch_i, end_patch_i, &
+                                      start_patch_j, end_patch_j, &
+                                      start_mem_i, end_mem_i,     &
+                                      start_mem_j, end_mem_j,     &
+                                      min_category, max_category, &
+                                      smth_passes, msg_fill_val)
                   else if (smth_opt == SMTHDESMTH_SPECIAL) then
-                     call smth_desmth_special(field, start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                                      min_category, max_category, smth_passes, msg_fill_val)
+                     call smth_desmth_special(field,              &
+                                      start_patch_i, end_patch_i, &
+                                      start_patch_j, end_patch_j, &
+                                      start_mem_i, end_mem_i,     &
+                                      start_mem_j, end_mem_j,     &
+                                      min_category, max_category, &
+                                      smth_passes, msg_fill_val)
                   end if
                else if (grid_type == 'E') then
                   if (smth_opt == ONETWOONE) then
-                     call one_two_one_egrid(field, start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                                      min_category, max_category, smth_passes, msg_fill_val, 1.0)
+                     call one_two_one_egrid(field,                &
+                                      start_patch_i, end_patch_i, &
+                                      start_patch_j, end_patch_j, &
+                                      start_mem_i, end_mem_i,     &
+                                      start_mem_j, end_mem_j,     &
+                                      min_category, max_category, &
+                                      smth_passes, msg_fill_val, 1.0)
                   else if (smth_opt == SMTHDESMTH) then
-                     call smth_desmth_egrid(field, start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                                      min_category, max_category, smth_passes, msg_fill_val, 1.0)
+                     call smth_desmth_egrid(field,                &
+                                      start_patch_i, end_patch_i, &
+                                      start_patch_j, end_patch_j, &
+                                      start_mem_i, end_mem_i,     &
+                                      start_mem_j, end_mem_j,     &
+                                      min_category, max_category, &
+                                      smth_passes, msg_fill_val, 1.0)
+                  else if (smth_opt == SMTHDESMTH_SPECIAL) then
+                     call mprintf(.true.,WARN,'smth-desmth_special is not currently implemented for NMM. '// &
+                                              'No smoothing will be done.')
                   end if
                end if
 
@@ -550,15 +614,19 @@ module process_tile_module
                call mprintf(.true.,STDOUT,'  Processing %s', s1=trim(fieldname))
        
                call get_output_stagger(fieldname, istagger, istatus)
+               dimnames(:)='null'
+               call get_subgrid_dim_name(which_domain,fieldname,dimnames, &
+                                         sub_x,sub_y,istatus)
        
-               if (istagger == M) then
+               if (istagger == M.or.sub_x.gt.1.or.sub_y.gt.1) then
                   sm1 = start_mem_i
                   em1 = end_mem_i
                   sm2 = start_mem_j
                   em2 = end_mem_j
                   xlat_ptr => xlat_array 
                   xlon_ptr => xlon_array 
-                  mapfac_ptr => mapfac_array_m
+                  mapfac_ptr_x => mapfac_array_m_x
+                  mapfac_ptr_y => mapfac_array_m_y
                else if (istagger == U) then ! In the case that extra_cols = .false.
                   sm1 = start_mem_i          ! we should have that end_mem_stag is
                   em1 = end_mem_stag_i       ! the same as end_mem, so we do not need
@@ -566,7 +634,8 @@ module process_tile_module
                   em2 = end_mem_j
                   xlat_ptr => xlat_array_u 
                   xlon_ptr => xlon_array_u 
-                  mapfac_ptr => mapfac_array_u
+                  mapfac_ptr_x => mapfac_array_u_x
+                  mapfac_ptr_y => mapfac_array_u_y
                else if (istagger == V) then
                   sm1 = start_mem_i
                   em1 = end_mem_i
@@ -574,7 +643,8 @@ module process_tile_module
                   em2 = end_mem_stag_j
                   xlat_ptr => xlat_array_v 
                   xlon_ptr => xlon_array_v 
-                  mapfac_ptr => mapfac_array_v
+                  mapfac_ptr_x => mapfac_array_v_x
+                  mapfac_ptr_y => mapfac_array_v_y
                else if (istagger == HH) then   ! E grid
                   sm1 = start_mem_i
                   em1 = end_mem_i
@@ -582,7 +652,8 @@ module process_tile_module
                   em2 = end_mem_j
                   xlat_ptr => xlat_array 
                   xlon_ptr => xlon_array 
-                  mapfac_ptr => mapfac_array_m
+                  mapfac_ptr_x => mapfac_array_m_x
+                  mapfac_ptr_y => mapfac_array_m_y
                else if (istagger == VV) then   ! E grid 
                   sm1 = start_mem_i
                   em1 = end_mem_i
@@ -590,8 +661,40 @@ module process_tile_module
                   em2 = end_mem_stag_j
                   xlat_ptr => xlat_array_v 
                   xlon_ptr => xlon_array_v 
-                  mapfac_ptr => mapfac_array_v
+                  mapfac_ptr_x => mapfac_array_v_x
+                  mapfac_ptr_y => mapfac_array_v_y
                end if
+!                 print*,sm1,sm2,em1,em2
+!                 print*,xlat_ptr(sm1,sm2),xlon_ptr(sm1,sm2),xlat_ptr(em1,em2),xlon_ptr(em1,em2)
+
+               if(sub_x.gt.1)then
+                 sm1=(start_mem_i-1)*sub_x+1
+                 em1=(end_mem_i+1)*sub_x
+               endif
+               if(sub_y.gt.1)then
+                 sm2=(start_mem_j-1)*sub_y+1
+                 em2=(end_mem_j+1)*sub_y
+               endif
+               if(sub_x.gt.1.or.sub_y.gt.1)then
+                 if(associated(xlat_array_subgrid))deallocate(xlat_array_subgrid)
+                 if(associated(xlon_array_subgrid))deallocate(xlon_array_subgrid)
+                 if(associated(mapfac_array_x_subgrid))deallocate(mapfac_array_x_subgrid)
+                 if(associated(mapfac_array_y_subgrid))deallocate(mapfac_array_y_subgrid)
+                 allocate(xlat_array_subgrid(sm1:em1,sm2:em2))
+                 allocate(xlon_array_subgrid(sm1:em1,sm2:em2))
+                 allocate(mapfac_array_x_subgrid(sm1:em1,sm2:em2))
+                 allocate(mapfac_array_y_subgrid(sm1:em1,sm2:em2))
+                 call get_lat_lon_fields(xlat_array_subgrid,xlon_array_subgrid,&
+                                  sm1,sm2,em1,em2,M,sub_x,sub_y)
+                 xlat_ptr => xlat_array_subgrid
+                 xlon_ptr => xlon_array_subgrid
+                 call get_map_factor(xlat_ptr,xlon_ptr,mapfac_array_x_subgrid, &
+                                     mapfac_array_y_subgrid,sm1,sm2,em1,em2)
+                 mapfac_ptr_x => mapfac_array_x_subgrid
+                 mapfac_ptr_y => mapfac_array_y_subgrid
+!                 print*,sm1,sm2,em1,em2
+!                 print*,xlat_ptr(sm1,sm2),xlon_ptr(sm1,sm2),xlat_ptr(em1,em2),xlon_ptr(em1,em2)
+               endif
        
                call get_missing_fill_value(fieldname, msg_fill_val, istatus)
                if (istatus /= 0) msg_fill_val = NAN 
@@ -624,38 +727,39 @@ module process_tile_module
                      end do
                   end if
         
-                  ! We may need to scale this field by a constant
-                  call get_field_scale_factor(fieldname, scale_factor, istatus)
-                  if (istatus == 0) then
-                     do i=sm1, em1
-                        do j=sm2, em2
-                           do k=min_level,max_level
-                              if (field(i,j,k) /= msg_fill_val) then
-                                 field(i,j,k) = field(i,j,k) * scale_factor
-                              end if
-                           end do
-                        end do
-                     end do
-                  end if
-       
                   ! We may be asked to smooth the fractional field
                   call get_smooth_option(fieldname, smth_opt, smth_passes, istatus)
                   if (istatus == 0) then
 
                      if (grid_type == 'C') then
                         if (smth_opt == ONETWOONE) then
-                           call one_two_one(field, sm1, em1, sm2, em2, &
-                                            min_level, max_level, smth_passes, msg_fill_val)
+                           call one_two_one(field,                      &
+                                            start_patch_i, end_patch_i, &
+                                            start_patch_j, end_patch_j, &
+                                            sm1,         em1,           &
+                                            sm2,         em2,           &
+                                            min_level, max_level,       &
+                                            smth_passes, msg_fill_val)
                         else if (smth_opt == SMTHDESMTH) then
-                           call smth_desmth(field, sm1, em1, sm2, em2, &
-                                            min_level, max_level, smth_passes, msg_fill_val)
+                           call smth_desmth(field,                      &
+                                            start_patch_i, end_patch_i, &
+                                            start_patch_j, end_patch_j, &
+                                            sm1,         em1,           &
+                                            sm2,         em2,           &
+                                            min_level, max_level,       &
+                                            smth_passes, msg_fill_val)
                         else if (smth_opt == SMTHDESMTH_SPECIAL) then
-                           call smth_desmth_special(field, sm1, em1, sm2, em2, &
-                                            min_level, max_level, smth_passes, msg_fill_val)
+                           call smth_desmth_special(field,              &
+                                            start_patch_i, end_patch_i, &
+                                            start_patch_j, end_patch_j, &
+                                            sm1,         em1,           &
+                                            sm2,         em2,           &
+                                            min_level, max_level,       &
+                                            smth_passes, msg_fill_val)
                        end if
   
                      else if (grid_type == 'E') then
-  	
+ 
                         if (trim(fieldname) == 'HGT_M' ) then
                            topo_flag_val=1.0
                            mass_flag=1.0
@@ -667,11 +771,24 @@ module process_tile_module
                         end if
   
                         if (smth_opt == ONETWOONE) then
-                           call one_two_one_egrid(field, sm1, em1, sm2, em2, &
-                                            min_level, max_level, smth_passes, topo_flag_val, mass_flag)
+                           call one_two_one_egrid(field,                &
+                                            start_patch_i, end_patch_i, &
+                                            start_patch_j, end_patch_j, &
+                                            sm1,         em1,           &
+                                            sm2,         em2,           &
+                                            min_level, max_level,       &
+                                            smth_passes, topo_flag_val, mass_flag)
                         else if (smth_opt == SMTHDESMTH) then
-                           call smth_desmth_egrid(field, sm1, em1, sm2, em2, &
-                                            min_level, max_level, smth_passes, topo_flag_val, mass_flag)
+                           call smth_desmth_egrid(field,                &
+                                            start_patch_i, end_patch_i, &
+                                            start_patch_j, end_patch_j, &
+                                            sm1,         em1,           &
+                                            sm2,         em2,           &
+                                            min_level, max_level,       &
+                                            smth_passes, topo_flag_val, mass_flag)
+                        else if (smth_opt == SMTHDESMTH_SPECIAL) then
+                           call mprintf(.true.,WARN,'smth-desmth_special is not currently implemented for NMM. '// &
+                                                    'No smoothing will be done.')
                         end if
   
                      end if
@@ -691,7 +808,7 @@ module process_tile_module
                                   i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=gradname)
 
                      if (grid_type == 'C') then
-                        call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, mapfac_ptr)
+                        call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, mapfac_ptr_x)
                      else if (grid_type == 'E') then
                         call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level)
                      end if
@@ -708,7 +825,7 @@ module process_tile_module
                                   i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=gradname)
 
                      if (grid_type == 'C') then
-                        call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, mapfac_ptr)
+                        call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, mapfac_ptr_y)
                      else if (grid_type == 'E') then
                         call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level)
                      end if
@@ -737,10 +854,19 @@ module process_tile_module
                                   i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=domname)
                   end if
 
+                  if(sub_x.gt.1.or.sub_y.gt.1)then
+    call mprintf(.true.,WARN,'Skipping landmask processing for subgrid field %s', &
+                     s1=fieldname)
+                  call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
+                             sm1, em1, sm2, em2, min_category, max_category, &
+                             processed_domain, 1, interponly=.true.)
+                  else
+
                   call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                              sm1, em1, sm2, em2, min_category, max_category, &
                              processed_domain, 1, landmask)
-        
+                  endif
+       
                   ! Find fractions
                   do i=sm1, em1
                      do j=sm2, em2
@@ -780,22 +906,50 @@ module process_tile_module
                      if (istatus == 0) then
                         if (grid_type == 'C') then
                            if (smth_opt == ONETWOONE) then
-                              call one_two_one(field, sm1, em1, sm2, em2, &
-                                             min_category, max_category, smth_passes, msg_fill_val)
+                              call one_two_one(field,                    &
+                                             start_patch_i, end_patch_i, &
+                                             start_patch_j, end_patch_j, &
+                                             sm1,         em1,           &
+                                             sm2,         em2,           &
+                                             min_category, max_category, &
+                                             smth_passes, msg_fill_val)
                            else if (smth_opt == SMTHDESMTH) then
-                              call smth_desmth(field, sm1, em1, sm2, em2, &
-                                             min_category, max_category, smth_passes, msg_fill_val)
+                              call smth_desmth(field,                    &
+                                             start_patch_i, end_patch_i, &
+                                             start_patch_j, end_patch_j, &
+                                             sm1,         em1,           &
+                                             sm2,         em2,           &
+                                             min_category, max_category, &
+                                             smth_passes, msg_fill_val)
                            else if (smth_opt == SMTHDESMTH_SPECIAL) then
-                              call smth_desmth_special(field, sm1, em1, sm2, em2, &
-                                             min_category, max_category, smth_passes, msg_fill_val)
+                              call smth_desmth_special(field,            &
+                                             start_patch_i, end_patch_i, &
+                                             start_patch_j, end_patch_j, &
+                                             sm1,         em1,           &
+                                             sm2,         em2,           &
+                                             min_category, max_category, &
+                                             smth_passes, msg_fill_val)
                            end if
                         else if (grid_type == 'E') then
                            if (smth_opt == ONETWOONE) then
-                              call one_two_one_egrid(field, sm1, em1, sm2, em2, &
-                                             min_category, max_category, smth_passes, msg_fill_val, 1.0)
+                              call one_two_one_egrid(field,              &
+                                             start_patch_i, end_patch_i, &
+                                             start_patch_j, end_patch_j, &
+                                             sm1,         em1,           &
+                                             sm2,         em2,           &
+                                             min_category, max_category, &
+                                             smth_passes, msg_fill_val, 1.0)
                            else if (smth_opt == SMTHDESMTH) then
-                              call smth_desmth_egrid(field, sm1, em1, sm2, em2, &
-                                             min_category, max_category, smth_passes, msg_fill_val, 1.0)
+                              call smth_desmth_egrid(field,              &
+                                             start_patch_i, end_patch_i, &
+                                             start_patch_j, end_patch_j, &
+                                             sm1,         em1,           &
+                                             sm2,         em2,           &
+                                             min_category, max_category, &
+                                             smth_passes, msg_fill_val, 1.0)
+                           else if (smth_opt == SMTHDESMTH_SPECIAL) then
+                              call mprintf(.true.,WARN,'smth-desmth_special is not currently implemented for NMM. '// &
+                                                       'No smoothing will be done.')
                            end if
                         end if
                      end if
@@ -803,7 +957,7 @@ module process_tile_module
                      call write_field(sm1, em1, sm2, em2, &
                                       min_category, max_category, trim(fieldname), datestr, real_array=field)
                   end if
-        
+
                   if (idomcatstatus == 0) then
                      call mprintf(.true.,STDOUT,'  Processing %s', s1=trim(domname))
                      allocate(dominant_field(sm1:em1, sm2:em2))
@@ -861,13 +1015,21 @@ module process_tile_module
       if (grid_type == 'C') then
          if (associated(xlat_array_u)) deallocate(xlat_array_u)
          if (associated(xlon_array_u)) deallocate(xlon_array_u)
-         if (associated(mapfac_array_u)) deallocate(mapfac_array_u)
+         if (associated(mapfac_array_u_x)) deallocate(mapfac_array_u_x)
+         if (associated(mapfac_array_u_y)) deallocate(mapfac_array_u_y)
       end if
       if (associated(xlat_array_v)) deallocate(xlat_array_v)
       if (associated(xlon_array_v)) deallocate(xlon_array_v)
-      if (associated(mapfac_array_m)) deallocate(mapfac_array_m)
-      if (associated(mapfac_array_v)) deallocate(mapfac_array_v)
+      if (associated(mapfac_array_m_x)) deallocate(mapfac_array_m_x)
+      if (associated(mapfac_array_m_y)) deallocate(mapfac_array_m_y)
+      if (associated(mapfac_array_v_x)) deallocate(mapfac_array_v_x)
+      if (associated(mapfac_array_v_y)) deallocate(mapfac_array_v_y)
       if (associated(landmask)) deallocate(landmask)
+      if(associated(xlat_array_subgrid))deallocate(xlat_array_subgrid)
+      if(associated(xlon_array_subgrid))deallocate(xlon_array_subgrid)
+      if(associated(mapfac_array_x_subgrid))deallocate(mapfac_array_x_subgrid)
+      if(associated(mapfac_array_y_subgrid))deallocate(mapfac_array_y_subgrid)
+
       nullify(xlat_ptr)
       nullify(xlon_ptr)
    
@@ -884,7 +1046,8 @@ module process_tile_module
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    recursive subroutine calc_field(fieldname, field, xlat_array, xlon_array, istagger, &
                                    start_i, end_i, start_j, end_j, start_k, end_k, &
-                                   processed_domain, ilevel, landmask)
+                                   processed_domain, ilevel, landmask, &
+                                   interponly)
    
       use bitarray_module
       use interp_module
@@ -893,6 +1056,7 @@ module process_tile_module
       use proc_point_module
       use queue_module
       use source_data_module
+      use module_debug
     
       implicit none
     
@@ -903,6 +1067,7 @@ module process_tile_module
       real, dimension(start_i:end_i, start_j:end_j), intent(in), optional :: landmask
       character (len=128), intent(in) :: fieldname
       type (bitarray), intent(inout) :: processed_domain
+      logical, optional, intent(in) :: interponly
     
       ! Local variables
       integer :: start_src_k, end_src_k
@@ -910,6 +1075,7 @@ module process_tile_module
       integer :: user_iproj, istatus
       real :: mask_val
       real :: temp
+      real :: scale_factor
       real :: msg_val, msg_fill_val, threshold, src_dx, src_dy, dom_dx, dom_dy
       real :: user_stand_lon, user_truelat1, user_truelat2, user_dxkm, user_dykm, &
               user_known_x, user_known_y, user_known_lat, user_known_lon
@@ -918,7 +1084,12 @@ module process_tile_module
       character (len=128) :: interp_string
       type (bitarray) :: bit_domain, level_domain
       type (queue)    :: point_queue, tile_queue
-      type (q_data)   :: current_pt, process_pt
+      type (q_data)   :: current_pt
+
+      if(present(interponly))then
+        call mprintf(.true.,WARN,"skipping accumulation processing on subgrid field %s", & 
+                     s1=fieldname)
+      endif
 
       ! If this is the first trip through this routine, we need to allocate the bit array that
       !  will persist through all recursive calls, tracking which grid points have been assigned
@@ -1029,7 +1200,8 @@ module process_tile_module
             !   accum_categorical. 
             if (.not. bitarray_test(bit_domain, current_pt%x-start_i+1, current_pt%y-start_j+1)) then
                call q_insert(point_queue, current_pt) 
-               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, istagger, fieldname, ilevel)) then
+               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel) .and. &
+                   .not.present(interponly)) then
                   call accum_categorical(current_pt%lat, current_pt%lon, istagger, field, &
                                          start_i, end_i, start_j, end_j, start_k, end_k, &
                                          fieldname, processed_domain, level_domain, &
@@ -1045,7 +1217,8 @@ module process_tile_module
             !   accum_continuous. 
             if (.not. bitarray_test(bit_domain, current_pt%x-start_i+1, current_pt%y-start_j+1)) then
                call q_insert(point_queue, current_pt) 
-               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, istagger, fieldname, ilevel)) then
+               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel).and.&
+                   .not.present(interponly)) then
                   call accum_continuous(current_pt%lat, current_pt%lon, istagger, field, data_count, &
                                          start_i, end_i, start_j, end_j, start_k, end_k, &
                                          fieldname, processed_domain, level_domain, &
@@ -1088,8 +1261,8 @@ module process_tile_module
                      if (present(landmask) .and. (istagger == M .or. istagger == HH)) then
                         if (landmask(ix,iy) /= mask_val) then
                            do k=start_src_k,end_src_k
-                              temp = get_point(current_pt%lat, current_pt%lon, istagger, k, &
-                                               fieldname, itype, ilevel, interp_type, msg_val)
+                              temp = get_point(current_pt%lat, current_pt%lon, k, &
+                                               fieldname, ilevel, interp_type, msg_val)
                               if (temp /= msg_val) then
                                  field(ix, iy, k) = temp
                                  call bitarray_set(level_domain, ix-start_i+1, iy-start_j+1)
@@ -1104,8 +1277,8 @@ module process_tile_module
                         end if
                      else
                         do k=start_src_k,end_src_k
-                           temp = get_point(current_pt%lat, current_pt%lon, istagger, k, &
-                                            fieldname, itype, ilevel, interp_type, msg_val)
+                           temp = get_point(current_pt%lat, current_pt%lon, k, &
+                                            fieldname, ilevel, interp_type, msg_val)
                            if (temp /= msg_val) then
                               field(ix, iy, k) = temp
                               call bitarray_set(level_domain, ix-start_i+1, iy-start_j+1)
@@ -1133,8 +1306,8 @@ module process_tile_module
                   else
                      if (present(landmask) .and. (istagger == M .or. istagger == HH)) then
                         if (landmask(ix,iy) /= mask_val) then
-                           temp = get_point(current_pt%lat, current_pt%lon, istagger, 1, &
-                                            fieldname, itype, ilevel, interp_type, msg_val)
+                           temp = get_point(current_pt%lat, current_pt%lon, 1, &
+                                            fieldname, ilevel, interp_type, msg_val)
       
                            do k=start_k,end_k
                               field(ix,iy,k) = 0.
@@ -1156,8 +1329,8 @@ module process_tile_module
                            end do
                         end if
                      else
-                        temp = get_point(current_pt%lat, current_pt%lon, istagger, 1, &
-                                         fieldname, itype, ilevel, interp_type, msg_val)
+                        temp = get_point(current_pt%lat, current_pt%lon, 1, &
+                                         fieldname, ilevel, interp_type, msg_val)
       
                         do k=start_k,end_k
                            field(ix,iy,k) = 0.
@@ -1185,18 +1358,18 @@ module process_tile_module
         
                   ! Neighbor with relative position (-1,-1)
                   call process_neighbor(ix-1, iy-1, bit_domain, point_queue, tile_queue, &
-                                        xlat_array, xlon_array, istagger, start_i, end_i, start_j, end_j, ilevel)
+                                        xlat_array, xlon_array, start_i, end_i, start_j, end_j, ilevel)
                end if
        
                ! Neighbor with relative position (0,-1) 
                call process_neighbor(ix, iy-1, bit_domain, point_queue, tile_queue, &
-                                     xlat_array, xlon_array, istagger, start_i, end_i, start_j, end_j, ilevel)
+                                     xlat_array, xlon_array, start_i, end_i, start_j, end_j, ilevel)
        
                if (ix < end_i) then
        
                   ! Neighbor with relative position (+1,-1)
                   call process_neighbor(ix+1, iy-1, bit_domain, point_queue, tile_queue, &
-                                        xlat_array, xlon_array, istagger, start_i, end_i, start_j, end_j, ilevel)
+                                        xlat_array, xlon_array, start_i, end_i, start_j, end_j, ilevel)
                end if
             end if
       
@@ -1204,14 +1377,14 @@ module process_tile_module
       
                ! Neighbor with relative position (-1,0)
                call process_neighbor(ix-1, iy, bit_domain, point_queue, tile_queue, &
-                                     xlat_array, xlon_array, istagger, start_i, end_i, start_j, end_j, ilevel)
+                                     xlat_array, xlon_array, start_i, end_i, start_j, end_j, ilevel)
             end if
       
             if (ix < end_i) then
       
                ! Neighbor with relative position (+1,0)
                call process_neighbor(ix+1, iy, bit_domain, point_queue, tile_queue, &
-                                     xlat_array, xlon_array, istagger, start_i, end_i, start_j, end_j, ilevel)
+                                     xlat_array, xlon_array, start_i, end_i, start_j, end_j, ilevel)
             end if
       
             if (iy < end_j) then
@@ -1219,17 +1392,17 @@ module process_tile_module
        
                   ! Neighbor with relative position (-1,+1)
                   call process_neighbor(ix-1, iy+1, bit_domain, point_queue, tile_queue, &
-                                        xlat_array, xlon_array, istagger, start_i, end_i, start_j, end_j, ilevel)
+                                        xlat_array, xlon_array, start_i, end_i, start_j, end_j, ilevel)
                end if
        
                ! Neighbor with relative position (0,+1)
                call process_neighbor(ix, iy+1, bit_domain, point_queue, tile_queue, &
-                                     xlat_array, xlon_array, istagger, start_i, end_i, start_j, end_j, ilevel)
+                                     xlat_array, xlon_array, start_i, end_i, start_j, end_j, ilevel)
                if (ix < end_i) then
        
                   ! Neighbor with relative position (+1,+1)
                   call process_neighbor(ix+1, iy+1, bit_domain, point_queue, tile_queue, &
-                                        xlat_array, xlon_array, istagger, start_i, end_i, start_j, end_j, ilevel)
+                                        xlat_array, xlon_array, start_i, end_i, start_j, end_j, ilevel)
                end if
             end if
       
@@ -1293,6 +1466,25 @@ module process_tile_module
       end if
 
       deallocate(interp_type)
+
+
+      ! We may need to scale this field by a constant
+      call get_field_scale_factor(fieldname, ilevel, scale_factor, istatus)
+      if (istatus == 0) then
+         do i=start_i, end_i
+            do j=start_j, end_j
+               if (bitarray_test(level_domain,i-start_i+1,j-start_j+1) .and. &
+                   .not. bitarray_test(processed_domain,i-start_i+1,j-start_j+1)) then
+                  do k=start_k,end_k
+                     if (field(i,j,k) /= msg_fill_val) then
+                        field(i,j,k) = field(i,j,k) * scale_factor
+                     end if
+                  end do
+               end if
+            end do
+         end do
+      end if
+
     
       ! Now add the points that were assigned values at this priority level to the complete array
       !   of points that have been assigned values
@@ -1317,12 +1509,13 @@ module process_tile_module
    ! Name: get_lat_lon_fields
    !
    ! Purpose: To calculate the latitude and longitude for every gridpoint in the
-   !   specified tile of the model domain which_domain. The caller may specify 
-   !   that the grid for which values are computed is staggered or unstaggered
-   !   using the "stagger" argument.
+   !   tile of the model domain. The caller may specify that the grid for which 
+   !   values are computed is staggered or unstaggered using the "stagger" 
+   !   argument.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   subroutine get_lat_lon_fields(which_domain, xlat_arr, xlon_arr, start_mem_i, &
-                                 start_mem_j, end_mem_i, end_mem_j, stagger)
+   subroutine get_lat_lon_fields(xlat_arr, xlon_arr, start_mem_i, &
+                                 start_mem_j, end_mem_i, end_mem_j, stagger, &
+                                 sub_x, sub_y)
    
       use llxy_module
       use misc_definitions_module
@@ -1330,22 +1523,28 @@ module process_tile_module
       implicit none
     
       ! Arguments
-      integer, intent(in) :: which_domain, start_mem_i, start_mem_j, end_mem_i, &
+      integer, intent(in) :: start_mem_i, start_mem_j, end_mem_i, &
                              end_mem_j, stagger
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(out) :: xlat_arr, xlon_arr
+      integer, optional, intent(in) :: sub_x, sub_y
 
       ! Local variables
-      integer :: i, j
+      integer :: i, j,lx,ly
     
+      lx=1
+      ly=1
+      if(present(sub_x))lx=sub_x
+      if(present(sub_y))ly=sub_y
       do i=start_mem_i, end_mem_i
          do j=start_mem_j, end_mem_j
-            call xytoll(real(i), real(j), &
+            call xytoll(real(i-1)/real(lx)+1., real(j-1)/real(ly)+1., &
                         xlat_arr(i,j), xlon_arr(i,j), stagger)
          end do
       end do
 
    end subroutine get_lat_lon_fields
    
+
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! Name: get_map_factor
    !
@@ -1354,23 +1553,25 @@ module process_tile_module
    !   E grid), the latitude array should provide the latitudes of the points for
    !   which map factors are to be calculated. 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   subroutine get_map_factor(which_domain, xlat_arr, mapfac_arr, start_mem_i, &
-                             start_mem_j, end_mem_i, end_mem_j)
+   subroutine get_map_factor(xlat_arr, xlon_arr, mapfac_arr_x, mapfac_arr_y, &
+                             start_mem_i, start_mem_j, end_mem_i, end_mem_j)
    
       use constants_module
       use gridinfo_module
       use misc_definitions_module
+      use map_utils
     
       implicit none
     
       ! Arguments
-      integer, intent(in) :: which_domain, start_mem_i, start_mem_j, end_mem_i, end_mem_j
-      real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(in) :: xlat_arr
-      real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(out) :: mapfac_arr
+      integer, intent(in) :: start_mem_i, start_mem_j, end_mem_i, end_mem_j
+      real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(in) :: xlat_arr, xlon_arr
+      real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(out) :: mapfac_arr_x
+      real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(out) :: mapfac_arr_y
     
       ! Local variables
       integer :: i, j
-      real :: n, colat, colat0, colat1, colat2
+      real :: n, colat, colat0, colat1, colat2, comp_lat, comp_lon
     
       !
       ! Equations for map factor given in Principles of Meteorological Analysis,
@@ -1388,7 +1589,8 @@ module process_tile_module
             do i=start_mem_i, end_mem_i
                do j=start_mem_j, end_mem_j
                   colat = rad_per_deg*(90.0 - xlat_arr(i,j))
-                  mapfac_arr(i,j) = sin(colat2)/sin(colat)*(tan(colat/2.0)/tan(colat2/2.0))**n
+                  mapfac_arr_x(i,j) = sin(colat2)/sin(colat)*(tan(colat/2.0)/tan(colat2/2.0))**n
+                  mapfac_arr_y(i,j) = mapfac_arr_x(i,j)
                end do
             end do
      
@@ -1398,7 +1600,8 @@ module process_tile_module
             do i=start_mem_i, end_mem_i
                do j=start_mem_j, end_mem_j
                   colat = rad_per_deg*(90.0 - xlat_arr(i,j))
-                  mapfac_arr(i,j) = sin(colat0)/sin(colat)*(tan(colat/2.0)/tan(colat0/2.0))**cos(colat0)
+                  mapfac_arr_x(i,j) = sin(colat0)/sin(colat)*(tan(colat/2.0)/tan(colat0/2.0))**cos(colat0)
+                  mapfac_arr_y(i,j) = mapfac_arr_x(i,j)
                end do
             end do
     
@@ -1409,7 +1612,8 @@ module process_tile_module
     
          do i=start_mem_i, end_mem_i
             do j=start_mem_j, end_mem_j
-               mapfac_arr(i,j) = (1.0 + sin(rad_per_deg*abs(truelat1)))/(1.0 + sin(rad_per_deg*sign(1.,truelat1)*xlat_arr(i,j)))
+               mapfac_arr_x(i,j) = (1.0 + sin(rad_per_deg*abs(truelat1)))/(1.0 + sin(rad_per_deg*sign(1.,truelat1)*xlat_arr(i,j)))
+               mapfac_arr_y(i,j) = mapfac_arr_x(i,j)
             end do
          end do
     
@@ -1420,15 +1624,71 @@ module process_tile_module
          do i=start_mem_i, end_mem_i
             do j=start_mem_j, end_mem_j
                colat = rad_per_deg*(90.0 - xlat_arr(i,j))
-               mapfac_arr(i,j) = sin(colat0) / sin(colat) 
+               mapfac_arr_x(i,j) = sin(colat0) / sin(colat) 
+               mapfac_arr_y(i,j) = mapfac_arr_x(i,j)
             end do
          end do
+    
+      ! Global cylindrical projection
+      else if (iproj_type == PROJ_CYL) then
+     
+         do i=start_mem_i, end_mem_i
+            do j=start_mem_j, end_mem_j
+               if (abs(xlat_arr(i,j)) == 90.0) then
+                  mapfac_arr_x(i,j) = 0.    ! MSF actually becomes infinite at poles, but 
+                                            !   the values should never be used there; by
+                                            !   setting to 0, we hope to induce a "divide
+                                            !   by zero" error if they are
+               else
+                  mapfac_arr_x(i,j) = 1.0 / cos(xlat_arr(i,j)*rad_per_deg) 
+               end if
+               mapfac_arr_y(i,j) = 1.0
+            end do
+         end do
+    
+      ! Rotated global cylindrical projection
+      else if (iproj_type == PROJ_CASSINI) then
+     
+         if (abs(pole_lat) == 90.) then
+            do i=start_mem_i, end_mem_i
+               do j=start_mem_j, end_mem_j
+                  if (abs(xlat_arr(i,j)) >= 90.0) then
+                     mapfac_arr_x(i,j) = 0.    ! MSF actually becomes infinite at poles, but 
+                                               !   the values should never be used there; by
+                                               !   setting to 0, we hope to induce a "divide
+                                               !   by zero" error if they are
+                  else
+                     mapfac_arr_x(i,j) = 1.0 / cos(xlat_arr(i,j)*rad_per_deg) 
+                  end if
+                  mapfac_arr_y(i,j) = 1.0
+               end do
+            end do
+         else
+            do i=start_mem_i, end_mem_i
+               do j=start_mem_j, end_mem_j
+                  call rotate_coords(xlat_arr(i,j),xlon_arr(i,j), &
+                                     comp_lat, comp_lon, &
+                                     pole_lat, pole_lon, stand_lon, &
+                                     -1)
+                  if (abs(comp_lat) >= 90.0) then
+                     mapfac_arr_x(i,j) = 0.    ! MSF actually becomes infinite at poles, but 
+                                               !   the values should never be used there; by
+                                               !   setting to 0, we hope to induce a "divide
+                                               !   by zero" error if they are
+                  else
+                     mapfac_arr_x(i,j) = 1.0 / cos(comp_lat*rad_per_deg) 
+                  end if
+                  mapfac_arr_y(i,j) = 1.0
+               end do
+            end do
+         end if
     
       else if (iproj_type == PROJ_ROTLL) then
     
          do i=start_mem_i, end_mem_i
             do j=start_mem_j, end_mem_j
-               mapfac_arr(i,j) = 1.0
+               mapfac_arr_x(i,j) = 1.0
+               mapfac_arr_y(i,j) = 1.0
             end do
          end do
     
@@ -1441,9 +1701,9 @@ module process_tile_module
    ! Name: get_coriolis_parameters
    !
    ! Purpose: To calculate the Coriolis parameters f and e for every gridpoint in
-   !   the specified tile of the model domain which_domain
+   !   the tile of the model domain 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   subroutine get_coriolis_parameters(which_domain, xlat_arr, f, e, &
+   subroutine get_coriolis_parameters(xlat_arr, f, e, &
                                       start_mem_i, start_mem_j, end_mem_i, end_mem_j)
      
       use constants_module
@@ -1451,7 +1711,7 @@ module process_tile_module
       implicit none
     
       ! Arguments
-      integer, intent(in) :: which_domain, start_mem_i, start_mem_j, end_mem_i, end_mem_j
+      integer, intent(in) :: start_mem_i, start_mem_j, end_mem_i, end_mem_j
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(in) :: xlat_arr
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(out) :: f, e
     
@@ -1478,7 +1738,7 @@ module process_tile_module
    ! NOTES: The formulas used in this routine come from those in the 
    !   vecrot_rotlat() routine of the original WRF SI.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   subroutine get_rotang(which_domain, xlat_arr, xlon_arr, cosa, sina, &
+   subroutine get_rotang(xlat_arr, xlon_arr, cosa, sina, &
                          start_mem_i, start_mem_j, end_mem_i, end_mem_j)
    
       use constants_module
@@ -1487,7 +1747,7 @@ module process_tile_module
       implicit none
     
       ! Arguments
-      integer, intent(in) :: which_domain, start_mem_i, start_mem_j, end_mem_i, end_mem_j
+      integer, intent(in) :: start_mem_i, start_mem_j, end_mem_i, end_mem_j
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(in) :: xlat_arr, xlon_arr
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(out) :: cosa, sina
     
@@ -1550,7 +1810,7 @@ module process_tile_module
    !   the point should be placed in.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine process_neighbor(ix, iy, bit_domain, point_queue, tile_queue, &
-                               xlat_array, xlon_array, istagger, &
+                               xlat_array, xlon_array, &
                                start_i, end_i, start_j, end_j, ilevel)
    
       use bitarray_module
@@ -1561,7 +1821,7 @@ module process_tile_module
       implicit none
     
       ! Arguments
-      integer, intent(in) :: ix, iy, istagger, start_i, end_i, start_j, end_j, ilevel
+      integer, intent(in) :: ix, iy, start_i, end_i, start_j, end_j, ilevel
       real, dimension(start_i:end_i, start_j:end_j), intent(in) :: xlat_array, xlon_array
       type (bitarray), intent(inout) :: bit_domain
       type (queue), intent(inout) :: point_queue, tile_queue
@@ -1579,7 +1839,7 @@ module process_tile_module
          process_pt%x = ix
          process_pt%y = iy
      
-         is_in_tile = is_point_in_tile(process_pt%lat, process_pt%lon, istagger, ilevel)
+         is_in_tile = is_point_in_tile(process_pt%lat, process_pt%lon, ilevel)
      
          ! If the point is in the current tile, add it to the list of points
          !   to be processed in the inner loop
@@ -1625,32 +1885,32 @@ module process_tile_module
          do k=start_mem_k,end_mem_k
             do i=start_mem_i, end_mem_i
                do j=start_mem_j+1, end_mem_j-1
-                  dst_arr(i,j,k) = (src_arr(i,j+1,k) - src_arr(i,j-1,k))/(2.*dykm*1000.*mapfac(i,j))
+                  dst_arr(i,j,k) = (src_arr(i,j+1,k) - src_arr(i,j-1,k))/(2.*dykm*mapfac(i,j))
                end do
             end do
      
             do i=start_mem_i, end_mem_i
-               dst_arr(i,start_mem_j,k) = (src_arr(i,start_mem_j+1,k) - src_arr(i,start_mem_j,k))/(dykm*1000.*mapfac(i,j))
+               dst_arr(i,start_mem_j,k) = (src_arr(i,start_mem_j+1,k) - src_arr(i,start_mem_j,k))/(dykm*mapfac(i,j))
             end do
      
             do i=start_mem_i, end_mem_i
-               dst_arr(i,end_mem_j,k) = (src_arr(i,end_mem_j,k) - src_arr(i,end_mem_j-1,k))/(dykm*1000.*mapfac(i,j))
+               dst_arr(i,end_mem_j,k) = (src_arr(i,end_mem_j,k) - src_arr(i,end_mem_j-1,k))/(dykm*mapfac(i,j))
             end do
          end do
       else
          do k=start_mem_k,end_mem_k
             do i=start_mem_i, end_mem_i
                do j=start_mem_j+1, end_mem_j-1
-                  dst_arr(i,j,k) = (src_arr(i,j+1,k) - src_arr(i,j-1,k))/(2.*dykm*1000.)
+                  dst_arr(i,j,k) = (src_arr(i,j+1,k) - src_arr(i,j-1,k))/(2.*dykm)
                end do
             end do
      
             do i=start_mem_i, end_mem_i
-               dst_arr(i,start_mem_j,k) = (src_arr(i,start_mem_j+1,k) - src_arr(i,start_mem_j,k))/(dykm*1000.)
+               dst_arr(i,start_mem_j,k) = (src_arr(i,start_mem_j+1,k) - src_arr(i,start_mem_j,k))/(dykm)
             end do
      
             do i=start_mem_i, end_mem_i
-               dst_arr(i,end_mem_j,k) = (src_arr(i,end_mem_j,k) - src_arr(i,end_mem_j-1,k))/(dykm*1000.)
+               dst_arr(i,end_mem_j,k) = (src_arr(i,end_mem_j,k) - src_arr(i,end_mem_j-1,k))/(dykm)
             end do
          end do
       end if
@@ -1685,32 +1945,32 @@ module process_tile_module
          do k=start_mem_k, end_mem_k
             do i=start_mem_i+1, end_mem_i-1
                do j=start_mem_j, end_mem_j
-                  dst_arr(i,j,k) = (src_arr(i+1,j,k) - src_arr(i-1,j,k))/(2.*dxkm*1000.*mapfac(i,j))
+                  dst_arr(i,j,k) = (src_arr(i+1,j,k) - src_arr(i-1,j,k))/(2.*dxkm*mapfac(i,j))
                end do
             end do
      
             do j=start_mem_j, end_mem_j
-               dst_arr(start_mem_i,j,k) = (src_arr(start_mem_i+1,j,k) - src_arr(start_mem_i,j,k))/(dxkm*1000.*mapfac(i,j))
+               dst_arr(start_mem_i,j,k) = (src_arr(start_mem_i+1,j,k) - src_arr(start_mem_i,j,k))/(dxkm*mapfac(i,j))
             end do
      
             do j=start_mem_j, end_mem_j
-               dst_arr(end_mem_i,j,k) = (src_arr(end_mem_i,j,k) - src_arr(end_mem_i-1,j,k))/(dxkm*1000.*mapfac(i,j))
+               dst_arr(end_mem_i,j,k) = (src_arr(end_mem_i,j,k) - src_arr(end_mem_i-1,j,k))/(dxkm*mapfac(i,j))
             end do
          end do
       else
          do k=start_mem_k, end_mem_k
             do i=start_mem_i+1, end_mem_i-1
                do j=start_mem_j, end_mem_j
-                  dst_arr(i,j,k) = (src_arr(i+1,j,k) - src_arr(i-1,j,k))/(2.*dxkm*1000.)
+                  dst_arr(i,j,k) = (src_arr(i+1,j,k) - src_arr(i-1,j,k))/(2.*dxkm)
                end do
             end do
      
             do j=start_mem_j, end_mem_j
-               dst_arr(start_mem_i,j,k) = (src_arr(start_mem_i+1,j,k) - src_arr(start_mem_i,j,k))/(dxkm*1000.)
+               dst_arr(start_mem_i,j,k) = (src_arr(start_mem_i+1,j,k) - src_arr(start_mem_i,j,k))/(dxkm)
             end do
      
             do j=start_mem_j, end_mem_j
-               dst_arr(end_mem_i,j,k) = (src_arr(end_mem_i,j,k) - src_arr(end_mem_i-1,j,k))/(dxkm*1000.)
+               dst_arr(end_mem_i,j,k) = (src_arr(end_mem_i,j,k) - src_arr(end_mem_i-1,j,k))/(dxkm)
             end do
          end do
       end if

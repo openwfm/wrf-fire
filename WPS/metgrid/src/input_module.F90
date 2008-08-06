@@ -33,10 +33,9 @@ module input_module
 #include "wrf_status_codes.h"
   
       ! Local variables
-      integer :: i, ipx, ipy
+      integer :: i
       integer :: comm_1, comm_2
-      character (len=128) :: coption, input_fname
-      logical :: supports_training, supports_3d_fields
+      character (len=MAX_FILENAME_LEN) :: input_fname
   
       istatus = 0
   
@@ -115,28 +114,28 @@ module input_module
                               start_patch_j, end_patch_j, &
                               start_patch_k, end_patch_k, &
                               cname, cunits, cdesc, memorder, stagger, &
-                              dimnames, real_array, istatus)
+                              dimnames, sr_x, sr_y, real_array, istatus)
  
       implicit none
   
       ! Arguments
       integer, intent(out) :: start_patch_i, end_patch_i, &
                               start_patch_j, end_patch_j, &
-                              start_patch_k, end_patch_k
+                              start_patch_k, end_patch_k, &
+                              sr_x, sr_y
       real, pointer, dimension(:,:,:) :: real_array
       character (len=*), intent(out) :: cname, memorder, stagger, cunits, cdesc
-      character (len=128), dimension(3) :: dimnames
+      character (len=128), dimension(3), intent(inout) :: dimnames
       integer, intent(inout) :: istatus
   
 #include "wrf_io_flags.h"
 #include "wrf_status_codes.h"
   
       ! Local variables
-      integer :: i, ndim, wrftype
+      integer :: ndim, wrftype
       integer :: sm1, em1, sm2, em2, sm3, em3, sp1, ep1, sp2, ep2, sp3, ep3
-      integer, dimension(3) :: domain_start, domain_end
+      integer, dimension(3) :: domain_start, domain_end,temp
       real, pointer, dimension(:,:,:) :: real_domain
-      integer, pointer, dimension(:,:,:) :: int_domain
       character (len=20) :: datestr
       type (q_data) :: qd
   
@@ -174,17 +173,34 @@ module input_module
   
          istatus = 0
 #ifdef IO_BINARY
-         if (io_form_input == BINARY) &
+         if (io_form_input == BINARY) then
             call ext_int_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
+            call ext_int_get_var_ti_integer(handle,'sr_x', &
+                                            trim(cname),temp(1),1,temp(3), istatus)
+            call ext_int_get_var_ti_integer(handle,'sr_y', &
+                                            trim(cname),temp(2),1,temp(3), istatus)
+          endif
 #endif
 #ifdef IO_NETCDF
-         if (io_form_input == NETCDF) &
+         if (io_form_input == NETCDF) then
             call ext_ncd_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
+            call ext_ncd_get_var_ti_integer(handle,'sr_x', &
+                                            trim(cname),temp(1),1,temp(3), istatus)
+            call ext_ncd_get_var_ti_integer(handle,'sr_y', &
+                                            trim(cname),temp(2),1,temp(3), istatus)
+         endif
 #endif
 #ifdef IO_GRIB1
-         if (io_form_input == GRIB1) &
+         if (io_form_input == GRIB1) then
             call ext_gr1_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
+            call ext_gr1_get_var_ti_integer(handle,'sr_x', &
+                                            trim(cname),temp(1),1,temp(3), istatus)
+            call ext_gr1_get_var_ti_integer(handle,'sr_y', &
+                                            trim(cname),temp(2),1,temp(3), istatus)
+         endif
 #endif
+         sr_x=temp(1)
+         sr_y=temp(2)
      
          call mprintf((istatus /= 0),ERROR,'In read_next_field(), problems with ext_pkg_get_var_info()')
 
@@ -271,6 +287,8 @@ module input_module
          call parallel_bcast_char(dimnames(3), 128)
          call parallel_bcast_int(domain_start(3))
          call parallel_bcast_int(domain_end(3))
+         call parallel_bcast_int(sr_x)
+         call parallel_bcast_int(sr_y)
    
          sp1 = my_minx
          ep1 = my_maxx - 1
@@ -280,10 +298,10 @@ module input_module
          ep3 = domain_end(3)
    
          if (internal_gridtype == 'C') then
-            if (my_x /= nproc_x - 1 .or. stagger == 'U') then
+            if (my_x /= nproc_x - 1 .or. stagger == 'U' .or. sr_x.gt.1) then
                ep1 = ep1 + 1
             end if
-            if (my_y /= nproc_y - 1 .or. stagger == 'V') then
+            if (my_y /= nproc_y - 1 .or. stagger == 'V' .or. sr_y.gt.1) then
                ep2 = ep2 + 1
             end if
          else if (internal_gridtype == 'E') then
@@ -291,6 +309,15 @@ module input_module
             ep2 = ep2 + 1
          end if
    
+         if(sr_x.gt.1)then
+           sp1=(sp1-1)*sr_x+1
+           ep1=ep1*sr_x
+         endif
+         if(sr_y.gt.1)then
+           sp2=(sp2-1)*sr_y+1
+           ep2=ep2*sr_y
+         endif
+
          sm1 = sp1
          em1 = ep1
          sm2 = sp2
@@ -337,10 +364,11 @@ module input_module
                                 west_east_dim, south_north_dim, bottom_top_dim, &
                                 we_patch_s, we_patch_e, we_patch_s_stag, we_patch_e_stag, &
                                 sn_patch_s, sn_patch_e, sn_patch_s_stag, sn_patch_e_stag, &
-                                map_proj, is_water, &
-                                is_ice, grid_id, parent_id, i_parent_start, j_parent_start, &
+                                map_proj, mminlu, is_water, &
+                                is_ice, is_urban, isoilwater, grid_id, parent_id, i_parent_start, j_parent_start, &
                                 i_parent_end, j_parent_end, dx, dy, cen_lat, moad_cen_lat, cen_lon, &
-                                stand_lon, truelat1, truelat2, parent_grid_ratio, corner_lats, corner_lons)
+                                stand_lon, truelat1, truelat2, parent_grid_ratio, corner_lats, corner_lons, &
+                                sr_x, sr_y)
  
       implicit none
   
@@ -348,16 +376,15 @@ module input_module
       integer, intent(out) :: dyn_opt, west_east_dim, south_north_dim, bottom_top_dim, map_proj, is_water, &
                  we_patch_s, we_patch_e, we_patch_s_stag, we_patch_e_stag, &
                  sn_patch_s, sn_patch_e, sn_patch_s_stag, sn_patch_e_stag, &
-                 is_ice, grid_id, parent_id, i_parent_start, j_parent_start, &
-                 i_parent_end, j_parent_end, parent_grid_ratio
+                 is_ice, is_urban, isoilwater, grid_id, parent_id, i_parent_start, j_parent_start, &
+                 i_parent_end, j_parent_end, parent_grid_ratio, sr_x, sr_y
       real, intent(out) :: dx, dy, cen_lat, moad_cen_lat, cen_lon, stand_lon, truelat1, truelat2
       real, dimension(16), intent(out) :: corner_lats, corner_lons
-      character (len=128), intent(out) :: title, start_date, grid_type
+      character (len=128), intent(out) :: title, start_date, grid_type, mminlu
   
       ! Local variables
-      integer :: outcount, istatus, i
-      integer :: is_urban, isoilwater
-      character (len=128) :: cunits, cdesc, cstagger, mminlu
+      integer :: istatus, i
+      character (len=128) :: cunits, cdesc, cstagger
       type (q_data) :: qd
   
       if (my_proc_id == IO_NODE .or. do_tiled_input) then
@@ -427,6 +454,8 @@ module input_module
          call ext_get_dom_ti_integer_scalar('i_parent_end', i_parent_end)
          call ext_get_dom_ti_integer_scalar('j_parent_end', j_parent_end)
          call ext_get_dom_ti_integer_scalar('parent_grid_ratio', parent_grid_ratio)
+         call ext_get_dom_ti_integer_scalar('sr_x',sr_x)
+         call ext_get_dom_ti_integer_scalar('sr_y',sr_y)
    
       end if
 
@@ -447,6 +476,8 @@ module input_module
          call parallel_bcast_int(sn_patch_e)
          call parallel_bcast_int(sn_patch_s_stag)
          call parallel_bcast_int(sn_patch_e_stag)
+         call parallel_bcast_int(sr_x)
+         call parallel_bcast_int(sr_y)
 
          ! Must figure out patch dimensions from info in parallel module
 !         we_patch_s      = my_minx

@@ -9,6 +9,7 @@
 module llxy_module
 
    use gridinfo_module
+   use list_module
    use map_utils
    use module_debug
    use misc_definitions_module
@@ -75,7 +76,27 @@ module llxy_module
                       dx=user_dxkm, &
                       r_earth=earth_radius)
   
+      else if (iprojection == PROJ_CYL) then
+         call mprintf(.true.,ERROR,'Should not have PROJ_CYL as projection for ' &
+                          //'source data in push_source_projection()')
+  
+      else if (iprojection == PROJ_CASSINI) then
+         call mprintf(.true.,ERROR,'Should not have PROJ_CASSINI as projection for ' &
+                          //'source data in push_source_projection()')
+  
       else if (iprojection == PROJ_LC) then
+         call map_set(iprojection, proj_stack(SOURCE_PROJ), &
+                      truelat1=user_truelat1, &
+                      truelat2=user_truelat2, &
+                      stdlon=user_stand_lon, &
+                      lat1=user_known_lat, &
+                      lon1=user_known_lon, &
+                      knowni=user_known_x, &
+                      knownj=user_known_y, &
+                      dx=user_dxkm, &
+                      r_earth=earth_radius)
+
+      else if (iprojection == PROJ_ALBERS_NAD83) then
          call map_set(iprojection, proj_stack(SOURCE_PROJ), &
                       truelat1=user_truelat1, &
                       truelat2=user_truelat2, &
@@ -151,7 +172,8 @@ module llxy_module
    subroutine set_domain_projection(iprojection, user_stand_lon, user_truelat1, user_truelat2, &
                                   user_dxkm, user_dykm, user_dlat, user_dlon, &
                                   user_xdim, user_ydim, user_known_x, &
-                                  user_known_y, user_known_lat, user_known_lon, earth_radius)
+                                  user_known_y, user_known_lat, user_known_lon, &
+                                  user_pole_lat, user_pole_lon, earth_radius)
  
       implicit none
   
@@ -160,7 +182,8 @@ module llxy_module
       integer, intent(in) :: user_xdim, user_ydim
       real, intent(in) :: user_stand_lon, user_truelat1, user_truelat2, &
                           user_dxkm, user_dykm, user_dlat, user_dlon, &
-                          user_known_x, user_known_y, user_known_lat, user_known_lon
+                          user_known_x, user_known_y, user_known_lat, user_known_lon, &
+                          user_pole_lat, user_pole_lon
       real, intent(in), optional :: earth_radius
   
       current_nest_number = 1
@@ -185,7 +208,40 @@ module llxy_module
                       dx=user_dxkm, &
                       r_earth=earth_radius)
   
+      else if (iprojection == PROJ_CYL) then
+         call map_set(iprojection, proj_stack(current_nest_number), &
+                      latinc=user_dlat, &
+                      loninc=user_dlon, &
+                      stdlon=user_stand_lon, &
+                      r_earth=earth_radius)
+  
+      else if (iprojection == PROJ_CASSINI) then
+         call map_set(iprojection, proj_stack(current_nest_number), &
+                      latinc=user_dlat, &
+                      loninc=user_dlon, &
+                      dx=user_dxkm,        &
+                      stdlon=user_stand_lon, &
+                      lat1=user_known_lat, &
+                      lon1=user_known_lon, &
+                      lat0=user_pole_lat, &
+                      lon0=user_pole_lon, &
+                      knowni=user_known_x, &
+                      knownj=user_known_y, &
+                      r_earth=earth_radius)
+  
       else if (iprojection == PROJ_LC) then
+         call map_set(iprojection, proj_stack(current_nest_number), &
+                      truelat1=user_truelat1, &
+                      truelat2=user_truelat2, &
+                      stdlon=user_stand_lon, &
+                      lat1=user_known_lat, &
+                      lon1=user_known_lon, &
+                      knowni=user_known_x, &
+                      knownj=user_known_y, &
+                      dx=user_dxkm, &
+                      r_earth=earth_radius)
+  
+      else if (iprojection == PROJ_ALBERS_NAD83) then
          call map_set(iprojection, proj_stack(current_nest_number), &
                       truelat1=user_truelat1, &
                       truelat2=user_truelat2, &
@@ -235,6 +291,8 @@ module llxy_module
                       lat1=user_known_lat, &
                       lon1=user_known_lon, &
                       stagger=HH, &
+                      latinc=user_dykm, &
+                      loninc=user_dxkm, &
                       r_earth=earth_radius)
   
       end if
@@ -256,7 +314,8 @@ module llxy_module
   
       ! Local variables
       integer :: i
-      real :: temp_known_x, temp_known_y, temp_known_lat, temp_known_lon, temp_dxkm, temp_dykm
+      real :: temp_known_x, temp_known_y, temp_known_lat, temp_known_lon, &
+              temp_dxkm, temp_dykm, temp_dlat, temp_dlon
   
       ! Set location of coarse/mother domain
       call map_init(proj_stack(1))
@@ -277,7 +336,37 @@ module llxy_module
                       knownj=known_y, &
                       dx=dxkm)
   
+      else if (iproj_type == PROJ_CYL) then
+         call map_set(iproj_type, proj_stack(1), &
+                      latinc=dlatdeg, &
+                      loninc=dlondeg, &
+                      stdlon=stand_lon)
+  
+      else if (iproj_type == PROJ_CASSINI) then
+         call map_set(iproj_type, proj_stack(1), &
+                      latinc=dlatdeg, &
+                      loninc=dlondeg, &
+                      dx=dxkm,       &
+                      stdlon=stand_lon, &
+                      knowni=known_x, &
+                      knownj=known_y, &
+                      lat0=pole_lat, &
+                      lon0=pole_lon, &
+                      lat1=known_lat, &
+                      lon1=known_lon)
+  
       else if (iproj_type == PROJ_LC) then
+         call map_set(iproj_type, proj_stack(1), &
+                      truelat1=truelat1, &
+                      truelat2=truelat2, &
+                      stdlon=stand_lon, &
+                      lat1=known_lat, &
+                      lon1=known_lon, &
+                      knowni=known_x, &
+                      knownj=known_y, &
+                      dx=dxkm)
+  
+      else if (iproj_type == PROJ_ALBERS_NAD83) then
          call map_set(iproj_type, proj_stack(1), &
                       truelat1=truelat1, &
                       truelat2=truelat2, &
@@ -323,6 +412,8 @@ module llxy_module
                       lambda=lambda, &
                       lat1=known_lat, &
                       lon1=known_lon, &
+                      latinc=dykm, &
+                      loninc=dxkm, &
                       stagger=HH)
    
       end if
@@ -336,16 +427,17 @@ module llxy_module
   
          temp_known_x = real(ixdim(i))/2.
          temp_known_y = real(jydim(i))/2.
+
          call find_known_latlon(i, temp_known_x, temp_known_y, &
                                 temp_known_lat, temp_known_lon, &
-                                temp_dxkm, temp_dykm)      
+                                temp_dxkm, temp_dykm, temp_dlat, temp_dlon)
    
          if (iproj_type == PROJ_LATLON) then
             call map_set(iproj_type, proj_stack(i), &
                          lat1=temp_known_lat, &
                          lon1=temp_known_lon, &
-                         latinc=temp_dykm, &
-                         loninc=temp_dxkm)
+                         latinc=temp_dlat, &
+                         loninc=temp_dlon)
    
          else if (iproj_type == PROJ_MERC) then
             call map_set(iproj_type, proj_stack(i), &
@@ -356,7 +448,35 @@ module llxy_module
                          knownj=temp_known_y, &
                          dx=temp_dxkm)
     
+         else if (iproj_type == PROJ_CYL) then
+            call mprintf(.true.,ERROR,'Don''t know how to do nesting with PROJ_CYL ' &
+                                      //'in compute_nest_locations()')
+  
+         else if (iproj_type == PROJ_CASSINI) then
+            call map_set(iproj_type, proj_stack(i), &
+                         latinc=temp_dlat, &
+                         loninc=temp_dlon, &
+                         dx=temp_dxkm,  &
+                         stdlon=stand_lon, &
+                         knowni=temp_known_x, &
+                         knownj=temp_known_y, &
+                         lat0=pole_lat, &
+                         lon0=pole_lon, &
+                         lat1=temp_known_lat, &
+                         lon1=temp_known_lon)
+    
          else if (iproj_type == PROJ_LC) then
+            call map_set(iproj_type, proj_stack(i), &
+                         truelat1=truelat1, &
+                         truelat2=truelat2, &
+                         stdlon=stand_lon, &
+                         lat1=temp_known_lat, &
+                         lon1=temp_known_lon, &
+                         knowni=temp_known_x, &
+                         knownj=temp_known_y, &
+                         dx=temp_dxkm)
+    
+         else if (iproj_type == PROJ_ALBERS_NAD83) then
             call map_set(iproj_type, proj_stack(i), &
                          truelat1=truelat1, &
                          truelat2=truelat2, &
@@ -414,14 +534,14 @@ module llxy_module
    ! NOTE: This routine assumes that xytoll will work correctly for the 
    !       coarse domain.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
-   recursive subroutine find_known_latlon(n, rx, ry, rlat, rlon, dx, dy)
+   recursive subroutine find_known_latlon(n, rx, ry, rlat, rlon, dx, dy, dlat, dlon)
  
       implicit none
   
       ! Arguments
       integer, intent(in) :: n
       real, intent(in) :: rx, ry
-      real, intent(out) :: rlat, rlon, dx, dy
+      real, intent(out) :: rlat, rlon, dx, dy, dlat, dlon
   
       ! Local variables
       real :: x_in_parent, y_in_parent
@@ -430,6 +550,8 @@ module llxy_module
   
          dx = dxkm 
          dy = dykm 
+         dlat = dlatdeg 
+         dlon = dlondeg 
          call ij_to_latlon(proj_stack(current_nest_number), rx, ry, rlat, rlon)
   
          return
@@ -441,13 +563,81 @@ module llxy_module
          y_in_parent = (ry - ((parent_grid_ratio(n)+1.)/2.)) &
                       / parent_grid_ratio(n) + parent_ll_y(n)
    
-         call find_known_latlon(parent_id(n), x_in_parent, y_in_parent, rlat, rlon, dx, dy)
+         call find_known_latlon(parent_id(n), x_in_parent, y_in_parent, rlat, rlon, dx, dy, dlat, dlon)
    
          dx = dx / parent_grid_ratio(n)
          dy = dy / parent_grid_ratio(n)
+         dlat = dlat / parent_grid_ratio(n)
+         dlon = dlon / parent_grid_ratio(n)
       end if 
  
    end subroutine find_known_latlon
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
+   ! Name: compute_nest_level_info
+   !
+   ! Purpose: This routine computes the parameters describing a nesting level for 
+   !          NMM grids.
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
+   subroutine compute_nest_level_info()
+
+      implicit none
+
+      ! Local variables
+      integer :: i, nest_level, temp
+      type (list) :: level_list 
+
+      call list_init(level_list)
+
+      ! Set location of coarse/mother domain
+      call map_init(proj_stack(1))
+
+      call map_set(PROJ_ROTLL, proj_stack(1), &
+                   ixdim=ixdim(1), &
+                   jydim=jydim(1), &
+                   phi=phi, &
+                   lambda=lambda, &
+                   lat1=known_lat, &
+                   lon1=known_lon, &
+                   latinc=dykm, &
+                   loninc=dxkm, &
+                   stagger=HH)
+
+      parent_ur_x(1) = real(ixdim(1))
+      parent_ur_y(1) = real(jydim(1))
+
+      do i=2,n_domains
+
+         nest_level = get_nest_level(i)
+
+         if (.not. list_search(level_list, ikey=nest_level, ivalue=temp)) then
+
+            call list_insert(level_list, ikey=nest_level, ivalue=nest_level)
+
+            ixdim(nest_level) = ixdim(1)*(3**(nest_level-1))-(3**(nest_level-1)-1)
+            jydim(nest_level) = jydim(1)*(3**(nest_level-1))-(3**(nest_level-1)-1)
+
+            parent_ur_x(nest_level) = ixdim(nest_level)
+            parent_ur_y(nest_level) = jydim(nest_level)
+
+            call map_set(PROJ_ROTLL, proj_stack(nest_level), &
+                         ixdim = ixdim(nest_level), &
+                         jydim = jydim(nest_level), &
+                         phi    = phi, &
+                         lambda = lambda, &
+                         lat1=known_lat, &
+                         lon1=known_lon, &
+                         latinc=(dykm/real((3**(nest_level-1)))), &
+                         loninc=(dxkm/real((3**(nest_level-1)))), &
+                         stagger=HH)
+         end if
+
+      end do
+
+      call list_destroy(level_list)
+
+   end subroutine compute_nest_level_info
 
    
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
@@ -467,6 +657,56 @@ module llxy_module
       dom_dy = proj_stack(current_nest_number)%dx
 
    end subroutine get_domain_resolution
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
+   ! Name: get_nest_level
+   !
+   ! Purpose: This function returns, given a grid ID number, the nesting level of
+   !   that domain; the coarse domain is taken to have nesting level 1.
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
+   function get_nest_level(i)
+      
+      implicit none
+
+      ! Arguments
+      integer, intent(in) :: i
+
+      ! Local variables
+      integer :: j
+
+      ! Return value
+      integer :: get_nest_level
+
+      ! If argument is the coarse domain, return
+      if (i == 1) then
+         get_nest_level = 1
+         return
+      end if
+
+      if (i > MAX_DOMAINS) then
+         call mprintf(.true., ERROR, &
+                      'get_nest_level() called with invalid grid ID of %i.',i1=i)
+      end if
+
+      ! If not the coarse domain, then nesting level is at least 2
+      ! Yes, this looks silly. But we do not have a grid_id array, so
+      !    we must check on parent_id
+      get_nest_level = 2
+
+      j = i
+      do while (parent_id(j) /= 1)
+         j = parent_id(j)
+         get_nest_level = get_nest_level + 1
+         
+         ! Sanity check
+         if (get_nest_level > MAX_DOMAINS) then
+            call mprintf(.true., ERROR, &
+                         'Spooky nesting setup encountered in get_nest_level().')
+         end if
+      end do
+
+   end function get_nest_level
 #endif
 
 

@@ -1,6 +1,9 @@
 subroutine read_namelist(hstart, hend, delta_time, ntimes,&
      ordered_by_date, debug_level, out_format, prefix)
+
+  use misc_definitions_module
   use module_debug
+
   implicit none
   integer , parameter :: maxim_doms = 21
   character(len=200) :: extdataroot, file_name_namelist
@@ -29,14 +32,17 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
   integer , dimension(maxim_doms) :: end_minute
   integer , dimension(maxim_doms) :: end_second
 
+  integer , dimension(maxim_doms) :: sr_x
+  integer , dimension(maxim_doms) :: sr_y
+
   character (len=128) , dimension(maxim_doms) :: start_date, end_date
-  character (len=128) :: opt_output_from_geogrid_path
+  character (len=MAX_FILENAME_LEN) :: opt_output_from_geogrid_path
   integer :: interval_seconds = 0
   character (len=3) :: wrf_core = 'ARW'
   integer :: max_dom, io_form_geogrid
 
   character(len=3) :: out_format
-  character(len=256) :: prefix
+  character(len=MAX_FILENAME_LEN) :: prefix
 
   namelist /share/ wrf_core, max_dom, &
        start_year, start_month, start_day, start_hour, &
@@ -45,7 +51,8 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
        end_minute, end_second,&
        interval_seconds, &
        start_date, end_date, &
-       io_form_geogrid, opt_output_from_geogrid_path, debug_level
+       io_form_geogrid, opt_output_from_geogrid_path, debug_level, &
+       sr_x, sr_y
 
   namelist /ungrib/ out_format, &
        ordered_by_date, prefix
@@ -68,7 +75,9 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
 
 ! Build the namelist file name:
 
+#ifndef __crayx1
   CALL GETENV('EXT_DATAROOT',extdataroot)
+#endif
   file_name_namelist =  'namelist.wps'
  
 ! Open the namelist file:

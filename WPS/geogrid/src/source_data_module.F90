@@ -24,19 +24,21 @@ module source_data_module
    integer :: num_entries
    integer :: next_field = 1
    integer :: output_field_state = RETURN_LANDMASK 
-   integer, pointer, dimension(:) :: source_proj, source_wordsize, source_fieldtype, &
+   integer, pointer, dimension(:) :: source_proj, source_wordsize, source_endian, source_fieldtype, &
                   source_dest_fieldtype, source_priority, source_tile_x, source_tile_y, &
                   source_tile_z, source_tile_z_start, source_tile_z_end, source_tile_bdr, &
                   source_category_min, source_category_max, source_landmask_water, &
                   source_landmask_land, source_smooth_option, &
                   source_smooth_passes, source_output_stagger, source_row_order
+   integer :: source_iswater, source_isice, source_isurban, source_isoilwater
    real, pointer, dimension(:) :: source_dx, source_dy, source_known_x, source_known_y, &
                   source_known_lat, source_known_lon, source_masked, source_truelat1, source_truelat2, &
                   source_stdlon, source_scale_factor, source_missing_value, source_fill_missing
    character (len=128), pointer, dimension(:) :: source_fieldname, source_path, source_interp_string, &
                   source_dominant_category, source_dominant_only, source_dfdx, source_dfdy, &
                   source_z_dim_name, source_units, source_descr
-   logical, pointer, dimension(:) :: is_proj, is_wordsize, is_fieldtype, &
+   character (len=128) :: source_mminlu
+   logical, pointer, dimension(:) :: is_proj, is_wordsize, is_endian, is_fieldtype, &
                   is_dest_fieldtype, is_priority, is_tile_x, is_tile_y, is_tile_z, &
                   is_tile_z_start, is_tile_z_end, is_tile_bdr, is_category_min, &
                   is_category_max, is_landmask_water, is_landmask_land, is_masked, &
@@ -46,10 +48,12 @@ module source_data_module
                   is_dominant_only, is_dfdx, is_dfdy, is_z_dim_name, &
                   is_smooth_option, is_smooth_passes, is_signed, is_missing_value, &
                   is_fill_missing, is_halt_missing, is_output_stagger, is_row_order, &
-                  is_units, is_descr
+                  is_units, is_descr, use_subgrid
+
    type (list), pointer, dimension(:) :: source_res_path, source_interp_option
    type (hashtable) :: bad_files   ! Track which files produce errors when we try to open them
    type (hashtable) :: duplicate_fnames  ! Remember which output fields we have returned 
+
  
    contains
  
@@ -69,7 +73,7 @@ module source_data_module
       integer, parameter :: BUFSIZE = 256
   
       ! Local variables
-      integer :: nparams, idx, eos, ispace, isep, i, iquoted, funit
+      integer :: nparams, idx, eos, ispace, i, funit
       logical :: have_specification, is_used
       character (len=128) :: res_string, path_string, interp_string
       character (len=BUFSIZE) :: buffer
@@ -121,6 +125,7 @@ module source_data_module
       !   the properly sized arrays
       !
       allocate(source_wordsize(num_entries))
+      allocate(source_endian(num_entries))
       allocate(source_fieldtype(num_entries))
       allocate(source_dest_fieldtype(num_entries))
       allocate(source_proj(num_entries))
@@ -170,6 +175,7 @@ module source_data_module
       end do
   
       allocate(is_wordsize(num_entries))
+      allocate(is_endian(num_entries))
       allocate(is_fieldtype(num_entries))
       allocate(is_dest_fieldtype(num_entries))
       allocate(is_proj(num_entries))
@@ -212,6 +218,13 @@ module source_data_module
       allocate(is_signed(num_entries))
       allocate(is_missing_value(num_entries))
       allocate(is_fill_missing(num_entries))
+      allocate(use_subgrid(num_entries))
+
+      write(source_mminlu,'(a4)') 'USGS'
+      source_iswater = 16
+      source_isice = 24
+      source_isurban = 1
+      source_isoilwater = 14
   
       ! 
       ! Actually read and save the specifications
@@ -247,6 +260,7 @@ module source_data_module
             is_smooth_option(i) = .false.
             is_smooth_passes(i) = .false.
             is_fill_missing(i) = .false.
+            use_subgrid(i) = .false.
          end if
   
       else
@@ -285,6 +299,7 @@ module source_data_module
                   is_fieldname(i) = .true.
                   source_fieldname(i) = ' '
                   source_fieldname(i)(1:ispace-idx) = buffer(idx+1:ispace-1)
+!                  print*,i,' ',buffer(idx+1:ispace-1)
      
                else if (index('priority',trim(buffer(1:idx-1))) /= 0) then
                   is_priority(i) = .true.
@@ -488,6 +503,13 @@ module source_data_module
                   is_z_dim_name(i) = .true.
                   source_z_dim_name(i) = ' '
                   source_z_dim_name(i)(1:ispace-idx) = buffer(idx+1:ispace-1)
+
+               else if(index('subgrid',trim(buffer(1:idx-1))) /= 0) then
+                   ispace = idx+1
+                   do while ((ispace < eos) .and. (buffer(ispace:ispace) /= ' '))
+                     ispace = ispace +1
+                   end do
+                   use_subgrid(i)=.true.
      
                else
                    call mprintf(.true., WARN, 'In GEOGRID.TBL, unrecognized option %s in '// &
@@ -547,6 +569,7 @@ module source_data_module
   
       do idx=1,num_entries
          is_wordsize(idx) = .false.
+         is_endian(idx) = .false.
          is_row_order(idx) = .false.
          is_fieldtype(idx) = .false.
          is_proj(idx) = .false.
@@ -648,6 +671,10 @@ module source_data_module
                               len_trim('polar_wgs84') == len_trim(buffer(i+1:eos-1))) then
                         is_proj(idx) = .true.
                         source_proj(idx) = PROJ_PS_WGS84
+                     else if (index('albers_nad83',trim(buffer(i+1:eos-1))) /= 0 .and. &
+                              len_trim('albers_nad83') == len_trim(buffer(i+1:eos-1))) then
+                        is_proj(idx) = .true.
+                        source_proj(idx) = PROJ_ALBERS_NAD83
                      else if (index('polar',trim(buffer(i+1:eos-1))) /= 0 .and. &
                               len_trim('polar') == len_trim(buffer(i+1:eos-1))) then
                         is_proj(idx) = .true.
@@ -702,6 +729,29 @@ module source_data_module
                      if (buffer(ispace-1:ispace-1) == '"' .or. buffer(ispace-1:ispace-1) == '''') ispace = ispace - 1
                      source_descr(idx)(1:ispace-i) = buffer(i+1:ispace-1)
         
+                  else if (index('mminlu',trim(buffer(1:i-1))) /= 0) then
+                     ispace = i+1
+                     iquoted = 0
+                     do while (((ispace < eos) .and. (buffer(ispace:ispace) /= ' ')) .or. (iquoted == 1))
+                        if (buffer(ispace:ispace) == '"' .or. buffer(ispace:ispace) == '''') iquoted = mod(iquoted+1,2)
+                        ispace = ispace + 1
+                     end do 
+                     if (buffer(i+1:i+1) == '"' .or. buffer(i+1:i+1) == '''') i = i + 1
+                     if (buffer(ispace-1:ispace-1) == '"' .or. buffer(ispace-1:ispace-1) == '''') ispace = ispace - 1
+                     source_mminlu(1:ispace-i) = buffer(i+1:ispace-1)
+        
+                  else if (index('iswater',trim(buffer(1:i-1))) /= 0) then
+                     read(buffer(i+1:eos-1),*) source_iswater
+          
+                  else if (index('isice',trim(buffer(1:i-1))) /= 0) then
+                     read(buffer(i+1:eos-1),*) source_isice
+          
+                  else if (index('isurban',trim(buffer(1:i-1))) /= 0) then
+                     read(buffer(i+1:eos-1),*) source_isurban
+          
+                  else if (index('isoilwater',trim(buffer(1:i-1))) /= 0) then
+                     read(buffer(i+1:eos-1),*) source_isoilwater
+          
                   else if (index('dx',trim(buffer(1:i-1))) /= 0) then
                      is_dx(idx) = .true.
                      read(buffer(i+1:eos-1),*) source_dx(idx)
@@ -742,6 +792,18 @@ module source_data_module
                      is_wordsize(idx) = .true.
                      read(buffer(i+1:eos-1),'(i10)') source_wordsize(idx)
         
+                  else if (index('endian',trim(buffer(1:i-1))) /= 0) then
+                     if (index('big',trim(buffer(i+1:eos-1))) /= 0) then
+                        is_endian(idx) = .true.
+                        source_endian(idx) = BIG_ENDIAN
+                     else if (index('little',trim(buffer(i+1:eos-1))) /= 0) then
+                        is_endian(idx) = .true.
+                        source_endian(idx) = LITTLE_ENDIAN
+                     else
+                        call mprintf(.true.,WARN,'Invalid value for keyword ''endian'' '// &
+                                     'specified in index file. BIG_ENDIAN will be used.')
+                     end if
+          
                   else if (index('row_order',trim(buffer(1:i-1))) /= 0) then
                      if (index('bottom_top',trim(buffer(i+1:eos-1))) /= 0) then
                         is_row_order(idx) = .true.
@@ -833,6 +895,7 @@ module source_data_module
   
       if (associated(source_wordsize)) then
          deallocate(source_wordsize)
+         deallocate(source_endian)
          deallocate(source_fieldtype)
          deallocate(source_dest_fieldtype)
          deallocate(source_proj)
@@ -882,6 +945,7 @@ module source_data_module
          deallocate(source_interp_option)
      
          deallocate(is_wordsize)
+         deallocate(is_endian)
          deallocate(is_fieldtype)
          deallocate(is_dest_fieldtype)
          deallocate(is_proj)
@@ -979,17 +1043,19 @@ module source_data_module
    !
    ! Purpose: 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   recursive subroutine get_next_output_fieldname(field_name, ndims, &
+   recursive subroutine get_next_output_fieldname(nest_num, field_name, ndims, &
                                             min_cat, max_cat, &
                                             istagger, memorder, dimnames, units, &
-                                            description, istatus)
+                                            description, sr_x, sr_y, istatus)
  
       implicit none
   
 #include "wrf_io_flags.h"
   
       ! Arguments
+      integer, intent(in) :: nest_num
       integer, intent(out) :: istatus, ndims, istagger, min_cat, max_cat
+      integer, intent(out) :: sr_x, sr_y
       character (len=128), intent(out) :: memorder, field_name, units, description
       character (len=128), dimension(3), intent(out) :: dimnames
   
@@ -1012,9 +1078,10 @@ module source_data_module
             ! We will only save the dominant category
             if (is_dom_only .and. (istatus == 0)) then
                output_field_state = RETURN_DOMCAT_LM
-               call get_next_output_fieldname(field_name, ndims, &
+               call get_next_output_fieldname(nest_num, field_name, ndims, &
                                               min_cat, max_cat, istagger, &
-                                              memorder, dimnames, units, description, istatus)
+                                              memorder, dimnames, units, description, &
+                                              sr_x, sr_y, istatus)
                return
             else
                ndims = 2
@@ -1057,6 +1124,7 @@ module source_data_module
                   memorder = '   ' 
                   dimnames(3) = ' '
                end if
+               call get_subgrid_dim_name(nest_num, field_name,dimnames(1:2), sr_x,sr_y,istatus)
                call get_source_units(field_name, 1, units, istatus)
                if (istatus /= 0) units = '-'
                call get_source_descr(field_name, 1, description, istatus)
@@ -1066,9 +1134,10 @@ module source_data_module
             end if
          else
             output_field_state = RETURN_FIELDNAME
-            call get_next_output_fieldname(field_name, ndims, &
+            call get_next_output_fieldname(nest_num, field_name, ndims, &
                                            min_cat, max_cat, istagger, &
-                                           memorder, dimnames, units, description, istatus)
+                                           memorder, dimnames, units, description, &
+                                           sr_x, sr_y, istatus)
             return
          end if
   
@@ -1082,9 +1151,10 @@ module source_data_module
             ! We will only save the dominant category
             if (is_dom_only .and. (istatus == 0)) then
                output_field_state = RETURN_DOMCAT
-               call get_next_output_fieldname(field_name, ndims, &
+               call get_next_output_fieldname(nest_num, field_name, ndims, &
                                               min_cat, max_cat, istagger, &
-                                              memorder, dimnames, units, description, istatus)
+                                              memorder, dimnames, units, description, &
+                                              sr_x, sr_y, istatus)
                return
      
             ! Return the fractional field
@@ -1129,6 +1199,7 @@ module source_data_module
                   memorder = '   ' 
                   dimnames(3) = ' '
                end if
+               call get_subgrid_dim_name(nest_num,field_name,dimnames(1:2),sr_x,sr_y, istatus)
                call get_source_units(field_name, 1, units, istatus)
                if (istatus /= 0) units = '-'
                call get_source_descr(field_name, 1, description, istatus)
@@ -1141,9 +1212,10 @@ module source_data_module
             call hash_destroy(duplicate_fnames)
             return 
          else if (hash_search(duplicate_fnames, temphash)) then
-            call get_next_output_fieldname(field_name, ndims, &
+            call get_next_output_fieldname(nest_num,field_name, ndims, &
                                            min_cat, max_cat, istagger, &
-                                           memorder, dimnames, units, description, istatus)
+                                           memorder, dimnames, units, description, &
+                                           sr_x, sr_y, istatus)
             return
          end if
   
@@ -1180,6 +1252,8 @@ module source_data_module
                end if
                dimnames(3) = ' ' 
                memorder = 'XY ' 
+
+               call get_subgrid_dim_name(nest_num,field_name,dimnames(1:2),sr_x,sr_y, istatus)
                field_name = domcat_name
                units = 'category'
                description = 'Dominant category'
@@ -1194,9 +1268,10 @@ module source_data_module
                else
                   output_field_state = RETURN_DFDX_LM
                end if
-               call get_next_output_fieldname(field_name, ndims, &
+               call get_next_output_fieldname(nest_num,field_name, ndims, &
                                               min_cat, max_cat, istagger, &
-                                              memorder, dimnames, units, description, istatus)
+                                              memorder, dimnames, units, description, &
+                                              sr_x, sr_y, istatus)
               return
             end if 
          else
@@ -1257,6 +1332,8 @@ module source_data_module
                end if
                field_name = dfdx_name
                units = '-'
+
+               call get_subgrid_dim_name(nest_num,field_name,dimnames(1:2),sr_x,sr_y, istatus)
                description = 'df/dx'
                if (output_field_state == RETURN_DFDX) then
                   output_field_state = RETURN_DFDY
@@ -1269,9 +1346,10 @@ module source_data_module
                else
                   output_field_state = RETURN_DFDY_LM
                end if
-               call get_next_output_fieldname(field_name, ndims, &
+               call get_next_output_fieldname(nest_num,field_name, ndims, &
                                               min_cat, max_cat, istagger, &
-                                              memorder, dimnames, units, description, istatus)
+                                              memorder, dimnames, units, description, &
+                                              sr_x, sr_y, istatus)
                return
             end if 
          else
@@ -1330,15 +1408,18 @@ module source_data_module
                   memorder = '   ' 
                   dimnames(3) = ' '
                end if
+               
+               call get_subgrid_dim_name(nest_num,field_name,dimnames(1:2),sr_x,sr_y, istatus)
                field_name = dfdy_name
                units = '-'
                description = 'df/dy'
                output_field_state = RETURN_FIELDNAME
             else
                output_field_state = RETURN_FIELDNAME
-               call get_next_output_fieldname(field_name, ndims, &
+               call get_next_output_fieldname(nest_num,field_name, ndims, &
                                               min_cat, max_cat, istagger, &
-                                              memorder, dimnames, units, description, istatus)
+                                              memorder, dimnames, units, description, &
+                                              sr_x, sr_y, istatus)
                return
             end if 
          else
@@ -1995,11 +2076,12 @@ module source_data_module
    !
    ! Purpose:
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   subroutine get_field_scale_factor(fieldnm, scale_factor, istatus)
+   subroutine get_field_scale_factor(fieldnm, ilevel, scale_factor, istatus)
    
       implicit none
   
       ! Arguments
+      integer, intent(in) :: ilevel
       integer, intent(out) :: istatus
       real, intent(out) :: scale_factor
       character (len=128), intent(in) :: fieldnm
@@ -2011,7 +2093,8 @@ module source_data_module
   
       do idx=1,num_entries
          if ((index(source_fieldname(idx),trim(fieldnm)) /= 0) .and. &
-             (len_trim(source_fieldname(idx)) == len_trim(fieldnm))) then
+             (len_trim(source_fieldname(idx)) == len_trim(fieldnm)) .and. &
+             (ilevel == source_priority(idx))) then
    
             if (is_scale_factor(idx)) then
                scale_factor = source_scale_factor(idx) 
@@ -2068,7 +2151,40 @@ module source_data_module
  
    end subroutine get_output_stagger
  
- 
+
+   subroutine get_subgrid_dim_name(nest_num,field_name,dimnames, &
+                                   sub_x,sub_y,istatus)
+   use gridinfo_module
+   use module_debug
+   implicit none
+   integer,intent(in)::nest_num
+   integer,intent(out)::sub_x,sub_y,istatus
+   character(len=128),intent(in)::field_name
+   character(len=128),dimension(2),intent(inout)::dimnames
+   integer :: idx,nlen
+
+   sub_x=1
+   sub_y=1
+
+   istatus = 0
+   do idx=1,num_entries
+     if ((index(source_fieldname(idx),trim(field_name)) /= 0) .and. &
+         (len_trim(source_fieldname(idx)) == len_trim(field_name))) then
+         if (use_subgrid(idx)) then
+             istatus = 0
+             if(is_output_stagger(idx))then
+                call mprintf(.true.,ERROR,'Cannot use subgrids on variables with staggered grids')
+             endif
+             dimnames(1)=trim(dimnames(1))//"_subgrid"
+             dimnames(2)=trim(dimnames(2))//"_subgrid"
+             sub_x=sr_x(nest_num)
+             sub_y=sr_y(nest_num)
+         endif
+      endif
+   enddo
+   end subroutine get_subgrid_dim_name
+
+
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! Name: get_interp_option
    !
@@ -2297,7 +2413,11 @@ module source_data_module
       character (len=256), intent(out) :: file_name
   
       ! Local variables
-      integer :: local_wordsize, sign_convention, irow_order
+      integer :: j, k
+      integer :: local_wordsize, local_endian, sign_convention, irow_order, strlen
+      integer :: xdim,ydim,zdim
+      real :: scalefac
+      real, allocatable, dimension(:) :: temprow
   
       call get_tile_fname(file_name, xlat, xlon, ilevel, field_name, istatus)
 
@@ -2310,18 +2430,38 @@ module source_data_module
       end if
   
       call get_tile_dimensions(xlat, xlon, start_x_dim, end_x_dim, start_y_dim, end_y_dim, &
-                      start_z_dim, end_z_dim, npts_bdr, local_wordsize, sign_convention, &
-                      ilevel, field_name, istatus)
+                      start_z_dim, end_z_dim, npts_bdr, local_wordsize, local_endian, &
+                      sign_convention, ilevel, field_name, istatus)
   
+      xdim = (end_x_dim-start_x_dim+1)
+      ydim = (end_y_dim-start_y_dim+1)
+      zdim = (end_z_dim-start_z_dim+1)
+
       if (associated(array)) deallocate(array)
-      allocate(array(start_x_dim:end_x_dim,start_y_dim:end_y_dim,start_z_dim:end_z_dim))
+      allocate(array(xdim,ydim,zdim))
   
       call get_row_order(field_name, ilevel, irow_order, istatus)
       if (istatus /= 0) irow_order = BOTTOM_TOP
   
-      call read_dem(29, file_name, end_x_dim-start_x_dim+1, &
-                    end_y_dim-start_y_dim+1, end_z_dim-start_z_dim+1, &
-                    local_wordsize, array, sign_convention, irow_order, istatus)
+      call s_len(file_name,strlen)
+
+      scalefac = 1.0
+
+      call read_geogrid(file_name, strlen, array, xdim, ydim, zdim, &
+                        sign_convention, local_endian, scalefac, local_wordsize, istatus)
+
+      if (irow_order == TOP_BOTTOM) then
+         allocate(temprow(xdim))
+         do k=1,zdim
+            do j=1,ydim
+               if (ydim-j+1 <= j) exit               
+               temprow(1:xdim)          = array(1:xdim,j,k)
+               array(1:xdim,j,k)        = array(1:xdim,ydim-j+1,k)
+               array(1:xdim,ydim-j+1,k) = temprow(1:xdim)
+            end do
+         end do
+         deallocate(temprow)
+      end if
   
       if (istatus /= 0) then
          start_x_dim = INVALID
@@ -2371,8 +2511,8 @@ module source_data_module
    ! Name: get_tile_dimensions
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine get_tile_dimensions(xlat, xlon, start_x_dim, end_x_dim, start_y_dim, end_y_dim, &
-                        start_z_dim, end_z_dim, npts_bdr, bytes_per_datum, sign_convention, ilevel, &
-                        fieldnm, istatus)
+                        start_z_dim, end_z_dim, npts_bdr, bytes_per_datum, endianness, &
+                        sign_convention, ilevel, fieldnm, istatus)
  
       use llxy_module
   
@@ -2384,8 +2524,8 @@ module source_data_module
                               start_y_dim, end_y_dim, &
                               start_z_dim, end_z_dim, &
                               npts_bdr, &
-                              bytes_per_datum, sign_convention, &
-                              istatus
+                              bytes_per_datum, endianness, &
+                              sign_convention, istatus
       real, intent(in) :: xlat, xlon
       character (len=128), intent(in) :: fieldnm
   
@@ -2456,7 +2596,13 @@ module source_data_module
          bytes_per_datum = source_wordsize(idx)
       else
          bytes_per_datum = 1
-         call mprintf(.true.,ERROR,'In GEOGRID.TBL, no wordsize specified for entry %i.',i1=idx)
+         call mprintf(.true.,ERROR,'In GEOGRID.TBL, no wordsize specified for data in entry %i.',i1=idx)
+      end if
+
+      if (is_endian(idx)) then
+         endianness = source_endian(idx)
+      else
+         endianness = BIG_ENDIAN
       end if
   
       if (is_signed(idx)) then
@@ -2692,7 +2838,7 @@ module source_data_module
       integer :: i, j, istatus
       integer, pointer, dimension(:) :: priorities
       real :: rmissing
-      logical :: begin_priority, have_masked, have_missing, have_bad_interp, halt
+      logical :: begin_priority, halt
       character (len=128) :: cur_name
   
       check_data_specification = .false.
@@ -3016,47 +3162,5 @@ module source_data_module
       enddo
  
    end subroutine s_len
- 
- 
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-   ! Name: read_dem
-   !
-   ! NOTE: This routine adapted from a routine of the same name in the 
-   !       original FSL WRF SI.
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-   subroutine read_dem(unit_no, unit_name, nn1, nn2, nn3, i1, datarr, sign_convention, &
-                       row_order, istat)
- 
-      implicit none
-  
-      ! Arguments
-      integer, intent(in) :: unit_no, nn1, nn2, nn3, i1, sign_convention, row_order
-      integer, intent(out) :: istat
-      real, dimension(nn1,nn2,nn3), intent(out) :: datarr
-      character (len=*), intent(in) :: unit_name
-  
-      ! Local variables
-      integer :: strlen, countx, county, countz
-      integer :: j, k
-      real, allocatable, dimension(:) :: temprow
-  
-      call s_len(unit_name,strlen)
-  
-      call read_binary_field(datarr,i1,nn1*nn2*nn3,unit_name,strlen,sign_convention,istat)
-
-      if (row_order == TOP_BOTTOM) then
-         allocate(temprow(nn1))
-         do k=1,nn3
-            do j=1,nn2 
-               if (nn2-j+1 <= j) exit               
-               temprow(1:nn1) = datarr(1:nn1,j,k)
-               datarr(1:nn1,j,k) = datarr(1:nn1,nn2-j+1,k)
-               datarr(1:nn1,nn2-j+1,k) = temprow(1:nn1)
-            end do
-         end do
-         deallocate(temprow)
-      end if
- 
-   end subroutine read_dem
  
 end module source_data_module
