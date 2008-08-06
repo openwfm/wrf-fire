@@ -694,7 +694,7 @@ else
 end if ! if case0, elseif case4 ,else case123
 
 900 continue 
-
+if(out>1.)call crash('fuel_left_cell_2: fuel fraction > 1')
 fuel_left_cell = out
 end function fuel_left_cell
 
