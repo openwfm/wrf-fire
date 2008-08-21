@@ -1,3 +1,5 @@
+% set matlab path to include files in wrf/other/Matlab
+format compact
 d1=[pwd,'/../../../other/Matlab/vis'];
 d2=[pwd,'/../../../other/Matlab/util1_jan'];
 d3=[pwd,'/../../../other/Matlab/netcdf'];
