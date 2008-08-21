@@ -7,7 +7,7 @@ nccheck(status);
 [varid,status]=mexnc('INQ_VARID',ncid,char(varname));
 nccheck(status);
 v=ncvarinfo(ncid,varid); % find out all about this variable
-[data,status]=mexnc('get_var_double',ncid,varid);
+[data,status]=mexnc(['GET_VAR_',v.vartype_nc],ncid,varid);
 nccheck(status);
 out=permute(data,v.ndims:-1:1);
 if(nargout>1),
