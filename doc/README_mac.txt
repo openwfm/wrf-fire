@@ -15,7 +15,7 @@ work on your computer, so you will have to do the following:
 You will have to compile and install netcdf on your computer.  I don't
 recall having any problems with this.
 
-F90=g95 FC=g95 ./configure --prefix=<prefix> && make && make install
+F90=g95 FC=g95 F77=g95 ./configure --prefix=<prefix> && make && make install
 
 should do the trick.  Then just set the environment variable: NETCDF
 to the prefix where you installed netcdf.
