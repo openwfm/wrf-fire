@@ -5,7 +5,7 @@ function [nc,m]=ncdatatype(d)
 % m =  guess of what the type actually is in matlab 
 
 %types_nc={'', '', 'TEXT', 'DOUBLE','DOUBLE','DOUBLE','DOUBLE'};  %  ??? 
-types_nc={'', '', 'TEXT', 'SHORT','INT','FLOAT','DOUBLE'};  %  ??? 
+types_nc={'', '', 'text', 'short','int','float','double'};  %  ??? 
 types_m= {'', '', 'char', 'int16','int32','single','double'};  %  ??? 
 %         0    1    2       3       4     5        6
 

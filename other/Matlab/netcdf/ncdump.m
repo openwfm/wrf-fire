@@ -19,7 +19,8 @@ nccheck(status)
 nccheck(status)
 for varid=1:nvars, % one variable at a time
     var(varid)=ncvarinfo(ncid,varid-1);
-    dispvarinvo(var(varid));
+    fprintf('%i ',varid);
+    dispvarinfo(var(varid));
 end
 end
 
@@ -41,6 +42,5 @@ end
 
 function dispvarinfo(p)
 % display info on one variable
-    disp([p.varname,' ',p.vartype_nc,' ',p.vartype_m,...
-        ' ',num2str(p.dimlength)])
+    disp([p.varname,' ',p.vartype_m,' (',num2str(p.dimlength),')'])
 end
