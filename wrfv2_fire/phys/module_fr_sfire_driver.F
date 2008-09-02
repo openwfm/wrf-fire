@@ -450,8 +450,7 @@ do ij=1,num_tiles
             ims, ime, jms, jme,   &
             its,ite,jts,jte,      &
             grnhfx)
-!comment out the next call to get results as before commit
-!55fd92051196b796891b60cb7ec1c4bdb8800078
+!comment out the next call to get results as before commit 55fd92051196b796891b60cb7ec1c4bdb8800078
         call sum_2d_cells(        &
             ifms,ifme,jfms,jfme,  &
             ifts,ifte,jfts,jfte,  &
