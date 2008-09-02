@@ -756,7 +756,8 @@ BENCH_END(pbl_driver_tim)
 
       IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire > 0) THEN
 
-         CALL wrf_debug ( 200 , ' call fire_driver, ifire = ', config_flags%ifire )
+         CALL wrf_debug ( 200 , ' call fire_driver')
+         !CALL wrf_debug ( 200 , ' call fire_driver, ifire = ', config_flags%ifire )
 
 BENCH_START(fire_driver_tim)
 

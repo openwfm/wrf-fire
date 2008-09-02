@@ -1434,6 +1434,10 @@ state    real     lfn       *i*j      fire        1         z    hr    "LFN" "le
 state    real     fuel_frac *i*j      fire        1         z    hr    "FUEL_FRAC" "fuel remaining"
 state    real     uf        *i*j      fire        1         z    hr    "UF"        "fire wind"
 state    real     vf        *i*j      fire        1         z    hr    "VF"        "fire wind"
+state    real     fgrnhfx   *i*j      fire        1         z    hr    "FGRNHFX"   "heat flux from ground fire" "W/m^2"
+state    real     fgrnqfx   *i*j      fire        1         z    hr    "FGRNQFX"   "moisture flux from ground fire" "W/m^2"
+state    real     fcanhfx   *i*j      fire        1         z    hr    "FCANHFX"   "heat flux from crown fire" "W/m^2"
+state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"   "moisture flux from crown fire" "W/m^2"
 # sfire work variables
 # constant data arrays
 state    real     dzfsdx    *i*j      fire        1         z    hr    "DXFSDX"    "topo"

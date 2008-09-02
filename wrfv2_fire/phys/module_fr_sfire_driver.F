@@ -171,7 +171,8 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%uf,grid%vf,lfn_out,                      & ! arrays to persist only over one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
-            grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid  
+            grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
+            grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid  
             nfuel_cat_int,                               & ! input, or internal for safekeeping
             grid%fuel_time,grid%zsf,                      & 
             grid%dzfsdx,grid%dzfsdy,                      &
@@ -214,6 +215,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     uf,vf,lfn_out,                                & ! fire wind velocities, out level set function    
     rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
+    fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, atm grid  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,zsf,                                & ! save constant internal data, fire grid
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap&
@@ -283,6 +285,12 @@ real, intent(out), dimension(ims:ime, jms:jme):: &  ! redundant arrays, for disp
     canhfx,                                      &  ! heat flux from crown fire (W/m^2) 
     canqfx                                         ! moisture flux from crown fire (W/m^2) 
 
+real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for display only, fire grid
+    fgrnhfx,                                      &  ! heat flux from ground fire (W/m^2) 
+    fgrnqfx,                                      &  ! moisture flux from ground fire (W/m^2) 
+    fcanhfx,                                      &  ! heat flux from crown fire (W/m^2) 
+    fcanqfx                                         ! moisture flux from crown fire (W/m^2) 
+
 !  ***** data (constant in time) *****
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme):: &
@@ -297,7 +305,6 @@ integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
-real, dimension(ifms:ifme, jfms:jfme):: fgrnhfx, fgrnqfx
 
 !*** executable
 
