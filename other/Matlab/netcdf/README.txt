@@ -2,19 +2,20 @@ Files in this directory are to read/write NETCDF files from matlab.
 
 1. download the version of mexnc appropriate for your matlab from 
    http://mexcdf.sourceforge.net/downloads, suggest to this directory
-2. uncompress and untar the file
-3. build mexnc  (cd mexnc; make worked for me)
-4. put the mexnc directory and this directory on the matlab path
+2. uncompress and untar the file here so that mexnc is a subdirectory of this
+directory
+3. build mexnc  (do nothing; if that does not work, try cd mexnc; make)
 
-Usage:
-
-cd wrf/wrfv2_fire/test/em_fire
-<run wrf to produce some wrfrst* files>
+cd ../../..
+cd wrfv2_fire/test/em_fire
+<run wrf to produce some wrfrst* files> or put wrfrst files here
 matlab
 >> mpath                       % set the matlab path
 >> f='wrfrst....'              % choose a netcdf file
->> v=nclist(f)                 % list info on all variables
->> [LFN,v]=ncread(f,'LFN'); v  % get one variable and its info
+>> p=ncdump(f)                 % list info on all variables
+>> p=ncdump(f,'LFN')           % get info and value of one variable as
+>> v=ncextract(p);             % extract variable value as Matlab array
+>> v=ncread(f,'LFN');          % get the array directly
 
 NOTE: in variable info, _nc is type used to read from netcdf, _m is the matlab
 type corresponding to what is in the netcdf file. The type in the netcdf file
