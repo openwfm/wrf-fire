@@ -1,7 +1,12 @@
 function v=ncvarinfo(ncid,varid)
 % v=ncvarinfo(ncid,varid)
 % get info on variable number varid in file f
-% returns a structure with fields
+% returns a structure with fields containing the 
+% variable propertices and attributes
+
+% Jan Mandel, September 2008
+% developed from an earlier code by Jon Beezley
+
 
 [v.varname,v.vartype,v.ndims,v.dimids,v.natts,status] = mexnc('INQ_VAR',ncid,varid);
 nccheck(status)

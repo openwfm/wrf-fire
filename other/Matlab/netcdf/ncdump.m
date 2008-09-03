@@ -11,6 +11,7 @@ function var=ncdump(filename,varname)
 % get info for one variable and its value
 
 % Jan Mandel, September 2008
+% developed from an earlier code by Jon Beezley
 
 if ~exist('varname','var'),
     var=nclist(filename);
