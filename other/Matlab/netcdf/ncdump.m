@@ -1,9 +1,17 @@
 function var=ncdump(filename,varname)
-% var=nclist(filename[,varname]
+% var=nclist(filename[,varname])
+% filename  the name of netcdf file
+% varname  the name of a variable in the file
+% var          returns structure with fields describing the variable
+%
 % if varname not given:
-% get info for all variables in netcdf file
-% if varname given:
+% get info for all variables in the netcdf file
+%
+% if varname is given:
 % get info for one variable and its value
+
+% Jan Mandel, September 2008
+
 if ~exist('varname','var'),
     var=nclist(filename);
 else

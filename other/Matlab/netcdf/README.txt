@@ -4,7 +4,6 @@ Files in this directory are to read/write NETCDF files from matlab.
    http://mexcdf.sourceforge.net/downloads, suggest to this directory
 2. uncompress and untar the file here so that mexnc is a subdirectory of this
 directory
-3. build mexnc  (do nothing; if that does not work, try cd mexnc; make)
 
 cd ../../..
 cd wrfv2_fire/test/em_fire
