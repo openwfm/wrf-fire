@@ -26,7 +26,7 @@
  truelat1  =  39.338,
  truelat2  =  0,
  stand_lon = -106.807,
- geog_data_path = '/home/jbeezley/wrfdata/geog'
+ geog_data_path = '../../wrfdata/geog'
 /
 
 &ungrib
