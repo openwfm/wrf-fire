@@ -7,6 +7,9 @@
 #!!! of Colorado on the date of August 28, 2005.  I make no claim 
 #!!! that it makes any sense physically, only that it runs
 
+#!!! run ./configure in the WPS and in the wrfv2_fire directories
+#!!! this is interactive so it is not a part of this script
+
 # get a copy of data: in the parent of the wrf directory
 # note: this is about 11GB 
 (cd ..; rsync -arvzuP math:/home/faculty/jmandel/wrfdata .)
