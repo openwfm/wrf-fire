@@ -116,11 +116,12 @@ do j=jfts,jfte
         ay = fdy*(j - jfds + 0.5)
         dam2=(ax-mx)*(ax-mx)+(ay-my)*(ay-my)      ! |a-m|^2
         if(point)then
-            d=sqrt(dam2)
+            d=sqrt(dam2) ! distance from the ignition point
         else
-            ! compute distance as distance from midpoint minus correction
-            ! |a-c|^2 = |a-m|^2 - |m-c|^2
-            ! when |m-c| >= |s-e|/2 use distance from the endpoint instead
+            ! compute distance of a=(ax,ay) and the nearest point on the segment
+            ! [(sx,sy), (ex,ey)] as the distance of (ax,ay) from the midpoint (mx,my)
+            ! minus a correction: |a-c|^2 = |a-m|^2 - |m-c|^2
+            ! when |m-c| >= |s-e|/2 use the distance from the endpoint instead
             !
             !           a    
             !          /| \
