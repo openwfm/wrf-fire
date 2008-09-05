@@ -120,8 +120,8 @@ do j=jfts,jfte
         else
             ! compute distance of a=(ax,ay) and the nearest point on the segment
             ! [(sx,sy), (ex,ey)] as the distance of (ax,ay) from the midpoint (mx,my)
-            ! minus a correction: |a-c|^2 = |a-m|^2 - |m-c|^2
-            ! when |m-c| >= |s-e|/2 use the distance from the endpoint instead
+            ! minus a correction (because of rounding errors): |a-c|^2 = |a-m|^2 - |m-c|^2
+            ! when |m-c| >= |s-e|/2 the nearest point is one of the endpoints
             !
             !           a    
             !          /| \
@@ -129,18 +129,18 @@ do j=jfts,jfte
             !
             ! |m-c| = |a-m| cos (a-m,e-s) 
             !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
-            des2 = (ex-sx)*(ex-sx)+(ey-sy)*(ey-sy)          ! |e-s|^2
+            des2 = (ex-sx)*(ex-sx)+(ey-sy)*(ey-sy)          ! des2 = |e-s|^2
             dames = dam2*des2
             if(dames>0)then
-                am_es=(ax-mx)*(ex-sx)+(ay-my)*(ey-sy)       ! (a-m).(e-s)
-                cos2 = (am_es*am_es)/dames                  ! cos^2 (a-m,e-s)
-            else
+                am_es=(ax-mx)*(ex-sx)+(ay-my)*(ey-sy)       ! am_es = (a-m).(e-s)
+                cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
+            else ! point a already is the midpoint
                 cos2 = 0.
             endif
-            dmc2 = dam2*cos2                                ! |m-c|^2
-            if(4.*dmc2 <= des2)then
-                d = sqrt(max(dam2 - dmc2,0.))               ! just in case, rounding
-            elseif(am_es>0)then                             ! cos > 0, closest is e
+            dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
+            if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
+                d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
+            elseif(am_es>0)then                             ! if cos > 0, closest is e
                 d = sqrt((ax-ex)*(ax-ex)+(ay-ey)*(ay-ey))   ! |a-e|
             else
                 d = sqrt((ax-sx)*(ax-sx)+(ay-sy)*(ay-sy))   ! |a-s|
