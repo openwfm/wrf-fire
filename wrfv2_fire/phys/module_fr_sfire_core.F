@@ -1137,6 +1137,9 @@ call message(msg)
         enddo
     enddo      
 
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
+                   lfn_out,'prop_ls: lfn out')
+    
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
     ! interpolate from the level functions at start and at end

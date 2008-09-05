@@ -12,7 +12,7 @@
 
 # get a copy of data: in the parent of the wrf directory
 # note: this is about 11GB 
-(cd ..; rsync -arvzuP math:/home/faculty/jmandel/wrfdata .)
+##(cd ..; rsync -arvzuP math:/home/faculty/jmandel/wrfdata .)
 
 #in wrfv2_fire compile wrf em_real
 (cd wrfv2_fire; ./compile em_real)
