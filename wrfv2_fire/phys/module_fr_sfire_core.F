@@ -1035,7 +1035,7 @@ real, parameter::a=0.5, a1=1.0-a ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
-integer::i,j,its1,ite1,jts1,jte1
+integer::i,j,its1,ite1,jts1,jte1,k
 character(len=128)msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
@@ -1182,6 +1182,7 @@ call message(msg)
     ! cannot use values outside of the domain, would have to reflect and that
     ! would change lfn_out
     ! cannot use values outside of tile, not synchronized yet
+    ! so in parallel mode the statistics is not accurate
     do j=jts1,jte1
         do i=its1,ite1
             if(lfn_out(i,j)>0.0)then   ! a point out of burning region
@@ -1217,6 +1218,30 @@ call message(msg)
         call print_stat_line('abs(speed error)',its1,ite1,jts1,jte1,min_aerr,max_aerr,sum_aerr/nfireline)
     endif
 
+    ! check if the fire did not get to the domain boundary
+    do k=1,2
+        if(k.eq.1)i=ids
+        if(k.eq.2)i=ide
+        if(i.ge.its.and.i.le.ite)then
+            do j=jts,jte
+                if(lfn_out(i,j)<=0.)goto 9
+            enddo
+        endif
+    enddo
+    do k=1,2
+        if(k.eq.1)j=jds
+        if(k.eq.2)j=jde
+        if(j.ge.jts.and.j.le.jte)then
+            do i=its,ite
+                if(lfn_out(i,j)<=0.)goto 9
+            enddo
+        endif
+    enddo
+    goto 10
+9   continue
+    write(msg,'(a,2i8)')'prop_ls: fire at domain boundary node ',i,j
+    call crash(msg)
+10  continue
 
 end subroutine prop_ls
 
