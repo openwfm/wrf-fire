@@ -1360,8 +1360,10 @@ end subroutine tend_ls
 !**************************
 !
 
-real function diff2x=select_godunov(diffLx,diffRx,diffCx)
+real function select_godunov(diffLx,diffRx,diffCx)
+implicit none
 real, intent(in):: diffLx, diffRx, diffCx
+real diff2x
 
 ! Godunov scheme: upwind differences, L or R or none    
 ! always test on > or < never = , much faster because of IEEE
@@ -1372,14 +1374,17 @@ diff2x=0
 if (diffLx>0.and..not.diffCx<0)diff2x=diffLx
 if (diffRx<0.and.     diffCx<0)diff2x=diffRx
 
-end function diff2x_godunov
+select_godunov=diff2x
+end function select_godunov
 
 !
 !**************************
 !
 
-real function diff2x=select_eno(diffLx,diffRx)
+real function select_eno(diffLx,diffRx)
+implicit none
 real, intent(in):: diffLx, diffRx
+real diff2x
 
 ! 1st order ENO scheme
 
@@ -1399,6 +1404,7 @@ else
     diff2x=0.
 endif
 
+select_eno=diff2x
 end function select_eno
       
 !
