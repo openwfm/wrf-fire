@@ -1323,17 +1323,12 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
             diffCx = lfn(i+1,j)-lfn(i-1,j)
             diffCy = lfn(i,j+1)-lfn(i,j-1)
     
-            ! Godunov scheme: upwind differences, L or R or none    
-            ! always test on > or < never = , much faster because of IEEE
-            ! central diff >= 0 => take left diff if >=0, ortherwise 0
-            ! central diff <= 0 => take right diff if <=0, ortherwise 0
-            diff2x=0
-            diff2y=0
-            if (diffLx>0.and..not.diffCx<0)diff2x=diffLx
-            if (diffRx<0.and.     diffCx<0)diff2x=diffRx
-            if (diffLy>0.and..not.diffCy<0)diff2y=diffLy
-            if (diffRy<0.and.     diffCy<0)diff2y=diffRy
-            
+            !upwinding - select right or left derivative
+            !diff2x=select_godunov(diffLx,diffRx,diffCx)
+            !diff2y=select_godunov(diffLy,diffRy,diffCy)
+            diff2x=select_eno(diffLx,diffRx)
+            diff2y=select_eno(diffLy,diffRy)
+  
             ! magnitude of the gradient
             grad=sqrt(diff2x*diff2x + diff2y*diff2y)
 
@@ -1361,6 +1356,51 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 
 end subroutine tend_ls
 
+!
+!**************************
+!
+
+real function diff2x=select_godunov(diffLx,diffRx,diffCx)
+real, intent(in):: diffLx, diffRx, diffCx
+
+! Godunov scheme: upwind differences, L or R or none    
+! always test on > or < never = , much faster because of IEEE
+! central diff >= 0 => take left diff if >=0, ortherwise 0
+! central diff <= 0 => take right diff if <=0, ortherwise 0
+
+diff2x=0
+if (diffLx>0.and..not.diffCx<0)diff2x=diffLx
+if (diffRx<0.and.     diffCx<0)diff2x=diffRx
+
+end function diff2x_godunov
+
+!
+!**************************
+!
+
+real function diff2x=select_eno(diffLx,diffRx)
+real, intent(in):: diffLx, diffRx
+
+! 1st order ENO scheme
+
+if    (.not.diffLx>0 .and. .not.diffRx>0)then
+    diff2x=diffRx
+elseif(.not.diffLx<0 .and. .not.diffRx<0)then
+    diff2x=diffLx
+elseif(.not.diffLx>0 .and. .not.diffRx<0)then
+    diff2x=0.
+elseif(.not.diffLx<0 .and. .not.diffRx>0)then
+    if(.not. abs(diffRx) < abs(diffLx))then
+        diff2x=diffRx
+    else
+        diff2x=diffLx
+    endif
+else
+    diff2x=0.
+endif
+
+end function select_eno
+      
 !
 !**************************
 !
