@@ -1,12 +1,13 @@
 function ncload(f)
 % ncload(f)
 % load all variables from a netcdf file f
+% put their names in lowercase
 
 % Jan Mandel, September 2008
 
-p=ndump(f);  % get info on all variables
+p=ncdump(f,'-q');  % get info on all variables
 for i=1:length(p),
     v=p(i).varname;
-    asignin('caller',p,ncread(f,p));
+    assignin('caller',lower(v),ncread(f,v));
 end
 end
