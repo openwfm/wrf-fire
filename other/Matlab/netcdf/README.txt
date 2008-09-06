@@ -14,7 +14,8 @@ matlab
 >> p=ncdump(f)                 % list info on all variables
 >> p=ncdump(f,'LFN')           % get info and value of one variable as
 >> v=ncextract(p);             % extract variable value as Matlab array
->> v=ncread(f,'LFN');          % get the array directly
+>> lfn=ncread(f,'LFN');        % or, get the array directly 
+>> ncload(f); mesh(lfn)        % alternatively, load all variables into the workspace
 
 NOTE: in variable info, _nc is type used to read from netcdf, _m is the matlab
 type corresponding to what is in the netcdf file. The type in the netcdf file
