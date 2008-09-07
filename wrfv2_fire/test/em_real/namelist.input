@@ -121,6 +121,7 @@
  fire_lon_init      = 6.70e-3,  ! real   , initial fire longitude (deg)
  fire_ign_time      = 30.,      ! real   , time of fire ignition (s)
  fire_shape         = 1,    ! integer, initial fire shape
+fire_boundary_guard = 2,    ! integer, number of cells to stop when fire close to the domain boundary
 ! ignition for sfire
  fire_num_ignitions = 2,        ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_start_x1 = 1000  ! start points of ignition lines, in m from lower left corner

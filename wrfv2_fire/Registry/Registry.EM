@@ -1455,6 +1455,7 @@ state    integer  ischap    *i*j      fire        1         z    hr    "ISCHAP" 
 #
 #<Table>  <Type>  <Sym>                   <How set>          <Nentries>   <Default>
 rconfig   integer ifire                  namelist,fire         max_domains           0
+rconfig   integer fire_boundary_guard    namelist,fire         max_domains           2       -      "fire_boundary_guard" "cells to stop when fire close to domain boundary"
 rconfig   integer fire_num_ignitions     namelist,fire         max_domains           0.      -      "fire_num_ignitions" "number of ignition lines" 
 rconfig   real    fire_ignition_start_x1  namelist,fire        max_domains           0.      -      "fire_ignition_start_x1" "x coord of start of ignition line" "m"
 rconfig   real    fire_ignition_start_y1  namelist,fire        max_domains           0.      -      "fire_ignition_start_y1" "y coord of start of ignition line" "m"

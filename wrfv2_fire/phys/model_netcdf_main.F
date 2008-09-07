@@ -265,6 +265,7 @@ do istep=sstep,msteps
                 ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
                 time_start,dt,                          & ! time and increment
                 fdx,fdy,                                & ! fire mesh spacing
+                2,                                      & ! boundary_guard
                 ignition_start_x,ignition_start_y,      &
                 ignition_end_x,ignition_end_y,          &  
                 ignition_radius,                        &

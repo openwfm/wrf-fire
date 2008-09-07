@@ -936,6 +936,7 @@ subroutine prop_ls( id, &                                ! for debug
                 ims,ime,jms,jme, &                       ! memory dims
                 its,ite,jts,jte, &                       ! tile dims
                 ts,dt,dx,dy,     &                       ! scalars in
+                boundary_guard,  &
                 tbound,          &                       ! scalars out
                 lfn_in,lfn_out,tign         &                     ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
@@ -966,7 +967,7 @@ implicit none
 ! 
 ! The curve moves outside with speed given by function speed_func.
 !   
-! Method: Godunov method for the normal motion. The timestep is checked for
+! Method: Godunov/ENO method for the normal motion. The timestep is checked for
 ! CFL condition. For a straight segment in a constant field and locally linear
 ! level function, the method reduces to the exact normal motion. The advantage of 
 ! the level set method is that it treats automatically special cases such as
@@ -988,6 +989,8 @@ implicit none
 ! ts                in    start time
 ! dt                in    time step
 ! dx,dy             in    grid spacing
+! boundary_guard    in    stop when fire gets this close to the boundary
+! tbound            out   bound on stable time step from CFL condition, if tbound>=dt then OK
 ! lfn_in,lfn_out    inout,out the level set function at nodes
 ! tign              inout the ignition time at nodes
 
@@ -1016,6 +1019,7 @@ integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out
 real,intent(in)::dx,dy,ts,dt
+integer, intent(in)::boundary_guard
 real,intent(out)::tbound
 #ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */
 #include SPEED_VARS_DECL
@@ -1225,8 +1229,8 @@ call message(msg)
 
     ! check if the fire did not get to the domain boundary
     do k=1,2
-        if(k.eq.1)i=ids
-        if(k.eq.2)i=ide
+        if(k.eq.1)i=ids+boundary_guard
+        if(k.eq.2)i=ide-boundary_guard
         if(i.ge.its.and.i.le.ite)then
             do j=jts,jte
                 if(lfn_out(i,j)<=0.)goto 9
@@ -1234,8 +1238,8 @@ call message(msg)
         endif
     enddo
     do k=1,2
-        if(k.eq.1)j=jds
-        if(k.eq.2)j=jde
+        if(k.eq.1)j=jds+boundary_guard
+        if(k.eq.2)j=jde-boundary_guard
         if(j.ge.jts.and.j.le.jte)then
             do i=its,ite
                 if(lfn_out(i,j)<=0.)goto 9
@@ -1244,8 +1248,10 @@ call message(msg)
     enddo
     goto 10
 9   continue
-    write(msg,'(a,2i8)')'prop_ls: fire at domain boundary node ',i,j
-    call crash(msg)
+    write(msg,'(a,i2,a,2i8)')'prop_ls: fire',boundary_guard, &
+        ' cells from domain boundary at node ',i,j
+    call message(msg)     
+    call crash('prop_ls: increase the fire region')
 10  continue
 
 end subroutine prop_ls
@@ -1257,7 +1263,7 @@ end subroutine prop_ls
 subroutine tend_ls( &
     lims,lime,ljms,ljme, &                   ! memory dims for lfn
     tims,time,tjms,tjme, &                   ! memory dims for tend 
-    inds,inde,jnds,jnde, &                   ! domain - nodes where lfn defined
+    ids,ide,jds,jde, &                   ! domain - nodes where lfn defined
     ints,inte,jnts,jnte, &                   ! region - nodes where tend computed
     t,dx,dy,      &                          ! scalars in
     lfn, &                                   ! arrays in
@@ -1276,7 +1282,7 @@ implicit none
 
 !*** arguments
 integer,intent(in)::lims,lime,ljms,ljme,tims,time,tjms,tjme
-integer, intent(in)::inds,inde,jnds,jnde,ints,inte,jnts,jnte
+integer, intent(in)::ids,ide,jds,jde,ints,inte,jnts,jnte
 real,intent(in)::t                                     ! time
 real,intent(in)::dx,dy                                 ! mesh step
 real,dimension(lims:lime,ljms:ljme),intent(inout)::lfn ! level set function
@@ -1316,7 +1322,7 @@ id=id+1
     
     call continue_at_boundary(1,1, &
     lims,lime,ljms,ljme, &                ! memory dims
-    inds,inde,jnds,jnde, &                ! domain - nodes where lfn defined
+    ids,ide,jds,jde, &                ! domain - nodes where lfn defined
     ints,inte,jnts,jnte, &                ! region - nodes where tend computed
     lfn)                                  ! array
 
@@ -1346,9 +1352,11 @@ id=id+1
 
             ! get rate of spread
 
-            rr = speed_func(diffCx,diffCy,i,j &
+            rr = speed_func(diff2x,diff2y,i,j &
 #           include "fr_sfire_params_args.h"
             )
+            ! force zero speed on domain boundary
+	    if(i<=ids .or. i>=ide .or. j<=jds .or. j>= jde)rr=0.
             ! time step bound - CFL condition
             ! contribution of the normal term
             if (grad > 0.) then

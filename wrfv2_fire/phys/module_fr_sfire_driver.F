@@ -162,6 +162,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             config_flags%fire_fuel_left_irl,         &
             config_flags%fire_fuel_left_jrl,         &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
+            config_flags%fire_boundary_guard,         &
             fire_num_ignitions,                                & 
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
             fire_ignition_end_x,fire_ignition_end_y,     &
@@ -204,6 +205,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fire_fuel_left_irl,         &
     fire_fuel_left_jrl,         &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
+    boundary_guard,                               & 
     num_ignitions,                                & 
     ignition_start_x,ignition_start_y,            & ! ignition - small arrays
     ignition_end_x,ignition_end_y,                &
@@ -256,6 +258,8 @@ real, intent(in):: &
     fire_crwn_hgt,                                & ! lowest height crown fire heat is released (m)
     fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
     fire_ext_crwn                                   !  extinction depth of crown fire heat (m)
+
+integer, intent(in):: boundary_guard                ! stop when fire gets this far from the boundary
 
 integer, intent(in):: num_ignitions                 ! number of ignitions, can be 0
 real, dimension(num_ignitions), intent(in):: &   
@@ -431,6 +435,7 @@ do ij=1,num_tiles
         ifts,ifte,jfts,jfte,                    & ! fire patch dims
         time_start,dt,                          & ! time and increment
         dxf,dyf,                                & ! fire mesh spacing
+        boundary_guard,                         &
         ignition_start_x,ignition_start_y,      & ! ignition - small arrays
         ignition_end_x,ignition_end_y,          &
         ignition_radius,                        &
