@@ -2,7 +2,7 @@
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! With contributions by Minjeong Kim.
-!#define DEBUG_OUT
+#define DEBUG_OUT
 
 module module_fr_sfire_core
 
@@ -1067,7 +1067,7 @@ call message(msg)
     call write_array_m(ihs,ihe,jhs,jhe,ims,ime,jms,jme,lfn_in,'lfn_in',id)
 #endif
     
-    ! NOTE: tend_ls will do relection to one node strip at domain boundaries
+    ! NOTE: tend_ls will extrapolate to one node strip at domain boundaries
     ! so that it can compute gradient at domain boundaries.
     ! To avoid copying, lfn_in is declared inout.
     ! At tile boundaries that are not domain boundaries values of lfn_in two nodes
@@ -1116,6 +1116,10 @@ call message(msg)
 #include "fr_sfire_params_args.h"
 #endif
 )
+
+#ifdef DEBUG_OUT    
+    call write_array_m(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,tend,'tend2',id)
+#endif
 
     call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
         
@@ -1297,10 +1301,18 @@ real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
 
 intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
+#ifdef DEBUG_OUT
+real,dimension(tims:time,tjms:tjme)::rra,grada
+integer::id
+data id/0/
+id=id+1	
+#endif
+
 !*** executable
     
     ! check array dimensions
     call check_mesh_2dim(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme)
+    call check_mesh_2dim(ints,inte,jnts,jnte,tims,time,tjms,tjme)
     
     call continue_at_boundary(1,1, &
     lims,lime,ljms,ljme, &                ! memory dims
@@ -1342,11 +1354,20 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
             if (grad > 0.) then
                 tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
             endif
-            
+#ifdef DEBUG_OUT    
+            rra(i,j)=rr
+            grada(i,j)=grad    
+#endif
             ! the rhs of the diff eq, a.k.a. lfn dot, a.k.a. the lfn "tendency"
             tend(i,j) = -rr*grad   ! normal term 
         enddo
     enddo        
+
+#ifdef DEBUG_OUT    
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
+#endif
 
     call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
                    tend,'tend_ls: tend out')
