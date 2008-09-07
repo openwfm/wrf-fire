@@ -1,2 +1,2 @@
 #!/bin/csh -f
-./compile em_fire >& compile.log; grep Err compile.log
+./compile em_fire |& tee compile.log |& grep Error 
