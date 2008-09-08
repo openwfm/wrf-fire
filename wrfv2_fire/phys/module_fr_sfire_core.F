@@ -989,7 +989,7 @@ implicit none
 ! ts                in    start time
 ! dt                in    time step
 ! dx,dy             in    grid spacing
-! boundary_guard    in    stop when fire gets this close to the boundary
+! boundary_guard    in    stop when fire gets this close to the boundary, or <=0 to turn off
 ! tbound            out   bound on stable time step from CFL condition, if tbound>=dt then OK
 ! lfn_in,lfn_out    inout,out the level set function at nodes
 ! tign              inout the ignition time at nodes
@@ -1040,7 +1040,7 @@ real, parameter::a=0.5, a1=1.0-a ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
-integer::i,j,its1,ite1,jts1,jte1,k
+integer::i,j,its1,ite1,jts1,jte1,k,kk
 character(len=128)msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
@@ -1228,23 +1228,25 @@ call message(msg)
     endif
 
     ! check if the fire did not get to the domain boundary
-    do k=1,2
-        if(k.eq.1)i=ids+boundary_guard
-        if(k.eq.2)i=ide-boundary_guard
-        if(i.ge.its.and.i.le.ite)then
-            do j=jts,jte
-                if(lfn_out(i,j)<=0.)goto 9
-            enddo
-        endif
-    enddo
-    do k=1,2
-        if(k.eq.1)j=jds+boundary_guard
-        if(k.eq.2)j=jde-boundary_guard
-        if(j.ge.jts.and.j.le.jte)then
-            do i=its,ite
-                if(lfn_out(i,j)<=0.)goto 9
-            enddo
-        endif
+    do k=-1,1,2
+        ! do kk=1,(boundary_guard*(ide-ids+1))/100  ! in %
+        do kk=1,boundary_guard   ! measured in cells
+            i=ids+k*kk
+            if(i.ge.its.and.i.le.ite)then
+                do j=jts,jte
+                    if(lfn_out(i,j)<=0.)goto 9
+                enddo
+            endif
+	enddo
+        ! do kk=1,(boundary_guard*(jde-jds+1))/100
+        do kk=1,boundary_guard    ! measured in cells
+            j=jds+k*kk
+            if(j.ge.jts.and.j.le.jte)then
+                do i=its,ite
+                    if(lfn_out(i,j)<=0.)goto 9
+                enddo
+            endif
+        enddo
     enddo
     goto 10
 9   continue
