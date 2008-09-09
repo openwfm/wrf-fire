@@ -225,7 +225,6 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
     fxlong,fxlat,                            & !  
-    unit_fxlong, unit_fxlat,                             &                            
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,zsf,                                & ! save constant internal data, fire grid
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap&
@@ -282,7 +281,7 @@ real,intent(in),dimension(ims:ime, jms:jme)::  zs ! terrain height
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::rho, &  ! air density  (kg/m^3) (cell based, atm grid) 
                 z_at_w,dz8w                         ! height of some sort??
 
-real, dimension(ims:ime, jms:jme), intent(in)::xlong, xlat ! 
+real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat ! inout because of extension at bdry
     
 integer, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
     nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
@@ -309,7 +308,6 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
 !  ***** data (constant in time) *****
 
 real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh coordinates
-real, intent(in):: unit_fxlong,unit_fxlat                  ! their unit in m  
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme):: &
     fuel_time,zsf,                               &
@@ -323,6 +321,7 @@ integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
+real:: unit_fxlong,unit_fxlat                  ! fxlong, fxlat units in m  
 
 
 !*** executable
@@ -528,7 +527,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         ignition_end_x,ignition_end_y,          &
         ignition_radius,                        &
         ignition_time,                          &
-        coord_xf,coord_yf,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
+        fxlong,fxlat,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
         zsf,                                    & ! terrain height (for gradient)
         uf,vf,                                  & ! input: wind
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
@@ -667,7 +666,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
     ! this is only until I figure out how to input arrays through the namelist...
     if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
     if(fire_ignition_longlat .eq. 0)then
-        % use values from _x and _y variables
+        ! use values from _x and _y variables
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
         fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
@@ -689,7 +688,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
         fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
         fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
     else
-        % use values from _long and _lat
+        ! use values from _long and _lat
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_long1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_lat1
         fire_ignition_end_x(1)=config_flags%fire_ignition_end_long1
@@ -711,7 +710,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
         fire_ignition_end_x(5)=config_flags%fire_ignition_end_long3
         fire_ignition_end_y(5)=config_flags%fire_ignition_end_lat3
     endif
-    % common to both cases
+    ! common to both cases
         fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
         fire_ignition_time(1)=config_flags%fire_ignition_time1 
         fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
@@ -723,7 +722,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
         fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
         fire_ignition_time(5)=config_flags%fire_ignition_time5
 
-    % 
+    ! 
         fire_num_ignitions=0      
         do i=1,min(5,config_flags%fire_num_ignitions)
             if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i

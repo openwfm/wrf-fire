@@ -798,7 +798,7 @@ BENCH_START(fire_driver_tim)
             CALL wrf_error_fatal('only ifire=3 supports distributed memory parallel')
 #endif
 
-        call fire_ignition_convert (config_flags,fire_max_ignitions, &
+        call fire_ignition_convert (config_flags,fire_max_ignitions,0, & ! 0 for compatibility, dead branch anyway
             fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
             fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
             
