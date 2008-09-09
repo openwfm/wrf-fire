@@ -29,6 +29,7 @@ subroutine sfire_model (                    &
     ignition_end_x,ignition_end_y,          &
     ignition_radius,                        &
     ignition_time,                          &
+    coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
     lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
@@ -103,6 +104,9 @@ real, dimension(num_ignitions), intent(in):: &
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
     ignition_time                           !  of ignition lines
+real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
+    coord_xf,coord_yf                       !  node coordinates  
+real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
 REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
     zsf,   &                                ! terrain height, node based, data, constant        
     vx,vy                                   ! wind m/s (node based), data, variable
@@ -194,7 +198,7 @@ elseif(ifun.eq.3)then   ! initialize timestep
                 ignition_end_x(ig),ignition_end_y(ig),    &
                 ignition_radius(ig),                      &
                 ignition_time(ig),                        &  
-                fdx,fdy,                                  &
+                coord_xf,coord_yf,unit_xf,unit_yf,        & 
                 lfn,tign,ignited)
                 
             need_lfn_update=.true. ! if ignition, lfn changed

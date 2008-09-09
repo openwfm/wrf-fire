@@ -310,8 +310,12 @@ integer :: its,ite,jts,jte,kts,kte, &            ! tile
 character(len=128)::msg
 character(len=3)::kk
 
-!*** executable
+! fire mesh coordinates - will be replaced by permanent arrays soon
+real, dimension(ifms:ifme, jfms:jfme)::coord_xf,coord_yf
+real:: unit_xf,unit_yf      
+ 
 
+!*** executable
 
 ! time - assume dt does not change
 time_start = itimestep * dt
@@ -319,6 +323,20 @@ time_start = itimestep * dt
 ! fire mesh step
 dxf=dx/ir
 dyf=dy/jr
+
+
+! set up fire mesh coordinates for ideal case
+
+! the coordinates are in m, same as the ignition
+unit_xf=1.  
+unit_yf=1.
+do j=jts,jte
+    do i=its,ite
+        ! uniform mesh, lower left domain corner is (0,0)
+        coord_xf(i,j)=(its-ids+0.5)*dxf 
+        coord_xf(i,j)=(jts-jds+0.5)*dyf
+    enddo
+enddo
 
 ! atm bounds 
 ! fake tile bounds
@@ -440,6 +458,7 @@ do ij=1,num_tiles
         ignition_end_x,ignition_end_y,          &
         ignition_radius,                        &
         ignition_time,                          &
+        coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
         zsf,                                    & ! terrain height (for gradient)
         uf,vf,                                  & ! input: wind
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
