@@ -74,7 +74,9 @@ end subroutine init_no_fire
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
-                        sx,sy,ex,ey,r,time_ign,fdx,fdy,           &
+                        sx,sy,ex,ey,r,time_ign,           &
+                        coord_xf,coord_yf,                &     
+                        unit_xf,unit_yf,                  &
                         lfn,tign,ignited)
 implicit none
 
@@ -88,7 +90,9 @@ real, intent(in):: time_ign                 ! the ignition time of the fire
 real, intent(in):: sx,sy                    ! start of ignition line, from lower left corner
 real, intent(in):: ex,ey                    ! end of ignition line, or zero
 real, intent(in):: r                        ! all within the radius of the line will ignite
-real, intent(in):: fdx,fdy                  ! mesh spacing (m)
+real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
+    coord_xf,coord_yf                       !  node coordinates  
+real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
 real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
                    lfn, tign                ! level function, ignition time (state)
 integer, intent(out):: ignited              ! number of nodes newly ignited
@@ -98,6 +102,10 @@ integer:: i,j
 real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2
 logical::point
 character(len=128):: msg
+real::cx2,cy2
+
+cx2=unit_xf*unit_xf
+cy2=unit_yf*unit_yf
 
 ignited=0
 point = ex .eq. 0.0 .or. ey .eq. 0.0
@@ -112,9 +120,9 @@ endif
 do j=jfts,jfte   
     do i=ifts,ifte
         ! coordinates of the node (i,j), the lower left corner of the domain is (0 0)
-        ax = fdx*(i - ifds + 0.5)
-        ay = fdy*(j - jfds + 0.5)
-        dam2=(ax-mx)*(ax-mx)+(ay-my)*(ay-my)      ! |a-m|^2
+        ! ax = fdx*(i - ifds + 0.5)
+        ! ay = fdy*(j - jfds + 0.5)
+        dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
         if(point)then
             d=sqrt(dam2) ! distance from the ignition point
         else
@@ -129,10 +137,10 @@ do j=jfts,jfte
             !
             ! |m-c| = |a-m| cos (a-m,e-s) 
             !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
-            des2 = (ex-sx)*(ex-sx)+(ey-sy)*(ey-sy)          ! des2 = |e-s|^2
+            des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
             dames = dam2*des2
             if(dames>0)then
-                am_es=(ax-mx)*(ex-sx)+(ay-my)*(ey-sy)       ! am_es = (a-m).(e-s)
+                am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
                 cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
             else ! point a already is the midpoint
                 cos2 = 0.
@@ -141,9 +149,9 @@ do j=jfts,jfte
             if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
                 d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
             elseif(am_es>0)then                             ! if cos > 0, closest is e
-                d = sqrt((ax-ex)*(ax-ex)+(ay-ey)*(ay-ey))   ! |a-e|
+                d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
             else
-                d = sqrt((ax-sx)*(ax-sx)+(ay-sy)*(ay-sy))   ! |a-s|
+                d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
             endif
         endif
         lfn_new=d-r
@@ -989,7 +997,7 @@ implicit none
 ! ts                in    start time
 ! dt                in    time step
 ! dx,dy             in    grid spacing
-! boundary_guard    in    stop when fire gets this close to the boundary
+! boundary_guard    in    stop when fire gets this close to the boundary, or <=0 to turn off
 ! tbound            out   bound on stable time step from CFL condition, if tbound>=dt then OK
 ! lfn_in,lfn_out    inout,out the level set function at nodes
 ! tign              inout the ignition time at nodes
@@ -1040,7 +1048,7 @@ real, parameter::a=0.5, a1=1.0-a ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
-integer::i,j,its1,ite1,jts1,jte1,k
+integer::i,j,its1,ite1,jts1,jte1,k,kk
 character(len=128)msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
@@ -1228,23 +1236,25 @@ call message(msg)
     endif
 
     ! check if the fire did not get to the domain boundary
-    do k=1,2
-        if(k.eq.1)i=ids+boundary_guard
-        if(k.eq.2)i=ide-boundary_guard
-        if(i.ge.its.and.i.le.ite)then
-            do j=jts,jte
-                if(lfn_out(i,j)<=0.)goto 9
-            enddo
-        endif
-    enddo
-    do k=1,2
-        if(k.eq.1)j=jds+boundary_guard
-        if(k.eq.2)j=jde-boundary_guard
-        if(j.ge.jts.and.j.le.jte)then
-            do i=its,ite
-                if(lfn_out(i,j)<=0.)goto 9
-            enddo
-        endif
+    do k=-1,1,2
+        ! do kk=1,(boundary_guard*(ide-ids+1))/100  ! in %
+        do kk=1,boundary_guard   ! measured in cells
+            i=ids+k*kk
+            if(i.ge.its.and.i.le.ite)then
+                do j=jts,jte
+                    if(lfn_out(i,j)<=0.)goto 9
+                enddo
+            endif
+	enddo
+        ! do kk=1,(boundary_guard*(jde-jds+1))/100
+        do kk=1,boundary_guard    ! measured in cells
+            j=jds+k*kk
+            if(j.ge.jts.and.j.le.jte)then
+                do i=its,ite
+                    if(lfn_out(i,j)<=0.)goto 9
+                enddo
+            endif
+        enddo
     enddo
     goto 10
 9   continue
