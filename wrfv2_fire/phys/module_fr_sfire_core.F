@@ -122,6 +122,8 @@ do j=jfts,jfte
         ! coordinates of the node (i,j), the lower left corner of the domain is (0 0)
         ! ax = fdx*(i - ifds + 0.5)
         ! ay = fdy*(j - jfds + 0.5)
+        ax=coord_xf(i,j)
+        ay=coord_yf(i,j)
         dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
         if(point)then
             d=sqrt(dam2) ! distance from the ignition point
