@@ -327,26 +327,6 @@ dyf=dy/jr
 
 ! set up fire mesh coordinates for ideal case
 
-! the coordinates are in m, same as the ignition
-unit_xf=1.  
-unit_yf=1.
-do j=jts,jte
-    do i=its,ite
-        ! uniform mesh, lower left domain corner is (0,0)
-        coord_xf(i,j)=(its-ids+0.5)*dxf 
-        coord_xf(i,j)=(jts-jds+0.5)*dyf
-    enddo
-enddo
-
-! atm bounds 
-! fake tile bounds
-kts=kps
-kte=kpe
-
-write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
-call message(msg)
-7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
-write(msg,'(a,2i9)')'refinement ratio:',ir,jr
 call message(msg)
 write(msg,'(a,2f15.6)')'atmosphere mesh step:',dx,dy
 call message(msg)
@@ -411,6 +391,26 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts,ifte,jfts,jfte,ifps,ifpe,jfps,jfpe)         ! check if fire tile fits in fire patch
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
+    ! the coordinates are in m, same as the ignition
+    unit_xf=1.  
+    unit_yf=1.
+    do j=jts,jte
+        do i=its,ite
+            ! uniform mesh, lower left domain corner is (0,0)
+            coord_xf(i,j)=(its-ids+0.5)*dxf 
+            coord_xf(i,j)=(jts-jds+0.5)*dyf
+        enddo
+    enddo
+
+! atm bounds 
+! fake tile bounds
+kts=kps
+kte=kpe
+
+write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
+call message(msg)
+7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
+write(msg,'(a,2i9)')'refinement ratio:',ir,jr
     if(ifun.eq.1)then   ! set terrain
 
         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
