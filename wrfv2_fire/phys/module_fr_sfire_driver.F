@@ -394,11 +394,11 @@ do ij=1,num_tiles
     ! the coordinates are in m, same as the ignition
     unit_xf=1.  
     unit_yf=1.
-    do j=jts,jte
-        do i=its,ite
+    do j=jfts,jfte
+        do i=ifts,ifte
             ! uniform mesh, lower left domain corner is (0,0)
-            coord_xf(i,j)=(its-ids+0.5)*dxf 
-            coord_xf(i,j)=(jts-jds+0.5)*dyf
+            coord_xf(i,j)=(i-ifds+0.5)*dxf 
+            coord_yf(i,j)=(j-jfds+0.5)*dyf
         enddo
     enddo
 
