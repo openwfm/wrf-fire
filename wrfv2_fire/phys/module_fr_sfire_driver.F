@@ -84,7 +84,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
                                 z_at_w,dz8w                 ! ????????
 
 !*** local
-    INTEGER:: fire_num_ignitions,fire_ignition_longlat
+    INTEGER:: fire_num_ignitions
     integer, parameter::fire_max_ignitions=5
     REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
         fire_ignition_start_y, &
@@ -100,7 +100,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     integer, dimension(ifms:ifme, jfms:jfme)::nfuel_cat_int
 
 !*** executable
-    call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
+    call fire_ignition_convert (config_flags,fire_max_ignitions, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
 
@@ -165,10 +165,10 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
             config_flags%fire_boundary_guard,         &
             fire_num_ignitions,                                & 
+            config_flags%fire_ignition_longlat,      &
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
             fire_ignition_end_x,fire_ignition_end_y,     &
             fire_ignition_radius,fire_ignition_time,     &
-            fire_ignition_longlat,                       &
             grid%em_u_2,grid%em_v_2,grid%em_mut,rho,grid%ht,      & ! in arrays, on atm grid
             z_at_w,dz8w,                                  &
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
@@ -211,11 +211,11 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
     boundary_guard,                               & 
     num_ignitions,                                & 
+    ignition_longlat,                             &
     ignition_start_x,ignition_start_y,            & ! ignition - small arrays
     ignition_end_x,ignition_end_y,                &
     ignition_radius,                              &
     ignition_time,                                &
-    ignition_longlat,                             &
     u,v,mu,rho,zs,                                & ! in arrays, atm grid
     z_at_w,dz8w,                                  &
     xlong,xlat,                                   &
@@ -378,7 +378,8 @@ if(ignition_longlat .eq.0)then
 else
    ! check for zero long 
    if(xlong(ips,jps).eq.0. .and. xlong(ipe,jpe).eq. 0.) then
-       call crash('sfire_driver_phys: long lat not set, use fire_ignition_longlat=0 or run real')
+       call crash('sfire_driver_phys: xlong xlat not set, use fire_ignition_longlat=0 or run real not ideal')
+   endif
    ! latitude in the middle of the patch
    latm=xlat((ips+ipe)/2,(jps+jpe)/2)
    ! 1 degree in m (approximate OK)
@@ -649,14 +650,14 @@ end subroutine sfire_driver_phys
 !*******************
 !
 
-subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
+subroutine fire_ignition_convert (config_flags,fire_max_ignitions, &
     fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
     fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
     USE module_configure
     implicit none
 !*** arguments
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    integer, intent(in)::fire_max_ignitions,fire_ignition_longlat
+    integer, intent(in)::fire_max_ignitions
     real, dimension(fire_max_ignitions), intent(out):: &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_time
@@ -666,7 +667,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
 !*** executable
     ! this is only until I figure out how to input arrays through the namelist...
     if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
-    if(fire_ignition_longlat .eq. 0)then
+    if(config_flags%fire_ignition_longlat .eq. 0)then
         ! use values from _x and _y variables
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
