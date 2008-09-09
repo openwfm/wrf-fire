@@ -377,7 +377,8 @@ if(ignition_longlat .eq.0)then
    ! will set fire mesh coordinates to uniform mesh below
 else
    ! check for zero long 
-   if(xlong(ips,jps).eq.0. .and. xlong(ipe,jpe).eq. 0.)call crash('sfire_driver_phys: long lat not set, run real not ideal')
+   if(xlong(ips,jps).eq.0. .and. xlong(ipe,jpe).eq. 0.) then
+       call crash('sfire_driver_phys: long lat not set, use fire_ignition_longlat=0 or run real')
    ! latitude in the middle of the patch
    latm=xlat((ips+ipe)/2,(jps+jpe)/2)
    ! 1 degree in m (approximate OK)
