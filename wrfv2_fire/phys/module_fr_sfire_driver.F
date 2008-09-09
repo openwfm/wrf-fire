@@ -84,7 +84,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
                                 z_at_w,dz8w                 ! ????????
 
 !*** local
-    INTEGER:: fire_num_ignitions
+    INTEGER:: fire_num_ignitions,fire_ignition_longlat
     integer, parameter::fire_max_ignitions=5
     REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
         fire_ignition_start_y, &
@@ -100,10 +100,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     integer, dimension(ifms:ifme, jfms:jfme)::nfuel_cat_int
 
 !*** executable
-    call fire_ignition_convert (config_flags,fire_max_ignitions, &
+    call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
-
 
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
@@ -126,9 +125,8 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 !           halo exchange on lfn width 2
 #include "HALO_FIRE_LFN.inc"
         endif
-        if(fire_ifun.eq.4)then
-!           halo exchange on fire winds width 1
-#include "HALO_FIRE_WIND_F.inc"
+        if(fire_ifun.eq.1)then
+#include HALO_FIRE_LONGLAT.inc
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
@@ -137,8 +135,11 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 !               halo exchange on all fuel data width 1
 #include "HALO_FIRE_FUEL.inc"
             endif
-!            halo exchange on atm winds width 1
+!           halo exchange on atm winds width 1
 #include "HALO_FIRE_WIND_A.inc"
+        elseif(fire_ifun.eq.4)then
+!           halo exchange on fire winds width 1
+#include "HALO_FIRE_WIND_F.inc"
         endif
 #endif
         nfuel_cat_int(:,:)=int(grid%nfuel_cat)
@@ -167,13 +168,16 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
             fire_ignition_end_x,fire_ignition_end_y,     &
             fire_ignition_radius,fire_ignition_time,     &
+            fire_ignition_longlat,                       &
             grid%em_u_2,grid%em_v_2,grid%em_mut,rho,grid%ht,      & ! in arrays, on atm grid
             z_at_w,dz8w,                                  &
+            grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%uf,grid%vf,lfn_out,                      & ! arrays to persist only over one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
-            grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid  
+            grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
+            grid%fxlong,grid%fxlat,                           &       
             nfuel_cat_int,                               & ! input, or internal for safekeeping
             grid%fuel_time,grid%zsf,                      & 
             grid%dzfsdx,grid%dzfsdy,                      &
@@ -211,13 +215,17 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     ignition_end_x,ignition_end_y,                &
     ignition_radius,                              &
     ignition_time,                                &
+    ignition_longlat,                             &
     u,v,mu,rho,zs,                                & ! in arrays, atm grid
     z_at_w,dz8w,                                  &
+    xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     uf,vf,lfn_out,                                & ! fire wind velocities, out level set function    
     rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
-    fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, atm grid  
+    fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
+    fxlong,fxlat,                            & !  
+    unit_fxlong, unit_fxlat,                             &                            
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,zsf,                                & ! save constant internal data, fire grid
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap&
@@ -266,12 +274,15 @@ real, dimension(num_ignitions), intent(in):: &
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
     ignition_time                           !  of ignition lines
+integer, intent(in):: ignition_longlat       ! if 1 ignition give as long/lat, otherwise as m from lower left corner
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v ! wind velocity (m/s) (node based, atm grid) 
 real,intent(in),dimension(ims:ime,jms:jme)::mu          ! dry air mass (Pa)  pressure??  (cell based, atm grid)
-real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho, &  ! air density  (kg/m^3) (cell based, atm grid) 
+real,intent(in),dimension(ims:ime, jms:jme)::  zs ! terrain height  
+real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::rho, &  ! air density  (kg/m^3) (cell based, atm grid) 
                 z_at_w,dz8w                         ! height of some sort??
-real, intent(in), dimension(ims:ime, jms:jme)::  zs ! surface heoght                                            ! terrain height  
+
+real, dimension(ims:ime, jms:jme), intent(in)::xlong, xlat ! 
     
 integer, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
     nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
@@ -297,23 +308,22 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
 
 !  ***** data (constant in time) *****
 
+real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh coordinates
+real, intent(in):: unit_fxlong,unit_fxlat                  ! their unit in m  
+
 real, intent(inout), dimension(ifms:ifme, jfms:jfme):: &
     fuel_time,zsf,                               &
     dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
 integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
     
 !*** local
-real :: dxf,dyf,time_start
+real :: dxf,dyf,time_start,latm
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ij,i,j,k,id,pid,kpe1, &
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
 
-! fire mesh coordinates - will be replaced by permanent arrays soon
-real, dimension(ifms:ifme, jfms:jfme)::coord_xf,coord_yf
-real:: unit_xf,unit_yf      
- 
 
 !*** executable
 
@@ -361,6 +371,23 @@ if(ifun.eq.1)call init_fuel_cats  ! common for all threads
 pid=0
 if(itimestep.le.10.or.mod(itimestep,10).eq.0)pid=itimestep
 
+if(ignition_longlat .eq.0)then
+   !  ignition is in m
+   unit_fxlong=1.  
+   unit_fxlat=1.
+   ! will set fire mesh coordinates to uniform mesh below
+else
+   ! check for zero long 
+   if(xlong(ips,jps).eq.0. .and. xlong(ipe,jpe).eq. 0.)call crash('sfire_driver_phys: long lat not set, run real not ideal')
+   ! latitude in the middle of the patch
+   latm=xlat((ips+ipe)/2,(jps+jpe)/2)
+   ! 1 degree in m (approximate OK)
+   unit_fxlat=6378*2*3.14159/360.   ! earth circumference in m / 360 degrees
+   unit_fxlong=cos(latm*3.14159/180.)*unit_fxlat  ! latitude
+   ! will interpolate nodal coordinates to the fire mesh 
+endif
+
+
 ! set up fire tiles & interpolate to fire grid
 !OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg,id)
 do ij=1,num_tiles
@@ -391,17 +418,6 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts,ifte,jfts,jfte,ifps,ifpe,jfps,jfpe)         ! check if fire tile fits in fire patch
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-    ! the coordinates are in m, same as the ignition
-    unit_xf=1.  
-    unit_yf=1.
-    do j=jfts,jfte
-        do i=ifts,ifte
-            ! uniform mesh, lower left domain corner is (0,0)
-            coord_xf(i,j)=(i-ifds+0.5)*dxf 
-            coord_yf(i,j)=(j-jfds+0.5)*dyf
-        enddo
-    enddo
-
 ! atm bounds 
 ! fake tile bounds
 kts=kps
@@ -428,27 +444,56 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
             zs,                                       & ! atm grid arrays in
             zsf)                                      ! fire grid arrays out
 
-        ! interpolate node coordinates
-!        call interpolate_2d(  &
-!            ims,ime,  jms,jme,                    & ! memory dimension on atm grid
-!            its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
-!            ifms,ifme,jfms,jfme,&  ! array dims fire grid
-!            ifts,ifte,jfts,jfte,&  ! dimensions on the fire grid to interpolate to
-!            ir,jr,                  & ! refinement ratio
-!            real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
-!            xlat,                     & ! in atm grid     
-!            fxlat)                      ! out fire grid
-!
-!        call interpolate_2d(  &
-!            ims,ime,  jms,jme,                    & ! memory dimension on atm grid
-!            its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
-!            ifms,ifme,jfms,jfme,&  ! array dims fire grid
-!            ifts,ifte,jfts,jfte,&  ! dimensions on the fire grid to interpolate to
-!            ir,jr,                  & ! refinement ratio
-!            real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
-!            xlong,                     & ! in atm grid     
-!            fxlong)                      ! out fire grid
+        if(ignition_longlat .eq.0)then
+            ! set ideal fire mesh coordinates
 
+    	    if(ignition_longlat .eq.0)then
+                !  ignition is in m
+                do j=jfts,jfte
+                    do i=ifts,ifte
+                        ! uniform mesh, lower left domain corner is (0,0)
+                        fxlong(i,j)=(i-ifds+0.5)*dxf 
+                        fxlat (i,j)=(j-jfds+0.5)*dyf
+                    enddo
+                enddo
+            endif
+        else
+            ! assume halo xlong xlat
+            ! interpolate nodal coordinates
+
+            ! first extend the coordinates by one beyond the domain boundary 
+            call continue_at_boundary(1,1, & ! do x direction or y direction
+                ims,ime,  jms,jme,           &                ! memory dims
+                ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
+                its,ite,jts,jte, &                ! tile dims
+                xlat)                               ! array
+
+            call continue_at_boundary(1,1, & ! do x direction or y direction
+                ims,ime,  jms,jme,           &                ! memory dims
+                ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
+                its,ite,jts,jte, &                ! tile dims
+                xlong)                               ! array
+
+            call interpolate_2d(  &
+                ims,ime,  jms,jme,                    & ! memory dimension on atm grid
+                its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
+                ifms,ifme,jfms,jfme,&  ! array dims fire grid
+                ifts,ifte,jfts,jfte,&  ! dimensions on the fire grid to interpolate to
+                ir,jr,                  & ! refinement ratio
+                real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+                xlat,                     & ! in atm grid     
+                fxlat)                      ! out fire grid
+
+            call interpolate_2d(  &
+                ims,ime,  jms,jme,                    & ! memory dimension on atm grid
+                its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
+                ifms,ifme,jfms,jfme,&  ! array dims fire grid
+                ifts,ifte,jfts,jfte,&  ! dimensions on the fire grid to interpolate to
+                ir,jr,                  & ! refinement ratio
+                real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+                xlong,                     & ! in atm grid     
+               fxlong)                      ! out fire grid
+         endif
 
                
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
@@ -483,7 +528,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         ignition_end_x,ignition_end_y,          &
         ignition_radius,                        &
         ignition_time,                          &
-        coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
+        coord_xf,coord_yf,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
         zsf,                                    & ! terrain height (for gradient)
         uf,vf,                                  & ! input: wind
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
@@ -604,14 +649,14 @@ end subroutine sfire_driver_phys
 !*******************
 !
 
-subroutine fire_ignition_convert (config_flags,fire_max_ignitions, &
+subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
     fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
     fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
     USE module_configure
     implicit none
 !*** arguments
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    integer, intent(in)::fire_max_ignitions
+    integer, intent(in)::fire_max_ignitions,fire_ignition_longlat
     real, dimension(fire_max_ignitions), intent(out):: &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_time
@@ -619,38 +664,66 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions, &
 !*** local
     integer::i
 !*** executable
-        ! this is only until I figure out how to input arrays through the namelist...
-        if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
+    ! this is only until I figure out how to input arrays through the namelist...
+    if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
+    if(fire_ignition_longlat .eq. 0)then
+        % use values from _x and _y variables
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
         fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
         fire_ignition_end_y(1)=config_flags%fire_ignition_end_y1
-        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
-        fire_ignition_time(1)=config_flags%fire_ignition_time1 
         fire_ignition_start_x(2)=config_flags%fire_ignition_start_x2
         fire_ignition_start_y(2)=config_flags%fire_ignition_start_y2
         fire_ignition_end_x(2)=config_flags%fire_ignition_end_x2
         fire_ignition_end_y(2)=config_flags%fire_ignition_end_y2
-        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
-        fire_ignition_time(2)=config_flags%fire_ignition_time2 
         fire_ignition_start_x(3)=config_flags%fire_ignition_start_x3
         fire_ignition_start_y(3)=config_flags%fire_ignition_start_y3
         fire_ignition_end_x(3)=config_flags%fire_ignition_end_x3
         fire_ignition_end_y(3)=config_flags%fire_ignition_end_y3
-        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
-        fire_ignition_time(3)=config_flags%fire_ignition_time3 
         fire_ignition_start_x(4)=config_flags%fire_ignition_start_x4
         fire_ignition_start_y(4)=config_flags%fire_ignition_start_y4
         fire_ignition_end_x(4)=config_flags%fire_ignition_end_x4
         fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
-        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
-        fire_ignition_time(4)=config_flags%fire_ignition_time4 
         fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
         fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
         fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
         fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
+    else
+        % use values from _long and _lat
+        fire_ignition_start_x(1)=config_flags%fire_ignition_start_long1
+        fire_ignition_start_y(1)=config_flags%fire_ignition_start_lat1
+        fire_ignition_end_x(1)=config_flags%fire_ignition_end_long1
+        fire_ignition_end_y(1)=config_flags%fire_ignition_end_lat1
+        fire_ignition_start_x(2)=config_flags%fire_ignition_start_long2
+        fire_ignition_start_y(2)=config_flags%fire_ignition_start_lat2
+        fire_ignition_end_x(2)=config_flags%fire_ignition_end_long2
+        fire_ignition_end_y(2)=config_flags%fire_ignition_end_lat2
+        fire_ignition_start_x(3)=config_flags%fire_ignition_start_long3
+        fire_ignition_start_y(3)=config_flags%fire_ignition_start_lat3
+        fire_ignition_end_x(3)=config_flags%fire_ignition_end_long3
+        fire_ignition_end_y(3)=config_flags%fire_ignition_end_lat3
+        fire_ignition_start_x(4)=config_flags%fire_ignition_start_long4
+        fire_ignition_start_y(4)=config_flags%fire_ignition_start_lat4
+        fire_ignition_end_x(4)=config_flags%fire_ignition_end_long4
+        fire_ignition_end_y(4)=config_flags%fire_ignition_end_lat4
+        fire_ignition_start_x(5)=config_flags%fire_ignition_start_long5
+        fire_ignition_start_y(5)=config_flags%fire_ignition_start_lat5
+        fire_ignition_end_x(5)=config_flags%fire_ignition_end_long3
+        fire_ignition_end_y(5)=config_flags%fire_ignition_end_lat3
+    endif
+    % common to both cases
+        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
+        fire_ignition_time(1)=config_flags%fire_ignition_time1 
+        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
+        fire_ignition_time(2)=config_flags%fire_ignition_time2 
+        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
+        fire_ignition_time(3)=config_flags%fire_ignition_time3 
+        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
+        fire_ignition_time(4)=config_flags%fire_ignition_time4 
         fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
         fire_ignition_time(5)=config_flags%fire_ignition_time5
+
+    % 
         fire_num_ignitions=0      
         do i=1,min(5,config_flags%fire_num_ignitions)
             if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i
