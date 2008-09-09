@@ -393,10 +393,12 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts,ifte,jfts,jfte,ifps,ifpe,jfps,jfpe)         ! check if fire tile fits in fire patch
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-    if(ifun.eq.1)then   ! set z
+    if(ifun.eq.1)then   ! set terrain
 
         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
     
+        ! interpolate terrain height
+        
         call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
@@ -407,6 +409,29 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             zs,                                       & ! atm grid arrays in
             zsf)                                      ! fire grid arrays out
+
+        ! interpolate node coordinates
+!        call interpolate_2d(  &
+!            ims,ime,  jms,jme,                    & ! memory dimension on atm grid
+!            its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
+!            ifms,ifme,jfms,jfme,&  ! array dims fire grid
+!            ifts,ifte,jfts,jfte,&  ! dimensions on the fire grid to interpolate to
+!            ir,jr,                  & ! refinement ratio
+!            real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+!            xlat,                     & ! in atm grid     
+!            fxlat)                      ! out fire grid
+!
+!        call interpolate_2d(  &
+!            ims,ime,  jms,jme,                    & ! memory dimension on atm grid
+!            its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
+!            ifms,ifme,jfms,jfme,&  ! array dims fire grid
+!            ifts,ifte,jfts,jfte,&  ! dimensions on the fire grid to interpolate to
+!            ir,jr,                  & ! refinement ratio
+!            real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+!            xlong,                     & ! in atm grid     
+!            fxlong)                      ! out fire grid
+
+
                
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
