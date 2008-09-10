@@ -43,6 +43,8 @@ Or, just run
 
 ./compile_fire
 
+and then check compile.log only if you see any output.
+
 Finally, run the code with:
 
 cd test/em_fire 
@@ -55,7 +57,10 @@ Or, just run the debugger, it is set up to load the program automatically and se
 a breakpoint at exit, esp. error exit:
 
 cd test/em_fire 
-idb
+idb -dbx
+
+This runs an "idealized" problem. For RUNNING ON REAL DATA see doc/README_wps.txt
+
 
 STANDALONE FIRE MODEL TEST
 
@@ -100,5 +105,5 @@ in LAPACK/BLAS/SRC:
 ar rv libblas.a *.o
 and move the two libraries someplace, like /usr/local/lib 
 Then set up the environment accordingly, as in 
-setenv LAPACK -L/usr/local/lib -llapack -lblas
+setenv LAPACK "-L/usr/local/lib -llapack -lblas"
 
