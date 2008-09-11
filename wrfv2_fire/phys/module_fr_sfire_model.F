@@ -23,11 +23,13 @@ subroutine sfire_model (                    &
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
-    fdx,fdy,                                & ! fire mesh spacing
+    fdx,fdy,                                & ! fire mesh spacing,
+    boundary_guard,                         & ! stop when fire is this close to the boundary
     ignition_start_x,ignition_start_y,      & ! ignition - small arrays
     ignition_end_x,ignition_end_y,          &
     ignition_radius,                        &
     ignition_time,                          &
+    coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
     lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
@@ -96,11 +98,15 @@ integer, intent(in) :: ifts,ifte,jfts,jfte  ! fire tile bounds
 integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
+integer, intent(in):: boundary_guard           ! 
 ! array data
 real, dimension(num_ignitions), intent(in):: &   
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
     ignition_time                           !  of ignition lines
+real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
+    coord_xf,coord_yf                       !  node coordinates  
+real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
 REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
     zsf,   &                                ! terrain height, node based, data, constant        
     vx,vy                                   ! wind m/s (node based), data, variable
@@ -192,7 +198,7 @@ elseif(ifun.eq.3)then   ! initialize timestep
                 ignition_end_x(ig),ignition_end_y(ig),    &
                 ignition_radius(ig),                      &
                 ignition_time(ig),                        &  
-                fdx,fdy,                                  &
+                coord_xf,coord_yf,unit_xf,unit_yf,        & 
                 lfn,tign,ignited)
                 
             need_lfn_update=.true. ! if ignition, lfn changed
@@ -231,7 +237,7 @@ elseif (ifun.eq.4) then  ! do the timestep
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
         ifts,ifte,jfts,jfte,                      &
-        time_start,dt,fdx,fdy,tbound,  &
+        time_start,dt,fdx,fdy,boundary_guard,tbound,  &
         lfn,lfn_out,tign &
 #       include "fr_sfire_params_args.h" 
     ) 

@@ -828,20 +828,36 @@ integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme,kms,kme,kps,kpe
 real, intent(in)::a(ims:ime,kms:kme,jms:jme)
 character(len=*),intent(in)::name
 integer:: i,j,k
-real:: avg_a,max_a,min_a 
+real:: avg_a,max_a,min_a,t,aa
+character(len=128)msg
 if(fire_print_msg.eq.0)return
 avg_a=0
 max_a=-huge(max_a)
 min_a= huge(min_a)
+t=huge(t)
 do j=jps,jpe
   do k=kps,kpe
     do i=ips,ipe
-        max_a=max(max_a,a(i,k,j))
-        min_a=min(min_a,a(i,k,j))
-        avg_a=avg_a+a(i,k,j)
+        aa=a(i,k,j)
+        if(aa.ne.aa)then
+            write(msg,1)name,i,k,j,'NaN'
+            call crash(msg)
+        endif
+        if(.not.aa.le.t)then
+            write(msg,1)name,i,k,j,'Inf'
+            call crash(msg)
+        endif
+        if(.not.aa.ge.-t)then
+            write(msg,1)name,i,k,j,'-Inf'
+            call crash(msg)
+        endif
+        max_a=max(max_a,aa)
+        min_a=min(min_a,aa)
+        avg_a=avg_a+aa
     enddo
   enddo
 enddo
+1 format(a,'(',i6,',',i6,',',i6,') = ',a)
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1)*(kpe-kps+1))
 call print_stat_line(name,ips,ipe,jps,jpe,min_a,max_a,avg_a)
 end subroutine print_3d_stats

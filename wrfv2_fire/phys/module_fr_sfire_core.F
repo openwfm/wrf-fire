@@ -2,7 +2,7 @@
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! With contributions by Minjeong Kim.
-!#define DEBUG_OUT
+#define DEBUG_OUT
 
 module module_fr_sfire_core
 
@@ -74,7 +74,9 @@ end subroutine init_no_fire
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
-                        sx,sy,ex,ey,r,time_ign,fdx,fdy,           &
+                        sx,sy,ex,ey,r,time_ign,           &
+                        coord_xf,coord_yf,                &     
+                        unit_xf,unit_yf,                  &
                         lfn,tign,ignited)
 implicit none
 
@@ -88,7 +90,9 @@ real, intent(in):: time_ign                 ! the ignition time of the fire
 real, intent(in):: sx,sy                    ! start of ignition line, from lower left corner
 real, intent(in):: ex,ey                    ! end of ignition line, or zero
 real, intent(in):: r                        ! all within the radius of the line will ignite
-real, intent(in):: fdx,fdy                  ! mesh spacing (m)
+real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
+    coord_xf,coord_yf                       !  node coordinates  
+real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
 real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
                    lfn, tign                ! level function, ignition time (state)
 integer, intent(out):: ignited              ! number of nodes newly ignited
@@ -98,29 +102,31 @@ integer:: i,j
 real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2
 logical::point
 character(len=128):: msg
+real::cx2,cy2,dmax
+
+cx2=unit_xf*unit_xf
+cy2=unit_yf*unit_yf
 
 ignited=0
-point = ex .eq. 0.0 .or. ey .eq. 0.0
-if (.not.point)then
-    ! midpoint m = (mx,my)
-    mx = (sx + ex)/2
-    my = (sy + ey)/2
-else    
-    mx = sx
-    my = sy
-endif
+dmax=0
+! midpoint m = (mx,my)
+mx = (sx + ex)/2
+my = (sy + ey)/2
 do j=jfts,jfte   
     do i=ifts,ifte
         ! coordinates of the node (i,j), the lower left corner of the domain is (0 0)
-        ax = fdx*(i - ifds + 0.5)
-        ay = fdy*(j - jfds + 0.5)
-        dam2=(ax-mx)*(ax-mx)+(ay-my)*(ay-my)      ! |a-m|^2
+        ! ax = fdx*(i - ifds + 0.5)
+        ! ay = fdy*(j - jfds + 0.5)
+        ax=coord_xf(i,j)
+        ay=coord_yf(i,j)
+        dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
         if(point)then
-            d=sqrt(dam2)
+            d=sqrt(dam2) ! distance from the ignition point
         else
-            ! compute distance as distance from midpoint minus correction
-            ! |a-c|^2 = |a-m|^2 - |m-c|^2
-            ! when |m-c| >= |s-e|/2 use distance from the endpoint instead
+            ! compute distance of a=(ax,ay) and the nearest point on the segment
+            ! [(sx,sy), (ex,ey)] as the distance of (ax,ay) from the midpoint (mx,my)
+            ! minus a correction (because of rounding errors): |a-c|^2 = |a-m|^2 - |m-c|^2
+            ! when |m-c| >= |s-e|/2 the nearest point is one of the endpoints
             !
             !           a    
             !          /| \
@@ -128,23 +134,24 @@ do j=jfts,jfte
             !
             ! |m-c| = |a-m| cos (a-m,e-s) 
             !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
-            des2 = (ex-sx)*(ex-sx)+(ey-sy)*(ey-sy)          ! |e-s|^2
+            des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
             dames = dam2*des2
             if(dames>0)then
-                am_es=(ax-mx)*(ex-sx)+(ay-my)*(ey-sy)       ! (a-m).(e-s)
-                cos2 = (am_es*am_es)/dames                  ! cos^2 (a-m,e-s)
-            else
+                am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
+                cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
+            else ! point a already is the midpoint
                 cos2 = 0.
             endif
-            dmc2 = dam2*cos2                                ! |m-c|^2
-            if(4.*dmc2 <= des2)then
-                d = sqrt(max(dam2 - dmc2,0.))               ! just in case, rounding
-            elseif(am_es>0)then                             ! cos > 0, closest is e
-                d = sqrt((ax-ex)*(ax-ex)+(ay-ey)*(ay-ey))   ! |a-e|
+            dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
+            if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
+                d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
+            elseif(am_es>0)then                             ! if cos > 0, closest is e
+                d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
             else
-                d = sqrt((ax-sx)*(ax-sx)+(ay-sy)*(ay-sy))   ! |a-s|
+                d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
             endif
         endif
+        dmax=max(d,dmax)
         lfn_new=d-r
         if(lfn(i,j)>0 .and. lfn_new<=0) then
             tign(i,j)=time_ign  ! newly ignited now
@@ -153,8 +160,11 @@ do j=jfts,jfte
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
     enddo
 enddo
-write(msg,'(a,2f10.1,a,2f10.1,a,f8.1,a,f8.1,a,i6)')'ignite_fire: from',sx,sy,' to ',&
-    ex,ey,' radius ',r,' time',time_ign,' ignited nodes',ignited
+write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
+call message(msg)
+write(msg,'(a,2f11.2,a,f8.1,a)')'units ',unit_xf,unit_yf,' m max dist ',dmax,' m'
+call message(msg)
+write(msg,'(a,f4.1,a,f8.1,a,i10)')' radius ',r,' time',time_ign,' ignited nodes',ignited
 call message(msg)
 end subroutine ignite_fire
 
@@ -935,6 +945,7 @@ subroutine prop_ls( id, &                                ! for debug
                 ims,ime,jms,jme, &                       ! memory dims
                 its,ite,jts,jte, &                       ! tile dims
                 ts,dt,dx,dy,     &                       ! scalars in
+                boundary_guard,  &
                 tbound,          &                       ! scalars out
                 lfn_in,lfn_out,tign         &                     ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
@@ -965,7 +976,7 @@ implicit none
 ! 
 ! The curve moves outside with speed given by function speed_func.
 !   
-! Method: Godunov method for the normal motion. The timestep is checked for
+! Method: Godunov/ENO method for the normal motion. The timestep is checked for
 ! CFL condition. For a straight segment in a constant field and locally linear
 ! level function, the method reduces to the exact normal motion. The advantage of 
 ! the level set method is that it treats automatically special cases such as
@@ -987,6 +998,8 @@ implicit none
 ! ts                in    start time
 ! dt                in    time step
 ! dx,dy             in    grid spacing
+! boundary_guard    in    stop when fire gets this close to the boundary, or <=0 to turn off
+! tbound            out   bound on stable time step from CFL condition, if tbound>=dt then OK
 ! lfn_in,lfn_out    inout,out the level set function at nodes
 ! tign              inout the ignition time at nodes
 
@@ -1015,6 +1028,7 @@ integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out
 real,intent(in)::dx,dy,ts,dt
+integer, intent(in)::boundary_guard
 real,intent(out)::tbound
 #ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */
 #include SPEED_VARS_DECL
@@ -1035,7 +1049,7 @@ real, parameter::a=0.5, a1=1.0-a ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
-integer::i,j,its1,ite1,jts1,jte1
+integer::i,j,its1,ite1,jts1,jte1,k,kk
 character(len=128)msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
@@ -1066,7 +1080,7 @@ call message(msg)
     call write_array_m(ihs,ihe,jhs,jhe,ims,ime,jms,jme,lfn_in,'lfn_in',id)
 #endif
     
-    ! NOTE: tend_ls will do relection to one node strip at domain boundaries
+    ! NOTE: tend_ls will extrapolate to one node strip at domain boundaries
     ! so that it can compute gradient at domain boundaries.
     ! To avoid copying, lfn_in is declared inout.
     ! At tile boundaries that are not domain boundaries values of lfn_in two nodes
@@ -1116,6 +1130,10 @@ call message(msg)
 #endif
 )
 
+#ifdef DEBUG_OUT    
+    call write_array_m(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,tend,'tend2',id)
+#endif
+
     call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
         
     tbound=min(tbound,tbound2)
@@ -1137,6 +1155,9 @@ call message(msg)
         enddo
     enddo      
 
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
+                   lfn_out,'prop_ls: lfn out')
+    
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
     ! interpolate from the level functions at start and at end
@@ -1179,6 +1200,7 @@ call message(msg)
     ! cannot use values outside of the domain, would have to reflect and that
     ! would change lfn_out
     ! cannot use values outside of tile, not synchronized yet
+    ! so in parallel mode the statistics is not accurate
     do j=jts1,jte1
         do i=its1,ite1
             if(lfn_out(i,j)>0.0)then   ! a point out of burning region
@@ -1214,6 +1236,34 @@ call message(msg)
         call print_stat_line('abs(speed error)',its1,ite1,jts1,jte1,min_aerr,max_aerr,sum_aerr/nfireline)
     endif
 
+    ! check if the fire did not get to the domain boundary
+    do k=-1,1,2
+        ! do kk=1,(boundary_guard*(ide-ids+1))/100  ! in %
+        do kk=1,boundary_guard   ! measured in cells
+            i=ids+k*kk
+            if(i.ge.its.and.i.le.ite)then
+                do j=jts,jte
+                    if(lfn_out(i,j)<=0.)goto 9
+                enddo
+            endif
+	enddo
+        ! do kk=1,(boundary_guard*(jde-jds+1))/100
+        do kk=1,boundary_guard    ! measured in cells
+            j=jds+k*kk
+            if(j.ge.jts.and.j.le.jte)then
+                do i=its,ite
+                    if(lfn_out(i,j)<=0.)goto 9
+                enddo
+            endif
+        enddo
+    enddo
+    goto 10
+9   continue
+    write(msg,'(a,i2,a,2i8)')'prop_ls: fire',boundary_guard, &
+        ' cells from domain boundary at node ',i,j
+    call message(msg)     
+    call crash('prop_ls: increase the fire region')
+10  continue
 
 end subroutine prop_ls
 
@@ -1224,7 +1274,7 @@ end subroutine prop_ls
 subroutine tend_ls( &
     lims,lime,ljms,ljme, &                   ! memory dims for lfn
     tims,time,tjms,tjme, &                   ! memory dims for tend 
-    inds,inde,jnds,jnde, &                   ! domain - nodes where lfn defined
+    ids,ide,jds,jde, &                   ! domain - nodes where lfn defined
     ints,inte,jnts,jnte, &                   ! region - nodes where tend computed
     t,dx,dy,      &                          ! scalars in
     lfn, &                                   ! arrays in
@@ -1243,7 +1293,7 @@ implicit none
 
 !*** arguments
 integer,intent(in)::lims,lime,ljms,ljme,tims,time,tjms,tjme
-integer, intent(in)::inds,inde,jnds,jnde,ints,inte,jnts,jnte
+integer, intent(in)::ids,ide,jds,jde,ints,inte,jnts,jnte
 real,intent(in)::t                                     ! time
 real,intent(in)::dx,dy                                 ! mesh step
 real,dimension(lims:lime,ljms:ljme),intent(inout)::lfn ! level set function
@@ -1268,14 +1318,22 @@ real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
 
 intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
+#ifdef DEBUG_OUT
+real,dimension(tims:time,tjms:tjme)::rra,grada
+integer::id
+data id/0/
+id=id+1	
+#endif
+
 !*** executable
     
     ! check array dimensions
     call check_mesh_2dim(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme)
+    call check_mesh_2dim(ints,inte,jnts,jnte,tims,time,tjms,tjme)
     
     call continue_at_boundary(1,1, &
     lims,lime,ljms,ljme, &                ! memory dims
-    inds,inde,jnds,jnde, &                ! domain - nodes where lfn defined
+    ids,ide,jds,jde, &                ! domain - nodes where lfn defined
     ints,inte,jnts,jnte, &                ! region - nodes where tend computed
     lfn)                                  ! array
 
@@ -1294,35 +1352,41 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
             diffCx = lfn(i+1,j)-lfn(i-1,j)
             diffCy = lfn(i,j+1)-lfn(i,j-1)
     
-            ! Godunov scheme: upwind differences, L or R or none    
-            ! always test on > or < never = , much faster because of IEEE
-            ! central diff >= 0 => take left diff if >=0, ortherwise 0
-            ! central diff <= 0 => take right diff if <=0, ortherwise 0
-            diff2x=0
-            diff2y=0
-            if (diffLx>0.and..not.diffCx<0)diff2x=diffLx
-            if (diffRx<0.and.     diffCx<0)diff2x=diffRx
-            if (diffLy>0.and..not.diffCy<0)diff2y=diffLy
-            if (diffRy<0.and.     diffCy<0)diff2y=diffRy
-            
+            !upwinding - select right or left derivative
+            !diff2x=select_godunov(diffLx,diffRx,diffCx)
+            !diff2y=select_godunov(diffLy,diffRy,diffCy)
+            diff2x=select_eno(diffLx,diffRx)
+            diff2y=select_eno(diffLy,diffRy)
+  
             ! magnitude of the gradient
             grad=sqrt(diff2x*diff2x + diff2y*diff2y)
 
             ! get rate of spread
 
-            rr = speed_func(diffCx,diffCy,i,j &
+            rr = speed_func(diff2x,diff2y,i,j &
 #           include "fr_sfire_params_args.h"
             )
+            ! force zero speed on domain boundary
+	    if(i<=ids .or. i>=ide .or. j<=jds .or. j>= jde)rr=0.
             ! time step bound - CFL condition
             ! contribution of the normal term
             if (grad > 0.) then
                 tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
             endif
-            
+#ifdef DEBUG_OUT    
+            rra(i,j)=rr
+            grada(i,j)=grad    
+#endif
             ! the rhs of the diff eq, a.k.a. lfn dot, a.k.a. the lfn "tendency"
             tend(i,j) = -rr*grad   ! normal term 
         enddo
     enddo        
+
+#ifdef DEBUG_OUT    
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
+#endif
 
     call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
                    tend,'tend_ls: tend out')
@@ -1332,6 +1396,57 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 
 end subroutine tend_ls
 
+!
+!**************************
+!
+
+real function select_godunov(diffLx,diffRx,diffCx)
+implicit none
+real, intent(in):: diffLx, diffRx, diffCx
+real diff2x
+
+! Godunov scheme: upwind differences, L or R or none    
+! always test on > or < never = , much faster because of IEEE
+! central diff >= 0 => take left diff if >=0, ortherwise 0
+! central diff <= 0 => take right diff if <=0, ortherwise 0
+
+diff2x=0
+if (diffLx>0.and..not.diffCx<0)diff2x=diffLx
+if (diffRx<0.and.     diffCx<0)diff2x=diffRx
+
+select_godunov=diff2x
+end function select_godunov
+
+!
+!**************************
+!
+
+real function select_eno(diffLx,diffRx)
+implicit none
+real, intent(in):: diffLx, diffRx
+real diff2x
+
+! 1st order ENO scheme
+
+if    (.not.diffLx>0 .and. .not.diffRx>0)then
+    diff2x=diffRx
+elseif(.not.diffLx<0 .and. .not.diffRx<0)then
+    diff2x=diffLx
+elseif(.not.diffLx>0 .and. .not.diffRx<0)then
+    diff2x=0.
+elseif(.not.diffLx<0 .and. .not.diffRx>0)then
+    if(.not. abs(diffRx) < abs(diffLx))then
+        diff2x=diffRx
+    else
+        diff2x=diffLx
+    endif
+else
+    diff2x=0.
+endif
+
+select_eno=diff2x
+end function select_eno
+      
 !
 !**************************
 !

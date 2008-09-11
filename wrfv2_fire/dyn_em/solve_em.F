@@ -107,7 +107,7 @@ SUBROUTINE solve_em ( grid , config_flags  &
 ! fire related variables
    REAL :: moad_dx, moad_dy
    REAL :: moad_cen_lat, moad_cen_lon
-   INTEGER:: fire_num_ignitions
+   INTEGER:: fire_num_ignitions,fire_ignition_longlat
    integer, parameter::fire_max_ignitions=5
    REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
         fire_ignition_start_y, &
@@ -780,9 +780,6 @@ BENCH_START(fire_driver_tim)
             grid%em_v_2,'em_v_2',grid%itimestep)
 #endif
 
-!jm Janice, reading data from files to grid%nfuel_cat etc comes here
-
-
         if(config_flags%ifire.eq.FIRE_SFIRED)then ! case ifire=3
             call sfire_driver_em ( grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
@@ -798,7 +795,7 @@ BENCH_START(fire_driver_tim)
             CALL wrf_error_fatal('only ifire=3 supports distributed memory parallel')
 #endif
 
-        call fire_ignition_convert (config_flags,fire_max_ignitions, &
+        call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, & 
             fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
             fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
             

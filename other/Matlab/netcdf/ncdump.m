@@ -1,8 +1,17 @@
 function var=ncdump(filename,varname)
-% var=nclist(filename[,varname])
-% filename  the name of netcdf file
-% varname  the name of a variable in the file
-% var          returns structure with fields describing the variable
+% var=ncdump(filename)
+%   get the list of all variables and print their info
+%
+% var=ncdump(filename,'-q')
+%   get the list of all variables quietly
+%
+% var=ncdump(filename,varname)
+%   read one variable in its native form and its info
+%   (use ncread to read a variable as a Matlab matrix)
+% 
+% filename     the name of netcdf file
+% varname      the name of a variable in the file
+% var          returned structure with fields describing the variable
 %
 % if varname not given:
 % get info for all variables in the netcdf file
@@ -11,25 +20,36 @@ function var=ncdump(filename,varname)
 % get info for one variable and its value
 
 % Jan Mandel, September 2008
+% developed from an earlier code by Jon Beezley
 
 if ~exist('varname','var'),
     var=nclist(filename);
 else
-    var=ncvar(filename,varname);
+    if strcmp(varname,'-q'),
+        var=nclist(filename,'-q');
+    else
+        var=ncvar(filename,varname);
+    end
 end
 end
 
-function var=nclist(filename) 
+function var=nclist(filename,q) 
 % get info on all variables
+
+quiet=exist('q','var');
 [ncid,status] = mexnc('OPEN',filename,'nowrite');
 nccheck(status)
 [ndims,nvars, ngatts, unlimdim, status] = mexnc('INQ',ncid); % global info
 nccheck(status)
 for varid=1:nvars, % one variable at a time
     var(varid)=ncvarinfo(ncid,varid-1);
-    fprintf('%i ',varid);
-    dispvarinfo(var(varid));
+    if ~quiet,
+        fprintf('%i ',varid);
+        dispvarinfo(var(varid));
+    end
 end
+status=mexnc('CLOSE',ncid);
+nccheck(status)
 end
 
 function v=ncvar(filename,varname)
@@ -41,6 +61,8 @@ nccheck(status);
 v=ncvarinfo(ncid,varid); % find out all about this variable
 [value,status]=mexnc(['GET_VAR_',v.vartype_nc],ncid,varid);
 nccheck(status);
+status=mexnc('CLOSE',ncid);
+nccheck(status)
 if v.ndims>1,
 	value=permute(value,v.ndims:-1:1);
 end

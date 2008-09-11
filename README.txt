@@ -43,6 +43,8 @@ Or, just run
 
 ./compile_fire
 
+and then check compile.log only if you see any output.
+
 Finally, run the code with:
 
 cd test/em_fire 
@@ -55,7 +57,10 @@ Or, just run the debugger, it is set up to load the program automatically and se
 a breakpoint at exit, esp. error exit:
 
 cd test/em_fire 
-idb
+idb -dbx
+
+This runs an "idealized" problem. For RUNNING ON REAL DATA see doc/README_wps.txt
+
 
 STANDALONE FIRE MODEL TEST
 
@@ -78,5 +83,27 @@ this will run the standalone model test.
 
 SETUP ON A NEW MACHINE
 
-You need to install the NETCDF and LAPACK libraries, make
-your copy of env.csh, and modify the environment variables accordingly.
+You need to install the NETCDF and LAPACK libraries
+and modify the environment variables accordingly.
+You can make your own copy of env.csh (under a different name)
+to set up the environment but please do not commit changed env.csh
+
+To install NETCDF: Donload from the web and install per istructions therein.
+The current and tested version is 4.0. Use the compilers you will use for wrf.
+
+Set environment variable to the top level netcdf directory as in
+setenv NETCDF /opt/wrf-libs/netcdf
+
+To install LAPACK: get current LAPACK.tgz from netlib.org, do not bother
+with their install instructions, just compile all by the same compiler you
+will use for wrf.
+in LAPACK/SRC:
+<fortran compiler> -O -c *.f
+ar rv liblapack.a *.o
+in LAPACK/BLAS/SRC:
+<fortran compiler> -O -c *.f
+ar rv libblas.a *.o
+and move the two libraries someplace, like /usr/local/lib 
+Then set up the environment accordingly, as in 
+setenv LAPACK "-L/usr/local/lib -llapack -lblas"
+
