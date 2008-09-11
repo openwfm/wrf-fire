@@ -149,7 +149,7 @@
  fire_fuel_read     = -1,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
  fire_print_msg     = 1,    ! 1 to print fire debugging messages
- fire_print_file    = 1,    ! 1 to write text output files for fire arrays
+ fire_print_file    = 0,    ! 1 to write text output files for fire arrays
  /
 
   &bdy_control
