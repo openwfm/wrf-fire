@@ -163,6 +163,7 @@ enddo
 write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
 call message(msg)
 write(msg,'(a,2f11.2,a,f8.1,a)')'units ',unit_xf,unit_yf,' m max dist ',dmax,' m'
+call message(msg)
 write(msg,'(a,f4.1,a,f8.1,a,i10)')' radius ',r,' time',time_ign,' ignited nodes',ignited
 call message(msg)
 end subroutine ignite_fire

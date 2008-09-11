@@ -381,7 +381,7 @@ else
    ! latitude in the middle of the patch
    latm=xlat((ips+ipe)/2,(jps+jpe)/2)
    ! 1 degree in m (approximate OK)
-   unit_fxlat=6378*2*3.14159/360.   ! earth circumference in m / 360 degrees
+   unit_fxlat=6378e3*2*3.14159/360.   ! earth circumference in m / 360 degrees
    unit_fxlong=cos(latm*3.14159/180.)*unit_fxlat  ! latitude
    ! will interpolate nodal coordinates to the fire mesh 
 endif
