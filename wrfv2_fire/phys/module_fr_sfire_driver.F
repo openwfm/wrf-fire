@@ -334,9 +334,7 @@ dxf=dx/ir
 dyf=dy/jr
 
 
-! set up fire mesh coordinates for ideal case
 
-call message(msg)
 write(msg,'(a,2f15.6)')'atmosphere mesh step:',dx,dy
 call message(msg)
 write(msg,'(a,2f15.6)')'fire mesh step:      ',dxf,dyf
