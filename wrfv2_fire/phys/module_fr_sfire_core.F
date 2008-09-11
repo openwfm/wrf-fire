@@ -207,11 +207,12 @@ real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac, fire_area
 !*** local
 
 integer::i,j,iccell,jccell
-real::xfcell,yfcell
+real::xfcell,yfcell,fmax,frat
 #define IFCELLS (ite-its+1)*ir
 #define JFCELLS (jte-jts+1)*jr
 real,dimension(0:IFCELLS+1,0:JFCELLS+1)::lff,tif
 real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
+character(len=128)::msg
 	     
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
@@ -290,6 +291,28 @@ call sum_2d_cells(       &
        ifs,ife,jfs,jfe,        &
        its,ite,jts,jte,        &
        fire_area)                 ! output
+
+
+! consistency check
+fmax=0
+do j=jts,jte
+    do i=its,ite        
+       if(fire_area(i,j).eq.0.)then
+           if(fuel_frac(i,j).lt.1.)goto 99
+       else
+           frat=(1-fuel_frac(i,j))/fire_area(i,j)
+           fmax=max(fmax,frat)
+       endif
+    enddo
+enddo
+write(msg,'(a,4i6,a,f10.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
+call message(msg)
+return
+
+99 continue
+write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
+    ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
+call crash(msg)
 
 end subroutine fuel_left
 
@@ -424,7 +447,7 @@ if(out>1.)call crash('fuel_left_cell_1: fuel fraction > 1')
 fuel_frac_left = out
 fire_frac_area = area
 
-end function fuel_left_cell_1
+end subroutine fuel_left_cell_1
 
 !
 !****************************************
