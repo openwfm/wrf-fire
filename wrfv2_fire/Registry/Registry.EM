@@ -1459,7 +1459,6 @@ state    integer  ischap    *i*j      fire        1         z    hr    "ISCHAP" 
 rconfig   integer ifire                  namelist,fire         max_domains           0
 rconfig   integer fire_boundary_guard    namelist,fire         max_domains           2       -      "fire_boundary_guard" "cells to stop when fire close to domain boundary"
 # ignition for sfire
-rconfig   integer fire_ignition_longlat  namelist,fire         max_domains           0       -      "fire_ignition_longlat" "0 for ignition in m on grid, 1 longitude/latitude"
 rconfig   integer fire_num_ignitions     namelist,fire         max_domains           0.      -      "fire_num_ignitions" "number of ignition lines" 
 rconfig   real    fire_ignition_start_long1  namelist,fire        max_domains           0.      -      "fire_ignition_start_long1" "long coord of start of ignition line" "m"
 rconfig   real    fire_ignition_start_lat1  namelist,fire        max_domains           0.      -      "fire_ignition_start_lat1" "lat coord of start of ignition line" "m"

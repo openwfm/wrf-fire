@@ -664,10 +664,17 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions, &
     integer, intent(out)::fire_num_ignitions
 !*** local
     integer::i
+    logical:: real,ideal
 !*** executable
     ! this is only until I figure out how to input arrays through the namelist...
     if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
-    if(config_flags%fire_ignition_longlat .eq. 0)then
+    ! figure out which kind of coordinates from the first given
+    ideal=config_flags%fire_ignition_start_x1 .ne. 0. or. config_flag%fire_ignition_start_y1
+    real=config_flags%fire_ignition_start_long1 .ne. 0. or. config_flags%fire_ignition_start_lat1
+    if(ideal)call message('Using ideal ignition coordinates, m from the lower left domain corner')
+    if(real)call message('Using real ignition coordinates, longitude and latitude')
+    if(ideal.and.real)call crash('Only one of the ideal or real coordinates may be given')
+    if(ideal)then
         ! use values from _x and _y variables
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
@@ -689,7 +696,8 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions, &
         fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
         fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
         fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
-    else
+    endif
+    if(real)then
         ! use values from _long and _lat
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_long1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_lat1
