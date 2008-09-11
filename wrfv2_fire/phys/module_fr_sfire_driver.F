@@ -737,7 +737,11 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     ! 
         fire_num_ignitions=0      
         do i=1,min(5,config_flags%fire_num_ignitions)
+            ! count the ignitions 
             if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i
+            ! expand the point ignitions given as zero
+            if(fire_ignition_end_x(i).eq.0.)fire_ignition_end_x(i)=fire_ignition_start_x(i)
+            if(fire_ignition_end_y(i).eq.0.)fire_ignition_end_y(i)=fire_ignition_start_y(i)
         enddo
 
 end subroutine fire_ignition_convert

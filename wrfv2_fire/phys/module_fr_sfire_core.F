@@ -102,21 +102,16 @@ integer:: i,j
 real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2
 logical::point
 character(len=128):: msg
-real::cx2,cy2
+real::cx2,cy2,dmax
 
 cx2=unit_xf*unit_xf
 cy2=unit_yf*unit_yf
 
 ignited=0
-point = ex .eq. 0.0 .or. ey .eq. 0.0
-if (.not.point)then
-    ! midpoint m = (mx,my)
-    mx = (sx + ex)/2
-    my = (sy + ey)/2
-else    
-    mx = sx
-    my = sy
-endif
+dmax=0
+! midpoint m = (mx,my)
+mx = (sx + ex)/2
+my = (sy + ey)/2
 do j=jfts,jfte   
     do i=ifts,ifte
         ! coordinates of the node (i,j), the lower left corner of the domain is (0 0)
@@ -156,6 +151,7 @@ do j=jfts,jfte
                 d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
             endif
         endif
+        dmax=max(d,dmax)
         lfn_new=d-r
         if(lfn(i,j)>0 .and. lfn_new<=0) then
             tign(i,j)=time_ign  ! newly ignited now
@@ -164,8 +160,10 @@ do j=jfts,jfte
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
     enddo
 enddo
-write(msg,'(a,2f10.1,a,2f10.1,a,f8.1,a,f8.1,a,i6)')'ignite_fire: from',sx,sy,' to ',&
-    ex,ey,' radius ',r,' time',time_ign,' ignited nodes',ignited
+write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
+call message(msg)
+write(msg,'(a,2f11.2,a,f8.1,a)')'units ',unit_xf,unit_yf,' m max dist ',dmax,' m'
+write(msg,'(a,f4.1,a,f8.1,a,i10)')' radius ',r,' time',time_ign,' ignited nodes',ignited
 call message(msg)
 end subroutine ignite_fire
 
