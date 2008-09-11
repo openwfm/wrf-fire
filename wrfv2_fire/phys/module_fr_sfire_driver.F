@@ -173,6 +173,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             z_at_w,dz8w,                                  &
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
+            grid%fire_area,                               & ! redundant, for display, fire grid
             grid%uf,grid%vf,lfn_out,                      & ! arrays to persist only over one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
@@ -220,6 +221,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     z_at_w,dz8w,                                  &
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
+    fire_area,                                    & ! redundant state, fire grid
     uf,vf,lfn_out,                                & ! fire wind velocities, out level set function    
     rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
@@ -289,6 +291,9 @@ integer, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
     lfn,tign,fuel_frac,                        &     ! state: level function, ign time, fuel left
     uf,vf,lfn_out                                    ! fire wind velocities
+
+real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
+    fire_area                                        ! fraction of each cell burning
 
 real, intent(out), dimension(ims:ime, kms:kme, jms:jme):: &
     rthfrten,rqvfrten                              ! temperature and humidity tendencies (atm grid)
@@ -531,6 +536,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         zsf,                                    & ! terrain height (for gradient)
         uf,vf,                                  & ! input: wind
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+        fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         nfuel_cat,                              & ! fuel data per point 
         fuel_time,                              & ! save derived internal data

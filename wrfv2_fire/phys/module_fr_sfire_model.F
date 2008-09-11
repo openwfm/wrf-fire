@@ -32,7 +32,7 @@ subroutine sfire_model (                    &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
-    lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+    lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
@@ -116,6 +116,9 @@ REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
     lfn   , &                               ! level function: fire is where lfn<0 (node)
     tign  , &                               ! absolute time of ignition (node)
     fuel_frac                               ! fuel fraction (node), currently redundant
+
+REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
+    fire_area                               ! fraction of each cell burning
     
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
@@ -214,7 +217,7 @@ elseif (ifun.eq.4) then  ! do the timestep
         ifts,ifte,jfts,jfte, &
         ifms,ifme,jfms,jfme, &
         fuel_left_irl,fuel_left_jrl,             &
-        lfn,tign,fuel_time,time_start,fuel_frac) ! fuel frac is shared
+        lfn,tign,fuel_time,time_start,fuel_frac,fire_area) ! fuel frac is shared
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
@@ -265,7 +268,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
         fuel_left_irl,fuel_left_jrl,             &
-        lfn,tign,fuel_time,time_start+dt,fuel_frac_end) !fuel_frac_end is private and tile based
+        lfn,tign,fuel_time,time_start+dt,fuel_frac_end,fire_area) !fuel_frac_end is private and tile based
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifts,ifte,jfts,jfte, &

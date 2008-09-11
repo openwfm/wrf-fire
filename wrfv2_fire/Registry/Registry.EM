@@ -1430,10 +1430,11 @@ state    real     canqfx    ij       fire        1         z     hr   "CANQFX"  
 
 # sfire variables on fire grid
 # (also using tign_g,zs,z_at_w,dz8w,nfuel_cat,fluxes,zsf)
-state    real     lfn       *i*j      fire        1         z    hr    "LFN" "level function" 
-state    real     fuel_frac *i*j      fire        1         z    hr    "FUEL_FRAC" "fuel remaining"
-state    real     uf        *i*j      fire        1         z    hr    "UF"        "fire wind"
-state    real     vf        *i*j      fire        1         z    hr    "VF"        "fire wind"
+state    real     lfn       *i*j      fire        1         z    hr    "LFN" "level function" "1"
+state    real     fuel_frac *i*j      fire        1         z    hr    "FUEL_FRAC" "fuel remaining" "1"
+state    real     fire_area *i*j      fire        1         z    hr    "FIRE_AREA" "fraction of cell area on fire" "1"
+state    real     uf        *i*j      fire        1         z    hr    "UF"        "fire wind" "m/s"
+state    real     vf        *i*j      fire        1         z    hr    "VF"        "fire wind" "m/s"
 state    real     fgrnhfx   *i*j      fire        1         z    hr    "FGRNHFX"   "heat flux from ground fire" "W/m^2"
 state    real     fgrnqfx   *i*j      fire        1         z    hr    "FGRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     fcanhfx   *i*j      fire        1         z    hr    "FCANHFX"   "heat flux from crown fire" "W/m^2"

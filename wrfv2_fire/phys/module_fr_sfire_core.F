@@ -177,7 +177,7 @@ subroutine fuel_left(fuel_left_method, &
     its,ite,jts,jte, &
     ifs,ife,jfs,jfe, &
     ir,jr,           &
-    lfn, tign, fuel_time, time_now, fuel_frac)
+    lfn, tign, fuel_time, time_now, fuel_frac, fire_area)
 implicit none
 
 !*** purpose: determine fraction of fuel remaining
@@ -190,7 +190,7 @@ integer,intent(in):: fuel_left_method
 integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe,ir,jr
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: time_now
-real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
+real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac, fire_area
 
 ! fuel_left_method  in   1=approximate formula, 2=quadrature and least squares
 ! ims,ime,jms,jme   in   memory dimensions
@@ -202,6 +202,7 @@ real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
 ! fuel_time         in   time constant of fuel, per cell
 ! time_now          in   time now
 ! fuel_frac         out  fraction of fuel remaining, per cell
+! fire_area         out  fraction of cell area on fire
 
 !*** local
 
@@ -210,7 +211,7 @@ real::xfcell,yfcell
 #define IFCELLS (ite-its+1)*ir
 #define JFCELLS (jte-jts+1)*jr
 real,dimension(0:IFCELLS+1,0:JFCELLS+1)::lff,tif
-real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f
+real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
 	     
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
@@ -252,12 +253,14 @@ do j=1,JFCELLS
         iccell=nint(its+xfcell/ir-0.5) ! the indices of the nearest coarse midpoint
         jccell=nint(jts+yfcell/jr-0.5) ! use fuel_time of the coarse cell the fine cell is in
 	if(fuel_left_method.eq.1)then
-             fuel_left_f(i,j)=fuel_left_cell_1( &
+             call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
-                 time_now, fuel_time(iccell,jccell)) &
-                 /(ir*jr)                              ! premultiply by weight
+                 time_now, fuel_time(iccell,jccell))
+                 fuel_left_f(i,j) = fuel_left_f(i,j) /(ir*jr) ! premultiply by weight
+                 fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! premultiply by weight 
 	elseif(fuel_left_method.eq.2)then
+             fire_area_f(i,j)=0  ! initialize to something until computed in fuel_left_f(i,j)
              fuel_left_f(i,j)=fuel_left_cell_2( &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
@@ -269,6 +272,8 @@ do j=1,JFCELLS
     enddo
 enddo
 
+! sum up over subcells
+
 call sum_2d_cells(       &
        1,IFCELLS,1,JFCELLS,    &
        1,IFCELLS,1,JFCELLS,    &
@@ -277,19 +282,29 @@ call sum_2d_cells(       &
        its,ite,jts,jte,        &
        fuel_frac)                 ! output
 
+
+call sum_2d_cells(       &
+       1,IFCELLS,1,JFCELLS,    &
+       1,IFCELLS,1,JFCELLS,    &
+       fire_area_f,            &  ! input       
+       ifs,ife,jfs,jfe,        &
+       its,ite,jts,jte,        &
+       fire_area)                 ! output
+
 end subroutine fuel_left
 
 !
 !************************
 !
 
-real function fuel_left_cell_1(  &
+subroutine fuel_left_cell_1( fuel_frac_left, fire_frac_area, &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
 !*** purpose: compute the fuel fraction left in one cell
 implicit none
 !*** arguments
+real, intent(out):: fuel_frac_left, fire_frac_area ! 
 real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners of the cell
 real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners of the cell
 real, intent(in)::time_now                   ! the time now
@@ -406,7 +421,8 @@ if(area>0)out=area*exp(ta/fuel_time_cell) + (1. - area)
 
 if(out>1.)call crash('fuel_left_cell_1: fuel fraction > 1')
 
-fuel_left_cell_1 = out
+fuel_frac_left = out
+fire_frac_area = area
 
 end function fuel_left_cell_1
 
