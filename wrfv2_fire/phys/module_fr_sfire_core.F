@@ -100,7 +100,6 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
 !*** local
 integer:: i,j
 real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2
-logical::point
 character(len=128):: msg
 real::cx2,cy2,dmax
 
@@ -119,37 +118,35 @@ do j=jfts,jfte
         ! ay = fdy*(j - jfds + 0.5)
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
+        ! the following computation of distance is also for the case
+        ! when s=e exactly or approximately 
         dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
-        if(point)then
-            d=sqrt(dam2) ! distance from the ignition point
+        ! compute distance of a=(ax,ay) and the nearest point on the segment
+        ! [(sx,sy), (ex,ey)] as the distance of (ax,ay) from the midpoint (mx,my)
+        ! minus a correction (because of rounding errors): |a-c|^2 = |a-m|^2 - |m-c|^2
+        ! when |m-c| >= |s-e|/2 the nearest point is one of the endpoints
+        !
+        !           a    
+        !          /| \
+        !     s---m-c--e
+        !
+        ! |m-c| = |a-m| cos (a-m,e-s) 
+        !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
+        des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
+        dames = dam2*des2
+        if(dames>0)then
+            am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
+            cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
+        else ! point a already is the midpoint
+            cos2 = 0.
+        endif
+        dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
+        if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
+            d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
+        elseif(am_es>0)then                             ! if cos > 0, closest is e
+            d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
         else
-            ! compute distance of a=(ax,ay) and the nearest point on the segment
-            ! [(sx,sy), (ex,ey)] as the distance of (ax,ay) from the midpoint (mx,my)
-            ! minus a correction (because of rounding errors): |a-c|^2 = |a-m|^2 - |m-c|^2
-            ! when |m-c| >= |s-e|/2 the nearest point is one of the endpoints
-            !
-            !           a    
-            !          /| \
-            !     s---m-c--e
-            !
-            ! |m-c| = |a-m| cos (a-m,e-s) 
-            !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
-            des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
-            dames = dam2*des2
-            if(dames>0)then
-                am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
-                cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
-            else ! point a already is the midpoint
-                cos2 = 0.
-            endif
-            dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
-            if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
-                d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
-            elseif(am_es>0)then                             ! if cos > 0, closest is e
-                d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
-            else
-                d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
-            endif
+            d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
         endif
         dmax=max(d,dmax)
         lfn_new=d-r
