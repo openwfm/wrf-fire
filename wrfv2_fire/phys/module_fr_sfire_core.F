@@ -187,7 +187,8 @@ integer,intent(in):: fuel_left_method
 integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe,ir,jr
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: time_now
-real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac, fire_area
+real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
+real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 ! fuel_left_method  in   1=approximate formula, 2=quadrature and least squares
 ! ims,ime,jms,jme   in   memory dimensions
@@ -275,10 +276,6 @@ do j=1,JFCELLS
     enddo
 enddo
 
-#ifdef DEBUG_OUT_FUEL_LEFT    
-    call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
-    call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
-#endif
 
 ! sum up over subcells
 
@@ -299,6 +296,12 @@ call sum_2d_cells(       &
        its,ite,jts,jte,        &
        fire_area)                 ! output
 
+#ifdef DEBUG_OUT_FUEL_LEFT    
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fire_area,'fire_area',0)
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fuel_left,'fuel_left',0)
+    call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
+    call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
+#endif
 
 ! consistency check
 fmax=0
