@@ -210,7 +210,7 @@ integer::i,j,iccell,jccell
 real::xfcell,yfcell,fmax,frat
 #define IFCELLS (ite-its+1)*ir
 #define JFCELLS (jte-jts+1)*jr
-real,dimension(0:IFCELLS+1,0:JFCELLS+1)::lff,tif
+real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
 real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
 character(len=128)::msg
 	     
@@ -221,38 +221,43 @@ call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
 ! interpolate level set function to finer grid
 call interpolate_2d(  &
     ims,ime,jms,jme,         & ! array coarse grid
-    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid
-    0,IFCELLS+1,0,JFCELLS+1,     & ! array fine grid
-    0,IFCELLS+1,0,JFCELLS+1,     & ! dimensions fine grid
+    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
+    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
+    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
     ir,jr,                   & ! refinement ratio
-    real(its),real(jts),ir/2.,jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
     lfn, &                     ! in coarse grid  
     lff  )                     ! out fine grid
 
 call interpolate_2d(  &
     ims,ime,jms,jme,         & ! array coarse grid
-    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid
-    0,IFCELLS+1,0,JFCELLS+1,     & ! array fine grid
-    0,IFCELLS+1,0,JFCELLS+1,     & ! dimensions fine grid
+    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
+    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
+    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
     ir,jr,                   & ! refinement ratio
-    real(its),real(jts),ir/2.,jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
     tign, &                     ! in coarse grid  
     tif  )                     ! out fine grid
+
+!#define DEBUG_OUT_FUEL_LEFT
+#ifdef DEBUG_OUT_FUEL_LEFT    
+    call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,lff,'lff',0)
+    call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,tif,'tif',0)
+#endif
 
 !
 ! example for ir=2:
 !
-!      its-1                  coarse cell its                            ite             ite+1
-! -------X------------|-------------X-------------|--........----|--------X-------|--------X
-!           fine node 0             1             2                         2*(ite-its) 
-!                fine cell  1              2                                      2*(ite-its+1)
+!                     |      coarse cell      |
+!      its-1                     its                                   ite             ite+1
+! -------X------------|-----.-----X-----.-----|--........----|----------X----------|---------X
+!           fine node 1           2           3                   2*(ite-its+1) 
+!                fine cell  1           2                             cell 2*(ite-its+1)
 
 do j=1,JFCELLS
     do i=1,IFCELLS
-        xfcell=i-0.5  ! middle of the fine cell in fine grid coordinates
-        yfcell=j-0.5
-        iccell=nint(its+xfcell/ir-0.5) ! the indices of the nearest coarse midpoint
-        jccell=nint(jts+yfcell/jr-0.5) ! use fuel_time of the coarse cell the fine cell is in
+        iccell=its+(i-1)/ir ! the nearest coarse node
+        jccell=jts+(j-1)/jr ! use fuel_time of the coarse cell the fine cell is in
 	if(fuel_left_method.eq.1)then
              call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
@@ -272,6 +277,11 @@ do j=1,JFCELLS
 	endif
     enddo
 enddo
+
+#ifdef DEBUG_OUT_FUEL_LEFT    
+    call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
+    call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
+#endif
 
 ! sum up over subcells
 
