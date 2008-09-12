@@ -2,6 +2,8 @@
 !*** Jan Mandel October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 
+#define DEBUG_OUT
+
 module module_fr_sfire_model
 
 use module_fr_sfire_core
