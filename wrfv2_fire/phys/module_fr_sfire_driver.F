@@ -162,6 +162,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             config_flags%fire_fuel_left_method,         &
             config_flags%fire_fuel_left_irl,         &
             config_flags%fire_fuel_left_jrl,         &
+            config_flags%fire_atm_feedback,          &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
             config_flags%fire_boundary_guard,         &
             fire_num_ignitions,                                & 
@@ -209,6 +210,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fire_fuel_left_method,         &
     fire_fuel_left_irl,         &
     fire_fuel_left_jrl,         &
+    fire_atm_feedback,          &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
     boundary_guard,                               & 
     num_ignitions,                                & 
@@ -256,6 +258,8 @@ integer, intent(in)::ifun,                        &
     fire_fuel_left_jrl,                           &
     num_tiles                                       ! number of tiles
     
+real, intent(in)::    fire_atm_feedback           ! scale the feedback to the atmosphere by this
+
 logical, intent(out)::need_lfn_update
 
 integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! atm grid tiling
@@ -565,11 +569,12 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
             its,ite,jts,jte,      &
             grnqfx)
 
+        write(msg,'(a,f6.3)')'fire-atmosphere feedback scaling ',fire_atm_feedback
         do j=jts,jte
             do i=its,ite
                 ! scale ground fluxes to get the averages
-                grnhfx(i,j)=grnhfx(i,j)/(ir*jr)
-                grnqfx(i,j)=grnqfx(i,j)/(ir*jr)
+                grnhfx(i,j)=fire_atm_feedback*grnhfx(i,j)/(ir*jr)
+                grnqfx(i,j)=fire_atm_feedback*grnqfx(i,j)/(ir*jr)
                 ! we do not have canopy fluxes yet...
                 canhfx(i,j)=0
                 canqfx(i,j)=0

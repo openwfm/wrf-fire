@@ -237,7 +237,7 @@ call interpolate_2d(  &
     tign, &                     ! in coarse grid  
     tif  )                     ! out fine grid
 
-#ifdef DEBUG_OUT    
+#ifdef DEBUG_OUT_FUEL_LEFT    
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,lff,'lff',0)
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,tif,'tif',0)
 #endif
@@ -301,14 +301,14 @@ call sum_2d_cells(       &
        its,ite,jts,jte,        &
        fire_area)                 ! output
 
-#ifdef DEBUG_OUT
+#ifdef DEBUG_OUT_FUEL_LEFT
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fire_area,'fire_area',0)
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fuel_frac,'fuel_frac',0)
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
 #endif
 
-! consistency check
+! consistency check after sum
 fmax=0
 do j=jts,jte
     do i=its,ite        
@@ -1402,15 +1402,12 @@ id=id+1
             diffLx = (lfn(i,j)-lfn(i-1,j))/dx
             diffRy = (lfn(i,j+1)-lfn(i,j))/dy
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
-            ! const*central differences
-            diffCx = lfn(i+1,j)-lfn(i-1,j)
-            diffCy = lfn(i,j+1)-lfn(i,j-1)
     
             !upwinding - select right or left derivative
-            !diff2x=select_godunov(diffLx,diffRx,diffCx)
-            !diff2y=select_godunov(diffLy,diffRy,diffCy)
-            diff2x=select_eno(diffLx,diffRx)
-            diff2y=select_eno(diffLy,diffRy)
+            diff2x=select_godunov(diffLx,diffRx)
+            diff2y=select_godunov(diffLy,diffRy)
+            !diff2x=select_eno(diffLx,diffRx)
+            !diff2y=select_eno(diffLy,diffRy)
   
             ! magnitude of the gradient
             grad=sqrt(diff2x*diff2x + diff2y*diff2y)
@@ -1454,10 +1451,10 @@ end subroutine tend_ls
 !**************************
 !
 
-real function select_godunov(diffLx,diffRx,diffCx)
+real function select_godunov(diffLx,diffRx)
 implicit none
 real, intent(in):: diffLx, diffRx, diffCx
-real diff2x
+real diff2x,diffCx
 
 ! Godunov scheme: upwind differences, L or R or none    
 ! always test on > or < never = , much faster because of IEEE
@@ -1465,6 +1462,7 @@ real diff2x
 ! central diff <= 0 => take right diff if <=0, ortherwise 0
 
 diff2x=0
+diffCx=diffRx+diffLx
 if (diffLx>0.and..not.diffCx<0)diff2x=diffLx
 if (diffRx<0.and.     diffCx<0)diff2x=diffRx
 
