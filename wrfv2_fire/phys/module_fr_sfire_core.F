@@ -296,7 +296,7 @@ call sum_2d_cells(       &
        its,ite,jts,jte,        &
        fire_area)                 ! output
 
-#ifdef DEBUG_OUT_FUEL_LEFT    
+#ifdef DEBUG_OUT_FUEL_LEFT
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fire_area,'fire_area',0)
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fuel_left,'fuel_left',0)
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
