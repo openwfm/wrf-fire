@@ -237,8 +237,7 @@ call interpolate_2d(  &
     tign, &                     ! in coarse grid  
     tif  )                     ! out fine grid
 
-!#define DEBUG_OUT_FUEL_LEFT
-#ifdef DEBUG_OUT_FUEL_LEFT    
+#ifdef DEBUG_OUT    
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,lff,'lff',0)
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,tif,'tif',0)
 #endif
@@ -261,21 +260,27 @@ do j=1,JFCELLS
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell))
-                 fuel_left_f(i,j) = fuel_left_f(i,j) /(ir*jr) ! premultiply by weight
-                 fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! premultiply by weight 
 	elseif(fuel_left_method.eq.2)then
              fire_area_f(i,j)=0  ! initialize to something until computed in fuel_left_f(i,j)
              fuel_left_f(i,j)=fuel_left_cell_2( &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
-                 time_now, fuel_time(iccell,jccell)) &
-                 /(ir*jr)                              ! premultiply by weight
+                 time_now, fuel_time(iccell,jccell)) 
 	else
 	     call crash('unknown fuel_left_method')
 	endif
+        ! consistency check
+        if(fire_area_f(i,j).eq.0.)then
+           if(fuel_left_f(i,j).lt.1.)then
+               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
+                    ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' but fire area',fire_area_f(i,j)
+               call crash(msg)
+           endif
+        endif
+        fuel_left_f(i,j) = fuel_left_f(i,j) /(ir*jr) ! premultiply by weight for averaging over coarse cell
+        fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
     enddo
 enddo
-
 
 ! sum up over subcells
 
@@ -292,13 +297,13 @@ call sum_2d_cells(       &
        1,IFCELLS,1,JFCELLS,    &
        1,IFCELLS,1,JFCELLS,    &
        fire_area_f,            &  ! input       
-       ifs,ife,jfs,jfe,        &
+       ims,ime,jms,jme,        &
        its,ite,jts,jte,        &
        fire_area)                 ! output
 
-#ifdef DEBUG_OUT_FUEL_LEFT
+#ifdef DEBUG_OUT
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fire_area,'fire_area',0)
-    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fuel_left,'fuel_left',0)
+    call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fuel_frac,'fuel_frac',0)
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
 #endif
@@ -308,7 +313,11 @@ fmax=0
 do j=jts,jte
     do i=its,ite        
        if(fire_area(i,j).eq.0.)then
-           if(fuel_frac(i,j).lt.1.)goto 99
+           if(fuel_frac(i,j).lt.1.)then
+               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
+                   ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
+               call crash(msg)
+           endif
        else
            frat=(1-fuel_frac(i,j))/fire_area(i,j)
            fmax=max(fmax,frat)
@@ -319,10 +328,6 @@ write(msg,'(a,4i6,a,f10.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/a
 call message(msg)
 return
 
-99 continue
-write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
-    ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
-call crash(msg)
 
 end subroutine fuel_left
 
