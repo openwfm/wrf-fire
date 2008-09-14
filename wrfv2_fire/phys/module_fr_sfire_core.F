@@ -1434,6 +1434,9 @@ id=id+1
 #endif
             ! the rhs of the diff eq, a.k.a. lfn dot, a.k.a. the lfn "tendency"
             tend(i,j) = -rr*grad   ! normal term 
+
+            ! add some more numerical viscosity
+            tend(i,j)=tend(i,j) + 0.4*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
         enddo
     enddo        
 
