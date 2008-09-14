@@ -1453,7 +1453,7 @@ end subroutine tend_ls
 
 real function select_godunov(diffLx,diffRx)
 implicit none
-real, intent(in):: diffLx, diffRx, diffCx
+real, intent(in):: diffLx, diffRx
 real diff2x,diffCx
 
 ! Godunov scheme: upwind differences, L or R or none    

@@ -165,5 +165,5 @@ fire_boundary_guard = 2,    ! integer, number of cells to stop when fire close t
  fire_fuel_left_method=1,   ! 1=simple algebraic, 2=exact quadrature and least squares
  fire_fuel_left_irl=2,      ! refinement to integrate fuel_left, must be even
  fire_fuel_left_jrl=2,      ! refinement to integrate fuel_left, must be even
- fire_atm_feedback=0.       ! real, multiplier for heat fluxes, 1.=normal, 0.=turn off two-way coupling 
+ fire_atm_feedback=1.       ! real, multiplier for heat fluxes, 1.=normal, 0.=turn off two-way coupling 
  /
