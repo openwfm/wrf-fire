@@ -126,7 +126,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 #include "HALO_FIRE_LFN.inc"
         endif
         if(fire_ifun.eq.1)then
-#include HALO_FIRE_LONGLAT.inc
+#include "HALO_FIRE_LONGLAT.inc"
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
