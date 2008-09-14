@@ -1404,17 +1404,21 @@ id=id+1
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
     
             !upwinding - select right or left derivative
-            diff2x=select_godunov(diffLx,diffRx)
-            diff2y=select_godunov(diffLy,diffRy)
-            !diff2x=select_eno(diffLx,diffRx)
-            !diff2y=select_eno(diffLy,diffRy)
+            diff2x=select_upwind(diffLx,diffRx)
+            diff2y=select_upwind(diffLy,diffRy)
+            ! diff2x=select_godunov(diffLx,diffRx)
+            ! diff2y=select_godunov(diffLy,diffRy)
+            ! diff2x=select_eno(diffLx,diffRx)
+            ! diff2y=select_eno(diffLy,diffRy)
   
-            ! magnitude of the gradient
+            ! magnitude of the gradient, from upwinded
             grad=sqrt(diff2x*diff2x + diff2y*diff2y)
 
             ! get rate of spread
 
-            rr = speed_func(diff2x,diff2y,i,j &
+            ! grad passed to compute speed
+            !rr = speed_func(diff2x,diff2y,i,j &  ! upwinded
+            rr = speed_func(diffRx+diffLx,diffRy+diffLx,i,j &   ! central
 #           include "fr_sfire_params_args.h"
             )
             ! force zero speed on domain boundary
@@ -1451,6 +1455,26 @@ end subroutine tend_ls
 !**************************
 !
 
+real function select_upwind(diffLx,diffRx)
+implicit none
+real, intent(in):: diffLx, diffRx
+real diff2x
+
+! upwind differences, L or R if bith same sign, otherwise zero    
+
+diff2x=0
+if (diffLx>0.and.diffRx>0.)diff2x=diffLx
+if (diffLx<0.and.diffRx<0.)diff2x=diffRx
+
+select_upwind=diff2x
+end function select_upwind
+
+
+!
+!**************************
+!
+
+
 real function select_godunov(diffLx,diffRx)
 implicit none
 real, intent(in):: diffLx, diffRx
@@ -1458,8 +1482,8 @@ real diff2x,diffCx
 
 ! Godunov scheme: upwind differences, L or R or none    
 ! always test on > or < never = , much faster because of IEEE
-! central diff >= 0 => take left diff if >=0, ortherwise 0
-! central diff <= 0 => take right diff if <=0, ortherwise 0
+! central diff >= 0 => take left diff if >0, ortherwise 0
+! central diff <= 0 => take right diff if <0, ortherwise 0
 
 diff2x=0
 diffCx=diffRx+diffLx
