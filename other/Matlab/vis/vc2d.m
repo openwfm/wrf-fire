@@ -2,13 +2,13 @@ function vc2d(dt)
 j=0;
 t1=clock;
 %a=avifile('sfire.avi');
-for k=[1:10,100:100:4000]
+for k=[10:10:1000]
     j=j+1;
     oneframe(k,dt);
     %M=getframe;
     %a=addframe(a,M);
     grid off
-    print('-djpeg',sprintf('frame%5.5i',j))
+    %print('-djpeg',sprintf('frame%5.5i',j))
     %M(j)=getframe(gcf);
     %M(j)=getframe;
     %if mod(j,10)==0 | j< 10,

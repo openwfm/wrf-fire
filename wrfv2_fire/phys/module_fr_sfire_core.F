@@ -1404,12 +1404,12 @@ id=id+1
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
     
             !upwinding - select right or left derivative
-            diff2x=select_upwind(diffLx,diffRx)
-            diff2y=select_upwind(diffLy,diffRy)
+            ! diff2x=select_upwind(diffLx,diffRx)
+            ! diff2y=select_upwind(diffLy,diffRy)
             ! diff2x=select_godunov(diffLx,diffRx)
             ! diff2y=select_godunov(diffLy,diffRy)
-            ! diff2x=select_eno(diffLx,diffRx)
-            ! diff2y=select_eno(diffLy,diffRy)
+            diff2x=select_eno(diffLx,diffRx)
+            diff2y=select_eno(diffLy,diffRy)
   
             ! magnitude of the gradient, from upwinded
             grad=sqrt(diff2x*diff2x + diff2y*diff2y)
@@ -1508,8 +1508,6 @@ if    (.not.diffLx>0 .and. .not.diffRx>0)then
     diff2x=diffRx
 elseif(.not.diffLx<0 .and. .not.diffRx<0)then
     diff2x=diffLx
-elseif(.not.diffLx>0 .and. .not.diffRx<0)then
-    diff2x=0.
 elseif(.not.diffLx<0 .and. .not.diffRx>0)then
     if(.not. abs(diffRx) < abs(diffLx))then
         diff2x=diffRx
