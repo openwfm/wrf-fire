@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
- run_hours                           = 0,
- run_minutes                         = 10,
+ run_hours                           = 1,
+ run_minutes                         = 0,
  run_seconds                         = 0,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
@@ -29,8 +29,8 @@
  &domains
  time_step                           = 0,
  !time_step                           = 5,
- time_step_fract_num                 = 5,
- time_step_fract_den                 = 10,
+ time_step_fract_num                 = 25,
+ time_step_fract_den                 = 100,
  max_dom                             = 1,
  s_we                                = 1,     1,     1,
  e_we                                = 42,    43,    43,
