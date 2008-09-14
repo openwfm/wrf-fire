@@ -1422,7 +1422,7 @@ id=id+1
 #           include "fr_sfire_params_args.h"
             )
             ! force zero speed on domain boundary
-	    if(i<=ids .or. i>=ide .or. j<=jds .or. j>= jde)rr=0.
+	    !! if(i<=ids .or. i>=ide .or. j<=jds .or. j>= jde)rr=0.
             ! time step bound - CFL condition
             ! contribution of the normal term
             if (grad > 0.) then
