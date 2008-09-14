@@ -20,6 +20,7 @@
 # next few commands run in WPS
 cd WPS
 #in WPS compile wps
+echo 1 | ./configure
 ./compile wps
 
 #in WPS link the atmospheric data
