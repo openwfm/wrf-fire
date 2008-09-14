@@ -126,6 +126,7 @@
 
  &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
  ifire              = 3,    ! integer, = 0: no fire, = 1: cc_fire, 2=sfire through Ned's driver, 3=sfire
+! variables for CAWFE (note: cawfe not maintained in this version, though)
 ! ignition for cawfe
 !fire_lat_init      =   40.,    ! real   , initial fire latitude (deg)
 !fire_lon_init      = -105.,    ! real   , initial fire longitude (deg)
@@ -133,8 +134,16 @@
  fire_lon_init      = 6.70e-3,  ! real   , initial fire longitude (deg)
  fire_ign_time      = 30.,      ! real   , time of fire ignition (s)
  fire_shape         = 1,    ! integer, initial fire shape
-fire_boundary_guard = -1,    ! integer, number of cells to stop when fire close to the domain boundary
-! ignition for sfire
+ fire_sprd_mdl      = 1,    ! integer, = 0: Macarthur, = 1: BEHAVE
+ fire_crwn_hgt      = 15.,  ! real   , height of canopy crown (m)
+ fire_ext_grnd      = 50.,  ! real   , extinction coeff ground fire
+ fire_ext_crwn      = 50.,  ! real   , extinction coeff crown fire 
+ fire_fuel_read     = 0,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
+ fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
+!
+! variables for SFIRE
+!
+! ignition 
  fire_num_ignitions = 3,        ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_start_x1 = 1000  ! start points of ignition lines, in m from lower left corner
  fire_ignition_start_y1 =  500  ! start points of ignition lines, in m from lower left corner
@@ -154,16 +163,15 @@ fire_boundary_guard = -1,    ! integer, number of cells to stop when fire close 
  fire_ignition_end_y3 =   1400  ! end points of ignition lines, in m from lower left corner
  fire_ignition_radius3 =    50  ! all within this radius will ignite, > fire mesh step
  fire_ignition_time3  =      4  ! sec for ignition from the start! end ignition for sfire
- fire_sprd_mdl      = 1,    ! integer, = 0: Macarthur, = 1: BEHAVE
- fire_crwn_hgt      = 15.,  ! real   , height of canopy crown (m)
- fire_ext_grnd      = 50.,  ! real   , extinction coeff ground fire
- fire_ext_crwn      = 50.,  ! real   , extinction coeff crown fire 
- fire_fuel_read     = 0,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
- fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
- fire_print_msg     = 1,    ! 1 to print fire debugging messages
- fire_print_file    = 1,    ! 1 to write text output files for fire arrays
- fire_fuel_left_method=1,   ! 1=simple algebraic, 2=exact quadrature and least squares
- fire_fuel_left_irl=2,      ! refinement to integrate fuel_left, must be even
- fire_fuel_left_jrl=2,      ! refinement to integrate fuel_left, must be even
- fire_atm_feedback=1.       ! real, multiplier for heat fluxes, 1.=normal, 0.=turn off two-way coupling 
+!
+! verbosity
+ fire_print_msg     = 1,        ! 1 print fire debugging messages
+ fire_print_file    = 0,        ! 1 write files for matlab; do not use with parallel runs
+!
+! method selections, do not change from defaults unless you know what you are doing
+ fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
+ fire_fuel_left_method=1,       ! 1=simple algebraic, 2=exact quadrature and least squares
+ fire_fuel_left_irl=2,          ! refinement to integrate fuel_left, must be even
+ fire_fuel_left_jrl=2,          ! refinement to integrate fuel_left, must be even
+ fire_atm_feedback=1.           ! real, multiplier for heat fluxes, 1.=normal, 0.=turn off two-way coupling 
  /
