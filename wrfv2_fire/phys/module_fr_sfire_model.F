@@ -23,7 +23,6 @@ subroutine sfire_model (                    &
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,
-    boundary_guard,                         & ! stop when fire is this close to the boundary
     ignition_start_x,ignition_start_y,      & ! ignition - small arrays
     ignition_end_x,ignition_end_y,          &
     ignition_radius,                        &
@@ -95,7 +94,6 @@ integer, intent(in) :: ifts,ifte,jfts,jfte  ! fire tile bounds
 integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
-integer, intent(in):: boundary_guard           ! 
 ! array data
 real, dimension(num_ignitions), intent(in):: &   
     ignition_start_x,ignition_start_y, &
@@ -239,7 +237,7 @@ elseif (ifun.eq.4) then  ! do the timestep
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
         ifts,ifte,jfts,jfte,                      &
-        time_start,dt,fdx,fdy,boundary_guard,tbound,  &
+        time_start,dt,fdx,fdy,tbound,  &
         lfn,lfn_out,tign &
 #       include "fr_sfire_params_args.h" 
     ) 

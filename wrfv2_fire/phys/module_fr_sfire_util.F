@@ -15,7 +15,8 @@ integer,save::          &
  fire_print_file=1,     &
  fuel_left_method=1,    &
  fuel_left_irl=2,       &
- fuel_left_jrl=2        
+ fuel_left_jrl=2,       &
+ boundary_guard=-1 
 
 real, save::            &
  fire_atm_feedback=1.

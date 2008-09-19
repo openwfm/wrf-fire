@@ -999,7 +999,6 @@ subroutine prop_ls( id, &                                ! for debug
                 ims,ime,jms,jme, &                       ! memory dims
                 its,ite,jts,jte, &                       ! tile dims
                 ts,dt,dx,dy,     &                       ! scalars in
-                boundary_guard,  &
                 tbound,          &                       ! scalars out
                 lfn_in,lfn_out,tign         &                     ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
@@ -1052,7 +1051,6 @@ implicit none
 ! ts                in    start time
 ! dt                in    time step
 ! dx,dy             in    grid spacing
-! boundary_guard    in    stop when fire gets this close to the boundary, or <=0 to turn off
 ! tbound            out   bound on stable time step from CFL condition, if tbound>=dt then OK
 ! lfn_in,lfn_out    inout,out the level set function at nodes
 ! tign              inout the ignition time at nodes
@@ -1082,7 +1080,6 @@ integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out
 real,intent(in)::dx,dy,ts,dt
-integer, intent(in)::boundary_guard
 real,intent(out)::tbound
 #ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */
 #include SPEED_VARS_DECL

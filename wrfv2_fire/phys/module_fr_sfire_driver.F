@@ -161,7 +161,6 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
-            config_flags%fire_boundary_guard,         &
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
@@ -205,7 +204,6 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
     u_frame,v_frame,                              &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
-    boundary_guard,                               & 
     num_ignitions,                                & 
     ignition_longlat,                             &
     ignition_start_x,ignition_start_y,            & ! ignition - small arrays
@@ -261,7 +259,6 @@ real, intent(in):: &
     fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
     fire_ext_crwn                                   !  extinction depth of crown fire heat (m)
 
-integer, intent(in):: boundary_guard                ! stop when fire gets this far from the boundary
 
 integer, intent(in):: num_ignitions                 ! number of ignitions, can be 0
 real, dimension(num_ignitions), intent(in):: &   
@@ -517,7 +514,6 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         ifts,ifte,jfts,jfte,                    & ! fire patch dims
         time_start,dt,                          & ! time and increment
         dxf,dyf,                                & ! fire mesh spacing
-        boundary_guard,                         &
         ignition_start_x,ignition_start_y,      & ! ignition - small arrays
         ignition_end_x,ignition_end_y,          &
         ignition_radius,                        &
@@ -974,6 +970,7 @@ fuel_left_method        = config_flags%fire_fuel_left_method
 fuel_left_irl           = config_flags%fire_fuel_left_irl
 fuel_left_jrl           = config_flags%fire_fuel_left_jrl
 fire_atm_feedback       = config_flags%fire_atm_feedback
+boundary_guard          = config_flags%fire_boundary_guard
 
 
 end subroutine set_flags
