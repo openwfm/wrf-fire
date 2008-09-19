@@ -10,19 +10,17 @@
 
 module module_fr_sfire_util
 
-integer,save,private::fire_print_msg=1,fire_print_file=1
+integer,save::          &
+ fire_print_msg=1,      &
+ fire_print_file=1,     &
+ fuel_left_method=1,    &
+ fuel_left_irl=2,       &
+ fuel_left_jrl=2        
+
+real, save::            &
+ fire_atm_feedback=1.
 
 contains
-
-!
-!***************
-!
-subroutine fire_util_set_namelist_vals(dmsg,dfile)
-implicit none
-integer,intent(in)::dmsg,dfile
-fire_print_msg=dmsg
-fire_print_file=dfile
-end subroutine fire_util_set_namelist_vals
 
 !
 !****************

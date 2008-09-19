@@ -18,9 +18,6 @@ subroutine sfire_model (                    &
     need_lfn_update,                          & ! if lfn needs to be synced between tiles
     num_ignitions,                          & ! number of ignitions before advancing
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
-    fuel_left_method,                       & ! to compute fuel_left
-    fuel_left_irl,                          &
-    fuel_left_jrl,                          &
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
@@ -93,8 +90,6 @@ logical, intent(out)::need_lfn_update       ! if true, halo update on lfn afterw
 ! scalar data
 integer, intent(in) :: num_ignitions        ! number of ignition locations/times 
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
-integer, intent(in)::fuel_left_method, &    ! for fuel_left
-     fuel_left_irl,fuel_left_jrl
 integer, intent(in) :: ifds,ifde,jfds,jfde  ! fire domain bounds
 integer, intent(in) :: ifts,ifte,jfts,jfte  ! fire tile bounds
 integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
@@ -217,11 +212,10 @@ elseif(ifun.eq.3)then   ! initialize timestep
 elseif (ifun.eq.4) then  ! do the timestep
 
 !   compute fuel fraction at start
-    call fuel_left(fuel_left_method, &
+    call fuel_left( &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifms,ifme,jfms,jfme, &
-        fuel_left_irl,fuel_left_jrl,             &
         lfn,tign,fuel_time,time_start,fuel_frac,fire_area) ! fuel frac is shared
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &
@@ -268,11 +262,10 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn from neighbors so halo must be updated before
-    call fuel_left(fuel_left_method, &
+    call fuel_left(&
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
-        fuel_left_irl,fuel_left_jrl,             &
         lfn,tign,fuel_time,time_start+dt,fuel_frac_end,fire_area) !fuel_frac_end is private and tile based
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &

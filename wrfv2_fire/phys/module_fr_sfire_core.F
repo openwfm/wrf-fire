@@ -169,11 +169,10 @@ end subroutine ignite_fire
 !**********************
 !            
 
-subroutine fuel_left(fuel_left_method, &
+subroutine fuel_left(&
     ims,ime,jms,jme, &
     its,ite,jts,jte, &
     ifs,ife,jfs,jfe, &
-    ir,jr,           &
     lfn, tign, fuel_time, time_now, fuel_frac, fire_area)
 implicit none
 
@@ -183,18 +182,15 @@ implicit none
 
 !*** arguments
 
-integer,intent(in):: fuel_left_method
-integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe,ir,jr
+integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: time_now
 real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
 real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
-! fuel_left_method  in   1=approximate formula, 2=quadrature and least squares
 ! ims,ime,jms,jme   in   memory dimensions
 ! its,ite,jts,jte   in   tile dimensions (cells where fuel_frac computed)
 ! ifs,ife,jfs,jfe   in   fuel_frac memory dimensions
-! ir,jr,            in   refinement - quadrature cells per fire cell, even, at least 2
 ! lfn               in   level function, at nodes at midpoints of cells
 ! tign              in   ignition time, at nodes at nodes at midpoints of cells
 ! fuel_time         in   time constant of fuel, per cell
@@ -204,10 +200,10 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,iccell,jccell
+integer::i,j,iccell,jccell,ir,jr
 real::xfcell,yfcell,fmax,frat
-#define IFCELLS (ite-its+1)*ir
-#define JFCELLS (jte-jts+1)*jr
+#define IFCELLS (ite-its+1)*fuel_left_irl
+#define JFCELLS (jte-jts+1)*fuel_left_jrl
 real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
 real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
 character(len=128)::msg
@@ -215,6 +211,10 @@ character(len=128)::msg
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
+
+! refinement
+ir=fuel_left_irl
+jr=fuel_left_jrl
 
 ! interpolate level set function to finer grid
 call interpolate_2d(  &
