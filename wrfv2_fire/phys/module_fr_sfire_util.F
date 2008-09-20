@@ -10,16 +10,24 @@
 
 module module_fr_sfire_util
 
+! various method selection parameters
+! 1. add the parameter and its static default here
+! 2. if not called from WRF, you are done, else
+! 3. add copy from config_flags in module_fr_sfire_driver%%set_flags
+! 4. add a line in Registry.EM to define the variable and set default value
+
+
 integer,save::          &
- fire_print_msg=1,      &
- fire_print_file=1,     &
- fuel_left_method=1,    &
- fuel_left_irl=2,       &
+ fire_print_msg=1,      &  ! print SFIRE progress 
+ fire_print_file=1,     &  ! write many files by write_array_m; compile with DEBUG_OUT, do not run in parallel
+ fuel_left_method=1,    &  ! 1=simple, 2=exact in linear case
+ fuel_left_irl=2,       &  ! refinement for fuel calculation, must be even
  fuel_left_jrl=2,       &
- boundary_guard=-1 
+ boundary_guard=-1         ! crash if fire gets this many cells to domain boundary, -1=off
 
 real, save::            &
- fire_atm_feedback=1.
+ fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
+ fire_back_weight=0.5      ! RK parameter, 0 = Euler method, 0.5 = Heun, 1 = fake backward Euler
 
 contains
 
