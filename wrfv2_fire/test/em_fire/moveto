@@ -1,5 +1,5 @@
 #!/bin/csh -f
-set d=~/$1
+set d=~/tmp/$1
 mkdir $d
 find . -name \*.txt -exec mv {} $d \;
 find . -name wrfrst\* -exec rm -f {} \;
