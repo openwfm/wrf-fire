@@ -46,9 +46,10 @@ ulimit -s unlimited
 export PGI=/usr/pgi
 export PATH=$PGI/linux86-64/6.2/bin:$PATH
 export MANPATH=$PGI/linux86-64/6.2/man
-export LM_LICENSE_FILE=$PGI/license.dat
+export LM_LICENSE_FILE='7496@licenseb.ucar.edu:7496@licensea.ucar.edu'
 export FC=pgf77
 export F90=pgf90
+export LAPACK='-L/usr/pgi/linux86-64/6.2/lib -llapack -lblas'
 
 fi
 
