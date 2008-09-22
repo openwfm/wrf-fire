@@ -1360,7 +1360,7 @@ real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the le
 !*** local 
 real:: diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
-   ros_back,ros_wind,ros_slope,advx,advy
+   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
 integer::i,j
 
 ! constants
@@ -1401,13 +1401,13 @@ id=id+1
             diffLx = (lfn(i,j)-lfn(i-1,j))/dx
             diffRy = (lfn(i,j+1)-lfn(i,j))/dy
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
+            diffCx = (diffLx+diffRx)*0.5
+            diffCy = (diffLy+diffRy)*0.5
     
             !upwinding - select right or left derivative
             select case(fire_upwinding)
             case(0)  ! none
-                diff2x=(diffLx+diffRx)*0.5
-                diff2y=(diffLy+diffRy)*0.5
-                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+                grad=sqrt(diffCx**2 + diffCy**2)
             case(1) ! standard
                 diff2x=select_upwind(diffLx,diffRx)
                 diff2y=select_upwind(diffLy,diffRy)
@@ -1431,20 +1431,35 @@ id=id+1
             grada(i,j)=grad    
 #endif
   
+            ! normal direction, from central differences
+            scale=sqrt(diffCx*diffCx+diffCy*diffCy+eps) 
+            nvx=diffCx/scale
+            nvy=diffCy/scale
+                      
+            ! wind speed in direction of spread
+            speed =  vx(i,j)*nvx + vy(i,j)*nvy
+        
+            ! slope in direction of spread
+            tanphi =  dzfsdx(i,j)*nvx + dzfsdy(i,j)*nvy
+    
+            ! get rate of spread from wind speed and slope
+
+            call fire_ros(ros_back,ros_wind,ros_slope, &
+            speed,tanphi,i,j &
+#           include "fr_sfire_params_args.h"
+            )
+
+            rr=ros_back + ros_wind + ros_slope
+            if(fire_grows_only.gt.0)rr=max(rr,0.)
+
             if(fire_upwind_split.eq.0)then
                 ! get rate of spread
-
-                ! grad passed to compute speed
-                rr = speed_func(diffRx+diffLx,diffRy+diffLx,i,j &   ! central
-#               include "fr_sfire_params_args.h"
-                )
-                ! the rhs of the diff eq, a.k.a. lfn dot, a.k.a. the lfn "tendency"
                 tend(i,j) = -rr*grad   ! normal term 
                 if (grad > 0.) then
                     tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
                 endif
             else
-                call crash('fire_upwind_split not done yet')
+                call crash('prop_ls: fire_upwind_split not done yet')
             endif
 
             ! add numerical viscosity
