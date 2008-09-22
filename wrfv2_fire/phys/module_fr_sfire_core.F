@@ -1426,10 +1426,6 @@ id=id+1
             case default
                 grad=0.
             end select
-#ifdef DEBUG_OUT    
-            rra(i,j)=rr
-            grada(i,j)=grad    
-#endif
   
             ! normal direction, from central differences
             scale=sqrt(diffCx*diffCx+diffCy*diffCy+eps) 
@@ -1464,6 +1460,10 @@ id=id+1
 
             ! add numerical viscosity
             tend(i,j)=tend(i,j) + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
+#ifdef DEBUG_OUT    
+            rra(i,j)=rr
+            grada(i,j)=grad    
+#endif
         enddo
     enddo        
 
