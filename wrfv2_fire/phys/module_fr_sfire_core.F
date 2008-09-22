@@ -1546,6 +1546,7 @@ integer, intent(in)::i,j         ! indices of the node to compute the speed at
 #endif
 !*** local
 real::scale,nvx,nvy,speed,tanphi,r
+real::ros_back , ros_wind , ros_slope
 real, parameter:: eps=epsilon(0.0)
 !*** executable
             ! normal direction, from central differences
@@ -1561,9 +1562,12 @@ real, parameter:: eps=epsilon(0.0)
     
             ! get rate of spread from wind speed and slope
 
-            r = fire_ros(speed,tanphi,i,j &
+            call fire_ros(ros_back,ros_wind,ros_slope, &
+            speed,tanphi,i,j &
 #           include "fr_sfire_params_args.h"
             )
+
+            r=ros_back + ros_wind + ros_slope
             ! write(10,*),i,j,nvx,nvy,speed,tanphi,r
             speed_func=max(r,0.0)
 
