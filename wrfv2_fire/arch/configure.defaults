@@ -1143,8 +1143,8 @@ module_dm.o :
 #ARCH    (WALNUT) x86_64 Linux, PGI compiler (Single-threaded, no nesting) debug
 #        Note that for 5.1.x comment out -Mpia=fast
 #
-FC              =       pgf90
-LD              =       pgf90
+FC              =       pgf90 -g
+LD              =       pgf90 -g
 CC              =       gcc
 SCC		=	$(CC)
 SFC             =       $(FC)

@@ -48,9 +48,10 @@ unlimit
 setenv PGI /usr/pgi
 setenv PATH $PGI/linux86-64/6.2/bin:$PATH
 setenv MANPATH $PGI/linux86-64/6.2/man
-setenv LM_LICENSE_FILE $PGI/license.dat
+setenv LM_LICENSE_FILE '7496@licenseb.ucar.edu:7496@licensea.ucar.edu'
 setenv FC pgf77
 setenv F90 pgf90
+setenv LAPACK '-L/usr/pgi/linux86-64/6.2/lib -llapack -lblas'
 
 endif
 
