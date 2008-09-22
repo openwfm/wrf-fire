@@ -972,6 +972,8 @@ fuel_left_jrl           = config_flags%fire_fuel_left_jrl
 fire_atm_feedback       = config_flags%fire_atm_feedback
 boundary_guard          = config_flags%fire_boundary_guard
 fire_back_weight        = config_flags%fire_back_weight
+fire_grows_only        = config_flags%fire_grows_only
+fire_upwinding        = config_flags%fire_upwinding
 
 
 end subroutine set_flags

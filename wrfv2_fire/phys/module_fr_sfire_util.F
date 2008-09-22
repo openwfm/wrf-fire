@@ -12,9 +12,8 @@ module module_fr_sfire_util
 
 ! various method selection parameters
 ! 1. add the parameter and its static default here
-! 2. if not called from WRF, you are done, else
-! 3. add copy from config_flags in module_fr_sfire_driver%%set_flags
-! 4. add a line in Registry.EM to define the variable and set default value
+! 2. add copy from config_flags in module_fr_sfire_driver%%set_flags
+! 3. (optional) add a line in Registry.EM to define the variable and set default value
 
 
 integer,save::          &
@@ -23,7 +22,9 @@ integer,save::          &
  fuel_left_method=1,    &  ! 1=simple, 2=exact in linear case
  fuel_left_irl=2,       &  ! refinement for fuel calculation, must be even
  fuel_left_jrl=2,       &
- boundary_guard=-1         ! crash if fire gets this many cells to domain boundary, -1=off
+ boundary_guard=-1,     &  ! crash if fire gets this many cells to domain boundary, -1=off
+ fire_grows_only=1,     &  ! fire can spread out only (level set functions may not increase)
+ fire_upwinding=3       
 
 real, save::            &
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only

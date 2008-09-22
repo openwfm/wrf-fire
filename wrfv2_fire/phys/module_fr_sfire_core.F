@@ -1402,12 +1402,25 @@ id=id+1
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
     
             !upwinding - select right or left derivative
-            ! diff2x=select_upwind(diffLx,diffRx)
-            ! diff2y=select_upwind(diffLy,diffRy)
-            ! diff2x=select_godunov(diffLx,diffRx)
-            ! diff2y=select_godunov(diffLy,diffRy)
-            diff2x=select_eno(diffLx,diffRx)
-            diff2y=select_eno(diffLy,diffRy)
+            select case(fire_upwinding)
+            case(1)
+                diff2x=select_upwind(diffLx,diffRx)
+                diff2y=select_upwind(diffLy,diffRy)
+                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+            case(2)
+                diff2x=select_godunov(diffLx,diffRx)
+                diff2y=select_godunov(diffLy,diffRy)
+                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+            case(3)
+                diff2x=select_eno(diffLx,diffRx)
+                diff2y=select_eno(diffLy,diffRy)
+                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+            case(4) ! Sethian - twice stronger pushdown of bumps
+                grad=sqrt(max(diffLx,0.)**2+min(diffRx,0.)**2   &
+                        + max(diffLy,0.)**2+min(diffRy,0.)**2)
+            case default
+                grad=0.
+            end select
   
             ! magnitude of the gradient, from upwinded
             grad=sqrt(diff2x*diff2x + diff2y*diff2y)
@@ -1568,8 +1581,9 @@ real, parameter:: eps=epsilon(0.0)
             )
 
             r=ros_back + ros_wind + ros_slope
+            if(fire_grows_only.gt.0)r=max(r,0.)
             ! write(10,*),i,j,nvx,nvy,speed,tanphi,r
-            speed_func=max(r,0.0)
+            speed_func=r
 
 end function speed_func
 
