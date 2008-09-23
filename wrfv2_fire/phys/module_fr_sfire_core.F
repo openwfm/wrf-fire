@@ -1364,12 +1364,15 @@ real:: diffLx,diffLy,diffRx,diffRy, &
 integer::i,j
 
 ! constants
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
+real, parameter:: eps=epsilon(0.0)
+!intrinsic epsilon
+real, parameter:: zero=0.,one=1.,tol=100*eps, &
     safe=2.,rmin=safe*tiny(zero),rmax=huge(zero)/safe
+
 
 ! f90 intrinsic function
 
-intrinsic max,min,sqrt,nint,epsilon,tiny,huge
+intrinsic max,min,sqrt,nint,tiny,huge
   
 #ifdef DEBUG_OUT
 real,dimension(tims:time,tjms:tjme)::rra,grada
@@ -1391,6 +1394,9 @@ id=id+1
 
     call print_2d_stats(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme, &
                    lfn,'tend_ls: lfn in /w halo')
+#ifdef DEBUG_OUT
+    call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)
+#endif
     
     tbound=0    
     do j=jnts,jnte
@@ -1400,8 +1406,8 @@ id=id+1
             diffLx = (lfn(i,j)-lfn(i-1,j))/dx
             diffRy = (lfn(i,j+1)-lfn(i,j))/dy
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
-            diffCx = (diffLx+diffRx)*0.5
-            diffCy = (diffLy+diffRy)*0.5
+            diffCx = diffLx+diffRx   ! 	TWICE CENTRAL DIFFERENCE
+            diffCy = diffLy+diffRy
     
             !upwinding - select right or left derivative
             select case(fire_upwinding)
