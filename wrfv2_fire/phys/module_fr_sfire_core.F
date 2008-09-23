@@ -1373,8 +1373,7 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 #ifdef DEBUG_OUT
 real,dimension(tims:time,tjms:tjme)::rra,grada
-integer::id
-data id/0/
+integer,save::id=0
 id=id+1	
 #endif
 
