@@ -919,6 +919,30 @@ avg_2darray_vec = t
 end function avg_2darray_vec
 
 
+subroutine print_array(its,ite,jts,jte,           &
+                         ims,ime,jms,jme,               &
+                         a,name,id)
+! debug
+!*** arguments
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme,id
+real, intent(in), dimension(ims:ime,jms:jme):: a
+character(len=*),intent(in)::name
+!****
+integer i,j
+character(len=128)::msg
+!****
+write(msg,*)name,' start ',id,' dim ',its,ite,jts,jte
+call message(msg)
+do j=jts,jte
+    do i=its,ite
+         write(msg,*)i,j,a(i,j)
+         call message(msg)
+    enddo
+enddo
+write(msg,*)name,' end ',id
+call message(msg)
+end subroutine print_array
+
 subroutine write_array_m(its,ite,jts,jte,           &
                          ims,ime,jms,jme,               &
                          a,name,id)

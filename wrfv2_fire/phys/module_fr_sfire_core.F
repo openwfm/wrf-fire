@@ -3,6 +3,7 @@
 !
 ! With contributions by Minjeong Kim.
 #define DEBUG_OUT
+#define DEBUG_PRINT
 
 module module_fr_sfire_core
 
@@ -1373,8 +1374,17 @@ real, parameter:: zero=0.,one=1.,tol=100*eps, &
 ! f90 intrinsic function
 
 intrinsic max,min,sqrt,nint,tiny,huge
-  
+
+
 #ifdef DEBUG_OUT
+#define DEBUG_ANY
+#endif
+#ifdef DEBUG_PRINT
+#define DEBUG_ANY
+#endif
+
+
+#ifdef DEBUG_ANY
 real,dimension(tims:time,tjms:tjme)::rra,grada
 integer,save::id=0
 id=id+1	
@@ -1396,6 +1406,9 @@ id=id+1
                    lfn,'tend_ls: lfn in /w halo')
 #ifdef DEBUG_OUT
     call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)
+#endif
+#ifdef DEBUG_PRINT
+    call print_array(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_ls: lfn in',id)
 #endif
     
     tbound=0    
@@ -1465,7 +1478,7 @@ id=id+1
 
             ! add numerical viscosity
             tend(i,j)=tend(i,j) + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
-#ifdef DEBUG_OUT    
+#ifdef DEBUG_ANY    
             rra(i,j)=rr
             grada(i,j)=grad    
 #endif
@@ -1476,6 +1489,12 @@ id=id+1
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
+#endif
+
+#ifdef DEBUG_PRINT    
+    call print_array(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
+    call print_array(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
+    call print_array(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
 #endif
 
     call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
