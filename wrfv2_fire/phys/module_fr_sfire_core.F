@@ -1359,21 +1359,24 @@ real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the le
 
 !*** local 
 real:: diffLx,diffLy,diffRx,diffRy, & 
-   diffCx,diffCy,diff2x,diff2y,grad,rr
+   diffCx,diffCy,diff2x,diff2y,grad,rr, &
+   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
 integer::i,j
 
 ! constants
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
+real, parameter:: eps=epsilon(0.0)
+!intrinsic epsilon
+real, parameter:: zero=0.,one=1.,tol=100*eps, &
     safe=2.,rmin=safe*tiny(zero),rmax=huge(zero)/safe
+
 
 ! f90 intrinsic function
 
-intrinsic max,min,sqrt,nint,epsilon,tiny,huge
+intrinsic max,min,sqrt,nint,tiny,huge
   
 #ifdef DEBUG_OUT
 real,dimension(tims:time,tjms:tjme)::rra,grada
-integer::id
-data id/0/
+integer,save::id=0
 id=id+1	
 #endif
 
@@ -1391,6 +1394,9 @@ id=id+1
 
     call print_2d_stats(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme, &
                    lfn,'tend_ls: lfn in /w halo')
+#ifdef DEBUG_OUT
+    call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)
+#endif
     
     tbound=0    
     do j=jnts,jnte
@@ -1400,41 +1406,69 @@ id=id+1
             diffLx = (lfn(i,j)-lfn(i-1,j))/dx
             diffRy = (lfn(i,j+1)-lfn(i,j))/dy
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
+            diffCx = diffLx+diffRx   ! 	TWICE CENTRAL DIFFERENCE
+            diffCy = diffLy+diffRy
     
             !upwinding - select right or left derivative
-            ! diff2x=select_upwind(diffLx,diffRx)
-            ! diff2y=select_upwind(diffLy,diffRy)
-            ! diff2x=select_godunov(diffLx,diffRx)
-            ! diff2y=select_godunov(diffLy,diffRy)
-            diff2x=select_eno(diffLx,diffRx)
-            diff2y=select_eno(diffLy,diffRy)
+            select case(fire_upwinding)
+            case(0)  ! none
+                grad=sqrt(diffCx**2 + diffCy**2)
+            case(1) ! standard
+                diff2x=select_upwind(diffLx,diffRx)
+                diff2y=select_upwind(diffLy,diffRy)
+                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+            case(2) ! godunov per osher/fedkiw
+                diff2x=select_godunov(diffLx,diffRx)
+                diff2y=select_godunov(diffLy,diffRy)
+                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+            case(3) ! eno
+                diff2x=select_eno(diffLx,diffRx)
+                diff2y=select_eno(diffLy,diffRy)
+                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+            case(4) ! Sethian - twice stronger pushdown of bumps
+                grad=sqrt(max(diffLx,0.)**2+min(diffRx,0.)**2   &
+                        + max(diffLy,0.)**2+min(diffRy,0.)**2)
+            case default
+                grad=0.
+            end select
   
-            ! magnitude of the gradient, from upwinded
-            grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+            ! normal direction, from central differences
+            scale=sqrt(diffCx*diffCx+diffCy*diffCy+eps) 
+            nvx=diffCx/scale
+            nvy=diffCy/scale
+                      
+            ! wind speed in direction of spread
+            speed =  vx(i,j)*nvx + vy(i,j)*nvy
+        
+            ! slope in direction of spread
+            tanphi =  dzfsdx(i,j)*nvx + dzfsdy(i,j)*nvy
+    
+            ! get rate of spread from wind speed and slope
 
-            ! get rate of spread
-
-            ! grad passed to compute speed
-            !rr = speed_func(diff2x,diff2y,i,j &  ! upwinded
-            rr = speed_func(diffRx+diffLx,diffRy+diffLx,i,j &   ! central
+            call fire_ros(ros_back,ros_wind,ros_slope, &
+            speed,tanphi,i,j &
 #           include "fr_sfire_params_args.h"
             )
-            ! force zero speed on domain boundary
-	    !! if(i<=ids .or. i>=ide .or. j<=jds .or. j>= jde)rr=0.
-            ! time step bound - CFL condition
-            ! contribution of the normal term
-            if (grad > 0.) then
-                tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
+
+            rr=ros_back + ros_wind + ros_slope
+            if(fire_grows_only.gt.0)rr=max(rr,0.)
+
+            if(fire_upwind_split.eq.0)then
+                ! get rate of spread
+                tend(i,j) = -rr*grad   ! normal term 
+                if (grad > 0.) then
+                    tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
+                endif
+            else
+                call crash('prop_ls: fire_upwind_split not done yet')
             endif
+
+            ! add numerical viscosity
+            tend(i,j)=tend(i,j) + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
 #ifdef DEBUG_OUT    
             rra(i,j)=rr
             grada(i,j)=grad    
 #endif
-            ! the rhs of the diff eq, a.k.a. lfn dot, a.k.a. the lfn "tendency"
-            tend(i,j) = -rr*grad   ! normal term 
-
-            ! add some more numerical viscosity
-            tend(i,j)=tend(i,j) + 0.4*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
         enddo
     enddo        
 
@@ -1568,8 +1602,9 @@ real, parameter:: eps=epsilon(0.0)
             )
 
             r=ros_back + ros_wind + ros_slope
+            if(fire_grows_only.gt.0)r=max(r,0.)
             ! write(10,*),i,j,nvx,nvy,speed,tanphi,r
-            speed_func=max(r,0.0)
+            speed_func=r
 
 end function speed_func
 

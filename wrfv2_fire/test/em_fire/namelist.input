@@ -166,12 +166,17 @@
 !
 ! verbosity
  fire_print_msg     = 1,        ! 1 print fire debugging messages
- fire_print_file    = 1,        ! 1 write files for matlab; do not use with parallel runs
+ fire_print_file    = 0,        ! 1 write files for matlab; do not use with parallel runs
 !
 ! method selections, do not change from defaults unless you know what you are doing
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
  fire_fuel_left_method=1,       ! 1=simple algebraic, 2=exact quadrature and least squares
  fire_fuel_left_irl=2,          ! refinement to integrate fuel_left, must be even
  fire_fuel_left_jrl=2,          ! refinement to integrate fuel_left, must be even
- fire_atm_feedback=1.           ! real, multiplier for heat fluxes, 1.=normal, 0.=turn off two-way coupling 
+ fire_atm_feedback=1.0,         ! real, multiplier for heat fluxes, 1.=normal, 0.=turn off two-way coupling 
+ fire_back_weight=0.5,          ! RK timestepping coefficient, 0=forward, 0.5=Heun
+ fire_grows_only=1,             ! if >0 level set function cannot increase = fire can only grow
+ fire_viscosity=0.4,              ! artificial viscosity in level set method (max 1, needed with fire_upwinding=0)
+ fire_upwinding=3               ! 0=none, 1=standard, 2=godunov, 3=eno, 4=sethian
+
  /
