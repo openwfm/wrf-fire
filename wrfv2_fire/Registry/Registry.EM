@@ -1529,6 +1529,7 @@ rconfig   integer fire_fuel_left_method  namelist,fire         max_domains      
 rconfig   integer fire_fuel_left_irl     namelist,fire         max_domains           2       -      "fire_fuel_left_irl"   "submesh to compute fuel lwft, even, at least 2" ""
 rconfig   integer fire_fuel_left_jrl     namelist,fire         max_domains           2       -      "fire_fuel_left_jrl"   "submesh to compute fuel lwft, even, at least 2" ""
 rconfig   real    fire_atm_feedback      namelist,fire         max_domains           1.      -      "fire_atm_feedback"   "the heat fluxes to the atmosphere are multiplied by this" "1"
+rconfig   real    fire_back_weight       namelist,fire         max_domains           0.5     -      "fire_back_weight"   "RK timestepping coefficient, 0=forward, 0.5=Heun" "1"
 
 
 #

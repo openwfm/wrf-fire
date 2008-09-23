@@ -1,9 +1,15 @@
 #!/bin/csh -f
-set d=~/$1
+if ($1=="")then
+set d=`git log | head -1 | sed 's/^.* //'`
+set d=~/tmp/$d
+else
+set d=$1
+endif
+echo moving to $d
 mkdir $d
 find . -name \*.txt -exec mv {} $d \;
 find . -name wrfrst\* -exec rm -f {} \;
 find . -name wrfout\* -exec rm -f {} \;
 mv wrf.log $d
-cp -a namelist.input $d
-cp -a input_sounding $d
+cp -p namelist.input $d
+cp -p input_sounding $d

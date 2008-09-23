@@ -1095,8 +1095,7 @@ real,intent(out)::tbound
 #define JMTE jte+1
 real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 ! scalars
-real::grad2,rr,tbound2
-real, parameter::a=0.5, a1=1.0-a ! a=0 euler, a=0.5 heun
+real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
@@ -1119,6 +1118,8 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 write(msg,'(5(a,i5))')'prop_ls:',id,' tile  ',its,':',ite,',',jts,':',jte
 call message(msg)
 
+    a=fire_back_weight ! from module_fr_sfire_util
+    a1=1. - a
     
     ! tend = F(lfn)
 
@@ -1545,6 +1546,7 @@ integer, intent(in)::i,j         ! indices of the node to compute the speed at
 #endif
 !*** local
 real::scale,nvx,nvy,speed,tanphi,r
+real::ros_back , ros_wind , ros_slope
 real, parameter:: eps=epsilon(0.0)
 !*** executable
             ! normal direction, from central differences
@@ -1560,9 +1562,12 @@ real, parameter:: eps=epsilon(0.0)
     
             ! get rate of spread from wind speed and slope
 
-            r = fire_ros(speed,tanphi,i,j &
+            call fire_ros(ros_back,ros_wind,ros_slope, &
+            speed,tanphi,i,j &
 #           include "fr_sfire_params_args.h"
             )
+
+            r=ros_back + ros_wind + ros_slope
             ! write(10,*),i,j,nvx,nvy,speed,tanphi,r
             speed_func=max(r,0.0)
 

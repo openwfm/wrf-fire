@@ -971,6 +971,7 @@ fuel_left_irl           = config_flags%fire_fuel_left_irl
 fuel_left_jrl           = config_flags%fire_fuel_left_jrl
 fire_atm_feedback       = config_flags%fire_atm_feedback
 boundary_guard          = config_flags%fire_boundary_guard
+fire_back_weight        = config_flags%fire_back_weight
 
 
 end subroutine set_flags
