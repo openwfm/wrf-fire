@@ -1138,7 +1138,7 @@ call message(msg)
     ! To avoid copying, lfn_in is declared inout.
     ! At tile boundaries that are not domain boundaries values of lfn_in two nodes
     ! outside of the tile are needed.
-    call  tend_ls(&
+    call  tend_ls( id+1000, &
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                       ! domain dims - where lfn exists
@@ -1167,7 +1167,7 @@ call message(msg)
     
     ! tend = F(lfn1) on the tile (not beyond)
 
-    call  tend_ls( &
+    call  tend_ls( id+2000,&
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
@@ -1324,7 +1324,7 @@ end subroutine prop_ls
 !*****************************
 !
 
-subroutine tend_ls( &
+subroutine tend_ls( id, &
     lims,lime,ljms,ljme, &                   ! memory dims for lfn
     tims,time,tjms,tjme, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                   ! domain - nodes where lfn defined
@@ -1345,7 +1345,7 @@ implicit none
 ! compute the right hand side of the level set equation
 
 !*** arguments
-integer,intent(in)::lims,lime,ljms,ljme,tims,time,tjms,tjme
+integer,intent(in)::id,lims,lime,ljms,ljme,tims,time,tjms,tjme
 integer, intent(in)::ids,ide,jds,jde,ints,inte,jnts,jnte
 real,intent(in)::t                                     ! time
 real,intent(in)::dx,dy                                 ! mesh step
@@ -1377,17 +1377,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
 
 
 #ifdef DEBUG_OUT
-#define DEBUG_ANY
-#endif
-#ifdef DEBUG_PRINT
-#define DEBUG_ANY
-#endif
-
-
-#ifdef DEBUG_ANY
 real,dimension(tims:time,tjms:tjme)::rra,grada
-integer,save::id=0
-id=id+1	
 #endif
 
 !*** executable
@@ -1406,9 +1396,6 @@ id=id+1
                    lfn,'tend_ls: lfn in /w halo')
 #ifdef DEBUG_OUT
     call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)
-#endif
-#ifdef DEBUG_PRINT
-    call print_array(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_ls: lfn in',id)
 #endif
     
     tbound=0    
@@ -1489,12 +1476,6 @@ id=id+1
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
-#endif
-
-#ifdef DEBUG_PRINT    
-    call print_array(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
-    call print_array(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
-    call print_array(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
 #endif
 
     call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
