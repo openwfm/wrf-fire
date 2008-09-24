@@ -26,8 +26,8 @@ kte=b(6);
 m=(ite-its+1);
 n=(jte-jts+1);
 o=(kte-kts+1);
-s=m*n*o+6
-fprintf(1,'matrix size %i:%i %i:%i %i:%i from file %s dims %i\n',its,ite,jts,jte,kts,kte)
+s=m*n*o+6;
+fprintf(1,'matrix size %i:%i %i:%i %i:%i from file %s length %i\n',its,ite,jts,jte,kts,kte,f,l)
 if l~=s,
     error(sprintf('incorrect file length, should be %i',s))
 end
