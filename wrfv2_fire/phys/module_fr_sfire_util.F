@@ -974,28 +974,44 @@ character(len=128)::fname,msg
 !****
 if(fire_print_file.eq.0)return
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
-do iu=6,99
-    inquire(unit=iu,opened=op)
-    if(.not.op)goto 17
-enddo
-call crash('write_array_m: cannot find available fortran unit')
-17 write(fname,3)name,'_',id,'.txt'
+
+write(fname,3)name,'_',id,'.txt'
 do ilen=len(fname),2,-1
     if(fname(ilen:ilen).ne.' ')goto 19
 enddo
 19 continue
-open(iu,file=fname(1:ilen))
-write(iu,1)real(ite-its+1)
-write(iu,1)real(jte-jts+1)
-write(iu,1)real(kte-kts+1)
+
+!$OMP CRITICAL
+
+iu=0
+do i=6,99
+    inquire(unit=i,opened=op)
+    if(.not.op.and.iu.le.0)iu=i
+enddo
+if(iu.gt.0)open(iu,file=fname(1:ilen),form='formatted',status='unknown')
+
+!$OMP END CRITICAL
+if(iu.le.0)call crash('write_array_m: cannot find available fortran unit')
+
+write(iu,1)real(its)
+write(iu,1)real(ite)
+write(iu,1)real(jts)
+write(iu,1)real(jte)
+write(iu,1)real(kts)
+write(iu,1)real(kte)
 write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
 write(msg,2)name,'(',its,':',ite,',',jts,':',jte,',', &
 kts,':',kte,') -> ',fname(1:ilen) 
 call message(msg)
+return
+
 1 format(e20.12)
 2 format(2a,3(i5,a,i5,a),2a)
 3 format(a,a,i5.5,a)
+9 write(msg,'(3a)')'Cannot open file ',fname(1:ilen),' for writing'
+call crash(msg)
+
 end subroutine write_array_m3
 
 ! function to go beyond domain boundary if tile is next to it
