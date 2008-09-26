@@ -1143,7 +1143,7 @@ call message(msg)
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                       ! domain dims - where lfn exists
     ihs,ihe,jhs,jhe, &                       ! where tend computed
-    ts,dx,dy,      &                          ! scalars in
+    ts,dt,dx,dy,      &                          ! scalars in
     lfn_in, &                                   ! arrays in
     tbound, &                                ! scalars out 
     tend &                                   ! arrays out        
@@ -1172,7 +1172,7 @@ call message(msg)
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
     its,ite,jts,jte, &                       ! tile dims - where is tend computed
-    ts+dt,dx,dy,      &                          ! scalars in
+    ts+dt,dt,dx,dy,      &                          ! scalars in
     lfn1, &                                   ! arrays in
     tbound2, &                                ! scalars out 
     tend &                                  ! arrays out        
@@ -1329,7 +1329,7 @@ subroutine tend_ls( id, &
     tims,time,tjms,tjme, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                   ! domain - nodes where lfn defined
     ints,inte,jnts,jnte, &                   ! region - nodes where tend computed
-    t,dx,dy,      &                          ! scalars in
+    t,dt,dx,dy,      &                          ! scalars in
     lfn, &                                   ! arrays in
     tbound, &                                ! scalars out 
     tend &                                  ! arrays out
@@ -1348,7 +1348,7 @@ implicit none
 integer,intent(in)::id,lims,lime,ljms,ljme,tims,time,tjms,tjme
 integer, intent(in)::ids,ide,jds,jde,ints,inte,jnts,jnte
 real,intent(in)::t                                     ! time
-real,intent(in)::dx,dy                                 ! mesh step
+real,intent(in)::dt,dx,dy                                 ! mesh step
 real,dimension(lims:lime,ljms:ljme),intent(inout)::lfn ! level set function
 real,intent(out)::tbound                               ! max allowed time step
 real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the level set pde)
@@ -1359,7 +1359,7 @@ real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the le
 #endif
 
 !*** local 
-real:: diffLx,diffLy,diffRx,diffRy, & 
+real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
    ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
 integer::i,j
@@ -1454,28 +1454,58 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
             if(fire_grows_only.gt.0)rr=max(rr,0.)
 
             if(fire_upwind_split.eq.0)then
-                ! get rate of spread
-                tend(i,j) = -rr*grad   ! normal term 
-                if (grad > 0.) then
-                    tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
-                endif
-            else
-		! advection in wind direction 
-                scale=ros_wind/sqrt(vx(i,j)**2+vy(i,j)**2+eps) 
-                ! advection field
-                advx=vx(i,j)*scale
-                advy=vy(i,j)*scale
-		! add advection in slope direction 
-                scale=ros_slope/sqrt(dzfsdx(i,j)**2+dzfsdy(i,j)**2+eps) 
-                ! advection field
-                advx=advx+dzfsdx(i,j)*scale
-                advy=advy+dzfsdx(i,j)*scale
 
-                call crash('prop_ls: fire_upwind_split not done yet')
+                ! get rate of spread
+                te = -rr*grad   ! normal term 
+
+            else
+
+                ! normal direction backing rate only
+                te = - ros_back*grad
+
+		! advection in wind direction 
+                if (abs(speed)> eps) then
+                    advx=vx(i,j)*ros_wind/speed
+                    advy=vy(i,j)*ros_wind/speed
+                else 
+                    advx=0
+                    advy=0
+                endif
+
+		! advection from slope direction 
+                if(abs(tanphi)>eps) then
+                    advx=advx+dzfsdx(i,j)*ros_slope/tanphi
+                    advy=advy+dzfsdy(i,j)*ros_slope/tanphi
+                endif
+
+                if(fire_upwind_split.eq.1)then   
+
+                    ! one-sided upwinding
+                    te = te - max(advx,0.)*diffLx - min(advx,0.)*diffRy &
+                            - max(advy,0.)*diffLy - min(advy,0.)*diffRy
+
+
+                elseif(fire_upwind_split.eq.2)then   
+ 
+                    ! Lax-Friedrichs
+                    call crash('prop_ls: bad fire_upwind_split, Lax-Friedrichs not done yet')
+
+                else
+
+                    call crash('prop_ls: bad fire_upwind_split')
+
+                endif
+            endif
+
+            ! cfl condition
+            if (grad > 0.) then
+                 tbound = max(tbound,rr*(abs(diff2x)/dx+abs(diff2y)/dy)/grad)
             endif
 
             ! add numerical viscosity
-            tend(i,j)=tend(i,j) + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
+            te=te + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
+
+            tend(i,j)=te
 #ifdef DEBUG_ANY    
             rra(i,j)=rr
             grada(i,j)=grad    
