@@ -3,6 +3,7 @@
 !
 ! With contributions by Minjeong Kim.
 #define DEBUG_OUT
+#define DEBUG_PRINT
 
 module module_fr_sfire_core
 
@@ -1137,7 +1138,7 @@ call message(msg)
     ! To avoid copying, lfn_in is declared inout.
     ! At tile boundaries that are not domain boundaries values of lfn_in two nodes
     ! outside of the tile are needed.
-    call  tend_ls(&
+    call  tend_ls( id+1000, &
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                       ! domain dims - where lfn exists
@@ -1166,7 +1167,7 @@ call message(msg)
     
     ! tend = F(lfn1) on the tile (not beyond)
 
-    call  tend_ls( &
+    call  tend_ls( id+2000,&
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
@@ -1323,7 +1324,7 @@ end subroutine prop_ls
 !*****************************
 !
 
-subroutine tend_ls( &
+subroutine tend_ls( id, &
     lims,lime,ljms,ljme, &                   ! memory dims for lfn
     tims,time,tjms,tjme, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                   ! domain - nodes where lfn defined
@@ -1344,7 +1345,7 @@ implicit none
 ! compute the right hand side of the level set equation
 
 !*** arguments
-integer,intent(in)::lims,lime,ljms,ljme,tims,time,tjms,tjme
+integer,intent(in)::id,lims,lime,ljms,ljme,tims,time,tjms,tjme
 integer, intent(in)::ids,ide,jds,jde,ints,inte,jnts,jnte
 real,intent(in)::t                                     ! time
 real,intent(in)::dx,dy                                 ! mesh step
@@ -1373,11 +1374,10 @@ real, parameter:: zero=0.,one=1.,tol=100*eps, &
 ! f90 intrinsic function
 
 intrinsic max,min,sqrt,nint,tiny,huge
-  
+
+
 #ifdef DEBUG_OUT
 real,dimension(tims:time,tjms:tjme)::rra,grada
-integer,save::id=0
-id=id+1	
 #endif
 
 !*** executable
@@ -1465,7 +1465,7 @@ id=id+1
 
             ! add numerical viscosity
             tend(i,j)=tend(i,j) + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
-#ifdef DEBUG_OUT    
+#ifdef DEBUG_ANY    
             rra(i,j)=rr
             grada(i,j)=grad    
 #endif

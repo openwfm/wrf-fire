@@ -38,6 +38,8 @@
 !
 ! [3] http://www.mmm.ucar.edu/wrf/OnLineTutorial/Introduction/index.html
 
+#define DEBUG_OUT
+
 module module_fr_sfire_driver
 
 use module_model_constants, only: cp,xlv
@@ -127,8 +129,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 #include "HALO_FIRE_LFN.inc"
         endif
         if(fire_ifun.eq.1)then
-#include "HALO_FIRE_LONGLAT.inc"
         elseif(fire_ifun.eq.2)then
+!       halo exchange on xlong and xlat
+#include "HALO_FIRE_LONGLAT.inc"
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
         elseif(fire_ifun.eq.3)then
@@ -455,19 +458,29 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
             ! assume halo xlong xlat
             ! interpolate nodal coordinates
 
+#ifdef DEBUG_OUT
+         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlat,'xlat',id)
+         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlong,'xlong',id)
+#endif
             ! first extend the coordinates by one beyond the domain boundary 
             call continue_at_boundary(1,1, & ! do x direction or y direction
                 ims,ime,  jms,jme,           &                ! memory dims
-                ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
+                ids,ide,jds,jde, &            ! domain dims 
                 its,ite,jts,jte, &                ! tile dims
                 xlat)                               ! array
 
             call continue_at_boundary(1,1, & ! do x direction or y direction
                 ims,ime,  jms,jme,           &                ! memory dims
-                ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
+                ids,ide,jds,jde, &            ! domain dims 
                 its,ite,jts,jte, &                ! tile dims
                 xlong)                               ! array
+        endif
 
+    elseif(ifun.eq.2)then  ! interpolate geo coordinates to the fire grid
+        ! need a barrier update before using the extended values of xlong and xlat
+
+        if(ignition_longlat .eq.0)then
+        else
             call interpolate_2d(  &
                 ims,ime,  jms,jme,                    & ! memory dimension on atm grid
                 its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
@@ -486,8 +499,14 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
                 ir,jr,                  & ! refinement ratio
                 real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
                 xlong,                     & ! in atm grid     
-               fxlong)                      ! out fire grid
+                fxlong)                      ! out fire grid
          endif
+#ifdef DEBUG_OUT
+         call write_array_m(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme,xlat,'xlat_e',id)
+         call write_array_m(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme,xlong,'xlong_e',id)
+         call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fxlat,'fxlat',id)
+         call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fxlong,'fxlong',id)
+#endif
 
                
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
@@ -599,23 +618,30 @@ enddo ! tiles
 
 if(ifun.eq.1)then
     call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        
+#ifdef DEBUG_OUT
     if(pid.ne.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',pid)
     endif
+#endif
 elseif(ifun.eq.3)then
+#ifdef DEBUG_OUT
     if(pid.gt.0)then
         call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,u,'u',pid)
         call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,v,'v',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',pid)
     endif
+#endif
 elseif(ifun.eq.5)then
+#ifdef DEBUG_OUT
     if(pid.gt.0)then
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',pid)
     endif
+#endif
 elseif(ifun.eq.6)then
+#ifdef DEBUG_OUT
     if(pid.gt.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
@@ -625,6 +651,7 @@ elseif(ifun.eq.6)then
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)
     endif
+#endif
     !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
     !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
     kpe1=min(kps+1,kpe)
