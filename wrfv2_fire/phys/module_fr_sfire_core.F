@@ -4,6 +4,8 @@
 ! With contributions by Minjeong Kim.
 #define DEBUG_OUT
 #define DEBUG_PRINT
+!#define FUEL_LEFT
+!#define DEBUG_OUT_FUEL_LEFT    
 
 module module_fr_sfire_core
 
@@ -268,7 +270,7 @@ do j=1,JFCELLS
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell)) 
 	else
-	     call crash('unknown fuel_left_method')
+	     call crash('fuel_left: unknown fuel_left_method')
 	endif
         ! consistency check
         if(fire_area_f(i,j).eq.0.)then
@@ -552,6 +554,11 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 ! When X is small then the fuel burnt in one timestep in the cell is
 ! approximately proportional to the area of the burning region.
 !
+
+#ifndef FUEL_LEFT
+call crash('fuel_left_cell_2: not implemented, please use fire_fuel_left_method=1')
+end function fuel_left_cell_2
+#else
 
 !*** calls
 intrinsic tiny
@@ -994,6 +1001,7 @@ end subroutine
 !
 !****************************************
 !
+#endif
 
 subroutine prop_ls( id, &                                ! for debug
                 ids,ide,jds,jde, &                       ! domain dims

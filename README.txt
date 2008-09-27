@@ -1,5 +1,13 @@
-See documentation in 'doc' directory for more information.
-See file doc/README_git.txt on version control
+Index of documentation in doc subdirectory
+
+README.txti                 this file, how to compile and run WRF/SFIRE on ideal data
+README_git.txt              how to use the versioning system
+README_mac.txt              how to run on a Mac
+README_matlab_netcdf.txt    how to read WRF input and output directly Matlab
+README_vis.txt              matlab visualization using files written every timestep
+README_visualization.txt    convert WRF input and output to Matlab readable format
+README_wps.txt              how use real data including fuel from Landfire
+
 
 *** All is set up to run on wf.cudenver.edu ONLY ***
 *** See the bottom of this file how to set up another machine ***
@@ -82,13 +90,13 @@ make -f testmakefile.walnut clean model_test
 
 this will run the standalone model test.
 
+
 SETUP ON A NEW MACHINE
 
-Tested on linux/ifort and mac/g95. Mac will not run optimized or real data, though.
+Tested on linux/ifort, linux/pgi, and mac/g95. Mac will not run optimized or real data, though.
 Ask Jon if you need more architectures to be added to the menu that shows in ./configure.
 
-You need to install the NETCDF and LAPACK libraries
-and modify the environment variables accordingly.
+You need to install NETCDF and modify the environment variables accordingly.
 You can make your own copy of env.csh (under a different name)
 to set up the environment but please do not commit changed env.csh
 
@@ -99,17 +107,4 @@ Set environment variable to the top level netcdf directory like:
 setenv NETCDF /opt/wrf-libs/netcdf
 (of course, replace the path by the location where you put netcdf)
 
-To install LAPACK: get current LAPACK.tgz from netlib.org, do not bother
-with their install instructions, just compile all by the same compiler you
-will use for wrf.
-in LAPACK/SRC:
-<fortran compiler> -O -c *.f
-ar rv liblapack.a *.o
-in LAPACK/BLAS/SRC:
-<fortran compiler> -O -c *.f
-ar rv libblas.a *.o
-and move the two libraries someplace, like /usr/local/lib 
-Then set up the environment accordingly, as in 
-setenv LAPACK "-L/usr/local/lib -llapack -lblas"
-(of course, replace the path by the location where you put lapack and blas)
 
