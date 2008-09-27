@@ -11,8 +11,9 @@ wrfio_esmf :
 LN	=	ln -sf
 MAKE	=	make -i -r
 RM	= 	rm -f
-ifdef LAPACK
-LIB := $(LIB) $(LAPACK)
+# user supplied library flags for experimental purposes (such as LAPACK)
+ifdef USERLIB
+LIB := $(LIB) $(USERLIB)
 endif
 
 
