@@ -463,13 +463,13 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlong,'xlong',id)
 #endif
             ! first extend the coordinates by one beyond the domain boundary 
-            call continue_at_boundary(1,1, & ! do x direction or y direction
+            call continue_at_boundary(1,1,0., & ! do x direction or y direction
                 ims,ime,  jms,jme,           &                ! memory dims
                 ids,ide,jds,jde, &            ! domain dims 
                 its,ite,jts,jte, &                ! tile dims
                 xlat)                               ! array
 
-            call continue_at_boundary(1,1, & ! do x direction or y direction
+            call continue_at_boundary(1,1,0., & ! do x direction or y direction
                 ims,ime,  jms,jme,           &                ! memory dims
                 ids,ide,jds,jde, &            ! domain dims 
                 its,ite,jts,jte, &                ! tile dims
@@ -817,13 +817,13 @@ integer:: i,j,k,ifts1,ifte1,jfts1,jfte1
     enddo
 
     ! extend the winds by one beyond the domain boundary 
-    call continue_at_boundary(1,0, & ! do x direction or y direction
+    call continue_at_boundary(1,0,0., & ! do x direction or y direction
     TDIMS,           &                ! memory dims
     ids,ide+1,jds,jde+1, &            ! domain dims - winds defined up to +1
     its,ite+1,jts,jte+1, &                ! tile dims
     va)                               ! array
 
-    call continue_at_boundary(0,1, & ! do x direction or y direction
+    call continue_at_boundary(0,1,0., & ! do x direction or y direction
     TDIMS,           &                ! memory dims
     ids,ide+1,jds,jde+1, &            ! domain dims - winds defined up to +1
     its,ite+1,jts,jte+1, &                ! tile dims
@@ -937,7 +937,7 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
         enddo
     enddo
 
-    call continue_at_boundary(1,1, & ! do x direction or y direction
+    call continue_at_boundary(1,1,0., & ! do x direction or y direction
     its-2,ite+2,jts-2,jte+2,           &                ! memory dims
     ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
     its1,ite1,jts1,jte1, &                ! tile dims
