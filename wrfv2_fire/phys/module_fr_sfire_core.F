@@ -1514,7 +1514,7 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
             te=te + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
 
             tend(i,j)=te
-#ifdef DEBUG_ANY    
+#ifdef DEBUG_OUT    
             rra(i,j)=rr
             grada(i,j)=grad    
 #endif
