@@ -1394,7 +1394,7 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
     call check_mesh_2dim(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme)
     call check_mesh_2dim(ints,inte,jnts,jnte,tims,time,tjms,tjme)
     
-    call continue_at_boundary(1,1,0., &
+    call continue_at_boundary(1,1,1., &   !extend by extrapolation but never down 
     lims,lime,ljms,ljme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain - nodes where lfn defined
     ints,inte,jnts,jnte, &                ! region - nodes where tend computed
