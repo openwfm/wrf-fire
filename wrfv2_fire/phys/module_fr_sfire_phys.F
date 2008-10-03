@@ -181,6 +181,7 @@ enddo
 call continue_at_boundary(1,1,0., &          ! do x direction or y direction
     ifts-1,ifte+1,jfts-1,jfte+1, &        ! memory dims
     ifds,ifde,jfds,jfde, &                ! domain dims
+    ifds,ifde,jfds,jfde, &                ! domain dims
     ifts,ifte,jfts,jfte, &                ! tile dims
     zsfc)                                 ! array
 

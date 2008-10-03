@@ -433,6 +433,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
             its,ite,jts,jte,                              &
             ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
             ifms, ifme, jfms, jfme,                       &
@@ -466,12 +467,14 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
             call continue_at_boundary(1,1,0., & ! do x direction or y direction
                 ims,ime,  jms,jme,           &                ! memory dims
                 ids,ide,jds,jde, &            ! domain dims 
+                ips,ipe,jps,jpe, &            ! domain dims 
                 its,ite,jts,jte, &                ! tile dims
                 xlat)                               ! array
 
             call continue_at_boundary(1,1,0., & ! do x direction or y direction
                 ims,ime,  jms,jme,           &                ! memory dims
                 ids,ide,jds,jde, &            ! domain dims 
+                ips,ipe,jps,jpe, &            ! domain dims 
                 its,ite,jts,jte, &                ! tile dims
                 xlong)                               ! array
         endif
@@ -514,6 +517,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         call interpolate_atm2fire(id,                     & ! flag for debug output
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
             its,ite,jts,jte,                              &                    
             ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
             ifms, ifme, jfms, jfme,                       &
@@ -530,6 +534,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
         ifds,ifde,jfds,jfde,                    & ! fire domain dims
         ifms,ifme,jfms,jfme,                    & ! fire memory dims
+        ifps,ifpe,jfps,jfpe,                    &
         ifts,ifte,jfts,jfte,                    & ! fire patch dims
         time_start,dt,                          & ! time and increment
         dxf,dyf,                                & ! fire mesh spacing
@@ -772,6 +777,7 @@ end subroutine fire_ignition_convert
 subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no output
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
     its,ite,jts,jte,                              &
     ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
     ifms, ifme, jfms, jfme,                       &
@@ -788,6 +794,7 @@ implicit none
 integer, intent(in)::id,                          &
     ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
     ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
     its,ite,jts,jte,                              & ! atm tile bounds
     ifds, ifde, jfds, jfde,                       & ! fire domain bounds
     ifms, ifme, jfms, jfme,                       & ! fire memory bounds
@@ -820,12 +827,14 @@ integer:: i,j,k,ifts1,ifte1,jfts1,jfte1
     call continue_at_boundary(1,0,0., & ! do x direction or y direction
     TDIMS,           &                ! memory dims
     ids,ide+1,jds,jde+1, &            ! domain dims - winds defined up to +1
+    ips,ipe+1,jps,jpe+1, &            ! patch dims - winds defined up to +1
     its,ite+1,jts,jte+1, &                ! tile dims
     va)                               ! array
 
     call continue_at_boundary(0,1,0., & ! do x direction or y direction
     TDIMS,           &                ! memory dims
     ids,ide+1,jds,jde+1, &            ! domain dims - winds defined up to +1
+    ips,ipe+1,jps,jpe+1, &            ! patch dims - winds defined up to +1
     its,ite+1,jts,jte+1, &                ! tile dims
     ua)                               ! array
 
@@ -895,6 +904,7 @@ end subroutine interpolate_atm2fire
 subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
     ids,ide, jds,jde,                    & ! atm grid dimensions
     ims,ime, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
     its,ite,jts,jte,                              &
     ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
     ifms, ifme, jfms, jfme,                       &
@@ -910,6 +920,7 @@ implicit none
 integer, intent(in)::id,                          &
     ids,ide, jds,jde,                    & ! atm domain bounds
     ims,ime,jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
     its,ite,jts,jte,                              & ! atm tile bounds
     ifds, ifde, jfds, jfde,                       & ! fire domain bounds
     ifms, ifme, jfms, jfme,                       & ! fire memory bounds
@@ -940,6 +951,7 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
     call continue_at_boundary(1,1,0., & ! do x direction or y direction
     its-2,ite+2,jts-2,jte+2,           &                ! memory dims
     ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
+    ips,ipe,jps,jpe, &            ! patch dims - winds defined up to +1
     its1,ite1,jts1,jte1, &                ! tile dims
     za)                               ! array
 

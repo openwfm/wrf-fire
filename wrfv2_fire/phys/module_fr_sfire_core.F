@@ -1006,6 +1006,7 @@ end subroutine
 subroutine prop_ls( id, &                                ! for debug
                 ids,ide,jds,jde, &                       ! domain dims
                 ims,ime,jms,jme, &                       ! memory dims
+                ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
                 its,ite,jts,jte, &                       ! tile dims
                 ts,dt,dx,dy,     &                       ! scalars in
                 tbound,          &                       ! scalars out
@@ -1085,7 +1086,7 @@ implicit none
 ! tend_ls
 !
 
-integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte
+integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe                ! patch - nodes owned by this process 
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out
 real,intent(in)::dx,dy,ts,dt
@@ -1150,6 +1151,7 @@ call message(msg)
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                       ! domain dims - where lfn exists
+    ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
     ihs,ihe,jhs,jhe, &                       ! where tend computed
     ts,dt,dx,dy,      &                          ! scalars in
     lfn_in, &                                   ! arrays in
@@ -1179,6 +1181,7 @@ call message(msg)
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
+    ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
     its,ite,jts,jte, &                       ! tile dims - where is tend computed
     ts+dt,dt,dx,dy,      &                          ! scalars in
     lfn1, &                                   ! arrays in
@@ -1336,6 +1339,7 @@ subroutine tend_ls( id, &
     lims,lime,ljms,ljme, &                   ! memory dims for lfn
     tims,time,tjms,tjme, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                   ! domain - nodes where lfn defined
+    ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
     ints,inte,jnts,jnte, &                   ! region - nodes where tend computed
     t,dt,dx,dy,      &                          ! scalars in
     lfn, &                                   ! arrays in
@@ -1354,7 +1358,7 @@ implicit none
 
 !*** arguments
 integer,intent(in)::id,lims,lime,ljms,ljme,tims,time,tjms,tjme
-integer, intent(in)::ids,ide,jds,jde,ints,inte,jnts,jnte
+integer, intent(in)::ids,ide,jds,jde,ints,inte,jnts,jnte,ips,ipe,jps,jpe 
 real,intent(in)::t                                     ! time
 real,intent(in)::dt,dx,dy                                 ! mesh step
 real,dimension(lims:lime,ljms:ljme),intent(inout)::lfn ! level set function
@@ -1397,7 +1401,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
     call continue_at_boundary(1,1,1., &   !extend by extrapolation but never down 
     lims,lime,ljms,ljme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain - nodes where lfn defined
-    ints,inte,jnts,jnte, &                ! region - nodes where tend computed
+    ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
+    ints,inte,jnts,jnte, &                ! tile - nodes 
     lfn)                                  ! array
 
     call print_2d_stats(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme, &

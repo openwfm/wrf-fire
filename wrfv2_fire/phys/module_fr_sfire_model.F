@@ -20,6 +20,7 @@ subroutine sfire_model (                    &
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+        ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,
@@ -89,7 +90,8 @@ logical, intent(out)::need_lfn_update       ! if true, halo update on lfn afterw
 ! scalar data
 integer, intent(in) :: num_ignitions        ! number of ignition locations/times 
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
-integer, intent(in) :: ifds,ifde,jfds,jfde  ! fire domain bounds
+integer, intent(in) :: ifds,ifde,jfds,jfde,&  ! fire domain bounds
+        ifps,ifpe,jfps,jfpe                ! patch - nodes owned by this process
 integer, intent(in) :: ifts,ifte,jfts,jfte  ! fire tile bounds
 integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
@@ -238,6 +240,7 @@ elseif (ifun.eq.4) then  ! do the timestep
     call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
+        ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
         ifts,ifte,jfts,jfte,                      &
         time_start,dt,fdx,fdy,tbound,  &
         lfn,lfn_out,tign &

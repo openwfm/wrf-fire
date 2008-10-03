@@ -68,41 +68,56 @@ end subroutine message
 subroutine continue_at_boundary(ix,iy,bias, & ! do x direction or y direction
     ims,ime,jms,jme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain dims
+    ips,ipe,jps,jpe, &                ! patch dims
     its,ite,jts,jte, &                ! tile dims
     lfn)                              ! array
 implicit none
 !*** description
 ! extend array by one beyond the domain by linear continuation
-! if array is node based, call with ids jde ite jte larger by 1
 !*** arguments
 integer, intent(in)::ix,iy              ! not 0 = do x or y (1 or 2) direction
 real,intent(in)::bias                   ! 0=none, 1.=max
 integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain dims
+    ips,ipe,jps,jpe, &                ! patch dims
     its,ite,jts,jte                 ! tile dims
 real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 !*** local
 integer i,j,itso,jtso,iteo,jteo
 character(len=128)::msg
+integer::its1,ite1,jts1,jte1
 !*** statement
 #define EX(a,b) (1.-bias)*(2.*a-b)+bias*max(2.*a-b,a,b)   ! extrapolation, max quarded
 !*** executable
 ! check if there is space for the extension
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
+! for dislay only
 itso=its
 jtso=jts
 iteo=ite
 jteo=jte
-! sides
+! go one beyond if at patch boundary but not at domain boudnary 
+! assume we have halo need to compute the value we do not have 
+! the next thread that would conveniently computer the extended values at patch corners
+! besides halo may not transfer values outside of the domain
+! 
+its1=its
+jts1=jts
+ite1=ite
+jte1=jte
+if(its.eq.ips.and..not.its.eq.ids)its1=its-1
+if(jts.eq.jps.and..not.jts.eq.jds)jts1=jts-1
+if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite-1
+if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte-1
 if(ix.ne.0)then
     if(its.eq.ids)then
-        do j=jts,jte
+        do j=jts1,jte1
             lfn(ids-1,j)=EX(lfn(ids,j),lfn(ids+1,j))
         enddo
         itso=ids-1
     endif
     if(ite.eq.ide)then
-        do j=jts,jte
+        do j=jts1,jte1
             lfn(ide+1,j)=EX(lfn(ide,j),lfn(ide-1,j))
         enddo
         iteo=ide+1
@@ -110,19 +125,19 @@ if(ix.ne.0)then
 endif
 if(iy.ne.0)then
     if(jts.eq.jds)then
-        do i=its,ite
+        do i=its1,ite1
             lfn(i,jds-1)=EX(lfn(i,jds),lfn(i,jds+1))
         enddo
         jtso=jds-1
     endif
     if(jte.eq.jde)then
-        do i=its,ite
+        do i=its1,ite1
             lfn(i,jde+1)=EX(lfn(i,jde),lfn(i,jde-1))
         enddo
         jteo=jde+1
     endif
 endif
-! corners
+! corners of the domain
 if(ix.ne.0.and.iy.ne.0)then
     if(its.eq.ids.and.jts.eq.jds)lfn(ids-1,jds-1)=EX(lfn(ids,jds),lfn(ids+1,jds+1))
     if(its.eq.ids.and.jte.eq.jde)lfn(ids-1,jde+1)=EX(lfn(ids,jde),lfn(ids+1,jde-1))
