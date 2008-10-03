@@ -1,0 +1,11 @@
+This is free software developed at NCAR and the University of Colorado Denver.
+See the public domain notice at http://www.mmm.ucar.edu/wrf/users/public.html
+which applies also with regard to the University of Colorado Denver.
+
+If you use this software, please acknowledge our work by citing
+the paper 
+
+Jan Mandel, Jonathan D. Beezley, Janice L. Coen, Minjeong Kim, Data
+Assimilation for Wildland Fires: Ensemble Kalman filters in coupled
+atmosphere-surface models, arXiv:0712.3965, December 2007
+http://arxiv.org/abs/0712.3965
