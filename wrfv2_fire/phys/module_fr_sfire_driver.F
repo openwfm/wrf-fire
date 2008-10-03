@@ -33,7 +33,7 @@
 ! submitted, 2007
 
 ! [2] T. L. Clark, J. Coen, and D. Latham, Description of a coupled 
-! atmosphere-fire model, Intl. J. Wildland Fire, vol. 13, pp. 49–64, 
+! atmosphere-fire model, Intl. J. Wildland Fire, vol. 13, pp. 49-64, 
 ! 2004
 !
 ! [3] http://www.mmm.ucar.edu/wrf/OnLineTutorial/Introduction/index.html
