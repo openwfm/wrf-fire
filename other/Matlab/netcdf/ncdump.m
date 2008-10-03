@@ -37,7 +37,7 @@ function var=nclist(filename,q)
 % get info on all variables
 
 quiet=exist('q','var');
-fprintf('file %s\n',filename)
+fprintf('ncdump: file %s\n',filename)
 [ncid,status] = mexnc('OPEN',filename,'nowrite');
 nccheck(status)
 [ndims,nvars, ngatts, unlimdim, status] = mexnc('INQ',ncid); % global info
@@ -55,10 +55,10 @@ end
 
 function v=ncvar(filename,varname)
 % simplified interface to mexnc('get_var_double',...)
-fprintf('file %s\n',filename)
+fprintf('ncdump/ncvar: open %s\n',filename)
 [ncid,status]=mexnc('OPEN',filename,'nowrite');
 nccheck(status);
-fprintf('file %s\n',varname)
+fprintf('variable %s\n',varname)
 [varid,status]=mexnc('INQ_VARID',ncid,char(varname));
 nccheck(status);
 v=ncvarinfo(ncid,varid); % find out all about this variable
