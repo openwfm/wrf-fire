@@ -14,5 +14,6 @@ n=length(v1(:));
 t=sqrt(n)*avgdiff/(ssq+eps);
 p=erf(t);
 relerr=big(d);
-fprintf('relative error max %g  ssq mean %g p-value %g\n',relerr,ssq,p) 
+fprintf('relative error max %g min %g ssq %g avg diff %g t-stats %g p-value %g\n',...
+    max(d),min(d),ssq,avgdiff,t,p) 
 end
