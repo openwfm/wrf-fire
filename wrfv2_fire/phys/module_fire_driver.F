@@ -7,12 +7,10 @@ CONTAINS
 !------------------------------------------------------------------
 
    SUBROUTINE fire_driver(ifire                                 &
-            ,u_phy,v_phy,u,v                                    &
-            ,u_frame,v_frame,mu,rho                             & ! send
+            ,u,v,u_frame,v_frame,mu,rho                         & ! send
             ,itimestep,dt,dx,dy,z,z_at_w,dz8w,ht                &
             ,ids,  ide,  kds,  kde,  jds,  jde                  & 
             ,ims,  ime,  kms,  kme,  jms,  jme                  &
-            ,ips,  ipe,  kps,  kpe,  jps,  jpe                  &
             ,ifds, ifde, kfds, kfde, jfds, jfde                 &
             ,ifms, ifme, kfms, kfme, jfms, jfme                 &
             ,ifps, ifpe, kfps, kfpe, jfps, jfpe                 & 
@@ -22,37 +20,27 @@ CONTAINS
             ,moad_lat_ll,moad_lon_ll,moad_dx,moad_dy            &
             ,moad_s_we,moad_e_we,moad_s_sn,moad_e_sn            &
             ,sr_x,sr_y                                          &
-            ,fire_num_ignitions                                 &
-            ,fire_ignition_start_x,fire_ignition_start_y        & ! ignition - small arrays
-            ,fire_ignition_end_x,fire_ignition_end_y            &
-            ,fire_ignition_radius                              &
-            ,fire_ignition_time                                &
             ,fire_lat_init,fire_lon_init,fire_ign_time          &
             ,fire_shape,fire_crwn_hgt                           &
             ,fire_ext_grnd,fire_ext_crwn,fire_sprd_mdl          &
             ,fire_fuel_read,fire_fuel_cat                       &
-            ,nfuel_cat,nfl,nfl_t,nfl_c,ncod,in1,in2,ixb,iyb     & ! send&recv
+            ,nfuel_cat_r,nfl,nfl_t,nfl_c,ncod,in1,in2,ixb,iyb     & ! send&recv
             ,icn,fg,fc,r_0,bbb,betafl,phiwc,area,area2          &
             ,zf,zsf,tign_g,tign_c,tign_crt,xfg,yfg,xcd          &
             ,ycd,xcn,ycn,sprdx,sprdy                            &
             ,rthfrten,rqvfrten                                  &
-            ,lfn,fuel_frac                                      & ! i/o sfire
-            ,grnhfx,grnqfx,canhfx,canqfx                        & ! recv
-            ,fuel_time,dzfsdx,dzfsdy,fgip                       & 
-            ,ischap                                          )    ! data
-
+            ,grnhfx,grnqfx,canhfx,canqfx)                         ! recv
 
 !------------------------------------------------------------------
 
    USE module_state_description, ONLY :                         &
-                   FIRE_CAWFE,FIRE_SFIRE
+                   FIRE_CAWFE
 
    USE module_model_constants
 
 ! --- add new modules of schemes here
 
    USE module_fr_cawfe
-   USE module_fr_sfire_driver
 
    !  This driver calls subroutines for the fire parameterizations.
    !
@@ -127,7 +115,6 @@ CONTAINS
 
    INTEGER, INTENT(in) :: ids,ide, jds,jde, kds,kde  ! atmosphere domain dimensions
    INTEGER, INTENT(in) :: ims,ime, jms,jme, kms,kme  ! atmosphere memory dimensions
-   INTEGER, INTENT(in) :: ips,ipe, kps,kpe, jps,jpe  ! atmosphere patch dimensions 
    INTEGER, INTENT(in) :: kts,kte, num_tiles         ! atmosphere tile dimensions
 
    INTEGER, DIMENSION(num_tiles), INTENT(in) ::                   &
@@ -157,8 +144,7 @@ CONTAINS
    INTEGER, INTENT(in) :: fire_fuel_cat
    REAL, INTENT(in)    :: u_frame, v_frame
 
-   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u_phy,v_phy  ! centered
-   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u,v          ! staggered
+   REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: u,v
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: z,z_at_w
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: rho
    REAL, INTENT(in), DIMENSION( ims:ime, kms:kme, jms:jme ) :: dz8w
@@ -167,7 +153,8 @@ CONTAINS
 
 ! ----- inout variables
 
-   REAL, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: nfuel_cat
+   REAL, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: nfuel_cat_r  ! jm because of WPS
+   ! INTEGER, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: nfuel_cat_r
    INTEGER, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: nfl,nfl_t,nfl_c
    INTEGER, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme )   :: ncod
    INTEGER, INTENT(inout), DIMENSION( ifms:ifme,jfms:jfme,2 ) :: in1,in2
@@ -187,38 +174,22 @@ CONTAINS
                                                          rthfrten, &
                                                          rqvfrten
 
-   REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx
-   REAL, INTENT(out), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx
-
-   REAL, INTENT(inout),DIMENSION( ifms:ifme,jfms:jfme ) :: &
-                                lfn,fuel_frac,fuel_time,dzfsdx,dzfsdy,fgip
-   INTEGER,intent(inout),DIMENSION( ifms:ifme,jfms:jfme ) :: ischap
-
-!   ignition variables for SFIRE
-    integer, intent(in):: fire_num_ignitions                  ! number of ignitions, can be 0
-    real, dimension(fire_num_ignitions), intent(in):: &   
-    fire_ignition_start_x,fire_ignition_start_y, &
-    fire_ignition_end_x,fire_ignition_end_y,fire_ignition_radius, & ! start, end, radius, time
-    fire_ignition_time                           !  of ignition lines
-
+   REAL, INTENT(inout), DIMENSION( ims:ime,jms:jme ) :: grnhfx,grnqfx
+   REAL, INTENT(inout), DIMENSION( ims:ime,jms:jme ) :: canhfx,canqfx
 
 ! ---- local variables
 
-   INTEGER :: i,j,k,nk,jj,ij,its,ite,jts,jte, num_ignitions
+   INTEGER :: i,j,k,nk,jj,ij,its,ite,jts,jte
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: v_tmp
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: u_tmp
-   INTEGER, DIMENSION( ifms:ifme,jfms:jfme )   :: nfuel_cat_int
    CHARACTER(LEN=128) :: msg
-   
-   integer::ifun,ifun_first
-   logical::need_lfn_update
-   real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out ! fire wind velocities out level set function
+
+   INTEGER, DIMENSION( ifms:ifme,jfms:jfme )   :: nfuel_cat
+
 !------------------------------------------------------------------
 !
     CALL wrf_debug(100,'entering fire_driver')
-
-    nfuel_cat_int(:,:)=int(nfuel_cat(:,:))
 
 ! -- get u and v, zero tendencies
 
@@ -228,8 +199,8 @@ CONTAINS
       DO j=j_start(ij),j_end(ij)
          DO k=kts,kte
             DO i=i_start(ij),i_end(ij)
-               v_tmp(i,k,j) = v_phy(i,k,j) + v_frame
-               u_tmp(i,k,j) = u_phy(i,k,j) + u_frame
+               v_tmp(i,k,j) = v(i,k,j) + v_frame
+               u_tmp(i,k,j) = u(i,k,j) + u_frame
             ENDDO
          ENDDO
          DO k=kts,min(kte+1,kde)
@@ -242,28 +213,26 @@ CONTAINS
    ENDDO
    !$OMP END PARALLEL DO
 !
-
-#ifdef DM_PARALLEL
-            CALL wrf_error_fatal('fire_driver: DM_PARALLEL not supported')
-#endif
-
-   fire_select: SELECT CASE(ifire)
-
-   CASE (FIRE_CAWFE)
-
-     CALL wrf_debug(100,'entering CAWFE fire scheme')
-     !$OMP PARALLEL DO   &
-     !$OMP PRIVATE ( ij, i,j,k, its, ite, jts, jte )
-     DO ij = 1 , num_tiles
+  !$OMP PARALLEL DO   &
+  !$OMP PRIVATE ( ij, i,j,k, its, ite, jts, jte )
+   DO ij = 1 , num_tiles
 
       its = i_start(ij)   ! start atmospheric tile in i
-!jm      ite = i_end(ij)     ! end atmospheric tile in i
-      ite = min(i_end(ij),ide-1)     ! end atmospheric tile in i
+      ite = i_end(ij)     ! end atmospheric tile in i
       jts = j_start(ij)   ! start atmospheric tile in j
-!jm      jte = j_end(ij)     ! end atmospheric tile in j
-      jte = min(j_end(ij),jde-1)     ! end atmospheric tile in j
-!jm the decrease of the upper tile bound was done before in call fire_driver in solve_em
+      jte = j_end(ij)     ! end atmospheric tile in j
 
+      do j=jts,jte
+         do i=its,ite
+             nfuel_cat(i,j)=nfuel_cat_r(i,j)   ! nfuel_cat is real outside because of WPS
+         enddo
+      enddo
+
+      fire_select: SELECT CASE(ifire)
+
+      CASE (FIRE_CAWFE)
+
+        CALL wrf_debug(100,'entering CAWFE fire scheme')
 
         CALL cawfe(                                             &
              ids,ide, kds,kde, jds,jde                          & ! send
@@ -282,82 +251,30 @@ CONTAINS
             ,fire_ext_grnd,fire_ext_crwn                        &
             ,fire_fuel_read,fire_fuel_cat                       &
             ,z,z_at_w,dz8w,ht,u_tmp,v_tmp,mu,rho                &
-            ,nfuel_cat_int,nfl,nfl_t,nfl_c,ncod,in1,in2,ixb,iyb     & ! send&recv
+            ,nfuel_cat,nfl,nfl_t,nfl_c,ncod,in1,in2,ixb,iyb     & ! send&recv
             ,icn,fg,fc,r_0,bbb,betafl,phiwc,area,area2          &
             ,zf,zsf,tign_g,tign_c,tign_crt,xfg,yfg,xcd          &
             ,ycd,xcn,ycn,sprdx,sprdy                            &
-!            ,rthfrten,rqvfrten)                                 
             ,rthfrten,rqvfrten                                  &
             ,grnhfx,grnqfx,canhfx,canqfx)                         ! recv
 
-     ENDDO
-     !$OMP END PARALLEL DO
+        CALL wrf_debug(100,'exiting CAWFE fire scheme')
 
-     CALL wrf_debug(100,'exiting CAWFE fire scheme')
-
-   CASE (FIRE_SFIRE)
-
-     CALL wrf_debug(100,'entering SFIRE fire scheme')
-     call wrf_error_fatal('SFIRE no longer supported through module_fire_driver')
-
-!!     ! sfire_driver is in mediation layer, will have its own loops over tile inside
-!!     ! do NOT call from OMP loop!!
-!!
-!!     ! the last row (i=ide or j=jde) is not valid because wind at cell center was
-!!     ! interpolated from staggered grid by a loop like 
-!!     ! do i=1,min(its,ide-1); u_phy(i,...)=0.5*(u(i+1,...)+u(i,...))
-!!     ! then u_phy was passed here as u 
-!!
-!!     ! call on domain one less
-!!     
-!!     ifun_first=3
-!!     if(itimestep.eq.1)ifun_first=1
-!!     do ifun=ifun_first,6     
-!!     CALL sfire_driver_phys(ifun,need_lfn_update,                    &
-!!             ids,ide-1, kds,kde, jds,jde-1                          &
-!!            ,ims,ime, kms,kme, jms,jme                          &
-!!            ,ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1)                          & 
-!!            ,ifds,ifde-sr_x, jfds,jfde-sr_y                    &
-!!            ,ifms,ifme, jfms,jfme                    &
-!!            ,ifps,min(ifpe,ifde-sr_x), jfps,min(jfpe,jfde-sr_y)      &
-!!            ,sr_x,sr_y                                          &
-!!            ,num_tiles,i_start,min(i_end,ide-1),j_start,min(j_end,jde-1)              &
-!!            ,itimestep                                          &
-!!            ,fire_fuel_read,fire_fuel_cat                       &
-!!            ,dt,dx,dy                                           &
-!!            ,u_frame,v_frame                                    &
-!!            ,fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt          &
-!!            ,fire_num_ignitions                                 &
-!!            ,fire_ignition_start_x,fire_ignition_start_y        & ! ignition - small arrays
-!!            ,fire_ignition_end_x,fire_ignition_end_y            &
-!!            ,fire_ignition_radius                              &
-!!            ,fire_ignition_time                                &
-!!            ,u,v,mu,rho,ht                                      &
-!!            ,z_at_w,dz8w                                        &
-!!            ,lfn,tign_c,fuel_frac                               & 
-!!            ,uf,vf,lfn_out                                      & ! fire wind velocities, out level set function
-!!            ,rthfrten,rqvfrten                                  &
-!!            ,grnhfx,grnqfx,canhfx,canqfx                        &
-!!            ,nfuel_cat                                          &
-!!            ,fuel_time,zsf                                      &
-!!            ,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap     &
-!!            )
-!!    enddo
-        CALL wrf_debug(100,'exiting SFIRE fire scheme')
-   CASE DEFAULT
+     CASE DEFAULT
 
        WRITE( msg , * ) 'This fire option does not exist: ifire = ', ifire
        CALL wrf_error_fatal ( msg )
 
-   END SELECT fire_select
+     END SELECT fire_select
 
-   ! common print to compare
-   !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
-   !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
-   !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver:rthfrten')
-   !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver:rqvfrten')
+      do j=jts,jte
+         do i=its,ite
+             nfuel_cat_r(i,j)=nfuel_cat(i,j)   ! nfuel_cat is real outside because of WPS
+         enddo
+      enddo
 
-   nfuel_cat(:,:)=real(nfuel_cat_int(:,:))
+   ENDDO
+   !$OMP END PARALLEL DO
 
    END SUBROUTINE fire_driver
 

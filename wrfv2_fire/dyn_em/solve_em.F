@@ -754,7 +754,10 @@ BENCH_END(pbl_driver_tim)
 !*****
 ! fire 
 
-      IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire > 0) THEN
+      
+! Ned Patton's call to CAWFE
+
+      IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 1) THEN
 
          CALL wrf_debug ( 200 , ' call fire_driver')
          !CALL wrf_debug ( 200 , ' call fire_driver, ifire = ', config_flags%ifire )
@@ -767,51 +770,21 @@ BENCH_START(fire_driver_tim)
          CALL nl_get_cen_lon(1,moad_cen_lon)
 
 #ifndef DM_PARALLEL
-         CALL set_fire_debug_vars(grid,config_flags)
+         CALL set_fire_debug_vars(grid,config_flags)  ! Jon Beezley's debug
 #endif
 
-#ifdef JM_DEBUG
-         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
-            grid%em_u_2,'em_u_2',grid%itimestep)
-         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
-            grid%em_v_2,'em_v_2',grid%itimestep)
-#endif
-
-        if(config_flags%ifire.eq.FIRE_SFIRED)then ! case ifire=3
-            call sfire_driver_em ( grid , config_flags    &
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,sids,side, sjds,sjde                        &
-            ,sims,sime, sjms,sjme                        &
-            ,sips,sipe, sjps,sjpe                        &
-            ,rho,z_at_w,dz8w)
-        else
-
-#ifdef DM_PARALLEL
-            CALL wrf_error_fatal('only ifire=3 supports distributed memory parallel')
-#endif
-
-        call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, & 
-            fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-            fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
-            
          CALL fire_driver(config_flags%ifire                        & ! send
-            ,u_phy,v_phy,grid%em_u_2,grid%em_v_2                    &
-            ,grid%u_frame,grid%v_frame,grid%em_mut,rho              &
+            ,u_phy,v_phy,grid%u_frame,grid%v_frame,grid%em_mut,rho  &
             ,grid%itimestep,grid%dt,grid%dx,grid%dy                 &
             ,grid%em_z,z_at_w,dz8w,grid%ht                          &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
             ,sids,side, skds,skde, sjds,sjde                        &
             ,sims,sime, skms,skme, sjms,sjme                        &
             ,sips,sipe, skps,skpe, sjps,sjpe                        &
             ,k_start,min(k_end,kde-1),grid%num_tiles                &
-!jm         ,grid%i_start,min(grid%i_end,ide-1)                    & conflicts with sfire
-!jm         ,grid%j_start,min(grid%j_end,jde-1)                    & done in module_fire_driver now
-            ,grid%i_start,grid%i_end                                &
-            ,grid%j_start,grid%j_end                                &
+            ,grid%i_start,min(grid%i_end,ide-1)                     &
+            ,grid%j_start,min(grid%j_end,jde-1)                     &
             ,grid%grid_id                                           &
             ,config_flags%cen_lat,config_flags%cen_lon              &
             ,grid%em_lat_ll_d,grid%em_lon_ll_d                      &
@@ -821,17 +794,12 @@ BENCH_START(fire_driver_tim)
             ,model_config_rec%s_we(1), model_config_rec%e_we(1)     &
             ,model_config_rec%s_sn(1), model_config_rec%e_sn(1)     &
             ,grid%sr_x,grid%sr_y                                    &
-            ,fire_num_ignitions                                     & ! start ignition for SFIRE
-            ,fire_ignition_start_x,fire_ignition_start_y            & ! ignition - small arrays
-            ,fire_ignition_end_x,fire_ignition_end_y                &
-            ,fire_ignition_radius                                   &
-            ,fire_ignition_time                                     & ! end ignitin for SFIRE
             ,config_flags%fire_lat_init,config_flags%fire_lon_init  &
             ,config_flags%fire_ign_time                             &
             ,config_flags%fire_shape,config_flags%fire_crwn_hgt     &
             ,config_flags%fire_ext_grnd,config_flags%fire_ext_crwn  &
             ,config_flags%fire_sprd_mdl                             &
-            ,config_flags%fire_fuel_read,config_flags%fire_fuel_cat & 
+            ,config_flags%fire_fuel_read,config_flags%fire_fuel_cat &
             ,grid%nfuel_cat,grid%nfl,grid%nfl_t,grid%nfl_c          & ! send and recv
             ,grid%ncod,grid%in1,grid%in2,grid%ixb,grid%iyb          &
             ,grid%icn,grid%fg,grid%fc,grid%r_0,grid%bbb             &
@@ -840,37 +808,30 @@ BENCH_START(fire_driver_tim)
             ,grid%tign_crt,grid%xfg,grid%yfg,grid%xcd               &
             ,grid%ycd,grid%xcn,grid%ycn,grid%sprdx,grid%sprdy       &
             ,grid%rthfrten,grid%rqvfrten                            &
-            ,grid%lfn,grid%fuel_frac                                & ! i/o sfire
-            ,grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx        & ! recv
-            ,grid%fuel_time,grid%dzfsdx,grid%dzfsdy,grid%fgip       & 
-            ,grid%ischap                                         )    ! data
-
-         endif
-
-! jm debug
-#ifdef JM_DEBUG
-         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme, &
-            grid%grnhfx,'solve_em:grnhfx')
-         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme, &
-            grid%grnqfx,'solve_em:grnqfx')
-         call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
-            grid%rthfrten,'solve_em:rthfrten')
-         call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
-            grid%rqvfrten,'solve_em:rqvfrten')
-         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
-            grid%rthfrten,'rthfrten',grid%itimestep)
-         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
-            grid%rqvfrten,'rqvfrten',grid%itimestep)
-         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
-            grid%em_u_2,'em_u_2_out',grid%itimestep)
-         call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme, &
-            grid%em_v_2,'em_v_2_out',grid%itimestep)
-#endif
+            ,grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx)         ! recv
 
 
 BENCH_END(fire_driver_tim)
 
       ENDIF
+
+! Jan Mandel's call to SFIRE
+
+      IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
+
+        if(config_flags%ifire.eq.2)then 
+            call sfire_driver_em ( grid , config_flags    &
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,sids,side, sjds,sjde                        &
+            ,sims,sime, sjms,sjme                        &
+            ,sips,sipe, sjps,sjpe                        &
+            ,rho,z_at_w,dz8w)
+        endif
+
+       ENDIF
+
 
 ! cumulus para.
 
