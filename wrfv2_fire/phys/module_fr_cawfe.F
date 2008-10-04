@@ -465,27 +465,21 @@ SUBROUTINE cawfe(ids,ide, kds,kde, jds,jde,                    & ! incoming
    jf_st = MAX( (jts-1)*nfry+1, jds*nfry+1   ) 
    jf_en = MIN( (jte)*nfry    , (jde-1)*nfry )
 
-write(msg,7001) &
-                 ids,ide, kds,kde, jds,jde,                    & ! incoming
-                 ims,ime, kms,kme, jms,jme,                    &
-                 its,ite, kts,kte, jts,jte,                    &
-                 ifds,ifde, kfds,kfde, jfds,jfde,              &
-                 ifms,ifme, kfms,kfme, jfms,jfme,              &
-                 if_st,if_en,jf_st,jf_en                       
+write(msg,7001) 'FR: mesh bounds on input to cawfe:'
 call wrf_debug( _FR_DBG_LEVEL_, msg )
-7001 format('FR: mesh bounds on input to cawfe:' &
-        /'ids ',6i8 &
-        /'ims ',6i8 &
-        /'its ',6i8 &
-        /'idfs',6i8 &
-        /'imfs',6i8 &
-                /'ifst',6i8)
-write(msg,*)'atm/fire refinement ratio nfrx,nfry=',nfrx,nfry
+write(msg,7001) 'id ', ids,ide, kds,kde, jds,jde                     ! incoming
 call wrf_debug( _FR_DBG_LEVEL_, msg )
-write(msg,*)'used size of fire arrays',if_st,if_en,jf_st,jf_en
+write(msg,7001) 'im ', ims,ime, kms,kme, jms,jme
 call wrf_debug( _FR_DBG_LEVEL_, msg )
-write(msg,*)'decl size of fire arrays',ifms,ifme,jfms,jfme
+write(msg,7001) 'it ', its,ite, kts,kte, jts,jte                    
 call wrf_debug( _FR_DBG_LEVEL_, msg )
+write(msg,7001) 'ifd', ifds,ifde, kfds,kfde, jfds,jfde
+call wrf_debug( _FR_DBG_LEVEL_, msg )
+write(msg,7001) 'ifm', ifms,ifme, kfms,kfme, jfms,jfme
+call wrf_debug( _FR_DBG_LEVEL_, msg )
+write(msg,7001) 'ift', if_st,if_en,jf_st,jf_en                       
+call wrf_debug( _FR_DBG_LEVEL_, msg )
+7001 format(a,6i8)
 
 ! ----- begin initialization for all runs, including restart
  
