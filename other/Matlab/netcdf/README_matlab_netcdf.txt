@@ -9,7 +9,7 @@ cd ../../..
 cd wrfv2_fire/test/em_fire
 <run wrf to produce some wrfrst* files> or put wrfrst files here
 matlab
->> mpath                       % set the matlab path
+(executes startup.m; you should see a listing of files including ncdump)
 >> f='wrfrst....'              % choose a netcdf file
 >> p=ncdump(f)                 % list info on all variables
 >> p=ncdump(f,'LFN')           % get info and value of one variable as
@@ -19,7 +19,6 @@ matlab
 
 works also in em_real
 
-works as of commit f6e1299c976cc23224fd889ecf10fc1d7ac17855 Sep 14 2008
 
 jm
 
