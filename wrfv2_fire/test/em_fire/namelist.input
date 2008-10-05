@@ -145,24 +145,24 @@
 !
 ! ignition 
  fire_num_ignitions = 3,        ! integer, only the first fire_num_ignition used, up to 5 allowed
- fire_ignition_start_x1 = 1000  ! start points of ignition lines, in m from lower left corner
- fire_ignition_start_y1 =  500  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x1 =   1000  ! end points of ignition lines, in m from lower left corner
- fire_ignition_end_y1 =   1900  ! end points of ignition lines, in m from lower left corner
- fire_ignition_radius1 =    18  ! all within this radius will ignite, > fire mesh step
- fire_ignition_time1  =      2  ! sec for ignition from the start
- fire_ignition_start_x2 = 1500  ! start points of ignition lines, in m from lower left corner
- fire_ignition_start_y2 =  500  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x2 =   1500  ! end points of ignition lines, in m from lower left corner
- fire_ignition_end_y2 =   1900  ! end points of ignition lines, in m from lower left corner
- fire_ignition_radius2 =    18  ! all within this radius will ignite, > fire mesh step
- fire_ignition_time2  =      3  ! sec for ignition from the start! end ignition for sfire
- fire_ignition_start_x3 = 1400  ! start points of ignition lines, in m from lower left corner
- fire_ignition_start_y3 = 1400  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x3 =   1400  ! end points of ignition lines, in m from lower left corner
- fire_ignition_end_y3 =   1400  ! end points of ignition lines, in m from lower left corner
- fire_ignition_radius3 =    50  ! all within this radius will ignite, > fire mesh step
- fire_ignition_time3  =      4  ! sec for ignition from the start! end ignition for sfire
+ fire_ignition_start_x1 = 1000,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_start_y1 =  500,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_end_x1 =   1000,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_end_y1 =   1900,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_radius1 =    18,  ! all within this radius will ignite, > fire mesh step
+ fire_ignition_time1  =      2,  ! sec for ignition from the start
+ fire_ignition_start_x2 = 1500,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_start_y2 =  500,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_end_x2 =   1500,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_end_y2 =   1900,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_radius2 =    18,  ! all within this radius will ignite, > fire mesh step
+ fire_ignition_time2  =      3,  ! sec for ignition from the start! end ignition for sfire
+ fire_ignition_start_x3 = 1400,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_start_y3 = 1400,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_end_x3 =   1400,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_end_y3 =   1400,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_radius3 =    50,  ! all within this radius will ignite, > fire mesh step
+ fire_ignition_time3  =      4,  ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
  fire_print_msg     = 1,        ! 1 print fire debugging messages
@@ -180,3 +180,4 @@
  fire_fuel_left_method=1,        ! for now, use 1 only
  fire_lfn_ext_up=1.0,           ! 0.=extend level set function at boundary by reflection, 1.=always up
  fire_time_steps=1,             ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)
+/
