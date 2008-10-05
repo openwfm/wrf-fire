@@ -17,12 +17,12 @@ If there was any change notify other developers in particular Jan.
    If the .txt files were not created, make sure all module_fr_sfire_*.F source files
    have #define DEBUG_OUT at the beginning (those where this string appears later)
 
-2. to set up a baseline: ./moveto  will create directory ~/tmp/<current commit number>
+2. to set up a baseline: ./moveto  will create directory ~/tmp/em_fire/<current commit number>
    and move the wrf/fire output file there
    
    or
 
-3. to check current commit against baseline: compareto ~/tmp/<commit number>
+3. to check current commit against baseline: compareto ~/tmp/em_fire/<commit number>
 
 4. Compile with other options (OpenMP, DM, various combinations of number of processes
    and threads), run until some wrfrst* files are produced, make sure the results are 
@@ -41,11 +41,11 @@ If there was any change notify other developers in particular Jan.
    and serial results are the same up to rounding already, right?) Use ncread to load 
    a single variable from wrfrst* file into matlab.
 
-7. Do not forget to do the same also for the real case with WPS!! Some bugs appear only
+7. Do not forget to do the same also in em_real with WPS! Some bugs appear only
    when running real, not ideal. See README_wps.txt for how to run real. After
-   running wps.csh once, you can just run wrf.exe the next time (usefulf for MPI).
+   running wps.csh once, you can just run wrf.exe the next time (usefulf for mpirun).
 
-In case of any difference find the first commit where the results deviate and either fix or
+In case of any differences find the first commit where the results deviate and either fix or
 justify that this is actually correct and establish a new baseline.
 
 Please note in the commit message if the results are to be different because of a change
