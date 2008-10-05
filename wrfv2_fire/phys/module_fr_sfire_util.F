@@ -25,12 +25,15 @@ integer,save::          &
  boundary_guard=-1,     &  ! crash if fire gets this many cells to domain boundary, -1=off
  fire_grows_only=1,     &  ! fire can spread out only (level set functions may not increase)
  fire_upwinding=3,      &  ! upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian 
- fire_upwind_split=0       ! 1=upwind advection separately from normal direction spread
+ fire_upwind_split=0,   &  ! 1=upwind advection separately from normal direction spread
+ fire_time_steps=1         ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)
+
 
 real, save::            &
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
  fire_back_weight=0.5,  &  ! RK parameter, 0 = Euler method, 0.5 = Heun, 1 = fake backward Euler
- fire_viscosity=0.4        ! artificial viscosity
+ fire_viscosity=0.4,    &  ! artificial viscosity
+ fire_lfn_ext_up=1.        ! 0.=extend level set function at boundary by reflection, 1.=always up
 
 contains
 

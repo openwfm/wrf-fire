@@ -177,6 +177,6 @@
  fire_grows_only=1,             ! if >0 level set function cannot increase = fire can only grow
  fire_viscosity=0.4,              ! artificial viscosity in level set method (max 1, needed with fire_upwinding=0)
  fire_upwinding=3,              ! 0=none, 1=standard, 2=godunov, 3=eno, 4=sethian
- fire_fuel_left_method=1        ! for now, use 1 only
-
- /
+ fire_fuel_left_method=1,        ! for now, use 1 only
+ fire_lfn_ext_up=1.0,           ! 0.=extend level set function at boundary by reflection, 1.=always up
+ fire_time_steps=1,             ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)

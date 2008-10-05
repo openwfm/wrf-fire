@@ -1015,6 +1015,9 @@ fire_grows_only         = config_flags%fire_grows_only
 fire_upwinding          = config_flags%fire_upwinding
 fire_upwind_split       = config_flags%fire_upwind_split 
 fire_viscosity          = config_flags%fire_viscosity 
+fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
+fire_time_steps         = config_flags%fire_time_steps 
+
 
 
 

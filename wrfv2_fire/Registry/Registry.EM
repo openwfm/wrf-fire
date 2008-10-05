@@ -1530,10 +1530,12 @@ rconfig   integer fire_fuel_left_irl     namelist,fire         max_domains      
 rconfig   integer fire_fuel_left_jrl     namelist,fire         max_domains           2       -      "fire_fuel_left_jrl"   "submesh to compute fuel lwft, even, at least 2" ""
 rconfig   real    fire_atm_feedback      namelist,fire         max_domains           1.      -      "fire_atm_feedback"   "the heat fluxes to the atmosphere are multiplied by this" "1"
 rconfig   real    fire_back_weight       namelist,fire         max_domains           0.5     -      "fire_back_weight"   "RK timestepping coefficient, 0=forward, 0.5=Heun" "1"
-rconfig   integer fire_grows_only        namelist,fire         max_domains            1       -      "fire_grows_only" "if >0 level set function cannot increase = fire can only grow" "1"
-rconfig   integer fire_upwinding         namelist,fire         max_domains            3       -      "fire_upwinding" "upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian" "1"
-rconfig   integer fire_upwind_split      namelist,fire         max_domains            0       -      "fire_upwind_split" "1=upwind advection separately from normal direction spread" "1"
+rconfig   integer fire_grows_only        namelist,fire         max_domains            1       -     "fire_grows_only" "if >0 level set function cannot increase = fire can only grow" "1"
+rconfig   integer fire_upwinding         namelist,fire         max_domains            3       -     "fire_upwinding" "upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian" "1"
+rconfig   integer fire_upwind_split      namelist,fire         max_domains            0       -     "fire_upwind_split" "1=upwind advection separately from normal direction spread" "1"
 rconfig   real    fire_viscosity         namelist,fire         max_domains           0.4     -      "fire_viscosity"   "artificial viscosity in level set method" "1"
+rconfig   real    fire_lfn_ext_up        namelist,fire         max_domains           1.0     -      "fire_lfn_ext_up"   "0.=extend level set function at boundary by reflection, 1.=always up" "1"
+rconfig   integer fire_time_steps        namelist,fire         max_domains            1       -     "fire_time_steps" "0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)" "1"
 
 
 #
