@@ -7,9 +7,12 @@ set d=$1
 endif
 echo moving to $d
 mkdir $d
-find . -name \*.txt -exec mv {} $d \;
-find . -name wrfrst\* -exec rm -f {} \;
-find . -name wrfout\* -exec rm -f {} \;
-mv wrf.log $d
+mv *.txt $d
+rm $d/*000.txt
+mv wrfrst* wrf.log $d
+#find . -name \*.txt -exec mv {} $d \;
+#find . -name wrfrst\* -exec rm -f {} \;
+#find . -name wrfout\* -exec rm -f {} \;
+#mv wrf.log $d
 cp -p namelist.input $d
 cp -p input_sounding $d
