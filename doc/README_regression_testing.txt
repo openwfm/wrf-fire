@@ -38,7 +38,12 @@ If there was any change notify other developers in particular Jan.
 6. in matlab, load LFN from the wrfrst* files and check for any weirdness such as positive
    or negative spikes at the boundary. These were past bugs and should not reappear. Some
    of these may show up in OpenMP or DM runs only. (But you checked that the parallel
-   and serial results are the same up to rounding already, right?)
+   and serial results are the same up to rounding already, right?) Use ncread to load 
+   a single variable from wrfrst* file into matlab.
+
+7. Do not forget to do the same also for the real case with WPS!! Some bugs appear only
+   when running real, not ideal. See README_wps.txt for how to run real. After
+   running wps.csh once, you can just run wrf.exe the next time (usefulf for MPI).
 
 In case of any difference find the first commit where the results deviate and either fix or
 justify that this is actually correct and establish a new baseline.
