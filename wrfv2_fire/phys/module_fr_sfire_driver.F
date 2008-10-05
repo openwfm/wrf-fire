@@ -94,7 +94,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         fire_ignition_end_y, &
         fire_ignition_time, &
         fire_ignition_radius
-    integer::fire_ifun,fire_ifun_start,ir,jr,fire_ignition_longlat
+    integer::fire_ifun,fire_ifun_start,ir,jr,fire_ignition_longlat,istep,itimestep
     logical::need_lfn_update
     !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
     ! uf vf only do not need to be in the state but we need halo on them
@@ -102,19 +102,24 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     integer, dimension(ifms:ifme, jfms:jfme)::nfuel_cat_int
 
 !*** executable
+    ! populate our structures from wrf
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+    call set_flags(config_flags)
 
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
+    itimestep=grid%itimestep
     
-    fire_ifun_start=1  ! initialize?
-    if(grid%itimestep.ne.1)fire_ifun_start=3  ! should find a better distinction when to initialize
-    call set_flags(config_flags)
+    do istep=0,fire_test_steps ! istep >0 is for testing only, exit after the first call
+      itimestep = itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
 
-    need_lfn_update=.false.
-    do fire_ifun=fire_ifun_start,6
+      fire_ifun_start=1  ! initialize?
+      if(itimestep.ne.1)fire_ifun_start=3  ! should find a better distinction when to initialize
+
+      need_lfn_update=.false.
+      do fire_ifun=fire_ifun_start,6
 
         ! 1 = initialize run pass 1: interpolate height to zsf=terrain
         ! 2 = initialize run pass 2: set fuel data, terrain gradient
@@ -160,7 +165,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%num_tiles,                             & ! atm grid tiling
             grid%i_start,min(grid%i_end,ide-1),                    &
             grid%j_start,min(grid%j_end,jde-1),                    &                 
-            grid%itimestep,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
+            itimestep,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
             grid%dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
@@ -185,8 +190,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
         )
         grid%nfuel_cat(:,:)=real(nfuel_cat_int(:,:))
-    
+      enddo
     enddo
+    if(fire_test_steps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
 
 end subroutine sfire_driver_em
 
@@ -1016,7 +1022,7 @@ fire_upwinding          = config_flags%fire_upwinding
 fire_upwind_split       = config_flags%fire_upwind_split 
 fire_viscosity          = config_flags%fire_viscosity 
 fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
-fire_time_steps         = config_flags%fire_time_steps 
+fire_test_steps         = config_flags%fire_test_steps 
 
 
 
