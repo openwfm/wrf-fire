@@ -134,11 +134,11 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 #include "HALO_FIRE_LFN.inc"
         endif
         if(fire_ifun.eq.1)then
-        elseif(fire_ifun.eq.2)then
 !       halo exchange on xlong and xlat
 #include "HALO_FIRE_LONGLAT.inc"
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
+        elseif(fire_ifun.eq.2)then
         elseif(fire_ifun.eq.3)then
             if(fire_ifun_start<3)then
 !               halo exchange on all fuel data width 1
@@ -469,53 +469,33 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlat,'xlat',id)
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlong,'xlong',id)
 #endif
-            ! first extend the coordinates by one beyond the domain boundary 
-            call continue_at_boundary(1,1,0., & ! do x direction or y direction
-                ims,ime,  jms,jme,           &                ! memory dims
-                ids,ide,jds,jde, &            ! domain dims 
-                ips,ipe,jps,jpe, &            ! domain dims 
-                its,ite,jts,jte, &                ! tile dims
-                xlat)                               ! array
+        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            xlat,                                       & ! atm grid arrays in
+            fxlat)                                      ! fire grid arrays out
 
-            call continue_at_boundary(1,1,0., & ! do x direction or y direction
-                ims,ime,  jms,jme,           &                ! memory dims
-                ids,ide,jds,jde, &            ! domain dims 
-                ips,ipe,jps,jpe, &            ! domain dims 
-                its,ite,jts,jte, &                ! tile dims
-                xlong)                               ! array
+        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            xlong,                                       & ! atm grid arrays in
+            fxlong)                                      ! fire grid arrays out
+
         endif
 
-    elseif(ifun.eq.2)then  ! interpolate geo coordinates to the fire grid
-        ! need a barrier update before using the extended values of xlong and xlat
-
-        if(ignition_longlat .eq.0)then
-        else
-            call interpolate_2d(  &
-                ims,ime,  jms,jme,                    & ! memory dimension on atm grid
-                its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
-                ifms,ifme,jfms,jfme,&  ! array dims fire grid
-                ifts,ifte,jfts,jfte,&  ! dimensions on the fire grid to interpolate to
-                ir,jr,                  & ! refinement ratio
-                real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
-                xlat,                     & ! in atm grid     
-                fxlat)                      ! out fire grid
-
-            call interpolate_2d(  &
-                ims,ime,  jms,jme,                    & ! memory dimension on atm grid
-                its-1,ite+1,jts-1,jte+1,                      & ! where atm grid values known - need halo and extension!
-                ifms,ifme,jfms,jfme,&  ! array dims fire grid
-                ifts,ifte,jfts,jfte,&  ! dimensions on the fire grid to interpolate to
-                ir,jr,                  & ! refinement ratio
-                real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
-                xlong,                     & ! in atm grid     
-                fxlong)                      ! out fire grid
-         endif
-#ifdef DEBUG_OUT
-         call write_array_m(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme,xlat,'xlat_e',id)
-         call write_array_m(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme,xlong,'xlong_e',id)
-         call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fxlat,'fxlat',id)
-         call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fxlong,'fxlong',id)
-#endif
+    elseif(ifun.eq.2)then  
 
                
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
