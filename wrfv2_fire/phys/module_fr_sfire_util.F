@@ -110,8 +110,10 @@ ite1=ite
 jte1=jte
 if(its.eq.ips.and..not.its.eq.ids)its1=its-1
 if(jts.eq.jps.and..not.jts.eq.jds)jts1=jts-1
-if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite-1
-if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte-1
+if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+1
+if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+1
+write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
+call message(msg)
 if(ix.ne.0)then
     if(its.eq.ids)then
         do j=jts1,jte1
@@ -125,6 +127,8 @@ if(ix.ne.0)then
         enddo
         iteo=ide+1
     endif
+    write(msg,'(8(a,i5))')'continue_at_boundary: x:',its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jts1,':',jte1
+    call message(msg)
 endif
 if(iy.ne.0)then
     if(jts.eq.jds)then
@@ -139,6 +143,8 @@ if(iy.ne.0)then
         enddo
         jteo=jde+1
     endif
+    write(msg,'(8(a,i5))')'continue_at_boundary: y:',its,':',ite,',',jts,':',jte,' ->',its1,':',ite1,',',jtso,':',jteo
+    call message(msg)
 endif
 ! corners of the domain
 if(ix.ne.0.and.iy.ne.0)then
@@ -148,9 +154,6 @@ if(ix.ne.0.and.iy.ne.0)then
     if(ite.eq.ide.and.jte.eq.jde)lfn(ide+1,jde+1)=EX(lfn(ide,jde),lfn(ide-1,jde-1))
 endif
 #undef EX
-write(msg,'(8(a,i5),a,f5.2)')'continue_at_boundary:', &
-    its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jtso,':',jteo,' bias',bias
-call message(msg)
 end subroutine continue_at_boundary
 
 !
