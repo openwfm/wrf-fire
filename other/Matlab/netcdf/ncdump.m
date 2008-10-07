@@ -66,9 +66,9 @@ v=ncvarinfo(ncid,varid); % find out all about this variable
 nccheck(status);
 status=mexnc('CLOSE',ncid);
 nccheck(status)
-if v.ndims>1,
-	value=permute(value,v.ndims:-1:1);
-end
+%if v.ndims>1,
+%	value=permute(value,[2:v.ndims,1]);
+%end
 v.var_value=value;
 dispvarinfo(v);
 end
