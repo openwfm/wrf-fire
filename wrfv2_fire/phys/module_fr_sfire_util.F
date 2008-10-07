@@ -1004,7 +1004,7 @@ call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call wrf_get_nproc (nprocs)
 call wrf_get_myproc( myproc )
 
-if(nprocs.eq.0)then
+if(nprocs.eq.1)then
     write(fname,3)name,'_',id,'.txt'
 else
     write(fname,4)name,'_',id,'.',myproc,'.txt'
