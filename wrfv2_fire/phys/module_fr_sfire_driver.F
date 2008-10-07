@@ -138,11 +138,12 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 #include "HALO_FIRE_LFN.inc"
         endif
         if(fire_ifun.eq.1)then
-!       halo exchange on xlong and xlat
+!       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
+#include "HALO_FIRE_ZS.inc"
+        elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
-        elseif(fire_ifun.eq.2)then
         elseif(fire_ifun.eq.3)then
             if(fire_ifun_start<3)then
 !               halo exchange on all fuel data width 1
@@ -190,7 +191,6 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%fxlong,grid%fxlat,                           &       
             nfuel_cat_int,                               & ! input, or internal for safekeeping
             grid%fuel_time,grid%zsf,                      & 
-            grid%dzfsdx,grid%dzfsdy,                      &
             grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
         )
         grid%nfuel_cat(:,:)=real(nfuel_cat_int(:,:))
@@ -235,7 +235,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fxlong,fxlat,                            & !  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,zsf,                                & ! save constant internal data, fire grid
-    dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap&
+    bbb,betafl,phiwc,r_0,fgip,ischap&
     )
 
 implicit none
@@ -319,7 +319,7 @@ real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh c
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme):: &
     fuel_time,zsf,                               &
-    dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
+    bbb,betafl,phiwc,r_0,fgip
 integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
     
 !*** local
@@ -540,7 +540,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         nfuel_cat,                              & ! fuel data per point 
         fuel_time,                              & ! save derived internal data
-        dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
+        bbb,betafl,phiwc,r_0,fgip,ischap &
     )
     
     if(ifun.eq.6)then ! heat fluxes into the atmosphere    

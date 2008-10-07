@@ -1443,8 +1443,8 @@ state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"
 # constant data arrays
 state    real     fxlong    *i*j      fire        1         z    hr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
 state    real     fxlat     *i*j      fire        1         z    hr    "FXLAT"     "latitude of midpoints of fire cells" "degrees"
-state    real     dzfsdx    *i*j      fire        1         z    hr    "DXFSDX"    "topo"
-state    real     dzfsdy    *i*j      fire        1         z    hr    "DXFSDY"    "topo"
+#state    real     dzfsdx    *i*j      fire        1         z    hr    "DXFSDX"    "topo"
+#state    real     dzfsdy    *i*j      fire        1         z    hr    "DXFSDY"    "topo"
 state    real     fuel_time *i*j      fire        1         z    hr    "FUEL_TIME" "fuel"
 state    real     bbb       *i*j      fire        1         z    hr    "BBB"       "fuel"
 state    real     betafl    *i*j      fire        1         z    hr    "BETAFL"    "fuel"
@@ -1542,6 +1542,7 @@ rconfig   integer fire_test_steps        namelist,fire         max_domains      
 # Fire halo descriptions
 #
 halo      HALO_FIRE_LFN dyn_em 12:lfn
+halo      HALO_FIRE_ZS dyn_em 12:zs
 halo      HALO_FIRE_WIND_F dyn_em 8:uf,vf
 halo      HALO_FIRE_LONGLAT dyn_em 12:xlong,xlat
 halo      HALO_FIRE_WIND_A dyn_em 8:u_2,v_2

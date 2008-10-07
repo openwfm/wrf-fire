@@ -1373,7 +1373,8 @@ real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the le
 !*** local 
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
-   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
+   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi, &
+   dzdx,dzdy
 integer::i,j
 
 ! constants
@@ -1454,7 +1455,9 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
             speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
             ! slope in direction of spread
-            tanphi =  dzfsdx(i,j)*nvx + dzfsdy(i,j)*nvy
+            dzdx = (zsf(i+1,j)-zsf(i-1,j))*fdx2
+            dzdy = (zsf(i,j+1)-zsf(i,j-1))*fdy2
+            tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope
 
@@ -1487,8 +1490,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
 
 		! advection from slope direction 
                 if(abs(tanphi)>eps) then
-                    advx=advx+dzfsdx(i,j)*ros_slope/tanphi
-                    advy=advy+dzfsdy(i,j)*ros_slope/tanphi
+                    advx=advx+dzdx*ros_slope/tanphi
+                    advy=advy+dzdy*ros_slope/tanphi
                 endif
 
                 if(fire_upwind_split.eq.1)then   
@@ -1633,7 +1636,7 @@ integer, intent(in)::i,j         ! indices of the node to compute the speed at
 #include "fr_sfire_params_decl.h"
 #endif
 !*** local
-real::scale,nvx,nvy,speed,tanphi,r
+real::scale,nvx,nvy,speed,tanphi,r,dzdx,dzdy
 real::ros_back , ros_wind , ros_slope
 real, parameter:: eps=epsilon(0.0)
 !*** executable
@@ -1646,7 +1649,9 @@ real, parameter:: eps=epsilon(0.0)
             speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
             ! slope in direction of spread
-            tanphi =  dzfsdx(i,j)*nvx + dzfsdy(i,j)*nvy
+            dzdx = (zsf(i+1,j)-zsf(i-1,j))*fdx2
+            dzdy = (zsf(i,j+1)-zsf(i,j-1))*fdy2
+            tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope
 

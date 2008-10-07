@@ -138,7 +138,7 @@ subroutine set_fire_params( &
                            ifms,ifme,jfms,jfme, &
                            ifts,ifte,jfts,jfte, &
                            fdx,fdy,             &
-                           zsf,nfuel_cat,fuel_time  &
+                           nfuel_cat,fuel_time  &
 #                          include "fr_sfire_params_args.h" 
 )
 
@@ -151,7 +151,6 @@ integer, intent(in)::ifds,ifde,jfds,jfde                        ! fire domain bo
 integer, intent(in)::ifts,ifte,jfts,jfte                        ! fire tile bounds
 integer, intent(in)::ifms,ifme,jfms,jfme                        ! memory array bounds
 real, intent(in):: fdx,fdy                                      ! fire mesh spacing
-real, intent(in), dimension(ifms:ifme, jfms:jfme)::zsf          ! surface altitude
 integer, intent(in),dimension(ifms:ifme, jfms:jfme)::nfuel_cat  ! fuel data
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 #define IN out  /* the fire param arrays are set here, elsewhere read only */
@@ -171,29 +170,8 @@ character(len=128)::msg
 
 !*** executable
 
-! copy plus one but not over domain boundary
-do j=max(jfts-1,ifds),min(jfte+1,ifde)
-    do i=max(ifts-1,ifds),min(ifte+1,ifde)
-        zsfc(i,j)=zsf(i,j)
-    enddo
-enddo
-
-call continue_at_boundary(1,1,0., &          ! do x direction or y direction
-    ifts-1,ifte+1,jfts-1,jfte+1, &        ! memory dims
-    ifds,ifde,jfds,jfde, &                ! domain dims
-    ifds,ifde,jfds,jfde, &                ! domain dims
-    ifts,ifte,jfts,jfte, &                ! tile dims
-    zsfc)                                 ! array
-
-fdxinv=0.5/fdx
-fdyinv=0.5/fdy
-do j=jfts,jfte
-    do i=ifts,ifte
-        ! central differences
-        dzfsdx(i,j) = (zsfc(i+1,j)-zsfc(i-1,j))*fdxinv
-        dzfsdy(i,j) = (zsfc(i,j+1)-zsfc(i,j-1))*fdyinv
-    enddo
-enddo
+fdx2=2./fdx
+fdy2=2./fdy
 
 err=.false.
 do j=jfts,jfte

@@ -35,7 +35,7 @@ subroutine sfire_model (                    &
     grnhfx,grnqfx,                          & ! output: heat fluxes
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
-    dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
+    bbb,betafl,phiwc,r_0,fgip,ischap &
 ) 
 
 ! This subroutine implements the fire spread model.
@@ -125,7 +125,6 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 ! constant arrays - set at initialization
 integer, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
-real,intent(inout),dimension(ifms:ifme,jfms:jfme):: dzfsdx,dzfsdy        ! (node) terrain gradient (1)
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: bbb,betafl,phiwc,r_0 ! (node) spread formula coefficients
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fgip                 ! (cell) init mass of surface fuel (kg/m^2)
 integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node) .ne.0 if chapparal
@@ -133,6 +132,7 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 !*** local
 
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
+real::fdx2,fdy2                     ! for spread args
 integer::ignited,ig,i,j
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 real::tbound
@@ -167,12 +167,11 @@ elseif(ifun.eq.2)then   ! initialize the run
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             fdx,fdy,             &
-            zsf,nfuel_cat,fuel_time &
+            nfuel_cat,fuel_time &
 #           include "fr_sfire_params_args.h" 
 )
 
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'model: terrain height')        
-        call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,dzfsdx,dzfsdy,'terrain gradient')
                                         
         ! initialize model state to no fire
         call init_no_fire   ( &
