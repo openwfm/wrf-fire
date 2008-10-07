@@ -166,7 +166,7 @@
 !
 ! verbosity
  fire_print_msg     = 1,        ! 1 print fire debugging messages
- fire_print_file    = 0,        ! 1 write files for matlab; do not use with parallel runs
+ fire_print_file    = 1,        ! 1 write files for matlab
 !
 ! method selections, do not change from defaults unless you know what you are doing
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
