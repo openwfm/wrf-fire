@@ -986,6 +986,8 @@ end subroutine write_array_m
 subroutine write_array_m3(its,ite,kts,kte,jts,jte,           &
                          ims,ime,kms,kme,jms,jme,               &
                          a,name,id)
+use module_dm
+
 implicit none
 ! debug
 !*** arguments
@@ -993,14 +995,20 @@ integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme,kts,kte,kms,kme,id
 real, intent(in), dimension(ims:ime,kms:kme,jms:jme):: a
 character(len=*),intent(in)::name
 !****
-integer i,j,k,iu,ilen
+integer i,j,k,iu,ilen,myproc,nprocs
 logical op
 character(len=128)::fname,msg
 !****
 if(fire_print_file.eq.0)return
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
+call wrf_get_nproc (nprocs)
+call wrf_get_myproc( myproc )
 
-write(fname,3)name,'_',id,'.txt'
+if(nprocs.eq.0)then
+    write(fname,3)name,'_',id,'.txt'
+else
+    write(fname,4)name,'_',id,'.',myproc,'.txt'
+endif
 do ilen=len(fname),2,-1
     if(fname(ilen:ilen).ne.' ')goto 19
 enddo
@@ -1034,6 +1042,8 @@ return
 1 format(e20.12)
 2 format(2a,3(i5,a,i5,a),2a)
 3 format(a,a,i5.5,a)
+4 format(a,a,i5.5,a,i4.4,a)
+
 9 write(msg,'(3a)')'Cannot open file ',fname(1:ilen),' for writing'
 call crash(msg)
 
