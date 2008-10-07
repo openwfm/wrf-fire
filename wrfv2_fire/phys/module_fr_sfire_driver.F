@@ -102,6 +102,10 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     integer, dimension(ifms:ifme, jfms:jfme)::nfuel_cat_int
 
 !*** executable
+
+    call print_id
+
+
     ! populate our structures from wrf
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
@@ -1008,5 +1012,12 @@ fire_test_steps         = config_flags%fire_test_steps
 
 
 end subroutine set_flags
+
+subroutine print_id
+character(len=128)::id,msg
+#include "sfire_id.inc"
+msg='version '//id
+call message(msg)
+end subroutine print_id
 
 end module module_fr_sfire_driver

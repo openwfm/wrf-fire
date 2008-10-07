@@ -267,7 +267,12 @@ module_fr_cawfe.o: \
                 module_fr_cawfe_fuel.o \
 	        module_fire_debug_output.o
 
+get_sfire_id.inc:
+		./commit_hash > sfire_id.inc
+		cat sfire_id.inc
+
 module_fr_sfire_driver.o: \
+                get_sfire_id.inc \
 		../share/module_model_constants.o  \
 		module_fr_sfire_atm.o \
 		module_fr_sfire_phys.o \
