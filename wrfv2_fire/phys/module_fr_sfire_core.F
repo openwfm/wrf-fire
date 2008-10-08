@@ -1274,7 +1274,7 @@ call message(msg)
                    grady=(lfn_out(i,j+1)-lfn_out(i,j-1))/(2.0*dy)
                    grad2=sqrt(gradx*gradx+grady*grady)
                    aspeed = (lfn_in(i,j)-lfn_out(i,j))/(dt*max(grad2,rmin))                   
-                    rr = speed_func(gradx,grady,i,j  &
+                    rr = speed_func(gradx,grady,dx,dy,i,j  &
 #                   include "fr_sfire_params_args.h"
                     )
                    err=aspeed-rr
@@ -1376,6 +1376,7 @@ real:: te,diffLx,diffLy,diffRx,diffRy, &
    ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi, &
    dzdx,dzdy
 integer::i,j
+character(len=128)msg
 
 ! constants
 real, parameter:: eps=epsilon(0.0)
@@ -1455,8 +1456,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
             speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
             ! slope in direction of spread
-            dzdx = (zsf(i+1,j)-zsf(i-1,j))*fdx2
-            dzdy = (zsf(i,j+1)-zsf(i,j-1))*fdy2
+            dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2.*dx)
+            dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2.*dy)
             tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope
@@ -1526,6 +1527,13 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
             rra(i,j)=rr
             grada(i,j)=grad    
 #endif
+            !write(msg,*)i,j,grad,dzdx,dzdy
+            !call message(msg)
+
+            !if(abs(te)>1e4)then
+            !    write(msg,'(a,2i5,e12.3)')'tend_ls: tend out of bounds at ',i,j,te
+            !    call crash(msg)
+            !endif
         enddo
     enddo        
 
@@ -1617,7 +1625,7 @@ end function select_eno
 !**************************
 !
 
-real function speed_func(diffCx,diffCy,i,j &
+real function speed_func(diffCx,diffCy,dx,dy,i,j &
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
@@ -1629,6 +1637,7 @@ real function speed_func(diffCx,diffCy,i,j &
 implicit none
 !*** arguments
 real, intent(in)::diffCx,diffCy  ! x and y coordinates of the direction of propagation
+real, intent(in)::dx,dy  ! x and y coordinates of the direction of propagation
 integer, intent(in)::i,j         ! indices of the node to compute the speed at
 #ifdef SPEED_VARS_DECL      /* extra arguments for fire_ros */
 #include SPEED_VARS_DECL
@@ -1649,8 +1658,8 @@ real, parameter:: eps=epsilon(0.0)
             speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
             ! slope in direction of spread
-            dzdx = (zsf(i+1,j)-zsf(i-1,j))*fdx2
-            dzdy = (zsf(i,j+1)-zsf(i,j-1))*fdy2
+            dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2.*dx)
+            dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2.*dy)
             tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope

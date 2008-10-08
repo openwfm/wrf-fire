@@ -132,9 +132,8 @@ integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node
 !*** local
 
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
-real::fdx2,fdy2                     ! for spread args
-integer::ignited,ig,i,j
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
+integer::ignited,ig,i,j
 real::tbound
 character(len=128)::msg
 
@@ -147,6 +146,7 @@ xifms=ifms  ! dimensions for the include file
 xifme=ifme
 xjfms=jfms
 xjfme=jfme
+
 
 need_lfn_update=.false.
 
