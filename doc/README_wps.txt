@@ -47,8 +47,8 @@ ln -sf ../../../WPS/met_em.d01.2005-08-28_1* .
 #run wrf preprocessor
 ./real.exe
 
-#run wrf
-./wrf.exe
+#run wrf.exe in wrf/wrfv2_fire/test/em_real
+#./wrf.exe
 
 #*****************************************************************************
 #
