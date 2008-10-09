@@ -9,7 +9,28 @@ NOTE: To get the files you need to be working on a machine that has a
     it is strongly recommended to work on these two machines only, at
     least from the start.
 
-Using the repository:
+***************************************
+*The big picture
+***************************************
+
+First you clone to create a local repository. The first time you create
+your own branch as a copy of master. If you already have a
+branch in the archive you create a local branch as a copy of that. 
+To get new files pull from master in the archive. You work all the time in your
+local branch. Then push your branch to the archive.
+
+***************************************
+*Things to remember
+***************************************
+
+1. make sure you are in your branch  before you modify anything
+2. merge between repositories is on pull only
+3. after git pull or merge use git log to make sure where you are
+4. before pulling you must commit all changes (=to your local repository)
+5. when you push all committed changes will be visible to others
+6. your changes will get merged into master only when you ask Jon to do that
+7. accumulated changes cause edit conflicts - merge with master often!
+
 
 ***************************************
 *Initial command list (see explanations below)*
