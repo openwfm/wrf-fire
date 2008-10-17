@@ -140,7 +140,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         if(fire_ifun.eq.1)then
 !       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
+            if(fire_topo_from_atm.eq.1)then
 #include "HALO_FIRE_ZS.inc"
+            endif 
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
@@ -440,17 +442,21 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
     
         ! interpolate terrain height
         
-        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
-            ids,ide,  jds,jde,                    & ! atm grid dimensions
-            ims,ime,  jms,jme,                    &
-            ips,ipe,jps,jpe,                              &
-            its,ite,jts,jte,                              &
-            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-            ifms, ifme, jfms, jfme,                       &
-            ifts,ifte,jfts,jfte,                          &
-            ir,jr,                                        & ! atm/fire grid ratio
-            zs,                                       & ! atm grid arrays in
-            zsf)                                      ! fire grid arrays out
+        if(fire_topo_from_atm.eq.1)then
+            call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+                ids,ide,  jds,jde,                    & ! atm grid dimensions
+                ims,ime,  jms,jme,                    &
+                ips,ipe,jps,jpe,                              &
+                its,ite,jts,jte,                              &
+                ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+                ifms, ifme, jfms, jfme,                       &
+                ifts,ifte,jfts,jfte,                          &
+                ir,jr,                                        & ! atm/fire grid ratio
+                zs,                                       & ! atm grid arrays in
+                zsf)                                      ! fire grid arrays out
+        else
+           write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
+        endif
 
         if(ignition_longlat .eq.0)then
             ! set ideal fire mesh coordinates
@@ -991,6 +997,7 @@ use module_fr_sfire_util
 implicit none
 TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
 ! copy flags from wrf to module_fr_sfire_util
+! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
 
 fire_print_msg          = config_flags%fire_print_msg
@@ -1007,6 +1014,7 @@ fire_upwind_split       = config_flags%fire_upwind_split
 fire_viscosity          = config_flags%fire_viscosity 
 fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
 fire_test_steps         = config_flags%fire_test_steps 
+fire_topo_from_atm      = config_flags%fire_topo_from_atm
 
 
 

@@ -1536,6 +1536,7 @@ rconfig   integer fire_upwind_split      namelist,fire         max_domains      
 rconfig   real    fire_viscosity         namelist,fire         max_domains           0.4     -      "fire_viscosity"   "artificial viscosity in level set method" "1"
 rconfig   real    fire_lfn_ext_up        namelist,fire         max_domains           1.0     -      "fire_lfn_ext_up"   "0.=extend level set function at boundary by reflection, 1.=always up" "1"
 rconfig   integer fire_test_steps        namelist,fire         max_domains            0       -     "fire_test_steps" ">0 = on first call, do specified number of steps and terminate (testing only)" "1"
+rconfig   integer fire_topo_from_atm     namelist,fire         max_domains            1       -     "fire_topo_from_atm" "0 = do nothing, 1 = populate ZSF by interpolating from atmosphere" "1"
 
 
 #
