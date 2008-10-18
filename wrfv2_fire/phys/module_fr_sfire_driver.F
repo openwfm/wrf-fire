@@ -465,8 +465,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
                 ifds,ifde,jfds,jfde,  &
                 ifms,ifme,jfms,jfme,  &
                 ifts,ifte,jfts,jfte,  &
-                fxlong,fxlat
-            )
+                fxlong,fxlat          )
         else
             ! assume halo xlong xlat
             ! interpolate nodal coordinates
