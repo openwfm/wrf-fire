@@ -210,7 +210,7 @@ real::xfcell,yfcell,fmax,frat
 real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
 real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
 character(len=128)::msg
-	     
+     
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
@@ -258,20 +258,20 @@ do j=1,JFCELLS
     do i=1,IFCELLS
         iccell=its+(i-1)/ir ! the nearest coarse node
         jccell=jts+(j-1)/jr ! use fuel_time of the coarse cell the fine cell is in
-	if(fuel_left_method.eq.1)then
-             call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
+        if(fuel_left_method.eq.1)then
+            call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell))
-	elseif(fuel_left_method.eq.2)then
+        elseif(fuel_left_method.eq.2)then
              fire_area_f(i,j)=0  ! initialize to something until computed in fuel_left_f(i,j)
              fuel_left_f(i,j)=fuel_left_cell_2( &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell)) 
-	else
-	     call crash('fuel_left: unknown fuel_left_method')
-	endif
+        else
+             call crash('fuel_left: unknown fuel_left_method')
+        endif
         ! consistency check
         if(fire_area_f(i,j).eq.0.)then
            if(fuel_left_f(i,j).lt.1.)then
@@ -1087,7 +1087,7 @@ implicit none
 ! tend_ls
 !
 
-integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe                ! patch - nodes owned by this process 
+integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe 
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out
 real,intent(in)::dx,dy,ts,dt
@@ -1311,7 +1311,7 @@ call message(msg)
                     if(lfn_out(i,j)<=0.)goto 9
                 enddo
             endif
-	enddo
+    enddo
         ! do kk=1,(boundary_guard*(jde-jds+1))/100
         do kk=1,boundary_guard    ! measured in cells
             j=jds+k*kk

@@ -28,7 +28,6 @@ DECL = normal_spread_decl
 SPEED_VARS_ARGS = \"$(ARGS).h\"
 SPEED_VARS_DECL = \"$(DECL).h\"
 INC = $(ARGS).h $(DECL).h
-LAPACK_OBJ = lapack.o
 
 # module dependencies
 
@@ -80,8 +79,7 @@ PROP_OBJ = \
     module_fr_sfire_core.o \
     $(PHYS).o \
     module_fr_sfire_util.o \
-    wrf_fakes.o \
-    $(LAPACK_OBJ)
+    wrf_fakes.o
 
 prop_test_main.o: module_fr_sfire_core.o 
 
@@ -98,8 +96,7 @@ FUEL_TEST_OBJ=\
     module_fr_sfire_core.o \
     module_fr_sfire_util.o \
     wrf_fakes.o \
-    burn_test_main.o \
-    $(LAPACK_OBJ)
+    burn_test_main.o
 
 burn_test_main.o: module_fr_sfire_core.o
 
@@ -115,8 +112,7 @@ burn_test: burn_test_prog.exe
 UTIL_OBJ= \
     util_test_main.o   \
     module_fr_sfire_util.o  \
-    wrf_fakes.o \
-    $(LAPACK_OBJ)
+    wrf_fakes.o
 
 util_test_main.o: module_fr_sfire_util.o
 
@@ -134,13 +130,11 @@ CORE_OBJ= \
     normal_spread.o \
     module_fr_sfire_core.o \
     module_fr_sfire_util.o \
-    wrf_fakes.o \
-    $(LAPACK_OBJ)
+    wrf_fakes.o
 
 core_test_main.o: \
     module_fr_sfire_core.o \
-    normal_spread.o \
-    $(LAPACK_OBJ)
+    normal_spread.o
     
 core_test_prog.exe: $(CORE_OBJ) 
 	$(FC) -o core_test_prog.exe $(CORE_OBJ)
@@ -157,8 +151,7 @@ core_test: core_test_prog.exe
 #    module_fr_sfire_core.o \
 #    module_fr_sfire_phys.o \
 #    module_fr_sfire_util.o  \
-#    wrf_fakes.o \
-#    $(LAPACK_OBJ)
+#    wrf_fakes.o
 
 #model_netcdf_main.o: module_fr_sfire_model.o 
 
@@ -171,8 +164,7 @@ MODEL_OBJ = \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
-    wrf_fakes.o \
-    $(LAPACK_OBJ)
+    wrf_fakes.o
 
 model_test_main.o: module_fr_sfire_model.o 
  
@@ -204,8 +196,7 @@ burnt_test_OBJ=\
 	module_fr_sfire_util.o \
 	module_fr_sfire_phys.o \
 	wrf_fakes.o \
-	fuel_burnt_test.o \
-	$(LAPACK_OBJ)
+	fuel_burnt_test.o 
 
 fuel_burnt_test.o: module_fr_sfire_core.o
 
@@ -233,8 +224,7 @@ DRIVER_OBJ =  \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o \
-    module_model_constants.o \
-    $(LAPACK_OBJ)
+    module_model_constants.o 
 
 driver_test:
 	make -f $(MAKEFILE) driver_test_prog.exe FC="$(FC)" \
