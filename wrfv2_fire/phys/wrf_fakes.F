@@ -3,7 +3,7 @@ contains
 
 subroutine wrf_error_fatal(s)
 character(len=*), intent(in)::s
-call latch
+call latch ! food for debugger so you can say "stop at latch"
 print *,s
 call abort()
 end subroutine wrf_error_fatal
@@ -32,3 +32,16 @@ end module module_wrf_error
 subroutine latch
 end
 
+module module_dm
+contains
+subroutine wrf_get_nproc (nprocs)
+integer nprocs
+nprocs=1
+end subroutine wrf_get_nproc
+
+subroutine wrf_get_myproc( myproc )
+integer myproc
+myproc=1
+end subroutine wrf_get_myproc
+
+end module module_dm

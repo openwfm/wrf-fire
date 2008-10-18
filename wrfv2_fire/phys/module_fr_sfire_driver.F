@@ -1,4 +1,4 @@
-!WRF:MEDIATION_LAYER:FIRE_MODEL
+! WRF:MEDIATION_LAYER:FIRE_MODEL
 
 !*** Jan Mandel August 2007 - February 2008
 !*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
@@ -459,18 +459,14 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
         endif
 
         if(ignition_longlat .eq.0)then
-            ! set ideal fire mesh coordinates
-
-    	    if(ignition_longlat .eq.0)then
-                !  ignition is in m
-                do j=jfts,jfte
-                    do i=ifts,ifte
-                        ! uniform mesh, lower left domain corner is (0,0)
-                        fxlong(i,j)=(i-ifds+0.5)*dxf 
-                        fxlat (i,j)=(j-jfds+0.5)*dyf
-                    enddo
-                enddo
-            endif
+            ! set ideal fire mesh coordinates - used for ignition only
+            ! do not forget to set unit_fxlong, unit_fxlat outside of parallel loop
+            call set_ideal_coord( dxf,dyf, &
+                ifds,ifde,jfds,jfde,  &
+                ifms,ifme,jfms,jfme,  &
+                ifts,ifte,jfts,jfte,  &
+                fxlong,fxlat
+            )
         else
             ! assume halo xlong xlat
             ! interpolate nodal coordinates

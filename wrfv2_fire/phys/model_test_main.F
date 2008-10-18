@@ -21,7 +21,7 @@ nx=400
 ny=400
 msteps=200
 msteps=6
-! msteps=100
+msteps=100
 fdx=6
 fdy=6
 
@@ -67,13 +67,15 @@ real, intent(in)::fdx,fdy,dt,wind,alpha
 
 !*** local
 real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
-                 lfn,tign,fuel_frac,                    &
+                 lfn,tign,fuel_frac,fire_area,                    &
                  grnhfx,grnqfx,lfn_out
 integer::  num_ignitions,i,j,ifuelread,istep,nfuel_cat0,ifun,ifun_start
 logical::need_lfn_update
 real:: t0,time_start,sm,sn
 integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
-real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip
+real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip, &
+       coord_xf,coord_yf
+real:: unit_xf,unit_yf 
 integer, parameter::max_tiles=10
 integer::num_tiles,ij,ifts,ifte,jfts,jfte
 integer, dimension(max_tiles)::if_start,if_end,jf_start,jf_end
@@ -128,6 +130,9 @@ ignition_radius(2) = 0.5*max(5.0,6*max(fdx,fdy))
 ignition_time(2)=2
 
 
+unit_xf=1
+unit_yf=1
+
 do istep=1,msteps
     ifun_start=1
     if(istep.ne.1)ifun_start=3
@@ -139,11 +144,20 @@ do istep=1,msteps
             jfts= jf_start(ij)
             jfte= jf_end(ij)
 
+
+            call set_ideal_coord( fdx,fdy, &
+                ifds,ifde,jfds,jfde,  &
+                ifms,ifme,jfms,jfme,  &
+                ifts,ifte,jfts,jfte,  &
+                coord_xf,coord_yf     &
+            )
+
             call   sfire_model (10*istep+ij,ifun,         &
                 need_lfn_update, num_ignitions,              & 
                 ifuelread,nfuel_cat0,                   &
                 ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+                ifds,ifde,jfds,jfde,                    & ! patch=domain 
                 ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
                 time_start,dt,                          & ! time and increment
                 fdx,fdy,                                & ! fire mesh spacing
@@ -151,13 +165,14 @@ do istep=1,msteps
                 ignition_end_x,ignition_end_y,          &  
                 ignition_radius,                        &
                 ignition_time,                          &
+                coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
                 zsf,                                    & ! terrain height (for gradient)
                 vx,vy,                                  & ! input: wind
-                lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+                lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left
                 grnhfx,grnqfx,                          & ! output: heat fluxes
                 nfuel_cat,                              & ! fuel data per point 
                 fuel_time,                              & ! save derived internal data
-                dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip,ischap &
+                bbb,betafl,phiwc,r_0,fgip,ischap &
             )
         enddo 
         

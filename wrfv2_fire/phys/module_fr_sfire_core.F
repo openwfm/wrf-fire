@@ -557,6 +557,7 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 
 #ifndef FUEL_LEFT
 call crash('fuel_left_cell_2: not implemented, please use fire_fuel_left_method=1')
+fuel_left_cell_2=0.  ! to avoid compiler warning about value not set
 end function fuel_left_cell_2
 #else
 

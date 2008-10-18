@@ -20,7 +20,7 @@ subroutine sfire_model (                    &
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
-        ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
+    ifps,ifpe,jfps,jfpe,                    & ! patch - nodes owned by this process
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,

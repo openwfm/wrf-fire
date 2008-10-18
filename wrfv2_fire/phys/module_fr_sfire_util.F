@@ -71,6 +71,37 @@ end subroutine message
 !****************
 !
 
+subroutine set_ideal_coord( dxf,dyf, &
+                ifds,ifde,jfds,jfde,  &
+                ifms,ifme,jfms,jfme,  &
+                ifts,ifte,jfts,jfte,  &
+                fxlong,fxlat          &
+            )
+implicit none
+! arguments
+real, intent(in)::dxf,dyf
+integer, intent(in):: &
+                ifds,ifde,jfds,jfde,  &
+                ifms,ifme,jfms,jfme,  &
+                ifts,ifte,jfts,jfte
+real, intent(out),dimension(ifms:ifme,jfms:jfme)::fxlong,fxlat
+! local
+integer::i,j
+                ! set fake  coordinates, in m 
+                do j=jfts,jfte
+                    do i=ifts,ifte
+                        ! uniform mesh, lower left domain corner is (0,0)
+                        fxlong(i,j)=(i-ifds+0.5)*dxf
+                        fxlat (i,j)=(j-jfds+0.5)*dyf
+                    enddo
+                enddo
+end subroutine set_ideal_coord
+
+!
+!****************
+!
+
+
 subroutine continue_at_boundary(ix,iy,bias, & ! do x direction or y direction
     ims,ime,jms,jme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain dims
@@ -92,8 +123,9 @@ real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 integer i,j,itso,jtso,iteo,jteo
 character(len=128)::msg
 integer::its1,ite1,jts1,jte1
-!*** statement
-#define EX(a,b) (1.-bias)*(2.*a-b)+bias*max(2.*a-b,a,b)   ! extrapolation, max quarded
+!*** statement function
+real a,b, EX
+EX(a,b)=(1.-bias)*(2.*a-b)+bias*max(2.*a-b,a,b)   ! extrapolation, max quarded
 !*** executable
 ! check if there is space for the extension
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
@@ -156,7 +188,6 @@ if(ix.ne.0.and.iy.ne.0)then
     if(ite.eq.ide.and.jts.eq.jds)lfn(ide+1,jds-1)=EX(lfn(ide,jds),lfn(ide-1,jds+1))
     if(ite.eq.ide.and.jte.eq.jde)lfn(ide+1,jde+1)=EX(lfn(ide,jde),lfn(ide-1,jde-1))
 endif
-#undef EX
 end subroutine continue_at_boundary
 
 !
