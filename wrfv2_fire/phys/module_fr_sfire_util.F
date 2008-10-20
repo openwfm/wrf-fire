@@ -123,9 +123,6 @@ real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 integer i,j,itso,jtso,iteo,jteo
 character(len=128)::msg
 integer::its1,ite1,jts1,jte1
-!*** statement function
-real a,b, EX
-EX(a,b)=(1.-bias)*(2.*a-b)+bias*max(2.*a-b,a,b)   ! extrapolation, max quarded
 !*** executable
 ! check if there is space for the extension
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
@@ -188,6 +185,13 @@ if(ix.ne.0.and.iy.ne.0)then
     if(ite.eq.ide.and.jts.eq.jds)lfn(ide+1,jds-1)=EX(lfn(ide,jds),lfn(ide-1,jds+1))
     if(ite.eq.ide.and.jte.eq.jde)lfn(ide+1,jde+1)=EX(lfn(ide,jde),lfn(ide-1,jde-1))
 endif
+return
+contains
+real function EX(a,b)
+!*** statement function
+real a,b
+EX=(1.-bias)*(2.*a-b)+bias*max(2.*a-b,a,b)   ! extrapolation, max quarded
+end function EX
 end subroutine continue_at_boundary
 
 !
