@@ -170,8 +170,10 @@ character(len=128)::msg
 
 !*** executable
 
-fdx2=2./fdx
-fdy2=2./fdy
+!fdx2=2./fdx
+!fdy2=2./fdy
+fdx2=1./(2.*fdx)
+fdy2=1./(2.*fdy)
 
 err=.false.
 do j=jfts,jfte

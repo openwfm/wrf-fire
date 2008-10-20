@@ -1455,8 +1455,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
             speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
             ! slope in direction of spread
-            dzdx = (zsf(i+1,j)-zsf(i-1,j))*fdx2
-            dzdy = (zsf(i,j+1)-zsf(i,j-1))*fdy2
+            dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2*dx)
+            dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2*dy)
             tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope
