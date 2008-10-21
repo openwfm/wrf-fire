@@ -100,6 +100,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     integer, dimension(ifms:ifme, jfms:jfme)::nfuel_cat_int
+    real::lat_ctr,lon_ctr
 
 !*** executable
 
@@ -115,6 +116,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
     itimestep=grid%itimestep
+
+    lat_ctr=(grid%em_lat_ll_t+ grid%em_lat_ul_t+grid%em_lat_ur_t+grid%em_lat_lr_t)/4.
+    lon_ctr=(grid%em_lon_ll_t+ grid%em_lon_ul_t+grid%em_lon_ur_t+grid%em_lon_lr_t)/4.
     
     do istep=0,fire_test_steps ! istep >0 is for testing only, exit after the first call
       itimestep = itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
@@ -175,6 +179,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             itimestep,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
             grid%dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
+            lat_ctr,lon_ctr,                           & ! coordinates of grid center
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
@@ -218,6 +223,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
     itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
     u_frame,v_frame,                              &
+    lat_ctr,lon_ctr,                             &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
     num_ignitions,                                & 
     ignition_longlat,                             &
@@ -270,6 +276,7 @@ real, intent(in):: &
     dt,                                           & ! time step
     dx,dy,                                        & ! atm grid step
     u_frame,v_frame,                              & ! velocity offset
+    lat_ctr,lon_ctr,                             & ! coordinates of domain center
     fire_crwn_hgt,                                & ! lowest height crown fire heat is released (m)
     fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
     fire_ext_crwn                                   !  extinction depth of crown fire heat (m)
@@ -388,11 +395,9 @@ else
    if(xlong(ips,jps).eq.0. .and. xlong(ipe,jpe).eq. 0.) then
        call crash('sfire_driver_phys: xlong xlat not set, use fire_ignition_longlat=0 or run real not ideal')
    endif
-   ! latitude in the middle of the patch
-   latm=xlat((ips+ipe)/2,(jps+jpe)/2)
    ! 1 degree in m (approximate OK)
    unit_fxlat=6378e3*2*3.14159/360.   ! earth circumference in m / 360 degrees
-   unit_fxlong=cos(latm*3.14159/180.)*unit_fxlat  ! latitude
+   unit_fxlong=cos(lat_ctr*3.14159/180.)*unit_fxlat  ! latitude
    ! will interpolate nodal coordinates to the fire mesh 
 endif
 

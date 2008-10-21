@@ -137,8 +137,8 @@ do j=jfts,jfte
         !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
         des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
         dames = dam2*des2
+        am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
         if(dames>0)then
-            am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
             cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
         else ! point a already is the midpoint
             cos2 = 0.
@@ -158,6 +158,16 @@ do j=jfts,jfte
             ignited=ignited+1   ! count
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
+
+        ! debug
+        ! write(msg,'(2i4,10f12.6)')i,j,d,sx,ex,sy,ey
+        ! call message(msg)
+        ! write(msg,'(10f12.6)')ax,ay,dmc2,des2,cos2
+        ! call message(msg)
+        ! write(msg,'(10f16.6)')unit_xf,unit_yf,cx2,cy2,dam2
+        ! call message(msg)
+        ! write(msg,'(10f16.6)')des2,dames,am_es,mx,my
+        ! call message(msg)
     enddo
 enddo
 write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
