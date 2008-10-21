@@ -23,7 +23,7 @@ g95.
 These use testmakefile not Makefile. Makefile is for wrf only.
 core_test and prop_test use their own simplified spread function and
 so they do not refer to the physics in any way. model_test uses the
-actual Rothermel's formulas from module_fr_sfire_speed. Visualization
+actual Rothermel's formulas from module_fr_sfire_phys. Visualization
 in testers is by Matlab. Instructions are provided when running the
 tester.
 
@@ -44,19 +44,17 @@ testing of the math algorithms independently of the physics.
 
 Only util may call WRF procedures directly, everybody else must call
 WRF wrappers provided in util. This is to keep the fire code
-independent of WRF. Fake versions of some WRF procedures are linked
-in the testers.
+independent of WRF. Fake versions of the WRF procedures used in util 
+are in wrf_fakes.F.
 
-atm and model are really just drivers. There are two because we want to
-
-Arrays that need to be passed to subroutine normal_spread in the phys
-module module_fr_sfire_phys are added to argument lists of all
+Arrays that need to be passed to function fire_ros in
+module module_fr_sfire_phys are added to the argument lists of all
 subroutines in the calling chain.
 
 The code may not maintain any non-constant variables or arrays, and
-may not maintain any arrays with variable bounds.
+may not maintain any arrays with variable bounds. All state information must be passed through the argument list of the driver. This is a WRF coding restriction.
 
-How to call model from atm should be clear from model_test_main.F.
+How to call the model should be clear from model_test_main.F.
 
 The fire code is added to the WRF build via Makefile in this
 directory, but it is not called yet. The code currently in
@@ -68,4 +66,4 @@ is in there works but may not be accurate and is not optimized. For
 example, the current version seems to add a bit of spread rate even
 in examples with wind only and zero spread rate.
 
-Jan Mandel September-October 2007
+Jan Mandel September 2007 - October 2008

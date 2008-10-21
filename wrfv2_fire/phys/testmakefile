@@ -33,9 +33,6 @@ INC = $(ARGS).h $(DECL).h
 
 default_target: model_test
 
-lapack.o: lapack.F
-	$(FC) -c $(FFLAGS) $(FFIXED) lapack.F
-
 normal_spread.o: $(INC)\
     module_fr_sfire_util.o 
 
@@ -66,11 +63,12 @@ module_fr_sfire_phys.o: \
     $(INC) \
     module_fr_sfire_util.o 
 
-# test binaries and targets
-
 module_model_constants.o: ../share/module_model_constants.F
 	cp ../share/module_model_constants.F .
 	$(FC) -c $(FFLAGS) $(FFREE) module_model_constants.F
+
+# test binaries and targets
+
 #
 # the propagation alone 
 #
