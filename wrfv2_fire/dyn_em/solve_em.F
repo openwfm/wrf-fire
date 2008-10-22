@@ -32,7 +32,6 @@ SUBROUTINE solve_em ( grid , config_flags  &
    USE module_microphysics_driver
    USE module_microphysics_zero_out
    USE module_pbl_driver
-   USE module_fire_driver
    USE module_fr_sfire_driver
    USE module_fddagd_driver
    USE module_fddaobs_driver
@@ -759,59 +758,7 @@ BENCH_END(pbl_driver_tim)
 
       IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 1) THEN
 
-         CALL wrf_debug ( 200 , ' call fire_driver')
-         !CALL wrf_debug ( 200 , ' call fire_driver, ifire = ', config_flags%ifire )
-
-BENCH_START(fire_driver_tim)
-
-         CALL nl_get_dx(1,moad_dx)
-         CALL nl_get_dy(1,moad_dy)
-         CALL nl_get_cen_lat(1,moad_cen_lat)
-         CALL nl_get_cen_lon(1,moad_cen_lon)
-
-#ifndef DM_PARALLEL
-         CALL set_fire_debug_vars(grid,config_flags)  ! Jon Beezley's debug
-#endif
-
-         CALL fire_driver(config_flags%ifire                        & ! send
-            ,u_phy,v_phy,grid%u_frame,grid%v_frame,grid%em_mut,rho  &
-            ,grid%itimestep,grid%dt,grid%dx,grid%dy                 &
-            ,grid%em_z,z_at_w,dz8w,grid%ht                          &
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,sids,side, skds,skde, sjds,sjde                        &
-            ,sims,sime, skms,skme, sjms,sjme                        &
-            ,sips,sipe, skps,skpe, sjps,sjpe                        &
-            ,k_start,min(k_end,kde-1),grid%num_tiles                &
-            ,grid%i_start,min(grid%i_end,ide-1)                     &
-            ,grid%j_start,min(grid%j_end,jde-1)                     &
-            ,grid%grid_id                                           &
-            ,config_flags%cen_lat,config_flags%cen_lon              &
-            ,grid%em_lat_ll_d,grid%em_lon_ll_d                      &
-            ,moad_cen_lat,moad_cen_lon                              &
-            ,head_grid%em_lat_ll_d,head_grid%em_lon_ll_d            &
-            ,head_grid%dx,head_grid%dy                              &
-            ,model_config_rec%s_we(1), model_config_rec%e_we(1)     &
-            ,model_config_rec%s_sn(1), model_config_rec%e_sn(1)     &
-            ,grid%sr_x,grid%sr_y                                    &
-            ,config_flags%fire_lat_init,config_flags%fire_lon_init  &
-            ,config_flags%fire_ign_time                             &
-            ,config_flags%fire_shape,config_flags%fire_crwn_hgt     &
-            ,config_flags%fire_ext_grnd,config_flags%fire_ext_crwn  &
-            ,config_flags%fire_sprd_mdl                             &
-            ,config_flags%fire_fuel_read,config_flags%fire_fuel_cat &
-            ,grid%nfuel_cat,grid%nfl,grid%nfl_t,grid%nfl_c          & ! send and recv
-            ,grid%ncod,grid%in1,grid%in2,grid%ixb,grid%iyb          &
-            ,grid%icn,grid%fg,grid%fc,grid%r_0,grid%bbb             &
-            ,grid%betafl,grid%phiwc,grid%area,grid%area2            &
-            ,grid%zf,grid%zsf,grid%tign_g,grid%tign_c               &
-            ,grid%tign_crt,grid%xfg,grid%yfg,grid%xcd               &
-            ,grid%ycd,grid%xcn,grid%ycn,grid%sprdx,grid%sprdy       &
-            ,grid%rthfrten,grid%rqvfrten                            &
-            ,grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx)         ! recv
-
-
-BENCH_END(fire_driver_tim)
+        CALL wrf_error_fatal('ifire=1 not supported in this version')
 
       ENDIF
 

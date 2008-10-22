@@ -56,10 +56,6 @@ MODULES = \
 	module_fddagd_driver.o  \
         module_fddaobs_rtfdda.o \
 	module_fddaobs_driver.o \
-	module_fire_driver.o \
-	module_fr_cawfe.o \
-        module_fr_cawfe_fuel.o \
-	module_fire_debug_output.o \
         module_fr_sfire_driver.o \
         module_fr_sfire_atm.o \
         module_fr_sfire_model.o \
@@ -255,18 +251,6 @@ module_fddaobs_driver.o: \
 		../share/module_model_constants.o  \
 		module_fddaobs_rtfdda.o
 
-module_fire_driver.o: \
-		../share/module_model_constants.o  \
-		../frame/module_wrf_error.o \
-		module_fr_sfire_driver.o \
-		module_fr_cawfe.o 
-
-module_fr_cawfe.o: \
-		../share/module_model_constants.o  \
-		../frame/module_wrf_error.o \
-                module_fr_cawfe_fuel.o \
-	        module_fire_debug_output.o
-
 get_sfire_id.inc:
 		./commit_hash > sfire_id.inc
 		cat sfire_id.inc
@@ -303,10 +287,5 @@ module_fr_sfire_phys.o: \
 
 module_fr_sfire_util.o: \
                 ../frame/module_wrf_error.o 
-
-module_fire_debug_output.o: \
-	        ../frame/module_domain.o \
-	        ../frame/module_configure.o \
-	        ../share/mediation_integrate.o
 
 # DO NOT DELETE
