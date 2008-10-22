@@ -40,9 +40,6 @@ SUBROUTINE solve_em ( grid , config_flags  &
    USE module_input_chem_data
    USE module_chem_utilities
 #endif
-#ifndef DM_PARALLEL
-   USE module_fire_debug
-#endif
 ! jm debug
    USE module_fr_sfire_util
 

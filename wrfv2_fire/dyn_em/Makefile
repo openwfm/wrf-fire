@@ -215,7 +215,7 @@ solve_em.o:     module_small_step_em.o \
 		../phys/module_microphysics_driver.o \
 		../phys/module_microphysics_zero_out.o \
 		../phys/module_pbl_driver.o \
-		../phys/module_sfire_driver.o \
+		../phys/module_fr_sfire_driver.o \
 		../phys/module_fddagd_driver.o \
 		../phys/module_fddaobs_driver.o \
 		../phys/module_physics_addtendc.o
