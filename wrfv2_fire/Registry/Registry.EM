@@ -1387,37 +1387,37 @@ dimspec    o      -     constant=4                z          fire_particle_dim
 #
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
 state    real  nfuel_cat *i*j     fire        1         z     i012hr        "NFUEL_CAT"        "fuel data"   
-state    integer  nfl       *i*j     fire        1         z     hr
-state    integer  nfl_t     *i*j     fire        1         z     hr
-state    integer  nfl_c     *i*j     fire        1         z     hr
-state    integer  ncod      *i*j     fire        1         z     hr
-state    real     fg        *i*j     fire        1         z     hr
-state    real     fc        *i*j     fire        1         z     hr
+#state    integer  nfl       *i*j     fire        1         z     hr
+#state    integer  nfl_t     *i*j     fire        1         z     hr
+#state    integer  nfl_c     *i*j     fire        1         z     hr
+#state    integer  ncod      *i*j     fire        1         z     hr
+#state    real     fg        *i*j     fire        1         z     hr
+#state    real     fc        *i*j     fire        1         z     hr
 #state    real     r_0       *i*j     fire        1         z     hr
 #state    real     bbb       *i*j     fire        1         z     hr
 #state    real     betafl    *i*j     fire        1         z     hr
 #state    real     phiwc     *i*j     fire        1         z     hr
-state    real     area      *i*j     fire        1         z     hr
-state    real     area2     *i*j     fire        1         z     hr
-state    real     zf        *i*j     fire        1         z     hr
+#state    real     area      *i*j     fire        1         z     hr
+#state    real     area2     *i*j     fire        1         z     hr
+#state    real     zf        *i*j     fire        1         z     hr
 state    real     zsf       *i*j     fire        1         z     hr   "ZSF"      "height of surface above sea level" "m"
 state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"   "ignition time on ground" "s"
-state    real     tign_c    *i*j     fire        1         z     hr
-state    real     tign_crt  *i*j     fire        1         z     hr
+#state    real     tign_c    *i*j     fire        1         z     hr
+#state    real     tign_crt  *i*j     fire        1         z     hr
 #
-state    integer  in1       *i*jn    fire        1         z     hr
-state    integer  in2       *i*jn    fire        1         z     hr
-state    integer  ixb       *i*jo    fire        1         z     hr
-state    integer  iyb       *i*jo    fire        1         z     hr
-state    integer  icn       *i*jo    fire        1         z     hr
-state    real     xfg       *i*jo    fire        1         z     hr
-state    real     yfg       *i*jo    fire        1         z     hr
-state    real     xcd       *i*jo    fire        1         z     hr
-state    real     ycd       *i*jo    fire        1         z     hr
-state    real     xcn       *i*jo    fire        1         z     hr
-state    real     ycn       *i*jo    fire        1         z     hr
-state    real     sprdx     *i*jo    fire        1         z     hr
-state    real     sprdy     *i*jo    fire        1         z     hr
+#state    integer  in1       *i*jn    fire        1         z     hr
+#state    integer  in2       *i*jn    fire        1         z     hr
+#state    integer  ixb       *i*jo    fire        1         z     hr
+#state    integer  iyb       *i*jo    fire        1         z     hr
+#state    integer  icn       *i*jo    fire        1         z     hr
+#state    real     xfg       *i*jo    fire        1         z     hr
+#state    real     yfg       *i*jo    fire        1         z     hr
+#state    real     xcd       *i*jo    fire        1         z     hr
+#state    real     ycd       *i*jo    fire        1         z     hr
+#state    real     xcn       *i*jo    fire        1         z     hr
+#state    real     ycn       *i*jo    fire        1         z     hr
+#state    real     sprdx     *i*jo    fire        1         z     hr
+#state    real     sprdy     *i*jo    fire        1         z     hr
  
 # fire variables on atm grid
 #
