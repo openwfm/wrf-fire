@@ -3,6 +3,7 @@ function a=read_array_tiles(root,tiles,num1,num2);
 % read array produced by matching calls write_array_m
 % in module_fr_sfire_util.F
 % from files root[_num1[_num2]].nnnn.txt,  nnnn=1:ntiles
+% if tiles=[] same as read_array_sp(root,num1,num2)
 
 % Jan Mandel, 2008
 
@@ -13,6 +14,10 @@ if ~exist('num1','var'),
         num2=-1;
     end
     ff=file_name(root,num1,num2);
+end
+if isempty(tiles),
+    a=read_array_sp([ff,'.txt']);
+    return
 end
 for i=tiles
     f=sprintf('%s.%4.4i.txt',ff,i);
