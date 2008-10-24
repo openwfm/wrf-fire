@@ -20,7 +20,7 @@ if isempty(tiles),
 end
 for i=1:length(tiles)
     f=sprintf('%s.%4.4i.txt',ff,tiles(i));
-    tile{i}=read_array_sp(f);
+    tile{i}=full(read_array_sp(f));
     mm(i)=size(tile{i},1);
     nn(i)=size(tile{i},2);
 end
@@ -29,7 +29,7 @@ n=max(nn);
 a=zeros(m,n);
 for i=1:length(tiles)
     b=zeros(m,n);
-    b(1:mm(i),1:nn(i))=full(tile{i});
+    b(1:mm(i),1:nn(i))=tile{i};
     if(any(a(:) ~=0 & b(:)~=0)),
         error('tiles overlap')
     end
