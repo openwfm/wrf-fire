@@ -1,11 +1,8 @@
 function a=read_array_sp(f,num1,num2);
-% a=read_array_isp(f,num1,num2)
+% a=read_array_sp(f,num1,num2)
 % read array produced by matching call write_array_m
 % in module_fr_sfire_util.F
 % read a sparse, with correct indexing
-%
-% a=read_array_m(f)
-% read array from file f
 
 % Jan Mandel, 2008
 
