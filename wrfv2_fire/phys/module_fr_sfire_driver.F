@@ -393,6 +393,7 @@ if(ifun.eq.1)call init_fuel_cats  ! common for all threads
 
 pid=0
 if(itimestep.le.10.or.mod(itimestep,10).eq.0)pid=itimestep
+pid=itimestep
 
 if(ignition_longlat .eq.0)then
    !  ignition is in m
