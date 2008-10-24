@@ -1,4 +1,4 @@
-function d=adiff(root1,tiles1,root2,tiles2,steps)
+function [d,varargout]=adiff(root1,tiles1,root2,tiles2,steps)
 % d=adiff(root1,tiles1,root2,tiles2,steps)
 n=length(steps);
 for i=1:n
@@ -7,5 +7,10 @@ for i=1:n
 	a2=read_array_tiles(root2,tiles2,step);
 	d(i)=big(a1-a2)/max([big(a1),big(a2),realmin]);
 	disp(d(i))
+end
+if nargout==3,
+    varargout{1}=a1;
+    varargout{2}=a2;
+end
 end
         
