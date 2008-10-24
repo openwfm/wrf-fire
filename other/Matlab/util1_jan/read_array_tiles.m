@@ -6,16 +6,15 @@ function a=read_array_tiles(root,tiles,num1,num2);
 
 % Jan Mandel, 2008
 
-ff=root;
 if ~exist('num1','var'),
     num1=-1;
-    if ~exist('num2','var'),
-        num2=-1;
-    end
-    ff=file_name(root,num1,num2);
 end
-for i=tiles
-    f=sprintf('%s.%4.4i.txt',ff,i);
+if ~exist('num2','var'),
+    num2=-1;
+end
+ff=file_name(root,num1,num2);
+for i=1:length(tiles)
+    f=sprintf('%s.%4.4i.txt',ff,tiles(i));
     tile{i}=read_array_sp(f);
     mm(i)=size(tile{i},1);
     nn(i)=size(tile{i},2);
@@ -23,7 +22,7 @@ end
 m=max(mm);
 n=max(nn);
 a=zeros(m,n);
-for i=tiles
+for i=1:length(tiles)
     b=zeros(m,n);
     b(1:mm(i),1:nn(i))=tile{i};
     if(any(a(:) ~=0 & b(:)~=0)),
