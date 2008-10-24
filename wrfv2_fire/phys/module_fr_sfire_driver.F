@@ -141,25 +141,34 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 !           halo exchange on lfn width 2
 #include "HALO_FIRE_LFN.inc"
         endif
+
         if(fire_ifun.eq.1)then
 !       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
             if(fire_topo_from_atm.eq.1)then
 #include "HALO_FIRE_ZS.inc"
             endif 
+
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
+
         elseif(fire_ifun.eq.3)then
             if(fire_ifun_start<3)then
-!               halo exchange on all fuel data width 1
+!               halo exchange on all fuel data width 2
 #include "HALO_FIRE_FUEL.inc"
             endif
-!           halo exchange on atm winds width 1
+!           halo exchange on atm winds width 1 for interpolation
 #include "HALO_FIRE_WIND_A.inc"
+
         elseif(fire_ifun.eq.4)then
-!           halo exchange on fire winds width 1
+!           halo exchange on fire winds width 2 for a 2-step RK method
 #include "HALO_FIRE_WIND_F.inc"
+
+        elseif(fire_ifun.eq.6)then
+!           computing fuel_left needs ignition time from neighbors
+#include "HALO_FIRE_TIGN.inc"
+
         endif
 #endif
         nfuel_cat_int(:,:)=int(grid%nfuel_cat)
@@ -646,8 +655,8 @@ elseif(ifun.eq.6)then
     if(pid.gt.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
-        !call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',pid)
-        !call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',pid)
+        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',pid)
+        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)

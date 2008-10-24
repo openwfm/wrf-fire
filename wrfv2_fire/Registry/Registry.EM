@@ -1543,6 +1543,7 @@ rconfig   integer fire_topo_from_atm     namelist,fire         max_domains      
 # Fire halo descriptions
 #
 halo      HALO_FIRE_LFN dyn_em 12:lfn
+halo      HALO_FIRE_TIGN dyn_em 8:tign_g
 halo      HALO_FIRE_ZS dyn_em 12:zs
 halo      HALO_FIRE_WIND_F dyn_em 8:uf,vf
 halo      HALO_FIRE_LONGLAT dyn_em 12:xlong,xlat
