@@ -1,4 +1,4 @@
-function [varargout]=read_array_sp(f,num1,num2);
+function [varargout]=read_array_sp(f,num1,num2)
 % a=read_array_sp(f,num1,num2)
 % [i,j,aij]=read_array_sp(f,num1,num2)
 % [i,j,k,aijk]=read_array_sp(f,num1,num2)
