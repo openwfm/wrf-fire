@@ -123,6 +123,7 @@ real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 integer i,j,itso,jtso,iteo,jteo
 character(len=128)::msg
 integer::its1,ite1,jts1,jte1
+integer,parameter::halo=1           ! width of halo region to update 
 !*** executable
 ! check if there is space for the extension
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
@@ -131,7 +132,7 @@ itso=its
 jtso=jts
 iteo=ite
 jteo=jte
-! go one beyond if at patch boundary but not at domain boudnary 
+! go halo width beyond if at patch boundary but not at domain boudnary 
 ! assume we have halo need to compute the value we do not have 
 ! the next thread that would conveniently computer the extended values at patch corners
 ! besides halo may not transfer values outside of the domain
@@ -140,10 +141,10 @@ its1=its
 jts1=jts
 ite1=ite
 jte1=jte
-if(its.eq.ips.and..not.its.eq.ids)its1=its-1
-if(jts.eq.jps.and..not.jts.eq.jds)jts1=jts-1
-if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+1
-if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+1
+if(its.eq.ips.and..not.its.eq.ids)its1=its-halo
+if(jts.eq.jps.and..not.jts.eq.jds)jts1=jts-halo
+if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+halo
+if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+halo
 write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
 call message(msg)
 if(ix.ne.0)then

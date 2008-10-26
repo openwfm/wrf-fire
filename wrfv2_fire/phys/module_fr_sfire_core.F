@@ -1402,7 +1402,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
 
 
 #ifdef DEBUG_OUT
-real,dimension(tims:time,tjms:tjme)::rra,grada
+real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
 #endif
 
 !*** executable
@@ -1537,6 +1537,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
 #ifdef DEBUG_OUT    
             rra(i,j)=rr
             grada(i,j)=grad    
+            speeda(i,j)=speed
+            tanphia(i,j)=tanphi
 #endif
             !write(msg,*)i,j,grad,dzdx,dzdy
             !call message(msg)
@@ -1551,6 +1553,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
 #ifdef DEBUG_OUT    
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,speeda,'speed',id)
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tanphia,'tanphi',id)
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
 #endif
 
