@@ -14,29 +14,31 @@ if ~exist('num2','var'),
     num2=-1;
 end
 ff=file_name(root,num1,num2);
-if isempty(tiles),
-    a=read_array_sp([ff,'.txt']);
-    return
+if ~exist('tiles','var')
+    tiles=[];
 end
-i=[];j=[];a=[];tile=[];
-for itile=1:length(tiles)
+if isempty(tiles),
+    [i,j,a]=read_array_sp([ff,'.txt']);
+else
+  i=[];j=[];a=[];tile=[];
+  for itile=1:length(tiles)
     f=sprintf('%s.%4.4i.txt',ff,tiles(itile));
     [ii,jj,aa]=read_array_sp(f);
     i=[i;ii]; j=[j;jj]; a=[a;aa];
     tile=[tile;itile*ones(size(ii))];
-end
-% check for consistent duplicates
-isize=max(i)-min(i)+1;
-ij=i+isize*(j-1);    % coded pairs (i,j)
-[k,kix]=sort(ij);        % k=ij(kix) 
-n=length(k);
-ikix=zeros(n,1);
-ikix(kix)=[1:n]';        % ij=k(ikix);
-same=find(k(2:end)==k(1:end-1));
-idiff=same(a(kix(same+1))~=a(kix(same)));
-id1=kix(idiff);
-id2=kix(idiff+1);
-if any(idiff)
+  end
+  % check for consistent duplicates
+  isize=max(i)-min(i)+1;
+  ij=i+isize*(j-1);    % coded pairs (i,j)
+  [k,kix]=sort(ij);        % k=ij(kix) 
+  n=length(k);
+  ikix=zeros(n,1);
+  ikix(kix)=[1:n]';        % ij=k(ikix);
+  same=find(k(2:end)==k(1:end-1));
+  idiff=same(a(kix(same+1))~=a(kix(same)));
+  id1=kix(idiff);
+  id2=kix(idiff+1);
+  if any(idiff)
     i1=i(id1);
     i2=i(id2);
     j1=j(id1);
@@ -49,12 +51,13 @@ if any(idiff)
             fprintf('tile %i: a(%i,%i)=%g tile %i: a(%i,%i)=%g diff %g\n',...
                 t1(m),i1(m),j1(m),a1(m),t2(m),i2(m),j2(m),a2(m),a1(m)-a2(m))
     end
-    error('inconsistent values at overlap')
+    warning('inconsistent values at overlap, taking the first seen')
+  end
+  % take out the duplicates
+  i(kix(same))=[];
+  j(kix(same))=[];
+  a(kix(same))=[];
 end
-% take out the duplicates
-i(kix(same))=[];
-j(kix(same))=[];
-a(kix(same))=[];
 % create the output
 switch nargout
     case 1
