@@ -146,7 +146,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 !       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
             if(fire_topo_from_atm.eq.1)then
-#include "HALO_FIRE_ZS.inc"
+#include "HALO_FIRE_HT.inc"
             endif 
 
         elseif(fire_ifun.eq.2)then
