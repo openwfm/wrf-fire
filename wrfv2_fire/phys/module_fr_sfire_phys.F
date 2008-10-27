@@ -488,15 +488,6 @@ if (excess > 0.)then
     ros_slope = ros_slope - excess*ros_slope/(ros_wind+ros_slope)
 endif
 
-!if((i.eq.1.and.j.eq.210).or.(i.eq.210.and.j.eq.1))then
-!write (msg,*)i,j,ros_back,ros_wind,ros_slope
-!call message(msg)
-!write(msg,*)umid,phiw,phis,tanphi,speed
-!call message(msg)
-!write(msg,*)bbb(i,j),phiwc(i,j),betafl(i,j),r_0(i,j)
-!call message(msg)
-!endif
-
 !     ... to rescale to veloc. carried by model, mult x (svel*snorm(1,3))= .1
 !jm: huh ???
 !     fire_ros = 0.1*rosm
