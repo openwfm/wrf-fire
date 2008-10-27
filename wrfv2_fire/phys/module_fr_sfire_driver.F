@@ -517,6 +517,16 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
 
     elseif(ifun.eq.2)then  
 
+        ! assuming halo on zsf done
+        ! extrapolate on 1 row of cells beyond the domain boundary
+        ! including on the halo regions 
+
+        call continue_at_boundary(1,1,0., & ! do x direction or y direction
+            ifms,ifme,jfms,jfme,           &                ! memory dims
+            ifds,ifde,jfds,jfde, &                     ! domain dims 
+            ifps,ifpe,jfps,jfpe, &            ! patch dims - winds defined up to +1
+            ifts,ifte,jfts,jfte, &                ! tile dims
+            zsf)                               ! array
                
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
