@@ -279,32 +279,6 @@ do j=1,JFCELLS
         else
              call crash('fuel_left: unknown fuel_left_method')
         endif
-!        if(iccell.eq.171.and.jccell.eq.111)then
-!            write(msg,*)iccell,jccell,i,j,fuel_left_f(i,j)
-!            call message(msg)
-!            write(msg,*)lfn(iccell,jccell),tign(iccell,jccell),fuel_time(iccell,jccell)
-!            call message(msg)
-!            write(msg,*)'lfn:',lfn(iccell-1,jccell-1),lfn(iccell-1,jccell),lfn(iccell-1,jccell+1)
-!            call message(msg)
-!            write(msg,*)'lfn:',lfn(iccell,jccell)-1,lfn(iccell,jccell),lfn(iccell,jccell+1)
-!            call message(msg)
-!            write(msg,*)'lfn:',lfn(iccell+1,jccell-1),lfn(iccell+1,jccell),lfn(iccell+1,jccell+1)
-!            call message(msg)
-!            write(msg,*),'lff:',lff(i,j),lff(i,j+1)
-!            call message(msg)
-!            write(msg,*),'lff:',lff(i+1,j),lff(i+1,j+1)
-!            call message(msg)
-!            write(msg,*),'tign:',tign(iccell-1,jccell-1),tign(iccell-1,jccell),tign(iccell-1,jccell+1)
-!            call message(msg)
-!            write(msg,*),'tign:',tign(iccell,jccell)-1,tign(iccell,jccell),tign(iccell,jccell+1)
-!            call message(msg)
-!            write(msg,*),'tign:',tign(iccell+1,jccell-1),tign(iccell+1,jccell),tign(iccell+1,jccell+1)
-!            call message(msg)
-!            write(msg,*),'tif:',tif(i,j),tif(i,j+1)
-!            call message(msg)
-!            write(msg,*),'tif:',tif(i+1,j),tif(i+1,j+1)
-!            call message(msg)
-!        endif
 
         ! consistency check
         if(fire_area_f(i,j).eq.0.)then
