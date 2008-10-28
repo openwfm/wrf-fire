@@ -105,11 +105,11 @@ real, dimension(ifms:ifme, jfms:jfme), intent(in):: &
     coord_xf,coord_yf                       !  node coordinates  
 real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
 REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
-    zsf,   &                                ! terrain height, node based, data, constant        
     vx,vy                                   ! wind m/s (node based), data, variable
     
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
+    zsf,   &                                ! terrain height, node based, data, constant after extr
     lfn   , &                               ! level function: fire is where lfn<0 (node)
     tign  , &                               ! absolute time of ignition (node)
     fuel_frac                               ! fuel fraction (node), currently redundant
@@ -151,14 +151,25 @@ xjfme=jfme
 need_lfn_update=.false.
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
-elseif(ifun.eq.2)then   ! initialize the run
-                    
+elseif(ifun.eq.2)then   
         ! initialize all arrays that the model will not change later
+
+        ! assuming halo on zsf done
+        ! extrapolate on 1 row of cells beyond the domain boundary
+        ! including on the halo regions 
+
+        call continue_at_boundary(1,1,0., & ! do x direction or y direction
+            ifms,ifme,jfms,jfme,           &                ! memory dims
+            ifds,ifde,jfds,jfde, &                     ! domain dims 
+            ifps,ifpe,jfps,jfpe, &            ! patch dims - winds defined up to +1
+            ifts,ifte,jfts,jfte, &                ! tile dims
+            zsf)                               ! array
+
         call set_nfuel_cat( &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             ifuelread,nfuel_cat0,&
-            zsf,nfuel_cat)
+            zsf,nfuel_cat)            ! better not use the extrapolated zsf!!
 
         ! uses nfuel_cat to set the other fuel data arrays
         ! needs zsf on halo width 1 to compute the terrain gradient
