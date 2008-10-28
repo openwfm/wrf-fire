@@ -1048,7 +1048,7 @@ integer i,j,k,iu,ilen,myproc,nprocs
 logical op
 character(len=128)::fname,msg
 !****
-if(fire_print_file.eq.0)return
+if(fire_print_file.eq.0.or.id.le.0)return
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call wrf_get_nproc (nprocs)
 call wrf_get_myproc( myproc )
