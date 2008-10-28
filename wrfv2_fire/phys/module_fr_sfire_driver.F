@@ -411,9 +411,13 @@ else
    ! will interpolate nodal coordinates to the fire mesh 
 endif
 
+! fake atm tile bounds
+kts=kps
+kte=kpe
 
 ! set up fire tiles & interpolate to fire grid
-!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg,id)
+!$OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg,id) &
+!$OMP SCHEDULE(STATIC)
 do ij=1,num_tiles
 
     id=0  ! do not print/write anything
@@ -442,15 +446,11 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts,ifte,jfts,jfte,ifps,ifpe,jfps,jfpe)         ! check if fire tile fits in fire patch
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-! atm bounds 
-! fake tile bounds
-kts=kps
-kte=kpe
 
-write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
-call message(msg)
-7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
-write(msg,'(a,2i9)')'refinement ratio:',ir,jr
+    write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
+    call message(msg)
+    7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
+    write(msg,'(a,2i9)')'refinement ratio:',ir,jr
     if(ifun.eq.1)then   ! set terrain
 
         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
@@ -636,6 +636,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
     endif ! ifun=6
 
 enddo ! tiles
+!$OMP END PARALLEL DO
 
 if(ifun.eq.1)then
     call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        

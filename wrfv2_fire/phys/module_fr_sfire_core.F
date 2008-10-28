@@ -29,7 +29,7 @@ subroutine init_no_fire(&
     ifms,ifme,jfms,jfme, &
     ifts,ifte,jfts,jfte, &
     fdx,fdy,time_now,    & ! scalars in
-    fuel_frac,lfn,tign)    ! arrays out            
+    fuel_frac,fire_area,lfn,tign)    ! arrays out            
 implicit none
              
 !*** purpose: initialize model to no fire
@@ -40,7 +40,7 @@ integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 real, intent(in) :: fdx,fdy,time_now        ! mesh spacing, time
 real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
-                   fuel_frac,lfn,tign       ! model state
+                   fuel_frac,fire_area,lfn,tign       ! model state
 
 !*** calls
 intrinsic epsilon
@@ -49,18 +49,13 @@ intrinsic epsilon
 integer:: i,j
 real lfn_init,time_init
 
-
-do j=jfts,jfte
-    do i=ifts,ifte
-        fuel_frac(i,j)=1.  ! fuel at start is 1 by definition
-    enddo
-enddo
-
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
  
 do j=jfts,jfte
     do i=ifts,ifte
+        fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
+        fire_area(i,j)=0.          ! nothing burning
         tign(i,j) = time_init      ! ignition in future
         lfn(i,j) = lfn_init        ! no fire 
     enddo
@@ -190,6 +185,7 @@ subroutine fuel_left(&
 implicit none
 
 !*** purpose: determine fraction of fuel remaining
+!*** NOTE: because variables are cell centered, need halo/sync width 1 before
 
 !*** Jan Mandel August 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 
@@ -220,6 +216,7 @@ real::xfcell,yfcell,fmax,frat
 real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
 real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
 character(len=128)::msg
+integer::m,omp_get_thread_num
      
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
@@ -282,6 +279,33 @@ do j=1,JFCELLS
         else
              call crash('fuel_left: unknown fuel_left_method')
         endif
+!        if(iccell.eq.171.and.jccell.eq.111)then
+!            write(msg,*)iccell,jccell,i,j,fuel_left_f(i,j)
+!            call message(msg)
+!            write(msg,*)lfn(iccell,jccell),tign(iccell,jccell),fuel_time(iccell,jccell)
+!            call message(msg)
+!            write(msg,*)'lfn:',lfn(iccell-1,jccell-1),lfn(iccell-1,jccell),lfn(iccell-1,jccell+1)
+!            call message(msg)
+!            write(msg,*)'lfn:',lfn(iccell,jccell)-1,lfn(iccell,jccell),lfn(iccell,jccell+1)
+!            call message(msg)
+!            write(msg,*)'lfn:',lfn(iccell+1,jccell-1),lfn(iccell+1,jccell),lfn(iccell+1,jccell+1)
+!            call message(msg)
+!            write(msg,*),'lff:',lff(i,j),lff(i,j+1)
+!            call message(msg)
+!            write(msg,*),'lff:',lff(i+1,j),lff(i+1,j+1)
+!            call message(msg)
+!            write(msg,*),'tign:',tign(iccell-1,jccell-1),tign(iccell-1,jccell),tign(iccell-1,jccell+1)
+!            call message(msg)
+!            write(msg,*),'tign:',tign(iccell,jccell)-1,tign(iccell,jccell),tign(iccell,jccell+1)
+!            call message(msg)
+!            write(msg,*),'tign:',tign(iccell+1,jccell-1),tign(iccell+1,jccell),tign(iccell+1,jccell+1)
+!            call message(msg)
+!            write(msg,*),'tif:',tif(i,j),tif(i,j+1)
+!            call message(msg)
+!            write(msg,*),'tif:',tif(i+1,j),tif(i+1,j+1)
+!            call message(msg)
+!        endif
+
         ! consistency check
         if(fire_area_f(i,j).eq.0.)then
            if(fuel_left_f(i,j).lt.1.)then
