@@ -100,6 +100,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     integer, dimension(ifms:ifme, jfms:jfme)::nfuel_cat_int
+    real::lat_ctr,lon_ctr
 
 !*** executable
 
@@ -115,6 +116,9 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
     itimestep=grid%itimestep
+
+    lat_ctr=(grid%em_lat_ll_t+ grid%em_lat_ul_t+grid%em_lat_ur_t+grid%em_lat_lr_t)/4.
+    lon_ctr=(grid%em_lon_ll_t+ grid%em_lon_ul_t+grid%em_lon_ur_t+grid%em_lon_lr_t)/4.
     
     do istep=0,fire_test_steps ! istep >0 is for testing only, exit after the first call
       itimestep = itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
@@ -137,25 +141,34 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 !           halo exchange on lfn width 2
 #include "HALO_FIRE_LFN.inc"
         endif
+
         if(fire_ifun.eq.1)then
 !       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
             if(fire_topo_from_atm.eq.1)then
-#include "HALO_FIRE_ZS.inc"
+#include "HALO_FIRE_HT.inc"
             endif 
+
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
+
         elseif(fire_ifun.eq.3)then
             if(fire_ifun_start<3)then
-!               halo exchange on all fuel data width 1
+!               halo exchange on all fuel data width 2
 #include "HALO_FIRE_FUEL.inc"
             endif
-!           halo exchange on atm winds width 1
+!           halo exchange on atm winds width 1 for interpolation
 #include "HALO_FIRE_WIND_A.inc"
+
         elseif(fire_ifun.eq.4)then
-!           halo exchange on fire winds width 1
+!           halo exchange on fire winds width 2 for a 2-step RK method
 #include "HALO_FIRE_WIND_F.inc"
+
+        elseif(fire_ifun.eq.6)then
+!           computing fuel_left needs ignition time from neighbors
+#include "HALO_FIRE_TIGN.inc"
+
         endif
 #endif
         nfuel_cat_int(:,:)=int(grid%nfuel_cat)
@@ -175,6 +188,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             itimestep,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
             grid%dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
+            lat_ctr,lon_ctr,                           & ! coordinates of grid center
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
@@ -218,6 +232,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
     itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
     u_frame,v_frame,                              &
+    lat_ctr,lon_ctr,                             &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
     num_ignitions,                                & 
     ignition_longlat,                             &
@@ -270,6 +285,7 @@ real, intent(in):: &
     dt,                                           & ! time step
     dx,dy,                                        & ! atm grid step
     u_frame,v_frame,                              & ! velocity offset
+    lat_ctr,lon_ctr,                             & ! coordinates of domain center
     fire_crwn_hgt,                                & ! lowest height crown fire heat is released (m)
     fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
     fire_ext_crwn                                   !  extinction depth of crown fire heat (m)
@@ -377,6 +393,7 @@ if(ifun.eq.1)call init_fuel_cats  ! common for all threads
 
 pid=0
 if(itimestep.le.10.or.mod(itimestep,10).eq.0)pid=itimestep
+pid=itimestep
 
 if(ignition_longlat .eq.0)then
    !  ignition is in m
@@ -388,17 +405,19 @@ else
    if(xlong(ips,jps).eq.0. .and. xlong(ipe,jpe).eq. 0.) then
        call crash('sfire_driver_phys: xlong xlat not set, use fire_ignition_longlat=0 or run real not ideal')
    endif
-   ! latitude in the middle of the patch
-   latm=xlat((ips+ipe)/2,(jps+jpe)/2)
    ! 1 degree in m (approximate OK)
    unit_fxlat=6378e3*2*3.14159/360.   ! earth circumference in m / 360 degrees
-   unit_fxlong=cos(latm*3.14159/180.)*unit_fxlat  ! latitude
+   unit_fxlong=cos(lat_ctr*3.14159/180.)*unit_fxlat  ! latitude
    ! will interpolate nodal coordinates to the fire mesh 
 endif
 
+! fake atm tile bounds
+kts=kps
+kte=kpe
 
 ! set up fire tiles & interpolate to fire grid
-!OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg,id)
+!$OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg,id) &
+!$OMP SCHEDULE(STATIC)
 do ij=1,num_tiles
 
     id=0  ! do not print/write anything
@@ -427,15 +446,11 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts,ifte,jfts,jfte,ifps,ifpe,jfps,jfpe)         ! check if fire tile fits in fire patch
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-! atm bounds 
-! fake tile bounds
-kts=kps
-kte=kpe
 
-write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
-call message(msg)
-7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
-write(msg,'(a,2i9)')'refinement ratio:',ir,jr
+    write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
+    call message(msg)
+    7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
+    write(msg,'(a,2i9)')'refinement ratio:',ir,jr
     if(ifun.eq.1)then   ! set terrain
 
         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
@@ -502,6 +517,16 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
 
     elseif(ifun.eq.2)then  
 
+        ! assuming halo on zsf done
+        ! extrapolate on 1 row of cells beyond the domain boundary
+        ! including on the halo regions 
+
+        call continue_at_boundary(1,1,0., & ! do x direction or y direction
+            ifms,ifme,jfms,jfme,           &                ! memory dims
+            ifds,ifde,jfds,jfde, &                     ! domain dims 
+            ifps,ifpe,jfps,jfpe, &            ! patch dims - winds defined up to +1
+            ifts,ifte,jfts,jfte, &                ! tile dims
+            zsf)                               ! array
                
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
@@ -611,6 +636,7 @@ write(msg,'(a,2i9)')'refinement ratio:',ir,jr
     endif ! ifun=6
 
 enddo ! tiles
+!$OMP END PARALLEL DO
 
 if(ifun.eq.1)then
     call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        
@@ -641,8 +667,8 @@ elseif(ifun.eq.6)then
     if(pid.gt.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
-        !call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',pid)
-        !call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',pid)
+        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',pid)
+        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)

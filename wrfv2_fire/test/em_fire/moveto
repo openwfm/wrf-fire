@@ -1,5 +1,5 @@
 #!/bin/csh -f
-if ($1=="")then
+if ("$1" == "") then
 set c=`git log | head -1 | sed 's/^.* //'`
 set r=`pwd | sed 's/.*\///'`
 set d=~/tmp/$r/$c
@@ -9,8 +9,9 @@ endif
 echo moving to $d
 mkdir -p $d
 mv *.txt $d
-rm $d/*000.txt
+rm $d/*_??000.txt
 mv wrfrst* wrf.log $d
+mv rsl.* $d
 #find . -name \*.txt -exec mv {} $d \;
 #find . -name wrfrst\* -exec rm -f {} \;
 #find . -name wrfout\* -exec rm -f {} \;

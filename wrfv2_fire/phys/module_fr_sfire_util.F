@@ -58,10 +58,20 @@ end subroutine crash
 
 subroutine message(s)
 use module_wrf_error
+!$ use OMP_LIB 
 implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
-msg='SFIRE:'//s
+character(len=1)thread
+integer m
+m=-1
+!$     m=omp_get_thread_num()
+if (m<0) then
+    msg='SFIRE:'//s
+else
+    write(thread,'(i1,a)')m
+    msg='SFIRE'//thread//s
+endif
 if(fire_print_msg.gt.0)then
 call wrf_message(msg)
 endif
@@ -123,9 +133,7 @@ real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 integer i,j,itso,jtso,iteo,jteo
 character(len=128)::msg
 integer::its1,ite1,jts1,jte1
-!*** statement function
-real a,b, EX
-EX(a,b)=(1.-bias)*(2.*a-b)+bias*max(2.*a-b,a,b)   ! extrapolation, max quarded
+integer,parameter::halo=1           ! width of halo region to update 
 !*** executable
 ! check if there is space for the extension
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
@@ -134,7 +142,7 @@ itso=its
 jtso=jts
 iteo=ite
 jteo=jte
-! go one beyond if at patch boundary but not at domain boudnary 
+! go halo width beyond if at patch boundary but not at domain boudnary 
 ! assume we have halo need to compute the value we do not have 
 ! the next thread that would conveniently computer the extended values at patch corners
 ! besides halo may not transfer values outside of the domain
@@ -143,10 +151,10 @@ its1=its
 jts1=jts
 ite1=ite
 jte1=jte
-if(its.eq.ips.and..not.its.eq.ids)its1=its-1
-if(jts.eq.jps.and..not.jts.eq.jds)jts1=jts-1
-if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+1
-if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+1
+if(its.eq.ips.and..not.its.eq.ids)its1=its-halo
+if(jts.eq.jps.and..not.jts.eq.jds)jts1=jts-halo
+if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+halo
+if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+halo
 write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
 call message(msg)
 if(ix.ne.0)then
@@ -188,6 +196,13 @@ if(ix.ne.0.and.iy.ne.0)then
     if(ite.eq.ide.and.jts.eq.jds)lfn(ide+1,jds-1)=EX(lfn(ide,jds),lfn(ide-1,jds+1))
     if(ite.eq.ide.and.jte.eq.jde)lfn(ide+1,jde+1)=EX(lfn(ide,jde),lfn(ide-1,jde-1))
 endif
+return
+contains
+real function EX(a,b)
+!*** statement function
+real a,b
+EX=(1.-bias)*(2.*a-b)+bias*max(2.*a-b,a,b)   ! extrapolation, max quarded
+end function EX
 end subroutine continue_at_boundary
 
 !

@@ -433,6 +433,7 @@ integer, intent(in)::i,j         ! node mesh coordinates
 real:: umid, phis, phiw, spdms, umidm, excess
 integer, parameter::ibeh=1
 real, parameter::ros_max=6.
+character(len=128)msg
 
 !*** executable
 
@@ -486,9 +487,6 @@ if (excess > 0.)then
     ros_wind = ros_wind - excess*ros_wind/(ros_wind+ros_slope)
     ros_slope = ros_slope - excess*ros_slope/(ros_wind+ros_slope)
 endif
-
-
-
 
 !     ... to rescale to veloc. carried by model, mult x (svel*snorm(1,3))= .1
 !jm: huh ???

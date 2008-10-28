@@ -1,6 +1,6 @@
 Index of documentation in doc subdirectory
 
-README.txti                 this file, how to compile and run WRF/SFIRE on ideal data
+README.txt                  this file, how to compile and run WRF/SFIRE on ideal data
 README_git.txt              how to use the versioning system
 README_mac.txt              how to run on a Mac
 README_matlab_netcdf.txt    how to read WRF input and output directly Matlab
@@ -23,7 +23,7 @@ The repository contains these main branches:
 * jm: current working branch
 * jm-base: early snapshot that gives the same output as Ned had
 
-Only Jon should commit to master branch in the repository.
+Only Jon can commit to master branch in the repository.
 Each branch has owner and one the owner can commit to that branch in the
 repository.
 If you want to have more than one branch have Jon set up a branch (say, jm2)
@@ -73,22 +73,18 @@ This runs an "idealized" problem. For RUNNING ON REAL DATA see doc/README_wps.tx
 
 STANDALONE FIRE MODEL TEST
 
+with ifort:
+
 cd phys
 ./ifmake clean
 ./ifmake model_test
-./ifmake clean
-./ifmake prop_test
-./ifmake clean
 
 Without the clean between different kind of builds nothing will work.
+There is g95make for g95.
+With other compilers, try someting like make -f testmakefile FC=your fortran compiler
+See wrfv2_fire/phys/README_jm.txt for more info.
 
-*NOTE*
-On walnut, the ifmake script will not work, but you can use the makefile, 
-'testmakefile.walnut' like this:
 
-make -f testmakefile.walnut clean model_test
-
-this will run the standalone model test.
 
 
 SETUP ON A NEW MACHINE
