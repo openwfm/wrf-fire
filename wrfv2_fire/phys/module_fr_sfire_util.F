@@ -58,10 +58,20 @@ end subroutine crash
 
 subroutine message(s)
 use module_wrf_error
+!$ use OMP_LIB 
 implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
-msg='SFIRE:'//s
+character(len=1)thread
+integer m
+m=-1
+!$     m=omp_get_thread_num()
+if (m<0) then
+    msg='SFIRE:'//s
+else
+    write(thread,'(i1,a)')m
+    msg='SFIRE'//thread//s
+endif
 if(fire_print_msg.gt.0)then
 call wrf_message(msg)
 endif

@@ -179,11 +179,11 @@ elseif(ifun.eq.2)then   ! initialize the run
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             fdx,fdy,time_start,  &
-            fuel_frac,lfn,tign)
+            fuel_frac,fire_area,lfn,tign)
             
         need_lfn_update=.true. ! because we have set lfn 
 
-elseif(ifun.eq.3)then   ! initialize timestep
+elseif(ifun.eq.3)then   ! ignition if so specified
 
     ! check for ignitions
     do ig = 1,num_ignitions
@@ -213,11 +213,11 @@ elseif(ifun.eq.3)then   ! initialize timestep
 elseif (ifun.eq.4) then  ! do the timestep
 
 !   compute fuel fraction at start
-    call fuel_left( &
-        ifms,ifme,jfms,jfme, &
-        ifts,ifte,jfts,jfte, &
-        ifms,ifme,jfms,jfme, &
-        lfn,tign,fuel_time,time_start,fuel_frac,fire_area) ! fuel frac is shared
+!    call fuel_left( &
+!        ifms,ifme,jfms,jfme, &
+!        ifts,ifte,jfts,jfte, &
+!        ifms,ifme,jfms,jfme, &
+!        lfn,tign,fuel_time,time_start,fuel_frac,fire_area) ! fuel frac is shared
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
@@ -276,7 +276,8 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     
     do j=jfts,jfte
         do i=ifts,ifte
-            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j)
+            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j) ! fuel lost this timestep
+            fuel_frac(i,j)=fuel_frac_end(i,j) ! copy new value to state array
         enddo
     enddo
 
