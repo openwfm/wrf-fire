@@ -5716,7 +5716,7 @@ SUBROUTINE fire_ros( i,j,                             &    ! incoming
 
          ros = r_0(i,j) * (1. + phiw + phis) * .00508
 
-         WRITE (msg,'(a,2i4,5(x,e12.3) )') 'i,j,ros,r0,phiw,phis=',  &
+         WRITE (msg,'(a,2i4,5(1x,e12.3) )') 'i,j,ros,r0,phiw,phis=',  &
                                               i,j,ros,r_0(i,j),phiw,phis
          CALL wrf_debug ( _FR_DBG_LEVEL_,msg )
 
