@@ -64,8 +64,8 @@ else
       t1=tile(id1,:);
       t2=tile(id2,:);
       for m=1:length(idiff);
-            fprintf('tile %i %i: a(%i,%i)=%g tile %i: a(%i,%i)=%g diff %g\n',...
-                t1(m),i1(m),j1(m),a1(m),t2(m),i2(m),j2(m),a2(m),a1(m)-a2(m))
+            fprintf('tile %i %i: a(%i,%i)=%g tile %i %i: a(%i,%i)=%g diff %g\n',...
+                t1(m,:),i1(m),j1(m),a1(m),t2(m,:),i2(m),j2(m),a2(m),a1(m)-a2(m))
       end
       warning('inconsistent values at overlap, taking the first seen')
    end
