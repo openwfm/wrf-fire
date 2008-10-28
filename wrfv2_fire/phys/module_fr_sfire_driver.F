@@ -3,6 +3,11 @@
 !*** Jan Mandel August 2007 - February 2008
 !*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
 
+! For support please subscribe to the wrf-fire mailing list at NCAR at
+! http://mailman.ucar.edu/mailman/listinfo/wrf-fire
+!
+! ALL RESPONSES TO INQUIRIES ABOUT THIS CODE WILL BE COPIED TO THE wrf-fire LIST
+
 ! This module is the only entry point from WRF-ARW to the wildland 
 ! fire model. The call to sfire_driver advances the fire model by 
 ! one timestep. The fire model inputs the wind and outputs 
