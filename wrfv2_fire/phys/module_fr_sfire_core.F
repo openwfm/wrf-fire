@@ -279,32 +279,6 @@ do j=1,JFCELLS
         else
              call crash('fuel_left: unknown fuel_left_method')
         endif
-!        if(iccell.eq.171.and.jccell.eq.111)then
-!            write(msg,*)iccell,jccell,i,j,fuel_left_f(i,j)
-!            call message(msg)
-!            write(msg,*)lfn(iccell,jccell),tign(iccell,jccell),fuel_time(iccell,jccell)
-!            call message(msg)
-!            write(msg,*)'lfn:',lfn(iccell-1,jccell-1),lfn(iccell-1,jccell),lfn(iccell-1,jccell+1)
-!            call message(msg)
-!            write(msg,*)'lfn:',lfn(iccell,jccell)-1,lfn(iccell,jccell),lfn(iccell,jccell+1)
-!            call message(msg)
-!            write(msg,*)'lfn:',lfn(iccell+1,jccell-1),lfn(iccell+1,jccell),lfn(iccell+1,jccell+1)
-!            call message(msg)
-!            write(msg,*),'lff:',lff(i,j),lff(i,j+1)
-!            call message(msg)
-!            write(msg,*),'lff:',lff(i+1,j),lff(i+1,j+1)
-!            call message(msg)
-!            write(msg,*),'tign:',tign(iccell-1,jccell-1),tign(iccell-1,jccell),tign(iccell-1,jccell+1)
-!            call message(msg)
-!            write(msg,*),'tign:',tign(iccell,jccell)-1,tign(iccell,jccell),tign(iccell,jccell+1)
-!            call message(msg)
-!            write(msg,*),'tign:',tign(iccell+1,jccell-1),tign(iccell+1,jccell),tign(iccell+1,jccell+1)
-!            call message(msg)
-!            write(msg,*),'tif:',tif(i,j),tif(i,j+1)
-!            call message(msg)
-!            write(msg,*),'tif:',tif(i+1,j),tif(i+1,j+1)
-!            call message(msg)
-!        endif
 
         ! consistency check
         if(fire_area_f(i,j).eq.0.)then
@@ -1144,7 +1118,7 @@ real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
-integer::i,j,its1,ite1,jts1,jte1,k,kk
+integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
@@ -1182,7 +1156,9 @@ call message(msg)
     ! To avoid copying, lfn_in is declared inout.
     ! At tile boundaries that are not domain boundaries values of lfn_in two nodes
     ! outside of the tile are needed.
-    call  tend_ls( id+1000, &
+    id1 = id  ! for debug prints
+    if(id1.ne.0)id1=id1+1000
+    call  tend_ls( id1, &
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                       ! domain dims - where lfn exists
@@ -1212,7 +1188,8 @@ call message(msg)
     
     ! tend = F(lfn1) on the tile (not beyond)
 
-    call  tend_ls( id+2000,&
+    if(id1.ne.0)id1=id1+1000
+    call  tend_ls( id1,&
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
