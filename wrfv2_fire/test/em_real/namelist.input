@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
- run_hours                           = 2,
- run_minutes                         = 0,
+ run_hours                           = 0,
+ run_minutes                         = 5,
  run_seconds                         = 0,
  start_year                          = 2005,
  start_month                         = 08,
@@ -154,7 +154,7 @@
 !
 ! verbosity
  fire_print_msg     = 1,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
- fire_print_file    = 0,    ! 1 to write text output files for matlab
+ fire_print_file    = 1,    ! 1 to write text output files for matlab
 !
 ! method selections for experiments, *do not change*
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
