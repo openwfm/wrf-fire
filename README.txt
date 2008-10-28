@@ -1,3 +1,14 @@
+This is the coupled WRF-fire model
+
+For support please subscribe to the wrf-fire mailing list at NCAR at
+http://mailman.ucar.edu/mailman/listinfo/wrf-fire
+
+You can contact the authors through this list:
+Janice Coen - physics
+Jan Mandel - the fire code
+Jonathan Beezley - WRF infrastructure and WPS
+
+
 Index of documentation in doc subdirectory
 
 README.txt                  this file, how to compile and run WRF/SFIRE on ideal data
@@ -8,10 +19,8 @@ README_vis.txt              matlab visualization using files written every times
 README_visualization.txt    convert WRF input and output to Matlab readable format
 README_wps.txt              how use real data including fuel from Landfire
 
-
-*** All is set up to run on wf.cudenver.edu ONLY ***
-*** See the bottom of this file how to set up another machine ***
-
+The instructions below assume you are runing on wf.cudenver.edu
+See the bottom of this file how to set up on a different machine
 
 BRANCHES
 
