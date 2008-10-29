@@ -1,0 +1,6 @@
+#!/bin/tcsh -f
+echo dm=$1 mp=$2
+./clean
+setenv OMP_NUM_THREADS $2
+mpirun -np $1 ./wrf.exe < /dev/null >& wrf.log 
+./moveto $1x$2
