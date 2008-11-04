@@ -764,6 +764,9 @@ BENCH_END(pbl_driver_tim)
       IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
 
         if(config_flags%ifire.eq.2)then 
+
+BENCH_START(fire_driver_tim)
+
             call sfire_driver_em ( grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
@@ -772,6 +775,9 @@ BENCH_END(pbl_driver_tim)
             ,sims,sime, sjms,sjme                        &
             ,sips,sipe, sjps,sjpe                        &
             ,rho,z_at_w,dz8w)
+
+BENCH_END(fire_driver_tim)
+
         endif
 
        ENDIF
