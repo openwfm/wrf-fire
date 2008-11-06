@@ -252,8 +252,7 @@ index_with_firstelem( char * pre , char * dref , int bdy ,  /* as defined in dat
 
 get_elem ( char * structname , char * nlstructname , char * tx , int i , node_t * p , int first_last )
 {
-   char dref[NAMELEN], nlstruct[NAMELEN], r1[NAMELEN] ;
-   char r[NAMELEN], d, d1 ;
+   char dref[NAMELEN], nlstruct[NAMELEN] ;
 
    if ( structname == NULL ) { strcpy( dref, "" ) ;}
    else                      { strcpy( dref, structname ) ; }
@@ -265,32 +264,11 @@ get_elem ( char * structname , char * nlstructname , char * tx , int i , node_t 
      {
        case (DOMAIN_STANDARD) :
          {
-           char *ornt ;
-           if      ( p->proc_orient == ALL_X_ON_PROC ) ornt = "x" ;
-           else if ( p->proc_orient == ALL_Y_ON_PROC ) ornt = "y" ;
-           else                                        ornt = "" ;
-
-           switch( p->dims[i]->coord_axis )
-           {
-           case(COORD_X) : d = 'i' ;  d1 = 'x' ; break ;
-           case(COORD_Y) : d = 'j' ;  d1 = 'y' ; break ;
-           case(COORD_Z) : d = 'k' ;  d1 = 'z' ; break ;
-           default :  break ;
-           }
-
-           if ( p->dims[i]->subgrid ) 
-           {
-fprintf( stderr, "%d p->coord_axis %d %c %c \n" ,i,p->coord_axis, d, d1 ) ;
-             if ( first_last == 0 ) { /*first*/
-               sprintf(tx,"(%ssm3%d%s-1)*%ssr_%c+1",r,p->dims[i]->dim_order,ornt,r1,d1) ;
-             }else{                   /*last*/
-               sprintf(tx,"%sem3%d%s*%ssr_%c"      ,r,p->dims[i]->dim_order,ornt,r1,d1) ;
-             }
-           }
-           else
-           {
-             sprintf(tx,"%s%cm3%d%s",dref,first_last==0?'s':'e',p->dims[i]->dim_order,ornt) ;
-           }
+         char *ornt ;
+         if      ( p->proc_orient == ALL_X_ON_PROC ) ornt = "x" ;
+         else if ( p->proc_orient == ALL_Y_ON_PROC ) ornt = "y" ;
+         else                                        ornt = "" ;
+           sprintf(tx,"%s%cm3%d%s",dref,first_last==0?'s':'e',p->dims[i]->dim_order,ornt) ;
          }
          break ;
        case (NAMELIST) :
@@ -390,7 +368,6 @@ bdy_indicator( int bdy )
   else if ( bdy == P_XEB ) { res = xe_str ; }
   else if ( bdy == P_YSB ) { res = ys_str ; }
   else if ( bdy == P_YEB ) { res = ye_str ; }
-  return(res) ;
 }
 
 int

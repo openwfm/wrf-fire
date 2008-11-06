@@ -61,6 +61,7 @@ gen_wrf_io ( char * dirname )
   OP_F(fp,"wrf_auxhist4out.inc") ;
   gen_wrf_io2 ( fp , fname, "grid%" , NULL, Domain.fields , AUXHIST4 , GEN_OUTPUT ) ;
   close_the_file(fp) ;
+
   OP_F(fp,"wrf_auxhist5out.inc") ;
   gen_wrf_io2 ( fp , fname, "grid%" , NULL, Domain.fields , AUXHIST5 , GEN_OUTPUT ) ;
   close_the_file(fp) ;
@@ -232,11 +233,8 @@ set_dim_strs ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELEN]
 {
   int i, j ;
   node_t *p ;
-  char d, d1 ;
+  char d ;
   char * stag ;
-  char r1[NAMELEN] ;
-
-  strcpy(r1,"grid%") ;
   if ( node == NULL ) return(1) ;
   for ( i = 0 ; i < 3 ; i++ )
     for ( j = 0 ; j < 2 ; j++ )
@@ -251,53 +249,35 @@ set_dim_strs ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELEN]
     p = node->dims[i] ;
     if      ( p->len_defined_how == DOMAIN_STANDARD )
     {
-      if ( p->subgrid ) {
-          switch( p->coord_axis )
-          {
-          case(COORD_X) : d = 'i' ;  d1 = 'x' ; break ;
-          case(COORD_Y) : d = 'j' ;  d1 = 'y' ; break ;
-          case(COORD_Z) : d = 'k' ;  d1 = 'z' ; break ;
-          default :  break ;
-          }
-
-        sprintf(ddim[i][0],"%s%cds",prepend,d) ;
-        sprintf(ddim[i][1],"%s%cde * %ssr_%c ",prepend,d,r1,d1) ;
-        sprintf(mdim[i][0],"(%s%cms-1)*%ssr_%c+1",prepend,d,r1,d1) ;
-        sprintf(mdim[i][1],"%s%cme*%ssr_%c",prepend,d,r1,d1) ;
-        sprintf(pdim[i][0],"(%s%cps-1)*%ssr_%c+1",prepend,d,r1,d1) ;
-        sprintf(pdim[i][1],"%s%cpe*%ssr_%c",prepend,d,r1,d1) ;
-
-      } else {
-        if ( sw_3dvar_iry_kludge ) {
-          switch( p->coord_axis )
-          {
-                                                   /* vvv */
-          case(COORD_X) : d = 'i' ; stag = (node->stag_y||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
-          case(COORD_Y) : d = 'j' ; stag = (node->stag_x||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
-                                                   /* ^^^ */
-          case(COORD_Z) : d = 'k' ; stag = (node->stag_z||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
-          default : stag = "1" ; break ;
-          }
-        } else {
-          switch( p->coord_axis )
-          {
-          case(COORD_X) : d = 'i' ; stag = (node->stag_x||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
-          case(COORD_Y) : d = 'j' ; stag = (node->stag_y||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
-          case(COORD_Z) : d = 'k' ; stag = (node->stag_z||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
-          default : stag = "1" ; break ;
-          }
+      if ( sw_3dvar_iry_kludge ) {
+        switch( p->coord_axis )
+        {
+                                                 /* vvv */
+        case(COORD_X) : d = 'i' ; stag = (node->stag_y||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
+        case(COORD_Y) : d = 'j' ; stag = (node->stag_x||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
+                                                 /* ^^^ */
+        case(COORD_Z) : d = 'k' ; stag = (node->stag_z||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
+        default : stag = "1" ; break ;
         }
-         
-        sprintf(ddim[i][0],"%s%cds",prepend,d) ;
-        sprintf(ddim[i][1],stag,prepend,d) ;  /* note that stag has printf format info in it */
-        sprintf(mdim[i][0],"%s%cms",prepend,d) ;
-        sprintf(mdim[i][1],"%s%cme",prepend,d) ;
-        sprintf(pdim[i][0],"%s%cps",prepend,d) ;
-        if ( ! sw_disregard_stag )
-          sprintf(pdim[i][1],"MIN( %s, %s%cpe )",ddim[i][1],prepend,d) ;
-        else
-          sprintf(pdim[i][1],"%s%cpe",prepend,d) ;
+      } else {
+        switch( p->coord_axis )
+        {
+        case(COORD_X) : d = 'i' ; stag = (node->stag_x||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
+        case(COORD_Y) : d = 'j' ; stag = (node->stag_y||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
+        case(COORD_Z) : d = 'k' ; stag = (node->stag_z||sw_disregard_stag)?"%s%cde":"(%s%cde-1)" ; break ;
+        default : stag = "1" ; break ;
+        }
       }
+       
+      sprintf(ddim[i][0],"%s%cds",prepend,d) ;
+      sprintf(ddim[i][1],stag,prepend,d) ;  /* note that stag has printf format info in it */
+      sprintf(mdim[i][0],"%s%cms",prepend,d) ;
+      sprintf(mdim[i][1],"%s%cme",prepend,d) ;
+      sprintf(pdim[i][0],"%s%cps",prepend,d) ;
+      if ( ! sw_disregard_stag )
+        sprintf(pdim[i][1],"MIN( %s, %s%cpe )",ddim[i][1],prepend,d) ;
+      else
+        sprintf(pdim[i][1],"%s%cpe",prepend,d) ;
     }
     else if ( p->len_defined_how == NAMELIST )
     {
@@ -1267,24 +1247,18 @@ if ( pass == 0 )
 	        case (COORD_X) : 
 		  if ( ( ! sw_3dvar_iry_kludge && p->stag_x ) || ( sw_3dvar_iry_kludge && p->stag_y ) )
 		   { sprintf( dimname[i] ,"%s_stag", dimnode->dim_data_name) ; } 
-		  else if ( p->dims[i]->subgrid ) 
-                   { sprintf( dimname[i] ,"%s_subgrid", dimnode->dim_data_name) ; }
 		  else 
 		   { strcpy( dimname[i], dimnode->dim_data_name) ; }
 		  break ;
 	        case (COORD_Y) : 
 		  if ( ( ! sw_3dvar_iry_kludge && p->stag_y ) || ( sw_3dvar_iry_kludge && p->stag_x ) )
 		   { sprintf( dimname[i] ,"%s_stag", dimnode->dim_data_name) ; } 
-		  else if ( p->dims[i]->subgrid ) 
-                   { sprintf( dimname[i] ,"%s_subgrid", dimnode->dim_data_name) ; }
 		  else 
 		   { strcpy( dimname[i], dimnode->dim_data_name) ; }
 		  break ;
 	        case (COORD_Z) : 
 		  if ( p->stag_z ) 
 		   { sprintf( dimname[i] ,"%s_stag", dimnode->dim_data_name) ; } 
-		  else if ( p->dims[i]->subgrid ) 
-                   { sprintf( dimname[i] ,"%s_subgrid", dimnode->dim_data_name) ; }
 		  else 
 		   { strcpy( dimname[i], dimnode->dim_data_name) ; }
 		  break ;
