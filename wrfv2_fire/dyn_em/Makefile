@@ -20,7 +20,6 @@ MODULES =                 		\
 #	module_initialize_b_wave.o      \
 #	module_initialize_grav2d_x.o   \
 #	module_initialize_hill2d_x.o    \
-#	module_initialize_fire.o  \
 #	module_initialize_quarter_ss.o  \
 #	module_initialize_real.o        \
 #	module_initialize_lsm_x.o  \
@@ -123,17 +122,6 @@ module_initialize_hill2d_x.o: \
 		../share/module_bc.o \
 		module_init_utilities.o
 
-module_initialize_fire.o : \
-                ../frame/module_domain.o \
-                ../frame/module_configure.o  \
-                ../frame/module_state_description.o \
-                ../frame/module_timing.o \
-                ../frame/module_dm.o \
-                ../share/module_io_domain.o \
-                ../share/module_model_constants.o \
-                ../share/module_bc.o \
-                module_init_utilities.o
-
 module_initialize_quarter_ss.o : \
 		../frame/module_domain.o \
 		../frame/module_configure.o  \
@@ -215,7 +203,6 @@ solve_em.o:     module_small_step_em.o \
 		../phys/module_microphysics_driver.o \
 		../phys/module_microphysics_zero_out.o \
 		../phys/module_pbl_driver.o \
-		../phys/module_fire_driver.o \
 		../phys/module_fddagd_driver.o \
 		../phys/module_fddaobs_driver.o \
 		../phys/module_physics_addtendc.o

@@ -1212,7 +1212,7 @@ FCDEBUG         =       # -qnoopt -qfullpath
 FCBASEOPTS      =       -qspill=20000 $(FCDEBUG) -qmaxmem=32767 -w #-qflttrap=zerodivide:invalid:enable -qsigtrap
 FCFIXED         =       -qfixed
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
-FCSUFFIX        =       -qsuffix=f=f90=F
+FCSUFFIX        =       -qsuffix=f=f90
 # machine-specific flags needed to link in ESMF library (C++ run-time-library, etc.)
 ESMF_LIB_FLAGS  =       -lC
 ESMF_IO_LIB     =       ESMFIOLIB
@@ -9302,8 +9302,8 @@ SCC		=	$(CC)
 RWORDSIZE       = $(NATIVE_RWORDSIZE)
 PROMOTION	=	-qrealsize=$(RWORDSIZE) -qintsize=4
 CFLAGS          =       -DNOUNDERSCORE -DLANDREAD_STUB -I /usr/include/sys -DMACOS
-FCOPTIM         =       #-O3 -qarch=auto #-qfloat=nomaf
-FCDEBUG         =       #-qnoopt -qfullpath
+FCOPTIM         =       -O3 -qarch=auto #-qfloat=nomaf
+FCDEBUG         =       # -qnoopt -qfullpath
 FCBASEOPTS      =       -qsave $(FCDEBUG) -qmaxmem=32767 -qspillsize=32767 -w 
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
 FCSUFFIX        =       -qsuffix=f=f90
@@ -9528,8 +9528,8 @@ SCC		=	$(CC)
 RWORDSIZE       = $(NATIVE_RWORDSIZE)
 PROMOTION	=	-qrealsize=$(RWORDSIZE) -qintsize=4
 CFLAGS          =       -DNOUNDERSCORE -DLANDREAD_STUB -I /usr/include/sys -DMACOS
-FCOPTIM         =       #-O3 -qarch=auto #-qfloat=nomaf
-FCDEBUG         =       #-qnoopt -qfullpath
+FCOPTIM         =       -O3 -qarch=auto #-qfloat=nomaf
+FCDEBUG         =       # -qnoopt -qfullpath
 FCBASEOPTS      =       -qsave $(FCDEBUG) -qmaxmem=32767 -qspillsize=32767 -w 
 FCFLAGS         =       $(FCOPTIM) $(FCBASEOPTS)
 FCSUFFIX        =       -qsuffix=f=f90
@@ -10601,7 +10601,6 @@ module_start.o : module_start.F
 module_initialize.o : module_initialize.F
 module_initialize_b_wave.o : module_initialize_b_wave.F
 module_initialize_hill2d_x.o : module_initialize_hill2d_x.F
-module_initialize_fire.o : module_initialize_fire.F
 module_initialize_quarter_ss.o : module_initialize_quarter_ss.F
 module_initialize_squall2d_x.o : module_initialize_squall2d_x.F
 module_initialize_squall2d_y.o : module_initialize_squall2d_y.F
@@ -10611,6 +10610,7 @@ start_domain.o : start_domain.F
 mediation_integrate.o : mediation_integrate.F
 module_configure.o : module_configure.F
 
+solve_interface.o                                              \
 shift_domain_em.o                                              \
 module_io_mm5.o module_si_io.o module_io_wrf.o module_domain.o \
 module_start.o module_initialize.o module_initialize_b_wave.o  \

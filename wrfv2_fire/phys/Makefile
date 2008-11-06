@@ -55,9 +55,7 @@ MODULES = \
 	module_fdda_psufddagd.o \
 	module_fddagd_driver.o  \
         module_fddaobs_rtfdda.o \
-	module_fddaobs_driver.o \
-	module_fire_driver.o \
-	module_fr_cawfe.o
+	module_fddaobs_driver.o
   
 OBJS    =
 
@@ -246,14 +244,5 @@ module_fddaobs_driver.o: \
 		../share/module_bc.o  \
 		../share/module_model_constants.o  \
 		module_fddaobs_rtfdda.o
-
-module_fire_driver.o: \
-		../share/module_model_constants.o  \
-		../frame/module_wrf_error.o \
-		module_fr_cawfe.o
-
-module_fr_cawfe.o: \
-		../share/module_model_constants.o  \
-		../frame/module_wrf_error.o
 
 # DO NOT DELETE

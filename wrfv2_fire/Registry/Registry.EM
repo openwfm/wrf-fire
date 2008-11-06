@@ -122,6 +122,8 @@ state    real   qv_gc          igj      dyn_em      1        Z     i1  "QV"     
 #-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 #                                               
 # Variables for Eulerian mass coordinate dynamics                                            
+#                                               
+
 
 # Velocities
 #
@@ -1147,7 +1149,6 @@ rconfig   integer simulation_start_second derived                  1            
 # Single dummy declaration to define a nodyn dyn option
 state integer nodyn_dummy - dyn_nodyn -  -  -  "" "" ""      
 
-
 #
 #---------------------------------------------------------------------------------------------------------------------------------------
 # Package Declarations
@@ -1362,88 +1363,3 @@ typedef fdob_type real    rko                  z        -         1        -    
 
 state fdob_type fdob - -
 ##
-
-#
-# ----------------------------------------
-#  begin fire variables and configuration
-# ----------------------------------------
-#
-# declare fire package and choose which fire scheme
-#
-#<key>   <package       <associated               <package        <associated 4d scalars>
-#         name>          namelist choice>          state vars>
-# 
-package   fire_cawfe     fire==1                     -             -
-
-# fire dimensions on fire grid
-#
-#<Table>  <Dim>  <Order> <How defined>         <Coord-axis>  <Dimname in Datasets>
-dimspec    n      -     constant=2                c          fire_index_dim
-dimspec    o      -     constant=4                c          fire_particle_dim
-
-# fire variables on fire grid
-#
-#<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
-state    integer  nfuel_cat *i*j     fire        1         -     -
-state    integer  nfl       *i*j     fire        1         -     -
-state    integer  nfl_t     *i*j     fire        1         -     -
-state    integer  nfl_c     *i*j     fire        1         -     -
-state    integer  ncod      *i*j     fire        1         -     -
-state    real     fg        *i*j     fire        1         -     -
-state    real     fc        *i*j     fire        1         -     -
-state    real     r_0       *i*j     fire        1         -     -
-state    real     bbb       *i*j     fire        1         -     -
-state    real     betafl    *i*j     fire        1         -     -
-state    real     phiwc     *i*j     fire        1         -     -
-state    real     area      *i*j     fire        1         -     -
-state    real     area2     *i*j     fire        1         -     -
-state    real     zf        *i*j     fire        1         -     -
-state    real     zsf       *i*j     fire        1         -     -
-state    real     tign_g    *i*j     fire        1         -     -
-state    real     tign_c    *i*j     fire        1         -     -
-state    real     tign_crt  *i*j     fire        1         -     -
-#
-state    integer  in1       *i*jn    fire        1         -     h
-state    integer  in2       *i*jn    fire        1         -     h
-state    integer  ixb       *i*jo    fire        1         -     h
-state    integer  iyb       *i*jo    fire        1         -     h
-state    integer  icn       *i*jo    fire        1         -     h
-state    real     xfg       *i*jo    fire        1         -     h
-state    real     yfg       *i*jo    fire        1         -     h
-state    real     xcd       *i*jo    fire        1         -     h
-state    real     ycd       *i*jo    fire        1         -     h
-state    real     xcn       *i*jo    fire        1         -     h
-state    real     ycn       *i*jo    fire        1         -     h
-state    real     sprdx     *i*jo    fire        1         -     h
-state    real     sprdy     *i*jo    fire        1         -     h
- 
-# fire variables on atm grid
-#
-state    real     rthfrten  ikj      fire        1         -     h
-state    real     rqvfrten  ikj      fire        1         -     h
-state    real     grnhfx    ij       fire        1         -     h
-state    real     grnqfx    ij       fire        1         -     h
-state    real     canhfx    ij       fire        1         -     h
-state    real     canqfx    ij       fire        1         -     h
-
-#
-# fire configure namelist variables
-#
-#<Table>  <Type>  <Sym>                   <How set>          <Nentries>   <Default>
-rconfig   integer ifire                  namelist,fire          1            0
-rconfig   real    fire_lat_init          namelist,fire          1            0.      -      "fire_lat_init"    "latitude to start fire"           "degrees"
-rconfig   real    fire_lon_init          namelist,fire          1            0.      -      "fire_lon_init"    "longitude to start fire"          "degrees"
-rconfig   real    fire_ign_time          namelist,fire          1            0.      -      "fire_ign_time"    "time when fire should be ignited" "min"
-rconfig   integer fire_shape             namelist,fire          1            0       -      "fire_shape"       "fire shape"   ""
-rconfig   integer fire_sprd_mdl          namelist,fire          1            1       -      "fire_sprd_mdl"    "which spread rate formula: if 0, Macarthur; if 1, BEHAVE" ""   
-rconfig   real    fire_crwn_hgt          namelist,fire          1            15.     -      "fire_crwn_hgt"    "height that heat from crown fire is released" "m"
-rconfig   real    fire_ext_grnd          namelist,fire          1            50.     -      "fire_ext_grnd"    "extinction depth of sfc fire heat"   "m"
-rconfig   real    fire_ext_crwn          namelist,fire          1            50.     -      "fire_ext_crwn"    "extinction depth of crown fire heat" "m"
-rconfig   integer fire_fuel_read         namelist,fire          1            0       -      "fire_fuel_read"   "fuel categories are set by: if 0, uniform; if 1, user-presc; if 2, read from file"   ""
-rconfig   integer fire_fuel_cat          namelist,fire          1            1       -      "fire_fuel_cat"     "fuel category if ifuelread=0"              ""
-
-#
-# ----------------------------------------
-#  end fire variables and configuration
-# ----------------------------------------
-#
