@@ -1,12 +1,15 @@
 function [varargout]=read_array_tiles_sp(root,dmtiles,mptiles,num1,num2);
-% [i,j,a]=read_array_tiles(root,tiles,tilemode,num1,num2)
+% [i,j,a]=read_array_tiles_sp(root,dmtiles,mptiles,num1,num2);
+% a=read_array_tiles_sp(root,dmtiles,mptiles,num1,num2);
+%
 % read array produced by matching calls write_array_m in module_fr_sfire_util.F
 % cycle tiles over dmtiles and mptiles
 % from files root[_num1[_num2]].nnnn.txt,  nnnn=1:dmntiles
 % if mptiles nonempry, add tile*10000 to num1
 % if dmtiles=[] mptiles=[] same as read_array_sp(root,num1,num2)
+% output in [i j a] format works even when some indices are <1
 
-% Jan Mandel, 2008
+% Jan Mandel, October 2008
 
 if ~exist('num1','var'),
     num1=-1;
