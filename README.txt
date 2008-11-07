@@ -1,4 +1,8 @@
-This is the coupled WRF-fire model
+This is the coupled WRF-fire model, combining WRF and the SFIRE codes
+
+The code can be downloaded from http://github.com/jbeezley/wrf-fire/
+
+For terms and conditions see the file license.txt
 
 For support please subscribe to the wrf-fire mailing list at NCAR at
 http://mailman.ucar.edu/mailman/listinfo/wrf-fire
@@ -8,6 +12,7 @@ Janice Coen - physics
 Jan Mandel - the fire code
 Jonathan Beezley - WRF infrastructure and WPS
 
+--------------------------------------------------------
 
 Index of documentation in doc subdirectory
 
