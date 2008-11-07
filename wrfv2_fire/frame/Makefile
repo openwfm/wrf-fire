@@ -26,7 +26,7 @@ OBJS    =       wrf_num_bytes_between.o    \
                 wrf_shutdown.o             \
                 wrf_debug.o                \
                 libmassv.o                 \
-                collect_on_comm.o
+                collect_on_comm.o          
 
 #compile as a .o but do not link into the main library
 SPECIAL =       module_internal_header_util.o pack_utils.o
@@ -60,7 +60,6 @@ md_calls.inc : md_calls.m4
 
 
 # DEPENDENCIES : only dependencies after this line (don't remove the word DEPENDENCIES)
-
 
 module_configure.o: \
 		module_state_description.o \

@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 20,
+ run_minutes                         = 10,
  run_seconds                         = 0,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
@@ -15,15 +15,15 @@
  end_hour                            = 00,   00,   00,
  end_minute                          = 600,   600,   600,
  end_second                          = 00,   00,   00,
- history_interval                    = 5,   30,   30,
+ history_interval                    = 20,   30,   30,
  frames_per_outfile                  = 1000, 1000, 1000,
  restart                             = .false.,
- restart_interval                    = 1
+ restart_interval                    = 20
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
  io_form_boundary                    = 2
- debug_level                         = 101 
+ debug_level                         = 0
  /
 
  &domains
@@ -165,7 +165,7 @@
  fire_ignition_time3  =      4,  ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 1,        ! 1 print fire debugging messages
+ fire_print_msg     = 0,        ! 1 print fire debugging messages
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! method selections, do not change from defaults unless you know what you are doing
