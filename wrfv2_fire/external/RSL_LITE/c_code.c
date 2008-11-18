@@ -1,21 +1,36 @@
-#include <stdio.h>
+#ifndef MS_SUA_
+# include <stdio.h>
+#endif
 #include <fcntl.h>
+#ifndef O_CREAT
+# define O_CREAT _O_CREAT
+#endif
+#ifndef O_WRONLY
+# define O_WRONLY _O_WRONLY
+#endif
 
 #define STANDARD_ERROR 2
 
 #define STANDARD_OUTPUT 1
 
-#include "mpi.h"
+#ifndef STUBMPI
+#  include "mpi.h"
+#endif
 #include "rsl_lite.h"
 
 #define F_PACK
 
 RSL_LITE_ERROR_DUP1 ( int *me )
 {
-    int newfd ;
+    int newfd,rc ;
     char filename[256] ;
+    char dirname[256] ;
     char hostname[256] ;
 
+/* redirect standard out and standard error based on compile options*/
+                                                                                                                                              
+#ifndef NCEP_DEBUG_MULTIDIR
+# ifndef MS_SUA
     gethostname( hostname, 256 ) ;
 
 /* redirect standard out*/
@@ -51,23 +66,144 @@ RSL_LITE_ERROR_DUP1 ( int *me )
     }
     fprintf( stdout, "taskid: %d hostname: %s\n",*me,hostname) ;
     fprintf( stderr, "taskid: %d hostname: %s\n",*me,hostname) ;
+# else
+    printf("host %d", *me ) ;
+    system("hostname") ;
+    sprintf( hostname, "host %d", *me ) ;
+/* redirect standard out*/
+    sprintf(filename,"rsl.out.%04d",*me) ;
+    if ((newfd = open( filename, O_CREAT | O_WRONLY, 0666 )) < 0 )
+    {
+        return ;
+    }
+    if( dup2( newfd, STANDARD_OUTPUT ) < 0 )
+    {
+        close(newfd) ;
+        return ;
+    }
+/* redirect standard error */
+    sprintf(filename,"rsl.error.%04d",*me) ;
+    if ((newfd = open( filename, O_CREAT | O_WRONLY, 0666 )) < 0 )
+    {
+        return ;
+    }
+    if( dup2( newfd, STANDARD_ERROR ) < 0 )
+    {
+        close(newfd) ;
+        return ;
+    }
 
+# endif
+#else
+# ifndef NCEP_DEBUG_GLOBALSTDOUT
+
+/*create TASKOUTPUT directory to contain separate task owned output directories*/
+                                                                                                                                              
+   /* let task 0 create the subdirectory path for the task directories */
+                                                                                                                                              
+    if (*me == 0)
+    {
+        sprintf(dirname, "%s","TASKOUTPUT");
+        rc = mkdir(dirname, 0777);
+        if ( rc != 0 && errno==EEXIST) rc=0;
+    }
+                                                                                                                                              
+    /* If TASKOUTPUT directory is not created then return */
+                                                                                                                                              
+    MPI_Bcast(&rc, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
+                                                                                                                                              
+    if (rc != 0 ) {
+       if (*me == 0 ) {
+          perror("mkdir error");
+          fprintf(stderr, "mkdir failed for directory %s on task %d. Sending error/output to stderr/stdout for all tasks and continuing.\n", dirname, *me);
+          return;
+       }
+       else {
+          return;
+       }
+    }
+        
+    /* TASKOUTPUT directory exists, continue with task specific directory */
+                                                                                                                                              
+    sprintf(dirname, "TASKOUTPUT/%04d", *me);
+    rc=mkdir(dirname, 0777);
+    if (  rc !=0 && errno!=EEXIST ) {
+        perror("mkdir error");
+        fprintf(stderr, "mkdir failed for directory %s on task %d. Sending error/output to stderr/stdout and continuing.\n", dirname, *me);
+        return;
+    }
+                                                                                                                                              
+   /* Each tasks creates/opens its own output and error files */
+                                                                                                                                              
+   sprintf(filename, "%s/%04d/rsl.out.%04d","TASKOUTPUT",*me,*me) ;
+        
+   if ((newfd = open( filename, O_CREAT | O_WRONLY, 0666 )) < 0 )
+   {
+        perror("error_dup: cannot open ./TASKOUTPUT/nnnn/rsl.out.nnnn") ;
+        fprintf(stderr,"...sending output to standard output and continuing.\n")
+ ;
+        return ;
+   }
+   if( dup2( newfd, STANDARD_OUTPUT ) < 0 )
+   {
+        perror("error_dup: dup2 fails to change output descriptor") ;
+        fprintf(stderr,"...sending output to standard output and continuing.\n");
+        close(newfd) ;
+        return ;
+   }
+        
+   sprintf(filename, "%s/%04d/rsl.error.%04d","TASKOUTPUT",*me,*me) ;
+   if ((newfd = open( filename, O_CREAT | O_WRONLY, 0666 )) < 0 )
+   {
+       perror("error_dup: cannot open ./TASKOUTPUT/nnnn/rsl.error.nnnn") ;
+       fprintf(stderr,"...sending error to standard error and continuing.\n") ;
+       return ;
+   }
+   if( dup2( newfd, STANDARD_ERROR ) < 0 )
+   {
+       perror("error_dup: dup2 fails to change error descriptor") ;
+       fprintf(stderr,"...sending error to standard error and continuing.\n") ;
+       close(newfd) ;
+       return ;
+   }
+# else
+/* Each task writes to global standard error and standard out */
+     
+   return;
+     
+# endif
+#endif
+}
+
+RSL_LITE_GET_HOSTNAME ( char * hn, int * size, int *n, int *hostid ) 
+{
+   char temp[512] ;
+   char *p, *q ; 
+   int i, cs ;
+   if ( gethostname(temp,512) ) return(1) ;
+   cs = gethostid() ;
+   for ( p = temp , q = hn , i = 0 ; *p && i < *size && i < 512 ; i++ , p++ , q++ ) { *q = *p ; }
+   *n = i ;
+   *hostid = cs ;
+   return(0) ;
 }
 
 BYTE_BCAST ( char * buf, int * size, int * Fcomm )
 {
+#ifndef STUBMPI
     MPI_Comm *comm, dummy_comm ;
 
     comm = &dummy_comm ;
     *comm = MPI_Comm_f2c( *Fcomm ) ;
-#ifdef crayx1
+# ifdef crayx1
     if (*size % sizeof(int) == 0) {
        MPI_Bcast ( buf, *size/sizeof(int), MPI_INT, 0, *comm ) ;
     } else {
        MPI_Bcast ( buf, *size, MPI_BYTE, 0, *comm ) ;
     }
-#else
+# else
     MPI_Bcast ( buf, *size, MPI_BYTE, 0, *comm ) ;
+# endif
 #endif
 }
 
@@ -92,6 +228,8 @@ RSL_LITE_INIT_EXCH (
   int ips , ipe , jps , jpe , kps , kpe ;
   int yp, ym, xp, xm ;
   int nbytes ;
+
+#ifndef STUBMPI
   MPI_Comm comm, *comm0, dummy_comm ;
 
   comm0 = &dummy_comm ;
@@ -104,8 +242,6 @@ RSL_LITE_INIT_EXCH (
   n3dL = *n3dL0 ; n2dL = *n2dL0 ; typesizeL = *typesizeL0 ;
   me = *me0 ; np = *np0 ; np_x = *np_x0 ; np_y = *np_y0 ;
   ips = *ips0-1 ; ipe = *ipe0-1 ; jps = *jps0-1 ; jpe = *jpe0-1 ; kps = *kps0-1 ; kpe = *kpe0-1 ;
-
-#if 1
 
   if ( np_y > 1 ) {
     nbytes = typesizeR*(ipe-ips+1+2*shw)*shw*(n3dR*(kpe-kps+1)+n2dR) +
@@ -163,6 +299,8 @@ RSL_LITE_PACK ( int * Fcomm0, char * buf , int * shw0 , int * typesize0 , int * 
   int yp, ym, xp, xm ;
   int nbytes, ierr ;
   register int *pi, *qi ;
+
+#ifndef STUBMPI
   MPI_Comm comm, *comm0, dummy_comm ;
   int js, je, ks, ke, is, ie, wcount ;
 
@@ -187,9 +325,11 @@ RSL_LITE_PACK ( int * Fcomm0, char * buf , int * shw0 , int * typesize0 , int * 
 
   da_buf = ( pu == 0 ) ? RSL_SENDBUF : RSL_RECVBUF ;
 
+  if ( ips <= ipe && jps <= jpe ) {
+
   if ( np_y > 1 && xy == 0 ) {
     MPI_Cart_shift( *comm0 , 0, 1, &ym, &yp ) ;
-    if ( yp != MPI_PROC_NULL ) {
+    if ( yp != MPI_PROC_NULL && jpe <= jde  && jde != jpe ) {
       p = buffer_for_proc( yp , 0 , da_buf ) ;
       if ( pu == 0 ) {
         js = jpe-shw+1     ; je = jpe ;
@@ -197,43 +337,49 @@ RSL_LITE_PACK ( int * Fcomm0, char * buf , int * shw0 , int * typesize0 , int * 
         is = IMAX(ips-shw) ; ie = IMIN(ipe+shw) ;
         nbytes = buffer_size_for_proc( yp, da_buf ) ;
 	if ( yp_curs + RANGE( jpe-shw+1, jpe, kps, kpe, ips-shw, ipe+shw, 1, typesize ) > nbytes ) {
+#ifndef MS_SUA
 	  fprintf(stderr,"memory overwrite in rsl_lite_pack, Y pack up, %d > %d\n",
 	      yp_curs + RANGE( jpe-shw+1, jpe, kps, kpe, ips-shw, ipe+shw, 1, typesize ), nbytes ) ;
+#endif
 	  MPI_Abort(MPI_COMM_WORLD, 99) ;
         }
-        if ( typesize == sizeof(long int) && sizeof( long int ) != sizeof(int) ) {
+        if ( typesize == 8 ) {
           F_PACK_LINT ( buf, p+yp_curs, imemord, &js, &je, &ks, &ke, &is, &ie, 
                                               &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           yp_curs += wcount*typesize ;
         }
-	else if ( typesize == sizeof(int) ) {
+	else if ( typesize == 4 ) {
           F_PACK_INT ( buf, p+yp_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                              &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           yp_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       } else {
         js = jpe+1         ; je = jpe+shw ;
         ks = kps           ; ke = kpe ;
         is = IMAX(ips-shw) ; ie = IMIN(ipe+shw) ;
-        if ( typesize == sizeof(long int) && sizeof( long int ) != sizeof(int) ) {
+        if ( typesize == 8 ) {
           F_UNPACK_LINT ( p+yp_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                              &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           yp_curs += wcount*typesize ;
         }
-	else if ( typesize == sizeof(int) ) {
+	else if ( typesize == 4 ) {
           F_UNPACK_INT ( p+yp_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                              &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           yp_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
 	}
       }
     }
-    if ( ym != MPI_PROC_NULL ) {
+    if ( ym != MPI_PROC_NULL && jps >= jds  && jps != jds ) {
       p = buffer_for_proc( ym , 0 , da_buf ) ;
       if ( pu == 0 ) {
         js = jps           ; je = jps+shw-1 ;
@@ -241,39 +387,45 @@ RSL_LITE_PACK ( int * Fcomm0, char * buf , int * shw0 , int * typesize0 , int * 
         is = IMAX(ips-shw) ; ie = IMIN(ipe+shw) ;
         nbytes = buffer_size_for_proc( ym, da_buf ) ;
 	if ( ym_curs + RANGE( jps, jps+shw-1, kps, kpe, ips-shw, ipe+shw, 1, typesize ) > nbytes ) {
+#ifndef  MS_SUA
 	  fprintf(stderr,"memory overwrite in rsl_lite_pack, Y pack dn, %d > %d\n",
 	      ym_curs + RANGE( jps, jps+shw-1, kps, kpe, ips-shw, ipe+shw, 1, typesize ), nbytes ) ;
+#endif
 	  MPI_Abort(MPI_COMM_WORLD, 99) ;
         }
-        if ( typesize == sizeof(long int) && sizeof( long int ) != sizeof(int) ) {
+        if ( typesize == 8 ) {
           F_PACK_LINT ( buf, p+ym_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                              &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           ym_curs += wcount*typesize ;
         }
-	else if ( typesize == sizeof(int) ) {
+	else if ( typesize == 4 ) {
           F_PACK_INT ( buf, p+ym_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                              &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           ym_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
 	}
       } else {
         js = jps-shw       ; je = jps-1 ;
         ks = kps           ; ke = kpe ;
         is = IMAX(ips-shw) ; ie = IMIN(ipe+shw) ;
-        if ( typesize == sizeof(long int) && sizeof( long int ) != sizeof(int) ) {
+        if ( typesize == 8 ) {
           F_UNPACK_LINT ( p+ym_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                                 &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           ym_curs += wcount*typesize ;
         }
-	else if ( typesize == sizeof(int) ) {
+	else if ( typesize == 4 ) {
           F_UNPACK_INT ( p+ym_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                                &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           ym_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       }
     }
@@ -281,7 +433,7 @@ RSL_LITE_PACK ( int * Fcomm0, char * buf , int * shw0 , int * typesize0 , int * 
 
   if ( np_x > 1 && xy == 1 ) {
     MPI_Cart_shift( *comm0, 1, 1, &xm, &xp ) ;
-    if ( xp != MPI_PROC_NULL ) {
+    if ( xp != MPI_PROC_NULL  && ipe <= ide && ide != ipe ) {
       p = buffer_for_proc( xp , 0 , da_buf ) ;
       if ( pu == 0 ) {
         js = JMAX(jps-shw) ; je = JMIN(jpe+shw) ;
@@ -289,43 +441,49 @@ RSL_LITE_PACK ( int * Fcomm0, char * buf , int * shw0 , int * typesize0 , int * 
         is = ipe-shw+1     ; ie = ipe ;
         nbytes = buffer_size_for_proc( xp, da_buf ) ;
         if ( xp_curs + RANGE( jps-shw, jpe+shw, kps, kpe, ipe-shw+1, ipe, 1, typesize ) > nbytes ) {
+#ifndef MS_SUA
 	  fprintf(stderr,"memory overwrite in rsl_lite_pack, X pack right, %d > %d\n",
 	      xp_curs + RANGE( jps-shw, jpe+shw, kps, kpe, ipe-shw+1, ipe, 1, typesize ), nbytes ) ;
+#endif
 	  MPI_Abort(MPI_COMM_WORLD, 99) ;
         }
-        if ( typesize == sizeof(long int) && sizeof( long int ) != sizeof(int) ) {
+        if ( typesize == 8 ) {
           F_PACK_LINT ( buf, p+xp_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                               &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xp_curs += wcount*typesize ;
         }
-	else if ( typesize == sizeof(int) ) {
+	else if ( typesize == 4 ) {
           F_PACK_INT ( buf, p+xp_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                              &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xp_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
 	}
       } else {
         js = JMAX(jps-shw) ; je = JMIN(jpe+shw) ;
         ks = kps           ; ke = kpe ;
         is = ipe+1         ; ie = ipe+shw ;
-        if ( typesize == sizeof(long int) && sizeof( long int ) != sizeof(int) ) {
+        if ( typesize == 8 ) {
           F_UNPACK_LINT ( p+xp_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                                 &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xp_curs += wcount*typesize ;
         }
-	else if ( typesize == sizeof(int) ) {
+	else if ( typesize == 4 ) {
           F_UNPACK_INT ( p+xp_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                                &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xp_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       }
     }
-    if ( xm != MPI_PROC_NULL ) {
+    if ( xm != MPI_PROC_NULL  && ips >= ids && ids != ips ) {
       p = buffer_for_proc( xm , 0 , da_buf ) ;
       if ( pu == 0 ) {
         js = JMAX(jps-shw) ; je = JMIN(jpe+shw) ;
@@ -333,58 +491,69 @@ RSL_LITE_PACK ( int * Fcomm0, char * buf , int * shw0 , int * typesize0 , int * 
         is = ips           ; ie = ips+shw-1 ;
         nbytes = buffer_size_for_proc( xm, da_buf ) ;
         if ( xm_curs + RANGE( jps-shw, jpe+shw, kps, kpe, ips, ips+shw-1, 1, typesize ) > nbytes ) {
+#ifndef MS_SUA
 	  fprintf(stderr,"memory overwrite in rsl_lite_pack, X left , %d > %d\n",
 	      xm_curs + RANGE( jps-shw, jpe+shw, kps, kpe, ips, ips+shw-1, 1, typesize ), nbytes ) ;
+#endif
 	  MPI_Abort(MPI_COMM_WORLD, 99) ;
         }
-        if ( typesize == sizeof(long int) && sizeof( long int ) != sizeof(int) ) {
+        if ( typesize == 8 ) {
           F_PACK_LINT ( buf, p+xm_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                               &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xm_curs += wcount*typesize ;
         }
-	else if ( typesize == sizeof(int) ) {
+	else if ( typesize == 4 ) {
           F_PACK_INT ( buf, p+xm_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                              &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xm_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       } else {
         js = JMAX(jps-shw) ; je = JMIN(jpe+shw) ;
         ks = kps           ; ke = kpe ;
         is = ips-shw       ; ie = ips-1 ;
-        if ( typesize == sizeof(long int) && sizeof( long int ) != sizeof(int) ) {
+        if ( typesize == 8 ) {
           F_UNPACK_LINT ( p+xm_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                                 &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xm_curs += wcount*typesize ;
         } 
-        else if ( typesize == sizeof(int) ) {
+        else if ( typesize == 4 ) {
           F_UNPACK_INT ( p+xm_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                                &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xm_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       }
     }
   }
+  }
+#endif
+
 }
 
+#ifndef STUBMPI
 static MPI_Request yp_recv, ym_recv, yp_send, ym_send ;
 static MPI_Request xp_recv, xm_recv, xp_send, xm_send ;
+#endif
 
 RSL_LITE_EXCH_Y ( int * Fcomm0, int *me0, int * np0 , int * np_x0 , int * np_y0 )
 {
   int me, np, np_x, np_y ;
   int yp, ym, xp, xm, ierr ;
+#ifndef STUBMPI
   MPI_Status stat ;
   MPI_Comm comm, *comm0, dummy_comm ;
 
   comm0 = &dummy_comm ;
   *comm0 = MPI_Comm_f2c( *Fcomm0 ) ;
-#if 1
   comm = *comm0 ; me = *me0 ; np = *np0 ; np_x = *np_x0 ; np_y = *np_y0 ;
   if ( np_y > 1 ) {
     MPI_Cart_shift( *comm0, 0, 1, &ym, &yp ) ;
@@ -400,14 +569,12 @@ RSL_LITE_EXCH_Y ( int * Fcomm0, int *me0, int * np0 , int * np_x0 , int * np_y0 
     if ( ym != MPI_PROC_NULL ) {
       ierr=MPI_Isend ( buffer_for_proc( ym, 0,       RSL_SENDBUF ), ym_curs, MPI_CHAR, ym, ym, comm, &ym_send ) ;
     }
-    if ( yp != MPI_PROC_NULL ) MPI_Wait( &yp_recv, &stat ) ; 
-    if ( ym != MPI_PROC_NULL ) MPI_Wait( &ym_recv, &stat ) ; 
-    if ( yp != MPI_PROC_NULL ) MPI_Wait( &yp_send, &stat ) ; 
-    if ( ym != MPI_PROC_NULL ) MPI_Wait( &ym_send, &stat ) ;
+    if ( yp != MPI_PROC_NULL ) {  MPI_Wait( &yp_recv, &stat ) ;  }
+    if ( ym != MPI_PROC_NULL ) {  MPI_Wait( &ym_recv, &stat ) ;  }
+    if ( yp != MPI_PROC_NULL ) {  MPI_Wait( &yp_send, &stat ) ;  }
+    if ( ym != MPI_PROC_NULL ) {  MPI_Wait( &ym_send, &stat ) ;  }
   }
   yp_curs = 0 ; ym_curs = 0 ; xp_curs = 0 ; xm_curs = 0 ;
-#else 
-fprintf(stderr,"RSL_LITE_EXCH_Y disabled\n") ;
 #endif
 }
 
@@ -415,12 +582,12 @@ RSL_LITE_EXCH_X ( int * Fcomm0, int *me0, int * np0 , int * np_x0 , int * np_y0 
 {
   int me, np, np_x, np_y ;
   int yp, ym, xp, xm ;
+#ifndef STUBMPI
   MPI_Status stat ;
   MPI_Comm comm, *comm0, dummy_comm ;
 
   comm0 = &dummy_comm ;
   *comm0 = MPI_Comm_f2c( *Fcomm0 ) ;
-#if 1
   comm = *comm0 ; me = *me0 ; np = *np0 ; np_x = *np_x0 ; np_y = *np_y0 ;
   if ( np_x > 1 ) {
     MPI_Cart_shift( *comm0, 1, 1, &xm, &xp ) ;
@@ -436,17 +603,16 @@ RSL_LITE_EXCH_X ( int * Fcomm0, int *me0, int * np0 , int * np_x0 , int * np_y0 
     if ( xm != MPI_PROC_NULL ) {
       MPI_Isend ( buffer_for_proc( xm, 0,       RSL_SENDBUF ), xm_curs, MPI_CHAR, xm, xm, comm, &xm_send ) ;
     }
-    if ( xp != MPI_PROC_NULL ) MPI_Wait( &xp_recv, &stat ) ; 
-    if ( xm != MPI_PROC_NULL ) MPI_Wait( &xm_recv, &stat ) ; 
-    if ( xp != MPI_PROC_NULL ) MPI_Wait( &xp_send, &stat ) ; 
-    if ( xm != MPI_PROC_NULL ) MPI_Wait( &xm_send, &stat ) ;
+    if ( xp != MPI_PROC_NULL ) {  MPI_Wait( &xp_recv, &stat ) ;  }
+    if ( xm != MPI_PROC_NULL ) {  MPI_Wait( &xm_recv, &stat ) ;  }
+    if ( xp != MPI_PROC_NULL ) {  MPI_Wait( &xp_send, &stat ) ;  }
+    if ( xm != MPI_PROC_NULL ) {  MPI_Wait( &xm_send, &stat ) ;  }
   }
-#else 
-fprintf(stderr,"RSL_LITE_EXCH_X disabled\n") ;
-#endif
   yp_curs = 0 ; ym_curs = 0 ; xp_curs = 0 ; xm_curs = 0 ;
+#endif
 }
 
+#ifndef MS_SUA
 #include <sys/time.h>
 RSL_INTERNAL_MILLICLOCK ()
 {
@@ -474,3 +640,4 @@ RSL_INTERNAL_MICROCLOCK ()
     msecs = 1000000 * isec + usec ;
     return(msecs) ;
 }
+#endif

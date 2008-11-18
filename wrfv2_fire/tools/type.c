@@ -27,7 +27,6 @@ set_state_dims ( char * dims , node_t * node )
   char *c ;
   int star ;
 
-fprintf(stderr,"set state dims %s\n",dims ) ;
   if ( dims == NULL ) dims = "-" ;
   modifiers = 0 ;
   node->proc_orient = ALL_Z_ON_PROC ;  /* default */
@@ -78,8 +77,7 @@ fprintf(stderr,"set state dims %s\n",dims ) ;
       if (( d = get_dim_entry ( *c )) == NULL ) { return(1) ; }
       d1 = new_node( DIM) ;  /* make a copy */
       *d1 = *d ;
-fprintf(stderr,"coord_axis %d\n",d1->coord_axis ) ;
-      if ( star ) { d1->subgrid = 1 ;  node->subgrid |= (1<<node->ndims) ; }  /* mark the node has having a subgrid dim */
+      if ( star ) { d1->subgrid = 1 ;  node->subgrid |= (1<<node->ndims) ; }  /* Mark the node has having a subgrid dim */
       node->dims[node->ndims++] = d1 ;
       star = 0 ;
     }
@@ -137,8 +135,6 @@ get_entry ( char * name , node_t * node )
         return(p) ;
       }
     }
-
-    
   }
   return(NULL) ;
 }
@@ -164,11 +160,6 @@ get_entry_r ( char * name , char * use , node_t * node )
 
   for ( p = node ; p != NULL ; p = p->next )
   {
-    if ( !strncmp( use, "dyn_", 4 ) && !strncmp( p->use, "dyn_", 4 ) && strcmp( p->use, use ) )
-    {
-      continue ;
-    }
-
     strcpy( tmp, name ) ;
 
     /* first check for exact match */

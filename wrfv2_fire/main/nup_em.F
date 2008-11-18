@@ -60,11 +60,12 @@
 PROGRAM nup_em
 
    USE module_machine
-   USE module_domain
-   USE module_initialize
+   USE module_domain, only : domain, wrfu_timeinterval, alloc_and_configure_domain, &
+      domain_clock_set
+   USE module_initialize_real, only : wrfu_initialize
    USE module_integrate
    USE module_driver_constants
-   USE module_configure
+   USE module_configure, only : grid_config_rec_type, model_config_rec
    USE module_io_domain
    USE module_utility
 
@@ -73,7 +74,7 @@ PROGRAM nup_em
 #ifdef DM_PARALLEL
    USE module_dm
 #endif
-   USE read_util_module
+!  USE read_util_module
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !new for bc
@@ -455,14 +456,14 @@ SUBROUTINE nup ( nested_grid, parent_grid , in_id, out_id, newly_opened )
     CALL wrf_get_dom_ti_integer ( in_id , 'ISWATER' , iswater , 1 , icnt , ierr ) 
   ENDIF
 
-  parent_grid%em_fnm    = nested_grid%em_fnm
-  parent_grid%em_fnp    = nested_grid%em_fnp
-  parent_grid%em_rdnw   = nested_grid%em_rdnw
-  parent_grid%em_rdn    = nested_grid%em_rdn
-  parent_grid%em_dnw    = nested_grid%em_dnw
-  parent_grid%em_dn     = nested_grid%em_dn 
-  parent_grid%em_znu    = nested_grid%em_znu
-  parent_grid%em_znw    = nested_grid%em_znw
+  parent_grid%fnm    = nested_grid%fnm
+  parent_grid%fnp    = nested_grid%fnp
+  parent_grid%rdnw   = nested_grid%rdnw
+  parent_grid%rdn    = nested_grid%rdn
+  parent_grid%dnw    = nested_grid%dnw
+  parent_grid%dn     = nested_grid%dn 
+  parent_grid%znu    = nested_grid%znu
+  parent_grid%znw    = nested_grid%znw
 
   parent_grid%zs        = nested_grid%zs
   parent_grid%dzs       = nested_grid%dzs
@@ -758,7 +759,7 @@ SUBROUTINE check_consistency2( ivgtyp , isltyp , landmask , &
                                iswater )
 
    USE module_configure
-   USE module_optional_si_input
+   USE module_optional_input
 
    INTEGER , INTENT(IN) :: ids , ide , jds , jde , kds , kde , &
                            ims , ime , jms , jme , kms , kme , &

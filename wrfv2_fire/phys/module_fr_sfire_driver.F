@@ -122,8 +122,8 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     jr=grid%sr_y
     itimestep=grid%itimestep
 
-    lat_ctr=(grid%em_lat_ll_t+ grid%em_lat_ul_t+grid%em_lat_ur_t+grid%em_lat_lr_t)/4.
-    lon_ctr=(grid%em_lon_ll_t+ grid%em_lon_ul_t+grid%em_lon_ur_t+grid%em_lon_lr_t)/4.
+    lat_ctr=config_flags%cen_lat
+    lon_ctr=config_flags%cen_lon
     
     do istep=0,fire_test_steps ! istep >0 is for testing only, exit after the first call
       itimestep = itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
@@ -200,7 +200,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
             fire_ignition_end_x,fire_ignition_end_y,     &
             fire_ignition_radius,fire_ignition_time,     &
-            grid%em_u_2,grid%em_v_2,grid%em_mut,rho,grid%ht,      & ! in arrays, on atm grid
+            grid%u_2,grid%v_2,grid%mut,rho,grid%ht,      & ! in arrays, on atm grid
             z_at_w,dz8w,                                  &
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid

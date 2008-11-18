@@ -5,7 +5,7 @@
 ! Laboratory, University of Michigan, National Centers for Environmental
 ! Prediction, Los Alamos National Laboratory, Argonne National Laboratory,
 ! NASA Goddard Space Flight Center.
-! Licensed under the GPL.
+! Licensed under the University of Illinois-NCSA license.
 !
 !==============================================================================
 !
@@ -614,8 +614,6 @@
           IF ( PRESENT( rc ) ) THEN
             rc = ESMF_FAILURE
             RETURN
-          ELSE
-            CALL wrf_error_fatal( 'ESMF_TimeSet:  MM out of range' )
           ENDIF
         ENDIF
 !  PRINT *,'DEBUG:  ESMF_TimeSet():  back from timeaddmonths'
@@ -750,8 +748,13 @@
 
 !$$$here...  add negative sign for YR<0
 !$$$here...  add Sn, Sd ??
+#ifdef PLANET
+      write(TimeString,FMT="(I4.4,'-',I5.5,'_',I2.2,':',I2.2,':',I2.2)") &
+             year,dayofmonth,hour,minute,second
+#else
       write(TimeString,FMT="(I4.4,'-',I2.2,'-',I2.2,'_',I2.2,':',I2.2,':',I2.2)") &
              year,month,dayofmonth,hour,minute,second
+#endif
 
       end subroutine ESMFold_TimeGetString
 

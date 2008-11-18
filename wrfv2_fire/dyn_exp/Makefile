@@ -18,7 +18,7 @@ OBJS    = 		          	\
 LIBTARGET    =  dyn_exp
 TARGETDIR    =  ./
 $(LIBTARGET) :  $(MODULES) $(OBJS)
-		$(AR) ../main/libwrflib.a $(MODULES) $(OBJS)
+		$(AR) $(ARFLAGS) ../main/$(LIBWRFLIB) $(MODULES) $(OBJS)
 
 include ../configure.wrf
 

@@ -231,6 +231,7 @@ rconfig   real    zap_close_levels        namelist,domains	1              500   
 rconfig   real    dx                      namelist,domains     max_domains    200     h     "dx"        "X HORIZONTAL RESOLUTION"   "METERS"
 rconfig   real    dy                      namelist,domains   	max_domains    200     h     "dy"        "Y HORIZONTAL RESOLUTION"   "METERS"
 rconfig   integer grid_id                 namelist,domains	max_domains    1       irh    "id"            ""      ""
+rconfig   logical grid_allowed            namelist,domains      max_domains    .true.  irh    "allowed"       ""      ""
 rconfig   integer parent_id               namelist,domains	max_domains    0       h     "parent_id"             ""      ""
 rconfig   integer i_parent_start          namelist,domains	max_domains    1       rh     "i_parent_start"                ""      ""
 rconfig   integer j_parent_start          namelist,domains	max_domains    1       rh     "j_parent_start"                ""      ""
@@ -301,7 +302,6 @@ rconfig   integer co2tf                   namelist,physics	1            0       
 
 # Dynamics
 # dynamics option (see package definitions, below)
-rconfig   integer dyn_opt                 namelist,dynamics	1             2       irh   "dyn_opt"               ""      ""
 rconfig   integer rk_ord                  namelist,dynamics	1             3       irh   "rk_order"               ""      ""
 rconfig   integer w_damping               namelist,dynamics	1             0       irh    "w_damping"             ""      ""
 # diff_opt 1=old diffusion, 2=new
@@ -323,10 +323,7 @@ rconfig   integer     v_mom_adv_order     namelist,dynamics	max_domains    3    
 rconfig   integer     h_sca_adv_order     namelist,dynamics	max_domains    5       rh       "h_sca_adv_order"               ""      ""
 rconfig   integer     v_sca_adv_order     namelist,dynamics	max_domains    3       rh       "v_sca_adv_order"               ""      ""
 rconfig   logical top_radiation           namelist,dynamics	max_domains    .false. rh    "top_radiation"         ""      ""
-rconfig   real    mix_cr_len              namelist,dynamics	max_domains    200.    h    "mix_cr_len"            ""      ""
 rconfig   real    tke_upper_bound         namelist,dynamics	max_domains    1000.   h    "tke_upper_bound"            ""      ""
-rconfig   real    kh_tke_upper_bound      namelist,dynamics	max_domains    1000.   h    "kh_tke_upper_bound"         ""      ""
-rconfig   real    kv_tke_upper_bound      namelist,dynamics	max_domains    1000.   h    "kv_tke_upper_bound"         ""      ""
 rconfig   real    tke_drag_coefficient      namelist,dynamics	max_domains    0.      h    "tke_drag_coefficient"       ""      ""
 rconfig   real    tke_heat_flux           namelist,dynamics	max_domains    0.      h    "tke_heat_flux"              ""      ""
 rconfig   logical pert_coriolis           namelist,dynamics	max_domains  .false.  irh  "pert_coriolis"    ""   ""
@@ -372,12 +369,6 @@ rconfig   integer isice                   derived                  max_domains  
 rconfig   integer isurban                 derived                  max_domains    0       -        "isurban"              "land use index for 'urban and built-up"     "index category"
 rconfig   integer isoilwater              derived                  max_domains    0       -        "isoilwater"           "land use index of water for soil"        "index category"
 rconfig   integer map_proj                derived                  max_domains    0       -        "map_proj"             "domain map projection"      "0=none, 1=Lambert, 2=polar, 3=Mercator"
-rconfig   integer simulation_start_year   derived                  1              0       -        "simulation_start_year" "start of simulation through restarts" "4-digit year"
-rconfig   integer simulation_start_month  derived                  1              0       -        "simulation_start_month" "start of simulation through restarts" "2-digit month"
-rconfig   integer simulation_start_day    derived                  1              0       -        "simulation_start_day" "start of simulation through restarts" "2-digit day"
-rconfig   integer simulation_start_hour   derived                  1              0       -        "simulation_start_hour" "start of simulation through restarts" "2-digit hour"
-rconfig   integer simulation_start_minute derived                  1              0       -        "simulation_start_minute" "start of simulation through restarts" "2-digit minute"
-rconfig   integer simulation_start_second derived                  1              0       -        "simulation_start_second" "start of simulation through restarts" "2-digit second"
 
 #
 # Single dummy declaration to define a nodyn dyn option
@@ -455,38 +446,6 @@ state   real   soilcbot            isj   misc          1     Z     i1      "SOIL
 state   real   soilcat             ij    misc          1     -     i12     "SOILCAT"       "SOIL CAT DOMINANT TYPE" ""
 state   real   vegcat              ij    misc          1     -     i12     "VEGCAT"        "VEGETATION CAT DOMINANT TYPE" ""
 
-state   real    lat_ll_t       -       dyn_em       -         -     -       "lat_ll_t"              "latitude lower left, temp point" "degrees"
-state   real    lat_ul_t       -       dyn_em       -         -     -       "lat_ul_t"              "latitude up left, temp point" "degrees"
-state   real    lat_ur_t       -       dyn_em       -         -     -       "lat_ur_t"              "latitude up right, temp point" "degrees"
-state   real    lat_lr_t       -       dyn_em       -         -     -       "lat_lr_t"              "latitude lower right, temp point" "degrees"
-state   real    lat_ll_u       -       dyn_em       -         -     -       "lat_ll_u"              "latitude lower left, u point" "degrees"
-state   real    lat_ul_u       -       dyn_em       -         -     -       "lat_ul_u"              "latitude up left, u point" "degrees"
-state   real    lat_ur_u       -       dyn_em       -         -     -       "lat_ur_u"              "latitude up right, u point" "degrees"
-state   real    lat_lr_u       -       dyn_em       -         -     -       "lat_lr_u"              "latitude lower right, u point" "degrees"
-state   real    lat_ll_v       -       dyn_em       -         -     -       "lat_ll_v"              "latitude lower left, v point" "degrees"
-state   real    lat_ul_v       -       dyn_em       -         -     -       "lat_ul_v"              "latitude up left, v point" "degrees"
-state   real    lat_ur_v       -       dyn_em       -         -     -       "lat_ur_v"              "latitude up right, v point" "degrees"
-state   real    lat_lr_v       -       dyn_em       -         -     -       "lat_lr_v"              "latitude lower right, v point" "degrees"
-state   real    lat_ll_d       -       dyn_em       -         -     -       "lat_ll_d"              "latitude lower left, massless point" "degrees"
-state   real    lat_ul_d       -       dyn_em       -         -     -       "lat_ul_d"              "latitude up left, massless point" "degrees"
-state   real    lat_ur_d       -       dyn_em       -         -     -       "lat_ur_d"              "latitude up right, massless point" "degrees"
-state   real    lat_lr_d       -       dyn_em       -         -     -       "lat_lr_d"              "latitude lower right, massless point" "degrees"
-state   real    lon_ll_t       -       dyn_em       -         -     -       "lon_ll_t"              "longitude lower left, temp point" "degrees"
-state   real    lon_ul_t       -       dyn_em       -         -     -       "lon_ul_t"              "longitude up left, temp point" "degrees"
-state   real    lon_ur_t       -       dyn_em       -         -     -       "lon_ur_t"              "longitude up right, temp point" "degrees"
-state   real    lon_lr_t       -       dyn_em       -         -     -       "lon_lr_t"              "longitude lower right, temp point" "degrees"
-state   real    lon_ll_u       -       dyn_em       -         -     -       "lon_ll_u"              "longitude lower left, u point" "degrees"
-state   real    lon_ul_u       -       dyn_em       -         -     -       "lon_ul_u"              "longitude up left, u point" "degrees"
-state   real    lon_ur_u       -       dyn_em       -         -     -       "lon_ur_u"              "longitude up right, u point" "degrees"
-state   real    lon_lr_u       -       dyn_em       -         -     -       "lon_lr_u"              "longitude lower right, u point" "degrees"
-state   real    lon_ll_v       -       dyn_em       -         -     -       "lon_ll_v"              "longitude lower left, v point" "degrees"
-state   real    lon_ul_v       -       dyn_em       -         -     -       "lon_ul_v"              "longitude up left, v point" "degrees"
-state   real    lon_ur_v       -       dyn_em       -         -     -       "lon_ur_v"              "longitude up right, v point" "degrees"
-state   real    lon_lr_v       -       dyn_em       -         -     -       "lon_lr_v"              "longitude lower right, v point" "degrees"
-state   real    lon_ll_d       -       dyn_em       -         -     -       "lon_ll_d"              "longitude lower left, massless point" "degrees"
-state   real    lon_ul_d       -       dyn_em       -         -     -       "lon_ul_d"              "longitude up left, massless point" "degrees"
-state   real    lon_ur_d       -       dyn_em       -         -     -       "lon_ur_d"              "longitude up right, massless point" "degrees"
-state   real    lon_lr_d       -       dyn_em       -         -     -       "lon_lr_d"              "longitude lower right, massless point" "degrees"
 
 
 
@@ -499,9 +458,6 @@ state   real    lon_lr_d       -       dyn_em       -         -     -       "lon
 #key      package       associated                package          associated 4d scalars
 #         name          namelist choice           state vars
 
-package   dyn_nodyn    dyn_opt==0                   -             -
-package   dyn_em       dyn_opt==2                   -             -
-
 #package   passivec1     chem_opt==0                  -             
 package   passiveqv     mp_physics==0                -             moist:qv
 package   kesslerscheme mp_physics==1                -             moist:qv,qc,qr
@@ -510,8 +466,6 @@ package   wsm3scheme    mp_physics==3                -             moist:qv,qc,q
 package   wsm5scheme    mp_physics==4                -             moist:qv,qc,qr,qi,qs
 package   etampnew      mp_physics==5                -             moist:qv,qc
 package   wsm6scheme    mp_physics==6                -             moist:qv,qc,qr,qi,qs,qg
-package   ncepcloud3    mp_physics==98               -             moist:qv,qc,qr
-package   ncepcloud5    mp_physics==99               -             moist:qv,qc,qr,qi,qs
 package   thompson       mp_physics==8               -             moist:qv,qc,qr,qi,qs,qg;scalar:qni
 
 package   rrtmscheme    ra_lw_physics==1             -             -

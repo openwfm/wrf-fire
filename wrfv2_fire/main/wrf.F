@@ -3,7 +3,7 @@
 
 PROGRAM wrf
 
-   USE module_wrf_top
+   USE module_wrf_top, only : wrf_init, wrf_dfi, wrf_run, wrf_finalize
 
 !<DESCRIPTION>
 ! Main program of WRF model.  Responsible for starting up the model, reading in (and
@@ -17,8 +17,11 @@ PROGRAM wrf
 
    IMPLICIT NONE
 
-   ! Initialize WRF model.  
+   ! Set up WRF model.  
    CALL wrf_init
+
+   ! Run digital filter initialization if requested.
+   CALL wrf_dfi
 
    ! WRF model time-stepping.  Calls integrate().  
    CALL wrf_run

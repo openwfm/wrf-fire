@@ -94,6 +94,7 @@ name=SNOW
         interp_option=four_pt+average_4pt
         masked=water 
         fill_missing=0.
+        flag_in_output=FLAG_SNOW
 ========================================
 name=SKINTEMP
         interp_option=sixteen_pt+four_pt+wt_average_4pt+wt_average_16pt+search
@@ -369,6 +370,7 @@ name=SOILT300
 ========================================
 name=PMSL
         interp_option=sixteen_pt+four_pt+average_4pt
+        flag_in_output=FLAG_SLP
 ========================================
 name=RH
         interp_option=sixteen_pt+four_pt+average_4pt
@@ -447,12 +449,19 @@ name=QS
         interp_option=four_pt+average_4pt
         fill_missing=0.
         fill_lev=200100:const(0.)
+        flag_in_output=FLAG_QS
 ========================================
 name=QG
         interp_option=four_pt+average_4pt
         fill_missing=0.
         fill_lev=200100:const(0.)
         flag_in_output=FLAG_QG
+========================================
+name=QNI
+        interp_option=four_pt+average_4pt
+        fill_missing=0.
+        fill_lev=200100:const(0.)
+        flag_in_output=FLAG_QNI
 ========================================
 name=VPTMP
         interp_option=sixteen_pt+four_pt+average_4pt
@@ -478,6 +487,7 @@ name=SNOWH
         interp_option=four_pt+average_4pt
         masked=water 
         fill_missing=0.
+        flag_in_output=FLAG_SNOWH
 ========================================
 name=SOILHGT
         interp_option=four_pt+average_4pt

@@ -11,7 +11,7 @@ SUBROUTINE med_nest_move ( parent, nest )
 #ifdef MOVE_NESTS
   ! Local 
    CHARACTER*256 mess
-   INTEGER i, j, p, parent_grid_ratio, dyn_opt
+   INTEGER i, j, p, parent_grid_ratio
    INTEGER px, py       ! number and direction of nd points to move
    INTEGER                         :: ids , ide , jds , jde , kds , kde , &
                                       ims , ime , jms , jme , kms , kme , &
@@ -36,7 +36,7 @@ SUBROUTINE med_nest_move ( parent, nest )
 #if ( EM_CORE == 1 )
      SUBROUTINE shift_domain_em ( grid, disp_x, disp_y  &
 !
-# include <em_dummy_new_args.inc>
+# include <dummy_new_args.inc>
 !
                            )
         USE module_domain
@@ -45,7 +45,7 @@ SUBROUTINE med_nest_move ( parent, nest )
         IMPLICIT NONE
         INTEGER disp_x, disp_y
         TYPE(domain) , POINTER                 :: grid
-# include <em_dummy_new_decl.inc>
+# include <dummy_new_decl.inc>
      END SUBROUTINE shift_domain_em
 #endif
 #if ( NMM_CORE == 1 )
@@ -97,8 +97,6 @@ SUBROUTINE med_nest_move ( parent, nest )
   ! set grid pointer for code in deref_kludge (if used)
    grid => nest
 
-   CALL nl_get_dyn_opt ( 1, dyn_opt )
-
    IF ( should_not_move( nest%id ) ) THEN
       CALL wrf_message( 'Nest movement is disabled because of namelist settings' )
       RETURN
@@ -137,17 +135,11 @@ SUBROUTINE med_nest_move ( parent, nest )
      grid => nest 
 
 #if ( EM_CORE == 1 )
-     IF ( dyn_opt .EQ. DYN_EM ) THEN
-       CALL shift_domain_em( grid, dx, dy  &
+     CALL shift_domain_em( grid, dx, dy  &
 !
-# include <em_actual_new_args.inc>
+# include <actual_new_args.inc>
 !
                            )
-     ENDIF
-#endif
-#if ( WRF_NMM_CORE == 1 )
-     IF ( dyn_opt .EQ. DYN_NMM ) THEN
-     ENDIF
 #endif
 
      px = grid%parent_grid_ratio*dx
@@ -174,11 +166,11 @@ SUBROUTINE med_nest_move ( parent, nest )
                              ids , ide , jds , jde , 1   , 1   , &
                              ims , ime , jms , jme , 1   , 1   , &
                              ips , ipe , jps , jpe , 1   , 1   )
-       CALL  store_terrain ( nest%em_mub_fine , nest%em_mub , &
+       CALL  store_terrain ( nest%mub_fine , nest%mub , &
                              ids , ide , jds , jde , 1   , 1   , &
                              ims , ime , jms , jme , 1   , 1   , &
                              ips , ipe , jps , jpe , 1   , 1   )
-       CALL  store_terrain ( nest%em_phb_fine , nest%em_phb , &
+       CALL  store_terrain ( nest%phb_fine , nest%phb , &
                              ids , ide , jds , jde , kds , kde , &
                              ims , ime , jms , jme , kms , kme , &
                              ips , ipe , jps , jpe , kps , kpe )
@@ -192,11 +184,11 @@ SUBROUTINE med_nest_move ( parent, nest )
                              ids , ide , jds , jde , 1   , 1   , &
                              ims , ime , jms , jme , 1   , 1   , &
                              ips , ipe , jps , jpe , 1   , 1   )
-       CALL  blend_terrain ( nest%em_mub_fine , nest%em_mub , &
+       CALL  blend_terrain ( nest%mub_fine , nest%mub , &
                              ids , ide , jds , jde , 1   , 1   , &
                              ims , ime , jms , jme , 1   , 1   , &
                              ips , ipe , jps , jpe , 1   , 1   )
-       CALL  blend_terrain ( nest%em_phb_fine , nest%em_phb , &
+       CALL  blend_terrain ( nest%phb_fine , nest%phb , &
                              ids , ide , jds , jde , kds , kde , &
                              ims , ime , jms , jme , kms , kme , &
                              ips , ipe , jps , jpe , kps , kpe )
@@ -215,6 +207,7 @@ SUBROUTINE med_nest_move ( parent, nest )
        config_flags%restart = .FALSE.
        grid%restart = .FALSE.
        CALL nl_set_restart ( 1, .FALSE. )
+       grid%press_adj = .FALSE.
        CALL start_domain ( parent , .FALSE. )
        config_flags%restart = saved_restart_value
        grid%restart = saved_restart_value
@@ -231,6 +224,7 @@ SUBROUTINE med_nest_move ( parent, nest )
      config_flags%restart = .FALSE.
      CALL nl_set_restart ( 1, .FALSE. )
      grid%restart = .FALSE.
+     nest%press_adj = .FALSE.
      CALL start_domain ( nest , .FALSE. )
      config_flags%restart = saved_restart_value
      grid%restart = saved_restart_value
@@ -242,22 +236,16 @@ SUBROUTINE med_nest_move ( parent, nest )
 ! this should be registry generated.
 !
 #if ( EM_CORE == 1 )
-     IF ( dyn_opt .EQ. DYN_EM ) THEN
-       do k = kms,kme
-         where ( nest%imask_xstag  .EQ. 1 ) nest%em_u_1(:,k,:)   = nest%em_u_2(:,k,:)
-         where ( nest%imask_ystag  .EQ. 1 ) nest%em_v_1(:,k,:)   = nest%em_v_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_t_1(:,k,:)   = nest%em_t_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_w_1(:,k,:)   = nest%em_w_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_ph_1(:,k,:)  = nest%em_ph_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_tp_1(:,k,:)  = nest%em_tp_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_tke_1(:,k,:) = nest%em_tke_2(:,k,:)
-       enddo
-       where ( nest%imask_nostag .EQ. 1 ) nest%em_mu_1(:,:)  = nest%em_mu_2(:,:)
-     ENDIF
-#endif
-#if ( WRF_NMM_CORE == 1 )
-     IF ( dyn_opt .EQ. DYN_NMM ) THEN
-     ENDIF
+      do k = kms,kme
+        where ( nest%imask_xstag  .EQ. 1 ) nest%u_1(:,k,:)   = nest%u_2(:,k,:)
+        where ( nest%imask_ystag  .EQ. 1 ) nest%v_1(:,k,:)   = nest%v_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%t_1(:,k,:)   = nest%t_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%w_1(:,k,:)   = nest%w_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%ph_1(:,k,:)  = nest%ph_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%tp_1(:,k,:)  = nest%tp_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%tke_1(:,k,:) = nest%tke_2(:,k,:)
+      enddo
+      where ( nest%imask_nostag .EQ. 1 ) nest%mu_1(:,:)  = nest%mu_2(:,:)
 #endif
 !
    ENDIF check_for_move
@@ -300,10 +288,11 @@ LOGICAL FUNCTION time_for_move2 ( parent , grid , move_cd_x, move_cd_y )
    REAL :: pmin
    INTEGER imploc, jmploc 
 
-   INTEGER :: fje, fjs, fie, fis, fimloc, fjmloc, imloc, jmloc, dyn_opt
+   INTEGER :: fje, fjs, fie, fis, fimloc, fjmloc, imloc, jmloc
    INTEGER :: i_parent_start, j_parent_start
    INTEGER :: max_vortex_speed, vortex_interval  ! meters per second and seconds
-   REAL    :: rsmooth = 100.  ! kilometers?
+   INTEGER :: track_level
+   REAL    :: rsmooth = 100000.  ! in meters
 
    LOGICAL, EXTERNAL :: wrf_dm_on_monitor
 
@@ -313,10 +302,13 @@ character*256 message, message2
 # ifdef VORTEX_CENTER
 
 
-   CALL nl_get_dyn_opt ( 1, dyn_opt )
    CALL nl_get_parent_grid_ratio ( grid%id , pgr )
    CALL nl_get_i_parent_start    ( grid%id , i_parent_start )
    CALL nl_get_j_parent_start    ( grid%id , j_parent_start )
+   CALL nl_get_track_level       ( grid%id , track_level )
+
+!  WRITE(mess,*)'Vortex is tracked at ', track_level
+!  CALL wrf_message(mess)
 
    CALL get_ijk_from_grid (  grid ,                        &
                              ids, ide, jds, jde, kds, kde, &
@@ -372,16 +364,11 @@ write(0,*)'Check to see if COMPUTE_VORTEX_CENTER_ALARM is ringing? '
      ENDIF
 
 #  if (EM_CORE == 1)
-     IF ( dyn_opt .EQ. DYN_EM ) THEN
-       CALL compute_500mb_height ( grid%em_ph_2 , grid%em_phb, grid%em_p, grid%em_pb, height_l , &
-                                   ids, ide, jds, jde, kds, kde, &
-                                   ims, ime, jms, jme, kms, kme, &
-                                   ips, ipe, jps, jpe, kps, kpe  )
-     ENDIF
-#  endif
-#  if (WRF_NMM_CORE == 1)
-     IF ( dyn_opt .EQ. DYN_NMM ) THEN
-     ENDIF
+     CALL compute_500mb_height ( grid%ph_2 , grid%phb, grid%p, grid%pb, height_l , &
+                                 track_level,                  &
+                                 ids, ide, jds, jde, kds, kde, &
+                                 ims, ime, jms, jme, kms, kme, &
+                                 ips, ipe, jps, jpe, kps, kpe  )
 #  endif
 
      CALL wrf_patch_to_global_real ( height_l , height , grid%domdesc, "z", "xy", &
@@ -463,6 +450,8 @@ write(0,*)'   js, jds-1,  je,  jde-1 ', js, jds-1, je, jde-1
        pmin = 99999999.0     ! make this very large to be sure we find a minumum
        DO j = js, je
        DO i = is, ie
+         ! adjust approximately to sea level pressure (same as below: ATCF)
+         psfc(i,j)=psfc(i,j)+11.38*terrain(i,j)
          IF ( psfc(i,j) .LT. pmin ) THEN
            pmin = psfc(i,j)
            imploc = i
@@ -578,7 +567,8 @@ WRITE ( message , FMT = '(A," on domain ",I3)' ) TRIM(message2), grid%id
                                        timestr(1:19),                               &
                                        xlat(i,j),                                   &
                                        xlong(i,j),                                  &
-                                       0.01*pmin+0.1138*terrain(imploc,jmploc),     &
+                                       0.01*pmin,                                   &
+!already computed above                0.01*pmin+0.1138*terrain(imploc,jmploc),     &
                                        maxws*1.94
         CALL wrf_message(TRIM(mess))
                             
@@ -695,6 +685,8 @@ write(0,*)' changing grid%vc_i,  move_cd_x * pgr ', grid%vc_i, move_cd_x * pgr, 
    ENDDO
 # endif
    RETURN
+#else
+   time_for_move2 = .FALSE.
 #endif
 END FUNCTION time_for_move2
 
@@ -860,6 +852,8 @@ USE module_timing
    ENDIF
 
    RETURN
+#else
+   time_for_move = .FALSE.
 #endif
 END FUNCTION time_for_move
 

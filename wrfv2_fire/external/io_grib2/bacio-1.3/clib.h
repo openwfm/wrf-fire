@@ -33,13 +33,8 @@
 #      define BACIO bacio
 # else
 #   ifdef F2CSTYLE
-#    ifndef MACOS
 #      define BACIO bacio__
 #      define BANIO banio__
-#    else
-#      define BACIO bacio_
-#      define BANIO banio_
-#    endif
 #   else
 #      define BACIO bacio_
 #      define BANIO banio_
