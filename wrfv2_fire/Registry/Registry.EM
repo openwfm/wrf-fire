@@ -1654,6 +1654,27 @@ xpose XPOSE_POLAR_FILTER_PH dyn_em ph_2,ph_xxx,dum_yyy
 xpose XPOSE_POLAR_FILTER_MOIST dyn_em moist,fourd_xxx,dum_yyy
 xpose XPOSE_POLAR_FILTER_CHEM dyn_em chem,fourd_xxx,dum_yyy
 xpose XPOSE_POLAR_FILTER_SCALAR dyn_em scalar,fourd_xxx,dum_yyy
+##
+
+#
+# ----------------------------------------
+#  begin fire variables and configuration
+# ----------------------------------------
+#
+# declare fire package and choose which fire scheme
+#
+#<key>   <package       <associated               <package        <associated 4d scalars>
+#         name>          namelist choice>          state vars>
+# 
+package   fire_cawfe     fire==1                     -             -
+package   fire_sfire    fire==2                     -             -
+package   fire_sfired    fire==3                     -             -
+
+# fire dimensions on fire grid
+#
+#<Table>  <Dim>  <Order> <How defined>         <Coord-axis>  <Dimname in Datasets>
+dimspec    n      -     constant=2                z          fire_index_dim
+dimspec    o      -     constant=4                z          fire_particle_dim
 
 # fire variables on fire grid
 #
