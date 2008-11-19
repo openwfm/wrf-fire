@@ -582,6 +582,7 @@
                       grid%DX,grid%DY,grid%f_ice_phy,grid%f_rain_phy,grid%f_rimef_phy, &
                       grid%mp_restart_state,grid%tbpvs_state,grid%tbpvs0_state,&
                       allowed_to_read, grid%moved, start_of_simulation,               &
+                      grid%LAGDAY, &
                       ids, ide, jds, jde, kds, kde,           &
                       ims, ime, jms, jme, kms, kme,           &
                       grid%i_start(ij), grid%i_end(ij), grid%j_start(ij), grid%j_end(ij), kts, kte, &
@@ -600,7 +601,9 @@
                       grid%SH_URB2D, grid%LH_URB2D, grid%G_URB2D, grid%RN_URB2D,  & !Optional urban
                       grid%TS_URB2D, grid%FRC_URB2D, grid%UTYPE_URB2D,      & !Optional urban
                       grid%TML,grid%T0ML,grid%HML,grid%H0ML,grid%HUML,grid%HVML,     & !Optional oml
-                      itimestep=grid%itimestep, fdob=grid%fdob             &
+                      grid%itimestep, grid%fdob,            &
+                      grid%TYR, grid%TYRA, grid%TDLY, grid%TLAG, grid%NYEAR, grid%NDAY,grid%tmn_update, &
+                      grid%achfx, grid%aclhf, grid%acgrdflx                 &
                       )
 
    ENDDO
@@ -694,6 +697,8 @@
 #  include "HALO_EM_INIT_5.inc"
 #  include "PERIOD_BDY_EM_INIT.inc"
 #  include "PERIOD_BDY_EM_MOIST.inc"
+#  include "PERIOD_BDY_EM_TKE.inc"
+#  include "PERIOD_BDY_EM_SCALAR.inc"
 #  include "PERIOD_BDY_EM_CHEM.inc"
 #endif
 
@@ -845,6 +850,11 @@
                          ims , ime , jms , jme , kms , kme ,        &
                          its , ite , jts , jte , kts , kte ,        &
                          its , ite , jts , jte , kts , kte )
+   CALL set_physical_bc3d(grid%tke_2, 't' , config_flags ,                 &
+                         ids , ide , jds , jde , kds , kde ,        &
+                         ims , ime , jms , jme , kms , kme ,        &
+                         its , ite , jts , jte , kts , kte ,        &
+                         its , ite , jts , jte , kts , kte )
 
    IF (num_moist > 0) THEN
 
@@ -860,7 +870,6 @@
 
    ENDIF
 
-!wig 17-Oct-2006, begin: I think the following should be here...
    IF (num_scalar > 0) THEN
 
 ! use of (:,:,:,loop) not efficient on DEC, but (ims,kms,jms,loop) not portable to SGI/Cray
@@ -874,7 +883,6 @@
       END DO loop_3d_s
 
    ENDIF
-!wig end.
 
 
 #ifdef WRF_CHEM
@@ -897,7 +905,7 @@
                          grid%chemdt,                                       &
                          grid%stepbioe,grid%stepphot,grid%stepchem,grid%stepfirepl,      &
                          grid%plumerisefire_frq,z_at_w,grid%xlat,grid%xlong,g,           &
-                         grid%aerwrf,config_flags,            &
+                         grid%aerwrf,config_flags,grid,            &
                          grid%alt,grid%t_1,grid%p,convfac,grid%ttday,grid%tcosz,         &
                          grid%julday,grid%gmt,&
                          grid%gd_cloud, grid%gd_cloud2,grid%raincv_a,grid%raincv_b,     &
@@ -906,8 +914,11 @@
                          grid%tauaer1,grid%tauaer2,grid%tauaer3,grid%tauaer4,                   &
                          grid%gaer1,grid%gaer2,grid%gaer3,grid%gaer4,                           &
                          grid%waer1,grid%waer2,grid%waer3,grid%waer4,                           &
-               grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,                  &
+                         grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,     &
                          grid%pm2_5_dry,grid%pm2_5_water,grid%pm2_5_dry_ec,                &
+                         grid%last_chem_time_year,grid%last_chem_time_month,               &
+                         grid%last_chem_time_day,grid%last_chem_time_hour,                 &
+                         grid%last_chem_time_minute,grid%last_chem_time_second,            &
                          grid%chem_in_opt,grid%kemit,                       &
                          ids , ide , jds , jde , kds , kde ,                &
                          ims , ime , jms , jme , kms , kme ,                &
@@ -924,7 +935,7 @@
                 ids,ide, jds,jde, kds,kde,                                  &
                 ims,ime, jms,jme, kms,kme,                                  &
                 its,ite, jts,jte, kts,kte-1                                 )
-        case (RADM2SORG, RACMSORG)
+        case (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP,RACMSORG,RACMSORG_AQ,RACMSORG_KPP)
            call sum_pm_sorgam (                                             &
                 grid%alt, chem, grid%h2oaj, grid%h2oai,                                    &
                 grid%pm2_5_dry, grid%pm2_5_water, grid%pm2_5_dry_ec, grid%pm10,                 &
@@ -1029,6 +1040,8 @@
 #   include "HALO_EM_INIT_5.inc"
 #  include "PERIOD_BDY_EM_INIT.inc"
 #  include "PERIOD_BDY_EM_MOIST.inc"
+#  include "PERIOD_BDY_EM_TKE.inc"
+#  include "PERIOD_BDY_EM_SCALAR.inc"
 #  include "PERIOD_BDY_EM_CHEM.inc"
 #endif
 
