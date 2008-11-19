@@ -647,11 +647,11 @@ state   real   QSFC             ij     misc        1         -      r        "QS
 state   real   AKHS             ij     misc        1         -      r        "AKHS"                  "SFC EXCH COEFF FOR HEAT"                      "m s-1"    
 state   real   AKMS             ij     misc        1         -      r        "AKMS"                  "SFC EXCH COEFF FOR MOMENTUM"                  "m s-1"    
 state   integer KPBL            ij     misc        1         -     r         "KPBL"                  "LEVEL OF PBL TOP"                             ""
-state   real   TSHLTR           ij     misc        1         -     ir        "TSHLTR"                "SHELTER THETA FROM MYJ"                       "K"
-state   real   QSHLTR           ij     misc        1         -     ir        "QSHLTR"                "SHELTER SPECIFIC HUMIDITY FROM MYJ"           "kg kg-1"
-state   real   PSHLTR           ij     misc        1         -     ir        "PSHLTR"                "SHELTER PRESSURE FROM MYJ"           "Pa"
-state   real   TH10             ij     misc        1         -     ir        "TH10"                  "10-M THETA FROM MYJ"                          "K"
-state   real   Q10              ij     misc        1         -     ir        "Q10"                   "10-M SPECIFIC HUMIDITY FROM MYJ"              "kg kg-1"
+state   real   TSHLTR           ij     misc        1         -      r        "TSHLTR"                "SHELTER THETA FROM MYJ"                       "K"
+state   real   QSHLTR           ij     misc        1         -      r        "QSHLTR"                "SHELTER SPECIFIC HUMIDITY FROM MYJ"           "kg kg-1"
+state   real   PSHLTR           ij     misc        1         -      r        "PSHLTR"                "SHELTER PRESSURE FROM MYJ"           "Pa"
+state   real   TH10             ij     misc        1         -      r        "TH10"                  "10-M THETA FROM MYJ"                          "K"
+state   real   Q10              ij     misc        1         -      r        "Q10"                   "10-M SPECIFIC HUMIDITY FROM MYJ"              "kg kg-1"
 i1      real   CHKLOWQ          ij     misc        1         -     -         "CHKLOWQ"               "SURFACE SATURATION FLAG"        ""
 
 # gfdl (eta) radiation State Variables
@@ -708,7 +708,7 @@ state  real   m_hybi    d     misc      1    -   -     "m_hybi"         "MATCH h
 state    real    F_ICE_PHY       ijk    misc        1         -      rdu      "F_ICE_PHY"            "FRACTION OF ICE"         ""
 state    real    F_RAIN_PHY      ijk    misc        1         -      rdu      "F_RAIN_PHY"           "FRACTION OF RAIN "         ""
 state    real    F_RIMEF_PHY     ijk    misc        1         -      rdu      "F_RIMEF_PHY"          "MASS RATIO OF RIMED ICE "         ""
-state    real    qndropsource    ijk    misc        1         -      h        "qndropsource"         "Droplet number source"   "#/kg/s"
+state    real    qndropsource    ijk    misc        1         -      -        "qndropsource"         "Droplet number source"   "#/kg/s"
 
 # Other Misc State Variables                                            
 state   real    h_diabatic     ijk     misc         1         -      rdu      "h_diabatic"            "PREVIOUS TIMESTEP CONDENSATIONAL HEATING"         "K s-1"      
@@ -1105,28 +1105,28 @@ rconfig   logical   omb_set_rand            namelist,wrfvar5  1  .false.  - "omb
 rconfig   logical   omb_add_noise           namelist,wrfvar5  1  .false.  - "omb_add_noise"            ""  ""
 rconfig   logical   position_lev_dependant  namelist,wrfvar5  1  .false.  - "position_lev_dependant"   ""  ""
 rconfig   integer   obs_qc_pointer          namelist,wrfvar5  1  0        - "obs_qc_pointer"           ""  ""
-rconfig   integer   max_sound_input         namelist,wrfvar5  1  5000     - "max_sound_input"          ""  ""
-rconfig   integer   max_mtgirs_input        namelist,wrfvar5  1  50000    - "max_mtgirs_input"         ""  ""
-rconfig   integer   max_synop_input         namelist,wrfvar5  1  50000    - "max_synop_input"          ""  ""
-rconfig   integer   max_geoamv_input        namelist,wrfvar5  1  300000   - "max_geoamv_input"         ""  ""
-rconfig   integer   max_polaramv_input      namelist,wrfvar5  1  300000   - "max_polaramv_input"       ""  ""
-rconfig   integer   max_airep_input         namelist,wrfvar5  1  200000   - "max_airep_input"          ""  ""
-rconfig   integer   max_satem_input         namelist,wrfvar5  1  50000    - "max_satem_input"          ""  ""
-rconfig   integer   max_pilot_input         namelist,wrfvar5  1  30000    - "max_pilot_input"          ""  ""
-rconfig   integer   max_radar_input         namelist,wrfvar5  1  10000    - "max_radar_input"          ""  ""
-rconfig   integer   max_metar_input         namelist,wrfvar5  1  30000    - "max_metar_input"          ""  ""
-rconfig   integer   max_gpspw_input         namelist,wrfvar5  1  4000     - "max_gpspw_input"          ""  ""
-rconfig   integer   max_ships_input         namelist,wrfvar5  1  20000    - "max_ships_input"          ""  ""
-rconfig   integer   max_profiler_input      namelist,wrfvar5  1  30000    - "max_profiler_input"       ""  ""
-rconfig   integer   max_bogus_input         namelist,wrfvar5  1  5000     - "max_bogus_input"          ""  ""
-rconfig   integer   max_buoy_input          namelist,wrfvar5  1  30000    - "max_buoy_input"           ""  ""
-rconfig   integer   max_ssmi_rv_input       namelist,wrfvar5  1  30000    - "max_ssmi_rv_input"       ""  ""
-rconfig   integer   max_ssmi_tb_input       namelist,wrfvar5  1  30000    - "max_ssmi_tb_input"        ""  ""
-rconfig   integer   max_ssmt1_input         namelist,wrfvar5  1  30000    - "max_ssmt1_input"          ""  ""
-rconfig   integer   max_ssmt2_input         namelist,wrfvar5  1  30000    - "max_ssmt2_input"          ""  ""
-rconfig   integer   max_qscat_input         namelist,wrfvar5  1  50000    - "max_qscat_input"          ""  ""
-rconfig   integer   max_gpsref_input        namelist,wrfvar5  1  800000   - "max_gpsref_input"         ""  ""
-rconfig   integer   max_airsr_input         namelist,wrfvar5  1  100000   - "max_airsr_input"          ""  ""
+rconfig   integer   max_sound_input         namelist,wrfvar5  1  50000000 - "max_sound_input"          ""  ""
+rconfig   integer   max_mtgirs_input        namelist,wrfvar5  1  50000000 - "max_mtgirs_input"         ""  ""
+rconfig   integer   max_synop_input         namelist,wrfvar5  1  50000000 - "max_synop_input"          ""  ""
+rconfig   integer   max_geoamv_input        namelist,wrfvar5  1  30000000 - "max_geoamv_input"         ""  ""
+rconfig   integer   max_polaramv_input      namelist,wrfvar5  1  30000000 - "max_polaramv_input"       ""  ""
+rconfig   integer   max_airep_input         namelist,wrfvar5  1  20000000 - "max_airep_input"          ""  ""
+rconfig   integer   max_satem_input         namelist,wrfvar5  1  50000000 - "max_satem_input"          ""  ""
+rconfig   integer   max_pilot_input         namelist,wrfvar5  1  30000000 - "max_pilot_input"          ""  ""
+rconfig   integer   max_radar_input         namelist,wrfvar5  1  10000000 - "max_radar_input"          ""  ""
+rconfig   integer   max_metar_input         namelist,wrfvar5  1  30000000 - "max_metar_input"          ""  ""
+rconfig   integer   max_gpspw_input         namelist,wrfvar5  1  40000000 - "max_gpspw_input"          ""  ""
+rconfig   integer   max_ships_input         namelist,wrfvar5  1  20000000 - "max_ships_input"          ""  ""
+rconfig   integer   max_profiler_input      namelist,wrfvar5  1  30000000 - "max_profiler_input"       ""  ""
+rconfig   integer   max_bogus_input         namelist,wrfvar5  1  50000000 - "max_bogus_input"          ""  ""
+rconfig   integer   max_buoy_input          namelist,wrfvar5  1  30000000 - "max_buoy_input"           ""  ""
+rconfig   integer   max_ssmi_rv_input       namelist,wrfvar5  1  30000000 - "max_ssmi_rv_input"       ""  ""
+rconfig   integer   max_ssmi_tb_input       namelist,wrfvar5  1  30000000 - "max_ssmi_tb_input"        ""  ""
+rconfig   integer   max_ssmt1_input         namelist,wrfvar5  1  30000000 - "max_ssmt1_input"          ""  ""
+rconfig   integer   max_ssmt2_input         namelist,wrfvar5  1  30000000 - "max_ssmt2_input"          ""  ""
+rconfig   integer   max_qscat_input         namelist,wrfvar5  1  50000000 - "max_qscat_input"          ""  ""
+rconfig   integer   max_gpsref_input        namelist,wrfvar5  1  80000000 - "max_gpsref_input"         ""  ""
+rconfig   integer   max_airsr_input         namelist,wrfvar5  1  10000000 - "max_airsr_input"          ""  ""
 rconfig   integer   max_tovs_input          namelist,wrfvar5  1  10000000 - "max_tovs_input"           ""  ""
 rconfig   integer   max_ssmis_input         namelist,wrfvar5  1  10000000 - "max_ssmis_input"          ""  ""
 rconfig   integer   report_start            namelist,wrfvar5  1  1        - "report_start"             ""  ""
@@ -1153,7 +1153,6 @@ rconfig   real      len_scaling2            namelist,wrfvar7  1  1.0      - "len
 rconfig   real      len_scaling3            namelist,wrfvar7  1  1.0      - "len_scaling3"             ""  ""
 rconfig   real      len_scaling4            namelist,wrfvar7  1  1.0      - "len_scaling4"             ""  ""
 rconfig   real      len_scaling5            namelist,wrfvar7  1  1.0      - "len_scaling5"             ""  ""
-rconfig   real      jb_factor               namelist,wrfvar7  1  1.0      - "jb_factor"                ""  ""
 rconfig   real      je_factor               namelist,wrfvar7  1  1.0      - "je_factor"                ""  ""
 rconfig   real      power_truncation        namelist,wrfvar7  1  1.0      - "power_truncation"         ""  ""
 
@@ -1224,6 +1223,7 @@ rconfig   logical   write_oa_rad_ascii      namelist,wrfvar14  1  .false.  - "wr
 rconfig   logical   write_filtered_rad      namelist,wrfvar14  1  .false.  - "write_filtered_rad"      ""  ""   
 rconfig   logical   use_error_factor_rad    namelist,wrfvar14  1  .false.  - "use_error_factor_rad"    ""  ""   
 rconfig   logical   use_landem              namelist,wrfvar14  1  .false.  - "use_landem"              ""  ""   
+rconfig   logical   use_antcorr             namelist,wrfvar14  max_instruments .false.  - "use_antcorr"           ""  ""
 rconfig   integer   mw_emis_sea             namelist,wrfvar14  1  1        - "mw_emis_sea"             ""  ""   
 rconfig   integer   tovs_min_transfer       namelist,wrfvar14  1  10       - "tovs_min_transfer"       ""  ""     
 rconfig   logical   tovs_batch              namelist,wrfvar14  1  .false.  - "tovs_batch"              ""  "" 
@@ -1261,7 +1261,7 @@ rconfig   real      pseudo_z                namelist,wrfvar15  1  1.0      - "ps
 rconfig   real      pseudo_val              namelist,wrfvar15  1  1.0      - "pseudo_val"              ""  ""   
 rconfig   real      pseudo_err              namelist,wrfvar15  1  1.0      - "pseudo_err"              ""  ""   
 
-rconfig   integer   alphacv_method          namelist,wrfvar16  1  1        - "alphacv_method"          ""  ""   
+rconfig   integer   alphacv_method          namelist,wrfvar16  1  2        - "alphacv_method"          ""  ""   
 rconfig   integer   ensdim_alpha            namelist,wrfvar16  1  0        - "ensdim_alpha"            ""  ""   
 rconfig   integer   alpha_truncation        namelist,wrfvar16  1  0        - "alpha_truncation"        ""  ""   
 rconfig   integer   alpha_corr_type         namelist,wrfvar16  1  3        - "alpha_corr_type"         ""  ""   
@@ -1849,6 +1849,7 @@ period    PERIOD_BDY_EM_INIT dyn_em 3:u_1,u_2,v_1,v_2,w_1,w_2,t_1,t_2,ph_1,ph_2,
 period    PERIOD_BDY_EM_MOIST dyn_em 3:moist
 period    PERIOD_BDY_EM_CHEM dyn_em 3:chem
 period    PERIOD_BDY_EM_SCALAR dyn_em 3:scalar
+period    PERIOD_BDY_EM_TKE dyn_em 3:tke_2
 period    PERIOD_BDY_EM_MOIST2 dyn_em 3:moist
 period    PERIOD_BDY_EM_CHEM2 dyn_em 3:chem
 period    PERIOD_BDY_EM_SCALAR2 dyn_em 3:scalar
@@ -1881,6 +1882,7 @@ halo      HALO_INIT          dyn_em 24:xb%map_factor,xb%psac,xb%rough,xb%xland,x
 halo      HALO_PSICHI_UV     dyn_em 24:vp%v1,vp%v2,xb%cori,xb%rho,xa%u,xa%v,xa%psfc
 halo      HALO_BAL_EQN_ADJ   dyn_em 24:xp%v1z
 halo      HALO_PSICHI_UV_ADJ dyn_em 24:xa%u,xa%v,xa%psfc
+halo      HALO_XB        dyn_em 24:xb%psac,xb%rough,xb%u,xb%v,xb%w,xb%wh,xb%t,xb%p,xb%q,xb%qrn,xb%qcw,xb%qt,xb%rho,xb%rh,xb%h,xb%hf,xb%u10,xb%v10,xb%t2,xb%q2,xb%psfc,xb%regime,xb%ztd,xb%tpw,xb%speed,xb%tb19v,xb%tb19h,xb%tb22v,xb%tb37v,xb%tb37h,xb%tb85v,xb%tb85h,xb%ref,xb%delt,xb%slp
 halo      HALO_XA            dyn_em 24:xa%u,xa%v,xa%q,xa%p,xa%t,xa%rho,xa%rh,xa%psfc,xa%qcw,xa%qrn,xa%qt
 halo      HALO_XA_CLOUD      dyn_em 24:xa%q,xa%t,xa%qcw,xa%qrn
 halo      HALO_SFC_XA        dyn_em 24:xa%u10,xa%v10,xa%t2,xa%q2
