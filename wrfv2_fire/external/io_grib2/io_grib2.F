@@ -1350,21 +1350,17 @@ SUBROUTINE ext_gr2_read_field ( DataHandle , DateStr , VarName , Field , &
 
 
         if (ndims .eq. 1) then
-           CALL Transpose1D(MemoryOrder, di, FieldType, Field, &
+           CALL Transpose1D_grib(MemoryOrder, di, FieldType, Field, &
                 MemoryStart(1), MemoryEnd(1), MemoryStart(2), MemoryEnd(2), &
                 MemoryStart(3), MemoryEnd(3), &
                 gfld%fld, zsize)
         else
-           CALL Transpose(MemoryOrder, di, FieldType, Field, &
+           CALL Transpose_grib(MemoryOrder, di, FieldType, Field, &
                 MemoryStart(1), MemoryEnd(1), MemoryStart(2), MemoryEnd(2), &
                 MemoryStart(3), MemoryEnd(3), &
                 gfld%fld, dim3, ysize,xsize)
         endif
-!        CALL Transpose_new(MemoryOrder, di, FieldType, Field, &
-!             MemoryStart(1), MemoryEnd(1), MemoryStart(2), MemoryEnd(2), &
-!             MemoryStart(3), MemoryEnd(3), &
-!             gfld%fld, dim1size,dim2size,dim3)
-        
+
         call gf_free(gfld)
         
      enddo VERTDIM
@@ -3803,7 +3799,6 @@ subroutine gr2_addgrid_w(cgrib, lcgrib, central_lat, central_lon, wrf_projection
   real, parameter                           :: deg_to_microdeg = 1e6
   real, parameter                           :: km_to_mm = 1e6
   real, parameter                           :: km_to_m = 1e3
-  real, parameter                           :: PI = 3.141593
   real, parameter                           :: DEG_TO_RAD = PI/180
   real, parameter                           :: RAD_TO_DEG = 180/PI
   real, parameter                           :: ERADIUS = 6370.0
@@ -3816,7 +3811,7 @@ subroutine gr2_addgrid_w(cgrib, lcgrib, central_lat, central_lon, wrf_projection
   ! Here, setup the parameters that are common to all WRF projections
 
   igdstmpl(1) = 1       ! Shape of earth (1 for spherical with specified radius)
-  igdstmpl(2) = 1       ! Scale factor for earth radius
+  igdstmpl(2) = 0       ! Scale factor for earth radius
   igdstmpl(3) = ERADIUS*km_to_m ! Radius of earth
   igdstmpl(4) = 0       ! Scale factor for major axis
   igdstmpl(5) = 0       ! Major axis
@@ -3830,10 +3825,10 @@ subroutine gr2_addgrid_w(cgrib, lcgrib, central_lat, central_lon, wrf_projection
   !   increments need to be in degrees.  For all other projections, 
   !   increments are in km.
   !
-
-  if (wrf_projection .eq. WRF_LATLON) then
-     incrx = RAD_TO_DEG*(dx/(ERADIUS*cos(latin1*DEG_TO_RAD)))
-     incry = RAD_TO_DEG*(dy/ERADIUS)
+  if ((wrf_projection .eq. WRF_LATLON) &
+       .or. (wrf_projection .eq. WRF_CASSINI)) then
+     incrx = (dx/ERADIUS) * RAD_TO_DEG
+     incry = (dy/ERADIUS) * RAD_TO_DEG
   else
      incrx = dx
      incry = dy
@@ -3846,7 +3841,7 @@ subroutine gr2_addgrid_w(cgrib, lcgrib, central_lat, central_lon, wrf_projection
 
   select case (wrf_projection)
 
-  case(WRF_LATLON)
+  case(WRF_LATLON,WRF_CASSINI)
      igds(5) = 0
      igdstmpl(10) = 0    ! Basic Angle of init projection (not important to us)
      igdstmpl(11) = 0    ! Subdivision of basic angle

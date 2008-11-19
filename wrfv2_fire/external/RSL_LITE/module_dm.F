@@ -3,16 +3,15 @@
 MODULE module_dm
 
    USE module_machine
-   USE module_configure
-   USE module_state_description
    USE module_wrf_error
    USE module_driver_constants
+   USE module_comm_dm
    IMPLICIT NONE
 
 #if ( NMM_CORE == 1 ) || defined( WRF_CHEM ) 
    INTEGER, PARAMETER :: max_halo_width = 6
 #else
-   INTEGER, PARAMETER :: max_halo_width = 5
+   INTEGER, PARAMETER :: max_halo_width = 6 ! 5
 #endif
 
    INTEGER :: ips_save, ipe_save, jps_save, jpe_save, itrace
@@ -23,11 +22,19 @@ MODULE module_dm
    LOGICAL :: dm_debug_flag = .FALSE.
 
    INTERFACE wrf_dm_maxval
+#ifdef PROMOTE_FLOAT
+     MODULE PROCEDURE wrf_dm_maxval_real , wrf_dm_maxval_integer
+#else
      MODULE PROCEDURE wrf_dm_maxval_real , wrf_dm_maxval_integer, wrf_dm_maxval_doubleprecision
+#endif
    END INTERFACE
 
    INTERFACE wrf_dm_minval                       ! gopal's doing
+#ifdef PROMOTE_FLOAT
+     MODULE PROCEDURE wrf_dm_minval_real , wrf_dm_minval_integer
+#else
      MODULE PROCEDURE wrf_dm_minval_real , wrf_dm_minval_integer, wrf_dm_minval_doubleprecision
+#endif
    END INTERFACE
 
 CONTAINS
@@ -72,7 +79,9 @@ CONTAINS
    END SUBROUTINE MPASPECT
 
    SUBROUTINE wrf_dm_initialize
+      USE module_configure
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       INTEGER :: local_comm, local_comm2, new_local_comm, group, newgroup, p, p1, ierr
       INTEGER, ALLOCATABLE, DIMENSION(:) :: ranks
@@ -113,7 +122,6 @@ CONTAINS
       CALL mpi_comm_rank( local_comm, mytask, ierr )
 ! extra code to reorder the communicator 20051212jm
       IF ( reorder_mesh ) THEN
-write(0,*)'reordering mesh'
         ALLOCATE (ranks(ntasks))
         CALL mpi_comm_dup ( local_comm , local_comm2, ierr )
         CALL mpi_comm_group ( local_comm2, group, ierr )
@@ -141,11 +149,11 @@ write(0,*)'reordering mesh'
 ! debug
       CALL mpi_comm_rank( local_communicator_periodic, mytask, ierr )
       CALL mpi_cart_coords( local_communicator_periodic, mytask, 2, coords, ierr )
-        write(0,*)'periodic coords ',mytask, coords
+!        write(0,*)'periodic coords ',mytask, coords
 
       CALL mpi_comm_rank( local_communicator, mytask, ierr )
       CALL mpi_cart_coords( local_communicator, mytask, 2, coords, ierr )
-        write(0,*)'non periodic coords ',mytask, coords
+!        write(0,*)'non periodic coords ',mytask, coords
       mytask_x = coords(2)   ! col task (x)
       mytask_y = coords(1)   ! row task (y)
       CALL nl_set_nproc_x ( 1, ntasks_x )
@@ -161,10 +169,30 @@ write(0,*)'reordering mesh'
       CALL MPI_Comm_split(comdup,mytask_x,mytask,local_communicator_y,ierr)
       IF ( ierr .NE. 0 ) CALL wrf_error_fatal('MPI_Comm_split fails for y in 20061228 mod')
 ! end 20061228
-
       CALL wrf_set_dm_communicator ( local_communicator )
+#else
+      ntasks = 1
+      ntasks_x = 1
+      ntasks_y = 1
+      mytask = 0
+      mytask_x = 0
+      mytask_y = 0
+#endif
+
       RETURN
    END SUBROUTINE wrf_dm_initialize
+
+   SUBROUTINE get_dm_max_halo_width( id, width )
+     IMPLICIT NONE
+     INTEGER, INTENT(IN) :: id
+     INTEGER, INTENT(OUT) :: width
+     IF ( id .EQ. 1 ) THEN   ! this is coarse domain
+       width = max_halo_width
+     ELSE
+       width = max_halo_width + 3
+     ENDIF
+     RETURN
+   END SUBROUTINE get_dm_max_halo_width
 
    SUBROUTINE patch_domain_rsl_lite( id  , parent, parent_id, &
                                 sd1 , ed1 , sp1 , ep1 , sm1 , em1 ,        &
@@ -178,7 +206,7 @@ write(0,*)'reordering mesh'
                                       sp3y , ep3y , sm3y , em3y , &
                                 bdx , bdy )
 
-      USE module_domain
+      USE module_domain, ONLY : domain, head_grid, find_grid_by_id
       USE module_machine
 
       IMPLICIT NONE
@@ -218,11 +246,15 @@ write(0,*)'reordering mesh'
 
       INTEGER               :: parent_grid_ratio, i_parent_start, j_parent_start
       INTEGER               :: shw
-      INTEGER               :: idim_cd, jdim_cd
+      INTEGER               :: idim_cd, jdim_cd, ierr
+      INTEGER               :: max_dom
 
       TYPE(domain), POINTER :: intermediate_grid
       TYPE(domain), POINTER  :: nest_grid
+      CHARACTER*256   :: mess
 
+      INTEGER parent_max_halo_width
+      INTEGER thisdomain_max_halo_width
 
       SELECT CASE ( model_data_order )
          ! need to finish other cases
@@ -244,7 +276,14 @@ write(0,*)'reordering mesh'
             kds = sd3 ; kde = ed3 
       END SELECT
 
-      CALL compute_memory_dims_rsl_lite ( 0 , bdx, bdy,   &
+      CALL nl_get_max_dom( 1 , max_dom )
+
+      CALL get_dm_max_halo_width( id , thisdomain_max_halo_width )
+      IF ( id .GT. 1 ) THEN
+        CALL get_dm_max_halo_width( parent%id , parent_max_halo_width )
+      ENDIF
+
+      CALL compute_memory_dims_rsl_lite ( id, thisdomain_max_halo_width, 0 , bdx, bdy,   &
                    ids,  ide,  jds,  jde,  kds,  kde, &
                    ims,  ime,  jms,  jme,  kms,  kme, &
                    imsx, imex, jmsx, jmex, kmsx, kmex, &
@@ -391,54 +430,76 @@ write(0,*)'reordering mesh'
          ! we want the intermediate domain to be decomposed the
          ! the same as the underlying nest. So try this:
 
-! At such time as NMM nesting is able to use RSL_LITE (would require
-! a number of other mods to this file for that to happen), this should
-! be updated along the lines of what's done in compute_memory_dims_rsl_lite
-! below. See note dated 20051020.  JM
-
          c_ips = -1
          nj = ( c_jds - j_parent_start ) * parent_grid_ratio + 1 + 1 ;
+         ierr = 0 
          DO i = c_ids, c_ide
             ni = ( i - i_parent_start ) * parent_grid_ratio + 1 + 1 ;
-            CALL task_for_point ( ni, nj, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py )
+            CALL task_for_point ( ni, nj, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py, &
+                                  thisdomain_max_halo_width, thisdomain_max_halo_width, ierr )
             IF ( Px .EQ. mytask_x ) THEN
                c_ipe = i
                IF ( c_ips .EQ. -1 ) c_ips = i
             ENDIF
          ENDDO
+         IF ( ierr .NE. 0 ) THEN
+            CALL tfp_message(__FILE__,__LINE__)
+         ENDIF
+         IF (c_ips .EQ. -1 ) THEN
+            c_ipe = -1
+            c_ips = 0
+         ENDIF
 
          c_jps = -1
          ni = ( c_ids - i_parent_start ) * parent_grid_ratio + 1 + 1 ;
+         ierr = 0 
          DO j = c_jds, c_jde
             nj = ( j - j_parent_start ) * parent_grid_ratio + 1 + 1 ;
-            CALL task_for_point ( ni, nj, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py )
+            CALL task_for_point ( ni, nj, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py, &
+                                  thisdomain_max_halo_width, thisdomain_max_halo_width, ierr )
+
+
             IF ( Py .EQ. mytask_y ) THEN
                c_jpe = j
                IF ( c_jps .EQ. -1 ) c_jps = j
             ENDIF
          ENDDO
+         IF ( ierr .NE. 0 ) THEN
+            CALL tfp_message(__FILE__,__LINE__)
+         ENDIF
+         IF (c_jps .EQ. -1 ) THEN
+            c_jpe = -1
+            c_jps = 0
+         ENDIF
 
+         IF ( c_jps < c_jpe .AND. c_ips < c_ipe ) THEN
 ! extend the patch dimensions out shw along edges of domain
-         IF ( mytask_x .EQ. 0 ) THEN
-           c_ips = c_ips - shw
-         ENDIF
-         IF ( mytask_x .EQ. ntasks_x-1 ) THEN
-           c_ipe = c_ipe + shw
-         ENDIF
-         c_ims = max( c_ips - max(shw,max_halo_width), c_ids - bdx ) - 1
-         c_ime = min( c_ipe + max(shw,max_halo_width), c_ide + bdx ) + 1
+           IF ( mytask_x .EQ. 0 ) THEN
+             c_ips = c_ips - shw
+           ENDIF
+           IF ( mytask_x .EQ. ntasks_x-1 ) THEN
+             c_ipe = c_ipe + shw
+           ENDIF
+           c_ims = max( c_ips - max(shw,thisdomain_max_halo_width), c_ids - bdx ) - 1
+           c_ime = min( c_ipe + max(shw,thisdomain_max_halo_width), c_ide + bdx ) + 1
 
 ! handle j dims
 ! extend the patch dimensions out shw along edges of domain
-         IF ( mytask_y .EQ. 0 ) THEN
-            c_jps = c_jps - shw
-         ENDIF
-         IF ( mytask_y .EQ. ntasks_y-1 ) THEN
-            c_jpe = c_jpe + shw
-         ENDIF
-         c_jms = max( c_jps - max(shw,max_halo_width), c_jds - bdx ) - 1
-         c_jme = min( c_jpe + max(shw,max_halo_width), c_jde + bdx ) + 1
+           IF ( mytask_y .EQ. 0 ) THEN
+              c_jps = c_jps - shw
+           ENDIF
+           IF ( mytask_y .EQ. ntasks_y-1 ) THEN
+              c_jpe = c_jpe + shw
+           ENDIF
+           c_jms = max( c_jps - max(shw,thisdomain_max_halo_width), c_jds - bdx ) - 1
+           c_jme = min( c_jpe + max(shw,thisdomain_max_halo_width), c_jde + bdx ) + 1
 ! handle k dims
+         ELSE
+           c_ims = 0
+           c_ime = 0
+           c_jms = 0
+           c_jme = 0
+         ENDIF
          c_kps = 1
          c_kpe = c_kde
          c_kms = 1
@@ -506,7 +567,7 @@ write(0,*)'reordering mesh'
          NULLIFY  (intermediate_grid%j_start)
          NULLIFY  (intermediate_grid%i_end)
          NULLIFY  (intermediate_grid%j_end)
-         intermediate_grid%id = id
+         intermediate_grid%id = id   ! these must be the same. Other parts of code depend on it (see gen_comms.c)
          intermediate_grid%num_nests = 0
          intermediate_grid%num_siblings = 0
          intermediate_grid%num_parents = 1
@@ -534,7 +595,7 @@ write(0,*)'reordering mesh'
          intermediate_grid%sm33y                           = c_sm3y
          intermediate_grid%em33y                           = c_em3y
 
-#ifdef SGIALTIX
+#if defined(SGIALTIX) && (! defined(MOVE_NESTS) )
          ! allocate space for the intermediate domain
          CALL alloc_space_field ( intermediate_grid, intermediate_grid%id , 1, 2 , .TRUE., &   ! use same id as nest
                                c_sd1, c_ed1, c_sd2, c_ed2, c_sd3, c_ed3,       &
@@ -572,6 +633,7 @@ write(0,*)'reordering mesh'
   END SUBROUTINE patch_domain_rsl_lite
 
   SUBROUTINE compute_memory_dims_rsl_lite  (      &
+                   id , maxhalowidth ,            &
                    shw , bdx,  bdy ,              &
                    ids,  ide,  jds,  jde,  kds,  kde, &
                    ims,  ime,  jms,  jme,  kms,  kme, &
@@ -583,6 +645,7 @@ write(0,*)'reordering mesh'
 
     USE module_machine
     IMPLICIT NONE
+    INTEGER, INTENT(IN)               ::  id , maxhalowidth
     INTEGER, INTENT(IN)               ::  shw, bdx, bdy
     INTEGER, INTENT(IN)     ::  ids, ide, jds, jde, kds, kde
     INTEGER, INTENT(OUT)    ::  ims, ime, jms, jme, kms, kme
@@ -592,30 +655,62 @@ write(0,*)'reordering mesh'
     INTEGER, INTENT(OUT)    ::  ipsx, ipex, jpsx, jpex, kpsx, kpex
     INTEGER, INTENT(OUT)    ::  ipsy, ipey, jpsy, jpey, kpsy, kpey
 
-    INTEGER Px, Py, P, i, j, k
+    INTEGER Px, Py, P, i, j, k, ierr
 
 #if ( ! NMM_CORE == 1 )
 
 ! xy decomposition
 
     ips = -1
-    j = jds ;
+    j = jds
+    ierr = 0
     DO i = ids, ide
-       CALL task_for_point ( i, j, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py )
+       CALL task_for_point ( i, j, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py, &
+                             maxhalowidth, maxhalowidth, ierr )
        IF ( Px .EQ. mytask_x ) THEN
           ipe = i
           IF ( ips .EQ. -1 ) ips = i
        ENDIF
     ENDDO
+    IF ( ierr .NE. 0 ) THEN
+       CALL tfp_message(__FILE__,__LINE__)
+    ENDIF
+    ! handle setting the memory dimensions where there are no X elements assigned to this proc
+    IF (ips .EQ. -1 ) THEN
+       ipe = -1
+       ips = 0
+    ENDIF
     jps = -1
-    i = ids ;
+    i = ids
+    ierr = 0
     DO j = jds, jde
-       CALL task_for_point ( i, j, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py )
+       CALL task_for_point ( i, j, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py, &
+                             maxhalowidth, maxhalowidth, ierr )
        IF ( Py .EQ. mytask_y ) THEN
           jpe = j
           IF ( jps .EQ. -1 ) jps = j
        ENDIF
     ENDDO
+    IF ( ierr .NE. 0 ) THEN
+       CALL tfp_message(__FILE__,__LINE__)
+    ENDIF
+    ! handle setting the memory dimensions where there are no Y elements assigned to this proc
+    IF (jps .EQ. -1 ) THEN
+       jpe = -1
+       jps = 0
+    ENDIF
+
+!begin: wig; 12-Mar-2008
+! This appears redundant with the conditionals above, but we get cases with only
+! one of the directions being set to "missing" when turning off extra processors.
+! This may break the handling of setting only one of nproc_x or nproc_y via the namelist.
+    IF (ipe .EQ. -1 .or. jpe .EQ. -1) THEN
+       ipe = -1
+       ips = 0
+       jpe = -1
+       jps = 0
+    ENDIF
+!end: wig; 12-Mar-2008
 
 ! 
 ! description of transpose decomposition strategy for RSL LITE. 20061231jm
@@ -658,23 +753,56 @@ write(0,*)'reordering mesh'
 
     kpsx = -1
     j = jds ;
+    ierr = 0
     DO k = kds, kde
-       CALL task_for_point ( k, j, kds, kde, jds, jde, ntasks_x, ntasks_y, Px, Py )
+       CALL task_for_point ( k, j, kds, kde, jds, jde, ntasks_x, ntasks_y, Px, Py, &
+                             1, maxhalowidth, ierr )
        IF ( Px .EQ. mytask_x ) THEN
           kpex = k
           IF ( kpsx .EQ. -1 ) kpsx = k
        ENDIF
     ENDDO
+    IF ( ierr .NE. 0 ) THEN
+       CALL tfp_message(__FILE__,__LINE__)
+    ENDIF 
+    
+! handle case where no levels are assigned to this process
+! no iterations.  Do same for I and J. Need to handle memory alloc below.
+    IF (kpsx .EQ. -1 ) THEN
+       kpex = -1
+       kpsx = 0
+    ENDIF
 
     jpsx = -1
     k = kds ;
+    ierr = 0
     DO j = jds, jde
-       CALL task_for_point ( k, j, kds, kde, jds, jde, ntasks_x, ntasks_y, Px, Py )
+       CALL task_for_point ( k, j, kds, kde, jds, jde, ntasks_x, ntasks_y, Px, Py, &
+                             1, maxhalowidth, ierr )
        IF ( Py .EQ. mytask_y ) THEN
           jpex = j
           IF ( jpsx .EQ. -1 ) jpsx = j
        ENDIF
     ENDDO
+    IF ( ierr .NE. 0 ) THEN
+       CALL tfp_message(__FILE__,__LINE__)
+    ENDIF 
+    IF (jpsx .EQ. -1 ) THEN
+       jpex = -1
+       jpsx = 0
+    ENDIF
+
+!begin: wig; 12-Mar-2008
+! This appears redundant with the conditionals above, but we get cases with only
+! one of the directions being set to "missing" when turning off extra processors.
+! This may break the handling of setting only one of nproc_x or nproc_y via the namelist.
+    IF (ipex .EQ. -1 .or. jpex .EQ. -1) THEN
+       ipex = -1
+       ipsx = 0
+       jpex = -1
+       jpsx = 0
+    ENDIF
+!end: wig; 12-Mar-2008
 
 ! XzYx decomposition  (note, x grid dim is decomposed over Y processor dim)
 
@@ -683,13 +811,22 @@ write(0,*)'reordering mesh'
 
     ipsy = -1
     k = kds ;
+    ierr = 0
     DO i = ids, ide
-       CALL task_for_point ( i, k, ids, ide, kds, kde, ntasks_y, ntasks_x, Py, Px ) ! x and y for proc mesh reversed
+       CALL task_for_point ( i, k, ids, ide, kds, kde, ntasks_y, ntasks_x, Py, Px, &
+                             maxhalowidth, 1, ierr ) ! x and y for proc mesh reversed
        IF ( Py .EQ. mytask_y ) THEN
           ipey = i
           IF ( ipsy .EQ. -1 ) ipsy = i
        ENDIF
     ENDDO
+    IF ( ierr .NE. 0 ) THEN
+       CALL tfp_message(__FILE__,__LINE__)
+    ENDIF 
+    IF (ipsy .EQ. -1 ) THEN
+       ipey = -1
+       ipsy = 0
+    ENDIF
 
 
 #else
@@ -697,44 +834,56 @@ write(0,*)'reordering mesh'
 ! In case of NMM CORE, the domain only ever runs from ids..ide-1 and jds..jde-1 so
 ! adjust decomposition to reflect.  20051020 JM
     ips = -1
-    j = jds ;
+    j = jds
+    ierr = 0
     DO i = ids, ide-1
-       CALL task_for_point ( i, j, ids, ide-1, jds, jde-1, ntasks_x, ntasks_y, Px, Py )
+       CALL task_for_point ( i, j, ids, ide-1, jds, jde-1, ntasks_x, ntasks_y, Px, Py, &
+                             maxhalowidth, maxhalowidth , ierr )
        IF ( Px .EQ. mytask_x ) THEN
           ipe = i
           IF ( Px .EQ. ntasks_x-1 ) ipe = ipe + 1
           IF ( ips .EQ. -1 ) ips = i
        ENDIF
     ENDDO
+    IF ( ierr .NE. 0 ) THEN
+       CALL tfp_message(__FILE__,__LINE__)
+    ENDIF 
     jps = -1
     i = ids ;
+    ierr = 0
     DO j = jds, jde-1
-       CALL task_for_point ( i, j, ids, ide-1, jds, jde-1, ntasks_x, ntasks_y, Px, Py )
+       CALL task_for_point ( i, j, ids, ide-1, jds, jde-1, ntasks_x, ntasks_y, Px, Py, &
+                             maxhalowidth , maxhalowidth , ierr )
        IF ( Py .EQ. mytask_y ) THEN
           jpe = j
           IF ( Py .EQ. ntasks_y-1 ) jpe = jpe + 1
           IF ( jps .EQ. -1 ) jps = j
        ENDIF
     ENDDO
+    IF ( ierr .NE. 0 ) THEN
+       CALL tfp_message(__FILE__,__LINE__)
+    ENDIF 
 #endif
 
 ! extend the patch dimensions out shw along edges of domain
-    IF ( mytask_x .EQ. 0 ) THEN
-       ips = ips - shw
-       ipsy = ipsy - shw
-    ENDIF
-    IF ( mytask_x .EQ. ntasks_x-1 ) THEN
-       ipe = ipe + shw
-       ipey = ipey + shw
-    ENDIF
-    IF ( mytask_y .EQ. 0 ) THEN
-       jps = jps - shw
-       jpsx = jpsx - shw
-    ENDIF
-    IF ( mytask_y .EQ. ntasks_y-1 ) THEN
-       jpe = jpe + shw
-       jpex = jpex + shw
-    ENDIF
+    IF ( ips < ipe .and. jps < jpe ) THEN           !wig; 11-Mar-2008
+       IF ( mytask_x .EQ. 0 ) THEN
+          ips = ips - shw
+          ipsy = ipsy - shw
+       ENDIF
+       IF ( mytask_x .EQ. ntasks_x-1 ) THEN
+          ipe = ipe + shw
+          ipey = ipey + shw
+       ENDIF
+       IF ( mytask_y .EQ. 0 ) THEN
+          jps = jps - shw
+          jpsx = jpsx - shw
+       ENDIF
+       IF ( mytask_y .EQ. ntasks_y-1 ) THEN
+          jpe = jpe + shw
+          jpex = jpex + shw
+       ENDIF
+    ENDIF                                           !wig; 11-Mar-2008
 
     kps = 1
     kpe = kde-kds+1
@@ -746,23 +895,55 @@ write(0,*)'reordering mesh'
     kmsy = kpsy
     kmey = kpey
 
-    ims = max( ips - max(shw,max_halo_width), ids - bdx ) - 1
-    ime = min( ipe + max(shw,max_halo_width), ide + bdx ) + 1
+    ! handle setting the memory dimensions where there are no levels assigned to this proc
+    IF ( kpsx .EQ. 0 .AND. kpex .EQ. -1 ) THEN
+      kmsx = 0
+      kmex = 0
+    ENDIF
+    IF ( kpsy .EQ. 0 .AND. kpey .EQ. -1 ) THEN
+      kmsy = 0
+      kmey = 0
+    ENDIF
+
+    IF ( (jps .EQ. 0 .AND. jpe .EQ. -1) .OR. (ips .EQ. 0 .AND. ipe .EQ. -1) ) THEN
+      ims = 0
+      ime = 0
+    ELSE
+      ims = max( ips - max(shw,maxhalowidth), ids - bdx ) - 1
+      ime = min( ipe + max(shw,maxhalowidth), ide + bdx ) + 1
+    ENDIF
     imsx = ids
     imex = ide
     ipsx = imsx
     ipex = imex
-    imsy = ipsy
-    imey = ipey
+    ! handle setting the memory dimensions where there are no Y elements assigned to this proc
+    IF ( ipsy .EQ. 0 .AND. ipey .EQ. -1 ) THEN
+      imsy = 0
+      imey = 0
+    ELSE
+      imsy = ipsy
+      imey = ipey
+    ENDIF
 
-    jms = max( jps - max(shw,max_halo_width), jds - bdy ) - 1
-    jme = min( jpe + max(shw,max_halo_width), jde + bdy ) + 1
+    IF ( (jps .EQ. 0 .AND. jpe .EQ. -1) .OR. (ips .EQ. 0 .AND. ipe .EQ. -1) ) THEN
+      jms = 0
+      jme = 0
+    ELSE
+      jms = max( jps - max(shw,maxhalowidth), jds - bdy ) - 1
+      jme = min( jpe + max(shw,maxhalowidth), jde + bdy ) + 1
+    ENDIF
     jmsx = jpsx
     jmex = jpex
     jmsy = jds
     jmey = jde
-    jpsy = jmsy
-    jpey = jmey
+    ! handle setting the memory dimensions where there are no X elements assigned to this proc
+    IF ( jpsx .EQ. 0 .AND. jpex .EQ. -1 ) THEN
+      jmsx = 0
+      jmex = 0
+    ELSE
+      jpsy = jmsy
+      jpey = jmey
+    ENDIF
 
   END SUBROUTINE compute_memory_dims_rsl_lite
 
@@ -791,42 +972,90 @@ write(0,*)'reordering mesh'
 
    REAL FUNCTION wrf_dm_max_real ( inval )
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       REAL inval, retval
       INTEGER ierr
       CALL mpi_allreduce ( inval, retval , 1, getrealmpitype(), MPI_MAX, local_communicator, ierr )
       wrf_dm_max_real = retval
+#else
+      REAL inval
+      wrf_dm_max_real = inval
+#endif
    END FUNCTION wrf_dm_max_real
 
    REAL FUNCTION wrf_dm_min_real ( inval )
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       REAL inval, retval
       INTEGER ierr
       CALL mpi_allreduce ( inval, retval , 1, getrealmpitype(), MPI_MIN, local_communicator, ierr )
       wrf_dm_min_real = retval
+#else
+      REAL inval
+      wrf_dm_min_real = inval
+#endif
    END FUNCTION wrf_dm_min_real
+
+   SUBROUTINE wrf_dm_min_reals ( inval, retval, n )
+      IMPLICIT NONE
+      INTEGER n
+      REAL inval(*)
+      REAL retval(*)
+#ifndef STUBMPI
+      INCLUDE 'mpif.h'
+      INTEGER ierr
+      CALL mpi_allreduce ( inval, retval , n, getrealmpitype(), MPI_MIN, local_communicator, ierr )
+#else
+      retval(1:n) = inval(1:n)
+#endif
+   END SUBROUTINE wrf_dm_min_reals
 
    REAL FUNCTION wrf_dm_sum_real ( inval )
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       REAL inval, retval
       INTEGER ierr
       CALL mpi_allreduce ( inval, retval , 1, getrealmpitype(), MPI_SUM, local_communicator, ierr )
       wrf_dm_sum_real = retval
+#else
+      REAL inval
+      wrf_dm_sum_real = inval
+#endif
    END FUNCTION wrf_dm_sum_real
+
+   SUBROUTINE wrf_dm_sum_reals (inval, retval)
+      IMPLICIT NONE
+      REAL, INTENT(IN)  :: inval(:)
+      REAL, INTENT(OUT) :: retval(:)
+#ifndef STUBMPI
+      INCLUDE 'mpif.h'
+      INTEGER ierr
+      CALL mpi_allreduce ( inval, retval, SIZE(inval), getrealmpitype(), MPI_SUM, local_communicator, ierr )
+#else
+      retval = inval
+#endif
+   END SUBROUTINE wrf_dm_sum_reals
 
    INTEGER FUNCTION wrf_dm_sum_integer ( inval )
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       INTEGER inval, retval
       INTEGER ierr
       CALL mpi_allreduce ( inval, retval , 1, MPI_INTEGER, MPI_SUM, local_communicator, ierr )
       wrf_dm_sum_integer = retval
+#else
+      INTEGER inval
+      wrf_dm_sum_integer = inval
+#endif
    END FUNCTION wrf_dm_sum_integer
 
    SUBROUTINE wrf_dm_maxval_real ( val, idex, jdex )
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       REAL val, val_all( ntasks )
       INTEGER idex, jdex, ierr
@@ -846,10 +1075,16 @@ write(0,*)'reordering mesh'
            jdex = dex_all(2,i)
         ENDIF
       ENDDO
+#else
+      REAL val
+      INTEGER idex, jdex, ierr
+#endif
    END SUBROUTINE wrf_dm_maxval_real
 
+#ifndef PROMOTE_FLOAT
    SUBROUTINE wrf_dm_maxval_doubleprecision ( val, idex, jdex )
       IMPLICIT NONE
+# ifndef STUBMPI
       INCLUDE 'mpif.h'
       DOUBLE PRECISION val, val_all( ntasks )
       INTEGER idex, jdex, ierr
@@ -869,10 +1104,16 @@ write(0,*)'reordering mesh'
            jdex = dex_all(2,i)
         ENDIF
       ENDDO
+# else
+      DOUBLE PRECISION val
+      INTEGER idex, jdex, ierr
+# endif
    END SUBROUTINE wrf_dm_maxval_doubleprecision
+#endif
 
    SUBROUTINE wrf_dm_maxval_integer ( val, idex, jdex )
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       INTEGER val, val_all( ntasks )
       INTEGER idex, jdex, ierr
@@ -892,6 +1133,10 @@ write(0,*)'reordering mesh'
            jdex = dex_all(2,i)
         ENDIF
       ENDDO
+#else
+      INTEGER val
+      INTEGER idex, jdex
+#endif
    END SUBROUTINE wrf_dm_maxval_integer
 
 !  For HWRF some additional computation is required. This is gopal's doing
@@ -927,6 +1172,7 @@ write(0,*)'reordering mesh'
 #endif
    END SUBROUTINE wrf_dm_minval_real
 
+#ifndef PROMOTE_FLOAT
    SUBROUTINE wrf_dm_minval_doubleprecision ( val, idex, jdex )
       IMPLICIT NONE
       DOUBLE PRECISION val, val_all( ntasks )
@@ -957,6 +1203,7 @@ write(0,*)'reordering mesh'
       ENDDO
 #endif
    END SUBROUTINE wrf_dm_minval_doubleprecision
+#endif
 
    SUBROUTINE wrf_dm_minval_integer ( val, idex, jdex )
       IMPLICIT NONE
@@ -989,7 +1236,80 @@ write(0,*)'reordering mesh'
 #endif
    END SUBROUTINE wrf_dm_minval_integer     ! End of gopal's doing
 
+   SUBROUTINE split_communicator
+#ifndef STUBMPI
+      IMPLICIT NONE
+      INCLUDE 'mpif.h'
+      LOGICAL mpi_inited
+      INTEGER mpi_comm_here, mpi_comm_local, comdup,  mytask, ntasks, ierr, io_status
+#  if defined(_OPENMP) && defined(MPI2_THREAD_SUPPORT)
+      INTEGER thread_support_provided, thread_support_requested
+#endif
+      INTEGER i, j
+      INTEGER, ALLOCATABLE :: icolor(:)
+      INTEGER tasks_per_split
+      NAMELIST /namelist_split/ tasks_per_split
+
+      CALL MPI_INITIALIZED( mpi_inited, ierr )
+      IF ( .NOT. mpi_inited ) THEN
+#  if defined(_OPENMP) && defined(MPI2_THREAD_SUPPORT)
+        thread_support_requested = MPI_THREAD_FUNNELED
+        CALL mpi_init_thread ( thread_support_requested, thread_support_provided, ierr )
+        IF ( thread_support_provided .lt. thread_support_requested ) THEN
+           CALL WRF_ERROR_FATAL( "failed to initialize MPI thread support")
+        ENDIF
+#  else
+        CALL mpi_init ( ierr )
+#  endif
+        CALL wrf_set_dm_communicator( MPI_COMM_WORLD )
+        CALL wrf_termio_dup
+      ENDIF
+      CALL wrf_get_dm_communicator( mpi_comm_here )
+
+      CALL MPI_Comm_rank ( mpi_comm_here, mytask, ierr ) ;
+      CALL mpi_comm_size ( mpi_comm_here, ntasks, ierr ) ;
+#if (DA_CORE == 1)
+      CALL mpi_comm_split( MPI_COMM_WORLD , 4 , 1 , mpi_comm_local, ierr )
+      CALL wrf_set_dm_communicator( mpi_comm_local )
+      CALL wrf_termio_dup
+      CALL wrf_get_dm_communicator( mpi_comm_here )
+#endif
+
+      IF ( mytask .EQ. 0 ) THEN
+        OPEN ( unit=27, file="namelist.input", form="formatted", status="old" )
+        tasks_per_split = ntasks
+        READ ( 27 , NML = namelist_split, IOSTAT=io_status )
+        CLOSE ( 27 )
+      ENDIF
+      CALL mpi_bcast( io_status, 1 , MPI_INTEGER , 0 , mpi_comm_here, ierr )
+      IF ( io_status .NE. 0 ) THEN
+          RETURN ! just ignore and return
+      ENDIF
+      CALL mpi_bcast( tasks_per_split, 1 , MPI_INTEGER , 0 , mpi_comm_here, ierr )
+      IF ( tasks_per_split .GT. ntasks .OR. tasks_per_split .LE. 0 ) RETURN
+      IF ( mod( ntasks, tasks_per_split ) .NE. 0 ) THEN
+        CALL wrf_message( 'WARNING: tasks_per_split does not evenly divide ntasks. Some tasks will be wasted.' )
+      ENDIF
+
+      ALLOCATE( icolor(ntasks) )
+      j = 0
+      DO WHILE ( j .LT. ntasks / tasks_per_split ) 
+        DO i = 1, tasks_per_split
+          icolor( i + j * tasks_per_split ) = j 
+        ENDDO
+        j = j + 1
+      ENDDO
+
+      CALL MPI_Comm_dup(mpi_comm_here,comdup,ierr)
+      CALL MPI_Comm_split(comdup,icolor(mytask+1),mytask,mpi_comm_local,ierr)
+      CALL wrf_set_dm_communicator( mpi_comm_local )
+
+      DEALLOCATE( icolor )
+#endif
+   END SUBROUTINE split_communicator
+
    SUBROUTINE init_module_dm
+#ifndef STUBMPI
       IMPLICIT NONE
       INTEGER mpi_comm_local, ierr, mytask, nproc
       INCLUDE 'mpif.h'
@@ -1006,11 +1326,12 @@ write(0,*)'reordering mesh'
 	CALL wrf_set_dm_communicator ( MPI_COMM_WORLD )
       ENDIF
       CALL wrf_get_dm_communicator( mpi_comm_local )
+#endif
    END SUBROUTINE init_module_dm
 
 ! stub
    SUBROUTINE wrf_dm_move_nest ( parent, nest, dx, dy )
-      USE module_domain
+      USE module_domain, ONLY : domain
       IMPLICIT NONE
       TYPE (domain), INTENT(INOUT) :: parent, nest
       INTEGER, INTENT(IN)          :: dx,dy
@@ -1028,8 +1349,6 @@ write(0,*)'reordering mesh'
 !           errors at each observation point on all processors. 
 !       
 !------------------------------------------------------------------------------
-#ifndef STUBMPI
-    INCLUDE 'mpif.h'
         
     INTEGER, INTENT(IN)   :: nsta                ! Observation index.
     INTEGER, INTENT(IN)   :: nerrf               ! Number of error fields.
@@ -1038,6 +1357,9 @@ write(0,*)'reordering mesh'
     LOGICAL, INTENT(IN)   :: MP_LOCAL_VOBMASK(NIOBF)
     LOGICAL, INTENT(IN)   :: MP_LOCAL_COBMASK(NIOBF)
     REAL, INTENT(INOUT)   :: errf(nerrf, niobf)
+
+#ifndef STUBMPI
+    INCLUDE 'mpif.h'
         
 ! Local declarations
     integer i, n, nlocal_dot, nlocal_crs
@@ -1188,6 +1510,135 @@ write(0,*)'reordering mesh'
 #endif
    END SUBROUTINE get_full_obs_vector
 
+
+
+   SUBROUTINE wrf_dm_maxtile_real ( val , tile)
+      IMPLICIT NONE
+      REAL val, val_all( ntasks )
+      INTEGER tile
+      INTEGER ierr
+
+! <DESCRIPTION>
+! Collective operation. Each processor calls passing a local value and its index; on return
+! all processors are passed back the maximum of all values passed and its tile number.
+!
+! </DESCRIPTION>
+      INTEGER i, comm
+#ifndef STUBMPI
+      INCLUDE 'mpif.h'
+
+      CALL wrf_get_dm_communicator ( comm )
+      CALL mpi_allgather ( val, 1, getrealmpitype(), val_all , 1, getrealmpitype(), comm, ierr )
+      val = val_all(1)
+      tile = 1
+      DO i = 2, ntasks
+        IF ( val_all(i) .GT. val ) THEN
+           tile = i
+           val = val_all(i)
+        ENDIF
+      ENDDO
+#endif
+   END SUBROUTINE wrf_dm_maxtile_real
+
+
+   SUBROUTINE wrf_dm_mintile_real ( val , tile)
+      IMPLICIT NONE
+      REAL val, val_all( ntasks )
+      INTEGER tile
+      INTEGER ierr
+
+! <DESCRIPTION>
+! Collective operation. Each processor calls passing a local value and its index; on return
+! all processors are passed back the minimum of all values passed and its tile number.
+!
+! </DESCRIPTION>
+      INTEGER i, comm
+#ifndef STUBMPI
+      INCLUDE 'mpif.h'
+
+      CALL wrf_get_dm_communicator ( comm )
+      CALL mpi_allgather ( val, 1, getrealmpitype(), val_all , 1, getrealmpitype(), comm, ierr )
+      val = val_all(1)
+      tile = 1
+      DO i = 2, ntasks
+        IF ( val_all(i) .LT. val ) THEN
+           tile = i
+           val = val_all(i)
+        ENDIF
+      ENDDO
+#endif
+   END SUBROUTINE wrf_dm_mintile_real
+
+
+   SUBROUTINE wrf_dm_mintile_double ( val , tile)
+      IMPLICIT NONE
+      DOUBLE PRECISION val, val_all( ntasks )
+      INTEGER tile
+      INTEGER ierr
+
+! <DESCRIPTION>
+! Collective operation. Each processor calls passing a local value and its index; on return
+! all processors are passed back the minimum of all values passed and its tile number.
+!
+! </DESCRIPTION>
+      INTEGER i, comm
+#ifndef STUBMPI
+      INCLUDE 'mpif.h'
+
+      CALL wrf_get_dm_communicator ( comm )
+      CALL mpi_allgather ( val, 1, MPI_DOUBLE_PRECISION, val_all , 1, MPI_DOUBLE_PRECISION, comm, ierr )
+      val = val_all(1)
+      tile = 1
+      DO i = 2, ntasks
+        IF ( val_all(i) .LT. val ) THEN
+           tile = i
+           val = val_all(i)
+        ENDIF
+      ENDDO
+#endif
+   END SUBROUTINE wrf_dm_mintile_double
+
+
+   SUBROUTINE wrf_dm_tile_val_int ( val , tile)
+      IMPLICIT NONE
+      INTEGER val, val_all( ntasks )
+      INTEGER tile
+      INTEGER ierr
+
+! <DESCRIPTION>
+! Collective operation. Get value from input tile.
+!
+! </DESCRIPTION>
+      INTEGER i, comm
+#ifndef STUBMPI
+      INCLUDE 'mpif.h'
+
+      CALL wrf_get_dm_communicator ( comm )
+      CALL mpi_allgather ( val, 1, MPI_INTEGER, val_all , 1, MPI_INTEGER, comm, ierr )
+      val = val_all(tile)
+#endif
+   END SUBROUTINE wrf_dm_tile_val_int
+
+   SUBROUTINE wrf_get_hostname  ( str )
+      CHARACTER*(*) str
+      CHARACTER tmp(512)
+      INTEGER i , n, cs
+      CALL rsl_lite_get_hostname( tmp, 512, n, cs )
+      DO i = 1, n 
+        str(i:i) = tmp(i)
+      ENDDO
+      RETURN
+   END SUBROUTINE wrf_get_hostname 
+
+   SUBROUTINE wrf_get_hostid  ( hostid )
+      INTEGER hostid
+      CHARACTER tmp(512)
+      INTEGER i, sz, n, cs
+      CALL rsl_lite_get_hostname( tmp, 512, n, cs )
+      hostid = cs
+      RETURN
+   END SUBROUTINE wrf_get_hostid
+
 END MODULE module_dm
 
 !=========================================================================
@@ -1205,7 +1656,7 @@ SUBROUTINE wrf_dm_patch_domain ( id  , domdesc , parent_id , parent_domdesc , &
                                       sp2y , ep2y , sm2y , em2y , &
                                       sp3y , ep3y , sm3y , em3y , &
                           bdx , bdy )
-   USE module_domain
+   USE module_domain, ONLY : domain, head_grid, find_grid_by_id
    USE module_dm
    IMPLICIT NONE
 
@@ -1247,16 +1698,22 @@ END SUBROUTINE wrf_dm_patch_domain
 
 SUBROUTINE wrf_termio_dup
   IMPLICIT NONE
+  INTEGER mytask, ntasks
+#ifndef STUBMPI
+  INTEGER ierr
   INCLUDE 'mpif.h'
-  INTEGER mytask, ntasks, ierr
   CALL mpi_comm_size(MPI_COMM_WORLD, ntasks, ierr )
   CALL mpi_comm_rank(MPI_COMM_WORLD, mytask, ierr )
   write(0,*)'starting wrf task ',mytask,' of ',ntasks
   CALL rsl_error_dup1( mytask )
+#else
+  mytask = 0
+  ntasks = 1
+#endif
 END SUBROUTINE wrf_termio_dup
 
 SUBROUTINE wrf_get_myproc( myproc )
-  USE module_dm
+  USE module_dm , ONLY : mytask
   IMPLICIT NONE
   INTEGER myproc
   myproc = mytask
@@ -1264,7 +1721,7 @@ SUBROUTINE wrf_get_myproc( myproc )
 END SUBROUTINE wrf_get_myproc
 
 SUBROUTINE wrf_get_nproc( nproc )
-  USE module_dm
+  USE module_dm , ONLY : ntasks
   IMPLICIT NONE
   INTEGER nproc
   nproc = ntasks
@@ -1272,7 +1729,7 @@ SUBROUTINE wrf_get_nproc( nproc )
 END SUBROUTINE wrf_get_nproc
 
 SUBROUTINE wrf_get_nprocx( nprocx )
-  USE module_dm
+  USE module_dm , ONLY : ntasks_x
   IMPLICIT NONE
   INTEGER nprocx
   nprocx = ntasks_x
@@ -1280,7 +1737,7 @@ SUBROUTINE wrf_get_nprocx( nprocx )
 END SUBROUTINE wrf_get_nprocx
 
 SUBROUTINE wrf_get_nprocy( nprocy )
-  USE module_dm
+  USE module_dm , ONLY : ntasks_y
   IMPLICIT NONE
   INTEGER nprocy
   nprocy = ntasks_y
@@ -1288,16 +1745,20 @@ SUBROUTINE wrf_get_nprocy( nprocy )
 END SUBROUTINE wrf_get_nprocy
 
 SUBROUTINE wrf_dm_bcast_bytes ( buf , size )
-   USE module_dm
+   USE module_dm , ONLY : local_communicator
    IMPLICIT NONE
+#ifndef STUBMPI
    INCLUDE 'mpif.h'
+#endif
    INTEGER size
 #ifndef NEC
    INTEGER*1 BUF(size)
 #else
    CHARACTER*1 BUF(size)
 #endif
+#ifndef STUBMPI
    CALL BYTE_BCAST ( buf , size, local_communicator )
+#endif
    RETURN
 END SUBROUTINE wrf_dm_bcast_bytes
 
@@ -1309,6 +1770,7 @@ SUBROUTINE wrf_dm_bcast_string( BUF, N1 )
 !
 ! </DESCRIPTION>
    CHARACTER*(*) buf
+#ifndef STUBMPI
    INTEGER ibuf(256),i,n
    CHARACTER*256 tstr
    n = n1
@@ -1326,6 +1788,7 @@ SUBROUTINE wrf_dm_bcast_string( BUF, N1 )
        buf(i:i) = char(ibuf(i))
      ENDDO
    ENDIF
+#endif
    RETURN
 END SUBROUTINE wrf_dm_bcast_string
 
@@ -1369,7 +1832,7 @@ SUBROUTINE write_68( grid, v , s , &
                    ids, ide, jds, jde, kds, kde, &
                    ims, ime, jms, jme, kms, kme, &
                    its, ite, jts, jte, kts, kte )
-  USE module_domain
+  USE module_domain, ONLY : domain
   IMPLICIT NONE
   TYPE(domain) , INTENT (INOUT) :: grid 
   CHARACTER *(*) s
@@ -1416,38 +1879,48 @@ END
 
    SUBROUTINE wrf_abort
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       INTEGER ierr
       CALL mpi_abort(MPI_COMM_WORLD,1,ierr)
+#else
+      STOP
+#endif
    END SUBROUTINE wrf_abort
 
    SUBROUTINE wrf_dm_shutdown
       IMPLICIT NONE
+#ifndef STUBMPI
       INTEGER ierr
       CALL MPI_FINALIZE( ierr )
+#endif
       RETURN
    END SUBROUTINE wrf_dm_shutdown
 
    LOGICAL FUNCTION wrf_dm_on_monitor()
-      USE module_dm
+!     USE module_dm
       IMPLICIT NONE
+#ifndef STUBMPI
       INCLUDE 'mpif.h'
       INTEGER tsk, ierr, mpi_comm_local
       CALL wrf_get_dm_communicator( mpi_comm_local )
       CALL mpi_comm_rank ( mpi_comm_local, tsk , ierr )
       wrf_dm_on_monitor = tsk .EQ. 0
+#else
+      wrf_dm_on_monitor = .TRUE.
+#endif
       RETURN
    END FUNCTION wrf_dm_on_monitor
 
    INTEGER FUNCTION wrf_dm_monitor_rank()
-      USE module_dm
+!     USE module_dm
       IMPLICIT NONE
       wrf_dm_monitor_rank = 0
       RETURN
    END FUNCTION wrf_dm_monitor_rank
 
    SUBROUTINE wrf_get_dm_communicator ( communicator )
-      USE module_dm
+      USE module_dm , ONLY : local_communicator
       IMPLICIT NONE
       INTEGER , INTENT(OUT) :: communicator
       communicator = local_communicator
@@ -1455,7 +1928,7 @@ END
    END SUBROUTINE wrf_get_dm_communicator
 
    SUBROUTINE wrf_get_dm_iocommunicator ( iocommunicator )
-      USE module_dm
+      USE module_dm , ONLY : local_iocommunicator
       IMPLICIT NONE
       INTEGER , INTENT(OUT) :: iocommunicator
       iocommunicator = local_iocommunicator
@@ -1463,7 +1936,7 @@ END
    END SUBROUTINE wrf_get_dm_iocommunicator
 
    SUBROUTINE wrf_set_dm_communicator ( communicator )
-      USE module_dm
+      USE module_dm , ONLY : local_communicator
       IMPLICIT NONE
       INTEGER , INTENT(IN) :: communicator
       local_communicator = communicator
@@ -1471,7 +1944,7 @@ END
    END SUBROUTINE wrf_set_dm_communicator
 
    SUBROUTINE wrf_set_dm_iocommunicator ( iocommunicator )
-      USE module_dm
+      USE module_dm , ONLY : local_iocommunicator
       IMPLICIT NONE
       INTEGER , INTENT(IN) :: iocommunicator
       local_iocommunicator = iocommunicator
@@ -1589,17 +2062,18 @@ END
        INTEGER                         DS1a,DE1a,DS2a,DE2a,DS3a,DE3a,&
                                        MS1a,ME1a,MS2a,ME2a,MS3a,ME3a,&
                                        PS1a,PE1a,PS2a,PE2a,PS3a,PE3A 
+       CHARACTER *(*) stagger,ordering
+       INTEGER domdesc,typesize,ierr
+       REAL globbuf(*)
+       REAL buf(*)
+#ifndef STUBMPI
        INTEGER                         DS1,DE1,DS2,DE2,DS3,DE3,&
                                        MS1,ME1,MS2,ME2,MS3,ME3,&
                                        PS1,PE1,PS2,PE2,PS3,PE3
        INTEGER                         ids,ide,jds,jde,kds,kde,&
                                        ims,ime,jms,jme,kms,kme,&
                                        ips,ipe,jps,jpe,kps,kpe
-       CHARACTER *(*) stagger,ordering
        LOGICAL, EXTERNAL :: wrf_dm_on_monitor, has_char
-       INTEGER fid,domdesc,typesize,ierr
-       REAL globbuf(*)
-       REAL buf(*)
 
        INTEGER i, j, k,  ndim
        INTEGER  Patch(3,2), Gpatch(3,2,ntasks)
@@ -1712,6 +2186,7 @@ END
          CALL end_timing('wrf_patch_to_global_generic')
        ENDIF
        DEALLOCATE( tmpbuf )
+#endif
        RETURN
     END SUBROUTINE wrf_patch_to_global_generic
 
@@ -2006,13 +2481,14 @@ END
        INTEGER                         DS1a,DE1a,DS2a,DE2a,DS3a,DE3a,&
                                        MS1a,ME1a,MS2a,ME2a,MS3a,ME3a,&
                                        PS1a,PE1a,PS2a,PE2a,PS3a,PE3A 
+       CHARACTER *(*) stagger,ordering
+       INTEGER domdesc,typesize,ierr
+       REAL globbuf(*)
+       REAL buf(*)
+#ifndef STUBMPI
        INTEGER                         DS1,DE1,DS2,DE2,DS3,DE3,&
                                        MS1,ME1,MS2,ME2,MS3,ME3,&
                                        PS1,PE1,PS2,PE2,PS3,PE3
-       CHARACTER *(*) stagger,ordering
-       INTEGER fid,domdesc,typesize,ierr
-       REAL globbuf(*)
-       REAL buf(*)
        LOGICAL, EXTERNAL :: wrf_dm_on_monitor, has_char
 
        INTEGER i,j,k,ord,ord2d,ndim
@@ -2070,7 +2546,6 @@ END
        CALL collect_on_comm0 (  local_communicator , IWORDSIZE ,  &
                                 Patch , 6 ,                       &
                                 GPatch , 6*ntasks                 )
-
        ndim = len(TRIM(ordering))
 
        IF ( wrf_dm_on_monitor() .AND. ndim .GE. 2 ) THEN
@@ -2119,6 +2594,7 @@ END
 
 
        DEALLOCATE ( tmpbuf )
+#endif
        RETURN
     END SUBROUTINE wrf_global_to_patch_generic
 
@@ -2324,17 +2800,18 @@ END
 
    SUBROUTINE force_domain_em_part2 ( grid, ngrid, config_flags    &
 !
-#include "em_dummy_new_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
       USE module_dm
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -2360,17 +2837,17 @@ END
 
       nlev  = ckde - ckds + 1
 
-#include "em_nest_interpdown_unpack.inc"
+#include "nest_interpdown_unpack.inc"
 
       CALL get_ijk_from_grid (  grid ,              &
                                 ids, ide, jds, jde, kds, kde,    &
                                 ims, ime, jms, jme, kms, kme,    &
                                 ips, ipe, jps, jpe, kps, kpe    )
 
-#include "HALO_EM_FORCE_DOWN.inc"
+#include "HALO_FORCE_DOWN.inc"
 
       ! code here to interpolate the data into the nested domain
-#  include "em_nest_forcedown_interp.inc"
+#  include "nest_forcedown_interp.inc"
 
       RETURN
    END SUBROUTINE force_domain_em_part2
@@ -2379,11 +2856,12 @@ END
 
    SUBROUTINE interp_domain_em_part1 ( grid, intermediate_grid, ngrid, config_flags    &
 !
-#include "em_dummy_new_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
       USE module_dm
       USE module_timing
       IMPLICIT NONE
@@ -2391,7 +2869,7 @@ END
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: intermediate_grid
       TYPE(domain), POINTER :: ngrid
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       INTEGER iparstrt,jparstrt,sw
@@ -2407,7 +2885,8 @@ END
                                 nims, nime, njms, njme, nkms, nkme,    &
                                 nips, nipe, njps, njpe, nkps, nkpe
 
-      INTEGER icoord, jcoord, idim_cd, jdim_cd, pgr
+      INTEGER icoord, jcoord, idim_cd, jdim_cd, pgr 
+      INTEGER thisdomain_max_halo_width
       INTEGER local_comm, myproc, nproc
 
       CALL wrf_get_dm_communicator ( local_comm )
@@ -2438,7 +2917,10 @@ END
 
       nlev  = ckde - ckds + 1
 
-#include "em_nest_interpdown_pack.inc"
+      ! get max_halo_width for parent. It may be smaller if it is moad
+      CALL get_dm_max_halo_width ( grid%id , thisdomain_max_halo_width )
+
+#include "nest_interpdown_pack.inc"
 
       CALL rsl_lite_bcast_msgs( myproc, nproc, local_comm )
 
@@ -2449,17 +2931,18 @@ END
 
    SUBROUTINE interp_domain_em_part2 ( grid, ngrid, config_flags    &
 !
-#include "em_dummy_new_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
       USE module_dm
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -2475,6 +2958,7 @@ END
                                 ips, ipe, jps, jpe, kps, kpe
       INTEGER myproc
       INTEGER ierr
+      INTEGER thisdomain_max_halo_width
 
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
@@ -2487,16 +2971,18 @@ END
 
       nlev  = ckde - ckds + 1 
 
-#include "em_nest_interpdown_unpack.inc"
+      CALL get_dm_max_halo_width ( ngrid%id , thisdomain_max_halo_width )
+
+#include "nest_interpdown_unpack.inc"
 
       CALL get_ijk_from_grid (  grid ,              &
                                 ids, ide, jds, jde, kds, kde,    &
                                 ims, ime, jms, jme, kms, kme,    &
                                 ips, ipe, jps, jpe, kps, kpe    )
 
-#include "HALO_EM_INTERP_DOWN.inc"
+#include "HALO_INTERP_DOWN.inc"
 
-#  include "em_nest_interpdown_interp.inc"
+#  include "nest_interpdown_interp.inc"
 
       RETURN
    END SUBROUTINE interp_domain_em_part2
@@ -2505,20 +2991,20 @@ END
 
    SUBROUTINE feedback_nest_prep ( grid, config_flags    &
 !
-#include "em_dummy_new_args.inc"
+#include "dummy_new_args.inc"
 !
 )
-      USE module_domain
-      USE module_configure
-      USE module_dm
       USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
+      USE module_dm
       IMPLICIT NONE
 !
       TYPE(domain), TARGET :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE (grid_config_rec_type) :: config_flags ! configureation flags, has vertical dim of 
                                                   ! soil temp, moisture, etc., has vertical dim
                                                   ! of soil categories
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
 
       INTEGER       ::          ids, ide, jds, jde, kds, kde,    &
                                 ims, ime, jms, jme, kms, kme,    &
@@ -2533,7 +3019,7 @@ END
                                 ips, ipe, jps, jpe, kps, kpe    )
 
 #ifdef DM_PARALLEL
-#include "HALO_EM_INTERP_UP.inc"
+#include "HALO_INTERP_UP.inc"
 #endif
 
    END SUBROUTINE feedback_nest_prep
@@ -2542,17 +3028,18 @@ END
 
    SUBROUTINE feedback_domain_em_part1 ( grid, ngrid, config_flags    &
 !
-#include "em_dummy_new_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type, model_config_rec, model_to_grid_config_rec
       USE module_dm
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE(domain), POINTER :: xgrid
@@ -2565,21 +3052,21 @@ END
                                 nims, nime, njms, njme, nkms, nkme,    &
                                 nips, nipe, njps, njpe, nkps, nkpe
       INTEGER local_comm, myproc, nproc, idum1, idum2
+      INTEGER thisdomain_max_halo_width
 
       INTERFACE
           SUBROUTINE feedback_nest_prep ( grid, config_flags    &
 !
-#include "em_dummy_new_args.inc"
+#include "dummy_new_args.inc"
 !
 )
-             USE module_domain
-             USE module_configure
-             USE module_dm
              USE module_state_description
+             USE module_domain, ONLY : domain
+             USE module_configure, ONLY : grid_config_rec_type
 !
              TYPE (grid_config_rec_type)            :: config_flags
              TYPE(domain), TARGET                   :: grid
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
           END SUBROUTINE feedback_nest_prep
       END INTERFACE
 !
@@ -2621,7 +3108,7 @@ END
 
       CALL feedback_nest_prep ( grid, nconfig_flags    &
 !
-#include "em_actual_new_args.inc"
+#include "actual_new_args.inc"
 !
 )
 
@@ -2632,7 +3119,7 @@ END
 
 ! "interp" (basically copy) ngrid onto intermediate grid
 
-#include "em_nest_feedbackup_interp.inc"
+#include "nest_feedbackup_interp.inc"
 
       RETURN
    END SUBROUTINE feedback_domain_em_part1
@@ -2641,11 +3128,12 @@ END
 
    SUBROUTINE feedback_domain_em_part2 ( grid, intermediate_grid, ngrid , config_flags    &
 !
-#include "em_dummy_new_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, domain_clock_get, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type, model_config_rec
       USE module_dm
       USE module_utility
       IMPLICIT NONE
@@ -2655,7 +3143,7 @@ END
       TYPE(domain), POINTER :: intermediate_grid
       TYPE(domain), POINTER :: ngrid
 
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -2671,13 +3159,13 @@ END
                                 ips, ipe, jps, jpe, kps, kpe
       INTEGER icoord, jcoord, idim_cd, jdim_cd
       INTEGER local_comm, myproc, nproc
-      INTEGER iparstrt, jparstrt, sw
+      INTEGER iparstrt, jparstrt, sw, thisdomain_max_halo_width
       REAL    nest_influence
 
       character*256 :: timestr
       integer ierr
 
-      LOGICAL, EXTERNAL  :: em_cd_feedback_mask
+      LOGICAL, EXTERNAL  :: cd_feedback_mask
 
 ! On entry to this routine, 
 !  "grid" refers to the parent domain
@@ -2715,7 +3203,9 @@ END
 
       nlev  = ckde - ckds + 1
 
-#include "em_nest_feedbackup_pack.inc"
+      CALL get_dm_max_halo_width ( grid%id , thisdomain_max_halo_width )
+
+#include "nest_feedbackup_pack.inc"
 
       CALL wrf_get_dm_communicator ( local_comm )
       CALL wrf_get_myproc( myproc )
@@ -2724,7 +3214,7 @@ END
       CALL rsl_lite_merge_msgs( myproc, nproc, local_comm )
 
 #define NEST_INFLUENCE(A,B) A = B
-#include "em_nest_feedbackup_unpack.inc"
+#include "nest_feedbackup_unpack.inc"
 
       ! smooth coarse grid
       CALL get_ijk_from_grid (  ngrid,                           &
@@ -2736,14 +3226,14 @@ END
                                 ims, ime, jms, jme, kms, kme,    &
                                 ips, ipe, jps, jpe, kps, kpe    )
 
-#include "HALO_EM_INTERP_UP.inc"
+#include "HALO_INTERP_UP.inc"
 
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
                                 cims, cime, cjms, cjme, ckms, ckme,    &
                                 cips, cipe, cjps, cjpe, ckps, ckpe    )
 
-#include "em_nest_feedbackup_smooth.inc"
+#include "nest_feedbackup_smooth.inc"
 
       RETURN
    END SUBROUTINE feedback_domain_em_part2
@@ -2756,11 +3246,12 @@ END
 
    SUBROUTINE interp_domain_nmm_part1 ( grid, intermediate_grid, ngrid, config_flags    &
 !
-#include "nmm_dummy_args.inc"
+#include "dummy_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
       USE module_dm
       USE module_timing
       IMPLICIT NONE
@@ -2768,7 +3259,7 @@ END
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: intermediate_grid
       TYPE(domain), POINTER :: ngrid
-#include <nmm_dummy_decl.inc>
+#include <dummy_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       INTEGER iparstrt,jparstrt,sw
@@ -2786,13 +3277,14 @@ END
 
       INTEGER icoord, jcoord, idim_cd, jdim_cd, pgr
       INTEGER local_comm, myproc, nproc
+      INTEGER thisdomain_max_halo_width
 
       CALL wrf_get_dm_communicator ( local_comm )
       CALL wrf_get_myproc( myproc )
       CALL wrf_get_nproc( nproc )
 
 #define COPY_IN
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
@@ -2818,12 +3310,13 @@ END
 
       nlev  = ckde - ckds + 1
 
-#include "nmm_nest_interpdown_pack.inc"
+      CALL get_dm_max_halo_width ( ngrid%id , thisdomain_max_halo_width )
+#include "nest_interpdown_pack.inc"
 
       CALL rsl_lite_bcast_msgs( myproc, nproc, local_comm )
 
 #define COPY_OUT
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
       RETURN
    END SUBROUTINE interp_domain_nmm_part1
 
@@ -2831,17 +3324,18 @@ END
 
    SUBROUTINE interp_domain_nmm_part2 ( grid, ngrid, config_flags    &
 !
-#include "nmm_dummy_args.inc"
+#include "dummy_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
       USE module_dm
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <nmm_dummy_decl.inc>
+#include <dummy_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -2867,7 +3361,7 @@ END
 #include "deref_kludge.h"
 
 #define COPY_IN
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
                                 cims, cime, cjms, cjme, ckms, ckme,    &
@@ -2879,7 +3373,7 @@ END
 
       nlev  = ckde - ckds + 1 
 
-#include "nmm_nest_interpdown_unpack.inc"
+#include "nest_interpdown_unpack.inc"
 
       CALL get_ijk_from_grid (  grid ,              &
                                 ids, ide, jds, jde, kds, kde,    &
@@ -2888,10 +3382,10 @@ END
 
 #include "HALO_NMM_INTERP_DOWN1.inc"
 
-#include "nmm_nest_interpdown_interp.inc"
+#include "nest_interpdown_interp.inc"
 
 #define COPY_OUT
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 
       RETURN
    END SUBROUTINE interp_domain_nmm_part2
@@ -2900,17 +3394,18 @@ END
 
    SUBROUTINE force_domain_nmm_part1 ( grid, intermediate_grid, config_flags    &
 !
-#include "nmm_dummy_args.inc"
+#include "dummy_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
       USE module_dm
       USE module_timing
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: intermediate_grid
-#include <nmm_dummy_decl.inc>
+#include <dummy_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -2922,7 +3417,7 @@ END
                                 nims, nime, njms, njme, nkms, nkme,    &
                                 nips, nipe, njps, njpe, nkps, nkpe
 #define COPY_IN
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 !
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
@@ -2936,12 +3431,12 @@ END
 
       nlev  = ckde - ckds + 1
 
-#include "nmm_nest_forcedown_pack.inc"
+#include "nest_forcedown_pack.inc"
 
 !   WRITE(0,*)'I have completed PACKING of BCs data successfully'
 
 #define COPY_OUT
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
       RETURN
    END SUBROUTINE force_domain_nmm_part1
 
@@ -2949,17 +3444,18 @@ END
 
    SUBROUTINE force_domain_nmm_part2 ( grid, ngrid, config_flags    &
 !
-#include "nmm_dummy_args.inc"
+#include "dummy_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
       USE module_dm
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <nmm_dummy_decl.inc>
+#include <dummy_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -2984,7 +3480,7 @@ integer myproc
 #include "deref_kludge.h"
 
 #define COPY_IN
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
@@ -2997,7 +3493,7 @@ integer myproc
 
       nlev  = ckde - ckds + 1
 
-#include "nmm_nest_interpdown_unpack.inc"
+#include "nest_interpdown_unpack.inc"
 
       CALL get_ijk_from_grid (  grid ,              &
                                 ids, ide, jds, jde, kds, kde,    &
@@ -3007,10 +3503,10 @@ integer myproc
 #include "HALO_NMM_FORCE_DOWN1.inc"
 
       ! code here to interpolate the data into the nested domain
-#include "nmm_nest_forcedown_interp.inc"
+#include "nest_forcedown_interp.inc"
 
 #define COPY_OUT
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 
       RETURN
    END SUBROUTINE force_domain_nmm_part2
@@ -3028,20 +3524,20 @@ integer myproc
 
    SUBROUTINE feedback_nest_prep_nmm ( grid, config_flags    &
 !
-#include "nmm_dummy_args.inc"
+#include "dummy_args.inc"
 !
 )
-      USE module_domain
-      USE module_configure
-      USE module_dm
       USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
+      USE module_dm
       IMPLICIT NONE
 !
       TYPE(domain), TARGET :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE (grid_config_rec_type) :: config_flags ! configureation flags, has vertical dim of
                                                   ! soil temp, moisture, etc., has vertical dim
                                                   ! of soil categories
-#include <nmm_dummy_decl.inc>
+#include <dummy_decl.inc>
 
       INTEGER       ::          ids, ide, jds, jde, kds, kde,    &
                                 ims, ime, jms, jme, kms, kme,    &
@@ -3059,7 +3555,7 @@ integer myproc
 #include "deref_kludge.h"
 
 #define COPY_IN
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 
       CALL get_ijk_from_grid (  grid ,              &
                                 ids, ide, jds, jde, kds, kde,    &
@@ -3071,7 +3567,7 @@ integer myproc
 #endif
 
 #define COPY_OUT
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 
    END SUBROUTINE feedback_nest_prep_nmm
 
@@ -3079,17 +3575,18 @@ integer myproc
 
    SUBROUTINE feedback_domain_nmm_part1 ( grid, ngrid, config_flags    &
 !
-#include "nmm_dummy_args.inc"
+#include "dummy_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type, model_config_rec, model_to_grid_config_rec
       USE module_dm
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <nmm_dummy_decl.inc>
+#include <dummy_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE(domain), POINTER :: xgrid
@@ -3113,22 +3610,21 @@ integer myproc
       INTERFACE
           SUBROUTINE feedback_nest_prep_nmm ( grid, config_flags    &
 !
-#include "nmm_dummy_args.inc"
+#include "dummy_args.inc"
 !
 )
-             USE module_domain
-             USE module_configure
-             USE module_dm
              USE module_state_description
+             USE module_domain, ONLY : domain
+             USE module_configure, ONLY : grid_config_rec_type
 !
              TYPE (grid_config_rec_type)            :: config_flags
              TYPE(domain), TARGET                   :: grid
-#include <nmm_dummy_decl.inc>
+#include <dummy_decl.inc>
           END SUBROUTINE feedback_nest_prep_nmm
       END INTERFACE
 !
 #define COPY_IN
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 
       CALL wrf_get_dm_communicator ( local_comm )
       CALL wrf_get_myproc( myproc )
@@ -3168,7 +3664,7 @@ integer myproc
 #include "deref_kludge.h"
       CALL feedback_nest_prep_nmm ( grid, config_flags    &
 !
-#include "nmm_actual_args.inc"
+#include "actual_args.inc"
 !
 )
 
@@ -3179,10 +3675,10 @@ integer myproc
 
 ! "interp" (basically copy) ngrid onto intermediate grid
 
-#include "nmm_nest_feedbackup_interp.inc"
+#include "nest_feedbackup_interp.inc"
 
 #define COPY_OUT
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
       RETURN
    END SUBROUTINE feedback_domain_nmm_part1
 
@@ -3190,11 +3686,12 @@ integer myproc
 
    SUBROUTINE feedback_domain_nmm_part2 ( grid, intermediate_grid, ngrid , config_flags    &
 !
-#include "nmm_dummy_args.inc"
+#include "dummy_args.inc"
 !
                  )
-      USE module_domain
-      USE module_configure
+      USE module_state_description
+      USE module_domain, ONLY : domain, domain_clock_get, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
       USE module_dm
       USE module_utility
       IMPLICIT NONE
@@ -3204,7 +3701,7 @@ integer myproc
       TYPE(domain), POINTER :: intermediate_grid
       TYPE(domain), POINTER :: ngrid
 
-#include <nmm_dummy_decl.inc>
+#include <dummy_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -3221,22 +3718,17 @@ integer myproc
       INTEGER icoord, jcoord, idim_cd, jdim_cd
       INTEGER local_comm, myproc, nproc
       INTEGER iparstrt, jparstrt, sw
+      INTEGER thisdomain_max_halo_width
 
       character*256 :: timestr
       integer ierr
 
       REAL    nest_influence
-      LOGICAL, EXTERNAL  :: nmm_cd_feedback_mask
-#ifdef DEREF_KLUDGE
-!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
-   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
-   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
-   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
-#endif
-#include "deref_kludge.h"
+      LOGICAL, EXTERNAL  :: cd_feedback_mask
+      LOGICAL, EXTERNAL  :: cd_feedback_mask_v
 
 #define COPY_IN
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
 
 ! On entry to this routine,
 !  "grid" refers to the parent domain
@@ -3280,7 +3772,8 @@ integer myproc
 
       nlev  = ckde - ckds + 1
 
-#include "nmm_nest_feedbackup_pack.inc"
+      CALL get_dm_max_halo_width ( ngrid%id , thisdomain_max_halo_width )
+#include "nest_feedbackup_pack.inc"
 
       CALL wrf_get_dm_communicator ( local_comm )
       CALL wrf_get_myproc( myproc )
@@ -3288,7 +3781,7 @@ integer myproc
 
       CALL rsl_lite_merge_msgs( myproc, nproc, local_comm )
 
-#include "nmm_nest_feedbackup_unpack.inc"
+#include "nest_feedbackup_unpack.inc"
 
 
       ! smooth coarse grid
@@ -3302,17 +3795,17 @@ integer myproc
                                 ims, ime, jms, jme, kms, kme,    &
                                 ips, ipe, jps, jpe, kps, kpe    )
 
-#include "HALO_NMM_INTERP_UP.inc"
+#include "HALO_INTERP_UP.inc"
 
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
                                 cims, cime, cjms, cjme, ckms, ckme,    &
                                 cips, cipe, cjps, cjpe, ckps, ckpe    )
 
-#include "nmm_nest_feedbackup_smooth.inc"
+#include "nest_feedbackup_smooth.inc"
 
 #define COPY_OUT
-#include <nmm_scalar_derefs.inc>
+#include <scalar_derefs.inc>
       RETURN
    END SUBROUTINE feedback_domain_nmm_part2
 
@@ -3331,13 +3824,14 @@ integer myproc
                                 root                        , &    ! root
                                 communicator                , &    ! communicator
                                 ierr )
-   USE module_dm
+   USE module_dm, ONLY : getrealmpitype
    IMPLICIT NONE
-   INCLUDE 'mpif.h'
    INTEGER field_ofst, glob_ofst
    INTEGER my_count, communicator, root, ierr
    INTEGER , DIMENSION(*) :: counts, displs
    REAL, DIMENSION(*) :: Field, globbuf
+#ifndef STUBMPI
+   INCLUDE 'mpif.h'
 
            CALL mpi_gatherv( Field( field_ofst ),      &    ! sendbuf
                             my_count ,                       &    ! sendcount
@@ -3349,6 +3843,7 @@ integer myproc
                             root                           , &    ! root
                             communicator                   , &    ! communicator
                             ierr )
+#endif
 
    END SUBROUTINE wrf_gatherv_real
 
@@ -3360,9 +3855,8 @@ integer myproc
                                 root                        , &    ! root
                                 communicator                , &    ! communicator
                                 ierr )
-   USE module_dm
+!   USE module_dm
    IMPLICIT NONE
-   INCLUDE 'mpif.h'
    INTEGER field_ofst, glob_ofst
    INTEGER my_count, communicator, root, ierr
    INTEGER , DIMENSION(*) :: counts, displs
@@ -3371,6 +3865,8 @@ integer myproc
 ! for having this separate routine is so we pass the correct MPI type to mpi_scatterv
 ! if we were not indexing the globbuf and Field arrays it would not even matter
    REAL, DIMENSION(*) :: Field, globbuf
+#ifndef STUBMPI
+   INCLUDE 'mpif.h'
 
            CALL mpi_gatherv( Field( field_ofst ),      &    ! sendbuf
                             my_count ,                       &    ! sendcount
@@ -3382,6 +3878,7 @@ integer myproc
                             root                           , &    ! root
                             communicator                   , &    ! communicator
                             ierr )
+#endif
 
    END SUBROUTINE wrf_gatherv_double
 
@@ -3394,11 +3891,12 @@ integer myproc
                                 communicator                , &    ! communicator
                                 ierr )
    IMPLICIT NONE
-   INCLUDE 'mpif.h'
    INTEGER field_ofst, glob_ofst
    INTEGER my_count, communicator, root, ierr
    INTEGER , DIMENSION(*) :: counts, displs
    INTEGER, DIMENSION(*) :: Field, globbuf
+#ifndef STUBMPI
+   INCLUDE 'mpif.h'
 
            CALL mpi_gatherv( Field( field_ofst ),      &    ! sendbuf
                             my_count ,                       &    ! sendcount
@@ -3410,6 +3908,7 @@ integer myproc
                             root                           , &    ! root
                             communicator                   , &    ! communicator
                             ierr )
+#endif
 
    END SUBROUTINE wrf_gatherv_integer
 
@@ -3423,13 +3922,14 @@ integer myproc
                                 root                        , &    ! root
                                 communicator                , &    ! communicator
                                 ierr )
-   USE module_dm
+   USE module_dm, ONLY : getrealmpitype
    IMPLICIT NONE
-   INCLUDE 'mpif.h'
    INTEGER field_ofst, glob_ofst
    INTEGER my_count, communicator, root, ierr
    INTEGER , DIMENSION(*) :: counts, displs
    REAL, DIMENSION(*) :: Field, globbuf
+#ifndef STUBMPI
+   INCLUDE 'mpif.h'
 
            CALL mpi_scatterv(                                &
                             globbuf( glob_ofst ) ,           &    ! recvbuf
@@ -3442,6 +3942,7 @@ integer myproc
                             root                           , &    ! root
                             communicator                   , &    ! communicator
                             ierr )
+#endif
 
    END SUBROUTINE wrf_scatterv_real
 
@@ -3456,15 +3957,16 @@ integer myproc
                                 ierr )
    USE module_dm
    IMPLICIT NONE
-   INCLUDE 'mpif.h'
    INTEGER field_ofst, glob_ofst
    INTEGER my_count, communicator, root, ierr
    INTEGER , DIMENSION(*) :: counts, displs
+   REAL, DIMENSION(*) :: Field, globbuf
+#ifndef STUBMPI
+   INCLUDE 'mpif.h'
 ! this next declaration is REAL, not DOUBLE PRECISION because it will be autopromoted
 ! to double precision by the compiler when WRF is compiled for 8 byte reals. Only reason
 ! for having this separate routine is so we pass the correct MPI type to mpi_scatterv
 ! if we were not indexing the globbuf and Field arrays it would not even matter
-   REAL, DIMENSION(*) :: Field, globbuf
 
            CALL mpi_scatterv(                                &
                             globbuf( glob_ofst ) ,           &    ! recvbuf
@@ -3477,6 +3979,7 @@ integer myproc
                             root                           , &    ! root
                             communicator                   , &    ! communicator
                             ierr )
+#endif
 
    END SUBROUTINE wrf_scatterv_double
 
@@ -3490,11 +3993,12 @@ integer myproc
                                 communicator                , &    ! communicator
                                 ierr )
    IMPLICIT NONE
-   INCLUDE 'mpif.h'
    INTEGER field_ofst, glob_ofst
    INTEGER my_count, communicator, root, ierr
    INTEGER , DIMENSION(*) :: counts, displs
    INTEGER, DIMENSION(*) :: Field, globbuf
+#ifndef STUBMPI
+   INCLUDE 'mpif.h'
 
            CALL mpi_scatterv(                                &
                             globbuf( glob_ofst ) ,           &    ! recvbuf
@@ -3507,16 +4011,32 @@ integer myproc
                             root                           , &    ! root
                             communicator                   , &    ! communicator
                             ierr )
+#endif
 
    END SUBROUTINE wrf_scatterv_integer
 ! end new stuff 20070124
 
 SUBROUTINE wrf_dm_define_comms ( grid )
-   USE module_domain
+   USE module_domain, ONLY : domain
    IMPLICIT NONE
    TYPE(domain) , INTENT (INOUT) :: grid
    RETURN
 END SUBROUTINE wrf_dm_define_comms
+
+SUBROUTINE tfp_message( fname, lno )
+   CHARACTER*(*) fname
+   INTEGER lno
+   CHARACTER*1024 mess
+#ifndef STUBMPI
+   WRITE(mess,*)'tfp_message: ',trim(fname),lno
+   CALL wrf_message(mess)
+# ifdef ALLOW_OVERDECOMP
+     CALL task_for_point_message  ! defined in RSL_LITE/task_for_point.c
+# else
+     CALL wrf_error_fatal(mess)
+# endif
+#endif 
+END SUBROUTINE tfp_message
 
    SUBROUTINE set_dm_debug 
     USE module_dm

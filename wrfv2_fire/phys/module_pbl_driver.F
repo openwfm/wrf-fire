@@ -7,6 +7,7 @@ CONTAINS
 !------------------------------------------------------------------
    SUBROUTINE pbl_driver(                                          &
                   itimestep,dt,u_frame,v_frame                     &
+                 ,bldt,curr_secs,adapt_step_flag                   &
                  ,rublten,rvblten,rthblten                         &
                  ,tsk,xland,znt,ht                                 &
                  ,ust,pblh,hfx,qfx,grdflx                          &
@@ -14,11 +15,12 @@ CONTAINS
                  ,p_phy,pi_phy,p8w,t_phy,dz8w,z                    &
                  ,tke_myj,el_myj,exch_h,akhs,akms                  &
                  ,thz0,qz0,uz0,vz0,qsfc                            &
-                 ,lowlyr                                           &
+                 ,lowlyr,u10,v10                                   &
                  ,psim,psih,gz1oz0, wspd,br,chklowq                &
                  ,bl_pbl_physics, ra_lw_physics, dx                &
                  ,stepbl,warm_rain                                 &
                  ,kpbl,ct,lh,snow,xice                             &
+                 ,znu, znw, mut, p_top                             &
                  ,ids,ide, jds,jde, kds,kde                        &
                  ,ims,ime, jms,jme, kms,kme                        &
                  ,i_start,i_end, j_start,j_end, kts,kte, num_tiles &
@@ -35,7 +37,7 @@ CONTAINS
                                                                    )
 !------------------------------------------------------------------
    USE module_state_description, ONLY :                            &
-                   YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME
+                   YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME
 
    USE module_model_constants
 
@@ -45,12 +47,14 @@ CONTAINS
    USE module_bl_ysu
    USE module_bl_mrf
    USE module_bl_gfs
+   USE module_bl_acm
 
    !  This driver calls subroutines for the PBL parameterizations.
    !
    !  pbl scheme:
    !      1. ysupbl
    !      2. myjpbl
+   !      7.  acmpbl
    !      99. mrfpbl
    !
 !------------------------------------------------------------------
@@ -198,9 +202,15 @@ CONTAINS
                INTENT(IN   )    ::                        LOWLYR
 !
    LOGICAL,      INTENT(IN   )    ::   warm_rain
+
+   REAL,       DIMENSION( kms:kme ),                              &
+               OPTIONAL, INTENT(IN   )    ::               znu,   &
+                                                           znw
 !
    REAL,       INTENT(IN   )    ::     DT,DX
-
+   REAL,       INTENT(IN   ),OPTIONAL    ::     bldt
+   REAL,       INTENT(IN   ),OPTIONAL    ::     curr_secs
+   LOGICAL,    INTENT(IN   ),OPTIONAL    ::     adapt_step_flag
 
 !
    REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
@@ -240,7 +250,9 @@ CONTAINS
                                                              UZ0, &
                                                              VZ0, &
                                                               CT, &
-                                                          GRDFLX  , &
+                                                          GRDFLX, &
+                                                             U10, &
+                                                             V10, &
                                                             WSPD
 
 !
@@ -295,6 +307,11 @@ CONTAINS
                INTENT(INOUT)    ::                           HOL, &
                                                              MOL, &
                                                           REGIME
+   REAL,       DIMENSION( ims:ime, jms:jme )                    , &
+               OPTIONAL                                         , &
+               INTENT(IN)    ::                           mut
+!
+   REAL,       OPTIONAL, INTENT(IN)    ::               p_top
 
 !  LOCAL  VAR
 
@@ -315,6 +332,9 @@ CONTAINS
    LOGICAL :: radiation
    LOGICAL :: flag_qv, flag_qc, flag_qr, flag_qi, flag_qs, flag_qg
    CHARACTER*256 :: message
+   REAL    :: next_bl_time
+   LOGICAL :: run_param
+   LOGICAL :: do_adapt
 
 !------------------------------------------------------------------
 !
@@ -333,8 +353,27 @@ CONTAINS
 ! RAINBL in mm (Accumulation between PBL calls)
 
 
-  IF (itimestep .eq. 1 .or. mod(itimestep,STEPBL) .eq. 0) THEN
+!
+! Modified for adaptive time step
+!
+  IF ( (itimestep .EQ. 1) .OR. (MOD(itimestep,STEPBL) .EQ. 0) ) THEN
+    run_param = .TRUE.
+  ELSE
+    run_param = .FALSE.
+  ENDIF
 
+  IF (PRESENT(adapt_step_flag)) THEN
+    IF ((adapt_step_flag)) THEN
+      IF ( (itimestep .EQ. 1) .OR. (bldt .EQ. 0) .OR. &
+           ( CURR_SECS + dt >= ( INT( CURR_SECS / ( bldt * 60 ) + 1 ) * bldt * 60) ) ) THEN
+        run_param = .TRUE.
+      ELSE
+        run_param = .FALSE.
+      ENDIF
+    ENDIF
+  ENDIF
+
+ IF (run_param) THEN
   radiation = .false.
   IF (ra_lw_physics .gt. 0) radiation = .true.
 
@@ -343,7 +382,37 @@ CONTAINS
  
    DTMIN=DT/60.
 ! PBL schemes need PBL time step for updates
-   DTBL=DT*STEPBL
+
+    if (PRESENT(adapt_step_flag)) then
+       if (adapt_step_flag) then
+          do_adapt = .TRUE.
+       else
+          do_adapt = .FALSE.
+       endif
+    else
+       do_adapt = .FALSE.
+    endif
+
+   if (PRESENT(BLDT)) then
+      if (bldt .eq. 0) then
+         DTBL = dt
+      ELSE
+         if (do_adapt) then
+            call wrf_message("WARNING: When using an adaptive time-step the boundary layer"// &
+                             " time-step should be 0 (i.e., equivalent to model time-step).  "// &
+                             "In order to proceed, for boundary layer calculations, the "// &
+                             "boundary layer time-step"// &
+                             " will be rounded to the nearest minute, possibly resulting in"// &
+                             " innacurate results.")
+            DTBL=bldt*60
+         else
+            DTBL=DT*STEPBL
+         endif
+      endif
+   else
+      DTBL=DT*STEPBL
+   endif
+
 
 ! SAVE OLD VALUES
 
@@ -409,16 +478,18 @@ CONTAINS
              CALL ysu(                                              &
                U3D=u_phytmp,V3D=v_phytmp,TH3D=th_phy,T3D=t_phy      &
               ,QV3D=qv_curr,QC3D=qc_curr,QI3D=qi_curr               &
-              ,P3D=p_phy,PI3D=pi_phy                                &
+              ,P3D=p_phy,P3DI=p8w,PI3D=pi_phy                       &
               ,RUBLTEN=rublten,RVBLTEN=rvblten                      &
               ,RTHBLTEN=rthblten,RQVBLTEN=rqvblten                  &
               ,RQCBLTEN=rqcblten,RQIBLTEN=rqiblten                  &
               ,FLAG_QI=flag_qi                                      &
               ,CP=cp,G=g,ROVCP=rcp,RD=r_D,ROVG=rovg                 &
               ,DZ8W=dz8w,Z=z,XLV=XLV,RV=r_v,PSFC=PSFC               &
+              ,ZNU=znu,ZNW=znw,MUT=mut,P_TOP=p_top                  &
               ,ZNT=znt,UST=ust,ZOL=zol,HOL=hol,HPBL=pblh            &
               ,PSIM=psim,PSIH=psih,XLAND=xland                      &
               ,HFX=hfx,QFX=qfx,TSK=tskold,GZ1OZ0=gz1oz0             &
+              ,U10=u10,V10=v10                                      &
               ,WSPD=wspd,BR=br,DT=dtbl,DTMIN=dtmin,KPBL2D=kpbl      &
               ,SVP1=svp1,SVP2=svp2,SVP3=svp3,SVPT0=svpt0            &
               ,EP1=ep_1,EP2=ep_2,KARMAN=karman,EOMEG=eomeg          &
@@ -449,6 +520,7 @@ CONTAINS
               ,RQCBLTEN=rqcblten,RQIBLTEN=rqiblten                  &
               ,CP=cp,G=g,ROVCP=rcp,R=r_d,ROVG=rovg                  &
               ,DZ8W=dz8w,Z=z,XLV=xlv,RV=r_v,PSFC=psfc               &
+              ,P1000MB=p1000mb                                      &
               ,ZNT=znt,UST=ust,ZOL=zol,HOL=hol                      &
               ,PBL=pblh,PSIM=psim,PSIH=psih                         &
               ,XLAND=xland,HFX=hfx,QFX=qfx,TSK=tskold               &
@@ -520,6 +592,33 @@ CONTAINS
            ELSE
                CALL wrf_error_fatal('Lack arguments to call MYJ pbl')
            ENDIF
+ 
+      CASE (ACMPBLSCHEME)
+           
+           !!  These are values that are not supplied to pbl driver, but are required by ACM
+           IF ( PRESENT( qv_curr )  .AND. PRESENT( qc_curr )  .AND. &
+                PRESENT( rqvblten ) .AND. PRESENT( rqcblten ) .AND. &
+                                                        .TRUE.  ) THEN
+             CALL wrf_debug(100,'in ACM PBL')
+
+             CALL ACMPBL(                                                        &
+               XTIME=itimestep, DTPBL=dtbl, ZNW=znw, SIGMAH=znu               &
+              ,U3D=u_phytmp, V3D=v_phytmp, PP3D=p_phy, DZ8W=dz8w, TH3D=th_phy, T3D=t_phy            &
+              ,QV3D=qv_curr, QC3D=qc_curr, QI3D=qi_curr, RR3D=rho                &
+              ,UST=UST, HFX=HFX, QFX=QFX, TSK=tsk                               &
+              ,PSFC=PSFC, EP1=EP_1, G=g, ROVCP=rcp,RD=r_D,CPD=cp                 &
+              ,PBLH=pblh, KPBL2D=kpbl, REGIME=regime                            &
+              ,GZ1OZ0=gz1oz0,WSPD=wspd,PSIM=psim, MUT=mut                        &
+              ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten                 &
+              ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten,RQIBLTEN=rqiblten             &
+              ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde                   &
+              ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme                   &
+              ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte                   &   
+                                                                      )
+           ELSE
+               CALL wrf_error_fatal('Lack arguments to call ACM2 pbl')
+           ENDIF
+
 
      CASE DEFAULT
 

@@ -1729,7 +1729,7 @@ CONTAINS
 !------------------------------------------------------------------
    SUBROUTINE RRTMLWRAD(rthraten,glw,olr,emiss                    &
                        ,p8w,p3d,pi3d                              &
-                       ,dz8w,t3d,t8w,rho3d,r,g                    &
+                       ,dz8w,tsk,t3d,t8w,rho3d,r,g                &
                        ,icloud, warm_rain                         &
                        ,ids,ide, jds,jde, kds,kde                 & 
                        ,ims,ime, jms,jme, kms,kme                 &
@@ -1762,7 +1762,8 @@ CONTAINS
          INTENT(INOUT)  ::                              RTHRATEN
 !
    REAL, DIMENSION( ims:ime, jms:jme )                          , &
-         INTENT(IN   )  ::                                 EMISS
+         INTENT(IN   )  ::                                 EMISS, &
+                                                             TSK
 !
    REAL, DIMENSION( ims:ime, jms:jme )                          , &
          INTENT(INOUT)  ::                                   GLW, &
@@ -1947,7 +1948,7 @@ CONTAINS
          EMISS0=EMISS(I,J)
          GLW0=0. 
          OLR0=0. 
-         TSFC=Tw1D(kme)
+         TSFC=TSK(I,J)
 
          CALL RRTM(tten1d,glw0,olr0,tsfc,cldfra1d,t1d,tw1d,qv1d,qc1d,   &
                    qr1d,qi1d,qs1d,qg1d,p1d,pW1d,dz1d,              &
@@ -3720,6 +3721,7 @@ CONTAINS
                                                       CIWP, &
                                                       PLWP, &
                                                       PIWP
+      CHARACTER*80 errmess
                            
       real :: amd       ! Effective molecular weight of dry air (g/mol)  
       real :: amw       ! Molecular weight of water vapor (g/mol)        
@@ -3817,8 +3819,13 @@ CONTAINS
 !  TBOUND is set to this temperature here.                                       
                                                                                  
 !     TBOUND = TINT(kte+1)                                                        
-      TBOUND = Tw(kte+1)                                                        
-!     TBOUND = TSFC
+!     TBOUND = Tw(kte+1)                                                        
+      TBOUND = TSFC
+      IF(TBOUND .GT. 340.)THEN
+        WRITE( errmess , '(A,F10.3)' ) 'rrtm: TBOUND exceeds table limit: reset ',TBOUND
+        CALL wrf_message (errmess)
+        TBOUND = 339.99
+      ENDIF
                                                                                  
 !  Install MM5 profiles into RRTM arrays for pressure, temperature,              
 !  and molecular amounts.  Pressures are converted from cb                       
@@ -6620,10 +6627,6 @@ IMPLICIT NONE
 !  weighted using a mapping procedure in routine RRTMINIT to reduce              
 !  the total number of g-points from 256 to 140 for use in the CCM.              
 ! **************************************************************************     
-#ifdef G95
-! JRB hardwire unit to 98 to ensure it is read big endian by g95
-      rrtm_unit=98
-#endif
         IF ( wrf_dm_on_monitor() ) THEN
           OPEN(rrtm_unit,FILE='RRTM_DATA',                  &
                FORM='UNFORMATTED',STATUS='OLD',ERR=9009)

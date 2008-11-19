@@ -10,34 +10,41 @@ MODULES = \
 	module_bl_mrf.o \
 	module_bl_gfs.o \
 	module_bl_myjpbl.o \
+	module_bl_acm.o \
+	module_cu_g3.o \
 	module_cu_kf.o  \
 	module_cu_bmj.o \
 	module_cu_kfeta.o \
 	module_cu_gd.o \
 	module_cu_sas.o \
 	module_mp_kessler.o \
-	module_mp_ncloud5.o \
 	module_mp_lin.o  \
-	module_mp_ncloud3.o \
 	module_mp_wsm3.o \
 	module_mp_wsm5.o \
 	module_mp_wsm6.o \
 	module_mp_etanew.o \
 	module_mp_thompson.o \
+	module_mp_gsfcgce.o \
+        module_mp_morr_two_moment.o \
 	module_ra_sw.o  \
 	module_ra_gsfcsw.o \
 	module_ra_rrtm.o  \
-	module_ra_cam.o  \
+        module_ra_cam_support.o \
+        module_ra_cam.o \
 	module_ra_gfdleta.o \
+	module_ra_hs.o  \
 	module_sf_sfclay.o \
 	module_sf_gfs.o \
 	module_sf_slab.o  \
+	module_sf_noahdrv.o  \
 	module_sf_noahlsm.o  \
         module_sf_urban.o  \
 	module_sf_lsm_nmm.o  \
+	module_sf_pxlsm.o \
 	module_sf_ruclsm.o \
 	module_sf_sfcdiags.o \
 	module_sf_myjsfc.o \
+	module_sf_pxsfclay.o \
 	module_physics_addtendc.o \
 	module_physics_init.o \
 	module_gfs_machine.o \
@@ -45,6 +52,7 @@ MODULES = \
 	module_gfs_physcons.o \
 	module_progtm.o \
 	module_pbl_driver.o \
+	module_data_gocart_dust.o \
 	module_cumulus_driver.o \
 	module_microphysics_driver.o \
 	module_microphysics_zero_out.o \
@@ -67,10 +75,10 @@ TARGETDIR    =  ./
 $(LIBTARGET) :
 		if [ $(WRF_NMM_CORE) -eq 1 ] ; then \
                   $(MAKE) nmm_contrib                                      ; \
-                  $(AR) ../main/libwrflib.a $(MODULES) $(OBJS) $(NMM_OBJS) $(NMM_MODULES) ; \
+                  $(AR) $(ARFLAGS) ../main/$(LIBWRFLIB) $(MODULES) $(OBJS) $(NMM_OBJS) $(NMM_MODULES) ; \
                 else                                                         \
                   $(MAKE) non_nmm                                          ; \
-                  $(AR) ../main/libwrflib.a $(MODULES) $(OBJS)             ; \
+                  $(AR) $(ARFLAGS) ../main/$(LIBWRFLIB) $(MODULES) $(OBJS)             ; \
                 fi
 
 include ../configure.wrf
@@ -111,8 +119,10 @@ module_ra_gfdleta.o:  ../frame/module_dm.o
 module_ra_rrtm.o: ../frame/module_wrf_error.o \
 		../frame/module_dm.o
 
-module_ra_cam.o: ../frame/module_wrf_error.o \
-		../frame/module_dm.o
+module_ra_cam_support.o: ../frame/module_wrf_error.o
+
+module_ra_cam.o: module_ra_cam_support.o \
+                ../frame/module_wrf_error.o
 
 module_mp_lin.o : ../frame/module_wrf_error.o
 
@@ -126,10 +136,14 @@ module_sf_gfs.o: module_gfs_machine.o \
 		 module_gfs_physcons.o \
 		 module_progtm.o
 
-module_sf_noahlsm.o: ../share/module_model_constants.o  \
+module_sf_noahdrv.o: module_sf_noahlsm.o module_data_gocart_dust.o \
                      module_sf_urban.o
 
-module_sf_ruclsm.o: ../frame/module_wrf_error.o
+module_sf_noahlsm.o: ../share/module_model_constants.o
+
+module_sf_ruclsm.o: ../frame/module_wrf_error.o module_data_gocart_dust.o 
+
+module_sf_pxlsm.o: ../share/module_model_constants.o
 
 module_physics_addtendc.o: \
 		module_cu_kf.o			\
@@ -140,25 +154,30 @@ module_physics_addtendc.o: \
 module_physics_init.o : \
 		module_ra_rrtm.o		\
 		module_ra_cam.o		\
+		module_ra_cam_support.o		\
 		module_ra_sw.o			\
 		module_ra_gsfcsw.o		\
 		module_ra_gfdleta.o		\
+		module_ra_hs.o			\
 		module_sf_sfclay.o		\
 		module_sf_slab.o		\
 		module_sf_myjsfc.o		\
+		module_sf_pxsfclay.o		\
 		module_sf_noahlsm.o		\
+		module_sf_noahdrv.o		\
 		module_sf_ruclsm.o		\
+		module_sf_pxlsm.o		\
 		module_bl_ysu.o			\
 		module_bl_mrf.o			\
 		module_bl_gfs.o			\
+		module_bl_acm.o			\
 		module_bl_myjpbl.o		\
 		module_cu_kf.o			\
+	        module_cu_g3.o                  \
 		module_cu_kfeta.o		\
 		module_cu_bmj.o			\
 		module_cu_gd.o			\
 		module_cu_sas.o			\
-		module_mp_ncloud3.o		\
-		module_mp_ncloud5.o		\
 		module_mp_wsm3.o		\
 		module_mp_wsm5.o		\
 		module_mp_wsm6.o		\
@@ -166,6 +185,8 @@ module_physics_init.o : \
 		module_fdda_psufddagd.o		\
 		module_fddaobs_rtfdda.o		\
 		module_mp_thompson.o            \
+		module_mp_gsfcgce.o 		\
+                module_mp_morr_two_moment.o     \
 		../frame/module_state_description.o \
 		../frame/module_configure.o \
 		../frame/module_wrf_error.o \
@@ -174,12 +195,14 @@ module_physics_init.o : \
 		module_sf_lsm_nmm.o	
 
 module_microphysics_driver.o: \
-                module_mixactivate.o \
-                module_mp_kessler.o module_mp_lin.o \
-		module_mp_ncloud3.o module_mp_ncloud5.o \
+		module_mixactivate.o \
+		module_mp_kessler.o module_mp_lin.o \
 		module_mp_wsm3.o module_mp_wsm5.o \
 		module_mp_wsm6.o module_mp_etanew.o \
 		module_mp_thompson.o            \
+		module_mp_gsfcgce.o 		\
+                module_mp_morr_two_moment.o     \
+		../frame/module_driver_constants.o \
 		../frame/module_state_description.o \
 		../frame/module_wrf_error.o \
 		../frame/module_configure.o \
@@ -187,6 +210,7 @@ module_microphysics_driver.o: \
 
 module_cumulus_driver.o: \
                 module_cu_kf.o \
+	        module_cu_g3.o \
 		module_cu_kfeta.o \
 		module_cu_bmj.o \
 		module_cu_gd.o \
@@ -197,12 +221,15 @@ module_cumulus_driver.o: \
 
 module_pbl_driver.o:  \
 		module_bl_myjpbl.o \
+		module_bl_acm.o \
 		module_bl_ysu.o \
 		module_bl_mrf.o \
 		module_bl_gfs.o \
 		../frame/module_state_description.o \
 		../frame/module_configure.o \
 		../share/module_model_constants.o 
+
+module_data_gocart_dust.o: 
 
 module_mixactivate.o: \
 		module_radiation_driver.o
@@ -213,18 +240,25 @@ module_radiation_driver.o: \
 		module_ra_rrtm.o \
 		module_ra_cam.o \
 		module_ra_gfdleta.o \
+		module_ra_hs.o \
+		../frame/module_driver_constants.o \
 		../frame/module_state_description.o \
+		../frame/module_dm.o \
+		../frame/module_domain.o \
 		../frame/module_wrf_error.o \
 		../frame/module_configure.o \
+		../share/module_bc.o  \
 		../share/module_model_constants.o 
 
 module_surface_driver.o: \
 		module_sf_sfclay.o		\
 		module_sf_slab.o		\
 		module_sf_myjsfc.o		\
+		module_sf_pxsfclay.o		\
 		module_sf_gfs.o  		\
-		module_sf_noahlsm.o		\
+		module_sf_noahdrv.o		\
 		module_sf_ruclsm.o		\
+		module_sf_pxlsm.o		\
 		module_sf_sfcdiags.o		\
 		../frame/module_state_description.o \
 		../frame/module_configure.o \
@@ -232,6 +266,10 @@ module_surface_driver.o: \
 		module_sf_lsm_nmm.o
 
 module_diagnostics.o: ../frame/module_dm.o
+
+
+module_mixactivate.o: \
+		module_radiation_driver.o
 
 module_fddagd_driver.o: \
 		../frame/module_state_description.o \

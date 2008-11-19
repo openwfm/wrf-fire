@@ -1,6 +1,6 @@
 MODULE module_si_io_nmm
 
-   USE module_optional_si_input
+   USE module_optional_input
 
    IMPLICIT NONE
 
@@ -187,8 +187,6 @@ CONTAINS
       INTEGER :: ok , map_proj , ok_open
       REAL :: pt
       INTEGER :: num_veg_cat , num_soil_top_cat , num_soil_bot_cat
-
-      write(0,*)' enter read_si'
 
       SELECT CASE ( model_data_order )
          CASE ( DATA_ORDER_ZXY )
@@ -676,7 +674,7 @@ CONTAINS
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_pd(i,j)=dum2d(i,j)
+              grid%pd(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'PSFC    ' ) THEN
@@ -694,10 +692,10 @@ CONTAINS
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'PDTOP   ' ) THEN
-            READ (13) grid%nmm_pdtop
+            READ (13) grid%pdtop
 
          ELSE IF ( var_info%name(1:8) .EQ. 'PT      ' ) THEN
-            READ (13) grid%nmm_pt
+            READ (13) grid%pt
 
          !  2D surface fields.
 
@@ -705,14 +703,14 @@ CONTAINS
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_glat(i,j)=dum2d(i,j)
+              grid%glat(i,j)=dum2d(i,j)
             enddo
             enddo
         ELSE IF ( var_info%name(1:8) .eq. 'GLON    ' ) THEN
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_glon(i,j)=dum2d(i,j)
+              grid%glon(i,j)=dum2d(i,j)
             enddo
             enddo
         ELSE IF ( var_info%name(1:8) .eq. 'LAT_V   ' ) THEN
@@ -1057,21 +1055,21 @@ CONTAINS
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_nmm_tsk(i,j)=dum2d(i,j)
+              grid%nmm_tsk(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'TGROUND ' ) THEN
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-             grid%nmm_tg(i,j)=dum2d(i,j)
+             grid%tg(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'SOILTB  ' ) THEN
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-             grid%nmm_soiltb(i,j)=dum2d(i,j)
+             grid%soiltb(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'SST     ' ) THEN
@@ -1086,14 +1084,14 @@ CONTAINS
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_vegfrc(i,j)=dum2d(i,j)
+              grid%vegfrc(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'ISLOPE  ' ) THEN
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_islope(i,j)=nint(dum2d(i,j))
+              grid%islope(i,j)=nint(dum2d(i,j))
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'GREENMAX' ) THEN
@@ -1114,7 +1112,7 @@ CONTAINS
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_fis(i,j)=dum2d(i,j)
+              grid%fis(i,j)=dum2d(i,j)
             enddo
             enddo
         ELSE IF ( var_info%name(1:8) .EQ. 'Z0      ' ) THEN
@@ -1122,14 +1120,14 @@ CONTAINS
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_z0(i,j)=dum2d(i,j)
+              grid%z0(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'CMC     ' ) THEN
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_cmc(i,j)=dum2d(i,j)
+              grid%cmc(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'HTM     ' ) THEN
@@ -1154,21 +1152,21 @@ CONTAINS
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_sm(i,j)=dum2d(i,j)
+              grid%sm(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'ALBASE  ' ) THEN
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_albase(i,j)=dum2d(i,j)
+              grid%albase(i,j)=dum2d(i,j)
             enddo
             enddo
          ELSE IF ( var_info%name(1:8) .EQ. 'MXSNAL  ' ) THEN
             READ (13) dum2d
             do j=jts,JMAX
             do i=its,IMAX
-              grid%nmm_mxsnal(i,j)=dum2d(i,j)
+              grid%mxsnal(i,j)=dum2d(i,j)
             enddo
             enddo
 
@@ -1224,15 +1222,13 @@ print *,'------------------> skipping ', var_info%name(1:8)
         sw_inputx=0.
 !new
 
-      do j=jts,JMAX
       do k=kts,kte-1
+      do j=jts,JMAX
       do i=its,IMAX
-        grid%nmm_HTM(I,K,J)=HTM_in(I,J,K)
-        grid%nmm_VTM(I,K,J)=VTM_in(I,J,K)
-        grid%nmm_U(I,K,J)=U_input(I,J,K)
-        grid%nmm_V(I,K,J)=V_input(I,J,K)
-        grid%nmm_T(I,K,J)=T_input(I,J,K)
-        grid%nmm_Q(I,K,J)=Q_input(I,J,K)
+        grid%U(I,J,K)=U_input(I,J,K)
+        grid%V(I,J,K)=V_input(I,J,K)
+        grid%T(I,J,K)=T_input(I,J,K)
+        grid%Q(I,J,K)=Q_input(I,J,K)
       enddo
       enddo
       enddo
@@ -1247,8 +1243,8 @@ print *,'------------------> skipping ', var_info%name(1:8)
         write(0,*) 'maxval st_inputx(4): ', maxval(st_input(:,:,4))
 
 
-        do K=1,num_st_levels_alloc
-         do J=JTS,min(JDE-1,JTE)
+        do J=JTS,min(JDE-1,JTE)
+         do K=1,num_st_levels_alloc
           do I=ITS,min(IDE-1,ITE)
              st_input(I,K,J)=st_inputx(I,J,K)
              sm_input(I,K,J)=sm_inputx(I,J,K)
@@ -1271,6 +1267,7 @@ print *,'------------------> skipping ', var_info%name(1:8)
          do K=1,num_soil_top_cat
           do I=ITS,min(IDE-1,ITE)
           grid%SOILCTOP(I,K,J)=soil_top_cat_input(I,J,K)
+          grid%SOILCTOP_gc(I,J,K)=soil_top_cat_input(I,J,K)
           enddo
          enddo
         enddo
@@ -1279,6 +1276,7 @@ print *,'------------------> skipping ', var_info%name(1:8)
          do K=1,num_soil_bot_cat
           do I=ITS,min(IDE-1,ITE)
           grid%SOILCBOT(I,K,J)=soil_bot_cat_input(I,J,K)
+          grid%SOILCBOT_gc(I,J,K)=soil_bot_cat_input(I,J,K)
           enddo
          enddo
         enddo
@@ -1287,25 +1285,26 @@ print *,'------------------> skipping ', var_info%name(1:8)
          do K=1,num_veg_cat
           do I=ITS,min(IDE-1,ITE)
           grid%LANDUSEF(I,K,J)=landuse_frac_input(I,J,K)
+          grid%LANDUSEF_gc(I,J,K)=landuse_frac_input(I,J,K)
           enddo
          enddo
         enddo
 
 
       do K=KDS,KDE
-        grid%nmm_ETAX(K)=ETAX_in(KDE-K+1)
-        grid%nmm_ETA1(K)=ETA1_in(KDE-K+1)
-        grid%nmm_ETA2(K)=ETA2_in(KDE-K+1)
-        grid%nmm_DFL(K)=DFL_in(KDE-K+1)
+        grid%ETAX(K)=ETAX_in(KDE-K+1)
+        grid%ETA1(K)=ETA1_in(KDE-K+1)
+        grid%ETA2(K)=ETA2_in(KDE-K+1)
+        grid%DFL(K)=DFL_in(KDE-K+1)
       enddo
 
       do K=KDS,KDE-1
-        grid%nmm_DETA(K)=DETA_in(KDE-K)
-        grid%nmm_DETA1(K)=DETA1_in(KDE-K)
-        grid%nmm_DETA2(K)=DETA2_in(KDE-K)
-        grid%nmm_AETA(K)=AETA_in(KDE-K)
-        grid%nmm_AETA1(K)=AETA1_in(KDE-K)
-        grid%nmm_AETA2(K)=AETA2_in(KDE-K)
+        grid%DETA(K)=DETA_in(KDE-K)
+        grid%DETA1(K)=DETA1_in(KDE-K)
+        grid%DETA2(K)=DETA2_in(KDE-K)
+        grid%AETA(K)=AETA_in(KDE-K)
+        grid%AETA1(K)=AETA1_in(KDE-K)
+        grid%AETA2(K)=AETA2_in(KDE-K)
       enddo
 
    END SUBROUTINE read_si

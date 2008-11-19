@@ -32,16 +32,23 @@ MODULE module_fddaobs_rtfdda
 !
 !   http://www.rap.ucar.edu/projects/armyrange/references.html
 !
+! Modification History:
+!   03212007 Modified fddaobs_init to compute Lambert cone factor. -Al Bourgeois
 
 CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE fddaobs_init(obs_nudge_opt, maxdom, inest, parid,         &
-                          dx_coarse, restart, obs_twindo, itimestep,   &
+                          idynin, dtramp, fdaend, restart,             &
+                          obs_twindo_cg, obs_twindo, itimestep,        &
+                          cen_lat, cen_lon, stand_lon,                 &
+                          true_lat1, true_lat2, map_proj,              &
+                          xlat, xlong,                                 &
                           e_sn, s_sn_cg, e_sn_cg, s_we_cg, e_we_cg,    &
 #if ( EM_CORE == 1 )
                           fdob,                                        &
 #endif
+                          iprt,                                        &
                           ids,ide, jds,jde, kds,kde,                   &
                           ims,ime, jms,jme, kms,kme,                   &
                           its,ite, jts,jte, kts,kte)     
@@ -50,6 +57,7 @@ CONTAINS
 !
 !-----------------------------------------------------------------------
   USE module_domain
+  USE module_dm                 ! for wrf_dm_min_real
 !-----------------------------------------------------------------------
   IMPLICIT NONE
 !-----------------------------------------------------------------------
@@ -64,10 +72,21 @@ CONTAINS
                           its,ite, jts,jte, kts,kte
   INTEGER, intent(in)  :: inest
   INTEGER, intent(in)  :: parid(maxdom)
-  REAL    ,intent(in)  :: dx_coarse    ! coarse-domain grid cell-size (km)
+  INTEGER, intent(in)  :: idynin         ! flag for dynamic initialization
+  REAL,    intent(in)  :: dtramp         ! time period for idynin ramping (min)
+  REAL,    intent(in)  :: fdaend(maxdom) ! nudging end time for domain (min)
   LOGICAL, intent(in)  :: restart
-  REAL, intent(inout)  :: obs_twindo
+  REAL, intent(in)     :: obs_twindo_cg  ! time window on coarse grid
+  REAL, intent(in)     :: obs_twindo
   INTEGER, intent(in)  :: itimestep
+  REAL    , INTENT(IN) :: cen_lat      ! domain center latitude (for map proj)
+  REAL    , INTENT(IN) :: cen_lon      ! domain center longitude (for map proj)
+  REAL    , INTENT(IN) :: stand_lon    ! domain standard longitude (for map proj)
+  REAL,    intent(in)  :: true_lat1    ! domain truelat1 (for map proj)
+  REAL,    intent(in)  :: true_lat2    ! domain truelat2 (for map proj)
+  INTEGER, intent(in)  :: map_proj     ! map projection index    
+  REAL, DIMENSION( ims:ime, jms:jme ),                            &
+        INTENT(IN)     :: xlat, xlong  ! lat/long locations on mass point grid
   INTEGER, intent(in)  :: e_sn         ! ending   south-north grid index
   INTEGER, intent(in)  :: s_sn_cg      ! starting south-north coarse-grid index
   INTEGER, intent(in)  :: e_sn_cg      ! ending   south-north coarse-grid index
@@ -76,6 +95,7 @@ CONTAINS
 #if ( EM_CORE == 1 ) 
   TYPE(fdob_type), intent(inout)  :: fdob
 #endif
+  LOGICAL, intent(in)  :: iprt         ! Flag enabling printing warning messages
 
 ! Local variables
   logical            :: nudge_flag      ! nudging flag for this nest 
@@ -83,26 +103,62 @@ CONTAINS
   integer            :: nest            ! loop counter
   integer            :: idom            ! domain id
   integer            :: parent          ! parent domain
+  real               :: conv            ! 180/pi
+  real               :: tl1             ! Lambert standard parallel 1
+  real               :: tl2             ! Lambert standard parallel 2
+  real               :: xn1
+  real               :: known_lat       ! Latitude of domain point (i,j)=(1,1)
+  real               :: known_lon       ! Longitude of domain point (i,j)=(1,1) 
 
 #if ( EM_CORE == 1 ) 
-! This routine should only be called once. This is a check to make
-! certain that initialization only happens once.
-  if (fdob%domain_init .ne. 1) then
-!   Obs-nudging will be initialized on this call
-    fdob%domain_init = 1
-  else
-!   Obs-nudging has already been initialized, so return
-    return
-  endif
 
-! Set flag for nudging on pressure (not sigma) surfaces
+! Set flag for nudging on pressure (not sigma) surfaces.
   fdob%iwtsig = 0
 
+!**************************************************************************
+! *** Initialize datend for dynamic initialization (ajb added 08132008) ***
+!**************************************************************************
 ! Set ending nudging date (used with dynamic ramp-down) to zero.
   fdob%datend = 0.
+  fdob%ieodi = 0
 
-! Convert twindo from minutes to hours.
-  obs_twindo = obs_twindo / 60.
+! Check for dynamic initialization flag
+  if(idynin.eq.1)then
+!    Set datend to time in minutes after which data are assumed to have ended.
+     if(dtramp.gt.0.)then
+        fdob%datend = fdaend(inest) - dtramp
+     else
+        fdob%datend = fdaend(inest)
+     endif
+     if(iprt) then
+        print*,' '
+        print*,' *** DYNAMIC-INITIALIZATION OPTION FOR INEST = ',inest, ' ***'
+        print*,' FDAEND,DATEND,DTRAMP: ',fdaend(inest),fdob%datend,dtramp
+        print*,' '
+     endif
+  endif
+! *** end dynamic initialization section ***
+!**************************************************************************
+
+! Set time window.
+  fdob%window = obs_twindo
+
+  if(inest.eq.1) then
+    if(obs_twindo .eq. 0.) then
+      if(iprt) then
+        write(6,'(/a)') '*** WARNING: TWINDO=0 on the coarse domain.'
+        write(6,'(a/)') '*** Did you forget to set twindo in the fdda namelist?'
+      endif
+    endif
+  else        ! nest
+    if(obs_twindo .eq. 0.) then
+      fdob%window = obs_twindo_cg
+      if(iprt) then
+        write(6,'(/a,i2)') 'WARNING: TWINDO=0. for nest ',inest
+        write(6,'(a,f12.5,a/)') 'Default to coarse-grid value of ', obs_twindo_cg,' hrs'
+      endif
+    endif
+  endif
 
 ! Initialize flags.
 
@@ -118,9 +174,19 @@ CONTAINS
   fdob%rinfmx = 2.0
   fdob%dpsmx = 7.5
   fdob%dcon = 1.0/fdob%dpsmx
-  fdob%xn = 0.7155668                     ! cone factor
 
-  fdob%ds_cg = dx_coarse / 1000.          ! coarse gridsize (km)
+! Get known lat and lon and store these on all processors in fdob structure, for
+! later use in projection x-formation to map (lat,lon) to (x,y) for each obs.
+      IF (its .eq. 1 .AND. jts .eq. 1) then
+         known_lat = xlat(1,1)
+         known_lon = xlong(1,1)
+      ELSE
+         known_lat = 9999.
+         known_lon = 9999.
+      END IF
+      fdob%known_lat = wrf_dm_min_real(known_lat)
+      fdob%known_lon = wrf_dm_min_real(known_lon)
+
   fdob%sn_maxcg = e_sn_cg - s_sn_cg + 1   ! coarse domain grid dimension in N-S 
   fdob%we_maxcg = e_we_cg - s_we_cg + 1   ! coarse domain grid dimension in W-E
   fdob%sn_end = e_sn - 1                  ! ending S-N grid coordinate
@@ -137,9 +203,10 @@ CONTAINS
     endif
     idom = nest
 100 parent = parid(idom)      ! Go up the parent tree
+
       if (parent .gt. 1) then   ! If not up to mother domain
         fdob%levidn(nest) = fdob%levidn(nest) + 1
-        idom = parid(parent)
+        idom = parent
         goto 100
       endif
   enddo
@@ -165,10 +232,10 @@ CONTAINS
 SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
                  uratx, vratx, tratx, nndgv,                    & 
                  nerrf, niobf, maxdom, levidn, parid, nstat,    &
-                 iswind,                                        &
+                 nstaw, iswind,                                 &
                  istemp, ismois, ispstr, rio, rjo, rko, varobs, &
                  errf, i_parent_start, j_parent_start,          &
-                 ktau, iratio, npfi, iprt,                      &
+                 ktau, iratio, npfi, nobs_prt, iprt,            &
                  ids,ide, jds,jde, kds,kde,                     &
                  ims,ime, jms,jme, kms,kme,                     &
                  its,ite, jts,jte, kts,kte  )
@@ -227,8 +294,10 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   INTEGER, INTENT(IN)  :: ktau
   INTEGER, INTENT(IN)  :: iratio                       ! Nest to parent gridsize ratio.
   INTEGER, INTENT(IN)  :: npfi                         ! Coarse-grid diagnostics freq.
+  INTEGER, INTENT(IN)  :: nobs_prt                     ! Number of current obs to print info.
   LOGICAL, INTENT(IN)  :: iprt                         ! Print flag
-  INTEGER, INTENT(IN)  :: nstat
+  INTEGER, INTENT(IN)  :: nstat                        ! # stations held for use
+  INTEGER, INTENT(IN)  :: nstaw                        ! # stations in current window
   INTEGER, intent(in)  :: iswind
   INTEGER, intent(in)  :: istemp
   INTEGER, intent(in)  :: ismois
@@ -248,8 +317,8 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   REAL,   INTENT(IN) :: uratx( ims:ime, jms:jme ) ! U to U10 ratio on mass points.
   REAL,   INTENT(IN) :: vratx( ims:ime, jms:jme ) ! V to V10 ratio on mass points.
   REAL,   INTENT(IN) :: tratx( ims:ime, jms:jme ) ! T to TH2 ratio on mass points.
-  REAL,   INTENT(IN) :: rio(niobf)                ! West-east coordinate.
-  REAL,   INTENT(IN) :: rjo(niobf)                ! South-north coordinate.
+  REAL,   INTENT(IN) :: rio(niobf)                ! Obs west-east coordinate (non-stag grid).
+  REAL,   INTENT(IN) :: rjo(niobf)                ! Obs south-north coordinate (non-stag grid).
   REAL,   INTENT(INOUT) :: rko(niobf)
   REAL,   INTENT(INOUT) :: varobs(nndgv, niobf)
   REAL,   INTENT(INOUT) :: errf(nerrf, niobf)
@@ -295,6 +364,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   integer iobm,jobm,iobp,jobp,kobp,inpf,i,j
   integer i_start,i_end,j_start,j_end    ! loop ranges for uratio,vratio calc.
   integer k_start,k_end
+  integer ips                            ! For printing obs information
 
   real gridx,gridy,dxob,dyob,dzob,dxob_ms,dyob_ms
   real pob
@@ -320,7 +390,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
   if (iprt) then
     write(6,'(a,i5,a,i2,a,i5,a)') '++++++CALL ERROB AT KTAU = ', &
-            KTAU,' AND INEST = ',INEST,':  NSTA = ',NSTA,' ++++++'
+            KTAU,' AND INEST = ',INEST,':  NSTA = ',NSTAW,' ++++++'
   endif
 
   ERRF = 0.0    ! Zero out errf array
@@ -455,50 +525,20 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
       ENDDO      ! END COARSE MESH LOOP OVER NSTA 
 
     ELSE       ! FINE MESH CASE
-            
-!     CONVERT (I,J,K) OF OBSERVATIONS TO THE EQUIVALENT FINE MESH VALUES.
+
+!**********************************************************************
+!ajb_07012008: Conversion of obs coordinates to the fine mesh here
+!ajb   is no longer necessary, since implementation of the WRF map pro-
+!ajb   jections (to each nest directly) is implemented in sub in4dob. 
+!**********************************************************************
+!ajb
+!ajb  GET (I,J,K) OF OBSERVATIONS ON FINE MESH VALUES.
       DO N=1,NSTA
 
-!       COMPUTE THE OBS LOCATION WITH RESPECT TO THIS MESH (INEST)...
-        NML=INEST
-        MM(LEVIDN(INEST)+1)=INEST
-!       WORKING TOWARD COARSER MESHES, DETERMINE THE HIERARCHY OF MOTHER
-!       MESHES WITH RESPECT TO EACH MOTHER MESH STARTING AT MESH "IN"...
-!       THAT IS, DETERMINE ITS MOTHER, GRANDMOTHER, GREAT-GRANDMOTHER, ETC.
-!       OUT TO THE COARSE GRID MESH (INEST=1).
-!       LEVIDN HOLDS THE NEST LEVEL AND PARID HOLDS THE MOTHER MESH FOR EACH
-!       GRID (E.G., FOR 3 MESHES AND 2 NEST LEVELS, IN=1 IS THE COARSE GRID
-!       MESH, IN=2 HAS LEVIDN(2)=1 AND PARID(2)=1, AND IN=3 HAS LEVIDN(3)=2
-!       AND PARID(3)=2...)
-        DO NNL=LEVIDN(INEST),1,-1
-          MM(NNL)=PARID(NML)
-          NML=MM(NNL)
-        ENDDO
+!        write(6,*) 'UPDATE: ra(n) = ',ra(n),' rb(n) = ',rb(n)
 
-!       NOTE: MM(1) MUST BE THE COARSE GRID MESH (INEST=0)
-        IF(MM(1).NE.1) then 
-            if(iprt) write(6,*) 'stopping in errob: inest = ',inest
-            STOP 21
-        ENDIF
-
-        RA(N)=RIO(N)
-        RB(N)=RJO(N)
-        DO NNL=1,LEVIDN(INEST)
-          GRFACX=0.
-          GRFACY=0.
-!         COMPUTE THE OBS LOCATION WITH RESPECT TO THE INNER GRID IN NON-
-!         STAGGERED SPACE (GRID=0.).  WHEN WE REACH MESH INEST, THEN
-!         APPLY THE APPRPRIATE STAGGER, DEPENDING ON THE VARIABLE...
-          IF(NNL.EQ.LEVIDN(INEST)) THEN
-            GRFACX=GRIDX
-            GRFACY=GRIDY
-          ENDIF
-  
-          RA(N)=(RA(N)-FLOAT(i_parent_start(MM(NNL+1))))*  &
-                       FLOAT(IRATIO)+1.-GRFACX
-          RB(N)=(RB(N)-FLOAT(j_parent_start(MM(NNL+1))))*  &
-                       FLOAT(IRATIO)+1.-GRFACY
-
+          RA(N)=RIO(N)-GRIDX           ! ajb added 07012008
+          RB(N)=RJO(N)-GRIDY           ! ajb added 07012008
           IA(N)=RA(N)
           IB(N)=RB(N)
           IOB=MAX0(1,IA(N))
@@ -535,8 +575,6 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !                   '  iob_ms= ',iob_ms,'  job_ms= ',job_ms,            &
 !                   '  dxob_ms= ',dxob_ms,'  dyob_ms= ',dyob_ms
 !endif
-
-        ENDDO    ! end do nnl=1,levidn(inest)
 
 #if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
 !       Set mask for obs to be handled by this processor
@@ -598,6 +636,19 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
       ENDDO      ! END FINE MESH LOOP OVER NSTA
     
     ENDIF      ! end if(inest.eq.1)
+
+! Print obs information.
+    if (iprt) then
+      if(ityp.eq.3) then   !mass-point case
+        ips = min(nstaw,nobs_prt)
+        if(ips.gt.0) then
+          write(6,*) '  OBS#    I       J       K'
+        endif
+        do n=1,ips
+          write(6,'(2x,i4,3f8.3)') n,ra(n),rb(n),rc(n)
+        enddo
+      endif
+    endif
 
 !   INITIALIZE THE ARRAY OF DIFFERENCES BETWEEN THE OBSERVATIONS
 !   AND THE LOCAL FORECAST VALUES TO ZERO.  FOR THE FINE MESH
@@ -725,10 +776,10 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 !           This is to correct obs to model sigma level using reverse similarity theory
             if(rko(n).eq.1.0)then
-              uratiob=((1.-DXOB)*((1.-DYOB)*uratio(IOB,JOB)+     &
-                    DYOB*uratio(IOBP,JOB)                        &
-                  )+DXOB*((1.-DYOB)*uratio(IOB,JOBP)+            &
-                  DYOB*uratio(IOBP,JOBP)))
+              uratiob=((1.-DYOB)*((1.-DXOB)*uratio(IOB,JOB)+     &
+                    DXOB*uratio(IOBP,JOB)                        &
+                  )+DYOB*((1.-DXOB)*uratio(IOB,JOBP)+            &
+                  DXOB*uratio(IOBP,JOBP)))
             else
               uratiob=1.
             endif
@@ -815,10 +866,10 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 !           This is to correct obs to model sigma level using reverse similarity theory
             if(rko(n).eq.1.0)then
-              vratiob=((1.-DXOB)*((1.-DYOB)*vratio(IOB,JOB)+     &
-                    DYOB*vratio(IOBP,JOB)                        &
-                  )+DXOB*((1.-DYOB)*vratio(IOB,JOBP)+            &
-                  DYOB*vratio(IOBP,JOBP)))
+              vratiob=((1.-DYOB)*((1.-DXOB)*vratio(IOB,JOB)+     &
+                    DXOB*vratio(IOBP,JOB)                        &
+                  )+DYOB*((1.-DXOB)*vratio(IOB,JOBP)+            &
+                  DXOB*vratio(IOBP,JOBP)))
             else
               vratiob=1.
             endif
@@ -840,6 +891,19 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
                       *VB(IOB,KOBP,JOB)+DxOB*VB(IOB+1,KOBP,JOB))+      &
                       DyOB*((1.-DxOB)*VB(IOB,KOBP,JOB+1)+DxOB*         &
                       VB(IOB+1,KOBP,JOB+1))))
+
+!      if(n.le.10) then
+!        write(6,*) 
+!        write(6,'(a,i3,i3,i3,a,i3,a,i2)') 'ERRF2 at ',iob,job,kob,   &
+!                                     ' N = ',n,' inest = ',inest
+!        write(6,*) 'VAROBS(2,N) = ',varobs(2,n)
+!        write(6,*) 'VAROBS(5,N) = ',varobs(5,n)
+!        write(6,*) 'VB(IOB,KOB,JOB) = ',VB(IOB,KOB,JOB)
+!        write(6,*) 'ERRF(2,N) = ',errf(2,n)
+!        write(6,*) 'vratiob = ',vratiob
+!        write(6,*)
+!      endif
+
   
 !           Store model surface pressure (not the error!) at V point.
             ERRF(8,N)=.001*( (1.-DYOB)*PVG1 + DYOB*PVG2 )
@@ -875,10 +939,10 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 !           This is to correct obs to model sigma level using reverse similarity theory
             if(rko(n).eq.1.0)then
-              tratxob=((1.-DXOB)*((1.-DYOB)*tratx(IOB,JOB)+        &
-                    DYOB*tratx(IOB+1,JOB)                          &
-                  )+DXOB*((1.-DYOB)*tratx(IOB,JOB+1)+              &
-                  DYOB*tratx(IOB+1,JOB+1)))
+              tratxob=((1.-DYOB)*((1.-DXOB)*tratx(IOB,JOB)+        &
+                    DXOB*tratx(IOB+1,JOB)                          &
+                  )+DYOB*((1.-DXOB)*tratx(IOB,JOB+1)+              &
+                  DXOB*tratx(IOB+1,JOB+1)))
             else
               tratxob=1.
             endif
@@ -1177,7 +1241,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 !-----------------------------------------------------------------------
   SUBROUTINE nudob(j, ivar, aten, inest, ifrest, ktau, ktaur,         &
-                       xtime, mu, msf, nndgv, nerrf, niobf, maxdom,   &
+                       xtime, mu, msfx, msfy, nndgv, nerrf, niobf, maxdom,   &
                        npfi, ionf, rinxy, twindo, levidn,             &
                        parid, nstat, i_parent_start, j_parent_start,  &
                        fdob, lev_in_ob, plfo, nlevs_ob,               &
@@ -1282,9 +1346,9 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   INTEGER, INTENT(IN)  :: iratio                     ! Nest to parent gridsize ratio.
   REAL, INTENT(IN)     :: dx                         ! This domain grid cell-size (m)
   REAL, INTENT(IN)     :: dtmin
-  REAL, INTENT(IN)     :: rio(niobf)
-  REAL, INTENT(IN)     :: rjo(niobf)
-  REAL, INTENT(INOUT)  :: rko(niobf)
+  REAL, INTENT(IN)     :: rio(niobf)                 ! Obs west-east coordinate (non-stag grid).
+  REAL, INTENT(IN)     :: rjo(niobf)                 ! Obs south-north coordinate (non-stag grid).
+  REAL, INTENT(INOUT)  :: rko(niobf)                 ! Obs vertical coordinate.
   REAL, INTENT(IN)     :: timeob(niobf)
   REAL, INTENT(IN)     :: varobs(nndgv,niobf)
   REAL, INTENT(IN)     :: errf(nerrf, niobf)
@@ -1292,7 +1356,8 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   REAL, INTENT(IN)     :: ptop
   REAL, INTENT(IN)     :: pp( ims:ime, kms:kme ) ! Pressure perturbation (Pa)
   REAL, INTENT(IN)     :: mu(ims:ime)   ! Air mass on u, v, or mass-grid
-  REAL, INTENT(IN)     :: msf(ims:ime)  ! Map scale (only used for vars u & v)
+  REAL, INTENT(IN)     :: msfx(ims:ime)  ! Map scale (only used for vars u & v)
+  REAL, INTENT(IN)     :: msfy(ims:ime)  ! Map scale (only used for vars u & v)
   INTEGER, intent(in)  :: iswind        ! Nudge flag for wind
   INTEGER, intent(in)  :: istemp        ! Nudge flag for temperature
   INTEGER, intent(in)  :: ismois        ! Nudge flag for moisture
@@ -1307,6 +1372,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 ! Local variables
   integer :: mm(maxdom)
+  integer :: kobs                  ! k-lev below obs (for obs straddling pblt)
   real :: ra(niobf)
   real :: rb(niobf)
   real :: psurf(niobf)
@@ -1371,20 +1437,9 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 ! DEFINE GRID-TYPE OFFSET FACTORS, IGRID AND GRID
 
-  IF(INEST.EQ.1)THEN
-    INPF=NPFI
-    INFR=IONF
-  ELSE
-    IF(IRATIO.NE.3) THEN
-      IF (iprt) THEN
-        write(6,*) 'iratio = ',iratio
-        write(6,*) 'stop 1 in nudob: iratio = ',iratio
-      ENDIF
-      STOP 1
-    ENDIF
-    INPF=(3**LEVIDN(INEST))*NPFI
-    INFR=(3**LEVIDN(INEST))*IONF
-  ENDIF
+  INPF=(IRATIO**LEVIDN(INEST))*NPFI
+  INFR=(IRATIO**LEVIDN(INEST))*IONF
+
   GRIDX=0.0
   GRIDY=0.0
   IGRID=0
@@ -1394,9 +1449,11 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
     IGRID=1
   ELSEIF(IVAR.eq.1) THEN
     GRIDY=0.5
+    GRIDX=0.0
     IGRID=1
   ELSEIF(IVAR.eq.2) THEN
     GRIDX=0.5
+    GRIDY=0.0
     IGRID=1
   ENDIF
 
@@ -1436,66 +1493,17 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
             'IVAR,IPL: ',I2,1X,I2,1X,I5,1X,F8.2,1X,I2,1X,I2,       &
             ' rindx=',f4.1)
 
+!********************************************************************
+!ajb_07012008  Setting ra and rb for the fine mesh her is now simple.
+!              Values are no longer calculated here based on the
+!              coarse mesh, since direct use of WRF map projections
+!              on each nest was implemented in subroutine in4dob.
+!********************************************************************
 ! SET RA AND RB
-  IF(INEST.EQ.1) THEN
-
-! SET RA AND RB FOR THE COARSE MESH...
-    DO N=1,NSTAT
-      RA(N)=RIO(N)-GRIDX
-      RB(N)=RJO(N)-GRIDY
-    ENDDO
-
-  ELSE
-
-! SET RA AND RB FOR THE FINE MESH CASE...
-    DO N=1,NSTAT
-
-! COMPUTE THE OBS LOCATION WITH RESPECT TO THIS MESH (INEST)...
-      NML=INEST
-      MM(LEVIDN(INEST)+1)=INEST
-! WORKING TOWARD COARSER MESHES, DETERMINE THE HIERARCHY OF MOTHER
-! MESHES WITH RESPECT TO EACH MOTHER MESH STARTING AT MESH "INEST"...
-! THAT IS, DETERMINE ITS MOTHER, GRANDMOTHER, GREAT-GRANDMOTHER, ETC.
-! OUT TO THE COARSE GRID MESH (INEST=1).
-! LEVIDN HOLDS THE NEST LEVEL AND PARID HOLDS THE MOTHER MESH FOR EACH
-! GRID (E.G., FOR 3 MESHES AND 2 NEST LEVELS, INEST=1 IS THE COARSE GRID
-! MESH, INEST=2 HAS LEVIDN(2)=1 AND PARID(2)=1, AND INEST=3 HAS LEVIDN(3)=2
-! AND PARID(3)=2...)
-      DO NNL=LEVIDN(INEST),1,-1
-        MM(NNL)=PARID(NML)
-        NML=MM(NNL)
-      ENDDO
-
-! MM(1) MUST BE THE COARSE GRID MESH (INEST=0)
-
-      IF(MM(1).NE.1) then
-        IF (iprt) write(6,*) 'stop 21 in nudob: inest = ',inest
-        STOP 21
-      ENDIF
-      RA(N)=RIO(N)
-      RB(N)=RJO(N)
-      DO NNL=1,LEVIDN(INEST)
-        GRFACX=0.
-        GRFACY=0.
-! COMPUTE THE OBS LOCATION WITH RESPECT TO THE INNER GRID IN DOT-POINT
-! SPACE (GRID=0.).  WHEN WE REACH MESH IN, THEN USE "GRID" TO GO TO
-! CROSS OR DOT DEPENDING ON THE VARIABLE...
-        IF(NNL.EQ.LEVIDN(INEST)) THEN
-          GRFACX=GRIDX
-          GRFACY=GRIDY
-        ENDIF
-
-        RA(N)=(RA(N)-FLOAT(i_parent_start(MM(NNL+1))))*       &
-                     FLOAT(IRATIO)+1.-GRFACX
-        RB(N)=(RB(N)-FLOAT(j_parent_start(MM(NNL+1))))*       &
-                     FLOAT(IRATIO)+1.-GRFACY
-
-      ENDDO
-
-    ENDDO    ! END LOOP OVER OBS STATIONS FOR FINE MESH CASE
-
-  ENDIF    ! END SECTION FOR SETTING RA AND RB
-
+  DO N=1,NSTAT
+    RA(N)=RIO(N)-GRIDX
+    RB(N)=RJO(N)-GRIDY
+  ENDDO
 
 ! OUTPUT OBS PER GRID EVERY HOUR
   if ( mod(xtime,60.).gt.56. .and. ivar.eq.3 .and. j.eq.10) then
@@ -1649,6 +1657,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
     njcsnd=nsndlev
 ! set pob here, to be used later
     pob=varobs(5,n)
+
 !     print *, "s-- n=,nsndlev",n,njcsnd,J, ipl
 !     print *, "s--",ivar,(errf(ivar,i),i=n,n+njcsnd)
 ! CHECK TO SEE OF STATION N HAS DATA FOR VARIABLE IVAR
@@ -1944,9 +1953,23 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
  326          continue
 
 ! yliu: single-level upper-air data will act either above or below the PBL top
-!          komax=min0(kpblt(i), komax) 
-              if(komax.gt.kpblt(i)) komin=max0(kpblt(i), komin) 
-              if(komin.lt.kpblt(i)) komax=min0(kpblt(i), komax) 
+! ajb: Reset komin or komax. if kobs>kpblt, komin=kpblt+1, else komax=kpblt  
+
+              if( (kpblt(i).le.komax) .and. (kpblt(i).ge.komin) ) then
+                 kobs = 1
+                 OBS_K: do k = komin, komax
+                     if( pob .gt. .001*(pbase(i,k)+pp(i,k)) ) then
+                        kobs = k
+                        EXIT OBS_K
+                     endif
+                 enddo OBS_K
+
+                 if(kobs.gt.kpblt(i)) then
+                     komin=max0(kobs, komin)   ! kobs here is kpblt(i)+1
+                 else
+                     komax=min0(kpblt(i), komax)
+                 endif
+              endif
 ! yliu end
 !
 !           print *,'1 level, komin,komax=',komin,komax
@@ -2172,8 +2195,12 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
  
 ! Calculate scales for converting nudge factor from u (v)
 ! to rho_u (or rho_v) units.
-  
-  call calc_rcouple_scales(mu,msf,rscale,ims,ime,its,ite)
+
+  IF (IVAR == 1) THEN
+     call calc_rcouple_scales(mu,msfy,rscale,ims,ime,its,ite)
+  ELSE IF (IVAR == 2) THEN
+     call calc_rcouple_scales(mu,msfx,rscale,ims,ime,its,ite)
+  END IF
  
   DO K=1,kte
 

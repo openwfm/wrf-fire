@@ -1,0 +1,25 @@
+
+MODULE module_comm_dm
+
+   IMPLICIT NONE
+
+   PRIVATE module_comm_dm_dummy
+
+CONTAINS
+
+   ! Avoid complaints about empty CONTAINS from some compilers.  
+   SUBROUTINE module_comm_dm_dummy
+     USE module_domain, ONLY:domain
+     USE module_configure, ONLY:grid_config_rec_type,in_use_for_config
+     USE module_state_description, ONLY:PARAM_FIRST_SCALAR
+     USE module_driver_constants
+     RETURN
+   END SUBROUTINE module_comm_dm_dummy
+
+! Registry-generated communication subroutines.  
+#ifdef DM_PARALLEL
+#include "REGISTRY_COMM_DM_subs.inc"
+#endif
+
+END MODULE module_comm_dm
+

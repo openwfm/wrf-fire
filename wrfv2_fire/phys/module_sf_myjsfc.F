@@ -5,7 +5,9 @@
 !----------------------------------------------------------------------
 !
       USE MODULE_MODEL_CONSTANTS
+#ifdef DM_PARALLEL
       USE MODULE_DM, ONLY : WRF_DM_MAXVAL
+#endif
 !
 !----------------------------------------------------------------------
 !
@@ -72,6 +74,7 @@ CONTAINS
      &                 ,CHS,CHS2,CQS2,HFX,QFX,FLX_LH,FLHC,FLQC         &
      &                 ,QGH,CPM,CT                                     &
      &                 ,U10,V10,T02,TH02,TSHLTR,TH10,Q02,QSHLTR,Q10,PSHLTR          &
+     &                 ,P1000mb                                        &
      &                 ,IDS,IDE,JDS,JDE,KDS,KDE                        &
      &                 ,IMS,IME,JMS,JME,KMS,KME                        &
      &                 ,ITS,ITE,JTS,JTE,KTS,KTE)
@@ -112,6 +115,8 @@ CONTAINS
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: CHS,CHS2,CQS2     &
      &                                              ,CPM,CT,FLHC,FLQC  &
      &                                              ,QGH 
+!
+      REAL,INTENT(IN) :: P1000mb
 !----------------------------------------------------------------------
 !***
 !***  LOCAL VARIABLES
@@ -214,7 +219,8 @@ CONTAINS
           PTOP=PINT(I,KTE+1,J)      ! KTE+1=KME
           PSFC=PINT(I,LOWLYR(I,J),J)
 ! Define THSK here (for first timestep mostly)
-          THSK(I,J)=TSK(I,J)/(PSFC*1.E-5)**CAPA
+!          THSK(I,J)=TSK(I,J)/(PSFC*1.E-5)**CAPA
+          THSK(I,J)=TSK(I,J)/(PSFC/P1000mb)**CAPA
 !
 !***  CONVERT LAND MASK (1 FOR SEA; 0 FOR LAND)
 !
@@ -281,7 +287,8 @@ CONTAINS
           ULOW=UK(LMH)
           VLOW=VK(LMH)
           ZSL=(ZHK(LMH)-ZHK(LMH+1))*0.5
-          APESFC=(PSFC*1.E-5)**CAPA
+!          APESFC=(PSFC*1.E-5)**CAPA
+          APESFC=(PSFC/P1000mb)**CAPA
 !tgs - in ARW THZ0 is not initialized when MYJSFC is called first time
 #if ( NMM_CORE == 1 )
      if(NTSD+1.eq.1) then
@@ -324,8 +331,10 @@ CONTAINS
 ! 1 may 06 tgs         T02(I,J) = T02P
           T02(I,J) = TH02(I,J)*APESFC
 !
-          P02P=(RAPA02**RCAP)*1.E5
-          P10P=(RAPA10**RCAP)*1.E5
+!          P02P=(RAPA02**RCAP)*1.E5
+!          P10P=(RAPA10**RCAP)*1.E5
+          P02P=(RAPA02**RCAP)*P1000mb
+          P10P=(RAPA10**RCAP)*P1000mb
 !
           QS02=PQ0/P02P*EXP(A2*(T02P-A3)/(T02P-A4))
           QS10=PQ0/P10P*EXP(A2*(T10P-A3)/(T10P-A4))
@@ -911,7 +920,22 @@ CONTAINS
       U10 =UMFLX/AKMS10+UZ0
       V10 =VMFLX/AKMS10+VZ0
       TH02=HSFLX/AKHS02+THZ0
+!
+!***  BE CERTAIN THAT THE 2-M THETA AND 10-M THETA ARE BRACKETED BY
+!***  THE VALUES OF THZ0 AND THLOW.
+!
+      IF(THLOW>THZ0.AND.(TH02<THZ0.OR.TH02>THLOW).OR.                  &
+         THLOW<THZ0.AND.(TH02>THZ0.OR.TH02<THLOW))THEN
+           TH02=THZ0+2.*RDZ*(THLOW-THZ0)
+      ENDIF
+!
       TH10=HSFLX/AKHS10+THZ0
+!
+      IF(THLOW>THZ0.AND.(TH10<THZ0.OR.TH10>THLOW).OR.                  &
+         THLOW<THZ0.AND.(TH10>THZ0.OR.TH10<THLOW))THEN
+           TH10=THZ0+10.*RDZ*(THLOW-THZ0)
+      ENDIF
+!
       Q02 =HLFLX/AKHS02+QZ0
       Q10 =HLFLX/AKHS10+QZ0
       TERM1=-0.068283/TLOW
@@ -1066,7 +1090,9 @@ CONTAINS
 !       CALL MPI_ALLREDUCE(MAXLOC_IVGTYP,MAXGBL_IVGTYP,1,MPI_INTEGER   &
 !    &,                    MPI_MAX,MPI_COMM_COMP,IRECV)
         MAXGBL_IVGTYP=MAXVAL(IVGTYP)
+#ifdef DM_PARALLEL
         CALL WRF_DM_MAXVAL(MAXGBL_IVGTYP,IDUM,JDUM)
+#endif
 !
         IF (MAXGBL_IVGTYP<13) THEN
           DO J=JTS,JTE

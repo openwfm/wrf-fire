@@ -139,8 +139,13 @@ CONTAINS
 ! LOCAL VAR
   REAL, DIMENSION( its:ite , kts:kte ) ::   t
   REAL, DIMENSION( its:ite , kts:kte, 2 ) ::   qci, qrs
+  CHARACTER*256 :: emess
+  INTEGER :: mkx_test
   INTEGER ::               i,j,k
+
 !-------------------------------------------------------------------
+
+#ifndef RUN_ON_GPU
       DO j=jts,jte
          DO k=kts,kte
          DO i=its,ite
@@ -151,6 +156,10 @@ CONTAINS
             qrs(i,k,2) = qs(i,k,j)
          ENDDO
          ENDDO
+
+         !  Sending array starting locations of optional variables may cause
+         !  troubles, so we explicitly change the call.
+
          CALL wsm52D(t, q(ims,kms,j), qci, qrs                     &
                     ,den(ims,kms,j)                                &
                     ,p(ims,kms,j), delz(ims,kms,j)                 &
@@ -164,8 +173,11 @@ CONTAINS
                     ,ids,ide, jds,jde, kds,kde                     &
                     ,ims,ime, jms,jme, kms,kme                     &
                     ,its,ite, jts,jte, kts,kte                     &
+#if ( EM_CORE == 1 )
                     ,snow(ims,j),snowncv(ims,j)                    &
+#endif
                                                                    )
+
          DO K=kts,kte
          DO I=its,ite
             th(i,k,j)=t(i,k)/pii(i,k,j)
@@ -176,6 +188,29 @@ CONTAINS
          ENDDO
          ENDDO
       ENDDO
+#else
+      CALL get_wsm5_gpu_levels ( mkx_test )
+      IF ( mkx_test .LT. kte ) THEN
+        WRITE(emess,*)'Number of levels compiled for GPU WSM5 too small. ',&
+                      mkx_test,' < ',kte
+        CALL wrf_error_fatal(emess)
+      ENDIF
+      CALL wsm5_host (                                 &
+                    th(its:ite,kts:kte,jts:jte), pii(its:ite,kts:kte,jts:jte)    &
+                   ,q(its:ite,kts:kte,jts:jte), qc(its:ite,kts:kte,jts:jte)      &
+                   ,qi(its:ite,kts:kte,jts:jte), qr(its:ite,kts:kte,jts:jte)     &
+                   ,qs(its:ite,kts:kte,jts:jte), den(its:ite,kts:kte,jts:jte)    &
+                   ,p(its:ite,kts:kte,jts:jte), delz(its:ite,kts:kte,jts:jte)    &
+                   ,delt                                                         &
+                   ,rain(its:ite,jts:jte),rainncv(its:ite,jts:jte)               &
+                   ,sr(its:ite,jts:jte)                                          &
+                   ,snow(its:ite,jts:jte),snowncv(its:ite,jts:jte)               &
+                   ,its, ite,  jts, jte,  kts, kte     &
+                   ,its, ite,  jts, jte,  kts, kte     &
+                   ,its, ite,  jts, jte,  kts, kte     &
+          )
+#endif
+
   END SUBROUTINE wsm5
 !===================================================================
 !
@@ -251,6 +286,11 @@ CONTAINS
         praut, psaut, prevp, psdep, pracw, psaci, psacw,          &  
         pigen, pidep, pcond, xl, cpm, work2, psmlt, psevp, denfac, xni,&
         n0sfac
+#define WSM_NO_CONDITIONAL_IN_VECTOR
+#ifdef WSM_NO_CONDITIONAL_IN_VECTOR
+  REAL, DIMENSION(its:ite) :: xal, xbl
+#endif
+
 ! variables for optimization
   REAL, DIMENSION( its:ite )           :: tvec1
   INTEGER, DIMENSION( its:ite ) :: mstep, numdt
@@ -273,6 +313,7 @@ CONTAINS
             iprt, latd, lond, loop, loops, ifsat, n
 ! Temporaries used for inlining fpvs function
   REAL  :: dldti, xb, xai, tr, xbi, xa, hvap, cvap, hsub, dldt, ttp
+  REAL  :: logtr
 !
 !=================================================================
 !   compute internal functions
@@ -368,24 +409,52 @@ CONTAINS
       dldti=cvap-cice
       xai=-dldti/rv
       xbi=xai+hsub/(rv*ttp)
+
+! this is for compilers where the conditional inhibits vectorization
+#ifdef WSM_NO_CONDITIONAL_IN_VECTOR
       do k = kts, kte
         do i = its, ite
+          if(t(i,k).lt.ttp) then
+            xal(i) = xai
+            xbl(i) = xbi
+          else
+            xal(i) = xa
+            xbl(i) = xb
+          endif
+        enddo
+        do i = its, ite
           tr=ttp/t(i,k)
-          qs(i,k,1)=psat*exp(log(tr)*(xa))*exp(xb*(1.-tr))
+          logtr=log(tr)
+          qs(i,k,1)=psat*exp(logtr*(xa)+xb*(1.-tr))
           qs(i,k,1) = ep2 * qs(i,k,1) / (p(i,k) - qs(i,k,1))
           qs(i,k,1) = max(qs(i,k,1),qmin)
           rh(i,k,1) = max(q(i,k) / qs(i,k,1),qmin)
+          qs(i,k,2)=psat*exp(logtr*(xal(i))+xbl(i)*(1.-tr))
+          qs(i,k,2) = ep2 * qs(i,k,2) / (p(i,k) - qs(i,k,2))
+          qs(i,k,2) = max(qs(i,k,2),qmin)
+          rh(i,k,2) = max(q(i,k) / qs(i,k,2),qmin)
+        enddo
+      enddo
+#else
+      do k = kts, kte
+        do i = its, ite
           tr=ttp/t(i,k)
+          logtr=log(tr)
+          qs(i,k,1)=psat*exp(logtr*(xa)+xb*(1.-tr))
+          qs(i,k,1) = ep2 * qs(i,k,1) / (p(i,k) - qs(i,k,1))
+          qs(i,k,1) = max(qs(i,k,1),qmin)
+          rh(i,k,1) = max(q(i,k) / qs(i,k,1),qmin)
           if(t(i,k).lt.ttp) then
-            qs(i,k,2)=psat*exp(log(tr)*(xai))*exp(xbi*(1.-tr))
+            qs(i,k,2)=psat*exp(logtr*(xai)+xbi*(1.-tr))
           else
-            qs(i,k,2)=psat*exp(log(tr)*(xa))*exp(xb*(1.-tr))
+            qs(i,k,2)=psat*exp(logtr*(xa)+xb*(1.-tr))
           endif
           qs(i,k,2) = ep2 * qs(i,k,2) / (p(i,k) - qs(i,k,2))
           qs(i,k,2) = max(qs(i,k,2),qmin)
           rh(i,k,2) = max(q(i,k) / qs(i,k,2),qmin)
         enddo
       enddo
+#endif
 !
 !----------------------------------------------------------------
 !     initialize the variables for microphysical physics
@@ -851,16 +920,18 @@ CONTAINS
               psaci(i,k) = pi*qci(i,k,2)*eacrs*n0s*n0sfac(i,k)         &
                            *abs(vt2s-vt2i)*acrfac/4.
             endif
+          endif
 !-------------------------------------------------------------
 ! psacw: Accretion of cloud water by snow  [HL A7] [LFO 24]
 !        (T<T0: C->S, and T>=T0: C->R)
 !-------------------------------------------------------------
-            if(qrs(i,k,2).gt.qcrmin.and.qci(i,k,1).gt.qmin) then
-              psacw(i,k) = min(pacrc*n0sfac(i,k)*rslope3(i,k,2)        &
+          if(qrs(i,k,2).gt.qcrmin.and.qci(i,k,1).gt.qmin) then
+            psacw(i,k) = min(pacrc*n0sfac(i,k)*rslope3(i,k,2)        &
                            *rslopeb(i,k,2)*qci(i,k,1)*denfac(i,k)       &
 !                          ,qci(i,k,1)/dtcld)
                            ,qci(i,k,1)*rdtcld)
-            endif
+          endif
+          if(supcol .gt. 0) then
 !-------------------------------------------------------------
 ! pidep: Deposition/Sublimation rate of ice [HDC 9]
 !       (T<T0: V->I or I->V)
@@ -881,34 +952,32 @@ CONTAINS
               endif
               if(abs(prevp(i,k)+pidep(i,k)).ge.abs(satdt)) ifsat = 1
             endif
-          endif
 !-------------------------------------------------------------
 ! psdep: deposition/sublimation rate of snow [HDC 14]
 !        (V->S or S->V)
 !-------------------------------------------------------------
-          if(qrs(i,k,2).gt.0..and.ifsat.ne.1) then
-            coeres = rslope2(i,k,2)*sqrt(rslope(i,k,2)*rslopeb(i,k,2))
-            psdep(i,k) = (rh(i,k,2)-1.)*n0sfac(i,k)                    &
-                         *(precs1*rslope2(i,k,2)+precs2                 &
-                         *work2(i,k)*coeres)/work1(i,k,2)
-            supice = satdt-prevp(i,k)-pidep(i,k)
-            if(psdep(i,k).lt.0.) then
-!             psdep(i,k) = max(psdep(i,k),-qrs(i,k,2)/dtcld)
-!             psdep(i,k) = max(max(psdep(i,k),satdt/2),supice)
-              psdep(i,k) = max(psdep(i,k),-qrs(i,k,2)*rdtcld)
-              psdep(i,k) = max(max(psdep(i,k),satdt*.5),supice)
-            else
+            if(qrs(i,k,2).gt.0..and.ifsat.ne.1) then
+              coeres = rslope2(i,k,2)*sqrt(rslope(i,k,2)*rslopeb(i,k,2))
+              psdep(i,k) = (rh(i,k,2)-1.)*n0sfac(i,k)                    &
+                           *(precs1*rslope2(i,k,2)+precs2                 &
+                           *work2(i,k)*coeres)/work1(i,k,2)
+              supice = satdt-prevp(i,k)-pidep(i,k)
+              if(psdep(i,k).lt.0.) then
+!               psdep(i,k) = max(psdep(i,k),-qrs(i,k,2)/dtcld)
+!               psdep(i,k) = max(max(psdep(i,k),satdt/2),supice)
+                psdep(i,k) = max(psdep(i,k),-qrs(i,k,2)*rdtcld)
+                psdep(i,k) = max(max(psdep(i,k),satdt*.5),supice)
+              else
 !             psdep(i,k) = min(min(psdep(i,k),satdt/2),supice)
-              psdep(i,k) = min(min(psdep(i,k),satdt*.5),supice)
+                psdep(i,k) = min(min(psdep(i,k),satdt*.5),supice)
+              endif
+              if(abs(prevp(i,k)+pidep(i,k)+psdep(i,k)).ge.abs(satdt))    &
+                ifsat = 1
             endif
-            if(abs(prevp(i,k)+pidep(i,k)+psdep(i,k)).ge.abs(satdt))    &
-              ifsat = 1
-          endif
 !-------------------------------------------------------------
 ! pigen: generation(nucleation) of ice from vapor [HL A50] [HDC 7-8]
 !       (T<T0: V->I)
 !-------------------------------------------------------------
-          if(supcol.gt.0) then
             if(supsat.gt.0.and.ifsat.ne.1) then
               supice = satdt-prevp(i,k)-pidep(i,k)-psdep(i,k)
               xni0 = 1.e3*exp(0.1*supcol)
@@ -974,6 +1043,30 @@ CONTAINS
               pidep(i,k) = pidep(i,k)*factor
             endif
 !
+!     rain
+!
+!
+            value = max(qmin,qrs(i,k,1))
+            source = (-praut(i,k)-pracw(i,k)-prevp(i,k))*dtcld
+            if (source.gt.value) then
+              factor = value/source
+              praut(i,k) = praut(i,k)*factor
+              pracw(i,k) = pracw(i,k)*factor
+              prevp(i,k) = prevp(i,k)*factor
+            endif
+!
+!    snow
+!
+            value = max(qmin,qrs(i,k,2))
+            source = (-psdep(i,k)-psaut(i,k)-psaci(i,k)-psacw(i,k))*dtcld  
+            if (source.gt.value) then
+              factor = value/source
+              psdep(i,k) = psdep(i,k)*factor
+              psaut(i,k) = psaut(i,k)*factor
+              psaci(i,k) = psaci(i,k)*factor
+              psacw(i,k) = psacw(i,k)*factor
+            endif
+!
             work2(i,k)=-(prevp(i,k)+psdep(i,k)+pigen(i,k)+pidep(i,k))
 !     update
             q(i,k) = q(i,k)+work2(i,k)*dtcld
@@ -1001,6 +1094,18 @@ CONTAINS
               pracw(i,k) = pracw(i,k)*factor
               psacw(i,k) = psacw(i,k)*factor
             endif
+!
+!     rain
+!
+            value = max(qmin,qrs(i,k,1))
+            source = (-praut(i,k)-pracw(i,k)-prevp(i,k)-psacw(i,k))*dtcld
+            if (source.gt.value) then
+              factor = value/source
+              praut(i,k) = praut(i,k)*factor
+              pracw(i,k) = pracw(i,k)*factor
+              prevp(i,k) = prevp(i,k)*factor
+              psacw(i,k) = psacw(i,k)*factor
+            endif  
 !
 !     snow
 !
@@ -1039,19 +1144,12 @@ CONTAINS
       xai=-dldti/rv
       xbi=xai+hsub/(rv*ttp)
       do k = kts, kte
-        do i = its, ite
+      do i = its, ite
           tr=ttp/t(i,k)
-          qs(i,k,1)=psat*exp(log(tr)*(xa))*exp(xb*(1.-tr))
+          logtr = log(tr)
+          qs(i,k,1)=psat*exp(logtr*(xa)+xb*(1.-tr))
           qs(i,k,1) = ep2 * qs(i,k,1) / (p(i,k) - qs(i,k,1))
           qs(i,k,1) = max(qs(i,k,1),qmin)
-          tr=ttp/t(i,k)
-          if(t(i,k).lt.ttp) then
-            qs(i,k,2)=psat*exp(log(tr)*(xai))*exp(xbi*(1.-tr))
-          else
-            qs(i,k,2)=psat*exp(log(tr)*(xa))*exp(xb*(1.-tr))
-          endif
-          qs(i,k,2) = ep2 * qs(i,k,2) / (p(i,k) - qs(i,k,2))
-          qs(i,k,2) = max(qs(i,k,2),qmin)
         enddo
       enddo
 !

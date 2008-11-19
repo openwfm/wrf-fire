@@ -53,6 +53,10 @@
     real               :: xtime           ! forecast time in minutes
     logical            :: iprt_in4dob     ! print flag
 
+    INTEGER ids , ide , jds , jde , kds , kde , &
+            ims , ime , jms , jme , kms , kme , &
+            ips , ipe , jps , jpe , kps , kpe
+
 
 !   Modified to also call in4dob intially, since subr in4dob is no
 !   longer called from subr fddaobs_init. Note that itimestep is now
@@ -71,20 +75,29 @@
       dtmin = grid%dt/60.
       xtime = dtmin*grid%itimestep
 
+      CALL get_ijk_from_grid (  grid ,                                       &
+                                ids, ide, jds, jde, kds, kde,                &
+                                ims, ime, jms, jme, kms, kme,                &
+                                ips, ipe, jps, jpe, kps, kpe    )
+
       CALL in4dob(inest, xtime, ktau, krest, dtmin, grid%julday, grid%gmt,       &
                   grid%obs_nudge_opt,  grid%obs_nudge_wind, grid%obs_nudge_temp, &
                   grid%obs_nudge_mois, grid%obs_nudge_pstr, grid%obs_coef_wind,  & 
                   grid%obs_coef_temp,  grid%obs_coef_mois,  grid%obs_coef_pstr,  &
-                  grid%obs_rinxy,      grid%obs_rinsig,     grid%obs_twindo,     &
-                  grid%obs_npfi,       grid%obs_ionf,       grid%obs_idynin,     &
+                  grid%obs_rinxy,      grid%obs_rinsig,     grid%fdob%window,    &
+                  grid%obs_npfi,       grid%obs_ionf,       grid%obs_nobs_prt,   &
+                  grid%obs_idynin,                                               &
                   grid%obs_dtramp,     grid%fdob,           grid%fdob%varobs,    &
                   grid%fdob%timeob,    grid%fdob%nlevs_ob,  grid%fdob%lev_in_ob, &
                   grid%fdob%plfo,      grid%fdob%elevob,    grid%fdob%rio,       &
                   grid%fdob%rjo,       grid%fdob%rko,                            & 
-                  model_config_rec%cen_lat(1),                                   &
-                  model_config_rec%cen_lon(1),                                   &
+                  config_flags%cen_lat,                                          &
+                  config_flags%cen_lon,                                          &
+                  config_flags%stand_lon,                                        &
                   config_flags%truelat1, config_flags%truelat2,                  &
-                  rovg, grid%fdob%xn, grid%fdob%ds_cg, t0,                       &
+                  grid%fdob%known_lat, grid%fdob%known_lon,                      &
+                  config_flags%dx, config_flags%dy, rovg, t0,                    &
+                  ide, jde,                                                      &
                   grid%fdob%sn_maxcg, grid%fdob%we_maxcg, config_flags%map_proj, &
                   model_config_rec%parent_grid_ratio,                            &
                   model_config_rec%i_parent_start(inest),                        &
@@ -104,15 +117,17 @@
                     ismois, ispstr, giv,                                 &
                     git, giq, gip,                                       &
                     rinxy, rinsig, twindo,                               &
-                    npfi, ionf, idynin,                                  &
+                    npfi, ionf, nobs_prt, idynin,                        &
                     dtramp, fdob, varobs,                                &
                     timeob, nlevs_ob, lev_in_ob,                         &
                     plfo, elevob, rio,                                   &
                     rjo, rko,                                            &
-                    xlatc_cg,                                            &
-                    xlonc_cg,                                            &
+                    cen_lat,                                             &
+                    cen_lon,                                             &
+                    stand_lon,                                           &
                     true_lat1, true_lat2,                                &
-                    rovg, xn, dscg, t0,                                  &
+                    known_lat, known_lon,                                &
+                    dxm, dym, rovg, t0, e_we, e_sn,                      &
                     sn_maxcg, we_maxcg, map_proj,                        &
                     parent_grid_ratio,                                   &
                     i_parent_start,                                      &
@@ -121,6 +136,8 @@
 
   USE module_domain
   USE module_model_constants, ONLY : rcp
+  USE module_llxy
+
   IMPLICIT NONE
 
 ! THIS IS SUBROUTINE READS AN OBSERVATION DATA FILE AND
@@ -167,6 +184,7 @@
   REAL, intent(in)     :: twindo        ! (time window)/2 (min) for nudging
   INTEGER, intent(in)  :: npfi          ! coarse-grid time-step frequency for diagnostics
   INTEGER, intent(in)  :: ionf          ! coarse-grid time-step frequency for obs-nudging calcs
+  INTEGER, intent(in)  :: nobs_prt      ! Number of current obs to print grid information for.
   INTEGER, intent(in)  :: idynin        ! for dynamic initialization using a ramp-down function
   REAL, intent(in)     :: dtramp        ! time period in minutes for ramping
   TYPE(fdob_type), intent(inout)  :: fdob     ! derived data type for obs data
@@ -176,17 +194,22 @@
   REAL, intent(inout) :: lev_in_ob(niobf)     ! level in sounding-type obs
   REAL, intent(inout) :: plfo(niobf)          ! index for type of obs-platform
   REAL, intent(inout) :: elevob(niobf)        ! elevations of observations  (meters)
-  REAL, intent(inout) :: rio(niobf)           ! west-east grid coordinate
-  REAL, intent(inout) :: rjo(niobf)           ! south-north grid coordinate
+  REAL, intent(inout) :: rio(niobf)           ! west-east grid coordinate (non-staggered grid)
+  REAL, intent(inout) :: rjo(niobf)           ! south-north grid coordinate (non-staggered grid)
   REAL, intent(inout) :: rko(niobf)           ! vertical grid coordinate
-  REAL, intent(in) :: xlatc_cg                ! coarse grid center latitude 
-  REAL, intent(in) :: xlonc_cg                ! coarse grid center longiture
-  REAL, intent(in) :: true_lat1               ! truelat1 for Lambert map projection
-  REAL, intent(in) :: true_lat2               ! truelat2 for Lambert map projection
+  REAL, intent(in) :: cen_lat                 ! center latitude for map projection
+  REAL, intent(in) :: cen_lon                 ! center longiture for map projection
+  REAL, intent(in) :: stand_lon               ! standard longitude for map projection
+  REAL, intent(in) :: true_lat1               ! truelat1 for map projection
+  REAL, intent(in) :: true_lat2               ! truelat2 for map projection
+  REAL, intent(in) :: known_lat               ! latitude  of domain origin point (i,j)=(1,1) 
+  REAL, intent(in) :: known_lon               ! longigude of domain origin point (i,j)=(1,1)
+  REAL, intent(in) :: dxm                     ! grid size in x (meters)
+  REAL, intent(in) :: dym                     ! grid size in y (meters)
   REAL, intent(in) :: rovg                    ! constant rho over g
-  REAL, intent(in) :: xn                      ! cone factor for Lambert projection
-  REAL, intent(in) :: dscg                    ! coarse grid size (km)
   REAL, intent(in) :: t0                      ! background temperature
+  INTEGER, intent(in) :: e_we                 ! max grid index in south-north coordinate
+  INTEGER, intent(in) :: e_sn                 ! max grid index in west-east   coordinate
   INTEGER, intent(in) :: sn_maxcg             ! maximum coarse grid south-north coordinate
   INTEGER, intent(in) :: we_maxcg             ! maximum coarse grid west-east   coordinate
   INTEGER, intent(in) :: map_proj             ! map projection index
@@ -196,7 +219,10 @@
   LOGICAL, intent(in) :: iprt                 ! print flag
       
 !***  DECLARATIONS FOR IMPLICIT NONE                                    
-  integer :: n, nsta, ndum, nopen, nlast, nvol, idate, imm, iss
+  integer :: n, ndum, nopen, nlast, nvol, idate, imm, iss
+  integer :: nsta                             ! number of stations held in timeobs array 
+  integer :: nstaw                            ! # stations within the actual time window
+  integer :: ips                              ! # stations to report printout
   integer :: meas_count, imc, njend, njc, njcc, julob
   real    :: hourob, rjulob
   real    :: xhour, tback, tforwd, rjdate1, timanl1, rtimob
@@ -207,12 +233,15 @@
   real    :: ref_pres_data, ref_pres_qc, psfc_data, psfc_qc
   real    :: precip_data, precip_qc, tbar, twdop
   real*8  :: tempob
+  INTEGER, EXTERNAL :: nvals_le_limit         ! for finding #obs with timeobs <= tforwd
 
 ! Local variables
+  TYPE (PROJ_INFO)   :: obs_proj        ! Structure for obs projection information.
   character*14 date_char
   character*40 platform,source,id,namef
   character*2 fonc
   real latitude,longitude
+  real lat_prt(100),lon_prt(100)
   logical is_sound,bogus
   LOGICAL OPENED,exist
   integer :: ieof(5),ifon(5)
@@ -237,7 +266,6 @@
 ! set number of obs=0 if at start or restart
   IF(KTAU.EQ.KTAUR)fdob%NSTAT=0
   NSTA=fdob%NSTAT
-  fdob%WINDOW=TWINDO
   XHOUR=(XTIME-DTMIN)/60.
   XHOUR=AMAX1(XHOUR,0.0)
 
@@ -301,7 +329,11 @@
     ENDIF
   ENDIF
 
-! print *,'in4dob, after setting RIO, RJO: nsta = ',nsta
+! Compute map projection info.
+  call set_projection(obs_proj, map_proj, cen_lat, cen_lon,            &
+                      true_lat1, true_lat2, stand_lon,                 &
+                      known_lat, known_lon,                            &
+                      e_we, e_sn, dxm, dym )
 
 ! FIND THE LAST OBS IN THE LIST
   NLAST=0
@@ -424,6 +456,11 @@
         rtimob=timeob(n)
       ENDIF
       read(nvol,102)latitude,longitude
+! save lat and long for printout
+      if(n.le.100) then
+         lat_prt(n) = latitude
+         lon_prt(n) = longitude
+      endif
  102  FORMAT(2x,2(f7.2,3x))
 
 !     if(ifon.eq.4)print *,'ifon=4',latitude,longitude
@@ -431,27 +468,17 @@
 ! yliu: add llxy for all 3 projection
           
 !ajb Arguments ri and rj have been switched from MM5 orientation.
-!      call llxy (latitude,longitude,rj,ri,xlatc,xlonc,map_proj,
-      call llxy (latitude,longitude,ri,rj,xlatc_cg,xlonc_cg,map_proj, &
-                 true_lat1,true_lat2,dscg,xn,sn_maxcg,we_maxcg,       &
-                 1,1,1)
 
-!ajb  ri and rj are referenced to the non-staggered grid. (For MM5, they
-!     were referenced to the dot grid.)
+      CALL latlon_to_ij(obs_proj, latitude, longitude, ri, rj)
+
+!ajb  ri and rj are referenced to the non-staggered grid (not mass-pt!).
+!     (For MM5, they were referenced to the dot grid.)
+
+      ri = ri + .5      !ajb Adjust from mass-pt to non-staggered grid.
+      rj = rj + .5      !ajb Adjust from mass-pt to non-staggered grid.
 
       rio(n)=ri
       rjo(n)=rj
-
-      if (iprt) THEN
-         if(n.le.10) then
-                     write(6,'(/,a,i5,a,f8.2,a,f8.2,a,f8.2,a,f8.2/)') &
-                                            ' OBS N = ',n,      &
-                                            ' RIO = ',rio(n),   &
-                                            ' RJO = ',rjo(n),   &
-                                            ' LAT = ',latitude, &
-                                            ' LON = ',longitude
-         endif
-      endif
 
       read(nvol,1021)id,namef
  1021 FORMAT(2x,2(a40,3x))
@@ -727,41 +754,8 @@
 !      endif
 ! yliu: Ens test - end
 
-!ajb Store potential temperature for WRF
-        if(temperature_qc.ge.0..and.temperature_qc.lt.30000.)then
+!Lilis
 
-          if((psfc_qc.ge.0..and.psfc_qc.lt.30000.).and.          &
-             (psfc_data.gt.70000. .and.psfc_data.lt.105000.))then
-
-            varobs(3,n) =                                        &
-                  temperature_data*(100000./psfc_data)**RCP - t0
-          else
-            varobs(3,n)=-888888.
-          endif
-        else
-          varobs(3,n)=-888888.
-        endif
-
-        if((psfc_qc.ge.0..and.psfc_qc.lt.30000.).and.(psfc_data.gt.70000.  &
-        .and.psfc_data.lt.105000.))then
-          varobs(5,n)=psfc_data
-        else
-          varobs(5,n)=-888888.
-        endif
-        if(varobs(5,n).ge.0.)varobs(5,n)=varobs(5,n)*1.e-3
-
-        if((u_met_qc.ge.0..and.u_met_qc.lt.30000.).and.            &
-           (v_met_qc.ge.0..and.v_met_qc.lt.30000.).and.            &
-! make sure at least 1 of the components is .ne.0
-           (u_met_data.ne.0..or.v_met_data.ne.0.))then
-!!yliu little_r already rotated the winds
-!!yliu   call vect(longitude,u_met_data,v_met_data,xlonc,xlatc,xn)
-          varobs(1,n)=u_met_data
-          varobs(2,n)=v_met_data
-        else
-          varobs(1,n)=-888888.
-          varobs(2,n)=-888888.
-        endif
 ! calculate psfc if slp is there
         if((psfc_qc.lt.0.).and.(slp_qc.ge.0..and.slp_qc.lt.30000.).and.   &
               (temperature_qc.ge.0..and.temperature_qc.lt.30000.).and.    &
@@ -785,8 +779,80 @@
           varobs(5,n)=psfc_data*1.e-3
           psfc_qc=0.
         endif
+
+        if((psfc_qc.ge.0..and.psfc_qc.lt.30000.).and.(psfc_data.gt.70000.  &
+        .and.psfc_data.lt.105000.))then
+          varobs(5,n)=psfc_data
+        else
+          varobs(5,n)=-888888.
+        endif
+        if(varobs(5,n).ge.0.)varobs(5,n)=varobs(5,n)*1.e-3
+
+!Lilie
+
+
+!ajb Store potential temperature for WRF
+        if(temperature_qc.ge.0..and.temperature_qc.lt.30000.)then
+
+          if((psfc_qc.ge.0..and.psfc_qc.lt.30000.).and.          &
+             (psfc_data.gt.70000. .and.psfc_data.lt.105000.))then
+
+            varobs(3,n) =                                        &
+                  temperature_data*(100000./psfc_data)**RCP - t0
+          else
+            varobs(3,n)=-888888.
+          endif
+        else
+          varobs(3,n)=-888888.
+        endif
+
+!        if((psfc_qc.ge.0..and.psfc_qc.lt.30000.).and.(psfc_data.gt.70000.  &
+!        .and.psfc_data.lt.105000.))then
+!          varobs(5,n)=psfc_data
+!        else
+!          varobs(5,n)=-888888.
+!        endif
+!        if(varobs(5,n).ge.0.)varobs(5,n)=varobs(5,n)*1.e-3
+
+        if((u_met_qc.ge.0..and.u_met_qc.lt.30000.).and.            &
+           (v_met_qc.ge.0..and.v_met_qc.lt.30000.).and.            &
+! make sure at least 1 of the components is .ne.0
+           (u_met_data.ne.0..or.v_met_data.ne.0.))then
+!!yliu little_r already rotated the winds
+!!yliu   call vect(longitude,u_met_data,v_met_data,xlonc,xlatc,xn)
+          varobs(1,n)=u_met_data
+          varobs(2,n)=v_met_data
+        else
+          varobs(1,n)=-888888.
+          varobs(2,n)=-888888.
+        endif
+!! calculate psfc if slp is there
+!        if((psfc_qc.lt.0.).and.(slp_qc.ge.0..and.slp_qc.lt.30000.).and.   &
+!              (temperature_qc.ge.0..and.temperature_qc.lt.30000.).and.    &
+!              (slp_data.gt.90000.))then
+!          tbar=temperature_data+0.5*elevation*.0065
+!          psfc_data=slp_data*exp(-elevation/(rovg*tbar))
+!          varobs(5,n)=psfc_data*1.e-3
+!          psfc_qc=0.
+!        endif
+
+!!c *No* **Very rough** estimate of psfc from sfc elevation if UUtah ob and elev>1000m
+!! estimate psfc from temp and elevation
+!!   Do not know sfc pressure in model at this point.
+!!      if((psfc_qc.lt.0.).and.(elevation.gt.1000.).and.
+!!     1   (temperature_qc.ge.0..and.temperature_qc.lt.30000.)
+!!     1    .and.(platform(7:16).eq.'SYNOP PRET'))then
+!        if((psfc_qc.lt.0.).and.                                          &
+!          (temperature_qc.ge.0..and.temperature_qc.lt.30000.))then
+!          tbar=temperature_data+0.5*elevation*.0065
+!          psfc_data=100000.*exp(-elevation/(rovg*tbar))
+!          varobs(5,n)=psfc_data*1.e-3
+!          psfc_qc=0.
+!        endif
+
 ! jc
 ! if a ship ob has rh<70%, then throw out
+
         if(plfo(n).eq.3..and.rh_qc.ge.0..and.rh_data.lt.70.)then
           rh_qc=-888888.
           rh_data=-888888.
@@ -966,10 +1032,9 @@
         goto 100
       endif
 
-! check if ob is in coarse mesh domain  (061404 switched sn/we)
-      if( (ri.lt.2.).or.(ri.gt.real(we_maxcg-1)).or.(rj.lt.2.).or.         &
-          (rj.gt.real(sn_maxcg-1)) ) then
-
+! check if ob is in the domain
+    if( (ri.lt.2.).or.(ri.gt.real(e_we-1)).or.(rj.lt.2.).or. &
+        (rj.gt.real(e_sn-1)) ) then
 !         if (iprt) write(6,*) 'Obs out of coarse mesh domain'
 !         write(6,*) 'we_maxcg-1 = ',real(we_maxcg-1)
 !         write(6,*) 'sn_maxcg-1 = ',real(sn_maxcg-1)
@@ -1083,7 +1148,6 @@
 ! REMOVE OLD OBS DENOTED BY 99999. AT THE FRONT OF TIMEOB ARRAY
     IF (iprt) THEN
       print *,'after 190 ndum=',ndum,nsta
-      print *,'timeob=',timeob(1),timeob(2)
     ENDIF
     NDUM=ABS(NDUM)
     NMOVE=NIOBF-NDUM
@@ -1129,8 +1193,27 @@
     NSTA=N
 !   nsta=n-1         ! yliu test
   ENDDO recalc
- 
-  IF (iprt) write(6,160) KTAU,XTIME,NSTA
+
+! Find the number of stations that are actually within the time window.
+  nstaw = nvals_le_limit(nsta, timeob, tforwd)
+
+! Print obs information, according to nobs_prt, but limit to 100 max.
+  if (iprt) then
+    ips = min(nstaw,nobs_prt,100)
+    if(ips.gt.0) then
+      write(6,'(/a,i4,a,i2)') 'MASS-PT LOCATIONS FOR FIRST',ips,  &
+                              ' OBSERVATIONS FOR NEST ',inest
+      write(6,*) '  OBS#    I       J      LAT     LON    TIME(hrs)'
+    endif
+! Note: rio and rjo are referenced to non-staggered grid (not mass-point!)
+!       Hence subtract .5 from each to get mass-point coords.
+    do n=1,ips
+        write(6,'(2x,i4,2f8.3,2f8.2,3x,f8.5)')                     &
+                n,rio(n)-.5,rjo(n)-.5,lat_prt(n),lon_prt(n),timeob(n)
+    enddo
+  endif
+
+  IF (iprt) write(6,160) KTAU,XTIME,NSTAW
   IF(KTAU.EQ.KTAUR)THEN
     IF(nudge_opt.EQ.1)THEN
       TWDOP=TWINDO*60.
@@ -1165,6 +1248,7 @@
     IF (iprt) write(6,601) INEST,IONF
   ENDIF
   fdob%NSTAT=NSTA
+  fdob%NSTAW=NSTAW
 
 555   FORMAT(1X,'   ABOVE THE SURFACE LAYER, OBS NUDGING IS PERFORMED',  &
       ' ON PRESSURE LEVELS,')
@@ -1280,39 +1364,6 @@
       RETURN
   END SUBROUTINE julgmt
 
-  SUBROUTINE vect(xlon,e1,e2,xlonc,xlatc,xn)
- 
-! THIS ROUTINE CONVERTS INCOMING U AND V COMPS INTO MAP U AND V COMPS.
-! iproj is projection (1=lamconf, 2=polarst, 3=mercator)
-! xlonc is center longitude
-! xn is cone factor (.716 for current lc)
-!
-      REAL, intent(in) :: XLON
-      REAL, intent(inout) :: E1
-      REAL, intent(inout) :: E2
-      REAL, intent(in) :: xlonc
-      REAL, intent(in) :: xlatc
-      REAL, intent(in) :: xn
-
-!***  DECLARATIONS FOR IMPLICIT NONE                                    
-      real :: pi, degran, u, v, xlonr, angle
-
-      pi=3.1415926535
-      DEGRAN=PI/180.
-!
-!
-         u=e1
-         v=e2
-         XLONR=XLONC-XLON
-         IF(XLONR.GT.180.) XLONR=XLONR-360.
-         IF(XLONR.LT.-180.) XLONR=XLONR+360.
-         ANGLE=XLONR*XN*DEGRAN
-         IF (xlatC.LT.0.0) ANGLE=-ANGLE
-         E1=V*SIN(ANGLE)+U*COS(ANGLE)
-         E2=V*COS(ANGLE)-U*SIN(ANGLE)
-      RETURN
-  END SUBROUTINE vect
-
   SUBROUTINE rh2r(rh,t,p,r,iice)
  
 ! convert rh to r
@@ -1401,283 +1452,139 @@
       return
 END SUBROUTINE rh2rb
 
-SUBROUTINE llxy_lam (xlat,xlon,X,Y,xlatc, xlonc,xn,ds,       &
-           imax, jmax, true_lat1, true_lat2 )
+  SUBROUTINE set_projection (obs_proj, map_proj, cen_lat, cen_lon,     &
+                             true_lat1, true_lat2, stand_lon,          &
+                             known_lat, known_lon,                     &
+                             e_we, e_sn, dxm, dym )
 
-!***  DECLARATIONS FOR IMPLICIT NONE                                    
-      real :: pi, conv, a
+  USE module_llxy
 
-      PARAMETER(pi=3.14159,CONV=180./pi,a =6370.)
+!*************************************************************************
+! Purpose: Set map projection information which will be used to map the
+!          observation (lat,lon) location to its corresponding (x,y)
+!          location on the WRF (coarse) grid. using the selected map
+!          projection (e.g., Lambert, Mercator, Polar Stereo, etc).
+!*************************************************************************
 
-      REAL  TRUE_LAT1 , PHI1 , POLE , XLATC , PHIC , XC , YC ,       &
-            XN , FLP , XLON , XLONC , PSX , XLAT , R , XX , YY ,     &
-            CENTRI , CENTRJ , X , DS , Y , TRUE_LAT2
-
-      INTEGER  IMAX , JMAX
-
-!  Calculate x and y given latitude and longitude for Lambert conformal projection
-
-      IF(ABS(true_lat1).GT.90) THEN
-        PHI1 = 90. - 30.
-      ELSE
-        PHI1 = 90. - true_lat1
-      END IF
-      POLE = 90.0
-      IF ( XLATC.LT.0.0 ) THEN
-        PHI1 = -PHI1
-        POLE = -POLE
-      END IF
-      PHIC = ( POLE - XLATC )/CONV
-      PHI1 = PHI1/CONV
-      XC = 0.0
-      YC = -A/XN*SIN(PHI1)*(TAN(PHIC/2.0)/TAN(PHI1/2.0))**XN
-
-!  CALCULATE X,Y COORDS. RELATIVE TO POLE
-
-      FLP = XN*( XLON - XLONC )/CONV
-      PSX = ( POLE - XLAT )/CONV
-      R = -A/XN*SIN(PHI1)*(TAN(PSX/2.0)/TAN(PHI1/2.0))**XN
-      IF ( XLATC.LT.0.0 ) THEN
-        XX = R*SIN(FLP)
-        YY = R*COS(FLP)
-      ELSE
-        XX = -R*SIN(FLP)
-        YY = R*COS(FLP)
-      END IF
-
-!  TRANSFORM (1,1) TO THE ORIGIN
-
-      CENTRI = FLOAT(IMAX + 1)/2.0
-      CENTRJ = FLOAT(JMAX + 1)/2.0
-      X = ( XX - XC )/DS + CENTRJ
-      Y = ( YY - YC )/DS + CENTRI
-
-      return
-  END SUBROUTINE llxy_lam
-
-  SUBROUTINE llxy(xlat,xlon,x,y,xlatc,xlonc,kproj,psi1,psi2,ds,    &
-                      xn,sn_max,we_max,parent_grid_ratio,        &
-                      i_parent_start,j_parent_start)
- 
       IMPLICIT NONE
- 
-!     CALCULATE X AND Y GIVEN LATITUDE AND LONGITUDE.
-!     PETER HOWELLS, NCAR, 1984
- 
-      REAL, intent(in)    :: xlat
-      REAL, intent(inout) :: xlon
-      REAL, intent(out)   :: x
-      REAL, intent(out)   :: y
-      REAL, intent(in)    :: xlatc
-      REAL, intent(in)    :: xlonc
-      INTEGER, intent(in) :: kproj 
-      REAL, intent(in)    :: psi1
-      REAL, intent(in)    :: psi2 
-      REAL, intent(in)    :: ds
-      REAL, intent(in)    :: xn
-      INTEGER, intent(in) :: sn_max
-      INTEGER, intent(in) :: we_max
-      INTEGER, intent(in) :: parent_grid_ratio
-      INTEGER, intent(in) :: i_parent_start
-      INTEGER, intent(in) :: j_parent_start
 
-!***  DECLARATIONS FOR IMPLICIT NONE                                    
-      real conv, a, phi1, pole, c2, xc, phicr, cell, yc, xlatr
-      real phic, xx, yy, centri, centrj, ylon, flp, psx, r
-      integer imax, jmax, imapst, jmapst
+  TYPE(PROJ_INFO), intent(out)  :: obs_proj   ! structure for obs projection info.
+  INTEGER, intent(in) :: map_proj             ! map projection index
+  REAL, intent(in) :: cen_lat                 ! center latitude for map projection
+  REAL, intent(in) :: cen_lon                 ! center longiture for map projection
+  REAL, intent(in) :: true_lat1               ! truelat1 for map projection
+  REAL, intent(in) :: true_lat2               ! truelat2 for map projection
+  REAL, intent(in) :: stand_lon               ! standard longitude for map projection
+  INTEGER, intent(in) :: e_we                 ! max grid index in south-north coordinate
+  INTEGER, intent(in) :: e_sn                 ! max grid index in west-east   coordinate
+  REAL, intent(in) :: known_lat               ! latitude  of domain origin point (i,j)=(1,1) 
+  REAL, intent(in) :: known_lon               ! longigude of domain origin point (i,j)=(1,1)
+  REAL, intent(in) :: dxm                     ! grid size in x (meters)
+  REAL, intent(in) :: dym                     ! grid size in y (meters)
 
-!       write(6,*) 'enter llxy'
-!       write(6,*) 'enter llxy: xlatc = ',xlatc,' xlonc = ',xlonc
-!       write(6,*) 'xlat = ',xlat,' xlon = ',xlon
-!       write(6,*) 'psi1 = ',psi1,' psi2 = ',psi2
-!       write(6,*) 'xn = ',xn,' kproj = ',kproj,' ds = ',ds
-!       write(6,*) 'sn_max = ',sn_max,' we_max = ',we_max
-!       write(6,*) 'parent_grid_ratio = ',parent_grid_ratio
-!       write(6,*) 'i_parent_start = ',i_parent_start
-!       write(6,*) 'j_parent_start = ',j_parent_start
+! Set up map transformation structure
+      CALL map_init(obs_proj)
 
-      conv = 57.29578
-      a = 6370.0
-!      imax  = sn_max*parent_grid_ratio+1
-!      jmax  = we_max*parent_grid_ratio+1
-       imax  = sn_max*parent_grid_ratio       !ajb for WRF
-       jmax  = we_max*parent_grid_ratio       !ajb for WRF
-      imapst= (j_parent_start-1)*parent_grid_ratio+1
-      jmapst= (i_parent_start-1)*parent_grid_ratio+1
-      phi1 = 90.0-psi2
-      pole = 90.0
+      ! Mercator
+      IF (map_proj == PROJ_MERC) THEN
+         CALL map_set(PROJ_MERC, obs_proj,                                &
+                      truelat1 = true_lat1,                               &
+                      lat1     = known_lat,                               &
+                      lon1     = known_lon,                               &
+                      knowni   = 1.,                                      &
+                      knownj   = 1.,                                      &
+                      dx       = dxm)
 
-      if ( xlatc.lt.0.0 ) then
-        phi1 = -90.0-psi2
-        pole = -pole
-      endif
- 
-      if (kproj.eq.3) then
-! MERCATOR PROJECTION
-        C2     = A*COS(PSI1)
-        XC     = 0.0
-        PHICR  = XLATC/CONV
-        CELL   = COS(PHICR)/(1.0+SIN(PHICR))
-        YC     = - C2*ALOG(CELL)
-        IF (XLAT.NE.-90.) THEN
-           XLATR = XLAT/CONV
-           CELL = COS(XLATR)/(1.0+SIN(XLATR))
-           YY = -C2*ALOG(CELL)
-           IF (XLONC.LT.0.0) THEN
-             IF (XLON.GT.0.0) XLON=XLON-360.
-           ELSE
-             IF (XLON.LT.0.0) XLON=360.+XLON
-           ENDIF
-           XX = C2*(XLON-XLONC)/CONV
-        ENDIF
- 
-      ELSE IF (KPROJ.EQ.1) THEN
-! LAMBERT-COMFORMAL or POLAR-STEREO PROJECTION
-      PHIC = ( POLE - XLATC )/CONV
-      PHI1 = PHI1/CONV
-      XC = 0.0
-      YC = -A/XN*SIN(PHI1)*(TAN(PHIC/2.0)/TAN(PHI1/2.0))**XN
- 
-!     CALCULATE X,Y COORDS. RELATIVE TO POLE
- 
-      YLON = XLON - XLONC
-      IF(YLON.GT.180) YLON = YLON - 360.
-      IF(YLON.LT.-180) YLON = YLON + 360.
-      FLP = XN*YLON/CONV
-      PSX = ( POLE - XLAT )/CONV
-      R = -A/XN*SIN(PHI1)*(TAN(PSX/2.0)/TAN(PHI1/2.0))**XN
-      IF ( XLATC.LT.0.0 ) THEN
-         XX = R*SIN(FLP)
-         YY = R*COS(FLP)
-      ELSE
-         XX = -R*SIN(FLP)
-         YY = R*COS(FLP)
+      ! Lambert conformal
+      ELSE IF (map_proj == PROJ_LC) THEN
+      CALL map_set(PROJ_LC, obs_proj,                                     &
+                      truelat1 = true_lat1,                               &
+                      truelat2 = true_lat2,                               &
+                      stdlon   = stand_lon,                               &
+                      lat1     = known_lat,                               &
+                      lon1     = known_lon,                               &
+                      knowni   = 1.,                                      &
+                      knownj   = 1.,                                      &
+                      dx       = dxm)
+
+      ! Polar stereographic
+      ELSE IF (map_proj == PROJ_PS) THEN
+         CALL map_set(PROJ_PS, obs_proj,                                  &
+                      truelat1 = true_lat1,                               &
+                      stdlon   = stand_lon,                               &
+                      lat1     = known_lat,                               &
+                      lon1     = known_lon,                               &
+                      knowni   = 1.,                                      &
+                      knownj   = 1.,                                      &
+                      dx       = dxm)
+      ! Cassini (global ARW)
+      ELSE IF (map_proj == PROJ_CASSINI) THEN
+         CALL map_set(PROJ_CASSINI, obs_proj,                             &
+                      latinc   = dym*360.0/(2.0*EARTH_RADIUS_M*PI),       &
+                      loninc   = dxm*360.0/(2.0*EARTH_RADIUS_M*PI),       &
+                      lat1     = known_lat,                               &
+                      lon1     = known_lon,                               &
+! We still need to get POLE_LAT and POLE_LON metadata variables before
+!   this will work for rotated poles.
+                      lat0     = 90.0,                                    &
+                      lon0     = 0.0,                                     &
+                      knowni   = 1.,                                      &
+                      knownj   = 1.,                                      &
+                      stdlon   = stand_lon)
+
+      ! Rotated latitude-longitude
+      ELSE IF (map_proj == PROJ_ROTLL) THEN
+         CALL map_set(PROJ_ROTLL, obs_proj,                               &
+! I have no idea how this should work for NMM nested domains
+                      ixdim    = e_we-1,                                  &
+                      jydim    = e_sn-1,                                  &
+                      phi      = real(e_sn-2)*dym/2.0,                    &
+                      lambda   = real(e_we-2)*dxm,                        &
+                      lat1     = cen_lat,                                 &
+                      lon1     = cen_lon,                                 &
+                      latinc   = dym,                                     &
+                      loninc   = dxm,                                     &
+                      stagger  = HH)
+
       END IF
-      END IF
- 
-!  TRANSFORM (1,1) TO THE ORIGIN
- 
-      CENTRI = FLOAT(IMAX + 1)/2.0
-      CENTRJ = FLOAT(JMAX + 1)/2.0
-      X = ( XX - XC )/DS + CENTRJ  - jmapst + 1      
-      Y = ( YY - YC )/DS + CENTRI  - imapst + 1
 
-      RETURN
-  END SUBROUTINE llxy
+!       write(6,*) 'ajb init: map_proj = ',map_proj
+!       write(6,*) 'ajb: after setting map:'
+!       write(6,*) 'truelat1 = ',obs_proj%truelat1
+!       write(6,*) 'truelat2 = ',obs_proj%truelat2
+!       write(6,*) 'stdlon   = ',obs_proj%stdlon
+!       write(6,*) 'lat1     = ',obs_proj%lat1
+!       write(6,*) 'lon1     = ',obs_proj%lon1
+!       write(6,*) 'knowni   = ',obs_proj%knowni
+!       write(6,*) 'knownj   = ',obs_proj%knownj
+!       write(6,*) 'dx       = ',obs_proj%dx
 
-  SUBROUTINE llxy_try(xlat,xlon,x,y,xlatc,xlonc,kproj,psi1a,psi2,ds,    &
-                    xn,sn_max,we_max,parent_grid_ratio,                   &
-                    i_parent_start,j_parent_start)
- 
-      IMPLICIT NONE
- 
-!     CALCULATE X AND Y GIVEN LATITUDE AND LONGITUDE.
-!     PETER HOWELLS, NCAR, 1984
- 
-      REAL, intent(in)    :: xlat
-      REAL, intent(inout) :: xlon
-      REAL, intent(out)   :: x
-      REAL, intent(out)   :: y
-      REAL, intent(in)    :: xlatc
-      REAL, intent(in)    :: xlonc
-      INTEGER, intent(in) :: kproj 
-      REAL, intent(in)    :: psi1a
-      REAL, intent(in)    :: psi2 
-      REAL, intent(in)    :: ds
-      REAL, intent(in)    :: xn
-      INTEGER, intent(in) :: sn_max
-      INTEGER, intent(in) :: we_max
-      INTEGER, intent(in) :: parent_grid_ratio
-      INTEGER, intent(in) :: i_parent_start
-      INTEGER, intent(in) :: j_parent_start
+  END SUBROUTINE set_projection
 
-!***  DECLARATIONS FOR IMPLICIT NONE                                    
-      real conv, a, phi1, pole, c2, xc, phicr, cell, yc, xlatr
-      real phic, xx, yy, centri, centrj, ylon, flp, psx, r
-      integer imax, jmax, imapst, jmapst
-      integer jmxc,imxc,iratio
-      real ric0,rjc0,rs,yind,xind,rix,rjx,psi1
+  INTEGER FUNCTION nvals_le_limit(isize, values, limit)
+!------------------------------------------------------------------------------
+! PURPOSE: Return the number of values in a (real) non-decreasing array that
+!          are less than or equal to the specified upper limit.
+! NOTE: It is important that the array is non-decreasing!
+!      
+!------------------------------------------------------------------------------
+  IMPLICIT NONE
 
-!       write(6,*) 'enter llxy'
-!       write(6,*) 'enter llxy: xlatc = ',xlatc,' xlonc = ',xlonc
-!       write(6,*) 'psi1 = ',psi1a,' psi2 = ',psi2
-!       write(6,*) 'xn = ',xn,' kproj = ',kproj,' ds = ',ds
-!       write(6,*) 'sn_max = ',sn_max,' we_max = ',we_max
-!       write(6,*) 'parent_grid_ratio = ',parent_grid_ratio
-!       write(6,*) 'i_parent_start = ',i_parent_start
-!       write(6,*) 'j_parent_start = ',j_parent_start
+  INTEGER, INTENT(IN) :: isize           ! Size of input array
+  REAL,    INTENT(IN) :: values(isize)   ! Input array of reals
+  REAL,    INTENT(IN) :: limit           ! Upper limit
 
-      conv = 57.29578
-      a = 6370.0
-      imax  = sn_max*parent_grid_ratio+1
-      jmax  = we_max*parent_grid_ratio+1
-      imapst= (j_parent_start-1)*parent_grid_ratio+1
-      jmapst= (i_parent_start-1)*parent_grid_ratio+1
-      iratio = parent_grid_ratio
-      imxc = imax
-      jmxc = jmax
-      rix=imapst
-      rjx=jmapst
+! Local variables
+  integer :: n
 
-      phi1 = psi1a
-      if(xlatc .gt. 0.) then
-       psi1=90.-phi1
-      else
-       psi1=-90+abs(phi1)
-      endif
+! Search the array from largest to smallest values.
+   find_nvals: DO n = isize, 1, -1
+                 if(values(n).le.limit) EXIT find_nvals
+               ENDDO find_nvals
+  nvals_le_limit = n
 
-      ric0=(imxc+1.)*0.5
-      rjc0=(jmxc+1.)*0.5
-
-!      if(kproj .eq. 1) then
-       if(kproj .le. 2) then
-       if(xlatc .gt. 0.) then
-        rs=a/xn*sin(psi1/conv)*(tan((90.-xlat)/conv/2.)           &
-            /tan(psi1/2./conv))**xn
-        yc=-a/xn*sin(psi1/conv)*(tan((90.-xlatc)/conv/2.)         &
-            /tan(psi1/2./conv))**xn
-       else
-        rs=a/xn*sin(psi1/conv)*(tan((-90.-xlat)/conv/2.)          &
-            /tan(psi1/2./conv))**xn
-        yc=-a/xn*sin(psi1/conv)*(tan((-90.-xlatc)/conv/2.)        &
-            /tan(psi1/2./conv))**xn
-       endif
-!     elseif(kproj .eq. 2) then
-!       if(xlatc .gt. 0.) then
-!        rs=a*sin((90.-xlat)/conv)*(1.+cos(psi1/conv))
-!     &     /(1.+cos((90.-xlat)/conv))
-!        yc=-a*sin((90.-xlatc)/conv)*(1.+cos(psi1/conv))
-!     &     /(1.+cos((90.-xlatc)/conv))
-!       else
-!        rs=a*sin((-90.-xlat)/conv)*(1.+cos(psi1/conv))
-!     &     /(1.+cos((-90.-xlat)/conv))
-!        yc=-a*sin((-90.-xlatc)/conv)*(1.+cos(psi1/conv))
-!     &     /(1.+cos((-90.-xlatc)/conv))
-!      endif
-      else
-       psi1 = 0           ! yliu added
-       c2=a*cos(psi1/conv)
-       yc=c2*alog((1.+sin(xlatc/conv))/cos(xlatc/conv))
-      endif
-
-      if(kproj .le. 2) then
-        y=(ric0-(yc/ds+rs/ds*cos(xn*(xlon-xlonc)/conv))-rix)      &
-             *iratio+1.0
-        if(xlatc .gt. 0.) then
-         x=(rjc0+rs/ds*sin(xn*(xlon-xlonc)/conv)-rjx)*iratio+1.0
-        else
-         x=(rjc0-rs/ds*sin(xn*(xlon-xlonc)/conv)-rjx)*iratio+1.0
-        endif
-      else
-       y=c2*alog((1.+sin(xlat/conv))/cos(xlat/conv))
-       x=c2*(xlon-xlonc)/conv
-       y=(ric0+(y-yc)/ds-rix)*iratio+1.0
-       x=(rjc0+x/ds-rjx)*iratio+1.0
-      endif
-        write(6,*) 'xj = ',x, 'yi = ',y,"xlat",xlat,"xlon",xlon
-
-      RETURN
-  END SUBROUTINE llxy_try
+  RETURN
+  END FUNCTION nvals_le_limit
 
 #endif
 !-----------------------------------------------------------------------
