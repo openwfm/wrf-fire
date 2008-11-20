@@ -29,17 +29,20 @@ CONTAINS
                             )
     USE module_state_description
     USE module_model_constants
-    USE module_domain, ONLY : domain, domain_clock_get
+    USE module_domain, ONLY : domain, domain_clock_get, get_ijk_from_subgrid
     USE module_configure, ONLY : grid_config_rec_type, model_config_rec
     USE module_radiation_driver, ONLY : pre_radiation_driver, radiation_driver
     USE module_surface_driver, ONLY : surface_driver
     USE module_cumulus_driver, ONLY : cumulus_driver
     USE module_pbl_driver, ONLY : pbl_driver
+    USE module_fr_sfire_driver
     USE module_fddagd_driver, ONLY : fddagd_driver
     USE module_em, ONLY : init_zero_tendency
     USE module_big_step_utilities_em, ONLY : phy_prep
     USE module_dm
     USE module_utility
+! jm debug
+    USE module_fr_sfire_util
     IMPLICIT NONE
 
     TYPE ( domain ), INTENT(INOUT) :: grid
@@ -107,6 +110,27 @@ CONTAINS
     INTEGER  rk_step 
     INTEGER                         :: yr, month, day, hr, minute, sec, rc
     CHARACTER*80                    :: message
+
+   INTEGER                         :: sids , side , sjds , sjde , skds , skde , &
+                                      sims , sime , sjms , sjme , skms , skme , &
+                                      sips , sipe , sjps , sjpe , skps , skpe
+
+! fire related variables
+   INTEGER:: fire_num_ignitions,fire_ignition_longlat
+   integer, parameter::fire_max_ignitions=5
+   REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
+        fire_ignition_start_y, &
+        fire_ignition_end_x, &
+        fire_ignition_end_y, &
+        fire_ignition_time, &
+        fire_ignition_radius
+
+
+  CALL get_ijk_from_subgrid (  grid ,                   &
+                            sids, side, sjds, sjde, skds, skde,    &
+                            sims, sime, sjms, sjme, skms, skme,    &
+                            sips, sipe, sjps, sjpe, skps, skpe    )
+
 
  ! initialize all tendencies to zero in order to update physics
  ! tendencies first (separate from dry dynamics).
@@ -473,6 +497,29 @@ BENCH_START(pbl_driver_tim)
      &                                                          )
 
 BENCH_END(pbl_driver_tim)
+
+!*****
+! fire 
+
+! Jan Mandel's call to SFIRE
+
+      IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
+
+BENCH_START(fire_driver_tim)
+        if(config_flags%ifire.eq.2)then 
+            call sfire_driver_em ( grid , config_flags    &
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,sids,side, sjds,sjde                        &
+            ,sims,sime, sjms,sjme                        &
+            ,sips,sipe, sjps,sjpe                        &
+            ,rho,z_at_w,dz8w)
+        endif
+
+BENCH_END(fire_driver_tim)
+       ENDIF
+
 
 ! cumulus para.
 
