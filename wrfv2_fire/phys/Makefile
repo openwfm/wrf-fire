@@ -292,6 +292,7 @@ module_fddaobs_driver.o: \
 		module_fddaobs_rtfdda.o
 
 get_sfire_id.inc:
+	        chmod +x commit_hash
 		./commit_hash > sfire_id.inc
 		cat sfire_id.inc
 
