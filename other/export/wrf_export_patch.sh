@@ -30,7 +30,7 @@ replace_commit
 sv=$(git log -n 1 svntrack | grep -o 'r[0-9]\{4\}' |head -1)
 f=$(filter)
 git diff --stat svntrack $f
-git diff --relative=wrfv2_fire svntrack $f > wrf_svn_${sv}.patch
+git diff --relative=wrfv2_fire --diff-filter=ACDMR svntrack $f > wrf_svn_${sv}.patch
 
 git reset --hard HEAD > /dev/null
 
