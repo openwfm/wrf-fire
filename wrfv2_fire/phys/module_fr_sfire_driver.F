@@ -522,6 +522,8 @@ do ij=1,num_tiles
 
     elseif(ifun.eq.2)then  
                
+        ! after the loop where zsf created exited and all synced
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
         call interpolate_atm2fire(id,                     & ! flag for debug output
@@ -565,8 +567,8 @@ do ij=1,num_tiles
     
     if(ifun.eq.6)then ! heat fluxes into the atmosphere    
     
-    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fire_driver:fgrnhfx')
-    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fire_driver:fgrnhfx')
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
     
         ! sum the fluxes over atm cells
         call sum_2d_cells(        &
@@ -632,9 +634,8 @@ do ij=1,num_tiles
 enddo ! tiles
 !$OMP END PARALLEL DO
 
-if(ifun.eq.1)then
-    call print_2d_stats(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        
 #ifdef DEBUG_OUT
+if(ifun.eq.1)then
     if(pid.ne.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',pid)
