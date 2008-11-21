@@ -5,7 +5,7 @@ set myhost=1
 if ( ${host} == "wf" )  then
   set base="/opt/wrf-libs"
   source $base/setpaths.csh
-  set mpibins="/opt/intel9.1-64-par/bin"
+  set mpibins="/opt/intel11-libs/bin"
 else if ( ${host} == "opt4.cudenver.edu" ) then
   set base="/home/grads/jbeezley/wrf-libs"
   set mpibins="/home/grads/jbeezley/intel9.1-libs-par-64/bin"
@@ -32,7 +32,7 @@ unlimit
 #set ifvars=/opt/intel/fce/9.1.036/bin/ifortvars.csh
 set ifvars=/opt/intel/fce/current/bin/ifortvars.csh
 if ( -f ${ifvars} ) then
-  source ${ifvars}
+  source ${ifvars} intel64
 else
   echo "WARNING: couldn't find ifort setup script"
 endif
