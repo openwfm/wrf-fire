@@ -1666,52 +1666,26 @@ xpose XPOSE_POLAR_FILTER_SCALAR dyn_em scalar,fourd_xxx,dum_yyy
 #<key>   <package       <associated               <package        <associated 4d scalars>
 #         name>          namelist choice>          state vars>
 # 
-package   fire_cawfe     fire==1                     -             -
-package   fire_sfire    fire==2                     -             -
-package   fire_sfired    fire==3                     -             -
-
-# fire dimensions on fire grid
-#
-#<Table>  <Dim>  <Order> <How defined>         <Coord-axis>  <Dimname in Datasets>
-dimspec    n      -     constant=2                z          fire_index_dim
-dimspec    o      -     constant=4                z          fire_particle_dim
+package   fire_sfire    fire==1                     -             -
 
 # fire variables on fire grid
 #
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
 state    real  nfuel_cat *i*j     fire        1         z     i012hr        "NFUEL_CAT"        "fuel data"   
-state    integer  nfl       *i*j     fire        1         z     hr
-state    integer  nfl_t     *i*j     fire        1         z     hr
-state    integer  nfl_c     *i*j     fire        1         z     hr
-state    integer  ncod      *i*j     fire        1         z     hr
-state    real     fg        *i*j     fire        1         z     hr
-state    real     fc        *i*j     fire        1         z     hr
-#state    real     r_0       *i*j     fire        1         z     hr
-#state    real     bbb       *i*j     fire        1         z     hr
-#state    real     betafl    *i*j     fire        1         z     hr
-#state    real     phiwc     *i*j     fire        1         z     hr
-state    real     area      *i*j     fire        1         z     hr
-state    real     area2     *i*j     fire        1         z     hr
-state    real     zf        *i*j     fire        1         z     hr
+#state    integer  nfl       *i*j     fire        1         z     hr
+#state    integer  nfl_t     *i*j     fire        1         z     hr
+#state    integer  nfl_c     *i*j     fire        1         z     hr
+#state    integer  ncod      *i*j     fire        1         z     hr
+#state    real     fg        *i*j     fire        1         z     hr
+#state    real     fc        *i*j     fire        1         z     hr
+#state    real     area      *i*j     fire        1         z     hr
+#state    real     area2     *i*j     fire        1         z     hr
+#state    real     zf        *i*j     fire        1         z     hr
 state    real     zsf       *i*j     fire        1         z     hr   "ZSF"      "height of surface above sea level" "m"
 state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"   "ignition time on ground" "s"
-state    real     tign_c    *i*j     fire        1         z     hr
-state    real     tign_crt  *i*j     fire        1         z     hr
+#state    real     tign_c    *i*j     fire        1         z     hr
+#state    real     tign_crt  *i*j     fire        1         z     hr
 #
-#state    integer  in1       *i*jn    fire        1         z     hr
-#state    integer  in2       *i*jn    fire        1         z     hr
-#state    integer  ixb       *i*jo    fire        1         z     hr
-#state    integer  iyb       *i*jo    fire        1         z     hr
-#state    integer  icn       *i*jo    fire        1         z     hr
-state    real     xfg       *i*jo    fire        1         z     hr
-state    real     yfg       *i*jo    fire        1         z     hr
-state    real     xcd       *i*jo    fire        1         z     hr
-state    real     ycd       *i*jo    fire        1         z     hr
-state    real     xcn       *i*jo    fire        1         z     hr
-state    real     ycn       *i*jo    fire        1         z     hr
-state    real     sprdx     *i*jo    fire        1         z     hr
-state    real     sprdy     *i*jo    fire        1         z     hr
- 
 # fire variables on atm grid
 #
 state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
@@ -1736,8 +1710,6 @@ state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"
 # constant data arrays
 state    real     fxlong    *i*j      fire        1         z    hr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
 state    real     fxlat     *i*j      fire        1         z    hr    "FXLAT"     "latitude of midpoints of fire cells" "degrees"
-#state    real     dzfsdx    *i*j      fire        1         z    hr    "DXFSDX"    "topo"
-#state    real     dzfsdy    *i*j      fire        1         z    hr    "DXFSDY"    "topo"
 state    real     fuel_time *i*j      fire        1         z    hr    "FUEL_TIME" "fuel"
 state    real     bbb       *i*j      fire        1         z    hr    "BBB"       "fuel"
 state    real     betafl    *i*j      fire        1         z    hr    "BETAFL"    "fuel"

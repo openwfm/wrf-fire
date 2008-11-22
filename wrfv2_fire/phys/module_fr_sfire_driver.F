@@ -104,7 +104,6 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
     ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
-    integer, dimension(ifms:ifme, jfms:jfme)::nfuel_cat_int
     real::lat_ctr,lon_ctr
 
 !*** executable
@@ -176,7 +175,6 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 
         endif
 #endif
-        nfuel_cat_int(:,:)=int(grid%nfuel_cat)
         ! need domain by 1 smaller, in last row.col winds are not set properly
         call sfire_driver_phys ( &
             fire_ifun,need_lfn_update,                  &
@@ -210,11 +208,10 @@ subroutine sfire_driver_em ( grid , config_flags                   &
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
             grid%fxlong,grid%fxlat,                           &       
-            nfuel_cat_int,                               & ! input, or internal for safekeeping
+            grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,grid%zsf,                      & 
             grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
         )
-        grid%nfuel_cat(:,:)=real(nfuel_cat_int(:,:))
       enddo
     enddo
     if(fire_test_steps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
@@ -311,7 +308,7 @@ real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::rho, &  ! air density  (kg/m
 
 real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat ! inout because of extension at bdry
     
-integer, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
+real, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
     nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
