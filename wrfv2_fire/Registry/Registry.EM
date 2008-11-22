@@ -1666,26 +1666,15 @@ xpose XPOSE_POLAR_FILTER_SCALAR dyn_em scalar,fourd_xxx,dum_yyy
 #<key>   <package       <associated               <package        <associated 4d scalars>
 #         name>          namelist choice>          state vars>
 # 
-package   fire_sfire    fire==1                     -             -
+package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,fxlong,fxlat,fuel_time,bbb,betafl,phiwc,r_0,fgip,ischap
 
 # fire variables on fire grid
 #
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
 state    real  nfuel_cat *i*j     fire        1         z     i012hr        "NFUEL_CAT"        "fuel data"   
-#state    integer  nfl       *i*j     fire        1         z     hr
-#state    integer  nfl_t     *i*j     fire        1         z     hr
-#state    integer  nfl_c     *i*j     fire        1         z     hr
-#state    integer  ncod      *i*j     fire        1         z     hr
-#state    real     fg        *i*j     fire        1         z     hr
-#state    real     fc        *i*j     fire        1         z     hr
-#state    real     area      *i*j     fire        1         z     hr
-#state    real     area2     *i*j     fire        1         z     hr
-#state    real     zf        *i*j     fire        1         z     hr
 state    real     zsf       *i*j     fire        1         z     hr   "ZSF"      "height of surface above sea level" "m"
 state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"   "ignition time on ground" "s"
-#state    real     tign_c    *i*j     fire        1         z     hr
-#state    real     tign_crt  *i*j     fire        1         z     hr
-#
+
 # fire variables on atm grid
 #
 state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
