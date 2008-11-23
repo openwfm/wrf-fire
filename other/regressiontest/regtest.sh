@@ -133,7 +133,7 @@ for ((p=1;p<=$nproc;p*=$procscl)) ; do
       export OMP_NUM_THREADS=$t
       rname=$(printf '%s_p%02d_t%02d' "${name}" "${p}" "${t}")
       rlog="${rname}.log"
-      if [ $usempi -eq true ] ; then
+      if [ $usempi = true ] ; then
 	start_rtime
         mpirun -np $p ./wrf.exe < /dev/null &> ${rlog}
 	if [ ! -f "${lout}" ] ; then
@@ -213,11 +213,11 @@ if [ ! -d ${logdir} ] ; then
 fi
 
 info_header
-for copt in 1 2 3 4 ; do
+for copt in 1 4 ; do
 
   for nest in 0 1 ; do
 
-    for dbg in 1 0 ; do
+    for dbg in 1 ; do
 
       cd ${toplevel}
       ./clean -a &> /dev/null
