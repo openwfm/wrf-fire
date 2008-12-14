@@ -21,6 +21,7 @@
       USE MODULE_SF_MYJSFC
       USE MODULE_SURFACE_DRIVER
       USE MODULE_PBL_DRIVER
+      USE MODULE_GWD
       USE MODULE_CU_BMJ
       USE MODULE_CUMULUS_DRIVER
       USE MODULE_MP_ETANEW
@@ -65,26 +66,26 @@
 ! RSWINC - CLEAR-SKY downward shortwave at the surface (=TOTSWDNC, new for AQ)
 !***********************************************************************
 !$$$  SUBPROGRAM DOCUMENTATION BLOCK
-!                .      .    .     
+!                .      .    .
 ! SUBPROGRAM:    RADIATION   RADIATION OUTER DRIVER
-!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 2002-06-04       
-!     
+!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 2002-06-04
+!
 ! ABSTRACT:
 !     RADIATION SERVES AS THE INTERFACE BETWEEN THE NCEP NONHYDROSTATIC
 !     MESOSCALE MODEL AND THE WRF RADIATION DRIVER.
-!     
+!
 ! PROGRAM HISTORY LOG:
 !   02-06-04  BLACK      - ORIGINATOR
 !   02-09-09  WOLFE      - CONVERTING TO GLOBAL INDEXING
 !   04-11-18  BLACK      - THREADED
 !   05-12-15  BLACK      - CONVERTED FROM IKJ TO IJK
-!     
-! USAGE: CALL RADIATION FROM SOLVE_NMM      
+!
+! USAGE: CALL RADIATION FROM SOLVE_NMM
 !
 ! ATTRIBUTES:
 !   LANGUAGE: FORTRAN 90
-!   MACHINE : IBM 
-!$$$  
+!   MACHINE : IBM
+!$$$
 !-----------------------------------------------------------------------
 !
       IMPLICIT NONE
@@ -112,7 +113,7 @@
      &                                             ,PD,RES,SICE,SM      &
      &                                             ,SNOW,THS,VEGFRC
 !
-      REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: CUPPT            
+      REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: CUPPT
 
 !
       REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(IN) :: Q,T,Z
@@ -299,8 +300,8 @@
           CUPPTR(I,J)=CUPPT(I,J)   ! Temporary array set to zero in radiation
 !
 !-- NOTE:  HBOTR, HTOPR are passed into radiation and set equal to HBOT, HTOP.  HBOT, HTOP are
-!          reset to clear sky values to be used by the ARW.  At the bottom of this subroutine, 
-!          HBOT, HTOP are re-defined again to values stored in HBOTR, HTOPR.  HBOT, HTOP are 
+!          reset to clear sky values to be used by the ARW.  At the bottom of this subroutine,
+!          HBOT, HTOP are re-defined again to values stored in HBOTR, HTOPR.  HBOT, HTOP are
 !          reset to clear sky values after the call to radiation and after the top of the hour
 !          in subroutine CUCNVC below.
 !
@@ -372,7 +373,7 @@
      &                 ,SW_PHYSICS=CONFIG_FLAGS%RA_SW_PHYSICS           &
      &                 ,RADT=RADT,RA_CALL_OFFSET=GRID%RA_CALL_OFFSET    &
      &                 ,STEPRA=NRAD,ICLOUD=ICLOUD                       &
-     &                 ,WARM_RAIN=WARM_RAIN                             & 
+     &                 ,WARM_RAIN=WARM_RAIN                             &
      &                 ,SWDOWNC=TOTSWDNC,CLDFRA=CLFR                    &
      &                 ,RSWTOA=RSWTOA,RLWTOA=RLWTOA                     &
      &                 ,CZMEAN=CZMEAN,CFRACL=CFRACL                     &
@@ -459,7 +460,7 @@
           DO I=MYIS1,MYIE1
 !
             IF(HBM2(I,J)>0.5)THEN
-              TOTSWDN(I,J)=SWNETDN(I,J)/(1.-ALBEDO(I,J))  
+              TOTSWDN(I,J)=SWNETDN(I,J)/(1.-ALBEDO(I,J))
 !
 !--- No value currently available for clear-sky solar fluxes from
 !    non GFDL schemes, though it's needed for air quality forecasts.
@@ -628,12 +629,13 @@
 !- RLWIN/RSWIN - downward longwave/shortwave at the surface (also TOTLWDN/TOTSWDN in RADIATION)
      &                ,PD,RES,PINT,T,Q,CWM,F_ICE,F_RAIN,SR              &
      &                ,Q2,U,V,THS,TSFC,SST,PREC,SNO                     &
-     &                ,FIS,Z0,Z0BASE,USTAR,PBLH,LPBL,EL_MYJ             &
+     &                ,FIS,Z0,Z0BASE,USTAR,MIXHT,PBLH,LPBL,EL_MYJ       &
      &                ,MOIST,RMOL,MOL                                   &
-     &                ,EXCH_H,AKHS,AKMS,AKHS_OUT,AKMS_OUT               &
+     &                ,EXCH_H,EXCH_M,F,AKHS,AKMS,AKHS_OUT,AKMS_OUT      &
      &                ,THZ0,QZ0,UZ0,VZ0,QS,MAVAIL                       &
      &                ,STC,SMC,CMC,SMSTAV,SMSTOT,SSROFF,BGROFF          &
      &                ,IVGTYP,ISLTYP,VEGFRC,SHDMIN,SHDMAX,GRNFLX        &
+     &                ,SNOTIME                                          &
      &                ,SFCEXC,ACSNOW,ACSNOM,SNOPCX,SICE,TG,SOILTB       &
      &                ,ALBASE,MXSNAL,ALBEDO,SH2O,SI,EPSR,EMBCK          &
      &                ,U10,V10,TH10,Q10,TSHLTR,QSHLTR,PSHLTR            &
@@ -643,9 +645,12 @@
      &                ,APHTIM,ARDSW,ARDLW,ASRFC                         &
      &                ,RSWOUT,RSWTOA,RLWTOA                             &
      &                ,ASWIN,ASWOUT,ASWTOA,ALWIN,ALWOUT,ALWTOA          &
-     &                ,UZ0H,VZ0H,DUDT,DVDT                              & 
-     &                ,RTHBLTEN,RQVBLTEN                                & 
+     &                ,UZ0H,VZ0H,DUDT,DVDT,UGWDsfc,VGWDsfc              & ! GWD
+     &                ,RTHBLTEN,RQVBLTEN                                &
      &                ,PCPFLG,DDATA                                     & ! PRECIP ASSIM
+     &                ,HSTDV,HCNVX,HASYW,HASYS,HASYSW,HASYNW,HLENW      & ! GWD
+     &                ,HLENS,HLENSW,HLENNW,HANGL,HANIS,HSLOP,HZMAX      & ! GWD
+     &                ,CROT,SROT                                        & ! GWD
      &                ,GRID,CONFIG_FLAGS                                &
      &                ,IHE,IHW,IVE,IVW                                  &
      &                ,IDS,IDE,JDS,JDE,KDS,KDE                          &
@@ -653,13 +658,13 @@
      &                ,ITS,ITE,JTS,JTE,KTS,KTE)
 !***********************************************************************
 !$$$  SUBPROGRAM DOCUMENTATION BLOCK
-!                .      .    .     
+!                .      .    .
 ! SUBPROGRAM:    TURBL       TURBULENCE OUTER DRIVER
-!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 02-04-19       
-!     
+!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 02-04-19
+!
 ! ABSTRACT:
 !     TURBL DRIVES THE TURBULENCE SCHEMES
-!     
+!
 ! PROGRAM HISTORY LOG (with changes to called routines) :
 !   95-03-15  JANJIC     - ORIGINATOR OF THE SUBROUTINES CALLED
 !   BLACK & JANJIC       - ORIGINATORS OF THE DRIVER
@@ -675,13 +680,14 @@
 !   02-05-03  JANJIC     - REMOVAL OF SUPERSATURATION AT 2m AND 10m
 !   04-11-18  BLACK      - THREADED
 !   05-12-15  BLACK      - CONVERTED FROM IKJ TO IJK
-!     
+!   07-05-15  FERRIER    - ADDED GRAVITY WAVE DRAG (GWD) & MOUNTAIN BLOCKING
+!
 ! USAGE: CALL TURBL FROM SOLVE_NMM
 !
 ! ATTRIBUTES:
 !   LANGUAGE: FORTRAN 90
 !   MACHINE : IBM
-!$$$  
+!$$$
 !-----------------------------------------------------------------------
 !
       IMPLICIT NONE
@@ -695,7 +701,7 @@
 !
       INTEGER, DIMENSION(JMS:JME),INTENT(IN) :: IHE,IHW,IVE,IVW
 !
-      INTEGER,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: ISLTYP,IVGTYP 
+      INTEGER,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: ISLTYP,IVGTYP
 !
       INTEGER,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: LPBL
 !
@@ -711,25 +717,30 @@
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(IN) :: CZEN,CZMEAN         &
      &                                             ,DX_ARRAY            &
-     &                                             ,FIS,HBM2            &
+     &                                             ,F,FIS,HBM2          &
      &                                             ,PD,RES              &
      &                                             ,RLWIN,RLWTOA        &
      &                                             ,RSWIN,RSWOUT,RSWTOA &
      &                                             ,SHDMIN,SHDMAX       &
 !    &                                             ,SICE,SIGT4,SM,SR    & !Bandaid
      &                                             ,SIGT4               &
-     &                                             ,SST,VBM2,VEGFRC     
+     &                ,HSTDV,HCNVX,HASYW,HASYS,HASYSW,HASYNW,HLENW      & ! GWD
+     &                ,HLENS,HLENSW,HLENNW,HANGL,HANIS,HSLOP,HZMAX      & ! GWD
+     &                ,CROT,SROT                                        & ! GWD
+     &                                             ,SST,VBM2,VEGFRC
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: SM,EPSR,SR       & !Bandaid
-                                                      ,TG,SICE          & 
+                                                      ,TG,SICE          &
                                                       ,EMBCK
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: ALBASE,MXSNAL
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: ACSNOM,ACSNOW    &
+     &                                                ,SNOTIME          &
      &                                                ,AKHS,AKMS        &
      &                                                ,ALBEDO           &
      &                                                ,BGROFF,CMC       &
      &                                                ,MAVAIL,MOL       &
+     &                                                ,MIXHT            &
      &                                                ,PBLH,POTEVP      &
      &                                                ,POTFLX,PREC      &
      &                                                ,QCG,QS,QSG       &
@@ -753,7 +764,8 @@
      &                                              ,ASWOUT,ASWTOA      &
      &                                              ,PSHLTR,Q10,QSHLTR  &
      &                                              ,TH10,TSHLTR        &
-     &                                              ,U10,V10
+     &                                              ,U10,V10            & ! GWD
+     &                                              ,UGWDsfc,VGWDsfc      ! GWD
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: GRNFLX,QWBS,RADOT  &
                                                     ,SFCEXC,SMSTAV      &
@@ -773,7 +785,8 @@
      &                                                        ,RTHBLTEN
 !
       REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(OUT) :: EL_MYJ     &   !<--- Used only in physics (IKJ)
-     &                                                      ,EXCH_H
+     &                                                      ,EXCH_H     &
+     &                                                      ,EXCH_M
 !
       REAL,DIMENSION(IMS:IME,NSOIL,JMS:JME),INTENT(INOUT) :: KEEPFR3DFLAG & !<--- Used only in physics (IKJ)
      &                                                      ,SH2O,SMC     &
@@ -810,7 +823,7 @@
      &       ,U_FRAME,V_FRAME,XLVRW
 !
       REAL :: APES,CKLQ,EXNER,FACTOR,FFS,PQ0X,Q2SAT,QFC1,QLOWX,RLIVWV   &
-     &       ,THBOT
+     &       ,THBOT,DPL
 !
       REAL,DIMENSION(IMS:IME,JMS:JME) :: BR,CHKLOWQ,CT,CWMLOW,ELFLX     &
      &                                  ,EXNSFC,FACTRS,FLHC,FLQC,GZ1OZ0 &
@@ -825,8 +838,10 @@
       REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME) :: DUDT_PHY,DVDT_PHY,DZ   &
      &                                          ,P_PHY,P8W,PI_PHY       &
      &                                          ,RQCBLTEN,RQIBLTEN      &
-     &                                          ,RR                     &
+!BSF &                                     ,RQSBLTEN,RQRBLTEN,RQGBLTEN  &
+     &                                          ,RR,DELP                & ! GWD
      &                                          ,T_PHY,TH_PHY,TKE       &
+     &                                          ,DUDT_GWD,DVDT_GWD      & ! GWD
      &                                          ,U_PHY,V_PHY,Z
 !
       REAL,DIMENSION(:,:,:,:),ALLOCATABLE :: MOIST_TRANS
@@ -837,6 +852,15 @@
 !
       INTEGER :: NUM_ROOF_LAYERS,NUM_WALL_LAYERS,NUM_ROAD_LAYERS   ! urban
 !
+      INTEGER :: IGS,IGE,JGS,JGE, PQ_I   !BSF
+      LOGICAL :: FQ_I                    !BSF
+
+      CHARACTER(len=255) :: message
+!dbg integer :: kpblmin,kpblmax,lpblmin,lpblmax    !dbg
+!
+!
+    INTEGER  :: isurban
+    CHARACTER(len=256) :: MMINLU
 !-----------------------------------------------------------------------
 !***********************************************************************
 !-----------------------------------------------------------------------
@@ -897,8 +921,8 @@
         DO I=MYIS,MYIE
           Z0BASE(I,J)=Z0(I,J)
           IF(SM(I,J)>0.5.AND.SICE(I,J)>0.5)THEN  !Bandaid
-            SM(I,J)=0.        
-          ENDIF              
+            SM(I,J)=0.
+          ENDIF
         ENDDO
         ENDDO
       ENDIF
@@ -911,6 +935,7 @@
         Z(I,K,J)=0.
         DZ(I,K,J)=0.
         EXCH_H(I,K,J)=0.
+        EXCH_M(I,K,J)=0.
       ENDDO
       ENDDO
       ENDDO
@@ -966,7 +991,7 @@
         ELSE
           FACTRL=0.
         ENDIF
-!     
+!
 !- RLWIN/RSWIN - downward longwave/shortwave at the surface
 !
         RLW_DN_SFC(I,J)=RLWIN(I,J)*HBM2(I,J)*FACTRL
@@ -1012,10 +1037,15 @@
           RQVBLTEN(I,K,J)=0.
           RQCBLTEN(I,K,J)=0.
           RQIBLTEN(I,K,J)=0.
+!BSF          RQSBLTEN(I,K,J)=0.
+!BSF          RQRBLTEN(I,K,J)=0.
+!BSF          RQGBLTEN(I,K,J)=0.
 !
-          Z(I,K+1,J)=Z(I,K,J)+TL/PLYR                                   &
-     &              *(DETA1(K)*PDTOP+DETA2(K)*PDSL(I,J))*ROG            &
-                    *(Q(I,J,K)*P608-CWML+1.)
+!-- Next 3 lines modified for GWD
+!
+          DPL=DETA1(K)*PDTOP+DETA2(K)*PDSL(I,J)
+          Z(I,K+1,J)=Z(I,K,J)+TL/PLYR*DPL*ROG*(Q(I,J,K)*P608-CWML+1.)
+          DELP(I,K,J)=DPL
           DZ(I,K,J)=Z(I,K+1,J)-Z(I,K,J)
         ENDDO
       ENDDO
@@ -1068,7 +1098,7 @@
           ISTR=MAX(MYIS_P1,IDS+1)
           IEND=MIN(MYIE_P1,IDE-1)
         ENDIF
-!     
+!
         DO I=ISTR,IEND
           UZ0H(I,J)=(UZ0(I+IHE(J),J)+UZ0(I+IHW(J),J)                    &
      &              +UZ0(I,J+1)+UZ0(I,J-1))*0.25
@@ -1091,7 +1121,7 @@
         ELSE
 !***  MAVAIL should not be equal to 1. for other LSMs
           ONE(I,J)=MAVAIL(I,J)
-        ENDIF 
+        ENDIF
       ENDDO
       ENDDO
 !
@@ -1118,6 +1148,8 @@
       NUM_ROOF_LAYERS=GRID%NUM_SOIL_LAYERS   !urban
       NUM_WALL_LAYERS=GRID%NUM_SOIL_LAYERS   !urban
       NUM_ROAD_LAYERS=GRID%NUM_SOIL_LAYERS   !urban
+      CALL nl_get_isurban(grid%id, isurban)
+      call nl_get_mminlu(grid%id, mminlu)
 !
 !-----------------------------------------------------------------------
 !
@@ -1159,6 +1191,7 @@
      &          ,SF_SURFACE_PHYSICS=CONFIG_FLAGS%SF_SURFACE_PHYSICS     &
      &          ,RA_LW_PHYSICS=CONFIG_FLAGS%RA_LW_PHYSICS               &
      &          ,UCMCALL=UCMCALL                                        &
+     &          ,LAI=GRID%LAI                                           &
      &          ,IDS=IDS,IDE=IDE,JDS=JDS,JDE=JDE,KDS=KDS,KDE=KDE        &
      &          ,IMS=IMS,IME=IME,JMS=JMS,JME=JME,KMS=KMS,KME=KME        &
      &          ,I_START=GRID%I_START,I_END=GRID%I_END                  &
@@ -1169,7 +1202,7 @@
      &          ,QC_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QC),F_QC=F_QC        &
      &          ,QR_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QR),F_QR=F_QR        &
      &          ,QI_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QI),F_QI=F_QI        &
-     &          ,QS_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QS),F_QS=F_QS        & 
+     &          ,QS_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QS),F_QS=F_QS        &
      &          ,QG_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QG),F_QG=F_QG        &
      &          ,RAINBL=RAINBL                                          &
      &          ,LAGDAY=1                                               & ! tmn_update
@@ -1185,6 +1218,10 @@
      &          ,REGIME=REGIME                                          &
 ! for PX LSM
      &          ,NLCAT=grid%num_land_cat,  NSCAT=grid%num_soil_cat      & ! P-X LSM
+     &        ,ISURBAN=isurban, MMINLU=TRIM(mminlu)                       &
+     &        ,SNOTIME = grid%SNOTIME &
+     &        ,RDLAI2D=config_flags%rdlai2d                                   &
+     &        ,NOAHRES=grid%noahres                                       &
      &                                                          )
 !
 !-----------------------------------------------------------------------
@@ -1219,20 +1256,32 @@
       ENDDO
       ENDDO
 !
+!BSF: Logical FQ_I index PQ_I are set to values associated with snow
+!     for the ETAMPNEW scheme so that they can be mixed by the PBL schemes.
+!
+      IF(CONFIG_FLAGS%MP_PHYSICS==ETAMPNEW)THEN
+         FQ_I=F_QS
+         PQ_I=P_QS
+      ELSE
+         FQ_I=F_QI
+         PQ_I=P_QI
+      ENDIF
+!
       CALL PBL_DRIVER(                                                &
      &                ITIMESTEP=NTSD,DT=DT                            &
      &               ,U_FRAME=U_FRAME,V_FRAME=V_FRAME                 &
      &               ,RUBLTEN=DUDT_PHY,RVBLTEN=DVDT_PHY               &
-     &               ,RTHBLTEN=RTHBLTEN                               &
-     &               ,RQVBLTEN=RQVBLTEN,RQCBLTEN=RQCBLTEN             &
-     &               ,RQIBLTEN=RQIBLTEN                               &
+     &               ,RTHBLTEN=RTHBLTEN,RQVBLTEN=RQVBLTEN             & !BSF
+     &               ,RQCBLTEN=RQCBLTEN,RQIBLTEN=RQIBLTEN             & !BSF
+!BSF &               ,RQRBLTEN=RQRBLTEN,RQSBLTEN=RQSBLTEN             & !BSF
+!BSF &               ,RQGBLTEN=RQGBLTEN                               & !BSF
      &               ,TSK=TSFC,XLAND=XLAND,ZNT=Z0,HT=SFCZ             &
-     &               ,UST=USTAR,PBLH=PBLH                             &
+     &               ,UST=USTAR,MIXHT=MIXHT,PBLH=PBLH                 &
      &               ,HFX=TWBS,QFX=QWBS,GRDFLX=GRNFLX                 &
      &               ,U_PHY=U_PHY,V_PHY=V_PHY,TH_PHY=TH_PHY,RHO=RR    &
      &               ,P_PHY=P_PHY,PI_PHY=PI_PHY,P8W=P8W,T_PHY=T_PHY   &
-     &               ,DZ8W=DZ,Z=Z,TKE_MYJ=TKE,EL_MYJ=EL_MYJ           &
-     &               ,EXCH_H=EXCH_H,AKHS=AKHS,AKMS=AKMS               &
+     &               ,DZ8W=DZ,Z=Z,TKE_MYJ=TKE,EL_MYJ=EL_MYJ,F=F       &
+     &               ,EXCH_H=EXCH_H,EXCH_M=EXCH_M,AKHS=AKHS,AKMS=AKMS &
      &               ,THZ0=THZ0,QZ0=QZ0,UZ0=UZ0H,VZ0=VZ0H             &
      &               ,QSFC=QS,LOWLYR=LOWLYR                           &
      &               ,PSIM=PSIM,PSIH=PSIH,GZ1OZ0=GZ1OZ0               &
@@ -1249,8 +1298,8 @@
                 ! Optional args
      &               ,QV_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QV),F_QV=F_QV &
      &               ,QC_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QC),F_QC=F_QC &
+     &               ,QI_CURR=MOIST_TRANS(IMS,KMS,JMS,PQ_I),F_QI=FQ_I &
      &               ,QR_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QR),F_QR=F_QR &
-     &               ,QI_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QI),F_QI=F_QI &
      &               ,QS_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QS),F_QS=F_QS &
      &               ,QG_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QG),F_QG=F_QG &
      &               ,HOL=HOL)
@@ -1324,8 +1373,9 @@
         DO I=MYIS,MYIE1
 !         TSHLTR(I,J)=TSHLTR(I,J)*(1.E5/PSHLTR(I,J))**RCP
           IF(TSHLTR(I,J)<200..OR.TSHLTR(I,J)>350.)THEN
-            WRITE(0,*)'Troublesome TSHLTR...I,J,TSHLTR,PSHLTR: '        &
+            WRITE(message,*)'Troublesome TSHLTR...I,J,TSHLTR,PSHLTR: '        &
                       ,I,J,TSHLTR(I,J),PSHLTR(I,J)
+            CALL wrf_message(trim(message))
           ENDIF
 	ENDDO
 	ENDDO
@@ -1398,6 +1448,44 @@
       ENDDO
       ENDDO
 !
+!=======================================================================
+!===  Begin gravity wave drag (GWD) and mountain blocking (MB)  ========
+!=======================================================================
+!
+      IGS=MYIS1
+      IGE=MYIE1
+      JGS=MYJS2
+      JGE=MYJE2
+!dbg !dbg
+!dbg kpblmin=100
+!dbg kpblmax=-100
+!dbg DO J=JGS,JGE
+!dbg   DO I=IGS,IGE
+!dbg     kpblmin=min(kpblmin,kpbl(i,j))
+!dbg     kpblmax=max(kpblmax,kpbl(i,j))
+!dbg   enddo
+!dbg enddo
+!dbg print *,'TURBL: IGS,IGE,JGS,JGE,kpblmin,kpblmax=',IGS,IGE,JGS,JGE,kpblmin,kpblmax
+!dbg
+!     CALL GWD_driver(U=U_PHY,V=V_PHY,T=T_PHY                           &
+!    &               ,Q=MOIST_TRANS(IMS,KMS,JMS,P_QV)                   &
+!    &               ,Z=Z,DP=DELP,PINT=P8W,PMID=P_PHY,EXNR=PI_PHY       &
+!    &               ,KPBL=KPBL,ITIME=NTSD                              &
+!    &               ,HSTDV=HSTDV,HCNVX=HCNVX,HASYW=HASYW,HASYS=HASYS   &
+!    &               ,HASYSW=HASYSW,HASYNW=HASYNW,HLENW=HLENW           &
+!    &               ,HLENS=HLENS,HLENSW=HLENSW,HLENNW=HLENNW           &
+!    &               ,HANGL=HANGL,HANIS=HANIS,HSLOP=HSLOP,HZMAX=HZMAX   &
+!    &               ,CROT=CROT,SROT=SROT                               &
+!    &               ,DUDT=DUDT_GWD,DVDT=DVDT_GWD                       &
+!    &               ,UGWDsfc=UGWDsfc,VGWDsfc=VGWDsfc                   &
+!    &               ,IDS=IDS,IDE=IDE,JDS=JDS,JDE=JDE,KDS=KDS,KDE=KDE   &
+!    &               ,IMS=IMS,IME=IME,JMS=JMS,JME=JME,KMS=KMS,KME=KME   &
+!    &               ,ITS=IGS,ITE=IGE,JTS=JGS,JTE=JGE,KTS=KTS,KTE=KTE )
+!
+!=======================================================================
+!=====  End gravity wave drag (GWD) and mountain blocking (MB)  ========
+!=======================================================================
+!
 !-----------------------------------------------------------------------
 !***  TRANSFER THE WIND TENDENCIES.
 !-----------------------------------------------------------------------
@@ -1407,10 +1495,12 @@
       DO I=ITS,ITE
         DUDT(I,J,K)=DUDT_PHY(I,K,J)
         DVDT(I,J,K)=DVDT_PHY(I,K,J)
+!       DUDT(I,J,K)=DUDT_PHY(I,K,J)+DUDT_GWD(I,K,J)
+!       DVDT(I,J,K)=DVDT_PHY(I,K,J)+DVDT_GWD(I,K,J)
       ENDDO
       ENDDO
       ENDDO
-!  
+!
 !-----------------------------------------------------------------------
 !***  TRANSPOSE THE MOIST_TRANS ARRAY BACK TO THE PROGNOSTIC MOIST ARRAY.
 !-----------------------------------------------------------------------
@@ -1450,38 +1540,38 @@
           RATIOMX=QOLD/(1.-QOLD)+DQDT*DTPHS
           Q(I,J,K)=RATIOMX/(1.+RATIOMX)
 !         Q(I,J,K)=MAX(Q(I,J,K),EPSQ)
-          QW=MAX(0.,MOIST(I,J,K,P_QC)+RQCBLTEN(I,K,J)*DTPHS )
+          MOIST(I,J,K,P_QV)=MAX(EPSQ,(MOIST(I,J,K,P_QV)+RQVBLTEN(I,K,J)*DTPHS) )
+          CWM(I,J,K)=0.
 !
-          IF(CONFIG_FLAGS%MP_PHYSICS==ETAMPNEW)THEN
-            QI=MAX(0.,MOIST(I,J,K,P_QS)+RQIBLTEN(I,K,J)*DTPHS )
+          IF(CONFIG_FLAGS%MP_PHYSICS/=ETAMPNEW)THEN
+            DO I_M=1,N_MOIST
+              IF(I_M==P_QC) THEN
+                MOIST(I,J,K,I_M)=MAX(EPSQ,(MOIST(I,J,K,I_M)+RQCBLTEN(I,K,J)*DTPHS) )
+              ELSE IF(I_M==P_QI) THEN
+                MOIST(I,J,K,I_M)=MAX(EPSQ,(MOIST(I,J,K,I_M)+RQIBLTEN(I,K,J)*DTPHS) )
+!BSF              ELSE IF(I_M==P_QS) THEN
+!BSF                MOIST(I,J,K,I_M)=MAX(EPSQ,(MOIST(I,J,K,I_M)+RQSBLTEN(I,K,J)*DTPHS) )
+!BSF              ELSE IF(I_M==P_QR) THEN
+!BSF                MOIST(I,J,K,I_M)=MAX(EPSQ,(MOIST(I,J,K,I_M)+RQRBLTEN(I,K,J)*DTPHS) )
+!BSF              ELSE IF(I_M==P_QG) THEN
+!BSF                MOIST(I,J,K,I_M)=MAX(EPSQ,(MOIST(I,J,K,I_M)+RQGBLTEN(I,K,J)*DTPHS) )
+              ENDIF
+              IF(I_M/=P_QV) CWM(I,J,K)=CWM(I,J,K)+MOIST(I,J,K,I_M)
+            ENDDO
           ELSE
-            QI=MAX(0.,MOIST(I,J,K,P_QI)+RQIBLTEN(I,K,J)*DTPHS )
-          ENDIF
 !
-          QR=MAX(0.,MOIST(I,J,K,P_QR) )
-!         CWM(I,J,K)=QW+QI+QR
-          CWM(I,J,K)=0. 
+!-- Allow vertical mixing to modify cloud ice + snow for ETAMPNEW
 !
-          DO I_M=1,N_MOIST
-            IF(I_M/=P_QV)THEN
-              CWM(I,J,K)=CWM(I,J,K)+MOIST(I,J,K,I_M)
-            ENDIF
-            IF(I_M==P_QV)THEN
-              MOIST(I,J,K,P_QV)=MAX(EPSQ,(MOIST(I,J,K,P_QV)+RQVBLTEN(I,K,J)*DTPHS) )
-            ELSEIF (I_M==P_QC)THEN
-              CWM(I,J,K)=MAX(0.,(CWM(I,J,K)+RQCBLTEN(I,K,J)*DTPHS))
-            ELSEIF(I_M==P_QI)THEN
-              CWM(I,J,K)=MAX(0.,(CWM(I,J,K)+RQIBLTEN(I,K,J)*DTPHS))
-            ENDIF
-          ENDDO
-!
-          MOIST(I,J,K,P_QC)=QW
-          MOIST(I,J,K,P_QR)=QR
-!
-          IF(CONFIG_FLAGS%MP_PHYSICS==ETAMPNEW)THEN
+            QW=MAX(0.,MOIST(I,J,K,P_QC)+RQCBLTEN(I,K,J)*DTPHS )
+            QI=MAX(0.,MOIST(I,J,K,P_QS)+RQIBLTEN(I,K,J)*DTPHS )  !-- Total ice
+!BSF            QR=MAX(0.,MOIST(I,J,K,P_QR)+RQRBLTEN(I,K,J)*DTPHS )
+            QR=MAX(0.,MOIST(I,J,K,P_QR) )
+            MOIST(I,J,K,P_QC)=QW
             MOIST(I,J,K,P_QS)=QI
+            MOIST(I,J,K,P_QR)=QR
+            CWM(I,J,K)=QW+QI+QR
 !
-            IF(QI<=EPSQ)THEN  
+            IF(QI<=EPSQ)THEN
               F_ICE(I,K,J)=0.
             ELSE
               F_ICE(I,K,J)=MAX(0.,MIN(1.,QI/CWM(I,J,K)))
@@ -1493,9 +1583,7 @@
               F_RAIN(I,K,J)=QR/(QW+QR)
             ENDIF
 !
-          ELSE
-            MOIST(I,J,K,P_QI)=QI
-          ENDIF
+          ENDIF     !-- IF(CONFIG_FLAGS%MP_PHYSICS/=ETAMPNEW)THEN
 !
           Q2(I,J,K)=2.*TKE(I,K,J)
         ENDDO
@@ -1553,29 +1641,29 @@
 !-----------------------------------------------------------------------
 !***********************************************************************
       SUBROUTINE UV_H_TO_V(NTSD,DT,NPHS,UZ0H,VZ0H,UZ0,VZ0               &
-     &                    ,DUDT,DVDT,U,V,HBM2,IVE,IVW                   & 
+     &                    ,DUDT,DVDT,U,V,HBM2,IVE,IVW                   &
      &                    ,IDS,IDE,JDS,JDE,KDS,KDE                      &
      &                    ,IMS,IME,JMS,JME,KMS,KME                      &
      &                    ,ITS,ITE,JTS,JTE,KTS,KTE)
 !***********************************************************************
 !$$$  SUBPROGRAM DOCUMENTATION BLOCK
-!                .      .    .     
+!                .      .    .
 ! SUBPROGRAM:    UV_H_TO_V   INTERPOLATE WINDS FROM H TO V POINTS
-!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 05-02-22       
-!     
+!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 05-02-22
+!
 ! ABSTRACT:
 !     INTERPOLATE WINDS BACK TO V POINTS AFTER TURBULENCE
-!     
+!
 ! PROGRAM HISTORY LOG :
 !   05-02-22  BLACK      - ORIGINATOR
 !   05-12-12  BLACK      - CONVERTED FROM IKJ TO IJK
-!     
+!
 ! USAGE: CALL TURBL FROM SOLVE_NMM
 !
 ! ATTRIBUTES:
 !   LANGUAGE: FORTRAN 90
 !   MACHINE : IBM
-!$$$  
+!$$$
 !-----------------------------------------------------------------------
 !
       IMPLICIT NONE
@@ -1683,7 +1771,7 @@
      &                 ,PREC,ACPREC,CUPREC,CUPPT,CPRATE                 &
      &                 ,SM,HBM2,LPBL,CNVBOT,CNVTOP                      &
      &                 ,HTOP,HBOT,HTOPD,HBOTD,HTOPS,HBOTS               &
-     &                 ,RTHBLTEN,RQVBLTEN,RTHRATEN                      & 
+     &                 ,RTHBLTEN,RQVBLTEN,RTHRATEN                      &
      &                 ,AVCNVC,ACUTIM,IHE,IHW                           &
      &                 ,GRID,CONFIG_FLAGS                               &
      &                 ,IDS,IDE,JDS,JDE,KDS,KDE                         &
@@ -1692,24 +1780,24 @@
      &                 ,ITS,ITE,JTS,JTE,KTS,KTE)
 !***********************************************************************
 !$$$  SUBPROGRAM DOCUMENTATION BLOCK
-!                .      .    .     
+!                .      .    .
 ! SUBPROGRAM:    CUCNVC      CONVECTIVE PRECIPITATION OUTER DRIVER
-!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 02-03-21       
-!     
+!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 02-03-21
+!
 ! ABSTRACT:
 !     CUCVNC DRIVES THE WRF CONVECTION SCHEMES
-!     
+!
 ! PROGRAM HISTORY LOG:
 !   02-03-21  BLACK      - ORIGINATOR
 !   04-11-18  BLACK      - THREADED
 !   05-12-15  BLACK      - CONVERTED FROM IKJ TO IJK
-!     
+!
 ! USAGE: CALL CUCNVC FROM SOLVE_NMM
 !
 ! ATTRIBUTES:
 !   LANGUAGE: FORTRAN 90
-!   MACHINE : IBM 
-!$$$  
+!   MACHINE : IBM
+!$$$
 !-----------------------------------------------------------------------
 !
       IMPLICIT NONE
@@ -1764,13 +1852,13 @@
      &                                                        ,U,V      &
      &                                                        ,W,Z
 !
-      REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(IN) :: PINT  
+      REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(IN) :: PINT
 !
       REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(INOUT) :: W0AVG
 !
       REAL,DIMENSION(IMS:IME,JMS:JME,1:ENSDIM),INTENT(INOUT) :: PR_ENS  &
      &                                                         ,XF_ENS
-!    
+!
       REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME,N_MOIST)                   &
      &                                           ,INTENT(INOUT) :: MOIST
 !
@@ -1822,10 +1910,12 @@
       LOGICAL :: RESTART,WARM_RAIN
       LOGICAL,DIMENSION(IMS:IME,JMS:JME) :: CU_ACT_FLAG
 !
+      CHARACTER(LEN=255) :: message
+!
 !-----------------------------------------------------------------------
 !***  FOR TEMPERATURE CHANGE CHECK ONLY.
 !-----------------------------------------------------------------------
-      INTEGER :: DTEMP_CHECK=1.0
+      INTEGER :: DTEMP_CHECK=2.0
       REAL :: TCHANGE
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -1833,7 +1923,7 @@
 !
 !-----------------------------------------------------------------------
 !***  RESET THE HBOT/HTOP CONVECTIVE CLOUD BOTTOM (BASE) AND TOP ARRAYS
-!***  USED IN RADIATION.  THEY STORE THE MAXIMUM VERTICAL LIMITS OF 
+!***  USED IN RADIATION.  THEY STORE THE MAXIMUM VERTICAL LIMITS OF
 !***  CONVECTIVE CLOUD BETWEEN RADIATION CALLS.  CUPPT IS THE ACCUMULATED
 !***  CONVECTIVE PRECIPITATION BETWEEN RADIATION CALLS.
 !-----------------------------------------------------------------------
@@ -1874,7 +1964,7 @@
       ENDIF
 !
 !-----------------------------------------------------------------------
-!***  GENERAL PREPARATION 
+!***  GENERAL PREPARATION
 !-----------------------------------------------------------------------
 !
       AVCNVC=AVCNVC+1.
@@ -1904,7 +1994,7 @@
 !
 !***  LPBL IS THE MODEL LAYER CONTAINING THE PBL TOP
 !***  COUNTING DOWNWARD FROM THE TOP OF THE DOMAIN
-!***  SO KPBL IS THE SAME LAYER COUNTING UPWARD FROM 
+!***  SO KPBL IS THE SAME LAYER COUNTING UPWARD FROM
 !***  THE GROUND.
 !
         KPBL(I,J)=KTE-LPBL(I,J)+1
@@ -2097,7 +2187,7 @@
      &                 ,CU_ACT_FLAG=CU_ACT_FLAG,WARM_RAIN=WARM_RAIN     &
      &                 ,STEPCU=NSTEP_CNV,GSW=GSW                        &
      &                 ,PERIODIC_X=.FALSE.,PERIODIC_Y=.FALSE.           &
-     &                 ,HTOP=CUTOP,HBOT=CUBOT,KPBL=KPBL,HT=SFCZ         &   
+     &                 ,HTOP=CUTOP,HBOT=CUBOT,KPBL=KPBL,HT=SFCZ         &
      &                 ,APR_GR=APR_GR,APR_W=APR_W,APR_MC=APR_MC         &
      &                 ,APR_ST=APR_ST,APR_AS=APR_AS,APR_CAPMA=APR_CAPMA &
      &                 ,APR_CAPME=APR_CAPME,APR_CAPMI=APR_CAPMI         &
@@ -2112,8 +2202,8 @@
      &                 ,RTHCUTEN=RTHCUTEN,RQVCUTEN=RQVCUTEN             &
      &                 ,RQCCUTEN=RQCCUTEN,RQRCUTEN=RQRCUTEN             &
      &                 ,RQICUTEN=RQICUTEN,RQSCUTEN=RQSCUTEN             &
-     &                 ,RTHBLTEN=RTHBLTEN,RQVBLTEN=RQVBLTEN             & 
-     &                 ,RTHRATEN=RTHRATEN                               & 
+     &                 ,RTHBLTEN=RTHBLTEN,RQVBLTEN=RQVBLTEN             &
+     &                 ,RTHRATEN=RTHRATEN                               &
                   ! Selection argument
      &                 ,CU_PHYSICS=CONFIG_FLAGS%CU_PHYSICS              &
                   ! Moisture tracer arguments
@@ -2126,10 +2216,10 @@
 !
 !-----------------------------------------------------------------------
 !
-!***  CNVTOP/CNVBOT HOLD THE MAXIMUM VERTICAL LIMITS OF CONVECTIVE CLOUD 
+!***  CNVTOP/CNVBOT HOLD THE MAXIMUM VERTICAL LIMITS OF CONVECTIVE CLOUD
 !***  BETWEEN HISTORY OUTPUT TIMES.  HBOTS/HTOPS STORE SIMILIAR INFORMATION
 !***  FOR SHALLOW (NONPRECIPITATING) CONVECTION, AND HBOTD/HTOPD ARE FOR
-!***  DEEP (PRECIPITATING) CONVECTION.  
+!***  DEEP (PRECIPITATING) CONVECTION.
 !
       CF_HI=CONFIG_FLAGS%HISTORY_INTERVAL
       N_TIMSTPS_OUTPUT=NINT(60.*CF_HI/DT)
@@ -2176,7 +2266,7 @@
           CUTOP(I,J)=MAX(CUTOP(I,J),0.0)
           CUBOT(I,J)=MIN(CUBOT(I,J),REAL(KDE))
           CUBOT(I,J)=MAX(CUBOT(I,J),0.0)
- 
+
           NCUTOP=NINT(CUTOP(I,J))
           NCUBOT=NINT(CUBOT(I,J))
 !
@@ -2243,8 +2333,9 @@
 !
           TCHANGE=DTDT*DTCNVC
 	  IF(ABS(TCHANGE)>DTEMP_CHECK)THEN
-            WRITE(0,*)'BIG T CHANGE BY CONVECTION=',TCHANGE             &
+            WRITE(message,*)'BIG T CHANGE BY CONVECTION=',TCHANGE             &
                      ,' AT (',I,',',J,',',K,') FOR NTSD=',NTSD
+            CALL wrf_message(trim(message))
 	  ENDIF
 !
         ENDDO
@@ -2292,24 +2383,24 @@
      &                   ,ITS,ITE,JTS,JTE,KTS,KTE)
 !***********************************************************************
 !$$$  SUBPROGRAM DOCUMENTATION BLOCK
-!                .      .    .     
+!                .      .    .
 ! SUBPROGRAM:    GSMDRIVE    MICROPHYSICS OUTER DRIVER
-!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 02-03-26       
-!     
+!   PRGRMMR: BLACK           ORG: W/NP22     DATE: 02-03-26
+!
 ! ABSTRACT:
 !     GSMDRIVE DRIVES THE MICROPHYSICS SCHEMES
-!     
+!
 ! PROGRAM HISTORY LOG:
 !   02-03-26  BLACK      - ORIGINATOR
 !   04-11-18  BLACK      - THREADED
 !   05-12-19  BLACK      - CONVERTED FROM IKJ TO IJK
-!     
+!
 ! USAGE: CALL GSMDRIVE FROM SOLVE_NMM
 !
 ! ATTRIBUTES:
 !   LANGUAGE: FORTRAN 90
 !   MACHINE : IBM
-!$$$  
+!$$$
 !-----------------------------------------------------------------------
 !
       IMPLICIT NONE

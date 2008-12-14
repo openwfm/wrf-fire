@@ -13,13 +13,13 @@ CONTAINS
                  ,ust,pblh,hfx,qfx,grdflx                          &
                  ,u_phy,v_phy,th_phy,rho                           &
                  ,p_phy,pi_phy,p8w,t_phy,dz8w,z                    &
-                 ,tke_myj,el_myj,exch_h,akhs,akms                  &
-                 ,thz0,qz0,uz0,vz0,qsfc                            &
+                 ,tke_myj,el_myj,exch_h,exch_m,akhs,akms                  &
+                 ,thz0,qz0,uz0,vz0,qsfc,f                          &
                  ,lowlyr,u10,v10                                   &
                  ,psim,psih,gz1oz0, wspd,br,chklowq                &
                  ,bl_pbl_physics, ra_lw_physics, dx                &
                  ,stepbl,warm_rain                                 &
-                 ,kpbl,ct,lh,snow,xice                             &
+                 ,kpbl,mixht,ct,lh,snow,xice                       &
                  ,znu, znw, mut, p_top                             &
                  ,ids,ide, jds,jde, kds,kde                        &
                  ,ims,ime, jms,jme, kms,kme                        &
@@ -37,13 +37,14 @@ CONTAINS
                                                                    )
 !------------------------------------------------------------------
    USE module_state_description, ONLY :                            &
-                   YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME
+                   YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME,QNSEPBLSCHEME
 
    USE module_model_constants
 
 ! *** add new modules of schemes here
 
    USE module_bl_myjpbl
+   USE module_bl_qnsepbl
    USE module_bl_ysu
    USE module_bl_mrf
    USE module_bl_gfs
@@ -54,6 +55,7 @@ CONTAINS
    !  pbl scheme:
    !      1. ysupbl
    !      2. myjpbl
+   !      4. qnsepbl
    !      7.  acmpbl
    !      99. mrfpbl
    !
@@ -233,6 +235,7 @@ CONTAINS
                                                             PSIH, &
                                                           GZ1OZ0, &
                                                               BR, &
+                                                               F, &
                                                          CHKLOWQ
 !
    REAL,       DIMENSION( ims:ime, jms:jme )                    , &
@@ -245,6 +248,7 @@ CONTAINS
                                                             QSFC, &
                                                             AKHS, &
                                                             AKMS, &
+                                                           MIXHT, &   
                                                              QZ0, &
                                                             THZ0, &
                                                              UZ0, &
@@ -260,7 +264,7 @@ CONTAINS
                INTENT(INOUT)    ::                       RUBLTEN, &
                                                          RVBLTEN, &
                                                         RTHBLTEN, &
-                                                  EXCH_H,TKE_MYJ
+                                                  EXCH_H,EXCH_M,TKE_MYJ
 !
    REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
                INTENT(OUT)    ::                          EL_MYJ
@@ -351,8 +355,6 @@ CONTAINS
 
   if (bl_pbl_physics .eq. 0) return
 ! RAINBL in mm (Accumulation between PBL calls)
-
-
 !
 ! Modified for adaptive time step
 !
@@ -574,13 +576,43 @@ CONTAINS
              CALL myjpbl(                                           &
                DT=dt,STEPBL=stepbl,HT=ht,DZ=dz8w                    &
               ,PMID=p_phy,PINT=p8w,TH=th_phy,T=t_phy,EXNER=pi_phy   &
-              ,QV=qv_curr, CWM=qc_curr                               &
+              ,QV=qv_curr,QCW=qc_curr,QCI=qi_curr,QCS=qs_curr       & !BSF
+              ,QCR=qr_curr,QCG=qg_curr                              & !BSF
               ,U=u_phy,V=v_phy,RHO=rho                              &
               ,TSK=tsk,QSFC=qsfc,CHKLOWQ=chklowq,THZ0=thz0          &
               ,QZ0=qz0,UZ0=uz0,VZ0=vz0                              &
               ,LOWLYR=lowlyr                                        &
               ,XLAND=xland,SICE=xice,SNOW=snow                      &
               ,TKE_MYJ=tke_myj,EXCH_H=exch_h,USTAR=ust,ZNT=znt      &
+              ,EL_MYJ=el_myj,PBLH=pblh,KPBL=kpbl,CT=ct              &
+              ,AKHS=akhs,AKMS=akms,ELFLX=lh,MIXHT=mixht             &  
+              ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
+              ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten                  &
+              ,RQIBLTEN=rqiblten,RQSBLTEN=rqsblten                  & !BSF
+              ,RQRBLTEN=rqrblten,RQGBLTEN=rqgblten                  & !BSF
+              ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde      &
+              ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme      &
+              ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
+                                                                    )
+           ELSE
+               CALL wrf_error_fatal('Lack arguments to call MYJ pbl')
+           ENDIF
+ 
+      CASE (QNSEPBLSCHEME)
+           IF ( PRESENT( qv_curr )  .AND. PRESENT( qc_curr )  .AND. &
+                PRESENT( rqvblten ) .AND. PRESENT( rqcblten ) .AND. &
+                                                        .TRUE.  ) THEN
+             CALL wrf_debug(100,'in QNSEPBL')
+             CALL qnsepbl(                                           &
+               DT=dt,STEPBL=stepbl,HT=ht,DZ=dz8w                    &
+              ,PMID=p_phy,PINT=p8w,TH=th_phy,T=t_phy,EXNER=pi_phy   &
+              ,QV=qv_curr, CWM=qc_curr                              &
+              ,U=u_phy,V=v_phy,RHO=rho                              &
+              ,TSK=tsk,QSFC=qsfc,CHKLOWQ=chklowq,THZ0=thz0          &
+              ,QZ0=qz0,UZ0=uz0,VZ0=vz0,CORF=f                       &
+              ,LOWLYR=lowlyr                                        &
+              ,XLAND=xland,SICE=xice,SNOW=snow                      &
+              ,TKE=tke_myj,EXCH_H=exch_h,EXCH_M=exch_m,USTAR=ust,ZNT=znt      &
               ,EL_MYJ=el_myj,PBLH=pblh,KPBL=kpbl,CT=ct              &
               ,AKHS=akhs,AKMS=akms,ELFLX=lh                         &
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
@@ -590,9 +622,8 @@ CONTAINS
               ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
                                                                     )
            ELSE
-               CALL wrf_error_fatal('Lack arguments to call MYJ pbl')
+               CALL wrf_error_fatal('Lack arguments to call QNSE pbl')
            ENDIF
- 
       CASE (ACMPBLSCHEME)
            
            !!  These are values that are not supplied to pbl driver, but are required by ACM
