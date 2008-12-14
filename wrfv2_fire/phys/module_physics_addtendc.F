@@ -405,6 +405,30 @@ SUBROUTINE phy_bl_ten(config_flags,rk_step,n_moist,n_scalar,     &
                 ims, ime, jms, jme, kms, kme,                    &
                 its, ite, jts, jte, kts, kte                     )
 
+      CASE (QNSEPBLSCHEME)
+
+           CALL add_a2a(rt_tendf,RTHBLTEN,config_flags,          &
+                ids,ide, jds, jde, kds, kde,                     &
+                ims, ime, jms, jme, kms, kme,                    &
+                its, ite, jts, jte, kts, kte                     )
+
+           CALL add_a2c_u(ru_tendf,RUBLTEN,config_flags,         &
+                ids,ide, jds, jde, kds, kde,                     &
+                ims, ime, jms, jme, kms, kme,                    &
+                its, ite, jts, jte, kts, kte                     )
+
+           CALL add_a2c_v(rv_tendf,RVBLTEN,config_flags,         &
+                ids,ide, jds, jde, kds, kde,                     &
+                ims, ime, jms, jme, kms, kme,                    &
+                its, ite, jts, jte, kts, kte                     )
+
+        if (P_QV .ge. PARAM_FIRST_SCALAR)                                         &
+           CALL add_a2a(moist_tendf(ims,kms,jms,P_QV),RQVBLTEN,  &
+                config_flags,                                    &
+                ids,ide, jds, jde, kds, kde,                     &
+                ims, ime, jms, jme, kms, kme,                    &
+                its, ite, jts, jte, kts, kte                     )
+
        IF(.not. adv_moist_cond)THEN
 
         if (P_QT .ge. PARAM_FIRST_SCALAR)                                         &
@@ -773,7 +797,7 @@ SUBROUTINE phy_fr_ten(config_flags,rk_step,n_moist,            &
                       its, ite, jts, jte, kts, kte               )
 !-----------------------------------------------------------------
    USE module_state_description, ONLY :                         &
-                   FIRE_CAWFE
+                   FIRE_SFIRE
 !-----------------------------------------------------------------
    IMPLICIT NONE
 !-----------------------------------------------------------------
@@ -806,9 +830,7 @@ SUBROUTINE phy_fr_ten(config_flags,rk_step,n_moist,            &
 
    SELECT CASE(config_flags%ifire)
 
-      CASE (FIRE_CAWFE,FIRE_SFIRE,FIRE_SFIRED)
-! Jan Mandel added FIRE_SFIRE Nov 17 2007
-! Jan Mandel added FIRE_SFIRED Nov 17 2007
+      CASE (FIRE_SFIRE)
 
            CALL add_a2a(rt_tendf,rthfrten,                       &
                 config_flags,                                    &

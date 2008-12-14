@@ -48,6 +48,7 @@ dimspec    k      2     standard_domain              z          bottom_top
 dimspec    l      2     namelist=num_soil_layers     z          soil_layers
 dimspec    u      2     namelist=num_land_cat        z          land_cat
 dimspec    s      2     namelist=num_soil_cat        z          soil_cat
+dimspec    |      2     namelist=num_force_layers    z          force_layers
 dimspec    p      -     constant=7501                c          microphysics_rstrt_state
 dimspec    w      -     namelist=spec_bdy_width      c          spec_bdy_width
 dimspec    e      3     namelist=ensdim              z          ensemble dimension
@@ -153,6 +154,9 @@ state    real   ru_m           ikj     dyn_em      1         X      -        "ru
 state    real   ru_tend        ikj     dyn_em      1         X      -        "ru_tend"        ""   ""                                   
 i1       real   ru_tendf       ikj     dyn_em      1         X                                          
 state    real   u_save         ikj     dyn_em      1         X      -        "u_save"
+state    real   z_force        |       dyn_em      1         -      i3rh     "Z_FORCE" "height of forcing input" "m"
+state    real   u_g            |       dyn_em      1         -      i3rh     "U_G" "x-direction geostrophic wind" "m s-1"
+state    real   u_g_tend       |       dyn_em      1         -      i3rh     "U_G_TEND" "tendency x-direction geostrophic wind" "m s-1"
 #                                               
 # V Vel
 state    real   v              ikjb     dyn_em      2         Y     \
@@ -162,6 +166,8 @@ state    real   rv_m           ikj     dyn_em      1         Y      -        "rv
 state    real   rv_tend        ikj     dyn_em      1         Y      -        "rv_tend"
 i1       real   rv_tendf       ikj     dyn_em      1         Y                                          
 state    real   v_save         ikj     dyn_em      1         Y      -        "v_save"                   
+state    real   v_g            |       dyn_em      1         -      i3rh     "V_G" "y-direction geostrophic wind" "m s-1"
+state    real   v_g_tend       |       dyn_em      1         -      i3rh     "V_G_TEND" "tendency y-direction geostrophic wind" "m s-1"
 #                                               
 # Vertical Vel                                          
 state    real   w              ikjb     dyn_em      2         Z     \
@@ -174,6 +180,8 @@ i1       real   wwp            ikj     dyn_em      1         Z
 i1       real   rw_tend        ikj     dyn_em      1         Z                                          
 i1       real   rw_tendf       ikj     dyn_em      1         Z                                          
 i1       real   w_save         ikj     dyn_em      1         Z                                          
+state    real   w_subs         |       dyn_em      1         -      i3rh      "W_SUBS" "large-scale vertical velocity" "m s-1"
+state    real   w_subs_tend    |       dyn_em      1         -      i3rh      "W_SUBS_TEND" "tendency large-scale vertical velocity" "m s-1"
 
 # Geopotential
 state    real   ph             ikjb     dyn_em      2         Z     \
@@ -196,6 +204,26 @@ i1       real   t_tendf        ikj     dyn_em      1         -
 state    real   tp             ikj     dyn_em      2         -  
 i1       real   t_2save        ikj     dyn_em      1         -   
 state    real   t_save         ikj     dyn_em      1         -               "t_save"
+
+state    real   th_upstream_x       |     dyn_em      1      -      i3rh     "TH_UPSTREAM_X" "upstream theta x-advection" "K s-1"
+state    real   th_upstream_x_tend  |     dyn_em      1      -      i3rh     "TH_UPSTREAM_X_TEND" "tendency upstream theta x-advection" "K s-2"
+state    real   th_upstream_y       |     dyn_em      1      -      i3rh     "TH_UPSTREAM_Y" "upstream theta y-advection" "K s-1"
+state    real   th_upstream_y_tend  |     dyn_em      1      -      i3rh     "TH_UPSTREAM_Y_TEND" "tendency upstream theta y-advection" "K s-2"
+
+state    real   qv_upstream_x       |     dyn_em      1      -      i3rh     "QV_UPSTREAM_X" "upstream qv x-advection" "kg kg-1 s-1"
+state    real   qv_upstream_x_tend  |     dyn_em      1      -      i3rh     "QV_UPSTREAM_X_TEND" "tendency upstream qv x-advection" "kg kg-1 s-2"
+state    real   qv_upstream_y       |     dyn_em      1      -      i3rh     "QV_UPSTREAM_Y" "upstream qv y-advection" "kg kg-1 s-1"
+state    real   qv_upstream_y_tend  |     dyn_em      1      -      i3rh     "QV_UPSTREAM_Y_TEND" "tendency upstream qv y-advection" "kg kg-1 s-2"
+
+state    real   u_upstream_x        |     dyn_em      1      -      i3rh     "U_UPSTREAM_X" "upstream u x-advection" "m s-2"
+state    real   u_upstream_x_tend   |     dyn_em      1      -      i3rh     "U_UPSTREAM_X_TEND" "tendency upstream u x-advection" "m s-3"
+state    real   u_upstream_y        |     dyn_em      1      -      i3rh     "U_UPSTREAM_Y" "upstream u y-advection" "m s-2"
+state    real   u_upstream_y_tend   |     dyn_em      1      -      i3rh     "U_UPSTREAM_Y_TEND" "tendency upstream u y-advection" "m s-3"
+
+state    real   v_upstream_x        |     dyn_em      1      -      i3rh     "V_UPSTREAM_X" "upstream v x-advection" "m s-2"
+state    real   v_upstream_x_tend   |     dyn_em      1      -      i3rh     "V_UPSTREAM_X_TEND" "tendency upstream v x-advection" "m s-3"
+state    real   v_upstream_y        |     dyn_em      1      -      i3rh     "V_UPSTREAM_Y" "upstream v y-advection" "m s-2"
+state    real   v_upstream_y_tend   |     dyn_em      1      -      i3rh     "V_UPSTREAM_Y_TEND" "tendency upstream v y-advection" "m s-3"
 #
 
 
@@ -595,7 +623,7 @@ state    real   KEEPFR3DFLAG     ilj    misc        1         Z      r        "K
 # Additional for P-X PBL and LSM
 state    real   RA               ij     misc        1         -      r        "RA"           "AERODYNAMIC RESISTANCE"   "s m-1"
 state    real   RS               ij     misc        1         -      r        "RS"           "SURFACE RESISTANCE"       "s m-1"
-state    real   LAI              ij     misc        1         -      r        "LAI"          "Leaf area index"          "area/area"
+state    real   LAI              ij     misc        1         -      i0124rh       "LAI"          "Leaf area index"          "area/area"
 state    real   VEGF_PX          ij     misc        1         -      r        "VEGF_PX"      "Vegetation Fraction for PX LSM"    "area/area"
 state    real   T2OBS            ij     misc        1         -      r        "T2OBS"        "2-m temperature from analysis "          "K"
 state    real   Q2OBS            ij     misc        1         -      r        "Q2OBS"        "2-m mixing ratio from analysis "         "kg/kg"
@@ -611,9 +639,10 @@ i1      real   BR             ij     misc        1         -     -         "BR" 
 state    real   tke_myj        ikj     misc        1         -      r        "tke_myj"               "TKE FROM MELLOR-YAMADA-JANJIC"      "m2 s-2"
 state    real   EL_MYJ          ikj     misc        1         -     -        "el_myj"                "MIXING LENGTH FROM MELLOR-YAMADA-JANJIC"     "m"
 state    real   EXCH_H          ikj     misc        1         -     r          "EXCH_H"               "EXCHANGE COEFFICIENTS "
+state    real   EXCH_M          ikj     misc        1         -     r          "EXCH_M"               "EXCHANGE COEFFICIENTS "
 state    real  CT              ij      misc        1         -      r        "CT"                    "COUNTERGRADIENT TERM"    "K"
 state   real   THZ0             ij     misc        1         -      r        "THZ0"                  "POTENTIAL TEMPERATURE AT ZNT"                 "K"
-state    real  Z0               ij     misc        1         -      r        "Z0"                    "Background ROUGHNESS LENGTH"                  "m"
+state    real  Z0               ij     misc        1         -     rh        "Z0"                    "Background ROUGHNESS LENGTH"                  "m"
 state   real   QZ0              ij     misc        1         -      r        "QZ0"                   "SPECIFIC HUMIDITY AT ZNT"                     "kg kg-1"
 state   real   UZ0              ij     misc        1         -      r        "UZ0"                   "U WIND COMPONENT AT ZNT"                      "m s-1"
 state   real   VZ0              ij     misc        1         -      r        "VZ0"                   "V WIND COMPONENT AT ZNT"                      "m s-1"
@@ -857,7 +886,8 @@ state    real  CLONG            ij      misc        1         -     i012rdu=(cop
 state    real  ALBBCK           ij      misc        1         -     i0124rh   "ALBBCK"                "BACKGROUND ALBEDO"        ""
 state    real  EMBCK            ij      misc        1         -      r        "EMBCK"                 "BACKGROUND EMISSIVITY"         ""
 state    real  EMISS            ij      misc        1         -      rh       "EMISS"                 "SURFACE EMISSIVITY"         "" 
-
+state    real  SNOTIME          ij      misc        1         -      r        "SNOTIME"               "SNOTIME"         "" 
+state    real  NOAHRES          ij      misc        1         -      h        "NOAHRES"               "RESIDUAL OF THE NOAH SURFACE ENERGY BUDGET" "W m{-2}"
 state    real  CLDEFI           ij      misc        1         -      r        "CLDEFI"                "precipitation efficiency in BMJ SCHEME"    ""      
 state integer  STEPRA          -        misc        1         -      r        "STEPRA"                "NUMBER OF FUNDAMENTAL TIMESTEPS BETWEEN RADIATION CALLS"        ""
                                                 
@@ -955,6 +985,7 @@ state   real    div            ikj      misc        1         -     r         "d
 state   real    BN2            ikj      misc        1         -     r         "BN2"                   "BRUNT-VAISALA FREQUENCY"                                         "s-2"
 state  logical warm_rain        -       misc        1         -     -         "warm_rain"              "WARM_RAIN_LOGICAL"
 state  logical adv_moist_cond   -       misc        1         -     -         "adv_moist_cond"         "ADVECT MOIST CONDENSATES LOGICAL"
+state  integer save_topo_from_real -    dyn_em	    1         -    irh        "save_topo_from_real"    "(1=original topo from real/0=topo modified by WRF) flag if input has original topography from real"      "flag"
 
 ## FDDA variables
 
@@ -977,13 +1008,30 @@ state    real  Q_NDG_OLD         ikjf     fdda3d      1         -      igr      
 state    real  PH_NDG_OLD        ikjf     fdda3d      1         Z      igr      "PH_NDG_OLD"              "OLD PERT GEOPOTENTIAL FOR FDDA GRID NUDGING"  "kg/kg"
 state    real    -               ivjf     fdda2d      1         Z     -    -
 state    real  MU_NDG_NEW        ivjf     fdda2d      1         Z      igr      "MU_NDG_NEW"              "NEW PERT COLUMN DRY MASS FOR FDDA GRID NUDGING"  "Pa"
-state    real  T2_NDG_NEW        ivjf     fdda2d      1         -      igr      "T2_NDG_NEW"               "NEW 2m TEMP FOR PX LSM "  "K"
-state    real  Q2_NDG_NEW        ivjf     fdda2d      1         -      igr      "Q2_NDG_NEW"               "NEW 2m WATER VAPOR MIX RATIO FOR PX LSM "  "kg/kg"
 state    real  MU_NDG_OLD        ivjf     fdda2d      1         Z      igr      "MU_NDG_OLD"              "OLD PERT COLUMN DRY MASS FOR FDDA GRID NUDGING"  "Pa"
-state    real  T2_NDG_OLD        ivjf     fdda2d      1         -      igr      "T2_NDG_OLD"               "OLD 2m TEMP F FOR PX LSM"  "K"
-state    real  Q2_NDG_OLD        ivjf     fdda2d      1         -      igr      "Q2_NDG_OLD"               "OLD 2m WATER VAPOR MIX RATIO  FOR PX LSM"  "kg/kg"
-state    real  SN_NDG_NEW        ivjf     fdda2d      1         -      igr      "SN_NDG_NEW"               "NEW Snow Depth "  "m"
-state    real  SN_NDG_OLD        ivjf     fdda2d      1         -      igr      "SN_NDG_OLD"               "OLD Snow Depth"  "m"
+state    real    -               ivjf    sfdda2d      1         -     -    -
+state    real  U10_NDG_OLD       ivjf    sfdda2d      1         X      i9r      "U10_NDG_OLD"             "OLD U10 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  U10_NDG_NEW       ivjf    sfdda2d      1         X      i9r      "U10_NDG_NEW"             "NEW U10 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  V10_NDG_OLD       ivjf    sfdda2d      1         Y      i9r      "V10_NDG_OLD"             "OLD V10 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  V10_NDG_NEW       ivjf    sfdda2d      1         Y      i9r      "V10_NDG_NEW"             "NEW V10 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  T2_NDG_OLD        ivjf    sfdda2d      1         -      i9r      "T2_NDG_OLD"              "OLD T2 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  T2_NDG_NEW        ivjf    sfdda2d      1         -      i9r      "T2_NDG_NEW"              "NEW T2 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  TH2_NDG_OLD       ivjf    sfdda2d      1         -      i9r      "TH2_NDG_OLD"             "OLD TH2 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  TH2_NDG_NEW       ivjf    sfdda2d      1         -      i9r      "TH2_NDG_NEW"             "NEW TH2 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  Q2_NDG_OLD        ivjf    sfdda2d      1         -      i9r      "Q2_NDG_OLD"              "OLD Q2 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  Q2_NDG_NEW        ivjf    sfdda2d      1         -      i9r      "Q2_NDG_NEW"              "NEW Q2 FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  RH_NDG_OLD        ivjf    sfdda2d      1         -      i9r      "RH_NDG_OLD"              "OLD RH FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  RH_NDG_NEW        ivjf    sfdda2d      1         -      i9r      "RH_NDG_NEW"              "NEW RH FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  PSL_NDG_OLD       ivjf    sfdda2d      1         -      i9r      "PSL_NDG_OLD"             "OLD PSL FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  PSL_NDG_NEW       ivjf    sfdda2d      1         -      i9r      "PSL_NDG_NEW"             "NEW PSL FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  PS_NDG_OLD        ivjf    sfdda2d      1         -      i9r      "PS_NDG_OLD"              "OLD PS FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  PS_NDG_NEW        ivjf    sfdda2d      1         -      i9r      "PS_NDG_NEW"              "NEW PS FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  TOB_NDG_OLD       ivjf    sfdda2d      1         -      i9r      "TOB_NDG_OLD"             "OLD TOB FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  ODIS_NDG_OLD      ivjf    sfdda2d      1         -      i9r      "ODIS_NDG_OLD"            "OLD ODIS FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  TOB_NDG_NEW       ivjf    sfdda2d      1         -      i9r      "TOB_NDG_NEW"             "NEW TOB FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  ODIS_NDG_NEW      ivjf    sfdda2d      1         -      i9r      "ODIS_NDG_NEW"            "NEW ODIS FOR SURFACE FDDA GRID NUDGING"  "m s-1"
+state    real  SN_NDG_NEW        ivjf    sfdda2d      1         -      i9r      "SN_NDG_NEW"               "NEW Snow Depth "  "m"
+state    real  SN_NDG_OLD        ivjf    sfdda2d      1         -      i9r      "SN_NDG_OLD"               "OLD Snow Depth"  "m"
 
 
 # flag for nest movement
@@ -1202,6 +1250,8 @@ rconfig   integer sst_skin                namelist,physics      1            0  
 rconfig   integer tmn_update              namelist,physics      1            0         h    "tmn_update" "update tmn from calculation  0=no, 1=yes"   ""
 rconfig   integer ucmcall                 namelist,physics      max_domains  0         h    "ucmcall"     "activate urban model  0=no, 1=yes"   ""
 rconfig   logical usemonalb               namelist,physics      1            .false.   h    "usemonalb"   "use 2d field vs table values  false=table, True=2d"   ""
+rconfig   logical rdmaxalb                namelist,physics      1            .true.    h     "rdmaxalb"    "false set it to table values"   ""
+rconfig   logical rdlai2d                 namelist,physics      1            .false.   h     "rdlai2d"     "false set it to table values"   ""
 rconfig   integer co2tf                   namelist,physics	1            1         -    "co2tf" "GFDL radiation co2 flag" ""
 rconfig   integer ra_call_offset          namelist,physics	1            0         -    "ra_call_offset" "radiation call offset in timesteps (-1=old, 0=new offset)" ""
 rconfig   real    cam_abs_freq_s          namelist,physics      1         21600.      -      "cam_abs_freq_s" "CAM radiation frequency for clear-sky longwave calculations" "s"
@@ -1226,6 +1276,7 @@ rconfig   real    bucket_J                namelist,physics      1             -1
 #FDDA namelist parameters
 rconfig   real    FGDT                    namelist,fdda         max_domains    0       h        "FGDT"          ""      ""
 rconfig   integer  grid_fdda              namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
+rconfig   integer  grid_sfdda             namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
 rconfig   integer  if_no_pbl_nudging_uv   namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
 rconfig   integer  if_no_pbl_nudging_t    namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
 rconfig   integer  if_no_pbl_nudging_q    namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
@@ -1236,10 +1287,14 @@ rconfig   integer   k_zfac_t              namelist,fdda         max_domains    0
 rconfig   integer  if_zfac_q              namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
 rconfig   integer   k_zfac_q              namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
 rconfig   real        guv                 namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
+rconfig   real        guv_sfc             namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
 rconfig   real        gt                  namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
+rconfig   real        gt_sfc              namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
 rconfig   real        gq                  namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
+rconfig   real        gq_sfc              namelist,fdda         max_domains    0       rh       "grid_fdda"            ""      ""
 rconfig   real    dtramp_min              namelist,fdda         1              0       h        "grid_fdda"            ""      ""
 rconfig   integer if_ramping              namelist,fdda         1              0       h        "grid_fdda"            ""      ""
+rconfig   real    rinblw                  namelist,fdda         1              0       h        "grid_fdda"            ""      ""
 
 #Observational Nudging
 rconfig   integer     obs_nudge_opt       namelist,fdda            max_domains    0       rh       "obs_nudge_opt"     "Obs-nudging flag for domain"          ""
@@ -1267,6 +1322,20 @@ rconfig   logical     obs_ipf_errob       namelist,fdda            1            
 rconfig   logical     obs_ipf_nudob       namelist,fdda            1              .false. h        "obs_ipf_nudob"     "Print obs nudge diagnostics"   ""
 rconfig   logical     obs_ipf_init        namelist,fdda            1              .true.  h        "obs_ipf_init"      "Enable obs init warning messages"   ""
 
+# Single-column model (SCM)
+rconfig   integer scm_force               namelist,scm  1       0           rh   "scm_force"            "SCM forcing switch" ""
+rconfig   real    scm_force_dx            namelist,scm  1       4000.       rh   "scm_force_dx"         "DX for SCM forcing" "m"
+rconfig   integer num_force_layers        namelist,scm  1       8           rh   "num_force_layers"     "Number of SCM forcing layers" ""
+rconfig   integer scm_lu_index            namelist,scm  1       2           rh   "scm_lu_index"         "SCM landuse index" ""
+rconfig   integer scm_isltyp              namelist,scm  1       4           rh   "scm_isltyp"           "SCM soil category" ""
+rconfig   real    scm_vegfra              namelist,scm  1       0.5         rh   "scm_vegfra"           "SCM vegetation fraction" ""
+rconfig   integer scm_canwat              namelist,scm  1       0.0         rh   "scm_canwat"           "SCM canopy water" "kg m-2"
+rconfig   real    scm_lat                 namelist,scm  1        36.605     rh   "scm_lat"              "SCM latitude" "degrees"
+rconfig   real    scm_lon                 namelist,scm  1       -97.485     rh   "scm_lon"              "SCM longitude" "degrees"
+rconfig   logical scm_th_adv              namelist,scm  1       .true.      rh   "scm_th_adv"           "Turn on theta advection in SCM"      ""
+rconfig   logical scm_wind_adv            namelist,scm  1       .true.      rh   "scm_wind_adv"         "Turn on wind advection in SCM"      ""
+rconfig   logical scm_qv_adv              namelist,scm  1       .true.      rh   "scm_qv_adv"           "Turn on qv advection in SCM"      ""
+rconfig   logical scm_vert_adv            namelist,scm  1       .true.      rh   "scm_vert_adv"         "Turn on vertical advection in SCM"      ""
 
 # Dynamics
 # dynamics option (see package definitions, below)
@@ -1356,7 +1425,9 @@ rconfig   real    truelat2                derived                  max_domains  
 rconfig   real    moad_cen_lat            derived                  max_domains    0       -        "moad_cen_lat"             "center latitude of the most coarse grid"      "degrees, negative is south"
 rconfig   real    stand_lon               derived                  max_domains    0       -        "stand_lon"             "standard longitude, parallel to j-direction, perpendicular to i-direction "      "degrees, negative is west"
 rconfig   real    bdyfrq                  derived                  max_domains    0       -        "bdyfrq"               "lateral boundary input frequency"      "seconds"
+rconfig   character mminlu                derived                  max_domains    0       -        "mminlu"               "land use dataset"             ""
 rconfig   integer iswater                 derived                  max_domains    0       -        "iswater"              "land use index of water"      "index category"
+rconfig   integer islake                  derived                  max_domains    0       -        "islake"               "land use index of inland lake"      "index category"
 rconfig   integer isice                   derived                  max_domains    0       -        "isice"                "land use index of ice"        "index category"
 rconfig   integer isurban                 derived                  max_domains    0       -        "isurban"              "land use index for 'urban and built-up"     "index category"
 rconfig   integer isoilwater              derived                  max_domains    0       -        "isoilwater"           "land use index of water for soil"        "index category"
@@ -1417,6 +1488,7 @@ package   gfdlswscheme  ra_sw_physics==99            -             -
 package   sfclayscheme   sf_sfclay_physics==1        -             state:regime
 package   myjsfcscheme   sf_sfclay_physics==2        -             -
 package   gfssfcscheme   sf_sfclay_physics==3        -             -
+package   qnsesfcscheme  sf_sfclay_physics==4        -             -
 package   pxsfcscheme    sf_sfclay_physics==7        -             state:regime
 
 package   slabscheme     sf_surface_physics==1       -             -
@@ -1427,6 +1499,7 @@ package   pxlsmscheme    sf_surface_physics==7       -             fdda2d:t2_ndg
 package   ysuscheme      bl_pbl_physics==1           -             state:regime
 package   myjpblscheme   bl_pbl_physics==2           -             -
 package   gfsscheme      bl_pbl_physics==3           -             -
+package   qnsepblscheme  bl_pbl_physics==4           -             -
 package   acmpblscheme   bl_pbl_physics==7           -             state:regime
 package   mrfscheme      bl_pbl_physics==99          -             state:regime
 
@@ -1438,6 +1511,7 @@ package   g3scheme       cu_physics==5               -             state:cugd_qv
 package   kfscheme       cu_physics==99              -             -
 
 package   psufddagd      grid_fdda==1                -             fdda3d:u_ndg_old,v_ndg_old,t_ndg_old,q_ndg_old,ph_ndg_old,u_ndg_new,v_ndg_new,t_ndg_new,q_ndg_new,ph_ndg_new;fdda2d:mu_ndg_old,mu_ndg_new,t2_ndg_new,q2_ndg_new,t2_ndg_old,q2_ndg_old,sn_ndg_new,sn_ndg_old;state:rundgdten,rvndgdten,rthndgdten,rqvndgdten,rmundgdten
+package   psusfddagd     grid_sfdda==1               -             sfdda2d:u10_ndg_old,v10_ndg_old,t2_ndg_old,th2_ndg_old,q2_ndg_old,rh_ndg_old,psl_ndg_old,ps_ndg_old,tob_ndg_old,odis_ndg_old,u10_ndg_new,v10_ndg_new,t2_ndg_new,th2_ndg_new,q2_ndg_new,rh_ndg_new,psl_ndg_new,ps_ndg_new,tob_ndg_new,odis_ndg_new
 
 package   restofwrf      use_wps_input==0            -             -
 
@@ -1492,6 +1566,7 @@ halo      HALO_EM_A dyn_em  8:ru,rv,rw,ww,php,alt,al,p,muu,muv,mut
 halo      HALO_EM_PHYS_A  dyn_em 4:u_2,v_2
 halo      HALO_EM_PHYS_PBL dyn_em        4:rublten,rvblten
 halo      HALO_EM_FDDA dyn_em            4:rundgdten,rvndgdten
+halo      HALO_EM_FDDA_SFC dyn_em 4: odis_ndg_old, odis_ndg_new
 halo      HALO_EM_PHYS_DIFFUSION dyn_em  4:defor11,defor22,defor12,defor13,defor23,div,xkmv,xkmh,xkhv,xkhh,tke_1,tke_2
 halo      HALO_EM_TKE_ADVECT_3 dyn_em 24:tke_2
 halo      HALO_EM_TKE_ADVECT_5 dyn_em 48:tke_2
@@ -1658,197 +1733,5 @@ xpose XPOSE_POLAR_FILTER_CHEM dyn_em chem,fourd_xxx,dum_yyy
 xpose XPOSE_POLAR_FILTER_SCALAR dyn_em scalar,fourd_xxx,dum_yyy
 ##
 
-#
-# ----------------------------------------
-#  begin fire variables and configuration
-# ----------------------------------------
-#
-# declare fire package and choose which fire scheme
-#
-#<key>   <package       <associated               <package        <associated 4d scalars>
-#         name>          namelist choice>          state vars>
-# 
-package   fire_cawfe     fire==1                     -             -
-package   fire_sfire    fire==2                     -             -
-package   fire_sfired    fire==3                     -             -
+include registry.fire
 
-# fire dimensions on fire grid
-#
-#<Table>  <Dim>  <Order> <How defined>         <Coord-axis>  <Dimname in Datasets>
-dimspec    n      -     constant=2                z          fire_index_dim
-dimspec    o      -     constant=4                z          fire_particle_dim
-
-# fire variables on fire grid
-#
-#<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
-state    real  nfuel_cat *i*j     fire        1         z     i012hr        "NFUEL_CAT"        "fuel data"   
-state    integer  nfl       *i*j     fire        1         z     hr
-state    integer  nfl_t     *i*j     fire        1         z     hr
-state    integer  nfl_c     *i*j     fire        1         z     hr
-state    integer  ncod      *i*j     fire        1         z     hr
-state    real     fg        *i*j     fire        1         z     hr
-state    real     fc        *i*j     fire        1         z     hr
-#state    real     r_0       *i*j     fire        1         z     hr
-#state    real     bbb       *i*j     fire        1         z     hr
-#state    real     betafl    *i*j     fire        1         z     hr
-#state    real     phiwc     *i*j     fire        1         z     hr
-state    real     area      *i*j     fire        1         z     hr
-state    real     area2     *i*j     fire        1         z     hr
-state    real     zf        *i*j     fire        1         z     hr
-state    real     zsf       *i*j     fire        1         z     hr   "ZSF"      "height of surface above sea level" "m"
-state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"   "ignition time on ground" "s"
-state    real     tign_c    *i*j     fire        1         z     hr
-state    real     tign_crt  *i*j     fire        1         z     hr
-#
-#state    integer  in1       *i*jn    fire        1         z     hr
-#state    integer  in2       *i*jn    fire        1         z     hr
-#state    integer  ixb       *i*jo    fire        1         z     hr
-#state    integer  iyb       *i*jo    fire        1         z     hr
-#state    integer  icn       *i*jo    fire        1         z     hr
-state    real     xfg       *i*jo    fire        1         z     hr
-state    real     yfg       *i*jo    fire        1         z     hr
-state    real     xcd       *i*jo    fire        1         z     hr
-state    real     ycd       *i*jo    fire        1         z     hr
-state    real     xcn       *i*jo    fire        1         z     hr
-state    real     ycn       *i*jo    fire        1         z     hr
-state    real     sprdx     *i*jo    fire        1         z     hr
-state    real     sprdy     *i*jo    fire        1         z     hr
- 
-# fire variables on atm grid
-#
-state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
-state    real     rqvfrten  ikj      fire        1         z     hr   "RQVFRTEN" "humidity tendency" 
-state    real     grnhfx    ij       fire        1         z     hr   "GRNHFX"   "heat flux from ground fire" "W/m^2"
-state    real     grnqfx    ij       fire        1         z     hr   "GRNQFX"   "moisture flux from ground fire" "W/m^2"
-state    real     canhfx    ij       fire        1         z     hr   "CANHFX"   "heat flux from crown fire" "W/m^2"
-state    real     canqfx    ij       fire        1         z     hr   "CANQFX"   "moisture flux from crown fire" "W/m^2"
-
-# sfire variables on fire grid
-# (also using tign_g,zs,z_at_w,dz8w,nfuel_cat,fluxes,zsf)
-state    real     lfn       *i*j      fire        1         z    hr    "LFN" "level function" "1"
-state    real     fuel_frac *i*j      fire        1         z    hr    "FUEL_FRAC" "fuel remaining" "1"
-state    real     fire_area *i*j      fire        1         z    hr    "FIRE_AREA" "fraction of cell area on fire" "1"
-state    real     uf        *i*j      fire        1         z    hr    "UF"        "fire wind" "m/s"
-state    real     vf        *i*j      fire        1         z    hr    "VF"        "fire wind" "m/s"
-state    real     fgrnhfx   *i*j      fire        1         z    hr    "FGRNHFX"   "heat flux from ground fire" "W/m^2"
-state    real     fgrnqfx   *i*j      fire        1         z    hr    "FGRNQFX"   "moisture flux from ground fire" "W/m^2"
-state    real     fcanhfx   *i*j      fire        1         z    hr    "FCANHFX"   "heat flux from crown fire" "W/m^2"
-state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"   "moisture flux from crown fire" "W/m^2"
-
-# constant data arrays
-state    real     fxlong    *i*j      fire        1         z    hr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
-state    real     fxlat     *i*j      fire        1         z    hr    "FXLAT"     "latitude of midpoints of fire cells" "degrees"
-#state    real     dzfsdx    *i*j      fire        1         z    hr    "DXFSDX"    "topo"
-#state    real     dzfsdy    *i*j      fire        1         z    hr    "DXFSDY"    "topo"
-state    real     fuel_time *i*j      fire        1         z    hr    "FUEL_TIME" "fuel"
-state    real     bbb       *i*j      fire        1         z    hr    "BBB"       "fuel"
-state    real     betafl    *i*j      fire        1         z    hr    "BETAFL"    "fuel"
-state    real     phiwc     *i*j      fire        1         z    hr    "PHIWC"     "fuel"
-state    real     r_0       *i*j      fire        1         z    hr    "R_0"       "fuel"
-state    real     fgip      *i*j      fire        1         z    hr    "FGIP"      "fuel"
-state    integer  ischap    *i*j      fire        1         z    hr    "ISCHAP"    "fuel"
-
-#
-# fire configure namelist variables
-#
-#<Table>  <Type>  <Sym>                   <How set>          <Nentries>   <Default>
-rconfig   integer ifire                  namelist,fire         max_domains           0
-rconfig   integer fire_boundary_guard    namelist,fire         max_domains           2       -      "fire_boundary_guard" "cells to stop when fire close to domain boundary"
-# ignition for sfire
-rconfig   integer fire_num_ignitions     namelist,fire         max_domains           0.      -      "fire_num_ignitions" "number of ignition lines" 
-rconfig   real    fire_ignition_start_long1  namelist,fire        max_domains           0.      -      "fire_ignition_start_long1" "long coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_lat1  namelist,fire        max_domains           0.      -      "fire_ignition_start_lat1" "lat coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_long1    namelist,fire        max_domains           0.      -      "fire_ignition_end_long1"   "long coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_lat1    namelist,fire        max_domains           0.      -      "fire_ignition_end_lat1"   "lat coord of end of ignition line" "m"
-rconfig   real    fire_ignition_radius1   namelist,fire        max_domains           0.      -      "fire_ignition_radius1"   "ignite all within the radius" "m"
-rconfig   real    fire_ignition_time1     namelist,fire        max_domains           0.      -      "fire_ignition_time1"    "ignition time" "s"
-rconfig   real    fire_ignition_start_long2  namelist,fire        max_domains           0.      -      "fire_ignition_start_long2" "long coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_lat2  namelist,fire        max_domains           0.      -      "fire_ignition_start_lat2" "lat coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_long2    namelist,fire        max_domains           0.      -      "fire_ignition_end_long2"   "long coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_lat2    namelist,fire        max_domains           0.      -      "fire_ignition_end_lat2"   "lat coord of end of ignition line" "m"
-rconfig   real    fire_ignition_radius2   namelist,fire        max_domains           0.      -      "fire_ignition_radius2"   "ignite all within the radius" "m"
-rconfig   real    fire_ignition_time2     namelist,fire        max_domains           0.      -      "fire_ignition_time2"    "ignition time" "s"
-rconfig   real    fire_ignition_start_long3  namelist,fire        max_domains           0.      -      "fire_ignition_start_long3" "long coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_lat3  namelist,fire        max_domains           0.      -      "fire_ignition_start_lat3" "lat coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_long3    namelist,fire        max_domains           0.      -      "fire_ignition_end_long3"   "long coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_lat3    namelist,fire        max_domains           0.      -      "fire_ignition_end_lat3"   "lat coord of end of ignition line" "m"
-rconfig   real    fire_ignition_radius3   namelist,fire        max_domains           0.      -      "fire_ignition_radius3"   "ignite all within the radius" "m"
-rconfig   real    fire_ignition_time3     namelist,fire        max_domains           0.      -      "fire_ignition_time3"    "ignition time" "s"
-rconfig   real    fire_ignition_start_long4  namelist,fire        max_domains           0.      -      "fire_ignition_start_long4" "long coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_lat4  namelist,fire        max_domains           0.      -      "fire_ignition_start_lat4" "lat coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_long4    namelist,fire        max_domains           0.      -      "fire_ignition_end_long4"   "long coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_lat4    namelist,fire        max_domains           0.      -      "fire_ignition_end_lat4"   "lat coord of end of ignition line" "m"
-rconfig   real    fire_ignition_radius4   namelist,fire        max_domains           0.      -      "fire_ignition_radius4"   "ignite all within the radius" "m"
-rconfig   real    fire_ignition_time4     namelist,fire        max_domains           0.      -      "fire_ignition_time4"    "ignition time" "s"
-rconfig   real    fire_ignition_start_long5  namelist,fire        max_domains           0.      -      "fire_ignition_start_long5" "long coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_lat5  namelist,fire        max_domains           0.      -      "fire_ignition_start_lat5" "lat coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_long5    namelist,fire        max_domains           0.      -      "fire_ignition_end_long5"   "long coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_lat5    namelist,fire        max_domains           0.      -      "fire_ignition_end_lat5"   "lat coord of end of ignition line" "m"
-rconfig   real    fire_ignition_radius5   namelist,fire        max_domains           0.      -      "fire_ignition_radius5"   "ignite all within the radius" "m"
-rconfig   real    fire_ignition_time5     namelist,fire        max_domains           0.      -      "fire_ignition_time5"    "ignition time" "s"
-rconfig   real    fire_ignition_start_x1  namelist,fire        max_domains           0.      -      "fire_ignition_start_x1" "x coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_y1  namelist,fire        max_domains           0.      -      "fire_ignition_start_y1" "y coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_x1    namelist,fire        max_domains           0.      -      "fire_ignition_end_x1"   "x coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_y1    namelist,fire        max_domains           0.      -      "fire_ignition_end_y1"   "y coord of end of ignition line" "m"
-rconfig   real    fire_ignition_start_x2  namelist,fire        max_domains           0.      -      "fire_ignition_start_x2" "x coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_y2  namelist,fire        max_domains           0.      -      "fire_ignition_start_y2" "y coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_x2    namelist,fire        max_domains           0.      -      "fire_ignition_end_x2"   "x coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_y2    namelist,fire        max_domains           0.      -      "fire_ignition_end_y2"   "y coord of end of ignition line" "m"
-rconfig   real    fire_ignition_start_x3  namelist,fire        max_domains           0.      -      "fire_ignition_start_x3" "x coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_y3  namelist,fire        max_domains           0.      -      "fire_ignition_start_y3" "y coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_x3    namelist,fire        max_domains           0.      -      "fire_ignition_end_x3"   "x coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_y3    namelist,fire        max_domains           0.      -      "fire_ignition_end_y3"   "y coord of end of ignition line" "m"
-rconfig   real    fire_ignition_start_x4  namelist,fire        max_domains           0.      -      "fire_ignition_start_x4" "x coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_y4  namelist,fire        max_domains           0.      -      "fire_ignition_start_y4" "y coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_x4    namelist,fire        max_domains           0.      -      "fire_ignition_end_x4"   "x coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_y4    namelist,fire        max_domains           0.      -      "fire_ignition_end_y4"   "y coord of end of ignition line" "m"
-rconfig   real    fire_ignition_start_x5  namelist,fire        max_domains           0.      -      "fire_ignition_start_x5" "x coord of start of ignition line" "m"
-rconfig   real    fire_ignition_start_y5  namelist,fire        max_domains           0.      -      "fire_ignition_start_y5" "y coord of start of ignition line" "m"
-rconfig   real    fire_ignition_end_x5    namelist,fire        max_domains           0.      -      "fire_ignition_end_x5"   "x coord of end of ignition line" "m"
-rconfig   real    fire_ignition_end_y5    namelist,fire        max_domains           0.      -      "fire_ignition_end_y5"   "y coord of end of ignition line" "m"
-# variables from old cawfe code
-rconfig   real    fire_lat_init          namelist,fire         max_domains           0.      -      "fire_lat_init"    "latitude to start fire"           "degrees"
-rconfig   real    fire_lon_init          namelist,fire         max_domains           0.      -      "fire_lon_init"    "longitude to start fire"          "degrees"
-rconfig   real    fire_ign_time          namelist,fire         max_domains           0.      -      "fire_ign_time"    "time when fire should be ignited" "min"
-rconfig   integer fire_shape             namelist,fire         max_domains           0       -      "fire_shape"       "fire shape"   ""
-rconfig   integer fire_sprd_mdl          namelist,fire         max_domains           1       -      "fire_sprd_mdl"    "which spread rate formula: if 0, Macarthur; if 1, BEHAVE" ""   
-rconfig   real    fire_crwn_hgt          namelist,fire         max_domains           15.     -      "fire_crwn_hgt"    "height that heat from crown fire is released" "m"
-rconfig   real    fire_ext_grnd          namelist,fire         max_domains           50.     -      "fire_ext_grnd"    "extinction depth of sfc fire heat"   "m"
-rconfig   real    fire_ext_crwn          namelist,fire         max_domains           50.     -      "fire_ext_crwn"    "extinction depth of crown fire heat" "m"
-rconfig   integer fire_fuel_read         namelist,fire         max_domains           -1      -      "fire_fuel_read"   "fuel categories are set by: if 0, uniform; if 1, user-presc; if 2, read from file"   ""
-rconfig   integer fire_fuel_cat          namelist,fire         max_domains           1       -      "fire_fuel_cat"     "fuel category if ifuelread=0"              ""
-# sfire switches
-rconfig   integer fire_print_msg         namelist,fire         max_domains           0       -      "fire_write_msg"    "write fire statistics, 0 no writes, 1+ for more"  ""
-rconfig   integer fire_print_file        namelist,fire         max_domains           0       -      "fire_write_file"   "write fire output text files, 0 no writes, 1+ for more" ""
-rconfig   integer fire_fuel_left_method  namelist,fire         max_domains           1       -      "fire_fuel_left_method"   "1 or 2, compute fuel_left" ""
-rconfig   integer fire_fuel_left_irl     namelist,fire         max_domains           2       -      "fire_fuel_left_irl"   "submesh to compute fuel lwft, even, at least 2" ""
-rconfig   integer fire_fuel_left_jrl     namelist,fire         max_domains           2       -      "fire_fuel_left_jrl"   "submesh to compute fuel lwft, even, at least 2" ""
-rconfig   real    fire_atm_feedback      namelist,fire         max_domains           1.      -      "fire_atm_feedback"   "the heat fluxes to the atmosphere are multiplied by this" "1"
-rconfig   real    fire_back_weight       namelist,fire         max_domains           0.5     -      "fire_back_weight"   "RK timestepping coefficient, 0=forward, 0.5=Heun" "1"
-rconfig   integer fire_grows_only        namelist,fire         max_domains            1       -     "fire_grows_only" "if >0 level set function cannot increase = fire can only grow" "1"
-rconfig   integer fire_upwinding         namelist,fire         max_domains            3       -     "fire_upwinding" "upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian" "1"
-rconfig   integer fire_upwind_split      namelist,fire         max_domains            0       -     "fire_upwind_split" "1=upwind advection separately from normal direction spread" "1"
-rconfig   real    fire_viscosity         namelist,fire         max_domains           0.4     -      "fire_viscosity"   "artificial viscosity in level set method" "1"
-rconfig   real    fire_lfn_ext_up        namelist,fire         max_domains           1.0     -      "fire_lfn_ext_up"   "0.=extend level set function at boundary by reflection, 1.=always up" "1"
-rconfig   integer fire_test_steps        namelist,fire         max_domains            0       -     "fire_test_steps" ">0 = on first call, do specified number of steps and terminate (testing only)" "1"
-rconfig   integer fire_topo_from_atm     namelist,fire         max_domains            1       -     "fire_topo_from_atm" "0 = do nothing, 1 = populate ZSF by interpolating from atmosphere" "1"
-
-
-#
-# Fire halo descriptions
-#
-halo      HALO_FIRE_LFN dyn_em 24:lfn
-halo      HALO_FIRE_TIGN dyn_em 8:tign_g
-halo      HALO_FIRE_HT dyn_em 8:ht
-halo      HALO_FIRE_WIND_F dyn_em 12:uf,vf
-halo      HALO_FIRE_LONGLAT dyn_em 24:xlong,xlat
-halo      HALO_FIRE_WIND_A dyn_em 8:u_2,v_2
-halo      HALO_FIRE_ZSF dyn_em 24:zsf
-halo      HALO_FIRE_FUEL dyn_em 8:fuel_frac,fuel_time,bbb,betafl,phiwc,r_0,fgip,ischap,nfuel_cat
-#
-# ----------------------------------------
-#  end fire variables and configuration
-# ----------------------------------------
-
-
-##
