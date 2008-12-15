@@ -3,7 +3,8 @@
 toplevel=${PWD}
 scratch=/scratch
 user=${USER}
-logdir=${scratch}/${user}/regtest
+hashid=$(git rev-parse HEAD)
+logdir=${scratch}/${user}/regtest_${hashid}
 ideal_nml=${toplevel}/reg/namelist.ideal
 real_nml=${toplevel}/reg/namelist.real
 metdata=${scratch}/jbeezley/regtest_met
@@ -196,7 +197,7 @@ else
     run_wrf_input
   fi
   cp wrfinput_real wrfinput_d01 &> /dev/null
-  cp wrfbdy_ideal wrfbdy_d01 &> /dev/null
+  cp wrfbdy_real wrfbdy_d01 &> /dev/null
 fi
 }
 
@@ -213,7 +214,7 @@ if [ ! -d ${logdir} ] ; then
 fi
 
 info_header
-for copt in 1 4 ; do
+for copt in 1 2 3 4 ; do
 
   for nest in 0 1 ; do
 
