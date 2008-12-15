@@ -177,7 +177,7 @@ elseif(ifun.eq.2)then
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
-            fdx,fdy,             &
+            fdx,fdy,nfuel_cat0,  &
             nfuel_cat,fuel_time &
 #           include "fr_sfire_params_args.h" 
 )
