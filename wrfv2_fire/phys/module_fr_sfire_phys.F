@@ -170,12 +170,6 @@ character(len=128)::msg
 
 !*** executable
 
-err=.false.
-do j=jfts,jfte
-    do i=ifts,ifte
-    enddo
-enddo
-
 nerr=0
 do j=jfts,jfte
     do i=ifts,ifte
