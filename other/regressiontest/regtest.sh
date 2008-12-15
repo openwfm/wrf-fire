@@ -1,13 +1,15 @@
 #!/bin/bash
 
 toplevel=${PWD}
+gittop=${toplevel}/..
+regdir=${gittop}/other/regressiontest
 scratch=/scratch
 user=${USER}
 hashid=$(git rev-parse HEAD)
 logdir=${scratch}/${user}/regtest_${hashid}
-ideal_nml=${toplevel}/reg/namelist.ideal
-real_nml=${toplevel}/reg/namelist.real
-metdata=${scratch}/jbeezley/regtest_met
+ideal_nml=${regdir}/namelist.ideal
+real_nml=${regdir}/namelist.real
+metdata=${regdir}
 nameprefix="std_"
 numprocs=8
 maxprocs=${numprocs}
@@ -174,6 +176,7 @@ function run_wrf_input {
     mv wrfinput_d01 wrfinput_ideal &> /dev/null
     mv wrfbdy_d01 wrfbdy_ideal &> /dev/null
   else
+    cp ${real_nml} namelist.input
     reallog="${name}_real.log"
     ln -sf ${metdata}/met_em* .
     ./real.exe &> ${reallog}
@@ -218,7 +221,7 @@ for copt in 1 2 3 4 ; do
 
   for nest in 0 1 ; do
 
-    for dbg in 1 ; do
+    for dbg in 1 0 ; do
 
       cd ${toplevel}
       ./clean -a &> /dev/null
