@@ -144,8 +144,8 @@ for ((p=1;p<=$nproc;p*=$procscl)) ; do
 	     mv "$i" "${i}.ERROR"
 	   done
 	   move_failed "${rlog}"
-  	   stop_rtime
 	 fi
+  	stop_rtime
 	for i in rsl.{out,error}.* ; do
 	  mv $i "${rname}.$i"
 	done
@@ -154,8 +154,8 @@ for ((p=1;p<=$nproc;p*=$procscl)) ; do
         ./wrf.exe &> ${rlog}
 	if [ ! -f "${lout}" ] ; then
 	  move_failed "${rlog}"
-          stop_rtime
 	fi
+        stop_rtime
       fi
       if [ -f "${lout}" ] ; then
 	mv "${lout}" "${rname}.nc"
@@ -246,10 +246,10 @@ EOF
 	if [ ! -f "test/${targ}/wrf.exe" ] ; then
 	  
 	  move_failed "${cname}"
-	  stop_ctime
 
 	else
 
+	  stop_ctime
           pushd "test/${targ}"
 	  clean_run_dir
 	  get_wrf_input
