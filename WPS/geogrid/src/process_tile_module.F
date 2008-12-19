@@ -1601,8 +1601,6 @@ module process_tile_module
       do i=start_mem_i, end_mem_i
          do j=start_mem_j, end_mem_j
             call xytoll(real(i-1)/real(lx)+1., real(j-1)/real(ly)+1., &
-                        xlat_arr(i,j), xlon_arr(i,j), stagger)
-            call xytoll(real(i), real(j), &
                         xlat_arr(i,j), xlon_arr(i,j), stagger, comp_ll=comp_ll)
          end do
       end do
