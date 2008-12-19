@@ -63,12 +63,15 @@ clean:
 superclean:	clean
 
 .F.o:
-	$(CPP) $(FDEFS) $*.F > $*.f
-	$(FC) -c $(F77FLAGS) $*.f
-	/bin/rm -f $*.f
+	$(CPP) $(FDEFS) $*.F > $*.for
+	$(FC) -c $(F77FLAGS) $*.for
+	/bin/rm -f $*.for
 
 .f.o:
 	$(FC) -c $(F77FLAGS) $*.f
+
+.for.o:
+	$(FC) -c $(F77FLAGS) $*.for
 
 .c.o:
 	$(CC) -c $(CFLAGS) $(CFLAGS2) $<
