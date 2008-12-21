@@ -494,7 +494,17 @@ BENCH_END(pbl_driver_tim)
 
 BENCH_START(fire_driver_tim)
         if(config_flags%ifire.eq.2)then 
-            call sfire_driver_em ( grid , config_flags    &
+            ! initialize
+            call sfire_driver_em ( 0, grid , config_flags    &
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,sids,side, sjds,sjde                        &
+            ,sims,sime, sjms,sjme                        &
+            ,sips,sipe, sjps,sjpe                        &
+            ,rho,z_at_w,dz8w)
+            ! run the model
+            call sfire_driver_em ( 1, grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &

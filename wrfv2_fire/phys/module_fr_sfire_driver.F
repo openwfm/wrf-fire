@@ -56,7 +56,7 @@ use module_fr_sfire_util
 contains
 
 
-subroutine sfire_driver_em ( grid , config_flags                   & 
+subroutine sfire_driver_em (irun, grid , config_flags               & 
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
@@ -77,6 +77,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
 
     implicit none
 !*** arguments
+    integer, intent(in):: irun         ! 0 = initialize,  >0 number of time steps
     TYPE(domain) , TARGET          :: grid   ! data
     !  Structure that contains run-time configuration (namelist) data for domain
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
@@ -99,7 +100,8 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         fire_ignition_end_y, &
         fire_ignition_time, &
         fire_ignition_radius
-    integer::fire_ifun,fire_ifun_start,ir,jr,fire_ignition_longlat,istep,itimestep
+    integer::fire_ifun,fire_ifun_start,ir,jr,fire_ignition_longlat,istep,itimestep, &
+        fire_ifun_end,nsteps
     logical::need_lfn_update
     !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
     ! uf vf only do not need to be in the state but we need halo on them
@@ -124,14 +126,23 @@ subroutine sfire_driver_em ( grid , config_flags                   &
     lat_ctr=config_flags%cen_lat
     lon_ctr=config_flags%cen_lon
     
-    do istep=0,fire_test_steps ! istep >0 is for testing only, exit after the first call
-      itimestep = itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
+    if (irun==0)then
+        ! initialize
+        fire_ifun_start=1  ! initialize?
+        fire_ifun_end=2    ! initialize?
+        nsteps=0
+    else
+        ! initialize
+        fire_ifun_start=3  ! initialize?
+        fire_ifun_end=6    ! initialize?
+        nsteps=fire_test_steps
+    endif
 
-      fire_ifun_start=1  ! initialize?
-      if(itimestep.ne.1)fire_ifun_start=3  ! should find a better distinction when to initialize
+    do istep=0,fire_test_steps ! istep >0 is for testing only, exit after the first call
+      itimestep = grid%itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
 
       need_lfn_update=.false.
-      do fire_ifun=fire_ifun_start,6
+      do fire_ifun=fire_ifun_start,fire_ifun_end
 
         ! 1 = initialize run pass 1: interpolate height to zsf=terrain
         ! 2 = initialize run pass 2: set fuel data, terrain gradient
@@ -214,7 +225,7 @@ subroutine sfire_driver_em ( grid , config_flags                   &
         )
       enddo
     enddo
-    if(fire_test_steps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
+    if(nsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
 
 end subroutine sfire_driver_em
 
