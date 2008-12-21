@@ -109,16 +109,6 @@ CONTAINS
     INTEGER                         :: yr, month, day, hr, minute, sec, rc
     CHARACTER*80                    :: message
 
-   INTEGER                         :: sids , side , sjds , sjde , skds , skde , &
-                                      sims , sime , sjms , sjme , skms , skme , &
-                                      sips , sipe , sjps , sjpe , skps , skpe
-
-  CALL get_ijk_from_subgrid (  grid ,                   &
-                            sids, side, sjds, sjde, skds, skde,    &
-                            sims, sime, sjms, sjme, skms, skme,    &
-                            sips, sipe, sjps, sjpe, skps, skpe    )
-
-
  ! initialize all tendencies to zero in order to update physics
  ! tendencies first (separate from dry dynamics).
 
@@ -499,18 +489,12 @@ BENCH_START(fire_driver_tim)
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,sids,side, sjds,sjde                        &
-            ,sims,sime, sjms,sjme                        &
-            ,sips,sipe, sjps,sjpe                        &
             ,rho,z_at_w,dz8w)
             ! run the model
             call sfire_driver_em ( 1, grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,sids,side, sjds,sjde                        &
-            ,sims,sime, sjms,sjme                        &
-            ,sips,sipe, sjps,sjpe                        &
             ,rho,z_at_w,dz8w)
         endif
 

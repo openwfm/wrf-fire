@@ -60,11 +60,8 @@ subroutine sfire_driver_em (irun, grid , config_flags               &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,ifds,ifde, jfds,jfde                        &
-            ,ifms,ifme, jfms,jfme                        &
-            ,ifps,ifpe, jfps,jfpe                       &
-            ,rho,z_at_w,dz8w                            &
-)
+            ,rho,z_at_w,dz8w ) 
+
 !*** purpose: driver from grid structure
 
 ! Driver layer modules
@@ -84,10 +81,7 @@ subroutine sfire_driver_em (irun, grid , config_flags               &
     integer, intent(in):: &
              ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,ifds,ifde, jfds,jfde                        &
-            ,ifms,ifme, jfms,jfme                        &
-            ,ifps,ifpe, jfps,jfpe
+            ,ips,ipe, kps,kpe, jps,jpe
     real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho,  &! air density  (kg/m^3) (cell based, atm grid) 
                                 z_at_w,dz8w                 ! ????????
 
@@ -107,13 +101,22 @@ subroutine sfire_driver_em (irun, grid , config_flags               &
     ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real::lat_ctr,lon_ctr
+    integer:: ifds,ifde, jfds,jfde,kfds,kfde,                        &
+              ifms,ifme, jfms,jfme,kfms,kfme,                        &
+              ifps,ifpe, jfps,jfpe,kfps,kfpe 
+
 
 !*** executable
 
     call print_id
 
+    ! get fire mesh dimensions
+    CALL get_ijk_from_subgrid (  grid ,                   &
+                            ifds,ifde, jfds,jfde,kfds,kfde,                        &
+                            ifms,ifme, jfms,jfme,kfms,kfme,                        &
+                            ifps,ifpe, jfps,jfpe,kfps,kfpe) 
 
-    ! populate our structures from wrf
+! populate our structures from wrf
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
