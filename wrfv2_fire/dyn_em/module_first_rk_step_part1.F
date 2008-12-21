@@ -35,7 +35,7 @@ CONTAINS
     USE module_surface_driver, ONLY : surface_driver
     USE module_cumulus_driver, ONLY : cumulus_driver
     USE module_pbl_driver, ONLY : pbl_driver
-    USE module_fr_sfire_driver, ONLY : sfire_driver_em
+    USE module_fr_sfire_driver, ONLY : sfire_driver_em_step
     USE module_fddagd_driver, ONLY : fddagd_driver
     USE module_em, ONLY : init_zero_tendency
     USE module_big_step_utilities_em, ONLY : phy_prep
@@ -484,14 +484,14 @@ BENCH_END(pbl_driver_tim)
 
 BENCH_START(fire_driver_tim)
         if(config_flags%ifire.eq.2)then 
-            ! initialize
-            call sfire_driver_em ( 0, grid , config_flags    &
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,rho,z_at_w,dz8w)
-            ! run the model
-            call sfire_driver_em ( 1, grid , config_flags    &
+            ! initialization moved to start_em:start_domain_em
+!            if(grid%initestep.eq.1) &
+!            call sfire_driver_em_init (  grid , config_flags    &
+!            ,ids,ide, kds,kde, jds,jde                              &
+!            ,ims,ime, kms,kme, jms,jme                              &
+!            ,ips,ipe, kps,kpe, jps,jpe  )
+            ! one timestep of the fire model
+            call sfire_driver_em_step (  grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &

@@ -53,13 +53,127 @@ use module_fr_sfire_phys
 use module_fr_sfire_atm
 use module_fr_sfire_util
 
+private
+public :: sfire_driver_em_init, sfire_driver_em_step
+
+
 contains
 
+subroutine sfire_driver_em_init (grid , config_flags               & 
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe)
 
-subroutine sfire_driver_em (irun, grid , config_flags               & 
+    ! stub to call sfire_driver_em with irun=0 and omit last 3 args
+
+    USE module_domain
+    USE module_configure
+    implicit none
+
+    TYPE(domain) , TARGET          :: grid   ! data
+    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    integer, intent(in):: &
+             ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe
+
+    ! local
+    integer :: &  ! fire mesh sizes
+             ifds,ifde, kfds,kfde, jfds,jfde,                              &
+             ifms,ifme, kfms,kfme, jfms,jfme,                              &
+             ifps,ifpe, kfps,kfpe, jfps,jfpe                              
+    ! dummies
+
+    real,dimension(1,1,1)::rho,z_at_w,dz8w
+
+    call message('sfire_driver_em_init: SFIRE initialization start')
+
+    ! get fire mesh dimensions
+    CALL get_ijk_from_subgrid (  grid ,                   &
+                            ifds,ifde, jfds,jfde,kfds,kfde,                        &
+                            ifms,ifme, jfms,jfme,kfms,kfme,                        &
+                            ifps,ifpe, jfps,jfpe,kfps,kfpe) 
+
+    call sfire_driver_em ( grid , config_flags               & 
+            ,1,2,0                        & ! ifun start, end, test steps
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,ifds,ifde, jfds,jfde                                   &
+            ,ifms,ifme, jfms,jfme                                   &
+            ,ifps,ifpe, jfps,jfpe                                   &
+            ,rho,z_at_w,dz8w ) 
+
+    call message('sfire_driver_em_init: SFIRE initialization complete')
+
+end subroutine sfire_driver_em_init
+
+!
+!***
+!
+
+subroutine sfire_driver_em_step (grid , config_flags               & 
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,rho,z_at_w,dz8w ) 
+
+    ! stub to call sfire_driver_em 
+
+    USE module_domain
+    USE module_configure
+    implicit none
+
+    TYPE(domain) , TARGET          :: grid   ! data
+    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    integer, intent(in):: &
+             ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe
+
+    ! local
+    integer :: &  ! fire mesh sizes
+             ifds,ifde, kfds,kfde, jfds,jfde,                              &
+             ifms,ifme, kfms,kfme, jfms,jfme,                              &
+             ifps,ifpe, kfps,kfpe, jfps,jfpe                              
+    ! dummies
+
+    real,dimension(ims:ime, kms:kme, jms:jme)::rho,z_at_w,dz8w
+
+    call message('sfire_driver_em_step: SFIRE step start')
+
+    ! get fire mesh dimensions
+    CALL get_ijk_from_subgrid (  grid ,                   &
+                            ifds,ifde, jfds,jfde,kfds,kfde,                        &
+                            ifms,ifme, jfms,jfme,kfms,kfme,                        &
+                            ifps,ifpe, jfps,jfpe,kfps,kfpe) 
+
+    call sfire_driver_em ( grid , config_flags               & 
+            ,3,6,fire_test_steps                                &
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,ifds,ifde, jfds,jfde                                   &
+            ,ifms,ifme, jfms,jfme                                   &
+            ,ifps,ifpe, jfps,jfpe                                   &
+            ,rho,z_at_w,dz8w ) 
+
+    call message('sfire_driver_em_step: SFIRE step complete')
+
+end subroutine sfire_driver_em_step
+
+!
+!***
+!
+
+subroutine sfire_driver_em ( grid , config_flags                    & 
+            ,fire_ifun_start,fire_ifun_end,tsteps                   &
+            ,ids,ide, kds,kde, jds,jde                              &
+            ,ims,ime, kms,kme, jms,jme                              &
+            ,ips,ipe, kps,kpe, jps,jpe                              &
+            ,ifds,ifde, jfds,jfde                                   &
+            ,ifms,ifme, jfms,jfme                                   &
+            ,ifps,ifpe, jfps,jfpe                                   &
             ,rho,z_at_w,dz8w ) 
 
 !*** purpose: driver from grid structure
@@ -74,16 +188,18 @@ subroutine sfire_driver_em (irun, grid , config_flags               &
 
     implicit none
 !*** arguments
-    integer, intent(in):: irun         ! 0 = initialize,  >0 number of time steps
-    TYPE(domain) , TARGET          :: grid   ! data
-    !  Structure that contains run-time configuration (namelist) data for domain
-    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    TYPE(domain) , TARGET :: grid                             ! state 
+    TYPE (grid_config_rec_type) , INTENT(IN)  :: config_flags ! namelist
+    integer, intent(in)::     fire_ifun_start,fire_ifun_end,tsteps ! driver cycle controls
     integer, intent(in):: &
-             ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe
-    real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho,  &! air density  (kg/m^3) (cell based, atm grid) 
-                                z_at_w,dz8w                 ! ????????
+             ids,ide, kds,kde, jds,jde,                              &
+             ims,ime, kms,kme, jms,jme,                              &
+             ips,ipe, kps,kpe, jps,jpe,                              &
+             ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe 
+    real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho,  &! air density  (kg/m^3) 
+             z_at_w,dz8w                 ! ????????
 
 !*** local
     INTEGER:: fire_num_ignitions
@@ -94,27 +210,18 @@ subroutine sfire_driver_em (irun, grid , config_flags               &
         fire_ignition_end_y, &
         fire_ignition_time, &
         fire_ignition_radius
-    integer::fire_ifun,fire_ifun_start,ir,jr,fire_ignition_longlat,istep,itimestep, &
-        fire_ifun_end,nsteps
+    integer::fire_ifun,ir,jr,fire_ignition_longlat,istep,itimestep
     logical::need_lfn_update
     !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
     ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real::lat_ctr,lon_ctr
-    integer:: ifds,ifde, jfds,jfde,kfds,kfde,                        &
-              ifms,ifme, jfms,jfme,kfms,kfme,                        &
-              ifps,ifpe, jfps,jfpe,kfps,kfpe 
+    character(len=128)msg
 
 
 !*** executable
 
     call print_id
-
-    ! get fire mesh dimensions
-    CALL get_ijk_from_subgrid (  grid ,                   &
-                            ifds,ifde, jfds,jfde,kfds,kfde,                        &
-                            ifms,ifme, jfms,jfme,kfms,kfme,                        &
-                            ifps,ifpe, jfps,jfpe,kfps,kfpe) 
 
 ! populate our structures from wrf
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
@@ -129,19 +236,12 @@ subroutine sfire_driver_em (irun, grid , config_flags               &
     lat_ctr=config_flags%cen_lat
     lon_ctr=config_flags%cen_lon
     
-    if (irun==0)then
-        ! initialize
-        fire_ifun_start=1  ! initialize?
-        fire_ifun_end=2    ! initialize?
-        nsteps=0
-    else
-        ! initialize
-        fire_ifun_start=3  ! initialize?
-        fire_ifun_end=6    ! initialize?
-        nsteps=fire_test_steps
-    endif
 
-    do istep=0,fire_test_steps ! istep >0 is for testing only, exit after the first call
+    write(msg,'(a,i1,a,i1,a,i4)') &
+       'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end,' test steps',tsteps
+    call message(msg)
+
+    do istep=0,tsteps ! istep >0 is for testing only, exit after the first call
       itimestep = grid%itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
 
       need_lfn_update=.false.
@@ -172,10 +272,6 @@ subroutine sfire_driver_em (irun, grid , config_flags               &
 #include "HALO_FIRE_ZSF.inc"
 
         elseif(fire_ifun.eq.3)then
-            if(fire_ifun_start<3)then
-!               halo exchange on all fuel data width 2
-#include "HALO_FIRE_FUEL.inc"
-            endif
 !           halo exchange on atm winds width 1 for interpolation
 #include "HALO_FIRE_WIND_A.inc"
 
@@ -226,9 +322,17 @@ subroutine sfire_driver_em (irun, grid , config_flags               &
             grid%fuel_time,grid%zsf,                      & 
             grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
         )
+
+#ifdef DM_PARALLEL
+            if(fire_ifun_start.eq.2)then
+!               halo exchange on all fuel data width 2
+#include "HALO_FIRE_FUEL.inc"
+            endif
+#endif
+
       enddo
     enddo
-    if(nsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
+    if(tsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
 
 end subroutine sfire_driver_em
 
