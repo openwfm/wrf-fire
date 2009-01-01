@@ -43,10 +43,10 @@
     INTEGER grid_fdda, gfdda_interval_m, gfdda_end_h, if_ramping, &
             obs_nudge_opt, obs_nudge_wind, obs_nudge_temp, obs_nudge_mois, obs_nudge_pstr, obs_idynin, obs_ionf
     INTEGER grid_sfdda, sgfdda_interval_m, sgfdda_end_h
-    REAL    fgdt, guv, gt, gq, dtramp_min, &
+    REAL    fgdt, guv, gt, gq, gph, dtramp_min, &
             obs_coef_wind, obs_coef_temp, obs_coef_mois, obs_coef_pstr, obs_dtramp, fdda_end
     REAL    guv_sfc, gt_sfc, gq_sfc, rinblw
-    LOGICAL pd_moist, pd_scalar, pd_tke
+    INTEGER moist_adv_opt, scalar_adv_opt, tke_adv_opt
 #endif
     CHARACTER (len=19) simulation_start_date
     CHARACTER (len=len_current_date) current_date_save
@@ -179,9 +179,9 @@
     call nl_get_w_damping            ( 1      ,  w_damping            )
 
 #if (EM_CORE == 1)
-    CALL nl_get_pd_moist  ( grid%id , pd_moist )
-    CALL nl_get_pd_scalar ( grid%id , pd_scalar )
-    CALL nl_get_pd_tke    ( grid%id , pd_tke )
+    CALL nl_get_moist_adv_opt  ( grid%id , moist_adv_opt )
+    CALL nl_get_scalar_adv_opt ( grid%id , scalar_adv_opt )
+    CALL nl_get_tke_adv_opt    ( grid%id , tke_adv_opt )
     CALL nl_get_diff_6th_opt  ( grid%id , diff_6th_opt )
     CALL nl_get_diff_6th_factor ( grid%id , diff_6th_factor )
     CALL nl_get_grid_fdda  ( grid%id , grid_fdda )
@@ -196,6 +196,15 @@
     CALL nl_get_guv        ( grid%id , guv )
     CALL nl_get_gt         ( grid%id , gt )
     CALL nl_get_gq         ( grid%id , gq )
+    CALL nl_get_if_ramping ( 1       , if_ramping )
+    CALL nl_get_dtramp_min ( 1       , dtramp_min )
+    ENDIF
+
+    IF ( grid_fdda == 2 ) THEN
+    CALL nl_get_fgdt       ( grid%id , fgdt )
+    CALL nl_get_guv        ( grid%id , guv )
+    CALL nl_get_gt         ( grid%id , gt )
+    CALL nl_get_gph        ( grid%id , gph )
     CALL nl_get_if_ramping ( 1       , if_ramping )
     CALL nl_get_dtramp_min ( 1       , dtramp_min )
     ENDIF
@@ -378,9 +387,9 @@
       CALL wrf_put_dom_ti_integer ( fid, 'W_DAMPING', w_damping , 1 , ierr )
 
 #if (EM_CORE == 1)
-      CALL wrf_put_dom_ti_logical ( fid, 'PD_MOIST', pd_moist , 1 , ierr )
-      CALL wrf_put_dom_ti_logical ( fid, 'PD_SCALAR', pd_scalar , 1 , ierr )
-      CALL wrf_put_dom_ti_logical ( fid, 'PD_TKE', pd_tke , 1 , ierr )
+      CALL wrf_put_dom_ti_integer ( fid, 'MOIST_ADV_OPT', moist_adv_opt , 1 , ierr )
+      CALL wrf_put_dom_ti_integer ( fid, 'SCALAR_ADV_OPT', scalar_adv_opt , 1 , ierr )
+      CALL wrf_put_dom_ti_integer ( fid, 'TKE_ADV_OPT', tke_adv_opt , 1 , ierr )
       CALL wrf_put_dom_ti_integer ( fid, 'DIFF_6TH_OPT', diff_6th_opt , 1 , ierr )
       CALL wrf_put_dom_ti_real    ( fid, 'DIFF_6TH_FACTOR', diff_6th_factor , 1 , ierr )
 
@@ -389,6 +398,15 @@
         CALL wrf_put_dom_ti_real    ( fid, 'GUV', guv , 1 , ierr )
         CALL wrf_put_dom_ti_real    ( fid, 'GT', gt , 1 , ierr )
         CALL wrf_put_dom_ti_real    ( fid, 'GQ', gq , 1 , ierr )
+        CALL wrf_put_dom_ti_integer ( fid, 'IF_RAMPING', if_ramping , 1 , ierr )
+        CALL wrf_put_dom_ti_real    ( fid, 'DTRAMP_MIN', dtramp_min , 1 , ierr )
+      ENDIF
+
+      IF ( grid_fdda == 2 ) THEN
+        CALL wrf_put_dom_ti_real    ( fid, 'FGDT', fgdt , 1 , ierr )
+        CALL wrf_put_dom_ti_real    ( fid, 'GUV', guv , 1 , ierr )
+        CALL wrf_put_dom_ti_real    ( fid, 'GT', gt , 1 , ierr )
+        CALL wrf_put_dom_ti_real    ( fid, 'GPH', gph , 1 , ierr )
         CALL wrf_put_dom_ti_integer ( fid, 'IF_RAMPING', if_ramping , 1 , ierr )
         CALL wrf_put_dom_ti_real    ( fid, 'DTRAMP_MIN', dtramp_min , 1 , ierr )
       ENDIF

@@ -216,6 +216,8 @@ state  real   mavail    ij    dyn_nmm   1    -     i
 state  real   qsh       ij    dyn_nmm   1    -     irh      "QS"       "Surface specific humidity"            "kg kg-1"
 state  real   twbs      ij    dyn_nmm   1    -     irh      "TWBS"     "Instantaneous sensible heat flux"     "W m-2"
 state  real   qwbs      ij    dyn_nmm   1    -     irh      "QWBS"     "Instantaneous latent heat flux"       "W m-2"
+state  real   taux      ij    dyn_nmm   1    -     irh      "TAUX"     "Instantaneous stress along X direction in KG/M/S^2" 
+state  real   tauy      ij    dyn_nmm   1    -     irh      "TAUY"     "Instantaneous stress along Y direction in KG/M/S^2" 
 state  real   prec      ij    dyn_nmm   1    -     rh       "PREC"     "Precipitation in physics timestep"    "m"
 state  real   aprec     ij    dyn_nmm   1    -     rh
 state  real   acprec    ij    dyn_nmm   1    -     rh       "ACPREC"   "Accumulated total precipitation"      "m"
@@ -513,6 +515,8 @@ state   real    qni            ijkftb  scalar      1         -     i01rusdf=(bdy
 state   real    qns            ijkftb  scalar      1         -     i01rusdf=(bdy_interp:dt)       "QNS"              "Snow Number concentration" "# kg(-1)"
 state   real    qnr            ijkftb  scalar      1         -     i01rusdf=(bdy_interp:dt)       "QNR"              "Rain Number concentration" "# kg(-1)"
 state   real    qng            ijkftb  scalar      1         -     i01rusdf=(bdy_interp:dt)       "QNG"              "Graupel Number concentration" "# kg(-1)"
+state   real    qnn            ikjftb  scalar      1         -     i01rusdf=(bdy_interp:dt)       "QNCCN"            "CCN Number concentration" "# kg(-1)"
+state   real    qnc            ikjftb  scalar      1         -     i01rusdf=(bdy_interp:dt)       "QNCLOUD"          "cloud water Number concentration" "# kg(-1)"
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -839,11 +843,13 @@ rconfig   integer num_soil_cat            namelist,physics	1            16      
 rconfig   integer mp_zero_out             namelist,physics	1             0       -      "mp_zero_out"  "microphysics fields set to zero  0=no action taken, 1=all fields but Qv, 2=all fields including Qv"      "flag"
 rconfig   real mp_zero_out_thresh         namelist,physics	1          1.e-8      -      "mp_zero_out_thresh"  "minimum threshold for non-Qv moist fields, below are set to zero"  "kg/kg"
 rconfig   real    seaice_threshold        namelist,physics      1            271       h    "seaice_threshold"  "tsk below which which water points are set to sea ice for slab scheme"   "K"
+rconfig   integer fractional_seaice       namelist,physics      1            0        -     "fractional_seiace" "Fractional sea-ice option"
 rconfig   integer sst_update              namelist,physics      1            0         h    "sst_update"  "update sst from wrflowinp file  0=no, 1=yes"   ""
 rconfig   integer ucmcall                 namelist,physics      max_domains  0         h    "ucmcall"     "activate urban model  0=no, 1=yes"   ""
 rconfig   logical usemonalb               namelist,physics      1            .true.    h    "usemonalb"    "use 2d field vs table values  false=table, True=2d"   ""
 rconfig   logical rdmaxalb                namelist,physics      1            .true.    h     "rdmaxalb"    "false set it to table values"   ""
 rconfig   logical rdlai2d                 namelist,physics      1            .false.   h     "rdlai2d"     "false set it to table values"   ""
+rconfig   integer  gwd_opt                namelist,physics    max_domains    0       irh    "gwd_opt"      "activate gravity wave drag: 0=off, 1=ARW, 2=NMM"   ""
 
 # nmm variables
 rconfig   integer idtad                   namelist,physics     max_domains    2       irh    "idtad"  "fundamental timesteps between calls to NMM passive advection scheme"
@@ -860,6 +866,7 @@ rconfig   real    trdlw                   namelist,physics     max_domains    6.
 rconfig   real    tsrfc                   namelist,physics     max_domains    6.      irh    "tsrfc"  "number of hours in bucket for evaporation / sfc fluxes"
 rconfig   logical pcpflg                  namelist,physics     max_domains   .false.  irh    "pcpflg"  "logical switch that turns on/off the precipitation assimilation"
 rconfig   integer sigma                   namelist,physics     max_domains    1       irh    "sigma"  "logical switch for NMM vertical coordinate (sigma or hybrid)"
+rconfig   real    sfenth                  namelist,physics     max_domains    1.0       irh     "sea spray parameter"
 rconfig   integer co2tf                   namelist,physics     1              0       -      "co2tf"  "GFDL radiation co2 flag"
 rconfig   integer ra_call_offset          namelist,physics     1             -1       -      "ra_call_offset" "radiation call offset in timesteps (-1=old, 0=new offset)" ""
 rconfig   real    cam_abs_freq_s          namelist,physics      1         21600.      -      "cam_abs_freq_s" "CAM radiation frequency for clear-sky longwave calculations" "s"
@@ -882,6 +889,7 @@ rconfig   real    zdamp                   namelist,dynamics	max_domains    5000.
 rconfig   real    base_pres               namelist,dynamics     1          100000.     h    "base_pres"  "Base state pressure - do not change (10^5 Pa), real only"      "Pa"
 rconfig   real    base_temp               namelist,dynamics     1             290.     h    "base_temp"  "Base state sea level temperature, real only"      "K"
 rconfig   real    base_lapse              namelist,dynamics     1              50.     h    "base_lapse" "Base state temperature difference between base pres and 1/e of atm depth - do not change, real only"      "K"
+rconfig   real    iso_temp                namelist,dynamics     1               0.     h    "iso_temp" "Isothermal temperature in stratosphere, real only"      "K"
 rconfig   real    dampcoef                namelist,dynamics     max_domains    0.2     h    "dampcoef"              ""      ""
 rconfig   real    khdif                   namelist,dynamics	max_domains    0       h    "khdif"         ""      ""
 rconfig   real    kvdif                   namelist,dynamics	max_domains    0       h    "kvdif"         ""      ""
@@ -959,27 +967,34 @@ package   wsm5scheme    mp_physics==4                -             moist:qv,qc,q
 package   etampnew      mp_physics==5                -             moist:qv,qc,qr,qs
 package   wsm6scheme    mp_physics==6                -             moist:qv,qc,qr,qi,qs,qg
 package   gsfcgcescheme mp_physics==7                -             moist:qv,qc,qr,qi,qs,qg
-package   thompson       mp_physics==8               -             moist:qv,qc,qr,qi,qs,qg;scalar:qni
+package   thompson      mp_physics==8                -             moist:qv,qc,qr,qi,qs,qg;scalar:qni,qnr
 package   morr_two_moment  mp_physics==10            -             moist:qv,qc,qr,qi,qs,qg;scalar:qni,qns,qnr,qng
+package   wdm5scheme    mp_physics==14               -             moist:qv,qc,qr,qi,qs;scalar:qnn,qnc,qnr
+package   wdm6scheme    mp_physics==16               -             moist:qv,qc,qr,qi,qs,qg;scalar:qnn,qnc,qnr
+package   thompson07    mp_physics==98               -             moist:qv,qc,qr,qi,qs,qg;scalar:qni
 
 package   rrtmscheme    ra_lw_physics==1             -             -
 package   camlwscheme   ra_lw_physics==3             -             -
+package   rrtmg_lwscheme  ra_lw_physics==4           -             -
 package   gfdllwscheme  ra_lw_physics==99            -             -
 package   heldsuarez    ra_lw_physics==31            -             -
 
 package   swradscheme   ra_sw_physics==1             -             -
 package   gsfcswscheme  ra_sw_physics==2             -             -
 package   camswscheme   ra_sw_physics==3             -             -
+package   rrtmg_swscheme  ra_sw_physics==4           -             -
 package   gfdlswscheme  ra_sw_physics==99            -             -
 
 package   sfclayscheme   sf_sfclay_physics==1        -             -
 package   myjsfcscheme   sf_sfclay_physics==2        -             -
 package   gfssfcscheme   sf_sfclay_physics==3        -             -
+package   gfdlsfcscheme  sf_sfclay_physics==88       -             -
 package   qnsesfcscheme  sf_sfclay_physics==4        -             -
 package   pxsfcscheme    sf_sfclay_physics==7        -             -
 package   slabscheme     sf_surface_physics==1       -             -
 package   lsmscheme      sf_surface_physics==2       -             -
 package   ruclsmscheme   sf_surface_physics==3       -             -
+package   gfdlslab       sf_surface_physics==88      -             -
 package   pxlsmscheme    sf_surface_physics==7       -             -
 package   nmmlsmscheme   sf_surface_physics==99      -             -
 package   ysuscheme      bl_pbl_physics==1           -             -

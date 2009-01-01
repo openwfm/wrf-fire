@@ -640,12 +640,12 @@
      &                ,ALBASE,MXSNAL,ALBEDO,SH2O,SI,EPSR,EMBCK          &
      &                ,U10,V10,TH10,Q10,TSHLTR,QSHLTR,PSHLTR            &
      &                ,T2,QSG,QVG,QCG,SOILT1,TSNAV,SMFR3D,KEEPFR3DFLAG  &
-     &                ,TWBS,QWBS,SFCSHX,SFCLHX,SFCEVP                   &
+     &                ,TWBS,QWBS,TAUX,TAUY,SFCSHX,SFCLHX,SFCEVP                   &
      &                ,POTEVP,POTFLX,SUBSHX                             &
      &                ,APHTIM,ARDSW,ARDLW,ASRFC                         &
      &                ,RSWOUT,RSWTOA,RLWTOA                             &
      &                ,ASWIN,ASWOUT,ASWTOA,ALWIN,ALWOUT,ALWTOA          &
-     &                ,UZ0H,VZ0H,DUDT,DVDT,UGWDsfc,VGWDsfc              & ! GWD
+     &                ,UZ0H,VZ0H,DUDT,DVDT,UGWDsfc,VGWDsfc,SFENTH              & ! GWD
      &                ,RTHBLTEN,RQVBLTEN                                &
      &                ,PCPFLG,DDATA                                     & ! PRECIP ASSIM
      &                ,HSTDV,HCNVX,HASYW,HASYS,HASYSW,HASYNW,HLENW      & ! GWD
@@ -707,6 +707,7 @@
 !
       REAL,INTENT(IN) :: DT,PDTOP,PT
 !
+      REAL,INTENT(IN) :: SFENTH
       REAL,INTENT(INOUT) :: APHTIM,ARDSW,ARDLW,ASRFC
 !
       REAL,DIMENSION(KMS:KME-1),INTENT(IN) :: AETA1,AETA2,DETA1,DETA2
@@ -727,7 +728,8 @@
      &                ,HSTDV,HCNVX,HASYW,HASYS,HASYSW,HASYNW,HLENW      & ! GWD
      &                ,HLENS,HLENSW,HLENNW,HANGL,HANIS,HSLOP,HZMAX      & ! GWD
      &                ,CROT,SROT                                        & ! GWD
-     &                                             ,SST,VBM2,VEGFRC
+     &                                             ,VBM2,VEGFRC
+      REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: SST
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: SM,EPSR,SR       & !Bandaid
                                                       ,TG,SICE          &
@@ -771,6 +773,8 @@
                                                     ,SFCEXC,SMSTAV      &
                                                     ,SOILTB,TWBS
 !
+
+      REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: taux, tauy
       REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(IN) :: PINT
 !
       REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(INOUT) :: CWM      &
@@ -851,6 +855,7 @@
       LOGICAL :: E_BDY,WARM_RAIN
 !
       INTEGER :: NUM_ROOF_LAYERS,NUM_WALL_LAYERS,NUM_ROAD_LAYERS   ! urban
+      INTEGER :: FRACTIONAL_SEAICE
 !
       INTEGER :: IGS,IGE,JGS,JGE, PQ_I   !BSF
       LOGICAL :: FQ_I                    !BSF
@@ -868,6 +873,10 @@
       ALLOCATE(MOIST_TRANS(IMS:IME,KMS:KME,JMS:JME,N_MOIST),STAT=ISTAT)
 !
       UCMCALL=CONFIG_FLAGS%UCMCALL
+      FRACTIONAL_SEAICE = CONFIG_FLAGS%FRACTIONAL_SEAICE
+      IF ( FRACTIONAL_SEAICE == 1 ) THEN
+         CALL WRF_ERROR_FATAL("NMM cannot use FRACTIONAL_SEAICE = 1.")
+      ENDIF
 !
       DTPHS=NPHS*DT
       RDTPHS=1./DTPHS
@@ -1165,12 +1174,13 @@
      &          ,DT=DT,DX=DX,DZ8W=DZ,DZS=DZSOIL,GLW=RLW_DN_SFC          &
      &          ,GRDFLX=GRNFLX,GSW=RSW_NET_SFC,SWDOWN=RSW_DN_SFC        &
      &          ,GZ1OZ0=GZ1OZ0,HFX=TWBS                                 &
-     &          ,HT=SFCZ,IFSNOW=IDUMMY,ISFFLX=ISFFLX,ISLTYP=ISLTYP      &
+     &          ,HT=SFCZ,IFSNOW=IDUMMY,ISFFLX=ISFFLX                    &
+     &          ,FRACTIONAL_SEAICE=FRACTIONAL_SEAICE,ISLTYP=ISLTYP      &
      &          ,ITIMESTEP=NTSD,IVGTYP=IVGTYP,LOWLYR=LOWLYR             &
      &          ,MAVAIL=ONE,RMOL=RMOL,MOL=MOL                           &
      &          ,NUM_SOIL_LAYERS=NSOIL,P8W=P8W                          &
      &          ,PBLH=PBLH,PI_PHY=PI_PHY,PSHLTR=PSHLTR,PSIH=PSIH        &
-     &          ,PSIM=PSIM,P_PHY=P_PHY,Q10=Q10,Q2=Q2X,QFX=QWBS,QSFC=QS  &
+     &          ,PSIM=PSIM,P_PHY=P_PHY,Q10=Q10,Q2=Q2X,QFX=QWBS,TAUX=TAUX,TAUY=TAUY,QSFC=QS  &
      &          ,QSHLTR=QSHLTR,QZ0=QZ0,RAINCV=RAIN                      &
      &          ,RHO=RR,SFCEVP=SFCEVPX,SFCEXC=SFCEXC,SFCRUNOFF=SSROFF   &
      &          ,SMOIS=SMC,SMSTAV=SMSTAV,SMSTOT=SMSTOT,SNOALB=MXSNAL    &
@@ -1183,7 +1193,7 @@
      &          ,VZ0=VZ0H,V_FRAME=V_FRAME,V_PHY=V_PHY                   &
      &          ,WARM_RAIN=WARM_RAIN,WSPD=WSPD,XICE=SICE,XICEM=SICE     &
      &          ,ISICE=GRID%LANDUSE_ISICE,ISWATER=GRID%ISWATER          &
-     &          ,XLAND=XLAND,Z=Z,ZNT=Z0,ZS=SLDPTH,CT=CT,TKE_MYJ=TKE     &
+     &          ,XLAND=XLAND,Z=Z,ZNT=Z0,ZS=SLDPTH,CT=CT,TKE_MYJ=TKE,SFENTH=SFENTH     &
      &          ,ALBBCK=ALBASE,LH=ELFLX,SH2O=SH2O,SHDMAX=SHDMAX         &
      &          ,SHDMIN=SHDMIN,Z0=Z0BASE,FLQC=FLQC,FLHC=FLHC            &
      &          ,PSFC=PSFC_OUT,EMISS=EPSR,EMBCK=EMBCK                   &
@@ -1467,21 +1477,26 @@
 !dbg enddo
 !dbg print *,'TURBL: IGS,IGE,JGS,JGE,kpblmin,kpblmax=',IGS,IGE,JGS,JGE,kpblmin,kpblmax
 !dbg
-!     CALL GWD_driver(U=U_PHY,V=V_PHY,T=T_PHY                           &
-!    &               ,Q=MOIST_TRANS(IMS,KMS,JMS,P_QV)                   &
-!    &               ,Z=Z,DP=DELP,PINT=P8W,PMID=P_PHY,EXNR=PI_PHY       &
-!    &               ,KPBL=KPBL,ITIME=NTSD                              &
-!    &               ,HSTDV=HSTDV,HCNVX=HCNVX,HASYW=HASYW,HASYS=HASYS   &
-!    &               ,HASYSW=HASYSW,HASYNW=HASYNW,HLENW=HLENW           &
-!    &               ,HLENS=HLENS,HLENSW=HLENSW,HLENNW=HLENNW           &
-!    &               ,HANGL=HANGL,HANIS=HANIS,HSLOP=HSLOP,HZMAX=HZMAX   &
-!    &               ,CROT=CROT,SROT=SROT                               &
-!    &               ,DUDT=DUDT_GWD,DVDT=DVDT_GWD                       &
-!    &               ,UGWDsfc=UGWDsfc,VGWDsfc=VGWDsfc                   &
-!    &               ,IDS=IDS,IDE=IDE,JDS=JDS,JDE=JDE,KDS=KDS,KDE=KDE   &
-!    &               ,IMS=IMS,IME=IME,JMS=JMS,JME=JME,KMS=KMS,KME=KME   &
-!    &               ,ITS=IGS,ITE=IGE,JTS=JGS,JTE=JGE,KTS=KTS,KTE=KTE )
-!
+
+      IF (grid%gwd_opt .eq. 2) THEN
+       
+        CALL wrf_message("GWD usage currently may be problematic for some cases - use at own risk")
+
+      CALL GWD_driver(U=U_PHY,V=V_PHY,T=T_PHY                           &
+     &               ,Q=MOIST_TRANS(IMS,KMS,JMS,P_QV)                   &
+     &               ,Z=Z,DP=DELP,PINT=P8W,PMID=P_PHY,EXNR=PI_PHY       &
+     &               ,KPBL=KPBL,ITIME=NTSD                              &
+     &               ,HSTDV=HSTDV,HCNVX=HCNVX,HASYW=HASYW,HASYS=HASYS   &
+     &               ,HASYSW=HASYSW,HASYNW=HASYNW,HLENW=HLENW           &
+     &               ,HLENS=HLENS,HLENSW=HLENSW,HLENNW=HLENNW           &
+     &               ,HANGL=HANGL,HANIS=HANIS,HSLOP=HSLOP,HZMAX=HZMAX   &
+     &               ,CROT=CROT,SROT=SROT                               &
+     &               ,DUDT=DUDT_GWD,DVDT=DVDT_GWD                       &
+     &               ,UGWDsfc=UGWDsfc,VGWDsfc=VGWDsfc                   &
+     &               ,IDS=IDS,IDE=IDE,JDS=JDS,JDE=JDE,KDS=KDS,KDE=KDE   &
+     &               ,IMS=IMS,IME=IME,JMS=JMS,JME=JME,KMS=KMS,KME=KME   &
+     &               ,ITS=IGS,ITE=IGE,JTS=JGS,JTE=JGE,KTS=KTS,KTE=KTE )
+
 !=======================================================================
 !=====  End gravity wave drag (GWD) and mountain blocking (MB)  ========
 !=======================================================================
@@ -1493,13 +1508,55 @@
       DO K=KTS,KTE
       DO J=JTS,JTE
       DO I=ITS,ITE
+
+
+!mp     temporary bandaid limiting GWD/MB wind tendencies
+
+        IF (DUDT_GWD(I,K,J) .gt. 1.6) then
+        write(message,*) 'BIG DUDT_GWD:: ', I,K,J, DUDT_GWD(I,K,J)
+        CALL wrf_message(message)
+        DUDT_GWD(I,K,J)=1.6
+        ENDIF
+
+        IF (DUDT_GWD(I,K,J) .lt. -1.6) then
+        write(message,*) 'BIG DUDT_GWD:: ', I,K,J, DUDT_GWD(I,K,J)
+        CALL wrf_message(message)
+        DUDT_GWD(I,K,J)=-1.6
+        ENDIF
+
+        IF (DVDT_GWD(I,K,J) .gt. 1.6) then
+        write(message,*) 'BIG DVDT_GWD:: ', I,K,J, DVDT_GWD(I,K,J)
+        CALL wrf_message(message)
+        DVDT_GWD(I,K,J)=1.6
+        ENDIF
+
+        IF (DVDT_GWD(I,K,J) .lt. -1.6) then
+        write(message,*) 'BIG DVDT_GWD:: ', I,K,J, DVDT_GWD(I,K,J)
+        CALL wrf_message(message)
+        DVDT_GWD(I,K,J)=-1.6
+        ENDIF
+
+!mp     end temporary bandaid
+
+        DUDT(I,J,K)=DUDT_PHY(I,K,J)+DUDT_GWD(I,K,J)
+        DVDT(I,J,K)=DVDT_PHY(I,K,J)+DVDT_GWD(I,K,J)
+
+      ENDDO
+      ENDDO
+      ENDDO
+
+      ELSE  ! no GWD
+
+      DO K=KTS,KTE
+      DO J=JTS,JTE
+      DO I=ITS,ITE
         DUDT(I,J,K)=DUDT_PHY(I,K,J)
         DVDT(I,J,K)=DVDT_PHY(I,K,J)
-!       DUDT(I,J,K)=DUDT_PHY(I,K,J)+DUDT_GWD(I,K,J)
-!       DVDT(I,J,K)=DVDT_PHY(I,K,J)+DVDT_GWD(I,K,J)
       ENDDO
       ENDDO
       ENDDO
+
+      ENDIF ! gwd_opt
 !
 !-----------------------------------------------------------------------
 !***  TRANSPOSE THE MOIST_TRANS ARRAY BACK TO THE PROGNOSTIC MOIST ARRAY.
