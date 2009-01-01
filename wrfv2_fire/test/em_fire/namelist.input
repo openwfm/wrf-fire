@@ -49,11 +49,11 @@
  parent_time_step_ratio              = 1,     2,     3,
  feedback                            = 1,
  smooth_option                       = 0
- sr_x                                = 10,     0,     0 ! subgrid ratio in x
- sr_y                                = 10,     0,     0 ! subgrid ratio in y
- !sr_x                                = 20,     0,     0    ! subgrid ratio in x
- !sr_y                                = 20,     0,     0    ! subgrid ratio in y
+ sr_x                                = 10,     0,     0
+ sr_y                                = 10,     0,     0
  /
+ sr_x                                = 20,     0,     0
+ sr_y                                = 20,     0,     0
 
  &physics
  mp_physics                          = 0,     0,     0,
@@ -77,7 +77,6 @@
  /
 
  &dynamics
-! dyn_opt                             = 2,
  rk_ord                              = 3,
  diff_opt                            = 2,
  km_opt                              = 2,
