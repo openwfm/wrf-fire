@@ -1994,6 +1994,7 @@ END
       ENDIF
       iter = iter + 1
 
+#if (DA_CORE == 0)
       went = .FALSE.
       ! send to minus 
       sendw_m = 0 
@@ -2080,7 +2081,26 @@ END
           recvw_p = recvw_p + 1
         ENDDO
       ENDIF
+#else
+      if ( iter .eq. 1 ) then
+        went = .true.
+      else 
+        went = .false.
+      endif
+      sendw_m = 0 ; sendw_p = 0 ; recvw_m = 0 ; recvw_p = 0 
+      sendbeg_m = 1 ; if ( me .GT. 0 ) sendw_m = shw ; 
+      sendbeg_p = 1 ; if ( me .LT. nt-1 ) sendw_p = shw 
+      recvbeg_m = 1 ; if ( me .GT. 0 ) recvw_m = shw ; 
+      recvbeg_p = 1 ; if ( me .LT. nt-1 ) recvw_p = shw ;
+
+      ! write(0,*)'shw  ', shw , ' xy ',xy
+      ! write(0,*)' ds, de, ps, pe, nds,nde ',ds, de, ps, pe, nds,nde
+      ! write(0,*)'sendbeg_m, sendw_m, sendbeg_p, sendw_p, recvbeg_m, recvw_m, recvbeg_p, recvw_p '
+      ! write(0,*)sendbeg_m, sendw_m, sendbeg_p, sendw_p, recvbeg_m, recvw_m, recvbeg_p, recvw_p
+#endif
       !if ( went ) then
+      !  write(0,*)'shw  ', shw , ' xy ',xy
+      !  write(0,*)' ds, de, ps, pe, nds,nde ',ds, de, ps, pe, nds,nde
       !  write(0,*)'sendbeg_m, sendw_m, sendbeg_p, sendw_p, recvbeg_m, recvw_m, recvbeg_p, recvw_p '
       !  write(0,*)sendbeg_m, sendw_m, sendbeg_p, sendw_p, recvbeg_m, recvw_m, recvbeg_p, recvw_p
       !endif

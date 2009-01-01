@@ -53,7 +53,7 @@ while [[ $DATE -le $FINAL_DATE ]] ; do
       export RUN_DIR=$SUITE_DIR/$DATE/wrfvar
       mkdir -p $RUN_DIR
 
-      export DA_FIRST_GUESS=${FC_DIR}/$DATE/analysis
+      export DA_FIRST_GUESS=${FC_DIR}/$DATE/wrfinput_d01
       if [[ ${VERIFY_HOUR} != 0 ]]; then
         export PREVF_DATE=`$BUILD_DIR/da_advance_time.exe $DATE -$VERIFY_HOUR 2>/dev/null`
         export DA_FIRST_GUESS=${FC_DIR}/${PREVF_DATE}/${VERIFICATION_FILE_STRING}_d01_${ANALYSIS_DATE}
@@ -63,7 +63,7 @@ while [[ $DATE -le $FINAL_DATE ]] ; do
 
       echo "VERIFY_HOUR= ${VERIFY_HOUR}"
       echo "Verify file=${DA_FIRST_GUESS}"
-      echo "Verify obs are: "$OB_DIR/$DATE/wrfvar/filtered_obs
+      echo "Verify obs are: "$OB_DIR/$DATE/filtered_obs
 
       $SCRIPTS_DIR/da_trace.ksh da_run_wrfvar $RUN_DIR
       $SCRIPTS_DIR/da_run_wrfvar.ksh > $RUN_DIR/index.html 2>&1

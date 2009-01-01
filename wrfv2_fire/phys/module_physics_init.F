@@ -10,13 +10,17 @@
 
 MODULE module_physics_init
 
-!  USE module_io_domain
    USE module_state_description
    USE module_model_constants
-!  USE module_timing
    USE module_configure
 #ifdef DM_PARALLEL
-   USE module_dm
+#if ( EM_CORE == 1 )
+   USE module_dm , ONLY : wrf_dm_maxval, & 
+        halo_em_init_1_sub, halo_em_init_2_sub, halo_em_init_3_sub, halo_em_init_4_sub, halo_em_init_5_sub, &
+        period_bdy_em_init_sub, period_bdy_em_moist_sub, period_bdy_em_tke_sub, period_bdy_em_scalar_sub, period_bdy_em_chem_sub
+#else
+   USE module_dm , ONLY : wrf_dm_maxval
+#endif
 #endif
 
 CONTAINS
@@ -64,7 +68,7 @@ CONTAINS
                          ozmixm,pin,                             &    ! Optional
                          m_ps_1,m_ps_2,m_hybi,aerosolc_1,aerosolc_2,& ! Optional
                          RUNDGDTEN,RVNDGDTEN,RTHNDGDTEN,         &    ! Optional
-                         RQVNDGDTEN,RMUNDGDTEN,                  &    ! Optional
+                         RPHNDGDTEN,RQVNDGDTEN,RMUNDGDTEN,       &    ! Optional
                          FGDT,STEPFG,                            &    ! Optional
                          cugd_tten,cugd_ttens,cugd_qvten,        &    ! Optional
                          cugd_qvtens,cugd_qcten,                 &    ! Optional
@@ -237,7 +241,7 @@ CONTAINS
    REAL,     OPTIONAL, INTENT(IN) :: FGDT
    INTEGER , OPTIONAL, INTENT(OUT) :: STEPFG
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , OPTIONAL, INTENT(OUT) ::    &
-             RUNDGDTEN, RVNDGDTEN, RTHNDGDTEN, RQVNDGDTEN
+             RUNDGDTEN, RVNDGDTEN, RTHNDGDTEN, RPHNDGDTEN, RQVNDGDTEN
    REAL,     DIMENSION( ims:ime , jms:jme ) , OPTIONAL, INTENT(OUT) ::    &
              RMUNDGDTEN
 
@@ -526,7 +530,7 @@ integer myproc
    CALL wrf_debug ( 200 , 'module_start: phy_init: Before call to fg_init' )
 
    CALL fg_init(STEPFG,FGDT,DT,id,RUNDGDTEN,RVNDGDTEN,          &
-                RTHNDGDTEN,RQVNDGDTEN,RMUNDGDTEN,               &
+                RTHNDGDTEN,RPHNDGDTEN,RQVNDGDTEN,RMUNDGDTEN,    &
                 config_flags,restart,                           &
                 allowed_to_read ,                               &
                 ids, ide, jds, jde, kds, kde,                   &
@@ -545,18 +549,8 @@ integer myproc
                   config_flags%restart,                         &
                   obs_twindo_cg, obs_twindo,                    &
                   itimestep,                                    &
-                  config_flags%cen_lat,                         &
-                  config_flags%cen_lon,                         &
-                  config_flags%stand_lon,                       &
-                  config_flags%truelat1,                        &
-                  config_flags%truelat2,                        &
-                  config_flags%map_proj,                        &
                   xlat,                                         &
                   xlong,                                        &
-                  model_config_rec%s_sn(1),                     &
-                  model_config_rec%e_sn(1),                     &
-                  model_config_rec%s_we(1),                     &
-                  model_config_rec%e_we(1),                     &
                   fdob,                                         &
                   model_config_rec%obs_ipf_init,                &
                   ids, ide, jds, jde, kds, kde,                 &
@@ -822,6 +816,8 @@ integer myproc
                       its, ite, jts, jte, kts, kte                   )
 !---------------------------------------------------------------------
    USE module_ra_rrtm
+   USE module_ra_rrtmg_lw
+   USE module_ra_rrtmg_sw
    USE module_ra_cam
    USE module_ra_sw
    USE module_ra_gsfcsw
@@ -959,6 +955,13 @@ integer myproc
 
              camlw = .true.
 
+        CASE (RRTMG_LWSCHEME)
+             CALL rrtmg_lwinit(                             &
+                           allowed_to_read ,                &
+                           ids, ide, jds, jde, kds, kde,    &
+                           ims, ime, jms, jme, kms, kme,    &
+                           its, ite, jts, jte, kts, kte     )
+
         CASE (GFDLLWSCHEME)
              CALL nl_get_start_month(id,month)
              CALL nl_get_start_day(id,iday)
@@ -1006,6 +1009,13 @@ integer myproc
 
         CASE (GSFCSWSCHEME)
              CALL gsfc_swinit(cen_lat, allowed_to_read )
+
+        CASE (RRTMG_SWSCHEME)
+             CALL rrtmg_swinit(                             &
+                           allowed_to_read ,                &
+                           ids, ide, jds, jde, kds, kde,    &
+                           ims, ime, jms, jme, kms, kme,    &
+                           its, ite, jts, jte, kts, kte     )
 
         CASE (GFDLSWSCHEME)
              IF(.not.etalw)THEN
@@ -1259,6 +1269,19 @@ integer myproc
                          ims, ime, jms, jme, kms, kme,         &
                          its, ite, jts, jte, kts, kte          )
            isfc = 1
+#if (NMM_CORE==1)
+      CASE (GFDLSFCSCHEME)
+           CALL myjsfcinit(LOWLYR,UST,                         &
+                                      Z0,                      &
+                                          XLAND,XICE,          &
+                         IVGTYP,restart,                       &
+                         allowed_to_read ,                     &
+                         ids, ide, jds, jde, kds, kde,         &
+                         ims, ime, jms, jme, kms, kme,         &
+                         its, ite, jts, jte, kts, kte          )
+           isfc = 1
+#endif
+
 
       CASE DEFAULT
 
@@ -1291,6 +1314,17 @@ integer myproc
                      ids,ide, jds,jde, kds,kde,                    &
                      ims,ime, jms,jme, kms,kme,                    &
                      its,ite, jts,jte, kts,kte                     )
+     CASE (GFDLSLAB)
+           CALL nmmlsminit(isn,XICE,VEGFRA,SNOW,SNOWC, CANWAT,SMSTAV, &
+                     SMSTOT, SFCRUNOFF,UDRUNOFF,GRDFLX,ACSNOW,     &
+                     ACSNOM,IVGTYP,ISLTYP,TSLB,SMOIS,DZS,SFCEVP,   &
+                     TMN,                                          &
+                     num_soil_layers,                              &
+                     allowed_to_read ,                             &
+                     ids,ide, jds,jde, kds,kde,                    &
+                     ims,ime, jms,jme, kms,kme,                    &
+                     its,ite, jts,jte, kts,kte                     )
+
 #endif
       CASE (LSMSCHEME)
           CALL LSMINIT(VEGFRA,SNOW,SNOWC,SNOWH,CANWAT,SMSTAV,  &
@@ -1593,7 +1627,10 @@ integer myproc
    USE module_mp_wsm6
    USE module_mp_etanew
    USE module_mp_thompson
+   USE module_mp_thompson07
    USE module_mp_morr_two_moment
+   USE module_mp_wdm5
+   USE module_mp_wdm6
 !------------------------------------------------------------------
    IMPLICIT NONE
 !------------------------------------------------------------------
@@ -1652,8 +1689,16 @@ integer myproc
                           its, ite, jts, jte, kts, kte            )
      CASE (THOMPSON)
          IF(start_of_simulation.or.restart)CALL thompson_init
+
+     CASE (THOMPSON07)
+         IF(start_of_simulation.or.restart)CALL thompson07_init
+
      CASE (MORR_TWO_MOMENT)
          CALL morr_two_moment_init
+     CASE (WDM5SCHEME)
+          CALL wdm5init(rhoair0,rhowater,rhosnow,cliq,cpv,n_ccn0,allowed_to_read )
+     CASE (WDM6SCHEME)
+          CALL wdm6init(rhoair0,rhowater,rhosnow,cliq,cpv,n_ccn0,allowed_to_read )
 
      CASE DEFAULT
 
@@ -1664,7 +1709,7 @@ integer myproc
 #if  ( EM_CORE == 1 )
 !==========================================================
    SUBROUTINE fg_init(STEPFG,FGDT,DT,id,RUNDGDTEN,RVNDGDTEN,    &
-                RTHNDGDTEN,RQVNDGDTEN,RMUNDGDTEN,               &
+                RTHNDGDTEN,RPHNDGDTEN,RQVNDGDTEN,RMUNDGDTEN,    &
                 config_flags,restart,                           &
                 allowed_to_read ,                               &
                 ids, ide, jds, jde, kds, kde,                   &
@@ -1674,6 +1719,7 @@ integer myproc
 
 !--------------------------------------------------------------------
    USE module_fdda_psufddagd
+   USE module_fdda_spnudging, ONLY : fddaspnudginginit
 !--------------------------------------------------------------------
    IMPLICIT NONE
 !--------------------------------------------------------------------
@@ -1691,6 +1737,7 @@ integer myproc
                                                            RUNDGDTEN, &
                                                            RVNDGDTEN, &
                                                           RTHNDGDTEN, &
+                                                          RPHNDGDTEN, &
                                                           RQVNDGDTEN
    REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(OUT) :: RMUNDGDTEN
 
@@ -1731,6 +1778,32 @@ integer myproc
                       ids, ide, jds, jde, kds, kde,                &
                       ims, ime, jms, jme, kms, kme,                &
                       its, ite, jts, jte, kts, kte                 )
+
+      CASE (SPNUDGING)
+           CALL fddaspnudginginit(id,rundgdten,rvndgdten,rthndgdten,rphndgdten,&
+               config_flags%run_hours, &
+               config_flags%if_no_pbl_nudging_uv, &
+               config_flags%if_no_pbl_nudging_t, &
+               config_flags%if_no_pbl_nudging_ph, &
+               config_flags%if_zfac_uv, &
+               config_flags%k_zfac_uv, &
+               config_flags%dk_zfac_uv, &
+               config_flags%if_zfac_t, &
+               config_flags%k_zfac_t, &
+               config_flags%dk_zfac_t, &
+               config_flags%if_zfac_ph, &
+               config_flags%k_zfac_ph, &
+               config_flags%dk_zfac_ph, &
+               config_flags%guv, &
+               config_flags%gt, config_flags%gph, &
+               config_flags%if_ramping, config_flags%dtramp_min, &
+               config_flags%gfdda_end_h, &
+               config_flags%xwavenum,config_flags%ywavenum, &
+                      restart, allowed_to_read,                    &
+                      ids, ide, jds, jde, kds, kde,                &
+                      ims, ime, jms, jme, kms, kme,                &
+                      its, ite, jts, jte, kts, kte                 )
+
       CASE DEFAULT
 
    END SELECT fdda_select
@@ -1741,10 +1814,7 @@ integer myproc
    SUBROUTINE fdob_init(obs_nudge_opt, maxdom, inest, parid,       &
                         idynin, dtramp, fdaend, restart,           &
                         obs_twindo_cg, obs_twindo, itimestep,      &
-                        cen_lat, cen_lon, stand_lon,               &
-                        true_lat1, true_lat2, map_proj,            &
                         xlat, xlong,                               &
-                        s_sn_cg, e_sn_cg, s_we_cg, e_we_cg,        &
                         fdob, ipf_init,                            &
                         ids, ide, jds, jde, kds, kde,              &
                         ims, ime, jms, jme, kms, kme,              &
@@ -1771,19 +1841,8 @@ integer myproc
    REAL    , INTENT(IN)    :: obs_twindo_cg   ! twindo on course grid
    REAL    , INTENT(IN)    :: obs_twindo
    INTEGER , INTENT(IN)    :: itimestep
-   REAL    , INTENT(IN)    :: cen_lat      ! domain center latitude
-   REAL    , INTENT(IN)    :: cen_lon      ! domain center longitude
-   REAL    , INTENT(IN)    :: stand_lon    ! domain longitude
-   REAL    , INTENT(IN)    :: true_lat1    ! domain standard parallel
-   REAL    , INTENT(IN)    :: true_lat2    ! domain second standard parallel
-   INTEGER , INTENT(IN)    :: map_proj     ! map projection
    REAL, DIMENSION( ims:ime, jms:jme ),                            &
          INTENT(IN )       :: xlat, xlong  ! lat/long locations on mass point grid
-   INTEGER, intent(in)     :: s_sn_cg      ! starting north-south coarse-grid index
-   INTEGER, intent(in)     :: e_sn_cg      ! ending   north-south coarse-grid index
-   INTEGER, intent(in)     :: s_we_cg      ! starting west-east   coarse-grid index
-   INTEGER, intent(in)     :: e_we_cg      ! ending   west-east   coarse-grid index
-
    TYPE(fdob_type), INTENT(INOUT)  :: fdob
 
    INTEGER                 :: e_sn         ! ending   north-south grid index
@@ -1798,10 +1857,7 @@ integer myproc
                         idynin, dtramp, fdaend, restart,           &
                         obs_twindo_cg,                             &
                         obs_twindo, itimestep,                     &
-                        cen_lat, cen_lon, stand_lon,               &
-                        true_lat1, true_lat2, map_proj,            &
                         xlat, xlong,                               &
-                        e_sn, s_sn_cg, e_sn_cg, s_we_cg, e_we_cg,  &
                         fdob, ipf_init,                            &
                         ids,ide, jds,jde, kds,kde,                 &
                         ims,ime, jms,jme, kms,kme,                 &
