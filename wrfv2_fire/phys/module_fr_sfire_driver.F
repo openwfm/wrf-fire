@@ -324,7 +324,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         )
 
 #ifdef DM_PARALLEL
-            if(fire_ifun_start.eq.2)then
+            if(fire_ifun.eq.2)then
 !               halo exchange on all fuel data width 2
 #include "HALO_FIRE_FUEL.inc"
             endif
