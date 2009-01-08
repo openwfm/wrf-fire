@@ -158,9 +158,11 @@ do j=jfts,jfte
         endif
         dmax=max(d,dmax)
         lfn_new=d-r
+        if(lfn_new<=0) then
+            ignited=ignited+1   ! count
+        endif
         if(lfn(i,j)>0 .and. lfn_new<=0) then
             tign(i,j)=time_ign  ! newly ignited now
-            ignited=ignited+1   ! count
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
 

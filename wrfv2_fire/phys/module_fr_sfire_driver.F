@@ -348,6 +348,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             endif
 #endif
 
+                
+
       enddo
     enddo
     if(tsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
@@ -392,6 +394,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fuel_time,zsf,                                & ! save constant internal data, fire grid
     bbb,betafl,phiwc,r_0,fgip,ischap&
     )
+USE module_dm, only:wrf_dm_maxval
 
 implicit none
 
@@ -485,6 +488,8 @@ integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
+integer::ignitions_done_tile(num_tiles),ignited_tile(num_ignitions,num_tiles)
+integer::ignitions_done,ignited_patch(num_ignitions),idex,jdex
 
 
 !*** executable
@@ -545,6 +550,7 @@ do ij=1,num_tiles
     id=0  ! do not print/write anything
     if(itimestep.le.10.or.mod(itimestep,10).eq.0)id=itimestep+ij*10000
 
+    ignitions_done_tile(ij)=0
 
     ! set up tile bounds    
     its = i_start(ij)  ! start atmospheric tile in i
@@ -573,6 +579,7 @@ do ij=1,num_tiles
     call message(msg)
     7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
     write(msg,'(a,2i9)')'refinement ratio:',ir,jr
+
     if(ifun.eq.1)then   ! set terrain
 
         call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
@@ -671,6 +678,7 @@ do ij=1,num_tiles
         ignition_end_x,ignition_end_y,          &
         ignition_radius,                        &
         ignition_time,                          &
+        ignitions_done_tile(ij),ignited_tile(1,ij),  &
         fxlong,fxlat,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
         zsf,                                    & ! terrain height (for gradient)
         uf,vf,                                  & ! input: wind
@@ -750,6 +758,26 @@ do ij=1,num_tiles
 
 enddo ! tiles
 !$OMP END PARALLEL DO
+
+if (ifun.eq.3)then
+    ignitions_done=ignitions_done_tile(1) ! all should be the same
+    do i=1,ignitions_done
+        write(msg,*)'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
+        call message(msg)
+        ignited_patch(i)=0
+        do ij=1,num_tiles
+            ignited_patch(i)=ignited_patch(i)+ignited_tile(i,ij)
+        enddo
+#ifdef DM_PARALLEL
+        call message('sfire_driver_phys: checking ignitions, collect counts')
+        call wrf_dm_maxval(ignited_patch(i),idex,jdex)
+        call message('sfire_driver_phys: collected')
+#endif
+        if(ignited_patch(i).eq.0)then
+            call crash('sfire_driver_phys: Ignition failed, no nodes ignited. Bad coordinates?')
+        endif
+    enddo
+endif
 
 #ifdef DEBUG_OUT
 if(ifun.eq.1)then
