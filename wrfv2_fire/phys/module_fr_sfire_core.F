@@ -80,6 +80,16 @@ implicit none
 
 !*** purpose: ignite a circular/line fire 
 
+!*** description
+! ignite fire in the region within radius r from the line (sx,sy) to (ex,ey).
+! the coordinates of nodes are given as the arrays coord_xf and coord_yf
+! r is given in m
+! one unit of coord_xf is unit_xf m 
+! one unit of coord_yf is unit_yf m 
+! so a node (i,j) will be ignited iff for some (x,y) on the line
+! || ( (coord_xf(i,j) - x)*unit_xf , (coord_yf(i,j) - y)*unit_yf ) || <= r 
+
+
 !*** arguments
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
