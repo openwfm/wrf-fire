@@ -35,7 +35,7 @@ CONTAINS
     USE module_surface_driver, ONLY : surface_driver
     USE module_cumulus_driver, ONLY : cumulus_driver
     USE module_pbl_driver, ONLY : pbl_driver
-    USE module_fr_sfire_driver, ONLY : sfire_driver_em
+    USE module_fr_sfire_driver, ONLY : sfire_driver_em_step
     USE module_fddagd_driver, ONLY : fddagd_driver
     USE module_em, ONLY : init_zero_tendency
     USE module_big_step_utilities_em, ONLY : phy_prep
@@ -108,16 +108,6 @@ CONTAINS
     INTEGER  rk_step 
     INTEGER                         :: yr, month, day, hr, minute, sec, rc
     CHARACTER*80                    :: message
-
-   INTEGER                         :: sids , side , sjds , sjde , skds , skde , &
-                                      sims , sime , sjms , sjme , skms , skme , &
-                                      sips , sipe , sjps , sjpe , skps , skpe
-
-  CALL get_ijk_from_subgrid (  grid ,                   &
-                            sids, side, sjds, sjde, skds, skde,    &
-                            sims, sime, sjms, sjme, skms, skme,    &
-                            sips, sipe, sjps, sjpe, skps, skpe    )
-
 
  ! initialize all tendencies to zero in order to update physics
  ! tendencies first (separate from dry dynamics).
@@ -494,13 +484,17 @@ BENCH_END(pbl_driver_tim)
 
 BENCH_START(fire_driver_tim)
         if(config_flags%ifire.eq.2)then 
-            call sfire_driver_em ( grid , config_flags    &
+            ! initialization moved to start_em:start_domain_em
+!            if(grid%initestep.eq.1) &
+!            call sfire_driver_em_init (  grid , config_flags    &
+!            ,ids,ide, kds,kde, jds,jde                              &
+!            ,ims,ime, kms,kme, jms,jme                              &
+!            ,ips,ipe, kps,kpe, jps,jpe  )
+            ! one timestep of the fire model
+            call sfire_driver_em_step (  grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,sids,side, sjds,sjde                        &
-            ,sims,sime, sjms,sjme                        &
-            ,sips,sipe, sjps,sjpe                        &
             ,rho,z_at_w,dz8w)
         endif
 
