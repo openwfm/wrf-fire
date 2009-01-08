@@ -216,7 +216,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real::lat_ctr,lon_ctr
+    real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
+    real:: unit_fxlong ,unit_fxlat
 
 
 !*** executable
@@ -224,17 +226,33 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     call print_id
 
 ! populate our structures from wrf
+    ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+    ! copy configuration flags
     call set_flags(config_flags)
 
+    if(fire_ignition_longlat .eq.0)then
+       ! ideal
+       !  ignition is in m
+       unit_fxlong=1.  
+       unit_fxlat=1.
+       ! will set fire mesh coordinates to uniform mesh below
+    else
+       ! real
+       lat_ctr=config_flags%cen_lat
+       lon_ctr=config_flags%cen_lon
+       ! 1 degree in m (approximate OK)
+       unit_fxlat=6378e3*2*3.14159/360.   ! earth circumference in m / 360 degrees
+       unit_fxlong=cos(lat_ctr*3.14159/180.)*unit_fxlat  ! latitude
+    endif
+
+    ! refinement r
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
     itimestep=grid%itimestep
 
-    lat_ctr=config_flags%cen_lat
-    lon_ctr=config_flags%cen_lon
     
 
     write(msg,'(a,i1,a,i1,a,i4)') &
@@ -301,7 +319,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             itimestep,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
             grid%dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
-            lat_ctr,lon_ctr,                           & ! coordinates of grid center
+            unit_fxlong,unit_fxlat,                           & ! coordinates of grid center
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
@@ -352,8 +370,8 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
     itimestep,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
     u_frame,v_frame,                              &
-    lat_ctr,lon_ctr,                             &
-    fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                              &
+    unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
+    fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
     num_ignitions,                                & 
     ignition_longlat,                             &
     ignition_start_x,ignition_start_y,            & ! ignition - small arrays
@@ -405,7 +423,7 @@ real, intent(in):: &
     dt,                                           & ! time step
     dx,dy,                                        & ! atm grid step
     u_frame,v_frame,                              & ! velocity offset
-    lat_ctr,lon_ctr,                             & ! coordinates of domain center
+    unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
     fire_crwn_hgt,                                & ! lowest height crown fire heat is released (m)
     fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
     fire_ext_crwn                                   !  extinction depth of crown fire heat (m)
@@ -467,7 +485,6 @@ integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
-real:: unit_fxlong,unit_fxlat                  ! fxlong, fxlat units in m  
 
 
 !*** executable
@@ -515,21 +532,6 @@ pid=0
 if(itimestep.le.10.or.mod(itimestep,10).eq.0)pid=itimestep ! print 1-10 then every 10th
 !pid=itimestep
 
-if(ignition_longlat .eq.0)then
-   !  ignition is in m
-   unit_fxlong=1.  
-   unit_fxlat=1.
-   ! will set fire mesh coordinates to uniform mesh below
-else
-   ! check for zero long 
-   if(xlong(ips,jps).eq.0. .and. xlong(ipe,jpe).eq. 0.) then
-       call crash('sfire_driver_phys: xlong xlat not set, use fire_ignition_longlat=0 or run real not ideal')
-   endif
-   ! 1 degree in m (approximate OK)
-   unit_fxlat=6378e3*2*3.14159/360.   ! earth circumference in m / 360 degrees
-   unit_fxlong=cos(lat_ctr*3.14159/180.)*unit_fxlat  ! latitude
-   ! will interpolate nodal coordinates to the fire mesh 
-endif
 
 ! fake atm tile bounds
 kts=kps
@@ -805,6 +807,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
     USE module_configure
     implicit none
+! create ignition arrays from scalar flags
 !*** arguments
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
     integer, intent(in)::fire_max_ignitions
@@ -824,6 +827,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     if(ideal)call message('Using ideal ignition coordinates, m from the lower left domain corner')
     if(real)call message('Using real ignition coordinates, longitude and latitude')
     if(ideal.and.real)call crash('Only one of the ideal or real coordinates may be given')
+
     if(ideal)then
         ! use values from _x and _y variables
         ignition_longlat=0
