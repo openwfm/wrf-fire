@@ -71,8 +71,6 @@
  icloud                              = 0,
  surface_input_source                = 1,
  num_soil_layers                     = 5,
- ucmcall                             = 0,
- mp_zero_out                         = 0,
  maxiens                             = 1,
  maxens                              = 3,
  maxens2                             = 3,
