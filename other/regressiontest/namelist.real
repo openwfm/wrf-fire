@@ -102,10 +102,6 @@
  h_sca_adv_order                     = 5,
  v_sca_adv_order                     = 3,
  non_hydrostatic                     = .true.,
- pd_moist                            = .false.,
- pd_scalar                           = .false.,
- pd_chem                             = .false.,
- pd_tke                              = .false.,
  /
 
 &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
