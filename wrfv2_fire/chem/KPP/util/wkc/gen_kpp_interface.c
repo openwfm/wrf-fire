@@ -99,7 +99,7 @@ FILE  * kpp_if;
 
 
        /* 1-D water and 3rd body concentrations, temperature  */
-       wki_one_d_vars ( kpp_if );
+       wki_one_d_vars ( kpp_if,  p1 );
 
 
        /* fprintf(stderr, "1 MATCHING PACKS:  %s \n", p2->name); */
@@ -127,7 +127,7 @@ FILE  * kpp_if;
 
             fprintf(kpp_if, "\n\n\n\n  CALL %s_INTEGRATE(TIME_START, TIME_END, &  \n", p2->name );
             fprintf(kpp_if, "          FIX, VAR,  RCONST, ATOL, RTOL, & \n");
-            fprintf(kpp_if, "          ICNTRL_U=icntrl  )\n\n\n\n\n");
+            fprintf(kpp_if, "          ICNTRL_U=icntrl, RCNTRL_U=rcntrl  )\n\n\n\n\n");
 
 
 	    /*            fprintf(kpp_if, "          ICNTRL_U, RCNTRL_U, ISTATUS_U, RSTATUS_U, IERR_U )\n\n\n\n\n"); */

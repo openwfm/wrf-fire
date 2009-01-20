@@ -132,6 +132,7 @@ int get_gridnav_projection(int wrf_projection)
   switch (wrf_projection) 
     {
     case WRF_LATLON:
+    case WRF_CASSINI:
       gridnav_projection = GRID_LATLON;
       break;
     case WRF_MERCATOR:
@@ -178,7 +179,7 @@ int GET_LL_LATLON(float *central_lat, float *central_lon, int *projection,
     {
       fprintf(stderr,"write_grib: error from GRID_init\n");
       *ierr = 1;
-      return;
+      return(0);
     }
 
   /* get lat/lon of lower left corner */
@@ -188,7 +189,7 @@ int GET_LL_LATLON(float *central_lat, float *central_lon, int *projection,
       fprintf(stderr,
 	      "write_grib: error from GRID_to_latlon for first lat/lon\n");
       *ierr = 1;
-      return;
+      return(0);
     }
 
   /* get lat/lon of upper right corner */
@@ -198,10 +199,10 @@ int GET_LL_LATLON(float *central_lat, float *central_lon, int *projection,
       fprintf(stderr,
 	      "write_grib: error from GRID_to_latlon for first lat/lon\n");
       *ierr = 1;
-      return;
+      return(0);
     }
 
   *ierr = 0;
-  return;
+  return(0);
 
 }

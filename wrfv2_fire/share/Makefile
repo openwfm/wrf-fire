@@ -13,12 +13,13 @@ MODULES =                       \
 	module_io_domain.o	\
 	module_model_constants.o \
 	module_MPP.o \
-	module_wrf_top.o \
-	module_optional_si_input.o	\
+	module_optional_input.o	\
 	module_compute_geop.o           \
-	module_soil_pre.o
+	module_soil_pre.o		\
+	module_llxy.o
 
 OBJS    = 		\
+	dfi.o				\
 	mediation_integrate.o		\
 	mediation_interp_domain.o	\
 	mediation_force_domain.o	\
@@ -32,6 +33,7 @@ OBJS    = 		\
         interp_fcn.o sint.o             \
         input_wrf.o                     \
         output_wrf.o                    \
+        wrf_timeseries.o                \
         wrf_ext_write_field.o           \
         wrf_ext_read_field.o            \
         wrf_inputout.o        		\
@@ -87,6 +89,7 @@ OBJS    = 		\
         wrf_bdyin.o             	\
         wrf_histin.o            	\
         wrf_restartin.o                 \
+        wrf_tsin.o                      \
         landread.o
 
 
@@ -98,9 +101,9 @@ TARGETDIR    =  ./
 $(LIBTARGET) :  $(MODULES) $(OBJS)
 		if [ $(WRF_NMM_CORE) -eq 1 ] ; then \
                   $(MAKE) nmm_contrib                                      ; \
-                  $(AR) ../main/libwrflib.a $(MODULES) $(OBJS) $(NMM_OBJS) $(NMM_MODULES) ; \
+                  $(AR) $(ARFLAGS) ../main/$(LIBWRFLIB) $(MODULES) $(OBJS) $(NMM_OBJS) $(NMM_MODULES) ; \
                   else                                                         \
-                  $(AR) ../main/libwrflib.a $(MODULES) $(OBJS)             ; \
+                  $(AR) $(ARFLAGS) ../main/$(LIBWRFLIB) $(MODULES) $(OBJS)             ; \
                 fi
 
 include ../configure.wrf
@@ -117,14 +120,14 @@ solve_interface.o: solve_em.int ../frame/module_domain.o ../frame/module_configu
 		../frame/module_timing.o ../frame/module_driver_constants.o \
 		../frame/module_wrf_error.o
 
-start_domain.o: start_domain_em.int ../frame/module_domain.o ../frame/module_configure.o
+start_domain.o: start_domain_em.int wrf_timeseries.o ../frame/module_domain.o ../frame/module_configure.o
 
 module_bc.o: ../frame/module_configure.o ../frame/module_state_description.o \
 		../frame/module_wrf_error.o
 
 module_bc_time_utilities.o: $(ESMF_MOD_DEPENDENCE)
 
-module_get_file_names.o: 
+module_get_file_names.o: ../frame/module_dm.o
 
 module_io_domain.o: module_io_wrf.o module_date_time.o ../frame/module_io.o  \
 		../frame/module_domain.o ../frame/module_configure.o \
@@ -141,6 +144,13 @@ output_wrf.o:   ../frame/module_io.o ../frame/module_wrf_error.o \
                 ../frame/module_configure.o module_io_wrf.o  \
 		$(ESMF_MOD_DEPENDENCE)
 
+wrf_timeseries.o: wrf_tsin.o \
+		module_model_constants.o \
+		module_llxy.o \
+		../frame/module_domain.o \
+		../frame/module_configure.o \
+		../frame/module_dm.o
+
 input_wrf.o:    ../frame/module_io.o ../frame/module_wrf_error.o \
                 ../frame/module_domain.o ../frame/module_state_description.o \
                 ../frame/module_configure.o module_io_wrf.o  \
@@ -152,11 +162,18 @@ wrf_ext_write_field.o : ../frame/module_io.o ../frame/module_wrf_error.o \
 wrf_ext_read_field.o : ../frame/module_io.o ../frame/module_wrf_error.o \
                 ../frame/module_domain.o ../frame/module_timing.o
 
-module_date_time.o: ../frame/module_wrf_error.o ../frame/module_configure.o
+module_date_time.o: ../frame/module_wrf_error.o ../frame/module_configure.o \
+		module_model_constants.o 
 
 module_soil_pre.o: module_date_time.o ../frame/module_state_description.o
 
-module_optional_si_input.o: module_io_wrf.o module_io_domain.o \
+dfi.o : 	../frame/module_wrf_error.o ../frame/module_configure.o \
+		../frame/module_state_description.o \
+		../frame/module_domain.o ../frame/module_timing.o \
+		module_model_constants.o module_date_time.o module_io_domain.o \
+		$(ESMF_MOD_DEPENDENCE)
+
+module_optional_input.o: module_io_wrf.o module_io_domain.o \
 		../frame/module_domain.o ../frame/module_configure.o
 
 mediation_wrfmain.o: ../frame/module_domain.o ../frame/module_configure.o \
@@ -198,15 +215,6 @@ mediation_nest_move.o: ../frame/module_domain.o ../frame/module_configure.o ../f
 
 set_timekeeping.o: ../frame/module_domain.o ../frame/module_configure.o \
                    $(ESMF_MOD_DEPENDENCE)
-
-module_wrf_top.o: ../frame/module_machine.o \
-                  ../frame/module_domain.o \
-                  ../frame/module_integrate.o \
-                  ../frame/module_driver_constants.o \
-                  ../frame/module_configure.o \
-                  ../frame/module_timing.o \
-                  ../frame/module_wrf_error.o \
-                  $(ESMF_MOD_DEPENDENCE)
 
 wrf_inputout.o                  : ../frame/module_domain.o \
 				../frame/module_configure.o ../frame/module_io.o module_io_wrf.o module_bc_time_utilities.o 
@@ -312,6 +320,7 @@ wrf_histin.o                    : ../frame/module_domain.o \
                                 ../frame/module_configure.o ../frame/module_io.o module_io_wrf.o module_bc_time_utilities.o
 wrf_restartin.o                 : ../frame/module_domain.o \
                                 ../frame/module_configure.o ../frame/module_io.o module_io_wrf.o module_bc_time_utilities.o
+wrf_tsin.o	                : ../frame/module_domain.o
 
 
 # DO NOT DELETE

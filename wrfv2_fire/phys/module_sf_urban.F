@@ -36,6 +36,8 @@ MODULE module_sf_urban
 
    INTEGER                         :: BOUNDR_DATA,BOUNDB_DATA,BOUNDG_DATA
    INTEGER                         :: CH_SCHEME_DATA, TS_SCHEME_DATA
+   INTEGER                         :: ahoption        ! Miao, 2007/01/17, cal. ah
+   REAL, DIMENSION(1:24)           :: ahdiuprf        ! ah diurnal profile, tloc: 1-24
 
    INTEGER                         :: allocate_status 
 
@@ -166,7 +168,7 @@ MODULE module_sf_urban
 !  Z0G [m]                : roughness length for momentum of road (only for CH_SCHEME = 1)
 !  Z0HR [m]               : roughness length for heat of roof
 !  Z0HB [m]               : roughness length for heat of building wall (only for CH_SCHEME = 1)
-!  Z0HG [m]               : roughness length for heat of roof
+!  Z0HG [m]               : roughness length for heat of road
 !  num_roof_layers        : number of layers within roof
 !  num_wall_layers        : number of layers within building walls
 !  num_road_layers        : number of layers within below road surface
@@ -179,7 +181,7 @@ MODULE module_sf_urban
 !  BOUNDG [integer 1 or 2] : Boundary Condition for Road Layer Temp [1: Zero-Flux, 2: T = Constant]
 !  TRLEND [K]             : lower boundary condition of roof temperature
 !  TBLEND [K]             : lower boundary condition of building temperature
-!  TGLEND [K]             : lower boundary condition of gound temperature
+!  TGLEND [K]             : lower boundary condition of ground temperature
 !  CH_SCHEME [integer 1 or 2] : Sfc exchange scheme used for building wall and road
 !                         [1: M-O Similarity Theory,  2: Empirical Form (recommend)]
 !  TS_SCHEME [integer 1 or 2] : Scheme for computing surface temperature (for roof, wall, and road)
@@ -399,16 +401,26 @@ MODULE module_sf_urban
    REAL :: TRP, TBP, TGP, TCP, QCP, TST, QST
 
    INTEGER :: iteration, K 
+   INTEGER :: tloc
 
 !-------------------------------------------------------------------------------
 ! Set parameters
 !-------------------------------------------------------------------------------
+
+! Miao, 2007/01/17, cal. ah
+   if(ahoption==1) then
+     tloc=mod(int(OMG/PI*180./15.+12.+0.5 ),24)
+     if(tloc==0) tloc=24
+   endif
 
    CALL read_param(UTYPE,ZR,Z0C,Z0HC,ZDC,SVF,R,RW,HGT,CDS,AS,AH,  &
                    CAPR,CAPB,CAPG,AKSR,AKSB,AKSG,ALBR,ALBB,ALBG,  &
                    EPSR,EPSB,EPSG,Z0R,Z0B,Z0G,Z0HR,Z0HB,Z0HG,     &
                    BETR,BETB,BETG,TRLEND,TBLEND,TGLEND,           &
                    BOUNDR,BOUNDB,BOUNDG,CH_SCHEME,TS_SCHEME)
+
+! Miao, 2007/01/17, cal. ah
+   if(ahoption==1) AH=AH*ahdiuprf(tloc)
 
    IF( ZDC+Z0C+2. >= ZA) THEN
     PRINT *, 'ZDC + Z0C + 2m is larger than the 1st WRF level' 
@@ -871,7 +883,12 @@ MODULE module_sf_urban
 !-------------------------------------------------------------------------------
 
    FLXUV  = ( R*CDR + RW*CDC )*UA*UA
-   FLXTH  = ( R*FLXTHR  + W*FLXTHB  + RW*FLXTHG )
+! Miao, 2007/01/17, cal. ah
+   if(ahoption==1) then
+     FLXTH  = ( R*FLXTHR  + W*FLXTHB  + RW*FLXTHG ) + AH/RHOO/CPP
+   else
+     FLXTH  = ( R*FLXTHR  + W*FLXTHB  + RW*FLXTHG )
+   endif
    FLXHUM = ( R*FLXHUMR + W*FLXHUMB + RW*FLXHUMG )
    FLXG =   ( R*G0R + W*G0B + RW*G0G )
    LNET =     R*RR + W*RB + RW*RG
@@ -1472,6 +1489,13 @@ ENDIF
    READ(11,*) CH_SCHEME_DATA
    READ(11,*)
    READ(11,*) TS_SCHEME_DATA
+! Miao, 2007/01/17, cal. ah
+   READ(11,*)
+   READ(11,*) ahoption
+   if(ahoption==1) then
+     READ(11,*)
+     READ(11,*) (ahdiuprf(k),k=1,24)
+   endif
 
    CLOSE(11)
 
@@ -1503,6 +1527,7 @@ ENDIF
    SUBROUTINE urban_var_init(TSURFACE0_URB,TLAYER0_URB,TDEEP0_URB,IVGTYP,     & ! in
                              ims,ime,jms,jme,num_soil_layers,                 & ! in
 !                             num_roof_layers,num_wall_layers,num_road_layers, & ! in
+                             restart,                                      & !in
                              XXXR_URB2D,XXXB_URB2D,XXXG_URB2D,XXXC_URB2D,  & ! inout
                              TR_URB2D,TB_URB2D,TG_URB2D,TC_URB2D,QC_URB2D, & ! inout
                              TRL_URB3D,TBL_URB3D,TGL_URB3D,                & ! inout
@@ -1517,6 +1542,7 @@ ENDIF
    REAL, DIMENSION( ims:ime, 1:num_soil_layers, jms:jme ), INTENT(IN) :: TLAYER0_URB
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN)                    :: TDEEP0_URB
    INTEGER, DIMENSION( ims:ime, jms:jme ), INTENT(IN)                 :: IVGTYP
+   LOGICAL , INTENT(IN) :: restart
  
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: TR_URB2D
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: TB_URB2D
@@ -1550,10 +1576,10 @@ ENDIF
    DO I=ims,ime
     DO J=jms,jme
 
-      XXXR_URB2D(I,J)=0.
-      XXXB_URB2D(I,J)=0.
-      XXXG_URB2D(I,J)=0.
-      XXXC_URB2D(I,J)=0.
+!      XXXR_URB2D(I,J)=0.
+!      XXXB_URB2D(I,J)=0.
+!      XXXG_URB2D(I,J)=0.
+!      XXXC_URB2D(I,J)=0.
 
       SH_URB2D(I,J)=0.
       LH_URB2D(I,J)=0.
@@ -1586,6 +1612,14 @@ ENDIF
 
 
       QC_URB2D(I,J)=0.01
+
+       IF (.not.restart) THEN
+
+      XXXR_URB2D(I,J)=0.
+      XXXB_URB2D(I,J)=0.
+      XXXG_URB2D(I,J)=0.
+      XXXC_URB2D(I,J)=0.
+
 
       TC_URB2D(I,J)=TSURFACE0_URB(I,J)+0.
       TR_URB2D(I,J)=TSURFACE0_URB(I,J)+0.
@@ -1625,6 +1659,7 @@ ENDIF
         TGL_URB3D(I,K,J)=TLAYER0_URB(I,K,J)+0.
       END DO
 
+     ENDIF        !restart
     END DO
    END DO
 

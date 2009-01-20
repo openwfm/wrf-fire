@@ -566,12 +566,6 @@ CONTAINS
 !
          qvoqswz(k)=qvz(k)/qswz(k)
          qvoqsiz(k)=qvz(k)/qsiz(k)
-         qvzodt(k)=amax1( 0.0,odtb*qvz(k) )
-         qlzodt(k)=amax1( 0.0,odtb*qlz(k) )
-         qizodt(k)=amax1( 0.0,odtb*qiz(k) )
-         qszodt(k)=amax1( 0.0,odtb*qsz(k) )
-         qrzodt(k)=amax1( 0.0,odtb*qrz(k) )
-         qgzodt(k)=amax1( 0.0,odtb*qgz(k) )
 
          theiz(k)=thz(k)+(xlvocp*qvz(k)-xlfocp*qiz(k))/tothz(k)
       enddo
@@ -971,10 +965,16 @@ CONTAINS
    precgz(kte)=0. !wig
    
 
-! Microphpysics processes
+! Microphysics processes
 !
       DO 2000 k=kts,kte
 !
+         qvzodt(k)=amax1( 0.0,odtb*qvz(k) )
+         qlzodt(k)=amax1( 0.0,odtb*qlz(k) )
+         qizodt(k)=amax1( 0.0,odtb*qiz(k) )
+         qszodt(k)=amax1( 0.0,odtb*qsz(k) )
+         qrzodt(k)=amax1( 0.0,odtb*qrz(k) )
+         qgzodt(k)=amax1( 0.0,odtb*qgz(k) )
 !***********************************************************************
 !*****   diagnose mixing ratios (qrz,qsz), terminal                *****
 !*****   velocities (vtr,vts), and slope parameters in size        *****
@@ -1683,6 +1683,9 @@ CONTAINS
 !c     vf1s=0.78,vf2s=0.31 in LIN
 !c     Cdrag=0.6  drag coefficient for hairstone
 !c
+            term0=constg*olambdag(k)**5.5/visc(k)
+            constg2=vf1s*olambdag(k)*olambdag(k)+  &
+                    vf2s*schmidt(k)**0.33334*gam2pt75*sqrt(term0)
             tmp2=abg*xnog*constg2
             pgdep(k)=amax1(0.0,tmp2)
             pgsub(k)=amin1(0.0,tmp2)
@@ -1927,6 +1930,11 @@ CONTAINS
 !c
 !c  combined all graupel processes
 !c
+           if(delta4.lt.0.5) then
+             !Re-define pgwet to account for limiting of pgacrp,
+             !         pgacip, pgacw and pgacsp above
+             pgwet(k) = pgacrp(k) + pgacw(k) + pgacip(k) + pgacsp(k)
+           end if
            tmp_g=-pgaut(k)-pgfr(k)-Pgacw(k)*delta4-Pgaci(k)*delta4  &
                  -Pgacr(k)*delta4-Pgacs(k)*delta4  &
                  -pgwet(k)*(1.-delta4)-pgsub(k)-pgdep(k)  &
@@ -2059,7 +2067,7 @@ CONTAINS
 !c
 
 
-          pvapor(k)=-psmltevp(k)-prevp(k)-pgmltevp(k)
+          pvapor(k)=-psmltevp(k)-prevp(k)-pgmltevp(k)*gindex
           qvz(k)=amax1( qvmin,qvz(k)+dtb*pvapor(k))
           pclw(k)=-praut(k)-pracw(k)-psacw(k)-pgacw(k)*gindex
           if(flag_qndrop)then

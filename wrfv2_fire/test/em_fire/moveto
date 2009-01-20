@@ -9,7 +9,7 @@ endif
 echo moving to $d
 mkdir -p $d
 mv *.txt $d
-rm $d/*_??000.txt
+rm $d/*000.txt
 mv wrfrst* wrf.log $d
 mv rsl.* $d
 #find . -name \*.txt -exec mv {} $d \;

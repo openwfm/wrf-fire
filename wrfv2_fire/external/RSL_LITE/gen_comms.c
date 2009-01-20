@@ -10,13 +10,161 @@
 #define NULLCHARPTR   (char *) 0
 static int parent_type;
 
+/* print actual and dummy arguments and declarations for 4D and i1 arrays */
+int print_4d_i1_decls ( FILE *fp , node_t *p, int ad /* 0=argument,1=declaration */ )   
+{
+  node_t * q ;
+  node_t * dimd ;
+  char fname[NAMELEN] ;
+  char tmp[NAMELEN_LONG], tmp2[NAMELEN_LONG], tmp3[NAMELEN_LONG] ;
+  char commuse[NAMELEN] ;
+  int maxstenwidth, stenwidth ;
+  char * t1, * t2 , *wordsize ;
+  char varref[NAMELEN] ;
+  char * pos1 , * pos2 ;
+  char * dimspec ;
+  char indices[NAMELEN], post[NAMELEN], memord[NAMELEN] ;
+  int zdex ;
+
+    set_mark( 0, Domain.fields ) ;
+
+    strcpy( tmp, p->comm_define ) ;
+    strcpy( commuse, p->use ) ;
+    t1 = strtok_rentr( tmp , ";" , &pos1 ) ;
+    while ( t1 != NULL )
+    {
+      strcpy( tmp2 , t1 ) ;
+      if (( t2 = strtok_rentr( tmp2 , ":" , &pos2 )) == NULL )
+       { 
+         fprintf(stderr,"unparseable description for halo %s\n", p->name ) ; continue ;
+       }
+      t2 = strtok_rentr(NULL,",", &pos2) ;
+      while ( t2 != NULL )
+      {
+        if ((q = get_entry_r( t2, commuse, Domain.fields )) == NULL )
+          { fprintf(stderr,"WARNING 1a : %s in halo spec %s (%s) is not defined in registry.\n",t2,p->name, commuse) ; }
+        else
+        {
+          strcpy( varref, t2 ) ;
+          if ( q->node_kind & FIELD  && ! (q->node_kind & I1) ) {
+             sprintf(varref,"grid%%%s",t2) ;
+          }
+
+          if      (  strcmp( q->type->name, "real") && strcmp( q->type->name, "integer") && strcmp( q->type->name, "doubleprecision") ) { ; }
+          else if ( q->boundary_array ) { ; }
+          else
+          { 
+            if      ( ! strcmp( q->type->name, "real") )            { wordsize = "RWORDSIZE" ; }
+            else if ( ! strcmp( q->type->name, "integer") )         { wordsize = "IWORDSIZE" ; }
+            else if ( ! strcmp( q->type->name, "doubleprecision") ) { wordsize = "DWORDSIZE" ; }
+            if ( q->node_kind & FOURD )
+            {
+              node_t *member ;
+              zdex = get_index_for_coord( q , COORD_Z ) ;
+              if ( zdex >=1 && zdex <= 3 )
+              {
+                set_mem_order( q->members, memord , NAMELEN) ;
+                if ( ad == 0 ) 
+                /* acutal or dummy argument */
+                {
+/* explicit dummy or actual arguments for 4D arrays */
+if ( q->mark == 0 ) {
+  fprintf(fp,"  num_%s, &\n",q->name) ;
+  q->mark = 1 ;
+}
+fprintf(fp,"  %s, &\n",varref) ;
+                }
+                else
+                {
+/* declaration of dummy arguments for 4D arrays */
+if ( q->mark == 0 ) {
+  fprintf(fp,"  INTEGER, INTENT(IN) :: num_%s\n",q->name) ;
+  q->mark = 1 ;
+}
+fprintf(fp,"  %s, INTENT(INOUT) :: %s ( grid%%sm31:grid%%em31,grid%%sm32:grid%%em32,grid%%sm33:grid%%em33,num_%s)\n",
+                     q->type->name , varref , q->name ) ;
+                }
+              }
+              else
+              {
+                fprintf(stderr,"WARNING: %d some dimension info missing for 4d array %s\n",zdex,t2) ;
+              }
+            }
+            else if ( q->node_kind & I1 )
+            {
+              if ( ad == 0 ) 
+              {
+/* explicit dummy or actual arguments for i1 arrays */
+fprintf(fp,"  %s, &\n",varref) ;
+              }
+              else
+              {
+/* declaration of dummy arguments for i1 arrays */
+              strcpy(tmp3,"") ;
+              dimspec=dimension_with_ranges( "grid%","(",-1,tmp3,q,")","" ) ;
+fprintf(fp,"  %s, INTENT(INOUT) :: %s %s\n", q->type->name , varref , dimspec ) ;
+              }
+            }
+          }
+        }
+        t2 = strtok_rentr( NULL , "," , &pos2 ) ;
+      }
+      t1 = strtok_rentr( NULL , ";" , &pos1 ) ;
+    }
+}
+
+int print_call_or_def( FILE * fp , node_t *p, char * callorsub, 
+                       char * commname, char * communicator, 
+                       int need_config_flags )
+  {
+  fprintf(fp,"%s %s_sub ( grid, &\n",callorsub,commname) ;
+  if (need_config_flags == 1)
+    fprintf(fp,"  config_flags, &\n") ;
+  print_4d_i1_decls( fp, p, 0 );
+  fprintf(fp,"  %s, &\n",communicator) ;
+  fprintf(fp,"  mytask, ntasks, ntasks_x, ntasks_y, &\n") ;
+  fprintf(fp,"  ids, ide, jds, jde, kds, kde,       &\n") ;
+  fprintf(fp,"  ims, ime, jms, jme, kms, kme,       &\n") ;
+  fprintf(fp,"  ips, ipe, jps, jpe, kps, kpe )\n") ;
+  return(0) ;
+  }
+
+int print_decl( FILE * fp , node_t *p, char * communicator, 
+                int need_config_flags )
+  {
+  fprintf(fp,"  USE module_domain, ONLY:domain\n") ;
+  fprintf(fp,"  USE module_configure, ONLY:grid_config_rec_type,in_use_for_config\n") ;
+  fprintf(fp,"  USE module_state_description, ONLY:PARAM_FIRST_SCALAR\n") ;
+  fprintf(fp,"  USE module_driver_constants\n") ;
+  fprintf(fp,"  TYPE(domain) ,               INTENT(IN) :: grid\n") ;
+  if (need_config_flags == 1) 
+    fprintf(fp,"  TYPE(grid_config_rec_type) , INTENT(IN) :: config_flags\n") ;
+  print_4d_i1_decls( fp, p, 1 );
+  fprintf(fp,"  INTEGER ,                    INTENT(IN) :: %s\n",communicator) ;
+  fprintf(fp,"  INTEGER ,                    INTENT(IN) :: mytask, ntasks, ntasks_x, ntasks_y\n") ;
+  fprintf(fp,"  INTEGER ,                    INTENT(IN) :: ids, ide, jds, jde, kds, kde\n") ;
+  fprintf(fp,"  INTEGER ,                    INTENT(IN) :: ims, ime, jms, jme, kms, kme\n") ;
+  fprintf(fp,"  INTEGER ,                    INTENT(IN) :: ips, ipe, jps, jpe, kps, kpe\n") ;
+  fprintf(fp,"  INTEGER :: itrace\n") ;
+  }
+
+int print_body( FILE * fp, char * commname )
+  {
+  fprintf(fp,"  \n") ;
+  fprintf(fp,"#ifdef DM_PARALLEL\n") ;
+  fprintf(fp,"#include \"%s_inline.inc\"\n",commname) ;
+  fprintf(fp,"#endif\n") ;
+  fprintf(fp,"  \n") ;
+  fprintf(fp,"  END SUBROUTINE %s_sub\n",commname) ;
+  }
+
 int
 gen_halos ( char * dirname , char * incname , node_t * halos )
 {
   node_t * p, * q ;
   node_t * dimd ;
   char commname[NAMELEN] ;
-  char fname[NAMELEN] ;
+  char fname[NAMELEN], fnamecall[NAMELEN], fnamesub[NAMELEN] ;
   char tmp[NAMELEN_LONG], tmp2[NAMELEN_LONG], tmp3[NAMELEN_LONG] ;
   char commuse[NAMELEN] ;
 #define MAX_VDIMS 100
@@ -25,6 +173,8 @@ gen_halos ( char * dirname , char * incname , node_t * halos )
   int vdimcurs ;
   int maxstenwidth, stenwidth ;
   FILE * fp ;
+  FILE * fpcall ;
+  FILE * fpsub ;
   char * t1, * t2 ;
   char * pos1 , * pos2 ;
   char indices[NAMELEN], post[NAMELEN] ;
@@ -35,6 +185,7 @@ gen_halos ( char * dirname , char * incname , node_t * halos )
   int n4d ;
   int i, foundvdim ;
   int subgrid ;
+  int need_config_flags;
 #define MAX_4DARRAYS 1000
   char name_4d[MAX_4DARRAYS][NAMELEN] ;
 
@@ -42,6 +193,7 @@ gen_halos ( char * dirname , char * incname , node_t * halos )
 
   for ( p = halos ; p != NULL ; p = p->next )
   {
+    need_config_flags = 0;  /* 0 = do not need, 1 = need */
     if ( incname == NULL ) {
       strcpy( commname, p->name ) ;
       make_upper_case(commname) ;
@@ -49,8 +201,34 @@ gen_halos ( char * dirname , char * incname , node_t * halos )
     else {
       strcpy( commname, incname ) ;
     }
-    if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s.inc",dirname,commname) ; }
-    else                       { sprintf(fname,"%s.inc",commname) ; }
+    if ( incname == NULL ) {
+      if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s_inline.inc",dirname,commname) ; }
+      else                       { sprintf(fname,"%s_inline.inc",commname) ; }
+      /* Generate call to custom routine that encapsulates inlined comm calls */
+      if ( strlen(dirname) > 0 ) { sprintf(fnamecall,"%s/%s.inc",dirname,commname) ; }
+      else                       { sprintf(fnamecall,"%s.inc",commname) ; }
+      if ((fpcall = fopen( fnamecall , "w" )) == NULL ) 
+      {
+        fprintf(stderr,"WARNING: gen_halos in registry cannot open %s for writing\n",fnamecall ) ;
+        continue ; 
+      }
+      print_warning(fpcall,fnamecall) ;
+      /* Generate definition of custom routine that encapsulates inlined comm calls */
+      if ( strlen(dirname) > 0 ) { sprintf(fnamesub,"%s/REGISTRY_COMM_DM_subs.inc",dirname) ; }
+      else                       { sprintf(fnamesub,"REGISTRY_COMM_DM_subs.inc") ; }
+      if ((fpsub = fopen( fnamesub , "a" )) == NULL ) 
+      {
+        fprintf(stderr,"WARNING: gen_halos in registry cannot open %s for writing\n",fnamesub ) ;
+        continue ; 
+      }
+      print_warning(fpsub,fnamesub) ;
+    }
+    else {
+      /* for now, retain original behavior when called from gen_shift */
+      if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s.inc",dirname,commname) ; }
+      else                       { sprintf(fname,"%s.inc",commname) ; }
+    }
+    /* Generate inlined comm calls */
     if ((fp = fopen( fname , "w" )) == NULL ) 
     {
       fprintf(stderr,"WARNING: gen_halos in registry cannot open %s for writing\n",fname ) ;
@@ -129,6 +307,7 @@ fprintf(fp,"CALL wrf_debug(2,'calling %s')\n",fname) ;
                   strcpy(e,"kpe") ;
                 }
                 else if ( dimd->len_defined_how == NAMELIST ) {
+                  need_config_flags = 1;
                   if ( !strcmp(dimd->assoc_nl_var_s,"1") ) {
                     strcpy(s,"1") ;
                     sprintf(e,"config_flags%%%s",dimd->assoc_nl_var_e) ;
@@ -264,6 +443,16 @@ fprintf(fp,"CALL wrf_debug(3,'calling RSL_LITE_INIT_EXCH %d for Y %s')\n",maxste
       fprintf(fp,"ENDIF\n") ;
     }
     close_the_file(fp) ;
+    if ( incname == NULL ) {
+      /* Finish call to custom routine that encapsulates inlined comm calls */
+      print_call_or_def(fpcall, p, "CALL", commname, "local_communicator", need_config_flags );
+      close_the_file(fpcall) ;
+      /* Generate definition of custom routine that encapsulates inlined comm calls */
+      print_call_or_def(fpsub, p, "SUBROUTINE", commname, "local_communicator", need_config_flags );
+      print_decl(fpsub, p, "local_communicator", need_config_flags );
+      print_body(fpsub, commname);
+      close_the_file(fpsub) ;
+    }
   }
   return(0) ;
 }
@@ -278,9 +467,10 @@ gen_packs ( FILE *fp , node_t *p, int shw, int xy /* 0=y,1=x */ , int pu /* 0=pa
   int maxstenwidth, stenwidth ;
   char * t1, * t2 , *wordsize ;
   char varref[NAMELEN] ;
+  char varname[NAMELEN] ;
   char * pos1 , * pos2 ;
   char indices[NAMELEN], post[NAMELEN], memord[NAMELEN] ;
-  int zdex ;
+  int xdex,ydex,zdex ;
 
     strcpy( tmp, p->comm_define ) ;
     strcpy( commuse, p->use ) ;
@@ -294,19 +484,14 @@ gen_packs ( FILE *fp , node_t *p, int shw, int xy /* 0=y,1=x */ , int pu /* 0=pa
       while ( t2 != NULL )
       {
         if ((q = get_entry_r( t2, commuse, Domain.fields )) == NULL )
-          { fprintf(stderr,"WARNING 1 : %s in halo spec %s (%s) is not defined in registry.\n",t2,p->name, commuse) ; }
+          { fprintf(stderr,"WARNING 1b : %s in halo spec %s (%s) is not defined in registry.\n",t2,p->name, commuse) ; }
         else
         {
 
+          strcpy( varname, t2 ) ;
           strcpy( varref, t2 ) ;
           if ( q->node_kind & FIELD  && ! (q->node_kind & I1) ) {
-             if ( !strncmp( q->use,  "dyn_", 4 )) {
-                  char * core ;
-                  core = q->use+4 ;
-                  sprintf(varref,"grid%%%s_%s",core,t2) ;
-             } else {
-                  sprintf(varref,"grid%%%s",t2) ;
-             }
+             sprintf(varref,"grid%%%s",t2) ;
           }
 
           if      (  strcmp( q->type->name, "real") && strcmp( q->type->name, "integer") && strcmp( q->type->name, "doubleprecision") ) { ; }
@@ -324,9 +509,16 @@ gen_packs ( FILE *fp , node_t *p, int shw, int xy /* 0=y,1=x */ , int pu /* 0=pa
               {
                 set_mem_order( q->members, memord , NAMELEN) ;
 fprintf(fp,"DO itrace = PARAM_FIRST_SCALAR, num_%s\n",q->name ) ;
-fprintf(fp," CALL %s ( %s,%s ( grid%%sm31,grid%%sm32,grid%%sm33,itrace), %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n",
-                       packname, commname, varref , shw, wordsize, xy, pu, memord, q->stag_x?1:0 ) ;
+                xdex = get_index_for_coord( q , COORD_X ) ;
+                ydex = get_index_for_coord( q , COORD_Y ) ;
+fprintf(fp," IF ( SIZE(%s,%d)*SIZE(%s,%d) .GT. 1 ) THEN\n",varref,xdex+1,varref,ydex+1 ) ; 
+fprintf(fp,"  CALL %s ( %s,&\n%s ( grid%%sm31,grid%%sm32,grid%%sm33,itrace), %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n",
+                       packname, commname, varref , shw, wordsize, xy, pu, memord, xy?(q->stag_x?1:0):(q->stag_y?1:0) ) ;
 fprintf(fp,"mytask, ntasks, ntasks_x, ntasks_y,       &\n") ;
+if ( !strcmp( packname, "RSL_LITE_PACK_SWAP" ) ||
+     !strcmp( packname, "RSL_LITE_PACK_CYCLE" ) ) {
+  fprintf(fp,"thisdomain_max_halo_width,                         &\n") ;
+}
 if ( q->subgrid == 0 ) {
 fprintf(fp,"ids, ide, jds, jde, kds, kde,             &\n") ;
 fprintf(fp,"ims, ime, jms, jme, kms, kme,             &\n") ;
@@ -336,6 +528,7 @@ fprintf(fp,"ids, ide*grid%%sr_x, jds, jde*grid%%sr_y, kds, kde, &\n") ;
 fprintf(fp,"(ims-1)*grid%%sr_x+1,ime*grid%%sr_x,(jms-1)*grid%%sr_y+1,jme*grid%%sr_y,kms,kme,&\n") ;
 fprintf(fp,"(ips-1)*grid%%sr_x+1,ipe*grid%%sr_x,(jps-1)*grid%%sr_y+1,jpe*grid%%sr_y,kps,kpe)\n") ;
 }
+fprintf(fp," ENDIF\n") ;
 fprintf(fp,"ENDDO\n") ;
               }
               else
@@ -346,33 +539,19 @@ fprintf(fp,"ENDDO\n") ;
             else
             {
               set_mem_order( q, memord , NAMELEN) ;
-#if 0
-fprintf(fp,"CALL wrf_debug(3,'call %s %s shw=%d ws=%s xy=%d pu=%d m=%s')\n",packname,t2,shw,wordsize,xy,pu,memord) ;
-fprintf(fp,"write(wrf_err_message,*)' d ',ids, ide, jds, jde, kds, kde\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' m ',ims, ime, jms, jme, kms, kme\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' p ',ips, ipe, jps, jpe, kps, kpe\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-#endif
               if       ( q->ndims == 3 ) {
 
                 dimd = get_dimnode_for_coord( q , COORD_Z ) ;
+                xdex = get_index_for_coord( q , COORD_X ) ;
+                ydex = get_index_for_coord( q , COORD_Y ) ;
                 zdex = get_index_for_coord( q , COORD_Z ) ;
+                fprintf(fp,"IF ( SIZE(%s,%d)*SIZE(%s,%d) .GT. 1 ) THEN\n",varref,xdex+1,varref,ydex+1 ) ; 
                 if ( dimd != NULL )
                 {
                   char s[256], e[256] ;
 
                   if      ( dimd->len_defined_how == DOMAIN_STANDARD ) {
-#if 0
-fprintf(fp,"write(wrf_err_message,*)' d ',ids, ide, jds, jde, kds, kde\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' m ',ims, ime, jms, jme, kms, kme\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' p ',ips, ipe, jps, jpe, kps, kpe\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-#endif
-                    fprintf(fp,"CALL %s ( %s, %s, %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n", packname, commname, varref, shw, wordsize, xy, pu, memord, q->stag_x?1:0 ) ;
+                    fprintf(fp,"CALL %s ( %s,&\n %s, %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n", packname, commname, varref, shw, wordsize, xy, pu, memord, xy?(q->stag_x?1:0):(q->stag_y?1:0) ) ;
                     fprintf(fp,"mytask, ntasks, ntasks_x, ntasks_y,       &\n") ;
                     if ( q->subgrid == 0 ) {
                       fprintf(fp,"ids, ide, jds, jde, kds, kde,             &\n") ;
@@ -393,15 +572,7 @@ fprintf(fp,"(ips-1)*grid%%sr_x+1,ipe*grid%%sr_x,(jps-1)*grid%%sr_y+1,jpe*grid%%s
                       sprintf(s,"config_flags%%%s",dimd->assoc_nl_var_s) ;
                       sprintf(e,"config_flags%%%s",dimd->assoc_nl_var_e) ;
                     }
-#if 0
-fprintf(fp,"write(wrf_err_message,*)' d ',ids, ide, jds, jde, %s, %s\n",s,e ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' m ',ims, ime, jms, jme, %s, %s\n",s,e ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' p ',ips, ipe, jps, jpe, %s, %s\n",s,e ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-#endif
-                    fprintf(fp,"CALL %s ( %s, %s, %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n", packname, commname, varref, shw, wordsize, xy, pu, memord, q->stag_x?1:0 ) ;
+                    fprintf(fp,"CALL %s ( %s,&\n %s, %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n", packname, commname, varref, shw, wordsize, xy, pu, memord, xy?(q->stag_x?1:0):(q->stag_y?1:0) ) ;
                     fprintf(fp,"mytask, ntasks, ntasks_x, ntasks_y,       &\n") ;
                     if ( q->subgrid == 0 ) {
                       fprintf(fp,"ids, ide, jds, jde, %s, %s,             &\n",s,e) ;
@@ -415,15 +586,7 @@ fprintf(fp,"(ips-1)*grid%%sr_x+1,ipe*grid%%sr_x,(jps-1)*grid%%sr_y+1,jpe*grid%%s
                   }
                   else if ( dimd->len_defined_how == CONSTANT )
                   {
-#if 0
-fprintf(fp,"write(wrf_err_message,*)' d ',ids, ide, jds, jde, %d, %d\n",dimd->coord_start,dimd->coord_end ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' m ',ims, ime, jms, jme, %d, %d\n",dimd->coord_start,dimd->coord_end ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' p ',ips, ipe, jps, jpe, %d, %d\n",dimd->coord_start,dimd->coord_end ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-#endif
-                    fprintf(fp,"CALL %s ( %s, %s, %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n", packname, commname, varref, shw, wordsize, xy, pu, memord, q->stag_x?1:0 ) ;
+                    fprintf(fp,"CALL %s ( %s,&\n %s, %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n", packname, commname, varref, shw, wordsize, xy, pu, memord, xy?(q->stag_x?1:0):(q->stag_y?1:0) ) ;
                     fprintf(fp,"mytask, ntasks, ntasks_x, ntasks_y,       &\n") ;
                     if ( q->subgrid == 0 ) {
                       fprintf(fp,"ids, ide, jds, jde, %d, %d,             &\n",dimd->coord_start,dimd->coord_end) ;
@@ -436,16 +599,12 @@ fprintf(fp,"(ips-1)*grid%%sr_x+1,ipe*grid%%sr_x,(jps-1)*grid%%sr_y+1,jpe*grid%%s
                     }
                   }
                 }
+                fprintf(fp,"ENDIF\n") ;
               } else if ( q->ndims == 2 ) {
-#if 0
-fprintf(fp,"write(wrf_err_message,*)' d ',ids, ide, jds, jde, 1, 1\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' m ',ims, ime, jms, jme, 1, 1\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-fprintf(fp,"write(wrf_err_message,*)' p ',ips, ipe, jps, jpe, 1, 1\n" ) ;
-fprintf(fp,"CALL wrf_debug(3,wrf_err_message)\n") ;
-#endif
-                fprintf(fp,"CALL %s ( %s, %s, %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n", packname, commname, varref, shw, wordsize, xy, pu, memord, q->stag_x?1:0 ) ;
+                xdex = get_index_for_coord( q , COORD_X ) ;
+                ydex = get_index_for_coord( q , COORD_Y ) ;
+                fprintf(fp,"IF ( SIZE(%s,%d)*SIZE(%s,%d) .GT. 1 ) THEN\n",varref,xdex+1,varref,ydex+1 ) ; 
+                fprintf(fp,"CALL %s ( %s,&\n %s, %d, %s, %d, %d, DATA_ORDER_%s, %d, &\n", packname, commname, varref, shw, wordsize, xy, pu, memord, xy?(q->stag_x?1:0):(q->stag_y?1:0) ) ;
                 fprintf(fp,"mytask, ntasks, ntasks_x, ntasks_y,       &\n") ;
                 if ( q->subgrid == 0 ) {
                   fprintf(fp,"ids, ide, jds, jde, 1  , 1  ,             &\n") ;
@@ -456,10 +615,8 @@ fprintf(fp,"ids, ide*grid%%sr_x, jds, jde*grid%%sr_y, kds, kde, &\n") ;
 fprintf(fp,"(ims-1)*grid%%sr_x+1,ime*grid%%sr_x,(jms-1)*grid%%sr_y+1,jme*grid%%sr_y,1,1,&\n") ;
 fprintf(fp,"(ips-1)*grid%%sr_x+1,ipe*grid%%sr_x,(jps-1)*grid%%sr_y+1,jpe*grid%%sr_y,1,1)\n") ;
                 }
+                fprintf(fp,"ENDIF\n") ;
               }
-#if 0
-fprintf(fp,"CALL wrf_debug(3,'back from %s')\n", packname) ;
-#endif
             }
           }
           
@@ -476,11 +633,13 @@ gen_periods ( char * dirname , node_t * periods )
   node_t * p, * q ;
   node_t * dimd ;
   char commname[NAMELEN] ;
-  char fname[NAMELEN] ;
+  char fname[NAMELEN], fnamecall[NAMELEN], fnamesub[NAMELEN] ;
   char tmp[NAMELEN], tmp2[NAMELEN], tmp3[NAMELEN] ;
   char commuse[NAMELEN] ;
   int maxperwidth, perwidth ;
   FILE * fp ;
+  FILE * fpcall ;
+  FILE * fpsub ;
   char * t1, * t2 ;
   char varref[NAMELEN] ;
   char * pos1 , * pos2 ;
@@ -500,8 +659,33 @@ gen_periods ( char * dirname , node_t * periods )
   {
     strcpy( commname, p->name ) ;
     make_upper_case(commname) ;
-    if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s.inc",dirname,commname) ; }
-    else                       { sprintf(fname,"%s.inc",commname) ; }
+    if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s_inline.inc",dirname,commname) ; }
+    else                       { sprintf(fname,"%s_inline.inc",commname) ; }
+    /* Generate call to custom routine that encapsulates inlined comm calls */
+    if ( strlen(dirname) > 0 ) { sprintf(fnamecall,"%s/%s.inc",dirname,commname) ; }
+    else                       { sprintf(fnamecall,"%s.inc",commname) ; }
+    if ((fpcall = fopen( fnamecall , "w" )) == NULL ) 
+    {
+      fprintf(stderr,"WARNING: gen_periods in registry cannot open %s for writing\n",fnamecall ) ;
+      continue ; 
+    }
+    print_warning(fpcall,fnamecall) ;
+    print_call_or_def(fpcall, p, "CALL", commname, "local_communicator_periodic", 1 );
+    close_the_file(fpcall) ;
+    /* Generate definition of custom routine that encapsulates inlined comm calls */
+    if ( strlen(dirname) > 0 ) { sprintf(fnamesub,"%s/REGISTRY_COMM_DM_subs.inc",dirname) ; }
+    else                       { sprintf(fnamesub,"REGISTRY_COMM_DM_subs.inc") ; }
+    if ((fpsub = fopen( fnamesub , "a" )) == NULL ) 
+    {
+      fprintf(stderr,"WARNING: gen_periods in registry cannot open %s for writing\n",fnamesub ) ;
+      continue ; 
+    }
+    print_warning(fpsub,fnamesub) ;
+    print_call_or_def(fpsub, p, "SUBROUTINE", commname, "local_communicator_periodic", 1 );
+    print_decl(fpsub, p, "local_communicator_periodic", 1 );
+    print_body(fpsub, commname);
+    close_the_file(fpsub) ;
+    /* Generate inlined comm calls */
     if ((fp = fopen( fname , "w" )) == NULL ) 
     {
       fprintf(stderr,"WARNING: gen_periods in registry cannot open %s for writing\n",fname ) ;
@@ -542,7 +726,7 @@ fprintf(fp,"CALL wrf_debug(2,'calling %s')\n",fname) ;
       while ( t2 != NULL )
       {
         if ((q = get_entry_r( t2, commuse, Domain.fields )) == NULL )
-          { fprintf(stderr,"WARNING 1 : %s in peridod spec %s (%s) is not defined in registry.\n",t2,commname, commuse) ; }
+          { fprintf(stderr,"WARNING 1 : %s in period spec %s (%s) is not defined in registry.\n",t2,commname, commuse) ; }
         else
         {
           if      (  strcmp( q->type->name, "real") && strcmp( q->type->name, "integer") && strcmp( q->type->name, "doubleprecision") )
@@ -755,6 +939,7 @@ fprintf(fp,"CALL wrf_debug(2,'calling %s')\n",fname) ;
     fprintf(fp,"     %d, %d, DWORDSIZE, &\n", n3dD, n2dD ) ;
     fprintf(fp,"      0,  0, LWORDSIZE, &\n" ) ;
     fprintf(fp,"      mytask, ntasks, ntasks_x, ntasks_y,   &\n" ) ;
+    fprintf(fp,"      thisdomain_max_halo_width, &\n" ) ;
     fprintf(fp,"      ids, ide, jds, jde, kds, kde,   &\n") ;
     fprintf(fp,"      ips, ipe, jps, jpe, kps, kpe    )\n") ;
 /* generate packs prior to stencil exchange  */
@@ -841,7 +1026,7 @@ fprintf(fp,"CALL wrf_debug(2,'calling %s')\n",fname) ;
       while ( t2 != NULL )
       {
         if ((q = get_entry_r( t2, commuse, Domain.fields )) == NULL )
-          { fprintf(stderr,"WARNING 1 : %s in swap spec %s (%s) is not defined in registry.\n",t2,commname, commuse) ; }
+          { fprintf(stderr,"WARNING 1 : %s in cycle spec %s (%s) is not defined in registry.\n",t2,commname, commuse) ; }
         else
         {
           if      (  strcmp( q->type->name, "real") && strcmp( q->type->name, "integer") && strcmp( q->type->name, "doubleprecision") )
@@ -898,6 +1083,7 @@ fprintf(fp,"CALL wrf_debug(2,'calling %s')\n",fname) ;
     fprintf(fp,"     %d, %d, DWORDSIZE, &\n", n3dD, n2dD ) ;
     fprintf(fp,"      0,  0, LWORDSIZE, &\n" ) ;
     fprintf(fp,"      mytask, ntasks, ntasks_x, ntasks_y,   &\n" ) ;
+    fprintf(fp,"      thisdomain_max_halo_width,               &\n") ;
     fprintf(fp,"      ids, ide, jds, jde, kds, kde,   &\n") ;
     fprintf(fp,"      ips, ipe, jps, jpe, kps, kpe    )\n") ;
 /* generate packs prior to stencil exchange  */
@@ -964,18 +1150,12 @@ gen_xposes ( char * dirname )
          { fprintf(stderr,"WARNING 3 : %s in xpose spec %s (%s) is not defined in registry.\n",t2,commname,commuse) ; goto skiperific ; }
         strcpy( varref_z, t2 ) ;
         if ( q->node_kind & FIELD  && ! (q->node_kind & I1) ) {
-           if ( !strncmp( q->use,  "dyn_", 4 )) {
-                char * core ;
-                core = q->use+4 ;
-                sprintf(varref_z,"grid%%%s_%s",core,t2) ;
-           } else {
-                sprintf(varref_z,"grid%%%s",t2) ;
-           }
+           sprintf(varref_z,"grid%%%s",t2) ;
         }
         if ( q->proc_orient != ALL_Z_ON_PROC ) 
          { fprintf(stderr,"WARNING: %s in xpose spec %s is not ALL_Z_ON_PROC.\n",t2,commname) ; goto skiperific ; }
         if ( q->ndims != 3 )
-         { fprintf(stderr,"WARNING: boundary array %s must be 3D to be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
+         { fprintf(stderr,"WARNING: array %s must be 3D to be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
         if ( q->boundary_array )
          { fprintf(stderr,"WARNING: boundary array %s cannot be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
         strcpy (indices_z,"");
@@ -984,6 +1164,9 @@ gen_xposes ( char * dirname )
           sprintf(post,")") ;
           sprintf(indices_z, "%s",index_with_firstelem("(","",-1,tmp3,q,post)) ;
         }
+        if ( q->node_kind & FOURD ) {
+           strcat( varref_z, "(grid%sm31,grid%sm32,grid%sm33,itrace )" ) ;
+        }
 
 /* X array */
         t2 = strtok_rentr( NULL , "," , &pos2 ) ;
@@ -991,18 +1174,12 @@ gen_xposes ( char * dirname )
          { fprintf(stderr,"WARNING 4 : %s in xpose spec %s (%s) is not defined in registry.\n",t2,commname,commuse) ; goto skiperific ; }
         strcpy( varref_x, t2 ) ;
         if ( q->node_kind & FIELD  && ! (q->node_kind & I1) ) {
-           if ( !strncmp( q->use,  "dyn_", 4 )) {
-                char * core ;
-                core = q->use+4 ;
-                sprintf(varref_x,"grid%%%s_%s",core,t2) ;
-           } else {
-                sprintf(varref_x,"grid%%%s",t2) ;
-           }
+           sprintf(varref_x,"grid%%%s",t2) ;
         }
         if ( q->proc_orient != ALL_X_ON_PROC ) 
          { fprintf(stderr,"WARNING: %s in xpose spec %s is not ALL_X_ON_PROC.\n",t2,commname) ; goto skiperific ; }
         if ( q->ndims != 3 )
-         { fprintf(stderr,"WARNING: boundary array %s must be 3D to be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
+         { fprintf(stderr,"WARNING: array %s must be 3D to be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
         if ( q->boundary_array )
          { fprintf(stderr,"WARNING: boundary array %s cannot be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
         strcpy (indices_x,"");
@@ -1011,6 +1188,9 @@ gen_xposes ( char * dirname )
           sprintf(post,")") ;
           sprintf(indices_x, "%s",index_with_firstelem("(","",-1,tmp3,q,post)) ;
         }
+        if ( q->node_kind & FOURD ) {
+           strcat( varref_x, "(grid%sm31x,grid%sm32x,grid%sm33x,itrace )" ) ;
+        }
 
 /* Y array */
         t2 = strtok_rentr( NULL , "," , &pos2 ) ;
@@ -1018,18 +1198,12 @@ gen_xposes ( char * dirname )
          { fprintf(stderr,"WARNING 5 : %s in xpose spec %s (%s)is not defined in registry.\n",t2,commname,commuse) ; goto skiperific ; }
         strcpy( varref_y, t2 ) ;
         if ( q->node_kind & FIELD  && ! (q->node_kind & I1) ) {
-           if ( !strncmp( q->use,  "dyn_", 4 )) {
-                char * core ;
-                core = q->use+4 ;
-                sprintf(varref_y,"grid%%%s_%s",core,t2) ;
-           } else {
-                sprintf(varref_y,"grid%%%s",t2) ;
-           }
+           sprintf(varref_y,"grid%%%s",t2) ;
         }
         if ( q->proc_orient != ALL_Y_ON_PROC ) 
          { fprintf(stderr,"WARNING: %s in xpose spec %s is not ALL_Y_ON_PROC.\n",t2,commname) ; goto skiperific ; }
         if ( q->ndims != 3 )
-         { fprintf(stderr,"WARNING: boundary array %s must be 3D to be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
+         { fprintf(stderr,"WARNING: array %s must be 3D to be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
         if ( q->boundary_array )
          { fprintf(stderr,"WARNING: boundary array %s cannot be member of xpose spec %s.\n",t2,commname) ; goto skiperific ; }
         strcpy (indices_y,"");
@@ -1038,6 +1212,10 @@ gen_xposes ( char * dirname )
           sprintf(post,")") ;
           sprintf(indices_y, "%s",index_with_firstelem("(","",-1,tmp3,q,post)) ;
         }
+        if ( q->node_kind & FOURD ) {
+           strcat( varref_y, "(grid%sm31y,grid%sm32y,grid%sm33y,itrace )" ) ;
+        }
+
         t1 = strtok_rentr( NULL , ";" , &pos1 ) ;
       }
       set_mem_order( q, memord , NAMELEN) ;
@@ -1144,43 +1322,35 @@ gen_comm_descrips ( char * dirname )
   return(0) ;
 }
 
-/*
 
 
-
-*/
-
-/* for each core, generate the halo updates to allow shifting all state data */
 int
 gen_shift (  char * dirname )
 {
-  int i, ncore ;
+  int i ;
   FILE * fp ;
   node_t *p, *q, *dimd ;
-  char * corename ;
   char **direction ;
   char *directions[] = { "x", "y", 0L } ;
-  char fname[NAMELEN], vname[NAMELEN], vname2[NAMELEN], core[NAMELEN] ;
+  char fname[NAMELEN], vname[NAMELEN] ;
   char indices[NAMELEN], post[NAMELEN], tmp3[NAMELEN] ;
-  int zdex ;
+  char memord[NAMELEN] ;
+  int xdex,ydex,zdex ;
   node_t Shift ;
 int said_it = 0 ;
 int said_it2 = 0 ;
 
   for ( direction = directions ; *direction != NULL ; direction++ )
   {
-  for ( ncore = 0 ; ncore < get_num_cores() ; ncore++ )
-  {
-    corename = get_corename_i(ncore) ;
-    if ( dirname == NULL || corename == NULL ) return(1) ;
-    sprintf(fname,"%s_shift_halo_%s",corename,*direction) ;
+    if ( dirname == NULL ) return(1) ;
+    sprintf(fname,"shift_halo_%s_halo",*direction) ;
 
     Shift.next = NULL ;
-    sprintf( Shift.use, "dyn_%s", corename ) ;
+    sprintf( Shift.use, "" ) ;
     strcpy( Shift.comm_define, "48:" ) ;
+    strcpy( Shift.name , fname ) ;
     for ( p = Domain.fields ; p != NULL ; p = p->next ) {
-      if (( p->node_kind & (FIELD | FOURD) ) && p->ndims >= 2 && ! p->boundary_array &&
-          ((!strncmp(p->use,"dyn_",4) && !strcmp(corename,p->use+4)) || strncmp(p->use,"dyn_",4)))
+      if (( p->node_kind & (FIELD | FOURD) ) && p->ndims >= 2 && ! p->boundary_array )
       {
 
 /* special cases in WRF */
@@ -1195,7 +1365,10 @@ if ( !strcmp( p->name , "xf_ens" ) || !strcmp( p->name , "pr_ens" ) ||
 }
 
 /* make sure that the only things we are shifting are arrays that have a decomposed X and a Y dimension */
-        if ( get_dimnode_for_coord( p , COORD_X ) && get_dimnode_for_coord( p , COORD_Y ) ) {
+/* also make sure we don't shift or halo any transpose variables (ALL_X_ON_PROC or ALL_Y_ON_PROC) */
+        if ( get_dimnode_for_coord( p , COORD_X ) && get_dimnode_for_coord( p , COORD_Y ) && 
+             !(p->proc_orient == ALL_X_ON_PROC || p->proc_orient == ALL_Y_ON_PROC) ) {
+          
 if ( p->subgrid != 0 ) {  /* moving nests not implemented for subgrid variables */
   if ( sw_move && ! said_it2 ) { fprintf(stderr,"Info only - not an error: Moving nests not implemented for subgrid variables \n") ;
   said_it2 = 1 ; }
@@ -1216,11 +1389,10 @@ if ( p->subgrid != 0 ) {  /* moving nests not implemented for subgrid variables 
     }
     if ( strlen(Shift.comm_define) > 0 )Shift.comm_define[strlen(Shift.comm_define)-1] = '\0' ;
 
-    gen_halos( dirname , fname, &Shift ) ;
+    gen_halos( dirname , NULL, &Shift ) ;
 
-    if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s_shift_halo_%s.inc",dirname,corename,*direction) ; }
-    else                       { sprintf(fname,"%s_shift_halo_%s.inc",corename,*direction) ; }
-    if ((fp = fopen( fname , "a" )) == NULL ) return(1) ;
+    sprintf(fname,"%s/shift_halo_%s.inc",dirname,*direction) ;
+    if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
 
 /* now generate the shifts themselves */
     for ( p = Domain.fields ; p != NULL ; p = p->next )
@@ -1232,17 +1404,11 @@ if ( !strcmp( p->name , "xf_ens" ) || !strcmp( p->name , "pr_ens" ) ||
      !strcmp( p->name , "emstot" ) || !strcmp( p->name , "obs_savwt" ) ) {
   continue ;
 }
+/* do not shift transpose variables */
+if ( p->proc_orient == ALL_X_ON_PROC || p->proc_orient == ALL_Y_ON_PROC ) continue ;
 
-      if (( p->node_kind & (FIELD | FOURD) ) && p->ndims >= 2 && ! p->boundary_array &&
-	  ((!strncmp(p->use,"dyn_",4) && !strcmp(corename,p->use+4)) || strncmp(p->use,"dyn_",4)))
+      if (( p->node_kind & (FIELD | FOURD) ) && p->ndims >= 2 && ! p->boundary_array )
       {
-
-        if ( p->node_kind & FOURD ) {
-          sprintf(core,"") ;
-        } else {
-          if (!strncmp( p->use, "dyn_", 4))   sprintf(core,"%s_",corename) ;
-          else                                sprintf(core,"") ;
-        }
 
 	if ( p->type->type_type == SIMPLE )
 	{
@@ -1251,29 +1417,95 @@ if ( !strcmp( p->name , "xf_ens" ) || !strcmp( p->name , "pr_ens" ) ||
             
             if ( p->ntl > 1 ) sprintf(vname,"%s_%d",p->name,i ) ;
             else              sprintf(vname,"%s",p->name ) ;
-            if ( p->ntl > 1 ) sprintf(vname2,"%s%s_%d",core,p->name,i ) ;
-            else              sprintf(vname2,"%s%s",core,p->name ) ;
 
 	    if ( p->node_kind & FOURD )
             {
               node_t *member ;
+
+              xdex = get_index_for_coord( p , COORD_X ) ;
+              ydex = get_index_for_coord( p , COORD_Y ) ;
               zdex = get_index_for_coord( p , COORD_Z ) ;
               if ( zdex >=1 && zdex <= 3 )
               {
-                    if ( !strcmp( *direction, "x" ) )
-                    {
+                set_mem_order( p->members, memord , NAMELEN) ;
 fprintf(fp, "  DO itrace = PARAM_FIRST_SCALAR, num_%s\n", p->name ) ;
-fprintf(fp, "   %s ( ips:min(ide%s,ipe),:,jms:jme,itrace) = %s (ips+px:min(ide%s,ipe)+px,:,jms:jme,itrace)\n",
-                       vname, p->members->stag_x?"":"-1", vname, p->members->stag_x?"":"-1" ) ;
+                if ( !strcmp( *direction, "x" ) )
+                {
+                  char * stag = "" ;
+                  stag = p->members->stag_x?"":"-1" ;
+                  if        ( !strcmp( memord , "XYZ" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                    fprintf(fp,"grid%%%s (ips:min(ide%s,ipe),jms:jme,:,itrace) = grid%%%s (ips+px:min(ide%s,ipe)+px,jms:jme,:,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "YXZ" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                    fprintf(fp,"grid%%%s (jms:jme,ips:min(ide%s,ipe),:,itrace) = grid%%%s (jms:jme,ips+px:min(ide%s,ipe)+px,:,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "XZY" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                    fprintf(fp,"grid%%%s (ips:min(ide%s,ipe),:,jms:jme,itrace) = grid%%%s (ips+px:min(ide%s,ipe)+px,:,jms:jme,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "YZX" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                    fprintf(fp,"grid%%%s (jms:jme,:,ips:min(ide%s,ipe),itrace) = grid%%%s (jms:jme,:,ips+px:min(ide%s,ipe)+px,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "ZXY" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                    fprintf(fp,"grid%%%s (:,ips:min(ide%s,ipe),jms:jme,itrace) = grid%%%s (:,ips+px:min(ide%s,ipe)+px,jms:jme,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "ZYX" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                    fprintf(fp,"grid%%%s (:,jms:jme,ips:min(ide%s,ipe),itrace) = grid%%%s (:,jms:jme,ips+px:min(ide%s,ipe)+px,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "XY" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                    fprintf(fp,"grid%%%s (ips:min(ide%s,ipe),jms:jme,itrace) = grid%%%s (ips+px:min(ide%s,ipe)+px,jms:jme,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "YX" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                    fprintf(fp,"grid%%%s (jms:jme,ips:min(ide%s,ipe),itrace) = grid%%%s (jms:jme,ips+px:min(ide%s,ipe)+px,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  }
+                }
+                else
+                {
+                  char * stag = "" ;
+                  stag = p->members->stag_y?"":"-1" ;
+                  if        ( !strcmp( memord , "XYZ" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	            fprintf(fp,"grid%%%s (ims:ime,jps:min(jde%s,jpe),:,itrace) = grid%%%s (ims:ime,jps+py:min(jde%s,jpe)+py,:,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "YXZ" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	            fprintf(fp,"grid%%%s (jps:min(jde%s,jpe),ims:ime,:,itrace) = grid%%%s (jps+py:min(jde%s,jpe)+py,ims:ime,:,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "XZY" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	            fprintf(fp,"grid%%%s (ims:ime,:,jps:min(jde%s,jpe),itrace) = grid%%%s (ims:ime,:,jps+py:min(jde%s,jpe)+py,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "YZX" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	            fprintf(fp,"grid%%%s (jps:min(jde%s,jpe),:,ims:ime,itrace) = grid%%%s (jps+py:min(jde%s,jpe)+py,:,ims:ime,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "ZXY" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	            fprintf(fp,"grid%%%s (:,ims:ime,jps:min(jde%s,jpe),itrace) = grid%%%s (:,ims:ime,jps+py:min(jde%s,jpe)+py,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "ZYX" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	            fprintf(fp,"grid%%%s (:,jps:min(jde%s,jpe),ims:ime,itrace) = grid%%%s (:,jps+py:min(jde%s,jpe)+py,ims:ime,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "XY" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	            fprintf(fp,"grid%%%s (ims:ime,jps:min(jde%s,jpe),itrace) = grid%%%s (ims:ime,jps+py:min(jde%s,jpe)+py,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  } else if ( !strcmp( memord , "YX" ) ) {
+                    fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	            fprintf(fp,"grid%%%s (jps:min(jde%s,jpe),ims:ime,itrace) = grid%%%s (jps+py:min(jde%s,jpe)+py,ims:ime,itrace)\n", vname, stag, vname, stag ) ;
+                    fprintf(fp,"ENDIF\n") ;
+                  }
+                }
 fprintf(fp, "  ENDDO\n" ) ;
-                    }
-                    else
-                    {
-fprintf(fp, "  DO itrace = PARAM_FIRST_SCALAR, num_%s\n", p->name ) ;
-fprintf(fp, "   %s ( ims:ime,:,jps:min(jde%s,jpe),itrace) = %s (ims:ime,:,jps+py:min(jde%s,jpe)+py,itrace)\n",
-                       vname, p->members->stag_y?"":"-1", vname, p->members->stag_y?"":"-1" ) ;
-fprintf(fp, "  ENDDO\n" ) ;
-                    }
               }
               else
               {
@@ -1282,49 +1514,102 @@ fprintf(fp, "  ENDDO\n" ) ;
             }
             else
 	    {
-	      char * vdim ;
-	      vdim = "" ;
-	      if ( p->ndims == 3 ) vdim = ":," ;
-              if ( !strcmp( *direction, "x" ) )
-              {
-                fprintf(fp,"grid%%%s (ips:min(ide%s,ipe),%sjms:jme) = grid%%%s (ips+px:min(ide%s,ipe)+px,%sjms:jme)\n", vname2,  p->stag_x?"":"-1", vdim, vname2, p->stag_x?"":"-1", vdim ) ;
-              }
-              else
-	      {
-                fprintf(fp,"grid%%%s (ims:ime,%sjps:min(jde%s,jpe)) = grid%%%s (ims:ime,%sjps+py:min(jde%s,jpe)+py)\n", vname2, vdim,  p->stag_y?"":"-1", vname2, vdim, p->stag_y?"":"-1" ) ;
+              xdex = get_index_for_coord( p , COORD_X ) ;
+              ydex = get_index_for_coord( p , COORD_Y ) ;
+              set_mem_order( p, memord , NAMELEN) ;
+              if ( !strcmp( *direction, "x" ) ) {
+                if        ( !strcmp( memord , "XYZ" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                  fprintf(fp,"grid%%%s (ips:min(ide%s,ipe),jms:jme,:) = grid%%%s (ips+px:min(ide%s,ipe)+px,jms:jme,:)\n", vname,  p->stag_x?"":"-1", vname, p->stag_x?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "YXZ" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                  fprintf(fp,"grid%%%s (jms:jme,ips:min(ide%s,ipe),:) = grid%%%s (jms:jme,ips+px:min(ide%s,ipe)+px,:)\n", vname,  p->stag_x?"":"-1", vname, p->stag_x?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "XZY" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                  fprintf(fp,"grid%%%s (ips:min(ide%s,ipe),:,jms:jme) = grid%%%s (ips+px:min(ide%s,ipe)+px,:,jms:jme)\n", vname,  p->stag_x?"":"-1", vname, p->stag_x?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "YZX" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                  fprintf(fp,"grid%%%s (jms:jme,:,ips:min(ide%s,ipe)) = grid%%%s (jms:jme,:,ips+px:min(ide%s,ipe)+px)\n", vname,  p->stag_x?"":"-1", vname, p->stag_x?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "ZXY" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                  fprintf(fp,"grid%%%s (:,ips:min(ide%s,ipe),jms:jme) = grid%%%s (:,ips+px:min(ide%s,ipe)+px,jms:jme)\n", vname,  p->stag_x?"":"-1", vname, p->stag_x?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "ZYX" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                  fprintf(fp,"grid%%%s (:,jms:jme,ips:min(ide%s,ipe)) = grid%%%s (:,jms:jme,ips+px:min(ide%s,ipe)+px)\n", vname,  p->stag_x?"":"-1", vname, p->stag_x?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "XY" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                  fprintf(fp,"grid%%%s (ips:min(ide%s,ipe),jms:jme) = grid%%%s (ips+px:min(ide%s,ipe)+px,jms:jme)\n", vname,  p->stag_x?"":"-1", vname, p->stag_x?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "YX" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+                  fprintf(fp,"grid%%%s (jms:jme,ips:min(ide%s,ipe)) = grid%%%s (jms:jme,ips+px:min(ide%s,ipe)+px)\n", vname,  p->stag_x?"":"-1", vname, p->stag_x?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                }
+              } else {
+                if        ( !strcmp( memord , "XYZ" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	          fprintf(fp,"grid%%%s (ims:ime,jps:min(jde%s,jpe),:) = grid%%%s (ims:ime,jps+py:min(jde%s,jpe)+py,:)\n", vname, p->stag_y?"":"-1", vname, p->stag_y?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "YXZ" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	          fprintf(fp,"grid%%%s (jps:min(jde%s,jpe),ims:ime,:) = grid%%%s (jps+py:min(jde%s,jpe)+py,ims:ime,:)\n", vname, p->stag_y?"":"-1", vname, p->stag_y?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "XZY" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	          fprintf(fp,"grid%%%s (ims:ime,:,jps:min(jde%s,jpe)) = grid%%%s (ims:ime,:,jps+py:min(jde%s,jpe)+py)\n", vname, p->stag_y?"":"-1", vname, p->stag_y?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "YZX" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	          fprintf(fp,"grid%%%s (jps:min(jde%s,jpe),:,ims:ime) = grid%%%s (jps+py:min(jde%s,jpe)+py,:,ims:ime)\n", vname, p->stag_y?"":"-1", vname, p->stag_y?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "ZXY" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	          fprintf(fp,"grid%%%s (:,ims:ime,jps:min(jde%s,jpe)) = grid%%%s (:,ims:ime,jps+py:min(jde%s,jpe)+py)\n", vname, p->stag_y?"":"-1", vname, p->stag_y?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "ZYX" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	          fprintf(fp,"grid%%%s (:,jps:min(jde%s,jpe),ims:ime) = grid%%%s (:,jps+py:min(jde%s,jpe)+py,ims:ime)\n", vname, p->stag_y?"":"-1", vname, p->stag_y?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "XY" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	          fprintf(fp,"grid%%%s (ims:ime,jps:min(jde%s,jpe)) = grid%%%s (ims:ime,jps+py:min(jde%s,jpe)+py)\n", vname, p->stag_y?"":"-1", vname, p->stag_y?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                } else if ( !strcmp( memord , "YX" ) ) {
+                  fprintf(fp,"IF ( SIZE(grid%%%s,%d)*SIZE(grid%%%s,%d) .GT. 1 ) THEN\n",vname,xdex+1,vname,ydex+1) ; 
+	          fprintf(fp,"grid%%%s (jps:min(jde%s,jpe),ims:ime) = grid%%%s (jps+py:min(jde%s,jpe)+py,ims:ime)\n", vname, p->stag_y?"":"-1", vname, p->stag_y?"":"-1" ) ;
+                  fprintf(fp,"ENDIF\n") ;
+                }
               }
             }
 	  }
 	}
       }
     }
-
     close_the_file(fp) ;
-  }
   }
 }
 
 int
 gen_datacalls ( char * dirname )
 {
-  int i ;
   FILE * fp ;
-  char * corename ;
   char * fn = "data_calls.inc" ;
   char fname[NAMELEN] ;
 
-  for ( i = 0 ; i < get_num_cores() ; i++ )
-  {
-    corename = get_corename_i(i) ;
-    if ( dirname == NULL || corename == NULL ) return(1) ;
-    if ( strlen(dirname) > 0 )
-     { sprintf(fname,"%s/%s_%s",dirname,corename,fn) ; }
-    else
-     { sprintf(fname,"%s_%s",corename,fn) ; }
-    if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
-    print_warning(fp,fname) ;
-    close_the_file(fp) ;
-  }
+  if ( dirname == NULL ) return(1) ;
+  if ( strlen(dirname) > 0 )
+   { sprintf(fname,"%s/%s",dirname,fn) ; }
+  else
+   { sprintf(fname,"%s",fn) ; }
+  if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
+  print_warning(fp,fname) ;
+  close_the_file(fp) ;
   return(0) ;
 }
 
@@ -1345,7 +1630,6 @@ gen_nest_pack ( char * dirname )
 {
   int i ;
   FILE * fp ;
-  char * corename ;
   char * fnlst[] = { "nest_interpdown_pack.inc" , "nest_forcedown_pack.inc" , "nest_feedbackup_pack.inc", 0L } ;
   int down_path[] = { INTERP_DOWN , FORCE_DOWN , INTERP_UP } ;
   int ipath ;
@@ -1357,27 +1641,18 @@ gen_nest_pack ( char * dirname )
   char ddim[3][2][NAMELEN] ;
   char mdim[3][2][NAMELEN] ;
   char pdim[3][2][NAMELEN] ;
-  char vname[NAMELEN] ; char tag[NAMELEN] ; char core[NAMELEN] ;
+  char vname[NAMELEN] ; char tag[NAMELEN] ;
   int d2, d3, sw ;
   char *info_name ;
 
   for ( fnp = fnlst , ipath = 0 ; *fnp ; fnp++ , ipath++ )
   {
     fn = *fnp ;
-    for ( i = 0 ; i < get_num_cores() ; i++ )
-    {
-      corename = get_corename_i(i) ;
-      if ( dirname == NULL || corename == NULL ) return(1) ;
+      if ( dirname == NULL ) return(1) ;
       if ( strlen(dirname) > 0 ) {
-       if ( strlen( corename ) > 0 )
-         { sprintf(fname,"%s/%s_%s",dirname,corename,fn) ; }
-       else
-         { sprintf(fname,"%s/%s",dirname,fn) ; }
+        sprintf(fname,"%s/%s",dirname,fn) ;
       } else { 
-       if ( strlen( corename ) > 0 ) 
-          { sprintf(fname,"%s_%s",corename,fn) ; }
-       else
-          { sprintf(fname,"%s",fn) ; }
+        sprintf(fname,"%s",fn) ;
       }
       if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
       print_warning(fp,fname) ;
@@ -1386,7 +1661,7 @@ gen_nest_pack ( char * dirname )
       d3 = 0 ;
       node = Domain.fields ;
 
-      count_fields ( node , &d2 , &d3 , corename , down_path[ipath] ) ;
+      count_fields ( node , &d2 , &d3 , down_path[ipath] ) ;
 
       if ( d2 + d3 > 0 ) {
         if ( down_path[ipath] == INTERP_UP )
@@ -1408,13 +1683,14 @@ if (sw) fprintf(fp,"                        ,iids,iide,ijds,ijde                
         fprintf(fp,"                        ,nids,nide,njds,njde                               &\n") ;
 if (sw) fprintf(fp,"                        ,pgr , sw                                          &\n") ;
         fprintf(fp,"                        ,ntasks_x,ntasks_y                                 &\n") ; 
+        fprintf(fp,"                        ,thisdomain_max_halo_width                                  &\n") ;
         fprintf(fp,"                        ,icoord,jcoord                                     &\n") ;
         fprintf(fp,"                        ,idim_cd,jdim_cd                                   &\n") ;
         fprintf(fp,"                        ,pig,pjg,retval )\n") ;
 
         fprintf(fp,"DO while ( retval .eq. 1 )\n") ;
   
-        gen_nest_packunpack ( fp , Domain.fields, corename, PACKIT, down_path[ipath] ) ;
+        gen_nest_packunpack ( fp , Domain.fields, PACKIT, down_path[ipath] ) ;
 
         fprintf(fp,"CALL %s( local_communicator, msize*RWORDSIZE                               &\n",info_name ) ;
         fprintf(fp,"                        ,cips,cipe,cjps,cjpe                               &\n") ;
@@ -1422,6 +1698,7 @@ if (sw) fprintf(fp,"                        ,iids,iide,ijds,ijde                
         fprintf(fp,"                        ,nids,nide,njds,njde                               &\n") ;
 if (sw) fprintf(fp,"                        ,pgr , sw                                          &\n") ;
         fprintf(fp,"                        ,ntasks_x,ntasks_y                                 &\n") ; 
+        fprintf(fp,"                        ,thisdomain_max_halo_width                                  &\n") ;
         fprintf(fp,"                        ,icoord,jcoord                                     &\n") ;
         fprintf(fp,"                        ,idim_cd,jdim_cd                                   &\n") ;
         fprintf(fp,"                        ,pig,pjg,retval )\n") ;
@@ -1429,7 +1706,6 @@ if (sw) fprintf(fp,"                        ,pgr , sw                           
         fprintf(fp,"ENDDO\n") ;
       }
       close_the_file(fp) ;
-    }
   }
   return(0) ;
 }
@@ -1439,7 +1715,6 @@ gen_nest_unpack ( char * dirname )
 {
   int i ;
   FILE * fp ;
-  char * corename ;
   char * fnlst[] = { "nest_interpdown_unpack.inc" , "nest_forcedown_unpack.inc" , "nest_feedbackup_unpack.inc" , 0L } ;
   int down_path[] = { INTERP_DOWN , FORCE_DOWN , INTERP_UP } ;
   int ipath ;
@@ -1451,28 +1726,25 @@ gen_nest_unpack ( char * dirname )
   char mdim[3][2][NAMELEN] ;
   char pdim[3][2][NAMELEN] ;
   char *info_name ;
-  char vname[NAMELEN] ; char tag[NAMELEN] ; char core[NAMELEN] ;
+  char vname[NAMELEN] ; char tag[NAMELEN] ; 
   int d2, d3 ;
 
   for ( fnp = fnlst , ipath = 0 ; *fnp ; fnp++ , ipath++ )
   {
     fn = *fnp ;
-    for ( i = 0 ; i < get_num_cores() ; i++ )
-    {
       d2 = 0 ;
       d3 = 0 ;
       node = Domain.fields ;
 
-      corename = get_corename_i(i) ;
-      if ( dirname == NULL || corename == NULL ) return(1) ;
+      if ( dirname == NULL ) return(1) ;
       if ( strlen(dirname) > 0 )
-       { sprintf(fname,"%s/%s_%s",dirname,corename,fn) ; }
+       { sprintf(fname,"%s/%s",dirname,fn) ; }
       else
-       { sprintf(fname,"%s_%s",corename,fn) ; }
+       { sprintf(fname,"%s",fn) ; }
       if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
       print_warning(fp,fname) ;
 
-      count_fields ( node , &d2 , &d3 , corename , down_path[ipath] ) ;
+      count_fields ( node , &d2 , &d3 , down_path[ipath] ) ;
 
       if ( d2 + d3 > 0 ) {
         if ( down_path[ipath] == INTERP_UP )
@@ -1486,18 +1758,17 @@ gen_nest_unpack ( char * dirname )
 
         fprintf(fp,"CALL %s(pig,pjg,retval)\n", info_name ) ;
         fprintf(fp,"DO while ( retval .eq. 1 )\n") ;
-        gen_nest_packunpack ( fp , Domain.fields, corename, UNPACKIT, down_path[ipath] ) ;
+        gen_nest_packunpack ( fp , Domain.fields, UNPACKIT, down_path[ipath] ) ;
         fprintf(fp,"CALL %s(pig,pjg,retval)\n", info_name ) ;
         fprintf(fp,"ENDDO\n") ;
       }
       close_the_file(fp) ;
-    }
   }
   return(0) ;
 }
 
 int
-gen_nest_packunpack ( FILE *fp , node_t * node , char * corename, int dir, int down_path )
+gen_nest_packunpack ( FILE *fp , node_t * node , int dir, int down_path )
 {
   int i ;
   node_t *p, *p1, *dim ;
@@ -1507,7 +1778,7 @@ gen_nest_packunpack ( FILE *fp , node_t * node , char * corename, int dir, int d
   char ddim[3][2][NAMELEN] ;
   char mdim[3][2][NAMELEN] ;
   char pdim[3][2][NAMELEN] ;
-  char vname[NAMELEN], vname2[NAMELEN], dexes[NAMELEN] ; char tag[NAMELEN] ; char core[NAMELEN] ;
+  char vname[NAMELEN], dexes[NAMELEN] ; char tag[NAMELEN] ; 
   char c, d ;
 
   for ( p1 = node ;  p1 != NULL ; p1 = p1->next )
@@ -1528,11 +1799,7 @@ gen_nest_packunpack ( FILE *fp , node_t * node , char * corename, int dir, int d
 
     if ( io_mask & down_path )
     {
-      if ((!strncmp( p->use, "dyn_", 4) && !strcmp(p->use+4,corename)) || strncmp( p->use, "dyn_", 4))
-      {
         if ( p->node_kind & FOURD ) {
-          if (!strncmp( p->members->next->use, "dyn_", 4))   sprintf(core,"%s",corename) ;
-          else                                               sprintf(core,"") ;
           if ( p->members->next->ntl > 1 ) sprintf(tag,"_2") ;
           else                             sprintf(tag,"") ;
           set_dim_strs ( p->members , ddim , mdim , pdim , "c", 0 ) ;
@@ -1540,8 +1807,6 @@ gen_nest_packunpack ( FILE *fp , node_t * node , char * corename, int dir, int d
           xdex = get_index_for_coord( p->members , COORD_X ) ;
           ydex = get_index_for_coord( p->members , COORD_Y ) ;
         } else {
-          if (!strncmp( p->use, "dyn_", 4))   sprintf(core,"%s",corename) ;
-          else                                sprintf(core,"") ;
           if ( p->ntl > 1 ) sprintf(tag,"_2") ;
           else              sprintf(tag,"") ;
           set_dim_strs ( p , ddim , mdim , pdim , "c", 0 ) ;
@@ -1572,18 +1837,10 @@ gen_nest_packunpack ( FILE *fp , node_t * node , char * corename, int dir, int d
         if ( p->node_kind & FOURD )
         {
           sprintf(vname,"%s%s(%s,itrace)",p->name,tag,dexes) ;
-          if ( strlen(core) > 0 )
-            sprintf(vname2,"%s_%s%s(%s,itrace)",core,p->use,tag,dexes) ;
-          else
-            sprintf(vname2,"%s%s(%s,itrace)",p->name,tag,dexes) ;
         }
         else
         {
           sprintf(vname,"%s%s(%s)",p->name,tag,dexes) ;
-          if ( strlen(core) > 0 )
-            sprintf(vname2,"%s_%s%s(%s)",core,p->name,tag,dexes) ;
-          else
-            sprintf(vname2,"%s%s(%s)",p->name,tag,dexes) ;
         }
 
         grid = "grid%" ;
@@ -1591,23 +1848,35 @@ gen_nest_packunpack ( FILE *fp , node_t * node , char * corename, int dir, int d
 	{
            grid = "" ;
 fprintf(fp,"DO itrace =  PARAM_FIRST_SCALAR, num_%s\n", p->name) ;
+        } else {
+/* note that in the case if dir != UNPACKIT and down_path == INTERP_UP the data
+   structure being used is intermediate_grid, not grid. However, intermediate_grid
+   and grid share the same id (see module_dm.F) so it will not make a difference. */
+#if 0
+fprintf(fp,"IF ( in_use_for_config(grid%%id,'%s%s') ) THEN ! okay for intermediate_grid too. see comment in gen_comms.c\n",p->name,tag) ; 
+#else
+fprintf(fp,"IF ( SIZE(%s%s%s) .GT. 1 ) THEN ! okay for intermediate_grid too. see comment in gen_comms.c\n",grid,p->name,tag) ; 
+#endif
 	}
 
         if ( dir == UNPACKIT ) 
         {
           if ( down_path == INTERP_UP )
 	  {
+            char *sjl = "" ;
+            if ( !strcmp( p->interpu_fcn_name ,"nmm_vfeedback") ) sjl = "_v" ; /* KLUDGE FOR NCEP NESTING 20071217 */
             if ( zdex >= 0 ) {
 fprintf(fp,"CALL rsl_lite_from_child_msg(((%s)-(%s)+1)*RWORDSIZE,xv) ;\n",ddim[zdex][1], ddim[zdex][0] ) ;
             } else {
 fprintf(fp,"CALL rsl_lite_from_child_msg(RWORDSIZE,xv)\n" ) ;
             }
-fprintf(fp,"IF ( %s_cd_feedback_mask( pig, ips_save, ipe_save , pjg, jps_save, jpe_save, %s, %s ) ) THEN\n",
-                 corename, p->stag_x?".TRUE.":".FALSE." ,p->stag_y?".TRUE.":".FALSE." ) ;
+fprintf(fp,"IF ( cd_feedback_mask%s( pig, ips_save, ipe_save , pjg, jps_save, jpe_save, %s, %s ) ) THEN\n",
+                 sjl ,
+                 p->stag_x?".TRUE.":".FALSE." ,p->stag_y?".TRUE.":".FALSE." ) ;
             if ( zdex >= 0 ) {
-fprintf(fp,"DO k = %s,%s\nNEST_INFLUENCE(%s%s,xv(k))\nENDDO\n", ddim[zdex][0], ddim[zdex][1], grid, vname2 ) ;
+fprintf(fp,"DO k = %s,%s\nNEST_INFLUENCE(%s%s,xv(k))\nENDDO\n", ddim[zdex][0], ddim[zdex][1], grid, vname ) ;
             } else {
-              fprintf(fp,"%s%s = xv(1) ;\n", grid,vname2) ;
+fprintf(fp,"NEST_INFLUENCE(%s%s,xv(1))\n", grid, vname ) ;
             }
 fprintf(fp,"ENDIF\n") ;
           }
@@ -1615,9 +1884,9 @@ fprintf(fp,"ENDIF\n") ;
           {
             if ( zdex >= 0 ) {
 fprintf(fp,"CALL rsl_lite_from_parent_msg(((%s)-(%s)+1)*RWORDSIZE,xv)\nDO k = %s,%s\n%s%s = xv(k)\nENDDO\n",
-                                    ddim[zdex][1], ddim[zdex][0], ddim[zdex][0], ddim[zdex][1], grid, vname2) ;
+                                    ddim[zdex][1], ddim[zdex][0], ddim[zdex][0], ddim[zdex][1], grid, vname) ;
             } else {
-fprintf(fp,"CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)\n%s%s = xv(1)\n", grid, vname2) ;
+fprintf(fp,"CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)\n%s%s = xv(1)\n", grid, vname) ;
             }
           }
         }
@@ -1627,18 +1896,18 @@ fprintf(fp,"CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)\n%s%s = xv(1)\n", grid, 
 	  {
             if ( zdex >= 0 ) {
 fprintf(fp,"DO k = %s,%s\nxv(k)= intermediate_grid%%%s\nENDDO\nCALL rsl_lite_to_parent_msg(((%s)-(%s)+1)*RWORDSIZE,xv)\n",
-                           ddim[zdex][0], ddim[zdex][1], vname2, ddim[zdex][1], ddim[zdex][0] ) ;
+                           ddim[zdex][0], ddim[zdex][1], vname, ddim[zdex][1], ddim[zdex][0] ) ;
             } else {
-fprintf(fp,"xv(1)= intermediate_grid%%%s\nCALL rsl_lite_to_parent_msg(RWORDSIZE,xv)\n", vname2) ;
+fprintf(fp,"xv(1)= intermediate_grid%%%s\nCALL rsl_lite_to_parent_msg(RWORDSIZE,xv)\n", vname) ;
             }
           }
           else
           {
             if ( zdex >= 0 ) {
 fprintf(fp,"DO k = %s,%s\nxv(k)= %s%s\nENDDO\nCALL rsl_lite_to_child_msg(((%s)-(%s)+1)*RWORDSIZE,xv)\n",
-                           ddim[zdex][0], ddim[zdex][1], grid, vname2, ddim[zdex][1], ddim[zdex][0] ) ;
+                           ddim[zdex][0], ddim[zdex][1], grid, vname, ddim[zdex][1], ddim[zdex][0] ) ;
             } else {
-fprintf(fp,"xv(1)=%s%s\nCALL rsl_lite_to_child_msg(RWORDSIZE,xv)\n", grid, vname2) ;
+fprintf(fp,"xv(1)=%s%s\nCALL rsl_lite_to_child_msg(RWORDSIZE,xv)\n", grid, vname) ;
             }
           }
         }
@@ -1646,7 +1915,10 @@ fprintf(fp,"xv(1)=%s%s\nCALL rsl_lite_to_child_msg(RWORDSIZE,xv)\n", grid, vname
 	{
 fprintf(fp,"ENDDO\n") ;
 	}
-      }
+        else
+	{
+fprintf(fp,"ENDIF\n") ; /* in_use_for_config */
+	}
     }
   }
 
@@ -1656,7 +1928,7 @@ fprintf(fp,"ENDDO\n") ;
 /*****************/
 
 int
-count_fields ( node_t * node , int * d2 , int * d3 , char * corename , int down_path )
+count_fields ( node_t * node , int * d2 , int * d3 ,  int down_path )
 {
   node_t * p ;
   int zdex ;
@@ -1665,14 +1937,12 @@ count_fields ( node_t * node , int * d2 , int * d3 , char * corename , int down_
   {
     if ( p->node_kind == FOURD ) 
     {
-      count_fields( p->members , d2 , d3 , corename , down_path ) ;  /* RECURSE */
+      count_fields( p->members , d2 , d3 , down_path ) ;  /* RECURSE */
     }
     else
     {
       if ( p->io_mask & down_path )
       {
-        if ((!strncmp( p->use, "dyn_", 4) && !strcmp(p->use+4,corename)) || strncmp( p->use, "dyn_", 4))
-        {
           if ( p->node_kind == FOURD )
             zdex = get_index_for_coord( p->members , COORD_Z ) ;
           else
@@ -1683,7 +1953,6 @@ count_fields ( node_t * node , int * d2 , int * d3 , char * corename , int down_
           } else {
             (*d3)++ ;   /* if has a zdex then 3 d */
           }
-        }
       }
     }
   }
@@ -1691,12 +1960,96 @@ count_fields ( node_t * node , int * d2 , int * d3 , char * corename , int down_
 }
 
 /*****************/
+/*****************/
+
+int
+gen_debug (  char * dirname )
+{
+  int i ;
+  FILE * fp ;
+  node_t *p, *q, *dimd ;
+  char **direction ;
+  char *directions[] = { "x", "y", 0L } ;
+  char fname[NAMELEN], vname[NAMELEN] ;
+  char indices[NAMELEN], post[NAMELEN], tmp3[NAMELEN] ;
+  int zdex ;
+  node_t Shift ;
+int said_it = 0 ;
+int said_it2 = 0 ;
+
+    if ( dirname == NULL ) return(1) ;
+
+    if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/debuggal.inc",dirname) ; }
+    else                       { sprintf(fname,"debuggal.inc") ; }
+    if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
+
+/* now generate the shifts themselves */
+    for ( p = Domain.fields ; p != NULL ; p = p->next )
+    {
+
+/* special cases in WRF */
+if ( !strcmp( p->name , "xf_ens" ) || !strcmp( p->name , "pr_ens" ) ||
+     !strcmp( p->name , "abstot" ) || !strcmp( p->name , "absnxt" ) ||
+     !strcmp( p->name , "emstot" ) || !strcmp( p->name , "obs_savwt" ) ) {
+  continue ;
+}
+
+      if (( p->node_kind & (FIELD | FOURD) ) && p->ndims >= 2 && ! p->boundary_array )
+      {
+
+	if ( p->type->type_type == SIMPLE )
+	{
+	  for ( i = 1 ; i <= p->ntl ; i++ )
+	  {
+            
+            if ( p->ntl > 1 ) sprintf(vname,"%s_%d",p->name,i ) ;
+            else              sprintf(vname,"%s",p->name ) ;
+
+	    if ( p->node_kind & FOURD  )
+            {
+#if 0
+              node_t *member ;
+              zdex = get_index_for_coord( p , COORD_Z ) ;
+              if ( zdex >=1 && zdex <= 3 && strncmp(vname,"fdda",4)  )
+              {
+fprintf(fp, "  DO itrace = PARAM_FIRST_SCALAR, num_%s\n", p->name ) ;
+fprintf(fp, "   write(0,*) AAA_AAA,BBB_BBB, '%s ', itrace , %s ( IDEBUG,KDEBUG,JDEBUG,itrace)\n", vname, vname ) ;
+fprintf(fp, "  ENDDO\n" ) ;
+              }
+              else
+              {
+                fprintf(stderr,"WARNING: %d some dimension info missing for 4d array %s\n",zdex,t2) ;
+              }
+#endif
+            }
+            else
+	    {
+	      if ( p->ndims == 3 ) {
+fprintf(fp, "   write(0,*) AAA_AAA,BBB_BBB, '%s ', grid%%%s ( IDEBUG,KDEBUG,JDEBUG)\n", vname, vname ) ;
+              } else if ( p->ndims == 2 ) {
+fprintf(fp, "   write(0,*) AAA_AAA,BBB_BBB, '%s ', grid%%%s ( IDEBUG,JDEBUG)\n", vname, vname ) ;
+              }
+            }
+	  }
+	}
+      }
+    }
+
+    close_the_file(fp) ;
+}
+
+/*****************/
+/*****************/
 
 int
 gen_comms ( char * dirname )
 {
+  FILE *fpsub ; 
   if ( sw_dm_parallel )
     fprintf(stderr,"ADVISORY: RSL_LITE version of gen_comms is linked in with registry program.\n") ;
+
+  /* truncate this file if it exists */
+  if ((fpsub = fopen( "inc/REGISTRY_COMM_DM_subs.inc" , "w" )) != NULL ) fclose(fpsub) ;
 
   gen_halos( "inc" , NULL, Halos ) ;
   gen_shift( "inc" ) ;
@@ -1707,6 +2060,9 @@ gen_comms ( char * dirname )
   gen_comm_descrips( "inc" ) ;
   gen_datacalls( "inc" ) ;
   gen_nest_packing( "inc" ) ;
+#if 0
+  gen_debug( "inc" ) ;
+#endif
 
   return(0) ;
 }

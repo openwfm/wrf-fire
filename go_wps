@@ -1,2 +1,0 @@
-#!/bin/csh -f
-./wps.csh >& wrfv2_fire/test/em_real/wrf.log

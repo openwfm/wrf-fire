@@ -533,6 +533,7 @@ SUBROUTINE wrf_open_for_read_begin( FileName , Comm_compute, Comm_io, SysDepInfo
   CHARACTER*128               :: DataSet
   INTEGER                     :: io_form
   INTEGER                     :: Hndl
+  LOGICAL                     :: also_for_out
   INTEGER, EXTERNAL           :: use_package
   LOGICAL, EXTERNAL           :: wrf_dm_on_monitor, multi_files, use_output_servers
 
@@ -604,7 +605,8 @@ SUBROUTINE wrf_open_for_read_begin( FileName , Comm_compute, Comm_io, SysDepInfo
 
   Status = 0
   Hndl = -1
-  IF ( .NOT. use_output_servers() ) THEN
+  also_for_out = .FALSE.
+!  IF ( .NOT. use_output_servers() ) THEN
     SELECT CASE ( use_package(io_form) )
 #ifdef NETCDF
       CASE ( IO_NETCDF   )
@@ -640,6 +642,7 @@ SUBROUTINE wrf_open_for_read_begin( FileName , Comm_compute, Comm_io, SysDepInfo
 #endif
 #ifdef MCELIO
       CASE ( IO_MCEL )
+        also_for_out = .TRUE.
         IF ( wrf_dm_on_monitor() ) THEN
           
         WRITE(fhand,'(a,i0)')"filter_",filtno
@@ -653,6 +656,7 @@ tstr = TRIM(SysDepInfo) // ',' // 'READ_MODE=UPDATE,LAT_R=XLAT,LON_R=XLONG,LANDM
 #endif
 #ifdef ESMFIO
       CASE ( IO_ESMF )
+        also_for_out = .TRUE.
         CALL ext_esmf_open_for_read_begin ( FileName , Comm_compute, Comm_io, SysDepInfo, &
                                             Hndl , Status )
 #endif
@@ -700,10 +704,10 @@ tstr = TRIM(SysDepInfo) // ',' // 'READ_MODE=UPDATE,LAT_R=XLAT,LON_R=XLONG,LANDM
         ENDIF
         Status = WRF_FILE_NOT_OPENED
     END SELECT
-  ELSE
-    Status = 0
-  ENDIF
-  CALL add_new_handle( Hndl, io_form, .TRUE., DataHandle )
+!  ELSE
+!    Status = 0
+!  ENDIF
+  CALL add_new_handle( Hndl, io_form, also_for_out, DataHandle )
 END SUBROUTINE wrf_open_for_read_begin
 
 !--- open_for_read_commit
@@ -3471,11 +3475,23 @@ SUBROUTINE call_pkg_and_dist_real (  fcn, update_arg,                           
   INTEGER                       ,INTENT(INOUT)   :: Status
   REAL, ALLOCATABLE :: globbuf (:)
   LOGICAL, EXTERNAL :: wrf_dm_on_monitor
+  INTEGER test
+  CHARACTER*128 mess
 
   IF ( wrf_dm_on_monitor() ) THEN
-    ALLOCATE( globbuf( (DomainEnd(1)-DomainStart(1)+3)*(DomainEnd(2)-DomainStart(2)+3)*(DomainEnd(3)-DomainStart(3)+3) ) )
+    ALLOCATE( globbuf( (DomainEnd(1)-DomainStart(1)+3)*(DomainEnd(2)-DomainStart(2)+3)*(DomainEnd(3)-DomainStart(3)+3) ), &
+              STAT=test )
+    IF ( test .NE. 0 ) THEN
+      write(mess,*)"module_io.b",'allocating globbuf ',&
+           (DomainEnd(1)-DomainStart(1)+3)*(DomainEnd(2)-DomainStart(2)+3)*(DomainEnd(3)-DomainStart(3)+3)
+      CALL wrf_error_fatal(mess)
+    ENDIF
   ELSE
-    ALLOCATE( globbuf( 1 ) )
+    ALLOCATE( globbuf( 1 ), STAT=test )
+    IF ( test .NE. 0 ) THEN
+      write(mess,*)"module_io.b",'allocating globbuf ',1
+      CALL wrf_error_fatal(mess)
+    ENDIF
   ENDIF
 
   globbuf = 0.

@@ -1,33 +1,55 @@
 !WRF:MODEL_LAYER:INITIALIZATION
 !
-   subroutine chem_init (id,chem,dt,bioemdt,photdt,chemdt,stepbioe,  &
-               stepphot,stepchem,z_at_w,g,aerwrf,config_flags,       &
-               alt,t,p,CONVFAC,                                      &
-               gd_cloud, gd_cloud2,                                  &
+   subroutine chem_init (id,chem,emis_ant,scalar,dt,bioemdt,photdt,chemdt,stepbioe, &
+               stepphot,stepchem,stepfirepl,plumerisefire_frq,z_at_w,xlat,xlong,    &
+               g,aerwrf,config_flags,grid,alt,t,p,CONVFAC,ttday,tcosz,julday,gmt,   &
+               gd_cloud, gd_cloud2,raincv_a,raincv_b,                               &
+               gd_cloud_a, gd_cloud2_a,                              &
                gd_cloud_b, gd_cloud2_b,                              &
                tauaer1,tauaer2,tauaer3,tauaer4,                      &
                gaer1,gaer2,gaer3,gaer4,                              &
                waer1,waer2,waer3,waer4,                              &
-               pm2_5_dry,pm2_5_water,pm2_5_dry_ec,chem_in_opt,       &
+               l2aer,l3aer,l4aer,l5aer,l6aer,l7aer,                  &
+               pm2_5_dry,pm2_5_water,pm2_5_dry_ec,                   &
+               last_chem_time_year, last_chem_time_month,            &
+               last_chem_time_day, last_chem_time_hour,              &
+               last_chem_time_minute, last_chem_time_second,         &
+               chem_in_opt, kemit,                                   &
                ids,ide, jds,jde, kds,kde,                            &
                ims,ime, jms,jme, kms,kme,                            &
                its,ite, jts,jte, kts,kte                             )
 
-!  IMPLICIT NONE
    USE module_domain
    USE module_configure
    USE module_state_description
    USE module_phot_mad
    USE module_aerosols_sorgam
    USE module_dep_simple
-   USE module_cbmz_initmixrats, only:  cbmz_init_wrf_mixrats
-   USE module_mosaic_driver, only:  init_data_mosaic_asect
-   USE module_mosaic_initmixrats, only:  mosaic_init_wrf_mixrats
-   USE module_input_chem_data, only:  get_last_gas, gasprofile_init_pnnl
+   USE module_data_gocart_dust
+   USE module_data_gocart_seas
+   USE module_data_gocartchem
+   USE module_gocart_chem ! , only: szangle
+   USE module_cbm4_initmixrats, only:     cbm4_init_wrf_mixrats
+   USE module_cbmz_initmixrats, only:     cbmz_init_wrf_mixrats
+   USE module_mosaic_driver, only:        init_data_mosaic_asect
+   USE module_mosaic_initmixrats, only:   mosaic_init_wrf_mixrats
+   USE module_input_chem_data, only:      get_last_gas,              &
+                                          gasprofile_init_pnnl,      &
+                                          last_chem_time,            &
+                                          setup_gasprofile_maps
+   USE module_mixactivate_wrappers, only: mosaic_mixactivate_init
+   IMPLICIT NONE
 
-   real  , intent(in) :: bioemdt,photdt,chemdt,dt
+   real  , intent(in) :: bioemdt,photdt,chemdt,dt,gmt
+   INTEGER,      INTENT(IN   ) :: plumerisefire_frq
    INTEGER,      INTENT(IN   ) :: chem_in_opt
-   INTEGER,      INTENT(IN   ) :: id,                                &
+   INTEGER,      INTENT(IN   ) :: id,julday,kemit,                   &
+                                  last_chem_time_year,               &
+                                  last_chem_time_month,              &
+                                  last_chem_time_day,                &
+                                  last_chem_time_hour,               &
+                                  last_chem_time_minute,             &
+                                  last_chem_time_second,             &
                                   ids,ide, jds,jde, kds,kde,         &
                                   ims,ime, jms,jme, kms,kme,         &
                                   its,ite, jts,jte, kts,kte
@@ -36,32 +58,48 @@
                                pm2_5_dry,pm2_5_water,pm2_5_dry_ec,   &
                                tauaer1,tauaer2,tauaer3,tauaer4,      &
                                gd_cloud, gd_cloud2,                  &
+                               gd_cloud_a, gd_cloud2_a,              &
                                gd_cloud_b, gd_cloud2_b,              &
                                gaer1,gaer2,gaer3,gaer4,              &
                                waer1,waer2,waer3,waer4
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , 1:4 )   ,         &
+          INTENT(INOUT   ) ::                                        &
+                               l2aer,l3aer,l4aer,l5aer,l6aer,l7aer
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,         &
           INTENT(IN   ) ::                                           &
                                z_at_w,t,p,alt,convfac
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme, num_chem ) ,       &
           INTENT(INOUT   ) ::                                        &
                               chem 
+   REAL,  DIMENSION( ims:ime , 1:kemit , jms:jme, num_emis_ant ) ,       &
+          INTENT(INOUT   ) ::                                        &
+                              emis_ant
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme, num_scalar ) ,     &
+          INTENT(INOUT   ) ::                                        &
+                              scalar
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,         &
           INTENT(INOUT   ) ::                                        &
                                aerwrf
+   REAL,  DIMENSION( ims:ime ,  jms:jme )         ,         &
+          INTENT(INOUT   ) ::                                        &
+                               ttday,tcosz,xlat,xlong,raincv_a,raincv_b
    real, INTENT (IN) :: g
-   integer, intent(out) :: stepbioe,stepphot,stepchem
+   integer, intent(out) :: stepbioe,stepphot,stepchem,stepfirepl
    TYPE (grid_config_rec_type) , INTENT (in) ::     config_flags
+   TYPE(domain) , TARGET,        INTENT (in) ::     grid
 !
 ! local stuff
 !
-   integer :: i,j,k,l,numgas
-
+   TYPE(WRFU_TimeInterval) :: tmpTimeInterval
+   integer :: i,j,k,l,numgas,ixhour,n,ndystep,kk,nv
+   real, DIMENSION (1,1) :: sza,cosszax
+   real :: xtime,xhour,xmin,gmtp,xlonn,rlat
 #ifdef CHEM_DBG_I
     call print_chem_species_index( config_flags%chem_opt )
 #endif
 
 call wrf_message("*********************************************************************")
-call wrf_message("*             PROGRAM: WRF/CHEM VERSION 2.2                         *")
+call wrf_message("*             PROGRAM: WRF/CHEM VERSION 3.0                         *")
 call wrf_message("*                                                                   *")
 call wrf_message("*    PLEASE REPORT ANY BUGS TO WRF/CHEM HELP at                     *")
 call wrf_message("*                                                                   *")
@@ -71,20 +109,6 @@ call wrf_message("**************************************************************
 
     numgas = get_last_gas(config_flags%chem_opt)
  
-if ( config_flags%chem_opt == 9 .or. config_flags%chem_opt == 10 ) then
-call wrf_message("*********************************************************************")
-call wrf_message("* WARNING: THE COMBINATION OF progn=1 AND chem_opt=9 or 10 IS       *")
-call wrf_message("*          CONSIDERED BETA CODE THAT IS STILL IN DEVELOPMENT. THE   *")
-call wrf_message("*          RESULTS APPEAR REASONABLE, BUT SMALL DIFFERENCES WILL    *")
-call wrf_message("*          ARRISE WHEN CHANGING THE NUMBER OF PROCESSORS. ALSO,     *")
-call wrf_message("*          OPTION ASSOCIATED WITH CLOUD-AEROSOL INTERACTIONS AND    *")
-call wrf_message("*          AQUEOUS CHEMISTRY USING MOSAIC HAVE NOT BEEN TESTED ON A *")
-call wrf_message("*          WIDE RANGE OF COMPUTER ARCHITECTURES. USERS THAT CHOOSE  *")
-call wrf_message("*          THSE OPTIONS ARE ASKED TO REPORT ANY BUGS THAT APPEAR TO *")
-call wrf_message("*          BE ASSOCIATED WITH CLOUD-AEROSOL INTERACTION MODULES TO  *")
-call wrf_message("*          jerome.fast@pnl.gov and wrfchemhelp.gsd@noaa.gov         *")
-call wrf_message("*********************************************************************")
-endif 
 #if ( NMM_CORE == 1 )
 call wrf_message("*********************************************************************")
 call wrf_message("* WARNING: THE USE OF THE NMM WITH CHEMISTRY IS                     *")
@@ -92,6 +116,69 @@ call wrf_message("*          CONSIDERED BETA CODE THAT IS STILL IN DEVELOPMENT. 
 call wrf_message("*          PLEASE REPORT ANY BUGS TO wrfchemhelp.gsd@noaa.gov       *")
 call wrf_message("*********************************************************************")
 #endif
+
+   chem_select: SELECT CASE(config_flags%chem_opt)
+     CASE (GOCART_SIMPLE)
+       CALL wrf_debug(15,'calling only gocart aerosols driver from chem_driver')
+       call wrf_message("WARNING: GOCART aerosol option is highly experimental and not recommended for use.")
+!      call wrf_error_fatal("ERROR: experimental option selected, please contact wrfchemhelp for assistance.")
+     CASE (GOCARTRACM_KPP)
+       CALL wrf_debug(15,'calling gocart and racm driver from chem_driver')
+       call wrf_message("WARNING: GOCART aerosol option is highly experimental and not recommended for use.")
+!      call wrf_error_fatal("ERROR: experimental option selected, please contact wrfchemhelp for assistance")
+     CASE (CBM4_KPP )
+       CALL wrf_debug(15,'calling CB4 from chem_driver')
+       call wrf_message("WARNING: CB4 chemistry option is highly experimental and not recommended for use.")
+!      call wrf_error_fatal("ERROR: experimental option selected, please contact wrfchemhelp for assistance")
+     CASE (NMHC9_KPP )
+       CALL wrf_debug(15,'calling NMHC9 from chem_driver')
+       call wrf_message("WARNING: NMHC9 chemistry option is highly experimental and not recommended for use.")
+       call wrf_error_fatal("ERROR: experimental option selected, please contact wrfchemhelp for assistance")
+     CASE (RADM2SORG_AQ )
+       CALL wrf_debug(15,'calling RADM2/MADE/SORGAM with AQ chemistry from chem_driver')
+       call wrf_message("WARNING: RADM2SORG_AQ chemistry option is experimental and not yet fully tested.")
+       call wrf_message("         We recommend contacting wrfchemhelp for assistance.")
+     CASE (racmsorg_aq )
+       CALL wrf_debug(15,'calling RACM/MADE/SORGAM from chem_driver')
+       call wrf_message("WARNING: RACMSORG_AQ chemistry option is highly experimental and not recommended for use.")
+       call wrf_error_fatal("ERROR: experimental option selected, please contact wrfchemhelp for assistance")
+   END SELECT chem_select
+
+   if ( config_flags%dust_opt == 1 ) then
+       call wrf_message("WARNING: dust option currently works only with the GOCART aerosol option.")
+       call wrf_message("WARNING: dust option is highly experimental and not recommended for use.")
+!      call wrf_error_fatal("ERROR: experimental option selected, please contact wrfchemhelp for assistance")
+   endif
+
+   if ( config_flags%seas_opt == 1 ) then
+       call wrf_message("WARNING: sea salt option currently works only with the GOCART aerosol option.")
+       call wrf_message("WARNING: sea salt option is highly experimental and not recommended for use.")
+!      call wrf_error_fatal("ERROR: experimental option selected, please contact wrfchemhelp for assistance")
+   endif
+
+   if ( config_flags%biomass_burn_opt == 1 ) then
+       call wrf_message("WARNING: biomass burning option works only when chem_opt is set to RACMPM_KPP.")
+       call wrf_message("WARNING: biomass burning option is highly experimental and not recommended for use.")
+!      call wrf_error_fatal("ERROR: experimental option selected, please contact wrfchemhelp for assistance")
+   endif
+
+   if ( config_flags%wetscav_onoff == 1 ) then
+      if ( config_flags%chem_opt >= 13 .OR. config_flags%chem_opt <= 8) then
+        call wrf_error_fatal("ERROR: wet scavaging option requires chem_opt = 9 through 12 to function.")
+      endif
+      if ( config_flags%mp_physics /= 2 ) then
+        call wrf_error_fatal("ERROR: wet scavaging option requires mp_phys = 2 (Lin et al.) to function.")
+      endif
+   endif
+
+   if ( config_flags%cldchem_onoff == 1 ) then
+      if ( config_flags%chem_opt >= 13 .OR. config_flags%chem_opt <= 8) then
+        call wrf_error_fatal("ERROR:  cloud chemistry option requires chem_opt = 9 through 12 to function.")
+      endif
+      if ( config_flags%mp_physics /= 2 ) then
+        call wrf_error_fatal("ERROR: cloud chemistry option requires mp_phys = 2 (Lin et al.) to function.")
+      endif
+   endif
 
     IF ( config_flags%chem_opt == 0 .AND. config_flags%aer_ra_feedback .NE. 0 ) THEN
 !       config_flags%aer_ra_feedback = 0
@@ -114,8 +201,41 @@ call wrf_message("**************************************************************
                 waer2(i,k,j) = 0.
                 waer3(i,k,j) = 0.
                 waer4(i,k,j) = 0.
+                l2aer(i,k,j,1) = 0.
+                l2aer(i,k,j,2) = 0.
+                l2aer(i,k,j,3) = 0.
+                l2aer(i,k,j,4) = 0.
+                l3aer(i,k,j,1) = 0.
+                l3aer(i,k,j,2) = 0.
+                l3aer(i,k,j,3) = 0.
+                l3aer(i,k,j,4) = 0.
+                l4aer(i,k,j,1) = 0.
+                l4aer(i,k,j,2) = 0.
+                l4aer(i,k,j,3) = 0.
+                l4aer(i,k,j,4) = 0.
+                l5aer(i,k,j,1) = 0.
+                l5aer(i,k,j,2) = 0.
+                l5aer(i,k,j,3) = 0.
+                l5aer(i,k,j,4) = 0.
+                l6aer(i,k,j,1) = 0.
+                l6aer(i,k,j,2) = 0.
+                l6aer(i,k,j,3) = 0.
+                l6aer(i,k,j,4) = 0.
+                l7aer(i,k,j,1) = 0.
+                l7aer(i,k,j,2) = 0.
+                l7aer(i,k,j,3) = 0.
+                l7aer(i,k,j,4) = 0.
              end do
           end do
+       end do
+       do l=1,num_emis_ant
+       do j=jts,jte
+          do k=1,kemit
+             do i=its,ite
+                emis_ant(i,k,j,l) = 0.
+             end do
+          end do
+       end do
        end do
     end if
     do j=jts,jte
@@ -123,9 +243,17 @@ call wrf_message("**************************************************************
           do i=its,ite
              gd_cloud(i,k,j) = 0.
              gd_cloud2(i,k,j) = 0.
+             gd_cloud_a(i,k,j) = 0.
+             gd_cloud2_a(i,k,j) = 0.
              gd_cloud_b(i,k,j) = 0.
              gd_cloud2_b(i,k,j) = 0.
           end do
+       end do
+    end do
+    do j=jts,jte
+          do i=its,ite
+            raincv_a(i,j)=0.
+            raincv_b(i,j)=0.
        end do
     end do
 
@@ -135,18 +263,24 @@ call wrf_message("**************************************************************
     stepbioe=nint(bioemdt*60./dt)
     stepphot=nint(photdt*60./dt)
     stepchem=nint(chemdt*60./dt)
+    stepfirepl=plumerisefire_frq*60/nint(dt)
     stepbioe=max(stepbioe,1)
     stepphot=max(stepphot,1)
     stepchem=max(stepchem,1)
+    stepfirepl=max(stepfirepl,1)
     call wrf_debug( 15, 'in chem_init' )
-!   print *,'stepbioe,stepphot,stepchem',stepbioe,stepphot,stepchem
-
+!   print *,'stepbioe,stepphot,stepchem,stepfirepl',stepbioe,stepphot,stepchem,stepfirepl
+!
+! Setup the cross reference mappings between the default profiles and
+! the gas mechanism species (wig, 2-May-2007)
+!
+   call setup_gasprofile_maps(config_flags%chem_opt,numgas)
 !
 ! An alternative ozone profile option
 !
     if ( (config_flags%gas_bc_opt == GAS_BC_PNNL) .or.   &
          (config_flags%gas_ic_opt == GAS_IC_PNNL) ) then
-       call gasprofile_init_pnnl
+       call gasprofile_init_pnnl( config_flags%chem_opt )
     end if
 !
 ! we are doing initialization here, first photolysis
@@ -181,8 +315,10 @@ call wrf_message("**************************************************************
              call wrf_error_fatal("The number of chemistry species has changed between nests. Are you trying to mix chem_opt settings between nests? Shame on you!")
      end if
 
+   if( .NOT. config_flags%restart ) then
    kpp_select: SELECT CASE(config_flags%chem_opt)
-     CASE (RACM_KPP,RACMSORG_KPP, RACM_MIM_KPP)
+     CASE (GOCARTRACM_KPP,RACM_KPP,RACMPM_KPP,RACMSORG_KPP, RACM_MIM_KPP)
+        if(config_flags%chem_in_opt == 0 )then
           do j=jts,jte
              do k=kts,kte
                 do i=its,ite
@@ -199,8 +335,118 @@ call wrf_message("**************************************************************
                 enddo
              enddo
           enddo
+        endif
+     CASE (RADM2_KPP,RADM2SORG_KPP)
+        if(config_flags%chem_in_opt == 0 )then
+          do j=jts,jte
+             do k=kts,kte
+                do i=its,ite
+                   chem(i,k,j,p_co2)=370.
+                   chem(i,k,j,p_ch4)=1.7
+                enddo
+             enddo
+          enddo
+        endif
    END SELECT kpp_select
+   endif
    aer_select: SELECT CASE(config_flags%chem_opt)
+     CASE (RACMPM_KPP)
+        if(config_flags%chem_in_opt == 0 )then
+          if( .NOT. config_flags%restart ) then
+            do l=numgas+1,num_chem
+               do j=jts,jte
+                  do k=kts,kte
+                     do i=its,ite
+                        chem(i,k,j,l)=1.
+                     enddo
+                  enddo
+               enddo
+            enddo
+          endif
+        endif
+     CASE (GOCARTRACM_KPP)
+       CALL wrf_debug(15,'call GOCARTRACM_KPP chem/aerosols initialization')
+        ch_dust(:,:)=0.8D-9
+        ch_ss(:,:)=1.
+        if(config_flags%chem_in_opt == 0 )then
+        if( .NOT. config_flags%restart )then
+           do j=jts,jte
+              do k=kts,kte
+                 do i=its,ite
+!                  do n=1,num_chem
+!                    chem(i,k,j,n)=1.e-12
+!                  enddo
+                   chem(i,k,j,p_dms)=0.1e-6
+                   chem(i,k,j,p_so2)=5.e-6
+                   chem(i,k,j,p_sulf)=3.e-6
+                   chem(i,k,j,p_msa)=0.1e-6
+                   chem(i,k,j,p_bc1)=0.1e-3
+                   chem(i,k,j,p_bc2)=0.1e-3
+                   chem(i,k,j,p_oc1)=0.1e-3
+                   chem(i,k,j,p_oc2)=0.1e-3
+                   chem(i,k,j,p_p25)=1.
+                 enddo
+              enddo
+           enddo
+         endif
+         endif
+     CASE (GOCART_SIMPLE)
+       if(config_flags%phot_opt .NE. 0 )then
+         call wrf_error_fatal("GOCART simple initialization, phot_opt  MUST BE ZERO")
+!        config_flags%phot_opt  = 0
+       endif
+       CALL wrf_debug(15,'call GOCART chem/aerosols initialization')
+        ch_dust(:,:)=0.8D-9
+        ch_ss(:,:)=1.
+        if( .NOT. config_flags%restart )then
+        if(config_flags%chem_in_opt == 0 )then
+           do j=jts,jte
+              do k=kts,kte
+                 do i=its,ite
+                   do n=1,num_chem
+                     chem(i,k,j,n)=1.e-12
+                   enddo
+                   chem(i,k,j,p_dms)=0.1e-6
+                   chem(i,k,j,p_so2)=5.e-6
+                   chem(i,k,j,p_sulf)=3.e-6
+                   chem(i,k,j,p_msa)=0.1e-6
+                   chem(i,k,j,p_bc1)=0.1e-3
+                   chem(i,k,j,p_bc2)=0.1e-3
+                   chem(i,k,j,p_oc1)=0.1e-3
+                   chem(i,k,j,p_oc2)=0.1e-3
+                   chem(i,k,j,p_p25)=1.
+                 enddo
+              enddo
+           enddo
+         endif
+!
+! next is done to scale background oh and no3 in dependence on average zenith angle and day/night for no3
+! this is done since background values are only available as average/month. It will not be necessary if other
+! chemistry packages are used that provide oh,no3,h2o2
+!
+         endif
+           ndystep=86400/ifix(dt)
+           do j=jts,jte
+                 do i=its,ite
+                   tcosz(i,j)=0.
+                   ttday(i,j)=0.
+                   rlat=xlat(i,j)*3.1415926535590/180.
+                   xlonn=xlong(i,j)
+                   do n=1,ndystep
+                      xtime=n*dt/60.
+                      ixhour=ifix(gmt+.01)+ifix(xtime/60.)
+                      xhour=float(ixhour)
+                      xmin=60.*gmt+(xtime-xhour*60.)
+                      gmtp=mod(xhour,24.)
+                      gmtp=gmtp+xmin/60.
+                      CALL szangle(1, 1, julday, gmtp, sza, cosszax,xlonn,rlat)
+                      TCOSZ(i,j)=TCOSZ(I,J)+cosszax(1,1) 
+                      if(cosszax(1,1).gt.0.)ttday(i,j)=ttday(i,j)+dt
+                    enddo
+                 if(i.eq.19.and.j.eq.19)write(0,*)'in cheminit'
+                 if(i.eq.19.and.j.eq.19)write(0,*)TCOSZ(i,j),ttday(i,j),julday, gmtp, sza, cosszax,xlonn,rlat
+           enddo
+          enddo
      CASE (RADM2SORG, RADM2SORG_AQ, RACMSORG_AQ, RADM2SORG_KPP, RACMSORG,RACMSORG_KPP)
        CALL wrf_debug(15,'call MADE/SORGAM aerosols initialization')
 
@@ -209,13 +455,14 @@ call wrf_message("**************************************************************
                chem_in_opt,config_flags%aer_ic_opt,is_aerosol,       &
                ids,ide, jds,jde, kds,kde,                            &
                ims,ime, jms,jme, kms,kme,                            &
-               its,ite, jts,jte, kts,kte                             )
+               its,ite, jts,jte, kts,kte, config_flags               )
 !...Convert aerosols to mixing ratio
-        if(config_flags%chem_in_opt == 0 )then
-        do l=p_so4aj,num_chem
+        if( .NOT. config_flags%restart ) then
+        if(config_flags%chem_in_opt == 0 .and. num_chem.gt.numgas)then
+        do l=numgas+1,num_chem
            do j=jts,jte
               do k=kts,kte
-                 kk = min(k,kte-1)
+                 kk = min(k,kde-1)
                  do i=its,ite
                     chem(i,k,j,l)=chem(i,kk,j,l)*alt(i,kk,j)
                  enddo
@@ -223,12 +470,14 @@ call wrf_message("**************************************************************
            enddo
         enddo
         endif
-        chem=max(chem,epsilc)
+        endif
+        chem(its:ite,kts:min(kte,kde-1),jts:jte,:)=max(chem(its:ite,kts:min(kte,kde-1),jts:jte,:),epsilc)
 
 
      CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
        call wrf_debug(15,'call MOSAIC aerosols initialization')
        call init_data_mosaic_asect(is_aerosol)
+       if(config_flags%chem_in_opt == 0 )then
        if( .NOT. config_flags%restart ) &
             call mosaic_init_wrf_mixrats(                            &
                0, config_flags,                                      &
@@ -236,18 +485,20 @@ call wrf_message("**************************************************************
                ids,ide, jds,jde, kds,kde,                            &
                ims,ime, jms,jme, kms,kme,                            &
                its,ite, jts,jte, kts,kte                             )
+       endif
 
    END SELECT aer_select
 
-   aer_sanity_check : SELECT CASE(config_flags%chem_opt)
+   progn_sanity_check : SELECT CASE(config_flags%chem_opt)
    CASE (RADM2SORG_AQ, RACMSORG_AQ, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
-      if( config_flags%progn == 0 ) &
-           call wrf_error_fatal("ERROR: When using aqueous chemistry, progn must be set to 1.")
-   END SELECT aer_sanity_check
+      if( config_flags%progn /= 1 ) &
+           call wrf_error_fatal( &
+           "ERROR: When using a ..._AQ chemistry package, progn must be 1")
+   END SELECT progn_sanity_check
 
    do nv=1,num_chem
-      do j=jms,jme
-         do i=ims,ime
+      do j=jts,jte
+         do i=its,ite
             chem(i,kde,j,nv)=chem(i,kde-1,j,nv)
          enddo
       enddo
@@ -266,8 +517,10 @@ call wrf_message("**************************************************************
 ! initialization for cbmz gas-phase chemistry
 !
    cbmz_select: SELECT CASE(config_flags%chem_opt)
-     CASE (CBMZ, CBMZ_BB, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
+     CASE (CBMZ, CBMZ_BB, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, &
+           CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
        CALL wrf_debug(15,'initializing cbmz gas-phase chemistry')
+       if(config_flags%chem_in_opt == 0 )then
        if( .NOT. config_flags%restart ) &
             call cbmz_init_wrf_mixrats(config_flags,   &
                z_at_w, g,                              &
@@ -275,7 +528,58 @@ call wrf_message("**************************************************************
                ids,ide, jds,jde, kds,kde,              &
                ims,ime, jms,jme, kms,kme,              &
                its,ite, jts,jte, kts,kte               )
+       endif
    END SELECT cbmz_select
+!
+! initialization for cb4 gas-phase chemistry
+!
+     cb4_select: SELECT CASE(config_flags%chem_opt)
+       CASE (CBM4_KPP)
+         CALL wrf_debug(15,'initializing cbm4 gas-phase chemistry')
+         if(config_flags%chem_in_opt == 0 )then
+         if( .NOT. config_flags%restart ) &
+              call cbm4_init_wrf_mixrats(config_flags,   &
+                 z_at_w, g,                              &
+                 chem, numgas,                           &
+                 ids,ide, jds,jde, kds,kde,              &
+                 ims,ime, jms,jme, kms,kme,              &
+                 its,ite, jts,jte, kts,kte               )
+         endif
+     END SELECT cb4_select
+!
+! Initialize the cloud droplet number and mass
+!
+    if( (.not.config_flags%restart) .and. (config_flags%progn > 0) ) then
+       call mosaic_mixactivate_init(                   &
+            config_flags, chem, scalar,                &
+            ims,ime, jms,jme, kms,kme,                 &
+            its,ite, jts,jte, kts,kte                  )
+    end if
+!
+! Setup time info for chemistry
+!
+    if( config_flags%restart ) then
+       call wrf_debug( 15, "Setting last_chem_time from restart file" )
+! Do not know if I need the following nl_gets.
+! domain_get_sim_start_time uses them for simulation_start_...
+!          CALL nl_get_start_year   ( 1, last_chem_time_year   )
+!          CALL nl_get_start_month  ( 1, last_chem_time_month  )
+!          CALL nl_get_start_day    ( 1, last_chem_time_day    )
+!          CALL nl_get_start_hour   ( 1, last_chem_time_hour   )
+!          CALL nl_get_start_minute ( 1, last_chem_time_minute )
+!          CALL nl_get_start_second ( 1, last_chem_time_second )
+       call WRFU_TimeSet( last_chem_time(id),         &
+                          YY = last_chem_time_year,   &
+                          MM = last_chem_time_month,  &
+                          DD = last_chem_time_day,    &
+                          H  = last_chem_time_hour,   &
+                          M  = last_chem_time_minute, &
+                          S  = last_chem_time_second  )
+    else
+       call wrf_debug( 15, "Setting last_chem_time to model start time-dt" )
+       call WRFU_TimeIntervalSet(tmpTimeInterval, s_=real(dt,8))
+       last_chem_time(id) = domain_get_current_time(grid) - tmpTimeInterval
+    end if
 
     END SUBROUTINE chem_init
 
@@ -334,7 +638,7 @@ subroutine print_chem_species_index( chem_opt )
      print*,p_iso,"iso"
      print*,p_ho,"ho"
      print*,p_ho2,"ho2"
-  case (RACM, RACMSORG, RACMSORG_AQ, RACM_KPP, RACMSORG_KPP)
+  case (RACM, RACMSORG, RACMSORG_AQ, RACM_KPP, RACMPM_KPP, RACMSORG_KPP)
      print*,p_so2,"so2"
      print*,p_sulf,"sulf"
      print*,p_no2,"no2"

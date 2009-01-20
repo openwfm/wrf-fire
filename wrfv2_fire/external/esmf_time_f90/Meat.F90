@@ -199,11 +199,17 @@ FUNCTION ndaysinyear ( year ) RESULT (num_diy)
   INTEGER, INTENT(IN) :: year
   INTEGER :: num_diy
   INTEGER :: nfeb
+#if defined MARS
+  num_diy = 669
+#elif defined TITAN
+  num_diy = 686
+#else
   IF ( nfeb( year ) .EQ. 29 ) THEN
     num_diy = 366
   ELSE
     num_diy = 365
   ENDIF
+#endif
 END FUNCTION ndaysinyear
 
 
@@ -223,7 +229,8 @@ END FUNCTION nsecondsinyear
 SUBROUTINE initdaym 
   USE esmf_basemod
   USE esmf_basetimemod
-  USE ESMF_CalendarMod
+  USE ESMF_CalendarMod, only : months_per_year, mday, daym, mdaycum, monthbdys, &
+                               mdayleap, mdayleapcum, monthbdysleap, daymleap
   IMPLICIT NONE
   INTEGER i,j,m
   m = 1
@@ -265,13 +272,16 @@ END SUBROUTINE initdaym
 
 !$$$ useful, but not used at the moment...  
 SUBROUTINE compute_dayinyear(YR,MM,DD,dayinyear)
-  use ESMF_CalendarMod
+  use ESMF_CalendarMod, only : mday
 IMPLICIT NONE
       INTEGER, INTENT(IN)  :: YR,MM,DD   ! DD is day of month
       INTEGER, INTENT(OUT) :: dayinyear
       INTEGER i
       integer nfeb
 
+#ifdef PLANET
+      dayinyear = DD
+#else
       dayinyear = 0
       DO i = 1,MM-1
         if (i.eq.2) then
@@ -281,6 +291,7 @@ IMPLICIT NONE
         endif
       ENDDO
       dayinyear = dayinyear + DD
+#endif
 END SUBROUTINE compute_dayinyear
 
 
@@ -289,26 +300,33 @@ SUBROUTINE timegetmonth( time, MM )
   USE esmf_basemod
   USE esmf_basetimemod
   USE esmf_timemod
-  USE esmf_calendarmod
+  USE ESMF_CalendarMod, only : MONTHS_PER_YEAR, monthbdys, monthbdysleap
   IMPLICIT NONE
   TYPE(ESMF_Time), INTENT(IN) :: time
   INTEGER, INTENT(OUT) :: MM
   ! locals
   INTEGER :: nfeb
   INTEGER :: i
-  TYPE(ESMF_BaseTime), POINTER :: MMbdys(:)
-  IF ( nfeb(time%YR) == 29 ) THEN
-    MMbdys => monthbdysleap
-  ELSE
-    MMbdys => monthbdys
-  ENDIF
+#if defined PLANET
+  MM = 0
+#else
   MM = -1
-  DO i = 1,MONTHS_PER_YEAR
-    IF ( ( time%basetime >= MMbdys(i-1) ) .AND. ( time%basetime < MMbdys(i) ) ) THEN
-      MM = i
-      EXIT
-    ENDIF
-  ENDDO
+  IF ( nfeb(time%YR) == 29 ) THEN
+    DO i = 1,MONTHS_PER_YEAR
+      IF ( ( time%basetime >= monthbdysleap(i-1) ) .AND. ( time%basetime < monthbdysleap(i) ) ) THEN
+        MM = i
+        EXIT
+      ENDIF
+    ENDDO
+  ELSE
+    DO i = 1,MONTHS_PER_YEAR
+      IF ( ( time%basetime >= monthbdys(i-1) ) .AND. ( time%basetime < monthbdys(i) ) ) THEN
+        MM = i
+        EXIT
+      ENDIF
+    ENDDO
+  ENDIF
+#endif
   IF ( MM == -1 ) THEN
     CALL wrf_error_fatal( 'timegetmonth:  could not extract month of year from time' )
   ENDIF
@@ -321,23 +339,24 @@ SUBROUTINE timegetdayofmonth( time, DD )
   USE esmf_basemod
   USE esmf_basetimemod
   USE esmf_timemod
-  USE esmf_calendarmod
+  USE esmf_calendarmod, only : monthbdys, monthbdysleap
   IMPLICIT NONE
   TYPE(ESMF_Time), INTENT(IN) :: time
   INTEGER, INTENT(OUT) :: DD
   ! locals
   INTEGER :: nfeb
   INTEGER :: MM
-  TYPE(ESMF_BaseTime), POINTER :: MMbdys(:)
   TYPE(ESMF_BaseTime) :: tmpbasetime
-!$$$ fix this so init just points MMbdys to the one we want for this calendar?
-  IF ( nfeb(time%YR) == 29 ) THEN
-    MMbdys => monthbdysleap
-  ELSE
-    MMbdys => monthbdys
-  ENDIF
+#if defined PLANET
+  tmpbasetime = time%basetime
+#else
   CALL timegetmonth( time, MM )
-  tmpbasetime = time%basetime - MMbdys(MM-1)
+  IF ( nfeb(time%YR) == 29 ) THEN
+    tmpbasetime = time%basetime - monthbdysleap(MM-1)
+  ELSE
+    tmpbasetime = time%basetime - monthbdys(MM-1)
+  ENDIF
+#endif
   DD = ( tmpbasetime%S / SECONDS_PER_DAY ) + 1
 END SUBROUTINE timegetdayofmonth
 
@@ -350,40 +369,28 @@ SUBROUTINE timeaddmonths( time, MM, ierr )
   USE esmf_basemod
   USE esmf_basetimemod
   USE esmf_timemod
-  USE esmf_calendarmod
+  USE esmf_calendarmod, only : MONTHS_PER_YEAR, monthbdys, monthbdysleap
   IMPLICIT NONE
   TYPE(ESMF_Time), INTENT(INOUT) :: time
   INTEGER, INTENT(IN) :: MM
   INTEGER, INTENT(OUT) :: ierr
   ! locals
   INTEGER :: nfeb
-  TYPE(ESMF_BaseTime), POINTER :: MMbdys(:)
   ierr = ESMF_SUCCESS
 !  PRINT *,'DEBUG:  BEGIN timeaddmonths()'
+#if defined PLANET
+!  time%basetime = time%basetime
+#else
   IF ( ( MM < 1 ) .OR. ( MM > MONTHS_PER_YEAR ) ) THEN
-    CALL wrf_message( 'ERROR timeaddmonths():  MM out of range' )
     ierr = ESMF_FAILURE
-  ENDIF
-!  PRINT *,'DEBUG:  timeaddmonths(): MM = ',MM
-!$$$ fix this so init just points MMbdys to the one we want for this calendar?
-!  PRINT *,'DEBUG:  timeaddmonths(): time%YR = ',time%YR
-!  PRINT *,'DEBUG:  timeaddmonths(): time%basetime%S = ',time%basetime%S
-!  PRINT *,'DEBUG:  timeaddmonths(): time%basetime%Sn = ',time%basetime%Sn
-!  PRINT *,'DEBUG:  timeaddmonths(): time%basetime%Sd = ',time%basetime%Sd
-  IF ( nfeb(time%YR) == 29 ) THEN
-!  PRINT *,'DEBUG:  timeaddmonths(): leap year'
-    MMbdys => monthbdysleap
   ELSE
-!  PRINT *,'DEBUG:  timeaddmonths(): not leap year'
-    MMbdys => monthbdys
+    IF ( nfeb(time%YR) == 29 ) THEN
+      time%basetime = time%basetime + monthbdysleap(MM-1)
+    ELSE
+      time%basetime = time%basetime + monthbdys(MM-1)
+    ENDIF
   ENDIF
-!  PRINT *,'DEBUG:  timeaddmonths(): done pointing to MMbdys'
-!  PRINT *,'DEBUG:  timeaddmonths(): MMbdys(',MM-1,')%S = ',MMbdys(MM-1)%S
-!  PRINT *,'DEBUG:  timeaddmonths(): MMbdys(',MM-1,')%Sn = ',MMbdys(MM-1)%Sn
-!  PRINT *,'DEBUG:  timeaddmonths(): MMbdys(',MM-1,')%Sd = ',MMbdys(MM-1)%Sd
-!$$$ dumps core here...  
-  time%basetime = time%basetime + MMbdys(MM-1)
-!  PRINT *,'DEBUG:  END timeaddmonths()'
+#endif
 END SUBROUTINE timeaddmonths
 
 
@@ -393,12 +400,15 @@ SUBROUTINE timeincmonth( time )
   USE esmf_basemod
   USE esmf_basetimemod
   USE esmf_timemod
-  USE esmf_calendarmod
+  USE esmf_calendarmod, only : mday, mdayleap
   IMPLICIT NONE
   TYPE(ESMF_Time), INTENT(INOUT) :: time
   ! locals
   INTEGER :: nfeb
   INTEGER :: MM
+#if defined PLANET
+!    time%basetime%S = time%basetime%S
+#else
   CALL timegetmonth( time, MM )
   IF ( nfeb(time%YR) == 29 ) THEN
     time%basetime%S = time%basetime%S + &
@@ -407,6 +417,7 @@ SUBROUTINE timeincmonth( time )
     time%basetime%S = time%basetime%S + &
       ( INT( mday(MM), ESMF_KIND_I8 ) * SECONDS_PER_DAY )
   ENDIF
+#endif
 END SUBROUTINE timeincmonth
 
 
@@ -417,12 +428,15 @@ SUBROUTINE timedecmonth( time )
   USE esmf_basemod
   USE esmf_basetimemod
   USE esmf_timemod
-  USE esmf_calendarmod
+  USE esmf_calendarmod, only : mday, months_per_year, mdayleap
   IMPLICIT NONE
   TYPE(ESMF_Time), INTENT(INOUT) :: time
   ! locals
   INTEGER :: nfeb
   INTEGER :: MM
+#if defined PLANET
+!    time%basetime%S = time%basetime%S
+#else
   CALL timegetmonth( time, MM )  ! current month, 1-12
   ! find previous month
   MM = MM - 1
@@ -437,6 +451,7 @@ SUBROUTINE timedecmonth( time )
     time%basetime%S = time%basetime%S - &
       ( INT( mday(MM), ESMF_KIND_I8 ) * SECONDS_PER_DAY )
   ENDIF
+#endif
 END SUBROUTINE timedecmonth
 
 
@@ -754,13 +769,17 @@ SUBROUTINE c_esmc_basetimesum( time1, timeinterval, timeOut )
   INTEGER :: m
   timeOut = time1
   timeOut%basetime = timeOut%basetime + timeinterval%basetime
-  DO m = 1, abs(timeinterval%MM)
+#if defined PLANET
+  ! Do nothing...
+#else
+ DO m = 1, abs(timeinterval%MM)
     IF ( timeinterval%MM > 0 ) THEN
       CALL timeincmonth( timeOut )
     ELSE
       CALL timedecmonth( timeOut )
     ENDIF
   ENDDO
+#endif
   timeOut%YR = timeOut%YR + timeinterval%YR
   CALL normalize_time( timeOut )
 END SUBROUTINE c_esmc_basetimesum
@@ -783,7 +802,9 @@ SUBROUTINE c_esmc_basetimedec( time1, timeinterval, timeOut )
   neginterval%basetime%S = -neginterval%basetime%S
   neginterval%basetime%Sn = -neginterval%basetime%Sn
   neginterval%YR = -neginterval%YR
+#ifndef PLANET
   neginterval%MM = -neginterval%MM
+#endif
   timeOut = time1 + neginterval
 END SUBROUTINE c_esmc_basetimedec
 
@@ -874,7 +895,6 @@ SUBROUTINE print_a_time( time )
    integer rc
    CALL ESMF_TimeGet( time, timeString=s, rc=rc )
    print *,'Print a time|',TRIM(s),'|'
-   write(0,*)'Print a time|',TRIM(s),'|'
    return
 END SUBROUTINE print_a_time
 
@@ -887,7 +907,6 @@ SUBROUTINE print_a_timeinterval( time )
    integer rc
    CALL ESMFold_TimeIntervalGetString( time, s, rc )
    print *,'Print a time interval|',TRIM(s),'|'
-   write(0,*)'Print a time interval|',TRIM(s),'|'
    return
 END SUBROUTINE print_a_timeinterval
 

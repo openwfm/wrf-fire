@@ -5,7 +5,7 @@
 ! Laboratory, University of Michigan, National Centers for Environmental
 ! Prediction, Los Alamos National Laboratory, Argonne National Laboratory,
 ! NASA Goddard Space Flight Center.
-! Licensed under the GPL.
+! Licensed under the University of Illinois-NCSA license.
 !
 !==============================================================================
 !
@@ -441,7 +441,7 @@
       subroutine ESMF_ClockSetTimeStep(clock, TimeStep, rc)
 
 ! !ARGUMENTS:
-      type(ESMF_Clock), intent(out) :: clock
+      type(ESMF_Clock), intent(inout) :: clock  ! really INTENT(OUT)
       type(ESMF_TimeInterval), intent(in) :: TimeStep
       integer, intent(out), optional      :: rc
 
@@ -508,7 +508,7 @@
       subroutine ESMF_ClockSetCurrTime(clock, CurrTime, rc)
 
 ! !ARGUMENTS:
-      type(ESMF_Clock), intent(out) :: clock
+      type(ESMF_Clock), intent(inout) :: clock  ! really INTENT(OUT)
       type(ESMF_Time), intent(in) :: CurrTime
       integer, intent(out), optional :: rc
 

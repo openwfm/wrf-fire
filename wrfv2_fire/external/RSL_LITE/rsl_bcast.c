@@ -57,12 +57,14 @@
 
 #define MOD_9707
 
-#include <stdio.h>
+#ifndef MS_SUA
+# include <stdio.h>
+#endif
 #include <stdlib.h>
-#include "mpi.h"
+#ifndef STUBMPI
+#  include "mpi.h"
+#endif
 #include "rsl_lite.h"
-
-char mess[4096] ;
 
 typedef struct bcast_point_desc {
   int ig ;
@@ -135,6 +137,7 @@ RSL_LITE_TO_CHILD_INFO ( Fcomm, msize_p,
                          nids_p, nide_p, njds_p, njde_p, /* domain dims of CHILD DOMAIN */
                          pgr_p,  shw_p ,                 /* nest ratio and stencil half width */
                          ntasks_x_p , ntasks_y_p ,       /* proc counts in x and y */
+                         min_subdomain ,                 /* minimum width allowed for a subdomain in a dim ON PARENT */
                          icoord_p, jcoord_p,
                          idim_cd_p, jdim_cd_p,
                          ig_p, jg_p,
@@ -147,6 +150,7 @@ RSL_LITE_TO_CHILD_INFO ( Fcomm, msize_p,
     ,nids_p, nide_p, njds_p, njde_p   /* (i) n.n. global dims */
     ,pgr_p                            /* nesting ratio */
     ,ntasks_x_p , ntasks_y_p          /* proc counts in x and y */
+    ,min_subdomain
     ,icoord_p       /* i coordinate of nest in cd */
     ,jcoord_p       /* j coordinate of nest in cd */
     ,shw_p          /* stencil half width */
@@ -163,10 +167,13 @@ RSL_LITE_TO_CHILD_INFO ( Fcomm, msize_p,
   int *r ;
   int i, j, ni, nj ;
   int coords[2] ;
+  int ierr ;
+#ifndef STUBMPI
   MPI_Comm *comm, dummy_comm ;
 
   comm = &dummy_comm ;
   *comm = MPI_Comm_f2c( *Fcomm ) ;
+#endif
 
   if ( Plist == NULL ) {
     s_ntasks_x = *ntasks_x_p ;
@@ -179,6 +186,7 @@ RSL_LITE_TO_CHILD_INFO ( Fcomm, msize_p,
        Sdisplacements[j] = 0 ;
        Ssizes[j] = 0 ;
     }
+    ierr = 0 ;
     for ( j = *cjps_p ; j <= *cjpe_p ; j++ )
     {
       for ( i = *cips_p ; i <= *cipe_p ; i++ )
@@ -187,10 +195,14 @@ RSL_LITE_TO_CHILD_INFO ( Fcomm, msize_p,
            ni = ( i - (*icoord_p + *shw_p) ) * *pgr_p + 1 + 1 ; /* add 1 to give center point */
            nj = ( j - (*jcoord_p + *shw_p) ) * *pgr_p + 1 + 1 ;
 
-	   TASK_FOR_POINT ( &ni, &nj, nids_p, nide_p, njds_p, njde_p, &s_ntasks_x, &s_ntasks_y, &Px, &Py ) ;
+#ifndef STUBMPI
+	   TASK_FOR_POINT ( &ni, &nj, nids_p, nide_p, njds_p, njde_p, &s_ntasks_x, &s_ntasks_y, &Px, &Py, 
+                            min_subdomain, min_subdomain, &ierr ) ;
            coords[1] = Px ; coords[0] = Py ;
            MPI_Cart_rank( *comm, coords, &P ) ;
-
+#else
+           P = 0 ;
+#endif
 	   q = RSL_MALLOC( rsl_list_t , 1 ) ;
 	   q->info1 = i ;
 	   q->info2 = j ;
@@ -199,6 +211,10 @@ RSL_LITE_TO_CHILD_INFO ( Fcomm, msize_p,
 	   Sendbufsize += *msize_p + 3 * sizeof( int ) ;  /* point data plus 3 ints for i, j, and size */
         }
       }
+    }
+    if ( ierr != 0 ) {
+      fprintf(stderr,"rsl_to_child_info: ") ;
+      TASK_FOR_POINT_MESSAGE () ;
     }
     Sendbuf = RSL_MALLOC( char , Sendbufsize ) ;
     Sendbufcurs = 0 ;
@@ -226,9 +242,6 @@ RSL_LITE_TO_CHILD_INFO ( Fcomm, msize_p,
         Pptr = Plist[Pcurs] ;
       } else {
         *retval_p = 0 ;
-#if 0
-fprintf(stderr,"TO _INFO: %d %d %d \n",*ig_p,*jg_p, *retval_p) ;
-#endif
         return ;  /* done */
       }
   }
@@ -243,10 +256,6 @@ fprintf(stderr,"TO _INFO: %d %d %d \n",*ig_p,*jg_p, *retval_p) ;
   *r++ =           0 ; Sendbufcurs += sizeof(int) ;  /* store start for size */
   *retval_p = 1 ;
 
-#if 0
-fprintf(stderr,"TO  INFO: %d %d %d \n",*ig_p,*jg_p, *retval_p) ;
-#endif
-
   return ;
 }
 
@@ -257,6 +266,7 @@ RSL_LITE_TO_PARENT_INFO ( Fcomm, msize_p,
                           nips_p, nipe_p, njps_p, njpe_p, /* patch dims of SOURCE DOMAIN (CHILD) */
                           cids_p, cide_p, cjds_p, cjde_p, /* domain dims of TARGET DOMAIN (PARENT) */
                           ntasks_x_p , ntasks_y_p ,       /* proc counts in x and y */
+                          min_subdomain ,
                           icoord_p, jcoord_p,
                           idim_cd_p, jdim_cd_p,
                           ig_p, jg_p,
@@ -266,6 +276,7 @@ RSL_LITE_TO_PARENT_INFO ( Fcomm, msize_p,
     ,nips_p, nipe_p, njps_p, njpe_p   /* (i) n.d. patch dims */
     ,cids_p, cide_p, cjds_p, cjde_p   /* (i) n.n. global dims */
     ,ntasks_x_p , ntasks_y_p          /* proc counts in x and y */
+    ,min_subdomain
     ,icoord_p       /* i coordinate of nest in cd */
     ,jcoord_p       /* j coordinate of nest in cd */
     ,idim_cd_p      /* i width of nest in cd */
@@ -280,10 +291,13 @@ RSL_LITE_TO_PARENT_INFO ( Fcomm, msize_p,
   int *r ;
   int i, j ;
   int coords[2] ;
+  int ierr ;
+#ifndef STUBMPI
   MPI_Comm *comm, dummy_comm ;
 
   comm = &dummy_comm ;
   *comm = MPI_Comm_f2c( *Fcomm ) ;
+#endif
 
   if ( Plist == NULL ) {
     s_ntasks_x = *ntasks_x_p ;
@@ -296,14 +310,20 @@ RSL_LITE_TO_PARENT_INFO ( Fcomm, msize_p,
        Sdisplacements[j] = 0 ;
        Ssizes[j] = 0 ;
     }
+    ierr = 0 ;
     for ( j = *njps_p ; j <= *njpe_p ; j++ )
     {
       for ( i = *nips_p ; i <= *nipe_p ; i++ )
       {
 	if ( ( *jcoord_p <= j && j <= *jcoord_p+*jdim_cd_p-1 ) && ( *icoord_p <= i && i <= *icoord_p+*idim_cd_p-1 ) ) {
-	  TASK_FOR_POINT ( &i, &j, cids_p, cide_p, cjds_p, cjde_p, &s_ntasks_x, &s_ntasks_y, &Px, &Py ) ;
+#ifndef STUBMPI
+	  TASK_FOR_POINT ( &i, &j, cids_p, cide_p, cjds_p, cjde_p, &s_ntasks_x, &s_ntasks_y, &Px, &Py, 
+                           min_subdomain, min_subdomain, &ierr ) ;
           coords[1] = Px ; coords[0] = Py ;
           MPI_Cart_rank( *comm, coords, &P ) ;
+#else
+          P = 0 ;
+#endif
 	  q = RSL_MALLOC( rsl_list_t , 1 ) ;
 	  q->info1 = i ;
 	  q->info2 = j ;
@@ -312,6 +332,10 @@ RSL_LITE_TO_PARENT_INFO ( Fcomm, msize_p,
 	  Sendbufsize += *msize_p + 3 * sizeof( int ) ;  /* point data plus 3 ints for i, j, and size */
         }
       }
+    }
+    if ( ierr != 0 ) {
+      fprintf(stderr,"rsl_to_parent_info: ") ;
+      TASK_FOR_POINT_MESSAGE () ;
     }
     Sendbuf = RSL_MALLOC( char , Sendbufsize ) ;
     Sendbufcurs = 0 ;
@@ -394,6 +418,7 @@ rsl_lite_to_peerpoint_msg ( nbuf_p, buf )
   int *p, *q ;
   char *c, *d ;
   int i ;
+  char mess[4096] ;
 
   RSL_TEST_ERR(buf==NULL,"2nd argument is NULL.  Field allocated?") ;
 
@@ -426,22 +451,41 @@ rsl_lite_to_peerpoint_msg ( nbuf_p, buf )
 /********************************************/
 
 /* parent->nest */
-RSL_LITE_BCAST_MSGS ( mytask_p, ntasks_p, comm0 )
-  int_p mytask_p, ntasks_p, comm0 ;
+RSL_LITE_BCAST_MSGS ( mytask_p, ntasks_p, Fcomm )
+  int_p mytask_p, ntasks_p, Fcomm ;
 {
-  rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm0 ) ;
+#ifndef STUBMPI
+  MPI_Comm comm ;
+
+  comm = MPI_Comm_f2c( *Fcomm ) ;
+#else
+  int comm ;
+#endif
+  rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm ) ;
 }
 
 /* nest->parent */
-RSL_LITE_MERGE_MSGS ( mytask_p, ntasks_p, comm0 )
-  int_p mytask_p, ntasks_p, comm0 ;
+RSL_LITE_MERGE_MSGS ( mytask_p, ntasks_p, Fcomm )
+  int_p mytask_p, ntasks_p, Fcomm ;
 {
-  rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm0 ) ;
+#ifndef STUBMPI
+  MPI_Comm comm ;
+
+  comm = MPI_Comm_f2c( *Fcomm ) ;
+#else
+  int comm ;
+#endif
+  rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm ) ;
 }
 
 /* common code */
-rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm0 )
-  int_p mytask_p, ntasks_p, comm0 ;
+rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm )
+  int_p mytask_p, ntasks_p ;
+#ifndef STUBMPI
+  MPI_Comm comm ;
+#else
+  int comm ;
+#endif
 {
   int P ;
   char *work ;
@@ -456,8 +500,13 @@ rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm0 )
   int *sp, *bp ;
   int rc ;
 
+#ifndef STUBMPI
   ntasks = *ntasks_p ;
   mytask = *mytask_p ;
+#else
+  ntasks = 1 ;
+  mytask = 0 ;
+#endif
 
   RSL_TEST_ERR( Plist == NULL,
     "RSL_BCAST_MSGS: rsl_to_child_info not called first" ) ;
@@ -467,7 +516,11 @@ rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm0 )
   
   Psize_all = RSL_MALLOC( int, ntasks * ntasks ) ;
 
-  MPI_Allgather( Ssizes, ntasks, MPI_INT , Psize_all, ntasks, MPI_INT, *comm0 ) ;
+#ifndef STUBMPI
+  MPI_Allgather( Ssizes, ntasks, MPI_INT , Psize_all, ntasks, MPI_INT, comm ) ;
+#else
+  Psize_all[0] = Ssizes[0] ;
+#endif
 
   for ( j = 0 ; j < ntasks ; j++ ) 
     Rsizes[j] = 0 ;
@@ -489,8 +542,14 @@ rsl_lite_allgather_msgs ( mytask_p, ntasks_p, comm0 )
   Rbufcurs = 0 ;
   Rreclen = 0 ;
 
+#ifndef STUBMPI
   rc = MPI_Alltoallv ( Sendbuf, Ssizes, Sdisplacements, MPI_BYTE , 
-                       Recvbuf, Rsizes, Rdisplacements, MPI_BYTE ,  *comm0 ) ;
+                       Recvbuf, Rsizes, Rdisplacements, MPI_BYTE ,  comm ) ;
+#else
+  work = Sendbuf ;
+  Sendbuf = Recvbuf ;
+  Recvbuf = work ;
+#endif
 
 /* add sentinel to the end of Recvbuf */
 
@@ -551,9 +610,6 @@ rsl_lite_from_peerpoint_info ( ig_p, jg_p, retval_p )
     RSL_FREE( Recvbuf ) ;
   }
      
-#if 0
-fprintf(stderr,"FROM  INFO: %d %d %d %d %d %d\n",*ig_p,*jg_p,Rreclen, Rpointcurs, Rbufcurs + Rpointcurs, *retval_p) ;
-#endif
   return ;
 }
 

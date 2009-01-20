@@ -47,26 +47,23 @@
 
 MODULE module_input_chem_data
 
-    USE module_io_domain
-    USE module_domain
-    USE module_driver_constants
-    USE module_state_description
-    USE module_configure
-    USE module_date_time
-    USE module_wrf_error
-    USE module_timing
-    USE module_data_radm2
-    USE module_aerosols_sorgam
-    USE module_data_sorgam
-    USE module_utility
-    USE module_get_file_names
-
+   USE module_io_domain
+   USE module_domain
+   USE module_data_sorgam, ONLY : conmin, rgasuniv, epsilc, grav
+   USE module_get_file_names, ONLY : eligible_file_name, number_of_eligible_files, unix_ls
 
    IMPLICIT NONE
 
 !  REAL :: grav = 9.8104
    REAL, PARAMETER :: mwso4 = 96.0576
 
+! Variables for adaptive time steps...
+#if ( EM_CORE == 1 )
+      TYPE(WRFU_Time), DIMENSION(max_domains) :: last_chem_time
+#endif
+#if ( NMM_CORE == 1)
+      TYPE(WRFU_Time), DIMENSION(1) :: last_chem_time
+#endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Initial atmospheric chemistry profile data
@@ -97,8 +94,8 @@ MODULE module_input_chem_data
 ! The variable "iref" is the reference index 
 !    "fracref" is the reference fraction correpsonding to iref
 !
-!  For example: WRF-Chem species number 1 is SO2.  iref(1) is 12, and XL(12,K)
-!  is the profile for SO2.
+!  For example: WRF-Chem species number 1 for RADM is SO2.  iref(1)
+!  is 12, and XL(12,K) is the profile for SO2.
 !
 !  Note: NALROM calculates lumped OX (XL(1) =O3+NO2+HNO3+...) and a
 !  lumped NOX (XL(2)=NO+NO2+NO3+2N2O5+HO2NO2+HONO).  But XL(33) is
@@ -147,21 +144,6 @@ MODULE module_input_chem_data
 !      NAMEL(34)='NOX       ' 
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-
-
-    DATA iref/12,19,2,2,1,3,4,9,8,5,5,32,6,6,6,30,30,10,26,13,11,6,6, &
-               14,15,15,23,23,32,16,23,31,17,5*23,7,28,29,59*7/
-
-    DATA fracref/1.,1.,.75,.25,6*1.,.5,.5,6.25E-4,7.5E-4,6.25E-5,.1, &
-                 .9,4*1.,8.E-3,3*1.,.5,1.,1.,.5,12*1.,59*1./
-
-    DATA ggnam/ 'SO2 ','SULF','NO2 ','NO  ','O3  ','HNO3',    &
-                'H2O2','ALD ','HCHO','OP1 ','OP2 ','PAA ',    &
-                'ORA1','ORA2','NH3 ','N2O5','NO3 ','PAN ',    &
-                'HC3 ','HC5 ','HC8 ','ETH ','CO  ','OL2 ',    &
-                'OLT ','OLI ','TOL ','XYL ','ACO3','TPAN',    &
-                'HONO','HNO4','KET ','GLY ','MGLY','DCB ',    &
-                'ONIT','CSL ','ISO ','HO  ','HO2 ',59*'JUNK'  /
 
      DATA dens/ 2.738E+18, 5.220E+18, 7.427E+18, 9.202E+18, &
                 1.109E+19, 1.313E+19, 1.525E+19, 1.736E+19, &
@@ -336,6 +318,161 @@ MODULE module_input_chem_data
 
 CONTAINS
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Sets up the cross reference mapping indices and fractional
+! apportionment of the default species profiles for use with
+! ICs and BCs.
+! William.Gustafson@pnl.gov; 2-May-2007
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE setup_gasprofile_maps(chem_opt, numgas)
+  integer, intent(in) :: chem_opt, numgas
+
+  select case(chem_opt)
+  case (RADM2, RADM2_KPP, RADM2SORG, RADM2SORG_AQ, RADM2SORG_KPP, &
+        RACM, RACM_KPP, RACMPM_KPP, RACM_MIM_KPP, RACMSORG, RACMSORG_AQ, RACMSORG_KPP, &
+        GOCARTRACM_KPP, CHEM_TRACER, CHEM_TRACE2)
+     call setup_gasprofile_map_radm_racm
+
+  case (CBMZ, CBMZ_BB, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, &
+        CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
+     call setup_gasprofile_map_cbmz(numgas)
+
+  case (CBM4_KPP)
+     call setup_gasprofile_map_cbm4(numgas)
+
+  case (GOCART_SIMPLE)
+     call wrf_debug("setup_profile_maps: nothing done for gocart simple")
+  case default
+     call wrf_error_fatal("setup_profile_maps: could not decipher chem_opt value")
+
+  end select
+
+END SUBROUTINE setup_gasprofile_maps
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Maps for indices and fractional apportionment of the default
+! species profiles to the RADM2 and RACM species for ICs and BCs.
+! William.Gustafson@pnl.gov; 2-May-2007
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE setup_gasprofile_map_radm_racm
+  
+  iref(:)    = 7 !default value
+  iref(1:41) = (/12,19,2,2,1,3,4,9,8,5,5,32,6,6,6,30,30,10,26,13,11,6,6, &
+                 14,15,15,23,23,32,16,23,31,17,23,23,23,23,23,7,28,29/)
+
+  fracref(:)    = 1. !default value
+  fracref(1:41) = (/1.,1.,.75,.25,1.,1.,1.,1.,1.,1., &
+                    .5,.5,6.25E-4,7.5E-4,6.25E-5,.1, &
+                    .9,1.,1.,1.,1.,8.E-3,1.,1.,1.,.5,&
+                    1.,1.,.5,1.,1.,1.,1.,1.,1.,1.,1.,&
+                    1.,1.,1.,1./)
+
+  ggnam(:) = 'JUNK' !default value
+  ggnam(1:41) = (/ 'SO2 ','SULF','NO2 ','NO  ','O3  ','HNO3',    &
+                   'H2O2','ALD ','HCHO','OP1 ','OP2 ','PAA ',    &
+                   'ORA1','ORA2','NH3 ','N2O5','NO3 ','PAN ',    &
+                   'HC3 ','HC5 ','HC8 ','ETH ','CO  ','OL2 ',    &
+                   'OLT ','OLI ','TOL ','XYL ','ACO3','TPAN',    &
+                   'HONO','HNO4','KET ','GLY ','MGLY','DCB ',    &
+                   'ONIT','CSL ','ISO ','HO  ','HO2 '           /)
+
+END SUBROUTINE setup_gasprofile_map_radm_racm
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Maps for indices and fractional apportionment of the default
+! species profiles to the CBMZ species for ICs and BCs. The profiles
+! for HC3, HC5, and HC8 used for RADM are tacked onto the end of the
+! CBMZ list in order to construct the PAR species.
+! William.Gustafson@pnl.gov; 2-May-2007
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE setup_gasprofile_map_cbmz(numgas)
+  integer, intent(in) :: numgas
+  integer, parameter :: listlast = 33
+  iref(:)    = 7 !default value
+  iref(1:listlast) = (/12,19, 2, 2, 1, 3, &
+                        4, 9, 8, 5, 5, 6, &
+                        6, 6,30,30,10, 6, &
+                        6,14,15,15,23,23, &
+                       23,31,17,23,23,23, &
+                        7,28,29          /)
+
+  fracref(:)    = 1. !default value
+  fracref(1:listlast) = (/1.,1.,.75,.25,1.,1., &
+                          1.,1.,1.,1.,.5,6.25E-4, &
+                          7.5E-4,6.25E-5,.1,.9,1.,8.E-3, &
+                          1.,1.,1.,.5,1.,1.,   &
+                          1.,1.,1.,1.,1.,1.,   &
+                          1.,1.,1.            /)
+
+  ggnam(:) = 'JUNK' !default value - not really all junk, the
+                    !last species all just goto the default
+  ggnam(1:listlast) = (/ 'SO2 ','SULF','NO2 ','NO  ','O3  ','HNO3', &
+                         'H2O2','ALD ','HCHO','OP1 ','OP2 ','ORA1', &
+                         'ORA2','NH3 ','N2O5','NO3 ','PAN ','ETH ', &
+                         'CO  ','OL2 ','OLT ','OLI ','TOL ','XYL ', &
+                         'HONO','HNO4','KET ','MGLY','ONIT','CSL ', &
+                         'ISO ','HO  ','HO2 '                      /)
+!
+! After the CBMZ species, add the RADM HC3, HC5, and HC8 to be used
+! for constructing PAR..
+!
+  if( numgas < listlast ) &
+       call wrf_error_fatal("numgas < listlast in setup_gasprofile_map_cbmz")
+  iref(numgas+1:numgas+3)    = (/   26,     13,    11/)
+  fracref(numgas+1:numgas+3) = (/   1.,     1.,    1./)
+  ggnam(numgas+1:numgas+3)   = (/'HC3 ','HC5 ','HC8 '/)
+  
+END SUBROUTINE setup_gasprofile_map_cbmz
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Maps for indices and fractional apportionment of the default
+! species profiles to the CBM4 species for ICs and BCs. The profiles
+! for HC3, HC5, and HC8 used for RADM are tacked onto the end of the
+! CBM4 list in order to construct the PAR species.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE setup_gasprofile_map_cbm4(numgas)
+  integer, intent(in) :: numgas
+  integer, parameter :: listlast = 24
+  iref(:)    = 7 !default value
+  iref(1:listlast) = (/12,19, 2, 2, 1, 3, &
+                        4, 9, 8,  &
+                        6,30,30,10, 6, &
+                        6,15,23,23, &
+                        23,23,23, &
+                        7,28,29          /)
+
+  fracref(:)    = 1. !default value
+  fracref(1:listlast) = (/1.,1.,.75,.25,1.,1., &
+                          1.,1.,1., &
+                          6.25E-5,.1,.9,1.,1., &
+                          1.,7.,1.,1.,   &
+                          1.,1.,1.,   &
+                          1.,1.,1.            /)
+
+  ggnam(:) = 'JUNK' !default value - not really all junk, the
+                    !last species all just goto the default
+  ggnam(1:listlast) = (/ 'SO2 ','SULF','NO2 ','NO  ','O3  ','HNO3', &
+                         'H2O2','ALD2','HCHO', &
+                         'NH3 ','N2O5','NO3 ','PAN ','ETH ', &
+                         'CO  ','OLE ','TOL ','XYL ', &
+                         'HONO','ONIT','CRES', &
+                         'ISO ','HO  ','HO2 '                      /)
+!
+! After the CBM4 species, add the RADM HC3, HC5, and HC8 to be used
+! for constructing PAR..
+!
+  if( numgas < listlast ) &
+       call wrf_error_fatal("numgas < listlast in setup_gasprofile_map_cbm4")
+  iref(numgas+1:numgas+7)    = (/   26,     13,    11,  17,   15,     15,   6/)
+  fracref(numgas+1:numgas+7) = (/   1.,     1.,    1.,   1.,   .5,   1.,   7.5E-4/)
+  ggnam(numgas+1:numgas+7)   = (/'HC3 ','HC5 ','HC8 ','KET ','OLI ','OLT ','ORA2'/)
+  
+END SUBROUTINE setup_gasprofile_map_cbm4
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 SUBROUTINE input_ext_chem_file (si_grid)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -472,7 +609,7 @@ SUBROUTINE input_ext_chem_file (si_grid)
 !     CALL ext_ncd_get_next_time ( fid, date_string, status_next_var )
       CALL wrf_get_next_time ( fid, date_string, status_next_var )
 
-      write(message,'(6A)') 'Subroutine input_chem: file date/time = ',date_string,'     status = ', status_next_var
+      write(message,'(19A)') 'Subroutine input_chem: file date/time = ',date_string
       CALL  wrf_message ( TRIM(message) )
 
       IF ( status_next_var == 0 ) THEN
@@ -573,8 +710,8 @@ SUBROUTINE input_ext_chem_file (si_grid)
           ALLOCATE(  si_zsig(ims:ime,kms:kme,jms:jme) )
           ALLOCATE(  ch_zsig(ims:ime,kms:kme,jms:jme) )
 #if ( EM_CORE == 1 )
-          si_zsigf = (si_grid%em_ph_1 + si_grid%em_phb) / grav
-          ch_zsigf = ( chgrid%em_ph_1 +  chgrid%em_phb) / grav
+          si_zsigf = (si_grid%ph_1 + si_grid%phb) / grav
+          ch_zsigf = ( chgrid%ph_1 +  chgrid%phb) / grav
 #endif
 
 #if ( NMM_CORE == 1 )
@@ -586,13 +723,13 @@ SUBROUTINE input_ext_chem_file (si_grid)
        IF(chgrid%sigma.EQ. 1)THEN
          do j=jps,jpe
          do i=ips,ipe
-           pdsl(i,j)=chgrid%nmm_pd(i,j)
+           pdsl(i,j)=chgrid%pd(i,j)
          ENDDO
          ENDDO
        ELSE
          do j=jps,jpe
          do i=ips,ipe
-           pdsl(i,j)=chgrid%nmm_res(i,j)*chgrid%nmm_pd(i,j)
+           pdsl(i,j)=chgrid%res(i,j)*chgrid%pd(i,j)
          enddo
          enddO
        ENDIF
@@ -602,7 +739,7 @@ SUBROUTINE input_ext_chem_file (si_grid)
       do j=jps,jpe
         do k=kps,kpe
         do i=ips,ipe
-          pint(i,k,j)=si_grid%nmm_eta1(k)*chgrid%nmm_pdtop+si_grid%nmm_eta2(k)*pdsl(i,j)+chgrid%nmm_pt
+          pint(i,k,j)=si_grid%eta1(k)*chgrid%pdtop+si_grid%eta2(k)*pdsl(i,j)+chgrid%pt
           ch_zsigf(i,k,j)=pint(i,k,j)
         ENDDO
         ENDDO
@@ -613,13 +750,13 @@ SUBROUTINE input_ext_chem_file (si_grid)
        IF(si_grid%sigma.EQ. 1)THEN
          do j=jps,jpe
          do i=ips,ipe
-           pdsl(i,j)=si_grid%nmm_pd(i,j)
+           pdsl(i,j)=si_grid%pd(i,j)
          ENDDO
          ENDDO
        ELSE
          do j=jps,jpe
          do i=ips,ipe
-           pdsl(i,j)=si_grid%nmm_res(i,j)*si_grid%nmm_pd(i,j)
+           pdsl(i,j)=si_grid%res(i,j)*si_grid%pd(i,j)
          enddo
          enddO
        ENDIF
@@ -630,9 +767,9 @@ SUBROUTINE input_ext_chem_file (si_grid)
       do j=jps,jpe
         do k=kps,kpe
         do i=ips,ipe
-          pint(i,k,j)=si_grid%nmm_eta1(k)*si_grid%nmm_pdtop+si_grid%nmm_eta2(k)*pdsl(i,j)+si_grid%nmm_pt
+          pint(i,k,j)=si_grid%eta1(k)*si_grid%pdtop+si_grid%eta2(k)*pdsl(i,j)+si_grid%pt
 !         if (i.EQ. ips .and. j .EQ. jps) then
-!         print *,k,pint(i,k,j),si_grid%nmm_eta1(k),si_grid%nmm_pdtop,si_grid%nmm_eta2(k),pdsl(i,j),si_grid%nmm_pt
+!         print *,k,pint(i,k,j),si_grid%eta1(k),si_grid%pdtop,si_grid%eta2(k),pdsl(i,j),si_grid%pt
 !         endif
           si_zsigf(i,k,j)=pint(i,k,j)
         ENDDO
@@ -685,7 +822,7 @@ SUBROUTINE input_ext_chem_file (si_grid)
          IF( time_loop .EQ. num_steps(2) ) THEN
 
 !        ! input chemistry sigma levels
-!         ch_zsigf = ( chgrid%em_ph_1 +  chgrid%em_phb) / grav
+!         ch_zsigf = ( chgrid%ph_1 +  chgrid%phb) / grav
 !         do k=1,kde-1
 !           ch_zsig(:,k,:) = 0.5 * ( ch_zsigf(:,k,:) + ch_zsigf(:,k+1,:) ) 
 !         enddo
@@ -954,7 +1091,7 @@ SUBROUTINE input_chem_profile (si_grid)
 
 #if ( ! EM_CORE == 0 )
      write(message,'(A)') 'WRF_EM_CORE  '
-     si_zsigf = (si_grid%em_ph_1 + si_grid%em_phb) / grav
+     si_zsigf = (si_grid%ph_1 + si_grid%phb) / grav
 #endif
 #if ( ! NMM_CORE == 0 )
    ! Get scalar grid point heights
@@ -967,13 +1104,13 @@ SUBROUTINE input_chem_profile (si_grid)
        IF(si_grid%sigma.EQ. 1)THEN
          do j=jps,jpe
          do i=ips,ipe
-           pdsl(i,j)=si_grid%nmm_pd(i,j)
+           pdsl(i,j)=si_grid%pd(i,j)
          ENDDO
          ENDDO
        ELSE
          do j=jps,jpe
          do i=ips,ipe
-           pdsl(i,j)=si_grid%nmm_res(i,j)*si_grid%nmm_pd(i,j)
+           pdsl(i,j)=si_grid%res(i,j)*si_grid%pd(i,j)
          enddo
          enddO
        ENDIF
@@ -987,36 +1124,40 @@ SUBROUTINE input_chem_profile (si_grid)
 !     print *,' jps=',jps,' jpe=',jpe
 !     print *,' kps=',kps,' kpe=',kpe
 !     print *,' sigma=',si_grid%sigma
-!     print *,' pdtop=',si_grid%nmm_pdtop,' pt=',si_grid%nmm_pt
+!     print *,' pdtop=',si_grid%pdtop,' pt=',si_grid%pt
 
       do j=jps,jpe
         do k=kps,kpe
         do i=ips,ipe
-          pint(i,k,j)=si_grid%nmm_eta1(k)*si_grid%nmm_pdtop+si_grid%nmm_eta2(k)*pdsl(i,j)+si_grid%nmm_pt
+          pint(i,k,j)=si_grid%eta1(k)*si_grid%pdtop+si_grid%eta2(k)*pdsl(i,j)+si_grid%pt
           si_zsigf(i,k,j)=pint(i,k,j)
         ENDDO
         ENDDO
       ENDDO
 !       do k=kps,kpe
-!          print *,k,pint(1,k,1),si_grid%nmm_eta1(k),si_grid%nmm_pdtop,si_grid%nmm_eta2(k),pdsl(1,1),si_grid%nmm_pt
+!          print *,k,pint(1,k,1),si_grid%eta1(k),si_grid%pdtop,si_grid%eta2(k),pdsl(1,1),si_grid%pt
 !       enddo
 !
 !  si_zsigf = si_grid%z
 #endif
 
-!  si_zsigf = (si_grid%em_ph_1 + si_grid%em_phb) / grav
+!  si_zsigf = (si_grid%ph_1 + si_grid%phb) / grav
 
    do k=1,kde-1
      si_zsig(:,k,:) = 0.5 * ( si_zsigf(:,k,:) + si_zsigf(:,k+1,:) ) 
    enddo
    si_zsig(:,kde,:) = 0.5 * ( 3. * si_zsigf(:,kde,:) - si_zsigf(:,kde-1,:) ) 
 
-   ! An alternative ozone profile option for initialization
-   if( si_grid%gas_ic_opt == GAS_IC_PNNL ) &
-        call gasprofile_init_pnnl
-
    ! Determine the index of the last gas species
    numgas = get_last_gas(si_grid%chem_opt)
+
+   ! Setup the cross reference mappings between the default profiles and
+   ! the gas mechanism species (wig, 2-May-2007)
+   call setup_gasprofile_maps(si_grid%chem_opt, numgas)
+
+   ! An alternative ozone profile option for initialization
+   if( si_grid%gas_ic_opt == GAS_IC_PNNL ) &
+        call gasprofile_init_pnnl( si_grid%chem_opt )
 
    ! Interpolate the chemistry data to the SI grid. These values should typically
    ! be set to match the values in bdy_chem_value_tracer so that the boundaries
@@ -1025,9 +1166,22 @@ SUBROUTINE input_chem_profile (si_grid)
       si_grid%chem(ims:ime,kms:kme,jms:jme,1:numgas) = 0.0001
 !     si_grid%chem(ims:ime,kms:kme,jms:jme,p_so2) = 0.0001
       si_grid%chem(ims:ime,kms:kme,jms:jme,p_co ) = 0.08
+   ELSE IF ( si_grid%chem_opt == CHEM_TRACE2 ) THEN
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_TRACER_1 ) = 0.08
+   ELSE IF ( si_grid%chem_opt == GOCART_SIMPLE ) THEN
+      si_grid%chem(ims:ime,kms:kme,jms:jme,1:num_chem) = 1.e-12
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_so2) = 1.e-6
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_sulf) = 3.e-6
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_dms) = 1.e-6
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_msa) = 1.e-6
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_bc1 ) = 1.e-2
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_bc2 ) = 1.e-2
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_oc1 ) = 1.e-2
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_oc2 ) = 1.e-2
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_p25 ) = 1.
    ELSE
       CALL make_chem_profile (ims, ime, jms, jme, kms, kme, num_chem, numgas, &
-                              si_zsig, si_grid%chem)
+                              si_grid%chem_opt, si_zsig, si_grid%chem)
    END IF
 
    CALL wrf_debug       ( 100,' input_chem_profile: exit subroutine ')
@@ -1041,12 +1195,12 @@ SUBROUTINE input_chem_profile (si_grid)
   END SUBROUTINE input_chem_profile
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   SUBROUTINE make_chem_profile ( nx1, nx2, ny1, ny2, nz1, nz2, nch, numgas, &
-                                  zgrid, chem )
+                                 chem_opt, zgrid, chem )
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: nx1, ny1, nz1
     INTEGER, INTENT(IN) :: nx2, ny2, nz2
-    INTEGER, INTENT(IN) :: nch, numgas
+    INTEGER, INTENT(IN) :: nch, numgas, chem_opt
     !REAL, INTENT(IN), DIMENSION(nx1:nx2,nz1:nz2,ny1:ny2) :: zgrid
     REAL, DIMENSION(nx1:nx2,nz1:nz2,ny1:ny2) :: zgrid
 
@@ -1058,6 +1212,10 @@ SUBROUTINE input_chem_profile (si_grid)
 
     REAL, DIMENSION(nx1:nx2,nz1:nz2,ny1:ny2,nch) :: chem
     REAL, DIMENSION(nx1:nx2,nz1:nz2,ny1:ny2,lo ) :: stor
+
+    REAL :: hc358 !wig, 2-May-2007
+    REAL :: olit
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 ! Check the number of species
@@ -1112,6 +1270,51 @@ SUBROUTINE input_chem_profile (si_grid)
         ENDDO
         ENDDO
       ENDDO
+!
+! For CBMZ, we need to construct PAR based on a combination of other
+! species. This cannot be done with the looping construct above so
+! we have to treat it separately. (wig, 2-May-2007)
+!
+      SELECT CASE(chem_opt)
+      CASE (CBMZ,CBMZ_BB,CBMZ_MOSAIC_4BIN,CBMZ_MOSAIC_8BIN, &
+            CBMZ_MOSAIC_4BIN_AQ,CBMZ_MOSAIC_8BIN_AQ)
+         do j = ny1,ny2
+         do k = nz1,nz2
+         do i = nx1,nx2
+            !Construct the sum of the profiles for hc3, hc5, & hc8
+            hc358 = ( 2.9*fracref(numgas+1)*stor(i,k,j,iref(numgas+1)) &
+                     +4.8*fracref(numgas+2)*stor(i,k,j,iref(numgas+2)) &
+                     +7.9*fracref(numgas+3)*stor(i,k,j,iref(numgas+3)) &
+                    )*1.E6
+            chem(i,k,j,p_par) =                                    &
+                 0.4*chem(i,k,j,p_ald) + hc358                     &
+                 + 0.9*chem(i,k,j,p_ket) + 2.8*chem(i,k,j,p_oli)   &
+                 + 1.8*chem(i,k,j,p_olt) + 1.0*chem(i,k,j,p_ora2)
+         end do
+         end do
+         end do
+
+
+
+      CASE (CBM4_KPP)
+         do j = ny1,ny2
+         do k = nz1,nz2
+         do i = nx1,nx2
+            !Construct the sum of the profiles for hc3, hc5, & hc8
+            hc358 = ( 2.9*fracref(numgas+1)*stor(i,k,j,iref(numgas+1)) &
+                     +4.8*fracref(numgas+2)*stor(i,k,j,iref(numgas+2)) &
+                     +7.9*fracref(numgas+3)*stor(i,k,j,iref(numgas+3)) &
+                    )*1.E6
+            olit = ( 0.9*fracref(numgas+4)*stor(i,k,j,iref(numgas+4)) &
+                     +2.8*fracref(numgas+5)*stor(i,k,j,iref(numgas+5)) &
+                     +1.8*fracref(numgas+6)*stor(i,k,j,iref(numgas+6)) &
+                     +1.0*fracref(numgas+7)*stor(i,k,j,iref(numgas+7)) &
+                    )*1.E6
+            chem(i,k,j,p_par) =  0.4*chem(i,k,j,p_ald2) + hc358  + olit
+         end do
+         end do
+         end do
+      END SELECT
 
       RETURN
   END SUBROUTINE make_chem_profile
@@ -1122,7 +1325,7 @@ SUBROUTINE input_chem_profile (si_grid)
   SUBROUTINE bdy_chem_value_sorgam (chem, z, nch, config_flags, &
                                       alt,convfac,g)
   USE module_data_sorgam
-  USE module_aerosols_sorgam
+
     IMPLICIT NONE
 
     REAL,    intent(OUT)  :: chem
@@ -1157,7 +1360,7 @@ SUBROUTINE input_chem_profile (si_grid)
 ! method for bc calculation is determined by aer_bc_opt
 !
        if (config_flags%aer_bc_opt == AER_BC_PNNL) then
-           call sorgam_set_aer_bc_pnnl( chem, z, nch )
+           call sorgam_set_aer_bc_pnnl( chem, z, nch, config_flags )
            return
        else if (config_flags%aer_bc_opt == AER_BC_DEFAULT) then
            continue
@@ -1311,7 +1514,38 @@ SUBROUTINE input_chem_profile (si_grid)
    
   END SUBROUTINE bdy_chem_value_sorgam
 
+  SUBROUTINE bdy_chem_value_gocart ( chem, nch )
+
+! This subroutine is called to set the boundary values of chemistry
+
+    IMPLICIT NONE
+
+    REAL,    intent(OUT)  :: chem
+    INTEGER, intent(IN)   :: nch        ! index number of chemical species
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if( nch == p_so2  ) then
+       chem = 5.e-6
+    else if( nch == p_sulf ) then
+       chem = 3.e-6
+    else if( nch == p_dms ) then
+       chem = 1.e-6
+    else if( nch == p_msa ) then
+       chem = 1.e-6
+    else if( nch == p_bc1 ) then
+       chem = 1.e-2
+    else if( nch == p_bc2 ) then
+       chem = 1.e-2
+    else if( nch == p_oc1 ) then
+       chem = 1.e-2
+    else if( nch == p_oc2 ) then
+       chem = 1.e-2
+    else if( nch == p_p25 ) then
+       chem = 1.
+    else
+       chem = 1.e-12
+    end if
+
+  END SUBROUTINE bdy_chem_value_GOCART
   SUBROUTINE bdy_chem_value_tracer ( chem, nch )
 
 ! This subroutine is called to set the boundary values of chemistry
@@ -1333,6 +1567,9 @@ SUBROUTINE input_chem_profile (si_grid)
     else
        chem = conmin
     end if
+    if( nch .eq. p_tracer_1  ) then
+       chem = 0.08
+    endif
 
   END SUBROUTINE bdy_chem_value_tracer
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1424,6 +1661,9 @@ SUBROUTINE input_chem_profile (si_grid)
 
       RETURN
   END SUBROUTINE bdy_chem_value_racm
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   SUBROUTINE bdy_chem_value ( chem, z, nch, numgas )
                                   
     IMPLICIT NONE
@@ -1446,13 +1686,24 @@ SUBROUTINE input_chem_profile (si_grid)
 
 ! Check the number of species
 !     if((nch-1).gt.logg)return
-
-!    if( nch .GT. logg+1) then
-     if( nch .GT. numgas) then
-       message = ' Input_chem_profile: wrong number of chemical species'
+! for radmkpp there is co2 and ch4 in the variable list
+!
+     if(p_co2.gt.1)then
+     if (nch.eq.p_co2)then
+       chem=370.
        return
-!       CALL WRF_ERROR_FATAL ( message )
      endif
+     if (nch.eq.p_ch4)then
+       chem=1.7
+       return
+     endif
+     endif
+
+!     if( nch .GT. numgas) then
+!       message = ' Input_chem_profile: wrong number of chemical species'
+!       return
+!       CALL WRF_ERROR_FATAL ( message )
+!     endif
 
       ! Vertically flip the chemistry data as it is given top down 
       !     and heights in zfa are bottom up
@@ -1478,6 +1729,9 @@ SUBROUTINE input_chem_profile (si_grid)
         input_loop:  DO k = 1, kx-1
           IF (z .EQ. zprof(k) )THEN 
             stor = cprof(k)
+            EXIT input_loop
+          ELSE IF (z .EQ. zprof(k+1) )THEN
+            stor = cprof(k+1)
             EXIT input_loop
           ELSE IF ( (z .GT. zprof(k)) .AND. &
                     (z .LT. zprof(k+1)) ) THEN
@@ -1586,9 +1840,13 @@ SUBROUTINE input_chem_profile (si_grid)
           i_bdy_method = 1
 
         if (config_flags%chem_opt == RACM_KPP .or.          &
+            config_flags%chem_opt == GOCARTRACM_KPP .or.      &
             config_flags%chem_opt == RACMSORG_KPP .or.      &
             config_flags%chem_opt == RACM_MIM_KPP .or.      &
             config_flags%chem_opt == RACMSORG_KPP ) then
+          i_bdy_method = 9
+        end if
+        if (config_flags%chem_opt == RACMPM_KPP ) then
           i_bdy_method = 9
         end if
 
@@ -1617,6 +1875,10 @@ SUBROUTINE input_chem_profile (si_grid)
           i_bdy_method = 4
       else if (config_flags%chem_opt == CHEM_TRACER) then
           i_bdy_method = 5
+      else if (config_flags%chem_opt == CHEM_TRACE2) then
+          i_bdy_method = 5
+      else if (config_flags%chem_opt == GOCART_SIMPLE) then
+          i_bdy_method = 7
       end if
       if (have_bcs_chem) i_bdy_method =6
       if (ic .lt. param_first_scalar) i_bdy_method = 0
@@ -1632,6 +1894,7 @@ SUBROUTINE input_chem_profile (si_grid)
 !          print 90010, '_bdy_mosaic for ic=', ic, i_bdy_method
 !      else if (i_bdy_method .eq. 5) then
 !          print 90010, '_bdy_tracer for ic=', ic, i_bdy_method
+!          print *,numgas,num_chem
 !      else 
 !          print 90010, '_bdy_NONE** for ic=', ic, i_bdy_method
 !      end if
@@ -1639,10 +1902,6 @@ SUBROUTINE input_chem_profile (si_grid)
 !90020 format( a, 1p, 2e12.2 )
 !----------------------------------------------------------------------
 
-!     if(ic.eq.p_O3)THEN
-!     write(0,*)'in flow_chem ',jts,jbs,spec_zone
-!     write(0,*)'in flow_chem ',its,ibs,b_dist,i_bdy_method,ic
-!     endif
       IF (jts - jbs .lt. spec_zone) THEN
 ! Y-start boundary
         DO j = jts, min(jtf,jbs+spec_zone-1)
@@ -1653,10 +1912,6 @@ SUBROUTINE input_chem_profile (si_grid)
               i_inner = min(i_inner,ibe-spec_zone)
               IF(v(i,k,j) .lt. 0.)THEN
                 chem(i,k,j) = chem(i_inner,k,jbs+spec_zone)
-!               if(j.eq.jts+1.and.k.eq.kts.and.ic.eq.p_o3)then
-!                  write(0,*)'Yflow',i,j,k,i_bdy_method
-!                  write(0,*)chem(i_inner,k,jbs+spec_zone),v(i,k,j)
-!               endif
               ELSE
                 if (i_bdy_method .eq. 1) then
                    CALL bdy_chem_value (   &
@@ -1672,18 +1927,16 @@ SUBROUTINE input_chem_profile (si_grid)
                         alt(i,k,j),convfac,g)
                 else if (i_bdy_method .eq. 3) then
                    CALL bdy_chem_value_cbmz (   &
-                        chem(i,k,j), z(i,k,j), ic, config_flags, numgas )
+                        chem(i,k,j), z(i,k,j), ic, numgas )
                 else if (i_bdy_method .eq. 4) then
                    CALL bdy_chem_value_mosaic (   &
                         chem(i,k,j), alt(i,k,j), z(i,k,j), ic, config_flags )
                 else if (i_bdy_method .eq. 5) then
                    CALL bdy_chem_value_tracer ( chem(i,k,j), ic )
+                else if (i_bdy_method .eq. 7) then
+                   CALL bdy_chem_value_gocart ( chem(i,k,j), ic )
                 else if (i_bdy_method .eq. 6) then
                    CALL bdy_chem_value_gcm ( chem(i,k,j),chem_bys(i,k,1),chem_btys(i,k,1),dt,ic)
-!               if(k.eq.kts.and.ic.eq.p_o3)then
-!                  write(0,*)'Ygcm',i,j,k,i_bdy_method
-!                  write(0,*)chem(i,k,j),chem_bys(i,k,1),chem_btys(i,k,1),dt
-!               endif
                 else
                    chem(i,k,j) = chem_bv_def
                 endif
@@ -1717,7 +1970,7 @@ SUBROUTINE input_chem_profile (si_grid)
                         alt(i,k,j),convfac,g)
                 else if (i_bdy_method .eq. 3) then
                    CALL bdy_chem_value_cbmz (   &
-                        chem(i,k,j), z(i,k,j), ic, config_flags, numgas )
+                        chem(i,k,j), z(i,k,j), ic, numgas )
                 else if (i_bdy_method .eq. 4) then
                    CALL bdy_chem_value_mosaic (   &
                         chem(i,k,j), alt(i,k,j), z(i,k,j), ic, config_flags )
@@ -1725,6 +1978,8 @@ SUBROUTINE input_chem_profile (si_grid)
                    CALL bdy_chem_value_tracer ( chem(i,k,j), ic )
                 else if (i_bdy_method .eq. 6) then
                    CALL bdy_chem_value_gcm ( chem(i,k,j),chem_bye(i,k,1),chem_btye(i,k,1),dt,ic)
+                else if (i_bdy_method .eq. 7) then
+                   CALL bdy_chem_value_gocart ( chem(i,k,j), ic )
                 else
                    chem(i,k,j) = chem_bv_def
                 endif
@@ -1759,14 +2014,16 @@ SUBROUTINE input_chem_profile (si_grid)
                         alt(i,k,j),convfac,g)
                 else if (i_bdy_method .eq. 3) then
                    CALL bdy_chem_value_cbmz (   &
-                        chem(i,k,j), z(i,k,j), ic, config_flags, numgas )
+                        chem(i,k,j), z(i,k,j), ic, numgas )
                 else if (i_bdy_method .eq. 4) then
                    CALL bdy_chem_value_mosaic (   &
                         chem(i,k,j), alt(i,k,j), z(i,k,j), ic, config_flags )
                 else if (i_bdy_method .eq. 5) then
                    CALL bdy_chem_value_tracer ( chem(i,k,j), ic )
                 else if (i_bdy_method .eq. 6) then
-                   CALL bdy_chem_value_gcm ( chem(i,k,j),chem_bxs(i,k,1),chem_btxs(i,k,1),dt,ic)
+                   CALL bdy_chem_value_gcm ( chem(i,k,j),chem_bxs(j,k,1),chem_btxs(j,k,1),dt,ic)
+                else if (i_bdy_method .eq. 7) then
+                   CALL bdy_chem_value_gocart ( chem(i,k,j), ic )
                 else
                    chem(i,k,j) = chem_bv_def
                 endif
@@ -1801,14 +2058,16 @@ SUBROUTINE input_chem_profile (si_grid)
                         alt(i,k,j),convfac,g)
                 else if (i_bdy_method .eq. 3) then
                    CALL bdy_chem_value_cbmz (   &
-                        chem(i,k,j), z(i,k,j), ic, config_flags,numgas )
+                        chem(i,k,j), z(i,k,j), ic, numgas )
                 else if (i_bdy_method .eq. 4) then
                    CALL bdy_chem_value_mosaic (   &
                         chem(i,k,j), alt(i,k,j), z(i,k,j), ic, config_flags )
                 else if (i_bdy_method .eq. 5) then
                    CALL bdy_chem_value_tracer ( chem(i,k,j), ic )
                 else if (i_bdy_method .eq. 6) then
-                   CALL bdy_chem_value_gcm ( chem(i,k,j),chem_bxe(i,k,1),chem_btxe(i,k,1),dt,ic)
+                   CALL bdy_chem_value_gcm ( chem(i,k,j),chem_bxe(j,k,1),chem_btxe(j,k,1),dt,ic)
+                else if (i_bdy_method .eq. 7) then
+                   CALL bdy_chem_value_gocart ( chem(i,k,j), ic )
                 else
                    chem(i,k,j) = chem_bv_def
                 endif
@@ -1899,9 +2158,13 @@ SUBROUTINE input_chem_profile (si_grid)
           i_bdy_method = 1
 
         if (config_flags%chem_opt == RACM_KPP .or.          &
+            config_flags%chem_opt == GOCARTRACM_KPP .or.      &
             config_flags%chem_opt == RACMSORG_KPP .or.      &
             config_flags%chem_opt == RACM_MIM_KPP .or.      &
             config_flags%chem_opt == RACMSORG_KPP ) then
+          i_bdy_method = 9
+        end if
+        if (config_flags%chem_opt == RACMPM_KPP ) then
           i_bdy_method = 9
         end if
 
@@ -1929,6 +2192,8 @@ SUBROUTINE input_chem_profile (si_grid)
       else if ((ic .ge. p_so4_a08) .and. (ic .le. p_num_a08)) then
           i_bdy_method = 4
       else if (config_flags%chem_opt == CHEM_TRACER) then
+          i_bdy_method = 5
+      else if (config_flags%chem_opt == CHEM_TRACE2) then
           i_bdy_method = 5
       end if
       if (have_bcs_chem) i_bdy_method =6
@@ -2079,7 +2344,7 @@ SUBROUTINE input_chem_profile (si_grid)
                 else if (i_bdy_method .eq. 5) then
                    CALL bdy_chem_value_tracer ( chem(i,k,j), ic )
                 else if (i_bdy_method .eq. 6) then
-                   CALL bdy_chem_value_gcm ( chem(i,k,j),chem_b(i,k,1,P_XSB),chem_bt(i,k,1,P_XSB),dt,ic)
+                   CALL bdy_chem_value_gcm ( chem(i,k,j),chem_b(j,k,1,P_XSB),chem_bt(j,k,1,P_XSB),dt,ic)
                 else
                    chem(i,k,j) = chem_bv_def
                 endif
@@ -2121,7 +2386,7 @@ SUBROUTINE input_chem_profile (si_grid)
                 else if (i_bdy_method .eq. 5) then
                    CALL bdy_chem_value_tracer ( chem(i,k,j), ic )
                 else if (i_bdy_method .eq. 6) then
-                   CALL bdy_chem_value_gcm ( chem(i,k,j),chem_b(i,k,1,P_XEB),chem_bt(i,k,1,P_XEB),dt,ic)
+                   CALL bdy_chem_value_gcm ( chem(i,k,j),chem_b(j,k,1,P_XEB),chem_bt(j,k,1,P_XEB),dt,ic)
                 else
                    chem(i,k,j) = chem_bv_def
                 endif
@@ -2207,7 +2472,10 @@ SUBROUTINE input_chem_profile (si_grid)
      select case (chem_opt)
      case (0)
         get_last_gas = 0
-     case (RADM2,RADM2_KPP,RADM2SORG,RADM2SORG_KPP,RACM,RACMSORG,RACM_KPP,RACMSORG_KPP, RACM_MIM_KPP, RADM2SORG_AQ,RACMSORG_AQ)
+
+     case (RADM2, RADM2_KPP, RADM2SORG, RADM2SORG_AQ, RADM2SORG_KPP, &
+           RACM, RACM_KPP, RACMPM_KPP, RACM_MIM_KPP, RACMSORG, RACMSORG_AQ, RACMSORG_KPP, &
+	       GOCARTRACM_KPP)
         get_last_gas = p_ho2
 
      case (CBMZ)
@@ -2218,6 +2486,15 @@ SUBROUTINE input_chem_profile (si_grid)
 
      case (CHEM_TRACER)
         get_last_gas = p_co
+
+     case (CHEM_TRACE2)
+        get_last_gas = p_tracer_1
+
+     case (GOCART_SIMPLE)
+        get_last_gas = p_msa
+
+     case (CBM4_KPP)
+        get_last_gas = p_ho2
 
      case default
         call wrf_error_fatal("get_last_gas: could not decipher chem_opt value")
@@ -2242,13 +2519,15 @@ SUBROUTINE input_chem_profile (si_grid)
 !   CALLED BY:                        bdy_chem_value_sorgam     *
 !                                                               *
 !****************************************************************
-    SUBROUTINE sorgam_set_aer_bc_pnnl( chem, z, nch )
-      USE module_data_sorgam
+    SUBROUTINE sorgam_set_aer_bc_pnnl( chem, z, nch, config_flags )
+      USE module_data_sorgam, ONLY : dginia, dginin, dginic, esn36, esc36, esa36, seasfac, no3fac, nh4fac, so4fac, soilfac, anthfac, orgfac
+
       implicit none
 
       INTEGER,INTENT(IN   ) :: nch
       real,intent(in      ) :: z
       REAL,INTENT(INOUT   ) :: chem
+      TYPE (grid_config_rec_type) , INTENT (in) :: config_flags
 
       REAL :: mult,                       &
               m3acc, m3cor, m3nuc,        &
@@ -2298,34 +2577,60 @@ SUBROUTINE input_chem_profile (si_grid)
 !    2000<z<3000   mult = 1.00 + (z-2000.)*(0.25-1.0)/(3000.-2000.)
 !    3000<z<5000   mult = 0.25 + (z-3000.)*(0.125-0.25)/(5000.-3000.)
 ! or in reduced form:
-        if( z <= 2000. ) then
+!       if( z <= 2000. ) then
+!          mult = 1.0
+!       elseif( z > 2000. &
+!            .and. z <= 3000. ) then
+!          mult = 1.0 - 0.00075*(z-2000.)
+!       elseif( z > 3000. &
+!            .and. z <= 5000. ) then
+!          mult = 0.25 - 4.166666667e-5*(z-3000.)
+!       else
+!          mult = 0.125
+!       end if
+        if( z <= 500. ) then
            mult = 1.0
-        elseif( z > 2000. &
-             .and. z <= 3000. ) then
-           mult = 1.0 - 0.00075*(z-2000.)
-        elseif( z > 3000. &
+        elseif( z > 500. &
+             .and. z <= 1000. ) then
+           mult = 1.0 - 0.001074*(z-500.)
+        elseif( z > 1000. &
              .and. z <= 5000. ) then
-           mult = 0.25 - 4.166666667e-5*(z-3000.)
+           mult = 0.463 - 0.000111*(z-1000.)
         else
-           mult = 0.125
+           mult = 0.019
         end if
 
 ! These should match what is in sorgam_init_aer_ic_pnnl.
 ! Boundary values as of 2-Dec-2004:
-      bv_so4aj  = mult*2.375
-      bv_so4ai  = mult*0.179
-      bv_nh4aj  = mult*0.9604
-      bv_nh4ai  = mult*0.0196
-      bv_no3aj  = mult*0.0650
-      bv_no3ai  = mult*0.0050
-      bv_ecj    = mult*0.1630
-      bv_eci    = mult*0.0120
-      bv_p25j   = mult*0.6350
-      bv_p25i   = mult*0.0490
-      bv_orgpaj = mult*0.9300
-      bv_orgpai = mult*0.0700
-      bv_antha  = mult*2.2970
-      bv_seas   = mult*0.2290
+!     bv_so4aj  = mult*2.375
+!     bv_so4ai  = mult*0.179
+!     bv_nh4aj  = mult*0.9604
+!     bv_nh4ai  = mult*0.0196
+!     bv_no3aj  = mult*0.0650
+!     bv_no3ai  = mult*0.0050
+!     bv_ecj    = mult*0.1630
+!     bv_eci    = mult*0.0120
+!     bv_p25j   = mult*0.6350
+!     bv_p25i   = mult*0.0490
+!     bv_orgpaj = mult*0.9300
+!     bv_orgpai = mult*0.0700
+!     bv_antha  = mult*2.2970
+!     bv_seas   = mult*0.2290
+!     bv_soila  = conmin
+      bv_so4aj = mult*0.300*0.97
+      bv_so4ai = mult*0.300*0.03
+      bv_nh4aj = mult*0.094*0.97
+      bv_nh4ai = mult*0.094*0.03
+      bv_no3aj = mult*0.001*0.97
+      bv_no3ai = mult*0.001*0.03
+      bv_ecj   = mult*0.013*0.97
+      bv_eci   = mult*0.013*0.03
+      bv_p25j  = mult*4.500*0.97
+      bv_p25i  = mult*4.500*0.03
+      bv_antha = mult*4.500/2.0
+      bv_orgpaj = mult*0.088*0.97
+      bv_orgpai = mult*0.088*0.03
+      bv_seas   = mult*1.75
       bv_soila  = conmin
 
 ! m3... calculations should match the very end of module_aerosols_sorgam.F
@@ -2407,9 +2712,11 @@ SUBROUTINE input_chem_profile (si_grid)
 !                                     input_chem_profile        *
 !                                                               *
 !****************************************************************
-    SUBROUTINE gasprofile_init_pnnl
+    SUBROUTINE gasprofile_init_pnnl( chem_opt )
       use module_data_sorgam,only:  conmin
       implicit none
+      INTEGER, INTENT (in) :: chem_opt
+
       integer :: k
 
       call wrf_debug ( 500 , 'wrfchem:gasprofile_init_pnnl' )
@@ -2426,18 +2733,279 @@ SUBROUTINE input_chem_profile (si_grid)
 !      / 18500., 14050., 11150., 9355., 7705., 6120., 4675., 3430.,
 !         2430.,  1720.,  1195., 781.5,  494., 298.5, 148.5,  42.5
  
-      if( p_o3 > 1 ) then
+#if (CASENAME != 4)
+ 
 #if (CASENAME == 0)
+      if( p_o3 > 1 ) then
                                           !Rounded to closest level:
          xl(iref(p_o3-1),11:16) = 4.00e-8 !40 ppbv below 1 km
          xl(iref(p_o3-1),3:10)  = 6.50e-8 !65 ppbv > 2 km and < stratosphere
                                           !  Changed from 70 ppbv 1-Apr-2005
+      end if
 #endif
+
 #if (CASENAME == 1)
+      if( p_o3 > 1 ) then
          xl(iref(p_o3-1),11:16) = 3.50e-8 !35 ppbv below 1 km
          xl(iref(p_o3-1),3:10)  = 6.00e-8 !60 ppbv > 2 km and < stratosphere
-#endif
       end if
+#endif
+#if (CASENAME == 2)
+      if( p_o3 > 1 ) then
+         xl(iref(p_o3-1),12:16) = 2.50e-8
+         xl(iref(p_o3-1),11:11) = 3.10e-8
+         xl(iref(p_o3-1),10:10) = 3.20e-8
+         xl(iref(p_o3-1),9:9)   = 3.60e-8
+         xl(iref(p_o3-1),8:8)   = 4.20e-8
+         xl(iref(p_o3-1),7:7)   = 4.20e-8
+         xl(iref(p_o3-1),6:6)   = 4.20e-8
+         xl(iref(p_o3-1),5:5)   = 3.80e-8
+         xl(iref(p_o3-1),4:4)   = 3.80e-8
+         xl(iref(p_o3-1),3:3)   = 5.80e-8
+         xl(iref(p_o3-1),2:2)   = 1.04e-7
+         xl(iref(p_o3-1),1:1)   = 2.00e-7
+      end if
+      if( p_co > 1 ) then
+         xl(iref(p_co-1),12:16) = 1.00e-7
+         xl(iref(p_co-1),11:11) = 1.00e-7
+         xl(iref(p_co-1),10:10) = 9.80e-8
+         xl(iref(p_co-1),9:9)   = 8.80e-8
+         xl(iref(p_co-1),8:8)   = 7.80e-8
+         xl(iref(p_co-1),7:7)   = 7.70e-8
+         xl(iref(p_co-1),6:6)   = 8.00e-8
+         xl(iref(p_co-1),5:5)   = 8.20e-8
+         xl(iref(p_co-1),4:4)   = 8.20e-8
+         xl(iref(p_co-1),3:3)   = 8.20e-8
+         xl(iref(p_co-1),2:2)   = 6.50e-8
+         xl(iref(p_co-1),1:1)   = 6.10e-8
+      end if
+      if( p_so2 > 1 ) then
+         xl(iref(p_so2-1),12:16) = 6.00e-11
+         xl(iref(p_so2-1),11:11) = 1.00e-11
+         xl(iref(p_so2-1),10:10) = 4.00e-12
+         xl(iref(p_so2-1),9:9)   = 5.00e-12
+         xl(iref(p_so2-1),8:8)   = 2.00e-12
+         xl(iref(p_so2-1),7:7)   = 2.00e-12
+         xl(iref(p_so2-1),6:6)   = 5.00e-12
+         xl(iref(p_so2-1),5:5)   = 4.00e-12
+         xl(iref(p_so2-1),4:4)   = 5.00e-12
+         xl(iref(p_so2-1),3:3)   = 1.00e-11
+         xl(iref(p_so2-1),2:2)   = 2.00e-12
+         xl(iref(p_so2-1),1:1)   = 5.00e-13
+      end if
+      if( p_no2 > 1 ) then
+         xl(iref(p_no2-1),12:16) = 1.00e-11
+         xl(iref(p_no2-1),11:11) = 1.50e-11
+         xl(iref(p_no2-1),10:10) = 1.80e-11
+         xl(iref(p_no2-1),9:9)   = 1.90e-11
+         xl(iref(p_no2-1),8:8)   = 2.80e-11
+         xl(iref(p_no2-1),7:7)   = 3.20e-11
+         xl(iref(p_no2-1),6:6)   = 2.60e-11
+         xl(iref(p_no2-1),5:5)   = 1.80e-11
+         xl(iref(p_no2-1),4:4)   = 1.70e-11
+         xl(iref(p_no2-1),3:3)   = 4.30e-11
+         xl(iref(p_no2-1),2:2)   = 2.50e-10
+         xl(iref(p_no2-1),1:1)   = 2.80e-10
+      end if
+      if( p_h2o2 > 1 ) then
+         xl(iref(p_h2o2-1),12:16) = 0.18e-8
+         xl(iref(p_h2o2-1),11:11) = 0.13e-8
+         xl(iref(p_h2o2-1),10:10) = 0.30e-9
+         xl(iref(p_h2o2-1),9:9)   = 0.77e-9
+         xl(iref(p_h2o2-1),8:8)   = 0.30e-9
+         xl(iref(p_h2o2-1),7:7)   = 0.25e-9
+         xl(iref(p_h2o2-1),6:6)   = 0.21e-9
+         xl(iref(p_h2o2-1),5:5)   = 0.23e-9
+         xl(iref(p_h2o2-1),4:4)   = 0.24e-9
+         xl(iref(p_h2o2-1),3:3)   = 0.36e-9
+         xl(iref(p_h2o2-1),2:2)   = 0.15e-10
+         xl(iref(p_h2o2-1),1:1)   = 0.17e-10
+      end if
+      if( p_hno3 > 1 ) then
+         xl(iref(p_hno3-1),12:16) = 0.98e-11
+         xl(iref(p_hno3-1),11:11) = 0.58e-11
+         xl(iref(p_hno3-1),10:10) = 0.53e-11
+         xl(iref(p_hno3-1),9:9)   = 0.53e-11
+         xl(iref(p_hno3-1),8:8)   = 0.67e-11
+         xl(iref(p_hno3-1),7:7)   = 0.82e-11
+         xl(iref(p_hno3-1),6:6)   = 0.82e-11
+         xl(iref(p_hno3-1),5:5)   = 0.21e-11
+         xl(iref(p_hno3-1),4:4)   = 0.39e-11
+         xl(iref(p_hno3-1),3:3)   = 0.57e-10
+         xl(iref(p_hno3-1),2:2)   = 0.17e-9
+         xl(iref(p_hno3-1),1:1)   = 0.12e-9
+      end if
+      if( p_no3 > 1 ) then
+         xl(iref(p_no3-1),12:16) = 0.98e-11
+         xl(iref(p_no3-1),11:11) = 0.58e-11
+         xl(iref(p_no3-1),10:10) = 0.53e-11
+         xl(iref(p_no3-1),9:9)   = 0.53e-11
+         xl(iref(p_no3-1),8:8)   = 0.68e-11
+         xl(iref(p_no3-1),7:7)   = 0.25e-11
+         xl(iref(p_no3-1),6:6)   = 0.82e-11
+         xl(iref(p_no3-1),5:5)   = 0.21e-11
+         xl(iref(p_no3-1),4:4)   = 0.39e-11
+         xl(iref(p_no3-1),3:3)   = 0.57e-10
+         xl(iref(p_no3-1),2:2)   = 0.17e-9
+         xl(iref(p_no3-1),1:1)   = 0.12e-9
+      end if
+      if( p_n2o5 > 1 ) then
+         xl(iref(p_n2o5-1),12:16) = 0.12e-14
+         xl(iref(p_n2o5-1),11:11) = 0.11e-12
+         xl(iref(p_n2o5-1),10:10) = 0.20e-12
+         xl(iref(p_n2o5-1),9:9)   = 0.25e-12
+         xl(iref(p_n2o5-1),8:8)   = 0.98e-12
+         xl(iref(p_n2o5-1),7:7)   = 0.12e-11
+         xl(iref(p_n2o5-1),6:6)   = 0.13e-11
+         xl(iref(p_n2o5-1),5:5)   = 0.45e-12
+         xl(iref(p_n2o5-1),4:4)   = 0.38e-12
+         xl(iref(p_n2o5-1),3:3)   = 0.94e-12
+         xl(iref(p_n2o5-1),2:2)   = 0.16e-11
+         xl(iref(p_n2o5-1),1:1)   = 0.11e-11
+      end if
+      if( p_nh3 > 1 ) then
+         xl(iref(p_nh3-1),12:16) = 0.14e-9
+         xl(iref(p_nh3-1),11:11) = 0.60e-10
+         xl(iref(p_nh3-1),10:10) = 0.30e-10
+         xl(iref(p_nh3-1),9:9)   = 0.24e-10
+         xl(iref(p_nh3-1),8:8)   = 0.49e-11
+         xl(iref(p_nh3-1),7:7)   = 0.19e-11
+         xl(iref(p_nh3-1),6:6)   = 0.41e-11
+         xl(iref(p_nh3-1),5:5)   = 0.11e-11
+         xl(iref(p_nh3-1),4:4)   = 0.52e-11
+         xl(iref(p_nh3-1),3:3)   = 0.35e-10
+         xl(iref(p_nh3-1),2:2)   = 0.86e-11
+         xl(iref(p_nh3-1),1:1)   = 0.84e-11
+      end if
+      if( p_hcho > 1 ) then
+         xl(iref(p_hcho-1),12:16) = 4.00e-10
+         xl(iref(p_hcho-1),11:11) = 4.20e-10
+         xl(iref(p_hcho-1),10:10) = 3.60e-10
+         xl(iref(p_hcho-1),9:9)   = 3.00e-10
+         xl(iref(p_hcho-1),8:8)   = 1.80e-10
+         xl(iref(p_hcho-1),7:7)   = 1.40e-10
+         xl(iref(p_hcho-1),6:6)   = 7.60e-11
+         xl(iref(p_hcho-1),5:5)   = 6.20e-11
+         xl(iref(p_hcho-1),4:4)   = 5.20e-11
+         xl(iref(p_hcho-1),3:3)   = 8.80e-11
+         xl(iref(p_hcho-1),2:2)   = 1.30e-11
+         xl(iref(p_hcho-1),1:1)   = 1.40e-11
+      end if
+      if( p_ket > 1 ) then
+         xl(iref(p_ket-1),12:16) = 0.19e-9
+         xl(iref(p_ket-1),11:11) = 0.15e-9
+         xl(iref(p_ket-1),10:10) = 0.13e-9
+         xl(iref(p_ket-1),9:9)   = 0.98e-10
+         xl(iref(p_ket-1),8:8)   = 0.54e-10
+         xl(iref(p_ket-1),7:7)   = 0.46e-10
+         xl(iref(p_ket-1),6:6)   = 0.66e-10
+         xl(iref(p_ket-1),5:5)   = 0.64e-10
+         xl(iref(p_ket-1),4:4)   = 0.68e-10
+         xl(iref(p_ket-1),3:3)   = 0.63e-10
+         xl(iref(p_ket-1),2:2)   = 0.91e-11
+         xl(iref(p_ket-1),1:1)   = 0.55e-11
+      end if
+      if( p_par > 1 ) then
+         xl(iref(p_par-1),12:16) = 0.75e-10+0.68e-10
+         xl(iref(p_par-1),11:11) = 0.50e-10+0.21e-10
+         xl(iref(p_par-1),10:10) = 0.41e-10+0.11e-10
+         xl(iref(p_par-1),9:9)   = 0.37e-10+0.17e-10
+         xl(iref(p_par-1),8:8)   = 0.24e-10+0.53e-11
+         xl(iref(p_par-1),7:7)   = 0.22e-10+0.45e-11
+         xl(iref(p_par-1),6:6)   = 0.31e-10+0.79e-11
+         xl(iref(p_par-1),5:5)   = 0.28e-10+0.22e-11
+         xl(iref(p_par-1),4:4)   = 0.29e-10+0.26e-11
+         xl(iref(p_par-1),3:3)   = 0.29e-10+0.43e-11
+         xl(iref(p_par-1),2:2)   = 0.16e-10+0.18e-12
+         xl(iref(p_par-1),1:1)   = 0.17e-10+0.26e-12
+      end if
+      if( p_olt > 1 ) then
+         xl(iref(p_olt-1),12:16) = 0.54e-13
+         xl(iref(p_olt-1),11:11) = 0.52e-13
+         xl(iref(p_olt-1),10:10) = 0.33e-13
+         xl(iref(p_olt-1),9:9)   = 0.16e-13
+         xl(iref(p_olt-1),8:8)   = 0.20e-14
+         xl(iref(p_olt-1),7:7)   = 0.14e-14
+         xl(iref(p_olt-1),6:6)   = 0.37e-14
+         xl(iref(p_olt-1),5:5)   = 0.26e-15
+         xl(iref(p_olt-1),4:4)   = 0.40e-15
+         xl(iref(p_olt-1),3:3)   = 0.15e-14
+         xl(iref(p_olt-1),2:2)   = 0.33e-17
+         xl(iref(p_olt-1),1:1)   = 0.27e-15
+      end if
+      if( p_ol2 > 1 ) then
+         xl(iref(p_ol2-1),12:16) = 0.87e-12
+         xl(iref(p_ol2-1),11:11) = 0.10e-11
+         xl(iref(p_ol2-1),10:10) = 0.68e-12
+         xl(iref(p_ol2-1),9:9)   = 0.38e-12
+         xl(iref(p_ol2-1),8:8)   = 0.38e-12
+         xl(iref(p_ol2-1),7:7)   = 0.45e-13
+         xl(iref(p_ol2-1),6:6)   = 0.58e-13
+         xl(iref(p_ol2-1),5:5)   = 0.52e-14
+         xl(iref(p_ol2-1),4:4)   = 0.12e-13
+         xl(iref(p_ol2-1),3:3)   = 0.66e-13
+         xl(iref(p_ol2-1),2:2)   = 0.14e-14
+         xl(iref(p_ol2-1),1:1)   = 0.51e-13
+      end if
+      if( p_ald > 1 ) then
+         xl(iref(p_ald-1),12:16) = 0.30e-10
+         xl(iref(p_ald-1),11:11) = 0.28e-10
+         xl(iref(p_ald-1),10:10) = 0.22e-10
+         xl(iref(p_ald-1),9:9)   = 0.16e-10
+         xl(iref(p_ald-1),8:8)   = 0.10e-10
+         xl(iref(p_ald-1),7:7)   = 0.83e-11
+         xl(iref(p_ald-1),6:6)   = 0.89e-11
+         xl(iref(p_ald-1),5:5)   = 0.93e-11
+         xl(iref(p_ald-1),4:4)   = 0.98e-11
+         xl(iref(p_ald-1),3:3)   = 0.10e-10
+         xl(iref(p_ald-1),2:2)   = 0.93e-12
+         xl(iref(p_ald-1),1:1)   = 0.64e-12
+      end if
+      if( p_tol > 1 ) then
+         xl(iref(p_tol-1),12:16) = 0.29e-11/2.0
+         xl(iref(p_tol-1),11:11) = 0.16e-11/2.0
+         xl(iref(p_tol-1),10:10) = 0.12e-11/2.0
+         xl(iref(p_tol-1),9:9)   = 0.97e-12/2.0
+         xl(iref(p_tol-1),8:8)   = 0.16e-12/2.0
+         xl(iref(p_tol-1),7:7)   = 0.13e-12/2.0
+         xl(iref(p_tol-1),6:6)   = 0.13e-12/2.0
+         xl(iref(p_tol-1),5:5)   = 0.28e-13/2.0
+         xl(iref(p_tol-1),4:4)   = 0.42e-13/2.0
+         xl(iref(p_tol-1),3:3)   = 0.12e-12/2.0
+         xl(iref(p_tol-1),2:2)   = 0.39e-15/2.0
+         xl(iref(p_tol-1),1:1)   = 0.11e-14/2.0
+      end if
+      if( p_xyl > 1 ) then
+         xl(iref(p_xyl-1),12:16) = 0.29e-11/2.0
+         xl(iref(p_xyl-1),11:11) = 0.16e-11/2.0
+         xl(iref(p_xyl-1),10:10) = 0.12e-11/2.0
+         xl(iref(p_xyl-1),9:9)   = 0.97e-12/2.0
+         xl(iref(p_xyl-1),8:8)   = 0.16e-12/2.0
+         xl(iref(p_xyl-1),7:7)   = 0.13e-12/2.0
+         xl(iref(p_xyl-1),6:6)   = 0.13e-12/2.0
+         xl(iref(p_xyl-1),5:5)   = 0.28e-13/2.0
+         xl(iref(p_xyl-1),4:4)   = 0.42e-13/2.0
+         xl(iref(p_xyl-1),3:3)   = 0.12e-12/2.0
+         xl(iref(p_xyl-1),2:2)   = 0.39e-15/2.0
+         xl(iref(p_xyl-1),1:1)   = 0.11e-14/2.0
+      end if
+      if( p_eth > 1 ) then
+         xl(iref(p_eth-1),12:16) = 0.60e-9
+         xl(iref(p_eth-1),11:11) = 0.63e-9
+         xl(iref(p_eth-1),10:10) = 0.49e-9
+         xl(iref(p_eth-1),9:9)   = 0.51e-9
+         xl(iref(p_eth-1),8:8)   = 0.44e-9
+         xl(iref(p_eth-1),7:7)   = 0.43e-9
+         xl(iref(p_eth-1),6:6)   = 0.45e-9
+         xl(iref(p_eth-1),5:5)   = 0.47e-9
+         xl(iref(p_eth-1),4:4)   = 0.48e-9
+         xl(iref(p_eth-1),3:3)   = 0.47e-9
+         xl(iref(p_eth-1),2:2)   = 0.38e-9
+         xl(iref(p_eth-1),1:1)   = 0.36e-9
+      end if
+#endif
+
+#endif
 
 #if (CASENAME == 1)
 ! so2 profile based on mirage 2 output, used for neaqs case, 7-20-05 egc
@@ -2466,11 +3034,7 @@ SUBROUTINE input_chem_profile (si_grid)
 !-----------------------------------------------------------------------
 subroutine chem_dbg(i,j,k,dtstep,itimestep,                           &
      dz8w,t_phy,p_phy,rho_phy,chem,                                   &
-     e_so2,e_no,e_co,e_eth,e_hc3,e_hc5,e_hc8,e_xyl,e_ol2,e_olt,       &
-     e_oli,e_tol,e_csl,e_hcho,e_ald,e_ket,e_ora2,e_nh3,               &
-     e_pm10,e_pm25,e_pm25i,e_pm25j,e_eci,e_ecj,e_orgi,e_orgj,         &
-     e_no2,e_ch3oh,e_c2h5oh,e_iso,                                    &
-     e_so4j,e_so4c,e_no3j,e_no3c,e_orgc,e_ecc,                        &
+     emis_ant,                                                        &
      ids,ide, jds,jde, kds,kde,                                       &
      ims,ime, jms,jme, kms,kme,                                       &
      its,ite, jts,jte, kts,kte,                                       &
@@ -2493,13 +3057,9 @@ subroutine chem_dbg(i,j,k,dtstep,itimestep,                           &
        INTENT(INOUT ) :: chem
   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme ),    &
        INTENT(IN   ) ::  dz8w,t_phy,p_phy,rho_phy
-  REAL, DIMENSION( ims:ime, kms:kemit, jms:jme ),                       &
+  REAL, DIMENSION( ims:ime, kms:kemit, jms:jme,num_emis_ant ),          &
        INTENT(IN ) ::                                                   &
-       e_pm25i,e_pm25j,e_eci,e_ecj,e_orgi,e_orgj,                       &
-       e_so2,e_no,e_co,e_eth,e_hc3,e_hc5,e_hc8,e_xyl,e_ol2,e_olt,       &
-       e_oli,e_tol,e_csl,e_hcho,e_ald,e_ket,e_ora2,e_pm25,e_pm10,e_nh3, &
-       e_no2,e_ch3oh,e_c2h5oh,e_iso,                                    &
-       e_so4j,e_so4c,e_no3j,e_no3c,e_orgc,e_ecc
+                emis_ant
   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme ),                      &
        INTENT(IN   ), OPTIONAL ::                                       &
        ph_macr,ph_o31d,ph_o33p,ph_no2,ph_no3o2,ph_no3o,ph_hno2,         &
@@ -2521,42 +3081,42 @@ subroutine chem_dbg(i,j,k,dtstep,itimestep,                           &
      convg = 4.828e-4/rho_phy(i,k,j)*dtstep/(dz8w(i,k,j)*60.)
      print*,"ADJUSTED EMISSIONS (PPM) AT (i,k,j):",i,k,j
      print*,"dtstep,dz8w(i,k,j):",dtstep,dz8w(i,k,j)
-     print*,"e_pm25 i,j:",e_pm25i(i,k,j)*conva, &
-          e_pm25j(i,k,j)*conva
-     print*,"e_ec i,j:",e_eci(i,k,j)*conva, &
-          e_ecj(i,k,j)*conva
-     print*,"e_org i,j:",e_orgi(i,k,j)*conva, &
-          e_orgj(i,k,j)*conva
-     print*,"e_so2:",e_so2(i,k,j)*convg
-     print*,"e_no:",e_no(i,k,j)*convg
-     print*,"e_co:",e_co(i,k,j)*convg
-     print*,"e_eth:",e_eth(i,k,j)*convg
-     print*,"e_hc3:",e_hc3(i,k,j)*convg
-     print*,"e_hc5:",e_hc5(i,k,j)*convg
-     print*,"e_hc8:",e_hc8(i,k,j)*convg
-     print*,"e_xyl:",e_xyl(i,k,j)*convg
-     print*,"e_ol2:",e_ol2(i,k,j)*convg
-     print*,"e_olt:",e_olt(i,k,j)*convg
-     print*,"e_oli:",e_oli(i,k,j)*convg
-     print*,"e_tol:",e_tol(i,k,j)*convg
-     print*,"e_csl:",e_csl(i,k,j)*convg
-     print*,"e_hcho:",e_hcho(i,k,j)*convg
-     print*,"e_ald:",e_ald(i,k,j)*convg
-     print*,"e_ket:",e_ket(i,k,j)*convg
-     print*,"e_ora2:",e_ora2(i,k,j)*convg
-     print*,"e_pm25:",e_pm25(i,k,j)*conva
-     print*,"e_pm10:",e_pm10(i,k,j)*conva
-     print*,"e_nh3:",e_nh3(i,k,j)*convg
-     print*,"e_no2:",e_no2(i,k,j)*convg
-     print*,"e_ch3oh:",e_ch3oh(i,k,j)*convg
-     print*,"e_c2h5oh:",e_c2h5oh(i,k,j)*convg
-     print*,"e_iso:",e_iso(i,k,j)*convg
-     print*,"e_so4 f,c:",e_so4j(i,k,j)*conva, &
-          e_so4c(i,k,j)*conva
-     print*,"e_no3 f,c:",e_no3j(i,k,j)*conva, &
-          e_no3c(i,k,j)*conva
-     print*,"e_orgc:",e_orgc(i,k,j)*conva
-     print*,"e_ecc:",e_ecc(i,k,j)*conva
+     print*,"e_pm25 i,j:",emis_ant(i,k,j,p_e_pm25i)*conva, &
+          emis_ant(i,k,j,p_e_pm25j)*conva
+     print*,"e_ec i,j:",emis_ant(i,k,j,p_e_eci)*conva, &
+          emis_ant(i,k,j,p_e_ecj)*conva
+     print*,"e_org i,j:",emis_ant(i,k,j,p_e_orgi)*conva, &
+          emis_ant(i,k,j,p_e_orgj)*conva
+     print*,"e_so2:",emis_ant(i,k,j,p_e_so2)*convg
+     print*,"e_no:",emis_ant(i,k,j,p_e_no)*convg
+     print*,"e_co:",emis_ant(i,k,j,p_e_co)*convg
+     print*,"e_eth:",emis_ant(i,k,j,p_e_eth)*convg
+     print*,"e_hc3:",emis_ant(i,k,j,p_e_hc3)*convg
+     print*,"e_hc5:",emis_ant(i,k,j,p_e_hc5)*convg
+     print*,"e_hc8:",emis_ant(i,k,j,p_e_hc8)*convg
+     print*,"e_xyl:",emis_ant(i,k,j,p_e_xyl)*convg
+     print*,"e_ol2:",emis_ant(i,k,j,p_e_ol2)*convg
+     print*,"e_olt:",emis_ant(i,k,j,p_e_olt)*convg
+     print*,"e_oli:",emis_ant(i,k,j,p_e_oli)*convg
+     print*,"e_tol:",emis_ant(i,k,j,p_e_tol)*convg
+     print*,"e_csl:",emis_ant(i,k,j,p_e_csl)*convg
+     print*,"e_hcho:",emis_ant(i,k,j,p_e_hcho)*convg
+     print*,"e_ald:",emis_ant(i,k,j,p_e_ald)*convg
+     print*,"e_ket:",emis_ant(i,k,j,p_e_ket)*convg
+     print*,"e_ora2:",emis_ant(i,k,j,p_e_ora2)*convg
+     print*,"e_pm25:",emis_ant(i,k,j,p_e_pm_25)*conva
+     print*,"e_pm10:",emis_ant(i,k,j,p_e_pm_10)*conva
+     print*,"e_nh3:",emis_ant(i,k,j,p_e_nh3)*convg
+     print*,"e_no2:",emis_ant(i,k,j,p_e_no2)*convg
+     print*,"e_ch3oh:",emis_ant(i,k,j,p_e_ch3oh)*convg
+     print*,"e_c2h5oh:",emis_ant(i,k,j,p_e_c2h5oh)*convg
+     print*,"e_iso:",emis_ant(i,k,j,p_e_iso)*convg
+     print*,"e_so4 f,c:",emis_ant(i,k,j,p_e_so4j)*conva, &
+          emis_ant(i,k,j,p_e_so4c(i,k,j)*conva
+     print*,"e_no3 f,c:",emis_ant(i,k,j,p_e_no3j)*conva, &
+          emis_ant(i,k,j,p_e_no3c(i,k,j)*conva
+     print*,"e_orgc:",emis_ant(i,k,j,p_e_orgc)*conva
+     print*,"e_ecc:",emis_ant(i,k,j,p_e_ecc)*conva
      print*
   else
      print*,"dz8w=0 so cannot show adjusted emissions"
@@ -2597,7 +3157,6 @@ end subroutine chem_dbg
 #endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 SUBROUTINE med_read_bin_chem_emiss ( grid , config_flags ,intime, itime_max)
   ! Driver layer
 !  USE module_domain
@@ -2605,9 +3164,9 @@ SUBROUTINE med_read_bin_chem_emiss ( grid , config_flags ,intime, itime_max)
 !  USE module_timing
   ! Model layer
 !  USE module_configure
-   USE module_bc_time_utilities
+!  USE module_bc_time_utilities
 #ifdef DM_PARALLEL
-   USE module_dm
+!  USE module_dm
 #endif
 !  USE module_date_time
 !  USE module_utility
@@ -2688,69 +3247,204 @@ SUBROUTINE med_read_bin_chem_emiss ( grid , config_flags ,intime, itime_max)
      call wrf_message( TRIM( message ) )
 
          read(91)dumc0
-         grid%e_so2(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_so2)=dumc0
          read(91)dumc0
-         grid%e_no(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_no)=dumc0
          read(91)dumc0
-         grid%e_ald(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_ald)=dumc0
          read(91)dumc0
-         grid%e_hcho(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_hcho)=dumc0
          read(91)dumc0
-         grid%e_ora2(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_ora2)=dumc0
          read(91)dumc0
-         grid%e_nh3(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_nh3)=dumc0
          read(91)dumc0
-         grid%e_hc3(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_hc3)=dumc0
          read(91)dumc0
-         grid%e_hc5(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_hc5)=dumc0
          read(91)dumc0
-         grid%e_hc8(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_hc8)=dumc0
          read(91)dumc0
-         grid%e_eth(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_eth)=dumc0
          read(91)dumc0
-         grid%e_co(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_co)=dumc0
          read(91)dumc0
-         grid%e_ol2(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_ol2)=dumc0
          read(91)dumc0
-         grid%e_olt(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_olt)=dumc0
          read(91)dumc0
-         grid%e_oli(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_oli)=dumc0
          read(91)dumc0
-         grid%e_tol(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_tol)=dumc0
          read(91)dumc0
-         grid%e_xyl(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_xyl)=dumc0
          read(91)dumc0
-         grid%e_ket(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_ket)=dumc0
          read(91)dumc0
-         grid%e_csl(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_csl)=dumc0
          read(91)dumc0
-         grid%e_iso(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_iso)=dumc0
          read(91)dumc0
-         grid%e_pm25i(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_pm25i)=dumc0
          read(91)dumc0
-         grid%e_pm25j(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_pm25j)=dumc0
          read(91)dumc0
-         grid%e_so4i(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_so4i)=dumc0
          read(91)dumc0
-         grid%e_so4j(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_so4j)=dumc0
          read(91)dumc0
-         grid%e_no3i(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_no3i)=dumc0
          read(91)dumc0
-         grid%e_no3j(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_no3j)=dumc0
          read(91)dumc0
-         grid%e_orgi(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_orgi)=dumc0
          read(91)dumc0
-         grid%e_orgj(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_orgj)=dumc0
          read(91)dumc0
-         grid%e_eci(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_eci)=dumc0
          read(91)dumc0
-         grid%e_ecj(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_ecj)=dumc0
          read(91)dumc0
-         grid%e_pm10(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         grid%emis_ant(ids:ide-1,kds:grid%kemit,jds:jde-1,p_e_pm_10)=dumc0
 
     DEALLOCATE ( dumc0 )
    RETURN
 END SUBROUTINE med_read_bin_chem_emiss
+
+SUBROUTINE med_read_bin_chem_fireemiss ( grid , config_flags ,intime, itime_max)
+!   USE module_bc_time_utilities
+#ifdef DM_PARALLEL
+!   USE module_dm
+#endif
+
+
+   IMPLICIT NONE
+
+  ! Arguments
+   TYPE(domain)                               :: grid
+   TYPE (grid_config_rec_type) , INTENT(IN)   :: config_flags
+  !INTEGER , INTENT(IN)                       :: start_step , step , end_step
+!  Type (ESMF_Time )                          :: start_time, stop_time, CurrTime
+!   TYPE(WRFU_TimeInterval) :: time_interval
+
+
+  ! Local data
+   LOGICAL, EXTERNAL                      :: wrf_dm_on_monitor
+   LOGICAL                                :: emiss_opened
+   INTEGER                                :: intime, itime,itime_max, ierr , open_status , fid
+   REAL                                   :: time, btime, bfrq
+   REAL, ALLOCATABLE :: dumc0(:,:)
+   CHARACTER (LEN=256)                    :: message
+   CHARACTER (LEN=80)                     :: bdyname
+
+   CHARACTER (LEN=9 ),DIMENSION(30)       :: ename
+   INTEGER :: nv,i , j , k, &
+              ids, ide, jds, jde, kds, kde,    &
+              ims, ime, jms, jme, kms, kme,    &
+              ips, ipe, jps, jpe, kps, kpe
+
+
+#include <wrf_io_flags.h>
+
+   write(message, '(A,I9)') 'call read fire emissions', intime
+   call wrf_message( TRIM( message ) )
+
+   IF(intime == 0 ) THEN
+     CALL construct_filename1 ( bdyname , '../../run/fireemiss' , grid%id , 2 )
+
+     IF (wrf_dm_on_monitor()) THEN
+        open (91,file=bdyname,form='unformatted')
+     ENDIf
+   write(message, '(A,A)') ' OPENED FILE: ',bdyname
+   call wrf_message( TRIM( message ) )
+   ENDIF
+   CALL wrf_debug( 100 , 'med_read_bin_chem_fireemiss: calling emissions' )
+
+   CALL get_ijk_from_grid (  grid ,                        &
+                             ids, ide, jds, jde, kds, kde,    &
+                             ims, ime, jms, jme, kms, kme,    &
+                             ips, ipe, jps, jpe, kps, kpe    )
+
+   ALLOCATE (dumc0(ids:ide-1,jds:jde-1))
+
+     write(message, '(A,4I6)') ' I am reading fire emissions, dims: =',ids, ide-1, jds, jde-1
+     call wrf_message( TRIM( message ) )
+
+   IF(intime == 0 .or. intime == 12) then
+     read(92)nv
+     read(92)ename
+     write(message, '(A,I10)') ' Number of emissions: ',nv
+     call wrf_message( TRIM( message ) )
+
+   ENDIF
+       read(92)itime
+     write(message, '(A,I8,A,I8)') ' EMISSIONS INPUT FILE TIME PERIOD (GMT): ',itime-1,' TO ',itime
+     call wrf_message( TRIM( message ) )
+
+         read(92)dumc0
+!        grid%e_so2(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_no(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_ald(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_hcho(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_ora2(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_nh3(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_hc3(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_hc5(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_hc8(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_eth(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_co(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_ol2(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_olt(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_oli(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_tol(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_xyl(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_ket(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_csl(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_iso(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_pm25i(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_pm25j(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_so4i(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_so4j(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_no3i(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_no3j(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_orgi(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_orgj(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_eci(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_ecj(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+         read(92)dumc0
+!        grid%e_pm10(ids:ide-1,kds:grid%kemit,jds:jde-1)=dumc0
+
+    DEALLOCATE ( dumc0 )
+   RETURN
+END SUBROUTINE med_read_bin_chem_fireemiss
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 END MODULE module_input_chem_data

@@ -4,7 +4,7 @@
 ! Energy (DOE). NEITHER THE GOVERNMENT NOR THE CONTRACTOR MAKES ANY WARRANTY,
 ! EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.
 !
-! MOSAIC module: see module_mosaic_driver.F for information and terms of use
+! MOSAIC module: see module_mosaic_driver.F for references and terms of use
 !**********************************************************************************  
 	module module_mosaic_newnuc
 
@@ -73,7 +73,7 @@
 	integer :: iconform_numb
 	integer :: idiagbb
 	integer :: nsize, ntau_nuc
-	integer :: ncount(10)
+	integer, save :: ncount(10)
 	integer :: p1st
 
 	real, parameter :: densdefault = 2.0
@@ -104,7 +104,7 @@
 
 	character(len=100) :: msg
 
-
+    p1st = PARAM_FIRST_SCALAR
 
 !   check newnuc_method
 	istat_newnuc = 0
