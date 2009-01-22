@@ -4,7 +4,7 @@
 ! Energy (DOE). NEITHER THE GOVERNMENT NOR THE CONTRACTOR MAKES ANY WARRANTY,
 ! EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.
 !
-! MOSAIC module: see module_mosaic_driver.F for information and terms of use
+! MOSAIC module: see module_mosaic_driver.F for references and terms of use
 !**********************************************************************************  
 	module module_mosaic_coag
 
@@ -112,6 +112,7 @@
 
 
 !   set variables that do not change
+    p1st = PARAM_FIRST_SCALAR
 	idiagbb = idiagbb_in
 
 !   NOTE - code currently just does 1 type
@@ -168,7 +169,7 @@
 		    write(*,'(a,i10,4i4,1p,4e10.2)') 'coagaa-2a',   &
 		    ktau, it, jt, k, isize, xxmass, xxvolu, xxdens
 		xxmass = 0.0
-		xxvolu  = 0.0
+		xxvolu = 0.0
 		do ll = 1, ncomp_aer(itype)
 		    l = massptr_aer(ll,isize,itype,iphase)
 		    if (l .ge. p1st) then
@@ -650,7 +651,9 @@
       integer jbinik(iradmaxd_wrk,iradmaxd_wrk,iradmaxd_wrk)
       integer jbins(iradmaxd_wrk,iradmaxd_wrk)
 
-      real*8 aknud, aloss, amu, avg,   &
+!wig, 11-Dec-2006: real*8 causing core dumps on IBM's (i.e. bluesky)
+!      real*8 aknud, aloss, amu, avg,   &
+      real aknud, aloss, amu, avg,   &
              boltg, bpm,   &
              cbr, consmu, cpi,   &
              deltat, deltp1, deltr,   &
@@ -666,7 +669,9 @@
              viscosk, vk1, voltota, vthermg,   &
              wtair
 
-      real*8 cc2(iradmaxd_wrk,iaertymaxd_wrk),   &
+!wig, 11-Dec-2006: real*8 causing core dumps on IBM's (i.e. bluesky)
+!      real*8 cc2(iradmaxd_wrk,iaertymaxd_wrk),   &
+      real cc2(iradmaxd_wrk,iaertymaxd_wrk),   &
              conc(iradmaxd_wrk),   &
              denav(iradmaxd_wrk) ,   &
              difcof(iradmaxd_wrk),   &

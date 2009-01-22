@@ -103,14 +103,8 @@ thisdir_linked_lib: $(OBJS)
 	fi
 
 thisdir_archive: $(OBJS) .FORCE 
-	ar $(ARFLAGS) $(LIB_DEST)/lib$(LIB_NAME).a $(OBJS)
-
-#thisdir_archive: lib$(LIB_NAME).a .FORCE
-#
-#lib$(LIB_NAME).a: $(LIB_DEST)/lib$(LIB_NAME).a .FORCE
-#
-#$(LIB_DEST)/lib$(LIB_NAME).a: .FORCE $(OBJS)
-#	ar cruv $@ $(OBJS)
+	$(AR) $(ARFLAGS) $(LIB_DEST)/lib$(LIB_NAME).a $(OBJS)
+	$(RANLIB) $(LIB_DEST)/lib$(LIB_NAME).a
 
 #
 #  RULE for building unit test programs. 

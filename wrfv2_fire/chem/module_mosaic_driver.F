@@ -41,31 +41,47 @@
 !  4) Publications resulting from the usage of MOSAIC must use one or more of the
 !     references below (depending on the application) for proper acknowledgment.
 !
-! References: 
+! References for MOSAIC (The first one is the primary MOSAIC reference):
+! * Zaveri R.A., R.C. Easter, J.D. Fast, and L.K. Peters (2008), Model for
+!   simulating aerosol interactions and chemistry (MOSAIC), J. Geophys. Res.,
+!   113, D13204, doi:10.1029/2007JD008782.
 ! * Zaveri R.A., R.C. Easter, and A.S. Wexler (2005), A new method for multi-
 !   component activity coefficients of electrolytes in aqueous atmospheric
 !   aerosols, J. Geophys. Res., 110, D02201, doi:10.1029/2004JD004681.
 ! * Zaveri R.A., R.C. Easter, and L.K. Peters (2005), A computationally efficient
-!   multicomponent equilibrium solver for aerosols (MESA), In review, 
-!   J. Geophys. Res.
-! * Zaveri R.A., R.C. Easter, J.D. Fast, and L.K. Peters (2005), A new model
-!   for simulating aerosol interactions and chemistry (MOSAIC),  Manuscript in
-!   preparation. To be submitted to J. Geophys. Res.
-! * Fast, J.D., W.I. Gustafson Jr., R.C. Easter, R.A. Zaveri, J.C. Barnard, E.G.
-!   Chapman, G.A. Grell, and S.E. Peckham (2005), Evolution of ozone, particulates,
-!   and aerosol direct radiative forcing in the vicinity of Houston using a fully- 
-!   coupled meteorology-chemistry-aerosol model, Submitted to J. Geophys. Res.
+!   multicomponent equilibrium solver for aerosols (MESA), J. Geophys. Res.,
+!   110, D24203, doi:24203, doi:10.1029/2004JD005618.
 !
-! Contact Jerome Fast for updates on the status of manuscripts under review.  The  
-! third paper will be the main reference for MOSAIC when published. 
+! References for implementation of the aerosol optical properties and direct
+! effect in WRF-Chem:
+! * Fast, J.D., W.I. Gustafson Jr., R.C. Easter, R.A. Zaveri, J.C. Barnard, E.G.
+!   Chapman, G.A. Grell, and S.E. Peckham (2005), Evolution of ozone,
+!   particulates, and aerosol direct radiative forcing in the vicinity of
+!   Houston using a fully-coupled meteorology-chemistry-aerosol model, J.
+!   Geophys. Res., 111, D21305, doi:10.1029/2005JD006721.
+! * Barnard, J.C., J.D. Fast, G. Paredes-Miranda, W.P. Arnott, et al. (2009),
+!   Closure on the single scattering albedo in the WRF-Chem framework using
+!   data from the MILAGRO campaign, Atmos. Chem. Phys., to be submitted.
+
+! References for implementation of the aerosol-cloud interactions and indirect
+! effects in WRF-Chem:
+! * Gustafson, W. I., E. G. Chapman, S. J. Ghan, R. C. Easter, and J. D. Fast
+!   (2007), Impact on modeled cloud characteristics due to simplified treatment
+!   of uniform cloud condensation nuclei during NEAQS 2004, Geophys. Res. Lett.,
+!   34, L19809, L19809, doi:10.1029/2007GL0300321.
+! * Chapman, E.G., W.I. Gustafson, R.C. Easter, J.C. Barnard, S.J. Ghan, M.S.
+!   Pekour, and J.D. Fast (2008), Coupling aerosol-cloud-radiative processes in
+!   the WRF-Chem model: Investigating the radiative impact of elevated point
+!   sources, Atmos. Chem. Phys., submitted.
+!
+! Contact Jerome Fast for updates on the status of manuscripts under review.
 !
 ! Note that the version of MESA currently in WRF-chem does not contain some of 
 ! the code associated with the numerical speed described in the second paper - 
 ! a revised version of MESA will be included in the next release of MOSAIC.
 !
 ! Additional information:
-! * www.pnl.gov/atmos_sciences/raz 
-! * www.pnl.gov/atmos_sciences/Jdf/wrfchem.html
+! * www.pnl.gov/atmospheric/research/wrf-chem
 !
 ! Support: 
 ! Funding for developing and evaluating MOSAIC was provided by the U.S. Department
@@ -103,7 +119,7 @@
 !-----------------------------------------------------------------------
 
 	subroutine mosaic_aerchem_driver(                         &
-		id, ktau, dtstep, ktauc, dtstepc, config_flags,   &
+		id, curr_secs, ktau, dtstep, ktauc, dtstepc, config_flags, &
 		t_phy, rho_phy, p_phy,                            &
 		moist, chem,                                      &
 		ids,ide, jds,jde, kds,kde,                        &
@@ -175,6 +191,7 @@
 !	chem_driver and routines under it do calculations
 !	over these spatial indices.
 
+    real(kind=8), intent(in) :: curr_secs
 	real, intent(in) :: dtstep, dtstepc
 !   dtstep - main model time step (s)
 !   dtstepc - time step for gas and aerosol chemistry(s)
@@ -240,11 +257,11 @@
     k = kts
 	print 93020, 't, p, rho, qv at its/kts /jts', t_phy(its,k,jts),   &
 		p_phy(its,k,jts), rho_phy(its,k,jts), moist(its,k,jts,p_qv)
-	k = (kts + kte - 1)/2
+	k = (kts + kte)/2
 	print 93020, 't, p, rho, qv at its/ktmi/jts', t_phy(its,k,jts),   &
 		p_phy(its,k,jts), rho_phy(its,k,jts), moist(its,k,jts,p_qv)
-	k = kte-1
-	print 93020, 't, p, rho, qv at its/kte-/jts', t_phy(its,k,jts),   &
+	k = kte
+	print 93020, 't, p, rho, qv at its/kte /jts', t_phy(its,k,jts),   &
 		p_phy(its,k,jts), rho_phy(its,k,jts), moist(its,k,jts,p_qv)
 93010	format( a, 8(1x,i6) )
 93020	format( a, 8(1p,e14.6) )
@@ -265,14 +282,14 @@
 
 !   ktmaps,ktmape = first/last wrf kt for which aer chem is done
 	ktmaps = kts
-	ktmape = kte-1
+	ktmape = kte
 
 !   rce 2005-mar-09 - added kclm_calcbgn/end 
 !   kclm_calcbgn,kclm_calcend = first/last pegasus array k
 !   for which aer chem is done
 	k_pegshift = k_pegbegin - kts 
-	kclm_calcbgn = kts     + k_pegshift
-	kclm_calcend = (kte-1) + k_pegshift
+	kclm_calcbgn = kts + k_pegshift
+	kclm_calcend = kte + k_pegshift
 
 !   set some variables to their wrf-chem "standard" values
 	mode_force_dump = 0
@@ -281,12 +298,10 @@
 
 !   eventually iymdcur & ihmscur should be set to the correct date/time 
 !   using wrf timing routines
-	dum = dtstep*(ktau-1)
-	iymdcur = 1 + ifix( dum/86400.0 )
-        dum = mod( dum, 86400.0 )
-	ihmscur = nint( dum )
+	iymdcur = 1 + int( curr_secs/86400._8 )
+	ihmscur = nint( mod( curr_secs, 86400._8 ) )
 
-	t = dtstep*(ktau-1)
+	t = curr_secs
 	ncorecnt = ktau - 1
 
 #if defined ( aboxtest_box_testing_active )
@@ -452,19 +467,21 @@
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
          INTENT(OUT) :: pm2_5_dry,pm2_5_water,pm2_5_dry_ec,pm10
 
+   REAL :: mass
+
    INTEGER :: i,imax,j,jmax,k,kmax,n,itype,iphase
 
    imax = min(ite,ide-1)
    jmax = min(jte,jde-1)
-   kmax = kte-1
+   kmax = kte
 !
 ! Sum over bins with center diameter < 2.5e-4 cm for pm2_5_dry,
 ! pm2_5_dry_ec, and pm2_5_water. All bins go into pm10
 !
-   pm2_5_dry(its:ite,kts:kte,jts:jte)    = 0.
-   pm2_5_dry_ec(its:ite,kts:kte,jts:jte) = 0.
-   pm2_5_water(its:ite,kts:kte,jts:jte)  = 0.
-   pm10(its:ite,kts:kte,jts:jte)         = 0.
+   pm2_5_dry(its:imax,kts:kmax,jts:jmax)    = 0.
+   pm2_5_dry_ec(its:imax,kts:kmax,jts:jmax) = 0.
+   pm2_5_water(its:imax,kts:kmax,jts:jmax)  = 0.
+   pm10(its:imax,kts:kmax,jts:jmax)         = 0.
 
    do iphase=1,nphase_aer
    do itype=1,ntype_aer
@@ -473,23 +490,24 @@
          do j=jts,jmax
             do k=kts,kmax
                do i=its,imax
-                  pm2_5_dry(i,k,j) = pm2_5_dry(i,k,j)                  &
-                                     + chem(i,k,j,lptr_so4_aer(n,itype,iphase)) &
-                                     + chem(i,k,j,lptr_no3_aer(n,itype,iphase)) &
-                                     + chem(i,k,j,lptr_cl_aer(n,itype,iphase))  &
-                                     + chem(i,k,j,lptr_nh4_aer(n,itype,iphase)) &
-                                     + chem(i,k,j,lptr_na_aer(n,itype,iphase))  &
-                                     + chem(i,k,j,lptr_oin_aer(n,itype,iphase)) &
-                                     + chem(i,k,j,lptr_oc_aer(n,itype,iphase))  &
-                                     + chem(i,k,j,lptr_bc_aer(n,itype,iphase))
+                  mass = chem(i,k,j,lptr_so4_aer(n,itype,iphase)) &
+                       + chem(i,k,j,lptr_no3_aer(n,itype,iphase)) &
+                       + chem(i,k,j,lptr_cl_aer(n,itype,iphase))  &
+                       + chem(i,k,j,lptr_nh4_aer(n,itype,iphase)) &
+                       + chem(i,k,j,lptr_na_aer(n,itype,iphase))  &
+                       + chem(i,k,j,lptr_oin_aer(n,itype,iphase)) &
+                       + chem(i,k,j,lptr_oc_aer(n,itype,iphase))  &
+                       + chem(i,k,j,lptr_bc_aer(n,itype,iphase))
  
+                  pm2_5_dry(i,k,j) = pm2_5_dry(i,k,j) + mass
+
                   pm2_5_dry_ec(i,k,j) = pm2_5_dry_ec(i,k,j)            &
-                                     + chem(i,k,j,lptr_bc_aer(n,itype,iphase))
+                                      + chem(i,k,j,lptr_bc_aer(n,itype,iphase))
 
                   pm2_5_water(i,k,j) = pm2_5_water(i,k,j)              &
-                                       + chem(i,k,j,waterptr_aer(n,itype))
+                                     + chem(i,k,j,waterptr_aer(n,itype))
 
-                  pm10(i,k,j) = pm10(i,k,j) + pm2_5_dry(i,k,j)
+                  pm10(i,k,j) = pm10(i,k,j) + mass
                enddo
             enddo
          enddo
@@ -497,15 +515,15 @@
          do j=jts,jmax
             do k=kts,kmax
                do i=its,imax
-                  pm10(i,k,j) = pm10(i,k,j)                         &
-                                + chem(i,k,j,lptr_so4_aer(n,itype,iphase))   &
-                                + chem(i,k,j,lptr_no3_aer(n,itype,iphase))   &
-                                + chem(i,k,j,lptr_cl_aer(n,itype,iphase))    &
-                                + chem(i,k,j,lptr_nh4_aer(n,itype,iphase))   &
-                                + chem(i,k,j,lptr_na_aer(n,itype,iphase))    &
-                                + chem(i,k,j,lptr_oin_aer(n,itype,iphase))   &
-                                + chem(i,k,j,lptr_oc_aer(n,itype,iphase))    &
-                                + chem(i,k,j,lptr_bc_aer(n,itype,iphase))
+                  pm10(i,k,j) = pm10(i,k,j)                              &
+                              + chem(i,k,j,lptr_so4_aer(n,itype,iphase)) &
+							  + chem(i,k,j,lptr_no3_aer(n,itype,iphase)) &
+							  + chem(i,k,j,lptr_cl_aer(n,itype,iphase))  &
+							  + chem(i,k,j,lptr_nh4_aer(n,itype,iphase)) &
+							  + chem(i,k,j,lptr_na_aer(n,itype,iphase))  &
+							  + chem(i,k,j,lptr_oin_aer(n,itype,iphase)) &
+							  + chem(i,k,j,lptr_oc_aer(n,itype,iphase))  &
+							  + chem(i,k,j,lptr_bc_aer(n,itype,iphase))
                enddo
             enddo
          enddo
@@ -516,11 +534,13 @@
 
    !Convert the units from mixing ratio to concentration (ug m^-3)
    pm2_5_dry(its:imax,kts:kmax,jts:jmax) = pm2_5_dry(its:imax,kts:kmax,jts:jmax) &
-                                        / alt(its:imax,kts:kmax,jts:jmax)
-   pm2_5_dry_ec(its:imax,kts:kmax,jts:jmax) = pm2_5_dry_ec(its:imax,kts:kmax,jts:jmax) &
                                            / alt(its:imax,kts:kmax,jts:jmax)
+   pm2_5_dry_ec(its:imax,kts:kmax,jts:jmax) = pm2_5_dry_ec(its:imax,kts:kmax,jts:jmax) &
+                                              / alt(its:imax,kts:kmax,jts:jmax)
    pm2_5_water(its:imax,kts:kmax,jts:jmax) = pm2_5_water(its:imax,kts:kmax,jts:jmax) &
-                                          / alt(its:imax,kts:kmax,jts:jmax)
+                                             / alt(its:imax,kts:kmax,jts:jmax)
+   pm10(its:imax,kts:kmax,jts:jmax) = pm10(its:imax,kts:kmax,jts:jmax) &
+                                      / alt(its:imax,kts:kmax,jts:jmax)
 
    end subroutine sum_pm_mosaic
 
@@ -2252,7 +2272,7 @@
 95020	format( 8( 1x, i8 ) )
 95030	format( 4( 1pe18.10 ) )
 
-	print 95010, 'aerchem_debug_dump start'
+	print 95010, 'aerchem_debug_dump start -- first time'
 	print 95020, ltot, ltot2, itot, jtot, ktot
 	print 95010, (name(l), l=1,ltot2)
 
@@ -2292,7 +2312,7 @@
 	end do ! size
 	end do ! type
 	end do ! phase
-	print 95010, 'aerchem_debug_dump end'
+	print 95010, 'aerchem_debug_dump end -- first time'
 
 !
 !   test iflag
@@ -2317,7 +2337,7 @@
 	end do
 	end do
 
-	print 95010, 'aerchem_debug_dump start'
+	print 95010, 'aerchem_debug_dump start -- iflag=1'
 	do m = 1, nsubareas
 	do k = 1, ktot
 	    print 95020, iymdcur, ihmscur,   &
@@ -2327,7 +2347,7 @@
 	    print 95030, (rsub_sv1(l,k,m), rsub(l,k,m), l=1,ltot2)
 	end do
 	end do
-	print 95010, 'aerchem_debug_dump end'
+	print 95010, 'aerchem_debug_dump end -- iflag=1'
 
 	return
 
@@ -2343,7 +2363,7 @@
 !   iflag=3 -- do output
 !
 3000	continue
-	print 95010, 'aerchem_debug_dump start'
+	print 95010, 'aerchem_debug_dump start -- iflag=3'
 	do m = 1, nsubareas
 	do k = 1, ktot
 	    print 95020, iymdcur, ihmscur,   &
@@ -2353,7 +2373,7 @@
 	    print 95030, (rsub_sv1(l,k,m), rsub(l,k,m), l=1,ltot2)
 	end do
 	end do
-	print 95010, 'aerchem_debug_dump end'
+	print 95010, 'aerchem_debug_dump end -- iflag=3'
 
 
 	return

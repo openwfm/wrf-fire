@@ -1,11 +1,10 @@
 SUBROUTINE init_domain_constants_em ( parent , nest )
-   USE module_domain
-   USE module_configure
+   USE module_domain, ONLY : domain
    IMPLICIT NONE
    TYPE(domain)  :: parent , nest
 
    INTEGER iswater , map_proj, julyr, julday
-   REAL    cen_lat, cen_lon, truelat1 , truelat2 , gmt , moad_cen_lat , stand_lon
+   REAL    truelat1 , truelat2 , gmt , moad_cen_lat , stand_lon
    CHARACTER (LEN=4) :: char_junk
 
 ! single-value constants
@@ -51,8 +50,6 @@ SUBROUTINE init_domain_constants_em ( parent , nest )
    nest%julday  = julday
    nest%julyr   = julyr
    nest%iswater = iswater
-   nest%cen_lat = cen_lat
-   nest%cen_lon = cen_lon
    nest%truelat1= truelat1
    nest%truelat2= truelat2
    nest%moad_cen_lat= moad_cen_lat
@@ -63,15 +60,15 @@ SUBROUTINE init_domain_constants_em ( parent , nest )
 
 ! 1D constants (Z)
 
-   nest%em_fnm    = parent%em_fnm
-   nest%em_fnp    = parent%em_fnp
-   nest%em_rdnw   = parent%em_rdnw
-   nest%em_rdn    = parent%em_rdn
-   nest%em_dnw    = parent%em_dnw
-   nest%em_dn     = parent%em_dn
-   nest%em_znu    = parent%em_znu
-   nest%em_znw    = parent%em_znw
-   nest%em_t_base = parent%em_t_base
+   nest%fnm    = parent%fnm
+   nest%fnp    = parent%fnp
+   nest%rdnw   = parent%rdnw
+   nest%rdn    = parent%rdn
+   nest%dnw    = parent%dnw
+   nest%dn     = parent%dn
+   nest%znu    = parent%znu
+   nest%znw    = parent%znw
+   nest%t_base = parent%t_base
    nest%u_base    = parent%u_base
    nest%v_base    = parent%v_base
    nest%qv_base   = parent%qv_base
@@ -181,13 +178,77 @@ SUBROUTINE store_terrain ( ter_interpolated , ter_input , &
 
 END SUBROUTINE store_terrain
 
+SUBROUTINE adjust_tempqv ( mub, save_mub, znw, p_top, &
+                           th, pp, qv,  &
+                           ids , ide , jds , jde , kds , kde , &
+                           ims , ime , jms , jme , kms , kme , &
+                           ips , ipe , jps , jpe , kps , kpe )
+
+   !USE module_configure
+   !USE module_domain
+   USE module_model_constants
+
+   !USE module_bc
+   !USE module_io_domain
+   !USE module_state_description
+   !USE module_timing
+   !USE module_soil_pre
+   IMPLICIT NONE
+
+   INTEGER , INTENT(IN)                       :: ids , ide , jds , jde , kds , kde , &
+                                                 ims , ime , jms , jme , kms , kme , &
+                                                 ips , ipe , jps , jpe , kps , kpe
+   REAL , DIMENSION(ims:ime,jms:jme) , INTENT(IN)    :: mub, save_mub
+   REAL , DIMENSION(kms:kme) , INTENT(IN)    :: znw
+   REAL , DIMENSION(ims:ime,kms:kme,jms:jme) , INTENT(INOUT) :: th, pp, qv
+
+   REAL , DIMENSION(ims:ime,kms:kme,jms:jme) :: p_old, p_new, rh
+   REAL :: es,dth,tc,e,dth1
+   INTEGER :: i , j , k
+
+   real p_top
+
+
+! p_old = full pressure before terrain blending; also compute initial RH
+! which is going to be conserved during terrain blending
+   DO j = jps , MIN(jpe, jde-1)
+      DO k = kps , kpe-1
+         DO i = ips , MIN(ipe, ide-1)
+            p_old(i,k,j) = 0.5*(znw(k+1)+znw(k))*save_mub(i,j) + p_top + pp(i,k,j)
+            tc = (th(i,k,j)+300.)*(p_old(i,k,j)/1.e5)**(2./7.) - 273.15
+            es = 610.78*exp(17.0809*tc/(234.175+tc))
+            e = qv(i,k,j)*p_old(i,k,j)/(0.622+qv(i,k,j))
+            rh(i,k,j) = e/es
+         END DO
+      END DO
+   END DO
+
+! p_new = full pressure after terrain blending; also compute temperature correction and convert RH back to QV
+   DO j = jps , MIN(jpe, jde-1)
+      DO k = kps , kpe-1
+         DO i = ips , MIN(ipe, ide-1)
+            p_new(i,k,j) = 0.5*(znw(k+1)+znw(k))*mub(i,j) + p_top + pp(i,k,j)
+! 2*(g/cp-6.5e-3)*R_dry/g = -191.86e-3
+            dth1 = -191.86e-3*(th(i,k,j)+300.)/(p_new(i,k,j)+p_old(i,k,j))*(p_new(i,k,j)-p_old(i,k,j))
+            dth = -191.86e-3*(th(i,k,j)+0.5*dth1+300.)/(p_new(i,k,j)+p_old(i,k,j))*(p_new(i,k,j)-p_old(i,k,j))
+            th(i,k,j) = th(i,k,j)+dth
+            tc = (th(i,k,j)+300.)*(p_new(i,k,j)/1.e5)**(2./7.) - 273.15
+            es = 610.78*exp(17.0809*tc/(234.175+tc))
+            e = rh(i,k,j)*es
+            qv(i,k,j) = 0.622*e/(p_new(i,k,j)-e)
+         END DO
+      END DO
+   END DO
+
+
+END SUBROUTINE adjust_tempqv
 
 SUBROUTINE input_terrain_rsmas ( grid ,                        &
                            ids , ide , jds , jde , kds , kde , &
                            ims , ime , jms , jme , kms , kme , &
                            ips , ipe , jps , jpe , kps , kpe )
 
-   USE module_domain
+   USE module_domain, ONLY : domain
    IMPLICIT NONE
    TYPE ( domain ) :: grid
 
@@ -269,7 +330,7 @@ END SUBROUTINE input_terrain_rsmas
 
 SUBROUTINE update_after_feedback_em ( grid  &
 !
-#include "em_dummy_new_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
 !
@@ -278,7 +339,7 @@ SUBROUTINE update_after_feedback_em ( grid  &
 !
 
 ! Driver layer modules
-   USE module_domain
+   USE module_domain, ONLY : domain, get_ijk_from_grid
    USE module_configure
    USE module_driver_constants
    USE module_machine
@@ -296,18 +357,13 @@ SUBROUTINE update_after_feedback_em ( grid  &
    TYPE(domain) , TARGET         :: grid
 
    !  Definitions of dummy arguments
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
 
    INTEGER                         :: ids , ide , jds , jde , kds , kde , &
                                       ims , ime , jms , jme , kms , kme , &
                                       ips , ipe , jps , jpe , kps , kpe
 
   CALL wrf_debug( 500, "entering update_after_feedback_em" )
-
-#ifdef DM_PARALLEL
-#    define REGISTER_I1
-#      include <em_data_calls.inc>
-#endif
 
 !  Obtain dimension information stored in the grid data structure.
   CALL get_ijk_from_grid (  grid ,                   &

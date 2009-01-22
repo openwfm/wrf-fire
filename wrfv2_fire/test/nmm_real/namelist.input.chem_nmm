@@ -21,6 +21,7 @@
  frames_per_outfile                  = 1,
  restart                             = .false.,
  restart_interval                    = 6000,
+ reset_simulation_start              = F,
  io_form_input                       = 2
  io_form_history                     = 2
  io_form_restart                     = 2
@@ -29,9 +30,6 @@
  auxinput1_inname                    = "met_nmm.d<domain>.<date>"
  debug_level                         = 1 
  /
-
- &fdda
-/
 
  &domains
  time_step                           = 30,
@@ -87,7 +85,6 @@
  /
 
  &dynamics
- dyn_opt                             = 4
  /
 
  &bdy_control

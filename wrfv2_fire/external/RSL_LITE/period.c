@@ -1,14 +1,16 @@
-#include <stdio.h>
+#ifndef MS_SUA
+# include <stdio.h>
+#endif
 #include <fcntl.h>
 
 #define STANDARD_ERROR 2
 
 #define STANDARD_OUTPUT 1
 
-#include "mpi.h"
+#ifndef STUBMPI
+# include "mpi.h"
+#endif
 #include "rsl_lite.h"
-
-#define F_PACK
 
 static int yp_curs, ym_curs, xp_curs, xm_curs ;
 
@@ -22,6 +24,7 @@ RSL_LITE_INIT_PERIOD (
                 int * me0, int * np0 , int * np_x0 , int * np_y0 ,
                 int * ips0 , int * ipe0 , int * jps0 , int * jpe0 , int * kps0 , int * kpe0 )
 {
+#ifndef STUBMPI
   int n3dR, n2dR, typesizeR ;
   int n3dI, n2dI, typesizeI ;
   int n3dD, n2dD, typesizeD ;
@@ -86,6 +89,7 @@ RSL_LITE_INIT_PERIOD (
     }
   }
   yp_curs = 0 ; ym_curs = 0 ; xp_curs = 0 ; xm_curs = 0 ;
+#endif
 }
 
 
@@ -95,6 +99,7 @@ RSL_LITE_PACK_PERIOD ( int* Fcomm0, char * buf , int * shw0 , int * typesize0 , 
            int * ims0 , int * ime0 , int * jms0 , int * jme0 , int * kms0 , int * kme0 ,
            int * ips0 , int * ipe0 , int * jps0 , int * jpe0 , int * kps0 , int * kpe0 )
 {
+#ifndef STUBMPI
   int me, np, np_x, np_y ;
   int shw , typesize ;
   int ids , ide , jds , jde , kds , kde ;
@@ -157,39 +162,45 @@ RSL_LITE_PACK_PERIOD ( int* Fcomm0, char * buf , int * shw0 , int * typesize0 , 
         is = ipe-shw       ; ie = ipe-1         ;
         nbytes = buffer_size_for_proc( xp , the_buf ) ;
         if ( xp_curs + RANGE( JMAX(jps-shw), JMIN(jpe+shw), kps, kpe, ipe-shw, ipe-1, 1, typesize ) > nbytes ) {
+#ifndef MS_SUA
 	  fprintf(stderr,"memory overwrite in rsl_lite_pack_period_x, right hand X to %d, %d > %d\n",xp,
 	      xp_curs + RANGE( JMAX(jps-shw), JMIN(jpe+shw), kps, kpe, ipe-shw, ipe-1, 1, typesize ), nbytes ) ;
+#endif
 	  MPI_Abort(MPI_COMM_WORLD, 98) ;
         }
-        if ( typesize == sizeof(long int) ) {
+        if ( typesize == 8 ) {
           F_PACK_LINT ( buf, p+xp_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                         &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xp_curs += wcount*typesize ;
         } else
-	if ( typesize == sizeof(int) ) {
+	if ( typesize == 4 ) {
           F_PACK_INT ( buf, p+xp_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                        &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xp_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
 	}
       } else {
         js = JMAX(jps-shw) ; je = JMIN(jpe+shw) ;
         ks = kps           ; ke = kpe ;
         is = ipe           ; ie = ipe+shw-1+stag ;
-        if ( typesize == sizeof(long int) ) {
+        if ( typesize == 8 ) {
           F_UNPACK_LINT ( p+xp_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                           &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xp_curs += wcount*typesize ;
         } else
-	if ( typesize == sizeof(int) ) {
+	if ( typesize == 4 ) {
           F_UNPACK_INT ( p+xp_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                          &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xp_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       }
     }
@@ -201,39 +212,45 @@ RSL_LITE_PACK_PERIOD ( int* Fcomm0, char * buf , int * shw0 , int * typesize0 , 
         is = ips           ; ie = ips+shw-1+stag ;
         nbytes = buffer_size_for_proc( xm , the_buf ) ;
         if ( xm_curs + RANGE( JMAX(jps-shw), JMIN(jpe+shw), kps, kpe, ips, ips+shw-1+stag, 1, typesize ) > nbytes ) {
+#ifndef MS_SUA
 	  fprintf(stderr,"memory overwrite in rsl_lite_pack_period_x,  left hand X to %d , %d > %d\n",xm,
 	      xm_curs + RANGE( JMAX(jps-shw), JMIN(jpe+shw), kps, kpe, ips, ips+shw-1+stag, 1, typesize ), nbytes ) ;
+#endif
 	  MPI_Abort(MPI_COMM_WORLD, 98) ;
         }
-        if ( typesize == sizeof(long int) ) {
+        if ( typesize == 8 ) {
           F_PACK_LINT ( buf, p+xm_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                         &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xm_curs += wcount*typesize ;
         } else
-	if ( typesize == sizeof(int) ) {
+	if ( typesize == 4 ) {
           F_PACK_INT ( buf, p+xm_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                        &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xm_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       } else {
         js = JMAX(jps-shw) ; je = JMIN(jpe+shw) ;
         ks = kps           ; ke = kpe ;
         is = ips-shw       ; ie = ips-1           ;
-        if ( typesize == sizeof(long int) ) {
+        if ( typesize == 8 ) {
           F_UNPACK_LINT ( p+xm_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                           &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xm_curs += wcount*typesize ;
         } else
-	if ( typesize == sizeof(int) ) {
+	if ( typesize == 4 ) {
           F_UNPACK_INT ( p+xm_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                          &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           xm_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       }
     }
@@ -250,39 +267,45 @@ RSL_LITE_PACK_PERIOD ( int* Fcomm0, char * buf , int * shw0 , int * typesize0 , 
         js = jpe-shw       ; je = jpe-1         ;
         nbytes = buffer_size_for_proc( yp , the_buf ) ;
         if ( yp_curs + RANGE( IMAX(ips-shw), IMIN(ipe+shw), kps, kpe, jpe-shw, jpe-1, 1, typesize ) > nbytes ) {
+#ifndef MS_SUA
 	  fprintf(stderr,"memory overwrite in rsl_lite_pack_period_y, right hand Y to %d, %d > %d\n",yp,
 	      yp_curs + RANGE( IMAX(ips-shw), IMIN(ipe+shw), kps, kpe, jpe-shw, jpe-1, 1, typesize ), nbytes ) ;
+#endif
 	  MPI_Abort(MPI_COMM_WORLD, 98) ;
         }
-        if ( typesize == sizeof(long int) ) {
+        if ( typesize == 8 ) {
           F_PACK_LINT ( buf, p+yp_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                         &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           yp_curs += wcount*typesize ;
         } else
-	if ( typesize == sizeof(int) ) {
+	if ( typesize == 4 ) {
           F_PACK_INT ( buf, p+yp_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                        &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           yp_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
 	}
       } else {
         is = IMAX(ips-shw) ; ie = IMIN(ipe+shw) ;
         ks = kps           ; ke = kpe ;
         js = jpe           ; je = jpe+shw-1+stag ;
-        if ( typesize == sizeof(long int) ) {
+        if ( typesize == 8 ) {
           F_UNPACK_LINT ( p+yp_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                           &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           yp_curs += wcount*typesize ;
         } else
-	if ( typesize == sizeof(int) ) {
+	if ( typesize == 4 ) {
           F_UNPACK_INT ( p+yp_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                          &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           yp_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       }
     }
@@ -294,50 +317,60 @@ RSL_LITE_PACK_PERIOD ( int* Fcomm0, char * buf , int * shw0 , int * typesize0 , 
         js = jps           ; je = jps+shw-1+stag ;
         nbytes = buffer_size_for_proc( ym , the_buf ) ;
         if ( ym_curs + RANGE( IMAX(ips-shw), IMIN(ipe+shw), kps, kpe, jps, jps+shw-1+stag, 1, typesize ) > nbytes ) {
+#ifndef MS_SUA
 	  fprintf(stderr,"memory overwrite in rsl_lite_pack_period_y,  left hand Y to %d , %d > %d\n",xm,
 	      ym_curs + RANGE( IMAX(ips-shw), IMIN(ipe+shw), kps, kpe, jps, jps+shw-1+stag, 1, typesize ), nbytes ) ;
+#endif
 	  MPI_Abort(MPI_COMM_WORLD, 98) ;
         }
-        if ( typesize == sizeof(long int) ) {
+        if ( typesize == 8 ) {
           F_PACK_LINT ( buf, p+ym_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                         &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           ym_curs += wcount*typesize ;
         } else
-	if ( typesize == sizeof(int) ) {
+	if ( typesize == 4 ) {
           F_PACK_INT ( buf, p+ym_curs, imemord, &js, &je, &ks, &ke, &is, &ie,
                                        &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           ym_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       } else {
         is = IMAX(ips-shw) ; ie = IMIN(ipe+shw) ;
         ks = kps           ; ke = kpe ;
         js = jps-shw       ; je = jps-1           ;
-        if ( typesize == sizeof(long int) ) {
+        if ( typesize == 8 ) {
           F_UNPACK_LINT ( p+ym_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                           &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           ym_curs += wcount*typesize ;
         } else
-	if ( typesize == sizeof(int) ) {
+	if ( typesize == 4 ) {
           F_UNPACK_INT ( p+ym_curs, buf, imemord, &js, &je, &ks, &ke, &is, &ie,
                                          &jms,&jme,&kms,&kme,&ims,&ime, &wcount ) ;
           ym_curs += wcount*typesize ;
 	}
 	else {
+#ifndef MS_SUA
           fprintf(stderr,"internal error: %s %d\n",__FILE__,__LINE__) ;
+#endif
         }
       }
     }
   }
+#endif
 }
 
+#ifndef STUBMPI
 static MPI_Request yp_recv, ym_recv, yp_send, ym_send ;
 static MPI_Request xp_recv, xm_recv, xp_send, xm_send ;
+#endif
 
 RSL_LITE_EXCH_PERIOD_X ( int * Fcomm0, int *me0, int * np0 , int * np_x0 , int * np_y0 )
 {
+#ifndef STUBMPI
   int me, np, np_x, np_y ;
   int yp, ym, xp, xm, nbytes ;
   MPI_Status stat ;
@@ -373,13 +406,17 @@ RSL_LITE_EXCH_PERIOD_X ( int * Fcomm0, int *me0, int * np0 , int * np_x0 , int *
     if ( coords[1] == 0        ) MPI_Wait( &xm_send, &stat ) ;
   }
 #else 
+# ifndef MS_SUA
 fprintf(stderr,"RSL_LITE_EXCH_PERIOD_X disabled\n") ;
+# endif
 #endif
   yp_curs = 0 ; ym_curs = 0 ; xp_curs = 0 ; xm_curs = 0 ;
+#endif
 }
 
 RSL_LITE_EXCH_PERIOD_Y ( int * Fcomm0, int *me0, int * np0 , int * np_x0 , int * np_y0 )
 {
+#ifndef STUBMPI
   int me, np, np_x, np_y ;
   int yp, ym, xp, xm, nbytes ;
   MPI_Status stat ;
@@ -415,8 +452,11 @@ RSL_LITE_EXCH_PERIOD_Y ( int * Fcomm0, int *me0, int * np0 , int * np_x0 , int *
     if ( coords[0] == 0        ) MPI_Wait( &ym_send, &stat ) ;
   }
 #else
+# ifndef MS_SUA
 fprintf(stderr,"RSL_LITE_EXCH_PERIOD_Y disabled\n") ;
+# endif
 #endif
   yp_curs = 0 ; ym_curs = 0 ; xp_curs = 0 ; xm_curs = 0 ;
+#endif
 }
 

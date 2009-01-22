@@ -34,11 +34,7 @@
 %{
   #include <stdio.h>
   #include <stdlib.h>
-#ifdef MACOS
-  #include <sys/malloc.h>
-#else
   #include <malloc.h>
-#endif
   #include <string.h>
   #include <unistd.h>
   #include "scan.h"

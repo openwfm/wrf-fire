@@ -4,7 +4,7 @@
 ! Energy (DOE). NEITHER THE GOVERNMENT NOR THE CONTRACTOR MAKES ANY WARRANTY,
 ! EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.
 !
-! MOSAIC module: see module_mosaic_driver.F for information and terms of use
+! MOSAIC module: see module_mosaic_driver.F for references and terms of use
 !**********************************************************************************  
 
 	module module_mosaic_cloudchem
@@ -150,7 +150,7 @@
 	do 3920 jt = jts, jte
 	do 3910 it = its, ite
 
-	do 3800 kt = kts, kte-1
+	do 3800 kt = kts, kte
 
 	qcldwtr = moist(it,kt,jt,p_qc)
 	if (qcldwtr .le. qcldwtr_cutoff) goto 3800
@@ -270,6 +270,7 @@
 	real :: co2_mixrat_in
 	real :: ph_cmuaq_cur
 	real :: photol_no2_in
+	real :: xprescribe_ph
 
         real :: yaq_beg(meqn1max), yaq_end(meqn1max)
 	real :: rbox(l2maxd), rbox_sv1(l2maxd)
@@ -310,6 +311,9 @@
 
 	photol_no2_in = photol_no2_box
 
+!   when xprescribe_ph >= 0, ph is forced to its value
+	xprescribe_ph = -1.0e31
+
 !   turn off aqueous phase photolytic and radical chemistry
 !   if either of the iphotol_onoff and iradical_onoff flags are 0
 	if ((iphotol_onoff .le. 0) .or. (iradical_onoff .le. 0)) then
@@ -321,7 +325,8 @@
 !   following is for off-line box testing only
 	call ccboxtest_extra_args_aa( 'get',   &
 		co2_mixrat_in, iradical_in,   &
-		idecomp_hmsa_hso5, icase_in )
+		idecomp_hmsa_hso5, icase_in,   &
+		xprescribe_ph )
 #endif
 
 	gas_aqfrac_box(:) = 0.0
@@ -333,7 +338,7 @@
 	    dtstepc,   &
 	    rbox, gas_aqfrac_box,   &
 	    rbulk_cwaer, lptr_yyy_cwaer,   &
-	    co2_mixrat_in, photol_no2_in,   &
+	    co2_mixrat_in, photol_no2_in, xprescribe_ph,   &
 	    iradical_in, idecomp_hmsa_hso5,   &
 	    yaq_beg, yaq_end, ph_cmuaq_cur,   &
 	    numgas_aqfrac, id, it, jt, kt, kpeg, mpeg, ktau, icase_in )
@@ -396,7 +401,8 @@
 	    dtstepc,   &
 	    rbox, gas_aqfrac_box,   &
 	    rbulk_cwaer, lptr_yyy_cwaer,   &
-	    co2_mixrat_in, photol_no2_in, iradical_in, idecomp_hmsa_hso5,   &
+	    co2_mixrat_in, photol_no2_in, xprescribe_ph,   &
+	    iradical_in, idecomp_hmsa_hso5,   &
 	    yaq_beg, yaq_end, ph_cmuaq_cur,   &
 	    numgas_aqfrac, id, it, jt, kt, kpeg, mpeg, ktau, icase )
 
@@ -443,7 +449,7 @@
 
 	real, intent(in) ::   &
 	    dtstepc, co2_mixrat_in,   &
-	    photol_no2_in
+	    photol_no2_in, xprescribe_ph
 
 	real, intent(inout) :: ph_cmuaq_cur
 
@@ -480,7 +486,8 @@
 
 	double precision tstep_beg_sec_dp, tstep_end_sec_dp,   &
 	  temp_dp, p_atm_dp, lwc_dp, rh_dp,   &
-	  co2_mixrat_in_dp, photo_in_dp, ph_cmuaq_cur_dp
+	  co2_mixrat_in_dp, photo_in_dp, ph_cmuaq_cur_dp,   &
+	  xprescribe_ph_dp
 	double precision gas_dp(ngas), gas_aqfrac_cmu_dp(ngas),   &
 	  aerosol_dp(naers), yaq_beg_dp(meqn1max), yaq_end_dp(meqn1max)
 
@@ -613,9 +620,11 @@
 !
 !   make call to aqoperator1
 !
-#if defined ( ccboxtest_box_testing_active)
+!#if defined ( ccboxtest_box_testing_active)
+#if defined (      temp_box_testing_active)
 	lunxx = 87
 	lunxx = -1
+	if ((it==23) .and. (jt==1) .and. (kt<=20)) lunxx = 171
 	if (lunxx .gt. 0) then
 	    write(lunxx,*)
 	    write(lunxx,*)
@@ -623,8 +632,8 @@
 	    write(lunxx,9870) icase, iradical_in, idecomp_hmsa_hso5
 	    write(lunxx,*) 'it, jt, kt, kpeg, mpeg, ktau'
 	    write(lunxx,9870) it, jt, kt, kpeg, mpeg, ktau
-	    write(lunxx,*) 'temp, p_atm, lwc, photo, co2'
-	    write(lunxx,9875) temp, p_atm, lwc, photo_in, co2_mixrat_in
+	    write(lunxx,*) 'temp, p_atm, lwc, photo, co2, xprescribe_ph'
+	    write(lunxx,9875) temp, p_atm, lwc, photo_in, co2_mixrat_in, xprescribe_ph
 	    write(lunxx,*) 'ptot, cair, rcldwtr_clm, dt_sec'
 	    write(lunxx,9875) ptotclm(kpeg), cairclm(kpeg),   &
 		rcldwtr_sub(kpeg,mpeg), (tstep_end_sec-tstep_beg_sec)
@@ -662,7 +671,8 @@
           write(6,'("aerosol(",i2,") = ",1p,1e20.12)') l, aerosol(l)
        end do
        write(6,'(a,1p,4e20.12)') "temp, p_atm, lwc, rh = ", temp, p_atm, lwc, rh
-       write(6,'(a,1p,2e20.12)') "co2_mixrat_in, photo_in = ", co2_mixrat_in, photo_in
+       write(6,'(a,1p,3e20.12)') "co2_mixrat_in, photo_in, xprescribe_ph = ",   &
+           co2_mixrat_in, photo_in, xprescribe_ph
        write(6,'(a,3i)') " iradical_in, idecomp_hmsa_hso5, iaq = ", iradical_in, idecomp_hmsa_hso5, iaq
        write(6,'(a)') "---End input for aqoperator1---"
 !!$    end if
@@ -686,6 +696,8 @@
 	if (co2_mixrat_in .ne. 0.0) co2_mixrat_in_dp = co2_mixrat_in
 	photo_in_dp = 0.0d0
 	if (photo_in .ne. 0.0) photo_in_dp = photo_in
+	xprescribe_ph_dp = 0.0d0
+	if (xprescribe_ph .ne. 0.0) xprescribe_ph_dp = xprescribe_ph
 	ph_cmuaq_cur_dp = 0.0d0
 	if (ph_cmuaq_cur .ne. 0.0) ph_cmuaq_cur_dp = ph_cmuaq_cur
 
@@ -722,7 +734,8 @@
 !	    tstep_beg_sec, tstep_end_sec,   &
 !	    gas, aerosol, gas_aqfrac_cmu,   &
 !	    temp, p_atm, lwc, rh,   &
-!	    co2_mixrat_in, photo_in, iradical_in, idecomp_hmsa_hso5, iaq,   &
+!	    co2_mixrat_in, photo_in, xprescribe_ph,   &
+!	    iradical_in, idecomp_hmsa_hso5, iaq,   &
 !	    yaq_beg, yaq_end, ph_cmuaq_cur )
 
 	call aqoperator1(   &
@@ -730,7 +743,8 @@
 	    tstep_beg_sec_dp, tstep_end_sec_dp,   &
 	    gas_dp, aerosol_dp, gas_aqfrac_cmu_dp,   &
 	    temp_dp, p_atm_dp, lwc_dp, rh_dp,   &
-	    co2_mixrat_in_dp, photo_in_dp, iradical_in, idecomp_hmsa_hso5, iaq,   &
+	    co2_mixrat_in_dp, photo_in_dp, xprescribe_ph_dp,   &
+	    iradical_in, idecomp_hmsa_hso5, iaq,   &
 	    yaq_beg_dp, yaq_end_dp, ph_cmuaq_cur_dp )
 
 	totsulf_end = ( aerosol_dp(na4)/96.   &
@@ -747,6 +761,7 @@
 	rh = rh_dp
 !	co2_mixrat_in = co2_mixrat_in_dp	! this has intent(in)
 !	photo_in = photo_in_dp			! this has intent(in)
+!	xprescribe_ph = xprescribe_ph_dp	! this has intent(in)
 	ph_cmuaq_cur = ph_cmuaq_cur_dp
 
 	do i = 1, ngas
@@ -871,9 +886,11 @@
 	rbulk_cwaer(l_oc_aqyy, 2) = aerosol(nao) / factaeroc
 
 
-#if defined ( ccboxtest_box_testing_active)
+!#if defined ( ccboxtest_box_testing_active)
+#if defined (      temp_box_testing_active)
 	lunxx = 87
 	lunxx = -1
+	if ((it==23) .and. (jt==1) .and. (kt<=20)) lunxx = 171
 	if (lunxx .gt. 0) then
 	    write(lunxx,*)
 	    write(lunxx,*) 'interface_to_aqoperator1 - after call'
@@ -891,7 +908,7 @@
 	    if (icase .ge. 10) then
 		write(*,*)   &
 		 '*** stopping in interface_to_aqop1 at icase =', icase
-		stop
+!		stop
 	    end if
 	end if
 #endif
@@ -906,6 +923,9 @@
 	subroutine partition_cldwtr(   &
 	    rbox, fr_partit_cw,   &
 	    it, jt, kt, kpeg, mpeg, icase )
+
+	use module_state_description, only:   &
+        param_first_scalar
 
 	use module_data_mosaic_asect, only:   &
         	maxd_asize, maxd_atype,   &
@@ -938,9 +958,9 @@
 
 	real :: dum, duma, dumb, dumc, dummass, dumnumb, dumvolu
 	real :: tmass, tnumb, umass, unumb, wmass, wnumb
-        real, dimension( maxd_asize, maxd_atype ) :: fmass, fnumb, xmass, xnumb
+    real, dimension( maxd_asize, maxd_atype ) :: fmass, fnumb, xmass, xnumb
 
-
+    p1st = PARAM_FIRST_SCALAR
 
 	iphase = cw_phase
 	tmass = 0.0
@@ -1083,10 +1103,12 @@
 	end if
 
 
-#if defined ( ccboxtest_box_testing_active)
+!#if defined ( ccboxtest_box_testing_active)
+#if defined (      temp_box_testing_active)
 !   diagnostics when lunxx > 0
 	lunxx = 86
 	lunxx = -1
+	if ((it==23) .and. (jt==1) .and. (kt<=20)) lunxx = 171
 	if (lunxx .gt. 0) then
 	if (icase .le. 9) then
 	    write(lunxx,9800)
@@ -1117,7 +1139,7 @@
 	    write(lunxx,9820)  (duma-1.0), (dumb-1.0), (dumc-1.0)
 	    if (icase .eq. -2) then
 		write(*,*) '*** stopping in partition_cldwtr at icase =', icase
-		stop
+!		stop
 	    end if
 9800	    format( a )
 9810	    format( 5i10 )
@@ -1311,7 +1333,8 @@
 !   check for done, and (conditionally) print message
 	if (idone .gt. 0) then
 	    lunxxaa = 6
-#if defined ( ccboxtest_box_testing_active)
+!#if defined ( ccboxtest_box_testing_active)
+#if defined (      temp_box_testing_active)
 	    lunxxaa = 86
 #endif
 	    if ((lunxxaa .gt. 0) .and. (icount .gt. (1+jpos_sv)/2)) then
@@ -1332,7 +1355,8 @@
 
 !   icount > ncount, so print message
 	lunxxbb = 6
-#if defined ( ccboxtest_box_testing_active)
+!#if defined ( ccboxtest_box_testing_active)
+#if defined (      temp_box_testing_active)
 	lunxxbb = 86
 #endif
 	if (lunxxbb .gt. 0) then
@@ -1347,6 +1371,7 @@
 		del_r_remain, frsum_cur, (frsum_cur-1.0)
 	end if
 9800	format( a )
+9801	format( 3a )
 9810	format( 7i10 )
 9820	format( 7(1pe10.2) )
 9840	format( 2i3, 5(1pe14.6) )
@@ -1357,10 +1382,12 @@
 7900	continue
 
 
-#if defined ( ccboxtest_box_testing_active)
+!#if defined ( ccboxtest_box_testing_active)
+#if defined (      temp_box_testing_active)
 !   diagnostics for testing
 	lunxx = 88
 	lunxx = -1
+	if ((it==23) .and. (jt==1) .and. (kt<=20)) lunxx = 171
 	if (lunxx .gt. 0) then
 	    icount = 0
 	    do lyyy = 1, nyyy
@@ -1374,6 +1401,7 @@
 		write(lunxx,9801) 'distribute_bulk_changes - ',name(lptr_yyy_cwaer(1,1,lyyy)), ' - icase, lyyy'
 		write(lunxx,9810) icase, lyyy
 		write(lunxx,9800) ' tp sz  rbox_sv1, rbox, del_rbox, del_rbox/del_rbulk_cwaer, (...-fr_partit_cw)'
+		write(lunxx,9840) 0, 0, rbulk_cwaer(lyyy,1:2), duma
 		do itype = 1, ntype_aer
 		do isize = 1, nsize_aer(itype)
 		    l = lptr_yyy_cwaer(isize,itype,lyyy)
@@ -1389,7 +1417,7 @@
 	    if (icase .ge. 5) then
 		write(*,*)   &
 		'*** stop in distribute_bulk_changes diags, icase =', icase
-		stop
+!		stop
 	    end if
 	end if
 #endif
@@ -1496,9 +1524,11 @@
 !   (and conditionally turn on movesect diagnostics)
 	idum_msect = msectional
 
-#if defined ( ccboxtest_box_testing_active )
+!#if defined ( ccboxtest_box_testing_active )
+#if defined (      temp_box_testing_active)
 	lunxx = 88
 	lunxx = -1
+	if ((it==23) .and. (jt==1) .and. (kt<=20)) lunxx = 171
 	if (lunxx .gt. 0) then
 	    if (msectional .lt. 7000) msectional = msectional + 7000
 	end if
@@ -1509,8 +1539,12 @@
 	msectional = idum_msect
 
 
-#if defined ( ccboxtest_box_testing_active)
+!#if defined ( ccboxtest_box_testing_active)
+#if defined (      temp_box_testing_active)
 !   diagnostics for testing
+	lunxx = 88
+	lunxx = -1
+	if ((it==23) .and. (jt==1) .and. (kt<=20)) lunxx = 171
 	if (lunxx .gt. 0) then
 	    do ll = 1, 4
 		if (ll .eq. 1) then
@@ -1548,7 +1582,7 @@
 		write(*,*)   &
 		'*** stop in cloudchem_apply_move_sections diags, icase =',   &
 		icase
-		stop
+!		stop
 	    end if
 	end if
 9800	format( a )
@@ -1675,7 +1709,7 @@
 9110	format( / 'isize =', i3 /   &
 	'  k    cldwtr      mass-ai   numb-ai      mass-cw   numb-cw' )
 
-	do 2800 kt = kte-1, kts, -1
+	do 2800 kt = kte, kts, -1
 
 	dumai = 0.0
 	dumcw = 0.0
