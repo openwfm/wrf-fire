@@ -2,13 +2,13 @@ WRF is free software developed at the National Center for Atmspheric Research (N
 and other institutions. Its use is governed by the public domain notice at 
 http://www.mmm.ucar.edu/wrf/users/public.html
 
-SFIRE, the fire part of the code was developed at the University of Colorado at Denver and NCAR. 
+SFIRE, the fire part of the code, was developed at the University of Colorado Denver and NCAR. 
 It is released subject to the CU's MIT-style license below, which can be currently found at 
 https://www.cu.edu/techtransfer/downloads/Bulletin-OpenSource.pdf
 and subject to the following additional condition.
 
 - Any work, product, or publication resulting from this software must acknowledge this software
-by citing one publication describing the software.
+by citing at leaswt one publication describing the software.
 
 Currently, the publication that currently describes this software is:  
 
