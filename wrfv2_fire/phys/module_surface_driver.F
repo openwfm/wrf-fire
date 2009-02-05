@@ -490,11 +490,13 @@ CONTAINS
    REAL, DIMENSION( ims:ime , jms:jme ), OPTIONAL, INTENT(IN    )::   F
    REAL, DIMENSION( ims:ime , jms:jme ), OPTIONAL, INTENT(OUT   )::   CK, CKA, CD, CDA, USTM
 
+#if ( EM_CORE==1)
    REAL, DIMENSION( ims:ime , jms:jme ), &
         &OPTIONAL, INTENT(INOUT   ):: ch
    
    REAL, DIMENSION( ims:ime , kms:kme, jms:jme ), &
         &OPTIONAL, INTENT(IN   ):: tsq,qsq,cov
+#endif
 
 
    INTEGER, OPTIONAL, INTENT(IN )::   ISFTCFLX
