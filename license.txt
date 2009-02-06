@@ -8,7 +8,7 @@ MIT-style license below, which can be currently found at
 https://www.cu.edu/techtransfer/downloads/Bulletin-OpenSource.pdf
 and subject to the additional condition as specified below.
 
-CU’s MIT-style license
+CU's MIT-style license
 
 Copyright (c) 2009 Regents of the University of Colorado Permission
 is hereby granted, free of charge, to any person obtaining a copy
