@@ -1,12 +1,15 @@
 #!/bin/bash
 
 toplevel=${PWD}
+gittop=${toplevel}/..
+regdir=${gittop}/other/regressiontest
 scratch=/scratch
 user=${USER}
-logdir=${scratch}/${user}/regtest
-ideal_nml=${toplevel}/reg/namelist.ideal
-real_nml=${toplevel}/reg/namelist.real
-metdata=${scratch}/jbeezley/regtest_met
+hashid=$(git rev-parse HEAD)
+logdir=${scratch}/${user}/regtest_${hashid}
+ideal_nml=${regdir}/namelist.ideal
+real_nml=${regdir}/namelist.real
+metdata=${regdir}
 nameprefix="std_"
 numprocs=8
 maxprocs=${numprocs}
@@ -141,8 +144,8 @@ for ((p=1;p<=$nproc;p*=$procscl)) ; do
 	     mv "$i" "${i}.ERROR"
 	   done
 	   move_failed "${rlog}"
-  	   stop_rtime
 	 fi
+  	stop_rtime
 	for i in rsl.{out,error}.* ; do
 	  mv $i "${rname}.$i"
 	done
@@ -151,8 +154,8 @@ for ((p=1;p<=$nproc;p*=$procscl)) ; do
         ./wrf.exe &> ${rlog}
 	if [ ! -f "${lout}" ] ; then
 	  move_failed "${rlog}"
-          stop_rtime
 	fi
+        stop_rtime
       fi
       if [ -f "${lout}" ] ; then
 	mv "${lout}" "${rname}.nc"
@@ -173,6 +176,7 @@ function run_wrf_input {
     mv wrfinput_d01 wrfinput_ideal &> /dev/null
     mv wrfbdy_d01 wrfbdy_ideal &> /dev/null
   else
+    cp ${real_nml} namelist.input
     reallog="${name}_real.log"
     ln -sf ${metdata}/met_em* .
     ./real.exe &> ${reallog}
@@ -196,7 +200,7 @@ else
     run_wrf_input
   fi
   cp wrfinput_real wrfinput_d01 &> /dev/null
-  cp wrfbdy_ideal wrfbdy_d01 &> /dev/null
+  cp wrfbdy_real wrfbdy_d01 &> /dev/null
 fi
 }
 
@@ -213,11 +217,11 @@ if [ ! -d ${logdir} ] ; then
 fi
 
 info_header
-for copt in 1 4 ; do
+for copt in 1 2 3 4 ; do
 
   for nest in 0 1 ; do
 
-    for dbg in 1 ; do
+    for dbg in 1 0 ; do
 
       cd ${toplevel}
       ./clean -a &> /dev/null
@@ -242,10 +246,10 @@ EOF
 	if [ ! -f "test/${targ}/wrf.exe" ] ; then
 	  
 	  move_failed "${cname}"
-	  stop_ctime
 
 	else
 
+	  stop_ctime
           pushd "test/${targ}"
 	  clean_run_dir
 	  get_wrf_input

@@ -11,6 +11,8 @@ subroutine da_radiance_init(iv,ob)
 !  6.0 Get FGAT time slots
 !
 !  HISTORY: 10/24/2007 Created from da_crtm_init            Tom Auligne
+!  HISTORY: 12/15/2008 getting FGAT time slots is moved to 
+!                      da_setup_obs_structures.inc.         Hui-Chuan Lin
 !------------------------------------------------------------------------------
 
  implicit none 
@@ -159,21 +161,24 @@ subroutine da_radiance_init(iv,ob)
     if (rtm_option == rtm_option_rttov) then
 #ifdef RTTOV
        call da_rttov_init(iv,ob,nsensor,nchanl)
+#else
+       call da_error(__FILE__,__LINE__, &
+          (/"Must compile with $RTTOV option for radiances"/))
 #endif
     end if
 
     if (rtm_option == rtm_option_crtm) then
 #ifdef CRTM
        call da_crtm_init(iv,ob,nsensor)
+#else
+       call da_error(__FILE__,__LINE__, &
+          (/"Must compile with $CRTM option for radiances"/))
 #endif
     end if
 
 !-------------------------------------------------------
 !  4.0 read bias correction coefs files
 !-------------------------------------------------------
-
-
-
 
  loop_sensor2: do n = 1, nsensor
 
@@ -246,14 +251,6 @@ subroutine da_radiance_init(iv,ob)
     call da_free_unit(unit_factor_rad)
 
  end if
-
-!---------------------------------------------
-!  6.0 get FGAT time slots
-!---------------------------------------------
-  allocate ( time_slots(0:num_fgat_time) )
-  call da_get_time_slots(num_fgat_time,time_window_min,analysis_date, &
-                         time_window_max, time_slots)
-
 
   deallocate(nscan)
   deallocate(nchanl)

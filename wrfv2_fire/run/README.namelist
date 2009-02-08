@@ -318,6 +318,10 @@ Namelist variables for controlling the adaptive time step option:
  mp_zero_out_thresh                  = 1.e-8   ; critical value for moist array threshold, below which
                                                ; moist arrays (except for Qv) are set to zero (kg/kg)
 
+ gwd_opt                             = 0       ; for running without gravity wave drag
+                                     = 1       ; for running the WRF-ARW with its gravity wave drag
+                                     = 2       ; for running the WRF-NMM with its gravity wave drag
+
  gsfcgce_hail                        = 0       ; for running gsfcgce microphysics with graupel
                                      = 1       ; for running gsfcgce microphysics with hail
                                                  default value = 0
@@ -336,6 +340,7 @@ Namelist variables for controlling the adaptive time step option:
                                      = 1, rrtm scheme
                                      = 3, cam scheme
                                           also must set levsiz, paerlev, cam_abs_dim1/2 (see below)
+                                     = 4, rrtmg scheme
                                      = 31, Earth Held-Suarez forcing
                                      = 99, GFDL (Eta) longwave (semi-supported)
                                           also must use co2tf = 1 for ARW
@@ -346,6 +351,7 @@ Namelist variables for controlling the adaptive time step option:
                                      = 2, Goddard short wave
                                      = 3, cam scheme
                                           also must set levsiz, paerlev, cam_abs_dim1/2 (see below)
+                                     = 4, rrtmg scheme
                                      = 99, GFDL (Eta) longwave (semi-supported)
                                           also must use co2tf = 1 for ARW
 
@@ -457,7 +463,10 @@ Namelist variables for controlling the adaptive time step option:
                                                   = 4: Noah landsurface model
                                                   = 6: RUC landsurface model
                                                   = 2: Pleim-Xu landsurface model
- ucmcall(max_dom)                    = 0,       ; activate urban canopy model (in Noah LSM only) (0=no, 1=yes)
+ sf_urban_physics(max_dom)           = 0,       ; activate urban canopy model (in Noah LSM only) 
+                                                  = 0: no
+                                                  = 1: Single-layer, Noah UCM (Hiroyuki Kusaka)
+                                                  = 2: Multi-layer, BEP scheme (Alberto Martilli) 
  num_land_cat                        = 24,      ; number of land categories in input data
  num_soil_cat                        = 16,      ; number of soil categories in input data
 
@@ -489,9 +498,11 @@ Namelist variables for controlling the adaptive time step option:
  oml_hml0                            = 50       ; oml model can be initialized with a constant depth everywhere (m)
  oml_gamma                           = 0.14     ; oml deep water lapse rate (K m-1)
  isftcflx                            = 0        ; alternative Ck, Cd formulation for tropical storm application (0=default, 1=new)
+ fractional_seaice                   = 0        ; fractional_seaice (1=on, 0=off)
 
  &fdda
  grid_fdda (max_dom)                 = 1        ; grid-nudging fdda on (=0 off) for each domain
+                                                = 2: spectral nudging
  gfdda_inname                        = "wrffdda_d<domain>" ; defined name in real
  gfdda_interval_m (max_dom)          = 360      ; time interval (min) between analysis times
  gfdda_end_h (max_dom)               = 6        ; time (h) to stop nudging after start of forecast
@@ -512,6 +523,19 @@ Namelist variables for controlling the adaptive time step option:
  if_ramping                          = 0        ; 0= nudging ends as a step function, 1= ramping nudging down at end of period
  dtramp_min                          = 60.0     ; time (min) for ramping function, 60.0=ramping starts at last analysis time, 
                                                                                   -60.0=ramping ends at last analysis time
+
+The following are for spectral nudging:
+ fgdtzero (max_dom)                  = 0,
+ if_no_pbl_nudging_ph                = 0,
+ if_zfac_ph (max_dom)                = 0,
+  k_zfac_ph (max_dom)                = 10,
+ dk_zfac_uv (max_dom)                = 1,       ; depth in k between k_zfac_X to dk_zfac_X where nudging increases 
+                                                  linearly to full strength
+ dk_zfac_t  (max_dom)                = 1,
+ dk_zfac_ph (max_dom)                = 1,
+ gph (max_dom)                       = 0.0003,
+ xwavenum (max_dom)                  = 3,       ; top wave number to nudge in x direction
+ ywavenum (max_dom)                  = 3,       ; top wave number to nudge in y direction
 
 The following are for observation nudging:
  obs_nudge_opt (max_dom)             = 1        ; obs-nudging fdda on (=0 off) for each domain
@@ -546,6 +570,21 @@ The following are for observation nudging:
  obs_ipf_init                        = .true.   ; Enable obs init warning messages
  /
 
+ &scm
+ scm_force                           = 1,       ; switch for single column forcing (=0 off)
+ scm_force_dx                        = 4000.    ; DX for SCM forcing (in meters)
+ num_force_layers                    = 8        ; number of SCM forcing layers
+ scm_lu_index                        = 2        ; SCM landuse category (2 is dryland, cropland and pasture)
+ scm_isltyp                          = 4        ; SCM soil category (4 is silt loam)
+ scm_ivgtyp                          = 2        ; SCM landuse category
+ scm_vegfra                          = 0.5      ; SCM vegetation fraction
+ scm_canwat                          = 0.0      ; SCM canopy water
+ scm_lat                             = 37.600   ; SCM latitude
+ scm_lon                             = -96.700  ; SCM longitude
+ scm_th_adv                          = .true.   ; turn on theta advection in SCM
+ scm_wind_adv                        = .true.   ; turn on wind advection in SCM
+ scm_qv_adv                          = .true.   ; turn on moisture advection in SCM
+ scm_vert_adv                        = .true.   ; turn on vertical advection in SCM
 
  &dynamics
  rk_ord                              = 3,	; time-integration scheme option:
@@ -612,10 +651,13 @@ The following are for observation nudging:
  v_mom_adv_order (max_dom)           = 3,       ; vertical momentum advection order
  h_sca_adv_order (max_dom)           = 5,       ; horizontal scalar advection order
  v_sca_adv_order (max_dom)           = 3,       ; vertical scalar advection order
- pd_moist (max_dom)                  = F        ; positive definite advection of moisture
- pd_scalar (max_dom)                 = F        ; positive definite advection of scalars
- pd_chem (max_dom)                   = F        ; positive definite advection of chem variables
- pd_tke (max_dom)                    = F        ; positive definite advection of tke
+
+                                                ; advection options for scalar variables: 0=simple, 1=positive definite, 2=monotonic
+ moist_adv_opt (max_dom)             = 1        ; for moisture
+ scalar_adv_opt (max_dom)            = 1        ; for scalars
+ chem_adv_opt (max_dom)              = 1        ; for chem variables
+ tke_adv_opt (max_dom)               = 1        ; for tke
+
  time_step_sound (max_dom)           = 4 /	; number of sound steps per time-step (0=set automatically)
                                                   (if using a time_step much larger than 6*dx (in km),
                                                   proportionally increase number of sound steps - also

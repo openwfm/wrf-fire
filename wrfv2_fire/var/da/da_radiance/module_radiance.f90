@@ -39,9 +39,10 @@ module module_radiance
       crtm_options_type, crtm_allocate_options, crtm_destroy_options
 
    USE CRTM_SensorInfo
-#endif
    USE CRTM_Planck_Functions, only : CRTM_Planck_Temperature, &
-      CRTM_Planck_Radiance
+      CRTM_Planck_Radiance, CRTM_Planck_Temperature_TL, &
+      CRTM_Planck_Temperature_AD
+#endif
 
    use gsi_kinds      ,  only : r_kind,r_double,i_kind,r_single
    use gsi_constants  ,  only : deg2rad, rad2deg,       &
@@ -89,7 +90,6 @@ module module_radiance
 
    integer                     :: n_scatt_coef
    character(len=5), pointer   :: coefs_scatt_instname(:)
-   real,             pointer   :: time_slots(:)
 #ifdef RTTOV
    type( rttov_coef ), pointer :: coefs(:)         ! RTTOV8_5 coefficients
    type( rttov_scatt_coef ), pointer :: coefs_scatt(:)

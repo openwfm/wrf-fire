@@ -53,11 +53,13 @@ subroutine da_wrfvar_finalize
       close (stats_unit)
       close (jo_unit)
       close (check_max_iv_unit)
+      close (check_buddy_unit)
       call da_free_unit (cost_unit)
       call da_free_unit (grad_unit)
       call da_free_unit (stats_unit)
       call da_free_unit (jo_unit)
       call da_free_unit (check_max_iv_unit)
+      call da_free_unit (check_buddy_unit )
    end if
 
 #ifdef CRTM
@@ -72,8 +74,6 @@ subroutine da_wrfvar_finalize
          write(unit=stderr,FMT=*) "unit",i,"still used"
       end if
    end do
-
-   call da_message ((/"SUCCESS COMPLETE WRFVAR"/))
 
    if (trace_use) call da_trace_exit ("da_wrfvar_finalize")
 

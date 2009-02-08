@@ -2,38 +2,41 @@ program convert_landfire
 implicit none
 
 character(len=256)::buffer,fname,oname
-integer::ncol,nrow,ierr,i,j,iread,iwrite,k,ictile,irtile,ctile,rtile,l,sxtile,extile,sytile,eytile
-integer,parameter::maxtile=1000, maxcat=14
+integer::ncol,nrow,ierr,i,j,iread,iwrite,k,ictile,irtile,ctile,rtile,l,sxtile,extile,sytile,eytile,grow,gcol
+integer,parameter::maxtile=1000, maxcat=14,halo=3
 real(kind=4)::rbuf
 
 call getarg(1,fname)
 call getarg(2,buffer)
-read(buffer,*) nrow
+read(buffer,*) grow
 call getarg(3,buffer)
-read(buffer,*) ncol
+read(buffer,*) gcol
+
 
 iread=60
 iwrite=61
+nrow=grow-2*halo
+ncol=gcol-2*halo
 open(iread,file=fname,status='old',form='unformatted',access='direct',recl=4)
 
-call get_ntile(ctile,maxtile,ncol)
-call get_ntile(rtile,maxtile,nrow)
+call get_ntile(ctile,maxtile,ncol)  ! x
+call get_ntile(rtile,maxtile,nrow)  ! y
 print*,'splitting data into ',rtile,'x',ctile,' tiles'
 k=0
-do ictile=1,ctile
-  do irtile=1,rtile
+do irtile=1,rtile ! y
+  do ictile=1,ctile ! x
     call get_tile_idx(sxtile,extile,ictile,maxtile,ncol)
     call get_tile_idx(sytile,eytile,irtile,maxtile,nrow)
-    call get_tile_name(oname,sytile,eytile,sxtile,extile)
+    call get_tile_name(oname,sxtile,extile,sytile,eytile)
     print*,'writing out file: ', trim(oname)
     open(iwrite,file=oname,status='unknown',form='unformatted',access='direct',recl=2)
     l=0
-    do i=sytile,eytile
-      do j=sxtile,extile
-         k=(j-1)*nrow+i
+    do i=sytile,eytile+2*halo  ! y 
+      do j=sxtile,extile+2*halo ! x
+         k=(i-1)*gcol+j
          l=l+1
          read(iread,rec=k,err=999) rbuf
-         if(rbuf.gt.maxcat.or.rbuf.lt.1)rbuf=0.
+         if(rbuf.gt.maxcat.or.rbuf.lt.1)rbuf=14.
          write(iwrite,rec=l) int(rbuf,kind=2)
        enddo
      enddo
@@ -41,6 +44,7 @@ do ictile=1,ctile
    enddo
 enddo
 
+print*,'completed successfully'
 999 continue
 print*,i,j,k,l,irtile,ictile
 close(iread)
@@ -66,5 +70,5 @@ implicit none
 character(len=*),intent(out)::tname
 integer,intent(in)::sxtile,extile,sytile,eytile
 
-write(tname,'(i5.5,"-",i5.5,".",i5.5,"-",i5.5)') sytile,eytile,sxtile,extile
+write(tname,'(i5.5,"-",i5.5,".",i5.5,"-",i5.5)') sxtile,extile,sytile,eytile
 end subroutine get_tile_name

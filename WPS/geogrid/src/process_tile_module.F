@@ -921,12 +921,12 @@ module process_tile_module
                      s1=fieldname)
                   call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                              sm1, em1, sm2, em2, min_category, max_category, &
-                             processed_domain, 1, landmask, interponly=.true.)
+                             processed_domain, 1, interponly=.true.)
                   else
 
                   call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                              sm1, em1, sm2, em2, min_category, max_category, &
-                             processed_domain, 1, landmask)
+                             processed_domain, 1)
                   endif
        
                   ! Find fractions
@@ -1366,7 +1366,7 @@ module process_tile_module
                   !   was called for the current tile, and we need to assign values from this 
                   !   level of source data if we can
                   else
-                     if (present(landmask) .and. (istagger == M .or. istagger == HH)) then
+                     if (present(landmask) .and. (istagger == M .or. istagger == HH) ) then
                         if (landmask(ix,iy) /= mask_val) then
                            temp = get_point(current_pt%lat, current_pt%lon, 1, &
                                             fieldname, ilevel, interp_type, msg_val)

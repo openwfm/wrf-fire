@@ -14,7 +14,12 @@
    USE module_bc_em
    USE module_configure, ONLY : grid_config_rec_type
    USE module_tiles, ONLY : set_tiles
+#ifdef DM_PARALLEL
+   USE module_dm, ONLY : wrf_dm_min_real, ntasks_x, ntasks_y, &
+        local_communicator_periodic, local_communicator, mytask, ntasks 
+#else
    USE module_dm, ONLY : wrf_dm_min_real
+#endif
 
    USE module_physics_init
    USE module_fr_sfire_driver, ONLY : sfire_driver_em_init
@@ -55,7 +60,7 @@
 
    INTEGER     :: i_m
 
-   REAL        :: p00, t00, a, p_surf, pd_surf
+   REAL        :: p00, t00, a, tiso, p_surf, pd_surf, temp
 #ifdef WRF_CHEM
    REAL        RGASUNIV ! universal gas constant [ J/mol-K ]
    PARAMETER ( RGASUNIV = 8.314510 )
@@ -103,13 +108,13 @@
       WRITE(message, FMT='("Nested dimensions are illegal for domain ",I2,":  Both &
          &MOD(",I4,"-",I1,",",I2,") and MOD(",I4,"-",I1,",",I2,") must = 0" )') &
          grid%id,ide,ids,config_flags%parent_grid_ratio,jde,jds,config_flags%parent_grid_ratio
-      CALL wrf_error_fatal ( message ) 
+      CALL wrf_error_fatal ( message )
    END IF
 
    IF ( config_flags%polar ) THEN
 !write(0,*)__FILE__,__LINE__,' clat ',ips,ipe,jps,jpe
 !do j = jps,jpe
-!write(0,*)__FILE__,__LINE__,' clat ',ids,j,grid%clat(ips,j) 
+!write(0,*)__FILE__,__LINE__,' clat ',ids,j,grid%clat(ips,j)
 !enddo
 
 #ifdef DM_PARALLEL
@@ -144,11 +149,11 @@
       first_trip_for_this_domain = .FALSE.
    END IF
 
-   IF ( .not. ( config_flags%restart .or. grid%moved ) ) THEN 
+   IF ( .not. ( config_flags%restart .or. grid%moved ) ) THEN
        grid%itimestep=0
    ENDIF
 
-   IF ( config_flags%restart .or. grid%moved ) THEN 
+   IF ( config_flags%restart .or. grid%moved ) THEN
        first_trip_for_this_domain = .TRUE.
    ENDIF
 
@@ -166,18 +171,18 @@
    ENDIF
 
    IF ( ( grid%id .NE. 1 ) .AND. ( .NOT. config_flags%input_from_file ) ) THEN
-   
+
       !  Every time a domain starts or every time a domain moves, this routine is called.  We want
       !  the center (middle) lat/lon of the grid for the metacode.  The lat/lon values are
       !  defined at mass points.  Depending on the even/odd points in the SN and WE directions,
       !  we end up with the middle point as either 1 point or an average of either 2 or 4 points.
       !  Add to this, the need to make sure that we are on the correct patch to retrieve the
       !  value of the lat/lon, AND that the lat/lons (for an average) may not all be on the same
-      !  patch.  Once we find the correct value for lat lon, we need to keep it around on all patches, 
-      !  which is where the wrf_dm_min_real calls come in.  
+      !  patch.  Once we find the correct value for lat lon, we need to keep it around on all patches,
+      !  which is where the wrf_dm_min_real calls come in.
       !  If this is the most coarse domain, we do not go in here.  Also, if there is an input file
       !  (which has the right values for the middle lat/lon) we do not go in this IF test.
-   
+
       IF      ( ( MOD(ide,2) .EQ. 0 ) .AND. ( MOD(jde,2) .EQ. 0 ) ) THEN
          num_points_lat_lon = 1
          iloc = ide/2
@@ -208,7 +213,7 @@
          END IF
          lat1 = wrf_dm_min_real ( lat1 )
          lon1 = wrf_dm_min_real ( lon1 )
-   
+
          iloc = (ide+1)/2
          jloc =  jde   /2
          IF ( ( ips .LE. iloc ) .AND. ( ipe .GE. iloc ) .AND. &
@@ -221,7 +226,7 @@
          END IF
          lat2 = wrf_dm_min_real ( lat2 )
          lon2 = wrf_dm_min_real ( lon2 )
-   
+
          CALL nl_set_cen_lat ( grid%id , ( lat1 + lat2 ) * 0.50 )
          CALL nl_set_cen_lon ( grid%id , ( lon1 + lon2 ) * 0.50 )
       ELSE IF ( ( MOD(ide,2) .EQ. 0 ) .AND. ( MOD(jde,2) .NE. 0 ) ) THEN
@@ -238,7 +243,7 @@
          END IF
          lat1 = wrf_dm_min_real ( lat1 )
          lon1 = wrf_dm_min_real ( lon1 )
-   
+
          iloc =  ide   /2
          jloc = (jde+1)/2
          IF ( ( ips .LE. iloc ) .AND. ( ipe .GE. iloc ) .AND. &
@@ -251,7 +256,7 @@
          END IF
          lat2 = wrf_dm_min_real ( lat2 )
          lon2 = wrf_dm_min_real ( lon2 )
-   
+
          CALL nl_set_cen_lat ( grid%id , ( lat1 + lat2 ) * 0.50 )
          CALL nl_set_cen_lon ( grid%id , ( lon1 + lon2 ) * 0.50 )
       ELSE IF ( ( MOD(ide,2) .NE. 0 ) .AND. ( MOD(jde,2) .NE. 0 ) ) THEN
@@ -268,7 +273,7 @@
          END IF
          lat1 = wrf_dm_min_real ( lat1 )
          lon1 = wrf_dm_min_real ( lon1 )
-   
+
          iloc = (ide+1)/2
          jloc = (jde-1)/2
          IF ( ( ips .LE. iloc ) .AND. ( ipe .GE. iloc ) .AND. &
@@ -281,7 +286,7 @@
          END IF
          lat2 = wrf_dm_min_real ( lat2 )
          lon2 = wrf_dm_min_real ( lon2 )
-   
+
          iloc = (ide-1)/2
          jloc = (jde+1)/2
          IF ( ( ips .LE. iloc ) .AND. ( ipe .GE. iloc ) .AND. &
@@ -294,7 +299,7 @@
          END IF
          lat3 = wrf_dm_min_real ( lat3 )
          lon3 = wrf_dm_min_real ( lon3 )
-   
+
          iloc = (ide+1)/2
          jloc = (jde+1)/2
          IF ( ( ips .LE. iloc ) .AND. ( ipe .GE. iloc ) .AND. &
@@ -307,7 +312,7 @@
          END IF
          lat4 = wrf_dm_min_real ( lat4 )
          lon4 = wrf_dm_min_real ( lon4 )
-   
+
          CALL nl_set_cen_lat ( grid%id , ( lat1 + lat2 + lat3 + lat4 ) * 0.25 )
          CALL nl_set_cen_lon ( grid%id , ( lon1 + lon2 + lon3 + lon4 ) * 0.25 )
       END IF
@@ -318,11 +323,12 @@
 
       IF ( config_flags%map_proj .EQ. 0 ) THEN
          CALL wrf_error_fatal ( 'start_domain: Idealized case cannot have a separate nested input file' )
-      END IF 
+      END IF
 
       CALL nl_get_base_pres  ( 1 , p00 )
       CALL nl_get_base_temp  ( 1 , t00 )
       CALL nl_get_base_lapse ( 1 , a   )
+      CALL nl_get_iso_temp   ( 1 , tiso )
 
       !  Base state potential temperature and inverse density (alpha = 1/rho) from
       !  the half eta levels and the base-profile surface pressure.  Compute 1/rho
@@ -339,7 +345,9 @@
 
             DO k = 1, kte-1
                grid%pb(i,k,j) = grid%znu(k)*(p_surf - grid%p_top) + grid%p_top
-               grid%t_init(i,k,j) = (t00 + A*LOG(grid%pb(i,k,j)/p00))*(p00/grid%pb(i,k,j))**(r_d/cp) - t0
+               temp = MAX ( tiso, t00 + A*LOG(grid%pb(i,k,j)/p00) )
+               grid%t_init(i,k,j) = temp*(p00/grid%pb(i,k,j))**(r_d/cp) - t0
+!              grid%t_init(i,k,j) = (t00 + A*LOG(grid%pb(i,k,j)/p00))*(p00/grid%pb(i,k,j))**(r_d/cp) - t0
                grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*(grid%pb(i,k,j)/p1000mb)**cvpm
             END DO
 
@@ -378,7 +386,7 @@
        ENDDO
        ENDDO
        ENDDO
-  
+
        DO j = jts,min(jte,jde-1)
        DO i = its, min(ite,ide-1)
            IF ( grid%imask_nostag(i,j) .EQ. 1 ) THEN
@@ -493,11 +501,11 @@
       if (grid%starting_time_step == -1) then
          grid%starting_time_step = NINT(6 * MIN(grid%dx,grid%dy) / 1000)
       endif
-      
+
       if (grid%max_time_step == -1) then
          grid%max_time_step = 3*grid%starting_time_step
       endif
-      
+
       if (grid%min_time_step == -1) then
          grid%min_time_step = 0.5*grid%starting_time_step
       endif
@@ -508,7 +516,7 @@
 
 !     Check to assure that time_step_sound is to be dynamically set.
 
-      CALL nl_set_time_step_sound ( 1 , 0 ) 
+      CALL nl_set_time_step_sound ( 1 , 0 )
       grid%time_step_sound = 0
 
       grid%max_msftx=MAXVAL(grid%msftx)
@@ -530,7 +538,7 @@
 
    CALL set_tiles ( grid , grid%imask_nostag, ims, ime, jms, jme, ips, ipe, jps, jpe )
 !
-! Phy init can do reads and broadcasts when initializing physics -- landuse for example. However, if 
+! Phy init can do reads and broadcasts when initializing physics -- landuse for example. However, if
 ! we're running on a reduced mesh (that is, some tasks don't have any work) we have to at least let them
 ! pass through this code so the broadcasts don't hang on the other, active tasks.  Set the number of
 ! tiles to a minimum of 1 and assume that the backwards patch ranges (ips=0, ipe=-1) will prevent
@@ -570,7 +578,8 @@
                       grid%lu_state,                                      &
                       grid%xlat,grid%xlong,grid%albedo,grid%albbck,grid%GMT,grid%JULYR,grid%JULDAY,     &
                       grid%levsiz, num_ozmixm, num_aerosolc, grid%paerlev,  &
-                      grid%tmn,grid%xland,grid%znt,grid%z0,grid%ust,grid%mol,grid%pblh,grid%tke_myj,     &
+                      grid%tmn,grid%xland,grid%znt,grid%z0,grid%ust,grid%mol,grid%pblh,grid%tke_myj,    &
+                      grid%tke_boulac,                                                                  &
                       grid%exch_h,grid%thc,grid%snowc,grid%mavail,grid%hfx,grid%qfx,grid%rainbl, &
                       grid%tslb,grid%zs,grid%dzs,config_flags%num_soil_layers,grid%warm_rain,  &
                       grid%adv_moist_cond,                         &
@@ -580,6 +589,7 @@
                       grid%smstot, grid%sfcrunoff,grid%udrunoff,grid%grdflx,grid%acsnow,      &
                       grid%acsnom,grid%ivgtyp,grid%isltyp, grid%sfcevp,grid%smois,     &
                       grid%sh2o, grid%snowh, grid%smfr3d,                    &
+                      grid%snoalb,                 &
                       grid%DX,grid%DY,grid%f_ice_phy,grid%f_rain_phy,grid%f_rimef_phy, &
                       grid%mp_restart_state,grid%tbpvs_state,grid%tbpvs0_state,&
                       allowed_to_read, grid%moved, start_of_simulation,               &
@@ -587,10 +597,11 @@
                       ids, ide, jds, jde, kds, kde,           &
                       ims, ime, jms, jme, kms, kme,           &
                       grid%i_start(ij), grid%i_end(ij), grid%j_start(ij), grid%j_end(ij), kts, kte, &
+                      config_flags%num_urban_layers,                        & !multi-layer urban
                       ozmixm,grid%pin,                             &     ! Optional
                       grid%m_ps_1,grid%m_ps_2,grid%m_hybi,aerosolc_1,aerosolc_2,&  ! Optional
                       grid%rundgdten,grid%rvndgdten,grid%rthndgdten,         &     ! Optional
-                      grid%rqvndgdten,grid%rmundgdten,                  &     ! Optional
+                      grid%rphndgdten,grid%rqvndgdten,grid%rmundgdten,       &     ! Optional
                       grid%FGDT,grid%stepfg,                        &     ! Optional
                       grid%cugd_tten,grid%cugd_ttens,grid%cugd_qvten,        &   ! Optional
                       grid%cugd_qvtens,grid%cugd_qcten,                 &   ! Optional
@@ -601,6 +612,12 @@
                       grid%TRL_URB3D, grid%TBL_URB3D, grid%TGL_URB3D,        & !Optional urban
                       grid%SH_URB2D, grid%LH_URB2D, grid%G_URB2D, grid%RN_URB2D,  & !Optional urban
                       grid%TS_URB2D, grid%FRC_URB2D, grid%UTYPE_URB2D,      & !Optional urban
+                      grid%TRB_URB4D,grid%TW1_URB4D,grid%TW2_URB4D,grid%TGB_URB4D,    & !multi-layer urban
+                      grid%SFW1_URB3D,grid%SFW2_URB3D,grid%SFR_URB3D,grid%SFG_URB3D,     & !multi-layer urban
+                      grid%A_U_BEP,grid%A_V_BEP,grid%A_T_BEP,grid%A_Q_BEP,             & !multi-layer urban
+                      grid%A_E_BEP,grid%B_U_BEP,grid%B_V_BEP,grid%B_T_BEP,             & !multi-layer urban
+                      grid%B_Q_BEP,grid%B_E_BEP,grid%DLG_BEP,                          & !multi-layer urban
+                      grid%DL_U_BEP,grid%SF_BEP,grid%VL_BEP,                           & !multi-layer urban
                       grid%TML,grid%T0ML,grid%HML,grid%H0ML,grid%HUML,grid%HVML,     & !Optional oml
                       grid%itimestep, grid%fdob,            &
                       grid%TYR, grid%TYRA, grid%TDLY, grid%TLAG, grid%NYEAR, grid%NDAY,grid%tmn_update, &
@@ -610,7 +627,7 @@
    ENDDO
 
 
- 
+
    CALL wrf_debug ( 100 , 'start_domain_em: After call to phy_init' )
 
 #ifdef MCELIO
@@ -631,15 +648,15 @@
 
 !-----------------------------------------------------------------------
 !  Stencils for patch communications  (WCS, 29 June 2001)
-!  Note:  the size of this halo exchange reflects the 
-!         fact that we are carrying the uncoupled variables 
+!  Note:  the size of this halo exchange reflects the
+!         fact that we are carrying the uncoupled variables
 !         as state variables in the mass coordinate model, as
 !         opposed to the coupled variables as in the height
 !         coordinate model.
 !
 !                           * * * * *
 !         *        * * *    * * * * *
-!       * + *      * + *    * * + * * 
+!       * + *      * + *    * * + * *
 !         *        * * *    * * * * *
 !                           * * * * *
 !
@@ -726,7 +743,7 @@
                          its , ite , jts , jte , kts , kte ,        &
                          its , ite , jts , jte , kts , kte )
 
-! set kinematic condition for w 
+! set kinematic condition for w
 
    CALL set_physical_bc2d( grid%ht , 'r' , config_flags ,                &
                            ids , ide , jds , jde , &
@@ -734,7 +751,7 @@
                            its , ite , jts , jte , &
                            its , ite , jts , jte   )
 
-   IF ( .not. config_flags%restart ) THEN 
+   IF ( .not. config_flags%restart ) THEN
    CALL set_w_surface(  config_flags, grid%znw,                         &
                         grid%w_1, grid%ht, grid%u_1, grid%v_1, grid%cf1, &
                         grid%cf2, grid%cf3, grid%rdx, grid%rdy, grid%msftx, grid%msfty, &
@@ -930,13 +947,13 @@
 !
 !       print *,'calculating initial pm'
         select case (config_flags%chem_opt)
-        case (GOCART_SIMPLE,GOCARTRACM_KPP)
+        case (GOCART_SIMPLE,GOCARTRACM_KPP,GOCARTRADM2,GOCARTRADM2_KPP)
            call sum_pm_gocart (                                             &
                 grid%alt, chem, grid%pm2_5_dry, grid%pm2_5_dry_ec,grid%pm10,&
                 ids,ide, jds,jde, kds,kde,                                  &
                 ims,ime, jms,jme, kms,kme,                                  &
                 its,ite, jts,jte, kts,kte-1                                 )
-        case (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP,RACMSORG,RACMSORG_AQ,RACMSORG_KPP)
+        case (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP,RACMSORG_AQ,RACMSORG_KPP)
            call sum_pm_sorgam (                                             &
                 grid%alt, chem, grid%h2oaj, grid%h2oai,                                    &
                 grid%pm2_5_dry, grid%pm2_5_water, grid%pm2_5_dry_ec, grid%pm10,                 &
@@ -993,42 +1010,42 @@
                          ids , ide , jds , jde , &
                          ims , ime , jms , jme , &
                          its , ite , jts , jte , &
-                         its , ite , jts , jte   ) 
+                         its , ite , jts , jte   )
    CALL set_physical_bc2d( grid%msfuy , 'x' , config_flags ,              &
                          ids , ide , jds , jde , &
                          ims , ime , jms , jme , &
                          its , ite , jts , jte , &
-                         its , ite , jts , jte   ) 
+                         its , ite , jts , jte   )
    CALL set_physical_bc2d( grid%msfvx , 'y' , config_flags ,              &
                          ids , ide , jds , jde , &
                          ims , ime , jms , jme , &
                          its , ite , jts , jte , &
-                         its , ite , jts , jte   ) 
+                         its , ite , jts , jte   )
    CALL set_physical_bc2d( grid%msfvy , 'y' , config_flags ,              &
                          ids , ide , jds , jde , &
                          ims , ime , jms , jme , &
                          its , ite , jts , jte , &
-                         its , ite , jts , jte   ) 
+                         its , ite , jts , jte   )
    CALL set_physical_bc2d( grid%sina , 'r' , config_flags ,              &
                          ids , ide , jds , jde , &
                          ims , ime , jms , jme , &
                          its , ite , jts , jte , &
-                         its , ite , jts , jte   ) 
+                         its , ite , jts , jte   )
    CALL set_physical_bc2d( grid%cosa , 'r' , config_flags ,              &
                          ids , ide , jds , jde , &
                          ims , ime , jms , jme , &
                          its , ite , jts , jte , &
-                         its , ite , jts , jte   ) 
+                         its , ite , jts , jte   )
    CALL set_physical_bc2d( grid%e , 'r' , config_flags ,                 &
                          ids , ide , jds , jde , &
                          ims , ime , jms , jme , &
                          its , ite , jts , jte , &
-                         its , ite , jts , jte   ) 
+                         its , ite , jts , jte   )
    CALL set_physical_bc2d( grid%f , 'r' , config_flags ,                 &
                          ids , ide , jds , jde , &
                          ims , ime , jms , jme , &
                          its , ite , jts , jte , &
-                         its , ite , jts , jte   ) 
+                         its , ite , jts , jte   )
 
 #ifndef WRF_CHEM
       DEALLOCATE(CLDFRA_OLD)

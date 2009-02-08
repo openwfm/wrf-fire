@@ -243,6 +243,7 @@ subroutine da_qc_airs (i, nchan, ob, iv)
       end do ! end loop pixel           
 			  
     ! Do inter-processor communication to gather statistics.
+#ifdef CRTM_MODIF
       if (use_airs_mmr) then
          do k = 1, nchan
             bias_global(k)   = wrf_dm_sum_real(bias_local(k))
@@ -250,6 +251,7 @@ subroutine da_qc_airs (i, nchan, ob, iv)
             if (numrad_global(k) > 0) bias_global(k) = bias_global(k) / numrad_global(k)
          end do
       end if
+#endif
       
       do n= iv%instid(i)%info%n1,iv%instid(i)%info%n2
 
@@ -259,6 +261,7 @@ subroutine da_qc_airs (i, nchan, ob, iv)
             iv%instid(i)%cloud_flag(:,n) = qc_good
 	    
 	    if (rtm_option == rtm_option_rttov) then
+#ifdef RTTOV
   	       kte_surf   = iv%instid(i)%nlevels     
                kts_100hPa = MAXLOC(coefs(i)%ref_prfl_p(1:kte_surf), &
 	                    MASK = coefs(i)%ref_prfl_p(1:kte_surf) < 100.0)
@@ -268,7 +271,9 @@ subroutine da_qc_airs (i, nchan, ob, iv)
                   iv%instid(i)%rad_obs(k,n) = coefs(i)%planck1(k) / &
 		                             (EXP(coefs(i)%planck2(k)/tstore) - 1.0)
 	       end do   
+#endif
             elseif (rtm_option == rtm_option_crtm) then
+#ifdef CRTM_MODIF
   	       kte_surf   = kte
    	       kts_100hPa = MAXLOC(iv%instid(i)%pm(kts:kte,n), &
 	                    MASK = iv%instid(i)%pm(kts:kte,n) < 100.0)
@@ -276,12 +281,12 @@ subroutine da_qc_airs (i, nchan, ob, iv)
 	          CALL CRTM_Planck_Radiance(i,k,ob%instid(i)%tb(k,n) - bias_global(k), &
 		                                iv%instid(i)%rad_obs(k,n))
                end do	 	       	 
+#endif
             end if
 	    
 	    ndim = kte_surf - kts_100hPa(1) + 1
 	 
-            call da_cloud_detect_airs(i,nchan,ndim,kts_100hPa(1),kte_surf,n,iv)
-	       
+            call da_cloud_detect_airs(i,nchan,ndim,kts_100hPa(1),kte_surf,n,iv)	       
          end if	          
 	 
 	 do k = 1, nchan

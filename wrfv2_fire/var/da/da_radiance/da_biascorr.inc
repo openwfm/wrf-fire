@@ -13,9 +13,12 @@ subroutine da_biascorr ( i, ob, iv)
    type (iv_type), intent(inout) :: iv      ! O-B structure.
 
    ! Local variables
-   integer   :: k,iband,iscan, n,j,npred,nlevels
+   integer   :: k,iband,iscan, n,j,npred,nlevels, num_rad
    real      :: q(43),pred(4),airbias
    real,allocatable      :: temp(:), hum(:), pf(:)
+
+   num_rad = iv%instid(i)%info%n2-iv%instid(i)%info%n1+1
+   if (num_rad < 1) return
 
    if (trace_use) call da_trace_entry("da_biascorr")
 
@@ -29,9 +32,11 @@ subroutine da_biascorr ( i, ob, iv)
       ! get airmass predictors
       !-------------------------
         if (rtm_option==rtm_option_rttov) then
+#ifdef RTTOV
          q(1:43) = iv%instid(i)%mr(1:43,n)/q2ppmv
          call da_predictor_rttov(pred(1:npred), npred, iv%instid(i)%t(1:43,n), &
             q(1:43), iv%instid(i)%ts(n))
+#endif
         else if (rtm_option==rtm_option_crtm) then
 #ifdef CRTM
 ! FIX? problems with IBM AIX COMPILER
@@ -46,7 +51,7 @@ subroutine da_biascorr ( i, ob, iv)
         iband = floor(iv%instid(i)%info%lat(1,n)/10.0001) + 10
       do k=1,iv%instid(i)%nchan
        ! only do bias correction for used channels
-       if (satinfo(i)%iuse(k) == 1) then
+       if ( (satinfo(i)%iuse(k) == 1) .and. (iv%instid(i)%tb_inv(k,n) > missing_r) ) then
 
        ! scan bias correction
        !-----------------------
