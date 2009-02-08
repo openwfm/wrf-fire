@@ -17,7 +17,7 @@
  end_second                          = 00,
  interval_seconds                    = 21600
  input_from_file                     = .true.,
- history_interval                    = 1,
+ history_interval_s                  = 1,
  frames_per_outfile                  = 1000,
  restart                             = .false.,
  restart_interval                    = 1,
@@ -71,6 +71,8 @@
  icloud                              = 0,
  surface_input_source                = 1,
  num_soil_layers                     = 5,
+ sf_urban_physics                    = 0,
+ mp_zero_out                         = 0,
  maxiens                             = 1,
  maxens                              = 3,
  maxens2                             = 3,
@@ -102,6 +104,8 @@
  h_sca_adv_order                     = 5,
  v_sca_adv_order                     = 3,
  non_hydrostatic                     = .true.,
+ moist_adv_opt                       = 1,      1,      1,    
+ scalar_adv_opt                      = 1,      1,      1,    
  /
 
 &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
