@@ -1,8 +1,8 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 0,
- run_seconds                         = 5,
+ run_minutes                         = 5,
+ run_seconds                         = 0,
  start_year                          = 2005,
  start_month                         = 08,
  start_day                           = 28,
@@ -17,10 +17,10 @@
  end_second                          = 00,
  interval_seconds                    = 21600
  input_from_file                     = .true.,
- history_interval_s                  = 5,
+ history_interval_s                  = 1,
  frames_per_outfile                  = 1000,
  restart                             = .false.,
- restart_interval                    = 100,
+ restart_interval                    = 1,
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
@@ -104,10 +104,8 @@
  h_sca_adv_order                     = 5,
  v_sca_adv_order                     = 3,
  non_hydrostatic                     = .true.,
- pd_moist                            = .true.
- pd_chem                             = .true.
- pd_scalar                           = .true.
- pd_tke                              = .true.
+ moist_adv_opt                       = 1,      1,      1,    
+ scalar_adv_opt                      = 1,      1,      1,    
  /
 
 &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
