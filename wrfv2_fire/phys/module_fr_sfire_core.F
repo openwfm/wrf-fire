@@ -29,7 +29,7 @@ subroutine init_no_fire(&
     ifms,ifme,jfms,jfme, &
     ifts,ifte,jfts,jfte, &
     fdx,fdy,time_now,    & ! scalars in
-    fuel_frac,lfn,tign)    ! arrays out            
+    fuel_frac,fire_area,lfn,tign)    ! arrays out            
 implicit none
              
 !*** purpose: initialize model to no fire
@@ -40,7 +40,7 @@ integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 real, intent(in) :: fdx,fdy,time_now        ! mesh spacing, time
 real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
-                   fuel_frac,lfn,tign       ! model state
+                   fuel_frac,fire_area,lfn,tign       ! model state
 
 !*** calls
 intrinsic epsilon
@@ -49,18 +49,13 @@ intrinsic epsilon
 integer:: i,j
 real lfn_init,time_init
 
-
-do j=jfts,jfte
-    do i=ifts,ifte
-        fuel_frac(i,j)=1.  ! fuel at start is 1 by definition
-    enddo
-enddo
-
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
  
 do j=jfts,jfte
     do i=ifts,ifte
+        fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
+        fire_area(i,j)=0.          ! nothing burning
         tign(i,j) = time_init      ! ignition in future
         lfn(i,j) = lfn_init        ! no fire 
     enddo
@@ -84,6 +79,16 @@ subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain 
 implicit none
 
 !*** purpose: ignite a circular/line fire 
+
+!*** description
+! ignite fire in the region within radius r from the line (sx,sy) to (ex,ey).
+! the coordinates of nodes are given as the arrays coord_xf and coord_yf
+! r is given in m
+! one unit of coord_xf is unit_xf m 
+! one unit of coord_yf is unit_yf m 
+! so a node (i,j) will be ignited iff for some (x,y) on the line
+! || ( (coord_xf(i,j) - x)*unit_xf , (coord_yf(i,j) - y)*unit_yf ) || <= r 
+
 
 !*** arguments
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
@@ -137,8 +142,8 @@ do j=jfts,jfte
         !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
         des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
         dames = dam2*des2
+        am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
         if(dames>0)then
-            am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
             cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
         else ! point a already is the midpoint
             cos2 = 0.
@@ -153,11 +158,23 @@ do j=jfts,jfte
         endif
         dmax=max(d,dmax)
         lfn_new=d-r
-        if(lfn(i,j)>0 .and. lfn_new<=0) then
-            tign(i,j)=time_ign  ! newly ignited now
+        if(lfn_new<=0) then
             ignited=ignited+1   ! count
         endif
+        if(lfn(i,j)>0 .and. lfn_new<=0) then
+            tign(i,j)=time_ign  ! newly ignited now
+        endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
+
+        ! debug
+        ! write(msg,'(2i4,10f12.6)')i,j,d,sx,ex,sy,ey
+        ! call message(msg)
+        ! write(msg,'(10f12.6)')ax,ay,dmc2,des2,cos2
+        ! call message(msg)
+        ! write(msg,'(10f16.6)')unit_xf,unit_yf,cx2,cy2,dam2
+        ! call message(msg)
+        ! write(msg,'(10f16.6)')des2,dames,am_es,mx,my
+        ! call message(msg)
     enddo
 enddo
 write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
@@ -180,6 +197,7 @@ subroutine fuel_left(&
 implicit none
 
 !*** purpose: determine fraction of fuel remaining
+!*** NOTE: because variables are cell centered, need halo/sync width 1 before
 
 !*** Jan Mandel August 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 
@@ -210,7 +228,8 @@ real::xfcell,yfcell,fmax,frat
 real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
 real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
 character(len=128)::msg
-	     
+integer::m,omp_get_thread_num
+     
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
@@ -258,20 +277,21 @@ do j=1,JFCELLS
     do i=1,IFCELLS
         iccell=its+(i-1)/ir ! the nearest coarse node
         jccell=jts+(j-1)/jr ! use fuel_time of the coarse cell the fine cell is in
-	if(fuel_left_method.eq.1)then
-             call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
+        if(fuel_left_method.eq.1)then
+            call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell))
-	elseif(fuel_left_method.eq.2)then
+        elseif(fuel_left_method.eq.2)then
              fire_area_f(i,j)=0  ! initialize to something until computed in fuel_left_f(i,j)
              fuel_left_f(i,j)=fuel_left_cell_2( &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell)) 
-	else
-	     call crash('fuel_left: unknown fuel_left_method')
-	endif
+        else
+             call crash('fuel_left: unknown fuel_left_method')
+        endif
+
         ! consistency check
         if(fire_area_f(i,j).eq.0.)then
            if(fuel_left_f(i,j).lt.1.)then
@@ -557,6 +577,7 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 
 #ifndef FUEL_LEFT
 call crash('fuel_left_cell_2: not implemented, please use fire_fuel_left_method=1')
+fuel_left_cell_2=0.  ! to avoid compiler warning about value not set
 end function fuel_left_cell_2
 #else
 
@@ -1086,7 +1107,7 @@ implicit none
 ! tend_ls
 !
 
-integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe                ! patch - nodes owned by this process 
+integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe 
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out
 real,intent(in)::dx,dy,ts,dt
@@ -1109,7 +1130,7 @@ real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
-integer::i,j,its1,ite1,jts1,jte1,k,kk
+integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
@@ -1147,7 +1168,9 @@ call message(msg)
     ! To avoid copying, lfn_in is declared inout.
     ! At tile boundaries that are not domain boundaries values of lfn_in two nodes
     ! outside of the tile are needed.
-    call  tend_ls( id+1000, &
+    id1 = id  ! for debug prints
+    if(id1.ne.0)id1=id1+1000
+    call  tend_ls( id1, &
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                       ! domain dims - where lfn exists
@@ -1177,7 +1200,8 @@ call message(msg)
     
     ! tend = F(lfn1) on the tile (not beyond)
 
-    call  tend_ls( id+2000,&
+    if(id1.ne.0)id1=id1+1000
+    call  tend_ls( id1,&
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
@@ -1310,7 +1334,7 @@ call message(msg)
                     if(lfn_out(i,j)<=0.)goto 9
                 enddo
             endif
-	enddo
+    enddo
         ! do kk=1,(boundary_guard*(jde-jds+1))/100
         do kk=1,boundary_guard    ! measured in cells
             j=jds+k*kk
@@ -1391,7 +1415,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
 
 
 #ifdef DEBUG_OUT
-real,dimension(tims:time,tjms:tjme)::rra,grada
+real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
 #endif
 
 !*** executable
@@ -1526,6 +1550,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
 #ifdef DEBUG_OUT    
             rra(i,j)=rr
             grada(i,j)=grad    
+            speeda(i,j)=speed
+            tanphia(i,j)=tanphi
 #endif
             !write(msg,*)i,j,grad,dzdx,dzdy
             !call message(msg)
@@ -1540,6 +1566,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada
 #ifdef DEBUG_OUT    
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,speeda,'speed',id)
+    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tanphia,'tanphi',id)
     call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
 #endif
 

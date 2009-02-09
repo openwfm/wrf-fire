@@ -1,5 +1,19 @@
 !WRF:DRIVER_LAYER:CONFIGURATION
 !
+
+MODULE module_scalar_tables
+  USE module_driver_constants
+  USE module_state_description
+#include <scalar_tables.inc>
+CONTAINS
+  SUBROUTINE init_module_scalar_tables
+     INTEGER i , j
+     DO j = 1, max_domains
+#include <scalar_tables_init.inc>
+     END DO
+  END SUBROUTINE init_module_scalar_tables
+END MODULE module_scalar_tables
+
 MODULE module_configure
 
    USE module_driver_constants
@@ -22,11 +36,11 @@ MODULE module_configure
 
    TYPE(model_config_rec_type) :: model_config_rec
 
-#include <scalar_tables.inc>
+!#include <scalar_tables.inc>
 
 ! special entries (put here but not enshrined in Registry for one reason or other)
 
-   CHARACTER (LEN=4) :: mminlu = '    '         ! character string for landuse table
+!   CHARACTER (LEN=256) :: mminlu = ' '             ! character string for landuse table
 
 CONTAINS
 
@@ -49,10 +63,10 @@ CONTAINS
 ! the settings for a given domain from a TYPE(module_config_rec_type) and put them into
 ! a TYPE(grid_config_rec_type), variables of which type are often called <em>config_flags</em>
 ! in the WRF code.
-! 
+!
 ! Most of the code in this routine is generated from the Registry file
 ! rconfig entries and included from the following files (found in the inc directory):
-! 
+!
 ! <pre>
 ! namelist_defines.inc	declarations of namelist variables (local to this routine)
 ! namelist_statements.inc	NAMELIST statements for each variable
@@ -71,12 +85,20 @@ CONTAINS
 ! kind of tracers. This means that the microphysics option
 ! specified on the highest numbered domain is the microphysics
 ! option for <em>all</em> domains in the run. This will be revisited.
-! 
+!
 !</DESCRIPTION>
       IMPLICIT NONE
 
-      INTEGER              :: io_status, nml_unit
+      INTEGER              :: io_status
       INTEGER              :: i
+
+      LOGICAL              :: nml_read_error
+
+      CHARACTER (LEN=1024) :: nml_name
+
+      INTEGER, PARAMETER :: nml_write_unit= 9
+      INTEGER, PARAMETER :: nml_read_unit = 10
+
 
 ! define as temporaries
 #include <namelist_defines.inc>
@@ -84,7 +106,7 @@ CONTAINS
 ! Statements that specify the namelists
 #include <namelist_statements.inc>
 
-      OPEN ( UNIT   = 10               ,      &
+      OPEN ( UNIT   = nml_read_unit    ,      &
              FILE   = "namelist.input" ,      &
              FORM   = "FORMATTED"      ,      &
              STATUS = "OLD"            ,      &
@@ -94,18 +116,27 @@ CONTAINS
         CALL WRF_ERROR_FATAL ( 'ERROR OPENING namelist.input' )
       ENDIF
 
-      nml_unit = 10
+#ifndef NO_NAMELIST_PRINT
+      OPEN ( UNIT   = nml_write_unit    ,      &
+             FILE   = "namelist.output" ,      &
+             FORM   = "FORMATTED"      ,      &
+             STATUS = "REPLACE"        ,      &
+             IOSTAT = io_status         )
+
+      IF ( io_status .NE. 0 ) THEN
+        CALL WRF_ERROR_FATAL ( 'ERROR OPENING namelist.output' )
+      ENDIF
+#endif
 
 ! Statements that set the namelist vars to default vals
 #  include <namelist_defaults.inc>
 
 ! Statements that read the namelist are in this file
-#  define NAMELIST_READ_ERROR_LABEL 9200
 #  include <config_reads.inc>
 
 ! 2004/04/28  JM (with consensus by the group of developers)
 ! This is needed to ensure that nesting will work, since
-! different mp_physics packages have different numbers of 
+! different mp_physics packages have different numbers of
 ! tracers. Basically, this says that the microphysics option
 ! specified on the highest numbered domain *is* the microphysics
 ! option for the run. Not the best solution but okay for 2.0.
@@ -120,20 +151,56 @@ CONTAINS
 #undef SOURCE_RECORD
 #undef DEST_RECORD
 #undef SOURCE_REC_DEX
-#define SOURCE_RECORD 
+#define SOURCE_RECORD
 #define DEST_RECORD model_config_rec %
 #define SOURCE_REC_DEX
 #include <config_assigns.inc>
 
-      CLOSE ( UNIT = 10 , IOSTAT = io_status )
+#ifdef PLANET
+!***************** special conversion for timesteps *********************
+! 2004-12-07 ADT Notes
+! NB: P2SI needs to defined in multiple places.  Right now this
+! requirement is a kludge, and if I can find something more elegant
+! I will try to implement it later.
+!
+! Beware: dt as the namelist timestep is now obsolete.  The new
+! variable "timestep" (which is an *integer* number of seconds),
+! with the (optional) additional specification of a fraction (to
+! make non-integer timesteps) now acts as the true timestep.
+! In share/set_timekeeping.F the integer(s) are converted to a real
+! number and put back in dt anyway!
+! We will deal with the case of the integer variables in
+! share/set_timekeeping.F itself.  For now, since they left dt in
+! the namelist definition, I will leave this here just in case ...
+      model_config_rec%dt    = dt    * P2SI
+! All of the following variables are told to be input in *MINUTES*
+! These values are converted to units of timesteps in the various
+! init routines in phys/module_physics_init.F by dividing by the
+! formula STEP = (xxDT*60./dt).  So it seems safe to multiply them
+! by P2SI here (with the exception of adding roundoff error later).
+! See notes in phys/module_radiation_driver for the radt example.
+      model_config_rec%radt  = radt  * P2SI
+      model_config_rec%bldt  = bldt  * P2SI
+      model_config_rec%cudt  = cudt  * P2SI
+      model_config_rec%gsmdt = gsmdt * P2SI
+!************************************************************************
+#endif
+
+      CLOSE ( UNIT = nml_read_unit , IOSTAT = io_status )
 
       IF ( io_status .NE. 0 ) THEN
         CALL WRF_ERROR_FATAL ( 'ERROR CLOSING namelist.input' )
       ENDIF
 
+#ifndef NO_NAMELIST_PRINT
+      CLOSE ( UNIT = nml_write_unit , IOSTAT = io_status )
+
+      IF ( io_status .NE. 0 ) THEN
+        CALL WRF_ERROR_FATAL ( 'ERROR CLOSING namelist.output' )
+      ENDIF
+#endif
+
       RETURN
-9200  CONTINUE
-      CALL wrf_error_fatal( 'module_configure: initial_config: error reading namelist' )
 
    END SUBROUTINE initial_config
 
@@ -152,7 +219,7 @@ CONTAINS
 !               loc(model_config_rec%first_item_in_struct)
       IF ( nbytes .gt. buflen ) THEN
         CALL wrf_error_fatal( &
-        "get_config_rec_as_buffer: buffer size to small for config_rec" )
+        "get_config_rec_as_buffer: buffer size too small for config_rec" )
       ENDIF
       CALL wrf_mem_copy( model_config_rec, buffer, nbytes )
       ncopied = nbytes
@@ -189,7 +256,7 @@ CONTAINS
                loc(model_config_rec%first_item_in_struct)
       IF ( nbytes .gt. buflen ) THEN
         CALL wrf_error_fatal( &
-        "get_config_rec_as_buffer: buffer size to small for config_rec" )
+        "get_config_rec_as_buffer: buffer size too small for config_rec" )
       ENDIF
       CALL wrf_mem_copy( model_config_rec, buffer, nbytes )
       ncopied = nbytes
@@ -233,7 +300,7 @@ CONTAINS
 ! is scalar and for the specific domain.  The first argument to this
 ! routine is the grid id (top-most domain is always 1) as specified in
 ! the domain-specific namelist variable grid_id.
-! 
+!
 ! The actual assignments form the model_config_rec_type to the
 ! grid_config_rec_type are generate from the rconfig entries in the
 ! Registry file and included by this routine from the file
@@ -242,7 +309,7 @@ CONTAINS
 !NOTE: generated subroutines from Registry file rconfig entries are renamed nl_
 ! instead of rconfig_ due to length limits for subroutine names.
 !
-! 
+!
 ! </DESCRIPTION>
 #undef SOURCE_RECORD
 #undef SOURCE_REC_DEX
@@ -253,62 +320,156 @@ CONTAINS
 #include <config_assigns.inc>
    END SUBROUTINE model_to_grid_config_rec
 
+
+   FUNCTION in_use_for_config ( id, vname ) RESULT ( in_use )
+     INTEGER, INTENT(IN) :: id
+     CHARACTER*(*), INTENT(IN) :: vname
+     LOGICAL in_use
+     INTEGER uses
+
+     uses = 0
+     in_use = .TRUE.
+
+#  include <in_use_for_config.inc>
+
+     RETURN
+   END FUNCTION
+
+
 ! Include the definitions of all the routines that return a namelist values
 ! back to the driver. These are generated by the registry
 
    SUBROUTINE init_module_configure
+     USE module_scalar_tables
      IMPLICIT NONE
-     ! Local vars
-
-     INTEGER i , j
-
-     DO j = 1, max_domains
-#include <scalar_tables_init.inc>
-     END DO
+     CALL init_module_scalar_tables
    END SUBROUTINE init_module_configure
 
-! When the compiler has Intel Inside (TM) (that is, ifort), the large
-! number of nl_get and nl_set routines inside the module causes the
-! compiler to never finish with this routine. For ifort, move the
-! routines outside the module. Note, the registry generates a 
-! USE module_configure for all the nl_get and nl_set routines
-! if IFORT_KLUDGE is in effect.
-#ifdef IFORT_KLUDGE
+   SUBROUTINE wrf_alt_nml_dynamics (nml_read_unit, nml_name)
+!
+!<DESCRIPTION>
+! If there is an error reading the DYNAMICS namelist, this routine is
+! called to check for namelist variables that have been removed by the 
+! developers and are still in user's namelists.
+!</DESCRIPTION>
+!
+     IMPLICIT NONE
+     INTEGER, INTENT(IN)       :: nml_read_unit
+     CHARACTER*(*), INTENT(IN) :: nml_name
+     INTEGER                   :: nml_error
+
+#include <namelist_defines.inc>
+#include <namelist_statements.inc>
+
+! These are the variables that have been removed
+     logical , DIMENSION(max_domains) :: pd_moist
+     logical , DIMENSION(max_domains) :: pd_chem
+     logical , DIMENSION(max_domains) :: pd_tke
+     logical , DIMENSION(max_domains) :: pd_scalar
+     NAMELIST /dynamics/ pd_moist
+     NAMELIST /dynamics/ pd_chem
+     NAMELIST /dynamics/ pd_tke
+     NAMELIST /dynamics/ pd_scalar
+
+! Read the namelist again, if it succeeds after adding the above variables,
+! it probably failed these are still in the namelist.  If it fails again, we
+! will return.
+
+     REWIND ( UNIT = nml_read_unit )
+     READ   ( UNIT = nml_read_unit , NML = dynamics , iostat=nml_error )
+
+     IF ( nml_error .EQ. 0 ) then    ! Successul, rm variables must be problem
+        CALL wrf_debug(0, "Are pd_moist, pd_chem, pd_tke, or pd_scalar still in your "// &
+                              TRIM(nml_name)//" namelist?")
+        CALL wrf_error_fatal("Replace them with moist_adv_opt, chem_adv_opt, tke_adv_opt"// &
+                             " and scalar_adv_opt, respectively.")
+     ELSE     ! Still failed
+        return
+     ENDIF
+
+   END SUBROUTINE wrf_alt_nml_dynamics
+
+   SUBROUTINE wrf_alt_nml_physics (nml_read_unit, nml_name)
+!
+!<DESCRIPTION>
+! If there is an error reading the PHYSICS namelist, this routine is
+! called to check for namelist variables that have been removed by the 
+! developers and are still in user's namelists.
+!</DESCRIPTION>
+!
+     IMPLICIT NONE
+     INTEGER, INTENT(IN)       :: nml_read_unit
+     CHARACTER*(*), INTENT(IN) :: nml_name
+     INTEGER                   :: nml_error
+
+#include <namelist_defines.inc>
+#include <namelist_statements.inc>
+
+! These are the variables that have been removed
+     integer , DIMENSION(max_domains) :: ucmcall
+     NAMELIST /physics/ ucmcall
+
+! Read the namelist again, if it succeeds after adding the above variables,
+! it probably failed these are still in the namelist.  If it fails again, we
+! will return.
+
+     REWIND ( UNIT = nml_read_unit )
+     READ   ( UNIT = nml_read_unit , NML = physics , iostat=nml_error )
+
+     IF ( nml_error .EQ. 0 ) then    ! Successul, rm variables must be problem
+        CALL wrf_debug(0,"Is ucmcall still in your "// TRIM(nml_name)//" namelist?")
+        CALL wrf_error_fatal("Replace it with sf_urban_physics")
+     ELSE     ! Still failed
+        return
+     ENDIF
+
+   END SUBROUTINE wrf_alt_nml_physics
+
+   SUBROUTINE wrf_alt_nml_fdda (nml_read_unit, nml_name)
+!
+!<DESCRIPTION>
+! If there is an error reading the FDDA namelist, this routine is
+! called to check for namelist variables that have been removed by the 
+! developers and are still in user's namelists.
+!</DESCRIPTION>
+!
+     IMPLICIT NONE
+     INTEGER, INTENT(IN)       :: nml_read_unit
+     CHARACTER*(*), INTENT(IN) :: nml_name
+     INTEGER                   :: nml_error
+
+#include <namelist_defines.inc>
+#include <namelist_statements.inc>
+
+! These are the variables that have been removed
+     integer , DIMENSION(max_domains) :: obs_nobs_prt
+     NAMELIST /fdda/ obs_nobs_prt
+
+! Read the namelist again, if it succeeds after adding the above variables,
+! it probably failed these are still in the namelist.  If it fails again, we
+! will return.
+
+     REWIND ( UNIT = nml_read_unit )
+     READ   ( UNIT = nml_read_unit , NML = fdda , iostat=nml_error )
+
+     IF ( nml_error .EQ. 0 ) then    ! Successul, rm variables must be problem
+        CALL wrf_debug(0,"Is obs_nobs_prt still in your "// TRIM(nml_name)//" namelist?")
+        CALL wrf_error_fatal("Replace it with obs_prt_max")
+     ELSE     ! Still failed
+        return
+     ENDIF
+
+   END SUBROUTINE wrf_alt_nml_fdda
 
 END MODULE module_configure
-
-# include <get_nl_config.inc>
-
-#else
-
-# include <get_nl_config.inc>
-
-END MODULE module_configure
-
-#endif
-
-! Special (outside registry)
-SUBROUTINE nl_get_mminlu ( idum , retval )
-  USE module_configure
-  CHARACTER(LEN=4)  :: retval
-  INTEGER idum
-  retval(1:4) = mminlu(1:4)   ! mminlu is defined in module_configure
-  RETURN
-END SUBROUTINE nl_get_mminlu
-SUBROUTINE nl_set_mminlu ( idum, inval )
-  USE module_configure
-  CHARACTER(LEN=4) :: inval
-  INTEGER idum
-  mminlu(1:4) = inval(1:4)    ! mminlu is defined in module_configure
-  RETURN
-END SUBROUTINE nl_set_mminlu
 
 
 SUBROUTINE set_scalar_indices_from_config ( idomain , dummy2, dummy1 )
   USE module_driver_constants
   USE module_state_description
   USE module_wrf_error
-  USE module_configure
+  USE module_configure, ONLY : model_config_rec
+  USE module_scalar_tables
   IMPLICIT NONE
   INTEGER , INTENT(IN)  :: idomain
   INTEGER               :: dummy1
@@ -343,3 +504,4 @@ SUBROUTINE set_scalar_indices_from_config ( idomain , dummy2, dummy1 )
 #include <scalar_indices_init.inc>
   RETURN
 END SUBROUTINE set_scalar_indices_from_config
+

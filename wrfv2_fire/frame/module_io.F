@@ -228,7 +228,7 @@ SUBROUTINE wrf_open_for_write_begin( FileName , Comm_compute, Comm_io, SysDepInf
   ELSE IF ( DataSet .eq. 'AUXINPUT8' ) THEN
     CALL nl_get_io_form_auxinput8( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT9' ) THEN
-    CALL nl_get_io_form_auxinput9( 1, io_form )
+    CALL nl_get_io_form_sgfdda( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT10' ) THEN
     CALL nl_get_io_form_gfdda( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT11' ) THEN
@@ -533,6 +533,7 @@ SUBROUTINE wrf_open_for_read_begin( FileName , Comm_compute, Comm_io, SysDepInfo
   CHARACTER*128               :: DataSet
   INTEGER                     :: io_form
   INTEGER                     :: Hndl
+  LOGICAL                     :: also_for_out
   INTEGER, EXTERNAL           :: use_package
   LOGICAL, EXTERNAL           :: wrf_dm_on_monitor, multi_files, use_output_servers
 
@@ -565,7 +566,7 @@ SUBROUTINE wrf_open_for_read_begin( FileName , Comm_compute, Comm_io, SysDepInfo
   ELSE IF ( DataSet .eq. 'AUXINPUT8' ) THEN
     CALL nl_get_io_form_auxinput8( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT9' ) THEN
-    CALL nl_get_io_form_auxinput9( 1, io_form )
+    CALL nl_get_io_form_sgfdda( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT10' ) THEN
     CALL nl_get_io_form_gfdda( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT11' ) THEN
@@ -604,7 +605,8 @@ SUBROUTINE wrf_open_for_read_begin( FileName , Comm_compute, Comm_io, SysDepInfo
 
   Status = 0
   Hndl = -1
-  IF ( .NOT. use_output_servers() ) THEN
+  also_for_out = .FALSE.
+!  IF ( .NOT. use_output_servers() ) THEN
     SELECT CASE ( use_package(io_form) )
 #ifdef NETCDF
       CASE ( IO_NETCDF   )
@@ -640,6 +642,7 @@ SUBROUTINE wrf_open_for_read_begin( FileName , Comm_compute, Comm_io, SysDepInfo
 #endif
 #ifdef MCELIO
       CASE ( IO_MCEL )
+        also_for_out = .TRUE.
         IF ( wrf_dm_on_monitor() ) THEN
           
         WRITE(fhand,'(a,i0)')"filter_",filtno
@@ -653,6 +656,7 @@ tstr = TRIM(SysDepInfo) // ',' // 'READ_MODE=UPDATE,LAT_R=XLAT,LON_R=XLONG,LANDM
 #endif
 #ifdef ESMFIO
       CASE ( IO_ESMF )
+        also_for_out = .TRUE.
         CALL ext_esmf_open_for_read_begin ( FileName , Comm_compute, Comm_io, SysDepInfo, &
                                             Hndl , Status )
 #endif
@@ -700,10 +704,10 @@ tstr = TRIM(SysDepInfo) // ',' // 'READ_MODE=UPDATE,LAT_R=XLAT,LON_R=XLONG,LANDM
         ENDIF
         Status = WRF_FILE_NOT_OPENED
     END SELECT
-  ELSE
-    Status = 0
-  ENDIF
-  CALL add_new_handle( Hndl, io_form, .TRUE., DataHandle )
+!  ELSE
+!    Status = 0
+!  ENDIF
+  CALL add_new_handle( Hndl, io_form, also_for_out, DataHandle )
 END SUBROUTINE wrf_open_for_read_begin
 
 !--- open_for_read_commit
@@ -837,7 +841,7 @@ SUBROUTINE wrf_open_for_read ( FileName , Comm_compute, Comm_io, SysDepInfo, &
   ELSE IF ( DataSet .eq. 'AUXINPUT8' ) THEN
     CALL nl_get_io_form_auxinput8( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT9' ) THEN
-    CALL nl_get_io_form_auxinput9( 1, io_form )
+    CALL nl_get_io_form_sgfdda( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT10' ) THEN
     CALL nl_get_io_form_gfdda( 1, io_form )
   ELSE IF ( DataSet .eq. 'AUXINPUT11' ) THEN
@@ -3471,11 +3475,23 @@ SUBROUTINE call_pkg_and_dist_real (  fcn, update_arg,                           
   INTEGER                       ,INTENT(INOUT)   :: Status
   REAL, ALLOCATABLE :: globbuf (:)
   LOGICAL, EXTERNAL :: wrf_dm_on_monitor
+  INTEGER test
+  CHARACTER*128 mess
 
   IF ( wrf_dm_on_monitor() ) THEN
-    ALLOCATE( globbuf( (DomainEnd(1)-DomainStart(1)+3)*(DomainEnd(2)-DomainStart(2)+3)*(DomainEnd(3)-DomainStart(3)+3) ) )
+    ALLOCATE( globbuf( (DomainEnd(1)-DomainStart(1)+3)*(DomainEnd(2)-DomainStart(2)+3)*(DomainEnd(3)-DomainStart(3)+3) ), &
+              STAT=test )
+    IF ( test .NE. 0 ) THEN
+      write(mess,*)"module_io.b",'allocating globbuf ',&
+           (DomainEnd(1)-DomainStart(1)+3)*(DomainEnd(2)-DomainStart(2)+3)*(DomainEnd(3)-DomainStart(3)+3)
+      CALL wrf_error_fatal(mess)
+    ENDIF
   ELSE
-    ALLOCATE( globbuf( 1 ) )
+    ALLOCATE( globbuf( 1 ), STAT=test )
+    IF ( test .NE. 0 ) THEN
+      write(mess,*)"module_io.b",'allocating globbuf ',1
+      CALL wrf_error_fatal(mess)
+    ENDIF
   ENDIF
 
   globbuf = 0.
@@ -3846,7 +3862,6 @@ include "mpif.h"
                  DomainStart , dom_end_rev ,                                        &
                  DomainStart , DomainEnd ,                                          &
                  Status )
-
     ENDIF
 
     CALL wrf_dm_bcast_bytes( Status, IWORDSIZE )
@@ -3879,6 +3894,7 @@ include "mpif.h"
 ! slab arrays are (which depends on which boundaries they represent).  The k memory and domain dimensions must be set
 ! properly for 2d (ks=1, ke=1) versus 3d fields.
 
+#if 1
           IF ( (MemOrd(1:2) .EQ. 'xs' .AND. bdy_mask( P_XSB )) .OR.     &
                (MemOrd(1:2) .EQ. 'xe' .AND. bdy_mask( P_XEB ))       ) THEN
             my_displ = jps-1         
@@ -3887,6 +3903,16 @@ include "mpif.h"
             my_displ = 0
             my_count = 0
           ENDIF
+#else
+          IF ( (MemOrd(1:2) .EQ. 'xs' ) .OR.     &
+               (MemOrd(1:2) .EQ. 'xe' )       ) THEN
+            my_displ = jps-1         
+            my_count = jpe-jps+1
+          ELSE
+            my_displ = 0
+            my_count = 0
+          ENDIF
+#endif
 
           CALL mpi_gather( my_displ, 1, MPI_INTEGER, displs, 1, MPI_INTEGER, collective_root, communicator, ierr )
           CALL mpi_gather( my_count, 1, MPI_INTEGER, counts, 1, MPI_INTEGER, collective_root, communicator, ierr )
@@ -3899,10 +3925,10 @@ include "mpif.h"
              idx2 = lx2*((k-1)+(i-1)*(kde-kds+1))
              IF ( FieldType .EQ. WRF_DOUBLE  ) THEN
                CALL wrf_scatterv_double (                        &
-                               globbuf, 1+idx2 ,                &    ! recvbuf
-                               counts                         , &    ! recvcounts
+                               globbuf, 1+idx2 ,                &    ! sendbuf
+                               counts                         , &    ! sendcounts
                                Field, jps-jms+1+idx ,       &
-                               my_count ,                       &    ! sendcount
+                               my_count ,                       &    ! recvcount
                                displs                         , &    ! displs
                                collective_root                , &    ! root
                                communicator                   , &    ! communicator
@@ -3910,10 +3936,10 @@ include "mpif.h"
              ELSE IF ( FieldType .EQ. WRF_FLOAT ) THEN
 
                CALL wrf_scatterv_real (                          &
-                               globbuf, 1+idx2 ,                &    ! recvbuf
-                               counts                         , &    ! recvcounts
+                               globbuf, 1+idx2 ,                &    ! sendbuf
+                               counts                         , &    ! sendcounts
                                Field, jps-jms+1+idx ,       &
-                               my_count ,                       &    ! sendcount
+                               my_count ,                       &    ! recvcount
                                displs                         , &    ! displs
                                collective_root                , &    ! root
                                communicator                   , &    ! communicator
@@ -3921,10 +3947,10 @@ include "mpif.h"
 
              ELSE IF ( FieldType .EQ. WRF_INTEGER ) THEN
                CALL wrf_scatterv_integer (                       &
-                               globbuf, 1+idx2 ,                &    ! recvbuf
-                               counts                         , &    ! recvcounts
+                               globbuf, 1+idx2 ,                &    ! sendbuf
+                               counts                         , &    ! sendcounts
                                Field, jps-jms+1+idx ,       &
-                               my_count ,                       &    ! sendcount
+                               my_count ,                       &    ! recvcount
                                displs                         , &    ! displs
                                collective_root                , &    ! root
                                communicator                   , &    ! communicator
@@ -3938,22 +3964,47 @@ include "mpif.h"
       IF ( TRIM(MemOrd) .EQ. 'ysz' .OR. TRIM(MemOrd) .EQ. 'yez' .OR. &
            TRIM(MemOrd) .EQ. 'ys'  .OR. TRIM(MemOrd) .EQ. 'ye'    ) THEN
 
+
        ids=DomainStart(1); ide=dom_end_rev(1); jds=DomainStart(3); jde=dom_end_rev(3); kds=DomainStart(2); kde=dom_end_rev(2);
        ims=MemoryStart(1); ime=  MemoryEnd(1); jms=MemoryStart(3); jme=  MemoryEnd(3); kms=MemoryStart(2); kme=  MemoryEnd(2);
        ips= PatchStart(1); ipe=   PatchEnd(1); jps= PatchStart(3); jpe=   PatchEnd(3); kps= PatchStart(2); kpe=   PatchEnd(2);
 
         IF ( nproc .GT. 1 ) THEN
+
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'MemOrd(1:2) ',MemOrd(1:2)
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'bdy_mask(P_YSB) ',bdy_mask( P_YSB)
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'bdy_mask(P_YEB) ',bdy_mask( P_YEB)
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'ips - 1 ',ips-1
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'ipe-ips+1 ', ipe-ips+1
+
+#if 1
           IF ( (MemOrd(1:2) .EQ. 'ys' .AND. bdy_mask( P_YSB )) .OR.     &
                (MemOrd(1:2) .EQ. 'ye' .AND. bdy_mask( P_YEB ))       ) THEN
+            my_displ = ips-1
+            my_count = ipe-ips+1
+           ELSE
+             my_displ = 0
+             my_count = 0
+          ENDIF
+#else
+          IF ( (MemOrd(1:2) .EQ. 'ys' ) .OR.     &
+               (MemOrd(1:2) .EQ. 'ye' )       ) THEN
             my_displ = ips-1
             my_count = ipe-ips+1
           ELSE
             my_displ = 0
             my_count = 0
           ENDIF
+#endif
+
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'my_displ ', my_displ
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'my_count ', my_count
 
           CALL mpi_gather( my_displ, 1, MPI_INTEGER, displs, 1, MPI_INTEGER, collective_root, communicator, ierr )
           CALL mpi_gather( my_count, 1, MPI_INTEGER, counts, 1, MPI_INTEGER, collective_root, communicator, ierr )
+
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'displs ', displs(1:nproc)
+if ( trim(VarName) .eq. 'T_BYS' ) write(0,*)__FILE__,'counts ', counts(1:nproc)
 
           do j = jds,jde    ! bdy_width
           do k = kds,kde    ! levels
@@ -3964,30 +4015,30 @@ include "mpif.h"
 
              IF ( FieldType .EQ. WRF_DOUBLE  ) THEN
                CALL wrf_scatterv_double (                        &
-                               globbuf, 1+idx2 ,                &    ! recvbuf
-                               counts                         , &    ! recvcounts
+                               globbuf, 1+idx2 ,                &    ! sendbuf
+                               counts                         , &    ! sendcounts
                                Field, ips-ims+1+idx ,       &
-                               my_count ,                       &    ! sendcount
+                               my_count ,                       &    ! recvcount
                                displs                         , &    ! displs
                                collective_root                , &    ! root
                                communicator                   , &    ! communicator
                                ierr )
              ELSE IF ( FieldType .EQ. WRF_FLOAT ) THEN
                CALL wrf_scatterv_real (                          &
-                               globbuf, 1+idx2 ,                &    ! recvbuf
-                               counts                         , &    ! recvcounts
+                               globbuf, 1+idx2 ,                &    ! sendbuf
+                               counts                         , &    ! sendcounts
                                Field, ips-ims+1+idx ,       &
-                               my_count ,                       &    ! sendcount
+                               my_count ,                       &    ! recvcount
                                displs                         , &    ! displs
                                collective_root                , &    ! root
                                communicator                   , &    ! communicator
                                ierr )
              ELSE IF ( FieldType .EQ. WRF_INTEGER ) THEN
                CALL wrf_scatterv_integer (                       &
-                               globbuf, 1+idx2 ,                &    ! recvbuf
-                               counts                         , &    ! recvcounts
+                               globbuf, 1+idx2 ,                &    ! sendbuf
+                               counts                         , &    ! sendcounts
                                Field, ips-ims+1+idx ,       &
-                               my_count ,                       &    ! sendcount
+                               my_count ,                       &    ! recvcount
                                displs                         , &    ! displs
                                collective_root                , &    ! root
                                communicator                   , &    ! communicator

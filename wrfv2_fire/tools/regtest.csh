@@ -1,25 +1,4 @@
 #!/bin/csh
-# @ job_type		= parallel
-# @ environment		= COPY_ALL;MP_EUILIB=us
-# @ job_name		= regtest.$(jobid)
-# @ output		= regtest_out
-# @ error		= regtest_err
-# @ network.MPI		= csss,shared,us
-# @ node_usage		= shared
-# @ checkpoint		= no
-# @ wall_clock_limit	= 21600
-# @ node		= 1
-# @ total_tasks		= 4
-###################  NCAR  ########################
-# @ ja_report		= yes
-# @ class               = share
-###################  NCAR  ########################
-###################  NCEP  ########################
-## @ class              = dev
-## @ group              = devqpri
-## @ preferences        = Feature == "dev"
-###################  NCEP  ########################
-# @ queue
 
 # #BSUB -x                                # exlusive use of node (not_shared)
 # #BSUB -a mpich_gm                       # at NCAR: lightning
@@ -29,9 +8,9 @@
 #BSUB -n 4                              # number of total tasks
 #BSUB -o reg.out                        # output filename (%J to add job id)
 #BSUB -e reg.err                        # error filename
-#BSUB -J reg.test                       # job name
-#BSUB -q premium                        # queue
-#BSUB -W 6:00                           # wallclock time
+#BSUB -J regtest                        # job name
+#BSUB -q share                          # queue
+#BSUB -W 12:00                          # wallclock time
 #BSUB -P 64000400
 
 # QSUB -q ded_4             # submit to 4 proc
@@ -54,10 +33,16 @@
 #		Intel  1.2 GHz (4-pe) :  3.0 hours (empty)
 #		IBM            P4     :  2.0 hours (empty)
 
+#	Do we keep running even when there are BAD failures?
+
+set KEEP_ON_RUNNING = FALSE
+set KEEP_ON_RUNNING = TRUE
+
 #	These need to be changed for your particular set of runs.  This is
 #	where email gets sent.
 
-if ( ( `uname` == AIX ) && ( ( `hostname | cut -c 1-2` != bs ) && ( `hostname | cut -c 1-2` != bv ) ) ) then
+if ( ( `uname` == AIX ) && ( ( `hostname | cut -c 1-2` != bs ) && \
+                             ( `hostname | cut -c 1-2` != bv ) && ( `hostname | cut -c 1-2` != be ) ) ) then
 	set FAIL_MAIL = ( ${user}@noaa.gov )
 	set GOOD_MAIL = ( ${user}@noaa.gov )
 
@@ -79,7 +64,7 @@ else
 endif
 
 unalias cd cp rm ls pushd popd mv
-if ( `uname` == Linux ) alias banner echo
+if ( ( `uname` == Linux ) || ( `uname` == Darwin ) ) alias banner echo
 
 #	Get the command line input
 
@@ -97,13 +82,12 @@ if      ( ( `uname` == AIX ) || ( `hostname` == tempest ) || ( `hostname | cut -
         set argv = ( -D today )
 	set argv = ( -env )
 	set WRFREGFILE = /mmm/users/gill/wrf.tar
-	if ( ( `uname` == AIX ) && ( ( `hostname | cut -c 1-2` != bs ) && ( `hostname | cut -c 1-2` != bv ) ) ) then
+	if ( ( `uname` == AIX ) && ( ( `hostname | cut -c 1-2` != bs ) && \
+	                             ( `hostname | cut -c 1-2` != bv ) && ( `hostname | cut -c 1-2` != be ) ) ) then
 		set argv = ( -f /nbns/meso/wx22tb/regression_tests/wrf.tar )
 	else
 		set argv = ( -f wrf.tar )
 	endif
-else if ( ( `uname` == OSF1 ) && ( `hostname` == maple ) && ( $user == michalak ) ) then
-        set clrm=1
 endif
 
 #	Where is the input data located - for a few known NCAR/MMM machines.
@@ -114,9 +98,9 @@ if      ( ( `hostname` == master ) || (`hostname | cut -c 1-4` == node ) ) then
 else if   ( `hostname` == jacaranda ) then
 	set WRFREGDATAEM = /jacaranda/users/gill/WRF-data-EM
 	set WRFREGDATANMM = /jacaranda/users/gill/WRF-data-NMM
-else if   ( `hostname` == duku ) then
-	set WRFREGDATAEM = /duku/users/gill/WRF-data-EM
-	set WRFREGDATANMM = /duku/users/gill/WRF-data-NMM
+else if   ( `hostname` == stink ) then
+	set WRFREGDATAEM = /stink/gill/Regression_Tests/WRF_regression_data/processed
+	set WRFREGDATANMM = /stink/gill/Regression_Tests/WRF_regression_data/WRF-data-NMM
 else if   ( `hostname` == cape ) then
 	set WRFREGDATAEM = /cape/users/michalak/WRF-data-EM
 	set WRFREGDATANMM = /cape/users/michalak/WRF-data-NMM
@@ -125,10 +109,12 @@ else if ( (`hostname | cut -c 1-6` == joshua ) || \
 	set WRFREGDATAEM = /users/gill/WRF-data-EM
 	set WRFREGDATANMM = /users/gill/WRF-data-NMM
 else if ( ( `hostname | cut -c 1-2` == bs ) || ( `hostname` == tempest ) || ( `hostname | cut -c 1-2` == ln ) || \
-          ( `hostname | cut -c 1-2` == bv ) ) then
+          ( `hostname | cut -c 1-2` == bv ) || ( `hostname | cut -c 1-2` == be ) ) then
 	set WRFREGDATAEM = /mmm/users/gill/WRF-data-EM
+	set WRFREGDATAEM = /mmm/users/gill/WRF_regression_data/processed
 	set WRFREGDATANMM = /mmm/users/gill/WRF-data-NMM
-else if ( ( `uname` == AIX ) && ( ( `hostname | cut -c 1-2` != bs ) && ( `hostname | cut -c 1-2` != bv ) ) ) then
+else if ( ( `uname` == AIX ) && ( ( `hostname | cut -c 1-2` != bs ) && \
+                                  ( `hostname | cut -c 1-2` != bv ) && ( `hostname | cut -c 1-2` != be ) ) ) then
 	set WRFREGDATAEM = /nbns/meso/wx22tb/regression_tests/WRF-data-EM
 	set WRFREGDATANMM = /nbns/meso/wx22tb/regression_tests/WRF-data-NMM
 else
@@ -221,23 +207,40 @@ set start = ( `date` )
 #	Initial set up values
 
 #	Is this a single domain regression test or is this nested.  Well, a nested one
-#	is a bit special.  It can only run on machines that have the WRF RSL-but-no-MPI
+#	is a bit special.  It can only run on machines that have the WRF RSL_LITE-but-no-MPI
 #	option available.
 
 set NESTED = TRUE
 set NESTED = FALSE
 
-if ( ( $NESTED == TRUE ) && ( ( `uname` == OSF1 ) || ( `uname` == Linux ) || ( `uname` == AIX ) ) ) then
+if ( $NESTED == TRUE ) then
 	echo DOING a NESTED TEST
-else if ( $NESTED == TRUE ) then
-	echo NESTED option is only valid on DEC, Linux, or AIX machines
-	exit ( 1 ) 
+endif
+
+#	Use the adaptive time step option
+
+set ADAPTIVE = TRUE
+set ADAPTIVE = FALSE
+
+if ( $ADAPTIVE == TRUE ) then
+	set STEP_TO_OUTPUT_TIME    = .TRUE.
+	set USE_ADAPTIVE_TIME_STEP = .TRUE.
+else
+	set STEP_TO_OUTPUT_TIME    = .FALSE.
+	set USE_ADAPTIVE_TIME_STEP = .FALSE.
 endif
 
 #	We can choose to do grid and obs nudging tests.
 
 set FDDA = TRUE
 set FDDA = FALSE
+
+set FDDA2 = TRUE
+set FDDA2 = FALSE
+
+if ( $FDDA2 == TRUE ) then
+	set FDDA = TRUE
+endif
 
 #	The default floating point precision is either 4 bytes or 8 bytes.
 #	We assume that it is 4 (or the default for the architecture) unless 
@@ -253,45 +256,51 @@ set REAL8 = FALSE
 set REG_TYPE = OPTIMIZED
 set REG_TYPE = BIT4BIT
 
-#	For a Linux machine, we can use PGI or Intel compilers.
+#	For a Mac/Intel, we can run either g95 or PGI.
 
-if ( `uname` == Linux ) then
-	set LINUX_COMP = INTEL
+if ( `uname` == Darwin ) then
+	set LINUX_COMP = G95
 	set LINUX_COMP = PGI
 endif
 
-#	Intel requires /usr/local/intel-8.0/lib in LD_LIBRARY_PATH
-#	and it has to be in the .cshrc file for the rsh for mpirun
-#	intel 8.0 Apr 2005
+#	We can choose to do a global test
 
-if ( `uname` == Linux ) then
-	if ( $LINUX_COMP == INTEL ) then
-	
-		grep LD_LIBRARY_PATH ~/.cshrc >& /dev/null
-		set ok1 = $status
-		echo $LD_LIBRARY_PATH | grep intel >& /dev/null
-		set ok2 = $status
-		if ( ( $ok1 != 0 ) || ( $ok2 != 0 ) ) then
-			echo You need to stick the following line in your .cshrc file
-			echo setenv LD_LIBRARY_PATH /usr/lib:/usr/local/lib:/usr/local/intel-8.0/lib
-			echo Otherwise mpirun cannot find libcxa.so.5 
-			exit ( 1 )
-		endif
-	endif
+if ( $NESTED != TRUE ) then
+	set GLOBAL = TRUE
+	set GLOBAL = FALSE
+else if ( $NESTED == TRUE ) then
+	set GLOBAL = FALSE
 endif
 
 #	Is this a WRF chem test?  
+#	if CHEM = TRUE, then chemistry run
+#	if KPP = TRUE, then chemistry with KPP run (CHEM set to true)
 
 if ( $NESTED != TRUE ) then
+	set KPP = TRUE
+	set KPP = FALSE
 	set CHEM = TRUE
 	set CHEM = FALSE
+	if ( $KPP == TRUE ) then
+		set CHEM = TRUE
+	endif
 else if ( $NESTED == TRUE ) then
 	set CHEM = FALSE
+	set KPP  = FALSE
 endif
 if ( $CHEM == TRUE ) then
 	setenv WRF_CHEM 1
 else if ( $CHEM == FALSE ) then
 	setenv WRF_CHEM 0 
+endif
+if ( $KPP == TRUE ) then
+	setenv WRF_KPP 1
+	setenv FLEX_LIB_DIR /usr/local/lib
+	set CHEM_OPT = 104
+else if ( $KPP == FALSE ) then
+	setenv WRF_KPP 0 
+	setenv FLEX_LIB_DIR
+	set CHEM_OPT =
 endif
 
 #	For the real data case, we can run either one of two data cases.  If this is
@@ -302,24 +311,14 @@ set dataset = jan00
 if ( $CHEM == TRUE ) then
 	set dataset = chem
 endif
+if ( $GLOBAL == TRUE ) then
+	set dataset = global
+endif
 
 #	Yet another local variable to change the name of where the data is located.
 
 set thedataem = ${WRFREGDATAEM}/${dataset}
 set thedatanmm = $WRFREGDATANMM
-
-#	The distributed memory option RSL_LITE may be selected.
-
-set RSL_LITE = TRUE
-set RSL_LITE = FALSE
-
-set COMBO_NEST_RSL__LITE = TRUE
-set COMBO_NEST_RSL__LITE = FALSE
-
-if ( $COMBO_NEST_RSL__LITE == TRUE ) then
-	set NESTED = TRUE
-	set RSL_LITE = TRUE
-endif
 
 #	A separately installed version of the latest ESMF library (NOT the 
 #	ESMF library included in the WRF tarfile) can be tested by setting 
@@ -334,15 +333,23 @@ unsetenv ESMFLIB
 unsetenv ESMFINC
 
 if ( $ESMF_LIB == TRUE ) then
-	if ( ( `uname` == AIX ) && ( `hostname | cut -c 1-2` == bs ) ) then
+	if      ( ( `uname` == AIX ) && ( ( `hostname | cut -c 1-2` == bv ) || ( `hostname | cut -c 1-2` == be ) ) ) then
 		echo "A separately installed version of the latest ESMF library"
 		echo "(NOT the ESMF library included in the WRF tarfile) will"
 		echo "be used for MPI tests"
-		setenv OBJECT_MODE 32
-		set ESMFLIBSAVE = /home/bluesky/hender/esmf/lib/libO/AIX.default.32.default
-		set ESMFINCSAVE = /home/bluesky/hender/esmf/mod/modO/AIX.default.32.default
-		echo "Setting ESMFLIB = ${ESMFLIBSAVE}"
-		echo "Setting ESMFINC = ${ESMFINCSAVE}"
+		setenv OBJECT_MODE 64
+#	set ESMFLIBSAVE = /home/bluevista/hender/esmf/esmf_2_2_2r/lib/libO/AIX.default.64.mpi.default
+#	set ESMFINCSAVE = /home/bluevista/hender/esmf/esmf_2_2_2r/mod/modO/AIX.default.64.mpi.default
+		setenv ESMF_DIR /mmm/users/michalak/esmf
+		setenv ESMF_BOPT g
+		setenv ESMF_ABI 64
+		setenv ESMF_INSTALL_PREFIX $ESMF_DIR/../esmf_install
+		setenv ESMFLIB $ESMF_INSTALL_PREFIX/lib/libg/AIX.default.64.mpi.default
+		setenv ESMFINC $ESMF_INSTALL_PREFIX/mod/modg/AIX.default.64.mpi.default
+		set ESMFLIBSAVE = $ESMFLIB
+		set ESMFINCSAVE = $ESMFINC
+		echo "Using ESMFLIB = ${ESMFLIBSAVE}"
+		echo "Using ESMFINC = ${ESMFINCSAVE}"
 	else
 		echo "Only the ESMF library included in the WRF tarfile is"
 		echo "tested on this machine"
@@ -350,10 +357,6 @@ if ( $ESMF_LIB == TRUE ) then
 	endif
 	if ( $NESTED == TRUE ) then
 		echo "The ESMF library does not work with nesting."
-		exit ( 3 ) 
-	endif
-	if ( $RSL_LITE == TRUE ) then
-		echo "The ESMF library does not work with RSL_LITE."
 		exit ( 3 ) 
 	endif
 endif
@@ -366,17 +369,7 @@ set QUILT = TRUE
 set QUILT = FALSE
 
 if ( $QUILT == TRUE ) then
-	if ( `uname` == AIX ) then
-		echo "One WRF output quilt server will be used for some tests"
-	else if ( ( `uname` == OSF1 ) && \
-		  ( ( `hostname` == duku    ) || \
-		    ( `hostname` == joshua1 ) || \
-		    ( `hostname` == joshua3 ) ) ) then
-		echo "One WRF output quilt server will be used for some tests"
-	else
-		echo "WRF output quilt servers are not tested on this machine"
-		exit ( 3 ) 
-	endif
+	echo "One WRF output quilt server will be used for some tests"
 endif
 
 #	Baseline data sets can be generated and archived or compared against.  
@@ -431,34 +424,24 @@ set IO_FORM_WHICH =( IO     IO        IO       IO       O        )
 #	esmf_lib: cannot test NMM
 #	grib output: cannot test NMM
 
-if      ( ( $NESTED == TRUE ) && ( $RSL_LITE != TRUE ) ) then
+if      ( $NESTED == TRUE ) then
 	set CORES = ( em_real em_b_wave em_quarter_ss          )
-else if ( ( $NESTED == TRUE ) && ( $RSL_LITE == TRUE ) ) then
-	set CORES = ( em_real em_b_wave em_quarter_ss          )
-else if ( ( $NESTED != TRUE ) && ( $RSL_LITE != TRUE ) ) then
+else if ( $NESTED != TRUE ) then
 	set CORES = ( em_real em_b_wave em_quarter_ss nmm_real )
 	if ( $CHEM == TRUE ) then
 		set CORES = ( em_real em_real )
+	endif
+	if ( $GLOBAL == TRUE ) then
+		set CORES = ( em_real )
+	endif
+	if ( $ADAPTIVE == TRUE ) then
+		set CORES = ( em_real )
 	endif
 	if ( $ESMF_LIB == TRUE ) then
 		set CORES = ( em_real em_b_wave em_quarter_ss )
 	endif
 	if ( $IO_FORM_NAME[$IO_FORM] == io_grib1 ) then
 		set CORES = ( em_real em_b_wave em_quarter_ss )
-	endif
-	if ( $FDDA == TRUE ) then
-		set CORES = ( em_real )
-	endif
-else if ( ( $NESTED != TRUE ) && ( $RSL_LITE == TRUE ) ) then
-	set CORES = ( em_real em_b_wave em_quarter_ss nmm_real )
-	if ( $CHEM == TRUE ) then
-		set CORES = ( em_real em_real )
-	endif
-	if ( $ESMF_LIB == TRUE ) then
-		set CORES = ( em_real )
-	endif
-	if ( $IO_FORM_NAME[$IO_FORM] == io_grib1 ) then
-		set CORES = ( em_real )
 	endif
 	if ( $FDDA == TRUE ) then
 		set CORES = ( em_real )
@@ -467,29 +450,32 @@ endif
 
 #	The b_wave case has binary input (4-byte only), the nmm
 #	core has raw MPI calls, skip them if we are doing real*8 floats.
-#	Bump up the OMP stack size for real*8 on OSF1 architectures.
 
 if      ( $REAL8 == TRUE ) then
-	if ( `uname` == OSF1 ) then
-		setenv MP_STACK_SIZE 64000000
-	endif
 	set CORES = ( em_real em_quarter_ss )
 endif
 
-if      ( ( $CHEM != TRUE ) && ( $FDDA != TRUE ) && ( $NESTED != TRUE ) ) then
-	set PHYSOPTS =	( 1 2 3 4 5 )
-else if ( ( $CHEM != TRUE ) && ( $FDDA != TRUE ) && ( $NESTED == TRUE ) ) then
-	set PHYSOPTS =	( 1 2 3 )
+if      ( ( $CHEM != TRUE ) && ( $FDDA != TRUE ) &&   ( $NESTED != TRUE ) && ( $REAL8 != TRUE ) && ( $GLOBAL != TRUE )   ) then
+	set PHYSOPTS =	( 1 2 3 4 5 6 7 )
+else if ( ( $CHEM != TRUE ) && ( $FDDA != TRUE ) && ( ( $NESTED == TRUE ) || ( $REAL8 == TRUE ) || ( $GLOBAL == TRUE ) ) ) then
+	set PHYSOPTS =	( 1 2 3 4 5 6 )
 else if ( ( $CHEM != TRUE ) && ( $FDDA == TRUE ) ) then
-	set PHYSOPTS =	( 1 2 3 )
+	if ( $FDDA2 == TRUE ) then
+		set PHYSOPTS_FDDA = BOTH
+	else
+		set PHYSOPTS_FDDA = GRID
+	endif
+	if ( $PHYSOPTS_FDDA == GRID ) then
+		set PHYSOPTS =	( 1 )
+	else
+		set PHYSOPTS =	( 1 2 3 )
+	endif
 else if ( $CHEM == TRUE ) then
 	set PHYSOPTS =	( 1 2 3 4 5 6 )
 endif
 
 #	This is selecting the ideal physics options - mostly selecting BC options.
-#	With no nesting, run all three ideal physics options.  When we have
-#	RSL_LITE (we are only doing em_quarter_ss), choose the first option only
-#	since it uses open boundaries.
+#	With no nesting, run all three ideal physics options.
 
 if      ( $NESTED == TRUE ) then
 	set Max_Ideal_Physics_Options = 2
@@ -531,6 +517,8 @@ cat >! dom_real << EOF
  move_interval                       = 3 , 6 , 9
  move_cd_x                           = 1 , 1 , 1
  move_cd_y                           = 1 , 1 , 1
+ use_adaptive_time_step              = $USE_ADAPTIVE_TIME_STEP
+ step_to_output_time                 = $STEP_TO_OUTPUT_TIME
 EOF
 else if ( $dataset == jun01 ) then
 cat >! dom_real << EOF
@@ -559,6 +547,8 @@ cat >! dom_real << EOF
  move_interval                       = 1 , 2 , 3
  move_cd_x                           = 1 , 1 , 1
  move_cd_y                           = 1 , 1 , 1
+ use_adaptive_time_step              = $USE_ADAPTIVE_TIME_STEP
+ step_to_output_time                 = $STEP_TO_OUTPUT_TIME
 EOF
 endif
 cat >! dom_ideal << EOF
@@ -587,6 +577,8 @@ cat >! dom_real << EOF
  parent_time_step_ratio              = 1,     3,     3,
  feedback                            = 1,
  smooth_option                       = 0
+ use_adaptive_time_step              = $USE_ADAPTIVE_TIME_STEP
+ step_to_output_time                 = $STEP_TO_OUTPUT_TIME
 EOF
 else if ( $dataset == jun01 ) then
 cat >! dom_real << EOF
@@ -610,6 +602,33 @@ cat >! dom_real << EOF
  parent_time_step_ratio              = 1,     3,     3,
  feedback                            = 1,
  smooth_option                       = 0
+ use_adaptive_time_step              = $USE_ADAPTIVE_TIME_STEP
+ step_to_output_time                 = $STEP_TO_OUTPUT_TIME
+EOF
+else if ( $dataset == global ) then
+cat >! dom_real << EOF
+ time_step                           = 600
+ time_step_fract_num                 = 00
+ time_step_fract_den                 = 112
+ max_dom                             = 1,
+ s_we                                = 1,     1,     1,
+ e_we                                = 65,     41,    41,
+ s_sn                                = 1,     1,     1,
+ e_sn                                = 33,     81,    81,
+ s_vert                              = 1,     1,     1,
+ e_vert                              = 41,    41,    41,
+ num_metgrid_levels                  = 27
+ dx                                  = 625373.288,20000, 4000,
+ dy                                  = 625373.288,20000, 4000,
+ p_top_requested                     = 5000
+ grid_id                             = 1,     2,     3,
+ parent_id                           = 0,     1,     2,
+ i_parent_start                      = 0,     17,    17,
+ j_parent_start                      = 0,     33,    33,
+ parent_grid_ratio                   = 1,     5,     5,
+ parent_time_step_ratio              = 1,     5,     5,
+ feedback                            = 1,
+ smooth_option                       = 00
 EOF
 endif
 cat >! dom_ideal << EOF
@@ -644,27 +663,37 @@ cat >! phys_real_1  << EOF
 EOF
 
 cat >! dyn_real_SAFE  << EOF
- pd_moist                            = .false., .false., .false.,
- pd_scalar                           = .false., .false., .false.,
- pd_chem                             = .false., .false., .false.,
- pd_tke                              = .false., .false., .false.,
+ moist_adv_opt                       = 0,      0,      0,     
+ scalar_adv_opt                      = 0,      0,      0,     
+ chem_adv_opt                        = 0,      0,      0,     
+ tke_adv_opt                         = 0,      0,      0,     
 EOF
 
 cat >! dyn_real_1  << EOF
- pd_moist                            = .true.,  .true.,  .false.,
- pd_scalar                           = .false., .false., .false.,
- pd_chem                             = .false., .false., .false.,
- pd_tke                              = .false., .false., .false.,
+ moist_adv_opt                       = 1,      1,      1,      
+ scalar_adv_opt                      = 0,      0,      0,     
+ chem_adv_opt                        = 0,      0,      0,     
+ tke_adv_opt                         = 0,      0,      0,     
 EOF
 
 cat >! time_real_1  << EOF
  auxinput1_inname                    = "met_em.d<domain>.<date>"
 EOF
 
+cat >! nest_real_1  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+
+cat >! damp_real_1  << EOF
+ damp_opt                            = 0,
+ zdamp                               = 5000.,  5000.,  5000.,
+ dampcoef                            = 0.01,   0.01,   0.01
+EOF
+
 cat >! phys_real_2 << EOF
  mp_physics                          = 4,     4,     4,
  ra_lw_physics                       = 1,     1,     1,
- ra_sw_physics                       = 2,     2,     2,
+ ra_sw_physics                       = 1,     1,     1,
  radt                                = 30,    30,    30,
  sf_sfclay_physics                   = 2,     2,     2,
  sf_surface_physics                  = 2,     2,     2,
@@ -672,6 +701,8 @@ cat >! phys_real_2 << EOF
  bldt                                = 0,     0,     0,
  cu_physics                          = 2,     2,     0,
  cudt                                = 5,     5,     5,
+ slope_rad                           = 1,     1,     1,
+ topo_shading                        = 0,     0,     0,
  isfflx                              = 1,
  ifsnow                              = 0,
  icloud                              = 1,
@@ -686,14 +717,28 @@ cat >! phys_real_2 << EOF
 EOF
 
 cat >! dyn_real_2  << EOF
- pd_moist                            = .true.,  .true.,  .false.,
- pd_scalar                           = .false., .false., .false.,
- pd_chem                             = .false., .false., .false.,
- pd_tke                              = .false., .false., .false.,
+ moist_adv_opt                       = 1,      1,      1,      
+ scalar_adv_opt                      = 0,      0,      0,     
+ chem_adv_opt                        = 0,      0,      0,     
+ tke_adv_opt                         = 0,      0,      0,     
 EOF
 
+if ( $GLOBAL == TRUE ) then
+	cp dyn_real_SAFE dyn_real_2
+endif
+
 cat >! time_real_2  << EOF
- auxinput1_inname                    = "wrf_real_input_em.d<domain>.<date>"
+ auxinput1_inname                    = "met_em.d<domain>.<date>"
+EOF
+
+cat >! nest_real_2  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+
+cat >! damp_real_2  << EOF
+ damp_opt                            = 0,
+ zdamp                               = 5000.,  5000.,  5000.,
+ dampcoef                            = 0.01,   0.01,   0.01
 EOF
 
 cat >! phys_real_3 << EOF
@@ -707,6 +752,9 @@ cat >! phys_real_3 << EOF
  bldt                                = 0,     0,     0,
  cu_physics                          = 3,     3,     0,
  cudt                                = 5,     5,     5,
+ omlcall                             = 1,
+ oml_hml0                            = 50,
+ oml_gamma                           = 0.14
  isfflx                              = 1,
  ifsnow                              = 0,
  icloud                              = 1,
@@ -721,18 +769,28 @@ cat >! phys_real_3 << EOF
 EOF
 
 cat >! dyn_real_3  << EOF
- pd_moist                            = .false., .false., .false.,
- pd_scalar                           = .false., .false., .false.,
- pd_chem                             = .false., .false., .false.,
- pd_tke                              = .false., .false., .false.,
+ moist_adv_opt                       = 2,      2,      2,     
+ scalar_adv_opt                      = 0,      0,      0,     
+ chem_adv_opt                        = 0,      0,      0,     
+ tke_adv_opt                         = 0,      0,      0,     
 EOF
 
 cat >! time_real_3  << EOF
  auxinput1_inname                    = "met_em.d<domain>.<date>"
 EOF
 
+cat >! nest_real_3  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+
+cat >! damp_real_3  << EOF
+ damp_opt                            = 1,
+ zdamp                               = 5000.,  5000.,  5000.,
+ dampcoef                            = 0.01,   0.01,   0.01
+EOF
+
 cat >! phys_real_4 << EOF
- mp_physics                          = 4,     4,     4,
+ mp_physics                          = 6,     6,     6,
  ra_lw_physics                       = 1,     1,     1,
  ra_sw_physics                       = 2,     2,     2,
  radt                                = 30,    30,    30,
@@ -740,12 +798,12 @@ cat >! phys_real_4 << EOF
  sf_surface_physics                  = 2,     2,     2,
  bl_pbl_physics                      = 2,     2,     2,
  bldt                                = 0,     0,     0,
- cu_physics                          = 2,     2,     0,
+ cu_physics                          = 5,     5,     0,
  cudt                                = 5,     5,     5,
  isfflx                              = 1,
  ifsnow                              = 0,
  icloud                              = 1,
- ucmcall                             = 1,
+ sf_urban_physics                    = 1,     1,     1,
  surface_input_source                = 1,
  num_soil_layers                     = 4,
  mp_zero_out                         = 0,
@@ -757,18 +815,135 @@ cat >! phys_real_4 << EOF
 EOF
 
 cat >! dyn_real_4  << EOF
- pd_moist                            = .false., .false., .false.,
- pd_scalar                           = .false., .false., .false.,
- pd_chem                             = .false., .false., .false.,
- pd_tke                              = .false., .false., .false.,
+ moist_adv_opt                       = 2,      2,      2,     
+ scalar_adv_opt                      = 0,      0,      0,     
+ chem_adv_opt                        = 0,      0,      0,     
+ tke_adv_opt                         = 0,      0,      0,     
 EOF
 
 cat >! time_real_4  << EOF
- auxinput1_inname                    = "wrf_real_input_em.d<domain>.<date>"
+ auxinput1_inname                    = "met_em.d<domain>.<date>"
+EOF
+
+cat >! nest_real_4  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+
+cat >! damp_real_4  << EOF
+ damp_opt                            = 1,
+ zdamp                               = 5000.,  5000.,  5000.,
+ dampcoef                            = 0.01,   0.01,   0.01
 EOF
 
 cat >! phys_real_5 << EOF
- mp_physics                          = 4,     4,     4,
+ mp_physics                          = 10,    10,    10,
+ ra_lw_physics                       = 1,     1,     1,
+ ra_sw_physics                       = 1,     1,     1,
+ radt                                = 30,    30,    30,
+ sf_sfclay_physics                   = 7,     7,     7,
+ sf_surface_physics                  = 1,     1,     1,
+ bl_pbl_physics                      = 7,     7,     7,
+ bldt                                = 0,     0,     0,
+ cu_physics                          = 99,    99,    0,
+ cudt                                = 0,     0,     0,
+ slope_rad                           = 1,     1,     1, 
+ topo_shading                        = 0,     0,     0, 
+ isfflx                              = 1,
+ ifsnow                              = 0,
+ icloud                              = 1,
+ sf_urban_physics                    = 1,     1,     1,
+ surface_input_source                = 1,
+ num_soil_layers                     = 5,
+ mp_zero_out                         = 0,
+ maxiens                             = 1,
+ maxens                              = 3,
+ maxens2                             = 3,
+ maxens3                             = 16,
+ ensdim                              = 144,
+ levsiz                              = 59
+ paerlev                             = 29
+ cam_abs_freq_s                      = 21600
+ cam_abs_dim1                        = 4
+ cam_abs_dim2                        = 28
+EOF
+
+cat >! dyn_real_5  << EOF
+ moist_adv_opt                       = 2,      2,      2,     
+ scalar_adv_opt                      = 0,      0,      0,     
+ chem_adv_opt                        = 0,      0,      0,     
+ tke_adv_opt                         = 0,      0,      0,     
+EOF
+
+cat >! time_real_5  << EOF
+ auxinput1_inname                    = "met_em.d<domain>.<date>"
+EOF
+
+cat >! nest_real_5  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+
+cat >! damp_real_5  << EOF
+ damp_opt                            = 3,
+ zdamp                               = 5000.,  5000.,  5000.,
+ dampcoef                            = 0.05,   0.05,   0.05
+EOF
+
+cat >! phys_real_6 << EOF
+ mp_physics                          = 7,     7,     7,
+ ra_lw_physics                       = 1,     1,     1,
+ ra_sw_physics                       = 2,     2,     2,
+ radt                                = 30,    30,    30,
+ sf_sfclay_physics                   = 7,     7,     7,
+ sf_surface_physics                  = 1,     1,     1,
+ bl_pbl_physics                      = 7,     7,     7,
+ bldt                                = 0,     0,     0,
+ cu_physics                          = 1,     1,     0,
+ cudt                                = 0,     0,     0,
+ omlcall                             = 1,
+ oml_hml0                            = 50,
+ oml_gamma                           = 0.14
+ isfflx                              = 1,
+ ifsnow                              = 0,
+ icloud                              = 1,
+ sf_urban_physics                    = 1,     1,     1,
+ surface_input_source                = 1,
+ num_soil_layers                     = 5,
+ mp_zero_out                         = 0,
+ maxiens                             = 1,
+ maxens                              = 3,
+ maxens2                             = 3,
+ maxens3                             = 16,
+ ensdim                              = 144,
+ levsiz                              = 59
+ paerlev                             = 29
+ cam_abs_freq_s                      = 21600
+ cam_abs_dim1                        = 4
+ cam_abs_dim2                        = 28
+EOF
+
+cat >! dyn_real_6  << EOF
+ moist_adv_opt                       = 0,      0,      0,     
+ scalar_adv_opt                      = 0,      0,      0,     
+ chem_adv_opt                        = 0,      0,      0,     
+ tke_adv_opt                         = 0,      0,      0,     
+EOF
+
+cat >! time_real_6  << EOF
+ auxinput1_inname                    = "met_em.d<domain>.<date>"
+EOF
+
+cat >! nest_real_6  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+
+cat >! damp_real_6  << EOF
+ damp_opt                            = 3,
+ zdamp                               = 5000.,  5000.,  5000.,
+ dampcoef                            = 0.05,   0.05,   0.05
+EOF
+
+cat >! phys_real_7 << EOF
+ mp_physics                          = 8,     8,     8,
  ra_lw_physics                       = 3,     3,     3,
  ra_sw_physics                       = 3,     3,     3,
  radt                                = 30,    30,    30,
@@ -776,12 +951,12 @@ cat >! phys_real_5 << EOF
  sf_surface_physics                  = 2,     2,     2,
  bl_pbl_physics                      = 2,     2,     2,
  bldt                                = 0,     0,     0,
- cu_physics                          = 2,     2,     0,
+ cu_physics                          = 99,    99,    0,
  cudt                                = 5,     5,     5,
  isfflx                              = 1,
  ifsnow                              = 0,
  icloud                              = 1,
- ucmcall                             = 1,
+ sf_urban_physics                    = 1,     1,     1,
  surface_input_source                = 1,
  num_soil_layers                     = 4,
  mp_zero_out                         = 0,
@@ -797,16 +972,38 @@ cat >! phys_real_5 << EOF
  cam_abs_dim2                        = 28
 EOF
 
-cat >! dyn_real_5  << EOF
- pd_moist                            = .false., .false., .false.,
- pd_scalar                           = .false., .false., .false.,
- pd_chem                             = .false., .false., .false.,
- pd_tke                              = .false., .false., .false.,
+cat >! dyn_real_7  << EOF
+ moist_adv_opt                       = 0,      0,      0,     
+ scalar_adv_opt                      = 0,      0,      0,     
+ chem_adv_opt                        = 0,      0,      0,     
+ tke_adv_opt                         = 0,      0,      0,     
 EOF
 
-cat >! time_real_5  << EOF
+cat >! time_real_7  << EOF
  auxinput1_inname                    = "met_em.d<domain>.<date>"
 EOF
+
+cat >! nest_real_7  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+
+cat >! damp_real_7  << EOF
+ damp_opt                            = 3,
+ zdamp                               = 5000.,  5000.,  5000.,
+ dampcoef                            = 0.05,   0.05,   0.05
+EOF
+
+if ( $GLOBAL == TRUE ) then
+	sed -e 's/ cam_abs_dim2 *= [0-9][0-9]/ cam_abs_dim2 = 41/g' phys_real_5 >! phys_foo
+	mv phys_foo phys_real_7
+	cp dyn_real_SAFE dyn_real_1
+	cp dyn_real_SAFE dyn_real_2
+	cp dyn_real_SAFE dyn_real_3
+	cp dyn_real_SAFE dyn_real_4
+	cp dyn_real_SAFE dyn_real_5
+	cp dyn_real_SAFE dyn_real_6
+	cp dyn_real_SAFE dyn_real_7
+endif
 
 cat >! fdda_real_1 << EOF
  grid_fdda                           = 1,     1,     1,
@@ -837,8 +1034,6 @@ EOF
 cat >! fdda_real_2 << EOF
  obs_nudge_opt                       = 1,1,1,1,1
  max_obs                             = 150000,
- nobs_ndg_vars                       = 5,
- nobs_err_flds                       = 9,
  obs_nudge_wind                      = 1,1,1,1,1
  obs_coef_wind                       = 6.E-4,6.E-4,6.E-4,6.E-4,6.E-4
  obs_nudge_temp                      = 1,1,1,1,1
@@ -885,8 +1080,6 @@ cat >! fdda_real_3 << EOF
  io_form_gfdda                       = 2,
  obs_nudge_opt                       = 1,1,1,1,1
  max_obs                             = 150000,
- nobs_ndg_vars                       = 5,
- nobs_err_flds                       = 9,
  obs_nudge_wind                      = 1,1,1,1,1
  obs_coef_wind                       = 6.E-4,6.E-4,6.E-4,6.E-4,6.E-4
  obs_nudge_temp                      = 1,1,1,1,1
@@ -925,6 +1118,9 @@ EOF
 cat >! phys_b_wave_1c << EOF
  non_hydrostatic                     = .true., .true., .true.,
 EOF
+cat >! phys_b_wave_1d  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
 
 cat >! phys_b_wave_2a << EOF
  diff_opt                            = 1,
@@ -937,6 +1133,9 @@ EOF
 cat >! phys_b_wave_2c << EOF
  non_hydrostatic                     = .false., .false., .false.,
 EOF
+cat >! phys_b_wave_2d  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
 
 cat >! phys_b_wave_3a << EOF
  diff_opt                            = 1,
@@ -948,6 +1147,9 @@ cat >! phys_b_wave_3b << EOF
 EOF
 cat >! phys_b_wave_3c << EOF
  non_hydrostatic                     = .false., .false., .false.,
+EOF
+cat >! phys_b_wave_3d  << EOF
+ input_from_file                     = .true.,.false.,.false.
 EOF
 
 #	Tested options for ideal case em_quarter_ss.  Modifying these
@@ -963,15 +1165,25 @@ cat >! phys_quarter_ss_1b << EOF
  mp_physics                          = 1,     1,     1,
 EOF
 cat >! phys_quarter_ss_1c << EOF
+ moist_adv_opt                       = 1,      1,      1,
+ scalar_adv_opt                      = 1,      1,      1,
+ chem_adv_opt                        = 1,      1,      1,
+ tke_adv_opt                         = 1,      1,      1,
  non_hydrostatic                     = .true., .true., .true.,
 EOF
-cat >! phys_quarter_ss_1d << EOF
+cat >! phys_quarter_ss_1d  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+cat >! phys_quarter_ss_1e << EOF
  periodic_x                          = .false.,.false.,.false.,
  open_xs                             = .true., .false.,.false.,
  open_xe                             = .true., .false.,.false.,
  periodic_y                          = .false.,.false.,.false.,
  open_ys                             = .true., .false.,.false.,
  open_ye                             = .true., .false.,.false.,
+EOF
+cat >! phys_quarter_ss_1f << EOF
+ sf_sfclay_physics                   = 0,     0,     0,
 EOF
 
 cat >! phys_quarter_ss_2a << EOF
@@ -983,15 +1195,25 @@ cat >! phys_quarter_ss_2b << EOF
  mp_physics                          = 1,     1,     1,
 EOF
 cat >! phys_quarter_ss_2c << EOF
+ moist_adv_opt                       = 2,      2,      2,
+ scalar_adv_opt                      = 2,      2,      2,
+ chem_adv_opt                        = 2,      2,      2,
+ tke_adv_opt                         = 2,      2,      2,
  non_hydrostatic                     = .true., .true., .true.,
 EOF
-cat >! phys_quarter_ss_2d << EOF
- periodic_x                          = .true., .false.,.false.,
- open_xs                             = .false.,.false.,.false.,
- open_xe                             = .false.,.false.,.false.,
- periodic_y                          = .true., .false.,.false.,
- open_ys                             = .false.,.false.,.false.,
- open_ye                             = .false.,.false.,.false.,
+cat >! phys_quarter_ss_2d  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+cat >! phys_quarter_ss_2e << EOF
+ periodic_x                          = .false.,.false.,.false.,
+ open_xs                             = .true., .false.,.false.,
+ open_xe                             = .true., .false.,.false.,
+ periodic_y                          = .false.,.false.,.false.,
+ open_ys                             = .true., .false.,.false.,
+ open_ye                             = .true., .false.,.false.,
+EOF
+cat >! phys_quarter_ss_2f << EOF
+ sf_sfclay_physics                   = 1,     1,     1,
 EOF
 
 cat >! phys_quarter_ss_3a << EOF
@@ -1003,15 +1225,25 @@ cat >! phys_quarter_ss_3b << EOF
  mp_physics                          = 2,     2,     2,
 EOF
 cat >! phys_quarter_ss_3c << EOF
+ moist_adv_opt                       = 1,      1,      1,
+ scalar_adv_opt                      = 1,      1,      1,
+ chem_adv_opt                        = 1,      1,      1,
+ tke_adv_opt                         = 1,      1,      1,
  non_hydrostatic                     = .false., .false., .false.,
 EOF
-cat >! phys_quarter_ss_3d << EOF
+cat >! phys_quarter_ss_3d  << EOF
+ input_from_file                     = .true.,.false.,.false.
+EOF
+cat >! phys_quarter_ss_3e << EOF
  periodic_x                          = .true., .false.,.false.,
  open_xs                             = .false.,.false.,.false.,
  open_xe                             = .false.,.false.,.false.,
  periodic_y                          = .true., .false.,.false.,
  open_ys                             = .false.,.false.,.false.,
  open_ye                             = .false.,.false.,.false.,
+EOF
+cat >! phys_quarter_ss_3f << EOF
+ sf_sfclay_physics                   = 1,     1,     1,
 EOF
 
 if      ( $IO_FORM_WHICH[$IO_FORM] == IO ) then
@@ -1044,6 +1276,8 @@ else if ( $dataset == jan00 ) then
 	set filetag_real=2000-01-24_12:00:00
 else if ( $dataset == chem ) then
 	set filetag_real = ( 2006-04-06_00:00:00  2006-04-06_12:00:00 )
+else if ( $dataset == global ) then
+	set filetag_real=2008-01-02_12:00:00
 endif
 
 set filetag_ideal=0001-01-01_00:00:00
@@ -1088,7 +1322,7 @@ if ( $ARCH[1] == AIX ) then
 			echo "See ${DEF_DIR}/wrftest.output and other files in ${DEF_DIR} for test results"
 		endif
 		set CUR_DIR = ${LOADL_STEP_INITDIR}
-	else if   ( `hostname | cut -c 1-2` == bv ) then
+	else if   ( ( `hostname | cut -c 1-2` == bv ) || ( `hostname | cut -c 1-2` == be ) ) then
 		set job_id              = $LSB_JOBID
 		set DEF_DIR             = /ptmp/$user/wrf_regression.${job_id}
 		set TMPDIR              = $DEF_DIR
@@ -1099,11 +1333,11 @@ if ( $ARCH[1] == AIX ) then
 			mkdir -p $DEF_DIR
 			echo "See ${DEF_DIR}/wrftest.output and other files in ${DEF_DIR} for test results"
 		endif
-	else if ( ( ( `hostname | cut -c 1-2` != bs ) && ( `hostname | cut -c 1-2` != bv ) ) && ( ! $?LOADL_JOB_NAME ) ) then
+	else if ( ( ( `hostname | cut -c 1-2` != be ) && ( `hostname | cut -c 1-2` != bv ) ) && ( ! $?LOADL_JOB_NAME ) ) then
 		echo "${0}: ERROR::  This batch script must be submitted via"
 		echo "${0}:          LoadLeveler on an AIX machine\!"
 		exit
-	else if   ( ( `hostname | cut -c 1-2` != bs ) && ( `hostname | cut -c 1-2` != bv ) ) then
+	else if   ( ( `hostname | cut -c 1-2` != be ) && ( `hostname | cut -c 1-2` != bv ) ) then
 		set job_id              = `echo ${LOADL_JOB_NAME} | cut -f2 -d'.'`
 		set DEF_DIR             = /ptmp/$user/wrf_regression.${job_id}
 		set TMPDIR              = $DEF_DIR
@@ -1118,15 +1352,10 @@ if ( $ARCH[1] == AIX ) then
 	endif
 	if ( ! -d $TMPDIR ) mkdir $TMPDIR
 	set MAIL                = /usr/bin/mailx
-	if      ( ( $NESTED == TRUE ) && ( $RSL_LITE != TRUE ) ) then
-		set COMPOPTS	= ( 9 10 4 )
-	else if ( ( $NESTED != TRUE ) && ( $RSL_LITE != TRUE ) ) then
-		set COMPOPTS    = ( 1 2 4 )
-	else if ( ( $NESTED == TRUE ) && ( $RSL_LITE == TRUE ) ) then
-		set COMPOPTS	= ( 9 10 3 )
-	else if ( ( $NESTED != TRUE ) && ( $RSL_LITE == TRUE ) ) then
-		set COMPOPTS	= ( 1 2 3 )
-	endif
+	set COMPOPTS    = ( 1 2 3 )
+	set COMPOPTS_NO_NEST = 0
+	set COMPOPTS_NEST_STATIC = 1
+	set COMPOPTS_NEST_PRESCRIBED = 2
 	set Num_Procs		= 4
 	set OPENMP 		= $Num_Procs
         setenv MP_PROCS  $Num_Procs
@@ -1135,7 +1364,10 @@ if ( $ARCH[1] == AIX ) then
 		set MPIRUNCOMMAND       =  poe 
 	else if ( `hostname | cut -c 1-2` == bv ) then
 		set MPIRUNCOMMAND       =  mpirun.lsf
-	else if ( ( `hostname | cut -c 1-2` != bs ) && ( `hostname | cut -c 1-2` != bv ) ) then
+	else if ( `hostname | cut -c 1-2` == be ) then
+		set MPIRUNCOMMAND       =  /contrib/mpiruns/be/mpirun.lsf
+	else if ( ( `hostname | cut -c 1-2` != bs ) && \
+	          ( `hostname | cut -c 1-2` != bv ) && ( `hostname | cut -c 1-2` != be ) ) then
 		set MPIRUNCOMMAND       =  poe
 	endif
 	if ( $CHEM == TRUE ) then
@@ -1146,8 +1378,8 @@ if ( $ARCH[1] == AIX ) then
 # check compiler version, JM
         lslpp -i | grep xlf | grep ' xlfcmp ' | head -1
         set xlfvers=`lslpp -i | grep xlf | grep ' xlfcmp ' | head -1 | awk '{print $2}' | sed 's/\...*$//'`
-        if ( $xlfvers < 10 ) then
-		set ZAP_OPENMP		= TRUE
+        if ( ( $xlfvers > 9 ) && ( $NESTED == TRUE ) ) then
+#		set ZAP_OPENMP		= TRUE
         endif
 # end of compiler check, JM
 	echo "Compiler version info: " >! version_info
@@ -1157,32 +1389,28 @@ if ( $ARCH[1] == AIX ) then
 	echo "AIX:            " `lslpp -l | grep bos.mp | head -1 | awk '{print $1 "   " $2}'` >>! version_info
 	echo " " >>! version_info
 	setenv MP_SHARED_MEMORY yes
-else if ( $ARCH[1] == OSF1 && $clrm == 0 ) then
-	if      ( ( `hostname` == duku )                && ( -d /data1/$user ) ) then
-		set DEF_DIR	= /data1/$user
-	else if ( ( `hostname | cut -c 1-6` == joshua ) && ( -d /data3/mp/$user ) ) then
-		set DEF_DIR	= /data3/mp/${user}/`hostname`
-		if ( ! -d $DEF_DIR ) mkdir $DEF_DIR
-	else if ( ( `hostname | cut -c 1-6` == joshua ) && ( -d /data6a/md/$user ) ) then
-		set DEF_DIR	= /data6a/md/${user}/`hostname`
-		if ( ! -d $DEF_DIR ) mkdir $DEF_DIR
+else if ( $ARCH[1] == Darwin ) then
+	if      ( ( `hostname` == stink )               && ( -d /stink/gill/Regression_Tests ) ) then
+		set DEF_DIR	= /stink/gill/Regression_Tests/wrf_regression
+		mkdir $DEF_DIR
 	else 
-		set DEF_DIR	= /mmmtmp/${user}/`hostname`
-		if ( ! -d $DEF_DIR ) mkdir $DEF_DIR
+		echo "We at least need a directory from which to do stuff"
+		exit ( 2 ) 
 	endif
 	set TMPDIR              = .
 	set MAIL		= /usr/bin/mailx
-	if      ( ( $NESTED == TRUE ) && ( $RSL_LITE != TRUE ) ) then
-		set COMPOPTS	= ( 2 4 6 )
-	else if ( ( $NESTED != TRUE ) && ( $RSL_LITE != TRUE ) ) then
-		set COMPOPTS    = ( 1 3 6 )
-	else if ( ( $NESTED == TRUE ) && ( $RSL_LITE == TRUE ) ) then
-		set COMPOPTS	= ( 2 4 5 )
-	else if ( ( $NESTED != TRUE ) && ( $RSL_LITE == TRUE ) ) then
-		set COMPOPTS	= ( 1 3 5 )
+	if      ( $LINUX_COMP == PGI ) then
+		set COMPOPTS	= (  1 2  3 )
+		set ZAP_OPENMP	= FALSE
+	else if ( $LINUX_COMP == G95 ) then
+		set COMPOPTS	= ( 13 0 14 )
+		set ZAP_OPENMP	= TRUE
 	endif
+	set COMPOPTS_NO_NEST = 0
+	set COMPOPTS_NEST_STATIC = 1
+	set COMPOPTS_NEST_PRESCRIBED = 2
 	set Num_Procs		= 4
-	set OPENMP 		= $Num_Procs
+	set OPENMP 		= 2
 	cat >! `pwd`/machfile << EOF
 `hostname`
 `hostname`
@@ -1192,18 +1420,24 @@ EOF
         set Mach = `pwd`/machfile
 	set SERIALRUNCOMMAND	= 
 	set OMPRUNCOMMAND	= 
-	set MPIRUNCOMMAND 	= ( /usr/local/mpich/bin/mpirun -np $Num_Procs -machinefile $Mach )
-	if ( $CHEM == TRUE ) then
-		set ZAP_OPENMP		= TRUE
-	else if ( $CHEM == FALSE ) then
-		set ZAP_OPENMP		= FALSE
-	endif
 	echo "Compiler version info: " >! version_info
-	f90 -version >>&! version_info
+	if      ( $LINUX_COMP == PGI ) then
+		set MPIRUNCOMMAND 	= ( /usr/local/mpich2-1.0.6p1-pgi/bin/mpirun -np $Num_Procs )
+		pgf90 -V | head -2 | tail -1 >>&! version_info
+	else if ( $LINUX_COMP == G95 ) then
+		set MPIRUNCOMMAND 	= ( /stink/gill/local/bin/mpirun -np $Num_Procs )
+		g95 -v |& grep gcc >>&! version_info
+	endif
 	echo " " >>! version_info
 	echo "OS version info: " >>! version_info
 	uname -a >>&! version_info
 	echo " " >>! version_info
+	ps -A | grep mpd | grep -v grep >& /dev/null
+	set ok = $status
+	if ( $ok != 0 ) then
+		echo starting an mpd process
+		mpd &
+	endif
 else if ( $ARCH[1] == OSF1 && $clrm == 1 ) then
 	set DEF_DIR		= /`hostname | cut -d. -f1`/$user
 	set TMPDIR		= /mmmtmp/$user
@@ -1454,6 +1688,14 @@ banner 3
 #set ans = "$<"
 #DAVE###################################################
 
+if ( $FDDA == TRUE ) then
+	if      ( ( $PHYSOPTS_FDDA == GRID ) && ( $ZAP_OPENMP == FALSE ) ) then
+		set ZAP_OPENMP = FALSE
+	else if ( $PHYSOPTS_FDDA == BOTH ) then
+		set ZAP_OPENMP = TRUE
+	endif
+endif
+
 #	First of all, in which particular directory do we start.
 
 cd $DEF_DIR
@@ -1486,8 +1728,8 @@ if      ( $acquire_from == "cvs" ) then
 	#	Checkout the most recent version of WRF from the NCAR cvs repository,
 	#	and pick up the required input data from the anonymous ftp site.
 
-	cvs checkout -D $thedate WRFV2
-	find ./WRFV2 -exec touch \{\} \;
+	cvs checkout -D $thedate WRFV3
+	find ./WRFV3 -exec touch \{\} \;
 	ftp -n ftp.ucar.edu < ftp_script_data
 
 
@@ -1497,7 +1739,7 @@ else if ( $acquire_from == "filearg" ) then
 	#	the required input data files from the ftp site.
 
 	tar xvf $thefile
-	cd WRFV2
+	cd WRFV3
 	clean -a
 	cd ..
 	ftp -n ftp.ucar.edu < ftp_script_data
@@ -1510,13 +1752,15 @@ else if ( $acquire_from == "environment" ) then
 
 endif
 
-#	And we can stick the input data where we want, the WRFV2 directory has been created.
+#	And we can stick the input data where we want, the WRFV3 directory has been created.
 
-( cd WRFV2/test/em_real  ; ln -sf $thedataem/* . ) 
-( cd WRFV2/test/nmm_real ; ln -s $thedatanmm/wrf_real* . ; cp $thedatanmm/namelist.input.regtest . )
+( cd WRFV3/test/em_real  ; ln -sf $thedataem/* . ) 
+#( cd WRFV3/test/nmm_real ; ln -s $thedatanmm/wrf_real* . ; cp $thedatanmm/namelist.input.regtest . )
+( cd WRFV3/test/nmm_real ; ln -s $thedatanmm/wrf_real* . ; \
+  sed '/dyn_opt/d' $thedatanmm/namelist.input.regtest >! ./namelist.input.regtest )
 #DAVE###################################################
-( cd WRFV2/test/em_real ; ls -ls )
-( cd WRFV2/test/nmm_real ; ls -ls )
+( cd WRFV3/test/em_real ; ls -ls )
+( cd WRFV3/test/nmm_real ; ls -ls )
 banner 4
 #set ans = "$<"
 #DAVE###################################################
@@ -1524,7 +1768,7 @@ banner 4
 #	John-specific stuff for maple is the else; part of the "using service machines".
 
 if ( ! $clrm ) then
-	pushd WRFV2
+	pushd WRFV3
 else
 	if ( ! -d $TMPDIR ) then
 		echo something wrong 1
@@ -1534,8 +1778,8 @@ else
 		/bin/rm -fr $TMPDIR/RUN/*
 	endif
 	if ( -d $TMPDIR/RUN ) then
-		tar cf - ./WRFV2/test ./WRFV2/main | ( cd $TMPDIR/RUN ; tar xvf - )
-		pushd WRFV2
+		tar cf - ./WRFV3/test ./WRFV3/main | ( cd $TMPDIR/RUN ; tar xvf - )
+		pushd WRFV3
 	else
 		echo something wrong 2
 		exit
@@ -1545,11 +1789,15 @@ endif
 #	Here we initialize our output message.
 
 if ( -e ${DEF_DIR}/wrftest.output ) rm ${DEF_DIR}/wrftest.output
-echo "Architecute: $ARCH[1]      machine: `hostname`" >>! ${DEF_DIR}/wrftest.output
-echo "WRFV2 source from: $acquire_from " >>! ${DEF_DIR}/wrftest.output
+echo "Architecture $ARCH[1]      machine: `hostname`" >>! ${DEF_DIR}/wrftest.output
+echo "WRFV3 source from: $acquire_from " >>! ${DEF_DIR}/wrftest.output
 echo "Number of OpenMP processes to use: $OPENMP" >>! ${DEF_DIR}/wrftest.output
 echo "Number of MPI    processes to use: $Num_Procs" >>! ${DEF_DIR}/wrftest.output
-set name = ( `grep ^${user}: /etc/passwd | cut -d: -f5` ) 
+if ( $ARCH[1] == Darwin ) then
+	set name = `finger $user | grep "Name:" | awk '{print $4 " " $5}'`
+else
+	set name = ( `grep ^${user}: /etc/passwd | cut -d: -f5` ) 
+endif
 echo "Test conducted by $name" >>! ${DEF_DIR}/wrftest.output
 echo " " >>! ${DEF_DIR}/wrftest.output
 echo "Test run from directory ${CUR_DIR}" >>! ${DEF_DIR}/wrftest.output
@@ -1574,23 +1822,25 @@ if ( $REAL8 == TRUE ) then
 	echo "Floating point precision is 8-bytes" >>! ${DEF_DIR}/wrftest.output
 	echo " " >>! ${DEF_DIR}/wrftest.output
 endif
-if ( $CHEM == TRUE ) then
-	echo "WRF_CHEM tests run for em_real core only, no other cores run" >>! ${DEF_DIR}/wrftest.output
+if      ( ( $CHEM == TRUE ) && ( $KPP != TRUE ) ) then
+	echo "WRF_CHEM tests run for em_real core only" >>! ${DEF_DIR}/wrftest.output
+	echo " " >>! ${DEF_DIR}/wrftest.output
+else if ( ( $CHEM == TRUE ) && ( $KPP == TRUE ) ) then
+	echo "WRF_CHEM KPP tests run for em_real core only" >>! ${DEF_DIR}/wrftest.output
 	echo " " >>! ${DEF_DIR}/wrftest.output
 endif
-if ( $RSL_LITE == TRUE ) then
-	echo "Parallel DM portion using RSL_LITE build option" >>! ${DEF_DIR}/wrftest.output
+if ( $ADAPTIVE == TRUE ) then
+	echo "Adaptive time step for em_real core only" >>! ${DEF_DIR}/wrftest.output
 	echo " " >>! ${DEF_DIR}/wrftest.output
-else if ( $RSL_LITE != TRUE ) then
-	echo "Parallel DM portion using RSL build option" >>! ${DEF_DIR}/wrftest.output
+endif
+if ( $GLOBAL == TRUE ) then
+	echo "Global tests run for em_real core only" >>! ${DEF_DIR}/wrftest.output
 	echo " " >>! ${DEF_DIR}/wrftest.output
 endif
 if ( $ESMF_LIB == TRUE ) then
 	echo "A separately installed version of the latest ESMF library" >>! ${DEF_DIR}/wrftest.output
 	echo "(NOT the ESMF library included in the WRF tarfile) will" >>! ${DEF_DIR}/wrftest.output
 	echo "be used for MPI tests" >>! ${DEF_DIR}/wrftest.output
-	echo "Setting ESMFLIB = ${ESMFLIBSAVE}" >>! ${DEF_DIR}/wrftest.output
-	echo "Setting ESMFINC = ${ESMFINCSAVE}" >>! ${DEF_DIR}/wrftest.output
 	echo " " >>! ${DEF_DIR}/wrftest.output
 endif
 if ( $QUILT == TRUE ) then
@@ -1598,8 +1848,13 @@ if ( $QUILT == TRUE ) then
 	echo " " >>! ${DEF_DIR}/wrftest.output
 endif
 if ( $FDDA == TRUE ) then
-	echo "Running FDDA tests (grid=1, obs=2, grid+obs=3)" >>! ${DEF_DIR}/wrftest.output
-	echo " " >>! ${DEF_DIR}/wrftest.output
+	if      ( $PHYSOPTS_FDDA == GRID ) then
+		echo "Running FDDA tests (grid nudging only)" >>! ${DEF_DIR}/wrftest.output
+		echo " " >>! ${DEF_DIR}/wrftest.output
+	else if ( $PHYSOPTS_FDDA == BOTH ) then
+		echo "Running FDDA tests (grid=1, obs=2, grid+obs=3)" >>! ${DEF_DIR}/wrftest.output
+		echo " " >>! ${DEF_DIR}/wrftest.output
+	endif
 endif
 if ( $GENERATE_BASELINE != FALSE ) then
 	echo "WRF output will be archived in baseline directory ${GENERATE_BASELINE} for some tests" >>! \
@@ -1648,9 +1903,12 @@ banner 5
 		setenv WRF_CHEM 0
 		set PHYSOPTS =	( 1 )
 		set first_time_in = FALSE
-	else if ( ( $CHEM == TRUE ) && ( ${#CORES} == 2 ) && ( $first_time_in != TRUE ) ) then
+	else if ( ( $CHEM == TRUE ) && ( $KPP != TRUE ) && ( ${#CORES} == 2 ) && ( $first_time_in != TRUE ) ) then
 		setenv WRF_CHEM 1
 		set PHYSOPTS =	( 2 3 4 5 6 )
+	else if ( ( $CHEM == TRUE ) && ( $KPP == TRUE ) && ( ${#CORES} == 2 ) && ( $first_time_in != TRUE ) ) then
+		setenv WRF_CHEM 1
+		set PHYSOPTS =	( 2 3 )
 	endif
 
 	#	Cores to test.
@@ -1708,22 +1966,22 @@ banner 6
 			if      ( ( $compopt == $COMPOPTS[1] ) && \
                                   ( -e main/wrf_${core}.exe.$compopt ) && \
                                   ( -e main/real_${core}.exe.1 ) && \
-                                  ( -e ${DEF_DIR}/regression_test/WRFV2/external/$IO_FORM_NAME[$IO_FORM]/diffwrf ) ) then
+                                  ( -e ${DEF_DIR}/regression_test/WRFV3/external/$IO_FORM_NAME[$IO_FORM]/diffwrf ) ) then
 				goto GOT_THIS_EXEC
 			else if ( ( $compopt != $COMPOPTS[1] ) && \
                                   ( -e main/wrf_${core}.exe.$compopt ) && \
-                                  ( -e ${DEF_DIR}/regression_test/WRFV2/external/$IO_FORM_NAME[$IO_FORM]/diffwrf ) ) then
+                                  ( -e ${DEF_DIR}/regression_test/WRFV3/external/$IO_FORM_NAME[$IO_FORM]/diffwrf ) ) then
 				goto GOT_THIS_EXEC
 			endif
 		else
 			if      ( ( $compopt == $COMPOPTS[1] ) && \
                                   ( -e main/wrf_${core}.exe.$compopt ) && \
                                   ( -e main/ideal_${core}.exe.1 ) && \
-                                  ( -e ${DEF_DIR}/regression_test/WRFV2/external/$IO_FORM_NAME[$IO_FORM]/diffwrf ) ) then
+                                  ( -e ${DEF_DIR}/regression_test/WRFV3/external/$IO_FORM_NAME[$IO_FORM]/diffwrf ) ) then
 				goto GOT_THIS_EXEC
 			else if ( ( $compopt != $COMPOPTS[1] ) && \
                                   ( -e main/wrf_${core}.exe.$compopt ) && \
-                                  ( -e ${DEF_DIR}/regression_test/WRFV2/external/$IO_FORM_NAME[$IO_FORM]/diffwrf ) ) then
+                                  ( -e ${DEF_DIR}/regression_test/WRFV3/external/$IO_FORM_NAME[$IO_FORM]/diffwrf ) ) then
 				goto GOT_THIS_EXEC
 			endif
 		endif
@@ -1743,6 +2001,8 @@ banner 6
 				echo "(NOT the ESMF library included in the WRF tarfile) is" >>! ${DEF_DIR}/wrftest.output
 				echo "being used for this test of $core parallel $compopt..." >>! ${DEF_DIR}/wrftest.output
 				set esmf_lib_str = "using separate ESMF library"
+				echo "Setting ESMFLIB = ${ESMFLIBSAVE}" >>! ${DEF_DIR}/wrftest.output
+				echo "Setting ESMFINC = ${ESMFINCSAVE}" >>! ${DEF_DIR}/wrftest.output
 				setenv ESMFLIB $ESMFLIBSAVE
 				setenv ESMFINC $ESMFINCSAVE
 			else
@@ -1757,56 +2017,51 @@ banner 7
 #set ans = "$<"
 #DAVE###################################################
 		./clean -a
-		echo $compopt | ./configure
-	
-		#	Decide whether this a bit-for-bit run or an fully optimized run.  We are just
-		#	tinkering with the configure.wrf file optimization here.
+
+		#	Edit build command for either bit-wise comparison or full optimization.
 
 		if ( $REG_TYPE == BIT4BIT ) then
-			if ( `uname` == AIX ) then
-				if ( ( $compopt == $COMPOPTS[1] ) || ( $compopt == $COMPOPTS[3] ) ) then
-					sed -e '/^OMP/d' -e '/^FCOPTIM/d' -e '/^FCDEBUG/s/#/-O0 /g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-				else
-					sed -e '/^OMP/s/noauto/noauto:noopt/' \
-					    -e '/^FCOPTIM/d' -e '/^FCDEBUG/s/#/-O0 /g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-				endif
-				sed -e 's/-lmassv//g'  -e 's/-lmass//g'  -e 's/-DNATIVE_MASSV//g' -e '/^FCBASEOPTS/s/#//g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-			else if ( `uname` == Linux ) then
-				if ( ( $compopt == $COMPOPTS[1] ) || ( $compopt == $COMPOPTS[3] ) ) then
-					sed -e '/^OMP/d' -e '/^FCOPTIM/d' -e '/^FCDEBUG/s/#-g/-g/g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-				else
-					sed              -e '/^FCOPTIM/d' -e '/^FCDEBUG/s/#-g/-g/g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-				endif
-				sed -e '/^#PGI	/s/#PGI	/	/g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-			else if ( `uname` == OSF1 ) then
-		 		if ( ( $compopt == $COMPOPTS[1] ) || ( $compopt == $COMPOPTS[3] ) ) then
-					sed -e '/^OMP/d' -e '/^FCOPTIM/d' -e '/^FCDEBUG/s/# -g/-O0/g' -e '/^FCDEBUG/s/# -O0/-O0/g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-				else
-					sed              -e '/^FCOPTIM/d' -e '/^FCDEBUG/s/# -g/-O0/g' -e '/^FCDEBUG/s/# -O0/-O0/g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-				endif
+			set DEBUG_FLAG = -d
+		else
+			set DEBUG_FLAG =
+		endif
+
+		#	Edit build command.  If this is a nested run, then either static nest 
+		#	(idealized) or prescribed move (em_real).  If not nested, then shut off
+		#	the nesting build option.
+
+		if ( $NESTED == TRUE ) then
+			if ( $core ==  em_real ) then
+				set compopts_nest = $COMPOPTS_NEST_PRESCRIBED
 			else
-		 		if ( ( $compopt == $COMPOPTS[1] ) || ( $compopt == $COMPOPTS[3] ) ) then
-					sed -e '/^OMP/d' -e '/^FCOPTIM/d' -e '/^FCDEBUG/s/#//g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-				else
-					sed              -e '/^FCOPTIM/d' -e '/^FCDEBUG/s/#//g' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-				endif
+				set compopts_nest = $COMPOPTS_NEST_STATIC
 			endif
+		else
+			set compopts_nest = $COMPOPTS_NO_NEST
 		endif
-
-		#	We also need to modify the configure.wrf file based on whether or not there is
-		#	going to be nesting.  All regtest em_real nesting runs utilize a moving nest.  All of the
-		#	ARCHFLAGS macros need to have -DMOVE_NESTS added to the list of options. 
-
-		if ( ( $NESTED == TRUE ) && ( $core == em_real ) ) then
-			sed -e '/^ARCHFLAGS/s/=/=	-DMOVE_NESTS/' ./configure.wrf >! foo ; /bin/mv foo configure.wrf
-		endif
-
+			
+		./configure $DEBUG_FLAG << EOF
+$compopt
+$compopts_nest
+EOF
+cp configure.wrf configure.wrf.core=${core}_build=${compopt}
+	
 		#	The configure.wrf file needs to be adjusted as to whether we are requesting real*4 or real*8
 		#	as the default floating precision.
 
 		if ( $REAL8 == TRUE ) then
 			sed -e '/^RWORDSIZE/s/\$(NATIVE_RWORDSIZE)/8/'  configure.wrf > ! foo ; /bin/mv foo configure.wrf
 		endif
+	
+		#	Fix the OpenMP default for IBM regression testing - noopt required for bit-wise comparison.
+
+		if ( ( $compopt == $COMPOPTS[2] ) && ( `uname` == AIX ) ) then
+			sed -e '/^OMP/s/-qsmp=noauto/-qsmp=noauto:noopt/'  configure.wrf > ! foo ; /bin/mv foo configure.wrf
+		endif
+
+		#	Save the configure file.
+
+		cp configure.wrf configure.wrf.core=${core}_build=${compopt}
 
 #DAVE###################################################
 echo configure built with optim mods removed, ready to compile
@@ -1818,10 +2073,10 @@ banner 8
 		# It works around the annoying fact that in OSF1 $(PWD) does 
 		# not change during execution of regtest.csh, despite the "cd" 
 		# and "pushd" commands.  
-		setenv WRF_SRC_ROOT_DIR "${DEF_DIR}/regression_test/WRFV2"
+		setenv WRF_SRC_ROOT_DIR "${DEF_DIR}/regression_test/WRFV3"
 		#	Build this executable
 		
-		./compile $core
+		./compile $core >&! compile_${core}_build=${compopt}.log
 #DAVE###################################################
 echo compile done
 banner 9
@@ -1842,7 +2097,7 @@ banner 9
 		endif
 
                 if ( ! -x external/io_netcdf/diffwrf ) set ok = 1
-                if ( ! -x external/io_int/diffwrf ) set ok = 1
+#	if ( ! -x external/io_int/diffwrf ) set ok = 1
 
 		if ( $ok != 0 ) then
 			echo "SUMMARY compilation    for $core           parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
@@ -1870,13 +2125,13 @@ banner 10
 		GOT_THIS_EXEC:
 
 		if ( $clrm ) then
-			cp main/*exe* $TMPDIR/RUN/WRFV2/main
+			cp main/*exe* $TMPDIR/RUN/WRFV3/main
 		endif
 	
 	end
 
 	if ( $clrm ) then
-		pushd $TMPDIR/RUN/WRFV2
+		pushd $TMPDIR/RUN/WRFV3
 	endif
 	
 	#	We have all of the executables built, now we run'em.  This is a loop
@@ -1937,17 +2192,18 @@ banner 12
 
 				if ( $CHEM != TRUE ) then
 					cp ${CUR_DIR}/phys_real_${phys_option} phys_opt
-					if ( ( $RSL_LITE == TRUE ) && ( $NESTED != TRUE ) ) then
+					if ( $NESTED != TRUE ) then
 						cp ${CUR_DIR}/dyn_real_${phys_option} dyn_opt
 					else
 						cp ${CUR_DIR}/dyn_real_SAFE dyn_opt
 					endif
 					cp ${CUR_DIR}/time_real_${phys_option} time_opt
 					cp ${CUR_DIR}/dom_real dom_real
+					cp ${CUR_DIR}/nest_real_${phys_option} nest_input_opt
+					cp ${CUR_DIR}/damp_real_${phys_option} damp_real
 					if ( -e fdda_opt ) rm fdda_opt
 					cat " grid_fdda=0" > fdda_opt
 					if ( -e fdda_time ) rm fdda_time
-					cat " auxinput4_interval=0" > fdda_time
 
 					if ( $FDDA == TRUE ) then
 						cp ${CUR_DIR}/fdda_real_${phys_option} fdda_opt
@@ -1978,9 +2234,11 @@ EOF
 	
 					cp ${CUR_DIR}/io_format io_format
 					sed -e '/^ mp_physics/,/ensdim/d' -e '/^ &physics/r ./phys_opt' \
-					    -e '/^ pd_moist/,/pd_tke/d' -e '/^ v_sca_adv_order/r ./dyn_opt' \
+					    -e '/^ moist_adv_opt/,/scalar_adv_opt/d' -e '/^ non_hydrostatic/r ./dyn_opt' \
 					    -e '/^ auxinput1_inname/d' -e '/^ debug_level/r ./time_opt' \
+					    -e '/^ input_from_file/d' -e '/^ interval_seconds/r ./nest_input_opt' \
 					    -e '/^ time_step /,/^ smooth_option/d' -e '/^ &domains/r ./dom_real' \
+					    -e '/^ damp_opt /,/^ dampcoef/d' -e '/^ base_temp/r ./damp_real' \
 					    -e '/^ io_form_history /,/^ io_form_boundary/d' -e '/^ restart_interval/r ./io_format' \
 					    -e 's/ frames_per_outfile *= [0-9][0-9]*/ frames_per_outfile = 200/g' \
 					    -e 's/ run_days *= [0-9][0-9]*/ run_days = 0/g' \
@@ -1988,19 +2246,28 @@ EOF
 					    -e 's/ run_minutes *= [0-9][0-9]*/ run_minutes = 0/g' \
 					    -e '/^ &fdda/r fdda_opt' \
 					    -e '/^ debug_level/r fdda_time' \
+					    -e '/dyn_opt/d' \
 					namelist.input.temp >! namelist.input
 				
 				#	The chem run has its own namelist, due to special input files (io_form not tested for chem)
 
 				else if ( $CHEM == TRUE ) then
-					cp namelist.input.chem_test_${phys_option} namelist.input
-					if ( -e wrf_real_input_em.d01.${filetag} ) then
-						\rm wrf_real_input_em.d01.*
+					if ( ( $KPP == TRUE ) && ( $phys_option >= 3 ) ) then
+						sed -e '/dyn_opt/d' \
+						    -e 's/^ chem_opt *= [0-9]/ chem_opt = '${CHEM_OPT}'/' \
+						    namelist.input.chem_test_${phys_option} >! namelist.input
+					else
+						sed -e '/dyn_opt/d' \
+						    namelist.input.chem_test_${phys_option} >! namelist.input
+					endif
+
+					if ( -e met_em.d01.${filetag} ) then
+						\rm met_em.d01.*
 					endif
 					if ( ${phys_option} <= 3 ) then
-						ln -s 00z/wrf_real* .
+						ln -s 00z/met_em* .
 					else
-						ln -s 12z/wrf_real* .
+						ln -s 12z/met_em* .
 					endif
 
 				endif
@@ -2030,7 +2297,7 @@ banner 13
 #DAVE###################################################
 #DAVE###################################################
 echo skipped link of data files, we push them elsewhere
-ls -ls wrf_real*
+ls -ls met_em*
 banner 14
 #set ans = "$<"
 #DAVE###################################################
@@ -2066,13 +2333,26 @@ banner 15
 
 					#	Did making the IC BC files work?
 
-					if ( ( -e wrfinput_d01 ) && ( -e wrfbdy_d01 ) && ( $success == 0 ) ) then
-						echo "SUMMARY generate IC/BC for $core physics $phys_option parallel $compopt $esmf_lib_str PASS" >>! ${DEF_DIR}/wrftest.output
-						echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
-					else
-						echo "SUMMARY generate IC/BC for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
-						$MAIL -s "WRF FAIL making IC/BC $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-						exit ( 4 )
+					if ( $GLOBAL == FALSE ) then
+						if ( ( -e wrfinput_d01 ) && ( -e wrfbdy_d01 ) && ( $success == 0 ) ) then
+							echo "SUMMARY generate IC/BC for $core physics $phys_option parallel $compopt $esmf_lib_str PASS" >>! ${DEF_DIR}/wrftest.output
+							echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
+						else
+							echo "SUMMARY generate IC/BC for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+							$MAIL -s "WRF FAIL making IC/BC $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
+							if ( $KEEP_ON_RUNNING == FALSE ) exit ( 4 )
+							echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
+						endif
+					else if ( $GLOBAL == TRUE ) then
+						if ( ( -e wrfinput_d01 ) && ( $success == 0 ) ) then
+							echo "SUMMARY generate IC for $core physics $phys_option parallel $compopt $esmf_lib_str PASS" >>! ${DEF_DIR}/wrftest.output
+							echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
+						else
+							echo "SUMMARY generate IC for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+							echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
+							$MAIL -s "WRF FAIL making IC $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
+							if ( $KEEP_ON_RUNNING == FALSE ) exit ( 41 )
+						endif
 					endif
 #DAVE###################################################
 echo IC BC must be OK
@@ -2115,9 +2395,9 @@ banner 16
 						setenv XLSMPOPTS "parthds=1"
 					endif
 					if ( $NESTED == TRUE ) then
-						$SERIALRUNCOMMAND ../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}.exe
+						$SERIALRUNCOMMAND ../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}
 					else if ( $NESTED != TRUE ) then
-						../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}.exe
+						../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}
 					endif
 				else if ( $compopt == $COMPOPTS[2] ) then
 					setenv OMP_NUM_THREADS $OPENMP
@@ -2125,9 +2405,9 @@ banner 16
 						setenv XLSMPOPTS "parthds=${OPENMP}"
 					endif
 					if ( $NESTED == TRUE ) then
-						$OMPRUNCOMMAND ../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}.exe
+						$OMPRUNCOMMAND ../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}
 					else if ( $NESTED != TRUE ) then
-						../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}.exe
+						../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}
 					endif
 				else if ( $compopt == $COMPOPTS[3] ) then
 					setenv OMP_NUM_THREADS 1
@@ -2135,7 +2415,7 @@ banner 16
 						setenv XLSMPOPTS "parthds=1"
 					endif
 					$MPIRUNCOMMAND ../../main/wrf_${core}.exe.$compopt $MPIRUNCOMMANDPOST
-					mv rsl.error.0000 print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}.exe
+					mv rsl.error.0000 print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}
 				endif
 #DAVE###################################################
 echo ran wrf fcst compopt = $compopt
@@ -2143,7 +2423,7 @@ banner 17
 #set ans = "$<"
 #DAVE###################################################
 
-				grep "SUCCESS COMPLETE" print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}.exe
+				grep "SUCCESS COMPLETE" print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}
 				set success = $status
 
 				#	Did making the forecast work, by that, we mean "is there an output file created", and "are there 2 times periods".
@@ -2183,13 +2463,15 @@ banner 17
 						echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 					else
 						echo "SUMMARY generate FCST  for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+						echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 						$MAIL -s "WRF FAIL FCST $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-						exit ( 5 )
+						if ( $KEEP_ON_RUNNING == FALSE ) exit ( 5 )
 					endif
 				else
 					echo "SUMMARY generate FCST  for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+					echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 					$MAIL -s "WRF FAIL FCST $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-					exit ( 6 )
+					if ( $KEEP_ON_RUNNING == FALSE ) exit ( 6 )
 				endif
 #DAVE###################################################
 echo success or failure of fcst
@@ -2285,8 +2567,9 @@ banner 19c
 				echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 			else
 				echo "SUMMARY generate IC/BC for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+				echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 				$MAIL -s "WRF FAIL making IC/BC $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-				exit ( 4 )
+				if ( $KEEP_ON_RUNNING == FALSE ) exit ( 4 )
 			endif
 #DAVE###################################################
 echo IC BC must be OK
@@ -2357,8 +2640,8 @@ banner 22
 #DAVE###################################################
 					@ tries = $tries + 1
 					$RUNCOMMAND ../../main/wrf_${core}.exe.$compopt $MPIRUNCOMMANDPOST
-					mv rsl.error.0000 print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}.exe_${n}p
-					grep "SUCCESS COMPLETE" print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}.exe_${n}p
+					mv rsl.error.0000 print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}_${n}p
+					grep "SUCCESS COMPLETE" print.out.wrf_${core}_Phys=${phys_option}_Parallel=${compopt}_${n}p
 					set success = $status
 					set ok = $status
 					if ( ( -e wrfout_d01_${filetag} ) && ( $success == 0 ) ) then
@@ -2391,13 +2674,15 @@ banner 22
 							set tries=2  # success, bail from loop
 						else
 							echo "SUMMARY generate FCST  for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+							echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 							$MAIL -s "WRF FAIL FCST $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-							if ( $tries == 2 ) exit ( 5 )
+							if ( if ( $KEEP_ON_RUNNING == FALSE ) && ( $tries == 2 ) )exit ( 5 )
 						endif
 					else
 						echo "SUMMARY generate FCST  for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+						echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 						$MAIL -s "WRF FAIL FCST $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-						if ( $tries == 2 ) exit ( 6 )
+						if ( if ( $KEEP_ON_RUNNING == FALSE ) && ( $tries == 2 ) ) exit ( 6 )
 					endif
 					mv wrfout_d01_${filetag} $TMPDIR/wrfout_d01_${filetag}.${core}.${phys_option}.${compopt}_${n}p
 #DAVE###################################################
@@ -2456,11 +2741,14 @@ banner 25
 					cp ${CUR_DIR}/phys_quarter_ss_${phys_option}a phys_tke
 					cp ${CUR_DIR}/phys_quarter_ss_${phys_option}b phys_mp
 					cp ${CUR_DIR}/phys_quarter_ss_${phys_option}c phys_nh
-					cp ${CUR_DIR}/phys_quarter_ss_${phys_option}d phys_bc
+					cp ${CUR_DIR}/phys_quarter_ss_${phys_option}d phys_nest
+					cp ${CUR_DIR}/phys_quarter_ss_${phys_option}e phys_bc
+					cp ${CUR_DIR}/phys_quarter_ss_${phys_option}f phys_sfclay
 				else if ( $core == em_b_wave     ) then
 					cp ${CUR_DIR}/phys_b_wave_${phys_option}a     phys_tke
 					cp ${CUR_DIR}/phys_b_wave_${phys_option}b     phys_mp
 					cp ${CUR_DIR}/phys_b_wave_${phys_option}c     phys_nh
+					cp ${CUR_DIR}/phys_b_wave_${phys_option}d     phys_nest
 				endif
 
 				cp ${CUR_DIR}/io_format io_format
@@ -2474,7 +2762,8 @@ banner 25
 						    -e '/^ diff_opt/d' -e '/^ km_opt/d' -e '/^ damp_opt/d' -e '/^ rk_ord/r ./phys_tke' 		\
  		                                    -e '/^ io_form_history /,/^ io_form_boundary/d' -e '/^ restart_interval/r ./io_format'	\
 						    -e '/^ mp_physics/d' -e '/^ &physics/r ./phys_mp' 						\
-						    -e '/^ non_hydrostatic/d' -e '/^ epssm/r ./phys_nh' 					\
+						    -e '/^ sf_sfclay_physics/d' -e '/^ radt/r ./phys_sfclay' 					\
+						    -e '/^ moist_adv_opt/,/^ non_hydrostatic/d' -e '/^ v_sca_adv_order/r ./phys_nh' 					\
 						    -e '/^ periodic_x /,/^ open_ye/d'								\
 						    -e '/^ &bdy_control/r ./phys_bc' 								\
 						    -e '/^ max_dom/d' -e '/^ time_step_fract_den/r ./dom_ideal'					\
@@ -2487,7 +2776,7 @@ banner 25
 						    -e '/^ diff_opt/d' -e '/^ km_opt/d' -e '/^ damp_opt/d' -e '/^ rk_ord/r ./phys_tke' 		\
  		                                    -e '/^ io_form_history /,/^ io_form_boundary/d' -e '/^ restart_interval/r ./io_format'	\
 						    -e '/^ mp_physics/d' -e '/^ &physics/r ./phys_mp' 						\
-						    -e '/^ non_hydrostatic/d' -e '/^ epssm/r ./phys_nh' 					\
+						    -e '/^ non_hydrostatic/d' -e '/^ v_sca_adv_order/r ./phys_nh' 				\
 						    -e '/^ max_dom/d' -e '/^ time_step_fract_den/r ./dom_ideal'					\
 						./namelist.input.template >! namelist.input
 					endif
@@ -2500,7 +2789,8 @@ banner 25
 						    -e '/^ diff_opt/d' -e '/^ km_opt/d' -e '/^ damp_opt/d' -e '/^ rk_ord/r ./phys_tke' 		\
  		                                    -e '/^ io_form_history /,/^ io_form_boundary/d' -e '/^ restart_interval/r ./io_format'	\
 						    -e '/^ mp_physics/d' -e '/^ &physics/r ./phys_mp' 						\
-						    -e '/^ non_hydrostatic/d' -e '/^ epssm/r ./phys_nh' 					\
+						    -e '/^ sf_sfclay_physics/d' -e '/^ radt/r ./phys_sfclay' 					\
+						    -e '/^ moist_adv_opt/,/^ non_hydrostatic/d' -e '/^ v_sca_adv_order/r ./phys_nh' 					\
 						    -e '/^ periodic_x/d' -e '/^ open_xs/d' -e '/^ open_xe/d' 					\
 						    -e '/^ periodic_y/d' -e '/^ open_ys/d' -e '/^ open_ye/d' 					\
 						    -e '/^ &bdy_control/r ./phys_bc' 								\
@@ -2514,7 +2804,7 @@ banner 25
 						    -e '/^ diff_opt/d' -e '/^ km_opt/d' -e '/^ damp_opt/d' -e '/^ rk_ord/r ./phys_tke' 		\
  		                                    -e '/^ io_form_history /,/^ io_form_boundary/d' -e '/^ restart_interval/r ./io_format'	\
 						    -e '/^ mp_physics/d' -e '/^ &physics/r ./phys_mp' 						\
-						    -e '/^ non_hydrostatic/d' -e '/^ epssm/r ./phys_nh' 					\
+						    -e '/^ non_hydrostatic/d' -e '/^ v_sca_adv_order/r ./phys_nh' 					\
 						    -e '/^ max_dom/d' -e '/^ time_step_fract_den/r ./dom_ideal'					\
 						./namelist.input.template >! namelist.input
 					endif
@@ -2534,6 +2824,8 @@ banner 25
 						echo "NOTE  one I/O quilt server enabled for $core physics $phys_option parallel $compopt..." >>! ${DEF_DIR}/wrftest.output
 					endif
 				endif
+
+				/bin/cp namelist.input $TMPDIR/namelist.input.$core.${phys_option}.$compopt
 #DAVE###################################################
 echo built namelist 
 ls -ls namelist.input
@@ -2554,7 +2846,7 @@ banner 26
 					../../main/ideal_${core}.exe.1 >! print.out.ideal_${core}_Parallel=${compopt}
 #DAVE###################################################
 echo ran ideal
-ls -ls wrfiput*
+ls -ls wrfinput*
 banner 27
 #set ans = "$<"
 #DAVE###################################################
@@ -2569,8 +2861,9 @@ banner 27
 						echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 					else
 						echo "SUMMARY generate IC/BC for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+						echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 						$MAIL -s "WRF FAIL making IC/BC $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-						exit ( 7 )
+						if ( $KEEP_ON_RUNNING == FALSE ) exit ( 7 )
 					endif
 				endif
 		
@@ -2584,9 +2877,9 @@ banner 27
 						setenv XLSMPOPTS "parthds=1"
 					endif
 					if ( $NESTED == TRUE ) then
-						$SERIALRUNCOMMAND ../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Parallel=${compopt}.exe
+						$SERIALRUNCOMMAND ../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Parallel=${compopt}
 					else if ( $NESTED != TRUE ) then
-						../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Parallel=${compopt}.exe
+						../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Parallel=${compopt}
 					endif
 				else if ( $compopt == $COMPOPTS[2] ) then
 					setenv OMP_NUM_THREADS $OPENMP
@@ -2594,9 +2887,9 @@ banner 27
 						setenv XLSMPOPTS "parthds=${OPENMP}"
 					endif
 					if ( $NESTED == TRUE ) then
-						$OMPRUNCOMMAND ../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Parallel=${compopt}.exe
+						$OMPRUNCOMMAND ../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Parallel=${compopt}
 					else if ( $NESTED != TRUE ) then
-						../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Parallel=${compopt}.exe
+						../../main/wrf_${core}.exe.$compopt >! print.out.wrf_${core}_Parallel=${compopt}
 					endif
 				else if ( $compopt == $COMPOPTS[3] ) then
 					setenv OMP_NUM_THREADS 1
@@ -2604,7 +2897,7 @@ banner 27
 						setenv XLSMPOPTS "parthds=1"
 					endif
 					$MPIRUNCOMMAND ../../main/wrf_${core}.exe.$compopt $MPIRUNCOMMANDPOST
-					mv rsl.error.0000 print.out.wrf_${core}_Parallel=${compopt}.exe
+					mv rsl.error.0000 print.out.wrf_${core}_Parallel=${compopt}
 				endif
 #DAVE###################################################
 echo ran ideal fcst
@@ -2612,7 +2905,7 @@ banner 28
 #set ans = "$<"
 #DAVE###################################################
 
-				grep "SUCCESS COMPLETE" print.out.wrf_${core}_Parallel=${compopt}.exe
+				grep "SUCCESS COMPLETE" print.out.wrf_${core}_Parallel=${compopt}
 				set success = $status
 
 				#	Did making the forecast work, by that, we mean "is there an output file created?"
@@ -2652,13 +2945,15 @@ banner 28
 						echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 					else
 						echo "SUMMARY generate FCST  for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+						echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 						$MAIL -s "WRF FAIL FCST $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-						exit ( 8 )
+						if ( $KEEP_ON_RUNNING == FALSE ) exit ( 8 )
 					endif
 				else
 					echo "SUMMARY generate FCST  for $core physics $phys_option parallel $compopt $esmf_lib_str FAIL" >>! ${DEF_DIR}/wrftest.output
+					echo "-------------------------------------------------------------" >> ${DEF_DIR}/wrftest.output
 					$MAIL -s "WRF FAIL FCST $ARCH[1] " $FAIL_MAIL < ${DEF_DIR}/wrftest.output
-					exit ( 9 )
+					if ( $KEEP_ON_RUNNING == FALSE ) exit ( 9 )
 				endif
 
 				#	We have to save this output file for our biggy comparison after all of the
@@ -2697,8 +2992,8 @@ banner 29
 
 	                if ( $core == nmm_real ) then
 	
-				pushd ${DEF_DIR}/regression_test/WRFV2/test/$core
-				set DIFFWRF = ${DEF_DIR}/regression_test/WRFV2/external/$IO_FORM_NAME[$IO_FORM]/diffwrf
+				pushd ${DEF_DIR}/regression_test/WRFV3/test/$core
+				set DIFFWRF = ${DEF_DIR}/regression_test/WRFV3/external/$IO_FORM_NAME[$IO_FORM]/diffwrf
 	
 	                        if ( ( -e $TMPDIR/wrfout_d01_${filetag}.${core}.${phys_option}.$COMPOPTS[3]_1p ) && \
 	                             ( -e $TMPDIR/wrfout_d01_${filetag}.${core}.${phys_option}.$COMPOPTS[3]_${Num_Procs}p ) ) then
@@ -2745,8 +3040,8 @@ banner 29
 				#	generated.  We now compare the WRF model output files to see
 				#	if they are S^2D^2.
 		
-				pushd ${DEF_DIR}/regression_test/WRFV2/test/$core
-				set DIFFWRF = ${DEF_DIR}/regression_test/WRFV2/external/$IO_FORM_NAME[$IO_FORM]/diffwrf
+				pushd ${DEF_DIR}/regression_test/WRFV3/test/$core
+				set DIFFWRF = ${DEF_DIR}/regression_test/WRFV3/external/$IO_FORM_NAME[$IO_FORM]/diffwrf
 	
 				#	Are we skipping the OpenMP runs?
 	
@@ -2850,7 +3145,7 @@ banner 29
 						exit ( 10 ) 
 					else
 						# Archive serial output file to baseline
-						pushd ${DEF_DIR}/regression_test/WRFV2/test/$core
+						pushd ${DEF_DIR}/regression_test/WRFV3/test/$core
 						set basefilenm = wrfout_d01_${filetag}.${core}.${phys_option}
 						set basefile = ${GENERATE_BASELINE}/${basefilenm}
 						set outfile = $TMPDIR/${basefilenm}.$COMPOPTS[1]
@@ -2883,8 +3178,8 @@ banner 29
 						# Compare against baseline output file
 						set basefilenm = wrfout_d01_${filetag}.${core}.${phys_option}
 						set basefile = ${COMPARE_BASELINE}/${basefilenm}
-						set DIFFWRF = ${DEF_DIR}/regression_test/WRFV2/external/$IO_FORM_NAME[$IO_FORM]/diffwrf
-						set testdir = ${DEF_DIR}/regression_test/WRFV2/test/$core
+						set DIFFWRF = ${DEF_DIR}/regression_test/WRFV3/external/$IO_FORM_NAME[$IO_FORM]/diffwrf
+						set testdir = ${DEF_DIR}/regression_test/WRFV3/test/$core
 						pushd ${testdir}
 						foreach compopt ( $COMPOPTS )
 							set cmpfile = $TMPDIR/${basefilenm}.$compopt
@@ -2936,7 +3231,7 @@ banner 29
 						exit ( 10 ) 
 					else
 						# Archive serial output file to baseline
-						pushd ${DEF_DIR}/regression_test/WRFV2/test/$core
+						pushd ${DEF_DIR}/regression_test/WRFV3/test/$core
 						set basefilenm = wrfout_d01_${filetag}.${core}.${phys_option}
 						set basefile = ${GENERATE_BASELINE}/${basefilenm}
 						set outfile = $TMPDIR/${basefilenm}.$COMPOPTS[3]_1p
@@ -2969,8 +3264,8 @@ banner 29
 						# Compare against baseline output file
 						set basefilenm = wrfout_d01_${filetag}.${core}.${phys_option}
 						set basefile = ${COMPARE_BASELINE}/${basefilenm}
-						set DIFFWRF = ${DEF_DIR}/regression_test/WRFV2/external/$IO_FORM_NAME[$IO_FORM]/diffwrf
-						set testdir = ${DEF_DIR}/regression_test/WRFV2/test/$core
+						set DIFFWRF = ${DEF_DIR}/regression_test/WRFV3/external/$IO_FORM_NAME[$IO_FORM]/diffwrf
+						set testdir = ${DEF_DIR}/regression_test/WRFV3/test/$core
 						pushd ${testdir}
 						set compopt = $COMPOPTS[3]
 						foreach proc ( 1p 4p )
@@ -3060,8 +3355,10 @@ endif
 
 cd $CUR_DIR
 
+rm -rf damp_*eal >& /dev/null
 rm -rf dom_*eal >& /dev/null
 rm -rf phys_real_* >& /dev/null
+rm -rf nest_real_* >& /dev/null
 rm -rf phys_quarter_* >& /dev/null
 rm -rf phys_b_wave_* >& /dev/null
 rm -rf version_info >& /dev/null
@@ -3069,3 +3366,4 @@ rm -rf machfile >& /dev/null
 rm -rf fdda_real* >& /dev/null
 rm -rf time_real_* >& /dev/null
 rm -rf dyn_real_* >& /dev/null
+rm -rf damp_* >& /dev/null

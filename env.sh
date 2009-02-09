@@ -5,7 +5,7 @@ myhost=1
 if [ ${host} = "wf" ] ; then
   base="/opt/wrf-libs"
   source $base/setpaths.sh
-  mpibins="/opt/intel9.1-64-par/bin"
+  mpibins="/opt/intel11-libs/bin"
 elif [ ${host} = "opt4.cudenver.edu" ] ; then
   base="/home/grads/jbeezley/wrf-libs"
   mpibins="/home/grads/jbeezley/intel9.1-libs-par-64/bin"
@@ -30,7 +30,7 @@ ulimit -s unlimited
 #ifvars=/opt/intel/fce/9.1.036/bin/ifortvars.sh
 ifvars=/opt/intel/fce/current/bin/ifortvars.sh
 if [ -f ${ifvars} ] ; then
-  source ${ifvars}
+  source ${ifvars} intel64
 else
   echo "WARNING: couldn't find ifort setup script"
 fi

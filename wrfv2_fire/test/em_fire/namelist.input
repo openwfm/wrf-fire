@@ -55,6 +55,8 @@
  sr_x                                = 10,    10,     0 ! subgrid ratio in x
  sr_y                                = 10,    10,     0 ! subgrid ratio in y
  /
+ sr_x                                = 20,     0,     0
+ sr_y                                = 20,     0,     0
 
  &physics
  mp_physics                          = 0,     0,     0,
@@ -78,7 +80,6 @@
  /
 
  &dynamics
- dyn_opt                             = 2,
  rk_ord                              = 3,
  diff_opt                            = 2,
  km_opt                              = 2,
@@ -97,10 +98,8 @@
  h_sca_adv_order                     = 5,      5,      5,
  v_sca_adv_order                     = 3,      3,      3,
  time_step_sound                     = 20,     20,     20,
- pd_moist                            = .false., .false., .false.,
- pd_scalar                           = .false., .false., .false.,
- pd_chem                             = .false., .false., .false.,
- pd_tke                              = .false., .false., .false.,
+ moist_adv_opt                       = 1,      1,      1,
+ scalar_adv_opt                      = 1,      1,      1,
  /
 
  &bdy_control

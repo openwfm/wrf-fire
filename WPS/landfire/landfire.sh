@@ -105,7 +105,7 @@ if [ "$proj" == "ALBERS" ] && [ "$datum" == "NAD83" ] ; then
   nproj=1
   echo "projection=albers_nad83" >> $idx
 #  echo "projection=regular_ll" >> $idx
-else
+elif [ "$proj" == "UTM" ] && [ "$datum" == "NAD83" ] ; then
   echo "Projection $proj $datum not supported"
   exit 1
 fi
@@ -136,7 +136,7 @@ echo 'stdlon=-96.0' >> $idx
 echo 'wordsize=2' >> $idx
 echo 'category_min=1' >> $idx
 echo 'category_max=14' >> $idx
-echo 'tile_bdr=0' >> $idx
+echo 'tile_bdr=3' >> $idx
 echo 'missing_value=0' >> $idx
 echo 'scale_factor=1' >> $idx
 echo 'row_order=bottom_top' >> $idx
@@ -151,7 +151,7 @@ echo "tile_x=1000" >> $idx
 echo "tile_y=1000" >> $idx
 echo "tile_z=1" >> $idx
 
-./convert_landfire.x ${1}/${1}.flt $ncols $nrows
+./convert_landfire.x ${1}/${1}.flt $nrows $ncols
 mv *'-'*'.'*'-'* "$output_dir"
 #nfname="$output_dir/$(printf "%05d-%05d.%05d-%05d" 1 $ncols 1 $nrows)"
 #mv "${1}/${1}.flt_tmp" "$nfname"

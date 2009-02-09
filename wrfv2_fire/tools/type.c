@@ -25,9 +25,9 @@ set_state_dims ( char * dims , node_t * node )
   int modifiers ;
   node_t *d, *d1 ;
   char *c ;
-  int star ;
+  char dspec[NAMELEN] ;
+  int star, inbrace ;
 
-fprintf(stderr,"set state dims %s\n",dims ) ;
   if ( dims == NULL ) dims = "-" ;
   modifiers = 0 ;
   node->proc_orient = ALL_Z_ON_PROC ;  /* default */
@@ -35,53 +35,70 @@ fprintf(stderr,"set state dims %s\n",dims ) ;
   node->boundary_array = 0 ;
 
   star = 0 ;
+  inbrace = 0 ;
   node->subgrid = 0 ;
+  strcpy(dspec,"") ;
   for ( c = dims ; *c ; c++ )
   {
-    if      ( *c == 'f' )
+    if      ( *c == 'f' && ! inbrace )
     {
       node->scalar_array_member = 1 ;
       modifiers = 1 ;
     }
-    else if ( *c == 't' )
+    else if ( *c == 't' && ! inbrace )
     {
       node->has_scalar_array_tendencies = 1 ;
       modifiers = 1 ;
     }
-    else if ( *c == 'x' )
+    else if ( *c == 'x' && ! inbrace )
     {
       node->proc_orient = ALL_X_ON_PROC ;
       modifiers = 1 ;
     }
-    else if ( *c == 'y' )
+    else if ( *c == 'y' && ! inbrace )
     {
       node->proc_orient = ALL_Y_ON_PROC ;
       modifiers = 1 ;
     }
-    else if ( *c == 'b' )
+    else if ( *c == 'b' && ! inbrace )
     {
       node->boundary_array = 1 ;
       modifiers = 1 ;
     }
-    else if ( *c == '*' )
+    else if ( *c == '*' && ! inbrace )
     {
       /* next dimspec seen represents a subgrid */
       star = 1 ;
       continue ;
     }
-    else if ( *c == '-' )
+    else if ( *c == '-' && ! inbrace )
     {
       break ;
     }
+    else if ( *c == '{' && ! inbrace )
+    {
+      inbrace = 1 ;
+      continue ;
+    }
+/*    else if ( *c == '}' && inbrace )
+    {
+      inbrace = 0 ;
+      continue ;
+    } */
     else if ( modifiers == 0 )
     {
-      if (( d = get_dim_entry ( *c )) == NULL ) { return(1) ; }
+      if ( *c == '}' && inbrace )  { inbrace = 0 ; }
+      else { int n = strlen(dspec) ; dspec[n] = *c ; dspec[n+1]='\0' ; }
+      if ( inbrace ) {
+        continue ;
+      }
+      if (( d = get_dim_entry ( dspec )) == NULL ) { return(1) ; }
       d1 = new_node( DIM) ;  /* make a copy */
       *d1 = *d ;
-fprintf(stderr,"coord_axis %d\n",d1->coord_axis ) ;
-      if ( star ) { d1->subgrid = 1 ;  node->subgrid |= (1<<node->ndims) ; }  /* mark the node has having a subgrid dim */
+      if ( star ) { d1->subgrid = 1 ;  node->subgrid |= (1<<node->ndims) ; }  /* Mark the node has having a subgrid dim */
       node->dims[node->ndims++] = d1 ;
       star = 0 ;
+      strcpy(dspec,"") ;
     }
   }
   return (0) ;
@@ -137,8 +154,6 @@ get_entry ( char * name , node_t * node )
         return(p) ;
       }
     }
-
-    
   }
   return(NULL) ;
 }
@@ -164,11 +179,6 @@ get_entry_r ( char * name , char * use , node_t * node )
 
   for ( p = node ; p != NULL ; p = p->next )
   {
-    if ( !strncmp( use, "dyn_", 4 ) && !strncmp( p->use, "dyn_", 4 ) && strcmp( p->use, use ) )
-    {
-      continue ;
-    }
-
     strcpy( tmp, name ) ;
 
     /* first check for exact match */

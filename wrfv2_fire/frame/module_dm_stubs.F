@@ -18,11 +18,26 @@ MODULE module_dm
       wrf_dm_min_real = inval
    END FUNCTION wrf_dm_min_real
 
+   SUBROUTINE wrf_dm_min_reals ( inval, retval, n )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: n
+      REAL, INTENT(IN) :: inval(:)
+      REAL, INTENT(OUT) :: retval(:)
+      retval(:) = inval(:)
+   END SUBROUTINE wrf_dm_min_reals
+
    REAL FUNCTION wrf_dm_sum_real ( inval )
       IMPLICIT NONE
       REAL inval
       wrf_dm_sum_real = inval
    END FUNCTION wrf_dm_sum_real
+
+   SUBROUTINE wrf_dm_sum_reals ( inval, retval )
+      IMPLICIT NONE
+      REAL, INTENT(IN) :: inval(:)
+      REAL, INTENT(OUT) :: retval(:)
+      retval(:) = inval(:)
+   END SUBROUTINE wrf_dm_sum_reals
 
    INTEGER FUNCTION wrf_dm_sum_integer ( inval )
       IMPLICIT NONE
@@ -36,6 +51,13 @@ MODULE module_dm
       INTEGER idex, jdex
       RETURN
    END SUBROUTINE wrf_dm_maxval
+
+  SUBROUTINE wrf_dm_minval ( val, idex, jdex )
+     IMPLICIT NONE
+     REAL val
+     INTEGER idex, jdex
+     RETURN
+  END SUBROUTINE wrf_dm_minval
 
 ! stub
    SUBROUTINE wrf_dm_move_nest ( parent, nest, dx, dy )

@@ -67,8 +67,8 @@ end module read_util_module
   implicit none
 #include "wrf_status_codes.h"
 #include "wrf_io_flags.h"
-  character(len=120) :: flnm
-  character(len=120) :: flnm2
+  character(len=255) :: flnm
+  character(len=255) :: flnm2
   character(len=120) :: arg3
   character(len=19) :: DateStr
   character(len=19) :: DateStr2
@@ -233,7 +233,7 @@ if ( Justplot ) then
     call ext_int_get_next_time(dh1, DateStr, Status_next_time)
   enddo
 else
-  print*,'Diffing ',trim(flnm),' ',trim(flnm2)
+  write (6,FMT='(4A)') 'Diffing ',trim(flnm),' ',trim(flnm2)
 
   call ext_int_get_next_time(dh1, DateStr, Status_next_time)
   call ext_int_get_next_time(dh2, DateStr2, Status_next_time2)
@@ -370,6 +370,7 @@ else
           ENDDO
          ENDIF
         enddo
+if(n.eq.0) n=1
         rmsE = sqrt ( sumE / dble( n ) )
         rms1 = sqrt ( sum1 / dble( n ) )
         rms2 = sqrt ( sum2 / dble( n ) )
@@ -389,11 +390,12 @@ else
         digits = 0
         IF ( rms1 - rms2 .EQ. 0.0d0 ) THEN
           digits = 15
-        ENDIF
-        IF ( rms2 .NE. 0 ) THEN
-          tmp1 = 1.0d0/( ( abs( rms1 - rms2 ) ) / rms2 )
-          IF ( tmp1 .NE. 0 ) THEN
-            digits = log10(tmp1)
+        ELSE
+          IF ( rms2 .NE. 0 ) THEN
+            tmp1 = 1.0d0/( ( abs( rms1 - rms2 ) ) / rms2 )
+            IF ( tmp1 .NE. 0 ) THEN
+              digits = log10(tmp1)
+             ENDIF
           ENDIF
         ENDIF
 

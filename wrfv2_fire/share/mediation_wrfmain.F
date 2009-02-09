@@ -122,14 +122,19 @@ use module_io
         END IF
         CALL close_dataset ( fid , config_flags , "DATASET=INPUT" )
 #ifdef MOVE_NESTS
+#if ( EM_CORE == 1 )
         grid%nest_pos = grid%ht
         where ( grid%nest_pos .gt. 0 ) grid%nest_pos = grid%nest_pos + 500.  ! make a cliff
+#endif
 #endif
      ENDIF
      grid%imask_nostag = 1
      grid%imask_xstag = 1
      grid%imask_ystag = 1
      grid%imask_xystag = 1
+#if (EM_CORE == 1)
+     grid%press_adj = .FALSE.
+#endif
      CALL start_domain ( grid , .TRUE. )
    ELSE
      CALL domain_clock_get( grid, current_timestr=timestr )
@@ -148,6 +153,9 @@ use module_io
      grid%imask_xstag = 1
      grid%imask_ystag = 1
      grid%imask_xystag = 1
+#if (EM_CORE == 1)
+     grid%press_adj = .FALSE.
+#endif
      CALL start_domain ( grid , .TRUE. )
    ENDIF
 

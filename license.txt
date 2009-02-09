@@ -1,11 +1,41 @@
-This is free software developed at NCAR and the University of Colorado Denver.
-See the public domain notice at http://www.mmm.ucar.edu/wrf/users/public.html
-which applies also with regard to the University of Colorado Denver.
+WRF is free software developed at the National Center for Atmspheric
+Research (NCAR) and other institutions. Its use is governed by the
+public domain notice at http://www.mmm.ucar.edu/wrf/users/public.html
 
-If you use this software, please acknowledge our work by citing
-the paper 
+SFIRE, the fire part of the code, was developed at the University
+of Colorado Denver and NCAR.  It is released subject to the CU's
+MIT-style license below, which can be currently found at
+https://www.cu.edu/techtransfer/downloads/Bulletin-OpenSource.pdf
+and subject to the additional condition as specified below.
+
+CU's MIT-style license
+
+Copyright (c) 2009 Regents of the University of Colorado Permission
+is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons
+to whom the Software is furnished to do so, subject to the following
+conditions: The above copyright notice and this permission notice
+shall be included in all copies or substantial portions of the
+Software.  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Additional condition
+
+Any work, product, or publication resulting from this software
+must acknowledge this software by referring to its name and 
+description in
 
 Jan Mandel, Jonathan D. Beezley, Janice L. Coen, Minjeong Kim, Data
 Assimilation for Wildland Fires: Ensemble Kalman filters in coupled
-atmosphere-surface models, arXiv:0712.3965, December 2007
-http://arxiv.org/abs/0712.3965
+atmosphere-surface models, IEEE Control Systems Magazine, to appear
+in 2009, preprint available at  http://arxiv.org/abs/0712.3965
+

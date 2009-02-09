@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
- run_hours                           = 2,
- run_minutes                         = 0,
+ run_hours                           = 0,
+ run_minutes                         = 5,
  run_seconds                         = 0,
  start_year                          = 2005,2005,
  start_month                         = 08,08,
@@ -85,7 +85,6 @@
  /
 
  &dynamics
- dyn_opt                             = 2,
  rk_ord                              = 3,
  w_damping                           = 0,
  diff_opt                            = 2,
@@ -105,10 +104,8 @@
  h_sca_adv_order                     = 5,5,
  v_sca_adv_order                     = 3,3,
  non_hydrostatic                     = .true.,
- pd_moist                            = .false.,
- pd_scalar                           = .false.,
- pd_chem                             = .false.,
- pd_tke                              = .false.,
+ moist_adv_opt                       = 1,      1,      1,    
+ scalar_adv_opt                      = 1,      1,      1,    
  /
 
 &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)

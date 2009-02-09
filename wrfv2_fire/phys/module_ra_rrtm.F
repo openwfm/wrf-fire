@@ -1729,7 +1729,7 @@ CONTAINS
 !------------------------------------------------------------------
    SUBROUTINE RRTMLWRAD(rthraten,glw,olr,emiss                    &
                        ,p8w,p3d,pi3d                              &
-                       ,dz8w,t3d,t8w,rho3d,r,g                    &
+                       ,dz8w,tsk,t3d,t8w,rho3d,r,g                &
                        ,icloud, warm_rain                         &
                        ,ids,ide, jds,jde, kds,kde                 & 
                        ,ims,ime, jms,jme, kms,kme                 &
@@ -1762,7 +1762,8 @@ CONTAINS
          INTENT(INOUT)  ::                              RTHRATEN
 !
    REAL, DIMENSION( ims:ime, jms:jme )                          , &
-         INTENT(IN   )  ::                                 EMISS
+         INTENT(IN   )  ::                                 EMISS, &
+                                                             TSK
 !
    REAL, DIMENSION( ims:ime, jms:jme )                          , &
          INTENT(INOUT)  ::                                   GLW, &
@@ -1947,7 +1948,7 @@ CONTAINS
          EMISS0=EMISS(I,J)
          GLW0=0. 
          OLR0=0. 
-         TSFC=Tw1D(kme)
+         TSFC=TSK(I,J)
 
          CALL RRTM(tten1d,glw0,olr0,tsfc,cldfra1d,t1d,tw1d,qv1d,qc1d,   &
                    qr1d,qi1d,qs1d,qg1d,p1d,pW1d,dz1d,              &
@@ -3720,6 +3721,7 @@ CONTAINS
                                                       CIWP, &
                                                       PLWP, &
                                                       PIWP
+      CHARACTER*80 errmess
                            
       real :: amd       ! Effective molecular weight of dry air (g/mol)  
       real :: amw       ! Molecular weight of water vapor (g/mol)        
@@ -3744,12 +3746,14 @@ CONTAINS
 !     Set molecular weight ratios                                                    
 
       real :: amdw,  &  ! Molecular weight of dry air / water vapor      
+              amdo,  &  ! Molecular weight of dry air / ozone
               amdc,  &  ! Molecular weight of dry air / methane          
               amdn,  &  ! Molecular weight of dry air / nitrous oxide    
               amdc1, &  ! Molecular weight of dry air / CFC11            
               amdc2     ! Molecular weight of dry air / CFC12            
 
       data amdw /  1.607758 /                                                    
+      data amdo /  0.603461 /                                                    
       data amdc /  1.805423 /                                                    
       data amdn /  0.658090 /                                                    
       data amdc1/  0.210852 /                                                    
@@ -3817,8 +3821,13 @@ CONTAINS
 !  TBOUND is set to this temperature here.                                       
                                                                                  
 !     TBOUND = TINT(kte+1)                                                        
-      TBOUND = Tw(kte+1)                                                        
-!     TBOUND = TSFC
+!     TBOUND = Tw(kte+1)                                                        
+      TBOUND = TSFC
+      IF(TBOUND .GT. 340.)THEN
+        WRITE( errmess , '(A,F10.3)' ) 'rrtm: TBOUND exceeds table limit: reset ',TBOUND
+        CALL wrf_message (errmess)
+        TBOUND = 339.99
+      ENDIF
                                                                                  
 !  Install MM5 profiles into RRTM arrays for pressure, temperature,              
 !  and molecular amounts.  Pressures are converted from cb                       
@@ -3854,7 +3863,9 @@ CONTAINS
          TZ(L) = Tw(kte+1-L)                                                    
          WKL(1,L) = qv(kte+1-L)*amdw                                             
          WKL(2,L) = co2vmr                                                       
-         WKL(3,L) = o3(kte+1-L)                                                  
+!         WKL(3,L) = o3(kte+1-L)                                                  
+! ozone is already bottom to top array but convert mmr to vmr
+         WKL(3,L) = o3(L)*amdo                                                  
          WKL(4,L) = n2o(kte+1-L)*amdn                                            
          WKL(6,L) = ch4(kte+1-L)*amdc                                            
          amm = (1-WKL(1,L))*amd + WKL(1,L)*amw                                   
@@ -6620,10 +6631,6 @@ IMPLICIT NONE
 !  weighted using a mapping procedure in routine RRTMINIT to reduce              
 !  the total number of g-points from 256 to 140 for use in the CCM.              
 ! **************************************************************************     
-#ifdef G95
-! JRB hardwire unit to 98 to ensure it is read big endian by g95
-      rrtm_unit=98
-#endif
         IF ( wrf_dm_on_monitor() ) THEN
           OPEN(rrtm_unit,FILE='RRTM_DATA',                  &
                FORM='UNFORMATTED',STATUS='OLD',ERR=9009)

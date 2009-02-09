@@ -15,6 +15,7 @@ $sw_esmflib_path="";
 $sw_esmfinc_path="";
 $sw_ldflags=""; 
 $sw_compileflags=""; 
+$sw_rwordsize="\$\(NATIVE_RWORDSIZE\)";
 $WRFCHEM = 0 ;
 $sw_os = "ARCH" ;           # ARCH will match any
 $sw_mach = "ARCH" ;         # ARCH will match any
@@ -84,6 +85,12 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
  else
    {
    printf "\$JASPERLIB or \$JASPERINC not found in environment, configuring to build without grib2 I/O...\n" ;
+   }
+
+# When compiling DA code, we need to always use 8-byte reals.
+ if ( $ENV{WRF_DA_CORE} == "1" )
+   {
+     $sw_rwordsize = "8";  
    }
 
 # A separately-installed ESMF library is required to build the ESMF 
@@ -164,10 +171,15 @@ while ( <CONFIGURE_DEFAULTS> )
     $_ =~ s/CONFIGURE_PHDF5_PATH/$sw_phdf5_path/g ;
     $_ =~ s/CONFIGURE_LDFLAGS/$sw_ldflags/g ;
     $_ =~ s/CONFIGURE_COMPILEFLAGS/$sw_compileflags/g ;
+    $_ =~ s/CONFIGURE_RWORDSIZE/$sw_rwordsize/g ;
     if ( $sw_netcdf_path ) 
       { $_ =~ s/CONFIGURE_WRFIO_NF/wrfio_nf/g ;
 	$_ =~ s:CONFIGURE_NETCDF_FLAG:-DNETCDF: ;
-	$_ =~ s:CONFIGURE_NETCDF_LIB_PATH:-L../external/io_netcdf -lwrfio_nf -L$sw_netcdf_path/lib -lnetcdf: ;
+        if ( $sw_os == Interix ) {
+	  $_ =~ s:CONFIGURE_NETCDF_LIB_PATH:\$\(WRF_SRC_ROOT_DIR\)/external/io_netcdf/libwrfio_nf.a -L$sw_netcdf_path/lib -lnetcdf: ;
+        } else {
+	  $_ =~ s:CONFIGURE_NETCDF_LIB_PATH:-L\$\(WRF_SRC_ROOT_DIR\)/external/io_netcdf -lwrfio_nf -L$sw_netcdf_path/lib -lnetcdf: ;
+        }
 	 }
     else                   
       { $_ =~ s/CONFIGURE_WRFIO_NF//g ;
@@ -178,7 +190,11 @@ while ( <CONFIGURE_DEFAULTS> )
     if ( $sw_pnetcdf_path ) 
       { $_ =~ s/CONFIGURE_WRFIO_PNF/wrfio_pnf/g ;
 	$_ =~ s:CONFIGURE_PNETCDF_FLAG:-DPNETCDF: ;
-	$_ =~ s:CONFIGURE_PNETCDF_LIB_PATH:-L../external/io_pnetcdf -lwrfio_pnf -L$sw_pnetcdf_path/lib -lpnetcdf: ;
+        if ( $sw_os == Interix ) {
+	  $_ =~ s:CONFIGURE_PNETCDF_LIB_PATH:\$\(WRF_SRC_ROOT_DIR\)/external/io_pnetcdf/libwrfio_pnf.a -L$sw_pnetcdf_path/lib -lpnetcdf: ;
+        } else {
+	  $_ =~ s:CONFIGURE_PNETCDF_LIB_PATH:-L\$\(WRF_SRC_ROOT_DIR\)/external/io_pnetcdf -lwrfio_pnf -L$sw_pnetcdf_path/lib -lpnetcdf: ;
+        }
 	 }
     else                   
       { $_ =~ s/CONFIGURE_WRFIO_PNF//g ;
@@ -190,7 +206,7 @@ while ( <CONFIGURE_DEFAULTS> )
 
       { $_ =~ s/CONFIGURE_WRFIO_PHDF5/wrfio_phdf5/g ;
 	$_ =~ s:CONFIGURE_PHDF5_FLAG:-DPHDF5: ;
-	$_ =~ s:CONFIGURE_PHDF5_LIB_PATH:-L../external/io_phdf5 -lwrfio_phdf5 -L$sw_phdf5_path/lib -lhdf5_fortran -lhdf5 -lm -lz -L$sw_phdf5_path/lib -lsz: ;
+	$_ =~ s:CONFIGURE_PHDF5_LIB_PATH:-L\$\(WRF_SRC_ROOT_DIR\)/external/io_phdf5 -lwrfio_phdf5 -L$sw_phdf5_path/lib -lhdf5_fortran -lhdf5 -lm -lz -L$sw_phdf5_path/lib -lsz: ;
 	 }
     else                   
       { $_ =~ s/CONFIGURE_WRFIO_PHDF5//g ;
@@ -202,7 +218,7 @@ while ( <CONFIGURE_DEFAULTS> )
       { $_ =~ s/CONFIGURE_WRFIO_GRIB2/wrfio_grib2/g ;
         $_ =~ s:CONFIGURE_GRIB2_FLAG:-DGRIB2:g ;
         $_ =~ s:CONFIGURE_GRIB2_INC:-I$sw_jasperinc_path:g ;
-        $_ =~ s:CONFIGURE_GRIB2_LIB:-L../external/io_grib2 -lio_grib2 -L$sw_jasperlib_path -ljasper:g ;
+        $_ =~ s:CONFIGURE_GRIB2_LIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/io_grib2 -lio_grib2 -L$sw_jasperlib_path -ljasper:g ;
       }
     else                   
       { $_ =~ s/CONFIGURE_WRFIO_GRIB2//g ;
@@ -215,13 +231,18 @@ while ( <CONFIGURE_DEFAULTS> )
     # ESMF substitutions in configure.defaults
     if ( $sw_esmflib_path && $sw_esmfinc_path )
       {
-      $_ =~ s:ESMFIOLIB:-L$sw_esmflib_path -lesmf -L../external/io_esmf -lwrfio_esmf \$\(ESMF_LIB_FLAGS\):g ;
-      $_ =~ s:ESMFIOEXTLIB:-L$sw_esmflib_path -lesmf -L../../external/io_esmf -lwrfio_esmf \$\(ESMF_LIB_FLAGS\):g ;
+      $_ =~ s:ESMFIOLIB:-L$sw_esmflib_path -lesmf -L\$\(WRF_SRC_ROOT_DIR\)/external/io_esmf -lwrfio_esmf \$\(ESMF_LIB_FLAGS\):g ;
+      $_ =~ s:ESMFIOEXTLIB:-L$sw_esmflib_path -lesmf -L\$\(WRF_SRC_ROOT_DIR\)/external/io_esmf -lwrfio_esmf \$\(ESMF_LIB_FLAGS\):g ;
       }
     else
       {
-      $_ =~ s:ESMFIOLIB:-L../external/esmf_time_f90 -lesmf_time:g ;
-      $_ =~ s:ESMFIOEXTLIB:-L../../external/esmf_time_f90 -lesmf_time:g ;
+        if ( $sw_os == Interix ) {
+           $_ =~ s:ESMFIOLIB:\$\(WRF_SRC_ROOT_DIR\)/external/esmf_time_f90/libesmf_time.a:g ;
+           $_ =~ s:ESMFIOEXTLIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/esmf_time_f90/libesmf_time.a:g ;
+        } else {
+           $_ =~ s:ESMFIOLIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/esmf_time_f90 -lesmf_time:g ;
+           $_ =~ s:ESMFIOEXTLIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/esmf_time_f90 -lesmf_time:g ;
+        }
       }
 
     @machopts = ( @machopts, $_ ) ;
@@ -267,18 +288,18 @@ while ( <ARCH_PREAMBLE> )
   if ( $sw_esmflib_path && $sw_esmfinc_path )
     {
     $_ =~ s/ESMFCOUPLING/1/g ;
-    $_ =~ s:ESMFMODDEPENDENCE:../external/io_esmf/module_utility.o:g ;
-    $_ =~ s:ESMFMODINC:-I$sw_esmfinc_path -I../main:g ;
-    $_ =~ s:ESMFIOINC:-I../external/io_esmf:g ;
+    $_ =~ s:ESMFMODDEPENDENCE:\$\(WRF_SRC_ROOT_DIR\)/external/io_esmf/module_utility.o:g ;
+    $_ =~ s:ESMFMODINC:-I$sw_esmfinc_path -I\$\(WRF_SRC_ROOT_DIR\)/main:g ;
+    $_ =~ s:ESMFIOINC:-I\$\(WRF_SRC_ROOT_DIR\)/external/io_esmf:g ;
     $_ =~ s:ESMFIODEFS:-DESMFIO:g ;
     $_ =~ s:ESMFTARGET:wrfio_esmf:g ;
     }
   else
     {
     $_ =~ s/ESMFCOUPLING/0/g ;
-    $_ =~ s:ESMFMODDEPENDENCE:../external/esmf_time_f90/module_utility.o:g ;
+    $_ =~ s:ESMFMODDEPENDENCE:\$\(WRF_SRC_ROOT_DIR\)/external/esmf_time_f90/module_utility.o:g ;
     $_ =~ s:ESMFMODINC::g ;
-    $_ =~ s:ESMFIOINC:-I../external/esmf_time_f90:g ;
+    $_ =~ s:ESMFIOINC:-I\$\(WRF_SRC_ROOT_DIR\)/external/esmf_time_f90:g ;
     $_ =~ s:ESMFIODEFS::g ;
     $_ =~ s:ESMFTARGET:esmf_time:g ;
     }
@@ -289,30 +310,18 @@ print CONFIGURE_WRF @preamble  ;
 close ARCH_PREAMBLE ;
 printf CONFIGURE_WRF "# Settings for %s", $optstr[$optchoice] ;
 print CONFIGURE_WRF @machopts  ;
+print "$ENV{WRF_MARS}" ;
+if ( $ENV{WRF_MARS} || $ENV{WRF_TITAN} || $ENV{WRF_VENUS} )
+{
+    open ARCH_PLANETAMBLE, "< arch/planetamble" or die "cannot open arch/planetamble" ;
+    while ( <ARCH_PLANETAMBLE> ) { print CONFIGURE_WRF } ;
+    close ARCH_PLANETAMBLE ;
+}
+
 open ARCH_POSTAMBLE, "< arch/postamble" or die "cannot open arch/postamble" ;
 while ( <ARCH_POSTAMBLE> ) { print CONFIGURE_WRF } ;
 close ARCH_POSTAMBLE ;
 close CONFIGURE_WRF ;
-
-# Die if attempting to configure with both RSL_LITE and a separately-installed ESMF library
-if ( $sw_esmflib_path && $sw_esmfinc_path )
-  {
-  my $RSL_LITE_plus_ESMF = "";
-  open CONFIGURE_WRF, "< configure.wrf" or die "cannot open configure.wrf for reading" ;
-  while ( <CONFIGURE_WRF> )
-    {
-    if ( $_ =~ /DRSL_LITE/ )
-      {
-      $RSL_LITE_plus_ESMF = "TRUE";
-      }
-    }
-  close CONFIGURE_WRF ;
-  if ( $RSL_LITE_plus_ESMF )
-    {
-    unlink("configure.wrf") ;
-    die "\nCONFIGURATION FAILED:  cannot use a separately-installed ESMF library with RSL_LITE.  Please reconfigure to use RSL instead.\n\n" ;
-    }
-  }
 
 printf "Configuration successful. To build the model type compile . \n" ;
 printf "------------------------------------------------------------------------\n" ;

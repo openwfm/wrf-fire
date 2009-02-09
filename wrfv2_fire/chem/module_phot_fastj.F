@@ -36,11 +36,14 @@
 !   Chapman, G.A. Grell, and S.E. Peckham (2005), Evolution of ozone, particulates,
 !   and aerosol direct radiative forcing in the vicinity of Houston using a fully- 
 !   coupled meteorology-chemistry-aerosol model, Submitted to J. Geophys. Res.
+! * Barnard, J.C., J.D. Fast, G. Paredes-Miranda, W.P. Arnott, et al. (2009),
+!   Closure on the single scattering albedo in the WRF-Chem framework using
+!   data from the MILAGRO campaign, Atmos. Chem. Phys., to be submitted.
 !
 ! Contact Jerome Fast for updates on the status of manuscripts under review.  
 !
 ! Additional information:
-! *  www.pnl.gov/atmos_sciences/Jdf/wrfchem.html
+! *  www.pnl.gov/atmospheric/research/wrf-chem
 !
 ! Support:
 ! Funding for adapting Fast-J was provided by the U.S. Department of Energy
@@ -56,7 +59,7 @@
 
 	contains
 !***********************************************************************
-       subroutine fastj_driver(id,ktau,dtstep,config_flags,            & 
+       subroutine fastj_driver(id,curr_secs,dtstep,config_flags,       &
                gmt,julday,t_phy,moist,p8w,p_phy,                       &
                chem,rho_phy,dz8w,xlat,xlong,z_at_w,                    &
                ph_o2,ph_o31d,ph_o33p,ph_no2,ph_no3o2,ph_no3o,ph_hno2,  &
@@ -67,6 +70,8 @@
                tauaer1,tauaer2,tauaer3,tauaer4,                        &
                gaer1,gaer2,gaer3,gaer4,                                &
                waer1,waer2,waer3,waer4,                                &
+               bscoef1,bscoef2,bscoef3,bscoef4,                        &
+               l2aer,l3aer,l4aer,l5aer,l6aer,l7aer,                    &
                ids,ide, jds,jde, kds,kde,                              &
                ims,ime, jms,jme, kms,kme,                              &
                its,ite, jts,jte, kts,kte                               )
@@ -78,7 +83,7 @@
    USE module_data_mosaic_asect
    USE module_data_mosaic_other
    USE module_fastj_mie
-   USE module_mosaic_therm, only: aerosol_optical_properties
+!  USE module_mosaic_therm, only: aerosol_optical_properties
    USE module_mosaic_driver, only: mapaer_tofrom_host
    USE module_fastj_data, only:  nb, nc
 
@@ -103,7 +108,7 @@
    integer nspint           ! Num of spectral intervals across solar 
    parameter ( nspint = 4 ) ! spectrum for FAST-J
    real, dimension (nspint),save :: wavmid !cm
-   real, dimension (nspint, kmaxd+1),save :: sizeaer,extaer,waer,gaer,tauaer
+   real, dimension (nspint, kmaxd+1),save :: sizeaer,extaer,waer,gaer,tauaer,bscoef
    real, dimension (nspint, kmaxd+1),save :: l2,l3,l4,l5,l6,l7
    data wavmid     &
        / 0.30e-4, 0.40e-4, 0.60e-4 ,0.999e-04 /
@@ -132,8 +137,7 @@
                                   ids,ide, jds,jde, kds,kde,    &
                                   ims,ime, jms,jme, kms,kme,    &
                                   its,ite, jts,jte, kts,kte
-   INTEGER,      INTENT(IN   ) ::                               &
-                                  ktau
+   REAL(KIND=8), INTENT(IN   ) :: curr_secs
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_moist ),        &
          INTENT(IN ) ::                                   moist
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                    &
@@ -142,10 +146,17 @@
            ph_hno3,ph_hno4,ph_h2o2,ph_ch2or,ph_ch2om,ph_ch3cho,     &
            ph_ch3coch3,ph_ch3coc2h5,ph_hcocho,ph_ch3cocho,          &
            ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,ph_hcochob, &
-           ph_n2o5,                                                 &
-           tauaer1,tauaer2,tauaer3,tauaer4,                        &
-           gaer1,gaer2,gaer3,gaer4,                                &
-           waer1,waer2,waer3,waer4
+           ph_n2o5
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                    &
+         INTENT(IN ) ::                                             &
+           tauaer1,tauaer2,tauaer3,tauaer4,                         &
+           gaer1,gaer2,gaer3,gaer4,                                 &
+           waer1,waer2,waer3,waer4,                                 &
+           bscoef1,bscoef2,bscoef3,bscoef4                          
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, 1:4 ),               &
+         INTENT(IN ) ::                                             &
+           l2aer,l3aer,l4aer,l5aer,l6aer,l7aer                      
+
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),         &
          INTENT(INOUT ) ::                                chem
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,    &
@@ -173,36 +184,38 @@
       real radius_wet(nbin_a_maxd,kmaxd) !match arrays in MOSAIC routines.
       complex refindx(nbin_a_maxd,kmaxd)
 
-      integer i,j, k, nsub, isecfrm0, ixhour
-      real xtime, xhour, xmin, gmtp, tmidh
+      integer(kind=8) :: ixhour
+      integer i,j, k, nsub
+	  real(kind=8) :: xtime, xhour
+      real xmin, gmtp, tmidh
       real sla, slo
       real psfc
 
       real cos_sza
-      real, dimension(kts:kte-1) :: temp, ozone, dz 
-      real, dimension(0:kte-1) :: pbnd
-      real, dimension(kts:kte-1) :: cloudmr, airdensity, relhum
-      real, dimension(kts:kte) :: zatw
+      real, dimension(kts:kte) :: temp, ozone, dz 
+      real, dimension(0:kte) :: pbnd
+      real, dimension(kts:kte) :: cloudmr, airdensity, relhum
+      real, dimension(kts:kte+1) :: zatw
  	     
-      real valuej(kte-1,nphoto_fastj)
+      real valuej(kte,nphoto_fastj)
 
       logical processingAerosols
 
 !   set "pegasus" grid size variables
 !	itot = ite
 !	jtot = jte
-    lpar = kte - 1
-    jpnl = kte - 1
+    lpar = kte
+    jpnl = kte
     nb   = lpar + 1 !for module module_fastj_data
     nc   = 2*nb     !ditto, and don't confuse this with nc in module_fastj_mie
 	nsubareas = 1
-	if ((kte-1 > kmaxd) .or. (lpar <= 0)) then
+	if ((kte > kmaxd) .or. (lpar <= 0)) then
 	    write( wrf_err_message, '(a,4i5)' )   &
 		'*** subr fastj_driver -- ' //   &
 		'lpar, kmaxd, kts, kte', lpar, kmaxd, kts, kte
         call wrf_message( trim(wrf_err_message) )
 	    wrf_err_message = '*** subr fastj_driver -- ' //   &
-             'kte-1>kmaxd OR lpar<=0'
+             'kte>kmaxd OR lpar<=0'
 	    call wrf_error_fatal( wrf_err_message )
 	end if
 
@@ -233,15 +246,14 @@
 !!$      end if
 
 ! determine current time of day in Greenwich Mean Time at middle 
-! of current time step, tmidh.  do this by computing the number of minutes 		
+! of current time step, tmidh.  do this by computing the number of minutes
 ! from beginning of run to middle of current time step
-        xtime=(ktau-1)*dtstep/60. + dtstep/120.   
-        ixhour = ifix(gmt + 0.01) + ifix(xtime/60.)	
-        xhour=float(ixhour)	!current hour
-        xmin = 60.*gmt + (xtime-xhour*60)
-        gmtp=mod(xhour,24.)	
-        tmidh= gmtp + xmin/60. 
-        isecfrm0 = ifix ( (ktau-1) * dtstep ) 
+    xtime    = curr_secs/60._8 + real(dtstep,8)/120._8
+    ixhour   = int(gmt + 0.01,8) + int(xtime/60._8,8)
+    xhour    = real(ixhour,8)	!current hour
+    xmin     = 60.*gmt + real(xtime-xhour*60_8,8)
+    gmtp     = mod(xhour,24._8)
+    tmidh    = gmtp + xmin/60.
 
 ! execute for each i,j column and each nsub subarea
     do nsub = 1, nsubareas
@@ -253,24 +265,50 @@
        end do
 
        if( processingAerosols ) then
+         do k = kts, lpar
+           l2(1,k)=l2aer(iclm,k,jclm,1)
+           l2(2,k)=l2aer(iclm,k,jclm,2)
+           l2(3,k)=l2aer(iclm,k,jclm,3)
+           l2(4,k)=l2aer(iclm,k,jclm,4)
+           l3(1,k)=l3aer(iclm,k,jclm,1)
+           l3(2,k)=l3aer(iclm,k,jclm,2)
+           l3(3,k)=l3aer(iclm,k,jclm,3)
+           l3(4,k)=l3aer(iclm,k,jclm,4)
+           l4(1,k)=l4aer(iclm,k,jclm,1)
+           l4(2,k)=l4aer(iclm,k,jclm,2)
+           l4(3,k)=l4aer(iclm,k,jclm,3)
+           l4(4,k)=l4aer(iclm,k,jclm,4)
+           l5(1,k)=l5aer(iclm,k,jclm,1)
+           l5(2,k)=l5aer(iclm,k,jclm,2)
+           l5(3,k)=l5aer(iclm,k,jclm,3)
+           l5(4,k)=l5aer(iclm,k,jclm,4)
+           l6(1,k)=l6aer(iclm,k,jclm,1)
+           l6(2,k)=l6aer(iclm,k,jclm,2)
+           l6(3,k)=l6aer(iclm,k,jclm,3)
+           l6(4,k)=l6aer(iclm,k,jclm,4)
+           l7(1,k)=l7aer(iclm,k,jclm,1)
+           l7(2,k)=l7aer(iclm,k,jclm,2)
+           l7(3,k)=l7aer(iclm,k,jclm,3)
+           l7(4,k)=l7aer(iclm,k,jclm,4)
+         enddo
 ! take chem data and extract 1 column to create rsub(l,k,m) array	  
-          call mapaer_tofrom_host( 0,                     &
-               ims,ime, jms,jme, kms,kme,                    &
-               its,ite, jts,jte, kts,kte,                    &
-               iclm, jclm, kts,lpar,                         &
-               num_moist, num_chem, moist, chem,             &
-               t_phy, p_phy, rho_phy                         )
+!         call mapaer_tofrom_host( 0,                     &
+!              ims,ime, jms,jme, kms,kme,                    &
+!              its,ite, jts,jte, kts,kte,                    &
+!              iclm, jclm, kts,lpar,                         &
+!              num_moist, num_chem, moist, chem,             &
+!              t_phy, p_phy, rho_phy                         )
 ! generate aerosol optical properties for cells in this column
 ! subroutine is located in file module_mosaic_therm
-          call aerosol_optical_properties(iclm, jclm, lpar, refindx, &
-               radius_wet, number_bin)
+!         call aerosol_optical_properties(iclm, jclm, lpar, refindx, &
+!              radius_wet, number_bin)
 ! execute mie code , located in file module_fastj_mie
-          CALL wrf_debug(250,'fastj_driver: calling mieaer')
-          call mieaer(                            &
-               id, iclm, jclm, nbin_a,            &
-               number_bin, radius_wet, refindx,   &
-               dz, isecfrm0, lpar,                &
-               sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7)
+!         CALL wrf_debug(250,'fastj_driver: calling mieaer')
+!         call mieaer(                            &
+!              id, iclm, jclm, nbin_a,            &
+!              number_bin, radius_wet, refindx,   &
+!              dz, curr_secs, lpar,               &
+!              sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7,bscoef)
        end if
 
 ! set lat, long
@@ -297,7 +335,7 @@
            pbnd, psfc, temp, ozone,                        &
            dz, cloudmr, airdensity, relhum, zatw,          &
            iclm, jclm, lpar, jpnl,                         &
-           isecfrm0, valuej, cos_sza, processingAerosols,  &
+           curr_secs, valuej, cos_sza, processingAerosols, &
            sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7)
 ! put column photolysis rates (valuej) into wrf photolysis (i,k,j) arrays
       CALL wrf_debug(250,'fastj_driver: calling mapJrates_tofrom_host')
@@ -313,20 +351,24 @@
            ph_n2o5                                                  )
 ! put the aerosol optical properties into the wrf arrays (this is hard-
 ! coded to 4 spectral bins, nspint)
-      do k=kts,kte-1
-         tauaer1(iclm,k,jclm) = tauaer(1,k)
-         tauaer2(iclm,k,jclm) = tauaer(2,k)
-         tauaer3(iclm,k,jclm) = tauaer(3,k)
-         tauaer4(iclm,k,jclm) = tauaer(4,k)
-         gaer1(iclm,k,jclm)   = gaer(1,k)
-         gaer2(iclm,k,jclm)   = gaer(2,k)
-         gaer3(iclm,k,jclm)   = gaer(3,k)
-         gaer4(iclm,k,jclm)   = gaer(4,k)
-         waer1(iclm,k,jclm)   = waer(1,k)
-         waer2(iclm,k,jclm)   = waer(2,k)
-         waer3(iclm,k,jclm)   = waer(3,k)
-         waer4(iclm,k,jclm)   = waer(4,k)
-      end do
+!     do k=kts,kte
+!        tauaer1(iclm,k,jclm) = tauaer(1,k)
+!        tauaer2(iclm,k,jclm) = tauaer(2,k)
+!        tauaer3(iclm,k,jclm) = tauaer(3,k)
+!        tauaer4(iclm,k,jclm) = tauaer(4,k)
+!        gaer1(iclm,k,jclm)   = gaer(1,k)
+!        gaer2(iclm,k,jclm)   = gaer(2,k)
+!        gaer3(iclm,k,jclm)   = gaer(3,k)
+!        gaer4(iclm,k,jclm)   = gaer(4,k)
+!        waer1(iclm,k,jclm)   = waer(1,k)
+!        waer2(iclm,k,jclm)   = waer(2,k)
+!        waer3(iclm,k,jclm)   = waer(3,k)
+!        waer4(iclm,k,jclm)   = waer(4,k)
+!        bscoef1(iclm,k,jclm) = bscoef(1,k)
+!        bscoef2(iclm,k,jclm) = bscoef(2,k)
+!        bscoef3(iclm,k,jclm) = bscoef(3,k)
+!        bscoef4(iclm,k,jclm) = bscoef(4,k)
+!     end do
 
     end do
     end do
@@ -384,7 +426,7 @@
            ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,ph_hcochob,&
            ph_n2o5
 
-   REAL, DIMENSION( kte-1,nphoto_fastj ), INTENT(INOUT) :: valuej
+   REAL, DIMENSION( kte,nphoto_fastj ), INTENT(INOUT) :: valuej
 
 ! local variables
 	real ft
@@ -453,7 +495,7 @@
              pbnd, psfc, temp, ozone,                          &
              dz, cloudmr, airdensity, relhum, zatw,            &
              isvode, jsvode, lpar, jpnl,                       &
-      	     isecfrm0, valuej, cos_sza, processingAerosols,    &
+      	     curr_secs, valuej, cos_sza, processingAerosols,   &
              sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7)
 !-----------------------------------------------------------------
 ! sets parameters for fastj call. 
@@ -468,7 +510,7 @@
 !    temp(lpar)= mid-cell temperature values (deg K)
 !    ozone(lpar) = mid-cell ozone mixing ratios 
 !    surface_albedo -- broadband albedo (dimensionless)
-!    isecfrm0 -- elapsed time from start of simulation in seconds.
+!    curr_secs -- elapsed time from start of simulation in seconds.
 !    isvode,jsvode  -- current column i,j.
 !
 !    lpar -- vertical extent of column (from module_fastj_cmnh)
@@ -554,7 +596,8 @@
 	real pbnd(0:lpar), psfc
 	real temp(lpar), ozone(lpar), surface_albedo
 	real dz(lpar), cloudmr(lpar), airdensity(lpar), relhum(lpar), zatw(lpar+1)
-	integer  isecfrm0, isvode, jsvode
+    real(kind=8) :: curr_secs
+	integer isvode, jsvode
 	
 	real cos_sza
     integer,parameter :: lunout=41
@@ -667,9 +710,7 @@
 	   col_ozone(k) = ozone(k)
 	end do
 
-!	surface_albedo=0.055
-!jdf
- 	surface_albedo=0.05
+ 	surface_albedo=0.055
 
 ! set aerosol parameters needed by Fast-J	                         	         	
         if (processingAerosols) then
@@ -713,9 +754,9 @@
          valuej(k,nphoto_fastj)=0.0
          do l = 1, nphoto_fastj-1
             if (valuej(k,l) .lt. 0) then
-               write( msg, '(a,i8,4i4,1x,e11.4)' )   &
+               write( msg, '(a,f14.2,4i4,1x,e11.4)' )   &
                     'FASTJ negative Jrate ' //   &
-                    'tsec i j k l J(k,l)', isecfrm0,isvode,jsvode,k,l,valuej(k,l)
+                    'tsec i j k l J(k,l)', curr_secs,isvode,jsvode,k,l,valuej(k,l)
                call peg_message( lunerr, msg )
                valuej(k,l) = 0.0
 ! following code used if want run stopped with negative Jrate                 
@@ -731,39 +772,9 @@
 !	   valuej_no3rate(k) =   &
 !         	 valuej(k, lfastj_no3x) + valuej(k,lfastj_no3l)
 !	end do
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	
-!EC FOLLOWING PRINT LOOP SHOULD BE ELIMINATED FROM FINAL WRF CODE	
-! print outs of aerosol optical properties are performed
-! in mie subroutines. now output jrates.	
-!	write(27,909)
-! 909     format(   &
-!               'isecfrm0',2x, 'i', 2x, 'j',2x 'k',3x,  'cos_sza',7x,   &
-!         'no2',13x,'o3a', 13x,'o3b',13x,   &
-!         'h2o2' , 12x, 'hchoa',11x,'hchob', 11x,'ch3ooh',10x,'no3',   &
-!          13x,'hono',12x,'n2o5',12x, 'hno3',12x,'hno4')
-!
-!	do k = 1, lpar
-!	  write(27, 911) isecfrm0,isvode,jsvode,k, cos_sza,   &
-!      	     valuej(k, lfastj_no2),   &
-!             valuej(k, lfastj_o3a) ,   &
-!      	     valuej(k, lfastj_o3b),   &
-!      	     valuej(k, lfastj_h2o2),   &
-!      	     valuej(k, lfastj_hchoa),   &
-!      	     valuej(k, lfastj_hchob) ,   &
-!      	     valuej(k, lfastj_ch3ooh),   &
-!      	     valuej_no3rate(k),   &
-!      	     valuej(k, lfastj_hono),   &
-!      	     valuej(k, lfastj_n2o5),   &
-!      	     valuej(k, lfastj_hno3) ,   &
-!      	     valuej(k, lfastj_hno4)
-!
-!911	  format(i7,3(2x,i4),2x,f7.4, 2x,   &
-!             12(e14.6,2x))
-!        end do
-!EC END PRINT LOOP.	
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	  	
-	return
+
 	end subroutine interface_fastj                          
+
 !***********************************************************************
 	subroutine set_common_mie(lpar, &
           sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7)
@@ -934,11 +945,17 @@
 !
 
 ! JCB - note that pj(NB+1) = p and is defined such elsewhere
-        do i=1,lpar+1
-	pj(i)=pressure(i)
-	T(nslon,nslat,i)=temperature(i)
-	OD(nslon,nslat,i)=optical_depth(i)
+! wig: v3.0.0 release has do loop from 1:lpar+1 but T is never
+!      initialized at lpar+1 leading to model instabilities. T and OD
+!      are ultimately never used at lpar+1. So, I changed this loop to
+!      1:lpar and then just assign pj a value at lpar+1.
+        do i=1,lpar
+           pj(i)=pressure(i)
+           T(nslon,nslat,i)=temperature(i)
+           OD(nslon,nslat,i)=optical_depth(i)
         enddo
+        pj(lpar+1) = pressure(i)
+     
 ! surface albedo
 	SA(nslon,nslat)=surface_albedo
 !
@@ -1232,7 +1249,6 @@
       integer isvode,jsvode
 
        pj(NB+1) = 0.d0 ! define top level
-
 !
 !  Set up cloud and surface properties
       call CLDSRF(isvode,jsvode,odcol,nslat,nslon,p,t,od,sa,lpar,jpnl)

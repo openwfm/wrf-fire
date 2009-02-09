@@ -260,29 +260,26 @@ RECURSIVE SUBROUTINE integrate ( grid )
        TYPE(domain), POINTER :: grid
      END SUBROUTINE
 
+     SUBROUTINE dfi_accumulate( grid )
+       USE module_domain
+       TYPE(domain), POINTER :: grid
+     END SUBROUTINE
+
    END INTERFACE
 
    ! This allows us to reference the current grid from anywhere beneath 
    ! this point for debugging purposes.  
-   ! In the case of operations involving already initialized parent and child, 
-   ! the current grid is set to the child grid.  
-!$$$ Improve this later to track both parent and child...  
-!$$$ Use either an optional argument or another interface...  
    CALL set_current_grid_ptr( grid )
 
    IF ( .NOT. domain_clockisstoptime( grid ) ) THEN
       CALL model_to_grid_config_rec ( grid%id , model_config_rec , config_flags )
-      IF ( .NOT. grid%return_after_training_io ) THEN
+      IF ( config_flags%grid_allowed ) THEN
          CALL domain_clockprint ( 150, grid, 'DEBUG:  top of integrate(),' )
-      ENDIF
-      DO WHILE ( .NOT. domain_clockisstopsubtime(grid) )
-         IF ( .NOT. grid%return_after_training_io ) THEN
+         DO WHILE ( .NOT. domain_clockisstopsubtime(grid) )
             IF ( wrf_dm_on_monitor() ) THEN
-              CALL start_timing
+               CALL start_timing
             END IF
-         ENDIF
-         CALL med_setup_step ( grid , config_flags )
-         IF ( .NOT. grid%return_after_training_io ) THEN
+            CALL med_setup_step ( grid , config_flags )
             a_nest_was_opened = .false.
             ! for each nest whose time has come...
             DO WHILE ( nests_to_open( grid , nestid , kid ) )
@@ -300,93 +297,85 @@ RECURSIVE SUBROUTINE integrate ( grid )
             IF ( a_nest_was_opened ) THEN
                CALL set_overlaps ( grid )   ! find overlapping and set pointers
             END IF
-         ENDIF
-         CALL med_before_solve_io ( grid , config_flags )
-         IF ( grid%return_after_training_io ) THEN
-           CALL wrf_debug( 1, 'DEBUG:  module_integrate() returned after training' )
-           RETURN  ! an ugly hack for sure, only needed for ESMF
-         ENDIF
-         grid_ptr => grid
-         DO WHILE ( ASSOCIATED( grid_ptr ) )
-            CALL set_current_grid_ptr( grid_ptr )
-            CALL wrf_debug( 100 , 'module_integrate: calling solve interface ' )
-            CALL solve_interface ( grid_ptr ) 
-            CALL domain_clockadvance ( grid_ptr )
-            CALL wrf_debug( 100 , 'module_integrate: back from solve interface ' )
-            ! print lots of time-related information for testing
-            ! switch this on with namelist variable self_test_domain
-            CALL domain_time_test( grid_ptr, 'domain_clockadvance' )
-            grid_ptr => grid_ptr%sibling
-         END DO
-         CALL set_current_grid_ptr( grid )
-         CALL med_calc_model_time ( grid , config_flags )
-         CALL med_after_solve_io ( grid , config_flags )
-         grid_ptr => grid
-         DO WHILE ( ASSOCIATED( grid_ptr ) )
-            DO kid = 1, max_nests
-              IF ( ASSOCIATED( grid_ptr%nests(kid)%ptr ) ) THEN
-                CALL set_current_grid_ptr( grid_ptr%nests(kid)%ptr )
-                ! Recursive -- advance nests from previous time level to this time level.
-                CALL wrf_debug( 100 , 'module_integrate: calling med_nest_force ' )
-                CALL med_nest_force ( grid_ptr , grid_ptr%nests(kid)%ptr , config_flags )
-                CALL wrf_debug( 100 , 'module_integrate: back from med_nest_force ' )
-                grid_ptr%nests(kid)%ptr%start_subtime = &
-                  domain_get_current_time(grid) - domain_get_time_step(grid)
-                grid_ptr%nests(kid)%ptr%stop_subtime = &
-                  domain_get_current_time(grid)
-                CALL integrate ( grid_ptr%nests(kid)%ptr ) 
-                CALL wrf_debug( 100 , 'module_integrate: back from recursive call to integrate ' )
-                CALL wrf_debug( 100 , 'module_integrate: calling med_nest_feedback ' )
-                CALL med_nest_feedback ( grid_ptr , grid_ptr%nests(kid)%ptr , config_flags )
-                CALL wrf_debug( 100 , 'module_integrate: back from med_nest_feedback ' )
-#ifdef MOVE_NESTS
-                IF ( .NOT. domain_clockisstoptime( head_grid ) ) THEN
-                  CALL med_nest_move ( grid_ptr , grid_ptr%nests(kid)%ptr )
-                ENDIF
-#endif
-              END IF
-            END DO
-            grid_ptr => grid_ptr%sibling
-         END DO
-         CALL set_current_grid_ptr( grid )
-         !  Report on the timing for a single time step.
-         IF ( wrf_dm_on_monitor() ) THEN
-! begin KLUDGE
-! ia32 pgi 6.0-2 and prescribed moving nest: the returned date string message2 is
-! corrupt after the first specified move UNLESS the string is initialized to all 
-! spaces - REMOVE THIS INIT OF MESSAGE2 WHEN POSSIBLE 
-! 2005 10 28
-            message2='                                                                ' // &
-                     '                                                                ' // &
-                     '                                                                ' // &
-                     '                                                                '
-! end KLUDGE
-           CALL domain_clock_get ( grid, current_timestr=message2 )
-           WRITE ( message , FMT = '("main: time ",A," on domain ",I3)' ) TRIM(message2), grid%id
-           CALL end_timing ( TRIM(message) )
-         END IF
-         CALL med_endup_step ( grid , config_flags )
-      END DO
-      ! Avoid double writes on nests if this is not really the last time;
-      ! Do check for write if the parent domain is ending.
-      IF ( grid%id .EQ. 1 ) THEN               ! head_grid
-        CALL med_last_solve_io ( grid , config_flags )
-      ELSE
 
+            ! Accumulation calculation for DFI
+            CALL dfi_accumulate ( grid )
+
+            CALL med_before_solve_io ( grid , config_flags )
+            grid_ptr => grid
+            DO WHILE ( ASSOCIATED( grid_ptr ) )
+               CALL set_current_grid_ptr( grid_ptr )
+               CALL wrf_debug( 100 , 'module_integrate: calling solve interface ' )
+               CALL solve_interface ( grid_ptr ) 
+               CALL domain_clockadvance ( grid_ptr )
+               CALL wrf_debug( 100 , 'module_integrate: back from solve interface ' )
+               ! print lots of time-related information for testing
+               ! switch this on with namelist variable self_test_domain
+               CALL domain_time_test( grid_ptr, 'domain_clockadvance' )
+               grid_ptr => grid_ptr%sibling
+            END DO
+            CALL set_current_grid_ptr( grid )
+            CALL med_calc_model_time ( grid , config_flags )
+            CALL med_after_solve_io ( grid , config_flags )
+            grid_ptr => grid
+            DO WHILE ( ASSOCIATED( grid_ptr ) )
+               DO kid = 1, max_nests
+                 IF ( ASSOCIATED( grid_ptr%nests(kid)%ptr ) ) THEN
+                   CALL set_current_grid_ptr( grid_ptr%nests(kid)%ptr )
+                   ! Recursive -- advance nests from previous time level to this time level.
+                   CALL wrf_debug( 100 , 'module_integrate: calling med_nest_force ' )
+                   CALL med_nest_force ( grid_ptr , grid_ptr%nests(kid)%ptr , config_flags )
+                   CALL wrf_debug( 100 , 'module_integrate: back from med_nest_force ' )
+                   grid_ptr%nests(kid)%ptr%start_subtime = &
+                     domain_get_current_time(grid) - domain_get_time_step(grid)
+                   grid_ptr%nests(kid)%ptr%stop_subtime = &
+                     domain_get_current_time(grid)
+                   CALL integrate ( grid_ptr%nests(kid)%ptr ) 
+                   CALL wrf_debug( 100 , 'module_integrate: back from recursive call to integrate ' )
+                   CALL wrf_debug( 100 , 'module_integrate: calling med_nest_feedback ' )
+                   CALL med_nest_feedback ( grid_ptr , grid_ptr%nests(kid)%ptr , config_flags )
+                   CALL wrf_debug( 100 , 'module_integrate: back from med_nest_feedback ' )
+#ifdef MOVE_NESTS
+                   IF ( .NOT. domain_clockisstoptime( head_grid ) ) THEN
+                     CALL med_nest_move ( grid_ptr , grid_ptr%nests(kid)%ptr )
+                   ENDIF
+#endif
+                 END IF
+               END DO
+               grid_ptr => grid_ptr%sibling
+            END DO
+            CALL set_current_grid_ptr( grid )
+            !  Report on the timing for a single time step.
+            IF ( wrf_dm_on_monitor() ) THEN
+               CALL domain_clock_get ( grid, current_timestr=message2 )
+               WRITE ( message , FMT = '("main: time ",A," on domain ",I3)' ) TRIM(message2), grid%id
+               CALL end_timing ( TRIM(message) )
+            END IF
+            CALL med_endup_step ( grid , config_flags )
+         END DO
+
+         ! Accumulation calculation for DFI
+         CALL dfi_accumulate ( grid )
+
+         ! Avoid double writes on nests if this is not really the last time;
+         ! Do check for write if the parent domain is ending.
+         IF ( grid%id .EQ. 1 ) THEN               ! head_grid
+            CALL med_last_solve_io ( grid , config_flags )
+         ELSE
 ! zip up the tree and see if any ancestor is at its stop time
-        
-        should_do_last_io = domain_clockisstoptime( head_grid )
-        grid_ptr => grid 
-        DO WHILE ( grid_ptr%id .NE. 1 )
-           IF ( domain_clockisstoptime( grid_ptr ) ) should_do_last_io = .TRUE. 
-           grid_ptr => grid_ptr%parents(1)%ptr
-        ENDDO
-        IF ( should_do_last_io ) THEN 
-           CALL med_last_solve_io ( grid , config_flags )
-        ENDIF
+            should_do_last_io = domain_clockisstoptime( head_grid )
+            grid_ptr => grid 
+            DO WHILE ( grid_ptr%id .NE. 1 )
+               IF ( domain_clockisstoptime( grid_ptr ) ) should_do_last_io = .TRUE. 
+               grid_ptr => grid_ptr%parents(1)%ptr
+            ENDDO
+            IF ( should_do_last_io ) THEN 
+               CALL med_last_solve_io ( grid , config_flags )
+            ENDIF
+         ENDIF
       ENDIF
    END IF
-
+   
 END SUBROUTINE integrate
 
 END MODULE module_integrate

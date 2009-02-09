@@ -32,10 +32,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef MACOS
-  #include <sys/malloc.h>
-#else
-  #include <malloc.h>
+#if 0
+#include <malloc.h>
 #endif
 #include <unistd.h>
 #include <string.h>
@@ -196,6 +194,7 @@ int noext;
   }
   
   sprintf(pathname, "%s/%s/%s", Home, dir, name);
+
   fp = fopen(pathname,"r");
   if( fp ) {
     fclose(fp);

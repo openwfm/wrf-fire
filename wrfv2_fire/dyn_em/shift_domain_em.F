@@ -1,13 +1,13 @@
 SUBROUTINE shift_domain_em ( grid , disp_x, disp_y &
 !
-# include <em_dummy_new_args.inc>
+# include <dummy_new_args.inc>
 !
                            )
-   USE module_domain
+   USE module_state_description
+   USE module_domain, ONLY : domain, get_ijk_from_grid
    USE module_timing
-   USE module_configure
+   USE module_configure, ONLY : grid_config_rec_type, model_config_rec, model_to_grid_config_rec
    USE module_dm
-   USE module_timing
    IMPLICIT NONE
   ! Arguments
    INTEGER disp_x, disp_y       ! number of parent domain points to move
@@ -24,32 +24,25 @@ SUBROUTINE shift_domain_em ( grid , disp_x, disp_y &
        ! need to split this routine to avoid clobbering certain widely used compilers
        SUBROUTINE shift_domain_em2 ( grid , disp_x, disp_y &
 !
-# include <em_dummy_new_args.inc>
+# include <dummy_new_args.inc>
 !
                            )
-          USE module_domain
-          USE module_timing
-          USE module_configure
-          USE module_dm
-          USE module_timing
+          USE module_state_description
+          USE module_domain, ONLY : domain
           IMPLICIT NONE
          ! Arguments
           INTEGER disp_x, disp_y       ! number of parent domain points to move
           TYPE(domain) , POINTER                     :: grid
-          TYPE (grid_config_rec_type)  :: config_flags
 
           !  Definitions of dummy arguments to solve
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
        END SUBROUTINE shift_domain_em2
    END INTERFACE
 
    !  Definitions of dummy arguments to solve
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
 
 #ifdef MOVE_NESTS
-#ifdef DM_PARALLEL
-#      include <em_data_calls.inc>
-#endif
 
    CALL model_to_grid_config_rec ( grid%id , model_config_rec , config_flags )
 
@@ -73,12 +66,13 @@ SUBROUTINE shift_domain_em ( grid , disp_x, disp_y &
 
 ! shift the nest domain in x
    do ii = 1,abs(disp_x)
-#include <em_shift_halo_x.inc>
+#include <SHIFT_HALO_X_HALO.inc>
+#include <shift_halo_x.inc>
    enddo
 
    CALL shift_domain_em2 ( grid , disp_x, disp_y &
 !
-# include <em_dummy_new_args.inc>
+# include <dummy_new_args.inc>
 !
                            )
 
@@ -88,14 +82,14 @@ END SUBROUTINE shift_domain_em
 
 SUBROUTINE shift_domain_em2 ( grid , disp_x, disp_y &
 !
-# include <em_dummy_new_args.inc>
+# include <dummy_new_args.inc>
 !
                            )
-   USE module_domain
+   USE module_state_description
+   USE module_domain, ONLY : domain, get_ijk_from_grid
    USE module_timing
-   USE module_configure
+   USE module_configure, ONLY : grid_config_rec_type, model_config_rec, model_to_grid_config_rec
    USE module_dm
-   USE module_timing
    IMPLICIT NONE
   ! Arguments
    INTEGER disp_x, disp_y       ! number of parent domain points to move
@@ -109,13 +103,9 @@ SUBROUTINE shift_domain_em2 ( grid , disp_x, disp_y &
    TYPE (grid_config_rec_type)  :: config_flags
 
    !  Definitions of dummy arguments to solve
-#include <em_dummy_new_decl.inc>
+#include <dummy_new_decl.inc>
 
 #ifdef MOVE_NESTS
-
-#ifdef DM_PARALLEL
-#      include <em_data_calls.inc>
-#endif
 
    CALL model_to_grid_config_rec ( grid%id , model_config_rec , config_flags )
 
@@ -129,7 +119,8 @@ SUBROUTINE shift_domain_em2 ( grid , disp_x, disp_y &
 
 ! shift the nest domain in y
    do ii = 1,abs(disp_y)
-#include <em_shift_halo_y.inc>
+#include <SHIFT_HALO_Y_HALO.inc>
+#include <shift_halo_y.inc>
    enddo
 
 #endif

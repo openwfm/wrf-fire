@@ -1,4 +1,5 @@
     MODULE module_dep_simple
+      IMPLICIT NONE
 !
 ! many of these parameters will depend on the RADM mechanism!
 ! if you change it, lets talk about it and get it done!!!
@@ -40,8 +41,6 @@
   USE module_configure
   USE module_state_description                       
   USE module_data_sorgam
-! USE module_data_radm2                               
-! USE module_data_racm                               
           
    INTEGER,      INTENT(IN   ) :: id,julday,                              &
                                   numgas,                                 &
@@ -97,12 +96,12 @@
 !--- deposition and emissions stuff
 ! ..
 ! .. Local Scalars ..
-      REAL ::  clwchem,dvfog,dvpart,rad,rhchem,ta,ustar,vegfrac,z1,zntt
-      INTEGER :: iland, iprt, iseason, jce, jcs, n, nr, ipr,jpr,nvr
+      REAL ::  clwchem,dvfog,dvpart,pa,rad,rhchem,ta,ustar,vegfrac,z1,zntt
+      INTEGER :: i, iland, iprt, iseason, j, jce, jcs, n, nr, ipr,jpr,nvr
       LOGICAL :: highnh3, rainflag, vegflag, wetflag
 ! ..
 ! .. Local Arrays ..  
-      REAL :: p(kts:kte-1), srfres(numgas),ddvel0d(numgas)
+      REAL :: p(kts:kte), srfres(numgas),ddvel0d(numgas)
 !
 ! necessary for aerosols (module dependent)         
 !  
@@ -147,7 +146,9 @@
       rhchem = MAX(5.,RHCHEM)
       if (rhchem >= 95.) wetflag = .true.
 
-      if(chem(i,kts,j,p_nh3).gt.2.*chem(i,kts,j,p_so2))highnh3 = .true.
+      if(p_nh3.gt.1)then
+         if(chem(i,kts,j,p_nh3).gt.2.*chem(i,kts,j,p_so2))highnh3 = .true.
+      endif
 
 !--- deposition
       
@@ -164,7 +165,7 @@
       CALL landusevg(ddvel0d,ustar,rmol(i,j),zntt,z1,dvpart,iland,        &
            numgas,srfres,aer_res(i,j),p_sulf)
 
-!wig: CMBZ doe snot have Ho and HO2 last so need to copy all species
+!wig: CMBZ does not have HO and HO2 last so need to copy all species
 !      ddvel(i,j,1:numgas-2)=ddvel0d(1:numgas-2)
       ddvel(i,j,1:numgas)=ddvel0d(1:numgas)
 
@@ -189,7 +190,7 @@
                ddvel(i,j,p_ethp)        = 0
                ddvel(i,j,p_ch3oh)       = ddvel(i,j,p_hcho)
                ddvel(i,j,p_c2h5oh)      = ddvel(i,j,p_hcho)
-               ddvel(i,j,p_par)         = ddvel(i,j,p_hc5)
+!wig, 1-May-2007 (added par to tables)    ddvel(i,j,p_par)         = ddvel(i,j,p_hc5)
                ddvel(i,j,p_to2)         = 0
                ddvel(i,j,p_cro)         = 0
                ddvel(i,j,p_open)        = ddvel(i,j,p_xyl)
@@ -217,6 +218,47 @@
                   ddvel(i,j,p_ch3so2ch2oo) = 0
                   ddvel(i,j,p_mtf)         = 0
                end if
+            end do
+         end do
+      end if
+
+! For the additional CBM4 species, assign similar RADM counter parts for
+! now. Short lived species get a zero velocity since dry dep should be
+! unimportant.
+!     
+      if  (config_flags%chem_opt == CBM4_KPP          )   then
+         do j=jts,jte
+            do i=its,ite
+               ddvel(i,j,p_open)        = ddvel(i,j,p_xyl)
+               ddvel(i,j,p_ro2)         = 0
+               ddvel(i,j,p_xo2)         = 0
+               ddvel(i,j,p_ald2)        = ddvel(i,j,p_ald)
+               ddvel(i,j,p_iso)        = 0
+            end do
+         end do
+      end if
+
+! For gocartracm,radm
+!     
+      if  ((config_flags%chem_opt == GOCARTRACM_KPP)  .OR.     &
+           (config_flags%chem_opt == GOCARTRADM2_KPP) .OR.     &
+           (config_flags%chem_opt == GOCARTRADM2))   then
+         do j=jts,jte
+            do i=its,ite
+               ddvel(i,j,p_sulf)        = 0.
+               ddvel(i,j,p_dms)         = 0.
+               ddvel(i,j,p_msa)         = ddvel(i,j,p_hno3)
+            end do
+         end do
+      end if
+! For gocartsimple : need msa. On the other hand sulf comes from aerosol routine
+!     
+      if  (config_flags%chem_opt == GOCART_SIMPLE          )   then
+         do j=jts,jte
+            do i=its,ite
+               ddvel(i,j,p_msa)         = ddvel(i,j,p_sulf)
+               ddvel(i,j,p_sulf)        = 0.
+               ddvel(i,j,p_dms)         = 0.
             end do
          end do
       end if
@@ -307,6 +349,7 @@ END SUBROUTINE wesely_driver
 10      END DO
 
 !     SPECIAL TREATMENT FOR OZONE
+        if(p_o3.gt.1)then
         hstary(p_o3) = hstar(p_o3)*exp(dhr(p_o3)*(1./t-1./298.))
         rmx = 1./(hstary(p_o3)/3000.+100.*f0(p_o3))
         rsmx = rs*dratio(p_o3) + rmx
@@ -318,6 +361,7 @@ END SUBROUTINE wesely_driver
         rcx(p_o3) = 1./(1./rsmx+1./rlux+1./(rdc+rclx)+1./(rac(iland, &
           iseason)+rgsx))
         IF (rcx(p_o3)<1.) rcx(p_o3) = 1.
+        endif
 
 !     SPECIAL TREATMENT FOR SO2 (Wesely)
 !       HSTARY(P_SO2)=HSTAR(P_SO2)*EXP(DHR(P_SO2)*(1./T-1./298.))
@@ -396,6 +440,11 @@ END SUBROUTINE wesely_driver
         IF (rcx(p_so2)<1.) rcx(p_so2) = 1.
 !     NH3 according to Erisman et al. 1994
 !       R_STOM
+!
+!
+        if(p_nh3.gt.1)then
+!
+!
         rsmx = rs*dratio(p_nh3)
 !       GRASSLAND (PASTURE DURING GRAZING)
         IF (ixxxlu(iland)==3) THEN
@@ -506,7 +555,7 @@ END SUBROUTINE wesely_driver
           END IF
         END IF
         IF (rcx(p_nh3)<1.) rcx(p_nh3) = 1.
-
+        endif
       END SUBROUTINE rc
 ! **********************************************************************
 ! ************************ SUBROUTINE DEPPART **************************
@@ -1070,6 +1119,8 @@ END SUBROUTINE wesely_driver
 !     Effective Henry''s law coefficient at pH 7
 !     [KH298]=mole/(l atm)
 
+        if (config_flags%chem_opt /= CBM4_KPP) then
+
         hstar(p_no2) = 6.40E-3
         hstar(p_no) = 1.90E-3
         hstar(p_pan) = 2.97E+0
@@ -1108,6 +1159,7 @@ END SUBROUTINE wesely_driver
         hstar(p_nh3) = 1.04E+4
         hstar(p_n2o5) = 1.00E+10
         if(p_ol2.gt.1)hstar(p_ol2) = 4.67E-3
+        hstar(p_par) = 1.13E-3  !wig, 1-May-2007: for CBMZ
 !
 !  FOLLOWING FOR RACM
 !
@@ -1190,6 +1242,7 @@ END SUBROUTINE wesely_driver
         dhr(p_nh3) = 3660.
         dhr(p_n2o5) = 0.
         if(p_ol2.gt.1)dhr(p_ol2) = 0.
+        dhr(p_par) = 0.   !wig, 1-May-2007: for CBMZ
 !     REACTIVITY FACTORS
 !     [f0]=1
 
@@ -1231,13 +1284,14 @@ END SUBROUTINE wesely_driver
         f0(p_nh3) = 0.
         f0(p_n2o5) = 1.
         if(p_ol2.gt.1)f0(p_ol2) = 0.
+        f0(p_par) = 0.   !wig, 1-May-2007: for CBMZ
 !     DIFFUSION COEFFICIENTS
 !     [DV]=cm2/s (assumed: 1/SQRT(molar mass) when not known)
 
         dvj(p_no2) = 0.147
         dvj(p_no) = 0.183
         dvj(p_pan) = 0.091
-        dvj(p_o3) = 0.175
+        dvj(p_o3)   = 0.175
         dvj(p_hcho) = 0.183
         dvj(p_aco3) = 0.115
         dvj(p_tpan) = 0.082
@@ -1253,7 +1307,7 @@ END SUBROUTINE wesely_driver
         dvj(p_ket) = 0.118
         dvj(p_gly) = 0.131
         dvj(p_mgly) = 0.118
-        dvj(p_dcb) = 0.107
+        dvj(p_dcb)  = 0.107
         dvj(p_onit) = 0.092
         dvj(p_so2) = 0.126
         dvj(p_eth) = 0.183
@@ -1274,6 +1328,7 @@ END SUBROUTINE wesely_driver
         dvj(p_ho) = 0.243
         dvj(p_ho2) = 0.174
         if(p_ol2.gt.1)dvj(p_ol2) = 0.189
+        dvj(p_par) = 0.118   !wig, 1-May-2007: for CBMZ
         DO l = 1, numgas
           hstar4(l) = hstar(l) ! preliminary              
 ! Correction of diff. coeff
@@ -1283,6 +1338,117 @@ END SUBROUTINE wesely_driver
 ! Ratio of diffusion coeffi
           scpr23(l) = (sc/0.72)**(2./3.) ! (Schmidt # / Prandtl #)**
         END DO
+
+        else ! CB4
+        hstar(p_no2)   = 6.40E-3
+        hstar(p_no)    = 1.90E-3
+        hstar(p_pan)   = 2.97E+0
+        hstar(p_o3)    = 1.13E-2
+        hstar(p_hcho)  = 2.97E+3
+        hstar(p_hono)  = 3.47E+5
+        hstar(p_no3)   = 1.50E+1
+        hstar(p_h2o2)  = 7.45E+4
+        hstar(p_co)    = 8.20E-3
+        hstar(p_ald2)  = 1.14E+1
+        hstar(p_onit)  = 1.13E+0
+        hstar(p_so2)   = 2.53E+5
+        hstar(p_eth)   = 2.00E-3
+        hstar(p_ole)   = 3.05E-3 !(average of oli and olt)
+        hstar(p_tol)   = 1.51E-1
+        hstar(p_cres)  = 4.00E+5
+        hstar(p_xyl)   = 1.45E-1
+        hstar(p_iso)   = 4.76E-3
+        hstar(p_hno3)  = 2.69E+13
+        hstar(p_nh3)   = 1.04E+4
+        hstar(p_n2o5)  = 1.00E+10
+        hstar(p_par)   = 1.13E-3  
+
+!     -DH/R (for temperature correction)
+!     [-DH/R]=K
+
+        dhr(p_no2)  = 2500.
+        dhr(p_no)   = 1480.
+        dhr(p_pan)  = 5760.
+        dhr(p_o3)   = 2300.
+        dhr(p_hcho) = 7190.
+        dhr(p_hono) = 3775.
+        dhr(p_no3)  = 0.
+        dhr(p_h2o2) = 6615.
+        dhr(p_co)   = 0.
+        dhr(p_ald2) = 6266.
+        dhr(p_onit) = 5487.
+        dhr(p_so2)  = 5816.
+        dhr(p_eth) = 0.
+        dhr(p_ole)  = 0.
+        dhr(p_tol)  = 0.
+        dhr(p_cres) = 0.
+        dhr(p_xyl)  = 0.
+        dhr(p_iso)  = 0.
+        dhr(p_hno3) = 8684.
+        dhr(p_nh3)  = 3660.
+        dhr(p_n2o5) = 0.
+        dhr(p_par)  = 0.  
+!     REACTIVITY FACTORS
+!     [f0]=1
+
+        f0(p_no2)  = 0.1
+        f0(p_no)   = 0.
+        f0(p_pan)  = 0.1
+        f0(p_o3)   = 1.
+        f0(p_hcho) = 0.
+        f0(p_hono) = 0.1
+        f0(p_no3)  = 1.
+        f0(p_h2o2) = 1.
+        f0(p_co)   = 0.
+        f0(p_ald2) = 0.
+        f0(p_onit) = 0.
+        f0(p_so2)  = 0.
+        f0(p_eth)  = 0.
+        f0(p_ole)  = 0.
+        f0(p_tol)  = 0.
+        f0(p_csl)  = 0.
+        f0(p_xyl)  = 0.
+        f0(p_iso)  = 0.
+        f0(p_hno3) = 0.
+        f0(p_nh3)  = 0.
+        f0(p_n2o5) = 1.
+        f0(p_par)  = 0.   
+!     DIFFUSION COEFFICIENTS
+!     [DV]=cm2/s (assumed: 1/SQRT(molar mass) when not known)
+
+        dvj(p_no2)  = 0.147
+        dvj(p_no)   = 0.183
+        dvj(p_pan)  = 0.091
+        dvj(p_o3)   = 0.175
+        dvj(p_hcho) = 0.183
+        dvj(p_hono) = 0.153
+        dvj(p_no3)  = 0.127
+        dvj(p_h2o2) = 0.171
+        dvj(p_co)   = 0.189
+        dvj(p_ald2) = 0.151
+        dvj(p_onit) = 0.092
+        dvj(p_so2)  = 0.126
+        dvj(p_eth)  = 0.183
+        dvj(p_ole)  = 0.135
+        dvj(p_tol)  = 0.104
+        dvj(p_csl)  = 0.096
+        dvj(p_xyl)  = 0.097
+        dvj(p_iso)  = 0.121
+        dvj(p_hno3) = 0.126
+        dvj(p_nh3)  = 0.227
+        dvj(p_n2o5) = 0.110
+        dvj(p_par)  = 0.118  
+        DO l = 1, numgas
+          hstar4(l) = hstar(l) ! preliminary              
+! Correction of diff. coeff
+          dvj(l) = dvj(l)*(293.15/298.15)**1.75
+          sc = 0.15/dvj(l) ! Schmidt Number at 20°C   
+          dratio(l) = 0.242/dvj(l) !                                            ! of water vapor and gas at
+! Ratio of diffusion coeffi
+          scpr23(l) = (sc/0.72)**(2./3.) ! (Schmidt # / Prandtl #)**
+
+       end DO
+    end if
 
 
 

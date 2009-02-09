@@ -1,6 +1,22 @@
+This is the coupled WRF-fire model, combining WRF and the SFIRE codes
+
+The code can be downloaded from http://github.com/jbeezley/wrf-fire/
+
+For terms and conditions see the file license.txt
+
+For support please subscribe to the wrf-fire mailing list at NCAR at
+http://mailman.ucar.edu/mailman/listinfo/wrf-fire
+
+You can contact the authors through this list:
+Janice Coen - physics
+Jan Mandel - the fire code
+Jonathan Beezley - WRF infrastructure and WPS
+
+--------------------------------------------------------
+
 Index of documentation in doc subdirectory
 
-README.txti                 this file, how to compile and run WRF/SFIRE on ideal data
+README.txt                  this file, how to compile and run WRF/SFIRE on ideal data
 README_git.txt              how to use the versioning system
 README_mac.txt              how to run on a Mac
 README_matlab_netcdf.txt    how to read WRF input and output directly Matlab
@@ -8,10 +24,8 @@ README_vis.txt              matlab visualization using files written every times
 README_visualization.txt    convert WRF input and output to Matlab readable format
 README_wps.txt              how use real data including fuel from Landfire
 
-
-*** All is set up to run on wf.cudenver.edu ONLY ***
-*** See the bottom of this file how to set up another machine ***
-
+The instructions below assume you are runing on wf.cudenver.edu
+See the bottom of this file how to set up on a different machine
 
 BRANCHES
 
@@ -23,7 +37,7 @@ The repository contains these main branches:
 * jm: current working branch
 * jm-base: early snapshot that gives the same output as Ned had
 
-Only Jon should commit to master branch in the repository.
+Only Jon can commit to master branch in the repository.
 Each branch has owner and one the owner can commit to that branch in the
 repository.
 If you want to have more than one branch have Jon set up a branch (say, jm2)
@@ -73,22 +87,18 @@ This runs an "idealized" problem. For RUNNING ON REAL DATA see doc/README_wps.tx
 
 STANDALONE FIRE MODEL TEST
 
+with ifort:
+
 cd phys
 ./ifmake clean
 ./ifmake model_test
-./ifmake clean
-./ifmake prop_test
-./ifmake clean
 
 Without the clean between different kind of builds nothing will work.
+There is g95make for g95.
+With other compilers, try someting like make -f testmakefile FC=your fortran compiler
+See wrfv2_fire/phys/README_jm.txt for more info.
 
-*NOTE*
-On walnut, the ifmake script will not work, but you can use the makefile, 
-'testmakefile.walnut' like this:
 
-make -f testmakefile.walnut clean model_test
-
-this will run the standalone model test.
 
 
 SETUP ON A NEW MACHINE

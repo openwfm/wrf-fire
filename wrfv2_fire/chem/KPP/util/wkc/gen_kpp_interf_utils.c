@@ -32,7 +32,9 @@ decl_misc (  FILE * ofile )
 
 
 
- fprintf(ofile,"    REAL(KIND=dp) :: conv, oconv \n\n");
+ fprintf(ofile,"    REAL(KIND=dp) :: conv, oconv \n");
+
+ fprintf(ofile,"    REAL(KIND=dp) :: C_M \n\n");
 
  fprintf(ofile,"    INTEGER :: i,j,k,n \n");
 
@@ -206,7 +208,9 @@ gen_kpp_pargs( FILE * ofile, knode_t * nl  )
 		 }   
 
 
+                 if ( countit % max_per_line !=  0) {
 		 fprintf(ofile,"  & \n"); 
+		 }   
 
 
 }
@@ -255,7 +259,7 @@ wki_start_loop( FILE * ofile )
 {
 
    fprintf(ofile,"\n    DO j=jts, jte\n");
-   fprintf(ofile,"    DO k=kts, kte-1\n");
+   fprintf(ofile,"    DO k=kts, kte\n");
    fprintf(ofile,"    DO i=its, ite\n\n\n");
 }
 
@@ -275,14 +279,14 @@ wki_prelim( FILE * ofile )
 
 
   
-
+   fprintf(ofile,"!initialization, individual parameters set below \n");
    fprintf(ofile,"      DO n=1, 20\n");
    fprintf(ofile,"         ICNTRL(n) = 0\n");
+   fprintf(ofile,"         RCNTRL(n) = 0._dp\n");
    fprintf(ofile,"      END DO\n\n");
 
 
-   fprintf(ofile,"         ICNTRL(3) = 2\n\n");
-
+   fprintf(ofile,"! CURRENTLY FROM in chem/KPP/module_wkppc_constants.F \n");
    fprintf(ofile,"      DO n=1, NSPEC\n");
    fprintf(ofile,"         ATOL(n) = REAL(atols, KIND=dp)\n");
    fprintf(ofile,"         RTOL(n) = REAL(rtols, KIND=dp)\n");
@@ -292,17 +296,27 @@ wki_prelim( FILE * ofile )
    fprintf(ofile,"      TIME_END =  REAL(dtstepc, KIND=dp) \n\n");   
 
 
+   fprintf(ofile,"! SETTINGS FOR ICNTRL, RCNTRL IN in chem/KPP/inc/kpp_ctrl_default.inc \n");
+   fprintf(ofile,"#include <kpp_ctrl_default.inc> \n\n");
 
 }
 
 
 int
-wki_one_d_vars( FILE * ofile )
+wki_one_d_vars( FILE * ofile,   knode_t * pp )
 {
 
 
+  if ( pp -> got_air == 1 ) {
    fprintf(ofile,"      ! 3rd body concentration (molec/cm^3)\n");
-   fprintf(ofile,"    FIX(indf_M)  = REAL(dens2con_a * rho_phy(i,k,j), KIND=dp)\n\n");
+   fprintf(ofile,"    FIX(indf_M)  = REAL(dens2con_a * rho_phy(i,k,j), KIND=dp)\n");
+   fprintf(ofile,"    C_M = FIX(indf_M)\n\n");
+  } else {
+    fprintf(ofile,"    C_M = 0.0_dp ! not used \n\n");
+  }
+
+ 
+
 
    fprintf(ofile,"      ! water concentration (molec/cm^3)\n");
    fprintf(ofile,"    FIX(indf_H2O) = REAL(dens2con_w * moist(i,k,j,P_QV) * rho_phy(i,k,j), KIND=dp)\n\n\n");

@@ -20,7 +20,7 @@ subroutine sfire_model (                    &
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
-        ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
+    ifps,ifpe,jfps,jfpe,                    & ! patch - nodes owned by this process
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,
@@ -28,6 +28,7 @@ subroutine sfire_model (                    &
     ignition_end_x,ignition_end_y,          &
     ignition_radius,                        &
     ignition_time,                          &
+    ignitions_done,ignited_tile,            &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
@@ -101,15 +102,16 @@ real, dimension(num_ignitions), intent(in):: &
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
     ignition_time                           !  of ignition lines
+integer, intent(out):: ignited_tile(num_ignitions),ignitions_done
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
 real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
 REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
-    zsf,   &                                ! terrain height, node based, data, constant        
     vx,vy                                   ! wind m/s (node based), data, variable
     
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
+    zsf,   &                                ! terrain height, node based, data, constant after extr
     lfn   , &                               ! level function: fire is where lfn<0 (node)
     tign  , &                               ! absolute time of ignition (node)
     fuel_frac                               ! fuel fraction (node), currently redundant
@@ -123,7 +125,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     grnhfx,grnqfx                           ! heat fluxes J/m^2/s  (cell)             
  
 ! constant arrays - set at initialization
-integer, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
+real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: bbb,betafl,phiwc,r_0 ! (node) spread formula coefficients
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fgip                 ! (cell) init mass of surface fuel (kg/m^2)
@@ -148,17 +150,30 @@ xjfms=jfms
 xjfme=jfme
 
 
+! init flags
 need_lfn_update=.false.
+ignitions_done=0
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
-elseif(ifun.eq.2)then   ! initialize the run
-                    
+elseif(ifun.eq.2)then   
         ! initialize all arrays that the model will not change later
+
+        ! assuming halo on zsf done
+        ! extrapolate on 1 row of cells beyond the domain boundary
+        ! including on the halo regions 
+
+        call continue_at_boundary(1,1,0., & ! do x direction or y direction
+            ifms,ifme,jfms,jfme,           &                ! memory dims
+            ifds,ifde,jfds,jfde, &                     ! domain dims 
+            ifps,ifpe,jfps,jfpe, &            ! patch dims - winds defined up to +1
+            ifts,ifte,jfts,jfte, &                ! tile dims
+            zsf)                               ! array
+
         call set_nfuel_cat( &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             ifuelread,nfuel_cat0,&
-            zsf,nfuel_cat)
+            zsf,nfuel_cat)            ! better not use the extrapolated zsf!!
 
         ! uses nfuel_cat to set the other fuel data arrays
         ! needs zsf on halo width 1 to compute the terrain gradient
@@ -166,7 +181,7 @@ elseif(ifun.eq.2)then   ! initialize the run
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
-            fdx,fdy,             &
+            fdx,fdy,nfuel_cat0,  &
             nfuel_cat,fuel_time &
 #           include "fr_sfire_params_args.h" 
 )
@@ -179,11 +194,11 @@ elseif(ifun.eq.2)then   ! initialize the run
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             fdx,fdy,time_start,  &
-            fuel_frac,lfn,tign)
+            fuel_frac,fire_area,lfn,tign)
             
         need_lfn_update=.true. ! because we have set lfn 
 
-elseif(ifun.eq.3)then   ! initialize timestep
+elseif(ifun.eq.3)then   ! ignition if so specified
 
     ! check for ignitions
     do ig = 1,num_ignitions
@@ -199,6 +214,8 @@ elseif(ifun.eq.3)then   ! initialize timestep
                 ignition_time(ig),                        &  
                 coord_xf,coord_yf,unit_xf,unit_yf,        & 
                 lfn,tign,ignited)
+            ignitions_done=ignitions_done+1
+            ignited_tile(ignitions_done)=ignited
                 
             need_lfn_update=.true. ! if ignition, lfn changed
 #ifdef DEBUG_OUT    
@@ -213,11 +230,11 @@ elseif(ifun.eq.3)then   ! initialize timestep
 elseif (ifun.eq.4) then  ! do the timestep
 
 !   compute fuel fraction at start
-    call fuel_left( &
-        ifms,ifme,jfms,jfme, &
-        ifts,ifte,jfts,jfte, &
-        ifms,ifme,jfms,jfme, &
-        lfn,tign,fuel_time,time_start,fuel_frac,fire_area) ! fuel frac is shared
+!    call fuel_left( &
+!        ifms,ifme,jfms,jfme, &
+!        ifts,ifte,jfts,jfte, &
+!        ifms,ifme,jfms,jfme, &
+!        lfn,tign,fuel_time,time_start,fuel_frac,fire_area) ! fuel frac is shared
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
@@ -263,7 +280,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 elseif (ifun.eq.6) then ! timestep postprocessing
 
     ! compute the heat fluxes from the fuel burned
-    ! needs lfn from neighbors so halo must be updated before
+    ! needs lfn and tign from neighbors so halo must be updated before
     call fuel_left(&
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
@@ -276,7 +293,8 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     
     do j=jfts,jfte
         do i=ifts,ifte
-            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j)
+            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j) ! fuel lost this timestep
+            fuel_frac(i,j)=fuel_frac_end(i,j) ! copy new value to state array
         enddo
     enddo
 

@@ -54,10 +54,14 @@
 
 ***************************************************************************/
 
-#include <stdio.h>
+#ifndef MS_SUA
+# include <stdio.h>
+#endif
 #include <stdlib.h>
 #include "rsl_lite.h"
-#include "mpi.h"
+#ifndef STUBMPI
+#  include "mpi.h"
+#endif
 
 typedef struct bufdesc {
   char * buf ;
@@ -86,8 +90,6 @@ static int first = 1 ;
 
 */
 
-char mess[1024] ;
-
 char *
 buffer_for_proc( P, size, code )
   int P ;   /* processor number */
@@ -96,6 +98,7 @@ buffer_for_proc( P, size, code )
 {
   int p ;
   int i, j ;
+  char mess[1024] ;
   char * ret ;
 
   ret = NULL ;
@@ -155,7 +158,9 @@ show_tot_size()
     acc += buftab[0][P].size ;
     acc += buftab[1][P].size ;
   }
+#ifndef MS_SUA
   fprintf(stderr,"Total bytes allocated for buffers: %d\n", acc ) ;
+#endif
 }
 
 int

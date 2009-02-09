@@ -2,6 +2,7 @@ SUBROUTINE wrf_auxinput9in ( fid , grid , config_flags , switch , ierr )
     USE module_domain
     USE module_state_description
     USE module_configure
+    USE module_scalar_tables
     USE module_io
     USE module_io_wrf
     USE module_date_time
@@ -41,7 +42,6 @@ SUBROUTINE wrf_auxinput9in ( fid , grid , config_flags , switch , ierr )
     CHARACTER*19  new_date
     CHARACTER*24  base_date
     INTEGER idt
-    INTEGER itmp, dyn_opt
     INTEGER :: ide_compare , jde_compare , kde_compare
     ierr = 0
 
@@ -50,7 +50,6 @@ SUBROUTINE wrf_auxinput9in ( fid , grid , config_flags , switch , ierr )
                               ims, ime, jms, jme, kms, kme,    &
                               ips, ipe, jps, jpe, kps, kpe    )
 
-    CALL nl_get_dyn_opt ( 1 , dyn_opt )
 
 #include <wrf_auxinput9in.inc>
 
