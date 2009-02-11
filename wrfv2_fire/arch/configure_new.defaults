@@ -142,4 +142,43 @@ RANLIB          =      ranlib
 CC_TOOLS        =      $(SCC)
 
 ###########################################################
+#ARCH    x86_64 Linux, gfortran compiler with gcc  #serial smpar dmpar dm+sm
+#
+DMPARALLEL      =       # 1 
+OMPCPP          =       # -D_OPENMP
+OMP             =       # -fopenmp
+SFC             =       gfortran
+SCC             =       gcc 
+DM_FC           =       mpif90 -f90=$(SFC)
+DM_CC           =       mpicc -cc=$(SCC)
+FC              =       CONFIGURE_FC
+CC              =       CONFIGURE_CC
+LD              =       $(FC)
+RWORDSIZE       =       CONFIGURE_RWORDSIZE
+PROMOTION       =       # -fdefault-real-8  # uncomment manually
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_SUBR
+CFLAGS_LOCAL    =       -w -O3 -c -DLANDREAD_STUB
+LDFLAGS_LOCAL   =    
+CPLUSPLUSLIB    =    
+ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
+FCOPTIM         =       -O3 -ftree-vectorize -ftree-loop-linear -funroll-loops
+FCREDUCEDOPT    =       $(FCOPTIM)
+FCNOOPT         =       -O0 
+FCDEBUG         =       # -g $(FCNOOPT)
+FORMAT_FIXED    =       -ffixed-form
+FORMAT_FREE     =       -ffree-form -ffree-line-length-none
+FCSUFFIX        =    
+BYTESWAPIO      =       -fconvert=big-endian -frecord-marker=4
+FCBASEOPTS      =       -w $(FCDEBUG) $(FORMAT_FREE) $(BYTESWAPIO)
+MODULE_SRCH_FLAG =    
+TRADFLAG        =      -traditional
+CPP             =      /lib/cpp -C -P
+AR              =      ar  
+ARFLAGS         =      ru  
+M4              =      m4 -G
+RANLIB          =      ranlib
+CC_TOOLS        =      $(SCC)
+
+#####################################################
+###########################################################
 #ARCH  NULL
