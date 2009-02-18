@@ -1,6 +1,4 @@
-This is the coupled WRF-fire model, combining WRF and the SFIRE codes
-
-The code can be downloaded from http://github.com/jbeezley/wrf-fire/
+This is the coupled WRF-fire model, combining WRF and the SFIRE codes.
 
 For terms and conditions see the file license.txt
 
@@ -14,40 +12,48 @@ Jonathan Beezley - WRF infrastructure and WPS
 
 --------------------------------------------------------
 
-Index of documentation in doc subdirectory
+HOW TO GET THIS CODE
 
-README.txt                  this file, how to compile and run WRF/SFIRE on ideal data
-README_git.txt              how to use the versioning system
-README_mac.txt              how to run on a Mac
-README_matlab_netcdf.txt    how to read WRF input and output directly Matlab
-README_vis.txt              matlab visualization using files written every timestep
-README_visualization.txt    convert WRF input and output to Matlab readable format
-README_wps.txt              how use real data including fuel from Landfire
+The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
 
-The instructions below assume you are runing on wf.cudenver.edu
-See the bottom of this file how to set up on a different machine
+ 	 git clone git://github.com/jbeezley/wrf-fire.git
+
+We strongly recommend using git so that you can get updates easily and 
+also keep your changes.
+
+Developers get the code and submit changes by 
+
+         git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git
+
 
 BRANCHES
 
-The repository contains these main branches:
+Use the code from the master branch as it is the only stable one. Use other
+branches only if instructed by the developers. We recommend to set up your own
+branch for your changes and merge master into it when it is updated.
+See doc/README_git.txt
 
-* master : stable branch 
-* jbeezley  
-* jc 
-* jm: current working branch
-* jm-base: early snapshot that gives the same output as Ned had
 
-Only Jon can commit to master branch in the repository.
-Each branch has owner and one the owner can commit to that branch in the
-repository.
-If you want to have more than one branch have Jon set up a branch (say, jm2)
-and then use it as a kind of directory, as in notation, as jm2/newtest
+SETUP ON A NEW MACHINE
 
-RUNNING
+Tested on linux/ifort, linux/pgi, and mac/g95. Mac will not run optimized 
+or real data, though. ifort can be downloaded from Intel free for 
+non-commercial use.
 
-Make sure you source either env.sh (for sh shells) 
-or env.csh (for csh shells) to set up environment
-variables for building. Then,
+Download and install NETCDF first. 
+The current and tested version is 4.0. Use the compilers you will use for wrf.
+
+Set environment variable to the top level netcdf directory like:
+setenv NETCDF /opt/wrf-libs/netcdf
+(of course, replace the path by the location of NETCDF)
+
+You also need to set the environment variables FC and F90 to your Fortran
+compiler.
+
+Developers can source env.csh with setup for some local machines. 
+
+
+BUILDING
 
  
 cd wrfv2_fire
@@ -68,7 +74,8 @@ Or, just run
 
 and then check compile.log only if you see any output.
 
-Finally, run the code with:
+
+RUNNING
 
 cd test/em_fire 
 ./run_me_first.csh (needs to be done only once)
@@ -76,18 +83,13 @@ cd test/em_fire
 when input_sounding changes)
 ./wrf.exe
 
-Or, just run the debugger, it is set up to load the program automatically and set 
-a breakpoint at exit, esp. error exit:
-
-cd test/em_fire 
-idb -dbx
-
-This runs an "idealized" problem. For RUNNING ON REAL DATA see doc/README_wps.txt
+This runs an "idealized" problem. 
+For RUNNING ON REAL DATA see doc/README_wps.txt
 
 
 STANDALONE FIRE MODEL TEST
 
-with ifort:
+With ifort:
 
 cd phys
 ./ifmake clean
@@ -95,26 +97,23 @@ cd phys
 
 Without the clean between different kind of builds nothing will work.
 There is g95make for g95.
-With other compilers, try someting like make -f testmakefile FC=your fortran compiler
+With other compilers, try someting like 
+
+    make -f testmakefile FC=your fortran compiler
+
 See wrfv2_fire/phys/README_jm.txt for more info.
 
+NOTE: maintaining the standalone model is low priority and it may not work.
 
 
+ADDITIONAL DOCUMENTATION IN THE doc SUBDIRECTORY
 
-SETUP ON A NEW MACHINE
 
-Tested on linux/ifort, linux/pgi, and mac/g95. Mac will not run optimized or real data, though.
-Ask Jon if you need more architectures to be added to the menu that shows in ./configure.
-
-You need to install NETCDF and modify the environment variables accordingly.
-You can make your own copy of env.csh (under a different name)
-to set up the environment but please do not commit changed env.csh
-
-To install NETCDF: Donload from the web and install per the istructions therein.
-The current and tested version is 4.0. Use the compilers you will use for wrf.
-
-Set environment variable to the top level netcdf directory like:
-setenv NETCDF /opt/wrf-libs/netcdf
-(of course, replace the path by the location where you put netcdf)
-
+README.txt                  this file, how to compile and run WRF/SFIRE on ideal data
+README_git.txt              how to use the versioning system
+README_mac.txt              how to run on a Mac
+README_matlab_netcdf.txt    how to read WRF input and output directly in Matlab
+README_vis.txt              matlab visualization using files written every timestep
+README_visualization.txt    convert WRF input and output to Matlab
+README_wps.txt              how use real data including fuel from Landfire
 
