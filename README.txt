@@ -1,16 +1,43 @@
-This is the coupled WRF-fire model, combining WRF and the SFIRE codes.
+This is the coupled WRF-Fire model, combining WRF and the SFIRE codes.
 
 For terms and conditions see the file license.txt
 
-For support please subscribe to the wrf-fire mailing list at NCAR at
-http://mailman.ucar.edu/mailman/listinfo/wrf-fire
+If you find this code useful please acknowledge our work by citing the paper
+[1].  Yes this is a strange reference for an atmospheric scientist but it  
+is the only one we have at the moment. Please see the sections
+"Fireline propagation model", "Coupling ﬁre and weather models", and
+"Level-set-based wildland fire model".  The fire model is based on [2] 
+but not all features from [2] are implemented here yet.
 
-You can contact the authors through this list:
+We hope you find the code useful. Please let us know if we can help. But
+do us a favor and before you ask a question (such as, what is git?) 
+please google first. You may need to find a local guru for Linux questions.
+Thank you!
+
 Janice Coen - physics
 Jan Mandel - the fire code
 Jonathan Beezley - WRF infrastructure and WPS
 
---------------------------------------------------------
+[1] Jan Mandel, Jonathan D. Beezley, Janice L. Coen, Minjeong Kim, Data 
+Assimilation for Wildland Fires: Ensemble Kalman filters in coupled 
+atmosphere-surface models, IEEE Control Systems Magazine, 2009, to appear. 
+Preprint available from http://arxiv.org/abs/0712.3965
+
+[2] J. L. Coen, “Simulation of the Big Elk Fire using using coupled 
+atmosphere-fire modeling,” International Journal of Wildland Fire, vol. 14,
+no. 1, pp. 49–59, 2005
+
+--------------------------------------------------------------------
+
+SUPPORT
+
+For support please subscribe to the wrf-fire mailing list at NCAR at
+http://mailman.ucar.edu/mailman/listinfo/wrf-fire
+
+You can also ask directly Jan.Mandel@ucar.edu
+
+Answers to any questions may be copied or summarized to the wrf-fire list.
+
 
 HOW TO GET THIS CODE
 
@@ -18,8 +45,8 @@ The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
 
  	 git clone git://github.com/jbeezley/wrf-fire.git
 
-We strongly recommend using git so that you can get updates easily and 
-also keep your changes.
+We strongly recommend using git not a tar file so that you can get updates
+easily and also keep your changes. You may need to install git first.
 
 Developers get the code and submit changes by 
 
@@ -37,7 +64,7 @@ See doc/README_git.txt
 SETUP ON A NEW MACHINE
 
 Tested on linux/ifort, linux/pgi, and mac/g95. Mac will not run optimized 
-or real data, though. ifort can be downloaded from Intel free for 
+or real data, though. ifort for Linux can be downloaded from Intel free for 
 non-commercial use.
 
 Download and install NETCDF first. 
