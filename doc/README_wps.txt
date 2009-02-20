@@ -12,7 +12,9 @@
 
 # get a copy of data: in the parent of the wrf directory
 # note: this is about 11GB 
-##(cd ..; rsync -arvzuP math:/home/faculty/jmandel/wrfdata .)
+##(cd ..; rsync -arvzuP math.cudenver.edu:/home/faculty/jmandel/wrfdata .)
+#!!! THE PREVIOUS LINE IS FOR LOCAL DEVELOPERS WITH ACCOUNT ON MATH ONLY
+#!!! ALL OTHERS SEE "SET UP A NEW CASE" BELOW
 
 #in wrfv2_fire compile wrf em_real
 (cd wrfv2_fire; ./compile em_real)
@@ -51,6 +53,8 @@ ln -sf ../../../WPS/met_em.d01.2005-08-28_1* .
 #./wrf.exe
 
 #*****************************************************************************
+#
+# SET UP A NEW CASE
 #
 #To set up a new case for a real data fire simulation, the procedure is similar
 #to the standard documentation for WPS.  First you must edit the namelist.wps
