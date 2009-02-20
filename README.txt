@@ -46,7 +46,7 @@ The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
  	 git clone git://github.com/jbeezley/wrf-fire.git
 
 We strongly recommend using git not a tar file so that you can get updates
-easily and also keep your changes. You may need to install git first.
+easily and also keep your changes. You will probably need to install git first.
 
 Developers get the code and submit changes by 
 
@@ -67,17 +67,18 @@ Tested on linux/ifort, linux/pgi, and mac/g95. Mac will not run optimized
 or real data, though. ifort for Linux can be downloaded from Intel free for 
 non-commercial use.
 
-Download and install NETCDF first. 
-The current and tested version is 4.0. Use the compilers you will use for wrf.
+Download NETCDF and install. The curent version is 4.0 Some hints: 
+Set the environment variables CC FC and F90 to your compilers. 
+Set the install location by something like 
+./configure --prefix=/opt/netcdf 
+(Of course, use your own location)
 
 Set environment variable to the top level netcdf directory like:
-setenv NETCDF /opt/wrf-libs/netcdf
-(of course, replace the path by the location of NETCDF)
+setenv NETCDF /opt/netcdf
+(Of course, replace the path by your location of NETCDF above)
 
-You also need to set the environment variables FC and F90 to your Fortran
-compiler.
-
-Developers can source env.csh with setup for some local machines. 
+Developers can source env.csh with setup for some local machines where
+NETCDF is already installed.
 
 
 BUILDING
@@ -87,19 +88,15 @@ cd wrfv2_fire
 ./configure # select an option for your computer,
             # the configuration options present have all been tested
 	    # and should work correctly for the intended computer
-	    # If you are trying to get this working on a different
-	    # computer, try copying wrfv2_fire/arch/configure.defaults_orig
-	    # to configure.defaults, this file contains all standard
-	    # configuration options, but are untested... good luck.
+            # architecture and compiler combination. 
+	    # If you are trying to get this working on different
+	    # compilers, try copying a section close to your case
+            # in arch/configure_new.defaults to the end of that file
+            # and modifying to suit your needs... good luck.
 ./compile em_fire >& compile.log
 
 This will take a while.  Make sure that compile.log contains 
 no errors.  ("grep Error compile.log" shouldn't return anything).
-Or, just run
-
-./compile_fire
-
-and then check compile.log only if you see any output.
 
 
 RUNNING
