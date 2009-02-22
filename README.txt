@@ -39,36 +39,19 @@ You can also ask directly Jan.Mandel@ucar.edu
 Answers to any questions may be copied or summarized to the wrf-fire list.
 
 
-HOW TO GET THIS CODE
+COMPILERS
 
-The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
-
- 	 git clone git://github.com/jbeezley/wrf-fire.git
-
-We strongly recommend using git not a tar file so that you can get updates
-easily and also keep your changes. You will probably need to install git first.
-
-Local developers get the code and submit changes by 
-
-         git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git
-
-
-BRANCHES
-
-Use the code from the master branch as it is the only stable one. Use other
-branches only if instructed by the developers. We recommend to set up your own
-branch for your changes and merge master into it when it is updated.
-See doc/README_git.txt
+Tested on linux/ifort/gcc, linux/pgi, (all x86-64), and mac/g95. 
+Mac will not run optimized or real data, though. ifort for Linux can be 
+downloaded from Intel free for non-commercial use. 
 
 
 SETUP 
 
-Tested on linux/ifort/gcc, linux/pgi, and mac/g95. Mac will not run optimized 
-or real data, though. ifort for Linux can be downloaded from Intel free for 
-non-commercial use.
-
-Install git. A current version (that is 1.6.something) recommended. You may
-need to install so prerequisites and install git from sources.
+We strongly recommend using git not a tar file to download the code
+so that you can get updates easily and also keep your changes. 
+You will probably need to install git.  A current version (now 1.6) 
+recommended. You may need to install git from sources.
 
 Download NETCDF and install. The curent version is 4.0 Some hints: 
 Set the environment variables CC FC and F90 to your compilers. 
@@ -81,6 +64,26 @@ setenv NETCDF /opt/netcdf
 
 Local developers can source env.csh with setup for some local machines where
 NETCDF is already installed.
+
+
+HOW TO GET THIS CODE
+
+The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
+
+ 	 git clone git://github.com/jbeezley/wrf-fire.git
+
+
+Local developers get the code and submit changes by 
+
+         git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git
+
+
+BRANCHES
+
+Use the code from the master branch as it is the only stable one. Use other
+branches only if instructed by the developers. We recommend to set up your own
+branch for your changes and merge master into it when it is updated.
+See doc/README_git.txt
 
 
 BUILDING
