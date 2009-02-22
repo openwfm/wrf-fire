@@ -48,7 +48,7 @@ The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
 We strongly recommend using git not a tar file so that you can get updates
 easily and also keep your changes. You will probably need to install git first.
 
-Developers get the code and submit changes by 
+Local developers get the code and submit changes by 
 
          git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git
 
@@ -61,23 +61,25 @@ branch for your changes and merge master into it when it is updated.
 See doc/README_git.txt
 
 
-SETUP ON A NEW MACHINE
+SETUP 
 
-Tested on linux/ifort, linux/pgi, and mac/g95. Mac will not run optimized 
+Tested on linux/ifort/gcc, linux/pgi, and mac/g95. Mac will not run optimized 
 or real data, though. ifort for Linux can be downloaded from Intel free for 
 non-commercial use.
+
+Install git. A current version (that is 1.6.something) recommended. You may
+need to install so prerequisites and install git from sources.
 
 Download NETCDF and install. The curent version is 4.0 Some hints: 
 Set the environment variables CC FC and F90 to your compilers. 
 Set the install location by something like 
 ./configure --prefix=/opt/netcdf 
 (Of course, use your own location)
-
-Set environment variable to the top level netcdf directory like:
+Set the environment variable to the top level netcdf directory like:
 setenv NETCDF /opt/netcdf
 (Of course, replace the path by your location of NETCDF above)
 
-Developers can source env.csh with setup for some local machines where
+Local developers can source env.csh with setup for some local machines where
 NETCDF is already installed.
 
 
@@ -85,10 +87,7 @@ BUILDING
 
  
 cd wrfv2_fire
-./configure # select an option for your computer,
-            # the configuration options present have all been tested
-	    # and should work correctly for the intended computer
-            # architecture and compiler combination. 
+./configure # select an option for your computer architecture/compilers
 	    # If you are trying to get this working on different
 	    # compilers, try copying a section close to your case
             # in arch/configure_new.defaults to the end of that file
