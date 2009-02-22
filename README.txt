@@ -41,9 +41,10 @@ Answers to any questions may be copied or summarized to the wrf-fire list.
 
 COMPILERS
 
-Tested on linux/ifort/gcc, linux/pgi, (all x86-64), and mac/g95. 
+Tested on linux/ifort/gcc, linux/pgi, linux/g95 (all x86-64), and mac/g95. 
 Mac will not run optimized or real data, though. ifort for Linux can be 
-downloaded from Intel free for non-commercial use. 
+downloaded from Intel free for non-commercial use. gfortran is not included 
+because gfortran currently cannot compile wrf.
 
 
 SETUP 
