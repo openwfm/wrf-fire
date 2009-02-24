@@ -109,25 +109,8 @@
  /
 
 &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
- ifire              = 2,    ! integer, = 0: no fire, = 1: CAWFE 2: SFIRE 
-!
-! CAWFE variables (NOTE: may or may not work. I do not maintain the cawfe path any more. JM)
-!
-!fire_lat_init      =   40.,    ! real   , initial fire latitude (deg)
-!fire_lon_init      = -105.,    ! real   , initial fire longitude (deg)
- fire_lat_init      = 6.75e-3,  ! real   , initial fire latitude (deg)
- fire_lon_init      = 6.70e-3,  ! real   , initial fire longitude (deg)
- fire_ign_time      = 30.,      ! real   , time of fire ignition (s)
- fire_shape         = 1,    ! integer, initial fire shape
- fire_sprd_mdl      = 1,    ! integer, = 0: Macarthur, = 1: BEHAVE
- fire_crwn_hgt      = 15.,  ! real   , height of canopy crown (m)
- fire_ext_grnd      = 50.,  ! real   , extinction coeff ground fire
- fire_ext_crwn      = 50.,  ! real   , extinction coeff crown fire 
- fire_fuel_read     = -1,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
-! fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
-!
-! SFIRE
-!
+ ifire              = 2,    ! integer, = 0: no fire, = 2: turn on fire model
+ fire_fuel_read     = -1,   ! integer, -1 = WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 ! ignition
  fire_num_ignitions = 3,        ! integer, only the first fire_num_ignition used, up to 5 allowed
@@ -151,10 +134,11 @@
  fire_ignition_time3  =      4, ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 0,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
+ fire_print_msg     = 1,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
  fire_print_file    = 0,    ! 1 to write text output files for matlab
 !
-! method selections for experiments, *do not change*
+! for developers only *do not change*
+!
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
  fire_fuel_left_method=1,       ! 1=simple algebraic, 2=exact quadrature and least squares
  fire_fuel_left_irl=2,          ! refinement to integrate fuel_left, must be even
