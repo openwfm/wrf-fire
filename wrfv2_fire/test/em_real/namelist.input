@@ -124,10 +124,11 @@
  fire_ext_grnd      = 50.,  ! real   , extinction coeff ground fire
  fire_ext_crwn      = 50.,  ! real   , extinction coeff crown fire 
  fire_fuel_read     = -1,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
- fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
+! fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 !
 ! SFIRE
 !
+ fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 ! ignition
  fire_num_ignitions = 3,        ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_start_long1=-107.293664, ! start points of ignition lines, longitude 
