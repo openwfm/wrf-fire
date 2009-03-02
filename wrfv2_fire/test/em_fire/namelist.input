@@ -52,8 +52,6 @@
  sr_x                                = 10,     0,     0
  sr_y                                = 10,     0,     0
  /
- sr_x                                = 20,     0,     0
- sr_y                                = 20,     0,     0
 
  &physics
  mp_physics                          = 0,     0,     0,

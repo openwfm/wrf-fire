@@ -105,7 +105,6 @@ no errors.  ("grep Error compile.log" shouldn't return anything).
 RUNNING
 
 cd test/em_fire 
-./run_me_first.csh (needs to be done only once)
 ./ideal.exe >& ideal.log (this creates file wrfinput_d01, needs to be done only
 when input_sounding changes)
 ./wrf.exe
