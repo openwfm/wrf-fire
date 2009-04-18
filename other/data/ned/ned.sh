@@ -1,6 +1,6 @@
 #!/bin/bash
 
-output_dir="/home/jbeezley/wrfdata/geog/highres_elev"
+output_dir="highres_elev"
 
 function get_param
 {
@@ -71,12 +71,8 @@ function read_headers
   units="$pval"
   get_param $fname Zunits
   zunits="$pval"
-  get_param $fname Xshift
-  xshift="$pval"
-  get_param $fname Yshift
-  yshift="$pval"
  
-  get_origin_params $fname
+  #get_origin_params $fname
 
   fname="${dir}/${dir}.hdr"
   get_param $fname ncols
@@ -124,8 +120,8 @@ fi
 echo 'known_x=1' >> $idx
 echo 'known_y=1' >> $idx
 
-echo "known_lat=${xllcorner}" >> $idx
-echo "known_lon=${yllcorner}" >> $idx
+echo "known_lat=${xll}" >> $idx
+echo "known_lon=${yll}" >> $idx
 
 echo 'wordsize=2' >> $idx
 echo 'tile_bdr=3' >> $idx
@@ -146,6 +142,5 @@ echo "tile_y=$ncols" >> $idx
 echo "tile_z=1" >> $idx
 
 ./convert_ned.x ${1}/${1}.flt $ncols $nrows
-nfname="$output_dir/$(printf "%05d,%05d.%05d,%05d" 1 $ncols 1 $nrows)"
-mv "${1}/${1}.flt_tmp" "$nfname"
+mv *-*.*-*  "$output_dir"
 
