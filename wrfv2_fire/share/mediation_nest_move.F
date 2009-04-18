@@ -11,7 +11,7 @@ SUBROUTINE med_nest_move ( parent, nest )
 #ifdef MOVE_NESTS
   ! Local 
    CHARACTER*256 mess
-   INTEGER i, j, p, parent_grid_ratio, dyn_opt
+   INTEGER i, j, p, parent_grid_ratio
    INTEGER px, py       ! number and direction of nd points to move
    INTEGER                         :: ids , ide , jds , jde , kds , kde , &
                                       ims , ime , jms , jme , kms , kme , &
@@ -36,7 +36,7 @@ SUBROUTINE med_nest_move ( parent, nest )
 #if ( EM_CORE == 1 )
      SUBROUTINE shift_domain_em ( grid, disp_x, disp_y  &
 !
-# include <em_dummy_new_args.inc>
+# include <dummy_new_args.inc>
 !
                            )
         USE module_domain
@@ -45,10 +45,68 @@ SUBROUTINE med_nest_move ( parent, nest )
         IMPLICIT NONE
         INTEGER disp_x, disp_y
         TYPE(domain) , POINTER                 :: grid
-# include <em_dummy_new_decl.inc>
+# include <dummy_new_decl.inc>
      END SUBROUTINE shift_domain_em
 #endif
 #if ( NMM_CORE == 1 )
+     SUBROUTINE med_nest_egrid_configure ( parent , nest )
+        USE module_domain
+        TYPE(domain) , POINTER                 :: parent , nest
+     END SUBROUTINE med_nest_egrid_configure
+
+     SUBROUTINE med_construct_egrid_weights ( parent , nest )
+        USE module_domain
+        TYPE(domain) , POINTER                 :: parent , nest
+     END SUBROUTINE med_construct_egrid_weights
+
+     SUBROUTINE BASE_STATE_PARENT ( Z3d,Q3d,T3d,PSTD,        &
+                                    PINT,T,Q,CWM,            &
+                                    FIS,QSH,PD,PDTOP,PTOP,   &
+                                    ETA1,ETA2,               &
+                                    DETA1,DETA2,             &
+                                    IDS,IDE,JDS,JDE,KDS,KDE, &
+                                    IMS,IME,JMS,JME,KMS,KME, &
+                                    IPS,IPE,JPS,JPE,KPS,KPE  )
+!
+
+         USE MODULE_MODEL_CONSTANTS
+         IMPLICIT NONE
+         INTEGER,    INTENT(IN   )                            :: IDS,IDE,JDS,JDE,KDS,KDE
+         INTEGER,    INTENT(IN   )                            :: IMS,IME,JMS,JME,KMS,KME
+         INTEGER,    INTENT(IN   )                            :: IPS,IPE,JPS,JPE,KPS,KPE
+         REAL,       INTENT(IN   )                            :: PDTOP,PTOP
+         REAL, DIMENSION(KMS:KME),                 INTENT(IN) :: ETA1,ETA2,DETA1,DETA2
+         REAL, DIMENSION(IMS:IME,JMS:JME),         INTENT(IN) :: FIS,PD,QSH
+         REAL, DIMENSION(IMS:IME,JMS:JME,KMS:KME), INTENT(IN) :: PINT,T,Q,CWM
+         REAL, DIMENSION(KMS:KME)                , INTENT(OUT):: PSTD
+         REAL, DIMENSION(IMS:IME,JMS:JME,KMS:KME), INTENT(OUT):: Z3d,Q3d,T3d
+
+     END SUBROUTINE BASE_STATE_PARENT
+
+     SUBROUTINE NEST_TERRAIN ( nest, config_flags )
+       USE module_domain
+       TYPE(domain) , POINTER                        :: nest
+       TYPE(grid_config_rec_type) , INTENT(IN)       :: config_flags
+     END SUBROUTINE NEST_TERRAIN
+
+     SUBROUTINE med_init_domain_constants_nmm ( parent, nest )
+        USE module_domain
+        TYPE(domain) , POINTER                    :: parent , nest
+     END SUBROUTINE med_init_domain_constants_nmm
+
+     SUBROUTINE shift_domain_nmm ( grid, disp_x, disp_y &
+!
+# include <dummy_args.inc>
+!
+                           )
+        USE module_domain
+        USE module_configure
+        USE module_timing
+        IMPLICIT NONE
+        INTEGER disp_x, disp_y
+        TYPE(domain) , POINTER                 :: grid
+#include <dummy_decl.inc>
+     END SUBROUTINE shift_domain_nmm
 #endif
      LOGICAL FUNCTION time_for_move ( parent , nest , dx , dy )
         USE module_domain
@@ -82,7 +140,7 @@ SUBROUTINE med_nest_move ( parent, nest )
        REAL , DIMENSION(ims:ime,jms:jme) :: ter_interpolated
        REAL , DIMENSION(ims:ime,jms:jme) :: ter_input
      END SUBROUTINE blend_terrain
-     SUBROUTINE  store_terrain ( ter_interpolated , ter_input , &
+     SUBROUTINE  copy_3d_field ( ter_interpolated , ter_input , &
                            ids , ide , jds , jde , kds , kde , &
                            ims , ime , jms , jme , kms , kme , &
                            ips , ipe , jps , jpe , kps , kpe )
@@ -91,13 +149,11 @@ SUBROUTINE med_nest_move ( parent, nest )
                                             ips , ipe , jps , jpe , kps , kpe
        REAL , DIMENSION(ims:ime,jms:jme) :: ter_interpolated
        REAL , DIMENSION(ims:ime,jms:jme) :: ter_input
-     END SUBROUTINE store_terrain
+     END SUBROUTINE copy_3d_field
    END INTERFACE
 
   ! set grid pointer for code in deref_kludge (if used)
    grid => nest
-
-   CALL nl_get_dyn_opt ( 1, dyn_opt )
 
    IF ( should_not_move( nest%id ) ) THEN
       CALL wrf_message( 'Nest movement is disabled because of namelist settings' )
@@ -111,11 +167,24 @@ SUBROUTINE med_nest_move ( parent, nest )
 
    check_for_move: IF ( time_for_move ( parent , nest , dx, dy ) ) THEN
 
+#if ( EM_CORE == 1 )
      IF ( (dx .gt. 1 .or. dx .lt. -1 ) .or.  &
           (dy .gt. 1 .or. dy .lt. -1 ) ) THEN
        WRITE(mess,*)' invalid move: dx, dy ', dx, dy
        CALL wrf_error_fatal( mess )
      ENDIF
+#endif
+#if (NMM_CORE == 1 && NMM_NEST == 1)
+     IF(MOD(dy,2) .NE. 0)THEN
+       dy=dy+sign(1,dy)
+       WRITE(0,*)'WARNING: DY REDEFINED FOR THE NMM CORE AND RE-SET TO MASS POINT dy=',dy
+     ENDIF
+
+     IF ( dx .gt. 1 .or. dx .lt. -1 .or. dy .gt. 2 .or. dy .lt. -2 ) THEN
+       WRITE(0,*)'PROBLEM WITH SHIFTDX AND SHIFTDY','dx=',dx,'dy=',dy
+       CALL wrf_error_fatal( 'med_nest_move' )
+     ENDIF
+#endif
 
      WRITE(mess,*)' moving ',grid%id,dx,dy
      CALL wrf_message(mess)
@@ -137,17 +206,18 @@ SUBROUTINE med_nest_move ( parent, nest )
      grid => nest 
 
 #if ( EM_CORE == 1 )
-     IF ( dyn_opt .EQ. DYN_EM ) THEN
-       CALL shift_domain_em( grid, dx, dy  &
+     CALL shift_domain_em( grid, dx, dy  &
 !
-# include <em_actual_new_args.inc>
+# include <actual_new_args.inc>
 !
                            )
-     ENDIF
 #endif
-#if ( WRF_NMM_CORE == 1 )
-     IF ( dyn_opt .EQ. DYN_NMM ) THEN
-     ENDIF
+#if (NMM_CORE == 1 && NMM_NEST == 1)
+     CALL shift_domain_nmm( grid, dx, dy &
+!
+# include <actual_args.inc>
+!
+                          )
 #endif
 
      px = grid%parent_grid_ratio*dx
@@ -164,21 +234,97 @@ SUBROUTINE med_nest_move ( parent, nest )
        CALL wrf_message(TRIM(mess))
      ENDIF
 
+#if (NMM_CORE == 1 && NMM_NEST == 1)
+
+!----------------------------------------------------------------------------
+!  initialize shifted domain configurations including setting up wbd,sbd, etc
+!----------------------------------------------------------------------------
+
+    CALL med_nest_egrid_configure ( parent , nest )
+
+!-------------------------------------------------------------------------
+!  initialize shifted domain lat-lons and determine weights
+!-------------------------------------------------------------------------
+
+    CALL med_construct_egrid_weights ( parent, nest )
+
+!
+!   Set new terrain. Since some terrain adjustment is done within the interpolation calls
+!   at the next step, the new terrain over the nested domain has to be called here.
+!
+
+    CALL model_to_grid_config_rec ( nest%id , model_config_rec , config_flags )
+
+    CALL NEST_TERRAIN ( nest, config_flags )
+
+    CALL get_ijk_from_grid ( nest ,                   &
+                             ids, ide, jds, jde, kds, kde,    &
+                             ims, ime, jms, jme, kms, kme,    &
+                             ips, ipe, jps, jpe, kps, kpe    )
+
+    DO J = JPS, MIN(JPE,JDE-1)
+      DO I = IPS, MIN(IPE,IDE-1)
+       nest%fis(I,J)=nest%hres_fis(I,J)
+     ENDDO
+    ENDDO
+
+!
+!  De-reference dimension information stored in the grid data structure.
+!
+!  From the hybrid, construct the GPMs on isobaric surfaces and then interpolate those
+!  values on to the nested domain. 23 standard prssure levels are assumed here. For
+!  levels below ground, lapse rate atmosphere is assumed before the use of vertical
+!  spline interpolation
+!
+
+    CALL get_ijk_from_grid ( parent ,                   &
+                             ids, ide, jds, jde, kds, kde,    &
+                             ims, ime, jms, jme, kms, kme,    &
+                             ips, ipe, jps, jpe, kps, kpe    )
+
+    CALL BASE_STATE_PARENT ( parent%Z3d,parent%Q3d,parent%T3d,parent%PSTD,  &
+                             parent%PINT,parent%T,parent%Q,parent%CWM,      &
+                             parent%FIS,parent%QSH,parent%PD,parent%pdtop,parent%pt,   &
+                             parent%ETA1,parent%ETA2,                               &
+                             parent%DETA1,parent%DETA2,                             &
+                             IDS,IDE,JDS,JDE,KDS,KDE,                                       &
+                             IMS,IME,JMS,JME,KMS,KME,                                       &
+                             IPS,IPE,JPS,JPE,KPS,KPE                                        )
+
+!   Initialize some more constants required especially for terrain adjustment processes
+
+    nest%PSTD=parent%PSTD
+    nest%KZMAX=KME
+    parent%KZMAX=KME  ! just for safety
+
+    write(0,*) " nest%imask_nostag "
+    write(0,"(3X,1X,1000(I3))") (I, I = IPS, MIN(IPE,IDE-1) )
+    DO J = MIN(JPE,JDE-1), JPS, -1
+       IF ( MOD(J,2) /= 0 ) THEN
+    write(0,"(I3,1X,1000(I3))") J, (nest%imask_nostag(I,J), I = IPS, MIN(IPE,IDE-1) )
+       ELSE
+    write(0,"(I3,3X,1000(I3))") J, (nest%imask_nostag(I,J), I = IPS, MIN(IPE,IDE-1) )
+       END IF
+    ENDDO
+
+#endif
+
      CALL med_interp_domain( parent, nest )
 
+#if ( EM_CORE == 1 )
      CALL nl_get_input_from_hires( nest%id , input_from_hires ) 
      IF ( input_from_hires ) THEN
 
 ! store horizontally interpolated terrain in temp location
-       CALL  store_terrain ( nest%ht_fine , nest%ht , &
+       CALL  copy_3d_field ( nest%ht_fine , nest%ht , &
                              ids , ide , jds , jde , 1   , 1   , &
                              ims , ime , jms , jme , 1   , 1   , &
                              ips , ipe , jps , jpe , 1   , 1   )
-       CALL  store_terrain ( nest%em_mub_fine , nest%em_mub , &
+       CALL  copy_3d_field ( nest%mub_fine , nest%mub , &
                              ids , ide , jds , jde , 1   , 1   , &
                              ims , ime , jms , jme , 1   , 1   , &
                              ips , ipe , jps , jpe , 1   , 1   )
-       CALL  store_terrain ( nest%em_phb_fine , nest%em_phb , &
+       CALL  copy_3d_field ( nest%phb_fine , nest%phb , &
                              ids , ide , jds , jde , kds , kde , &
                              ims , ime , jms , jme , kms , kme , &
                              ips , ipe , jps , jpe , kps , kpe )
@@ -192,11 +338,11 @@ SUBROUTINE med_nest_move ( parent, nest )
                              ids , ide , jds , jde , 1   , 1   , &
                              ims , ime , jms , jme , 1   , 1   , &
                              ips , ipe , jps , jpe , 1   , 1   )
-       CALL  blend_terrain ( nest%em_mub_fine , nest%em_mub , &
+       CALL  blend_terrain ( nest%mub_fine , nest%mub , &
                              ids , ide , jds , jde , 1   , 1   , &
                              ims , ime , jms , jme , 1   , 1   , &
                              ips , ipe , jps , jpe , 1   , 1   )
-       CALL  blend_terrain ( nest%em_phb_fine , nest%em_phb , &
+       CALL  blend_terrain ( nest%phb_fine , nest%phb , &
                              ids , ide , jds , jde , kds , kde , &
                              ims , ime , jms , jme , kms , kme , &
                              ips , ipe , jps , jpe , kps , kpe )
@@ -215,12 +361,23 @@ SUBROUTINE med_nest_move ( parent, nest )
        config_flags%restart = .FALSE.
        grid%restart = .FALSE.
        CALL nl_set_restart ( 1, .FALSE. )
+       grid%press_adj = .FALSE.
        CALL start_domain ( parent , .FALSE. )
        config_flags%restart = saved_restart_value
        grid%restart = saved_restart_value
        CALL nl_set_restart ( 1,  saved_restart_value )
 
      ENDIF
+#endif
+
+#if (NMM_CORE == 1 && NMM_NEST == 1)
+!------------------------------------------------------------------------------
+!  set up constants (module_initialize_real.F for the shifted nmm domain)
+!-----------------------------------------------------------------------------
+
+    CALL med_init_domain_constants_nmm ( parent, nest )
+
+#endif
 
 !
 ! masks associated with nest will have been set by shift_domain_em above
@@ -231,6 +388,9 @@ SUBROUTINE med_nest_move ( parent, nest )
      config_flags%restart = .FALSE.
      CALL nl_set_restart ( 1, .FALSE. )
      grid%restart = .FALSE.
+#if ( EM_CORE == 1 )
+     nest%press_adj = .FALSE.
+#endif
      CALL start_domain ( nest , .FALSE. )
      config_flags%restart = saved_restart_value
      grid%restart = saved_restart_value
@@ -242,22 +402,16 @@ SUBROUTINE med_nest_move ( parent, nest )
 ! this should be registry generated.
 !
 #if ( EM_CORE == 1 )
-     IF ( dyn_opt .EQ. DYN_EM ) THEN
-       do k = kms,kme
-         where ( nest%imask_xstag  .EQ. 1 ) nest%em_u_1(:,k,:)   = nest%em_u_2(:,k,:)
-         where ( nest%imask_ystag  .EQ. 1 ) nest%em_v_1(:,k,:)   = nest%em_v_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_t_1(:,k,:)   = nest%em_t_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_w_1(:,k,:)   = nest%em_w_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_ph_1(:,k,:)  = nest%em_ph_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_tp_1(:,k,:)  = nest%em_tp_2(:,k,:)
-         where ( nest%imask_nostag .EQ. 1 ) nest%em_tke_1(:,k,:) = nest%em_tke_2(:,k,:)
-       enddo
-       where ( nest%imask_nostag .EQ. 1 ) nest%em_mu_1(:,:)  = nest%em_mu_2(:,:)
-     ENDIF
-#endif
-#if ( WRF_NMM_CORE == 1 )
-     IF ( dyn_opt .EQ. DYN_NMM ) THEN
-     ENDIF
+      do k = kms,kme
+        where ( nest%imask_xstag  .EQ. 1 ) nest%u_1(:,k,:)   = nest%u_2(:,k,:)
+        where ( nest%imask_ystag  .EQ. 1 ) nest%v_1(:,k,:)   = nest%v_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%t_1(:,k,:)   = nest%t_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%w_1(:,k,:)   = nest%w_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%ph_1(:,k,:)  = nest%ph_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%tp_1(:,k,:)  = nest%tp_2(:,k,:)
+        where ( nest%imask_nostag .EQ. 1 ) nest%tke_1(:,k,:) = nest%tke_2(:,k,:)
+      enddo
+      where ( nest%imask_nostag .EQ. 1 ) nest%mu_1(:,:)  = nest%mu_2(:,:)
 #endif
 !
    ENDIF check_for_move
@@ -300,10 +454,11 @@ LOGICAL FUNCTION time_for_move2 ( parent , grid , move_cd_x, move_cd_y )
    REAL :: pmin
    INTEGER imploc, jmploc 
 
-   INTEGER :: fje, fjs, fie, fis, fimloc, fjmloc, imloc, jmloc, dyn_opt
+   INTEGER :: fje, fjs, fie, fis, fimloc, fjmloc, imloc, jmloc
    INTEGER :: i_parent_start, j_parent_start
    INTEGER :: max_vortex_speed, vortex_interval  ! meters per second and seconds
-   REAL    :: rsmooth = 100.  ! kilometers?
+   INTEGER :: track_level
+   REAL    :: rsmooth = 100000.  ! in meters
 
    LOGICAL, EXTERNAL :: wrf_dm_on_monitor
 
@@ -313,10 +468,13 @@ character*256 message, message2
 # ifdef VORTEX_CENTER
 
 
-   CALL nl_get_dyn_opt ( 1, dyn_opt )
    CALL nl_get_parent_grid_ratio ( grid%id , pgr )
    CALL nl_get_i_parent_start    ( grid%id , i_parent_start )
    CALL nl_get_j_parent_start    ( grid%id , j_parent_start )
+   CALL nl_get_track_level       ( grid%id , track_level )
+
+!  WRITE(mess,*)'Vortex is tracked at ', track_level
+!  CALL wrf_message(mess)
 
    CALL get_ijk_from_grid (  grid ,                        &
                              ids, ide, jds, jde, kds, kde, &
@@ -372,16 +530,11 @@ write(0,*)'Check to see if COMPUTE_VORTEX_CENTER_ALARM is ringing? '
      ENDIF
 
 #  if (EM_CORE == 1)
-     IF ( dyn_opt .EQ. DYN_EM ) THEN
-       CALL compute_500mb_height ( grid%em_ph_2 , grid%em_phb, grid%em_p, grid%em_pb, height_l , &
-                                   ids, ide, jds, jde, kds, kde, &
-                                   ims, ime, jms, jme, kms, kme, &
-                                   ips, ipe, jps, jpe, kps, kpe  )
-     ENDIF
-#  endif
-#  if (WRF_NMM_CORE == 1)
-     IF ( dyn_opt .EQ. DYN_NMM ) THEN
-     ENDIF
+     CALL compute_500mb_height ( grid%ph_2 , grid%phb, grid%p, grid%pb, height_l , &
+                                 track_level,                  &
+                                 ids, ide, jds, jde, kds, kde, &
+                                 ims, ime, jms, jme, kms, kme, &
+                                 ips, ipe, jps, jpe, kps, kpe  )
 #  endif
 
      CALL wrf_patch_to_global_real ( height_l , height , grid%domdesc, "z", "xy", &
@@ -463,6 +616,8 @@ write(0,*)'   js, jds-1,  je,  jde-1 ', js, jds-1, je, jde-1
        pmin = 99999999.0     ! make this very large to be sure we find a minumum
        DO j = js, je
        DO i = is, ie
+         ! adjust approximately to sea level pressure (same as below: ATCF)
+         psfc(i,j)=psfc(i,j)+11.38*terrain(i,j)
          IF ( psfc(i,j) .LT. pmin ) THEN
            pmin = psfc(i,j)
            imploc = i
@@ -578,7 +733,8 @@ WRITE ( message , FMT = '(A," on domain ",I3)' ) TRIM(message2), grid%id
                                        timestr(1:19),                               &
                                        xlat(i,j),                                   &
                                        xlong(i,j),                                  &
-                                       0.01*pmin+0.1138*terrain(imploc,jmploc),     &
+                                       0.01*pmin,                                   &
+!already computed above                0.01*pmin+0.1138*terrain(imploc,jmploc),     &
                                        maxws*1.94
         CALL wrf_message(TRIM(mess))
                             
@@ -695,6 +851,8 @@ write(0,*)' changing grid%vc_i,  move_cd_x * pgr ', grid%vc_i, move_cd_x * pgr, 
    ENDDO
 # endif
    RETURN
+#else
+   time_for_move2 = .FALSE.
 #endif
 END FUNCTION time_for_move2
 
@@ -860,6 +1018,8 @@ USE module_timing
    ENDIF
 
    RETURN
+#else
+   time_for_move = .FALSE.
 #endif
 END FUNCTION time_for_move
 
@@ -871,7 +1031,7 @@ LOGICAL FUNCTION should_not_move ( id )
   INTEGER, INTENT(IN) :: id
  ! Local
   LOGICAL retval
-  INTEGER cu_physics, ra_sw_physics, ra_lw_physics, ucmcall, obs_nudge_opt
+  INTEGER cu_physics, ra_sw_physics, ra_lw_physics, sf_urban_physics, obs_nudge_opt
 
   retval = .FALSE.
 ! check for GD ensemble cumulus, which can not move
@@ -892,17 +1052,19 @@ LOGICAL FUNCTION should_not_move ( id )
     retval = .TRUE.
   ENDIF
 ! check for urban canopy Noah LSM, which can not move
-  CALL nl_get_ucmcall( id , ucmcall )
-  IF ( ucmcall .EQ. 1 ) THEN
-    CALL wrf_message('UCM Noah LSM can not be specified with moving nests. Movement disabled.')
+  CALL nl_get_sf_urban_physics( id , sf_urban_physics )
+  IF ( sf_urban_physics .EQ. 1 .OR. sf_urban_physics .EQ. 2 ) THEN
+    CALL wrf_message('UCMs Noah LSM can not be specified with moving nests. Movement disabled.')
     retval = .TRUE.
   ENDIF
+#if ( EM_CORE == 1 )
 ! check for observation nudging, which can not move
   CALL nl_get_obs_nudge_opt( id , obs_nudge_opt )
   IF ( obs_nudge_opt .EQ. 1 ) THEN
     CALL wrf_message('Observation nudging can not be specified with moving nests. Movement disabled.')
     retval = .TRUE.
   ENDIF
+#endif
   should_not_move = retval
 END FUNCTION
 

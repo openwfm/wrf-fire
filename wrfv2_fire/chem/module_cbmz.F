@@ -21,17 +21,18 @@
 ! Please report any bugs or problems to Rahul Zaveri, the primary author of the
 ! code, or Jerome Fast, the WRF-chem implementation team leader
 !
-!Terms of Use:
-!  1) CBMZ and its sub-modules may not be included in any commerical package,
-!     or used for any commercial applications without the primary author's
-!     prior consent.
-!  2) The CBMZ source code is provided to the WRF modeling community; however, 
-!     no portion of CBMZ can be used separately or in another code without the
-!     primary author's prior consent.
-!  3) The CBMZ source code may be used for research, educational, and non-profit
-!     purposes only.  Any other usage must be first approved by the primary author.
-!  4) Publications resulting from the usage of CBMZ must use one or more of the
-!     references below (depending on the application) for proper acknowledgment.
+! Terms of Use:
+! 1) Users are requested to consult the primary author prior to modifying the
+!   CBMZ code or incorporating it or its submodules in another code. This is 
+!   meant to ensure that the any linkages and/or assumptions will not adversely
+!   affect the operation of CBMZ.
+! 2) The CBMZ source code is intended for research and educational purposes.
+!   Users are requested to contact the primary author regarding the use of
+!   CBMZ code for any commercial application.
+! 3) Users preparing publications resulting from the usage of CBMZ are requested
+!   to cite one or more of the references below (depending on the application) 
+!   for proper acknowledgement.
+
 !
 ! References: 
 ! 1) Zaveri R.A., and L.K. Peters (1999), A new lumped structure photochemical
@@ -44,8 +45,7 @@
 ! Contact Jerome Fast for updates on the status of manuscripts under review.  
 !
 ! Additional information:
-! 1) www.pnl.gov/atmos_sciences/raz 
-! 2) www.pnl.gov/atmos_sciences/Jdf/wrfchem.html
+! * www.pnl.gov/atmospheric/research/wrf-chem
 !
 ! Support: 
 ! Funding for developing and evaluating CBMZ was provided by the U.S. Department
@@ -76,8 +76,8 @@
 !-----------------------------------------------------------------------
 
       subroutine cbmz_driver( &
-               id, ktau, dtstep, ktauc, dtstepc, config_flags, &
-               gmt, julday, t_phy, moist, p8w, t8w, &
+               id, curr_secs, ktau, dtstep, ktauc, dtstepc, &
+               config_flags, gmt, julday, t_phy, moist, p8w, t8w, &
                p_phy, chem, rho_phy, dz8w, z, z_at_w, vdrog3, &
                ph_o31d, ph_o33p, ph_no2, ph_no3o2, ph_no3o, ph_hno2, &
                ph_hno3, ph_hno4, ph_h2o2, ph_ch2or, ph_ch2om, &
@@ -103,7 +103,9 @@
 
    INTEGER, INTENT(IN ) :: ktau, ktauc
 
-      REAL, INTENT(IN ) :: dtstep, dtstepc, gmt
+   REAL(KIND=8), INTENT(IN) :: curr_secs
+
+   REAL, INTENT(IN ) :: dtstep, dtstepc, gmt
 !
 ! advected moisture variables
 !
@@ -160,10 +162,9 @@
 	integer :: lunerr, lunout, levdbg_err, levdbg_info
 	integer :: mgaschem
 
-
-	real :: abs_error, rel_error, trun
-	real :: tchem, dtchem
-	real :: tstart, tstop
+    real(kind=8) :: trun
+	real :: abs_error, rel_error
+	real :: dtchem, tchem, tstart, tstop
 	real :: airdenbox, pressbox, tempbox
 	real :: cair_mlc
 	real :: h2o, ch4, oxygen, nitrogen, hydrogen
@@ -231,6 +232,12 @@
 !   currently nothing is done with vdrog3
 !	vdrog3(its:ite,kts:kte,jts:jte,:) = 0.0  !This is already set to zero in chem_driver.
 
+!   initialize rate constant arrays to 0.0 since not all elements are set
+!   to valid values before some were used in loops, wig 16-Nov-2007
+    rk_m1(:) = 0.
+    rk_m2(:) = 0.
+    rk_m3(:) = 0.
+    rk_m4(:) = 0.
 
 !   determine which regimes are allowed
 !   based on which gas species are "active"
@@ -242,15 +249,14 @@
 !   main loop -- do gas chemistry at each i,j,k
 !
 	do 2900 jt = jts, jte
-	do 2900 kt = kts, kte-1
+	do 2900 kt = kts, kte
 	do 2900 it = its, ite
 
-	trun = dtstep*(ktau-1)		! run time in s
-	tchem = gmt*3600.0 + dtstep*(ktau-1)
-	tchem = mod( tchem, 86400.0 )	! time from 00 UTC in s
+	trun   = curr_secs              ! run time in s
+	tchem  = mod( real(gmt*3600.0,8)+trun, 86400._8 ) ! time from 00 UTC in s
 	dtchem = dtstepc
-	tstart = tchem              	! s
-	tstop  = tstart + dtchem    	! s
+	tstart = tchem                  ! s
+	tstop  = tstart + dtchem        ! s
 
 !   skip integration for very small dtchem
 	if ((tstop-tstart) .le. 1.0e-5) goto 2900
@@ -438,10 +444,11 @@
 	implicit none
 
 !   subr arguments 
+    real(kind=8) :: trun
 	integer iok, isvode, jsvode, ksvode, i_force_dump, iregime,   &
               mgaschem, lunerr, lunout, levdbg_err, levdbg_info
 	integer inforodas(2,6), iodestatus_count(6)
-	real tstart, tstop, abs_error, rel_error, trun
+	real tstart, tstop, abs_error, rel_error
 	real tempbox, pressbox, airdenbox
 	real cboxnew(ngas_z), cboxold(ngas_z)
 	real rk_m1(nrxn_m1), rk_m2(nrxn_m2), rk_m3(nrxn_m3), rk_m4(nrxn_m4)
@@ -696,10 +703,11 @@
       implicit none
 
 !   subr arguments 
+      real(kind=8) :: trun
       integer i, iok, isvode, jsvode, ksvode, i_force_dump, iregime,   &
               mgaschem, lunerr, lunout, levdbg_err, levdbg_info
       integer iodestatus_count(6)
-      real tstart, tstop, abs_error, rel_error, trun
+      real tstart, tstop, abs_error, rel_error
       real tempbox, pressbox, airdenbox
       real cboxnew(ngas_z), cboxold(ngas_z)
       real rk_m1(nrxn_m1), rk_m2(nrxn_m2), rk_m3(nrxn_m3), rk_m4(nrxn_m4)
@@ -3034,13 +3042,14 @@
 !      rk_m1(70) = rk_het(6)	! HNO3 --> NO
 !      rk_m1(71) = rk_het(7)	! NO3 --> NO + O2
 
-! all rate constants but be >= 0
-      do i = 1, nrxn_m1
-          rk_m1(i) = max( rk_m1(i), 0.0 )
-      end do
-      do i = 1, nrxn_m2
-          rk_m2(i) = max( rk_m2(i), 0.0 )
-      end do
+!!$Turn off this check since initializing to 0's; wig 16-Nov-2007
+!!$! all rate constants but be >= 0
+!!$      do i = 1, nrxn_m1
+!!$          rk_m1(i) = max( rk_m1(i), 0.0 )
+!!$      end do
+!!$      do i = 1, nrxn_m2
+!!$          rk_m2(i) = max( rk_m2(i), 0.0 )
+!!$      end do
 
       return
       end subroutine gasthermrk_m1                             
@@ -3132,10 +3141,11 @@
       rk_m2(52) = rk_param(jxo2)
       rk_m2(53) = 1.0e-11		! XPAR + PAR -->
 
-! all rate constants but be >= 0
-      do i = 1, nrxn_m2
-          rk_m2(i) = max( rk_m2(i), 0.0 )
-      end do
+!!$Turn off this check since initializing to 0's; wig 16-Nov-2007
+!!$! all rate constants but be >= 0
+!!$      do i = 1, nrxn_m2
+!!$          rk_m2(i) = max( rk_m2(i), 0.0 )
+!!$      end do
 
       return
       end subroutine gasthermrk_m2                             

@@ -4,7 +4,7 @@
 ! Energy (DOE). NEITHER THE GOVERNMENT NOR THE CONTRACTOR MAKES ANY WARRANTY,
 ! EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.
 !
-! MOSAIC module: see module_mosaic_driver.F for information and terms of use
+! MOSAIC module: see module_mosaic_driver.F for references and terms of use
 !**********************************************************************************  
       module module_mosaic_therm
 
@@ -23,7 +23,8 @@
 
 
 
-!   zz01aerchemistry.f (mosaic.21.0)
+!   zz01aerchemistry.f (mosaic.22.0)
+!   30-apr-07 raz - made about a dozen changes/bug fixes. search for "raz-30apr07" to see the changes
 !   05-feb-07 wig - converted to double
 !   10-jan-07 raz - contains major revisions and updates. new module ASTEM replaces ASTEEM.
 !   04-aug-06 raz - fixed bugs in asteem_flux_mix_case3a and asteem_flux_mix_case3b
@@ -120,6 +121,9 @@
         mclm_aer = m
 
         do 100 k = kclm_aer_calcbgn, kclm_aer_calcend
+
+!      epercent(:,:,:) = Z'FFF8000000000000' !NaN in r8... temporary hack
+      epercent(:,:,:) = 0. !temporary hack that does not core dump
 
           kclm_aer = k
           if (afracsubarea(k,m) .lt. 1.e-4) goto 100
@@ -1593,10 +1597,13 @@
 
       call calculate_xt(ibin,jtotal,xt)
 
-      crh = 0.1
+      crh = 0.35  ! raz-30apr07
 
 ! step 1: check if ah2o is below crh (crystallization or efflorescence point)
-      if(ah2o_a(ibin).lt.crh .and. (xt.gt.1.0 .or. xt.lt.0.))then
+      if( (ah2o_a(ibin) .lt. crh)   .and. &
+          (xt.gt.1.0 .or. xt.lt.0.) .and. &
+          (epercent(jcano3,jtotal,ibin) .le. ptol_mol_astem) .and. &
+          (epercent(jcacl2,jtotal,ibin) .le. ptol_mol_astem) )then     ! raz-30apr07
         jaerosolstate(ibin) = all_solid
         jphase(ibin)    = jsolid
         jhyst_leg(ibin) = jhyst_lo
@@ -3660,26 +3667,7 @@
            sum_kg_phi, sumflux_s
 
 
-      h_sub_max = 150.0	! sec
-
-
-! set alpha_gas
-      do ibin = 1, nbin_a
-        do iv = 2, ngas_ioa
-
-          if(flux_s(iv,ibin) .gt. 0.0)then
-
-            alpha_gas(iv) = max( abs(phi_volatile_s(iv,ibin)), &
-                                     alpha_ASTEM )
-            alpha_gas(iv) = min(alpha_gas(iv), 0.5D0)
-
-          endif
-
-        enddo
-      enddo
-        
-
-
+      h_sub_max = 100.0	! sec  raz-30apr07
 
 
 ! gas-side
@@ -3699,7 +3687,7 @@
         enddo
         
         if(sumflux_s .gt. 0.0)then
-          h_gas_i(iv) = alpha_gas(iv)*gas(iv)/sumflux_s
+          h_gas_i(iv) = 0.1*gas(iv)/sumflux_s     ! raz-30apr07
           h_gas_s     = min(h_gas_s, h_gas_i(iv))
         endif
 
@@ -4564,8 +4552,8 @@
 
 
 ! compute Heff
-      dum_hno3 = min(sfc_a(ihno3_g), gas(ihno3_g))
-      dum_hcl  = min(sfc_a(ihcl_g), gas(ihcl_g))
+      dum_hno3 = max(sfc_a(ihno3_g), gas(ihno3_g)) ! raz-30apr07
+      dum_hcl  = max(sfc_a(ihcl_g), gas(ihcl_g))   ! raz-30apr07
 
 ! compute relative driving forces
       if(dum_hno3 .gt. 0.0)then
@@ -6245,6 +6233,8 @@
 
       gam(jnamsa,ibin)  = 1.0
 
+      gam(jcamsa2,ibin) = 1.0  ! raz-30apr07
+
       activity(jlvcite,ibin) = 0.0
 
       activity(jnh4hso4,ibin)= 0.0
@@ -6256,9 +6246,12 @@
 
       activity(jnahso4,ibin) = 0.0
 
-      activity(jnh4msa,ibin) = mc(jc_na,ibin)*ma(ja_msa,ibin)* &
+      activity(jnamsa,ibin) = mc(jc_na,ibin)*ma(ja_msa,ibin)* &  ! raz-30apr07
                                gam(jnamsa,ibin)**2
       
+      activity(jcamsa2,ibin) = mc(jc_ca,ibin) * ma(ja_msa,ibin)**2 * &  ! raz-30apr07
+                               gam(jcamsa2,ibin)**3
+
       gam_ratio(ibin) = gam(jnh4no3,ibin)**2/gam(jhno3,ibin)**2
 
 
@@ -6447,7 +6440,7 @@
 
       gam(jnh4msa,ibin) = 1.0
       gam(jnamsa,ibin)  = 1.0
-
+      gam(jcamsa2,ibin) = 1.0  ! raz-30apr07
 
 
 ! compute equilibrium pH
@@ -6467,7 +6460,7 @@
       gam_ratio(ibin)  = gam(jnh4hso4,ibin)**2/gam(jhhso4,ibin)**2
       dumK = Keq_ll(1)*gam(jhhso4,ibin)**2/gam(jh2so4,ibin)**3
       
-      c_bal =  mc(jc_nh4,ibin) + mc(jc_na,ibin)  &
+      c_bal =  mc(jc_nh4,ibin) + mc(jc_na,ibin) + 2.*mc(jc_ca,ibin) & ! raz-30apr07
          - ma(ja_no3,ibin) - ma(ja_cl,ibin) - mSULF - ma(ja_msa,ibin)
       
       aq = 1.0
@@ -6497,6 +6490,9 @@
       ma(ja_so4,ibin) = mSULF*dumK/(mc(jc_h,ibin) + dumK)
       ma(ja_hso4,ibin)= mSULF - ma(ja_so4,ibin)
 
+
+      activity(jcamsa2,ibin) = mc(jc_ca,ibin) * ma(ja_msa,ibin)**2 * & ! raz-30apr07
+                               gam(jcamsa2,ibin)**3
 
       activity(jnh4so4,ibin) = mc(jc_nh4,ibin)**2*ma(ja_so4,ibin)* &
                                gam(jnh4so4,ibin)**3
@@ -12427,279 +12423,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-!***********************************************************************
-! computes aerosol optical properties
-!
-! author: rahul a. zaveri
-! update: jan 2005
-!-----------------------------------------------------------------------
-      subroutine aerosol_optical_properties(iclm, jclm, nz, refindx, &
-        radius_wet, number_bin)
-! changed to use rsub instead of rclm 7-8-04 egc
-      use module_data_mosaic_asect
-      use module_data_mosaic_other
-      use module_state_description, only:  param_first_scalar
-
-!     implicit none
-
-! subr arguments
-      integer, intent(in   ) :: iclm, jclm, nz
-      real, dimension (1:nbin_a_maxd, 1:kmaxd), intent(inout ) :: &
-            number_bin, radius_wet
-      complex, dimension (1:nbin_a_maxd, 1:kmaxd), intent(inout ) :: &
-            refindx
-
-! local variables
-      integer iaer, ibin, iphase, isize, itype, je, k, l, m
-      integer ilaporte, jlaporte
-      integer p1st
-      real(kind=8) xt
-
-
-! if a species index is less than this value, then the species is not defined
-	p1st = param_first_scalar
-
-! fix number of subareas at 1
-	nsubareas = 1
-
-	lunerr_aer = lunerr
-	ncorecnt_aer = ncorecnt
-
-      call load_mosaic_parameters
-
-      iclm_aer = iclm
-      jclm_aer = jclm
-
-      do 110 m = 1, nsubareas
-      do 100 k = 1, nz
-
-        mclm_aer = m
-        kclm_aer = k
-
-        cair_mol_m3 = cairclm(k)*1.e6	! cairclm(k) is in mol/cc
-        cair_mol_cc = cairclm(k)
-
-        conv1a = cair_mol_m3*1.e9		! converts q/mol(air) to nq/m^3 (q = mol or g)
-        conv1b = 1./conv1a			! converts nq/m^3 to q/mol(air)
-        conv2a = cair_mol_m3*18.*1.e-3		! converts mol(h2o)/mol(air) to kg(h2o)/m^3(air)
-        conv2b = 1./conv2a			! converts kg(h2o)/m^3(air) to mol(h2o)/mol(air)
-
-
-! initialize to zero
-        do ibin = 1, nbin_a
-          do iaer = 1, naer
-            aer(iaer,jtotal,ibin)  = 0.0
-          enddo
-
-          do je = 1, nelectrolyte
-            electrolyte(je,jtotal,ibin)  = 0.0
-          enddo
-
-          jaerosolstate(ibin) = -1	! initialize to default value
-
-        enddo
-
-
-! rce 18-nov-2004 - map (transfer) aerosol mass/water/number from rsub
-!   to mosaic arrays (aer, watr_a, num_a)
-! always map so4 and number,
-!   but only map other species when (lptr_xxx .ge. p1st)
-! (the mapping is identical to that done in mapgasaerspecies)
-
-        iphase = ai_phase
-        ibin = 0
-        do 90 itype = 1, ntype_aer
-        do 90 isize = 1, nsize_aer(itype)
-        ibin = ibin + 1
-
-! aer array units are nmol/(m^3 air)
-        l = lptr_so4_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(iso4_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(iso4_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_no3_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(ino3_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(ino3_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_cl_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(icl_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(icl_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_nh4_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(inh4_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(inh4_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_oc_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(ioc_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(ioc_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_bc_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(ibc_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(ibc_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_na_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(ina_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(ina_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_oin_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(ioin_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(ioin_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_msa_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(imsa_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(imsa_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_co3_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(ico3_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(ico3_a,jtotal,ibin)=0.0
-        end if
-
-        l = lptr_ca_aer(isize,itype,iphase)
-        if (l .ge. p1st) then
-            aer(ica_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-        else
-            aer(ica_a,jtotal,ibin)=0.0
-        end if
-
-! soa aerosol-phase species -- currently deactivated
-!       l = lptr_aro1_aer(isize,itype,iphase)
-!       if (l .ge. p1st) then
-!           aer(iaro1_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-!       else
-            aer(iaro1_a,jtotal,ibin)=0.0
-!       end if
-
-!       l = lptr_aro2_aer(isize,itype,iphase)
-!       if (l .ge. p1st) then
-!           aer(iaro2_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-!       else
-            aer(iaro2_a,jtotal,ibin)=0.0
-!       end if
-
-!       l = lptr_alk1_aer(isize,itype,iphase)
-!       if (l .ge. p1st) then
-!           aer(ialk1_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-!       else
-            aer(ialk1_a,jtotal,ibin)=0.0
-!       end if
-
-!       l = lptr_ole1_aer(isize,itype,iphase)
-!       if (l .ge. p1st) then
-!           aer(iole1_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-!       else
-            aer(iole1_a,jtotal,ibin)=0.0
-!       end if
-
-!       l = lptr_api1_aer(isize,itype,iphase)
-!       if (l .ge. p1st) then
-!           aer(iapi1_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-!       else
-            aer(iapi1_a,jtotal,ibin)=0.0
-!       end if
-
-!       l = lptr_api2_aer(isize,itype,iphase)
-!       if (l .ge. p1st) then
-!           aer(iapi2_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-!       else
-            aer(iapi2_a,jtotal,ibin)=0.0
-!       end if
-
-!       l = lptr_lim1_aer(isize,itype,iphase)
-!       if (l .ge. p1st) then
-!           aer(ilim1_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-!       else
-            aer(ilim1_a,jtotal,ibin)=0.0
-!       end if
-
-!       l = lptr_lim2_aer(isize,itype,iphase)
-!       if (l .ge. p1st) then
-!           aer(ilim2_a,jtotal,ibin)=rsub(l,k,m)*conv1a
-!       else
-            aer(ilim2_a,jtotal,ibin)=0.0
-!       end if
-
-! water_a and water_a_hyst units are kg/(m^3 air)
-        l = hyswptr_aer(isize,itype)
-        if (l .ge. p1st) then
-            water_a_hyst(ibin)=rsub(l,k,m)*conv2a
-        else
-            water_a_hyst(ibin)=0.0
-        end if
-
-! water_a units are kg/(m^3 air)
-        l = waterptr_aer(isize,itype)
-        if (l .ge. p1st) then
-            water_a(ibin)=rsub(l,k,m)*conv2a
-        else
-            water_a(ibin)=0.0
-        end if
-
-! num_a units are #/(cm^3 air)
-        l = numptr_aer(isize,itype,iphase)
-        num_a(ibin) = rsub(l,k,m)*cair_mol_cc
-
-
-          call check_aerosol_mass(ibin)
-          if(jaerosolstate(ibin) .eq. no_aerosol)goto 90	! ignore this bin
-          call conform_electrolytes(jtotal,ibin,xt) 			! conforms aer(jtotal) to a valid aerosol
-          call check_aerosol_mass(ibin) 			! check mass again after conform_electrolytes
-          if(jaerosolstate(ibin) .eq. no_aerosol)goto 90	! ignore this bin
-          call conform_aerosol_number(ibin)   			! adjusts number conc so that it conforms with bin mass and diameter
-          call calc_dry_n_wet_aerosol_props(ibin)		! calc dp_wet, ref index
-
-
-
-          refindx(ibin,k)    = ri_avg_a(ibin)			! vol avg ref index
-          radius_wet(ibin,k) = dp_wet_a(ibin)/2.0		! wet radius (cm)
-          number_bin(ibin,k) = num_a(ibin)			! #/cc air
-
-90      continue
-
-100   continue	! k levels
-110   continue	! m subareas
-
-
-      return
-      end subroutine aerosol_optical_properties
 
 
 

@@ -1,12 +1,29 @@
+!
+!   WRF-chem V3.0 : Original version of dry_dep_driver written by Georg Grell (ESRL/GSD)
+!                   VERTMX was originally developed by Mariusz Pagowski. It is written to 
+!                   conserve, it needs concentration as input, it will not keep a
+!                   constant mixing ratio profile untouched. Further modifications 
+!                   by Richard C. Easter. In addition
+!                   modifications by Richard C. Easter (PNNL) are available to 
+!                   use mixing ratio as input and keep the mixing ratio constant.
+!
+!                    !!!!!!         Both versions are conserving.    !!!!!!!!!!
+!
 !WRF:MODEL_LAYER:CHEMICS
 !
-    subroutine dry_dep_driver(id,ktau,dtstep,config_flags,                &
+MODULE module_dry_dep_driver
+  IMPLICIT NONE
+
+CONTAINS
+
+    subroutine dry_dep_driver(id,curr_secs,ktau,dtstep,config_flags,      &
                gmt,julday,t_phy,moist,scalar,p8w,t8w,w,alt,               &
-               p_phy,chem,rho_phy,dz8w,exch_h,                            &
+               p_phy,chem,rho_phy,dz8w,exch_h,hfx,dx,                     &
                cldfra, cldfra_old,                                        &
                ccn1, ccn2, ccn3, ccn4, ccn5, ccn6, nsource,               &
                ivgtyp,tsk,gsw,vegfra,pbl,rmol,ust,znt,xlat,xlong,z,z_at_w,&
-               h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2,   &
+               xland,h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,                &
+               anh3,cvaro1,cvaro2,   &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,dep_vel_o3,      &
                e_co,kemit,numgas,                                         &
                ids,ide, jds,jde, kds,kde,                                 &
@@ -20,6 +37,8 @@
   USE module_vertmx_wrf
   USE module_data_sorgam
   USE module_aerosols_sorgam
+  USE module_gocart_settling
+  USE module_gocart_drydep
   USE module_mosaic_drydep, only:  mosaic_drydep_driver
   USE module_mixactivate_wrappers, only: mosaic_mixactivate, sorgam_mixactivate
   IMPLICIT NONE
@@ -29,8 +48,8 @@
                                   ids,ide, jds,jde, kds,kde,    &
                                   ims,ime, jms,jme, kms,kme,    &
                                   its,ite, jts,jte, kts,kte
-   INTEGER,      INTENT(IN   ) ::                               &
-                                  ktau
+   INTEGER,      INTENT(IN   ) :: ktau
+   REAL(KIND=8), INTENT(IN   ) :: curr_secs
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_moist ),        &
          INTENT(IN ) ::                                   moist
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_scalar ),       &
@@ -70,9 +89,10 @@
                                                      pbl,       &
                                                      rmol,       &
                                                      ust,       &
+                                                     hfx,       &
                                                      xlat,      &
                                                      xlong,     &
-                                                     znt
+                                                   xland,znt
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,        &
           INTENT(INOUT ) ::                                     &
                     cldfra,     & ! cloud fraction current timestep
@@ -84,7 +104,7 @@
 	     ccn1,ccn2,ccn3,ccn4,ccn5,ccn6  ! number conc of aerosols activated at supersat
 
       REAL,      INTENT(IN   ) ::                               &
-                             dtstep,gmt
+                             dtstep,gmt,dx
 
 !--- deposition and emissions stuff
 ! .. Parameters ..
@@ -98,17 +118,16 @@
                  idrydep_onoff
 
       LOGICAL :: highnh3, rainflag, vegflag, wetflag
-!     CHARACTER (4) :: luse_typ,mminlu_loc
 ! ..
 ! .. Local Arrays ..
-      REAL :: p(kts:kte-1)
+      REAL :: p(kts:kte)
    REAL, DIMENSION( its:ite, jts:jte, num_chem ) ::   ddvel
 
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme ) :: dryrho_phy
    REAL,  DIMENSION( kms:kme ) :: dryrho_1d
 
 ! turbulent transport
-      real :: pblst(kts:kte-1),ekmfull(kts:kte),zzfull(kts:kte),zz(kts:kte-1)
+      real :: pblst(kts:kte),ekmfull(kts:kte+1),zzfull(kts:kte+1),zz(kts:kte)
       integer :: ii,jj,kk,i,j,k,nv
 !
 ! necessary for aerosols (module dependent)
@@ -144,8 +163,11 @@
 !
        CALL wrf_debug(15,'DOING DRY DEP VELOCITIES WITH WESELY METHOD')
 
-       IF( config_flags%chem_opt /= CHEM_TRACER ) THEN
-          call wesely_driver(id,ktau,dtstep,                                 &
+       IF( config_flags%chem_opt /= CHEM_TRACER  .and.                   &
+           config_flags%chem_opt /= CHEM_TRACE2  .and.                   &
+           config_flags%chem_opt /= GOCART_SIMPLE  .and.                 &
+           config_flags%chem_opt /= GOCARTRACM_KPP )THEN
+          call wesely_driver(id,ktau,dtstep,                              &
                config_flags,                                              &
                gmt,julday,t_phy,moist,p8w,t8w,                            &
                p_phy,chem,rho_phy,dz8w,ddvel,aer_res,                     &
@@ -154,6 +176,50 @@
                ids,ide, jds,jde, kds,kde,                                 &
                ims,ime, jms,jme, kms,kme,                                 &
                its,ite, jts,jte, kts,kte                                  )
+       ELSEIF ( config_flags%chem_opt == GOCART_SIMPLE ) then
+          call wesely_driver(id,ktau,dtstep,                              &
+               config_flags,                                              &
+               gmt,julday,t_phy,moist,p8w,t8w,                            &
+               p_phy,chem,rho_phy,dz8w,ddvel,aer_res,                     &
+               ivgtyp,tsk,gsw,vegfra,pbl,rmol,ust,znt,xlat,xlong,z,z_at_w,&
+               numgas,                                                    &
+               ids,ide, jds,jde, kds,kde,                                 &
+               ims,ime, jms,jme, kms,kme,                                 &
+               its,ite, jts,jte, kts,kte                                  )
+!
+! this does aerosol species (dust,seas, bc,oc) for gocart only
+!
+         call gocart_drydep_driver(dtstep,                                &
+               config_flags,numgas,                                       &
+               t_phy,moist,p8w,t8w,                                       &
+               p_phy,chem,rho_phy,dz8w,ddvel,xland,hfx,                   &
+               ivgtyp,tsk,vegfra,pbl,ust,znt,xlat,xlong,                  &
+               ids,ide, jds,jde, kds,kde,                                 &
+               ims,ime, jms,jme, kms,kme,                                 &
+               its,ite, jts,jte, kts,kte                                  )
+
+       ELSEIF ( config_flags%chem_opt == GOCARTRACM_KPP) then
+!
+! this does aerosol species (dust,seas, bc,oc) for gocart only
+!
+          call wesely_driver(id,ktau,dtstep,                              &
+               config_flags,                                              &
+               gmt,julday,t_phy,moist,p8w,t8w,                            &
+               p_phy,chem,rho_phy,dz8w,ddvel,aer_res,                     &
+               ivgtyp,tsk,gsw,vegfra,pbl,rmol,ust,znt,xlat,xlong,z,z_at_w,&
+               numgas,                                                    &
+               ids,ide, jds,jde, kds,kde,                                 &
+               ims,ime, jms,jme, kms,kme,                                 &
+               its,ite, jts,jte, kts,kte                                  )
+         call gocart_drydep_driver(dtstep,                                &
+               config_flags,numgas,                                       &
+               t_phy,moist,p8w,t8w,                                       &
+               p_phy,chem,rho_phy,dz8w,ddvel,xland,hfx,                   &
+               ivgtyp,tsk,vegfra,pbl,ust,znt,xlat,xlong,                  &
+               ids,ide, jds,jde, kds,kde,                                 &
+               ims,ime, jms,jme, kms,kme,                                 &
+               its,ite, jts,jte, kts,kte                                  )
+
        ELSE
           !Set dry deposition velocity to zero when using the
           !chemistry tracer mode.
@@ -167,7 +233,7 @@
      CASE (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP)
        CALL wrf_debug(15,'DOING DRY DEP VELOCITIES FOR AEROSOLS/RADM')
        call sorgam_depdriver (id,ktau,dtstep,                           &
-               ust,t_phy,moist,p8w,t8w,                                 &
+               ust,t_phy,moist,p8w,t8w,rmol,znt,pbl,                    &
                alt,p_phy,chem,rho_phy,dz8w,z,z_at_w,                    &
                h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2, &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,               &
@@ -176,10 +242,10 @@
                ids,ide, jds,jde, kds,kde,                               &
                ims,ime, jms,jme, kms,kme,                               &
                its,ite, jts,jte, kts,kte                                )
-     CASE (RACMSORG,RACMSORG_AQ,RACMSORG_KPP)
+     CASE (RACMSORG_AQ,RACMSORG_KPP)
        CALL wrf_debug(15,'DOING DRY DEP VELOCITIES FOR AEROSOLS/RACM')
        call sorgam_depdriver (id,ktau,dtstep,                           &
-               ust,t_phy,moist,p8w,t8w,                                 &
+               ust,t_phy,moist,p8w,t8w,rmol,znt,pbl,                    &
                alt,p_phy,chem,rho_phy,dz8w,z,z_at_w,                    &
                h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2, &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,               &
@@ -191,7 +257,7 @@
      CASE ( CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ )
        CALL wrf_debug(15,'DOING DRY DEP VELOCITIES FOR MOSAIC AEROSOLS')
        call mosaic_drydep_driver(                                       &
-               id, ktau, dtstep, config_flags,                          &
+               id, curr_secs, ktau, dtstep, config_flags,               &
                gmt, julday,                                             &
                t_phy, rho_phy, p_phy,                                   &
                ust, aer_res,                                            &
@@ -220,41 +286,41 @@
 !
 !-- start with vertical mixing
 !
-      do k=kts,kte
+      do k=kts,kte+1
          zzfull(k)=z_at_w(i,k,j)-z_at_w(i,kts,j)
+      enddo
+      do k=kts,kte
          ekmfull(k)=max(1.e-6,exch_h(i,k,j))
       enddo
+      ekmfull(kts)=0.
+      ekmfull(kte+1)=0.
 
 !!$! UNCOMMENT THIS AND FINE TUNE LEVELS TO YOUR DOMAIN IF YOU WANT TO
-!!$! FORCE MIXING TO A CERTAIN DEPTH:
+!!$! FORCE MIXING ESPECIALLY OVER URBAN AREAS TO A CERTAIN DEPTH:
 !!$!
 !!$! --- Mix the emissions up several layers
 !!$!     if e_co > 0., the grid cell should not be over water
 !!$!     if e_co > 200, the grid cell should be over a large urban region
 !!$!
-!       if (e_co(i,kts,j) .gt. 0) then
-!          ekmfull(kts:kts+10) = max(ekmfull(kts:kts+10),1.)
-!       endif
-!       if (e_co(i,kts,j) .gt. 200) then
-!          ekmfull(kts:kte/2) = max(ekmfull(kts:kte/2),2.)
-!       endif
-!!$!
+        if (e_co(i,kts,j) .gt. 0) then
+           ekmfull(kts:kts+10) = max(ekmfull(kts:kts+10),1.)
+        endif
+        if (e_co(i,kts,j) .gt. 200) then
+           ekmfull(kts:kte/2) = max(ekmfull(kts:kte/2),2.)
+        endif
 !
-!
-      do k=kts,kte-1
+      do k=kts,kte
          zz(k)=z(i,k,j)-z_at_w(i,kts,j)
       enddo
-      ekmfull(kts)=0.
-      ekmfull(kte)=0.
 !
 !   vertical mixing routine (including deposition)
 !   need to be careful here with that dumm tracer in spot 1
 !   do not need lho,lho2
 !   (03-may-2006 rce - calc dryrho_1d and pass it to vertmx)
 !
-      dep_vel_o3(i,j)=ddvel(i,j,p_o3)
+      if(p_sulf.gt.1)dep_vel_o3(i,j)=ddvel(i,j,p_sulf)
       do nv=2,num_chem-0
-         do k=kts,kte-1
+         do k=kts,kte
 !           pblst(k)=max(epsilc,chem(i,k,j,nv))
             pblst(k)=max(epsilc,chem(i,k,j,nv)/alt(i,k,j))
             dryrho_1d(k) = 1./alt(i,k,j)
@@ -267,18 +333,18 @@
          CASE (RADM2SORG_AQ, RACMSORG_AQ, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
             if(.not.is_aerosol(nv))then ! mix gases not aerosol
 !              call vertmx(dtstep,pblst,ekmfull,dryrho_1d, &
-!                          zzfull,zz,ddvel(i,j,nv),kts,kte-1)
-               call vertmx(dtstep,pblst,ekmfull,zzfull,zz,ddvel(i,j,nv),kts,kte-1)
+!                          zzfull,zz,ddvel(i,j,nv),kts,kte)
+               call vertmx(dtstep,pblst,ekmfull,zzfull,zz,ddvel(i,j,nv),kts,kte)
 
             endif
 !        CASE (PRESCRIBE_AEROSOL)
 
          CASE DEFAULT
-            call vertmx(dtstep,pblst,ekmfull,zzfull,zz,ddvel(i,j,nv),kts,kte-1)
+            call vertmx(dtstep,pblst,ekmfull,zzfull,zz,ddvel(i,j,nv),kts,kte)
 
          END SELECT mix_select
 
-         do k=kts,kte-2
+         do k=kts,kte-1
 
 !           chem(i,k,j,nv)=max(epsilc,pblst(k))
             chem(i,k,j,nv)=max(epsilc,pblst(k)*alt(i,k,j))
@@ -290,14 +356,16 @@
 !
    where( alt(its:ite,kts:kte,jts:jte) /= 0. )  !get dry density to conserve mass in mixactivate, wig, 24-apr-2006
       dryrho_phy(its:ite,kts:kte,jts:jte) = 1./alt(its:ite,kts:kte,jts:jte)
-      dryrho_phy(its:ite,kts:kte,jts:jte) = 1.
+!      dryrho_phy(its:ite,kts:kte,jts:jte) = 1. <---wig: this got into the Jan 2007 release by mistake, above is correct
    elsewhere
       dryrho_phy(its:ite,kts:kte,jts:jte) = 0.
    end where
+   dryrho_phy(its:ite,kte+1,jts:jte) = 0. !wig: testing, should never need this
 
    mixactivate_select: SELECT CASE(config_flags%chem_opt)
 
    CASE (RADM2SORG_AQ, RACMSORG_AQ)
+      CALL wrf_debug(15,'call mixactivate for sorgam aerosol')
       call sorgam_mixactivate (                        &
 		id, ktau, dtstep, config_flags, idrydep_onoff,   &
 		dryrho_phy, t_phy, w, cldfra, cldfra_old, &
@@ -305,10 +373,11 @@
 		moist(ims,kms,jms,P_QV), moist(ims,kms,jms,P_QC), moist(ims,kms,jms,P_QI), &
         scalar(ims,kms,jms,P_QNDROP), f_qc, f_qi, chem, &
         ccn1, ccn2, ccn3, ccn4, ccn5, ccn6, nsource,       &
+		ids,ide, jds,jde, kds,kde,                        &
 		ims,ime, jms,jme, kms,kme,                        &
 		its,ite, jts,jte, kts,kte                         )
    CASE (CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
-       CALL wrf_debug(15,'call mixactive for mosaic aerosol')
+      CALL wrf_debug(15,'call mixactivate for mosaic aerosol')
       call mosaic_mixactivate (                        &
 		id, ktau, dtstep, config_flags, idrydep_onoff,   &
 		dryrho_phy, t_phy, w, cldfra, cldfra_old, &
@@ -316,10 +385,26 @@
 		moist(ims,kms,jms,P_QV), moist(ims,kms,jms,P_QC), moist(ims,kms,jms,P_QI), &
         scalar(ims,kms,jms,P_QNDROP), f_qc, f_qi, chem,   &
         ccn1, ccn2, ccn3, ccn4, ccn5, ccn6, nsource,      &
+		ids,ide, jds,jde, kds,kde,                        &
 		ims,ime, jms,jme, kms,kme,                        &
 		its,ite, jts,jte, kts,kte                         )
    CASE DEFAULT
    END SELECT mixactivate_select
+   settling_select: SELECT CASE(config_flags%chem_opt)
+   CASE (GOCART_SIMPLE,GOCARTRACM_KPP)
+       CALL wrf_debug(15,'call gocart settling routine')
+         call gocart_settling_driver(dtstep,config_flags,t_phy,moist,  &
+         chem,rho_phy,dz8w,p8w,p_phy,         &
+         dx,g, &
+         ids,ide, jds,jde, kds,kde,                                        &
+         ims,ime, jms,jme, kms,kme,                                        &
+         its,ite, jts,jte, kts,kte                                         )
+   CASE DEFAULT
+       CALL wrf_debug(15,'no settling routine')
+   END SELECT settling_select
+
        CALL wrf_debug(15,'end of dry_dep_driver')
 
 END SUBROUTINE dry_dep_driver
+
+END MODULE module_dry_dep_driver

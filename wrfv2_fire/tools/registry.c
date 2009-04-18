@@ -33,7 +33,7 @@ main( int argc, char *argv[], char *env[] )
   sw_all_x_staggered       = 0 ;
   sw_move                  = 0 ;
   sw_all_y_staggered       = 0 ;
-  sw_ifort_kludge          = 0 ;
+  sw_fort_kludge          = 1 ;   /* unconditionally true for v3 */
   sw_dm_serial_in_only      = 0 ; /* input and bdy data set is distributed by node 0, 
                                      other data streams are written to file per process */
   sw_new_bdys              = 0 ;
@@ -67,8 +67,8 @@ main( int argc, char *argv[], char *env[] )
       if (!strcmp(*argv,"-DMOVE_NESTS")) {
         sw_move = 1 ;
       }
-      if (!strcmp(*argv,"-DIFORT_KLUDGE")) {
-        sw_ifort_kludge = 1 ;
+      if (!strcmp(*argv,"-DMOVE_NL_OUTSIDE_MODULE_CONFIGURE")) {
+        sw_fort_kludge = 1 ;
       }
       if (!strcmp(*argv,"-DD3VAR_IRY_KLUDGE")) {
 #if 0
@@ -117,7 +117,6 @@ main( int argc, char *argv[], char *env[] )
   init_parser() ;
   init_type_table() ;
   init_dim_table() ;
-  init_core_table() ;
 
   if ( !strcmp(fname_in,"") ) fp_in = stdin ;
   else
@@ -162,6 +161,7 @@ main( int argc, char *argv[], char *env[] )
   gen_state_struct( "inc" ) ;
   gen_state_subtypes( "inc" ) ;
   gen_alloc( "inc" ) ;
+  gen_alloc_count( "inc" ) ;
   gen_dealloc( "inc" ) ;
   gen_scalar_indices( "inc" ) ;
   gen_module_state_description( "frame" ) ;
@@ -176,6 +176,7 @@ main( int argc, char *argv[], char *env[] )
   gen_namelist_defines ( "inc", 0 ) ;  /* without dimension statements  */
   gen_namelist_defines ( "inc", 1 ) ;  /* with dimension statements     */
   gen_namelist_defaults ( "inc" ) ;
+  gen_namelist_script ( "inc" ) ;
   gen_get_nl_config( "inc" ) ;
   gen_config_assigns( "inc" ) ;
   gen_config_reads( "inc" ) ;
@@ -183,12 +184,6 @@ main( int argc, char *argv[], char *env[] )
   gen_model_data_ord( "inc" ) ;
   gen_nest_interp( "inc" ) ;
   gen_scalar_derefs( "inc" ) ;
-
-#if 1
-  system( "touch inc/em_nest_feedbackup_smooth.inc" ) ;
-  system( "touch inc/em_nest_feedbackup_unpack.inc" ) ;
-#endif
-
 
 /* this has to happen after gen_nest_interp, which adds halos to the AST */
   gen_comms( "inc" ) ;    /* this is either package supplied (by copying a */

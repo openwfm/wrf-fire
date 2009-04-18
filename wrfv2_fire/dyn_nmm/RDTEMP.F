@@ -2,8 +2,8 @@
 !NCEP_MESO:MODEL_LAYER: PHYSICS
 !
 !***********************************************************************
-      SUBROUTINE RDTEMP(NTSD,DT,JULDAY,JULYR,IHRST,GLAT,GLON            &
-     &                 ,CZEN,CZMEAN,T,RSWTT,RLWTT,HTM,HBM2              &
+      SUBROUTINE RDTEMP(NTSD,DT,JULDAY,JULYR,XTIME,IHRST,GLAT,GLON      &
+     &                 ,CZEN,CZMEAN,T,RSWTT,RLWTT,HBM2                  &
      &                 ,IDS,IDE,JDS,JDE,KDS,KDE                         &
      &                 ,IMS,IME,JMS,JME,KMS,KME                         &
      &                 ,ITS,ITE,JTS,JTE,KTS,KTE)
@@ -24,6 +24,7 @@
 !   98-10-30  BLACK      - MODIFIED FOR DISTRIBUTED MEMORY
 !   02-06-07  BLACK      - WRF CODING STANDARDS
 !   02-09-09  WOLFE      - CONVERTING TO GLOBAL INDEXING
+!   05-12-19  BLACK      - CONVERTED FROM IKJ TO IJK
 !     
 ! USAGE: CALL RDTEMP FROM SUBROUTINE SOLVE_RUNSTREAM
 !  
@@ -46,16 +47,15 @@
 !
       INTEGER,INTENT(IN) :: IHRST,JULDAY,JULYR,NTSD
 !
-      REAL,INTENT(IN) :: DT
+      REAL,INTENT(IN) :: DT,XTIME
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(IN) :: CZMEAN,GLAT,GLON    &
      &                                             ,HBM2
 !
-      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(IN) :: HTM         &
-     &                                                     ,RLWTT       &
+      REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(IN) :: RLWTT       &
      &                                                     ,RSWTT
 !
-      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(INOUT) :: T
+      REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(INOUT) :: T
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: CZEN
 !
@@ -86,7 +86,8 @@
 !
 !***  GET CURRENT VALUE OF COS(ZENITH ANGLE)
 !
-      TIMES=NTSD*DT
+!      TIMES=NTSD*DT
+      TIMES=XTIME*60.
 !
       DO J=MYJS,MYJE
       DO I=MYIS,MYIE
@@ -118,7 +119,7 @@
       DO J=MYJS,MYJE
       DO I=MYIS,MYIE
         CZEN(I,J)=CZEN2(I,J)
-        IF(CZMEAN(I,J).GT.0.)THEN 
+        IF(CZMEAN(I,J)>0.)THEN 
           FACTR(I,J)=CZEN(I,J)/CZMEAN(I,J)
         ELSE
           FACTR(I,J)=0.
@@ -126,11 +127,11 @@
       ENDDO
       ENDDO
 !
-      DO J=MYJS,MYJE
-        DO K=KTS,KTE
+      DO K=KTS,KTE
+        DO J=MYJS,MYJE
         DO I=MYIS,MYIE
-          TTNDKL=RSWTT(I,K,J)*FACTR(I,J)+RLWTT(I,K,J)
-          T(I,K,J)=T(I,K,J)+TTNDKL*DT*HTM(I,K,J)*HBM2(I,J)
+          TTNDKL=RSWTT(I,J,K)*FACTR(I,J)+RLWTT(I,J,K)
+          T(I,J,K)=T(I,J,K)+TTNDKL*DT*HBM2(I,J)
         ENDDO
         ENDDO
       ENDDO

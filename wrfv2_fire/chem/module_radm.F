@@ -5,7 +5,7 @@
     parameter (numchem=numchem_radm)
 ! ..
     CONTAINS
-      subroutine radm_driver(id,ktau,dtstep,config_flags,              &
+      subroutine radm_driver(id,curr_secs,dtstep,config_flags,         &
                gmt,julday,t_phy,moist,p8w,t8w,                         &
                p_phy,chem,rho_phy,dz8w,z,z_at_w,vdrog3,         &
                ph_o31d,ph_o33p,ph_no2,ph_no3o2,ph_no3o,ph_hno2,  &
@@ -24,10 +24,8 @@
                                   ids,ide, jds,jde, kds,kde,           &
                                   ims,ime, jms,jme, kms,kme,           &
                                   its,ite, jts,jte, kts,kte
-   INTEGER,      INTENT(IN   ) ::                                      &
-                                  ktau
-      REAL,      INTENT(IN   ) ::                                      &
-                             dtstep,gmt
+   REAL(KIND=8), INTENT(IN   ) :: curr_secs
+   REAL,         INTENT(IN   ) :: dtstep,gmt
 !
 ! advected moisture variables
 !
@@ -68,22 +66,24 @@
 
 ! ..
 ! .. Local Scalars ..
-      REAL ::  clwchem,  dt60, dtcmax, dtcmin, xtime
+      REAL ::  clwchem,  dt60, dtcmax, dtcmin
       INTEGER :: i,j,k,iprt, jce, jcs, n, nr, ipr,jpr,nvr
 ! ..
 ! .. Local Arrays ..
-      REAL :: p(kts:kte-1), rh(kts:kte-1), rj(kts:kte-1,nreacj),       &
-        t(kts:kte-1), vcinp(kts:kte-1,numchem),wlc(kts:kte-1)
-      real :: vdrog1(kts:kte-1,ldrog)
+      REAL :: p(kts:kte), rh(kts:kte), rj(kts:kte,nreacj),       &
+        t(kts:kte), vcinp(kts:kte,numchem),wlc(kts:kte)
+      real :: vdrog1(kts:kte,ldrog)
 
 !
+      integer(kind=8) :: ixhour
+      INTEGER :: iaerosol_sorgam
+      real(kind=8) :: xhour, xtime, xtimin
+      real :: xmin
+      xtime=curr_secs/60._8
+      ixhour=int(gmt+.01,8)+int(xtime/60._8,8)
+      xhour=real(ixhour,8)
+      xmin=60.*gmt+real(xtime-xhour*60._8,8)
 
-      INTEGER :: ixhour,iaerosol_sorgam
-      real :: xhour,xmin,xtimin
-      xtime=ktau*dtstep/60.
-      ixhour=ifix(gmt+.01)+ifix(xtime/60.)
-      xhour=float(ixhour)
-      xmin=60.*gmt+(xtime-xhour*60.)
       ipr=-10
       jpr=-10
       nvr=5
@@ -110,7 +110,7 @@
 ! reorder                                                                                        
 !                                                                                                
 !       if(iprt.eq.2)print *,'k,chem(i,k,j,p_sulf),vcinp(k,lsulf)'
-      do k=kts,kte-1                                                                             
+      do k=kts,kte
         vcinp(k,lso2)  =  max(chem(i,k,j,p_so2),epsilc)
         vcinp(k,Lsulf) =  max(chem(i,k,j,p_sulf),epsilc)
         vcinp(k,Lno2)  =  max(chem(i,k,j,p_no2),epsilc)
@@ -160,7 +160,7 @@
         enddo
 !--- now do chemistry, need some input here
 
-      do k=kts,kte-1
+      do k=kts,kte
          t(k) = t_phy(i,k,j)
          p(k) = .001*p_phy(i,k,j)
          rh(k) = .95
@@ -172,21 +172,22 @@
          wlc(k) = 0.
       END DO
       dt60 = dtstep/60.
-      xtimin = max(0.,xtime-dt60)
-      dtcmin = min(.05,xtime-xtimin)
+      xtimin = max(0._8,xtime-real(dt60,8))
+      dtcmin = min(.05_8,xtime-xtimin)
+      dtcmin = max(dtcmin,0.5/60.)
       dtcmax = min(5.,dt60)
-      dtcmax = min(dtcmax,xtime-xtimin)
+      dtcmax = min(real(dtcmax,8),xtime-xtimin)
 !
 ! radm here is called with a vertical stack
 !
       jcs = kts
-      jce = kte-1
+      jce = kte
 
 
 !
 ! fill photolysis rates for use in radm module
 !
-      do k=kts,kte-1
+      do k=kts,kte
         rj(k,1) = ph_no2(i,k,j)
         rj(k,2) = ph_o31d(i,k,j)
         rj(k,3) = ph_o33p(i,k,j)
@@ -214,10 +215,10 @@
 !     if((i.eq.87.and.j.eq.15).or.(i.eq.87.and.j.eq.4))then
 !       iprt=1
 !     endif
-      CALL radm(rj,wlc,vcinp,t,p,rh,xtime,xtimin,kts,kte-1,            &
+      CALL radm(rj,wlc,vcinp,t,p,rh,xtime,xtimin,kts,kte,            &
                 iprt,dt60,dtcmax,dtcmin,vdrog1,iaerosol_sorgam)
 !     print *,'after  radm, i,j = ',i,j
-      do k=kts,kte-1
+      do k=kts,kte
         chem(i,k,j,p_so2)     = max(vcinp(k,lso2),epsilc)
         chem(i,k,j,p_sulf)     = max(vcinp(k,Lsulf),epsilc)
         chem(i,k,j,p_no2)     = max(vcinp(k,Lno2),epsilc)
@@ -292,7 +293,8 @@ END SUBROUTINE radm_driver
         REAL, PARAMETER :: c302 = 5417.4, c303 = 19.83
 ! ..
 ! .. Scalar Arguments ..
-        REAL,INTENT(IN) :: dt60, dtcmax, dtcmin, timemx, tstart
+        REAL(KIND=8),INTENT(IN) :: timemx, tstart
+        REAL,INTENT(IN) :: dt60, dtcmax, dtcmin
         INTEGER, INTENT(IN) :: iprt, jce, jcs 
 !
 !

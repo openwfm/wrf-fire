@@ -201,7 +201,7 @@ CONTAINS
    REAL , DIMENSION( ims:ime , jms:jme  ) , INTENT(INOUT)          :: mu_tend
    REAL , DIMENSION( spec_bdy_width) , INTENT(IN   ) :: fcx, gcx
 
-   REAL,  DIMENSION( jms:jme , kds:kde , spec_bdy_width, 4 ), INTENT(IN   ) :: u_bxs,u_bxe, &
+   REAL,  DIMENSION( jms:jme , kds:kde , spec_bdy_width    ), INTENT(IN   ) :: u_bxs,u_bxe, &
                                                                                v_bxs,v_bxe, &
                                                                                ph_bxs,ph_bxe, &
                                                                                w_bxs,w_bxe, &
@@ -212,7 +212,7 @@ CONTAINS
                                                                                w_btxs,w_btxe, &
                                                                                t_btxs,t_btxe
 
-   REAL,  DIMENSION( ims:ime , kds:kde , spec_bdy_width, 4 ), INTENT(IN   ) :: u_bys,u_bye, &
+   REAL,  DIMENSION( ims:ime , kds:kde , spec_bdy_width    ), INTENT(IN   ) :: u_bys,u_bye, &
                                                                                v_bys,v_bye, &
                                                                                ph_bys,ph_bye, &
                                                                                w_bys,w_bye, &
@@ -224,10 +224,10 @@ CONTAINS
                                                                                t_btys,t_btye
 
 
-   REAL,  DIMENSION( jms:jme , 1:1     , spec_bdy_width, 4 ), INTENT(IN   ) :: mu_bxs,mu_bxe, &
+   REAL,  DIMENSION( jms:jme , 1:1     , spec_bdy_width    ), INTENT(IN   ) :: mu_bxs,mu_bxe, &
                                                                                mu_btxs,mu_btxe
 
-   REAL,  DIMENSION( ims:ime , 1:1     , spec_bdy_width, 4 ), INTENT(IN   ) :: mu_bys,mu_bye, &
+   REAL,  DIMENSION( ims:ime , 1:1     , spec_bdy_width    ), INTENT(IN   ) :: mu_bys,mu_bye, &
                                                                                mu_btys,mu_btye
    REAL, INTENT(IN   ) :: dtbc
 
@@ -360,9 +360,9 @@ CONTAINS
    REAL , DIMENSION( ims:ime , kms:kme, jms:jme  ) , INTENT(INOUT) :: scalar_tend
    REAL , DIMENSION( spec_bdy_width) , INTENT(IN   ) :: fcx, gcx
 
-   REAL,  DIMENSION( jms:jme , kds:kde , spec_bdy_width, 4 ), INTENT(IN   ) :: scalar_bxs,scalar_bxe, &
+   REAL,  DIMENSION( jms:jme , kds:kde , spec_bdy_width    ), INTENT(IN   ) :: scalar_bxs,scalar_bxe, &
                                                                                scalar_btxs,scalar_btxe
-   REAL,  DIMENSION( ims:ime , kds:kde , spec_bdy_width, 4 ), INTENT(IN   ) :: scalar_bys,scalar_bye, &
+   REAL,  DIMENSION( ims:ime , kds:kde , spec_bdy_width    ), INTENT(IN   ) :: scalar_bys,scalar_bye, &
                                                                                scalar_btys,scalar_btye
    REAL, INTENT(IN   ) :: dtbc
 !Local
@@ -438,7 +438,7 @@ CONTAINS
                                                                       t_tend
    REAL , DIMENSION( ims:ime , jms:jme  ) , INTENT(OUT  )          :: mu_tend
 
-   REAL,  DIMENSION( jms:jme , kds:kde , spec_bdy_width, 4 ), INTENT(IN   ) :: u_bxs,u_bxe,  &
+   REAL,  DIMENSION( jms:jme , kds:kde , spec_bdy_width    ), INTENT(IN   ) :: u_bxs,u_bxe,  &
                                                                                v_bxs,v_bxe,  &
                                                                                ph_bxs,ph_bxe, &
                                                                                w_bxs,w_bxe, &
@@ -449,7 +449,7 @@ CONTAINS
                                                                                w_btxs,w_btxe, &
                                                                                t_btxs,t_btxe
 
-   REAL,  DIMENSION( ims:ime , kds:kde , spec_bdy_width, 4 ), INTENT(IN   ) :: u_bys,u_bye,  &
+   REAL,  DIMENSION( ims:ime , kds:kde , spec_bdy_width    ), INTENT(IN   ) :: u_bys,u_bye,  &
                                                                                v_bys,v_bye,  &
                                                                                ph_bys,ph_bye, &
                                                                                w_bys,w_bye, &
@@ -460,10 +460,10 @@ CONTAINS
                                                                                w_btys,w_btye, &
                                                                                t_btys,t_btye
 
-   REAL,  DIMENSION( jms:jme , 1:1 ,     spec_bdy_width, 4 ), INTENT(IN   ) :: mu_bxs,mu_bxe, &
+   REAL,  DIMENSION( jms:jme , 1:1 ,     spec_bdy_width    ), INTENT(IN   ) :: mu_bxs,mu_bxe, &
                                                                                mu_btxs,mu_btxe
 
-   REAL,  DIMENSION( ims:ime , 1:1 ,     spec_bdy_width, 4 ), INTENT(IN   ) :: mu_bys,mu_bye, &
+   REAL,  DIMENSION( ims:ime , 1:1 ,     spec_bdy_width    ), INTENT(IN   ) :: mu_bys,mu_bye, &
                                                                                mu_btys,mu_btye
          CALL spec_bdytend (   ru_tend,                &
                                u_bxs,u_bxe,u_bys,u_bye, u_btxs,u_btxe,u_btys,u_btye,    &
@@ -542,10 +542,10 @@ CONTAINS
 
    REAL , DIMENSION( ims:ime , kms:kme, jms:jme  ) , INTENT(OUT  ) :: scalar_tend
 
-   REAL,  DIMENSION( jms:jme , kds:kde , spec_bdy_width, 4 ), INTENT(IN   ) :: scalar_bxs,scalar_bxe, &
+   REAL,  DIMENSION( jms:jme , kds:kde , spec_bdy_width    ), INTENT(IN   ) :: scalar_bxs,scalar_bxe, &
                                                                                scalar_btxs,scalar_btxe
 
-   REAL,  DIMENSION( ims:ime , kds:kde , spec_bdy_width, 4 ), INTENT(IN   ) :: scalar_bys,scalar_bye, &
+   REAL,  DIMENSION( ims:ime , kds:kde , spec_bdy_width    ), INTENT(IN   ) :: scalar_bys,scalar_bye, &
                                                                                scalar_btys,scalar_btye
 
 !Local
@@ -969,8 +969,9 @@ CONTAINS
 
 !---------------------------------------------------------------------
 
-  SUBROUTINE set_w_surface( config_flags,                                &
-                            w, ht, u, v, cf1, cf2, cf3, rdx, rdy, msft,  &
+  SUBROUTINE set_w_surface( config_flags, znw,                           &
+                            w, ht, u, v, cf1, cf2, cf3, rdx, rdy,        &
+                            msftx, msfty,                                &
                             ids, ide, jds, jde, kds, kde,                &
                             ips, ipe, jps, jpe, kps, kpe,                &
                             its, ite, jts, jte, kts, kte,                &
@@ -984,7 +985,7 @@ CONTAINS
                                    its, ite, jts, jte, kts, kte, &
                                    ips, ipe, jps, jpe, kps, kpe
 
-   REAL :: cf1, cf2, cf3, rdx, rdy
+   REAL :: rdx, rdy, cf1, cf2, cf3
 
 
    REAL , DIMENSION(  ims:ime , kms:kme, jms:jme ) ,                      &
@@ -994,12 +995,27 @@ CONTAINS
    REAL , DIMENSION(  ims:ime , kms:kme, jms:jme ) ,                      &
                                                INTENT(INOUT) ::  w
 
-   REAL , DIMENSION(  ims:ime , jms:jme ) , INTENT(IN   ) ::  ht, msft
+   REAL , DIMENSION(  ims:ime , jms:jme ) , INTENT(IN   ) ::  ht,         &
+                                                              msftx,      &
+                                                              msfty
+   REAL , DIMENSION( kms:kme ) , INTENT(IN   ) ::  znw
 
-   INTEGER :: i,j
+
+   INTEGER :: i,j,k
    INTEGER :: ip1,im1,jp1,jm1
 
 !  set kinematic lower boundary condition on W
+
+!  Comments on directional map scale factors:
+!  Chain rule: if Z=Z(X,Y) [true at the surface] then
+!  dZ/dt = dZ/dX * dX/dt + dZ/dY * dY/dt, U=dX/dt, V=dY/dt
+!  using capitals to denote actual values
+!  in mapped values, u=U, v=V, z=Z, 1/dX=mx/dx, 1/dY=my/dy
+!     => w = dz/dt = mx u dz/dx + my v dz/dy
+!  [where dz/dx is just the surface height change between x
+!   gridpoints, and dz/dy is the change between y gridpoints]
+!  [NB - cf1, cf2 and cf3 do vertical weighting of u or v values
+!   nearest the surface]
 
      DO j = jts,min(jte,jde-1)
        jm1 = max(j-1,jds)
@@ -1008,21 +1024,78 @@ CONTAINS
        im1 = max(i-1,ids)
        ip1 = min(i+1,ide-1)
 
-         w(i,1,j)=  msft(i,j)*(                            &
+         w(i,1,j)=  msfty(i,j)*                              &
                   .5*rdy*(                                   &
                            (ht(i,jp1)-ht(i,j  ))             &
           *(cf1*v(i,1,j+1)+cf2*v(i,2,j+1)+cf3*v(i,3,j+1))    &
                           +(ht(i,j  )-ht(i,jm1))             &
           *(cf1*v(i,1,j  )+cf2*v(i,2,j  )+cf3*v(i,3,j  ))  ) &
-                 +.5*rdx*(                                   &
+                    +msftx(i,j)*                             &
+                  .5*rdx*(                                   &
                            (ht(ip1,j)-ht(i,j  ))             &
           *(cf1*u(i+1,1,j)+cf2*u(i+1,2,j)+cf3*u(i+1,3,j))    &
                           +(ht(i  ,j)-ht(im1,j))             &
-          *(cf1*u(i  ,1,j)+cf2*u(i  ,2,j)+cf3*u(i  ,3,j))  ) &
-                                                            )
+          *(cf1*u(i  ,1,j)+cf2*u(i  ,2,j)+cf3*u(i  ,3,j))  )
+
       ENDDO
       ENDDO
+
+! Fill the atmospheric w field with smoothly decaying values
+
+     DO j = jts,min(jte,jde-1)
+     DO k = kts+1,kte
+     DO i = its,min(ite,ide-1)
+         w(i,k,j) = w(i,1,j)*znw(k)*znw(k)
+     ENDDO
+     ENDDO
+     ENDDO
 
   END SUBROUTINE set_w_surface
 
+  SUBROUTINE lbc_fcx_gcx ( fcx , gcx , spec_bdy_width , &
+                           spec_zone , relax_zone , dt , spec_exp , &
+                           specified , nested )
+  
+     IMPLICIT NONE
+  
+     INTEGER , INTENT(IN) :: spec_bdy_width , spec_zone , relax_zone
+     REAL , INTENT(IN) :: dt , spec_exp
+     LOGICAL , INTENT(IN) :: specified , nested
+     REAL , DIMENSION(spec_bdy_width) :: fcx , gcx
+  
+     ! Local variables.
+  
+     INTEGER :: loop 
+     REAL :: spongeweight
+  
+     IF (specified) THEN
+       
+       ! Arrays for specified boundary conditions
+       
+       DO loop = spec_zone + 1, spec_zone + relax_zone
+         fcx(loop) = 0.1 / dt * (spec_zone + relax_zone - loop) / (relax_zone - 1)
+         gcx(loop) = 1.0 / dt / 50. * (spec_zone + relax_zone - loop) / (relax_zone - 1)
+         spongeweight=exp(-(loop-(spec_zone + 1))*spec_exp)
+         fcx(loop) = fcx(loop)*spongeweight
+         gcx(loop) = gcx(loop)*spongeweight
+       ENDDO   
+       
+     ELSE IF (nested) THEN
+       
+       ! Arrays for specified boundary conditions
+       
+       DO loop = spec_zone + 1, spec_zone + relax_zone
+         fcx(loop) = 0.1 / dt * (spec_zone + relax_zone - loop) / (relax_zone - 1)
+         gcx(loop) = 1.0 / dt / 50. * (spec_zone + relax_zone - loop) / (relax_zone - 1)
+!        spongeweight=EXP(-(loop-2)/3.)
+!        fcx(loop) = fcx(loop)*spongeweight
+!        gcx(loop) = gcx(loop)*spongeweight
+!        fcx(loop) = 0.
+!        gcx(loop) = 0.
+       ENDDO
+       
+     ENDIF
+  
+  END SUBROUTINE lbc_fcx_gcx
+  
 END MODULE module_bc_em

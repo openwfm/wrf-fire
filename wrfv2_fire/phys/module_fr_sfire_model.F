@@ -28,6 +28,7 @@ subroutine sfire_model (                    &
     ignition_end_x,ignition_end_y,          &
     ignition_radius,                        &
     ignition_time,                          &
+    ignitions_done,ignited_tile,            &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     zsf,                                    & ! terrain height (for gradient)
     vx,vy,                                  & ! input: wind
@@ -101,6 +102,7 @@ real, dimension(num_ignitions), intent(in):: &
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
     ignition_time                           !  of ignition lines
+integer, intent(out):: ignited_tile(num_ignitions),ignitions_done
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
 real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
@@ -123,7 +125,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     grnhfx,grnqfx                           ! heat fluxes J/m^2/s  (cell)             
  
 ! constant arrays - set at initialization
-integer, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
+real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: bbb,betafl,phiwc,r_0 ! (node) spread formula coefficients
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fgip                 ! (cell) init mass of surface fuel (kg/m^2)
@@ -148,7 +150,9 @@ xjfms=jfms
 xjfme=jfme
 
 
+! init flags
 need_lfn_update=.false.
+ignitions_done=0
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 elseif(ifun.eq.2)then   
@@ -177,7 +181,7 @@ elseif(ifun.eq.2)then
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
-            fdx,fdy,             &
+            fdx,fdy,nfuel_cat0,  &
             nfuel_cat,fuel_time &
 #           include "fr_sfire_params_args.h" 
 )
@@ -210,6 +214,8 @@ elseif(ifun.eq.3)then   ! ignition if so specified
                 ignition_time(ig),                        &  
                 coord_xf,coord_yf,unit_xf,unit_yf,        & 
                 lfn,tign,ignited)
+            ignitions_done=ignitions_done+1
+            ignited_tile(ignitions_done)=ignited
                 
             need_lfn_update=.true. ! if ignition, lfn changed
 #ifdef DEBUG_OUT    

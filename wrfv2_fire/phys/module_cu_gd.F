@@ -8,7 +8,7 @@ CONTAINS
 !-------------------------------------------------------------
    SUBROUTINE GRELLDRV(                                         &
                DT,itimestep,DX                                  &
-              ,rho,RAINCV                                       &
+              ,rho,RAINCV,PRATEC                                &
               ,U,V,t,W,q,p,pi                                   &
               ,dz8w,p8w,XLV,CP,G,r_v                            &
               ,STEPCU,htop,hbot                                 &
@@ -21,6 +21,7 @@ CONTAINS
               ,ids,ide, jds,jde, kds,kde                        &
               ,ims,ime, jms,jme, kms,kme                        &
               ,its,ite, jts,jte, kts,kte                        &
+              ,periodic_x,periodic_y                            &
               ,RQVCUTEN,RQCCUTEN,RQICUTEN                       &
               ,RQVFTEN,RQVBLTEN                                 &
               ,RTHFTEN,RTHCUTEN,RTHRATEN,RTHBLTEN               &
@@ -33,6 +34,7 @@ CONTAINS
                                   ids,ide, jds,jde, kds,kde,    & 
                                   ims,ime, jms,jme, kms,kme,    & 
                                   its,ite, jts,jte, kts,kte
+   LOGICAL periodic_x,periodic_y
 
    integer, intent (in   )              ::                      &
                        ensdim,maxiens,maxens,maxens2,maxens3
@@ -67,7 +69,7 @@ CONTAINS
 !
 
    REAL, DIMENSION( ims:ime , jms:jme ),                        &
-         INTENT(INOUT) ::                 RAINCV, MASS_FLUX,    &
+         INTENT(INOUT) ::         RAINCV, PRATEC, MASS_FLUX,    &
                           APR_GR,APR_W,APR_MC,APR_ST,APR_AS,    &
                               APR_CAPMA,APR_CAPME,APR_CAPMI,htop,hbot
 !+lxz
@@ -151,10 +153,23 @@ CONTAINS
    iens=1
      ipr=0
      jpr=0
-   jbeg=max(jts,jds+4)
-   jend=min(jte,jde-5)
-   ibeg=max(its,ids+4)
-   iend=min(ite,ide-5)
+
+   IF ( periodic_x ) THEN
+      ibeg=max(its,ids)
+      iend=min(ite,ide-1)
+   ELSE
+      ibeg=max(its,ids+4)
+      iend=min(ite,ide-5)
+   END IF
+   IF ( periodic_y ) THEN
+      jbeg=max(jts,jds)
+      jend=min(jte,jde-1)
+   ELSE
+      jbeg=max(jts,jds+4)
+      jend=min(jte,jde-5)
+   END IF
+
+
    tcrit=258.
 
    itf=MIN(ite,ide-1)
@@ -166,6 +181,7 @@ CONTAINS
         cuten(i)=0.
         iact_old_gr(i,j)=0
         mass_flux(i,j)=0.
+        pratec(i,j) = 0.
         raincv(i,j)=0.
         CU_ACT_FLAG(i,j) = .true.
      ENDDO
@@ -300,6 +316,7 @@ CONTAINS
 !             cuten(i)=0.
               if(i.ge.ibeg.and.i.le.iend)then
               if(pret(i).gt.0.)then
+                 pratec(i,j)=pret(i)
                  raincv(i,j)=pret(i)*dt
                  cuten(i)=1.
                  rkbcon = kte+kts - kbcon(i)
@@ -3821,7 +3838,7 @@ CONTAINS
         do k=kts,ktf
         do i=its,itf
           pw(i,k)=0.
-          qc(i,k)=qes_cup(i,k)
+          if(ierr(i).eq.0)qc(i,k)=qes_cup(i,k)
           clw_all(i,k)=0.
           qrc(i,k)=0.
         enddo

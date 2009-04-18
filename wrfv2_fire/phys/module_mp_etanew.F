@@ -29,8 +29,8 @@ MODULE module_mp_etanew
 !
       INTEGER,PARAMETER :: NX=7501
       REAL, PARAMETER :: XMIN=180.0,XMAX=330.0
-      REAL, DIMENSION(NX),PRIVATE,SAVE :: TBPVS,TBPVS0
-      REAL, PRIVATE,SAVE :: C1XPVS0,C2XPVS0,C1XPVS,C2XPVS
+      REAL, DIMENSION(NX),SAVE :: TBPVS,TBPVS0
+      REAL, SAVE :: C1XPVS0,C2XPVS0,C1XPVS,C2XPVS
 !
       REAL, PRIVATE,PARAMETER ::                                        &
 !--- Physical constants follow:
@@ -65,9 +65,9 @@ MODULE module_mp_etanew
 ! ======================================================================
       REAL, PUBLIC,PARAMETER ::                                         &
      &  RHgrd=1.                                                        &
-     & ,T_ICE=-30.                                                      &
+     & ,T_ICE=-40.                                                      &
      & ,T_ICEK=T0C+T_ICE                                                &
-     & ,T_ICE_init=-5.                                                  &
+     & ,T_ICE_init=-15.                                                 &
      & ,NLImax=5.E3                                                     &
      & ,NLImin=1.E3                                                     &
      & ,N0r0=8.E6                                                       &
@@ -452,6 +452,7 @@ MODULE module_mp_etanew
                 QW=QW-QR
               ENDIF
             ENDIF
+            IF (QI .LE. 0.) F_RimeF(L,I,J)=1.
             RimeF_col(L)=F_RimeF(L,I,J)               ! (real)
             QI_col(L)=QI
             QR_col(L)=QR
@@ -484,12 +485,13 @@ MODULE module_mp_etanew
       !
       !--- REAL*4 array storage
       !
-            F_RimeF(L,I,J)=MAX(1., RimeF_col(L))
             IF (QI_col(L) .LE. EPSQ) THEN
               F_ice(L,I,J)=0.
               IF (T_col(L) .LT. T_ICEK) F_ice(L,I,J)=1.
+              F_RimeF(L,I,J)=1.
             ELSE
               F_ice(L,I,J)=MAX( 0., MIN(1., QI_col(L)/WC_col(L)) )
+              F_RimeF(L,I,J)=MAX(1., RimeF_col(L))
             ENDIF
             IF (QR_col(L) .LE. EPSQ) THEN
               DUM=0
@@ -1093,32 +1095,34 @@ MODULE module_mp_etanew
      &                .OR. IPASS.EQ.1) THEN
                   EXIT
                 ELSE
+                  IF (TC < 0) THEN
+                    XLI=RHO*(QTICE/DUM-XSIMASS)/RimeF1
+                    IF (XLI .LE. MASSI(MDImin) ) THEN
+                      INDEXS=MDImin
+                    ELSE IF (XLI .LE. MASSI(450) ) THEN
+                      DLI=9.5885E5*XLI**.42066         ! DLI in microns
+                      INDEXS=MIN(MDImax, MAX(MDImin, INT(DLI) ) )
+                    ELSE IF (XLI .LE. MASSI(MDImax) ) THEN
+                      DLI=3.9751E6*XLI**.49870         ! DLI in microns
+                      INDEXS=MIN(MDImax, MAX(MDImin, INT(DLI) ) )
+                    ELSE
+                      INDEXS=MDImax
+                    ENDIF             ! End IF (XLI .LE. MASSI(MDImin) )
+                  ENDIF               ! End IF (TC < 0)
         !
         !--- Reduce excessive accumulation of ice at upper levels
         !    associated with strong grid-resolved ascent
         !
         !--- Force NLICE to be between NLImin and NLImax
         !
+        !
+        !--- 8/22/01: Increase density of large ice if maximum limits 
+        !    are reached for number concentration (NLImax) and mean size 
+        !    (MDImax).  Done to increase fall out of ice.
+        !
                   DUM=MAX(NLImin, MIN(NLImax, NLICE) )
-                  XLI=RHO*(QTICE/DUM-XSIMASS)/RimeF1
-                  IF (XLI .LE. MASSI(MDImin) ) THEN
-                    INDEXS=MDImin
-                  ELSE IF (XLI .LE. MASSI(450) ) THEN
-                    DLI=9.5885E5*XLI**.42066         ! DLI in microns
-                    INDEXS=MIN(MDImax, MAX(MDImin, INT(DLI) ) )
-                  ELSE IF (XLI .LE. MASSI(MDImax) ) THEN
-                    DLI=3.9751E6*XLI**.49870         ! DLI in microns
-                    INDEXS=MIN(MDImax, MAX(MDImin, INT(DLI) ) )
-                  ELSE 
-                    INDEXS=MDImax
-           !
-           !--- 8/22/01: Increase density of large ice if maximum limits 
-           !    are reached for number concentration (NLImax) and mean size 
-           !    (MDImax).  Done to increase fall out of ice.
-           !
-                    IF (DUM .GE. NLImax)                                &
+                  IF (DUM.GE.NLImax .AND. INDEXS.GE.MDImax)             &
      &                RimeF1=RHO*(QTICE/NLImax-XSIMASS)/MASSI(INDEXS)
-                  ENDIF             ! End IF (XLI .LE. MASSI(MDImin) ) 
 !            WRITE(6,"(4(a12,g11.4,1x))") 
 !     & '{$ TC=',TC,'P=',.01*PP,'NLICE=',NLICE,'DUM=',DUM,
 !     & '{$ XLI=',XLI,'INDEXS=',FLOAT(INDEXS),'RHO=',RHO,'QTICE=',QTICE,
@@ -1352,8 +1356,8 @@ MODULE module_mp_etanew
           PRLOSS=0.
           RQR=0.
           N0r=0.
-          INDEXR1=0
           INDEXR=MDRmin
+          INDEXR1=INDEXR    !-- For debugging only
           IF (RAIN_logical) THEN
             IF (ARAIN .LE. 0.) THEN
               INDEXR=MDRmin

@@ -412,7 +412,7 @@ char *func= "create_inpLambert";
    pGDS_Lam_Input->ulDx=(unsigned long)lrint(geom_in.x_int_dis*1000.);/*Xdir gridlen*/
    pGDS_Lam_Input->ulDy=(unsigned long)lrint(geom_in.y_int_dis*1000.);/*Ydir gridlen*/
    if ((geom_in.y_int_dis != 0) && (geom_in.x_int_dis != 0))
-         pGDS_Lam_Input->usRes_flag = pGDS_Lam_Input->usRes_flag + 0x80;
+         pGDS_Lam_Input->usRes_flag = pGDS_Lam_Input->usRes_flag + 0x88;
    if (geom_in.parm_1 > 0) 
      pGDS_Lam_Input->usProj_flag = 0;              /* projection flag */
    else
@@ -534,7 +534,7 @@ char	*func="create_inpPolar";
    pGDS_PS_Input->ulDx=(unsigned long)lrint(geom_in.x_int_dis*1000.);/*Xdir gridlen*/
    pGDS_PS_Input->ulDy=(unsigned long)lrint(geom_in.y_int_dis*1000.);/*Ydir gridlen*/
    if ((geom_in.y_int_dis != 0) && (geom_in.x_int_dis != 0))
-         pGDS_PS_Input->usRes_flag = pGDS_PS_Input->usRes_flag + 0x80;
+         pGDS_PS_Input->usRes_flag = pGDS_PS_Input->usRes_flag + 0x88;
    if (geom_in.first_lat > 0) 
      pGDS_PS_Input->usProj_flag = 0;  /* projection flag */
    else 
@@ -644,7 +644,7 @@ char *func= "Create_InpLatLon";
    pGDS_Latlon_Input->iDi = lrint(geom_in.parm_2 *1000.);/* i-dir incr*/
    pGDS_Latlon_Input->iDj = lrint(geom_in.parm_1 *1000.);/* j-dir incr*/
    if ((geom_in.parm_1 != 0) && (geom_in.parm_2 != 0))
-         pGDS_Latlon_Input->usRes_flag = pGDS_Latlon_Input->usRes_flag + 0x80;
+         pGDS_Latlon_Input->usRes_flag = pGDS_Latlon_Input->usRes_flag + 0x88;
    pGDS_Latlon_Input->usScan_mode = geom_in.scan; /* order ofgridpts (Tbl 8)*/
    pGDS_Latlon_Input->usZero = 0;  /* filler zeroes*/
    pGDS_Latlon_Input->lLat_southpole= -90000;/* lat of southern pole (millidegrees)*/
@@ -1406,10 +1406,10 @@ int   inp2grib_Mercator (ppvGDS_Proj_Input, Mercator, lProj_size , errmsg)
       Mercator->chScan_mode = ( unsigned char ) ProjInp->usScan_mode;
 
 /* convert ulDx to 3 char */
-      set_bytes(ProjInp->lon_inc, 3, Mercator->achDi);
+      set_bytes((int)(ProjInp->lon_inc + 0.5), 3, Mercator->achDi);
 
 /* convert ulDy to 3chars */
-      set_bytes(ProjInp->lat_inc, 3, Mercator->achDj);
+      set_bytes((int)(ProjInp->lat_inc + 0.5), 3, Mercator->achDj);
 
       Mercator->chScan_mode = ( unsigned char ) ProjInp->usScan_mode;
 

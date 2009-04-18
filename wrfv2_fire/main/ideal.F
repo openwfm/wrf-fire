@@ -3,19 +3,12 @@
 ! create an initial data set for the WRF model based on an ideal condition
 PROGRAM ideal
 
-   USE module_machine
-   USE module_domain
-   USE module_initialize
-   USE module_driver_constants
-   USE module_configure
+   USE module_domain , ONLY : domain
+   USE module_initialize_ideal
+   USE module_configure , ONLY : grid_config_rec_type
 
    USE module_timing
    USE module_wrf_error
-   USE module_utility
-#ifdef DM_PARALLEL
-   USE module_dm
-#endif
-   USE module_date_time
 
    IMPLICIT NONE
 
@@ -37,8 +30,8 @@ PROGRAM ideal
 
    INTERFACE
      SUBROUTINE med_initialdata_output ( grid , config_flags )
-       USE module_domain
-       USE module_configure
+       USE module_domain , ONLY : domain
+       USE module_configure , ONLY : grid_config_rec_type
        TYPE (domain) , POINTER :: grid
        TYPE (grid_config_rec_type) , INTENT(IN)   :: config_flags
      END SUBROUTINE med_initialdata_output 
@@ -115,6 +108,14 @@ PROGRAM ideal
    CALL       wrf_debug ( 100 , 'wrf: calling set_scalar_indices_from_config ' )
    CALL set_scalar_indices_from_config ( head_grid%id , idum1, idum2 )
 
+#ifdef PLANET
+   WRITE ( current_date , FMT = '(I4.4,"-",I5.5,"_",I2.2,":",I2.2,":",I2.2,".0000")' ) &
+           config_flags%start_year, &
+           config_flags%start_day, &
+           config_flags%start_hour, &
+           config_flags%start_minute, &
+           config_flags%start_second 
+#else
    WRITE ( current_date , FMT = '(I4.4,"-",I2.2,"-",I2.2,"_",I2.2,":",I2.2,":",I2.2,".0000")' ) &
            config_flags%start_year, &
            config_flags%start_month, &
@@ -122,6 +123,7 @@ PROGRAM ideal
            config_flags%start_hour, &
            config_flags%start_minute, &
            config_flags%start_second 
+#endif
    CALL domain_clockprint ( 150, grid, &
           'DEBUG assemble_output:  clock before 1st currTime set,' )
    WRITE (wrf_err_message,*) &
@@ -154,7 +156,7 @@ SUBROUTINE med_initialdata_output ( grid , config_flags )
   ! Driver layer
    USE module_domain
    USE module_io_domain
-   USE module_initialize
+   USE module_initialize_ideal
   ! Model layer
    USE module_configure
 

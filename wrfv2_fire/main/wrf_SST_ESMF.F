@@ -53,16 +53,10 @@ MODULE module_sst_component_top
    INTEGER, SAVE :: ids, ide, jds, jde, kds, kde
    INTEGER, SAVE :: ims, ime, jms, jme, kms, kme
    INTEGER, SAVE :: ips, ipe, jps, jpe, kps, kpe
-!$$$here...  change names to remove tmp_ ...  
    REAL(ESMF_KIND_R4), POINTER, SAVE :: tmp_data_out_sst(:,:)
    REAL(ESMF_KIND_R4), POINTER, SAVE :: tmp_data_out_landmask(:,:)
    REAL(ESMF_KIND_R4), POINTER, SAVE :: tmp_data_in_sst(:,:)
    REAL(ESMF_KIND_R4), POINTER, SAVE :: tmp_data_in_landmask(:,:)
-!$$$DEBUG
-   PUBLIC :: ids, ide, jds, jde, kds, kde
-   PUBLIC :: ims, ime, jms, jme, kms, kme
-   PUBLIC :: ips, ipe, jps, jpe, kps, kpe
-!$$$END DEBUG
    INTEGER, SAVE :: domdesc
    LOGICAL, SAVE :: bdy_mask(4)
    ! MPI communicator, if needed
@@ -122,9 +116,9 @@ CONTAINS
      INTEGER :: ierr, num_steps, time_loop_max
      INTEGER :: status_next_var
 
-     !$$$ For now, sstinfilename is hard-coded
-     !$$$ Upgrade to use a variant of construct_filename() via startTime 
-     !$$$ extracted from clock.  
+!TODO:  For now, sstinfilename is hard-coded
+!TODO:  Upgrade to use a variant of construct_filename() via startTime 
+!TODO:  extracted from clock.  
      sstinfilename = 'sstin_d01_000000'
 
      ! get MPI communicator out of current VM and duplicate (if needed)
@@ -204,9 +198,9 @@ CONTAINS
      CALL wrf_debug ( 100, TRIM(str) )
 
      ! set up field names
-!$$$ use CF conventions for "standard_name" once WRF Registry supports them
-!$$$     datanames(SST_INDX) = "sea_surface_temperature"
-!$$$     datanames(LANDMASK_INDX) = "land_binary_mask"
+!TODO:  use CF conventions for "standard_name" once WRF Registry supports them
+!TODO:      datanames(SST_INDX) = "sea_surface_temperature"
+!TODO:      datanames(LANDMASK_INDX) = "land_binary_mask"
      datanames(SST_INDX) = "SST"
      datanames(LANDMASK_INDX) = "LANDMASK"
 
@@ -294,9 +288,14 @@ CONTAINS
               'XY'                , &  ! MemoryOrder
               ''                  , &  ! Stagger
               TRIM(debugmsg)      , &  ! Debug message
-              ids , (ide-1) , jds , (jde-1) , 1 , 1 , &
+!              ids , (ide-1) , jds , (jde-1) , 1 , 1 , &
+!              ims , ime , jms , jme , 1 , 1         , &
+!              ips , MIN( (ide-1), ipe ) , jps , MIN( (jde-1), jpe ) , 1 , 1 , &
+!jm the dimensions have already been reduced to the non-staggered WRF grid when
+!   they were stored in this module..  Just use as is.
+              ids , ide , jds , jde , 1 , 1 , &
               ims , ime , jms , jme , 1 , 1         , &
-              ips , MIN( (ide-1), ipe ) , jps , MIN( (jde-1), jpe ) , 1 , 1 , &
+              ips , ipe , jps , jpe , 1 , 1 , &
               ierr )
        IF (ierr /= 0) THEN
          CALL wrf_error_fatal ( TRIM(errormsg) )
@@ -304,32 +303,34 @@ CONTAINS
      ENDDO
 
      ! stuff fields into exportState
-!$$$ change this to Bundles, eventually
-     CALL ESMF_StateGetField( exportState, TRIM(datanames(SST_INDX)), &
+!TODO:  change this to Bundles, eventually
+     CALL ESMF_StateGet( exportState, TRIM(datanames(SST_INDX)), &
                               out_sst_field, rc=rc )
      IF (rc /= ESMF_SUCCESS) THEN
        CALL wrf_error_fatal ( &
          'could not find sea_surface_temperature field in exportState' )
      ENDIF
-     CALL ESMF_StateGetField( exportState, TRIM(datanames(LANDMASK_INDX)), &
+     CALL ESMF_StateGet( exportState, TRIM(datanames(LANDMASK_INDX)), &
                               out_landmask_field, rc=rc )
      IF (rc /= ESMF_SUCCESS) THEN
        CALL wrf_error_fatal ( &
          'could not find land_binary_mask field in exportState' )
      ENDIF
-     CALL ESMF_FieldGetDataPointer( out_sst_field, out_sst_ptr, rc=rc )
+!     CALL ESMF_FieldGetDataPointer( out_sst_field, out_sst_ptr, rc=rc )
+     CALL ESMF_FieldGet( out_sst_field, 0, out_sst_ptr, rc=rc )
      IF (rc /= ESMF_SUCCESS) THEN
        CALL wrf_error_fatal ( &
          'could not find sea_surface_temperature data in sea_surface_temperature field' )
      ENDIF
-     CALL ESMF_FieldGetDataPointer( out_landmask_field, out_landmask_ptr, rc=rc )
+!     CALL ESMF_FieldGetDataPointer( out_landmask_field, out_landmask_ptr, rc=rc )
+     CALL ESMF_FieldGet( out_landmask_field, 0, out_landmask_ptr, rc=rc )
      IF (rc /= ESMF_SUCCESS) THEN
        CALL wrf_error_fatal ( &
          'could not find land_binary_mask data in land_binary_mask field' )
      ENDIF
      ! staggered starts/ends
-     DO j= jps , MIN( (jde-1), jpe )
-       DO i= ips , MIN( (ide-1), ipe )
+     DO j= jps , jpe
+       DO i= ips , ipe
          out_sst_ptr(i,j) = file_sst_data(i,j)
          out_landmask_ptr(i,j) = file_landmask_data(i,j)
        ENDDO
@@ -342,7 +343,7 @@ CONTAINS
 
    SUBROUTINE compare_data( importState, clock )
      TYPE(ESMF_State), INTENT(INOUT) :: importState
-!$$$ remove clock after debugging is finished
+!TODO:  remove clock after debugging is finished
      TYPE(ESMF_Clock), INTENT(INOUT) :: clock
 !<DESCRIPTION>
 !     Gets data from coupler via importState 
@@ -360,39 +361,37 @@ CONTAINS
      INTEGER :: i, j
      INTEGER :: rc
      LOGICAL :: landmask_ok, sst_ok
-!$$$DEBUG
-TYPE(ESMF_Time) :: currentTime
-INTEGER, SAVE :: numtimes=0   ! track number of calls
-CHARACTER(LEN=256) :: timestamp
-!$$$END DEBUG
+     ! use these for debug prints
+     TYPE(ESMF_Time) :: currentTime
+     INTEGER, SAVE :: numtimes=0   ! track number of calls
+     CHARACTER(LEN=256) :: timestamp
 
-!$$$DEBUG
-! count calls...
-CALL ESMF_ClockGet( clock, CurrTime=currentTime, rc=rc )
-IF (rc /= ESMF_SUCCESS) THEN
-  CALL wrf_error_fatal ( 'compare_data:  ESMF_ClockGet() failed' )
-ENDIF
-CALL wrf_timetoa ( currentTime, timestamp )
-numtimes = numtimes + 1
-WRITE(str,*) 'SST compare_data:  begin, numtimes = ',numtimes,' time = ',TRIM(timestamp)
-CALL wrf_debug ( 100 , TRIM(str) )
-!$$$END DEBUG
+     ! count calls for debug prints...
+     CALL ESMF_ClockGet( clock, CurrTime=currentTime, rc=rc )
+     IF (rc /= ESMF_SUCCESS) THEN
+       CALL wrf_error_fatal ( 'compare_data:  ESMF_ClockGet() failed' )
+     ENDIF
+     CALL wrf_timetoa ( currentTime, timestamp )
+     numtimes = numtimes + 1
+     WRITE(str,*) 'SST compare_data:  begin, numtimes = ',numtimes,' time = ',TRIM(timestamp)
+     CALL wrf_debug ( 100 , TRIM(str) )
 
      ! extract data from the importState and compare with data from file
-!$$$ change this to Bundles, eventually
-     CALL ESMF_StateGetField( importState, TRIM(datanames(SST_INDX)), &
+!TODO:  change this to Bundles, eventually
+     CALL ESMF_StateGet( importState, TRIM(datanames(SST_INDX)), &
                               in_sst_field, rc=rc )
      IF (rc /= ESMF_SUCCESS) THEN
        CALL wrf_error_fatal ( &
          'could not extract sea_surface_temperature field from importState' )
      ENDIF
-     CALL ESMF_StateGetField( importState, TRIM(datanames(LANDMASK_INDX)), &
+     CALL ESMF_StateGet( importState, TRIM(datanames(LANDMASK_INDX)), &
                               in_landmask_field, rc=rc )
      IF (rc /= ESMF_SUCCESS) THEN
        CALL wrf_error_fatal ( &
          'could not extract land_binary_mask field from importState' )
      ENDIF
-     CALL ESMF_FieldGetDataPointer( in_sst_field, in_sst_ptr, rc=rc )
+!     CALL ESMF_FieldGetDataPointer( in_sst_field, in_sst_ptr, rc=rc )
+     CALL ESMF_FieldGet( in_sst_field, 0, in_sst_ptr, rc=rc )
      IF (rc /= ESMF_SUCCESS) THEN
        CALL wrf_error_fatal ( &
          'could not extract sea_surface_temperature data from sea_surface_temperature field' )
@@ -411,7 +410,8 @@ CALL wrf_debug ( 100 , TRIM(str) )
      ENDDO
      in_sst_ptr_real(ips:MIN((ide-1),ipe),jps:MIN((jde-1),jpe)) = &
           in_sst_ptr(ips:MIN((ide-1),ipe),jps:MIN((jde-1),jpe))
-     CALL ESMF_FieldGetDataPointer( in_landmask_field, in_landmask_ptr, rc=rc )
+!     CALL ESMF_FieldGetDataPointer( in_landmask_field, in_landmask_ptr, rc=rc )
+     CALL ESMF_FieldGet( in_landmask_field, 0, in_landmask_ptr, rc=rc )
      IF (rc /= ESMF_SUCCESS) THEN
        CALL wrf_error_fatal ( &
          'could not extract land_binary_mask data from land_binary_mask field' )
@@ -445,26 +445,6 @@ CALL wrf_debug ( 100 , TRIM(str) )
          ENDIF
        ENDDO
      ENDDO LANDMASK_COMPARE
-!$$$DEBUG
-!CALL wrf_debug( 100, 'compare_data:  writing DEBUG1_SSTcmp_FILE_LANDMASK_'//TRIM(timestamp) )
-!OPEN( UNIT=985, FILE='DEBUG1_SSTcmp_FILE_LANDMASK_'//TRIM(timestamp), FORM='formatted' )
-!WRITE (985,'(a)') 'LANDMASK'
-!DO j = jps, MIN( (jde-1), jpe )
-!  DO i = ips, MIN( (ide-1), ipe )
-!    WRITE (985,*) '(',i,',',j,'):  ',file_landmask_data(i,j)
-!  ENDDO
-!ENDDO
-!CLOSE (985)
-!CALL wrf_debug( 100, 'compare_data:  writing DEBUG1_SSTcmp_FROM_WRF_LANDMASK_'//TRIM(timestamp) )
-!OPEN( UNIT=985, FILE='DEBUG1_SSTcmp_FROM_WRF_LANDMASK_'//TRIM(timestamp), FORM='formatted' )
-!WRITE (985,'(a)') 'LANDMASK'
-!DO j = jps, MIN( (jde-1), jpe )
-!  DO i = ips, MIN( (ide-1), ipe )
-!    WRITE (985,*) '(',i,',',j,'):  ',in_landmask_ptr_real(i,j)
-!  ENDDO
-!ENDDO
-!CLOSE (985)
-!$$$END DEBUG
      IF ( landmask_ok ) THEN
        WRITE(str,*) 'compare_data: LANDMASK compares OK'
        CALL wrf_debug ( 100 , TRIM(str) )
@@ -486,26 +466,6 @@ CALL wrf_debug ( 100 , TRIM(str) )
          ENDIF
        ENDDO
      ENDDO SST_COMPARE
-!$$$DEBUG
-!CALL wrf_debug( 100, 'compare_data:  writing DEBUG1_SSTcmp_FILE_SST_'//TRIM(timestamp) )
-!OPEN( UNIT=985, FILE='DEBUG1_SSTcmp_FILE_SST_'//TRIM(timestamp), FORM='formatted' )
-!WRITE (985,'(a)') 'SST'
-!DO j = jps, MIN( (jde-1), jpe )
-!  DO i = ips, MIN( (ide-1), ipe )
-!    WRITE (985,*) '(',i,',',j,'):  ',file_sst_data(i,j)
-!  ENDDO
-!ENDDO
-!CLOSE (985)
-!CALL wrf_debug( 100, 'compare_data:  writing DEBUG1_SSTcmp_FROM_WRF_SST_'//TRIM(timestamp) )
-!OPEN( UNIT=985, FILE='DEBUG1_SSTcmp_FROM_WRF_SST_'//TRIM(timestamp), FORM='formatted' )
-!WRITE (985,'(a)') 'SST'
-!DO j = jps, MIN( (jde-1), jpe )
-!  DO i = ips, MIN( (ide-1), ipe )
-!    WRITE (985,*) '(',i,',',j,'):  ',in_sst_ptr_real(i,j)
-!  ENDDO
-!ENDDO
-!CLOSE (985)
-!$$$END DEBUG
      IF ( sst_ok ) THEN
        WRITE(str,*) 'compare_data: SST compares OK'
        CALL wrf_debug ( 100 , TRIM(str) )
@@ -515,15 +475,10 @@ CALL wrf_debug ( 100 , TRIM(str) )
 
      DEALLOCATE( in_sst_ptr_real, in_landmask_ptr_real )
 
-!$$$DEBUG
-WRITE(str,*) 'compare_data:  end, numtimes = ',numtimes
-CALL wrf_debug ( 100 , TRIM(str) )
-!$$$END DEBUG
+     WRITE(str,*) 'compare_data:  end, numtimes = ',numtimes
+     CALL wrf_debug ( 100 , TRIM(str) )
 
    END SUBROUTINE compare_data
-
-
-
 
    ! Second-phase "init" gets decomposition information from 
    ! importState.  
@@ -548,7 +503,6 @@ CALL wrf_debug ( 100 , TRIM(str) )
 !</DESCRIPTION>
 
      ! Local variables
-     TYPE(ESMF_RelLoc) :: horzRelloc
      TYPE(ESMF_Field) :: out_sst_field, out_landmask_field
      TYPE(ESMF_Field) :: in_sst_field, in_landmask_field
      INTEGER, PARAMETER :: NUMDIMS=2
@@ -563,12 +517,13 @@ CALL wrf_debug ( 100 , TRIM(str) )
 
     ! Get decomposition information from importState.  Note that index 
     ! values are for staggered dimensions, following the WRF convention.  
-!$$$ TBH:  Note that this will only work for SPMD serial operation.  For 
-!$$$ TBH:  concurrent operation (SPMD or MPMD), we will need to create a new 
-!$$$ TBH:  "domdesc" suitable for the task layout of the SST component.  For
-!$$$ TBH:  MPMD serial operation, we will need to extract serialized domdesc 
-!$$$ TBH:  from export state metadata and de-serialize it.  Similar arguments 
-!$$$ TBH:  apply to [ij][mp][se] and bdy_mask.  
+!TODO:  Note that this will only work for SPMD serial operation.  For 
+!TODO:  concurrent operation (SPMD or MPMD), we will need to create a new 
+!TODO:  "domdesc" suitable for the task layout of the SST component.  For
+!TODO:  MPMD serial operation, we will need to extract serialized domdesc 
+!TODO:  from export state metadata and de-serialize it.  Similar arguments 
+!TODO:  apply to [ij][mp][se] and bdy_mask.  
+write(0,*)__FILE__,__LINE__,'entered sst_component_init2 '
      write(str,*) 'sst_component_init2: calling GetDecompFromState'
      CALL wrf_debug ( 100 , TRIM(str) )
      CALL GetDecompFromState( importState,                  &
@@ -592,7 +547,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
          file_sst_data(i,j) = -(i*1000.0 + j)/100000.0     ! obvious bad value for debugging
        ENDDO
      ENDDO
-!$$$  Hmmm...  really need to load these pointers here?  Check...  
+!TODO:  Hmmm...  really need to load these pointers here?  Check...  
      this_data(SST_INDX)%r2d => file_sst_data
      ALLOCATE( file_landmask_data(ims:ime,jms:jme) )
      DO j= jms, jme
@@ -604,55 +559,59 @@ CALL wrf_debug ( 100 , TRIM(str) )
 
      ! Create ESMF_Fields in importState and exportState
      ! Create ESMF_Grid.  Use exactly the same method as WRF so WRFIO will 
-     ! work (ugh).  
+     ! work.  
      DomainStart(1) = ids; DomainEnd(1) = ide;
      DomainStart(2) = jds; DomainEnd(2) = jde;
      MemoryStart(1) = ims; MemoryEnd(1) = ime;
      MemoryStart(2) = jms; MemoryEnd(2) = jme;
      PatchStart(1)  = ips; PatchEnd(1)  = ipe;
      PatchStart(2)  = jps; PatchEnd(2)  = jpe
+write(0,*)__FILE__,__LINE__,'DomainStart ',DomainStart(1:2)
+write(0,*)__FILE__,__LINE__,'DomainEnd ',DomainEnd(1:2)
+write(0,*)__FILE__,__LINE__,'MemoryStart ',MemoryStart(1:2)
+write(0,*)__FILE__,__LINE__,'MemoryEnd ',MemoryEnd(1:2)
+write(0,*)__FILE__,__LINE__,'PatchStart ',PatchStart(1:2)
+write(0,*)__FILE__,__LINE__,'PatchEnd ',PatchEnd(1:2)
      CALL wrf_debug ( 5 , 'DEBUG sst_component_init2:  Calling ioesmf_create_grid_int()' )
      CALL ioesmf_create_grid_int( esmfgrid, NUMDIMS,      &
                                   DomainStart, DomainEnd, &
                                   MemoryStart, MemoryEnd, &
                                   PatchStart, PatchEnd )
+write(0,*)__FILE__,__LINE__
      CALL wrf_debug ( 5 , 'DEBUG sst_component_init2:  back from ioesmf_create_grid_int()' )
      ! create ESMF_Fields
-     !$$$ use CF standard_names later
-     !$$$here...  This is a complete HACK!!  Need to communicate horzrelloc 
-     !$$$here...  during init sometime...  
-     horzrelloc=ESMF_CELL_CENTER
      ! Note use of patch dimension for POINTERs allocated by ESMF.  
      CALL wrf_debug ( 5 , 'DEBUG sst_component_init2:  Calling ESMF_GridValidate(esmfgrid)' )
      CALL ESMF_GridValidate( esmfgrid, rc=rc )
+write(0,*)__FILE__,__LINE__
      IF ( rc /= ESMF_SUCCESS ) THEN
        WRITE( str,* ) 'Error in ESMF_GridValidate ',   &
                       __FILE__ ,                       &
                       ', line ',                       &
                       __LINE__ ,                       &
                       ', error code = ',rc
-! TBH:  debugging error exit here...
        CALL wrf_error_fatal ( TRIM(str) )
      ENDIF
      CALL wrf_debug ( 5 , 'DEBUG sst_component_init2:  back OK from ESMF_GridValidate(esmfgrid)' )
-!TBH     ! let ESMF allocate tmp_data_out_sst
-!TBH     ! Note that ESMF will deallocate it when the internal ESMF_Array object 
-!TBH     ! is explicitly destroyed.  Assuming that we can figure out how to safely 
-!TBH     ! destroy it!!!  (And we have gone around and around on this one.  @#$%!)  
-!BELAY THAT:  do it ourselves for now...
+!TODO:  Once new ESMF 3.0 interfaces have settled down, eliminate "tmp_data_" 
+!TODO:  arrays and let ESMF allocate/deallocate them.  Assuming of course that 
+!TODO:  we can convince ESMF to deallocate safely...  
+write(0,*)__FILE__,__LINE__
      ALLOCATE( tmp_data_out_sst(ips:ipe,jps:jpe) )
+write(0,*)__FILE__,__LINE__
      write(str,*) 'sst_component_init2: tmp_data_out_sst(', &
        LBOUND(tmp_data_out_sst,1),':',UBOUND(tmp_data_out_sst,1),',',LBOUND(tmp_data_out_sst,2),':',UBOUND(tmp_data_out_sst,2),')'
      CALL wrf_debug ( 100 , TRIM(str) )
      CALL wrf_debug ( 100, 'sst_component_init2: calling ESMF_FieldCreate(out_sst_field)' )
+write(0,*)__FILE__,__LINE__,trim(datanames(sst_indx))
+write(0,*)__FILE__,__LINE__,ips,jps,ipe,jpe
      out_sst_field = ESMF_FieldCreate(                 &
                        esmfgrid, tmp_data_out_sst,     &
                        copyflag=ESMF_DATA_REF,         &
-                       horzrelloc=horzrelloc,          &
+                       staggerloc=ESMF_STAGGERLOC_CENTER,          &
                        name=TRIM(datanames(SST_INDX)), &
-!                       lbounds=(/ips,jps/),            &
-!                       ubounds=(/ipe,jpe/),            &
                        rc=rc )
+write(0,*)__FILE__,__LINE__,'Creating out_sst_field for exportState of SST component name ',TRIM(datanames(SST_INDX))
      IF ( rc /= ESMF_SUCCESS ) THEN
        WRITE( str,* ) 'ESMF_FieldCreate(out_sst_field) failed ', &
                       __FILE__ ,                                 &
@@ -665,6 +624,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
      write(str,*) 'sst_component_init2: ips:ipe,jps:jpe = ', &
        ips,':',ipe,',',jps,':',jpe
      CALL wrf_debug ( 100 , TRIM(str) )
+!TODO:  This bit will be useful once ESMF handles allocation/deallocation.  
      ! validate ESMF allocation
      IF ( ( ips /= LBOUND(tmp_data_out_sst,1) ) .OR. ( ipe /= UBOUND(tmp_data_out_sst,1) ) .OR. &
           ( jps /= LBOUND(tmp_data_out_sst,2) ) .OR. ( jpe /= UBOUND(tmp_data_out_sst,2) ) ) THEN
@@ -677,11 +637,6 @@ CALL wrf_debug ( 100 , TRIM(str) )
                                               LBOUND(tmp_data_out_sst,2),':',UBOUND(tmp_data_out_sst,2)
        CALL wrf_error_fatal ( TRIM(str) )
      ENDIF
-!TBH     ! let ESMF allocate tmp_data_out_landmask
-!TBH     ! Note that ESMF will deallocate it when the internal ESMF_Array object 
-!TBH     ! is explicitly destroyed.  Assuming that we can figure out how to safely 
-!TBH     ! destroy it!!!  (And we have gone around and around on this one.  @#$%!)  
-!BELAY THAT:  do it ourselves for now...
      ALLOCATE( tmp_data_out_landmask(ips:ipe,jps:jpe) )
      write(str,*) 'sst_component_init2: tmp_data_out_landmask(', &
        LBOUND(tmp_data_out_landmask,1),':',UBOUND(tmp_data_out_landmask,1),',',LBOUND(tmp_data_out_landmask,2),':',UBOUND(tmp_data_out_landmask,2),')'
@@ -690,7 +645,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
      out_landmask_field = ESMF_FieldCreate(                      &
                             esmfgrid, tmp_data_out_landmask,     &
                             copyflag=ESMF_DATA_REF,              &
-                            horzrelloc=horzrelloc,               &
+                            staggerloc=ESMF_STAGGERLOC_CENTER,          &
                             name=TRIM(datanames(LANDMASK_INDX)), &
 !                            lbounds=(/ips,jps/),                 &
 !                            ubounds=(/ipe,jpe/),                 &
@@ -699,6 +654,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
        CALL wrf_error_fatal ( 'ESMF_FieldCreate(out_landmask_field) failed' )
      ENDIF
      CALL wrf_debug ( 100, 'sst_component_init2: back from ESMF_FieldCreate(out_landmask_field)' )
+!TODO:  This bit will be useful once ESMF handles allocation/deallocation.  
      ! validate ESMF allocation
      IF ( ( ips /= LBOUND(tmp_data_out_landmask,1) ) .OR. ( ipe /= UBOUND(tmp_data_out_landmask,1) ) .OR. &
           ( jps /= LBOUND(tmp_data_out_landmask,2) ) .OR. ( jpe /= UBOUND(tmp_data_out_landmask,2) ) ) THEN
@@ -711,11 +667,6 @@ CALL wrf_debug ( 100 , TRIM(str) )
                                               LBOUND(tmp_data_out_landmask,2),':',UBOUND(tmp_data_out_landmask,2)
        CALL wrf_error_fatal ( TRIM(str) )
      ENDIF
-!TBH     ! let ESMF allocate tmp_data_in_sst
-!TBH     ! Note that ESMF will deallocate it when the internal ESMF_Array object 
-!TBH     ! is explicitly destroyed.  Assuming that we can figure out how to safely 
-!TBH     ! destroy it!!!  (And we have gone around and around on this one.  @#$%!)  
-!BELAY THAT:  do it ourselves for now...
      ALLOCATE( tmp_data_in_sst(ips:ipe,jps:jpe) )
      write(str,*) 'sst_component_init2: tmp_data_in_sst(', &
        LBOUND(tmp_data_in_sst,1),':',UBOUND(tmp_data_in_sst,1),',',LBOUND(tmp_data_in_sst,2),':',UBOUND(tmp_data_in_sst,2),')'
@@ -724,7 +675,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
      in_sst_field = ESMF_FieldCreate(                 &
                       esmfgrid, tmp_data_in_sst,      &
                       copyflag=ESMF_DATA_REF,         &
-                      horzrelloc=horzrelloc,          &
+                      staggerloc=ESMF_STAGGERLOC_CENTER,          &
                       name=TRIM(datanames(SST_INDX)), &
 !                      lbounds=(/ips,jps/),            &
 !                      ubounds=(/ipe,jpe/),            &
@@ -733,6 +684,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
        CALL wrf_error_fatal ( 'ESMF_FieldCreate(in_sst_field) failed' )
      ENDIF
      CALL wrf_debug ( 100, 'sst_component_init2: back from ESMF_FieldCreate(in_sst_field)' )
+!TODO:  This bit will be useful once ESMF handles allocation/deallocation.  
      ! validate ESMF allocation
      IF ( ( ips /= LBOUND(tmp_data_in_sst,1) ) .OR. ( ipe /= UBOUND(tmp_data_in_sst,1) ) .OR. &
           ( jps /= LBOUND(tmp_data_in_sst,2) ) .OR. ( jpe /= UBOUND(tmp_data_in_sst,2) ) ) THEN
@@ -745,11 +697,6 @@ CALL wrf_debug ( 100 , TRIM(str) )
                                               LBOUND(tmp_data_in_sst,2),':',UBOUND(tmp_data_in_sst,2)
        CALL wrf_error_fatal ( TRIM(str) )
      ENDIF
-!TBH     ! let ESMF allocate tmp_data_in_landmask
-!TBH     ! Note that ESMF will deallocate it when the internal ESMF_Array object 
-!TBH     ! is explicitly destroyed.  Assuming that we can figure out how to safely 
-!TBH     ! destroy it!!!  (And we have gone around and around on this one.  @#$%!)  
-!BELAY THAT:  do it ourselves for now...
      ALLOCATE( tmp_data_in_landmask(ips:ipe,jps:jpe) )
      write(str,*) 'sst_component_init2: tmp_data_in_landmask(', &
        LBOUND(tmp_data_in_landmask,1),':',UBOUND(tmp_data_in_landmask,1),',',LBOUND(tmp_data_in_landmask,2),':',UBOUND(tmp_data_in_landmask,2),')'
@@ -758,7 +705,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
      in_landmask_field = ESMF_FieldCreate(                      &
                            esmfgrid, tmp_data_in_landmask,      &
                            copyflag=ESMF_DATA_REF,              &
-                           horzrelloc=horzrelloc,               &
+                           staggerloc=ESMF_STAGGERLOC_CENTER,          &
                            name=TRIM(datanames(LANDMASK_INDX)), &
 !                           lbounds=(/ips,jps/),                 &
 !                           ubounds=(/ipe,jpe/),                 &
@@ -767,6 +714,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
        CALL wrf_error_fatal ( 'ESMF_FieldCreate(in_landmask_field) failed' )
      ENDIF
      CALL wrf_debug ( 100, 'sst_component_init2: back from ESMF_FieldCreate(in_landmask_field)' )
+!TODO:  This bit will be useful once ESMF handles allocation/deallocation.  
      ! validate ESMF allocation
      IF ( ( ips /= LBOUND(tmp_data_in_landmask,1) ) .OR. ( ipe /= UBOUND(tmp_data_in_landmask,1) ) .OR. &
           ( jps /= LBOUND(tmp_data_in_landmask,2) ) .OR. ( jpe /= UBOUND(tmp_data_in_landmask,2) ) ) THEN
@@ -781,22 +729,22 @@ CALL wrf_debug ( 100 , TRIM(str) )
      ENDIF
 
      ! attach ESMF_Field to importState
-     CALL ESMF_StateAddField( importState, in_sst_field, rc=rc )
+     CALL ESMF_StateAdd( importState, in_sst_field, rc=rc )
      IF ( rc /= ESMF_SUCCESS ) THEN
-       CALL wrf_error_fatal ( 'ESMF_StateAddField(in_sst_field) failed' )
+       CALL wrf_error_fatal ( 'ESMF_StateAdd(in_sst_field) failed' )
      ENDIF
-     CALL ESMF_StateAddField( importState, in_landmask_field, rc=rc )
+     CALL ESMF_StateAdd( importState, in_landmask_field, rc=rc )
      IF ( rc /= ESMF_SUCCESS ) THEN
-       CALL wrf_error_fatal ( 'ESMF_StateAddField(in_landmask_field) failed' )
+       CALL wrf_error_fatal ( 'ESMF_StateAdd(in_landmask_field) failed' )
      ENDIF
      ! attach ESMF_Field to exportState
-     CALL ESMF_StateAddField( exportState, out_sst_field, rc=rc )
+     CALL ESMF_StateAdd( exportState, out_sst_field, rc=rc )
      IF ( rc /= ESMF_SUCCESS ) THEN
-       CALL wrf_error_fatal ( 'ESMF_StateAddField(out_sst_field) failed' )
+       CALL wrf_error_fatal ( 'ESMF_StateAdd(out_sst_field) failed' )
      ENDIF
-     CALL ESMF_StateAddField( exportState, out_landmask_field, rc=rc )
+     CALL ESMF_StateAdd( exportState, out_landmask_field, rc=rc )
      IF ( rc /= ESMF_SUCCESS ) THEN
-       CALL wrf_error_fatal ( 'ESMF_StateAddField(out_landmask_field) failed' )
+       CALL wrf_error_fatal ( 'ESMF_StateAdd(out_landmask_field) failed' )
      ENDIF
 
      !  Open the "SST" input data file for reading.
@@ -880,6 +828,7 @@ CALL wrf_debug ( 100 , TRIM(str) )
 
      ! Get from importState, compare with file data, and error_exit 
      ! if they differ...  
+!TODO:  change this once WRF can load exportState after integrating
      ! This works because WRF loads its exportState BEFORE integrating.  
      CALL wrf_clockprint ( 50, clock, 'sst_component_run2:  clock before call to compare_data()' )
      CALL compare_data( importState, clock )
@@ -916,14 +865,13 @@ CALL wrf_debug ( 100 , TRIM(str) )
      ! destroy ESMF_Fields and other "deep" objects created by this component
      ! note that this component relied on ESMF to allocate data pointers during 
      ! calls to ESMF_FieldCreate() so it also expects ESMF to free these pointers 
-!$$$here...  remove duplication
      DO i=1, datacount
        ! destroy field in importState
-       CALL ESMF_StateGetField( importState, TRIM(datanames(i)), tmp_field, &
+       CALL ESMF_StateGet( importState, TRIM(datanames(i)), tmp_field, &
                                 rc=rc )
        IF (rc /= ESMF_SUCCESS) THEN
          WRITE( str , * )                                               &
-           'sst_component_finalize:  ESMF_StateGetField( importState,', &
+           'sst_component_finalize:  ESMF_StateGet( importState,', &
            TRIM(datanames(i)),') failed'
          CALL wrf_error_fatal ( TRIM(str) )
        ENDIF
@@ -935,11 +883,11 @@ CALL wrf_debug ( 100 , TRIM(str) )
          CALL wrf_error_fatal ( TRIM(str) )
        ENDIF
        ! destroy field in exportState
-       CALL ESMF_StateGetField( exportState, TRIM(datanames(i)), tmp_field, &
+       CALL ESMF_StateGet( exportState, TRIM(datanames(i)), tmp_field, &
                                 rc=rc )
        IF (rc /= ESMF_SUCCESS) THEN
          WRITE( str , * )                                               &
-           'sst_component_finalize:  ESMF_StateGetField( exportState,', &
+           'sst_component_finalize:  ESMF_StateGet( exportState,', &
            TRIM(datanames(i)),') failed'
          CALL wrf_error_fatal ( TRIM(str) )
        ENDIF
@@ -1206,9 +1154,9 @@ CONTAINS
       ENDIF
 
       ! set up field names
-!$$$ use CF conventions for "standard_name" once WRF Registry supports them
-!$$$     datanames(SST_INDX) = "sea_surface_temperature"
-!$$$     datanames(LANDMASK_INDX) = "land_binary_mask"
+!TODO:  use CF conventions for "standard_name" once WRF Registry supports them
+!TODO:      datanames(SST_INDX) = "sea_surface_temperature"
+!TODO:      datanames(LANDMASK_INDX) = "land_binary_mask"
       datanames(SST_INDX) = "SST"
       datanames(LANDMASK_INDX) = "LANDMASK"
 
@@ -1219,10 +1167,6 @@ CONTAINS
 
 
     SUBROUTINE WRFSSTCpl_run(comp, importState, exportState, clock, rc)
-!$$$DEBUG
-! get ips,ipe, ... from this hack for debugging
-      USE module_sst_component_top
-!$$$END DEBUG
       TYPE(ESMF_CplComp), INTENT(INOUT) :: comp
       TYPE(ESMF_State), INTENT(INOUT) :: importState, exportState
       TYPE(ESMF_Clock), INTENT(INOUT) :: clock
@@ -1239,31 +1183,26 @@ CONTAINS
 !                       otherwise ESMF_FAILURE.
 !</DESCRIPTION>
 
+! Note that comments in this code are preserved from the sample coupler 
+! provided by the ESMF core team.  
+
       ! Local variables
+character*256 :: mename
+character*256 :: melist(100)
+integer :: mecount
+TYPE(ESMF_StateItemType) :: metypelist(100)
       TYPE(ESMF_Field) :: src_field, dst_field
+      TYPE(ESMF_Array) :: src_array, dst_array
       TYPE(ESMF_RouteHandle) :: routehandle
       TYPE(ESMF_VM) :: vm
       LOGICAL :: build_fromWRF_rh, build_fromSST_rh, fromWRF
       CHARACTER(LEN=ESMF_MAXSTR) :: importStatename
       CHARACTER(LEN=ESMF_MAXSTR) :: SST_exportStatename, WRF_exportStatename
       INTEGER :: i
-!$$$DEBUG
-      TYPE(ESMF_Time) :: currentTime
-      CHARACTER(LEN=256) :: timestamp, directionString
-      INTEGER :: ii, jj
-      REAL(ESMF_KIND_R4), POINTER :: tmp_data_ptr(:,:)
-!$$$END DEBUG
+      CHARACTER(LEN=256) :: directionString
 
       WRITE(str,*) 'WRFSSTCpl_run: begin'
       CALL wrf_debug ( 100 , TRIM(str) )
-
-!$$$DEBUG
-CALL ESMF_ClockGet( clock, CurrTime=currentTime, rc=rc )
-IF (rc /= ESMF_SUCCESS) THEN
-  CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_ClockGet() failed' )
-ENDIF
-CALL wrf_timetoa ( currentTime, timestamp )
-!$$$END DEBUG
 
       ! guilty until proven innocent
       rc = ESMF_FAILURE
@@ -1272,6 +1211,7 @@ CALL wrf_timetoa ( currentTime, timestamp )
       WRITE(str,*) 'WRFSSTCpl_run: calling ESMF_StateGet(importState,name,...)'
       CALL wrf_debug ( 100 , TRIM(str) )
       CALL ESMF_StateGet( importState, name=importStatename, rc=rc )
+write(0,*)__FILE__,__LINE__, 'importStatename ', trim(importStatename), 'rc = ', rc
       IF ( rc /= ESMF_SUCCESS ) THEN
         CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_StateGet(importState,name,...) failed' )
       ENDIF
@@ -1306,24 +1246,59 @@ CALL wrf_timetoa ( currentTime, timestamp )
         ENDIF
         ! The use of literal index "1" here indicates that we don't care which 
         ! ESMF_Field we get so we might as well get the first one.  
-!$$$ Right now, staggering of all fields is identical.  Do we need more than one 
-!$$$ routeHandle if there is more than one staggering?  
         WRITE(str,*) 'WRFSSTCpl_run: grabbing first field <',TRIM(datanames(1)), &
                      '> from import state'
         CALL wrf_debug ( 100 , TRIM(str) )
-        CALL ESMF_StateGetField( importState, TRIM(datanames(1)), src_field, &
+
+CALL ESMF_StateGet( importState, name=mename, itemCount=mecount, itemNameList=melist, stateitemtypelist=metypelist, rc=rc )
+write(0,*)'importState mename ',trim(mename)
+write(0,*)'importState mecount ',mecount
+do i = 1,mecount
+write(0,*)i,trim(melist(i))
+enddo
+do i = 1,mecount
+write(0,*)i,metypelist(i)
+enddo
+
+        CALL ESMF_StateGet( importState, TRIM(datanames(1)), src_field, &
                                  rc=rc )
+write(0,*)__FILE__,__LINE__, 'from importState: datanames(1) ', TRIM(datanames(1)), ' rc = ', rc
         IF ( rc /= ESMF_SUCCESS ) THEN
-          CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_StateGetField(importState) failed' )
+          CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_StateGet(importState) failed' )
+        ENDIF
+
+        CALL ESMF_FieldGet( src_field, array=src_array, rc=rc )
+write(0,*)__FILE__,__LINE__, 'from fieldget:  rc = ', rc
+        IF ( rc /= ESMF_SUCCESS ) THEN
+          CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_FieldGet src_array failed' )
         ENDIF
         WRITE(str,*) 'WRFSSTCpl_run: grabbing first field <',TRIM(datanames(1)), &
                      '> from export state'
         CALL wrf_debug ( 100 , TRIM(str) )
-        CALL ESMF_StateGetField( exportState, TRIM(datanames(1)), dst_field, &
+
+CALL ESMF_StateGet( exportState, name=mename, itemCount=mecount, itemNameList=melist, stateitemtypelist=metypelist, rc=rc )
+write(0,*)'Exportstate mename ',trim(mename)
+write(0,*)'Exportstate mecount ',mecount
+do i = 1,mecount
+write(0,*)i,trim(melist(i))
+enddo
+do i = 1,mecount
+write(0,*)i,metypelist(i)
+enddo
+
+        CALL ESMF_StateGet( exportState, TRIM(datanames(1)), dst_field, &
                                  rc=rc )
         IF ( rc /= ESMF_SUCCESS ) THEN
-          CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_StateGetField(exportState) failed' )
+          CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_StateGet(exportState) failed' )
         ENDIF
+        CALL ESMF_FieldGet( dst_field, array=dst_array, &
+                                 rc=rc )
+        IF ( rc /= ESMF_SUCCESS ) THEN
+          CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_FieldGet dst_array failed' )
+        ENDIF
+
+
+
         IF ( build_fromWRF_rh ) THEN
           WRITE(str,*) 'WRFSSTCpl_run: creating fromWRF_rh'
           CALL wrf_debug ( 100 , TRIM(str) )
@@ -1333,7 +1308,7 @@ CALL wrf_timetoa ( currentTime, timestamp )
           ENDIF
           WRITE(str,*) 'WRFSSTCpl_run: calling ESMF_FieldRedistStore(fromWRF_rh)'
           CALL wrf_debug ( 100 , TRIM(str) )
-          CALL ESMF_FieldRedistStore( src_field, dst_field, vm, &
+          CALL ESMF_ArrayRedistStore( src_array, dst_array, &
                                       routehandle=fromWRF_rh, rc=rc )
           IF ( rc /= ESMF_SUCCESS ) THEN
             CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_FieldRedistStore(fromWRF_rh) failed' )
@@ -1349,8 +1324,9 @@ CALL wrf_timetoa ( currentTime, timestamp )
           ENDIF
           WRITE(str,*) 'WRFSSTCpl_run: calling ESMF_FieldRedistStore(fromSST_rh)'
           CALL wrf_debug ( 100 , TRIM(str) )
-          CALL ESMF_FieldRedistStore( src_field, dst_field, vm, &
+          CALL ESMF_ArrayRedistStore( src_array, dst_array, &
                                       routehandle=fromSST_rh, rc=rc )
+write(0,*)__FILE__,__LINE__,'rc = ',rc
           IF ( rc /= ESMF_SUCCESS ) THEN
             CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_FieldRedistStore(fromSST_rh) failed' )
           ENDIF
@@ -1406,30 +1382,35 @@ CALL wrf_timetoa ( currentTime, timestamp )
 !   States, each corresponding to a different subcomponent.  One is
 !   an Export State and the other is an Import State.
 !
-        WRITE(str,*) 'WRFSSTCpl_run:  calling ESMF_StateGetField(importState,', &
+        WRITE(str,*) 'WRFSSTCpl_run:  calling ESMF_StateGet(importState,', &
                      TRIM(datanames(i)),')...'
         CALL wrf_debug ( 100 , TRIM(str) )
-        CALL ESMF_StateGetField( importState, TRIM(datanames(i)), src_field, &
+        CALL ESMF_StateGet( importState, TRIM(datanames(i)), src_field, &
                                  rc=rc )
         IF ( rc /= ESMF_SUCCESS ) THEN
-          WRITE(str,*) 'WRFSSTCpl_run:  ESMF_StateGetField(importState,', &
+          WRITE(str,*) 'WRFSSTCpl_run:  ESMF_StateGet(importState,', &
                        TRIM(datanames(i)),') failed'
           CALL wrf_error_fatal ( str )
         ENDIF
+        CALL ESMF_FieldGet( src_field, array=src_array, rc=rc )
+        IF ( rc /= ESMF_SUCCESS ) THEN
+          WRITE(str,*) 'WRFSSTCpl_run:  ESMF_FieldGet(src_field,src_array,rc) failed'
+          CALL wrf_error_fatal ( str )
+        ENDIF
 
-!$$$$ debugging...
-!$$$     CALL ESMF_CplCompRun(compCplWRFSST, exportStateSST, &
-!$$$                          importStateWRF, driverClock, rc=rc)
-!$$$ Why is LANDMASK not on importStateWRF?  May be moot now due to fix in Registry...  
-
-        WRITE(str,*) 'WRFSSTCpl_run:  calling ESMF_StateGetField(exportState,', &
+        WRITE(str,*) 'WRFSSTCpl_run:  calling ESMF_StateGet(exportState,', &
                      TRIM(datanames(i)),')...'
         CALL wrf_debug ( 100 , TRIM(str) )
-        CALL ESMF_StateGetField( exportState, TRIM(datanames(i)), dst_field, &
+        CALL ESMF_StateGet( exportState, TRIM(datanames(i)), dst_field, &
                                  rc=rc )
         IF ( rc /= ESMF_SUCCESS ) THEN
-          WRITE(str,*) 'WRFSSTCpl_run:  ESMF_StateGetField(exportState,', &
+          WRITE(str,*) 'WRFSSTCpl_run:  ESMF_StateGet(exportState,', &
                        TRIM(datanames(i)),') failed'
+          CALL wrf_error_fatal ( str )
+        ENDIF
+        CALL ESMF_FieldGet( dst_field, array=dst_array, rc=rc )
+        IF ( rc /= ESMF_SUCCESS ) THEN
+          WRITE(str,*) 'WRFSSTCpl_run:  ESMF_FieldGet(dst_field,dst_array,rc) failed'
           CALL wrf_error_fatal ( str )
         ENDIF
 
@@ -1439,58 +1420,16 @@ CALL wrf_timetoa ( currentTime, timestamp )
 !   routing information may be needed repeatedly.  Route information is 
 !   saved so the precomputed information can be retained.  The following 
 !   is an example of a Field redist call:
-!$$$DEBUG
-!CALL wrf_debug ( 100, 'WRFSSTCpl_run '//TRIM(directionString)//':  calling ESMF_FieldPrint( src_field )' )
-!CALL ESMF_FieldPrint( src_field, rc=rc )
-!CALL wrf_debug ( 100, 'WRFSSTCpl_run '//TRIM(directionString)//':  back from ESMF_FieldPrint( src_field )' )
-!CALL ESMF_FieldGetDataPointer( src_field, tmp_data_ptr, rc=rc )
-!IF (rc /= ESMF_SUCCESS) THEN
-!  WRITE(str,*) 'WRFSSTCpl_run '//TRIM(directionString)//':  ESMF_FieldGetDataPointer( src_field, '//TRIM(datanames(i))//' ) returned rc = ',rc
-!  CALL wrf_debug ( 100 , TRIM(str) )
-!  CALL wrf_error_fatal ( &
-!    'WRFSSTCpl_run '//TRIM(directionString)//':  ESMF_FieldGetDataPointer( src_field, ... ) failed' )
-!ENDIF
-!CALL wrf_debug( 100, 'WRFSSTCpl_run:  writing DEBUG1_CPLcmp_src_'//TRIM(directionString)//'_'//TRIM(datanames(i))//'_'//TRIM(timestamp) )
-!OPEN( UNIT=985, FILE='DEBUG1_CPLcmp_src_'//TRIM(directionString)//'_'//TRIM(datanames(i))//'_'//TRIM(timestamp), FORM='formatted' )
-!WRITE (985,'(a)') TRIM(datanames(i))
-!DO jj = jps, MIN( (jde-1), jpe )
-!  DO ii = ips, MIN( (ide-1), ipe )
-!    WRITE (985,*) '(',ii,',',jj,'):  ',tmp_data_ptr(ii,jj)
-!  ENDDO
-!ENDDO
-!CLOSE (985)
-!$$$END DEBUG
         WRITE(str,*) 'WRFSSTCpl_run:  calling ESMF_FieldRedist for <', &
                      TRIM(datanames(i)),'>...'
         CALL wrf_debug ( 100 , TRIM(str) )
-        CALL ESMF_FieldRedist( src_field, dst_field, routehandle, rc=rc )
+        CALL ESMF_ArrayRedist( src_array, dst_array, routehandle, rc=rc )
         IF ( rc /= ESMF_SUCCESS ) THEN
           CALL wrf_error_fatal ( 'WRFSSTCpl_run:  ESMF_FieldRedist failed' )
         ENDIF
         WRITE(str,*) 'WRFSSTCpl_run:  back from ESMF_FieldRedist for <', &
                      TRIM(datanames(i)),'>...'
         CALL wrf_debug ( 100 , TRIM(str) )
-!$$$DEBUG
-!CALL wrf_debug ( 100, 'WRFSSTCpl_run '//TRIM(directionString)//':  calling ESMF_FieldPrint( dst_field )' )
-!CALL ESMF_FieldPrint( dst_field, rc=rc )
-!CALL wrf_debug ( 100, 'WRFSSTCpl_run '//TRIM(directionString)//':  back from ESMF_FieldPrint( dst_field )' )
-!CALL ESMF_FieldGetDataPointer( dst_field, tmp_data_ptr, rc=rc )
-!IF (rc /= ESMF_SUCCESS) THEN
-!  WRITE(str,*) 'WRFSSTCpl_run '//TRIM(directionString)//':  ESMF_FieldGetDataPointer( dst_field, '//TRIM(datanames(i))//' ) returned rc = ',rc
-!  CALL wrf_debug ( 100 , TRIM(str) )
-!  CALL wrf_error_fatal ( &
-!    'WRFSSTCpl_run '//TRIM(directionString)//':  ESMF_FieldGetDataPointer( dst_field, ... ) failed' )
-!ENDIF
-!CALL wrf_debug( 100, 'WRFSSTCpl_run:  writing DEBUG1_CPLcmp_dst_'//TRIM(directionString)//'_'//TRIM(datanames(i))//'_'//TRIM(timestamp) )
-!OPEN( UNIT=985, FILE='DEBUG1_CPLcmp_dst_'//TRIM(directionString)//'_'//TRIM(datanames(i))//'_'//TRIM(timestamp), FORM='formatted' )
-!WRITE (985,'(a)') TRIM(datanames(i))
-!DO jj = jps, MIN( (jde-1), jpe )
-!  DO ii = ips, MIN( (ide-1), ipe )
-!    WRITE (985,*) '(',ii,',',jj,'):  ',tmp_data_ptr(ii,jj)
-!  ENDDO
-!ENDDO
-!CLOSE (985)
-!$$$END DEBUG
 
       ENDDO
 
@@ -1525,20 +1464,12 @@ CALL wrf_timetoa ( currentTime, timestamp )
 
       ! Only thing to do here is release redist and route handles
       IF ( fromWRF_rh_ready ) THEN
-        CALL ESMF_FieldRedistRelease(fromWRF_rh, rc)
-        IF ( rc /= ESMF_SUCCESS ) THEN
-          CALL wrf_error_fatal ( 'WRFSSTCpl_final:  ESMF_FieldRedistRelease(fromWRF_rh) failed' )
-        ENDIF
         CALL ESMF_RouteHandleDestroy(fromWRF_rh, rc)
         IF ( rc /= ESMF_SUCCESS ) THEN
           CALL wrf_error_fatal ( 'WRFSSTCpl_final:  ESMF_RouteHandleDestroy(fromWRF_rh) failed' )
         ENDIF
       ENDIF
       IF ( fromSST_rh_ready ) THEN
-        CALL ESMF_FieldRedistRelease(fromSST_rh, rc)
-        IF ( rc /= ESMF_SUCCESS ) THEN
-          CALL wrf_error_fatal ( 'WRFSSTCpl_final:  ESMF_FieldRedistRelease(fromSST_rh) failed' )
-        ENDIF
         CALL ESMF_RouteHandleDestroy(fromSST_rh, rc)
         IF ( rc /= ESMF_SUCCESS ) THEN
           CALL wrf_error_fatal ( 'WRFSSTCpl_final:  ESMF_RouteHandleDestroy(fromSST_rh) failed' )
@@ -1557,14 +1488,11 @@ END MODULE module_wrfsst_coupler
 
 PROGRAM wrf_SST_ESMF
 
-!$$$AAAA
-
-!$$$TBH:   update this documentation!  
-
 !<DESCRIPTION>
 ! ESMF Application Wrapper for coupling WRF with a "dummy" component 
 ! that simply reads SSTs from a file and sends them to WRF (one-way 
-! coupling).
+! coupling).  Fields are returned from WRF to SST via the coupler for 
+! self-test only.  
 !
 ! Note that, like other WRF coupling methods (MCEL, MCT), ESMF coupling is 
 ! supported only via auxiliary input and history streams.  
@@ -1594,20 +1522,16 @@ PROGRAM wrf_SST_ESMF
 !      because the code that populates the WRF importState and exportState is 
 !      not yet sophisticated enough to handle creating and destroying nested 
 !      domains at any time during the model run.  
-!$$$   NOTE:  At the moment, any ESMF auxio that does not begin at the start 
-!$$$          of the model run will FAIL due to the way WRF init phases have 
-!$$$          been split.  A solution would be to split the WRF run into two 
-!$$$          phases instead and run the first part, which will stop after 
-!$$$          "training", at the very start of the "run" loop".  The main 
-!$$$          implication of this change would be that WRF import and export 
-!$$$          states would not be valid until after first-phase run were 
-!$$$          called.  A nasty business either way.    TBH
+!TODO:  ESMF auxio must begin at the start of the run.  Remove this 
+!TODO:  restriction later, if needed.  
 !
-!$$$here...  Note that we really need nested states, one for each auxio stream!!
-!$$$here...  For now, only support one input and/or one output stream via 
-!$$$here...  io_esmf.  This condition is asserted in 
-!$$$here...  ext_esmf_open_for_read_begin() and 
-!$$$here...  ext_esmf_open_for_write_begin().  
+!TODO:  Note that coupling is currently limited to one auxin plus one auxout 
+!TODO:  streams.  Extension to multiple pairs of auxio streams requires 
+!TODO:  nested states (one for each auxio stream pair).  
+!TODO:  For now, only support one input and/or one output stream via 
+!TODO:  io_esmf.  This condition is asserted in 
+!TODO:  ext_esmf_open_for_read_begin() and 
+!TODO:  ext_esmf_open_for_write_begin().  
 !
 ! "run" loop looks like this:  
 !   1. Run SST phase 1, reads SST from file and writes it to SST exportState 
@@ -1619,27 +1543,6 @@ PROGRAM wrf_SST_ESMF
 !      Read WRF importState and write WRF exportState (via med_before_solve_io()).  
 !      Note that WRF assigns sst -> tsk for sea points in 
 !      share/module_soil_pre.F.  
-!$$$here...  However, WRF does NOT assign tsk -> sst.  Do we need to send TSK 
-!$$$here...  from WRF too for self-test?  
-!$$$here...  eventually couple LANDMASK on first iteration only
-!$$$here...  For concurrent coupling, must break wrf_run into two phases, first 
-!$$$here...  phase returns after the call to med_before_solve_io(), second phase 
-!$$$here...  resumes after the call to med_before_solve_io().  This is 
-!$$$here...  *relatively* easy if we limit ESMF coupling to head_grid, but is 
-!$$$here...  NOT so easy otherwise due to recursion.  Also, we will need 
-!$$$here...  dynamic ESMF_States to couple to WRF nested domains since the 
-!$$$here...  nested domains may be created/destroyed at any time during the 
-!$$$here...  model run!  Not clear that using ESMF to couple directly to WRF 
-!$$$here...  nested domains is a small effort, and not clear that it is needed.  
-!
-!$$$  Note that moving init phase-2 to a first run phase and then splitting 
-!$$$  yet again after med_before_solve_io() would lead to three run phases for 
-!$$$  WRF.  One could argue that since the current "everyone calls everything" 
-!$$$  ESMF model for "concurrent components" is suboptimal for loosely-coupled 
-!$$$  concurrency anyway, we should aviod the split after 
-!$$$  med_before_solve_io(), limit ESMF use in WRF to sequential coupling, and 
-!$$$  use MCEL/MCT for concurrent coupling.  Food for thought...    TBH
-!
 !   4. Couple WRF exportState -> SST importState.  First iteration:  set up
 !      WRF->SST routeHandle via lazy evaluation.
 !   5. Run SST phase 2, compare SST from file with SST from WRF (via 
@@ -1650,9 +1553,6 @@ PROGRAM wrf_SST_ESMF
 ! quite non-trivial at the moment.  
 !
 !</DESCRIPTION>
-
-!$$$ TBH:  Need to eliminate duplication between wrf_ESMFApp.F 
-!$$$ TBH:  and wrf_SST_ESMF.F.  
 
    ! WRF registration routine
    USE module_wrf_setservices, ONLY: WRF_register
@@ -1697,21 +1597,18 @@ PROGRAM wrf_SST_ESMF
 
    ! debugging
    CHARACTER(LEN=256) :: couplingIntervalString
+integer(ESMF_KIND_I4) :: timevals(6)
 
         
    ! Warn users that this is not yet ready for general use.  
    PRINT *, '                      W A R N I N G                          '
    PRINT *, '  ESMF COUPLING CAPABILITY IS EXPERIMENTAL AND UNSUPPORTED   '
-   PRINT *, '               IN THIS VERSION OF WRF-SST                    '
+   PRINT *, '               IN THIS VERSION OF WRF-CPL-SST                '
    PRINT *, '          U S E   A T   Y O U R   O W N   R I S K            '
-
-   ! This call includes everything that must be done before ESMF_Initialize()
-   ! is called.
-   CALL init_modules(1)   ! Phase 1 returns after MPI_INIT() (if it is called)
 
    ! Initialize ESMF, get the default Global VM, and set
    ! the default calendar to be Gregorian.
-   CALL ESMF_Initialize( vm=vm, defaultCalendar=ESMF_CAL_GREGORIAN, rc=rc )
+   CALL ESMF_Initialize( vm=vm, defaultCalendar=ESMF_CAL_GREGORIAN, defaultlogtype=ESMF_LOG_MULTI,rc=rc )
    IF ( rc /= ESMF_SUCCESS ) THEN
      PRINT *, 'wrf_SST_ESMF:  ESMF_Initialize failed'
    ENDIF
@@ -1720,39 +1617,39 @@ PROGRAM wrf_SST_ESMF
    CALL ESMF_SetInitialized()   ! eliminate this once ESMF does it internally
 
    ! Create the WRF Gridded Component, passing in the default VM.
-   compGriddedWRF = ESMF_GridCompCreate(vm, "WRF Model", rc=rc)
+   compGriddedWRF = ESMF_GridCompCreate(parentVm=vm, name="WRF Model", rc=rc)
    IF ( rc /= ESMF_SUCCESS ) THEN
      PRINT *, 'wrf_SST_ESMF:  ESMF_GridCompCreate(WRF Model) failed'
    ENDIF
 
    ! Create the SST Gridded Component, passing in the default VM.
-   compGriddedSST = ESMF_GridCompCreate(vm, "SST Dummy Model", rc=rc)
+   compGriddedSST = ESMF_GridCompCreate(parentVm=vm, name="SST Dummy Model", rc=rc)
    IF ( rc /= ESMF_SUCCESS ) THEN
      PRINT *, 'wrf_SST_ESMF:  ESMF_GridCompCreate(WRF Dummy Model) failed'
    ENDIF
 
    ! Create the WRF-SST Coupler Component, passing in the default VM.
-   compCplWRFSST = ESMF_CplCompCreate(vm, "WRF-SST Coupler", rc=rc)
+   compCplWRFSST = ESMF_CplCompCreate(parentVm=vm, name="WRF-SST Coupler", rc=rc)
    IF ( rc /= ESMF_SUCCESS ) THEN
      PRINT *, 'wrf_SST_ESMF:  ESMF_CplCompCreate failed'
    ENDIF
 
    ! Create empty import and export states for WRF
-   importStateWRF = ESMF_StateCreate("WRF Import State", statetype=ESMF_STATE_IMPORT, rc=rc)
+   importStateWRF = ESMF_StateCreate(stateName="WRF Import State", statetype=ESMF_STATE_IMPORT, rc=rc)
    IF ( rc /= ESMF_SUCCESS ) THEN
      PRINT *, 'wrf_SST_ESMF:  ESMF_StateCreate(WRF Import State) failed'
    ENDIF
-   exportStateWRF = ESMF_StateCreate("WRF Export State", statetype=ESMF_STATE_EXPORT, rc=rc)
+   exportStateWRF = ESMF_StateCreate(stateName="WRF Export State", statetype=ESMF_STATE_EXPORT, rc=rc)
    IF ( rc /= ESMF_SUCCESS ) THEN
      PRINT *, 'wrf_SST_ESMF:  ESMF_StateCreate(WRF Export State) failed'
    ENDIF
 
    ! Create empty import and export states for SST
-   importStateSST = ESMF_StateCreate("SST Import State", statetype=ESMF_STATE_IMPORT, rc=rc)
+   importStateSST = ESMF_StateCreate(stateName="SST Import State", statetype=ESMF_STATE_IMPORT, rc=rc)
    IF ( rc /= ESMF_SUCCESS ) THEN
      PRINT *, 'wrf_SST_ESMF:  ESMF_StateCreate(SST Import State) failed'
    ENDIF
-   exportStateSST = ESMF_StateCreate("SST Export State", statetype=ESMF_STATE_EXPORT, rc=rc)
+   exportStateSST = ESMF_StateCreate(stateName="SST Export State", statetype=ESMF_STATE_EXPORT, rc=rc)
    IF ( rc /= ESMF_SUCCESS ) THEN
      PRINT *, 'wrf_SST_ESMF:  ESMF_StateCreate(SST Export State) failed'
    ENDIF
@@ -1808,6 +1705,13 @@ PROGRAM wrf_SST_ESMF
    PRINT *, 'DEBUG wrf_SST_ESMF:  calling phase-1 WRF init (wrf_component_init1)'
    CALL ESMF_GridCompInitialize(compGriddedWRF, importStateWRF, &
                                 exportStateWRF, driverClock, phase=1, rc=rc)
+call esmf_attributeget(exportstatewrf,'ComponentCouplingInterval',size(timevals),timevals,rc=rc)
+write(0,*) 'exportStateWRF year ',timevals(1),__LINE__
+write(0,*) 'exportStateWRF month ',timevals(2),__LINE__
+write(0,*) 'exportStateWRF day ',timevals(3),__LINE__
+write(0,*) 'exportStateWRF hour ',timevals(4),__LINE__
+write(0,*) 'exportStateWRF minute ',timevals(5),__LINE__
+write(0,*) 'exportStateWRF second ',timevals(6),__LINE__
    ! Note:  wrf_debug and wrf_error_fatal are now initialized
    IF ( rc /= ESMF_SUCCESS ) THEN
      CALL wrf_error_fatal ( 'wrf_SST_ESMF:  ESMF_GridCompInitialize(WRF phase 1) failed' )
@@ -1819,6 +1723,13 @@ PROGRAM wrf_SST_ESMF
    PRINT *, 'DEBUG wrf_SST_ESMF:  calling phase-1 SST init (sst_component_init1)'
    CALL ESMF_GridCompInitialize(compGriddedSST, importStateSST, &
                                 exportStateSST, driverClock, phase=1, rc=rc)
+call esmf_attributeget(exportstatesst,'ComponentCouplingInterval',size(timevals),timevals,rc=rc)
+write(0,*) 'exportStateSST year ',timevals(1),__LINE__
+write(0,*) 'exportStateSST month ',timevals(2),__LINE__
+write(0,*) 'exportStateSST day ',timevals(3),__LINE__
+write(0,*) 'exportStateSST hour ',timevals(4),__LINE__
+write(0,*) 'exportStateSST minute ',timevals(5),__LINE__
+write(0,*) 'exportStateSST second ',timevals(6),__LINE__
    IF ( rc /= ESMF_SUCCESS ) THEN
      CALL wrf_error_fatal ( 'wrf_SST_ESMF:  ESMF_GridCompInitialize(SST phase 1) failed' )
    ENDIF
@@ -1833,13 +1744,13 @@ PROGRAM wrf_SST_ESMF
    IF ( rc /= ESMF_SUCCESS ) THEN
      CALL wrf_error_fatal ( 'wrf_SST_ESMF:  ESMF_StateCreate(tmpState) failed' )
    ENDIF
-   CALL ESMF_StateAddState( tmpState, exportStateWRF, rc )
+   CALL ESMF_StateAdd( tmpState, exportStateWRF, rc )
    IF ( rc /= ESMF_SUCCESS ) THEN
-     CALL wrf_error_fatal ( 'wrf_SST_ESMF:  ESMF_StateAddState(exportStateWRF) failed' )
+     CALL wrf_error_fatal ( 'wrf_SST_ESMF:  ESMF_StateAdd(exportStateWRF) failed' )
    ENDIF
-   CALL ESMF_StateAddState( tmpState, exportStateSST, rc )
+   CALL ESMF_StateAdd( tmpState, exportStateSST, rc )
    IF ( rc /= ESMF_SUCCESS ) THEN
-     CALL wrf_error_fatal ( 'wrf_SST_ESMF:  ESMF_StateAddState(exportStateSST) failed' )
+     CALL wrf_error_fatal ( 'wrf_SST_ESMF:  ESMF_StateAdd(exportStateSST) failed' )
    ENDIF
    CALL GetTimesFromStates( tmpState, startTime, stopTime, couplingInterval )
    CALL ESMF_TimeIntervalGet( couplingInterval, TimeString=couplingIntervalString, &
@@ -1874,7 +1785,8 @@ PROGRAM wrf_SST_ESMF
    IF ( rc /= ESMF_SUCCESS ) THEN
      CALL wrf_error_fatal ( 'wrf_SST_ESMF:  ESMF_CplCompInitialize(WRF -> SST) failed' )
    ENDIF
-! TBH:  this bit is not needed
+
+! TBH:  this bit is not needed, but would be in general
 !   CALL ESMF_CplCompInitialize(compCplWRFSST, exportStateSST, &
 !                               importStateWRF, driverClock, rc=rc)
 !   IF ( rc /= ESMF_SUCCESS ) THEN

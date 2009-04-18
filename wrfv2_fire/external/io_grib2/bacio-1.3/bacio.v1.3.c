@@ -12,9 +12,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #ifdef MACOS
-  #include <sys/malloc.h>
+#include <sys/malloc.h>
 #else
-  #include <malloc.h>
+#include <malloc.h>
 #endif
 #include <ctype.h>
 #include <string.h>

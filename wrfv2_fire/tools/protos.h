@@ -23,7 +23,7 @@ int show_nodelist1( node_t * p , int indent ) ;
 #endif
 
 int gen_state_struct ( char * fname ) ;
-int gen_decls ( FILE * fp , char * corename , node_t * node , int sw_ranges, int sw_point , int mask , int layer ) ;
+int gen_decls ( FILE * fp ,  node_t * node , int sw_ranges, int sw_point , int mask , int layer ) ;
 int gen_state_subtypes ( char * fname ) ;
 int gen_state_subtypes1 ( FILE * fp , node_t * node , int sw_ranges, int sw_point , int mask ) ;
 int print_warning( FILE * fp , char * fname ) ;
@@ -35,7 +35,7 @@ node_t * get_type_entry ( char * typename ) ;
 node_t * get_rconfig_entry( char * name ) ;
 node_t * get_entry ( char * name , node_t * node ) ;
 node_t * get_entry_r ( char * name , char * use , node_t * node ) ;
-node_t * get_dim_entry( char c ) ;
+node_t * get_dim_entry( char *s ) ;
 node_t * new_node ( int kind ) ;
 
 node_t * get_4d_entry ( char * name ) ;
@@ -52,16 +52,11 @@ char * field_name_bdy( char * tmp, node_t * p , int tag, int bdy  ) ;
 char * dimension_with_colons( char * pre, char * tmp, node_t * p, char * post) ;
 char * dimension_with_ones( char * pre, char * tmp, node_t * p, char * post) ;
 char * dimension_with_ranges( char * ref , char * pre, int bdy , char * tmp, node_t * p, char * post, char * nlstructname ) ;
+char * arrray_size_expression( char * refarg , char * pre , int bdy , char * tmp , node_t * p , char * post , char * nlstructname  ) ;
 char * index_with_firstelem( char * pre , char * dref , int bdy , char * tmp , node_t * p , char * post ) ;
 
 char * declare_array_as_pointer( char * tmp, node_t * p ) ;
 char * field_type( char * tmp , node_t * p ) ;
-
-int init_core_table() ;
-int add_core_name ( char * name ) ;
-int get_num_cores() ;
-char * get_core_name ( char * name ) ;
-char * get_corename_i(int i) ;
 
 /* For typedef history -ajb */
 int init_typedef_history() ;
@@ -71,24 +66,24 @@ char * get_typedef_name ( char * name ) ;
 char * get_typename_i(int i) ;
 
 int gen_alloc ( char * dirname ) ;
-int gen_alloc1 ( char * dirname , char * corename ) ;
-int gen_alloc2 ( FILE * fp , char * structname , char * corename , node_t * node ) ;
+int gen_alloc1 ( char * dirname ) ;
+int gen_alloc2 ( FILE * fp , char * structname , node_t * node , int sw ) ;
 
 int gen_module_state_description ( char * dirname ) ;
 int gen_module_state_description1 ( FILE * fp , node_t * node ) ;
 
 int gen_scalar_indices ( char * dirname ) ;
-int gen_scalar_indices1 ( FILE * fp ) ;
+int gen_scalar_indices1 ( FILE * fp, FILE * fp2 ) ;
 
 int gen_actual_args ( char * dirname ) ;
 int gen_dummy_args ( char * dirname ) ;
 int gen_dummy_decls ( char * dn ) ;
-int gen_args ( char * dirname , char * corename , int sw ) ;
-int gen_args1 ( FILE * fp , char * outstr, char * structname , char * corename , node_t * node , int *linelen , int sw , int deep ) ;
+int gen_args ( char * dirname , int sw ) ;
+int gen_args1 ( FILE * fp , char * outstr, char * structname , node_t * node , int *linelen , int sw , int deep ) ;
 
 int gen_scalar_derefs ( char * dirname ) ;
-int scalar_derefs ( char * dirname , char * corename ) ;
-int scalar_derefs1 ( FILE * fp , char * corename , node_t * node, int direction ) ;
+int scalar_derefs ( char * dirname ) ;
+int scalar_derefs1 ( FILE * fp , node_t * node, int direction ) ;
 
 int set_mark ( int val , node_t * lst ) ;
 int set_mark_4d ( int val , node_t * lst ) ;
@@ -107,12 +102,15 @@ int gen_wrf_io2 ( FILE * fp , char * fname , char * structname , char * fourdnam
 
 int gen_namelist_defines ( char * dirname , int sw_dimension ) ;
 int gen_namelist_defaults ( char * dirname ) ;
+int gen_namelist_script ( char * dirname ) ;
 
 int gen_model_data_ord ( char * dirname ) ;
 
 int get_elem ( char * structname , char * nlstructname , char * tx , int i , node_t * p , int first_last ) ;
 
 int associated_with_4d_array( node_t * p ) ;
+
+
 
 #define PROTOS_H
 #endif

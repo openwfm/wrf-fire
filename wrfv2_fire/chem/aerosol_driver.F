@@ -1,12 +1,14 @@
-!WRF:MODEL_LAYER:PHYSICS
 !
-      SUBROUTINE aerosols_driver (id,ktau,dtstep,ktauc,config_flags,       &
-               dtstepc,                                                    &
+!   WRF-chem V3.0 : Original version of aerosol_driver written by Georg Grell (ESRL/GSD)
+!                   Further developments, bugfixes and improvements  by
+!                   William Gustafson (PNNL),Rainer Schmitz (University of Chile)  and Georg Grell
+!
+!
+      SUBROUTINE aerosols_driver (id,curr_secs,ktau,dtstep,ktauc,          &
+               config_flags,dtstepc,dx,                                    &
                alt,t_phy,moist,aerwrf,p8w,t8w,p_phy,chem,rho_phy,dz8w,     &
                z,z_at_w,h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,  &
                cvaro2,cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,vcsulf_old,&
-               e_pm25i,e_pm25j,e_eci,e_ecj,e_orgi,e_orgj,e_pm10,           &
-               e_so4i,e_so4j,e_no3i,e_no3j,                                &
                vdrog3,                                                     &
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
@@ -20,6 +22,7 @@
 ! *** add new modules of schemes here
 
    USE module_aerosols_sorgam
+   USE module_gocart_aerosols
    USE module_data_sorgam
    USE module_mosaic_driver, only:  mosaic_aerchem_driver
 
@@ -104,7 +107,8 @@
                                       ims,ime, jms,jme, kms,kme,    &
                                       its,ite, jts,jte, kts,kte,    &
                                       id,ktau,ktauc
-      REAL,      INTENT(IN   ) :: dtstep,dtstepc
+   REAL(KIND=8), INTENT(IN   ) :: curr_secs
+   REAL,         INTENT(IN   ) :: dtstep,dtstepc,dx
 !
 ! moisture variables
 !
@@ -122,14 +126,6 @@
          INTENT(INOUT ) ::                                          &
            h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2, &
            cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2
-!
-! aerosol emissions arrays
-!
-!   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                    &
-   REAL, DIMENSION( ims:ime, kms:config_flags%kemit, jms:jme ),     &
-         INTENT(INOUT ) ::                                          &
-               e_so4i,e_so4j,e_no3i,e_no3j,                         &
-               e_pm25i,e_pm25j,e_eci,e_ecj,e_orgi,e_orgj,e_pm10
 !
 ! arrays for aerosol/radiation feedback
 !
@@ -166,18 +162,19 @@
 
 !-----------------------------------------------------------------
 
-! These are unneeded, since the default behavior is to do nothing.
-! If the default changes, then lines need to be added for CBMZ and
-! CBMZ_BB.
-!   IF (config_flags%chem_opt .eq. 0) return
-!   IF (config_flags%chem_opt .eq. 1) return
 
 !
 ! select which aerosol scheme to take 
 !
    cps_select: SELECT CASE(config_flags%chem_opt)
 
-   CASE (RADM2SORG,RADM2SORG_KPP)
+   CASE (GOCART_SIMPLE,GOCARTRACM_KPP,GOCARTRADM2_KPP,GOCARTRADM2)
+      call gocart_aerosols_driver(ktauc,dtstepc,config_flags,t_phy,moist,  &
+         chem,rho_phy,dz8w,p8w,dx,g,         &
+         ids,ide, jds,jde, kds,kde,                                        &
+         ims,ime, jms,jme, kms,kme,                                        &
+         its,ite, jts,jte, kts,kte                                         )
+   CASE (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP)
        CALL wrf_debug(15,'aerosols_driver calling sorgam_driver')
        do ii=its,ite
           do kk=kts,kte
@@ -192,15 +189,14 @@
                alt,p_phy,chem,rho_phy,dz8w,z,z_at_w,                    &
                h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2, &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,vcsulf_old,    &
-               e_pm25i,e_pm25j,e_eci,e_ecj,e_orgi,e_orgj,e_pm10,        &
-               e_so4i,e_so4j,e_no3i,e_no3j,                             &
                vdrog3,                                                  &
                config_flags%kemit,                                      &
                ids,ide, jds,jde, kds,kde,                               &
                ims,ime, jms,jme, kms,kme,                               &
                its,ite, jts,jte, kts,kte                                )
 
-   CASE (RACMSORG,RACMSORG_KPP)
+   CASE (RACMSORG_AQ,RACMSORG_KPP)
+! ???? are separate cases needed here for radm2sorg and racmsorg packages ????
        CALL wrf_debug(15,'aerosols_driver calling sorgam_driver')
        do ii=its,ite
           do kk=kts,kte
@@ -215,8 +211,6 @@
                alt,p_phy,chem,rho_phy,dz8w,z,z_at_w,                    &
                h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2, &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,vcsulf_old,    &
-               e_pm25i,e_pm25j,e_eci,e_ecj,e_orgi,e_orgj,e_pm10,        &
-               e_so4i,e_so4j,e_no3i,e_no3j,                             &
                vdrog3,                                                  &
                config_flags%kemit,                                      &
                ids,ide, jds,jde, kds,kde,                               &
@@ -226,7 +220,7 @@
    CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
        CALL wrf_debug(15,'aerosols_driver calling mosaic_aerchem_driver')
        CALL mosaic_aerchem_driver(                                      &
-            id, ktau, dtstep, ktauc, dtstepc, config_flags,             &
+            id, curr_secs, ktau, dtstep, ktauc, dtstepc, config_flags,  &
             t_phy, rho_phy, p_phy,                                      &
             moist, chem,                                                &
             ids,ide, jds,jde, kds,kde,                                  &
@@ -240,6 +234,10 @@
    END SUBROUTINE aerosols_driver
 
 !-----------------------------------------------------------------------
+!   WRF-chem V3.0 : Original version of sum_pm_driver written by William Gustafson (PNNL)
+!                   modified by G Grell for gocart inclusion
+!
+!
 
    SUBROUTINE sum_pm_driver ( config_flags,                            &
             alt, chem, h2oaj, h2oai,                                   &
@@ -251,6 +249,7 @@
    USE module_configure
    USE module_aerosols_sorgam, only: sum_pm_sorgam
    USE module_mosaic_driver, only: sum_pm_mosaic
+   USE module_gocart_aerosols, only: sum_pm_gocart
    IMPLICIT NONE
 
    INTEGER,      INTENT(IN   )    ::                                   &
@@ -262,9 +261,13 @@
          INTENT(IN ) :: chem
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
-         INTENT(IN ) :: alt,h2oaj,h2oai
+         INTENT(IN ) :: alt
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         OPTIONAL,                                                     &
+         INTENT(IN ) :: h2oaj,h2oai
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         OPTIONAL,                                                     &
          INTENT(OUT) :: pm2_5_dry,pm2_5_water,pm2_5_dry_ec,pm10
 
    TYPE(grid_config_rec_type),  INTENT(IN   )    :: config_flags
@@ -274,7 +277,15 @@
 !
    sum_pm_select: SELECT CASE(config_flags%chem_opt)
 
-   CASE (RADM2SORG, RACMSORG,RADM2SORG_KPP,RACMSORG_KPP)
+   CASE (GOCART_SIMPLE,GOCARTRACM_KPP,GOCARTRADM2_KPP,GOCARTRADM2)
+       CALL wrf_debug(15,'sum_pm_driver: calling sum_pm_gocart')
+       CALL sum_pm_gocart (                                            &
+            alt, chem,pm2_5_dry, pm2_5_dry_ec, pm10,                   &
+            ids,ide, jds,jde, kds,kde,                                 &
+            ims,ime, jms,jme, kms,kme,                                 &
+            its,ite, jts,jte, kts,kte                                  )
+
+   CASE (RADM2SORG,RADM2SORG_AQ,RACMSORG_AQ,RADM2SORG_KPP,RACMSORG_KPP)
        CALL wrf_debug(15,'sum_pm_driver: calling sum_pm_sorgam')
        CALL sum_pm_sorgam (                                            &
             alt, chem, h2oaj, h2oai,                                   &

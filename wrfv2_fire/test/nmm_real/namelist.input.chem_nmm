@@ -20,7 +20,8 @@
  history_interval                    = 60
  frames_per_outfile                  = 1,
  restart                             = .false.,
- restart_interval                    = 6000,
+ restart_interval                    = 5760,
+ reset_simulation_start              = F,
  io_form_input                       = 2
  io_form_history                     = 2
  io_form_restart                     = 2
@@ -30,11 +31,8 @@
  debug_level                         = 1 
  /
 
- &fdda
-/
-
  &domains
- time_step                           = 30,
+ time_step                           = 34,
  time_step_fract_num                 = 2,
  time_step_fract_den                 = 7,
  max_dom                             = 1,
@@ -84,10 +82,10 @@
  num_soil_layers                     = 4,
  mp_zero_out                         = 0
  cu_rad_feedback                     = .false.,
+ gwd_opt                             = 0
  /
 
  &dynamics
- dyn_opt                             = 4
  /
 
  &bdy_control

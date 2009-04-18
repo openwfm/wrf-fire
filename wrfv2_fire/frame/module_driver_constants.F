@@ -49,6 +49,14 @@ MODULE module_driver_constants
 
    INTEGER , PARAMETER :: max_eta         =   501
 
+   !  The maximum number of outer iterations (for DA minimisation)
+
+   INTEGER , PARAMETER :: max_outer_iterations = 10
+
+   !  The maximum number of instruments (for radiance DA)
+
+   INTEGER , PARAMETER :: max_instruments =   30
+
    !  2. Following related to driver leve data structures for DM_PARALLEL communications
 
 #ifdef DM_PARALLEL
@@ -65,9 +73,33 @@ MODULE module_driver_constants
    INTEGER , PARAMETER :: min_file_unit = 10
    INTEGER , PARAMETER :: max_file_unit = 99
 
-   ! fire model
-   ! number of ignitions  
-   INTEGER, PARAMETER :: max_fire_ignitions = 1
+   !  4. Unfortunately, the following definition is needed here (rather
+   !     than the more logical place in share/module_model_constants.F)
+   !     for the namelist reads in frame/module_configure.F, and for some
+   !     conversions in share/set_timekeeping.F
+   !     Actually, using it here will mean that we don't need to set it
+   !     in share/module_model_constants.F, since this file will be
+   !     included (USEd) in:
+   !        frame/module_configure.F
+   !     which will be USEd in:
+   !        share/module_bc.F
+   !     which will be USEd in:
+   !        phys/module_radiation_driver.F
+   !     which is the other important place for it to be, and where
+   !     it is passed as a subroutine parameter to any physics subroutine.
+   !
+   !     P2SI is the number of SI seconds in an planetary solar day
+   !     divided by the number of SI seconds in an earth solar day
+#if defined MARS
+   !     For Mars, P2SI = 88775.2/86400.
+   REAL , PARAMETER :: P2SI = 1.0274907
+#elif defined TITAN
+   !     For Titan, P2SI = 1378080.0/86400.
+   REAL , PARAMETER :: P2SI = 15.95
+#else
+   !     Default for Earth
+   REAL , PARAMETER :: P2SI = 1.0
+#endif
  CONTAINS
    SUBROUTINE init_module_driver_constants
    END SUBROUTINE init_module_driver_constants

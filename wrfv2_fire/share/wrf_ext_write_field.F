@@ -48,6 +48,7 @@
     LOGICAL for_out, horiz_stagger
     INTEGER Hndl, io_form
     LOGICAL, EXTERNAL :: has_char
+    INTEGER, EXTERNAL :: use_package
 
     IF ( wrf_at_debug_level( 500 ) ) THEN
       call start_timing
@@ -69,6 +70,7 @@
     CALL debug_io_wrf ( debug_message,DateStr,                          &
                         domain_start,domain_end,patch_start,patch_end,  &
                         memory_start,memory_end                          )
+#if 0
     Status = 1
     if ( de1 - ds1 < 0 ) return
     if ( de2 - ds2 < 0 ) return
@@ -79,6 +81,7 @@
     if ( me1 - ms1 < 0 ) return
     if ( me2 - ms2 < 0 ) return
     if ( me3 - ms3 < 0 ) return
+#endif
     Status = 0
 
 
@@ -105,8 +108,10 @@
 
     CALL get_handle ( Hndl, io_form , for_out, DataHandle )
 
-    IF ( ( dryrun .AND. ( io_form .EQ. IO_NETCDF .OR. io_form .EQ. IO_PNETCDF ) ) .OR. &
-                        ( io_form .EQ. IO_PHDF5  )   ) THEN
+    IF ( ( dryrun .AND. ( use_package(io_form) .EQ. IO_NETCDF .OR. &
+                          use_package(io_form) .EQ. IO_PNETCDF ) ) .OR. &
+                        ( use_package(io_form) .EQ. IO_PHDF5  )   ) THEN
+
       CALL wrf_put_var_ti_char( &
                        DataHandle                 &  ! DataHandle
                       ,"description"              &  ! Element
@@ -143,7 +148,8 @@
 !           ( Var(1:4) /= 'XLAT'  ) ) THEN
 ! JM used trim instead, to avoid spurious errors when bounds checking on
       IF ( ( ( TRIM(MemoryOrder) == 'XY' ) .OR. &
-             ( TRIM(MemoryOrder) == 'XZY' ) ) .AND. &
+             ( TRIM(MemoryOrder) == 'XZY' ) .OR. &
+             ( TRIM(MemoryOrder) == 'XYZ' ) ) .AND. &
            ( TRIM(Var) /= 'XLONG' ) .AND. &
            ( TRIM(Var) /= 'XLAT'  ) ) THEN
         horiz_stagger = .FALSE.

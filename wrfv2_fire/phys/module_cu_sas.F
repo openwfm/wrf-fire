@@ -1,18 +1,15 @@
 !
 MODULE module_cu_sas
 
-#ifndef IFORT_KLUDGE
-USE module_configure, ONLY: nl_get_start_year, nl_get_start_month, &
-                            nl_get_start_day, nl_get_start_hour
-#endif
 CONTAINS
 
 !-----------------------------------------------------------------
       SUBROUTINE CU_SAS(                                        &
                  DT,ITIMESTEP,STEPCU                            &
-                ,RAINCV,HTOP,HBOT                               &
+                ,RAINCV,PRATEC,HTOP,HBOT                        &
                 ,U3D,V3D,W,T3D,QV3D,QC3D,QI3D,PI3D,RHO3D        &
                 ,DZ8W,PCPS,P8W,XLAND,CU_ACT_FLAG                &
+                ,CUDT, CURR_SECS, ADAPT_STEP_FLAG               &
                 ,ids,ide, jds,jde, kds,kde                      &
                 ,ims,ime, jms,jme, kms,kme                      &
                 ,its,ite, jts,jte, kts,kte                      &
@@ -97,8 +94,6 @@ CONTAINS
 !-- kte         end index for k in tile
 !-------------------------------------------------------------------
 
-      INTEGER ::                        ICLDCK
-
       INTEGER, INTENT(IN) ::            ids,ide, jds,jde, kds,kde,      &
                                         ims,ime, jms,jme, kms,kme,      &
                                         its,ite, jts,jte, kts,kte,      &
@@ -113,7 +108,7 @@ CONTAINS
                                         XLAND
 
       REAL,    DIMENSION(ims:ime, jms:jme), INTENT(INOUT) ::            &
-                                        RAINCV
+                                        RAINCV, PRATEC
 
       REAL,    DIMENSION(ims:ime, jms:jme), INTENT(OUT) ::              &
                                         HBOT,                           &
@@ -160,6 +155,10 @@ CONTAINS
                                                   ,F_QI      &
                                                   ,F_QS
  
+! Adaptive time-step variables
+      REAL,  INTENT(IN   ) :: CUDT
+      REAL,  INTENT(IN   ) :: CURR_SECS
+      LOGICAL,INTENT(IN   ) :: ADAPT_STEP_FLAG
 
 !--------------------------- LOCAL VARS ------------------------------
 
@@ -231,17 +230,34 @@ CONTAINS
       integer,  allocatable ::  nrnd(:)
       real :: fsec
 
+      LOGICAL :: run_param
+
 !      DATA IGPVS/0/
 
 !-----------------------------------------------------------------------
 !
 !***  CHECK TO SEE IF THIS IS A CONVECTION TIMESTEP
 !
-      ICLDCK=MOD(ITIMESTEP,STEPCU)
+      if (adapt_step_flag) then
+         if ( (ITIMESTEP .eq. 0) .or. (cudt .eq. 0) .or. &
+         ( CURR_SECS + dt >= ( int( CURR_SECS / ( cudt * 60 ) ) + 1 ) * cudt * 60 ) ) then
+         run_param = .TRUE.
+      else
+         run_param = .FALSE.
+      endif
+      
+      else
+         if (MOD(ITIMESTEP,STEPCU) .EQ. 0 .or. ITIMESTEP .eq. 0) then
+            run_param = .TRUE.
+         else
+            run_param = .FALSE.
+         endif
+      endif
+
 !-----------------------------------------------------------------------
 
 
-   IF(ICLDCK.EQ.0.OR.ITIMESTEP.EQ.0)THEN
+   IF(run_param) THEN
 
       DO J=JTS,JTE
          DO I=ITS,ITE
@@ -258,8 +274,8 @@ CONTAINS
       NCLOUD=1
 
 
-   DO J=jms,jme
-     DO I=ims,ime
+   DO J=jts,jte
+     DO I=its,ite
        PSFC(i,j)=P8w(i,kms,j)
      ENDDO
    ENDDO
@@ -284,7 +300,11 @@ CONTAINS
   
    endif
 
-   fsec = ITIMESTEP*DT
+   if (adapt_step_flag) then
+      fsec = CURR_SECS
+   else
+      fsec = ITIMESTEP*DT
+   endif
    iseed = mod(100.0*sqrt(fsec),1.0e9) + 1 + seed0
    call random_seed(size=krsize)
    if (.not. allocated (nrnd)) allocate (nrnd(krsize))
@@ -375,6 +395,7 @@ CONTAINS
 
       DO I=ITS,ITE
         RAINCV(I,J)=RN(I)*1000./STEPCU
+        PRATEC(I,J)=RN(I)*1000./(STEPCU * DT)
         HBOT(I,J)=KBOT(I)
         HTOP(I,J)=KTOP(I)
       ENDDO

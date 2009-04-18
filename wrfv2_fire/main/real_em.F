@@ -3,20 +3,23 @@
 PROGRAM real_data
 
    USE module_machine
-   USE module_domain
-   USE module_initialize
+   USE module_domain, ONLY : domain, alloc_and_configure_domain, &
+        domain_clock_set, head_grid, program_name, domain_clockprint
+   USE module_initialize_real, ONLY : wrfu_initialize, find_my_parent
+   USE module_initialize_real
    USE module_io_domain
    USE module_driver_constants
-   USE module_configure
+   USE module_configure, ONLY : grid_config_rec_type, model_config_rec, &
+        initial_config, get_config_as_buffer, set_config_as_buffer
    USE module_timing
+   USE module_state_description, ONLY : realonly
+   USE module_symbols_util, ONLY: wrfu_cal_gregorian
 #ifdef WRF_CHEM
    USE module_input_chem_data
    USE module_input_chem_bioemiss
+   USE module_input_chem_emissopt3
 #endif
-   USE module_utility
-#ifdef DM_PARALLEL
-   USE module_dm
-#endif
+   USE module_utility, ONLY : WRFU_finalize
 
    IMPLICIT NONE
 
@@ -70,7 +73,7 @@ PROGRAM real_data
 real::t1,t2
    INTERFACE
      SUBROUTINE Setup_Timekeeping( grid )
-      USE module_domain
+      USE module_domain, ONLY : domain
       TYPE(domain), POINTER :: grid
      END SUBROUTINE Setup_Timekeeping
    END INTERFACE
@@ -103,7 +106,7 @@ real::t1,t2
 #ifdef DM_PARALLEL
    IF ( wrf_dm_on_monitor() ) THEN
       CALL initial_config
-   ENDIF
+   END IF
    CALL get_config_as_buffer( configbuf, configbuflen, nbytes )
    CALL wrf_dm_bcast_bytes( configbuf, nbytes )
    CALL set_config_as_buffer( configbuf, configbuflen )
@@ -116,6 +119,12 @@ real::t1,t2
    CALL set_wrf_debug_level ( debug_level )
 
    CALL  wrf_message ( program_name )
+
+   !  There are variables in the Registry that are only required for the real
+   !  program, fields that come from the WPS package.  We define the run-time
+   !  flag that says to allocate space for these input-from-WPS-only arrays.
+
+   CALL nl_set_use_wps_input ( 1 , REALONLY )
 
    !  Allocate the space for the mother of all domains.
 
@@ -131,7 +140,7 @@ real::t1,t2
 
    IF ( model_config_rec%interval_seconds .LE. 0 ) THEN
      CALL wrf_error_fatal( 'namelist value for interval_seconds must be > 0')
-   ENDIF
+   END IF
 
    all_domains : DO domain_id = 1 , max_dom
 
@@ -252,11 +261,12 @@ SUBROUTINE med_sidata_input ( grid , config_flags )
   ! Model layer
    USE module_configure
    USE module_bc_time_utilities
-   USE module_initialize
-   USE module_optional_si_input
+   USE module_initialize_real
+   USE module_optional_input
 #ifdef WRF_CHEM
    USE module_input_chem_data
    USE module_input_chem_bioemiss
+   USE module_input_chem_emissopt3
 #endif
 
    USE module_date_time
@@ -335,7 +345,9 @@ real::t1,t2,t3,t4
    DO loop = 1 , time_loop_max
 
       internal_time_loop = loop
-      IF ( ( grid%id .GT. 1 ) .AND. ( loop .GT. 1 ) .AND. (model_config_rec%grid_fdda(grid%id) .EQ. 0) ) EXIT
+      IF ( ( grid%id .GT. 1 ) .AND. ( loop .GT. 1 ) .AND. &
+           ( model_config_rec%grid_fdda(grid%id) .EQ. 0 ) .AND. &
+           ( model_config_rec%sst_update .EQ. 0 ) ) EXIT
 
       print *,' '
       print *,'-----------------------------------------------------------------------------'
@@ -358,22 +370,20 @@ real::t1,t2,t3,t4
       !  a suffix for the type of the data format.  Check to see if either is around.
 
       CALL cpu_time ( t3 )
-      IF ( grid%dyn_opt .EQ. dyn_em ) THEN
-         WRITE ( wrf_err_message , FMT='(A,A)' )'med_sidata_input: calling open_r_dataset for ', &
-                                                TRIM(config_flags%auxinput1_inname)
-         CALL wrf_debug ( 100 , wrf_err_message )
-         IF ( config_flags%auxinput1_inname(1:8) .NE. 'wrf_real' ) THEN
-            CALL construct_filename4a( si_inpname , config_flags%auxinput1_inname , grid%id , 2 , &
-                                       current_date_char , config_flags%io_form_auxinput1 )
-         ELSE
-            CALL construct_filename2a( si_inpname , config_flags%auxinput1_inname , grid%id , 2 , &
-                                       current_date_char )
-         END IF
-         CALL open_r_dataset ( idsi, TRIM(si_inpname) , grid , config_flags , "DATASET=AUXINPUT1", ierr )
-         IF ( ierr .NE. 0 ) THEN
-            CALL wrf_error_fatal( 'error opening ' // TRIM(si_inpname) // &
-                                  ' for input; bad date in namelist or file not in directory' )
-         ENDIF
+      WRITE ( wrf_err_message , FMT='(A,A)' )'med_sidata_input: calling open_r_dataset for ', &
+                                             TRIM(config_flags%auxinput1_inname)
+      CALL wrf_debug ( 100 , wrf_err_message )
+      IF ( config_flags%auxinput1_inname(1:8) .NE. 'wrf_real' ) THEN
+         CALL construct_filename4a( si_inpname , config_flags%auxinput1_inname , grid%id , 2 , &
+                                    current_date_char , config_flags%io_form_auxinput1 )
+      ELSE
+         CALL construct_filename2a( si_inpname , config_flags%auxinput1_inname , grid%id , 2 , &
+                                    current_date_char )
+      END IF
+      CALL open_r_dataset ( idsi, TRIM(si_inpname) , grid , config_flags , "DATASET=AUXINPUT1", ierr )
+      IF ( ierr .NE. 0 ) THEN
+         CALL wrf_error_fatal( 'error opening ' // TRIM(si_inpname) // &
+                               ' for input; bad date in namelist or file not in directory' )
       END IF
 
       !  Input data.
@@ -389,11 +399,11 @@ real::t1,t2,t3,t4
       CALL cpu_time ( t3 )
       IF ( loop .EQ. 1 ) THEN
          already_been_here = .FALSE.
-         CALL       wrf_debug ( 100 , 'med_sidata_input: calling init_module_optional_si_input' )
-         CALL init_module_optional_si_input ( grid , config_flags )
+         CALL       wrf_debug ( 100 , 'med_sidata_input: calling init_module_optional_input' )
+         CALL init_module_optional_input ( grid , config_flags )
       END IF
-      CALL       wrf_debug ( 100 , 'med_sidata_input: calling optional_si_input' )
-      CALL  optional_si_input ( grid , idsi )
+      CALL       wrf_debug ( 100 , 'med_sidata_input: calling optional_input' )
+      CALL optional_input ( grid , idsi , config_flags )
 
       !  Initialize the mother domain for this time period with input data.
 
@@ -410,8 +420,6 @@ real::t1,t2,t3,t4
       CALL       wrf_debug ( 100 , 'med_sidata_input: back from init_domain' )
       CALL close_dataset ( idsi , config_flags , "DATASET=AUXINPUT1" )
 
-!     CALL start_domain ( grid , .TRUE. )
-
 #ifdef WRF_CHEM
       IF ( loop == 1 ) THEN
          IF( grid%chem_opt > 0 ) then
@@ -421,13 +429,30 @@ real::t1,t2,t3,t4
               CALL  wrf_message ( message )
 
               CALL input_ext_chem_file( grid )
+              IF(grid%emiss_opt == ECPTEC .or. grid%emiss_opt == GOCART_ECPTEC   &
+                                         .or. grid%biomass_burn_opt == BIOMASSB) THEN
+                 message = 'READING EMISSIONS DATA OPT 3'
+                 CALL  wrf_message ( message )
+!                CALL med_read_bin_chem_emissopt3 ( grid , config_flags)
+                 CALL med_read_wrf_chem_emissopt3 ( grid , config_flags)
+              END IF
 
               IF(grid%bio_emiss_opt == 2 ) THEN
                  message = 'READING BEIS3.11 EMISSIONS DATA'
                  CALL  wrf_message ( message )
                  CALL med_read_wrf_chem_bioemiss ( grid , config_flags)
+              else IF(grid%bio_emiss_opt == 3 ) THEN !shc
+                 message = 'READING MEGAN 2 EMISSIONS DATA'
+                 CALL  wrf_message ( message )
+                 CALL med_read_wrf_chem_bioemiss ( grid , config_flags)
               END IF
- 
+
+              IF(grid%dust_opt == 1 .or. grid%dmsemis_opt == 1 .or. grid%chem_opt == 300) THEN !shc
+                 message = 'READING GOCART BG AND/OR DUST and DMS REF FIELDS'
+                 CALL  wrf_message ( message )
+                 CALL med_read_wrf_chem_gocart_bg ( grid , config_flags)
+              END IF
+
            ELSEIF(grid%chem_in_opt == 0)then
               ! Generate chemistry data from a idealized vertical profile
               message = 'STARTING WITH BACKGROUND CHEMISTRY '
@@ -439,14 +464,31 @@ real::t1,t2,t3,t4
                  message = 'READING BEIS3.11 EMISSIONS DATA'
                  CALL  wrf_message ( message )
                  CALL med_read_wrf_chem_bioemiss ( grid , config_flags)
+              else IF(grid%bio_emiss_opt == 3 ) THEN !shc
+                 message = 'READING MEGAN 2 EMISSIONS DATA'
+                 CALL  wrf_message ( message ) 
+                 CALL med_read_wrf_chem_bioemiss ( grid , config_flags)
+              END IF
+              IF(grid%emiss_opt == ECPTEC .or. grid%emiss_opt == GOCART_ECPTEC   &
+                                         .or. grid%biomass_burn_opt == BIOMASSB) THEN
+                 message = 'READING EMISSIONS DATA OPT 3'
+                 CALL  wrf_message ( message )
+!                CALL med_read_bin_chem_emissopt3 ( grid , config_flags)
+                 CALL med_read_wrf_chem_emissopt3 ( grid , config_flags)
+              END IF
+
+              IF(grid%dust_opt == 1 .or. grid%dmsemis_opt == 1 .or. grid%chem_opt == 300) THEN !shc
+                 message = 'READING GOCART BG AND/OR DUST and DMS REF FIELDS'
+                 CALL  wrf_message ( message )
+                 CALL med_read_wrf_chem_gocart_bg ( grid , config_flags)
               END IF
 
            ELSE
              message = 'RUNNING WITHOUT CHEMISTRY INITIALIZATION'
              CALL  wrf_message ( message )
-           ENDIF
-         ENDIF
-      ENDIF
+           END IF
+         END IF
+      END IF
 #endif
 
       CALL cpu_time ( t3 )
@@ -494,10 +536,17 @@ SUBROUTINE compute_si_start_and_end (  &
 
    CHARACTER(LEN=19) :: current_date_char , start_date_char , end_date_char , next_date_char
 
+#ifdef PLANET
+   WRITE ( start_date_char , FMT = '(I4.4,"-",I5.5,"_",I2.2,":",I2.2,":",I2.2)' ) &
+           start_year,start_day,start_hour,start_minute,start_second
+   WRITE (   end_date_char , FMT = '(I4.4,"-",I5.5,"_",I2.2,":",I2.2,":",I2.2)' ) &
+             end_year,  end_day,  end_hour,  end_minute,  end_second
+#else
    WRITE ( start_date_char , FMT = '(I4.4,"-",I2.2,"-",I2.2,"_",I2.2,":",I2.2,":",I2.2)' ) &
            start_year,start_month,start_day,start_hour,start_minute,start_second
    WRITE (   end_date_char , FMT = '(I4.4,"-",I2.2,"-",I2.2,"_",I2.2,":",I2.2,":",I2.2)' ) &
              end_year,  end_month,  end_day,  end_hour,  end_minute,  end_second
+#endif
 
    IF ( end_date_char .LT. start_date_char ) THEN
       CALL wrf_error_fatal( 'Ending date in namelist ' // end_date_char // ' prior to beginning date ' // start_date_char )
@@ -551,7 +600,7 @@ SUBROUTINE assemble_output ( grid , config_flags , loop , time_loop_max )
    INTEGER :: i , j , k , idts
 
    INTEGER :: id1 , interval_seconds , ierr, rc, sst_update, grid_fdda
-   INTEGER , SAVE :: id, id2,  id5 
+   INTEGER , SAVE :: id, id2,  id4 
    CHARACTER (LEN=80) :: inpname , bdyname
    CHARACTER(LEN= 4) :: loop_char
 character *19 :: temp19
@@ -599,34 +648,43 @@ real::t1,t2
 
    IF ( loop .EQ. 1 ) THEN
 
-      !  This is the space needed to save the current 3d data for use in computing
-      !  the lateral boundary tendencies.
+      IF ( ( time_loop_max .EQ. 1 )  .OR. ( config_flags%polar ) ) THEN
 
-      IF ( ALLOCATED ( ubdy3dtemp1 ) ) DEALLOCATE ( ubdy3dtemp1 )
-      IF ( ALLOCATED ( vbdy3dtemp1 ) ) DEALLOCATE ( vbdy3dtemp1 )
-      IF ( ALLOCATED ( tbdy3dtemp1 ) ) DEALLOCATE ( tbdy3dtemp1 )
-      IF ( ALLOCATED ( pbdy3dtemp1 ) ) DEALLOCATE ( pbdy3dtemp1 )
-      IF ( ALLOCATED ( qbdy3dtemp1 ) ) DEALLOCATE ( qbdy3dtemp1 )
-      IF ( ALLOCATED ( mbdy2dtemp1 ) ) DEALLOCATE ( mbdy2dtemp1 )
-      IF ( ALLOCATED ( ubdy3dtemp2 ) ) DEALLOCATE ( ubdy3dtemp2 )
-      IF ( ALLOCATED ( vbdy3dtemp2 ) ) DEALLOCATE ( vbdy3dtemp2 )
-      IF ( ALLOCATED ( tbdy3dtemp2 ) ) DEALLOCATE ( tbdy3dtemp2 )
-      IF ( ALLOCATED ( pbdy3dtemp2 ) ) DEALLOCATE ( pbdy3dtemp2 )
-      IF ( ALLOCATED ( qbdy3dtemp2 ) ) DEALLOCATE ( qbdy3dtemp2 )
-      IF ( ALLOCATED ( mbdy2dtemp2 ) ) DEALLOCATE ( mbdy2dtemp2 )
+         !  No need to allocate space since we do not need the lateral boundary data yet
+         !  or at all (in case of the polar flag).
 
-      ALLOCATE ( ubdy3dtemp1(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( vbdy3dtemp1(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( tbdy3dtemp1(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( pbdy3dtemp1(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( qbdy3dtemp1(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( mbdy2dtemp1(ims:ime,1:1,    jms:jme) )
-      ALLOCATE ( ubdy3dtemp2(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( vbdy3dtemp2(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( tbdy3dtemp2(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( pbdy3dtemp2(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( qbdy3dtemp2(ims:ime,kms:kme,jms:jme) )
-      ALLOCATE ( mbdy2dtemp2(ims:ime,1:1,    jms:jme) )
+      ELSE
+
+         !  This is the space needed to save the current 3d data for use in computing
+         !  the lateral boundary tendencies.
+   
+         IF ( ALLOCATED ( ubdy3dtemp1 ) ) DEALLOCATE ( ubdy3dtemp1 )
+         IF ( ALLOCATED ( vbdy3dtemp1 ) ) DEALLOCATE ( vbdy3dtemp1 )
+         IF ( ALLOCATED ( tbdy3dtemp1 ) ) DEALLOCATE ( tbdy3dtemp1 )
+         IF ( ALLOCATED ( pbdy3dtemp1 ) ) DEALLOCATE ( pbdy3dtemp1 )
+         IF ( ALLOCATED ( qbdy3dtemp1 ) ) DEALLOCATE ( qbdy3dtemp1 )
+         IF ( ALLOCATED ( mbdy2dtemp1 ) ) DEALLOCATE ( mbdy2dtemp1 )
+         IF ( ALLOCATED ( ubdy3dtemp2 ) ) DEALLOCATE ( ubdy3dtemp2 )
+         IF ( ALLOCATED ( vbdy3dtemp2 ) ) DEALLOCATE ( vbdy3dtemp2 )
+         IF ( ALLOCATED ( tbdy3dtemp2 ) ) DEALLOCATE ( tbdy3dtemp2 )
+         IF ( ALLOCATED ( pbdy3dtemp2 ) ) DEALLOCATE ( pbdy3dtemp2 )
+         IF ( ALLOCATED ( qbdy3dtemp2 ) ) DEALLOCATE ( qbdy3dtemp2 )
+         IF ( ALLOCATED ( mbdy2dtemp2 ) ) DEALLOCATE ( mbdy2dtemp2 )
+   
+         ALLOCATE ( ubdy3dtemp1(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( vbdy3dtemp1(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( tbdy3dtemp1(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( pbdy3dtemp1(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( qbdy3dtemp1(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( mbdy2dtemp1(ims:ime,1:1,    jms:jme) )
+         ALLOCATE ( ubdy3dtemp2(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( vbdy3dtemp2(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( tbdy3dtemp2(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( pbdy3dtemp2(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( qbdy3dtemp2(ims:ime,kms:kme,jms:jme) )
+         ALLOCATE ( mbdy2dtemp2(ims:ime,1:1,    jms:jme) )
+
+      END IF
 
       !  Open the wrfinput file.  From this program, this is an *output* file.
 
@@ -634,225 +692,257 @@ real::t1,t2
       CALL open_w_dataset ( id1, TRIM(inpname) , grid , config_flags , output_model_input , "DATASET=INPUT", ierr )
       IF ( ierr .NE. 0 ) THEN
          CALL wrf_error_fatal( 'real: error opening wrfinput for writing' )
-      ENDIF
-      IF(sst_update .EQ. 1)THEN
-        CALL construct_filename1( inpname , 'wrflowinp' , grid%id , 2 )
-        CALL open_w_dataset ( id5, TRIM(inpname) , grid , config_flags , output_aux_model_input5 , "DATASET=AUXINPUT5", ierr )
-        IF ( ierr .NE. 0 ) THEN
-           CALL wrf_error_fatal( 'real: error opening wrflowinp for writing' )
-        ENDIF
-      ENDIF
-!     CALL calc_current_date ( grid%id , 0. )
+      END IF
       CALL output_model_input ( id1, grid , config_flags , ierr )
       CALL close_dataset ( id1 , config_flags , "DATASET=INPUT" )
-      IF(sst_update .EQ. 1)THEN
-        CALL output_aux_model_input5 ( id5, grid , config_flags , ierr )
-      ENDIF
 
-      !  We need to save the 3d data to compute a difference during the next loop.  Couple the
-      !  3d fields with total mu (mub + mu_2) and the stagger-specific map scale factor.
+      IF ( time_loop_max .NE. 1 ) THEN
+         IF(sst_update .EQ. 1)THEN
+           CALL construct_filename1( inpname , 'wrflowinp' , grid%id , 2 )
+           CALL open_w_dataset ( id4, TRIM(inpname) , grid , config_flags , output_aux_model_input4 , "DATASET=AUXINPUT4", ierr )
+           IF ( ierr .NE. 0 ) THEN
+              CALL wrf_error_fatal( 'real: error opening wrflowinp for writing' )
+           END IF
+           CALL output_aux_model_input4 ( id4, grid , config_flags , ierr )
+         END IF
+      END IF
 
-      CALL couple ( grid%em_mu_2 , grid%em_mub , ubdy3dtemp1 , grid%em_u_2                 , 'u' , grid%msfu , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-      CALL couple ( grid%em_mu_2 , grid%em_mub , vbdy3dtemp1 , grid%em_v_2                 , 'v' , grid%msfv , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-      CALL couple ( grid%em_mu_2 , grid%em_mub , tbdy3dtemp1 , grid%em_t_2                 , 't' , grid%msft , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-      CALL couple ( grid%em_mu_2 , grid%em_mub , pbdy3dtemp1 , grid%em_ph_2                , 'h' , grid%msft , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-      CALL couple ( grid%em_mu_2 , grid%em_mub , qbdy3dtemp1 , grid%moist(:,:,:,P_QV) , 't' , grid%msft , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+      IF ( ( time_loop_max .EQ. 1 )  .OR. ( config_flags%polar ) ) THEN
 
-      DO j = jps , MIN(jde-1,jpe)
-         DO i = ips , MIN(ide-1,ipe)
-            mbdy2dtemp1(i,1,j) = grid%em_mu_2(i,j)
+         !  No need to couple data since no lateral BCs required.
+
+      ELSE
+
+         !  We need to save the 3d data to compute a difference during the next loop.  Couple the
+         !  3d fields with total mu (mub + mu_2) and the stagger-specific map scale factor.
+   
+         !  u, theta, h, scalars coupled with my; v coupled with mx
+         CALL couple ( grid%mu_2 , grid%mub , ubdy3dtemp1 , grid%u_2                 , 'u' , grid%msfuy , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+         CALL couple ( grid%mu_2 , grid%mub , vbdy3dtemp1 , grid%v_2                 , 'v' , grid%msfvx , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+         CALL couple ( grid%mu_2 , grid%mub , tbdy3dtemp1 , grid%t_2                 , 't' , grid%msfty , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+         CALL couple ( grid%mu_2 , grid%mub , pbdy3dtemp1 , grid%ph_2                , 'h' , grid%msfty , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+         CALL couple ( grid%mu_2 , grid%mub , qbdy3dtemp1 , grid%moist(:,:,:,P_QV)      , 't' , grid%msfty , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+   
+         DO j = jps , MIN(jde-1,jpe)
+            DO i = ips , MIN(ide-1,ipe)
+               mbdy2dtemp1(i,1,j) = grid%mu_2(i,j)
+            END DO
          END DO
-      END DO
 
-      IF(grid_fdda .EQ. 1)THEN
-! for fdda
+      END IF
+
+      IF(grid_fdda .GE. 1)THEN
          DO j = jps , jpe
             DO k = kps , kpe
                DO i = ips , ipe
-                  grid%fdda3d(i,k,j,p_u_ndg_old) = grid%em_u_2(i,k,j)
-                  grid%fdda3d(i,k,j,p_v_ndg_old) = grid%em_v_2(i,k,j)
-                  grid%fdda3d(i,k,j,p_t_ndg_old) = grid%em_t_2(i,k,j)
+                  grid%fdda3d(i,k,j,p_u_ndg_old) = grid%u_2(i,k,j)
+                  grid%fdda3d(i,k,j,p_v_ndg_old) = grid%v_2(i,k,j)
+                  grid%fdda3d(i,k,j,p_t_ndg_old) = grid%t_2(i,k,j)
                   grid%fdda3d(i,k,j,p_q_ndg_old) = grid%moist(i,k,j,P_QV)
-                  grid%fdda3d(i,k,j,p_ph_ndg_old) = grid%em_ph_2(i,k,j)
+                  grid%fdda3d(i,k,j,p_ph_ndg_old) = grid%ph_2(i,k,j)
                END DO
             END DO
          END DO
 
          DO j = jps , jpe
             DO i = ips , ipe
-               grid%fdda2d(i,1,j,p_mu_ndg_old) = grid%em_mu_2(i,j)
+               grid%fdda2d(i,1,j,p_mu_ndg_old) = grid%mu_2(i,j)
+               grid%fdda2d(i,1,j,p_t2_ndg_old) = grid%t2(i,j)
+               grid%fdda2d(i,1,j,p_q2_ndg_old) = grid%q2(i,j)
+               grid%fdda2d(i,1,j,p_sn_ndg_old) = grid%snow(i,j)
             END DO
          END DO
-      ENDIF
+      END IF
 
+      IF ( ( time_loop_max .EQ. 1 )  .OR. ( config_flags%polar ) ) THEN
 
-      !  There are 2 components to the lateral boundaries.  First, there is the starting
-      !  point of this time period - just the outer few rows and columns.
+         !  No need to build boundary arrays, since no lateral BCs are being generated.
 
-      CALL stuff_bdy     ( ubdy3dtemp1 , grid%em_u_bxs, grid%em_u_bxe, grid%em_u_bys, grid%em_u_bye, &
-                                                           'U' , spec_bdy_width      , &
-                                                                 ids , ide , jds , jde , kds , kde , &
-                                                                 ims , ime , jms , jme , kms , kme , &
-                                                                 ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdy     ( vbdy3dtemp1 , grid%em_v_bxs, grid%em_v_bxe, grid%em_v_bys, grid%em_v_bye, &
-                                                           'V' , spec_bdy_width      , &
-                                                                 ids , ide , jds , jde , kds , kde , &
-                                                                 ims , ime , jms , jme , kms , kme , &
-                                                                 ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdy     ( tbdy3dtemp1 , grid%em_t_bxs, grid%em_t_bxe, grid%em_t_bys, grid%em_t_bye, &
-                                                           'T' , spec_bdy_width      , &
-                                                                 ids , ide , jds , jde , kds , kde , &
-                                                                 ims , ime , jms , jme , kms , kme , &
-                                                                 ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdy     ( pbdy3dtemp1 , grid%em_ph_bxs, grid%em_ph_bxe, grid%em_ph_bys, grid%em_ph_bye, &
-                                                           'W' , spec_bdy_width      , &
-                                                                 ids , ide , jds , jde , kds , kde , &
-                                                                 ims , ime , jms , jme , kms , kme , &
-                                                                 ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdy     ( qbdy3dtemp1 , grid%moist_bxs(:,:,:,P_QV), grid%moist_bxe(:,:,:,P_QV),     &
-                                         grid%moist_bys(:,:,:,P_QV), grid%moist_bye(:,:,:,P_QV),     &
-                                                           'T' , spec_bdy_width      ,               &
-                                                                 ids , ide , jds , jde , kds , kde , &
-                                                                 ims , ime , jms , jme , kms , kme , &
-                                                                 ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdy     ( mbdy2dtemp1 , grid%em_mu_bxs, grid%em_mu_bxe, grid%em_mu_bys, grid%em_mu_bye, &
-                                                           'M' , spec_bdy_width      , &
-                                                                 ids , ide , jds , jde , 1 , 1 , &
-                                                                 ims , ime , jms , jme , 1 , 1 , &
-                                                                 ips , ipe , jps , jpe , 1 , 1 )
+      ELSE
+   
+         !  There are 2 components to the lateral boundaries.  First, there is the starting
+         !  point of this time period - just the outer few rows and columns.
+   
+         CALL stuff_bdy     ( ubdy3dtemp1 , grid%u_bxs, grid%u_bxe, grid%u_bys, grid%u_bye, &
+                                                              'U' , spec_bdy_width      , &
+                                                                    ids , ide , jds , jde , kds , kde , &
+                                                                    ims , ime , jms , jme , kms , kme , &
+                                                                    ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdy     ( vbdy3dtemp1 , grid%v_bxs, grid%v_bxe, grid%v_bys, grid%v_bye, &
+                                                              'V' , spec_bdy_width      , &
+                                                                    ids , ide , jds , jde , kds , kde , &
+                                                                    ims , ime , jms , jme , kms , kme , &
+                                                                    ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdy     ( tbdy3dtemp1 , grid%t_bxs, grid%t_bxe, grid%t_bys, grid%t_bye, &
+                                                              'T' , spec_bdy_width      , &
+                                                                    ids , ide , jds , jde , kds , kde , &
+                                                                    ims , ime , jms , jme , kms , kme , &
+                                                                    ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdy     ( pbdy3dtemp1 , grid%ph_bxs, grid%ph_bxe, grid%ph_bys, grid%ph_bye, &
+                                                              'W' , spec_bdy_width      , &
+                                                                    ids , ide , jds , jde , kds , kde , &
+                                                                    ims , ime , jms , jme , kms , kme , &
+                                                                    ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdy     ( qbdy3dtemp1 , grid%moist_bxs(:,:,:,P_QV), grid%moist_bxe(:,:,:,P_QV),     &
+                                            grid%moist_bys(:,:,:,P_QV), grid%moist_bye(:,:,:,P_QV),     &
+                                                              'T' , spec_bdy_width      ,               &
+                                                                    ids , ide , jds , jde , kds , kde , &
+                                                                    ims , ime , jms , jme , kms , kme , &
+                                                                    ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdy     ( mbdy2dtemp1 , grid%mu_bxs, grid%mu_bxe, grid%mu_bys, grid%mu_bye, &
+                                                              'M' , spec_bdy_width      , &
+                                                                    ids , ide , jds , jde , 1 , 1 , &
+                                                                    ims , ime , jms , jme , 1 , 1 , &
+                                                                    ips , ipe , jps , jpe , 1 , 1 )
+      END IF
 
 
    ELSE IF ( loop .GT. 1 ) THEN
 
       IF(sst_update .EQ. 1)THEN
-        CALL output_aux_model_input5 ( id5, grid , config_flags , ierr )
-      ENDIF
+        CALL output_aux_model_input4 ( id4, grid , config_flags , ierr )
+      END IF
 
-      !  Open the boundary file.
-
+      !  Open the boundary and the fdda file.
 
       IF ( loop .eq. 2 ) THEN
-       IF(grid%id .eq. 1)THEN
-         CALL construct_filename1( bdyname , 'wrfbdy' , grid%id , 2 )
-         CALL open_w_dataset ( id, TRIM(bdyname) , grid , config_flags , output_boundary , "DATASET=BOUNDARY", ierr )
-         IF ( ierr .NE. 0 ) THEN
+         IF ( (grid%id .eq. 1) .and. ( .NOT. config_flags%polar ) ) THEN
+            CALL construct_filename1( bdyname , 'wrfbdy' , grid%id , 2 )
+            CALL open_w_dataset ( id, TRIM(bdyname) , grid , config_flags , output_boundary , "DATASET=BOUNDARY", ierr )
+            IF ( ierr .NE. 0 ) THEN
                CALL wrf_error_fatal( 'real: error opening wrfbdy for writing' )
-         ENDIF
-       ENDIF
-       IF(grid_fdda .EQ. 1)THEN
-! for fdda
-         CALL construct_filename1( inpname , 'wrffdda' , grid%id , 2 )
-         CALL open_w_dataset ( id2, TRIM(inpname) , grid , config_flags , output_aux_model_input10 , "DATASET=AUXINPUT10", ierr )
-         IF ( ierr .NE. 0 ) THEN
+            END IF
+         END IF
+         IF(grid_fdda .GE. 1)THEN
+            CALL construct_filename1( inpname , 'wrffdda' , grid%id , 2 )
+            CALL open_w_dataset ( id2, TRIM(inpname) , grid , config_flags , output_aux_model_input10 , "DATASET=AUXINPUT10", ierr )
+            IF ( ierr .NE. 0 ) THEN
                CALL wrf_error_fatal( 'real: error opening wrffdda for writing' )
-         ENDIF
-       ENDIF
+            END IF
+         END IF
       ELSE
          IF ( .NOT. domain_clockisstoptime(grid) ) THEN
             CALL domain_clockadvance( grid )
             CALL domain_clockprint ( 150, grid, &
                    'DEBUG assemble_output:  clock after ClockAdvance,' )
-         ENDIF
+         END IF
       END IF
 
+      IF ( config_flags%polar ) THEN
 
-      !  Couple this time period's data with total mu, and save it in the *bdy3dtemp2 arrays.
+         !  No need to couple fields, since no lateral BCs are required.
 
-      CALL couple ( grid%em_mu_2 , grid%em_mub , ubdy3dtemp2 , grid%em_u_2                 , 'u' , grid%msfu , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-      CALL couple ( grid%em_mu_2 , grid%em_mub , vbdy3dtemp2 , grid%em_v_2                 , 'v' , grid%msfv , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-      CALL couple ( grid%em_mu_2 , grid%em_mub , tbdy3dtemp2 , grid%em_t_2                 , 't' , grid%msft , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-      CALL couple ( grid%em_mu_2 , grid%em_mub , pbdy3dtemp2 , grid%em_ph_2                , 'h' , grid%msft , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-      CALL couple ( grid%em_mu_2 , grid%em_mub , qbdy3dtemp2 , grid%moist(:,:,:,P_QV) , 't' , grid%msft , &
-                    ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
-
-      DO j = jps , jpe
-         DO i = ips , ipe
-            mbdy2dtemp2(i,1,j) = grid%em_mu_2(i,j)
+      ELSE
+   
+         !  Couple this time period's data with total mu, and save it in the *bdy3dtemp2 arrays.
+   
+         !  u, theta, h, scalars coupled with my; v coupled with mx
+         CALL couple ( grid%mu_2 , grid%mub , ubdy3dtemp2 , grid%u_2                 , 'u' , grid%msfuy , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+         CALL couple ( grid%mu_2 , grid%mub , vbdy3dtemp2 , grid%v_2                 , 'v' , grid%msfvx , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+         CALL couple ( grid%mu_2 , grid%mub , tbdy3dtemp2 , grid%t_2                 , 't' , grid%msfty , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+         CALL couple ( grid%mu_2 , grid%mub , pbdy3dtemp2 , grid%ph_2                , 'h' , grid%msfty , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+         CALL couple ( grid%mu_2 , grid%mub , qbdy3dtemp2 , grid%moist(:,:,:,P_QV)      , 't' , grid%msfty , &
+                       ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, ips, ipe, jps, jpe, kps, kpe )
+   
+         DO j = jps , jpe
+            DO i = ips , ipe
+               mbdy2dtemp2(i,1,j) = grid%mu_2(i,j)
+            END DO
          END DO
-      END DO
 
-      IF(grid_fdda .EQ. 1)THEN
-! for fdda
+      END IF
+
+      IF(grid_fdda .GE. 1)THEN
          DO j = jps , jpe
             DO k = kps , kpe
                DO i = ips , ipe
-                  grid%fdda3d(i,k,j,p_u_ndg_new) = grid%em_u_2(i,k,j)
-                  grid%fdda3d(i,k,j,p_v_ndg_new) = grid%em_v_2(i,k,j)
-                  grid%fdda3d(i,k,j,p_t_ndg_new) = grid%em_t_2(i,k,j)
+                  grid%fdda3d(i,k,j,p_u_ndg_new) = grid%u_2(i,k,j)
+                  grid%fdda3d(i,k,j,p_v_ndg_new) = grid%v_2(i,k,j)
+                  grid%fdda3d(i,k,j,p_t_ndg_new) = grid%t_2(i,k,j)
                   grid%fdda3d(i,k,j,p_q_ndg_new) = grid%moist(i,k,j,P_QV)
-                  grid%fdda3d(i,k,j,p_ph_ndg_new) = grid%em_ph_2(i,k,j)
+                  grid%fdda3d(i,k,j,p_ph_ndg_new) = grid%ph_2(i,k,j)
                END DO
             END DO
          END DO
 
          DO j = jps , jpe
             DO i = ips , ipe
-               grid%fdda2d(i,1,j,p_mu_ndg_new) = grid%em_mu_2(i,j)
+               grid%fdda2d(i,1,j,p_mu_ndg_new) = grid%mu_2(i,j)
+               grid%fdda2d(i,1,j,p_t2_ndg_new) = grid%t2(i,j)
+               grid%fdda2d(i,1,j,p_q2_ndg_new) = grid%q2(i,j)
+               grid%fdda2d(i,1,j,p_sn_ndg_new) = grid%snow(i,j)
             END DO
          END DO
-      ENDIF
+      END IF
 
-      !  During all of the loops after the first loop, we first compute the boundary
-      !  tendencies with the current data values (*bdy3dtemp2 arrays) and the previously 
-      !  saved information stored in the *bdy3dtemp1 arrays.
+      IF ( config_flags%polar ) THEN
 
-      CALL stuff_bdytend ( ubdy3dtemp2 , ubdy3dtemp1 , REAL(interval_seconds) ,                 &
-                                                            grid%em_u_btxs, grid%em_u_btxe,     &
-                                                            grid%em_u_btys, grid%em_u_btye,     &
-                                                            'U' , &
-                                                            spec_bdy_width      , &
-                                                            ids , ide , jds , jde , kds , kde , &
-                                                            ims , ime , jms , jme , kms , kme , &
-                                                            ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdytend ( vbdy3dtemp2 , vbdy3dtemp1 , REAL(interval_seconds) ,                 &
-                                                            grid%em_v_btxs, grid%em_v_btxe,     &
-                                                            grid%em_v_btys, grid%em_v_btye,     &
-                                                            'V' , &
-                                                            spec_bdy_width      , &
-                                                            ids , ide , jds , jde , kds , kde , &
-                                                            ims , ime , jms , jme , kms , kme , &
-                                                            ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdytend ( tbdy3dtemp2 , tbdy3dtemp1 , REAL(interval_seconds) ,                 &
-                                                            grid%em_t_btxs, grid%em_t_btxe,     &
-                                                            grid%em_t_btys, grid%em_t_btye,     &
-                                                            'T' , &
-                                                            spec_bdy_width      , &
-                                                            ids , ide , jds , jde , kds , kde , &
-                                                            ims , ime , jms , jme , kms , kme , &
-                                                            ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdytend ( pbdy3dtemp2 , pbdy3dtemp1 , REAL(interval_seconds) ,                 &
-                                                            grid%em_ph_btxs, grid%em_ph_btxe,   &
-                                                            grid%em_ph_btys, grid%em_ph_btye,   &
-                                                            'W' , &
-                                                            spec_bdy_width      , &
-                                                            ids , ide , jds , jde , kds , kde , &
-                                                            ims , ime , jms , jme , kms , kme , &
-                                                            ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdytend ( qbdy3dtemp2 , qbdy3dtemp1 , REAL(interval_seconds) ,                 &
-                                                            grid%moist_btxs(:,:,:,P_QV), grid%moist_btxe(:,:,:,P_QV), &
-                                                            grid%moist_btys(:,:,:,P_QV), grid%moist_btye(:,:,:,P_QV), &
-                                                            'T' , &
-                                                            spec_bdy_width      , &
-                                                            ids , ide , jds , jde , kds , kde , &
-                                                            ims , ime , jms , jme , kms , kme , &
-                                                            ips , ipe , jps , jpe , kps , kpe )
-      CALL stuff_bdytend ( mbdy2dtemp2 , mbdy2dtemp1 , REAL(interval_seconds) ,                 &
-                                                            grid%em_mu_btxs, grid%em_mu_btxe,   &
-                                                            grid%em_mu_btys, grid%em_mu_btye,   &
-                                                            'M' , &
-                                                            spec_bdy_width      , &
-                                                            ids , ide , jds , jde , 1 , 1 , &
-                                                            ims , ime , jms , jme , 1 , 1 , &
-                                                            ips , ipe , jps , jpe , 1 , 1 )
+         !  No need to build boundary arrays, since no lateral BCs are being generated.
+
+      ELSE
+
+         !  During all of the loops after the first loop, we first compute the boundary
+         !  tendencies with the current data values (*bdy3dtemp2 arrays) and the previously 
+         !  saved information stored in the *bdy3dtemp1 arrays.
+   
+         CALL stuff_bdytend ( ubdy3dtemp2 , ubdy3dtemp1 , REAL(interval_seconds) ,                 &
+                                                               grid%u_btxs, grid%u_btxe,     &
+                                                               grid%u_btys, grid%u_btye,     &
+                                                               'U' , &
+                                                               spec_bdy_width      , &
+                                                               ids , ide , jds , jde , kds , kde , &
+                                                               ims , ime , jms , jme , kms , kme , &
+                                                               ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdytend ( vbdy3dtemp2 , vbdy3dtemp1 , REAL(interval_seconds) ,                 &
+                                                               grid%v_btxs, grid%v_btxe,     &
+                                                               grid%v_btys, grid%v_btye,     &
+                                                               'V' , &
+                                                               spec_bdy_width      , &
+                                                               ids , ide , jds , jde , kds , kde , &
+                                                               ims , ime , jms , jme , kms , kme , &
+                                                               ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdytend ( tbdy3dtemp2 , tbdy3dtemp1 , REAL(interval_seconds) ,                 &
+                                                               grid%t_btxs, grid%t_btxe,     &
+                                                               grid%t_btys, grid%t_btye,     &
+                                                               'T' , &
+                                                               spec_bdy_width      , &
+                                                               ids , ide , jds , jde , kds , kde , &
+                                                               ims , ime , jms , jme , kms , kme , &
+                                                               ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdytend ( pbdy3dtemp2 , pbdy3dtemp1 , REAL(interval_seconds) ,                 &
+                                                               grid%ph_btxs, grid%ph_btxe,   &
+                                                               grid%ph_btys, grid%ph_btye,   &
+                                                               'W' , &
+                                                               spec_bdy_width      , &
+                                                               ids , ide , jds , jde , kds , kde , &
+                                                               ims , ime , jms , jme , kms , kme , &
+                                                               ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdytend ( qbdy3dtemp2 , qbdy3dtemp1 , REAL(interval_seconds) ,                 &
+                                                               grid%moist_btxs(:,:,:,P_QV), grid%moist_btxe(:,:,:,P_QV), &
+                                                               grid%moist_btys(:,:,:,P_QV), grid%moist_btye(:,:,:,P_QV), &
+                                                               'T' , &
+                                                               spec_bdy_width      , &
+                                                               ids , ide , jds , jde , kds , kde , &
+                                                               ims , ime , jms , jme , kms , kme , &
+                                                               ips , ipe , jps , jpe , kps , kpe )
+         CALL stuff_bdytend ( mbdy2dtemp2 , mbdy2dtemp1 , REAL(interval_seconds) ,                 &
+                                                               grid%mu_btxs, grid%mu_btxe,   &
+                                                               grid%mu_btys, grid%mu_btye,   &
+                                                               'M' , &
+                                                               spec_bdy_width      , &
+                                                               ids , ide , jds , jde , 1 , 1 , &
+                                                               ims , ime , jms , jme , 1 , 1 , &
+                                                               ips , ipe , jps , jpe , 1 , 1 )
+      END IF
 
       !  Both pieces of the boundary data are now available to be written (initial time and tendency).
       !  This looks ugly, these date shifting things.  What's it for?  We want the "Times" variable
@@ -883,14 +973,28 @@ real::t1,t2
       CALL domain_clock_set( grid, current_date(1:19) )
       CALL domain_clockprint ( 150, grid, &
              'DEBUG assemble_output:  clock after 2nd current_date set,' )
-      IF(grid%id .EQ. 1)THEN
-        print *,'LBC valid between these times ',current_date, ' ',start_date
-        CALL output_boundary ( id, grid , config_flags , ierr )
-      ENDIF
-! for fdda
-      IF(grid_fdda .EQ. 1) THEN
+
+      IF ( config_flags%polar ) THEN
+
+         !  No need to ouput boundary data for polar cases.
+
+      ELSE
+
+         !  Output boundary file.
+   
+         IF(grid%id .EQ. 1)THEN
+           print *,'LBC valid between these times ',current_date, ' ',start_date
+           CALL output_boundary ( id, grid , config_flags , ierr )
+         END IF
+
+      END IF
+
+      !  Output gridded/analysis FDDA file.
+
+      IF(grid_fdda .GE. 1) THEN
          CALL output_aux_model_input10 ( id2, grid , config_flags , ierr )
       END IF
+
       current_date = temp24
       start_date = temp24b
       CALL domain_clockprint ( 150, grid, &
@@ -905,106 +1009,138 @@ real::t1,t2
       !  OK, for all of the loops, we output the initialzation data, which would allow us to
       !  start the model at any of the available analysis time periods.
 
-!     WRITE ( loop_char , FMT = '(I4.4)' ) loop
-!     CALL open_w_dataset ( id1, 'wrfinput'//loop_char , grid , config_flags , output_model_input , "DATASET=INPUT", ierr )
-!     IF ( ierr .NE. 0 ) THEN
-!       CALL wrf_error_fatal( 'real: error opening wrfinput'//loop_char//' for writing' )
-!     ENDIF
+      IF ( config_flags%all_ic_times ) THEN
+         CALL construct_filename2a ( inpname , 'wrfinput_d<domain>.<date>' , grid%id , 2 , TRIM(current_date) )
+         CALL open_w_dataset ( id1, inpname , grid , config_flags , output_model_input , "DATASET=INPUT", ierr )
+         IF ( ierr .NE. 0 ) THEN
+            CALL wrf_error_fatal( 'real: error opening' // inpname // ' for writing' )
+         END IF
+         CALL output_model_input ( id1, grid , config_flags , ierr )
+         CALL close_dataset ( id1 , config_flags , "DATASET=INPUT" )
+      END IF
 
-!     CALL calc_current_date ( grid%id , 0. )
-!     CALL output_model_input ( id1, grid , config_flags , ierr )
-!     CALL close_dataset ( id1 , config_flags , "DATASET=INPUT" )
       !  Is this or is this not the last time time?  We can remove some unnecessary
       !  stores if it is not.
+
       IF     ( loop .LT. time_loop_max ) THEN
 
-         !  We need to save the 3d data to compute a difference during the next loop.  Couple the
-         !  3d fields with total mu (mub + mu_2) and the stagger-specific map scale factor.
-         !  We load up the boundary data again for use in the next loop.
+         IF ( config_flags%polar ) THEN
+  
+            !  No need to swap old for new for the boundary data, it is not required.
 
-         DO j = jps , jpe
-            DO k = kps , kpe
-               DO i = ips , ipe
-                  ubdy3dtemp1(i,k,j) = ubdy3dtemp2(i,k,j)
-                  vbdy3dtemp1(i,k,j) = vbdy3dtemp2(i,k,j)
-                  tbdy3dtemp1(i,k,j) = tbdy3dtemp2(i,k,j)
-                  pbdy3dtemp1(i,k,j) = pbdy3dtemp2(i,k,j)
-                  qbdy3dtemp1(i,k,j) = qbdy3dtemp2(i,k,j)
+         ELSE
+
+            !  We need to save the 3d data to compute a difference during the next loop.  Couple the
+            !  3d fields with total mu (mub + mu_2) and the stagger-specific map scale factor.
+            !  We load up the boundary data again for use in the next loop.
+   
+            DO j = jps , jpe
+               DO k = kps , kpe
+                  DO i = ips , ipe
+                     ubdy3dtemp1(i,k,j) = ubdy3dtemp2(i,k,j)
+                     vbdy3dtemp1(i,k,j) = vbdy3dtemp2(i,k,j)
+                     tbdy3dtemp1(i,k,j) = tbdy3dtemp2(i,k,j)
+                     pbdy3dtemp1(i,k,j) = pbdy3dtemp2(i,k,j)
+                     qbdy3dtemp1(i,k,j) = qbdy3dtemp2(i,k,j)
+                  END DO
                END DO
             END DO
-         END DO
-
-         DO j = jps , jpe
-            DO i = ips , ipe
-               mbdy2dtemp1(i,1,j) = mbdy2dtemp2(i,1,j)
-            END DO
-         END DO
-
-      IF(grid_fdda .EQ. 1)THEN
-! for fdda
-         DO j = jps , jpe
-            DO k = kps , kpe
+   
+            DO j = jps , jpe
                DO i = ips , ipe
-                  grid%fdda3d(i,k,j,p_u_ndg_old) = grid%fdda3d(i,k,j,p_u_ndg_new)
-                  grid%fdda3d(i,k,j,p_v_ndg_old) = grid%fdda3d(i,k,j,p_v_ndg_new)
-                  grid%fdda3d(i,k,j,p_t_ndg_old) = grid%fdda3d(i,k,j,p_t_ndg_new)
-                  grid%fdda3d(i,k,j,p_q_ndg_old) = grid%fdda3d(i,k,j,p_q_ndg_new)
-                  grid%fdda3d(i,k,j,p_ph_ndg_old) = grid%fdda3d(i,k,j,p_ph_ndg_new)
+                  mbdy2dtemp1(i,1,j) = mbdy2dtemp2(i,1,j)
                END DO
             END DO
-         END DO
 
-         DO j = jps , jpe
-            DO i = ips , ipe
-               grid%fdda2d(i,1,j,p_mu_ndg_old) = grid%fdda2d(i,1,j,p_mu_ndg_new)
+         END IF
+
+         IF(grid_fdda .GE. 1)THEN
+            DO j = jps , jpe
+               DO k = kps , kpe
+                  DO i = ips , ipe
+                     grid%fdda3d(i,k,j,p_u_ndg_old) = grid%fdda3d(i,k,j,p_u_ndg_new)
+                     grid%fdda3d(i,k,j,p_v_ndg_old) = grid%fdda3d(i,k,j,p_v_ndg_new)
+                     grid%fdda3d(i,k,j,p_t_ndg_old) = grid%fdda3d(i,k,j,p_t_ndg_new)
+                     grid%fdda3d(i,k,j,p_q_ndg_old) = grid%fdda3d(i,k,j,p_q_ndg_new)
+                     grid%fdda3d(i,k,j,p_ph_ndg_old) = grid%fdda3d(i,k,j,p_ph_ndg_new)
+                  END DO
+               END DO
             END DO
-         END DO
-      ENDIF
 
-         !  There are 2 components to the lateral boundaries.  First, there is the starting
-         !  point of this time period - just the outer few rows and columns.
+            DO j = jps , jpe
+               DO i = ips , ipe
+                  grid%fdda2d(i,1,j,p_mu_ndg_old) = grid%fdda2d(i,1,j,p_mu_ndg_new)
+                  grid%fdda2d(i,1,j,p_t2_ndg_old) = grid%fdda2d(i,1,j,p_t2_ndg_new)
+                  grid%fdda2d(i,1,j,p_q2_ndg_old) = grid%fdda2d(i,1,j,p_q2_ndg_new)
+                  grid%fdda2d(i,1,j,p_sn_ndg_old) = grid%fdda2d(i,1,j,p_sn_ndg_new)
+               END DO
+            END DO
+         END IF
 
-         CALL stuff_bdy     ( ubdy3dtemp1 , grid%em_u_bxs, grid%em_u_bxe, grid%em_u_bys, grid%em_u_bye, &
-                                                              'U' , spec_bdy_width      , &
-                                                                    ids , ide , jds , jde , kds , kde , &
-                                                                    ims , ime , jms , jme , kms , kme , &
-                                                                    ips , ipe , jps , jpe , kps , kpe )
-         CALL stuff_bdy     ( vbdy3dtemp1 , grid%em_v_bxs, grid%em_v_bxe, grid%em_v_bys, grid%em_v_bye, &
-                                                              'V' , spec_bdy_width      , &
-                                                                    ids , ide , jds , jde , kds , kde , &
-                                                                    ims , ime , jms , jme , kms , kme , &
-                                                                    ips , ipe , jps , jpe , kps , kpe )
-         CALL stuff_bdy     ( tbdy3dtemp1 , grid%em_t_bxs, grid%em_t_bxe, grid%em_t_bys, grid%em_t_bye, &
-                                                              'T' , spec_bdy_width      , &
-                                                                    ids , ide , jds , jde , kds , kde , &
-                                                                    ims , ime , jms , jme , kms , kme , &
-                                                                    ips , ipe , jps , jpe , kps , kpe )
-         CALL stuff_bdy     ( pbdy3dtemp1 , grid%em_ph_bxs, grid%em_ph_bxe, grid%em_ph_bys, grid%em_ph_bye, &
-                                                              'W' , spec_bdy_width      , &
-                                                                    ids , ide , jds , jde , kds , kde , &
-                                                                    ims , ime , jms , jme , kms , kme , &
-                                                                    ips , ipe , jps , jpe , kps , kpe )
-         CALL stuff_bdy     ( qbdy3dtemp1 , grid%moist_bxs(:,:,:,P_QV), grid%moist_bxe(:,:,:,P_QV),     &
-                                            grid%moist_bys(:,:,:,P_QV), grid%moist_bye(:,:,:,P_QV),     &
-                                                              'T' , spec_bdy_width      ,               &
-                                                                    ids , ide , jds , jde , kds , kde , &
-                                                                    ims , ime , jms , jme , kms , kme , &
-                                                                    ips , ipe , jps , jpe , kps , kpe )
-         CALL stuff_bdy     ( mbdy2dtemp1 , grid%em_mu_bxs, grid%em_mu_bxe, grid%em_mu_bys, grid%em_mu_bye, &
-                                                              'M' , spec_bdy_width      , &
-                                                                    ids , ide , jds , jde , 1 , 1 , &
-                                                                    ims , ime , jms , jme , 1 , 1 , &
-                                                                    ips , ipe , jps , jpe , 1 , 1 )
+         IF ( config_flags%polar ) THEN
+
+            !  No need to build boundary arrays, since no lateral BCs are being generated.
+
+         ELSE
+
+            !  There are 2 components to the lateral boundaries.  First, there is the starting
+            !  point of this time period - just the outer few rows and columns.
+   
+            CALL stuff_bdy     ( ubdy3dtemp1 , grid%u_bxs, grid%u_bxe, grid%u_bys, grid%u_bye, &
+                                                                 'U' , spec_bdy_width      , &
+                                                                       ids , ide , jds , jde , kds , kde , &
+                                                                       ims , ime , jms , jme , kms , kme , &
+                                                                       ips , ipe , jps , jpe , kps , kpe )
+            CALL stuff_bdy     ( vbdy3dtemp1 , grid%v_bxs, grid%v_bxe, grid%v_bys, grid%v_bye, &
+                                                                 'V' , spec_bdy_width      , &
+                                                                       ids , ide , jds , jde , kds , kde , &
+                                                                       ims , ime , jms , jme , kms , kme , &
+                                                                       ips , ipe , jps , jpe , kps , kpe )
+            CALL stuff_bdy     ( tbdy3dtemp1 , grid%t_bxs, grid%t_bxe, grid%t_bys, grid%t_bye, &
+                                                                 'T' , spec_bdy_width      , &
+                                                                       ids , ide , jds , jde , kds , kde , &
+                                                                       ims , ime , jms , jme , kms , kme , &
+                                                                       ips , ipe , jps , jpe , kps , kpe )
+            CALL stuff_bdy     ( pbdy3dtemp1 , grid%ph_bxs, grid%ph_bxe, grid%ph_bys, grid%ph_bye, &
+                                                                 'W' , spec_bdy_width      , &
+                                                                       ids , ide , jds , jde , kds , kde , &
+                                                                       ims , ime , jms , jme , kms , kme , &
+                                                                       ips , ipe , jps , jpe , kps , kpe )
+            CALL stuff_bdy     ( qbdy3dtemp1 , grid%moist_bxs(:,:,:,P_QV), grid%moist_bxe(:,:,:,P_QV),     &
+                                               grid%moist_bys(:,:,:,P_QV), grid%moist_bye(:,:,:,P_QV),     &
+                                                                 'T' , spec_bdy_width      ,               &
+                                                                       ids , ide , jds , jde , kds , kde , &
+                                                                       ims , ime , jms , jme , kms , kme , &
+                                                                       ips , ipe , jps , jpe , kps , kpe )
+            CALL stuff_bdy     ( mbdy2dtemp1 , grid%mu_bxs, grid%mu_bxe, grid%mu_bys, grid%mu_bye, &
+                                                                 'M' , spec_bdy_width      , &
+                                                                       ids , ide , jds , jde , 1 , 1 , &
+                                                                       ims , ime , jms , jme , 1 , 1 , &
+                                                                       ips , ipe , jps , jpe , 1 , 1 )
+   
+         END IF
 
       ELSE IF ( loop .EQ. time_loop_max ) THEN
 
          !  If this is the last time through here, we need to close the files.
 
-         IF(grid%id .EQ. 1)CALL close_dataset ( id , config_flags , "DATASET=BOUNDARY" )
-         IF(grid_fdda .EQ. 1)CALL close_dataset ( id2 , config_flags , "DATASET=AUXINPUT10" )
-        IF(sst_update .EQ. 1)THEN
-         CALL close_dataset ( id5 , config_flags , "DATASET=AUXINPUT5" )
-        ENDIF
+         IF ( config_flags%polar ) THEN
+
+            !  No need to close the boundary file, it was never used.
+
+         ELSE
+            IF(grid%id .EQ. 1) THEN
+               CALL close_dataset ( id , config_flags , "DATASET=BOUNDARY" )
+            END IF
+         END IF
+
+         IF(grid_fdda .GE. 1) THEN
+            CALL close_dataset ( id2 , config_flags , "DATASET=AUXINPUT10" )
+         END IF
+
+         IF(sst_update .EQ. 1)THEN
+            CALL close_dataset ( id4 , config_flags , "DATASET=AUXINPUT4" )
+         END IF
 
       END IF
 

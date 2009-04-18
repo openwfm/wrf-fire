@@ -19,6 +19,7 @@
 #      define RSL_INTERNAL_MILLICLOCK rsl_internal_milliclock
 #      define RSL_INTERNAL_MICROCLOCK rsl_internal_microclock
 #      define TASK_FOR_POINT task_for_point
+#      define TASK_FOR_POINT_MESSAGE task_for_point_message
 #      define RSL_LITE_INIT_PERIOD rsl_lite_init_period
 #      define RSL_LITE_EXCH_PERIOD_Y rsl_lite_exch_period_y
 #      define RSL_LITE_EXCH_PERIOD_X rsl_lite_exch_period_x
@@ -33,6 +34,7 @@
 #      define F_PACK_INT f_pack_int
 #      define F_UNPACK_LINT f_unpack_lint
 #      define F_UNPACK_INT f_unpack_int
+#      define RSL_LITE_GET_HOSTNAME rsl_lite_get_hostname
 # else
 #   ifdef F2CSTYLE
 #      define RSL_LITE_ERROR_DUP1 rsl_error_dup1__
@@ -54,6 +56,7 @@
 #      define RSL_INTERNAL_MILLICLOCK rsl_internal_milliclock__
 #      define RSL_INTERNAL_MICROCLOCK rsl_internal_microclock__
 #      define TASK_FOR_POINT task_for_point__
+#      define TASK_FOR_POINT_MESSAGE task_for_point_message__
 #      define RSL_LITE_INIT_PERIOD rsl_lite_init_period__
 #      define RSL_LITE_EXCH_PERIOD_Y rsl_lite_exch_period_y__
 #      define RSL_LITE_EXCH_PERIOD_X rsl_lite_exch_period_x__
@@ -68,6 +71,7 @@
 #      define F_PACK_INT f_pack_int__
 #      define F_UNPACK_LINT f_unpack_lint__
 #      define F_UNPACK_INT f_unpack_int__
+#      define RSL_LITE_GET_HOSTNAME rsl_lite_get_hostname__
 #   else
 #      define RSL_LITE_ERROR_DUP1 rsl_error_dup1_
 #      define BYTE_BCAST byte_bcast_
@@ -88,6 +92,7 @@
 #      define RSL_INTERNAL_MILLICLOCK rsl_internal_milliclock_
 #      define RSL_INTERNAL_MICROCLOCK rsl_internal_microclock_
 #      define TASK_FOR_POINT task_for_point_
+#      define TASK_FOR_POINT_MESSAGE task_for_point_message_
 #      define RSL_LITE_INIT_PERIOD rsl_lite_init_period_
 #      define RSL_LITE_EXCH_PERIOD_Y rsl_lite_exch_period_y_
 #      define RSL_LITE_EXCH_PERIOD_X rsl_lite_exch_period_x_
@@ -102,6 +107,7 @@
 #      define F_PACK_INT f_pack_int_
 #      define F_UNPACK_LINT f_unpack_lint_
 #      define F_UNPACK_INT f_unpack_int_
+#      define RSL_LITE_GET_HOSTNAME rsl_lite_get_hostname_
 #   endif
 # endif
 #endif
@@ -131,8 +137,16 @@ typedef int * int_p ;
 #define INDEX_2(A,B,NB)       ( (B) + (A)*(NB) )
 #define INDEX_3(A,B,NB,C,NC)  INDEX_2( (A), INDEX_2( (B), (C), (NC) ), (NB)*(NC) )
 
-#define RSL_FATAL(N)     MPI_Abort(MPI_COMM_WORLD, 9)
-#define RSL_TEST_ERR(T,M) {if(T){fprintf(stderr,"rsl_lite error (\"%s\":%d) %s\n",__FILE__,__LINE__,M);RSL_FATAL(5);}}
+#ifndef STUBMPI
+# define RSL_FATAL(N)     MPI_Abort(MPI_COMM_WORLD, 9)
+#else
+# define RSL_FATAL(N)     exit(9) ;
+#endif
+#ifndef MS_SUA
+# define RSL_TEST_ERR(T,M) {if(T){fprintf(stderr,"rsl_lite error (\"%s\":%d) %s\n",__FILE__,__LINE__,M);RSL_FATAL(5);}}
+#else
+# define RSL_TEST_ERR(T,M) {if(T){RSL_FATAL(5);}}
+#endif
 
 #ifndef MPI2_SUPPORT
 typedef int MPI_Fint;
