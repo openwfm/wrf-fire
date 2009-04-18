@@ -1,6 +1,90 @@
 # See options.txt for a (somewhat up to date) list of the 
 # options that may be specified here.
 ===============================
+name = HCNVX
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hcnvx/
+===============================
+name = HSTDV
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hstdv/
+===============================
+name = HASYW
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hasyw/
+===============================
+name = HASYS
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hasys/
+===============================
+name = HASYSW
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hasysw/
+===============================
+name = HASYNW
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hasynw/
+===============================
+name = HLENW
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hlenw/
+===============================
+name = HLENS
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hlens/
+===============================
+name = HLENSW
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hlensw/
+===============================
+name = HLENNW
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hlennw/
+===============================
+name = HANIS
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hanis/
+===============================
+name = HSLOP
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hslop/
+===============================
+name = HANGL
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hangl/
+===============================
+name = HZMAX
+        priority = 1
+        dest_type = continuous
+        interp_option = default:average_4pt
+        rel_path = default:hzmax/
+===============================
 name = HGT_M
         priority = 1
         dest_type = continuous
@@ -38,13 +122,16 @@ name=LANDUSEF
         priority=1
         dest_type=categorical
         z_dim_name=land_cat
-        landmask_water=16               # Calculate a landmask from this field
+        landmask_water = modis_30s:17            # Calculate a landmask from this field
+        landmask_water =   default:16            # Calculate a landmask from this field
         dominant=LU_INDEX
+        interp_option =     modis_30s:nearest_neighbor
         interp_option =     30s:nearest_neighbor
         interp_option =      2m:four_pt
         interp_option =      5m:four_pt
         interp_option =     10m:four_pt
         interp_option = default:four_pt
+        rel_path=     modis_30s:modis_landuse_20class_30s/
         rel_path=     30s:landuse_30s/
         rel_path=      2m:landuse_2m/
         rel_path=      5m:landuse_5m/

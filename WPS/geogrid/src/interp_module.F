@@ -456,7 +456,7 @@ module interp_module
             icx = end_x
          end if
 
-         if (yy > real(start_y)-0.5 .and. ifx < start_y) then
+         if (yy > real(start_y)-0.5 .and. ify < start_y) then
             ify = start_y
             icy = start_y
          else if (yy < real(end_y)+0.5 .and. icy > end_y) then
@@ -634,7 +634,8 @@ module interp_module
       !   allow for a sixteen point average.
       if (ifx < start_x+1 .or. ifx > end_x-2 .or. &
           ify < start_y+1 .or. ify > end_y-2) then
-         sixteen_pt_average = msgval
+         sixteen_pt_average = interp_sequence(xx, yy, izz, array, start_x, end_x, start_y, end_y, &
+                             start_z, end_z, msgval, interp_list, idx, maskval, mask_array)
          return
       end if
   
@@ -719,7 +720,8 @@ module interp_module
       !   allow for a sixteen point average.
       if (ifx < start_x+1 .or. ifx > end_x-2 .or. &
           ify < start_y+1 .or. ify > end_y-2) then
-         wt_sixteen_pt_average = msgval
+         wt_sixteen_pt_average = interp_sequence(xx, yy, izz, array, start_x, end_x, start_y, end_y, &
+                             start_z, end_z, msgval, interp_list, idx, maskval, mask_array)
          return
       end if
   
@@ -974,10 +976,21 @@ module interp_module
          if (sixteen_pt == 1.E-20) sixteen_pt = 0. 
    
       else
-         if (i >= start_x .and. i <= end_x .and. j >= start_y .and. j <= end_y) then
-            sixteen_pt = array(i,j,izz)
+         if (present(mask_array) .and. present(maskval)) then
+            if (i >= start_x .and. i <= end_x .and. j >= start_y .and. j <= end_y .and. &
+                mask_array(i,j) /= maskval .and. array(i,j,izz) /= msgval) then
+               sixteen_pt = array(i,j,izz)
+            else
+               sixteen_pt = interp_sequence(xx, yy, izz, array, start_x, end_x, start_y, end_y, &
+                                            start_z, end_z, msgval, interp_list, idx, maskval, mask_array)
+            end if
          else
-            sixteen_pt = msgval
+            if (i >= start_x .and. i <= end_x .and. j >= start_y .and. j <= end_y .and. array(i,j,izz) /= msgval) then
+               sixteen_pt = array(i,j,izz)
+            else
+               sixteen_pt = interp_sequence(xx, yy, izz, array, start_x, end_x, start_y, end_y, &
+                                            start_z, end_z, msgval, interp_list, idx, maskval, mask_array)
+            end if
          end if
       end if
      

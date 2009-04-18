@@ -54,16 +54,16 @@ module process_tile_module
       integer, dimension(MAX_LANDMASK_CATEGORIES) :: landmask_value
       real :: sum, dominant, msg_fill_val, topo_flag_val, mass_flag, land_total, water_total
       real, dimension(16) :: corner_lats, corner_lons
-      real, pointer, dimension(:,:) :: xlat_array,   xlon_array, &
+      real, pointer, dimension(:,:) :: xlat_array,   xlon_array,   &
                                        xlat_array_u, xlon_array_u, &
                                        xlat_array_v, xlon_array_v, &
-                                       clat_array,   clon_array, &
+                                       clat_array,   clon_array,   &
+                                       xlat_array_subgrid, xlon_array_subgrid, &
                                        f_array, e_array, &
                                        mapfac_array_m_x, mapfac_array_u_x, mapfac_array_v_x, &
                                        mapfac_array_m_y, mapfac_array_u_y, mapfac_array_v_y, &
-                                       sina_array, cosa_array, &
-                                       xlat_array_subgrid, xlon_array_subgrid, &
-                                       mapfac_array_x_subgrid,mapfac_array_y_subgrid
+                                       mapfac_array_x_subgrid, mapfac_array_y_subgrid,       &
+                                       sina_array, cosa_array
       real, pointer, dimension(:,:) :: xlat_ptr, xlon_ptr, mapfac_ptr_x, mapfac_ptr_y, landmask, dominant_field
       real, pointer, dimension(:,:,:) :: field, slp_field
       logical :: is_water_mask, only_save_dominant, halt_on_missing
@@ -72,7 +72,7 @@ module process_tile_module
       character (len=256) :: temp_string
       type (bitarray) :: processed_domain 
       type (hashtable) :: processed_fieldnames
-      character (len=128),dimension(2) :: dimnames
+      character (len=128), dimension(2) :: dimnames
       integer :: sub_x, sub_y
    
       datestr = '0000-00-00_00:00:00'
@@ -152,8 +152,10 @@ module process_tile_module
          allocate(clat_array(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
          allocate(clon_array(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
       end if
-      nullify(xlat_array_subgrid, xlon_array_subgrid)
-      nullify(mapfac_array_x_subgrid,mapfac_array_y_subgrid)
+      nullify(xlat_array_subgrid)
+      nullify(xlon_array_subgrid)
+      nullify(mapfac_array_x_subgrid)
+      nullify(mapfac_array_y_subgrid)
     
       ! Initialize hash table to track which fields have been processed
       call hash_init(processed_fieldnames)
@@ -258,7 +260,7 @@ module process_tile_module
       end if
 
       ! Initialize the output module now that we have the corner point lats/lons
-      call output_init(which_domain, 'OUTPUT FROM GRIDGEN', '0000-00-00_00:00:00', grid_type, dynopt, &
+      call output_init(which_domain, 'OUTPUT FROM GEOGRID V3.0.1', '0000-00-00_00:00:00', grid_type, dynopt, &
                        corner_lats, corner_lons, &
                        start_dom_i,   end_dom_i,   start_dom_j,   end_dom_j, &
                        start_patch_i, end_patch_i, start_patch_j, end_patch_j, &
@@ -384,7 +386,7 @@ module process_tile_module
       !
       ! First process the field that we will derive a landmask from
       !
-      call get_landmask_field(landmask_name, is_water_mask, landmask_value, istatus)
+      call get_landmask_field(geog_data_res(which_domain), landmask_name, is_water_mask, landmask_value, istatus)
 
       do kk=1,MAX_LANDMASK_CATEGORIES
          if (landmask_value(kk) == INVALID) then
@@ -438,11 +440,11 @@ module process_tile_module
          if (grid_type == 'C') then
             call calc_field(landmask_name, field, xlat_array, xlon_array, M, &
                             start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                            min_category, max_category, processed_domain, 1, landmask)
+                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1)
          else if (grid_type == 'E') then
             call calc_field(landmask_name, field, xlat_array, xlon_array, HH, &
                             start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                            min_category, max_category, processed_domain, 1, landmask)
+                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1)
          end if
      
          ! Find fractions
@@ -665,7 +667,7 @@ module process_tile_module
       do while (ifieldstatus == 0) 
          call get_next_fieldname(fieldname, ifieldstatus)
      
-         ! There is another field in the GRIDGEN.TBL file 
+         ! There is another field in the GEOGRID.TBL file 
          if (ifieldstatus == 0) then
             temp_string(1:128) = fieldname
       
@@ -676,11 +678,11 @@ module process_tile_module
                call mprintf(.true.,STDOUT,'  Processing %s', s1=trim(fieldname))
        
                call get_output_stagger(fieldname, istagger, istatus)
-               dimnames(:)='null'
-               call get_subgrid_dim_name(which_domain,fieldname,dimnames, &
-                                         sub_x,sub_y,istatus)
+               dimnames(:) = 'null'
+               call get_subgrid_dim_name(which_domain, fieldname, dimnames, &
+                                         sub_x, sub_y, istatus)
        
-               if (istagger == M.or.sub_x.gt.1.or.sub_y.gt.1) then
+               if (istagger == M .or. (sub_x > 1) .or. (sub_y > 1)) then
                   sm1 = start_mem_i
                   em1 = end_mem_i
                   sm2 = start_mem_j
@@ -726,37 +728,44 @@ module process_tile_module
                   mapfac_ptr_x => mapfac_array_v_x
                   mapfac_ptr_y => mapfac_array_v_y
                end if
-!                 print*,sm1,sm2,em1,em2
-!                 print*,xlat_ptr(sm1,sm2),xlon_ptr(sm1,sm2),xlat_ptr(em1,em2),xlon_ptr(em1,em2)
 
-               if(sub_x.gt.1)then
-                 sm1=(start_mem_i-1)*sub_x+1
-                 em1=(end_mem_i+1)*sub_x
-               endif
-               if(sub_y.gt.1)then
-                 sm2=(start_mem_j-1)*sub_y+1
-                 em2=(end_mem_j+1)*sub_y
-               endif
-               if(sub_x.gt.1.or.sub_y.gt.1)then
-                 if(associated(xlat_array_subgrid))deallocate(xlat_array_subgrid)
-                 if(associated(xlon_array_subgrid))deallocate(xlon_array_subgrid)
-                 if(associated(mapfac_array_x_subgrid))deallocate(mapfac_array_x_subgrid)
-                 if(associated(mapfac_array_y_subgrid))deallocate(mapfac_array_y_subgrid)
-                 allocate(xlat_array_subgrid(sm1:em1,sm2:em2))
-                 allocate(xlon_array_subgrid(sm1:em1,sm2:em2))
-                 allocate(mapfac_array_x_subgrid(sm1:em1,sm2:em2))
-                 allocate(mapfac_array_y_subgrid(sm1:em1,sm2:em2))
-                 call get_lat_lon_fields(xlat_array_subgrid,xlon_array_subgrid,&
-                                  sm1,sm2,em1,em2,M,sub_x=sub_x,sub_y=sub_y)
-                 xlat_ptr => xlat_array_subgrid
-                 xlon_ptr => xlon_array_subgrid
-                 call get_map_factor(xlat_ptr,xlon_ptr,mapfac_array_x_subgrid, &
-                                     mapfac_array_y_subgrid,sm1,sm2,em1,em2)
-                 mapfac_ptr_x => mapfac_array_x_subgrid
-                 mapfac_ptr_y => mapfac_array_y_subgrid
-!                 print*,sm1,sm2,em1,em2
-!                 print*,xlat_ptr(sm1,sm2),xlon_ptr(sm1,sm2),xlat_ptr(em1,em2),xlon_ptr(em1,em2)
-               endif
+               if (sub_x > 1) then
+                  sm1 = (start_mem_i - 1)*sub_x + 1
+                  if (extra_col) then
+                     em1 = (end_mem_i + 1)*sub_x
+                  else
+                     em1 = (end_mem_i    )*sub_x
+                  end if
+               end if
+               if (sub_y > 1)then
+                  sm2 = (start_mem_j - 1)*sub_y + 1
+                  if (extra_row) then
+                     em2 = (end_mem_j + 1)*sub_y
+                  else
+                     em2 = (end_mem_j    )*sub_y
+                  end if
+               end if
+
+!BUG: This should probably be moved up to where other lat/lon fields are calculated, and we should
+!     just determine whether we will have any subgrids or not at that point
+               if ((sub_x > 1) .or. (sub_y > 1)) then
+!                  if (associated(xlat_array_subgrid))     deallocate(xlat_array_subgrid)
+!                  if (associated(xlon_array_subgrid))     deallocate(xlon_array_subgrid)
+!                  if (associated(mapfac_array_x_subgrid)) deallocate(mapfac_array_x_subgrid)
+!                  if (associated(mapfac_array_y_subgrid)) deallocate(mapfac_array_y_subgrid)
+                  allocate(xlat_array_subgrid(sm1:em1,sm2:em2))
+                  allocate(xlon_array_subgrid(sm1:em1,sm2:em2))
+                  allocate(mapfac_array_x_subgrid(sm1:em1,sm2:em2))
+                  allocate(mapfac_array_y_subgrid(sm1:em1,sm2:em2))
+                  call get_lat_lon_fields(xlat_array_subgrid, xlon_array_subgrid, &
+                                   sm1, sm2, em1, em2, M, sub_x=sub_x, sub_y=sub_y)
+                  xlat_ptr => xlat_array_subgrid
+                  xlon_ptr => xlon_array_subgrid
+                  call get_map_factor(xlat_ptr, xlon_ptr, mapfac_array_x_subgrid, &
+                                      mapfac_array_y_subgrid, sm1, sm2, em1, em2)
+                  mapfac_ptr_x => mapfac_array_x_subgrid
+                  mapfac_ptr_y => mapfac_array_y_subgrid
+               end if
        
                call get_missing_fill_value(fieldname, msg_fill_val, istatus)
                if (istatus /= 0) msg_fill_val = NAN 
@@ -773,9 +782,15 @@ module process_tile_module
                   call mprintf(.true.,LOGFILE,'Processing field %i of %i (%s)', &
                                i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=fieldname)
 
-                  call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
-                             sm1, em1, sm2, em2, min_level, max_level, &
-                             processed_domain, 1, landmask)
+                  if ((sub_x > 1) .or. (sub_y > 1)) then
+                     call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
+                                sm1, em1, sm2, em2, min_level, max_level, &
+                                processed_domain, 1, sr_x=sub_x, sr_y=sub_y)
+                  else
+                     call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
+                                sm1, em1, sm2, em2, min_level, max_level, &
+                                processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y)
+                  end if
         
                   ! If user wants to halt when a missing value is found in output field, check now
                   if (halt_on_missing) then
@@ -916,18 +931,15 @@ module process_tile_module
                                   i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=domname)
                   end if
 
-                  if(sub_x.gt.1.or.sub_y.gt.1)then
-    call mprintf(.true.,WARN,'Skipping landmask processing for subgrid field %s', &
-                     s1=fieldname)
-                  call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
-                             sm1, em1, sm2, em2, min_category, max_category, &
-                             processed_domain, 1, interponly=.true.)
+                  if ((sub_x > 1) .or. (sub_y > 1)) then
+                     call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
+                                     sm1, em1, sm2, em2, min_category, max_category, &
+                                     processed_domain, 1, sr_x=sub_x, sr_y=sub_y)
                   else
-
-                  call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
-                             sm1, em1, sm2, em2, min_category, max_category, &
-                             processed_domain, 1)
-                  endif
+                     call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
+                                     sm1, em1, sm2, em2, min_category, max_category, &
+                                     processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y)
+                  end if
        
                   ! Find fractions
                   do i=sm1, em1
@@ -1058,6 +1070,13 @@ module process_tile_module
                   end if
        
                   deallocate(field)
+
+                  if ((sub_x > 1) .or. (sub_y > 1)) then
+                     if (associated(xlat_array_subgrid))     deallocate(xlat_array_subgrid)
+                     if (associated(xlon_array_subgrid))     deallocate(xlon_array_subgrid)
+                     if (associated(mapfac_array_x_subgrid)) deallocate(mapfac_array_x_subgrid)
+                     if (associated(mapfac_array_y_subgrid)) deallocate(mapfac_array_y_subgrid)
+                  end if
    
                end if
       
@@ -1087,10 +1106,10 @@ module process_tile_module
       if (associated(mapfac_array_v_x)) deallocate(mapfac_array_v_x)
       if (associated(mapfac_array_v_y)) deallocate(mapfac_array_v_y)
       if (associated(landmask)) deallocate(landmask)
-      if(associated(xlat_array_subgrid))deallocate(xlat_array_subgrid)
-      if(associated(xlon_array_subgrid))deallocate(xlon_array_subgrid)
-      if(associated(mapfac_array_x_subgrid))deallocate(mapfac_array_x_subgrid)
-      if(associated(mapfac_array_y_subgrid))deallocate(mapfac_array_y_subgrid)
+      if (associated(xlat_array_subgrid))     deallocate(xlat_array_subgrid)
+      if (associated(xlon_array_subgrid))     deallocate(xlon_array_subgrid)
+      if (associated(mapfac_array_x_subgrid)) deallocate(mapfac_array_x_subgrid)
+      if (associated(mapfac_array_y_subgrid)) deallocate(mapfac_array_y_subgrid)
 
       nullify(xlat_ptr)
       nullify(xlon_ptr)
@@ -1108,8 +1127,7 @@ module process_tile_module
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    recursive subroutine calc_field(fieldname, field, xlat_array, xlon_array, istagger, &
                                    start_i, end_i, start_j, end_j, start_k, end_k, &
-                                   processed_domain, ilevel, landmask, &
-                                   interponly)
+                                   processed_domain, ilevel, landmask, sr_x, sr_y)
    
       use bitarray_module
       use interp_module
@@ -1118,7 +1136,6 @@ module process_tile_module
       use proc_point_module
       use queue_module
       use source_data_module
-      use module_debug
     
       implicit none
     
@@ -1127,9 +1144,9 @@ module process_tile_module
       real, dimension(start_i:end_i, start_j:end_j), intent(in) :: xlat_array, xlon_array
       real, dimension(start_i:end_i, start_j:end_j, start_k:end_k), intent(inout) :: field
       real, dimension(start_i:end_i, start_j:end_j), intent(in), optional :: landmask
+      integer, intent(in), optional :: sr_x, sr_y
       character (len=128), intent(in) :: fieldname
       type (bitarray), intent(inout) :: processed_domain
-      logical, optional, intent(in) :: interponly
     
       ! Local variables
       integer :: start_src_k, end_src_k
@@ -1147,11 +1164,6 @@ module process_tile_module
       type (bitarray) :: bit_domain, level_domain
       type (queue)    :: point_queue, tile_queue
       type (q_data)   :: current_pt
-
-      if(present(interponly))then
-        call mprintf(.true.,WARN,"skipping accumulation processing on subgrid field %s", & 
-                     s1=fieldname)
-      endif
 
       ! If this is the first trip through this routine, we need to allocate the bit array that
       !  will persist through all recursive calls, tracking which grid points have been assigned
@@ -1180,7 +1192,7 @@ module process_tile_module
       ! Before proceeding with processing for this level, though, process for the next highest priority level
       !   of source data
       call calc_field(fieldname, field, xlat_array, xlon_array, istagger, start_i, end_i, &
-                      start_j, end_j, start_k, end_k, processed_domain, ilevel+1, landmask)
+                      start_j, end_j, start_k, end_k, processed_domain, ilevel+1, landmask, sr_x, sr_y)
     
       ! At this point, all levels of source data with higher priority have been processed, and we can assign
       !   values to all grid points that have not already been given values from higher-priority data
@@ -1262,12 +1274,11 @@ module process_tile_module
             !   accum_categorical. 
             if (.not. bitarray_test(bit_domain, current_pt%x-start_i+1, current_pt%y-start_j+1)) then
                call q_insert(point_queue, current_pt) 
-               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel) .and. &
-                   .not.present(interponly)) then
+               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel)) then
                   call accum_categorical(current_pt%lat, current_pt%lon, istagger, field, &
                                          start_i, end_i, start_j, end_j, start_k, end_k, &
                                          fieldname, processed_domain, level_domain, &
-                                         ilevel, msg_val, mask_val)
+                                         ilevel, msg_val, mask_val, sr_x, sr_y)
 ! BUG: Where do we mask out those points that are on land/water when masked=land/water is set? 
                end if
                call bitarray_set(bit_domain, current_pt%x-start_i+1, current_pt%y-start_j+1)
@@ -1279,12 +1290,11 @@ module process_tile_module
             !   accum_continuous. 
             if (.not. bitarray_test(bit_domain, current_pt%x-start_i+1, current_pt%y-start_j+1)) then
                call q_insert(point_queue, current_pt) 
-               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel).and.&
-                   .not.present(interponly)) then
+               if (.not. have_processed_tile(current_pt%lat, current_pt%lon, fieldname, ilevel)) then
                   call accum_continuous(current_pt%lat, current_pt%lon, istagger, field, data_count, &
                                          start_i, end_i, start_j, end_j, start_k, end_k, &
                                          fieldname, processed_domain, level_domain, &
-                                         ilevel, msg_val, mask_val)
+                                         ilevel, msg_val, mask_val, sr_x, sr_y)
 ! BUG: Where do we mask out those points that are on land/water when masked=land/water is set? 
                end if
                call bitarray_set(bit_domain, current_pt%x-start_i+1, current_pt%y-start_j+1)
@@ -1328,6 +1338,7 @@ module process_tile_module
                               if (temp /= msg_val) then
                                  field(ix, iy, k) = temp
                                  call bitarray_set(level_domain, ix-start_i+1, iy-start_j+1)
+                                 if (itype == SP_CONTINUOUS) data_count(ix, iy, k) = 1.0
                               else
                                  field(ix, iy, k) = msg_fill_val
                               end if
@@ -1344,6 +1355,7 @@ module process_tile_module
                            if (temp /= msg_val) then
                               field(ix, iy, k) = temp
                               call bitarray_set(level_domain, ix-start_i+1, iy-start_j+1)
+                              if (itype == SP_CONTINUOUS) data_count(ix, iy, k) = 1.0
                            else
                               field(ix, iy, k) = msg_fill_val
                            end if
@@ -1366,7 +1378,7 @@ module process_tile_module
                   !   was called for the current tile, and we need to assign values from this 
                   !   level of source data if we can
                   else
-                     if (present(landmask) .and. (istagger == M .or. istagger == HH) ) then
+                     if (present(landmask) .and. (istagger == M .or. istagger == HH)) then
                         if (landmask(ix,iy) /= mask_val) then
                            temp = get_point(current_pt%lat, current_pt%lon, 1, &
                                             fieldname, ilevel, interp_type, msg_val)
@@ -1577,7 +1589,7 @@ module process_tile_module
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine get_lat_lon_fields(xlat_arr, xlon_arr, start_mem_i, &
                                  start_mem_j, end_mem_i, end_mem_j, stagger, comp_ll, &
-                                 sub_x,sub_y)
+                                 sub_x, sub_y)
    
       use llxy_module
       use misc_definitions_module
@@ -1592,15 +1604,17 @@ module process_tile_module
       integer, optional, intent(in) :: sub_x, sub_y
 
       ! Local variables
-      integer :: i, j,lx,ly
+      integer :: i, j
+      real :: rx, ry
     
-      lx=1
-      ly=1
-      if(present(sub_x))lx=sub_x
-      if(present(sub_y))ly=sub_y
+      rx = 1.0
+      ry = 1.0
+      if (present(sub_x)) rx = real(sub_x)
+      if (present(sub_y)) ry = real(sub_y)
+
       do i=start_mem_i, end_mem_i
          do j=start_mem_j, end_mem_j
-            call xytoll(real(i-1)/real(lx)+1., real(j-1)/real(ly)+1., &
+            call xytoll(real(i-1)/rx+1.0, real(j-1)/ry+1.0, &
                         xlat_arr(i,j), xlon_arr(i,j), stagger, comp_ll=comp_ll)
          end do
       end do

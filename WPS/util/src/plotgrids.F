@@ -17,9 +17,10 @@ program plotgrids
                         s_we, e_we, s_sn, e_sn, &
                         start_year, start_month, start_day, start_hour, &
                         end_year,   end_month,   end_day,   end_hour
+   logical, dimension(MAX_DOMAINS) :: active_grid
 
    real :: known_lat, known_lon, stand_lon, truelat1, truelat2, known_x, known_y, &
-           dxkm, dykm, phi, lambda, ref_lat, ref_lon, ref_x, ref_y
+           dxkm, dykm, ref_lat, ref_lon, ref_x, ref_y
    real :: dx, dy
    real :: ri, rj, rlats, rlons, rlate, rlone
    real :: polat , rot
@@ -47,8 +48,8 @@ program plotgrids
    namelist /share/ wrf_core, max_dom, start_date, end_date, &
                      start_year, end_year, start_month, end_month, &
                      start_day, end_day, start_hour, end_hour, &
-                     interval_seconds, &
-                     io_form_geogrid, opt_output_from_geogrid_path, debug_level
+                     interval_seconds, io_form_geogrid, opt_output_from_geogrid_path, &
+                     debug_level, active_grid
    namelist /geogrid/ parent_id, parent_grid_ratio, &
                       i_parent_start, j_parent_start, s_we, e_we, s_sn, e_sn, &
                       map_proj, ref_x, ref_y, ref_lat, ref_lon, &
@@ -125,8 +126,6 @@ program plotgrids
    else if (wrf_core == 'NMM') then
       gridtype = 'E'
       dyn_opt = 4
-      CALL plot_e_grid ( e_we(1)-1 , e_sn(1)-1 , ref_lat , -1. * ref_lon , dy , dx ) 
-      stop
    end if
 
    if (gridtype /= 'C' .and. gridtype /= 'E') then
@@ -185,6 +184,7 @@ program plotgrids
          write(6,*) 'In namelist, invalid map_proj specified. Valid '// &
                     'projections are "lambert", "mercator", "polar", '// &
                     'and "rotated_ll".'
+         stop
    end if
 
    n_domains = max_dom
@@ -193,11 +193,6 @@ program plotgrids
       ixdim(i) = e_we(i) - s_we(i) + 1
       jydim(i) = e_sn(i) - s_sn(i) + 1
    end do
-
-   if (gridtype == 'E') then
-      phi = dykm*real(jydim(1)-1)/2.
-      lambda = dxkm*real(ixdim(1)-1)
-   end if
 
    ! If the user hasn't supplied a known_x and known_y, assume the center of domain 1
    if (known_x == NAN) known_x = ixdim(1) / 2.
@@ -228,6 +223,32 @@ program plotgrids
             stop
          end if
       end do
+   end if
+
+   ! Checks specific to E grid
+   if (gridtype == 'E') then
+
+      ! E grid supports only the rotated lat/lon projection
+      if (iproj_type /= PROJ_ROTLL) then
+         write(6,*) 'Rotated lat/lon is the only supported projection for the NMM core.'
+         stop
+      end if
+
+      ! Check that the parent_grid_ratio is set to 3 for all nests
+      do i=2,n_domains
+         if (parent_grid_ratio(i) /= 3) then
+            write(6,*) 'The parent_grid_ratio must be set to 3 for the NMM core.'
+            stop
+         end if
+      end do
+
+      CALL plot_e_grid ( ref_lat , -1. * ref_lon , &
+                         dy , dx, &
+                         n_domains , &
+                         e_we , e_sn , &
+                         parent_id , parent_grid_ratio , &
+                         i_parent_start , j_parent_start )
+      stop
    end if
 
    do i=1,n_domains
@@ -290,7 +311,14 @@ program plotgrids
 
    call frame
 
+   write(6,*) ' '
+   write(6,*) 'Creating plot in NCAR Graphics metafile...'
+   write(6,*) ' '
+
    call clsgks
+
+   write(6,*) ' *** Successful completion of program plotgrids.exe *** '
+
 
    stop
 
@@ -353,7 +381,11 @@ end subroutine getxy
 !!!!!!  E GRID MAP INFO BELOW     !!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-SUBROUTINE plot_e_grid ( im , jm , rlat0d , rlon0d , dphd , dlmd ) 
+SUBROUTINE plot_e_grid ( rlat0d , rlon0d , dphd , dlmd, &
+                         n_domains , &
+                         e_we , e_sn , &
+                         parent_id , parent_grid_ratio , &
+                         i_parent_start , j_parent_start )
 
 !  This routine generates a gmeta file of the area covered by an Arakawa e-grid.
 !  We assume that NCAR Graphics has not been called yet (and will be closed
@@ -377,11 +409,10 @@ SUBROUTINE plot_e_grid ( im , jm , rlat0d , rlon0d , dphd , dlmd )
 !    Remove non-mapping portions
 !    Make part of WPS domain plotting utility
 
+!  Dec 2008 NCAR/DTC
+!    Pass additional arguments to enable plotting of nests
 
    !  Input map parameters for E grid.
-
-   INTEGER , INTENT(IN) :: im , &     ! number of H points in odd rows
-                           jm         ! number of rows
 
    REAL , INTENT(IN)    :: rlat0d , & ! latitude of grid center (degrees)
                            rlon0d     ! longitude of grid center (degrees, times -1)
@@ -389,18 +420,31 @@ SUBROUTINE plot_e_grid ( im , jm , rlat0d , rlon0d , dphd , dlmd )
    REAL , INTENT(IN)    :: dphd , &   ! angular distance between rows (degrees)
                            dlmd       ! angular distance between adjacent H and V points (degrees)
 
+   INTEGER , INTENT(in) :: n_domains  ! number of domains
+   INTEGER , INTENT(in) , DIMENSION(n_domains):: e_we , &
+                                                 e_sn , &
+                                                 parent_id , &
+                                                 parent_grid_ratio , &
+                                                 i_parent_start , &
+                                                 j_parent_start
+
    !  Some local vars
 
    REAL :: rlat1d , &
            rlon1d
 
-   INTEGER :: ngpwe , &
+   INTEGER :: im, &     ! number of H points in odd rows
+              jm , &    ! number of rows
+              ngpwe , &
               ngpsn , &
               ilowl , &
               jlowl
      
    INTEGER :: imt , imtjm
    REAL :: latlft,lonlft,latrgt,lonrgt
+
+   im = e_we(1)-1
+   jm = e_sn(1)-1
 
    imt=2*im-1
    imtjm=imt*jm
@@ -418,7 +462,11 @@ SUBROUTINE plot_e_grid ( im , jm , rlat0d , rlon0d , dphd , dlmd )
 
    CALL mapbkg_egrid ( imt,jm,ilowl,jlowl,ngpwe,ngpsn,&
                        rlat0d,rlon0d,latlft,lonlft,latrgt,lonrgt,&
-                       dlmd,dphd)
+                       dlmd,dphd,&
+                       n_domains,&
+                       e_we,e_sn,&
+                       parent_id,parent_grid_ratio,&
+                       i_parent_start,j_parent_start)
 
 END SUBROUTINE plot_e_grid
 
@@ -528,13 +576,24 @@ END SUBROUTINE corners
 
 SUBROUTINE mapbkg_egrid ( imt,jm,ilowl,jlowl,ngpwe,ngpsn,&
                           rlat0d,rlon0d,glatl,glonl,glatr,glonr,&
-                          dlmd,dphd)
+                          dlmd,dphd,&
+                          n_domains,&
+                          e_we,e_sn,&
+                          parent_id,parent_grid_ratio,&
+                          i_parent_start , j_parent_start )
 
 !  IMPLICIT NONE
+
+   INTEGER , INTENT(in) :: n_domains
+   INTEGER , INTENT(in) , DIMENSION(n_domains):: e_we , e_sn , &
+                                                 parent_id , parent_grid_ratio , &
+                                                 i_parent_start , j_parent_start
 
    !  Some local vars
 
    CHARACTER (LEN=97) :: string
+   INTEGER :: i
+   REAL :: xs, xe, ys, ye
 
    !  Yet more center lon messing around, hoo boy.
 
@@ -552,9 +611,9 @@ SUBROUTINE mapbkg_egrid ( imt,jm,ilowl,jlowl,ngpwe,ngpsn,&
    CALL gscr ( 1 , 0 , 1., 1., 1. )
    CALL gscr ( 1 , 1 , 0., 0., 0. )
 
-   !  Line width twice default thickness.
+   !  Line width default thickness.
 
-   CALL setusv('LW',2000)
+   CALL setusv('LW',1000)
 
    !  Make map outline a solid line, not dots.
 
@@ -586,10 +645,17 @@ SUBROUTINE mapbkg_egrid ( imt,jm,ilowl,jlowl,ngpwe,ngpsn,&
    CALL mapint
    CALL mapdrw
 
+   !  Line width twice default thickness.
+
+   CALL setusv('LW',2000)
+
    !  Add approx grid point tick marks
 
-   CALL setusv('LW',1000)
    CALL perim(((imt+3)/2)-1,1,jm-1,1)
+
+   !  Line width default thickness.
+
+   CALL setusv('LW',1000)
 
    !  Put on a quicky description.
 
@@ -598,10 +664,29 @@ SUBROUTINE mapbkg_egrid ( imt,jm,ilowl,jlowl,ngpwe,ngpsn,&
                             &", REF_LAT = ",F8.3,", REF_LON = ",F8.3)') &
                             (imt+3)/2,jm+1,dlmd,dphd,rlat0d,-1.*rlon0d
    CALL getset(xa,xb,ya,yb,xxa,xxy,yya,yyb,ltype)
-!  CALL set   (xa,xb,ya,yb,0.,1.,0.,1.,lytpe)
-!  CALL gsclip(0)
-!  CALL pchiqu ( 0.5 , -5. , string , 8. , 0., 0. )
-   CALL pchiqu ( xxa , yya - (yyb-yya)/20., string , 8. , 0., -1. )
+   CALL pchiqu(xxa,yya-(yyb-yya)/20.,string,8.,0.,-1.)
+   CALL set   (xa,xb,ya,yb,&
+               1.,real(e_we(1)),1.,real(e_sn(1)),ltype)
+
+   !  Line width twice default thickness.
+
+   CALL setusv('LW',2000)
+
+   !  Draw a box for each nest.
+
+   do i=2 , n_domains
+      call getxy ( xs, xe, ys, ye, &
+                   i , n_domains , &
+                   e_we , e_sn , &
+                   parent_id , parent_grid_ratio , &
+                   i_parent_start , j_parent_start )
+
+      call line ( xs , ys , xe , ys )
+      call line ( xe , ys , xe , ye )
+      call line ( xe , ye , xs , ye )
+      call line ( xs , ye , xs , ys )
+   end do
+
    CALL frame
 
    !  Close workstation and NCAR Grpahics.

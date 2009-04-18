@@ -14,12 +14,13 @@ module gridinfo_module
  
    ! Variables
    integer :: interval_seconds, max_dom, io_form_input, io_form_output, debug_level
-   integer, dimension(MAX_DOMAINS) :: sr_x, sr_y
+   integer, dimension(MAX_DOMAINS) :: subgrid_ratio_x, subgrid_ratio_y
    character (len=MAX_FILENAME_LEN) :: opt_output_from_geogrid_path, &
                           opt_output_from_metgrid_path, opt_metgrid_tbl_path 
    character (len=128), dimension(MAX_DOMAINS) :: start_date, end_date
    character (len=MAX_FILENAME_LEN), dimension(MAX_DOMAINS) :: fg_name, constants_name
    logical :: do_tiled_input, do_tiled_output, opt_ignore_dom_center, nocolons
+   logical, dimension(MAX_DOMAINS) :: grid_is_active
    character (len=1) :: gridtype
  
    contains
@@ -37,16 +38,18 @@ module gridinfo_module
       integer :: i, io_form_geogrid, io_form_metgrid
       integer, dimension(MAX_DOMAINS) :: start_year, start_month, start_day, start_hour, start_minute, start_second, &
                                          end_year, end_month, end_day, end_hour, end_minute, end_second
+      logical, dimension(MAX_DOMAINS) :: active_grid
       integer :: funit
       logical :: is_used
       character (len=3) :: wrf_core
+
       namelist /share/ wrf_core, max_dom, start_date, end_date, &
                         start_year, end_year, start_month, end_month, &
                         start_day, end_day, start_hour, end_hour, &
                         start_minute, end_minute, start_second, end_second, &
-                        interval_seconds, &
-                        io_form_geogrid, opt_output_from_geogrid_path, debug_level, nocolons, &
-                        sr_x, sr_y
+                        interval_seconds, io_form_geogrid, opt_output_from_geogrid_path, &
+                        debug_level, active_grid, nocolons, &
+                        subgrid_ratio_x, subgrid_ratio_y
       namelist /metgrid/ io_form_metgrid, fg_name, constants_name, opt_output_from_metgrid_path, &
                          opt_metgrid_tbl_path, opt_ignore_dom_center 
         
@@ -74,8 +77,9 @@ module gridinfo_module
          end_second(i) = 0
          start_date(i) = '0000-00-00_00:00:00'
          end_date(i) = '0000-00-00_00:00:00'
-         sr_x(i) = 1
-         sr_y(i) = 1
+         active_grid(i) = .true.
+         subgrid_ratio_x(i) = 1
+         subgrid_ratio_y(i) = 1
       end do
       opt_output_from_geogrid_path = './'
       opt_output_from_metgrid_path = './'
@@ -163,20 +167,20 @@ module gridinfo_module
       call mprintf(.true.,LOGFILE,'  INTERVAL_SECONDS = %i',i1=interval_seconds)
       call mprintf(.true.,LOGFILE,'  IO_FORM_GEOGRID  = %i',i1=io_form_geogrid)
       call mprintf(.true.,LOGFILE,'  OPT_OUTPUT_FROM_GEOGRID_PATH = %s',s1=opt_output_from_geogrid_path)
-      call mprintf(.true.,LOGFILE,'  SR_X              = %i',i1=sr_x(1))
+      call mprintf(.true.,LOGFILE,'  SUBGRID_RATIO_X  = %i',i1=subgrid_ratio_x(1))
       do i=2,max_dom
-         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_x(i))
+         call mprintf(.true.,LOGFILE,'                   = %i',i1=subgrid_ratio_x(i))
       enddo
-      call mprintf(.true.,LOGFILE,'  SR_Y              = %i',i1=sr_y(1))
+      call mprintf(.true.,LOGFILE,'  SUBGRID_RATIO_Y  = %i',i1=subgrid_ratio_y(1))
       do i=2,max_dom
-         call mprintf(.true.,LOGFILE,'                    = %i',i1=sr_y(i))
+         call mprintf(.true.,LOGFILE,'                   = %i',i1=subgrid_ratio_y(i))
       enddo
       call mprintf(.true.,LOGFILE,'  DEBUG_LEVEL      = %i',i1=debug_level)
-      if ( nocolons ) then
-         call mprintf(.true.,LOGFILE,'  NOCOLONS         = .TRUE.' )
-      else
-         call mprintf(.true.,LOGFILE,'  NOCOLONS         = .FALSE.' )
-      endif
+      call mprintf(.true.,LOGFILE,'  ACTIVE_GRID      = %l',l1=active_grid(1))
+      do i=2,max_dom
+         call mprintf(.true.,LOGFILE,'                   = %l',l1=active_grid(i))
+      end do
+      call mprintf(.true.,LOGFILE,'  NOCOLONS         = %l',l1=nocolons)
       call mprintf(.true.,LOGFILE,'/')
 
       call mprintf(.true.,LOGFILE,'&METGRID')
@@ -342,6 +346,10 @@ module gridinfo_module
          if (len_trim(fg_name(i)) == 0) then
             fg_name(i) = '*'
          end if
+      end do
+
+      do i=1,max_dom
+         grid_is_active(i) = active_grid(i)
       end do
 
       return

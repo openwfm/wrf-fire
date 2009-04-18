@@ -6,7 +6,7 @@ COMPRESSION_INC		=
 FDEFS			=
 NCARG_LIBS		=
 NCARG_LIBS2		=	-L/usr/local/lib64/r4i4 -lncarg -lncarg_gks -lncarg_c \
-				-L/usr/X11R6/lib -lX11
+				-L/usr/X11R6/lib -lX11 -lpng_ncl -lz_ncl
 FC		=	xlf90_r
 SFC		=	xlf90_r
 FFLAGS		=	-qfree=f90
@@ -29,7 +29,7 @@ COMPRESSION_INC         =       -I/contrib/libpng/include -I/contrib/zlib/includ
 
 NCARG_LIBS		=
 NCARG_LIBS2		=	-L/usr/local/lib64/r4i4 -lncarg -lncarg_gks -lncarg_c \
-				-L/usr/X11R6/lib -lX11
+				-L/usr/X11R6/lib -lX11 -lpng_ncl -lz_ncl
 FC		=	xlf90_r
 SFC		=	xlf90_r
 FFLAGS		=	-qfree=f90
@@ -52,7 +52,7 @@ COMPRESSION_INC		=
 FDEFS			=
 NCARG_LIBS		=
 NCARG_LIBS2		=	-L/usr/local/lib64/r4i4 -lncarg -lncarg_gks -lncarg_c \
-				-L/usr/X11R6/lib -lX11
+				-L/usr/X11R6/lib -lX11 -lpng_ncl -lz_ncl
 FC		=	mpxlf90_r
 SFC		=	xlf90_r
 FFLAGS		=	-qfree=f90
@@ -75,7 +75,7 @@ COMPRESSION_INC         =       -I/contrib/libpng/include -I/contrib/zlib/includ
 
 NCARG_LIBS		=
 NCARG_LIBS2		=	-L/usr/local/lib64/r4i4 -lncarg -lncarg_gks -lncarg_c \
-				-L/usr/X11R6/lib -lX11
+				-L/usr/X11R6/lib -lX11 -lpng_ncl -lz_ncl
 FC		=	mpxlf90_r
 SFC		=	xlf90_r
 FFLAGS		=	-qfree=f90
@@ -223,13 +223,13 @@ COMPRESSION_INC		=
 FDEFS			=
 FC		=	pgf90
 SFC		=	pgf90
-FFLAGS		=	-Mfree -byteswapio -O -Kieee
-F77FLAGS	=	-Mfixed -byteswapio -O -Kieee
+FFLAGS		=	-Mfree -byteswapio -O
+F77FLAGS	=	-Mfixed -byteswapio -O
 FNGFLAGS	=	$(FFLAGS)
-LDFLAGS		=	-Kieee
+LDFLAGS		=	
 CC		=	pgcc
 SCC		=	cc
-CFLAGS		=	-O -Kieee
+CFLAGS		=	-O
 CPP		=	/lib/cpp -C -P -traditional
 CPPFLAGS	=	-D_UNDERSCORE -DBYTESWAP -DLINUX -DIO_NETCDF -DIO_BINARY -DIO_GRIB1 -DBIT32
 NCARG_LIBS2	=	-L${PGI}/linux86/6.1/lib -lpgftnrtl -lpgc \
@@ -240,13 +240,13 @@ NCARG_LIBS2	=	-L${PGI}/linux86/6.1/lib -lpgftnrtl -lpgc \
 #
 FC		=	pgf90
 SFC		=	pgf90
-FFLAGS		=	-Mfree -byteswapio -O -Kieee
-F77FLAGS	=	-Mfixed -byteswapio -O -Kieee
+FFLAGS		=	-Mfree -byteswapio -O
+F77FLAGS	=	-Mfixed -byteswapio -O
 FNGFLAGS	=	$(FFLAGS)
-LDFLAGS		=	-Kieee
+LDFLAGS		=	
 CC		=	pgcc
 SCC		=	cc
-CFLAGS		=	-O -Kieee
+CFLAGS		=	-O
 CPP		=	/lib/cpp -C -P -traditional
 CPPFLAGS	=	-D_UNDERSCORE -DBYTESWAP -DLINUX -DIO_NETCDF -DIO_BINARY -DIO_GRIB1 -DBIT32
 NCARG_LIBS2	=	-L${PGI}/linux86/6.1/lib -lpgftnrtl -lpgc \
@@ -260,13 +260,13 @@ COMPRESSION_INC		=
 FDEFS			=
 FC		=	mpif90 -f90=pgf90
 SFC		=	pgf90
-FFLAGS		=	-Mfree -byteswapio -O -Kieee
-F77FLAGS	=	-Mfixed -byteswapio -O -Kieee
+FFLAGS		=	-Mfree -byteswapio -O
+F77FLAGS	=	-Mfixed -byteswapio -O
 FNGFLAGS	=	$(FFLAGS)
-LDFLAGS		=	-Kieee
+LDFLAGS		=	
 CC		=	mpicc -cc=gcc
 SCC		=	cc
-CFLAGS		=	-O -Kieee
+CFLAGS		=	-O
 CPP		=	/lib/cpp -C -P -traditional
 CPPFLAGS	=	-D_UNDERSCORE -DBYTESWAP -DLINUX -DIO_NETCDF -DIO_BINARY -DIO_GRIB1 -D_MPI -DBIT32
 NCARG_LIBS2	=	-L${PGI}/linux86/6.1/lib -lpgftnrtl -lpgc \
@@ -276,13 +276,13 @@ NCARG_LIBS2	=	-L${PGI}/linux86/6.1/lib -lpgftnrtl -lpgc \
 #
 FC		=	mpif90 -f90=pgf90
 SFC		=	pgf90
-FFLAGS		=	-Mfree -byteswapio -O -Kieee
-F77FLAGS	=	-Mfixed -byteswapio -O -Kieee
+FFLAGS		=	-Mfree -byteswapio -O
+F77FLAGS	=	-Mfixed -byteswapio -O
 FNGFLAGS	=	$(FFLAGS)
-LDFLAGS		=	-Kieee
+LDFLAGS		=	
 CC		=	mpicc -cc=gcc
 SCC		=	cc
-CFLAGS		=	-O -Kieee
+CFLAGS		=	-O
 CPP		=	/lib/cpp -C -P -traditional
 CPPFLAGS	=	-D_UNDERSCORE -DBYTESWAP -DLINUX -DIO_NETCDF -DIO_BINARY -DIO_GRIB1 -D_MPI -DBIT32
 NCARG_LIBS2	=	-L${PGI}/linux86/6.1/lib -lpgftnrtl -lpgc \
@@ -564,13 +564,13 @@ COMPRESSION_INC		=
 FDEFS			=
 FC		=	pgf90
 SFC		=	pgf90
-FFLAGS		=	-Mfree -byteswapio -O -Kieee
-F77FLAGS	=	-Mfixed -byteswapio -O -Kieee
+FFLAGS		=	-Mfree -byteswapio -O
+F77FLAGS	=	-Mfixed -byteswapio -O
 FNGFLAGS	=	$(FFLAGS)
-LDFLAGS		=	-Kieee
+LDFLAGS		=	
 CC		=	pgcc
 SCC		=	pgcc
-CFLAGS		=	-O -Kieee
+CFLAGS		=	-O
 CPP		=	/lib/cpp -C -P -traditional
 CPPFLAGS	=	-D_UNDERSCORE -DBYTESWAP -DLINUX -DIO_NETCDF -DIO_BINARY -DIO_GRIB1 -DBIT32
 NCARG_LIBS2	=	-L${PGI}/linux86-64/5.2/lib -lpgftnrtl -lpgc \
@@ -587,13 +587,13 @@ COMPRESSION_INC		=	-I/contrib/zlib/include \
 				-I/contrib/libpng/include
 FC		=	pgf90
 SFC		=	pgf90
-FFLAGS		=	-Mfree -byteswapio -O -Kieee
-F77FLAGS	=	-Mfixed -byteswapio -O -Kieee
+FFLAGS		=	-Mfree -byteswapio -O
+F77FLAGS	=	-Mfixed -byteswapio -O
 FNGFLAGS	=	$(FFLAGS)
-LDFLAGS		=	-Kieee
+LDFLAGS		=	
 CC		=	pgcc
 SCC		=	pgcc
-CFLAGS		=	-O -Kieee
+CFLAGS		=	-O
 CPP		=	/lib/cpp -C -P -traditional
 CPPFLAGS	=	-D_UNDERSCORE -DBYTESWAP -DLINUX -DIO_NETCDF -DIO_BINARY -DIO_GRIB1 -DBIT32
 NCARG_LIBS2	=	-L${PGI}/linux86-64/5.2/lib -lpgftnrtl -lpgc \
@@ -627,13 +627,13 @@ COMPRESSION_INC		=
 FDEFS			=
 FC		=	mpif90 -f90=pgf90
 SFC		=	pgf90
-FFLAGS		=	-Mfree -byteswapio -O -Kieee
-F77FLAGS	=	-Mfixed -byteswapio -O -Kieee
+FFLAGS		=	-Mfree -byteswapio -O
+F77FLAGS	=	-Mfixed -byteswapio -O
 FNGFLAGS	=	$(FFLAGS)
-LDFLAGS		=	-Kieee
+LDFLAGS		=	
 CC		=	mpicc -cc=pgcc
 SCC		=	pgcc
-CFLAGS		=	-O -Kieee
+CFLAGS		=	-O
 CPP		=	/lib/cpp -C -P -traditional
 CPPFLAGS	=	-D_UNDERSCORE -DBYTESWAP -DLINUX -DIO_NETCDF -DIO_BINARY -DIO_GRIB1 -D_MPI -DBIT32
 NCARG_LIBS2	=	-L${PGI}/linux86-64/5.2/lib -lpgftnrtl -lpgc \
@@ -650,13 +650,13 @@ COMPRESSION_INC		=	-I/contrib/zlib/include \
 				-I/contrib/libpng/include
 FC		=	mpif90 -f90=pgf90
 SFC		=	pgf90
-FFLAGS		=	-Mfree -byteswapio -O -Kieee
-F77FLAGS	=	-Mfixed -byteswapio -O -Kieee
+FFLAGS		=	-Mfree -byteswapio -O
+F77FLAGS	=	-Mfixed -byteswapio -O
 FNGFLAGS	=	$(FFLAGS)
-LDFLAGS		=	-Kieee
+LDFLAGS		=	
 CC		=	mpicc -cc=pgcc
 SCC		=	pgcc
-CFLAGS		=	-O -Kieee
+CFLAGS		=	-O
 CPP		=	/lib/cpp -C -P -traditional
 CPPFLAGS	=	-D_UNDERSCORE -DBYTESWAP -DLINUX -DIO_NETCDF -DIO_BINARY -DIO_GRIB1 -D_MPI -DBIT32
 NCARG_LIBS2	=	-L${PGI}/linux86-64/5.2/lib -lpgftnrtl -lpgc \

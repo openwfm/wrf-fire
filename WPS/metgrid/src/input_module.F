@@ -134,7 +134,7 @@ module input_module
       ! Local variables
       integer :: ndim, wrftype
       integer :: sm1, em1, sm2, em2, sm3, em3, sp1, ep1, sp2, ep2, sp3, ep3
-      integer, dimension(3) :: domain_start, domain_end,temp
+      integer, dimension(3) :: domain_start, domain_end, temp
       real, pointer, dimension(:,:,:) :: real_domain
       character (len=20) :: datestr
       type (q_data) :: qd
@@ -175,32 +175,32 @@ module input_module
 #ifdef IO_BINARY
          if (io_form_input == BINARY) then
             call ext_int_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
-            call ext_int_get_var_ti_integer(handle,'sr_x', &
-                                            trim(cname),temp(1),1,temp(3), istatus)
-            call ext_int_get_var_ti_integer(handle,'sr_y', &
-                                            trim(cname),temp(2),1,temp(3), istatus)
-          endif
+            call ext_int_get_var_ti_integer(handle, 'sr_x', &
+                                            trim(cname), temp(1), 1, temp(3), istatus)
+            call ext_int_get_var_ti_integer(handle, 'sr_y', &
+                                            trim(cname), temp(2), 1, temp(3), istatus)
+         end if
 #endif
 #ifdef IO_NETCDF
          if (io_form_input == NETCDF) then
             call ext_ncd_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
-            call ext_ncd_get_var_ti_integer(handle,'sr_x', &
-                                            trim(cname),temp(1),1,temp(3), istatus)
-            call ext_ncd_get_var_ti_integer(handle,'sr_y', &
-                                            trim(cname),temp(2),1,temp(3), istatus)
-         endif
+            call ext_ncd_get_var_ti_integer(handle, 'sr_x', &
+                                            trim(cname), temp(1), 1, temp(3), istatus)
+            call ext_ncd_get_var_ti_integer(handle, 'sr_y', &
+                                            trim(cname), temp(2), 1, temp(3), istatus)
+         end if
 #endif
 #ifdef IO_GRIB1
          if (io_form_input == GRIB1) then
             call ext_gr1_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
-            call ext_gr1_get_var_ti_integer(handle,'sr_x', &
-                                            trim(cname),temp(1),1,temp(3), istatus)
-            call ext_gr1_get_var_ti_integer(handle,'sr_y', &
-                                            trim(cname),temp(2),1,temp(3), istatus)
-         endif
+            call ext_gr1_get_var_ti_integer(handle, 'sr_x', &
+                                            trim(cname), temp(1), 1, temp(3), istatus)
+            call ext_gr1_get_var_ti_integer(handle, 'sr_y', &
+                                            trim(cname), temp(2), 1, temp(3), istatus)
+         end if
 #endif
-         sr_x=temp(1)
-         sr_y=temp(2)
+         sr_x = temp(1)
+         sr_y = temp(2)
      
          call mprintf((istatus /= 0),ERROR,'In read_next_field(), problems with ext_pkg_get_var_info()')
 
@@ -298,10 +298,10 @@ module input_module
          ep3 = domain_end(3)
    
          if (internal_gridtype == 'C') then
-            if (my_x /= nproc_x - 1 .or. stagger == 'U' .or. sr_x.gt.1) then
+            if (my_x /= nproc_x - 1 .or. stagger == 'U' .or. sr_x > 1) then
                ep1 = ep1 + 1
             end if
-            if (my_y /= nproc_y - 1 .or. stagger == 'V' .or. sr_y.gt.1) then
+            if (my_y /= nproc_y - 1 .or. stagger == 'V' .or. sr_y > 1) then
                ep2 = ep2 + 1
             end if
          else if (internal_gridtype == 'E') then
@@ -309,14 +309,14 @@ module input_module
             ep2 = ep2 + 1
          end if
    
-         if(sr_x.gt.1)then
-           sp1=(sp1-1)*sr_x+1
-           ep1=ep1*sr_x
-         endif
-         if(sr_y.gt.1)then
-           sp2=(sp2-1)*sr_y+1
-           ep2=ep2*sr_y
-         endif
+         if (sr_x > 1) then
+            sp1 = (sp1-1)*sr_x+1
+            ep1 =  ep1   *sr_x
+         end if
+         if (sr_y > 1) then
+            sp2 = (sp2-1)*sr_y+1
+            ep2 =  ep2   *sr_y
+         end if
 
          sm1 = sp1
          em1 = ep1
@@ -363,8 +363,8 @@ module input_module
                                 west_east_dim, south_north_dim, bottom_top_dim,                       &
                                 we_patch_s, we_patch_e, we_patch_s_stag, we_patch_e_stag,             &
                                 sn_patch_s, sn_patch_e, sn_patch_s_stag, sn_patch_e_stag,             &
-                                map_proj, mminlu, is_water, is_ice, is_urban, isoilwater,             &
-                                grid_id, parent_id, i_parent_start, j_parent_start,                   &
+                                map_proj, mminlu, num_land_cat, is_water, is_lake, is_ice, is_urban,  &
+                                isoilwater, grid_id, parent_id, i_parent_start, j_parent_start,       &
                                 i_parent_end, j_parent_end, dx, dy, cen_lat, moad_cen_lat, cen_lon,   &
                                 stand_lon, truelat1, truelat2, pole_lat, pole_lon, parent_grid_ratio, &
                                 corner_lats, corner_lons, sr_x, sr_y)
@@ -373,10 +373,10 @@ module input_module
   
       ! Arguments
       integer, intent(out) :: dyn_opt, west_east_dim, south_north_dim, bottom_top_dim, map_proj,   &
-                 is_water, we_patch_s, we_patch_e, we_patch_s_stag, we_patch_e_stag,               &
+                 is_water, is_lake, we_patch_s, we_patch_e, we_patch_s_stag, we_patch_e_stag,      &
                  sn_patch_s, sn_patch_e, sn_patch_s_stag, sn_patch_e_stag,                         &
                  is_ice, is_urban, isoilwater, grid_id, parent_id, i_parent_start, j_parent_start, &
-                 i_parent_end, j_parent_end, parent_grid_ratio, sr_x, sr_y
+                 i_parent_end, j_parent_end, parent_grid_ratio, sr_x, sr_y, num_land_cat
       real, intent(out) :: dx, dy, cen_lat, moad_cen_lat, cen_lon, stand_lon, truelat1, truelat2,  &
                  pole_lat, pole_lon
       real, dimension(16), intent(out) :: corner_lats, corner_lons
@@ -384,6 +384,7 @@ module input_module
   
       ! Local variables
       integer :: istatus, i
+      real :: wps_version
       character (len=128) :: cunits, cdesc, cstagger
       type (q_data) :: qd
   
@@ -417,6 +418,12 @@ module input_module
 #endif
      
          call ext_get_dom_ti_char          ('TITLE', title)
+         if (index(title,'GEOGRID V3.0.1') /= 0) then
+            wps_version = 3.01
+         else
+            wps_version = 3.0
+         end if
+         call mprintf(.true.,DEBUG,'Reading static data from WPS version %f', f1=wps_version)
          call ext_get_dom_ti_char          ('SIMULATION_START_DATE', start_date)
          call ext_get_dom_ti_integer_scalar('WEST-EAST_GRID_DIMENSION', west_east_dim)
          call ext_get_dom_ti_integer_scalar('SOUTH-NORTH_GRID_DIMENSION', south_north_dim)
@@ -445,7 +452,17 @@ module input_module
          call ext_get_dom_ti_real_vector   ('corner_lons', corner_lons, 16)
          call ext_get_dom_ti_integer_scalar('MAP_PROJ', map_proj)
          call ext_get_dom_ti_char          ('MMINLU', mminlu)
+         if ( wps_version >= 3.01 ) then
+            call ext_get_dom_ti_integer_scalar('NUM_LAND_CAT', num_land_cat)
+         else
+            num_land_cat = 24
+         end if
          call ext_get_dom_ti_integer_scalar('ISWATER', is_water)
+         if ( wps_version >= 3.01 ) then
+            call ext_get_dom_ti_integer_scalar('ISLAKE', is_lake)
+         else
+            is_lake = -1
+         end if
          call ext_get_dom_ti_integer_scalar('ISICE', is_ice)
          call ext_get_dom_ti_integer_scalar('ISURBAN', is_urban)
          call ext_get_dom_ti_integer_scalar('ISOILWATER', isoilwater)
@@ -456,8 +473,8 @@ module input_module
          call ext_get_dom_ti_integer_scalar('i_parent_end', i_parent_end)
          call ext_get_dom_ti_integer_scalar('j_parent_end', j_parent_end)
          call ext_get_dom_ti_integer_scalar('parent_grid_ratio', parent_grid_ratio)
-         call ext_get_dom_ti_integer_scalar('sr_x',sr_x)
-         call ext_get_dom_ti_integer_scalar('sr_y',sr_y)
+         call ext_get_dom_ti_integer_scalar('sr_x', sr_x)
+         call ext_get_dom_ti_integer_scalar('sr_y', sr_y)
    
       end if
 
@@ -521,6 +538,7 @@ module input_module
          call parallel_bcast_int(map_proj)
          call parallel_bcast_char(mminlu, len(mminlu))
          call parallel_bcast_int(is_water)
+         call parallel_bcast_int(is_lake)
          call parallel_bcast_int(is_ice)
          call parallel_bcast_int(is_urban)
          call parallel_bcast_int(isoilwater)

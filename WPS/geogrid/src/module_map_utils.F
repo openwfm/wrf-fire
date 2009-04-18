@@ -144,6 +144,8 @@ MODULE map_utils
                                    !  north of the equator 
       INTEGER          :: nlon     !
                                    !
+      INTEGER          :: nxmin    ! Starting x-coordinate of periodic, regular lat/lon dataset
+      INTEGER          :: nxmax    ! Ending x-coordinate of periodic, regular lat/lon dataset
       INTEGER          :: ixdim    ! For Rotated Lat/Lon -- number of mass points
                                    !  in an odd row
       INTEGER          :: jydim    ! For Rotated Lat/Lon -- number of rows
@@ -217,6 +219,8 @@ MODULE map_utils
       proj%stagger  = HH
       proj%nlat     = 0
       proj%nlon     = 0
+      proj%nxmin    = 1
+      proj%nxmax    = 43200
       proj%hemi     = 0.0
       proj%cone     = -999.9
       proj%polei    = -999.9
@@ -237,7 +241,7 @@ MODULE map_utils
 
 
    SUBROUTINE map_set(proj_code, proj, lat1, lon1, lat0, lon0, knowni, knownj, dx, dy, latinc, &
-                      loninc, stdlon, truelat1, truelat2, nlat, nlon, ixdim, jydim, &
+                      loninc, stdlon, truelat1, truelat2, nlat, nlon, ixdim, jydim, nxmin, nxmax, &
                       stagger, phi, lambda, r_earth)
       ! Given a partially filled proj_info structure, this routine computes
       ! polei, polej, rsw, and cone (if LC projection) to complete the 
@@ -257,6 +261,8 @@ MODULE map_utils
       INTEGER, INTENT(IN), OPTIONAL     :: nlon
       INTEGER, INTENT(IN), OPTIONAL     :: ixdim
       INTEGER, INTENT(IN), OPTIONAL     :: jydim
+      INTEGER, INTENT(IN), OPTIONAL     :: nxmin
+      INTEGER, INTENT(IN), OPTIONAL     :: nxmax
       INTEGER, INTENT(IN), OPTIONAL     :: stagger
       REAL, INTENT(IN), OPTIONAL        :: latinc
       REAL, INTENT(IN), OPTIONAL        :: loninc
@@ -486,6 +492,8 @@ MODULE map_utils
       IF ( PRESENT(loninc) )   proj%loninc   = loninc
       IF ( PRESENT(knowni) )   proj%knowni   = knowni
       IF ( PRESENT(knownj) )   proj%knownj   = knownj
+      IF ( PRESENT(nxmin) )    proj%nxmin    = nxmin
+      IF ( PRESENT(nxmax) )    proj%nxmax    = nxmax
       IF ( PRESENT(dx) )       proj%dx       = dx
       IF ( PRESENT(dy) ) THEN
                                proj%dy       = dy
@@ -1378,6 +1386,9 @@ MODULE map_utils
 
       i = i + proj%knowni
       j = j + proj%knownj
+
+      if ( i <  real(proj%nxmin)-0.5 ) i = i + real(proj%nxmax - proj%nxmin + 1)
+      if ( i >= real(proj%nxmax)+0.5 ) i = i - real(proj%nxmax - proj%nxmin + 1)
   
       RETURN
 
@@ -1397,9 +1408,13 @@ MODULE map_utils
       REAL                         :: i_work, j_work
       REAL                         :: deltalat
       REAL                         :: deltalon
+
+      i_work = i
+      if ( i <  real(proj%nxmin)-0.5 ) i_work = i + real(proj%nxmax - proj%nxmin + 1)
+      if ( i >= real(proj%nxmax)+0.5 ) i_work = i - real(proj%nxmax - proj%nxmin + 1)
   
-      i_work = i - proj%knowni
-      j_work = j - proj%knownj
+      i_work = i_work - proj%knowni
+      j_work = j      - proj%knownj
 
       ! Compute deltalat and deltalon 
       deltalat = j_work*proj%latinc
@@ -1451,11 +1466,11 @@ MODULE map_utils
       i = deltalon/proj%loninc
       j = deltalat/proj%latinc
 
-      if (i <= 0.)              i = i + 360./proj%loninc
-      if (i > 360./proj%loninc) i = i - 360./proj%loninc
-
       i = i + proj%knowni
       j = j + proj%knownj
+
+      if (i <= 0.)              i = i + 360./proj%loninc
+      if (i > 360./proj%loninc) i = i - 360./proj%loninc
 
    END SUBROUTINE llij_cyl
 
@@ -1637,34 +1652,36 @@ MODULE map_utils
    END SUBROUTINE rotate_coords
 
 
-   SUBROUTINE llij_rotlatlon(lat, lon, proj, i, j)
+   SUBROUTINE llij_rotlatlon(lat, lon, proj, i_real, j_real)
    
       IMPLICIT NONE
     
       ! Arguments
       REAL, INTENT(IN) :: lat, lon
-      REAL, INTENT(OUT) :: i, j
+      REAL             :: i, j
+      REAL, INTENT(OUT) :: i_real, j_real
       TYPE (proj_info), INTENT(IN) :: proj
       
       ! Local variables
+      INTEGER :: ii,imt,jj,jmt,k,krows,ncol,nrow,iri
       REAL(KIND=HIGH) :: dphd,dlmd !Grid increments, degrees
-      INTEGER :: ii,jj,jmt,ncol,nrow
       REAL(KIND=HIGH) :: glatd  !Geographic latitude, positive north
       REAL(KIND=HIGH) :: glond  !Geographic longitude, positive west
       REAL(KIND=HIGH) :: col,d1,d2,d2r,dlm,dlm1,dlm2,dph,glat,glon,    &
-              pi,r2d,row,tlat,tlat1,tlat2,              &
-              tlon,tlon1,tlon2,tph0,tlm0,x,y,z
+                         pi,r2d,row,tlat,tlat1,tlat2,              &
+                         tlon,tlon1,tlon2,tph0,tlm0,x,y,z
 
       glatd = lat
       glond = -lon
   
       dphd = proj%phi/REAL((proj%jydim-1)/2)
       dlmd = proj%lambda/REAL(proj%ixdim-1)
-	
+
       pi = ACOS(-1.0)
       d2r = pi/180.
       r2d = 1./d2r
   
+      imt = 2*proj%ixdim-1
       jmt = proj%jydim/2+1
 
       glat = glatd*d2r
@@ -1679,17 +1696,34 @@ MODULE map_utils
       z = COS(tph0)*SIN(glat)-SIN(tph0)*COS(glat)*COS(glon-tlm0)
       tlat = r2d*ATAN(z/SQRT(x*x+y*y))
       tlon = r2d*ATAN(y/x)
-	
+
       row = tlat/dphd+jmt
       col = tlon/dlmd+proj%ixdim
 
-      nrow = NINT(row)
-      ncol = NINT(col)
+      if ( (row - INT(row)) .gt. 0.999) then
+         row = row + 0.0002
+      else if ( (col - INT(col)) .gt. 0.999) then
+         col = col + 0.0002
+      end if
+
+      nrow = INT(row)
+      ncol = INT(col)
+
+!      nrow = NINT(row)
+!      ncol = NINT(col)
 
       tlat = tlat*d2r
       tlon = tlon*d2r
   
       IF (proj%stagger == HH) THEN
+
+         IF (mod(nrow,2) .eq. 0) then
+            i_real = col / 2.0
+         ELSE
+            i_real = col / 2.0 + 0.5
+         ENDIF
+         j_real=row
+
   
          IF ((abs(MOD(nrow,2)) == 1 .AND. abs(MOD(ncol,2)) == 1) .OR. &
              (MOD(nrow,2) == 0 .AND. MOD(ncol,2) == 0)) THEN
@@ -1727,6 +1761,13 @@ MODULE map_utils
          END IF
   
       ELSE IF (proj%stagger == VV) THEN
+
+         IF (mod(nrow,2) .eq. 0) then
+            i_real = col / 2.0 + 0.5
+         ELSE
+            i_real = col / 2.0 
+         ENDIF
+         j_real=row
   
          IF ((MOD(nrow,2) == 0 .AND. abs(MOD(ncol,2)) == 1) .OR. &
              (abs(MOD(nrow,2)) == 1 .AND. MOD(ncol,2) == 0)) THEN
@@ -1764,7 +1805,7 @@ MODULE map_utils
   
 
 !!! Added next line as a Kludge - not yet understood why needed
-	if (ncol .le. 0) ncol=ncol-1
+      if (ncol .le. 0) ncol=ncol-1
 
       jj = nrow
       ii = ncol/2
@@ -1792,13 +1833,19 @@ MODULE map_utils
       
       ! Local variables
       INTEGER :: ih,jh
-      INTEGER :: midcol,midrow,ncol
+      REAL :: jj
+      INTEGER :: midcol,midrow,ncol,iadd1,iadd2,imt,jh2,knrow,krem,kv,nrow
       REAL :: dphd,dlmd !Grid increments, degrees
       REAL(KIND=HIGH) :: arg1,arg2,d2r,fctr,glatr,glatd,glond,pi, &
               r2d,tlatd,tlond,tlatr,tlonr,tlm0,tph0
+      REAL :: col
   
-      ih = NINT(i)
-      jh = NINT(j)
+      jj = j
+      if ( (j - INT(j)) .gt. 0.999) then
+         jj = j + 0.0002
+      endif
+
+      jh = INT(jj)
   
       dphd = proj%phi/REAL((proj%jydim-1)/2)
       dlmd = proj%lambda/REAL(proj%ixdim-1)
@@ -1812,12 +1859,10 @@ MODULE map_utils
       midrow = (proj%jydim+1)/2
       midcol = proj%ixdim
 
-!      IF (proj%stagger == HH) THEN
+      col = 2*i-1+abs(MOD(jh+1,2))
+      tlatd = (jj-midrow)*dphd
+      tlond = (col-midcol)*dlmd
 
-!!!         ncol = 2*ih-1+MOD(jh+1,2)
-         ncol = 2*ih-1+abs(MOD(jh+1,2))
-         tlatd = (jh-midrow)*dphd
-         tlond = (ncol-midcol)*dlmd
        IF (proj%stagger == VV) THEN
           if (mod(jh,2) .eq. 0) then
              tlond = tlond - DLMD

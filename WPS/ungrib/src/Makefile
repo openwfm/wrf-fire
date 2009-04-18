@@ -29,9 +29,9 @@ lib$(LIBTARGET).a:	$(OBJS2)
 g1print.exe:		g1print.o gribcode.o module_debug.o debug_cio.o lib$(LIBTARGET).a
 			$(FC) -o $(@) $(LDFLAGS) g1print.o gribcode.o module_debug.o debug_cio.o lib$(LIBTARGET).a
 
-g2print.exe:		filelist.o gridinfo.o g2print.o new_storage.o module_datarray.o
+g2print.exe:		filelist.o gridinfo.o g2print.o
 			$(FC) -o $(@) $(LDFLAGS) g2print.o \
-				filelist.o gridinfo.o new_storage.o module_datarray.o \
+				filelist.o gridinfo.o \
 				-L. -l$(LIBTARGET) \
 				-L./ngl -lw3 -lg2_4 \
 				$(COMPRESSION_LIBS)

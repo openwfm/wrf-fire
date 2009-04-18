@@ -81,8 +81,9 @@ module output_module
       integer :: i, istatus, save_domain, comm_1, comm_2
       integer :: sp1, ep1, sp2, ep2, ep1_stag, ep2_stag
       integer :: ngeo_flags
+      integer :: num_land_cat, min_land_cat, max_land_cat
       real :: dx, dy, cen_lat, cen_lon, moad_cen_lat
-      character (len=128) :: coption
+      character (len=128) :: coption, temp_fldname
       character (len=128), dimension(1) :: geo_flags
       character (len=MAX_FILENAME_LEN) :: output_fname
       logical :: supports_training, supports_3d_fields
@@ -377,19 +378,24 @@ module output_module
 
          ngeo_flags = 0
       end if
+
+      write(temp_fldname,'(a)') 'LANDUSEF'
+      call get_max_categories(temp_fldname, min_land_cat, max_land_cat, istatus)
+      num_land_cat = max_land_cat - min_land_cat + 1
   
       ! We may now write global attributes to the file
       call write_global_attrs(title, datestr, grid_type, dynopt, ixdim(nest_number), jydim(nest_number), &
                               0, sp1, ep1, sp1, ep1_stag, sp2, ep2, sp2, ep2_stag,                       &
-                              iproj_type, source_mminlu, source_iswater, source_isice, source_isurban,   &
-                              source_isoilwater, nest_number, parent_id(nest_number),                    &
+                              iproj_type, source_mminlu, num_land_cat, source_iswater, source_islake,    &
+                              source_isice, source_isurban, source_isoilwater, nest_number,              &
+                              parent_id(nest_number),                                                    &
                               nint(parent_ll_x(nest_number)), nint(parent_ll_y(nest_number)),            &
                               nint(parent_ur_x(nest_number)), nint(parent_ur_y(nest_number)),            &
                               dx, dy, cen_lat, moad_cen_lat,                                             &
                               cen_lon, stand_lon, truelat1, truelat2, pole_lat, pole_lon,                &
-                              parent_grid_ratio(nest_number), corner_lats, corner_lons,                  &
-                              sr_x(nest_number), sr_y(nest_number),                                      &
-                              flags=geo_flags, nflags=ngeo_flags)
+                              parent_grid_ratio(nest_number),                                            &
+                              subgrid_ratio_x(nest_number), subgrid_ratio_y(nest_number),                &
+                              corner_lats, corner_lons, flags=geo_flags, nflags=ngeo_flags)
 #endif
  
    end subroutine output_init
@@ -401,7 +407,7 @@ module output_module
    ! Purpose: To fill in structures describing each of the fields that will be 
    !   written to the I/O API 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
-   subroutine init_output_fields(nest_num,grid_type, &
+   subroutine init_output_fields(nest_num, grid_type, &
                                  start_dom_1, end_dom_1, start_dom_2, end_dom_2, &
                                  start_patch_1, end_patch_1, start_patch_2, end_patch_2, &
                                  start_mem_1, end_mem_1, start_mem_2, end_mem_2, &
@@ -433,6 +439,7 @@ module output_module
       ! Local variables
       integer :: i, istagger, ifieldstatus, &
                  nfields, min_category, max_category
+      integer :: lhalo_width, rhalo_width, bhalo_width, thalo_width
       integer :: ndims
       character (len=128) :: fieldname
       character (len=128) :: memorder, units, description
@@ -466,7 +473,7 @@ module output_module
       NUM_FIELDS = nfields+NUM_AUTOMATIC_FIELDS
       allocate(fields(NUM_FIELDS))
   
-!***  automatic fields will always be on the non-refined grid
+      ! Automatic fields will always be on the non-refined grid
       sr_x=1
       sr_y=1
 
@@ -810,63 +817,75 @@ module output_module
             fields(nfields)%units = units
             fields(nfields)%descr = description
     
-            fields(nfields)%dom_start(1)=start_dom_1
-            fields(nfields)%dom_start(2)=start_dom_2
-            fields(nfields)%dom_start(3)=min_category
-            fields(nfields)%mem_start(1)=start_mem_1
-            fields(nfields)%mem_start(2)=start_mem_2
-            fields(nfields)%mem_start(3)=min_category
-            fields(nfields)%patch_start(1)=start_patch_1
-            fields(nfields)%patch_start(2)=start_patch_2
-            fields(nfields)%patch_start(3)=min_category
+            fields(nfields)%dom_start(1)   = start_dom_1
+            fields(nfields)%dom_start(2)   = start_dom_2
+            fields(nfields)%dom_start(3)   = min_category
+            fields(nfields)%mem_start(1)   = start_mem_1
+            fields(nfields)%mem_start(2)   = start_mem_2
+            fields(nfields)%mem_start(3)   = min_category
+            fields(nfields)%patch_start(1) = start_patch_1
+            fields(nfields)%patch_start(2) = start_patch_2
+            fields(nfields)%patch_start(3) = min_category
     
-            fields(nfields)%dom_end(1)=end_dom_1
-            fields(nfields)%dom_end(2)=end_dom_2
-            fields(nfields)%dom_end(3)=max_category
-            fields(nfields)%mem_end(1)=end_mem_1
-            fields(nfields)%mem_end(2)=end_mem_2
-            fields(nfields)%mem_end(3)=max_category
-            fields(nfields)%patch_end(1)=end_patch_1
-            fields(nfields)%patch_end(2)=end_patch_2
-            fields(nfields)%patch_end(3)=max_category
+            fields(nfields)%dom_end(1)   = end_dom_1
+            fields(nfields)%dom_end(2)   = end_dom_2
+            fields(nfields)%dom_end(3)   = max_category
+            fields(nfields)%mem_end(1)   = end_mem_1
+            fields(nfields)%mem_end(2)   = end_mem_2
+            fields(nfields)%mem_end(3)   = max_category
+            fields(nfields)%patch_end(1) = end_patch_1
+            fields(nfields)%patch_end(2) = end_patch_2
+            fields(nfields)%patch_end(3) = max_category
+
+            fields(nfields)%sr_x=sr_x
+            fields(nfields)%sr_y=sr_y
     
-            if ((extra_col .and. istagger == U).or.sr_x.gt.1) then !{
-               fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + 1
-               fields(nfields)%mem_end(1)=fields(nfields)%mem_end(1) + 1
-               fields(nfields)%patch_end(1)=fields(nfields)%patch_end(1) + 1
-            else if (istagger == U .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
+            if (extra_col .and. (istagger == U .or. sr_x > 1)) then !{
+               fields(nfields)%dom_end(1)   = fields(nfields)%dom_end(1) + 1
+               fields(nfields)%mem_end(1)   = fields(nfields)%mem_end(1) + 1
+               fields(nfields)%patch_end(1) = fields(nfields)%patch_end(1) + 1
+            else if ((istagger == U .or. sr_x > 1) .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
                fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + 1
             end if !}
     
-            if ((extra_row .and. istagger == V).or.sr_y.gt.1) then !{
-               fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + 1
-               fields(nfields)%mem_end(2)=fields(nfields)%mem_end(2) + 1
-               fields(nfields)%patch_end(2)=fields(nfields)%patch_end(2) + 1
-            else if (istagger == V .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
+            if (extra_row .and. (istagger == V .or. sr_y > 1)) then !{
+               fields(nfields)%dom_end(2)   = fields(nfields)%dom_end(2) + 1
+               fields(nfields)%mem_end(2)   = fields(nfields)%mem_end(2) + 1
+               fields(nfields)%patch_end(2) = fields(nfields)%patch_end(2) + 1
+            else if ((istagger == V .or. sr_y > 1) .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
                fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + 1
             end if !}
 
-            fields(nfields)%sr_x=1
-            fields(nfields)%sr_y=1
+#ifdef _METGRID
+            lhalo_width = start_patch_1 - start_mem_1      ! Halo width on left of patch
+            rhalo_width = end_mem_1     - end_patch_1      ! Halo width on right of patch
+            bhalo_width = start_patch_2 - start_mem_2      ! Halo width on bottom of patch
+            thalo_width = end_mem_2     - end_patch_2      ! Halo width on top of patch
+#else
+            lhalo_width = 0
+            rhalo_width = 0
+            bhalo_width = 0
+            thalo_width = 0
+#endif
 
-            if (sr_x.gt.1) then
-              fields(nfields)%dom_start(1)=(fields(nfields)%dom_start(1)-1)*sr_x+1
-              fields(nfields)%mem_start(1)=(fields(nfields)%mem_start(1)-1)*sr_x+1
-              fields(nfields)%patch_start(1)=(fields(nfields)%patch_start(1)-1)*sr_x+1
-              fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1)*sr_x
-              fields(nfields)%mem_end(1)=fields(nfields)%mem_end(1)*sr_x
-              fields(nfields)%patch_end(1)=fields(nfields)%patch_end(1)*sr_x
-              fields(nfields)%sr_x=sr_x
+            if (sr_x > 1) then
+               fields(nfields)%mem_start(1)   = (fields(nfields)%mem_start(1) + lhalo_width - 1)*sr_x + 1 - lhalo_width
+               fields(nfields)%patch_start(1) = (fields(nfields)%patch_start(1)             - 1)*sr_x + 1
+               fields(nfields)%dom_start(1)   = (fields(nfields)%dom_start(1)               - 1)*sr_x + 1
+
+               fields(nfields)%mem_end(1)     = (fields(nfields)%mem_end(1) - rhalo_width)*sr_x + rhalo_width
+               fields(nfields)%patch_end(1)   = (fields(nfields)%patch_end(1)            )*sr_x
+               fields(nfields)%dom_end(1)     = (fields(nfields)%dom_end(1)              )*sr_x
             endif
     
-            if (sr_y.gt.1) then
-              fields(nfields)%dom_start(2)=(fields(nfields)%dom_start(2)-1)*sr_y+1
-              fields(nfields)%mem_start(2)=(fields(nfields)%mem_start(2)-1)*sr_y+1
-              fields(nfields)%patch_start(2)=(fields(nfields)%patch_start(2)-1)*sr_y+1
-              fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2)*sr_y
-              fields(nfields)%mem_end(2)=fields(nfields)%mem_end(2)*sr_y
-              fields(nfields)%patch_end(2)=fields(nfields)%patch_end(2)*sr_y
-              fields(nfields)%sr_y=sr_y
+            if (sr_y > 1) then
+               fields(nfields)%mem_start(2)   = (fields(nfields)%mem_start(2) + bhalo_width - 1)*sr_y + 1 - bhalo_width
+               fields(nfields)%patch_start(2) = (fields(nfields)%patch_start(2)             - 1)*sr_y + 1
+               fields(nfields)%dom_start(2)   = (fields(nfields)%dom_start(2)               - 1)*sr_y + 1
+
+               fields(nfields)%mem_end(2)     = (fields(nfields)%mem_end(2) - thalo_width)*sr_y + thalo_width
+               fields(nfields)%patch_end(2)   = (fields(nfields)%patch_end(2)            )*sr_y
+               fields(nfields)%dom_end(2)     = (fields(nfields)%dom_end(2)              )*sr_y
            endif
 
 
@@ -1074,22 +1093,23 @@ module output_module
                                 west_east_dim, south_north_dim, bottom_top_dim,                     &
                                 we_patch_s, we_patch_e, we_patch_s_stag, we_patch_e_stag,           &
                                 sn_patch_s, sn_patch_e, sn_patch_s_stag, sn_patch_e_stag,           &
-                                map_proj, cmminlu, is_water, is_ice, is_urban, i_soilwater,         &
-                                grid_id, parent_id, i_parent_start, j_parent_start,                 &
-                                i_parent_end, j_parent_end, dx, dy, cen_lat, moad_cen_lat, cen_lon, &
+                                map_proj, cmminlu, num_land_cat, is_water, is_lake, is_ice,         &
+                                is_urban, i_soilwater, grid_id, parent_id,                          &
+                                i_parent_start, j_parent_start, i_parent_end, j_parent_end,         &
+                                dx, dy, cen_lat, moad_cen_lat, cen_lon,                             &
                                 stand_lon, truelat1, truelat2, pole_lat, pole_lon,                  &
-                                parent_grid_ratio, corner_lats, corner_lons,                        &
-                                sr_x,sr_y,flags, nflags)
+                                parent_grid_ratio, sr_x, sr_y, corner_lats, corner_lons,            &
+                                flags, nflags)
  
       implicit none
   
       ! Arguments
       integer, intent(in) :: dyn_opt, west_east_dim, south_north_dim, bottom_top_dim, &
-                 we_patch_s, we_patch_e, we_patch_s_stag, we_patch_e_stag, &
-                 sn_patch_s, sn_patch_e, sn_patch_s_stag, sn_patch_e_stag, &
-                 map_proj, is_water, is_ice, is_urban, i_soilwater, &
-                 grid_id, parent_id, i_parent_start, j_parent_start, &
-                 i_parent_end, j_parent_end, parent_grid_ratio, sr_x, sr_y
+                 we_patch_s, we_patch_e, we_patch_s_stag, we_patch_e_stag,            &
+                 sn_patch_s, sn_patch_e, sn_patch_s_stag, sn_patch_e_stag,            &
+                 map_proj, is_water, is_lake, is_ice, is_urban, i_soilwater,          &
+                 grid_id, parent_id, i_parent_start, j_parent_start,                  &
+                 i_parent_end, j_parent_end, parent_grid_ratio, sr_x, sr_y, num_land_cat
       integer, intent(in), optional :: nflags
       real, intent(in) :: dx, dy, cen_lat, moad_cen_lat, cen_lon, stand_lon, truelat1, truelat2, &
                  pole_lat, pole_lon
@@ -1197,7 +1217,9 @@ module output_module
          call ext_put_dom_ti_real_vector   ('corner_lons', local_corner_lons, 16) 
          call ext_put_dom_ti_integer_scalar('MAP_PROJ', map_proj)
          call ext_put_dom_ti_char          ('MMINLU', trim(cmminlu))
+         call ext_put_dom_ti_integer_scalar('NUM_LAND_CAT', num_land_cat)
          call ext_put_dom_ti_integer_scalar('ISWATER', is_water)
+         call ext_put_dom_ti_integer_scalar('ISLAKE', is_lake)
          call ext_put_dom_ti_integer_scalar('ISICE', is_ice)
          call ext_put_dom_ti_integer_scalar('ISURBAN', is_urban)
          call ext_put_dom_ti_integer_scalar('ISOILWATER', i_soilwater)
