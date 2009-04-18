@@ -342,6 +342,7 @@ name = FR_HGT_M
         priority = 1
         dest_type = continuous
         fill_missing=0.
+        interp_option = default:four_pt
         rel_path=default:highres_elev/
         subgrid=yes
 ==============================

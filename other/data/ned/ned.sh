@@ -120,8 +120,8 @@ fi
 echo 'known_x=1' >> $idx
 echo 'known_y=1' >> $idx
 
-echo "known_lat=${xll}" >> $idx
-echo "known_lon=${yll}" >> $idx
+echo "known_lat=${yll}" >> $idx
+echo "known_lon=${xll}" >> $idx
 
 echo 'wordsize=2' >> $idx
 echo 'tile_bdr=3' >> $idx
