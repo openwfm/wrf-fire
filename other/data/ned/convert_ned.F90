@@ -36,7 +36,7 @@ do irtile=1,rtile ! y
          k=(i-1)*gcol+j
          l=l+1
          read(iread,rec=k,err=999) rbuf
-         if(rbuf.gt.maxcat.or.rbuf.lt.1)rbuf=14.
+         if(rbuf.lt.1)rbuf=0
          write(iwrite,rec=l) int(rbuf,kind=2)
        enddo
      enddo

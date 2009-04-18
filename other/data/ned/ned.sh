@@ -1,6 +1,6 @@
 #!/bin/bash
 
-output_dir="highres_elev"
+output_dir="highres_elev$2"
 
 function get_param
 {
@@ -137,10 +137,10 @@ else
 #  echo 'endian=big' >> $idx
 fi
 
-echo "tile_x=$nrows" >> $idx
-echo "tile_y=$ncols" >> $idx
+echo "tile_x=1000" >> $idx
+echo "tile_y=1000" >> $idx
 echo "tile_z=1" >> $idx
 
-./convert_ned.x ${1}/${1}.flt $ncols $nrows
+./convert_ned.x ${1}/${1}.flt $nrows $ncols
 mv *-*.*-*  "$output_dir"
 
