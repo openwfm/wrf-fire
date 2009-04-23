@@ -1,1 +1,1 @@
-ifort -O3 -assume buffered_io -assume byterecl -o convert_landfire.x convert_ned.F90
+ifort -O3 -assume buffered_io -assume byterecl -o convert_ned.x convert_ned.F90
