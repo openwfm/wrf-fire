@@ -10,16 +10,23 @@ import numpy as np
 try:
     from osgeo import gdal
 except ImportError:
-    import gdal
-try:
-    from osgeo import gdal_array as gdalnumeric
-except ImportError:
-    import gdalnumeric
-    
+    try:
+        import gdal
+    except ImportError:
+        print "Cannot import GDAL python modules"
+        print "Are they installed? Is the install directory in your"
+        print "PYTHONPATH?"
+        raise
 try:
     from osgeo import osr
 except ImportError:
-    import osr
+    try:
+        import osr
+    except ImportError:
+        print "Cannot import OSR (part of GDAL) python modules"
+        print "Are they installed? Is the install directory in your"
+        print "PYTHONPATH?"
+        raise
 
 from print_control import verbprint, verblog, setverbose
 
