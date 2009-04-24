@@ -799,9 +799,9 @@ module process_tile_module
                         do j=sm2, em2
                            ! Only need to examine k=1
                            if (field(i,j,1) == msg_fill_val) then
-                              call mprintf(.true.,STDOUT,' Missing value encountered in output field %s',
+                              call mprintf(.true.,STDOUT,' Missing value encountered in output field %s', &
                                            s1=trim(fieldname))
-                              call mprintf(.true.,STDOUT,' First missing value found at index (%i,%i), coordinate (%f,%f)',
+                              call mprintf(.true.,STDOUT,' First missing value found at index (%i,%i), coordinate (%f,%f)', &
                                            i1=i,i2=j,f1=xlon_ptr(i,j),f2=xlat_ptr(i,j))
                               coordxmin=1000
                               coordymin=1000
