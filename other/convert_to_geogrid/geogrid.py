@@ -30,8 +30,14 @@ import warnings
 import os
 import shutil
 import textwrap
-import numpy as np
 from optparse import OptionParser, OptionGroup
+try:
+    import numpy as np
+except ImportError:
+    print "Cannot import numeric python modules (numpy/scipy)"
+    print "Are they installed?  Is the install directory in your"
+    print "PYTHONPATH?"
+    sys.exit(3)
 from print_control import verbprint, setverbose
 from source_data import Source as S
 from source_data import source_option_parser
