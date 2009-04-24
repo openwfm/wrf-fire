@@ -43,7 +43,7 @@ module process_tile_module
       character (len=1), intent(in) :: grid_type
     
       ! Local variables
-      integer :: i, j, k, kk, istatus, ifieldstatus, idomcatstatus, field_count
+      integer :: i, j, k, kk, l, istatus, ifieldstatus, idomcatstatus, field_count
       integer :: min_category, max_category, min_level, max_level, &
                  smth_opt, smth_passes, num_landmask_categories
       integer :: start_dom_i, end_dom_i, start_dom_j, end_dom_j, end_dom_stag_i, end_dom_stag_j
@@ -74,6 +74,7 @@ module process_tile_module
       type (hashtable) :: processed_fieldnames
       character (len=128), dimension(2) :: dimnames
       integer :: sub_x, sub_y
+      real::coordxmin,coordymin,coordxmax,coordymax
    
       datestr = '0000-00-00_00:00:00'
       field_count = 0
@@ -798,7 +799,28 @@ module process_tile_module
                         do j=sm2, em2
                            ! Only need to examine k=1
                            if (field(i,j,1) == msg_fill_val) then
-                              call mprintf(.true.,ERROR,' Missing value encountered in output field. Quitting.')
+                              call mprintf(.true.,STDOUT,' Missing value encountered in output field %s',
+                                           s1=trim(fieldname))
+                              call mprintf(.true.,STDOUT,' First missing value found at index (%i,%i), coordinate (%f,%f)',
+                                           i1=i,i2=j,f1=xlon_ptr(i,j),f2=xlat_ptr(i,j))
+                              coordxmin=1000
+                              coordymin=1000
+                              coordxmax=-1000
+                              coordymax=-1000
+                              do k=sm1,em1
+                                do l=sm2,em2
+                                  coordxmin=min(coordxmin,xlon_ptr(k,l))
+                                  coordymin=min(coordymin,xlat_ptr(k,l))
+                                  coordxmax=max(coordxmax,xlon_ptr(k,l))
+                                  coordymax=max(coordxmax,xlat_ptr(k,l))
+                                enddo
+                              enddo
+                              call mprintf(.true.,STDOUT,' Lat/Lon bounds on current tile:')
+                              call mprintf(.true.,STDOUT,' LATSOUTH=%f',f1=coordymin)
+                              call mprintf(.true.,STDOUT,' LATNORTH=%f',f1=coordymax)
+                              call mprintf(.true.,STDOUT,' LONWEST=%f',f1=coordxmin)
+                              call mprintf(.true.,STDOUT,' LONEAST=%f',f1=coordxmax)
+                              call mprintf(.true.,ERROR,' Quitting.')
                            end if
                         end do
                      end do
