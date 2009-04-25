@@ -4,10 +4,9 @@ WARNING:  I am just learning git, so the following could have mistakes.
 
 NOTE: To get the files you need to be working on a machine that has a
     current version of git installed. To build wrf you need to have the
-    requisite libraries installed and environment set up. Both
-    conditions are satisfied on wf.cudenver.edu and opt4.cudenver.edu
-    it is strongly recommended to work on these two machines only, at
-    least from the start.
+    requisite libraries installed and environment set up. 
+    See the user guide linked from http://openwfm.org/software.html
+    for further information.
 
 ***************************************
 *The big picture
@@ -23,56 +22,82 @@ local branch. Then push your branch to the archive.
 *Things to remember
 ***************************************
 
-1. make sure you are in your branch  before you modify anything
-2. merge between repositories is on pull only
-3. after git pull or merge use git log to make sure where you are
-4. before pulling you must commit all changes (=to your local repository)
-5. when you push all committed changes will be visible to others
-6. your changes will get merged into master only when you ask Jon to do that
-7. accumulated changes cause edit conflicts - merge with master often!
+Everybody:
+1. make sure you are in your branch by git branch before you modify anything
+2. merge between repositories is by pull only, never by push
+3. before and after git pull or merge use git log to make sure where you are
+4. the first line from git log identifies the state of all files uniquely
+5. before pull you must commit all changes (=to your local repository)
+6. accumulated changes cause edit conflicts - merge with master often!!
+
+Developers with write access:
+7. only after you push your committed changes will be visible to others
+8. your changes will get merged into master only when you ask Jon to do that
 
 
 ***************************************
 *Initial command list (see explanations below)*
 ***************************************
 
-This will create a directory ./wrf under your current directory.
-
 1.  Initial setup (substitute your information)
 
   git config --global user.name "FirstName LastName"
   git config --global user.email "user@example.com"
 
+  (You need to do this only once)
+
 2.  Local repository setup
 
-  Make sure that you have an account on math.cudenver.edu and you are in
-  group mandel there. Then:
+  a) Local developers with write access: make sure ssh math.ucdenver.edu works
+  and you are in group mandel there. Then:
 
-    git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git
+    git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf-fire.git
 
-  This will create a directory ./wrf with the files. The cloned repository
-  will be created in a hidden directory in ./wrf
+  b) Everyone else, read access only:
 
-3.  Branch setup (substitute <branch> with what you
-                  want to name your branch)
+    git clone git://github.com/jbeezley/wrf-fire.git
+
+  In either case, this will create a directory wrf-fire with the files. The cloned 
+  repository will be created in a hidden directory wrf-fire/.git
+
+3.  Create your branch:
+  (Substitute <branch> with what you want to name your branch.)
+  (If you have write access, please use branch names of the form <xy>/<branchname>,
+  where xy are your initials, so as not to clutter the repository.)
 
   cd ./wrf
-  git checkout -b <branch> origin/master
-  git push origin <branch>:<branch>
-
-4.  "cvs update" (updating <branch> from the shared repository)
-
+  git branch <branch>
   git checkout <branch>
-  git pull
 
-5.  "cvs commit" (committing <branch> to the shared repository)
+4.  Updating <branch> from the shared repository, similar to "cvs update":
 
-  git commit -a
+  git pull origin master:master 
+  git branch  (to make sure you are on your own branch)
+  git checkout <branch> (if necessary)
+  git merge master
+
+5. Commit your changes:
+  git add <filename>   (to add any new files)
+  git commit -a  (do not forget the flag -a)
+
+6. If you have write acces, copy your changes from the local repository
+  to the share repository:
+
   git push origin <branch>:<branch>
 
+  (The first time, next time you can try the short form, just git push)
+
+7. To share your changes:
+
+  a) If you have write access: ask Jon to merge your branch into master
+   and tell him which commit exactly (first line from git log)
+
+  b) If you have read-only access: email Jon for instructions how to 
+   create and email a patch file with your changes
 
 ***********************************
 *Explanation of the commands above*
+*and additional useful information*
 ***********************************
 
 1.  Initial setup
@@ -88,6 +113,18 @@ This will create a directory ./wrf under your current directory.
   others until you are ready.
 
 3.  Branches
+
+  git branch <branch>
+
+  This will create your branch starting from the commit where you currently are
+  (the latest commit on the master branch by default).
+
+  git checkout <branch>
+
+  This will make sure you are on your own branch.
+
+  More about branches
+  -------------------
 
   Our shared repository contains several branches, by default you will
   checkout the "master" branch.  This is meant to be the stable branch,
@@ -109,46 +146,31 @@ This will create a directory ./wrf under your current directory.
   Among others, you should see 'origin/jbeezley'.  To use this branch
   you need to create your private clone in your local repository by
 
-    git checkout --track -b jbeezley origin/jbeezley
+    git checkout -b jbeezley origin/jbeezley
 
   This will create a local branch, jbeezley, that will automatically be
   updated by the remote branch, jbeezley, on the shared repository.
-  "origin" is the default name of the shared repository. (You can omit
-  the --track flag if your version of git objects, some do.)
-
-  You should create your own branch at this point, (substitute <branch>
-  with what you wish to name your branch).
-
-    git checkout -b <branch> origin/master
-    git push origin <branch>:refs/heads/<branch>
+  "origin" is the default name of the shared repository.
 
   The first command creates a local branch starting from "master".  The
   second command commits (pushes) this branch to the shared repository.  
-  The "refs/heads/" part in the remote branch is now necessary in order
-  to create a new branch in a remote repository.  This is known as a 
-  long branch reference, as opposed to the short branch reference "<branch>".
-  While long branch references will work in any git operation, they are
-  only necessary in creating a remote branch.
+
+  To update your local copy of the jbeezley branch, you can do
+
+  git checkout jbeezley
+  git pull   (git will know you want to pull from origin/jbeezley)
+
+  and you are on the jbeezley branch at this point. Or, you can
+
+  git pull origin jbeezley:jbeezley
+
+  (Of course you can do all that with any other branch, not just jbeezley.)
 
   To switch to a different local branch
 
-    git checkout <branch>
+  git checkout <branch>
 
 4.  Updating the repository
-
-  You can check for new branches in the shared repository by
-
-    git remote update
-    git branch -r
-
-  To update a branch, change to that branch and update with
-
-    git pull
-
-  This is like 'cvs update', but this will not restore deleted files,
-  for that you need
-
-    git checkout-index -a
 
   To synchronize the local repository with the shared one do
 
