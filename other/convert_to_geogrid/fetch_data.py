@@ -1,8 +1,28 @@
-'''
-Created on Apr 23, 2009
-
-@author: jbeezley
-'''
+#!/usr/bin/env python
+##############################################################################
+#  fetch_data.py
+#
+#  Gets a data set from usgs seamless server
+#      (http://seamless.usgs.gov/)
+#  By default it retrieves 1/3 " NED (elevation) for a high resultion fire
+#  grid, but it is possible to use this script to get other data sets from
+#  the same website.  The domain area is defined by a region with boundaries
+#  parallel to lines of latitude/longitude given as arguments.  The script
+#  only accepts decimal values (it doesn't understand 36N 15' 34.6").
+#  There are a number of limitations of the seamless server, which 
+#  may cause this script to error out with some obscure message.  
+#  For example data sets are limited to ~2 GB chunks at once.  
+#  Rerunning with the '-v' flag may give clues as to what went wrong.
+#  It shouldn't be too hard to extend this script to work for other servers
+#  based on the usgs seamless map (like landfire), maybe in time...
+#
+#  Author: Jonathan Beezley (jon.beezley.math@gmail.com)
+#  Date: April 20, 2009
+#
+#  Requires:
+#    twill python modules (http://twill.idyll.org/)
+#
+##############################################################################
 
 import sys
 import re
@@ -10,8 +30,13 @@ import time
 from optparse import OptionParser
 import urllib
 
-#from twill.commands import *
-import twill
+try:
+    import twill
+except ImportError:
+    print "Cannot find twill modules, are they installed and in"+\
+          "PYTHONPATH.  You can find them at "+\
+          "http://twill.idyll.org/ or `easy_install twill`"
+    sys.exit(3)
 
 # a simple class with a write method
 class WritableObject:
@@ -21,12 +46,15 @@ class WritableObject:
         self.content.append(string)
     def clear(self):
         self.content=[]
-        
+
 def code(g):
     if g.get_code() != 200:
         return False
     else:
         return True
+
+if __name__ != "__main__":
+    print "This code is not meant to be a module!!!"
 
 usage = "usage: %prog [options] -- north south east west\n"
 usage += "coordinates given in lat/lon decimal degrees\n"
@@ -34,7 +62,9 @@ usage += "('--' is required!)"
 parse=OptionParser(usage)
 parse.add_option("-v","--verbose",action="store_true",
                  help="set verbose output for debugging")
-parse.set_defaults(verbose=False)
+parse.add_option("-d","--dataset",action="store",
+                 help="set usgs data set name [default: ND301HZ (1/3 arcsec elevation)]")
+parse.set_defaults(verbose=False,dataset="ND301HZ")
 (opts,args)=parse.parse_args(sys.argv[1:])
 verbose=opts.verbose
 if len(args) != 4:
@@ -43,7 +73,8 @@ if len(args) != 4:
     print "Must supply coordinate information."
     sys.exit(2)
 args=[ float(a) for a in args ]
-u="http://extract.cr.usgs.gov/Website/distreq/RequestSummary.jsp?AL=%9.6f,%9.6f,%9.6f,%9.6f&PL=ND301HZ," % \
+args.append(opt.dataset)
+u="http://extract.cr.usgs.gov/Website/distreq/RequestSummary.jsp?AL=%9.6f,%9.6f,%9.6f,%9.6f&PL=%s," % \
    tuple(args)
 print "Generating data from:"
 print u
