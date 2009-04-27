@@ -4,7 +4,9 @@ arg1=$1
 
 # link GEOGRID.TBL
 pushd geogrid >& /dev/null
-ln -sf GEOGRID.TBL.NED GEOGRID.TBL
+if [ ! -e GEOGRID.TBL ] ; then
+  cp GEOGRID.TBL.FIRE.NED GEOGRID.TBL
+fi
 popd >& /dev/null
 
 # Look for netcdf

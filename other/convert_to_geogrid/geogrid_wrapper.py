@@ -26,11 +26,17 @@ import namelist
 import fetch_data
 import geogrid
 
+donotfetch=False
+
 def main_rep(argv):
     numrepeats=2
     for i in range(numrepeats):
         main(argv)
+        donotfetch=True
         print "Running script again with new data."
+
+    print "Geogrid failed again... giving up"
+    sys.exit(1)
         
 
 def main(argv):
@@ -42,13 +48,13 @@ def main(argv):
         def clear(self):
             self.content=[]
     # set path names
-    geogrid="geogrid.exe"
+    geogridexe="geogrid.exe"
     geoem="geo_em.d01.nc"
     defaultnml="namelist.fire.default"
     runnml="namelist.wps"
     cwd="."
-    geocmd=os.path.join(cwd,geogrid)
-    expandbdy=.1
+    geocmd=os.path.join(cwd,geogridexe)
+    expandbdy=.5
     destfield='ZSF'
     
     parse=OptionParser("usage: %prog [options]")
@@ -61,7 +67,7 @@ def main(argv):
     
     
     output={}
-    output['dir']="higres_elev"
+    output['dir']="highres_elev"
     output['desc']="National Elevation Dataset (NED)"
     output['units']="meters"
     
@@ -129,12 +135,18 @@ def main(argv):
     # check existence of and modification date of geo_em.d??.*
     # stderr is empty, check stdout for error strings
     errpat=re.compile("\s*ERROR:")
-    if p.returncode != 0 and \
+    if p.returncode == 0 and \
        all([ os.path.isfile(outpat % i) for i in range(1,max_dom+1)]) and \
        all([ os.path.getmtime(outpat % i) > now for i in range(1,max_dom+1)]) and \
        errpat.search(sto) is None:
         print "Geogrid completed successfully."
         sys.exit(0)
+    else:
+        pass
+        #print "returncode=",p.returncode
+        #print "isfile=",os.path.isfile(outpat % 1)
+        #print "mtime=",os.path.getmtime(outpat % 1),now
+        #print "errorstring: ",errpat.search(sto)
     
     # if we got here something went wrong in geogrid, see if it is missing data:
     r=re.compile("Missing value encountered in output field (?P<field>\w*)\n")
@@ -146,10 +158,14 @@ def main(argv):
               "by missing data."
         sys.exit(1)
     
+    field=field.group('field')
     if field.strip() != destfield:  # + others once fetch_data.py is generalized
         print "Data is missing in field, %s, but I don't know how to fetch it." % field.strip()
         sys.exit(1)
-        
+    
+    if donotfetch:
+        return
+
     # Now we know that we need to get NED data from usgs, but we need the domain bounds.
     # regexp the boundaries to get the whole domain.  
     # the findall syntax is for running in parallel, but it probably won't actually work
@@ -187,6 +203,7 @@ def main(argv):
         print "fetch_data.py seems to have failed."
         print "For more information, try running:"
         print "fetch_data.py  -v -- ",north,south,east,west
+        raise
         
     print "Extracting data files."
     datafiles=[]
@@ -213,10 +230,10 @@ def main(argv):
     argv.extend(datafiles)
     print "Running geogrid.py %s" % " ".join(argv)
     try:
-        gdir=geogrid.mainprog()
+        gdir=geogrid.mainprog(argv)
     except:
         print "geogrid.py failed"
-        sys.exit(1)
+        raise
         
     absdir=os.path.realpath(gdir)
     print "Setting up %s" % tblfile
@@ -233,7 +250,7 @@ def main(argv):
     #   with what was given back from geogrid.py 
     while line != '':
         val=r.match(line)
-        if val != '' and val.group('val').strip() == destfield:
+        if val != None and val.group('val').strip() == destfield:
             while line.find("="*6) != -1 or line != '': 
                 if line.find("rel_path=default:") != -1 or line.find("abs_path=default:") != -1:
                     tmp.write('\tabs_path=default:%s\n' % absdir)

@@ -123,7 +123,7 @@ class Source:
         # this is for NED data
         sourcemissing=-9999
         
-        a=np.empty((xend-xstart+1,yend-ystart+1))
+        a=np.empty((yend-ystart+1,xend-xstart+1))
         a.fill(float(missing))
         for i in range(len(self.files)):
             f=self.source_tiles[i]
@@ -150,8 +150,8 @@ class Source:
                 xsize=sxend-sxstart
                 ysize=syend-systart
                 #print fd.ReadAsArray(sxstart,systart,xsize,ysize).shape
-                a[txstart:txend,tystart:tyend]=\
-                fd.ReadAsArray(sxstart,systart,xsize,ysize).transpose()
+                a[tystart:tyend,txstart:txend]=\
+                fd.ReadAsArray(sxstart,systart,xsize,ysize)#.transpose()
         np.choose(np.equal(a,sourcemissing),(a,missing))
         return a
 

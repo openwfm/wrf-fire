@@ -71,7 +71,7 @@ def main(argv):
         print "Must supply coordinate information."
         sys.exit(2)
     args=[ float(a) for a in args ]
-    args.append(opt.dataset)
+    args.append(opts.dataset)
     u="http://extract.cr.usgs.gov/Website/distreq/RequestSummary.jsp?AL=%9.6f,%9.6f,%9.6f,%9.6f&PL=%s," % \
        tuple(args)
     print "Generating data from:"
@@ -150,8 +150,8 @@ def main(argv):
     print "Downloading"
     i=0
     files=[]
-    maxretries=25
-    pause=60
+    maxretries=50
+    pause=20
     for u in v:
         i+=1
         print u," ..."
@@ -166,6 +166,7 @@ def main(argv):
                 print g.get_html()
                 print ""
             print "Not finished yet, wait some more..."
+            time.sleep(pause)
         else:
             print "The data should be available by now..."
             print "Something has gone wrong."

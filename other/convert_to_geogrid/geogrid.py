@@ -57,8 +57,15 @@ class Geogrid:
             self.halo=opts.halo
             self.missing=opts.missing
             self.endian=opts.endian
-            self.nxtile=opts.nxtile
-            self.nytile=opts.nytile
+            #probably should do something about this later because
+            #geogrid will be SLOW with large data sets
+            #self.nxtile=opts.nxtile
+            #self.nytile=opts.nytile
+            self.halo=0
+            n=self.sourcedata.getsize()
+            self.nxtile=n[0]
+            self.nytile=n[1]
+            
             self.nztile=opts.nztile
             self.scale=opts.scale
             self.force=opts.force
@@ -75,14 +82,14 @@ class Geogrid:
             pass
         
         def write(self,d):
-            verbprint("creating geogrid header file: "+os.path.join(d,"info"))
+            verbprint("creating geogrid header file: "+os.path.join(d,"index"))
             self.check()
             n=self.sourcedata.getsize()
             if n[0] > 99999 or n[1] > 99999:
                 raise Exception("Too many input data points to fit into "+\
                                 "one geogrid data structure, and "+\
                                 "splitting them is not yet implemented")
-            f=open(os.path.join(d,"info"),"w")
+            f=open(os.path.join(d,"index"),"w")
             f.write("projection="+self.projection+"\n")
             if self.continuous:
                 s="continuous"
@@ -196,8 +203,10 @@ class Geogrid:
                 ystart=y*self.info.nytile + 1
                 xend=min((x+1)*self.info.nxtile + 2*h,n[0])
                 yend=min((y+1)*self.info.nytile + 2*h,n[1])
-                tname=self.tilename(xstart+h,xend-h,
-                                    ystart+h,yend-h)
+                #TODO: this shifts the domain by halo grid points, should
+                #      probably fix at some point... it is only minor though
+                tname=self.tilename(xstart,xend-2*h,
+                                    ystart,yend-2*h)
                 fname=os.path.join(self.info.dirname,tname)
                 self.writetile(fname,xstart, xend, ystart, yend)
         
