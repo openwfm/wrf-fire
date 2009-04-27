@@ -2,6 +2,11 @@
 
 arg1=$1
 
+# link GEOGRID.TBL
+pushd geogrid >& /dev/null
+ln -sf GEOGRID.TBL.NED GEOGRID.TBL
+popd >& /dev/null
+
 # Look for netcdf
 if test -z "$NETCDF" ; then
   for p in /usr/local/netcdf

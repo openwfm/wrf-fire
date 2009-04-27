@@ -292,7 +292,8 @@ see the GEOGRID.TBL specification:"
         print web
         print "for a full listing of options."
     else:
-        print g.info.dirname
+        #print g.info.dirname
+        return g.info.dirname
    
 if __name__ == '__main__':
 #    mainprog(["-f","-v","testdir","24/w001001.adf"])
