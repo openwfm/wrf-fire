@@ -1038,7 +1038,7 @@ include 'mpif.h'
       call MPI_Abort(MPI_COMM_WORLD, mpi_errcode, mpi_ierr)
 #endif
 
-      stop
+      stop 1
 
    end subroutine parallel_abort
  
