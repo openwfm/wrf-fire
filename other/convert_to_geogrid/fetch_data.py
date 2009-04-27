@@ -58,12 +58,20 @@ def main(argv):
     usage += "coordinates given in lat/lon decimal degrees\n"
     usage += "('--' is required!)"
     parse=OptionParser(usage)
+    parse.add_option("-u","--url",action="store",
+                     help="url format string")
     parse.add_option("-v","--verbose",action="store_true",
                      help="set verbose output for debugging")
-    parse.add_option("-d","--dataset",action="store",
-                     help="set usgs data set name [default: ND301HZ (1/3 arcsec elevation)]")
-    parse.set_defaults(verbose=False,dataset="ND302HT")
+    parse.add_option("-d","--dataset",choices=["NED","LANDFIRE13"],
+                     help="set data name (NED or LANDFIRE13) [default: %default]")
+    parse.set_defaults(verbose=False,dataset="NED")
     (opts,args)=parse.parse_args(argv)
+    if opts.dataset == "NED":
+        url="http://extract.cr.usgs.gov/Website/distreq/RequestSummary.jsp?AL=%9.6f,%9.6f,%9.6f,%9.6f&PL=%s,"
+        prod="ND302HT"
+    elif opts.dataset == "LANDFIRE13":
+        url="http://landfire.cr.usgs.gov/Website/distreq/RequestSummary.jsp?PR=0&CU=Native&ZX=-1.0&ZY=-1.0&ML=COM&MD=DL&AL=%9.6f,%9.6f,%9.6f,%9.6f&UTMDATUM=0&CS=250&PL=%s"
+        prod="F0402HT"
     verbose=opts.verbose
     if len(args) != 4:
         #args=["39.9","39.","-106","-107"]
@@ -71,9 +79,8 @@ def main(argv):
         print "Must supply coordinate information."
         sys.exit(2)
     args=[ float(a) for a in args ]
-    args.append(opts.dataset)
-    u="http://extract.cr.usgs.gov/Website/distreq/RequestSummary.jsp?AL=%9.6f,%9.6f,%9.6f,%9.6f&PL=%s," % \
-       tuple(args)
+    args.append(prod)
+    u=url % tuple(args)
     print "Generating data from:"
     print u
     print "This could take a few minutes"
@@ -150,7 +157,7 @@ def main(argv):
     print "Downloading"
     i=0
     files=[]
-    maxretries=50
+    maxretries=250
     pause=20
     for u in v:
         i+=1
