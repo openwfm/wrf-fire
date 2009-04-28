@@ -299,7 +299,7 @@ def mainprog(argv):
     parser.add_option_group(out_parse)
     parser.set_defaults(wordsize="2",halo=0,endian="little",nxtile=1000,nytile=1000,
                        nztile=1,scale=1.0,missing=65535,verbose=False,
-                       force=False,signed=False,script=False,categorical=True,
+                       force=False,signed=False,script=False,continuous=True,
                        maxcategories=-1)
     (opts,args)=parser.parse_args(argv)
     setverbose(opts.verbose)
