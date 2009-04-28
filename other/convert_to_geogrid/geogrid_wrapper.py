@@ -67,6 +67,8 @@ def main_rep(argv):
         
 
 def main(argv):
+    global lastmissingvar
+    global criticalfail
     class WritableObject:
         def __init__(self):
             self.content = []
