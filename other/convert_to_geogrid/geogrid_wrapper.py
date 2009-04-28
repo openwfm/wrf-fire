@@ -193,6 +193,7 @@ def main(argv):
     if donotfetch:
         return
 
+    destfield=field
     outputi=destfields.index(field)
     output=outputfields[outputi]
 
