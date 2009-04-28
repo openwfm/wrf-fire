@@ -60,12 +60,16 @@ class Source:
             self.projection = fh.GetProjection()
             self.geotransform = fh.GetGeoTransform()
             self.spatialreference=osr.SpatialReference(self.projection)
-            self.ulx = self.geotransform[0]
-            self.uly = self.geotransform[3]
+            sr=self.spatialreference
+            self.ct=osr.CoordinateTransformation(sr,sr.CloneGeogCS())
+            #print self.ct.TransformPoint(self.geotransform[0],self.geotransform[3])
+            ul = self.ct.TransformPoint(self.geotransform[0],self.geotransform[3])
+            (self.ulx,self.uly) = (ul[0],ul[1])
             self.xres = abs(self.geotransform[1])
             self.yres = abs(self.geotransform[5])
-            self.lrx = self.ulx + self.geotransform[1] * self.xsize
-            self.lry = self.uly + self.geotransform[5] * self.ysize
+            lr = self.ct.TransformPoint(self.ulx + self.geotransform[1] * self.xsize,
+                                        self.uly + self.geotransform[5] * self.ysize)
+            (self.lrx,self.lry) = (lr[0],lr[1]) 
             self.topbottom=(self.geotransform[5]<0)
             self.description=fg.GetDescription()
     
@@ -93,8 +97,6 @@ class Source:
         def check(self):
             if self.bands != 1:
                 raise Exception("Files with more than one band are not supported")
-            if not self.spatialreference.IsGeographic():
-                raise Exception("Only geographic projections are supported at this time")
 
 
     def __init__(self,filenames):
@@ -154,6 +156,24 @@ class Source:
                 fd.ReadAsArray(sxstart,systart,xsize,ysize)#.transpose()
         np.choose(np.equal(a,sourcemissing),(a,missing))
         return a
+
+    def getprojection(self):
+        if self.files[0].spatialreference.IsGeographic():
+            return None
+        else:
+            sr=self.files[0].spatialreference
+            ret={}
+            ret['projection']=sr.GetAttrValue("projection")
+            if sr.GetAttrValue("unit") == "metre":
+                ret['unit']="meter"
+            else:
+                ret['unit']=sr.GetAttrValue("unit")
+            ret['datum']=sr.GetAttrValue('datum')
+            ret['stdlon']=sr.GetProjParm("longitude_of_center")
+            ret['stdlat']=sr.GetProjParm("latitude_of_center")
+            ret['truelat1']=sr.GetProjParm("standard_parallel_1")
+            ret['truelat2']=sr.GetProjParm("standard_parallel_2")
+            
 
     def gettopbottom(self):
         return self.files[0].topbottom

@@ -30,7 +30,7 @@ import warnings
 import os
 import shutil
 import textwrap
-from optparse import OptionParser, OptionGroup
+from optparse import OptionParser, OptionGroup, SUPPRESS_HELP
 try:
     import numpy as np
 except ImportError:
@@ -70,8 +70,26 @@ class Geogrid:
             self.scale=opts.scale
             self.force=opts.force
             self.units=opts.units
-            self.projection="regular_ll"
-            self.continuous="True"
+            proj=self.sourcedata.getprojection()
+            if proj is None:
+                self.projection="regular_ll"
+            else:
+                if proj['projection'] == 'Albers_Conic_Equal_Area' and \
+                   proj['datum'] == 'North_American_Datum_1983':
+                    self.projection='albers_nad83'
+                else:
+                    print "Sorry I don't understand this projection/datum:"
+                    print proj['projection']
+                    print proj['datum']
+                    raise Exception("")
+                self.truelat1=proj['truelat1']
+                self.truelat2=proj['truelat2']
+                self.stdlon=proj['stdlon']
+                self.stdlat=proj['stdlat']
+            self.continuous=opts.continuous
+            self.maxcategories=opts.maxcategories
+            if not self.continuous and self.maxcategories < 1:
+                raise Exception("Couldn't determine the number of categories.")
             self.signed=opts.signed
             self.script=opts.script
             if self.script:
@@ -91,16 +109,29 @@ class Geogrid:
                                 "splitting them is not yet implemented")
             f=open(os.path.join(d,"index"),"w")
             f.write("projection="+self.projection+"\n")
+            if self.projection != "regular_ll":
+                f.write("truelat1=%f\n" % self.truelat1)
+                f.write("truelat2=%f\n" % self.truelat2)
+                f.write("stdlon=%f\n" % self.stdlon)
             if self.continuous:
                 s="continuous"
+                f.write("type="+s+"\n")
             else:
                 s="categorical"
-            f.write("type="+s+"\n")
+                f.write("type="+s+"\n")
+                catmin=1
+                f.write("category_min=%i\n" % catmin)
+                catmax=self.maxcategories
+                f.write("category_max=%i\n" % catmax)
+            
             if self.units is None:
-                if not self.script:
-                    print textwrap.fill("WARNING: You didn't specify any units, and I can't find "+ \
-                                        "it in the data set.  Substituting \"meters\"",80)
-                s="meters"
+                if self.continuous:
+                    if not self.script:
+                        print textwrap.fill("WARNING: You didn't specify any units, and I can't find "+ \
+                                            "it in the data set.  Substituting \"meters\"",80)
+                    s="meters"
+                else:
+                    s="category"
             else:
                 s=self.units
             f.write('units="'+s+'"\n')
@@ -220,8 +251,9 @@ def mainprog(argv):
                          help="size (in bytes) of each number in the output file "
                               "[default: %default]")
     out_parse.add_option("-b","--border",type="int",dest="halo",metavar="BORDER",
-                         help="size of border for each data tile "
-                              "[default: %default]")
+                         help=SUPPRESS_HELP)
+                         #help="size of border for each data tile "
+                         #     "[default: %default]")
     out_parse.add_option("-e","--endian",choices=["big","little"],
                          help="byte order of output (conversion handled automatically "
                               "by geogrid, so it is not necessary to change) "
@@ -258,10 +290,17 @@ def mainprog(argv):
                       help="set verbose output [default: %default]",)
     parser.add_option("--script",action="store_true",
                       help="set non-verbose output for use inside a script")
+    parser.add_option("-c","--continuous",action="store_true",
+                      help="indicates continuous data [default]")
+    parser.add_option("-a","--categorical",dest="continuous",action="store_false",
+                      help="indicates categorical data")
+    parser.add_option("-A","--maxcategories",type="int",action="store",
+                      help="maximum number of categories")
     parser.add_option_group(out_parse)
-    parser.set_defaults(wordsize="2",halo=3,endian="little",nxtile=1000,nytile=1000,
+    parser.set_defaults(wordsize="2",halo=0,endian="little",nxtile=1000,nytile=1000,
                        nztile=1,scale=1.0,missing=65535,verbose=False,
-                       force=False,signed=False,script=False)
+                       force=False,signed=False,script=False,categorical=True,
+                       maxcategories=-1)
     (opts,args)=parser.parse_args(argv)
     setverbose(opts.verbose)
     if len(args) < 2:
