@@ -259,7 +259,7 @@ def main(argv):
     else:
         argv=[]
     if output['maxcat'] is not None:
-        argv.extend(['-m',str(output['maxcat'],'-a','-A',str(output['maxcat']),'-w','1'])
+        argv.extend(['-m',str(output['maxcat']),'-a','-A',str(output['maxcat']),'-w','1'])
     argv.extend(['-d',output['desc'],'-u',output['units'],'--script','--',output['dir']])
     argv.extend(datafiles)
     print "Running geogrid.py %s" % " ".join(argv)
