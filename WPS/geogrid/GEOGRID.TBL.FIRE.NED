@@ -335,7 +335,7 @@ name=NFUEL_CAT
 	z_dim_name=fuel_cat
 	halt_on_missing=yes
 	interp_option=default:nearest_neighbor+average_16pt+search
-	rel_path=default:landfire_data/
+	rel_path=default:landfire/
 	subgrid=yes
 ==============================
 name = ZSF
