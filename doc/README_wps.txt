@@ -21,8 +21,8 @@
 
 # next few commands run in WPS
 cd WPS
+
 #in WPS compile wps
-#echo 1 | ./configure
 ./compile wps
 
 #in WPS link the atmospheric data
@@ -32,7 +32,21 @@ cd WPS
 ln -sf ungrib/Variable_Tables/Vtable.AWIP Vtable
 
 #in WPS run geogrid to set up static geographical data, including landfire
-./geogrid.exe
+#This command will run a series of python scripts that grab data specific
+#to your domain and convert it to geogrid format.  If everything goes well,
+#it will run geogrid.exe with the new data.
+#!!! REQUIRES a number of external utilities:
+#!!!   Python 2.5+ (www.python.org)
+#!!!   GDAL library and python bindings (www.gdal.org)
+#!!!     (See the binary distributions in the downloads section.)
+#!!!   twill (http://twill.idyll.org)
+#!!!     (Install with python's easy_install or simply extract the source somewhere
+#!!!      and add that path to PYTHONPATH.)
+#
+#If you can't satisfy these dependencies, you must generate fuel category and 
+#highres topological data on your own.  The datasets are simply too big to distribute
+#in one package like the rest of geogrid.
+./geogrid_wrapper.sh
 
 #run ungrid to set up atmospheric data
 ./ungrib.exe
@@ -70,11 +84,4 @@ ln -sf ../../../WPS/met_em.d01.2005-08-28_1* .
 #wrf real test directory, link in the metgrid output, and set up the namelist 
 #for the new domain.  (If the domain description differs from the wps namelist,
 #real.exe will not run successfully.)  Run real.exe and wrf.exe.
-#
-#!!! geogrid gets its static geographical data from wrfdata/geog 
-#!!! This is defined in namelist.wps this directory currently only contains
-#!!! landfire data for the state of colorado, if your domain is outside this
-#!!! area, then nfuel_cat will contain zeros where no data is available.
-#!!! Contact me, jon.beezley.math@gmail.com if you want me to include data 
-#!!! for other regions.
 #

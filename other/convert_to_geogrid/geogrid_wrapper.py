@@ -12,7 +12,41 @@
 #  Date:   April 26, 2009
 #
 ##############################################################################
+'''A wrapper for WPS's geogrid.exe that automatically obtains data.
 
+Local modules:
+    fetch_data : gets data from webserver
+    geogrid : converts a dataset into geogrid format
+    
+Nonstandard modules
+    namelist : imports fortran namelists (included)
+    
+Standard modules
+    subprocess, os, shutil, sys, time, re, tarfile, optparse
+    
+Python 2.5 compatible.  This module is designed to be run as a script, and 
+currently supports only two fields, ZSF and NFUEL_CAT.  Adding more fields
+requires modifying the global variables destfields and outputfields, plus
+a number of other dependencies in submodules (such as defining the data
+source location in fetch_data.py, etc.)  
+
+Assumes that geogrid.exe has been built and is in the current directory.  
+namelist.wps, which should also be present, is imported to determine where
+GEOGRID.TBL is.  GEOGRID.TBL should also be present and valid.  This module
+will only correct errors relating to missing data that it knows how to get, 
+anything else and it will give up.  As such, the data directories specified
+in GEOGRID.TBL must exist and contain a valid index file, but they don't 
+necessarily need any actual data files.
+
+This script will run geogrid a number of times and collect data that is needed
+from online sources.  Once geogrid completes successfully, execution stops
+with exit status 0.  If for any reason something goes wrong, an error 
+message is printed and the script exits with >0 status.
+
+Note:  It will not overwrite data files from previous runs.  Either move them 
+       out of the way or use the "-f" flag.'''
+
+# standard modules:
 import subprocess as sp
 import os
 import shutil
@@ -22,15 +56,12 @@ import re
 import tarfile
 from optparse import OptionParser
 
+# included modules
 import namelist
 import fetch_data
 import geogrid
 
-donotfetch=False
-runnum=0
-lastmissingvar=''
-criticalfail=False
-
+# data field definitions
 destfields=['ZSF','NFUEL_CAT']
 
 outputfields=[{},{}]
@@ -48,7 +79,15 @@ outputfields[1]['units']='category'
 outputfields[1]['maxcat']=14
 outputfields[1]['source']='LANDFIRE13'
 
+# define a number of static variables used for controlling loops
+donotfetch=False
+runnum=0
+lastmissingvar=''
+criticalfail=False
+
+
 def main_rep(argv):
+    '''Main executable: Take command line arguments and loop over the wrapper.'''
     global runnum
     numrepeats=len(destfields)
     for i in range(numrepeats):
@@ -67,15 +106,10 @@ def main_rep(argv):
         
 
 def main(argv):
+    '''Wrapper script:  Call geogrid and if data is missing, fetch it, and repeat.'''
     global lastmissingvar
     global criticalfail
-    class WritableObject:
-        def __init__(self):
-            self.content = []
-        def write(self, string):
-            self.content.append(string)
-        def clear(self):
-            self.content=[]
+    
     # set path names
     geogridexe="geogrid.exe"
     geoem="geo_em.d01.nc"
@@ -85,6 +119,7 @@ def main(argv):
     geocmd=os.path.join(cwd,geogridexe)
     expandbdy=.5
     
+    # parse commandline options
     parse=OptionParser("usage: %prog [options]")
     parse.add_option("-f","--force",action="store_true",
                      help="delete destination data directory if it exists")
@@ -214,7 +249,8 @@ def main(argv):
     if south == [] or north == [] or west == [] or east == []:
         print "Can't parse domain boundaries."
         sys.exit(1)
-        
+    
+    # get domain boundaries and call data fetcher
     south=min(float(x) for x in south)
     north=max(float(x) for x in north)
     west=min(float(x) for x in west)
@@ -238,6 +274,7 @@ def main(argv):
         print "fetch_data.py -v  -d %s -- " % output['source'],north,south,east,west
         raise
         
+    # exctract files that were downloaded (assumes tar files with bzip2 or gzip compression)
     print "Extracting data files."
     datafiles=[]
     for f in files:
@@ -255,6 +292,7 @@ def main(argv):
         ft.extractall()
         os.remove(ft.name)
     
+    # run source data to geogrid conversion
     if opts.force:
         argv=['-f']
     else:
@@ -270,6 +308,7 @@ def main(argv):
         print "geogrid.py failed"
         raise
         
+    # process GEOGRID.TBL
     absdir=os.path.realpath(gdir)
     print "Setting up %s" % tblfile
     tmp=os.tmpfile()

@@ -110,26 +110,73 @@ and call fire_driver in dyn_em/solve_em.F
 
 The fire code needs to have data inputs at the subgrid resolution.
 At the moment, it is using fuel category data and interpolating
-other data sources like elevation/slope and latitude/longitude from
+other data sources like slope and latitude/longitude from
 WRF atmospheric resolution variables.  In the future, we may find
 it necessary to import more subgrid resolution variables from
 standard data sources.  
 
-We are importing this data through a modified (to support subgrids)
+We are importing this data through a modified (for geogrid_wrapper.sh)
 version of WPS, and WRF imports it from wrfinput_d?? just like
 every other data source.  The fuel category data we are currently
 using comes from this website:
 
 http://www.landfire.gov/viewer/
 
-under 13 Anderson Fire Behavior Fuel Models.  The data from this
-source needs to be converted into a geogrid compatible format, which
-we currently don't have an automated method of accomplishing.  This
-converted data is then placed with the rest of the geogrid data and
-imported in the standard way.  The repository
-contains the modified WPS with subgrid support that we are using.
-It contains a definition of NFUEL_CAT for the GEOGRID.TBL for
-importing the data. 
+under 13 Anderson Fire Behavior Fuel Models, and 
+
+http://seamless.usgs.gov/index.php
+
+under 1/3" NED, which is the same as the standard topo data, but much
+higher resolution (10 m).  The data from these sources need
+to be converted into a geogrid compatible format.  The script 
+geogrid_wrapper.sh in the WPS directory will attempt to fetch
+the data and convert it automatically.  This process is tricky because
+it relies on reverse engineering the source's websites.  It is 
+picky about checking that all of the form elements don't change
+so that it doesn't do anything mean to the webservers like requesting
+1 GB chunks of data continuously.  As a result, if anything on
+this website changes, the script will fail with an obscure message.
+The conversion scripts are also somewhat prone to failure if the
+dataset metadata changes in any way.  There are also a number of
+known limitations of the scripts at this time:
+
+1.  The dataset must be less than 250 Mb total in size.  Anything
+    bigger and the website splits into multiple downloads.  This
+    is fairly easy to fix if anyone runs into problems with it,
+    but that is unlikely in the near future because the domain
+    would have be many orders of magnitude larger than the test
+    problem. 
+
+2.  The dataset must have less than 100,000 pixels in each axis.
+    This is a limitation of the geogrid format.  The only way
+    around this is to split it into multiple different datasets
+    which geogrid will use simultaneously for a single field.
+    The dataset for the test problem is of size 746 x 575, so
+    again much larger domains will occur before this becomes and
+    issue.
+
+The geogrid_wrapper.sh script is simple a caller for more a series
+of more complicated python modules located in 
+other/convert_to_geogrid.  Most of these modules can be
+executed individually for use with custom data.  Most importantly,
+geogrid.py will convert most geotagged datasets into a format
+importable by geogrid.  Run `python geogrid.py -h` for syntax
+and options.  The limitation #2 above also applies to this script.
+
+These scripts REQUIRE a number of external utilities:
+   Python 2.5+ (www.python.org)
+   Numeric python/numpy (www.scipy.org)
+   GDAL library and python bindings (www.gdal.org)
+     (See the binary distributions in the downloads section.)
+   twill (http://twill.idyll.org)
+     (Install with python's easy_install or simply extract the source somewhere
+       and add that path to PYTHONPATH.)
+
+After the conversion the data and geogrid execution, the new data
+is imported in the standard way.  The repository contains a 
+slightly modified version of WPS that allows it to interact with
+the wrapper script when data is missing.  All other components are 
+part of the standard WPS distribution as of version 3.1.
 
 
 6. Impact on portability, performance, and parallelization
