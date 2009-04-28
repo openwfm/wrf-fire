@@ -286,7 +286,7 @@ def main(argv):
     while line != '':
         val=r.match(line)
         if val != None and val.group('val').strip() == destfield:
-            while line.find("="*6) != -1 or line != '': 
+            while line.find("="*6) == -1 and line != '': 
                 if line.find("rel_path=default:") != -1 or line.find("abs_path=default:") != -1:
                     tmp.write('\tabs_path=default:%s\n' % absdir)
                     pass
@@ -316,6 +316,10 @@ def main(argv):
         tmp.write("\tabs_path=default:%s\n"% absdir)
         tmp.write("\tsubgrid=yes\n")
         tmp.write("="*30)
+
+    while line != '':
+        tmp.write(line)
+        line=tbl.readline()
 
     #copy temporary file to geogrid table
     tmp.flush()
