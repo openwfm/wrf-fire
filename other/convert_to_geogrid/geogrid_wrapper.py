@@ -49,6 +49,7 @@ outputfields[1]['maxcat']=14
 outputfields[1]['source']='LANDFIRE13'
 
 def main_rep(argv):
+    global runnum
     numrepeats=len(destfields)
     for i in range(numrepeats):
         runnum+=1
