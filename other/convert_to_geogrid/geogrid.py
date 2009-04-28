@@ -197,6 +197,9 @@ class Geogrid:
         if sys.byteorder != self.info.endian:
             verbprint("swapping byte order to: "+self.info.endian)
             b.byteswap(True)
+        if not self.info.continuous:
+            b=np.clip(b,1,self.info.maxcategories)
+        
         verbprint("writing to file:"+fname)
         b.tofile(f)
         f.close()
@@ -307,7 +310,6 @@ def mainprog(argv):
         parser.print_usage()
         print "Must supply output directory and one or more input files."
         sys.exit(2)
-        
     g=Geogrid(args[1:],args[0],opts)
     g.write()
     if not opts.script:

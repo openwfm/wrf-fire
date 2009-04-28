@@ -154,7 +154,8 @@ class Source:
                 #print fd.ReadAsArray(sxstart,systart,xsize,ysize).shape
                 a[tystart:tyend,txstart:txend]=\
                 fd.ReadAsArray(sxstart,systart,xsize,ysize)#.transpose()
-        np.choose(np.equal(a,sourcemissing),(a,missing))
+        # don't know if this actually works
+        a=np.choose(np.equal(a,sourcemissing),(a,missing))
         return a
 
     def getprojection(self):
@@ -173,7 +174,7 @@ class Source:
             ret['stdlat']=sr.GetProjParm("latitude_of_center")
             ret['truelat1']=sr.GetProjParm("standard_parallel_1")
             ret['truelat2']=sr.GetProjParm("standard_parallel_2")
-            
+            return ret
 
     def gettopbottom(self):
         return self.files[0].topbottom

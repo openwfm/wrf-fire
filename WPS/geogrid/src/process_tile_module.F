@@ -473,7 +473,28 @@ module process_tile_module
                do j=start_mem_j, end_mem_j
                   ! Only need to examine k=1
                   if (field(i,j,1) == msg_fill_val) then
-                     call mprintf(.true.,ERROR,' Missing value encountered in output field. Quitting.')
+                     call mprintf(.true.,STDOUT,' Missing value encountered in output field %s', &
+                                  s1=trim(fieldname))
+                     call mprintf(.true.,STDOUT,' First missing value found at index (%i,%i), coordinate (%f,%f)', &
+                                  i1=i,i2=j,f1=xlon_ptr(i,j),f2=xlat_ptr(i,j))
+                     coordxmin=1000
+                     coordymin=1000
+                     coordxmax=-1000
+                     coordymax=-1000
+                     do k=sm1,em1
+                       do l=sm2,em2
+                         coordxmin=min(coordxmin,xlon_ptr(k,l))
+                         coordymin=min(coordymin,xlat_ptr(k,l))
+                         coordxmax=max(coordxmax,xlon_ptr(k,l))
+                         coordymax=max(coordxmax,xlat_ptr(k,l))
+                       enddo
+                     enddo
+                     call mprintf(.true.,STDOUT,' Lat/Lon bounds on current tile:')
+                     call mprintf(.true.,STDOUT,' LATSOUTH=%f',f1=coordymin)
+                     call mprintf(.true.,STDOUT,' LATNORTH=%f',f1=coordymax)
+                     call mprintf(.true.,STDOUT,' LONWEST=%f',f1=coordxmin)
+                     call mprintf(.true.,STDOUT,' LONEAST=%f',f1=coordxmax)
+                     call mprintf(.true.,ERROR,' Quitting.')
                   end if
                end do
             end do
@@ -988,7 +1009,28 @@ module process_tile_module
                         do j=sm2, em2
                            ! Only need to examine k=1
                            if (field(i,j,1) == msg_fill_val) then
-                              call mprintf(.true.,ERROR,' Missing value encountered in output field. Quitting.')
+                              call mprintf(.true.,STDOUT,' Missing value encountered in output field %s', &
+                                           s1=trim(fieldname))
+                              call mprintf(.true.,STDOUT,' First missing value found at index (%i,%i), coordinate (%f,%f)', &
+                                           i1=i,i2=j,f1=xlon_ptr(i,j),f2=xlat_ptr(i,j))
+                              coordxmin=1000
+                              coordymin=1000
+                              coordxmax=-1000
+                              coordymax=-1000
+                              do k=sm1,em1
+                                do l=sm2,em2
+                                  coordxmin=min(coordxmin,xlon_ptr(k,l))
+                                  coordymin=min(coordymin,xlat_ptr(k,l))
+                                  coordxmax=max(coordxmax,xlon_ptr(k,l))
+                                  coordymax=max(coordxmax,xlat_ptr(k,l))
+                                enddo
+                              enddo
+                              call mprintf(.true.,STDOUT,' Lat/Lon bounds on current tile:')
+                              call mprintf(.true.,STDOUT,' LATSOUTH=%f',f1=coordymin)
+                              call mprintf(.true.,STDOUT,' LATNORTH=%f',f1=coordymax)
+                              call mprintf(.true.,STDOUT,' LONWEST=%f',f1=coordxmin)
+                              call mprintf(.true.,STDOUT,' LONEAST=%f',f1=coordxmax)
+                              call mprintf(.true.,ERROR,' Quitting.')
                            end if
                         end do
                      end do
