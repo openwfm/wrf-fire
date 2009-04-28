@@ -27,15 +27,41 @@ import fetch_data
 import geogrid
 
 donotfetch=False
+runnum=0
+lastmissingvar=''
+criticalfail=False
+
+destfields=['ZSF','NFUEL_CAT']
+
+outputfields=[{},{}]
+outputfields[0]['name']=destfields[0]
+outputfields[0]['dir']="highres_elev"
+outputfields[0]['desc']="National Elevation Dataset (NED)"
+outputfields[0]['units']="meters"
+outputfields[0]['maxcat']=None
+outputfields[0]['source']='NED'
+
+outputfields[1]['name']=destfields[1]
+outputfields[1]['dir']='landfire'
+outputfields[1]['desc']='LANDFIRE 13 Anderson Fire Behavior Fuel Models'
+outputfields[1]['units']='category'
+outputfields[1]['maxcat']=14
+outputfields[1]['source']='LANDFIRE13'
 
 def main_rep(argv):
-    numrepeats=2
+    numrepeats=len(destfields)
     for i in range(numrepeats):
+        runnum+=1
         main(argv)
-        donotfetch=True
+        if criticalfail:
+            break
         print "Running script again with new data."
+    else:
+        print "All data should be available now, last try."
+        donotfetch=True
+        main(argv)
+        print "Geogrid failed after %i tries... giving up." % runnum
 
-    print "Geogrid failed again... giving up"
     sys.exit(1)
         
 
@@ -55,7 +81,6 @@ def main(argv):
     cwd="."
     geocmd=os.path.join(cwd,geogridexe)
     expandbdy=.5
-    destfield='ZSF'
     
     parse=OptionParser("usage: %prog [options]")
     parse.add_option("-f","--force",action="store_true",
@@ -64,13 +89,6 @@ def main(argv):
     (opts,args)=parse.parse_args(argv)
     if len(args) > 0:
         parse.print_usage()
-    
-    
-    output={}
-    output['dir']="highres_elev"
-    output['desc']="National Elevation Dataset (NED)"
-    output['units']="meters"
-    
     
     # find namelist copy to runtime namelist
     if not os.path.isfile(runnml):
@@ -158,13 +176,22 @@ def main(argv):
               "by missing data."
         sys.exit(1)
     
-    field=field.group('field')
-    if field.strip() != destfield:  # + others once fetch_data.py is generalized
+    field=field.group('field').strip()
+    if not field.strip() in destfields:  # + others once fetch_data.py is generalized
         print "Data is missing in field, %s, but I don't know how to fetch it." % field.strip()
         sys.exit(1)
+        
+    if field == lastmissingvar:
+        print "I already tried to fetch %s, but it is still missing!!" % field
+        sys.exit(1)
+    
+    lastmissingvar=field
     
     if donotfetch:
         return
+
+    outputi=destfields.index(field)
+    output=outputfields[outputi]
 
     # Now we know that we need to get NED data from usgs, but we need the domain bounds.
     # regexp the boundaries to get the whole domain.  
@@ -196,13 +223,15 @@ def main(argv):
     west -= epsx
     east += epsx
     
-    print "Executing: fetch_data.py -- ",north,south,east,west
+    
+    print "Executing: fetch_data.py -d %s -- " % output['source']\
+           ,north,south,east,west
     try:
-        files=fetch_data.main(["--",str(north),str(south),str(east),str(west)])
+        files=fetch_data.main(["-d",output['source'],"--",str(north),str(south),str(east),str(west)])
     except:
         print "fetch_data.py seems to have failed."
         print "For more information, try running:"
-        print "fetch_data.py  -v -- ",north,south,east,west
+        print "fetch_data.py -v  -d %s -- " % output['source'],north,south,east,west
         raise
         
     print "Extracting data files."
@@ -226,6 +255,8 @@ def main(argv):
         argv=['-f']
     else:
         argv=[]
+    if output['maxcat'] is not None:
+        argv.extend(['a','-A',str(output['maxcat']),'-w','1'])
     argv.extend(['-d',output['desc'],'-u',output['units'],'--script','--',output['dir']])
     argv.extend(datafiles)
     print "Running geogrid.py %s" % " ".join(argv)
@@ -268,9 +299,16 @@ def main(argv):
         print "Inserting reasonable defaults."
         tmp.write("name=%s\n" % destfield)
         tmp.write("\tpriority=1\n")
-        tmp.write("\tdest_type=continuous\n")
+        if output['maxcat'] is not None:
+            tmp.write("\tdest_type=continuous\n")
+            tmp.write("\tinterp_option=default:four_pt+average_16pt+search\n")
+        else:
+            tmp.write("\tdest_type=categorical\n")
+            tmp.write("\tdominant_only=%s\n" % output['name'])
+            tmp.write("\tz_dim_name=%s\n" % output['units'])
+            tmp.write("\tinterp_option=default:nearest_neighbor+average_16pt+search\n")
+            
         tmp.write("\thalt_on_missing=yes\n")
-        tmp.write("\tinterp_option=default:four_pt\n")
         tmp.write("\tabs_path=default:%s\n"% absdir)
         tmp.write("\tsubgrid=yes\n")
         tmp.write("="*30)
@@ -278,7 +316,7 @@ def main(argv):
     #copy temporary file to geogrid table
     tmp.flush()
     tbl.close()
-    os.rename(tblfile,tblfile+"_backup")
+    os.rename(tblfile,tblfile+"_backup%02i"%runnum)
     tmp.seek(0)
     tbl=open(tblfile,"w")
     tbl.write(tmp.read())

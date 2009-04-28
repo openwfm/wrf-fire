@@ -58,8 +58,8 @@ def main(argv):
     usage += "coordinates given in lat/lon decimal degrees\n"
     usage += "('--' is required!)"
     parse=OptionParser(usage)
-    parse.add_option("-u","--url",action="store",
-                     help="url format string")
+    #parse.add_option("-u","--url",action="store",
+    #                 help="url format string")
     parse.add_option("-v","--verbose",action="store_true",
                      help="set verbose output for debugging")
     parse.add_option("-d","--dataset",choices=["NED","LANDFIRE13"],
