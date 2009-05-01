@@ -273,6 +273,16 @@ call interpolate_2d(  &
 !           fine node 1           2           3                   2*(ite-its+1) 
 !                fine cell  1           2                             cell 2*(ite-its+1)
 
+
+! do a=1,jte-jts+1
+!     do b=1,ite-its+1
+!         do k=1,ir
+!             do l=1,jr
+!                 i=(a-1)*ir+k
+!                 j=(b-1)*jr+l
+!                 iccell=its+(i-1)/ir
+!                 jccell=jts+(j-1)/jr
+
 do j=1,JFCELLS
     do i=1,IFCELLS
         iccell=its+(i-1)/ir ! the nearest coarse node
@@ -304,7 +314,8 @@ do j=1,JFCELLS
         fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
     enddo
 enddo
-
+!enddo
+!enddo
 ! sum up over subcells
 
 call sum_2d_cells(       &
