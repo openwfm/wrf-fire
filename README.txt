@@ -2,6 +2,12 @@ This is the coupled WRF-Fire model, combining WRF and the SFIRE codes.
 
 For terms and conditions see the file license.txt
 
+Documentation is in progress. Current drafts of the technical documentation and
+user's guide can be found at
+
+http://math.ucdenver.edu/~jmandel/fires/wrf-fire-doc.pdf
+http://math.ucdenver.edu/~jmandel/fires/wrf-fire-guide.pdf
+
 If you find this code useful please acknowledge our work by citing the paper
 [1].  Yes this is a strange reference for an atmospheric scientist but it  
 is the only one we have at the moment. Please see the sections
@@ -76,7 +82,7 @@ The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
 
 Local developers get the code and submit changes by 
 
-         git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git
+         git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf-fire.git
 
 
 BRANCHES
@@ -105,7 +111,6 @@ no errors.  ("grep Error compile.log" shouldn't return anything).
 RUNNING
 
 cd test/em_fire 
-./run_me_first.csh (needs to be done only once)
 ./ideal.exe >& ideal.log (this creates file wrfinput_d01, needs to be done only
 when input_sounding changes)
 ./wrf.exe
