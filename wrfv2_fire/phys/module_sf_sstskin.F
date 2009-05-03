@@ -68,7 +68,7 @@ CONTAINS
       do j=jts,jte
 !
       if(xland(i,j).ge.1.5) then
-      qo=glw(i,j)-emiss(i,j)*stbolt*(sstsk(i,j)**4)-qfx(i,j)-hfx(i,j)
+      qo=glw(i,j)-emiss(i,j)*stbolt*(sstsk(i,j)**4)-2.5e6*qfx(i,j)-hfx(i,j)
       swo=gsw(i,j)
       us=MAX(ust(i,j), 0.01)
       tb=tsk(i,j)-273.15
@@ -127,7 +127,6 @@ CONTAINS
       skinmin=amin1(skinmin,ts-tb)
       sstsk(i,j)=ts+273.15      ! convert ts (in C) to sstsk (in K)
       dtw1(i,j)=dtw              ! dtw always in C
-if(i.eq.5.and.j.eq.5)print *,'sstsk tsk',i,j,sstsk(i,j),tsk(i,j)
       endif
 !
       end do

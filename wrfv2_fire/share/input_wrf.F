@@ -80,6 +80,23 @@
                               ims, ime, jms, jme, kms, kme,    &
                               ips, ipe, jps, jpe, kps, kpe    )
 
+! If this was not a training read (dry run) check for erroneous values.
+    CALL wrf_inquire_filename ( fid , fname , filestate , ierr )
+    IF ( ierr /= 0 ) THEN
+      WRITE(wrf_err_message,*)'module_io_wrf: input_wrf: wrf_inquire_filename Status = ',ierr
+      CALL wrf_error_fatal( wrf_err_message )
+    ENDIF
+
+    WRITE(wrf_err_message,*)'input_wrf: fid,filestate = ',fid,filestate
+    CALL wrf_debug( 300 , wrf_err_message )
+
+    dryrun        = ( filestate .EQ. WRF_FILE_OPENED_NOT_COMMITTED )
+
+    WRITE(wrf_err_message,*)'input_wrf: dryrun = ',dryrun
+    CALL wrf_debug( 300 , wrf_err_message )
+
+    check_if_dryrun : IF ( .NOT. dryrun ) THEN
+
 ! simulation start time is a Singleton maintained by head_grid
     IF ( ( switch .EQ.     model_input_only  ) .OR. &
          ( switch .EQ.          restart_only ) ) THEN
@@ -259,6 +276,7 @@
     WRITE(wrf_err_message,*)'input_wrf: wrf_get_dom_ti_integer for MAP_PROJ returns ',config_flags%map_proj
     CALL wrf_debug ( 300 , wrf_err_message )
     CALL nl_set_map_proj ( grid%id , config_flags%map_proj )
+    grid%map_proj = config_flags%map_proj
 
     CALL wrf_get_dom_ti_char ( fid , 'MMINLU', mminlu , ierr )
     IF ( ierr .NE. 0 ) THEN
@@ -274,7 +292,7 @@
     ELSE
        mminlu = " "
     END IF
-    call wrf_message("mminlu = '" // mminlu // "'")
+    call wrf_debug( 1 , "mminlu = '" // TRIM(mminlu) // "'")
     if (index(mminlu, char(0)) > 0) mminlu(index(mminlu, char(0)):) = " "
     WRITE(wrf_err_message,*)'input_wrf: wrf_get_dom_ti_char for MMINLU returns ' // TRIM(mminlu)
     CALL wrf_debug ( 300 , wrf_err_message )
@@ -286,7 +304,7 @@
 
     call wrf_get_dom_ti_integer(fid, "NUM_LAND_CAT", num_land_cat_compare, 1, icnt, ierr)
     if ( (ierr .NE. 0) .OR. ( num_land_cat_compare .LT. 1 ) .OR. ( num_land_cat_compare .GT. 1000 ) ) then
-       call wrf_message("Must be old WPS data, assuming 24 levels for NUM_LAND_CAT")
+       call wrf_debug( 1 , "Must be old WPS data, assuming 24 levels for NUM_LAND_CAT")
        num_land_cat_compare = 24
 !      call wrf_error_fatal("Error trying to find global attribute 'NUM_LAND_CAT'")
     endif
@@ -370,23 +388,6 @@
       CALL nl_set_j_parent_start ( grid%id , config_flags%j_parent_start )
     ENDIF
 #endif
-
-! If this was not a training read (dry run) check for erroneous values.
-    CALL wrf_inquire_filename ( fid , fname , filestate , ierr )
-    IF ( ierr /= 0 ) THEN
-      WRITE(wrf_err_message,*)'module_io_wrf: input_wrf: wrf_inquire_filename Status = ',ierr
-      CALL wrf_error_fatal( wrf_err_message )
-    ENDIF
-
-    WRITE(wrf_err_message,*)'input_wrf: fid,filestate = ',fid,filestate
-    CALL wrf_debug( 300 , wrf_err_message )
-
-    dryrun        = ( filestate .EQ. WRF_FILE_OPENED_NOT_COMMITTED )
-
-    WRITE(wrf_err_message,*)'input_wrf: dryrun = ',dryrun
-    CALL wrf_debug( 300 , wrf_err_message )
-
-    check_if_dryrun : IF ( .NOT. dryrun ) THEN
 
 #if (EM_CORE == 1)
 
@@ -491,11 +492,12 @@
 !
       SELECT CASE ( switch )
         CASE ( model_input_only, aux_model_input1_only, aux_model_input2_only,       &
-               aux_model_input3_only, aux_model_input4_only, aux_model_input5_only, aux_model_input10_only )
+               aux_model_input3_only, aux_model_input4_only, aux_model_input5_only,  &
+               aux_model_input9_only, aux_model_input10_only )
 #ifdef WRF_CHEM
            IF( (config_flags%io_style_emissions .eq. 1) .and.                                &
-              ((switch.eq.aux_model_input4_only) .or. (switch.eq.aux_model_input5_only) .or. &
-               (switch.eq.aux_model_input7_only)) ) then
+              ((switch.eq.aux_model_input5_only) .or. (switch.eq.aux_model_input6_only) .or. &
+               (switch.eq.aux_model_input7_only) .or. (switch.eq.aux_model_input8_only)) ) then
                CALL wrf_message( "**WARNING** Time in input file not being checked **WARNING**" )
            ELSE
 #endif

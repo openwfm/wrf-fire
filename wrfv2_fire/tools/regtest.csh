@@ -10,7 +10,7 @@
 #BSUB -e reg.err                        # error filename
 #BSUB -J regtest                        # job name
 #BSUB -q share                          # queue
-#BSUB -W 12:00                          # wallclock time
+#BSUB -W 6:00                          # wallclock time
 #BSUB -P 64000400
 
 # QSUB -q ded_4             # submit to 4 proc
@@ -112,7 +112,7 @@ else if ( ( `hostname | cut -c 1-2` == bs ) || ( `hostname` == tempest ) || ( `h
           ( `hostname | cut -c 1-2` == bv ) || ( `hostname | cut -c 1-2` == be ) ) then
 	set WRFREGDATAEM = /mmm/users/gill/WRF-data-EM
 	set WRFREGDATAEM = /mmm/users/gill/WRF_regression_data/processed
-	set WRFREGDATANMM = /mmm/users/gill/WRF-data-NMM
+	set WRFREGDATANMM = /mmm/users/gill/WRF-data-NMM_new
 else if ( ( `uname` == AIX ) && ( ( `hostname | cut -c 1-2` != bs ) && \
                                   ( `hostname | cut -c 1-2` != bv ) && ( `hostname | cut -c 1-2` != be ) ) ) then
 	set WRFREGDATAEM = /nbns/meso/wx22tb/regression_tests/WRF-data-EM
@@ -210,11 +210,17 @@ set start = ( `date` )
 #	is a bit special.  It can only run on machines that have the WRF RSL_LITE-but-no-MPI
 #	option available.
 
-set NESTED = TRUE
-set NESTED = FALSE
+set NESTED1 = TRUE
+set NESTED1 = FALSE
 
-if ( $NESTED == TRUE ) then
+set NESTED2 = TRUE
+set NESTED2 = FALSE
+
+if ( ( $NESTED1 == TRUE ) || ( $NESTED2 == TRUE ) ) then
 	echo DOING a NESTED TEST
+	set NESTED = TRUE
+else
+	set NESTED = FALSE
 endif
 
 #	Use the adaptive time step option
@@ -424,8 +430,10 @@ set IO_FORM_WHICH =( IO     IO        IO       IO       O        )
 #	esmf_lib: cannot test NMM
 #	grib output: cannot test NMM
 
-if      ( $NESTED == TRUE ) then
-	set CORES = ( em_real em_b_wave em_quarter_ss          )
+if      ( $NESTED1 == TRUE ) then
+	set CORES = ( em_real                                  )
+else if ( $NESTED2 == TRUE ) then
+	set CORES = (         em_b_wave em_quarter_ss          )
 else if ( $NESTED != TRUE ) then
 	set CORES = ( em_real em_b_wave em_quarter_ss nmm_real )
 	if ( $CHEM == TRUE ) then
@@ -455,9 +463,9 @@ if      ( $REAL8 == TRUE ) then
 	set CORES = ( em_real em_quarter_ss )
 endif
 
-if      ( ( $CHEM != TRUE ) && ( $FDDA != TRUE ) &&   ( $NESTED != TRUE ) && ( $REAL8 != TRUE ) && ( $GLOBAL != TRUE )   ) then
+if      ( ( $CHEM != TRUE ) && ( $FDDA != TRUE ) &&   ( $REAL8 != TRUE ) && ( $GLOBAL != TRUE )   ) then
 	set PHYSOPTS =	( 1 2 3 4 5 6 7 )
-else if ( ( $CHEM != TRUE ) && ( $FDDA != TRUE ) && ( ( $NESTED == TRUE ) || ( $REAL8 == TRUE ) || ( $GLOBAL == TRUE ) ) ) then
+else if ( ( $CHEM != TRUE ) && ( $FDDA != TRUE ) && ( ( $REAL8 == TRUE ) || ( $GLOBAL == TRUE ) ) ) then
 	set PHYSOPTS =	( 1 2 3 4 5 6 )
 else if ( ( $CHEM != TRUE ) && ( $FDDA == TRUE ) ) then
 	if ( $FDDA2 == TRUE ) then
@@ -502,6 +510,9 @@ cat >! dom_real << EOF
  e_sn                                = 61,    31,    31,
  s_vert                              = 1,     1,     1,
  e_vert                              = 28,    28,    28,
+ p_top_requested                     = 5000,
+ num_metgrid_levels                  = 27,
+ num_metgrid_soil_levels             = 4,
  dx                                  = 30000, 10000,  3333.333333,
  dy                                  = 30000, 10000,  3333.333333,
  grid_id                             = 1,     2,     3,
@@ -532,6 +543,9 @@ cat >! dom_real << EOF
  e_sn                                = 82,    31,    31,
  s_vert                              = 1,     1,     1,
  e_vert                              = 28,    28,    28,
+ p_top_requested                     = 5000,
+ num_metgrid_levels                  = 27,
+ num_metgrid_soil_levels             = 4,
  dx                                  = 10000,  3333.333333,  1111.111111,
  dy                                  = 10000,  3333.333333,  1111.111111,
  grid_id                             = 1,     2,     3,
@@ -567,6 +581,9 @@ cat >! dom_real << EOF
  e_sn                                = 61,    31,    31,
  s_vert                              = 1,     1,     1,
  e_vert                              = 28,    28,    28,
+ p_top_requested                     = 5000,
+ num_metgrid_levels                  = 27,
+ num_metgrid_soil_levels             = 4,
  dx                                  = 30000, 10000,  3333,
  dy                                  = 30000, 10000,  3333,
  grid_id                             = 1,     2,     3,
@@ -592,6 +609,9 @@ cat >! dom_real << EOF
  e_sn                                = 82,    31,    31,
  s_vert                              = 1,     1,     1,
  e_vert                              = 28,    28,    28,
+ p_top_requested                     = 5000,
+ num_metgrid_levels                  = 27,
+ num_metgrid_soil_levels             = 4,
  dx                                  = 10000,  3333.333333,  1111.111111,
  dy                                  = 10000,  3333.333333,  1111.111111,
  grid_id                             = 1,     2,     3,
@@ -617,7 +637,9 @@ cat >! dom_real << EOF
  e_sn                                = 33,     81,    81,
  s_vert                              = 1,     1,     1,
  e_vert                              = 41,    41,    41,
- num_metgrid_levels                  = 27
+ p_top_requested                     = 5000,
+ num_metgrid_levels                  = 27,
+ num_metgrid_soil_levels             = 4,
  dx                                  = 625373.288,20000, 4000,
  dy                                  = 625373.288,20000, 4000,
  p_top_requested                     = 5000
@@ -799,11 +821,11 @@ cat >! phys_real_4 << EOF
  bl_pbl_physics                      = 2,     2,     2,
  bldt                                = 0,     0,     0,
  cu_physics                          = 5,     5,     0,
- cudt                                = 5,     5,     5,
+ cudt                                = 0,     0,     0,
  isfflx                              = 1,
  ifsnow                              = 0,
  icloud                              = 1,
- sf_urban_physics                    = 1,     1,     1,
+ sf_urban_physics                    = 2,     2,     2,
  surface_input_source                = 1,
  num_soil_layers                     = 4,
  mp_zero_out                         = 0,
@@ -1755,9 +1777,8 @@ endif
 #	And we can stick the input data where we want, the WRFV3 directory has been created.
 
 ( cd WRFV3/test/em_real  ; ln -sf $thedataem/* . ) 
-#( cd WRFV3/test/nmm_real ; ln -s $thedatanmm/wrf_real* . ; cp $thedatanmm/namelist.input.regtest . )
-( cd WRFV3/test/nmm_real ; ln -s $thedatanmm/wrf_real* . ; \
-  sed '/dyn_opt/d' $thedatanmm/namelist.input.regtest >! ./namelist.input.regtest )
+( cd WRFV3/test/nmm_real ; ln -s $thedatanmm/met_nmm* . ; \
+  cp $thedatanmm/namelist.input.regtest . )
 #DAVE###################################################
 ( cd WRFV3/test/em_real ; ls -ls )
 ( cd WRFV3/test/nmm_real ; ls -ls )
@@ -2053,11 +2074,20 @@ cp configure.wrf configure.wrf.core=${core}_build=${compopt}
 			sed -e '/^RWORDSIZE/s/\$(NATIVE_RWORDSIZE)/8/'  configure.wrf > ! foo ; /bin/mv foo configure.wrf
 		endif
 	
+		#	For AIX, remove the MASSV libs for bit-wise comparisons.
+
+		if ( ( `uname` == AIX ) && ( $REG_TYPE == BIT4BIT ) ) then
+			sed -e '/^LDFLAGS_LOCAL/s/-lmass -lmassv/ /'  \
+			    -e '/^ARCH_LOCAL/s/-DNATIVE_MASSV/ /' \
+			    configure.wrf > ! foo ; /bin/mv foo configure.wrf
+		endif
+	
 		#	Fix the OpenMP default for IBM regression testing - noopt required for bit-wise comparison.
 
-		if ( ( $compopt == $COMPOPTS[2] ) && ( `uname` == AIX ) ) then
-			sed -e '/^OMP/s/-qsmp=noauto/-qsmp=noauto:noopt/'  configure.wrf > ! foo ; /bin/mv foo configure.wrf
-		endif
+# this should not be needed any more, with changes to have only OMP modules compiled with -qsmp=noauto.  JM 20090217
+#		if ( ( $compopt == $COMPOPTS[2] ) && ( `uname` == AIX ) ) then
+#			sed -e '/^OMP/s/-qsmp=noauto/-qsmp=noauto:noopt/'  configure.wrf > ! foo ; /bin/mv foo configure.wrf
+#		endif
 
 		#	Save the configure file.
 
@@ -2254,7 +2284,7 @@ EOF
 				else if ( $CHEM == TRUE ) then
 					if ( ( $KPP == TRUE ) && ( $phys_option >= 3 ) ) then
 						sed -e '/dyn_opt/d' \
-						    -e 's/^ chem_opt *= [0-9]/ chem_opt = '${CHEM_OPT}'/' \
+						    -e 's/^ chem_opt *= [0-9][0-9]*/ chem_opt = '${CHEM_OPT}'/' \
 						    namelist.input.chem_test_${phys_option} >! namelist.input
 					else
 						sed -e '/dyn_opt/d' \
@@ -2507,7 +2537,7 @@ banner 19
 #DAVE###################################################
 
                         set compopt = $COMPOPTS[3]   # ! parallel only
-                        set filetag = 2005-01-23_00:00:00
+                        set filetag = 2008-12-02_12:00:00
                         set phys_option=1
                         pushd test/$core
 
@@ -2527,6 +2557,7 @@ banner 19a
 			#	A fairly short forecast, 10 time steps
 
 			sed -e 's/^ run_days *= *[0-9]*/ run_days = 0 /' \
+			    -e 's/^ run_hours *= *[0-9]*/ run_hours = 0 /' \
 			    -e 's/^ run_seconds *= *[0-9]*/ run_seconds = 900 /' \
 			    -e 's/^ history_interval *= *[0-9][0-9]*/ history_interval = 15 /' \
 			    -e 's/^ frames_per_outfile *= [0-9]*/ frames_per_outfile = 200/g' \
@@ -3367,3 +3398,4 @@ rm -rf fdda_real* >& /dev/null
 rm -rf time_real_* >& /dev/null
 rm -rf dyn_real_* >& /dev/null
 rm -rf damp_* >& /dev/null
+rm -rf io_format >& /dev/null
