@@ -49,7 +49,7 @@ CONTAINS
                          levsiz, n_ozmixm, n_aerosolc, paerlev,  &
                          TMN,XLAND,ZNT,Z0,UST,MOL,PBLH,TKE_MYJ,  &
 #if (NMM_CORE != 1)
-                         TKE_BOULAC,  &
+                         TKE_PBL,  &
 #endif
                          EXCH_H,THC,SNOWC,MAVAIL,HFX,QFX,RAINBL, &
                          TSLB,ZS,DZS,num_soil_layers,warm_rain,  &
@@ -223,7 +223,7 @@ CONTAINS
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) ::    &
              RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,RQCBLTEN,RQIBLTEN,EXCH_H,TKE_MYJ
 #if (NMM_CORE != 1)
-   REAL, DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) ::    TKE_BOULAC
+   REAL, DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) ::    TKE_PBL
 #endif 
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , OPTIONAL, INTENT(OUT) ::    &
              cugd_tten,cugd_ttens,cugd_qvten,                &
@@ -331,6 +331,7 @@ CONTAINS
    CHARACTER*256 :: MMINLU_loc
    CHARACTER*80 :: message
    INTEGER :: ISWATER
+   INTEGER :: ISURBAN
    INTEGER :: sf_urban_physics
    INTEGER :: omlcall
    REAL    :: oml_hml0
@@ -378,6 +379,7 @@ integer myproc
    CALL nl_get_cen_lat(id,cen_lat)
    CALL wrf_debug(100,'calling nl_get_iswater, nl_get_mminlu_loc')
    CALL nl_get_iswater(id,iswater)
+   CALL nl_get_isurban(id,isurban)
    CALL nl_get_mminlu( 1, mminlu_loc )
    CALL wrf_debug(100,'after nl_get_iswater, nl_get_mminlu_loc')
 
@@ -507,12 +509,12 @@ integer myproc
                 config_flags,restart,UST,LOWLYR,TSLB,ZS,DZS,    &
                 num_soil_layers,TKE_MYJ,                        &
 #if (NMM_CORE != 1)
-                TKE_BOULAC,                                     &
+                TKE_PBL,                                     &
 #endif
                 EXCH_H,VEGFRA,                                  &
                 SNOW,SNOWC, CANWAT,SMSTAV,                      &
                 SMSTOT, SFCRUNOFF,UDRUNOFF,ACSNOW,ACSNOM,       &
-                IVGTYP,ISLTYP,SMOIS,SMFR3D,MAVAIL,              &
+                IVGTYP,ISLTYP,ISURBAN,SMOIS,SMFR3D,MAVAIL,      &
                 SNOWH,SH2O,SNOALB,FNDSOILW,FNDSNOWH,RDMAXALB,   &
 #if (NMM_CORE == 1)
                 Z0,XLAND,XICE,                                  &
@@ -572,9 +574,6 @@ integer myproc
                 ids, ide, jds, jde, kds, kde,                   &
                 ims, ime, jms, jme, kms, kme,                   &
                 its, ite, jts, jte, kts, kte                    )
-
-   write(message,*)'STEPRA,STEPCU,STEPBL',STEPRA,STEPCU,STEPBL
-   CALL wrf_message( message )
 
 #if  ( EM_CORE == 1 )
    CALL wrf_debug ( 200 , 'module_start: phy_init: Before call to fg_init' )
@@ -711,8 +710,12 @@ integer myproc
       ELSE IF(MMINLU.EQ.'LW12')THEN
 !       ISWATER=15
         ISICE=3
+      ELSE IF (MMINLU .EQ. 'MODIFIED_IGBP_MODIS_NOAH') THEN
+        ISICE = 15
+      ELSE
+         call wrf_error_fatal ("INPUT LandUse not found: "//TRIM(MMINLU))
       ENDIF
-      call wrf_message ( 'INPUT LandUse = "' // MMINLU // '"' )
+      call wrf_message ( 'INPUT LandUse = "' // TRIM(MMINLU) // '"' )
       FOUND_LU = .FALSE.
       end_of_file = .FALSE.
 !!! BEGINNING OF 1999 LOOP
@@ -846,7 +849,6 @@ integer myproc
       ENDDO
     ENDDO
 
-    RETURN
 
    END SUBROUTINE landuse_init
 
@@ -1090,12 +1092,12 @@ integer myproc
                 config_flags,restart,UST,LOWLYR,TSLB,ZS,DZS,    &
                 num_soil_layers,TKE_MYJ,                        &
 #if (NMM_CORE != 1)
-                TKE_BOULAC,                                     &
+                TKE_PBL,                                     &
 #endif
                 EXCH_H,VEGFRA,                                  &
                 SNOW,SNOWC, CANWAT,SMSTAV,                      &
                 SMSTOT, SFCRUNOFF,UDRUNOFF,ACSNOW,ACSNOM,       &
-                IVGTYP,ISLTYP,SMOIS,SMFR3D,mavail,              &
+                IVGTYP,ISLTYP,ISURBAN,SMOIS,SMFR3D,mavail,      &
                 SNOWH,SH2O,SNOALB,FNDSOILW,FNDSNOWH,RDMAXALB,   &
 #if  ( NMM_CORE == 1 )
                 Z0,XLAND,XICE,                                  &
@@ -1147,8 +1149,13 @@ integer myproc
    USE module_bl_myjurb
    USE module_bl_boulac
    USE module_bl_qnsepbl
+#if ( EM_CORE == 1 )
+   USE module_bl_mynn
+   USE module_sf_mynn
+#endif
+
 #if (NMM_CORE == 1)
-   USE module_sf_lsm_nmm
+   USE module_sf_gfdl
 #endif
 !--------------------------------------------------------------------
    IMPLICIT NONE
@@ -1217,12 +1224,13 @@ integer myproc
                                                           TKE_MYJ
 #if (NMM_CORE != 1)
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) ::       &
-                                                          TKE_BOULAC
+                                                          TKE_PBL
 #endif
    REAL,  DIMENSION( ims:ime , jms:jme ) , INTENT(IN) ::     TSK
    REAL,  DIMENSION( ims:ime , jms:jme ) , INTENT(INOUT) ::  TMN
    CHARACTER(LEN=*), INTENT(IN)   :: MMINLU
    LOGICAL,  INTENT(IN)           :: allowed_to_read
+   INTEGER,  INTENT(IN)           :: ISURBAN
    INTEGER :: isn, isfc
    INTEGER :: k
 
@@ -1289,6 +1297,12 @@ integer myproc
    REAL,  OPTIONAL,  INTENT(IN) :: oml_hml0
    LOGICAL,  INTENT(IN) :: start_of_simulation
    INTEGER :: i,j
+
+
+#if ( EM_CORE == 1 )
+!local mynn 
+   INTEGER :: mynn_closure_level
+#endif
 
 !-- calculate pbl time step
 
@@ -1376,6 +1390,28 @@ integer myproc
            isfc = 1
 #endif
 
+#if ( EM_CORE == 1 )
+!mynn 
+
+        CASE (MYNNSFCSCHEME)
+
+           SELECT CASE(config_flags%bl_pbl_physics)
+
+           CASE(MYNNPBLSCHEME2)
+              mynn_closure_level=2
+              
+           CASE(MYNNPBLSCHEME3)
+              mynn_closure_level=3
+
+           CASE DEFAULT
+              
+
+           END SELECT
+
+           CALL mynn_sf_init_driver(allowed_to_read,mynn_closure_level)
+           isfc=3
+
+#endif
 
       CASE DEFAULT
 
@@ -1398,18 +1434,8 @@ integer myproc
                          tml, t0ml, hml, h0ml, huml, hvml      )
 
 #if (NMM_CORE == 1)
-      CASE (NMMLSMSCHEME)
-           CALL nmmlsminit(isn,XICE,VEGFRA,SNOW,SNOWC, CANWAT,SMSTAV, &
-                     SMSTOT, SFCRUNOFF,UDRUNOFF,GRDFLX,ACSNOW,     &
-                     ACSNOM,IVGTYP,ISLTYP,TSLB,SMOIS,DZS,SFCEVP,   &
-                     TMN,                                          &
-                     num_soil_layers,                              &
-                     allowed_to_read ,                             &
-                     ids,ide, jds,jde, kds,kde,                    &
-                     ims,ime, jms,jme, kms,kme,                    &
-                     its,ite, jts,jte, kts,kte                     )
      CASE (GFDLSLAB)
-           CALL nmmlsminit(isn,XICE,VEGFRA,SNOW,SNOWC, CANWAT,SMSTAV, &
+           CALL hwrfsfcinit(isn,XICE,VEGFRA,SNOW,SNOWC, CANWAT,SMSTAV, &
                      SMSTOT, SFCRUNOFF,UDRUNOFF,GRDFLX,ACSNOW,     &
                      ACSNOM,IVGTYP,ISLTYP,TSLB,SMOIS,DZS,SFCEVP,   &
                      TMN,                                          &
@@ -1437,15 +1463,11 @@ integer myproc
 
              IF ( PRESENT( FRC_URB2D ) .AND. PRESENT( UTYPE_URB2D )) THEN
 
-                call wrf_message("Before call to urban_param_init")
-
                 CALL urban_param_init(DZR,DZB,DZG,num_soil_layers                    & !urban
                                 )
 !                                num_roof_layers,num_wall_layers,road_soil_layers)   !urban
 
-                call wrf_message("After call to urban_param_init, before urban_var_init")
-
-                CALL urban_var_init(TSK,TSLB,TMN,IVGTYP,                             & !urban
+                CALL urban_var_init(ISURBAN,TSK,TSLB,TMN,IVGTYP,                     & !urban
                               ims,ime,jms,jme,kms,kme,num_soil_layers,               & !urban
 !                              num_roof_layers,num_wall_layers,num_road_layers, & !urban
                               restart,                                         & !urban
@@ -1461,7 +1483,6 @@ integer myproc
                               B_T_BEP,B_Q_BEP,B_E_BEP,DLG_BEP,                 & !multi-layer urban
                               DL_U_BEP,SF_BEP,VL_BEP,                          & !multi-layer urban
                               FRC_URB2D, UTYPE_URB2D)                            !urban
-                call wrf_message("After call to urban_var_init")
              ELSE
                 CALL wrf_error_fatal ( 'arguments not present for calling urban model' )
              ENDIF
@@ -1570,15 +1591,34 @@ integer myproc
 #if (NMM_CORE != 1)
       CASE (BOULACSCHEME)
            CALL boulacinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN, &
-                         TKE_BOULAC,EXCH_H,restart,               &
+                         TKE_PBL,EXCH_H,restart,               &
                          allowed_to_read ,                     &
                          ids, ide, jds, jde, kds, kde,         &
                          ims, ime, jms, jme, kms, kme,         &
                          its, ite, jts, jte, kts, kte          )
 #endif
+
+#if ( EM_CORE == 1 )
+
+!mynn 
+           
+        CASE (MYNNPBLSCHEME2, MYNNPBLSCHEME3)
+           IF(isfc .NE. 3 .AND. isfc .NE. 1 .AND. isfc .NE. 2) CALL wrf_error_fatal &
+                ( 'module_physics_init: use mynn sfc scheme or sfclay scheme for this pbl option')
+           
+           CALL mynn_bl_init_driver(&
+                &RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,RQCBLTEN&
+                &,restart,allowed_to_read,mynn_closure_level &
+                &,IDS,IDE,JDS,JDE,KDS,KDE                    &
+                &,IMS,IME,JMS,JME,KMS,KME                    &
+                &,ITS,ITE,JTS,JTE,KTS,KTE)
+
+#endif
+
       CASE DEFAULT
 
    END SELECT pbl_select
+
 
    END SUBROUTINE bl_init
 
@@ -1812,10 +1852,12 @@ integer myproc
                           ims, ime, jms, jme, kms, kme,           &
                           its, ite, jts, jte, kts, kte            )
      CASE (THOMPSON)
-         IF(start_of_simulation.or.restart)CALL thompson_init
+! Cycling the WRF forecast with moving nests will cause this initialization to be
+! called for each nest move. This is potentially very computationally expensive.
+         IF(start_of_simulation.or.restart.or.config_flags%cycling)CALL thompson_init
 
      CASE (THOMPSON07)
-         IF(start_of_simulation.or.restart)CALL thompson07_init
+         IF(start_of_simulation.or.restart.or.config_flags%cycling)CALL thompson07_init
 
      CASE (MORR_TWO_MOMENT)
          CALL morr_two_moment_init

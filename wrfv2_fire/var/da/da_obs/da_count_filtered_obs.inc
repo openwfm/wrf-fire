@@ -36,7 +36,7 @@ subroutine da_count_filtered_obs (ptop, map, ds, phic, xlonc, truelat1, truelat2
    do files = 0, num_procs-1
       write(unit=filename, fmt='(a,i3.3)') 'filtered_obs.',files  
       open(unit=iunit, file= trim(filename), form='formatted',iostat=iost)
-      if (iost /= 0) call da_error(__FILE__,__LINE__, (/"Cannot open "//trim(filename)/))
+      if (iost /= 0) call da_error(__FILE__,__LINE__, (/"Cannot open "//filename/))
 
       !  loop over records
 
@@ -52,6 +52,7 @@ subroutine da_count_filtered_obs (ptop, map, ds, phic, xlonc, truelat1, truelat2
             platform%info%lon,         &
             platform%info%elv,         &
             platform%info%id
+
          if (iost /= 0) then
             !write (0,'(/A,I9)') ' end OF OBS unit: ',iunit
             !write (0,'(/A,I9)') ' iostat:          ',iost
@@ -65,7 +66,6 @@ subroutine da_count_filtered_obs (ptop, map, ds, phic, xlonc, truelat1, truelat2
             platform%loc%slp%error,                    &
             platform%loc%pw%inv, platform%loc%pw%qc,   &
             platform%loc%pw%error
-
          ! levels < 1 and not GPSPW, go back to reports
 
          if ((platform%info%levels < 1) .AND.            &
@@ -77,14 +77,14 @@ subroutine da_count_filtered_obs (ptop, map, ds, phic, xlonc, truelat1, truelat2
          ! read each level
          do i = 1, platform%info%levels
             platform%each (i) = each_level_type(missing_r, missing, -1.0, & ! height
-               field_type(missing_r, missing, missing_r, missing, missing_r), & ! u
-               field_type(missing_r, missing, missing_r, missing, missing_r), & ! v
-               field_type(missing_r, missing, missing_r, missing, missing_r), & ! p
-               field_type(missing_r, missing, missing_r, missing, missing_r), & ! t
-               field_type(missing_r, missing, missing_r, missing, missing_r), & ! q
-               field_type(missing_r, missing, missing_r, missing, missing_r), & ! rh
-               field_type(missing_r, missing, missing_r, missing, missing_r), & ! td
-               field_type(missing_r, missing, missing_r, missing, missing_r))  ! speed 
+               field_type(missing_r, missing_data, missing_r, missing_r, missing_r), & ! u
+               field_type(missing_r, missing_data, missing_r, missing_r, missing_r), & ! v
+               field_type(missing_r, missing_data, missing_r, missing_r, missing_r), & ! p
+               field_type(missing_r, missing_data, missing_r, missing_r, missing_r), & ! t
+               field_type(missing_r, missing_data, missing_r, missing_r, missing_r), & ! q
+               field_type(missing_r, missing_data, missing_r, missing_r, missing_r), & ! rh
+               field_type(missing_r, missing_data, missing_r, missing_r, missing_r), & ! td
+               field_type(missing_r, missing_data, missing_r, missing_r, missing_r))  ! speed 
 
             read (unit = iunit, fmt = trim (fmt_each)) &
                platform%each(i)%p%inv, platform%each(i)%p%qc, platform%each(i)%p%error, &
@@ -163,6 +163,10 @@ subroutine da_count_filtered_obs (ptop, map, ds, phic, xlonc, truelat1, truelat2
             if (.not.use_airepobs) cycle reports
             nlocal(airep) = nlocal(airep) + 1
 
+         case (101) ;
+            if (.not.use_tamdarobs) cycle reports
+            nlocal(tamdar) = nlocal(tamdar) + 1
+
          case (111) ;
          
             if (.not.use_gpspwobs) cycle reports
@@ -230,7 +234,7 @@ subroutine da_count_filtered_obs (ptop, map, ds, phic, xlonc, truelat1, truelat2
       nlocal(buoy) + nlocal(sound) + nlocal(airep) + nlocal(pilot) + &
       nlocal(geoamv) + nlocal(polaramv) + nlocal(gpspw) + nlocal(gpsref) + &
       nlocal(profiler) + nlocal(qscat) + nlocal(ssmt1) + nlocal(ssmt2) +  &
-      nlocal(satem)  + nlocal(bogus) +  nlocal(airsr) + nlocal(mtgirs) + num_others
+      nlocal(satem)  + nlocal(bogus) +  nlocal(airsr) + nlocal(mtgirs) + nlocal(tamdar) + num_others
 
    write  (unit = filtered_obs_unit, fmt = '(A,I7,A,F8.0,A)')    &
       "TOTAL =",total_obs, ", MISS. =",missing_r,","  
@@ -257,6 +261,7 @@ subroutine da_count_filtered_obs (ptop, map, ds, phic, xlonc, truelat1, truelat2
       "BOGUS =",nlocal(bogus),", ", &
       "AIRSR =",nlocal(airsr),", ", &
       "MTGIRS=",nlocal(mtgirs),", ", &
+      "TAMDAR=",nlocal(tamdar),", ", &
       "OTHER =",num_others,", "
 
    ! write reference state info

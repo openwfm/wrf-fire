@@ -32,7 +32,7 @@ CONTAINS
                   SNOPCX,                                       & !O
                   POTEVP,                                       & !O
                   XICE_THRESHOLD,                               &
-                  RDLAI2D,                                      &
+                  RDLAI2D,USEMONALB,                            &
                   RIB,                                          & !?
                   NOAHRES,                                      &
                   ids,ide, jds,jde, kds,kde,                    &
@@ -230,7 +230,6 @@ CONTAINS
                                                           T3D
    REAL,     DIMENSION( ims:ime, jms:jme )                    , &
              INTENT(IN   )               ::               QGH,  &
-                                                          CHS,   &
                                                           CPM
 
    INTEGER, DIMENSION( ims:ime, jms:jme )                     , &
@@ -258,6 +257,7 @@ CONTAINS
                                                         GRDFLX, &
                                                           QSFC,&
                                                           CQS2,&
+                                                          CHS,   &
                                                           CHS2,&
                                                           SNOW, &
                                                          SNOWC, &
@@ -368,6 +368,7 @@ CONTAINS
      REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: UST
 
      LOGICAL, intent(in) :: rdlai2d
+     LOGICAL, intent(in) :: USEMONALB
 
 ! input variables lsm --> urban
      INTEGER :: UTYPE_URB ! urban type [urban=1, suburban=2, rural=3]
@@ -501,8 +502,8 @@ CONTAINS
    REAL, DIMENSION(ims:ime,jms:jme) :: RL_UP_URB
    REAL, DIMENSION(ims:ime,jms:jme) ::RS_ABS_URB
    REAL, DIMENSION(ims:ime,jms:jme) ::GRDFLX_URB
-   REAL :: SIGMA_SB,RL_UP_RURAL,RL_UP_TOT,RS_ABS_TOT,UMOM,VMOM,hfx_test
-   REAL :: hfx_test1,hfx_test2,r1,r2,r3
+   REAL :: SIGMA_SB,RL_UP_RURAL,RL_UP_TOT,RS_ABS_TOT,UMOM,VMOM
+   REAL :: r1,r2,r3
 ! ----------------------------------------------------------------------
 ! DECLARATIONS END - urban
 ! ----------------------------------------------------------------------
@@ -511,8 +512,7 @@ CONTAINS
   REAL :: APELM,APES,SFCTH2,PSFC
 
   real, intent(in) :: xice_threshold
-
-!  PRINT *,'THIS IS UNIFIED NOAH LSM'
+  character(len=80) :: message_text
 
 ! MEK MAY 2007
       FDTLIW=DT/ROWLIW
@@ -549,7 +549,9 @@ CONTAINS
 !*** SET ZERO-VALUE FOR SOME OUTPUT DIAGNOSTIC ARRAYS
           IF((XLAND(I,J)-1.5).GE.0.)THEN
 ! check sea-ice point
+#if 0
             IF( XICE(I,J).GE. XICE_THRESHOLD .and. IPRINT ) PRINT*, ' sea-ice at water point, I=',I,'J=',J
+#endif
 !***   Open Water Case
             SMSTAV(I,J)=1.0
             SMSTOT(I,J)=1.0
@@ -690,18 +692,13 @@ CONTAINS
           IF(VEGTYP.EQ.26) SHDFAC=0.0000
           IF(VEGTYP.EQ.27) SHDFAC=0.0000
           IF(SOILTYP.EQ.14.AND.XICE(I,J).EQ.0.)THEN
+#if 0
          IF(IPRINT)PRINT*,' SOIL TYPE FOUND TO BE WATER AT A LAND-POINT'
          IF(IPRINT)PRINT*,i,j,'RESET SOIL in surfce.F'
+#endif
             SOILTYP=7
           ENDIF
-        IF (ICE /= 0) THEN
-           ! kmh 06/28/2006 set SNOALB1 = 0.8 instead of 0.7
-           ! winter value        SNOALB1=0.80
-           SNOALB1=0.70        ! summer value
-           ! SNOALB1=0.80        ! winter value
-        ELSE
-           SNOALB1 = SNOALB(I,J)
-        ENDIF
+          SNOALB1 = SNOALB(I,J)
           CMC=CANWAT(I,J)
 
 !-------------------------------------------
@@ -711,11 +708,6 @@ CONTAINS
 !           SNOALB=ALBMAX(I,J)*0.01
 !         ELSE
 !           SNOALB=MAXALB(IVGTPK)*0.01
-!         ENDIF
-!         IF(RDBRDALB) THEN
-!           ALBBRD=ALBEDO(I,J)*0.01
-!         ELSE
-!           ALBBRD=ALBD(IVGTPK,ISN)*0.01
 !         ENDIF
 
 !        SNOALB1=0.80
@@ -769,6 +761,7 @@ CONTAINS
            	 ENDIF
            ENDIF
 
+#if 0
           IF(IPRINT) THEN
 !
        print*, 'BEFORE SFLX, in Noahlsm_driver'
@@ -781,7 +774,7 @@ CONTAINS
          'SHMIN',SHMIN, 'ALBBRD',ALBBRD,'SNOALB1',SNOALB1,'TBOT',&
           TBOT, 'Z0BRD',Z0BRD, 'Z0K',Z0K, 'CMC',CMC, 'T1',T1,'STC',&
           STC, 'SMC',SMC, 'SWC',SWC,'SNOWHK',SNOWHK,'SNEQV',SNEQV,&
-          'ALBEDO',ALBEDO,'CHK',CHK,'ETA',ETA,'SHEAT',SHEAT,      &
+          'ALBEDOK',ALBEDOK,'CHK',CHK,'ETA',ETA,'SHEAT',SHEAT,      &
           'ETA_KINEMATIC',ETA_KINEMATIC, 'FDOWN',FDOWN,'EC',EC,   &
           'EDIR',EDIR,'ET',ET,'ETT',ETT,'ESNOW',ESNOW,'DRIP',DRIP,&
           'DEW',DEW,'BETA',BETA,'ETP',ETP,'SSOIL',SSOIL,'FLX1',FLX1,&
@@ -792,6 +785,7 @@ CONTAINS
           'SOILM',SOILM,'Q1',Q1,'SMCWLT',SMCWLT,'SMCDRY',SMCDRY,&
           'SMCREF',SMCREF,'SMCMAX',SMCMAX,'NROOT',NROOT
            endif
+#endif
 
 
           IF (rdlai2d) THEN
@@ -815,7 +809,7 @@ CONTAINS
                  RUNOFF1,RUNOFF2,RUNOFF3,                         &    !O
                  RC,PC,RSMIN,XLAI,RCS,RCT,RCQ,RCSOIL,             &    !O
                  SOILW,SOILM,Q1,                                  &    !D
-                 RDLAI2D,                                         &
+                 RDLAI2D,USEMONALB,                               &
                  SNOTIME1,                                        &
                  RIBB,                                            &
                  SMCWLT,SMCDRY,SMCREF,SMCMAX,NROOT)
@@ -823,7 +817,7 @@ CONTAINS
 
        lai(i,j) = xlai
 
-
+#if 0
           IF(IPRINT) THEN
 
        print*, 'AFTER SFLX, in Noahlsm_driver'
@@ -836,7 +830,7 @@ CONTAINS
          'SHDMIN',SHMIN, 'ALBBRD',ALBBRD,'SNOALB',SNOALB1,'TBOT',&
           TBOT, 'Z0BRD',Z0BRD, 'Z0K',Z0K, 'CMC',CMC, 'T1',T1,'STC',&
           STC, 'SMC',SMC, 'SWc',SWC,'SNOWHK',SNOWHK,'SNEQV',SNEQV,&
-          'ALBEDO',ALBEDOK,'CHK',CHK,'ETA',ETA,'SHEAT',SHEAT,      &
+          'ALBEDOK',ALBEDOK,'CHK',CHK,'ETA',ETA,'SHEAT',SHEAT,      &
           'ETA_KINEMATIC',ETA_KINEMATIC, 'FDOWN',FDOWN,'EC',EC,   &
           'EDIR',EDIR,'ET',ET,'ETT',ETT,'ESNOW',ESNOW,'DRIP',DRIP,&
           'DEW',DEW,'BETA',BETA,'ETP',ETP,'SSOIL',SSOIL,'FLX1',FLX1,&
@@ -847,6 +841,7 @@ CONTAINS
           'SOILM',SOILM,'Q1',Q1,'SMCWLT',SMCWLT,'SMCDRY',SMCDRY,&
           'SMCREF',SMCREF,'SMCMAX',SMCMAX,'NROOT',NROOT
            endif
+#endif
 
 !***  UPDATE STATE VARIABLES
           CANWAT(I,J)=CMC
@@ -926,7 +921,7 @@ CONTAINS
             SSG_URB   = SOLDN            ! [W/m/m]
             SSGD_URB  = 0.8*SOLDN        ! [W/m/m]
             SSGQ_URB  = SSG_URB-SSGD_URB ! [W/m/m]
-            LLG_URB   = LWDN             ! [W/m/m]
+            LLG_URB   = GLW(I,J)         ! [W/m/m]
             RAIN_URB  = RAINBL(I,J)      ! [mm]
             RHOO_URB  = SFCPRS / (287.04 * SFCTMP * (1.0+ 0.61 * Q2K)) ![kg/m/m/m]
             ZA_URB    = ZLVL             ! [m]
@@ -960,12 +955,22 @@ CONTAINS
             XXXG_URB = XXXG_URB2D(I,J)
             XXXC_URB = XXXC_URB2D(I,J)
 !
+!
+!      Limits to avoid dividing by small number
+            if (CHS(I,J) < 1.0E-02) then
+               CHS(I,J)  = 1.0E-02
+            endif
+            if (CHS2(I,J) < 1.0E-02) then
+               CHS2(I,J)  = 1.0E-02
+            endif
+            if (CQS2(I,J) < 1.0E-02) then
+               CQS2(I,J)  = 1.0E-02
+            endif
+!
             CHS_URB  = CHS(I,J)
             CHS2_URB = CHS2(I,J)
 !
-
 ! Call urban
-
 
             CALL urban(LSOLAR_URB,                                      & ! I
                        num_roof_layers,num_wall_layers,num_road_layers, & ! C
@@ -984,7 +989,7 @@ CONTAINS
                        U10_URB, V10_URB, TH2_URB, Q2_URB,               & ! O
                        UST_URB)                                           !O
 
-
+#if 0
           IF(IPRINT) THEN
 
        print*, 'AFTER CALL URBAN'
@@ -1009,6 +1014,7 @@ CONTAINS
          'U10_URB',U10_URB,'V10_URB',V10_URB,'TH2_URB',TH2_URB,      &
           'Q2_URB',Q2_URB,'CHS_URB',CHS_URB,'CHS2_URB',CHS2_URB
            endif
+#endif
 
             TS_URB2D(I,J) = TS_URB
 
@@ -1021,6 +1027,7 @@ CONTAINS
             TSK(I,J) = FRC_URB2D(I,J)*TS_URB+(1-FRC_URB2D(I,J))*T1            ![K]
             QSFC(I,J)= FRC_URB2D(I,J)*QS_URB+(1-FRC_URB2D(I,J))*Q1            ![-]
 
+#if 0
     IF(IPRINT)THEN
 
     print*, ' FRC_URB2D', FRC_URB2D,                        &
@@ -1034,7 +1041,7 @@ CONTAINS
     'TS_URB',TS_URB,'T1',T1,'TSK(I,J)',TSK(I,J),          &
     'QS_URB',QS_URB,'Q1',Q1,'QSFC(I,J)',QSFC(I,J)
      endif
-
+#endif
 
 
 
@@ -1153,10 +1160,10 @@ CONTAINS
             b_e_bep(i,k,j)=b_e_bep(i,k,j)*frc_urb2d(i,j)
             HFX_URB(I,J)=HFX_URB(I,J)+B_T_BEP(I,K,J)*RHO(I,K,J)*CP*                &
                           DZ8W(I,K,J)*VL_BEP(I,K,J)
-            UMOM_URB(I,J)=UMOM_URB(I,J)+ A_U_BEP(I,K,J)*U_PHY(I,K,J)+              &
-                          B_U_BEP(I,K,J)*DZ8W(I,K,J)*VL_BEP(I,K,J)
-            VMOM_URB(I,J)=VMOM_URB(I,J)+ A_V_BEP(I,K,J)*V_PHY(I,K,J)+              &
-                          B_V_BEP(I,K,J)*DZ8W(I,K,J)*VL_BEP(I,K,J)
+            UMOM_URB(I,J)=UMOM_URB(I,J)+ (A_U_BEP(I,K,J)*U_PHY(I,K,J)+             &
+                          B_U_BEP(I,K,J))*DZ8W(I,K,J)*VL_BEP(I,K,J)
+            VMOM_URB(I,J)=VMOM_URB(I,J)+ (A_V_BEP(I,K,J)*V_PHY(I,K,J)+             &
+                          B_V_BEP(I,K,J))*DZ8W(I,K,J)*VL_BEP(I,K,J)
             vl_bep(i,k,j)=(1.-frc_urb2d(i,j))+vl_bep(i,k,j)*frc_urb2d(i,j)
             sf_bep(i,k,j)=(1.-frc_urb2d(i,j))+sf_bep(i,k,j)*frc_urb2d(i,j)
          end do
@@ -1172,7 +1179,6 @@ CONTAINS
             vmom=(1.-frc_urb2d(i,j))*ust(i,j)*ust(i,j)*v_phy(i,1,j)/               &
                          ((u_phy(i,1,j)**2+v_phy(i,1,j)**2.)**.5)+vmom_urb(i,j)
             sf_bep(i,1,j)=1.
-         ust(i,j)=(umom**2.+vmom**2.)**.5
            
 ! compute upward longwave radiation from the rural part and total
 !           rl_up_rural=-emiss_rural(i,j)*sigma_sb*(tsk_rural(i,j)**4.)-(1.-emiss_rural(i,j))*glw(i,j)
@@ -1200,9 +1206,9 @@ CONTAINS
             LH_URB2D(I,J)    = 0.
             G_URB2D(I,J)     = grdflx_urb(i,j)
             RN_URB2D(I,J)    = rs_abs_urb(i,j)+emiss_urb(i,j)*glw(i,j)-rl_up_urb(i,j)
-         ust(i,j)=(umom**2.+vmom**2.)**.5
-          if(tsk(i,j).gt.350)write(*,*)'tsk too big!',i,j,tsk(i,j)
-          if(tsk(i,j).lt.260)write(*,*)'tsk too small!',i,j,tsk(i,j),rl_up_tot,rl_up_urb(i,j),rl_up_rural
+         ust(i,j)=(umom**2.+vmom**2.)**.25
+!          if(tsk(i,j).gt.350)write(*,*)'tsk too big!',i,j,tsk(i,j)
+!          if(tsk(i,j).lt.260)write(*,*)'tsk too small!',i,j,tsk(i,j),rl_up_tot,rl_up_urb(i,j),rl_up_rural
 !                    print*,'ivgtyp,i,j,sigma_sb',ivgtyp(i,j),i,j,sigma_sb
 !                    print*,'hfx,lh,qfx,grdflx,ts_urb2d',hfx(i,j),lh(i,j),qfx(i,j),grdflx(i,j),ts_urb2d(i,j)
 !                    print*,'tsk,albedo,emiss',tsk(i,j),albedo(i,j),emiss(i,j)
