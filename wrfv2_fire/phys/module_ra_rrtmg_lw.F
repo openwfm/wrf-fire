@@ -1710,7 +1710,7 @@
   integer(kind=im), parameter :: blockSize = 624,         &
                         M         = 397,         &
                         MATRIX_A  = -1727483681, & ! constant vector a         (0x9908b0dfUL)
-                        UMASK     = -2147483648, & ! most significant w-r bits (0x80000000UL)
+                        UMASK     = -2147483647-1, & ! most significant w-r bits (0x80000000UL)
                         LMASK     =  2147483647    ! least significant r bits  (0x7fffffffUL)
   ! Tempering parameters
   integer(kind=im), parameter :: TMASKB= -1658038656, & ! (0x9d2c5680UL)
@@ -2881,6 +2881,31 @@ contains
 
       implicit none
 
+      real(kind=rb) :: wtdiff, rec_6
+      real(kind=rb) :: a0(nbndlw),a1(nbndlw),a2(nbndlw)! diffusivity angle adjustment coefficients
+
+! This secant and weight corresponds to the standard diffusivity 
+! angle.  This initial value is redefined below for some bands.
+      data wtdiff /0.5_rb/
+      data rec_6 /0.166667_rb/
+
+! Reset diffusivity angle for Bands 2-3 and 5-9 to vary (between 1.50
+! and 1.80) as a function of total column water vapor.  The function
+! has been defined to minimize flux and cooling rate errors in these bands
+! over a wide range of precipitable water values.
+      data a0 / 1.66_rb,  1.55_rb,  1.58_rb,  1.66_rb, &
+                1.54_rb, 1.454_rb,  1.89_rb,  1.33_rb, &
+               1.668_rb,  1.66_rb,  1.66_rb,  1.66_rb, &
+                1.66_rb,  1.66_rb,  1.66_rb,  1.66_rb /
+      data a1 / 0.00_rb,  0.25_rb,  0.22_rb,  0.00_rb, &
+                0.13_rb, 0.446_rb, -0.10_rb,  0.40_rb, &
+              -0.006_rb,  0.00_rb,  0.00_rb,  0.00_rb, &
+                0.00_rb,  0.00_rb,  0.00_rb,  0.00_rb /
+      data a2 / 0.00_rb, -12.0_rb, -11.7_rb,  0.00_rb, &
+               -0.72_rb,-0.243_rb,  0.19_rb,-0.062_rb, &
+               0.414_rb,  0.00_rb,  0.00_rb,  0.00_rb, &
+                0.00_rb,  0.00_rb,  0.00_rb,  0.00_rb /
+
       contains
 
 !-----------------------------------------------------------------------------
@@ -2979,8 +3004,6 @@ contains
 
 
       real(kind=rb) :: secdiff(nbndlw)                 ! secant of diffusivity angle
-      real(kind=rb) :: a0(nbndlw),a1(nbndlw),a2(nbndlw)! diffusivity angle adjustment coefficients
-      real(kind=rb) :: wtdiff, rec_6
       real(kind=rb) :: transcld, radld, radclrd, plfrac, blay, dplankup, dplankdn
       real(kind=rb) :: odepth, odtot, odepth_rec, odtot_rec, gassrc
       real(kind=rb) :: tblind, tfactot, bbd, bbdtot, tfacgas, transc, tausfac
@@ -3051,28 +3074,6 @@ contains
 !    fnetc                        ! clear sky net longwave flux (w/m2)
 !    htrc                         ! clear sky longwave heating rate (k/day)
 
-
-! This secant and weight corresponds to the standard diffusivity 
-! angle.  This initial value is redefined below for some bands.
-      data wtdiff /0.5_rb/
-      data rec_6 /0.166667_rb/
-
-! Reset diffusivity angle for Bands 2-3 and 5-9 to vary (between 1.50
-! and 1.80) as a function of total column water vapor.  The function
-! has been defined to minimize flux and cooling rate errors in these bands
-! over a wide range of precipitable water values.
-      data a0 / 1.66_rb,  1.55_rb,  1.58_rb,  1.66_rb, &
-                1.54_rb, 1.454_rb,  1.89_rb,  1.33_rb, &
-               1.668_rb,  1.66_rb,  1.66_rb,  1.66_rb, &
-                1.66_rb,  1.66_rb,  1.66_rb,  1.66_rb /
-      data a1 / 0.00_rb,  0.25_rb,  0.22_rb,  0.00_rb, &
-                0.13_rb, 0.446_rb, -0.10_rb,  0.40_rb, &
-              -0.006_rb,  0.00_rb,  0.00_rb,  0.00_rb, &
-                0.00_rb,  0.00_rb,  0.00_rb,  0.00_rb /
-      data a2 / 0.00_rb, -12.0_rb, -11.7_rb,  0.00_rb, &
-               -0.72_rb,-0.243_rb,  0.19_rb,-0.062_rb, &
-               0.414_rb,  0.00_rb,  0.00_rb,  0.00_rb, &
-                0.00_rb,  0.00_rb,  0.00_rb,  0.00_rb /
 
       hvrrtc = '$Revision: 1.5 $'
 
@@ -4912,7 +4913,7 @@ contains
 ! ------- Modules -------
 
       use parrrtm, only : ng1
-      use rrlw_kg01, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg01, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             ka_mn2, kb_mn2, selfref, forref
 
 ! ------- Declarations -------
@@ -5003,7 +5004,7 @@ contains
 ! ------- Modules -------
 
       use parrrtm, only : ng2, ngs1
-      use rrlw_kg02, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg02, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             selfref, forref
 
 ! ------- Declarations -------
@@ -5074,7 +5075,7 @@ contains
 
       use parrrtm, only : ng3, ngs2
       use rrlw_ref, only : chi_mls
-      use rrlw_kg03, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg03, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             ka_mn2o, kb_mn2o, selfref, forref
 
 ! ------- Declarations -------
@@ -5407,7 +5408,7 @@ contains
 
       use parrrtm, only : ng4, ngs3
       use rrlw_ref, only : chi_mls
-      use rrlw_kg04, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg04, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             selfref, forref
 
 ! ------- Declarations -------
@@ -5671,7 +5672,7 @@ contains
 
       use parrrtm, only : ng5, ngs4
       use rrlw_ref, only : chi_mls
-      use rrlw_kg05, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg05, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             ka_mo3, selfref, forref, ccl4
 
 ! ------- Declarations -------
@@ -5965,7 +5966,7 @@ contains
 
       use parrrtm, only : ng6, ngs5
       use rrlw_ref, only : chi_mls
-      use rrlw_kg06, only : fracrefa, absa, ka_mco2, &
+      use rrlw_kg06, only : fracrefa, absa, ka, ka_mco2, &
                             selfref, forref, cfc11adj, cfc12
 
 ! ------- Declarations -------
@@ -6051,7 +6052,7 @@ contains
 
       use parrrtm, only : ng7, ngs6
       use rrlw_ref, only : chi_mls
-      use rrlw_kg07, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg07, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             ka_mco2, kb_mco2, selfref, forref
 
 ! ------- Declarations -------
@@ -6343,7 +6344,7 @@ contains
 
       use parrrtm, only : ng8, ngs7
       use rrlw_ref, only : chi_mls
-      use rrlw_kg08, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg08, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             ka_mco2, ka_mn2o, ka_mo3, kb_mco2, kb_mn2o, &
                             selfref, forref, cfc12, cfc22adj
 
@@ -6466,7 +6467,7 @@ contains
 
       use parrrtm, only : ng9, ngs8
       use rrlw_ref, only : chi_mls
-      use rrlw_kg09, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg09, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             ka_mn2o, kb_mn2o, selfref, forref
 
 ! ------- Declarations -------
@@ -6744,7 +6745,7 @@ contains
 ! ------- Modules -------
 
       use parrrtm, only : ng10, ngs9
-      use rrlw_kg10, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg10, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             selfref, forref
 
 ! ------- Declarations -------
@@ -6812,7 +6813,7 @@ contains
 ! ------- Modules -------
 
       use parrrtm, only : ng11, ngs10
-      use rrlw_kg11, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg11, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             ka_mo2, kb_mo2, selfref, forref
 
 ! ------- Declarations -------
@@ -6892,7 +6893,7 @@ contains
 
       use parrrtm, only : ng12, ngs11
       use rrlw_ref, only : chi_mls
-      use rrlw_kg12, only : fracrefa, absa, &
+      use rrlw_kg12, only : fracrefa, absa, ka, &
                             selfref, forref
 
 ! ------- Declarations -------
@@ -7100,7 +7101,7 @@ contains
 
       use parrrtm, only : ng13, ngs12
       use rrlw_ref, only : chi_mls
-      use rrlw_kg13, only : fracrefa, fracrefb, absa, &
+      use rrlw_kg13, only : fracrefa, fracrefb, absa, ka, &
                             ka_mco2, ka_mco, kb_mo3, selfref, forref
 
 ! ------- Declarations -------
@@ -7388,7 +7389,7 @@ contains
 ! ------- Modules -------
 
       use parrrtm, only : ng14, ngs13
-      use rrlw_kg14, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg14, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             selfref, forref
 
 ! ------- Declarations -------
@@ -7451,7 +7452,7 @@ contains
 
       use parrrtm, only : ng15, ngs14
       use rrlw_ref, only : chi_mls
-      use rrlw_kg15, only : fracrefa, absa, &
+      use rrlw_kg15, only : fracrefa, absa, ka, &
                             ka_mn2, selfref, forref
 
 ! ------- Declarations -------
@@ -7694,7 +7695,7 @@ contains
 
       use parrrtm, only : ng16, ngs15
       use rrlw_ref, only : chi_mls
-      use rrlw_kg16, only : fracrefa, fracrefb, absa, absb, &
+      use rrlw_kg16, only : fracrefa, fracrefb, absa, ka, absb, kb, &
                             selfref, forref
 
 ! ------- Declarations -------
@@ -8291,7 +8292,7 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng1
       use rrlw_kg01, only: fracrefao, fracrefbo, kao, kbo, kao_mn2, kbo_mn2, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, ka_mn2, kb_mn2, &
+                           fracrefa, fracrefb, absa, ka, absb, kb, ka_mn2, kb_mn2, &
                            selfref, forref
 
 ! ------- Local -------
@@ -8390,7 +8391,7 @@ contains
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng2
       use rrlw_kg02, only: fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, selfref, forref
+                           fracrefa, fracrefb, absa, ka, absb, kb, selfref, forref
 
 ! ------- Local -------
       integer(kind=im) :: jt, jp, igc, ipr, iprsm 
@@ -8474,7 +8475,7 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng3
       use rrlw_kg03, only: fracrefao, fracrefbo, kao, kbo, kao_mn2o, kbo_mn2o, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, ka_mn2o, kb_mn2o, &
+                           fracrefa, fracrefb, absa, ka, absb, kb, ka_mn2o, kb_mn2o, &
                            selfref, forref
 
 ! ------- Local -------
@@ -8602,7 +8603,7 @@ contains
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng4
       use rrlw_kg04, only: fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, selfref, forref
+                           fracrefa, fracrefb, absa, ka, absb, kb, selfref, forref
 
 ! ------- Local -------
       integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
@@ -8703,7 +8704,7 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng5
       use rrlw_kg05, only: fracrefao, fracrefbo, kao, kbo, kao_mo3, ccl4o, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, ka_mo3, ccl4, &
+                           fracrefa, fracrefb, absa, ka, absb, kb, ka_mo3, ccl4, &
                            selfref, forref
 
 ! ------- Local -------
@@ -8829,7 +8830,7 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng6
       use rrlw_kg06, only: fracrefao, kao, kao_mco2, cfc11adjo, cfc12o, &
                            selfrefo, forrefo, &
-                           fracrefa, ka, ka_mco2, cfc11adj, cfc12, &
+                           fracrefa, absa, ka, ka_mco2, cfc11adj, cfc12, &
                            selfref, forref
 
 ! ------- Local -------
@@ -8918,7 +8919,7 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng7
       use rrlw_kg07, only: fracrefao, fracrefbo, kao, kbo, kao_mco2, kbo_mco2, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, ka_mco2, kb_mco2, &
+                           fracrefa, fracrefb, absa, ka, absb, kb, ka_mco2, kb_mco2, &
                            selfref, forref
 
 ! ------- Local -------
@@ -9043,8 +9044,8 @@ contains
       use rrlw_kg08, only: fracrefao, fracrefbo, kao, kao_mco2, kao_mn2o, &
                            kao_mo3, kbo, kbo_mco2, kbo_mn2o, selfrefo, forrefo, &
                            cfc12o, cfc22adjo, &
-                           fracrefa, fracrefb, ka, ka_mco2, ka_mn2o, &
-                           ka_mo3, kb, kb_mco2, kb_mn2o, selfref, forref, &
+                           fracrefa, fracrefb, absa, ka, ka_mco2, ka_mn2o, &
+                           ka_mo3, absb, kb, kb_mco2, kb_mn2o, selfref, forref, &
                            cfc12, cfc22adj
 
 ! ------- Local -------
@@ -9161,8 +9162,8 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng9
       use rrlw_kg09, only: fracrefao, fracrefbo, kao, kao_mn2o, &
                            kbo, kbo_mn2o, selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, ka_mn2o, &
-                           kb, kb_mn2o, selfref, forref
+                           fracrefa, fracrefb, absa, ka, ka_mn2o, &
+                           absb, kb, kb_mn2o, selfref, forref
 
 ! ------- Local -------
       integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
@@ -9285,7 +9286,7 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng10
       use rrlw_kg10, only: fracrefao, fracrefbo, kao, kbo, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, &
+                           fracrefa, fracrefb, absa, ka, absb, kb, &
                            selfref, forref
 
 ! ------- Local -------
@@ -9374,8 +9375,8 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng11
       use rrlw_kg11, only: fracrefao, fracrefbo, kao, kao_mo2, &
                            kbo, kbo_mo2, selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, ka_mo2, &
-                           kb, kb_mo2, selfref, forref
+                           fracrefa, fracrefb, absa, ka, ka_mo2, &
+                           absb, kb, kb_mo2, selfref, forref
 
 ! ------- Local -------
       integer(kind=im) :: jt, jp, igc, ipr, iprsm 
@@ -9474,7 +9475,7 @@ contains
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng12
       use rrlw_kg12, only: fracrefao, kao, selfrefo, forrefo, &
-                           fracrefa, ka, selfref, forref
+                           fracrefa, absa, ka, selfref, forref
 
 ! ------- Local -------
       integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
@@ -9547,7 +9548,7 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng13
       use rrlw_kg13, only: fracrefao, fracrefbo, kao, kao_mco2, kao_mco, &
                            kbo_mo3, selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, ka_mco2, ka_mco, &
+                           fracrefa, fracrefb, absa, ka, ka_mco2, ka_mco, &
                            kb_mo3, selfref, forref
 
 ! ------- Local -------
@@ -9660,7 +9661,7 @@ contains
       use parrrtm, only : mg, nbndlw, ngptlw, ng14
       use rrlw_kg14, only: fracrefao, fracrefbo, kao, kbo, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, &
+                           fracrefa, fracrefb, absa, ka, absb, kb, &
                            selfref, forref
 
 ! ------- Local -------
@@ -9747,7 +9748,7 @@ contains
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng15
       use rrlw_kg15, only: fracrefao, kao, kao_mn2, selfrefo, forrefo, &
-                           fracrefa, ka, ka_mn2, selfref, forref
+                           fracrefa, absa, ka, ka_mn2, selfref, forref
 
 ! ------- Local -------
       integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
@@ -9833,7 +9834,7 @@ contains
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng16
       use rrlw_kg16, only: fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, &
-                           fracrefa, fracrefb, ka, kb, selfref, forref
+                           fracrefa, fracrefb, absa, ka, absb, kb, selfref, forref
 
 ! ------- Local -------
       integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
@@ -11427,6 +11428,27 @@ use rrtmg_lw_init, only: rrtmg_lw_ini
 use rrtmg_lw_rad, only: rrtmg_lw
 use mcica_subcol_gen_lw, only: mcica_subcol_lw
 
+    real retab(95)
+    data retab / 						&
+         5.92779, 6.26422, 6.61973, 6.99539, 7.39234,	&
+         7.81177, 8.25496, 8.72323, 9.21800, 9.74075, 10.2930,	&
+         10.8765, 11.4929, 12.1440, 12.8317, 13.5581, 14.2319, 	&
+         15.0351, 15.8799, 16.7674, 17.6986, 18.6744, 19.6955,	&
+         20.7623, 21.8757, 23.0364, 24.2452, 25.5034, 26.8125,	&
+         27.7895, 28.6450, 29.4167, 30.1088, 30.7306, 31.2943, 	&
+         31.8151, 32.3077, 32.7870, 33.2657, 33.7540, 34.2601, 	&
+         34.7892, 35.3442, 35.9255, 36.5316, 37.1602, 37.8078,	&
+         38.4720, 39.1508, 39.8442, 40.5552, 41.2912, 42.0635,	&
+         42.8876, 43.7863, 44.7853, 45.9170, 47.2165, 48.7221,	&
+         50.4710, 52.4980, 54.8315, 57.4898, 60.4785, 63.7898,	&
+         65.5604, 71.2885, 75.4113, 79.7368, 84.2351, 88.8833,	&
+         93.6658, 98.5739, 103.603, 108.752, 114.025, 119.424, 	&
+         124.954, 130.630, 136.457, 142.446, 148.608, 154.956,	&
+         161.503, 168.262, 175.248, 182.473, 189.952, 197.699,	&
+         205.728, 214.055, 222.694, 231.661, 240.971, 250.639/	
+    !
+    save retab
+
 CONTAINS
 
 !------------------------------------------------------------------
@@ -12262,6 +12284,8 @@ IMPLICIT NONE
       call lw_kgb15(rrtmg_unit)
       call lw_kgb16(rrtmg_unit)
 
+     IF ( wrf_dm_on_monitor() ) CLOSE (rrtmg_unit)
+
      RETURN
 9009 CONTINUE
      WRITE( errmess , '(A,I4)' ) 'module_ra_rrtmg_lw: error opening RRTMG_LW_DATA on unit ',rrtmg_unit
@@ -12290,6 +12314,7 @@ IMPLICIT NONE
 ! **************************************************************************
 
       use rrlw_kg01, only : fracrefao, fracrefbo, kao, kbo, kao_mn2, kbo_mn2, &
+                           absa, absb, &
                       selfrefo, forrefo
 
       implicit none
@@ -13799,7 +13824,6 @@ IMPLICIT NONE
     integer, intent(in) :: ncol, pcols, pver
     real, intent(out) :: re(pcols,pver)
     real, intent(in) :: t(pcols,pver)
-    real retab(95)
     real corr
     integer i
     integer k
@@ -13808,25 +13832,6 @@ IMPLICIT NONE
     !       Tabulated values of re(T) in the temperature interval
     !       180 K -- 274 K; hexagonal columns assumed:
     !
-    data retab / 						&
-         5.92779, 6.26422, 6.61973, 6.99539, 7.39234,	&
-         7.81177, 8.25496, 8.72323, 9.21800, 9.74075, 10.2930,	&
-         10.8765, 11.4929, 12.1440, 12.8317, 13.5581, 14.2319, 	&
-         15.0351, 15.8799, 16.7674, 17.6986, 18.6744, 19.6955,	&
-         20.7623, 21.8757, 23.0364, 24.2452, 25.5034, 26.8125,	&
-         27.7895, 28.6450, 29.4167, 30.1088, 30.7306, 31.2943, 	&
-         31.8151, 32.3077, 32.7870, 33.2657, 33.7540, 34.2601, 	&
-         34.7892, 35.3442, 35.9255, 36.5316, 37.1602, 37.8078,	&
-         38.4720, 39.1508, 39.8442, 40.5552, 41.2912, 42.0635,	&
-         42.8876, 43.7863, 44.7853, 45.9170, 47.2165, 48.7221,	&
-         50.4710, 52.4980, 54.8315, 57.4898, 60.4785, 63.7898,	&
-         65.5604, 71.2885, 75.4113, 79.7368, 84.2351, 88.8833,	&
-         93.6658, 98.5739, 103.603, 108.752, 114.025, 119.424, 	&
-         124.954, 130.630, 136.457, 142.446, 148.608, 154.956,	&
-         161.503, 168.262, 175.248, 182.473, 189.952, 197.699,	&
-         205.728, 214.055, 222.694, 231.661, 240.971, 250.639/	
-    !
-    save retab
     !
     do k=1,pver
        do i=1,ncol

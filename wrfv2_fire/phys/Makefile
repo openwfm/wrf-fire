@@ -51,11 +51,11 @@ MODULES = \
 	module_sf_noahlsm.o  \
         module_sf_urban.o  \
         module_sf_bep.o  \
-	module_sf_lsm_nmm.o  \
 	module_sf_pxlsm.o \
 	module_sf_ruclsm.o \
 	module_sf_sfcdiags.o \
 	module_sf_sstskin.o \
+	module_sf_tmnupdate.o \
 	module_sf_myjsfc.o \
 	module_sf_qnsesfc.o \
 	module_sf_mynn.o \
@@ -163,9 +163,6 @@ module_ra_cam.o: module_ra_cam_support.o \
 
 module_mp_lin.o : ../frame/module_wrf_error.o
 
-module_sf_lsm_nmm.o: ../share/module_model_constants.o \
-		../share/module_MPP.o
-
 module_sf_myjsfc.o: ../share/module_model_constants.o 
 module_sf_qnsesfc.o: ../share/module_model_constants.o 
 
@@ -246,8 +243,7 @@ module_physics_init.o : \
 		../frame/module_configure.o \
 		../frame/module_wrf_error.o \
 		../frame/module_dm.o \
-		../share/module_model_constants.o \
-		module_sf_lsm_nmm.o	
+		../share/module_model_constants.o 
 
 module_microphysics_driver.o: \
 		module_mixactivate.o \
@@ -327,10 +323,10 @@ module_surface_driver.o: \
 		module_sf_mynn.o                \
 		module_sf_sfcdiags.o		\
 		module_sf_sstskin.o		\
+		module_sf_tmnupdate.o		\
 		../frame/module_state_description.o \
 		../frame/module_configure.o \
-		../share/module_model_constants.o  \
-		module_sf_lsm_nmm.o
+		../share/module_model_constants.o  
 
 module_diagnostics.o: ../frame/module_dm.o
 
@@ -389,9 +385,6 @@ module_fr_sfire_phys.o: \
                 fr_sfire_params_args.h \
                 fr_sfire_params_decl.h \
 		module_fr_sfire_util.o 
-
-module_fr_sfire_util.o: \
-                ../frame/module_wrf_error.o 
 
 module_fire_debug_output.o: \
 	        ../frame/module_domain.o \

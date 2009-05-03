@@ -7,7 +7,7 @@ module da_obs_io
       obs_qc_pointer, rootproc, omb_unit,omb_add_noise,use_airepobs, &
       use_airepobs,use_bogusobs,use_gpspwobs,use_gpsztdobs,use_gpsrefobs,use_geoamvobs, &
       use_metarobs,use_profilerobs,use_pilotobs,use_buoyobs,use_shipsobs, &
-      use_synopobs,use_soundobs,use_mtgirsobs,use_qscatobs,test_transforms, use_ssmiretrievalobs, report_start, &
+      use_synopobs,use_soundobs,use_mtgirsobs,use_tamdarobs,use_qscatobs,test_transforms, use_ssmiretrievalobs, report_start, &
       report_end, global, print_detail_obs, stdout, t_kelvin, stderr, &
       max_ob_levels, missing_data, max_bogus_input, myproc,convert_uv2fd, &
       fails_error_max,standard_atmosphere,zero_t_td,print_detail_f_obs, &
@@ -16,12 +16,12 @@ module da_obs_io
       filename_len, t0, max_airep_input, max_bogus_input, max_ssmi_rv_input, &
       max_buoy_input, max_gpsref_input, max_gpspw_input, max_geoamv_input, &
       max_airsr_input, max_polaramv_input, max_radar_input, &
-      max_profiler_input, max_sound_input, max_mtgirs_input,max_ships_input, &
+      max_profiler_input, max_sound_input, max_mtgirs_input, max_tamdar_input, max_ships_input, &
       max_satem_input,max_pilot_input, max_metar_input, max_ssmt1_input, &
       max_synop_input,max_ssmt2_input,  max_qscat_input, &
       obs_names, num_ob_indexes, fm_index, ids,ide, ite, jte, &
       sound, mtgirs,synop, pilot, satem, geoamv, polaramv, airep, gpspw, gpsref, &
-      metar, ships, ssmi_rv, ssmi_tb, ssmt1, ssmt2, qscat, profiler, buoy, bogus, pseudo, &
+      tamdar, tamdar_sfc, metar, ships, ssmi_rv, ssmi_tb, ssmt1, ssmt2, qscat, profiler, buoy, bogus, pseudo, &
       radar, radiance, airsr, sonde_sfc, trace_use_dull, num_fgat_time, time_slots, myproc
 
    use da_define_structures, only : iv_type, multi_level_type, &
@@ -41,15 +41,21 @@ module da_obs_io
    use da_grid_definitions, only : da_earth_2_model_wind
    use module_radiance, only : deg2rad
    use gsi_thinning, only : map2grids, map2grids_conv, cleangrids_conv, thinning_grid_conv
+   use da_obs, only : da_set_obs_missing
+   use da_bufr, only : openbf, closbf, datelen, ufbint, readns
 #ifdef DM_PARALLEL
    use da_control, only : root
-   use mpi, only : mpi_min
+!  use mpi, only : mpi_min
    use da_par_util, only : true_mpi_real
 #endif
 #endif
    use da_reporting, only : message, da_message
 
    implicit none
+
+#ifdef DM_PARALLEL
+   include 'mpif.h'
+#endif
 
 contains
 

@@ -645,8 +645,6 @@ print *,'WATER CHANGE = ',change_water
                                  ims , ime , jms , jme , kms , kme , &
                                  its , ite , jts , jte , kts , kte )
       END IF
-      write(6,*) "T After init_soil_m", tslb(29,:,34)
-      write (6,*) "M After init_soil ", smois(29,:,34)
 
    END SUBROUTINE process_soil_real
 
@@ -1436,7 +1434,8 @@ cycle
 
       REAL, DIMENSION( ims:ime, num_soil_layers, jms:jme ) , INTENT(OUT) :: smois, tslb
 
-      REAL, DIMENSION( ims:ime, jms:jme ) , INTENT(OUT)  :: xland, snow, canwat, xice, vegfra, tmn
+      REAL, DIMENSION( ims:ime, jms:jme ) , INTENT(IN)   :: xland
+      REAL, DIMENSION( ims:ime, jms:jme ) , INTENT(OUT)  :: snow, canwat, xice, vegfra, tmn
 
       INTEGER, DIMENSION( ims:ime, jms:jme ) , INTENT(OUT) :: ivgtyp, isltyp
 

@@ -14,7 +14,7 @@
       USE MODULE_DM
       USE MODULE_CONFIGURE
       USE MODULE_TILES
-      USE MODULE_STATE_DESCRIPTION,ONLY : P_QV,P_QC,P_QR,P_QI,P_QS,P_QG,P_QNI
+      USE MODULE_STATE_DESCRIPTION,ONLY : P_QV,P_QC,P_QR,P_QI,P_QS,P_QG,P_QNI,P_QNR
       USE MODULE_MODEL_CONSTANTS
       USE MODULE_RA_GFDLETA,ONLY : CAL_MON_DAY,ZENITH
       USE MODULE_RADIATION_DRIVER
@@ -826,8 +826,8 @@
      &       ,ROG,RWMSK,SDEPTH,SNO_FACTR,TL,TLMH,TLMH4,TNEW,TSFC2       &
      &       ,U_FRAME,V_FRAME,XLVRW
 !
-      REAL :: APES,CKLQ,EXNER,FACTOR,FFS,PQ0X,Q2SAT,QFC1,QLOWX,RLIVWV   &
-     &       ,THBOT,DPL
+      REAL :: APES,CAPA,CKLQ,EXNER,FACTOR,FFS,PQ0X,Q2SAT,QFC1,QLOWX     &
+     &       ,RLIVWV,THBOT,DPL
 !
       REAL,DIMENSION(IMS:IME,JMS:JME) :: BR,CHKLOWQ,CT,CWMLOW,ELFLX     &
      &                                  ,EXNSFC,FACTRS,FLHC,FLQC,GZ1OZ0 &
@@ -888,6 +888,7 @@
       G_INV=1./G
       ROG=R_D*G_INV
       FACTOR=-XLV*RHOWATER/DTPHS
+      CAPA=R_D/CP
 !
       U_FRAME=0.
       V_FRAME=0.
@@ -1238,6 +1239,7 @@
      &        ,ISURBAN=isurban, MMINLU=TRIM(mminlu)                       &
      &        ,SNOTIME = grid%SNOTIME &
      &        ,RDLAI2D=config_flags%rdlai2d                                   &
+     &        ,usemonalb=config_flags%usemonalb                           &
      &        ,NOAHRES=grid%noahres                                       &
      &                                                          )
 !
@@ -2673,6 +2675,7 @@
      &                 ,QS_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QS),F_QS=F_QS &
      &                 ,QG_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QG),F_QG=F_QG &
      &                 ,QNI_CURR=SCALAR_TRANS(IMS,KMS,JMS,P_QNI),F_QNI=F_QNI  &
+     &                 ,QNR_CURR=SCALAR_TRANS(IMS,KMS,JMS,P_QNR),F_QNR=F_QNR  &
      &                 ,QT_CURR=CWM_PHY,F_QT=QT_PRESENT                 &
      &                 ,MP_RESTART_STATE=MP_RESTART_STATE               &
      &                 ,TBPVS_STATE=TBPVS_STATE                         &
@@ -2687,7 +2690,7 @@
 !$omp parallel do                                                       &
 !$omp& private(ij)
       DO IJ=1,GRID%NUM_TILES
-        CALL MICROPHYSICS_ZERO_OUT(                                     &
+        CALL MICROPHYSICS_ZERO_OUTA(                                    &
                      MOIST_TRANS,N_MOIST,CONFIG_FLAGS                   &
                     ,IDS,IDE,JDS,JDE,KDS,KDE                            &
                     ,IMS,IME,JMS,JME,KMS,KME                            &
