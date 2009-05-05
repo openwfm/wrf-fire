@@ -253,6 +253,8 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   set lfn_out tign
 !   lfn does not change, tign has no halos
 
+    if(time_start < fire_const_time)then
+
     call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
@@ -262,10 +264,14 @@ elseif (ifun.eq.4) then  ! do the timestep
         lfn,lfn_out,tign &
 #       include "fr_sfire_params_args.h" 
     ) 
+
+    endif
     
 elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! this cannot be done in the time step itself because of race condition
     ! some thread may still be using lfn as input in their tile halo
+
+    if(time_start < fire_const_time)then
     
     do j=jfts,jfte
         do i=ifts,ifte
@@ -274,10 +280,14 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             ! even if tign does not need a halo
         enddo
     enddo
+
+    endif
     
     need_lfn_update=.true. ! duh
 
 elseif (ifun.eq.6) then ! timestep postprocessing
+
+    if(time_start < fire_const_time)then
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
@@ -310,6 +320,17 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 
+    elseif (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
+        ! set output heat fluxes to pre-specified value
+        
+        do j=jfts,jfte
+            do i=ifts,ifte
+                grnhfx(i,j)=fire_const_grnhfx
+                grnqfx(i,j)=fire_const_grnqfx
+            enddo
+        enddo
+
+    endif
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &

@@ -36,7 +36,8 @@ integer,save::          &
 
 real, save::            &
  fire_const_time=1e10,  &  ! time from ignition to start constant heat output
- fire_const_heatflux=0.,&  ! if >0, the constant heat flux to output then
+ fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
+ fire_const_grnqfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
  fire_back_weight=0.5,  &  ! RK parameter, 0 = Euler method, 0.5 = Heun, 1 = fake backward Euler
  fire_viscosity=0.4,    &  ! artificial viscosity
