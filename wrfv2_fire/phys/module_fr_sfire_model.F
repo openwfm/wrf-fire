@@ -265,6 +265,9 @@ elseif (ifun.eq.4) then  ! do the timestep
 #       include "fr_sfire_params_args.h" 
     ) 
 
+    else
+        call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
+
     endif
     
 elseif (ifun.eq.5) then ! copy the result of timestep back to input
@@ -320,8 +323,14 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 
-    elseif (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
-        ! set output heat fluxes to pre-specified value
+    else
+        call message('sfire_model: EXPERIMENTAL: skipping fuel burnt computation')
+
+        if (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
+
+        write(msg,'(a,2e12.3,a)')'sfire_model: EXPERIMENTAL output constant heat flux', &
+           fire_const_grnhfx, fire_const_grnqfx, ' W/s'
+        call message(msg)
         
         do j=jfts,jfte
             do i=ifts,ifte
@@ -329,6 +338,8 @@ elseif (ifun.eq.6) then ! timestep postprocessing
                 grnqfx(i,j)=fire_const_grnqfx
             enddo
         enddo
+
+        endif
 
     endif
 
