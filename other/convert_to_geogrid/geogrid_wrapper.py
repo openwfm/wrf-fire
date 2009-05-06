@@ -71,6 +71,7 @@ outputfields[0]['desc']="National Elevation Dataset (NED)"
 outputfields[0]['units']="meters"
 outputfields[0]['maxcat']=None
 outputfields[0]['source']='NED'
+outputfields[0]['found']=False
 
 outputfields[1]['name']=destfields[1]
 outputfields[1]['dir']='landfire'
@@ -78,6 +79,7 @@ outputfields[1]['desc']='LANDFIRE 13 Anderson Fire Behavior Fuel Models'
 outputfields[1]['units']='category'
 outputfields[1]['maxcat']=14
 outputfields[1]['source']='LANDFIRE13'
+outputfields[1]['found']=False
 
 # define a number of static variables used for controlling loops
 donotfetch=False
@@ -178,7 +180,22 @@ def main(argv):
         print "geogrid.exe doesn't seem to exist or is not executable"
         print "have you run configure/compile?"
         sys.exit(2)
-    
+   
+    # look at GEOGRID.TBL and make sure that a shell directory exists
+    # for each data source that can be fetched automatically
+    # make it more foolproof by checking that the file exists and 
+    # copying from the default if it does not.
+    if not os.access(tblfile, os.F_OK):
+        # GEOGRID.TBL doesn't exist, check for the default
+        dtblfile=os.path.join('.','geogrid','GEOGRID.TBL.FIRE.NED')
+        if not os.access(dtblfile,os.R_OK):
+         print "Cannot find or access %s" % tblfile
+        sys.exit(2)
+        shutil.copy(dtblfile,tblfile)
+        
+    proc_tbl(tblfile)
+
+
     # run geogrid and pipe output in a buffer
     now=time.time()
     p=sp.Popen(geocmd,stdout=sp.PIPE,stderr=sp.STDOUT,bufsize=-1)
@@ -308,8 +325,8 @@ def main(argv):
         print "geogrid.py failed"
         raise
         
+def proc_tbl(tblfile):
     # process GEOGRID.TBL
-    absdir=os.path.realpath(gdir)
     print "Setting up %s" % tblfile
     tmp=os.tmpfile()
     tbl=open(tblfile)
@@ -324,41 +341,44 @@ def main(argv):
     #   with what was given back from geogrid.py 
     while line != '':
         val=r.match(line)
-        if val != None and val.group('val').strip() == destfield:
-            while line.find("="*6) == -1 and line != '': 
-                if line.find("rel_path=default:") != -1 or line.find("abs_path=default:") != -1:
-                    tmp.write('\tabs_path=default:%s\n' % absdir)
-                    pass
-                elif line.find("_path") != -1:
-                    pass
-                else:
-                    tmp.write(line)
-                line=tbl.readline()
-            break
+        if val != None:
+            for i in range(len(destfields)): 
+                destfield=destfields[i]
+                output=outputfields[i]
+                absdir=os.path.realpath(os.path.join('.',output['dir']))
+                if val.group('val').strip() == destfield:
+                    outputfields['found']=True
+                    while line.find("="*6) == -1 and line != '': 
+                        if line.find("rel_path=default:") != -1 or line.find("abs_path=default:") != -1:
+                            tmp.write('\tabs_path=default:%s\n' % absdir)
+                            mkblank_dir(absdir)
+                        elif line.find("_path") != -1:
+                            pass
+                        else:
+                            tmp.write(line)
+                        line=tbl.readline()
         tmp.write(line)
         line=tbl.readline()
-    else:
-        print "Couldn't find a section in %s matching %s" % (tblfile,destfield)
-        print "Inserting reasonable defaults."
-        tmp.write("name=%s\n" % destfield)
-        tmp.write("\tpriority=1\n")
-        if output['maxcat'] is not None:
-            tmp.write("\tdest_type=continuous\n")
-            tmp.write("\tinterp_option=default:four_pt+average_16pt+search\n")
-        else:
-            tmp.write("\tdest_type=categorical\n")
-            tmp.write("\tdominant_only=%s\n" % output['name'])
-            tmp.write("\tz_dim_name=%s\n" % output['units'])
-            tmp.write("\tinterp_option=default:nearest_neighbor+average_16pt+search\n")
+    
+    for output in outputfields:
+        if not output['found']:
+            print "Couldn't find a section in %s matching %s" % (tblfile,destfield)
+            print "Inserting reasonable defaults."
+            tmp.write("name=%s\n" % destfield)
+            tmp.write("\tpriority=1\n")
+            if output['maxcat'] is not None:
+                tmp.write("\tdest_type=continuous\n")
+                tmp.write("\tinterp_option=default:four_pt+average_16pt+search\n")
+            else:
+                tmp.write("\tdest_type=categorical\n")
+                tmp.write("\tdominant_only=%s\n" % output['name'])
+                tmp.write("\tz_dim_name=%s\n" % output['units'])
+                tmp.write("\tinterp_option=default:nearest_neighbor+average_16pt+search\n")
             
-        tmp.write("\thalt_on_missing=yes\n")
-        tmp.write("\tabs_path=default:%s\n"% absdir)
-        tmp.write("\tsubgrid=yes\n")
-        tmp.write("="*30)
-
-    while line != '':
-        tmp.write(line)
-        line=tbl.readline()
+            tmp.write("\thalt_on_missing=yes\n")
+            tmp.write("\tabs_path=default:%s\n"% absdir)
+            tmp.write("\tsubgrid=yes\n")
+            tmp.write("="*30)
 
     #copy temporary file to geogrid table
     tmp.flush()
@@ -368,7 +388,43 @@ def main(argv):
     tbl=open(tblfile,"w")
     tbl.write(tmp.read())
     tbl.close()
-    
+   
+def mkblank_dir(d):
+    if not os.path.isdir(d):
+        if os.path.lexists(d):
+            print "A file or link exists at %s, you must move it before I can continue." % d
+            sys.exit(1)
+        os.mkdir(d)
+        # make a dummy index file in this directory, just so geogrid
+        # doesn't bomb out
+        h=open(os.path.join(d,'index'))
+        s='''projection=regular_ll
+type=continuous
+units="none"
+description="Empty"
+dx=9.25925926e-05
+dy=9.25925926e-05
+known_x=1
+known_y=575
+known_lon=-107.324537
+known_lat=39.732500
+wordsize=2
+tile_bdr=0
+missing_value=65535
+scale_factor=1.000000
+row_order=top_bottom
+endian=little
+tile_x=746
+tile_y=575
+tile_z=1
+signed=no'''
+        h.write(s)
+        h.close()
+            
+        
+        
     
 if __name__=="__main__":
     main_rep(sys.argv[1:])
+
+
