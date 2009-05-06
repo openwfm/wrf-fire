@@ -274,14 +274,22 @@ call interpolate_2d(  &
 !                fine cell  1           2                             cell 2*(ite-its+1)
 
 
-! do a=1,jte-jts+1
-!     do b=1,ite-its+1
-!         do k=1,ir
-!             do l=1,jr
-!                 i=(a-1)*ir+k
-!                 j=(b-1)*jr+l
+! %% icl,jcl- goes over cells in Tile
+! %% isubcl,jsubcl- goes over subcells in cell
+! %% Loop over cells in Tile
+! do icl=1,jte-jts+1
+!     do jcl=1,ite-its+1
+! %% Loop over subcells in cell #(icl,jcl)
+!         do isubcl=1,ir
+!             do jsubcl=1,jr! substitutions to  apply this to the code that has
+!             been done before
+!                 i=(icl-1)*ir+isubcl
+!                 j=(jcl-1)*jr+jsubcl
 !                 iccell=its+(i-1)/ir
 !                 jccell=jts+(j-1)/jr
+!
+!
+
 
 do j=1,JFCELLS
     do i=1,IFCELLS
