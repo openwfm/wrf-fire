@@ -23,6 +23,9 @@ module da_crtm
       crtm_platform_name, crtm_init, &
       rttov_inst_name,rttov_platform_name, climatology_model_name, &
       crtm_options_type, crtm_allocate_options, crtm_destroy_options
+#ifndef CRTM_1_1
+   use module_radiance, only : WMO_SSMIS    ! available since CRTM_1_2
+#endif
 
    use da_control, only : trace_use, crtm_cloud, gravity,stdout, biascorr, &
       biasprep, qc_rad,missing_r,rtminit_sensor,rtminit_nsensor, filename_len, &
@@ -40,7 +43,7 @@ module da_crtm
 
    use da_reporting, only : da_error,message
    use da_tools_serial, only : da_free_unit, da_get_unit
-   use da_tools, only: da_get_time_slots
+   use da_tools, only: da_get_time_slots, da_eof_decomposition
    use da_tracing, only : da_trace_entry, da_trace_exit
 
     TYPE (CRTM_ChannelInfo_type), allocatable, save :: ChannelInfo(:)

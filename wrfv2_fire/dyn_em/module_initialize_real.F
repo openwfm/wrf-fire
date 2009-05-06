@@ -117,7 +117,7 @@ integer::oops1,oops2
       INTEGER :: force_sfc_in_vinterp
       INTEGER :: interp_type , lagrange_order , extrap_type , t_extrap_type
       LOGICAL :: lowest_lev_from_sfc , use_levels_below_ground , use_surface
-      LOGICAL :: we_have_tavgsfc
+      LOGICAL :: we_have_tavgsfc , we_have_tsk
 
       INTEGER :: lev500 , loop_count
       REAL    :: zl , zu , pl , pu , z500 , dz500 , tvsfc , dpmu
@@ -162,6 +162,13 @@ integer::oops1,oops2
       !  and A (temperature difference, from 1000 mb to 300 mb, K).
    
       CALL const_module_initialize ( p00 , t00 , a , tiso ) 
+
+      !  Save these constants to write out in model output file
+
+      grid%t00  = t00
+      grid%p00  = p00
+      grid%tlp  = a
+      grid%tiso = tiso
 
       !  Fix the snow (water equivalent depth, kg/m^2) and the snowh (physical snow
       !  depth, m) fields.
@@ -248,10 +255,36 @@ integer::oops1,oops2
          CALL wrf_error_fatal ( 'Neither SI data nor older metgrid data can initialize a global domain' )
       ENDIF
 
+      !  Check to see what available surface temperatures we have.
+
       IF ( flag_tavgsfc .EQ. 1 ) THEN
          we_have_tavgsfc = .TRUE.
       ELSE
          we_have_tavgsfc = .FALSE.
+      END IF
+
+      IF ( flag_tsk     .EQ. 1 ) THEN
+         we_have_tsk     = .TRUE.
+      ELSE
+         we_have_tsk     = .FALSE.
+      END IF
+   
+      IF ( config_flags%use_tavg_for_tsk ) THEN
+         IF ( we_have_tsk .OR. we_have_tavgsfc ) THEN
+           !  we are OK
+         ELSE
+            CALL wrf_error_fatal ( 'We either need TSK or TAVGSFC, verify these fields are coming from WPS' )
+         END IF
+   
+         !  Since we require a skin temperature in the model, we can use the average 2-m temperature if provided.
+   
+         IF ( we_have_tavgsfc ) THEN
+            DO j=jts,min(jde,jte)
+               DO i=its,min(ide-1,ite)
+                  grid%tsk(i,j) = grid%tavgsfc(i,j)
+               END DO
+            END DO
+         END IF
       END IF
 
       !  Is there any vertical interpolation to do?  The "old" data comes in on the correct
@@ -391,6 +424,46 @@ integer::oops1,oops2
            END DO
          END IF
 
+         !  Some data sets do not provide a surface RH field.
+
+         IF ( ABS(grid%rh_gc(its,kts,jts)) .LT. 1.e-5 ) THEN
+            DO j = jts, MIN(jte,jde-1)
+               DO i = its, MIN(ite,ide-1)
+                  grid%rh_gc(i,1,j) = grid%rh_gc(i,2,j)
+               END DO
+            END DO
+         END IF
+
+         !  The number of vertical levels in the input data.  There is no staggering for
+         !  different variables.
+
+         num_metgrid_levels = grid%num_metgrid_levels
+
+         !  Compute the mixing ratio from the input relative humidity.
+
+         IF ( flag_qv .NE. 1 ) THEN
+            CALL rh_to_mxrat (grid%rh_gc, grid%t_gc, grid%p_gc, grid%qv_gc , &
+                              config_flags%rh2qv_wrt_liquid , &
+                              ids , ide , jds , jde , 1   , num_metgrid_levels , &
+                              ims , ime , jms , jme , 1   , num_metgrid_levels , &
+                              its , ite , jts , jte , 1   , num_metgrid_levels )
+         END IF
+
+         !  Some data sets do not provide a 3d geopotential height field.  
+
+         IF ( grid%ght_gc(its,grid%num_metgrid_levels/2,jts) .LT. 1 ) THEN
+            DO j = jts, MIN(jte,jde-1)
+               DO k = kts+1 , grid%num_metgrid_levels
+                  DO i = its, MIN(ite,ide-1)
+                     grid%ght_gc(i,k,j) = grid%ght_gc(i,k-1,j) - &
+                        R_d / g * 0.5 * ( grid%t_gc(i,k  ,j) * ( 1 + 0.608 * grid%qv_gc(i,k  ,j) ) +   &
+                                          grid%t_gc(i,k-1,j) * ( 1 + 0.608 * grid%qv_gc(i,k-1,j) ) ) * &
+                        LOG ( grid%p_gc(i,k,j) / grid%p_gc(i,k-1,j) )
+                  END DO
+               END DO
+            END DO
+         END IF
+
          !  Assign surface fields with original input values.  If this is hybrid data,
          !  the values are not exactly representative.  However - this is only for
          !  plotting purposes and such at the 0h of the forecast, so we are not all that
@@ -421,11 +494,6 @@ integer::oops1,oops2
                END DO
             END DO
          END IF
-
-         !  The number of vertical levels in the input data.  There is no staggering for
-         !  different variables.
-
-         num_metgrid_levels = grid%num_metgrid_levels
 
          !  The requested ptop for real data cases.
 
@@ -527,15 +595,6 @@ integer::oops1,oops2
               END IF
            END DO
          END DO
-
-         !  Compute the mixing ratio from the input relative humidity.
-
-         IF ( flag_qv .NE. 1 ) THEN
-            CALL rh_to_mxrat (grid%rh_gc, grid%t_gc, grid%p_gc, grid%qv_gc , .TRUE. , &
-                              ids , ide , jds , jde , 1   , num_metgrid_levels , &
-                              ims , ime , jms , jme , 1   , num_metgrid_levels , &
-                              its , ite , jts , jte , 1   , num_metgrid_levels )
-         END IF
 
          !  Two ways to get the surface pressure.  1) If we have the low-res input surface
          !  pressure and the low-res topography, then we can do a simple hydrostatic
@@ -1172,7 +1231,7 @@ integer::oops1,oops2
                ELSE IF ( flag_soil_levels == 1 ) THEN
                   DO j = jts, MIN(jde-1,jte)
                      DO i = its, MIN(ide-1,ite)
-                        grid%smois(i,:,j) = grid%smois(i,:,j) + lqmi(grid%isltyp(i,j))
+                        grid%smois(i,:,j) = MAX ( grid%smois(i,:,j) + lqmi(grid%isltyp(i,j)) , 0.005 )
                      END DO
                   END DO
                   DO j = jts, MIN(jde-1,jte)
@@ -1195,7 +1254,7 @@ integer::oops1,oops2
                IF      ( flag_soil_layers == 1 ) THEN
                   DO j = jts, MIN(jde-1,jte)
                      DO i = its, MIN(ide-1,ite)
-                        grid%smois(i,:,j) = MAX ( grid%smois(i,:,j) - lqmi(grid%isltyp(i,j)) , 0. )
+                        grid%smois(i,:,j) = MAX ( grid%smois(i,:,j) - lqmi(grid%isltyp(i,j)) , 0.005 )
                      END DO
                   END DO
                ELSE IF ( flag_soil_levels == 1 ) THEN
@@ -1204,14 +1263,14 @@ integer::oops1,oops2
 
              CASE ( PXLSMSCHEME )
                iicount = 0
-               IF      ( flag_soil_layers == 1 ) THEN
+               IF ( flag_soil_layers == 1 ) THEN
+                  ! no op
+               ELSE IF ( flag_soil_levels == 1 ) THEN
                   DO j = jts, MIN(jde-1,jte)
                      DO i = its, MIN(ide-1,ite)
-                        grid%smois(i,:,j) = MAX ( grid%smois(i,:,j) - lqmi(grid%isltyp(i,j)) , 0. )
+                        grid%smois(i,:,j) = MAX ( grid%smois(i,:,j) + lqmi(grid%isltyp(i,j)) , 0.005 )
                      END DO
                   END DO
-               ELSE IF ( flag_soil_levels == 1 ) THEN
-                  ! no op
                END IF
 
          END SELECT account_for_zero_soil_moisture
@@ -3205,7 +3264,7 @@ print *,'VERT EXTRAP = ', vert_extrap
 
       REAL :: temp_1 , temp_2 , temp_3 , temp_y
       REAL :: depth_of_extrap_in_p , avg_of_extrap_p , temp_extrap_starting_point , dhdp , dh , dt
-      REAL , PARAMETER :: RovCp      = 287. / 1004.
+      REAL , PARAMETER :: RovCp      = rcp
       REAL , PARAMETER :: CRC_const1 = 11880.516      ! m
       REAL , PARAMETER :: CRC_const2 =     0.1902632  !
       REAL , PARAMETER :: CRC_const3 =     0.0065     ! K/km
@@ -3509,8 +3568,7 @@ print *,'p target= ',target_x
 
       INTEGER :: i , j , k
 
-      REAL , PARAMETER :: Rd = 287.
-      REAL , PARAMETER :: g  =   9.8
+      REAL , PARAMETER :: Rd = r_d
 
       DO j = jts , MIN ( jde-1 , jte )
          DO i = its , MIN (ide-1 , ite )
@@ -3592,8 +3650,7 @@ print *,'p target= ',target_x
 
       INTEGER :: i , j , k
 
-      REAL , PARAMETER :: Rd = 287.
-      REAL , PARAMETER :: Cp = 1004.
+      REAL , PARAMETER :: Rd = r_d
 
       DO j = jts , MIN ( jde-1 , jte )
          DO k = kts , kte
@@ -3638,8 +3695,7 @@ print *,'p target= ',target_x
 
       LOGICAL :: upside_down
 
-      REAL , PARAMETER :: Rd = 287.
-      REAL , PARAMETER :: g  =   9.8
+      REAL , PARAMETER :: Rd = r_d
 
       !  Get a surface value, always the first level of a 3d field.
 
@@ -3855,9 +3911,9 @@ print *,'p sfc = ',psfc(i,j)
 
                   es=.01*rh(i,k,j)*svp1*10.*EXP(svp2*(t(i,k,j)-svpt0)/(t(i,k,j)-svp3))
                   IF (es .ge. p(i,k,j)/100.)THEN
-                    q(i,k,j)=1.0
+                    q(i,k,j)=0.0
                     print *,'warning: vapor pressure exceeds total pressure '
-                    print *,'setting mixing ratio to 1'
+                    print *,'setting mixing ratio to 0'
                   ELSE
                     q(i,k,j)=eps*es/(p(i,k,j)/100.-es)
                   ENDIF
@@ -4262,11 +4318,10 @@ print *,'namelist p_top (Pa) = ',p_top
 
       IMPLICIT NONE
 
-      REAL, PARAMETER    :: g         = 9.8
       REAL, PARAMETER    :: gamma     = 6.5E-3
       REAL, PARAMETER    :: pconst    = 10000.0
-      REAL, PARAMETER    :: Rd        = 287.
-      REAL, PARAMETER    :: TC        = 273.15 + 17.5
+      REAL, PARAMETER    :: Rd        = r_d
+      REAL, PARAMETER    :: TC        = svpt0 + 17.5
 
       REAL, PARAMETER    :: gammarg   = gamma * Rd / g
       REAL, PARAMETER    :: rov2      = Rd / 2.
@@ -4555,8 +4610,7 @@ print *,'namelist p_top (Pa) = ',p_top
 
       IMPLICIT NONE
 
-      REAL, PARAMETER    :: g         = 9.8
-      REAL, PARAMETER    :: Rd        = 287.
+      REAL, PARAMETER    :: Rd        = r_d
 
       INTEGER , INTENT(IN) ::  ids , ide , jds , jde , kds , kde , &
                                ims , ime , jms , jme , kms , kme , &
@@ -4633,6 +4687,16 @@ print *,'namelist p_top (Pa) = ',p_top
       DO j = jts , MIN(jde-1,jte)
          DO i = its , MIN(ide-1,ite)
 
+            !  Special cases
+
+            IF      ( ( height(i,1,j) .LT. 0 ) .OR. ( ter(i,j) .LT. 0 ) ) THEN
+               psfc(i,j) = slp(i,j) + ( p(i,2,j)-p(i,3,j) ) / ( height(i,2,j)-height(i,3,j) ) * ter(i,j)
+               CYCLE
+            ELSE IF ( ( height(i,1,j) .LT. 1 ) .OR. ( ter(i,j) .LT. 1 ) ) THEN
+               psfc(i,j) = slp(i,j)
+               CYCLE
+            END IF
+
             !  Find the trapping levels
 
             found_loc = .FALSE.
@@ -4660,14 +4724,14 @@ print *,'namelist p_top (Pa) = ',p_top
             IF ( .NOT. found_loc ) THEN
                IF ( slp(i,j) .GE. p(i,2,j) ) THEN
                   zl = 0.
-                  zu = height(i,2  ,j)
+                  zu = height(i,3,j)
                   zm = ter(i,j)
                   pl = slp(i,j)
-                  pu = p(i,2  ,j)
+                  pu = p(i,3,j)
                   psfc(i,j) = EXP ( ( LOG(pl) * ( zm - zu ) + LOG(pu) * ( zl - zm ) ) / ( zl - zu ) )
                   found_loc = .TRUE.
                ELSE
-                  found_slp_loc : DO k = kts+1 , kte-2
+                  found_slp_loc : DO k = kts+1 , kte-3
                      IF ( ( slp(i,j) .GE. p(i,k+1,j) ) .AND. &
                           ( slp(i,j) .LT. p(i,k  ,j) ) ) THEN
                         zl = 0.

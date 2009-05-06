@@ -34,7 +34,7 @@
     INTEGER km_opt, diff_opt, damp_opt,  &
             mp_physics, ra_lw_physics, ra_sw_physics, sf_sfclay_physics, &
             sf_surface_physics, bl_pbl_physics, cu_physics
-    REAL    khdif, kvdif, swrad_scat
+    REAL    khdif, kvdif, swrad_scat, dampcoef
     INTEGER sf_urban_physics, w_damping, smooth_option, feedback, surface_input_source, sst_update
 #if (EM_CORE == 1)
     INTEGER grid_id , parent_id , i_parent_start , j_parent_start , parent_grid_ratio
@@ -160,6 +160,7 @@
     call nl_get_diff_opt      ( 1, diff_opt                      )
     call nl_get_km_opt        ( 1, km_opt                        )
     call nl_get_damp_opt      ( 1, damp_opt                      )
+    call nl_get_dampcoef      ( grid%id,  dampcoef            )
     call nl_get_khdif         ( grid%id,  khdif               )
     call nl_get_kvdif         ( grid%id,  kvdif               )
     call nl_get_mp_physics    ( grid%id,  mp_physics          )
@@ -328,6 +329,66 @@
     END IF
 #endif
 
+#if (EM_CORE == 1)
+!added the following for tc bogusing
+    if((config_flags%insert_bogus_storm) .or. (config_flags%remove_storm)) then
+       print *,"we have confirmed that insert or remove is true"
+       ibuf(1) = 1
+       CALL wrf_put_dom_ti_integer ( fid , 'FLAG_METGRID' ,  ibuf , 1 , ierr )
+       if( grid%flag_snow .eq. 1) then
+           CALL wrf_put_dom_ti_integer ( fid , 'FLAG_SNOW' ,  ibuf , 1 , ierr )
+       end if
+       if( grid%flag_mf_xy .eq. 1) then
+           CALL wrf_put_dom_ti_integer ( fid , 'FLAG_MF_XY' ,  ibuf , 1 , ierr )
+       end if   
+       if(grid%flag_psfc .eq. 1) then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_PSFC' ,  ibuf , 1 , ierr ) 
+       end if    
+
+       if(grid%flag_slp .eq. 1) then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_SLP' ,  ibuf , 1 , ierr ) 
+       end if 
+
+       if(grid%flag_sm000010 .eq. 1)then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_SM000010' ,  ibuf , 1 , ierr ) 
+       end if
+       if(grid%flag_sm010040 .eq. 1)then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_SM010040' ,  ibuf , 1 , ierr ) 
+       end if
+        if(grid%flag_sm040100 .eq. 1)then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_SM040100' ,  ibuf , 1 , ierr ) 
+       end if
+        if(grid%flag_sm100200 .eq. 1)then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_SM100200' ,  ibuf , 1 , ierr ) 
+       end if 
+
+       if(grid%flag_st000010 .eq. 1)then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_ST000010' ,  ibuf , 1 , ierr ) 
+       end if
+       if(grid%flag_st010040 .eq. 1)then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_ST010040' ,  ibuf , 1 , ierr ) 
+       end if
+        if(grid%flag_st040100 .eq. 1)then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_ST040100' ,  ibuf , 1 , ierr ) 
+       end if
+        if(grid%flag_st100200 .eq. 1)then
+          CALL wrf_put_dom_ti_integer ( fid , 'FLAG_ST100200' ,  ibuf , 1 , ierr ) 
+       end if 
+
+       ibuf(1) = grid%num_metgrid_levels
+       CALL wrf_put_dom_ti_integer ( fid , 'BOTTOM-TOP_GRID_DIMENSION' , ibuf , 1 , ierr )
+
+       CALL wrf_put_dom_ti_integer ( fid , 'num_metgrid_levels' , ibuf , 1 , ierr )
+
+       print *,start_date
+       CALL wrf_put_dom_ti_char ( fid , 'SIMULATION_START_DATE', TRIM(start_date) , ierr )
+
+       WRITE( message , * ) "OUTPUT FROM TC BOGUS"
+       CALL wrf_put_dom_ti_char ( fid , 'TITLE' , TRIM(message) , ierr )
+    end if
+#endif
+
+
 ! added this metadatum for H. Chuan, NCEP, 030417, JM
 #if (NMM_CORE == 1)
           CALL wrf_put_dom_ti_char ( fid , 'GRIDTYPE',  'E' , ierr )
@@ -346,6 +407,8 @@
     CALL wrf_put_dom_ti_integer ( fid , 'KM_OPT' ,  ibuf , 1 , ierr )
     ibuf(1) = damp_opt
     CALL wrf_put_dom_ti_integer ( fid , 'DAMP_OPT' ,  ibuf , 1 , ierr )
+    rbuf(1) = dampcoef
+    CALL wrf_put_dom_ti_real    ( fid , 'DAMPCOEF' ,  rbuf , 1 , ierr )
     rbuf(1) = khdif
     CALL wrf_put_dom_ti_real    ( fid , 'KHDIF' ,  rbuf , 1 , ierr )
     rbuf(1) = kvdif
@@ -507,7 +570,7 @@
     CALL wrf_put_dom_ti_real ( fid , 'TRUELAT2',  config_flags%truelat2, 1 , ierr )
     CALL wrf_put_dom_ti_real ( fid , 'MOAD_CEN_LAT',  config_flags%moad_cen_lat, 1 , ierr )
     CALL wrf_put_dom_ti_real ( fid , 'STAND_LON',  config_flags%stand_lon, 1 , ierr )
-    IF ( switch .NE. boundary_only ) THEN
+    IF ( switch .NE. boundary_only .AND. switch .NE. aux_model_input9_only .AND. switch .NE. aux_model_input10_only ) THEN
 #ifdef PLANET
       ! When writing to restart files, use the values of the instantaneous
       ! time for determining the values of JULYR, JULDAY, and GMT.  If the
@@ -585,6 +648,7 @@
            ( switch .EQ. aux_hist9_only  ) .OR. &
            ( switch .EQ. aux_hist10_only ) .OR. &
            ( switch .EQ. aux_hist11_only ) .OR. &
+           ( (switch .EQ. model_input_only) .AND. (program_name(1:7) .NE. 'REAL_EM') ) .OR. &
            ( switch .EQ. restart_only    ) ) THEN
 
          ! This flag sets the switch which defines the topography as the original

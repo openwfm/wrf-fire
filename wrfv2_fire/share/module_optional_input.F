@@ -1,7 +1,7 @@
 MODULE module_optional_input
 
    INTEGER :: flag_metgrid  , flag_tavgsfc  , flag_psfc     , flag_soilhgt  , flag_mf_xy , flag_slp , &
-              flag_snow     , flag_snowh
+              flag_snow     , flag_snowh    , flag_tsk
 
    INTEGER :: flag_qv       , flag_qc       , flag_qr       , flag_qi       , flag_qs       , &
               flag_qg       , flag_qni
@@ -146,6 +146,11 @@ CONTAINS
       jts = grid%sp33 ; jte = grid%ep33 ;   ! note that tile is entire patch
 #endif
 
+      CALL optional_tsk        ( grid , fid , &
+                                 ids, ide, jds, jde, kds, kde, &
+                                 ims, ime, jms, jme, kms, kme, &
+                                 its, ite, jts, jte, kts, kte  )
+
       CALL optional_tavgsfc    ( grid , fid , &
                                  ids, ide, jds, jde, kds, kde, &
                                  ims, ime, jms, jme, kms, kme, &
@@ -205,10 +210,10 @@ CONTAINS
 #if (EM_CORE == 1)
       IF ( ( flag_soil_levels == 1 ) .OR. ( flag_soil_layers == 1 ) ) THEN
 
-         num_st_levels_input   = config_flags%num_soil_layers_in
-         num_sm_levels_input   = config_flags%num_soil_layers_in
-         num_sw_levels_input   = config_flags%num_soil_layers_in
-         num_soil_levels_input = config_flags%num_soil_layers_in
+         num_st_levels_input   = config_flags%num_metgrid_soil_levels
+         num_sm_levels_input   = config_flags%num_metgrid_soil_levels
+         num_sw_levels_input   = config_flags%num_metgrid_soil_levels
+         num_soil_levels_input = config_flags%num_metgrid_soil_levels
 
       END IF
 #endif
@@ -337,6 +342,8 @@ USE module_io_domain
          flag_mf_xy    = itmp
       END IF
     
+      grid%flag_metgrid = flag_metgrid
+      grid%flag_mf_xy   = flag_mf_xy
    END SUBROUTINE optional_metgrid
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -372,6 +379,38 @@ USE module_io_domain
     
    END SUBROUTINE optional_sst
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+   SUBROUTINE optional_tsk     ( grid , fid , &
+                                 ids, ide, jds, jde, kds, kde, &
+                                 ims, ime, jms, jme, kms, kme, &
+                                 its, ite, jts, jte, kts, kte  )
+
+      USE module_io_wrf
+      USE module_domain
+USE module_configure
+USE module_io_domain
+
+      IMPLICIT NONE 
+
+      TYPE ( domain ) :: grid
+      INTEGER , INTENT(IN) :: fid
+
+      INTEGER :: ids, ide, jds, jde, kds, kde, &
+                 ims, ime, jms, jme, kms, kme, &
+                 its, ite, jts, jte, kts, kte
+
+      INTEGER :: itmp , icnt , ierr
+
+      flag_tsk      = 0 
+
+      flag_name(1:8) = 'TSK     '
+      CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr ) 
+      IF ( ierr .EQ. 0 ) THEN
+         flag_tsk      = itmp
+      END IF
+    
+   END SUBROUTINE optional_tsk
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -444,7 +483,8 @@ USE module_io_domain
       IF ( ierr .EQ. 0 ) THEN
          flag_snow     = itmp
       END IF
-    
+      grid%flag_snow = flag_snow
+
    END SUBROUTINE optional_snowh
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -499,6 +539,9 @@ USE module_io_domain
          flag_slp      = itmp
       END IF
     
+      grid%flag_soilhgt = flag_soilhgt
+      grid%flag_slp     = flag_slp 
+      grid%flag_psfc    = flag_psfc
    END SUBROUTINE optional_sfc
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1157,16 +1200,16 @@ USE module_io_domain
       END IF
 
       write (message,'(A,I3)') 'flag_soil_layers at end of optional_lsm_levels is',flag_soil_layers
-      CALL wrf_debug(0,message)
+      CALL wrf_debug(1,message)
       write (message,'(A,I3)') 'flag_soil_levels at end of optional_lsm_levels is',flag_soil_levels
-      CALL wrf_debug(0,message)
+      CALL wrf_debug(1,message)
 
       write (message,'(A,10(i3,1x))') 'st_levels_input = ', (st_levels_input(k), k=1,num_st_levels_input)
-      CALL wrf_debug(0,message)
-      write (message,'(A,10(i3,1x))') 'sm_levels_input = ', (sm_levels_input(k), k=1,num_st_levels_input)
-      CALL wrf_debug(0,message)
-      write (message,'(A,10(i3,1x))') 'sw_levels_input = ', (sw_levels_input(k), k=1,num_st_levels_input)
-      CALL wrf_debug(0,message)
+      CALL wrf_debug(1,message)
+      write (message,'(A,10(i3,1x))') 'sm_levels_input = ', (sm_levels_input(k), k=1,num_sm_levels_input)
+      CALL wrf_debug(1,message)
+      write (message,'(A,10(i3,1x))') 'sw_levels_input = ', (sw_levels_input(k), k=1,num_sw_levels_input)
+      CALL wrf_debug(1,message)
 
       !  OK, let's do a quick sanity check.
  
