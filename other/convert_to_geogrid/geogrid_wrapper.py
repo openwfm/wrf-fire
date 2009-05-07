@@ -354,7 +354,11 @@ def proc_tbl(tblfile):
                     while line.find("="*6) == -1 and line != '': 
                         if line.find("rel_path=default:") != -1 or line.find("abs_path=default:") != -1:
                             tmp.write('\tabs_path=default:%s\n' % absdir)
-                            mkblank_dir(absdir)
+                            if output['maxcat'] is None:
+                                fieldtype="continuous"
+                            else:
+                                fieldtype="categorical"
+                            mkblank_dir(absdir,fieldtype)
                         elif line.find("_path") != -1:
                             pass
                         else:
@@ -392,7 +396,7 @@ def proc_tbl(tblfile):
     tbl.write(tmp.read())
     tbl.close()
    
-def mkblank_dir(d):
+def mkblank_dir(d,fieldtype):
     global makeforce
     if not os.path.isdir(d):
         if os.path.lexists(d):
@@ -405,7 +409,7 @@ def mkblank_dir(d):
         makeforce=True
         h=open(os.path.join(d,'index'),'w')
         s='''projection=regular_ll
-type=continuous
+type=%s
 units="none"
 description="Empty"
 dx=9.25925926e-05
@@ -423,7 +427,7 @@ endian=little
 tile_x=746
 tile_y=575
 tile_z=1
-signed=no'''
+signed=no''' % fieldtype
         h.write(s)
         h.close()
             

@@ -2345,13 +2345,44 @@ module source_data_module
                end if
                dimnames(1) = trim(dimnames(1))//"_subgrid"
                dimnames(2) = trim(dimnames(2))//"_subgrid"
-               sub_x = subgrid_ratio_x(nest_num)
-               sub_y = subgrid_ratio_y(nest_num)
+               sub_x = max(subgrid_ratio_x(nest_num),1)
+               sub_y = max(subgrid_ratio_y(nest_num),1)
             end if
          end if
       end do
 
    end subroutine get_subgrid_dim_name
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! Name: get_skipfield
+   !
+   ! Pupose: Determine if processing of this field should be skipped.  This
+   !         feature is used when the field is marked as subgrid and the subgrid
+   !         refinement is <= 0.  This is an indication that wrf will not be
+   !         using the field, but it still must exist.
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   logical function get_skipfield(nest_num,field_name)
+   use gridinfo_module
+   implicit none
+
+   integer,intent(in)::nest_num
+   character(len=*),intent(in)::field_name
+
+   integer::idx,nlen
+
+   get_skipfield=.false.
+   do idx=1,num_entries
+       if ((index(source_fieldname(idx),trim(field_name)) /= 0) .and. &
+          (len_trim(source_fieldname(idx)) == len_trim(field_name))) then
+          if (is_subgrid(idx) .and. (subgrid_ratio_x(nest_num).le.0 .or. &
+                                     subgrid_ratio_y(nest_num).le.0))then
+             get_skipfield=.true.
+          end if
+          return
+       end if
+    end do
+
+   end function get_skipfield
 
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2589,7 +2620,6 @@ module source_data_module
       real, allocatable, dimension(:) :: temprow
   
       call get_tile_fname(file_name, xlat, xlon, ilevel, field_name, istatus)
-
       if (index(file_name, 'OUTSIDE') /= 0) then
          istatus = 1
          return

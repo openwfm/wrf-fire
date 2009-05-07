@@ -441,11 +441,13 @@ module process_tile_module
          if (grid_type == 'C') then
             call calc_field(landmask_name, field, xlat_array, xlon_array, M, &
                             start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1)
+                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1, &
+                            skip=.false.) ! <- don't skip landmask!!
          else if (grid_type == 'E') then
             call calc_field(landmask_name, field, xlat_array, xlon_array, HH, &
                             start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1)
+                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1, &
+                            skip=.false.)
          end if
      
          ! Find fractions
@@ -468,7 +470,7 @@ module process_tile_module
          end do
      
          ! If user wants to halt when a missing value is found in output field, check now
-         if (halt_on_missing) then
+         if (halt_on_missing .and. .not. get_skipfield(which_domain,fieldname)) then
             do i=start_mem_i, end_mem_i
                do j=start_mem_j, end_mem_j
                   ! Only need to examine k=1
@@ -807,15 +809,17 @@ module process_tile_module
                   if ((sub_x > 1) .or. (sub_y > 1)) then
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                 sm1, em1, sm2, em2, min_level, max_level, &
-                                processed_domain, 1, sr_x=sub_x, sr_y=sub_y)
+                                processed_domain, 1, sr_x=sub_x, sr_y=sub_y, &
+                                skip=get_skipfield(which_domain,fieldname))
                   else
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                 sm1, em1, sm2, em2, min_level, max_level, &
-                                processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y)
+                                processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y, &
+                                skip=get_skipfield(which_domain,fieldname))
                   end if
         
                   ! If user wants to halt when a missing value is found in output field, check now
-                  if (halt_on_missing) then
+                  if (halt_on_missing .and. .not. get_skipfield(which_domain,fieldname)) then
                      do i=sm1, em1
                         do j=sm2, em2
                            ! Only need to examine k=1
@@ -977,11 +981,13 @@ module process_tile_module
                   if ((sub_x > 1) .or. (sub_y > 1)) then
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                      sm1, em1, sm2, em2, min_category, max_category, &
-                                     processed_domain, 1, sr_x=sub_x, sr_y=sub_y)
+                                     processed_domain, 1, sr_x=sub_x, sr_y=sub_y, &
+                                     skip=get_skipfield(which_domain,fieldname))
                   else
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                      sm1, em1, sm2, em2, min_category, max_category, &
-                                     processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y)
+                                     processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y, &
+                                     skip=get_skipfield(which_domain,fieldname))
                   end if
        
                   ! Find fractions
@@ -1004,7 +1010,7 @@ module process_tile_module
                   end do
         
                   ! If user wants to halt when a missing value is found in output field, check now
-                  if (halt_on_missing) then
+                  if (halt_on_missing .and. .not. get_skipfield(which_domain,fieldname)) then
                      do i=sm1, em1
                         do j=sm2, em2
                            ! Only need to examine k=1
@@ -1191,7 +1197,7 @@ module process_tile_module
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    recursive subroutine calc_field(fieldname, field, xlat_array, xlon_array, istagger, &
                                    start_i, end_i, start_j, end_j, start_k, end_k, &
-                                   processed_domain, ilevel, landmask, sr_x, sr_y)
+                                   processed_domain, ilevel, landmask, sr_x, sr_y, skip)
    
       use bitarray_module
       use interp_module
@@ -1208,7 +1214,8 @@ module process_tile_module
       real, dimension(start_i:end_i, start_j:end_j), intent(in) :: xlat_array, xlon_array
       real, dimension(start_i:end_i, start_j:end_j, start_k:end_k), intent(inout) :: field
       real, dimension(start_i:end_i, start_j:end_j), intent(in), optional :: landmask
-      integer, intent(in), optional :: sr_x, sr_y
+      integer, intent(in) :: sr_x, sr_y
+      logical, intent(in) :: skip
       character (len=128), intent(in) :: fieldname
       type (bitarray), intent(inout) :: processed_domain
     
@@ -1228,6 +1235,13 @@ module process_tile_module
       type (bitarray) :: bit_domain, level_domain
       type (queue)    :: point_queue, tile_queue
       type (q_data)   :: current_pt
+
+      ! If we are skipping this field, just set the field array to zero and return
+      if (skip) then
+        print*,"skipping field ",trim(fieldname)
+        field(:,:,:)=0.
+        return
+      endif
 
       ! If this is the first trip through this routine, we need to allocate the bit array that
       !  will persist through all recursive calls, tracking which grid points have been assigned
@@ -1256,7 +1270,8 @@ module process_tile_module
       ! Before proceeding with processing for this level, though, process for the next highest priority level
       !   of source data
       call calc_field(fieldname, field, xlat_array, xlon_array, istagger, start_i, end_i, &
-                      start_j, end_j, start_k, end_k, processed_domain, ilevel+1, landmask, sr_x, sr_y)
+                      start_j, end_j, start_k, end_k, processed_domain, ilevel+1, landmask, sr_x, sr_y, &
+                      skip)
     
       ! At this point, all levels of source data with higher priority have been processed, and we can assign
       !   values to all grid points that have not already been given values from higher-priority data
