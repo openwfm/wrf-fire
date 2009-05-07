@@ -86,11 +86,12 @@ donotfetch=False
 runnum=0
 lastmissingvar=''
 criticalfail=False
-
+makeforce=False
 
 def main_rep(argv):
     '''Main executable: Take command line arguments and loop over the wrapper.'''
     global runnum
+    global makeforce
     numrepeats=len(destfields)
     for i in range(numrepeats):
         runnum+=1
@@ -138,6 +139,7 @@ def main(argv):
         shutil.copy(defaultnml,runnml)
         
     # read in the namelist
+    print "reading namelist %s" % runnml
     nml=namelist.Namelist(runnml)
     
     # get relevant options, geog data path MUST be there,
@@ -197,6 +199,7 @@ def main(argv):
 
 
     # run geogrid and pipe output in a buffer
+    print "running geogrid.exe"
     now=time.time()
     p=sp.Popen(geocmd,stdout=sp.PIPE,stderr=sp.STDOUT,bufsize=-1)
     
@@ -310,7 +313,7 @@ def main(argv):
         os.remove(ft.name)
     
     # run source data to geogrid conversion
-    if opts.force:
+    if opts.force or makeforce:
         argv=['-f']
     else:
         argv=[]
@@ -347,7 +350,7 @@ def proc_tbl(tblfile):
                 output=outputfields[i]
                 absdir=os.path.realpath(os.path.join('.',output['dir']))
                 if val.group('val').strip() == destfield:
-                    outputfields['found']=True
+                    outputfields[i]['found']=True
                     while line.find("="*6) == -1 and line != '': 
                         if line.find("rel_path=default:") != -1 or line.find("abs_path=default:") != -1:
                             tmp.write('\tabs_path=default:%s\n' % absdir)
@@ -390,6 +393,7 @@ def proc_tbl(tblfile):
     tbl.close()
    
 def mkblank_dir(d):
+    global makeforce
     if not os.path.isdir(d):
         if os.path.lexists(d):
             print "A file or link exists at %s, you must move it before I can continue." % d
@@ -397,7 +401,9 @@ def mkblank_dir(d):
         os.mkdir(d)
         # make a dummy index file in this directory, just so geogrid
         # doesn't bomb out
-        h=open(os.path.join(d,'index'))
+        print "creating shell data directory in %s" % d
+        makeforce=True
+        h=open(os.path.join(d,'index'),'w')
         s='''projection=regular_ll
 type=continuous
 units="none"
