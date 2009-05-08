@@ -221,7 +221,7 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,iccell,jccell,ir,jr
+integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl
 real::xfcell,yfcell,fmax,frat
 #define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
@@ -277,24 +277,24 @@ call interpolate_2d(  &
 ! %% icl,jcl- goes over cells in Tile
 ! %% isubcl,jsubcl- goes over subcells in cell
 ! %% Loop over cells in Tile
-! do icl=1,jte-jts+1
-!     do jcl=1,ite-its+1
+ do icl=1,jte-jts+1
+     do jcl=1,ite-its+1
 ! %% Loop over subcells in cell #(icl,jcl)
-!         do isubcl=1,ir
-!             do jsubcl=1,jr! substitutions to  apply this to the code that has
-!             been done before
-!                 i=(icl-1)*ir+isubcl
-!                 j=(jcl-1)*jr+jsubcl
-!                 iccell=its+(i-1)/ir
-!                 jccell=jts+(j-1)/jr
-!
-!
+         do isubcl=1,ir
+             do jsubcl=1,jr!
+!substitutions to  apply this to the code that has been done before
+                 i=(icl-1)*ir+isubcl
+                 j=(jcl-1)*jr+jsubcl
+                 iccell=its+(i-1)/ir
+                 jccell=jts+(j-1)/jr
 
 
-do j=1,JFCELLS
-    do i=1,IFCELLS
-        iccell=its+(i-1)/ir ! the nearest coarse node
-        jccell=jts+(j-1)/jr ! use fuel_time of the coarse cell the fine cell is in
+
+
+!do j=1,JFCELLS
+!    do i=1,IFCELLS
+!        iccell=its+(i-1)/ir ! the nearest coarse node
+!        jccell=jts+(j-1)/jr ! use fuel_time of the coarse cell the fine cell is in
         if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
@@ -320,10 +320,10 @@ do j=1,JFCELLS
         endif
         fuel_left_f(i,j) = fuel_left_f(i,j) /(ir*jr) ! premultiply by weight for averaging over coarse cell
         fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
-    enddo
+                    enddo
+                enddo
+        enddo
 enddo
-!enddo
-!enddo
 ! sum up over subcells
 
 call sum_2d_cells(       &
