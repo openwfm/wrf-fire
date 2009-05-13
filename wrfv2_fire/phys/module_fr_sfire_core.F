@@ -277,11 +277,11 @@ call interpolate_2d(  &
 ! %% icl,jcl- goes over cells in Tile
 ! %% isubcl,jsubcl- goes over subcells in cell
 ! %% Loop over cells in Tile
- do icl=1,jte-jts+1
-     do jcl=1,ite-its+1
+ do icl=1,ite-its+1
+     do jcl=1,jte-jts+1
 ! %% Loop over subcells in cell #(icl,jcl)
          do isubcl=1,ir
-             do jsubcl=1,jr!
+             do jsubcl=1,jr
 !substitutions to  apply this to the code that has been done before
                  i=(icl-1)*ir+isubcl
                  j=(jcl-1)*jr+jsubcl
@@ -322,26 +322,51 @@ call interpolate_2d(  &
         fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
                     enddo
                 enddo
-        enddo
+!      enddo
+!  enddo
+! sum up over subcells in each cell
+
+!call sum_2d_cells(       &
+!       1,IFCELLS,1,JFCELLS,    &
+!       (icl-1)*ir+1,icl*ir,(jcl-1)*jr+1,jcl*jr  &  !subcells corresponding to cell
+!!! will remove       1,IFCELLS,1,JFCELLS,    &
+!       fuel_left_f,            &  ! input       
+!       ifs,ife,jfs,jfe,        &
+!       its+icl-1,its+icl,jts+jcl-1,jts+jcl & ! cell that we need to compute
+!!! will remove       its,ite,jts,jte,        &
+!       fuel_frac)                 ! output
+
+!call sum_2d_cells(       &
+!       1,IFCELLS,1,JFCELLS,    &
+!       (icl-1)*ir+1,icl*ir,(jcl-1)*jr+1,jcl*jr  & !subcells corresponding to cell
+!!! will remove       1,IFCELLS,1,JFCELLS,    &
+!       fire_area_f,            &  ! input       
+!       ims,ime,jms,jme,        &
+!        its+icl-1,its+icl,jts+jcl-1,jts+jcl & ! cell that we need to compute
+!!! will remove       its,ite,jts,jte,        &
+!       fire_area)                 ! output
+!       
+       enddo
 enddo
-! sum up over subcells
 
 call sum_2d_cells(       &
        1,IFCELLS,1,JFCELLS,    &
        1,IFCELLS,1,JFCELLS,    &
-       fuel_left_f,            &  ! input       
+       fuel_left_f,            &  ! input
        ifs,ife,jfs,jfe,        &
        its,ite,jts,jte,        &
        fuel_frac)                 ! output
-
-
+                                                    
 call sum_2d_cells(       &
-       1,IFCELLS,1,JFCELLS,    &
-       1,IFCELLS,1,JFCELLS,    &
-       fire_area_f,            &  ! input       
-       ims,ime,jms,jme,        &
-       its,ite,jts,jte,        &
-       fire_area)                 ! output
+        1,IFCELLS,1,JFCELLS,   &
+        1,IFCELLS,1,JFCELLS,   &
+        fire_area_f,           &  ! input
+        ims,ime,jms,jme,       &
+        its,ite,jts,jte,       &
+        fire_area)                ! output
+
+
+
 
 #ifdef DEBUG_OUT_FUEL_LEFT
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fire_area,'fire_area',0)
