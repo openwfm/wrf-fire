@@ -35,7 +35,7 @@ integer,save::          &
 
 
 real, save::            &
- fire_const_time=1e10,  &  ! time from ignition to start constant heat output
+ fire_const_time=-1,    &  ! time from ignition to start constant heat output  <0=never
  fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_const_grnqfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only

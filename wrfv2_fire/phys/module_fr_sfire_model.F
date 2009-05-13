@@ -138,6 +138,7 @@ real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 integer::ignited,ig,i,j
 real::tbound
 character(len=128)::msg
+logical:: freeze_fire
 
 !*** executable
 
@@ -153,6 +154,7 @@ xjfme=jfme
 ! init flags
 need_lfn_update=.false.
 ignitions_done=0
+freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 elseif(ifun.eq.2)then   
@@ -253,7 +255,7 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   set lfn_out tign
 !   lfn does not change, tign has no halos
 
-    if(time_start < fire_const_time)then
+    if(.not. freeze_fire)then
 
     call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
@@ -274,7 +276,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! this cannot be done in the time step itself because of race condition
     ! some thread may still be using lfn as input in their tile halo
 
-    if(time_start < fire_const_time)then
+    if(.not. freeze_fire)then
     
     do j=jfts,jfte
         do i=ifts,ifte
@@ -290,7 +292,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 
 elseif (ifun.eq.6) then ! timestep postprocessing
 
-    if(time_start < fire_const_time)then
+    if(.not. freeze_fire)then
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before

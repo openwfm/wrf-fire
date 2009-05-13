@@ -124,7 +124,7 @@ rconfig   integer fire_print_file        namelist,fire         max_domains      
 rconfig   integer fire_fuel_left_method  namelist,fire         max_domains           1       -      "fire_fuel_left_method"   "1 or 2, compute fuel_left" ""
 rconfig   integer fire_fuel_left_irl     namelist,fire         max_domains           2       -      "fire_fuel_left_irl"   "submesh to compute fuel lwft, even, at least 2" ""
 rconfig   integer fire_fuel_left_jrl     namelist,fire         max_domains           2       -      "fire_fuel_left_jrl"   "submesh to compute fuel lwft, even, at least 2" ""
-rconfig   real    fire_const_time        namelist,fire         max_domains   999999999.      -      "fire_const_time"   "time from ignition (s) to start output of constant heat" "1"
+rconfig   real    fire_const_time        namelist,fire         max_domains          -1.      -      "fire_const_time"   "time from ignition to freeze fire, <0 never" "s"
 rconfig   real    fire_const_grnhfx      namelist,fire         max_domains           0.      -      "fire_const_grnhfx"   "if both >=0, the amount of the onstant heat flux" "1"
 rconfig   real    fire_const_grnqfx      namelist,fire         max_domains           0.      -      "fire_const_grnqfx"   "if both >=0, the amount of the onstant heat flux" "1"
 rconfig   real    fire_atm_feedback      namelist,fire         max_domains           1.      -      "fire_atm_feedback"   "the heat fluxes to the atmosphere are multiplied by this" "1"
