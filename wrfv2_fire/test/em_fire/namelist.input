@@ -148,11 +148,23 @@
  fire_print_msg     = 1,        ! 1 print fire debugging messages
  fire_print_file    = 0,        ! 1 write files for matlab
 !
-! for developers only, do not change
+! experiments
 !
- fire_const_time = -1.,         ! (s) time from start to stop fire evolution and keep heat output constant
+ 
+ fire_const_time = -1.,         ! (s) if >0, time from start to stop fire evolution and keep heat output constant
  fire_const_grnhfx = -1,        ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
  fire_const_grnqfx = -1,        ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
+ fire_test_steps=0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
+ fire_mountain_type=0,          ! in ideal: 0=none, 1= hill, 2=EW ridge, 3=NS ridge
+ fire_mountain_height=500.,     ! (m) ideal mountain height
+ fire_mountain_start_x=1000.,   ! (m) coord of start of the mountain from lower left corder (just like ignition)
+ fire_mountain_start_y=1100.,   ! (m) coord of start of the mountain from lower left corder (just like ignition)
+ fire_mountain_end_x=1500.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
+ fire_mountain_end_y=1400.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
+
+!
+! method switches for developers only, do not change!
+!
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
  fire_fuel_left_irl=2,          ! refinement to integrate fuel_left, must be even
  fire_fuel_left_jrl=2,          ! refinement to integrate fuel_left, must be even
@@ -163,6 +175,5 @@
  fire_upwinding=3,              ! 0=none, 1=standard, 2=godunov, 3=eno, 4=sethian
  fire_fuel_left_method=1,        ! for now, use 1 only
  fire_lfn_ext_up=1.0,           ! 0.=extend level set function at boundary by reflection, 1.=always up
- fire_test_steps=0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
  fire_topo_from_atm=1,          ! 0 = expect fire mesh topo set correctly on entry, 1 = populate by interpolating from atmosphere
 /

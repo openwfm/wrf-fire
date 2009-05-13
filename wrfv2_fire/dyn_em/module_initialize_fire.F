@@ -105,8 +105,8 @@ CONTAINS
    LOGICAL :: moisture_init
    LOGICAL :: stretch_grid, dry_sounding
 
-  INTEGER :: xs , xe , ys , ye
-  REAL :: mtn_ht
+   INTEGER :: xs , xe , ys , ye
+   REAL :: mtn_ht, mtn_xs, mtn_ys, mtn_xe, mtn_ye, mtn_x, mtn_y, mtn_dx, mtn_dy
    LOGICAL, EXTERNAL :: wrf_dm_on_monitor
 
    SELECT CASE ( model_data_order )
@@ -283,37 +283,34 @@ CONTAINS
   ENDDO
   ENDDO
 
-  xs=ide/2 -3
-  xs=ids   -3
-  xe=xs + 6
-  ys=jde/2 -3
-  ye=ys + 6
-  mtn_ht = 500
-#ifdef MTN
-  DO j=max(ys,jds),min(ye,jde-1)
-  DO i=max(xs,ids),min(xe,ide-1)
-     grid%ht(i,j) = mtn_ht * 0.25 * &
-               ( 1. + COS ( 2*pi/(xe-xs) * ( i-xs ) + pi ) ) * &
-               ( 1. + COS ( 2*pi/(ye-ys) * ( j-ys ) + pi ) )
-  ENDDO
-  ENDDO
-#endif
-#ifdef EW_RIDGE
-  DO j=max(ys,jds),min(ye,jde-1)
-  DO i=ids,ide
-     grid%ht(i,j) = mtn_ht * 0.50 * &
-               ( 1. + COS ( 2*pi/(ye-ys) * ( j-ys ) + pi ) )
-  ENDDO
-  ENDDO
-#endif
-#ifdef NS_RIDGE
-  DO j=jds,jde
-  DO i=max(xs,ids),min(xe,ide-1)
-     grid%ht(i,j) = mtn_ht * 0.50 * &
-               ( 1. + COS ( 2*pi/(xe-xs) * ( i-xs ) + pi ) )
-  ENDDO
-  ENDDO
-#endif
+  IF(config_flags%fire_mountain_type .ne. 0)THEN
+
+    mtn_ht = config_flags%fire_mountain_height
+    mtn_dx = grid%dx/(grid%sr_x+1e-20);
+    mtn_dy = grid%dy/(grid%sr_y+1e-20);
+    mtn_xs = config_flags%fire_mountain_start_x/dx +1.
+    mtn_xe = config_flags%fire_mountain_end_x/dx +1.
+    mtn_ys = config_flags%fire_mountain_start_y/dy +1.
+    mtn_ye = config_flags%fire_mountain_end_y/dy +1.
+
+
+    DO j=jts,jte
+    DO i=its,ite
+      mtn_x = pi + 2*pi* min(0. , max( (i - mtn_xs)/(mtn_xe - mtn_xs), 1. ))
+      mtn_y = pi + 2*pi* min(0. , max( (j - mtn_ys)/(mtn_ye - mtn_ys), 1. ))
+      SELECT CASE(config_flags%fire_mountain_type)
+        CASE (1) ! circ/elliptic mountain
+          grid%ht(i,j) = mtn_ht * 0.25 * (1. + COS(mtn_x))*(1. + COS(mtn_y))
+        CASE (2)  ! EW ridge
+          grid%ht(i,j) = mtn_ht * 0.5 * (1. + COS(mtn_y))
+        CASE (3)  ! NS ridge
+          grid%ht(i,j) = mtn_ht * 0.5 * (1. + COS(mtn_x))
+      END SELECT
+    ENDDO
+    ENDDO
+ 
+  ENDIF
+
   DO j=jts,jte
   DO i=its,ite
     grid%phb(i,1,j) = g * grid%ht(i,j)
