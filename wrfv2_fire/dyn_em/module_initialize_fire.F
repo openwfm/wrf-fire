@@ -112,7 +112,7 @@ CONTAINS
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifts,ifte, kfts,kfte, jfts,jfte
 
-   REAL :: mtn_ht, mtn_max, mtn_fdx, mtn_fdy, mtn_x, mtn_y
+   REAL :: mtn_ht, mtn_max, mtn_fdx, mtn_fdy, mtn_x, mtn_y, mtn_z
    REAL :: mtn_axs, mtn_ays, mtn_axe, mtn_aye
    REAL :: mtn_fxs, mtn_fys, mtn_fxe, mtn_fye
    REAL :: mtn_xs, mtn_ys, mtn_xe, mtn_ye
@@ -315,6 +315,8 @@ CONTAINS
   ENDDO
   ENDDO
 
+  !******* set terrain height
+
   ! copy params from the namelist
   mtn_type = config_flags%fire_mountain_type
   mtn_xs   = config_flags%fire_mountain_start_x
@@ -349,21 +351,53 @@ CONTAINS
       mtn_y = pi + 2*pi* max(0. , min( (j - mtn_ays)/(mtn_aye - mtn_ays), 1. ))
       SELECT CASE(mtn_type)
         CASE (1) ! circ/elliptic mountain
-          grid%ht(i,j) = mtn_ht * 0.25 * (1. + COS(mtn_x))*(1. + COS(mtn_y))
+          mtn_z = mtn_ht * 0.25 * (1. + COS(mtn_x))*(1. + COS(mtn_y))
         CASE (2)  ! EW ridge
-          grid%ht(i,j) = mtn_ht * 0.5 * (1. + COS(mtn_y))
+          mtn_z = mtn_ht * 0.5 * (1. + COS(mtn_y))
         CASE (3)  ! NS ridge
-          grid%ht(i,j) = mtn_ht * 0.5 * (1. + COS(mtn_x))
+          mtn_z = mtn_ht * 0.5 * (1. + COS(mtn_x))
         CASE DEFAULT
           call wrf_error_fatal ( ' bad fire_mountain_type ' )
       END SELECT
-      mtn_max = max(mtn_max, grid%ht(i,j))
-      ! print *,i,j,mtn_x,mtn_y,COS(mtn_x),COS(mtn_y),grid%ht(i,j)
+      mtn_max = max(mtn_max, mtn_z)
+      grid%ht(i,j) = mtn_z
     ENDDO
     ENDDO
 
     write(6, *)' Atm  tile ',its,':',ite,' ',jts,':',jte,' max terrain height ',mtn_max
+
+    IF (config_flags%fire_topo_from_atm == 1) THEN
+
+    mtn_max = 0.
+    DO j=jfts,jfte
+    DO i=ifts,ifte
+      mtn_x = pi + 2*pi* max(0. , min( (i - mtn_fxs)/(mtn_fxe - mtn_fxs), 1. ))
+      mtn_y = pi + 2*pi* max(0. , min( (j - mtn_fys)/(mtn_fye - mtn_fys), 1. ))
+      SELECT CASE(mtn_type)
+        CASE (1) ! circ/elliptic mountain
+          mtn_z = mtn_ht * 0.25 * (1. + COS(mtn_x))*(1. + COS(mtn_y))
+        CASE (2)  ! EW ridge
+          mtn_z = mtn_ht * 0.5 * (1. + COS(mtn_y))
+        CASE (3)  ! NS ridge
+          mtn_z = mtn_ht * 0.5 * (1. + COS(mtn_x))
+        CASE DEFAULT
+          call wrf_error_fatal ( ' bad fire_mountain_type ' )
+      END SELECT
+      mtn_max = max(mtn_max, mtn_z)
+      grid%zsf(i,j) = mtn_z
+    ENDDO
+    ENDDO
+
+    write(6, *)' Fire tile ',ifts,':',ifte,' ',jfts,':',jfte,' max terrain height ',mtn_max
+    write(6, *)' Fine-resolution terrain will be used.'
  
+    ELSE
+
+      write(6, *)' ******** WARNING ********'
+      write(6, *)' Terrain height on fire grid will be interpolated from atmosphere grid.'
+      write(6, *)' Set fire_topo_from_atm=1 in namelist to use fine-resolution terrain.'
+
+    ENDIF
   ENDIF
 
   DO j=jts,jte
