@@ -106,7 +106,16 @@ CONTAINS
    LOGICAL :: stretch_grid, dry_sounding
 
    INTEGER :: xs , xe , ys , ye
-   REAL :: mtn_ht, mtn_xs, mtn_ys, mtn_xe, mtn_ye, mtn_x, mtn_y, mtn_dx, mtn_dy, mtn_max
+   INTEGER :: mtn_type
+   INTEGER :: &  ! fire mesh sizes
+             ifds,ifde, kfds,kfde, jfds,jfde,                              &
+             ifms,ifme, kfms,kfme, jfms,jfme,                              &
+             ifps,ifpe, kfps,kfpe, jfps,jfpe
+
+   REAL :: mtn_ht, mtn_max, mtn_fdx, mtn_fdy, mtn_x, mtn_y
+   REAL :: mtn_axs, mtn_ays, mtn_axe, mtn_aye
+   REAL :: mtn_fxs, mtn_fys, mtn_fxe, mtn_fye
+   REAL :: mtn_xs, mtn_ys, mtn_xe, mtn_ye
    LOGICAL, EXTERNAL :: wrf_dm_on_monitor
 
    SELECT CASE ( model_data_order )
@@ -277,31 +286,59 @@ CONTAINS
 
   grid%p_top = interp_0( p_in, zk, config_flags%ztop, nl_in )
 
+! get fire mesh dimensions
+    CALL get_ijk_from_subgrid (  grid ,                   &
+       ifds,ifde, jfds,jfde,kfds,kfde, & 
+       ifms,ifme, jfms,jfme,kfms,kfme,  & 
+       ifps,ifpe, jfps,jfpe,kfps,kfpe)
+
+  write (6,*)'SFIRE ideal initialization fire mesh domain sizes:'
+  write (6,*)'fire domain bounds ',ifds,ifde, jfds,jfde,kfds,kfde
+  write (6,*)'fire memory bounds ',ifms,ifme, jfms,jfme,kfms,kfme
+  write (6,*)'fire patch  bounds ',ifps,ifpe, jfps,jfpe,kfps,kfpe
+
   DO j=jts,jte
   DO i=its,ite
     grid%ht(i,j) = 0.
   ENDDO
   ENDDO
 
-  IF(config_flags%fire_mountain_type .ne. 0)THEN
+  ! copy params from the namelist
+  mtn_type = config_flags%fire_mountain_type
+  mtn_xs   = config_flags%fire_mountain_start_x
+  mtn_ys   = config_flags%fire_mountain_start_y
+  mtn_xe   = config_flags%fire_mountain_end_x
+  mtn_ye   = config_flags%fire_mountain_end_y
+  mtn_ht   = config_flags%fire_mountain_height
 
-    mtn_ht = config_flags%fire_mountain_height
-    !mtn_dx = grid%dx/(grid%sr_x+1e-20);
-    !mtn_dy = grid%dy/(grid%sr_y+1e-20);
-    mtn_xs = config_flags%fire_mountain_start_x/grid%dx +1.
-    mtn_xe = config_flags%fire_mountain_end_x/grid%dx +1.
-    mtn_ys = config_flags%fire_mountain_start_y/grid%dy +1.
-    mtn_ye = config_flags%fire_mountain_end_y/grid%dy +1.
+  IF(mtn_type .ne. 0)THEN
 
-    write(6,*)' Mountain height ',mtn_ht,' type',config_flags%fire_mountain_type, &
-      ' atm grid coord ',mtn_xs,':',mtn_xe,' ',mtn_ys,':',mtn_ye
+    ! atmospheric grid coordinates of the mountain
+    mtn_axs = mtn_xs/grid%dx + ids - 0.5 
+    mtn_axe = mtn_xe/grid%dx + ids - 0.5
+    mtn_ays = mtn_ys/grid%dy + jds - 0.5
+    mtn_aye = mtn_ye/grid%dy + jds - 0.5
+
+    ! fire grid step size
+    mtn_fdx = grid%dx/(grid%sr_x+1e-20);
+    mtn_fdy = grid%dy/(grid%sr_y+1e-20);
+
+    ! fire grid coordinates of the mountain
+    mtn_fxs = mtn_xs/mtn_fdx + ifds - 0.5 
+    mtn_fxe = mtn_xe/mtn_fdx + ifds - 0.5
+    mtn_fys = mtn_ys/mtn_fdy + jfds - 0.5
+    mtn_fye = mtn_ye/mtn_fdy + jfds - 0.5
+
+    write(6,*)' Mountain height ',mtn_ht,' type',mtn_type
+    write(6,*)' Mountain on atm grid  ',mtn_axs,':',mtn_axe,' ',mtn_ays,':',mtn_aye
+    write(6,*)' Mountain on fire grid ',mtn_fxs,':',mtn_fxe,' ',mtn_fys,':',mtn_fye
 
     mtn_max = 0.
     DO j=jts,jte
     DO i=its,ite
-      mtn_x = pi + 2*pi* max(0. , min( (i - mtn_xs)/(mtn_xe - mtn_xs), 1. ))
-      mtn_y = pi + 2*pi* max(0. , min( (j - mtn_ys)/(mtn_ye - mtn_ys), 1. ))
-      SELECT CASE(config_flags%fire_mountain_type)
+      mtn_x = pi + 2*pi* max(0. , min( (i - mtn_axs)/(mtn_axe - mtn_axs), 1. ))
+      mtn_y = pi + 2*pi* max(0. , min( (j - mtn_ays)/(mtn_aye - mtn_ays), 1. ))
+      SELECT CASE(mtn_type)
         CASE (1) ! circ/elliptic mountain
           grid%ht(i,j) = mtn_ht * 0.25 * (1. + COS(mtn_x))*(1. + COS(mtn_y))
         CASE (2)  ! EW ridge
