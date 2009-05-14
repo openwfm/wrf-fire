@@ -106,7 +106,7 @@ CONTAINS
    LOGICAL :: stretch_grid, dry_sounding
 
    INTEGER :: xs , xe , ys , ye
-   REAL :: mtn_ht, mtn_xs, mtn_ys, mtn_xe, mtn_ye, mtn_x, mtn_y, mtn_dx, mtn_dy
+   REAL :: mtn_ht, mtn_xs, mtn_ys, mtn_xe, mtn_ye, mtn_x, mtn_y, mtn_dx, mtn_dy, mtn_max
    LOGICAL, EXTERNAL :: wrf_dm_on_monitor
 
    SELECT CASE ( model_data_order )
@@ -286,18 +286,21 @@ CONTAINS
   IF(config_flags%fire_mountain_type .ne. 0)THEN
 
     mtn_ht = config_flags%fire_mountain_height
-    mtn_dx = grid%dx/(grid%sr_x+1e-20);
-    mtn_dy = grid%dy/(grid%sr_y+1e-20);
-    mtn_xs = config_flags%fire_mountain_start_x/dx +1.
-    mtn_xe = config_flags%fire_mountain_end_x/dx +1.
-    mtn_ys = config_flags%fire_mountain_start_y/dy +1.
-    mtn_ye = config_flags%fire_mountain_end_y/dy +1.
+    !mtn_dx = grid%dx/(grid%sr_x+1e-20);
+    !mtn_dy = grid%dy/(grid%sr_y+1e-20);
+    mtn_xs = config_flags%fire_mountain_start_x/grid%dx +1.
+    mtn_xe = config_flags%fire_mountain_end_x/grid%dx +1.
+    mtn_ys = config_flags%fire_mountain_start_y/grid%dy +1.
+    mtn_ye = config_flags%fire_mountain_end_y/grid%dy +1.
 
+    write(6,*)' Mountain height ',mtn_ht,' type',config_flags%fire_mountain_type, &
+      ' atm grid coord ',mtn_xs,':',mtn_xe,' ',mtn_ys,':',mtn_ye
 
+    mtn_max = 0.
     DO j=jts,jte
     DO i=its,ite
-      mtn_x = pi + 2*pi* min(0. , max( (i - mtn_xs)/(mtn_xe - mtn_xs), 1. ))
-      mtn_y = pi + 2*pi* min(0. , max( (j - mtn_ys)/(mtn_ye - mtn_ys), 1. ))
+      mtn_x = pi + 2*pi* max(0. , min( (i - mtn_xs)/(mtn_xe - mtn_xs), 1. ))
+      mtn_y = pi + 2*pi* max(0. , min( (j - mtn_ys)/(mtn_ye - mtn_ys), 1. ))
       SELECT CASE(config_flags%fire_mountain_type)
         CASE (1) ! circ/elliptic mountain
           grid%ht(i,j) = mtn_ht * 0.25 * (1. + COS(mtn_x))*(1. + COS(mtn_y))
@@ -305,9 +308,15 @@ CONTAINS
           grid%ht(i,j) = mtn_ht * 0.5 * (1. + COS(mtn_y))
         CASE (3)  ! NS ridge
           grid%ht(i,j) = mtn_ht * 0.5 * (1. + COS(mtn_x))
+        CASE DEFAULT
+          call wrf_error_fatal ( ' bad fire_mountain_type ' )
       END SELECT
+      mtn_max = max(mtn_max, grid%ht(i,j))
+      ! print *,i,j,mtn_x,mtn_y,COS(mtn_x),COS(mtn_y),grid%ht(i,j)
     ENDDO
     ENDDO
+
+    write(6, *)' Tile ',its,':',ite,' ',jts,':',jte,' max terrain height ',mtn_max
  
   ENDIF
 
