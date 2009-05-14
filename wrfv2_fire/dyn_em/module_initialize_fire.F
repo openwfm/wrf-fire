@@ -110,7 +110,7 @@ CONTAINS
    INTEGER :: &  ! fire mesh sizes
              ifds,ifde, kfds,kfde, jfds,jfde,                              &
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
-             ifps,ifpe, kfps,kfpe, jfps,jfpe
+             ifts,ifte, kfts,kfte, jfts,jfte
 
    REAL :: mtn_ht, mtn_max, mtn_fdx, mtn_fdy, mtn_x, mtn_y
    REAL :: mtn_axs, mtn_ays, mtn_axe, mtn_aye
@@ -290,12 +290,24 @@ CONTAINS
     CALL get_ijk_from_subgrid (  grid ,                   &
        ifds,ifde, jfds,jfde,kfds,kfde, & 
        ifms,ifme, jfms,jfme,kfms,kfme,  & 
-       ifps,ifpe, jfps,jfpe,kfps,kfpe)
+       ifts,ifte, jfts,jfte,kfts,kfte)
 
-  write (6,*)'SFIRE ideal initialization fire mesh domain sizes:'
-  write (6,*)'fire domain bounds ',ifds,ifde, jfds,jfde,kfds,kfde
-  write (6,*)'fire memory bounds ',ifms,ifme, jfms,jfme,kfms,kfme
-  write (6,*)'fire patch  bounds ',ifps,ifpe, jfps,jfpe,kfps,kfpe
+  write (6,*)' ******** SFIRE ideal initialization ********'
+
+  ! fire grid step size
+  mtn_fdx = grid%dx/grid%sr_x
+  mtn_fdy = grid%dy/grid%sr_y
+
+  write (6,*)' atm  mesh step ',grid%dx,grid%dy
+  write (6,*)' fire mesh step ',mtn_fdx,mtn_fdy
+  write (6,*)' refinement ratio ',grid%sr_x,grid%sr_y
+  write (6,*)' atm  domain bounds ',ids,ide, jds,jde,kds,kde
+  write (6,*)' atm  memory bounds ',ims,ime, jms,jme,kms,kme
+  write (6,*)' atm  tile   bounds ',its,ite, jts,jte,kts,kte
+  write (6,*)' fire domain bounds ',ifds,ifde, jfds,jfde,kfds,kfde
+  write (6,*)' fire memory bounds ',ifms,ifme, jfms,jfme,kfms,kfme
+  write (6,*)' fire tile   bounds ',ifts,ifte, jfts,jfte,kfts,kfte
+  write (6,*)' Note that atm mesh and fire mesh are cell-centered'
 
   DO j=jts,jte
   DO i=its,ite
@@ -319,10 +331,6 @@ CONTAINS
     mtn_ays = mtn_ys/grid%dy + jds - 0.5
     mtn_aye = mtn_ye/grid%dy + jds - 0.5
 
-    ! fire grid step size
-    mtn_fdx = grid%dx/(grid%sr_x+1e-20);
-    mtn_fdy = grid%dy/(grid%sr_y+1e-20);
-
     ! fire grid coordinates of the mountain
     mtn_fxs = mtn_xs/mtn_fdx + ifds - 0.5 
     mtn_fxe = mtn_xe/mtn_fdx + ifds - 0.5
@@ -330,6 +338,7 @@ CONTAINS
     mtn_fye = mtn_ye/mtn_fdy + jfds - 0.5
 
     write(6,*)' Mountain height ',mtn_ht,' type',mtn_type
+    write(6,*)' Mountain (m) LL=(0,0) ',mtn_xs,':',mtn_xe,' ',mtn_ys,':',mtn_ye
     write(6,*)' Mountain on atm grid  ',mtn_axs,':',mtn_axe,' ',mtn_ays,':',mtn_aye
     write(6,*)' Mountain on fire grid ',mtn_fxs,':',mtn_fxe,' ',mtn_fys,':',mtn_fye
 
@@ -353,7 +362,7 @@ CONTAINS
     ENDDO
     ENDDO
 
-    write(6, *)' Tile ',its,':',ite,' ',jts,':',jte,' max terrain height ',mtn_max
+    write(6, *)' Atm  tile ',its,':',ite,' ',jts,':',jte,' max terrain height ',mtn_max
  
   ENDIF
 
