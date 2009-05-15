@@ -366,7 +366,7 @@ CONTAINS
 
     write(6, *)' Atm  tile ',its,':',ite,' ',jts,':',jte,' max terrain height ',mtn_max
 
-    IF (config_flags%fire_topo_from_atm == 1) THEN
+    IF (config_flags%fire_topo_from_atm == 0) THEN
 
     mtn_max = 0.
     DO j=jfts,jfte
@@ -394,8 +394,9 @@ CONTAINS
     ELSE
 
       write(6, *)' ******** WARNING ********'
-      write(6, *)' Terrain height on fire grid will be interpolated from atmosphere grid.'
-      write(6, *)' Set fire_topo_from_atm=1 in namelist to use fine-resolution terrain.'
+      write(6, *)' Terrain height on the fire grid will be interpolated from the atmosphere grid.'
+      write(6, *)' Set fire_topo_from_atm=0 in the namelist to use fine-resolution terrain.'
+      write(6, *)' ******** WARNING ********'
 
     ENDIF
   ENDIF
