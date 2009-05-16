@@ -110,7 +110,7 @@ no errors.  ("grep Error compile.log" shouldn't return anything).
 
 RUNNING
 
-cd test/em_fire 
+cd test/em_fire/small 
 ./ideal.exe >& ideal.log (this creates file wrfinput_d01, needs to be done only
 when input_sounding changes)
 ./wrf.exe
