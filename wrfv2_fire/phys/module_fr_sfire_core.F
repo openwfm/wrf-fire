@@ -346,6 +346,29 @@ call interpolate_2d(  &
 !!! will remove       its,ite,jts,jte,        &
 !       fire_area)                 ! output
 !       
+!!! v1 = sum(v2)
+!do j1=jts1,jte1
+!    jbase=jts2+jr*(j1-jts1)
+!        do i1=its1,ite1
+!               ibase=its2+ir*(i1-its1)
+!                      t=0.
+!                             do joff=0,jr-1
+!                                        j2=joff+jbase
+!                                                   do ioff=0,ir-1
+!                                                                  i2=ioff+ibase
+!                                                                                 t=t+v2(i2,j2)
+!                                                                                            enddo
+!                                                                                                   enddo
+!
+!                                                                                                      v1(i1,j1)=t
+! Output 
+!
+!                                                                                                              enddo
+!                                                                                                              enddo
+!                                                                                                              
+!
+
+
        enddo
 enddo
 
