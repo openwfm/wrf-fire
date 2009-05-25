@@ -221,8 +221,8 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl
-real::xfcell,yfcell,fmax,frat
+integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl,joff,ioff,i2,j2
+real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2
 #define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
 real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
@@ -274,9 +274,7 @@ call interpolate_2d(  &
 !                fine cell  1           2                             cell 2*(ite-its+1)
 
 
-! %% icl,jcl- goes over cells in Tile
-! %% isubcl,jsubcl- goes over subcells in cell
-! %% Loop over cells in Tile
+! %% Loop over cells in Tile (by VK)
  do icl=1,ite-its+1
      do jcl=1,jte-jts+1
 ! %% Loop over subcells in cell #(icl,jcl)
@@ -285,17 +283,10 @@ call interpolate_2d(  &
 !substitutions to  apply this to the code that has been done before
                  i=(icl-1)*ir+isubcl
                  j=(jcl-1)*jr+jsubcl
-                 iccell=its+(i-1)/ir
-                 jccell=jts+(j-1)/jr
+                 iccell=its+(i-1)/ir  ! the nearest coarse node
+                 jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
 
-
-
-
-!do j=1,JFCELLS
-!    do i=1,IFCELLS
-!        iccell=its+(i-1)/ir ! the nearest coarse node
-!        jccell=jts+(j-1)/jr ! use fuel_time of the coarse cell the fine cell is in
-        if(fuel_left_method.eq.1)then
+          if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
@@ -322,71 +313,23 @@ call interpolate_2d(  &
         fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
                     enddo
                 enddo
-!      enddo
-!  enddo
+
 ! sum up over subcells in each cell
-
-!call sum_2d_cells(       &
-!       1,IFCELLS,1,JFCELLS,    &
-!       (icl-1)*ir+1,icl*ir,(jcl-1)*jr+1,jcl*jr  &  !subcells corresponding to cell
-!!! will remove       1,IFCELLS,1,JFCELLS,    &
-!       fuel_left_f,            &  ! input       
-!       ifs,ife,jfs,jfe,        &
-!       its+icl-1,its+icl,jts+jcl-1,jts+jcl & ! cell that we need to compute
-!!! will remove       its,ite,jts,jte,        &
-!       fuel_frac)                 ! output
-
-!call sum_2d_cells(       &
-!       1,IFCELLS,1,JFCELLS,    &
-!       (icl-1)*ir+1,icl*ir,(jcl-1)*jr+1,jcl*jr  & !subcells corresponding to cell
-!!! will remove       1,IFCELLS,1,JFCELLS,    &
-!       fire_area_f,            &  ! input       
-!       ims,ime,jms,jme,        &
-!        its+icl-1,its+icl,jts+jcl-1,jts+jcl & ! cell that we need to compute
-!!! will remove       its,ite,jts,jte,        &
-!       fire_area)                 ! output
-!       
-!!! v1 = sum(v2)
-!do j1=jts1,jte1
-!    jbase=jts2+jr*(j1-jts1)
-!        do i1=its1,ite1
-!               ibase=its2+ir*(i1-its1)
-!                      t=0.
-!                             do joff=0,jr-1
-!                                        j2=joff+jbase
-!                                                   do ioff=0,ir-1
-!                                                                  i2=ioff+ibase
-!                                                                                 t=t+v2(i2,j2)
-!                                                                                            enddo
-!                                                                                                   enddo
-!
-!                                                                                                      v1(i1,j1)=t
-! Output 
-!
-!                                                                                                              enddo
-!                                                                                                              enddo
-!                                                                                                              
-!
-
-
-       enddo
+helpsum1=0
+helpsum2=0
+do joff=0,jr-1
+   j2=joff+(jcl-1)*jr+1
+      do ioff=0,ir-1
+         i2=ioff+(icl-1)*ir+1
+         helpsum1=helpsum1+fuel_left_f(i2,j2)
+         helpsum2=helpsum2+fire_area_f(i2,j2)
+      enddo
 enddo
 
-call sum_2d_cells(       &
-       1,IFCELLS,1,JFCELLS,    &
-       1,IFCELLS,1,JFCELLS,    &
-       fuel_left_f,            &  ! input
-       ifs,ife,jfs,jfe,        &
-       its,ite,jts,jte,        &
-       fuel_frac)                 ! output
-                                                    
-call sum_2d_cells(       &
-        1,IFCELLS,1,JFCELLS,   &
-        1,IFCELLS,1,JFCELLS,   &
-        fire_area_f,           &  ! input
-        ims,ime,jms,jme,       &
-        its,ite,jts,jte,       &
-        fire_area)                ! output
+fuel_frac(its+icl-1,jts+jcl-1)=helpsum1                                                
+fire_area(its+icl-1,jts+jcl-1)=helpsum2                                                                                                      
+       enddo
+enddo
 
 
 
