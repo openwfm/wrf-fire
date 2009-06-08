@@ -274,15 +274,22 @@ call interpolate_2d(  &
 !                fine cell  1           2                             cell 2*(ite-its+1)
 
 
+
 ! %% Loop over cells in Tile (by VK)
- do icl=1,ite-its+1
-     do jcl=1,jte-jts+1
+! %% icl(old)=icl(new)-its+1
+! %% jcl(old)=jcl(new)-jts+1
+!  do icl=1,ite-its+1
+!     do jcl=1,jte-jts+1
+   do icl=its,ite
+      do jcl=jts,jte
 ! %% Loop over subcells in cell #(icl,jcl)
          do isubcl=1,ir
              do jsubcl=1,jr
 !substitutions to  apply this to the code that has been done before
-                 i=(icl-1)*ir+isubcl
-                 j=(jcl-1)*jr+jsubcl
+!                 i=(icl-1)*ir+isubcl
+!                 j=(jcl-1)*jr+jsubcl
+                  i=(icl-its)*ir+isubcl
+                  j=(jcl-jts)*jr+jsubcl
                  iccell=its+(i-1)/ir  ! the nearest coarse node
                  jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
 
@@ -318,16 +325,16 @@ call interpolate_2d(  &
 helpsum1=0
 helpsum2=0
 do joff=0,jr-1
-   j2=joff+(jcl-1)*jr+1
+   j2=joff+(jcl-jts)*jr+1
       do ioff=0,ir-1
-         i2=ioff+(icl-1)*ir+1
+         i2=ioff+(icl-its)*ir+1
          helpsum1=helpsum1+fuel_left_f(i2,j2)
          helpsum2=helpsum2+fire_area_f(i2,j2)
       enddo
 enddo
 
-fuel_frac(its+icl-1,jts+jcl-1)=helpsum1                                                
-fire_area(its+icl-1,jts+jcl-1)=helpsum2                                                                                                      
+fuel_frac(icl,jcl)=helpsum1                                                
+fire_area(icl,jcl)=helpsum2                                                                                                      
        enddo
 enddo
 
