@@ -222,7 +222,8 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 !*** local
 
 integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl,joff,ioff,i2,j2
-real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2
+real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff  
+! help variables instead of arrays fuel_left_f and fire_area_f 
 #define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
 real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
@@ -278,29 +279,33 @@ call interpolate_2d(  &
 ! %% Loop over cells in Tile (by VK)
 ! %% icl(old)=icl(new)-its+1
 ! %% jcl(old)=jcl(new)-jts+1
-!  do icl=1,ite-its+1
-!     do jcl=1,jte-jts+1
+!rem  do icl=1,ite-its+1
+!rem     do jcl=1,jte-jts+1
+!substitutions to  apply this to the code that has been done before
+!rem              i=(icl-1)*ir+isubcl
+!rem                 j=(jcl-1)*jr+jsubcl
+
    do icl=its,ite
       do jcl=jts,jte
+        helpsum1=0
+        helpsum2=0
+
 ! %% Loop over subcells in cell #(icl,jcl)
          do isubcl=1,ir
-             do jsubcl=1,jr
-!substitutions to  apply this to the code that has been done before
-!                 i=(icl-1)*ir+isubcl
-!                 j=(jcl-1)*jr+jsubcl
+             do jsubcl=1,jr                                                         
                   i=(icl-its)*ir+isubcl
                   j=(jcl-jts)*jr+jsubcl
-                 iccell=its+(i-1)/ir  ! the nearest coarse node
-                 jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
+                  iccell=its+(i-1)/ir  ! the nearest coarse node
+                  jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
 
           if(fuel_left_method.eq.1)then
-            call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
+            call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell))
         elseif(fuel_left_method.eq.2)then
-             fire_area_f(i,j)=0  ! initialize to something until computed in fuel_left_f(i,j)
-             fuel_left_f(i,j)=fuel_left_cell_2( &
+             fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
+             fuel_left_ff=fuel_left_cell_2( &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell)) 
@@ -309,34 +314,47 @@ call interpolate_2d(  &
         endif
 
         ! consistency check
-        if(fire_area_f(i,j).eq.0.)then
-           if(fuel_left_f(i,j).lt.1.)then
+        if(fire_area_ff.eq.0.)then
+           if(fuel_left_ff.lt.1.)then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
                     ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' but fire area',fire_area_f(i,j)
                call crash(msg)
            endif
         endif
-        fuel_left_f(i,j) = fuel_left_f(i,j) /(ir*jr) ! premultiply by weight for averaging over coarse cell
-        fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
-                    enddo
-                enddo
+        fuel_left_ff = fuel_left_ff /(ir*jr) ! premultiply by weight for averaging over coarse cell
+        fire_area_ff = fire_area_ff /(ir*jr) !
+
+         helpsum1=helpsum1+fuel_left_ff
+         helpsum2=helpsum2+fire_area_ff
+
+            enddo
+         enddo
+    fuel_frac(icl,jcl)=helpsum1 
+    fire_area(icl,jcl)=helpsum2
+
+     enddo 
+   enddo
+
+
+
+
 
 ! sum up over subcells in each cell
-helpsum1=0
-helpsum2=0
-do joff=0,jr-1
-   j2=joff+(jcl-jts)*jr+1
-      do ioff=0,ir-1
-         i2=ioff+(icl-its)*ir+1
-         helpsum1=helpsum1+fuel_left_f(i2,j2)
-         helpsum2=helpsum2+fire_area_f(i2,j2)
-      enddo
-enddo
-
-fuel_frac(icl,jcl)=helpsum1                                                
-fire_area(icl,jcl)=helpsum2                                                                                                      
-       enddo
-enddo
+!helpsum1=0    we put this before the loops over subcells
+!helpsum2=0
+!do joff=0,jr-1      no need, same loop is up
+!   j2=joff+(jcl-jts)*jr+1  
+!      do ioff=0,ir-1
+!         i2=ioff+(icl-its)*ir+1    same as before  i2=i, j2=j
+!         helpsum1=helpsum1+fuel_left_f(i2,j2)
+!         helpsum2=helpsum2+fire_area_f(i2,j2)
+!      enddo
+!enddo
+!
+!fuel_frac(icl,jcl)=helpsum1                                                
+!fire_area(icl,jcl)=helpsum2                                                                                                             
+!       enddo
+!    enddo
 
 
 
