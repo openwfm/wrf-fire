@@ -7,8 +7,8 @@
  start_month                         = 01,   01,   01,
  start_day                           = 01,   01,   01,
  start_hour                          = 00,   00,   00,
-! start_minute                        = 00,   00,   00,
- start_minute                        = 05,   05,   05,
+ start_minute                        = 00,   00,   00,
+! start_minute                        = 05,   05,   05,
  start_second                        = 00,   00,   00,
  end_year                            = 0001, 0001, 0001,
  end_month                           = 01,   01,   01,
@@ -18,8 +18,8 @@
  end_second                          = 00,   00,   00,
  history_interval                    =  1,    1,    1,
  frames_per_outfile                  = 1000, 1000, 1000,
-! restart                             = .false.,
- restart                             = .true.,
+ restart                             = .false.,
+! restart                             = .true.,
  restart_interval                    = 1
  io_form_history                     = 2
  io_form_restart                     = 2
