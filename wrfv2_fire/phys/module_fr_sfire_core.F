@@ -299,7 +299,7 @@ do j=1,JFCELLS
                call crash(msg)
         endif
         if(fire_area_f(i,j).eq.0.)then
-           if(fuel_left_f(i,j).lt.1.)then
+           if(fuel_left_f(i,j).lt.1.-1e-6)then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
                     ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' but fire area',fire_area_f(i,j)
                call crash(msg)
@@ -341,7 +341,7 @@ fmax=0
 do j=jts,jte
     do i=its,ite        
        if(fire_area(i,j).eq.0.)then
-           if(fuel_frac(i,j).lt.1.)then
+           if(fuel_frac(i,j).lt.1.-1e-6)then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
                    ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
                call crash(msg)
