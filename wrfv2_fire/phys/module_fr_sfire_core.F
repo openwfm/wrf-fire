@@ -293,6 +293,11 @@ do j=1,JFCELLS
         endif
 
         ! consistency check
+        if(fire_area_f(i,j).lt.0.)then
+               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
+                    ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' fire area',fire_area_f(i,j),' <0'
+               call crash(msg)
+        endif
         if(fire_area_f(i,j).eq.0.)then
            if(fuel_left_f(i,j).lt.1.)then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
