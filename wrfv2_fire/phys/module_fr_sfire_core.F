@@ -305,8 +305,6 @@ do j=1,JFCELLS
                call crash(msg)
            endif
         endif
-        fuel_left_f(i,j) = fuel_left_f(i,j) /(ir*jr) ! premultiply by weight for averaging over coarse cell
-        fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
     enddo
 enddo
 
@@ -335,6 +333,14 @@ call sum_2d_cells(       &
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
 #endif
+
+! finish the averaging
+do j=jts,jte
+    do i=its,ite        
+        fuel_frac(i,j) = fuel_frac(i,j) /(ir*jr) ! multiply by weight for averaging over coarse cell
+        fire_area(i,j) = fire_area(i,j) /(ir*jr) ! 
+    enddo
+enddo
 
 ! consistency check after sum
 fmax=0
