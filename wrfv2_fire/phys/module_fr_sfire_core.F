@@ -293,15 +293,18 @@ do j=1,JFCELLS
         endif
 
         ! consistency check
+        if(fire_area_f(i,j).lt.0.)then
+               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
+                    ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' fire area',fire_area_f(i,j),' <0'
+               call crash(msg)
+        endif
         if(fire_area_f(i,j).eq.0.)then
-           if(fuel_left_f(i,j).lt.1.)then
+           if(fuel_left_f(i,j).lt.1.-1e-6)then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
                     ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' but fire area',fire_area_f(i,j)
                call crash(msg)
            endif
         endif
-        fuel_left_f(i,j) = fuel_left_f(i,j) /(ir*jr) ! premultiply by weight for averaging over coarse cell
-        fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
     enddo
 enddo
 
@@ -331,12 +334,20 @@ call sum_2d_cells(       &
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
 #endif
 
+! finish the averaging
+do j=jts,jte
+    do i=its,ite        
+        fuel_frac(i,j) = fuel_frac(i,j) /(ir*jr) ! multiply by weight for averaging over coarse cell
+        fire_area(i,j) = fire_area(i,j) /(ir*jr) ! 
+    enddo
+enddo
+
 ! consistency check after sum
 fmax=0
 do j=jts,jte
     do i=its,ite        
        if(fire_area(i,j).eq.0.)then
-           if(fuel_frac(i,j).lt.1.)then
+           if(fuel_frac(i,j).lt.1.-1e-6)then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
                    ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
                call crash(msg)
