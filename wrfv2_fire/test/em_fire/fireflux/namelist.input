@@ -160,7 +160,7 @@
  fire_ignition_time3  =   0, 230,  ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 0,0,        ! 1 print fire debugging messages
+ fire_print_msg     = 0,1,        ! 1 print fire debugging messages
  fire_print_file    = 0,0,        ! 1 write files for matlab
 !
 ! for developers only, do not change
