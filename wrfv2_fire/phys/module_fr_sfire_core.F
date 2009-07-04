@@ -298,7 +298,6 @@ do j=1,JFCELLS
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
                     ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' fire area',fire_area_f(i,j)
                call crash(msg)
-           endif
         endif
     enddo
 enddo
