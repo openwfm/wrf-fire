@@ -1190,7 +1190,7 @@ end subroutine set_flags
 subroutine print_id
 character(len=128)::id,msg
 #include "sfire_id.inc"
-msg='version '//id
+msg=id
 call message(msg)
 end subroutine print_id
 
