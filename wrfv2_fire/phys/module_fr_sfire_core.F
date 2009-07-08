@@ -1484,17 +1484,17 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
             nvy=diffCy/scale
                       
             ! wind speed in direction of spread
-            speed =  vx(i,j)*nvx + vy(i,j)*nvy
+            ! speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
             ! slope in direction of spread
             dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2.*dx)
             dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2.*dy)
-            tanphi =  dzdx*nvx + dzdy*nvy
+            ! tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            speed,tanphi,i,j &
+            vx(i,j),vy(i,j),dzdx,dzdy,nvx,nvy,i,j &
 #           include "fr_sfire_params_args.h"
             )
 
@@ -1700,7 +1700,7 @@ real, parameter:: eps=epsilon(0.0)
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            speed,tanphi,i,j &
+            vx(i,j),vy(i,j),dzdx,dzdy,nvx,nvy,i,j &
 #           include "fr_sfire_params_args.h"
             )
 

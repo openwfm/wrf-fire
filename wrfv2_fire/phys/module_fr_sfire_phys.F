@@ -374,7 +374,7 @@ end subroutine set_nfuel_cat
 !            
 
 subroutine fire_ros(ros_back,ros_wind,ros_slope, &
-speed,tanphi,i,j &
+vxij,vyij,dzdx,dzdy,nvx,nvy,i,j &
 #include "fr_sfire_params_args.h"
 )
 implicit none
@@ -404,16 +404,23 @@ implicit none
 
 !*** arguments
 real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
-real, intent(in):: speed, tanphi ! windspeed and slope in the directino normal to the fireline
+real, intent(in)::vxij,vyij,dzdx,dzdy,nvx,nvy
 integer, intent(in)::i,j         ! node mesh coordinates
 
 !*** local
+real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
 real:: umid, phis, phiw, spdms, umidm, excess
 integer, parameter::ibeh=1
 real, parameter::ros_max=6.
 character(len=128)msg
 
 !*** executable
+
+! wind in direction of spread
+speed =  vx(i,j)*nvx + vy(i,j)*nvy
+
+! slope in direction of spread
+tanphi =  dzdx*nvx + dzdy*nvy
 
 if (ischap(i,j) .eq. 0) then            ! if not chaparral
     if (ibeh .eq. 1) then                ! use Rothermel formula
