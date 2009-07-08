@@ -1181,6 +1181,7 @@ fire_viscosity          = config_flags%fire_viscosity
 fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
 fire_test_steps         = config_flags%fire_test_steps 
 fire_topo_from_atm      = config_flags%fire_topo_from_atm
+fire_advection          = config_flags%fire_advection
 
 
 

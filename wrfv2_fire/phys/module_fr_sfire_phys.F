@@ -414,18 +414,16 @@ integer, parameter::ibeh=1
 real, parameter::ros_max=6.
 character(len=128)msg
 real::cor_wind,cor_slope,nvx,nvy,scale
-integer::advection
 
 
 !*** executable
 
-advection = 1
 ! make sure normal direction is size 1
 !scale=sqrt(propx*propx+propy*propy)+tiny(scale)
 scale=1.
 nvx=propx/scale
 nvy=propy/scale
-if (advection.ne.0) then
+if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
     ! wind speed is total speed 
     speed =  sqrt(vx(i,j)*vx(i,j)+ vy(i,j)*vy(i,j))+tiny(speed)
     ! slope is total slope

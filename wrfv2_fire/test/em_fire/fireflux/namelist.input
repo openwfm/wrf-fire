@@ -178,4 +178,5 @@
  fire_lfn_ext_up=0.,1.0,           ! 0.=extend level set function at boundary by reflection, 1.=always up
  fire_test_steps=0,0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
  fire_topo_from_atm=0,1,          ! 0 = expect fire mesh topo set correctly on entry, 1 = populate by interpolating from atmosphere
+ fire_advection=0,0,              ! 0 = cawfe, 1 = use abs speed/slope in spread rate, then project on normal to fireline
 /
