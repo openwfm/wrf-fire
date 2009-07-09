@@ -1186,6 +1186,7 @@ fire_viscosity          = config_flags%fire_viscosity
 fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
 fire_test_steps         = config_flags%fire_test_steps 
 fire_topo_from_atm      = config_flags%fire_topo_from_atm
+fire_advection          = config_flags%fire_advection
 
 
 
@@ -1195,7 +1196,7 @@ end subroutine set_flags
 subroutine print_id
 character(len=128)::id,msg
 #include "sfire_id.inc"
-msg='version '//id
+msg=id
 call message(msg)
 end subroutine print_id
 

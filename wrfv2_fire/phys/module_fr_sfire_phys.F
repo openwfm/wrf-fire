@@ -374,7 +374,7 @@ end subroutine set_nfuel_cat
 !            
 
 subroutine fire_ros(ros_back,ros_wind,ros_slope, &
-speed,tanphi,i,j &
+vxij,vyij,dzdx,dzdy,propx,propy,i,j &
 #include "fr_sfire_params_args.h"
 )
 implicit none
@@ -404,16 +404,42 @@ implicit none
 
 !*** arguments
 real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
-real, intent(in):: speed, tanphi ! windspeed and slope in the directino normal to the fireline
+real, intent(in)::vxij,vyij,dzdx,dzdy,propx,propy
 integer, intent(in)::i,j         ! node mesh coordinates
 
 !*** local
+real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
 real:: umid, phis, phiw, spdms, umidm, excess
 integer, parameter::ibeh=1
 real, parameter::ros_max=6.
 character(len=128)msg
+real::cor_wind,cor_slope,nvx,nvy,scale
+
 
 !*** executable
+
+! make sure normal direction is size 1
+!scale=sqrt(propx*propx+propy*propy)+tiny(scale)
+scale=1.
+nvx=propx/scale
+nvy=propy/scale
+if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
+    ! wind speed is total speed 
+    speed =  sqrt(vx(i,j)*vx(i,j)+ vy(i,j)*vy(i,j))+tiny(speed)
+    ! slope is total slope
+    tanphi = sqrt(dzdx*dzdx + dzdy*dzdy)+tiny(tanphi)
+    ! cos of wind and spread, if >0
+    cor_wind =  max(0.,(vx(i,j)*nvx + vy(i,j)*nvy)/speed)
+    ! cos of slope and spread, if >0
+    cor_slope = max(0., (dzdx*nvx + dzdy*nvy)/tanphi)
+else
+    ! wind speed in spread direction
+    speed =  vx(i,j)*nvx + vy(i,j)*nvy
+    ! slope in spread direction
+    tanphi = dzdx*nvx + dzdy*nvy
+    cor_wind=1.
+    cor_slope=1.
+endif
 
 if (ischap(i,j) .eq. 0) then            ! if not chaparral
     if (ibeh .eq. 1) then                ! use Rothermel formula
@@ -454,6 +480,9 @@ else   ! chaparral
     ros_slope =0.
 
 endif
+! if advection, multiply by the cosines
+ros_wind=ros_wind*cor_wind
+ros_slope=ros_slope*cor_slope
 !
 !     ----------note!  put an 6 m/s cap on max spread rate -----------
 ! rosm= min(rosm, 6.)         ! no faster than this cap   ! param !
@@ -466,11 +495,19 @@ if (excess > 0.)then
     ros_slope = ros_slope - excess*ros_slope/(ros_wind+ros_slope)
 endif
 
+
 !     ... to rescale to veloc. carried by model, mult x (svel*snorm(1,3))= .1
 !jm: huh ???
 !     fire_ros = 0.1*rosm
 !
       return
+
+contains
+real function nrm2(u,v)
+real, intent(in)::u,v
+nrm2=sqrt(u*u+v*v)
+end function nrm2
+
 end subroutine fire_ros 
 
 end module module_fr_sfire_phys

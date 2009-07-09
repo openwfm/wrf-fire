@@ -293,15 +293,12 @@ do j=1,JFCELLS
         endif
 
         ! consistency check
-        if(fire_area_f(i,j).eq.0.)then
-           if(fuel_left_f(i,j).lt.1.)then
+        if(fire_area_f(i,j).lt.-1e-6 .or.  &
+          (fire_area_f(i,j).eq.0. .and. fuel_left_f(i,j).lt.1.-1e-6))then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
-                    ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' but fire area',fire_area_f(i,j)
+                    ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' fire area',fire_area_f(i,j)
                call crash(msg)
-           endif
         endif
-        fuel_left_f(i,j) = fuel_left_f(i,j) /(ir*jr) ! premultiply by weight for averaging over coarse cell
-        fire_area_f(i,j) = fire_area_f(i,j) /(ir*jr) ! 
     enddo
 enddo
 
@@ -331,12 +328,20 @@ call sum_2d_cells(       &
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
 #endif
 
+! finish the averaging
+do j=jts,jte
+    do i=its,ite        
+        fuel_frac(i,j) = fuel_frac(i,j) /(ir*jr) ! multiply by weight for averaging over coarse cell
+        fire_area(i,j) = fire_area(i,j) /(ir*jr) ! 
+    enddo
+enddo
+
 ! consistency check after sum
 fmax=0
 do j=jts,jte
     do i=its,ite        
        if(fire_area(i,j).eq.0.)then
-           if(fuel_frac(i,j).lt.1.)then
+           if(fuel_frac(i,j).lt.1.-1e-6)then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
                    ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
                call crash(msg)
@@ -471,7 +476,9 @@ if(lfn11>0. .or. t11>0.)t11=0.
 ps = lfn00+lfn01+lfn10+lfn11   
 aps = abs(lfn00)+abs(lfn01)+abs(lfn10)+abs(lfn11)
 aps=max(aps,safe)
-area =(-ps/aps+1.)*.5
+area =(-ps/aps+1.)/2.
+area = max(area,0.) ! make sure area is between 0 and 1
+area = min(area,1.)
     
 ! average negative time since ignition
 ta=0.25*(t00+t01+t10+t11)
@@ -1477,17 +1484,17 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
             nvy=diffCy/scale
                       
             ! wind speed in direction of spread
-            speed =  vx(i,j)*nvx + vy(i,j)*nvy
+            ! speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
             ! slope in direction of spread
             dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2.*dx)
             dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2.*dy)
-            tanphi =  dzdx*nvx + dzdy*nvy
+            ! tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            speed,tanphi,i,j &
+            vx(i,j),vy(i,j),dzdx,dzdy,nvx,nvy,i,j &
 #           include "fr_sfire_params_args.h"
             )
 
@@ -1693,7 +1700,7 @@ real, parameter:: eps=epsilon(0.0)
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            speed,tanphi,i,j &
+            vx(i,j),vy(i,j),dzdx,dzdy,nvx,nvy,i,j &
 #           include "fr_sfire_params_args.h"
             )
 
