@@ -9,6 +9,7 @@ hashid=$(git rev-parse HEAD)
 logdir=${scratch}/${user}/regtest_${hashid}
 ideal_nml=${regdir}/namelist.ideal
 real_nml=${regdir}/namelist.real
+sounding=${regdir}/input_sounding
 metdata=${regdir}
 nameprefix="std_"
 numprocs=8
@@ -167,6 +168,7 @@ done
 
 function run_wrf_input {
   if [ $targ = em_fire ] ; then
+    cp ${sounding} input_sounding
     cp ${ideal_nml} namelist.input
     ideallog="${name}_ideal.log"
     ./ideal.exe &> $ideallog
@@ -251,6 +253,13 @@ EOF
 
 	  stop_ctime
           pushd "test/${targ}"
+	  if [ -f ideal.exe ] ; then
+	    cp ideal.exe ${name}_ideal.exe
+	  fi
+	  if [ -f real.exe ] ; then
+	    cp real.exe ${name}_real.exe
+	  fi
+	  cp wrf.exe ${name}_wrf.exe
 	  clean_run_dir
 	  get_wrf_input
 	  if [ -f wrfinput_d01 ] ; then
