@@ -12,8 +12,10 @@ module module_fr_sfire_util
 
 ! various method selection parameters
 ! 1. add the parameter and its static default here
+! optional:
 ! 2. add copy from config_flags in module_fr_sfire_driver%%set_flags
-! 3. (optional) add a line in Registry.EM to define the variable and set default value
+! 3. add a line in Registry.EM to define the variable and set default value
+! 4. add the variable and value in namelist.input
 
 
 integer,save::          &
@@ -33,6 +35,9 @@ integer,save::          &
 
 
 real, save::            &
+ fire_const_time=-1,    &  ! time from ignition to start constant heat output  <0=never
+ fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
+ fire_const_grnqfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
  fire_back_weight=0.5,  &  ! RK parameter, 0 = Euler method, 0.5 = Heun, 1 = fake backward Euler
  fire_viscosity=0.4,    &  ! artificial viscosity

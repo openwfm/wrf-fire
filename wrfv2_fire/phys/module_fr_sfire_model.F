@@ -138,6 +138,7 @@ real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 integer::ignited,ig,i,j
 real::tbound
 character(len=128)::msg
+logical:: freeze_fire
 
 !*** executable
 
@@ -153,6 +154,7 @@ xjfme=jfme
 ! init flags
 need_lfn_update=.false.
 ignitions_done=0
+freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 elseif(ifun.eq.2)then   
@@ -253,6 +255,8 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   set lfn_out tign
 !   lfn does not change, tign has no halos
 
+    if(.not. freeze_fire)then
+
     call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
@@ -262,10 +266,17 @@ elseif (ifun.eq.4) then  ! do the timestep
         lfn,lfn_out,tign &
 #       include "fr_sfire_params_args.h" 
     ) 
+
+    else
+        call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
+
+    endif
     
 elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! this cannot be done in the time step itself because of race condition
     ! some thread may still be using lfn as input in their tile halo
+
+    if(.not. freeze_fire)then
     
     do j=jfts,jfte
         do i=ifts,ifte
@@ -274,10 +285,14 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             ! even if tign does not need a halo
         enddo
     enddo
+
+    endif
     
     need_lfn_update=.true. ! duh
 
 elseif (ifun.eq.6) then ! timestep postprocessing
+
+    if(.not. freeze_fire)then
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
@@ -310,6 +325,25 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 
+    else
+        call message('sfire_model: EXPERIMENTAL: skipping fuel burnt computation')
+
+        if (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
+
+        write(msg,'(a,2e12.3,a)')'sfire_model: EXPERIMENTAL output constant heat flux', &
+           fire_const_grnhfx, fire_const_grnqfx, ' W/s'
+        call message(msg)
+        
+        do j=jfts,jfte
+            do i=ifts,ifte
+                grnhfx(i,j)=fire_const_grnhfx
+                grnqfx(i,j)=fire_const_grnqfx
+            enddo
+        enddo
+
+        endif
+
+    endif
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &

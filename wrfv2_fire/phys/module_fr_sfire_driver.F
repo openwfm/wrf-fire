@@ -1168,6 +1168,9 @@ fire_print_file         = config_flags%fire_print_file
 fuel_left_method        = config_flags%fire_fuel_left_method
 fuel_left_irl           = config_flags%fire_fuel_left_irl
 fuel_left_jrl           = config_flags%fire_fuel_left_jrl
+fire_const_time         = config_flags%fire_const_time
+fire_const_grnhfx       = config_flags%fire_const_grnhfx
+fire_const_grnqfx       = config_flags%fire_const_grnqfx
 fire_atm_feedback       = config_flags%fire_atm_feedback
 boundary_guard          = config_flags%fire_boundary_guard
 fire_back_weight        = config_flags%fire_back_weight
@@ -1187,7 +1190,7 @@ end subroutine set_flags
 subroutine print_id
 character(len=128)::id,msg
 #include "sfire_id.inc"
-msg='version '//id
+msg=id
 call message(msg)
 end subroutine print_id
 

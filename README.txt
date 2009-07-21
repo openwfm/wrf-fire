@@ -82,7 +82,7 @@ The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
 
 Local developers get the code and submit changes by 
 
-         git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf.git
+         git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf-fire.git
 
 
 BRANCHES
@@ -110,7 +110,7 @@ no errors.  ("grep Error compile.log" shouldn't return anything).
 
 RUNNING
 
-cd test/em_fire 
+cd test/em_fire/small 
 ./ideal.exe >& ideal.log (this creates file wrfinput_d01, needs to be done only
 when input_sounding changes)
 ./wrf.exe

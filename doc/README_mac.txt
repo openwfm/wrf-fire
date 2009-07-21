@@ -2,7 +2,7 @@ From Jon:
 
 The command to get wrf is
 
-git clone math.cudenver.edu:/home/grads/jbeezley/wrf.git
+git clone math.cudenver.edu:/home/grads/jbeezley/wrf-fire.git
 
 This of coarse requires git and an account on math.cudenver.edu.
 There are mac binaries available.
