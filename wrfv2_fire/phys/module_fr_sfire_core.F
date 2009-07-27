@@ -314,10 +314,10 @@ call interpolate_2d(  &
         endif
 
         ! consistency check
-        if(fire_area_f(i,j).lt.-1e-6 .or.  &
-          (fire_area_f(i,j).eq.0. .and. fuel_left_f(i,j).lt.1.-1e-6))then
+        if(fire_area_ff.lt.-1e-6 .or.  &
+          (fire_area_ff.eq.0. .and. fuel_left_ff.lt.1.-1e-6))then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
-                    ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' fire area',fire_area_f(i,j)
+                    ' of refined mesh fuel burnt',1-fuel_left_ff,' fire area',fire_area_ff
                call crash(msg)
         endif
 
