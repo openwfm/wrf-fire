@@ -1038,7 +1038,7 @@ subroutine prop_ls( id, &                                ! for debug
                 its,ite,jts,jte, &                       ! tile dims
                 ts,dt,dx,dy,     &                       ! scalars in
                 tbound,          &                       ! scalars out
-                lfn_in,lfn_out,tign         &                     ! arrays inout                   
+                lfn_in,lfn_out,tign,ros  &              ! arrays inout                   
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
@@ -1116,7 +1116,7 @@ implicit none
 
 integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe 
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
-real,dimension(ims:ime,jms:jme),intent(out)::lfn_out
+real,dimension(ims:ime,jms:jme),intent(out)::lfn_out,ros
 real,intent(in)::dx,dy,ts,dt
 real,intent(out)::tbound
 #ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */

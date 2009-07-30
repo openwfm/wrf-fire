@@ -331,10 +331,12 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
-            grid%uf,grid%vf,lfn_out,                      & ! arrays to persist only over one timestep    
+            grid%uf,grid%vf,                              & ! in - one step only
+            lfn_out,                                      & ! work - one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
+            grid%ros,                                   & ! rate of spread
             grid%fxlong,grid%fxlat,                           &       
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,grid%zsf,                      & 
@@ -389,7 +391,8 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
-    fxlong,fxlat,                            & !  
+    ros,                                          &
+    fxlong,fxlat,                                 & !  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,zsf,                                & ! save constant internal data, fire grid
     bbb,betafl,phiwc,r_0,fgip,ischap&
@@ -470,7 +473,8 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
     fgrnhfx,                                      &  ! heat flux from ground fire (W/m^2) 
     fgrnqfx,                                      &  ! moisture flux from ground fire (W/m^2) 
     fcanhfx,                                      &  ! heat flux from crown fire (W/m^2) 
-    fcanqfx                                         ! moisture flux from crown fire (W/m^2) 
+    fcanqfx,                                      &   ! moisture flux from crown fire (W/m^2) 
+    ros                                             ! fire rate of spread (m/s)
 
 !  ***** data (constant in time) *****
 
@@ -690,6 +694,7 @@ do ij=1,num_tiles
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
+        ros,                                    & ! output: rate of spread for display
         nfuel_cat,                              & ! fuel data per point 
         fuel_time,                              & ! save derived internal data
         bbb,betafl,phiwc,r_0,fgip,ischap &

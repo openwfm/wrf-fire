@@ -34,6 +34,7 @@ subroutine sfire_model (                    &
     vx,vy,                                  & ! input: wind
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
+    ros,                                    & ! output: rate of spread
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
     bbb,betafl,phiwc,r_0,fgip,ischap &
@@ -122,7 +123,8 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     lfn_out, &                              !                              
-    grnhfx,grnqfx                           ! heat fluxes J/m^2/s  (cell)             
+    grnhfx,grnqfx, &                        ! heat fluxes J/m^2/s  (cell)             
+    ros                                     ! output: rate of spread
  
 ! constant arrays - set at initialization
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
@@ -263,7 +265,7 @@ elseif (ifun.eq.4) then  ! do the timestep
         ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
         ifts,ifte,jfts,jfte,                      &
         time_start,dt,fdx,fdy,tbound,  &
-        lfn,lfn_out,tign &
+        lfn,lfn_out,tign,ros &
 #       include "fr_sfire_params_args.h" 
     ) 
 
