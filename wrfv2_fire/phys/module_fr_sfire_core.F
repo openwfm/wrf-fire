@@ -1183,6 +1183,7 @@ call message(msg)
     ids,ide,jds,jde, &                       ! domain dims - where lfn exists
     ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
     ihs,ihe,jhs,jhe, &                       ! where tend computed
+    ims,ime,jms,jme, &                       ! memory dims for ros 
     its,ite,jts,jte, &                       ! tile dims - where is ros set
     ts,dt,dx,dy,      &                          ! scalars in
     lfn_in, &                                   ! arrays in
@@ -1215,6 +1216,7 @@ call message(msg)
     ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
     ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
     its,ite,jts,jte, &                       ! tile dims - where is tend computed
+    ims,ime,jms,jme, &                       ! memory dims for ros 
     its,ite,jts,jte, &                       ! tile dims - where is ros set
     ts+dt,dt,dx,dy,      &                          ! scalars in
     lfn1, &                                   ! arrays in
@@ -1374,6 +1376,7 @@ subroutine tend_ls( id, &
     ids,ide,jds,jde, &                   ! domain - nodes where lfn defined
     ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
     ints,inte,jnts,jnte, &                   ! region - nodes where tend computed
+    ims,ime,jms,jme, &                       ! memory dims for ros 
     its,ite,jts,jte, &                       ! tile dims - where is ros set
     t,dt,dx,dy,      &                          ! scalars in
     lfn, &                                   ! arrays in
@@ -1391,14 +1394,15 @@ implicit none
 ! compute the right hand side of the level set equation
 
 !*** arguments
-integer,intent(in)::id,lims,lime,ljms,ljme,tims,time,tjms,tjme,its,ite,jts,jte
+integer,intent(in)::id,lims,lime,ljms,ljme,tims,time,tjms,tjme
+integer,intent(in)::ims,ime,jms,jme,its,ite,jts,jte
 integer, intent(in)::ids,ide,jds,jde,ints,inte,jnts,jnte,ips,ipe,jps,jpe 
 real,intent(in)::t                                     ! time
 real,intent(in)::dt,dx,dy                                 ! mesh step
 real,dimension(lims:lime,ljms:ljme),intent(inout)::lfn ! level set function
 real,intent(out)::tbound                               ! max allowed time step
 real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the level set pde)
-real,dimension(lims:lime,ljms:ljme),intent(out)::ros  ! rate of spread 
+real,dimension(ims:ime,jms:jme),intent(out)::ros  ! rate of spread 
 #ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */
 #include SPEED_VARS_DECL
 #else
