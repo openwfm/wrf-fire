@@ -82,7 +82,9 @@ The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
 
 Local developers get the code and submit changes by 
 
-         git clone ssh://math.cudenver.edu/home/grads/jbeezley/wrf-fire.git
+         git clone ssh://user@math.ucdenver.edu/home/grads/jbeezley/wrf-fire.git
+
+where "user" is your username at math.ucdenver.edu.
 
 
 BRANCHES
