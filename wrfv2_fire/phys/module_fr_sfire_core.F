@@ -245,26 +245,27 @@ rjp2=real(jts)
 rip1=1+ir/2.
 rjp1=1+jr/2.
 
-! interpolate level set function to finer grid
-%call interpolate_2d(  &
-%    ims,ime,jms,jme,         & ! array coarse grid
-%    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
-%    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-%    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
-%    ir,jr,                   & ! refinement ratio
-%    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
-%    lfn, &                     ! in coarse grid  
-%    lff  )                     ! out fine grid
 
-%call interpolate_2d(  &
-%    ims,ime,jms,jme,         & ! array coarse grid
-%    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
-%    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-%    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
-%    ir,jr,                   & ! refinement ratio
-%    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
-%    tign, &                     ! in coarse grid  
-%    tif  )                     ! out fine grid
+! interpolate level set function to finer grid
+!call interpolate_2d(  &
+!    ims,ime,jms,jme,         & ! array coarse grid
+!    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
+!    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
+!    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
+!    ir,jr,                   & ! refinement ratio
+!    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+!    lfn, &                     ! in coarse grid  
+!    lff  )                     ! out fine grid
+
+!call interpolate_2d(  &
+!    ims,ime,jms,jme,         & ! array coarse grid
+!    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
+!    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
+!    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
+!    ir,jr,                   & ! refinement ratio
+!    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+!    tign, &                     ! in coarse grid  
+!    tif  )                     ! out fine grid
 
 #ifdef DEBUG_OUT_FUEL_LEFT    
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,lff,'lff',0)
@@ -303,15 +304,15 @@ rjp1=1+jr/2.
                   j=(jcl-jts)*jr+jsubcl
                   iccell=its+(i-1)/ir  ! the nearest coarse node
                   jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
-                  % rjo=rjp1+jr*(j2-rjp2)
-                  % rio=rip1+ir*(i2-rip2)
-                  % ty = (j1-rjo)*ry
-                  % tx = (i1-rio)*rx
-                       % v1(i1,j1)=                     &
-                       %  (1-tx)*(1-ty)*v2(i2,j2)  &
-                       %    +    (1-tx)*ty  *v2(i2,j2+1)      &
-                       %    +            tx*(1-ty)*v2(i2+1,j2)     &
-                       %    +           tx*ty*v2(i2+1,j2+1)
+                  ! rjo=rjp1+jr*(j2-rjp2)
+                  ! rio=rip1+ir*(i2-rip2)
+                  ! ty = (j1-rjo)*ry
+                  ! tx = (i1-rio)*rx
+                       ! v1(i1,j1)=                     &
+                       !  (1-tx)*(1-ty)*v2(i2,j2)  &
+                       !    +    (1-tx)*ty  *v2(i2,j2+1)      &
+                       !    +            tx*(1-ty)*v2(i2+1,j2)     &
+                       !    +           tx*ty*v2(i2+1,j2+1)
           call interpolate_2d(  &
               ims,ime,jms,jme,         & ! array coarse grid
               icl-1,icl+1,jcl-1,jcl+1, & ! dimensions coarse grid used
