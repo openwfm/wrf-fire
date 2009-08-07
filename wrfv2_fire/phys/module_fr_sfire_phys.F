@@ -75,7 +75,8 @@ use module_fr_sfire_util
    REAL, PARAMETER :: cmbcnst  = 17.433e+06             ! J/kg dry fuel
    REAL, PARAMETER :: hfgl     = 17.e4                  ! W/m^2
    REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
-   REAL, PARAMETER :: fuelmc_g = 0.08                   ! set = 0 for dry ground fuel
+!   REAL, PARAMETER :: fuelmc_g = 0.08                   ! set = 0 for dry ground fuel
+   REAL, PARAMETER :: fuelmc_g = 0.09                   ! set = 0 for dry ground fuel
    REAL, PARAMETER :: fuelmc_c = 1.00                   ! set = 0 for dry canopy
    REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
    !real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
@@ -88,7 +89,8 @@ use module_fr_sfire_util
                                             fueldepthm,fueldens,fuelmce,   &
                                             savr,st,se
 
-   DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
+!   DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
+   DATA fgi / 0.166, 0.897, 1.076, 2.468, 0.785, 1.345, 1.092, &
               1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7 /
    DATA fueldepthm /0.305,  0.305,  0.762, 1.829, 0.61,  0.762,0.762, &
                     0.0610, 0.0610, 0.305, 0.305, 0.701, 0.914, 0.305 /
@@ -374,7 +376,7 @@ end subroutine set_nfuel_cat
 !            
 
 subroutine fire_ros(ros_back,ros_wind,ros_slope, &
-speed,tanphi,i,j &
+vxij,vyij,dzdx,dzdy,propx,propy,i,j &
 #include "fr_sfire_params_args.h"
 )
 implicit none
@@ -404,16 +406,42 @@ implicit none
 
 !*** arguments
 real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
-real, intent(in):: speed, tanphi ! windspeed and slope in the directino normal to the fireline
+real, intent(in)::vxij,vyij,dzdx,dzdy,propx,propy
 integer, intent(in)::i,j         ! node mesh coordinates
 
 !*** local
+real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
 real:: umid, phis, phiw, spdms, umidm, excess
 integer, parameter::ibeh=1
 real, parameter::ros_max=6.
 character(len=128)msg
+real::cor_wind,cor_slope,nvx,nvy,scale
+
 
 !*** executable
+
+! make sure normal direction is size 1
+!scale=sqrt(propx*propx+propy*propy)+tiny(scale)
+scale=1.
+nvx=propx/scale
+nvy=propy/scale
+if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
+    ! wind speed is total speed 
+    speed =  sqrt(vx(i,j)*vx(i,j)+ vy(i,j)*vy(i,j))+tiny(speed)
+    ! slope is total slope
+    tanphi = sqrt(dzdx*dzdx + dzdy*dzdy)+tiny(tanphi)
+    ! cos of wind and spread, if >0
+    cor_wind =  max(0.,(vx(i,j)*nvx + vy(i,j)*nvy)/speed)
+    ! cos of slope and spread, if >0
+    cor_slope = max(0., (dzdx*nvx + dzdy*nvy)/tanphi)
+else
+    ! wind speed in spread direction
+    speed =  vx(i,j)*nvx + vy(i,j)*nvy
+    ! slope in spread direction
+    tanphi = dzdx*nvx + dzdy*nvy
+    cor_wind=1.
+    cor_slope=1.
+endif
 
 if (ischap(i,j) .eq. 0) then            ! if not chaparral
     if (ibeh .eq. 1) then                ! use Rothermel formula
@@ -454,6 +482,9 @@ else   ! chaparral
     ros_slope =0.
 
 endif
+! if advection, multiply by the cosines
+ros_wind=ros_wind*cor_wind
+ros_slope=ros_slope*cor_slope
 !
 !     ----------note!  put an 6 m/s cap on max spread rate -----------
 ! rosm= min(rosm, 6.)         ! no faster than this cap   ! param !
@@ -466,11 +497,19 @@ if (excess > 0.)then
     ros_slope = ros_slope - excess*ros_slope/(ros_wind+ros_slope)
 endif
 
+
 !     ... to rescale to veloc. carried by model, mult x (svel*snorm(1,3))= .1
 !jm: huh ???
 !     fire_ros = 0.1*rosm
 !
       return
+
+contains
+real function nrm2(u,v)
+real, intent(in)::u,v
+nrm2=sqrt(u*u+v*v)
+end function nrm2
+
 end subroutine fire_ros 
 
 end module module_fr_sfire_phys
