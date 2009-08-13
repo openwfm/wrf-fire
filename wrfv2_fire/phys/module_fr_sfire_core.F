@@ -224,6 +224,8 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl,joff,ioff,i2,j2
 real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff !,rx,ry,rip2,rip1,rjp1,rjp2
 ! help variables instead of arrays fuel_left_f and fire_area_f 
+real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1
+! variables for calculation instead of lff(i,j) is lffij etc...
 #define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
 real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
@@ -238,12 +240,12 @@ call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
 ! refinement
 ir=fuel_left_irl
 jr=fuel_left_jrl
-!rx=1./ir 
-!ry=1./jr
-!rip2=real(its)
-!rjp2=real(jts)
-!rip1=1+ir/2.
-!rjp1=1+jr/2.
+rx=1./ir 
+ry=1./jr
+rip2=real(its)
+rjp2=real(jts)
+rip1=1+ir/2.
+rjp1=1+jr/2.
 
 ! interpolate level set function to finer grid
 call interpolate_2d(  &
@@ -296,6 +298,7 @@ call interpolate_2d(  &
         helpsum1=0
         helpsum2=0
 
+
 ! %% Loop over subcells in cell #(icl,jcl)
          do isubcl=1,ir
              do jsubcl=1,jr                                                         
@@ -303,6 +306,49 @@ call interpolate_2d(  &
                   j=(jcl-jts)*jr+jsubcl
                   iccell=its+(i-1)/ir  ! the nearest coarse node
                   jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
+!!! Start exchanging interpolate2d to another
+!!! Checking   I guess no need in this cases, can try subroutine
+
+!!if ( (i==(icl-its+1)*ir) .AND. (j==(jcl-jts+1)*jr) then
+          !! case when we have to calculate from 3 different cells
+!!             else if (i==(icl-its+1)*ir) then
+             !! case when we calculate also from neighbour cell for i
+!!             else if (j==(jcl-jts+1)*jr) then
+             !! case when we calculate also from neighbour cell for j
+!!             rjo=rjp1+jr*(jcl-rjp2-1) 
+!!             rio=rip1+ir*(icl-rip2-1)
+!!             rjjo=rjp1+jr*(jcl-rjp2)
+!!             rio=rip1+ir*(icl-rip2)
+
+!!             else
+!! the  easiest case all in 1 cell
+             rjo=rjp1+jr*(jcl-rjp2-1)
+             rio=rip1+ir*(icl-rip2-1)
+             tx=(i-rio)*rx
+             ty=(j-rjo)*ty
+             lffij=                   &    
+                  (1-tx)*(1-ty)*lfn(i,j)      &
+             +    (1-tx)*ty  *lfn(i,j+1)      &
+             +     tx*(1-ty)*lfn(i+1,j)       &
+             +       tx*ty  *lfn(i+1,j+1)
+             lffi1j=                             &
+                    (1-tx-rx)*(1-ty)*lfn(i+1,j)  &
+             +      (1-tx-rx)*ty  *lfn(i+1,j+1)  &
+             +      (tx+rx)*(1-ty)*lfn(i+2,j)    &
+             +      (tx+rx)*ty  *lfn(i+2,j+1)
+             lffij1=                                &
+                    (1-tx)*(1-ty-ry)*lfn(i,j+1)     &
+             +      (1-tx)*(ty+ry)  *lfn(i,j+2)     &
+             +      tx*(1-ty-ry)*lfn(i+1,j+1)       &
+             +      tx*(ty+ry)  *lfn(i+1,j+2)
+             lffi1j1 =                                &
+                      (1-tx-rx)*(1-ty-ry)*lfn(i+1,j+1)     &
+               +      (1-tx-rx)*(ty+ry)  *lfn(i+1,j+2)     &        
+               +      (tx+rx)*(1-ty-ry)*lfn(i+2,j+1)       &
+               +      (tx+rx)*(ty+ry)  *lfn(i+2,j+2)
+
+                                                                                   
+!!             end if                  
                   ! rjo=rjp1+jr*(j2-rjp2)
                   ! rio=rip1+ir*(i2-rip2)
                   ! ty = (j1-rjo)*ry
@@ -315,13 +361,13 @@ call interpolate_2d(  &
           
           if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
-                 lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
+                 lffij,lffij1,lffi1j,lffi1j1,&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell))
         elseif(fuel_left_method.eq.2)then
              fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
              fuel_left_ff=fuel_left_cell_2( &
-                 lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
+                 lffij,lffij1,lffi1j,lffi1,j1,&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell)) 
         else
