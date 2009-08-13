@@ -222,9 +222,9 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 !*** local
 
 integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl,joff,ioff,i2,j2
-real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff !,rx,ry,rip2,rip1,rjp1,rjp2
+real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry,rip2,rip1,rjp1,rjp2
 ! help variables instead of arrays fuel_left_f and fire_area_f 
-real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1
+real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,rio,rjo
 ! variables for calculation instead of lff(i,j) is lffij etc...
 #define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
@@ -367,7 +367,7 @@ call interpolate_2d(  &
         elseif(fuel_left_method.eq.2)then
              fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
              fuel_left_ff=fuel_left_cell_2( &
-                 lffij,lffij1,lffi1j,lffi1,j1,&
+                 lffij,lffij1,lffi1j,lffi1j1,&
                  tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
                  time_now, fuel_time(iccell,jccell)) 
         else
