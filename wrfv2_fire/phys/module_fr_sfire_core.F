@@ -222,7 +222,7 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 !*** local
 
 integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl,joff,ioff,i2,j2
-real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry  
+real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff !,rx,ry,rip2,rip1,rjp1,rjp2
 ! help variables instead of arrays fuel_left_f and fire_area_f 
 #define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
@@ -238,34 +238,33 @@ call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
 ! refinement
 ir=fuel_left_irl
 jr=fuel_left_jrl
-rx=1./ir 
-ry=1./jr
-rip2=real(its)
-rjp2=real(jts)
-rip1=1+ir/2.
-rjp1=1+jr/2.
-
+!rx=1./ir 
+!ry=1./jr
+!rip2=real(its)
+!rjp2=real(jts)
+!rip1=1+ir/2.
+!rjp1=1+jr/2.
 
 ! interpolate level set function to finer grid
-!call interpolate_2d(  &
-!    ims,ime,jms,jme,         & ! array coarse grid
-!    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
-!    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-!    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
-!    ir,jr,                   & ! refinement ratio
-!    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
-!    lfn, &                     ! in coarse grid  
-!    lff  )                     ! out fine grid
+call interpolate_2d(  &
+    ims,ime,jms,jme,         & ! array coarse grid
+    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
+    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
+    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
+    ir,jr,                   & ! refinement ratio
+    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+    lfn, &                     ! in coarse grid  
+    lff  )                     ! out fine grid
 
-!call interpolate_2d(  &
-!    ims,ime,jms,jme,         & ! array coarse grid
-!    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
-!    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-!    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
-!    ir,jr,                   & ! refinement ratio
-!    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
-!    tign, &                     ! in coarse grid  
-!    tif  )                     ! out fine grid
+call interpolate_2d(  &
+    ims,ime,jms,jme,         & ! array coarse grid
+    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
+    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
+    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
+    ir,jr,                   & ! refinement ratio
+    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
+    tign, &                     ! in coarse grid  
+    tif  )                     ! out fine grid
 
 #ifdef DEBUG_OUT_FUEL_LEFT    
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,lff,'lff',0)
@@ -313,27 +312,7 @@ rjp1=1+jr/2.
                        !    +    (1-tx)*ty  *v2(i2,j2+1)      &
                        !    +            tx*(1-ty)*v2(i2+1,j2)     &
                        !    +           tx*ty*v2(i2+1,j2+1)
-          call interpolate_2d(  &
-              ims,ime,jms,jme,         & ! array coarse grid
-              icl-1,icl+1,jcl-1,jcl+1, & ! dimensions coarse grid used
-              1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-              1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid
-              ir,jr,                   & ! refinement ratio
-              real(its),real(jts),1+ir/2.,1+jr/2.,  & !
-              lfn, &                     ! in coarse
-                                     
-              lff  )                     ! out fine
-          call interpolate_2d(  &
-               ims,ime,jms,jme,         & ! array
-                             
-               icl-1,icl+1,jcl-1,jcl+1 &
-               1,IFCELLS+1,1,JFCELLS+1, &
-               1,IFCELLS+1,1,JFCELLS+1, &
-               ir,jr,                   &
-               real(its),real(jts),1+ir/2.,1+jr/2.,  &
-               tign,                    &
-               tif) 
-
+          
           if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
                  lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
