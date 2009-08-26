@@ -221,11 +221,12 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl,joff,ioff,i2,j2
+integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl,joff,ioff,i2,j2,ii2,jj2
 real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry,rip2,rip1,rjp1,rjp2
 ! help variables instead of arrays fuel_left_f and fire_area_f 
-real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,rio,rjo
+real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,rio,rjo,txx,tyy,riio,rjjo
 ! variables for calculation instead of lff(i,j) is lffij etc...
+intrinsic::ceiling,FRACTION
 #define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
 real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
@@ -306,46 +307,41 @@ call interpolate_2d(  &
                   j=(jcl-jts)*jr+jsubcl
                   iccell=its+(i-1)/ir  ! the nearest coarse node
                   jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
-!!! Start exchanging interpolate2d to another
-!!! Checking   I guess no need in this cases, can try subroutine
 
-!!if ( (i==(icl-its+1)*ir) .AND. (j==(jcl-jts+1)*jr) then
-          !! case when we have to calculate from 3 different cells
-!!             else if (i==(icl-its+1)*ir) then
-             !! case when we calculate also from neighbour cell for i
-!!             else if (j==(jcl-jts+1)*jr) then
-             !! case when we calculate also from neighbour cell for j
-!!             rjo=rjp1+jr*(jcl-rjp2-1) 
-!!             rio=rip1+ir*(icl-rip2-1)
-!!             rjjo=rjp1+jr*(jcl-rjp2)
-!!             rio=rip1+ir*(icl-rip2)
-
-!!             else
-!! the  easiest case all in 1 cell
-             rjo=rjp1+jr*(jcl-rjp2-1)
-             rio=rip1+ir*(icl-rip2-1)
-             tx=(i-rio)*rx
-             ty=(j-rjo)*ty
+!!! NEW VERSION
+! given i,j
+ i2=ir*ceiling(i/ir);
+ ii2=ir*ceiling((i+1)/ir);
+ j2=jr*ceiling(j/jr);
+ jj2=jr*ceiling((j+1)/jr);
+ rio=i2+FRACTION(rip1);
+ riio=ii2+FRACTION(rip1);
+ rjo=j2+FRACTION(rjp1);
+ rjjo=jj2+FRACTION(rjp1);
+ ty=(j-rjo)/jr;
+ tyy=(j-rjjo)/jr;
+ tx=(i-rio)/ir;
+ txx=(i-riio)/ir;
              lffij=                   &    
                   (1-tx)*(1-ty)*lfn(i,j)      &
              +    (1-tx)*ty  *lfn(i,j+1)      &
              +     tx*(1-ty)*lfn(i+1,j)       &
              +       tx*ty  *lfn(i+1,j+1)
              lffi1j=                             &
-                    (1-tx-rx)*(1-ty)*lfn(i+1,j)  &
-             +      (1-tx-rx)*ty  *lfn(i+1,j+1)  &
-             +      (tx+rx)*(1-ty)*lfn(i+2,j)    &
-             +      (tx+rx)*ty  *lfn(i+2,j+1)
+                    (1-txx)*(1-ty)*lfn(i+1,j)  &
+             +      (1-txx)*ty  *lfn(i+1,j+1)  &
+             +      (txx)*(1-ty)*lfn(i+2,j)    &
+             +      (txx)*ty  *lfn(i+2,j+1)
              lffij1=                                &
-                    (1-tx)*(1-ty-ry)*lfn(i,j+1)     &
-             +      (1-tx)*(ty+ry)  *lfn(i,j+2)     &
-             +      tx*(1-ty-ry)*lfn(i+1,j+1)       &
-             +      tx*(ty+ry)  *lfn(i+1,j+2)
+                    (1-tx)*(1-tyy)*lfn(i,j+1)     &
+             +      (1-tx)*(tyy)  *lfn(i,j+2)     &
+             +      tx*(1-tyy)*lfn(i+1,j+1)       &
+             +      tx*(tyy)  *lfn(i+1,j+2)
              lffi1j1 =                                &
-                      (1-tx-rx)*(1-ty-ry)*lfn(i+1,j+1)     &
-               +      (1-tx-rx)*(ty+ry)  *lfn(i+1,j+2)     &        
-               +      (tx+rx)*(1-ty-ry)*lfn(i+2,j+1)       &
-               +      (tx+rx)*(ty+ry)  *lfn(i+2,j+2)
+                      (1-txx)*(1-tyy)*lfn(i+1,j+1)     &
+               +      (1-txx)*(tyy)  *lfn(i+1,j+2)     &        
+               +      (txx)*(1-tyy)*lfn(i+2,j+1)       &
+               +      (txx)*(tyy)  *lfn(i+2,j+2)
 
                                                                                    
 !!             end if                  
