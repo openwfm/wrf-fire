@@ -310,10 +310,10 @@ call interpolate_2d(  &
 
 !!! NEW VERSION
 ! given i,j
- i2=ir*ceiling(i/ir);
- ii2=ir*ceiling((i+1)/ir);
- j2=jr*ceiling(j/jr);
- jj2=jr*ceiling((j+1)/jr);
+ i2=ir*ceiling(real(i)/real(ir));
+ ii2=ir*ceiling(real(i+1)/real(ir));
+ j2=jr*ceiling(real(j)/real(jr));
+ jj2=jr*ceiling(real(j+1)/real(jr));
  rio=i2+FRACTION(rip1);
  riio=ii2+FRACTION(rip1);
  rjo=j2+FRACTION(rjp1);
@@ -344,16 +344,6 @@ call interpolate_2d(  &
                +      (txx)*(tyy)  *lfn(i+2,j+2)
 
                                                                                    
-!!             end if                  
-                  ! rjo=rjp1+jr*(j2-rjp2)
-                  ! rio=rip1+ir*(i2-rip2)
-                  ! ty = (j1-rjo)*ry
-                  ! tx = (i1-rio)*rx
-                       ! v1(i1,j1)=                     &
-                       !  (1-tx)*(1-ty)*v2(i2,j2)  &
-                       !    +    (1-tx)*ty  *v2(i2,j2+1)      &
-                       !    +            tx*(1-ty)*v2(i2+1,j2)     &
-                       !    +           tx*ty*v2(i2+1,j2+1)
           
           if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
