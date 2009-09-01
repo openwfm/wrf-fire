@@ -343,17 +343,7 @@ call interpolate_2d(  &
                +      (txx)*(1-tyy)*lfn(i+2,j+1)       &
                +      (txx)*(tyy)  *lfn(i+2,j+2)
 
-                                                                                   
-!!             end if                  
-                  ! rjo=rjp1+jr*(j2-rjp2)
-                  ! rio=rip1+ir*(i2-rip2)
-                  ! ty = (j1-rjo)*ry
-                  ! tx = (i1-rio)*rx
-                       ! v1(i1,j1)=                     &
-                       !  (1-tx)*(1-ty)*v2(i2,j2)  &
-                       !    +    (1-tx)*ty  *v2(i2,j2+1)      &
-                       !    +            tx*(1-ty)*v2(i2+1,j2)     &
-                       !    +           tx*ty*v2(i2+1,j2+1)
+                                                                            
           
           if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
