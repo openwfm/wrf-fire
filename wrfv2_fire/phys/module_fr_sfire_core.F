@@ -309,15 +309,15 @@ call interpolate_2d(  &
                   jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
 
 !!! NEW VERSION
-! given i,j
- i2=ir*ceiling(real(i)/real(ir));
- ii2=ir*ceiling(real(i+1)/real(ir));
- j2=jr*ceiling(real(j)/real(jr));
- jj2=jr*ceiling(real(j+1)/real(jr));
- rio=i2+FRACTION(rip1);
- riio=ii2+FRACTION(rip1);
- rjo=j2+FRACTION(rjp1);
- rjjo=jj2+FRACTION(rjp1);
+! given i,j 
+ i2=ir*ceiling(real(i-ceiling(rip1))/real(ir));
+ ii2=ir*ceiling(real(i+1-ceiling(rip1))/real(ir));
+ j2=jr*ceiling(real(j-ceiling(rjp1))/real(jr));
+ jj2=jr*ceiling(real(j+1-ceiling(rjp1))/real(jr));
+ rio=i2+rip1;
+ riio=ii2+rip1;
+ rjo=j2+rjp1;
+ rjjo=jj2+rjp1;
  ty=(j-rjo)/jr;
  tyy=(j-rjjo)/jr;
  tx=(i-rio)/ir;
