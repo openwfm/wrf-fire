@@ -318,10 +318,10 @@ call interpolate_2d(  &
  riio=ii2+rip1;
  rjo=j2+rjp1;
  rjjo=jj2+rjp1;
- ty=(j-rjo)/jr;
- tyy=(j-rjjo)/jr;
- tx=(i-rio)/ir;
- txx=(i-riio)/ir;
+ ty=real(j-rjo)/real(jr);
+ tyy=real(j+1-rjjo)/real(jr);
+ tx=real(i-rio)/real(ir);
+ txx=real(i+1-riio)/real(ir);
              lffij=                   &    
                   (1-tx)*(1-ty)*lfn(i,j)      &
              +    (1-tx)*ty  *lfn(i,j+1)      &
