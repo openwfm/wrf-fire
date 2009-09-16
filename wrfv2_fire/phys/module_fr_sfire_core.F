@@ -308,40 +308,75 @@ call interpolate_2d(  &
                   iccell=its+(i-1)/ir  ! the nearest coarse node
                   jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
 
-!!! NEW VERSION
+!!! NEW VERSION just or case ir=jr=2, later will do more general
+if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
+i2=icl-1
+j2=jcl-1
+ty=ry
+tx=rx
+tyy=2*ry
+rxx=2*rx
+endif
+if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
+i2=icl-1
+j2=jcl
+!rjo=rjp1+jr*(j2-rjp2)
+!rio=rip1+ir*(i2-rip2)
+ty=0
+tx=rx
+tyy=ry
+txx=2*rx
+endif
+if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
+i2=icl
+j2=jcl-1
+tx=0
+ty=ry
+txx=rx
+tyy=2*ry
+endif
+if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
+i2=icl
+j2=jcl
+tx=0
+ty=0
+txx=rx
+tyy=ry
+endif
+!
 ! given i,j 
- i2=ir*ceiling(real(i)/real(ir))
- ii2=ir*ceiling(real(i+1)/real(ir))
- j2=jr*ceiling(real(j)/real(jr))
- jj2=jr*ceiling(real(j+1)/real(jr))
- rio=i2+FRACTION(rip1);
- riio=ii2+FRACTION(rip1);
- rjo=j2+FRACTION(rjp1);
- rjjo=jj2+FRACTION(rjp1);
- ty=(j-rjo)/jr;
- tyy=(j-rjjo)/jr;
- tx=(i-rio)/ir;
- txx=(i-riio)/ir;
+! i2=ir*ceiling(real(i)/real(ir))
+! ii2=ir*ceiling(real(i+1)/real(ir))
+! j2=jr*ceiling(real(j)/real(jr))
+! jj2=jr*ceiling(real(j+1)/real(jr))
+! rio=i2+FRACTION(rip1);
+! riio=ii2+FRACTION(rip1);
+! rjo=j2+FRACTION(rjp1);
+! rjjo=jj2+FRACTION(rjp1);
+! ty=(j-rjo)/jr;
+! tyy=(j-rjjo)/jr;
+! tx=(i-rio)/ir;
+! txx=(i-riio)/ir;
              lffij=                   &    
-                  (1-tx)*(1-ty)*lfn(i,j)      &
-             +    (1-tx)*ty  *lfn(i,j+1)      &
-             +     tx*(1-ty)*lfn(i+1,j)       &
-             +       tx*ty  *lfn(i+1,j+1)
+                  (1-tx)*(1-ty)*lfn(i2,j2)      &
+             +    (1-tx)*ty  *lfn(i2,j2+1)      &
+             +     tx*(1-ty)*lfn(i2+1,j2)       &
+             +       tx*ty  *lfn(i2+1,j2+1)
              lffi1j=                             &
-                    (1-txx)*(1-ty)*lfn(i+1,j)  &
-             +      (1-txx)*ty  *lfn(i+1,j+1)  &
-             +      (txx)*(1-ty)*lfn(i+2,j)    &
-             +      (txx)*ty  *lfn(i+2,j+1)
+                    (1-txx)*(1-ty)*lfn(i2,j2)  &
+             +      (1-txx)*ty  *lfn(i2,j2+1)  &
+             +      (txx)*(1-ty)*lfn(i2+1,j2)    &
+             +      (txx)*ty  *lfn(i2+1,j2+1)
              lffij1=                                &
-                    (1-tx)*(1-tyy)*lfn(i,j+1)     &
-             +      (1-tx)*(tyy)  *lfn(i,j+2)     &
-             +      tx*(1-tyy)*lfn(i+1,j+1)       &
-             +      tx*(tyy)  *lfn(i+1,j+2)
+                    (1-tx)*(1-tyy)*lfn(i2,j2)     &
+             +      (1-tx)*(tyy)  *lfn(i2,j2+1)     &
+             +      tx*(1-tyy)*lfn(i2+1,j2)       &
+             +      tx*(tyy)  *lfn(i2+1,j2+1)
              lffi1j1 =                                &
-                      (1-txx)*(1-tyy)*lfn(i+1,j+1)     &
-               +      (1-txx)*(tyy)  *lfn(i+1,j+2)     &        
-               +      (txx)*(1-tyy)*lfn(i+2,j+1)       &
-               +      (txx)*(tyy)  *lfn(i+2,j+2)
+                      (1-txx)*(1-tyy)*lfn(i,j)     &
+               +      (1-txx)*(tyy)  *lfn(i,j+1)     &        
+               +      (txx)*(1-tyy)*lfn(i+1,j)       &
+               +      (txx)*(tyy)  *lfn(i+1,j+1)
 
                                                                             
           
