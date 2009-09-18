@@ -75,7 +75,8 @@ use module_fr_sfire_util
    REAL, PARAMETER :: cmbcnst  = 17.433e+06             ! J/kg dry fuel
    REAL, PARAMETER :: hfgl     = 17.e4                  ! W/m^2
    REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
-   REAL, PARAMETER :: fuelmc_g = 0.08                   ! set = 0 for dry ground fuel
+!   REAL, PARAMETER :: fuelmc_g = 0.08                   ! set = 0 for dry ground fuel
+   REAL, PARAMETER :: fuelmc_g = 0.09                   ! set = 0 for dry ground fuel
    REAL, PARAMETER :: fuelmc_c = 1.00                   ! set = 0 for dry canopy
    REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
    !real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
@@ -88,7 +89,8 @@ use module_fr_sfire_util
                                             fueldepthm,fueldens,fuelmce,   &
                                             savr,st,se
 
-   DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
+!   DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
+   DATA fgi / 0.166, 0.897, 1.076, 2.468, 0.785, 1.345, 1.092, &
               1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7 /
    DATA fueldepthm /0.305,  0.305,  0.762, 1.829, 0.61,  0.762,0.762, &
                     0.0610, 0.0610, 0.305, 0.305, 0.701, 0.914, 0.305 /
