@@ -125,11 +125,13 @@ subroutine init_fuel_cats
 implicit none
 !*** purpose: initialize fuel tables and variables by constants
 !*** arguments: none
-!$OMP integer, external: OMP_GET_THREAD_NUM
+!$OMP integer, external:: OMP_GET_THREAD_NUM
+logical, external:: wrf_dm_on_monitor
 !*** local
 integer:: i,iounit,ierr
 character(len=30):: filename
 character(len=128):: msg
+logical::op
 !*** executable
 
 ! read 
@@ -141,17 +143,25 @@ namelist /fuel_categories/ fgi,fueldepthm,savr, &
 !$OMP    call crash('init_fuel_cats called from parallel loop')
 !$OMP endif
 
-!IF ( wrf_dm_on_monitor() ) THEN
-IF ( .false. ) THEN
-    iounit=19
+IF ( wrf_dm_on_monitor() ) THEN
+! IF ( .false. ) THEN
+    do iounit=19,99
+       inquire(iounit,opened=op)
+       if(.not.op)goto 1
+    enddo
+    call crash('init_fuel_cats: cannot find any available I/O unit')
+1   continue
     filename='namelist.fire'
-    OPEN(19, FILE=filename,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+    OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
     if(ierr.ne.0)then 
-        msg='init_fuel_cats:Cannot open file '//filename
+        msg='init_fuel_cats: Cannot open file '//filename
         call crash(msg)
     endif
     read(iounit,fuel_scalars)
     read(iounit,fuel_categories)
+    CLOSE(iounit)
+    msg = 'Read fuel constants from file '//filename
+    call message(msg)
 ENDIF
 call wrf_dm_bcast_real(cmbcnst,1)
 call wrf_dm_bcast_real(hfgl,1)
