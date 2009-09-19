@@ -145,8 +145,8 @@ CC_TOOLS        =      $(SCC)
 #ARCH    x86_64 Linux, gfortran compiler with gcc  #serial smpar dmpar dm+sm
 #
 DMPARALLEL      =       # 1 
-OMPCPP          =       # -D_OPENMP
-OMP             =       # -fopenmp
+OMPCPP          =       -D_OPENMP
+OMP             =       -fopenmp
 SFC             =       gfortran
 SCC             =       gcc 
 DM_FC           =       mpif90 -f90=$(SFC)
