@@ -125,7 +125,7 @@ subroutine init_fuel_cats
 implicit none
 !*** purpose: initialize fuel tables and variables by constants
 !*** arguments: none
-!$OMP integer, external:: OMP_GET_THREAD_NUM
+!$ integer, external:: OMP_GET_THREAD_NUM
 logical, external:: wrf_dm_on_monitor
 !*** local
 integer:: i,iounit,ierr
@@ -139,9 +139,9 @@ namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats
 namelist /fuel_categories/ fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap
 
-!$OMP if (OMP_GET_THREAD_NUM() .ne. 0)then
-!$OMP    call crash('init_fuel_cats called from parallel loop')
-!$OMP endif
+!$ if (OMP_GET_THREAD_NUM() .ne. 0)then
+!$    call crash('init_fuel_cats called from parallel loop')
+!$ endif
 
 IF ( wrf_dm_on_monitor() ) THEN
 ! IF ( .false. ) THEN
