@@ -72,59 +72,115 @@ use module_fr_sfire_util
 !  FUEL MODEL 14: no fuel??
 !
 
-   REAL, PARAMETER :: cmbcnst  = 17.433e+06             ! J/kg dry fuel
-   REAL, PARAMETER :: hfgl     = 17.e4                  ! W/m^2
-   REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
-   REAL, PARAMETER :: fuelmc_g = 0.08                   ! set = 0 for dry ground fuel
-   REAL, PARAMETER :: fuelmc_c = 1.00                   ! set = 0 for dry canopy
-   REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
-   !real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
-   !real, parameter :: cp      =  7.*287./2              ! to make it selfcontained
-   
+! defaults, may be changed in init_fuel_cats
+   REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c
+   DATA cmbcnst  / 17.433e+06/             ! J/kg dry fuel
+   DATA hfgl     / 17.e4 /                ! W/m^2
+   DATA fuelmc_g / 0.08  /                ! set = 0 for dry ground fuel
+   DATA fuelmc_c / 1.00  /                ! set = 0 for dry canopy
+!  REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
+!  REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
+!  real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
+!  real, parameter :: cp      =  7.*287./2              ! to make it selfcontained
 
-   INTEGER, PARAMETER :: nfuelcats = 14
-   INTEGER, DIMENSION( nfuelcats ), save :: ichap
-   REAL   , DIMENSION( nfuelcats ), save :: weight,fgi,fci,fci_d,fct,fcbr, &
+! computed values
+   REAL, SAVE:: bmst,fuelheat
+
+! fuel categorytables
+   INTEGER, PARAMETER:: nf=14
+   INTEGER, save :: nfuelcats = nf 
+   INTEGER, PARAMETER :: mfuelcats = 20, zf = mfuelcats-nf 
+   INTEGER, DIMENSION( mfuelcats ), save :: ichap
+   REAL   , DIMENSION( mfuelcats ), save :: weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
                                             savr,st,se
 
    DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
-              1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7 /
+              1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7, zf*0.  /
    DATA fueldepthm /0.305,  0.305,  0.762, 1.829, 0.61,  0.762,0.762, &
-                    0.0610, 0.0610, 0.305, 0.305, 0.701, 0.914, 0.305 /
+                    0.0610, 0.0610, 0.305, 0.305, 0.701, 0.914, 0.305,zf*0. /
    DATA savr / 3500., 2784., 1500., 1739., 1683., 1564., 1562.,  &
-               1889., 2484., 1764., 1182., 1145., 1159., 3500. /
+               1889., 2484., 1764., 1182., 1145., 1159., 3500., zf*0. /
    DATA fuelmce / 0.12, 0.15, 0.25, 0.20, 0.20, 0.25, 0.40,  &
-                  0.30, 0.25, 0.25, 0.15, 0.20, 0.25, 0.12  / 
-   DATA fueldens / nfuelcats * 32. /   ! 32 if solid, 19 if rotten.
-   DATA st / nfuelcats* 0.0555 /
-   DATA se / nfuelcats* 0.010 /
+                  0.30, 0.25, 0.25, 0.15, 0.20, 0.25, 0.12 , zf*0. / 
+   DATA fueldens / nf * 32., zf*0. /   ! 32 if solid, 19 if rotten.
+   DATA st / nf* 0.0555 , zf*0./
+   DATA se / nf* 0.010 , zf*0./
 ! ----- Notes on weight: (4) - best fit of Latham data;
 !                 (5)-(7) could be 60-120; (8)-(10) could be 300-1600;
 !                 (11)-(13) could be 300-1600
    DATA weight / 7.,  7.,  7., 180., 100., 100., 100.,  &
-              900., 900., 900., 900., 900., 900., 7. / 
+              900., 900., 900., 900., 900., 900., 7. , zf*0./ 
 ! ----- 1.12083 is 5 tons/acre.  5-50 tons/acre orig., 100-300 after blowdown
    DATA fci_d / 0., 0., 0., 1.123, 0., 0., 0.,  &
-            1.121, 1.121, 1.121, 1.121, 1.121, 1.121, 0./
+            1.121, 1.121, 1.121, 1.121, 1.121, 1.121, 0., zf*0./
    DATA fct / 60., 60., 60., 60., 60., 60., 60.,  &
-            60., 120., 180., 180., 180., 180. , 60.    /
-   DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 / 
+            60., 120., 180., 180., 180., 180. , 60. , zf*0.   /
+   DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , zf*0/ 
 ! =========================================================================
 
 contains
    
 subroutine init_fuel_cats
 implicit none
-!*** purpose: initialize fuel tables by constants
+!*** purpose: initialize fuel tables and variables by constants
 !*** arguments: none
+!$OMP integer, external: OMP_GET_THREAD_NUM
 !*** local
-integer:: nf      
+integer:: i,iounit,ierr
+character(len=30):: filename
+character(len=128):: msg
 !*** executable
 
-DO nf = 1,nfuelcats
-    fci(nf) = (1.+fuelmc_c)*fci_d(nf)
-    fcbr(nf) = fci_d(nf)/fct(nf)
+! read 
+namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats
+namelist /fuel_categories/ fgi,fueldepthm,savr, &
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap
+
+!$OMP if (OMP_GET_THREAD_NUM() .ne. 0)then
+!$OMP    call crash('init_fuel_cats called from parallel loop')
+!$OMP endif
+
+!IF ( wrf_dm_on_monitor() ) THEN
+IF ( .false. ) THEN
+    iounit=19
+    filename='namelist.fire'
+    OPEN(19, FILE=filename,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+    if(ierr.ne.0)then 
+        msg='init_fuel_cats:Cannot open file '//filename
+        call crash(msg)
+    endif
+    read(iounit,fuel_scalars)
+    read(iounit,fuel_categories)
+ENDIF
+call wrf_dm_bcast_real(cmbcnst,1)
+call wrf_dm_bcast_real(hfgl,1)
+call wrf_dm_bcast_real(fuelmc_g,1)
+call wrf_dm_bcast_real(fuelmc_c,1)
+call wrf_dm_bcast_real(nfuelcats,1)
+call wrf_dm_bcast_integer(nfuelcats,1)
+call wrf_dm_bcast_real(fgi,mfuelcats)
+call wrf_dm_bcast_real(fueldepthm,mfuelcats)
+call wrf_dm_bcast_real(savr,mfuelcats)
+call wrf_dm_bcast_real(fuelmce,mfuelcats)
+call wrf_dm_bcast_real(fueldens,mfuelcats)
+call wrf_dm_bcast_real(st,mfuelcats)
+call wrf_dm_bcast_real(se,mfuelcats)
+call wrf_dm_bcast_real(weight,mfuelcats)
+call wrf_dm_bcast_real(fci_d,mfuelcats)
+call wrf_dm_bcast_real(fct,mfuelcats)
+call wrf_dm_bcast_integer(ichap,mfuelcats)
+
+! compute derived scalars
+
+bmst     = fuelmc_g/(1+fuelmc_g)
+fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
+
+! compute derived fuel category coefficients 
+
+DO i = 1,nfuelcats
+    fci(i) = (1.+fuelmc_c)*fci_d(i)
+    fcbr(i) = fci_d(i)/max(fct(i),1e-14) ! to avoid division by zero
 END DO
       
 end subroutine init_fuel_cats
