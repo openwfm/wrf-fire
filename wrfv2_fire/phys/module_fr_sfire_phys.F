@@ -69,7 +69,7 @@ use module_fr_sfire_util
 !  FUEL MODEL 11: Light logging slash
 !  FUEL MODEL 12: Medium logging slash
 !  FUEL MODEL 13: Heavy logging slash
-!  FUEL MODEL 14: no fuel??
+!  FUEL MODEL 14: no fuel
 !
 
 ! scalar fuel coefficients
@@ -89,9 +89,11 @@ use module_fr_sfire_util
 
 
 ! fuel categorytables
-   INTEGER, PARAMETER:: nf=14
-   INTEGER, save :: nfuelcats = nf 
-   INTEGER, PARAMETER :: mfuelcats = 30, zf = mfuelcats-nf 
+   INTEGER, PARAMETER :: nf=14              ! fuel cats in data stmts, for fillers only`
+   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, 
+   INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
+   INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
+   INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
@@ -134,7 +136,7 @@ character(len=128):: msg
 !*** executable
 
 ! read 
-namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats
+namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat
 namelist /fuel_categories/ fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap
 
@@ -144,23 +146,33 @@ IF ( wrf_dm_on_monitor() ) THEN
     read(iounit,fuel_categories)
     CLOSE(iounit)
 ENDIF
+    
+if (nfuelcats>mfuelcats) then
+    write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
+    call crash(msg)
+endif
+if (no_fuel_cat >= 1 .and. no_fuel_cat <= nfuelcats)then
+    write(msg,*)'no_fuel_cat=',no_fuel_cat,' may not be between 1 and nfuelcats=',nfuelcats
+    call crash(msg)
+endif
+
 call wrf_dm_bcast_real(cmbcnst,1)
 call wrf_dm_bcast_real(hfgl,1)
 call wrf_dm_bcast_real(fuelmc_g,1)
 call wrf_dm_bcast_real(fuelmc_c,1)
-call wrf_dm_bcast_real(nfuelcats,1)
 call wrf_dm_bcast_integer(nfuelcats,1)
-call wrf_dm_bcast_real(fgi,mfuelcats)
-call wrf_dm_bcast_real(fueldepthm,mfuelcats)
-call wrf_dm_bcast_real(savr,mfuelcats)
-call wrf_dm_bcast_real(fuelmce,mfuelcats)
-call wrf_dm_bcast_real(fueldens,mfuelcats)
-call wrf_dm_bcast_real(st,mfuelcats)
-call wrf_dm_bcast_real(se,mfuelcats)
-call wrf_dm_bcast_real(weight,mfuelcats)
-call wrf_dm_bcast_real(fci_d,mfuelcats)
-call wrf_dm_bcast_real(fct,mfuelcats)
-call wrf_dm_bcast_integer(ichap,mfuelcats)
+call wrf_dm_bcast_integer(no_fuel_cat,1)
+call wrf_dm_bcast_real(fgi,       nfuelcats)
+call wrf_dm_bcast_real(fueldepthm,nfuelcats)
+call wrf_dm_bcast_real(savr,      nfuelcats)
+call wrf_dm_bcast_real(fuelmce,   nfuelcats)
+call wrf_dm_bcast_real(fueldens,  nfuelcats)
+call wrf_dm_bcast_real(st,        nfuelcats)
+call wrf_dm_bcast_real(se,        nfuelcats)
+call wrf_dm_bcast_real(weight,    nfuelcats)
+call wrf_dm_bcast_real(fci_d,     nfuelcats)
+call wrf_dm_bcast_real(fct,       nfuelcats)
+call wrf_dm_bcast_integer(ichap,  nfuelcats)
 
 ! compute derived scalars
 
@@ -178,19 +190,25 @@ DO i = 1,nfuelcats
     endif
 END DO
 
+! prints
+
 call message('**********************************************************')
 call message('FUEL COEFFICIENTS')
-write(msg,8)'cmbcnst ',cmbcnst
+write(msg,8)'cmbcnst    ',cmbcnst
 call message(msg)
-write(msg,8)'hfgl    ',hfgl
+write(msg,8)'hfgl       ',hfgl
 call message(msg)
-write(msg,8)'fuelmc_g',fuelmc_g
+write(msg,8)'fuelmc_g   ',fuelmc_g
 call message(msg)
-write(msg,8)'fuelmc_c',fuelmc_c
+write(msg,8)'fuelmc_c   ',fuelmc_c
 call message(msg)
-write(msg,8)'bmst    ',bmst
+write(msg,8)'bmst       ',bmst
 call message(msg)
-write(msg,8)'fuelheat',fuelheat
+write(msg,8)'fuelheat   ',fuelheat
+call message(msg)
+write(msg,7)'nfuelcats  ',nfuelcats
+call message(msg)
+write(msg,7)'no_fuel_cat',no_fuel_cat
 call message(msg)
 
 j=5
@@ -275,14 +293,25 @@ character(len=128)::msg
 
 nerr=0
 do j=jfts,jfte
-    do i=ifts,ifte
-
-        ! fuel time constant, cell based
-        k=int( nfuel_cat(i,j) )
+   do i=ifts,ifte
+     ! fuel category 
+     k=int( nfuel_cat(i,j) )
+     if(k.eq.no_fuel_cat)then   ! no fuel 
+        fgip(i,j)=0.            ! no mass 
+        ischap(i,j)=0
+        betafl(i,j)=0.          ! to prevent division by zero
+        bbb(i,j)=1.             !
+        fuel_time(i,j)=7./0.85  ! does not matter, just what was there before
+        phiwc(i,j)=0.
+        r_0(i,j)=0.             ! no fuel, no spread.
+     else
         if(k.eq.0.and.nfuel_cat0.ge.1.and.nfuel_cat0.le.nfuelcats)then
+            ! replace k=0 by default
             k=nfuel_cat0
             nerr=nerr+1
-        elseif(k.lt.1.or.k.gt.nfuelcats)then
+        endif
+   
+        if(k.lt.1.or.k.gt.nfuelcats)then
             write(msg,'(3(a,i5))')'nfuel_cat(', i ,',',j,')=',k
             call message(msg)
             call crash('set_fire_params: fuel category out of bounds')
@@ -341,8 +370,8 @@ do j=jfts,jfte
 !        ... r_0 is the spread rate for a fire on flat ground with no wind.
 
         r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
-        if (k .eq. 14) r_0(i,j)=0.     ! no fuel, no spread.
-    enddo
+     endif
+  enddo
 enddo
 
 if(nerr.gt.1)then
