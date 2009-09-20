@@ -1510,7 +1510,7 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
             if(fire_grows_only.gt.0)rr=max(rr,0.)
 
             ! set ros for output
-            if(i.ge.its.and.i.le.ite.and.j.gt.jts.and.j.le.jte)ros(i,j)=rr
+            if(i.ge.its.and.i.le.ite.and.j.ge.jts.and.j.le.jte)ros(i,j)=rr
 
             if(fire_upwind_split.eq.0)then
 
