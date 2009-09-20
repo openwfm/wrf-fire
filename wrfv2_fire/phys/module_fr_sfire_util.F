@@ -85,6 +85,38 @@ end subroutine message
 !****************
 !
 
+
+integer function open_input_text_file(filename)
+implicit none
+character(len=*),intent(in):: filename
+!$ integer, external:: OMP_GET_THREAD_NUM
+character(len=128):: msg
+integer::iounit,ierr
+logical::op
+
+!$  if (OMP_GET_THREAD_NUM() .ne. 0)then
+!$     call crash('open_input_text_file: called from parallel loop')
+!$  endif
+
+    do iounit=19,99
+       inquire(iounit,opened=op)
+       if(.not.op)goto 1
+    enddo
+    call crash('open_input_text_file: Cannot find any available I/O unit')
+1   continue
+    OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+    if(ierr.ne.0)then 
+	write(msg,*)'open_input_text_file: Cannot open file ',filename
+        call crash(msg)
+    endif
+    open_input_text_file=iounit
+end function open_input_text_file
+
+!
+!****************
+!
+
+
 subroutine set_ideal_coord( dxf,dyf, &
                 ifds,ifde,jfds,jfde,  &
                 ifms,ifme,jfms,jfme,  &
