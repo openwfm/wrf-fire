@@ -172,7 +172,7 @@ function run_wrf_input {
   if [ $targ = em_fire ] ; then
     cp ${sounding} input_sounding
     cp ${ideal_nml} namelist.input
-    cp ${ideal_fire_nml} namlist.fire
+    cp ${ideal_fire_nml} namelist.fire
     ideallog="${name}_ideal.log"
     ./ideal.exe &> $ideallog
     if [ ! -f wrfinput_d01 ] ; then
