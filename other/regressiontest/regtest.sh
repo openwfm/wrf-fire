@@ -10,6 +10,8 @@ logdir=${scratch}/${user}/regtest_${hashid}
 ideal_nml=${regdir}/namelist.ideal
 real_nml=${regdir}/namelist.real
 sounding=${regdir}/input_sounding
+ideal_fire_nml=${regdir}/namelist.fire.ideal
+real_fire_nml=${regdir}/namelist.fire.real
 metdata=${regdir}
 nameprefix="std_"
 numprocs=8
@@ -110,19 +112,19 @@ else
   lout="${realout}"
 fi
 
-if [ $copt -eq 1 ] ; then
+if [ $copt -eq 5 ] ; then
   nproc=1
   nthread=1
   usempi=false
-elif [ $copt -eq 2 ] ; then
+elif [ $copt -eq 6 ] ; then
   nproc=1
   nthread=$maxthreads
   usempi=false
-elif [ $copt -eq 3 ] ; then
+elif [ $copt -eq 7 ] ; then
   nproc=$maxprocs
   nthread=1
   usempi=true
-elif [ $copt -eq 4 ] ; then
+elif [ $copt -eq 8 ] ; then
   nproc=$maxprocs
   nthread=$maxthreads
   usempi=true
@@ -170,6 +172,7 @@ function run_wrf_input {
   if [ $targ = em_fire ] ; then
     cp ${sounding} input_sounding
     cp ${ideal_nml} namelist.input
+    cp ${ideal_fire_nml} namlist.fire
     ideallog="${name}_ideal.log"
     ./ideal.exe &> $ideallog
     if [ ! -f wrfinput_d01 ] ; then
@@ -179,6 +182,7 @@ function run_wrf_input {
     mv wrfbdy_d01 wrfbdy_ideal &> /dev/null
   else
     cp ${real_nml} namelist.input
+    cp ${real_fire_nml} namelist.fire
     reallog="${name}_real.log"
     ln -sf ${metdata}/met_em* .
     ./real.exe &> ${reallog}
@@ -219,7 +223,7 @@ if [ ! -d ${logdir} ] ; then
 fi
 
 info_header
-for copt in 1 2 3 4 ; do
+for copt in 5 6 7 8 ; do
 
   for nest in 0 1 ; do
 

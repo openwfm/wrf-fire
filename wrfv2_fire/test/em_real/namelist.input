@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 5,
+ run_minutes                         = 1,
  run_seconds                         = 0,
  start_year                          = 2005,
  start_month                         = 08,
@@ -17,10 +17,10 @@
  end_second                          = 00,
  interval_seconds                    = 21600
  input_from_file                     = .true.,
- history_interval_s                  = 1,
+ history_interval                    = 1,
  frames_per_outfile                  = 1000,
  restart                             = .false.,
- restart_interval                    = 1,
+ restart_interval                    = 100,
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
@@ -71,8 +71,6 @@
  icloud                              = 0,
  surface_input_source                = 1,
  num_soil_layers                     = 5,
- sf_urban_physics                    = 0,
- mp_zero_out                         = 0,
  maxiens                             = 1,
  maxens                              = 3,
  maxens2                             = 3,
@@ -104,14 +102,28 @@
  h_sca_adv_order                     = 5,
  v_sca_adv_order                     = 3,
  non_hydrostatic                     = .true.,
- moist_adv_opt                       = 1,      1,      1,    
- scalar_adv_opt                      = 1,      1,      1,    
  /
 
 &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
- ifire              = 2,    ! integer, = 0: no fire, = 2: turn on fire model
- fire_fuel_read     = -1,   ! integer, -1 = WPS, 0= use fire_fuel_cat, 1= by altitude
+ ifire              = 2,    ! integer, = 0: no fire, = 1: CAWFE 2: SFIRE 
+!
+! CAWFE variables (NOTE: may or may not work. I do not maintain the cawfe path any more. JM)
+!
+!fire_lat_init      =   40.,    ! real   , initial fire latitude (deg)
+!fire_lon_init      = -105.,    ! real   , initial fire longitude (deg)
+ fire_lat_init      = 6.75e-3,  ! real   , initial fire latitude (deg)
+ fire_lon_init      = 6.70e-3,  ! real   , initial fire longitude (deg)
+ fire_ign_time      = 30.,      ! real   , time of fire ignition (s)
+ fire_shape         = 1,    ! integer, initial fire shape
+ fire_sprd_mdl      = 1,    ! integer, = 0: Macarthur, = 1: BEHAVE
+ fire_crwn_hgt      = 15.,  ! real   , height of canopy crown (m)
+ fire_ext_grnd      = 50.,  ! real   , extinction coeff ground fire
+ fire_ext_crwn      = 50.,  ! real   , extinction coeff crown fire 
+ fire_fuel_read     = -1,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
+!
+! SFIRE
+!
 ! ignition
  fire_num_ignitions = 3,        ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_start_long1=-107.293664, ! start points of ignition lines, longitude 
@@ -134,11 +146,10 @@
  fire_ignition_time3  =      4, ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 1,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
+ fire_print_msg     = 0,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
  fire_print_file    = 0,    ! 1 to write text output files for matlab
 !
-! for developers only *do not change*
-!
+! method selections for experiments, *do not change*
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
  fire_fuel_left_method=1,       ! 1=simple algebraic, 2=exact quadrature and least squares
  fire_fuel_left_irl=2,          ! refinement to integrate fuel_left, must be even
@@ -149,7 +160,7 @@
  fire_upwinding=3,              ! 0=none, 1=standard, 2=godunov, 3=eno, 4=sethian
  fire_lfn_ext_up=1.0,           ! 0.=extend level set function at boundary by reflection, 1.=always up
  fire_test_steps=0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
- fire_topo_from_atm=0,          ! 0 = expect fire mesh topo set correctly on entry, 1 = populate by interpolating from atmosphere
+ fire_topo_from_atm=1,          ! 0 = expect fire mesh topo set correctly on entry, 1 = populate by interpolating from atmosphere
  /
 
   &bdy_control
