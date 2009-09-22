@@ -315,25 +315,25 @@ j2=jcl-1
 ty=ry
 tx=rx
 tyy=2*ry
-rxx=2*rx
-endif
-if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
-i2=icl-1
-j2=jcl
-!rjo=rjp1+jr*(j2-rjp2)
-!rio=rip1+ir*(i2-rip2)
-ty=0
-tx=rx
-tyy=ry
 txx=2*rx
 endif
-if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
+if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
 i2=icl
 j2=jcl-1
-tx=0
+!rjo=rjp1+jr*(j2-rjp2)
+!rio=rip1+ir*(i2-rip2)
 ty=ry
-txx=rx
+tx=0
 tyy=2*ry
+txx=rx
+endif
+if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
+i2=icl-1
+j2=jcl
+tx=rx
+ty=0
+txx=2*rx
+tyy=ry
 endif
 if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
 i2=icl
@@ -373,12 +373,14 @@ endif
              +      tx*(1-tyy)*lfn(i2+1,j2)       &
              +      tx*(tyy)  *lfn(i2+1,j2+1)
              lffi1j1 =                                &
-                      (1-txx)*(1-tyy)*lfn(i,j)     &
-               +      (1-txx)*(tyy)  *lfn(i,j+1)     &        
-               +      (txx)*(1-tyy)*lfn(i+1,j)       &
-               +      (txx)*(tyy)  *lfn(i+1,j+1)
+                      (1-txx)*(1-tyy)*lfn(i2,j2)     &
+               +      (1-txx)*(tyy)  *lfn(i2,j2+1)     &        
+               +      (txx)*(1-tyy)*lfn(i2+1,j2)       &
+               +      (txx)*(tyy)  *lfn(i2+1,j2+1)
 
-                                                                            
+
+!print *,'isubcl',isubcl,'jsubcl',jsubcl,lffij,lffi1j,lffij1,lffi1j1
+!print *,'icl jcl',icl,jcl                                                                            
           
           if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
