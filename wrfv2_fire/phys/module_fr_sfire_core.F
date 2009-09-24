@@ -221,16 +221,12 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,iccell,jccell,ir,jr,icl,jcl,isubcl,jsubcl,joff,ioff,i2,j2,ii2,jj2
-real::xfcell,yfcell,fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry,rip2,rip1,rjp1,rjp2
+integer::i,j,ir,jr,icl,jcl,isubcl,jsubcl,i2,j2
+real::fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry
 ! help variables instead of arrays fuel_left_f and fire_area_f 
-real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,rio,rjo,txx,tyy,riio,rjjo
-! variables for calculation instead of lff(i,j) is lffij etc...
-intrinsic::ceiling,FRACTION
-#define IFCELLS (ite-its+1)*fuel_left_irl
+real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,txx,tyy
+! variables for calculation instead of lff(i,j) and tif(i,j)is lffij,tifij etc..#define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
-real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
-real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
 character(len=128)::msg
 integer::m,omp_get_thread_num
      
@@ -243,32 +239,8 @@ ir=fuel_left_irl
 jr=fuel_left_jrl
 rx=1./ir 
 ry=1./jr
-rip2=real(its)
-rjp2=real(jts)
-rip1=1+ir/2.
-rjp1=1+jr/2.
 
 ! interpolate level set function to finer grid
-call interpolate_2d(  &
-    ims,ime,jms,jme,         & ! array coarse grid
-    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
-    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
-    ir,jr,                   & ! refinement ratio
-    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
-    lfn, &                     ! in coarse grid  
-    lff  )                     ! out fine grid
-
-call interpolate_2d(  &
-    ims,ime,jms,jme,         & ! array coarse grid
-    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
-    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
-    ir,jr,                   & ! refinement ratio
-    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
-    tign, &                     ! in coarse grid  
-    tif  )                     ! out fine grid
-
 #ifdef DEBUG_OUT_FUEL_LEFT    
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,lff,'lff',0)
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,tif,'tif',0)
@@ -285,30 +257,19 @@ call interpolate_2d(  &
 
 
 
-! %% Loop over cells in Tile (by VK)
-! %% icl(old)=icl(new)-its+1
-! %% jcl(old)=jcl(new)-jts+1
-!rem  do icl=1,ite-its+1
-!rem     do jcl=1,jte-jts+1
-!substitutions to  apply this to the code that has been done before
-!rem              i=(icl-1)*ir+isubcl
-!rem                 j=(jcl-1)*jr+jsubcl
-
-   do icl=its,ite
+!  Loop over cells in Tile 
+!  Changes made by Volodymyr Kondratenko 09/24/2009
+do icl=its,ite
       do jcl=jts,jte
         helpsum1=0
         helpsum2=0
-
-
-! %% Loop over subcells in cell #(icl,jcl)
+!  Loop over subcells in cell #(icl,jcl)
          do isubcl=1,ir
-             do jsubcl=1,jr                                                         
+             do jsubcl=1,jr 
                   i=(icl-its)*ir+isubcl
                   j=(jcl-jts)*jr+jsubcl
-                  iccell=its+(i-1)/ir  ! the nearest coarse node
-                  jccell=jts+(j-1)/jr  ! use fuel_time of the coarse cell the fine cell is in
 
-!!! NEW VERSION just or case ir=jr=2, later will do more general
+! Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
 if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
 i2=icl-1
 j2=jcl-1
@@ -320,8 +281,6 @@ endif
 if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
 i2=icl
 j2=jcl-1
-!rjo=rjp1+jr*(j2-rjp2)
-!rio=rip1+ir*(i2-rip2)
 ty=ry
 tx=0
 tyy=2*ry
@@ -342,57 +301,61 @@ tx=0
 ty=0
 txx=rx
 tyy=ry
-endif
-!
-! given i,j 
-! i2=ir*ceiling(real(i)/real(ir))
-! ii2=ir*ceiling(real(i+1)/real(ir))
-! j2=jr*ceiling(real(j)/real(jr))
-! jj2=jr*ceiling(real(j+1)/real(jr))
-! rio=i2+FRACTION(rip1);
-! riio=ii2+FRACTION(rip1);
-! rjo=j2+FRACTION(rjp1);
-! rjjo=jj2+FRACTION(rjp1);
-! ty=(j-rjo)/jr;
-! tyy=(j-rjjo)/jr;
-! tx=(i-rio)/ir;
-! txx=(i-riio)/ir;
-             lffij=                   &    
+endif             
+             lffij=                             &    
                   (1-tx)*(1-ty)*lfn(i2,j2)      &
              +    (1-tx)*ty  *lfn(i2,j2+1)      &
              +     tx*(1-ty)*lfn(i2+1,j2)       &
              +       tx*ty  *lfn(i2+1,j2+1)
-             lffi1j=                             &
+             lffi1j=                           &
                     (1-txx)*(1-ty)*lfn(i2,j2)  &
              +      (1-txx)*ty  *lfn(i2,j2+1)  &
-             +      (txx)*(1-ty)*lfn(i2+1,j2)    &
+             +      (txx)*(1-ty)*lfn(i2+1,j2)  &
              +      (txx)*ty  *lfn(i2+1,j2+1)
-             lffij1=                                &
-                    (1-tx)*(1-tyy)*lfn(i2,j2)     &
-             +      (1-tx)*(tyy)  *lfn(i2,j2+1)     &
-             +      tx*(1-tyy)*lfn(i2+1,j2)       &
+             lffij1=                            &
+                    (1-tx)*(1-tyy)*lfn(i2,j2)   &
+             +      (1-tx)*(tyy)  *lfn(i2,j2+1) &
+             +      tx*(1-tyy)*lfn(i2+1,j2)     &
              +      tx*(tyy)  *lfn(i2+1,j2+1)
-             lffi1j1 =                                &
+             lffi1j1 =                               &
                       (1-txx)*(1-tyy)*lfn(i2,j2)     &
-               +      (1-txx)*(tyy)  *lfn(i2,j2+1)     &        
-               +      (txx)*(1-tyy)*lfn(i2+1,j2)       &
+               +      (1-txx)*(tyy)  *lfn(i2,j2+1)   &        
+               +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
                +      (txx)*(tyy)  *lfn(i2+1,j2+1)
 
+            tifij=                                 &
+                  (1-tx)*(1-ty)*tign(i2,j2)        &
+            +     (1-tx)*ty*tign(i2,j2+1)          &
+            +     tx*(1-ty)*tign(i2+1,j2)          &
+            +     tx*ty*tign(i2+1,j2+1)
+            tifi1j=                               &
+                  (1-txx)*(1-ty)*tign(i2,j2)      &
+            +     (1-txx)*ty*tign(i2,j2+1)        &
+            +     (txx)*(1-ty)*tign(i2+1,j2)      &
+            +     (txx)*(tyy)*tign(i2+1,j2+1)
+            tifij1=                               &
+                  (1-tx)*(1-tyy)*tign(i2,j2)      &
+            +     (1-tx)*(tyy)*tign(i2,j2+1)      &
+            +      tx*(1-tyy)*tign(i2+1,j2)       &
+            +      tx*(tyy)*tign(i2+1,j2+1)
+            tifi1j1=                               &
+                  (1-txx)*(1-tyy)*tign(i2,j2)     &
+            +     (1-txx)*(tyy)*tign(i2,j2+1)     &
+            +     (txx)*(1-tyy)*tign(i2+1,j2)     &
+            +     (txx)*(tyy)*tign(i2+1,j2+1) 
 
-!print *,'isubcl',isubcl,'jsubcl',jsubcl,lffij,lffi1j,lffij1,lffi1j1
-!print *,'icl jcl',icl,jcl                                                                            
           
           if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
                  lffij,lffij1,lffi1j,lffi1j1,&
-                 tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
-                 time_now, fuel_time(iccell,jccell))
+                 tifij,tifij1,tifi1j,tifi1j1,&
+                 time_now, fuel_time(icl,jcl))
         elseif(fuel_left_method.eq.2)then
              fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
              fuel_left_ff=fuel_left_cell_2( &
                  lffij,lffij1,lffi1j,lffi1j1,&
-                 tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
-                 time_now, fuel_time(iccell,jccell)) 
+                 tifij,tifij1,tifi1j,tifi1j1,&
+                 time_now, fuel_time(icl,jcl)) 
         else
              call crash('fuel_left: unknown fuel_left_method')
         endif
@@ -415,28 +378,7 @@ endif
 
      enddo 
    enddo
-
-
-
-
-
-! sum up over subcells in each cell
-!helpsum1=0    we put this before the loops over subcells
-!helpsum2=0
-!do joff=0,jr-1      no need, same loop is up
-!   j2=joff+(jcl-jts)*jr+1  
-!      do ioff=0,ir-1
-!         i2=ioff+(icl-its)*ir+1    same as before  i2=i, j2=j
-!         helpsum1=helpsum1+fuel_left_f(i2,j2)
-!         helpsum2=helpsum2+fire_area_f(i2,j2)
-!      enddo
-!enddo
-!
-!fuel_frac(icl,jcl)=helpsum1                                                
-!fire_area(icl,jcl)=helpsum2                                                                                                             
-!       enddo
-!    enddo
-
+  
 
 
 
@@ -1038,6 +980,7 @@ else
                 a0=(1./2.)*(xt1-xt2)*(xt1+xt2)
                 s3=a0+a1*ae+a2*ae**2; ! approximate the integral
                             end if
+
             s3=ah*s3                                                
             out=out+s1+s2+s3
             out=1-out !fuel_left
