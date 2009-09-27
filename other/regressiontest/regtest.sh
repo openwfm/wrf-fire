@@ -6,7 +6,7 @@ regdir=${gittop}/other/regressiontest
 scratch=/scratch
 user=${USER}
 hashid=$(git rev-parse HEAD)
-logdir=${scratch}/${user}/regtest_${hashid}
+logdir=${scratch}/${user}/ifort_regtest_${hashid}
 ideal_nml=${regdir}/namelist.ideal
 real_nml=${regdir}/namelist.real
 sounding=${regdir}/input_sounding
@@ -194,17 +194,31 @@ function run_wrf_input {
   fi
 }
 
+function copynamelist_real {
+  cp ${sounding} input_sounding
+  cp ${real_nml} namelist.input
+  cp ${real_fire_nml} namelist.fire
+}
+
+function copynamelist_ideal {
+  cp ${sounding} input_sounding
+  cp ${ideal_nml} namelist.input
+  cp ${ideal_fire_nml} namelist.fire
+}
+
 function get_wrf_input {
 if [ $targ = em_fire ] ; then
   if [ ! -f wrfinput_ideal ] ; then
     run_wrf_input
   fi
+  copynamelist_ideal
   cp wrfinput_ideal wrfinput_d01 &> /dev/null
   cp wrfbdy_ideal wrfbdy_d01 &> /dev/null
 else
   if [ ! -f wrfinput_real ] ; then
     run_wrf_input
   fi
+  copynamelist_real
   cp wrfinput_real wrfinput_d01 &> /dev/null
   cp wrfbdy_real wrfbdy_d01 &> /dev/null
 fi
@@ -225,9 +239,9 @@ fi
 info_header
 for copt in 5 6 7 8 ; do
 
-  for nest in 0 1 ; do
+  for nest in 1 ; do
 
-    for dbg in 1 0 ; do
+    for dbg in 1 ; do
 
       cd ${toplevel}
       ./clean -a &> /dev/null
