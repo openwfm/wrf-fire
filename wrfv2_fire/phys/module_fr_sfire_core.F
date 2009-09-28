@@ -237,6 +237,11 @@ call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
 ! refinement
 ir=fuel_left_irl
 jr=fuel_left_jrl
+
+if ((ir.ne.2).or.(jr.ne.2)) then 
+   call crash('Error sub.fuel_left: ir.ne.2 or jr.ne.2 ')
+endif
+
 rx=1./ir 
 ry=1./jr
 
@@ -270,47 +275,48 @@ do icl=its,ite
                   j=(jcl-jts)*jr+jsubcl
 
 ! Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
-if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
-i2=icl-1
-j2=jcl-1
-ty=ry
-tx=rx
-tyy=2*ry
-txx=2*rx
-endif
-if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
-i2=icl
-j2=jcl-1
-ty=ry
-tx=0
-tyy=2*ry
-txx=rx
-endif
-if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
-i2=icl-1
-j2=jcl
-tx=rx
-ty=0
-txx=2*rx
-tyy=ry
-endif
-if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
-i2=icl
-j2=jcl
-tx=0
-ty=0
-txx=rx
-tyy=ry
-endif             
+               if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
+                   i2=icl-1
+                   j2=jcl-1
+                   ty=ry
+                   tx=rx
+                   tyy=2*ry
+                   txx=2*rx
+               else if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
+                   i2=icl
+                   j2=jcl-1
+                   ty=ry
+                   tx=0
+                   tyy=2*ry
+                   txx=rx
+               else if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
+                   i2=icl-1
+                   j2=jcl
+                   tx=rx
+                   ty=0
+                   txx=2*rx
+                   tyy=ry
+               else if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
+                   i2=icl
+                   j2=jcl
+                   tx=0
+                   ty=0
+                   txx=rx
+                   tyy=ry
+               else
+                   call crash('Error sub.fuel_left: isubcl,jsubcl should be only 1 or 2')
+               endif 
+
+! calculation lff and tif in 4 endpoints of subcell                    
              lffij=                             &    
                   (1-tx)*(1-ty)*lfn(i2,j2)      &
              +    (1-tx)*ty  *lfn(i2,j2+1)      &
              +     tx*(1-ty)*lfn(i2+1,j2)       &
              +       tx*ty  *lfn(i2+1,j2+1)
-             lffi1j=                           &
-                    (1-txx)*(1-ty)*lfn(i2,j2)  &
-             +      (1-txx)*ty  *lfn(i2,j2+1)  &
-             +      (txx)*(1-ty)*lfn(i2+1,j2)  &
+             lffi1j=                            &
+                    (1-txx)*(1-ty)*lfn(i2,j2)   &
+             +      (1-txx)*ty  *lfn(i2,j2+1)   &
+             +      (txx)*(1-ty)*lfn(i2+1,j2)   &
              +      (txx)*ty  *lfn(i2+1,j2+1)
              lffij1=                            &
                     (1-tx)*(1-tyy)*lfn(i2,j2)   &
@@ -323,29 +329,29 @@ endif
                +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
                +      (txx)*(tyy)  *lfn(i2+1,j2+1)
 
-            tifij=                                 &
-                  (1-tx)*(1-ty)*tign(i2,j2)        &
-            +     (1-tx)*ty*tign(i2,j2+1)          &
-            +     tx*(1-ty)*tign(i2+1,j2)          &
-            +     tx*ty*tign(i2+1,j2+1)
-            tifi1j=                               &
-                  (1-txx)*(1-ty)*tign(i2,j2)      &
-            +     (1-txx)*ty*tign(i2,j2+1)        &
-            +     (txx)*(1-ty)*tign(i2+1,j2)      &
-            +     (txx)*(tyy)*tign(i2+1,j2+1)
-            tifij1=                               &
-                  (1-tx)*(1-tyy)*tign(i2,j2)      &
-            +     (1-tx)*(tyy)*tign(i2,j2+1)      &
-            +      tx*(1-tyy)*tign(i2+1,j2)       &
-            +      tx*(tyy)*tign(i2+1,j2+1)
-            tifi1j1=                               &
-                  (1-txx)*(1-tyy)*tign(i2,j2)     &
-            +     (1-txx)*(tyy)*tign(i2,j2+1)     &
-            +     (txx)*(1-tyy)*tign(i2+1,j2)     &
-            +     (txx)*(tyy)*tign(i2+1,j2+1) 
+             tifij=                                 &
+                   (1-tx)*(1-ty)*tign(i2,j2)        &
+             +     (1-tx)*ty*tign(i2,j2+1)          &
+             +     tx*(1-ty)*tign(i2+1,j2)          &
+             +     tx*ty*tign(i2+1,j2+1)
+             tifi1j=                               &
+                   (1-txx)*(1-ty)*tign(i2,j2)      &
+             +     (1-txx)*ty*tign(i2,j2+1)        &
+             +     (txx)*(1-ty)*tign(i2+1,j2)      &
+             +     (txx)*(tyy)*tign(i2+1,j2+1)
+             tifij1=                               &
+                   (1-tx)*(1-tyy)*tign(i2,j2)      &
+             +     (1-tx)*(tyy)*tign(i2,j2+1)      &
+             +      tx*(1-tyy)*tign(i2+1,j2)       &
+             +      tx*(tyy)*tign(i2+1,j2+1)
+             tifi1j1=                               &
+                   (1-txx)*(1-tyy)*tign(i2,j2)     &
+             +     (1-txx)*(tyy)*tign(i2,j2+1)     &
+             +     (txx)*(1-tyy)*tign(i2+1,j2)     &
+             +     (txx)*(tyy)*tign(i2+1,j2+1) 
 
           
-          if(fuel_left_method.eq.1)then
+         if(fuel_left_method.eq.1)then
             call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
                  lffij,lffij1,lffi1j,lffi1j1,&
                  tifij,tifij1,tifi1j,tifi1j1,&
@@ -370,14 +376,12 @@ endif
 
          helpsum1=helpsum1+fuel_left_ff
          helpsum2=helpsum2+fire_area_ff
-
-            enddo
-         enddo
-    fuel_frac(icl,jcl)=helpsum1 
-    fire_area(icl,jcl)=helpsum2
-
-     enddo 
-   enddo
+       enddo
+     enddo
+     fuel_frac(icl,jcl)=helpsum1 
+     fire_area(icl,jcl)=helpsum2
+  enddo 
+enddo
   
 
 
