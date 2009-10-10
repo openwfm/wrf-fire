@@ -278,31 +278,31 @@ do icl=its,ite
                if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
                    i2=icl-1
                    j2=jcl-1
-                   ty=ry
-                   tx=rx
-                   tyy=2*ry
-                   txx=2*rx
+                   ty=0.5
+                   tx=0.5
+                   tyy=1.0
+                   txx=1.0
                else if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
                    i2=icl
                    j2=jcl-1
-                   ty=ry
+                   ty=0.5
                    tx=0
-                   tyy=2*ry
-                   txx=rx
+                   tyy=1.0
+                   txx=0.5
                else if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
                    i2=icl-1
                    j2=jcl
-                   tx=rx
+                   tx=0.5
                    ty=0
-                   txx=2*rx
-                   tyy=ry
+                   txx=1.0
+                   tyy=0.5
                else if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
                    i2=icl
                    j2=jcl
                    tx=0
                    ty=0
-                   txx=rx
-                   tyy=ry
+                   txx=0.5
+                   tyy=0.5
                else
                    call crash('Error sub.fuel_left: isubcl,jsubcl should be only 1 or 2')
                endif 
@@ -338,7 +338,7 @@ do icl=its,ite
                    (1-txx)*(1-ty)*tign(i2,j2)      &
              +     (1-txx)*ty*tign(i2,j2+1)        &
              +     (txx)*(1-ty)*tign(i2+1,j2)      &
-             +     (txx)*(tyy)*tign(i2+1,j2+1)
+             +     (txx)*(ty)*tign(i2+1,j2+1)            
              tifij1=                               &
                    (1-tx)*(1-tyy)*tign(i2,j2)      &
              +     (1-tx)*(tyy)*tign(i2,j2+1)      &
