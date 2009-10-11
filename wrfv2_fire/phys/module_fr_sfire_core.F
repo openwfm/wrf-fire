@@ -221,12 +221,12 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,iccell,jccell,ir,jr
-real::xfcell,yfcell,fmax,frat
-#define IFCELLS (ite-its+1)*fuel_left_irl
+integer::i,j,ir,jr,icl,jcl,isubcl,jsubcl,i2,j2
+real::fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry
+! help variables instead of arrays fuel_left_f and fire_area_f 
+real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,txx,tyy
+! variables for calculation instead of lff(i,j) and tif(i,j)is lffij,tifij etc..#define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
-real,dimension(1:IFCELLS+1,1:JFCELLS+1)::lff,tif
-real,dimension(1:IFCELLS,1:JFCELLS)::fuel_left_f, fire_area_f
 character(len=128)::msg
 integer::m,omp_get_thread_num
      
@@ -238,27 +238,14 @@ call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
 ir=fuel_left_irl
 jr=fuel_left_jrl
 
+if ((ir.ne.2).or.(jr.ne.2)) then 
+   call crash('Error sub.fuel_left: ir.ne.2 or jr.ne.2 ')
+endif
+
+rx=1./ir 
+ry=1./jr
+
 ! interpolate level set function to finer grid
-call interpolate_2d(  &
-    ims,ime,jms,jme,         & ! array coarse grid
-    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
-    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
-    ir,jr,                   & ! refinement ratio
-    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
-    lfn, &                     ! in coarse grid  
-    lff  )                     ! out fine grid
-
-call interpolate_2d(  &
-    ims,ime,jms,jme,         & ! array coarse grid
-    its-1,ite+1,jts-1,jte+1, & ! dimensions coarse grid used
-    1,IFCELLS+1,1,JFCELLS+1,     & ! array fine grid dims
-    1,IFCELLS+1,1,JFCELLS+1,     & ! dimensions fine grid used
-    ir,jr,                   & ! refinement ratio
-    real(its),real(jts),1+ir/2.,1+jr/2.,  & ! (ip2,jp2) on coarse lines up with (ip1,jp1) on fine grid 
-    tign, &                     ! in coarse grid  
-    tif  )                     ! out fine grid
-
 #ifdef DEBUG_OUT_FUEL_LEFT    
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,lff,'lff',0)
     call write_array_m(1,IFCELLS+1,1,JFCELLS+1,1,IFCELLS+1,1,JFCELLS+1,tif,'tif',0)
@@ -273,53 +260,131 @@ call interpolate_2d(  &
 !           fine node 1           2           3                   2*(ite-its+1) 
 !                fine cell  1           2                             cell 2*(ite-its+1)
 
-do j=1,JFCELLS
-    do i=1,IFCELLS
-        iccell=its+(i-1)/ir ! the nearest coarse node
-        jccell=jts+(j-1)/jr ! use fuel_time of the coarse cell the fine cell is in
-        if(fuel_left_method.eq.1)then
-            call fuel_left_cell_1( fuel_left_f(i,j), fire_area_f(i,j), &
-                 lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
-                 tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
-                 time_now, fuel_time(iccell,jccell))
+
+
+!  Loop over cells in Tile 
+!  Changes made by Volodymyr Kondratenko 09/24/2009
+do icl=its,ite
+      do jcl=jts,jte
+        helpsum1=0
+        helpsum2=0
+!  Loop over subcells in cell #(icl,jcl)
+         do isubcl=1,ir
+             do jsubcl=1,jr 
+                  i=(icl-its)*ir+isubcl
+                  j=(jcl-jts)*jr+jsubcl
+
+! Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
+               if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
+                   i2=icl-1
+                   j2=jcl-1
+                   ty=0.5
+                   tx=0.5
+                   tyy=1.0
+                   txx=1.0
+               else if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
+                   i2=icl
+                   j2=jcl-1
+                   ty=0.5
+                   tx=0
+                   tyy=1.0
+                   txx=0.5
+               else if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
+                   i2=icl-1
+                   j2=jcl
+                   tx=0.5
+                   ty=0
+                   txx=1.0
+                   tyy=0.5
+               else if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
+                   i2=icl
+                   j2=jcl
+                   tx=0
+                   ty=0
+                   txx=0.5
+                   tyy=0.5
+               else
+                   call crash('Error sub.fuel_left: isubcl,jsubcl should be only 1 or 2')
+               endif 
+
+! calculation lff and tif in 4 endpoints of subcell                    
+             lffij=                             &    
+                  (1-tx)*(1-ty)*lfn(i2,j2)      &
+             +    (1-tx)*ty  *lfn(i2,j2+1)      &
+             +     tx*(1-ty)*lfn(i2+1,j2)       &
+             +       tx*ty  *lfn(i2+1,j2+1)
+             lffi1j=                            &
+                    (1-txx)*(1-ty)*lfn(i2,j2)   &
+             +      (1-txx)*ty  *lfn(i2,j2+1)   &
+             +      (txx)*(1-ty)*lfn(i2+1,j2)   &
+             +      (txx)*ty  *lfn(i2+1,j2+1)
+             lffij1=                            &
+                    (1-tx)*(1-tyy)*lfn(i2,j2)   &
+             +      (1-tx)*(tyy)  *lfn(i2,j2+1) &
+             +      tx*(1-tyy)*lfn(i2+1,j2)     &
+             +      tx*(tyy)  *lfn(i2+1,j2+1)
+             lffi1j1 =                               &
+                      (1-txx)*(1-tyy)*lfn(i2,j2)     &
+               +      (1-txx)*(tyy)  *lfn(i2,j2+1)   &        
+               +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
+               +      (txx)*(tyy)  *lfn(i2+1,j2+1)
+
+             tifij=                                 &
+                   (1-tx)*(1-ty)*tign(i2,j2)        &
+             +     (1-tx)*ty*tign(i2,j2+1)          &
+             +     tx*(1-ty)*tign(i2+1,j2)          &
+             +     tx*ty*tign(i2+1,j2+1)
+             tifi1j=                               &
+                   (1-txx)*(1-ty)*tign(i2,j2)      &
+             +     (1-txx)*ty*tign(i2,j2+1)        &
+             +     (txx)*(1-ty)*tign(i2+1,j2)      &
+             +     (txx)*(ty)*tign(i2+1,j2+1)            
+             tifij1=                               &
+                   (1-tx)*(1-tyy)*tign(i2,j2)      &
+             +     (1-tx)*(tyy)*tign(i2,j2+1)      &
+             +      tx*(1-tyy)*tign(i2+1,j2)       &
+             +      tx*(tyy)*tign(i2+1,j2+1)
+             tifi1j1=                               &
+                   (1-txx)*(1-tyy)*tign(i2,j2)     &
+             +     (1-txx)*(tyy)*tign(i2,j2+1)     &
+             +     (txx)*(1-tyy)*tign(i2+1,j2)     &
+             +     (txx)*(tyy)*tign(i2+1,j2+1) 
+
+          
+         if(fuel_left_method.eq.1)then
+            call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
+                 lffij,lffij1,lffi1j,lffi1j1,&
+                 tifij,tifij1,tifi1j,tifi1j1,&
+                 time_now, fuel_time(icl,jcl))
         elseif(fuel_left_method.eq.2)then
-             fire_area_f(i,j)=0  ! initialize to something until computed in fuel_left_f(i,j)
-             fuel_left_f(i,j)=fuel_left_cell_2( &
-                 lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1),&
-                 tif(i,j),tif(i,j+1),tif(i+1,j),tif(i+1,j+1),&
-                 time_now, fuel_time(iccell,jccell)) 
+             fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
+             fuel_left_ff=fuel_left_cell_2( &
+                 lffij,lffij1,lffi1j,lffi1j1,&
+                 tifij,tifij1,tifi1j,tifi1j1,&
+                 time_now, fuel_time(icl,jcl)) 
         else
              call crash('fuel_left: unknown fuel_left_method')
         endif
 
         ! consistency check
-        if(fire_area_f(i,j).lt.-1e-6 .or.  &
-          (fire_area_f(i,j).eq.0. .and. fuel_left_f(i,j).lt.1.-1e-6))then
+        if(fire_area_ff.lt.-1e-6 .or.  &
+          (fire_area_ff.eq.0. .and. fuel_left_ff.lt.1.-1e-6))then
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
-                    ' of refined mesh fuel burnt',1-fuel_left_f(i,j),' fire area',fire_area_f(i,j)
+                    ' of refined mesh fuel burnt',1-fuel_left_ff,' fire area',fire_area_ff
                call crash(msg)
         endif
-    enddo
+
+         helpsum1=helpsum1+fuel_left_ff
+         helpsum2=helpsum2+fire_area_ff
+       enddo
+     enddo
+     fuel_frac(icl,jcl)=helpsum1 
+     fire_area(icl,jcl)=helpsum2
+  enddo 
 enddo
-
-! sum up over subcells
-
-call sum_2d_cells(       &
-       1,IFCELLS,1,JFCELLS,    &
-       1,IFCELLS,1,JFCELLS,    &
-       fuel_left_f,            &  ! input       
-       ifs,ife,jfs,jfe,        &
-       its,ite,jts,jte,        &
-       fuel_frac)                 ! output
+  
 
 
-call sum_2d_cells(       &
-       1,IFCELLS,1,JFCELLS,    &
-       1,IFCELLS,1,JFCELLS,    &
-       fire_area_f,            &  ! input       
-       ims,ime,jms,jme,        &
-       its,ite,jts,jte,        &
-       fire_area)                 ! output
 
 #ifdef DEBUG_OUT_FUEL_LEFT
     call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,fire_area,'fire_area',0)
@@ -919,6 +984,7 @@ else
                 a0=(1./2.)*(xt1-xt2)*(xt1+xt2)
                 s3=a0+a1*ae+a2*ae**2; ! approximate the integral
                             end if
+
             s3=ah*s3                                                
             out=out+s1+s2+s3
             out=1-out !fuel_left
