@@ -21,17 +21,21 @@ END MODULE module_wrf_error
 SUBROUTINE wrf_message( str )
   IMPLICIT NONE
   CHARACTER*(*) str
+!$OMP CRITICAL 
 #if defined( DM_PARALLEL ) && ! defined( STUBMPI) 
   write(0,*) TRIM(str)
 #endif
   print*, TRIM(str)
+!$OMP END CRITICAL 
 END SUBROUTINE wrf_message
 
 ! intentionally write to stderr only
 SUBROUTINE wrf_message2( str )
   IMPLICIT NONE
   CHARACTER*(*) str
+!$OMP CRITICAL 
   write(0,*) str
+!$OMP END CRITICAL 
 END SUBROUTINE wrf_message2
 
 SUBROUTINE wrf_error_fatal3( file_str, line, str )
@@ -45,6 +49,7 @@ SUBROUTINE wrf_error_fatal3( file_str, line, str )
   CHARACTER*(*) str
   CHARACTER*256 :: line_str
 
+!$OMP CRITICAL 
   write(line_str,'(i6)') line
 #if defined( DM_PARALLEL ) && ! defined( STUBMPI )
   CALL wrf_message( '-------------- FATAL CALLED ---------------' )
@@ -63,6 +68,7 @@ SUBROUTINE wrf_error_fatal3( file_str, line, str )
   CALL wrf_message2( str )
   CALL wrf_message2( '-------------------------------------------' )
 #endif
+!$OMP END CRITICAL 
 #ifdef ESMFIO
   CALL esmf_finalize(terminationflag=ESMF_ABORT)
 #endif
@@ -90,7 +96,9 @@ SUBROUTINE wrf_check_error( expected, actual, str, file_str, line )
   CHARACTER (LEN=512)   :: str_with_rc
 
   IF ( expected .ne. actual ) THEN
+!$OMP CRITICAL 
     WRITE (rc_str,*) '  Routine returned error code = ',actual
+!$OMP END CRITICAL 
     str_with_rc = TRIM(str // rc_str)
     CALL wrf_error_fatal3 ( file_str, line, str_with_rc )
   ENDIF

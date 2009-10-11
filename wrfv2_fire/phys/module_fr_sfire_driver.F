@@ -254,9 +254,10 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     itimestep=grid%itimestep
 
     
-
+!$OMP CRITICAL
     write(msg,'(a,i1,a,i1,a,i4)') &
        'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end,' test steps',tsteps
+!$OMP END CRITICAL
     call message(msg)
 
     do istep=0,tsteps ! istep >0 is for testing only, exit after the first call
@@ -547,6 +548,11 @@ if(itimestep.le.10.or.mod(itimestep,10).eq.0)pid=itimestep ! print 1-10 then eve
 !pid=itimestep
 
 
+write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
+call message(msg)
+7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
+write(msg,'(a,2i9)')'refinement ratio:',ir,jr
+
 ! fake atm tile bounds
 kts=kps
 kte=kpe
@@ -571,11 +577,17 @@ do ij=1,num_tiles
     jfts= (jts-jds)*jr+jfds       ! start fire tile in j
     jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
         
-    write(msg,*)'tile=',ij,' id=',id,' ifun=',ifun
+!$OMP CRITICAL
+    write(msg,'(a,i4,a,i10,a,i3)')'tile=',ij,' id=',id,' ifun=',ifun
+!$OMP END CRITICAL
     call message(msg)
+!$OMP CRITICAL
     write(msg,7001)'atm tile   ','its',its,ite,jts,jte
+!$OMP END CRITICAL
     call message(msg)                   
+!$OMP CRITICAL
     write(msg,7001)'fire tile  ','ifts',ifts,ifte,jfts,jfte
+!$OMP END CRITICAL
     call message(msg)                    
 
     ! check the tiles
@@ -583,11 +595,6 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts,ifte,jfts,jfte,ifps,ifpe,jfps,jfpe)         ! check if fire tile fits in fire patch
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
-
-    write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
-    call message(msg)
-    7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
-    write(msg,'(a,2i9)')'refinement ratio:',ir,jr
 
     if(ifun.eq.1)then   ! set terrain
 
@@ -608,7 +615,10 @@ do ij=1,num_tiles
                 zs,                                       & ! atm grid arrays in
                 zsf)                                      ! fire grid arrays out
         else
+!$OMP CRITICAL
            write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
+!$OMP END CRITICAL
+           call message(msg)                    
         endif
 
         if(ignition_longlat .eq.0)then
@@ -722,7 +732,6 @@ do ij=1,num_tiles
             its,ite,jts,jte,      &
             grnqfx)
 
-        write(msg,'(a,f6.3)')'fire-atmosphere feedback scaling ',fire_atm_feedback
         do j=jts,jte
             do i=its,ite
                 ! scale ground fluxes to get the averages

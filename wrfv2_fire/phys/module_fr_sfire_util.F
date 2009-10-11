@@ -934,7 +934,9 @@ character(len=128)msg
 character(len=24)id
 if(fire_print_msg.eq.0)return
 id=name
+!$OMP CRITICAL
 write(msg,'(a,4i4,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
+!$OMP END CRITICAL
 call message(msg)
 if(.not.avg_a.eq.avg_a)call crash('NaN detected')
 end subroutine print_stat_line
@@ -994,8 +996,6 @@ if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &
                          a,name)
-!!write(msg,'(2a,z16)')name,' address =',loc(a)
-!!call message(msg)
 end subroutine print_2d_stats
 
 real pure function avg_2darray( its,ite,jts,jte,               &
@@ -1089,6 +1089,7 @@ call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call wrf_get_nproc (nprocs)
 call wrf_get_myproc( myproc )
 
+!$OMP CRITICAL
 if(nprocs.eq.1)then
     write(fname,3)name,'_',id,'.txt'
 else
@@ -1099,7 +1100,6 @@ do ilen=len(fname),2,-1
 enddo
 19 continue
 
-!$OMP CRITICAL
 
 iu=0
 do i=6,99
@@ -1108,7 +1108,6 @@ do i=6,99
 enddo
 if(iu.gt.0)open(iu,file=fname(1:ilen),form='formatted',status='unknown')
 
-!$OMP END CRITICAL
 if(iu.le.0)call crash('write_array_m: cannot find available fortran unit')
 
 write(iu,1)real(its)
@@ -1121,6 +1120,7 @@ write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
 write(msg,2)name,'(',its,':',ite,',',jts,':',jte,',', &
 kts,':',kte,') -> ',fname(1:ilen) 
+!$OMP END CRITICAL
 call message(msg)
 return
 
