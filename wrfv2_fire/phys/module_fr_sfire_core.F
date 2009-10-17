@@ -325,9 +325,9 @@ do icl=its,ite
              +      tx*(tyy)  *lfn(i2+1,j2+1)
         lffi1j1 =                               &
                       (1-txx)*(1-tyy)*lfn(i2,j2)     &
-               +      (1-txx)*(tyy)  *lfn(i2,j2+1)   &        
-               +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
-               +      (txx)*(tyy)  *lfn(i2+1,j2+1)
+             +      (1-txx)*(tyy)  *lfn(i2,j2+1)   &        
+             +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
+             +      (txx)*(tyy)  *lfn(i2+1,j2+1)
         tifij=                                 &
                    (1-tx)*(1-ty)*tign(i2,j2)        &
              +     (1-tx)*ty*tign(i2,j2+1)          &
