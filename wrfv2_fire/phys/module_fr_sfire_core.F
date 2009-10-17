@@ -239,7 +239,7 @@ ir=fuel_left_irl
 jr=fuel_left_jrl
 
 if ((ir.ne.2).or.(jr.ne.2)) then 
-   call crash('Error sub.fuel_left: ir.ne.2 or jr.ne.2 ')
+   call crash('fuel_left: ir.ne.2 or jr.ne.2 ')
 endif
 
 rx=1./ir 
@@ -265,121 +265,120 @@ ry=1./jr
 !  Loop over cells in Tile 
 !  Changes made by Volodymyr Kondratenko 09/24/2009
 do icl=its,ite
-      do jcl=jts,jte
-        helpsum1=0
-        helpsum2=0
-!  Loop over subcells in cell #(icl,jcl)
-         do isubcl=1,ir
-             do jsubcl=1,jr 
-                  i=(icl-its)*ir+isubcl
-                  j=(jcl-jts)*jr+jsubcl
+  do jcl=jts,jte
+    helpsum1=0
+    helpsum2=0
+!   Loop over subcells in cell #(icl,jcl)
+    do isubcl=1,ir
+      do jsubcl=1,jr 
+        i=(icl-its)*ir+isubcl
+        j=(jcl-jts)*jr+jsubcl
 
-! Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
-               if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
-                   i2=icl-1
-                   j2=jcl-1
-                   ty=0.5
-                   tx=0.5
-                   tyy=1.0
-                   txx=1.0
-               else if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
-                   i2=icl
-                   j2=jcl-1
-                   ty=0.5
-                   tx=0
-                   tyy=1.0
-                   txx=0.5
-               else if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
-                   i2=icl-1
-                   j2=jcl
-                   tx=0.5
-                   ty=0
-                   txx=1.0
-                   tyy=0.5
-               else if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
-                   i2=icl
-                   j2=jcl
-                   tx=0
-                   ty=0
-                   txx=0.5
-                   tyy=0.5
-               else
-                   call crash('Error sub.fuel_left: isubcl,jsubcl should be only 1 or 2')
-               endif 
+!       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
+        if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
+           i2=icl-1
+           j2=jcl-1
+           ty=0.5
+           tx=0.5
+           tyy=1.0
+           txx=1.0
+        else if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
+           i2=icl
+           j2=jcl-1
+           ty=0.5
+           tx=0
+           tyy=1.0
+           txx=0.5
+        else if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
+           i2=icl-1
+           j2=jcl
+           tx=0.5
+           ty=0
+           txx=1.0
+           tyy=0.5
+        else if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
+           i2=icl
+           j2=jcl
+           tx=0
+           ty=0
+           txx=0.5
+           tyy=0.5
+        else
+           call crash('fuel_left: isubcl,jsubcl should be only 1 or 2')
+        endif 
 
 ! calculation lff and tif in 4 endpoints of subcell                    
-             lffij=                             &    
+        lffij=                             &    
                   (1-tx)*(1-ty)*lfn(i2,j2)      &
              +    (1-tx)*ty  *lfn(i2,j2+1)      &
              +     tx*(1-ty)*lfn(i2+1,j2)       &
              +       tx*ty  *lfn(i2+1,j2+1)
-             lffi1j=                            &
+        lffi1j=                            &
                     (1-txx)*(1-ty)*lfn(i2,j2)   &
              +      (1-txx)*ty  *lfn(i2,j2+1)   &
              +      (txx)*(1-ty)*lfn(i2+1,j2)   &
              +      (txx)*ty  *lfn(i2+1,j2+1)
-             lffij1=                            &
+        lffij1=                            &
                     (1-tx)*(1-tyy)*lfn(i2,j2)   &
              +      (1-tx)*(tyy)  *lfn(i2,j2+1) &
              +      tx*(1-tyy)*lfn(i2+1,j2)     &
              +      tx*(tyy)  *lfn(i2+1,j2+1)
-             lffi1j1 =                               &
+        lffi1j1 =                               &
                       (1-txx)*(1-tyy)*lfn(i2,j2)     &
                +      (1-txx)*(tyy)  *lfn(i2,j2+1)   &        
                +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
                +      (txx)*(tyy)  *lfn(i2+1,j2+1)
-
-             tifij=                                 &
+        tifij=                                 &
                    (1-tx)*(1-ty)*tign(i2,j2)        &
              +     (1-tx)*ty*tign(i2,j2+1)          &
              +     tx*(1-ty)*tign(i2+1,j2)          &
              +     tx*ty*tign(i2+1,j2+1)
-             tifi1j=                               &
+        tifi1j=                               &
                    (1-txx)*(1-ty)*tign(i2,j2)      &
              +     (1-txx)*ty*tign(i2,j2+1)        &
              +     (txx)*(1-ty)*tign(i2+1,j2)      &
              +     (txx)*(ty)*tign(i2+1,j2+1)            
-             tifij1=                               &
+        tifij1=                               &
                    (1-tx)*(1-tyy)*tign(i2,j2)      &
              +     (1-tx)*(tyy)*tign(i2,j2+1)      &
              +      tx*(1-tyy)*tign(i2+1,j2)       &
              +      tx*(tyy)*tign(i2+1,j2+1)
-             tifi1j1=                               &
+        tifi1j1=                               &
                    (1-txx)*(1-tyy)*tign(i2,j2)     &
              +     (1-txx)*(tyy)*tign(i2,j2+1)     &
              +     (txx)*(1-tyy)*tign(i2+1,j2)     &
              +     (txx)*(tyy)*tign(i2+1,j2+1) 
 
-          
-         if(fuel_left_method.eq.1)then
-            call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
-                 lffij,lffij1,lffi1j,lffi1j1,&
-                 tifij,tifij1,tifi1j,tifi1j1,&
-                 time_now, fuel_time(icl,jcl))
+         
+        if(fuel_left_method.eq.1)then
+          call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
+             lffij,lffij1,lffi1j,lffi1j1,&
+             tifij,tifij1,tifi1j,tifi1j1,&
+             time_now, fuel_time(icl,jcl))
         elseif(fuel_left_method.eq.2)then
-             fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
-             fuel_left_ff=fuel_left_cell_2( &
-                 lffij,lffij1,lffi1j,lffi1j1,&
-                 tifij,tifij1,tifi1j,tifi1j1,&
-                 time_now, fuel_time(icl,jcl)) 
+          fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
+          fuel_left_ff=fuel_left_cell_2( &
+             lffij,lffij1,lffi1j,lffi1j1,&
+             tifij,tifij1,tifi1j,tifi1j1,&
+             time_now, fuel_time(icl,jcl)) 
         else
-             call crash('fuel_left: unknown fuel_left_method')
+          call crash('fuel_left: unknown fuel_left_method')
         endif
 
         ! consistency check
         if(fire_area_ff.lt.-1e-6 .or.  &
           (fire_area_ff.eq.0. .and. fuel_left_ff.lt.1.-1e-6))then
-               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
-                    ' of refined mesh fuel burnt',1-fuel_left_ff,' fire area',fire_area_ff
-               call crash(msg)
+           write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
+              ' of refined mesh fuel burnt',1-fuel_left_ff,' fire area',fire_area_ff
+           call crash(msg)
         endif
 
-         helpsum1=helpsum1+fuel_left_ff
-         helpsum2=helpsum2+fire_area_ff
-       enddo
-     enddo
-     fuel_frac(icl,jcl)=helpsum1 
-     fire_area(icl,jcl)=helpsum2
+        helpsum1=helpsum1+fuel_left_ff
+        helpsum2=helpsum2+fire_area_ff
+      enddo
+    enddo
+    fuel_frac(icl,jcl)=helpsum1 
+    fire_area(icl,jcl)=helpsum2
   enddo 
 enddo
   
