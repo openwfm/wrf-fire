@@ -221,8 +221,8 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,ir,jr,icl,jcl,isubcl,jsubcl,i2,j2
-real::fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry
+integer::i,j,ir,jr,icl,jcl,isubcl,jsubcl,i2,j2,ii,jj
+real::fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry,tignf(2,2)
 ! help variables instead of arrays fuel_left_f and fire_area_f 
 real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,txx,tyy
 ! variables for calculation instead of lff(i,j) and tif(i,j)is lffij,tifij etc..#define IFCELLS (ite-its+1)*fuel_left_irl
@@ -328,26 +328,33 @@ do icl=its,ite
              +      (1-txx)*(tyy)  *lfn(i2,j2+1)   &        
              +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
              +      (txx)*(tyy)  *lfn(i2+1,j2+1)
+
+        ! get ready to fix up tign values to be interpolated
+        do ii=1,2
+          do jj=1,2
+            tignf(ii,jj)=tign(i2+ii-1,j2+jj-1)
+          enddo
+        enddo
         tifij=                                 &
-                   (1-tx)*(1-ty)*tign(i2,j2)        &
-             +     (1-tx)*ty*tign(i2,j2+1)          &
-             +     tx*(1-ty)*tign(i2+1,j2)          &
-             +     tx*ty*tign(i2+1,j2+1)
+                   (1-tx)*(1-ty)*tignf(1,1)        &
+             +     (1-tx)*ty*tignf(1,1+1)          &
+             +     tx*(1-ty)*tignf(1+1,1)          &
+             +     tx*ty*tignf(1+1,1+1)
         tifi1j=                               &
-                   (1-txx)*(1-ty)*tign(i2,j2)      &
-             +     (1-txx)*ty*tign(i2,j2+1)        &
-             +     (txx)*(1-ty)*tign(i2+1,j2)      &
-             +     (txx)*(ty)*tign(i2+1,j2+1)            
+                   (1-txx)*(1-ty)*tignf(1,1)      &
+             +     (1-txx)*ty*tignf(1,1+1)        &
+             +     (txx)*(1-ty)*tignf(1+1,1)      &
+             +     (txx)*(ty)*tignf(1+1,1+1)            
         tifij1=                               &
-                   (1-tx)*(1-tyy)*tign(i2,j2)      &
-             +     (1-tx)*(tyy)*tign(i2,j2+1)      &
-             +      tx*(1-tyy)*tign(i2+1,j2)       &
-             +      tx*(tyy)*tign(i2+1,j2+1)
+                   (1-tx)*(1-tyy)*tignf(1,1)      &
+             +     (1-tx)*(tyy)*tignf(1,1+1)      &
+             +      tx*(1-tyy)*tignf(1+1,1)       &
+             +      tx*(tyy)*tignf(1+1,1+1)
         tifi1j1=                               &
-                   (1-txx)*(1-tyy)*tign(i2,j2)     &
-             +     (1-txx)*(tyy)*tign(i2,j2+1)     &
-             +     (txx)*(1-tyy)*tign(i2+1,j2)     &
-             +     (txx)*(tyy)*tign(i2+1,j2+1) 
+                   (1-txx)*(1-tyy)*tignf(1,1)     &
+             +     (1-txx)*(tyy)*tignf(1,1+1)     &
+             +     (txx)*(1-tyy)*tignf(1+1,1)     &
+             +     (txx)*(tyy)*tignf(1+1,1+1) 
 
          
         if(fuel_left_method.eq.1)then
