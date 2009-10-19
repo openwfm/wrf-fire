@@ -52,7 +52,8 @@ use module_wrf_error
 implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
-msg='SFIRE:'//s
+msg='crash:'//s
+call message(msg)
 call wrf_error_fatal(msg)
 end subroutine crash
 
@@ -62,22 +63,24 @@ end subroutine crash
 
 subroutine message(s)
 use module_wrf_error
-!$ use OMP_LIB 
+#ifdef _OPENMP
+use OMP_LIB 
+#endif
 implicit none
 character(len=*), intent(in)::s
+! local
 character(len=128)msg
-character(len=1)thread
+character(len=2)t
 integer m
-m=-1
-!$     m=omp_get_thread_num()
-if (m<0) then
-    msg='SFIRE:'//s
-else
-    write(thread,'(i1,a)')m
-    msg='SFIRE'//thread//s
-endif
 if(fire_print_msg.gt.0)then
-call wrf_message(msg)
+#ifdef _OPENMP
+    m=omp_get_thread_num()
+    write(t,'(i2)')m
+    msg='SFIRE:'//t//':'//s
+#else
+    msg='SFIRE:'//s
+#endif
+    call wrf_message(msg)
 endif
 end subroutine message
 
@@ -163,7 +166,7 @@ real,intent(in)::bias                   ! 0=none, 1.=max
 integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain dims
     ips,ipe,jps,jpe, &                ! patch dims
-    its,ite,jts,jte                 ! tile dims
+    its,ite,jts,jte                   ! tile dims
 real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 !*** local
 integer i,j,itso,jtso,iteo,jteo
@@ -959,17 +962,11 @@ do j=jps,jpe
   do k=kps,kpe
     do i=ips,ipe
         aa=a(i,k,j)
-        if(aa.ne.aa)then
-            write(msg,1)name,i,k,j,'NaN'
-            call crash(msg)
-        endif
-        if(.not.aa.le.t)then
-            write(msg,1)name,i,k,j,'Inf'
-            call crash(msg)
-        endif
-        if(.not.aa.ge.-t)then
-            write(msg,1)name,i,k,j,'-Inf'
-            call crash(msg)
+        if(aa.ne.aa.or..not.aa.le.t.or..not.aa.ge.-t)then
+            write(msg,1)name,i,k,j,aa
+            call message(msg)
+            call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
+            call crash('invalid number')
         endif
         max_a=max(max_a,aa)
         min_a=min(min_a,aa)

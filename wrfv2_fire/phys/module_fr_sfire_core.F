@@ -1209,6 +1209,7 @@ real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
+integer::ihs2,ihe2,jhs2,jhe2
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)msg
 integer::nfirenodes,nfireline
@@ -1233,6 +1234,11 @@ call message(msg)
     
     ! tend = F(lfn)
 
+    ihs2=max(its-2,ids)   ! need lfn two beyond the tile but not outside the domain 
+    ihe2=min(ite+2,ide)
+    jhs2=max(jts-2,jds) 
+    jhe2=min(jte+2,jde)
+
     ihs=max(its-1,ids)   ! compute tend one beyond the tile but not outside the domain 
     ihe=min(ite+1,ide)
     jhs=max(jts-1,jds) 
@@ -1241,6 +1247,11 @@ call message(msg)
 #ifdef DEBUG_OUT    
     call write_array_m(ihs,ihe,jhs,jhe,ims,ime,jms,jme,lfn_in,'lfn_in',id)
 #endif
+
+    ! check array dimensions
+    call check_mesh_2dim(ihs2,ihe2,jhs2,jhe2,ims,ime,jms,jme)
+    call print_2d_stats(ihs2,ihe2,jhs2,jhe2,ims,ime,jms,jme, &
+                   lfn_in,'prop_ls: lfn in')
     
     ! NOTE: tend_ls will extrapolate to one node strip at domain boundaries
     ! so that it can compute gradient at domain boundaries.
@@ -1253,14 +1264,14 @@ call message(msg)
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde, &                       ! domain dims - where lfn exists
-    ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
+    ips,ipe,jps,jpe, &                       ! patch - nodes owned by this process 
     ihs,ihe,jhs,jhe, &                       ! where tend computed
     ims,ime,jms,jme, &                       ! memory dims for ros 
-    its,ite,jts,jte, &                       ! tile dims - where is ros set
-    ts,dt,dx,dy,      &                          ! scalars in
-    lfn_in, &                                   ! arrays in
+    its,ite,jts,jte, &                       ! tile dims - where to set ros
+    ts,dt,dx,dy,      &                      ! scalars in
+    lfn_in, &                                ! arrays in
     tbound, &                                ! scalars out 
-    tend, ros &                                   ! arrays out        
+    tend, ros &                              ! arrays out        
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
@@ -1279,6 +1290,8 @@ call message(msg)
         enddo
     enddo
     
+    call print_2d_stats(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE, &
+                   lfn1,'prop_ls: lfn1')
     ! tend = F(lfn1) on the tile (not beyond)
 
     if(id1.ne.0)id1=id1+1000
@@ -1286,14 +1299,14 @@ call message(msg)
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for lfn
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
     ids,ide,jds,jde,     &                   ! domain dims - where lfn exists
-    ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
+    ips,ipe,jps,jpe, &                       ! patch - nodes owned by this process 
     its,ite,jts,jte, &                       ! tile dims - where is tend computed
     ims,ime,jms,jme, &                       ! memory dims for ros 
     its,ite,jts,jte, &                       ! tile dims - where is ros set
-    ts+dt,dt,dx,dy,      &                          ! scalars in
-    lfn1, &                                   ! arrays in
-    tbound2, &                                ! scalars out 
-    tend,ros &                                  ! arrays out        
+    ts+dt,dt,dx,dy,      &                   ! scalars in
+    lfn1, &                                  ! arrays in
+    tbound2, &                               ! scalars out 
+    tend,ros &                               ! arrays out        
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
@@ -1302,10 +1315,10 @@ call message(msg)
 )
 
 #ifdef DEBUG_OUT    
-    call write_array_m(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,tend,'tend2',id)
+    call write_array_m(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'tend2',id)
 #endif
 
-    call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls:lvl fcn tend(1/s)')
+    call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls: tend2')
         
     tbound=min(tbound,tbound2)
 
@@ -1326,9 +1339,6 @@ call message(msg)
         enddo
     enddo      
 
-    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
-                   lfn_out,'prop_ls: lfn out')
-    
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
     ! interpolate from the level functions at start and at end
@@ -1436,6 +1446,9 @@ call message(msg)
     call crash('prop_ls: increase the fire region')
 10  continue
 
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
+                   lfn_out,'prop_ls: lfn out')
+
 end subroutine prop_ls
 
 !
@@ -1445,15 +1458,15 @@ end subroutine prop_ls
 subroutine tend_ls( id, &
     lims,lime,ljms,ljme, &                   ! memory dims for lfn
     tims,time,tjms,tjme, &                   ! memory dims for tend 
-    ids,ide,jds,jde, &                   ! domain - nodes where lfn defined
-    ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
+    ids,ide,jds,jde, &                       ! domain - nodes where lfn defined
+    ips,ipe,jps,jpe, &                       ! patch - nodes owned by this process 
     ints,inte,jnts,jnte, &                   ! region - nodes where tend computed
     ims,ime,jms,jme, &                       ! memory dims for ros 
     its,ite,jts,jte, &                       ! tile dims - where is ros set
-    t,dt,dx,dy,      &                          ! scalars in
+    t,dt,dx,dy,      &                       ! scalars in
     lfn, &                                   ! arrays in
     tbound, &                                ! scalars out 
-    tend, ros &                                  ! arrays out
+    tend, ros &                              ! arrays out
 #ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
 #include SPEED_VARS_ARGS
 #else
@@ -1513,13 +1526,16 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
     
     call continue_at_boundary(1,1,fire_lfn_ext_up, &   !extend by extrapolation but never down 
     lims,lime,ljms,ljme, &                ! memory dims
-    ids,ide,jds,jde, &                ! domain - nodes where lfn defined
-    ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
-    ints,inte,jnts,jnte, &                ! tile - nodes 
+    ids,ide,jds,jde, &                    ! domain - nodes where lfn defined
+    ips,ipe,jps,jpe, &                    ! patch - nodes owned by this process 
+    ints,inte,jnts,jnte, &                ! tile - nodes update by this thread
     lfn)                                  ! array
 
-    call print_2d_stats(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme, &
-                   lfn,'tend_ls: lfn in /w halo')
+    call print_2d_stats(ints-1,inte+1,jnts,jnte,lims,lime,ljms,ljme, &
+                   lfn,'tend_ls: lfn cont dir x')
+    call print_2d_stats(ints,inte,jnts-1,jnte+1,lims,lime,ljms,ljme, &
+                   lfn,'tend_ls: lfn cont dir y')
+
 #ifdef DEBUG_OUT
     call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)
 #endif

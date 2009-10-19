@@ -289,6 +289,10 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     enddo
 
     endif
+            
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, &
+                   lfn,'sfire_model: lfn out')
+
     
     need_lfn_update=.true. ! duh
 
