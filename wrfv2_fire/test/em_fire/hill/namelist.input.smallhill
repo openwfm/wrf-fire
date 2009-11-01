@@ -156,11 +156,11 @@
  fire_const_grnqfx = -1,        ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
  fire_test_steps=0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
  fire_mountain_type=1,          ! in ideal: 0=none, 1= hill, 2=EW ridge, 3=NS ridge
- fire_mountain_height=200.,     ! (m) ideal mountain height
- fire_mountain_start_x=900.,   ! (m) coord of start of the mountain from lower left corder (just like ignition)
- fire_mountain_start_y=1000.,   ! (m) coord of start of the mountain from lower left corder (just like ignition)
- fire_mountain_end_x=1400.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
- fire_mountain_end_y=1600.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
+ fire_mountain_height=100.,     ! (m) ideal mountain height
+ fire_mountain_start_x=1000.,   ! (m) coord of start of the mountain from lower left corder (just like ignition)
+ fire_mountain_start_y=1100.,   ! (m) coord of start of the mountain from lower left corder (just like ignition)
+ fire_mountain_end_x=1500.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
+ fire_mountain_end_y=1400.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
  fire_topo_from_atm=0,          ! 0 = fire mesh topo set from fine-res data, 1 = populate by interpolating from atmosphere
 
 !
