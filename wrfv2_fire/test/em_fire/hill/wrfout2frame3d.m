@@ -17,14 +17,15 @@ w      =ncread(file,'W');
 ph     =ncread(file,'PH');
 phb    =ncread(file,'PHB');
 hgt    =ncread(file,'HGT');
+itimestep=ncread(file,'ITIMESTEP');
 
 
 % note the variables are read here without the WRF permutation of dimensions 
 
 amin=[15,15,1];  % the atm grid part to show
 amax=[30,30,2];
-amin=[1,1,1];  % the atm grid part to show
-amax=[41,41,2];
+amin=[10,10,1];  % the atm grid part to show
+amax=[30,30,1];
 
 qstep=[20,20];        % quiver step for wind on the surface fire grid
 astep=[2,2,1];      % quiver step for wind on the atmosphere grid
@@ -33,10 +34,15 @@ swind=0;              % do not display surface wind
 
 %-------------------------------------------------
 
+a=avifile('fire.avi');
 for k=steps,
     frame3d(swind,amin,amax,astep,qstep,qs,...
     fxlong(:,:,k),fxlat(:,:,k),xlong(:,:,k),xlat(:,:,k),...
     zsf(:,:,k),fgrnhfx(:,:,k),uf(:,:,k),vf(:,:,k),...
     u(:,:,:,k),v(:,:,:,k),w(:,:,:,k),...
     ph(:,:,:,k),phb(:,:,:,k),hgt(:,:,k))
+    title(['Timestep ',num2str(itimestep(k))])
+    F=getframe(gcf);
+    a=addframe(a,F); 
 end
+a=close(a);
