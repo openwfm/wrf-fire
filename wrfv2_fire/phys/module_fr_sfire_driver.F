@@ -25,17 +25,29 @@
 ! propagation by tracers and was coupled with the Clark-Hall 
 ! atmospheric code, described in [2]. For WRF documentation see [3].
 
-! Acknowledgements: Contributions to the level set method by Mijeong 
-! Kim. The fire physics is adapted from an earlier code by Terry  
+! Acknowledgements
+!
+! Contributions to development of the level set 
+! method by Mijeong Kim. Contribution to fuel calculation by Volodymyr
+! Kondratenko.
+!
+! The fire physics is adapted from an earlier code by Terry  
 ! L. Clark, Janice L. Coen, and Don Latham. The coupling with WRF is 
 ! adapted from a code by Ned Patton for coupling of the earlier fire
-! model with WRF, with contributions by Jonathan D. Beezley. The
-! WRF build and execution environment was set up by Jonathan Beezley.
+! model with WRF. The changes in WRF infrastructure and support of
+! refined fire grid was provided by John Michalakes.
 
+! Jonathan D. Beezley has set up and maintained the WRF build and
+! execution environment, provided software engineering infrastructure 
+! including synchronization with the WRF repository, and was responsibe
+! for all aspects of WRF modification.
+
+! Refefences
+!
 ! [1] Jan Mandel, Jonathan D. Beezley, Janice L. Coen, and Minjeong Kim,
 ! Data Asimilation for Wildland Fires: Ensemble Kalman filters in 
-! coupled atmosphere-surface models, IEEE Control Systems Magazine, 
-! submitted, 2007
+! coupled atmosphere-surface models, IEEE Control Systems Magazine 29,
+! Issue 3, June 2009, 47-65. 
 
 ! [2] T. L. Clark, J. Coen, and D. Latham, Description of a coupled 
 ! atmosphere-fire model, Intl. J. Wildland Fire, vol. 13, pp. 49-64, 
