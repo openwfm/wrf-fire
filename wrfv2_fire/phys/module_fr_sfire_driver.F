@@ -59,7 +59,7 @@
 
 module module_fr_sfire_driver
 
-use module_model_constants, only: cp,xlv
+use module_model_constants, only: cp,xlv,reradius,pi2
 use module_fr_sfire_model
 use module_fr_sfire_phys
 use module_fr_sfire_atm
@@ -256,8 +256,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
        lat_ctr=config_flags%cen_lat
        lon_ctr=config_flags%cen_lon
        ! 1 degree in m (approximate OK)
-       unit_fxlat=6378e3*2*3.14159/360.   ! earth circumference in m / 360 degrees
-       unit_fxlong=cos(lat_ctr*3.14159/180.)*unit_fxlat  ! latitude
+       unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
+       unit_fxlong=cos(lat_ctr*pi2/360.)*unit_fxlat  ! latitude
     endif
 
     ! refinement r
