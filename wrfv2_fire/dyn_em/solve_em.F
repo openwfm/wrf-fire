@@ -2805,6 +2805,20 @@ BENCH_START(moist_phys_end_tim)
                       its, ite, jts, jte,                               &
                       k_start    , k_end                                )
 
+       CALL microphysics_zero_outb (                                    &
+                      scalar , num_scalar , config_flags ,              &
+                      ids, ide, jds, jde, kds, kde,                     &
+                      ims, ime, jms, jme, kms, kme,                     &
+                      its, ite, jts, jte,                               &
+                      k_start    , k_end                                )
+
+       CALL microphysics_zero_outb (                                    &
+                      chem , num_chem , config_flags ,              &
+                      ids, ide, jds, jde, kds, kde,                     &
+                      ims, ime, jms, jme, kms, kme,                     &
+                      its, ite, jts, jte,                               &
+                      k_start    , k_end                                )
+
        IF ( config_flags%periodic_x ) THEN
          its = max(grid%i_start(ij),ids)
          ite = min(grid%i_end(ij),ide-1)
@@ -2817,6 +2831,20 @@ BENCH_START(moist_phys_end_tim)
 
        CALL microphysics_zero_outa (                                    &
                       moist , num_moist , config_flags ,                &
+                      ids, ide, jds, jde, kds, kde,                     &
+                      ims, ime, jms, jme, kms, kme,                     &
+                      its, ite, jts, jte,                               &
+                      k_start    , k_end                                )
+
+       CALL microphysics_zero_outa (                                    &
+                      scalar , num_scalar , config_flags ,              &
+                      ids, ide, jds, jde, kds, kde,                     &
+                      ims, ime, jms, jme, kms, kme,                     &
+                      its, ite, jts, jte,                               &
+                      k_start    , k_end                                )
+
+       CALL microphysics_zero_outa (                                    &
+                      chem , num_chem , config_flags ,                  &
                       ids, ide, jds, jde, kds, kde,                     &
                       ims, ime, jms, jme, kms, kme,                     &
                       its, ite, jts, jte,                               &
@@ -3178,6 +3206,31 @@ BENCH_END(bc_2d_tim)
    IF( config_flags%specified .or. config_flags%nested ) THEN 
      grid%dtbc = grid%dtbc + grid%dt
    ENDIF
+
+! reset surface w for consistency
+
+#ifdef DM_PARALLEL
+#  include "HALO_EM_C.inc"
+#endif
+
+   CALL wrf_debug ( 10 , ' call set_w_surface2' )
+
+   !$OMP PARALLEL DO   &
+   !$OMP PRIVATE ( ij )
+   DO ij = 1 , grid%num_tiles
+      CALL set_w_surface2(                                                  &
+                           grid%w_2, grid%ht,  grid%u_2, grid%v_2,          &
+                           grid%cf1, grid%cf2, grid%cf3, grid%rdx, grid%rdy,&
+                           grid%msftx, grid%msfty,                          &
+                           ids, ide, jds, jde, kds, kde,                    &
+                           ims, ime, jms, jme, kms, kme,                    &
+                           grid%i_start(ij), grid%i_end(ij),                &
+                           grid%j_start(ij), grid%j_end(ij),                &
+                           k_start, k_end                                   )
+!                          its, ite, jts, jte, k_start, min(k_end,kde-1),   &
+
+   END DO
+   !$OMP END PARALLEL DO
 
 ! calculate some model diagnostics.
 

@@ -329,7 +329,7 @@
   TFORWD=XHOUR+TWINDO
 
   IF (iprt) then
-     write(msg,'2(a,f8.3),a,i2') 'TBACK = ',tback,            &
+     write(msg,'(2(a,f8.3),a,i2)') 'TBACK = ',tback,            &
                                  ' TFORWD = ',tforwd,'  for nest = ',inest
      call wrf_message(msg)
   ENDIF
@@ -695,14 +695,17 @@
             rh_qc=-888888.
           endif
 
-!ajb Store potential temperature for WRF
+!ajb Store temperature for WRF
+!    NOTE: The conversion to potential temperature, performed later in subroutine
+!    errob, requires good pressure data, either directly or via good height data.
+!    So here, in addition to checking for good temperature data,  we must also
+!    do a check for good pressure or height.
           if(temperature_qc.ge.0..and.temperature_qc.lt.30000.)then
 
-            if(pressure_qc.ge.0..and.pressure_qc.lt.30000.)then
-
-              varobs(3,n) =                                             &
-                  temperature_data*(100000./pressure_data)**RCP - t0
-
+            if( (pressure_qc.ge.0..and.pressure_qc.lt.30000.) .or.    &
+                (height_qc  .ge.0..and.height_qc  .lt.30000.) ) then
+    
+              varobs(3,n) = temperature_data
             else
               varobs(3,n)=-888888.
             endif
@@ -851,14 +854,13 @@
         if(varobs(5,n).ge.0.)varobs(5,n)=varobs(5,n)*1.e-3
 
 !Lilie
-!ajb Store potential temperature for WRF
+!ajb Store temperature for WRF
         if(temperature_qc.ge.0..and.temperature_qc.lt.30000.)then
 
           if((psfc_qc.ge.0..and.psfc_qc.lt.30000.).and.          &
              (psfc_data.gt.70000. .and.psfc_data.lt.105000.))then
 
-            varobs(3,n) =                                        &
-                  temperature_data*(100000./psfc_data)**RCP - t0
+            varobs(3,n) = temperature_data
           else
             varobs(3,n)=-888888.
           endif
@@ -948,11 +950,9 @@
 !             print *,'dup single ob-replace ',n,inest,
 !             plfo(n),plfo(njc)
 ! this is the sfc ob replacement part
-              VAROBS(1,njc)=VAROBS(1,n)
-              VAROBS(2,njc)=VAROBS(2,n)
-              VAROBS(3,njc)=VAROBS(3,n)
-              VAROBS(4,njc)=VAROBS(4,n)
-              VAROBS(5,njc)=VAROBS(5,n)
+              do KN = 1,nndgv
+                VAROBS(KN,njc)=VAROBS(KN,n)
+              enddo
 ! don't need to switch these because they're the same
 !             RIO(njc)=RIO(n)
 !             RJO(njc)=RJO(n)
@@ -991,11 +991,9 @@
 !             n=n-meas_count
 ! set the first sounding ob to missing
               do njcc=njc,njc+nint(nlevs_ob(njc))-1
-                VAROBS(1,njcc)=-888888.
-                VAROBS(2,njcc)=-888888.
-                VAROBS(3,njcc)=-888888.
-                VAROBS(4,njcc)=-888888.
-                VAROBS(5,njcc)=-888888.
+                do KN = 1,nndgv
+                  VAROBS(KN,njcc)=-888888.
+                enddo
                 plfo(njcc)=99.
               enddo
               goto 100
@@ -1037,11 +1035,9 @@
                 call wrf_message(msg)
               ENDIF
 ! this is the single ua ob replacement part
-              VAROBS(1,njc)=VAROBS(1,n)
-              VAROBS(2,njc)=VAROBS(2,n)
-              VAROBS(3,njc)=VAROBS(3,n)
-              VAROBS(4,njc)=VAROBS(4,n)
-              VAROBS(5,njc)=VAROBS(5,n)
+              do KN = 1,nndgv
+                VAROBS(KN,njc)=VAROBS(KN,n)
+              enddo
 ! don't need to switch these because they're the same
 !           RIO(njc)=RIO(n)
 !           RJO(njc)=RJO(n)
@@ -1284,12 +1280,13 @@
     ENDIF
   ENDIF
   IF(KTAU.EQ.KTAUR)THEN
-    IF (iprt) THEN
-      write(msg,553)
-      call wrf_message(msg)
-      write(msg,554)
-      call wrf_message(msg)
-    ENDIF
+!ajb 05042009 These messages are incorrect, remnant of MM5?
+!   IF (iprt) THEN
+!     write(msg,553)
+!     call wrf_message(msg)
+!     write(msg,554)
+!     call wrf_message(msg)
+!   ENDIF
     IF(fdob%IWTSIG.NE.1)THEN
       IF (iprt) THEN
         write(msg,555)
@@ -1310,7 +1307,6 @@
       ENDIF
     ENDIF
   ENDIF
-! IS DPSMX IN CB?
  
   IF(KTAU.EQ.KTAUR)THEN
     IF (iprt) then

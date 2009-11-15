@@ -15,11 +15,12 @@
    USE module_configure, ONLY : grid_config_rec_type
    USE module_tiles, ONLY : set_tiles
 #ifdef DM_PARALLEL
-   USE module_dm, ONLY : wrf_dm_min_real, ntasks_x, ntasks_y, &
+   USE module_dm, ONLY : wrf_dm_min_real, wrf_dm_maxval, ntasks_x, ntasks_y, &
         local_communicator_periodic, local_communicator, mytask, ntasks 
 #else
    USE module_dm, ONLY : wrf_dm_min_real
 #endif
+   USE module_comm_dm
 
    USE module_physics_init
 #ifdef WRF_CHEM
@@ -636,6 +637,7 @@
                       grid%DL_U_BEP,grid%SF_BEP,grid%VL_BEP,                           & !multi-layer urban
                       grid%TML,grid%T0ML,grid%HML,grid%H0ML,grid%HUML,grid%HVML,     & !Optional oml
                       grid%itimestep, grid%fdob,            &
+                      t00, p00, a,                      & ! for obs_nudge base state
                       grid%TYR, grid%TYRA, grid%TDLY, grid%TLAG, grid%NYEAR, grid%NDAY,grid%tmn_update, &
                       grid%achfx, grid%aclhf, grid%acgrdflx                 &
                       )
@@ -767,7 +769,12 @@
                            its , ite , jts , jte , &
                            its , ite , jts , jte   )
 
-   IF ( start_of_simulation ) THEN
+! Set the w at the surface.  If this is the start of a forecast, or if this is a cycled run
+! and the start of that forecast, we define the w field.  However, if this a restart, then 
+! we leave w alone.  Initial value is V dot grad(topo) at surface, then smoothly decaying
+! above that.
+
+   IF ( ( start_of_simulation .OR. config_flags%cycling ) .AND. ( .NOT. config_flags%restart ) ) THEN
    CALL set_w_surface(  config_flags, grid%znw,                         &
                         grid%w_1, grid%ht, grid%u_1, grid%v_1, grid%cf1, &
                         grid%cf2, grid%cf3, grid%rdx, grid%rdy, grid%msftx, grid%msfty, &

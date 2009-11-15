@@ -13,15 +13,6 @@ MODULE module_physics_init
    USE module_state_description
    USE module_model_constants
    USE module_configure
-#ifdef DM_PARALLEL
-#if ( EM_CORE == 1 )
-   USE module_dm , ONLY : wrf_dm_maxval, & 
-        halo_em_init_1_sub, halo_em_init_2_sub, halo_em_init_3_sub, halo_em_init_4_sub, halo_em_init_5_sub, &
-        period_bdy_em_init_sub, period_bdy_em_moist_sub, period_bdy_em_tke_sub, period_bdy_em_scalar_sub, period_bdy_em_chem_sub
-#else
-   USE module_dm , ONLY : wrf_dm_maxval
-#endif
-#endif
 
 CONTAINS
 
@@ -97,6 +88,7 @@ CONTAINS
 #if ( EM_CORE == 1 )
                          fdob,                                   & !Optional obs fdda
 #endif
+                         t00, p00, tlp,                          & !for obs-nudging
                          TYR,TYRA,TDLY,TLAG,NYEAR,NDAY,tmn_update,   &
                          ACHFX,ACLHF,ACGRDFLX                   &
                          )
@@ -321,6 +313,7 @@ CONTAINS
 #if ( EM_CORE == 1 )
    TYPE(fdob_type), OPTIONAL, INTENT(INOUT) :: fdob
 #endif
+   REAL, OPTIONAL, INTENT(IN) :: p00, t00, tlp   ! for obs-nudging base-state calcn
 
 ! Local data
 
@@ -331,6 +324,7 @@ CONTAINS
    CHARACTER*256 :: MMINLU_loc
    CHARACTER*80 :: message
    INTEGER :: ISWATER
+   INTEGER :: ISICE
    INTEGER :: ISURBAN
    INTEGER :: sf_urban_physics
    INTEGER :: omlcall
@@ -377,11 +371,14 @@ integer myproc
 #endif
 
    CALL nl_get_cen_lat(id,cen_lat)
-   CALL wrf_debug(100,'calling nl_get_iswater, nl_get_mminlu_loc')
+   CALL wrf_debug(100,'calling nl_get_iswater, nl_get_isice, nl_get_mminlu_loc')
    CALL nl_get_iswater(id,iswater)
+   CALL nl_get_isice(id,isice)
    CALL nl_get_isurban(id,isurban)
    CALL nl_get_mminlu( 1, mminlu_loc )
-   CALL wrf_debug(100,'after nl_get_iswater, nl_get_mminlu_loc')
+   CALL wrf_debug(100,'after nl_get_iswater, nl_get_isice, nl_get_mminlu_loc')
+!-- temporary fix by ww
+   landuse_ISICE = isice
 
   IF(.not.restart)THEN
 !-- initialize common variables
@@ -460,7 +457,7 @@ integer myproc
    IF(mminlu_loc .ne. '    ')THEN
 !-- initialize surface properties
 
-     CALL landuse_init(lu_index, snowc, albedo, albbck, mavail, emiss, embck,            &
+     CALL landuse_init(lu_index, snowc, albedo, albbck, snoalb, mavail, emiss, embck, &
                 znt, Z0, thc, xland, xice, xicem, julday, cen_lat, iswater, &
                 TRIM ( mminlu_loc ) ,                               &
                 landuse_ISICE, landuse_LUCATS,                      &
@@ -595,11 +592,21 @@ integer myproc
                   model_config_rec%obs_idynin,                  &
                   model_config_rec%obs_dtramp,                  &
                   model_config_rec%fdda_end,                    &
-                  config_flags%restart,                         &
+                  model_config_rec%restart,                     &
                   obs_twindo_cg, obs_twindo,                    &
                   itimestep,                                    &
+                  model_config_rec%obs_no_pbl_nudge_uv,         &
+                  model_config_rec%obs_no_pbl_nudge_t,          &
+                  model_config_rec%obs_no_pbl_nudge_q,          &
+                  model_config_rec%obs_sfcfact,                 &
+                  model_config_rec%obs_sfcfacr,                 &
+                  model_config_rec%obs_dpsmx,                   &
+                  model_config_rec%obs_lml_ht1,                 &
+                  model_config_rec%obs_lml_ht2,                 &
                   xlat,                                         &
                   xlong,                                        &
+                  p00, t00, tlp,                                &
+                  zhalf, p_top,                                 &
                   fdob,                                         &
                   model_config_rec%obs_ipf_init,                &
                   ids, ide, jds, jde, kds, kde,                 &
@@ -611,7 +618,7 @@ integer myproc
    END SUBROUTINE phy_init
 
 !=====================================================================
-   SUBROUTINE landuse_init(lu_index, snowc, albedo, albbck, mavail, emiss, embck, &
+   SUBROUTINE landuse_init(lu_index, snowc, albedo, albbck, snoalb, mavail, emiss, embck, &
                 znt,Z0,thc,xland, xice, xicem, julday, cen_lat, iswater, mminlu,  &
                 ISICE, LUCATS, LUSEAS, ISN,                         &
                 lu_state,                                           &
@@ -632,7 +639,7 @@ integer myproc
    REAL    , INTENT(IN)           :: cen_lat
    CHARACTER(LEN=*), INTENT(IN)        :: mminlu
    LOGICAL,  INTENT(IN)           :: allowed_to_read , usemonalb
-   REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(IN   ) :: lu_index, snowc, xice
+   REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(IN   ) :: lu_index, snowc, xice, snoalb
    REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(OUT  ) :: albedo, albbck, mavail, emiss, &
                                                                embck,                         &
                                                                znt, Z0, thc, xland, xicem
@@ -698,23 +705,23 @@ integer myproc
       ENDIF
 
 ! Read info from file LANDUSE.TBL
-      IF(MMINLU.EQ.'OLD ')THEN
+!     IF(MMINLU.EQ.'OLD ')THEN
 !       ISWATER=7
-        ISICE=11
-      ELSE IF(MMINLU.EQ.'USGS')THEN
+!       ISICE=11
+!     ELSE IF(MMINLU.EQ.'USGS')THEN
 !       ISWATER=16
-        ISICE=24
-      ELSE IF(MMINLU.EQ.'SiB ')THEN
+!       ISICE=24
+!     ELSE IF(MMINLU.EQ.'SiB ')THEN
 !       ISWATER=15
-        ISICE=16
-      ELSE IF(MMINLU.EQ.'LW12')THEN
+!       ISICE=16
+!     ELSE IF(MMINLU.EQ.'LW12')THEN
 !       ISWATER=15
-        ISICE=3
-      ELSE IF (MMINLU .EQ. 'MODIFIED_IGBP_MODIS_NOAH') THEN
-        ISICE = 15
-      ELSE
-         call wrf_error_fatal ("INPUT LandUse not found: "//TRIM(MMINLU))
-      ENDIF
+!       ISICE=3
+!     ELSE IF (MMINLU .EQ. 'MODIFIED_IGBP_MODIS_NOAH') THEN
+!       ISICE = 15
+!     ELSE
+!        call wrf_error_fatal ("INPUT LandUse not found: "//TRIM(MMINLU))
+!     ENDIF
       call wrf_message ( 'INPUT LandUse = "' // TRIM(MMINLU) // '"' )
       FOUND_LU = .FALSE.
       end_of_file = .FALSE.
@@ -802,7 +809,13 @@ integer myproc
           ENDIF
           IF(.NOT.usemonalb)ALBBCK(I,J)=ALBD(IS,ISN)/100.
           ALBEDO(I,J)=ALBBCK(I,J)
-          IF(SNOWC(I,J) .GT. 0.5)ALBEDO(I,J)=ALBBCK(I,J)*(1.+SCFX(IS))
+          IF(SNOWC(I,J) .GT. 0.5) THEN 
+             IF (usemonalb) THEN
+                 ALBEDO(I,J)=SNOALB(I,J)
+             ELSE
+                 ALBEDO(I,J)=ALBBCK(I,J)*(1.+SCFX(IS))
+             ENDIF
+          ENDIF
           THC(I,J)=THERIN(IS,ISN)/100.
           Z0(I,J)=SFZ0(IS,ISN)/100.
           ZNT(I,J)=Z0(I,J)
@@ -1332,7 +1345,7 @@ integer myproc
            isfc = 1
       CASE (PXSFCSCHEME)
            CALL pxsfclayinit( allowed_to_read )
-           isfc = 1
+           isfc = 7
       CASE (MYJSFCSCHEME)
            CALL myjsfcinit(LOWLYR,UST,                         &
 #if ( NMM_CORE == 1 )
@@ -1361,7 +1374,7 @@ integer myproc
                          ids, ide, jds, jde, kds, kde,         &
                          ims, ime, jms, jme, kms, kme,         &
                          its, ite, jts, jte, kts, kte          )
-           isfc = 2
+           isfc = 4
 
       CASE (GFSSFCSCHEME)
            CALL myjsfcinit(LOWLYR,UST,                         &
@@ -1376,7 +1389,7 @@ integer myproc
                          ids, ide, jds, jde, kds, kde,         &
                          ims, ime, jms, jme, kms, kme,         &
                          its, ite, jts, jte, kts, kte          )
-           isfc = 1
+           isfc = 2
 #if (NMM_CORE==1)
       CASE (GFDLSFCSCHEME)
            CALL myjsfcinit(LOWLYR,UST,                         &
@@ -1387,7 +1400,7 @@ integer myproc
                          ids, ide, jds, jde, kds, kde,         &
                          ims, ime, jms, jme, kms, kme,         &
                          its, ite, jts, jte, kts, kte          )
-           isfc = 1
+           isfc = 2
 #endif
 
 #if ( EM_CORE == 1 )
@@ -1409,7 +1422,7 @@ integer myproc
            END SELECT
 
            CALL mynn_sf_init_driver(allowed_to_read,mynn_closure_level)
-           isfc=3
+           isfc=5
 
 #endif
 
@@ -1470,7 +1483,7 @@ integer myproc
                 CALL urban_var_init(ISURBAN,TSK,TSLB,TMN,IVGTYP,                     & !urban
                               ims,ime,jms,jme,kms,kme,num_soil_layers,               & !urban
 !                              num_roof_layers,num_wall_layers,num_road_layers, & !urban
-                              restart,                                         & !urban
+                              restart,sf_urban_physics,                        & !urban
                               XXXR_URB2D,XXXB_URB2D,XXXG_URB2D,XXXC_URB2D,     & !urban
                               TR_URB2D,TB_URB2D,TG_URB2D,TC_URB2D,QC_URB2D,    & !urban
                               TRL_URB3D,TBL_URB3D,TGL_URB3D,                   & !urban
@@ -1541,8 +1554,8 @@ integer myproc
                         ims, ime, jms, jme, kms, kme,         &
                         its, ite, jts, jte, kts, kte          )
       CASE (ACMPBLSCHEME)
-           if(isfc .ne. 1)CALL wrf_error_fatal &
-            ( 'module_physics_init: use sfclay scheme for this pbl option' )
+           if(isfc .ne. 1 .and. isfc .ne. 7)CALL wrf_error_fatal &
+            ( 'module_physics_init: use sfclay or pxsfc scheme for this pbl option' )
            CALL acminit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,    &
                         RQCBLTEN,RQIBLTEN,P_QI,               &
                         PARAM_FIRST_SCALAR,                   &
@@ -1552,8 +1565,8 @@ integer myproc
                         ims, ime, jms, jme, kms, kme,         &
                         its, ite, jts, jte, kts, kte          )
       CASE (GFSSCHEME)
-           if(isfc .ne. 1)CALL wrf_error_fatal &
-            ( 'module_physics_init: use sfclay scheme for this pbl option' )
+           if(isfc .ne. 2)CALL wrf_error_fatal &
+            ( 'module_physics_init: use myjsfc scheme for this pbl option' )
            CALL gfsinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,    &
                         RQCBLTEN,RQIBLTEN,P_QI,               &
                         PARAM_FIRST_SCALAR,                   &
@@ -1582,6 +1595,8 @@ integer myproc
                         its, ite, jts, jte, kts, kte          )
           END IF
       CASE (QNSEPBLSCHEME)
+           if(isfc .ne. 4)CALL wrf_error_fatal &
+            ( 'module_physics_init: use qnsesfc scheme for this pbl option' )
            CALL qnsepblinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN, &
                         TKE_MYJ,EXCH_H,restart,               &
                         allowed_to_read ,                     &
@@ -1590,6 +1605,8 @@ integer myproc
                         its, ite, jts, jte, kts, kte          )
 #if (NMM_CORE != 1)
       CASE (BOULACSCHEME)
+           if(isfc .ne. 1 .and. isfc .ne. 2)CALL wrf_error_fatal &
+            ( 'module_physics_init: use sfclay or myjsfc scheme for this pbl option' )
            CALL boulacinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN, &
                          TKE_PBL,EXCH_H,restart,               &
                          allowed_to_read ,                     &
@@ -1603,8 +1620,8 @@ integer myproc
 !mynn 
            
         CASE (MYNNPBLSCHEME2, MYNNPBLSCHEME3)
-           IF(isfc .NE. 3 .AND. isfc .NE. 1 .AND. isfc .NE. 2) CALL wrf_error_fatal &
-                ( 'module_physics_init: use mynn sfc scheme or sfclay scheme for this pbl option')
+           IF(isfc .NE. 5 .AND. isfc .NE. 1 .AND. isfc .NE. 2) CALL wrf_error_fatal &
+                ( 'module_physics_init: use mynnsfc or sfclay or myjsfc scheme for this pbl option')
            
            CALL mynn_bl_init_driver(&
                 &RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,RQCBLTEN&
@@ -1980,7 +1997,14 @@ integer myproc
    SUBROUTINE fdob_init(obs_nudge_opt, maxdom, inest, parid,       &
                         idynin, dtramp, fdaend, restart,           &
                         obs_twindo_cg, obs_twindo, itimestep,      &
+                        no_pbl_nudge_uv,                           &
+                        no_pbl_nudge_t,                            &
+                        no_pbl_nudge_q,                            &
+                        sfcfact, sfcfacr, dpsmx,                   &
+                        lml_ht1, lml_ht2,                          &
                         xlat, xlong,                               &
+                        p00, t00, tlp,                             &
+                        znu, p_top,                                &
                         fdob, ipf_init,                            &
                         ids, ide, jds, jde, kds, kde,              &
                         ims, ime, jms, jme, kms, kme,              &
@@ -2007,8 +2031,21 @@ integer myproc
    REAL    , INTENT(IN)    :: obs_twindo_cg   ! twindo on course grid
    REAL    , INTENT(IN)    :: obs_twindo
    INTEGER , INTENT(IN)    :: itimestep
-   REAL, DIMENSION( ims:ime, jms:jme ),                            &
-         INTENT(IN )       :: xlat, xlong  ! lat/long locations on mass point grid
+   INTEGER , INTENT(IN)    :: no_pbl_nudge_uv(maxdom)  ! flags for no wind nudging in pbl
+   INTEGER , INTENT(IN)    :: no_pbl_nudge_t(maxdom)   ! flags for no temperature nudging in pbl
+   INTEGER , INTENT(IN)    :: no_pbl_nudge_q(maxdom)   ! flags for no moisture nudging in pbl
+   REAL    , INTENT(IN)    :: sfcfact      ! scale factor applied to time window for surface obs
+   REAL    , INTENT(IN)    :: sfcfacr      ! scale fac applied to horiz rad of infl for sfc obs
+   REAL    , INTENT(IN)    :: dpsmx        ! max pressure change allowed within horiz. infl. range
+   REAL    , INTENT(IN)    :: lml_ht1      ! height 1 for spreading of lowest model level obs
+   REAL    , INTENT(IN)    :: lml_ht2      ! height 2 for spreading of lowest model level obs
+   REAL    , INTENT(IN)    :: xlat ( ims:ime, jms:jme )        ! latitudes on mass-point grid
+   REAL    , INTENT(IN)    :: xlong( ims:ime, jms:jme )        ! longitudes on mass-point grid
+   REAL    , INTENT(IN)    :: p00                      ! base state pressure
+   REAL    , INTENT(IN)    :: t00                      ! base state temperature
+   REAL    , INTENT(IN)    :: tlp                      ! base state lapse rate
+   REAL    , INTENT(IN)    :: znu( kms:kme )           ! eta values on half (mass) levels
+   REAL    , INTENT(IN)    :: p_top                    ! pressure at top of model
    TYPE(fdob_type), INTENT(INOUT)  :: fdob
 
    INTEGER                 :: e_sn         ! ending   north-south grid index
@@ -2023,7 +2060,14 @@ integer myproc
                         idynin, dtramp, fdaend, restart,           &
                         obs_twindo_cg,                             &
                         obs_twindo, itimestep,                     &
+                        no_pbl_nudge_uv,                           &
+                        no_pbl_nudge_t,                            &
+                        no_pbl_nudge_q,                            &
+                        sfcfact, sfcfacr, dpsmx,                   &
+                        lml_ht1, lml_ht2,                          &
                         xlat, xlong,                               &
+                        p00, t00, tlp,                             &
+                        znu, p_top,                                &
                         fdob, ipf_init,                            &
                         ids,ide, jds,jde, kds,kde,                 &
                         ims,ime, jms,jme, kms,kme,                 &

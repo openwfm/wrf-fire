@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#define index(X,Y) strchr(X,Y)
+#endif
+
 #include "protos.h"
 #include "registry.h"
 #include "data.h"
@@ -170,6 +174,10 @@ int print_decl( FILE * fp , node_t *p, char * communicator,
   fprintf(fp,"  INTEGER ,                    INTENT(IN) :: ims, ime, jms, jme, kms, kme\n") ;
   fprintf(fp,"  INTEGER ,                    INTENT(IN) :: ips, ipe, jps, jpe, kps, kpe\n") ;
   fprintf(fp,"  INTEGER :: itrace\n") ;
+  fprintf(fp,"  INTEGER :: rsl_sendw_p, rsl_sendbeg_p, rsl_recvw_p, rsl_recvbeg_p\n") ;
+  fprintf(fp,"  INTEGER :: rsl_sendw_m, rsl_sendbeg_m, rsl_recvw_m, rsl_recvbeg_m\n") ;
+  fprintf(fp,"  LOGICAL, EXTERNAL :: rsl_comm_iter\n") ;
+  fprintf(fp,"  INTEGER :: idim1, idim2, idim3, idim4, idim5, idim6, idim7\n") ;
   }
 
 int print_body( FILE * fp, char * commname )
@@ -1605,6 +1613,7 @@ int said_it2 = 0 ;
     sprintf( Shift.use, "" ) ;
     strcpy( Shift.comm_define, "SHW:" ) ;
     strcpy( Shift.name , fname ) ;
+    if ( sw_move ) {
     for ( p = Domain.fields ; p != NULL ; p = p->next ) {
       if (( p->node_kind & (FIELD | FOURD) ) && p->ndims >= 2 && ! p->boundary_array )
       {
@@ -1644,6 +1653,7 @@ if ( p->subgrid != 0 ) {  /* moving nests not implemented for subgrid variables 
       }
     }
     if ( strlen(Shift.comm_define) > 0 )Shift.comm_define[strlen(Shift.comm_define)-1] = '\0' ;
+    }
 
     gen_halos( dirname , NULL, &Shift ) ;
 
@@ -1651,6 +1661,7 @@ if ( p->subgrid != 0 ) {  /* moving nests not implemented for subgrid variables 
     if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
 
 /* now generate the shifts themselves */
+    if ( sw_move ) {
     for ( p = Domain.fields ; p != NULL ; p = p->next )
     {
 
@@ -1864,6 +1875,7 @@ fprintf(fp, "  ENDDO\n" ) ;
 	}
       }
     }
+    } /* if sw_move */
     close_the_file(fp) ;
   }
 }

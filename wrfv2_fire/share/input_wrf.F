@@ -173,8 +173,7 @@
        ierr = max( ierr, ierr3 )
        CALL wrf_get_dom_ti_integer ( fid , 'BOTTOM-TOP_GRID_DIMENSION' ,   kde_compare , 1 , icnt , ierr3 )
        ierr = max( ierr, ierr3 )
-!      IF ( ierr3 .NE. 0 ) CALL wrf_error_fatal( 'wrf_get_dom_ti_integer getting dimension information from dataset' )
-       IF ( ierr3 .NE. 0 ) CALL wrf_debug( 'wrf_get_dom_ti_integer getting dimension information from dataset' )
+       IF ( ierr3 .NE. 0 ) CALL wrf_error_fatal( 'wrf_get_dom_ti_integer getting dimension information from dataset' )
 
 #if (EM_CORE == 1)
        !  Test to make sure that the grid distances are the right size.
@@ -240,6 +239,17 @@
     CALL nl_set_stand_lon ( grid%id , config_flags%stand_lon )
 
 #if ( NMM_CORE != 1 )
+
+    CALL wrf_get_dom_ti_real ( fid , 'POLE_LAT' ,  config_flags%pole_lat , 1 , icnt , ierr )
+    WRITE(wrf_err_message,*)'input_wrf: wrf_get_dom_ti_real for POLE_LAT returns ',config_flags%pole_lat
+    CALL wrf_debug ( 300 , wrf_err_message )
+    CALL nl_set_pole_lat ( grid%id , config_flags%pole_lat )
+
+    CALL wrf_get_dom_ti_real ( fid , 'POLE_LON' ,  config_flags%pole_lon , 1 , icnt , ierr )
+    WRITE(wrf_err_message,*)'input_wrf: wrf_get_dom_ti_real for POLE_LON returns ',config_flags%pole_lon
+    CALL wrf_debug ( 300 , wrf_err_message )
+    CALL nl_set_pole_lon ( grid%id , config_flags%pole_lon )
+
 ! program_name is defined in module_domain and set in the main program for whatever application
 ! is using subroutine input_wrf (that is, the subroutine you are looking at here). Data files
 ! written by SI have P_TOP as a metadata item; the real program and wrf model have it as a
@@ -316,6 +326,27 @@
        call wrf_message(wrf_err_message)
        call wrf_error_fatal("Mismatch between namelist and wrf input files for dimension NUM_LAND_CAT")
     endif
+
+    ! Test here to check that config_flags%num_metgrid_soil_levels in namelist
+    ! is equal to what is in the global attributes of the met_em files
+
+    IF ( switch .EQ. aux_model_input1_only ) THEN
+       CALL wrf_get_dom_ti_integer ( fid, 'NUM_METGRID_SOIL_LEVELS', itmp, 1, icnt, ierr )
+   
+       IF ( ierr .EQ. 0 ) THEN
+          WRITE(wrf_err_message,*)'input_wrf: global attribute NUM_METGRID_SOIL_LEVELS returns ', itmp
+          CALL wrf_debug ( 300 , wrf_err_message )
+          IF ( config_flags%num_metgrid_soil_levels /= itmp ) THEN
+             call wrf_message("----------------- ERROR -------------------")
+             WRITE(wrf_err_message,'("namelist    : num_metgrid_soil_levels = ",I10)') config_flags%num_metgrid_soil_levels
+             call wrf_message(wrf_err_message)
+             WRITE(wrf_err_message,'("input files : NUM_METGRID_SOIL_LEVELS = ",I10, " (from met_em files).")') itmp
+             call wrf_message(wrf_err_message)
+             call wrf_error_fatal("Mismatch between namelist and global attribute NUM_METGRID_SOIL_LEVELS")
+          END IF
+       END IF
+    END IF
+
 
     CALL wrf_get_dom_ti_integer ( fid , 'ISWATER' ,  config_flags%iswater , 1 , icnt , ierr )
     WRITE(wrf_err_message,*)'input_wrf: wrf_get_dom_ti_integer for ISWATER returns ',config_flags%iswater
@@ -493,6 +524,7 @@
       SELECT CASE ( switch )
         CASE ( model_input_only, aux_model_input1_only, aux_model_input2_only,       &
                aux_model_input3_only, aux_model_input4_only, aux_model_input5_only,  &
+               aux_model_input6_only, aux_model_input7_only, aux_model_input8_only,  &
                aux_model_input9_only, aux_model_input10_only )
 #ifdef WRF_CHEM
            IF( (config_flags%io_style_emissions .eq. 1) .and.                                &

@@ -470,7 +470,7 @@ CONTAINS
             c_jps = 0
          ENDIF
 
-         IF ( c_jps < c_jpe .AND. c_ips < c_ipe ) THEN
+         IF ( c_ips <= c_ipe ) THEN
 ! extend the patch dimensions out shw along edges of domain
            IF ( mytask_x .EQ. 0 ) THEN
              c_ips = c_ips - shw
@@ -480,8 +480,14 @@ CONTAINS
            ENDIF
            c_ims = max( c_ips - max(shw,thisdomain_max_halo_width), c_ids - bdx ) - 1
            c_ime = min( c_ipe + max(shw,thisdomain_max_halo_width), c_ide + bdx ) + 1
+         ELSE
+           c_ims = 0
+           c_ime = 0
+         ENDIF
+
 
 ! handle j dims
+         IF ( c_jps <= c_jpe ) THEN
 ! extend the patch dimensions out shw along edges of domain
            IF ( mytask_y .EQ. 0 ) THEN
               c_jps = c_jps - shw
@@ -493,8 +499,6 @@ CONTAINS
            c_jme = min( c_jpe + max(shw,thisdomain_max_halo_width), c_jde + bdx ) + 1
 ! handle k dims
          ELSE
-           c_ims = 0
-           c_ime = 0
            c_jms = 0
            c_jme = 0
          ENDIF
@@ -1284,17 +1288,21 @@ CONTAINS
 #  else
         CALL mpi_init ( ierr )
 #  endif
-        CALL wrf_set_dm_communicator( MPI_COMM_WORLD )
-        CALL wrf_termio_dup
+        mpi_comm_here = MPI_COMM_WORLD
+#ifdef HWRF
+        CALL atm_cmp_start( mpi_comm_here )   ! atmospheric side of HWRF coupler will split MPI_COMM_WORLD and return communicator as argument
+#endif
+        CALL wrf_set_dm_communicator( mpi_comm_here )
       ENDIF
       CALL wrf_get_dm_communicator( mpi_comm_here )
+      CALL wrf_termio_dup( mpi_comm_here )
 
       CALL MPI_Comm_rank ( mpi_comm_here, mytask, ierr ) ;
       CALL mpi_comm_size ( mpi_comm_here, ntasks, ierr ) ;
 #if (DA_CORE == 1)
       CALL mpi_comm_split( MPI_COMM_WORLD , 4 , 1 , mpi_comm_local, ierr )
       CALL wrf_set_dm_communicator( mpi_comm_local )
-      CALL wrf_termio_dup
+      CALL wrf_termio_dup( mpi_comm_here ) 
       CALL wrf_get_dm_communicator( mpi_comm_here )
 #endif
 
@@ -1334,21 +1342,22 @@ CONTAINS
    SUBROUTINE init_module_dm
 #ifndef STUBMPI
       IMPLICIT NONE
-      INTEGER mpi_comm_local, ierr, mytask, nproc
+      INTEGER mpi_comm_local, mpi_comm_here, ierr, mytask, nproc
       INCLUDE 'mpif.h'
       LOGICAL mpi_inited
       CALL mpi_initialized( mpi_inited, ierr )
       IF ( .NOT. mpi_inited ) THEN
-	! If MPI has not been initialized then initialize it and 
-	! make comm_world the communicator
-	! Otherwise, something else (e.g. quilt-io) has already 
-	! initialized MPI, so just grab the communicator that
-	! should already be stored and use that.
-	CALL mpi_init ( ierr )
-        CALL wrf_termio_dup
-	CALL wrf_set_dm_communicator ( MPI_COMM_WORLD )
+        ! If MPI has not been initialized then initialize it and
+        ! make comm_world the communicator
+        ! Otherwise, something else (e.g. split_communicator) has already
+        ! initialized MPI, so just grab the communicator that
+        ! should already be stored and use that.
+        CALL mpi_init ( ierr )
+        mpi_comm_here = MPI_COMM_WORLD
+        CALL wrf_set_dm_communicator ( mpi_comm_here )
       ENDIF
       CALL wrf_get_dm_communicator( mpi_comm_local )
+      CALL wrf_termio_dup( mpi_comm_local )
 #endif
    END SUBROUTINE init_module_dm
 
@@ -1389,6 +1398,7 @@ CONTAINS
     REAL UVT_BUFFER(NIOBF)    ! Buffer for holding U, V, or T
     REAL QRK_BUFFER(NIOBF)    ! Buffer for holding Q or RKO
     REAL SFP_BUFFER(NIOBF)    ! Buffer for holding Surface pressure
+    REAL PBL_BUFFER(NIOBF)    ! Buffer for holding (real) KPBL index
     INTEGER N_BUFFER(NIOBF)
     REAL FULL_BUFFER(NIOBF)
     INTEGER IFULL_BUFFER(NIOBF)
@@ -1494,6 +1504,7 @@ CONTAINS
        NLOCAL_CRS = NLOCAL_CRS + 1
        UVT_BUFFER(NLOCAL_CRS) = ERRF(3,N)     ! TEMPERATURE
        QRK_BUFFER(NLOCAL_CRS) = ERRF(4,N)     ! MOISTURE
+       PBL_BUFFER(NLOCAL_CRS) = ERRF(5,N)     ! KPBL
        SFP_BUFFER(NLOCAL_CRS) = ERRF(6,N)     ! SURFACE PRESSURE
        N_BUFFER(NLOCAL_CRS) = N
      ENDIF
@@ -1522,6 +1533,13 @@ CONTAINS
                         MPI_REAL, MPI_COMM_COMP, IERR)
    DO N = 1, NSTA
      ERRF(4,IFULL_BUFFER(N)) = FULL_BUFFER(N)
+   ENDDO
+! KPBL
+   CALL MPI_ALLGATHERV( PBL_BUFFER, NLOCAL_CRS, MPI_REAL,     &
+                        FULL_BUFFER, ICOUNT, IDISPLACEMENT,   &
+                        MPI_REAL, MPI_COMM_COMP, IERR)
+   DO N = 1, NSTA
+     ERRF(5,IFULL_BUFFER(N)) = FULL_BUFFER(N)
    ENDDO
 ! SURF PRESS AT MASS POINTS
    CALL MPI_ALLGATHERV( SFP_BUFFER, NLOCAL_CRS, MPI_REAL,     &
@@ -1719,14 +1737,15 @@ SUBROUTINE wrf_dm_patch_domain ( id  , domdesc , parent_id , parent_domdesc , &
    RETURN
 END SUBROUTINE wrf_dm_patch_domain
 
-SUBROUTINE wrf_termio_dup
+SUBROUTINE wrf_termio_dup( comm )
   IMPLICIT NONE
+  INTEGER, INTENT(IN) :: comm
   INTEGER mytask, ntasks
 #ifndef STUBMPI
   INTEGER ierr
   INCLUDE 'mpif.h'
-  CALL mpi_comm_size(MPI_COMM_WORLD, ntasks, ierr )
-  CALL mpi_comm_rank(MPI_COMM_WORLD, mytask, ierr )
+  CALL mpi_comm_size(comm, ntasks, ierr )
+  CALL mpi_comm_rank(comm, mytask, ierr )
   write(0,*)'starting wrf task ',mytask,' of ',ntasks
   CALL rsl_error_dup1( mytask )
 #else
@@ -1901,7 +1920,8 @@ SUBROUTINE write_68( grid, v , s , &
 END
 
    SUBROUTINE wrf_abort
-      IMPLICIT NONE
+
+    implicit none
 #ifndef STUBMPI
       INCLUDE 'mpif.h'
       INTEGER ierr

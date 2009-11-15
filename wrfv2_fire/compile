@@ -3,8 +3,13 @@
 cont1:
 
 if ( !  -e configure.wrf  ) then
-   ./configure $1
-   set dontask
+   if ( $1 == "all_wrfvar" ) then
+      ./configure wrfda
+      set dontask
+   else
+      ./configure $1
+      set dontask
+   endif
 endif
 
 
@@ -49,7 +54,7 @@ foreach a ( $argv )
       grep "DA_CORE=1" configure.wrf > /dev/null
       if ( ! $status ) then 
          # If configuration file has DA_CORE=1 hardwired, ok to set WRF_DA_CORE to 1
-         if ( ! $?WRF_DA_CORE ) setenv WRF_DA_CORE 1
+         setenv WRF_DA_CORE 1
       endif
     endif
     if ( "$a" == "nmm_real" ) then
@@ -88,6 +93,7 @@ else
   if ( ! $?WRF_COAMPS_CORE ) setenv WRF_COAMPS_CORE 0
   if ( ! $?WRF_EXP_CORE )    setenv WRF_EXP_CORE 0
   if ( ! $?WRF_CHEM )        setenv WRF_CHEM 0
+  if ( ! $?HWRF )            setenv HWRF 0
   if ( ! $?WRF_CONVERT ) then
      if ( "$arglist" == "convert_em" ) then
        setenv WRF_CONVERT 1
