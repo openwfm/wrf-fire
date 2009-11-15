@@ -434,7 +434,7 @@ BENCH_START(surf_driver_tim)
      &        ,RA=grid%ra, RS=grid%rs, LAI=grid%lai                       &   ! P-X LSM
      &        ,NLCAT=grid%num_land_cat,  NSCAT=grid%num_soil_cat          &   ! P-X LSM
      &        ,VEGF_PX=grid%vegf_px, SNOWNCV=grid%snowncv                 &   ! P-X LSM
-     &        ,ANAL_INTERVAL=config_flags%interval_seconds                &   ! P-X LSM
+     &        ,ANAL_INTERVAL=config_flags%sgfdda_interval_s               &   ! P-X LSM
      &        ,PXLSM_SMOIS_INIT=config_flags%pxlsm_smois_init             &   ! P-X LSM
      &        ,PXLSM_SOIL_NUDGE=config_flags%grid_sfdda                   &   ! P-X LSM
            ! Optional PX LSM nudging
@@ -653,7 +653,8 @@ BENCH_END(cu_driver_tim)
      &             ,scm_vert_adv=config_flags%scm_vert_adv                &
      &             ,u_base=grid%u_base,v_base=grid%v_base                 &
      &             ,z_base=grid%z_base                                    &
-     &             ,z_force=grid%z_force,u_g=grid%u_g,v_g=grid%v_g        &
+     &             ,z_force=grid%z_force,z_force_tend=grid%z_force_tend   &
+     &             ,u_g=grid%u_g,v_g=grid%v_g                             &
      &             ,u_g_tend=grid%u_g_tend,v_g_tend=grid%v_g_tend         &
      &             ,w_subs=grid%w_subs, w_subs_tend=grid%w_subs_tend      &
      &             ,th_upstream_x=grid%th_upstream_x                      &
@@ -672,6 +673,10 @@ BENCH_END(cu_driver_tim)
      &             ,v_upstream_x_tend=grid%v_upstream_x_tend              &
      &             ,v_upstream_y=grid%v_upstream_y                        &
      &             ,v_upstream_y_tend=grid%v_upstream_y_tend              &
+     &             ,tau_x=grid%tau_x                                      &
+     &             ,tau_x_tend=grid%tau_x_tend                            &
+     &             ,tau_y=grid%tau_y                                      &
+     &             ,tau_y_tend=grid%tau_y_tend                            &
      &             ,z=grid%z,z_at_w=grid%z_at_w                           &
      &             ,th=th_phy, qv=moist(ims,kms,jms,P_QV)                 &
      &             ,u=u_phy, v=v_phy                                      &

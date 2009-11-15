@@ -125,6 +125,8 @@ integer::oops1,oops2
       LOGICAL , PARAMETER :: want_full_levels = .TRUE.
       LOGICAL , PARAMETER :: want_half_levels = .FALSE.
 
+      CHARACTER (LEN=80) :: a_message
+
 !-- Carsel and Parrish [1988]
         REAL , DIMENSION(100) :: lqmi
 
@@ -324,6 +326,10 @@ integer::oops1,oops2
          END IF
 
          !  Filter the input topography if this is a polar projection.
+
+         IF ( ( config_flags%polar ) .AND. ( grid%fft_filter_lat .GT. 90 ) ) THEN
+            CALL wrf_error_fatal ( 'If the polar boundary condition is used, then fft_filter_lat must be set in namelist.input' )
+         END IF
 
          IF ( config_flags%map_proj .EQ. PROJ_CASSINI ) THEN
 #if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
@@ -627,6 +633,11 @@ integer::oops1,oops2
                          ims , ime , jms , jme , 1   , num_metgrid_levels , &
                          its , ite , jts , jte , 1   , num_metgrid_levels )
          ELSE
+            WRITE(a_message,FMT='(3(A,I2),A,L1)') 'ERROR in psfc: flag_psfc = ',flag_psfc, &
+                                               ', flag_soilhgt = ',flag_soilhgt , &
+                                               ', flag_slp = ',flag_slp , & 
+                                               ', sfcp_to_sfcp = ',config_flags%sfcp_to_sfcp 
+            CALL wrf_message ( a_message ) 
             CALL wrf_error_fatal ( 'not enough info for a p sfc computation' )
          END IF
 
@@ -1318,7 +1329,7 @@ integer::oops1,oops2
                                                        grid%tmn(i,j)*(0.0 - grid%zs(ns)) ) /(3.0 - 0.0)
                               END DO
                            CASE ( LSMSCHEME , RUCLSMSCHEME, PXLSMSCHEME )
-                              CALL wrf_error_fatal ( 'Assigning constant soil moisture, bad idea')
+                              CALL wrf_error_fatal ( 'Assigned constant soil moisture to 0.3, stopping')
                               DO ns = 1 , model_config_rec%num_soil_layers
                                  grid%tslb(i,ns,j) = ( grid%tsk(i,j)*(3.0 - grid%zs(ns)) + &
                                                        grid%tmn(i,j)*(0.0 - grid%zs(ns)) ) /(3.0 - 0.0)
@@ -2071,24 +2082,36 @@ endif
 
    RECURSIVE SUBROUTINE find_my_parent ( grid_ptr_in , grid_ptr_out , id_i_am , id_wanted , found_the_id )
 
+!  RAR - Modified to correct problem in which the parent of a child domain could
+!  not be found in the namelist. This condition typically occurs while using the
+!  "allow_grid" namelist option when an inactive domain comes before an active
+!  domain in the list, i.e., the domain number of the active domain is greater than
+!  that of an inactive domain at the same level. 
+!      
       USE module_domain
 
       TYPE(domain) , POINTER :: grid_ptr_in , grid_ptr_out
       TYPE(domain) , POINTER :: grid_ptr_sibling
       INTEGER :: id_wanted , id_i_am
+      INTEGER :: nest                    ! RAR
       LOGICAL :: found_the_id
 
       found_the_id = .FALSE.
       grid_ptr_sibling => grid_ptr_in
+      nest = 0                           ! RAR
+
       DO WHILE ( ASSOCIATED ( grid_ptr_sibling ) )
 
          IF ( grid_ptr_sibling%grid_id .EQ. id_wanted ) THEN
             found_the_id = .TRUE.
             grid_ptr_out => grid_ptr_sibling
             RETURN
-         ELSE IF ( grid_ptr_sibling%num_nests .GT. 0 ) THEN
-            grid_ptr_sibling => grid_ptr_sibling%nests(1)%ptr
+! RAR    ELSE IF ( grid_ptr_sibling%num_nests .GT. 0 ) THEN
+         ELSE IF ( grid_ptr_sibling%num_nests .GT. 0 .AND. nest .LT. grid_ptr_sibling%num_nests ) THEN
+            nest = nest + 1               ! RAR
+            grid_ptr_sibling => grid_ptr_sibling%nests(nest)%ptr ! RAR
             CALL find_my_parent ( grid_ptr_sibling , grid_ptr_out , id_i_am , id_wanted , found_the_id )
+            IF (.NOT. found_the_id) grid_ptr_sibling => grid_ptr_sibling%parents(1)%ptr   ! RAR
          ELSE
             grid_ptr_sibling => grid_ptr_sibling%sibling
          END IF
@@ -2526,14 +2549,20 @@ end subroutine fillitup
                   forig(i,kn,j)           = fo   (i,generic+2-kn,j)
                   forig(i,generic+2-kn,j) = fo   (i,kn,j)
                END DO
-               DO i = istart , iend
-                  forig(i,1,j)           = fo   (i,1,j)
-               END DO
             END DO
+            DO i = istart , iend
+               forig(i,1,j)               = fo   (i,1,j)
+            END DO
+            IF ( MOD(generic,2) .EQ. 0 ) THEN
+               k=generic/2 + 1
+               DO i = istart , iend
+                  forig(i,k,j)            = fo   (i,k,j)
+               END DO
+            END IF
          ELSE
             DO kn = 1 , generic
                DO i = istart , iend
-                  forig(i,kn,j)          = fo   (i,kn,j)
+                  forig(i,kn,j)           = fo   (i,kn,j)
                END DO
             END DO
          END IF
@@ -4687,13 +4716,10 @@ print *,'namelist p_top (Pa) = ',p_top
       DO j = jts , MIN(jde-1,jte)
          DO i = its , MIN(ide-1,ite)
 
-            !  Special cases
+            !  Special case where near the ocean level.  Assume that the SLP is a good value.
 
-            IF      ( ( height(i,1,j) .LT. 0 ) .OR. ( ter(i,j) .LT. 0 ) ) THEN
+            IF      ( ter(i,j) .LT. 50 ) THEN
                psfc(i,j) = slp(i,j) + ( p(i,2,j)-p(i,3,j) ) / ( height(i,2,j)-height(i,3,j) ) * ter(i,j)
-               CYCLE
-            ELSE IF ( ( height(i,1,j) .LT. 1 ) .OR. ( ter(i,j) .LT. 1 ) ) THEN
-               psfc(i,j) = slp(i,j)
                CYCLE
             END IF
 
