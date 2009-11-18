@@ -33,47 +33,4 @@ else
 end
 end
 
-function var=nclist(filename,q) 
-% get info on all variables
 
-quiet=exist('q','var');
-fprintf('ncdump: file %s\n',filename)
-[ncid,status] = mexnc('OPEN',filename,'nowrite');
-nccheck(status)
-[ndims,nvars, ngatts, unlimdim, status] = mexnc('INQ',ncid); % global info
-nccheck(status)
-for varid=1:nvars, % one variable at a time
-    var(varid)=ncvarinfo(ncid,varid-1);
-    if ~quiet,
-        fprintf('%i ',varid);
-        dispvarinfo(var(varid));
-    end
-end
-status=mexnc('CLOSE',ncid);
-nccheck(status)
-end
-
-function v=ncvar(filename,varname)
-% simplified interface to mexnc('get_var_double',...)
-fprintf('ncdump/ncvar: open %s\n',filename)
-[ncid,status]=mexnc('OPEN',filename,'nowrite');
-nccheck(status);
-fprintf('variable %s\n',varname)
-[varid,status]=mexnc('INQ_VARID',ncid,char(varname));
-nccheck(status);
-v=ncvarinfo(ncid,varid); % find out all about this variable
-[value,status]=mexnc(['GET_VAR_',v.vartype_nc],ncid,varid);
-nccheck(status);
-status=mexnc('CLOSE',ncid);
-nccheck(status)
-%if v.ndims>1,
-%	value=permute(value,[2:v.ndims,1]);
-%end
-v.var_value=value;
-dispvarinfo(v);
-end
-
-function dispvarinfo(p)
-% display info on one variable
-    disp([p.varname,' ',p.vartype_m,' (',num2str(p.dimlength),')'])
-end
