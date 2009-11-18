@@ -8,6 +8,8 @@ function v=ncvarinfo(ncid,varid)
 % developed from an earlier code by Jon Beezley
 
 
+%[v.varname,v.vartype,v.ndims,v.dimids,v.natts,status] = mexnc('INQ_VAR',ncid,varid);
+%nccheck(status)
 [v.varname,v.vartype,v.dimids,v.natts]=netcdf.inqVar(ncid,varid);
 v.ndims=length(v.dimids);
 % translate variable type
@@ -15,8 +17,10 @@ v.ndims=length(v.dimids);
 % get dimensions
 for idim=v.ndims:-1:1 
 	dimid=v.dimids(idim);
+	%[dimname,dimlength,status] = mexnc('INQ_DIM',ncid,dimid);	
 	[dimname,dimlength]=netcdf.inqDim(ncid,dimid);
-        v.dimname{idim}=dimname;
+        %nccheck(status)
+	v.dimname{idim}=dimname;
 	v.dimlength(idim)=dimlength;
 end
 
@@ -27,11 +31,17 @@ v.att_datatype_m=cell(1,v.natts);
 v.att_len=zeros(1,v.natts);
 v.att_value=cell(1,v.natts);
 for iatt=v.natts:-1:1
+	%[attname,status] = mexnc('INQ_ATTNAME',ncid,varid,iatt-1);
 	attname=netcdf.inqAttName(ncid,varid,iatt-1);
-        [datatype,attlen]=netcdf.inqAtt(ncid,varid,attname);
-        [att_type_nc,att_type_m]=ncdatatype(datatype); % TEXT or DOUBLE
+        %nccheck(status)
+	%[datatype,attlen,status] = mexnc('INQ_ATT',ncid,varid,attname);
+	[datatype,attlen]=netcdf.inqAtt(ncid,varid,attname);
+        %nccheck(status)
+	[att_type_nc,att_type_m]=ncdatatype(datatype); % TEXT or DOUBLE
+	%[att_value,status] = mexnc(['GET_ATT_',att_type_nc],ncid,varid,attname);
 	att_value=netcdf.getAtt(ncid,varid,attname);
-        v.att_name{iatt}=attname;
+        %nccheck(status)
+	v.att_name{iatt}=attname;
 	v.att_datatype(iatt)=datatype;
 	v.att_datatype_m{iatt}=att_type_m;
 	v.att_len(iatt)=attlen;
