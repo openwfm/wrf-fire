@@ -7,17 +7,42 @@ SUBROUTINE solve_em ( grid , config_flags  &
                     )
 ! Driver layer modules
    USE module_state_description
-   USE module_domain, ONLY : domain, get_ijk_from_grid, get_ijk_from_subgrid, domain_get_current_time, domain_get_start_time
+   USE module_domain, ONLY : &
+                  domain, get_ijk_from_grid, get_ijk_from_subgrid                          &
+                 ,domain_get_current_time, domain_get_start_time, domain_clock_get
+   USE module_domain_type, ONLY : history_alarm
    USE module_configure, ONLY : grid_config_rec_type
    USE module_driver_constants
    USE module_machine
    USE module_tiles, ONLY : set_tiles
 #ifdef DM_PARALLEL
-   USE module_dm, ONLY : local_communicator, mytask, ntasks, ntasks_x, ntasks_y, local_communicator_periodic, wrf_dm_maxval
-#else
-   USE module_dm
+   USE module_dm, ONLY : &
+                  local_communicator, mytask, ntasks, ntasks_x, ntasks_y                   &
+                 ,local_communicator_periodic, wrf_dm_maxval
+   USE module_comm_dm, ONLY : &
+                  halo_em_a_sub,halo_em_b_sub,halo_em_c2_sub,halo_em_chem_e_3_sub          &
+                 ,halo_em_chem_e_5_sub,halo_em_chem_e_7_sub,halo_em_chem_old_e_5_sub       &
+                 ,halo_em_chem_old_e_7_sub,halo_em_c_sub,halo_em_d2_3_sub                  &
+                 ,halo_em_d2_5_sub,halo_em_d3_3_sub,halo_em_d3_5_sub,halo_em_d_sub         &
+                 ,halo_em_e_3_sub,halo_em_e_5_sub,halo_em_hydro_uv_sub                     &
+                 ,halo_em_moist_e_3_sub,halo_em_moist_e_5_sub,halo_em_moist_e_7_sub        &
+                 ,halo_em_moist_old_e_5_sub,halo_em_moist_old_e_7_sub                      &
+                 ,halo_em_scalar_e_3_sub,halo_em_scalar_e_5_sub,halo_em_scalar_e_7_sub     &
+                 ,halo_em_scalar_old_e_5_sub,halo_em_scalar_old_e_7_sub,halo_em_tke_3_sub  &
+                 ,halo_em_tke_5_sub,halo_em_tke_7_sub,halo_em_tke_advect_3_sub             &
+                 ,halo_em_tke_advect_5_sub,halo_em_tke_old_e_5_sub                         &
+                 ,halo_em_tke_old_e_7_sub,halo_em_tracer_e_3_sub,halo_em_tracer_e_5_sub    &
+                 ,halo_em_tracer_e_7_sub,halo_em_tracer_old_e_5_sub                        &
+                 ,halo_em_tracer_old_e_7_sub,period_bdy_em_a_sub                           &
+                 ,period_bdy_em_b3_sub,period_bdy_em_b_sub,period_bdy_em_chem2_sub         &
+                 ,period_bdy_em_chem_old_sub,period_bdy_em_chem_sub,period_bdy_em_d3_sub   &
+                 ,period_bdy_em_d_sub,period_bdy_em_e_sub,period_bdy_em_moist2_sub         &
+                 ,period_bdy_em_moist_old_sub,period_bdy_em_moist_sub                      &
+                 ,period_bdy_em_scalar2_sub,period_bdy_em_scalar_old_sub                   &
+                 ,period_bdy_em_scalar_sub,period_bdy_em_tke_old_sub                       &
+                 ,period_bdy_em_tracer2_sub,period_bdy_em_tracer_old_sub                   &
+                 ,period_bdy_em_tracer_sub,period_em_da_sub,period_em_hydro_uv_sub
 #endif
-   USE module_comm_dm
    USE module_utility
 ! Mediation layer modules
 ! Model layer modules
@@ -37,11 +62,13 @@ SUBROUTINE solve_em ( grid , config_flags  &
    USE module_diagnostics
 #ifdef WRF_CHEM
    USE module_input_chem_data
+   USE module_input_tracer
    USE module_chem_utilities
 #endif
    USE module_first_rk_step_part1
    USE module_first_rk_step_part2
    USE module_llxy, ONLY : proj_cassini
+   USE module_avgflx_em, ONLY : zero_avgflx, upd_avgflx
 
    IMPLICIT NONE
 
@@ -101,7 +128,8 @@ SUBROUTINE solve_em ( grid , config_flags  &
    REAL , ALLOCATABLE , DIMENSION(:)  :: max_vert_cfl_tmp, max_horiz_cfl_tmp
    LOGICAL :: leapfrog
    INTEGER :: l,kte,kk
-   REAL :: curr_secs
+   LOGICAL :: f_flux  ! flag for computing averaged fluxes in cu_gd
+   REAL    :: curr_secs
    INTEGER :: num_sound_steps
    INTEGER :: idex, jdex
    REAL    :: max_msft
@@ -117,6 +145,15 @@ SUBROUTINE solve_em ( grid , config_flags  &
    TYPE(WRFU_TimeInterval)                    :: tmpTimeInterval
    REAL                                       :: real_time
    LOGICAL                                    :: adapt_step_flag
+   LOGICAL                                    :: fill_w_flag
+
+! variables for flux-averaging code 20091223
+   CHARACTER*256                              :: message, message2
+   REAL                                       :: old_dt
+   TYPE(WRFU_Time)                            :: temp_time, CurrTime
+   INTEGER, PARAMETER                         :: precision = 100
+   INTEGER                                    :: num, den
+   TYPE(WRFU_TimeInterval)                    :: dtInterval
 
 ! Define benchmarking timers if -DBENCH is compiled
 #include <bench_solve_em_def.h>
@@ -185,6 +222,7 @@ SUBROUTINE solve_em ( grid , config_flags  &
    num_3d_c        = num_chem
    num_3d_s        = num_scalar
 
+   f_flux = config_flags%do_avgflx_cugd .EQ. 1
 
 !  Compute these starting and stopping locations for each tile and number of tiles.
 !  See: http://www.mmm.ucar.edu/wrf/WG2/topics/settiles
@@ -194,6 +232,32 @@ SUBROUTINE solve_em ( grid , config_flags  &
 
    ALLOCATE (max_vert_cfl_tmp(grid%num_tiles))
    ALLOCATE (max_horiz_cfl_tmp(grid%num_tiles))
+
+  !
+  ! Calculate current time in seconds since beginning of model run.
+  !   Unfortunately, ESMF does not seem to have a way to return
+  !   floating point seconds based on a TimeInterval.  So, we will
+  !   calculate it here--but, this is not clean!!
+  !
+   tmpTimeInterval = domain_get_current_time ( grid ) - domain_get_start_time ( grid )
+   curr_secs = real_time(tmpTimeInterval)
+
+   old_dt = grid%dt   ! store old time step for flux averaging code at end of RK loop
+!-----------------------------------------------------------------------------
+! Adaptive time step: Added by T. Hutchinson, WSI  3/5/07
+!   In this call, we do the time-step adaptation and set time-dependent lateral
+!   boundary condition nudging weights.
+!
+   IF ( (config_flags%use_adaptive_time_step) .and. &
+        ( (.not. grid%nested) .or. &
+        ( (grid%nested) .and. (abs(grid%dtbc) < 0.0001) ) ) )THEN
+      CALL adapt_timestep(grid, config_flags)
+      adapt_step_flag = .TRUE.
+   ELSE
+      adapt_step_flag = .FALSE.
+   ENDIF
+! End of adaptive time step modifications
+!-----------------------------------------------------------------------------
 
    grid%itimestep = grid%itimestep + 1
 
@@ -227,8 +291,6 @@ SUBROUTINE solve_em ( grid , config_flags  &
 
 #ifdef WRF_CHEM
 !
-!    prepare chem aerosols for advection before communication
-!
 
    kte=min(k_end,kde-1)
 # ifdef DM_PARALLEL
@@ -252,35 +314,26 @@ SUBROUTINE solve_em ( grid , config_flags  &
        CALL wrf_error_fatal(TRIM(wrf_err_message))
      ENDIF
    ENDIF
+   if ( num_tracer >= PARAM_FIRST_SCALAR ) then
+!-----------------------------------------------------------------------
+! see matching halo calls below for stencils
+!--------------------------------------------------------------
+     CALL wrf_debug ( 200 , ' call HALO_RK_tracer' )
+     IF      ( config_flags%h_mom_adv_order <= 4 ) THEN
+#      include "HALO_EM_TRACER_E_3.inc"
+     ELSE IF ( config_flags%h_mom_adv_order <= 6 ) THEN
+#      include "HALO_EM_TRACER_E_5.inc"
+     ELSE
+       WRITE(wrf_err_message,*)'solve_em: invalid h_mom_adv_order = ',config_flags%h_mom_adv_order
+       CALL wrf_error_fatal(TRIM(wrf_err_message))
+     ENDIF
+   ENDIF
 # endif
 !--------------------------------------------------------------
 #endif
 
    rk_order = config_flags%rk_ord
 
-
-  !
-  ! Calculate current time in seconds since beginning of model run.
-  !   Unfortunately, ESMF does not seem to have a way to return
-  !   floating point seconds based on a TimeInterval.  So, we will
-  !   calculate it here--but, this is not clean!!
-  !
-   tmpTimeInterval = domain_get_current_time ( grid ) - domain_get_start_time ( grid )
-   curr_secs = real_time(tmpTimeInterval)
-
-!-----------------------------------------------------------------------------
-! Adaptive time step: Added by T. Hutchinson, WSI  3/5/07
-!   In this call, we do the time-step adaptation and set time-dependent lateral
-!   boundary condition nudging weights.
-!
-   IF (config_flags%use_adaptive_time_step) THEN
-     CALL adapt_timestep(grid, config_flags)
-     adapt_step_flag = .TRUE.
-   ELSE
-     adapt_step_flag = .FALSE.
-   ENDIF
-! End of adaptive time step modifications
-!-----------------------------------------------------------------------------
 
    IF ( grid%time_step_sound == 0 ) THEN
 ! This function will give 4 for 6*dx and 6 for 10*dx and returns even numbers only
@@ -541,6 +594,7 @@ BENCH_END(set_phys_bc_tim)
        CALL first_rk_step_part1 (    grid, config_flags         &
                              , moist , moist_tend               &
                              , chem  , chem_tend                &
+                             , tracer, tracer_tend              &
                              , scalar , scalar_tend             &
                              , fdda3d, fdda2d                   &
                              , ru_tendf, rv_tendf               &
@@ -554,7 +608,6 @@ BENCH_END(set_phys_bc_tim)
                              , pi_phy , p_phy , t_phy           &
                              , u_phy , v_phy                    &
                              , dz8w , p8w , t8w , rho_phy , rho &
-                             , mu_3d                            &
                              , ids, ide, jds, jde, kds, kde     &
                              , ims, ime, jms, jme, kms, kme     &
                              , ips, ipe, jps, jpe, kps, kpe     &
@@ -563,11 +616,13 @@ BENCH_END(set_phys_bc_tim)
                              , imsy, imey, jmsy, jmey, kmsy, kmey    &
                              , ipsy, ipey, jpsy, jpey, kpsy, kpey    &
                              , k_start , k_end                  &
+                             , f_flux                           &
                             )
 
        CALL first_rk_step_part2 (    grid, config_flags         &
                              , moist , moist_tend               &
                              , chem  , chem_tend                &
+                             , tracer, tracer_tend              &
                              , scalar , scalar_tend             &
                              , fdda3d, fdda2d                   &
                              , ru_tendf, rv_tendf               &
@@ -581,7 +636,8 @@ BENCH_END(set_phys_bc_tim)
                              , pi_phy , p_phy , t_phy           &
                              , u_phy , v_phy                    &
                              , dz8w , p8w , t8w , rho_phy , rho &
-                             , mu_3d                            &
+                             , nba_mij, num_nba_mij             & !JDM 
+                             , nba_rij, num_nba_rij             & !JDM  
                              , ids, ide, jds, jde, kds, kde     &
                              , ims, ime, jms, jme, kms, kme     &
                              , ips, ipe, jps, jpe, kps, kpe     &
@@ -983,9 +1039,10 @@ BENCH_END(advance_uv_tim)
                ,flag_mut           = 0                                      &
                ,flag_moist         = 0                                      &
                ,flag_chem          = 0                                      &
+               ,flag_tracer        = 0                                      &
                ,flag_scalar        = 0                                      &
                ,positive_definite  = .FALSE.                                &
-               ,moist=moist,chem=chem,scalar=scalar                         &
+               ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                ,fft_filter_lat = config_flags%fft_filter_lat                &
                ,dclat = dclat                                               &
                ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -1089,9 +1146,10 @@ BENCH_END(advance_mu_t_tim)
                 ,flag_mut           = 0                                      &
                 ,flag_moist         = 0                                      &
                 ,flag_chem          = 0                                      &
+                ,flag_tracer        = 0                                      &
                 ,flag_scalar        = 0                                      &
                 ,positive_definite  = .FALSE.                                &
-                ,moist=moist,chem=chem,scalar=scalar                         &
+                ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                 ,fft_filter_lat = config_flags%fft_filter_lat                &
                 ,dclat = dclat                                               &
                 ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -1194,9 +1252,10 @@ BENCH_END(advance_w_tim)
                 ,flag_mut           = 0                                      &
                 ,flag_moist         = 0                                      &
                 ,flag_chem          = 0                                      &
+                ,flag_tracer        = 0                                      &
                 ,flag_scalar        = 0                                      &
                 ,positive_definite  = .FALSE.                                &
-                ,moist=moist,chem=chem,scalar=scalar                         &
+                ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                 ,fft_filter_lat = config_flags%fft_filter_lat                &
                 ,dclat = dclat                                               &
                 ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -1466,9 +1525,10 @@ BENCH_END(small_step_finish_tim)
                   ,flag_mut           = 1                                      &
                   ,flag_moist         = 0                                      &
                   ,flag_chem          = 0                                      &
+                  ,flag_tracer        = 0                                      &
                   ,flag_scalar        = 0                                      &
                   ,positive_definite  = .FALSE.                                &
-                  ,moist=moist,chem=chem,scalar=scalar                         &
+                  ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                   ,fft_filter_lat = config_flags%fft_filter_lat                &
                   ,dclat = dclat                                               &
                   ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -1674,6 +1734,67 @@ BENCH_END(small_step_finish_tim)
          !$OMP END PARALLEL DO
 
        ENDIF  ! end if for chem_adv_opt
+
+! tracer
+
+       IF ((config_flags%tracer_adv_opt /= ORIGINAL) .and. (rk_step == rk_order)) THEN
+
+         !$OMP PARALLEL DO   &
+         !$OMP PRIVATE ( ij )
+         DO ij = 1 , grid%num_tiles
+           CALL wrf_debug ( 200 , ' call rk_update_scalar_pd' )
+           DO im = PARAM_FIRST_SCALAR, num_tracer
+             CALL rk_update_scalar_pd( im, im,                                  &
+                                       tracer_old(ims,kms,jms,im),                &
+                                       tracer_tend(ims,kms,jms,im),               &
+                                       grid%mu_1, grid%mu_1, grid%mub, &
+                                       rk_step, dt_rk, grid%spec_zone,          &
+                                       config_flags,                            &
+                                       ids, ide, jds, jde, kds, kde,            &
+                                       ims, ime, jms, jme, kms, kme,            &
+                                       grid%i_start(ij), grid%i_end(ij),        &
+                                       grid%j_start(ij), grid%j_end(ij),        &
+                                       k_start    , k_end                      )
+           ENDDO
+         END DO
+         !$OMP END PARALLEL DO
+
+!---------------------- positive definite bc call
+#ifdef DM_PARALLEL
+         IF (config_flags%tracer_adv_opt /= ORIGINAL) THEN
+           IF      ( config_flags%h_sca_adv_order <= 4 ) THEN
+#     include "HALO_EM_TRACER_OLD_E_5.inc"
+           ELSE IF ( config_flags%h_sca_adv_order <= 6 ) THEN
+#     include "HALO_EM_TRACER_OLD_E_7.inc"
+           ELSE
+             WRITE(wrf_err_message,*)'solve_em: invalid h_sca_adv_order = ',config_flags%h_sca_adv_order
+             CALL wrf_error_fatal(TRIM(wrf_err_message))
+           ENDIF
+         ENDIF
+#endif
+
+#ifdef DM_PARALLEL
+#  include "PERIOD_BDY_EM_TRACER_OLD.inc"
+#endif
+
+         !$OMP PARALLEL DO   &
+         !$OMP PRIVATE ( ij )
+         DO ij = 1 , grid%num_tiles
+           IF (num_tracer >= PARAM_FIRST_SCALAR) THEN
+             DO im = PARAM_FIRST_SCALAR , num_tracer
+               CALL set_physical_bc3d(  tracer_old(ims,kms,jms,im), 'p', config_flags,   &
+                                        ids, ide, jds, jde, kds, kde,                    &
+                                        ims, ime, jms, jme, kms, kme,                    &
+                                        ips, ipe, jps, jpe, kps, kpe,                    &
+                                        grid%i_start(ij), grid%i_end(ij),                &
+                                        grid%j_start(ij), grid%j_end(ij),                &
+                                        k_start    , k_end                              )
+             END DO 
+           ENDIF
+         END DO
+         !$OMP END PARALLEL DO
+
+       ENDIF  ! end if for tracer_adv_opt
 
 ! tke
 
@@ -2101,6 +2222,124 @@ BENCH_START(chem_adv_tim)
        ENDDO chem_variable_loop
      ENDIF chem_scalar_advance
 BENCH_END(chem_adv_tim)
+!  next the chemical species
+BENCH_START(tracer_adv_tim)
+       tracer_advance: IF (num_tracer >= PARAM_FIRST_SCALAR)  THEN
+
+         tracer_variable_loop: DO ic = PARAM_FIRST_SCALAR, num_tracer
+
+           !$OMP PARALLEL DO   &
+           !$OMP PRIVATE ( ij )
+           tracer_tile_loop_1: DO ij = 1 , grid%num_tiles
+
+             CALL wrf_debug ( 15 , ' call rk_scalar_tend in tracer_tile_loop_1' )
+             CALL rk_scalar_tend ( ic, ic, config_flags,                         &
+                              rk_step, dt_rk,                                    &
+                              grid%ru_m, grid%rv_m, grid%ww_m,                   &
+                              grid%muts, grid%mub, grid%mu_1,                    &
+                              grid%alt,                                          &
+                              tracer_old(ims,kms,jms,ic),                          &
+                              tracer(ims,kms,jms,ic),                              &
+                              tracer_tend(ims,kms,jms,ic),                         &
+                              advect_tend,grid%rqvften,                          &
+                              grid%qv_base, .false., grid%fnm, grid%fnp,         &
+                              grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv, &
+                              grid%msfvy, grid%msftx,grid%msfty,                 &
+                              grid%rdx, grid%rdy, grid%rdn, grid%rdnw,           &
+                              grid%khdif, grid%kvdif, grid%xkhh,                 &
+                              grid%diff_6th_opt, grid%diff_6th_factor,           &
+                              config_flags%tracer_adv_opt,                         &
+                              ids, ide, jds, jde, kds, kde,                      &
+                              ims, ime, jms, jme, kms, kme,                      &
+                              grid%i_start(ij), grid%i_end(ij),                  &
+                              grid%j_start(ij), grid%j_end(ij),                  &
+                              k_start    , k_end                                )
+!
+! Currently, chemistry species with specified boundaries (i.e. the mother
+! domain)  are being over written by flow_dep_bdy_chem. So, relax_bdy and
+! spec_bdy are only called for nests. For boundary conditions from global model or larger domain,
+! chem is uncoupled, and only used for one row/column on inflow (if have_bcs_chem=.true.) 
+!
+           IF( ( config_flags%nested ) .and. rk_step == 1 ) THEN
+             IF(ic.eq.1)CALL wrf_debug ( 10 , ' have_bcs_tracer' )
+             CALL relax_bdy_scalar ( tracer_tend(ims,kms,jms,ic),                                    &
+                                     tracer(ims,kms,jms,ic),  grid%mut,                              &
+                                     tracer_bxs(jms,kms,1,ic),tracer_bxe(jms,kms,1,ic),                &
+                                     tracer_bys(ims,kms,1,ic),tracer_bye(ims,kms,1,ic),                &
+                                     tracer_btxs(jms,kms,1,ic),tracer_btxe(jms,kms,1,ic),              &
+                                     tracer_btys(ims,kms,1,ic),tracer_btye(ims,kms,1,ic),              &
+                                     config_flags%spec_bdy_width, grid%spec_zone, grid%relax_zone, &
+                                     grid%dtbc, grid%fcx, grid%gcx,                                &
+                                     config_flags,                                                 &
+                                     ids,ide, jds,jde, kds,kde,                                    &
+                                     ims,ime, jms,jme, kms,kme,                                    &
+                                     ips,ipe, jps,jpe, kps,kpe,                                    &
+                                     grid%i_start(ij), grid%i_end(ij),                             &
+                                     grid%j_start(ij), grid%j_end(ij),                             &
+                                     k_start, k_end                                                )
+             CALL spec_bdy_scalar  ( tracer_tend(ims,kms,jms,ic),                 &
+                                     tracer_bxs(jms,kms,1,ic),tracer_bxe(jms,kms,1,ic),                &
+                                     tracer_bys(ims,kms,1,ic),tracer_bye(ims,kms,1,ic),                &
+                                     tracer_btxs(jms,kms,1,ic),tracer_btxe(jms,kms,1,ic),              &
+                                     tracer_btys(ims,kms,1,ic),tracer_btye(ims,kms,1,ic),              &
+                                     config_flags%spec_bdy_width, grid%spec_zone,                  &
+                                     config_flags,                                                 &
+                                     ids,ide, jds,jde, kds,kde,                                    &
+                                     ims,ime, jms,jme, kms,kme,                                    &
+                                     ips,ipe, jps,jpe, kps,kpe,                                    &
+                                     grid%i_start(ij), grid%i_end(ij),                             &
+                                     grid%j_start(ij), grid%j_end(ij),                             &
+                                     k_start, k_end                                                )
+           ENDIF
+
+         ENDDO tracer_tile_loop_1
+         !$OMP END PARALLEL DO
+
+         !$OMP PARALLEL DO   &
+         !$OMP PRIVATE ( ij )
+
+         tracer_tile_loop_2: DO ij = 1 , grid%num_tiles
+
+           CALL wrf_debug ( 200 , ' call rk_update_scalar' )
+           CALL rk_update_scalar( ic, ic,                           &
+                                  tracer_old(ims,kms,jms,ic),       &
+                                  tracer(ims,kms,jms,ic),           &
+                                  tracer_tend(ims,kms,jms,ic),      &
+                                  advect_tend, grid%msftx, grid%msfty, &
+                                  grid%mu_1, grid%mu_2, grid%mub,      &
+                                  rk_step, dt_rk, grid%spec_zone,      &
+                                  config_flags,                     &
+                                  ids, ide, jds, jde, kds, kde,     &
+                                  ims, ime, jms, jme, kms, kme,     &
+                                  grid%i_start(ij), grid%i_end(ij), &
+                                  grid%j_start(ij), grid%j_end(ij), &
+                                  k_start    , k_end               )
+
+           IF( config_flags%specified  ) THEN
+             CALL flow_dep_bdy_tracer( tracer(ims,kms,jms,ic),                             &
+                                     tracer_bxs(jms,kms,1,ic), tracer_btxs(jms,kms,1,ic),  &
+                                     tracer_bxe(jms,kms,1,ic), tracer_btxe(jms,kms,1,ic),  &
+                                     tracer_bys(ims,kms,1,ic), tracer_btys(ims,kms,1,ic),  &
+                                     tracer_bye(ims,kms,1,ic), tracer_btye(ims,kms,1,ic),  &
+                                     dt_rk+grid%dtbc,                                  &
+                                     config_flags%spec_bdy_width,grid%z,      &
+                                     grid%have_bcs_tracer,      &
+                                     grid%ru_m, grid%rv_m, config_flags%tracer_opt,grid%alt,       &
+                                     grid%t_1,grid%pb,grid%p,t0,p1000mb,rcp,grid%ph_2,grid%phb,g, &
+                                     grid%spec_zone,ic,                  &
+                                     ids,ide, jds,jde, kds,kde,  & ! domain dims
+                                     ims,ime, jms,jme, kms,kme,  & ! memory dims
+                                     ips,ipe, jps,jpe, kps,kpe,  & ! patch  dims
+                                     grid%i_start(ij), grid%i_end(ij),   &
+                                     grid%j_start(ij), grid%j_end(ij),   &
+                                     k_start, k_end                      )
+           ENDIF
+         ENDDO tracer_tile_loop_2
+         !$OMP END PARALLEL DO
+
+       ENDDO tracer_variable_loop
+     ENDIF tracer_advance
+BENCH_END(tracer_adv_tim)
 #endif
 
 !  next the other scalar species
@@ -2140,7 +2379,13 @@ BENCH_END(chem_adv_tim)
                                   .OR. is .EQ. P_QNS          &
                                   .OR. is .EQ. P_QNR          &
                                   .OR. is .EQ. P_QNG          &
+                                  .OR. is .EQ. P_QNH          &
                                   .OR. is .EQ. P_QNN          &
+!                                 .OR. is .EQ. P_QZR          &
+!                                 .OR. is .EQ. P_QZI          &
+!                                 .OR. is .EQ. P_QZS          &
+!                                 .OR. is .EQ. P_QZG          &
+!                                 .OR. is .EQ. P_QZH          &
                                   .OR. is .EQ. P_QNC) THEN
 
                CALL relax_bdy_scalar ( scalar_tend(ims,kms,jms,is),                            &
@@ -2201,22 +2446,6 @@ BENCH_END(chem_adv_tim)
 
 
            IF( config_flags%specified ) THEN
-#ifdef WRF_CHEM
-            IF( ((is .EQ. p_tr17_1) .AND. (config_flags%scalar_opt .EQ. 2)) .OR. &
-                ((is .EQ. p_tr17_2) .AND. (config_flags%scalar_opt .EQ. 2)) ) THEN
-
-                CALL flow_dep_bdy_s1( scalar(ims,kms,jms,is),     &
-                                   grid%ru_m, grid%rv_m, config_flags,   &
-                                   grid%spec_zone,                  &
-                                   ids,ide, jds,jde, kds,kde,  & ! domain dims
-                                   ims,ime, jms,jme, kms,kme,  & ! memory dims
-                                   ips,ipe, jps,jpe, kps,kpe,  & ! patch  dims
-                                   grid%i_start(ij), grid%i_end(ij),  &
-                                   grid%j_start(ij), grid%j_end(ij),  &
-                                   k_start, k_end                    )
-
-             ELSE
-#endif
 
              CALL flow_dep_bdy  ( scalar(ims,kms,jms,is),     &
                                   grid%ru_m, grid%rv_m, config_flags,   &
@@ -2227,9 +2456,6 @@ BENCH_END(chem_adv_tim)
                                   grid%i_start(ij), grid%i_end(ij),  &
                                   grid%j_start(ij), grid%j_end(ij),  &
                                   k_start, k_end                    )
-#ifdef WRF_CHEM
-            ENDIF
-#endif
            ENDIF
 
          ENDDO scalar_tile_loop_2
@@ -2294,8 +2520,9 @@ BENCH_END(calc_p_rho_tim)
                     ,flag_moist         = im                                     &
                     ,flag_chem          = 0                                      &
                     ,flag_scalar        = 0                                      &
+                    ,flag_tracer        = 0                                      &
                     ,positive_definite=.FALSE.                                   &
-                    ,moist=moist,chem=chem,scalar=scalar                         &
+                    ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                     ,fft_filter_lat = config_flags%fft_filter_lat                &
                     ,dclat = dclat                                               &
                     ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -2330,9 +2557,10 @@ BENCH_END(calc_p_rho_tim)
                     ,flag_mut           = 0                                      &
                     ,flag_moist         = 0                                      &
                     ,flag_chem          = im                                     &
+                    ,flag_tracer        = 0                                      &
                     ,flag_scalar        = 0                                      &
                     ,positive_definite=.FALSE.                                   &
-                    ,moist=moist,chem=chem,scalar=scalar                         &
+                    ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                     ,fft_filter_lat = config_flags%fft_filter_lat                &
                     ,dclat = dclat                                               &
                     ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -2341,6 +2569,43 @@ BENCH_END(calc_p_rho_tim)
                     ,imsx=imsx,imex=imex,jmsx=jmsx,jmex=jmex,kmsx=kmsx,kmex=kmex &
                     ,ipsx=ipsx,ipex=ipex,jpsx=jmsx,jpex=jpex,kpsx=kpsx,kpex=kpex )
              CALL uncouple_scalars_for_filter ( FIELD=chem(ims,kms,jms,im)             &
+                    ,MU=grid%mu_2 , MUB=grid%mub                                 &
+                    ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
+                    ,ims=ims,ime=ime,jms=jms,jme=jme,kms=kms,kme=kme             &
+                    ,ips=ips,ipe=ipe,jps=jps,jpe=jpe,kps=kps,kpe=kpe          )
+           END DO
+         END IF
+         IF ( num_tracer >= PARAM_FIRST_SCALAR ) THEN
+           CALL wrf_debug ( 200 , ' call filter tracer ' )
+           DO im = PARAM_FIRST_SCALAR, num_tracer
+             CALL couple_scalars_for_filter ( FIELD=tracer(ims,kms,jms,im)               &
+                    ,MU=grid%mu_2 , MUB=grid%mub                                 &
+                    ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
+                    ,ims=ims,ime=ime,jms=jms,jme=jme,kms=kms,kme=kme             &
+                    ,ips=ips,ipe=ipe,jps=jps,jpe=jpe,kps=kps,kpe=kpe           )
+             CALL pxft ( grid=grid                                               &
+                    ,lineno=__LINE__                                             &
+                    ,flag_uv            = 0                                      &
+                    ,flag_rurv          = 0                                      &
+                    ,flag_wph           = 0                                      &
+                    ,flag_ww            = 0                                      &
+                    ,flag_t             = 0                                      &
+                    ,flag_mu            = 0                                      &
+                    ,flag_mut           = 0                                      &
+                    ,flag_moist         = 0                                      &
+                    ,flag_chem          = 0                                      &
+                    ,flag_tracer        = im                                      &
+                    ,flag_scalar        = 0                                      &
+                    ,positive_definite=.FALSE.                                   &
+                    ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
+                    ,fft_filter_lat = config_flags%fft_filter_lat                &
+                    ,dclat = dclat                                               &
+                    ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
+                    ,ims=ims,ime=ime,jms=jms,jme=jme,kms=kms,kme=kme             &
+                    ,ips=ips,ipe=ipe,jps=jps,jpe=jpe,kps=kps,kpe=kpe             &
+                    ,imsx=imsx,imex=imex,jmsx=jmsx,jmex=jmex,kmsx=kmsx,kmex=kmex &
+                    ,ipsx=ipsx,ipex=ipex,jpsx=jmsx,jpex=jpex,kpsx=kpsx,kpex=kpex )
+             CALL uncouple_scalars_for_filter ( FIELD=tracer(ims,kms,jms,im)             &
                     ,MU=grid%mu_2 , MUB=grid%mub                                 &
                     ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
                     ,ims=ims,ime=ime,jms=jms,jme=jme,kms=kms,kme=kme             &
@@ -2367,9 +2632,10 @@ BENCH_END(calc_p_rho_tim)
                   ,flag_mut           = 0                                      &
                   ,flag_moist         = 0                                      &
                   ,flag_chem          = 0                                      &
+                  ,flag_tracer        = 0                                      &
                   ,flag_scalar        = im                                     &
                   ,positive_definite=.FALSE.                                   &
-                  ,moist=moist,chem=chem,scalar=scalar                         &
+                  ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                   ,fft_filter_lat = config_flags%fft_filter_lat                &
                   ,dclat = dclat                                               &
                   ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -2442,6 +2708,7 @@ BENCH_END(calc_p_rho_tim)
 #  include "PERIOD_BDY_EM_D.inc"
 #  include "PERIOD_BDY_EM_MOIST2.inc"
 #  include "PERIOD_BDY_EM_CHEM2.inc"
+#  include "PERIOD_BDY_EM_TRACER2.inc"
 #  include "PERIOD_BDY_EM_SCALAR2.inc"
 #endif
 
@@ -2502,6 +2769,22 @@ BENCH_END(diag_w_tim)
                                      k_start    , k_end-1                    )
 
            END DO chem_species_bdy_loop_1
+
+         END IF
+
+         IF (num_tracer >= PARAM_FIRST_SCALAR) THEN
+
+           tracer_species_bdy_loop_1 : DO ic = PARAM_FIRST_SCALAR , num_tracer
+
+             CALL set_physical_bc3d( tracer(ims,kms,jms,ic), 'p', config_flags,   &
+                                     ids, ide, jds, jde, kds, kde,            &
+                                     ims, ime, jms, jme, kms, kme,            &
+                                     ips, ipe, jps, jpe, kps, kpe,            &
+                                     grid%i_start(ij), grid%i_end(ij),                  &
+                                     grid%j_start(ij), grid%j_end(ij),                  &
+                                     k_start    , k_end-1                    )
+
+           END DO tracer_species_bdy_loop_1
 
          END IF
 
@@ -2601,6 +2884,24 @@ BENCH_END(bc_end_tim)
            CALL wrf_error_fatal(TRIM(wrf_err_message))
          ENDIF
        ENDIF
+       IF ( num_tracer >= PARAM_FIRST_SCALAR ) THEN
+         IF      ( config_flags%h_sca_adv_order <= 4 ) THEN
+           IF ( (config_flags%tracer_adv_opt /= ORIGINAL) .and. (rk_step == rk_order-1) ) THEN
+#        include "HALO_EM_TRACER_E_5.inc"
+           ELSE
+#        include "HALO_EM_TRACER_E_3.inc"
+           ENDIF
+         ELSE IF ( config_flags%h_sca_adv_order <= 6 ) THEN
+           IF ( (config_flags%tracer_adv_opt /= ORIGINAL) .and. (rk_step == rk_order-1) ) THEN
+#        include "HALO_EM_TRACER_E_7.inc"
+           ELSE
+#        include "HALO_EM_TRACER_E_5.inc"
+           ENDIF
+         ELSE
+           WRITE(wrf_err_message,*)'solve_em: invalid h_sca_adv_order = ',config_flags%h_sca_adv_order
+           CALL wrf_error_fatal(TRIM(wrf_err_message))
+         ENDIF
+       ENDIF
        IF ( num_scalar >= PARAM_FIRST_SCALAR ) THEN
          IF      ( config_flags%h_sca_adv_order <= 4 ) THEN
            IF ( (config_flags%scalar_adv_opt /= ORIGINAL) .and. (rk_step == rk_order-1) ) THEN
@@ -2632,6 +2933,65 @@ BENCH_END(bc_end_tim)
 
    END DO Runge_Kutta_loop
 
+   IF (config_flags%do_avgflx_em .EQ. 1) THEN
+! Reinitialize time-averaged fluxes if history output was written after the previous time step:
+      CALL WRFU_ALARMGET(grid%alarms( HISTORY_ALARM ),temp_time)
+      CALL domain_clock_get ( grid, current_time=CurrTime, &
+           current_timestr=message2 )
+! use overloaded -, .LT. operator to check whether to initialize avgflx:
+! reinitialize after each history output (detect this here by comparing current time
+! against last history time and time step - this code follows what's done in adapt_timestep_em):
+      WRITE ( message , FMT = '("solve_em: old_dt =",g15.6,", dt=",g15.6," on domain ",I3)' ) &
+           & old_dt,grid%dt,grid%id
+      CALL wrf_debug(200,message)
+      old_dt=min(old_dt,grid%dt)
+      num = INT(old_dt * precision)
+      den = precision
+      CALL WRFU_TimeIntervalSet(dtInterval, Sn=num, Sd=den)
+      IF (CurrTime .lt. temp_time + dtInterval) THEN
+         WRITE ( message , FMT = '("solve_em: initializing avgflx at time ",A," on domain ",I3)' ) &
+              & TRIM(message2), grid%id
+         CALL wrf_message(trim(message)) 
+         grid%avgflx_count = 0
+!tile-loop for zero_avgflx
+   !$OMP PARALLEL DO   &
+   !$OMP PRIVATE ( ij )
+
+         DO ij = 1 , grid%num_tiles
+            CALL wrf_debug(200,'In solve_em, before zero_avgflx call')
+            CALL zero_avgflx(grid%avgflx_rum,grid%avgflx_rvm,grid%avgflx_wwm, &
+                 &   ids, ide, jds, jde, kds, kde,           &
+                 &   ims, ime, jms, jme, kms, kme,           &
+                 &   grid%i_start(ij), grid%i_end(ij), grid%j_start(ij), grid%j_end(ij), &
+                 &   k_start    , k_end, f_flux, &
+                 &   grid%avgflx_cfu1,grid%avgflx_cfd1,grid%avgflx_dfu1, &
+                 &   grid%avgflx_efu1,grid%avgflx_dfd1,grid%avgflx_efd1 )
+            CALL wrf_debug(200,'In solve_em, after zero_avgflx call')
+         ENDDO
+      ENDIF
+
+! Update avgflx quantities
+!tile-loop for upd_avgflx
+   !$OMP PARALLEL DO   &
+   !$OMP PRIVATE ( ij )
+
+      DO ij = 1 , grid%num_tiles
+         CALL wrf_debug(200,'In solve_em, before upd_avgflx call')
+         CALL upd_avgflx(grid%avgflx_count,grid%avgflx_rum,grid%avgflx_rvm,grid%avgflx_wwm, &
+              &   grid%ru_m, grid%rv_m, grid%ww_m, &
+              &   ids, ide, jds, jde, kds, kde,           &
+              &   ims, ime, jms, jme, kms, kme,           &
+              &   grid%i_start(ij), grid%i_end(ij), grid%j_start(ij), grid%j_end(ij), &
+              &   k_start    , k_end, f_flux, &
+              &   grid%cfu1,grid%cfd1,grid%dfu1,grid%efu1,grid%dfd1,grid%efd1,          &
+              &   grid%avgflx_cfu1,grid%avgflx_cfd1,grid%avgflx_dfu1, &
+              &   grid%avgflx_efu1,grid%avgflx_dfd1,grid%avgflx_efd1 )
+         CALL wrf_debug(200,'In solve_em, after upd_avgflx call')
+         
+      ENDDO
+      grid%avgflx_count = grid%avgflx_count + 1
+   ENDIF
+!
    !$OMP PARALLEL DO   &
    !$OMP PRIVATE ( ij )
    DO ij = 1 , grid%num_tiles
@@ -2720,6 +3080,7 @@ BENCH_START(micro_driver_tim)
       &        ,P8W=p8w            ,P=p_phy            ,PI_PHY=pi_phy     &
       &        ,RHO=rho            ,SPEC_ZONE=grid%spec_zone              &
       &        ,SR=grid%sr              ,TH=th_phy                        &
+      &        ,refl_10cm=grid%refl_10cm                                  & ! hm, 9/22/09 for refl
       &        ,WARM_RAIN=grid%warm_rain                                  &
       &        ,T8W=t8w                                                   &
       &        ,CLDFRA=grid%cldfra, EXCH_H=grid%exch_h &
@@ -2748,7 +3109,8 @@ BENCH_START(micro_driver_tim)
                  ! Optional
       &        , RAINNC=grid%rainnc, RAINNCV=grid%rainncv                 &
       &        , SNOWNC=grid%snownc, SNOWNCV=grid%snowncv                 &
-      &        , GRAUPELNC=grid%graupelnc, GRAUPELNCV=grid%graupelncv     &
+      &        , GRAUPELNC=grid%graupelnc, GRAUPELNCV=grid%graupelncv     & ! for milbrandt2mom
+      &        , HAILNC=grid%hailnc, HAILNCV=grid%hailncv                 &
       &        , W=grid%w_2, Z=grid%z, HT=grid%ht                         &
       &        , MP_RESTART_STATE=grid%mp_restart_state                   &
       &        , TBPVS_STATE=grid%tbpvs_state                             & ! etampnew
@@ -2759,18 +3121,26 @@ BENCH_START(micro_driver_tim)
       &        , QI_CURR=moist(ims,kms,jms,P_QI), F_QI=F_QI               &
       &        , QS_CURR=moist(ims,kms,jms,P_QS), F_QS=F_QS               &
       &        , QG_CURR=moist(ims,kms,jms,P_QG), F_QG=F_QG               &
+      &        , QH_CURR=moist(ims,kms,jms,P_QH), F_QH=F_QH               & ! for milbrandt2mom
       &        , QNDROP_CURR=scalar(ims,kms,jms,P_QNDROP), F_QNDROP=F_QNDROP &
-      &        , QNI_CURR=scalar(ims,kms,jms,P_QNI), F_QNI=F_QNI          &
       &        , QT_CURR=scalar(ims,kms,jms,P_QT), F_QT=F_QT              &
-      &        , QNS_CURR=scalar(ims,kms,jms,P_QNS), F_QNS=F_QNS          &  
-      &        , QNR_CURR=scalar(ims,kms,jms,P_QNR), F_QNR=F_QNR          &  
-      &        , QNG_CURR=scalar(ims,kms,jms,P_QNG), F_QNG=F_QNG          &  
       &        , QNN_CURR=scalar(ims,kms,jms,P_QNN), F_QNN=F_QNN          &
+      &        , QNI_CURR=scalar(ims,kms,jms,P_QNI), F_QNI=F_QNI          &
       &        , QNC_CURR=scalar(ims,kms,jms,P_QNC), F_QNC=F_QNC          &
-      &        , qrcuten=grid%rqrcuten, qscuten=grid%rqscuten             &  
-      &        , qicuten=grid%rqicuten,mu=grid%mut                        &  
+      &        , QNR_CURR=scalar(ims,kms,jms,P_QNR), F_QNR=F_QNR          &
+      &        , QNS_CURR=scalar(ims,kms,jms,P_QNS), F_QNS=F_QNS          &
+      &        , QNG_CURR=scalar(ims,kms,jms,P_QNG), F_QNG=F_QNG          &
+      &        , QNH_CURR=scalar(ims,kms,jms,P_QNH), F_QNH=F_QNH          & ! for milbrandt2mom
+!       &        , QZR_CURR=scalar(ims,kms,jms,P_QZR), F_QZR=F_QZR          & ! for milbrandt3mom
+!       &        , QZI_CURR=scalar(ims,kms,jms,P_QZI), F_QZI=F_QZI          & ! "
+!       &        , QZS_CURR=scalar(ims,kms,jms,P_QZS), F_QZS=F_QZS          & ! "
+!       &        , QZG_CURR=scalar(ims,kms,jms,P_QZG), F_QZG=F_QZG          & ! "
+!       &        , QZH_CURR=scalar(ims,kms,jms,P_QZH), F_QZH=F_QZH          & ! "
+      &        , qrcuten=grid%rqrcuten, qscuten=grid%rqscuten             &
+      &        , qicuten=grid%rqicuten,mu=grid%mut                        &
       &        , HAIL=config_flags%gsfcgce_hail                           & ! for gsfcgce
       &        , ICE2=config_flags%gsfcgce_2ice                           & ! for gsfcgce
+!     &        , ccntype=config_flags%milbrandt_ccntype                   & ! for milbrandt (2mom)
                                                                           )
 BENCH_END(micro_driver_tim)
 
@@ -2818,6 +3188,12 @@ BENCH_START(moist_phys_end_tim)
                       ims, ime, jms, jme, kms, kme,                     &
                       its, ite, jts, jte,                               &
                       k_start    , k_end                                )
+       CALL microphysics_zero_outb (                                    &
+                      tracer , num_tracer , config_flags ,              &
+                      ids, ide, jds, jde, kds, kde,                     &
+                      ims, ime, jms, jme, kms, kme,                     &
+                      its, ite, jts, jte,                               &
+                      k_start    , k_end                                )
 
        IF ( config_flags%periodic_x ) THEN
          its = max(grid%i_start(ij),ids)
@@ -2850,9 +3226,18 @@ BENCH_START(moist_phys_end_tim)
                       its, ite, jts, jte,                               &
                       k_start    , k_end                                )
 
+       CALL microphysics_zero_outa (                                    &
+                      tracer , num_tracer , config_flags ,              &
+                      ids, ide, jds, jde, kds, kde,                     &
+                      ims, ime, jms, jme, kms, kme,                     &
+                      its, ite, jts, jte,                               &
+                      k_start    , k_end                                )
 
        CALL moist_physics_finish_em( grid%t_2, grid%t_1, t0, grid%muts, th_phy,       &
                                       grid%h_diabatic, dtm, config_flags,    &
+#if ( WRF_DFI_RADAR == 1 )
+                                      grid%dfi_tten_rad,grid%dfi_stage,        &
+#endif
                                       ids, ide, jds, jde, kds, kde,     &
                                       ims, ime, jms, jme, kms, kme,     &
                                       its, ite, jts, jte,               &
@@ -2890,9 +3275,10 @@ BENCH_START(moist_phys_end_tim)
                   ,flag_mut           = 0                                      &
                   ,flag_moist         = im                                     &
                   ,flag_chem          = 0                                      &
+                  ,flag_tracer        = 0                                      &
                   ,flag_scalar        = 0                                      &
                   ,positive_definite=.FALSE.                                   &
-                  ,moist=moist,chem=chem,scalar=scalar                         &
+                  ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                   ,fft_filter_lat = config_flags%fft_filter_lat                &
                   ,dclat = dclat                                               &
                   ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -2995,9 +3381,10 @@ BENCH_END(moist_phys_end_tim)
                   ,flag_mut           = 0                                      &
                   ,flag_moist         = 0                                      &
                   ,flag_chem          = im                                     &
+                  ,flag_tracer        = 0                                      &
                   ,flag_scalar        = 0                                      &
                   ,positive_definite=.FALSE.                                   &
-                  ,moist=moist,chem=chem,scalar=scalar                         &
+                  ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                   ,fft_filter_lat = config_flags%fft_filter_lat                &
                   ,dclat = dclat                                               &
                   ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -3014,6 +3401,48 @@ BENCH_END(moist_phys_end_tim)
            ENDDO
          ENDDO
        ENDDO chem_filter_loop
+     ENDIF
+     IF ( num_tracer >= PARAM_FIRST_SCALAR ) then
+       tracer_filter_loop: DO im = PARAM_FIRST_SCALAR, num_tracer
+         DO jj = jps, MIN(jpe,jde-1)
+           DO kk = kps, MIN(kpe,kde-1)
+             DO ii = ips, MIN(ipe,ide-1)
+               tracer(ii,kk,jj,im)=tracer(ii,kk,jj,im)*(grid%mu_2(ii,jj)+grid%mub(ii,jj))
+             ENDDO
+           ENDDO
+         ENDDO
+
+         CALL pxft ( grid=grid                                                 &
+                  ,lineno=__LINE__                                             &
+                  ,flag_uv            = 0                                      &
+                  ,flag_rurv          = 0                                      &
+                  ,flag_wph           = 0                                      &
+                  ,flag_ww            = 0                                      &
+                  ,flag_t             = 0                                      &
+                  ,flag_mu            = 0                                      &
+                  ,flag_mut           = 0                                      &
+                  ,flag_moist         = 0                                      &
+                  ,flag_chem          = 0                                      &
+                  ,flag_tracer        = im                                    &
+                  ,flag_scalar        = 0                                      &
+                  ,positive_definite=.FALSE.                                   &
+                  ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
+                  ,fft_filter_lat = config_flags%fft_filter_lat                &
+                  ,dclat = dclat                                               &
+                  ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
+                  ,ims=ims,ime=ime,jms=jms,jme=jme,kms=kms,kme=kme             &
+                  ,ips=ips,ipe=ipe,jps=jps,jpe=jpe,kps=kps,kpe=kpe             &
+                  ,imsx=imsx,imex=imex,jmsx=jmsx,jmex=jmex,kmsx=kmsx,kmex=kmex &
+                  ,ipsx=ipsx,ipex=ipex,jpsx=jmsx,jpex=jpex,kpsx=kpsx,kpex=kpex )
+
+         DO jj = jps, MIN(jpe,jde-1)
+           DO kk = kps, MIN(kpe,kde-1)
+             DO ii = ips, MIN(ipe,ide-1)
+               tracer(ii,kk,jj,im)=tracer(ii,kk,jj,im)/(grid%mu_2(ii,jj)+grid%mub(ii,jj))
+             ENDDO
+           ENDDO
+         ENDDO
+       ENDDO tracer_filter_loop
      ENDIF
 
      IF ( num_3d_s >= PARAM_FIRST_SCALAR ) then
@@ -3037,9 +3466,10 @@ BENCH_END(moist_phys_end_tim)
                   ,flag_mut           = 0                                      &
                   ,flag_moist         = 0                                      &
                   ,flag_chem          = 0                                      &
+                  ,flag_tracer        = 0                                      &
                   ,flag_scalar        = im                                     &
                   ,positive_definite=.FALSE.                                   &
-                  ,moist=moist,chem=chem,scalar=scalar                         &
+                  ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                   ,fft_filter_lat = config_flags%fft_filter_lat                &
                   ,dclat = dclat                                               &
                   ,ids=ids,ide=ide,jds=jds,jde=jde,kds=kds,kde=kde             &
@@ -3124,6 +3554,7 @@ BENCH_END(moist_phys_end_tim)
 #  include "PERIOD_BDY_EM_D3.inc"
 #  include "PERIOD_BDY_EM_MOIST.inc"
 #  include "PERIOD_BDY_EM_CHEM.inc"
+#  include "PERIOD_BDY_EM_TRACER.inc"
 #  include "PERIOD_BDY_EM_SCALAR.inc"
 #endif
 
@@ -3187,6 +3618,18 @@ BENCH_START(bc_2d_tim)
 
      END DO chem_species_bdy_loop_2
 
+     tracer_species_bdy_loop_2 : DO ic = PARAM_FIRST_SCALAR , num_tracer
+
+       CALL set_physical_bc3d( tracer(ims,kms,jms,ic) , 'p', config_flags,  &
+                               ids, ide, jds, jde, kds, kde,            &
+                               ims, ime, jms, jme, kms, kme,            &
+                               ips, ipe, jps, jpe, kps, kpe,            &
+                               grid%i_start(ij), grid%i_end(ij),                  &
+                               grid%j_start(ij), grid%j_end(ij),                  &
+                               k_start    , k_end                      )
+
+     END DO tracer_species_bdy_loop_2
+
      scalar_species_bdy_loop_2 : DO is = PARAM_FIRST_SCALAR , num_3d_s
 
        CALL set_physical_bc3d( scalar(ims,kms,jms,is) , 'p', config_flags,  &
@@ -3211,14 +3654,16 @@ BENCH_END(bc_2d_tim)
 
 #ifdef DM_PARALLEL
 #  include "HALO_EM_C.inc"
+#  include "PERIOD_BDY_EM_E.inc"
 #endif
 
-   CALL wrf_debug ( 10 , ' call set_w_surface2' )
+   CALL wrf_debug ( 10 , ' call set_w_surface' )
+   fill_w_flag = .false.
 
    !$OMP PARALLEL DO   &
    !$OMP PRIVATE ( ij )
    DO ij = 1 , grid%num_tiles
-      CALL set_w_surface2(                                                  &
+      CALL set_w_surface( config_flags, grid%znw, fill_w_flag,              &
                            grid%w_2, grid%ht,  grid%u_2, grid%v_2,          &
                            grid%cf1, grid%cf2, grid%cf3, grid%rdx, grid%rdy,&
                            grid%msftx, grid%msfty,                          &
@@ -3316,6 +3761,20 @@ BENCH_END(bc_2d_tim)
 #      include "HALO_EM_CHEM_E_3.inc"
      ELSE IF ( config_flags%h_mom_adv_order <= 6 ) THEN
 #      include "HALO_EM_CHEM_E_5.inc"
+     ELSE
+       WRITE(wrf_err_message,*)'solve_em: invalid h_mom_adv_order = ',config_flags%h_mom_adv_order
+       CALL wrf_error_fatal(TRIM(wrf_err_message))
+     ENDIF
+   ENDIF
+   IF ( num_tracer >= PARAM_FIRST_SCALAR ) THEN
+!-----------------------------------------------------------------------
+! see above
+!--------------------------------------------------------------
+     CALL wrf_debug ( 200 , ' call HALO_RK_TRACER' )
+     IF      ( config_flags%h_mom_adv_order <= 4 ) THEN
+#      include "HALO_EM_TRACER_E_3.inc"
+     ELSE IF ( config_flags%h_mom_adv_order <= 6 ) THEN
+#      include "HALO_EM_TRACER_E_5.inc"
      ELSE
        WRITE(wrf_err_message,*)'solve_em: invalid h_mom_adv_order = ',config_flags%h_mom_adv_order
        CALL wrf_error_fatal(TRIM(wrf_err_message))

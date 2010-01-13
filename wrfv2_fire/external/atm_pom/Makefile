@@ -16,11 +16,14 @@ library: $(OBJ)
 	$(RANLIB) $(TARGET)
 
 .F.o:
-	$(CPP) $(CFLAGS)  $*.F  > $*.f90
+	$(CPP) $(CPPFLAGS) -DDM_PARALLEL  $*.F  > $*.f90
 	$(FC) -o $@ -c $(FFLAGS)  $*.f90 
 
 clean:
 	rm -f $(OBJ) $(TARGET)
+	rm -f *.f90 
+	rm -f *.mod
+
 
 superclean: clean
 # DEPENDENCIES : only dependencies after this line (don't remove the word DEPENDENCIES)

@@ -5,7 +5,7 @@ MODULE module_dm
    USE module_machine
    USE module_wrf_error
    USE module_driver_constants
-   USE module_comm_dm
+!   USE module_comm_dm
    IMPLICIT NONE
 
 #if ( NMM_CORE == 1 ) || defined( WRF_CHEM ) 
@@ -22,7 +22,7 @@ MODULE module_dm
    LOGICAL :: dm_debug_flag = .FALSE.
 
    INTERFACE wrf_dm_maxval
-#ifdef PROMOTE_FLOAT
+#if ( defined(PROMOTE_FLOAT) || ( RWORDSIZE == DWORDSIZE ) )
      MODULE PROCEDURE wrf_dm_maxval_real , wrf_dm_maxval_integer
 #else
      MODULE PROCEDURE wrf_dm_maxval_real , wrf_dm_maxval_integer, wrf_dm_maxval_doubleprecision
@@ -30,7 +30,7 @@ MODULE module_dm
    END INTERFACE
 
    INTERFACE wrf_dm_minval                       ! gopal's doing
-#ifdef PROMOTE_FLOAT
+#if ( defined(PROMOTE_FLOAT) || ( RWORDSIZE == DWORDSIZE ) )
      MODULE PROCEDURE wrf_dm_minval_real , wrf_dm_minval_integer
 #else
      MODULE PROCEDURE wrf_dm_minval_real , wrf_dm_minval_integer, wrf_dm_minval_doubleprecision
@@ -1920,8 +1920,7 @@ SUBROUTINE write_68( grid, v , s , &
 END
 
    SUBROUTINE wrf_abort
-
-    implicit none
+      IMPLICIT NONE
 #ifndef STUBMPI
       INCLUDE 'mpif.h'
       INTEGER ierr
@@ -2997,7 +2996,7 @@ END
 
 !------------------------------------------------------------------
 
-#if ( EM_CORE == 1 )
+#if ( EM_CORE == 1 && DA_CORE != 1 )
 
 !------------------------------------------------------------------
 
@@ -3010,7 +3009,7 @@ END
       USE module_domain, ONLY : domain, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type
       USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, local_communicator, mytask
-      USE module_comm_dm, ONLY : halo_force_down_sub
+      USE module_comm_nesting_dm, ONLY : halo_force_down_sub
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
@@ -3030,6 +3029,7 @@ END
                                 ims, ime, jms, jme, kms, kme,    &
                                 ips, ipe, jps, jpe, kps, kpe
       INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7,itrace
+      REAL  dummy_xs, dummy_xe, dummy_ys, dummy_ye
 
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
@@ -3147,7 +3147,7 @@ END
       USE module_configure, ONLY : grid_config_rec_type
       USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, &
                             mytask, get_dm_max_halo_width
-      USE module_comm_dm, ONLY : halo_interp_down_sub
+      USE module_comm_nesting_dm, ONLY : halo_interp_down_sub
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
@@ -3211,7 +3211,7 @@ END
       USE module_domain, ONLY : domain, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type
       USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask
-      USE module_comm_dm, ONLY : halo_interp_up_sub
+      USE module_comm_nesting_dm, ONLY : halo_interp_up_sub
       IMPLICIT NONE
 !
       TYPE(domain), TARGET :: grid          ! name of the grid being dereferenced (must be "grid")
@@ -3357,7 +3357,7 @@ END
       USE module_configure, ONLY : grid_config_rec_type, model_config_rec
       USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
                             ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
-      USE module_comm_dm, ONLY : halo_interp_up_sub
+      USE module_comm_nesting_dm, ONLY : halo_interp_up_sub
       USE module_utility
       IMPLICIT NONE
 
@@ -3472,20 +3472,21 @@ END
 
    SUBROUTINE interp_domain_nmm_part1 ( grid, intermediate_grid, ngrid, config_flags    &
 !
-#include "dummy_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
       USE module_state_description
       USE module_domain, ONLY : domain, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type
-      USE module_dm
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
       USE module_timing
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: intermediate_grid
       TYPE(domain), POINTER :: ngrid
-#include <dummy_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       INTEGER iparstrt,jparstrt,sw
@@ -3511,8 +3512,8 @@ END
       CALL wrf_get_myproc( myproc )
       CALL wrf_get_nproc( nproc )
 
-#define COPY_IN
-#include <scalar_derefs.inc>
+!#define COPY_IN
+!#include <scalar_derefs.inc>
 
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
@@ -3543,8 +3544,8 @@ END
 
       CALL rsl_lite_bcast_msgs( myproc, nproc, local_comm )
 
-#define COPY_OUT
-#include <scalar_derefs.inc>
+!#define COPY_OUT
+!#include <scalar_derefs.inc>
       RETURN
    END SUBROUTINE interp_domain_nmm_part1
 
@@ -3552,18 +3553,20 @@ END
 
    SUBROUTINE interp_domain_nmm_part2 ( grid, ngrid, config_flags    &
 !
-#include "dummy_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
       USE module_state_description
       USE module_domain, ONLY : domain, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type
-      USE module_dm
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
+      USE module_comm_nesting_dm, ONLY : halo_interp_down_sub
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <dummy_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -3583,16 +3586,16 @@ END
       INTEGER myproc
       INTEGER ierr
 
-#ifdef DEREF_KLUDGE
-!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
-   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
-   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
-   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
-#endif
+!#ifdef DEREF_KLUDGE
+!!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
+!   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
+!   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
+!   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
+!#endif
 #include "deref_kludge.h"
 
-#define COPY_IN
-#include <scalar_derefs.inc>
+!#define COPY_IN
+!#include <scalar_derefs.inc>
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
                                 cims, cime, cjms, cjme, ckms, ckme,    &
@@ -3611,13 +3614,12 @@ END
                                 ims, ime, jms, jme, kms, kme,    &
                                 ips, ipe, jps, jpe, kps, kpe    )
 
-!#include "HALO_NMM_INTERP_DOWN1.inc"
 #include "HALO_INTERP_DOWN.inc"
 
 #include "nest_interpdown_interp.inc"
 
-#define COPY_OUT
-#include <scalar_derefs.inc>
+!#define COPY_OUT
+!#include <scalar_derefs.inc>
 
       RETURN
    END SUBROUTINE interp_domain_nmm_part2
@@ -3626,18 +3628,19 @@ END
 
    SUBROUTINE force_domain_nmm_part1 ( grid, intermediate_grid, config_flags    &
 !
-#include "dummy_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
       USE module_state_description
       USE module_domain, ONLY : domain, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type
-      USE module_dm
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
       USE module_timing
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: intermediate_grid
-#include <dummy_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -3651,8 +3654,8 @@ END
 
       INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
 
-#define COPY_IN
-#include <scalar_derefs.inc>
+!#define COPY_IN
+!#include <scalar_derefs.inc>
 !
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
@@ -3670,8 +3673,8 @@ END
 
 !   WRITE(0,*)'I have completed PACKING of BCs data successfully'
 
-#define COPY_OUT
-#include <scalar_derefs.inc>
+!#define COPY_OUT
+!#include <scalar_derefs.inc>
       RETURN
    END SUBROUTINE force_domain_nmm_part1
 
@@ -3679,18 +3682,20 @@ END
 
    SUBROUTINE force_domain_nmm_part2 ( grid, ngrid, config_flags    &
 !
-#include "dummy_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
       USE module_state_description
       USE module_domain, ONLY : domain, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type
-      USE module_dm
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
+      USE module_comm_dm, ONLY : HALO_NMM_FORCE_DOWN1_sub
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <dummy_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -3706,19 +3711,20 @@ END
                                 ips, ipe, jps, jpe, kps, kpe
 
       INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
+      REAL  dummy_xs, dummy_xe, dummy_ys, dummy_ye
 
 integer myproc
 
-#ifdef DEREF_KLUDGE
-!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
-   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
-   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
-   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
-#endif
+!#ifdef DEREF_KLUDGE
+!!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
+!   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
+!   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
+!   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
+!#endif
 #include "deref_kludge.h"
 
-#define COPY_IN
-#include <scalar_derefs.inc>
+!#define COPY_IN
+!#include <scalar_derefs.inc>
 
       CALL get_ijk_from_grid (  grid ,                   &
                                 cids, cide, cjds, cjde, ckds, ckde,    &
@@ -3743,8 +3749,8 @@ integer myproc
       ! code here to interpolate the data into the nested domain
 #include "nest_forcedown_interp.inc"
 
-#define COPY_OUT
-#include <scalar_derefs.inc>
+!#define COPY_OUT
+!#include <scalar_derefs.inc>
 
       RETURN
    END SUBROUTINE force_domain_nmm_part2
@@ -3762,20 +3768,22 @@ integer myproc
 
    SUBROUTINE feedback_nest_prep_nmm ( grid, config_flags    &
 !
-#include "dummy_args.inc"
+#include "dummy_new_args.inc"
 !
 )
       USE module_state_description
       USE module_domain, ONLY : domain, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type
-      USE module_dm
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
+      USE module_comm_dm, ONLY : HALO_NMM_WEIGHTS_sub
       IMPLICIT NONE
 !
       TYPE(domain), TARGET :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE (grid_config_rec_type) :: config_flags ! configureation flags, has vertical dim of
                                                   ! soil temp, moisture, etc., has vertical dim
                                                   ! of soil categories
-#include <dummy_decl.inc>
+#include <dummy_new_decl.inc>
 
       INTEGER       ::          ids, ide, jds, jde, kds, kde,    &
                                 ims, ime, jms, jme, kms, kme,    &
@@ -3786,16 +3794,16 @@ integer myproc
       INTEGER       :: idum1, idum2
 
 
-#ifdef DEREF_KLUDGE
-!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
-   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
-   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
-   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
-#endif
+!#ifdef DEREF_KLUDGE
+!!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
+!   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
+!   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
+!   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
+!#endif
 #include "deref_kludge.h"
 
-#define COPY_IN
-#include <scalar_derefs.inc>
+!#define COPY_IN
+!#include <scalar_derefs.inc>
 
       CALL get_ijk_from_grid (  grid ,              &
                                 ids, ide, jds, jde, kds, kde,    &
@@ -3806,8 +3814,8 @@ integer myproc
 #include "HALO_NMM_WEIGHTS.inc"
 #endif
 
-#define COPY_OUT
-#include <scalar_derefs.inc>
+!#define COPY_OUT
+!#include <scalar_derefs.inc>
 
    END SUBROUTINE feedback_nest_prep_nmm
 
@@ -3815,18 +3823,19 @@ integer myproc
 
    SUBROUTINE feedback_domain_nmm_part1 ( grid, ngrid, config_flags    &
 !
-#include "dummy_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
       USE module_state_description
       USE module_domain, ONLY : domain, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type, model_config_rec, model_to_grid_config_rec
-      USE module_dm
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
-#include <dummy_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE(domain), POINTER :: xgrid
@@ -3843,17 +3852,17 @@ integer myproc
 
       INTEGER local_comm, myproc, nproc, idum1, idum2
 
-#ifdef DEREF_KLUDGE
-!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
-   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
-   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
-   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
-#endif
+!#ifdef DEREF_KLUDGE
+!!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
+!   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
+!   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
+!   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
+!#endif
 
       INTERFACE
           SUBROUTINE feedback_nest_prep_nmm ( grid, config_flags    &
 !
-#include "dummy_args.inc"
+#include "dummy_new_args.inc"
 !
 )
              USE module_state_description
@@ -3862,12 +3871,12 @@ integer myproc
 !
              TYPE (grid_config_rec_type)            :: config_flags
              TYPE(domain), TARGET                   :: grid
-#include <dummy_decl.inc>
+#include <dummy_new_decl.inc>
           END SUBROUTINE feedback_nest_prep_nmm
       END INTERFACE
 !
-#define COPY_IN
-#include <scalar_derefs.inc>
+!#define COPY_IN
+!#include <scalar_derefs.inc>
 
       CALL wrf_get_dm_communicator ( local_comm )
       CALL wrf_get_myproc( myproc )
@@ -3907,7 +3916,7 @@ integer myproc
 #include "deref_kludge.h"
       CALL feedback_nest_prep_nmm ( grid, config_flags    &
 !
-#include "actual_args.inc"
+#include "actual_new_args.inc"
 !
 )
 
@@ -3920,8 +3929,8 @@ integer myproc
 
 #include "nest_feedbackup_interp.inc"
 
-#define COPY_OUT
-#include <scalar_derefs.inc>
+!#define COPY_OUT
+!#include <scalar_derefs.inc>
       RETURN
    END SUBROUTINE feedback_domain_nmm_part1
 
@@ -3929,15 +3938,16 @@ integer myproc
 
    SUBROUTINE feedback_domain_nmm_part2 ( grid, intermediate_grid, ngrid , config_flags    &
 !
-#include "dummy_args.inc"
+#include "dummy_new_args.inc"
 !
                  )
       USE module_state_description
       USE module_domain, ONLY : domain, domain_clock_get, get_ijk_from_grid
       USE module_configure, ONLY : grid_config_rec_type
-      USE module_dm, ONLY : halo_interp_up_sub, get_dm_max_halo_width, ips_save, ipe_save, &
+      USE module_dm, ONLY : get_dm_max_halo_width, ips_save, ipe_save, &
                             jps_save, jpe_save, ntasks, mytask, ntasks_x, ntasks_y, &
                             local_communicator, itrace
+      USE module_comm_nesting_dm, ONLY : halo_interp_up_sub
       USE module_utility
       IMPLICIT NONE
 
@@ -3946,7 +3956,7 @@ integer myproc
       TYPE(domain), POINTER :: intermediate_grid
       TYPE(domain), POINTER :: ngrid
 
-#include <dummy_decl.inc>
+#include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE (grid_config_rec_type)            :: config_flags
@@ -3975,8 +3985,8 @@ integer myproc
       LOGICAL, EXTERNAL  :: cd_feedback_mask
       LOGICAL, EXTERNAL  :: cd_feedback_mask_v
 
-#define COPY_IN
-#include <scalar_derefs.inc>
+!#define COPY_IN
+!#include <scalar_derefs.inc>
 
 ! On entry to this routine,
 !  "grid" refers to the parent domain
@@ -4052,8 +4062,8 @@ integer myproc
 
 #include "nest_feedbackup_smooth.inc"
 
-#define COPY_OUT
-#include <scalar_derefs.inc>
+!#define COPY_OUT
+!#include <scalar_derefs.inc>
       RETURN
    END SUBROUTINE feedback_domain_nmm_part2
 
@@ -4262,6 +4272,122 @@ integer myproc
 
    END SUBROUTINE wrf_scatterv_integer
 ! end new stuff 20070124
+
+     SUBROUTINE wrf_dm_gatherv ( v, elemsize , km_s, km_e, wordsz )
+      IMPLICIT NONE
+      INTEGER  elemsize, km_s, km_e, wordsz
+      REAL v(*)
+      IF ( wordsz .EQ. DWORDSIZE ) THEN
+         CALL wrf_dm_gatherv_double(v, elemsize , km_s, km_e)
+      ELSE
+         CALL wrf_dm_gatherv_single(v, elemsize , km_s, km_e)
+      ENDIF
+     END SUBROUTINE wrf_dm_gatherv
+
+     SUBROUTINE wrf_dm_gatherv_double ( v, elemsize , km_s, km_e )
+      IMPLICIT NONE
+      INTEGER  elemsize, km_s, km_e
+      REAL*8 v(0:*)
+#ifndef STUBMPI
+# ifndef USE_MPI_IN_PLACE
+      REAL*8 v_local((km_e-km_s+1)*elemsize)
+# endif
+      INTEGER, DIMENSION(:), ALLOCATABLE :: recvcounts, displs
+      INTEGER send_type, myproc, nproc, local_comm, ierr, i
+   INCLUDE 'mpif.h'
+      send_type = MPI_DOUBLE_PRECISION
+      CALL wrf_get_dm_communicator ( local_comm )
+      CALL wrf_get_nproc( nproc )
+      CALL wrf_get_myproc( myproc )
+      ALLOCATE( recvcounts(nproc), displs(nproc) )
+      i = (km_e-km_s+1)*elemsize
+      CALL mpi_allgather( i,1,MPI_INTEGER,recvcounts,1,MPI_INTEGER,local_comm,ierr) ;
+      i = (km_s)*elemsize
+      CALL mpi_allgather( i,1,MPI_INTEGER,displs,1,MPI_INTEGER,local_comm,ierr) ;
+#  ifdef USE_MPI_IN_PLACE
+      CALL mpi_allgatherv( MPI_IN_PLACE,                                  &
+#  else
+      DO i = 1,elemsize*(km_e-km_s+1)
+        v_local(i) = v(i+km_s-1)
+      ENDDO
+      CALL mpi_allgatherv( v_local,                                       &
+#  endif
+                           (km_e-km_s+1)*elemsize,                        &
+                           send_type,                                     &
+                           v,                                             &
+                           recvcounts,                                    &
+                           displs,                                        &
+                           send_type,                                     &
+                           local_comm,                                    &
+                           ierr )
+      DEALLOCATE(recvcounts)
+      DEALLOCATE(displs)
+#endif
+      return
+     END SUBROUTINE wrf_dm_gatherv_double
+
+     SUBROUTINE wrf_dm_gatherv_single ( v, elemsize , km_s, km_e )
+      IMPLICIT NONE
+      INTEGER  elemsize, km_s, km_e
+      REAL*4 v(0:*)
+#ifndef STUBMPI
+# ifndef USE_MPI_IN_PLACE
+      REAL*4 v_local((km_e-km_s+1)*elemsize)
+# endif
+      INTEGER, DIMENSION(:), ALLOCATABLE :: recvcounts, displs
+      INTEGER send_type, myproc, nproc, local_comm, ierr, i
+   INCLUDE 'mpif.h'
+      send_type = MPI_REAL
+      CALL wrf_get_dm_communicator ( local_comm )
+      CALL wrf_get_nproc( nproc )
+      CALL wrf_get_myproc( myproc )
+      ALLOCATE( recvcounts(nproc), displs(nproc) )
+      i = (km_e-km_s+1)*elemsize
+      CALL mpi_allgather( i,1,MPI_INTEGER,recvcounts,1,MPI_INTEGER,local_comm,ierr) ;
+      i = (km_s)*elemsize
+      CALL mpi_allgather( i,1,MPI_INTEGER,displs,1,MPI_INTEGER,local_comm,ierr) ;
+#  ifdef USE_MPI_IN_PLACE
+      CALL mpi_allgatherv( MPI_IN_PLACE,                                  &
+#  else
+      DO i = 1,elemsize*(km_e-km_s+1)
+        v_local(i) = v(i+km_s-1)
+      ENDDO
+      CALL mpi_allgatherv( v_local,                                       &
+#  endif
+                           (km_e-km_s+1)*elemsize,                        &
+                           send_type,                                     &
+                           v,                                             &
+                           recvcounts,                                    &
+                           displs,                                        &
+                           send_type,                                     &
+                           local_comm,                                    &
+                           ierr )
+      DEALLOCATE(recvcounts)
+      DEALLOCATE(displs)
+#endif
+      return
+     END SUBROUTINE wrf_dm_gatherv_single
+
+      SUBROUTINE wrf_dm_decomp1d( nt, km_s, km_e )
+       IMPLICIT NONE
+       INTEGER, INTENT(IN)  :: nt
+       INTEGER, INTENT(OUT) :: km_s, km_e
+     ! local
+       INTEGER nn, nnp,  na, nb
+       INTEGER myproc, nproc
+
+       CALL wrf_get_myproc(myproc)
+       CALL wrf_get_nproc(nproc)
+       nn = nt / nproc           ! min number done by this task
+       nnp = nn
+       if ( myproc .lt. mod( nt, nproc ) )   nnp = nnp + 1 ! distribute remainder
+
+       na = min( myproc, mod(nt,nproc) ) ! Number of blocks with remainder that precede this one
+       nb = max( 0, myproc - na )        ! number of blocks without a remainder that precede this one
+       km_s = na * ( nn+1) + nb * nn     ! starting iteration for this task
+       km_e = km_s + nnp - 1             ! ending iteration for this task
+      END SUBROUTINE wrf_dm_decomp1d
+
 
 SUBROUTINE wrf_dm_define_comms ( grid )
    USE module_domain, ONLY : domain

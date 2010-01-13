@@ -1,9 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <unistd.h>
-#include <string.h>
 #ifdef _WIN32
 # include <io.h>
 # define rindex(X,Y) strrchr(X,Y)
@@ -12,6 +8,7 @@
 # include <sys/time.h>
 # include <sys/resource.h>
 # include <unistd.h>
+# include <string.h>
 # include <strings.h>
 #endif
 
@@ -55,9 +52,8 @@ main( int argc, char *argv[], char *env[] )
 #ifndef _WIN32
   rlim.rlim_cur = RLIM_INFINITY ;
   rlim.rlim_max = RLIM_INFINITY ;
-#endif
-
   setrlimit ( RLIMIT_STACK , &rlim ) ;
+#endif
 
   sym_forget() ;
   thisprog = *argv ;
@@ -128,6 +124,8 @@ main( int argc, char *argv[], char *env[] )
     argv++ ;
   }
 
+  gen_io_boilerplate() ;  /* 20091213 jm.  Generate the io_boilerplate_temporary.inc file */
+
   init_parser() ;
   init_type_table() ;
   init_dim_table() ;
@@ -166,6 +164,7 @@ main( int argc, char *argv[], char *env[] )
     goto cleanup ;
   }
 
+
   reg_parse(fp_tmp) ;
 
   fclose(fp_tmp) ;
@@ -175,7 +174,7 @@ main( int argc, char *argv[], char *env[] )
   gen_state_struct( "inc" ) ;
   gen_state_subtypes( "inc" ) ;
   gen_alloc( "inc" ) ;
-  gen_alloc_count( "inc" ) ;
+  /* gen_alloc_count( "inc" ) ; */
   gen_dealloc( "inc" ) ;
   gen_scalar_indices( "inc" ) ;
   gen_module_state_description( "frame" ) ;
@@ -198,6 +197,7 @@ main( int argc, char *argv[], char *env[] )
   gen_model_data_ord( "inc" ) ;
   gen_nest_interp( "inc" ) ;
   gen_scalar_derefs( "inc" ) ;
+  gen_streams("inc") ;
 
 /* this has to happen after gen_nest_interp, which adds halos to the AST */
   gen_comms( "inc" ) ;    /* this is either package supplied (by copying a */
