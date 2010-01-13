@@ -178,7 +178,7 @@ if ( tag == 1 )
             fprintf(fp, "IF ( setinitval .EQ. 3 ) %s%s=initial_data_value\n",
                         structname ,
                         fname ) ;
-          } else if ( !strcmp( p->type->name , "integer" ) ) {
+          } else if ( !strcmp( p->type->name , "integer" ) && !strcmp(fname,"sr_x") && !strcmp(fname,"sr_y") ) {
             fprintf(fp, "IF ( setinitval .EQ. 3 ) %s%s=0\n",
                         structname ,
                         fname ) ;
