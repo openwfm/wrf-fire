@@ -321,7 +321,11 @@ else
     if [ "$os" = "AIX" -o "$os" = "IRIX" -o "$os" = "IRIX64" -o "$os" = "SunOS" -o "$os" = "HP-UX"  -o "$os" = "Darwin" -o "$os" = "Interix" ] ; then
       mach="ARCH"
     else
-      if [ "$os" = "OSF1" -o "$os" = "Linux" -o "$os" = "UNICOS/mp" -o "$os" = "UNIX_System_V" -o "$os" = "CYGWIN_NT-5.1" ] ; then
+      xxx=`expr "$os" : '\(.........\).*'`
+      if [ "$xxx"  = "CYGWIN_NT" ] ; then
+        os=$xxx
+      fi
+      if [ "$os" = "OSF1" -o "$os" = "Linux" -o "$os" = "UNICOS/mp" -o "$os" = "UNIX_System_V" -o  "$os" = "CYGWIN_NT" ] ; then
         mach=`uname -m`
         if [ "$mach" = "ia64" -a -f /etc/sgi-release ] ; then
           mach="Altix"
@@ -369,13 +373,15 @@ if [ -n "$WRF_VENUS" ] ; then
     compileflags="${compileflags}!-DPLANET!-DVENUS"
   fi
 fi
-if [ $WRF_NMM_CORE = 1 ]; then
-if [ -n "$HWRF" ]; then
-    if [ $HWRF = 1 ]; then
-      echo building WRF with HWRF option
-      compileflags="${compileflags}!-DHWRF=1"
+if [ -n "$WRF_NMM_CORE" ]; then
+  if [ $WRF_NMM_CORE = 1 ]; then
+    if [ -n "$HWRF" ]; then
+      if [ $HWRF = 1 ]; then
+        echo building WRF with HWRF option
+        compileflags="${compileflags}!-DHWRF=1"
+      fi
     fi
-fi
+  fi
 fi
 if [ -n "$WRF_CHEM" ] ; then
   if [ $WRF_CHEM = 1 ] ; then
@@ -392,6 +398,10 @@ if [ -n "$WRF_CHEM" ] ; then
   fi
 else
   compileflags="${compileflags} "
+fi
+
+if [ `which timex` ] ; then
+  FORTRAN_COMPILER_TIMER=timex
 fi
 
 # Found perl, so proceed with configuration
@@ -434,6 +444,9 @@ if test -f configure.wrf ; then
     if test -e tools/mpi2_test.o ; then
       echo "  " MPI_Comm_f2c and MPI_Comm_c2f are supported
       sed '/^DM_CC.*=/s/$/ -DMPI2_SUPPORT/' configure.wrf > xx$$ ; /bin/mv xx$$ configure.wrf
+      if [ `hostname | cut -c 1-2` = "be" ] ; then
+         sed '/^ARCH_LOCAL.*=/s/$/ -DUSE_MPI_IN_PLACE/' configure.wrf > xx$$ ; /bin/mv xx$$ configure.wrf
+      fi
     else
       echo "  " MPI_Comm_f2c and MPI_Comm_c2f are not supported
     fi

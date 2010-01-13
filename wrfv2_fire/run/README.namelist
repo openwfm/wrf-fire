@@ -115,6 +115,7 @@ Additional settings when running WRFVAR:
                                                   Example, if you want to use 60.3 sec as your time step,
                                                   set time_step = 60, time_step_fract_num = 3, and 
                                                   time_step_fract_den = 10
+ time_step_dfi                       = 60,	; time step for DFI, may be different from regular time_step
  max_dom                             = 1,	; number of domains - set it to > 1 if it is a nested run
  s_we (max_dom)                      = 1,	; start index in x (west-east) direction (leave as is)
  e_we (max_dom)                      = 91,	; end index in x (west-east) direction (staggered dimension)
@@ -295,6 +296,7 @@ Namelist variables for controlling the adaptive time step option:
  dfi_fwdstop_hour                    = 12       ; two-digit month of stop time for forward DFI integration
  dfi_fwdstop_minute                  = 00       ; two-digit month of stop time for forward DFI integration
  dfi_fwdstop_second                  = 00       ; two-digit month of stop time for forward DFI integration
+ dfi_radar                           = 0        ; DFI radar da switch
 
  &physics
 
@@ -527,6 +529,8 @@ Namelist variables for controlling the adaptive time step option:
  oml_gamma                           = 0.14     ; oml deep water lapse rate (K m-1)
  isftcflx                            = 0        ; alternative Ck, Cd formulation for tropical storm application (0=default, 1=new)
  fractional_seaice                   = 0        ; treat sea-ice as fractional field (1) or ice/no-ice flag (0)
+ iz0tlnd                             = 0        ; thermal roughness length for sfclay and myjsfc (0 - old, 1 - veg dependent Czil)
+ mp_tend_lim                         = 10.,     ; limit on temp tendency from mp latent heating from radar data assimilation
 
  &fdda
  grid_fdda (max_dom)                 = 1        ; grid-nudging fdda on (=0 off) for each domain
@@ -701,6 +705,12 @@ The following are for observation nudging:
                                                   (if using a time_step much larger than 6*dx (in km),
                                                   proportionally increase number of sound steps - also
                                                   best to use even numbers)
+ do_avgflx_em (max_dom)               = 0,       ; whether to output time-averaged mass-coupled advective velocities
+                                                  0 = no (default)
+                                                  1 = yes
+ do_avgflx_cugd (max_dom)             = 0,       ; whether to output time-averaged convective mass-fluxes from Grell-Devenyi ensemble scheme
+                                                  0 = no (default)
+                                                  1 = yes (only takes effect if do_avgflx_em=1 and cu_physics= 3
  do_coriolis (max_dom)               = .true.,	; whether to do Coriolis calculations (idealized) (inactive)
  do_curvature (max_dom)              = .true.,	; whether to do curvature calculations (idealized) (inactive)
  do_gradp (max_dom)                  = .true.,	; whether to do horizontal pressure gradient calculations (idealized) (inactive)
@@ -709,6 +719,11 @@ The following are for observation nudging:
  gwd_opt                             = 0       ; for running without gravity wave drag
                                      = 1       ; for running the WRF-ARW with its gravity wave drag
                                      = 2       ; for running the WRF-NMM with its gravity wave drag
+ sfs_opt (max_dom)                   = 0       ; nonlinear backscatter and anisotropy (NBA) off
+                                     = 1       ; NBA1 using diagnostic stress terms (km_opt=2,3 for scalars)
+                                     = 2       ; NBA2 using tke-based stress terms (km_opt=2 needed))
+ m_opt (max_dom)                     = 0       ; no added output
+                                     = 1       ; adds output of Mij stress terms when NBA is not used
 
  &bdy_control
  spec_bdy_width                      = 5,       ; total number of rows for specified boundary value nudging
@@ -732,6 +747,9 @@ The following are for observation nudging:
  nested (max_dom)                    = .false., ; nested boundary conditions (must be used for nests)
  polar                               = .false., ; polar boundary condition
                                                   (v=0 at polarward-most v-point)
+ euler_adv                           = .false., ; conservative Eulerian passive advection (NMM only)
+ idtadt                              = 1,       ; fundamental timesteps between calls to Euler advection, dynamics (NMM only)
+ idtadc                              = 1        ; fundamental timesteps between calls to Euler advection, chemistry (NMM only)
 
 
 

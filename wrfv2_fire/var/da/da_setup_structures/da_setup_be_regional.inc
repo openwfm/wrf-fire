@@ -6,8 +6,8 @@ subroutine da_setup_be_regional(xb, be)
 
    implicit none
 
-   type (xb_type), intent(in)  :: xb                    ! First guess structure.
-   type (be_type), intent(out) :: be                    ! Back. errors structure.
+   type (xb_type), intent(in)    :: xb                    ! First guess structure.
+   type (be_type), intent(inout) :: be                    ! Back. errors structure.
 
    integer                     :: i, j, k, m       ! Loop counters.
    integer, allocatable:: bin(:,:,:)         ! Bin assigned to each 3D point
@@ -29,6 +29,7 @@ subroutine da_setup_be_regional(xb, be)
    real, allocatable           :: be3_eval_glo(:)       ! Global Eigenvalues.
    real, allocatable           :: be4_eval_glo(:)       ! Global Eigenvalues.
    real, allocatable           :: be5_eval_glo(:)       ! Global Eigenvalues.
+   real, allocatable           :: alpha_val(:)          ! Global Eigenvalues.
 
    real, allocatable           :: be1_evec_loc(:,:,:)   ! Local Eigenvectors.
    real, allocatable           :: be2_evec_loc(:,:,:)   ! Local Eigenvectors.
@@ -41,6 +42,7 @@ subroutine da_setup_be_regional(xb, be)
    real, allocatable           :: be3_evec_glo(:,:)     ! Global Eigenvectors.
    real, allocatable           :: be4_evec_glo(:,:)     ! Global Eigenvectors.
    real, allocatable           :: be5_evec_glo(:,:)     ! Global Eigenvectors.
+   real, allocatable           :: alpha_evec(:,:)       ! Global Eigenvectors.
 
    real, allocatable           :: be1_rf_lengthscale(:) ! RF lengthscale.
    real, allocatable           :: be2_rf_lengthscale(:) ! RF lengthscale.
@@ -48,18 +50,19 @@ subroutine da_setup_be_regional(xb, be)
    real, allocatable           :: be4_rf_lengthscale(:) ! RF lengthscale.
    real, allocatable           :: be5_rf_lengthscale(:)
    real, allocatable           :: alpha_rf_lengthscale(:)
+   real, allocatable           :: alpha_rf_scale_factor(:)
 
    real, allocatable           :: evec_loc(:,:,:)        ! Latitudinally varying eigenvectors.
    real, allocatable           :: eval_loc(:,:)          ! Latitudinally varying eigenvalues.
 
    character*10                :: variable
    integer                     :: ni, nj, nk, nk_2d, b         
-   integer                     :: ix, jy, kz
+   integer                     :: ix, jy, kz, mz
    real, allocatable           :: regcoeff1(:)
    real, allocatable           :: regcoeff2(:,:)
    real, allocatable           :: regcoeff3(:,:,:)
    real                        :: avg,avg2,avg3
-   integer                     :: be_unit, ier
+   integer                     :: be_unit, ier, be_rf_unit, be_print_unit, it
 
    if (trace_use) call da_trace_entry("da_setup_be_regional")
 
@@ -87,6 +90,9 @@ subroutine da_setup_be_regional(xb, be)
    ix = xb % mix
    jy = xb % mjy
    kz = xb % mkz
+
+   be_rf_unit    = unit_end + 1
+   be_print_unit = unit_end + 2
 
    call da_get_unit(be_unit)
    open(unit=be_unit,file="be.dat", status="old",form="unformatted")
@@ -462,19 +468,84 @@ subroutine da_setup_be_regional(xb, be)
    close(be_unit)
    call da_free_unit(be_unit)
 
+   ! 6.3 Keep the original be % v1, be % v2,...., and lengthscale in the first loop
+   !     for the rescaling in the later loops:
+
+   it = 1
+
+   if (max_ext_its > 1) then
+
+       print '(/5x,">>> Save the variances and scale-lengths in outer-loop",i2/)', it
+       write(be_rf_unit)  kz, jy, ix, be % v1 % mz, be % v2 % mz, be% v3 % mz, &
+                                     be % v4 % mz, be % v5 % mz, xb % ds
+       write(be_rf_unit) be % v1 % val, be % v2 % val, be% v3 % val, &
+                                     be % v4 % val, be % v5 % val, &
+             be1_rf_lengthscale, be2_rf_lengthscale, be3_rf_lengthscale, &
+             be4_rf_lengthscale, be5_rf_lengthscale
+     
+       if (print_detail_be ) then
+       write(be_print_unit,'("it=",i2,2x,"kz=",i3,2x,"jy=",i4,2x,"ix=",i4,2x,"ds=",e12.5)') &
+                                               it, kz, jy, ix, xb % ds
+       write(be_print_unit,'("Original val and rf, and mz:",5i5)') &
+                      be % v1 % mz, be % v2 % mz, be% v3 % mz, be % v4 % mz, be % v5 % mz
+       write(be_print_unit,'("mz=",i3,2x,"be%v1%val:"/(10e12.5))') be%v1%mz, be%v1%val(1,:)
+       write(be_print_unit,'("mz=",i3,2x,"be%v2%val:"/(10e12.5))') be%v2%mz, be%v2%val(1,:)
+       write(be_print_unit,'("mz=",i3,2x,"be%v3%val:"/(10e12.5))') be%v3%mz, be%v3%val(1,:)
+       write(be_print_unit,'("mz=",i3,2x,"be%v4%val:"/(10e12.5))') be%v4%mz, be%v4%val(1,:)
+       write(be_print_unit,'("mz=",i3,2x,"be%v5%val:"/(10e12.5))') be%v5%mz, be%v5%val(1,:)
+       write(be_print_unit,'(/"scale-length: kz=",i3)') kz
+       do i = 1,kz 
+         if (i == 1) then
+           write(be_print_unit,'(i3,2x,5e15.5)') i,be1_rf_lengthscale(i), &
+                be2_rf_lengthscale(i), be3_rf_lengthscale(i), be4_rf_lengthscale(i), &
+                be5_rf_lengthscale(i)
+         else
+           write(be_print_unit,'(i3,2x,5e15.5)') i,be1_rf_lengthscale(i), &
+                be2_rf_lengthscale(i), be3_rf_lengthscale(i), be4_rf_lengthscale(i)
+       endif
+       enddo
+    
+       endif
+
+   endif
+
    ! 7.0 Apply empirical and recursive filter rescaling factor:
    ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   call da_rescale_background_errors(var_scaling1, len_scaling1, &
+   call da_rescale_background_errors(var_scaling1(1), len_scaling1(1), &
                                       xb % ds, be1_rf_lengthscale, be % v1)
-   call da_rescale_background_errors(var_scaling2, len_scaling2, &
+   call da_rescale_background_errors(var_scaling2(1), len_scaling2(1), &
                                       xb % ds, be2_rf_lengthscale, be % v2)
-   call da_rescale_background_errors(var_scaling3, len_scaling3, &
+   call da_rescale_background_errors(var_scaling3(1), len_scaling3(1), &
                                       xb % ds, be3_rf_lengthscale, be % v3)
-   call da_rescale_background_errors(var_scaling4, len_scaling4, &
+   call da_rescale_background_errors(var_scaling4(1), len_scaling4(1), &
                                       xb % ds, be4_rf_lengthscale, be % v4)
-   call da_rescale_background_errors(var_scaling5, len_scaling5, &
+   call da_rescale_background_errors(var_scaling5(1), len_scaling5(1), &
                                       xb % ds, be5_rf_lengthscale, be % v5)
+   if (print_detail_be ) then
+
+       write(be_print_unit,'("it=",i2,2x,"kz=",i3,2x,"jy=",i4,2x,"ix=",i4,2x,"ds=",e12.5)') &
+                                                      it, kz, jy, ix, xb % ds
+       write(be_print_unit,'("Loop it=",i2," val and rf, and mz:",5i5)') &
+                  it, be % v1 % mz, be % v2 % mz, be% v3 % mz, be % v4 % mz, be % v5 % mz
+       write(be_print_unit,'("mz=",i3,2x,"be%v1%val:"/(10e12.5))') be%v1%mz, be%v1%val(1,:)
+       write(be_print_unit,'("mz=",i3,2x,"be%v2%val:"/(10e12.5))') be%v2%mz, be%v2%val(1,:)
+       write(be_print_unit,'("mz=",i3,2x,"be%v3%val:"/(10e12.5))') be%v3%mz, be%v3%val(1,:)
+       write(be_print_unit,'("mz=",i3,2x,"be%v4%val:"/(10e12.5))') be%v4%mz, be%v4%val(1,:)
+       write(be_print_unit,'("mz=",i3,2x,"be%v5%val:"/(10e12.5))') be%v5%mz, be%v5%val(1,:)
+       write(be_print_unit,'(/"scale-length: kz=",i3)') kz
+       do i = 1,kz 
+         if (i == 1) then
+           write(be_print_unit,'(i3,2x,5e15.5)') i, be % v1 % rf_alpha(i), &
+                be % v2 % rf_alpha(i), be % v3 % rf_alpha(i), be % v4 % rf_alpha(i), &
+                be % v5 % rf_alpha(i)
+         else
+           write(be_print_unit,'(i3,2x,5e15.5)') i, be % v1 % rf_alpha(i), &
+                be % v2 % rf_alpha(i), be % v3 % rf_alpha(i), be % v4 % rf_alpha(i)
+       endif
+       enddo
+
+   endif
 
    ! 8.0 deallocate input model state:
    ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -516,29 +587,51 @@ subroutine da_setup_be_regional(xb, be)
    deallocate (bin2d)
 
    if (be % ne > 0) then
-      be % alpha % mz = be % ne
       be % alpha % name = 'alpha'
+      allocate (alpha_val(1:kz)) ! Not using jy dimension yet.
+      allocate (alpha_evec(1:kz,1:kz)) ! Not using jy dimension yet.
 
-      allocate (be5_eval_loc (1:1,1:num_bins2d))
-      allocate (be5_eval_glo(1:1))
-      allocate (be5_evec_loc(1:1,1:1,1:num_bins2d))
-      allocate (be5_evec_glo(1:1,1:1))
+      if ( alpha_vertloc ) then ! Use vertical localization:
+         call da_get_unit(be_unit)
+         open(unit=be_unit,file='be.vertloc.dat', status='old', form='unformatted')
 
-      ! Transfer the alpha standard deviation to be % alpha:
-      allocate (be % alpha % val(1:jy,1:be % ne))
-      allocate (be % alpha % evec(1:jy,1:kz,1:be % ne))
-      allocate (be % alpha % rf_alpha(1:be % ne))
+         read (be_unit)nk
+         read (be_unit)alpha_val(1:nk)
+         read (be_unit)alpha_evec(1:nk,1:nk)
+         close(be_unit)
 
-      be % alpha % val(1:jy,1:be % ne) = sigma_alpha
-      be % alpha % evec(1:jy,1:kz,1:be % ne) = 1.0
-      be % alpha % rf_alpha(1:be % ne) = 1.0 
+         call da_get_vertical_truncation(max_vert_var_alpha, alpha_val, be % alpha)
+      else
+         be % alpha % mz = 1 ! No vertical localization.
+         alpha_val(1) = 1.0
+         alpha_val(2:kz) = 0.0
+         alpha_evec(:,:) = 1.0
+      end if
+      mz = be % alpha % mz
 
-      ! Include alpha lengthscale info:
-      allocate (alpha_rf_lengthscale(1:be % ne))
-      alpha_rf_lengthscale(:) = 1000.0 * alpha_corr_scale ! Convert km to m.
+!     Alpha eigenvalues and eigenvectors:
+      allocate (be % alpha % val(1:jy,1:mz)) ! Not using jy dimension but here for consistency.
+      allocate (be % alpha % evec(1:jy,1:kz,1:mz))
+      do m = 1, mz
+         be % alpha % val(:,m) = sigma_alpha * alpha_val(m)
+         do k = 1, nk
+            be % alpha % evec(:,k,m) = alpha_evec(k,m)
+         end do
+      end do
 
-      call da_rescale_background_errors(1.0, 1.0, &
-         xb % ds, alpha_rf_lengthscale, be % alpha)
+!     Alpha RF lengthscales and variance scaling factors:
+      allocate (alpha_rf_lengthscale(1:mz))
+      allocate (be % alpha % rf_alpha(1:mz))
+      allocate (alpha_rf_scale_factor(1:mz))
+
+      alpha_rf_lengthscale(1:mz) = 1000.0 * alpha_corr_scale / xb % ds ! Convert km to grid spacings.
+
+      call da_calculate_rf_factors( alpha_rf_lengthscale(:), be % alpha % rf_alpha(:), &
+                                    alpha_rf_scale_factor(:) )
+      do m = 1, mz
+         be % alpha % val(:,m) = alpha_rf_scale_factor(m) * be % alpha % val(:,m)
+      end do
+
    else
       be % alpha % mz = 0
    end if

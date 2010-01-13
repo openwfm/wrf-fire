@@ -21,6 +21,7 @@ COREDEFS = CONFIGURE_EM_CORE \
            CONFIGURE_NMM_CORE -DNMM_MAX_DIM=2600 \
 	   CONFIGURE_COAMPS_CORE \
 	   CONFIGURE_DA_CORE \
+	   CONFIGURE_DFI_RADAR \
            CONFIGURE_EXP_CORE
 
 #### Single location for defining total number of domains.  You need
@@ -33,6 +34,13 @@ MAX_DOMAINS	=	21
 
 CONFIG_BUF_LEN	=	32768
 
+#### Size of bitmasks (in 4byte integers) of stream masks for WRF I/O
+
+MAX_HISTORY = 25
+
+IWORDSIZE = 4
+DWORDSIZE = 8
+LWORDSIZE = 4
 
 ##############################################################################
 #### The settings in this section are defaults that may be overridden by the 

@@ -23,6 +23,8 @@
    USE module_configure
    USE module_state_description
    USE module_phot_mad
+
+!  USE module_ftuv_driver, only : ftuv_init
    USE module_aerosols_sorgam
    USE module_dep_simple
    USE module_data_gocart_dust
@@ -35,6 +37,7 @@
    USE module_mosaic_initmixrats, only:   mosaic_init_wrf_mixrats
    USE module_input_chem_data, only:      get_last_gas,              &
                                           gasprofile_init_pnnl,      &
+                                          mozcart_lbc_init,          &
                                           last_chem_time,            &
                                           setup_gasprofile_maps
    USE module_mixactivate_wrappers, only: mosaic_mixactivate_init
@@ -90,6 +93,7 @@
 !
 ! local stuff
 !
+   CHARACTER*256 :: mminlu_loc
    TYPE(WRFU_TimeInterval) :: tmpTimeInterval
    integer :: i,j,k,l,numgas,ixhour,n,ndystep,kk,nv
    real, DIMENSION (1,1) :: sza,cosszax
@@ -99,7 +103,7 @@
 #endif
 
 call wrf_message("*********************************************************************")
-call wrf_message("*             PROGRAM: WRF/CHEM VERSION 3.1                         *")
+call wrf_message("*             PROGRAM: WRF/CHEM VERSION 3.1.1                       *")
 call wrf_message("*                                                                   *")
 call wrf_message("*    PLEASE REPORT ANY BUGS TO WRF/CHEM HELP at                     *")
 call wrf_message("*                                                                   *")
@@ -155,6 +159,12 @@ call wrf_message("**************************************************************
    if ( config_flags%biomass_burn_opt == 1 ) then
        CALL wrf_debug(15,'calling biomass burning')
    endif
+   if( config_flags%chem_opt == MOZCART_KPP ) then
+       call wrf_message("chem_init: calling mozcart_lbc_init")
+       call mozcart_lbc_init( chem, num_chem, &
+                              ims, ime, jms, jme, kms, kme,    &
+                              its, ite, jts, jte, kts )
+   endif
 
    if ( config_flags%wetscav_onoff == 1 ) then
       if ( config_flags%chem_opt >= 13 .OR. config_flags%chem_opt <= 8) then
@@ -182,6 +192,11 @@ call wrf_message("**************************************************************
 !   IF ( config_flags%chem_opt == 2 .AND. config_flags%dust_opt .NE. 2 ) THEN
 !       call wrf_error_fatal(" ERROR: USE dust_opt = 2 when using MADE/SORGAM aerosol option ")
 !   ENDIF
+
+    CALL nl_get_mminlu( 1, mminlu_loc )
+    IF (mminlu_loc .NE. 'USGS') THEN
+      call wrf_error_fatal(" ERROR: CHEM_INIT: Chemistry routines function with USGS data. Need to change land use option. ")
+    ENDIF
 
     if( .NOT. config_flags%restart ) then
        do j=jts,jte
@@ -261,7 +276,8 @@ call wrf_message("**************************************************************
     stepbioe=nint(bioemdt*60./dt)
     stepphot=nint(photdt*60./dt)
     stepchem=nint(chemdt*60./dt)
-    stepfirepl=plumerisefire_frq*60/nint(dt)
+  ! stepfirepl=plumerisefire_frq*60/nint(dt)
+    stepfirepl=nint(plumerisefire_frq*60/dt)
     stepbioe=max(stepbioe,1)
     stepphot=max(stepphot,1)
     stepchem=max(stepchem,1)
@@ -290,6 +306,11 @@ call wrf_message("**************************************************************
                ids,ide, jds,jde, kds,kde,                            &
                ims,ime, jms,jme, kms,kme,                            &
                its,ite, jts,jte, kts,kte                             )
+!     CASE (FTUV)
+!     CALL wrf_debug(00,'call ftuv phot initialization')
+!       call ftuv_init( its, ite, jts, jte, kte, &
+!                       ide, jde, config_flags%chem_opt )
+
   END SELECT phot_select
 !
 ! initialization for aerosols
@@ -340,6 +361,16 @@ call wrf_message("**************************************************************
              do k=kts,kte
                 do i=its,ite
                    chem(i,k,j,p_co2)=370.
+                   chem(i,k,j,p_ch4)=1.7
+                enddo
+             enddo
+          enddo
+        endif
+        CASE (CBMZ_BB_KPP)
+        if(config_flags%chem_in_opt == 0 )then
+          do j=jts,jte
+             do k=kts,kte
+                do i=its,ite
                    chem(i,k,j,p_ch4)=1.7
                 enddo
              enddo
@@ -445,6 +476,10 @@ call wrf_message("**************************************************************
                  if(i.eq.19.and.j.eq.19)write(0,*)TCOSZ(i,j),ttday(i,j),julday, gmtp, sza, cosszax,xlonn,rlat
            enddo
           enddo
+      CASE (MOZCART_KPP)
+        CALL wrf_debug(15,'MOZCART dust initialization')
+        ch_dust(:,:) = 0.8e-9_8
+
      CASE (RADM2SORG, RADM2SORG_AQ, RACMSORG_AQ, RADM2SORG_KPP, RACMSORG_KPP)
        CALL wrf_debug(15,'call MADE/SORGAM aerosols initialization')
 
@@ -505,7 +540,7 @@ call wrf_message("**************************************************************
 !
 ! initialization for wesely (gas) dry deposition
 !
-   drydep_select: SELECT CASE(config_flags%drydep_opt)
+   drydep_select: SELECT CASE(config_flags%gas_drydep_opt)
      CASE (WESELY)
        CALL wrf_debug(15,'initializing dry dep (wesely)')
        call dep_init(id,config_flags,numgas)
@@ -515,7 +550,7 @@ call wrf_message("**************************************************************
 ! initialization for cbmz gas-phase chemistry
 !
    cbmz_select: SELECT CASE(config_flags%chem_opt)
-     CASE (CBMZ, CBMZ_BB, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, &
+     CASE (CBMZ, CBMZ_BB, CBMZ_BB_KPP, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, &
            CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
        CALL wrf_debug(15,'initializing cbmz gas-phase chemistry')
        if(config_flags%chem_in_opt == 0 )then
@@ -759,7 +794,7 @@ subroutine print_chem_species_index( chem_opt )
      print*,p_ch3so2oo,"ch3so2oo"
      print*,p_ch3so2ch2oo,"ch3so2ch2oo"
      print*,p_mtf,"mtf"
-  case (CBMZ_BB, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
+  case (CBMZ_BB, CBMZ_BB_KPP, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
      print*,p_so2,"so2"
      print*,p_sulf,"sulf"
      print*,p_no2,"no2"
@@ -782,6 +817,7 @@ subroutine print_chem_species_index( chem_opt )
      print*,p_hc5,"hc5"
      print*,p_hc8,"hc8"
      print*,p_eth,"eth"
+     print*,p_ch4,"ch4"
      print*,p_co,"co"
      print*,p_ol2,"ol2"
      print*,p_olt,"olt"

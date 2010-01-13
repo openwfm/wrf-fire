@@ -1,4 +1,4 @@
-subroutine da_write_filtered_obs(grid, ob, iv, &
+subroutine da_write_filtered_obs(it, grid, ob, iv, &
    coarse_ix, coarse_jy, start_x, start_y)
 
    !------------------------------------------------------------------------
@@ -39,6 +39,7 @@ subroutine da_write_filtered_obs(grid, ob, iv, &
 
    implicit none
 
+   integer, intent(in)            :: it
    type (domain),     intent(in)  :: grid
    type (y_type),     intent(in)  :: ob      ! Observation structure.
    type (iv_type),    intent(inout) :: iv      ! O-B structure.
@@ -1105,7 +1106,7 @@ subroutine da_write_filtered_obs(grid, ob, iv, &
               iv%profiler(n)%p(k),zero,pr_error,        &
               speed,speed_qc              ,speed_error, &
               dir  ,dir_qc                ,dir_error,   &
-              iv%info(profiler)%elv(n), zero, elv_error, &
+              iv%profiler(n)%h(k), zero, elv_error, &
               missing_r, missing_data, xmiss,           & 
               missing_r, missing_data, xmiss,           & 
               missing_r, missing_data, xmiss
@@ -1581,8 +1582,9 @@ subroutine da_write_filtered_obs(grid, ob, iv, &
 #endif
    if (rootproc) then
       call da_get_unit(filtered_obs_unit)
+      write(unit=filename, fmt='(a,i2.2)') 'filtered_obs_', it
       open (unit=filtered_obs_unit, &
-         file= 'filtered_obs' ,form='formatted', status='replace', iostat=iost)
+         file= filename ,form='formatted', status='replace', iostat=iost)
       if (iost /= 0) &
          call da_error(__FILE__,__LINE__, (/"Cannot open filtered_obs "/))
       call da_count_filtered_obs(&

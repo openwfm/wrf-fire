@@ -38,6 +38,17 @@ subroutine da_get_innov_vector_tamdar_sfc( it, num_qcstat_conv, grid, ob, iv)
    allocate (model_p(1,iv%info(tamdar_sfc)%n1:iv%info(tamdar_sfc)%n2))
    allocate (model_q(1,iv%info(tamdar_sfc)%n1:iv%info(tamdar_sfc)%n2))
    allocate (model_hsm(1,iv%info(tamdar_sfc)%n1:iv%info(tamdar_sfc)%n2))
+
+   if ( it > 1 ) then
+      do n=iv%info(tamdar_sfc)%n1,iv%info(tamdar_sfc)%n2
+         if (iv%tamdar_sfc(n)%u%qc == fails_error_max) iv%tamdar_sfc(n)%u%qc = 0
+         if (iv%tamdar_sfc(n)%v%qc == fails_error_max) iv%tamdar_sfc(n)%v%qc = 0
+         if (iv%tamdar_sfc(n)%t%qc == fails_error_max) iv%tamdar_sfc(n)%t%qc = 0
+         if (iv%tamdar_sfc(n)%p%qc == fails_error_max) iv%tamdar_sfc(n)%p%qc = 0
+         if (iv%tamdar_sfc(n)%q%qc == fails_error_max) iv%tamdar_sfc(n)%q%qc = 0
+      end do
+   end if
+
    if (sfc_assi_options == sfc_assi_options_1) then
       do n=iv%info(tamdar_sfc)%n1,iv%info(tamdar_sfc)%n2
          ! [1.1] Get horizontal interpolation weights:
@@ -69,16 +80,6 @@ subroutine da_get_innov_vector_tamdar_sfc( it, num_qcstat_conv, grid, ob, iv)
                if (iv % tamdar_sfc(n) % h < v_h(kts)) then
                   iv%info(tamdar_sfc)%zk(:,n) = 1.0+1.0e-6
                   call da_obs_sfc_correction(iv%info(tamdar_sfc), iv%tamdar_sfc(n), n, grid%xb)
-
-                  ! To keep the original "ob" with no change for multiple 
-                  ! outer-loops use:
-
-                  ! ob%tamdar_sfc(n)%p = iv%tamdar_sfc(n)%p%inv
-                  ! ob%tamdar_sfc(n)%t = iv%tamdar_sfc(n)%t%inv
-                  ! ob%tamdar_sfc(n)%q = iv%tamdar_sfc(n)%q%inv
-                  ! ob%tamdar_sfc(n)%u = iv%tamdar_sfc(n)%u%inv
-                  ! ob%tamdar_sfc(n)%v = iv%tamdar_sfc(n)%v%inv
-
                else
                   call da_to_zk(iv % tamdar_sfc(n) % h, v_h, v_interp_h, iv%info(tamdar_sfc)%zk(1,n))
                end if
@@ -123,8 +124,8 @@ subroutine da_get_innov_vector_tamdar_sfc( it, num_qcstat_conv, grid, ob, iv)
       call da_interp_lin_3d (grid%xb%q, iv%info(tamdar_sfc), model_q)
       call da_interp_lin_3d (grid%xb%p, iv%info(tamdar_sfc), model_p)
 
-   else if (sfc_assi_options == 2) then
-      ! 1.2.1 Surface assmiilation approach 2(10-m u, v, 2-m t, q, and sfc_p)
+   else if (sfc_assi_options == sfc_assi_options_2) then
+      ! 1.2.1 Surface assimilation approach 2(10-m u, v, 2-m t, q, and sfc_p)
 #ifdef A2C
       call da_interp_lin_3d (grid%xb%u, iv%info(tamdar_sfc), model_u,'u')
       call da_interp_lin_3d (grid%xb%v, iv%info(tamdar_sfc), model_v,'v')
@@ -137,6 +138,12 @@ subroutine da_get_innov_vector_tamdar_sfc( it, num_qcstat_conv, grid, ob, iv)
       call da_interp_lin_2d (grid%xb%psfc, iv%info(tamdar_sfc), 1,model_p)
 
       do n=iv%info(tamdar_sfc)%n1,iv%info(tamdar_sfc)%n2
+
+         iv%tamdar_sfc(n)%p%inv = ob%tamdar_sfc(n)%p
+         iv%tamdar_sfc(n)%t%inv = ob%tamdar_sfc(n)%t
+         iv%tamdar_sfc(n)%q%inv = ob%tamdar_sfc(n)%q
+         iv%tamdar_sfc(n)%u%inv = ob%tamdar_sfc(n)%u
+         iv%tamdar_sfc(n)%v%inv = ob%tamdar_sfc(n)%v
 
          if (iv%tamdar_sfc(n)%p%qc >= 0) then
             ! model surface p, t, q, h at observed site:
@@ -204,7 +211,9 @@ subroutine da_get_innov_vector_tamdar_sfc( it, num_qcstat_conv, grid, ob, iv)
    !     [5.0] Perform optional maximum error check:
    !-----------------------------------------------------------------------
 
-   call da_check_max_iv_tamdar_sfc(iv,ob, it, num_qcstat_conv) 
+   if ( check_max_iv ) &
+      call da_check_max_iv_tamdar_sfc(iv,ob, it, num_qcstat_conv) 
+
    deallocate (model_u)
    deallocate (model_v)
    deallocate (model_t)

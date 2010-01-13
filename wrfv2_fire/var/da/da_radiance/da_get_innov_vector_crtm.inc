@@ -319,7 +319,7 @@ subroutine da_get_innov_vector_crtm ( it, grid, ob, iv )
 
             Atmosphere(1)%Pressure(kte-k+1)    = 0.01   * p(1)  ! convert Pa to hPa
             Atmosphere(1)%Temperature(kte-k+1) = t(1)
-            Atmosphere(1)%Absorber(kte-k+1,1)  = 1000.0 * a(1)  ! in g/kg
+            Atmosphere(1)%Absorber(kte-k+1,1)  = 1000.0 * a(1)/(1.0-a(1))  ! in g/kg mixing ratio
 
             ! NOTE: WRF high-level q values seems too big, replaced by constants
             if (p(1)*0.01 < 75.0) Atmosphere(1)%Absorber(kte-k+1,1) = 0.001
@@ -611,6 +611,12 @@ subroutine da_get_innov_vector_crtm ( it, grid, ob, iv )
          !----------------------------------------------------------------
          ! full level pressures
          iv%instid(inst)%pf(0,n)  = Atmosphere(1)%level_pressure(0)
+         if (use_crtm_kmatrix) then
+            ! PS Jacobian
+            do l=1,nchanl
+               iv%instid(inst)%ps_jacobian(l,n)  = Atmosphere_k(l,1)%level_pressure(Atmosphere(1)%n_layers)
+            end do
+	 end if
          do k=1,Atmosphere(1)%n_layers
             iv%instid(inst)%pm(k,n)  = Atmosphere(1)%pressure(k)
             iv%instid(inst)%pf(k,n)  = Atmosphere(1)%level_pressure(k)
@@ -624,8 +630,10 @@ subroutine da_get_innov_vector_crtm ( it, grid, ob, iv )
                   iv%instid(inst)%q_jacobian(l,k,n) = Atmosphere_k(l,1)%absorber(k,1)
                end do
 	    end if
+         end do
 	       
-            if (crtm_cloud) then
+         if (crtm_cloud) then
+            do k=1,Atmosphere(1)%n_layers
                iv%instid(inst)%qcw(k,n) = Atmosphere(1)%cloud(1)%water_content(k)
                iv%instid(inst)%qci(k,n) = Atmosphere(1)%cloud(2)%water_content(k)
                iv%instid(inst)%qrn(k,n) = Atmosphere(1)%cloud(3)%water_content(k)
@@ -669,8 +677,8 @@ subroutine da_get_innov_vector_crtm ( it, grid, ob, iv )
                         Atmosphere_k(l,1)%cloud(6)%effective_radius(k)
                   end do
 	       end if	  
-            end if
-         end do
+            end do
+         end if
 
          !----------------------------------------------
          ! [4.0] store surface information to innovation structure

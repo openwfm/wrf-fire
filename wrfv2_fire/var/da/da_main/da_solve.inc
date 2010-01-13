@@ -29,6 +29,7 @@
    real                         :: j_grad_norm_target ! Target j norm.
 
    character (len=3)            :: ci
+   character (len=2)            :: outerloop
    
 #ifdef DM_PARALLEL
    integer                      :: wrf_done_unit
@@ -45,6 +46,10 @@
       call nl_get_base_temp  ( 1 , base_temp )
       call nl_get_base_lapse ( 1 , base_lapse )
       call nl_get_iso_temp   ( 1 , iso_temp )
+      grid%p00   = base_pres
+      grid%t00   = base_temp
+      grid%tlp   = base_lapse
+      grid%tiso  = iso_temp
    else
       base_pres  = grid%p00
       base_temp  = grid%t00
@@ -165,7 +170,8 @@
 
       grid%ep % ne = be % ne
       if (be % ne > 0) then
-         call da_setup_flow_predictors (ide, jde, kde, be % ne, grid%ep )
+         call da_setup_flow_predictors ( ide, jde, kde, be % ne, grid%ep, &
+                                         its, ite, jts, jte, kts, kte )
       end if
 
    !---------------------------------------------------------------------------
@@ -193,12 +199,18 @@
    j_grad_norm_target = 1.0
    do it = 1, max_ext_its
 
+! Re-scale the variances and the scale-length for outer-loop > 1:
+      if (it > 1 .and. cv_options == 5) then
+         print '(/10X,"===> Re-set BE SCALINGS for outer-loop=",i2)', it
+         call  da_scale_background_errors ( be, it )
+      endif
+
       call da_initialize_cv (cv_size, xhat)
 
       ! [8.1] Calculate nonlinear model trajectory 
 
-      if (var4d .and. multi_inc /= 2 ) then
-!     if (var4d) then
+!     if (var4d .and. multi_inc /= 2 ) then
+      if (var4d) then
          call da_trace ("da_solve","Starting da_run_wrf_nl.ksh")
 #ifdef DM_PARALLEL
          if (var4d_coupling == var4d_coupling_disk_simul) then
@@ -298,10 +310,23 @@
 
       ! Write "clean" QCed observations if requested:
       if (anal_type_qcobs) then
-         if (it == 1) then
-            call da_write_filtered_obs (grid, ob, iv, &
+         ! if (it == 1) then
+          if (write_mod_filtered_obs) then    !cys_change
+            call da_write_modified_filtered_obs (grid, ob, iv, &
+               coarse_ix, coarse_jy, start_x, start_y)
+          else
+            call da_write_filtered_obs (it, grid, ob, iv, &
                coarse_ix, coarse_jy, start_x, start_y)
           end if     
+         ! end if     
+      end if
+
+      ! [8.7.1] Write Ascii radar OMB and OMA file
+
+      if (use_radarobs) then
+         write(unit=stdout,fmt='(A)')  'Writing radar OMB and OMA ascii file'
+         write(unit=stdout,fmt=*)  " "
+         call da_write_oa_radar_ascii (ob,iv,re)
       end if
 
       ! [8.3] Interpolate x_g to low resolution grid
@@ -312,19 +337,27 @@
       if (write_oa_rad_ascii) then
          write(unit=stdout,fmt='(A)')  'Writing radiance OMB and OMA ascii file'
          write(unit=stdout,fmt=*)  " "
-         call da_write_oa_rad_ascii (ob,iv,re)
+         call da_write_oa_rad_ascii (it,ob,iv,re)
       end if
 #endif
 
       ! [8.9] Update VarBC parameters and write output file
 #if defined(CRTM) || defined(RTTOV)      
-      if ( (use_varbc).or.(freeze_varbc) ) call da_varbc_update(cv_size, xhat, iv)
+      if ( (use_varbc).or.(freeze_varbc) ) &
+                call da_varbc_update(it, cv_size, xhat, iv)
 #endif
       !------------------------------------------------------------------------
       ! [8.10] Output WRFVAR analysis and analysis increments:
       !------------------------------------------------------------------------
 
       call da_transfer_xatoanalysis (it, xbx, grid, config_flags)
+
+      
+     if ( it < max_ext_its .and. print_detail_outerloop ) then
+        write(outerloop,'(i2.2)') it
+        call da_med_initialdata_output (grid , config_flags, 'wrfvar_output_'//outerloop)
+     end if
+
    end do
 
    !---------------------------------------------------------------------------

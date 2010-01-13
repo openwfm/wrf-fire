@@ -94,7 +94,8 @@
 	        iv%instid(inst)%varbc(k)%param(1) = mode
 
 	    Deallocate ( hist, hist_tot )
-            write(unit=stdout,fmt='(A,A,I5,A,F5.2)') 'VARBC: Cold-starting ', &
+            if ( satinfo(inst)%iuse(k) == 1 ) &
+               write(unit=stdout,fmt='(A,A,I5,A,F5.2)') 'VARBC: Cold-starting ', &
                   trim(adjustl(iv%instid(inst)%rttovid_string)),iv%instid(inst)%ichan(k),&
 	          ' --> ',mode			       	
 	 end if
@@ -115,12 +116,17 @@
 
         ! Accumulate statistics for predictor mean/std
         ! ---------------------------------------------
-         do i = 1, npredmax
-            mean(i) = SUM(iv%instid(inst)%varbc_info%pred(i,1:num_rad),    &
-                          MASK=iv%instid(inst)%info%proc_domain(1,1:num_rad))  ! do not count HALO  
-            rms(i)  = SUM(iv%instid(inst)%varbc_info%pred(i,1:num_rad)**2, &
-                          MASK=iv%instid(inst)%info%proc_domain(1,1:num_rad))  ! do not count HALO 
-         end do
+	 if (num_rad > 0) then
+            do i = 1, npredmax
+               mean(i) = SUM( iv%instid(inst)%varbc_info%pred(i,1:num_rad),    &
+                         MASK=iv%instid(inst)%info%proc_domain(1,1:num_rad))   ! do not count HALO  
+               rms(i)  = SUM( iv%instid(inst)%varbc_info%pred(i,1:num_rad)**2, &
+                         MASK=iv%instid(inst)%info%proc_domain(1,1:num_rad))   ! do not count HALO 
+            end do
+	 else
+	    mean = 0.0
+	    rms  = 0.0
+	 end if
   
         ! Do inter-processor communication to gather statistics
         ! ------------------------------------------------------

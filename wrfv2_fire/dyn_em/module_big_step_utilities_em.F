@@ -4547,10 +4547,11 @@ END SUBROUTINE pole_point_bc
    SUBROUTINE phy_prep ( config_flags,                                &  ! input
                          mu, muu, muv, u, v, p, pb, alt, ph,          &  ! input
                          phb, t, tsk, moist, n_moist,                 &  ! input
-                         mu_3d, rho, th_phy, p_phy , pi_phy ,         &  ! output
+                         rho, th_phy, p_phy , pi_phy ,                &  ! output
                          u_phy, v_phy, p8w, t_phy, t8w,               &  ! output
                          z, z_at_w, dz8w,                             &  ! output
-                         fzm, fzp,                                    &  ! params
+                         p_hyd, p_hyd_w,                              &  ! output
+                         fzm, fzp, znw, p_top,                        &  ! params
                          RTHRATEN,                                    &
                          RTHBLTEN, RUBLTEN, RVBLTEN,                  &
                          RQVBLTEN, RQCBLTEN, RQIBLTEN,                &
@@ -4587,11 +4588,16 @@ END SUBROUTINE pole_point_bc
                                                               t_phy, &
                                                              th_phy, &
                                                                 t8w, &
-                                                              mu_3d, &
                                                                 rho, &
                                                                   z, &
                                                                dz8w, &
                                                               z_at_w 
+
+   REAL , DIMENSION( ims:ime , kms:kme , jms:jme ) ,                 &
+          INTENT(  OUT)                                  ::   p_hyd, &
+                                                              p_hyd_w
+
+   REAL , INTENT(IN   )                                  ::   p_top
 
    REAL , DIMENSION( ims:ime , kms:kme , jms:jme ) ,                 &
           INTENT(IN   )                                  ::      pb, &
@@ -4606,6 +4612,8 @@ END SUBROUTINE pole_point_bc
 
    REAL , DIMENSION( kms:kme ) ,           INTENT(IN   ) ::     fzm,   &
                                                                 fzp
+
+   REAL , DIMENSION( kms:kme ) ,           INTENT(IN   ) ::     znw
 
    REAL,  DIMENSION( ims:ime , kms:kme, jms:jme ),                   &
           INTENT(INOUT)   ::                               RTHRATEN  
@@ -4643,6 +4651,7 @@ END SUBROUTINE pole_point_bc
    INTEGER :: i_start, i_end, j_start, j_end, k_start, k_end, i_startu, j_startv
    INTEGER :: i, j, k
    REAL    :: w1, w2, z0, z1, z2
+   REAL    :: e_vapor
 
 !-----------------------------------------------------------------------
 
@@ -4665,7 +4674,7 @@ END SUBROUTINE pole_point_bc
     k_start = kts
     k_end = min( kte, kde-1 )
 
-!  compute thermodynamics and velocities at pressure points
+!  compute thermodynamics and velocities at pressure points (or half levels)
 
     do j = j_start,j_end
     do k = k_start, k_end
@@ -4676,7 +4685,6 @@ END SUBROUTINE pole_point_bc
       pi_phy(i,k,j) = (p_phy(i,k,j)/p1000mb)**rcp
       t_phy(i,k,j) = th_phy(i,k,j)*pi_phy(i,k,j)
       rho(i,k,j) = 1./alt(i,k,j)*(1.+moist(i,k,j,P_QV))
-      mu_3d(i,k,j) = mu(i,j)
       u_phy(i,k,j) = 0.5*(u(i,k,j)+u(i+1,k,j))
       v_phy(i,k,j) = 0.5*(v(i,k,j)+v(i,k,j+1))
 
@@ -4708,7 +4716,7 @@ END SUBROUTINE pole_point_bc
     enddo
     enddo
 
-!  compute z at p points (average of z at w points)
+!  compute z at p points or half levels (average of z at full levels)
 
     do j = j_start,j_end
     do k = k_start, k_end
@@ -4718,7 +4726,7 @@ END SUBROUTINE pole_point_bc
     enddo
     enddo
 
-!  interp t and p at w points
+!  interp t and p to full levels
 
     do j = j_start,j_end
     do k = 2, k_end
@@ -4758,6 +4766,36 @@ END SUBROUTINE pole_point_bc
       p8w(i,kde,j) = exp(w1*log(p_phy(i,kde-1,j))+w2*log(p_phy(i,kde-2,j)))
       t8w(i,kde,j) = w1*t_phy(i,kde-1,j)+w2*t_phy(i,kde-2,j)
 
+    enddo
+    enddo
+
+! calculate hydrostatic pressure at both full and half levels
+! first, full level p: assuming dry over model top
+
+    do j = j_start,j_end
+    do i = i_start, i_end
+       p_hyd_w(i,kte,j) = p_top
+    enddo
+    enddo
+
+    e_vapor = 0.
+    do j = j_start,j_end
+    do k = kte-1, k_start, -1
+    do i = i_start, i_end
+!      e_vapor = 1./alt(i,k,j)*moist(i,k,j,P_QV)*g*dz8w(i,k,j) 
+!      p_hyd_w(i,k,j) = p_hyd_w(i,k+1,j)+e_vapor
+       p_hyd_w(i,k,j) = p_hyd_w(i,k+1,j)+1./alt(i,k,j)*(1.+moist(i,k,j,P_QV))*g*dz8w(i,k,j)
+    enddo
+    enddo
+    enddo
+
+! now calculate hydrostatic pressure at half levels
+
+    do j = j_start,j_end
+    do k = k_start, k_end
+    do i = i_start, i_end
+       p_hyd(i,k,j) = 0.5*(p_hyd_w(i,k,j)+p_hyd_w(i,k+1,j))
+    enddo
     enddo
     enddo
 
@@ -5133,6 +5171,9 @@ END SUBROUTINE phy_prep
    SUBROUTINE moist_physics_finish_em( t_new, t_old, t0, mut,     &
                                        th_phy, h_diabatic, dt,    &
                                        config_flags,              &
+#if ( WRF_DFI_RADAR == 1 )
+                                       dfi_tten_rad,dfi_stage,    &
+#endif
                                        ids,ide, jds,jde, kds,kde, &
                                        ims,ime, jms,jme, kms,kme, &
                                        its,ite, jts,jte, kts,kte )
@@ -5153,6 +5194,14 @@ END SUBROUTINE phy_prep
                                                   t_old, &
                                                  th_phy, &
                                                   h_diabatic
+#if ( WRF_DFI_RADAR == 1 )
+   REAL, DIMENSION( ims:ime , kms:kme, jms:jme ),        &
+         INTENT(IN), OPTIONAL ::               dfi_tten_rad
+   INTEGER,      INTENT(IN   ) ,OPTIONAL   :: dfi_stage
+!  REAL :: dfi_tten_max, old_max
+#endif
+
+   REAL mpten, mptenmax, mptenmin
 
    REAL, DIMENSION( ims:ime , jms:jme ),  INTENT(INOUT) ::  mut
 
@@ -5160,7 +5209,7 @@ END SUBROUTINE phy_prep
    REAL, INTENT(IN   ) :: t0, dt
 
    INTEGER :: i_start, i_end, j_start, j_end, k_start, k_end
-   INTEGER :: i, j, k
+   INTEGER :: i, j, k, imax, jmax, imin, jmin
 
 !--------------------------------------------------------------------
 
@@ -5173,14 +5222,27 @@ END SUBROUTINE phy_prep
 
 !  set up loop bounds for this grid's boundary conditions
 
-
     i_start = its    
     i_end   = min( ite,ide-1 )
     j_start = jts    
     j_end   = min( jte,jde-1 )
+!      i_start=max(its,ids+4)
+!      i_end=min(ite,ide-5)
+!      j_start=max(jts,jds+4)
+!      j_end=min(jte,jde-5)
 
     k_start = kts
     k_end = min( kte, kde-1 )
+
+#if ( WRF_DFI_RADAR == 1 )
+         if (config_flags%dfi_radar == 1 .and. PRESENT(dfi_stage) .and.  dfi_stage ==DFI_FWD  &
+             .and. PRESENT(dfi_tten_rad) ) then
+             WRITE(wrf_err_message,*)'Add radar tendency: i_start,j_start: ', i_start, j_start
+             CALL wrf_debug ( 50 , TRIM(wrf_err_message) )
+         endif
+     dfi_tten_max=-999
+     old_max=-999
+#endif
 
 !  add microphysics theta diff to perturbation theta, set h_diabatic
 
@@ -5188,8 +5250,32 @@ END SUBROUTINE phy_prep
      DO j = j_start, j_end
      DO k = k_start, k_end
      DO i = i_start, i_end
+#if ( WRF_DFI_RADAR == 1 )
+        mpten = th_phy(i,k,j)-h_diabatic(i,k,j)
+
+        mpten=min(config_flags%mp_tend_lim*dt, mpten)
+        mpten=max(-config_flags%mp_tend_lim*dt, mpten)
+
+        if (config_flags%dfi_radar == 1 .and. PRESENT(dfi_stage) .and.  &
+           dfi_stage == DFI_FWD .and. PRESENT(dfi_tten_rad) .and.      &
+           dfi_tten_rad(i,k,j) >= 1.0e-7 .and. dfi_tten_rad(i,k,j) <= 10. &
+           .and. k < k_end ) then
+! add radar temp tendency
+!tgs         if(dfi_tten_rad(i,k,j) > th_phy(i,k,j)-h_diabatic(i,k,j) ) then
+         if(dfi_tten_rad(i,k,j) > mpten ) then
+            t_new(i,k,j) = t_new(i,k,j) + (dfi_tten_rad(i,k,j))
+         else
+!tgs            t_new(i,k,j) = t_new(i,k,j) + (th_phy(i,k,j)-h_diabatic(i,k,j))
+            t_new(i,k,j) = t_new(i,k,j) + mpten
+         endif
+        else
+!tgs         t_new(i,k,j) = t_new(i,k,j) + (th_phy(i,k,j)-h_diabatic(i,k,j))  
+         t_new(i,k,j) = t_new(i,k,j) + mpten
+        endif
+#else
          t_new(i,k,j) = t_new(i,k,j) + (th_phy(i,k,j)-h_diabatic(i,k,j))
-         h_diabatic(i,k,j) = (th_phy(i,k,j)-h_diabatic(i,k,j))/dt
+#endif
+         h_diabatic(i,k,j) =  (th_phy(i,k,j)-h_diabatic(i,k,j))/dt
      ENDDO
      ENDDO
      ENDDO

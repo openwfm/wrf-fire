@@ -38,9 +38,11 @@
   USE module_dep_simple
   USE module_bioemi_simple
   USE module_phot_mad
+!  USE module_ftuv_driver, only : ftuv_timestep_init
   USE module_aerosols_sorgam
   USE module_chem_utilities
   USE module_gocart_so2so4
+  USE module_aer_opt_out,only: aer_opt_out
   USE module_ctrans_grell
   USE module_convtrans_prep
   USE module_dry_dep_driver
@@ -50,7 +52,7 @@
 #if (defined(CHEM_DBG_I) && defined(CHEM_DBG_J) && defined(CHEM_DBG_K))
                                      chem_dbg,      &
 #endif
-                                     get_last_gas
+                                     get_last_gas,mozcart_lbc_set
    IMPLICIT NONE
 
    !  Input data.
@@ -106,7 +108,7 @@
       REAL,DIMENSION(grid%sm31:grid%em31,grid%sm32:grid%em32,grid%sm33:grid%em33) ::              &
                                                               p_phy,u_phy,v_phy                   &
                                                              ,t_phy,dz8w,t8w,p8w                  &
-                                                             ,rho,rri,z_at_w,vvel,zmid
+                                                             ,rho,rri,z_at_w,vvel,zmid,rh
       REAL,DIMENSION(grid%sm31:grid%em31,grid%sm33:grid%em33) :: pbl_h
       REAL,DIMENSION(grid%sm32:grid%em32-1) :: QL,TL
       REAL,DIMENSION(grid%sm31:grid%em31,grid%sm33:grid%em33) :: REXNSFC,FACTRS                &
@@ -281,6 +283,14 @@
 !
 !initialize
 !
+  if (config_flags%lightning_opt > 0 ) then
+! initialize lightning flash rates
+     IF ( ktau==1 ) then
+      grid%ic_flshrate(:,:) = 0.
+      grid%cg_flshrate(:,:) = 0.
+     ENDIF
+  ENDIF
+
 #if ( NMM_CORE == 1 )
 !***  IN NMM SET CONTROLS FOR TILES TO PATCHES
 !
@@ -383,6 +393,9 @@
      CASE (CBMZ_BB)
        CALL wrf_debug(15,'calling cbmz_bb from chem_driver')
        haveaer = .false.
+     CASE (CBMZ_BB_KPP)
+       CALL wrf_debug(15,'calling cbmz_bb_kpp from chem_driver')
+       haveaer = .false.
      CASE (CBMZ_MOSAIC_4BIN)
        CALL wrf_debug(15,'calling cbmz_mosaic_4bin aerosols driver from chem_driver')
        haveaer = .true.
@@ -395,11 +408,30 @@
      CASE (CBMZ_MOSAIC_8BIN_AQ)
        CALL wrf_debug(15,'calling cbmz_mosaic_8bin_aq aerosols driver from chem_driver')
        haveaer = .true.
+     CASE (MOZART_KPP)
+       CALL wrf_debug(15,'calling mozart driver from chem_driver')
+     CASE (MOZCART_KPP)
+       CALL wrf_debug(15,'calling mozcart driver from chem_driver')
     CASE (CHEM_TRACER,CHEM_TRACE2)
        CALL wrf_debug(15,'tracer mode: only doing emissions and dry dep in chem_driver')
      CASE DEFAULT
+       if(config_flags%tracer_opt > 0 )then
+       CALL wrf_debug(15,'only doing tracer transport in chem_driver')
+       else
        CALL wrf_debug(15,'calling chem_opt=? from chem_driver')
+       endif
    END SELECT chem_select                              
+   tracer_select: SELECT CASE(config_flags%tracer_opt)
+    CASE (TRACER_SMOKE)
+       CALL wrf_debug(15,'tracer mode: 1 tracer for fires')
+    CASE (TRACER_ME)
+       CALL wrf_debug(15,'tracer mode: 8 tracers')
+    CASE (TRACER_SUS)
+       CALL wrf_debug(15,'tracer mode: ensemble of tracers')
+     CASE DEFAULT
+       CALL wrf_debug(15,'calling chem_opt=? from chem_driver')
+   END SELECT tracer_select
+
 !
 !
 !
@@ -600,7 +632,7 @@
                          moist, num_3d_m, rho,                                        &
                          p_phy,  u_phy, v_phy,                                        &
                          p8w, t_phy, t8w, grid%z, z_at_w,                          &
-                         dz8w, grid%fnm, grid%fnp,                              &
+                         dz8w, rh, grid%fnm, grid%fnp,                              &
                          ids, ide, jds, jde, kds, kde,                                &
                          ims, ime, jms, jme, kms, kme,                                &
                          its,ite,jts,jte,                                             &
@@ -638,22 +670,10 @@
 #if (EM_CORE == 1 )
               grid%gmt,grid%julday,rri,t_phy,moist,p8w,t8w,u_phy,v_phy,vvel,               &
 #endif
-              grid%e_bio,p_phy,chem,rho,dz8w,grid%ne_area,emis_ant,grid%tsk,grid%erod,g,emis_seas,emis_dust, &
-              grid%ebu_no,grid%ebu_co,grid%ebu_co2,grid%ebu_eth,grid%ebu_hc3,grid%ebu_hc5, &
-              grid%ebu_hc8,grid%ebu_ete,grid%ebu_olt,grid%ebu_oli,grid%ebu_pm25,           &
-              grid%ebu_pm10,grid%ebu_dien,grid%ebu_iso,grid%ebu_api,grid%ebu_lim,          &
-              grid%ebu_tol,grid%ebu_xyl,grid%ebu_csl,grid%ebu_hcho,grid%ebu_ald,           &
-              grid%ebu_ket,grid%ebu_macr,grid%ebu_ora1,grid%ebu_ora2,grid%ebu_bc,          &
-              grid%ebu_oc,grid%ebu_so2,grid%ebu_dms,grid%ebu_sulf,                         &
-              grid%ebu_in_no,grid%ebu_in_co,grid%ebu_in_co2,grid%ebu_in_eth,               &
-              grid%ebu_in_hc3,grid%ebu_in_hc5,grid%ebu_in_hc8,grid%ebu_in_ete,             &
-              grid%ebu_in_olt,grid%ebu_in_oli,grid%ebu_in_pm25,grid%ebu_in_pm10,           &
-              grid%ebu_in_dien,grid%ebu_in_iso,grid%ebu_in_api,grid%ebu_in_lim,            &
-              grid%ebu_in_tol,grid%ebu_in_xyl,grid%ebu_in_csl,grid%ebu_in_hcho,            &
-              grid%ebu_in_ald,grid%ebu_in_ket,grid%ebu_in_macr,grid%ebu_in_ora1,           &
-              grid%ebu_in_ora2,grid%ebu_in_bc,grid%ebu_in_oc,grid%ebu_in_so2,              &
-              grid%ebu_in_dms,grid%ebu_in_sulf, grid%mean_fct_agtf,                        &
-              grid%mean_fct_agef,grid%mean_fct_agsv,grid%mean_fct_aggr,grid%firesize_agtf, &
+              grid%e_bio,p_phy,chem,rho,dz8w,grid%ne_area,emis_ant,grid%tsk,               &
+              grid%erod,g,emis_seas,emis_dust,tracer, &
+              ebu , ebu_in,grid%mean_fct_agtf,grid%mean_fct_agef,grid%mean_fct_agsv,       &
+              grid%mean_fct_aggr,grid%firesize_agtf, &
               grid%firesize_agef,grid%firesize_agsv,grid%firesize_aggr,                    &
               grid%u10,grid%v10,grid%ivgtyp,grid%isltyp,grid%gsw,grid%vegfra,grid%rmol,    &
               grid%ust,grid%znt,grid%dms_0,                                                &
@@ -667,7 +687,11 @@
               grid%ebio_iso,grid%ebio_oli,grid%ebio_api,grid%ebio_lim,grid%ebio_xyl,       &
               grid%ebio_hc3,grid%ebio_ete,grid%ebio_olt,grid%ebio_ket,grid%ebio_ald,       &
               grid%ebio_hcho,grid%ebio_eth,grid%ebio_ora2,grid%ebio_co,grid%ebio_nr,       &
-              grid%ebio_no,                                                                &
+              grid%ebio_no,grid%ebio_c10h16,grid%ebio_tol,grid%ebio_bigalk,                &
+              grid%ebio_ch3oh,grid%ebio_acet,grid%ebio_nh3,grid%ebio_no2,                  &
+              grid%ebio_c2h5oh,grid%ebio_ch3cooh,grid%ebio_mek,grid%ebio_bigene,           &
+              grid%ebio_c2h6,grid%ebio_c2h4,grid%ebio_c3h6,grid%ebio_c3h8,grid%ebio_so2,   &
+              grid%ebio_dms,                                                               &
 #if (NMM_CORE == 1)
               grid%T2,grid%RSWIN,                                                         &
 #endif
@@ -683,9 +707,22 @@
               grid%mebio_isop,grid%mebio_apin,grid%mebio_bpin, grid%mebio_bcar,            &
               grid%mebio_acet,grid%mebio_mbo,grid%mebio_no,                                &
               current_month,                                                               &
+         ! stuff for lightning NOx
+              grid%ht, grid%dy,                                                            &
+              grid%lightning_time_step, grid%lightning_start_seconds, grid%passive_ltng,   &
+              grid%temp_upper, grid%temp_lower, grid%N_IC, grid%N_CG,                      &
+              grid%lflash_data, grid%ic_flshrate, grid%cg_flshrate,                        &
+              grid%flashrate_factor, grid%flashrate_method, grid%iccg_method,              &
+              grid%cellcount_method,                                                       &
               ids,ide, jds,jde, kds,kde,                                                   &
               ims,ime, jms,jme, kms,kme,                                                   &
               its,ite,jts,jte,kts,kte)
+              if( config_flags%chem_opt == MOZART_KPP .or. &                               
+                  config_flags%chem_opt == MOZCART_KPP ) then                              
+                 call mozcart_lbc_set( chem, num_chem, &
+                                       ims, ime, jms, jme, kms, kme,    &                  
+                                       its, ite, jts, jte, kts )                           
+              end if
 
 #if (defined(CHEM_DBG_I) && defined(CHEM_DBG_J) && defined(CHEM_DBG_K))
        if( (its <= CHEM_DBG_I .and. ite >= CHEM_DBG_I) .and.                          &
@@ -710,7 +747,7 @@
            config_flags%chem_opt /= CHEM_TRACE2 ) then
          call wrf_debug(15,'calling optical driver')
          call optical_driver (grid%id,curr_secs,grid%dt,config_flags,haveaer,         &
-              chem,dz8w,rri,                                                          &
+              chem,dz8w,rri,rh,                                                       &
               grid%h2oai,grid%h2oaj,                                                  &
               grid%tauaer1,grid%tauaer2,grid%tauaer3,grid%tauaer4,                    &
               grid%gaer1,grid%gaer2,grid%gaer3,grid%gaer4,                            &
@@ -745,13 +782,18 @@
               grid%ph_ch2or,grid%ph_ch2om,grid%ph_ch3cho,grid%ph_ch3coch3,            &
               grid%ph_ch3coc2h5,grid%ph_hcocho,grid%ph_ch3cocho,                      &
               grid%ph_hcochest,grid%ph_ch3o2h,grid%ph_ch3coo2h,grid%ph_ch3ono2,       &
-              grid%ph_hcochob,grid%ph_n2o5,grid%ph_o2,                                &
+              grid%ph_hcochob,grid%ph_n2o5,grid%ph_o2,grid%ph_n2o,                    &
+              grid%ph_pan,grid%ph_mpan,grid%ph_acetol,grid%ph_gly,                    &
+              grid%ph_open,grid%ph_mek,grid%ph_etooh,grid%ph_prooh,grid%ph_pooh,      &
+              grid%ph_acetp,grid%ph_xooh,grid%ph_isooh,grid%ph_alkooh,                &
+              grid%ph_mekooh,grid%ph_tolooh,grid%ph_terpooh,grid%ph_mvk,              &
+              grid%ph_glyald,grid%ph_hyac,                                            &
               grid%tauaer1,grid%tauaer2,grid%tauaer3,grid%tauaer4,                    &
               grid%gaer1,grid%gaer2,grid%gaer3,grid%gaer4,                            &
               grid%waer1,grid%waer2,grid%waer3,grid%waer4,                            &
               grid%bscoef1,grid%bscoef2,grid%bscoef3,grid%bscoef4,                    &
               grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,      &
-              grid%pm2_5_dry,grid%pm2_5_water,grid%uvrad,                             &
+              grid%pm2_5_dry,grid%pm2_5_water,grid%uvrad,grid%ivgtyp,                 &
               ids,ide, jds,jde, kds,kde,                                              &
               ims,ime, jms,jme, kms,kme,                                              &
               its,ite,jts,jte,kts,kte)
@@ -791,7 +833,7 @@
 #if (EM_CORE == 1)
                  grid%gmt,grid%julday,t_phy,moist,scalar,p8w,t8w,vvel,                &
 #endif
-                 rri,p_phy,chem,rho,dz8w,grid%exch_h,grid%hfx,grid%dx,                &
+                 rri,p_phy,chem,tracer,rho,dz8w,grid%exch_h,grid%hfx,grid%dx,         &
                  grid%cldfra, grid%cldfra_old,grid%raincv_b,                          &
 	             grid%ccn1, grid%ccn2, grid%ccn3, grid%ccn4, grid%ccn5, grid%ccn6,    &
                  grid%qndropsource,grid%ivgtyp,grid%tsk,grid%gsw,grid%vegfra,pbl_h,   &
@@ -801,10 +843,18 @@
                  grid%ahno3,grid%anh3,grid%cvaro1,grid%cvaro2,grid%cvalk1,grid%cvole1,&
                  grid%cvapi1,grid%cvapi2,grid%cvlim1,grid%cvlim2,grid%dep_vel_o3,     &
                  emis_ant(ims,kms,jms,p_e_co),config_flags%kemit,                     &
-                 config_flags%sf_urban_physics,numgas,                                &
+                 config_flags%sf_urban_physics,numgas,current_month,                  &
                  ids,ide, jds,jde, kds,kde,                                           &
                  ims,ime, jms,jme, kms,kme,                                           &
                  its,ite,jts,jte,kts,kte)
+                 
+            if( config_flags%chem_opt == MOZART_KPP .or. &
+               config_flags%chem_opt == MOZCART_KPP ) then
+               call mozcart_lbc_set( chem, num_chem, &
+                                     ims, ime, jms, jme, kms, kme,    & 
+                                     its, ite, jts, jte, kts )
+            end if
+
          end if
 
 #if (defined(CHEM_DBG_I) && defined(CHEM_DBG_J) && defined(CHEM_DBG_K))
@@ -831,8 +881,9 @@
 !
 !
      if( config_flags%cu_physics>0 .and. config_flags%chem_conv_tr>0)then
-        call wrf_debug(15,'calling conv transport')
-        call grelldrvct(grid%DT,ktau,grid%DX,grid%id,config_flags,                    &
+        call wrf_debug(15,'calling conv transport for chemical species')
+        if(config_flags%chem_opt >0 )then
+        call grelldrvct(grid%DT,ktau,grid%DX,                                         &
              rho,grid%RAINCV_B,chem,                                                  &
 #if (NMM_CORE == 1)
              U_phy,V_phy,t_phy,moist_trans,dz8w,                                      &
@@ -841,12 +892,37 @@
              U_phy,V_phy,t_phy,moist,dz8w,                                            &
 #endif
              p_phy,XLV,CP,G,r_v,                                                      &
-             z_at_w,                                                                  &
-             grid%cu_co_ten,                                                          &
-             numgas,config_flags%chem_opt,                                            &
+             z_at_w,grid%cu_co_ten,                                                   &
+             num_moist,numgas,num_chem,config_flags%chem_opt,0,                       &
              ids,ide, jds,jde, kds,kde,                                               &
              ims,ime, jms,jme, kms,kme,                                               &
              its,ite,jts,jte,kts,k_end)
+             if( config_flags%chem_opt == MOZART_KPP .or. &
+                 config_flags%chem_opt == MOZCART_KPP ) then
+                     call mozcart_lbc_set( chem, num_chem, &
+                                 ims, ime, jms, jme, kms, kme,    &
+                                 its, ite, jts, jte, kts )
+             end if
+        endif
+        if (config_flags%tracer_opt > 0)then
+        call wrf_debug(15,'calling conv transport for tracers')
+        call grelldrvct(grid%DT,ktau,grid%DX,                    &
+             rho,grid%RAINCV_B,tracer,                               &
+#if (NMM_CORE == 1)
+             U_phy,V_phy,t_phy,moist_trans,dz8w,                                      &
+#endif         
+#if (EM_CORE == 1)
+             U_phy,V_phy,t_phy,moist,dz8w,                                            &
+#endif
+             p_phy,XLV,CP,G,r_v,                                                      &
+             z_at_w, grid%cu_co_ten,                                                  &
+             num_moist,0,num_tracer,0,config_flags%tracer_opt,                        &
+             ids,ide, jds,jde, kds,kde,                                               &
+             ims,ime, jms,jme, kms,kme,                                               &
+             its,ite,jts,jte,kts,k_end)
+
+
+          end if
      end if
 !
 !
@@ -915,6 +991,12 @@ CALL kpp_mechanism_driver (chem,                                                
    ids,ide, jds,jde, kds,kde,                                                         &
    ims,ime, jms,jme, kms,kme,                                                         &
    its,ite,jts,jte,kts,kte)
+          if( config_flags%chem_opt == MOZART_KPP .or. &
+              config_flags%chem_opt == MOZCART_KPP ) then
+             call mozcart_lbc_set( chem, num_chem, &
+                                   ims, ime, jms, jme, kms, kme,    &
+                                    its, ite, jts, jte, kts )
+          end if
     if(config_flags%chem_opt == 301 ) then
        chem(its:ite,kts:kte,jts:jte,p_sulf)=vcsulf_old(its:ite,kts:kte,jts:jte)
        chem(its:ite,kts:kte,jts:jte,p_so2)=vcso2_old(its:ite,kts:kte,jts:jte)
@@ -1094,6 +1176,21 @@ end if !Chemistry time step check
          enddo
       enddo
       call wrf_debug(15,'done tileloop in chem_driver')
+   if( grid%OPT_PARS_OUT == 1) then
+     write(0,*)'calculate optical output stuff'
+    call aer_opt_out(TAUAER300=grid%tauaer1, TAUAER400=grid%tauaer2 & 
+     &        ,TAUAER600=grid%tauaer3, TAUAER999=grid%tauaer4 &
+     &        ,GAER300=grid%gaer1, GAER400=grid%gaer2, GAER600=grid%gaer3, GAER999=grid%gaer4 & 
+     &        ,WAER300=grid%waer1, WAER400=grid%waer2, WAER600=grid%waer3, WAER999=grid%waer4 & 
+              ,ext_coeff=grid%ext_coef,bscat_coeff=grid%bscat_coef,asym_par=grid%asym_par   &
+              ,num_ext_coef=num_ext_coef,num_bscat_coef=num_bscat_coef,num_asym_par=num_asym_par    &
+     &        ,dz8w=dz8w &
+     &        ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde          &
+     &        ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme          &
+     &        ,its=its,ite=ite,jts=jts,jte=jte,kts=kts, kte=kte)
+
+
+   endif
 
 # if ( EM_CORE == 1 ) 
    END DO chem_tile_loop_1

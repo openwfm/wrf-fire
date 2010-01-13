@@ -4,7 +4,7 @@ MODULE module_aerosols_sorgam
   USE module_data_radm2
   USE module_data_sorgam
   USE module_radm
-  USE module_isrpia, only: isoropia
+! USE module_isrpia, only: isoropia
 !
       IMPLICIT NONE
 #define cw_species_are_in_registry
@@ -211,7 +211,6 @@ CONTAINS
                         (3.80*exp(17.27*(t_phy(i,k,j)-273.)/      &
                         (t_phy(i,k,j)-36.))/(.01*p_phy(i,k,j)))   )
                rh(k)=max(.1,0.01*rh(k))
-!               rh(k) = .10
             enddo
             do k=kts,kte
 !           if(timer.gt.2.)then
@@ -544,7 +543,7 @@ CONTAINS
       enddo
     END SUBROUTINE sum_pm_sorgam
 ! ///////////////////////////////////////////////////
-    SUBROUTINE sorgam_depdriver (id,ktau,dtstep,                        &
+    SUBROUTINE sorgam_depdriver (id,config_flags,ktau,dtstep,           &
                ust,t_phy,moist,p8w,t8w,rmol,znt,pbl,                    &
                alt,p_phy,chem,rho_phy,dz8w,z,z_at_w,                    &
                h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2, &
@@ -554,6 +553,9 @@ CONTAINS
                ids,ide, jds,jde, kds,kde,                               &
                ims,ime, jms,jme, kms,kme,                               &
                its,ite, jts,jte, kts,kte                                )
+
+   USE module_configure,only:  grid_config_rec_type
+   TYPE (grid_config_rec_type) , INTENT (IN) :: config_flags
    INTEGER,      INTENT(IN   )    ::                             &
                                       numaer,                    &
                                       ids,ide, jds,jde, kds,kde, &
@@ -801,6 +803,14 @@ CONTAINS
       cblk(1,VNH4AI   ) =   max(epsilc,chem(i,k,j,p_nh4ai)*convfac2)
       cblk(1,VNO3AJ   ) =   max(epsilc,chem(i,k,j,p_no3aj)*convfac2)
       cblk(1,VNO3AI   ) =   max(epsilc,chem(i,k,j,p_no3ai)*convfac2)
+      if (p_naai >= param_first_scalar) &
+         cblk(1,VNAAI ) =   max(epsilc,chem(i,k,j,p_naai)*convfac2)
+      if (p_naaj >= param_first_scalar) &
+         cblk(1,VNAAJ ) =   max(epsilc,chem(i,k,j,p_naaj)*convfac2)
+      if (p_clai >= param_first_scalar) &
+         cblk(1,VCLAI ) =   max(epsilc,chem(i,k,j,p_clai)*convfac2)
+      if (p_claj >= param_first_scalar) &
+         cblk(1,VCLAJ ) =   max(epsilc,chem(i,k,j,p_claj)*convfac2)
       cblk(1,VORGARO1J) =   max(epsilc,chem(i,k,j,p_orgaro1j)*convfac2)
       cblk(1,VORGARO1I) =   max(epsilc,chem(i,k,j,p_orgaro1i)*convfac2)
       cblk(1,VORGARO2J) =   max(epsilc,chem(i,k,j,p_orgaro2j)*convfac2)
@@ -869,24 +879,32 @@ CONTAINS
              DGNUC, DGACC, DGCOR,                             &
              KNNUC, KNACC,KNCOR    )                                   
 !       print *,'out modpar ',i,j
-!        CALL VDVG(  BLKSIZE, NSPCSDA, NUMCELLS,k,CBLK, &
-!             BLKTA, BLKDENS, AER_RES(I,j), USTAR, WSTAR,  AMU,   &   
-!             DGNUC, DGACC, DGCOR,                      &
-!             KNNUC, KNACC,KNCOR,                       &
-!             PDENSN, PDENSA, PDENSC,                   &
-!             VSED, VDEP )                                             
+        if (config_flags%aer_drydep_opt == 11) then
+        CALL VDVG(  BLKSIZE, NSPCSDA, NUMCELLS,k,CBLK, &
+             BLKTA, BLKDENS, AER_RES(I,j), USTAR, WSTAR,  AMU,   &   
+             DGNUC, DGACC, DGCOR,                      &
+             KNNUC, KNACC,KNCOR,                       &
+             PDENSN, PDENSA, PDENSC,                   &
+             VSED, VDEP )                                             
+        else
         CALL VDVG_2(  BLKSIZE, NSPCSDA, NUMCELLS,k,CBLK, &
              BLKTA, BLKDENS, AER_RES(I,j), USTAR, PBLH,&
              ZNTT, RMOLM, AMU, DGNUC, DGACC, DGCOR,XLM,&
              KNNUC, KNACC,KNCOR,                       &
              PDENSN, PDENSA, PDENSC,                   &
              VSED, VDEP )
+        endif
+
         VGSA(i, j, VSO4AJ   )  =  VDEP(1, VDMACC )
         VGSA(i, j, VSO4AI   )  =  VDEP(1, VDMNUC )
         VGSA(i, j, VNH4AJ   )  =  VGSA(i, j, VSO4AJ )
         VGSA(i, j, VNH4AI   )  =  VGSA(i, j, VSO4AI )
         VGSA(i, j, VNO3AJ   )  =  VGSA(i, j, VSO4AJ )
         VGSA(i, j, VNO3AI   )  =  VGSA(i, j, VSO4AI )
+        if (p_naai >= param_first_scalar) VGSA(i, j, VNAAI )  =  VGSA(i, j, VSO4AI )
+        if (p_naaj >= param_first_scalar) VGSA(i, j, VNAAJ )  =  VGSA(i, j, VSO4AJ )
+        if (p_clai >= param_first_scalar) VGSA(i, j, VCLAI )  =  VGSA(i, j, VSO4AI )
+        if (p_claj >= param_first_scalar) VGSA(i, j, VCLAJ )  =  VGSA(i, j, VSO4AJ )
         VGSA(i, j, VORGARO1J)  =  VGSA(i, j, VSO4AJ )
         VGSA(i, j, VORGARO1I)  =  VGSA(i, j, VSO4AI )
         VGSA(i, j, VORGARO2J)  =  VGSA(i, j, VSO4AJ )
@@ -1463,11 +1481,11 @@ END SUBROUTINE sorgam_depdriver
 !     for now, don't call if temp is below -40C (humidity
 !     for this wrf version is already limited to 10 percent)
 
-        if(blkta(1).ge.233.15.and.blkrh(1).ge.0.1 .and. isorop.eq.1)then
-           CALL eql3(blksize,nspcsda,numcells,cblk,blkta,blkrh,igrid,jgrid,kgrid)
-        else if (blkta(1).ge.233.15.and.blkrh(1).ge.0.1 .and. isorop.eq.0)then
+!       if(blkta(1).ge.233.15.and.blkrh(1).ge.0.1 .and. isorop.eq.1)then
+!          CALL eql3(blksize,nspcsda,numcells,cblk,blkta,blkrh,igrid,jgrid,kgrid)
+!       else if (blkta(1).ge.233.15.and.blkrh(1).ge.0.1 .and. isorop.eq.0)then
            CALL eql4(blksize,nspcsda,numcells,cblk,blkta,blkrh)
-        endif
+!       endif
 
 ! *** get size distribution information:
 
@@ -2873,7 +2891,7 @@ END SUBROUTINE sorgam_depdriver
          print *,wi(1),wi(2),wi(3),wi(4),wi(5)
         endif
 
-        call isoropia(wi,rhi,tempi,cntrl,wt,gas,aerliq,aersld,scasi,other)
+!       call isoropia(wi,rhi,tempi,cntrl,wt,gas,aerliq,aersld,scasi,other)
 
 
 ! *** the following is an interim procedure. Assume the i-mode has the
@@ -7084,6 +7102,7 @@ END SUBROUTINE VDVG
         RBcor=exp(-2.0*(STQ**0.5)) ! Rebound correction factor used in Slinn (1982)
         vdplim=UTSCALE*(Eff_dif+Eff_imp+Eff_int)*RBcor
         vdplim=min(vdplim,.02)
+        vdplim=max(vdplim,1e-35) !wig: add check since occasionally a lg particle causes overflow of rsurfq
         RSURFQ=RA(LCELL)+1./vdplim
 !       RSURFQ=RA(LCELL)+1./(UTSCALE*(Eff_dif+Eff_imp+Eff_int)*RBcor) ! Total surface resistence
 !
@@ -8035,11 +8054,13 @@ END SUBROUTINE VDVG_2
     END SUBROUTINE sorgam_init_aer_ic_pnnl
 
 !------------------------------------------------------------------------
+
 SUBROUTINE sorgam_addemiss(                                             &
      id, dtstep, u10, v10, alt, dz8w, xland, chem,                      &
+     ebu,                                   &
      slai,ust,smois,ivgtyp,isltyp,                                      &
      emis_ant,dust_emiss_active,                                        &
-     seasalt_emiss_active,kemit,num_soil_layers,                        &
+     seasalt_emiss_active,kemit,biom,num_soil_layers,emissopt,          &
      ids,ide, jds,jde, kds,kde,                                         &
      ims,ime, jms,jme, kms,kme,                                         &
      its,ite, jts,jte, kts,kte                                          )
@@ -8052,9 +8073,9 @@ SUBROUTINE sorgam_addemiss(                                             &
 
   USE module_state_description, only:  num_chem
 
-  INTEGER,      INTENT(IN   ) :: seasalt_emiss_active, kemit,           &
+  INTEGER,      INTENT(IN   ) :: seasalt_emiss_active, kemit,emissopt,  &
                                  dust_emiss_active,num_soil_layers,id,  &
-                                 ids,ide, jds,jde, kds,kde,             &
+                                 biom,ids,ide, jds,jde, kds,kde,        &
                                  ims,ime, jms,jme, kms,kme,             &
                                  its,ite, jts,jte, kts,kte
 
@@ -8066,9 +8087,15 @@ SUBROUTINE sorgam_addemiss(                                             &
 !
 ! aerosol emissions arrays ((ug/m3)*m/s)
 !
-   REAL, DIMENSION( ims:ime, kms:kemit, jms:jme,num_emis_ant ),                     &
+   REAL, DIMENSION( ims:ime, kms:kemit, jms:jme,num_emis_ant ),        &
          INTENT(IN    ) ::                                             &
          emis_ant
+!
+! biomass burning aerosol emissions arrays ((ug/m3)*m/s)
+!
+   REAL, DIMENSION( ims:ime, kms:kemit, jms:jme,num_ebu ),             &
+         INTENT(IN    ) ::                                             &
+         ebu
 
 ! 1/(dry air density) and layer thickness (m)
   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme ),                      &
@@ -8084,15 +8111,16 @@ SUBROUTINE sorgam_addemiss(                                             &
        INTENT(INOUT) ::   smois
 
 ! Local variables...
-  real, dimension(its:ite,kts:kemit,jts:jte) :: factor
+  real, dimension(its:ite,kts:kte,jts:jte) :: factor
 !
 ! Get the emissions unit conversion factor including the time step.
 ! Changes emissions from [ug/m3 m/s] to [ug/kg_dryair/timestep]
 !
-  factor(its:ite,kts:kemit,jts:jte) = alt(its:ite,kts:kemit,jts:jte)*dtstep/ &
-                  dz8w(its:ite,kts:kemit,jts:jte)
+  factor(its:ite,kts:kte,jts:jte) = alt(its:ite,kts:kte,jts:jte)*dtstep/ &
+                  dz8w(its:ite,kts:kte,jts:jte)
 !
 ! Increment the aerosol numbers...
+    if(emissopt  .lt. 5 )then
 !
 ! Aitken mode first...
 
@@ -8164,6 +8192,105 @@ SUBROUTINE sorgam_addemiss(                                             &
   chem(its:ite,kts:kemit,jts:jte,p_no3ai) =                      &
        chem(its:ite,kts:kemit,jts:jte,p_no3ai) +                 &
        emis_ant(its:ite,kts:kemit,jts:jte,p_e_no3i)*factor(its:ite,kts:kemit,jts:jte)
+  elseif(emissopt == 5)then
+!
+! Aitken mode first...
+
+  chem(its:ite,kts:kemit,jts:jte,p_nu0) =                        &
+       chem(its:ite,kts:kemit,jts:jte,p_nu0) +                   &
+       factor(its:ite,kts:kemit,jts:jte)*factnumn*(                                  &
+       anthfac*( .25*emis_ant(its:ite,kts:kemit,jts:jte,p_e_bc) ) +                      &
+       orgfac*.25*emis_ant(its:ite,kts:kemit,jts:jte,p_e_oc) )
+
+! Accumulation mode next...
+  
+  chem(its:ite,kts:kemit,jts:jte,p_ac0) =                        &
+       chem(its:ite,kts:kemit,jts:jte,p_ac0) +                   &
+       factor(its:ite,kts:kemit,jts:jte)*factnuma*(                                  &
+       anthfac*( .75*emis_ant(its:ite,kts:kemit,jts:jte,p_e_bc) ) +                      &
+       orgfac*.75*emis_ant(its:ite,kts:kemit,jts:jte,p_e_oc) )
+
+!
+! Increment the aerosol masses...
+!
+
+  chem(its:ite,kts:kemit,jts:jte,p_ecj) =                        &
+       chem(its:ite,kts:kemit,jts:jte,p_ecj) +                   &
+       .75*emis_ant(its:ite,kts:kemit,jts:jte,p_e_bc)*factor(its:ite,kts:kemit,jts:jte)
+
+  chem(its:ite,kts:kemit,jts:jte,p_eci) =                        &
+       chem(its:ite,kts:kemit,jts:jte,p_eci) +                   &
+       .25*emis_ant(its:ite,kts:kemit,jts:jte,p_e_bc)*factor(its:ite,kts:kemit,jts:jte)
+
+  chem(its:ite,kts:kemit,jts:jte,p_orgpaj) =                     &
+       chem(its:ite,kts:kemit,jts:jte,p_orgpaj) +                &
+       .75*emis_ant(its:ite,kts:kemit,jts:jte,p_e_oc)*factor(its:ite,kts:kemit,jts:jte)
+
+  chem(its:ite,kts:kemit,jts:jte,p_orgpai) =                     &
+       chem(its:ite,kts:kemit,jts:jte,p_orgpai) +                &
+       .25*emis_ant(its:ite,kts:kemit,jts:jte,p_e_oc)*factor(its:ite,kts:kemit,jts:jte)
+
+  endif
+! add biomass burning emissions if present
+!
+  if(biom == 1 )then
+!
+! Aitken mode first...
+
+  chem(its:ite,kts:kte,jts:jte,p_nu0) =                        &
+       chem(its:ite,kts:kte,jts:jte,p_nu0) +                   &
+       factor(its:ite,kts:kte,jts:jte)*factnumn*(              &
+       anthfac*( .25*ebu(its:ite,kts:kte,jts:jte,p_ebu_pm25) +       &
+              .25*ebu(its:ite,kts:kte,jts:jte,p_ebu_bc) ) +          &
+       orgfac*.25*ebu(its:ite,kts:kte,jts:jte,p_ebu_oc) )
+
+! Accumulation mode next...
+  
+  chem(its:ite,kts:kte,jts:jte,p_ac0) =                        &
+       chem(its:ite,kts:kte,jts:jte,p_ac0) +                   &
+       factor(its:ite,kts:kte,jts:jte)*factnuma*(              &
+       anthfac*(.75*ebu(its:ite,kts:kte,jts:jte,p_ebu_pm25) +        &
+      .75*ebu(its:ite,kts:kte,jts:jte,p_ebu_bc) ) +                  &
+       orgfac*.75*ebu(its:ite,kts:kte,jts:jte,p_ebu_oc) )
+! coarse
+  chem(its:ite,kts:kte,jts:jte,p_corn) =                     &
+       chem(its:ite,kts:kte,jts:jte,p_corn) +                  &
+       factor(its:ite,kts:kte,jts:jte)*factnumc*anthfac*       &
+       ebu(its:ite,kts:kte,jts:jte,p_ebu_pm10)
+
+!
+! Increment the aerosol masses...
+!
+
+  chem(its:ite,kts:kte,jts:jte,p_ecj) =                        &
+       chem(its:ite,kts:kte,jts:jte,p_ecj) +                   &
+       .75*ebu(its:ite,kts:kte,jts:jte,p_ebu_bc)*factor(its:ite,kts:kte,jts:jte)
+
+  chem(its:ite,kts:kte,jts:jte,p_eci) =                        &
+       chem(its:ite,kts:kte,jts:jte,p_eci) +                   &
+       .25*ebu(its:ite,kts:kte,jts:jte,p_ebu_bc)*factor(its:ite,kts:kte,jts:jte)
+
+  chem(its:ite,kts:kte,jts:jte,p_orgpaj) =                     &
+       chem(its:ite,kts:kte,jts:jte,p_orgpaj) +                &
+       .75*ebu(its:ite,kts:kte,jts:jte,p_ebu_oc)*factor(its:ite,kts:kte,jts:jte)
+
+  chem(its:ite,kts:kte,jts:jte,p_orgpai) =                     &
+       chem(its:ite,kts:kte,jts:jte,p_orgpai) +                &
+       .25*ebu(its:ite,kts:kte,jts:jte,p_ebu_oc)*factor(its:ite,kts:kte,jts:jte)
+
+  chem(its:ite,kts:kte,jts:jte,p_antha) =                      &
+       chem(its:ite,kts:kte,jts:jte,p_antha) +                 &
+       ebu(its:ite,kts:kte,jts:jte,p_ebu_pm10)*factor(its:ite,kts:kte,jts:jte)
+
+  chem(its:ite,kts:kte,jts:jte,p_p25j) =                       &
+       chem(its:ite,kts:kte,jts:jte,p_p25j) +                  &
+       .75*ebu(its:ite,kts:kte,jts:jte,p_ebu_pm25)*factor(its:ite,kts:kte,jts:jte)
+
+  chem(its:ite,kts:kte,jts:jte,p_p25i) =                       &
+       chem(its:ite,kts:kte,jts:jte,p_p25i) +                  &
+       .25*ebu(its:ite,kts:kte,jts:jte,p_ebu_pm25)*factor(its:ite,kts:kte,jts:jte)
+
+   endif !end biomass burning
 !
 ! Get the sea salt emissions...
 !
@@ -8192,7 +8319,6 @@ SUBROUTINE sorgam_addemiss(                                             &
   end if
 
 END SUBROUTINE sorgam_addemiss
-
 
 !------------------------------------------------------------------------
 SUBROUTINE sorgam_seasalt_emiss(                                        &

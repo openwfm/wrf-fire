@@ -1,5 +1,4 @@
 
-# Available characters for dimspec: 0123456789@%+=|?.!&[{}]
 #<Table>  <Dim> <Order> <How defined>                <Coord-axis>  <Dimname in Datasets>
 
 dimspec    i       1     standard_domain                   x          west_east
@@ -65,5 +64,6 @@ dimspec    o       3     namelist=ne_area                  z     bio_emissions_d
 dimspec    +       2     namelist=kemit                    z     emissions_zdim
 dimspec    nm      2     namelist=nmegan                   z     megan_species
 dimspec    dust    2     namelist=kfuture                  z     klevs_for_dust
+dimspec    ]       2     namelist=kfire                    z     klevs_for_fire
 dimspec    .       3     namelist=errosion_dim             z     dust_errosion_dimension
 endif

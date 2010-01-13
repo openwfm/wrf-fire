@@ -115,6 +115,7 @@ ndown_em.o: \
 nup_em.o: \
 	../frame/module_machine.o \
 	../frame/module_domain.o \
+	../frame/module_streams.o \
 	../frame/module_driver_constants.o \
 	../frame/module_configure.o \
 	../frame/module_timing.o \

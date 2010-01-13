@@ -14,7 +14,7 @@ subroutine da_setup_obs_structures_bufr(grid, ob, iv)
 
    character(len=filename_len) :: filename
    integer                     :: n,i,j
-
+   
    ! thinning variables
    integer  :: istart,iend,jstart,jend
    real     :: rlonlat(4)
@@ -32,10 +32,10 @@ subroutine da_setup_obs_structures_bufr(grid, ob, iv)
       rlon_min =  r999
       rlon_max = -r999
 
-      istart=grid%i_start(1)
-      iend  =grid%i_end  (1)
-      jstart=grid%j_start(1)
-      jend  =grid%j_end  (1)
+      istart=MINVAL( grid%i_start(1:grid%num_tiles) )
+      iend  =MAXVAL( grid%i_end  (1:grid%num_tiles) )
+      jstart=MINVAL( grid%j_start(1:grid%num_tiles) )
+      jend  =MAXVAL( grid%j_end  (1:grid%num_tiles) ) 
 
       do i = istart, iend
          do j = jstart, jend
@@ -75,68 +75,16 @@ subroutine da_setup_obs_structures_bufr(grid, ob, iv)
    end if
 
    !--------------------------------------------------------------------------
-   ! [1.0] Scan BUFR observation header and get idea of number of obs:
+   ! [1.0] Read data
    !--------------------------------------------------------------------------
-
-   if (num_fgat_time > 1) then
-      filename = ' '
-
-      do n=1, num_fgat_time
-         iv%time = n
-
-         write(filename(1:10), fmt='(a, i2.2,a)') 'ob', n,'.bufr'
-
-         ! scan prepbufr observation file
-         call da_scan_obs_bufr (iv, filename)
-        iv%info(:)%plocal(n) = iv%info(:)%nlocal
-        iv%info(:)%ptotal(n) = iv%info(:)%ntotal
-      end do
-   else
+    
       iv%time = 1
-      filename="ob.bufr"
-      call da_scan_obs_bufr(iv, filename)
-      do i=1,num_ob_indexes
-         iv%info(i)%plocal(iv%time) = iv%info(i)%nlocal
-         iv%info(i)%ptotal(iv%time) = iv%info(i)%ntotal
-      end do
+      call da_read_obs_bufr(iv)
+! 
+!for gps
 
-      ! scan main body of radar observation file
-      ! if (use_radarobs) &
-      !    call da_scan_bufr_radar(iv, 'radar.dat')
-   end if
-
-   !-------------------------------------------------------------------------
-   ! Allocate the iv based on input number of obs:
-   !--------------------------------------------------------------------------
-
-   call da_allocate_observations (iv)
-
-   if (num_fgat_time > 1) then
-      do n=1, num_fgat_time
-         iv%time = n
-
-         write(filename(1:10), fmt='(a, i2.2)') 'ob.', n
-
-         ! read prepbufr observation file
-         call da_read_obs_bufr (iv, filename)
-
-         ! if (use_radarobs) then
-         !    ! read radar observation file
-         !    write(filename(1:10), fmt='(a, i2.2)') 'radarob.', n
-         !    call da_read_bufr_radar(iv, filename)
-         ! end if
-      end do
-   else
-
-      iv%time = 1
-
-      filename="ob.bufr"
-      call da_read_obs_bufr(iv, filename)
-
-      ! if (use_radarobs) then
-      !    ! read radar observation file
-      !    call da_read_bufr_radar(iv)
-      ! end if
+   if ( use_gpsrefobs ) then
+      call da_read_obs_bufrgpsro(iv, 'gpsro.bufr')
    end if
 
    if ( thin_conv ) then

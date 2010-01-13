@@ -43,7 +43,7 @@ subroutine da_transform_vtox(grid, cv_size, xbx, be, ep, cv, vv, vp)
    else
 
    if (vert_corr == vert_corr_2) then      
-      call da_vertical_transform('u', be, grid%xb % vertical_inner_product, vv, vp)
+      call da_vertical_transform(grid, 'u', be, grid%xb % vertical_inner_product, vv, vp)
    else
       vp % v1(its:ite,jts:jte,kts:kte) = vv % v1(its:ite,jts:jte,kts:kte)
       vp % v2(its:ite,jts:jte,kts:kte) = vv % v2(its:ite,jts:jte,kts:kte)
@@ -52,7 +52,7 @@ subroutine da_transform_vtox(grid, cv_size, xbx, be, ep, cv, vv, vp)
       vp % v5(its:ite,jts:jte,kts:kte) = vv % v5(its:ite,jts:jte,kts:kte)
 
       if (be % ne > 0) then
-         vp % alpha(its:ite,jts:jte,1:be%ne) = vv%alpha(its:ite,jts:jte,1:be%ne)
+         vp % alpha(its:ite,jts:jte,kts:kte,1:be%ne) = vv%alpha(its:ite,jts:jte,kts:kte,1:be%ne)
       end if
    end if
 

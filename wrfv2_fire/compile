@@ -67,7 +67,7 @@ foreach a ( $argv )
   endif
 end
 
-if ( $arglist == "" ) then
+if ( "$arglist" == "" ) then
   goto hlp
 else
   unsetenv A2DCASE
@@ -88,6 +88,7 @@ else
 # calls to Make
   if ( ! $?WRF_DA_CORE )     setenv WRF_DA_CORE 0
   if ( ! $?WRF_EM_CORE )     setenv WRF_EM_CORE 0
+  if ( ! $?WRF_DFI_RADAR )   setenv WRF_DFI_RADAR 0
   if ( ! $?WRF_NMM_CORE )    setenv WRF_NMM_CORE 0
   if ( ! $?WRF_NMM_NEST )    setenv WRF_NMM_NEST 0
   if ( ! $?WRF_COAMPS_CORE ) setenv WRF_COAMPS_CORE 0
@@ -154,7 +155,7 @@ else
     echo "Cannot compile because both EM and NMM cores are set to 0."
     exit 2
   endif
-  if ($arglist == 'nmm_real' && $WRF_NMM_CORE == 0) then
+  if ("$arglist" == 'nmm_real' && $WRF_NMM_CORE == 0) then
     echo WRF_NMM_CORE must be set to 1 in order to compile nmm_real
     exit 2
   endif
@@ -312,7 +313,7 @@ else
   endif
 
   echo " "
-  echo -n "**** Compiling: "
+  echo -n "Compiling: "
   if ( $WRF_DA_CORE ) echo -n "WRF_DA_CORE "
   if ( $WRF_EM_CORE ) echo -n "WRF_EM_CORE "
   if ( $WRF_NMM_CORE ) echo -n "WRF_NMM_CORE "
@@ -322,6 +323,18 @@ else
   echo " "
 
   if ( ! $?WRF_SRC_ROOT_DIR ) setenv WRF_SRC_ROOT_DIR `pwd`
+
+# new dec 2009.  check to see if make supports parallel -j option
+  make -j 6 >& /dev/null
+  if ( $status == 0 ) then
+    if ( ! $?J ) then
+      echo setting parallel make -j 6
+      setenv J "-j 6"
+    endif
+  else
+    echo not setting parallel make
+  endif
+
   make $arglist A2DCASE="$A2DCASE" WRF_SRC_ROOT_DIR="$WRF_SRC_ROOT_DIR"
 
 endif

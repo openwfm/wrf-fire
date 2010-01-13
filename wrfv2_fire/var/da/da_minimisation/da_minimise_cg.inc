@@ -25,7 +25,7 @@ subroutine da_minimise_cg(grid, config_flags,            &
    type (be_type), intent(in)        :: be    ! background error structure.
    type (iv_type), intent(inout)     :: iv    ! ob. increment vector.
    real, intent(inout)               :: j_grad_norm_target ! Target norm.
-   real, intent(out)                 :: xhat(1:cv_size)  ! control variable (local).
+   real, intent(inout)               :: xhat(1:cv_size)  ! control variable (local).
    real, intent(inout)               :: cv(1:cv_size)    ! control variable (local).
    type (y_type), intent(inout)      :: re    ! residual (o-a) structure.
    type (y_type), intent(inout)      :: y     ! y = H(x_inc) structure.
@@ -38,7 +38,7 @@ subroutine da_minimise_cg(grid, config_flags,            &
    integer                           :: iter            
    integer                           :: je_start, je_end       ! Start/end indices of Je.
    integer                           :: cv_size_jb             ! end indices of Jb.
-   integer                           :: mz(6)
+   integer                           :: mz(7)
    real                              :: fhat(1:cv_size)        ! cv copy.
    real                              :: ghat(1:cv_size)        ! cv copy.
    real                              :: ghat0(1:cv_size)       ! cv copy.
@@ -68,7 +68,7 @@ subroutine da_minimise_cg(grid, config_flags,            &
    !-------------------------------------------------------------------------
    ! [1.0] Initialization:
    !-------------------------------------------------------------------------
-   mz = (/ be%v1%mz, be%v2%mz, be%v3%mz, be%v4%mz, be%v5%mz, be%alpha%mz /)
+   mz = (/ be%v1%mz, be%v2%mz, be%v3%mz, be%v4%mz, be%v5%mz, be%alpha%mz, be % ne /)
    sz = (/ be%cv%size1, be%cv%size2, be%cv%size3, be%cv%size4, be%cv%size5 /)
    
    call da_calculate_j(it, 0, cv_size, be % cv % size_jb, be % cv % size_je, &
@@ -107,7 +107,8 @@ subroutine da_minimise_cg(grid, config_flags,            &
 
    if (j_cost%total == 0.0) return
 
-   if (it == 1) j_grad_norm_target = sqrt (rrmold)
+   !if (it == 1) j_grad_norm_target = sqrt (rrmold)
+   j_grad_norm_target = sqrt (rrmold)
 
    if (orthonorm_gradient) then
       allocate(qhat(1:cv_size, 0:ntmax))
@@ -174,7 +175,7 @@ subroutine da_minimise_cg(grid, config_flags,            &
                              be % cv % size_jp, xbx, be, iv, xhat, cv, &
                              re, y, j_cost, grid, config_flags)
          call da_calculate_gradj(-it, iter, cv_size, be%cv%size_jb, be%cv%size_je, be%cv%size_jp, &
-                                 xbx, be, iv, xhat, cv, re, y, fhat, grid, config_flags  )				 
+                                 xbx, be, iv, xhat, cv, re, y, fhat, grid, config_flags  )                      
          write(unit=stdout,fmt=12)iter, j_cost%total, rrmnew_norm, step
       elseif (calculate_cg_cost_fn) then      		 
          j_total = j_cost%total + 0.5 * da_dot_cv(cv_size,cv_size_domain,ghat0,xhat,grid,mz,use_varbc)

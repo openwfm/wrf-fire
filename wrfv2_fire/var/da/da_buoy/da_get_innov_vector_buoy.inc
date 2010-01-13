@@ -41,6 +41,16 @@ subroutine da_get_innov_vector_buoy( it,num_qcstat_conv, grid, ob, iv)
    allocate (model_q(1,iv%info(buoy)%n1:iv%info(buoy)%n2))
    allocate (model_hsm(1,iv%info(buoy)%n1:iv%info(buoy)%n2))
 
+   if ( it > 1 ) then
+      do n=iv%info(buoy)%n1,iv%info(buoy)%n2
+         if (iv%buoy(n)%u%qc == fails_error_max) iv%buoy(n)%u%qc = 0
+         if (iv%buoy(n)%v%qc == fails_error_max) iv%buoy(n)%v%qc = 0
+         if (iv%buoy(n)%t%qc == fails_error_max) iv%buoy(n)%t%qc = 0
+         if (iv%buoy(n)%p%qc == fails_error_max) iv%buoy(n)%p%qc = 0
+         if (iv%buoy(n)%q%qc == fails_error_max) iv%buoy(n)%q%qc = 0
+      end do
+   end if
+
    if (sfc_assi_options == sfc_assi_options_1) then
       do n=iv%info(buoy)%n1,iv%info(buoy)%n2
          ! [1.1] Get horizontal interpolation weights:
@@ -71,15 +81,6 @@ subroutine da_get_innov_vector_buoy( it,num_qcstat_conv, grid, ob, iv)
                if (iv % buoy(n) % h < v_h(kts)) then
                   iv%info(buoy)%zk(:,n) = 1.0+1.0e-6
                   call da_obs_sfc_correction(iv%info(buoy), iv%buoy(n), n, grid%xb)
-
-                  ! To keep the original "ob" with no change for multiple 
-                  ! outer-loops use:
-
-                  ! ob%buoy(n)%p = iv%buoy(n)%p%inv
-                  ! ob%buoy(n)%t = iv%buoy(n)%t%inv
-                  ! ob%buoy(n)%q = iv%buoy(n)%q%inv
-                  ! ob%buoy(n)%u = iv%buoy(n)%u%inv
-                  ! ob%buoy(n)%v = iv%buoy(n)%v%inv
 
                else
                   call da_to_zk(iv % buoy(n) % h, v_h, v_interp_h, iv%info(buoy)%zk(1,n))
@@ -126,9 +127,9 @@ subroutine da_get_innov_vector_buoy( it,num_qcstat_conv, grid, ob, iv)
       call da_interp_lin_3d (grid%xb%t, iv%info(buoy),model_t)
       call da_interp_lin_3d (grid%xb%q, iv%info(buoy),model_q)
       call da_interp_lin_3d (grid%xb%p, iv%info(buoy),model_p)
-   else if (sfc_assi_options == 2) then
+   else if (sfc_assi_options == sfc_assi_options_2) then
 
-      ! Surface data assmiilation approach 2
+      ! Surface data assimilation approach 2
       ! -----------------------------------
 
       ! 1.2.1 Surface assmiilation approach 2(10-m u, v, 2-m t, q, 
@@ -141,6 +142,13 @@ subroutine da_get_innov_vector_buoy( it,num_qcstat_conv, grid, ob, iv)
       call da_interp_lin_2d (grid%xb%psfc, iv%info(buoy), 1,model_p)
 
       do n=iv%info(buoy)%n1,iv%info(buoy)%n2
+
+         iv%buoy(n)%p%inv = ob%buoy(n)%p
+         iv%buoy(n)%t%inv = ob%buoy(n)%t
+         iv%buoy(n)%q%inv = ob%buoy(n)%q
+         iv%buoy(n)%u%inv = ob%buoy(n)%u
+         iv%buoy(n)%v%inv = ob%buoy(n)%v
+
          if (iv%buoy(n)%p%qc >= 0) then
             ! model surface p, t, q, h at observed site:
 
@@ -207,7 +215,8 @@ subroutine da_get_innov_vector_buoy( it,num_qcstat_conv, grid, ob, iv)
    ! [5.0] Perform optional maximum error check:
    !-----------------------------------------------------------------------
 
-    call da_check_max_iv_buoy(iv,ob, it, num_qcstat_conv)
+   if ( check_max_iv ) &
+      call da_check_max_iv_buoy(iv,ob, it, num_qcstat_conv)
 
    deallocate (model_u)
    deallocate (model_v)

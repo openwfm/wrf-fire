@@ -13,7 +13,7 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
    type(domain), intent(inout)        :: grid
    type(grid_config_rec_type), intent(in) :: config_flags
 
-   integer :: i, j, k
+   integer :: i, j, k, ij
 
    real    :: theta, tmpvar
 
@@ -289,7 +289,12 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
          ' ubound(grid%v_2)=', ubound(grid%v_2)
    end if
 
-   do j=jts,jte
+   !$OMP PARALLEL DO &
+   !$OMP PRIVATE ( ij, i, j, k, cvpm, cpovcv, ppb, temp, ttb ) &
+   !$OMP PRIVATE ( albn, qvf1, aln, theta )
+   do ij = 1 , grid%num_tiles
+
+   do j=grid%j_start(ij), grid%j_end(ij)
       k = kte+1
 
       do i=its,ite
@@ -340,6 +345,10 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
       ! Adapted the code from WRF module_big_step_utilitites_em.F ----
       !         subroutine calc_p_rho_phi      Y.-R. Guo (10/20/2004)
 
+      ! NOTE: as of V3.1, P (pressure perturbation) and PB (base state pressure)
+      ! are included in the wrfinput file. However, P and PB are still
+      ! re-calculated here.
+
       cvpm =  - (1.0 - gas_constant/cp)
       cpovcv = cp / (cp - gas_constant)
 
@@ -347,6 +356,7 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
          do i=its,ite
             ! The base specific volume (from real.init.code)
             ppb  = grid%znu(k) * grid%mub(i,j) + ptop
+            grid%pb(i,j,k) = ppb
             temp = MAX ( iso_temp, base_temp + base_lapse*log(ppb/base_pres) )
             ttb  = temp * (base_pres/ppb)**kappa
             ! ttb  = (base_temp + base_lapse*log(ppb/base_pres)) * &
@@ -390,8 +400,8 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
 
             ! Convert to specific humidity from mixing ratio of water vapor:
             grid%xb%q(i,j,k)=grid%xb%q(i,j,k)/(1.0+grid%xb%q(i,j,k))
-            if (num_pseudo == 0 .and. grid%xb%q(i,j,k) < 1.0e-6) &
-               grid%xb%q(i,j,k) = 1.0e-6
+            if (num_pseudo == 0 .and. grid%xb%q(i,j,k) < 1.0e-9) &
+               grid%xb%q(i,j,k) = 1.0e-9
    
             ! Background qrn needed for radar radial velocity assmiilation:
 
@@ -433,6 +443,8 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
       end do
    end do
 
+   end do
+   !$OMP END PARALLEL DO
 
    grid%xb%ztop = grid%xb%hf(its,jts,kte+1)
 
@@ -525,7 +537,11 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
            'grid%xb % map_factor(its,jts)=', grid%xb % map_factor(its,jts)
    end if
 
-   do j=jts,jte
+   !$OMP PARALLEL DO &
+   !$OMP PRIVATE ( ij, i, j, tmpvar, height, message )
+   do ij = 1 , grid%num_tiles
+
+   do j=grid%j_start(ij),grid%j_end(ij)
       do i=its,ite
          if (grid%xb%ztop < grid%xb%hf(i,j,kte+1)) &
              grid%xb%ztop = grid%xb%hf(i,j,kte+1)
@@ -563,25 +579,33 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
       end do
    end do
 
+   end do
+   !$OMP END PARALLEL DO
+
    !---------------------------------------------------------------------------
    ! Calculate saturation vapour pressure and relative humidity:
    !---------------------------------------------------------------------------
 
-   do j=jts,jte
+   !$OMP PARALLEL DO &
+   !$OMP PRIVATE ( ij, k, j, i )
+   do ij = 1 , grid%num_tiles
       do k=kts,kte
-         do i=its,ite
-            call da_tpq_to_rh(grid%xb % t(i,j,k), grid%xb % p(i,j,k), &
-               grid%xb % q(i,j,k), grid%xb %es(i,j,k), grid%xb %qs(i,j,k), &
-               grid%xb %rh(i,j,k))
+         do j=grid%j_start(ij),grid%j_end(ij)
+            do i=its,ite
+               call da_tpq_to_rh(grid%xb % t(i,j,k), grid%xb % p(i,j,k), &
+                  grid%xb % q(i,j,k), grid%xb %es(i,j,k), grid%xb %qs(i,j,k), &
+                  grid%xb %rh(i,j,k))
+            end do
          end do
       end do
    end do
+   !$OMP END PARALLEL DO 
 
    !---------------------------------------------------------------------------
    ! Calculate dew point temperature:
    !---------------------------------------------------------------------------
 
-   call da_trh_to_td(grid%xb % rh, grid%xb % t, grid%xb % td)
+   call da_trh_to_td (grid)
 
    if (print_detail_xb) then
       i=its; j=jts; k=kts
@@ -617,7 +641,15 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
 
    tmpvar = log(10.0/0.0001)
 
-   do j=jts,jte
+   !$OMP PARALLEL DO &
+#ifndef A2C
+   !$OMP PRIVATE (ij, i, j, height)
+#else
+   !$OMP PRIVATE (ij, i, j, height, uu, vv)
+#endif
+   do ij = 1, grid%num_tiles
+
+   do j=grid%j_start(ij), grid%j_end(ij)
       do i=its,ite
          height = grid%xb%h(i,j,kts) - grid%xb%terr(i,j)
          rgh_fac(i,j) = 1.0/log(height/0.0001)
@@ -632,6 +664,9 @@ subroutine da_transfer_wrftoxb(xbx, grid, config_flags)
 #endif
       end do
    end do
+
+   end do
+   !$OMP END PARALLEL DO
 
    !---------------------------------------------------------------------------
    ! Brightness temperature SH Chen

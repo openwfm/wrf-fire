@@ -22,6 +22,9 @@ CONTAINS
                  ,kpbl,mixht,ct,lh,snow,xice                       &
                  ,znu, znw, mut, p_top                             &
                  ,qke,tsq,qsq,cov,rmol,ch,qcg,grav_settling        &
+#if (NMM_CORE==1)
+                 ,DISHEAT                                          &
+#endif
                  ,ids,ide, jds,jde, kds,kde                        &
                  ,ims,ime, jms,jme, kms,kme                        &
                  ,i_start,i_end, j_start,j_end, kts,kte, num_tiles &
@@ -56,11 +59,12 @@ CONTAINS
    USE module_state_description, ONLY :                            &
                    YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME,&
                    QNSEPBLSCHEME,MYNNPBLSCHEME2,MYNNPBLSCHEME3,BOULACSCHEME,&
-                   BEPSCHEME,MYJSFCSCHEME
+                   BEPSCHEME,BEP_BEMSCHEME,MYJSFCSCHEME, p_qi,param_first_scalar 
 #else
    USE module_state_description, ONLY :                            &
-                   YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME,QNSEPBLSCHEME,&
-                   MYJSFCSCHEME
+                   YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME &
+                   , QNSEPBLSCHEME, p_qi,param_first_scalar &
+                   , MYJSFCSCHEME
 #endif
 
    USE module_model_constants
@@ -243,6 +247,9 @@ CONTAINS
                INTENT(IN   )    ::                        LOWLYR
 !
    LOGICAL,      INTENT(IN   )    ::   warm_rain
+#if (NMM_CORE==1)
+   LOGICAL,      INTENT(IN   )    ::   DISHEAT ! (for HWRF)
+#endif
 
    REAL,       DIMENSION( kms:kme ),                              &
                OPTIONAL, INTENT(IN   )    ::               znu,   &
@@ -464,6 +471,8 @@ CONTAINS
     SELECT CASE(sf_urban_physics)
 #if (NMM_CORE != 1)
       CASE (BEPSCHEME)
+      flag_bep=.true.
+      CASE (BEP_BEMSCHEME)
       flag_bep=.true.
 #endif
       CASE DEFAULT
@@ -708,21 +717,37 @@ CONTAINS
               ,RQCBLTEN=rqcblten,RQIBLTEN=rqiblten                  &
               ,FLAG_QI=flag_qi                                      &
               ,CP=cp,G=g,ROVCP=rcp,RD=r_D,ROVG=rovg                 &
-              ,DZ8W=dz8w,Z=z,XLV=XLV,RV=r_v,PSFC=PSFC               &
+              ,DZ8W=dz8w,XLV=XLV,RV=r_v,PSFC=PSFC                   &
               ,ZNU=znu,ZNW=znw,MUT=mut,P_TOP=p_top                  &
-              ,ZNT=znt,UST=ust,ZOL=zol,HOL=hol,HPBL=pblh            &
+              ,ZNT=znt,UST=ust,HPBL=pblh                            &
               ,PSIM=psim,PSIH=psih,XLAND=xland                      &
-              ,HFX=hfx,QFX=qfx,TSK=tskold,GZ1OZ0=gz1oz0             &
+              ,HFX=hfx,QFX=qfx,GZ1OZ0=gz1oz0                        &
               ,U10=u10,V10=v10                                      &
-              ,WSPD=wspd,BR=br,DT=dtbl,DTMIN=dtmin,KPBL2D=kpbl      &
-              ,SVP1=svp1,SVP2=svp2,SVP3=svp3,SVPT0=svpt0            &
-              ,EP1=ep_1,EP2=ep_2,KARMAN=karman,EOMEG=eomeg          &
-              ,STBOLT=stbolt,EXCH_H=exch_h,REGIME=regime            &
+              ,WSPD=wspd,BR=br,DT=dtbl,KPBL2D=kpbl                  &
+              ,EP1=ep_1,EP2=ep_2,KARMAN=karman                      &
+              ,EXCH_H=exch_h,REGIME=regime                          &
               ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde      &
               ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme      &
               ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
                                                                     )
            ELSE
+               WRITE ( message , FMT = '(A,7(L1,1X))' )             &
+                 'present: '//                                      &
+                 'qv_curr, '//                                      &
+                 'qc_curr, '//                                      &
+                 'qi_curr, '//                                      &
+                 'rqvblten, '//                                     &
+                 'rqcblten, '//                                     &
+                 'rqiblten, '//                                     &
+                 'hol = ' ,                                         &
+                  PRESENT( qv_curr ) ,                              &
+                  PRESENT( qc_curr ) ,                              &
+                  PRESENT( qi_curr ) ,                              &
+                  PRESENT( rqvblten ) ,                             &
+                  PRESENT( rqcblten ) ,                             &
+                  PRESENT( rqiblten ) ,                             &
+                  PRESENT( hol      )
+               CALL wrf_debug(0,message)
                CALL wrf_error_fatal('Lack arguments to call YSU pbl')
            ENDIF
 
@@ -759,6 +784,19 @@ CONTAINS
               ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
                                                                     )
            ELSE
+               WRITE ( message , FMT = '(A,5(L1,1X))' )             &
+                 'present: '//                                      &
+                 'qv_curr, '//                                      &
+                 'qc_curr, '//                                      &
+                 'rqvblten, '//                                     &
+                 'rqcblten, '//                                     &
+                 'hol = ' ,                                         &
+                  PRESENT( qv_curr ) ,                              &
+                  PRESENT( qc_curr ) ,                              &
+                  PRESENT( rqvblten ) ,                             &
+                  PRESENT( rqcblten ) ,                             &
+                  PRESENT( hol      )
+               CALL wrf_debug(0,message)
                CALL wrf_error_fatal('Lack arguments to call MRF pbl')
            ENDIF
 
@@ -775,17 +813,32 @@ CONTAINS
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten                  &
               ,RQIBLTEN=rqiblten                                    &
-              ,CP=cp,G=g,ROVCP=rcp,R=r_d,ROVG=rovg,FLAG_QI=flag_qi  &
+              ,CP=cp,G=g,ROVCP=rcp,R=r_d,ROVG=rovg                  &
               ,DZ8W=dz8w,z=z,PSFC=psfc                              &
               ,UST=ust,PBL=pblh,PSIM=psim,PSIH=psih                 &
               ,HFX=hfx,QFX=qfx,TSK=tskold,GZ1OZ0=gz1oz0             &
               ,WSPD=wspd,BR=br                                      &
               ,DT=dtbl,KPBL2D=kpbl,EP1=ep_1,KARMAN=karman           &
+#if (NMM_CORE==1)
+              ,DISHEAT=DISHEAT                                      &
+#endif
+              ,P_QI=p_qi,P_FIRST_SCALAR=param_first_scalar          &
               ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde      &
               ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme      &
               ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
                                                                     )
            ELSE
+               WRITE ( message , FMT = '(A,4(L1,1X))' )             &
+                 'present: '//                                      &
+                 'qv_curr, '//                                      &
+                 'qc_curr, '//                                      &
+                 'rqvblten, '//                                     &
+                 'rqcblten = ',                                     &
+                  PRESENT( qv_curr ) ,                              &
+                  PRESENT( qc_curr ) ,                              &
+                  PRESENT( rqvblten ) ,                             &
+                  PRESENT( rqcblten )
+               CALL wrf_debug(0,message)
                CALL wrf_error_fatal('Lack arguments to call GFS pbl')
            ENDIF
 
@@ -850,6 +903,17 @@ CONTAINS
             ENDIF
 
            ELSE
+               WRITE ( message , FMT = '(A,4(L1,1X))' )             &
+                 'present: '//                                      &
+                 'qv_curr, '//                                      &
+                 'qc_curr, '//                                      &
+                 'rqvblten, '//                                     &
+                 'rqcblten = ' ,                                    &
+                  PRESENT( qv_curr ) ,                              &
+                  PRESENT( qc_curr ) ,                              &
+                  PRESENT( rqvblten ) ,                             &
+                  PRESENT( rqcblten )
+               CALL wrf_debug(0,message)
                CALL wrf_error_fatal('Lack arguments to call MYJ pbl')
            ENDIF
  
@@ -877,6 +941,17 @@ CONTAINS
               ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
                                                                     )
            ELSE
+               WRITE ( message , FMT = '(A,4(L1,1X))' )             &
+                 'present: '//                                      &
+                 'qv_curr, '//                                      &
+                 'qc_curr, '//                                      &
+                 'rqvblten, '//                                     &
+                 'rqcblten = ' ,                                    &
+                  PRESENT( qv_curr ) ,                              &
+                  PRESENT( qc_curr ) ,                              &
+                  PRESENT( rqvblten ) ,                             &
+                  PRESENT( rqcblten )
+               CALL wrf_debug(0,message)
                CALL wrf_error_fatal('Lack arguments to call QNSE pbl')
            ENDIF
 
@@ -903,6 +978,17 @@ CONTAINS
               ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte                   &   
                                                                       )
            ELSE
+               WRITE ( message , FMT = '(A,4(L1,1X))' )             &
+                 'present: '//                                      &
+                 'qv_curr, '//                                      &
+                 'qc_curr, '//                                      &
+                 'rqvblten, '//                                     &
+                 'rqcblten = ' ,                                    &
+                  PRESENT( qv_curr ) ,                              &
+                  PRESENT( qc_curr ) ,                              &
+                  PRESENT( rqvblten ) ,                             &
+                  PRESENT( rqcblten )
+               CALL wrf_debug(0,message)
                CALL wrf_error_fatal('Lack arguments to call ACM2 pbl')
            ENDIF
 
@@ -914,7 +1000,7 @@ CONTAINS
                 PRESENT( rqvblten ) .AND. PRESENT( rqcblten ) .AND. &
                 & PRESENT(qke) .AND. PRESENT(tsq) .AND. &
                 & PRESENT(qsq) .AND. PRESENT(cov) .AND. &
-                & PRESENT(rmol) .AND. PRESENT(rmol) .AND. &
+                & PRESENT(rmol) .AND. &
                 & PRESENT(qcg) .AND. PRESENT(ch) .AND. &
                 & PRESENT(grav_settling) ) THEN
 
@@ -945,6 +1031,33 @@ CONTAINS
                    )
 
            ELSE
+               WRITE ( message , FMT = '(A,12(L1,1X))' )            &
+                 'present: '//                                      &
+                 'qv_curr, '//                                      &
+                 'qc_curr, '//                                      &
+                 'rqvblten, '//                                     &
+                 'rqcblten, '//                                     &
+                 'qke, '//                                          &
+                 'tsq = '//                                         &
+                 'qsq = '//                                         &
+                 'cov = '//                                         &
+                 'rmol = '//                                        &
+                 'qcg = '//                                         &
+                 'ch = '//                                          &
+                 'grav_settling = ',                                &
+                  PRESENT( qv_curr ) ,                              &
+                  PRESENT( qc_curr ) ,                              &
+                  PRESENT( rqvblten ) ,                             &
+                  PRESENT( rqcblten ) ,                             &
+                  PRESENT( qke      ) ,                             &
+                  PRESENT( tsq      ) ,                             &
+                  PRESENT( qsq      ) ,                             &
+                  PRESENT( cov      ) ,                             &
+                  PRESENT( rmol     ) ,                             &
+                  PRESENT( qcg      ) ,                             &
+                  PRESENT( ch       ) ,                             &
+                  PRESENT( grav_settling)
+               CALL wrf_debug(0,message)
               CALL wrf_error_fatal('Lack arguments to call MYNN pbl')
            ENDIF
 

@@ -26,10 +26,10 @@ module da_setup_structures
       use_ssmt1obs,use_ssmt2obs, use_shipsobs, use_satemobs, use_synopobs, &
       use_radar_rv,use_profilerobs, use_obsgts, use_geoamvobs, use_buoyobs, &
       jb_factor, je_factor, alphacv_method,its,ite,jts,jte,cv_size_domain_jb, &
-      cv_size_domain_je, cv_size_domain,ensdim_alpha, &
+      cv_size_domain_je, cv_size_domain,ensdim_alpha, alpha_vertloc, alpha_hydrometeors, &
       lat_stats_option,alpha_std_dev,sigma_alpha,alpha_corr_scale,len_scaling1, &
       len_scaling2,len_scaling3,len_scaling4,len_scaling5,max_vert_var1, &
-      max_vert_var2,max_vert_var3,max_vert_var4,print_detail_be, &
+      max_vert_var2,max_vert_var3,max_vert_var4,max_vert_var_alpha,print_detail_be, &
       test_statistics, var_scaling1,var_scaling2,var_scaling3,var_scaling4, &
       var_scaling5,vert_corr,max_vert_var5,power_truncation,alpha_truncation, &
       print_detail_regression,gas_constant, use_airsretobs, &
@@ -49,11 +49,12 @@ module da_setup_structures
       cv_options, cv_size, as1, as2, as3, as4, as5, &
       ids,ide,jds,jde,kds,kde, ims,ime,jms,jme,kms,kme, &
       its,ite,jts,jte,kts,kte, ips,ipe,jps,jpe,kps,kpe, root, comm, ierr, &
-      fmt_info, fmt_srfc, fmt_each   
+      fmt_info, fmt_srfc, fmt_each, unit_end, max_ext_its  
 
    use da_obs, only : da_fill_obs_structures, da_store_obs_grid_info, da_store_obs_grid_info_bufr
-   use da_obs_io, only : da_scan_obs_bufr,da_read_obs_bufr,da_read_obs_radar, &
-      da_scan_obs_radar,da_scan_obs_ascii,da_read_obs_ascii
+   use da_obs_io, only : da_read_obs_bufr,da_read_obs_radar, &
+      da_scan_obs_radar,da_scan_obs_ascii,da_read_obs_ascii, &
+      da_read_obs_bufrgpsro
    use da_par_util, only : da_patch_to_global
 #if defined(RTTOV) || defined(CRTM)
    use da_radiance, only : da_setup_radiance_structures
@@ -92,6 +93,7 @@ contains
 #include "da_get_vertical_truncation.inc"
 #include "da_interpolate_regcoeff.inc"
 #include "da_rescale_background_errors.inc"
+#include "da_scale_background_errors.inc"
 #include "da_setup_background_errors.inc"
 #include "da_setup_be_global.inc"
 #include "da_setup_be_ncep_gfs.inc"

@@ -107,9 +107,9 @@ endif
 #if (-d ${EXT_DIR}/fftpack/fftpack5/${COMPILER}_${PROCESSOR}) then
 #   setenv FFTPACK ${EXT_DIR}/fftpack/fftpack5/${COMPILER}_${PROCESSOR}
 #endif
-#if (-d ${EXT_DIR}/bufr/bufr_ncep_nco/${COMPILER}_${PROCESSOR}) then
-#   setenv BUFR ${EXT_DIR}/bufr/bufr_ncep_nco/${COMPILER}_${PROCESSOR}
-#endif
+if (-d ${EXT_DIR}/bufr/bufr_ncep_nco/${COMPILER}_${PROCESSOR}) then
+   setenv BUFR ${EXT_DIR}/bufr/bufr_ncep_nco/${COMPILER}_${PROCESSOR}
+endif
 if (-d ${EXT_DIR}/zlib/zlib-1.2.3/${COMPILER}_${PROCESSOR}) then
    setenv ZLIB ${EXT_DIR}/zlib/zlib-1.2.3/${COMPILER}_${PROCESSOR}
 endif
@@ -131,27 +131,12 @@ endif
 if (-d ${EXT_DIR}/netcdf/pnetcdf-1.0.1/${COMPILER}_${PROCESSOR}) then
    setenv PNETCDF ${EXT_DIR}/netcdf/pnetcdf-1.0.1/${COMPILER}_${PROCESSOR}
 endif
-if (-d ${EXT_DIR}/madis/${COMPILER}_${PROCESSOR}) then
-   setenv MADIS ${EXT_DIR}/madis/${COMPILER}_${PROCESSOR}
-endif
+#if (-d ${EXT_DIR}/madis/${COMPILER}_${PROCESSOR}) then
+#   setenv MADIS ${EXT_DIR}/madis/${COMPILER}_${PROCESSOR}
+#endif
 
 if (-d /usr/lpp/ppe.poe) then
    setenv MPIHOME /usr/lpp/ppe.poe
-endif
-
-# Lightning
-
-if ( $MACHINE == "lightning" ) then 
-   if ( $COMPILER == "pathscale" ) then
-      setenv MPIHOME /contrib/2.6/mpich-gm/1.2.6..14a-pathscale-2.4-64
-   endif
-   if ( $COMPILER == "pgi" ) then
-      setenv MPIHOME /contrib/2.6/mpich-gm/1.2.6..14a-pgi-6.2-64
-   endif
-   if ( $COMPILER == "intel" ) then
-      source /contrib/2.6/intel/9.1.036-64/bin/ifortvars.csh
-      setenv MPIHOME /contrib/2.6/mpich-gm/1.2.6..14a-intel-9.1.042-64
-   endif
 endif
 
 setenv LINUX_MPIHOME $MPIHOME
@@ -210,9 +195,9 @@ endif
 if ($?PNETCDF) then
    echo "PNETCDF         " $PNETCDF
 endif
-if ($?MADIS) then
-   echo "MADIS           " $MADIS
-endif
+#if ($?MADIS) then
+#   echo "MADIS           " $MADIS
+#endif
 if ($?SUBMIT) then
    echo "SUBMIT          " $SUBMIT
 endif
