@@ -1,6 +1,5 @@
 #!/bin/csh -f
 echo usage: $0 wrf.exe or something like $0 mpirun -np 5 wrf.exe for a parallel run 
-echo 'run ideal.exe first!'
 setenv CMD "$*"
 setenv DIFFWRF ../../../external/io_netcdf/diffwrf
 setenv NLISTV namelist.input.var
@@ -13,6 +12,9 @@ echo complete run
 cat $NLISTV | sed 's/RESTART/\.false\./' | sed 's/START_M/00/g' > namelist.input
 
 rm -rf wrfrst_* wrfout_* rsl.* > /dev/null
+
+./ideal.exe
+
 $CMD
 if ($status) then
 	exit(1)
