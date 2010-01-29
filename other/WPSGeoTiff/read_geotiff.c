@@ -55,16 +55,17 @@ GeogridIndex get_index_from_geotiff(
   idx.truelat1=stdpar1;
   GTIFKeyGet(gtifh,ProjStdParallel2GeoKey,&stdpar2,0,1);
   idx.truelat2=stdpar2;
-  GTIFKeyGet(gtifh,ProjNatOriginLatGeoKey,&olat,0,1);
-  idx.known_lat=olat;
-  GTIFKeyGet(gtifh,ProjNatOriginLongGeoKey,&olon,0,1);
-  idx.known_lon=olon;
+  //GTIFKeyGet(gtifh,ProjNatOriginLatGeoKey,&olat,0,1);
+  idx.known_lat=-1000;
+  //GTIFKeyGet(gtifh,ProjNatOriginLongGeoKey,&olon,0,1);
+  idx.known_lon=-1000;
   GTIFKeyGet(gtifh,ProjLinearUnitSizeGeoKey,&dx,0,1);
   dy=dx;
   
   /* Fill projection specific parameters. */
   /* WARNING: This is far from robust and will likely break 
               for certain geotiff files. */
+  GTIFKeyGet(gtifh,GTModelTypeGeoKey,&modeltype,0,1);
   projid=gtifp.CTProjection;
   switch (projid) {
     case CT_AlbersEqualArea:
@@ -96,13 +97,13 @@ GeogridIndex get_index_from_geotiff(
       idx.known_lon=olon;
       break;
     default :
-      GTIFKeyGet(gtifh,GTModelTypeGeoKey,&modeltype,0,1);
       if( modeltype == ModelTypeGeographic) {
         idx.proj=regular_ll;
+        /*
         GTIFKeyGet(gtifh,ProjCenterLatGeoKey,&olat,0,1);
         idx.known_lat=olat;
         GTIFKeyGet(gtifh,ProjCenterLongGeoKey,&olon,0,1);
-        idx.known_lon=olon;
+        idx.known_lon=olon; */
         //GTIFKeyGet(gtifh,TIFFTAG_GEOPIXELSCALE,&dx,0,1);
         //GTIFKeyGet(gtifh,TIFFTAG_GEOPIXELSCALE,&dy,1,1);
         TIFFGetField(file,GTIFF_PIXELSCALE,&count,&pixelscale);
@@ -121,20 +122,34 @@ GeogridIndex get_index_from_geotiff(
   olat=0;
   idx.known_x=1;
   idx.known_y=1;
-  if ( ! GTIFImageToPCS(gtifh,&olon,&olat) ) {
-    fprintf(stderr,"WARNING: cannot get coordinates of lower left corner.\n");
-    fprintf(stderr,"You will have to edit the index file manually.\n");
+  if (modeltype == ModelTypeGeographic) {
+    if ( ! GTIFImageToPCS(gtifh,&olon,&olat) ) {
+      fprintf(stderr,"WARNING: cannot get coordinates of lower left corner.\n");
+      fprintf(stderr,"You will have to edit the index file manually.\n");
+    }
+    idx.known_lat=olat;
+    idx.known_lon=olon;
   }
-  idx.known_lat=olat;
-  idx.known_lon=olon;
-  
-  olat=1;
-  olon=1;
-  GTIFImageToPCS(gtifh,&olon,&olat);
-  if(idx.dx <= 0. && idx.dy <= 0) {
-    // As a last resort, get dx/dy from projection conversion.
-    idx.dx=(float)fabs(olon-(double)idx.known_lon);
-    idx.dy=(float)fabs(olat-(double)idx.known_lat);
+  else {
+    if ( ! GTIFImageToPCS(gtifh,&olon,&olat) ) {
+      fprintf(stderr,"WARNING: cannot get coordinates of lower left corner.\n");
+      fprintf(stderr,"You will have to edit the index file manually.\n");
+    }
+    if (! GTIFProj4ToLatLong(&gtifp,1,&olon,&olat) ) {
+      fprintf(stderr,"WARNING: cannot convert from PCS to lat/lon.\n");
+    }
+    idx.known_lat=olat;
+    idx.known_lon=olon;
+    
+    olat=1;
+    olon=1;
+    GTIFImageToPCS(gtifh,&olon,&olat);
+    GTIFProj4ToLatLong(&gtifp,1,&olon,&olat);
+    if(idx.dx <= 0. && idx.dy <= 0) {
+      // As a last resort, get dx/dy from projection conversion.
+      idx.dx=(float)fabs(olon-(double)idx.known_lon);
+      idx.dy=(float)fabs(olat-(double)idx.known_lat);
+    }
   }
   
   /* fill parameters from TIFF i/o */
@@ -405,6 +420,7 @@ float* get_tiff_buffer(
           fprintf(stderr,"Unsupported bytes per sample=%i for IEEEFP.\n",bytes_per_sample);
           exit(EXIT_FAILURE);
       }
+      break;
     default:
       fprintf(stderr,"Unsupported data type in image.\n");
       exit(EXIT_FAILURE);
