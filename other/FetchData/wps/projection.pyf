@@ -1,0 +1,19 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module WPSProj ! in 
+    interface  ! in :WPSProj
+        subroutine get_projection_coords(idomain,ix,iy,lon,lat) ! in :WPSProj:simple_projection.F90
+            use gridinfo_module
+            use llxy_module
+            integer intent(in) :: idomain
+            real intent(in) :: ix
+            real intent(in) :: iy
+            real intent(out) :: lon
+            real intent(out) :: lat
+        end subroutine get_projection_coords
+    end interface 
+end python module WPSProj
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
