@@ -5,8 +5,7 @@
 
 ! For support please subscribe to the wrf-fire mailing list at NCAR at
 ! http://mailman.ucar.edu/mailman/listinfo/wrf-fire
-!
-! ALL RESPONSES TO INQUIRIES ABOUT THIS CODE WILL BE COPIED TO THE wrf-fire LIST
+! or go to http://www.openwfm.org/wiki/index.php5/Talk:WRF-Fire
 
 ! This module is the only entry point from WRF-ARW to the wildland 
 ! fire model. The call to sfire_driver advances the fire model by 
@@ -24,6 +23,9 @@
 ! It is a reimplementation of an earlier model, which used fireline 
 ! propagation by tracers and was coupled with the Clark-Hall 
 ! atmospheric code, described in [2]. For WRF documentation see [3].
+
+! If you use this code, please acknowledge our work by citing [1].
+! Thank you.
 
 ! Acknowledgements
 !
