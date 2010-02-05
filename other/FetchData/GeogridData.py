@@ -5,14 +5,16 @@ import shutil
 import subprocess as sp
 from wps.WPSNamelist import WPSNamelist,GeogridTBL
 from SeamlessServer import *
+from SourceDataDef import AllData
+
+dataDict=AllData()
+dataDict.read()
 
 convertBinary='../WPSGeoTiff/convert_geotiff.x'
 dataCacheFile='cachedData.txt'
 
 def getDataProduct(serv,prod,bounds,datadir):
     return(serv.getData(prod,bounds,datadir))
-
-dataDict={'NFUEL_CAT':[lfServer,nfuelProduct],'ZSF':[nedServer,nedProduct]}
 
 def dataKey(prod,bounds):
     return "%s:%s" %(prod,bounds.URLfmt())
@@ -39,20 +41,19 @@ def getCachedData(prod,bounds):
             return p[1].strip('\n')
     return ''
     
-
 def getSubgridData(tbl='./geogrid/GEOGRID.TBL',nml='./namelist.wps'):
     t=GeogridTBL(tbl)
     n=WPSNamelist(nml)
     o={}
     for idomain in n.getSubgridDomains():
-        datadir='srcdata_%02i'%idomain+1
+        datadir='srcdata_%02i'%(idomain+1)
         bds=n.getDomainBounds(idomain)
         bounds=LatLonBounds(*bds)
         for name in t.getSubgridFields():
             if not o.has_key(name):
                 o[name]=[]
-            serv=dataDict[name][0]
-            prod=dataDict[name][1]
+            serv=dataDict[name].getServer()
+            prod=dataDict[name].getProductCode()
             cd=getCachedData(prod,bounds)
             if os.access(cd,os.R_OK):
                 o[name].append(cd)
@@ -79,10 +80,15 @@ def convertData(data,path='.'):
                 raise Exception("%s returned non-zero status."%convertBinary)
 
 def getConvertArgs(name):
-    return([])
+    return(dataDict[name].getConvertArgs())
 
 def callConvertUtil(name,srcFile,destDir):
     args=getConvertArgs(name)
+    args.append(os.path.abspath(srcFile))
+    s='running: %s '%os.path.abspath(convertBinary)
+    for a in args:
+        s=s+"%s "%a
+    print s
     p=sp.Popen(args,executable=os.path.abspath(convertBinary),\
                stdout=sp.PIPE,stderr=sp.PIPE,stdin=sp.PIPE,\
                cwd=os.path.abspath(destDir))
@@ -91,3 +97,10 @@ def callConvertUtil(name,srcFile,destDir):
         return False
     else:
         return True
+
+def main():
+    d=getSubgridData()
+    convertData(d)
+
+if __name__ == '__main__':
+    main()
