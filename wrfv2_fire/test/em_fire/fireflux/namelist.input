@@ -159,6 +159,13 @@
  fire_ignition_radius3 = 0,   50,  ! all within this radius will ignite, > fire mesh step
  fire_ignition_time3  =   0, 230,  ! sec for ignition from the start! end ignition for sfire
 !
+! cold/warm perturbation (bubble)
+ delt_perturbation = 0.0,       ! Temperature perturbation for creating cold (negative) / warm (positive) bubble [K], 0 turns it off
+ xrad_perturbation = 1000.0,    ! Horizontal radius of the bubble in E-W direction [m]
+ yrad_perturbation = 1000.0,    ! Horizontal radius of the bubble in N-S direction [m]
+ zrad_perturbation = 1500.0,    ! Vertical radius of the bubble [m]
+ hght_perturbation = 1500.0,    ! Perturbation height - height at which the warm/cold bubble will be suspended [m]
+!
 ! verbosity
  fire_print_msg     = 0,1,        ! 1 print fire debugging messages
  fire_print_file    = 0,0,        ! 1 write files for matlab

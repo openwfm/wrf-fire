@@ -160,7 +160,6 @@ CONTAINS
 
 
    stretch_grid = .true.
-   delt = 3.
 !   z_scale = .50
    z_scale = .40
    pi = 2.*asin(1.0)
@@ -173,6 +172,8 @@ CONTAINS
 ! here we check to see if the boundary conditions are set properly
 
    CALL boundary_condition_check( config_flags, bdyzone, error, grid%id )
+ 
+   delt = config_flags%delt_perturbation
 
    moisture_init = .true.
 
@@ -530,18 +531,24 @@ CONTAINS
   ENDDO
   ENDDO
 
-!#if 0
-
+! checking if the perturbation (bubble) is to be applied
+  IF ((delt/=0.) .and. (config_flags%xrad_perturbation > 0.) &
+                 .and. (config_flags%yrad_perturbation > 0.) &
+                 .and. (config_flags%zrad_perturbation > 0.)) THEN
 !  thermal perturbation to kick off convection
 
   write(6,*) ' nxc, nyc for perturbation ',nxc,nyc
   write(6,*) ' delt for perturbation ',delt
+  write(6,*) ' x radius of the perturbation ' ,config_flags%xrad_perturbation
+  write(6,*) ' y radius of the perturbation ' ,config_flags%yrad_perturbation
+  write(6,*) ' z radius of the perturbation ' ,config_flags%zrad_perturbation
+  write(6,*) ' height of the perturbation   ' ,config_flags%hght_perturbation  
 
   DO J = jts, min(jde-1,jte)
-    yrad = config_flags%dy*float(j-nyc)/10000.
+    yrad = config_flags%dy*float(j-nyc)/config_flags%yrad_perturbation
 !   yrad = 0.
     DO I = its, min(ide-1,ite)
-      xrad = config_flags%dx*float(i-nxc)/10000.
+      xrad = config_flags%dx*float(i-nxc)/config_flags%xrad_perturbation
 !     xrad = 0.
       DO K = 1, kte-1
 
@@ -551,7 +558,7 @@ CONTAINS
 
         zrad = 0.5*(grid%ph_1(i,k,j)+grid%ph_1(i,k+1,j)  &
                    +grid%phb(i,k,j)+grid%phb(i,k+1,j))/g
-        zrad = (zrad-1500.)/1500.
+        zrad = (zrad-config_flags%hght_perturbation)/config_flags%zrad_perturbation
         RAD=SQRT(xrad*xrad+yrad*yrad+zrad*zrad)
         IF(RAD <= 1.) THEN
            grid%t_1(i,k,j)=grid%t_1(i,k,j)+delt*COS(.5*PI*RAD)**2
@@ -562,7 +569,7 @@ CONTAINS
            grid%al(i,k,j) = grid%alt(i,k,j) - grid%alb(i,k,j)
         ENDIF
       ENDDO
-
+   
 !  rebalance hydrostatically
 
       DO k  = 2,kte
@@ -577,7 +584,8 @@ CONTAINS
     ENDDO
   ENDDO
 
-!#endif
+!End of setting up the perturbation (bubble)
+ENDIF
 
    IF ( wrf_dm_on_monitor() ) THEN
    write(6,*) ' grid%mu_1 from comp ', grid%mu_1(1,1)
