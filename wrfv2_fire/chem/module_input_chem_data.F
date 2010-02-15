@@ -332,7 +332,7 @@ SUBROUTINE setup_gasprofile_maps(chem_opt, numgas)
 
   select case(chem_opt)
   case (RADM2, RADM2_KPP, RADM2SORG, RADM2SORG_AQ, RADM2SORG_KPP, &
-        RACM_KPP, RACMPM_KPP, RACM_MIM_KPP, RACMSORG_AQ, RACMSORG_KPP, &
+        RACM_KPP, RACMPM_KPP, RACM_MIM_KPP, RACMSORG_AQ, RACM_ESRLSORG_KPP, RACMSORG_KPP, &
         GOCARTRACM_KPP, GOCARTRADM2,GOCARTRADM2_KPP,CHEM_TRACER, CHEM_TRACE2)
      call setup_gasprofile_map_radm_racm
 
@@ -512,7 +512,8 @@ SUBROUTINE input_ext_chem_file (si_grid)
 
    REAL, ALLOCATABLE, DIMENSION(:,:,:) :: si_zsigf, si_zsig
    REAL, ALLOCATABLE, DIMENSION(:,:,:) :: ch_zsigf, ch_zsig, ozone
-   REAL    :: ext_time, dat_time
+   REAL    :: ext_time
+   REAL    :: dat_time = 0.
    REAL    :: wgt0,wgt_time1,wgt_time2
 
    CHARACTER (LEN=80) :: inpname, message
@@ -859,15 +860,15 @@ SUBROUTINE input_ext_chem_file (si_grid)
 
 !  Check for errors in chemin data set
 
-   do l=2,num_chem
-   do j=jds,jde
-   do k=kds,kde
-   do i=ids,ide
-     si_grid%chem(i,k,j,l) = MAX(si_grid%chem(i,k,j,l),epsilc)
-   enddo
-   enddo
-   enddo
-   enddo
+!  do l=2,num_chem
+!  do j=jds,jde
+!  do k=kds,kde
+!  do i=ids,ide
+!    si_grid%chem(i,k,j,l) = MAX(si_grid%chem(i,k,j,l),epsilc)
+!  enddo
+!  enddo
+!  enddo
+!  enddo
    
 
 !  Close chemin data set
@@ -1855,6 +1856,7 @@ SUBROUTINE input_chem_profile (si_grid)
         if (config_flags%chem_opt == RACM_KPP .or.          &
             config_flags%chem_opt == GOCARTRACM_KPP .or.      &
             config_flags%chem_opt == RACMSORG_KPP .or.      &
+            config_flags%chem_opt == RACM_ESRLSORG_KPP .or.      &
             config_flags%chem_opt == RACM_MIM_KPP .or.      &
             config_flags%chem_opt == RACMSORG_KPP ) then
           i_bdy_method = 9
@@ -2173,6 +2175,7 @@ SUBROUTINE input_chem_profile (si_grid)
         if (config_flags%chem_opt == RACM_KPP .or.          &
             config_flags%chem_opt == GOCARTRACM_KPP .or.      &
             config_flags%chem_opt == RACMSORG_KPP .or.      &
+            config_flags%chem_opt == RACM_ESRLSORG_KPP .or.      &
             config_flags%chem_opt == RACM_MIM_KPP .or.      &
             config_flags%chem_opt == RACMSORG_KPP ) then
           i_bdy_method = 9
@@ -2785,7 +2788,7 @@ SUBROUTINE input_chem_profile (si_grid)
         get_last_gas = 0
 
      case (RADM2, RADM2_KPP, RADM2SORG, RADM2SORG_AQ, RADM2SORG_KPP, &
-           RACM_KPP, RACMPM_KPP, RACM_MIM_KPP, RACMSORG_AQ, RACMSORG_KPP, &
+           RACM_KPP, RACMPM_KPP, RACM_MIM_KPP, RACMSORG_AQ, RACM_ESRLSORG_KPP, RACMSORG_KPP, &
 	       GOCARTRACM_KPP,GOCARTRADM2,GOCARTRADM2_KPP)
         get_last_gas = p_ho2
 

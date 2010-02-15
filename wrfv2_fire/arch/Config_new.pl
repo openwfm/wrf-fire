@@ -59,7 +59,6 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
   if ( substr( $ARGV[0], 1, 3 ) eq "os=" )
   {
     $sw_os = substr( $ARGV[0], 4 ) ;
-printf "sw_os $sw_os\n" ;
   }
   if ( substr( $ARGV[0], 1, 5 ) eq "mach=" )
   {
@@ -175,6 +174,7 @@ printf "sw_os $sw_os\n" ;
  $sw_dmparallelflag = "" ;
  $sw_nest_opt = "" ; 
  $sw_comms_external = "gen_comms_serial module_dm_serial" ;
+
 
  if ( $sw_dmparallel eq "RSL_LITE" ) 
  {
@@ -491,7 +491,11 @@ while ( <CONFIGURE_DEFAULTS> )
         if ( ( $response == 1 ) || ( $response == 2 ) || ( $response == 3 ) ) {
           if ( ( $paropt eq 'serial' || $paropt eq 'smpar' ) ) {   # nesting without MPI
             $sw_stubmpi = "-DSTUBMPI" ;
-            $sw_comms_lib = "\$(WRF_SRC_ROOT_DIR)/external/RSL_LITE/librsl_lite.a" ;
+            if ( $sw_os ne "CYGWIN_NT" ) {
+              $sw_comms_lib = "\$(WRF_SRC_ROOT_DIR)/external/RSL_LITE/librsl_lite.a" ;
+            } else {
+              $sw_comms_lib = "../external/RSL_LITE/librsl_lite.a" ;
+            }
             $sw_comms_external = "\$(WRF_SRC_ROOT_DIR)/external/RSL_LITE/librsl_lite.a gen_comms_rsllite module_dm_rsllite" ;
             $sw_dmparallel = "RSL_LITE" ;
             $sw_dmparallelflag = "-DDM_PARALLEL" ;
@@ -504,7 +508,11 @@ while ( <CONFIGURE_DEFAULTS> )
         }
         if ( $paropt eq 'smpar' || $paropt eq 'dm+sm' ) { $sw_ompparallel = "OMP" ; }
         if ( $paropt eq 'dmpar' || $paropt eq 'dm+sm' ) { 
-          $sw_comms_lib = "\$(WRF_SRC_ROOT_DIR)/external/RSL_LITE/librsl_lite.a" ;
+          if ( $sw_os ne "CYGWIN_NT" ) {
+            $sw_comms_lib = "\$(WRF_SRC_ROOT_DIR)/external/RSL_LITE/librsl_lite.a" ;
+          } else {
+            $sw_comms_lib = "../external/RSL_LITE/librsl_lite.a" ;
+          }
           $sw_comms_external = "\$(WRF_SRC_ROOT_DIR)/external/RSL_LITE/librsl_lite.a gen_comms_rsllite module_dm_rsllite" ;
           $sw_dmparallel = "RSL_LITE" ;
           $sw_dmparallelflag = "-DDM_PARALLEL" ;

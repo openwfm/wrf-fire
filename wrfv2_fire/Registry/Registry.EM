@@ -39,8 +39,6 @@
 # here.
 #
 
-# Available characters for dimspec: 0123456789@%+=|?.!&[{}]
-
 include registry.dimspec
 
 ################################################################################
@@ -386,8 +384,18 @@ include registry.les
 
 # Chem Scalars
 state   real    -              ikjftb   chem        1         -     -    -                                       
-# Tracer Scalars
-state   real    -              ikjftb   tracer      1         -     -    -                                       
+#
+# Tracer Scalars: If you want full resolved and non-resolved dispersion, compile WRF-Chem
+#
+state   real    -          ikjftb  tracer        1         -     -    -                                       
+state   real    tr17_1     ikjftb  tracer        1         -     irhusdf=(bdy_interp:dt)    "tr17_1"         "tr17_1"          -
+state   real    tr17_2     ikjftb  tracer        1         -     irhusdf=(bdy_interp:dt)    "tr17_2"         "tr17_2"          -
+state   real    tr17_3     ikjftb  tracer        1         -     irhusdf=(bdy_interp:dt)    "tr17_3"         "tr17_3"          -
+state   real    tr17_4     ikjftb  tracer        1         -     irhusdf=(bdy_interp:dt)    "tr17_4"         "tr17_4"          -
+state   real    tr17_5     ikjftb  tracer        1         -     irhusdf=(bdy_interp:dt)    "tr17_5"         "tr17_5"          -
+state   real    tr17_6     ikjftb  tracer        1         -     irhusdf=(bdy_interp:dt)    "tr17_6"         "tr17_6"          -
+state   real    tr17_7     ikjftb  tracer        1         -     irhusdf=(bdy_interp:dt)    "tr17_7"         "tr17_7"          -
+state   real    tr17_8     ikjftb  tracer        1         -     irhusdf=(bdy_interp:dt)    "tr17_8"         "tr17_8"
 
 # Other Scalars
 state   real    -              ikjftb  scalar      1         -     -   -
@@ -567,6 +575,7 @@ state    real   DZG             l        em      -            Z     r        "DZ
 
 state    real   SMOIS            ilj     -          1         Z     i02rhd=(interp_mask_land_field:lu_index)u=(copy_fcnm)    "SMOIS"            "SOIL MOISTURE"     "m3 m-3"
 state    real   SH2O             ilj     -          1         Z     i02rhd=(interp_mask_land_field:lu_index)u=(copy_fcnm)    "SH2O"             "SOIL LIQUID WATER" "m3 m-3"
+state    real   SMCREL           ilj     -          1         Z     i02rhd=(interp_mask_land_field:lu_index)u=(copy_fcnm)    "SMCREL"           "RELATIVE SOIL MOISTURE" ""
 state    real   XICE             ij     misc        1         -     i0124rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm)  "SEAICE"             "SEA ICE FLAG"  ""
 state    real   XICEM            ij     misc        1         -     rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm)  "XICEM"             "SEA ICE FLAG (PREVIOUS STEP)"  ""
 state    real   SMSTAV           ij     misc        1         -      rd=(interp_mask_land_field:lu_index)       "SMSTAV"           "MOISTURE AVAILABILITY" ""
@@ -1177,13 +1186,18 @@ state   real  mu_2m            ij       misc        1         -     -         "m
 
 state   real    max_cfl         -       misc        1         -     -       "max_cfl"           "maximum CFL value in grid at a time" "-"
 
+state   real  prec_acc_c       ij       misc        1         -     rh       "prec_acc_c"       "ACCUMULATED CUMULUS PRECIPITATION OVER prec_acc_dt PERIODS OF TIME"       "mm"
+state   real  prec_acc_nc      ij       misc        1         -     rh       "prec_acc_nc"      "ACCUMULATED GRID SCALE  PRECIPITATION OVER prec_acc_dt PERIODS OF TIME"   "mm"
+state   real  snow_acc_nc      ij       misc        1         -     rh       "snow_acc_nc"      "ACCUMULATED SNOW WATER EQUIVALENT OVER prec_acc_dt PERIODS OF TIME"       "mm"
+
 # Ocean Mixed-Layer State Variables
-state   real    TML            ij      misc         1         -     rd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "TML"    "OCEAN MIXED-LAYER TEMPERATURE"   "K"
-state   real    T0ML           ij      misc         1         -     rd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "T0ML"   "INITIAL OCEAN MIXED-LAYER TEMPERATURE"   "K"
-state   real    HML            ij      misc         1         -     rd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "HML"    "OCEAN MIXED-LAYER DEPTH"   "m"
-state   real    H0ML           ij      misc         1         -     rd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "H0ML"   "INITIAL OCEAN MIXED-LAYER DEPTH"   "m"
-state   real    HUML           ij      misc         1         -     rd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "HUML"   "OCEAN MIXED-LAYER DEPTH * U-CURRENT"  " m2s-1 "
-state   real    HVML           ij      misc         1         -     rd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "HVML"   "OCEAN MIXED-LAYER DEPTH * V-CURRENT"  " m2s-1 " 
+state   real    TML            ij      misc         1         -     rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "TML"    "OCEAN MIXED-LAYER TEMPERATURE"   "K"
+state   real    T0ML           ij      misc         1         -     rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "T0ML"   "INITIAL OCEAN MIXED-LAYER TEMPERATURE"   "K"
+state   real    HML            ij      misc         1         -     rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "HML"    "OCEAN MIXED-LAYER DEPTH"   "m"
+state   real    H0ML           ij      misc         1         -     rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "H0ML"   "INITIAL OCEAN MIXED-LAYER DEPTH"   "m"
+state   real    HUML           ij      misc         1         -     rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "HUML"   "OCEAN MIXED-LAYER DEPTH * U-CURRENT"  " m2s-1 "
+state   real    HVML           ij      misc         1         -     rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm)    "HVML"   "OCEAN MIXED-LAYER DEPTH * V-CURRENT"  " m2s-1 " 
+state   real    TMOML          ij      misc         1         -     i012rhd=(interp_mask_water_field:lu_index)u=(copy_fcnm) "TMOML"  "OCEAN LAYER MEAN TEMPERATURE   "   "K"
 #
 #---------------------------------------------------------------------------------------------------------------------------------------
 #                                               
@@ -1285,6 +1299,7 @@ rconfig   integer num_metgrid_levels      namelist,domains	1              27    
 rconfig   integer num_metgrid_soil_levels namelist,domains	1             4        irh    "num_metgrid_soil_levels"               "number of input levels or layers in 3D sm, st, sw arrays"      ""
 rconfig   real    p_top_requested         namelist,domains      1              5000    irh    "p_top_requested" "Pa"      ""
 rconfig   integer interp_type             namelist,domains	1              2       irh    "interp_type"  "1=interp in pressure, 2=interp in LOG pressure"  ""
+rconfig   integer vert_refine_fact        namelist,domains      1              0       irh    "vertical refinment factor for ndown"  ""
 rconfig   integer extrap_type             namelist,domains	1              2       irh    "extrap_type"  "1= use 2 lowest levels, 2=constant"  ""
 rconfig   integer t_extrap_type           namelist,domains	1              2       irh    "t_extrap_type"  "1=isothermal, 2=6.5 K/km, 3=adiabatic"   ""
 rconfig   logical lowest_lev_from_sfc     namelist,domains	1             .false.  irh    "lowest_lev_from_sfc"                ""      ""
@@ -1423,6 +1438,8 @@ rconfig   integer fractional_seaice       namelist,physics      1              0
 rconfig   real    bucket_mm               namelist,physics      1             -1.      h     "bucket_mm" "bucket reset value for water accumulations -1: inactive"   ""
 rconfig   real    bucket_J                namelist,physics      1             -1.      h     "bucket_J"  "bucket reset value for energy accumulations -1: inactive"   ""
 rconfig   real    mp_tend_lim             namelist,physics      1             10.      -     "mp_tend_lim" "limit on temp tendency from mp latent heating"   "K/s"
+rconfig   real    prec_acc_dt             namelist,physics      max_domains    0.      h     "prec_acc_dt" "bucket reset time interval between outputs for cumulus or grid scale precipitation"   "minutes"
+rconfig   integer prec_acc_opt            derived               1              0       -     "prec_acc_opt" "option to output precip in a time window"          ""
 
 rconfig   integer grav_settling           namelist,physics      max_domains  0         h    "grav_settling"     "activate gravitationalsettling of fog  0=no, 1=yes"
 
@@ -1584,7 +1601,7 @@ rconfig   logical rotated_pole            namelist,dynamics     1            .fa
 rconfig   logical do_coriolis             namelist,dynamics	max_domains  .true.   irh  "do_coriolis"    ""   ""
 rconfig   logical do_curvature            namelist,dynamics	max_domains  .true.   irh  "do_curvature"   ""   ""
 rconfig   logical do_gradp                namelist,dynamics	max_domains  .true.   irh  "do_gradp"    ""   ""
-g
+rconfig   integer     tracer_opt          namelist,dynamics     max_domains    0       rh    "tracer_opt"          ""      ""
 
 # Bdy_control
 rconfig   integer spec_bdy_width          namelist,bdy_control		1             5       irh    "spec_bdy_width"                ""      ""
@@ -1747,11 +1764,17 @@ package   psusfddagd     grid_sfdda==1               -             state:u10_ndg
 
 package   spnudging      grid_fdda==2               -              fdda3d:u_ndg_old,v_ndg_old,t_ndg_old,q_ndg_old,ph_ndg_old,u_ndg_new,v_ndg_new,t_ndg_new,q_ndg_new,ph_ndg_new;fdda2d:mu_ndg_old,mu_ndg_new;state:rundgdten,rvndgdten,rthndgdten,rphndgdten,rqvndgdten,rmundgdten
 
+package   gwdopt         gwd_opt==1                 -              state:var2d,oc12d,oa1,oa2,oa3,oa4,ol1,ol2,ol3,ol4
+package   omlopt         omlcall==1                 -              state:tml,t0ml,hml,h0ml,huml,hvml,tmoml
+package   scmopt         scm_force==1               -              state:z_force,z_force_tend,u_g,u_g_tend,v_g,v_g_tend,w_subs,w_subs_tend,th_upstream_x,th_upstream_x_tend,th_upstream_y,th_upstream_y_tend,qv_upstream_x,qv_upstream_x_tend,qv_upstream_y,qv_upstream_y_tend,u_upstream_x,u_upstream_x_tend,u_upstream_y,u_upstream_y_tend,v_upstream_x,v_upstream_x_tend,v_upstream_y,v_upstream_y_tend,tau_x,tau_x_tend,tau_y,tau_y_tend
+package   prec_acc       prec_acc_opt==1            -              state:prec_acc_c,prec_acc_nc,snow_acc_nc
+
 package   restofwrf      use_wps_input==0            -             -
 
 package   original         moist_adv_opt==0            -             -
 package   positivedef    moist_adv_opt==1            -             -
 package   monotonic      moist_adv_opt==2            -             -
+package   tracer_test1  tracer_opt==2       -             tracer:tr17_1,tr17_2,tr17_3,tr17_4,tr17_5,tr17_6,tr17_7,tr17_8
 
 package   dfi_setup      dfi_stage==0                -             -
 package   dfi_bck        dfi_stage==1                -             -

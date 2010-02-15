@@ -23,6 +23,7 @@
    USE module_comm_dm
 
    USE module_physics_init
+   USE module_fr_sfire_driver, ONLY : sfire_driver_em_init
 #ifdef WRF_CHEM
    USE module_aerosols_sorgam, ONLY: sum_pm_sorgam
    USE module_gocart_aerosols, ONLY: sum_pm_gocart
@@ -660,7 +661,7 @@
                       grid%A_E_BEP,grid%B_U_BEP,grid%B_V_BEP,grid%B_T_BEP,             & !multi-layer urban
                       grid%B_Q_BEP,grid%B_E_BEP,grid%DLG_BEP,                          & !multi-layer urban
                       grid%DL_U_BEP,grid%SF_BEP,grid%VL_BEP,                           & !multi-layer urban
-                      grid%TML,grid%T0ML,grid%HML,grid%H0ML,grid%HUML,grid%HVML,     & !Optional oml
+                      grid%TML,grid%T0ML,grid%HML,grid%H0ML,grid%HUML,grid%HVML,grid%TMOML,     & !Optional oml
                       grid%itimestep, grid%fdob,            &
                       t00, p00, a,                      & ! for obs_nudge base state
                       grid%TYR, grid%TYRA, grid%TDLY, grid%TLAG, grid%NYEAR, grid%NDAY,grid%tmn_update, &
@@ -1162,6 +1163,18 @@
 #  include "PERIOD_BDY_EM_SCALAR.inc"
 #  include "PERIOD_BDY_EM_CHEM.inc"
 #endif
+
+!  FIRE
+if(config_flags%ifire.eq.2)then
+
+   call sfire_driver_em_init ( grid , config_flags    &
+            ,ids,ide, kds,kde, jds,jde                &
+            ,ims,ime, kms,kme, jms,jme                &
+            ,ips,ipe, kps,kpe, jps,jpe ) 
+
+   CALL wrf_debug ( 100 , 'start_domain_em: After call to sfire_driver_em_init' )
+endif
+
 
      CALL wrf_debug ( 100 , 'start_domain_em: Returning' )
 

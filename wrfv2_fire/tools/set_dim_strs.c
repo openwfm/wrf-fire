@@ -14,7 +14,7 @@
 #include "sym.h"
 
 static int
-set_dim_strs_x ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELEN], char pdim[3][2][NAMELEN] , char * prepend , int sw_disregard_stag, int sw_reorder )
+set_dim_strs_x ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELEN], char pdim[3][2][NAMELEN] , char * prepend , int sw_disregard_stag, int sw_reorder, int sw_no_prepend_r1 )
 {
   int i, j, ii ;
   node_t *p ;
@@ -22,7 +22,11 @@ set_dim_strs_x ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELE
   char * stag ;
   char r1[NAMELEN] ;
 
-  strcpy(r1,"grid%") ;
+  if ( sw_no_prepend_r1 ) {
+    strcpy(r1,"") ;
+  } else {
+    strcpy(r1,"grid%") ;
+  }
   if ( node == NULL ) return(1) ;
   for ( i = 0 ; i < 3 ; i++ )
     for ( j = 0 ; j < 2 ; j++ )
@@ -48,7 +52,14 @@ set_dim_strs_x ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELE
     }
     if      ( p->len_defined_how == DOMAIN_STANDARD )
     {
+      char *ornt ;
+      if      ( node->proc_orient == ALL_X_ON_PROC ) ornt = "x" ;
+      else if ( node->proc_orient == ALL_Y_ON_PROC ) ornt = "y" ;
+      else                                        ornt = "" ;
+
       if ( p->subgrid ) {
+
+
           switch( p->coord_axis )
           {
           case(COORD_X) : d = 'i' ;  d1 = 'x' ; break ;
@@ -87,13 +98,13 @@ set_dim_strs_x ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELE
          
         sprintf(ddim[i][0],"%s%cds",prepend,d) ;
         sprintf(ddim[i][1],stag,prepend,d) ;  /* note that stag has printf format info in it */
-        sprintf(mdim[i][0],"%s%cms",prepend,d) ;
-        sprintf(mdim[i][1],"%s%cme",prepend,d) ;
-        sprintf(pdim[i][0],"%s%cps",prepend,d) ;
+        sprintf(mdim[i][0],"%s%cms%s",prepend,d,ornt) ;
+        sprintf(mdim[i][1],"%s%cme%s",prepend,d,ornt) ;
+        sprintf(pdim[i][0],"%s%cps%s",prepend,d,ornt) ;
         if ( ! sw_disregard_stag )
-          sprintf(pdim[i][1],"MIN( %s, %s%cpe )",ddim[i][1],prepend,d) ;
+          sprintf(pdim[i][1],"MIN( %s, %s%cpe%s )",ddim[i][1],prepend,d,ornt) ;
         else
-          sprintf(pdim[i][1],"%s%cpe",prepend,d) ;
+          sprintf(pdim[i][1],"%s%cpe%s",prepend,d,ornt) ;
       }
     }
     else if ( p->len_defined_how == NAMELIST )
@@ -130,7 +141,7 @@ set_dim_strs_x ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELE
 int
 set_dim_strs ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELEN], char pdim[3][2][NAMELEN] , char * prepend , int sw_disregard_stag )
 {
-  set_dim_strs_x ( node , ddim, mdim, pdim, prepend , sw_disregard_stag, 1 ) ; /* 1 = reorder according to strg order */
+  set_dim_strs_x ( node , ddim, mdim, pdim, prepend , sw_disregard_stag, 1, 0 ) ; /* 1 = reorder according to strg order */
 }
 
 /* version that doesn't permute according to index order -- always i, k, then j
@@ -138,6 +149,11 @@ set_dim_strs ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELEN]
 int
 set_dim_strs2 ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELEN], char pdim[3][2][NAMELEN] , char * prepend , int sw_disregard_stag )
 {
-  set_dim_strs_x ( node , ddim, mdim, pdim, prepend , sw_disregard_stag, 0 ) ; /* 0 = reorder according to strg order */
+  set_dim_strs_x ( node , ddim, mdim, pdim, prepend , sw_disregard_stag, 0, 0 ) ; /* 0 = reorder according to strg order */
 }
 
+int
+set_dim_strs3 ( node_t *node , char ddim[3][2][NAMELEN], char mdim[3][2][NAMELEN], char pdim[3][2][NAMELEN] , char * prepend , int sw_disregard_stag )
+{
+  set_dim_strs_x ( node , ddim, mdim, pdim, prepend , sw_disregard_stag, 1, 1 ) ; /* 1 = reorder according to strg order */
+}

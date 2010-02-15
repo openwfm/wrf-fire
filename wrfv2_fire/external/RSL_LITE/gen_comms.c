@@ -970,8 +970,8 @@ gen_periods ( char * dirname , node_t * periods )
     print_call_or_def(fpcall, p, "CALL", commname, "local_communicator_periodic", 1 );
     close_the_file(fpcall) ;
     /* Generate definition of custom routine that encapsulates inlined comm calls */
-    if ( strlen(dirname) > 0 ) { sprintf(fnamesub,"%s/REGISTRY_COMM_DM_subs.inc",dirname) ; }
-    else                       { sprintf(fnamesub,"REGISTRY_COMM_DM_subs.inc") ; }
+    if ( strlen(dirname) > 0 ) { sprintf(fnamesub,"%s/REGISTRY_COMM_DM_PERIOD_subs.inc",dirname) ; }
+    else                       { sprintf(fnamesub,"REGISTRY_COMM_DM_PERIOD_subs.inc") ; }
     if ((fpsub = fopen( fnamesub , "a" )) == NULL ) 
     {
       fprintf(stderr,"WARNING: gen_periods in registry cannot open %s for writing\n",fnamesub ) ;
@@ -1640,7 +1640,11 @@ int said_it2 = 0 ;
   for ( direction = directions ; *direction != NULL ; direction++ )
   {
     if ( dirname == NULL ) return(1) ;
-    sprintf(fname,"shift_halo_%s_halo",*direction) ;
+    if ( sw_unidir_shift_halo ) {
+       sprintf(fname,"shift_halo",*direction) ;
+    } else {
+       sprintf(fname,"shift_halo_%s_halo",*direction) ;
+    }
 
     Shift.next = NULL ;
     sprintf( Shift.use, "" ) ;
@@ -1688,7 +1692,10 @@ if ( p->subgrid != 0 ) {  /* moving nests not implemented for subgrid variables 
     if ( strlen(Shift.comm_define) > 0 )Shift.comm_define[strlen(Shift.comm_define)-1] = '\0' ;
     }
 
-    gen_halos( dirname , NULL, &Shift, 0 ) ;
+/* if unidir halo, then only generate on x pass */
+    if ( ! ( sw_unidir_shift_halo && !strcmp(*direction,"y" ) ) ) {
+      gen_halos( dirname , NULL, &Shift, 0 ) ;
+    }
 
     sprintf(fname,"%s/shift_halo_%s.inc",dirname,*direction) ;
     if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;

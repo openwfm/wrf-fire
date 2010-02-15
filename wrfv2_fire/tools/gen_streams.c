@@ -49,6 +49,14 @@ int gen_streams(  char * dirname )
   gen_io_form_for_dataset( fp ) ;
   close_the_file( fp ) ;
 
+  fn = "io_form_for_stream.inc" ;
+  if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s",dirname,fn) ; }
+  else                       { sprintf(fname,"%s",fn) ; }
+  if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
+  print_warning(fp,fname) ;
+  gen_io_form_for_stream( fp ) ;
+  close_the_file( fp ) ;
+
   fn = "switches_and_alarms.inc" ;
   if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s",dirname,fn) ; }
   else                       { sprintf(fname,"%s",fn) ; }
@@ -97,12 +105,44 @@ int gen_streams(  char * dirname )
   gen_med_hist_out_closes( fp ) ;
   close_the_file( fp ) ;
 
+  fn = "med_auxinput_in_closes.inc" ;
+  if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s",dirname,fn) ; }
+  else                       { sprintf(fname,"%s",fn) ; }
+  if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
+  print_warning(fp,fname) ;
+  gen_med_auxinput_in_closes( fp ) ;
+  close_the_file( fp ) ;
+
   fn = "med_last_solve_io.inc" ;
   if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s",dirname,fn) ; }
   else                       { sprintf(fname,"%s",fn) ; }
   if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
   print_warning(fp,fname) ;
   gen_med_last_solve_io( fp ) ;
+  close_the_file( fp ) ;
+
+  fn = "med_open_esmf_calls.inc" ;
+  if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s",dirname,fn) ; }
+  else                       { sprintf(fname,"%s",fn) ; }
+  if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
+  print_warning(fp,fname) ;
+  gen_med_open_esmf_calls( fp ) ;
+  close_the_file( fp ) ;
+
+  fn = "med_find_esmf_coupling.inc" ;
+  if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s",dirname,fn) ; }
+  else                       { sprintf(fname,"%s",fn) ; }
+  if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
+  print_warning(fp,fname) ;
+  gen_med_find_esmf_coupling( fp ) ;
+  close_the_file( fp ) ;
+
+  fn = "shutdown_closes.inc" ;
+  if ( strlen(dirname) > 0 ) { sprintf(fname,"%s/%s",dirname,fn) ; }
+  else                       { sprintf(fname,"%s",fn) ; }
+  if ((fp = fopen( fname , "w" )) == NULL ) return(1) ;
+  print_warning(fp,fname) ;
+  gen_shutdown_closes( fp ) ;
   close_the_file( fp ) ;
 
   return(0) ;
@@ -261,10 +301,9 @@ gen_io_form_for_dataset ( FILE *fp )
   fprintf(fp,"      CALL nl_get_io_form_history( 1, io_form )\n") ;
   fprintf(fp,"    ELSE IF ( DataSet .eq. 'BOUNDARY' ) THEN\n") ;
   fprintf(fp,"      CALL nl_get_io_form_boundary( 1, io_form )\n") ;
-  for ( i = 0 ; i < 2*MAX_HISTORY ; i++ )
+  for ( i = 1 ; i < MAX_HISTORY ; i++ )
   {
-    if ( i % MAX_HISTORY == 0 ) continue ;
-    sprintf(streamno,"%d",i%MAX_HISTORY) ;
+    sprintf(streamno,"%d",i) ;
     fprintf(fp,"    ELSE IF ( DataSet .eq. 'AUXINPUT%s' ) THEN\n",     streamno) ;
     fprintf(fp,"      CALL nl_get_io_form_auxinput%s( 1, io_form )\n", streamno) ;
     fprintf(fp,"    ELSE IF ( DataSet .eq. 'AUXHIST%s' ) THEN\n",      streamno) ;
@@ -272,6 +311,33 @@ gen_io_form_for_dataset ( FILE *fp )
   }
   fprintf(fp,"    ELSE  ! default if nothing is set in SysDepInfo; use history\n") ;
   fprintf(fp,"      CALL nl_get_io_form_history( 1, io_form )\n") ;
+  fprintf(fp,"    ENDIF\n") ;
+}
+
+int
+gen_io_form_for_stream ( FILE *fp )
+{
+  char * aux , *streamtype , streamno[5]  ;
+  int i ;
+
+  fprintf(fp,"    IF      ( stream .eq. restart_only ) THEN\n") ;
+  fprintf(fp,"      CALL nl_get_io_form_restart( 1, io_form )\n") ;
+  fprintf(fp,"    ELSE IF ( stream .eq. input_only ) THEN\n") ;
+  fprintf(fp,"      CALL nl_get_io_form_input( 1, io_form )\n") ;
+  fprintf(fp,"    ELSE IF ( stream .eq. history_only ) THEN\n") ;
+  fprintf(fp,"      CALL nl_get_io_form_history( 1, io_form )\n") ;
+  fprintf(fp,"    ELSE IF ( stream .eq. boundary_only ) THEN\n") ;
+  fprintf(fp,"      CALL nl_get_io_form_boundary( 1, io_form )\n") ;
+  for ( i = 1 ; i < MAX_HISTORY ; i++ )
+  {
+    sprintf(streamno,"%d",i) ;
+    fprintf(fp,"    ELSE IF ( stream .eq. auxinput%s_only ) THEN\n",     streamno) ;
+    fprintf(fp,"      CALL nl_get_io_form_auxinput%s( 1, io_form )\n", streamno) ;
+    fprintf(fp,"    ELSE IF ( stream .eq. auxhist%s_only ) THEN\n",      streamno) ;
+    fprintf(fp,"      CALL nl_get_io_form_auxhist%s( 1, io_form )\n", streamno) ;
+  }
+  fprintf(fp,"    ELSE  ! if no match then do the old service representative schtick\n") ;
+  fprintf(fp,"      CALL wrf_error_fatal('internal error: please contact wrfhelp@ucar.edu: io_form_for_stream.inc -- invalid stream number')\n") ;
   fprintf(fp,"    ENDIF\n") ;
 }
 
@@ -394,6 +460,22 @@ gen_med_hist_out_closes ( FILE *fp )
 }
 
 int
+gen_med_auxinput_in_closes ( FILE *fp )
+{
+  char * aux , *streamtype , streamno[5]  ;
+  int i ;
+  for ( i = 1 ; i < MAX_HISTORY ; i++ )  /* the number of history is the same as the number of input and MAX_INPUT collides with system definitions */
+  {
+    fprintf(fp," CASE ( AUXINPUT%d_ALARM )\n",i) ;
+    fprintf(fp,"     IF ( grid%%nframes(stream) >= config_flags%%frames_per_auxinput%d ) THEN\n",i) ;
+    fprintf(fp,"       CALL close_dataset ( grid%%auxinput%d_oid , config_flags , \"DATASET=AUXINPUT%d\" )\n",i,i) ;
+    fprintf(fp,"       grid%%auxinput%d_oid = 0\n",i) ;
+    fprintf(fp,"       grid%%nframes(stream) = 0\n") ;
+    fprintf(fp,"     ENDIF\n") ;
+  }
+}
+
+int
 gen_med_last_solve_io ( FILE *fp )
 {
   char * aux , *streamtype , streamno[5]  ;
@@ -406,6 +488,76 @@ gen_med_last_solve_io ( FILE *fp )
   }
 }
 
+int
+gen_shutdown_closes ( FILE *fp )
+{
+  char * aux , *streamtype , streamno[5]  ;
+  int i ;
+  for ( i = 1 ; i < MAX_HISTORY ; i++ )
+  {
+    fprintf(fp,"IF( grid%%auxhist%d_oid > 0 ) CALL close_dataset ( grid%%auxhist%d_oid, config_flags, 'DATASET=AUXHIST%d' )\n",i,i,i)  ;
+  }
+}
+
+/* generate the calls that main/wrf_ESMFMod.F uses in wrf_state_populate() */
+gen_med_open_esmf_calls ( FILE *fp )
+{
+  int i ;
+  for ( i = 1 ; i < MAX_HISTORY ; i++ )
+  {
+     fprintf(fp,"CALL nl_get_io_form_auxinput%d( 1, io_form )\n",i) ;
+     fprintf(fp,"IF ( use_package( io_form ) == IO_ESMF ) THEN\n") ;
+     fprintf(fp,"  stream = %d\n",i) ;
+     fprintf(fp,"  CALL open_aux_u( grid, config_flags, stream, AUXINPUT%d_ALARM,       &\n",i) ;
+     fprintf(fp,"                   config_flags%%auxinput%d_inname, grid%%auxinput%d_oid, &\n",i,i) ;
+     fprintf(fp,"                   input_auxinput%d, ierr )\n",i) ;
+     fprintf(fp,"  IF ( ierr /= 0 ) RETURN\n") ;
+     fprintf(fp,"ENDIF\n") ;
+  }
+
+  for ( i = 1 ; i < MAX_HISTORY ; i++ )
+  {
+     fprintf(fp,"CALL nl_get_io_form_auxhist%d( 1, io_form )\n",i) ;
+     fprintf(fp,"IF ( use_package( io_form ) == IO_ESMF ) THEN\n") ;
+     fprintf(fp,"  stream = %d\n",i) ;
+     fprintf(fp,"  CALL open_hist_w( grid, config_flags, stream, AUXHIST%d_ALARM,       &\n",i) ;
+     fprintf(fp,"                    config_flags%%auxhist%d_outname, grid%%auxhist%d_oid, &\n",i,i) ;
+     fprintf(fp,"                    output_auxhist%d, fname, n2, ierr )\n",i) ;
+     fprintf(fp,"  IF ( ierr /= 0 ) RETURN\n") ;
+     fprintf(fp,"ENDIF\n") ;
+  }
+}
+
+/* generate the calls that main/wrf_ESMFMod.F uses in wrf_state_populate() */
+gen_med_find_esmf_coupling ( FILE *fp )
+{
+  int i ;
+  for ( i = 1 ; i < MAX_HISTORY ; i++ )
+  {
+     fprintf(fp,"IF ( .NOT. foundcoupling ) THEN\n") ;
+     fprintf(fp,"  CALL nl_get_io_form_auxinput%d( 1, io_form )\n",i) ;
+     fprintf(fp,"  IF ( use_package( io_form ) == IO_ESMF ) THEN\n") ;
+     fprintf(fp,"    CALL ESMF_AlarmGet( head_grid%%alarms( AUXINPUT%d_ALARM ), &\n",i) ;
+     fprintf(fp,"                        RingInterval=couplingInterval, rc=rc )\n") ;
+     fprintf(fp,"    IF ( rc /= ESMF_SUCCESS ) THEN\n") ;
+     fprintf(fp,"      CALL wrf_error_fatal ( 'wrf_findCouplingInterval:  ESMF_AlarmGet(AUXINPUT%d_ALARM) failed' )\n",i) ;
+     fprintf(fp,"    ENDIF\n") ;
+     fprintf(fp,"    foundcoupling = .TRUE.\n") ;
+     fprintf(fp,"  ENDIF\n") ;
+     fprintf(fp,"ENDIF\n") ;
+     fprintf(fp,"IF ( .NOT. foundcoupling ) THEN\n") ;
+     fprintf(fp,"  CALL nl_get_io_form_auxhist%d( 1, io_form )\n",i) ;
+     fprintf(fp,"  IF ( use_package( io_form ) == IO_ESMF ) THEN\n") ;
+     fprintf(fp,"    CALL ESMF_AlarmGet( head_grid%%alarms( AUXHIST%d_ALARM ), &\n",i) ;
+     fprintf(fp,"                        RingInterval=couplingInterval, rc=rc )\n") ;
+     fprintf(fp,"    IF ( rc /= ESMF_SUCCESS ) THEN\n") ;
+     fprintf(fp,"      CALL wrf_error_fatal ( 'wrf_findCouplingInterval:  ESMF_AlarmGet(AUXHIST%d_ALARM) failed' )\n",i) ;
+     fprintf(fp,"    ENDIF\n") ;
+     fprintf(fp,"    foundcoupling = .TRUE.\n") ;
+     fprintf(fp,"  ENDIF\n") ;
+     fprintf(fp,"ENDIF\n") ;
+  }
+}
 
 
 /* 
@@ -459,7 +611,7 @@ gen_io_boilerplate ()
       fprintf(fp,"rconfig integer aux%s%d_end_s %s %s 0\n",streamtype,i,howset,maxd) ;
       fprintf(fp,"rconfig integer aux%s%d_end   %s %s 0\n",streamtype,i,howset,maxd) ;
       fprintf(fp,"rconfig integer io_form_aux%s%d %s %s 0\n",streamtype,i,howset,"1") ;
-      if ( j == 0 ) fprintf(fp,"rconfig integer frames_per_aux%s%d %s %s 1\n",streamtype,i,howset,maxd) ;
+      fprintf(fp,"rconfig integer frames_per_aux%s%d %s %s 999999\n",streamtype,i,howset,maxd) ;
     }
   }
 

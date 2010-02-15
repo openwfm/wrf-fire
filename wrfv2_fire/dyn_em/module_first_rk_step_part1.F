@@ -40,7 +40,7 @@ CONTAINS
     USE module_surface_driver, ONLY : surface_driver
     USE module_cumulus_driver, ONLY : cumulus_driver
     USE module_pbl_driver, ONLY : pbl_driver
-    USE module_fr_sfire_driver, ONLY : sfire_driver_em
+    USE module_fr_sfire_driver, ONLY : sfire_driver_em_step
     USE module_fddagd_driver, ONLY : fddagd_driver
     USE module_em, ONLY : init_zero_tendency
     USE module_force_scm
@@ -50,8 +50,6 @@ CONTAINS
     USE module_comm_dm, ONLY : halo_em_phys_a_sub,halo_em_fdda_sfc_sub
 #endif
     USE module_utility
-! jm debug
-    USE module_fr_sfire_util
     IMPLICIT NONE
 
     TYPE ( domain ), INTENT(INOUT) :: grid
@@ -379,6 +377,7 @@ BENCH_START(surf_driver_tim)
      &        ,SHDMAX=grid%shdmax      ,SHDMIN=grid%shdmin      ,SMOIS=grid%smois        &
      &        ,SMSTAV=grid%smstav      ,SMSTOT=grid%smstot      ,SNOALB=grid%snoalb      &
      &        ,SNOW=grid%snow          ,SNOWC=grid%snowc        ,SNOWH=grid%snowh        &
+     &        ,SMCREL=grid%smcrel                                                        &
      &        ,SST=grid%sst            ,SST_UPDATE=grid%sst_update                  &
      &        ,SSTSK=grid%sstsk        ,DTW=grid%dtw            ,SST_SKIN=grid%sst_skin  &
      &        ,STEPBL=grid%stepbl      ,TH10=grid%th10          ,TH2=grid%th2            &
@@ -401,7 +400,7 @@ BENCH_START(surf_driver_tim)
      &        ,ISFTCFLX=config_flags%isftcflx, IZ0TLND=config_flags%iz0tlnd         &
      &        ,OMLCALL=config_flags%omlcall ,OML_HML0=config_flags%oml_hml0 ,OML_GAMMA=config_flags%oml_gamma &
      &        ,TML=grid%tml, T0ML=grid%t0ml, HML=grid%hml, H0ML=grid%h0ml, HUML=grid%huml, HVML=grid%hvml, F=grid%f &
-     &        ,ISWATER=iswater &
+     &        ,TMOML=grid%TMOML,ISWATER=iswater &
      &        ,SLOPE_RAD=config_flags%slope_rad,TOPO_SHADING=config_flags%topo_shading & ! solar
      &        ,SHADOWMASK=grid%shadowmask                                              & ! solar
      &        ,SLOPE=grid%slope, SLP_AZI=grid%slp_azi, SWNORM=grid%swnorm              & ! solar
@@ -588,13 +587,17 @@ BENCH_END(pbl_driver_tim)
 
 BENCH_START(fire_driver_tim)
         if(config_flags%ifire.eq.2)then 
-            call sfire_driver_em ( grid , config_flags    &
+            ! initialization moved to start_em:start_domain_em
+!            if(grid%initestep.eq.1) &
+!            call sfire_driver_em_init (  grid , config_flags    &
+!            ,ids,ide, kds,kde, jds,jde                              &
+!            ,ims,ime, kms,kme, jms,jme                              &
+!            ,ips,ipe, kps,kpe, jps,jpe  )
+            ! one timestep of the fire model
+            call sfire_driver_em_step (  grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,sids,side, sjds,sjde                        &
-            ,sims,sime, sjms,sjme                        &
-            ,sips,sipe, sjps,sjpe                        &
             ,rho,grid%z_at_w,dz8w)
         endif
 
