@@ -26,7 +26,8 @@ Jonathan Beezley - WRF infrastructure and WPS
 
 [1] Jan Mandel, Jonathan D. Beezley, Janice L. Coen, Minjeong Kim, Data 
 Assimilation for Wildland Fires: Ensemble Kalman filters in coupled 
-atmosphere-surface models, IEEE Control Systems Magazine, 2009, to appear. 
+atmosphere-surface models, IEEE Control Systems Magazine, 2009, 
+29, Issue 3, June 2009, 47-65. http://dx.doi.org/10.1109/MCS.2009.932224
 Preprint available from http://arxiv.org/abs/0712.3965
 
 [2] J. L. Coen, “Simulation of the Big Elk Fire using using coupled 
@@ -39,10 +40,12 @@ SUPPORT
 
 For support please subscribe to the wrf-fire mailing list at NCAR at
 http://mailman.ucar.edu/mailman/listinfo/wrf-fire
+or see http://www.openwfm.org/wiki/index.php5/Talk:WRF-Fire
 
-You can also ask directly Jan.Mandel@ucar.edu
+You can also ask directly Jan.Mandel@gmail.com
 
-Answers to any questions may be copied or summarized to the wrf-fire list.
+Answers to any questions may be copied or summarized to the wrf-fire list
+and/or the wiki.
 
 
 COMPILERS
@@ -73,14 +76,17 @@ Local developers can source env.csh with setup for some local machines where
 NETCDF is already installed.
 
 
-HOW TO GET THIS CODE
+DOWNLOAD SITES
 
 The code can be downloaded from http://github.com/jbeezley/wrf-fire/ by
 
  	 git clone git://github.com/jbeezley/wrf-fire.git
 
+You can see current activities, branches, and download the code also from
 
-Local developers get the code and submit changes by 
+         http://repo.or.cz/git-browser/by-commit.html?r=wrffire.git
+
+Developers with write access get the code and submit changes by 
 
          git clone ssh://user@math.ucdenver.edu/home/grads/jbeezley/wrf-fire.git
 
