@@ -2375,19 +2375,6 @@ BENCH_END(tracer_adv_tim)
 
            IF( config_flags%nested .and. (rk_step == 1) ) THEN
 
-             IF (is .EQ. P_QNDROP .OR. is .EQ. P_QNI          & 
-                                  .OR. is .EQ. P_QNS          &
-                                  .OR. is .EQ. P_QNR          &
-                                  .OR. is .EQ. P_QNG          &
-                                  .OR. is .EQ. P_QNH          &
-                                  .OR. is .EQ. P_QNN          &
-!                                 .OR. is .EQ. P_QZR          &
-!                                 .OR. is .EQ. P_QZI          &
-!                                 .OR. is .EQ. P_QZS          &
-!                                 .OR. is .EQ. P_QZG          &
-!                                 .OR. is .EQ. P_QZH          &
-                                  .OR. is .EQ. P_QNC) THEN
-
                CALL relax_bdy_scalar ( scalar_tend(ims,kms,jms,is),                            &
                                        scalar(ims,kms,jms,is),  grid%mut,                      &
                                        scalar_bxs(jms,kms,1,is),scalar_bxe(jms,kms,1,is),      &
@@ -2417,8 +2404,6 @@ BENCH_END(tracer_adv_tim)
                                        grid%i_start(ij), grid%i_end(ij),                       &
                                        grid%j_start(ij), grid%j_end(ij),                       &
                                        k_start, k_end                                          )
-
-             ENDIF
 
            ENDIF ! b.c test for chem nested boundary condition
 
@@ -2935,7 +2920,7 @@ BENCH_END(bc_end_tim)
 
    IF (config_flags%do_avgflx_em .EQ. 1) THEN
 ! Reinitialize time-averaged fluxes if history output was written after the previous time step:
-      CALL WRFU_ALARMGET(grid%alarms( HISTORY_ALARM ),temp_time)
+      CALL WRFU_ALARMGET(grid%alarms( HISTORY_ALARM ),prevringtime=temp_time)
       CALL domain_clock_get ( grid, current_time=CurrTime, &
            current_timestr=message2 )
 ! use overloaded -, .LT. operator to check whether to initialize avgflx:
@@ -3691,7 +3676,7 @@ BENCH_END(bc_2d_tim)
       &             ,I_RAINC=grid%i_rainc    ,I_RAINNC=grid%i_rainnc       &
       &             ,HFX=grid%hfx   ,SFCEVP=grid%sfcevp    ,LH=grid%lh     &
       &             ,DT=grid%dt      ,SBW=config_flags%spec_bdy_width      &
-      &             ,XTIME=grid%xtime                                      &
+      &             ,XTIME=grid%xtime   ,T2=grid%t2                        &
       &        ,ACSWUPT=grid%acswupt    ,ACSWUPTC=grid%acswuptc            &
       &        ,ACSWDNT=grid%acswdnt    ,ACSWDNTC=grid%acswdntc            &
       &        ,ACSWUPB=grid%acswupb    ,ACSWUPBC=grid%acswupbc            &
@@ -3712,6 +3697,11 @@ BENCH_END(bc_2d_tim)
       &             ,DIAG_PRINT=config_flags%diag_print                    &
       &             ,BUCKET_MM=config_flags%bucket_mm                      &
       &             ,BUCKET_J =config_flags%bucket_J                       &
+      &             ,SNOWNCV=grid%snowncv, SNOW_ACC_NC=grid%snow_acc_nc    &
+      &             ,PREC_ACC_C=grid%prec_acc_c                            &
+      &             ,PREC_ACC_NC=grid%prec_acc_nc                          &
+      &             ,PREC_ACC_DT=config_flags%prec_acc_dt                  &
+      &             ,CURR_SECS=curr_secs                                   &
                   ! Dimension arguments
       &             ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde     &
       &             ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme     &

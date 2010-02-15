@@ -18,6 +18,10 @@ MODULE module_domain_type
    !  "next" domain that is to be stored, the other is the next domain which 
    !  happens to also be on the "same_level".
 
+   TYPE streamrec
+     INTEGER  ::  stream(IO_MASK_SIZE)
+   END TYPE streamrec
+
    TYPE domain_ptr
       TYPE(domain), POINTER :: ptr
    END TYPE domain_ptr
@@ -25,6 +29,7 @@ MODULE module_domain_type
    TYPE fieldlist
       CHARACTER*80    :: VarName
       CHARACTER*1     :: Type
+      CHARACTER*1     :: ProcOrient  ! 'X' 'Y' or ' ' (X, Y, or non-transposed)
       CHARACTER*80    :: DataName
       CHARACTER*80    :: Description
       CHARACTER*80    :: Units
@@ -52,6 +57,7 @@ MODULE module_domain_type
       CHARACTER*256, POINTER :: dname_table(:,:)
       CHARACTER*256, POINTER :: desc_table(:,:)
       CHARACTER*256, POINTER :: units_table(:,:)
+      TYPE(streamrec), POINTER :: streams_table(:,:)
 
       TYPE ( fieldlist ) , POINTER :: next
 
@@ -131,7 +137,7 @@ MODULE module_domain_type
       INTEGER      , DIMENSION( max_parents )             :: child_of_parent
       INTEGER      , DIMENSION( max_nests )               :: active
 
-      INTEGER      , DIMENSION(MAX_HISTORY)               :: nframes          ! frames per outfile for history 
+      INTEGER      , DIMENSION(MAX_STREAMS)               :: nframes          ! frames per outfile for history 
                                                                               ! 1 is main history
 
       TYPE(domain) , POINTER                              :: next

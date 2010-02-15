@@ -920,8 +920,8 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
         fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
         fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
         fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
-        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
-        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
+        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x5
+        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y5
     endif
     if(real)then
         ! use values from _long and _lat

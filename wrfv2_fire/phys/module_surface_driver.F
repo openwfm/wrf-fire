@@ -18,6 +18,7 @@ CONTAINS
 #endif
      &          ,raincv,rho,sfcevp,sfcexc,sfcrunoff                   &
      &          ,smois,smstav,smstot,snoalb,snow,snowc,snowh,stepbl   &
+     &          ,smcrel                                               &
      &          ,th10,th2,thz0,th_phy,tmn,tshltr,tsk,tslb             &
      &          ,tyr,tyra,tdly,tlag,lagday,nyear,nday,tmn_update,yr   &
      &          ,t_phy,u10,udrunoff,ust,uz0,u_frame,u_phy,v10,vegfra  &
@@ -73,7 +74,7 @@ CONTAINS
      &          ,uratx,vratx,tratx                                    &
              !  Optional simple oml model
      &          ,omlcall,oml_hml0,oml_gamma                           &
-     &          ,tml,t0ml,hml,h0ml,huml,hvml,f                        &
+     &          ,tml,t0ml,hml,h0ml,huml,hvml,f,tmoml                  &
      &          ,ustm,ck,cka,cd,cda,isftcflx,iz0tlnd                  &
      &         ,isurban, mminlu                                       &
      &          ,snotime                                              &
@@ -363,6 +364,7 @@ CONTAINS
 #endif
    REAL, DIMENSION( ims:ime , 1:num_soil_layers, jms:jme ), INTENT(INOUT)::   SMOIS
    REAL, DIMENSION( ims:ime , 1:num_soil_layers, jms:jme ), INTENT(INOUT)::   TSLB
+   REAL, DIMENSION( ims:ime , 1:num_soil_layers, jms:jme ), INTENT(OUT)  ::   SMCREL
    REAL, DIMENSION( ims:ime , jms:jme ), INTENT(IN )::   GLW
    REAL, DIMENSION( ims:ime , jms:jme ), INTENT(INOUT)::   GSW,SWDOWN
    REAL, DIMENSION( ims:ime , jms:jme ), INTENT(IN )::   HT
@@ -512,7 +514,7 @@ CONTAINS
 !
 !  arguments for Ocean Mixed Layer Model
    REAL, DIMENSION( ims:ime , jms:jme ), OPTIONAL, INTENT(INOUT )::   TML, T0ML, HML, H0ML, HUML, HVML
-   REAL, DIMENSION( ims:ime , jms:jme ), OPTIONAL, INTENT(IN    )::   F
+   REAL, DIMENSION( ims:ime , jms:jme ), OPTIONAL, INTENT(IN    )::   F, TMOML
    REAL, DIMENSION( ims:ime , jms:jme ), OPTIONAL, INTENT(OUT   )::   CK, CKA, CD, CDA, USTM
 
 #if ( EM_CORE==1)
@@ -1390,6 +1392,7 @@ CONTAINS
                 acsnom,acsnow,                                  & !o
                 snopcx,                                         & !o
                 potevp,                                         & !o
+                smcrel,                                         & !o
                 xice_threshold,                                 &
                 rdlai2d,usemonalb,                              &
                 br,                                             & !?
@@ -1776,7 +1779,7 @@ CONTAINS
      !$OMP PRIVATE ( ij )
      DO ij = 1 , num_tiles
         CALL oceanml(tml,t0ml,hml,h0ml,huml,hvml,ust,u_phy,v_phy, &
-                     f,g,oml_gamma,                               &
+                     tmoml,f,g,oml_gamma,                         &
                      xland,hfx,lh,tsk,gsw,glw,emiss,              &
                      dtbl,STBOLT,                                 &
                      ids,ide, jds,jde, kds,kde,                   &
