@@ -92,6 +92,7 @@ CONTAINS
    INTEGER :: icm,jcm, ii, im1, jj, jm1, loop, error, fid, nxc, nyc
    REAL    :: u_mean,v_mean, f0, p_surf, p_level, qvf, z_at_v, z_at_u
    REAL    :: z_scale, xrad, yrad, zrad, rad, delt, cof1, cof2
+   REAL    :: x_rad, y_rad, z_rad, hght_pert
 !   REAL, EXTERNAL :: interp_0
    REAL    :: hm
    REAL    :: pi
@@ -173,7 +174,17 @@ CONTAINS
 
    CALL boundary_condition_check( config_flags, bdyzone, error, grid%id )
  
-   delt = config_flags%delt_perturbation
+    delt = config_flags%delt_perturbation
+    x_rad = config_flags%xrad_perturbation
+    y_rad = config_flags%yrad_perturbation
+    z_rad = config_flags%zrad_perturbation
+    hght_pert = config_flags%hght_perturbation
+
+!    delt = 3.0
+!    x_rad = 10000.0
+!    y_rad = 10000.0
+!    z_rad = 1500.0
+!    hght_pert = 1500.0
 
    moisture_init = .true.
 
@@ -532,23 +543,23 @@ CONTAINS
   ENDDO
 
 ! checking if the perturbation (bubble) is to be applied
-  IF ((delt/=0.) .and. (config_flags%xrad_perturbation > 0.) &
-                 .and. (config_flags%yrad_perturbation > 0.) &
-                 .and. (config_flags%zrad_perturbation > 0.)) THEN
+  IF ((delt/=0.) .and. (x_rad > 0.) &
+                 .and. (y_rad > 0.) &
+                 .and. (z_rad > 0.)) THEN
 !  thermal perturbation to kick off convection
 
   write(6,*) ' nxc, nyc for perturbation ',nxc,nyc
-  write(6,*) ' delt for perturbation ',delt
-  write(6,*) ' x radius of the perturbation ' ,config_flags%xrad_perturbation
-  write(6,*) ' y radius of the perturbation ' ,config_flags%yrad_perturbation
-  write(6,*) ' z radius of the perturbation ' ,config_flags%zrad_perturbation
-  write(6,*) ' height of the perturbation   ' ,config_flags%hght_perturbation  
+  write(6,('A23,f18.16')) ' delt for perturbation ',delt
+  write(6,('A30,f18.12')) ' x radius of the perturbation ' ,x_rad
+  write(6,('A30,f18.12')) ' y radius of the perturbation ' ,y_rad
+  write(6,('A30,f18.12')) ' z radius of the perturbation ' ,z_rad
+  write(6,('A30,f18.12')) ' height of the perturbation   ' ,hght_pert  
 
   DO J = jts, min(jde-1,jte)
-    yrad = config_flags%dy*float(j-nyc)/config_flags%yrad_perturbation
+    yrad = config_flags%dy*float(j-nyc)/y_rad
 !   yrad = 0.
     DO I = its, min(ide-1,ite)
-      xrad = config_flags%dx*float(i-nxc)/config_flags%xrad_perturbation
+      xrad = config_flags%dx*float(i-nxc)/x_rad
 !     xrad = 0.
       DO K = 1, kte-1
 
@@ -558,7 +569,7 @@ CONTAINS
 
         zrad = 0.5*(grid%ph_1(i,k,j)+grid%ph_1(i,k+1,j)  &
                    +grid%phb(i,k,j)+grid%phb(i,k+1,j))/g
-        zrad = (zrad-config_flags%hght_perturbation)/config_flags%zrad_perturbation
+        zrad = (zrad-hght_pert)/z_rad
         RAD=SQRT(xrad*xrad+yrad*yrad+zrad*zrad)
         IF(RAD <= 1.) THEN
            grid%t_1(i,k,j)=grid%t_1(i,k,j)+delt*COS(.5*PI*RAD)**2
