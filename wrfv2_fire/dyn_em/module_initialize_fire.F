@@ -186,10 +186,10 @@ CONTAINS
     z_rad = 1500.0
     hght_pert = 1500.0
 	print *,'delt  =',delt,     ' flags ',config_flags%delt_perturbation,' diff ',delt-config_flags%delt_perturbation
-	print *,'x_rad =',x_rad,    ' flags ',config_flags%xrad_perturbation,' diff ',delt-config_flags%xrad_perturbation
-	print *,'y_rad =',y_rad,    ' flags ',config_flags%yrad_perturbation,' diff ',delt-config_flags%yrad_perturbation
-	print *,'z_rad =',z_rad,    ' flags ',config_flags%zrad_perturbation,' diff ',delt-config_flags%zrad_perturbation
-	print *,'hght  =',hght_pert,' flags ',config_flags%hght_perturbation,' diff ',delt-config_flags%hght_perturbation
+	print *,'x_rad =',x_rad,    ' flags ',config_flags%xrad_perturbation,' diff ',x_rad-config_flags%xrad_perturbation
+	print *,'y_rad =',y_rad,    ' flags ',config_flags%yrad_perturbation,' diff ',y_rad-config_flags%yrad_perturbation
+	print *,'z_rad =',z_rad,    ' flags ',config_flags%zrad_perturbation,' diff ',z_rad-config_flags%zrad_perturbation
+	print *,'hght  =',hght_pert,' flags ',config_flags%hght_perturbation,' diff ',hght_pert-config_flags%hght_perturbation
 
    moisture_init = .true.
 
