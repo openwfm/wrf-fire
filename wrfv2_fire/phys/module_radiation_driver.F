@@ -527,6 +527,38 @@ CONTAINS
    gfdl_lw = .false.
    gfdl_sw = .false.
 
+
+! moved up and out of OMP loop because it only needs to be computed once
+! and because it is not entirely thread-safe (XT24, TOLOCTM and XXLAT need
+! their thread-privacy)  JM 20100217
+   DO ij = 1 , num_tiles
+     its = i_start(ij)
+     ite = i_end(ij)
+     jts = j_start(ij)
+     jte = j_end(ij)
+     CALL radconst(XTIME,DECLIN,SOLCON,JULIAN,               &
+                   DEGRAD,DPD                                )
+
+     IF(PRESENT(declinx).AND.PRESENT(solconx))THEN
+! saved to state arrays used in surface driver
+       declinx=declin
+       solconx=solcon
+     ENDIF
+
+     IF(PRESENT(coszen).AND.PRESENT(hrang))THEN
+! state arrays of hrang and coszen used in surface driver
+       XT24=MOD(XTIME+RADT*0.5,1440.)
+       DO j=jts,jte
+       DO i=its,ite
+          TLOCTM=GMT+XT24/60.+XLONG(I,J)/15.
+          HRANG(I,J)=15.*(TLOCTM-12.)*DEGRAD
+          XXLAT=XLAT(I,J)*DEGRAD
+          COSZEN(I,J)=SIN(XXLAT)*SIN(DECLIN)+COS(XXLAT)*COS(DECLIN)*COS(HRANG(I,J))
+       ENDDO
+       ENDDO
+     ENDIF
+   ENDDO
+
 !---------------
    !$OMP PARALLEL DO   &
    !$OMP PRIVATE ( ij ,i,j,k,its,ite,jts,jte)
@@ -641,28 +673,6 @@ CONTAINS
 
 !---------------
 ! Calculate constant for short wave radiation
-
-     CALL radconst(XTIME,DECLIN,SOLCON,JULIAN,               &
-                   DEGRAD,DPD                                )
-
-     IF(PRESENT(declinx).AND.PRESENT(solconx))THEN
-! saved to state arrays used in surface driver
-       declinx=declin
-       solconx=solcon
-     ENDIF
-
-     IF(PRESENT(coszen).AND.PRESENT(hrang))THEN
-! state arrays of hrang and coszen used in surface driver
-       XT24=MOD(XTIME+RADT*0.5,1440.)
-       DO j=jts,jte
-       DO i=its,ite
-          TLOCTM=GMT+XT24/60.+XLONG(I,J)/15.
-          HRANG(I,J)=15.*(TLOCTM-12.)*DEGRAD
-          XXLAT=XLAT(I,J)*DEGRAD
-          COSZEN(I,J)=SIN(XXLAT)*SIN(DECLIN)+COS(XXLAT)*COS(DECLIN)*COS(HRANG(I,J))
-       ENDDO
-       ENDDO
-     ENDIF
 
      lwrad_cldfra_select: SELECT CASE(lw_physics)
 
@@ -805,12 +815,6 @@ CONTAINS
         CASE (CAMLWSCHEME)
 
              CALL wrf_debug(100, 'CALL camrad lw')
-             IF(cam_abs_dim1 .ne. 4 .or. cam_abs_dim2 .ne. kde .or.  &
-                paerlev .ne. 29 .or. levsiz .ne. 59 )THEN
-               WRITE( wrf_err_message , * ) &
-'set paerlev=29, levsiz=59, cam_abs_dim1=4, and cam_abs_dim2=number of levels (e_vert) in physics namelist for CAM radiation'
-               CALL wrf_error_fatal ( wrf_err_message )
-             ENDIF
              IF ( PRESENT( OZMIXM ) .AND. PRESENT( PIN ) .AND. &
                   PRESENT(M_PS_1) .AND. PRESENT(M_PS_2) .AND.  &
                   PRESENT(M_HYBI0) .AND. PRESENT(AEROSOLC_1)    &
@@ -1015,12 +1019,6 @@ CONTAINS
                                                                        )
         CASE (CAMSWSCHEME)
              CALL wrf_debug(100, 'CALL camrad sw')
-             IF(cam_abs_dim1 .ne. 4 .or. cam_abs_dim2 .ne. kde .or.  &
-                paerlev .ne. 29 .or. levsiz .ne. 59 )THEN
-               WRITE( wrf_err_message , * ) &
-'set paerlev=29, levsiz=59, cam_abs_dim1=4, and cam_abs_dim2=number of levels (e_vert) in physics namelist for CAM radiation'
-               CALL wrf_error_fatal ( wrf_err_message )
-             ENDIF
              IF ( PRESENT( OZMIXM ) .AND. PRESENT( PIN ) .AND. &
                   PRESENT(M_PS_1) .AND. PRESENT(M_PS_2) .AND.  &
                   PRESENT(M_HYBI0) .AND. PRESENT(AEROSOLC_1)    &
