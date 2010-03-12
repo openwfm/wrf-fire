@@ -25,10 +25,11 @@ EOF
 #  exit 1
 #fi
 
-replace_commit
+#replace_commit
 
 sv=$(git log -n 1 svntrack | grep -o 'r[0-9]\{4\}' |head -1)
 f=$(filter)
+echo $f
 git diff --stat --diff-filter=ACDMR svntrack $f
 git diff --relative=wrfv2_fire --diff-filter=ACDMR svntrack $f | gzip -c - > wrf_svn_${sv}.patch.gz
 
