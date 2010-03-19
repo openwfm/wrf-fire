@@ -549,11 +549,11 @@ CONTAINS
 !  thermal perturbation to kick off convection
 
   write(6,*) ' nxc, nyc for perturbation ',nxc,nyc
-  write(6,('A23,f18.16')) ' delt for perturbation ',delt
-  write(6,('A30,f18.12')) ' x radius of the perturbation ' ,x_rad
-  write(6,('A30,f18.12')) ' y radius of the perturbation ' ,y_rad
-  write(6,('A30,f18.12')) ' z radius of the perturbation ' ,z_rad
-  write(6,('A30,f18.12')) ' height of the perturbation   ' ,hght_pert  
+  write(6,'(A23,f18.16)') ' delt for perturbation ',delt
+  write(6,'(A30,f18.12)') ' x radius of the perturbation ' ,x_rad
+  write(6,'(A30,f18.12)') ' y radius of the perturbation ' ,y_rad
+  write(6,'(A30,f18.12)') ' z radius of the perturbation ' ,z_rad
+  write(6,'(A30,f18.12)') ' height of the perturbation   ' ,hght_pert  
 
   DO J = jts, min(jde-1,jte)
     yrad = config_flags%dy*float(j-nyc)/y_rad
