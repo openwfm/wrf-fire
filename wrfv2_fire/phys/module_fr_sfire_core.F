@@ -556,9 +556,20 @@ ta=0.25*(t00+t01+t10+t11)
 
 ! exp decay in the burning area
 out=1.
+!if(area>0.)out=1. - area*(1. - exp(ta/fuel_time_cell))
 if(area>0)out=area*exp(ta/fuel_time_cell) + (1. - area)
 
-if(out>1.)call crash('fuel_left_cell_1: fuel fraction > 1')
+if(out>1.)then
+    write(msg,*)'out=',out,'>1 area=',area,' ta=',ta
+    call message(msg)
+    write(msg,*)'tign=',tign00,tign01,tign10,tign11,' time_now=',time_now
+    call message(msg)
+    !call message('WARNING: fuel_left_cell_1: fuel fraction > 1')
+    call crash('fuel_left_cell_1: fuel fraction > 1')
+endif
+
+!out = max(out,0.) ! make sure out is between 0 and 1
+!out = min(out,1.)
 
 fuel_frac_left = out
 fire_frac_area = area
