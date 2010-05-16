@@ -92,6 +92,7 @@ CONTAINS
    INTEGER :: icm,jcm, ii, im1, jj, jm1, loop, error, fid, nxc, nyc
    REAL    :: u_mean,v_mean, f0, p_surf, p_level, qvf, z_at_v, z_at_u
    REAL    :: z_scale, xrad, yrad, zrad, rad, delt, cof1, cof2
+   REAL    :: x_rad, y_rad, z_rad, hght_pert
 !   REAL, EXTERNAL :: interp_0
    REAL    :: hm
    REAL    :: pi
@@ -160,7 +161,6 @@ CONTAINS
 
 
    stretch_grid = .true.
-   delt = 3.
 !   z_scale = .50
    z_scale = .40
    pi = 2.*asin(1.0)
@@ -173,6 +173,18 @@ CONTAINS
 ! here we check to see if the boundary conditions are set properly
 
    CALL boundary_condition_check( config_flags, bdyzone, error, grid%id )
+ 
+    delt = config_flags%delt_perturbation
+    x_rad = config_flags%xrad_perturbation
+    y_rad = config_flags%yrad_perturbation
+    z_rad = config_flags%zrad_perturbation
+    hght_pert = config_flags%hght_perturbation
+
+!    delt = 3.0
+!    x_rad = 10000.0
+!    y_rad = 10000.0
+!    z_rad = 1500.0
+!    hght_pert = 1500.0
 
    moisture_init = .true.
 
@@ -530,18 +542,24 @@ CONTAINS
   ENDDO
   ENDDO
 
-!#if 0
-
+! checking if the perturbation (bubble) is to be applied
+  IF ((delt/=0.) .and. (x_rad > 0.) &
+                 .and. (y_rad > 0.) &
+                 .and. (z_rad > 0.)) THEN
 !  thermal perturbation to kick off convection
 
   write(6,*) ' nxc, nyc for perturbation ',nxc,nyc
-  write(6,*) ' delt for perturbation ',delt
+  write(6,'(A23,f18.16)') ' delt for perturbation ',delt
+  write(6,'(A30,f18.12)') ' x radius of the perturbation ' ,x_rad
+  write(6,'(A30,f18.12)') ' y radius of the perturbation ' ,y_rad
+  write(6,'(A30,f18.12)') ' z radius of the perturbation ' ,z_rad
+  write(6,'(A30,f18.12)') ' height of the perturbation   ' ,hght_pert  
 
   DO J = jts, min(jde-1,jte)
-    yrad = config_flags%dy*float(j-nyc)/10000.
+    yrad = config_flags%dy*float(j-nyc)/y_rad
 !   yrad = 0.
     DO I = its, min(ide-1,ite)
-      xrad = config_flags%dx*float(i-nxc)/10000.
+      xrad = config_flags%dx*float(i-nxc)/x_rad
 !     xrad = 0.
       DO K = 1, kte-1
 
@@ -551,7 +569,7 @@ CONTAINS
 
         zrad = 0.5*(grid%ph_1(i,k,j)+grid%ph_1(i,k+1,j)  &
                    +grid%phb(i,k,j)+grid%phb(i,k+1,j))/g
-        zrad = (zrad-1500.)/1500.
+        zrad = (zrad-hght_pert)/z_rad
         RAD=SQRT(xrad*xrad+yrad*yrad+zrad*zrad)
         IF(RAD <= 1.) THEN
            grid%t_1(i,k,j)=grid%t_1(i,k,j)+delt*COS(.5*PI*RAD)**2
@@ -562,7 +580,7 @@ CONTAINS
            grid%al(i,k,j) = grid%alt(i,k,j) - grid%alb(i,k,j)
         ENDIF
       ENDDO
-
+   
 !  rebalance hydrostatically
 
       DO k  = 2,kte
@@ -577,7 +595,8 @@ CONTAINS
     ENDDO
   ENDDO
 
-!#endif
+!End of setting up the perturbation (bubble)
+ENDIF
 
    IF ( wrf_dm_on_monitor() ) THEN
    write(6,*) ' grid%mu_1 from comp ', grid%mu_1(1,1)
