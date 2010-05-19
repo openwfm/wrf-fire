@@ -72,7 +72,7 @@ end subroutine init_no_fire
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
-                        sx,sy,ex,ey,r,time_ign,           &
+                        sx,sy,ex,ey,r,st,et,           &
                         coord_xf,coord_yf,                &     
                         unit_xf,unit_yf,                  &
                         lfn,tign,ignited)
@@ -94,7 +94,7 @@ implicit none
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(in):: time_ign                 ! the ignition time of the fire
+real, intent(in):: st,et                    ! the ignition time for the start and end of the line
 real, intent(in):: sx,sy                    ! start of ignition line, from lower left corner
 real, intent(in):: ex,ey                    ! end of ignition line, or zero
 real, intent(in):: r                        ! all within the radius of the line will ignite
@@ -107,9 +107,12 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
-real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2
+real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign
 character(len=128):: msg
 real::cx2,cy2,dmax
+
+if(st.ne.et)call crash('ignite_fire: only same start and end time supported')
+time_ign=st
 
 cx2=unit_xf*unit_xf
 cy2=unit_yf*unit_yf

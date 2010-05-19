@@ -28,7 +28,8 @@ subroutine sfire_model (                    &
     ignition_start_x,ignition_start_y,      & ! ignition - small arrays
     ignition_end_x,ignition_end_y,          &
     ignition_radius,                        &
-    ignition_time,                          &
+    ignition_start_time,                    &
+    ignition_end_time,                      &
     ignitions_done,ignited_tile,            &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     zsf,                                    & ! terrain height (for gradient)
@@ -104,7 +105,7 @@ REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 real, dimension(num_ignitions), intent(in):: &   
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
-    ignition_time                           !  of ignition lines
+    ignition_start_time, ignition_end_time  !  of ignition lines
 integer, intent(out):: ignited_tile(num_ignitions),ignitions_done
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
@@ -212,7 +213,7 @@ elseif(ifun.eq.3)then   ! ignition if so specified
     ! check for ignitions
     do ig = 1,num_ignitions
     
-        if(ignition_time(ig)>=time_start.and.ignition_time(ig)<time_start+dt)then 
+        if(ignition_end_time(ig)>=time_start.and.ignition_start_time(ig)<time_start+dt)then 
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
@@ -220,7 +221,8 @@ elseif(ifun.eq.3)then   ! ignition if so specified
                 ignition_start_x(ig),ignition_start_y(ig),&
                 ignition_end_x(ig),ignition_end_y(ig),    &
                 ignition_radius(ig),                      &
-                ignition_time(ig),                        &  
+                ignition_start_time(ig),                  &  
+                ignition_end_time(ig),                    &  
                 coord_xf,coord_yf,unit_xf,unit_yf,        & 
                 lfn,tign,ignited)
             ignitions_done=ignitions_done+1
