@@ -223,6 +223,7 @@ elseif(ifun.eq.3)then   ! ignition if so specified
                 ignition_radius(ig),                      &
                 ignition_start_time(ig),                  &  
                 ignition_end_time(ig),                    &  
+                time_start,time_start+dt,                 &
                 coord_xf,coord_yf,unit_xf,unit_yf,        & 
                 lfn,tign,ignited)
             ignitions_done=ignitions_done+1

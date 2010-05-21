@@ -72,7 +72,9 @@ end subroutine init_no_fire
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
-                        sx,sy,ex,ey,r,st,et,           &
+                        start_x,start_y,end_x,end_y,              &
+                        r,start_t,end_t,    &
+                        start_ts,end_ts,                    &
                         coord_xf,coord_yf,                &     
                         unit_xf,unit_yf,                  &
                         lfn,tign,ignited)
@@ -94,10 +96,11 @@ implicit none
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(in):: st,et                    ! the ignition time for the start and end of the line
-real, intent(in):: sx,sy                    ! start of ignition line, from lower left corner
-real, intent(in):: ex,ey                    ! end of ignition line, or zero
+real, intent(in):: start_x,start_y          ! start of ignition line, from lower left corner
+real, intent(in):: end_x,end_y              ! end of ignition line, or zero
 real, intent(in):: r                        ! all within the radius of the line will ignite
+real, intent(in):: start_t,end_t            ! the ignition time for the start and the end of the line
+real, intent(in):: start_ts,end_ts          ! the time step start and end 
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
 real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
@@ -107,12 +110,37 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
-real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign
+real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign,relx,rely,mid_t,cos_ame,dif_th
+real:: sx,sy                    ! start of ignition line, from lower left corner
+real:: ex,ey                    ! end of ignition line, or zero
+real:: st,et                    ! start and end of time of the ignition line
 character(len=128):: msg
 real::cx2,cy2,dmax
 
-if(st.ne.et)call crash('ignite_fire: only same start and end time supported')
-time_ign=st
+st=max(start_ts,start_t) ! the start time of ignition in this time step
+et=min(end_ts,end_t)     ! the end time of ignition in this time step
+
+if(st>et)return          ! no ignition in this time step, nothing to do
+
+
+! find the points where the ignition line starts and ends this time step
+! compute in a way that is stable when end_t - start_t is small
+if(start_t < end_t)then
+        relx =  (st - start_t) / (end_t - start_t)
+	sx = start_x + relx * (end_x - start_x)
+	sy = start_y + relx * (end_y - start_y)
+        rely =  (et - end_t) / (end_t - start_t)
+	ex = end_x + rely * (end_x - start_x)
+	ey = end_y + rely * (end_y - start_y)
+else
+	sx = start_x
+	sy = start_y
+	sx = end_x
+	sy = end_y
+endif
+
+mid_t = (end_t + start_t)*0.5    ! ignition time in the middle
+dif_th = (end_t - start_t)*0.5   
 
 cx2=unit_xf*unit_xf
 cy2=unit_yf*unit_yf
@@ -156,7 +184,7 @@ do j=jfts,jfte
             d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
         elseif(am_es>0)then                             ! if cos > 0, closest is e
             d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
-        else
+        else                                            ! closest is s
             d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
         endif
         dmax=max(d,dmax)
@@ -165,6 +193,8 @@ do j=jfts,jfte
             ignited=ignited+1   ! count
         endif
         if(lfn(i,j)>0 .and. lfn_new<=0) then
+            cos_ame = sqrt(cos2)                        ! relative distance of c from m 
+	    time_ign = mid_t + sign(am_es)*cos_ame*dif_th ! ignition time at c by going from m
             tign(i,j)=time_ign  ! newly ignited now
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
