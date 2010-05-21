@@ -342,7 +342,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             fire_ignition_longlat,      &
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
             fire_ignition_end_x,fire_ignition_end_y,     &
-            fire_ignition_radius,
+            fire_ignition_radius,        &
             fire_ignition_start_time,     &
             fire_ignition_end_time,     &
             grid%u_2,grid%v_2,grid%mut,rho,grid%ht,      & ! in arrays, on atm grid
@@ -461,7 +461,7 @@ integer, intent(in):: num_ignitions                 ! number of ignitions, can b
 real, dimension(num_ignitions), intent(in):: &   
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
-    ignition_start_time                           !  of ignition lines start
+    ignition_start_time,     &                      !  of ignition lines start
     ignition_end_time                           !  of ignition lines end
 integer, intent(in):: ignition_longlat       ! if 1 ignition give as long/lat, otherwise as m from lower left corner
 

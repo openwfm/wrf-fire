@@ -194,7 +194,7 @@ do j=jfts,jfte
         endif
         if(lfn(i,j)>0 .and. lfn_new<=0) then
             cos_ame = sqrt(cos2)                        ! relative distance of c from m 
-	    time_ign = mid_t + sign(am_es)*cos_ame*dif_th ! ignition time at c by going from m
+	    time_ign = mid_t + sign(cos_ame,am_es)*dif_th ! ignition time at c by going from m
             tign(i,j)=time_ign  ! newly ignited now
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
