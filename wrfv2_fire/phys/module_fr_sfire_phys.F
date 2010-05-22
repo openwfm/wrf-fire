@@ -506,7 +506,7 @@ end subroutine set_nfuel_cat
 !            
 
 subroutine fire_ros(ros_back,ros_wind,ros_slope, &
-vxij,vyij,dzdx,dzdy,propx,propy,i,j &
+vxij,vyij,propx,propy,i,j &
 #include "fr_sfire_params_args.h"
 )
 implicit none
@@ -536,7 +536,7 @@ implicit none
 
 !*** arguments
 real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
-real, intent(in)::vxij,vyij,dzdx,dzdy,propx,propy
+real, intent(in)::vxij,vyij,propx,propy
 integer, intent(in)::i,j         ! node mesh coordinates
 
 !*** local
@@ -559,7 +559,7 @@ if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
     ! wind speed is total speed 
     speed =  sqrt(vx(i,j)*vx(i,j)+ vy(i,j)*vy(i,j))+tiny(speed)
     ! slope is total slope
-    tanphi = sqrt(dzdx*dzdx + dzdy*dzdy)+tiny(tanphi)
+    tanphi = sqrt(dzdxf*dzdxf + dzdyf*dzdyf)+tiny(tanphi)
     ! cos of wind and spread, if >0
     cor_wind =  max(0.,(vx(i,j)*nvx + vy(i,j)*nvy)/speed)
     ! cos of slope and spread, if >0
@@ -568,7 +568,7 @@ else
     ! wind speed in spread direction
     speed =  vx(i,j)*nvx + vy(i,j)*nvy
     ! slope in spread direction
-    tanphi = dzdx*nvx + dzdy*nvy
+    tanphi = dzdxf*nvx + dzdyf*nvy
     cor_wind=1.
     cor_slope=1.
 endif
@@ -603,7 +603,8 @@ else   ! chaparral
     spdms = max(speed,0.)      
     ! rosm = 1.2974 * spdms**1.41       ! spread rate, m/s
     ! note: backing ros is 0 for chaparral without setting nozero value below
-    !sp_n=.03333    ! chaparral backing fire spread rate 0.033 m/s   ! param!
+    !sp_n=.03333  
+    ! chaparral backing fire spread rate 0.033 m/s   ! param!
     !rosm= max(rosm, sp_n)   ! no less than backing r.o.s.
 
     ros_back=.03333    ! chaparral backing fire spread rate 0.033 m/s   ! param!

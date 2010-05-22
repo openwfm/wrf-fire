@@ -1498,7 +1498,6 @@ real,dimension(ims:ime,jms:jme),intent(out)::ros  ! rate of spread
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
    ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi, &
-   dzdx,dzdy
 integer::i,j
 character(len=128)msg
 
@@ -1582,15 +1581,11 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
             ! wind speed in direction of spread
             ! speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
-            ! slope in direction of spread
-            dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2.*dx)
-            dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2.*dy)
-            ! tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            vx(i,j),vy(i,j),dzdx,dzdy,nvx,nvy,i,j &
+            vx(i,j),vy(i,j),nvx,nvy,i,j &
 #           include "fr_sfire_params_args.h"
             )
 
@@ -1619,10 +1614,11 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
                     advy=0
                 endif
 
+                ! tanphi =  dzdxf*nvx + dzdyf*nvy
 		! advection from slope direction 
                 if(abs(tanphi)>eps) then
-                    advx=advx+dzdx*ros_slope/tanphi
-                    advy=advy+dzdy*ros_slope/tanphi
+                    advx=advx+dzdxf*ros_slope/tanphi
+                    advy=advy+dzdyf*ros_slope/tanphi
                 endif
 
                 if(fire_upwind_split.eq.1)then   
@@ -1779,7 +1775,7 @@ integer, intent(in)::i,j         ! indices of the node to compute the speed at
 #include "fr_sfire_params_decl.h"
 #endif
 !*** local
-real::scale,nvx,nvy,speed,tanphi,r,dzdx,dzdy
+real::scale,nvx,nvy,speed,tanphi,r
 real::ros_back , ros_wind , ros_slope
 real, parameter:: eps=epsilon(0.0)
 !*** executable
@@ -1791,15 +1787,12 @@ real, parameter:: eps=epsilon(0.0)
             ! wind speed in direction of spread
             speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
-            ! slope in direction of spread
-            dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2.*dx)
-            dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2.*dy)
-            tanphi =  dzdx*nvx + dzdy*nvy
+            tanphi =  dzdxf*nvx + dzdyf*nvy
     
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            vx(i,j),vy(i,j),dzdx,dzdy,nvx,nvy,i,j &
+            vx(i,j),vy(i,j),nvx,nvy,i,j &
 #           include "fr_sfire_params_args.h"
             )
 

@@ -15,6 +15,8 @@ package   fire_sfire    ifire==2                    -             state:nfuel_ca
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
 state    real  nfuel_cat *i*j     fire        1         z     i012hr        "NFUEL_CAT"        "fuel data"   
 state    real     zsf       *i*j     fire        1         z   i012hr   "ZSF"      "height of surface above sea level" "m"
+state    real     dzdxf     *i*j     fire        1         z   i012hr   "DZDXF"    "surface gradient x" "1"
+state    real     dzdyf     *i*j     fire        1         z   i012hr   "DZDYF"    "surface gradient y" "1"
 state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"   "ignition time on ground" "s"
 
 # fire variables on atm grid
