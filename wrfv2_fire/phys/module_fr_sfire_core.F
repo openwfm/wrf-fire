@@ -110,7 +110,7 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
-real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign,relx,rely,mid_t,cos_ame,dif_th
+real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign,rels,rele,mid_t,cos_ame,dif_th
 real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
@@ -126,17 +126,17 @@ if(st>et)return          ! no ignition in this time step, nothing to do
 ! find the points where the ignition line starts and ends this time step
 ! compute in a way that is stable when end_t - start_t is small
 if(start_t < end_t)then
-        relx =  (st - start_t) / (end_t - start_t)
-	sx = start_x + relx * (end_x - start_x)
-	sy = start_y + relx * (end_y - start_y)
-        rely =  (et - end_t) / (end_t - start_t)
-	ex = end_x + rely * (end_x - start_x)
-	ey = end_y + rely * (end_y - start_y)
+        rels =  (st - start_t) / (end_t - start_t)
+	sx = start_x + rels * (end_x - start_x)
+	sy = start_y + rels * (end_y - start_y)
+        rele =  (et - end_t) / (end_t - start_t)
+	ex = end_x + rele * (end_x - start_x)
+	ey = end_y + rele * (end_y - start_y)
 else
 	sx = start_x
 	sy = start_y
-	sx = end_x
-	sy = end_y
+	ex = end_x
+	ey = end_y
 endif
 
 mid_t = (end_t + start_t)*0.5    ! ignition time in the middle
