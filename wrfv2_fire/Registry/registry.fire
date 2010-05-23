@@ -152,11 +152,11 @@ rconfig   real    fire_mountain_start_x  namelist,fire         max_domains      
 rconfig   real    fire_mountain_start_y  namelist,fire         max_domains         100.      -      "fire_mountain_start_y" "y coord of start of the mountain" "m"
 rconfig   real    fire_mountain_end_x    namelist,fire         max_domains         100.      -      "fire_mountain_end_x" "x coord of end of the mountain" "m"
 rconfig   real    fire_mountain_end_y    namelist,fire         max_domains         100.      -      "fire_mountain_end_y" "y coord of end of the mountain" "m"
-rconfig   real    delt_perturbation      namelist,fire         max_domains          3.0      -      "delt_perturbation" "temperature perturbation for cold (-) /warm (+) bubble" "K"
-rconfig   real    xrad_perturbation      namelist,fire         max_domains      10000.0      -      "xrad_perturbation" "horizontal radius of the perturbation in E-W direction" "m"
-rconfig   real    yrad_perturbation      namelist,fire         max_domains      10000.0      -      "yrad_perturbation" "horizontal radius of the perturbation in N-S direction" "m"
-rconfig   real    zrad_perturbation      namelist,fire         max_domains       1500.0      -      "zrad_perturbation" "vertical radius of the perturbation (bubble) direction" "m"
-rconfig   real    hght_perturbation      namelist,fire         max_domains       1500.0      -      "hght_perturbation" "height at which the perturbation (bubble) will be suspended" "m"
+rconfig   real    delt_perturbation      namelist,fire         max_domains           0.      -      "delt_perturbation" "temperature perturbation for cold (-) /warm (+) bubble" "K"
+rconfig   real    xrad_perturbation      namelist,fire         max_domains           0.      -      "xrad_perturbation" "horizontal radius of the perturbation in E-W direction" "m"
+rconfig   real    yrad_perturbation      namelist,fire         max_domains           0.      -      "yrad_perturbation" "horizontal radius of the perturbation in N-S direction" "m"
+rconfig   real    zrad_perturbation      namelist,fire         max_domains           0.      -      "zrad_perturbation" "vertical radius of the perturbation (bubble) direction" "m"
+rconfig   real    hght_perturbation      namelist,fire         max_domains           0.      -      "hght_perturbation" "height at which the perturbation (bubble) will be suspended" "m"
 
 
 
