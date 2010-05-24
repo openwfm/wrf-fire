@@ -164,11 +164,11 @@
  fire_mountain_end_x=1500.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
  fire_mountain_end_y=1400.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
  fire_topo_from_atm=1,          ! 0 = fire mesh topo set from fine-res data, 1 = populate by interpolating from atmosphere
- delt_perturbation = 3.0,       ! Temperature perturbation for creating cold (negative) / warm (positive) bubble [K], 0 turns it off
- xrad_perturbation = 10000.0,   ! Horizontal radius of the bubble in E-W direction [m]
- yrad_perturbation = 10000.0,   ! Horizontal radius of the bubble in N-S direction [m]
- zrad_perturbation = 1500.0,    ! Vertical radius of the bubble [m]
- hght_perturbation = 1500.0,    ! Perturbation height - height at which the warm/cold bubble will be suspended [m]
+ !delt_perturbation = 3.0,       ! Temperature perturbation for creating cold (negative) / warm (positive) bubble [K], 0 turns it off
+ !xrad_perturbation = 10000.0,   ! Horizontal radius of the bubble in E-W direction [m]
+ !yrad_perturbation = 10000.0,   ! Horizontal radius of the bubble in N-S direction [m]
+ !zrad_perturbation = 1500.0,    ! Vertical radius of the bubble [m]
+ !hght_perturbation = 1500.0,    ! Perturbation height - height at which the warm/cold bubble will be suspended [m]
 !
 ! method switches for developers only, do not change!
 !
