@@ -180,13 +180,7 @@ CONTAINS
     z_rad = config_flags%zrad_perturbation
     hght_pert = config_flags%hght_perturbation
 
-!    delt = 3.0
-!    x_rad = 10000.0
-!    y_rad = 10000.0
-!    z_rad = 1500.0
-!    hght_pert = 1500.0
-
-   moisture_init = .true.
+    moisture_init = .true.
 
     grid%itimestep=0
 
@@ -542,18 +536,18 @@ CONTAINS
   ENDDO
   ENDDO
 
+  write(6,*) ' nxc, nyc for perturbation ',nxc,nyc
+  write(6,'(A23,f18.16)') ' delt for perturbation ',delt
+  write(6,'(A30,f18.12)') ' x radius of the perturbation ' ,x_rad
+  write(6,'(A30,f18.12)') ' y radius of the perturbation ' ,y_rad
+  write(6,'(A30,f18.12)') ' z radius of the perturbation ' ,z_rad
+  write(6,'(A30,f18.12)') ' height of the perturbation   ' ,hght_pert  
+
 ! checking if the perturbation (bubble) is to be applied
   IF ((delt/=0.) .and. (x_rad > 0.) &
                  .and. (y_rad > 0.) &
                  .and. (z_rad > 0.)) THEN
 !  thermal perturbation to kick off convection
-
-  write(6,*) ' nxc, nyc for perturbation ',nxc,nyc
-  write(6,('A23,f18.16')) ' delt for perturbation ',delt
-  write(6,('A30,f18.12')) ' x radius of the perturbation ' ,x_rad
-  write(6,('A30,f18.12')) ' y radius of the perturbation ' ,y_rad
-  write(6,('A30,f18.12')) ' z radius of the perturbation ' ,z_rad
-  write(6,('A30,f18.12')) ' height of the perturbation   ' ,hght_pert  
 
   DO J = jts, min(jde-1,jte)
     yrad = config_flags%dy*float(j-nyc)/y_rad
