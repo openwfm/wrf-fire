@@ -84,8 +84,8 @@ CONTAINS
 !-- cd          momentum exchange coeff at 10 meters
 !-- cka         enthalpy exchange coeff at the lowest model level
 !-- cda         momentum exchange coeff at the lowest model level
-!-- isftcflx    =0, (Charnock and Carlson-Boland); =1, AHW Ck, Cd
-!-- iz0tlnd     =0 Carlson-Boland, =1 Czil_new, =2 Garratt
+!-- isftcflx    =0, (Charnock and Carlson-Boland); =1, AHW Ck, Cd, =2 Garratt
+!-- iz0tlnd     =0 Carlson-Boland, =1 Czil_new
 !-- ids         start index for i in domain
 !-- ide         end index for i in domain
 !-- jds         start index for j in domain
@@ -681,12 +681,12 @@ CONTAINS
         PSIQ10=ALOG(KARMAN*UST(I)*10./XKA+10./ZL)-PSIH10(I)
         IF ( PRESENT(ISFTCFLX) ) THEN
            IF ( ISFTCFLX.EQ.1 .AND. (XLAND(I)-1.5).GE.0. ) THEN
-! def
-!             Z0Q = 1.e-4 + 1.e-3*(MAX(0.,UST(I)-1.5))**2
+! v3.1
+!             Z0Q = 1.e-4 + 1.e-3*(MAX(0.,UST(I)-1.))**2
 ! hfip1
-!!            Z0Q = 0.62*2.0E-5/UST(I) + 1.E-3*(MAX(0.,UST(I)-1.5))**2
-! hfip2 formula
-              Z0Q = 0.62*2.0E-5/UST(I) + 0.5E-3*(MAX(0.,UST(I)-1.5))**2
+!             Z0Q = 0.62*2.0E-5/UST(I) + 1.E-3*(MAX(0.,UST(I)-1.5))**2
+! v3.2
+              Z0Q = 1.e-4
               PSIQ=ALOG(ZA(I)/Z0Q)-PSIH(I)
               PSIT=PSIQ
               PSIQ2=ALOG(2./Z0Q)-PSIH2(I)
@@ -821,7 +821,7 @@ CONTAINS
           HFX(I)=FLHC(I)*(THGB(I)-THX(I))                                
           IF ( PRESENT(ISFTCFLX) ) THEN
              IF ( ISFTCFLX.NE.0 ) THEN
-! AHW: add dissipasive heating term
+! AHW: add dissipative heating term
                 HFX(I)=HFX(I)+RHOX(I)*USTM(I)*USTM(I)*WSPDI(I)
              ENDIF
           ENDIF

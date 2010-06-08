@@ -265,7 +265,9 @@
         DO K=KTS+1,KTE
           T8W(I,K,J)=0.5*(TL(K-1)+TL(K))
         ENDDO
-        T8W(I,KTE+1,J)=-1.E20
+!        T8W(I,KTE+1,J)=-1.E20 
+! For RRTM 
+        T8W(I,KTE+1,J)=T8W(I,KTE,J) + 0.5*(T8W(I,KTE,J)-T8W(I,KTE-1,J))
 !
       ENDDO
       ENDDO
@@ -653,6 +655,7 @@
      &                ,HSTDV,HCNVX,HASYW,HASYS,HASYSW,HASYNW,HLENW      & ! GWD
      &                ,HLENS,HLENSW,HLENNW,HANGL,HANIS,HSLOP,HZMAX      & ! GWD
      &                ,CROT,SROT                                        & ! GWD
+     &                ,DEW                                              & ! RUC LSM
      &                ,GRID,CONFIG_FLAGS                                &
      &                ,IHE,IHW,IVE,IVW                                  &
      &                ,DISHEAT                                          &
@@ -764,6 +767,7 @@
      &                                                ,TSFC,TSNAV       &
      &                                                ,USTAR,UZ0,UZ0H   &
      &                                                ,VZ0,VZ0H         &
+     &                                                ,DEW              & !RUC LSM
      &                                                ,Z0,Z0BASE
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: AKHS_OUT,AKMS_OUT  &
@@ -1237,6 +1241,7 @@
      &          ,QSG=QSG,QVG=QVG,QCG=QCG,SOILT1=SOILT1                  &
      &          ,TSNAV=TSNAV,SMFR3D=SMFR3D,KEEPFR3DFLAG=KEEPFR3DFLAG    &
      &          ,POTEVP=POTEVP,SNOPCX=SNOPCX,SOILTB=SOILTB,SR=SR        &
+     &          ,DEW=DEW                                                &
 ! for URBAN
      &          ,NUM_ROOF_LAYERS=NUM_ROOF_LAYERS                        & ! urban
      &          ,NUM_WALL_LAYERS=NUM_WALL_LAYERS                        & ! urban

@@ -14,7 +14,7 @@ MODULE module_wrf_top
    USE module_integrate
    USE module_driver_constants
    USE module_configure
-   USE module_state_description
+   USE module_check_a_mundo
 
    USE module_timing
    USE module_wrf_error
@@ -81,11 +81,20 @@ CONTAINS
 !<DESCRIPTION>
 !     WRF initialization routine.
 !</DESCRIPTION>
+#ifdef _OPENMP
+     use omp_lib
+#endif
+#ifdef _ACCEL
+     use accel_lib
+#endif
      LOGICAL, OPTIONAL, INTENT(IN) :: no_init1
      INTEGER i, myproc, nproc, hostid, loccomm, ierr, buddcounter, mydevice
      INTEGER, ALLOCATABLE :: hostids(:), budds(:)
      CHARACTER*512 hostname
-#if defined(DM_PARALLEL) && defined(RUN_ON_GPU)
+#ifdef _ACCEL
+     integer :: it, nt, in, devnum
+#endif
+#if defined(DM_PARALLEL) && !defined(STUBMPI) && ( defined(RUN_ON_GPU) || defined(_ACCEL))
      include "mpif.h"
 #endif
 #include "version_decl"
@@ -143,7 +152,58 @@ CONTAINS
 #endif
 
    CALL set_derived_rconfigs
+   CALL check_nml_consistency
    CALL set_physics_rconfigs
+
+#ifdef _ACCEL
+   buddcounter = 1
+   mydevice = 0
+# if defined(DM_PARALLEL) && !defined(STUBMPI) 
+   CALL wrf_get_myproc( myproc )
+   CALL wrf_get_nproc( nproc )
+   CALL wrf_get_hostid ( hostid )
+   CALL wrf_get_dm_communicator ( loccomm )
+
+   ALLOCATE( hostids(nproc) )
+   ALLOCATE( budds(nproc) )
+   CALL mpi_allgather( hostid, 1, MPI_INTEGER, hostids, 1, MPI_INTEGER, loccomm, ierr )
+   if ( ierr .NE. 0 ) print * ,'error in mpi_allgather ',ierr
+   budds = -1
+   buddcounter = 0
+   ! mark the ones i am on the same node with
+   DO i = 1, nproc
+      IF ( hostid .EQ. hostids(i) ) THEN
+         budds(i) = buddcounter
+         buddcounter = buddcounter + 1
+      ENDIF
+   ENDDO
+   mydevice = budds(myproc+1)
+   DEALLOCATE( hostids )
+   DEALLOCATE( budds )
+# endif
+   in = acc_get_num_devices(acc_device_nvidia)
+   if (in .le. 0) print *, 'error:  No GPUS present: ',in
+# ifdef _OPENMP
+   !$OMP PARALLEL SHARED(mydevice,in) PRIVATE(it,nt,devnum)
+   it = omp_get_thread_num()
+   nt = omp_get_num_threads()
+   devnum = mod(mod(mydevice*nt,in) + it, in)
+# ifdef _ACCEL_PROF
+   print *, "Process, Thread, Device: ",mydevice, it, devnum
+# endif
+   call acc_set_device_num(devnum, acc_device_nvidia)
+
+   !$OMP END PARALLEL
+# else
+   it = 0
+   nt = 1
+   devnum = mod(mod(mydevice*nt,in) + it, in)
+#  ifdef _ACCEL_PROF
+   print *, "Process, Thread, Device: ",mydevice, it, devnum
+#  endif
+   call acc_set_device_num(devnum, acc_device_nvidia)
+# endif
+#endif
 
 #ifdef RUN_ON_GPU
    CALL wrf_get_myproc( myproc )
@@ -489,37 +549,5 @@ CONTAINS
 #endif
 
    END SUBROUTINE set_derived_rconfigs
-
-   SUBROUTINE set_physics_rconfigs
-!<DESCRIPTION>
-! Some derived rconfig entries need to be set based on the value of other,
-! non-derived entries before package-dependent memory allocation takes place.
-! This suborutine sets the namelist parameters for the CAM radiation scheme
-! internally if either ra_lw_physics = CAMLWSCHEME or ra_sw_physics = CAMSWSCHEME.  
-! This works around depending on the user to set these specific settings in the
-! namelist.
-!</DESCRIPTION>
-
-      IMPLICIT NONE
-
-      INTEGER :: i
-
-
-#if (EM_CORE == 1)
-      IF (( model_config_rec % ra_lw_physics(1) .EQ. CAMLWSCHEME ) .OR. & 
-          ( model_config_rec % ra_sw_physics(1) .EQ. CAMSWSCHEME )) THEN
-         model_config_rec % paerlev = 29
-         model_config_rec % levsiz = 59
-         model_config_rec % cam_abs_dim1 = 4 
-         model_config_rec % cam_abs_dim2 = model_config_rec % e_vert(1)
-
-         wrf_err_message = 'CAM radiation is in use, setting:  ' // &
-                           'paerlev=29, levsiz=59, cam_abs_dim1=4, cam_abs_dim2=e_vert'
-         CALL wrf_message ( wrf_err_message )
-
-      END IF
-#endif
-
-   END SUBROUTINE set_physics_rconfigs
 
 END MODULE module_wrf_top

@@ -81,6 +81,11 @@
     INTEGER :: start_year , start_month , start_day , start_hour , start_minute , start_second
     LOGICAL :: adjust
 
+    TYPE(WRFU_Time) :: ringTime, stopTime, curtime
+    TYPE(WRFU_TimeInterval) :: interval, tmpinterval
+    CHARACTER*80 alarmname, timestring, debuggal
+    INTEGER seconds, seconds2, iring
+
     WRITE(wrf_err_message,*)'output_wrf: begin, fid = ',fid
     CALL wrf_debug( 300 , wrf_err_message )
 
@@ -257,6 +262,71 @@
 #endif
        CALL wrf_put_dom_ti_char ( fid , 'SIMULATION_START_DATE', TRIM(simulation_start_date) , ierr )
     END IF
+
+    IF ( switch .EQ. restart_only ) THEN
+       ! add some delicious alarm metadata to the restart files
+       ibuf(1) = MAX_WRF_ALARMS
+       CALL wrf_put_dom_ti_integer( fid, 'MAX_WRF_ALARMS', ibuf, 1, ierr )
+       curtime = domain_get_current_time( grid )
+       DO i = 1, MAX_WRF_ALARMS
+         IF ( grid%alarms_created(i)  ) THEN
+           IF ( i .LT. 10 ) THEN
+             write(alarmname,'("WRF_ALARM_ISRINGING_0",i1)')i
+           ELSE
+             write(alarmname,'("WRF_ALARM_ISRINGING_",i2)')i
+           ENDIF
+           IF ( WRFU_AlarmIsRinging( grid%alarms( i ), rc=rc ) ) THEN
+             iring = 1
+           ELSE
+             iring = 0
+           ENDIF
+           CALL wrf_put_dom_ti_integer( fid, TRIM(alarmname), iring, 1, ierr )
+
+           CALL WRFU_AlarmGet( grid%alarms(i),PrevRingTime=ringTime,RingInterval=interval,rc=rc)
+
+#if 0
+!different, perhaps simpler way to do this, JM 20100319
+           IF ( i .LT. 10 ) THEN
+             write(alarmname,'("WRF_ALARM_PREVRINGTIME_0",i1)')i
+           ELSE
+             write(alarmname,'("WRF_ALARM_PREVRINGTIME_",i2)')i
+           ENDIF
+           CALL WRFU_TimeGet( ringTime, timeString=prevringtime )
+           CALL wrf_put_dom_ti_char( fid, TRIM(alarmname), TRIM(prevringtime), 1, ierr )
+#endif
+
+           ! compute time to next ring as interval minus time since last ring
+           tmpinterval = curtime - ringTime
+
+           IF ( i .LT. 10 ) THEN
+             write(alarmname,'("WRF_ALARM_SECS_TIL_NEXT_RING_0",i1)')i
+           ELSE
+             write(alarmname,'("WRF_ALARM_SECS_TIL_NEXT_RING_",i2)')i
+           ENDIF
+           CALL WRFU_TimeIntervalGet(interval,S=seconds)
+           CALL WRFU_TimeIntervalGet(tmpinterval,S=seconds2)
+           IF ( seconds .GE. 1700000000 .OR. seconds .LE. -1700000000 ) THEN   ! it is a forever value, do not change it
+             CALL wrf_put_dom_ti_integer( fid, TRIM(alarmname), seconds, 1, ierr )
+           ELSE
+             CALL wrf_put_dom_ti_integer( fid, TRIM(alarmname), seconds-seconds2, 1, ierr )
+           ENDIF
+#if 0
+if ( i .eq. history_alarm .or. i .eq. restart_alarm .or. i .eq. auxhist24_alarm) then
+if ( i .eq. history_alarm ) write(*,*)'----------------- info for history alarm ',i
+if ( i .eq. restart_alarm ) write(*,*)'----------------- info for restart alarm ',i
+if ( i .eq. auxhist24_alarm ) write(*,*)'----------------- info for auxhist24 alarm ',i
+CALL ESMF_TimeGet(curTime, TimeString=debuggal ) ; write(*,*)'curTime ',TRIM(debuggal)
+CALL ESMF_TimeGet(ringTime, TimeString=debuggal ) ; write(*,*)'ringTime ',TRIM(debuggal)
+CALL ESMF_TimeIntervalGet(tmpinterval, TimeString=debuggal ) ; write(*,*)'tmpinterval ',TRIM(debuggal)
+CALL ESMF_TimeIntervalGet(interval, TimeString=debuggal ) ; write(*,*)'interval ',TRIM(debuggal)
+write(*,*)'interval seconds ',seconds,' tmpinterval seconds ',seconds2,' seconds-seconds2 ',seconds-seconds2
+write(*,*)'----------------- '
+endif
+#endif
+
+         ENDIF
+       ENDDO
+    ENDIF
 
     ibuf(1) = config_flags%e_we - config_flags%s_we + 1
     CALL wrf_put_dom_ti_integer ( fid , 'WEST-EAST_GRID_DIMENSION' ,  ibuf , 1 , ierr )
@@ -447,6 +517,12 @@
         CALL wrf_put_dom_ti_integer ( fid, 'OBS_IDYNIN', obs_idynin , 1 , ierr )
         CALL wrf_put_dom_ti_real    ( fid, 'OBS_DTRAMP', obs_dtramp , 1 , ierr )
       ENDIF
+
+      CALL wrf_put_dom_ti_real      ( fid, 'BUCKET_MM',   config_flags%bucket_mm   , 1 , ierr ) 
+      CALL wrf_put_dom_ti_real      ( fid, 'BUCKET_J',    config_flags%bucket_J    , 1 , ierr ) 
+      CALL wrf_put_dom_ti_real      ( fid, 'PREC_ACC_DT', config_flags%prec_acc_dt , 1 , ierr ) 
+      CALL wrf_put_dom_ti_integer   ( fid, 'OMLCALL',     config_flags%omlcall     , 1 , ierr ) 
+      CALL wrf_put_dom_ti_integer   ( fid, 'ISFTCFLX',    config_flags%isftcflx    , 1 , ierr ) 
 #endif
       ENDIF ! history_only
     ENDIF
@@ -594,20 +670,9 @@
       save_topo_orig = grid%save_topo_from_real
 
 ! todo jm
-      IF ( ( switch .EQ. history_only    ) .OR. &
-           ( switch .EQ. auxhist1_only  ) .OR. &
-           ( switch .EQ. auxhist2_only  ) .OR. &
-           ( switch .EQ. auxhist3_only  ) .OR. &
-           ( switch .EQ. auxhist4_only  ) .OR. &
-           ( switch .EQ. auxhist5_only  ) .OR. &
-           ( switch .EQ. auxhist6_only  ) .OR. &
-           ( switch .EQ. auxhist7_only  ) .OR. &
-           ( switch .EQ. auxhist8_only  ) .OR. &
-           ( switch .EQ. auxhist9_only  ) .OR. &
-           ( switch .EQ. auxhist10_only ) .OR. &
-           ( switch .EQ. auxhist11_only ) .OR. &
-           ( (switch .EQ. input_only) .AND. (program_name(1:7) .NE. 'REAL_EM') ) .OR. &
-           ( switch .EQ. restart_only    ) ) THEN
+    IF ( (first_history .LE. switch .AND. switch .LE. last_history ) .OR. &
+         ( (switch .EQ. input_only) .AND. (program_name(1:7) .NE. 'REAL_EM') ) .OR. &
+         ( switch .EQ. restart_only    ) ) THEN
 
          ! This flag sets the switch which defines the topography as the original
          ! generated by real.exe.   The "zero" value means that for the WRF model
@@ -617,8 +682,8 @@
          ! to have the topo adjusted, we save the incoming value of the save_topo
          ! flag.
 
-         grid%save_topo_from_real=0
-      ENDIF
+       grid%save_topo_from_real=0
+    ENDIF
 #endif
 
     CALL nl_get_adjust_output_times( grid%id, adjust )

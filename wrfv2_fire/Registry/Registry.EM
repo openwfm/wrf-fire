@@ -95,6 +95,8 @@ state    real   tsk_gc         ij       dyn_em      1        -     i1  "SKINTEMP
 state    real   tavgsfc        ij       dyn_em      1        -     i1  "TAVGSFC"  "daily mean of surface air temperature"  "K"
 state    real   tmn_gc         ij       dyn_em      1        -     i1  "SOILTEMP"  "annual mean deep soil temperature"  "K"
 state    real   pslv_gc        ij       dyn_em      1        -     i1  "PMSL"  "sea level pressure"  "Pa"
+state    real   sct_dom_gc     ij       dyn_em      1        -     i1  "SCT_DOM"  "Dominant soil (top) category from GEOGRID"  "cat"
+state    real   scb_dom_gc     ij       dyn_em      1        -     i1  "SCB_DOM"  "Dominant soil (bottom) category from GEOGRID"  "cat"
 state    real   greenfrac      imj      dyn_em      1        Z     i1  "GREENFRAC" "monthly greenness fraction" "0 - 1 fraction"
 state    real   albedo12m      imj      dyn_em      1        Z     i1  "ALBEDO12M" "background albedo" "0 - 1 fraction"
 state    real   pd_gc          igj      dyn_em      1        Z     -   "PD"    "dry pressure"        "Pa"
@@ -286,7 +288,7 @@ state    integer last_dt_mm             - misc    -         -      r     "last_d
 
 # hydrostatic pressure vars
 state    real   p_hyd           ikj     dyn_em      1         -      irh       "p_hyd"       "hydrostatic pressure"         "Pa"
-state    real   p_hyd_w         ikj     dyn_em      1         Z      irh       "p_hyd_w"     "hydrostatic pressure at full levels"         "Pa"
+state    real   p_hyd_w         ikj     dyn_em      1         Z       r        "p_hyd_w"     "hydrostatic pressure at full levels"         "Pa"
 
 # 2m and 10m output diagnostics
 state    real   Q2               ij     misc        1         -     irhd      "Q2"                   "QV at 2 M"         "kg kg-1"
@@ -606,7 +608,7 @@ state    real   ACSNOW           ij     misc        1         -      rd=(interp_
 state    real   ACSNOM           ij     misc        1         -      rd=(interp_mask_land_field:lu_index)u=(copy_fcnm)       "ACSNOM"           "ACCUMULATED MELTED SNOW"  "kg m-2"
 state    real   SNOW             ij     misc        1         -     i012rhd=(interp_mask_land_field:lu_index)u=(copy_fcnm)    "SNOW"             "SNOW WATER EQUIVALENT"    "kg m-2"
 state    real   SNOWH            ij     misc        1         -     i012rhd=(interp_mask_land_field:lu_index)u=(copy_fcnm)    "SNOWH"            "PHYSICAL SNOW DEPTH"      "m"
-state    real   RHOSN            ij     misc        1         -     i02rhd=(interp_mask_land_field:lu_index)u=(copy_fcnm)    "RHOSN"            " SNOW DENSITY"      "kg m-3" 
+#state    real   RHOSN            ij     misc        1         -     i02rhd=(interp_mask_land_field:lu_index)u=(copy_fcnm)    "RHOSN"            " SNOW DENSITY"      "kg m-3" 
 state    real   CANWAT           ij     misc        1         -     i012rhd=(interp_mask_land_field:lu_index)u=(copy_fcnm)    "CANWAT"           "CANOPY WATER"             "kg m-2"
 state    real   SST              ij     misc        1         -     i0124rhd=(interp_mask_water_field:lu_index)   "SST"              "SEA SURFACE TEMPERATURE" "K"
 state  integer  IFNDSNOWH        -      misc        1         -     i         "FNDSNOWH" "SNOWH_LOGICAL"
@@ -724,7 +726,7 @@ state    real   EXCH_H          ikj     misc        1         -     r          "
 state    real   EXCH_M          ikj     misc        1         -     r          "EXCH_M"               "EXCHANGE COEFFICIENTS "
 state    real  CT              ij      misc        1         -      r        "CT"                    "COUNTERGRADIENT TERM"    "K"
 state   real   THZ0             ij     misc        1         -      r        "THZ0"                  "POTENTIAL TEMPERATURE AT ZNT"                 "K"
-state    real  Z0               ij     misc        1         -     rh        "Z0"                    "Background ROUGHNESS LENGTH"                  "m"
+state    real  Z0               ij     misc        1         -      r        "Z0"                    "Background ROUGHNESS LENGTH"                  "m"
 state   real   QZ0              ij     misc        1         -      r        "QZ0"                   "SPECIFIC HUMIDITY AT ZNT"                     "kg kg-1"
 state   real   UZ0              ij     misc        1         -      r        "UZ0"                   "U WIND COMPONENT AT ZNT"                      "m s-1"
 state   real   VZ0              ij     misc        1         -      r        "VZ0"                   "V WIND COMPONENT AT ZNT"                      "m s-1"
@@ -865,7 +867,7 @@ state   real    ht             ij      misc         1         -     i012rhdus  "
 state   real    ht_fine        ij      misc         1         -     -          "HGT_FINE"         "Fine Terrain Height"   "m"
 state   real    ht_int         ij      misc         1         -     -          "HGT_INT"          "Terrain Height Horizontally Interpolated"   "m"
 state   real    ht_input       ij      misc         1         -     -          "HGT_INPUT"        "Terrain Height from FG Input File"   "m"
-state   real    ht_shad        ijb     misc         1         -     hdf=(bdy_interp:dt)         "HGT_SHAD"        "Height of orographic shadow"   "m"
+state   real    ht_shad        ijb     misc         1         -     df=(bdy_interp:dt)         "HGT_SHAD"        "Height of orographic shadow"   "m"
 i1      real    ht_loc         ij      misc         1         -     - 
 state   integer  shadowmask    ij      misc         1         -     - 
 state   integer min_ptchsz     -       misc         1         -     r
@@ -1310,7 +1312,7 @@ rconfig   integer num_metgrid_levels      namelist,domains	1              27    
 rconfig   integer num_metgrid_soil_levels namelist,domains	1             4        irh    "num_metgrid_soil_levels"               "number of input levels or layers in 3D sm, st, sw arrays"      ""
 rconfig   real    p_top_requested         namelist,domains      1              5000    irh    "p_top_requested" "Pa"      ""
 rconfig   integer interp_type             namelist,domains	1              2       irh    "interp_type"  "1=interp in pressure, 2=interp in LOG pressure"  ""
-rconfig   integer vert_refine_fact        namelist,domains      1              0       irh    "vertical refinment factor for ndown"  ""
+rconfig   integer vert_refine_fact        namelist,domains      1              1       irh    "vertical refinment factor for ndown"  ""
 rconfig   integer extrap_type             namelist,domains	1              2       irh    "extrap_type"  "1= use 2 lowest levels, 2=constant"  ""
 rconfig   integer t_extrap_type           namelist,domains	1              2       irh    "t_extrap_type"  "1=isothermal, 2=6.5 K/km, 3=adiabatic"   ""
 rconfig   logical lowest_lev_from_sfc     namelist,domains	1             .false.  irh    "lowest_lev_from_sfc"                ""      ""
@@ -1324,6 +1326,12 @@ rconfig   logical sfcp_to_sfcp            namelist,domains	1              .false
 rconfig   logical adjust_heights          namelist,domains	1              .false. irh    "adjust_heights"   "T/F adjust pressure level input to match 500 mb height"      "flag"
 rconfig   logical smooth_cg_topo          namelist,domains	1              .false. irh    "smooth_cg_topo"   "T/F smooth CG topo on boundarries" "flag"
 rconfig   logical rh2qv_wrt_liquid        namelist,domains	1              .true.  irh    "rh2qv_wrt_liquid" "T = rh=>Qv assumes RH wrt liquid water, F = allows ice"
+rconfig   real    qv_max_p_safe           namelist,domains      1              10000   irh    "qv_max_p_safe" "Threshhold pressure, Qv > flag set to value"      "Pa"
+rconfig   real    qv_max_flag             namelist,domains      1              1.E-5   irh    "qv_max_flag" "Qv flag for max"  "kg kg{-1}"
+rconfig   real    qv_max_value            namelist,domains      1              3.E-6   irh    "qv_max_value" "Qv value for max"  "kg kg{-1}"
+rconfig   real    qv_min_p_safe           namelist,domains      1              110000  irh    "qv_min_p_safe" "Threshhold pressure, Qv < flag set to value"      "Pa"
+rconfig   real    qv_min_flag             namelist,domains      1              1.E-6   irh    "qv_min_flag" "Qv flag for min"  "kg kg{-1}"
+rconfig   real    qv_min_value            namelist,domains      1              1.E-6   irh    "qv_min_value" "Qv value for min"  "kg kg{-1}"
 rconfig   real    dx                      namelist,domains     max_domains    200     h     "dx"        "X HORIZONTAL RESOLUTION"   "METERS"
 rconfig   real    dy                      namelist,domains   	max_domains    200     h     "dy"        "Y HORIZONTAL RESOLUTION"   "METERS"
 rconfig   integer grid_id                 namelist,domains	max_domains    1       irh    "id"            ""      ""
@@ -1451,6 +1459,7 @@ rconfig   real    bucket_J                namelist,physics      1             -1
 rconfig   real    mp_tend_lim             namelist,physics      1             10.      -     "mp_tend_lim" "limit on temp tendency from mp latent heating"   "K/s"
 rconfig   real    prec_acc_dt             namelist,physics      max_domains    0.      h     "prec_acc_dt" "bucket reset time interval between outputs for cumulus or grid scale precipitation"   "minutes"
 rconfig   integer prec_acc_opt            derived               1              0       -     "prec_acc_opt" "option to output precip in a time window"          ""
+rconfig   integer bucketr_opt             derived               1              0       -     "bucketr_opt"  "option to output water accum based on bucket_mm"          ""
 
 rconfig   integer grav_settling           namelist,physics      max_domains  0         h    "grav_settling"     "activate gravitationalsettling of fog  0=no, 1=yes"
 
@@ -1507,20 +1516,20 @@ rconfig   real        obs_nudgezfullr1_uv namelist,fdda            1            
 rconfig   real        obs_nudgezrampr1_uv namelist,fdda            1              50      rh       "obs_nudgezrampr1_uv" "Vert infl ramp-to-zero height for LML obs, regime 1, winds"        ""
 rconfig   real        obs_nudgezfullr2_uv namelist,fdda            1              50      rh       "obs_nudgezfullr2_uv" "Vert infl full weight  height for LML obs, regime 2, winds"        ""
 rconfig   real        obs_nudgezrampr2_uv namelist,fdda            1              50      rh       "obs_nudgezrampr2_uv" "Vert infl ramp-to-zero height for LML obs, regime 2, winds"        ""
-rconfig   real        obs_nudgezfullr4_uv namelist,fdda            1              50      rh       "obs_nudgezfullr4_uv" "Vert infl full weight  height for LML obs, regime 4, winds"        ""
-rconfig   real        obs_nudgezrampr4_uv namelist,fdda            1              -5000   rh       "obs_nudgezrampr4_uv" "Vert infl ramp-to-zero height for LML obs, regime 4, winds"        ""
+rconfig   real        obs_nudgezfullr4_uv namelist,fdda            1              -5000   rh       "obs_nudgezfullr4_uv" "Vert infl full weight  height for LML obs, regime 4, winds"        ""
+rconfig   real        obs_nudgezrampr4_uv namelist,fdda            1              50      rh       "obs_nudgezrampr4_uv" "Vert infl ramp-to-zero height for LML obs, regime 4, winds"        ""
 rconfig   real        obs_nudgezfullr1_t  namelist,fdda            1              50      rh       "obs_nudgezfullr1_t" "Vert infl full weight  height for LML obs, regime 1, temperature"  ""
 rconfig   real        obs_nudgezrampr1_t  namelist,fdda            1              50      rh       "obs_nudgezrampr1_t" "Vert infl ramp-to-zero height for LML obs, regime 1, temperature"  ""
 rconfig   real        obs_nudgezfullr2_t  namelist,fdda            1              50      rh       "obs_nudgezfullr2_t" "Vert infl full weight  height for LML obs, regime 2, temperature"  ""
 rconfig   real        obs_nudgezrampr2_t  namelist,fdda            1              50      rh       "obs_nudgezrampr2_t" "Vert infl ramp-to-zero height for LML obs, regime 2, temperature"  ""
-rconfig   real        obs_nudgezfullr4_t  namelist,fdda            1              50      rh       "obs_nudgezfullr4_t" "Vert infl full weight  height for LML obs, regime 4, temperature"  ""
-rconfig   real        obs_nudgezrampr4_t  namelist,fdda            1              -5000   rh       "obs_nudgezrampr4_t" "Vert infl ramp-to-zero height for LML obs, regime 4, temperature"  ""
+rconfig   real        obs_nudgezfullr4_t  namelist,fdda            1              -5000   rh       "obs_nudgezfullr4_t" "Vert infl full weight  height for LML obs, regime 4, temperature"  ""
+rconfig   real        obs_nudgezrampr4_t  namelist,fdda            1              50      rh       "obs_nudgezrampr4_t" "Vert infl ramp-to-zero height for LML obs, regime 4, temperature"  ""
 rconfig   real        obs_nudgezfullr1_q  namelist,fdda            1              50      rh       "obs_nudgezfullr1_q" "Vert infl full weight  height for LML obs, regime 1, moisture"     ""
 rconfig   real        obs_nudgezrampr1_q  namelist,fdda            1              50      rh       "obs_nudgezrampr1_q" "Vert infl ramp-to-zero height for LML obs, regime 1, moisture"     ""
 rconfig   real        obs_nudgezfullr2_q  namelist,fdda            1              50      rh       "obs_nudgezfullr2_q" "Vert infl full weight  height for LML obs, regime 2, moisture"     ""
 rconfig   real        obs_nudgezrampr2_q  namelist,fdda            1              50      rh       "obs_nudgezrampr2_q" "Vert infl ramp-to-zero height for LML obs, regime 2, moisture"     ""
-rconfig   real        obs_nudgezfullr4_q  namelist,fdda            1              50      rh       "obs_nudgezfullr4_q" "Vert infl full weight  height for LML obs, regime 4, moisture"     ""
-rconfig   real        obs_nudgezrampr4_q  namelist,fdda            1              -5000   rh       "obs_nudgezrampr4_q" "Vert infl ramp-to-zero height for LML obs, regime 4, moisture"     ""
+rconfig   real        obs_nudgezfullr4_q  namelist,fdda            1              -5000   rh       "obs_nudgezfullr4_q" "Vert infl full weight  height for LML obs, regime 4, moisture"     ""
+rconfig   real        obs_nudgezrampr4_q  namelist,fdda            1              50      rh       "obs_nudgezrampr4_q" "Vert infl ramp-to-zero height for LML obs, regime 4, moisture"     ""
 rconfig   real        obs_nudgezfullmin   namelist,fdda            1                 50   rh       "obs_nudgezfullmin" "Minimum depth through which vertical influence fcn remains 1.0"     "m"
 rconfig   real        obs_nudgezrampmin   namelist,fdda            1                 50   rh       "obs_nudgezrampmin" "Minimum depth through which vertical influence fcn decreases from 1.0 to 0.0" "m"
 rconfig   real        obs_nudgezmax       namelist,fdda            1               3000   rh       "obs_nudgezmax" "Maximum depth in which vertical influence function is nonzero" "m"
@@ -1619,6 +1628,7 @@ rconfig   integer spec_bdy_width          namelist,bdy_control		1             5 
 rconfig   integer spec_zone               namelist,bdy_control		1             1       irh    "spec_zone"                     ""      ""
 rconfig   integer relax_zone              namelist,bdy_control		1             4       irh    "relax_zone"                    ""      ""
 rconfig   logical specified               namelist,bdy_control	max_domains    .false. rh    "specified"             ""      ""
+rconfig   logical constant_bc             namelist,bdy_control          1      .false. rh    "constant_bc"           ""      ""
 rconfig   logical periodic_x              namelist,bdy_control	max_domains    .false. rh    "periodic_x"            ""      ""
 rconfig   logical symmetric_xs            namelist,bdy_control	max_domains    .false. rh    "symmetric_xs"          ""      ""
 rconfig   logical symmetric_xe            namelist,bdy_control	max_domains    .false. rh    "symmetric_xe"          ""      ""
@@ -1698,7 +1708,7 @@ package   etampnew      mp_physics==5                -             moist:qv,qc,q
 package   wsm6scheme    mp_physics==6                -             moist:qv,qc,qr,qi,qs,qg
 package   gsfcgcescheme mp_physics==7                -             moist:qv,qc,qr,qi,qs,qg
 package   thompson      mp_physics==8                -             moist:qv,qc,qr,qi,qs,qg;scalar:qni,qnr
-package   milbrandt2mom mp_physics==9                -             moist:qv,qc,qr,qi,qs,qg,qh;scalar:qnc,qnr,qni,qns,qng,qnh
+package   milbrandt2mom mp_physics==9                -             state:refl_10cm;moist:qv,qc,qr,qi,qs,qg,qh;scalar:qnc,qnr,qni,qns,qng,qnh
 package   morr_two_moment  mp_physics==10            -             moist:qv,qc,qr,qi,qs,qg;scalar:qni,qns,qnr,qng
 #package   milbrandt3mom mp_physics==12               -             moist:qv,qc,qr,qi,qs,qg,qh;scalar:qnc,qnr,qni,qns,qng,qnh,qzr,qzi,qzs,qzg,qzh
 package   wdm5scheme    mp_physics==14               -             moist:qv,qc,qr,qi,qs;scalar:qnn,qnc,qnr
@@ -1767,7 +1777,7 @@ package   kfetascheme    cu_physics==1               -             -
 package   bmjscheme      cu_physics==2               -             -
 package   gdscheme       cu_physics==3               -             -
 package   sasscheme      cu_physics==4               -             -
-package   g3scheme       cu_physics==5               -             state:cugd_qvten,cugd_tten,cugd_qvtens,cugd_ttens,cugd_qcten
+package   g3scheme       cu_physics==5               -             state:cugd_qvten,cugd_tten,cugd_qvtens,cugd_ttens,cugd_qcten,xmb_shallow,k22_shallow,kbcon_shallow,ktop_shallow
 package   kfscheme       cu_physics==99              -             -
 
 package   psufddagd      grid_fdda==1                -             fdda3d:u_ndg_old,v_ndg_old,t_ndg_old,q_ndg_old,ph_ndg_old,u_ndg_new,v_ndg_new,t_ndg_new,q_ndg_new,ph_ndg_new;fdda2d:mu_ndg_old,mu_ndg_new;state:rundgdten,rvndgdten,rthndgdten,rphndgdten,rqvndgdten,rmundgdten
@@ -1775,10 +1785,12 @@ package   psusfddagd     grid_sfdda==1               -             state:u10_ndg
 
 package   spnudging      grid_fdda==2               -              fdda3d:u_ndg_old,v_ndg_old,t_ndg_old,q_ndg_old,ph_ndg_old,u_ndg_new,v_ndg_new,t_ndg_new,q_ndg_new,ph_ndg_new;fdda2d:mu_ndg_old,mu_ndg_new;state:rundgdten,rvndgdten,rthndgdten,rphndgdten,rqvndgdten,rmundgdten
 
+package   slopeopt       slope_rad==1               -              state:swnorm
 package   gwdopt         gwd_opt==1                 -              state:var2d,oc12d,oa1,oa2,oa3,oa4,ol1,ol2,ol3,ol4
 package   omlopt         omlcall==1                 -              state:tml,t0ml,hml,h0ml,huml,hvml,tmoml
 package   scmopt         scm_force==1               -              state:z_force,z_force_tend,u_g,u_g_tend,v_g,v_g_tend,w_subs,w_subs_tend,th_upstream_x,th_upstream_x_tend,th_upstream_y,th_upstream_y_tend,qv_upstream_x,qv_upstream_x_tend,qv_upstream_y,qv_upstream_y_tend,u_upstream_x,u_upstream_x_tend,u_upstream_y,u_upstream_y_tend,v_upstream_x,v_upstream_x_tend,v_upstream_y,v_upstream_y_tend,tau_x,tau_x_tend,tau_y,tau_y_tend
 package   prec_acc       prec_acc_opt==1            -              state:prec_acc_c,prec_acc_nc,snow_acc_nc
+package   bucketropt     bucketr_opt==1             -              state:i_rainc,i_rainnc
 
 package   restofwrf      use_wps_input==0            -             -
 
@@ -1798,10 +1810,10 @@ package   dfi_dfl       dfi_opt==1                  -             state:dfi_u,df
 package   dfi_ddfi      dfi_opt==2                  -             state:dfi_u,dfi_v,dfi_w,dfi_ph,dfi_phb,dfi_ph0,dfi_php,dfi_t,dfi_p,dfi_ww,dfi_mu,dfi_tke,dfi_pb,dfi_al,dfi_alt,dfi_TSLB,dfi_SMOIS,dfi_SNOW,dfi_SNOWH,dfi_CANWAT,dfi_SMFR3D,dfi_KEEPFR3DFLAG,dfi_TSK,dfi_SOILT1,dfi_TSNAV,dfi_SNOWC,dfi_QVG,dfi_rh,dfi_tten_rad
 package   dfi_tdfi      dfi_opt==3                  -             state:dfi_u,dfi_v,dfi_w,dfi_ph,dfi_phb,dfi_ph0,dfi_php,dfi_t,dfi_p,dfi_ww,dfi_mu,dfi_tke,dfi_pb,dfi_al,dfi_alt,dfi_TSLB,dfi_SMOIS,dfi_SNOW,dfi_SNOWH,dfi_CANWAT,dfi_SMFR3D,dfi_KEEPFR3DFLAG,dfi_TSK,dfi_SOILT1,dfi_TSNAV,dfi_SNOWC,dfi_QVG,dfi_rh,dfi_tten_rad
 ifdef RUC_CLOUD
-package   realonly       use_wps_input==1            -             state:u_gc,v_gc,t_gc,rh_gc,ght_gc,p_gc,xlat_gc,xlong_gc,ht_gc,tsk_gc,tavgsfc,tmn_gc,pslv_gc,greenfrac,albedo12m,pd_gc,psfc_gc,intq_gc,pdhs,sh_gc,qv_gc,qr_gc,qc_gc,qs_gc,qi_gc,qg_gc,qni_gc
+package   realonly       use_wps_input==1            -             state:u_gc,v_gc,t_gc,rh_gc,ght_gc,p_gc,xlat_gc,xlong_gc,ht_gc,tsk_gc,tavgsfc,tmn_gc,pslv_gc,sct_dom_gc,scb_dom_gc,greenfrac,albedo12m,pd_gc,psfc_gc,intq_gc,pdhs,sh_gc,qv_gc,qr_gc,qc_gc,qs_gc,qi_gc,qg_gc,qni_gc
 endif
 ifndef RUC_CLOUD
-package   realonly       use_wps_input==1            -             state:u_gc,v_gc,t_gc,rh_gc,ght_gc,p_gc,xlat_gc,xlong_gc,ht_gc,tsk_gc,tavgsfc,tmn_gc,pslv_gc,greenfrac,albedo12m,pd_gc,psfc_gc,intq_gc,pdhs,sh_gc,qv_gc
+package   realonly       use_wps_input==1            -             state:u_gc,v_gc,t_gc,rh_gc,ght_gc,p_gc,xlat_gc,xlong_gc,ht_gc,tsk_gc,tavgsfc,tmn_gc,pslv_gc,sct_dom_gc,scb_dom_gc,greenfrac,albedo12m,pd_gc,psfc_gc,intq_gc,pdhs,sh_gc,qv_gc
 endif
 
 
@@ -2004,6 +2016,7 @@ typedef fdob_type real    latprt               [        -         1        -    
 typedef fdob_type real    lonprt               [        -         1        -       -       "lonprt"          "obs longitude for diagnostic printout"
 typedef fdob_type real    mlatprt              [        -         1        -       -       "mlatprt"         "model latitude at obs location"
 typedef fdob_type real    mlonprt              [        -         1        -       -       "mlonprt"         "model longitude at obs location"
+typedef fdob_type integer stnidprt       {obsstid}{[}   -         1        -       -       "stnidprt"        "obs station id for diagnostic printout"
 typedef fdob_type real    base_state           k        -         1        -       -       "base_state"      "base-state height on half (mass) levels"   "meters"
 
 state fdob_type fdob - -

@@ -72,6 +72,23 @@
     INTEGER :: num_land_cat_compare
     CHARACTER (LEN=256) :: MMINLU
 
+    !  Local variables for vertical interpolation.
+
+    REAL, ALLOCATABLE, DIMENSION(:      ) ::  f_vint_1d
+    REAL, ALLOCATABLE, DIMENSION(:,:,:  ) ::  f_vint_3d
+    REAL, ALLOCATABLE, DIMENSION(:,:,:,:) ::  f_vint_4d
+    integer :: ed1_c,em1_c,ep1_c
+    integer :: ed2_c,em2_c,ep2_c
+    integer :: n_ref_m,i_inter
+
+    !  Local variables for the alarms in the input restart file.
+
+    INTEGER max_wrf_alarms_compare, seconds
+    CHARACTER*80 alarmname, timestr
+    TYPE(WRFU_Time) :: curtime, ringTime
+    TYPE(WRFU_TimeInterval) :: interval, interval2
+    integer s, iring
+
 !<DESCRIPTION>
 !
 ! Core wrf input routine for all input data streams. Part of mediation layer.
@@ -111,6 +128,53 @@
 ! simulation start time is a Singleton maintained by head_grid
     IF ( ( switch .EQ.     input_only  ) .OR. &
          ( switch .EQ.          restart_only ) ) THEN
+
+      IF ( switch .EQ. restart_only .AND. .NOT. config_flags%override_restart_timers ) THEN
+        ! recover the restart alarms from input if avialable
+ 
+        CALL wrf_get_dom_ti_integer( fid , 'MAX_WRF_ALARMS', max_wrf_alarms_compare, 1, icnt, ierr )
+        IF ( max_wrf_alarms_compare .NE. MAX_WRF_ALARMS ) THEN
+          WRITE(wrf_err_message,*)'MAX_WRF_ALARMS different in restart file (',max_wrf_alarms_compare,&
+                                  ') from in code (',MAX_WRF_ALARMS,').  Disregarding info in restart file.'
+        ELSE
+          curtime = domain_get_current_time( grid )
+          DO i = 1, MAX_WRF_ALARMS
+            IF ( grid%alarms_created(i) .AND. .NOT. i .EQ. boundary_only ) THEN
+              IF ( i .LT. 10 ) THEN
+                write(alarmname,'("WRF_ALARM_ISRINGING_0",i1)')i
+              ELSE
+                write(alarmname,'("WRF_ALARM_ISRINGING_",i2)')i
+              ENDIF
+              CALL wrf_get_dom_ti_integer( fid, TRIM(alarmname), iring, 1, icnt, ierr )
+              IF ( iring .EQ. 1 ) THEN
+                CALL WRFU_AlarmRingerOn( grid%alarms( i ) )
+              ELSE
+                CALL WRFU_AlarmRingerOff( grid%alarms( i ) )
+              ENDIF
+  
+              IF ( i .LT. 10 ) THEN
+                write(alarmname,'("WRF_ALARM_SECS_TIL_NEXT_RING_0",i1)')i
+              ELSE
+                write(alarmname,'("WRF_ALARM_SECS_TIL_NEXT_RING_",i2)')i
+              ENDIF
+              CALL wrf_get_dom_ti_integer( fid, TRIM(alarmname), seconds, 1, icnt, ierr )
+              IF ( ierr .EQ. 0 &
+                   .AND. seconds .GE. 0 ) THEN  ! disallow negative intervals; can happen with wrfbdy datasets
+                                                ! which keep time differently
+  
+                ! Get and set interval so that we are sure to have both the
+                ! interval and first ring time set correctly
+                CALL WRFU_AlarmGet( grid%alarms(i), ringinterval=interval2 )
+                CALL WRFU_TimeIntervalSet(interval,S=seconds)
+                ringTime = curtime + interval
+                CALL WRFU_AlarmSet( grid%alarms(i), RingInterval=interval2, RingTime=ringTime )
+              ENDIF
+            ENDIF
+          ENDDO
+        ENDIF
+
+      ENDIF
+
       CALL wrf_get_dom_ti_char ( fid , 'SIMULATION_START_DATE' , simulation_start_date , ierr )
       CALL nl_get_reset_simulation_start ( 1, reset_simulation_start )
       IF ( ( ierr .EQ. 0 ) .AND. ( .NOT. reset_simulation_start ) ) THEN
@@ -379,6 +443,25 @@
        END IF
     END IF
 
+    ! Test here to check that config_flags%sf_surface_physics in namelist
+    ! is equal to what is in the global attributes of the wrfinput files
+
+    IF ( switch .EQ. input_only  ) THEN
+       CALL wrf_get_dom_ti_integer ( fid, 'SF_SURFACE_PHYSICS', itmp, 1, icnt, ierr )
+       IF ( ierr .EQ. 0 ) THEN
+          WRITE(wrf_err_message,*)'input_wrf: global attribute SF_SURFACE_PHYSICS returns ', itmp
+          CALL wrf_debug ( 300 , wrf_err_message )
+          IF ( config_flags%sf_surface_physics /= itmp ) THEN
+             call wrf_message("----------------- ERROR -------------------")
+             WRITE(wrf_err_message,'("namelist    : sf_surface_physics = ",I10)') config_flags%sf_surface_physics
+             call wrf_message(wrf_err_message)
+             WRITE(wrf_err_message,'("input files : SF_SURFACE_PHYSICS = ",I10, " (from wrfinput files).")') itmp
+             call wrf_message(wrf_err_message)
+             call wrf_error_fatal("Mismatch between namelist and global attribute SF_SURFACE_PHYSICS")
+          END IF
+       END IF
+    END IF
+
 
     CALL wrf_get_dom_ti_integer ( fid , 'ISWATER' ,  config_flags%iswater , 1 , icnt , ierr )
     WRITE(wrf_err_message,*)'input_wrf: wrf_get_dom_ti_integer for ISWATER returns ',config_flags%iswater
@@ -603,6 +686,16 @@
         CALL wrf_atotime( next_datestr(1:19), grid%next_bdy_time )
     ENDIF
 
+#if ( ( EM_CORE == 1 ) && ( DA_CORE != 1 ) )
+    !  Vertical interpolation space is required if specified by user.
+
+    n_ref_m = config_flags%vert_refine_fact
+#else
+    !  Default value indicating no vertical interpolation required.
+
+    n_ref_m = 0
+#endif
+
     IF ( (first_input   .LE. switch .AND. switch .LE. last_input) .OR. &
          (first_history .LE. switch .AND. switch .LE. last_history) .OR. &
          switch .EQ. restart_only    ) THEN
@@ -699,24 +792,67 @@
                   dname = p%DataName
                   IF (p%Ntl.GT.0.AND.switch.NE.restart_only)dname=dname(1:len(TRIM(dname))-2)
                   memord = p%MemoryOrder
+
+                  i_inter = 0
+#if ( ( EM_CORE == 1 ) && ( DA_CORE != 1 ) )
+                  !  Vertical interpolation space is required if specified by user.
+
+                  if( TRIM(p%dimname1).EQ.'bottom_top'.OR.TRIM(p%dimname1).EQ.'bottom_top_stag') i_inter = 1 
+#endif
+                  
                   IF      ( p%Type .EQ. 'r' ) THEN
-                    CALL wrf_ext_read_field (  &
-                                    fid                     , & ! DataHandle
-                                    current_date(1:19)      , & ! DateStr
-                                    TRIM(dname)             , & ! Data Name
-                                    p%rfield_1d             , & ! Field
-                                    WRF_FLOAT               , & ! FieldType
-                                    grid%communicator       , & ! Comm
-                                    grid%iocommunicator     , & ! Comm
-                                    grid%domdesc            , & ! Comm
-                                    grid%bdy_mask           , & ! bdy_mask
-                                    TRIM(memord)            , & ! MemoryOrder
-                                    p%Stagger               , & ! Stagger
-                     __FILE__ // ' reading 1d real ' // TRIM(p%VarName)     , & ! Debug message
-                     p%sd1 , p%ed1 , p%sd2 , p%ed2 , p%sd3 , p%ed3 ,  &
-                     p%sm1 , p%em1 , p%sm2 , p%em2 , p%sm3 , p%em3 ,  &
-                     p%sp1 , p%ep1 , p%sp2 , p%ep2 , p%sp3 , p%ep3 ,  &
-                     ierr )
+                    IF( (i_inter.eq.1.and.n_ref_m.ge.2).and.(switch.eq.history_only) ) THEN
+                       em1_c = (p%em1 - 1)/n_ref_m +1
+                       ed1_c = em1_c
+                       ep1_c = em1_c
+                       if (TRIM(p%dimname1).EQ.'bottom_top') then
+                       ed1_c = em1_c-1
+                       ep1_c = em1_c-1
+                       endif
+                       allocate (f_vint_1d(em1_c))
+
+                       CALL wrf_ext_read_field (  &
+                                       fid                     , & ! DataHandle
+                                       current_date(1:19)      , & ! DateStr
+                                       TRIM(dname)             , & ! Data Name
+                                       f_vint_1d                , & ! Field
+                                       WRF_FLOAT               , & ! FieldType
+                                       grid%communicator       , & ! Comm
+                                       grid%iocommunicator     , & ! Comm
+                                       grid%domdesc            , & ! Comm
+                                       grid%bdy_mask           , & ! bdy_mask
+                                       TRIM(memord)            , & ! MemoryOrder
+                                       p%Stagger               , & ! Stagger
+                        __FILE__ // ' reading 1d real ' // TRIM(p%VarName)     , & ! Debug message
+                        p%sd1 , ed1_c , p%sd2 , p%ed2 , p%sd3 , p%ed3 ,  &
+                        p%sm1 , em1_c , p%sm2 , p%em2 , p%sm3 , p%em3 ,  &
+                        p%sp1 , ep1_c , p%sp2 , p%ep2 , p%sp3 , p%ep3 ,  &
+                        ierr )
+
+                        do k=1,ed1_c
+                        p%rfield_1d(k) = f_vint_1d(k)
+                        enddo
+                        deallocate (f_vint_1d)
+
+                     ELSE
+                       CALL wrf_ext_read_field (  &
+                                       fid                     , & ! DataHandle
+                                       current_date(1:19)      , & ! DateStr
+                                       TRIM(dname)             , & ! Data Name
+                                       p%rfield_1d             , & ! Field
+                                       WRF_FLOAT               , & ! FieldType
+                                       grid%communicator       , & ! Comm
+                                       grid%iocommunicator     , & ! Comm
+                                       grid%domdesc            , & ! Comm
+                                       grid%bdy_mask           , & ! bdy_mask
+                                       TRIM(memord)            , & ! MemoryOrder
+                                       p%Stagger               , & ! Stagger
+                        __FILE__ // ' reading 1d real ' // TRIM(p%VarName)     , & ! Debug message
+                        p%sd1 , p%ed1 , p%sd2 , p%ed2 , p%sd3 , p%ed3 ,  &
+                        p%sm1 , p%em1 , p%sm2 , p%em2 , p%sm3 , p%em3 ,  &
+                        p%sp1 , p%ep1 , p%sp2 , p%ep2 , p%sp3 , p%ep3 ,  &
+                        ierr )
+                     END IF
                   ELSE IF ( p%Type .EQ. 'd' ) THEN
                     CALL wrf_ext_read_field (  &
                                     fid                     , & ! DataHandle
@@ -865,24 +1001,69 @@
                   dname = p%DataName
                   IF (p%Ntl.GT.0.AND.switch.NE.restart_only)dname=dname(1:len(TRIM(dname))-2)
                   memord = p%MemoryOrder
+
+                  i_inter = 0
+#if ( ( EM_CORE == 1 ) && ( DA_CORE != 1 ) )
+                  !  Vertical interpolation space is required if specified by user.
+
+                  if( TRIM(p%dimname2).EQ.'bottom_top'.OR.TRIM(p%dimname2).EQ.'bottom_top_stag') i_inter = 1
+#endif
+
                   IF      ( p%Type .EQ. 'r' ) THEN
-                    CALL wrf_ext_read_field (  &
-                                    fid                     , & ! DataHandle
-                                    current_date(1:19)      , & ! DateStr
-                                    TRIM(dname)             , & ! Data Name
-                                    p%rfield_3d             , & ! Field
-                                    WRF_FLOAT               , & ! FieldType
-                                    grid%communicator       , & ! Comm
-                                    grid%iocommunicator     , & ! Comm
-                                    grid%domdesc            , & ! Comm
-                                    grid%bdy_mask           , & ! bdy_mask
-                                    TRIM(memord)            , & ! MemoryOrder
-                                    TRIM(p%Stagger)         , & ! Stagger
-                     __FILE__ // ' reading 3d real ' // TRIM(p%VarName)     , & ! Debug message
-                     p%sd1 , p%ed1 , p%sd2 , p%ed2 , p%sd3 , p%ed3 ,  &
-                     p%sm1 , p%em1 , p%sm2 , p%em2 , p%sm3 , p%em3 ,  &
-                     p%sp1 , p%ep1 , p%sp2 , p%ep2 , p%sp3 , p%ep3 ,  &
-                     ierr )
+                    IF( (i_inter.eq.1.and.n_ref_m.ge.2).and.(switch.eq.history_only) ) then
+                       em2_c = (p%em2 - 1)/n_ref_m +1
+                       ed2_c = em2_c
+                       ep2_c = em2_c
+                       if (TRIM(p%dimname2).EQ.'bottom_top') then
+                       ed2_c = em2_c-1
+                       ep2_c = em2_c-1
+                       endif
+                       allocate (f_vint_3d(p%sm1:p%em1,em2_c,p%sm3:p%em3))
+                       CALL wrf_ext_read_field (  &
+                                       fid                     , & ! DataHandle
+                                       current_date(1:19)      , & ! DateStr
+                                       TRIM(dname)             , & ! Data Name
+                                       f_vint_3d               , & ! Field
+                                       WRF_FLOAT               , & ! FieldType
+                                       grid%communicator       , & ! Comm
+                                       grid%iocommunicator     , & ! Comm
+                                       grid%domdesc            , & ! Comm
+                                       grid%bdy_mask           , & ! bdy_mask
+                                       TRIM(memord)            , & ! MemoryOrder
+                                       TRIM(p%Stagger)         , & ! Stagger
+                        __FILE__ // ' reading 3d real ' // TRIM(p%VarName)     , & ! Debug message
+                        p%sd1 , p%ed1 , p%sd2 , ed2_c , p%sd3 , p%ed3 ,  &
+                        p%sm1 , p%em1 , p%sm2 , em2_c , p%sm3 , p%em3 ,  &
+                        p%sp1 , p%ep1 , p%sp2 , ep2_c , p%sp3 , p%ep3 ,  &
+                        ierr )
+
+                        do j = p%sm3,p%em3
+                        do k = 1,ed2_c
+                        do i = p%sm1,p%em1
+                        p%rfield_3d(i,k,j) = f_vint_3d(i,k,j)
+                        enddo
+                        enddo
+                        enddo
+                        deallocate (f_vint_3d)
+                    ELSE
+                       CALL wrf_ext_read_field (  &
+                                       fid                     , & ! DataHandle
+                                       current_date(1:19)      , & ! DateStr
+                                       TRIM(dname)             , & ! Data Name
+                                       p%rfield_3d             , & ! Field
+                                       WRF_FLOAT               , & ! FieldType
+                                       grid%communicator       , & ! Comm
+                                       grid%iocommunicator     , & ! Comm
+                                       grid%domdesc            , & ! Comm
+                                       grid%bdy_mask           , & ! bdy_mask
+                                       TRIM(memord)            , & ! MemoryOrder
+                                       TRIM(p%Stagger)         , & ! Stagger
+                        __FILE__ // ' reading 3d real ' // TRIM(p%VarName)     , & ! Debug message
+                        p%sd1 , p%ed1 , p%sd2 , p%ed2 , p%sd3 , p%ed3 ,  &
+                        p%sm1 , p%em1 , p%sm2 , p%em2 , p%sm3 , p%em3 ,  &
+                        p%sp1 , p%ep1 , p%sp2 , p%ep2 , p%sp3 , p%ep3 ,  &
+                        ierr )
+                    ENDIF
                   ELSE IF ( p%Type .EQ. 'd' ) THEN
                     CALL wrf_ext_read_field (  &
                                     fid                     , & ! DataHandle
@@ -934,8 +1115,55 @@
                 dname = p%dname_table( grid%id, itrace )
                 IF (p%Ntl.GT.0.AND.switch.NE.restart_only)dname=dname(1:len(TRIM(dname))-2)
                 memord = p%MemoryOrder
+
+                i_inter = 0
+#if ( ( EM_CORE == 1 ) && ( DA_CORE != 1 ) )
+                !  Vertical interpolation space is required if specified by user.
+
+                if( TRIM(p%dimname2).EQ.'bottom_top'.OR.TRIM(p%dimname2).EQ.'bottom_top_stag') i_inter = 1
+#endif
+
                 IF      ( p%Type .EQ. 'r' ) THEN
-                  CALL wrf_ext_read_field_arr (  &
+                    IF( (i_inter.eq.1.and.n_ref_m.ge.2).and.(switch.eq.history_only) ) then
+                       em2_c = (p%em2 - 1)/n_ref_m +1
+                       ed2_c = em2_c
+                       ep2_c = em2_c
+                       if (TRIM(p%dimname2).EQ.'bottom_top') then
+                       ed2_c = em2_c-1
+                       ep2_c = em2_c-1
+                       endif
+                       allocate (f_vint_4d(p%sm1:p%em1,em2_c,p%sm3:p%em3,p%num_table(grid%id)))
+
+                       CALL wrf_ext_read_field_arr (  &
+                                         fid                     , & ! DataHandle
+                                         current_date(1:19)      , & ! DateStr
+                                         TRIM(dname)             , & ! Data Name
+                                         f_vint_4d               , & ! Field
+                                         itrace, 1, 1, 1         , & ! see comment above
+                                         1, 1, 1                 , & ! see comment above
+                                         RWORDSIZE               , &
+                                         WRF_FLOAT               , & ! FieldType
+                                         grid%communicator       , & ! Comm
+                                         grid%iocommunicator     , & ! Comm
+                                         grid%domdesc            , & ! Comm
+                                         grid%bdy_mask           , & ! bdy_mask
+                                         TRIM(memord)            , & ! MemoryOrder
+                                         TRIM(p%Stagger)         , & ! Stagger
+                        __FILE__ // ' reading 4d real ' // TRIM(p%dname_table(grid%id,itrace))     , & ! Debug message
+                        p%sd1 , p%ed1 , p%sd2 , ed2_c , p%sd3 , p%ed3 ,  &
+                        p%sm1 , p%em1 , p%sm2 , em2_c , p%sm3 , p%em3 ,  &
+                        p%sp1 , p%ep1 , p%sp2 , ep2_c , p%sp3 , p%ep3 ,  &
+                        ierr )
+                        do j = p%sm3,p%em3
+                        do k = 1,ed2_c
+                        do i = p%sm1,p%em1
+                        p%rfield_4d(i,k,j,itrace) = f_vint_4d(i,k,j,itrace)
+                        enddo
+                        enddo
+                        enddo
+                        deallocate (f_vint_4d)
+                   ELSE
+                        CALL wrf_ext_read_field_arr (  &
                                     fid                     , & ! DataHandle
                                     current_date(1:19)      , & ! DateStr
                                     TRIM(dname)             , & ! Data Name
@@ -950,11 +1178,12 @@
                                     grid%bdy_mask           , & ! bdy_mask
                                     TRIM(memord)            , & ! MemoryOrder
                                     TRIM(p%Stagger)         , & ! Stagger
-                   __FILE__ // ' reading 4d real ' // TRIM(p%dname_table(grid%id,itrace))     , & ! Debug message
-                   p%sd1 , p%ed1 , p%sd2 , p%ed2 , p%sd3 , p%ed3 ,  &
-                   p%sm1 , p%em1 , p%sm2 , p%em2 , p%sm3 , p%em3 ,  &
-                   p%sp1 , p%ep1 , p%sp2 , p%ep2 , p%sp3 , p%ep3 ,  &
-                   ierr )
+                       __FILE__ // ' reading 4d real ' // TRIM(p%dname_table(grid%id,itrace))     , & ! Debug message
+                       p%sd1 , p%ed1 , p%sd2 , p%ed2 , p%sd3 , p%ed3 ,  &
+                       p%sm1 , p%em1 , p%sm2 , p%em2 , p%sm3 , p%em3 ,  &
+                       p%sp1 , p%ep1 , p%sp2 , p%ep2 , p%sp3 , p%ep3 ,  &
+                       ierr )
+                   ENDIF
                 ELSE IF ( p%Type .EQ. 'd' ) THEN
                   CALL wrf_ext_read_field_arr (  &
                                     fid                     , & ! DataHandle
