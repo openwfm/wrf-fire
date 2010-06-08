@@ -16,6 +16,7 @@ MODULES =                       \
 	module_optional_input.o	\
 	module_compute_geop.o           \
 	module_soil_pre.o		\
+	module_check_a_mundo.o		\
 	module_llxy.o
 
 OBJS    = 		\
@@ -40,7 +41,8 @@ OBJS    = 		\
 	wrf_fddaobs_in.o		\
         wrf_bdyin.o             	\
         wrf_tsin.o                      \
-        landread.o
+        landread.o			\
+	setfeenv.o
 
 
 NMM_MODULES = 
@@ -127,6 +129,9 @@ module_date_time.o: ../frame/module_wrf_error.o ../frame/module_configure.o \
 		module_model_constants.o 
 
 module_soil_pre.o: module_date_time.o ../frame/module_state_description.o
+
+module_check_a_mundo.o: ../frame/module_configure.o ../frame/module_wrf_error.o \
+		../frame/module_state_description.o
 
 dfi.o : 	../frame/module_wrf_error.o ../frame/module_configure.o \
 		../frame/module_state_description.o \

@@ -185,7 +185,7 @@ CONTAINS
       ENDDO      
       ENDDO
 
-      IF (xtime .eq. 0.0 .and. PRESENT(ACSWUPT))THEN
+      IF (xtime .eq. 0.0 .and. bucket_J .gt. 0.0 .and. PRESENT(ACSWUPT))THEN
         DO j=j_start(ij),j_end(ij)
         DO i=i_start(ij),i_end(ij)
           i_acswupt(i,j) = 0
@@ -199,7 +199,7 @@ CONTAINS
         ENDDO      
         ENDDO
       ENDIF
-      IF (xtime .eq. 0.0 .and. PRESENT(ACLWUPT))THEN
+      IF (xtime .eq. 0.0  .and. bucket_J .gt. 0.0 .and. PRESENT(ACLWUPT))THEN
         DO j=j_start(ij),j_end(ij)
         DO i=i_start(ij),i_end(ij)
           i_aclwupt(i,j) = 0
@@ -213,7 +213,7 @@ CONTAINS
         ENDDO      
         ENDDO
       ENDIF
-      IF (PRESENT(ACSWUPT))THEN
+      IF (PRESENT(ACSWUPT) .and. bucket_J .gt. 0.0)THEN
       DO j=j_start(ij),j_end(ij)
       DO i=i_start(ij),i_end(ij)
         IF(acswupt(i,j) .gt. bucket_J)THEN
@@ -251,7 +251,7 @@ CONTAINS
       ENDDO      
       ENDDO
       ENDIF
-      IF (PRESENT(ACLWUPT))THEN
+      IF (PRESENT(ACLWUPT) .and. bucket_J .gt. 0.0)THEN
       DO j=j_start(ij),j_end(ij)
       DO i=i_start(ij),i_end(ij)
         IF(aclwupt(i,j) .gt. bucket_J)THEN
@@ -301,19 +301,9 @@ CONTAINS
 
    DO ij = 1 , num_tiles
 
-      IF (xtime .eq. 0.0)THEN
-        DO j=j_start(ij),j_end(ij)
-        DO i=i_start(ij),i_end(ij)
-          prec_acc_c(i,j) = 0.
-          prec_acc_nc(i,j) = 0.
-          snow_acc_nc(i,j) = 0.
-        ENDDO     
-        ENDDO
-      ENDIF
-
       DO j=j_start(ij),j_end(ij)
       DO i=i_start(ij),i_end(ij)
-         IF (mod(curr_secs-dt, 60.* prec_acc_dt) == 0.) THEN
+         IF (mod(curr_secs, 60.* prec_acc_dt) == 0.) THEN
             prec_acc_c(i,j)  = 0.
             prec_acc_nc(i,j) = 0.
             snow_acc_nc(i,j)  = 0.

@@ -5,8 +5,6 @@ MODULE module_sf_bem
          
         real emins		!emissivity of the internal walls
         parameter (emins=0.9) 
-!!      real emwin              !emissivity of the windows
-!!      parameter (emwin=0.9)
         real albins	        !albedo of the internal walls
 !!      parameter (albins=0.5)
         parameter (albins=0.3)
@@ -16,49 +14,9 @@ MODULE module_sf_bem
         real cswin		!Specific heat of the windows [J/(m3.K)]
         parameter(cswin= 2.268e+06)
 
-!MT        real beta		!Thermal efficiency of the heat exchanger
-!MT	parameter (beta=0.5)	!beta=1 ==> no natural ventilation
-!!      parameter (beta=1.)
-!!      parameter (beta=0.6)    !beta=0.==> total natural ventilation (the total volume of air in 
-!!*B    parameter (beta=0.7)    !a floor is replaced in an hour)
-
-!MT        real perflo             !Peak number of occupants per unit floor area [Person/m²]
-!MT!!      parameter (perflo=6.25e-3/0.54)
-!MT        parameter (perflo=0.02)
-
-!MT        integer sw_cond         !air conditioning swich 
-!MT        parameter (sw_cond=1)   !sw_cond=0  ==> There are not a.c. systems in the floor
-!MT                                !sw_cond=/0 (integer)==> There are a.c. systems in the floor
-!
-!Air conditioning parameters
-!
-!MT        real cop                !coefficient of performance of the air conditioning systems
-!!*B    parameter (cop=3.0)
-!!*D    
-!MT        parameter (cop=3.5)
-!!*A    parameter (cop=2.5)
-
-!MT        real timeon             !initial A.C. time [h]
-!MT!!      parameter(timeon=8.0)   !Value between 0 and 24
-!MT        parameter(timeon=0.0)
-!MT        real timeoff            !ending A.C.time [h]
-!MT!!      parameter(timeoff=20.0) !Value between 0 and 24
-!MT        parameter(timeoff=24.0)
-
-!MT        real targtemp            !target temperature of the A. C. [K]
-!MT!!*B    parameter(targtemp=296.5)
-!MT        parameter(targtemp=298.0)
-!MT!!*C    parameter(targtemp=297.0)
-!MT        real gaptemp             !range confort of the indoor temperature [K]
-!MT        parameter(gaptemp=0.5)
-!MT!!      parameter(gaptemp=1.0)
         real temp_rat            !power of the A.C. heating/cooling the indoor air [K/s]
         parameter(temp_rat=0.001)
 
-!MT        real targhum             !target humidity of the A. C. [kg/kg]
-!MT        parameter(targhum=0.005)
-!MT        real gaphum             !range confort of the specific humidity [kg/kg]
-!MT        parameter(gaphum=0.005)
         real hum_rat            !power of the A.C. drying/moistening the indoor air [(Kg/kg)/s]
         parameter(hum_rat=1.e-06)
 
@@ -1666,7 +1624,7 @@ MODULE module_sf_bem
 
 !----------------------------------------------------------------------
 !This routine calculates the occupation ratio of a floor
-!
+!By now we suppose a constant value
 !----------------------------------------------------------------------
 
         implicit none
@@ -1679,20 +1637,6 @@ MODULE module_sf_bem
 !Output
 !------
 	real rocc       !value between 0 and 1
-
-!---------------------------------------------------------------------	
-!
-!	if ((nhourday.ge.0.).and.(nhourday.lt.(8.5))) then
-!	  rocc=0.
-!	else if ((nhourday.ge.(8.5)).and.(nhourday.le.(9.5))) then
-!	  rocc=nhourday-8.5
-!	else if ((nhourday.gt.(9.5)).and.(nhourday.le.(17.5))) then
-!	  rocc=1.
-!	else if ((nhourday.gt.(17.5)).and.(nhourday.le.(18.5))) then
-!	  rocc=18.5-nhourday	  
-!	else
-!	  rocc=0.
-!	end if
 
 !!TEST
         rocc=1.
@@ -2095,9 +2039,9 @@ MODULE module_sf_bem
 !
          if (hsneed.gt.0) then         ! air conditioning is cooling 
                                        ! and the heat is pumped out into the atmosphere  
-	  hsout=((cop+1)/cop)*(hsneed+hlneed)
+	  hsout=(1/cop)*(abs(hsneed)+abs(hlneed))+hsneed
           hlout=hlneed
-          consump=(1./cop)*(hsneed+hlneed)
+          consump=(1./cop)*(abs(hsneed)+abs(hlneed))
 !!        hsout=0.             
 !!        hlout=0.
 
@@ -2110,11 +2054,11 @@ MODULE module_sf_bem
               else  !! hsneed < 0. !air conditioning is heating 
                hlneed=0.           !no humidity regulation is considered
                hlout=0.            !no output into the atmosphere (latent heat) 
-               consump=(-1./cop)*(hsneed+hlneed)
+               consump=(1./cop)*(abs(hsneed)+abs(hlneed))
 !
 !!We have two possibilities 
 ! 
-!!             hsout=((cop-1)/cop)*(hsneed+hlneed) !output into the atmosphere 
+!!             hsout=(1./cop)*(abs(hsneed)+abs(hlneed)) !output into the atmosphere 
                hsout=0.                            !no output into the atmosphere                        
          end if
 

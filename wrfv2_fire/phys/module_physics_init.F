@@ -415,7 +415,8 @@ integer myproc
       XLAND(i,j)=1.
       GSW(i,j)=0.
       GLW(i,j)=0.
-      UST(i,j)=0.
+!-- initialize ust to a small value
+      UST(i,j)=0.0001
       MOL(i,j)=0.0
       PBLH(i,j)=0.0
       HFX(i,j)=0.
@@ -637,6 +638,9 @@ integer myproc
                   model_config_rec%obs_sfcfact,                 &
                   model_config_rec%obs_sfcfacr,                 &
                   model_config_rec%obs_dpsmx,                   &
+                  model_config_rec%obs_nudge_wind,              &
+                  model_config_rec%obs_nudge_temp,              &
+                  model_config_rec%obs_nudge_mois,              &
                   model_config_rec%obs_nudgezfullr1_uv,         &
                   model_config_rec%obs_nudgezrampr1_uv,         &
                   model_config_rec%obs_nudgezfullr2_uv,         &
@@ -901,12 +905,19 @@ integer myproc
           IF(XICE(I,J).GE.xice_threshold)THEN
             XLAND(I,J)=1.0
             ALBBCK(I,J)=ALBD(ISICE,ISN)/100.
-            ALBEDO(I,J)=ALBBCK(I,J)
+            EMBCK(I,J)=SFEM(ISICE,ISN)
+            IF (FRACTIONAL_SEAICE == 1) THEN
+               ! The 0.08 value is the albedo over open water.
+               ! The 0.98 value is the emissivity over open water.
+               ALBEDO(I,J) = ( XICE(I,J) * ALBBCK(I,J) ) + ( (1.0-XICE(I,J)) * 0.08 )
+               EMISS(I,J)  = ( XICE(I,J) * EMBCK(I,J)  ) + ( (1.0-XICE(I,J)) * 0.98 )
+            ELSE
+               ALBEDO(I,J)=ALBBCK(I,J)
+               EMISS(I,J)=EMBCK(I,J)
+            ENDIF
             THC(I,J)=THERIN(ISICE,ISN)/100.
             Z0(I,J)=SFZ0(ISICE,ISN)/100.
             ZNT(I,J)=Z0(I,J)
-            EMBCK(I,J)=SFEM(ISICE,ISN)
-            EMISS(I,J)=EMBCK(I,J)
             MAVAIL(I,J)=SLMO(ISICE,ISN)
           ENDIF
         ENDDO
@@ -1011,6 +1022,8 @@ integer myproc
    LOGICAL :: hwrflw= .false.
    LOGICAL :: camlw = .false.
    LOGICAL :: etamp = .false.
+   LOGICAL :: acswalloc = .false.
+   LOGICAL :: aclwalloc = .false.
    integer :: month,iday
    INTEGER :: i, j, k, itf, jtf, ktf
 !---------------------------------------------------------------------
@@ -1092,6 +1105,7 @@ integer myproc
              ENDIF
 
              camlw = .true.
+             aclwalloc = .true.
 
         CASE (RRTMG_LWSCHEME)
              CALL rrtmg_lwinit(                             &
@@ -1099,6 +1113,8 @@ integer myproc
                            ids, ide, jds, jde, kds, kde,    &
                            ims, ime, jms, jme, kms, kme,    &
                            its, ite, jts, jte, kts, kte     )
+
+             aclwalloc = .true.
 
         CASE (GFDLLWSCHEME)
              CALL nl_get_start_month(id,month)
@@ -1166,6 +1182,7 @@ integer myproc
                          ims, ime, jms, jme, kms, kme,     &
                          its, ite, jts, jte, kts, kte      )
              ENDIF
+             acswalloc = .true.
 
         CASE (GSFCSWSCHEME)
              CALL gsfc_swinit(cen_lat, allowed_to_read )
@@ -1176,6 +1193,8 @@ integer myproc
                            ids, ide, jds, jde, kds, kde,    &
                            ims, ime, jms, jme, kms, kme,    &
                            its, ite, jts, jte, kts, kte     )
+
+             acswalloc = .true.
 
         CASE (GFDLSWSCHEME)
              IF(.not.etalw)THEN
@@ -1201,6 +1220,16 @@ integer myproc
         CASE DEFAULT
 
    END SELECT swrad_select
+
+#if ( EM_CORE == 1 ) 
+   ! test for conditionally allocated arrays when using bucket_J
+
+   IF(config_flags%bucket_J .gt. 0.0)THEN
+     IF(.not. (acswalloc .and. aclwalloc))THEN
+           CALL wrf_error_fatal ( 'Need CAM or RRTMG radiation for bucket_J option')
+     ENDIF
+   ENDIF
+#endif
 
    END SUBROUTINE ra_init
 
@@ -1587,8 +1616,8 @@ integer myproc
 
              IF ( PRESENT( FRC_URB2D ) .AND. PRESENT( UTYPE_URB2D )) THEN
                 
-                CALL urban_param_init(DZR,DZB,DZG,num_soil_layers                    & !urban
-                                )
+                CALL urban_param_init(DZR,DZB,DZG,num_soil_layers,                   & !urban
+                                sf_urban_physics)
 !                                num_roof_layers,num_wall_layers,road_soil_layers)   !urban
                                
                 
@@ -2170,6 +2199,7 @@ integer myproc
                         no_pbl_nudge_t,                            &
                         no_pbl_nudge_q,                            &
                         sfcfact, sfcfacr, dpsmx,                   &
+                        nudge_wind, nudge_temp, nudge_mois,        &
                         nudgezfullr1_uv, nudgezrampr1_uv,          &
                         nudgezfullr2_uv, nudgezrampr2_uv,          &
                         nudgezfullr4_uv, nudgezrampr4_uv,          &
@@ -2217,6 +2247,9 @@ integer myproc
    REAL    , INTENT(IN)    :: sfcfact      ! scale factor applied to time window for surface obs
    REAL    , INTENT(IN)    :: sfcfacr      ! scale fac applied to horiz rad of infl for sfc obs
    REAL    , INTENT(IN)    :: dpsmx        ! max pressure change allowed within horiz. infl. range
+   INTEGER , INTENT(IN)    :: nudge_wind(maxdom)       ! wind-nudging flag
+   INTEGER , INTENT(IN)    :: nudge_temp(maxdom)       ! temperature-nudging flag
+   INTEGER , INTENT(IN)    :: nudge_mois(maxdom)       ! moisture-nudging flag
    REAL    , INTENT(IN)    :: nudgezfullr1_uv  ! vert infl fcn, regime=1 full-wt   hght, winds
    REAL    , INTENT(IN)    :: nudgezrampr1_uv  ! vert infl fcn, regime=1 ramp down hght, winds
    REAL    , INTENT(IN)    :: nudgezfullr2_uv  ! vert infl fcn, regime=2 full-wt   hght, winds
@@ -2269,6 +2302,7 @@ integer myproc
                         no_pbl_nudge_t,                            &
                         no_pbl_nudge_q,                            &
                         sfcfact, sfcfacr, dpsmx,                   &
+                        nudge_wind, nudge_temp, nudge_mois,        &
                         nudgezfullr1_uv, nudgezrampr1_uv,          &
                         nudgezfullr2_uv, nudgezrampr2_uv,          &
                         nudgezfullr4_uv, nudgezrampr4_uv,          &
