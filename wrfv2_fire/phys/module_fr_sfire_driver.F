@@ -223,11 +223,13 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 !*** local
     INTEGER:: fire_num_ignitions
     integer, parameter::fire_max_ignitions=5
-    REAL, DIMENSION(fire_max_ignitions)::  fire_ignition_start_x, &
+    REAL, DIMENSION(fire_max_ignitions)::  &
+        fire_ignition_start_x, &
         fire_ignition_start_y, &
         fire_ignition_end_x, &
         fire_ignition_end_y, &
-        fire_ignition_time, &
+        fire_ignition_start_time, &
+        fire_ignition_end_time, &
         fire_ignition_radius
     integer::fire_ifun,ir,jr,fire_ignition_longlat,istep,itimestep
     logical::need_lfn_update,restart
@@ -248,7 +250,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-        fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+        fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions)
     ! copy configuration flags
     call set_flags(config_flags)
 
@@ -345,7 +347,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             fire_ignition_longlat,      &
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
             fire_ignition_end_x,fire_ignition_end_y,     &
-            fire_ignition_radius,fire_ignition_time,     &
+            fire_ignition_radius,        &
+            fire_ignition_start_time,     &
+            fire_ignition_end_time,     &
             grid%u_2,grid%v_2,grid%mut,rho,grid%ht,      & ! in arrays, on atm grid
             z_at_w,dz8w,                                  &
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
@@ -401,7 +405,8 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     ignition_start_x,ignition_start_y,            & ! ignition - small arrays
     ignition_end_x,ignition_end_y,                &
     ignition_radius,                              &
-    ignition_time,                                &
+    ignition_start_time,                          &
+    ignition_end_time,                            &
     u,v,mu,rho,zs,                                & ! in arrays, atm grid
     z_at_w,dz8w,                                  &
     xlong,xlat,                                   &
@@ -461,7 +466,8 @@ integer, intent(in):: num_ignitions                 ! number of ignitions, can b
 real, dimension(num_ignitions), intent(in):: &   
     ignition_start_x,ignition_start_y, &
     ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
-    ignition_time                           !  of ignition lines
+    ignition_start_time,     &                      !  of ignition lines start
+    ignition_end_time                           !  of ignition lines end
 integer, intent(in):: ignition_longlat       ! if 1 ignition give as long/lat, otherwise as m from lower left corner
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v ! wind velocity (m/s) (node based, atm grid) 
@@ -719,7 +725,8 @@ do ij=1,num_tiles
         ignition_start_x,ignition_start_y,      & ! ignition - small arrays
         ignition_end_x,ignition_end_y,          &
         ignition_radius,                        &
-        ignition_time,                          &
+        ignition_start_time,                    &
+        ignition_end_time,                      &
         ignitions_done_tile(ij),ignited_tile(1,ij),  &
         fxlong,fxlat,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
         zsf,                                    & ! terrain height (for gradient)
@@ -875,7 +882,7 @@ end subroutine sfire_driver_phys
 
 subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longlat, &
     fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-    fire_ignition_radius,fire_ignition_time,fire_num_ignitions)
+    fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions)
     USE module_configure
     implicit none
 ! create ignition arrays from scalar flags
@@ -884,7 +891,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     integer, intent(in)::fire_max_ignitions
     real, dimension(fire_max_ignitions), intent(out):: &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-        fire_ignition_radius,fire_ignition_time
+        fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time
     integer, intent(out)::fire_num_ignitions,ignition_longlat
 !*** local
     integer::i
@@ -949,24 +956,30 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     endif
     ! common to both cases
         fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
-        fire_ignition_time(1)=config_flags%fire_ignition_time1 
+        fire_ignition_start_time(1)=config_flags%fire_ignition_start_time1 
+        fire_ignition_end_time(1)=config_flags%fire_ignition_end_time1 
         fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
-        fire_ignition_time(2)=config_flags%fire_ignition_time2 
+        fire_ignition_start_time(2)=config_flags%fire_ignition_start_time2 
+        fire_ignition_end_time(2)=config_flags%fire_ignition_end_time2 
         fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
-        fire_ignition_time(3)=config_flags%fire_ignition_time3 
+        fire_ignition_start_time(3)=config_flags%fire_ignition_start_time3 
+        fire_ignition_end_time(3)=config_flags%fire_ignition_end_time3 
         fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
-        fire_ignition_time(4)=config_flags%fire_ignition_time4 
+        fire_ignition_start_time(4)=config_flags%fire_ignition_start_time4 
+        fire_ignition_end_time(4)=config_flags%fire_ignition_end_time4 
         fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
-        fire_ignition_time(5)=config_flags%fire_ignition_time5
+        fire_ignition_start_time(5)=config_flags%fire_ignition_start_time5
+        fire_ignition_end_time(5)=config_flags%fire_ignition_end_time5
 
     ! 
         fire_num_ignitions=0      
         do i=1,min(5,config_flags%fire_num_ignitions)
             ! count the ignitions 
             if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i
-            ! expand the point ignitions given as zero
+            ! expand ignition data given as zero
             if(fire_ignition_end_x(i).eq.0.)fire_ignition_end_x(i)=fire_ignition_start_x(i)
             if(fire_ignition_end_y(i).eq.0.)fire_ignition_end_y(i)=fire_ignition_start_y(i)
+            if(fire_ignition_end_time(i).eq.0.)fire_ignition_end_time(i)=fire_ignition_start_time(i)
         enddo
 
 end subroutine fire_ignition_convert
