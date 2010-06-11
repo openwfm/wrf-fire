@@ -152,17 +152,23 @@ SUBROUTINE rd_grib1(IUNIT, gribflnm, level, field, hdate,  &
 
   if (icenter.eq.7) then
     if (iprocess.eq.83 .or. iprocess.eq.84) then
-      map%source = 'NCEP NAM Model'
+      map%source = 'NCEP MESO NAM Model'
     elseif (iprocess.eq.81) then
       map%source = 'NCEP GFS Analysis'
     elseif (iprocess.eq.82) then
       map%source = 'NCEP GFS GDAS/FNL'
+    elseif (iprocess.eq.89) then
+      map%source = 'NCEP NMM '
     elseif (iprocess.eq.96) then
       map%source = 'NCEP GFS Model'
     elseif (iprocess.eq.109) then
       map%source = 'NCEP RTMA'
+    elseif (iprocess.eq.86 .or. iprocess.eq.100) then
+      map%source = 'NCEP RUC Model'    ! 60 km
+    elseif (iprocess.eq.101) then
+      map%source = 'NCEP RUC Model'    ! 40 km
     elseif (iprocess.eq.105) then
-      map%source = 'NCEP RUC Model'
+      map%source = 'NCEP RUC Model'    ! 20 km
     elseif (iprocess.eq.140) then
       map%source = 'NCEP NARR'
     elseif (iprocess.eq.195) then
@@ -173,6 +179,8 @@ SUBROUTINE rd_grib1(IUNIT, gribflnm, level, field, hdate,  &
       map%source = 'GFDL Hurricane Model'
     elseif (iprocess.eq.129) then
       map%source = 'NCEP GODAS'
+    elseif (iprocess.eq.25) then
+      map%source = 'NCEP SNOW COVER ANALYSIS'
     else
       map%source = 'unknown model from NCEP'
     end if
@@ -187,6 +195,8 @@ SUBROUTINE rd_grib1(IUNIT, gribflnm, level, field, hdate,  &
     endif
     write(tmp8,'("GRID ",i3)') KSEC1(5)
     map%source(25:32) = tmp8
+  else if (icenter .eq. 58) then
+    map%source = 'US Navy FNOC'
   else if (icenter .eq. 59) then
       if (iprocess .eq. 120) then
         map%source = 'NOAA GSD Rapid Refresh'
@@ -197,6 +207,8 @@ SUBROUTINE rd_grib1(IUNIT, gribflnm, level, field, hdate,  &
         map%source = 'NCAR'
   else if (icenter .eq. 98) then
       map%source = 'ECMWF'
+  else if (icenter .eq. 74 .or. icenter .eq. 75 ) then
+      map%source = 'UKMO'
   else
     map%source = 'unknown model and orig center'
   end if
@@ -276,6 +288,7 @@ SUBROUTINE rd_grib1(IUNIT, gribflnm, level, field, hdate,  &
            if ((level1(i).eq.lvl1) .or. (level1(i) == splatcode) ) then
               if (level2(i).eq.lvl2) then
                  field=namvar(i)
+                 level = -999.
                  if (ktype.eq.100) then ! Pressure-level
                     level=lvl1
                  elseif (ktype.eq.102) then
@@ -295,6 +308,12 @@ SUBROUTINE rd_grib1(IUNIT, gribflnm, level, field, hdate,  &
                     level = 201500.
                  elseif (ktype .eq. 237 .or. ktype .eq. 238 ) then  ! depth of ocean layer
                     level = 201600.
+                 endif
+                 if (level .lt. -998. ) then
+                   write(6,*) 'Could not find a level for this Vtable entry'
+                   write(6,*) 'iparm = ',iparm,' ktype = ',ktype,' lvl1 = ',lvl1,' lvl2 = ',lvl2
+                   write(6,*) 'Fix the Vtable or modify rd_grib1.F'
+                   stop 'rd_grib1'
                  endif
               endif
            endif
@@ -358,6 +377,22 @@ SUBROUTINE rd_grib1(IUNIT, gribflnm, level, field, hdate,  &
      map%dy = ginfo(9)
      map%lat1 = ginfo(3)
      map%lon1 = ginfo(4)
+     !  If this is global data, then the dx and dy are more accurately
+     !  computed by the number of points than the 3 digits grib permits.
+     if ( ABS(map%nx * map%dx - 360.) .lt. 1 ) then
+        if ( ABS ( map%dx - (360./real(map%nx)) ) .gt. 0.00001 ) then
+           !print *,'old dx = ',ginfo(8)
+           map%dx = 360./real(map%nx)
+           !print *,'new dx = ',map%dx
+        endif
+     endif
+     if ( ABS((map%ny-1) * map%dy - 2.*abs(map%lat1)) .lt. 1 ) then
+        if ( ABS ( map%dy - (2.*abs(map%lat1)/real(map%ny-1)) ) .gt. 0.00001 ) then
+           !print *,'old dy = ',ginfo(9)
+           map%dy = 2.*abs(map%lat1)/real(map%ny-1)
+           !print *,'new dy = ',map%dy
+        endif
+     endif
      write(tmp8,'(b8.8)') infogrid(5)
      if (tmp8(5:5) .eq. '0') map%grid_wind = .false.
      if (icenter .eq. 7 .and. KSEC1(5) .eq. 173 ) then  ! correction for ncep grid 173

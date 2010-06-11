@@ -630,6 +630,8 @@ integer, parameter :: BDR_WIDTH = 3
                  sd1, ed1, sd2, ed2, sd3, ed3, &
                  u_idx, bdr_wdth
       integer :: nmet_flags
+      integer :: num_metgrid_soil_levs
+      integer, pointer, dimension(:) :: soil_levels
       real :: rx, ry
       real :: threshold
       logical :: do_gcell_interp
@@ -1115,7 +1117,7 @@ integer, parameter :: BDR_WIDTH = 3
       !   now we simply output every field from the storage module.
       !
     
-      title = 'OUTPUT FROM METGRID V3.0.1' 
+      title = 'OUTPUT FROM METGRID V3.2' 
    
       ! Initialize the output module for this domain and time
       call mprintf(.true.,LOGFILE,'Initializing output module.')
@@ -1154,6 +1156,30 @@ integer, parameter :: BDR_WIDTH = 3
       else
          met_flags(num_entries+1) = ' '
       end if
+
+      ! Find out how many soil levels or layers we have; this assumes a field named ST
+      field % header % field = 'ST'
+      nullify(soil_levels)
+      call storage_get_levels(field, soil_levels)
+
+      if (.not. associated(soil_levels)) then
+         field % header % field = 'SOILT'
+         nullify(soil_levels)
+         call storage_get_levels(field, soil_levels)
+      end if
+
+      if (.not. associated(soil_levels)) then
+         field % header % field = 'STC_WPS'
+         nullify(soil_levels)
+         call storage_get_levels(field, soil_levels)
+      end if
+
+      if (associated(soil_levels)) then
+         num_metgrid_soil_levs = size(soil_levels) 
+         deallocate(soil_levels)
+      else
+         num_metgrid_soil_levs = 0
+      end if
    
       ! First write out global attributes
       call mprintf(.true.,LOGFILE,'Writing global attributes to output.')
@@ -1167,7 +1193,7 @@ integer, parameter :: BDR_WIDTH = 3
                               j_parent_start, i_parent_end, j_parent_end, dom_dx, dom_dy,    &
                               cen_lat, moad_cen_lat, cen_lon, stand_lon, truelat1, truelat2, &
                               pole_lat, pole_lon, parent_grid_ratio, sub_x, sub_y,           &
-                              corner_lats, corner_lons, met_flags, nmet_flags)
+                              corner_lats, corner_lons, num_metgrid_soil_levs, met_flags, nmet_flags)
 
       deallocate(met_flags)
     
@@ -1455,20 +1481,20 @@ integer, parameter :: BDR_WIDTH = 3
 
          if (interp_mask_status == 0) then
             call accum_continuous(slab, &
-                         minx+bdr, maxx-bdr, miny, maxy, 1, 1, &
+                         minx, maxx, miny, maxy, 1, 1, bdr, &
                          field%r_arr, data_count, &
                          sm1, em1, sm2, em2, 1, 1, &
                          istagger, &
-                         new_pts, NAN, interp_mask_val(idx), mask_field%r_arr)
+                         new_pts, missing_value(idx), interp_mask_val(idx), mask_field%r_arr)
          else
             call accum_continuous(slab, &
-                         minx+bdr, maxx-bdr, miny, maxy, 1, 1, &
+                         minx, maxx, miny, maxy, 1, 1, bdr, &
                          field%r_arr, data_count, &
                          sm1, em1, sm2, em2, 1, 1, &
                          istagger, &
-                         new_pts, NAN, -1.) ! The -1 is the maskval, but since we
-                                            !   we do not give an optional mask, no
-                                            !   no need to worry about -1s in data
+                         new_pts, missing_value(idx), -1.) ! The -1 is the maskval, but since we
+                                                           !   we do not give an optional mask, no
+                                                           !   no need to worry about -1s in data
          end if
 
          orig_selected_proj = iget_selected_domain()
@@ -2382,7 +2408,7 @@ integer, parameter :: BDR_WIDTH = 3
    !   within a source tile, and not just for a single grid point.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
    subroutine accum_continuous(src_array, &
-                               src_min_x, src_max_x, src_min_y, src_max_y, src_min_z, src_max_z, &
+                               src_min_x, src_max_x, src_min_y, src_max_y, src_min_z, src_max_z, bdr_width, &
                                dst_array, n, &
                                start_i, end_i, start_j, end_j, start_k, end_k, &
                                istagger, &
@@ -2395,7 +2421,7 @@ integer, parameter :: BDR_WIDTH = 3
    
       ! Arguments
       integer, intent(in) :: start_i, end_i, start_j, end_j, start_k, end_k, istagger, &
-                             src_min_x, src_max_x, src_min_y, src_max_y, src_min_z, src_max_z
+                             src_min_x, src_max_x, src_min_y, src_max_y, src_min_z, src_max_z, bdr_width
       real, intent(in) :: maskval, msgval
       real, dimension(src_min_x:src_max_x, src_min_y:src_max_y, src_min_z:src_max_z), intent(in) :: src_array
       real, dimension(start_i:end_i, start_j:end_j, start_k:end_k), intent(inout) :: dst_array, n
@@ -2422,8 +2448,8 @@ integer, parameter :: BDR_WIDTH = 3
    
       call process_continuous_block(src_array, where_maps_to, &
                                src_min_x, src_min_y, src_min_z, src_max_x, src_max_y, src_max_z, &
-                               src_min_x, src_min_y, src_min_z, &
-                               src_max_x, src_max_y, src_max_z, &
+                               src_min_x+bdr_width, src_min_y, src_min_z, &
+                               src_max_x-bdr_width, src_max_y, src_max_z, &
                                dst_array, n, start_i, end_i, start_j, end_j, start_k, end_k, &
                                istagger, &
                                new_pts, rsr_x, rsr_y, msgval, maskval, mask_array)
