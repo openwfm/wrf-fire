@@ -10,6 +10,8 @@ OBJS    =
 
 LIBPATHS = 
 
+CASE_MODULE=module_initialize_$(IDEAL_CASE).o
+
 include ../configure.wrf
 
 $(SOLVER)_wrf : wrf.o ../main/module_wrf_top.o
