@@ -1424,10 +1424,10 @@ module source_data_module
                   memorder = '   ' 
                   dimnames(3) = ' '
                end if
-               field_name = dfdx_name
                units = '-'
 
                call get_subgrid_dim_name(nest_num, field_name, dimnames(1:2), sr_x, sr_y, istatus)
+               field_name = dfdx_name
                description = 'df/dx'
                if (output_field_state == RETURN_DFDX) then
                   output_field_state = RETURN_DFDY
