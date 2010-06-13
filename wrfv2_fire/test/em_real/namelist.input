@@ -12,10 +12,10 @@
  end_year                            = 2005,
  end_month                           = 08,
  end_day                             = 28,
- end_hour                            = 18,
+ end_hour                            = 15,
  end_minute                          = 00,
  end_second                          = 00,
- interval_seconds                    = 21600
+ interval_seconds                    = 10800
  input_from_file                     = .true.,
  history_interval_s                  = 30,
  frames_per_outfile                  = 1000,
@@ -39,7 +39,7 @@
  e_sn                                = 43,
  s_vert                              = 1,
  e_vert                              = 41,
- num_metgrid_levels                  = 27
+ num_metgrid_levels                  = 30
  dx                                  = 60,
  dy                                  = 60,
  grid_id                             = 1,
@@ -53,6 +53,7 @@
  sr_x                                = 10,
  sr_y                                = 10,
  sfcp_to_sfcp                        = .true.,
+ p_top_requested                     = 10000
  /
 
 &physics
@@ -149,7 +150,7 @@
  fire_upwinding=3,              ! 0=none, 1=standard, 2=godunov, 3=eno, 4=sethian
  fire_lfn_ext_up=1.0,           ! 0.=extend level set function at boundary by reflection, 1.=always up
  fire_test_steps=0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
- fire_topo_from_atm=1,          ! 0 = expect fire mesh topo set correctly on entry, 1 = populate by interpolating from atmosphere
+ fire_topo_from_atm=0,          ! 0 = expect fire mesh topo set correctly on entry, 1 = populate by interpolating from atmosphere
  /
 
   &bdy_control
