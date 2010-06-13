@@ -136,14 +136,14 @@ real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: bbb,betafl,phiwc,r_0 ! (node) spread formula coefficients
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fgip                 ! (cell) init mass of surface fuel (kg/m^2)
 integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node) .ne.0 if chapparal
-real,intent(inout),dimension(ifms:ifme,jfms:jfme):: dzdxf,dzdyf          ! terrain gradient 
+real,intent(in),dimension(ifms:ifme,jfms:jfme):: dzdxf,dzdyf          ! terrain gradient 
 
 !*** local
 
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 integer::ignited,ig,i,j
-real::tbound
+real::tbound,err,erri,errj,maxgrad,grad
 character(len=128)::msg
 logical:: freeze_fire
 
@@ -179,13 +179,19 @@ elseif(ifun.eq.2)then
             zsf)                               ! array
 
 !       compute the gradients once for all
+        err=0.
+        maxgrad=0.
         do j=jfts,jfte
             do i=ifts,ifte
-                dzdxf(i,j) = (zsf(i+1,j)-zsf(i-1,j))/(2.*fdx)
-                dzdyf(i,j) = (zsf(i,j+1)-zsf(i,j-1))/(2.*fdy)
+                erri = dzdxf(i,j) - (zsf(i+1,j)-zsf(i-1,j))/(2.*fdx)
+                errj = dzdyf(i,j) - (zsf(i,j+1)-zsf(i,j-1))/(2.*fdy)
+                err=max(err,abs(erri),abs(errj))
+                grad=sqrt(dzdxf(i,j)**2+dzdyf(i,j)**2)
+                maxgrad=max(maxgrad,grad)
             enddo
         enddo
-
+        write(msg,*)'max gradient ',maxgrad,' max error against zsf',err
+        call message(msg)
 
         if(.not.restart)call set_nfuel_cat( &
             ifms,ifme,jfms,jfme, &

@@ -512,7 +512,8 @@ real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh c
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme):: &
     fuel_time,zsf,                               &
-    bbb,betafl,phiwc,r_0,fgip,                   &
+    bbb,betafl,phiwc,r_0,fgip                   
+real, intent(in), dimension(ifms:ifme, jfms:jfme):: &
     dzdxf,dzdyf
 integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
     
