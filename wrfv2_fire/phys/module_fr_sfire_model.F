@@ -39,7 +39,8 @@ subroutine sfire_model (                    &
     ros,                                    & ! output: rate of spread
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
-    bbb,betafl,phiwc,r_0,fgip,ischap &
+    bbb,betafl,phiwc,r_0,fgip,ischap,       & ! params passed to spread speed
+    dzdxf,dzdyf                             &
 ) 
 
 ! This subroutine implements the fire spread model.
@@ -135,6 +136,7 @@ real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: bbb,betafl,phiwc,r_0 ! (node) spread formula coefficients
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fgip                 ! (cell) init mass of surface fuel (kg/m^2)
 integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node) .ne.0 if chapparal
+real,intent(inout),dimension(ifms:ifme,jfms:jfme):: dzdxf,dzdyf          ! terrain gradient 
 
 !*** local
 
@@ -175,6 +177,15 @@ elseif(ifun.eq.2)then
             ifps,ifpe,jfps,jfpe, &            ! patch dims - winds defined up to +1
             ifts,ifte,jfts,jfte, &                ! tile dims
             zsf)                               ! array
+
+!       compute the gradients once for all
+        do j=jfts,jfte
+            do i=ifts,ifte
+                dzdxf(i,j) = (zsf(i+1,j)-zsf(i-1,j))/(2.*fdx)
+                dzdyf(i,j) = (zsf(i,j+1)-zsf(i,j-1))/(2.*fdy)
+            enddo
+        enddo
+
 
         if(.not.restart)call set_nfuel_cat( &
             ifms,ifme,jfms,jfme, &

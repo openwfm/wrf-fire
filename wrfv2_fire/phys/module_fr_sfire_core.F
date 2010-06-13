@@ -1541,7 +1541,7 @@ real,dimension(ims:ime,jms:jme),intent(out)::ros  ! rate of spread
 !*** local 
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
-   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi, &
+   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
 integer::i,j
 character(len=128)msg
 
@@ -1661,8 +1661,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
                 ! tanphi =  dzdxf*nvx + dzdyf*nvy
 		! advection from slope direction 
                 if(abs(tanphi)>eps) then
-                    advx=advx+dzdxf*ros_slope/tanphi
-                    advy=advy+dzdyf*ros_slope/tanphi
+                    advx=advx+dzdxf(i,j)*ros_slope/tanphi
+                    advy=advy+dzdyf(i,j)*ros_slope/tanphi
                 endif
 
                 if(fire_upwind_split.eq.1)then   
@@ -1831,7 +1831,7 @@ real, parameter:: eps=epsilon(0.0)
             ! wind speed in direction of spread
             speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
-            tanphi =  dzdxf*nvx + dzdyf*nvy
+            tanphi =  dzdxf(i,j)*nvx + dzdyf(i,j)*nvy
     
             ! get rate of spread from wind speed and slope
 

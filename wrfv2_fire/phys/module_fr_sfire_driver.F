@@ -364,7 +364,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%fxlong,grid%fxlat,                           &       
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,grid%zsf,                      & 
-            grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
+            grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap, &
+            grid%dzdxf,grid%dzdyf &
         )
 
 #ifdef DM_PARALLEL
@@ -420,7 +421,8 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fxlong,fxlat,                                 & !  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,zsf,                                & ! save constant internal data, fire grid
-    bbb,betafl,phiwc,r_0,fgip,ischap&
+    bbb,betafl,phiwc,r_0,fgip,ischap,             &
+    dzdxf,dzdyf &
     )
 USE module_dm, only:wrf_dm_maxval
 
@@ -510,7 +512,8 @@ real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh c
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme):: &
     fuel_time,zsf,                               &
-    bbb,betafl,phiwc,r_0,fgip
+    bbb,betafl,phiwc,r_0,fgip,                   &
+    dzdxf,dzdyf
 integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
     
 !*** local
@@ -737,7 +740,8 @@ do ij=1,num_tiles
         ros,                                    & ! output: rate of spread for display
         nfuel_cat,                              & ! fuel data per point 
         fuel_time,                              & ! save derived internal data
-        bbb,betafl,phiwc,r_0,fgip,ischap &
+        bbb,betafl,phiwc,r_0,fgip,ischap,       &
+        dzdxf,dzdyf                             &
     )
     
     if(ifun.eq.6)then ! heat fluxes into the atmosphere    

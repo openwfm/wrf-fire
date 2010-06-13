@@ -559,16 +559,16 @@ if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
     ! wind speed is total speed 
     speed =  sqrt(vx(i,j)*vx(i,j)+ vy(i,j)*vy(i,j))+tiny(speed)
     ! slope is total slope
-    tanphi = sqrt(dzdxf*dzdxf + dzdyf*dzdyf)+tiny(tanphi)
+    tanphi = sqrt(dzdxf(i,j)*dzdxf(i,j) + dzdyf(i,j)*dzdyf(i,j))+tiny(tanphi)
     ! cos of wind and spread, if >0
     cor_wind =  max(0.,(vx(i,j)*nvx + vy(i,j)*nvy)/speed)
     ! cos of slope and spread, if >0
-    cor_slope = max(0., (dzdx*nvx + dzdy*nvy)/tanphi)
+    cor_slope = max(0., (dzdxf(i,j)*nvx + dzdyf(i,j)*nvy)/tanphi)
 else
     ! wind speed in spread direction
     speed =  vx(i,j)*nvx + vy(i,j)*nvy
     ! slope in spread direction
-    tanphi = dzdxf*nvx + dzdyf*nvy
+    tanphi = dzdxf(i,j)*nvx + dzdyf(i,j)*nvy
     cor_wind=1.
     cor_slope=1.
 endif
