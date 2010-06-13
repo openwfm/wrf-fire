@@ -384,17 +384,18 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
            endif
         enddo
 
-! Repair GFS RH
-        if (index(map%source,'NCEP GFS') .ne. 0) then
-	  call mprintf(.true.,DEBUG, &
-             "RRPR:   Adjusting GFS RH values ")
-	  do k = 1, nlvl
-	    if ( is_there(nint(plvl(k)),'RH') .and. &
-	         is_there(nint(plvl(k)),'TT') ) then
-	      call fix_gfs_rh (map%nx, map%ny, plvl(k))
-	    endif
-	  enddo
-	endif
+! Repair GFS and ECMWF pressure-level RH
+        if (index(map%source,'NCEP GFS') .ne. 0 .or.  &
+            index(map%source,'ECMWF') .ne. 0 ) then
+          call mprintf(.true.,DEBUG, &
+             "RRPR:   Adjusting GFS/ECMWF RH values ")
+          do k = 1, nlvl
+            if ( is_there(nint(plvl(k)),'RH') .and. &
+                 is_there(nint(plvl(k)),'TT') ) then
+              call fix_gfs_rh (map%nx, map%ny, plvl(k))
+            endif
+          enddo
+        endif
 !
 ! Check to see if we need to fill RH above 300 mb:
 !
@@ -403,17 +404,19 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
            allocate(scr2d(map%nx,map%ny))
 
            do k = 1, nlvl
-!   Set missing RH to 10% between 300 and 70 hPa. Use P/1000 above 70 hPa.
+!   Set missing RH to 5% between 300 and 70 hPa. Set RH to 0 above 70 hPa.
 !   The stratospheric RH will be adjusted further in real.
               if (plvl(k).le.7000.) then
-	        scr2d = plvl(k) / 1000.
-	      else if (plvl(k).lt.30000.) then
-	        scr2d = 10.
-	      endif
+                scr2d = 0.
+              else if (plvl(k).lt.30000.) then
+                scr2d = 5.
+              endif
               if (plvl(k).lt.30000. .and. plvl(k) .gt. 10. ) then
               ! levels higher than .1 mb are special - do not fill
                  if (.not. is_there(nint(plvl(k)), 'RH')) then
                     call put_storage(nint(plvl(k)),'RH',scr2d,map%nx,map%ny)
+                    call mprintf(.true.,DEBUG, &
+                 "RRPR:   RH missing at %i hPa, inserting synthetic RH ",i1=nint(plvl(k)/100.))
                  endif
               endif
            enddo
@@ -492,6 +495,17 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, debug_level, out_f
         endif
         endif
 
+! ECMWF snow depth is in meters (Table 128). Convert to kg/m2 
+! 
+        if (is_there(200100, 'SNOW_EC')) then
+           call get_dims(200100, 'SNOW_EC')
+           allocate(scr2d(map%nx,map%ny))
+           call get_storage(200100, 'SNOW_EC', scr2d, map%nx, map%ny)
+	   scr2d = scr2d * 1000.
+           call put_storage(200100, 'SNOW', scr2d, map%nx, map%ny)
+           deallocate(scr2d)
+        endif
+
 ! If we've got a SEAICE field, make sure that it is all Zeros and Ones:
 
         if (is_there(200100, 'SEAICE')) then
@@ -531,10 +545,7 @@ subroutine compute_spechumd_qvapor(ix, jx, plvl)
   implicit none
   integer :: ix, jx
   real :: plvl
-  real :: lat1, lon1, dx, dy
   real, dimension(ix,jx) :: QVAPOR, SPECHUMD
-
-  real startlat, startlon, deltalat, deltalon
 
   call get_storage(nint(plvl), 'QV', QVAPOR, ix, jx)
 
@@ -548,17 +559,14 @@ subroutine compute_spechumd_qvapor(ix, jx, plvl)
 end subroutine compute_spechumd_qvapor
 
 subroutine compute_t_vptmp(ix, jx, plvl)
-! Compute relative humidity from specific humidity.
+! Compute temperature from virtual potential temperature
   use storage_module
   implicit none
   integer :: ix, jx
   real :: plvl
-  real :: lat1, lon1, dx, dy
   real, dimension(ix,jx) :: T, VPTMP, P, Q
 
   real, parameter :: rovcp=0.28571
-
-  real startlat, startlon, deltalat, deltalon
 
   call get_storage(nint(plvl), 'VPTMP',  VPTMP, ix, jx)
   IF (nint(plvl) .LT. 200) THEN
@@ -583,7 +591,6 @@ subroutine compute_rh_spechumd(ix, jx)
   use storage_module
   implicit none
   integer :: ix, jx
-  real :: lat1, lon1, dx, dy
   real, dimension(ix,jx) :: T, P, RH, Q
 
   real, parameter :: svp1=611.2
@@ -591,8 +598,6 @@ subroutine compute_rh_spechumd(ix, jx)
   real, parameter :: svp3=29.65
   real, parameter :: svpt0=273.15
   real, parameter :: eps = 0.622
-
-  real startlat, startlon, deltalat, deltalon
 
   call get_storage(200100, 'TT',        T, ix, jx)
   call get_storage(200100, 'PSFC',     P, ix, jx)
@@ -610,7 +615,6 @@ subroutine compute_rh_spechumd_upa(ix, jx, plvl)
   implicit none
   integer :: ix, jx
   real :: plvl
-  real :: lat1, lon1, dx, dy
   real, dimension(ix,jx) :: T, P, RH, Q
 
   real, parameter :: svp1=611.2
@@ -618,8 +622,6 @@ subroutine compute_rh_spechumd_upa(ix, jx, plvl)
   real, parameter :: svp3=29.65
   real, parameter :: svpt0=273.15
   real, parameter :: eps = 0.622
-
-  real startlat, startlon, deltalat, deltalon
 
   IF ( nint(plvl).LT. 200) THEN
     call get_storage(nint(plvl), 'PRESSURE', P, ix, jx)
@@ -642,7 +644,6 @@ subroutine compute_rh_vapp_upa(ix, jx, plvl)
   implicit none
   integer :: ix, jx
   real :: plvl
-  real :: lat1, lon1, dx, dy
   real, dimension(ix,jx) :: P, ES
   real, pointer, dimension(:,:) :: T, E, RH
 
@@ -650,9 +651,6 @@ subroutine compute_rh_vapp_upa(ix, jx, plvl)
   real, parameter :: svp2=17.67
   real, parameter :: svp3=29.65
   real, parameter :: svpt0=273.15
-  real, parameter :: eps = 0.622
-
-  real :: startlat, startlon, deltalat, deltalon
 
   allocate(RH(ix,jx))
 
@@ -675,7 +673,6 @@ subroutine compute_rh_depr(ix, jx, plvl)
   implicit none
   integer :: ix, jx
   real :: plvl
-  real :: lat1, lon1, dx, dy
   real, dimension(ix,jx) :: t, depr, rh
 
   real, parameter :: Xlv = 2.5e6
@@ -701,7 +698,6 @@ subroutine compute_rh_dewpt(ix,jx)
   use storage_module
   implicit none
   integer :: ix, jx
-  real :: lat1, lon1, dx, dy
   real, dimension(ix,jx) :: t, dp, rh
 
   real, parameter :: Xlv = 2.5e6

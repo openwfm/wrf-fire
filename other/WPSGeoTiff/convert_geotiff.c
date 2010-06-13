@@ -140,7 +140,7 @@ int main (int argc, char * argv[]) {
         break;
       case 's':
         if(sscanf(optarg,"%f",&scale) != 1 ||
-           scale != 0.)
+           scale == 0.)
         {
           fprintf(stderr,"Invalid argument to -s.\n");
           print_usage(stderr,argv[0]);

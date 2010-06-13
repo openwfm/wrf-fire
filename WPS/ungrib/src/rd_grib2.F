@@ -73,6 +73,7 @@
       real , dimension(maxlvl) :: plvl
       integer :: nlvl
       integer , dimension(maxlvl) :: level_array
+      logical :: first = .true.
 
 C - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 C  SET ARGUMENTS
@@ -110,6 +111,7 @@ C  SET ARGUMENTS
 
       ! Open a byte-addressable file.
       CALL BAOPENR(junit,gribflnm,IOS)
+      first = .true.
       if (ios.eq.0) then 
       VERSION: do
 
@@ -167,7 +169,8 @@ C  SET ARGUMENTS
          ! ----
          ! Once per file fill in date, model and projection values.
 
-         if (lskip.lt.10) then 
+         if (first) then 
+           first = .false.
 
            ! Build the 19-character date string, based on GRIB2 header date
            ! and time information, including forecast time information:
@@ -219,11 +222,13 @@ C  SET ARGUMENTS
 
            if (icenter.eq.7) then
              if (iprocess.eq.83 .or. iprocess.eq.84) then
-               map%source = 'NCEP NAM Model'
+               map%source = 'NCEP MESO NAM Model'
              elseif (iprocess.eq.81) then
                map%source = 'NCEP GFS Analysis'
              elseif (iprocess.eq.82) then
-               map%source = 'NCEP GFS GDAS'
+               map%source = 'NCEP GFS GDAS/FNL'
+             elseif (iprocess.eq.89) then
+               map%source = 'NCEP NMM '
              elseif (iprocess.eq.96) then
                map%source = 'NCEP GFS Model'
              elseif (iprocess.eq.86 .or. iprocess.eq.100) then
@@ -242,8 +247,12 @@ C  SET ARGUMENTS
                map%source = 'GFDL Hurricane Model'
              elseif (iprocess.eq.80) then
                map%source = 'NCEP GFS Ensemble'
+             elseif (iprocess.eq.107) then             ! renumbered as of 23 Feb 2010
+               map%source = 'NCEP GFS Ensemble'
              elseif (iprocess.eq.129) then
                map%source = 'NCEP GODAS'
+             elseif (iprocess.eq.25) then
+               map%source = 'NCEP SNOW COVER ANALYSIS'
              else
                map%source = 'unknown model from NCEP'
                call mprintf(.true.,STDOUT,
@@ -259,6 +268,8 @@ C  SET ARGUMENTS
              else
                map%source = 'AFWA'
              endif
+           else if ( icenter .eq. 58 ) then
+             map%source = 'US Navy FNOC'
            else if (icenter .eq. 59) then
              if (iprocess.eq.120) then
                map%source = 'NOAA GSD Rapid Refresh'
@@ -271,13 +282,17 @@ C  SET ARGUMENTS
              map%source = 'ECMWF'
            else if (icenter .eq. 34) then
              map%source = 'JMA'
+           else if (icenter .eq. 74 .or. icenter .eq. 75 ) then
+             map%source = 'UKMO'
            else
              map%source = 'unknown model and orig center'
            end if
+           call mprintf(.true.,DEBUG,"G2 source is = %s ",
+     &                  newline=.true., s1=map%source)
 
            !--
 
-           ! Store information about the grid on which the data is. 
+           ! Store information about the grid containing the data.
            ! This stuff gets stored in the MAP variable, as defined in 
            ! module GRIDINFO.
 
@@ -294,7 +309,8 @@ C  SET ARGUMENTS
               map%lon1 = gfld%igdtmpl(13)
               write(tmp8,'(b8.8)') gfld%igdtmpl(14)
               if (tmp8(5:5) .eq. '0') map%grid_wind = .false.
-              map%r_earth = earth_radius (gfld%igdtmpl(1))
+              map%r_earth = earth_radius (gfld%igdtmpl(1),
+     &                         gfld%igdtmpl(2),gfld%igdtmpl(3))
 
               if ((gfld%igdtmpl(10) .eq. 0).OR.
      &            (gfld%igdtmpl(10) .eq. 255)) THEN
@@ -347,7 +363,8 @@ C  SET ARGUMENTS
               map%lon1 = gfld%igdtmpl(11) / scale_factor
               write(tmp8,'(b8.8)') gfld%igdtmpl(12)
               if (tmp8(5:5) .eq. '0') map%grid_wind = .false.
-              map%r_earth = earth_radius (gfld%igdtmpl(1))
+              map%r_earth = earth_radius (gfld%igdtmpl(1),
+     &                       gfld%igdtmpl(2),gfld%igdtmpl(3))
 
            elseif (gfld%igdtnum.eq.30) then ! Lambert Conformal Grid
               map%igrid = 3
@@ -362,7 +379,8 @@ C  SET ARGUMENTS
               map%lon1 = gfld%igdtmpl(11) / scale_factor
               write(tmp8,'(b8.8)') gfld%igdtmpl(12)
               if (tmp8(5:5) .eq. '0') map%grid_wind = .false.
-              map%r_earth = earth_radius (gfld%igdtmpl(1))
+              map%r_earth = earth_radius (gfld%igdtmpl(1),
+     &                       gfld%igdtmpl(2),gfld%igdtmpl(3))
 
            elseif(gfld%igdtnum.eq.40) then ! Gaussian Grid (we will call it lat/lon)
               map%igrid = 4
@@ -374,7 +392,8 @@ C  SET ARGUMENTS
               map%lon1 = gfld%igdtmpl(13)  ! Lo1 - lon of 1st grid point
               write(tmp8,'(b8.8)') gfld%igdtmpl(14)  ! resolution/component flag
               if (tmp8(5:5) .eq. '0') map%grid_wind = .false.
-              map%r_earth = earth_radius (gfld%igdtmpl(1))
+              map%r_earth = earth_radius (gfld%igdtmpl(1),
+     &                       gfld%igdtmpl(2),gfld%igdtmpl(3))
 
               ! Scale dx/dy values to degrees, default range is 1e6.
               if (map%dx.gt.10000) then 
@@ -411,6 +430,9 @@ C  SET ARGUMENTS
      &          "see Code Table 3.1: Grid Definition Template Number",
      &          newline=.true.)
            endif
+
+           call mprintf(.true.,DEBUG,"G2 igrid = %i ,  dx = %f ,  dy = %
+     &f ", newline=.true., i1 = map%igrid, f1=map%dx, f2=map%dy)
          
            if (icenter.eq.7) then
              call ncep_grid_num (gfld%igdtnum)
@@ -529,6 +551,10 @@ C  SET ARGUMENTS
 !MGD          write(6,*) 'looking for ',gfld%discipline,gfld%ipdtmpl(1),
 !MGD     &       gfld%ipdtmpl(2),gfld%ipdtmpl(10)
 !MGD          endif
+           call mprintf(.true.,DEBUG,"G2 Searching the g2code array (Vta
+     &ble) for this grib field %i %i %i %i ", newline=.true., 
+     & i1 = gfld%discipline, i2 = gfld%ipdtmpl(1), 
+     & i3 = gfld%ipdtmpl(2), i4 = gfld%ipdtmpl(10) )
 
          ! Test this data record against list of desired variables 
          ! found in Vtable.
@@ -890,15 +916,20 @@ C  SET ARGUMENTS
       end subroutine ncep_grid_num
 !*****************************************************************************!
 
-      function earth_radius (icode)
+      function earth_radius (icode, iscale, irad_m)
 ! Grib2 Code Table 3.2. Returns the spherical earth's radius in km.
       use module_debug
       real :: earth_radius
       integer :: icode
+      integer :: iscale, irad_m
       if ( icode .eq. 0 ) then
         earth_radius = 6367470. * .001
+      else if ( icode .eq. 1) then
+        earth_radius = 0.001 * float(irad_m) / 10**iscale
       else if ( icode .eq. 6 ) then
         earth_radius = 6371229. * .001
+      else if ( icode .eq. 8 ) then
+        earth_radius = 6371200. * .001
       else
         call mprintf(.true.,ERROR,
      &    "unknown earth radius for code %i",newline=.true.,i1=icode)

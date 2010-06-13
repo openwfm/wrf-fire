@@ -42,7 +42,7 @@ GeogridIndex get_index_from_geotiff(
   GTIFDefn gtifp;
   int projid,modeltype,count;
   GeogridIndex idx;
-  double stdpar1,stdpar2,olat,olon,dx,dy;
+  double stdpar1,stdpar2,stdlon,olat,olon,dx,dy;
   double *pixelscale;
   uint32 inx,iny,inz;
   uint16 orientation,format;
@@ -55,12 +55,11 @@ GeogridIndex get_index_from_geotiff(
   idx.truelat1=stdpar1;
   GTIFKeyGet(gtifh,ProjStdParallel2GeoKey,&stdpar2,0,1);
   idx.truelat2=stdpar2;
-  //GTIFKeyGet(gtifh,ProjNatOriginLatGeoKey,&olat,0,1);
-  idx.known_lat=-1000;
-  //GTIFKeyGet(gtifh,ProjNatOriginLongGeoKey,&olon,0,1);
-  idx.known_lon=-1000;
-  GTIFKeyGet(gtifh,ProjLinearUnitSizeGeoKey,&dx,0,1);
-  dy=dx;
+  GTIFKeyGet(gtifh,ProjCenterLongGeoKey,&stdlon,0,1);
+  idx.stdlon=stdlon;
+  TIFFGetField(file,GTIFF_PIXELSCALE,&count,&pixelscale);
+  idx.dx=pixelscale[0];
+  idx.dy=pixelscale[1];
   
   /* Fill projection specific parameters. */
   /* WARNING: This is far from robust and will likely break 
@@ -106,9 +105,6 @@ GeogridIndex get_index_from_geotiff(
         idx.known_lon=olon; */
         //GTIFKeyGet(gtifh,TIFFTAG_GEOPIXELSCALE,&dx,0,1);
         //GTIFKeyGet(gtifh,TIFFTAG_GEOPIXELSCALE,&dy,1,1);
-        TIFFGetField(file,GTIFF_PIXELSCALE,&count,&pixelscale);
-        idx.dx=pixelscale[0];
-        idx.dy=pixelscale[1];
       }
       else {
         fprintf(stderr,"Unknown projection ID: %i\n",projid);
@@ -129,6 +125,15 @@ GeogridIndex get_index_from_geotiff(
     }
     idx.known_lat=olat;
     idx.known_lon=olon;
+    
+    olat=1;
+    olon=1;
+    GTIFImageToPCS(gtifh,&olon,&olat);
+    if(idx.dx <= 0. && idx.dy <= 0) {
+      // As a last resort, get dx/dy from projection conversion.
+      idx.dx=(float)fabs(olon-(double)idx.known_lon);
+      idx.dy=(float)fabs(olat-(double)idx.known_lat);
+    }
   }
   else {
     if ( ! GTIFImageToPCS(gtifh,&olon,&olat) ) {

@@ -38,14 +38,14 @@ by both C++ and F90 compilers.
 ! Note that MAX_ALARMS must match MAX_WRF_ALARMS defined in 
 ! ../../frame/module_domain.F !!!  Eliminate this dependence with 
 ! grow-as-you-go AlarmList in ESMF_Clock...  
-#define MAX_ALARMS 28
+#define MAX_ALARMS (2*(MAX_HISTORY)+10)
 
 ! TBH:  TODO:  Hook this into the WRF build so WRF can use either "no-leap" or 
 ! TBH:         Gregorian calendar.  Now WRF is hard-wired to use Gregorian.  
-#undef NO_LEAP_CALENDAR
-#ifdef COUP_CSM
-#define NO_LEAP_CALENDAR
-#endif
+!#undef NO_LEAP_CALENDAR
+!#ifdef COUP_CSM
+!#define NO_LEAP_CALENDAR
+!#endif
 
 ! TBH:  When NO_DT_COMPONENT_INIT is set, code that uses F95 compile-time 
 ! TBH:  initialization of components of derived types is not included.  

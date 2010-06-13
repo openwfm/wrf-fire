@@ -14,10 +14,11 @@ PROGRAM real_data
    USE module_timing
    USE module_state_description, ONLY : realonly
    USE module_symbols_util, ONLY: wrfu_cal_gregorian
+   USE module_check_a_mundo
 #ifdef WRF_CHEM
    USE module_input_chem_data
    USE module_input_chem_bioemiss
-   USE module_input_chem_emissopt3
+!  USE module_input_chem_emissopt3
 #endif
    USE module_utility, ONLY : WRFU_finalize
 
@@ -116,6 +117,8 @@ real::t1,t2
 #else
    CALL initial_config
 #endif
+   CALL check_nml_consistency
+   CALL set_physics_rconfigs
 
    CALL nl_get_debug_level ( 1, debug_level )
    CALL set_wrf_debug_level ( debug_level )
@@ -282,7 +285,7 @@ SUBROUTINE med_sidata_input ( grid , config_flags )
 #ifdef WRF_CHEM
    USE module_input_chem_data
    USE module_input_chem_bioemiss
-   USE module_input_chem_emissopt3
+!  USE module_input_chem_emissopt3
 #endif
 
    USE module_date_time
@@ -404,8 +407,8 @@ real::t1,t2,t3,t4
 
       !  Input data.
 
-      CALL wrf_debug ( 100 , 'med_sidata_input: calling input_aux_model_input1' )
-      CALL input_aux_model_input1 ( idsi ,   grid , config_flags , ierr )
+      CALL wrf_debug ( 100 , 'med_sidata_input: calling input_auxinput1' )
+      CALL input_auxinput1 ( idsi ,   grid , config_flags , ierr )
       CALL cpu_time ( t4 )
       WRITE ( wrf_err_message , FMT='(A,I10,A)' ) 'Timing for input ',NINT(t4-t3) ,' s.'
       CALL wrf_debug( 0, wrf_err_message )
@@ -705,21 +708,21 @@ real::t1,t2
       !  Open the wrfinput file.  From this program, this is an *output* file.
 
       CALL construct_filename1( inpname , 'wrfinput' , grid%id , 2 )
-      CALL open_w_dataset ( id1, TRIM(inpname) , grid , config_flags , output_model_input , "DATASET=INPUT", ierr )
+      CALL open_w_dataset ( id1, TRIM(inpname) , grid , config_flags , output_input , "DATASET=INPUT", ierr )
       IF ( ierr .NE. 0 ) THEN
          CALL wrf_error_fatal( 'real: error opening wrfinput for writing' )
       END IF
-      CALL output_model_input ( id1, grid , config_flags , ierr )
+      CALL output_input ( id1, grid , config_flags , ierr )
       CALL close_dataset ( id1 , config_flags , "DATASET=INPUT" )
 
       IF ( time_loop_max .NE. 1 ) THEN
          IF(sst_update .EQ. 1)THEN
            CALL construct_filename1( inpname , 'wrflowinp' , grid%id , 2 )
-           CALL open_w_dataset ( id4, TRIM(inpname) , grid , config_flags , output_aux_model_input4 , "DATASET=AUXINPUT4", ierr )
+           CALL open_w_dataset ( id4, TRIM(inpname) , grid , config_flags , output_auxinput4 , "DATASET=AUXINPUT4", ierr )
            IF ( ierr .NE. 0 ) THEN
               CALL wrf_error_fatal( 'real: error opening wrflowinp for writing' )
            END IF
-           CALL output_aux_model_input4 ( id4, grid , config_flags , ierr )
+           CALL output_auxinput4 ( id4, grid , config_flags , ierr )
          END IF
       END IF
 
@@ -821,7 +824,7 @@ real::t1,t2
    ELSE IF ( loop .GT. 1 ) THEN
 
       IF(sst_update .EQ. 1)THEN
-        CALL output_aux_model_input4 ( id4, grid , config_flags , ierr )
+        CALL output_auxinput4 ( id4, grid , config_flags , ierr )
       END IF
 
       !  Open the boundary and the fdda file.
@@ -836,7 +839,7 @@ real::t1,t2
          END IF
          IF(grid_fdda .GE. 1)THEN
             CALL construct_filename1( inpname , 'wrffdda' , grid%id , 2 )
-            CALL open_w_dataset ( id2, TRIM(inpname) , grid , config_flags , output_aux_model_input10 , "DATASET=AUXINPUT10", ierr )
+            CALL open_w_dataset ( id2, TRIM(inpname) , grid , config_flags , output_auxinput10 , "DATASET=AUXINPUT10", ierr )
             IF ( ierr .NE. 0 ) THEN
                CALL wrf_error_fatal( 'real: error opening wrffdda for writing' )
             END IF
@@ -1008,7 +1011,7 @@ real::t1,t2
       !  Output gridded/analysis FDDA file.
 
       IF(grid_fdda .GE. 1) THEN
-         CALL output_aux_model_input10 ( id2, grid , config_flags , ierr )
+         CALL output_auxinput10 ( id2, grid , config_flags , ierr )
       END IF
 
       current_date = temp24
@@ -1027,11 +1030,11 @@ real::t1,t2
 
       IF ( config_flags%all_ic_times ) THEN
          CALL construct_filename2a ( inpname , 'wrfinput_d<domain>.<date>' , grid%id , 2 , TRIM(current_date) )
-         CALL open_w_dataset ( id1, inpname , grid , config_flags , output_model_input , "DATASET=INPUT", ierr )
+         CALL open_w_dataset ( id1, inpname , grid , config_flags , output_input , "DATASET=INPUT", ierr )
          IF ( ierr .NE. 0 ) THEN
             CALL wrf_error_fatal( 'real: error opening' // inpname // ' for writing' )
          END IF
-         CALL output_model_input ( id1, grid , config_flags , ierr )
+         CALL output_input ( id1, grid , config_flags , ierr )
          CALL close_dataset ( id1 , config_flags , "DATASET=INPUT" )
       END IF
 

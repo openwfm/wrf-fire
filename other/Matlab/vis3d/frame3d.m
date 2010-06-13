@@ -3,7 +3,7 @@ function frame3d(swind,amin,amax,astep,qstep,qs,...
 
 clf,hold off
 
-r = size(fxlong)./(size(xlong)+1);  % refinement ratio
+r = size(fxlong)./(size(xlong));  % refinement ratio
 ideal = all(xlong ==0);   % not populated in ideal case
 
 if ideal,

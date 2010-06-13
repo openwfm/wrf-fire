@@ -736,7 +736,7 @@ GROW_SHRINK_MAIN_K_LOOP: do k=kts,kte
            qndrop(k)=qndrop(k)*(1.+lcldfra(k)-lcldfra_old(k))
 !                 convert activated aerosol to interstitial in decaying cloud
 
-           tmpc = (lcldfra_old(k)-lcldfra(k))/lcldfra_old(k)
+           tmpc = (lcldfra(k)-lcldfra_old(k))/lcldfra_old(k)
            do n=1,ntype_aer
               do m=1,nsize_aer(n)
                  lnum=numptr_aer(m,n,ai_phase)
@@ -1104,7 +1104,7 @@ OLD_CLOUD_NSUBMIX_LOOP: do nsub=1,nsubmix
         qndrop3d(i,k,j) = max(qndrop(k),1.e-6)
 
         if(qndrop3d(i,k,j).lt.-10.e6.or.qndrop3d(i,k,j).gt.1.E20)then
-           write(6,'(a,g12.2,a,3i5)')'after qndrop=',qndrop3d(i,k,j),' for i,k,j=',i,k,j
+           write(6,'(a,g12.2,a,3i5)')'after qndrop3d=',qndrop3d(i,k,j),' for i,k,j=',i,k,j
         endif
         if(qc(i,k,j).lt.-1..or.qc(i,k,j).gt.1.)then
            write(6,'(a,g12.2,a,3i5)')'qc=',qc(i,k,j),' for i,k,j=',i,k,j

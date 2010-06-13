@@ -25,6 +25,8 @@ DA_CONVERTOR_MODULES = $(DA_CONVERTOR_MOD_DIR) $(INCLUDE_MODULES)
 #EXP_MODULE_DIR = -I../dyn_exp
 #EXP_MODULES =  $(EXP_MODULE_DIR)
 
+# set this in the compile script now
+#J = -j 6
 
 NMM_MODULE_DIR = -I../dyn_nmm
 NMM_MODULES =  $(NMM_MODULE_DIR)
@@ -68,7 +70,12 @@ wrf : framework_only
 all_wrfvar : 
 	$(MAKE) MODULE_DIRS="$(DA_WRFVAR_MODULES)" ext
 	$(MAKE) MODULE_DIRS="$(DA_WRFVAR_MODULES)" toolsdir
-	( cd var/build; touch depend.txt; make links; make depend; $(MAKE) all_wrfvar )
+	if [ $(BUFR) ] ; then \
+	  ( cd var/external/bufr;  \
+	  $(MAKE) FC="$(SFC)" CC="$(SCC)" CPP="$(CPP)" CFLAGS="$(CFLAGS)" FFLAGS="$(FCDEBUG) $(FORMAT_FIXED)" RANLIB="$(RANLIB)" AR="$(AR)" ARFLAGS="$(ARFLAGS)" ) ; \
+	fi
+#	( cd var/build; touch depend.txt; make links; make depend; $(MAKE) $(J) all_wrfvar )
+	( cd var/build; make depend; $(MAKE) $(J) all_wrfvar )
 	( cd var/obsproc; $(MAKE) BUFR_CPP="$(BUFR_CPP)" )
 
 ### 3.a.  rules to build the framework and then the experimental core
@@ -425,6 +432,7 @@ nmm_real : nmm_wrf
 	( cd test/nmm_real ; /bin/rm -f tr67t85 ; ln -s ../../run/tr67t85 . )
 	( cd test/nmm_real ; /bin/rm -f gribmap.txt ; ln -s ../../run/gribmap.txt . )
 	( cd test/nmm_real ; /bin/rm -f grib2map.tbl ; ln -s ../../run/grib2map.tbl . )
+	( cd test/nmm_real ; /bin/rm -f co2_trans ; ln -s ../../run/co2_trans . )
 	( cd run ; /bin/rm -f real_nmm.exe ; ln -s ../main/real_nmm.exe . )
 	( cd run ; if test -f namelist.input ; then \
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
@@ -441,7 +449,7 @@ ext :
 
 framework :
 	@ echo '--------------------------------------'
-	( cd frame ; $(MAKE) framework; \
+	( cd frame ; $(MAKE) $(J) framework; \
           cd ../external/io_netcdf ; \
           $(MAKE) NETCDFPATH="$(NETCDFPATH)" FC="$(SFC) $(FCBASEOPTS)" RANLIB="$(RANLIB)" \
                CPP="$(CPP)" LDFLAGS="$(LDFLAGS)" TRADFLAG="$(TRADFLAG)" ESMF_IO_LIB_EXT="$(ESMF_IO_LIB_EXT)" \
@@ -463,7 +471,7 @@ framework :
 
 shared :
 	@ echo '--------------------------------------'
-	( cd share ; $(MAKE) )
+	( cd share ; $(MAKE) $(J) )
 
 chemics :
 	@ echo '--------------------------------------'
@@ -471,11 +479,11 @@ chemics :
 
 physics :
 	@ echo '--------------------------------------'
-	( cd phys ; $(MAKE) )
+	( cd phys ; $(MAKE)  $(J) )
 
 em_core :
 	@ echo '--------------------------------------'
-	( cd dyn_em ; $(MAKE) )
+	( cd dyn_em ; $(MAKE) $(J) )
 
 # rule used by configure to test if this will compile with MPI 2 calls MPI_Comm_f2c and _c2f
 mpi2_test :
@@ -504,7 +512,10 @@ nmm_core :
 
 toolsdir :
 	@ echo '--------------------------------------'
-	( cd tools ; $(MAKE) CC_TOOLS="$(CC_TOOLS)" )
+	( cd tools ; $(MAKE) CC_TOOLS="$(CC_TOOLS) -DIWORDSIZE=$(IWORDSIZE) -DMAX_HISTORY=$(MAX_HISTORY)" )
+
+
+#	( cd tools ; $(MAKE) CC_TOOLS="$(CC_TOOLS) -DIO_MASK_SIZE=$(IO_MASK_SIZE)" )
 
 # Use this target to build stand-alone tests of esmf_time_f90.  
 # Only touches external/esmf_time_f90/.  

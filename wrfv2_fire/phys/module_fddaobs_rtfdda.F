@@ -38,10 +38,29 @@ MODULE module_fddaobs_rtfdda
 CONTAINS
 
 !------------------------------------------------------------------------------
-  SUBROUTINE fddaobs_init(obs_nudge_opt, maxdom, inest, parid,         &
+  SUBROUTINE fddaobs_init(nudge_opt, maxdom, inest, parid,             &
                           idynin, dtramp, fdaend, restart,             &
-                          obs_twindo_cg, obs_twindo, itimestep,        &
+                          twindo_cg, twindo, itimestep,                &
+                          no_pbl_nudge_uv,                             &
+                          no_pbl_nudge_t,                              &
+                          no_pbl_nudge_q,                              &
+                          sfcfact, sfcfacr, dpsmx,                     &
+                          nudge_wind, nudge_temp, nudge_mois,          &
+                          nudgezfullr1_uv, nudgezrampr1_uv,            &
+                          nudgezfullr2_uv, nudgezrampr2_uv,            &
+                          nudgezfullr4_uv, nudgezrampr4_uv,            &
+                          nudgezfullr1_t,  nudgezrampr1_t,             &
+                          nudgezfullr2_t,  nudgezrampr2_t,             &
+                          nudgezfullr4_t,  nudgezrampr4_t,             &
+                          nudgezfullr1_q,  nudgezrampr1_q,             &
+                          nudgezfullr2_q,  nudgezrampr2_q,             &
+                          nudgezfullr4_q,  nudgezrampr4_q,             &
+                          nudgezfullmin,   nudgezrampmin, nudgezmax,   &
                           xlat, xlong,                                 &
+                          start_year, start_month, start_day,          &
+                          start_hour, start_minute, start_second,      &
+                          p00, t00, tlp,                               &
+                          znu, p_top,                                  &
 #if ( EM_CORE == 1 )
                           fdob,                                        &
 #endif
@@ -53,8 +72,9 @@ CONTAINS
 !  This routine does initialization for real time fdda obs-nudging.
 !
 !-----------------------------------------------------------------------
+  USE module_model_constants, ONLY : g, r_d
   USE module_domain
-  USE module_dm                 ! for wrf_dm_min_real
+  USE module_dm, ONLY : wrf_dm_min_real
 !-----------------------------------------------------------------------
   IMPLICIT NONE
 !-----------------------------------------------------------------------
@@ -63,7 +83,7 @@ CONTAINS
 ! Definitions
 !-----------
   INTEGER, intent(in)  :: maxdom
-  INTEGER, intent(in)  :: obs_nudge_opt(maxdom)
+  INTEGER, intent(in)  :: nudge_opt(maxdom)
   INTEGER, intent(in)  :: ids,ide, jds,jde, kds,kde,                 &
                           ims,ime, jms,jme, kms,kme,                 &
                           its,ite, jts,jte, kts,kte
@@ -73,11 +93,52 @@ CONTAINS
   REAL,    intent(in)  :: dtramp         ! time period for idynin ramping (min)
   REAL,    intent(in)  :: fdaend(maxdom) ! nudging end time for domain (min)
   LOGICAL, intent(in)  :: restart
-  REAL, intent(in)     :: obs_twindo_cg  ! time window on coarse grid
-  REAL, intent(in)     :: obs_twindo
+  REAL, intent(in)     :: twindo_cg      ! time window on coarse grid
+  REAL, intent(in)     :: twindo
   INTEGER, intent(in)  :: itimestep
-  REAL, DIMENSION( ims:ime, jms:jme ),                            &
-        INTENT(IN)     :: xlat, xlong  ! lat/long locations on mass point grid
+  INTEGER , INTENT(IN) :: no_pbl_nudge_uv(maxdom)  ! flags for no wind nudging in pbl 
+  INTEGER , INTENT(IN) :: no_pbl_nudge_t(maxdom)   ! flags for no temperature nudging in pbl
+  INTEGER , INTENT(IN) :: no_pbl_nudge_q(maxdom)   ! flags for no moisture nudging in pbl
+  REAL, intent(in)     :: sfcfact      ! scale factor applied to time window for surface obs  
+  REAL, intent(in)     :: sfcfacr      ! scale fac applied to horiz rad of infl for sfc obs
+  REAL, intent(in)     :: dpsmx        ! max press change allowed within hor rad of infl
+  INTEGER , INTENT(IN) :: nudge_wind(maxdom)       ! wind-nudging flag
+  INTEGER , INTENT(IN) :: nudge_temp(maxdom)       ! temperature-nudging flag
+  INTEGER , INTENT(IN) :: nudge_mois(maxdom)       ! moisture-nudging flag
+  REAL, INTENT(IN)     :: nudgezfullr1_uv  ! vert infl fcn, regime=1 full-wt   hght, winds
+  REAL, INTENT(IN)     :: nudgezrampr1_uv  ! vert infl fcn, regime=1 ramp down hght, winds
+  REAL, INTENT(IN)     :: nudgezfullr2_uv  ! vert infl fcn, regime=2 full-wt   hght, winds
+  REAL, INTENT(IN)     :: nudgezrampr2_uv  ! vert infl fcn, regime=2 ramp down hght, winds
+  REAL, INTENT(IN)     :: nudgezfullr4_uv  ! vert infl fcn, regime=4 full-wt   hght, winds
+  REAL, INTENT(IN)     :: nudgezrampr4_uv  ! vert infl fcn, regime=4 ramp down hght, winds
+  REAL, INTENT(IN)     :: nudgezfullr1_t   ! vert infl fcn, regime=1 full-wt   hght, temp
+  REAL, INTENT(IN)     :: nudgezrampr1_t   ! vert infl fcn, regime=1 ramp down hght, temp
+  REAL, INTENT(IN)     :: nudgezfullr2_t   ! vert infl fcn, regime=2 full-wt   hght, temp
+  REAL, INTENT(IN)     :: nudgezrampr2_t   ! vert infl fcn, regime=2 ramp down hght, temp
+  REAL, INTENT(IN)     :: nudgezfullr4_t   ! vert infl fcn, regime=4 full-wt   hght, temp
+  REAL, INTENT(IN)     :: nudgezrampr4_t   ! vert infl fcn, regime=4 ramp down hght, temp
+  REAL, INTENT(IN)     :: nudgezfullr1_q   ! vert infl fcn, regime=1 full-wt   hght, mois
+  REAL, INTENT(IN)     :: nudgezrampr1_q   ! vert infl fcn, regime=1 ramp down hght, mois
+  REAL, INTENT(IN)     :: nudgezfullr2_q   ! vert infl fcn, regime=2 full-wt   hght, mois
+  REAL, INTENT(IN)     :: nudgezrampr2_q   ! vert infl fcn, regime=2 ramp down hght, mois
+  REAL, INTENT(IN)     :: nudgezfullr4_q   ! vert infl fcn, regime=4 full-wt   hght, mois
+  REAL, INTENT(IN)     :: nudgezrampr4_q   ! vert infl fcn, regime=4 ramp down hght, mois
+  REAL, INTENT(IN)     :: nudgezfullmin    ! min dpth thru which vert infl fcn remains 1.0 (m)
+  REAL, INTENT(IN)     :: nudgezrampmin    ! min dpth thru which vif decreases 1.0 to 0.0 (m)
+  REAL, INTENT(IN)     :: nudgezmax        ! max dpth in which vif is nonzero (m)
+  REAL, INTENT(IN)     :: xlat ( ims:ime, jms:jme )        ! latitudes on mass-point grid
+  REAL, INTENT(IN)     :: xlong( ims:ime, jms:jme )        ! longitudes on mass-point grid
+  INTEGER, intent(in)  :: start_year   ! Model start year
+  INTEGER, intent(in)  :: start_month  ! Model start month
+  INTEGER, intent(in)  :: start_day    ! Model start day
+  INTEGER, intent(in)  :: start_hour   ! Model start hour
+  INTEGER, intent(in)  :: start_minute ! Model start minute
+  INTEGER, intent(in)  :: start_second ! Model start second
+  REAL, INTENT(IN)     :: p00          ! base state pressure
+  REAL, INTENT(IN)     :: t00          ! base state temperature
+  REAL, INTENT(IN)     :: tlp          ! base state lapse rate
+  REAL, INTENT(IN)     :: p_top        ! pressure at top of model
+  REAL, INTENT(IN)     :: znu( kms:kme )      ! eta values on half (mass) levels
 #if ( EM_CORE == 1 ) 
   TYPE(fdob_type), intent(inout)  :: fdob
 #endif
@@ -96,8 +157,30 @@ CONTAINS
   real               :: known_lat       ! Latitude of domain point (i,j)=(1,1)
   real               :: known_lon       ! Longitude of domain point (i,j)=(1,1) 
   character(len=200) :: msg             ! Argument to wrf_message
+  real               :: z_at_p( kms:kme )  ! height at p levels
+  integer            :: i,j,k           ! loop counters
 
 #if ( EM_CORE == 1 ) 
+
+! Check to see if the nudging flag has been set. If not,
+! simply RETURN.
+  nudge_flag = (nudge_opt(inest) .eq. 1)
+  if (.not. nudge_flag) return
+
+  call wrf_message("")
+  write(msg,fmt='(a,i2)') ' OBSERVATION NUDGING IS ACTIVATED FOR MESH ',inest
+  call wrf_message(msg)
+
+  ktau  = itimestep
+  if(restart) then
+    fdob%ktaur = ktau
+  else
+    fdob%ktaur = 0 
+  endif
+
+! Create character string containing model starting-date
+  CALL date_string(start_year, start_month, start_day, start_hour,        &
+                   start_minute, start_second, fdob%sdate)
 
 ! Set flag for nudging on pressure (not sigma) surfaces.
   fdob%iwtsig = 0
@@ -119,7 +202,7 @@ CONTAINS
      endif
      if(iprt) then
         call wrf_message("")
-        write(msg,'(a,i3,a)')                                              &
+        write(msg,fmt='(a,i3,a)')                                              &
           ' *** DYNAMIC-INITIALIZATION OPTION FOR INEST = ', inest, ' ***'
         call wrf_message(msg)
         write(msg,*) ' FDAEND,DATEND,DTRAMP: ',fdaend(inest),fdob%datend,dtramp
@@ -130,11 +213,22 @@ CONTAINS
 ! *** end dynamic initialization section ***
 !**************************************************************************
 
+! Store temporal and spatial scales
+  fdob%sfcfact = sfcfact
+  fdob%sfcfacr = sfcfacr
+
 ! Set time window.
-  fdob%window = obs_twindo
+  fdob%window = twindo
+  call wrf_message("")
+  write(msg,fmt='(a,i3)') '*** TIME WINDOW SETTINGS FOR NEST ',inest
+  call wrf_message(msg)
+  write(msg,fmt='(a,f6.3,2(a,f5.3))') '    TWINDO (hrs) = ',twindo,      &
+            '  SFCFACT = ',sfcfact,'  SFCFACR = ',sfcfacr
+  call wrf_message(msg)
+  call wrf_message("")
 
   if(inest.eq.1) then
-    if(obs_twindo .eq. 0.) then
+    if(twindo .eq. 0.) then
       if(iprt) then
         call wrf_message("")
         write(msg,*) '*** WARNING: TWINDO=0 on the coarse domain.'
@@ -145,13 +239,13 @@ CONTAINS
       endif
     endif
   else        ! nest
-    if(obs_twindo .eq. 0.) then
-      fdob%window = obs_twindo_cg
+    if(twindo .eq. 0.) then
+      fdob%window = twindo_cg
       if(iprt) then
         call wrf_message("")
-        write(msg,'(a,i2)') 'WARNING: TWINDO=0. for nest ',inest
+        write(msg,fmt='(a,i2)') 'WARNING: TWINDO=0. for nest ',inest
         call wrf_message(msg)
-        write(msg,'(a,f12.5,a)') 'Default to coarse-grid value of ', obs_twindo_cg,' hrs'
+        write(msg,fmt='(a,f12.5,a)') 'Default to coarse-grid value of ', twindo_cg,' hrs'
         call wrf_message(msg)
         call wrf_message("")
       endif
@@ -162,16 +256,168 @@ CONTAINS
 
   fdob%domain_tot=0
   do nest=1,maxdom
-    fdob%domain_tot = fdob%domain_tot + obs_nudge_opt(nest)
+    fdob%domain_tot = fdob%domain_tot + nudge_opt(nest)
   end do
 
-! Set parameters.
+! Calculate and store dcon from dpsmx
+  if(dpsmx.gt.0.) then
+       fdob%dpsmx = dpsmx
+       fdob%dcon = 1.0/fdob%dpsmx
+  else 
+       call wrf_error_fatal('fddaobs_init: Namelist variable dpsmx must be greater than zero!')
+  endif
 
+! Calculate and store base-state heights at half (mass) levels.
+  CALL get_base_state_height_column( p_top, p00, t00, tlp, g, r_d, znu,   &
+                                     fdob%base_state,  kts, kte, kds,kde, kms,kme )
+
+! Initialize flags for nudging within PBL.
+  fdob%nudge_uv_pbl  = .true.
+  fdob%nudge_t_pbl   = .true.
+  fdob%nudge_q_pbl   = .true.
+  if(no_pbl_nudge_uv(inest) .eq. 1) fdob%nudge_uv_pbl  = .false.
+  if(no_pbl_nudge_t(inest) .eq. 1)  fdob%nudge_t_pbl   = .false.
+  if(no_pbl_nudge_q(inest) .eq. 1)  fdob%nudge_q_pbl   = .false.
+
+  if(no_pbl_nudge_uv(inest) .eq. 1) then
+    fdob%nudge_uv_pbl  = .false.
+    write(msg,*) '   --> Obs nudging for U/V is turned off in PBL'
+    call wrf_message(msg)
+  endif
+  if(no_pbl_nudge_t(inest) .eq. 1)  then
+    fdob%nudge_t_pbl   = .false.
+    write(msg,*) '   --> Obs nudging for T is turned off in PBL'
+    call wrf_message(msg)
+  endif
+  if(no_pbl_nudge_q(inest) .eq. 1)  then
+    fdob%nudge_q_pbl   = .false.
+    write(msg,*) '   --> Obs nudging for Q is turned off in PBL'
+    call wrf_message(msg)
+  endif
+
+! Initialize vertical influence fcn for LML obs 
+  fdob%vif_uv(1) = nudgezfullr1_uv
+  fdob%vif_uv(2) = nudgezrampr1_uv
+  fdob%vif_uv(3) = nudgezfullr2_uv
+  fdob%vif_uv(4) = nudgezrampr2_uv
+  fdob%vif_uv(5) = nudgezfullr4_uv
+  fdob%vif_uv(6) = nudgezrampr4_uv
+  fdob%vif_t (1) = nudgezfullr1_t
+  fdob%vif_t (2) = nudgezrampr1_t
+  fdob%vif_t (3) = nudgezfullr2_t
+  fdob%vif_t (4) = nudgezrampr2_t
+  fdob%vif_t (5) = nudgezfullr4_t
+  fdob%vif_t (6) = nudgezrampr4_t
+  fdob%vif_q (1) = nudgezfullr1_q
+  fdob%vif_q (2) = nudgezrampr1_q
+  fdob%vif_q (3) = nudgezfullr2_q
+  fdob%vif_q (4) = nudgezrampr2_q
+  fdob%vif_q (5) = nudgezfullr4_q
+  fdob%vif_q (6) = nudgezrampr4_q
+
+! Sanity checks
+  if(nudgezmax.le.0.) then
+    write(msg,*) 'STOP! OBS NAMELIST INPUT obs_nudgezmax MUST BE GREATER THAN ZERO.'
+    call wrf_message(msg)
+    write(msg,*) 'THE NAMELIST VALUE IS',nudgezmax
+    call wrf_message(msg)
+    call wrf_error_fatal ( 'fddaobs_init: STOP on bad obs_nudgemax value' )
+  endif
+  if(nudgezfullmin.lt.0.) then
+    write(msg,*) 'STOP! OBS NAMELIST INPUT obs_nudgezfullmin MUST BE NONNEGATIVE.'
+    call wrf_message(msg)
+    write(msg,*) 'THE NAMELIST VALUE IS',nudgezfullmin
+    call wrf_message(msg)
+    call wrf_error_fatal ( 'fddaobs_init: STOP on bad obs_nudgefullmin value' )
+  endif
+  if(nudgezrampmin.lt.0.) then
+    write(msg,*) 'STOP! OBS NAMELIST INPUT obs_nudgezrampmin MUST BE NONNEGATIVE.'
+    call wrf_message(msg)
+    write(msg,*) 'THE NAMELIST VALUE IS',nudgezrampmin
+    call wrf_message(msg)
+    call wrf_error_fatal ( 'fddaobs_init: STOP on bad obs_nudgerampmin value' )
+  endif
+  if(nudgezmax.lt.nudgezfullmin+nudgezrampmin) then
+    write(msg,*) 'STOP! INCONSISTENT OBS NAMELIST INPUTS.'
+    call wrf_message(msg)
+    write(msg,fmt='(3(a,f12.3))') 'obs_nudgezmax = ',nudgezmax,                &
+                            ' obs_nudgezfullmin = ',nudgezfullmin,       &
+                            ' obs_nudgezrampmin = ',nudgezrampmin
+    call wrf_message(msg)
+    write(msg,*) 'REQUIRE NUDGEZMAX >= NUDGEZFULLMIN + NUDGEZRAMPMIN'
+    call wrf_message(msg)
+    call wrf_error_fatal ( 'fddaobs_init: STOP on inconsistent namelist values' )
+  endif
+
+  fdob%vif_fullmin = nudgezfullmin
+  fdob%vif_rampmin = nudgezrampmin
+  fdob%vif_max     = nudgezmax
+
+! Check to make sure that if nudgzfullmin > 0, then it must be at least as large as the
+! first model half-level will be anywhere in the domain at any time within the simulation.
+! We use 1.1 times the base-state value fdob%base_state(1) for this purpose. 
+
+  if(nudgezfullmin.gt.0.0) then
+      if(nudgezfullmin .lt. 1.1*fdob%base_state(1)) then
+         fdob%vif_fullmin = 1.1*fdob%base_state(1)
+      endif
+  endif
+
+! Print vertical weight info only if wind, temperature, or moisture nudging is requested.
+  if( (nudge_wind(inest).eq.1) .or. (nudge_temp(inest).eq.1)                             &
+                                               .or. (nudge_mois(inest).eq.1) ) then
+  call wrf_message("")
+  write(msg,fmt='(a,i2,a)') ' *** SETUP DESCRIPTION FOR SURFACE OBS NUDGING ON MESH ',inest,' :'
+  call wrf_message(msg)
+
+  call wrf_message("")
+  write(msg,fmt='(a,i5,a)') '  NUDGEZMAX: The maximum height at which nudging will be'//     &
+                        ' applied from surface obs is ', nint(nudgezmax),' m AGL.'
+  call wrf_message(msg)
+  call wrf_message("")
+  write(msg,fmt='(a,i3,a)') '  NUDGEZFULLMIN: The minimum height of full nudging weight'//   &
+                        ' for surface obs is ', nint(fdob%vif_fullmin),' m.'
+  call wrf_message(msg)
+  if(nudgezfullmin.lt.fdob%vif_fullmin) then
+      write(msg,fmt='(a,i3,a)') '  ***WARNING***: NUDGEZFULLMIN has been increased from'//   &
+                            ' the user-input value of ',nint(nudgezfullmin),' m.'
+      call wrf_message(msg)
+      write(msg,fmt='(a,i3,a)') '  to ensure that at least the bottom model level is'//      &
+                            ' included in full nudging.'
+      call wrf_message(msg)
+  endif
+  call wrf_message("")
+  write(msg,fmt='(a,i3,a)') '  NUDGEZRAMPMIN: The minimum height to ramp from full to no'//  &
+                        ' nudging for surface obs is ', nint(nudgezrampmin),' m.'
+  call wrf_message(msg)
+  call wrf_message("")
+  endif   !endif either wind, temperature, or moisture nudging is requested
+
+! Print vif settings
+  if(nudge_wind(inest) .eq. 1) then
+    call print_vif_var('wind', fdob%vif_uv, nudgezfullmin, nudgezrampmin)
+    call wrf_message("")
+  endif
+  if(nudge_temp(inest) .eq. 1) then
+    call print_vif_var('temp', fdob%vif_t,  nudgezfullmin, nudgezrampmin)
+    call wrf_message("")
+  endif
+  if(nudge_mois(inest) .eq. 1) then
+    call print_vif_var('mois', fdob%vif_q,  nudgezfullmin, nudgezrampmin)
+    call wrf_message("")
+  endif
+
+  if( (nudge_wind(inest).eq.1) .or. (nudge_temp(inest).eq.1)                             &
+                                               .or. (nudge_mois(inest).eq.1) ) then
+  write(msg,fmt='(a,i2)') ' *** END SETUP DESCRIPTION FOR SURFACE OBS NUDGING ON MESH ',inest
+  call wrf_message(msg)
+  call wrf_message("")
+  endif
+
+! Set parameters.
   fdob%pfree = 50.0
   fdob%rinfmn = 1.0
   fdob%rinfmx = 2.0
-  fdob%dpsmx = 7.5
-  fdob%dcon = 1.0/fdob%dpsmx
 
 ! Get known lat and lon and store these on all processors in fdob structure, for
 ! later use in projection x-formation to map (lat,lon) to (x,y) for each obs.
@@ -205,18 +451,22 @@ CONTAINS
       endif
   enddo
 
-! Check to see if the nudging flag has been set. If not,
-! simply RETURN.
-  nudge_flag = (obs_nudge_opt(inest) .eq. 1)
-  if (.not. nudge_flag) return
 
-  ktau  = itimestep
-  if(restart) then
-    fdob%ktaur = ktau
-  else
-    fdob%ktaur = 0 
-  endif
+! fdob%LML_OBS_HT1_LEV = kte 
+! HT1: do k = kte, kts, -1
+!        if( LML_HT1 .gt. z_at_p(k) ) then
+!          fdob%LML_OBS_HT1_LEV = k
+!          EXIT HT1 
+!        endif
+!      enddo  HT1
 
+! fdob%LML_OBS_HT2_LEV = kte 
+! HT2: do k = kte, kts, -1
+!        if( LML_HT2 .gt. z_at_p(k) ) then
+!          fdob%LML_OBS_HT2_LEV = k
+!          EXIT HT2 
+!        endif
+!      enddo HT2 
   RETURN
 #endif
   END SUBROUTINE fddaobs_init
@@ -224,8 +474,8 @@ CONTAINS
 #if ( EM_CORE == 1 )
 !-----------------------------------------------------------------------
 SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
-                 phb, ph, g,                                    &
-                 uratx, vratx, tratx,                           &
+                 z,                                             &
+                 uratx, vratx, tratx, kpbl,                     &
                  nndgv, nerrf, niobf, maxdom,                   &
                  levidn, parid, nstat, nstaw,                   &
                  iswind, istemp, ismois, ispstr,                &
@@ -233,7 +483,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
                  varobs, errf, ktau, xtime,                     &
                  iratio, npfi,                                  &
                  prt_max, prt_freq, iprt,                       &
-                 obs_prt, lat_prt, lon_prt,                     &
+                 obs_prt, stnid_prt, lat_prt, lon_prt,          &
                  mlat_prt, mlon_prt,                            & 
                  ids,ide, jds,jde, kds,kde,                     &
                  ims,ime, jms,jme, kms,kme,                     &
@@ -242,7 +492,10 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !-----------------------------------------------------------------------
 #if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
   USE module_dm, ONLY : get_full_obs_vector, wrf_dm_sum_real
+#else
+  USE module_dm, ONLY :                      wrf_dm_sum_real
 #endif
+  USE module_model_constants, ONLY : rcp
 
 !-----------------------------------------------------------------------
   IMPLICIT NONE
@@ -265,14 +518,14 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 ! THE STORAGE ORDER IN ERRF IS AS FOLLOWS:
 !        IVAR                VARIABLE TYPE(TAU-1)
 !        ----                --------------------
-!         1                    U error
-!         2                    V error
-!         3                    T error
-!         4                    Q error
-!         5                    Surface press error at T points (not used)
-!         6                    Model surface press at T-points
-!         7                    Model surface press at U-points
-!         8                    Model surface press at V-points
+!         1                    U error at obs loc
+!         2                    V error at obs loc
+!         3                    T error at obs loc
+!         4                    Q error at obs loc
+!         5                    Vertical layer index for PBL top at IOB, JOB
+!         6                    Model surface press at obs loc (T-points)
+!         7                    Model surface press at obs loc (U-points)
+!         8                    Model surface press at obs loc (V-points)
 !         9                    RKO at U-points
 
 !-----------------------------------------------------------------------
@@ -295,11 +548,12 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   INTEGER, INTENT(IN)  :: prt_max                ! Max number of obs to print.
   INTEGER, INTENT(IN)  :: prt_freq               ! Frequency of obs to print.
   LOGICAL, INTENT(IN)  :: iprt                   ! Print flag
-  INTEGER, INTENT(INOUT) :: obs_prt(prt_max)     ! Print obs indices 
-  REAL, INTENT(INOUT) :: lat_prt(prt_max)        ! Print obs latitude 
-  REAL, INTENT(INOUT) :: lon_prt(prt_max)        ! Print obs longitude
-  REAL, INTENT(INOUT) :: mlat_prt(prt_max)       ! Print model lat at obs loc
-  REAL, INTENT(INOUT) :: mlon_prt(prt_max)       ! Print model lon at obs loc
+  INTEGER, INTENT(IN)  :: obs_prt(prt_max)       ! Print obs indices
+  INTEGER, INTENT(IN)  :: stnid_prt(40,prt_max)  ! Print obs station ids
+  REAL, INTENT(IN)     :: lat_prt(prt_max)       ! Print obs latitude
+  REAL, INTENT(IN)     :: lon_prt(prt_max)       ! Print obs longitude
+  REAL, INTENT(IN)     :: mlat_prt(prt_max)      ! Print model lat at obs loc
+  REAL, INTENT(IN)     :: mlon_prt(prt_max)      ! Print model lon at obs loc
   INTEGER, INTENT(IN)  :: nstat                  ! # stations held for use
   INTEGER, INTENT(IN)  :: nstaw                  ! # stations in current window
   INTEGER, intent(in)  :: iswind
@@ -318,12 +572,11 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   REAL,   INTENT(IN) :: pbase( ims:ime, kms:kme, jms:jme )
   REAL,   INTENT(IN) :: pp( ims:ime, kms:kme, jms:jme ) ! Press. perturbation (Pa)
   REAL,   INTENT(IN)  :: rovcp
-  REAL,   INTENT(IN) :: phb( ims:ime, kms:kme, jms:jme ) ! geopotential (base)
-  REAL,   INTENT(IN) :: ph( ims:ime, kms:kme, jms:jme )  ! geopotential (perturbation) 
-  REAL,   INTENT(IN) :: g                                ! gravity constant
+  REAL,    INTENT(IN) :: z( ims:ime, kms:kme, jms:jme ) ! Ht above sl on half-levels
   REAL,   INTENT(IN) :: uratx( ims:ime, jms:jme ) ! U to U10 ratio on mass points.
   REAL,   INTENT(IN) :: vratx( ims:ime, jms:jme ) ! V to V10 ratio on mass points.
   REAL,   INTENT(IN) :: tratx( ims:ime, jms:jme ) ! T to TH2 ratio on mass points.
+  INTEGER,INTENT(IN) :: kpbl( ims:ime, jms:jme )  ! Vertical layer index for PBL top
   REAL,   INTENT(IN) :: timeob(niobf)             ! Obs time (hrs)
   REAL,   INTENT(IN) :: rio(niobf)                ! Obs west-east coordinate (non-stag grid).
   REAL,   INTENT(IN) :: rjo(niobf)                ! Obs south-north coordinate (non-stag grid).
@@ -363,8 +616,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   real :: dummy = 99999.
 
   real :: pbhi, pphi
-  real :: press,ttemp                  !ajb scratch variables
-! real model_temp,pot_temp             !ajb scratch variables
+  real :: obs_pottemp                  ! Potential temperature at observation
 
 !***  DECLARATIONS FOR IMPLICIT NONE
   integer nsta,ivar,n,ityp
@@ -379,9 +631,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   real gridx,gridy,dxob,dyob,dzob,dxob_ms,dyob_ms
   real pob
   real hob
-  real grfacx,grfacy,uratiob,vratiob,tratiob,tratxob,fnpf
-  real stagx                       ! For x correction to mass-point stagger
-  real stagy                       ! For y correction to mass-point stagger
+  real uratiob,vratiob,tratiob,tratxob,fnpf
 
 #if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
   LOGICAL MP_LOCAL_DUMMASK(NIOBF)  ! Mask for work to be done on this processor
@@ -389,6 +639,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   LOGICAL MP_LOCAL_VOBMASK(NIOBF)  ! Dot-point mask
   LOGICAL MP_LOCAL_COBMASK(NIOBF)  ! Cross-point mask
 #endif
+
 ! LOGICAL, EXTERNAL :: TILE_MASK
 
   NSTA=NSTAT
@@ -400,7 +651,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 ! ITYP=1 FOR U-POINTS, ITYP=2 for V-POINTS, and ITYP=3 FOR MASS POINTS
 
   if (iprt) then
-    write(msg,'(a,i5,a,i2,a,i5,a)') '++++++CALL ERROB AT KTAU = ', &
+    write(msg,fmt='(a,i5,a,i2,a,i5,a)') '++++++CALL ERROB AT KTAU = ', &
             KTAU,' AND INEST = ',INEST,':  NSTA = ',NSTAW,' ++++++'
     call wrf_message(msg)
   endif
@@ -497,7 +748,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 !ajb      20040119: Note based on bugfix for dot/cross points split across processors,
 !ajb                which was actually a serial code fix: The ityp=2 (v-points) and
-!ajb                itype=3 (mass-points) cases should not use the ityp=1 (u-points)
+!ajb                ityp=3 (mass-points) cases should not use the ityp=1 (u-points)
 !ajb                case rko! This is necessary for bit-for-bit reproducability
 !ajb                with the parallel run.   (coarse mesh)
 
@@ -507,7 +758,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
             if(pob .eq.-888888.) then
                hob = varobs(6,n)
                if(hob .gt. -800000. ) then
-                 pob = ht_to_p( hob, ppbo, pbbo, phb, ph, g, iob_ms, job_ms, &
+                 pob = ht_to_p( hob, ppbo, pbbo, z, iob_ms, job_ms,          &
                                 dxob_ms, dyob_ms, k_start, k_end, kds,kde,   &
                                 ims,ime, jms,jme, kms,kme )
                endif
@@ -538,11 +789,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 ! ajb 20090423: If obs-in-height, varobs(5,n) is sum of pob (see note above).
         if(varobs(5,n) .eq. -888888. .and. varobs(6,n) .gt. -800000.) then
-#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
            varobs(5,n) = wrf_dm_sum_real ( pob )
-#else
-           varobs(5,n) = pob
-#endif
         endif
 
         RC(N)=RKO(N)
@@ -559,9 +806,6 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !ajb
 !ajb  GET (I,J,K) OF OBSERVATIONS ON FINE MESH VALUES.
       DO N=1,NSTA
-
-!        write(6,*) 'UPDATE: ra(n) = ',ra(n),' rb(n) = ',rb(n)
-
           RA(N)=RIO(N)-GRIDX           ! ajb added 07012008
           RB(N)=RJO(N)-GRIDY           ! ajb added 07012008
           IA(N)=RA(N)
@@ -575,12 +819,10 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 !         Save mass-point arrays for computing rko for all var types
           if(ityp.eq.1) then
-            stagx = grfacx - gridx_t     !Correct x stagger to mass-point
-            stagy = grfacy - gridy_t     !Correct y stagger to mass-point
-            iobmg(n) = MIN0(MAX0(1,int(RA(n)+stagx)),ide-1)
-            jobmg(n) = MIN0(MAX0(1,int(RB(n)+stagy)),jde-1)
-            dxobmg(n) = RA(N)+stagx-FLOAT(int(RA(N)+stagx))
-            dyobmg(n) = RB(N)+stagy-FLOAT(int(RB(N)+stagy))
+            iobmg(n) = MIN0(MAX0(1,int(RIO(n)-gridx_t)),ide-1)
+            jobmg(n) = MIN0(MAX0(1,int(RJO(n)-gridy_t)),jde-1)
+            dxobmg(n) = RIO(N)-gridx_t-FLOAT(int(RIO(N)-gridx_t))
+            dyobmg(n) = RJO(N)-gridy_t-FLOAT(int(RJO(N)-gridy_t))
           endif 
           iob_ms = iobmg(n)
           job_ms = jobmg(n)
@@ -624,7 +866,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
             if(pob .eq.-888888.) then
                hob = varobs(6,n)
                if(hob .gt. -800000. ) then
-                 pob = ht_to_p( hob, ppbo, pbbo, phb, ph, g, iob_ms, job_ms, &
+                 pob = ht_to_p( hob, ppbo, pbbo, z, iob_ms, job_ms,          &
                                 dxob_ms, dyob_ms, k_start, k_end, kds,kde,   &
                                 ims,ime, jms,jme, kms,kme )
                endif
@@ -654,11 +896,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 ! ajb 20090423: If obs-in-height, varobs(5,n) is sum of pob (see note above).
         if(varobs(5,n) .eq. -888888. .and. varobs(6,n) .gt. -800000.) then
-#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
            varobs(5,n) = wrf_dm_sum_real ( pob )
-#else
-           varobs(5,n) = pob
-#endif
         endif
 
         RC(N)=RKO(N)
@@ -666,14 +904,6 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
       ENDDO      ! END FINE MESH LOOP OVER NSTA
     
     ENDIF      ! end if(inest.eq.1)
-
-
-! Print obs information.
-    if(ityp.eq.3) then   !mass-point case
-       CALL print_obs_info(iprt,inest,niobf,rio,rjo,rko,                  &
-                           prt_max,prt_freq,obs_prt,lat_prt,lon_prt,      &
-                           mlat_prt,mlon_prt,timeob,xtime)
-    endif
 
 !   INITIALIZE THE ARRAY OF DIFFERENCES BETWEEN THE OBSERVATIONS
 !   AND THE LOCAL FORECAST VALUES TO ZERO.  FOR THE FINE MESH
@@ -816,7 +1046,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !           INITIAL ERRF(IVAR,N) IS ZERO FOR OBSERVATIONS POINTS
 !           WITHIN THE DOMAIN, AND A LARGE DUMMY VALUE FOR POINTS
 !           OUTSIDE THE CURRENT DOMAIN
-  
+
 !           U COMPONENT WIND ERROR
             ERRF(1,N)=ERRF(1,N)+uratiob*VAROBS(1,N)-((1.-DZOB)*        &
                       ((1.-DyOB)*((1.-                                 &
@@ -975,26 +1205,13 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !yliu
             if(abs(tratxob) .lt. 1.0E-3) tratxob=1.
 
-!ajb        testing only
-!           if(iprt .and. n.eq.81)  then
-!             write(6,*) 'POTENTIAL TEMP FOR N=81:'
-!             write(6,*)
-!             write(6,*) '            K      THETA       TEMPERATURE', &
-!                        '       PBASE'
-!             write(6,*)
-!             do k=k_end,1,-1
-!               press = pbase(iob,k,job)+pp(iob,k,job)
-!               ttemp = (t0+tb(iob,k,job)) / (100000./press)**.2857143
-!               write(6,*) k,t0+TB(IOB,k,JOB),ttemp,pbase(iob,k,job)
-!             enddo
-!           endif
-!ajb        end testing only
+!ajb We must convert temperature to potential temperature
+            obs_pottemp = -888888.
+            if(varobs(3,n).gt.-800000. .and. varobs(5,n).gt.-800000) then
+              obs_pottemp = varobs(3,n)*(100./varobs(5,n))**RCP - t0
+            endif
 
-!           TEMPERATURE ERROR
-!          if(n.le.10) then
-!             write(6,*) 'before: errf(3,n) = ',errf(3,n)
-!          endif
-            ERRF(3,N)=ERRF(3,N)+tratxob*VAROBS(3,N)-((1.-DZOB)*     &
+            ERRF(3,N)=ERRF(3,N)+tratxob*obs_pottemp-((1.-DZOB)*     &
                       ((1.-DyOB)*((1.-                              &
                       DxOB)*(TB(IOB,KOB,JOB))+DxOB*                 &
                       (TB(IOB+1,KOB,JOB)))+DyOB*((1.-DxOB)*         &
@@ -1025,7 +1242,6 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !         write(6,*)
 !       endif
 
-
 !           MOISTURE ERROR
             ERRF(4,N)=ERRF(4,N)+VAROBS(4,N)-((1.-DZOB)*((1.-DyOB)*((1.- &
                       DxOB)*QVB(IOB,KOB,JOB)+DxOB*                      &
@@ -1049,33 +1265,26 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
         ENDDO     ! END T and QV LOOP OVER OBS
 
       ENDIF   !end if(istemp.eq.1 .or. ismois.eq.1)
-!ajb 01062008 - ISPSTR is not used 
-!!**********************************************************
-!!     PROCESS SURFACE PRESSURE CROSS-POINT FIELD, IVAR=5,
-!!     USING BILINEAR FOUR-POINT 2-D INTERPOLATION
-!!**********************************************************
-!      IF(ISPSTR.EQ.1) THEN 
-!        DO N=1,NSTA
-!          IOB=MAX0(1,IA(N))
-!          IOB=MIN0(IOB,ide-1)
-!          JOB=MAX0(1,IB(N))
-!          JOB=MIN0(JOB,jde-1)
-!#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
-!          IF(MP_LOCAL_COBMASK(N)) THEN    ! Do if obs on this processor
-!#endif
-!            DXOB=RA(N)
-!            DYOB=RB(N)
-!!ajb        fix this (put in correct pressure calc for IOB,JOB here)
-!            ERRF(5,N)=ERRF(5,N)+VAROBS(5,N)-((1.-DyOB)*((1.-DxOB)*      &
-!               pbase(IOB,1,JOB)+DxOB*pbase(IOB+1,1,JOB))+DyOB*          &
-!               ((1.-DxOB)*pbase(IOB,1,JOB+1)+DxOB*                      &
-!               pbase(IOB+1,1,JOB+1)))
-!
-!#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
-!          ENDIF       ! end IF( MP_LOCAL_COBMASK(N) )
-!#endif
-!        ENDDO
-!      ENDIF   ! end if(ispstr.eq.1)
+
+!*******************************************************
+!   USE ERRF(5,N) TO STORE KPBL AT (I,J) NEAREST THE OBS
+!*******************************************************
+      DO N=1,NSTA
+        IOB=MAX0(1,IA(N))
+        IOB=MIN0(IOB,ide-1)
+        JOB=MAX0(1,IB(N))
+        JOB=MIN0(JOB,jde-1)
+#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
+        IF(MP_LOCAL_COBMASK(N)) THEN    ! Do if obs on this processor
+#endif
+          DXOB=RA(N)
+          DYOB=RB(N)
+          ERRF(5,N) = kpbl(iob+nint(dxob),job+nint(dyob))
+
+#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
+        ENDIF       ! end IF( MP_LOCAL_COBMASK(N) )
+#endif
+      ENDDO
 !!**********************************************************
     ENDIF   ! end if(ityp.eq.3)
 
@@ -1085,7 +1294,22 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 ! Gather the errf values calculated by the processors with the obs.
   CALL get_full_obs_vector(nsta, nerrf, niobf, mp_local_uobmask,     &
                            mp_local_vobmask, mp_local_cobmask, errf)
+
+! 02252010: Go ahead and assign rko for "obs-off" processors here, to
+!           fix the problem where duplicate obs can be dropped from
+!           the "obs-on" processor, but not from the others, due to
+!           rko being -99 on the "obs-off" processors.
+  do n=1,nsta
+    rko(n) = errf(9,n)
+  enddo
+! 02252010: End bugfix.
 #endif
+
+! Print obs information.
+  CALL print_obs_info(iprt,inest,niobf,rio,rjo,rko,                  &
+                      prt_max,prt_freq,obs_prt,stnid_prt,            &
+                      lat_prt,lon_prt,mlat_prt,mlon_prt,             &
+                      timeob,xtime)
 
 ! DIFFERENCE BETWEEN OBS AND FCST IS COMPLETED
   IF(INEST.EQ.1)THEN
@@ -1242,13 +1466,17 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !-----------------------------------------------------------------------
   SUBROUTINE nudob(j, ivar, aten, inest, ifrest, ktau, ktaur,         &
                        xtime, mu, msfx, msfy, nndgv, nerrf, niobf, maxdom,   &
-                       npfi, ionf, rinxy, twindo, levidn,             &
+                       npfi, ionf, rinxy, twindo,                     &
+                       nudge_pbl,                                     &
+                       sfcfact, sfcfacr,                              &
+                       levidn,                                        &
                        parid, nstat,                                  &
                        fdob, lev_in_ob, plfo, nlevs_ob,               &
                        iratio, dx, dtmin, rio, rjo, rko,              &
                        timeob, varobs, errf, pbase, ptop, pp,         &
                        iswind, istemp, ismois, giv, git, giq,         &
                        savwt, kpblt, nscan,                           &
+                       vih1, vih2, terrh, zslab,                      &
                        iprt,                                          &
                        ids,ide, jds,jde, kds,kde,                     &  ! domain dims
                        ims,ime, jms,jme, kms,kme,                     &  ! memory dims
@@ -1334,16 +1562,19 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   INTEGER, INTENT(IN)  :: ionf
   REAL, INTENT(IN)     :: rinxy
   REAL, INTENT(IN)     :: twindo
+  REAL, intent(in)     :: sfcfact                    ! scale for time window (surface obs) 
+  REAL, intent(in)     :: sfcfacr                    ! scale for hor rad inf (surface obs)
+  LOGICAL, intent(in)  :: nudge_pbl                  ! flag for nudging in pbl
   INTEGER, INTENT(IN)  :: levidn(maxdom)             ! level of nest
   INTEGER, INTENT(IN)  :: parid(maxdom)              ! parent domain id
   INTEGER, INTENT(IN)  :: nstat                      ! number of obs stations
   TYPE(fdob_type), intent(inout)  :: fdob
   REAL, INTENT(IN)     :: lev_in_ob(niobf)           ! Level in sounding-type obs.
-  REAL, intent(IN)     :: plfo(niobf)
+  REAL, intent(IN)     :: plfo(niobf)                ! Index for type of obs platform
   REAL, INTENT(IN)     :: nlevs_ob(niobf)            ! Number of levels in sounding.
   INTEGER, INTENT(IN)  :: iratio                     ! Nest to parent gridsize ratio.
   REAL, INTENT(IN)     :: dx                         ! This domain grid cell-size (m)
-  REAL, INTENT(IN)     :: dtmin
+  REAL, INTENT(IN)     :: dtmin                      ! Model time step in minutes
   REAL, INTENT(IN)     :: rio(niobf)                 ! Obs west-east coordinate (non-stag grid).
   REAL, INTENT(IN)     :: rjo(niobf)                 ! Obs south-north coordinate (non-stag grid).
   REAL, INTENT(INOUT)  :: rko(niobf)                 ! Obs vertical coordinate.
@@ -1364,13 +1595,20 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   REAL, intent(in)     :: giq           ! Coefficient for moisture
   REAL, INTENT(INOUT)  :: aten( ims:ime, kms:kme)
   REAL, INTENT(INOUT)  :: savwt( nndgv, ims:ime, kms:kme )
-  INTEGER, INTENT(IN)  :: kpblt(its:ite)
+  INTEGER, INTENT(IN)  :: kpblt(ims:ime)
   INTEGER, INTENT(IN)  :: nscan                      ! number of scans
+  REAL, INTENT(IN)     :: vih1(its:ite) ! Vert infl ht (m) abv grd for full wts
+  REAL, INTENT(IN)     :: vih2(its:ite) ! Vert infl ht (m) abv grd for ramp
+  REAL, INTENT(IN)     :: terrh(ims:ime) ! Terrain height (m)
+! INTEGER, INTENT(IN)  :: vik1(its:ite) ! Vertical infl k-level for full wts
+! INTEGER, INTENT(IN)  :: vik2(its:ite) ! Vertical infl k-level for ramp
+  REAL, INTENT(IN)     :: zslab(ims:ime, kms:kme)    ! model ht above ground (m)
   LOGICAL, INTENT(IN)  :: iprt                       ! print flag
 
 ! Local variables
   integer :: mm(maxdom)
   integer :: kobs                  ! k-lev below obs (for obs straddling pblt)
+  integer :: kpbl_obs(nstat)       ! kpbl at grid point (IOB,JOB) (ajb 20090519)
   real :: ra(niobf)
   real :: rb(niobf)
   real :: psurf(niobf)
@@ -1392,11 +1630,13 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   integer :: istq
   real :: gfactor,rfactor,gridx,gridy,rindx,ris
   real :: grfacx,grfacy
-  real :: fdtim,tw1,tw2,tconst,timewt,timewt2,ttim,dift,pob
-  real :: ri,rj,rx,ry,rsq,wtij,pdfac,erfivr,dk,slope,rinfac
+  real :: timewt,pob
+  real :: ri,rj,rx,ry,rsq,wtij,pdfac,erfivr,slope,rinfac
   real :: rinprs,pijk,pobhi,poblo,pdiffj,w2eowt,gitq
+  real :: dz_ramp         ! For ramping weights for surface obs 
 
   real :: scratch
+  integer :: kk !ajb temp
 
 !      print *,'start nudob, nstat,j,ivar=',nstat,j,ivar
 !      if(ivar.ne.4)return
@@ -1489,111 +1729,6 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
     RB(N)=RJO(N)-GRIDY
   ENDDO
 
-! OUTPUT OBS PER GRID EVERY HOUR
-
-  if ( mod(xtime,60.).gt.56. .and. ivar.eq.3 .and. j.eq.10) then
-!   IF (iprt) print *,'outputting obs number on grid ',    &
-!                inest,' at time=',xtime
-!   write(chr_hr(1:3),'(i3)')nint(xtime/60.)
-!   if(chr_hr(1:1).eq.' ')chr_hr(1:1)='0'
-!   if(chr_hr(2:2).eq.' ')chr_hr(2:2)='0'
-!   IF (iprt) print *,'chr_hr=',chr_hr(1:3),nint(xtime/60.)
-!    open(91,file=                                             &
-!        'obs_g'//char(inest+ichar('0'))//'_'//chr_hr(1:3),    &
-!        form='FORMATted',status='unknown')
-!    write(91,911)nstat
-!    write(msg,911)nstat
-!    call wrf_message(msg)
-!911 FORMAT('total obs=',i8)
-    nsthis=0
-    nsmetar=0
-    nsspeci=0
-    nsship=0
-    nssynop=0
-    nstemp=0
-    nspilot=0
-    nssatwnds=0
-    nssams=0
-    nsprofs=0
-!   print *,'ide,jde=',ide,jde
-    do jjjn=1,nstat
-! DETERMINE THE TIME-WEIGHT FACTOR FOR N
-      FDTIM=XTIME-DTMIN
-! CONVERT TWINDO AND TIMEOB FROM HOURS TO MINUTES:
-      TW1=TWINDO/2.*60.
-      TW2=TWINDO*60.
-      TCONST=1./TW1
-      TIMEWT2=0.0
-      TTIM=TIMEOB(jjjn)*60.
-!***********TTIM=TARGET TIME IN MINUTES
-      DIFT=ABS(FDTIM-TTIM)
-      IF(DIFT.LE.TW1)TIMEWT2=1.0
-
-      IF(DIFT.GT.TW1.AND.DIFT.LE.TW2) THEN
-        IF(FDTIM.LT.TTIM)TIMEWT2=(FDTIM-(TTIM-TW2))*TCONST
-        IF(FDTIM.GT.TTIM)TIMEWT2=((TTIM+TW2)-FDTIM)*TCONST
-      ENDIF
-
-!     print *,'timewt2=',timewt2,ttim,fdtim
-      if (ra(jjjn).ge.1. .and. rb(jjjn).ge.1.                    &
-      .and.ra(jjjn).le.real(ide) .and. rb(jjjn).le.real(jde)     &
-      .and.timewt2.gt.0.) then
-        if(lev_in_ob(jjjn).eq.1.)nsthis=nsthis+1
-        if(plfo(jjjn).eq.1.)nsmetar=nsmetar+1
-        if(plfo(jjjn).eq.2.)nsspeci=nsspeci+1
-        if(plfo(jjjn).eq.3.)nsship=nsship+1
-        if(plfo(jjjn).eq.4.)nssynop=nssynop+1
-        if(plfo(jjjn).eq.5..and.lev_in_ob(jjjn).eq.1.) nstemp=nstemp+1
-        if(plfo(jjjn).eq.6..and.lev_in_ob(jjjn).eq.1.) nspilot=nspilot+1
-        if(plfo(jjjn).eq.7.)nssatwnds=nssatwnds+1
-        if(plfo(jjjn).eq.8.)nssams=nssams+1
-        if(plfo(jjjn).eq.9..and.lev_in_ob(jjjn).eq.1.) nsprofs=nsprofs+1
-      endif
-    enddo
-!    write(91,912)nsthis
-!    write(msg,912)nsthis
-!    call wrf_message(msg)
-!912 FORMAT('total obs on this grid=',i8)
-!    write(91,921)nsmetar
-!    write(msg,921)nsmetar
-!    call wrf_message(msg)
-!921 FORMAT('total metar obs on this grid=',i8)
-!    write(91,922)nsspeci
-!    write(msg,922)nsspeci
-!    call wrf_message(msg)
-!922 FORMAT('total special obs on this grid=',i8)
-!    write(91,923)nsship
-!    write(msg,923)nsship
-!    call wrf_message(msg)
-!923 FORMAT('total ship obs on this grid=',i8)
-!    write(91,924)nssynop
-!    write(msg,924)nssynop
-!    call wrf_message(msg)
-!924 FORMAT('total synop obs on this grid=',i8)
-!    write(91,925)nstemp
-!    write(msg,925)nstemp
-!    call wrf_message(msg)
-!925 FORMAT('total temp obs on this grid=',i8)
-!    write(91,926)nspilot
-!    write(msg,926)nspilot
-!    call wrf_message(msg)
-!926 FORMAT('total pilot obs on this grid=',i8)
-!    write(91,927)nssatwnds
-!    write(msg,927)nssatwnds
-!    call wrf_message(msg)
-!927 FORMAT('total sat-wind obs on this grid=',i8)
-!    write(91,928)nssams
-!    write(msg,928)nssams
-!    call wrf_message(msg)
-!928 FORMAT('total sams obs on this grid=',i8)
-!    write(91,929)nsprofs
-!    write(msg,929)nsprofs
-!    call wrf_message(msg)
-!929 FORMAT('total profiler obs on this grid=',i8)
-!    close(91)
-  endif  ! END OUTPUT OBS PER GRID EVERY HOUR
-
-
 ! INITIALIZE WEIGHTING ARRAYS TO ZERO
   DO I=its,ite
     DO K=1,kte
@@ -1611,6 +1746,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 ! PSURF IS NOT AVAILABLE GLOBALLY, THEREFORE, THE BILINEAR INTERPOLATION
 ! AROUND THE OBS POINT IS DONE IN ERROB() AND STORED IN ERRF([678],N) FOR
 ! THE POINT (6=PRESS, 7=U-MOM, 8=V-MOM).
+! ajb 05052009: psurf is actually pbase(k=1) interpolated to obs (i,j).
   DO N=1,NSTAT
     IF(IVAR.GE.3)THEN
       PSURF(N)=ERRF(6,N)
@@ -1675,22 +1811,6 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
     ELSE    ! BEGIN SECTION FOR PROCESSING THE OBSERVATION
 !----------------------------------------------------------------------
 
-! DETERMINE THE TIME-WEIGHT FACTOR FOR N
-      FDTIM=XTIME-DTMIN
-! TWINDO IS IN MINUTES:
-      TW1=TWINDO/2.*60.
-      TW2=TWINDO*60.
-      TCONST=1./TW1
-      TIMEWT=0.0
-      TTIM=TIMEOB(N)*60.
-!***********TTIM=TARGET TIME IN MINUTES
-      DIFT=ABS(FDTIM-TTIM)
-      IF(DIFT.LE.TW1)TIMEWT=1.0
-      IF(DIFT.GT.TW1.AND.DIFT.LE.TW2) THEN
-        IF(FDTIM.LT.TTIM)TIMEWT=(FDTIM-(TTIM-TW2))*TCONST
-        IF(FDTIM.GT.TTIM)TIMEWT=((TTIM+TW2)-FDTIM)*TCONST
-      ENDIF
-
 ! DETERMINE THE LIMITS OF APPLICATION OF THE OBS IN THE VERTICAL
 ! FOR THE VERTICAL WEIGHTING, WTSIG
 
@@ -1700,13 +1820,19 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 #if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
       rko(n) = errf(9,n)        !ajb 20021210
+      kpbl_obs(n) = errf(5,n)   !ajb 20090519
 #endif
-      KOB=nint(RKO(N))
+!ajb 20090427 added .45 to rko so KOB is equal to 1 only if RKO > 1.05
+      KOB=nint(RKO(N)+0.45)
       KOB=MIN0(kte,KOB)
       KOB=MAX0(1,KOB)
 
 ! ASSIMILATE SURFACE LAYER DATA ON SIGMA
       IF(KOB.EQ.1.AND.IVAR.LE.4.and.nlevs_ob(n).lt.1.5) THEN
+
+! Compute temporal weight
+        timewt = get_timewt(xtime,dtmin,twindo,sfcfact,timeob(n))
+
         DO K=1,kte
           WTSIG(K)=0.0
         ENDDO
@@ -1719,9 +1845,9 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 ! DEFINE THE MAX AND MIN I VALUES FOR POSSIBLE NONZERO
 ! WEIGHTS, BASED ON THE RADIUS OF INFLUENCE, RINDX (IN GRID LENGTHS).
 ! fix this because kpblt at 1 and il is 0
-        MAXI=IFIX(RA(N)+0.99+RINDX)
+        MAXI=IFIX(RA(N)+0.99+RINDX*sfcfacr)
         MAXI=MIN0(ide-1,MAXI)
-        MINI=IFIX(RA(N)-RINDX-0.99)
+        MINI=IFIX(RA(N)-RINDX*sfcfacr-0.99)
         MINI=MAX0(2,MINI)
 !yliu start
 ! use also obs outside of this domain  -- surface obs
@@ -1732,10 +1858,10 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !   influence of radius in the coarse domain) this
 !   domain. In later case, use BC column value to approximate the model value
 !   at obs point -- ERRF need model field in errob.F !!
-        if (  RA(N).GE.(0.-RINDX/3)                        &
-        .and. RA(N).LE.float(ide)+RINDX/3                  &
-        .and. RB(N).GE.(0.-RINDX/3)                        &
-        .and. RB(N).LE.float(jde)+RINDX/3) then
+        if (  RA(N).GE.(0.-RINDX*sfcfacr/3)                        &
+        .and. RA(N).LE.float(ide)+RINDX*sfcfacr/3                  &
+        .and. RB(N).GE.(0.-RINDX*sfcfacr/3)                        &
+        .and. RB(N).LE.float(jde)+RINDX*sfcfacr/3) then
 
 ! or use obs within this domain only
 !     if(RA(N).LT.1 .or. RA(N).GT.float(IL) .or.
@@ -1767,7 +1893,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
             RI=FLOAT(I)
             RY=RI-RA(N)
-            RIS=RINDX*RINDX
+            RIS=RINDX*RINDX*sfcfacr*sfcfacr
             RSQ=RX*RX+RY*RY
 !           DPRIM=SQRT(RSQ)
 ! THIS FUNCTION DECREASES WTIJ AS PSFC CHANGES WITHIN SEARCH RADIUS
@@ -1775,58 +1901,71 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 !           DSQ=D*D
 !           WTIJ=(RIS-DSQ)/(RIS+DSQ)
             wtij=(ris-rsq)/(ris+rsq)
-            scratch = (abs(psurf(n)-.001*pbase(i,1))*fdob%DCON)
+
+!       if(n.le.1000 .and. j.eq.14) then
+!        write(6,'(a,2i3,i2,2f7.2,4i4,3f7.3,2f6.1)')                &
+!            'sfc: n,i,ivar,ra,rb,mini,maxi,minj,maxj,wtij,ris,rsq,psurf,pbase = ',    &
+!                  n,i,ivar,ra(n),rb(n),mini,maxi,minj,maxj,wtij,ris,rsq,              &
+!                  psurf(n),.001*pbase(i,1)
+!       endif
+
+            scratch = (abs (psurf(n)-.001*pbase(i,1))*fdob%DCON)
             pdfac=1.-AMIN1(1.0,scratch)
             wtij=wtij*pdfac
             WTIJ=AMAX1(0.0,WTIJ)
 
-! try making sfc obs weighting go thru pbl
-! jc kpbl is at dot or cross only - need to interpolate?
-!          wtsig(1)=1.
-            komax=max0(3,kpblt(i))
+!ajb Add weights to sum only if nudge_pbl switch is on.
+            if(nudge_pbl) then
 
-! jc arbitrary check here
-            IF (iprt) THEN
-              if (kpblt(i).gt.25 .and. ktau.ne.0) then
-                write(msg,552)inest,i,j,kpblt(i)
-                call wrf_message(msg)
-              endif
-            ENDIF
-552         FORMAT('kpblt is gt 25, inest,i,j,kpblt=',4i4)
-
-            if(kpblt(i).gt.25) komax=3
-            komin=1
-            dk=float(komax)
-
-            do k=komin,komax
-  
-              wtsig(k)=float(komax-k+1)/dk
-              WT(I,K)=WT(I,K)+TIMEWT*WTSIG(K)*WTIJ
-
-              WT2ERR(I,K)=WT2ERR(I,K)+TIMEWT*TIMEWT*WTIJ*WTIJ*WTSIG(K)    &
-                          *WTSIG(K)*ERFIVR
-
-!            if(ivar.eq.1 .and. i.eq.38 .and. j.eq.78) then
+! Here we calculate weights in the vertical coordinate, based on vih1 and vih2.
+! In the equation for wtsig(k), Z=zslab(i,k)-terrh(i) contains the model Z-values
+! (height above ground in meters) on a J-slab. The equation produces wtsig = 1.0 at
+! levels 1 to K, where z(K) < vih1 < z(K+1). For the example below, in the equation
+! for wtsig(k), the expression vih1(i)-Z(i,k) is strictly positive for k=1,2,3 since
+! levels 1, 2, and 3 are below vih1. So xtsig(k)=min(1.0, 1.0-x) where x > 0 ==>
+! wtsig(k)=1 for k=1,2,3.
 !
-!             write(6,'(a,i2,a,f8.3,a,f8.3,a,f8.3,a,f8.3,a,f8.3)')
-!                         'Surface obs, after: k = ',k,            &
-!                         ' WT2ERR = ',wt2err(i,k),                &
-!                         ' TIMEWT = ',timewt,                     &
-!                         ' WTIJ = ',wtij,                         &
-!                         ' WSIG = ',wtsig(k),                     &
-!                         ' ERFIVR = ',erfivr
-!            endif
+!    For levels K+1 and up, wtsig will decrease linearly with height, with values
+! along the ramp that has value 1.0 at vih1 and 0.0 at vih2. In the example:
+!
+!   dz_ramp  = 1/(200-150) = 1/50
+!   xtsig(4) = 1 + (150-175)/50 = 1 - 1/2 = 1/2
+!
+!       WTSIG
+!         1 -|*    *     *     *     *     *
+!            |
+!            |                                *
+!            |
+!            |                                   *
+!            |
+!            |                                      *
+!         0 -|--|-------|-----------|------|----|----|---------|---->  Z = HT ABOVE
+!              15      55          115    150  175  200       250          GROUND
+!              k=1     k=2         k=3    vih1 k=4  vih2      k=5
+ 
+              dz_ramp = 1.0 / max( 1.0, vih2(i)-vih1(i) )   ! vih2 >= vih1 by construct
 
-            enddo
+         LML: do k = kts, kte 
+                wtsig(k) = min( 1.0, 1.0 + ( vih1(i)-zslab(i,k)+terrh(i) ) * dz_ramp )
+                wtsig(k) = max( 0.0, wtsig(k))
 
-          ENDDO
-
-!         print *, "  Surface "
+                if(wtsig(k).le.0.0) EXIT LML
+                WT(I,K)=WT(I,K)+TIMEWT*WTSIG(K)*WTIJ
+                WT2ERR(I,K)=WT2ERR(I,K)+TIMEWT*TIMEWT*WTIJ*WTIJ*WTSIG(K)    &
+                            *WTSIG(K)*ERFIVR
+              enddo LML
+            endif
+          ENDDO   ! end i-loop
 
         endif   ! end check for obs in domain
-! END SURFACE-LAYER U OR V OBS NUDGING
+! END SURFACE-LAYER OBS NUDGING
 
       ELSE    
+
+! Compute temporal weight
+        timewt = get_timewt(xtime,dtmin,twindo,1.,timeob(n))
+
+
 ! BEGIN CALCULATIONS TO SPREAD OBS INFLUENCE ALONG PRESSURE LEVELS
 !
 !       print *,'in upper air section'
@@ -1904,16 +2043,26 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
             RSQ=RX*RX+RY*RY
 ! yliu test: for upper-air data, keep D1 influence radii
             WTIJ=(RIS-RSQ)/(RIS+RSQ)
+
+!       if(n.le.1000 .and. j.eq.14) then
+!        kk = int(rko(n))
+!        write(6,'(a,2i3,i2,2f7.2,4i4,3f8.3,i3,f6.2,2f6.1)')                &
+!            'upp: n,i,ivar,ra,rb,mini,maxi,minj,maxj,wtij,ris,rsq,kk,rko(n),pob,pbase = ',    &
+!                  n,i,ivar,ra(n),rb(n),mini,maxi,minj,maxj,wtij,ris,rsq,              &
+!                  kk,rko(n),pob,.001*pbase(i,kk)
+!       endif
+
             WTIJ=AMAX1(0.0,WTIJ)
 ! weight ob in vertical with +- 50 mb
 ! yliu: 75 hba for single upper-air, 30hba for multi-level soundings
             if(nsndlev.eq.1) then
               rinprs=7.5
+! 
             else
              rinprs=3.0
             endif
 ! yliu end
-! 
+
 !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 !   ---  HANDLE 1-LEVEL and MULTI-LEVEL OBSERVATIONS SEPARATELY  ---
 !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -1950,7 +2099,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
  326          continue
 
 ! yliu: single-level upper-air data will act either above or below the PBL top
-! ajb: Reset komin or komax. if kobs>kpblt, komin=kpblt+1, else komax=kpblt  
+! ajb: Reset komin or komax. if kobs>kpbl_obs, komin=kpbl_obs+1, else komax=kpbl_obs  
 
               if( (kpblt(i).le.komax) .and. (kpblt(i).ge.komin) ) then
                  kobs = 1
@@ -1961,9 +2110,11 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
                      endif
                  enddo OBS_K
 
-                 if(kobs.gt.kpblt(i)) then
+                 if(kobs.gt.kpbl_obs(n)) then
+! Obs will act only above the PBL top
                      komin=max0(kobs, komin)   ! kobs here is kpblt(i)+1
-                 else
+                 else                          ! Obs acts below PBL top
+! Obs will act only below the PBL top
                      komax=min0(kpblt(i), komax)
                  endif
               endif
@@ -1980,22 +2131,21 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
               enddo
 !yliu end
 
-!cc         if (i.eq.39 .and. j.eq.34) then
-!cc              write(6,*) ' komin = ', komin,' komax = ',komax
-!cc         endif
-
-              do k=komin,komax
-                pijk = .001*(pbase(i,k)+pp(i,k))
-                reserf(k)=erfivr
-                wtsig(k)=1.-abs(pijk-pob)/rinprs
-                wtsig(k)=amax1(wtsig(k),0.0)
+!ajb Add weights to sum only if nudge_pbl switch is on OR obs is above pbl top.
+              if(nudge_pbl .or. komin.ge.kpblt(i)) then
+                do k=komin,komax
+                  pijk = .001*(pbase(i,k)+pp(i,k))
+                  reserf(k)=erfivr
+                  wtsig(k)=1.-abs(pijk-pob)/rinprs
+                  wtsig(k)=amax1(wtsig(k),0.0)
 !             print *,'k,pijk,pob,rinprs,wtsig=',k,pijk,pob,rinprs,wtsig(k)
 ! Now calculate WT and WT2ERR for each i,j,k point                      cajb
-                WT(I,K)=WT(I,K)+TIMEWT*WTIJ*wtsig(k)
+                  WT(I,K)=WT(I,K)+TIMEWT*WTIJ*wtsig(k)
 
-                WT2ERR(I,K)=WT2ERR(I,K)+TIMEWT*TIMEWT*WTIJ*WTIJ*        &
-                            reserf(k)*wtsig(k)*wtsig(k)
-              enddo
+                  WT2ERR(I,K)=WT2ERR(I,K)+TIMEWT*TIMEWT*WTIJ*WTIJ*        &
+                              reserf(k)*wtsig(k)*wtsig(k)
+                enddo
+              endif
 
             else
 !----------------------------------------------------------------------
@@ -2109,32 +2259,17 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
  1501           continue
 
 ! now calculate WT and WT2ERR for each i,j,k point                               cajb
-                WT(I,K)=WT(I,K)+TIMEWT*WTIJ*wtsig(k)
+!ajb Add weights to sum only if nudge_pbl switch is on OR k > kpblt.
+                if(nudge_pbl .or. k.gt.kpblt(i)) then
+
+                  WT(I,K)=WT(I,K)+TIMEWT*WTIJ*wtsig(k)
   
-                WT2ERR(I,K)=WT2ERR(I,K)+TIMEWT*TIMEWT*WTIJ*WTIJ*        &
-                            reserf(k)*wtsig(k)*wtsig(k)
+                  WT2ERR(I,K)=WT2ERR(I,K)+TIMEWT*TIMEWT*WTIJ*WTIJ*        &
+                              reserf(k)*wtsig(k)*wtsig(k)
+                endif
 
-!        if(ivar.eq.1 .and. i.eq.38 .and. j.eq.78) then
-!
-!            if(wt(i,k) .ne. 0.0) then
-!               scratch = WT2ERR(I,K)/WT(I,K)
-!            else
-!               scratch = 999.
-!            endif
-!
-!         write(6,'(a,i2,a,f8.3,a,f4.2,a,f7.4,a,f4.2,a,f5.3,a,f7.4)')
-!    $                    'Multi-level obs: k = ',k,
-!    $                    ' WT2ERR = ',wt2err(i,k),
-!    $                    ' WTIJ = ',wtij,
-!    $                    ' RSF = ',reserf(k),
-!    $                    ' WSIG = ',wtsig(k),
-!    $                    ' WT = ',wt(i,k),
-!    $                    ' W2EOWT = ',scratch
-!        endif
-
-
-! end do k
               enddo   ! enddo k levels
+
 ! end multi-levels
             endif  ! end if(nsndlev.eq.1)
 !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -2208,6 +2343,9 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
         W2EOWT=WT2ERR(I,K)/WT(I,K)
       ELSE
         W2EOWT=SAVWT(IPL,I,K)
+
+!        write(6,'(a,4i4,f8.3)') 'i,j,k,ipl,W2EOWT = ',i,j,k,ipl,W2EOWT
+
       ENDIF
 
 !      if(ivar .eq. 1 .and. i.eq.38 .and. j.eq.78 .and. k.eq.1) then
@@ -2248,6 +2386,8 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
     DO K=1,kte
       DO I=its,ite
         SAVWT(IPL,I,K)=WT2ERR(I,K)/WT(I,K)
+
+!        write(6,'(a,4i4,f8.3)') 'i,j,k,ipl,savwt = ',i,j,k,ipl,savwt(ipl,i,k)
       ENDDO
     ENDDO
   ENDIF
@@ -2320,6 +2460,39 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
   RETURN
   END SUBROUTINE nudob
+
+  SUBROUTINE date_string(year, month, day, hour, minute, second, cdate)
+!-----------------------------------------------------------------------
+!  PURPOSE: Form a date string (YYYY-MM-DD_hh:mm:ss) from integer
+!           components.
+!-----------------------------------------------------------------------
+  IMPLICIT NONE
+!-----------------------------------------------------------------------
+
+  INTEGER, INTENT(IN)  :: year
+  INTEGER, INTENT(IN)  :: month
+  INTEGER, INTENT(IN)  :: day
+  INTEGER, INTENT(IN)  :: hour
+  INTEGER, INTENT(IN)  :: minute
+  INTEGER, INTENT(IN)  :: second
+  CHARACTER*19, INTENT(INOUT) :: cdate
+
+! Local variables
+  integer   :: ic                    ! loop counter
+
+      cdate(1:19)  = "0000-00-00_00:00:00"
+      write(cdate( 1: 4),'(i4)') year
+      write(cdate( 6: 7),'(i2)') month
+      write(cdate( 9:10),'(i2)') day
+      write(cdate(12:13),'(i2)') hour
+      write(cdate(15:16),'(i2)') minute
+      write(cdate(18:19),'(i2)') second
+      do ic = 1,19
+        if(cdate(ic:ic) .eq. " ") cdate(ic:ic) = "0"
+      enddo
+
+  RETURN
+  END SUBROUTINE date_string
 
   SUBROUTINE calc_rcouple_scales(a, msf, rscale, ims,ime, its,ite)
 !-----------------------------------------------------------------------
@@ -2404,7 +2577,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   END SUBROUTINE calc_pottemp_scales
 
   SUBROUTINE print_obs_info(iprt,inest,niobf,rio,rjo,rko,                &
-                            prt_max,prt_freq,obs,lat,lon,                &
+                            prt_max,prt_freq,obs,stnid,lat,lon,          &
                             mlat,mlon,timeob,xtime)
 !*************************************************************************
 ! Purpose: Print obs information.
@@ -2420,18 +2593,21 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   REAL,    intent(in)    :: rko(niobf)    ! Bottom-top north coord (non-stagger)
   INTEGER, intent(in)    :: prt_max        ! Max no. of obs for diagnostic printout
   INTEGER, intent(in)    :: prt_freq       ! Frequency for diagnostic printout
-  INTEGER, intent(inout) :: obs(prt_max)  ! Saved obs indices to print
-  REAL,    intent(inout) :: lat(prt_max)  ! Saved latitudes
-  REAL,    intent(inout) :: lon(prt_max)  ! Saved longitudes
-  REAL,    intent(inout) :: mlat(prt_max) ! Saved model latitudes
-  REAL,    intent(inout) :: mlon(prt_max) ! Saved longitudes
+  INTEGER, intent(in)    :: obs(prt_max)  ! Saved obs indices to print
+  INTEGER, intent(in)    :: stnid(40,prt_max) ! Saved station ids
+  REAL,    intent(in)    :: lat(prt_max)  ! Saved latitudes
+  REAL,    intent(in)    :: lon(prt_max)  ! Saved longitudes
+  REAL,    intent(in)    :: mlat(prt_max) ! Saved model latitudes
+  REAL,    intent(in)    :: mlon(prt_max) ! Saved longitudes
   REAL,    intent(in)    :: timeob(niobf) ! Times of each observation (hours)
   REAL,    intent(in)    :: xtime         ! Model time in minutes
 
 ! Local variables
+  integer :: i                    ! Loop counter over obs station chars
   integer :: n                    ! Loop counter over obs
   integer :: pnx                  ! Obs index for printout
   character(len=200) :: msg       ! Argument to wrf_message
+  character(len=20)  :: station_id ! Station id of observation
 
   if(iprt) then
     if(prt_max.gt.0) then
@@ -2439,17 +2615,18 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
       if(obs(1).ne.-999) then
 
         call wrf_message("")
-        write(msg,'(a,i4,a,f8.1,a)') 'REPORTING OBS MASS-PT LOCS FOR NEST ',  &
+        write(msg,fmt='(a,i4,a,f8.1,a)') 'REPORTING OBS MASS-PT LOCS FOR NEST ',  &
                                      inest,' AT XTIME=',xtime,' MINUTES'
         call wrf_message(msg)
 
-        write(msg,'(a,i4,a,i5,a)') 'FREQ=',prt_freq,', MAX=',prt_max,         &
+        write(msg,fmt='(a,i4,a,i5,a)') 'FREQ=',prt_freq,', MAX=',prt_max,         &
                            ' LOCS, NEWLY READ OBS ONLY, -999 => OBS OFF PROC'
         call wrf_message(msg)
         call wrf_message("")
 
-        write(msg,'(a,a)') '    OBS#     I       J       K     OBS LAT',      &
-                           '  OBS LON   XLAT(I,J)  XLONG(I,J)  TIME(hrs)'
+        write(msg,fmt='(3a)') '    OBS#     I       J       K     OBS LAT',       &
+                          '  OBS LON   XLAT(I,J)  XLONG(I,J)  TIME(hrs)',     &
+                          '  OBS STATION ID'
         call wrf_message(msg)
 
       endif
@@ -2460,9 +2637,13 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
     do n=1,prt_max
        pnx = obs(n)
        if(pnx.ne.-999) then
-           write(msg,'(2x,i7,3f8.3,2f9.3,2x,f9.3,2x,f9.3,3x,f6.2)')           &
+!          Retrieve 15 chars of station id
+           do i = 1,15
+              station_id(i:i) = char(stnid(i,n))
+           enddo
+           write(msg,fmt='(2x,i7,3f8.3,2f9.3,2x,f9.3,2x,f9.3,3x,f6.2,7x,a15)')    &
                pnx,rio(pnx)-.5,rjo(pnx)-.5,rko(pnx),lat(n),lon(n),            &
-               mlat(n),mlon(n),timeob(pnx)
+               mlat(n),mlon(n),timeob(pnx),station_id
         call wrf_message(msg)
        endif
     enddo
@@ -2470,17 +2651,16 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   endif
   END SUBROUTINE print_obs_info
 
-  REAL FUNCTION ht_to_p( h, pbbc, ppbc, phb, ph, g, ic, jc, dx, dy,           &
+  REAL FUNCTION ht_to_p( h, pbbc, ppbc, z, ic, jc, dx, dy,                    &
                          k_start, k_end, kds,kde, ims,ime, jms,jme, kms,kme )
 
-!*************************************************************************
-! Purpose: Interpolate pressure at a specific x, y, height coordinate.
-!          The input pressure column (base and perturbation) is already
-!          horizontally interpolated to the x, y position. The input
-!          geopotential field (base: phb, pert: ph) is 3d, and must be
-!          horizontally interpolated (to iob, job) to get a height column (z_at_p)
-!          before p is vertically interpolated.
-!*************************************************************************
+!******************************************************************************
+! Purpose: Interpolate pressure at a specified x (ic), y (jc), and height (h).
+!          The input pressure column pbbc+ppbc (base and perturbn) must already
+!          be horizontally interpolated to the x, y position. The subroutine
+!          get_height_column is called here to horizontally interpolated the
+!          3D height field z to get a height column at (iob, job).
+!******************************************************************************
 
   IMPLICIT NONE
 
@@ -2490,9 +2670,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   INTEGER, INTENT(IN)  :: ims,ime, jms,jme, kms,kme        ! memory dims.
   REAL,    INTENT(IN)  :: pbbc(kds:kde)                    ! column base pressure (cb)
   REAL,    INTENT(IN)  :: ppbc(kds:kde)                    ! column pressure perturbation (cb)
-  REAL,    INTENT(IN)  :: phb( ims:ime, kms:kme, jms:jme ) ! geopotential (base)
-  REAL,    INTENT(IN)  :: ph( ims:ime, kms:kme, jms:jme )  ! geopotential (perturbation) 
-  REAL,    INTENT(IN)  :: g                                ! gravity constant
+  REAL,    INTENT(IN)  :: z( ims:ime, kms:kme, jms:jme )   ! ht (m) above sl on half-levels
   INTEGER, INTENT(IN)  :: ic                               ! i-coord of desired p
   INTEGER, INTENT(IN)  :: jc                               ! j-coord of desired p
   REAL,    INTENT(IN)  :: dx                               ! interp. fraction (x dir)
@@ -2509,42 +2687,42 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   REAL :: ln_phi             ! log phi
   REAL :: z_at_p( kms:kme )  ! height at p levels
 
-! Calculate z at p levels.
-  call get_height_column(phb, ph, g, ic, jc, dx, dy, z_at_p,          &
+! Get interpolated z column on pressure (half-) levels at (ic,jc)
+  call get_height_column(z, ic, jc, dx, dy, z_at_p,                   &
                          k_start, k_end, kds,kde,                     &
                          ims,ime, jms,jme, kms,kme )
 
 ! Now we have pbbc, ppbc, z_at_p, so compute p at h. First, find
 ! bounding layers klo and khi so that z_at_p(klo) <= h <= z_at_p(khi)
 
-    ZLEVS: do k = k_start+1, k_end
-      klo = k-1
-      if(h .le. z_at_p(k)) then
-         EXIT ZLEVS
-      endif
-    enddo ZLEVS
+  ZLEVS: do k = k_start+1, k_end
+    klo = k-1
+    if(h .le. z_at_p(k)) then
+      EXIT ZLEVS
+    endif
+  enddo ZLEVS
 
-    zlo = z_at_p(klo)
-    zhi = z_at_p(klo+1)
+  zlo = z_at_p(klo)
+  zhi = z_at_p(klo+1)
 
 ! Interpolate natural log of pressure
-    ln_plo = log( pbbc(klo+1) + ppbc(klo+1) )
-    ln_phi = log( pbbc(klo) + ppbc(klo) )
-    if(h.le.zlo) then
-      ln_p = ln_phi     ! set to k=1 pressure 
-    else if (h.ge.zhi) then
-      ln_p = ln_plo     ! set to k=k_end pressure 
-    else
-      ln_p = ln_plo + (ln_phi-ln_plo)*((zhi-h)/(zhi-zlo)) 
-    endif
+  ln_plo = log( pbbc(klo+1) + ppbc(klo+1) )
+  ln_phi = log( pbbc(klo) + ppbc(klo) )
+  if(h.le.zlo) then
+    ln_p = ln_phi     ! set to k=1 pressure 
+  else if (h.ge.zhi) then
+    ln_p = ln_plo     ! set to k=k_end pressure 
+  else
+    ln_p = ln_plo + (ln_phi-ln_plo)*((zhi-h)/(zhi-zlo)) 
+  endif
 
 ! Return pressure
-    p = exp(ln_p)
-    ht_to_p = p
+  p = exp(ln_p)
+  ht_to_p = p
   RETURN
   END FUNCTION ht_to_p
 
-  SUBROUTINE get_height_column( phb, ph, g, ic, jc, dx, dy, z_at_p,   &
+  SUBROUTINE get_height_column( z, ic, jc, dx, dy, z_at_p,                  &
                                 k_start, k_end, kds,kde,                    &
                                 ims,ime, jms,jme, kms,kme )
 !*************************************************************************
@@ -2556,9 +2734,7 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
   INTEGER, INTENT(IN)  :: k_start, k_end                   ! Loop bounds  
   INTEGER, INTENT(IN)  :: kds,kde                          ! vertical dim.
   INTEGER, INTENT(IN)  :: ims,ime, jms,jme, kms,kme        ! memory dims.
-  REAL,    INTENT(IN)  :: phb( ims:ime, kms:kme, jms:jme ) ! geopotential (base)
-  REAL,    INTENT(IN)  :: ph( ims:ime, kms:kme, jms:jme )  ! geopotential (perturbation) 
-  REAL,    INTENT(IN)  :: g                                ! gravity constant
+  REAL,    INTENT(IN)  :: z( ims:ime, kms:kme, jms:jme )   ! ht (m) on half-levels
   INTEGER, INTENT(IN)  :: ic                               ! i-coord of desired p
   INTEGER, INTENT(IN)  :: jc                               ! j-coord of desired p
   REAL,    INTENT(IN)  :: dx                               ! interp. fraction (x dir)
@@ -2567,30 +2743,215 @@ SUBROUTINE errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rovcp,  &
 
 ! Local variables
   INTEGER :: k             ! loop counter
-  REAL :: phbc(kds:kde)    ! column geopotential (base)
-  REAL :: phc(kds:kde)     ! column geopotential (perturbation)
-  REAL :: z_at_w(kds:kde)  ! column height at w levels
 
 
   do k = kds, kde
-      phbc(k) =                                     & 
-         (1.-DY)*( (1.-DX)*phb(IC,K,JC) +           &
-                            DX *phb(IC+1,K,JC) ) +  &
-             DY* ( (1.-DX)*phb(IC,K,JC+1) +         &
-                            DX *phb(IC+1,K,JC+1) )
-      phc(k) =                                      & 
-         (1.-DY)*( (1.-DX)*ph(IC,K,JC) +            &
-                            DX *ph(IC+1,K,JC) ) +   &
-             DY* ( (1.-DX)*ph(IC,K,JC+1) +          &
-                            DX *ph(IC+1,K,JC+1) )
-
-      z_at_w(k) = (phbc(k)+phc(k))/g
+      z_at_p(k) =                                     & 
+         (1.-DY)*( (1.-DX)*z(IC,K,JC) +               &
+                            DX *z(IC+1,K,JC) ) +      &
+             DY* ( (1.-DX)*z(IC,K,JC+1) +             &
+                            DX *z(IC+1,K,JC+1) )
   enddo
 
-  do k = k_start, k_end
-      z_at_p(k) = 0.5*(z_at_w(k) +z_at_w(k+1))
-  enddo
   END SUBROUTINE get_height_column
+
+  SUBROUTINE get_base_state_height_column( p_top, p00, t00, a, g, r_d,    &
+                               znu, z_at_p,  k_start, k_end, kds,kde, kms,kme )
+!********************************************************
+! Purpose: Compute base-state column height on p levels.
+!    See, e.g., eqns 1.3-1.5 in MM5 User's Guide.
+!    Height is a function of pressure plus the constants:
+!    p00  - sea level pressure (Pa)
+!    t00  - sea level temperature (K)
+!    a    - base state lapse rate (k/m)
+!    r_d  - gas constant (J/Kg/K)   (Joule=1kg/m**2/s**2)
+!    g    - gravitational constant (m/s**2)
+!********************************************************
+
+  IMPLICIT NONE
+
+  REAL, INTENT(IN)     :: p_top        ! pressure at top of model
+  REAL, INTENT(IN)     :: p00          ! base state pressure
+  REAL, INTENT(IN)     :: t00          ! base state temperature
+  REAL, INTENT(IN)     :: a            ! base state lapse rate
+  REAL, INTENT(IN)     :: g                ! gravity constant
+  REAL, INTENT(IN)     :: r_d              ! gas constant
+  INTEGER, INTENT(IN)  :: k_start, k_end   ! Loop bounds  
+  INTEGER, INTENT(IN)  :: kds,kde          ! vertical dim.
+  INTEGER, INTENT(IN)  :: kms,kme          ! vertical memory dim.
+  REAL, INTENT(IN)  :: znu( kms:kme )      ! eta values on half (mass) levels
+  REAL, INTENT(OUT) :: z_at_p( kms:kme )   ! column height at p levels
+
+! Local variables
+  integer :: k             ! loop counter
+  real    :: ps0           ! base state pressure at surface
+  real    :: pb(kms:kme)   ! pressure on half eta levels
+  real    :: logterm       ! temporary for Z calculation 
+  real    :: ginv          ! 1/g
+  
+  ginv = 1/g
+
+! Compute base state pressure on half eta levels.
+   do k = k_start, k_end
+     pb(k) = znu(k)*(p00 - p_top) + p_top
+   enddo
+
+! Use hydrostatic relation to compute height at pressure levels.
+   do k = k_start, k_end
+     logterm = log(pb(k)/p00)
+     z_at_p(k) = .5*r_d*a*ginv*logterm*logterm - r_d*t00*ginv*logterm
+   enddo
+
+  END SUBROUTINE get_base_state_height_column
+
+  REAL FUNCTION get_timewt(xtime,dtmin,twindo,scalef,obtime)
+!*************************************************************************
+! Purpose: Compute the temporal weight factor for an observation
+!*************************************************************************
+
+  IMPLICIT NONE
+
+  REAL, INTENT(IN)  :: xtime              ! model time (minutes)
+  REAL, INTENT(IN)  :: dtmin              ! model timestep (minutes)
+  REAL, INTENT(IN)  :: twindo             ! half window (hours)
+  REAL, INTENT(IN)  :: scalef             ! window scale factor
+  REAL, INTENT(IN)  :: obtime             ! observation time (hours)
+
+! Local variables
+  real :: fdtim            ! reference time (minutes)
+  real :: tw1              ! half of twindo, scaled, in minutes
+  real :: tw2              ! twindo, scaled, in minutes
+  real :: tconst           ! reciprical of tw1
+  real :: ttim             ! obtime in minutes
+  real :: dift             ! | fdtim-ttim |
+  real :: timewt           ! returned weight
+
+! DETERMINE THE TIME-WEIGHT FACTOR FOR N
+  FDTIM=XTIME-DTMIN
+! TWINDO IS IN MINUTES:
+  TW1=TWINDO/2.*60.*scalef
+  TW2=TWINDO*60.*scalef
+  TCONST=1./TW1
+  TIMEWT=0.0
+  TTIM=obtime*60.
+!***********TTIM=TARGET TIME IN MINUTES
+  DIFT=ABS(FDTIM-TTIM)
+  IF(DIFT.LE.TW1)TIMEWT=1.0
+  IF(DIFT.GT.TW1.AND.DIFT.LE.TW2) THEN
+     IF(FDTIM.LT.TTIM)TIMEWT=(FDTIM-(TTIM-TW2))*TCONST
+     IF(FDTIM.GT.TTIM)TIMEWT=((TTIM+TW2)-FDTIM)*TCONST
+  ENDIF
+  get_timewt = timewt
+  END FUNCTION get_timewt
+
+  SUBROUTINE print_vif_var(var, vif, nfullmin, nrampmin )
+!********************************************************
+! Purpose: Print a description of the vertical influence
+!          function for a given variable.
+!********************************************************
+  IMPLICIT NONE
+
+  character(len=4), intent(in)  :: var      ! Variable (wind, temp, mois)
+  real,             intent(in)  :: vif(6)   ! Vertical influence function
+  real,             intent(in)  :: nfullmin ! Vert infl fcn full nudge min
+  real,             intent(in)  :: nrampmin ! Vert infl fcn ramp decr min
+
+! Local variables
+  character(len=200) :: msg1, msg2
+  character(len=8) :: regime
+  real :: nfullr1, nrampr1
+  real :: nfullr2, nrampr2
+  real :: nfullr4, nrampr4
+
+  nfullr1 = vif(1)
+  nrampr1 = vif(2)
+  nfullr2 = vif(3)
+  nrampr2 = vif(4)
+  nfullr4 = vif(5)
+  nrampr4 = vif(6)
+
+  if(var.eq.'wind') then
+    write(msg1,fmt='(a)') '  For winds:'
+  elseif (var.eq.'temp') then
+    write(msg1,fmt='(a)') '  For temperature:'
+  elseif (var.eq.'mois') then
+    write(msg1,fmt='(a)') '  For moisture:'
+  else
+    write(msg1,fmt='(a,a4)') 'Unknown variable type: ',var
+    call wrf_error_fatal ( 'print_vif_var: module_fddaobs_rtfdda STOP' )
+  endif
+      
+  call wrf_message(msg1)
+
+! For this variable, print a description of the vif for each regime 
+  call print_vif_regime(1, nfullr1, nrampr1, nfullmin, nrampmin) 
+  call print_vif_regime(2, nfullr2, nrampr2, nfullmin, nrampmin) 
+  call print_vif_regime(4, nfullr4, nrampr4, nfullmin, nrampmin) 
+
+  END SUBROUTINE print_vif_var
+
+  SUBROUTINE print_vif_regime(reg, nfullr, nrampr, nfullmin, nrampmin )
+!********************************************************
+! Purpose: Print a description of the vertical influence
+!          function for a given regime.
+!********************************************************
+  IMPLICIT NONE
+
+  integer, intent(in)  :: reg          ! Regime number (1, 2, 4)
+  real,    intent(in)  :: nfullr       ! Full nudge range for regime
+  real,    intent(in)  :: nrampr       ! Rampdown range for regime
+  real,    intent(in)  :: nfullmin     ! Vert infl fcn full nudge min
+  real,    intent(in)  :: nrampmin     ! Vert infl fcn ramp decr min
+
+! Local variables
+  character(len=200) :: msg1, msg2
+  character(len=8) :: regime
+
+  if(reg.eq.1) then
+     write(regime,fmt='(a)') 'Regime 1'
+  elseif (reg.eq.2) then
+     write(regime,fmt='(a)') 'Regime 2'
+  elseif (reg.eq.4) then
+     write(regime,fmt='(a)') 'Regime 4'
+  else
+     write(msg1,fmt='(a,i3)') 'Unknown regime number: ',reg
+     call wrf_error_fatal ( 'print_vif_regime: module_fddaobs_rtfdda STOP' )
+  endif
+
+!Set msg1 for description of full weighting range
+  if(nfullr.lt.0) then
+     if(nfullr.eq.-5000) then
+       write(msg1,fmt='(2x,a8,a)') regime, ': Full weighting to the PBL top'
+     elseif (nfullr.lt.-5000) then
+       write(msg1,fmt='(2x,a8,a,i4,a)') regime, ': Full weighting to ',int(-5000.-nfullr), &
+                                          ' m above the PBL top'
+     else
+       write(msg1,fmt='(2x,a8,a,i4,a)') regime, ': Full weighting to ',int(nfullr+5000.),  &
+                                          ' m below the PBL top'
+     endif
+  else
+     write(msg1,fmt='(2x,a8,a,i4,a)') regime, ': Full weighting through ',                 &
+                                     int(max(nfullr,nfullmin)),' m'
+  endif
+
+!Set msg2 for description of rampdown range
+  if(nrampr.lt.0) then
+     if(nrampr.eq.-5000) then
+       write(msg2,fmt='(a)') ' and a vertical rampdown up to the PBL top.'
+     elseif (nrampr.lt.-5000) then
+       write(msg2,fmt='(a,i4,a)') ' and a vertical rampdown to ',int(-5000.-nrampr),    &
+                            ' m above the PBL top.'
+     else
+       write(msg2,fmt='(a,i4,a)') ' and a vertical rampdown to ',int(nrampr+5000.),     &
+                            ' m below the PBL top.'
+     endif
+  else
+     write(msg2,fmt='(a,i4,a)') ' and a vertical rampdown in the next ',                &
+                          int(max(nrampr,nrampmin)),' m.'
+  endif
+  call wrf_message(TRIM(msg1)//msg2)
+
+  END SUBROUTINE print_vif_regime
 #endif
 
 END MODULE module_fddaobs_rtfdda

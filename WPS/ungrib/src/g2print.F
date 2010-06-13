@@ -83,9 +83,9 @@
            ! If we need to read a new grib record, then read one.
 
               if (grib_version.ne.2) then 
-                 write(6,*) 'calling r_grib1 with iunit ', nunit1
-                 write(6,*) 'flnm = ',gribflnm
-                 write(6,*) 'GRIB 1 not yet supported in this code'
+!                write(6,*) 'calling r_grib1 with iunit ', nunit1
+!                write(6,*) 'flnm = ',gribflnm
+                 write(6,*) 'This is a Grib1 file. Please use g1print.\n'
                  stop
                  ! Read one record at a time from GRIB1 (and older Editions) 
 !                call r_grib1(nunit1, gribflnm, level, field, &
@@ -182,6 +182,7 @@ end program g2print
       integer :: nlvl
       integer , dimension(maxlvl) :: level_array
       logical :: verbose=.false.
+      logical :: first = .true.
       integer :: debug_level
       character(len=4) :: tmp4
       character(len=40) :: string
@@ -233,6 +234,7 @@ end program g2print
       if (verbose) write(6,*) 'begin r_grib2, flnm = ',gribflnm
       ! Open a byte-addressable file.
       CALL BAOPENR(junit,gribflnm,IOS)
+      first = .true.
       if (verbose) write(6,*) 'back from baopenr, ios = ',ios
       if (ios.eq.0) then 
       VERSION: do
@@ -291,7 +293,8 @@ end program g2print
          ! ----
          ! Once per file fill in date, model and projection values.
 
-         if (lskip.lt.10) then 
+         if (first) then 
+           first = .false.
 
            ! Build the 19-character date string, based on GRIB2 header date
            ! and time information, including forecast time information:
@@ -372,10 +375,10 @@ end program g2print
           endif
 
           if (debug_level .le. 50) then
-          write(6,*) '---------------------------------------------------------------------------'
-          write(6,*) ' rec Prod Cat Param  Lvl    Lvl      Lvl   Name          Time          Fcst'
-          write(6,*) ' num Disc     num    code   one      two                               hour'
-          write(6,*) '---------------------------------------------------------------------------'
+          write(6,*) '---------------------------------------------------------------------------------------'
+          write(6,*) ' rec Prod Cat Param  Lvl    Lvl      Lvl     Prod    Name            Time          Fcst'
+          write(6,*) ' num Disc     num    code   one      two     Templ                                 hour'
+          write(6,*) '---------------------------------------------------------------------------------------'
           endif
 
            year  =gfld%idsect(6)     !(FOUR-DIGIT) YEAR OF THE DATA
@@ -444,6 +447,12 @@ end program g2print
                map%source = 'GFDL Hurricane Model'
              elseif (iprocess.eq.80) then
                map%source = 'NCEP GFS Ensemble'
+             elseif (iprocess.eq.107) then          ! renumbered as of 23 Feb 2010
+               map%source = 'NCEP GFS Ensemble'
+             elseif (iprocess.eq.129) then
+               map%source = 'NCEP GODAS'
+             elseif (iprocess.eq.25) then
+               map%source = 'NCEP SNOW COVER ANALYSIS'
              else
                map%source = 'unknown model from NCEP'
                write (6,*) 'unknown NCEP model, iprocess = ',iprocess
@@ -454,10 +463,14 @@ end program g2print
              else
                map%source = 'AFWA'
              endif
+           else if (icenter .eq. 58) then
+               map%source = 'US Navy FNOC'
            else if (icenter .eq. 98) then
              map%source = 'ECMWF'
            else if (icenter .eq. 34) then
              map%source = 'JMA'
+           else if (icenter .eq. 74 .or. icenter .eq. 75 ) then
+             map%source = 'UKMO'
            else
              map%source = 'unknown model and orig center'
            end if
@@ -885,8 +898,8 @@ end program g2print
 
          write(6,987) itot,gfld%discipline,gfld%ipdtmpl(1),  &
            gfld%ipdtmpl(2),gfld%ipdtmpl(10),int(level),&
-           lvl2,pabbrev,hdate,fcst
-  987     format(2i4,i5,i4,i8,i8,i8,a10,a20,i5.2)
+           lvl2,gfld%ipdtnum,pabbrev,hdate,fcst
+  987     format(2i4,i5,i4,i8,i8,i8,i8,3x,a10,a20,i5.2)
          endif
 
          ! Deallocate arrays decoding GRIB2 record.
@@ -999,6 +1012,8 @@ end program g2print
 
          ! Check for EOF, or problem
          if (lgrib.eq.0) then
+            write(*,'("\n\tThere is a problem with the input file.")')
+            write(*,'("\tPerhaps it is not a Grib2 file?\n")')
             STOP "Grib2 file or date problem, stopping in edition_num."
          endif
  
