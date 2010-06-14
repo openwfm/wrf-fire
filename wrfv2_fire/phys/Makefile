@@ -408,22 +408,16 @@ module_fr_sfire_atm.o: \
 		module_fr_sfire_util.o 
 
 module_fr_sfire_model.o: \
-                fr_sfire_params_args.h \
-                fr_sfire_params_decl.h \
 	        module_fr_sfire_core.o \
                 module_fr_sfire_phys.o \
 		module_fr_sfire_util.o 
 
 module_fr_sfire_core.o: \
-                fr_sfire_params_args.h \
-                fr_sfire_params_decl.h \
 		module_fr_sfire_util.o \
 	        module_fr_sfire_phys.o 
 
 module_fr_sfire_phys.o: \
 		../share/module_model_constants.o  \
-                fr_sfire_params_args.h \
-                fr_sfire_params_decl.h \
 		module_fr_sfire_util.o 
 
 module_fire_debug_output.o: \
