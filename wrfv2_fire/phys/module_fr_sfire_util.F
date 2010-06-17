@@ -70,13 +70,13 @@ implicit none
 character(len=*), intent(in)::s
 ! local
 character(len=128)msg
-character(len=2)t
+character(len=118)t
 integer m
 if(fire_print_msg.gt.0)then
 #ifdef _OPENMP
     m=omp_get_thread_num()
-    write(t,'(i2)')m
-    msg='SFIRE:'//t//':'//s
+    t=s
+    write(msg,'(a6,i3,a1,a118)')'SFIRE:',m,':',t
 #else
     msg='SFIRE:'//s
 #endif
