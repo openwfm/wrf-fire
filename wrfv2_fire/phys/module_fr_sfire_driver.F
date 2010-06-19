@@ -611,7 +611,7 @@ do ij=1,num_tiles
     jfts= (jts-jds)*jr+jfds       ! start fire tile in j
     jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
         
-    write(msg,*)'tile=',ij,' id=',id,' ifun=',ifun
+    write(msg,'(3(a,i3,1x))')'tile=',ij,' id=',id,' ifun=',ifun
     call message(msg)
     write(msg,7001)'atm tile   ','its',its,ite,jts,jte
     call message(msg)                   
@@ -822,7 +822,7 @@ enddo ! tiles
 if (ifun.eq.3)then
     ignitions_done=ignitions_done_tile(1) ! all should be the same
     do i=1,ignitions_done
-        write(msg,*)'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
+        write(msg,'(2(a,i4,1x))')'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
         call message(msg)
         ignited_patch(i)=0
         do ij=1,num_tiles

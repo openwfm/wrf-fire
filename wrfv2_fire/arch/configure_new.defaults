@@ -189,16 +189,17 @@ RANLIB          =      ranlib
 CC_TOOLS        =      $(SCC) 
 
 ###########################################################
-#ARCH    Linux i486 i586 i686, gfortran compiler with gcc #serial smpar dmpar dm+sm
+#ARCH    Linux x86_64 i486 i586 i686, gfortran compiler with gcc #serial smpar dmpar dm+sm
 #
 DMPARALLEL      =       # 1
 OMPCPP          =       # -D_OPENMP
 OMP             =       # -fopenmp
+OMPCC           =       # -fopenmp
 SFC             =       gfortran
 SCC             =       gcc
 CCOMP           =       gcc
-DM_FC           =       mpif90
-DM_CC           =       mpicc
+DM_FC           =       mpif90 -f90=$(SFC)
+DM_CC           =       mpicc -cc=$(SCC)
 FC              =       CONFIGURE_FC
 CC              =       CONFIGURE_CC
 LD              =       $(FC)
@@ -216,17 +217,17 @@ FCDEBUG         =       # -g $(FCNOOPT)
 FORMAT_FIXED    =       -ffixed-form
 FORMAT_FREE     =       -ffree-form -ffree-line-length-none
 FCSUFFIX        =       
-BYTESWAPIO      =       -byteswapio
+BYTESWAPIO      =       -fconvert=big-endian -frecord-marker=4
 FCBASEOPTS_NO_G =       -w $(FORMAT_FREE) $(BYTESWAPIO)
 FCBASEOPTS      =       $(FCBASEOPTS_NO_G) $(FCDEBUG)
-MODULE_SRCH_FLAG =     -module $(WRF_SRC_ROOT_DIR)/main
+MODULE_SRCH_FLAG =
 TRADFLAG        =      -traditional
-CPP             =      cpp -C -P -xassembler-with-cpp
+CPP             =      /lib/cpp -C -P
 AR              =      ar
 ARFLAGS         =      ru
-M4 		=      m4 -B 14000
-RANLIB 		=      ranlib
-CC_TOOLS        =      cc
+M4              =      m4 -G
+RANLIB          =      ranlib
+CC_TOOLS        =      $(SCC)
 
 ###########################################################
 #ARCH    Darwin (MACOS) intel compiler with icc #serial smpar dmpar dm+sm

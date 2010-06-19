@@ -1262,7 +1262,11 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
 
-write(msg,'(5(a,i5))')'prop_ls:',id,' tile  ',its,':',ite,',',jts,':',jte
+msg='before'
+call message(msg)
+write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':',jte
+call message(msg)
+msg='after'
 call message(msg)
 
     a=fire_back_weight ! from module_fr_sfire_util
