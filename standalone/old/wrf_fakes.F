@@ -1,10 +1,3 @@
-module module_model_constants
-! copied what needed from share/module_model_constants.F
-   REAL    , PARAMETER :: r_d          = 287.
-   REAL    , PARAMETER :: cp           = 7.*r_d/2.   ! specific heat of the atmosphere
-   REAL    , PARAMETER :: xlv          = 2.5E6       ! latent heat
-end module module_model_constants
-
 module module_wrf_error
 contains
 
@@ -36,6 +29,9 @@ end subroutine wrf_message
 
 end module module_wrf_error
 
+subroutine latch
+end
+
 module module_dm
 contains
 subroutine wrf_get_nproc (nprocs)
@@ -49,26 +45,3 @@ myproc=1
 end subroutine wrf_get_myproc
 
 end module module_dm
-
-! just for testing
-subroutine latch
-end
-
-! external stubs, from module_dm 
-SUBROUTINE wrf_dm_bcast_real( BUF, N1 )
-   IMPLICIT NONE
-   INTEGER n1
-   REAL  buf(*)
-   RETURN
-END SUBROUTINE wrf_dm_bcast_real
-
-LOGICAL FUNCTION wrf_dm_on_monitor()
-  wrf_dm_on_monitor = .true.
-END FUNCTION wrf_dm_on_monitor
-
-SUBROUTINE wrf_dm_bcast_integer( BUF, N1 )
-   IMPLICIT NONE
-   INTEGER n1
-   INTEGER  buf(*)
-   RETURN
-END SUBROUTINE wrf_dm_bcast_integer

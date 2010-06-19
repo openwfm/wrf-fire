@@ -66,25 +66,22 @@ integer, intent(in):: &
 real, intent(in)::fdx,fdy,dt,wind,alpha
 
 !*** local
-real, dimension(ifms:ifme,jfms:jfme), target :: zsf,     &
+real, dimension(ifms:ifme,jfms:jfme):: zsf,     &
                  lfn,tign,fuel_frac,fire_area,                    &
-                 grnhfx,grnqfx,lfn_out,ros
+                 grnhfx,grnqfx,lfn_out
 integer::  num_ignitions,i,j,ifuelread,istep,nfuel_cat0,ifun,ifun_start
 logical::need_lfn_update
 real:: t0,time_start,sm,sn
-integer, dimension(ifms:ifme,jfms:jfme),target ::ischap
-real, dimension(ifms:ifme,jfms:jfme), target:: &
-       fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip, &
-       coord_xf,coord_yf,dzdxf,dzdyf,nfuel_cat
+integer, dimension(ifms:ifme,jfms:jfme)::nfuel_cat,ischap
+real, dimension(ifms:ifme,jfms:jfme)::fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip, &
+       coord_xf,coord_yf
 real:: unit_xf,unit_yf 
 integer, parameter::max_tiles=10
 integer::num_tiles,ij,ifts,ifte,jfts,jfte
 integer, dimension(max_tiles)::if_start,if_end,jf_start,jf_end
 integer, parameter :: max_ignitions=10
 real, dimension(max_ignitions) :: ignition_start_x,ignition_start_y, &
-    ignition_end_x,ignition_end_y,ignition_radius,ignition_start_time,ignition_end_time
-integer:: ignited_tile(max_ignitions),ignitions_done
-type(fire_params)::fp   ! args passed to spread rate computation
+    ignition_end_x,ignition_end_y,ignition_radius,ignition_time
 
 !*** executable
 
@@ -101,8 +98,6 @@ do j=jfps,jfpe
         zsf(i,j)=1000   ! flat ground
         vx(i,j)=wind*cos(alpha)    ! constant wind
         vy(i,j)=wind*sin(alpha)
-        dzdxf(i,j)=0.
-        dzdyf(i,j)=0.
     enddo
 enddo
 
@@ -125,30 +120,14 @@ ignition_start_y(1)=0.5*fdy*(jfde-jfds)
 ignition_end_x(1)=0.5*fdx*(ifde-ifds)*0.9999999
 ignition_end_y(1)=0.5*fdy*(jfde-jfds)*1.0000001
 ignition_radius(1) = 0.5*max(5.0,6*max(fdx,fdy))
-ignition_start_time(1)=1
-ignition_end_time(1)=1
+ignition_time(1)=1
 ignition_start_x(2)=1000
 ignition_start_y(2)=500
 ignition_end_x(2)=1500
 ignition_end_y(2)=1500
 ! at least 6 by 6 cells but no less than 5 m
 ignition_radius(2) = 0.5*max(5.0,6*max(fdx,fdy))
-ignition_start_time(2)=2
-ignition_end_time(2)=2
-
-! pointers to be passed to fire spread formulas
-    fp%vx => vx         ! fire winds
-    fp%vy => vy         ! fire winds
-    fp%zsf => zsf       ! terrain height
-    fp%dzdxf => dzdxf   ! terrain grad
-    fp%dzdyf => dzdyf   ! terrain grad
-    fp%bbb => bbb       ! spread formula coeff
-    fp%betafl => betafl ! spread formula coeff
-    fp%phiwc => phiwc   ! spread formula coeff
-    fp%r_0 => r_0       ! spread formula coeff
-    fp%fgip => fgip     ! spread formula coeff
-    fp%ischap => ischap ! spread formula coeff
-
+ignition_time(2)=2
 
 
 unit_xf=1
@@ -173,12 +152,8 @@ do istep=1,msteps
                 coord_xf,coord_yf     &
             )
 
-            call   sfire_model (                        &
-                10*istep+ij,                            & ! id
-                ifun,                                   &
-                .false.,                                & ! restart
-                need_lfn_update,                        &
-                num_ignitions,                          & 
+            call   sfire_model (10*istep+ij,ifun,         &
+                need_lfn_update, num_ignitions,              & 
                 ifuelread,nfuel_cat0,                   &
                 ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -189,16 +164,15 @@ do istep=1,msteps
                 ignition_start_x,ignition_start_y,      &
                 ignition_end_x,ignition_end_y,          &  
                 ignition_radius,                        &
-                ignition_start_time,                    &
-                ignition_end_time,                      &
-                ignitions_done,ignited_tile,            &
+                ignition_time,                          &
                 coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
+                zsf,                                    & ! terrain height (for gradient)
+                vx,vy,                                  & ! input: wind
                 lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left
                 grnhfx,grnqfx,                          & ! output: heat fluxes
-                ros,                                    & ! output: rate of spread
                 nfuel_cat,                              & ! fuel data per point 
                 fuel_time,                              & ! save derived internal data
-                fp                                      & ! args passed to ros computation        
+                bbb,betafl,phiwc,r_0,fgip,ischap &
             )
         enddo 
         
