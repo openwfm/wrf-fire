@@ -1,8 +1,4 @@
-#FC = ifort -g -debug all -traceback -ftrapuv -inline-debug-info -check all -stand f95 -free -I$(NETCDF)/include  
-FFREE=-ffree-form
-FFIXED=-ffixed-form
-FCLAGS= -I$(NETCDF)/include -I. $(FREE)
-#LDFLAGS = -L$(NETCDF) -lnetcdf
+include make.inc
 FC = gfortran 
 DEFS =
 WRF = ../wrfv2_fire/phys
