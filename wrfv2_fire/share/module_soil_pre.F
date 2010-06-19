@@ -528,6 +528,8 @@ endif
                   WRITE ( message , FMT = '(A,I4,I4)' ) &
                   'based on landuse, changing soil to land at point ',i,j
                   CALL wrf_debug(1,message)
+!jm commented out prints that prevent compilation under gfortran 4.1.2
+!jm Jan Mandel June 2010
 !jm                  WRITE ( num_cat_count , FMT = '(I3)' ) num_soil_top_cat
 !jm                  WRITE ( message , FMT = '('//num_cat_count//'(i3,1x))' ) ints(1:num_soil_top_cat)
 !jm                  CALL wrf_debug(1,message)
