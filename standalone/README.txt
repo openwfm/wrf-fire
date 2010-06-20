@@ -9,7 +9,16 @@ To build the standalone driver, create your own make.inc, or link an existing on
 This will create file model_test_main.exe, then just execute this file.
 
 All I can say at the moment is that the standalone model runs and does something.
-Some sensible input and output comes later.
+Some sensible NetCDF WRF-compatible input and output comes later. 
+
+Spread rate calculation interface:
+
+The spread rate is computed in module_fr_sfire_phys.F (maybe it should be renamed to 
+module_fr_sfire_spread.F?). This module defines derived type fire_params which contains only
+pointers.  The driver declares an object type fire_params and assigns the pointers to 
+parameter arrays. This object is passed down the call chain to the spread rate calculation.
+This way, when the parameters passed to the spread rate calculation change, no changes
+are required in the code between the driver and the spread rate calculation.
 
 Jan Mandel
 June 18, 2010
