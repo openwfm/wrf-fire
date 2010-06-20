@@ -1,5 +1,5 @@
 This directory contains SFIRE (the fire component of wrf-fire) test driver.
-It links the fire model from the wrfv2_fire/phys/module_fr_sfire_*.F file with the 
+It links the fire model from the files wrfv2_fire/phys/module_fr_sfire_*.F with the 
 files in this directory:
 
 model_test_main.F	the main program that calls the model
