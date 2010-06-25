@@ -15,6 +15,7 @@ MAKEFILE=Makefile
 
 MODEL_OBJ = \
     model_test_main.o \
+    wrf_netcdf.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
@@ -28,7 +29,8 @@ model_test_main.exe: $(MODEL_OBJ)
 
 model_test_main.o: \
     module_fr_sfire_model.o  \
-    module_fr_sfire_util.o 
+    module_fr_sfire_util.o \
+    wrf_netcdf.o
 
 module_fr_sfire_model.o: \
     module_fr_sfire_core.o  \
@@ -44,6 +46,8 @@ module_fr_sfire_phys.o: \
 module_fr_sfire_util.o: \
     wrf_fakes.o
 
+wrf_netcdf.o: \
+    module_fr_sfire_util.o
 
 clean:
-	rm -f *.mod *.o
+	rm -f *.mod *.o *.f90 *.s *.exe

@@ -1,6 +1,7 @@
 FFREE=-ffree-form
 FFIXED=-ffixed-form
 FCLAGS= -I$(NETCDF)/include -I. $(FREE) -g
-#LDFLAGS = -L$(NETCDF) -lnetcdf
+FFLAGS= $(FCLAGS)
+LDFLAGS = -L$(NETCDF) -lnetcdf
 FC = gfortran 
 

@@ -17,6 +17,9 @@ integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
 real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s), wind azimuth
 integer::rfx,rfy ! refinement, convenience only
 
+! kill output files
+fire_print_file=0
+
 nx=400
 ny=400
 msteps=200
@@ -56,6 +59,7 @@ subroutine model_test(  &
     ifms,ifme,jfms,jfme, &
     ifps,ifpe,jfps,jfpe, &
     fdx,fdy,wind,alpha,dt,msteps)
+use wrf_netcdf, only : create_file,write_vars,grid_info,output_vars
 implicit none
 
 !*** arguments
@@ -86,6 +90,10 @@ real, dimension(max_ignitions) :: ignition_start_x,ignition_start_y, &
 integer:: ignited_tile(max_ignitions),ignitions_done
 type(fire_params)::fp   ! args passed to spread rate computation
 
+character(len=*),parameter::filename='fire_output.nc'
+type(grid_info)::grid
+type(output_vars)::output
+
 !*** executable
 
 call set_tiles(2,2,ifps,ifpe,jfps,jfpe,num_tiles,if_start,if_end,jf_start,jf_end)
@@ -94,6 +102,21 @@ print *,'mesh size in cells: ',ifps,ifpe,jfps,jfpe
 print *,'array allocation:   ',ifms,ifme,jfms,jfme
 
 t0=0                                        ! starting time, arbitrary
+
+!*** fill grid information for netcdf output
+grid%nfirex=ifpe-ifps+1
+grid%nfirey=jfpe-jfps+1
+grid%sr_x=1
+grid%sr_y=1
+grid%natmx=grid%nfirex
+grid%natmy=grid%nfirey
+grid%natmz=1
+grid%dx=fdx*real(grid%sr_x)
+grid%dy=fdy*real(grid%sr_y)
+grid%dt=dt
+
+!*** create output file
+call create_file(filename,grid)
 
 ! populate the arrays somehow
 do j=jfps,jfpe
@@ -111,12 +134,12 @@ ifuelread=0
 nfuel_cat0=3
 
 ! for matlab
-open(1,file='model_test_out.txt',form='formatted')
-1   format(e25.12e3)
+!open(1,file='model_test_out.txt',form='formatted')
+!1   format(e25.12e3)
 sm=ifpe-ifps+1
 sn=jfpe-jfps+1
-write(1,1)1.,1.,fdx
-write(1,1)1.,1.,fdy
+!write(1,1)1.,1.,fdx
+!write(1,1)1.,1.,fdy
 
 time_start=t0
 num_ignitions=2
@@ -205,18 +228,24 @@ do istep=1,msteps
     enddo !OMP PARALLEL
     
     if(istep.le.10.or.mod(istep,10).eq.0)then
-        write(1,1)1.,1.,time_start
-        write(1,1)sm,sn,((lfn(i,j),i=ifps,ifpe),j=jfps,jfpe)
-        write(1,1)sm,sn,((tign(i,j),i=ifps,ifpe),j=jfps,jfpe)
-        write(1,1)sm,sn,((vx(i,j),i=ifps,ifpe),j=jfps,jfpe)
-        write(1,1)sm,sn,((vy(i,j),i=ifps,ifpe),j=jfps,jfpe)
-        write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
+!        write(1,1)1.,1.,time_start
+!        write(1,1)sm,sn,((lfn(i,j),i=ifps,ifpe),j=jfps,jfpe)
+!        write(1,1)sm,sn,((tign(i,j),i=ifps,ifpe),j=jfps,jfpe)
+!        write(1,1)sm,sn,((vx(i,j),i=ifps,ifpe),j=jfps,jfpe)
+!        write(1,1)sm,sn,((vy(i,j),i=ifps,ifpe),j=jfps,jfpe)
+!        write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
+        output%lfn=>lfn(ifps:ifpe,jfps:jfpe)
+        output%tign=>tign(ifps:ifpe,jfps:jfpe)
+        output%vx=>vx(ifps:ifpe,jfps:jfpe)
+        output%vy=>vy(ifps:ifpe,jfps:jfpe)
+        output%grnhfx=>grnhfx(ifps:ifpe,jfps:jfpe)
+        call write_vars(filename,output,time_start)
     endif
     print *,'test_main: step ',istep,' of ',msteps,' time ',time_start
     time_start=time_start+dt 
 enddo
 
-close(1)
+!close(1)
 
 end subroutine model_test
 
