@@ -467,6 +467,54 @@ end subroutine fuel_left
 !************************
 !
 
+
+subroutine tign_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,time_now)
+
+real,intent(in) :: tign1,tign2,lfn1,lfn2,lfn_subcl,time_now
+real,intent(out) :: tign_subcl
+
+real :: a,b,c
+
+if((lfn1.le.0).AND.(lfn2.le.0)) then
+   tign_subcl=0.5*(tign1+tign2)
+elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
+   if ((tign1.ne.time_now).OR.(tign.ne.time_now))then
+      call crash(line_interp: when lfn1(2)>0 their tign1(2) should = time_now)
+   else
+      tign_subcl=time_now;
+   endif
+elseif(lfn_subcl.gt.0) then
+   if (tign1.ne.time_now).OR.(tign2.ne.time_now) then
+      call crash('tign_line_interp one of tign1(2) should be equal time_now')
+   else
+      tign_subcl=time_now;
+   endif
+else
+!lfn_subcl<=0;
+!case when E is on fire
+! tign_subcl~=c*lfn_subcl+time_now;
+   if (lfn1.le.0) then
+      a=lfn1;
+      b=tign1-time_now;
+   elseif (lfn2.le.0) then
+      a=lfn2;
+      b=tign2-time_now;
+   else
+      call crash('tign_line_interp: if E is on fire then one of lfn1 or lfn2 &
+                  should be negative');
+   endif
+   if (b.gt.0) then
+      call crash('tign_ should be less than time_now');
+   else
+      c=b/a;
+      tign_subcl=c*lfn_subcl+time_now;
+         endif
+endif
+end subroutine tign_line_interp
+!
+!************************
+!
+
 subroutine fuel_left_cell_1( fuel_frac_left, fire_frac_area, &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
