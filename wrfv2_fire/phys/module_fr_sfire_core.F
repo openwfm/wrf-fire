@@ -515,6 +515,86 @@ end subroutine tign_line_interp
 !************************
 !
 
+subroutine tign_four_pnts_interp(tign1,tign2,tign3,tign4,lfn1,lfn2,  &
+lfn3,lfn4,lfn_subcl,time_now)
+
+real,intent(in) :: tign1,tign2,tign3,tign4,
+real,intent(in) :: lfn1,lfn2,lfn3,lfn4,lfn_subcl,time_now
+real,intent(out) :: tign_subcl
+
+real :: a,b,c
+
+if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
+   tign_subcl=0.25*(tign1+tign2+tign3+tign4)
+elseif((lfn1.gt.0).AND.(lfn2.gt.0).AND.(lfn3.gt.0).AND.(lfn4.gt.0))then
+   if ((tign1.ne.time_now).OR.(tign2.ne.time_now).OR.(tign3.ne.time_now).OR.(tign4.ne.time_now)) then
+      call crash(tign_four_pnts_interp: when lfn1(2,3,4)>0 their tign1(2,3,4) should = time_now)
+   else
+      tign_subcl=time_now;
+   endif
+elseif(lfn_subcl.gt.0) then
+   if ((tign1.ne.time_now).OR.(tign2.ne.time_now).OR.(tign3.ne.time_now).OR.(tign4.ne.time_now)) then
+      call crash('tign_line_interp one of tign1(2,3,4) should be equal time_now')
+   else
+      tign_subcl=time_now;
+   endif
+else
+!lfn_subcl<=0;
+!case when E is on fire
+! tign_subcl~=c*lfn_subcl+time_now;
+a=0; 
+b=0;
+   if (lfn1.le.0) then
+       if (tign1.gt.time_now)
+           call crash('tign_four_pnts_interp tign1 should be less then time_now');
+       else
+           a=a+lfn1*lfn1;
+           b=b+(tign1-time_now)*lfn1;
+       endif
+   endif
+   if (lfn2.le.0) then
+       if (tign2.gt.time_now)
+           call crash('tign_four_pnts_interp tign2 should be less then time_now');
+       else
+           a=a+lfn2*lfn2;
+           b=b+(tign2-time_now)*lfn2;
+       endif
+   endif
+   if (lfn3.le.0) then
+       if (tign3.gt.time_now)
+           call crash('tign_four_pnts_interp tign3 should be less then time_now');
+       else
+           a=a+lfn3*lfn3;
+           b=b+(tign3-time_now)*lfn3;
+       endif
+   endif
+   if (lfn4.le.0) then
+       if (tign4.gt.time_now)
+           call crash('tign_four_pnts_interp tign4 should be less then time_now');
+       else
+           a=a+lfn4*lfn4;
+           b=b+(tign4-time_now)*lfn4;
+       endif
+   endif 
+   if (a.eq.0).or.(b.gt.0) then
+      call crash('tign_four_pnts_interp: if E is on fire then one of cells &
+                  should be on fire or tign_ should be less than time_now')
+   else
+      c=b/a;
+      tign_subcl=c*lfn_subcl+time_now;
+   endif
+endif
+end subroutine tign_four_pnts__interp
+
+
+
+
+
+!
+!************************
+!
+
+
 subroutine fuel_left_cell_1( fuel_frac_left, fire_frac_area, &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
