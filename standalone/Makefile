@@ -17,8 +17,7 @@ MAKEFILE=Makefile
 	$(FC) $(FFLAGS) $(DEFS) -E $*.F > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
-MODEL_OBJ = \
-    model_test_main.o \
+SFIRE_OBJ = \
     wrf_netcdf.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
@@ -26,15 +25,28 @@ MODEL_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-model_test_main.exe: $(MAKEFILE) $(MODEL_OBJ)
+MODEL_OBJ = model_test_main.o $(SFIRE_OBJ) 
+FUEL_INTERP_OBJ = fuel_interp_test_main.o $(SFIRE_OBJ) 
+
+# targets
+
+model: model_test.exe
+
+fuel: fuel_interp_test.exe
+
+model_test.exe: $(MAKEFILE) $(MODEL_OBJ) 
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_main.exe $(MODEL_OBJ)
+ 
+fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
+	$(FC) $(FCFLAGS) $(LDFLAGS) -o fuel_interp_test.exe $(FUEL_INTERP_OBJ)
  
 # for the order of generating modules
 
-model_test_main.o: $(MAKEFILE) \
-    module_fr_sfire_model.o  \
+
+fuel_interp_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_core.o  \
     module_fr_sfire_util.o \
-    wrf_netcdf.o
+    wrf_fakes.o
 
 module_fr_sfire_model.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
