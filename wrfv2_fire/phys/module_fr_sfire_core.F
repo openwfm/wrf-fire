@@ -306,7 +306,7 @@ do icl=its,ite
       do jsubcl=1,jr 
         i=(icl-its)*ir+isubcl
         j=(jcl-jts)*jr+jsubcl
-
+! looks like i,j are not needed
 !       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
         if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
            i2=icl-1
@@ -468,6 +468,189 @@ end subroutine fuel_left
 !
 
 
+!
+!*************************
+!Subroutine that is calculating tign and lfn of four endpoints of the subcell
+! that is located at isubcl,jsubcl of the cell -(icl,jcl)
+!
+subroutine tign_lfn_interpolation(time_now,isubcl,jsubcl,icl,jcl,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+real, intent(in):: time_now
+integer, intent(in) :: isubcl,jsubcl,icl,jcl,ims,ime,jms,jme
+real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign
+real, intent(out),dimension(2,2)::tff,lff
+integer :: i2,j2
+! Do lff as another subroutine?
+
+
+!       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
+        if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
+           i2=icl-1
+           j2=jcl-1
+           ty=0.5
+           tx=0.5
+           tyy=1.0
+           txx=1.0
+!!! buttom-left subcell
+    !          d-a
+    ! cells    | |
+    !          c-b
+! tff(2,2) coincides tign(icl,jcl)
+
+      tff(2,2)=tign(icl,jcl);
+
+! tff(2,1) lies between tign(icl,jcl-1) and tign(icl,jcl)
+
+      tff(2,1)=tign_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),tign(icl,jcl), &
+                             lff(2,1),time_now)
+
+! tff(1,2) lies between tign(icl-1,jcl) and tign(icl,jcl)
+     
+      tff(1,2)=tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),tign(icl,jcl), &
+                             lff(1,2),time_now)
+
+
+    ! tff(1,1) lies between all 4 cells
+      
+      tff(1,1)=tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
+                                     tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
+                                     lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),time_now)
+
+        else if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
+           i2=icl
+           j2=jcl-1
+           ty=0.5
+           tx=0
+           tyy=1.0
+           txx=0.5
+!!! top-left subcell
+    !          d-a
+    ! cells    | |
+    !          c-b
+! tff(1,2) coincides tign(icl,jcl)
+
+      tff(1,2)=tign(icl,jcl);
+
+! tff(1,1) lies between tign(icl,jcl-1) and tign(icl,jcl)
+
+      tff(1,1)=tign_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),tign(icl,jcl), &
+                             lff(1,1),time_now)
+
+! tff(2,2) lies between tign(icl+1,jcl) and tign(icl,jcl)
+
+      tff(2,2)=tign_line_interp(tign(icl+1,jcl),tign(icl,jcl),lfn(icl+1,jcl),tign(icl,jcl), &
+                             lff(2,2),time_now)
+
+! tff(2,1) lies between all 4 cells
+
+      tff(2,1)=tign_four_pnts_interp(tign(icl,jcl-1),tign(icl,jcl),tign(icl+1,jcl-1), &
+                                     tign(icl+1,jcl),lfn(icl,jcl-1),lfn(icl,jcl),     &
+                                     lfn(icl+1,jcl-1),lfn(icl+1,jcl),                 &
+                                     lff(2,1),time_now)
+        else if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
+           i2=icl-1
+           j2=jcl
+           tx=0.5
+           ty=0
+           txx=1.0
+           tyy=0.5
+!!! bottom-right subcell
+    !          d-a
+    ! cells    | |
+    !          c-b
+! tff(2,1) coincides tign(icl,jcl)
+
+      tff(2,1)=tign(icl,jcl);
+
+! tff(1,1) lies between tign(icl-1,jcl) and tign(icl,jcl)
+
+      tff(1,1)=tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),tign(icl,jcl), &
+                             lff(1,1),time_now)
+
+! tff(2,2) lies between tign(icl,jcl+1) and tign(icl,jcl)
+
+      tff(2,2)=tign_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+1),tign(icl,jcl), &
+                             lff(2,2),time_now)
+
+! tff(1,2) lies between all 4 cells
+
+      tff(1,2)=tign_four_pnts_interp(tign(icl-1,jcl),tign(icl-1,jcl+1),tign(icl,jcl), &
+                                     tign(icl,jcl+1),lfn(icl-1,jcl),lfn(icl-1,jcl+1), &
+                                     lfn(icl,jcl),lfn(icl,jcl+1),lff(1,2),time_now)
+
+        else if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
+           i2=icl
+           j2=jcl
+           tx=0
+           ty=0
+           txx=0.5
+           tyy=0.5
+!!! top-right subcell
+    !          d-a
+    ! cells    | |
+    !          c-b
+! tff(1,1) coincides tign(icl,jcl)
+
+      tff(1,1)=tign(icl,jcl);
+
+! tff(1,2) lies between tign(icl,jcl) and tign(icl,jcl+1)
+
+      tff(1,2)=tign_line_interp(tign(icl,jcl),tign(icl,jcl+1),lfn(icl,jcl),tign(icl,jcl+1), &
+                                lff(1,2),time_now)
+
+! tff(2,1) lies between tign(icl,jcl+1) and tign(icl,jcl)
+
+      tff(2,1)=tign_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+1),tign(icl,jcl), &
+                             lff(2,1),time_now)
+
+! tff(2,2) lies between all 4 cells
+
+      tff(2,2)=tign_four_pnts_interp(tign(icl,jcl),tign(icl,jcl+1),tign(icl+1,jcl), &
+                                     tign(icl+1,jcl+1),lfn(icl,jcl),lfn(icl,jcl+1), &
+                                     lfn(icl+1,jcl),lfn(icl+1,jcl+1),lff(2,2),time_now)
+
+        else
+           call crash('fuel_left: isubcl,jsubcl should be only 1 or 2')
+        endif
+
+! calculation lff and tif in 4 endpoints of subcell
+        lff(1,1)=                             &
+                  (1-tx)*(1-ty)*lfn(i2,j2)      &
+             +    (1-tx)*ty  *lfn(i2,j2+1)      &
+             +     tx*(1-ty)*lfn(i2+1,j2)       &
+             +       tx*ty  *lfn(i2+1,j2+1)
+        lff(2,1)=                            &
+                    (1-txx)*(1-ty)*lfn(i2,j2)   &
+             +      (1-txx)*ty  *lfn(i2,j2+1)   &
+             +      (txx)*(1-ty)*lfn(i2+1,j2)   &
+             +      (txx)*ty  *lfn(i2+1,j2+1)
+        lff(1,2)=                            &
+                    (1-tx)*(1-tyy)*lfn(i2,j2)   &
+             +      (1-tx)*(tyy)  *lfn(i2,j2+1) &
+             +      tx*(1-tyy)*lfn(i2+1,j2)     &
+             +      tx*(tyy)  *lfn(i2+1,j2+1)
+        lff(2,2) =                               &
+                      (1-txx)*(1-tyy)*lfn(i2,j2)     &
+             +      (1-txx)*(tyy)  *lfn(i2,j2+1)   &
+             +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
+             +      (txx)*(tyy)  *lfn(i2+1,j2+1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+end subroutine tign_lfn_interpolation
+
+
+
 subroutine tign_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,time_now)
 
 real,intent(in) :: tign1,tign2,lfn1,lfn2,lfn_subcl,time_now
@@ -585,9 +768,6 @@ b=0;
    endif
 endif
 end subroutine tign_four_pnts__interp
-
-
-
 
 
 !
