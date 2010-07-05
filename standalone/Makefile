@@ -18,14 +18,13 @@ MAKEFILE=Makefile
 	$(FC) -c $(FFLAGS) $*.f90
 
 SFIRE_OBJ = \
-    wrf_netcdf.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-MODEL_OBJ = model_test_main.o $(SFIRE_OBJ) 
+MODEL_OBJ = model_test_main.o $(SFIRE_OBJ) wrf_netcdf.o
 FUEL_INTERP_OBJ = fuel_interp_test_main.o $(SFIRE_OBJ) 
 
 # targets
