@@ -473,15 +473,58 @@ end subroutine fuel_left
 !Subroutine that is calculating tign and lfn of four endpoints of the subcell
 ! that is located at isubcl,jsubcl of the cell -(icl,jcl)
 !
-subroutine tign_lfn_interpolation(time_now,isubcl,jsubcl,icl,jcl,ims,ime,jms,jme, &
+subroutine tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
-real, intent(in):: time_now
-integer, intent(in) :: isubcl,jsubcl,icl,jcl,ims,ime,jms,jme
+real, intent(in):: time_now    ! not ignited nodes will have tign set to >= time_now
+integer, intent(in) :: icl,jcl
+integer, intent(in) :: isubcl,jsubcl
+integer, intent(in) :: ims,ime,jms,jme  ! memory dimensions of all arrays
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign
 real, intent(out),dimension(2,2)::tff,lff
-integer :: i2,j2
-! Do lff as another subroutine?
 
+!   (3,1)-------------(3,2)-------------(3,3)
+!     |                 |                 |
+!     |   (2,1)         |      (2,2)      |       
+!     |                 |                 |
+!     |                 |                 |
+!     |                 |                 |
+!     |                 |                 |
+!   (2,1)--------node-(icl,jcl)---------(2,3)-----------(icl,jcl+1)-------------|
+!     |          sub-node (2,2)           |
+!     |                 |                 |
+!     |   (1,1)         |      (1,2)      |       each fire mesh cell is decomposed in 4
+!     |                 |                 |       tff,lff is computed at the nodes of 
+!     |                 |                 |       the subcells, numbered (1,1)...(3,3)
+!   (1,1)-------------(1,2)-------------(1,3)--     
+!     |                 |                 |       
+!     |   (2,1)         |      (2,2)      |      
+!     |                 |                 |     
+!     |                 |                 |    
+!     |               node                |   
+!     -------------(icl-1,jcl------------------  
+!     |                 |                 |     )
+!
+integer :: i2,j2
+        lfn(1,3)=0.25*(lfn(icl-1,jcl+1)+lfn(icl-1,jcl)+lfn(icl,jcl+1)+lfn(icl,jcl))
+! to be continued here
+        lfn(2,1)=0.5*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))   
+        lfn(2,2)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))   
+        lfn(2,3)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))   
+        lfn(3,1)=0.25*(lfn(icl,jcl-1)+lfn(icl,jcl)+lfn(icl+1,jcl-1)+lfn(icl+1,jcl)) 
+        lfn(3,2)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))   
+        lfn(3,3)=0.25*(lfn(icl,jcl)+lfn(icl+1,jcl)+lfn(icl,jcl+1)+lfn(icl+1,jcl+1))   
+	lff(2,2)=lfn(icl,jcl)
+
+! in interpolation of tign
+	
+      lfn(1,1)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))
+      tff(1,1)=tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
+                                     tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
+                                     lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),time_now)
+
+      lfn(1,2)=0.5*(lfn(icl-1,jcl)+lfn(icl,jcl))
+      tff(1,2)=tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),tign(icl,jcl), &
+                             lff(1,2),time_now)
 
 !       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
         if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
@@ -662,7 +705,7 @@ if((lfn1.le.0).AND.(lfn2.le.0)) then
    tign_subcl=0.5*(tign1+tign2)
 elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
    if ((tign1.ne.time_now).OR.(tign.ne.time_now))then
-      call crash(line_interp: when lfn1(2)>0 their tign1(2) should = time_now)
+      call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
       tign_subcl=time_now;
    endif
