@@ -516,6 +516,7 @@ integer :: i2,j2
 	lff(2,2)=lfn(icl,jcl)
 
 ! in interpolation of tign
+!**********************
 	
       lfn(1,1)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))
       tff(1,1)=tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
