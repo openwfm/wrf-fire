@@ -23,7 +23,7 @@
  io_form_restart                     = 2
  io_form_input                       = 2
  io_form_boundary                    = 2
- debug_level                         = 101 
+ debug_level                         = 0 
  /
 
  &domains
@@ -58,7 +58,7 @@
  ra_lw_physics                       = 0,     0,     0,
  ra_sw_physics                       = 0,     0,     0,
  radt                                = 30,    30,    30,
- sf_sfclay_physics                   = 0,     0,     0,
+ sf_sfclay_physics                   = 1,     0,     0,
  sf_surface_physics                  = 0,     0,     0,
  bl_pbl_physics                      = 0,     0,     0,
  bldt                                = 0,     0,     0,
@@ -148,7 +148,7 @@
  fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 1,        ! 1 print fire debugging messages
+ fire_print_msg     = 0,        ! 1 print fire debugging messages
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! experiments
@@ -179,9 +179,9 @@
 ! Surface initialization
 !
  sfc_full_init =.true.
- sfc_lu_index = 28,              ! Defines USGS surface category used for surface initialization based on LANDUSE.TBL (roughness, albedo etc)
- sfc_tsk = 305.0,                ! Skin surface temperature [K]
- sfc_tmn = 300.0,                ! Mean soil temperature [K]
+ sfc_lu_index = 28,             ! Defines USGS surface category used for surface initialization based on LANDUSE.TBL (roughness, albedo etc)
+ sfc_tsk = 285.0,                ! Skin surface temperature [K]
+ sfc_tmn = 280.0,                ! Mean soil temperature [K]
 ! sfc_ivgtyp = 18,                ! Dominant vegetation category, needed only with Noah LSM (sf_surface_physics=2)
 ! sfc_isltyp = 7,                 ! Dominant soil type, needed only with Noah LSM (sf_surface_physics=2)
 ! sfc_canwat = 0.2,               ! Canopy water content, needed only with Noah LSM (sf_surface_physics=2)
