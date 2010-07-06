@@ -59,7 +59,7 @@
  ra_sw_physics                       = 0,     0,     0,
  radt                                = 30,    30,    30,
  sf_sfclay_physics                   = 1,     0,     0,
- sf_surface_physics                  = 0,     0,     0,
+ sf_surface_physics                  = 1,     0,     0,
  bl_pbl_physics                      = 0,     0,     0,
  bldt                                = 0,     0,     0,
  cu_physics                          = 0,     0,     0,
