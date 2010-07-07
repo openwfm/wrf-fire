@@ -198,7 +198,12 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     USE module_driver_constants
     USE module_machine
     USE module_tiles
-    USE module_dm
+#ifdef DM_PARALLEL
+    USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
+    USE module_comm_dm   , ONLY : halo_fire_lfn_sub,halo_fire_longlat_sub,halo_fire_ht_sub   &
+                                ,halo_fire_zsf_sub, halo_fire_fuel_sub,halo_fire_wind_a_sub &
+                                ,halo_fire_wind_f_sub,halo_fire_tign_sub
+#endif
 
     implicit none
 !*** arguments
@@ -235,6 +240,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
     real:: unit_fxlong ,unit_fxlat
+    type(fire_params)::fp
 
 
 !*** executable
@@ -242,6 +248,20 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     call print_id
 
 ! populate our structures from wrf
+
+    ! pointers to be passed to fire spread formulas
+    fp%vx => grid%uf         ! fire winds
+    fp%vy => grid%vf         ! fire winds
+    fp%zsf => grid%zsf       ! terrain height 
+    fp%dzdxf => grid%dzdxf   ! terrain grad 
+    fp%dzdyf => grid%dzdyf   ! terrain grad 
+    fp%bbb => grid%bbb       ! spread formula coeff 
+    fp%betafl => grid%betafl ! spread formula coeff 
+    fp%phiwc => grid%phiwc   ! spread formula coeff 
+    fp%r_0 => grid%r_0       ! spread formula coeff 
+    fp%fgip => grid%fgip     ! spread formula coeff 
+    fp%ischap => grid%ischap ! spread formula coeff 
+            
     ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
@@ -350,7 +370,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
-            grid%uf,grid%vf,                              & ! in - one step only
             lfn_out,                                      & ! work - one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
@@ -358,8 +377,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%ros,                                   & ! rate of spread
             grid%fxlong,grid%fxlat,                           &       
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
-            grid%fuel_time,grid%zsf,                      & 
-            grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap&
+            grid%fuel_time,                      & 
+            fp &
         )
 
 #ifdef DM_PARALLEL
@@ -407,15 +426,15 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
-    uf,vf,lfn_out,                                & ! fire wind velocities, out level set function    
+    lfn_out,                                & ! fire wind velocities, out level set function    
     rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
     ros,                                          &
     fxlong,fxlat,                                 & !  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
-    fuel_time,zsf,                                & ! save constant internal data, fire grid
-    bbb,betafl,phiwc,r_0,fgip,ischap&
+    fuel_time,                                & ! save constant internal data, fire grid
+    fp                                           & ! fire params
     )
 USE module_dm, only:wrf_dm_maxval
 
@@ -478,7 +497,7 @@ real, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
     lfn,tign,fuel_frac,                        &     ! state: level function, ign time, fuel left
-    uf,vf,lfn_out                                    ! fire wind velocities
+    lfn_out                                    ! fire wind velocities
 
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
     fire_area                                        ! fraction of each cell burning
@@ -502,11 +521,9 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
 !  ***** data (constant in time) *****
 
 real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh coordinates
+real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 
-real, intent(inout), dimension(ifms:ifme, jfms:jfme):: &
-    fuel_time,zsf,                               &
-    bbb,betafl,phiwc,r_0,fgip
-integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
+type(fire_params),intent(inout)::fp
     
 !*** local
 real :: dxf,dyf,time_start,latm
@@ -594,7 +611,7 @@ do ij=1,num_tiles
     jfts= (jts-jds)*jr+jfds       ! start fire tile in j
     jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
         
-    write(msg,*)'tile=',ij,' id=',id,' ifun=',ifun
+    write(msg,'(3(a,i3,1x))')'tile=',ij,' id=',id,' ifun=',ifun
     call message(msg)
     write(msg,7001)'atm tile   ','its',its,ite,jts,jte
     call message(msg)                   
@@ -635,7 +652,7 @@ do ij=1,num_tiles
                 ifts,ifte,jfts,jfte,                          &
                 ir,jr,                                        & ! atm/fire grid ratio
                 zs,                                       & ! atm grid arrays in
-                zsf)                                      ! fire grid arrays out
+                fp%zsf)                                      ! fire grid arrays out
         else
            write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
         endif
@@ -687,7 +704,7 @@ do ij=1,num_tiles
     elseif(ifun.eq.2)then  
                
         ! after the loop where zsf created exited and all synced
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
@@ -702,7 +719,7 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             u_frame, v_frame,                             & ! velocity frame correction
             u,v,                                       & ! atm grid arrays in
-            uf,vf)                                      ! fire grid arrays out
+            fp%vx,fp%vy)                                      ! fire grid arrays out
     
     endif
 
@@ -724,15 +741,13 @@ do ij=1,num_tiles
         ignition_end_time,                      &
         ignitions_done_tile(ij),ignited_tile(1,ij),  &
         fxlong,fxlat,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
-        zsf,                                    & ! terrain height (for gradient)
-        uf,vf,                                  & ! input: wind
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         ros,                                    & ! output: rate of spread for display
         nfuel_cat,                              & ! fuel data per point 
         fuel_time,                              & ! save derived internal data
-        bbb,betafl,phiwc,r_0,fgip,ischap &
+        fp                                      & ! fire coefficients
     )
     
     if(ifun.eq.6)then ! heat fluxes into the atmosphere    
@@ -807,7 +822,7 @@ enddo ! tiles
 if (ifun.eq.3)then
     ignitions_done=ignitions_done_tile(1) ! all should be the same
     do i=1,ignitions_done
-        write(msg,*)'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
+        write(msg,'(2(a,i4,1x))')'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
         call message(msg)
         ignited_patch(i)=0
         do ij=1,num_tiles
@@ -828,7 +843,7 @@ endif
 if(ifun.eq.1)then
     if(pid.ne.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%zsf,'zsf',pid)
     endif
 #endif
 elseif(ifun.eq.3)then
@@ -836,8 +851,8 @@ elseif(ifun.eq.3)then
     if(pid.gt.0)then
         call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,u,'u',pid)
         call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,v,'v',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vx,'uf',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vy,'vf',pid)
     endif
 #endif
 elseif(ifun.eq.5)then
@@ -922,8 +937,8 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
         fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
         fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
         fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
-        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x3
-        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y3
+        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x5
+        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y5
     endif
     if(real)then
         ! use values from _long and _lat

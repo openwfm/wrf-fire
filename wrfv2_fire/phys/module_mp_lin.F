@@ -34,6 +34,7 @@ CONTAINS
 !-------------------------------------------------------------------
 !  Lin et al., 1983, JAM, 1065-1092, and
 !  Rutledge and Hobbs, 1984, JAS, 2949-2972
+!  May 2009 - Changes and corrections from P. Blossey (U. Washington)
 !-------------------------------------------------------------------
   SUBROUTINE lin_et_al(th                                          &
                       ,qv, ql, qr                                  &
@@ -45,6 +46,8 @@ CONTAINS
                       ,XLS, XLV, XLF, rhowater, rhosnow            &
                       ,EP2,SVP1,SVP2,SVP3,SVPT0                    &
                       , RAINNC, RAINNCV                            &
+                      , SNOWNC, SNOWNCV                            &
+                      , GRAUPELNC, GRAUPELNCV, SR                  &
                       ,ids,ide, jds,jde, kds,kde                   &
                       ,ims,ime, jms,jme, kms,kme                   &
                       ,its,ite, jts,jte, kts,kte                   &
@@ -100,9 +103,16 @@ CONTAINS
 
   REAL, DIMENSION( ims:ime , jms:jme ),                           &
         INTENT(INOUT) ::                                  RAINNC, &
-                                                         RAINNCV
+                                                         RAINNCV, &
+                                                              SR
 
 ! Optional
+  REAL, DIMENSION( ims:ime , jms:jme ),                           &
+        OPTIONAL,                                                 &
+        INTENT(INOUT) ::                                  SNOWNC, &
+                                                         SNOWNCV, &
+                                                       GRAUPELNC, &
+                                                      GRAUPELNCV
 
   REAL, DIMENSION( ims:ime , kms:kme , jms:jme ),                 &
         OPTIONAL,                                                 &
@@ -229,9 +239,14 @@ CONTAINS
    snow(i,j)=pptsnow
    graupel(i,j)=pptgraul
    ice(i,j)=pptice
+   sr(i,j)=(pptice+pptsnow+pptgraul)/(pptice+pptsnow+pptgraul+pptrain+1.e-12)
 !
    RAINNCV(i,j)= pptrain + pptsnow + pptgraul + pptice
    RAINNC(i,j)=RAINNC(i,j) + pptrain + pptsnow + pptgraul + pptice
+   IF(PRESENT(SNOWNCV))SNOWNCV(i,j)= pptsnow + pptice
+   IF(PRESENT(SNOWNC))SNOWNC(i,j)=SNOWNC(i,j) + pptsnow + pptice
+   IF(PRESENT(GRAUPELNCV))GRAUPELNCV(i,j)= pptgraul
+   IF(PRESENT(GRAUPELNC))GRAUPELNC(i,j)=GRAUPELNC(i,j) + pptgraul
 
 !
 !- update data from 1-D back to 3-D
@@ -453,19 +468,21 @@ CONTAINS
   REAL                          :: t_del_tv, del_tv, flux, fluxin, fluxout ,tmpqrz
   LOGICAL                       :: notlast
 !
+  REAL                          :: tmp_tem, tmp_temcc !bloss
+!
+  real :: liqconc, dis, beta, kappa, p0, xc, capn,rhocgs
 
 !sg: begin
-! liqconc = liquid water content in gcm^-3
-! capn = droplet number concentration cm^-3
+! liqconc = liquid water content (g cm^-3)
+! capn = droplet number concentration (# cm^-3)
 ! dis = relative dispersion (dimensionless) between 0.2 and 1.
 ! Written by Yangang Liu based on Liu et al., GRL 32, 2005.
-! Autoconversion rate P = P0*T
-! p0 = rate function
-! kappa = constant in Long kernel
-! beta = Condensation rate constant
+! Autoconversion rate p = p0 * (threshold function)
+! p0 = "base" autoconversion rate (g cm^-3 s^-1)
+! kappa = constant in Long kernel = [kappa2 * (3/(4*pi*rhow))^3] in Liu papers
+! beta = Condensation rate constant = (beta6)^6 in Liu papers
 ! xc = Normalized critical mass
 ! ***********************************************************
-       real liqconc, dis, beta, kappa, p0, xc, capn,rhocgs
   if(flag_qndrop)then
      dis = 0.5 ! droplet dispersion, set to 0.5 per SG 8-Nov-2006
 !    Give  empirical constants
@@ -1283,9 +1300,14 @@ CONTAINS
                     vf2s*schmidt(k)**0.33334*gamdp5o2*sqrt(tmp1) )
           tmp3=odtb*( qvz(k)-qsiz(k) )
 !
-          if( tmp2 .le. 0.0) then
+!bloss: BEGIN
+!the old implementation would give the wrong results if olambdas(k) ==0
+!which can lead to positive pssub, i.e. tmp2=0 but tmp3> 0
+!          if( tmp2 .le. 0.0) then
+          if( tmp3 .le. 0.0) then
             tmp2=amax1( tmp2,tmp3)
-            pssub(k)=amax1( tmp2,-qszodt(k) )
+            pssub(k)=amin1(0.,amax1( tmp2,-qszodt(k) ))
+!bloss: END
             psdep(k)=0.0
           else
             psdep(k)=amin1( tmp2,tmp3 )
@@ -1408,16 +1430,16 @@ CONTAINS
            if( qndropz(k) >= 1. ) then
 !         Liu et al. autoconversion scheme
               rhocgs=rho(k)*1.e-3
-              liqconc=rhocgs*qlz(k)
-              capn=rhocgs*qndropz(k)
+              liqconc=rhocgs*qlz(k)   ! (kg/kg) to (g/cm3)
+              capn=1.0e-3*rhocgs*qndropz(k)   ! (#/kg) to (#/cm3)
 !         rate function
               if(liqconc.gt.1.e-10)then
-                 p0=kappa*beta/capn*(liqconc*liqconc*liqconc)
+                 p0=(kappa*beta/capn)*(liqconc*liqconc*liqconc)
                  xc=9.7d-17*capn*sqrt(capn)/(liqconc*liqconc)
 !         Calculate autoconversion rate (g/g/s)
                  if(xc.lt.10.)then
-                    praut(k)=p0/rhocgs*0.5d0*(xc*xc+2*xc+2.0d0)* &
-                         (1.0d0+xc)*dexp(-2.0d0*xc)
+                    praut(k)=(p0/rhocgs) * ( 0.5d0*(xc*xc+2*xc+2.0d0)* &
+                         (1.0d0+xc)*exp(-2.0d0*xc) )
                  endif
               endif
            endif
@@ -1457,11 +1479,19 @@ CONTAINS
          tmpa=rvapor*xka(k)*tem(k)*tem(k)
          tmpb=xlv*xlv*rho(k)*qswz(k)*diffwv(k)
          tmpc=tmpa*qswz(k)*diffwv(k)
-         tmpd=amin1(0.0,(qvoqswz(k)-0.90)*qswz(k)*odtb)
-!
-!      abr=2.0*pi*(qvoqswz(k)-1.0)*tmpc/(tmpa+tmpb)
+!bloss: BEGIN
+!         tmpd=amin1(0.0,(qvoqswz(k)-0.90)*qswz(k)*odtb)
 
-         abr=2.0*pi*(qvoqswz(k)-0.90)*tmpc/(tmpa+tmpb)
+! set max allowed evaporation to 90% of the amount that
+!   would induce saturation wrt liquid in a single step.
+         tmpd = qswz(k)*xlv/(rvapor*tem(k)**2) ! d(qsat_liq)/dT 
+         tmpd = min( 0., 0.9*odtb*(qvz(k) + qlz(k) - qswz(k)) &
+                          / (1. + xlvocp * tmpd) )
+
+         abr=2.0*pi*(qvoqswz(k)-1.0)*tmpc/(tmpa+tmpb)
+
+!         abr=2.0*pi*(qvoqswz(k)-0.90)*tmpc/(tmpa+tmpb)
+!bloss: END
 !
 !c     vf1r,vf2r=ventilation factors for rain
 !c     vf1r=0.78,vf2r=0.31 in RH, LIN  and MM5
@@ -1638,7 +1668,7 @@ CONTAINS
              tmp3=tmp1*constg2+(Pgacip(k)+Pgacsp(k))*  &
                   (1-Ci*temcc(k)*tmp0)
              tmp3=amax1(0.0,tmp3)
-             Pgwet(k)=amax1(tmp3,qlzodt(k)+qszodt(k)+qizodt(k) )
+             Pgwet(k)=amin1(tmp3,qlzodt(k)+qszodt(k)+qizodt(k) ) !bloss
 
 !c
 !c     Comparing Pgwet(wet process) and Pdry(dry process),
@@ -2000,13 +2030,15 @@ CONTAINS
 
          temcc(k)=tem(k)-273.15
 
-         if( temcc(k) .lt. -40.0 ) qswz(k)=qsiz(k)
-         qlpqi=qlz(k)+qiz(k)
-         if ( qlpqi .eq. 0.0 ) then
-            qvsbar(k)=qsiz(k)
-         else
-            qvsbar(k)=( qiz(k)*qsiz(k)+qlz(k)*qswz(k) )/qlpqi
-         endif
+!bloss: Moves computation of saturation mixing ratio below
+
+!         if( temcc(k) .lt. -40.0 ) qswz(k)=qsiz(k)
+!         qlpqi=qlz(k)+qiz(k)
+!         if ( qlpqi .eq. 0.0 ) then
+!            qvsbar(k)=qsiz(k)
+!         else
+!            qvsbar(k)=( qiz(k)*qsiz(k)+qlz(k)*qswz(k) )/qlpqi
+!         endif
 
 !
       else
@@ -2107,10 +2139,13 @@ CONTAINS
           temcc(k)=tem(k)-273.15
 !         qswz(k)=episp0k*oprez(k)*  &
 !                exp( svp2*temcc(k)/(tem(k)-svp3) )
-          es=1000.*svp1*exp( svp2*temcc(k)/(tem(k)-svp3) )
-          qswz(k)=ep2*es/(prez(k)-es)
-          qsiz(k)=qswz(k)
-          qvsbar(k)=qswz(k)
+
+!bloss: Moved computation of saturation mixing ratio below
+
+!          es=1000.*svp1*exp( svp2*temcc(k)/(tem(k)-svp3) )
+!          qswz(k)=ep2*es/(prez(k)-es)
+!          qsiz(k)=qswz(k)
+!          qvsbar(k)=qswz(k)
 !
       end if
       preclw(k)=pclw(k)        !sg
@@ -2119,6 +2154,38 @@ CONTAINS
 !***********************************************************************
 !**********              saturation adjustment                **********
 !***********************************************************************
+!bloss: BEGIN
+!
+!     compute saturation specific humidity at the temperature
+!     which would be experienced if all cloud liquid and ice
+!     were to become vapor.  This will make for a consistent
+!     check of saturation.  Previously, qvsbar was computed
+!     without accounting for the change in temperature due to
+!     evaporation/sublimation, and as a result would
+!     incorrectly identify some points as subsaturated.
+
+      tmp_tem = tem(k)          ! updated temperature from above.
+
+      if(qlz(k)+qiz(k).gt. 0.) then
+         ! account for latent heat if all qlz and qiz were converted to vapor
+         tmp_tem = tem(k) - xlvocp*qlz(k) - (xlvocp+xlfocp)*qiz(k)
+      end if
+
+     ! compute temperature in celsius
+      tmp_temcc = tmp_tem - 273.15
+
+      ! estimate lower bound on saturation vapor pressure 
+      !   (ice if <0C, liquid aboce)
+      if (tmp_temcc .lt. 0.) then
+         es=1000.*svp1*exp( 21.8745584*(tmp_tem-273.16)/(tmp_tem-7.66) ) !ice
+      else
+         es=1000.*svp1*exp( svp2*tmp_temcc/(tmp_tem-svp3) ) !liquid
+      end if
+
+      ! compute lower bound on saturation mixing ratio.
+      qvsbar(k)=ep2*es/(prez(k)-es)
+!
+!bloss: END
 !
 !    allow supersaturation exits linearly from 0% at 500 mb to 50%
 !    above 300 mb
@@ -2440,23 +2507,28 @@ CONTAINS
   REAL ::   qsat, qlpqi, ratql, t0, t1, tmp1, ratqi, tsat, absft,    &
             denom1, denom2, dqvsbar, ftsat, dftsat, qpz,             &
             gindex, es
+
+  REAL ::   tem_noliqice, qsat_noliqice !bloss
 !
 !---------------------------------------------------------------------
 
       thz(k)=theiz(k)-(xLvocp*qvz(k)-xLfocp*qiz(k))/tothz(k)
 
       tem(k)=tothz(k)*thz(k)
-      if (tem(k) .gt. 273.15) then
-!        qsat=episp0k/prez(k)*  &
-!            exp( svp2*(tem(k)-273.15)/(tem(k)-svp3) )
-         es=1000.*svp1*exp( svp2*(tem(k)-svpt0)/(tem(k)-svp3) )
-         qsat=ep2*es/(prez(k)-es)
+
+!bloss: BEGIN
+      tem_noliqice = tem(k) - xlvocp*qlz(k) - (xLvocp+xLfocp)*qiz(k)
+
+      if (tem_noliqice .gt. 273.15) then
+         es=1000.*svp1*exp( svp2*(tem_noliqice-svpt0)/(tem_noliqice-svp3) )
+         qsat_noliqice=ep2*es/(prez(k)-es)
       else
-        qsat=episp0k/prez(k)*  &
-             exp( 21.8745584*(tem(k)-273.15)/(tem(k)-7.66) )
+        qsat_noliqice=episp0k/prez(k)*  &
+             exp( 21.8745584*(tem_noliqice-273.15)/(tem_noliqice-7.66) )
       end if
+!bloss: END
       qpz=qvz(k)+qlz(k)+qiz(k)
-      if (qpz .lt. qsat) then
+      if (qpz .lt. qsat_noliqice) then
          qvz(k)=qpz
          qiz(k)=0.0
          qlz(k)=0.0

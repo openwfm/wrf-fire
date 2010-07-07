@@ -1154,12 +1154,8 @@ subroutine prop_ls( id, &                                ! for debug
                 its,ite,jts,jte, &                       ! tile dims
                 ts,dt,dx,dy,     &                       ! scalars in
                 tbound,          &                       ! scalars out
-                lfn_in,lfn_out,tign,ros  &              ! arrays inout          
-#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
-#include SPEED_VARS_ARGS
-#else
-#include "fr_sfire_params_args.h"
-#endif
+                lfn_in,lfn_out,tign,ros,  &              ! arrays inout          
+                fp               &
                    )
 implicit none
 
@@ -1235,11 +1231,7 @@ real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out,ros
 real,intent(in)::dx,dy,ts,dt
 real,intent(out)::tbound
-#ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */
-#include SPEED_VARS_DECL
-#else
-#include "fr_sfire_params_decl.h"
-#endif
+type(fire_params),intent(in)::fp
 
 !*** local 
 ! arrays
@@ -1270,7 +1262,7 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
 
-write(msg,'(5(a,i5))')'prop_ls:',id,' tile  ',its,':',ite,',',jts,':',jte
+write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':',jte
 call message(msg)
 
     a=fire_back_weight ! from module_fr_sfire_util
@@ -1315,12 +1307,8 @@ call message(msg)
     ts,dt,dx,dy,      &                      ! scalars in
     lfn_in, &                                ! arrays in
     tbound, &                                ! scalars out 
-    tend, ros &                              ! arrays out        
-#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
-#include SPEED_VARS_ARGS
-#else
-#include "fr_sfire_params_args.h"
-#endif
+    tend, ros, &                              ! arrays out        
+    fp         &                             ! params
 )
 
 #ifdef DEBUG_OUT    
@@ -1350,12 +1338,8 @@ call message(msg)
     ts+dt,dt,dx,dy,      &                   ! scalars in
     lfn1, &                                  ! arrays in
     tbound2, &                               ! scalars out 
-    tend,ros &                               ! arrays out        
-#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
-#include SPEED_VARS_ARGS
-#else
-#include "fr_sfire_params_args.h"
-#endif
+    tend,ros, &                               ! arrays out        
+    fp &
 )
 
 #ifdef DEBUG_OUT    
@@ -1435,9 +1419,7 @@ call message(msg)
                    grady=(lfn_out(i,j+1)-lfn_out(i,j-1))/(2.0*dy)
                    grad2=sqrt(gradx*gradx+grady*grady)
                    aspeed = (lfn_in(i,j)-lfn_out(i,j))/(dt*max(grad2,rmin))                   
-                    rr = speed_func(gradx,grady,dx,dy,i,j  &
-#                   include "fr_sfire_params_args.h"
-                    )
+                    rr = speed_func(gradx,grady,dx,dy,i,j,fp)
                    err=aspeed-rr
                    sum_err=sum_err+err
                    min_err=min(min_err,err)
@@ -1510,12 +1492,8 @@ subroutine tend_ls( id, &
     t,dt,dx,dy,      &                       ! scalars in
     lfn, &                                   ! arrays in
     tbound, &                                ! scalars out 
-    tend, ros &                              ! arrays out
-#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
-#include SPEED_VARS_ARGS
-#else
-#include "fr_sfire_params_args.h"
-#endif
+    tend, ros,  &                              ! arrays out
+    fp &
 )
 
 implicit none
@@ -1532,17 +1510,12 @@ real,dimension(lims:lime,ljms:ljme),intent(inout)::lfn ! level set function
 real,intent(out)::tbound                               ! max allowed time step
 real,dimension(tims:time,tjms:tjme),intent(out)::tend  ! tendency (rhs of the level set pde)
 real,dimension(ims:ime,jms:jme),intent(out)::ros  ! rate of spread 
-#ifdef SPEED_VARS_DECL      /* extra arguments for speed_func */
-#include SPEED_VARS_DECL
-#else
-#include "fr_sfire_params_decl.h"
-#endif
+type(fire_params),intent(in)::fp
 
 !*** local 
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
-   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi, &
-   dzdx,dzdy
+   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
 integer::i,j
 character(len=128)msg
 
@@ -1626,17 +1599,11 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
             ! wind speed in direction of spread
             ! speed =  vx(i,j)*nvx + vy(i,j)*nvy
         
-            ! slope in direction of spread
-            dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2.*dx)
-            dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2.*dy)
-            ! tanphi =  dzdx*nvx + dzdy*nvy
     
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            vx(i,j),vy(i,j),dzdx,dzdy,nvx,nvy,i,j &
-#           include "fr_sfire_params_args.h"
-            )
+            nvx,nvy,i,j,fp)
 
             rr=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)rr=max(rr,0.)
@@ -1656,17 +1623,18 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
 
 		! advection in wind direction 
                 if (abs(speed)> eps) then
-                    advx=vx(i,j)*ros_wind/speed
-                    advy=vy(i,j)*ros_wind/speed
+                    advx=fp%vx(i,j)*ros_wind/speed
+                    advy=fp%vy(i,j)*ros_wind/speed
                 else 
                     advx=0
                     advy=0
                 endif
 
+                ! tanphi =  dzdxf*nvx + dzdyf*nvy
 		! advection from slope direction 
                 if(abs(tanphi)>eps) then
-                    advx=advx+dzdx*ros_slope/tanphi
-                    advy=advy+dzdy*ros_slope/tanphi
+                    advx=advx+fp%dzdxf(i,j)*ros_slope/tanphi
+                    advy=advy+fp%dzdyf(i,j)*ros_slope/tanphi
                 endif
 
                 if(fire_upwind_split.eq.1)then   
@@ -1803,13 +1771,7 @@ end function select_eno
 !**************************
 !
 
-real function speed_func(diffCx,diffCy,dx,dy,i,j &
-#ifdef SPEED_VARS_ARGS      /* extra arguments for speed_func */
-#include SPEED_VARS_ARGS
-#else
-#include "fr_sfire_params_args.h"
-#endif
-)
+real function speed_func(diffCx,diffCy,dx,dy,i,j,fp)
 !*** purpose
 !    the level set method speed function
 implicit none
@@ -1817,13 +1779,9 @@ implicit none
 real, intent(in)::diffCx,diffCy  ! x and y coordinates of the direction of propagation
 real, intent(in)::dx,dy  ! x and y coordinates of the direction of propagation
 integer, intent(in)::i,j         ! indices of the node to compute the speed at
-#ifdef SPEED_VARS_DECL      /* extra arguments for fire_ros */
-#include SPEED_VARS_DECL
-#else
-#include "fr_sfire_params_decl.h"
-#endif
+type(fire_params),intent(in)::fp
 !*** local
-real::scale,nvx,nvy,speed,tanphi,r,dzdx,dzdy
+real::scale,nvx,nvy,r
 real::ros_back , ros_wind , ros_slope
 real, parameter:: eps=epsilon(0.0)
 !*** executable
@@ -1832,24 +1790,13 @@ real, parameter:: eps=epsilon(0.0)
             nvx=diffCx/scale
             nvy=diffCy/scale
                       
-            ! wind speed in direction of spread
-            speed =  vx(i,j)*nvx + vy(i,j)*nvy
-        
-            ! slope in direction of spread
-            dzdx = (zsf(i+1,j)-zsf(i-1,j))/(2.*dx)
-            dzdy = (zsf(i,j+1)-zsf(i,j-1))/(2.*dy)
-            tanphi =  dzdx*nvx + dzdy*nvy
-    
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            vx(i,j),vy(i,j),dzdx,dzdy,nvx,nvy,i,j &
-#           include "fr_sfire_params_args.h"
-            )
+            nvx,nvy,i,j,fp)
 
             r=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)r=max(r,0.)
-            ! write(10,*),i,j,nvx,nvy,speed,tanphi,r
             speed_func=r
 
 end function speed_func

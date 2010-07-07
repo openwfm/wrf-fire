@@ -43,7 +43,7 @@ module process_tile_module
       character (len=1), intent(in) :: grid_type
     
       ! Local variables
-      integer :: i, j, k, kk, l, istatus, ifieldstatus, idomcatstatus, field_count
+      integer :: i, j, k, kk, istatus, ifieldstatus, idomcatstatus, field_count
       integer :: min_category, max_category, min_level, max_level, &
                  smth_opt, smth_passes, num_landmask_categories
       integer :: start_dom_i, end_dom_i, start_dom_j, end_dom_j, end_dom_stag_i, end_dom_stag_j
@@ -74,7 +74,6 @@ module process_tile_module
       type (hashtable) :: processed_fieldnames
       character (len=128), dimension(2) :: dimnames
       integer :: sub_x, sub_y
-      real::coordxmin,coordymin,coordxmax,coordymax
    
       datestr = '0000-00-00_00:00:00'
       field_count = 0
@@ -261,7 +260,7 @@ module process_tile_module
       end if
 
       ! Initialize the output module now that we have the corner point lats/lons
-      call output_init(which_domain, 'OUTPUT FROM GEOGRID V3.0.1', '0000-00-00_00:00:00', grid_type, dynopt, &
+      call output_init(which_domain, 'OUTPUT FROM GEOGRID V3.2', '0000-00-00_00:00:00', grid_type, dynopt, &
                        corner_lats, corner_lons, &
                        start_dom_i,   end_dom_i,   start_dom_j,   end_dom_j, &
                        start_patch_i, end_patch_i, start_patch_j, end_patch_j, &
@@ -441,13 +440,11 @@ module process_tile_module
          if (grid_type == 'C') then
             call calc_field(landmask_name, field, xlat_array, xlon_array, M, &
                             start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1, &
-                            skip=.false.) ! <- don't skip landmask!!
+                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1)
          else if (grid_type == 'E') then
             call calc_field(landmask_name, field, xlat_array, xlon_array, HH, &
                             start_mem_i, end_mem_i, start_mem_j, end_mem_j, &
-                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1, &
-                            skip=.false.)
+                            min_category, max_category, processed_domain, 1, landmask=landmask, sr_x=1, sr_y=1)
          end if
      
          ! Find fractions
@@ -470,33 +467,12 @@ module process_tile_module
          end do
      
          ! If user wants to halt when a missing value is found in output field, check now
-         if (halt_on_missing .and. .not. get_skipfield(which_domain,fieldname)) then
+         if (halt_on_missing) then
             do i=start_mem_i, end_mem_i
                do j=start_mem_j, end_mem_j
                   ! Only need to examine k=1
                   if (field(i,j,1) == msg_fill_val) then
-                     call mprintf(.true.,STDOUT,' Missing value encountered in output field %s', &
-                                  s1=trim(fieldname))
-                     call mprintf(.true.,STDOUT,' First missing value found at index (%i,%i), coordinate (%f,%f)', &
-                                  i1=i,i2=j,f1=xlon_ptr(i,j),f2=xlat_ptr(i,j))
-                     coordxmin=1000
-                     coordymin=1000
-                     coordxmax=-1000
-                     coordymax=-1000
-                     do k=sm1,em1
-                       do l=sm2,em2
-                         coordxmin=min(coordxmin,xlon_ptr(k,l))
-                         coordymin=min(coordymin,xlat_ptr(k,l))
-                         coordxmax=max(coordxmax,xlon_ptr(k,l))
-                         coordymax=max(coordxmax,xlat_ptr(k,l))
-                       enddo
-                     enddo
-                     call mprintf(.true.,STDOUT,' Lat/Lon bounds on current tile:')
-                     call mprintf(.true.,STDOUT,' LATSOUTH=%f',f1=coordymin)
-                     call mprintf(.true.,STDOUT,' LATNORTH=%f',f1=coordymax)
-                     call mprintf(.true.,STDOUT,' LONWEST=%f',f1=coordxmin)
-                     call mprintf(.true.,STDOUT,' LONEAST=%f',f1=coordxmax)
-                     call mprintf(.true.,ERROR,' Quitting.')
+                     call mprintf(.true.,ERROR,' Missing value encountered in output field. Quitting.')
                   end if
                end do
             end do
@@ -809,43 +785,20 @@ module process_tile_module
                   if ((sub_x > 1) .or. (sub_y > 1)) then
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                 sm1, em1, sm2, em2, min_level, max_level, &
-                                processed_domain, 1, sr_x=sub_x, sr_y=sub_y, &
-                                skip=get_skipfield(which_domain,fieldname))
+                                processed_domain, 1, sr_x=sub_x, sr_y=sub_y)
                   else
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                 sm1, em1, sm2, em2, min_level, max_level, &
-                                processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y, &
-                                skip=get_skipfield(which_domain,fieldname))
+                                processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y)
                   end if
         
                   ! If user wants to halt when a missing value is found in output field, check now
-                  if (halt_on_missing .and. .not. get_skipfield(which_domain,fieldname)) then
+                  if (halt_on_missing) then
                      do i=sm1, em1
                         do j=sm2, em2
                            ! Only need to examine k=1
                            if (field(i,j,1) == msg_fill_val) then
-                              call mprintf(.true.,STDOUT,' Missing value encountered in output field %s', &
-                                           s1=trim(fieldname))
-                              call mprintf(.true.,STDOUT,' First missing value found at index (%i,%i), coordinate (%f,%f)', &
-                                           i1=i,i2=j,f1=xlon_ptr(i,j),f2=xlat_ptr(i,j))
-                              coordxmin=1000
-                              coordymin=1000
-                              coordxmax=-1000
-                              coordymax=-1000
-                              do k=sm1,em1
-                                do l=sm2,em2
-                                  coordxmin=min(coordxmin,xlon_ptr(k,l))
-                                  coordymin=min(coordymin,xlat_ptr(k,l))
-                                  coordxmax=max(coordxmax,xlon_ptr(k,l))
-                                  coordymax=max(coordxmax,xlat_ptr(k,l))
-                                enddo
-                              enddo
-                              call mprintf(.true.,STDOUT,' Lat/Lon bounds on current tile:')
-                              call mprintf(.true.,STDOUT,' LATSOUTH=%f',f1=coordymin)
-                              call mprintf(.true.,STDOUT,' LATNORTH=%f',f1=coordymax)
-                              call mprintf(.true.,STDOUT,' LONWEST=%f',f1=coordxmin)
-                              call mprintf(.true.,STDOUT,' LONEAST=%f',f1=coordxmax)
-                              call mprintf(.true.,ERROR,' Quitting.')
+                              call mprintf(.true.,ERROR,' Missing value encountered in output field. Quitting.')
                            end if
                         end do
                      end do
@@ -932,9 +885,9 @@ module process_tile_module
                                   i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=gradname)
 
                      if (grid_type == 'C') then
-                        call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, mapfac_ptr_x)
+                        call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, mapfac_ptr_x, sub_x)
                      else if (grid_type == 'E') then
-                        call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level)
+                        call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, sr_x=sub_x)
                      end if
                      call write_field(sm1, em1, sm2, em2, &
                                       min_level, max_level, trim(gradname), datestr, real_array=slp_field)
@@ -949,9 +902,9 @@ module process_tile_module
                                   i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=gradname)
 
                      if (grid_type == 'C') then
-                        call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, mapfac_ptr_y)
+                        call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, mapfac_ptr_y, sub_y)
                      else if (grid_type == 'E') then
-                        call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level)
+                        call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, sr_y=sub_y)
                      end if
                      call write_field(sm1, em1, sm2, em2, &
                                       min_level, max_level, trim(gradname), datestr, real_array=slp_field)
@@ -981,13 +934,11 @@ module process_tile_module
                   if ((sub_x > 1) .or. (sub_y > 1)) then
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                      sm1, em1, sm2, em2, min_category, max_category, &
-                                     processed_domain, 1, sr_x=sub_x, sr_y=sub_y, &
-                                     skip=get_skipfield(which_domain,fieldname))
+                                     processed_domain, 1, sr_x=sub_x, sr_y=sub_y)
                   else
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                      sm1, em1, sm2, em2, min_category, max_category, &
-                                     processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y, &
-                                     skip=get_skipfield(which_domain,fieldname))
+                                     processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y)
                   end if
        
                   ! Find fractions
@@ -1010,33 +961,12 @@ module process_tile_module
                   end do
         
                   ! If user wants to halt when a missing value is found in output field, check now
-                  if (halt_on_missing .and. .not. get_skipfield(which_domain,fieldname)) then
+                  if (halt_on_missing) then
                      do i=sm1, em1
                         do j=sm2, em2
                            ! Only need to examine k=1
                            if (field(i,j,1) == msg_fill_val) then
-                              call mprintf(.true.,STDOUT,' Missing value encountered in output field %s', &
-                                           s1=trim(fieldname))
-                              call mprintf(.true.,STDOUT,' First missing value found at index (%i,%i), coordinate (%f,%f)', &
-                                           i1=i,i2=j,f1=xlon_ptr(i,j),f2=xlat_ptr(i,j))
-                              coordxmin=1000
-                              coordymin=1000
-                              coordxmax=-1000
-                              coordymax=-1000
-                              do k=sm1,em1
-                                do l=sm2,em2
-                                  coordxmin=min(coordxmin,xlon_ptr(k,l))
-                                  coordymin=min(coordymin,xlat_ptr(k,l))
-                                  coordxmax=max(coordxmax,xlon_ptr(k,l))
-                                  coordymax=max(coordxmax,xlat_ptr(k,l))
-                                enddo
-                              enddo
-                              call mprintf(.true.,STDOUT,' Lat/Lon bounds on current tile:')
-                              call mprintf(.true.,STDOUT,' LATSOUTH=%f',f1=coordymin)
-                              call mprintf(.true.,STDOUT,' LATNORTH=%f',f1=coordymax)
-                              call mprintf(.true.,STDOUT,' LONWEST=%f',f1=coordxmin)
-                              call mprintf(.true.,STDOUT,' LONEAST=%f',f1=coordxmax)
-                              call mprintf(.true.,ERROR,' Quitting.')
+                              call mprintf(.true.,ERROR,' Missing value encountered in output field. Quitting.')
                            end if
                         end do
                      end do
@@ -1197,7 +1127,7 @@ module process_tile_module
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    recursive subroutine calc_field(fieldname, field, xlat_array, xlon_array, istagger, &
                                    start_i, end_i, start_j, end_j, start_k, end_k, &
-                                   processed_domain, ilevel, landmask, sr_x, sr_y, skip)
+                                   processed_domain, ilevel, landmask, sr_x, sr_y)
    
       use bitarray_module
       use interp_module
@@ -1214,8 +1144,7 @@ module process_tile_module
       real, dimension(start_i:end_i, start_j:end_j), intent(in) :: xlat_array, xlon_array
       real, dimension(start_i:end_i, start_j:end_j, start_k:end_k), intent(inout) :: field
       real, dimension(start_i:end_i, start_j:end_j), intent(in), optional :: landmask
-      integer, intent(in) :: sr_x, sr_y
-      logical, intent(in) :: skip
+      integer, intent(in), optional :: sr_x, sr_y
       character (len=128), intent(in) :: fieldname
       type (bitarray), intent(inout) :: processed_domain
     
@@ -1235,13 +1164,6 @@ module process_tile_module
       type (bitarray) :: bit_domain, level_domain
       type (queue)    :: point_queue, tile_queue
       type (q_data)   :: current_pt
-
-      ! If we are skipping this field, just set the field array to zero and return
-      if (skip) then
-        print*,"skipping field ",trim(fieldname)
-        field(:,:,:)=0.
-        return
-      endif
 
       ! If this is the first trip through this routine, we need to allocate the bit array that
       !  will persist through all recursive calls, tracking which grid points have been assigned
@@ -1270,8 +1192,7 @@ module process_tile_module
       ! Before proceeding with processing for this level, though, process for the next highest priority level
       !   of source data
       call calc_field(fieldname, field, xlat_array, xlon_array, istagger, start_i, end_i, &
-                      start_j, end_j, start_k, end_k, processed_domain, ilevel+1, landmask, sr_x, sr_y, &
-                      skip)
+                      start_j, end_j, start_k, end_k, processed_domain, ilevel+1, landmask, sr_x, sr_y)
     
       ! At this point, all levels of source data with higher priority have been processed, and we can assign
       !   values to all grid points that have not already been given values from higher-priority data
@@ -2021,7 +1942,7 @@ module process_tile_module
    !   the result in dst_array.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine calc_dfdy(src_arr, dst_arr, start_mem_i, start_mem_j, start_mem_k, &
-                        end_mem_i, end_mem_j, end_mem_k, mapfac)
+                        end_mem_i, end_mem_j, end_mem_k, mapfac, sr_y)
    
       ! Modules
       use gridinfo_module
@@ -2033,40 +1954,45 @@ module process_tile_module
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j,start_mem_k:end_mem_k), intent(in) :: src_arr
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j,start_mem_k:end_mem_k), intent(out) :: dst_arr
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(in), optional :: mapfac
+      integer, intent(in), optional :: sr_y
     
       ! Local variables
       integer :: i, j, k
+      real :: l_sr_y
+
+      l_sr_y=1.
+      if (present(sr_y)) l_sr_y=sr_y
     
       if (present(mapfac)) then
          do k=start_mem_k,end_mem_k
             do i=start_mem_i, end_mem_i
                do j=start_mem_j+1, end_mem_j-1
-                  dst_arr(i,j,k) = (src_arr(i,j+1,k) - src_arr(i,j-1,k))/(2.*dykm*mapfac(i,j))
+                  dst_arr(i,j,k) = sr_y*(src_arr(i,j+1,k) - src_arr(i,j-1,k))/(2.*dykm*mapfac(i,j))
                end do
             end do
      
             do i=start_mem_i, end_mem_i
-               dst_arr(i,start_mem_j,k) = (src_arr(i,start_mem_j+1,k) - src_arr(i,start_mem_j,k))/(dykm*mapfac(i,j))
+               dst_arr(i,start_mem_j,k) = sr_y*(src_arr(i,start_mem_j+1,k) - src_arr(i,start_mem_j,k))/(dykm*mapfac(i,j))
             end do
      
             do i=start_mem_i, end_mem_i
-               dst_arr(i,end_mem_j,k) = (src_arr(i,end_mem_j,k) - src_arr(i,end_mem_j-1,k))/(dykm*mapfac(i,j))
+               dst_arr(i,end_mem_j,k) = sr_y*(src_arr(i,end_mem_j,k) - src_arr(i,end_mem_j-1,k))/(dykm*mapfac(i,j))
             end do
          end do
       else
          do k=start_mem_k,end_mem_k
             do i=start_mem_i, end_mem_i
                do j=start_mem_j+1, end_mem_j-1
-                  dst_arr(i,j,k) = (src_arr(i,j+1,k) - src_arr(i,j-1,k))/(2.*dykm)
+                  dst_arr(i,j,k) = sr_y*(src_arr(i,j+1,k) - src_arr(i,j-1,k))/(2.*dykm)
                end do
             end do
      
             do i=start_mem_i, end_mem_i
-               dst_arr(i,start_mem_j,k) = (src_arr(i,start_mem_j+1,k) - src_arr(i,start_mem_j,k))/(dykm)
+               dst_arr(i,start_mem_j,k) = sr_y*(src_arr(i,start_mem_j+1,k) - src_arr(i,start_mem_j,k))/(dykm)
             end do
      
             do i=start_mem_i, end_mem_i
-               dst_arr(i,end_mem_j,k) = (src_arr(i,end_mem_j,k) - src_arr(i,end_mem_j-1,k))/(dykm)
+               dst_arr(i,end_mem_j,k) = sr_y*(src_arr(i,end_mem_j,k) - src_arr(i,end_mem_j-1,k))/(dykm)
             end do
          end do
       end if
@@ -2081,7 +2007,7 @@ module process_tile_module
    !   the result in dst_array.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine calc_dfdx(src_arr, dst_arr, start_mem_i, start_mem_j, &
-                        start_mem_k, end_mem_i, end_mem_j, end_mem_k, mapfac)
+                        start_mem_k, end_mem_i, end_mem_j, end_mem_k, mapfac, sr_x)
    
       ! Modules
       use gridinfo_module
@@ -2093,40 +2019,45 @@ module process_tile_module
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j, start_mem_k:end_mem_k), intent(in) :: src_arr
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j, start_mem_k:end_mem_k), intent(out) :: dst_arr
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(in), optional :: mapfac
+      integer, intent(in), optional :: sr_x
     
       ! Local variables
       integer :: i, j, k
+      real :: l_sr_x
+
+      l_sr_x=1.
+      if (present(sr_x)) l_sr_x=sr_x
     
       if (present(mapfac)) then
          do k=start_mem_k, end_mem_k
             do i=start_mem_i+1, end_mem_i-1
                do j=start_mem_j, end_mem_j
-                  dst_arr(i,j,k) = (src_arr(i+1,j,k) - src_arr(i-1,j,k))/(2.*dxkm*mapfac(i,j))
+                  dst_arr(i,j,k) = sr_x*(src_arr(i+1,j,k) - src_arr(i-1,j,k))/(2.*dxkm*mapfac(i,j))
                end do
             end do
      
             do j=start_mem_j, end_mem_j
-               dst_arr(start_mem_i,j,k) = (src_arr(start_mem_i+1,j,k) - src_arr(start_mem_i,j,k))/(dxkm*mapfac(i,j))
+               dst_arr(start_mem_i,j,k) = sr_x*(src_arr(start_mem_i+1,j,k) - src_arr(start_mem_i,j,k))/(dxkm*mapfac(i,j))
             end do
      
             do j=start_mem_j, end_mem_j
-               dst_arr(end_mem_i,j,k) = (src_arr(end_mem_i,j,k) - src_arr(end_mem_i-1,j,k))/(dxkm*mapfac(i,j))
+               dst_arr(end_mem_i,j,k) = sr_x*(src_arr(end_mem_i,j,k) - src_arr(end_mem_i-1,j,k))/(dxkm*mapfac(i,j))
             end do
          end do
       else
          do k=start_mem_k, end_mem_k
             do i=start_mem_i+1, end_mem_i-1
                do j=start_mem_j, end_mem_j
-                  dst_arr(i,j,k) = (src_arr(i+1,j,k) - src_arr(i-1,j,k))/(2.*dxkm)
+                  dst_arr(i,j,k) = sr_x*(src_arr(i+1,j,k) - src_arr(i-1,j,k))/(2.*dxkm)
                end do
             end do
      
             do j=start_mem_j, end_mem_j
-               dst_arr(start_mem_i,j,k) = (src_arr(start_mem_i+1,j,k) - src_arr(start_mem_i,j,k))/(dxkm)
+               dst_arr(start_mem_i,j,k) = sr_x*(src_arr(start_mem_i+1,j,k) - src_arr(start_mem_i,j,k))/(dxkm)
             end do
      
             do j=start_mem_j, end_mem_j
-               dst_arr(end_mem_i,j,k) = (src_arr(end_mem_i,j,k) - src_arr(end_mem_i-1,j,k))/(dxkm)
+               dst_arr(end_mem_i,j,k) = sr_x*(src_arr(end_mem_i,j,k) - src_arr(end_mem_i-1,j,k))/(dxkm)
             end do
          end do
       end if

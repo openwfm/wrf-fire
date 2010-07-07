@@ -36,6 +36,7 @@ LIB	=	libg2_4.a
 #MODDIR=.
 #FFLAGS=-O3 -g -I $(MODDIR)
 #CFLAGS=-O3 $(DEFS) $(INCDIR)
+#CFLAGS=-O3 $(DEFS) $(INCDIR) -D__64BIT__
 #ARFLAGS=
 #--------------------------------------
 
@@ -63,15 +64,12 @@ clean:
 superclean:	clean
 
 .F.o:
-	$(CPP) $(FDEFS) $*.F > $*.for
-	$(FC) -c $(F77FLAGS) $*.for
-	/bin/rm -f $*.for
+	$(CPP) $(FDEFS) $*.F > $*.f90
+	$(FC) -c $(F77FLAGS) $*.f90
+	/bin/rm -f $*.f90
 
 .f.o:
 	$(FC) -c $(F77FLAGS) $*.f
-
-.for.o:
-	$(FC) -c $(F77FLAGS) $*.for
 
 .c.o:
 	$(CC) -c $(CFLAGS) $(CFLAGS2) $<

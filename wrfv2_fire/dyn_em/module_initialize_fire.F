@@ -27,7 +27,7 @@ MODULE module_initialize_ideal
 #ifdef DM_PARALLEL
    USE module_dm
 #endif
-
+   USE module_fr_sfire_util, ONLY: continue_at_boundary
 
 CONTAINS
 
@@ -120,6 +120,7 @@ CONTAINS
    REAL :: mtn_axs, mtn_ays, mtn_axe, mtn_aye
    REAL :: mtn_fxs, mtn_fys, mtn_fxe, mtn_fye
    REAL :: mtn_xs, mtn_ys, mtn_xe, mtn_ye
+   REAL :: fdx,fdy
    LOGICAL, EXTERNAL :: wrf_dm_on_monitor
 
    SELECT CASE ( model_data_order )
@@ -209,6 +210,8 @@ CONTAINS
     CALL nl_set_truelat2(1,0.)
     CALL nl_set_moad_cen_lat (1,0.)
     CALL nl_set_stand_lon (1,0.)
+    CALL nl_set_pole_lon (1,0.)
+    CALL nl_set_pole_lat (1,90.)
     CALL nl_set_map_proj(1,0)
 
 !  here we initialize data we currently is not initialized 
@@ -482,13 +485,35 @@ write(6,*) '*************************************'
 
     write(6, *)' Fire tile ',ifts,':',ifte,' ',jfts,':',jfte,' max terrain height ',mtn_max
     write(6, *)' Fine-resolution terrain will be used.'
+
+    ! compute the terrain gradients
+ 
+    ! extend terrain height one beyond domain
+    call continue_at_boundary(1,1,0., & ! do x direction or y direction
+            ifms,ifme,jfms,jfme, &            ! memory dims
+            ifds,ifde,jfds,jfde, &            ! domain dims
+            ifds,ifde,jfds,jfde, &            ! patch dims = domain, not parallel!
+            ifts,ifte,jfts,jfte, &            ! tile dims
+            grid%zsf)                         ! array
+
+    ! gradient by differencing
+    fdx=grid%dx/grid%sr_x
+    fdy=grid%dy/grid%sr_y
+    do j=jfts,jfte
+       do i=ifts,ifte
+          grid%dzdxf(i,j) = (grid%zsf(i+1,j)-grid%zsf(i-1,j))/(2.*fdx)
+          grid%dzdyf(i,j) = (grid%zsf(i,j+1)-grid%zsf(i,j-1))/(2.*fdy)
+       enddo
+    enddo
+
  
     ELSE
 
-      write(6, *)' ******** WARNING ********'
-      write(6, *)' Terrain height on the fire grid will be interpolated from the atmosphere grid.'
-      write(6, *)' Set fire_topo_from_atm=0 in the namelist to use fine-resolution terrain.'
-      write(6, *)' ******** WARNING ********'
+      call wrf_error_fatal('only fire_topo_from_atm=0 supported')
+      !write(6, *)' ******** WARNING ********'
+      !write(6, *)' Terrain height on the fire grid will be interpolated from the atmosphere grid.'
+      !write(6, *)' Set fire_topo_from_atm=0 in the namelist to use fine-resolution terrain.'
+      !write(6, *)' ******** WARNING ********'
 
     ENDIF
   ENDIF

@@ -2,13 +2,6 @@
 
 arg1=$1
 
-# link GEOGRID.TBL
-pushd geogrid >& /dev/null
-if [ ! -e GEOGRID.TBL ] ; then
-  cp GEOGRID.TBL.FIRE.NED GEOGRID.TBL
-fi
-popd >& /dev/null
-
 # Look for netcdf
 if test -z "$NETCDF" ; then
   for p in /usr/local/netcdf
@@ -143,7 +136,11 @@ if [ $? -eq 0 ] ; then
     if [ "$os" = "AIX" -o "$os" = "IRIX" -o "$os" = "IRIX64" -o "$os" = "SunOS" -o "$os" = "HP-UX"  -o "$os" = "Darwin" ] ; then
       mach="ARCH"
     else
-      if [ "$os" = "OSF1" -o "$os" = "Linux" -o "$os" = "UNICOS/mp" -o "$os" = "UNIX_System_V" ] ; then
+      xxx=`expr "$os" : '\(.........\).*'`
+      if [ "$xxx"  = "CYGWIN_NT" ] ; then
+        os=$xxx
+      fi
+      if [ "$os" = "OSF1" -o "$os" = "Linux" -o "$os" = "UNICOS/mp" -o "$os" = "UNIX_System_V" -o "$os" = "CYGWIN_NT" ] ; then
         mach=`uname -m`
       else
         os="ARCH"
@@ -154,3 +151,4 @@ fi
 
 # Found perl, so proceed with configuration
 perl arch/Config.pl -perl=$PERL -netcdf=$NETCDF -netcdff=$NETCDFF -os=$os -mach=$mach 
+

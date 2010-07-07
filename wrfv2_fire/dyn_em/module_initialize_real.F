@@ -1,4 +1,4 @@
-!_EAL:MODEL_LAYER:INITIALIZATION
+!REAL:MODEL_LAYER:INITIALIZATION
 
 #ifndef VERT_UNIT
 !  This MODULE holds the routines which are used to perform various initializations
@@ -20,6 +20,13 @@ MODULE module_initialize_real
    USE module_llxy
 #ifdef DM_PARALLEL
    USE module_dm
+   USE module_comm_dm, ONLY : &
+                           HALO_EM_INIT_1_sub   &
+                          ,HALO_EM_INIT_2_sub   &
+                          ,HALO_EM_INIT_3_sub   &
+                          ,HALO_EM_INIT_4_sub   &
+                          ,HALO_EM_INIT_5_sub   &
+                          ,HALO_EM_VINTERP_UV_1_sub
 #endif
 
    REAL , SAVE :: p_top_save
@@ -125,6 +132,9 @@ integer::oops1,oops2
       LOGICAL , PARAMETER :: want_full_levels = .TRUE.
       LOGICAL , PARAMETER :: want_half_levels = .FALSE.
 
+      CHARACTER (LEN=80) :: a_message
+      REAL :: max_mf
+
 !-- Carsel and Parrish [1988]
         REAL , DIMENSION(100) :: lqmi
 
@@ -142,6 +152,22 @@ integer::oops1,oops2
 
 
       CALL model_to_grid_config_rec ( grid%id , model_config_rec , config_flags )
+
+      !  Send out a quick message about the time steps based on the map scale factors.
+
+      IF ( ( internal_time_loop .EQ. 1 ) .AND. ( grid%id .EQ. 1 ) .AND. ( .NOT. config_flags%map_proj .EQ. PROJ_CASSINI ) ) THEN
+         max_mf = grid%msft(its,jts)
+         DO j=jts,MIN(jde-1,jte)
+            DO i=its,MIN(ide-1,ite)
+               max_mf = MAX ( max_mf , grid%msft(i,j) )
+            END DO
+         END DO
+#if ( defined(DM_PARALLEL)  &&   ! defined(STUBMPI) )
+         max_mf = wrf_dm_max_real ( max_mf )
+#endif
+         WRITE ( a_message , FMT='(A,F5.2,A)' ) 'Max map factor in domain 1 = ',max_mf,'. Scale the dt in the model accordingly.'
+         CALL wrf_message ( a_message ) 
+      END IF
 
       !  Check to see if the boundary conditions are set properly in the namelist file.
       !  This checks for sufficiency and redundancy.
@@ -325,6 +351,10 @@ integer::oops1,oops2
 
          !  Filter the input topography if this is a polar projection.
 
+         IF ( ( config_flags%polar ) .AND. ( grid%fft_filter_lat .GT. 90 ) ) THEN
+            CALL wrf_error_fatal ( 'If the polar boundary condition is used, then fft_filter_lat must be set in namelist.input' )
+         END IF
+
          IF ( config_flags%map_proj .EQ. PROJ_CASSINI ) THEN
 #if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
 
@@ -424,29 +454,101 @@ integer::oops1,oops2
            END DO
          END IF
 
-         !  Some data sets do not provide a surface RH field.
-
-         IF ( ABS(grid%rh_gc(its,kts,jts)) .LT. 1.e-5 ) THEN
-            DO j = jts, MIN(jte,jde-1)
-               DO i = its, MIN(ite,ide-1)
-                  grid%rh_gc(i,1,j) = grid%rh_gc(i,2,j)
-               END DO
-            END DO
-         END IF
-
          !  The number of vertical levels in the input data.  There is no staggering for
          !  different variables.
 
          num_metgrid_levels = grid%num_metgrid_levels
 
+         !  Check for and semi-fix missing surface fields.
+
+         IF ( grid%p_gc(its,num_metgrid_levels,jts) .LT. grid%p_gc(its,2,jts) ) THEN
+            k = 2
+         ELSE
+            k = num_metgrid_levels
+         END IF
+
+         IF ( grid%t_gc(its,1,jts) .EQ. -1.E30 ) THEN
+            DO j = jts, MIN(jte,jde-1)
+               DO i = its, MIN(ite,ide-1)
+                  grid%t_gc(i,1,j) = grid%t_gc(i,k,j)
+               END DO
+            END DO
+            config_flags%use_surface = .FALSE.
+            grid%use_surface = .FALSE.
+            WRITE ( a_message , * ) 'Missing surface temp, replaced with closest level, use_surface set to false.'
+            CALL wrf_message ( a_message ) 
+         END IF
+
+         IF ( grid%rh_gc(its,1,jts) .EQ. -1.E30 ) THEN
+            DO j = jts, MIN(jte,jde-1)
+               DO i = its, MIN(ite,ide-1)
+                  grid%rh_gc(i,1,j) = grid%rh_gc(i,k,j)
+               END DO
+            END DO
+            config_flags%use_surface = .FALSE.
+            grid%use_surface = .FALSE.
+            WRITE ( a_message , * ) 'Missing surface RH, replaced with closest level, use_surface set to false.'
+            CALL wrf_message ( a_message ) 
+         END IF
+
+         IF ( grid%u_gc(its,1,jts) .EQ. -1.E30 ) THEN
+            DO j = jts, MIN(jte,jde-1)
+               DO i = its, ite
+                  grid%u_gc(i,1,j) = grid%u_gc(i,k,j)
+               END DO
+            END DO
+            config_flags%use_surface = .FALSE.
+            grid%use_surface = .FALSE.
+            WRITE ( a_message , * ) 'Missing surface u wind, replaced with closest level, use_surface set to false.'
+            CALL wrf_message ( a_message ) 
+         END IF
+
+         IF ( grid%v_gc(its,1,jts) .EQ. -1.E30 ) THEN
+            DO j = jts, jte
+               DO i = its, MIN(ite,ide-1)
+                  grid%v_gc(i,1,j) = grid%v_gc(i,k,j)
+               END DO
+            END DO
+            config_flags%use_surface = .FALSE.
+            grid%use_surface = .FALSE.
+            WRITE ( a_message , * ) 'Missing surface v wind, replaced with closest level, use_surface set to false.'
+            CALL wrf_message ( a_message ) 
+         END IF
+
+
          !  Compute the mixing ratio from the input relative humidity.
 
-         IF ( flag_qv .NE. 1 ) THEN
-            CALL rh_to_mxrat (grid%rh_gc, grid%t_gc, grid%p_gc, grid%qv_gc , &
-                              config_flags%rh2qv_wrt_liquid , &
-                              ids , ide , jds , jde , 1   , num_metgrid_levels , &
-                              ims , ime , jms , jme , 1   , num_metgrid_levels , &
+         IF ( ( flag_qv .NE. 1 ) .AND. ( flag_sh .NE. 1 ) ) THEN
+            IF ( grid%p_gc(its,num_metgrid_levels,jts) .LT. grid%p_gc(its,2,jts) ) THEN
+               k = 2
+            ELSE
+               k = num_metgrid_levels
+            END IF
+
+            CALL rh_to_mxrat (grid%rh_gc, grid%t_gc, grid%p_gc, grid%qv_gc ,         &
+                              config_flags%rh2qv_wrt_liquid ,                        &
+                              config_flags%qv_max_p_safe ,                           &
+                              config_flags%qv_max_flag , config_flags%qv_max_value , &
+                              config_flags%qv_min_p_safe ,                           &
+                              config_flags%qv_min_flag , config_flags%qv_min_value , &
+                              ids , ide , jds , jde , 1   , num_metgrid_levels ,     &
+                              ims , ime , jms , jme , 1   , num_metgrid_levels ,     &
                               its , ite , jts , jte , 1   , num_metgrid_levels )
+
+         ELSE IF ( flag_sh .EQ. 1 ) THEN
+            IF ( grid%p_gc(its,num_metgrid_levels,jts) .LT. grid%p_gc(its,2,jts) ) THEN
+               k = 2
+            ELSE
+               k = num_metgrid_levels
+            END IF
+            IF ( grid%sh_gc(its,kts,jts) .LT. 1.e-6 ) THEN
+               DO j = jts, MIN(jte,jde-1)
+                  DO i = its, MIN(ite,ide-1)
+                     grid%sh_gc(i,1,j) = grid%sh_gc(i,k,j)
+                  END DO
+               END DO
+            END IF
+
          END IF
 
          !  Some data sets do not provide a 3d geopotential height field.  
@@ -596,6 +698,13 @@ integer::oops1,oops2
            END DO
          END DO
 
+         !  If the pressure levels in the middle of the atmosphere are upside down, then
+         !  this is hybrid data.  Computing the new surface pressure should use sfcprs2.
+
+         IF ( grid%p_gc(its,num_metgrid_levels/2,jts) .LT. grid%p_gc(its,num_metgrid_levels/2+1,jts) ) THEN
+            config_flags%sfcp_to_sfcp = .TRUE.
+         END IF
+
          !  Two ways to get the surface pressure.  1) If we have the low-res input surface
          !  pressure and the low-res topography, then we can do a simple hydrostatic
          !  relation.  2) Otherwise we compute the surface pressure from the sea-level
@@ -627,6 +736,11 @@ integer::oops1,oops2
                          ims , ime , jms , jme , 1   , num_metgrid_levels , &
                          its , ite , jts , jte , 1   , num_metgrid_levels )
          ELSE
+            WRITE(a_message,FMT='(3(A,I2),A,L1)') 'ERROR in psfc: flag_psfc = ',flag_psfc, &
+                                               ', flag_soilhgt = ',flag_soilhgt , &
+                                               ', flag_slp = ',flag_slp , & 
+                                               ', sfcp_to_sfcp = ',config_flags%sfcp_to_sfcp 
+            CALL wrf_message ( a_message ) 
             CALL wrf_error_fatal ( 'not enough info for a p sfc computation' )
          END IF
 
@@ -762,7 +876,10 @@ integer::oops1,oops2
          t_extrap_type = grid%t_extrap_type
          extrap_type = grid%extrap_type
 
-         CALL vert_interp ( grid%qv_gc , grid%pd_gc , moist(:,:,:,P_QV) , grid%pb , &
+         !  Interpolate RH, diagnose Qv later when have temp and pressure.  Temporarily
+         !  store this in the u_1 space, for later diagnosis into Qv and stored into moist.
+
+         CALL vert_interp ( grid%rh_gc , grid%pd_gc , grid%u_1 , grid%pb , &
                             num_metgrid_levels , 'Q' , &
                             interp_type , lagrange_order , extrap_type , &
                             lowest_lev_from_sfc , use_levels_below_ground , use_surface , &
@@ -779,6 +896,28 @@ integer::oops1,oops2
                             ids , ide , jds , jde , kds , kde , &
                             ims , ime , jms , jme , kms , kme , &
                             its , ite , jts , jte , kts , kte )
+     
+         !  Do not have full pressure on eta levels, get a first guess at Qv by using
+         !  dry pressure.  The use of u_1 (rh) and v_1 (temperature) is temporary.
+         !  We fix the approximation to Qv after the total pressure is available on
+         !  eta surfaces.
+
+         grid%v_1 = grid%t_2
+         CALL theta_to_t ( grid%v_1 , grid%pb , p00 , &
+                           ids , ide , jds , jde , kds , kde , &
+                           ims , ime , jms , jme , kms , kme , &
+                           its , ite , jts , jte , kts , kte )
+
+         CALL rh_to_mxrat (grid%u_1, grid%v_1, grid%pb, moist(:,:,:,P_QV) ,       &
+                           config_flags%rh2qv_wrt_liquid ,                        &
+                           config_flags%qv_max_p_safe ,                           &
+                           config_flags%qv_max_flag , config_flags%qv_max_value , &
+                           config_flags%qv_min_p_safe ,                           &
+                           config_flags%qv_min_flag , config_flags%qv_min_value , &
+                           ids , ide , jds , jde , kds , kde ,                    &
+                           ims , ime , jms , jme , kms , kme ,                    &
+                           its , ite , jts , jte , kts , kte-1 )
+
 #ifdef RUC_CLOUD
          !  Add -DRUC_CLOUD to ARCHFLAGS in configure.wrf file to activate the following code
 
@@ -1030,29 +1169,9 @@ integer::oops1,oops2
 
       END SELECT interpolate_soil_tmw
 
-      !  Adjustments for the seaice field PRIOR to the grid%tslb computations.  This is
-      !  is for the 5-layer scheme.
-
-      num_veg_cat      = SIZE ( grid%landusef , DIM=2 )
-      num_soil_top_cat = SIZE ( grid%soilctop , DIM=2 )
-      num_soil_bot_cat = SIZE ( grid%soilcbot , DIM=2 )
-      CALL nl_get_seaice_threshold ( grid%id , grid%seaice_threshold )
-      CALL nl_get_isice ( grid%id , grid%isice )
-      CALL nl_get_iswater ( grid%id , grid%iswater )
-      CALL adjust_for_seaice_pre ( grid%xice , grid%landmask , grid%tsk , grid%ivgtyp , grid%vegcat , grid%lu_index , &
-                                   grid%xland , grid%landusef , grid%isltyp , grid%soilcat , grid%soilctop , &
-                                   grid%soilcbot , grid%tmn , &
-                                   grid%seaice_threshold , &
-                                   config_flags%fractional_seaice, &
-                                   num_veg_cat , num_soil_top_cat , num_soil_bot_cat , &
-                                   grid%iswater , grid%isice , &
-                                   model_config_rec%sf_surface_physics(grid%id) , &
-                                   ids , ide , jds , jde , kds , kde , &
-                                   ims , ime , jms , jme , kms , kme , &
-                                   its , ite , jts , jte , kts , kte )
-
       !  surface_input_source=1 => use data from static file (fractional category as input)
       !  surface_input_source=2 => use data from grib file (dominant category as input)
+      !  surface_input_source=3 => use dominant data from static file (dominant category as input)
 
       IF ( config_flags%surface_input_source .EQ. 1 ) THEN
          grid%vegcat (its,jts) = 0
@@ -1086,7 +1205,7 @@ integer::oops1,oops2
             END DO
          END DO
 
-      ELSE
+      ELSE IF ( config_flags%surface_input_source .EQ. 2 ) THEN
 
          !  Do we have dominant soil and veg data from the input already?
 
@@ -1105,7 +1224,55 @@ integer::oops1,oops2
             END DO
          END IF
 
+      ELSE IF ( config_flags%surface_input_source .EQ. 3 ) THEN
+
+         !  Do we have dominant soil and veg data from the static input already?
+
+         IF ( grid%sct_dom_gc(its,jts) .GT. 0.5 ) THEN
+            DO j = jts, MIN(jde-1,jte)
+               DO i = its, MIN(ide-1,ite)
+                  grid%isltyp(i,j) = NINT( grid%sct_dom_gc(i,j) )
+                  grid%soilcat(i,j) = grid%isltyp(i,j)
+               END DO
+            END DO
+         ELSE
+            WRITE ( a_message , * ) 'You have set surface_input_source = 3, but your geogrid data does not have valid dominant soil data.'
+            CALL wrf_error_fatal ( a_message ) 
+         END IF
+         IF ( grid%lu_index(its,jts) .GT. 0.5 ) THEN
+            DO j = jts, MIN(jde-1,jte)
+               DO i = its, MIN(ide-1,ite)
+                  grid%ivgtyp(i,j) = NINT( grid%lu_index(i,j) )
+                  grid%vegcat(i,j) = grid%ivgtyp(i,j)
+               END DO
+            END DO
+         ELSE
+            WRITE ( a_message , * ) 'You have set surface_input_source = 3, but your geogrid data does not have valid dominant land use data.'
+            CALL wrf_error_fatal ( a_message ) 
+         END IF
+
       END IF
+
+      !  Adjustments for the seaice field PRIOR to the grid%tslb computations.  This is
+      !  is for the 5-layer scheme.
+
+      num_veg_cat      = SIZE ( grid%landusef , DIM=2 )
+      num_soil_top_cat = SIZE ( grid%soilctop , DIM=2 )
+      num_soil_bot_cat = SIZE ( grid%soilcbot , DIM=2 )
+      CALL nl_get_seaice_threshold ( grid%id , grid%seaice_threshold )
+      CALL nl_get_isice ( grid%id , grid%isice )
+      CALL nl_get_iswater ( grid%id , grid%iswater )
+      CALL adjust_for_seaice_pre ( grid%xice , grid%landmask , grid%tsk , grid%ivgtyp , grid%vegcat , grid%lu_index , &
+                                   grid%xland , grid%landusef , grid%isltyp , grid%soilcat , grid%soilctop , &
+                                   grid%soilcbot , grid%tmn , &
+                                   grid%seaice_threshold , &
+                                   config_flags%fractional_seaice, &
+                                   num_veg_cat , num_soil_top_cat , num_soil_bot_cat , &
+                                   grid%iswater , grid%isice , &
+                                   model_config_rec%sf_surface_physics(grid%id) , &
+                                   ids , ide , jds , jde , kds , kde , &
+                                   ims , ime , jms , jme , kms , kme , &
+                                   its , ite , jts , jte , kts , kte )
 
       !  Land use assignment.
 
@@ -1318,7 +1485,7 @@ integer::oops1,oops2
                                                        grid%tmn(i,j)*(0.0 - grid%zs(ns)) ) /(3.0 - 0.0)
                               END DO
                            CASE ( LSMSCHEME , RUCLSMSCHEME, PXLSMSCHEME )
-                              CALL wrf_error_fatal ( 'Assigning constant soil moisture, bad idea')
+                              CALL wrf_error_fatal ( 'Assigned constant soil moisture to 0.3, stopping')
                               DO ns = 1 , model_config_rec%num_soil_layers
                                  grid%tslb(i,ns,j) = ( grid%tsk(i,j)*(3.0 - grid%zs(ns)) + &
                                                        grid%tmn(i,j)*(0.0 - grid%zs(ns)) ) /(3.0 - 0.0)
@@ -1363,6 +1530,7 @@ integer::oops1,oops2
                                     grid%soilcbot , grid%tmn , grid%vegfra , &
                                     grid%tslb , grid%smois , grid%sh2o , &
                                     grid%seaice_threshold , &
+                                    grid%sst,flag_sst, &
                                     config_flags%fractional_seaice, &
                                     num_veg_cat , num_soil_top_cat , num_soil_bot_cat , &
                                     model_config_rec%num_soil_layers , &
@@ -1419,6 +1587,14 @@ endif
          DO i = its, MIN(ide-1,ite)
            IF ( flag_sst .NE. 1 ) THEN
              grid%sst(i,j) = grid%tsk(i,j)
+           ENDIF
+         END DO
+      END DO
+!tgs set snoalb to land value if the water point is covered with ice
+      DO j = jts, MIN(jde-1,jte)
+         DO i = its, MIN(ide-1,ite)
+           IF ( grid%ivgtyp(i,j) .EQ. config_flags%isice) THEN
+             grid%snoalb(i,j) = 0.75
            ENDIF
          END DO
       END DO
@@ -1648,6 +1824,7 @@ endif
                grid%alt(i,k,j) = (r_d/p1000mb)*(grid%t_2(i,k,j)+t0)*qvf&
                                  *(((grid%p(i,k,j)+grid%pb(i,k,j))/p1000mb)**cvpm)
                grid%al(i,k,j) = grid%alt(i,k,j) - grid%alb(i,k,j)
+               grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
 
                !  Now, integrate down the column to compute the pressure perturbation, and diagnose the two
                !  inverse density fields (total and perturbation).
@@ -1661,6 +1838,7 @@ endif
                   grid%alt(i,k,j) = (r_d/p1000mb)*(grid%t_2(i,k,j)+t0)*qvf* &
                               (((grid%p(i,k,j)+grid%pb(i,k,j))/p1000mb)**cvpm)
                   grid%al(i,k,j) = grid%alt(i,k,j) - grid%alb(i,k,j)
+                  grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
                END DO
 
 #if 1
@@ -1749,6 +1927,28 @@ endif
 
          END DO
       END DO
+     
+      !  Recompute Qv with full pressure on eta levels.  We use the temporary
+      !  space of v_1 for total theta, which gets diagnosed into temperature.
+      !  The u_1 array is RH on eta levels from the initial interpolation.  The
+      !  previous value of moist was computed with dry pressure, not total
+      !  pressure.
+
+      grid%v_1 = grid%t_2 + 300
+      CALL theta_to_t ( grid%v_1 , grid%pb + grid%p , p00 , &
+                        ids , ide , jds , jde , kds , kde , &
+                        ims , ime , jms , jme , kms , kme , &
+                        its , ite , jts , jte , kts , kte )
+
+      CALL rh_to_mxrat (grid%u_1, grid%v_1, grid%pb + grid%p, moist(:,:,:,P_QV) , &
+                        config_flags%rh2qv_wrt_liquid ,                           &
+                        config_flags%qv_max_p_safe ,                              &
+                        config_flags%qv_max_flag , config_flags%qv_max_value ,    &
+                        config_flags%qv_min_p_safe ,                              &
+                        config_flags%qv_min_flag , config_flags%qv_min_value ,    &
+                        ids , ide , jds , jde , kds , kde ,                       &
+                        ims , ime , jms , jme , kms , kme ,                       &
+                        its , ite , jts , jte , kts , kte-1 )
 
       !  If this is data from the SI, then we probably do not have the original
       !  surface data laying around.  Note that these are all the lowest levels
@@ -2071,24 +2271,36 @@ endif
 
    RECURSIVE SUBROUTINE find_my_parent ( grid_ptr_in , grid_ptr_out , id_i_am , id_wanted , found_the_id )
 
+!  RAR - Modified to correct problem in which the parent of a child domain could
+!  not be found in the namelist. This condition typically occurs while using the
+!  "allow_grid" namelist option when an inactive domain comes before an active
+!  domain in the list, i.e., the domain number of the active domain is greater than
+!  that of an inactive domain at the same level. 
+!      
       USE module_domain
 
       TYPE(domain) , POINTER :: grid_ptr_in , grid_ptr_out
       TYPE(domain) , POINTER :: grid_ptr_sibling
       INTEGER :: id_wanted , id_i_am
+      INTEGER :: nest                    ! RAR
       LOGICAL :: found_the_id
 
       found_the_id = .FALSE.
       grid_ptr_sibling => grid_ptr_in
+      nest = 0                           ! RAR
+
       DO WHILE ( ASSOCIATED ( grid_ptr_sibling ) )
 
          IF ( grid_ptr_sibling%grid_id .EQ. id_wanted ) THEN
             found_the_id = .TRUE.
             grid_ptr_out => grid_ptr_sibling
             RETURN
-         ELSE IF ( grid_ptr_sibling%num_nests .GT. 0 ) THEN
-            grid_ptr_sibling => grid_ptr_sibling%nests(1)%ptr
+! RAR    ELSE IF ( grid_ptr_sibling%num_nests .GT. 0 ) THEN
+         ELSE IF ( grid_ptr_sibling%num_nests .GT. 0 .AND. nest .LT. grid_ptr_sibling%num_nests ) THEN
+            nest = nest + 1               ! RAR
+            grid_ptr_sibling => grid_ptr_sibling%nests(nest)%ptr ! RAR
             CALL find_my_parent ( grid_ptr_sibling , grid_ptr_out , id_i_am , id_wanted , found_the_id )
+            IF (.NOT. found_the_id) grid_ptr_sibling => grid_ptr_sibling%parents(1)%ptr   ! RAR
          ELSE
             grid_ptr_sibling => grid_ptr_sibling%sibling
          END IF
@@ -2526,14 +2738,20 @@ end subroutine fillitup
                   forig(i,kn,j)           = fo   (i,generic+2-kn,j)
                   forig(i,generic+2-kn,j) = fo   (i,kn,j)
                END DO
-               DO i = istart , iend
-                  forig(i,1,j)           = fo   (i,1,j)
-               END DO
             END DO
+            DO i = istart , iend
+               forig(i,1,j)               = fo   (i,1,j)
+            END DO
+            IF ( MOD(generic,2) .EQ. 0 ) THEN
+               k=generic/2 + 1
+               DO i = istart , iend
+                  forig(i,k,j)            = fo   (i,k,j)
+               END DO
+            END IF
          ELSE
             DO kn = 1 , generic
                DO i = istart , iend
-                  forig(i,kn,j)          = fo   (i,kn,j)
+                  forig(i,kn,j)           = fo   (i,kn,j)
                END DO
             END DO
          END IF
@@ -2662,7 +2880,7 @@ end subroutine fillitup
             !  This is easy, the surface is the lowest level, just stick them in, in this order.  OK,
             !  there are a couple of subtleties.  We have to check for that special interpolation that
             !  skips some input levels so that the surface is used for the lowest few eta levels.  Also,
-            !  we must macke sure that we still do not have levels that are "too close" together.
+            !  we must make sure that we still do not have levels that are "too close" together.
 
             ELSE
 
@@ -2703,7 +2921,8 @@ end subroutine fillitup
                !  be directly impacted with the surface level in interpolation.
 
                DO ko = knext , generic
-                  IF ( ordered_porig(count-1) - porig(i,ko,j) .LT. zap_close_levels ) THEN
+                  IF ( ( ordered_porig(count-1) - porig(i,ko,j) .LT. zap_close_levels ) .AND. &
+                       ( ko .LT. generic ) ) THEN
                      zap = zap + 1
                      zap_above = zap_above + 1
                      CYCLE
@@ -3634,7 +3853,7 @@ print *,'p target= ',target_x
                       ims , ime , jms , jme , kms , kme , &
                       its , ite , jts , jte , kts , kte )
 
-   !  Compute dry, hydrostatic surface pressure.
+   !  Compute potential temperature from temperature and pressure.
 
       IMPLICIT NONE
 
@@ -3661,6 +3880,42 @@ print *,'p target= ',target_x
       END DO
 
    END SUBROUTINE t_to_theta
+
+
+!---------------------------------------------------------------------
+
+   SUBROUTINE theta_to_t ( t , p , p00 , &
+                      ids , ide , jds , jde , kds , kde , &
+                      ims , ime , jms , jme , kms , kme , &
+                      its , ite , jts , jte , kts , kte )
+
+   !  Compute temperature from potential temp and pressure.
+
+      IMPLICIT NONE
+
+      INTEGER , INTENT(IN)        :: ids , ide , jds , jde , kds , kde , &
+                                     ims , ime , jms , jme , kms , kme , &
+                                     its , ite , jts , jte , kts , kte
+
+      REAL , INTENT(IN) :: p00
+      REAL , DIMENSION(ims:ime,kms:kme,jms:jme) , INTENT(IN)     :: p
+      REAL , DIMENSION(ims:ime,kms:kme,jms:jme) , INTENT(INOUT)  :: t
+
+      !  Local vars
+
+      INTEGER :: i , j , k
+
+      REAL , PARAMETER :: Rd = r_d
+
+      DO j = jts , MIN ( jde-1 , jte )
+         DO k = kts , kte
+            DO i = its , MIN (ide-1 , ite )
+               t(i,k,j) = t(i,k,j) / ( ( p00 / p(i,k,j) ) ** (Rd / Cp) )
+            END DO
+         END DO
+      END DO
+
+   END SUBROUTINE theta_to_t
 
 !---------------------------------------------------------------------
 
@@ -3837,6 +4092,10 @@ print *,'p sfc = ',psfc(i,j)
 !---------------------------------------------------------------------
 
    SUBROUTINE rh_to_mxrat (rh, t, p, q , wrt_liquid , &
+                           qv_max_p_safe , &
+                           qv_max_flag , qv_max_value , &
+                           qv_min_p_safe , &
+                           qv_min_flag , qv_min_value , &
                            ids , ide , jds , jde , kds , kde , &
                            ims , ime , jms , jme , kms , kme , &
                            its , ite , jts , jte , kts , kte )
@@ -3848,6 +4107,9 @@ print *,'p sfc = ',psfc(i,j)
                                      its , ite , jts , jte , kts , kte
 
       LOGICAL , INTENT(IN)        :: wrt_liquid
+
+      REAL , INTENT(IN)           :: qv_max_p_safe , qv_max_flag , qv_max_value
+      REAL , INTENT(IN)           :: qv_min_p_safe , qv_min_flag , qv_min_value
 
       REAL , DIMENSION(ims:ime,kms:kme,jms:jme) , INTENT(IN)     :: p , t
       REAL , DIMENSION(ims:ime,kms:kme,jms:jme) , INTENT(INOUT)  :: rh
@@ -3970,8 +4232,30 @@ print *,'p sfc = ',psfc(i,j)
                END DO
             END DO
          END DO
-
       END IF
+
+      !  For pressures above a defined level, reasonable Qv values should be
+      !  a certain value or smaller.  If they are larger than this, the input data
+      !  probably had "missing" RH, and we filled in some values.  This is an
+      !  attempt to catch those.  Also, set the minimum value for the entire
+      !  domain that is above the selected pressure level.
+     
+      DO j = jts , MIN ( jde-1 , jte )
+         DO k = kts , kte
+            DO i = its , MIN (ide-1 , ite )
+               IF ( p(i,k,j) .LT. qv_max_p_safe ) THEN
+                  IF ( q(i,k,j) .GT. qv_max_flag ) THEN
+                     q(i,k,j) = qv_max_value
+                  END IF
+               END IF
+               IF ( p(i,k,j) .LT. qv_min_p_safe ) THEN
+                  IF ( q(i,k,j) .LT. qv_min_flag ) THEN
+                     q(i,k,j) = qv_min_value
+                  END IF
+               END IF
+            END DO
+         END DO
+      END DO
 
    END SUBROUTINE rh_to_mxrat
 
@@ -4687,13 +4971,10 @@ print *,'namelist p_top (Pa) = ',p_top
       DO j = jts , MIN(jde-1,jte)
          DO i = its , MIN(ide-1,ite)
 
-            !  Special cases
+            !  Special case where near the ocean level.  Assume that the SLP is a good value.
 
-            IF      ( ( height(i,1,j) .LT. 0 ) .OR. ( ter(i,j) .LT. 0 ) ) THEN
+            IF      ( ter(i,j) .LT. 50 ) THEN
                psfc(i,j) = slp(i,j) + ( p(i,2,j)-p(i,3,j) ) / ( height(i,2,j)-height(i,3,j) ) * ter(i,j)
-               CYCLE
-            ELSE IF ( ( height(i,1,j) .LT. 1 ) .OR. ( ter(i,j) .LT. 1 ) ) THEN
-               psfc(i,j) = slp(i,j)
                CYCLE
             END IF
 
