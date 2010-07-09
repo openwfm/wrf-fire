@@ -379,9 +379,8 @@ implicit none
 
 !*** purpose
 ! interpolate nodal values in mesh2 to nodal values in mesh1
-! input mesh 2 is coarse output mesh 1 is fine
-! interpolation runs over mesh2 region its2:ite2,jts2:jte2 
-! only the part of mesh 1 region its1:ite1,jts1:jte1 is modified
+! interpolation runs over the mesh2 region its2:ite2,jts2:jte2 
+! only the part of mesh 1 in the region its1:ite1,jts1:jte1 is modified
 
 !*** arguments
 
@@ -408,10 +407,10 @@ call check_mesh_2dim(its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2)
 rx=1./ir
 ry=1./jr
 
-do j2=jts2,jte2-1       ! loop over coarse mesh cells
-    rjo=rjp1+jr*(j2-rjp2)  ! fine grid coordinate of the coarse grid patch start
-    js=max(jts1,ceiling(rjo))     ! lower bound of fine grid patch for this cell
-    je=min(jte1,floor(rjo)+jr)  ! upper bound of fine grid patch for this cell
+do j2=jts2,jte2-1               ! loop over mesh 2 cells
+    rjo=rjp1+jr*(j2-rjp2)       ! mesh 1 coordinate of the mesh 2 patch start
+    js=max(jts1,ceiling(rjo))   ! lower bound of mesh 1 patch for this mesh 2 cell
+    je=min(jte1,floor(rjo)+jr)  ! upper bound of mesh 1 patch for this mesh 2 cell 
     do i2=its2,ite2-1
         rio=rip1+ir*(i2-rip2)
         is=max(its1,ceiling(rio))
@@ -419,7 +418,7 @@ do j2=jts2,jte2-1       ! loop over coarse mesh cells
         do j1=js,je
             ty = (j1-rjo)*ry
             do i1=is,ie
-                ! in case fine grid lies on the boundary of several cells
+                ! in case mesh 1 node lies on the boundary of several mesh 2 cells
                 ! the result will be written multiple times with the same value
                 ! up to a rounding error
                 tx = (i1-rio)*rx
