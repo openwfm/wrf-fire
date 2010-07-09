@@ -1075,12 +1075,24 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
 !      ---------------
 !     | F | F | F | F |   Example of atmospheric and fire grid with
 !     |-------|-------|   ir=jr=4.
-!     | F | F | F | F |   Winds are given at the midpoints of the sides of the coarse grid,
-!     u-------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
-!     | F | F | F | F |
-!     |---------------|
-!     | * | F | F | F |
-!      -------v-------
+!     | F | F | F | F |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!     ua------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
+!     | F | F | F | F |   This is (1,1) cell of atmosphere grid, and [*] is the (1,1) cell of the fire grid.
+!     |---------------|   ua(1,1) <--> uf(0.5,2.5)
+!     | * | F | F | F |   va(1,1) <--> vf(2.5,0.5)
+!      -------va------    za(1,1) <--> zf(2.5,2.5)
+!
+!   ^ x2
+!   |  --------va(1,2)---------
+!   | |            |           |   Example of atmospheric and fire grid with
+!   | |            |           |   ir=jr=1.
+!   | |          za,zf         |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!   | ua(1,1)----uf,vf-----ua(2,1) interpolated to midpoints of the cells of the (the same) fire grid 
+!   | |           (1,1)        |   ua(1,1) <--> uf(0.5,1) 
+!   | |            |           |   va(1,1) <--> vf(1,0.5) 
+!   | |            |           |   za(1,1) <--> zf(1,1)
+!   |  --------va(1,1)---------
+!   |--------------------> x1 
 !
 ! Meshes are aligned by the lower left cell of the domain. Then in the above figure
 ! u = node with the ua component of the wind at (ids,jds), midpoint of side
@@ -1088,9 +1100,9 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
 ! * = fire grid node at (ifds,jfds)
 ! z = node with height, midpoint of cell
 ! 
-! ua(ids,jds)=uf(ifds-0.5,jfds+jr/2+0.5)
-! va(ids,jds)=vf(ifds+ir/2+0.5,jfds-0.5)
-! za(ids,jds)=zsf(ifds+ir/2+0.5,jfds+jr/2+0.5)
+! ua(ids,jds)=uf(ifds-0.5,jfds+jr*0.5-0.5)         = uf(ifds-0.5,jfds+(jr-1)*0.5)
+! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
+! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
     
     ifts1=snode(ifts,ifds,-1) ! go 1 beyond domain boundary but not between tiles
     ifte1=snode(ifte,ifde,+1)
@@ -1103,7 +1115,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds-.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds-0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
         ua,                     & ! in atm grid     
         uf)                      ! out fire grid
 
@@ -1113,7 +1125,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir+1)*.5,jfds-0.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds-0.5, & ! line up by lower left corner of domain
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
 
@@ -1192,7 +1204,7 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
         za,                     & ! in atm grid     
         zsf)                      ! out fire grid
 
