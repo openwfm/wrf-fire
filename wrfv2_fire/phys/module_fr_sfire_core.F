@@ -429,32 +429,28 @@ real, intent(out),dimension(3,3)::tff,lff
 !       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
 
       lff(1,1)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))
- ! Will rewrite as function
       call tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
                                      tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
                                      lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),tff(1,1),time_now)
- !     tff(1,1)=tign_subcl; 
 
       lff(1,2)=0.5*(lfn(icl-1,jcl)+lfn(icl,jcl))
-      call tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),tign(icl,jcl), &
+      call tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),lfn(icl,jcl), &
                              lff(1,2),tff(1,2),time_now)
- !     tff(1,2)=tign_subcl; 
 
       lff(1,3)=0.25*(lfn(icl-1,jcl+1)+lfn(icl-1,jcl)+lfn(icl,jcl+1)+lfn(icl,jcl))
       call tign_four_pnts_interp(tign(icl-1,jcl),tign(icl-1,jcl+1),tign(icl,jcl),  & 
                                      tign(icl,jcl+1),lfn(icl-1,jcl),lfn(icl-1,jcl+1),      &
                                      lfn(icl,jcl),lfn(icl,jcl+1),lff(1,3),tff(1,3),time_now)
- !     tff(1,3)=tign_subcl; 
 
       lff(2,1)=0.5*(lfn(icl,jcl-1)+lfn(icl,jcl))   
-      call tign_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),tign(icl,jcl), &
+      call tign_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),lfn(icl,jcl), &
                              lff(2,1),tff(2,1),time_now)
 
       lff(2,2)=lfn(icl,jcl)
       tff(2,2)=tign(icl,jcl)
 
       lff(2,3)=0.5*(lfn(icl,jcl+1)+lfn(icl,jcl))   
-      call tign_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+11),tign(icl,jcl), &
+      call tign_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+11),lfn(icl,jcl), &
                              lff(2,3),tff(2,3),time_now)
 
       lff(3,1)=0.25*(lfn(icl,jcl-1)+lfn(icl,jcl)+lfn(icl+1,jcl-1)+lfn(icl+1,jcl))
@@ -463,7 +459,7 @@ real, intent(out),dimension(3,3)::tff,lff
                                      lfn(icl+1,jcl-1),lfn(icl+1,jcl),lff(3,1),tff(3,1),time_now)
 
       lff(3,2)=0.5*(lfn(icl+1,jcl)+lfn(icl,jcl))
-      call tign_line_interp(tign(icl+1,jcl),tign(icl,jcl),lfn(icl+1,jcl),tign(icl,jcl), &
+      call tign_line_interp(tign(icl+1,jcl),tign(icl,jcl),lfn(icl+1,jcl),lfn(icl,jcl), &
                              lff(3,2),tff(3,2),time_now)
 
       lff(3,3)=0.25*(lfn(icl,jcl)+lfn(icl,jcl+1)+lfn(icl+1,jcl)+lfn(icl+1,jcl+1))
@@ -489,6 +485,10 @@ if((lfn1.le.0).AND.(lfn2.le.0)) then
    tign_subcl=0.5*(tign1+tign2)
 elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
    if ((tign1.ne.time_now).OR.(tign.ne.time_now))then
+      print *,"time_now",time_now
+      print *,"lfn1,lfn2",lfn1,lfn2
+      print *,"tign1,tign2",tign1,tign2
+      print *,"lfn_subcl",lfn_subcl
       call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
       tign_subcl=time_now;
@@ -593,7 +593,7 @@ b=0;
            b=b+(tign4-time_now)*lfn4;
 !       endif
    endif 
-   if ((a.eq.0).or.(b.gt.0)) then
+   if ((a.eq.0).or.(b.lt.0)) then
       call crash('tign_four_pnts_interp: if E is on fire then one of cells &
                   should be on fire or tign_ should be less than time_now')
    else
