@@ -277,8 +277,10 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
     
 
+!$OMP CRITICAL
     write(msg,'(a,i1,a,i1,a,i4)') &
        'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end,' test steps',tsteps
+!$OMP END CRITICAL
     call message(msg)
 
     do istep=0,tsteps ! istep >0 is for testing only, exit after the first call
@@ -539,6 +541,7 @@ dyf=dy/jr
 
 
 
+!$OMP CRITICAL
 write(msg,'(a,2f15.6)')'atmosphere mesh step:',dx,dy
 call message(msg)
 write(msg,'(a,2f15.6)')'fire mesh step:      ',dxf,dyf
@@ -555,6 +558,7 @@ write(msg,7001)'fire memory     ','ifms',ifms,ifme,jfms,jfme
 call message(msg)                    
 write(msg,7001)'fire patch      ','ifps',ifps,ifpe,jfps,jfpe
 call message(msg)                    
+!$OMP END CRITICAL
 
 ! check mesh dimensions
 call check_fmesh(ids,ide,ifds,ifde,ir,'id')           ! check if atm and fire grids line up
@@ -603,12 +607,14 @@ do ij=1,num_tiles
     jfts= (jts-jds)*jr+jfds       ! start fire tile in j
     jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
         
+!$OMP CRITICAL
     write(msg,'(3(a,i3,1x))')'tile=',ij,' id=',id,' ifun=',ifun
     call message(msg)
     write(msg,7001)'atm tile   ','its',its,ite,jts,jte
     call message(msg)                   
     write(msg,7001)'fire tile  ','ifts',ifts,ifte,jfts,jfte
     call message(msg)                    
+!$OMP END CRITICAL
 
     ! check the tiles
     call check_mesh_2dim(its,ite,jts,jte,ips,ipe,jps,jpe)                 ! check if atm tile fits in atm patch
@@ -616,10 +622,12 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
 
+!$OMP CRITICAL
     write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
     call message(msg)
     7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
     write(msg,'(a,2i9)')'refinement ratio:',ir,jr
+!$OMP END CRITICAL
 
     if(ifun.eq.1)then   ! set terrain
 
@@ -646,7 +654,9 @@ do ij=1,num_tiles
                 zs,                                       & ! atm grid arrays in
                 zsf)                                      ! fire grid arrays out
         else
+!$OMP CRITICAL
            write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
+!$OMP END CRITICAL
         endif
 
         if(ignition_longlat .eq.0)then
@@ -767,7 +777,10 @@ do ij=1,num_tiles
             its,ite,jts,jte,      &
             grnqfx)
 
+!$OMP CRITICAL
         write(msg,'(a,f6.3)')'fire-atmosphere feedback scaling ',fire_atm_feedback
+!$OMP end CRITICAL
+	call message(msg)
         do j=jts,jte
             do i=its,ite
                 ! scale ground fluxes to get the averages
@@ -817,7 +830,9 @@ enddo ! tiles
 if (ifun.eq.3)then
     ignitions_done=ignitions_done_tile(1) ! all should be the same
     do i=1,ignitions_done
+!$OMP CRITICAL
         write(msg,'(2(a,i4,1x))')'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
+!$OMP END CRITICAL
         call message(msg)
         ignited_patch(i)=0
         do ij=1,num_tiles
@@ -874,7 +889,9 @@ elseif(ifun.eq.6)then
     kpe1=min(kps+1,kpe)
     !kpe1=kps-1
     do k=kts,min(kte,kts+3)
+!$OMP CRITICAL
         write(kk,'(i2)')k
+!$OMP END CRITICAL
         call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,kk//'driver_phys:rthfrten')
         call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,kk//'driver_phys:rqvfrten')
     enddo
@@ -1206,8 +1223,10 @@ character(len=*),intent(in)::s
 character(len=128)msg
 !*** executable
 if ((ide-ids+1)*ir.ne.(ifde-ifds+1))then
+!$OMP CRITICAL
     write(msg,1)s,ids,ide,ifds,ifde,ir
 1   format('module_fr_sfire_driver: incompatible bounds ',a,' atm ',i5,':',i5,' fire ',i5,':',i5,' ratio ',i3)    
+!$OMP END CRITICAL
     call crash(msg)
 endif
 end subroutine check_fmesh
