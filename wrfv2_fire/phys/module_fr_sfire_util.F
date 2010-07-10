@@ -84,6 +84,8 @@ if(fire_print_msg.gt.0)then
     msg='SFIRE:'//s
 #endif
     call wrf_message(msg)
+    flush(6)
+    flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
