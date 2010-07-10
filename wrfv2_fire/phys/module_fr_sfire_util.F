@@ -76,9 +76,9 @@ if(fire_print_msg.gt.0)then
 #ifdef _OPENMP
     m=omp_get_thread_num()
     t=s
-!$OMP CRITICAL
+!$OMP CRITICAL (MESSAGE_CRIT)
     write(msg,'(a6,i3,a1,a118)')'SFIRE:',m,':',t
-!$OMP END CRITICAL
+!$OMP END CRITICAL (MESSAGE_CRIT)
 #else
     msg='SFIRE:'//s
 #endif
@@ -102,7 +102,7 @@ logical::op
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('open_input_text_file: called from parallel loop')
 !$  endif
-!$OMP CRITICAL
+!$OMP CRITICAL (OPEN_CRIT)
 
     do iounit=19,99
        inquire(iounit,opened=op)
@@ -115,7 +115,7 @@ logical::op
 	write(msg,*)'open_input_text_file: Cannot open file ',filename
         call crash(msg)
     endif
-!$OMP END CRITICAL
+!$OMP END CRITICAL (OPEN_CRIT)
     open_input_text_file=iounit
 end function open_input_text_file
 
@@ -198,9 +198,9 @@ if(its.eq.ips.and..not.its.eq.ids)its1=its-halo
 if(jts.eq.jps.and..not.jts.eq.jds)jts1=jts-halo
 if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+halo
 if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+halo
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
 write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
 call message(msg)
 if(ix.ne.0)then
     if(its.eq.ids)then
@@ -215,9 +215,9 @@ if(ix.ne.0)then
         enddo
         iteo=ide+1
     endif
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: x:',its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jts1,':',jte1
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
     call message(msg)
 endif
 if(iy.ne.0)then
@@ -233,9 +233,9 @@ if(iy.ne.0)then
         enddo
         jteo=jde+1
     endif
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: y:',its,':',ite,',',jts,':',jte,' ->',its1,':',ite1,',',jtso,':',jteo
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
     call message(msg)
 endif
 ! corners of the domain
@@ -263,11 +263,11 @@ implicit none
 integer, intent(in)::ids,ide,jds,jde,ims,ime,jms,jme
 character(len=128)msg
 if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme)then
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
     write(msg,*)'mesh dimensions:  ',ids,ide,jds,jde
     call message(msg)
     write(msg,*)'memory dimensions:',ims,ime,jms,jme
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
     call message(msg)
     call crash('check_mesh_2dim: memory dimensions too small')
 endif
@@ -361,7 +361,7 @@ enddo
 return
 
 9 continue
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
 write(msg,91)its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
 call message(msg)
 write(msg,91)its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
@@ -372,7 +372,7 @@ call message(msg)
 write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg)
 92 format(a,2i8)
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
 call crash('module_fr_spread_util:sum_mesh_cells: bad mesh sizes')
 
 end subroutine sum_2d_cells
@@ -536,7 +536,7 @@ call interpolate_2d_w(ip,jp,ih,jh,ir,jr,              &
 return
 
 9 continue
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
 write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
 call message(msg)
 write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
@@ -548,7 +548,7 @@ write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg)
 92 format(a,2i8)
 call crash("module_fr_sfire_util:interpolate_2dmesh_cells: bad mesh sizes")
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
 end subroutine interpolate_2d_cells2cells
 
 !
@@ -625,7 +625,7 @@ call interpolate_2d_w(ip,jp,ih,jh,ir,jr,              &
 
 return
 9 continue
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
 write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
 call message(msg)
 write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
@@ -637,7 +637,7 @@ write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg)
 92 format(a,2i8)
 call crash("module_fr_sfire_util:interpolate_2d_cells2nodes: bad mesh sizes")
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
 end subroutine interpolate_2d_cells2nodes
 !
 !****************
@@ -954,9 +954,9 @@ character(len=128)msg
 character(len=24)id
 if(fire_print_msg.eq.0)return
 id=name
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
 write(msg,'(a,4i4,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
 call message(msg)
 if(.not.avg_a.eq.avg_a)call crash('NaN detected')
 end subroutine print_stat_line
@@ -982,11 +982,11 @@ do j=jps,jpe
     do i=ips,ipe
         aa=a(i,k,j)
         if(aa.ne.aa.or..not.aa.le.t.or..not.aa.ge.-t)then
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
             write(msg,1)name,i,k,j,aa
             call message(msg)
             call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
             call crash('invalid number')
         endif
         max_a=max(max_a,aa)
@@ -1059,7 +1059,7 @@ character(len=*),intent(in)::name
 integer i,j
 character(len=128)::msg
 !****
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
 write(msg,*)name,' start ',id,' dim ',its,ite,jts,jte
 call message(msg)
 do j=jts,jte
@@ -1070,7 +1070,7 @@ do j=jts,jte
 enddo
 write(msg,*)name,' end ',id
 call message(msg)
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
 end subroutine print_array
 
 subroutine write_array_m(its,ite,jts,jte,           &
@@ -1109,7 +1109,7 @@ call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call wrf_get_nproc (nprocs)
 call wrf_get_myproc( myproc )
 
-!$OMP CRITICAL
+!$OMP CRITICAL(UTIL_CRIT)
 if(nprocs.eq.1)then
     write(fname,3)name,'_',id,'.txt'
 else
@@ -1139,7 +1139,7 @@ write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
 write(msg,2)name,'(',its,':',ite,',',jts,':',jte,',', &
 kts,':',kte,') -> ',fname(1:ilen) 
-!$OMP END CRITICAL
+!$OMP END CRITICAL(UTIL_CRIT)
 call message(msg)
 return
 
