@@ -32,15 +32,12 @@ subroutine sfire_model (                    &
     ignition_end_time,                      &
     ignitions_done,ignited_tile,            &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
-    zsf,                                    & ! terrain height (for gradient)
-    vx,vy,                                  & ! input: wind
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
     ros,                                    & ! output: rate of spread
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,                              & ! save derived internal data
-    bbb,betafl,phiwc,r_0,fgip,ischap,       & ! params passed to spread speed
-    dzdxf,dzdyf                             &
+    fp &
 ) 
 
 ! This subroutine implements the fire spread model.
@@ -111,12 +108,9 @@ integer, intent(out):: ignited_tile(num_ignitions),ignitions_done
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
 real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
-REAL, INTENT(in), dimension(ifms:ifme,jfms:jfme):: & 
-    vx,vy                                   ! wind m/s (node based), data, variable
     
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
-    zsf,   &                                ! terrain height, node based, data, constant after extr
     lfn   , &                               ! level function: fire is where lfn<0 (node)
     tign  , &                               ! absolute time of ignition (node)
     fuel_frac                               ! fuel fraction (node), currently redundant
@@ -133,10 +127,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 ! constant arrays - set at initialization
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
 real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
-real,intent(inout),dimension(ifms:ifme,jfms:jfme):: bbb,betafl,phiwc,r_0 ! (node) spread formula coefficients
-real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fgip                 ! (cell) init mass of surface fuel (kg/m^2)
-integer,intent(inout),dimension(ifms:ifme,jfms:jfme):: ischap            ! (node) .ne.0 if chapparal
-real,intent(in),dimension(ifms:ifme,jfms:jfme):: dzdxf,dzdyf          ! terrain gradient 
+type(fire_params),intent(inout)::fp
 
 !*** local
 
@@ -176,17 +167,17 @@ elseif(ifun.eq.2)then
             ifds,ifde,jfds,jfde, &                     ! domain dims 
             ifps,ifpe,jfps,jfpe, &            ! patch dims - winds defined up to +1
             ifts,ifte,jfts,jfte, &                ! tile dims
-            zsf)                               ! array
+            fp%zsf)                               ! array
 
 !       compute the gradients once for all
         err=0.
         maxgrad=0.
         do j=jfts,jfte
             do i=ifts,ifte
-                erri = dzdxf(i,j) - (zsf(i+1,j)-zsf(i-1,j))/(2.*fdx)
-                errj = dzdyf(i,j) - (zsf(i,j+1)-zsf(i,j-1))/(2.*fdy)
+                erri = fp%dzdxf(i,j) - (fp%zsf(i+1,j)-fp%zsf(i-1,j))/(2.*fdx)
+                errj = fp%dzdyf(i,j) - (fp%zsf(i,j+1)-fp%zsf(i,j-1))/(2.*fdy)
                 err=max(err,abs(erri),abs(errj))
-                grad=sqrt(dzdxf(i,j)**2+dzdyf(i,j)**2)
+                grad=sqrt(fp%dzdxf(i,j)**2+fp%dzdyf(i,j)**2)
                 maxgrad=max(maxgrad,grad)
             enddo
         enddo
@@ -199,7 +190,7 @@ elseif(ifun.eq.2)then
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             ifuelread,nfuel_cat0,&
-            zsf,nfuel_cat)            ! better not use the extrapolated zsf!!
+            fp%zsf,nfuel_cat)            ! better not use the extrapolated zsf!!
 
         ! uses nfuel_cat to set the other fuel data arrays
         ! needs zsf on halo width 1 to compute the terrain gradient
@@ -208,12 +199,10 @@ elseif(ifun.eq.2)then
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             fdx,fdy,nfuel_cat0,  &
-            nfuel_cat,fuel_time &
-#           include "fr_sfire_params_args.h" 
+            nfuel_cat,fuel_time, &
+            fp  &
 )
 
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'model: terrain height')        
-                                        
         ! initialize model state to no fire
         if(.not.restart)then
             call init_no_fire  ( &
@@ -277,8 +266,7 @@ elseif (ifun.eq.4) then  ! do the timestep
     ! We cannot simply compute the spread rate here because that will change with the
     ! angle of the wind and the direction of propagation, thus it is done in subroutine
     ! normal_spread at each fire time step. Instead, we pass arguments that 
-    ! the speed function may use. The include is to guarantee this is done consistently
-    ! over the call chain.
+    ! the speed function may use as fp. 
 
 !   propagate level set function in time
 !   set lfn_out tign
@@ -292,8 +280,7 @@ elseif (ifun.eq.4) then  ! do the timestep
         ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
         ifts,ifte,jfts,jfte,                      &
         time_start,dt,fdx,fdy,tbound,  &
-        lfn,lfn_out,tign,ros &
-#       include "fr_sfire_params_args.h" 
+        lfn,lfn_out,tign,ros, fp &
     ) 
 
     else
@@ -354,7 +341,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifms,ifme,jfms,jfme,                      &
         ifts,ifte,jfts,jfte,                      &
         ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned
-        fgip,                                     &
+        fp%fgip,                                     &
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 

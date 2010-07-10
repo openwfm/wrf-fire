@@ -9,6 +9,25 @@ module module_fr_sfire_phys
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_util
 
+PRIVATE
+
+! subroutines and functions 
+PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params
+
+PUBLIC::fire_params
+
+! arrays passed to fire_ros
+type fire_params
+real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
+real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
+real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
+real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0 ! spread formula coefficients
+real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
+integer,pointer,dimension(:,:):: ischap            ! 1 if chapparal
+end type fire_params
+
+! use as
+! type(fire_params)::fp
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
@@ -265,8 +284,8 @@ subroutine set_fire_params( &
                            ifms,ifme,jfms,jfme, &
                            ifts,ifte,jfts,jfte, &
                            fdx,fdy,nfuel_cat0,  &
-                           nfuel_cat,fuel_time  &
-#                          include "fr_sfire_params_args.h" 
+                           nfuel_cat,fuel_time, &
+                           fp                   &
 )
 
 implicit none
@@ -281,9 +300,7 @@ real, intent(in):: fdx,fdy                                      ! fire mesh spac
 integer,intent(in)::nfuel_cat0                                  ! default fuel category, if nfuel_cat=0
 real, intent(in),dimension(ifms:ifme, jfms:jfme)::nfuel_cat  ! fuel data
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
-#define IN out  /* the fire param arrays are set here, elsewhere read only */
-#include "fr_sfire_params_decl.h" 
-#undef IN
+type(fire_params),intent(inout)::fp
 
 !*** local
 
@@ -303,13 +320,13 @@ do j=jfts,jfte
      ! fuel category 
      k=int( nfuel_cat(i,j) )
      if(k.eq.no_fuel_cat)then   ! no fuel 
-        fgip(i,j)=0.            ! no mass 
-        ischap(i,j)=0
-        betafl(i,j)=0.          ! to prevent division by zero
-        bbb(i,j)=1.             !
+        fp%fgip(i,j)=0.            ! no mass 
+        fp%ischap(i,j)=0
+        fp%betafl(i,j)=0.          ! to prevent division by zero
+        fp%bbb(i,j)=1.             !
         fuel_time(i,j)=7./0.85  ! does not matter, just what was there before
-        phiwc(i,j)=0.
-        r_0(i,j)=0.             ! no fuel, no spread.
+        fp%phiwc(i,j)=0.
+        fp%r_0(i,j)=0.             ! no fuel, no spread.
      else
         if(k.eq.0.and.nfuel_cat0.ge.1.and.nfuel_cat0.le.nfuelcats)then
             ! replace k=0 by default
@@ -332,8 +349,8 @@ do j=jfts,jfte
         ! fuel decreases as exp(-t/fuel_time) 
         ! exp(-600*0.85/1000) = approx 0.6 
 
-        ischap(i,j)=ichap(k)
-        fgip(i,j)=fgi(k)
+        fp%ischap(i,j)=ichap(k)
+        fp%fgip(i,j)=fgi(k)
 
         ! end jm addition
 
@@ -347,21 +364,21 @@ do j=jfts,jfte
         fuelloadm= (1.-bmst) * fgi(k)  !  fuelload without moisture
         fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
         fueldepth = fueldepthm(k)/0.3048               ! to ft
-        betafl(i,j) = fuelload/(fueldepth * fueldens(k))! packing ratio
+        fp%betafl(i,j) = fuelload/(fueldepth * fueldens(k))! packing ratio
         betaop = 3.348 * savr(k)**(-0.8189)     ! optimum packing ratio
         qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
         epsilon = exp(-138./savr(k) )    ! effective heating number
         rhob = fuelload/fueldepth    ! ovendry bulk density, lb/ft^3
 
         c = 7.47 * exp( -0.133 * savr(k)**0.55)    ! const in wind coef
-        bbb(i,j) = 0.02526 * savr(k)**0.54                ! const in wind coef
+        fp%bbb(i,j) = 0.02526 * savr(k)**0.54                ! const in wind coef
         e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
-        phiwc(i,j) = c * (betafl(i,j)/betaop)**(-e)
+        fp%phiwc(i,j) = c * (fp%betafl(i,j)/betaop)**(-e)
 
         rtemp2 = savr(k)**1.5
         gammax = rtemp2/(495. + 0.0594*rtemp2)              ! maximum rxn vel, 1/min
         a = 1./(4.774 * savr(k)**0.1 - 7.27)   ! coef for optimum rxn vel
-        ratio = betafl(i,j)/betaop
+        ratio = fp%betafl(i,j)/betaop
         gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
 
         wn = fuelload/(1 + st(k))       ! net fuel loading, lb/ft^2
@@ -373,11 +390,11 @@ do j=jfts,jfte
         ! jm: irm set but never used??
 
         xifr = exp( (0.792 + 0.681*savr(k)**0.5) &
-            * (betafl(i,j)+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
+            * (fp%betafl(i,j)+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
 
 !        ... r_0 is the spread rate for a fire on flat ground with no wind.
 
-        r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
+        fp%r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
      endif
   enddo
 enddo
@@ -520,11 +537,9 @@ end subroutine set_nfuel_cat
 !            
 
 subroutine fire_ros(ros_back,ros_wind,ros_slope, &
-vxij,vyij,propx,propy,i,j &
-#include "fr_sfire_params_args.h"
-)
+propx,propy,i,j,fp)
+
 implicit none
-#include "fr_sfire_params_decl.h"
 
 ! copied from wf2_janice 
 ! with the following changes ONLY: 
@@ -550,8 +565,9 @@ implicit none
 
 !*** arguments
 real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
-real, intent(in)::vxij,vyij,propx,propy
+real, intent(in)::propx,propy
 integer, intent(in)::i,j         ! node mesh coordinates
+type(fire_params),intent(in)::fp
 
 !*** local
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
@@ -571,36 +587,36 @@ nvx=propx/scale
 nvy=propy/scale
 if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
     ! wind speed is total speed 
-    speed =  sqrt(vx(i,j)*vx(i,j)+ vy(i,j)*vy(i,j))+tiny(speed)
+    speed =  sqrt(fp%vx(i,j)*fp%vx(i,j)+ fp%vy(i,j)*fp%vy(i,j))+tiny(speed)
     ! slope is total slope
-    tanphi = sqrt(dzdxf(i,j)*dzdxf(i,j) + dzdyf(i,j)*dzdyf(i,j))+tiny(tanphi)
+    tanphi = sqrt(fp%dzdxf(i,j)*fp%dzdxf(i,j) + fp%dzdyf(i,j)*fp%dzdyf(i,j))+tiny(tanphi)
     ! cos of wind and spread, if >0
-    cor_wind =  max(0.,(vx(i,j)*nvx + vy(i,j)*nvy)/speed)
+    cor_wind =  max(0.,(fp%vx(i,j)*nvx + fp%vy(i,j)*nvy)/speed)
     ! cos of slope and spread, if >0
-    cor_slope = max(0., (dzdxf(i,j)*nvx + dzdyf(i,j)*nvy)/tanphi)
+    cor_slope = max(0., (fp%dzdxf(i,j)*nvx + fp%dzdyf(i,j)*nvy)/tanphi)
 else
     ! wind speed in spread direction
-    speed =  vx(i,j)*nvx + vy(i,j)*nvy
+    speed =  fp%vx(i,j)*nvx + fp%vy(i,j)*nvy
     ! slope in spread direction
-    tanphi = dzdxf(i,j)*nvx + dzdyf(i,j)*nvy
+    tanphi = fp%dzdxf(i,j)*nvx + fp%dzdyf(i,j)*nvy
     cor_wind=1.
     cor_slope=1.
 endif
 
-if (ischap(i,j) .eq. 0) then            ! if not chaparral
+if (fp%ischap(i,j) .eq. 0) then            ! if not chaparral
     if (ibeh .eq. 1) then                ! use Rothermel formula
 !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
         spdms = max(speed,0.)          ! 
         umidm = min(spdms,30.)       ! max input wind spd is 30 m/s   !param!
         umid = umidm * 196.850                    ! m/s to ft/min
-        !  eqn.: phiw = c * umid**bbb(i,j) * (betafl(i,j)/betaop)**(-e) ! wind coef
-        phiw = umid**bbb(i,j) * phiwc(i,j) ! wind coef
+        !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
+        phiw = umid**fp%bbb(i,j) * fp%phiwc(i,j) ! wind coef
         phis=0.
         if (tanphi .gt. 0.) then
-            phis = 5.275 *(betafl(i,j))**(-0.3) *tanphi**2   ! slope factor
+            phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphi**2   ! slope factor
         endif
-        ! rosm = r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
-        ros_back = r_0(i,j) * .00508
+        ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
+        ros_back = fp%r_0(i,j) * .00508
         ros_wind = ros_back*phiw
         ros_slope= ros_back*phis
         

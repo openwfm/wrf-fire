@@ -240,6 +240,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
     real:: unit_fxlong ,unit_fxlat
+    type(fire_params)::fp
 
 
 !*** executable
@@ -247,6 +248,20 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     call print_id
 
 ! populate our structures from wrf
+
+    ! pointers to be passed to fire spread formulas
+    fp%vx => grid%uf         ! fire winds
+    fp%vy => grid%vf         ! fire winds
+    fp%zsf => grid%zsf       ! terrain height 
+    fp%dzdxf => grid%dzdxf   ! terrain grad 
+    fp%dzdyf => grid%dzdyf   ! terrain grad 
+    fp%bbb => grid%bbb       ! spread formula coeff 
+    fp%betafl => grid%betafl ! spread formula coeff 
+    fp%phiwc => grid%phiwc   ! spread formula coeff 
+    fp%r_0 => grid%r_0       ! spread formula coeff 
+    fp%fgip => grid%fgip     ! spread formula coeff 
+    fp%ischap => grid%ischap ! spread formula coeff 
+            
     ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
@@ -357,7 +372,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
-            grid%uf,grid%vf,                              & ! in - one step only
             lfn_out,                                      & ! work - one timestep    
             grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
@@ -365,9 +379,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%ros,                                   & ! rate of spread
             grid%fxlong,grid%fxlat,                           &       
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
-            grid%fuel_time,grid%zsf,                      & 
-            grid%bbb,grid%betafl,grid%phiwc,grid%r_0,grid%fgip,grid%ischap, &
-            grid%dzdxf,grid%dzdyf &
+            grid%fuel_time,                      & 
+            fp &
         )
 
 #ifdef DM_PARALLEL
@@ -415,16 +428,15 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
-    uf,vf,lfn_out,                                & ! fire wind velocities, out level set function    
+    lfn_out,                                & ! fire wind velocities, out level set function    
     rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
     ros,                                          &
     fxlong,fxlat,                                 & !  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
-    fuel_time,zsf,                                & ! save constant internal data, fire grid
-    bbb,betafl,phiwc,r_0,fgip,ischap,             &
-    dzdxf,dzdyf &
+    fuel_time,                                & ! save constant internal data, fire grid
+    fp                                           & ! fire params
     )
 USE module_dm, only:wrf_dm_maxval
 
@@ -487,7 +499,7 @@ real, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
     lfn,tign,fuel_frac,                        &     ! state: level function, ign time, fuel left
-    uf,vf,lfn_out                                    ! fire wind velocities
+    lfn_out                                    ! fire wind velocities
 
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
     fire_area                                        ! fraction of each cell burning
@@ -511,13 +523,9 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
 !  ***** data (constant in time) *****
 
 real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh coordinates
+real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 
-real, intent(inout), dimension(ifms:ifme, jfms:jfme):: &
-    fuel_time,zsf,                               &
-    bbb,betafl,phiwc,r_0,fgip                   
-real, intent(in), dimension(ifms:ifme, jfms:jfme):: &
-    dzdxf,dzdyf
-integer, intent(inout), dimension(ifms:ifme, jfms:jfme):: ischap
+type(fire_params),intent(inout)::fp
     
 !*** local
 real :: dxf,dyf,time_start,latm
@@ -652,7 +660,7 @@ do ij=1,num_tiles
                 ifts,ifte,jfts,jfte,                          &
                 ir,jr,                                        & ! atm/fire grid ratio
                 zs,                                       & ! atm grid arrays in
-                zsf)                                      ! fire grid arrays out
+                fp%zsf)                                      ! fire grid arrays out
         else
 !$OMP CRITICAL
            write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
@@ -706,7 +714,7 @@ do ij=1,num_tiles
     elseif(ifun.eq.2)then  
                
         ! after the loop where zsf created exited and all synced
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,zsf,'driver_phys:zsf')        
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
@@ -721,7 +729,7 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             u_frame, v_frame,                             & ! velocity frame correction
             u,v,                                       & ! atm grid arrays in
-            uf,vf)                                      ! fire grid arrays out
+            fp%vx,fp%vy)                                      ! fire grid arrays out
     
     endif
 
@@ -743,16 +751,13 @@ do ij=1,num_tiles
         ignition_end_time,                      &
         ignitions_done_tile(ij),ignited_tile(1,ij),  &
         fxlong,fxlat,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
-        zsf,                                    & ! terrain height (for gradient)
-        uf,vf,                                  & ! input: wind
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         ros,                                    & ! output: rate of spread for display
         nfuel_cat,                              & ! fuel data per point 
         fuel_time,                              & ! save derived internal data
-        bbb,betafl,phiwc,r_0,fgip,ischap,       &
-        dzdxf,dzdyf                             &
+        fp                                      & ! fire coefficients
     )
     
     if(ifun.eq.6)then ! heat fluxes into the atmosphere    
@@ -853,7 +858,7 @@ endif
 if(ifun.eq.1)then
     if(pid.ne.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,zsf,'zsf',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%zsf,'zsf',pid)
     endif
 #endif
 elseif(ifun.eq.3)then
@@ -861,8 +866,8 @@ elseif(ifun.eq.3)then
     if(pid.gt.0)then
         call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,u,'u',pid)
         call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,v,'v',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,uf,'uf',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,vf,'vf',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vx,'uf',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vy,'vf',pid)
     endif
 #endif
 elseif(ifun.eq.5)then
@@ -1087,12 +1092,24 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
 !      ---------------
 !     | F | F | F | F |   Example of atmospheric and fire grid with
 !     |-------|-------|   ir=jr=4.
-!     | F | F | F | F |   Winds are given at the midpoints of the sides of the coarse grid,
-!     u-------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
-!     | F | F | F | F |
-!     |---------------|
-!     | * | F | F | F |
-!      -------v-------
+!     | F | F | F | F |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!     ua------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
+!     | F | F | F | F |   This is (1,1) cell of atmosphere grid, and [*] is the (1,1) cell of the fire grid.
+!     |---------------|   ua(1,1) <--> uf(0.5,2.5)
+!     | * | F | F | F |   va(1,1) <--> vf(2.5,0.5)
+!      -------va------    za(1,1) <--> zf(2.5,2.5)
+!
+!   ^ x2
+!   |  --------va(1,2)---------
+!   | |            |           |   Example of atmospheric and fire grid with
+!   | |            |           |   ir=jr=1.
+!   | |          za,zf         |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!   | ua(1,1)----uf,vf-----ua(2,1) interpolated to midpoints of the cells of the (the same) fire grid 
+!   | |           (1,1)        |   ua(1,1) <--> uf(0.5,1) 
+!   | |            |           |   va(1,1) <--> vf(1,0.5) 
+!   | |            |           |   za(1,1) <--> zf(1,1)
+!   |  --------va(1,1)---------
+!   |--------------------> x1 
 !
 ! Meshes are aligned by the lower left cell of the domain. Then in the above figure
 ! u = node with the ua component of the wind at (ids,jds), midpoint of side
@@ -1100,9 +1117,9 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
 ! * = fire grid node at (ifds,jfds)
 ! z = node with height, midpoint of cell
 ! 
-! ua(ids,jds)=uf(ifds-0.5,jfds+jr/2+0.5)
-! va(ids,jds)=vf(ifds+ir/2+0.5,jfds-0.5)
-! za(ids,jds)=zsf(ifds+ir/2+0.5,jfds+jr/2+0.5)
+! ua(ids,jds)=uf(ifds-0.5,jfds+jr*0.5-0.5)         = uf(ifds-0.5,jfds+(jr-1)*0.5)
+! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
+! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
     
     ifts1=snode(ifts,ifds,-1) ! go 1 beyond domain boundary but not between tiles
     ifte1=snode(ifte,ifde,+1)
@@ -1115,7 +1132,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds-.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds-0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
         ua,                     & ! in atm grid     
         uf)                      ! out fire grid
 
@@ -1125,7 +1142,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir+1)*.5,jfds-0.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds-0.5, & ! line up by lower left corner of domain
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
 
@@ -1204,7 +1221,7 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
         za,                     & ! in atm grid     
         zsf)                      ! out fire grid
 
