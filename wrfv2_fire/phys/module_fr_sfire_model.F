@@ -181,9 +181,9 @@ elseif(ifun.eq.2)then
                 maxgrad=max(maxgrad,grad)
             enddo
         enddo
-!$OMP CRITICAL(MODEL_CRIT)
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
         write(msg,*)'max gradient ',maxgrad,' max error against zsf',err
-!$OMP END CRITICAL(MODEL_CRIT)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
         call message(msg)
 
         if(.not.restart)call set_nfuel_cat( &
@@ -350,10 +350,10 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 
         if (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
 
-!$OMP CRITICAL(MODEL_CRIT)
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
         write(msg,'(a,2e12.3,a)')'sfire_model: EXPERIMENTAL output constant heat flux', &
            fire_const_grnhfx, fire_const_grnqfx, ' W/s'
-!$OMP END CRITICAL(MODEL_CRIT)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
         call message(msg)
         
         do j=jfts,jfte
@@ -372,9 +372,9 @@ elseif (ifun.eq.6) then ! timestep postprocessing
                    grnhfx,'model: heat flux(J/m^2/s)')
 
 else
-!$OMP CRITICAL(MODEL_CRIT)
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
     write(msg,*)'sfire_model: bad ifun=',ifun
-!$OMP END CRITICAL(MODEL_CRIT)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
     call crash(msg)
 endif
 

@@ -210,14 +210,14 @@ do j=jfts,jfte
         ! call message(msg)
     enddo
 enddo
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
 call message(msg)
 write(msg,'(a,2f11.2,a,f8.1,a)')'units ',unit_xf,unit_yf,' m max dist ',dmax,' m'
 call message(msg)
 write(msg,'(a,f4.1,a,f8.1,a,i10)')' radius ',r,' time',time_ign,' ignited nodes',ignited
 call message(msg)
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
 end subroutine ignite_fire
 
 !
@@ -410,10 +410,10 @@ do icl=its,ite
         ! consistency check
         if(fire_area_ff.lt.-1e-6 .or.  &
           (fire_area_ff.eq.0. .and. fuel_left_ff.lt.1.-1e-6))then
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
            write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
               ' of refined mesh fuel burnt',1-fuel_left_ff,' fire area',fire_area_ff
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
            call crash(msg)
         endif
 
@@ -450,10 +450,10 @@ do j=jts,jte
     do i=its,ite        
        if(fire_area(i,j).eq.0.)then
            if(fuel_frac(i,j).lt.1.-1e-6)then
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
                write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
                    ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
                call crash(msg)
            endif
        else
@@ -462,9 +462,9 @@ do j=jts,jte
        endif
     enddo
 enddo
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,4i6,a,f10.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 return
 
@@ -601,11 +601,11 @@ out=1.
 if(area>0)out=area*exp(ta/fuel_time_cell) + (1. - area)
 
 if(out>1.)then
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
     write(msg,*)'out=',out,'>1 area=',area,' ta=',ta
     call message(msg)
     write(msg,*)'tign=',tign00,tign01,tign10,tign11,' time_now=',time_now
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
     call message(msg)
     !call message('WARNING: fuel_left_cell_1: fuel fraction > 1')
     call crash('fuel_left_cell_1: fuel fraction > 1')
@@ -1272,9 +1272,9 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
 
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':',jte
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 
     a=fire_back_weight ! from module_fr_sfire_util
@@ -1362,16 +1362,16 @@ call message(msg)
         
     tbound=min(tbound,tbound2)
 
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
     write(msg,'(a,f10.2,4(a,f7.2))')'prop_ls: time',ts,' dt=',dt,' bound',min(tbound,999.99), &
         ' dx=',dx,' dy=',dy
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
     call message(msg)
     if(dt>tbound)then
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
         write(msg,'(2(a,f10.2))')'prop_ls: WARNING: time step ',dt, &
         ' > bound =',tbound
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
         call message(msg)
     endif
     
@@ -1451,10 +1451,10 @@ call message(msg)
             endif
         enddo
     enddo
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
     write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
         (100.*nfirenodes)/((ite1-its1+1)*(jte1-jts1+1)),'% next to fireline',nfireline
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
     call message(msg)
     if(nfireline>0)then
         call print_stat_line('speed error',its1,ite1,jts1,jte1,min_err,max_err,sum_err/nfireline)
@@ -1484,10 +1484,10 @@ call message(msg)
     enddo
     goto 10
 9   continue
-!$OMP CRITICAL(CORE_CRIT)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
     write(msg,'(a,i2,a,2i8)')'prop_ls: fire',boundary_guard, &
         ' cells from domain boundary at node ',i,j
-!$OMP END CRITICAL(CORE_CRIT)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
     call message(msg)     
     call crash('prop_ls: increase the fire region')
 10  continue
