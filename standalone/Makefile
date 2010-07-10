@@ -27,7 +27,7 @@ MODEL_OBJ = \
     wrf_fakes.o
 
 model_test_main.exe: $(MAKEFILE) $(MODEL_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_main.exe $(MODEL_OBJ)
+	$(FC) $(FCFLAGS) -o model_test_main.exe $(MODEL_OBJ) $(LDFLAGS)
  
 # for the order of generating modules
 
