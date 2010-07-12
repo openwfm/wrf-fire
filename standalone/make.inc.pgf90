@@ -1,0 +1,4 @@
+FFREE=
+FFIXED=
+FCFLAGS=-g
+FC=pgf90

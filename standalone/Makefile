@@ -3,8 +3,8 @@ include make.inc
 DEFS =
 WRF = ../wrfv2_fire/phys
 FPFLAGS= -I$(NETCDF)/include -I.
-LDFLAGS = -L$(NETCDF)/lib -lnetcdf -g -O0 -C
-FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE) -g -O0 -C
+LDFLAGS = -L$(NETCDF)/lib -lnetcdf
+FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE)
 
 
 MAKEFILE=Makefile
@@ -31,10 +31,10 @@ MODEL_OBJ = \
 all: model_test_main.exe model_test_init.exe
 
 model_test_main.exe: $(MAKEFILE) model_test_main.o $(MODEL_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_main.exe model_test_main.o $(MODEL_OBJ)
+	$(FC) $(FCFLAGS) -o model_test_main.exe model_test_main.o $(MODEL_OBJ) $(LDFLAGS)
 
 model_test_init.exe: $(MAKEFILE) model_test_init.o $(MODEL_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_init.exe model_test_init.o $(MODEL_OBJ)
+	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_init.exe model_test_init.o $(MODEL_OBJ) $(LDFLAGS)
  
 # for the order of generating modules
 
