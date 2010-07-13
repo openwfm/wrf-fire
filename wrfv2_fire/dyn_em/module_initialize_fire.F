@@ -23,6 +23,7 @@ MODULE module_initialize_ideal
    USE module_timing
    USE module_configure
    USE module_init_utilities
+   USE module_soil_pre        !AK/ak for full surface initialization
 #ifdef DM_PARALLEL
    USE module_dm
 #endif
@@ -92,7 +93,8 @@ CONTAINS
    INTEGER :: icm,jcm, ii, im1, jj, jm1, loop, error, fid, nxc, nyc
    REAL    :: u_mean,v_mean, f0, p_surf, p_level, qvf, z_at_v, z_at_u
    REAL    :: z_scale, xrad, yrad, zrad, rad, delt, cof1, cof2
-   REAL    :: x_rad, y_rad, z_rad, hght_pert
+   REAL    :: x_rad, y_rad, z_rad, hght_pert   !Ak/ak
+   character (len=256) :: mminlu2              !AK/ak land use scheme (USGS)
 !   REAL, EXTERNAL :: interp_0
    REAL    :: hm
    REAL    :: pi
@@ -104,7 +106,8 @@ CONTAINS
    real :: thtmp, ptmp, temp(3)
 
    LOGICAL :: moisture_init
-   LOGICAL :: stretch_grid, dry_sounding
+   LOGICAL :: stretch_grd, dry_sounding
+   LOGICAL :: stretch_hyp, sfc_init           !AK/ak switches for hyperbolic grid streching and surface initialization
 
    INTEGER :: xs , xe , ys , ye
    INTEGER :: mtn_type
@@ -160,10 +163,7 @@ CONTAINS
 
    END SELECT
 
-
-   stretch_grid = .true.
-!   z_scale = .50
-   z_scale = .40
+!   z_scale = .40
    pi = 2.*asin(1.0)
    write(6,*) ' pi is ',pi
    nxc = (ide-ids)/2
@@ -181,7 +181,12 @@ CONTAINS
     z_rad = config_flags%zrad_perturbation
     hght_pert = config_flags%hght_perturbation
 
-    moisture_init = .true.
+    stretch_grd = config_flags%stretch_grd   
+    stretch_hyp = config_flags%stretch_hyp
+        z_scale = config_flags%z_grd_scale
+       sfc_init = config_flags%sfc_full_init
+  
+ moisture_init = .true.   !AK/ak
 
     grid%itimestep=0
 
@@ -190,7 +195,14 @@ CONTAINS
    CALL wrf_dm_bcast_bytes( jcm , IWORDSIZE )
 #endif
 
-    CALL nl_set_mminlu(1, '    ')
+!AK/ak land use initialization (USGS) 
+   IF (sfc_init) THEN  
+    mminlu2=' '
+    mminlu2(1:4) = 'USGS'                !Ak/ak
+    CALL nl_set_mminlu(1, mminlu2)       !Ak/ak
+    CALL nl_get_iswater(1,grid%iswater) ! Ak/ak
+   ENDIF
+
     CALL nl_set_iswater(1,0)
     CALL nl_set_cen_lat(1,40.)
     CALL nl_set_cen_lon(1,-105.)
@@ -201,7 +213,6 @@ CONTAINS
     CALL nl_set_pole_lon (1,0.)
     CALL nl_set_pole_lat (1,90.)
     CALL nl_set_map_proj(1,0)
-
 
 !  here we initialize data we currently is not initialized 
 !  in the input data
@@ -219,9 +230,53 @@ CONTAINS
          grid%cosa(i,j)     = 1.
          grid%e(i,j)        = 0.
          grid%f(i,j)        = 0.
-
       END DO
-   END DO
+    END DO     
+
+!AK/ak surface initialization latitude, longitude, landuse index from from LANDUSE.TBL skin temperature and soil temperature
+write(6,*) '*************************************'
+   IF (sfc_init) THEN
+    DO j = jts, jte
+      DO i = its, ite
+          grid%xlat(i,j) = config_flags%fire_lat_init     !Ak/sk (35)
+         grid%xlong(i,j) = config_flags%fire_lon_init     !Ak/ak (-111)
+         grid%xland(i,j) = 1.                             !Ak/ak
+      grid%lu_index(i,j) = config_flags%sfc_lu_index      !AK/ak land use index (28)
+           grid%tsk(i,j) = config_flags%sfc_tsk           !AK/ak  surface skin temperature [K] (285)
+           grid%tmn(i,j) = config_flags%sfc_tmn           !AK/ak  soil temperature at lower boundary [K] (285)
+      END DO
+    END DO
+
+! for Noah LSM, additional variables need to be initializedi  !AK/ak |
+
+  other_masked_fields : SELECT CASE ( model_config_rec%sf_surface_physics(grid%id) )
+
+      CASE (SLABSCHEME)
+      write(6,*) ' SLAB surface scheme activated'
+
+      CASE (LSMSCHEME)
+      write(6,*) ' Noah unified LSM scheme activated with:'
+      write(6,*) '    vegetation fraction=',config_flags%sfc_vegfra
+      write(6,*) '          canopy  water=',config_flags%sfc_canwat
+      write(6,*) '     dominant veg. type=',config_flags%sfc_ivgtyp
+      write(6,*) '     dominant soil type=',config_flags%sfc_isltyp
+
+        DO j = jts , MIN(jde-1,jte)
+           DO i = its , MIN(ide-1,ite)
+               grid%vegfra(i,j) = config_flags%sfc_vegfra  !0.5
+               grid%canwat(i,j) = config_flags%sfc_canwat  !0.
+               grid%ivgtyp(i,j) = config_flags%sfc_ivgtyp  !18
+               grid%isltyp(i,j) = config_flags%sfc_isltyp  !7
+               grid%xice(i,j) = 0.
+               grid%snow(i,j) = 0.
+           END DO
+        END DO
+
+      CASE (RUCLSMSCHEME)
+       write(6,*) ' RUS surface scheme activated'
+    END SELECT other_masked_fields                         !AK/ak |
+
+    ENDIF
 
     DO j = jts, jte
     DO k = kts, kte
@@ -233,18 +288,49 @@ CONTAINS
 
    grid%step_number = 0
 
-! set up the grid
+   IF (sfc_init) THEN
+      write(6,*) ' full surface initialization activated '
+      write(6,*) ' land use index =', config_flags%sfc_lu_index
+      write(6,*) ' skin temperature=',grid%tsk(10,10),&
+              '[K] soil temperature=', grid%tmn(10,10),'[K]'    
+! Process the soil; note that there are some things hard-wired into share/module_soil_pre.F
+      CALL process_soil_ideal(grid%xland,grid%xice,grid%vegfra,grid%snow,grid%canwat, &
+                     grid%ivgtyp,grid%isltyp,grid%tslb,grid%smois, &
+                     grid%tsk,grid%tmn,grid%zs,grid%dzs,model_config_rec%num_soil_layers, &
+                     model_config_rec%sf_surface_physics(grid%id), &
+                                   ids,ide, jds,jde, kds,kde,&
+                                   ims,ime, jms,jme, kms,kme,&
+                                   its,ite, jts,jte, kts,kte )
 
-   IF (stretch_grid) THEN ! exponential stretch for eta (nearly constant dz)
-     DO k=1, kde
-      grid%znw(k) = (exp(-(k-1)/float(kde-1)/z_scale) - exp(-1./z_scale))/ &
-                                (1.-exp(-1./z_scale))
+     ELSE
+      write(6,*) 'full surface initialization is turned off!! '
+    ENDIF    !end of surface initialization
+
+! set up the grid
+   write(6,*) '*************************************'
+
+   IF (stretch_grd) THEN ! exponential or hyperbolic tangential stretch for eta
+
+    IF (stretch_hyp) THEN ! hyperbolic tangential stretch (more levels at the surface)
+     write(6,*) ' hyperbolic tangential stretching activated with z_scale =',z_scale
+     DO k=1, kde          
+      grid%znw(k) = -1.* (tanh(z_scale*(float(k-1) / float(kde-1) -1.)))/ &
+                                 (tanh(z_scale))
      ENDDO
+    ELSE                 ! exponential stretch for eta (nearly constant dz)
+    write(6,*) ' exponential grid stretching activated with z_scale =',z_scale
+     DO k=1, kde 
+     grid%znw(k) = (exp(-(k-1)/float(kde-1)/z_scale) - exp(-1./z_scale))/ &
+                            (1.-exp(-1./z_scale))
+     ENDDO
+    ENDIF 
    ELSE
-     DO k=1, kde
+   write(6,*) ' no grid stretching'
+     DO k=1, kde 
       grid%znw(k) = 1. - float(k-1)/float(kde-1)
      ENDDO
    ENDIF
+   write(6,*) '*************************************'
 
    DO k=1, kde-1
     grid%dnw(k) = grid%znw(k+1) - grid%znw(k)
@@ -561,18 +647,18 @@ CONTAINS
   ENDDO
   ENDDO
 
+! checking if the perturbation (bubble) is to be applied
+  IF ((delt/=0.) .and. (x_rad > 0.) &
+                 .and. (y_rad > 0.) &
+                 .and. (z_rad > 0.)) THEN
+!  thermal perturbation to kick off convection
+
   write(6,*) ' nxc, nyc for perturbation ',nxc,nyc
   write(6,'(A23,f18.16)') ' delt for perturbation ',delt
   write(6,'(A30,f18.12)') ' x radius of the perturbation ' ,x_rad
   write(6,'(A30,f18.12)') ' y radius of the perturbation ' ,y_rad
   write(6,'(A30,f18.12)') ' z radius of the perturbation ' ,z_rad
   write(6,'(A30,f18.12)') ' height of the perturbation   ' ,hght_pert  
-
-! checking if the perturbation (bubble) is to be applied
-  IF ((delt/=0.) .and. (x_rad > 0.) &
-                 .and. (y_rad > 0.) &
-                 .and. (z_rad > 0.)) THEN
-!  thermal perturbation to kick off convection
 
   DO J = jts, min(jde-1,jte)
     yrad = config_flags%dy*float(j-nyc)/y_rad
@@ -729,10 +815,20 @@ ENDIF
      ptmp    = grid%p(i,3,j)+grid%pb(i,3,j)
      temp(3) = thtmp * (ptmp/p1000mb)**rcp
 
+!     grid%tsk(I,J)=grid%cf1*temp(1)+grid%cf2*temp(2)+grid%cf3*temp(3) !AK/AK it is already declared via namelist.input if sfc_init=.true.
+!     grid%tmn(I,J)=grid%tsk(I,J)-0.5                                  !AK/AK it is already declared via namelist.input if sfc_init=.true.
+  ENDDO
+  ENDDO
+
+  IF (.NOT.sfc_init) THEN
+  write(6,*) ' setting tsk and tmn default'
+    DO J = jts, min(jde-1,jte)
+    DO I = its, min(ide-1,ite)
      grid%tsk(I,J)=grid%cf1*temp(1)+grid%cf2*temp(2)+grid%cf3*temp(3)
      grid%tmn(I,J)=grid%tsk(I,J)-0.5
-  ENDDO
-  ENDDO
+   ENDDO
+   ENDDO
+ ENDIF
 
  END SUBROUTINE init_domain_rk
 

@@ -23,7 +23,7 @@
  io_form_restart                     = 2
  io_form_input                       = 2
  io_form_boundary                    = 2
- debug_level                         = 101 
+ debug_level                         = 0 
  /
 
  &domains
@@ -58,8 +58,8 @@
  ra_lw_physics                       = 0,     0,     0,
  ra_sw_physics                       = 0,     0,     0,
  radt                                = 30,    30,    30,
- sf_sfclay_physics                   = 0,     0,     0,
- sf_surface_physics                  = 0,     0,     0,
+ sf_sfclay_physics                   = 1,     0,     0,
+ sf_surface_physics                  = 1,     0,     0,
  bl_pbl_physics                      = 0,     0,     0,
  bldt                                = 0,     0,     0,
  cu_physics                          = 0,     0,     0,
@@ -148,13 +148,11 @@
  fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 1,        ! 1 print fire debugging messages
+ fire_print_msg     = 0,        ! 1 print fire debugging messages
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! experiments
 !
- stretch_grd = .true.,          ! vertical grid stretching in ideal (on/off)
- stretch_hyp = .false.,         ! hyperbolic tang grid stretching in ideal (more levels at the surface)
  fire_const_time = -1.,         ! (s) if >0, time from start to stop fire evolution and keep heat output constant
  fire_const_grnhfx = -1,        ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
  fire_const_grnqfx = -1,        ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
@@ -172,6 +170,23 @@
  !zrad_perturbation = 1500.0,    ! Vertical radius of the bubble [m]
  !hght_perturbation = 1500.0,    ! Perturbation height - height at which the warm/cold bubble will be suspended [m]
 !
+! stretched grid variables
+! 
+! stretch_grd = .true.,
+! stretch_hyp = .true.,
+! z_grd_scale = 2.5
+!
+! Surface initialization
+!
+ sfc_full_init =.true.
+ sfc_lu_index = 28,             ! Defines USGS surface category used for surface initialization based on LANDUSE.TBL (roughness, albedo etc)
+ sfc_tsk = 285.0,                ! Skin surface temperature [K]
+ sfc_tmn = 280.0,                ! Mean soil temperature [K]
+! sfc_ivgtyp = 18,                ! Dominant vegetation category, needed only with Noah LSM (sf_surface_physics=2)
+! sfc_isltyp = 7,                 ! Dominant soil type, needed only with Noah LSM (sf_surface_physics=2)
+! sfc_canwat = 0.2,               ! Canopy water content, needed only with Noah LSM (sf_surface_physics=2)
+! sfc_vegfra = 0.5,               ! Vegetation fraction, needed only with Noah LSM (sf_surface_physics=2)
+
 ! method switches for developers only, do not change!
 !
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
