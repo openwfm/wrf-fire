@@ -50,7 +50,6 @@ dt=grid%dt
 
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
 call model_test(1,nx,1,ny, &
-!   -1,nx+3,-2,ny+2, &
    0,nx+1,0,ny+1, &
    1,nx,1,ny, &
    fdx,fdy,wind,alpha,dt,msteps,grid)

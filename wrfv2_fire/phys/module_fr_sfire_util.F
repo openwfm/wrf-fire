@@ -74,6 +74,7 @@ character(len=*), intent(in)::s
 character(len=128)msg
 character(len=118)t
 integer m
+logical op
 if(fire_print_msg.gt.0)then
 #ifdef _OPENMP
     m=omp_get_thread_num()
@@ -84,8 +85,10 @@ if(fire_print_msg.gt.0)then
     msg='SFIRE:'//s
 #endif
     call wrf_message(msg)
-    flush(6)
-    flush(0)
+    inquire(unit=6,opened=op)
+    if(op)flush(6)
+    inquire(unit=0,opened=op)
+    if(op)flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
