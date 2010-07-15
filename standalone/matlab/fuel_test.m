@@ -7,10 +7,9 @@ maxerr=0;
 
 %tnow=1;
 %fuel_time=1;
-%lfn0=[0    0.3479;0.6521    1.0000]; % to debug fortran
+lfn0=[0    0.3479;0.6521    1.0000]; % to debug fortran
 tnow=2
-lfn0=   [0.4192792     -1.9766893E-02    ;
-         6.310914       5.983462 ]
+%lfn0=   [0.4192792     -1.9766893E-02;   6.310914       5.983462 ]
 fuel_time= 8.235294 ;
 f_debug=[];
 
@@ -47,12 +46,15 @@ for off=[0:0.05:1.1]
      hold off
 end
 
-fid=fopen('tmp.txt','r');
-A= fscanf(fid,'%g'); 
-fclose(fid);
-err_mat_fortran=abs(A-tmp)
-save('err.mat','err_mat_fortran')
-disp(f_debug);
+compare_with_fortran=0;
+if compare_with_fortran,
+    fid=fopen('tmp.txt','r');
+    A= fscanf(fid,'%g'); 
+    fclose(fid);
+    err_mat_fortran=abs(A-tmp)
+    save('err.mat','err_mat_fortran')
+    disp(f_debug);
+end
 end
 
 
