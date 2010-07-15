@@ -1,5 +1,5 @@
 FFREE=
 FFIXED=
 FCFLAGS=-g
-FC=pgf90
-FP=pgf90
+FC=ifort
+FP=gfortran

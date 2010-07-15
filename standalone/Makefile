@@ -10,11 +10,11 @@ FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE)
 MAKEFILE=Makefile
 
 %.o: $(WRF)/%.F 
-	$(FC) $(FFLAGS) $(DEFS) -E $(WRF)/$*.F > $*.f90
+	$(FP) $(FFLAGS) $(DEFS) -E $(WRF)/$*.F > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
 %.o: %.F 
-	$(FC) $(FFLAGS) $(DEFS) -E $*.F > $*.f90
+	$(FP) $(FFLAGS) $(DEFS) -E $*.F > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
 MODEL_OBJ = \
