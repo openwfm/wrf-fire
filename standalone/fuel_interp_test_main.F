@@ -21,7 +21,8 @@ jms=1
 jme=3
 icl=2
 jcl=2
-<<<<<<< HEAD:standalone/fuel_interp_test_main.F
+
+!<<<<<<< HEAD:standalone/fuel_interp_test_main.F
 lfn(1,1)=0.5
 lfn(1,2)=0.5
 lfn(1,3)=0.5
@@ -33,7 +34,7 @@ lfn(2,3)=-0.5
 lfn(3,1)=-1.5
 lfn(3,2)=-1.5
 lfn(3,3)=-1.5
-=======
+!=======
 !lfn(1,1)=2.
 !lfn(1,2)=1.
 !lfn(1,3)=0.
@@ -45,7 +46,7 @@ lfn(3,3)=-1.5
 !lfn(3,1)=0.
 !lfn(3,2)=-1.
 !lfn(3,3)=-2.
->>>>>>> origin/jm2/vktest:standalone/fuel_interp_test_main.F
+!>>>>>>> origin/jm2/vktest:standalone/fuel_interp_test_main.F
 
 tign(1,1)=3.
 tign(1,2)=3.
