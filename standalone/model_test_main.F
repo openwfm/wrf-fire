@@ -60,13 +60,12 @@ end subroutine main_sub
 !****************
 !
 
-
 subroutine model_test(  &
     ifds,ifde,jfds,jfde, &
     ifms,ifme,jfms,jfme, &
     ifps,ifpe,jfps,jfpe, &
     fdx,fdy,wind,alpha,dt,msteps,grid)
-use wrf_netcdf, only : create_file,write_vars,grid_info,output_vars, &
+use wrf_netcdf, only : create_output_file,write_vars,grid_info,output_vars, &
                        input_vars,read_vars,inputfile
 implicit none
 
@@ -113,7 +112,7 @@ print *,'array allocation:   ',ifms,ifme,jfms,jfme
 t0=0                                        ! starting time, arbitrary
 
 !*** create output file
-call create_file(filename,grid)
+call create_output_file(filename,grid)
 
 ! populate the arrays somehow
 do j=jfps,jfpe
