@@ -486,18 +486,12 @@ if((lfn1.le.0).AND.(lfn2.le.0)) then
 elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
 !   if ((tign1.ne.time_now).OR.(tign.ne.time_now))then
     if  ((abs(tign1-time_now).gt.err).or.(abs(tign2-time_now).gt.err)) then
-      print *,"time_now",time_now
-      print *,"lfn1,lfn2",lfn1,lfn2
-      print *,"tign1,tign2",tign1,tign2
-      print *,"lfn_subcl",lfn_subcl
-      print *,"tign1-time_now",tign1-time_now
-      print *,"tign2-time_now",tign2-time_now
       call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
       tign_subcl=time_now;
    endif
 elseif(lfn_subcl.gt.0) then
-   if ((tign1.ne.time_now).OR.(tign2.ne.time_now)) then
+   if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err)) then
       call crash('tign_line_interp one of tign1,2 should be equal time_now')
    else
       tign_subcl=time_now;
@@ -535,7 +529,8 @@ real,intent(in) :: tign1,tign2,tign3,tign4
 real,intent(in) :: lfn1,lfn2,lfn3,lfn4,lfn_subcl,time_now
 real,intent(out) :: tign_subcl
 
-real :: a,b,c
+real :: a,b,c,err
+err=0.0001
 ! to check later why does it appear to be Dummy variable and where
 !tign_subcl=time_now;
 !!!!!! will remove later
@@ -543,17 +538,17 @@ real :: a,b,c
 if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
 elseif((lfn1.gt.0).AND.(lfn2.gt.0).AND.(lfn3.gt.0).AND.(lfn4.gt.0))then
-   if ((tign1.ne.time_now).OR.(tign2.ne.time_now).OR.(tign3.ne.time_now).OR.(tign4.ne.time_now)) then
-      call crash('tign_four_pnts_interp: when lfn1(2,3,4)>0 their tign1(2,3,4) should = time_now')
-   else
+   !if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
+   !   call crash('tign_four_pnts_interp: when lfn1(2,3,4)>0 their tign1(2,3,4) should = time_now')
+   !else
       tign_subcl=time_now;
-   endif
+   !endif
 elseif(lfn_subcl.gt.0) then
-   if ((tign1.ne.time_now).OR.(tign2.ne.time_now).OR.(tign3.ne.time_now).OR.(tign4.ne.time_now)) then
-      call crash('tign_line_interp one of tign1(2,3,4) should be equal time_now')
-   else
+  ! if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
+  !    call crash('tign_line_interp one of tign1(2,3,4) should be equal time_now')
+  ! else
       tign_subcl=time_now;
-   endif
+  ! endif
 else
 !lfn_subcl<=0;
 !case when E is on fire
@@ -596,7 +591,7 @@ b=0;
            b=b+(tign4-time_now)*lfn4;
 !       endif
    endif 
-   if ((a.eq.0).or.(b.lt.0)) then
+   if ((abs(a).lt.err).or.(b.lt.0)) then
       call crash('tign_four_pnts_interp: if E is on fire then one of cells &
                   should be on fire or tign_ should be less than time_now')
    else
