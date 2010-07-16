@@ -18,7 +18,6 @@ MAKEFILE=Makefile
 	$(FC) -c $(FFLAGS) $*.f90
 
 SFIRE_OBJ = \
-    module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
@@ -37,7 +36,7 @@ model_test.exe: $(MAKEFILE) $(MODEL_OBJ)
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_main.exe $(MODEL_OBJ)
  
 fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o fuel_interp_test.exe $(FUEL_INTERP_OBJ)
+	$(FC) $(FCFLAGS) -o fuel_interp_test.exe $(FUEL_INTERP_OBJ)
  
 # for the order of generating modules
 
