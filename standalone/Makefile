@@ -17,7 +17,7 @@ MAKEFILE=Makefile
 	$(FP) $(FFLAGS) $(DEFS) -E $*.F > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
-MODEL_OBJ = \
+MODEL_MAIN_OBJ = \
     wrf_netcdf.o \
     wrf_namelist.o \
     module_fr_sfire_model.o \
@@ -26,21 +26,35 @@ MODEL_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
+MODEL_INIT_OBJ = \
+    wrf_netcdf.o \
+    wrf_namelist.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+
+NAMELIST= \
+    namelist_statements.inc \
+    namelist_defaults.inc \
+    namelist_defines.inc \
+    namelist_defines2.inc \
+    config_assigns.inc
+
 .PHONY: all
 
 all: model_test_main.exe model_test_init.exe
 
-model_test_main.exe: $(MAKEFILE) model_test_main.o $(MODEL_OBJ)
-	$(FC) $(FCFLAGS) -o model_test_main.exe model_test_main.o $(MODEL_OBJ) $(LDFLAGS)
+model_test_main.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)
+	$(FC) $(FCFLAGS) -o model_test_main.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
 
-model_test_init.exe: $(MAKEFILE) model_test_init.o $(MODEL_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_init.exe model_test_init.o $(MODEL_OBJ) $(LDFLAGS)
+model_test_init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
+	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
  
 # for the order of generating modules
 
 model_test_main.o: $(MAKEFILE) \
     module_fr_sfire_model.o  \
     module_fr_sfire_util.o \
+    wrf_namelist.o \
     wrf_netcdf.o
 
 model_test_init.o: $(MAKEFILE) \
@@ -65,7 +79,7 @@ module_fr_sfire_util.o: $(MAKEFILE) \
 wrf_netcdf.o: $(MAKEFILE) \
     module_fr_sfire_util.o
 
-wrf_namelist.inc: $(MAKEFILE) \
+wrf_namelist.o: $(MAKEFILE) $(NAMELIST) \
     wrf_netcdf.o \
     module_fr_sfire_util.o
 

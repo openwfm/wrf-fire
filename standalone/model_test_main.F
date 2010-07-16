@@ -1,6 +1,8 @@
 ! the main program is at the end because of fortran limitations
 
 module module_model_test
+
+use module_configure
 use module_fr_sfire_util
 use module_fr_sfire_model
 use module_fr_sfire_phys
@@ -8,145 +10,151 @@ use module_fr_sfire_phys
 contains
 
 subroutine main_sub
-use wrf_netcdf, only : grid_info, set_grid_from_file, inputfile
+use wrf_netcdf, only : grid_info, set_grid_from_file, inputfile, &
+                       create_output_file,write_vars,grid_info,output_vars, &
+                       input_vars,read_vars
 implicit none
 
 !*** declarations
 
+real:: time_start     ! time control
+
 integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
-real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s), wind azimuth
-integer::rfx,rfy ! refinement, convenience only
-type(grid_info)::grid
+real:: fdx,fdy, dt       ! fire mesh spacing (m), time step (s)
+integer::  &             ! dimensions
+    ifds,ifde,jfds,jfde, &  ! the physical domain
+    ifps,ifpe,jfps,jfpe, &  ! patch - assigned to one process. Here the same as domain.
+    ifms,ifme,jfms,jfme     ! memory allocated, needs a strip around the patch
+integer:: sm,sn
+double precision::duration_s
+
+
+! state arrays
+real, dimension(:,:), pointer :: lfn,tign,fuel_frac,fire_area, grnhfx,grnqfx,lfn_out,ros
+real, dimension(:,:), pointer:: fuel_time, coord_xf,coord_yf,nfuel_cat
+type(fire_params)::fp   ! arrays passed to spread rate computation
+
+! ignition
+real:: unit_xf,unit_yf    ! units to specify ignintion location in
+integer::  num_ignitions
+integer, parameter :: max_ignitions=10
+real, dimension(max_ignitions) :: ignition_start_x,ignition_start_y, & ! from namelist.input
+    ignition_end_x,ignition_end_y,ignition_radius,ignition_start_time,ignition_end_time
+integer:: ignited_tile(max_ignitions),ignitions_done
+
+! parallel execution control
+logical::need_lfn_update ! parallel flag - not used here
+integer, parameter::max_tiles=10
+integer::num_tiles,ij,ifts,ifte,jfts,jfte
+integer, dimension(max_tiles)::if_start,if_end,jf_start,jf_end
+
+! fuel controls
+integer:: fire_fuel_read,fire_fuel_cat
+
+! loop control
+integer:: i,j,istep,ifun,ifun_start
+
+! derived types for I/O interface
+character(len=*),parameter::filename='fire_output.nc'
+type(output_vars)::output                ! output arrays
+type(input_vars)::input                  ! input arrays
+type(grid_info)::grid                    ! dimensions, grid controls
+type(grid_config_rec_type)::config_flags ! for the namelist
+
+!*** executable
 
 ! kill output files
 fire_print_file=0
 
-nx=400
-ny=400
-msteps=200
-msteps=6
-msteps=100
-fdx=6
-fdy=6
-
-rfx=1
-rfy=1
-
-nx=nx*rfx
-ny=ny*rfy
-fdx=fdx/rfx
-fdy=fdy/rfy
-
-dt=0.5
-wind=10
-alpha=0.0
-
+call read_namelist(config_flags)
 call set_grid_from_file(inputfile,grid)
+
 nx=grid%nfirex
 ny=grid%nfirey
 fdx=grid%dx/grid%sr_x
 fdy=grid%dy/grid%sr_y
+
+! time control
 dt=grid%dt
+duration_s = config_flags%run_seconds           &
+           + 60d0*(config_flags%run_minutes     &
+           + 60d0*(config_flags%run_hours       &
+           + 24d0*(config_flags%run_days)))       
+msteps = duration_s / dt  ! number of time steps
 
-print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
-call model_test(1,nx,1,ny, &
-   0,nx+1,0,ny+1, &
-   1,nx,1,ny, &
-   fdx,fdy,wind,alpha,dt,msteps,grid)
+print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt
 
-end subroutine main_sub
+! set domain size
+ifds=1
+ifde=nx
+jfds=1
+jfde=ny
+ifms=0
+ifme=nx+1
+jfms=0
+jfme=ny+1
+ifps=1
+ifpe=nx
+jfps=1
+jfpe=ny
 
-!
-!****************
-!
+! coefficoent arrays to be passed to spread formulas, constant after initialized
+allocate(fp%vx(ifms:ifme,jfms:jfme))              ! fire winds
+allocate(fp%vy(ifms:ifme,jfms:jfme))              ! fire winds
+allocate(fp%zsf(ifms:ifme,jfms:jfme))             ! terrain height
+allocate(fp%dzdxf(ifms:ifme,jfms:jfme))           ! terrain grad
+allocate(fp%dzdyf(ifms:ifme,jfms:jfme))           ! terrain grad
+allocate(fp%bbb(ifms:ifme,jfms:jfme))             ! spread formula coeff
+allocate(fp%betafl(ifms:ifme,jfms:jfme))          ! spread formula coeff
+allocate(fp%phiwc(ifms:ifme,jfms:jfme))           ! spread formula coeff
+allocate(fp%r_0(ifms:ifme,jfms:jfme))             ! spread formula coeff
+allocate(fp%fgip(ifms:ifme,jfms:jfme))            ! spread formula coeff
+allocate(fp%ischap(ifms:ifme,jfms:jfme))          ! spread formula coeff
 
-subroutine model_test(  &
-    ifds,ifde,jfds,jfde, &
-    ifms,ifme,jfms,jfme, &
-    ifps,ifpe,jfps,jfpe, &
-    fdx,fdy,wind,alpha,dt,msteps,grid)
-use wrf_netcdf, only : create_output_file,write_vars,grid_info,output_vars, &
-                       input_vars,read_vars,inputfile
-implicit none
+! other coefficient arrays
+allocate(fuel_time(ifms:ifme,jfms:jfme)) 
+allocate(coord_xf(ifms:ifme,jfms:jfme)) 
+allocate(coord_yf(ifms:ifme,jfms:jfme)) 
+allocate(nfuel_cat(ifms:ifme,jfms:jfme)) 
 
-!*** arguments
-integer, intent(in):: &
-    ifds,ifde,jfds,jfde, &
-    ifps,ifpe,jfps,jfpe, &
-    ifms,ifme,jfms,jfme, msteps
-real, intent(in)::fdx,fdy,dt,wind,alpha
-type(grid_info),intent(in)::grid
+! model state 
+allocate(lfn(ifms:ifme,jfms:jfme)) 
+allocate(tign(ifms:ifme,jfms:jfme)) 
+allocate(fuel_frac(ifms:ifme,jfms:jfme)) 
+allocate(fire_area(ifms:ifme,jfms:jfme)) 
+allocate(grnhfx(ifms:ifme,jfms:jfme)) 
+allocate(grnqfx(ifms:ifme,jfms:jfme)) 
 
-!*** local
-real, dimension(ifms:ifme,jfms:jfme), target :: zsf,     &
-                 lfn,tign,fuel_frac,fire_area,                    &
-                 grnhfx,grnqfx,lfn_out,ros
-integer::  num_ignitions,i,j,ifuelread,istep,nfuel_cat0,ifun,ifun_start
-logical::need_lfn_update
-real:: t0,time_start,sm,sn
-integer, dimension(ifms:ifme,jfms:jfme),target ::ischap
-real, dimension(ifms:ifme,jfms:jfme), target:: &
-       fuel_time,vx,vy,dzfsdx,dzfsdy,bbb,betafl,phiwc,r_0,fgip, &
-       coord_xf,coord_yf,dzdxf,dzdyf,nfuel_cat
-real:: unit_xf,unit_yf 
-integer, parameter::max_tiles=10
-integer::num_tiles,ij,ifts,ifte,jfts,jfte
-integer, dimension(max_tiles)::if_start,if_end,jf_start,jf_end
-integer, parameter :: max_ignitions=10
-real, dimension(max_ignitions) :: ignition_start_x,ignition_start_y, &
-    ignition_end_x,ignition_end_y,ignition_radius,ignition_start_time,ignition_end_time
-integer:: ignited_tile(max_ignitions),ignitions_done
-type(fire_params)::fp   ! args passed to spread rate computation
+! misc variable arrays
+allocate(lfn_out(ifms:ifme,jfms:jfme)) 
+allocate(ros(ifms:ifme,jfms:jfme)) 
 
-character(len=*),parameter::filename='fire_output.nc'
-type(output_vars)::output
-type(input_vars)::input
-
-!*** executable
-
+! divide up for parallel execution
 call set_tiles(2,2,ifps,ifpe,jfps,jfpe,num_tiles,if_start,if_end,jf_start,jf_end)
 
 print *,'mesh size in cells: ',ifps,ifpe,jfps,jfpe
 print *,'array allocation:   ',ifms,ifme,jfms,jfme
 
-t0=0                                        ! starting time, arbitrary
-
-!*** create output file
+! start output file
 call create_output_file(filename,grid)
 
-! populate the arrays somehow
-do j=jfps,jfpe
-    do i=ifps,ifpe
-        zsf(i,j)=1000   ! flat ground
-        vx(i,j)=wind*cos(alpha)    ! constant wind
-        vy(i,j)=wind*sin(alpha)
-        dzdxf(i,j)=0.
-        dzdyf(i,j)=0.
-    enddo
-enddo
-
+! read input file
 input%nfuel_cat=>nfuel_cat(ifps:ifpe,jfps:jfpe)
-input%zsf=>zsf(ifps:ifpe,jfps:jfpe)
-input%dzdxf=>dzdxf(ifps:ifpe,jfps:jfpe)
-input%dzdyf=>dzdyf(ifps:ifpe,jfps:jfpe)
-input%vx=>vx(ifps:ifpe,jfps:jfpe)
-input%vy=>vy(ifps:ifpe,jfps:jfpe)
+input%zsf=>fp%zsf(ifps:ifpe,jfps:jfpe)
+input%dzdxf=>fp%dzdxf(ifps:ifpe,jfps:jfpe)
+input%dzdyf=>fp%dzdyf(ifps:ifpe,jfps:jfpe)
+input%vx=>fp%vx(ifps:ifpe,jfps:jfpe)
+input%vy=>fp%vy(ifps:ifpe,jfps:jfpe)
 
 call read_vars(inputfile,input,grid)
 
-! fuel data
-ifuelread=0
-nfuel_cat0=3
-
-! for matlab
-!open(1,file='model_test_out.txt',form='formatted')
-!1   format(e25.12e3)
 sm=ifpe-ifps+1
 sn=jfpe-jfps+1
-!write(1,1)1.,1.,fdx
-!write(1,1)1.,1.,fdy
 
-time_start=t0
+time_start=0             ! we count time from the beginning of the simulation
+fire_fuel_read=config_flags%fire_fuel_read
+fire_fuel_cat=config_flags%fire_fuel_cat
+
 num_ignitions=2
 ignition_start_x(1)=0.5*fdx*(ifde-ifds)
 ignition_start_y(1)=0.5*fdy*(jfde-jfds)
@@ -163,21 +171,6 @@ ignition_end_y(2)=1500
 ignition_radius(2) = 0.5*max(5.0,6*max(fdx,fdy))
 ignition_start_time(2)=2
 ignition_end_time(2)=2
-
-! pointers to be passed to fire spread formulas
-    fp%vx => vx         ! fire winds
-    fp%vy => vy         ! fire winds
-    fp%zsf => zsf       ! terrain height
-    fp%dzdxf => dzdxf   ! terrain grad
-    fp%dzdyf => dzdyf   ! terrain grad
-    fp%bbb => bbb       ! spread formula coeff
-    fp%betafl => betafl ! spread formula coeff
-    fp%phiwc => phiwc   ! spread formula coeff
-    fp%r_0 => r_0       ! spread formula coeff
-    fp%fgip => fgip     ! spread formula coeff
-    fp%ischap => ischap ! spread formula coeff
-
-
 
 unit_xf=1
 unit_yf=1
@@ -207,7 +200,7 @@ do istep=1,msteps
                 .false.,                                & ! restart
                 need_lfn_update,                        &
                 num_ignitions,                          & 
-                ifuelread,nfuel_cat0,                   &
+                fire_fuel_read,fire_fuel_cat,           &
                 ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
                 ifds,ifde,jfds,jfde,                    & ! patch=domain 
@@ -233,16 +226,10 @@ do istep=1,msteps
     enddo !OMP PARALLEL
     
     if(istep.le.10.or.mod(istep,10).eq.0)then
-!        write(1,1)1.,1.,time_start
-!        write(1,1)sm,sn,((lfn(i,j),i=ifps,ifpe),j=jfps,jfpe)
-!        write(1,1)sm,sn,((tign(i,j),i=ifps,ifpe),j=jfps,jfpe)
-!        write(1,1)sm,sn,((vx(i,j),i=ifps,ifpe),j=jfps,jfpe)
-!        write(1,1)sm,sn,((vy(i,j),i=ifps,ifpe),j=jfps,jfpe)
-!        write(1,1)sm,sn,((grnhfx(i,j),i=ifps,ifpe),j=jfps,jfpe) 
         output%lfn=>lfn(ifps:ifpe,jfps:jfpe)
         output%tign=>tign(ifps:ifpe,jfps:jfpe)
-        output%vx=>vx(ifps:ifpe,jfps:jfpe)
-        output%vy=>vy(ifps:ifpe,jfps:jfpe)
+        output%vx=>fp%vx(ifps:ifpe,jfps:jfpe)
+        output%vy=>fp%vy(ifps:ifpe,jfps:jfpe)
         output%grnhfx=>grnhfx(ifps:ifpe,jfps:jfpe)
         call write_vars(filename,output,time_start)
     endif
@@ -252,7 +239,7 @@ enddo
 
 !close(1)
 
-end subroutine model_test
+end subroutine main_sub
 
 !
 !******************************

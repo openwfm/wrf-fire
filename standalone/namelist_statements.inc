@@ -1642,6 +1642,17 @@ NAMELIST /fire/ xrad_perturbation
 NAMELIST /fire/ yrad_perturbation
 NAMELIST /fire/ zrad_perturbation
 NAMELIST /fire/ hght_perturbation
+NAMELIST /fire/ stretch_grd
+NAMELIST /fire/ stretch_hyp
+NAMELIST /fire/ z_grd_scale
+NAMELIST /fire/ sfc_full_init
+NAMELIST /fire/ sfc_lu_index
+NAMELIST /fire/ sfc_tsk
+NAMELIST /fire/ sfc_tmn
+NAMELIST /fire/ sfc_vegfra
+NAMELIST /fire/ sfc_canwat
+NAMELIST /fire/ sfc_ivgtyp
+NAMELIST /fire/ sfc_isltyp
 NAMELIST /dynamics/ do_avgflx_em
 NAMELIST /dynamics/ do_avgflx_cugd
 !ENDOFREGISTRYGENERATEDINCLUDE
