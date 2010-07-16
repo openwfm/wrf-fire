@@ -70,29 +70,165 @@ write(*,*)' '
         write(*,*)"Real result - calculated result"
 	write(*,*)real_tff-tff
 	test1_err=maxval(abs(real_tff-tff))
-	write(*,*)"tign_err=",test1_err
-
-
-
-
-
-
-
-
+	write(*,*)"test1_err=",test1_err
 
 
 !!!! Test #2
 
 !=======
-!lfn(1,1)=2.
-!lfn(1,2)=1.
-!lfn(1,3)=0.
+!lfn - plane Z=4-X-Y;
+! tign -- everywhere where lfn>=0, tign=3;
+! everywhere where lfn<0, tign=Z+3;
+data lfn/2.0, 1.0, 0.0, &
+         1.0, 0.0,-1.0, &
+         0.0, -1.0,-2.0/
 
-!lfn(2,1)=1.
-!lfn(2,2)=0.
-!lfn(2,3)=-1.
+data tign/3.0, 3.0, 3.0, &
+          3.0, 3.0, 2.0, &
+          3.0, 2.0, 1.0 /
 
-!lfn(3,1)=0.
-!lfn(3,2)=-1.
-!lfn(3,3)=-2.
-        end program test
+data real_tff/3.0, 3.0, 3.0, &
+          3.0, 3.0, 2.5, &
+          3.0, 2.5, 2.0 /
+
+data real_lff/1.0, 0.5, 0.0, &
+          0.5, 0.0, -0.5, &
+          0.0, -0.5, -1.0 /
+
+        print *,"this is fuel_interp_test.exe"
+        call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
+                                    tign,lfn,tff,lff)
+write(*,101)'tign',tign
+write(*,101)'lfn',lfn
+write(*,101)'tff',tign
+write(*,101)'lff',lff
+
+d=1e20
+d(1:5:2,1:5:2)=tign
+d(2:4,2:4)=tff
+write(*,*)'tign and tff'
+write(*,'(5f7.3)')d
+write(*,*)' '
+d(1:5:2,1:5:2)=lfn
+d(2:4,2:4)=lff
+write(*,*)'lfn and lff'
+write(*,'(5f7.3)')d
+write(*,*)' '
+
+        write(*,*)"Real result - calculated result"
+	write(*,*)real_tff-tff
+	test2_err=maxval(abs(real_tff-tff))
+	write(*,*)"test2_err=",test2_err
+
+!!!! Test #3
+
+!=======
+!lfn - plane Z=3-X-Y;
+! tign -- everywhere where lfn>=0, tign=3;
+! everywhere where lfn<0, tign=Z+3;
+data lfn/1.0, 0.0, -1.0, &
+         0.0, -1.0,-2.0, &
+         -1.0, -2.0,-3.0/
+
+data tign/3.0, 3.0, 2.0, &
+          3.0, 2.0, 1.0, &
+          2.0, 1.0, 0.0 /
+
+data real_tff/3.0, 2.5, 2.0, &
+          2.5, 2.0, 1.5, &
+          2.0, 1.5, 1.0 /
+
+data real_lff/0.0, -0.5, -1.0, &
+          -0.5, -1.0, -1.5, &
+          -1.0, -1.5, -2.0 /
+
+
+
+print *,"this is fuel_interp_test.exe"
+        call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
+                                    tign,lfn,tff,lff)
+write(*,101)'tign',tign
+write(*,101)'lfn',lfn
+write(*,101)'tff',tign
+write(*,101)'lff',lff
+
+d=1e20
+d(1:5:2,1:5:2)=tign
+d(2:4,2:4)=tff
+write(*,*)'tign and tff'
+write(*,'(5f7.3)')d
+write(*,*)' '
+d(1:5:2,1:5:2)=lfn
+d(2:4,2:4)=lff
+write(*,*)'lfn and lff'
+write(*,'(5f7.3)')d
+write(*,*)' '
+
+write(*,*)"Real result - calculated result"
+        write(*,*)real_tff-tff
+test3_err=maxval(abs(real_tff-tff))
+        write(*,*)"test3_err=",test3_err
+
+       
+
+!!!! Test #4
+
+!=======
+!lfn - plane Z=5-X-Y;
+! tign -- everywhere where lfn>=0, tign=3;
+! everywhere where lfn<0, tign=Z+3;
+data lfn/3.0, 2.0, 1.0, &
+         2.0, 1.0, 0.0, &
+         1.0, 0.0,-1.0/
+
+data tign/3.0, 3.0, 3.0, &
+          3.0, 3.0, 3.0, &
+          3.0, 3.0, 2.0 /
+
+data real_tff/3.0, 3.0, 3.0, &
+          3.0, 3.0, 3.0, &
+          3.0, 3.0, 3.0 /
+
+data real_lff/2.0, 1.5, 1.0, &
+          1.5, 1.0, 0.5, &
+          1.0, 0.5, 0.0 /
+
+
+
+print *,"this is fuel_interp_test.exe"
+        call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
+                                    tign,lfn,tff,lff)
+write(*,101)'tign',tign
+write(*,101)'lfn',lfn
+write(*,101)'tff',tign
+write(*,101)'lff',lff
+
+d=1e20
+d(1:5:2,1:5:2)=tign
+d(2:4,2:4)=tff
+write(*,*)'tign and tff'
+write(*,'(5f7.3)')d
+write(*,*)' '
+d(1:5:2,1:5:2)=lfn
+d(2:4,2:4)=lff
+write(*,*)'lfn and lff'
+write(*,'(5f7.3)')d
+write(*,*)' '
+
+        write(*,*)"Real result - calculated result"
+        write(*,*)real_tff-tff
+        test4_err=maxval(abs(real_tff-tff))
+        write(*,*)"test4_err=",test4_err
+
+
+        write(*,*)" "
+
+        write(*,*)"test1_err=",test1_err
+        write(*,*)"test2_err=",test2_err
+        write(*,*)"test3_err=",test3_err
+        write(*,*)"test4_err=",test4_err
+        write(*,*)"If all test*_err are equal to 0.0, than the code works &
+                    correctly for this set of tests"
+
+
+ end program test
