@@ -479,16 +479,19 @@ subroutine tign_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,tign_subcl,time_now)
 real,intent(in) :: tign1,tign2,lfn1,lfn2,lfn_subcl,time_now
 real,intent(out) :: tign_subcl
 
-real :: a,b,c
-
+real :: a,b,c,err
+err=0.0001
 if((lfn1.le.0).AND.(lfn2.le.0)) then
    tign_subcl=0.5*(tign1+tign2)
 elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
-   if ((tign1.ne.time_now).OR.(tign.ne.time_now))then
+!   if ((tign1.ne.time_now).OR.(tign.ne.time_now))then
+    if  ((abs(tign1-time_now).gt.err).or.(abs(tign2-time_now).gt.err)) then
       print *,"time_now",time_now
       print *,"lfn1,lfn2",lfn1,lfn2
       print *,"tign1,tign2",tign1,tign2
       print *,"lfn_subcl",lfn_subcl
+      print *,"tign1-time_now",tign1-time_now
+      print *,"tign2-time_now",tign2-time_now
       call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
       tign_subcl=time_now;
