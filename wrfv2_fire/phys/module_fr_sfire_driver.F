@@ -61,7 +61,6 @@
 
 module module_fr_sfire_driver
 
-use module_model_constants, only: cp,xlv,reradius,pi2
 use module_fr_sfire_model
 use module_fr_sfire_phys
 use module_fr_sfire_atm
@@ -236,7 +235,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
     ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
-    real::lat_ctr,lon_ctr
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
     real:: unit_fxlong ,unit_fxlat
@@ -265,24 +263,11 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-        fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions)
-    ! copy configuration flags
-    call set_flags(config_flags)
+        fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions, &
+        unit_fxlong,unit_fxlat)
 
-    if(fire_ignition_longlat .eq.0)then
-       ! ideal
-       !  ignition is in m
-       unit_fxlong=1.  
-       unit_fxlat=1.
-       ! will set fire mesh coordinates to uniform mesh below
-    else
-       ! real
-       lat_ctr=config_flags%cen_lat
-       lon_ctr=config_flags%cen_lon
-       ! 1 degree in m (approximate OK)
-       unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
-       unit_fxlong=cos(lat_ctr*pi2/360.)*unit_fxlat  ! latitude
-    endif
+    ! copy configuration flags to sfire internal structures
+    call set_flags(config_flags)
 
     ! refinement r
     ir=grid%sr_x ! refinement ratio
@@ -907,9 +892,11 @@ end subroutine sfire_driver_phys
 !*******************
 !
 
-subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longlat, &
+subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
     fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-    fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions)
+    fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions, &
+    unit_fxlong,unit_fxlat)
+    use module_model_constants, only: reradius,pi2
     USE module_configure
     implicit none
 ! create ignition arrays from scalar flags
@@ -919,10 +906,12 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     real, dimension(fire_max_ignitions), intent(out):: &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time
-    integer, intent(out)::fire_num_ignitions,ignition_longlat
+    integer, intent(out)::fire_num_ignitions,fire_ignition_longlat
+    real, intent(out)::unit_fxlong,unit_fxlat
 !*** local
     integer::i
     logical:: real,ideal
+    real::lat_ctr,lon_ctr
 !*** executable
     ! this is only until I figure out how to input arrays through the namelist...
     if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
@@ -933,9 +922,10 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     if(real)call message('Using real ignition coordinates, longitude and latitude')
     if(ideal.and.real)call crash('Only one of the ideal or real coordinates may be given')
 
+    fire_ignition_longlat=0  ! default, if no ignition
     if(ideal)then
         ! use values from _x and _y variables
-        ignition_longlat=0
+        fire_ignition_longlat=0
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
         fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
@@ -959,7 +949,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     endif
     if(real)then
         ! use values from _long and _lat
-        ignition_longlat=1
+        fire_ignition_longlat=1
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_lon1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_lat1
         fire_ignition_end_x(1)=config_flags%fire_ignition_end_lon1
@@ -1008,6 +998,21 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
             if(fire_ignition_end_y(i).eq.0.)fire_ignition_end_y(i)=fire_ignition_start_y(i)
             if(fire_ignition_end_time(i).eq.0.)fire_ignition_end_time(i)=fire_ignition_start_time(i)
         enddo
+
+    if(fire_ignition_longlat .eq. 0)then
+       ! ideal
+       !  ignition is in m
+       unit_fxlong=1.  
+       unit_fxlat=1.
+       ! will set fire mesh coordinates to uniform mesh below
+    else
+       ! real
+       lat_ctr=config_flags%cen_lat
+       lon_ctr=config_flags%cen_lon
+       ! 1 degree in m (approximate OK)
+       unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
+       unit_fxlong=cos(lat_ctr*pi2/360.)*unit_fxlat  ! latitude
+    endif
 
 end subroutine fire_ignition_convert
 
@@ -1284,12 +1289,5 @@ fire_advection          = config_flags%fire_advection
 
 
 end subroutine set_flags
-
-subroutine print_id
-character(len=128)::id,msg
-#include "sfire_id.inc"
-msg=id
-call message(msg)
-end subroutine print_id
 
 end module module_fr_sfire_driver
