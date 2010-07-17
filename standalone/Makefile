@@ -66,7 +66,8 @@ fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
 # for the order of generating modules
 
 
-fuel_interp_test_main.o: $(MAKEFILE) \
+model_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_model.o \
     module_fr_sfire_core.o  \
     module_fr_sfire_util.o \
     wrf_namelist.o \
@@ -76,6 +77,12 @@ model_test_init.o: $(MAKEFILE) \
    wrf_namelist.o \
    wrf_netcdf.o \
    module_fr_sfire_util.o
+
+model_fuel_interp_test.o: $(MAKEFILE) \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_util.o \
+    wrf_namelist.o \
+    wrf_netcdf.o
 
 module_fr_sfire_model.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
