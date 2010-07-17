@@ -5,10 +5,10 @@ use module_fr_sfire_util
 use module_fr_sfire_model
 use module_fr_sfire_phys
 
-
 contains
 
 subroutine main_sub
+use wrf_netcdf, only : grid_info, set_grid_from_file, inputfile
 implicit none
 
 !*** declarations
@@ -16,6 +16,7 @@ implicit none
 integer:: nx,ny, msteps  ! problem dimension, in cells, number of steps
 real:: fdx,fdy, dt,wind,alpha       ! fire mesh spacing (m), time step (s), wind azimuth
 integer::rfx,rfy ! refinement, convenience only
+type(grid_info)::grid
 
 ! kill output files
 fire_print_file=0
@@ -40,12 +41,19 @@ dt=0.5
 wind=10
 alpha=0.0
 
+call set_grid_from_file(inputfile,grid)
+nx=grid%nfirex
+ny=grid%nfirey
+fdx=grid%dx/grid%sr_x
+fdy=grid%dy/grid%sr_y
+dt=grid%dt
+
 print *,'nx=',nx,' ny=',ny,' msteps=',msteps,' fdx=',fdx,' fdy=',fdy,' dt=',dt,' wind=',wind,' alpha=',alpha
 call model_test(1,nx,1,ny, &
 !   -1,nx+3,-2,ny+2, &
    0,nx+1,0,ny+1, &
    1,nx,1,ny, &
-   fdx,fdy,wind,alpha,dt,msteps)
+   fdx,fdy,wind,alpha,dt,msteps,grid)
 
 end subroutine main_sub
 
@@ -58,8 +66,9 @@ subroutine model_test(  &
     ifds,ifde,jfds,jfde, &
     ifms,ifme,jfms,jfme, &
     ifps,ifpe,jfps,jfpe, &
-    fdx,fdy,wind,alpha,dt,msteps)
-use wrf_netcdf, only : create_file,write_vars,grid_info,output_vars
+    fdx,fdy,wind,alpha,dt,msteps,grid)
+use wrf_netcdf, only : create_file,write_vars,grid_info,output_vars, &
+                       input_vars,read_vars,inputfile
 implicit none
 
 !*** arguments
@@ -68,6 +77,7 @@ integer, intent(in):: &
     ifps,ifpe,jfps,jfpe, &
     ifms,ifme,jfms,jfme, msteps
 real, intent(in)::fdx,fdy,dt,wind,alpha
+type(grid_info),intent(in)::grid
 
 !*** local
 real, dimension(ifms:ifme,jfms:jfme), target :: zsf,     &
@@ -91,8 +101,8 @@ integer:: ignited_tile(max_ignitions),ignitions_done
 type(fire_params)::fp   ! args passed to spread rate computation
 
 character(len=*),parameter::filename='fire_output.nc'
-type(grid_info)::grid
 type(output_vars)::output
+type(input_vars)::input
 
 !*** executable
 
@@ -102,18 +112,6 @@ print *,'mesh size in cells: ',ifps,ifpe,jfps,jfpe
 print *,'array allocation:   ',ifms,ifme,jfms,jfme
 
 t0=0                                        ! starting time, arbitrary
-
-!*** fill grid information for netcdf output
-grid%nfirex=ifpe-ifps+1
-grid%nfirey=jfpe-jfps+1
-grid%sr_x=1
-grid%sr_y=1
-grid%natmx=grid%nfirex
-grid%natmy=grid%nfirey
-grid%natmz=1
-grid%dx=fdx*real(grid%sr_x)
-grid%dy=fdy*real(grid%sr_y)
-grid%dt=dt
 
 !*** create output file
 call create_file(filename,grid)
@@ -128,6 +126,15 @@ do j=jfps,jfpe
         dzdyf(i,j)=0.
     enddo
 enddo
+
+input%nfuel_cat=>nfuel_cat(ifps:ifpe,jfps:jfpe)
+input%zsf=>zsf(ifps:ifpe,jfps:jfpe)
+input%dzdxf=>dzdxf(ifps:ifpe,jfps:jfpe)
+input%dzdyf=>dzdyf(ifps:ifpe,jfps:jfpe)
+input%vx=>vx(ifps:ifpe,jfps:jfpe)
+input%vy=>vy(ifps:ifpe,jfps:jfpe)
+
+call read_vars(inputfile,input,grid)
 
 ! fuel data
 ifuelread=0
