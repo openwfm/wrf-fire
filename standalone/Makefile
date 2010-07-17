@@ -20,6 +20,7 @@ MAKEFILE=Makefile
 MODEL_MAIN_OBJ = \
     wrf_netcdf.o \
     wrf_namelist.o \
+    module_fr_sfire_driver_wrf.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
@@ -57,6 +58,9 @@ model_test_main.o: $(MAKEFILE) \
     wrf_namelist.o \
     wrf_netcdf.o
 
+module_fr_sfire_driver_wrf.o: $(MAKEFILE) \
+    module_fr_sfire_util.o 
+
 model_test_init.o: $(MAKEFILE) \
    wrf_namelist.o \
    wrf_netcdf.o \
@@ -74,6 +78,7 @@ module_fr_sfire_phys.o: $(MAKEFILE) \
     module_fr_sfire_util.o 
 
 module_fr_sfire_util.o: $(MAKEFILE) \
+    sfire_id.inc \
     wrf_fakes.o
 
 wrf_netcdf.o: $(MAKEFILE) \
@@ -82,6 +87,13 @@ wrf_netcdf.o: $(MAKEFILE) \
 wrf_namelist.o: $(MAKEFILE) $(NAMELIST) \
     wrf_netcdf.o \
     module_fr_sfire_util.o
+
+sfire_id.inc: always
+	chmod +x commit_hash
+	./commit_hash > sfire_id.inc
+	cat sfire_id.inc
+
+always:
 
 clean:
 	rm -f *.mod *.o *.f90 *.s *.exe

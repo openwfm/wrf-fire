@@ -69,6 +69,10 @@ fire_print_file=0
 call read_namelist(config_flags)
 call set_grid_from_file(inputfile,grid)
 
+! the following code mimics subroutine sfire_driver_em in file
+! module_fr_sfire_driver.F but we do not have complete WRF data 
+! structures here and need to do things slightly differently
+
 nx=grid%nfirex
 ny=grid%nfirey
 fdx=grid%dx/grid%sr_x
@@ -195,7 +199,7 @@ do istep=1,msteps
             )
 
             call   sfire_model (                        &
-                10*istep+ij,                            & ! id
+                10*istep+ij,                            & ! unique id
                 ifun,                                   &
                 .false.,                                & ! restart
                 need_lfn_update,                        &
