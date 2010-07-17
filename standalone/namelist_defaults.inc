@@ -1683,6 +1683,17 @@ xrad_perturbation = 0.
 yrad_perturbation = 0.
 zrad_perturbation = 0.
 hght_perturbation = 0.
+stretch_grd = .true.
+stretch_hyp = .false.
+z_grd_scale = 0.40
+sfc_full_init = .false.
+sfc_lu_index = 28
+sfc_tsk = 285.0
+sfc_tmn = 285.0
+sfc_vegfra = 0.5
+sfc_canwat = 0
+sfc_ivgtyp = 18
+sfc_isltyp = 7
 do_avgflx_em = 0
 do_avgflx_cugd = 0
 !ENDOFREGISTRYGENERATEDINCLUDE

@@ -167,11 +167,15 @@ IF ( wrf_dm_on_monitor() ) THEN
 ENDIF
     
 if (nfuelcats>mfuelcats) then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call crash(msg)
 endif
 if (no_fuel_cat >= 1 .and. no_fuel_cat <= nfuelcats)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,*)'no_fuel_cat=',no_fuel_cat,' may not be between 1 and nfuelcats=',nfuelcats
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call crash(msg)
 endif
 
@@ -211,6 +215,7 @@ END DO
 
 ! prints
 
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
 call message('**********************************************************')
 call message('FUEL COEFFICIENTS')
 write(msg,8)'cmbcnst    ',cmbcnst
@@ -266,6 +271,7 @@ do i=1,nfuelcats,j
     call message(msg)
 enddo
 call message('**********************************************************')
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
 
 end subroutine init_fuel_cats
 
@@ -329,7 +335,9 @@ do j=jfts,jfte
         endif
    
         if(k.lt.1.or.k.gt.nfuelcats)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
             write(msg,'(3(a,i5))')'nfuel_cat(', i ,',',j,')=',k
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
             call message(msg)
             call crash('set_fire_params: fuel category out of bounds')
         endif
@@ -392,7 +400,9 @@ do j=jfts,jfte
 enddo
 
 if(nerr.gt.1)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,'(a,i6)')'set_fire_params: WARNING: fuel category 0 replaced in',nerr,' cells'
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 endif
 
@@ -465,7 +475,9 @@ integer:: i,j,iu1
 real:: t1
 character(len=128)msg
 
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,'(a,i3)')'set_nfuel_cat: ifuelread=',ifuelread 
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 
 if (ifuelread .eq. -1) then
@@ -478,7 +490,9 @@ else if (ifuelread .eq. 0) then
             nfuel_cat(i,j)=real(nfuel_cat0)
         enddo
     enddo
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,'(a,i3)')'set_nfuel_cat: fuel initialized with category',nfuel_cat0
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
          
 else if (ifuelread .eq. 1) then

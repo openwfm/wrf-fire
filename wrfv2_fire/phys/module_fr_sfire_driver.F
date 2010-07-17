@@ -292,8 +292,10 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
     
 
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(a,i1,a,i1,a,i4)') &
        'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end,' test steps',tsteps
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
     call message(msg)
 
     do istep=0,tsteps ! istep >0 is for testing only, exit after the first call
@@ -547,6 +549,7 @@ dyf=dy/jr
 
 
 
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
 write(msg,'(a,2f15.6)')'atmosphere mesh step:',dx,dy
 call message(msg)
 write(msg,'(a,2f15.6)')'fire mesh step:      ',dxf,dyf
@@ -563,6 +566,7 @@ write(msg,7001)'fire memory     ','ifms',ifms,ifme,jfms,jfme
 call message(msg)                    
 write(msg,7001)'fire patch      ','ifps',ifps,ifpe,jfps,jfpe
 call message(msg)                    
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
 ! check mesh dimensions
 call check_fmesh(ids,ide,ifds,ifde,ir,'id')           ! check if atm and fire grids line up
@@ -611,12 +615,14 @@ do ij=1,num_tiles
     jfts= (jts-jds)*jr+jfds       ! start fire tile in j
     jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
         
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(3(a,i3,1x))')'tile=',ij,' id=',id,' ifun=',ifun
     call message(msg)
     write(msg,7001)'atm tile   ','its',its,ite,jts,jte
     call message(msg)                   
     write(msg,7001)'fire tile  ','ifts',ifts,ifte,jfts,jfte
     call message(msg)                    
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
     ! check the tiles
     call check_mesh_2dim(its,ite,jts,jte,ips,ipe,jps,jpe)                 ! check if atm tile fits in atm patch
@@ -624,10 +630,12 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
 
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
     call message(msg)
     7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
     write(msg,'(a,2i9)')'refinement ratio:',ir,jr
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
     if(ifun.eq.1)then   ! set terrain
 
@@ -654,7 +662,9 @@ do ij=1,num_tiles
                 zs,                                       & ! atm grid arrays in
                 fp%zsf)                                      ! fire grid arrays out
         else
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
            write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
         endif
 
         if(ignition_longlat .eq.0)then
@@ -772,7 +782,10 @@ do ij=1,num_tiles
             its,ite,jts,jte,      &
             grnqfx)
 
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
         write(msg,'(a,f6.3)')'fire-atmosphere feedback scaling ',fire_atm_feedback
+!$OMP end CRITICAL(SFIRE_DRIVER_CRIT)
+	call message(msg)
         do j=jts,jte
             do i=its,ite
                 ! scale ground fluxes to get the averages
@@ -822,7 +835,9 @@ enddo ! tiles
 if (ifun.eq.3)then
     ignitions_done=ignitions_done_tile(1) ! all should be the same
     do i=1,ignitions_done
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
         write(msg,'(2(a,i4,1x))')'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
         call message(msg)
         ignited_patch(i)=0
         do ij=1,num_tiles
@@ -879,7 +894,9 @@ elseif(ifun.eq.6)then
     kpe1=min(kps+1,kpe)
     !kpe1=kps-1
     do k=kts,min(kte,kts+3)
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
         write(kk,'(i2)')k
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
         call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,kk//'driver_phys:rthfrten')
         call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,kk//'driver_phys:rqvfrten')
     enddo
@@ -1075,12 +1092,24 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
 !      ---------------
 !     | F | F | F | F |   Example of atmospheric and fire grid with
 !     |-------|-------|   ir=jr=4.
-!     | F | F | F | F |   Winds are given at the midpoints of the sides of the coarse grid,
-!     u-------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
-!     | F | F | F | F |
-!     |---------------|
-!     | * | F | F | F |
-!      -------v-------
+!     | F | F | F | F |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!     ua------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
+!     | F | F | F | F |   This is (1,1) cell of atmosphere grid, and [*] is the (1,1) cell of the fire grid.
+!     |---------------|   ua(1,1) <--> uf(0.5,2.5)
+!     | * | F | F | F |   va(1,1) <--> vf(2.5,0.5)
+!      -------va------    za(1,1) <--> zf(2.5,2.5)
+!
+!   ^ x2
+!   |  --------va(1,2)---------
+!   | |            |           |   Example of atmospheric and fire grid with
+!   | |            |           |   ir=jr=1.
+!   | |          za,zf         |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!   | ua(1,1)----uf,vf-----ua(2,1) interpolated to midpoints of the cells of the (the same) fire grid 
+!   | |           (1,1)        |   ua(1,1) <--> uf(0.5,1) 
+!   | |            |           |   va(1,1) <--> vf(1,0.5) 
+!   | |            |           |   za(1,1) <--> zf(1,1)
+!   |  --------va(1,1)---------
+!   |--------------------> x1 
 !
 ! Meshes are aligned by the lower left cell of the domain. Then in the above figure
 ! u = node with the ua component of the wind at (ids,jds), midpoint of side
@@ -1088,9 +1117,9 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
 ! * = fire grid node at (ifds,jfds)
 ! z = node with height, midpoint of cell
 ! 
-! ua(ids,jds)=uf(ifds-0.5,jfds+jr/2+0.5)
-! va(ids,jds)=vf(ifds+ir/2+0.5,jfds-0.5)
-! za(ids,jds)=zsf(ifds+ir/2+0.5,jfds+jr/2+0.5)
+! ua(ids,jds)=uf(ifds-0.5,jfds+jr*0.5-0.5)         = uf(ifds-0.5,jfds+(jr-1)*0.5)
+! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
+! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
     
     ifts1=snode(ifts,ifds,-1) ! go 1 beyond domain boundary but not between tiles
     ifte1=snode(ifte,ifde,+1)
@@ -1103,7 +1132,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds-.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds-0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
         ua,                     & ! in atm grid     
         uf)                      ! out fire grid
 
@@ -1113,7 +1142,7 @@ call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir+1)*.5,jfds-0.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds-0.5, & ! line up by lower left corner of domain
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
 
@@ -1192,7 +1221,7 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
         ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir+1)*.5,jfds+(jr+1)*.5, & ! line up by lower left corner of domain
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
         za,                     & ! in atm grid     
         zsf)                      ! out fire grid
 
@@ -1211,8 +1240,10 @@ character(len=*),intent(in)::s
 character(len=128)msg
 !*** executable
 if ((ide-ids+1)*ir.ne.(ifde-ifds+1))then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,1)s,ids,ide,ifds,ifde,ir
 1   format('module_fr_sfire_driver: incompatible bounds ',a,' atm ',i5,':',i5,' fire ',i5,':',i5,' ratio ',i3)    
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
     call crash(msg)
 endif
 end subroutine check_fmesh

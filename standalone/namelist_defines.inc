@@ -1687,6 +1687,17 @@ real , DIMENSION(max_domains) :: xrad_perturbation
 real , DIMENSION(max_domains) :: yrad_perturbation
 real , DIMENSION(max_domains) :: zrad_perturbation
 real , DIMENSION(max_domains) :: hght_perturbation
+logical , DIMENSION(max_domains) :: stretch_grd
+logical , DIMENSION(max_domains) :: stretch_hyp
+real , DIMENSION(max_domains) :: z_grd_scale
+logical , DIMENSION(max_domains) :: sfc_full_init
+integer , DIMENSION(max_domains) :: sfc_lu_index
+real , DIMENSION(max_domains) :: sfc_tsk
+real , DIMENSION(max_domains) :: sfc_tmn
+real , DIMENSION(max_domains) :: sfc_vegfra
+real , DIMENSION(max_domains) :: sfc_canwat
+integer , DIMENSION(max_domains) :: sfc_ivgtyp
+integer , DIMENSION(max_domains) :: sfc_isltyp
 integer , DIMENSION(max_domains) :: do_avgflx_em
 integer , DIMENSION(max_domains) :: do_avgflx_cugd
 integer    :: last_item_in_struct

@@ -1,8 +1,8 @@
 module module_model_constants
 ! copied what needed from share/module_model_constants.F
-   REAL    , PARAMETER :: r_d          = 287.
-   REAL    , PARAMETER :: cp           = 7.*r_d/2.   ! specific heat of the atmosphere
-   REAL    , PARAMETER :: xlv          = 2.5E6       ! latent heat
+   REAL   , PARAMETER :: r_d          = 287.
+   REAL   , PARAMETER :: cp           = 7.*r_d/2.   ! specific heat of the atmosphere
+   REAL   , PARAMETER :: xlv          = 2.5E6       ! latent heat
 end module module_model_constants
 
 module module_wrf_error
@@ -11,14 +11,14 @@ contains
 subroutine wrf_error_fatal(s)
 character(len=*), intent(in)::s
 call latch ! food for debugger so you can say "stop at latch"
-print *,s
+write(6,*)s
 call abort()
 end subroutine wrf_error_fatal
 
 subroutine wrf_debug(level,s)
 character(len=*), intent(in)::s
 integer, intent(in):: level
-print *,s
+write(6,*)s
 end subroutine wrf_debug
 
 subroutine wrf_message(s)
@@ -31,7 +31,7 @@ do i=len(s),2,-1
         goto 1
     end select
 enddo
-1 write(*,'(a)')s(1:i)
+1 write(6,'(a)')s(1:i)
 end subroutine wrf_message
 
 end module module_wrf_error

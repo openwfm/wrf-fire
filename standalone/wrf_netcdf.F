@@ -1,5 +1,6 @@
 !*** A simple output module for wrf-fire standalone that produces output 
-!    files that are somewhat compatible with wrf output files.
+!    files and reads input files that are somewhat compatible with wrf files
+!
 
 module wrf_netcdf
 use netcdf
@@ -80,15 +81,30 @@ end type
 contains
 
 subroutine create_dim_attr(filename,grid)
+
+! Create an empty NetCDF file with proper dimension names 
+! (a.k.a. attributes) defined.
+
 implicit none
+
+!*** arguments
 character(len=*),intent(in)::filename  ! filename to create
 type(grid_info),intent(in)::grid       ! grid information structure
+
+!*** local
 integer::ncid,dimid,timeid,strlenid,varid
+
+!*** executable
 
 ! create an empty file
 call check(nf90_create(filename,nf90_clobber,ncid))
 
 ! define all dimensions
+
+!!The function NF90_DEF_DIM adds a new dimension to an open netCDF dataset in 
+!!define mode. It returns (as an argument) a dimension ID, given the netCDF ID,
+!!the dimension name, and the dimension length. (From NetCDF docs)
+
 call check(nf90_def_dim(ncid,dim_time,nf90_unlimited,dimid))
 if(compat_fire_grid)then
   call check(nf90_def_dim(ncid,dim_fire_x,(grid%natmx+1)*grid%sr_x,dimid))
@@ -116,14 +132,26 @@ call check(nf90_close(ncid))
 
 end subroutine create_dim_attr
 
-subroutine create_file(filename,grid)
+!
+!***
+!
+
+subroutine create_output_file(filename,grid)
+
 !*** Create a file containing meta-data suitable for output of this simulation.
 !    Only creates dimensions, variables, and attributes... does not populate
 !    data.  Squash file if it already exists.
+
 implicit none
+
+!*** arguments
 character(len=*),intent(in)::filename  ! filename to create
 type(grid_info),intent(in)::grid       ! grid information structure
+
+!*** local
 integer::ncid,dimid,timeid,strlenid,varid
+
+!*** executable
 
 call create_dim_attr(filename,grid)
 
@@ -143,20 +171,32 @@ call define_var(filename,var_tign,dim_fire,unit_tign,desc_tign)
 call define_var(filename,var_vx,dim_fire,unit_vx,desc_vx)
 call define_var(filename,var_vy,dim_fire,unit_vy,desc_vy)
 call define_var(filename,var_grnhfx,dim_fire,unit_grnhfx,desc_grnhfx)
-end subroutine create_file
+
+end subroutine create_output_file
+
+!
+!***
+!
 
 subroutine define_var(filename,varname,dims,units,description)
+
 !*** define a variable in a netcdf data set, the file is assumed to exist and
-!    have valid meta-data (as created by create_file)
+!    have valid meta-data (as created by create_output_file)
+
 implicit none
+
+!*** arguments
 character(len=*),intent(in)::filename,varname  ! create variable varname in filename
 character(len=*),dimension(:),intent(in)::dims ! the dimension names of the variable
 character(len=*),intent(in)::units,description ! attributes created by wrf (not used at the moment)
+
+!*** local
 integer::ncid,i,varid
 integer,dimension(4)::dimids
 character(len=*),parameter::memorder='XYZ'
 character(len=3)::stag
 
+!*** executable
 ! open the file
 call check(nf90_open(filename,nf90_write,ncid))
 
@@ -193,14 +233,26 @@ call check(nf90_enddef(ncid))
 call check(nf90_close(ncid))
 end subroutine define_var
 
+!
+!***
+!
+
 subroutine write_inputs(filename,input,grid)
 implicit none
+
+! write simulation input file in a way compatible 
+! with the wrf input file
+
+!*** arguments
 character(len=*),intent(in)::filename
 type(input_vars),intent(in)::input
 type(grid_info),intent(in)::grid
+
+!*** local
 integer::ncid,varid
 integer,dimension(4)::s,c
 
+!*** executable
 call create_dim_attr(filename,grid)
 call define_var(filename,var_nfuel_cat,dim_fire,'','')
 call define_var(filename,var_ux,dim_atm_u,'','')
@@ -241,16 +293,26 @@ call check(nf90_close(ncid))
 
 end subroutine write_inputs
 
+!
+!***
+!
+
 subroutine write_vars(filename,output,time)
 !*** append variables to an output file (extending by the unlimited time
 !    dimension)
 implicit none
+
+!*** arguments
 character(len=*),intent(in)::filename
 type(output_vars),intent(in)::output
 real,intent(in)::time
+
+!*** local
 integer::ncid,tstep,dimid,varid
 integer,dimension(3)::s,c
 character(len=12)::timestr
+
+!*** executable
 
 ! open the file
 call check(nf90_open(filename,nf90_write,ncid))
@@ -290,14 +352,23 @@ call check(nf90_put_var(ncid,varid,output%grnhfx,start=s,count=c))
 call check(nf90_close(ncid))
 end subroutine write_vars
 
+!
+!***
+!
+
 subroutine set_grid_from_file(filename,grid)
 ! get grid sizes from input file
 implicit none
+
+!*** arguments
 character(len=*),intent(in)::filename
 type(grid_info),intent(out)::grid
+
+!*** local
 integer::ncid,it
 integer,dimension(4)::fdimid,adimid
 
+!*** executable
 call check(nf90_open(filename,nf90_nowrite,ncid))
 call check(nf90_inq_dimid(ncid,dim_time,fdimid(3)))
 adimid(4)=fdimid(3)
@@ -341,16 +412,25 @@ endif
 call check(nf90_close(ncid))
 end subroutine set_grid_from_file
 
+!
+!***
+!
+
 subroutine read_vars(filename,input,grid)
 ! read all variables from input file
 implicit none
+
+!*** arguments
 character(len=*),intent(in)::filename
 type(input_vars),intent(inout)::input
 type(grid_info),intent(in)::grid
+
+!*** local
 integer::ncid,varid,ierr
 integer,dimension(4)::s,c
 real,dimension(:,:),allocatable::u,v
 
+!*** executable
 call check(nf90_open(filename,nf90_nowrite,ncid))
 s(:)=1
 c(:)=1
