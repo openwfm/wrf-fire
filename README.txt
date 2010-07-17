@@ -5,8 +5,7 @@ For terms and conditions see the file license.txt
 Documentation is in progress. Current drafts of the technical documentation and
 user's guide can be found at
 
-http://math.ucdenver.edu/~jmandel/fires/wrf-fire-doc.pdf
-http://math.ucdenver.edu/~jmandel/fires/wrf-fire-guide.pdf
+http://www.openwfm.org/wiki/WRF-Fire_documentation
 
 If you find this code useful please acknowledge our work by citing the paper
 [1].  Yes this is a strange reference for an atmospheric scientist but it  
@@ -40,7 +39,7 @@ SUPPORT
 
 For support please subscribe to the wrf-fire mailing list at NCAR at
 http://mailman.ucar.edu/mailman/listinfo/wrf-fire
-or see http://www.openwfm.org/wiki/index.php5/Talk:WRF-Fire
+or see http://www.openwfm.org/wiki/WRF-Fire_user_support 
 
 You can also ask directly Jan.Mandel@gmail.com
 

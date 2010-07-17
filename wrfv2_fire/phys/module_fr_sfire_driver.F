@@ -1,11 +1,11 @@
 ! WRF:MEDIATION_LAYER:FIRE_MODEL
 
-!*** Jan Mandel August 2007 - February 2008
-!*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
+!*** Jan Mandel August 2007 - July 2010 
+!*** email: Jan.Mandel@gmail.com
 
 ! For support please subscribe to the wrf-fire mailing list at NCAR at
 ! http://mailman.ucar.edu/mailman/listinfo/wrf-fire
-! or go to http://www.openwfm.org/wiki/index.php5/Talk:WRF-Fire
+! or go to http://www.openwfm.org/wiki/WRF-Fire_user_support 
 
 ! This module is the only entry point from WRF-ARW to the wildland 
 ! fire model. The call to sfire_driver advances the fire model by 
@@ -16,7 +16,7 @@
 ! the model gives to WRF for safekeeping because it is not allowed 
 ! to save anything.
 
-! This model is described in [1]. The fire model is coupled with WRF 
+! This code is described in [1]. The fire model is coupled with WRF 
 ! but the fire code itself is not dependent on WRF in any way other 
 ! than calls to few WRF utilities from module_fr_sfire_util. This 
 ! model uses a level set function method for advancing the fireline. 
