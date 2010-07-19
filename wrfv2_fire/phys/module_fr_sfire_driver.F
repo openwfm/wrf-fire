@@ -1,5 +1,5 @@
-! WRF:MEDIATION_LAYER:FIRE_MODEL
-
+! SFIRE - Spread fire model in WRF-Fire
+!
 !*** Jan Mandel August 2007 - July 2010 
 !*** email: Jan.Mandel@gmail.com
 
@@ -34,10 +34,11 @@
 ! Kondratenko.
 !
 ! The fire physics is adapted from an earlier code by Terry  
-! L. Clark, Janice L. Coen, and Don Latham. The coupling with WRF is 
-! adapted from a code by Ned Patton for coupling of the earlier fire
-! model with WRF. The changes in WRF infrastructure and support of
-! refined fire grid was provided by John Michalakes.
+! L. Clark, Janice L. Coen, and Don Latham [2]. The interface with 
+! WRF is adapted from a code by Ned Patton for coupling of the earlier 
+! fire model with WRF, based on the foundation outlined in [4].
+! The changes in WRF infrastructure and support of
+! refined fire grids were provided by John Michalakes.
 
 ! Jonathan D. Beezley has set up and maintained the WRF build and
 ! execution environment, provided software engineering infrastructure 
@@ -56,129 +57,28 @@
 ! 2004
 !
 ! [3] http://www.mmm.ucar.edu/wrf/OnLineTutorial/Introduction/index.html
-
-#define DEBUG_OUT
+!
+! [4] Edward G. Patton and Janice L. Coen, WRF-Fire: A Coupled 
+! Atmosphere-Fire Module for WRF, Preprints of Joint MM5/Weather 
+! Research and Forecasting Model Users' Workshop, Boulder, CO, 
+! June 22-25, 2004, pp. 221-223, NCAR
 
 module module_fr_sfire_driver
+! use this module for standalone call, you only need to provide some
+! mock-up wrf modules  
 
 use module_fr_sfire_model
 use module_fr_sfire_phys
-use module_fr_sfire_atm
 use module_fr_sfire_util
+implicit none
+
 
 private
-public :: sfire_driver_em_init, sfire_driver_em_step
-
+public sfire_driver_em
 
 contains
 
-subroutine sfire_driver_em_init (grid , config_flags               & 
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe)
-
-    ! stub to call sfire_driver_em with irun=0 and omit last 3 args
-
-    USE module_domain
-    USE module_configure
-    implicit none
-
-    TYPE(domain) , TARGET          :: grid   ! data
-    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    integer, intent(in):: &
-             ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe
-
-    ! local
-    integer :: &  ! fire mesh sizes
-             ifds,ifde, kfds,kfde, jfds,jfde,                              &
-             ifms,ifme, kfms,kfme, jfms,jfme,                              &
-             ifps,ifpe, kfps,kfpe, jfps,jfpe                              
-    ! dummies
-
-    real,dimension(1,1,1)::rho,z_at_w,dz8w
-
-    call message('sfire_driver_em_init: SFIRE initialization start')
-
-    ! get fire mesh dimensions
-    CALL get_ijk_from_subgrid (  grid ,                   &
-                            ifds,ifde, jfds,jfde,kfds,kfde,                        &
-                            ifms,ifme, jfms,jfme,kfms,kfme,                        &
-                            ifps,ifpe, jfps,jfpe,kfps,kfpe) 
-
-    call sfire_driver_em ( grid , config_flags               & 
-            ,1,2,0                        & ! ifun start, end, test steps
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,ifds,ifde, jfds,jfde                                   &
-            ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w ) 
-
-    call message('sfire_driver_em_init: SFIRE initialization complete')
-
-end subroutine sfire_driver_em_init
-
-!
-!***
-!
-
-subroutine sfire_driver_em_step (grid , config_flags               & 
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,rho,z_at_w,dz8w ) 
-
-    ! stub to call sfire_driver_em 
-
-    USE module_domain
-    USE module_configure
-    implicit none
-
-    TYPE(domain) , TARGET          :: grid   ! data
-    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    integer, intent(in):: &
-             ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe
-
-    ! local
-    integer :: &  ! fire mesh sizes
-             ifds,ifde, kfds,kfde, jfds,jfde,                              &
-             ifms,ifme, kfms,kfme, jfms,jfme,                              &
-             ifps,ifpe, kfps,kfpe, jfps,jfpe                              
-    ! dummies
-
-    real,dimension(ims:ime, kms:kme, jms:jme)::rho,z_at_w,dz8w
-
-    call message('sfire_driver_em_step: SFIRE step start')
-
-    ! get fire mesh dimensions
-    CALL get_ijk_from_subgrid (  grid ,                   &
-                            ifds,ifde, jfds,jfde,kfds,kfde,                        &
-                            ifms,ifme, jfms,jfme,kfms,kfme,                        &
-                            ifps,ifpe, jfps,jfpe,kfps,kfpe) 
-
-    call sfire_driver_em ( grid , config_flags               & 
-            ,3,6,fire_test_steps                                &
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,ifds,ifde, jfds,jfde                                   &
-            ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w ) 
-
-    call message('sfire_driver_em_step: SFIRE step complete')
-
-end subroutine sfire_driver_em_step
-
-!
-!***
-!
-
+#define DEBUG_OUT
 subroutine sfire_driver_em ( grid , config_flags                    & 
             ,fire_ifun_start,fire_ifun_end,tsteps                   &
             ,ids,ide, kds,kde, jds,jde                              &
@@ -791,27 +691,9 @@ do ij=1,num_tiles
             enddo
         enddo
 
-
-        ! --- add heat and moisture fluxes to tendency variables by postulated decay
-
        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
 
-       call fire_tendency(                 &
-            ids,ide, kds,kde, jds,jde,      & ! dimensions
-            ims,ime, kms,kme, jms,jme,      &
-            its,ite, kts,kte, jts,jte,      & ! 
-            grnhfx,grnqfx,canhfx,canqfx,        & ! fluxes on atm grid 
-            fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                &
-            zs,z_at_w,dz8w,mu,rho,          &
-            rthfrten,rqvfrten)                ! out
-
-       ! debug print to compare
-
-       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver_phys:rthfrten')
-       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver_phys:rqvfrten')
-
-            
     endif ! ifun=6
 
 enddo ! tiles
