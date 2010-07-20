@@ -113,15 +113,16 @@ subroutine sfire_driver_em_step (grid , config_flags               &
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     do ij=1,grid%num_tiles
-       its = grid%i_start(ij)  ! start atmospheric tile in i
-       ite = grid%i_end(ij)    ! end atmospheric tile in i
-       jts = grid%j_start(ij)  ! start atmospheric tile in j
-       jte = grid%j_end(ij)    ! end atmospheric tile in j
+       ! SFIRE works on domain by 1 smaller, in last row&col winds are not set properly
+       its = grid%i_start(ij)             ! start atmospheric tile in i
+       ite = min(grid%i_end(ij),ide-1)    ! end atmospheric tile in i
+       jts = grid%j_start(ij)             ! start atmospheric tile in j
+       jte = min(grid%j_end(ij),jde-1)    ! end atmospheric tile in j
        kts=kds
        kte=kde
 
        call fire_tendency(                 &
-            ids,ide, kds,kde, jds,jde,      & ! dimensions
+            ids,ide-1, kds,kde, jds,jde-1, & ! domain dimensions
             ims,ime, kms,kme, jms,jme,      &
             its,ite, kts,kte, jts,jte,      & ! 
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx,        & ! fluxes on atm grid 
