@@ -253,7 +253,7 @@ write(6,*) '*************************************'
     END DO
       ! read land use data from files, overwriting the constant 
       if(config_flags%fire_read_lu) &
-          call read_array_2d_integer('input_lu',grid%lu_index,ids,ide,jds,jde,ims,ime,jms,jme) 
+          call read_array_2d_real('input_lu',grid%lu_index,ids,ide,jds,jde,ims,ime,jms,jme) 
       if(config_flags%fire_read_tsk) &
           call read_array_2d_real   ('input_tsk',grid%tsk,    ids,ide,jds,jde,ims,ime,jms,jme) 
       if(config_flags%fire_read_tmn) &
