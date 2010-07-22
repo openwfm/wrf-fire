@@ -1,4 +1,4 @@
-function a=read_array_2d(filename,a)
+function a=read_array_2d(filename)
 % a=rad_arrray_2d(filename)
 % read 2d matrix written by write_array_2d
 d=load(filename);
