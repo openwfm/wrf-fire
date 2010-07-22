@@ -11,6 +11,6 @@ function write_array_2d(filename,a)
 [m,n]=size(a);
 h=fopen(filename,'w');
 fprintf(h,'%6i\n',m,n);
-fprintf(h,'%24.16g\n',a');
+fprintf(h,'%14.7e\n',a');
 fclose(h);
 end
