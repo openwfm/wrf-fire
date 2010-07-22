@@ -463,51 +463,51 @@ write(6,*) '*************************************'
 
     IF (config_flags%fire_topo_from_atm == 0) THEN
 
-    mtn_max = 0.
-    DO j=jfts,jfte
-    DO i=ifts,ifte
-      mtn_x = pi + 2*pi* max(0. , min( (i - mtn_fxs)/(mtn_fxe - mtn_fxs), 1. ))
-      mtn_y = pi + 2*pi* max(0. , min( (j - mtn_fys)/(mtn_fye - mtn_fys), 1. ))
-      SELECT CASE(mtn_type)
-        CASE (1) ! circ/elliptic mountain
-          mtn_z = mtn_ht * 0.25 * (1. + COS(mtn_x))*(1. + COS(mtn_y))
-        CASE (2)  ! EW ridge
-          mtn_z = mtn_ht * 0.5 * (1. + COS(mtn_y))
-        CASE (3)  ! NS ridge
-          mtn_z = mtn_ht * 0.5 * (1. + COS(mtn_x))
-        CASE DEFAULT
-          call wrf_error_fatal ( ' bad fire_mountain_type ' )
-      END SELECT
-      mtn_max = max(mtn_max, mtn_z)
-      grid%zsf(i,j) = mtn_z
-    ENDDO
-    ENDDO
-
-    write(6, *)' Fire tile ',ifts,':',ifte,' ',jfts,':',jfte,' max terrain height ',mtn_max
-    write(6, *)' Fine-resolution terrain will be used.'
-
-    ! compute the terrain gradients
- 
-    ! extend terrain height one beyond domain
-    call continue_at_boundary(1,1,0., & ! do x direction or y direction
-            ifms,ifme,jfms,jfme, &            ! memory dims
-            ifds,ifde,jfds,jfde, &            ! domain dims
-            ifds,ifde,jfds,jfde, &            ! patch dims = domain, not parallel!
-            ifts,ifte,jfts,jfte, &            ! tile dims
-            grid%zsf)                         ! array
-
-    ! gradient by differencing
-    fdx=grid%dx/grid%sr_x
-    fdy=grid%dy/grid%sr_y
-    do j=jfts,jfte
-       do i=ifts,ifte
-          grid%dzdxf(i,j) = (grid%zsf(i+1,j)-grid%zsf(i-1,j))/(2.*fdx)
-          grid%dzdyf(i,j) = (grid%zsf(i,j+1)-grid%zsf(i,j-1))/(2.*fdy)
-       enddo
-    enddo
-
- 
-    ELSE
+      mtn_max = 0.
+      DO j=jfts,jfte
+        DO i=ifts,ifte
+          mtn_x = pi + 2*pi* max(0. , min( (i - mtn_fxs)/(mtn_fxe - mtn_fxs), 1. ))
+          mtn_y = pi + 2*pi* max(0. , min( (j - mtn_fys)/(mtn_fye - mtn_fys), 1. ))
+          SELECT CASE(mtn_type)
+            CASE (1) ! circ/elliptic mountain
+              mtn_z = mtn_ht * 0.25 * (1. + COS(mtn_x))*(1. + COS(mtn_y))
+            CASE (2)  ! EW ridge
+              mtn_z = mtn_ht * 0.5 * (1. + COS(mtn_y))
+            CASE (3)  ! NS ridge
+              mtn_z = mtn_ht * 0.5 * (1. + COS(mtn_x))
+            CASE DEFAULT
+              call wrf_error_fatal ( ' bad fire_mountain_type ' )
+          END SELECT
+          mtn_max = max(mtn_max, mtn_z)
+          grid%zsf(i,j) = mtn_z
+        ENDDO
+      ENDDO
+  
+      write(6, *)' Fire tile ',ifts,':',ifte,' ',jfts,':',jfte,' max terrain height ',mtn_max
+      write(6, *)' Fine-resolution terrain will be used.'
+  
+      ! compute the terrain gradients
+   
+      ! extend terrain height one beyond domain
+      call continue_at_boundary(1,1,0., & ! do x direction or y direction
+              ifms,ifme,jfms,jfme, &            ! memory dims
+              ifds,ifde,jfds,jfde, &            ! domain dims
+              ifds,ifde,jfds,jfde, &            ! patch dims = domain, not parallel!
+              ifts,ifte,jfts,jfte, &            ! tile dims
+              grid%zsf)                         ! array
+  
+      ! gradient by differencing
+      fdx=grid%dx/grid%sr_x
+      fdy=grid%dy/grid%sr_y
+      do j=jfts,jfte
+         do i=ifts,ifte
+            grid%dzdxf(i,j) = (grid%zsf(i+1,j)-grid%zsf(i-1,j))/(2.*fdx)
+            grid%dzdyf(i,j) = (grid%zsf(i,j+1)-grid%zsf(i,j-1))/(2.*fdy)
+         enddo
+      enddo
+  
+   
+    ELSE ! fire_topo_from_atm
 
       call wrf_error_fatal('only fire_topo_from_atm=0 supported')
       !write(6, *)' ******** WARNING ********'
@@ -515,8 +515,8 @@ write(6,*) '*************************************'
       !write(6, *)' Set fire_topo_from_atm=0 in the namelist to use fine-resolution terrain.'
       !write(6, *)' ******** WARNING ********'
 
-    ENDIF
-  ENDIF
+    ENDIF ! fire_topo_from_atm
+  ENDIF ! mtn_type .ne. 0
 
   DO j=jts,jte
   DO i=its,ite
