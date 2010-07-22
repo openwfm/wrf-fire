@@ -27,7 +27,7 @@ MODULE module_initialize_ideal
 #ifdef DM_PARALLEL
    USE module_dm
 #endif
-   USE module_fr_sfire_util, ONLY: continue_at_boundary
+   USE module_fr_sfire_util, ONLY: continue_at_boundary,crash,read_array_2d,interpolate_2d
 
 CONTAINS
 
@@ -76,14 +76,14 @@ CONTAINS
 
    TYPE (grid_config_rec_type)              :: config_flags
 
+   LOGICAL, EXTERNAL :: wrf_dm_on_monitor
+
    !  Local data
    INTEGER                             ::                       &
                                   ids, ide, jds, jde, kds, kde, &
                                   ims, ime, jms, jme, kms, kme, &
                                   its, ite, jts, jte, kts, kte, &
                                   i, j, k
-
-   ! Local data
 
    INTEGER, PARAMETER :: nl_max = 1000
    REAL, DIMENSION(nl_max) :: zk, p_in, theta, rho, u, v, qv, pd_in
@@ -116,12 +116,16 @@ CONTAINS
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifts,ifte, kfts,kfte, jfts,jfte
 
-   REAL :: mtn_ht, mtn_max, mtn_fdx, mtn_fdy, mtn_x, mtn_y, mtn_z
+   REAL :: mtn_ht, mtn_max, mtn_x, mtn_y, mtn_z
    REAL :: mtn_axs, mtn_ays, mtn_axe, mtn_aye
    REAL :: mtn_fxs, mtn_fys, mtn_fxe, mtn_fye
    REAL :: mtn_xs, mtn_ys, mtn_xe, mtn_ye
-   REAL :: fdx,fdy
-   LOGICAL, EXTERNAL :: wrf_dm_on_monitor
+   REAL :: fdx,fdy ! fire mesh step
+   INTEGER:: ir,jr ! refinement factors
+
+   logical have_fire_ht,have_fire_grad,have_atm_grad
+
+!*** executable
 
    SELECT CASE ( model_data_order )
          CASE ( DATA_ORDER_ZXY )
@@ -390,11 +394,14 @@ write(6,*) '*************************************'
   write (6,*)' ******** SFIRE ideal initialization ********'
 
   ! fire grid step size
-  mtn_fdx = grid%dx/grid%sr_x
-  mtn_fdy = grid%dy/grid%sr_y
+  fdx = grid%dx/grid%sr_x
+  fdy = grid%dy/grid%sr_y
+  ! refinement ratios
+  ir = grid%sr_x
+  jr = grid%sr_y
 
   write (6,*)' atm  mesh step ',grid%dx,grid%dy
-  write (6,*)' fire mesh step ',mtn_fdx,mtn_fdy
+  write (6,*)' fire mesh step ',fdx,fdy
   write (6,*)' refinement ratio ',grid%sr_x,grid%sr_y
   write (6,*)' atm  domain bounds ',ids,ide, jds,jde,kds,kde
   write (6,*)' atm  memory bounds ',ims,ime, jms,jme,kms,kme
@@ -409,6 +416,10 @@ write(6,*) '*************************************'
     grid%ht(i,j) = 0.
   ENDDO
   ENDDO
+
+  have_fire_grad=.false.
+  have_atm_grad=.false.
+  have_fire_ht=.false.
 
   !******* set terrain height
 
@@ -429,10 +440,10 @@ write(6,*) '*************************************'
     mtn_aye = mtn_ye/grid%dy + jds - 0.5
 
     ! fire grid coordinates of the mountain
-    mtn_fxs = mtn_xs/mtn_fdx + ifds - 0.5 
-    mtn_fxe = mtn_xe/mtn_fdx + ifds - 0.5
-    mtn_fys = mtn_ys/mtn_fdy + jfds - 0.5
-    mtn_fye = mtn_ye/mtn_fdy + jfds - 0.5
+    mtn_fxs = mtn_xs/fdx + ifds - 0.5 
+    mtn_fxe = mtn_xe/fdx + ifds - 0.5
+    mtn_fys = mtn_ys/fdy + jfds - 0.5
+    mtn_fye = mtn_ye/fdy + jfds - 0.5
 
     write(6,*)' Mountain height ',mtn_ht,' type',mtn_type
     write(6,*)' Mountain (m) LL=(0,0) ',mtn_xs,':',mtn_xe,' ',mtn_ys,':',mtn_ye
@@ -461,10 +472,7 @@ write(6,*) '*************************************'
 
     write(6, *)' Atm  tile ',its,':',ite,' ',jts,':',jte,' max terrain height ',mtn_max
 
-    IF (config_flags%fire_topo_from_atm == 0) THEN
-
-      mtn_max = 0.
-      DO j=jfts,jfte
+    DO j=jfts,jfte
         DO i=ifts,ifte
           mtn_x = pi + 2*pi* max(0. , min( (i - mtn_fxs)/(mtn_fxe - mtn_fxs), 1. ))
           mtn_y = pi + 2*pi* max(0. , min( (j - mtn_fys)/(mtn_fye - mtn_fys), 1. ))
@@ -478,17 +486,69 @@ write(6,*) '*************************************'
             CASE DEFAULT
               call wrf_error_fatal ( ' bad fire_mountain_type ' )
           END SELECT
-          mtn_max = max(mtn_max, mtn_z)
           grid%zsf(i,j) = mtn_z
         ENDDO
+    ENDDO
+ 
+    have_fire_ht=.true.
+
+  ENDIF ! mtn_type .ne. 0
+
+  if(config_flags%fire_read_atm_ht)then !
+      call read_array_2d('input_ht',grid%ht,ids,ide,jds,jde,ims,ime,jms,jme) 
+      ! no flag - we always have the terrain height on atm mesh, zero if not set
+  endif
+
+  if(config_flags%fire_read_fire_ht)then !
+      call read_array_2d('input_htf',grid%zsf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+      have_fire_ht=.true.
+  endif
+
+  if(config_flags%fire_read_atm_grad)then !
+      call crash('Reading terrain gradient on atm mesh from file not supported.')
+      have_atm_grad=.true.
+  endif
+
+  if(config_flags%fire_read_fire_grad)then !
+      call read_array_2d('input_dzdxf',grid%dzdxf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+      call read_array_2d('input_dzdyf',grid%dzdyf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+      have_fire_grad=.true.
+  endif
+
+  if(have_fire_ht)then 
+
+    mtn_max = 0.
+    DO j=jfts,jfte
+      DO i=ifts,ifte
+        mtn_max = max(mtn_max, grid%zsf(i,j))
       ENDDO
+    ENDDO
   
-      write(6, *)' Fire tile ',ifts,':',ifte,' ',jfts,':',jfte,' max terrain height ',mtn_max
-      write(6, *)' Fine-resolution terrain will be used.'
+    write(6, *)' Max terrain height ',mtn_max
+    write(6, *)' Fine-resolution terrain on the fire mesh used.'
+
+  endif
+
   
-      ! compute the terrain gradients
+  if(.not.have_fire_ht)then 
+      write(6,*)'Interpolating the terrain height from the atm mesh to the fire mesh'
+      call interpolate_2d(  &
+        ims,ime,jms,jme, & ! memory dims atm grid tile
+        its,ite,jts,jte, & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte,jfts,jfte,  & ! dimensions fire grid tile
+        ir,jr,                & ! refinement ratio
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
+        grid%ht,                                      & ! atm grid arrays in
+        grid%zsf)                                      ! fire grid arrays out
+      have_fire_ht=.true.
+  endif
+
+  if(have_fire_ht.and..not.have_fire_grad)then 
+
+      write(6,*)'Computing the terrain gradient from fire mesh height'
    
-      ! extend terrain height one beyond domain
+      ! extend the terrain height one beyond the domain
       call continue_at_boundary(1,1,0., & ! do x direction or y direction
               ifms,ifme,jfms,jfme, &            ! memory dims
               ifds,ifde,jfds,jfde, &            ! domain dims
@@ -496,27 +556,20 @@ write(6,*) '*************************************'
               ifts,ifte,jfts,jfte, &            ! tile dims
               grid%zsf)                         ! array
   
-      ! gradient by differencing
-      fdx=grid%dx/grid%sr_x
-      fdy=grid%dy/grid%sr_y
+      ! compute the terrain gradient by differencing
       do j=jfts,jfte
          do i=ifts,ifte
             grid%dzdxf(i,j) = (grid%zsf(i+1,j)-grid%zsf(i-1,j))/(2.*fdx)
             grid%dzdyf(i,j) = (grid%zsf(i,j+1)-grid%zsf(i,j-1))/(2.*fdy)
          enddo
       enddo
-  
+      have_fire_grad=.true.
+   endif
    
-    ELSE ! fire_topo_from_atm
-
-      call wrf_error_fatal('only fire_topo_from_atm=0 supported')
-      !write(6, *)' ******** WARNING ********'
-      !write(6, *)' Terrain height on the fire grid will be interpolated from the atmosphere grid.'
-      !write(6, *)' Set fire_topo_from_atm=0 in the namelist to use fine-resolution terrain.'
-      !write(6, *)' ******** WARNING ********'
-
-    ENDIF ! fire_topo_from_atm
-  ENDIF ! mtn_type .ne. 0
+   if(.not.have_fire_ht)write(6,*)'Fire mesh terrain height not set, taken zero.'
+   if(.not.have_fire_grad)call crash('Fire mesh terrain gradient not set')
+ 
+! the rest of initialization dependent on the atmosphere grid terrain height set
 
   DO j=jts,jte
   DO i=its,ite

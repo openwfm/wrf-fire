@@ -168,7 +168,12 @@ rconfig   logical sfc_full_init          namelist,fire         max_domains      
 rconfig   integer sfc_lu_index           namelist,fire         max_domains             28    -      "sfc_lu_index" "USGS landuse index definig sfc record from LANDUSE.TBL" ""
 rconfig   real    sfc_tsk                namelist,fire         max_domains          285.0    -      "sfc_tsk" "surface skin temperature (TSK)" "K"
 rconfig   real    sfc_tmn                namelist,fire         max_domains          285.0    -      "sfc_tmn" "soil temperature at lower boundary (TMN)" "K"
-# additioanl data required by Noah LSM scheme
+# topography data from files 
+rconfig   logical fire_read_atm_ht       namelist,fire         max_domains           .false. -      "fire_read_atm_ht" "read terrain height on atm mesh from file" ""
+rconfig   logical fire_read_fire_ht      namelist,fire         max_domains           .false. -      "fire_read_fire_ht" "read terrain height on fire mesh from file" ""
+rconfig   logical fire_read_atm_grad     namelist,fire         max_domains           .false. -      "fire_read_atm_grad" "read terrain gradient on atm mesh from file" ""
+rconfig   logical fire_read_fire_grad    namelist,fire         max_domains           .false. -      "fire_read_fire_grad" "read terrain gradient on fire mesh from file" ""
+# additional data required by Noah LSM scheme
 rconfig   real    sfc_vegfra             namelist,fire         max_domains            0.5    -      "sfc_vegfra" "vegetation fraction" ""
 rconfig   real    sfc_canwat             namelist,fire         max_domains              0    -      "sfc_canwat" "canopy water" ""
 rconfig   integer sfc_ivgtyp             namelist,fire         max_domains             18    -      "sfc_ivgtyp" "dominant vegetation category in the LSM scheme" ""

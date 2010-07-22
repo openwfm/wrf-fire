@@ -1157,6 +1157,81 @@ return
 
 
 end subroutine write_array_m3
+!
+!***
+!
+subroutine read_array_2d(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
+use module_dm
+#ifdef _OPENMP
+use OMP_LIB 
+#endif
+implicit none
+!*** purpose: read a 2D array from a text file
+! file format: line 1: array dimensions ni,nj
+!              following lines: one row of a at a time
+!              each row may be split between several lines
+!*** arguments
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
+real, intent(out), dimension(ims:ime,jms:jme):: a
+character(len=*),intent(in)::filename
+!*** local
+integer i,j,ni,nj,mi,mj,nprocs,myproc,mythread,iu
+logical op
+character(len=128)::fname,msg
+!*** executable
+
+call wrf_get_nproc (nprocs)
+call wrf_get_myproc( myproc )
+mythread=0
+#ifdef _OPENMP
+    mythread=omp_get_thread_num()
+#endif
+if(nprocs.ne.1.or.myproc.ne.0.or.mythread.ne.0) &
+   call crash('read_array_2d: parallel execution not supported')
+
+! print line
+mi=ite-its+1
+mj=jte-jts+1
+write(msg,2)'reading array size ',mi,mj,' from file ',trim(filename)
+2 format(a,2i6,2a)
+call message(msg)
+
+! check array index overflow
+call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
+
+! find available unit
+iu=0
+do i=11,99
+    inquire(unit=i,opened=op)
+    if(.not.op.and.iu.le.0)iu=i
+enddo
+if(iu.le.0)call crash('read_array_2d: cannot find available fortran unit')
+
+if(iu.gt.0)open(iu,file=filename,form='formatted',status='old',err=9)
+rewind(iu,err=9)
+
+read(iu,*,err=10)ni,nj
+if(ni.ne.mi.or.nj.ne.mj)then
+    write(msg,'(a,2i6,a,2i6)')'Array dimensions',ni,nj,' in the input file should be ',mi,mj
+    call message(msg)
+    goto 10
+endif
+do i=its,ite
+   read(iu,*,err=10)(a(i,j),j=jts,jte)
+enddo
+close(iu,err=11)
+return
+
+9  msg='Error opening file '//trim(filename)
+call crash(msg)
+10 msg='Error reading file '//trim(filename)
+call crash(msg)
+11 msg='Error closing file '//trim(filename)
+call crash(msg)
+end subroutine read_array_2d
+!
+!***
+!
 
 ! function to go beyond domain boundary if tile is next to it
 pure integer function snode(t,d,i)

@@ -320,9 +320,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         if(fire_ifun.eq.1)then
 !       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
-            if(fire_topo_from_atm.eq.1)then
-#include "HALO_FIRE_HT.inc"
-            endif 
+!!            if(fire_topo_from_atm.eq.1)then
+!!#include "HALO_FIRE_HT.inc"
+!!            endif 
 
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
@@ -644,28 +644,27 @@ do ij=1,num_tiles
           call message('restart - topo initialization skipped')
 
       else
-
-        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
-    
-        ! interpolate terrain height
-        
-        if(fire_topo_from_atm.eq.1)then
-            call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
-                ids,ide,  jds,jde,                    & ! atm grid dimensions
-                ims,ime,  jms,jme,                    &
-                ips,ipe,jps,jpe,                              &
-                its,ite,jts,jte,                              &
-                ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-                ifms, ifme, jfms, jfme,                       &
-                ifts,ifte,jfts,jfte,                          &
-                ir,jr,                                        & ! atm/fire grid ratio
-                zs,                                       & ! atm grid arrays in
-                fp%zsf)                                      ! fire grid arrays out
-        else
-!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-           write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
-!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
-        endif
+!
+!        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
+!    
+!        ! interpolate terrain height
+!        if(fire_topo_from_atm.eq.1)then
+!            call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+!                ids,ide,  jds,jde,                    & ! atm grid dimensions
+!                ims,ime,  jms,jme,                    &
+!                ips,ipe,jps,jpe,                              &
+!                its,ite,jts,jte,                              &
+!                ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+!                ifms, ifme, jfms, jfme,                       &
+!                ifts,ifte,jfts,jfte,                          &
+!                ir,jr,                                        & ! atm/fire grid ratio
+!                zs,                                       & ! atm grid arrays in
+!                fp%zsf)                                      ! fire grid arrays out
+!        else
+!!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+!           write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
+!!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+!        endif
 
         if(ignition_longlat .eq.0)then
             ! set ideal fire mesh coordinates - used for ignition only
@@ -1277,7 +1276,7 @@ fire_upwind_split       = config_flags%fire_upwind_split
 fire_viscosity          = config_flags%fire_viscosity 
 fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
 fire_test_steps         = config_flags%fire_test_steps 
-fire_topo_from_atm      = config_flags%fire_topo_from_atm
+!fire_topo_from_atm      = config_flags%fire_topo_from_atm
 fire_advection          = config_flags%fire_advection
 
 
