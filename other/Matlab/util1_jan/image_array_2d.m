@@ -6,6 +6,7 @@ function image_array_2d(a)
 %
 [m,n]=size(a);
 h=imagesc(flipud(a'));
+axis image
 warning('the vertical label is upside down')
 colorbar
 end
