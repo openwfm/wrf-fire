@@ -29,17 +29,18 @@
  &domains
  time_step                           = 0,
  !time_step                           = 5,
- time_step_fract_num                 = 1,
- time_step_fract_den                 = 10,
+ time_step                           = 1,
+ !time_step_fract_num                 = 1,
+ !time_step_fract_den                 = 10,
  max_dom                             = 1,
  s_we                                = 1,     1,     1,
- e_we                                = 200,    43,    43,
+ e_we                                = 20,    43,    43,
  s_sn                                = 1,     1,     1,
- e_sn                                = 320,    43,    43,
+ e_sn                                = 32,    43,    43,
  s_vert                              = 1,     1,     1,
- e_vert                              = 81,    41,    41,
- dx                                  = 5,    30,    10,
- dy                                  = 5,    30,    10,
+ e_vert                              = 21,    41,    41,
+ dx                                  = 50,    30,    10,
+ dy                                  = 50,    30,    10,
  ztop                                = 400, 1500, 1500,
  grid_id                             = 1,     2,     3,
  parent_id                           = 0,     1,     2,
@@ -121,8 +122,8 @@
 
  &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
  ifire              = 2,    ! integer, = 0: no fire, 2=turn on fire model
- fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
- fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
+ fire_fuel_read     = 2,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude, 2=from file input_fc
+ fire_fuel_cat      = 3,    ! integer, fuel category if constant
 ! ignition 
  fire_num_ignitions = 2,        ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_start_x1 =  500,  ! start points of ignition lines, in m from lower left corner

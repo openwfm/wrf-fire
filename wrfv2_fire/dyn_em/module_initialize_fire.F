@@ -417,6 +417,10 @@ write(6,*) '*************************************'
   ENDDO
   ENDDO
 
+  if(config_flags%fire_fuel_read.eq.2) &
+      call read_array_2d('input_fc',grid%nfuel_cat,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+
+
   have_fire_grad=.false.
   have_atm_grad=.false.
   have_fire_ht=.false.
@@ -586,7 +590,7 @@ write(6,*) '*************************************'
       ENDDO
     ENDDO
     write(6, *)' Max terrain height on the fire mesh       ',mtn_max
-    write(6, *)' Max terrain gradient on the fire mesh     ',mtn_max
+    write(6, *)' Max terrain gradient on the fire mesh     ',grad_max
   
 ! the rest of initialization dependent on the atmosphere grid terrain height set
 
