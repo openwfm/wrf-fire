@@ -2,16 +2,16 @@
  run_days                            = 0,
  run_hours                           = 0,
  run_minutes                         = 0,
- run_seconds                         = 25,
+ run_seconds                         = 5,
  start_year                          = 2006, 0001, 0001,
  start_month                         = 02,   01,   01,
- start_day                           = 24,   01,   01,
+ start_day                           = 23,   01,   01,
  start_hour                          = 12,   00,   00,
  start_minute                        = 30,   01,   01,
  start_second                        = 00,   00,   00,
  end_year                            = 2006, 0001, 0001,
  end_month                           = 02,   01,   01,
- end_day                             = 24,   01,   01,
+ end_day                             = 23,   01,   01,
  end_hour                            = 13,   00,   00,
  end_minute                          = 00,   600,   600,
  end_second                          = 0,   00,   00,
@@ -37,10 +37,10 @@
  s_sn                                = 1,     1,     1,
  e_sn                                = 320,    43,    43,
  s_vert                              = 1,     1,     1,
- e_vert                              = 41,    41,    41,
+ e_vert                              = 81,    41,    41,
  dx                                  = 5,    30,    10,
  dy                                  = 5,    30,    10,
- ztop                                = 500, 1500, 1500,
+ ztop                                = 400, 1500, 1500,
  grid_id                             = 1,     2,     3,
  parent_id                           = 0,     1,     2,
  i_parent_start                      = 0,     1,    1,
@@ -172,9 +172,9 @@
 !
 ! stretched grid variables
 ! 
-! stretch_grd = .true.,
-! stretch_hyp = .true.,
-! z_grd_scale = 2.5
+ stretch_grd = .true.,
+ stretch_hyp = .true.,
+ z_grd_scale = 2.5
 !
 ! Surface initialization
 !
