@@ -7,6 +7,6 @@ n=d(2);
 if length(d)~=m*n+2,
     error('wrong number of terms in the file')
 end
-a=reshape(d(3:end),n,m)';
+a=reshape(d(3:end),n,m);
 end
 
