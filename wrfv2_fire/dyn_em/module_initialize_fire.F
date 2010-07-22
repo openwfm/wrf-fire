@@ -116,7 +116,7 @@ CONTAINS
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifts,ifte, kfts,kfte, jfts,jfte
 
-   REAL :: mtn_ht, mtn_max, mtn_x, mtn_y, mtn_z
+   REAL :: mtn_ht, mtn_max, mtn_x, mtn_y, mtn_z, grad_max
    REAL :: mtn_axs, mtn_ays, mtn_axe, mtn_aye
    REAL :: mtn_fxs, mtn_fys, mtn_fxe, mtn_fye
    REAL :: mtn_xs, mtn_ys, mtn_xe, mtn_ye
@@ -433,6 +433,8 @@ write(6,*) '*************************************'
 
   IF(mtn_type .ne. 0)THEN
 
+    ! idealized mountain
+
     ! atmospheric grid coordinates of the mountain
     mtn_axs = mtn_xs/grid%dx + ids - 0.5 
     mtn_axe = mtn_xe/grid%dx + ids - 0.5
@@ -492,45 +494,33 @@ write(6,*) '*************************************'
  
     have_fire_ht=.true.
 
-  ENDIF ! mtn_type .ne. 0
+  ELSE ! mtn_type 
 
-  if(config_flags%fire_read_atm_ht)then !
+    if(config_flags%fire_read_atm_ht)then !
       call read_array_2d('input_ht',grid%ht,ids,ide,jds,jde,ims,ime,jms,jme) 
       ! no flag - we always have the terrain height on atm mesh, zero if not set
-  endif
+    endif
 
-  if(config_flags%fire_read_fire_ht)then !
-      call read_array_2d('input_htf',grid%zsf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+    if(config_flags%fire_read_fire_ht)then !
+      call read_array_2d('input_zsf',grid%zsf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
       have_fire_ht=.true.
-  endif
+    endif
 
-  if(config_flags%fire_read_atm_grad)then !
+    if(config_flags%fire_read_atm_grad)then !
       call crash('Reading terrain gradient on atm mesh from file not supported.')
       have_atm_grad=.true.
-  endif
+    endif
 
-  if(config_flags%fire_read_fire_grad)then !
+    if(config_flags%fire_read_fire_grad)then !
       call read_array_2d('input_dzdxf',grid%dzdxf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
       call read_array_2d('input_dzdyf',grid%dzdyf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
       have_fire_grad=.true.
-  endif
+    endif
+  ENDIF  ! mtn_type
 
   if(have_fire_ht)then 
-
-    mtn_max = 0.
-    DO j=jfts,jfte
-      DO i=ifts,ifte
-        mtn_max = max(mtn_max, grid%zsf(i,j))
-      ENDDO
-    ENDDO
-  
-    write(6, *)' Max terrain height ',mtn_max
-    write(6, *)' Fine-resolution terrain on the fire mesh used.'
-
-  endif
-
-  
-  if(.not.have_fire_ht)then 
+      write(6, *)'Fine-resolution terrain height on the fire mesh used.'
+  else
       write(6,*)'Interpolating the terrain height from the atm mesh to the fire mesh'
       call interpolate_2d(  &
         ims,ime,jms,jme, & ! memory dims atm grid tile
@@ -544,9 +534,20 @@ write(6,*) '*************************************'
       have_fire_ht=.true.
   endif
 
-  if(have_fire_ht.and..not.have_fire_grad)then 
 
-      write(6,*)'Computing the terrain gradient from fire mesh height'
+  if(have_fire_grad)then 
+     write(6, *)'Fine-resolution terrain gradient on the fire mesh used.'
+  else
+
+     write(6,*)'Computing the terrain gradient from fire mesh height'
+     if(.not.have_fire_ht)then
+        write(6,*)'WARNING: Fire mesh terrain height not given, setting to zero'
+        do j=jfts,jfte
+           do i=ifts,ifte
+              grid%zsf(i,j) = 0.
+           enddo
+        enddo
+      endif
    
       ! extend the terrain height one beyond the domain
       call continue_at_boundary(1,1,0., & ! do x direction or y direction
@@ -564,11 +565,29 @@ write(6,*) '*************************************'
          enddo
       enddo
       have_fire_grad=.true.
-   endif
+   endif ! have_fire_grad
    
-   if(.not.have_fire_ht)write(6,*)'Fire mesh terrain height not set, taken zero.'
    if(.not.have_fire_grad)call crash('Fire mesh terrain gradient not set')
  
+    mtn_max = 0.
+    DO j=jts,jte
+      DO i=its,ite
+        mtn_max = max(mtn_max, grid%ht(i,j))
+      ENDDO
+    ENDDO
+    write(6, *)' Max terrain height on the atmosphere mesh ',mtn_max
+
+    mtn_max = 0.
+    grad_max =0.
+    DO j=jfts,jfte
+      DO i=ifts,ifte
+        mtn_max = max(mtn_max, grid%zsf(i,j))
+        grad_max = max( grad_max, sqrt(grid%dzdxf(i,j)**2+grid%dzdyf(i,j)**2) )
+      ENDDO
+    ENDDO
+    write(6, *)' Max terrain height on the fire mesh       ',mtn_max
+    write(6, *)' Max terrain gradient on the fire mesh     ',mtn_max
+  
 ! the rest of initialization dependent on the atmosphere grid terrain height set
 
   DO j=jts,jte

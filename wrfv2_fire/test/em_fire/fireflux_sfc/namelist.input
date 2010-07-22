@@ -186,7 +186,10 @@
 ! sfc_isltyp = 7,                 ! Dominant soil type, needed only with Noah LSM (sf_surface_physics=2)
 ! sfc_canwat = 0.2,               ! Canopy water content, needed only with Noah LSM (sf_surface_physics=2)
 ! sfc_vegfra = 0.5,               ! Vegetation fraction, needed only with Noah LSM (sf_surface_physics=2)
-
+!
+! files
+fire_read_atm_ht = .true.,      ! read file ht_input
+!
 ! method switches for developers only, do not change!
 !
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
