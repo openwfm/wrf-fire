@@ -27,7 +27,8 @@ MODULE module_initialize_ideal
 #ifdef DM_PARALLEL
    USE module_dm
 #endif
-   USE module_fr_sfire_util, ONLY: continue_at_boundary,crash,read_array_2d,interpolate_2d
+   USE module_fr_sfire_util, ONLY: continue_at_boundary,crash,read_array_2d_real, &
+     read_array_2d_integer,interpolate_2d
 
 CONTAINS
 
@@ -250,6 +251,13 @@ write(6,*) '*************************************'
            grid%tmn(i,j) = config_flags%sfc_tmn           !AK/ak  soil temperature at lower boundary [K] (285)
       END DO
     END DO
+      ! read land use data from files, overwriting the constant 
+      if(config_flags%fire_read_lu) &
+          call read_array_2d_integer('input_lu',grid%lu_index,ids,ide,jds,jde,ims,ime,jms,jme) 
+      if(config_flags%fire_read_tsk) &
+          call read_array_2d_real   ('input_tsk',grid%tsk,    ids,ide,jds,jde,ims,ime,jms,jme) 
+      if(config_flags%fire_read_tmn) &
+          call read_array_2d_real   ('input_tmn',grid%tmn,    ids,ide,jds,jde,ims,ime,jms,jme) 
 
 ! for Noah LSM, additional variables need to be initializedi  !AK/ak |
 
@@ -293,10 +301,11 @@ write(6,*) '*************************************'
    grid%step_number = 0
 
    IF (sfc_init) THEN
+
       write(6,*) ' full surface initialization activated '
-      write(6,*) ' land use index =', config_flags%sfc_lu_index
-      write(6,*) ' skin temperature=',grid%tsk(10,10),&
-              '[K] soil temperature=', grid%tmn(10,10),'[K]'    
+      ! write(6,*) ' land use index =', config_flags%sfc_lu_index
+      ! write(6,*) ' skin temperature=',grid%tsk(10,10),&
+      !         '[K] soil temperature=', grid%tmn(10,10),'[K]'    
 ! Process the soil; note that there are some things hard-wired into share/module_soil_pre.F
       CALL process_soil_ideal(grid%xland,grid%xice,grid%vegfra,grid%snow,grid%canwat, &
                      grid%ivgtyp,grid%isltyp,grid%tslb,grid%smois, &
@@ -305,6 +314,7 @@ write(6,*) '*************************************'
                                    ids,ide, jds,jde, kds,kde,&
                                    ims,ime, jms,jme, kms,kme,&
                                    its,ite, jts,jte, kts,kte )
+
 
      ELSE
       write(6,*) 'full surface initialization is turned off!! '
@@ -418,7 +428,7 @@ write(6,*) '*************************************'
   ENDDO
 
   if(config_flags%fire_fuel_read.eq.2) &
-      call read_array_2d('input_fc',grid%nfuel_cat,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+      call read_array_2d_real('input_fc',grid%nfuel_cat,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
 
 
   have_fire_grad=.false.
@@ -501,12 +511,12 @@ write(6,*) '*************************************'
   ELSE ! mtn_type 
 
     if(config_flags%fire_read_atm_ht)then !
-      call read_array_2d('input_ht',grid%ht,ids,ide,jds,jde,ims,ime,jms,jme) 
+      call read_array_2d_real('input_ht',grid%ht,ids,ide,jds,jde,ims,ime,jms,jme) 
       ! no flag - we always have the terrain height on atm mesh, zero if not set
     endif
 
     if(config_flags%fire_read_fire_ht)then !
-      call read_array_2d('input_zsf',grid%zsf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+      call read_array_2d_real('input_zsf',grid%zsf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
       have_fire_ht=.true.
     endif
 
@@ -516,8 +526,8 @@ write(6,*) '*************************************'
     endif
 
     if(config_flags%fire_read_fire_grad)then !
-      call read_array_2d('input_dzdxf',grid%dzdxf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
-      call read_array_2d('input_dzdyf',grid%dzdyf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+      call read_array_2d_real('input_dzdxf',grid%dzdxf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+      call read_array_2d_real('input_dzdyf',grid%dzdyf,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
       have_fire_grad=.true.
     endif
   ENDIF  ! mtn_type
