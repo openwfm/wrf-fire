@@ -121,7 +121,7 @@
 
  &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
  ifire              = 2,    ! integer, = 0: no fire, 2=turn on fire model
- fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
+ fire_fuel_read     = 2,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 ! ignition 
  fire_num_ignitions = 2,        ! integer, only the first fire_num_ignition used, up to 5 allowed
@@ -174,7 +174,7 @@
 ! 
  stretch_grd = .true.,
  stretch_hyp = .true.,
- z_grd_scale = 2.5
+ z_grd_scale = 1.2
 !
 ! Surface initialization
 !

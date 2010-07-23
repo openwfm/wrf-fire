@@ -1160,7 +1160,37 @@ end subroutine write_array_m3
 !
 !***
 !
-subroutine read_array_2d(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
+subroutine read_array_2d_integer(filename,ia,its,ite,jts,jte,ims,ime,jms,jme)
+!*** arguments
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
+integer, intent(out), dimension(ims:ime,jms:jme):: ia
+character(len=*),intent(in)::filename
+!*** local
+real, allocatable, dimension(:,:)::a
+integer::i,j
+real::r
+character(len=256)msg
+!*** executable
+allocate(a(ims:ime,jms:jme))
+call read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
+do j=jts,jte
+    do i=its,ite
+        ia(i,j)=a(i,j)
+	r=ia(i,j)
+	if(r.ne.a(i,j))then
+           write(6,*)'Reading file ',trim(filename)
+           write(6,*)'value at position ',i,j,' cannot be converted to integer'
+           write(6,*)'read ',a(i,j),' converted as',k,' converted as ',r
+	   msg=trim(filename)//' is not integer file'
+	   call crash(msg)
+        endif
+    enddo
+enddo
+end subroutine read_array_2d_integer
+
+        
+
+subroutine read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
 use module_dm
 #ifdef _OPENMP
 use OMP_LIB 
@@ -1228,7 +1258,7 @@ call crash(msg)
 call crash(msg)
 11 msg='Error closing file '//trim(filename)
 call crash(msg)
-end subroutine read_array_2d
+end subroutine read_array_2d_real
 !
 !***
 !
