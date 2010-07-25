@@ -28,10 +28,10 @@ xlabel('speed m/s')
 ylabel('alitude m')
 title('Wind speed');
 figure(2)
-plot(speed,altitude)
+plot(direction,altitude)
 xlabel('direction degrees')
 ylabel('alitude m')
-title('Wind direction ');
+title('Wind direction');
 
 % no temperature yet
 % t=interp2(t,i1,i2);
