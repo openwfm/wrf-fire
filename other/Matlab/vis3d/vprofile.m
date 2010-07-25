@@ -5,7 +5,11 @@ function vprofile(filename,x1,x2,tstep)
 % filename      string, WRF file name
 % x1            distance in m from lower left end of domain in coordinate 1
 % x2            distance in m from lower left end of domain in coordinate 2
-% tstep         the index in input files to compute this at
+% tstep         the index in input files to compute this at, or empty
+%
+% examples:
+%             vprofile('wrfinput_d01',100,100,[])
+%             vprofile('wrfout_d01_0001-01-01_00:00:00',100,100,1)
 
 % the data for this time step
 p=wrfatm2struct(filename,tstep);  

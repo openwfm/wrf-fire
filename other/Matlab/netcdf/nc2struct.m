@@ -32,12 +32,10 @@ for i=1:length({varnames{:}}),
         switch ndims(v.var_value)
             case 2
                 p.(lower(varname))=v.var_value(:,times);
-            case 3
-                p.(lower(varname))=v.var_value(:,:,times);
             case 4
                 p.(lower(varname))=v.var_value(:,:,:,times);
             otherwise
-                warning('argument times supported only for 2d to 4d arrays')
+                warning('argument times supported only for 2d and 4d arrays')
                 p.(lower(varname))=v.var_value;
         end % case
     else
