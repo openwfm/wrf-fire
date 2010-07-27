@@ -55,7 +55,7 @@ subroutine sfire_driver_em_init (grid , config_flags               &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w ) 
+            ) 
 
     call message('sfire_driver_em_init: SFIRE initialization complete')
 
@@ -109,7 +109,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w ) 
+            ) 
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     do ij=1,grid%num_tiles

@@ -86,8 +86,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w ) 
+            ,ifps,ifpe, jfps,jfpe )
 
 !*** purpose: driver from grid structure
 
@@ -116,8 +115,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
              ifds,ifde, jfds,jfde,                                   &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
-    real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho,  &! air density  (kg/m^3) 
-             z_at_w,dz8w                 ! ????????
 
 !*** local
     INTEGER:: fire_num_ignitions
@@ -132,8 +129,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         fire_ignition_radius
     integer::fire_ifun,ir,jr,fire_ignition_longlat,istep,itimestep
     logical::need_lfn_update,restart
-    !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
-    ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
@@ -252,8 +247,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             fire_ignition_radius,        &
             fire_ignition_start_time,     &
             fire_ignition_end_time,     &
-            grid%u_2,grid%v_2,grid%mut,rho,grid%ht,      & ! in arrays, on atm grid
-            z_at_w,dz8w,                                  &
+            grid%u_2,grid%v_2,grid%ht,      & ! in arrays, on atm grid
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
@@ -308,8 +302,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     ignition_radius,                              &
     ignition_start_time,                          &
     ignition_end_time,                            &
-    u,v,mu,rho,zs,                                & ! in arrays, atm grid
-    z_at_w,dz8w,                                  &
+    u,v,zs,                                       & ! in arrays, atm grid
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
@@ -372,10 +365,7 @@ real, dimension(num_ignitions), intent(in):: &
 integer, intent(in):: ignition_longlat       ! if 1 ignition give as long/lat, otherwise as m from lower left corner
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v ! wind velocity (m/s) (node based, atm grid) 
-real,intent(in),dimension(ims:ime,jms:jme)::mu          ! dry air mass (Pa)  pressure??  (cell based, atm grid)
 real,intent(in),dimension(ims:ime, jms:jme)::  zs ! terrain height  
-real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::rho, &  ! air density  (kg/m^3) (cell based, atm grid) 
-                z_at_w,dz8w                         ! height of some sort??
 
 real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat ! inout because of extension at bdry
     
@@ -756,8 +746,6 @@ elseif(ifun.eq.6)then
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)
     endif
 #endif
-    !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
-    !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
     kpe1=min(kps+1,kpe)
     !kpe1=kps-1
     do k=kts,min(kte,kts+3)
