@@ -26,7 +26,7 @@ for off=[0:0.05:1.1]
 %    tign=tnow+2*lfn+0.0*randn(2,2);
     tign = [2.000000      1.565244    ;
            2.000000       2.000000    ]
-    f=fuel_burnt(lfn,tign,tnow,fd,fuel_time); 
+    f=fuel_burnt_fd(lfn,tign,tnow,fd,fuel_time); 
     f_debug=[f_debug f];
     tmp(k)=f;
     k=k+1;
