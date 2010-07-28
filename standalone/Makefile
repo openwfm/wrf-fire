@@ -40,7 +40,7 @@ NAMELIST= \
     namelist_defines2.inc \
     config_assigns.inc
 
-.PHONY: all
+#.PHONY: all
 
 all: model_test_main.exe model_test_init.exe
 

@@ -5,6 +5,7 @@
 module wrf_netcdf
 use netcdf
 use module_fr_sfire_util , only : crash, interpolate_2d, continue_at_boundary
+use module_domain, only: domain
 implicit none
 
 ! default input file name
@@ -80,7 +81,7 @@ end type
 
 contains
 
-subroutine create_dim_attr(filename,grid)
+subroutine create_dim_attr(filename,info)
 
 ! Create an empty NetCDF file with proper dimension names 
 ! (a.k.a. attributes) defined.
@@ -89,7 +90,7 @@ implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename  ! filename to create
-type(grid_info),intent(in)::grid       ! grid information structure
+type(grid_info),intent(in)::info       ! grid information structure
 
 !*** local
 integer::ncid,dimid,timeid,strlenid,varid
@@ -107,24 +108,24 @@ call check(nf90_create(filename,nf90_clobber,ncid))
 
 call check(nf90_def_dim(ncid,dim_time,nf90_unlimited,dimid))
 if(compat_fire_grid)then
-  call check(nf90_def_dim(ncid,dim_fire_x,(grid%natmx+1)*grid%sr_x,dimid))
-  call check(nf90_def_dim(ncid,dim_fire_y,(grid%natmy+1)*grid%sr_y,dimid))
+  call check(nf90_def_dim(ncid,dim_fire_x,(info%natmx+1)*info%sr_x,dimid))
+  call check(nf90_def_dim(ncid,dim_fire_y,(info%natmy+1)*info%sr_y,dimid))
 else
-  call check(nf90_def_dim(ncid,dim_fire_x,grid%nfirex,dimid))
-  call check(nf90_def_dim(ncid,dim_fire_y,grid%nfirey,dimid))
+  call check(nf90_def_dim(ncid,dim_fire_x,info%nfirex,dimid))
+  call check(nf90_def_dim(ncid,dim_fire_y,info%nfirey,dimid))
 endif
-call check(nf90_def_dim(ncid,dim_atm_x,grid%natmx,dimid))
-call check(nf90_def_dim(ncid,dim_atm_y,grid%natmy,dimid))
-call check(nf90_def_dim(ncid,dim_atm_z,grid%natmz,dimid))
-call check(nf90_def_dim(ncid,dim_atm_x_s,grid%natmx+1,dimid))
-call check(nf90_def_dim(ncid,dim_atm_y_s,grid%natmy+1,dimid))
-call check(nf90_def_dim(ncid,dim_atm_z_s,grid%natmz+1,dimid))
+call check(nf90_def_dim(ncid,dim_atm_x,info%natmx,dimid))
+call check(nf90_def_dim(ncid,dim_atm_y,info%natmy,dimid))
+call check(nf90_def_dim(ncid,dim_atm_z,info%natmz,dimid))
+call check(nf90_def_dim(ncid,dim_atm_x_s,info%natmx+1,dimid))
+call check(nf90_def_dim(ncid,dim_atm_y_s,info%natmy+1,dimid))
+call check(nf90_def_dim(ncid,dim_atm_z_s,info%natmz+1,dimid))
 call check(nf90_def_dim(ncid,'DateStrLen',12,dimid))
 
 ! define global attributes
-call check(nf90_put_att(ncid,nf90_global,'DX',grid%dx))
-call check(nf90_put_att(ncid,nf90_global,'DY',grid%dy))
-call check(nf90_put_att(ncid,nf90_global,'DT',grid%dt))
+call check(nf90_put_att(ncid,nf90_global,'DX',info%dx))
+call check(nf90_put_att(ncid,nf90_global,'DY',info%dy))
+call check(nf90_put_att(ncid,nf90_global,'DT',info%dt))
 call check(nf90_put_att(ncid,nf90_global,'STANDALONE_DRIVER',1))
 
 call check(nf90_enddef(ncid))
@@ -136,7 +137,7 @@ end subroutine create_dim_attr
 !***
 !
 
-subroutine create_output_file(filename,grid)
+subroutine create_output_file(filename,info)
 
 !*** Create a file containing meta-data suitable for output of this simulation.
 !    Only creates dimensions, variables, and attributes... does not populate
@@ -146,14 +147,14 @@ implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename  ! filename to create
-type(grid_info),intent(in)::grid       ! grid information structure
+type(grid_info),intent(in)::info       ! grid information structure
 
 !*** local
 integer::ncid,dimid,timeid,strlenid,varid
 
 !*** executable
 
-call create_dim_attr(filename,grid)
+call create_dim_attr(filename,info)
 
 call check(nf90_open(filename,nf90_write,ncid))
 call check(nf90_inq_dimid(ncid,'DateStrLen',strlenid))
@@ -237,7 +238,7 @@ end subroutine define_var
 !***
 !
 
-subroutine write_inputs(filename,input,grid)
+subroutine write_inputs(filename,input,info)
 implicit none
 
 ! write simulation input file in a way compatible 
@@ -246,14 +247,14 @@ implicit none
 !*** arguments
 character(len=*),intent(in)::filename
 type(input_vars),intent(in)::input
-type(grid_info),intent(in)::grid
+type(grid_info),intent(in)::info
 
 !*** local
 integer::ncid,varid
 integer,dimension(4)::s,c
 
 !*** executable
-call create_dim_attr(filename,grid)
+call create_dim_attr(filename,info)
 call define_var(filename,var_nfuel_cat,dim_fire,'','')
 call define_var(filename,var_ux,dim_atm_u,'','')
 call define_var(filename,var_uy,dim_atm_v,'','')
@@ -265,8 +266,8 @@ call check(nf90_open(filename,nf90_write,ncid))
 
 s(:)=1
 c(:)=1
-c(1)=grid%nfirex
-c(2)=grid%nfirey
+c(1)=info%nfirex
+c(2)=info%nfirey
 
 call check(nf90_inq_varid(ncid,var_nfuel_cat,varid))
 call check(nf90_put_var(ncid,varid,input%nfuel_cat,start=s(1:3),count=c(1:3)))
@@ -277,14 +278,14 @@ call check(nf90_put_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
 call check(nf90_inq_varid(ncid,var_zsf,varid))
 call check(nf90_put_var(ncid,varid,input%zsf,start=s(1:3),count=c(1:3)))
 
-c(1)=grid%natmx+1
-c(2)=grid%natmy
+c(1)=info%natmx+1
+c(2)=info%natmy
 
 call check(nf90_inq_varid(ncid,var_ux,varid))
 call check(nf90_put_var(ncid,varid,input%vx,start=s,count=c))
 
-c(1)=grid%natmx
-c(2)=grid%natmy+1
+c(1)=info%natmx
+c(2)=info%natmy+1
 
 call check(nf90_inq_varid(ncid,var_uy,varid))
 call check(nf90_put_var(ncid,varid,input%vy,start=s,count=c))
@@ -356,13 +357,13 @@ end subroutine write_vars
 !***
 !
 
-subroutine set_grid_from_file(filename,grid)
+subroutine set_info_from_file(filename,info)
 ! get grid sizes from input file
 implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename
-type(grid_info),intent(out)::grid
+type(grid_info),intent(out)::info
 
 !*** local
 integer::ncid,it
@@ -382,48 +383,49 @@ call check(nf90_inquire_dimension(ncid,fdimid(3),len=it))
 if(it.ne.1)then
   call crash('invalid number of time steps in input file, must be 1')
 endif
-call check(nf90_inquire_dimension(ncid,fdimid(2),len=grid%nfirey))
-call check(nf90_inquire_dimension(ncid,fdimid(1),len=grid%nfirex))
-call check(nf90_inquire_dimension(ncid,adimid(2),len=grid%natmy))
-call check(nf90_inquire_dimension(ncid,adimid(1),len=grid%natmx))
-call check(nf90_inquire_dimension(ncid,adimid(3),len=grid%natmz))
+call check(nf90_inquire_dimension(ncid,fdimid(2),len=info%nfirey))
+call check(nf90_inquire_dimension(ncid,fdimid(1),len=info%nfirex))
+call check(nf90_inquire_dimension(ncid,adimid(2),len=info%natmy))
+call check(nf90_inquire_dimension(ncid,adimid(1),len=info%natmx))
+call check(nf90_inquire_dimension(ncid,adimid(3),len=info%natmz))
 
-call check(nf90_get_att(ncid,nf90_global,'DX',grid%dx))
-call check(nf90_get_att(ncid,nf90_global,'DY',grid%dy))
-call check(nf90_get_att(ncid,nf90_global,'DT',grid%dt))
+call check(nf90_get_att(ncid,nf90_global,'DX',info%dx))
+call check(nf90_get_att(ncid,nf90_global,'DY',info%dy))
+call check(nf90_get_att(ncid,nf90_global,'DT',info%dt))
 
 if(compat_fire_grid)then
-  grid%sr_x=grid%nfirex/(grid%natmx+1)
-  grid%sr_y=grid%nfirey/(grid%natmy+1)
-  if( (grid%natmx+1)*grid%sr_x .ne. grid%nfirex .or. &
-      (grid%natmy+1)*grid%sr_y .ne. grid%nfirey)then
+  info%sr_x=info%nfirex/(info%natmx+1)
+  info%sr_y=info%nfirey/(info%natmy+1)
+  if( (info%natmx+1)*info%sr_x .ne. info%nfirex .or. &
+      (info%natmy+1)*info%sr_y .ne. info%nfirey)then
       call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
   endif
-  grid%nfirex=grid%natmx*grid%sr_x
-  grid%nfirey=grid%natmy*grid%sr_y
+  info%nfirex=info%natmx*info%sr_x
+  info%nfirey=info%natmy*info%sr_y
 else
-  grid%sr_x=grid%nfirex/grid%natmx
-  grid%sr_y=grid%nfirey/grid%natmy
-  if( grid%natmx*grid%sr_x .ne. grid%nfirex .or. &
-      grid%natmy*grid%sr_y .ne. grid%nfirey)then
+  info%sr_x=info%nfirex/info%natmx
+  info%sr_y=info%nfirey/info%natmy
+  if( info%natmx*info%sr_x .ne. info%nfirex .or. &
+      info%natmy*info%sr_y .ne. info%nfirey)then
       call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
   endif
 endif
 call check(nf90_close(ncid))
-end subroutine set_grid_from_file
+end subroutine set_info_from_file
 
 !
 !***
 !
 
-subroutine read_vars(filename,input,grid)
+subroutine read_vars(filename,input,info,grid)
 ! read all variables from input file
 implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename
 type(input_vars),intent(inout)::input
-type(grid_info),intent(in)::grid
+type(grid_info),intent(in)::info
+type(domain),intent(inout)::grid
 
 !*** local
 integer::ncid,varid,ierr
@@ -434,8 +436,8 @@ real,dimension(:,:),allocatable::u,v
 call check(nf90_open(filename,nf90_nowrite,ncid))
 s(:)=1
 c(:)=1
-c(1)=grid%nfirex
-c(2)=grid%nfirey
+c(1)=info%nfirex
+c(2)=info%nfirey
 call check(nf90_inq_varid(ncid,var_nfuel_cat,varid))
 call check(nf90_get_var(ncid,varid,input%nfuel_cat,start=s(1:3),count=c(1:3)))
 call check(nf90_inq_varid(ncid,var_dzdxf,varid))
@@ -443,54 +445,54 @@ call check(nf90_get_var(ncid,varid,input%dzdxf,start=s(1:3),count=c(1:3)))
 call check(nf90_inq_varid(ncid,var_dzdyf,varid))
 call check(nf90_get_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
 
-allocate(u(0:grid%natmx+2,0:grid%natmy+2),v(0:grid%natmx+2,0:grid%natmy+2),stat=ierr)
+allocate(u(0:info%natmx+2,0:info%natmy+2),v(0:info%natmx+2,0:info%natmy+2),stat=ierr)
 if(ierr.ne.0)call crash('memory allocation error')
 
-c(1)=grid%natmx+1
-c(2)=grid%natmy
+c(1)=info%natmx+1
+c(2)=info%natmy
 c(3)=1
 c(4)=1
 
 call check(nf90_inq_varid(ncid,var_ux,varid))
-call check(nf90_get_var(ncid,varid,u(1:grid%natmx+1,1:grid%natmy),start=s,count=c))
+call check(nf90_get_var(ncid,varid,u(1:info%natmx+1,1:info%natmy),start=s,count=c))
 
-c(1)=grid%natmx
-c(2)=grid%natmy+1
+c(1)=info%natmx
+c(2)=info%natmy+1
 c(3)=1
 c(4)=1
 
 call check(nf90_inq_varid(ncid,var_uy,varid))
-call check(nf90_get_var(ncid,varid,v(1:grid%natmx,1:grid%natmy+1),start=s,count=c))
+call check(nf90_get_var(ncid,varid,v(1:info%natmx,1:info%natmy+1),start=s,count=c))
 
   call continue_at_boundary(1,0,0.,       &
-          0,grid%natmx+2,0,grid%natmy+2,  &
-          1,grid%natmx,1,grid%natmy+1,    &
-          1,grid%natmx,1,grid%natmy+1,    &
-          1,grid%natmx,1,grid%natmy+1,    &
+          0,info%natmx+2,0,info%natmy+2,  &
+          1,info%natmx,1,info%natmy+1,    &
+          1,info%natmx,1,info%natmy+1,    &
+          1,info%natmx,1,info%natmy+1,    &
           v)
 
   call continue_at_boundary(0,1,0.,       &
-          0,grid%natmx+2,0,grid%natmy+2,  &
-          1,grid%natmx+1,1,grid%natmy,    &
-          1,grid%natmx+1,1,grid%natmy,    &
-          1,grid%natmx+1,1,grid%natmy,    &
+          0,info%natmx+2,0,info%natmy+2,  &
+          1,info%natmx+1,1,info%natmy,    &
+          1,info%natmx+1,1,info%natmy,    &
+          1,info%natmx+1,1,info%natmy,    &
           u)
 
 
-  call interpolate_2d(0,grid%natmx+2,0,grid%natmy+2,         &
-                      1,grid%natmx+1,0,grid%natmy+1,         &
-                      1,grid%nfirex,1,grid%nfirey,           &
-                      1,grid%nfirex,1,grid%nfirey,           &
-                      grid%sr_x,grid%sr_y,                   &
-                      1.,1.,.5,1-.5+(grid%sr_y)*.5,          &
+  call interpolate_2d(0,info%natmx+2,0,info%natmy+2,         &
+                      1,info%natmx+1,0,info%natmy+1,         &
+                      1,info%nfirex,1,info%nfirey,           &
+                      1,info%nfirex,1,info%nfirey,           &
+                      info%sr_x,info%sr_y,                   &
+                      1.,1.,.5,1-.5+(info%sr_y)*.5,          &
                       u,input%vx)
 
-  call interpolate_2d(0,grid%natmx+2,0,grid%natmy+2,         &
-                      0,grid%natmx+1,1,grid%natmy+1,         &
-                      1,grid%nfirex,1,grid%nfirey,           &
-                      1,grid%nfirex,1,grid%nfirey,           &
-                      grid%sr_x,grid%sr_y,                   &
-                      1.,1.,1-.5+(grid%sr_x)*.5,.5,          &
+  call interpolate_2d(0,info%natmx+2,0,info%natmy+2,         &
+                      0,info%natmx+1,1,info%natmy+1,         &
+                      1,info%nfirex,1,info%nfirey,           &
+                      1,info%nfirex,1,info%nfirey,           &
+                      info%sr_x,info%sr_y,                   &
+                      1.,1.,1-.5+(info%sr_x)*.5,.5,          &
                       v,input%vy)
 
 deallocate(u,v,stat=ierr)

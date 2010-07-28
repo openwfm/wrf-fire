@@ -7,6 +7,34 @@ module module_model_constants
    REAL   , PARAMETER :: reradius     = 1./6370.0e03
 end module module_model_constants
 
+module module_domain
+   integer, parameter:: max_tiles=10
+   type domain
+      ! passed to the rate of spread calculation
+      real, pointer, dimension(:,:)::uf,vf,  &                 ! winds on the fire mesh
+                            zsf,dzdxf,dzdyf, &                 ! terrain height and gradient
+                            bbb,betafl,phiwc,r_0,fgip          ! fire spread formula coefficients 
+      integer, pointer, dimension(:,:)::ischap                 ! fire spread formula coefficients
+      real:: sr_x, sr_y                                        ! atmosphere/fire refinement ratio
+      integer::itimestep                                       ! time step number
+      integer:: num_tiles                                      ! parallel execution tiles info
+      integer, dimension(max_tiles):: i_start,i_end,j_start,j_end
+      real:: dt,dx,dy                                          ! time and space stepsizes
+      real:: u_frame,v_frame
+      real, pointer, dimension(:,:,:)::u_2,v_2                 ! wind on atmospheric mesh
+      real, pointer, dimension(:,:)::ht                        ! terrain height 
+      real, pointer, dimension(:,:)::xlong,xlat                ! nodal coordinates 
+      real, pointer, dimension(:,:)::grnhfx,grnqfx,canhfx,canqfx ! out redundant arrays, atm grid
+      real, pointer, dimension(:,:)::lfn,tign_g,fuel_frac,   &   ! fire model state, fire grid
+            lfn_out,fire_area,                             &   ! fire model auxiliary
+            fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,               &   ! fire model outputs
+            ros,                                           &   ! rate of spread - for diagnostics
+            fxlong,fxlat,                                  &   ! fire mesh nodes coordinates
+            nfuel_cat,                                     &   ! input, or internal for safekeeping
+            fuel_time                                          ! fuel coefficient 
+   end type domain
+end module module_domain
+
 module module_wrf_error
 contains
 

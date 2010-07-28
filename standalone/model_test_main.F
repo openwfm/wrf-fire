@@ -10,12 +10,15 @@ use module_fr_sfire_phys
 contains
 
 subroutine main_sub
-use wrf_netcdf, only : grid_info, set_grid_from_file, inputfile, &
+use module_domain, only: domain
+use wrf_netcdf, only : grid_info, set_info_from_file, inputfile, &
                        create_output_file,write_vars,grid_info,output_vars, &
                        input_vars,read_vars
 implicit none
 
 !*** declarations
+
+type(domain)::grid    ! domain, compatible with wrf
 
 real:: time_start     ! time control
 
@@ -58,7 +61,7 @@ integer:: i,j,istep,ifun,ifun_start
 character(len=*),parameter::filename='fire_output.nc'
 type(output_vars)::output                ! output arrays
 type(input_vars)::input                  ! input arrays
-type(grid_info)::grid                    ! dimensions, grid controls
+type(grid_info)::info                    ! dimensions, grid controls
 type(grid_config_rec_type)::config_flags ! for the namelist
 
 !*** executable
@@ -67,14 +70,14 @@ type(grid_config_rec_type)::config_flags ! for the namelist
 fire_print_file=0
 
 call read_namelist(config_flags)
-call set_grid_from_file(inputfile,grid)
+call set_info_from_file(inputfile,info)
 
 ! the following code mimics subroutine sfire_driver_em in file
 ! module_fr_sfire_driver.F but we do not have complete WRF data 
 ! structures here and need to do things slightly differently
 
-nx=grid%nfirex
-ny=grid%nfirey
+nx=info%nfirex
+ny=info%nfirey
 fdx=grid%dx/grid%sr_x
 fdy=grid%dy/grid%sr_y
 
@@ -103,35 +106,43 @@ jfps=1
 jfpe=ny
 
 ! coefficoent arrays to be passed to spread formulas, constant after initialized
-allocate(fp%vx(ifms:ifme,jfms:jfme))              ! fire winds
-allocate(fp%vy(ifms:ifme,jfms:jfme))              ! fire winds
-allocate(fp%zsf(ifms:ifme,jfms:jfme))             ! terrain height
-allocate(fp%dzdxf(ifms:ifme,jfms:jfme))           ! terrain grad
-allocate(fp%dzdyf(ifms:ifme,jfms:jfme))           ! terrain grad
-allocate(fp%bbb(ifms:ifme,jfms:jfme))             ! spread formula coeff
-allocate(fp%betafl(ifms:ifme,jfms:jfme))          ! spread formula coeff
-allocate(fp%phiwc(ifms:ifme,jfms:jfme))           ! spread formula coeff
-allocate(fp%r_0(ifms:ifme,jfms:jfme))             ! spread formula coeff
-allocate(fp%fgip(ifms:ifme,jfms:jfme))            ! spread formula coeff
-allocate(fp%ischap(ifms:ifme,jfms:jfme))          ! spread formula coeff
+allocate(grid%uf(ifms:ifme,jfms:jfme))              ! fire winds
+allocate(grid%vf(ifms:ifme,jfms:jfme))              ! fire winds
+allocate(grid%zsf(ifms:ifme,jfms:jfme))             ! terrain height
+allocate(grid%dzdxf(ifms:ifme,jfms:jfme))           ! terrain grad
+allocate(grid%dzdyf(ifms:ifme,jfms:jfme))           ! terrain grad
+allocate(grid%bbb(ifms:ifme,jfms:jfme))             ! spread formula coeff
+allocate(grid%betafl(ifms:ifme,jfms:jfme))          ! spread formula coeff
+allocate(grid%phiwc(ifms:ifme,jfms:jfme))           ! spread formula coeff
+allocate(grid%r_0(ifms:ifme,jfms:jfme))             ! spread formula coeff
+allocate(grid%fgip(ifms:ifme,jfms:jfme))            ! spread formula coeff
+allocate(grid%ischap(ifms:ifme,jfms:jfme))          ! spread formula coeff
+allocate(grid%fxlong(ifms:ifme,jfms:jfme))          ! 
+allocate(grid%fxlat(ifms:ifme,jfms:jfme))          ! 
+allocate(grid%fgrnhfx(ifms:ifme,jfms:jfme))          ! 
+allocate(grid%fgrnqfx(ifms:ifme,jfms:jfme))          ! 
+allocate(grid%fcanhfx(ifms:ifme,jfms:jfme))          ! 
+allocate(grid%fcanqfx(ifms:ifme,jfms:jfme))          ! 
+allocate(grid%nfuel_cat(ifms:ifme,jfms:jfme))          ! 
+allocate(grid%fuel_time(ifms:ifme,jfms:jfme))          ! 
 
 ! other coefficient arrays
-allocate(fuel_time(ifms:ifme,jfms:jfme)) 
-allocate(coord_xf(ifms:ifme,jfms:jfme)) 
-allocate(coord_yf(ifms:ifme,jfms:jfme)) 
-allocate(nfuel_cat(ifms:ifme,jfms:jfme)) 
+allocate(grid%fuel_time(ifms:ifme,jfms:jfme)) 
+allocate(grid%fxlong(ifms:ifme,jfms:jfme)) 
+allocate(grid%fxlat(ifms:ifme,jfms:jfme)) 
+allocate(grid%nfuel_cat(ifms:ifme,jfms:jfme)) 
 
 ! model state 
-allocate(lfn(ifms:ifme,jfms:jfme)) 
-allocate(tign(ifms:ifme,jfms:jfme)) 
-allocate(fuel_frac(ifms:ifme,jfms:jfme)) 
-allocate(fire_area(ifms:ifme,jfms:jfme)) 
-allocate(grnhfx(ifms:ifme,jfms:jfme)) 
-allocate(grnqfx(ifms:ifme,jfms:jfme)) 
+allocate(grid%lfn(ifms:ifme,jfms:jfme)) 
+allocate(grid%tign_g(ifms:ifme,jfms:jfme)) 
+allocate(grid%fuel_frac(ifms:ifme,jfms:jfme)) 
+allocate(grid%fire_area(ifms:ifme,jfms:jfme)) 
+allocate(grid%grnhfx(ifms:ifme,jfms:jfme)) 
+allocate(grid%grnqfx(ifms:ifme,jfms:jfme)) 
 
 ! misc variable arrays
-allocate(lfn_out(ifms:ifme,jfms:jfme)) 
-allocate(ros(ifms:ifme,jfms:jfme)) 
+allocate(grid%lfn_out(ifms:ifme,jfms:jfme)) 
+allocate(grid%ros(ifms:ifme,jfms:jfme)) 
 
 ! divide up for parallel execution
 call set_tiles(2,2,ifps,ifpe,jfps,jfpe,num_tiles,if_start,if_end,jf_start,jf_end)
@@ -140,7 +151,7 @@ print *,'mesh size in cells: ',ifps,ifpe,jfps,jfpe
 print *,'array allocation:   ',ifms,ifme,jfms,jfme
 
 ! start output file
-call create_output_file(filename,grid)
+call create_output_file(filename,info)
 
 ! read input file
 input%nfuel_cat=>nfuel_cat(ifps:ifpe,jfps:jfpe)
@@ -150,7 +161,7 @@ input%dzdyf=>fp%dzdyf(ifps:ifpe,jfps:jfpe)
 input%vx=>fp%vx(ifps:ifpe,jfps:jfpe)
 input%vy=>fp%vy(ifps:ifpe,jfps:jfpe)
 
-call read_vars(inputfile,input,grid)
+call read_vars(inputfile,input,info,grid)
 
 sm=ifpe-ifps+1
 sn=jfpe-jfps+1

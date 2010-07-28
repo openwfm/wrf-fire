@@ -93,9 +93,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 ! Driver layer modules
     USE module_domain
     USE module_configure
-    USE module_driver_constants
-    USE module_machine
-    USE module_tiles
+!    USE module_driver_constants
+!    USE module_machine
+!    USE module_tiles
 #ifdef DM_PARALLEL
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
     USE module_comm_dm   , ONLY : halo_fire_lfn_sub,halo_fire_longlat_sub,halo_fire_ht_sub   &
@@ -314,7 +314,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fuel_time,                                & ! save constant internal data, fire grid
     fp                                           & ! fire params
     )
-USE module_dm, only:wrf_dm_maxval
+USE module_dm, only:wrf_dm_maxval_integer
 
 implicit none
 
@@ -688,7 +688,7 @@ if (ifun.eq.3)then
         enddo
 #ifdef DM_PARALLEL
         call message('sfire_driver_phys: checking ignitions, collect counts')
-        call wrf_dm_maxval(ignited_patch(i),idex,jdex)
+        call wrf_dm_maxval_integer(ignited_patch(i),idex,jdex)
         call message('sfire_driver_phys: collected')
 #endif
         if(ignited_patch(i).eq.0)then
