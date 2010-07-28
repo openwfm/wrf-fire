@@ -401,7 +401,7 @@ enddo
 
 if(nerr.gt.1)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-    write(msg,'(a,i6)')'set_fire_params: WARNING: fuel category 0 replaced in',nerr,' cells'
+    write(msg,'(a,i6,a)')'set_fire_params: WARNING: fuel category 0 replaced in',nerr,' cells'
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 endif
