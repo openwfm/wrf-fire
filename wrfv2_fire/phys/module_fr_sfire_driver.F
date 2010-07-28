@@ -252,7 +252,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             lfn_out,                                      & ! work - one timestep    
-            grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
             grid%ros,                                   & ! rate of spread
@@ -307,7 +306,6 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
     lfn_out,                                & ! fire wind velocities, out level set function    
-    rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
     ros,                                          &
@@ -378,9 +376,6 @@ real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
 
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
     fire_area                                        ! fraction of each cell burning
-
-real, intent(out), dimension(ims:ime, kms:kme, jms:jme):: &
-    rthfrten,rqvfrten                              ! temperature and humidity tendencies (atm grid)
 
 real, intent(out), dimension(ims:ime, jms:jme):: &  ! redundant arrays, for display purposes only (atm grid)
     grnhfx,                                      &  ! heat flux from ground fire (W/m^2) 
@@ -672,15 +667,6 @@ do ij=1,num_tiles
             enddo
         enddo
 
-        do j=jts,jte
-            do k=kts,min(kte+1,kde)
-               do i=its,ite
-                   rthfrten(i,k,j)=0.
-                   rqvfrten(i,k,j)=0.
-               enddo
-            enddo
-        enddo
-
        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
 
@@ -739,22 +725,11 @@ elseif(ifun.eq.6)then
     if(pid.gt.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
-        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',pid)
-        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)
     endif
 #endif
-    kpe1=min(kps+1,kpe)
-    !kpe1=kps-1
-    do k=kts,min(kte,kts+3)
-!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-        write(kk,'(i2)')k
-!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
-        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,kk//'driver_phys:rthfrten')
-        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,kk//'driver_phys:rqvfrten')
-    enddo
 endif
 
 end subroutine sfire_driver_phys
