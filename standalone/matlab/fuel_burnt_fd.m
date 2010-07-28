@@ -142,7 +142,7 @@ else
                         c=b/a;
                         u(1)=u(1)*c;
                         u(2)=u(2)*c;
-                        u(3)=u(3)*c+tnow;
+                        u(3)=u(3)*c;
     u=u';
     nr=sqrt(u(1)*u(1)+u(2)*u(2));
     c=u(1)/nr;
