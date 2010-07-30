@@ -42,6 +42,9 @@ NAMELIST= \
 
 #.PHONY: all
 
+
+default: model_test_main.exe 
+
 all: model_test_main.exe model_test_init.exe
 
 model_test_main.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)

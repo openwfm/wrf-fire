@@ -1,4 +1,4 @@
-!*** A simple output module for wrf-fire standalone that produces output 
+!*** A simple output module for wrf-fire standalone that produces output  READING 
 !    files and reads input files that are somewhat compatible with wrf files
 !
 
@@ -45,19 +45,19 @@ character(len=nf90_max_name),parameter::                        &
                               var_tign='TIGN_G',                &
                               unit_tign='',                     &
                               desc_tign='',                     &
-                              var_vx='FX',                      &
-                              unit_vx='',                       &
-                              desc_vx='',                       &
-                              var_vy='FY',                      &
-                              unit_vy='',                       &
-                              desc_vy='',                       &
+                              var_uf='UF',                      &
+                              unit_uf='',                       &
+                              desc_uf='',                       &
+                              var_vf='VF',                      &
+                              unit_vf='',                       &
+                              desc_vf='',                       &
                               var_grnhfx='FGRNHFX',             &
                               unit_grnhfx='',                   &
                               desc_grnhfx=''
 character(len=nf90_max_name),parameter::                        &
                               var_nfuel_cat='NFUEL_CAT',        &
-                              var_ux='U',                       &
-                              var_uy='V',                       &
+                              var_u='U',                       &
+                              var_v='V',                       &
                               var_dzdxf='DZDXF',                &
                               var_dzdyf='DZDYF',                &
                               var_zsf='ZSF'
@@ -72,11 +72,12 @@ end type
 
 ! pointer to all variables being written (to simplify interface)
 type output_vars
-  real,dimension(:,:),pointer::lfn,tign,vx,vy,grnhfx
+  real,dimension(:,:),pointer::lfn,tign,grnhfx
 end type
 
 type input_vars
-  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,vx,vy,zsf
+  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf
+  real,dimension(:,:,:),pointer::u,v
 end type
 
 contains
@@ -169,8 +170,6 @@ call check(nf90_close(ncid))
 ! create all of the output variables
 call define_var(filename,var_lfn,dim_fire,unit_lfn,desc_lfn)
 call define_var(filename,var_tign,dim_fire,unit_tign,desc_tign)
-call define_var(filename,var_vx,dim_fire,unit_vx,desc_vx)
-call define_var(filename,var_vy,dim_fire,unit_vy,desc_vy)
 call define_var(filename,var_grnhfx,dim_fire,unit_grnhfx,desc_grnhfx)
 
 end subroutine create_output_file
@@ -256,8 +255,8 @@ integer,dimension(4)::s,c
 !*** executable
 call create_dim_attr(filename,info)
 call define_var(filename,var_nfuel_cat,dim_fire,'','')
-call define_var(filename,var_ux,dim_atm_u,'','')
-call define_var(filename,var_uy,dim_atm_v,'','')
+call define_var(filename,var_u,dim_atm_u,'','')
+call define_var(filename,var_v,dim_atm_v,'','')
 call define_var(filename,var_dzdxf,dim_fire,'','')
 call define_var(filename,var_dzdyf,dim_fire,'','')
 call define_var(filename,var_zsf,dim_fire,'','')
@@ -281,14 +280,14 @@ call check(nf90_put_var(ncid,varid,input%zsf,start=s(1:3),count=c(1:3)))
 c(1)=info%natmx+1
 c(2)=info%natmy
 
-call check(nf90_inq_varid(ncid,var_ux,varid))
-call check(nf90_put_var(ncid,varid,input%vx,start=s,count=c))
+call check(nf90_inq_varid(ncid,var_uf,varid))
+call check(nf90_put_var(ncid,varid,input%uf,start=s,count=c))
 
 c(1)=info%natmx
 c(2)=info%natmy+1
 
-call check(nf90_inq_varid(ncid,var_uy,varid))
-call check(nf90_put_var(ncid,varid,input%vy,start=s,count=c))
+call check(nf90_inq_varid(ncid,var_vf,varid))
+call check(nf90_put_var(ncid,varid,input%vf,start=s,count=c))
 
 call check(nf90_close(ncid))
 
@@ -339,12 +338,6 @@ call check(nf90_put_var(ncid,varid,output%lfn,start=s,count=c))
 c(1:2)=(/size(output%tign,1),size(output%tign,2)/)
 call check(nf90_inq_varid(ncid,var_tign,varid))
 call check(nf90_put_var(ncid,varid,output%tign,start=s,count=c))
-c(1:2)=(/size(output%vx,1),size(output%vx,2)/)
-call check(nf90_inq_varid(ncid,var_vx,varid))
-call check(nf90_put_var(ncid,varid,output%vx,start=s,count=c))
-c(1:2)=(/size(output%vy,1),size(output%vy,2)/)
-call check(nf90_inq_varid(ncid,var_vy,varid))
-call check(nf90_put_var(ncid,varid,output%vy,start=s,count=c))
 c(1:2)=(/size(output%grnhfx,1),size(output%grnhfx,2)/)
 call check(nf90_inq_varid(ncid,var_grnhfx,varid))
 call check(nf90_put_var(ncid,varid,output%grnhfx,start=s,count=c))
@@ -354,7 +347,7 @@ call check(nf90_close(ncid))
 end subroutine write_vars
 
 !
-!***
+!*** READING 
 !
 
 subroutine set_info_from_file(filename,info)
@@ -363,7 +356,7 @@ implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename
-type(grid_info),intent(out)::info
+type(grid_info),intent(inout)::info
 
 !*** local
 integer::ncid,it
@@ -417,7 +410,7 @@ end subroutine set_info_from_file
 !***
 !
 
-subroutine read_vars(filename,input,info,grid)
+subroutine read_vars(filename,info,input)
 ! read all variables from input file
 implicit none
 
@@ -425,12 +418,10 @@ implicit none
 character(len=*),intent(in)::filename
 type(input_vars),intent(inout)::input
 type(grid_info),intent(in)::info
-type(domain),intent(inout)::grid
 
 !*** local
 integer::ncid,varid,ierr
 integer,dimension(4)::s,c
-real,dimension(:,:),allocatable::u,v
 
 !*** executable
 call check(nf90_open(filename,nf90_nowrite,ncid))
@@ -445,58 +436,22 @@ call check(nf90_get_var(ncid,varid,input%dzdxf,start=s(1:3),count=c(1:3)))
 call check(nf90_inq_varid(ncid,var_dzdyf,varid))
 call check(nf90_get_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
 
-allocate(u(0:info%natmx+2,0:info%natmy+2),v(0:info%natmx+2,0:info%natmy+2),stat=ierr)
-if(ierr.ne.0)call crash('memory allocation error')
-
 c(1)=info%natmx+1
 c(2)=info%natmy
 c(3)=1
 c(4)=1
 
-call check(nf90_inq_varid(ncid,var_ux,varid))
-call check(nf90_get_var(ncid,varid,u(1:info%natmx+1,1:info%natmy),start=s,count=c))
+call check(nf90_inq_varid(ncid,var_u,varid))
+call check(nf90_get_var(ncid,varid,input%u,start=s,count=c))
 
 c(1)=info%natmx
 c(2)=info%natmy+1
 c(3)=1
 c(4)=1
 
-call check(nf90_inq_varid(ncid,var_uy,varid))
-call check(nf90_get_var(ncid,varid,v(1:info%natmx,1:info%natmy+1),start=s,count=c))
+call check(nf90_inq_varid(ncid,var_v,varid))
+call check(nf90_get_var(ncid,varid,input%v,start=s,count=c))
 
-  call continue_at_boundary(1,0,0.,       &
-          0,info%natmx+2,0,info%natmy+2,  &
-          1,info%natmx,1,info%natmy+1,    &
-          1,info%natmx,1,info%natmy+1,    &
-          1,info%natmx,1,info%natmy+1,    &
-          v)
-
-  call continue_at_boundary(0,1,0.,       &
-          0,info%natmx+2,0,info%natmy+2,  &
-          1,info%natmx+1,1,info%natmy,    &
-          1,info%natmx+1,1,info%natmy,    &
-          1,info%natmx+1,1,info%natmy,    &
-          u)
-
-
-  call interpolate_2d(0,info%natmx+2,0,info%natmy+2,         &
-                      1,info%natmx+1,0,info%natmy+1,         &
-                      1,info%nfirex,1,info%nfirey,           &
-                      1,info%nfirex,1,info%nfirey,           &
-                      info%sr_x,info%sr_y,                   &
-                      1.,1.,.5,1-.5+(info%sr_y)*.5,          &
-                      u,input%vx)
-
-  call interpolate_2d(0,info%natmx+2,0,info%natmy+2,         &
-                      0,info%natmx+1,1,info%natmy+1,         &
-                      1,info%nfirex,1,info%nfirey,           &
-                      1,info%nfirex,1,info%nfirey,           &
-                      info%sr_x,info%sr_y,                   &
-                      1.,1.,1-.5+(info%sr_x)*.5,.5,          &
-                      v,input%vy)
-
-deallocate(u,v,stat=ierr)
-if(ierr.ne.0)call crash('deallocation error')
 call check(nf90_close(ncid))
 end subroutine read_vars
 
