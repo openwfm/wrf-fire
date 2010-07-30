@@ -56,6 +56,12 @@ model_test_init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
 # for the order of generating modules
 
 model_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_driver.o \
+    wrf_fakes.o \
+    wrf_namelist.o \
+    wrf_netcdf.o
+
+module_fr_sfire_driver.o: $(MAKEFILE) \
     module_fr_sfire_model.o  \
     module_fr_sfire_util.o \
     wrf_namelist.o \

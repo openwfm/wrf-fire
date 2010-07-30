@@ -157,7 +157,7 @@ integer::ncid,dimid,timeid,strlenid,varid
 
 call create_dim_attr(filename,info)
 
-call check(nf90_open(filename,nf90_write,ncid))
+call ncopen(filename,nf90_write,ncid)
 call check(nf90_inq_dimid(ncid,'DateStrLen',strlenid))
 call check(nf90_inq_dimid(ncid,dim_time,timeid))
 
@@ -198,7 +198,7 @@ character(len=3)::stag
 
 !*** executable
 ! open the file
-call check(nf90_open(filename,nf90_write,ncid))
+call ncopen(filename,nf90_write,ncid)
 
 ! get dimension id's
 do i=1,size(dims)
@@ -261,7 +261,7 @@ call define_var(filename,var_dzdxf,dim_fire,'','')
 call define_var(filename,var_dzdyf,dim_fire,'','')
 call define_var(filename,var_zsf,dim_fire,'','')
 
-call check(nf90_open(filename,nf90_write,ncid))
+call ncopen(filename,nf90_write,ncid)
 
 s(:)=1
 c(:)=1
@@ -315,7 +315,7 @@ character(len=12)::timestr
 !*** executable
 
 ! open the file
-call check(nf90_open(filename,nf90_write,ncid))
+call ncopen(filename,nf90_write,ncid)
 
 ! get the current number of timeslices already written
 call check(nf90_inq_dimid(ncid,dim_time,dimid))
@@ -363,7 +363,7 @@ integer::ncid,it
 integer,dimension(4)::fdimid,adimid
 
 !*** executable
-call check(nf90_open(filename,nf90_nowrite,ncid))
+call ncopen(filename,nf90_nowrite,ncid)
 call check(nf90_inq_dimid(ncid,dim_time,fdimid(3)))
 adimid(4)=fdimid(3)
 call check(nf90_inq_dimid(ncid,dim_fire_x,fdimid(1)))
@@ -424,7 +424,7 @@ integer::ncid,varid,ierr
 integer,dimension(4)::s,c
 
 !*** executable
-call check(nf90_open(filename,nf90_nowrite,ncid))
+call ncopen(filename,nf90_nowrite,ncid)
 s(:)=1
 c(:)=1
 c(1)=info%nfirex
@@ -455,14 +455,29 @@ call check(nf90_get_var(ncid,varid,input%v,start=s,count=c))
 call check(nf90_close(ncid))
 end subroutine read_vars
 
-subroutine check(ncerr)
+subroutine check(ncerr,msg)
 implicit none
 integer,intent(in)::ncerr
+character(len=*), optional, intent(in)::msg
 if(ncerr.ne.nf90_noerr)then
-  print*,"Error calling NetCDF subroutine"
-  print*,trim(nf90_strerror(ncerr))
-  call crash("NETCDF ERROR")
+  write(6,'(2a)')"NetCDF error: ",trim(nf90_strerror(ncerr))
+  if(present(msg))then
+    call crash(msg)
+  else
+    call crash("NETCDF ERROR")
+  endif
 endif
-end subroutine 
+end subroutine check
+
+subroutine ncopen(filename,mode,ncid)
+!*** purpose: open netcdf file with an informative error message 
+implicit none
+!*** arguments
+character(len=*), intent(in):: filename
+integer, intent(in)::mode
+integer, intent(out):: ncid
+!*** executable
+call check(nf90_open(filename,mode,ncid),"Cannot open file "//trim(filename))
+end subroutine ncopen
 
 end module wrf_netcdf

@@ -123,6 +123,8 @@ allocate(grid%fcanhfx(ifms:ifme,jfms:jfme))          !
 allocate(grid%fcanqfx(ifms:ifme,jfms:jfme))          ! 
 
 ! atmosphere compatibility arrays
+allocate(grid%ht(ims:ime,jms:jme)) 
+allocate(grid%grnhfx(ims:ime,jms:jme)) 
 allocate(grid%grnhfx(ims:ime,jms:jme)) 
 allocate(grid%grnqfx(ims:ime,jms:jme)) 
 allocate(grid%u_2(ims:ime,jms:jme,kms:kme)) 
