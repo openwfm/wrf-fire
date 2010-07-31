@@ -32,7 +32,7 @@ module module_domain
       real, pointer, dimension(:,:)::  nfuel_cat               ! index to fuel data table
       ! nfuel_cat is expanded to the coefficient arrays below from the table in namelist.fire
       real, pointer, dimension(:,:)::bbb,betafl,phiwc,r_0,fgip ! fire spread formula coefficients 
-      integer, pointer, dimension(:,:)::ischap                 ! fire spread formula coefficients
+      real, pointer, dimension(:,:)::ischap                    ! fire spread formula coefficients
       real, pointer, dimension(:,:)::   fuel_time              ! fuel coefficient  
 
       ! mesh and housekeeping

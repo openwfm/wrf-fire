@@ -23,7 +23,7 @@ real,pointer,dimension(:,:):: zsf                  ! terrain height (m)
 real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
 real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0 ! spread formula coefficients
 real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
-integer,pointer,dimension(:,:):: ischap            ! 1 if chapparal
+real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
 end type fire_params
 
 ! use as
@@ -321,7 +321,7 @@ do j=jfts,jfte
      k=int( nfuel_cat(i,j) )
      if(k.eq.no_fuel_cat)then   ! no fuel 
         fp%fgip(i,j)=0.            ! no mass 
-        fp%ischap(i,j)=0
+        fp%ischap(i,j)=0.
         fp%betafl(i,j)=0.          ! to prevent division by zero
         fp%bbb(i,j)=1.             !
         fuel_time(i,j)=7./0.85  ! does not matter, just what was there before
@@ -603,7 +603,7 @@ else
     cor_slope=1.
 endif
 
-if (fp%ischap(i,j) .eq. 0) then            ! if not chaparral
+if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test for .eq. 0 for speed
     if (ibeh .eq. 1) then                ! use Rothermel formula
 !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
         spdms = max(speed,0.)          ! 
