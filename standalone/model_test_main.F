@@ -93,42 +93,42 @@ kpe=nz
 
 ! coefficoent arrays to be passed to spread formulas, constant after initialized
 ! inputs
-allocate(grid%uf(ifms:ifme,jfms:jfme))              ! fire winds
-allocate(grid%vf(ifms:ifme,jfms:jfme))              ! fire winds
-allocate(grid%zsf(ifms:ifme,jfms:jfme))             ! terrain height
-allocate(grid%dzdxf(ifms:ifme,jfms:jfme))           ! terrain grad
-allocate(grid%dzdyf(ifms:ifme,jfms:jfme))           ! terrain grad
-allocate(grid%fxlong(ifms:ifme,jfms:jfme))          ! 
-allocate(grid%fxlat(ifms:ifme,jfms:jfme))           !
-allocate(grid%nfuel_cat(ifms:ifme,jfms:jfme))          ! 
+call allocate2d(grid%uf,ifms,ifme,jfms,jfme)              ! fire winds
+call allocate2d(grid%vf,ifms,ifme,jfms,jfme)              ! fire winds
+call allocate2d(grid%zsf,ifms,ifme,jfms,jfme)             ! terrain height
+call allocate2d(grid%dzdxf,ifms,ifme,jfms,jfme)           ! terrain grad
+call allocate2d(grid%dzdyf,ifms,ifme,jfms,jfme)           ! terrain grad
+call allocate2d(grid%fxlong,ifms,ifme,jfms,jfme)          ! 
+call allocate2d(grid%fxlat,ifms,ifme,jfms,jfme)           !
+call allocate2d(grid%nfuel_cat,ifms,ifme,jfms,jfme)          ! 
 ! state
-allocate(grid%bbb(ifms:ifme,jfms:jfme))             ! spread formula coeff
-allocate(grid%betafl(ifms:ifme,jfms:jfme))          ! spread formula coeff
-allocate(grid%phiwc(ifms:ifme,jfms:jfme))           ! spread formula coeff
-allocate(grid%r_0(ifms:ifme,jfms:jfme))             ! spread formula coeff
-allocate(grid%fgip(ifms:ifme,jfms:jfme))            ! spread formula coeff
-allocate(grid%ischap(ifms:ifme,jfms:jfme))          ! spread formula coeff
-allocate(grid%fuel_time(ifms:ifme,jfms:jfme))        ! 
-allocate(grid%lfn(ifms:ifme,jfms:jfme)) 
-allocate(grid%tign_g(ifms:ifme,jfms:jfme)) 
-allocate(grid%fuel_frac(ifms:ifme,jfms:jfme)) 
-allocate(grid%fire_area(ifms:ifme,jfms:jfme)) 
-allocate(grid%lfn_out(ifms:ifme,jfms:jfme)) 
-allocate(grid%ros(ifms:ifme,jfms:jfme)) 
+call allocate2d(grid%bbb,ifms,ifme,jfms,jfme)             ! spread formula coeff
+call allocate2d(grid%betafl,ifms,ifme,jfms,jfme)          ! spread formula coeff
+call allocate2d(grid%phiwc,ifms,ifme,jfms,jfme)           ! spread formula coeff
+call allocate2d(grid%r_0,ifms,ifme,jfms,jfme)             ! spread formula coeff
+call allocate2d(grid%fgip,ifms,ifme,jfms,jfme)            ! spread formula coeff
+call allocate2d(grid%ischap,ifms,ifme,jfms,jfme)          ! spread formula coeff
+call allocate2d(grid%fuel_time,ifms,ifme,jfms,jfme)        ! 
+call allocate2d(grid%lfn,ifms,ifme,jfms,jfme) 
+call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme) 
+call allocate2d(grid%fuel_frac,ifms,ifme,jfms,jfme) 
+call allocate2d(grid%fire_area,ifms,ifme,jfms,jfme) 
+call allocate2d(grid%lfn_out,ifms,ifme,jfms,jfme) 
+call allocate2d(grid%ros,ifms,ifme,jfms,jfme) 
 
 ! output
-allocate(grid%fgrnhfx(ifms:ifme,jfms:jfme))          ! 
-allocate(grid%fgrnqfx(ifms:ifme,jfms:jfme))          ! 
-allocate(grid%fcanhfx(ifms:ifme,jfms:jfme))          ! 
-allocate(grid%fcanqfx(ifms:ifme,jfms:jfme))          ! 
+call allocate2d(grid%fgrnhfx,ifms,ifme,jfms,jfme)          ! 
+call allocate2d(grid%fgrnqfx,ifms,ifme,jfms,jfme)          ! 
+call allocate2d(grid%fcanhfx,ifms,ifme,jfms,jfme)          ! 
+call allocate2d(grid%fcanqfx,ifms,ifme,jfms,jfme)          ! 
 
 ! atmosphere compatibility arrays
-allocate(grid%ht(ims:ime,jms:jme)) 
-allocate(grid%grnhfx(ims:ime,jms:jme)) 
-allocate(grid%grnhfx(ims:ime,jms:jme)) 
-allocate(grid%grnqfx(ims:ime,jms:jme)) 
-allocate(grid%u_2(ims:ime,jms:jme,kms:kme)) 
-allocate(grid%v_2(ims:ime,jms:jme,kms:kme)) 
+call allocate2d(grid%ht,ims,ime,jms,jme) 
+call allocate2d(grid%grnhfx,ims,ime,jms,jme) 
+call allocate2d(grid%grnhfx,ims,ime,jms,jme) 
+call allocate2d(grid%grnqfx,ims,ime,jms,jme) 
+call allocate3d(grid%u_2,ims,ime,jms,jme,kms,kme) 
+call allocate3d(grid%v_2,ims,ime,jms,jme,kms,kme) 
 
 ! read input file
 input%nfuel_cat=>grid%nfuel_cat(ifps:ifpe,jfps:jfpe)
@@ -158,7 +158,7 @@ duration_s = config_flags%run_seconds           &
 nsteps = duration_s / dt  ! number of time steps
 
 ! divide up for shared memory parallel execution
-call set_tiles(2,2,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
+call set_tiles(1,1,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
 
 ! start output file
 call create_output_file(outputfile,info)
@@ -176,7 +176,7 @@ call sfire_driver_em ( grid , config_flags                          &
 do istep=1,nsteps
 ! run  model
    call sfire_driver_em ( grid , config_flags                          &
-            ,1,3,0                                                 &
+            ,4,6,0                                                  &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
@@ -255,6 +255,42 @@ if(ie.ne.0)then
     call crash('bad tile bounds')
 endif
 end subroutine check_tiles
+
+
+subroutine allocate2d(p,ims,ime,jms,jme) 
+!*** allocate a pointer with error checking and initialization
+implicit none
+!*** arguments
+real, pointer, intent(out), dimension(:,:)::p
+integer, intent(in):: ims,ime,jms,jme
+!*** local
+integer::err
+allocate(p(ims:ime,jms:jme),stat=err)
+if(err.ne.0)then
+   write(6,1)ims,ime,jms,jme
+1  format('allocate 2d bounds:',2(i6,':',i6,1x))
+   call crash('memory allocation failed')
+endif
+p=0.
+end subroutine allocate2d
+
+subroutine allocate3d(p,ims,ime,jms,jme,kms,kme) 
+!*** allocate a pointer with error checking and initialization
+implicit none
+!*** arguments
+real, pointer, intent(out), dimension(:,:,:)::p
+integer, intent(in):: ims,ime,jms,jme,kms,kme
+!*** local
+integer::err
+allocate(p(ims:ime,jms:jme,kms:kme),stat=err)
+if(err.ne.0)then
+   write(6,1)ims,ime,jms,jme,kms,kme
+1  format('allocate 3d bounds:',3(i6,':',i6,1x))
+   call crash('memory allocation failed')
+endif
+p=0.
+end subroutine allocate3d
+
 
 end module module_model_test
 
