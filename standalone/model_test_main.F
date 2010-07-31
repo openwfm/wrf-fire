@@ -79,7 +79,7 @@ jde=ny
 kds=1
 kde=ny
 ims=1-nhalo
-ime=nfx+nhalo
+ime=nx+nhalo
 jms=1-nhalo
 jme=ny+nhalo
 kms=1
@@ -128,8 +128,8 @@ call allocate2d(grid%grnhfx,ims,ime,jms,jme)
 call allocate2d(grid%grnqfx,ims,ime,jms,jme) 
 call allocate2d(grid%canhfx,ims,ime,jms,jme) 
 call allocate2d(grid%canqfx,ims,ime,jms,jme) 
-call allocate3d(grid%u_2,ims,ime,jms,jme,kms,kme) 
-call allocate3d(grid%v_2,ims,ime,jms,jme,kms,kme) 
+call allocate3d(grid%u_2,ims,ime,kms,kme,jms,jme) 
+call allocate3d(grid%v_2,ims,ime,kms,kme,jms,jme) 
 
 ! read input file
 input%nfuel_cat=>grid%nfuel_cat(ifps:ifpe,jfps:jfpe)
@@ -138,10 +138,16 @@ input%dzdxf    =>grid%dzdxf(ifps:ifpe,jfps:jfpe)
 input%dzdyf    =>grid%dzdyf(ifps:ifpe,jfps:jfpe)
 input%vf       =>grid%uf(ifps:ifpe,jfps:jfpe)
 input%uf       =>grid%vf(ifps:ifpe,jfps:jfpe)
-input%u        =>grid%u_2(ips:ipe,jps:jpe,kps:kpe)
-input%v        =>grid%v_2(ips:ipe,jps:jpe,kps:kpe)
+call allocate3d(input%u,ips,ipe,jps,jpe,kps,kpe)
+call allocate3d(input%v,ips,ipe,jps,jpe,kps,kpe)
 
 call read_vars(inputfile,info,input)
+
+! sfire uses wrf ordering of dimensions
+grid%u_2(ips:ipe,kps:kpe,jps:jpe)=reshape(input%u,(/nx,nz,ny/),order=(/1,3,2/))
+grid%v_2(ips:ipe,kps:kpe,jps:jpe)=reshape(input%v,(/nx,nz,ny/),order=(/1,3,2/))
+deallocate(input%u)
+deallocate(input%v)
 
 ! set the scalars in grid type
 grid%sr_x = info%sr_x
@@ -149,6 +155,9 @@ grid%sr_y = info%sr_y
 grid%dt = info%dt
 grid%dx = info%dx
 grid%dy = info%dy
+grid%itimestep=0
+grid%u_frame=0.
+grid%v_frame=0.
 
 ! time control
 dt=info%dt
@@ -166,7 +175,7 @@ call create_output_file(outputfile,info)
 
 ! initialize model
 call sfire_driver_em ( grid , config_flags                          &
-            ,1,3,0                                                 &
+            ,1,2,0                                                 &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
@@ -176,8 +185,9 @@ call sfire_driver_em ( grid , config_flags                          &
 
 do istep=1,nsteps
 ! run  model
+   grid%itimestep = istep
    call sfire_driver_em ( grid , config_flags                          &
-            ,4,6,0                                                  &
+            ,3,6,0                                                  &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
