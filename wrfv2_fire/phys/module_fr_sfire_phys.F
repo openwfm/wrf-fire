@@ -401,7 +401,7 @@ enddo
 
 if(nerr.gt.1)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-    write(msg,'(a,i6)')'set_fire_params: WARNING: fuel category 0 replaced in',nerr,' cells'
+    write(msg,'(a,i6,a)')'set_fire_params: WARNING: fuel category 0 replaced in',nerr,' cells'
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 endif
@@ -480,9 +480,11 @@ character(len=128)msg
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 
-if (ifuelread .eq. -1) then
-    call message('set_nfuel_cat: assuming nfuel_cat initialized elsewhere') 
+if (ifuelread .eq. -1 .or. ifuelread .eq. 2) then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+    call message('set_nfuel_cat: assuming nfuel_cat initialized already') 
     call message(msg)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
 else if (ifuelread .eq. 0) then
 !
     do j=jfts,jfte
