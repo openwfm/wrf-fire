@@ -125,8 +125,9 @@ call allocate2d(grid%fcanqfx,ifms,ifme,jfms,jfme)          !
 ! atmosphere compatibility arrays
 call allocate2d(grid%ht,ims,ime,jms,jme) 
 call allocate2d(grid%grnhfx,ims,ime,jms,jme) 
-call allocate2d(grid%grnhfx,ims,ime,jms,jme) 
 call allocate2d(grid%grnqfx,ims,ime,jms,jme) 
+call allocate2d(grid%canhfx,ims,ime,jms,jme) 
+call allocate2d(grid%canqfx,ims,ime,jms,jme) 
 call allocate3d(grid%u_2,ims,ime,jms,jme,kms,kme) 
 call allocate3d(grid%v_2,ims,ime,jms,jme,kms,kme) 
 
@@ -187,7 +188,7 @@ do istep=1,nsteps
     if(istep.le.10.or.mod(istep,10).eq.0)then
         output%lfn=>grid%lfn(ifps:ifpe,jfps:jfpe)
         output%tign=>grid%tign_g(ifps:ifpe,jfps:jfpe)
-        output%grnhfx=>grid%grnhfx(ifps:ifpe,jfps:jfpe)
+        output%fgrnhfx=>grid%fgrnhfx(ifps:ifpe,jfps:jfpe)
         call write_vars(outputfile,output,dt*istep)
     endif
 enddo

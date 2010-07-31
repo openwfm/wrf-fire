@@ -51,9 +51,9 @@ character(len=nf90_max_name),parameter::                        &
                               var_vf='VF',                      &
                               unit_vf='',                       &
                               desc_vf='',                       &
-                              var_grnhfx='FGRNHFX',             &
-                              unit_grnhfx='',                   &
-                              desc_grnhfx=''
+                              var_fgrnhfx='FGRNHFX',             &
+                              unit_fgrnhfx='',                   &
+                              desc_fgrnhfx=''
 character(len=nf90_max_name),parameter::                        &
                               var_nfuel_cat='NFUEL_CAT',        &
                               var_u='U',                       &
@@ -72,7 +72,7 @@ end type
 
 ! pointer to all variables being written (to simplify interface)
 type output_vars
-  real,dimension(:,:),pointer::lfn,tign,grnhfx
+  real,dimension(:,:),pointer::lfn,tign,fgrnhfx
 end type
 
 type input_vars
@@ -170,7 +170,7 @@ call check(nf90_close(ncid))
 ! create all of the output variables
 call define_var(filename,var_lfn,dim_fire,unit_lfn,desc_lfn)
 call define_var(filename,var_tign,dim_fire,unit_tign,desc_tign)
-call define_var(filename,var_grnhfx,dim_fire,unit_grnhfx,desc_grnhfx)
+call define_var(filename,var_fgrnhfx,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
 
 end subroutine create_output_file
 
@@ -338,11 +338,12 @@ call check(nf90_put_var(ncid,varid,output%lfn,start=s,count=c))
 c(1:2)=(/size(output%tign,1),size(output%tign,2)/)
 call check(nf90_inq_varid(ncid,var_tign,varid))
 call check(nf90_put_var(ncid,varid,output%tign,start=s,count=c))
-c(1:2)=(/size(output%grnhfx,1),size(output%grnhfx,2)/)
-call check(nf90_inq_varid(ncid,var_grnhfx,varid))
-call check(nf90_put_var(ncid,varid,output%grnhfx,start=s,count=c))
+c(1:2)=(/size(output%fgrnhfx,1),size(output%fgrnhfx,2)/)
+call check(nf90_inq_varid(ncid,var_fgrnhfx,varid))
+call check(nf90_put_var(ncid,varid,output%fgrnhfx,start=s,count=c))
 
 ! close file
+call latch
 call check(nf90_close(ncid))
 end subroutine write_vars
 
