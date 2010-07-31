@@ -1274,4 +1274,12 @@ else
 endif
 end function snode
 
+subroutine print_id
+character(len=128)::id,msg
+#include "sfire_id.inc"
+msg=id
+call message(msg)
+end subroutine print_id
+
+
 end module module_fr_sfire_util

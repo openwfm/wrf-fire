@@ -1,5 +1,5 @@
-! WRF:MEDIATION_LAYER:FIRE_MODEL
-
+! SFIRE - Spread fire model in WRF-Fire
+!
 !*** Jan Mandel August 2007 - July 2010 
 !*** email: Jan.Mandel@gmail.com
 
@@ -34,10 +34,11 @@
 ! Kondratenko.
 !
 ! The fire physics is adapted from an earlier code by Terry  
-! L. Clark, Janice L. Coen, and Don Latham. The coupling with WRF is 
-! adapted from a code by Ned Patton for coupling of the earlier fire
-! model with WRF. The changes in WRF infrastructure and support of
-! refined fire grid was provided by John Michalakes.
+! L. Clark, Janice L. Coen, and Don Latham [2]. The interface with 
+! WRF is adapted from a code by Ned Patton for coupling of the earlier 
+! fire model with WRF, based on the foundation outlined in [4].
+! The changes in WRF infrastructure and support of
+! refined fire grids were provided by John Michalakes.
 
 ! Jonathan D. Beezley has set up and maintained the WRF build and
 ! execution environment, provided software engineering infrastructure 
@@ -56,130 +57,28 @@
 ! 2004
 !
 ! [3] http://www.mmm.ucar.edu/wrf/OnLineTutorial/Introduction/index.html
-
-#define DEBUG_OUT
+!
+! [4] Edward G. Patton and Janice L. Coen, WRF-Fire: A Coupled 
+! Atmosphere-Fire Module for WRF, Preprints of Joint MM5/Weather 
+! Research and Forecasting Model Users' Workshop, Boulder, CO, 
+! June 22-25, 2004, pp. 221-223, NCAR
 
 module module_fr_sfire_driver
+! use this module for standalone call, you only need to provide some
+! mock-up wrf modules  
 
-use module_model_constants, only: cp,xlv,reradius,pi2
 use module_fr_sfire_model
 use module_fr_sfire_phys
-use module_fr_sfire_atm
 use module_fr_sfire_util
+implicit none
+
 
 private
-public :: sfire_driver_em_init, sfire_driver_em_step
-
+public sfire_driver_em
 
 contains
 
-subroutine sfire_driver_em_init (grid , config_flags               & 
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe)
-
-    ! stub to call sfire_driver_em with irun=0 and omit last 3 args
-
-    USE module_domain
-    USE module_configure
-    implicit none
-
-    TYPE(domain) , TARGET          :: grid   ! data
-    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    integer, intent(in):: &
-             ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe
-
-    ! local
-    integer :: &  ! fire mesh sizes
-             ifds,ifde, kfds,kfde, jfds,jfde,                              &
-             ifms,ifme, kfms,kfme, jfms,jfme,                              &
-             ifps,ifpe, kfps,kfpe, jfps,jfpe                              
-    ! dummies
-
-    real,dimension(1,1,1)::rho,z_at_w,dz8w
-
-    call message('sfire_driver_em_init: SFIRE initialization start')
-
-    ! get fire mesh dimensions
-    CALL get_ijk_from_subgrid (  grid ,                   &
-                            ifds,ifde, jfds,jfde,kfds,kfde,                        &
-                            ifms,ifme, jfms,jfme,kfms,kfme,                        &
-                            ifps,ifpe, jfps,jfpe,kfps,kfpe) 
-
-    call sfire_driver_em ( grid , config_flags               & 
-            ,1,2,0                        & ! ifun start, end, test steps
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,ifds,ifde, jfds,jfde                                   &
-            ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w ) 
-
-    call message('sfire_driver_em_init: SFIRE initialization complete')
-
-end subroutine sfire_driver_em_init
-
-!
-!***
-!
-
-subroutine sfire_driver_em_step (grid , config_flags               & 
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,rho,z_at_w,dz8w ) 
-
-    ! stub to call sfire_driver_em 
-
-    USE module_domain
-    USE module_configure
-    implicit none
-
-    TYPE(domain) , TARGET          :: grid   ! data
-    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    integer, intent(in):: &
-             ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe
-
-    ! local
-    integer :: &  ! fire mesh sizes
-             ifds,ifde, kfds,kfde, jfds,jfde,                              &
-             ifms,ifme, kfms,kfme, jfms,jfme,                              &
-             ifps,ifpe, kfps,kfpe, jfps,jfpe                              
-    ! dummies
-
-    real,dimension(ims:ime, kms:kme, jms:jme)::rho,z_at_w,dz8w
-
-    call message('sfire_driver_em_step: SFIRE step start')
-
-    ! get fire mesh dimensions
-    CALL get_ijk_from_subgrid (  grid ,                   &
-                            ifds,ifde, jfds,jfde,kfds,kfde,                        &
-                            ifms,ifme, jfms,jfme,kfms,kfme,                        &
-                            ifps,ifpe, jfps,jfpe,kfps,kfpe) 
-
-    call sfire_driver_em ( grid , config_flags               & 
-            ,3,6,fire_test_steps                                &
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,ifds,ifde, jfds,jfde                                   &
-            ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w ) 
-
-    call message('sfire_driver_em_step: SFIRE step complete')
-
-end subroutine sfire_driver_em_step
-
-!
-!***
-!
-
+#define DEBUG_OUT
 subroutine sfire_driver_em ( grid , config_flags                    & 
             ,fire_ifun_start,fire_ifun_end,tsteps                   &
             ,ids,ide, kds,kde, jds,jde                              &
@@ -187,17 +86,16 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w ) 
+            ,ifps,ifpe, jfps,jfpe )
 
 !*** purpose: driver from grid structure
 
 ! Driver layer modules
     USE module_domain
     USE module_configure
-    USE module_driver_constants
-    USE module_machine
-    USE module_tiles
+!    USE module_driver_constants
+!    USE module_machine
+!    USE module_tiles
 #ifdef DM_PARALLEL
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
     USE module_comm_dm   , ONLY : halo_fire_lfn_sub,halo_fire_longlat_sub,halo_fire_ht_sub   &
@@ -217,8 +115,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
              ifds,ifde, jfds,jfde,                                   &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
-    real,intent(in),dimension(ims:ime, kms:kme, jms:jme)::rho,  &! air density  (kg/m^3) 
-             z_at_w,dz8w                 ! ????????
 
 !*** local
     INTEGER:: fire_num_ignitions
@@ -233,10 +129,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         fire_ignition_radius
     integer::fire_ifun,ir,jr,fire_ignition_longlat,istep,itimestep
     logical::need_lfn_update,restart
-    !real, dimension(ifms:ifme, jfms:jfme)::uf,vf,lfn_out  
-    ! uf vf only do not need to be in the state but we need halo on them
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
-    real::lat_ctr,lon_ctr
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
     real:: unit_fxlong ,unit_fxlat
@@ -265,24 +158,11 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-        fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions)
-    ! copy configuration flags
-    call set_flags(config_flags)
+        fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions, &
+        unit_fxlong,unit_fxlat)
 
-    if(fire_ignition_longlat .eq.0)then
-       ! ideal
-       !  ignition is in m
-       unit_fxlong=1.  
-       unit_fxlat=1.
-       ! will set fire mesh coordinates to uniform mesh below
-    else
-       ! real
-       lat_ctr=config_flags%cen_lat
-       lon_ctr=config_flags%cen_lon
-       ! 1 degree in m (approximate OK)
-       unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
-       unit_fxlong=cos(lat_ctr*pi2/360.)*unit_fxlat  ! latitude
-    endif
+    ! copy configuration flags to sfire internal structures
+    call set_flags(config_flags)
 
     ! refinement r
     ir=grid%sr_x ! refinement ratio
@@ -367,13 +247,11 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             fire_ignition_radius,        &
             fire_ignition_start_time,     &
             fire_ignition_end_time,     &
-            grid%u_2,grid%v_2,grid%mut,rho,grid%ht,      & ! in arrays, on atm grid
-            z_at_w,dz8w,                                  &
+            grid%u_2,grid%v_2,grid%ht,      & ! in arrays, on atm grid
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             lfn_out,                                      & ! work - one timestep    
-            grid%rthfrten,grid%rqvfrten,                & ! out arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
             grid%ros,                                   & ! rate of spread
@@ -423,13 +301,11 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     ignition_radius,                              &
     ignition_start_time,                          &
     ignition_end_time,                            &
-    u,v,mu,rho,zs,                                & ! in arrays, atm grid
-    z_at_w,dz8w,                                  &
+    u,v,zs,                                       & ! in arrays, atm grid
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
     lfn_out,                                & ! fire wind velocities, out level set function    
-    rthfrten,rqvfrten,                            & ! out arrays, atm grid
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
     ros,                                          &
@@ -438,7 +314,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fuel_time,                                & ! save constant internal data, fire grid
     fp                                           & ! fire params
     )
-USE module_dm, only:wrf_dm_maxval
+USE module_dm, only:wrf_dm_maxval_integer
 
 implicit none
 
@@ -487,10 +363,7 @@ real, dimension(num_ignitions), intent(in):: &
 integer, intent(in):: ignition_longlat       ! if 1 ignition give as long/lat, otherwise as m from lower left corner
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v ! wind velocity (m/s) (node based, atm grid) 
-real,intent(in),dimension(ims:ime,jms:jme)::mu          ! dry air mass (Pa)  pressure??  (cell based, atm grid)
 real,intent(in),dimension(ims:ime, jms:jme)::  zs ! terrain height  
-real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::rho, &  ! air density  (kg/m^3) (cell based, atm grid) 
-                z_at_w,dz8w                         ! height of some sort??
 
 real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat ! inout because of extension at bdry
     
@@ -503,9 +376,6 @@ real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
 
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
     fire_area                                        ! fraction of each cell burning
-
-real, intent(out), dimension(ims:ime, kms:kme, jms:jme):: &
-    rthfrten,rqvfrten                              ! temperature and humidity tendencies (atm grid)
 
 real, intent(out), dimension(ims:ime, jms:jme):: &  ! redundant arrays, for display purposes only (atm grid)
     grnhfx,                                      &  ! heat flux from ground fire (W/m^2) 
@@ -796,36 +666,9 @@ do ij=1,num_tiles
             enddo
         enddo
 
-        do j=jts,jte
-            do k=kts,min(kte+1,kde)
-               do i=its,ite
-                   rthfrten(i,k,j)=0.
-                   rqvfrten(i,k,j)=0.
-               enddo
-            enddo
-        enddo
-
-
-        ! --- add heat and moisture fluxes to tendency variables by postulated decay
-
        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
 
-       call fire_tendency(                 &
-            ids,ide, kds,kde, jds,jde,      & ! dimensions
-            ims,ime, kms,kme, jms,jme,      &
-            its,ite, kts,kte, jts,jte,      & ! 
-            grnhfx,grnqfx,canhfx,canqfx,        & ! fluxes on atm grid 
-            fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,                &
-            zs,z_at_w,dz8w,mu,rho,          &
-            rthfrten,rqvfrten)                ! out
-
-       ! debug print to compare
-
-       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rthfrten,'fire_driver_phys:rthfrten')
-       call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,rqvfrten,'fire_driver_phys:rqvfrten')
-
-            
     endif ! ifun=6
 
 enddo ! tiles
@@ -844,7 +687,7 @@ if (ifun.eq.3)then
         enddo
 #ifdef DM_PARALLEL
         call message('sfire_driver_phys: checking ignitions, collect counts')
-        call wrf_dm_maxval(ignited_patch(i),idex,jdex)
+        call wrf_dm_maxval_integer(ignited_patch(i),idex,jdex)
         call message('sfire_driver_phys: collected')
 #endif
         if(ignited_patch(i).eq.0)then
@@ -881,24 +724,11 @@ elseif(ifun.eq.6)then
     if(pid.gt.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
-        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,'rthfrten',pid)
-        call write_array_m3(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,'rqvfrten',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fuel_frac,'fuel_frac',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnhfx,'fgrnhfx',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fgrnqfx,'fgrnqfx',pid)
     endif
 #endif
-    !call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,mu,'driver:mu')
-    !call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'driver:rho')
-    kpe1=min(kps+1,kpe)
-    !kpe1=kps-1
-    do k=kts,min(kte,kts+3)
-!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-        write(kk,'(i2)')k
-!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
-        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rthfrten,kk//'driver_phys:rthfrten')
-        call print_3d_stats(ips,ipe,k,k,jps,jpe,ims,ime,kms,kme,jms,jme,rqvfrten,kk//'driver_phys:rqvfrten')
-    enddo
 endif
 
 end subroutine sfire_driver_phys
@@ -906,9 +736,11 @@ end subroutine sfire_driver_phys
 !*******************
 !
 
-subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longlat, &
+subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
     fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-    fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions)
+    fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions, &
+    unit_fxlong,unit_fxlat)
+    use module_model_constants, only: reradius,pi2
     USE module_configure
     implicit none
 ! create ignition arrays from scalar flags
@@ -918,10 +750,12 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     real, dimension(fire_max_ignitions), intent(out):: &
         fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
         fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time
-    integer, intent(out)::fire_num_ignitions,ignition_longlat
+    integer, intent(out)::fire_num_ignitions,fire_ignition_longlat
+    real, intent(out)::unit_fxlong,unit_fxlat
 !*** local
     integer::i
     logical:: real,ideal
+    real::lat_ctr,lon_ctr
 !*** executable
     ! this is only until I figure out how to input arrays through the namelist...
     if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
@@ -932,9 +766,10 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     if(real)call message('Using real ignition coordinates, longitude and latitude')
     if(ideal.and.real)call crash('Only one of the ideal or real coordinates may be given')
 
+    fire_ignition_longlat=0  ! default, if no ignition
     if(ideal)then
         ! use values from _x and _y variables
-        ignition_longlat=0
+        fire_ignition_longlat=0
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
         fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
@@ -958,7 +793,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
     endif
     if(real)then
         ! use values from _long and _lat
-        ignition_longlat=1
+        fire_ignition_longlat=1
         fire_ignition_start_x(1)=config_flags%fire_ignition_start_lon1
         fire_ignition_start_y(1)=config_flags%fire_ignition_start_lat1
         fire_ignition_end_x(1)=config_flags%fire_ignition_end_lon1
@@ -1007,6 +842,21 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,ignition_longl
             if(fire_ignition_end_y(i).eq.0.)fire_ignition_end_y(i)=fire_ignition_start_y(i)
             if(fire_ignition_end_time(i).eq.0.)fire_ignition_end_time(i)=fire_ignition_start_time(i)
         enddo
+
+    if(fire_ignition_longlat .eq. 0)then
+       ! ideal
+       !  ignition is in m
+       unit_fxlong=1.  
+       unit_fxlat=1.
+       ! will set fire mesh coordinates to uniform mesh below
+    else
+       ! real
+       lat_ctr=config_flags%cen_lat
+       lon_ctr=config_flags%cen_lon
+       ! 1 degree in m (approximate OK)
+       unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
+       unit_fxlong=cos(lat_ctr*pi2/360.)*unit_fxlat  ! latitude
+    endif
 
 end subroutine fire_ignition_convert
 
@@ -1283,12 +1133,5 @@ fire_advection          = config_flags%fire_advection
 
 
 end subroutine set_flags
-
-subroutine print_id
-character(len=128)::id,msg
-#include "sfire_id.inc"
-msg=id
-call message(msg)
-end subroutine print_id
 
 end module module_fr_sfire_driver
