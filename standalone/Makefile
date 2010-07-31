@@ -43,15 +43,19 @@ NAMELIST= \
 #.PHONY: all
 
 
-default: model_test_main.exe 
+default: fire 
 
-all: model_test_main.exe model_test_init.exe
+all: fire init
 
-model_test_main.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)
-	$(FC) $(FCFLAGS) -o model_test_main.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
+fire: fire.exe
 
-model_test_init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
+init: init.exe
+
+fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)
+	$(FC) $(FCFLAGS) -o fire.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
+
+init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
+	$(FC) $(FCFLAGS) $(LDFLAGS) -o init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
  
 # for the order of generating modules
 
