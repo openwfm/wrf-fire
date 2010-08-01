@@ -74,7 +74,9 @@ implicit none
 
 
 private
-public sfire_driver_em
+public sfire_driver_em,use_atm_vars
+
+logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
 
 contains
 
@@ -544,7 +546,7 @@ do ij=1,num_tiles
                 ifms,ifme,jfms,jfme,  &
                 ifts,ifte,jfts,jfte,  &
                 fxlong,fxlat          )
-        else
+        elseif(use_atm_vars)then
             ! assume halo xlong xlat
             ! interpolate nodal coordinates
 
@@ -587,6 +589,7 @@ do ij=1,num_tiles
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
+        if(use_atm_vars)then                                  
         call interpolate_atm2fire(id,                     & ! flag for debug output
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
@@ -599,6 +602,7 @@ do ij=1,num_tiles
             u_frame, v_frame,                             & ! velocity frame correction
             u,v,                                       & ! atm grid arrays in
             fp%vx,fp%vy)                                      ! fire grid arrays out
+        endif
     
     endif
 
@@ -635,7 +639,8 @@ do ij=1,num_tiles
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
     
         ! sum the fluxes over atm cells
-        call sum_2d_cells(        &
+        if(use_atm_vars)then                                  
+          call sum_2d_cells(        &
             ifms,ifme,jfms,jfme,  &
             ifts,ifte,jfts,jfte,  &
             fgrnhfx,              &
@@ -643,7 +648,7 @@ do ij=1,num_tiles
             its,ite,jts,jte,      &
             grnhfx)
 !comment out the next call to get results as before commit 55fd92051196b796891b60cb7ec1c4bdb8800078
-        call sum_2d_cells(        &
+          call sum_2d_cells(        &
             ifms,ifme,jfms,jfme,  &
             ifts,ifte,jfts,jfte,  &
             fgrnqfx,              &
@@ -652,10 +657,10 @@ do ij=1,num_tiles
             grnqfx)
 
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-        write(msg,'(a,f6.3)')'fire-atmosphere feedback scaling ',fire_atm_feedback
+          write(msg,'(a,f6.3)')'fire-atmosphere feedback scaling ',fire_atm_feedback
 !$OMP end CRITICAL(SFIRE_DRIVER_CRIT)
-	call message(msg)
-        do j=jts,jte
+	  call message(msg)
+          do j=jts,jte
             do i=its,ite
                 ! scale ground fluxes to get the averages
                 grnhfx(i,j)=fire_atm_feedback*grnhfx(i,j)/(ir*jr)
@@ -664,10 +669,11 @@ do ij=1,num_tiles
                 canhfx(i,j)=0
                 canqfx(i,j)=0
             enddo
-        enddo
+          enddo
 
-       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
-       call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
+          call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnhfx,'fire_driver:grnhfx')
+          call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,grnqfx,'fire_driver:grnqfx')
+       endif
 
     endif ! ifun=6
 

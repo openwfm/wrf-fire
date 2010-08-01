@@ -8,7 +8,7 @@ subroutine sub_main
 
 !*** purpose: standalone driver with compatible files to WRF-Fire
 
-use module_fr_sfire_driver, only: sfire_driver_em
+use module_fr_sfire_driver, only: sfire_driver_em, use_atm_vars
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
 use wrf_netcdf, only : grid_info, set_info_from_file, &
@@ -19,6 +19,7 @@ implicit none
 !*** local
 
 ! arguments to SFIRE
+
 type(domain)::grid          ! all: state+inputs+outputs, compatible with wrf
 TYPE (grid_config_rec_type):: config_flags ! the namelist
 integer::  &                ! atmosphere mesh dimensions, for compatibility
@@ -91,7 +92,6 @@ jpe=ny
 kps=1
 kpe=nz
 
-! coefficoent arrays to be passed to spread formulas, constant after initialized
 ! inputs
 call allocate2d(grid%uf,ifms,ifme,jfms,jfme)              ! fire winds
 call allocate2d(grid%vf,ifms,ifme,jfms,jfme)              ! fire winds
@@ -101,6 +101,7 @@ call allocate2d(grid%dzdyf,ifms,ifme,jfms,jfme)           ! terrain grad
 call allocate2d(grid%fxlong,ifms,ifme,jfms,jfme)          ! 
 call allocate2d(grid%fxlat,ifms,ifme,jfms,jfme)           !
 call allocate2d(grid%nfuel_cat,ifms,ifme,jfms,jfme)          ! 
+
 ! state
 call allocate2d(grid%bbb,ifms,ifme,jfms,jfme)             ! spread formula coeff
 call allocate2d(grid%betafl,ifms,ifme,jfms,jfme)          ! spread formula coeff
@@ -131,15 +132,48 @@ call allocate2d(grid%canqfx,ims,ime,jms,jme)
 call allocate3d(grid%u_2,ims,ime,kms,kme,jms,jme) 
 call allocate3d(grid%v_2,ims,ime,kms,kme,jms,jme) 
 
-! read input file
+! prepare reading input file
 input%nfuel_cat=>grid%nfuel_cat(ifps:ifpe,jfps:jfpe)
 input%zsf      =>grid%zsf(ifps:ifpe,jfps:jfpe)
 input%dzdxf    =>grid%dzdxf(ifps:ifpe,jfps:jfpe)
 input%dzdyf    =>grid%dzdyf(ifps:ifpe,jfps:jfpe)
 input%vf       =>grid%uf(ifps:ifpe,jfps:jfpe)
 input%uf       =>grid%vf(ifps:ifpe,jfps:jfpe)
-call allocate3d(input%u,ips,ipe,jps,jpe,kps,kpe)
-call allocate3d(input%v,ips,ipe,jps,jpe,kps,kpe)
+
+if(use_atm_vars)then
+
+  ! set atm domain size
+  ids=1
+  ide=nx
+  jds=1
+  jde=ny
+  kds=1
+  kde=ny
+  ims=1-nhalo
+  ime=nfx+nhalo
+  jms=1-nhalo
+  jme=ny+nhalo
+  kms=1
+  kme=nz
+  ips=1
+  ipe=nx
+  jps=1
+  jpe=ny
+  kps=1
+  kpe=nz
+
+  ! atmosphere compatibility arrays
+  call allocate2d(grid%ht,ims,ime,jms,jme) 
+  call allocate2d(grid%grnhfx,ims,ime,jms,jme) 
+  call allocate2d(grid%grnqfx,ims,ime,jms,jme) 
+  call allocate2d(grid%canhfx,ims,ime,jms,jme) 
+  call allocate2d(grid%canqfx,ims,ime,jms,jme) 
+  call allocate3d(grid%u_2,ims,ime,jms,jme,kms,kme) 
+  call allocate3d(grid%v_2,ims,ime,jms,jme,kms,kme) 
+  input%u        =>grid%u_2(ips:ipe,jps:jpe,kps:kpe)
+  input%v        =>grid%v_2(ips:ipe,jps:jpe,kps:kpe)
+
+endif
 
 call read_vars(inputfile,info,input)
 

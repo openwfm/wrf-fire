@@ -1,4 +1,4 @@
-# defines FC, FCFLAGS, FFREE
+# fefines FC, FCFLAGS, FFREE
 include make.inc
 DEFS =
 WRF = ../wrfv2_fire/phys
@@ -18,8 +18,9 @@ MAKEFILE=Makefile
 	$(FC) -c $(FFLAGS) $*.f90
 
 MODEL_MAIN_OBJ = \
+    module_domain.o \
     wrf_netcdf.o \
-    wrf_namelist.o \
+    module_configure.o \
     module_fr_sfire_driver.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
@@ -29,7 +30,7 @@ MODEL_MAIN_OBJ = \
 
 MODEL_INIT_OBJ = \
     wrf_netcdf.o \
-    wrf_namelist.o \
+    module_configure.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
@@ -60,25 +61,23 @@ init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
 # for the order of generating modules
 
 model_test_main.o: $(MAKEFILE) \
+    module_domain.o \
+    module_configure.o \
     module_fr_sfire_driver.o \
     wrf_fakes.o \
-    wrf_namelist.o \
     wrf_netcdf.o
 
 module_fr_sfire_driver.o: $(MAKEFILE) \
+    module_domain.o \
+    module_configure.o \
     module_fr_sfire_model.o  \
-    module_fr_sfire_util.o \
-    wrf_namelist.o \
-    wrf_netcdf.o
-
-module_fr_sfire_driver.o: $(MAKEFILE) \
     module_fr_sfire_phys.o \
-    module_fr_sfire_util.o 
+    module_fr_sfire_util.o \
 
 model_test_init.o: $(MAKEFILE) \
-   wrf_namelist.o \
-   wrf_netcdf.o \
-   module_fr_sfire_util.o
+    module_configure.o \
+    wrf_netcdf.o \
+    module_fr_sfire_util.o
 
 module_fr_sfire_model.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
@@ -98,7 +97,7 @@ module_fr_sfire_util.o: $(MAKEFILE) \
 wrf_netcdf.o: $(MAKEFILE) \
     module_fr_sfire_util.o
 
-wrf_namelist.o: $(MAKEFILE) $(NAMELIST) \
+module_configure.o: $(MAKEFILE) $(NAMELIST) \
     wrf_netcdf.o \
     module_fr_sfire_util.o
 
