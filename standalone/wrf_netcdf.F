@@ -5,7 +5,6 @@
 module wrf_netcdf
 use netcdf
 use module_fr_sfire_util , only : crash, interpolate_2d, continue_at_boundary
-use module_domain, only: domain
 implicit none
 
 ! default input file name
