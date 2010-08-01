@@ -150,7 +150,7 @@ if(use_atm_vars)then
   kds=1
   kde=ny
   ims=1-nhalo
-  ime=nfx+nhalo
+  ime=nx+nhalo
   jms=1-nhalo
   jme=ny+nhalo
   kms=1
@@ -168,10 +168,10 @@ if(use_atm_vars)then
   call allocate2d(grid%grnqfx,ims,ime,jms,jme) 
   call allocate2d(grid%canhfx,ims,ime,jms,jme) 
   call allocate2d(grid%canqfx,ims,ime,jms,jme) 
-  call allocate3d(grid%u_2,ims,ime,jms,jme,kms,kme) 
-  call allocate3d(grid%v_2,ims,ime,jms,jme,kms,kme) 
-  input%u        =>grid%u_2(ips:ipe,jps:jpe,kps:kpe)
-  input%v        =>grid%v_2(ips:ipe,jps:jpe,kps:kpe)
+  call allocate3d(grid%u_2,ims,ime,kms,kme,jms,jme)
+  call allocate3d(grid%v_2,ims,ime,kms,kme,jms,jme) 
+  call allocate3d(input%u,ips,ipe,jps,jpe,kps,kpe)
+  call allocate3d(input%v,ips,ipe,jps,jpe,kps,kpe)
 
 endif
 
