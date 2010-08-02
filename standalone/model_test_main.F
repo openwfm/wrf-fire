@@ -41,9 +41,10 @@ type(input_vars)::input                  ! input arrays
 type(grid_info)::info                    ! dimensions, grid controls
 
 ! scalars
-integer:: nx,ny,nz,nfx,nfy,nfz,nsteps,istep,sr_x,sr_y
+integer:: nx,ny,nz,nfx,nfy,nfz,nsteps,itimestep,sr_x,sr_y
 integer::nhalo=5
-real:: dt, duration_s
+double precision:: dt, duration_s  ! may need more accurate time computation to get the number of timesteps right
+real:: time
 logical::do_ouput
 
 !*** executable
@@ -114,16 +115,6 @@ write(6,2)'fire domain dimensions       ',ifds,ifde,jfds,jfde
 write(6,2)'fire memory dimensions       ',ifms,ifme,jfms,jfme
 2 format(a,6i6)
 
-! set the scalars in grid type
-grid%sr_x = sr_x
-grid%sr_y = sr_y
-grid%dt = info%dt
-grid%dx = info%dx
-grid%dy = info%dy
-grid%itimestep=0
-grid%u_frame=0.
-grid%v_frame=0.
-
 ! allocate
 
 ! inputs
@@ -185,15 +176,29 @@ deallocate(input%u)
 deallocate(input%v)
 
 ! time control
-dt=info%dt
+! NOTE: dt in the netcdf input file as returned in info%dt is WRONG !!
+dt=config_flags%time_step
+if(config_flags%time_step_fract_den.ne.0)then
+  dt=dt+dble(config_flags%time_step_fract_num)/dble(config_flags%time_step_fract_den)
+endif
 duration_s = config_flags%run_seconds           &
            + 60d0*(config_flags%run_minutes     &
            + 60d0*(config_flags%run_hours       &
            + 24d0*(config_flags%run_days)))       
-nsteps = duration_s / dt  ! number of time steps
+nsteps = nint( duration_s / dt ) ! number of time steps
 
 ! divide up for shared memory parallel execution
 call set_tiles(1,1,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
+
+! set the scalars in grid type
+grid%sr_x = sr_x
+grid%sr_y = sr_y
+grid%dt = dt
+grid%dx = info%dx
+grid%dy = info%dy
+grid%itimestep=0
+grid%u_frame=0.
+grid%v_frame=0.
 
 ! start output file
 call create_output_file(outputfile,info)
@@ -208,9 +213,9 @@ call sfire_driver_em ( grid , config_flags                          &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe )
 
-do istep=1,nsteps
+do itimestep=1,nsteps
 ! run  model
-   grid%itimestep = istep
+   grid%itimestep = itimestep
    call sfire_driver_em ( grid , config_flags                          &
             ,3,6,0                                                  &
             ,ids,ide, kds,kde, jds,jde                              &
@@ -220,11 +225,12 @@ do istep=1,nsteps
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe )
     
-    if(istep.le.10.or.mod(istep,10).eq.0)then
+    if(itimestep.le.10.or.mod(itimestep,10).eq.0)then
+        time = dt*itimestep
         output%lfn=>grid%lfn(ifps:ifpe,jfps:jfpe)
         output%tign=>grid%tign_g(ifps:ifpe,jfps:jfpe)
         output%fgrnhfx=>grid%fgrnhfx(ifps:ifpe,jfps:jfpe)
-        call write_vars(outputfile,output,dt*istep)
+        call write_vars(outputfile,output,time)
     endif
 enddo
 
