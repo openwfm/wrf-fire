@@ -51,7 +51,7 @@ state    real     betafl    *i*j      fire        1         z    hr    "BETAFL" 
 state    real     phiwc     *i*j      fire        1         z    hr    "PHIWC"     "fuel"
 state    real     r_0       *i*j      fire        1         z    hr    "R_0"       "fuel"
 state    real     fgip      *i*j      fire        1         z    hr    "FGIP"      "fuel"
-state    integer  ischap    *i*j      fire        1         z    hr    "ISCHAP"    "fuel"
+state    real     ischap    *i*j      fire        1         z    hr    "ISCHAP"    "fuel"
 
 #
 # fire configure namelist variables
