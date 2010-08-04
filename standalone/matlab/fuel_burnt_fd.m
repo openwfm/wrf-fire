@@ -1,4 +1,4 @@
-function fuel_fraction=fuel_burnt_fd2(lfn,tign,tnow,fd,fuel_time)
+function fuel_fraction=fuel_burnt_fd(lfn,tign,tnow,fd,fuel_time)
 % lfn       - level set function, size (2,2)
 % tign      - time of ignition, size (2,2)
 % tnow      - time now
@@ -26,7 +26,8 @@ function fuel_fraction=fuel_burnt_fd2(lfn,tign,tnow,fd,fuel_time)
 %       assume T=0 when lfn=0
 figs=1:4;
 for i=figs,figure(i),clf,hold off,end
-
+% tign
+% lfn
 if all(lfn(:)>=0),
     % nothing burning, nothing to do - most common case, put it first
     fuel_fraction=0;
@@ -48,12 +49,16 @@ elseif all(lfn(:)<=0),
 % u(3)=t(h/2,h/2)-h/2(dt/dx+dt/dy)
 
  tign_middle=(tign(1,1)+tign(1,2)+tign(2,1)+tign(2,2))/4;
- dt_dx=(tign(2,1)-tign(1,1)+tign(2,2)-tign(1,2))/(2*fd(1));
- dt_dy=(tign(1,2)-tign(1,1)+tign(2,2)-tign(2,1))/(2*fd(2));
+ dt_dx=(tign(1,1)-tign(2,1)+tign(1,2)-tign(2,2))/(2*fd(1));
+ dt_dy=(tign(1,1)-tign(1,2)+tign(2,1)-tign(2,2))/(2*fd(2));
+%  dt_dx=(tign(2,1)-tign(1,1)+tign(2,2)-tign(1,2))/(2*fd(1));
+%  dt_dy=(tign(1,2)-tign(1,1)+tign(2,2)-tign(2,1))/(2*fd(2));
+
  u(1)=dt_dx;
  u(2)=dt_dy;
  u(3)=tign_middle-(dt_dx*fd(1)+dt_dy*fd(2))/2;
-
+ u1=u'
+ display('fuel_burnt_fd coefficients of u')
     % integrate
     uu = -u / fuel_time;
     fuel_fraction = 1 - exp(uu(3)) * intexp(uu(1)*fd(1)) * intexp(uu(2)*fd(2));
@@ -116,13 +121,14 @@ else
  %%%%% Approximation of the plane for lfn using finite differences
 % approximate L(x,y)=u(1)*x+u(2)*y+u(3)
  lfn_middle=(lfn(1,1)+lfn(1,2)+lfn(2,1)+lfn(2,2))/4;
- dt_dx=(lfn(2,1)-lfn(1,1)+lfn(2,2)-lfn(1,2))/(2*fd(1));
- dt_dy=(lfn(1,2)-lfn(1,1)+lfn(2,2)-lfn(2,1))/(2*fd(2));
+ dt_dx=(lfn(1,1)-lfn(2,1)+lfn(1,2)-lfn(2,2))/(2*fd(1));
+ dt_dy=(lfn(1,1)-lfn(1,2)+lfn(2,1)-lfn(2,2))/(2*fd(2));
+ % I feel that it is right but not least squares tnow-tign
  u(1)=dt_dx;
  u(2)=dt_dy;
  u(3)=lfn_middle-(dt_dx*fd(1)+dt_dy*fd(2))/2;
 % finding the coefficient c, reminder we work over one subcell only
-% T(x,y)=c*L(x,y)+time_now
+% T(x,y)=c*L(x,y) in the sence of least squares
     a=0; b=0;
     for i=1:2
         for j=1:2
@@ -143,13 +149,14 @@ else
                         u(1)=u(1)*c;
                         u(2)=u(2)*c;
                         u(3)=u(3)*c;
-    u=u';
+    u=u'
+    display('fuel_burnt_fd coefficients of u')
     nr=sqrt(u(1)*u(1)+u(2)*u(2));
     c=u(1)/nr;
     s=u(2)/nr;
     Q=[c,  s; -s, c];  % rotation such that Q*u(1:2)=[something;0]
      ut=Q*u(1:2);
-    errQ=ut(2)  % should be zero
+    errQ=ut(2);  % should be zero
     ae=-ut(1)/fuel_time;
     ce=-u(3)/fuel_time;     %  -T(xt,yt)/fuel_time=ae*xt+ce
     cet=ce;  %keep ce for later
@@ -257,7 +264,8 @@ else
             end
         end
     end
-    fuel_fraction=fuel_fraction/(fd(1)*fd(2))
+    fuel_fraction=fuel_fraction/(fd(1)*fd(2));
+    % display('fuel_burnt_fd')
     %fuel_fraction=1-fuel_fraction;
 end
 for i=figs,figure(i),hold off,end

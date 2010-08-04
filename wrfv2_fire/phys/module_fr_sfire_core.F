@@ -1208,62 +1208,37 @@ end if ! if case0, elseif case4 ,else case123
 if(out>1. .or. out<0.)call crash('fuel_left_cell_2: fuel fraction out of bounds [0,1]')
 fuel_left_cell_2 = out
 end function fuel_left_cell_2
-
+#endif
 !
 !****************************************
 !
-real function intexp(ab)
-implicit none
-real::ab
-!calls
-intrinsic epsilon
-
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
-
-!eps = 2.2204*(10.0**(-8))!from matlab
-if ( eps < abs(ab)**3/6. ) then
-    intexp=(exp(ab)-1)/ab
-  else
-    intexp=1+ab/2.
-end if
-end function
-!
-!****************************************
-!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!         
-!**************************************** 
-!       
 
 real function fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
 !*** purpose: compute the fuel fraction left in one cell
-implicit none 
+implicit none
 !*** arguments
-real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners
-of the cell
-real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners
-of the cell
+real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners of the cell
+real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners of the cell
 real, intent(in)::time_now                   ! the time now
 real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !*** Description
 ! The area burning is given by the condition L <= 0, where the function P is
 ! interpolated from lfn(i,j)
 !
-! The time since ignition is the function T, interpolated in from
-! tign(i,j)-time_now.
-! The values of tign(i,j) where lfn(i,j)>=0 are ignored, tign(i,j)=0 is taken
+! The time since ignition is the function T, interpolated in from tign(i,j)-time_now.
+! The values of tign(i,j) where lfn(i,j)>=0 are ignored, tign(i,j)=0 is taken 
 ! when lfn(i,j)=0.
 !
 ! The function computes an approxmation  of the integral
 !
 !
 !                                  /\
-!                                  |
+!                                  |              
 ! fuel_frac_left  =      1   -     | 1 -  exp(-T(x,y)*fuel_speed)) dxdy
-!                                  |
+!                                  |            
 !                                 \/
 !                                0<x<1
 !                                0<y<1
@@ -1279,19 +1254,19 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !      (0,1) -----O--(1,1)            O = points on the fireline, T=tnow
 !            |      \ |               A = the burning area for computing
 !            |       \|                        fuel_frac(i,j)
-!            |   A    O
+!            |   A    O 
 !            |        |
 !            |        |
 !       (0,0)---------(1,0)
 !       lfn<0          lfn<0
 !
-! Approximations allowed:
+! Approximations allowed: 
 ! The fireline can be approximated by straight line(s).
 ! When all cell is burning, approximation by 1 point Gaussian quadrature is OK.
-!
+! 
 ! Requirements:
 ! 1. The output should be a continuous function of the arrays lfn and
-!  tign whenever lfn(i,j)=0 implies tign(i,j)=tnow.
+!  tign whenever lfn(i,j)=0 implies tign(i,j)=tnow.  
 ! 2. The output should be invariant to the symmetries of the input in each cell.
 ! 3. Arbitrary combinations of the signs of lfn(i,j) should work.
 ! 4. The result should be at least 1st order accurate in the sense that it is
@@ -1303,17 +1278,17 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !
 ! Requirement 4 is particularly important when there is a significant decrease
 ! of the fuel fraction behind the fireline on the mesh scale, because the
-! rate of fuel decrease right behind the fireline is much larger
+! rate of fuel decrease right behind the fireline is much larger 
 ! (exponential...). This will happen when
-!
+! 
 ! change of time from ignition within one mesh cell * fuel speed is not << 1
 !
 ! This is the same as
 !
-!         mesh cell size*fuel_speed
+!         mesh cell size*fuel_speed 
 !         -------------------------      is not << 1
 !             fireline speed
-!
+!         
 !
 ! When X is large then the fuel burnt in one timestep in the cell is
 ! approximately proportional to length of  fireline in that cell.
@@ -1323,8 +1298,7 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !
 
 #ifndef FUEL_LEFT
-call crash('fuel_left_cell_3: not implemented, please use
-fire_fuel_left_method=1')
+call crash('fuel_left_cell_3: not implemented, please use fire_fuel_left_method=1')
 fuel_left_cell_3=0.  ! to avoid compiler warning about value not set
 end function fuel_left_cell_3
 #else
@@ -1371,16 +1345,15 @@ real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
 real,dimension(2,2)::mQ
 real,dimension(2)::ut
 
-!!!! For finite differences by VK
-real::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
-
 !calls
 intrinsic epsilon
 
 real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 
+!!!! For finite differences by VK
+real::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
 
-! external functions
+! external functions    
 real::snrm2
 double precision :: dnrm2
 external dnrm2
@@ -1430,21 +1403,22 @@ else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
 ! u(2)=dt/dy
 ! u(3)=t(h/2,h/2)-h/2(dt/dx+dt/dy)
 
- tign_middle=(t00+t01+t10+t11)/4;
+ tign_middle=(t00+t01+t10+t11)/4
  ! since mesh_size is 1 we replace fd(1) and fd(2) by 1
- dt_dx=(t10-t00+t11-t01)/2;
- dt_dy=(t01-t00+t11-t10)/2;
- u(1)=dt_dx;
- u(2)=dt_dy;
- u(3)=tign_middle-(dt_dx+dt_dy)/2;
+ dt_dx=(t10-t00+t11-t01)/2
+ dt_dy=(t01-t00+t11-t10)/2
+ u(1)=dt_dx
+ u(2)=dt_dy
+ u(3)=tign_middle-(dt_dx+dt_dy)/2
 
     ! integrate
     u(1)=-u(1)/fuel_time_cell
     u(2)=-u(2)/fuel_time_cell
     u(3)=-u(3)/fuel_time_cell
+
     !fuel_burn(i,j)=1-exp(u(3))*intexp(u(1)*dx)*intexp(u(2)*dy)
     s1=u(1)
-    s2=u(2)
+    s2=u(2)            
     out=1-exp(u(3))*intexp(s1)*intexp(s2)
     !print *,'intexp
     if ( out<0 .or. out>1.0 ) then
@@ -1463,7 +1437,7 @@ else
     yy(2) = -0.5
     yy(3) =  0.5
     yy(4) =  0.5
-    yy(5) = -0.5
+    yy(5) = -0.5     
     lfn(1)=lfn00
     lfn(2)=lfn10
     lfn(3)=lfn11
@@ -1476,7 +1450,7 @@ else
     tign(5)=t00
     npoint = 0 ! number of points in polygon
     !print *,'time_now=',time_now
-  !print *,'lfn00=',lfn00,'lfn10=',lfn10,&
+    !print *,'lfn00=',lfn00,'lfn10=',lfn10,&
     !        'lfn01=',lfn01,'lfn11=',lfn11
     !print *,'t00=',t00,'t10=',t10,&
     !        't01=',t01,'t11=',t11
@@ -1505,78 +1479,82 @@ else
 
     ! make the list circular
     tlist(npoint+1)=tlist(1)
-    llist(npoint+1)=llist(1)
+    llist(npoint+1)=llist(1)   
     xylist(npoint+1,1)=xylist(1,1)
     xylist(npoint+1,2)=xylist(1,2)
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-!%%%% Approximation of the plane for lfn using finite differences
+
+
+    !print *,'after LS in case3'pproximation of the plane for lfn using finite
+    !differences
 ! approximate L(x,y)=u(1)*x+u(2)*y+u(3)
- lfn_middle=(lfn00+lfn01+lfn10+lfn11)/4;
- dt_dx=(lfn10-lfn00+lfn11-lfn01)/2;
- dt_dy=(lfn01-lfn00+lfn11-lfn10)/2;
- u(1)=dt_dx;
- u(2)=dt_dy;
- u(3)=lfn_middle-(dt_dx+dt_dy)/2;
+ lfn_middle=(lfn00+lfn01+lfn10+lfn11)/4
+ dt_dx=(lfn10-lfn00+lfn11-lfn01)/2
+ dt_dy=(lfn01-lfn00+lfn11-lfn10)/2
+ u(1)=dt_dx
+ u(2)=dt_dy
+ u(3)=lfn_middle-(dt_dx+dt_dy)/2
 % finding the coefficient c, reminder we work over one subcell only
 % T(x,y)=c*L(x,y)+time_now
-    a=0; 
-    b=0;
+    a=0
+    b=0
 
-    if (lfn00<=0) then 
-                        a=a+lfn00*lfn00;
-                        if (t00>time_now)
-                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now');
+    if (lfn00 <= 0) then
+                        a=a+lfn00*lfn00
+                        if (t00 > time_now) then
+                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
-                        b=b+(t00-time_now)*lfn00;
-                        endif
-    endif
+                        b=b+(t00-time_now)*lfn00
+                        end if
+    end if
 
 
-    if (lfn01<=0) then 
-                        a=a+lfn01*lfn01;
-                        if (t01>time_now)
-                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now');
+    if (lfn01 <= 0) then
+                        a=a+lfn01*lfn01
+                        if (t01>time_now) then
+                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
-                        b=b+(t01-time_now)*lfn01;
-                        endif
-    endif
+                        b=b+(t01-time_now)*lfn01
+                        end if
+    end if
 
 
-    if (lfn10<=0) then 
-                        a=a+lfn10*lfn10;
-                        if (t10>time_now)
-                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now');
+    if (lfn10<=0) then
+                        a=a+lfn10*lfn10
+                        if (t10>time_now) then
+                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
-                        b=b+(t10-time_now)*lfn10;
-                        endif
-    endif
+                        b=b+(t10-time_now)*lfn10
+                        end if
+  end if
 
-    if (lfn11<=0) then 
-                        a=a+lfn11*lfn11;
-                        if (t11>time_now)
-                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now');
+    if (lfn11<=0) then
+                        a=a+lfn11*lfn11
+                        if (t11>time_now) then
+                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
-                        b=b+(t11-time_now)*lfn11;
-                        endif
-    endif
-
+                        b=b+(t11-time_now)*lfn11
+                        end if
+    end if
 
 
 
                      if (a==0) then
-                        call crash('fuel_burnt_fd: if c is on fire then one of cells should be on fire');
-                     endif
-                        c=b/a;
-                        u(1)=u(1)*c;
-                        u(2)=u(2)*c;
-                        u(3)=u(3)*c;
-
+                        call crash('fuel_burnt_fd: if c is on fire then one of cells should be on fire')
+                     end if
+                        c=b/a
+                        u(1)=u(1)*c
+                        u(2)=u(2)*c
+                        u(3)=u(3)*c
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !print *,'after LS in case3'
+
     !print *,'vecX from LS',vecX
     !print *,'tign inputed',tign00,tign10,tign11,tign01
+    rnorm=snrm2(p,vecY,1)
+    u(1)=vecX(1)
+    u(2)=vecX(2)
+    u(3)=vecX(3)            
     ! rotate to gradient on x only
     nr = sqrt(u(1)**2+u(2)**2)
     if(.not.nr.gt.eps)then
@@ -1588,15 +1566,15 @@ else
     mQ(1,1)=c
     mQ(1,2)=s
     mQ(2,1)=-s
-    mQ(2,2)=c
+    mQ(2,2)=c            
     ! mat vec multiplication
-    call matvec(mQ,2,2,u,3,ut,2,2,2)
-    errQ = ut(2) ! should be zero
+    call matvec(mQ,2,2,u,3,ut,2,2,2)            
+    errQ = ut(2) ! should be zero            
     ae = -ut(1)/fuel_time_cell
-    ce = -u(3)/fuel_time_cell
+    ce = -u(3)/fuel_time_cell      
     cet=ce!keep ce
-    call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)
-    call sortxt( xytlist, 8,2, xt,8,npoint )
+    call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)            
+    call sortxt( xytlist, 8,2, xt,8,npoint )            
     out=0.0
     aupp=0.0
     cupp=0.0
@@ -1610,32 +1588,32 @@ else
         ah=0
         ch=0
         if ( xt2-xt1 > eps*100 ) then
-
+                
             do ss=1,npoint
                 xts=xytlist(ss,1)
                 yts=xytlist(ss,2)
                 xte=xytlist(ss+1,1)
                 yte=xytlist(ss+1,2)
-
+                  
                 if ( (xts>xt1 .and. xte>xt1) .or. &
                      (xts<xt2 .and. xte<xt2) ) then
                     aa = 0 ! do nothing
                     cc = 0
                 else
                     aa = (yts-yte)/(xts-xte)
-                    cc = (xts*yte-xte*yts)/(xts-xte)
+                    cc = (xts*yte-xte*yts)/(xts-xte)                    
                     if (xte<xts) then
                         aupp = aa
                         cupp = cc
                         ah=ah+aa
                         ch=ch+cc
-         upper=upper+1
+                        upper=upper+1
                     else
                         alow = aa
                         clow = cc
                         lower=lower+1
                     end if
-                end if!(xts>xt1 .and. xte>xt1)
+                end if!(xts>xt1 .and. xte>xt1)              
             end do ! ss
             ce=cet !use stored ce
             if (ae*xt1+ce > 0 ) then
@@ -1646,35 +1624,36 @@ else
             end if
 
             ah = aupp-alow
-            ch = cupp-clow
+            ch = cupp-clow  
             ! integrate (ah*x+ch)*(1-exp(ae*x+ce) from xt1 to xt2
             ! numerically sound for ae->0, ae -> infty
             ! this can be important for different model scales
             ! esp. if someone runs the model in single precision!!
             ! s1=int((ah*x+ch),x,xt1,xt2)
-            s1 = (xt2-xt1)*((1./2.)*ah*(xt2+xt1)+ch)
+            s1 = (xt2-xt1)*((1./2.)*ah*(xt2+xt1)+ch)            
             ! s2=int((ch)*(-exp(ae*x+ce)),x,xt1,xt2)
             ceae=ce/ae;
-            s2 = -ch*exp(ae*(xt1+ceae))*(xt2-xt1)*intexp(ae*(xt2-xt1))
+            s2 = -ch*exp(ae*(xt1+ceae))*(xt2-xt1)*intexp(ae*(xt2-xt1))                
             ! s3=int((ah*x)*(-exp(ae*x+ce)),x,xt1,xt2)
             ! s3=int((ah*x)*(-exp(ae*(x+ceae))),x,xt1,xt2)
             ! expand in Taylor series around ae=0
             ! collect(expand(taylor(int(x*(-exp(ae*(x+ceae))),x,xt1,xt2)*ae^2,ae,4)/ae^2),ae)
             ! =(1/8*xt1^4+1/3*xt1^3*ceae+1/4*xt1^2*ceae^2-1/8*xt2^4-1/3*xt2^3*ceae-1/4*xt2^2*ceae^2)*ae^2
-            !     + (-1/3*xt2^3-1/2*xt2^2*ceae+1/3*xt1^3+1/2*xt1^2*ceae)*ae
+            !     + (-1/3*xt2^3-1/2*xt2^2*ceae+1/3*xt1^3+1/2*xt1^2*ceae)*ae 
             !     + 1/2*xt1^2-1/2*xt2^2
             !
-            ! coefficient at ae^2 in the expansion, after some algebra
+            ! coefficient at ae^2 in the expansion, after some algebra            
             a2=(xt1-xt2)*((1./4.)*(xt1+xt2)*ceae**2+(1./3.)* &
                (xt1**2+xt1*xt2+xt2**2)*ceae+(1./8.)* &
-               (xt1**3+xt1*(xt2**2)+xt1**2*xt2+xt2**3))
+               (xt1**3+xt1*(xt2**2)+xt1**2*xt2+xt2**3))               
             d=(ae**4)*a2
-   if (abs(d)>eps) then
+            
+            if (abs(d)>eps) then
             ! since ae*xt1+ce<=0 ae*xt2+ce<=0 all fine for large ae
             ! for ae, ce -> 0 rounding error approx eps/ae^2
                 s3=( exp(ae*(xt1+ceae))*(ae*xt1-1)-&
                      exp(ae*(xt2+ceae))*(ae*xt2-1) )/(ae**2)
-
+                
             !we do not worry about rounding as xt1 -> xt2, then s3 -> 0
             else
                 ! coefficient at ae^1 in the expansion
@@ -1684,11 +1663,12 @@ else
                 a0=(1./2.)*(xt1-xt2)*(xt1+xt2)
                 s3=a0+a1*ae+a2*ae**2; ! approximate the integral
                             end if
+ldskjflksdjflksdjf
 
-            s3=ah*s3
+            s3=ah*s3                                                
             out=out+s1+s2+s3
             out=1-out !fuel_left
-            if(out<0 .or. out>1) then
+            if(out<0 .or. out>1) then                                  
                 print *,':fuel_fraction should be between 0 and 1'
                 !print *, 'eps= ', eps
                 !print *, 'xt1= ', xt1, 'xt2= ', xt2
@@ -1697,17 +1677,46 @@ else
                 print *,'s1= ', s1,'s2= ', s2,'s3= ', s3
                 print *,':fuel_fraction =',out
             end if!print
-
+                
         end if
-    end do ! k
-
+    end do ! k     
+    
 end if ! if case0, elseif case4 ,else case123
 
-900 continue
-if(out>1. .or. out<0.)call crash('fuel_left_cell_3: fuel fraction out of bounds
-[0,1]')
+900 continue 
+if(out>1. .or. out<0.)call crash('fuel_left_cell_3: fuel fraction out of bounds [0,1]')
 fuel_left_cell_3 = out
 end function fuel_left_cell_3
+
+
+
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+real function intexp(ab)
+implicit none
+real::ab
+!calls
+intrinsic epsilon
+
+real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
+
+!eps = 2.2204*(10.0**(-8))!from matlab
+if ( eps < abs(ab)**3/6. ) then
+    intexp=(exp(ab)-1)/ab
+  else
+    intexp=1+ab/2.
+end if
+end function intexp
+!
+!****************************************
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!         
+!**************************************** 
+!       
+
 
 !
 !****************************************
