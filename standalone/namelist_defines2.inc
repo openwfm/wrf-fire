@@ -1694,6 +1694,13 @@ logical :: sfc_full_init
 integer :: sfc_lu_index
 real :: sfc_tsk
 real :: sfc_tmn
+logical :: fire_read_lu
+logical :: fire_read_tsk
+logical :: fire_read_tmn
+logical :: fire_read_atm_ht
+logical :: fire_read_fire_ht
+logical :: fire_read_atm_grad
+logical :: fire_read_fire_grad
 real :: sfc_vegfra
 real :: sfc_canwat
 integer :: sfc_ivgtyp

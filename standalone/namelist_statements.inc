@@ -1649,6 +1649,13 @@ NAMELIST /fire/ sfc_full_init
 NAMELIST /fire/ sfc_lu_index
 NAMELIST /fire/ sfc_tsk
 NAMELIST /fire/ sfc_tmn
+NAMELIST /fire/ fire_read_lu
+NAMELIST /fire/ fire_read_tsk
+NAMELIST /fire/ fire_read_tmn
+NAMELIST /fire/ fire_read_atm_ht
+NAMELIST /fire/ fire_read_fire_ht
+NAMELIST /fire/ fire_read_atm_grad
+NAMELIST /fire/ fire_read_fire_grad
 NAMELIST /fire/ sfc_vegfra
 NAMELIST /fire/ sfc_canwat
 NAMELIST /fire/ sfc_ivgtyp
