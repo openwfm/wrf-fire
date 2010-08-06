@@ -64,12 +64,18 @@
 ! June 22-25, 2004, pp. 221-223, NCAR
 
 module module_fr_sfire_driver
-! use this module for standalone call, you only need to provide some
-! mock-up wrf modules  
+! use this module for standalone call, you only need to provide some mock-up wrf modules  
 
 use module_fr_sfire_model
 use module_fr_sfire_phys
 use module_fr_sfire_util
+
+USE module_domain, only: domain
+USE module_configure, only: grid_config_rec_type
+use module_model_constants, only: reradius,    & ! 1/earth radiusw
+                                  pi2,         & ! 2*pi
+                                  g              ! nominal earth surface gravity acceleration
+
 implicit none
 
 
@@ -93,11 +99,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 !*** purpose: driver from grid structure
 
 ! Driver layer modules
-    USE module_domain
-    USE module_configure
-!    USE module_driver_constants
-!    USE module_machine
-!    USE module_tiles
 #ifdef DM_PARALLEL
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
     USE module_comm_dm   , ONLY : halo_fire_lfn_sub,halo_fire_longlat_sub,halo_fire_ht_sub   &
@@ -242,6 +243,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%u_frame,grid%v_frame,                  &
             unit_fxlong,unit_fxlat,                           & ! coordinates of grid center
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
+            config_flags%fire_wind_height,              &  ! height of wind input to fire spread formula
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
             fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
@@ -249,13 +251,17 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             fire_ignition_radius,        &
             fire_ignition_start_time,     &
             fire_ignition_end_time,     &
-            grid%u_2,grid%v_2,grid%ht,      & ! in arrays, on atm grid
+            grid%u_2,grid%v_2,           &          ! atm arrays in
+            grid%ph_2,grid%phb,               & ! geopotential
+            grid%z0,                        & ! roughness height
+            grid%ht,                        &                         ! terrain height
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             lfn_out,                                      & ! work - one timestep    
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
+            grid%uah,grid%vah,                          &
             grid%ros,                                   & ! rate of spread
             grid%fxlong,grid%fxlat,                           &       
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
@@ -296,6 +302,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     u_frame,v_frame,                              &
     unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
+    fire_wind_height,                             & ! for vertical wind interpolation
     num_ignitions,                                & 
     ignition_longlat,                             &
     ignition_start_x,ignition_start_y,            & ! ignition - small arrays
@@ -303,12 +310,15 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     ignition_radius,                              &
     ignition_start_time,                          &
     ignition_end_time,                            &
-    u,v,zs,                                       & ! in arrays, atm grid
+    u,v,                                       & ! in arrays, atm grid
+    ph,phb,                                       &
+    z0,zs,                                        & 
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
     lfn_out,                                & ! fire wind velocities, out level set function    
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
+    uah,vah,                                      & ! out atm grid
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
     ros,                                          &
     fxlong,fxlat,                                 & !  
@@ -353,7 +363,8 @@ real, intent(in):: &
     unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
     fire_crwn_hgt,                                & ! lowest height crown fire heat is released (m)
     fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
-    fire_ext_crwn                                   !  extinction depth of crown fire heat (m)
+    fire_ext_crwn,                                & ! wind height for vertical interploation to fire spread
+    fire_wind_height 
 
 
 integer, intent(in):: num_ignitions                 ! number of ignitions, can be 0
@@ -364,8 +375,13 @@ real, dimension(num_ignitions), intent(in):: &
     ignition_end_time                           !  of ignition lines end
 integer, intent(in):: ignition_longlat       ! if 1 ignition give as long/lat, otherwise as m from lower left corner
 
-real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v ! wind velocity (m/s) (node based, atm grid) 
-real,intent(in),dimension(ims:ime, jms:jme)::  zs ! terrain height  
+real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v, & ! wind velocity (m/s) (staggered atm grid) 
+                              ph, phb                      ! geopotential (w-points atm grid)
+real,intent(in),dimension(ims:ime, jms:jme)::   z0, &    ! roughness height
+                                                zs       ! terrain height  
+real,intent(out),dimension(ims:ime,jms:jme)::&
+    uah,                                           & ! atm wind at fire_wind_height, diagnostics
+    vah                                              ! atm wind at fire_wind_height, diagnostics
 
 real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat ! inout because of extension at bdry
     
@@ -591,6 +607,7 @@ do ij=1,num_tiles
     
         if(use_atm_vars)then                                  
         call interpolate_atm2fire(id,                     & ! flag for debug output
+            fire_wind_height,                             & ! height to interpolate to
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
             ips,ipe,jps,jpe,                              &
@@ -600,8 +617,11 @@ do ij=1,num_tiles
             ifts,ifte,jfts,jfte,                          &
             ir,jr,                                        & ! atm/fire grid ratio
             u_frame, v_frame,                             & ! velocity frame correction
-            u,v,                                       & ! atm grid arrays in
-            fp%vx,fp%vy)                                      ! fire grid arrays out
+            u,v,                                          & ! 3D atm grid arrays in
+            ph,phb,                                       &
+            z0,zs,                                        & ! 2D atm grid arrays in
+            uah,vah,                                      & ! 2D atm grid out
+            fp%vx,fp%vy)                                    ! fire grid arrays out
         endif
     
     endif
@@ -746,7 +766,6 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
     fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
     fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions, &
     unit_fxlong,unit_fxlat)
-    use module_model_constants, only: reradius,pi2
     USE module_configure
     implicit none
 ! create ignition arrays from scalar flags
@@ -872,6 +891,7 @@ end subroutine fire_ignition_convert
 !module_fr_sfire_driver%%interpolate_atm2fire
 
 subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no output
+    fire_wind_height,                             & ! interpolation height
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
     ips,ipe,jps,jpe,                              &
@@ -882,12 +902,16 @@ subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no 
     ir,jr,                                        & ! atm/fire grid ratio
     u_frame, v_frame,                             & ! velocity frame correction
     u,v,                                          & ! atm grid arrays in
+    ph,phb,                                       &
+    z0,zs,                                        &
+    uah,vah,                                      &
     uf,vf)                                          ! fire grid arrays out
     
 implicit none
 !*** purpose: interpolate winds and height
 
 !*** arguments
+real, intent(in):: fire_wind_height                 ! height above the terrain for vertical interpolation
 integer, intent(in)::id,                          &
     ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
     ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
@@ -899,7 +923,14 @@ integer, intent(in)::id,                          &
     ir,jr                                         ! atm/fire grid refinement ratio
 real, intent(in):: u_frame, v_frame                 ! velocity frame correction
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::&
-    u,v                                             ! atm wind velocity, staggered  
+    u,v,                                          & ! atm wind velocity, staggered  
+    ph,phb                                          ! geopotential
+real,intent(in),dimension(ims:ime,jms:jme)::&
+    z0,                                           & ! roughness height
+    zs                                              ! terrain height
+real,intent(out),dimension(ims:ime,jms:jme)::&
+    uah,                                           & ! atm wind at fire_wind_height, diagnostics
+    vah                                              ! 
 real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
     uf,vf                                           ! wind velocity fire grid nodes 
     

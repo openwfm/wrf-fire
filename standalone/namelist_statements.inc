@@ -1611,6 +1611,7 @@ NAMELIST /fire/ fire_sprd_mdl
 NAMELIST /fire/ fire_crwn_hgt
 NAMELIST /fire/ fire_ext_grnd
 NAMELIST /fire/ fire_ext_crwn
+NAMELIST /fire/ fire_wind_height
 NAMELIST /fire/ fire_fuel_read
 NAMELIST /fire/ fire_fuel_cat
 NAMELIST /fire/ fire_print_msg

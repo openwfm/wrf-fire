@@ -156,6 +156,8 @@ call allocate2d(grid%canhfx,ims,ime,jms,jme,'canhfx')
 call allocate2d(grid%canqfx,ims,ime,jms,jme,'canqfx') 
 call allocate3d(grid%u_2,ims,ime,kms,kme,jms,jme,'u_2') 
 call allocate3d(grid%v_2,ims,ime,kms,kme,jms,jme,'v_2') 
+call allocate2d(grid%uah,ims,ime,jms,jme,'uah')                  ! 
+call allocate2d(grid%vah,ims,ime,jms,jme,'vah')                  ! 
 
 ! prepare reading input file
 input%nfuel_cat=>grid%nfuel_cat(1:nfx,1:nfy)

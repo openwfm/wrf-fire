@@ -21,12 +21,16 @@ state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"  
 
 # fire variables on atm grid
 #
+# outputs to atm model
 state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
 state    real     rqvfrten  ikj      fire        1         z     hr   "RQVFRTEN" "humidity tendency" 
+# diagnostics only
 state    real     grnhfx    ij       fire        1         z     hr   "GRNHFX"   "heat flux from ground fire" "W/m^2"
 state    real     grnqfx    ij       fire        1         z     hr   "GRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     canhfx    ij       fire        1         z     hr   "CANHFX"   "heat flux from crown fire" "W/m^2"
 state    real     canqfx    ij       fire        1         z     hr   "CANQFX"   "moisture flux from crown fire" "W/m^2"
+state    real     uah       ij       fire        1         X     h    "UAH"      "wind at fire_wind_height" "m/s"
+state    real     vah       ij       fire        1         Y     h    "VAH"      "wind at fire_wind_height" "m/s"
 
 # sfire variables on fire grid
 # (also using tign_g,zs,z_at_w,dz8w,nfuel_cat,fluxes,zsf)
@@ -125,6 +129,7 @@ rconfig   integer fire_sprd_mdl          namelist,fire         max_domains      
 rconfig   real    fire_crwn_hgt          namelist,fire         max_domains           15.     -      "fire_crwn_hgt"    "height that heat from crown fire is released" "m"
 rconfig   real    fire_ext_grnd          namelist,fire         max_domains           50.     -      "fire_ext_grnd"    "extinction depth of sfc fire heat"   "m"
 rconfig   real    fire_ext_crwn          namelist,fire         max_domains           50.     -      "fire_ext_crwn"    "extinction depth of crown fire heat" "m"
+rconfig   real    fire_wind_height       namelist,fire         max_domains           6.096   -      "fire_wind_height" "height of uah,vah wind in fire spread formula" "m"
 rconfig   integer fire_fuel_read         namelist,fire         max_domains           -1      -      "fire_fuel_read"   "fuel categories are set by: if 0, uniform; if 1, user-presc; if 2, read from file"   ""
 rconfig   integer fire_fuel_cat          namelist,fire         max_domains           1       -      "fire_fuel_cat"     "fuel category if ifuelread=0"              ""
 # sfire switches
