@@ -193,6 +193,8 @@ rconfig   integer sfc_isltyp             namelist,fire         max_domains      
 halo      HALO_FIRE_LFN dyn_em 24:lfn
 halo      HALO_FIRE_TIGN dyn_em 8:tign_g
 halo      HALO_FIRE_HT dyn_em 8:ht
+halo      HALO_FIRE_PHB dyn_em 8:phb
+halo      HALO_FIRE_PH dyn_em 8:ph_2
 halo      HALO_FIRE_WIND_F dyn_em 12:uf,vf
 halo      HALO_FIRE_LONGLAT dyn_em 24:xlong,xlat
 halo      HALO_FIRE_WIND_A dyn_em 8:u_2,v_2

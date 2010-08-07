@@ -103,7 +103,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
     USE module_comm_dm   , ONLY : halo_fire_lfn_sub,halo_fire_longlat_sub,halo_fire_ht_sub   &
                                 ,halo_fire_zsf_sub, halo_fire_fuel_sub,halo_fire_wind_a_sub &
-                                ,halo_fire_wind_f_sub,halo_fire_tign_sub
+                                ,halo_fire_wind_f_sub,halo_fire_tign_sub,halo_fire_ph_sub,halo_fire_phb_sub
 #endif
 
     implicit none
@@ -206,14 +206,17 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 !!            if(fire_topo_from_atm.eq.1)then
 !!#include "HALO_FIRE_HT.inc"
 !!            endif 
+! base geopotential
+#include "HALO_FIRE_PHB.inc"
 
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
 
         elseif(fire_ifun.eq.3)then
-!           halo exchange on atm winds width 1 for interpolation
+!           halo exchange on atm winds and geopotential, width 1 for interpolation
 #include "HALO_FIRE_WIND_A.inc"
+#include "HALO_FIRE_PH.inc"
 
         elseif(fire_ifun.eq.4)then
 !           halo exchange on fire winds width 2 for a 2-step RK method
@@ -1014,10 +1017,17 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
 character(len=256)::msg
 #define TDIMS its-1,ite+2,jts-1,jte+2
 real, dimension(its-1:ite+2,jts-1:jte+2):: ua,va   ! atm winds, interpolated over height, still staggered grid
-integer:: i,j,k,ifts1,ifte1,jfts1,jfte1
+integer:: i,j,k,ifts1,ifte1,jfts1,jfte1,ite1,jte1
 real:: ground,loght,loglast,logzr,logfwh
 
 !*** executable
+
+if(kds.ne.1)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+  write(msg,*)'WARNING: bottom index kds=',kds,' should be 1?'
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+endif
 
 !                            ^ j
 !        ------------        |
@@ -1026,19 +1036,22 @@ real:: ground,loght,loglast,logzr,logfwh
 !        |          |    nodes in cell (i,j)
 !        ------v-----    view from top     
 !
-
-
-if(kds.ne.1)then
-!$OMP CRITICAL(SFIRE_ATM_CRIT)
-  write(msg,*)'WARNING: bottom index kds=',kds,' should be 1?'
-  call message(msg)
-!$OMP END CRITICAL
-endif
+! staggered values set u(ids:ide+1,jds:jde) v(ids:ide,jds:jde+1)
+! p=ph+phb set at (ids:ide,jds:jde) 
+! location of u(i,j) needs p(i-1,j) and p(i,j)
+! location of v(i,j) needs p(i,j-1) and p(i,j)
+! *** NOTE need HALO in ph, phb
+! so we can compute only u(ids+1:ide,jds:jde) v(ids:ide,jds+1,jde)
+! unless we extend p at the boundary
+! but because we care about the fire way in the inside it does not matter
+! if the fire gets close to domain boundary the simulation is over anyway
 
     logfwh = log(fire_wind_height)
-    do j = jts-1,jte+2
-      do i = its-1,ite+2 
-        ! interpolate u
+
+    ! interpolate u, staggered in X
+
+    do j = max(jds,jts-1),min(jde,jte+2)
+      do i = max(ids+1,its-1),min(ide,ite+2)
         ground = altub(i,kds,j)              ! altitude of the ground under u
         logzr = log(0.5*(z0(i,j)+z0(i-1,j))) ! log roughness length under this u point
         if(logfwh > logzr)then       !  
@@ -1061,7 +1074,13 @@ endif
         else  ! roughness higher than the fire wind height
           ua(i,j)=0
         endif
-        ! interpolate v
+      enddo
+    enddo
+
+    ! interpolate v, staggered in Y
+
+    do j = max(jds+1,jts-1),min(jde,jte+2)
+      do i = max(ids,its-1),min(ide,ite+2)
         ground = altvb(i,kds,j)              ! altitude of the ground under u
         logzr = log(0.5*(z0(i,j-1)+z0(i,j))) ! log roughness length under this u point
         if(logfwh > logzr)then       !  
@@ -1087,9 +1106,11 @@ endif
       enddo
     enddo
 
-!   store tile for diagnostics
-    do j = jts,jte
-      do i = its,ite
+!   store the tile for diagnostics
+    ite1=snode(ite,ide,1)
+    jte1=snode(jte,jde,1)
+    do j = jts,jte1
+      do i = its,ite1
         uah(i,j)=ua(i,j)
         vah(i,j)=va(i,j)
       enddo
