@@ -73,8 +73,8 @@ use module_fr_sfire_util
 USE module_domain, only: domain
 USE module_configure, only: grid_config_rec_type
 use module_model_constants, only: reradius,    & ! 1/earth radiusw
-                                  pi2,         & ! 2*pi
-                                  g              ! nominal earth surface gravity acceleration
+                                  g,           & ! gravitation acceleration
+                                  pi2            ! 2*pi
 
 implicit none
 
@@ -888,158 +888,6 @@ end subroutine fire_ignition_convert
 !
 !*****************************
 !
-!module_fr_sfire_driver%%interpolate_atm2fire
-
-subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no output
-    fire_wind_height,                             & ! interpolation height
-    ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
-    ims,ime, kms,kme, jms,jme,                    &
-    ips,ipe,jps,jpe,                              &
-    its,ite,jts,jte,                              &
-    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-    ifms, ifme, jfms, jfme,                       &
-    ifts,ifte,jfts,jfte,                          &
-    ir,jr,                                        & ! atm/fire grid ratio
-    u_frame, v_frame,                             & ! velocity frame correction
-    u,v,                                          & ! atm grid arrays in
-    ph,phb,                                       &
-    z0,zs,                                        &
-    uah,vah,                                      &
-    uf,vf)                                          ! fire grid arrays out
-    
-implicit none
-!*** purpose: interpolate winds and height
-
-!*** arguments
-real, intent(in):: fire_wind_height                 ! height above the terrain for vertical interpolation
-integer, intent(in)::id,                          &
-    ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
-    ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
-    ips,ipe,jps,jpe,                              &
-    its,ite,jts,jte,                              & ! atm tile bounds
-    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
-    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
-    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
-    ir,jr                                         ! atm/fire grid refinement ratio
-real, intent(in):: u_frame, v_frame                 ! velocity frame correction
-real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::&
-    u,v,                                          & ! atm wind velocity, staggered  
-    ph,phb                                          ! geopotential
-real,intent(in),dimension(ims:ime,jms:jme)::&
-    z0,                                           & ! roughness height
-    zs                                              ! terrain height
-real,intent(out),dimension(ims:ime,jms:jme)::&
-    uah,                                           & ! atm wind at fire_wind_height, diagnostics
-    vah                                              ! 
-real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
-    uf,vf                                           ! wind velocity fire grid nodes 
-    
-    
-!*** local
-#define TDIMS its-1,ite+2,jts-1,jte+2
-real, dimension(its-1:ite+2,jts-1:jte+2):: ua,va   ! atm winds, averaged over height
-integer:: i,j,k,ifts1,ifte1,jfts1,jfte1
-
-!*** executable
-
-    k=kds             ! the ground
-    do j = jts-1,jte+2
-        do i = its-1,ite+2 
-            ! average 1st 2 layers, correct const shift
-            ua(i,j)=0.5*( u(i,k,j) + u(i,k+1,j)) + u_frame
-            va(i,j)=0.5*( v(i,k,j) + v(i,k+1,j)) + v_frame
-        enddo
-    enddo
-
-    ! extend the winds by one beyond the domain boundary 
-    call continue_at_boundary(1,0,0., & ! do x direction or y direction
-    TDIMS,           &                ! memory dims
-    ids,ide+1,jds,jde+1, &            ! domain dims - winds defined up to +1
-    ips,ipe+1,jps,jpe+1, &            ! patch dims - winds defined up to +1
-    its,ite+1,jts,jte+1, &                ! tile dims
-    va)                               ! array
-
-    call continue_at_boundary(0,1,0., & ! do x direction or y direction
-    TDIMS,           &                ! memory dims
-    ids,ide+1,jds,jde+1, &            ! domain dims - winds defined up to +1
-    ips,ipe+1,jps,jpe+1, &            ! patch dims - winds defined up to +1
-    its,ite+1,jts,jte+1, &                ! tile dims
-    ua)                               ! array
-
-!if (id.gt.0) then
-!    call write_array_m(TDIMS,TDIMS,ua,'ua',id)
-!    call write_array_m(TDIMS,TDIMS,va,'va',id)
-!endif
-
-call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
-    'driver: atm wind (m/s)')
-    
-
-!      ---------------
-!     | F | F | F | F |   Example of atmospheric and fire grid with
-!     |-------|-------|   ir=jr=4.
-!     | F | F | F | F |   Winds are given at the midpoints of the sides of the atmosphere grid,
-!     ua------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
-!     | F | F | F | F |   This is (1,1) cell of atmosphere grid, and [*] is the (1,1) cell of the fire grid.
-!     |---------------|   ua(1,1) <--> uf(0.5,2.5)
-!     | * | F | F | F |   va(1,1) <--> vf(2.5,0.5)
-!      -------va------    za(1,1) <--> zf(2.5,2.5)
-!
-!   ^ x2
-!   |  --------va(1,2)---------
-!   | |            |           |   Example of atmospheric and fire grid with
-!   | |            |           |   ir=jr=1.
-!   | |          za,zf         |   Winds are given at the midpoints of the sides of the atmosphere grid,
-!   | ua(1,1)----uf,vf-----ua(2,1) interpolated to midpoints of the cells of the (the same) fire grid 
-!   | |           (1,1)        |   ua(1,1) <--> uf(0.5,1) 
-!   | |            |           |   va(1,1) <--> vf(1,0.5) 
-!   | |            |           |   za(1,1) <--> zf(1,1)
-!   |  --------va(1,1)---------
-!   |--------------------> x1 
-!
-! Meshes are aligned by the lower left cell of the domain. Then in the above figure
-! u = node with the ua component of the wind at (ids,jds), midpoint of side
-! v = node with the va component of the wind at (ids,jds), midpoint of side
-! * = fire grid node at (ifds,jfds)
-! z = node with height, midpoint of cell
-! 
-! ua(ids,jds)=uf(ifds-0.5,jfds+jr*0.5-0.5)         = uf(ifds-0.5,jfds+(jr-1)*0.5)
-! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
-! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
-    
-    ifts1=snode(ifts,ifds,-1) ! go 1 beyond domain boundary but not between tiles
-    ifte1=snode(ifte,ifde,+1)
-    jfts1=snode(jfts,jfds,-1)
-    jfte1=snode(jfte,jfde,+1)
-    
-    call interpolate_2d(  &
-        TDIMS,                  & ! memory dims atm grid tile
-        TDIMS,                  & ! where atm grid values set
-        ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
-        ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds-0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
-        ua,                     & ! in atm grid     
-        uf)                      ! out fire grid
-
-    call interpolate_2d(  &
-        TDIMS,                  & ! memory dims atm grid tile
-        TDIMS,                  & ! where atm grid values set
-        ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
-        ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir-1)*0.5,jfds-0.5, & ! line up by lower left corner of domain
-        va,                     & ! in atm grid     
-        vf)                      ! out fire grid
-
-!call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
-
-
-end subroutine interpolate_atm2fire
-
-!
-!*****************************
-!
 
 subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
     ids,ide, jds,jde,                    & ! atm grid dimensions
@@ -1116,6 +964,249 @@ end subroutine interpolate_z2fire
 !*****************************
 !
 
+subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no output
+    fire_wind_height,                             & ! interpolation height
+    ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+    ims,ime, kms,kme, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              &
+    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,                       &
+    ifts,ifte,jfts,jfte,                          &
+    ir,jr,                                        & ! atm/fire grid ratio
+    u_frame, v_frame,                             & ! velocity frame correction
+    u,v,                                          & ! atm grid arrays in
+    ph,phb,                                       &
+    z0,zs,                                        &
+    uah,vah,                                      &
+    uf,vf)                                          ! fire grid arrays out
+    
+implicit none
+!*** purpose: interpolate winds and height
+
+!*** arguments
+integer, intent(in)::id                           
+real, intent(in):: fire_wind_height                 ! height above the terrain for vertical interpolation
+integer, intent(in)::                             &
+    ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
+    ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real, intent(in):: u_frame, v_frame                 ! velocity frame correction
+real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::&
+    u,v,                                          & ! atm wind velocity, staggered  
+    ph,phb                                          ! geopotential
+real,intent(in),dimension(ims:ime,jms:jme)::&
+    z0,                                           & ! roughness height
+    zs                                              ! terrain height
+real,intent(out),dimension(ims:ime,jms:jme)::&
+    uah,                                           & ! atm wind at fire_wind_height, diagnostics
+    vah                                              ! 
+real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
+    uf,vf                                           ! wind velocity fire grid nodes 
+    
+    
+!*** local
+character(len=256)::msg
+#define TDIMS its-1,ite+2,jts-1,jte+2
+real, dimension(its-1:ite+2,jts-1:jte+2):: ua,va   ! atm winds, interpolated over height, still staggered grid
+integer:: i,j,k,ifts1,ifte1,jfts1,jfte1
+real:: ground,loght,loglast,logzr,logfwh
+
+!*** executable
+
+!                            ^ j
+!        ------------        |
+!        |          |         ----> i
+!        u    p     |
+!        |          |    nodes in cell (i,j)
+!        ------v-----    view from top     
+!
+
+
+if(kds.ne.1)then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+  write(msg,*)'WARNING: bottom index kds=',kds,' should be 1?'
+  call message(msg)
+!$OMP END CRITICAL
+endif
+
+    logfwh = log(fire_wind_height)
+    do j = jts-1,jte+2
+      do i = its-1,ite+2 
+        ! interpolate u
+        ground = altub(i,kds,j)              ! altitude of the ground under u
+        logzr = log(0.5*(z0(i,j)+z0(i-1,j))) ! log roughness length under this u point
+        if(logfwh > logzr)then       !  
+          do k=kds,kde
+            loght = log(altu(i,k,j)-ground)      ! height of this u point above the ground
+            if( .not. loght < logfwh) then ! found layer k this point is in
+              if(k.eq.kds)then               ! first layer, log linear interpolation from 0 at zr
+                ua(i,j)= u(i,k,j)*(logfwh-logzr)/(loght-logzr)
+              else                           ! log linear interpolation
+                ua(i,j)= u(i,k-1,j) + (u(i,k,j) - u(i,k-1,j)) * ( logfwh - loglast) / (loght - loglast)
+              endif
+              goto 10
+            endif
+            if(k.eq.kde)then                 ! last layer, still not high enough
+              ua(i,j)=u(i,k,j) 
+            endif
+            loglast = loght
+          enddo
+10        continue
+        else  ! roughness higher than the fire wind height
+          ua(i,j)=0
+        endif
+        ! interpolate v
+        ground = altvb(i,kds,j)              ! altitude of the ground under u
+        logzr = log(0.5*(z0(i,j-1)+z0(i,j))) ! log roughness length under this u point
+        if(logfwh > logzr)then       !  
+          do k=kds,kde
+            loght = log(altv(i,k,j)-ground)      ! height of this u point above the ground
+            if( .not. loght < logfwh) then ! found layer k this point is in
+              if(k.eq.kds)then               ! first layer, log linear interpolation from 0 at zr
+                va(i,j)= v(i,k,j)*(logfwh-logzr)/(loght-logzr)
+              else                           ! log linear interpolation
+                va(i,j)= v(i,k-1,j) + (v(i,k,j) - v(i,k-1,j)) * ( logfwh - loglast) / (loght - loglast)
+              endif
+              goto 11
+            endif
+            if(k.eq.kde)then                 ! last layer, still not high enough
+              va(i,j)=v(i,k,j) 
+            endif
+            loglast = loght
+          enddo
+11        continue
+        else  ! roughness higher than the fire wind height
+          va(i,j)=0
+        endif
+      enddo
+    enddo
+
+!   store tile for diagnostics
+    do j = jts,jte
+      do i = its,ite
+        uah(i,j)=ua(i,j)
+        vah(i,j)=va(i,j)
+      enddo
+    enddo
+
+
+    ! extend the winds by one beyond the domain boundary 
+    call continue_at_boundary(1,0,0., & ! do x direction or y direction
+    TDIMS,           &                ! memory dims
+    ids,ide+1,jds,jde+1, &            ! domain dims - winds defined up to +1
+    ips,ipe+1,jps,jpe+1, &            ! patch dims - winds defined up to +1
+    its,ite+1,jts,jte+1, &                ! tile dims
+    va)                               ! array
+
+    call continue_at_boundary(0,1,0., & ! do x direction or y direction
+    TDIMS,           &                ! memory dims
+    ids,ide+1,jds,jde+1, &            ! domain dims - winds defined up to +1
+    ips,ipe+1,jps,jpe+1, &            ! patch dims - winds defined up to +1
+    its,ite+1,jts,jte+1, &                ! tile dims
+    ua)                               ! array
+
+    call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
+    'driver: atm wind (m/s)')
+    
+
+!      ---------------
+!     | F | F | F | F |   Example of atmospheric and fire grid with
+!     |-------|-------|   ir=jr=4.
+!     | F | F | F | F |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!     ua------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
+!     | F | F | F | F |   This is (1,1) cell of atmosphere grid, and [*] is the (1,1) cell of the fire grid.
+!     |---------------|   ua(1,1) <--> uf(0.5,2.5)
+!     | * | F | F | F |   va(1,1) <--> vf(2.5,0.5)
+!      -------va------    za(1,1) <--> zf(2.5,2.5)
+!
+!   ^ x2
+!   |  --------va(1,2)---------
+!   | |            |           |   Example of atmospheric and fire grid with
+!   | |            |           |   ir=jr=1.
+!   | |          za,zf         |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!   | ua(1,1)----uf,vf-----ua(2,1) interpolated to midpoints of the cells of the (the same) fire grid 
+!   | |           (1,1)        |   ua(1,1) <--> uf(0.5,1) 
+!   | |            |           |   va(1,1) <--> vf(1,0.5) 
+!   | |            |           |   za(1,1) <--> zf(1,1)
+!   |  --------va(1,1)---------
+!   |--------------------> x1 
+!
+! Meshes are aligned by the lower left cell of the domain. Then in the above figure
+! u = node with the ua component of the wind at (ids,jds), midpoint of side
+! v = node with the va component of the wind at (ids,jds), midpoint of side
+! * = fire grid node at (ifds,jfds)
+! z = node with height, midpoint of cell
+! 
+! ua(ids,jds)=uf(ifds-0.5,jfds+jr*0.5-0.5)         = uf(ifds-0.5,jfds+(jr-1)*0.5)
+! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
+! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
+    
+    ifts1=snode(ifts,ifds,-1) ! go 1 beyond domain boundary but not between tiles
+    ifte1=snode(ifte,ifde,+1)
+    jfts1=snode(jfts,jfds,-1)
+    jfte1=snode(jfte,jfde,+1)
+    
+    call interpolate_2d(  &
+        TDIMS,                  & ! memory dims atm grid tile
+        TDIMS,                  & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
+        ir,jr,                  & ! refinement ratio
+        real(ids),real(jds),ifds-0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
+        ua,                     & ! in atm grid     
+        uf)                      ! out fire grid
+
+    call interpolate_2d(  &
+        TDIMS,                  & ! memory dims atm grid tile
+        TDIMS,                  & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
+        ir,jr,                  & ! refinement ratio
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds-0.5, & ! line up by lower left corner of domain
+        va,                     & ! in atm grid     
+        vf)                      ! out fire grid
+
+!call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
+
+contains
+
+real function altw(i,k,j)
+implicit none
+integer, intent(in)::i,k,j 
+altw= (ph(i,k,j)+phb(i,k,j))/g             ! altitude of the bottom w-point 
+end function 
+
+real function altub(i,k,j)
+implicit none
+integer, intent(in)::i,k,j 
+altub= 0.5*(altw(i-1,k,j)+altw(i,k,j))      ! altitude of the bottom point under u-point
+end function 
+
+real function altvb(i,k,j)
+implicit none
+integer, intent(in)::i,k,j 
+altvb=  0.5*(altw(i,k,j-1)+altw(i,k,j))      ! altitude of the bottom point under v-point
+end function 
+
+real function altu(i,k,j)
+implicit none
+integer, intent(in)::i,k,j 
+altu=   0.5*(altub(i,k,j)+altub(i,k+1,j))    ! altitude of the u-point
+end function 
+
+real function altv(i,k,j) 
+implicit none
+integer, intent(in)::i,k,j 
+altv=  0.5*(altvb(i,k,j)+altvb(i,k+1,j))    ! altitude of the v-point
+end function 
+
+end subroutine interpolate_atm2fire
 subroutine check_fmesh(ids,ide,ifds,ifde,ir,s)
 !*** purpose: check if fire and atm meshes line up
 implicit none
