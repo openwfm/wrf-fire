@@ -28,8 +28,8 @@ amin=[10,10,1];  % the atm grid part to show
 amax=[30,30,1];
 
 qstep=[20,20];        % quiver step for wind on the surface fire grid
-astep=[2,2,1];      % quiver step for wind on the atmosphere grid
-qs=1e-3;             % scaling for quiver arrows
+astep=[2,2,1];        % quiver step for wind on the atmosphere grid
+qs=1;                 % scaling for quiver arrows, 0=default
 swind=0;              % do not display surface wind
 
 %-------------------------------------------------
