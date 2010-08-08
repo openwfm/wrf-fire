@@ -1694,6 +1694,13 @@ logical , DIMENSION(max_domains) :: sfc_full_init
 integer , DIMENSION(max_domains) :: sfc_lu_index
 real , DIMENSION(max_domains) :: sfc_tsk
 real , DIMENSION(max_domains) :: sfc_tmn
+logical , DIMENSION(max_domains) :: fire_read_lu
+logical , DIMENSION(max_domains) :: fire_read_tsk
+logical , DIMENSION(max_domains) :: fire_read_tmn
+logical , DIMENSION(max_domains) :: fire_read_atm_ht
+logical , DIMENSION(max_domains) :: fire_read_fire_ht
+logical , DIMENSION(max_domains) :: fire_read_atm_grad
+logical , DIMENSION(max_domains) :: fire_read_fire_grad
 real , DIMENSION(max_domains) :: sfc_vegfra
 real , DIMENSION(max_domains) :: sfc_canwat
 integer , DIMENSION(max_domains) :: sfc_ivgtyp
