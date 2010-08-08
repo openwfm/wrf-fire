@@ -68,11 +68,10 @@ int write_geogrid(
   
   ixs = (*ix);
   iys = (*iy);
-  ixe = ixs + (*nx) - 2*(*bdr);
-  iye = iys + (*ny) - 2*(*bdr);
+  ixe = ixs + (*nx) - 2*(*bdr) - 1;
+  iye = iys + (*ny) - 2*(*bdr) - 1;
   
   narray = (*nx) * (*ny) * (*nz);
-  
   iarray = (iarray_t *)malloc(sizeof(iarray_t) * narray);
   barray = (unsigned char *)malloc(sizeof(unsigned char) * narray * (*wordsize));
   
