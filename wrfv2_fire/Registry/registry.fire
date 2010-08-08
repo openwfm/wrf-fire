@@ -29,8 +29,8 @@ state    real     grnhfx    ij       fire        1         z     hr   "GRNHFX"  
 state    real     grnqfx    ij       fire        1         z     hr   "GRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     canhfx    ij       fire        1         z     hr   "CANHFX"   "heat flux from crown fire" "W/m^2"
 state    real     canqfx    ij       fire        1         z     hr   "CANQFX"   "moisture flux from crown fire" "W/m^2"
-state    real     uah       ij       fire        1         X     h    "UAH"      "wind at fire_wind_height" "m/s"
-state    real     vah       ij       fire        1         Y     h    "VAH"      "wind at fire_wind_height" "m/s"
+state    real     uah       ij       fire        1         X     hr   "UAH"      "wind at fire_wind_height" "m/s"
+state    real     vah       ij       fire        1         Y     hr   "VAH"      "wind at fire_wind_height" "m/s"
 
 # sfire variables on fire grid
 # (also using tign_g,zs,z_at_w,dz8w,nfuel_cat,fluxes,zsf)

@@ -1046,6 +1046,18 @@ endif
 ! but because we care about the fire way in the inside it does not matter
 ! if the fire gets close to domain boundary the simulation is over anyway
 
+    ite1=snode(ite,ide,1)
+    jte1=snode(jte,jde,1)
+    call print_3d_stats(its,ite1,kds,kde,jts,jte,ims,ime,kms,kme,jms,jme,u,'driver: wind U in')
+    call print_3d_stats(its,ite,kds,kde,jts,jte1,ims,ime,kms,kme,jms,jme,v,'driver: wind V in')
+
+    if(fire_print_msg)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+       write(msg,'(a,f7.2,a)')'interpolate_atm2fire: log interpolating wind to',fire_wind_height,'m'
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+       call message(msg)
+    endif
+       
     logfwh = log(fire_wind_height)
 
     ! interpolate u, staggered in X
@@ -1107,8 +1119,6 @@ endif
     enddo
 
 !   store the tile for diagnostics
-    ite1=snode(ite,ide,1)
-    jte1=snode(jte,jde,1)
     do j = jts,jte1
       do i = its,ite1
         uah(i,j)=ua(i,j)
@@ -1116,6 +1126,10 @@ endif
       enddo
     enddo
 
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+    write(msg,'(a,f6.2,a)')'wind at',fire_wind_height,'m'
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+    call print_2d_stats_vec(its,ite1,jts,jte1,ims,ime,jms,jme,uah,vah,trim(msg))
 
     ! extend the winds by one beyond the domain boundary 
     call continue_at_boundary(1,0,0., & ! do x direction or y direction
@@ -1132,8 +1146,6 @@ endif
     its,ite+1,jts,jte+1, &                ! tile dims
     ua)                               ! array
 
-    call print_2d_stats_vec(its,ite+1,jts,jte+1,TDIMS,ua,va, &
-    'driver: atm wind (m/s)')
     
 
 !      ---------------
@@ -1193,7 +1205,9 @@ endif
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
 
-!call print_2d_stats_vec(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
+call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
+
+return
 
 contains
 
