@@ -4,7 +4,7 @@
 ! With contributions by Minjeong Kim.
 #define DEBUG_OUT
 #define DEBUG_PRINT
-!#define FUEL_LEFT
+!#define FUEL_LEFT_2
 !#define DEBUG_OUT_FUEL_LEFT    
 
 module module_fr_sfire_core
@@ -848,7 +848,7 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 ! approximately proportional to the area of the burning region.
 !
 
-#ifndef FUEL_LEFT
+#ifndef FUEL_LEFT_2
 call crash('fuel_left_cell_2: not implemented, please use fire_fuel_left_method=1')
 fuel_left_cell_2=0.  ! to avoid compiler warning about value not set
 end function fuel_left_cell_2
@@ -1297,11 +1297,11 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 ! approximately proportional to the area of the burning region.
 !
 
-#ifndef FUEL_LEFT
-call crash('fuel_left_cell_3: not implemented, please use fire_fuel_left_method=1')
-fuel_left_cell_3=0.  ! to avoid compiler warning about value not set
-end function fuel_left_cell_3
-#else
+!#ifndef FUEL_LEFT
+!call crash('fuel_left_cell_3: not implemented, please use fire_fuel_left_method=1')
+!fuel_left_cell_3=0.  ! to avoid compiler warning about value not set
+!end function fuel_left_cell_3
+!#else
 
 !*** calls
 intrinsic tiny
@@ -1723,7 +1723,7 @@ end function intexp
 
 
 
-
+#ifdef FUEL_LEFT_2
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine sortxt(xytlist,nrow,ncolumn,xt,nxt,nvec)
