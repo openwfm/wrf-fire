@@ -1295,7 +1295,6 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !
 ! When X is small then the fuel burnt in one timestep in the cell is
 ! approximately proportional to the area of the burning region.
-!
 
 #ifndef FUEL_LEFT
 call crash('fuel_left_cell_3: not implemented, please use fire_fuel_left_method=1')

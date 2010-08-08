@@ -9,6 +9,8 @@ real,dimension(3,3)::real_tff,real_lff
 real, dimension(5,5)::d
 real::tign_err
 real::test1_err,test2_err,test3_err,test4_err,test5_err
+real::lfn00,lfn01,lfn10,lfn11,tign00,tign01,tign10,tign11,fuel_time_cell
+real:: Result1
 !data lfn/2., 1., 0., &
 !         1., 0.,-1., &
 !         0.,-1.,-2./
@@ -230,5 +232,24 @@ write(*,*)' '
         write(*,*)"If all test*_err are equal to 0.0, than the code works &
                     correctly for this set of tests"
 
+        write(*,*)"Tests for fuel_left calculation"
+
+lfn00=-1.
+lfn01=-1.
+lfn10=1.
+lfn11=1.
+tign00=1.
+tign01=1.
+tign10=2.
+tign11=2.
+time_now=2
+fuel_time_cell= 8.235294 ;
+
+result1= fuel_left_cell_3(  &
+    lfn00,lfn01,lfn10,lfn11, &
+    tign00,tign01,tign10,tign11,&
+    time_now, fuel_time_cell)
+
+write(*,*)"Result1=",result1
 
  end program test
