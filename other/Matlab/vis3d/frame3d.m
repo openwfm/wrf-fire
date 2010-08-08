@@ -44,7 +44,8 @@ for h=hc(:)', set(h,'EdgeColor','black');end  % color the contours black
 % surface wind arrows
 if swind,
     ii=dmin(1):qstep(1):dmax(1);jj=dmin(2):qstep(2):dmax(2);
-    hq=quiver3(fxlong(ii,jj),fxlat(ii,jj),zsf(ii,jj),xscale*uf(ii,jj),yscale*vf(ii,jj),zeros(size(vf(ii,jj))),qs);
+    hq=quiver3(fxlong(ii,jj),fxlat(ii,jj),zsf(ii,jj),...
+        xscale*uf(ii,jj),yscale*vf(ii,jj),zeros(size(vf(ii,jj))),qs);
     set(hq,'Color','black')
 end
 
@@ -64,7 +65,7 @@ vc = (v(:,1:end-1,:)+v(:,2:end,:))/2;  % from front and rear face to the center
 % atmosphere wind arrows
 ia=amin(1):astep(1):amax(1);
 ja=amin(2):astep(2):amax(2);
-colors={'white','red','green','blue','black'};
+colors={'red','green','blue','black'};
 for k=amin(3):astep(3):amax(3),
     q1=u(ia,ja,k)*xscale;
     q2=v(ia,ja,k)*yscale;

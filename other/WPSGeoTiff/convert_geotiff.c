@@ -77,13 +77,13 @@ void print_usage(FILE* f,const char* name) {
 
 int main (int argc, char * argv[]) {
   
-  int c;
+  int c,i,j;
   int categorical_range,border_width,word_size,isigned,tile_size;
   float scale,missing,missing0;
   GeogridIndex idx;
   char units[STRING_LENGTH],description[STRING_LENGTH],filename[STRING_LENGTH];
   TIFF *file;
-  float *buffer;
+  float *buffer,swp;
   
   /* set up defaults */
   border_width=3;
@@ -200,9 +200,9 @@ int main (int argc, char * argv[]) {
   idx.missing=missing;
   if(categorical_range) {
     idx.categorical=1;
-    idx.cat_max=categorical_range;
+    idx.cat_max=categorical_range+1;
     idx.cat_min=1;
-    idx.missing=0.;
+    idx.missing=idx.cat_max;
   }
   else {
     idx.categorical=0;
@@ -226,7 +226,18 @@ int main (int argc, char * argv[]) {
   
   /* read geotiff file */
   buffer=get_tiff_buffer(file);
-  
+ 
+  if(!idx.bottom_top) {
+    for(i=0;i<idx.ny/2;i++) {
+      for(j=0;j<idx.nx;j++) {
+	swp=buffer[i*idx.nx+j];
+	buffer[i*idx.nx+j]=buffer[(idx.ny-i-1)*idx.nx+j];
+	buffer[(idx.ny-i-1)*idx.nx+j]=swp;
+      }
+    }
+    idx.bottom_top=1;
+  }
+
   /* do any processing of data buffer needed */
   process_buffer_f(idx,buffer);
   

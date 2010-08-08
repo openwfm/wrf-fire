@@ -23,7 +23,7 @@
  io_form_restart                     = 2
  io_form_input                       = 2
  io_form_boundary                    = 2
- debug_level                         = 0
+ debug_level                         = 1
 /
 
  &domains
@@ -149,7 +149,7 @@
  fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 0,        ! 1 print fire debugging messages
+ fire_print_msg     = 1,        ! 1 print fire debugging messages
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! experiments

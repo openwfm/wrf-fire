@@ -1,0 +1,39 @@
+&share
+ wrf_core = 'ARW',
+ max_dom = 6,
+ start_date = '2010-06-26_00:00:00','2010-06-26_00:00:00','2010-06-26_00:00:00','2010-06-26_00:00:00','2010-06-26_00:00:00','2010-06-26_00:00:00',
+ end_date   = '2010-07-29_00:00:00','2010-07-29_00:00:00','2010-07-29_00:00:00','2010-07-29_00:00:00','2010-07-29_00:00:00','2010-07-29_00:00:00',
+ interval_seconds = 10800
+ io_form_geogrid = 2,
+ subgrid_ratio_x = 10,
+ subgrid_ratio_y = 10,
+/
+
+&geogrid
+ parent_id         =   0,   1,  2,  3,  4,  5,
+ parent_grid_ratio =   1,   3,  3,  3,  3,  3,
+ i_parent_start    =   1,  25, 25, 25, 25, 25,
+ j_parent_start    =   1,  25, 25, 25, 25, 25,
+ e_we              =  73,  73, 73, 73, 73, 73,
+ e_sn              =  73,  73, 73, 73, 73, 73,
+ geog_data_res     = '30s','30s','30s','30s','30s','30s'
+ dx = .2189,
+ dy = .2189,
+ map_proj = 'lat-lon',
+ ref_lat   =   39.704018,
+ ref_lon   = -107.554531,
+ truelat1  =   39.704018,
+ truelat2  =   39.704018,
+ stand_lon = -107.554531,
+ geog_data_path = '../../wrfdata/geog'
+/
+
+&ungrib
+ out_format = 'WPS',
+ prefix = 'FILE',
+/
+
+&metgrid
+ fg_name = 'FILE'
+ io_form_metgrid = 2, 
+/
