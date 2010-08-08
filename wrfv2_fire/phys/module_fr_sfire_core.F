@@ -1405,8 +1405,8 @@ else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
 
  tign_middle=(t00+t01+t10+t11)/4
  ! since mesh_size is 1 we replace fd(1) and fd(2) by 1
- dt_dx=(t10-t00+t11-t01)/2
- dt_dy=(t01-t00+t11-t10)/2
+ dt_dx=(t00-t10+t01-t11)/2
+ dt_dy=(t00-t01+t10-t11)/2
  u(1)=dt_dx
  u(2)=dt_dy
  u(3)=tign_middle-(dt_dx+dt_dy)/2
@@ -1489,8 +1489,8 @@ else
     !differences
 ! approximate L(x,y)=u(1)*x+u(2)*y+u(3)
  lfn_middle=(lfn00+lfn01+lfn10+lfn11)/4
- dt_dx=(lfn10-lfn00+lfn11-lfn01)/2
- dt_dy=(lfn01-lfn00+lfn11-lfn10)/2
+ dt_dx=(lfn00-lfn10+lfn01-lfn11)/2
+ dt_dy=(lfn00-lfn01+lfn10-lfn11)/2
  u(1)=dt_dx
  u(2)=dt_dy
  u(3)=lfn_middle-(dt_dx+dt_dy)/2
