@@ -1067,7 +1067,7 @@ endif
     call print_3d_stats(its,ite1,kds,kde,jts,jte,ims,ime,kms,kme,jms,jme,u,'wind U in')
     call print_3d_stats(its,ite,kds,kde,jts,jte1,ims,ime,kms,kme,jms,jme,v,'wind V in')
 
-    if(fire_print_msg)then
+    if(fire_print_msg.gt.0)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
        write(msg,'(a,f7.2,a)')'interpolate_atm2fire: log-interpolation of wind to',fire_wind_height,' m'
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
