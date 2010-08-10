@@ -1,6 +1,6 @@
 
 CC=gcc
-DEBUG=-g -O0
+DEBUG=-g -O0 -fbounds-check
 OPT=#-O2
 CFLAGS=$(OPT) $(DEBUG)
 LINKER=$(CC)
@@ -23,7 +23,7 @@ clean:
 	$(CC) -c $< $(CFLAGS) $(INCLUDES)
 
 %.x:%.o
-	$(LINKER) -o $@ $^ $(LINKS)
+	$(LINKER) $(LFLAGS) -o $@ $^ $(LINKS)
 
 convert_geotiff.x: $(OBJ)
 convert_geotiff.o: convert_geotiff.c geogrid_tiles.h geogrid_index.h read_geotiff.h

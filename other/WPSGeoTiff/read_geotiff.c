@@ -28,7 +28,7 @@
 bufferasfloat=(float*) alloc_buffer(inx*iny*inz*sizeof(float)); \
 for(i=0;i<inx*iny*inz;i++) {                                    \
   j=i*bytes_per_sample;                                         \
-  _DVAR=*(_DTYPE*)(&buffer[j]);                                 \
+  _DVAR=*(_DTYPE*)(buffer+j);               \
   bufferasfloat[i]=(float) _DVAR;                               \
 }                                                               \
 free_buffer(buffer);
@@ -243,10 +243,10 @@ float* get_tiff_buffer(
   uint32 inx,iny,inz,buffersize;
   uint32 tileWidth, tileLength;
   uint16 bits_per_sample,samples_per_pixel,sample_format,/*fill_order,*/bytes_per_sample;
-  int stripMax,stripCount,i,j,k,i0,j0,j1,i1,cc;
+  int stripMax,stripCount,i,j,k,i0,j0,j1,i1,cc,idx;
   tsize_t stripSize;
   unsigned long imageOffset,result;
-  char *buffer;
+  unsigned char *buffer;
   float *bufferasfloat;
   uint8 iutemp8;
   uint16 iutemp16;
@@ -255,7 +255,7 @@ float* get_tiff_buffer(
   int16 itemp16;
   int32 itemp32;
   double dtemp;
-  tdata_t tilebuf,tptr,bptr;
+  unsigned char *tilebuf,*tptr,*bptr;
   
   /* get the global dimensions of the image */
   if( ! TIFFGetField(file,TIFFTAG_IMAGEWIDTH,&inx) ||
@@ -308,11 +308,12 @@ float* get_tiff_buffer(
     exit(EXIT_FAILURE);
   }
    */
-  
-  /* allocate data buffer for image pixel size */
-  buffersize=inx*iny*inz*samples_per_pixel*bytes_per_sample;
-  buffer=alloc_buffer(buffersize);
-  
+
+     /* allocate data buffer for image pixel size */
+    buffersize=inx*iny*inz*samples_per_pixel*bytes_per_sample;
+    buffer=alloc_buffer(buffersize);
+
+ 
   /* tiff images can be tiled or striped, we handle each seperately. */
   if ( TIFFIsTiled(file) ) {
     /* set up a buffer for reading each tile, this is copied to the global buffer */
@@ -321,6 +322,8 @@ float* get_tiff_buffer(
     /* get the tile dimensions in bytes */
     TIFFGetField(file, TIFFTAG_TILEWIDTH, &tileWidth);
     TIFFGetField(file, TIFFTAG_TILELENGTH, &tileLength);
+ 
+     for(i=0;i<buffersize;i++) buffer[i]=2;
   
     for(k=0;k<inz;k++) {                    /* loop over vertical levels */
       for(j=0;j<iny;j += tileLength) {      /* loop over columns of tiles */
@@ -341,20 +344,25 @@ float* get_tiff_buffer(
             i1=i;
             
             /* here we set a pointer to the first element of current column in the current tile. */
-            bptr=( ((tdata_t)buffer) + k*inx*iny+j1*inx*bytes_per_sample+i1*bytes_per_sample);
+	    idx=k*inx*iny+j1*inx+i1;
+	    if(idx < inx*iny*inz) {
+            bptr=( buffer + (k*inx*iny+j1*inx+i1)*bytes_per_sample);
             //fprintf(stdout,"%i\n",k*inx*bytes_per_sample*iny*bytes_per_sample+j1*inx*bytes_per_sample+i1);
             for(i0=0;i0<tileWidth*bytes_per_sample;i0++) {
-              *(unsigned char*)bptr++=*(unsigned char*)tptr++;
+	      //fprintf(stdout,"%i ",*(unsigned char*)tptr);
+              *bptr++=*tptr++;
               cc++;  /* keep track of number of bytes copied to compare to what was read from TIFFReadTile */
             } /* i0 */
+	    }
+	    //fprintf(stdout,"\n");
           } /* j0 */
           /* sanity check my programming skills */
-          if (cc > result) {  /* this might be possible for imcomplete tiles */
-            fprintf(stderr,"WARNING: Tile size=%i < copy size=%i.  This could indicate a bug.\n",(int)result,(int)cc);
-          }
-          if (cc < result) { /* this is almost certainly a bug */
-            fprintf(stderr,"ERROR: Tile size=%i > copy size=%i!\n",(int)result,(int)cc); 
-          }
+          //if (cc > result) {  /* this might be possible for imcomplete tiles */
+          //  fprintf(stderr,"WARNING: Tile size=%i < copy size=%i.  This could indicate a bug.\n",(int)result,(int)cc);
+          //}
+          //if (cc < result) { /* this is almost certainly a bug */
+          //  fprintf(stderr,"ERROR: Tile size=%i > copy size=%i!\n",(int)result,(int)cc); 
+          // }
           
         } /* i */
       } /* j */

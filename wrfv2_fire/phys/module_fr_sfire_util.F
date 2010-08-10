@@ -52,7 +52,7 @@ use module_wrf_error
 implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
-msg='crash:'//s
+msg='crash: '//s
 call message(msg)
 !$OMP CRITICAL(SFIRE_MESSAGE_CRIT)
 call wrf_error_fatal(msg)
@@ -977,9 +977,19 @@ integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme,kms,kme,kps,kpe
 real, intent(in)::a(ims:ime,kms:kme,jms:jme)
 character(len=*),intent(in)::name
 integer:: i,j,k
-real:: avg_a,max_a,min_a,t,aa
+real:: avg_a,max_a,min_a,t,aa,bb
 character(len=128)msg
-if(fire_print_msg.eq.0)return
+! if(fire_print_msg.eq.0)return
+! check for nans in any case
+bb=0.
+do j=jps,jpe
+  do k=kps,kpe
+    do i=ips,ipe
+       bb=bb+a(i,k,j)
+    enddo
+  enddo
+enddo
+if(bb.eq.bb.and.fire_print_msg.eq.0)return
 avg_a=0
 max_a=-huge(max_a)
 min_a= huge(min_a)
@@ -988,23 +998,30 @@ do j=jps,jpe
   do k=kps,kpe
     do i=ips,ipe
         aa=a(i,k,j)
-        if(aa.ne.aa.or..not.aa.le.t.or..not.aa.ge.-t)then
-!$OMP CRITICAL(SFIRE_UTIL_CRIT)
-            write(msg,1)name,i,k,j,aa
-            call message(msg)
-            call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-            call crash('invalid number')
-        endif
+        if(aa.ne.aa.or..not.aa.le.t.or..not.aa.ge.-t)goto 9
         max_a=max(max_a,aa)
         min_a=min(min_a,aa)
         avg_a=avg_a+aa
     enddo
   enddo
 enddo
-1 format(a,'(',i6,',',i6,',',i6,') = ',a)
+if(bb.ne.bb)goto 10 ! should never happen 
+if(fire_print_msg.eq.0)return
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1)*(kpe-kps+1))
 call print_stat_line(name,ips,ipe,jps,jpe,min_a,max_a,avg_a)
+return
+9 continue
+!$OMP CRITICAL(SFIRE_UTIL_CRIT)
+write(msg,1)name,i,k,j,aa
+call message(msg)
+1 format(a,'(',i6,',',i6,',',i6,') = ',a)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
+call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
+if(aa.ne.aa)goto 10
+msg='Invalid floating point number detected in '//name
+call crash(msg)
+10 msg='NaN detected in '//name
+call crash(msg)
 end subroutine print_3d_stats
 
 subroutine print_2d_stats(ips,ipe,jps,jpe, &
@@ -1015,7 +1032,7 @@ integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
 !!character(len=128)msg
-if(fire_print_msg.eq.0)return
+!if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &
                          a,name)
