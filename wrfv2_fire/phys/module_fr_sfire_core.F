@@ -935,11 +935,13 @@ if(lfn11>=0. .or. t11>0.)t11=0.
 
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
+print*,"Case 0"
     out = 1.0 !  fuel_left, no burning
 !*** case4 all four coners are burning
 else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
 !!!!!!!!!!!
 
+print*,"Case 4"
 ! All burning
 ! T=u(1)*x+u(2)*y+u(3)
 ! t(0,0)=tign(1,1)
@@ -955,13 +957,20 @@ else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
 ! u(2)=dt/dy
 ! u(3)=t(h/2,h/2)-h/2(dt/dx+dt/dy)
 
- tign_middle=(t00+t01+t10+t11)/4
+ tign_middle=-(t00+t01+t10+t11)/4
+ write(*,*)"tign_middle",tign_middle
+
  ! since mesh_size is 1 we replace fd(1) and fd(2) by 1
- dt_dx=(t00-t10+t01-t11)/2
- dt_dy=(t00-t01+t10-t11)/2
+ dt_dx=-(t00-t10+t01-t11)/2
+ dt_dy=-(t00-t01+t10-t11)/2
+
+ write(*,*)"dt_dx,dt_dy",dt_dx,dt_dy
+
  u(1)=dt_dx
  u(2)=dt_dy
  u(3)=tign_middle-(dt_dx+dt_dy)/2
+
+Write(*,*)"u=",u(1),u(2),u(3)
 
     ! integrate
     u(1)=-u(1)/fuel_time_cell
@@ -977,7 +986,9 @@ else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
         print *,'case4, out should be between 0 and 1'
     end if
 !*** case 1,2,3
+
 else
+print*,"Case 123"
     ! set xx, yy for the coner points
     ! move these values out of i and j loop to speed up
     xx(1) = -0.5
@@ -1041,52 +1052,60 @@ else
     !differences
 ! approximate L(x,y)=u(1)*x+u(2)*y+u(3)
  lfn_middle=(lfn00+lfn01+lfn10+lfn11)/4
+ print *,"lfn_middle",lfn_middle
  dt_dx=(lfn00-lfn10+lfn01-lfn11)/2
  dt_dy=(lfn00-lfn01+lfn10-lfn11)/2
+print *,"dt_dx,dt_dy",dt_dx,dt_dy
  u(1)=dt_dx
  u(2)=dt_dy
  u(3)=lfn_middle-(dt_dx+dt_dy)/2
 ! finding the coefficient c, reminder we work over one subcell only
 ! T(x,y)=c*L(x,y)+time_now
+write(*,*)"vector u before c",u(1),u(2),u(3)
     a=0
     b=0
 
     if (lfn00 <= 0) then
                         a=a+lfn00*lfn00
-                        if (t00 > time_now) then
+                        if (t00 > 0) then
                         call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
-                        b=b+(t00-time_now)*lfn00
+                        b=b+t00*lfn00
                         end if
+                        write(*,*)"t00,time_now,lfn00",t00,time_now,lfn00
+                        write(*,*)"a,b",a,b
     end if
 
 
     if (lfn01 <= 0) then
                         a=a+lfn01*lfn01
-                        if (t01>time_now) then
+                        if (t01> 0) then
                         call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
-                        b=b+(t01-time_now)*lfn01
+                        b=b+t01*lfn01
                         end if
+                        write(*,*)"a,b",a,b
     end if
 
 
     if (lfn10<=0) then
                         a=a+lfn10*lfn10
-                        if (t10>time_now) then
+                        if (t10>0) then
                         call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
-                        b=b+(t10-time_now)*lfn10
+                        b=b+t10*lfn10
                         end if
+                        write(*,*)"a,b",a,b
   end if
 
     if (lfn11<=0) then
                         a=a+lfn11*lfn11
-                        if (t11>time_now) then
+                        if (t11>0) then
                         call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
-                        b=b+(t11-time_now)*lfn11
+                        b=b+t11*lfn11
                         end if
+                        write(*,*)"a,b",a,b
     end if
 
 
@@ -1103,9 +1122,8 @@ else
 
     !print *,'vecX from LS',vecX
     !print *,'tign inputed',tign00,tign10,tign11,tign01
-    u(1)=vecX(1)
-    u(2)=vecX(2)
-    u(3)=vecX(3)            
+
+write(*,*)"vector u",u(1),u(2),u(3)
     ! rotate to gradient on x only
     nr = sqrt(u(1)**2+u(2)**2)
     if(.not.nr.gt.eps)then
@@ -1230,8 +1248,9 @@ else
                 
         end if
     end do ! k     
-    
+
 end if ! if case0, elseif case4 ,else case123
+
 
 900 continue 
 if(out>1. .or. out<0.)call crash('fuel_left_cell_3: fuel fraction out of bounds [0,1]')
