@@ -3,14 +3,14 @@
 	! add call to your subroutine here 
         implicit none
 real :: time_now
-integer :: ims,ime,jms,jme,icl,jcl
+integer :: ims,ime,jms,jme,icl,jcl,i,j
 real,dimension(3,3)::tff,lff,lfn,tign
 real,dimension(3,3)::real_tff,real_lff
 real, dimension(5,5)::d
 real::tign_err
 real::test1_err,test2_err,test3_err,test4_err,test5_err
 real::lfn00,lfn01,lfn10,lfn11,tign00,tign01,tign10,tign11,fuel_time_cell
-real:: Result1,Result2,Result3,Result4,Result5
+real:: Result1,Result2,Result3,Result4,Result5,result
 !data lfn/2., 1., 0., &
 !         1., 0.,-1., &
 !         0.,-1.,-2./
@@ -73,6 +73,22 @@ write(*,*)' '
 	write(*,*)real_tff-tff
 	test1_err=maxval(abs(real_tff-tff))
 	write(*,*)"test1_err=",test1_err
+
+
+fuel_time_cell= 8.235294 ;
+        write(*,*)"Calculation of fuel_frac over 4 subcells"
+result1=0;
+do i=1,2
+   do j=1,2
+
+write(*,*)'lff',lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1)
+result= result+fuel_left_cell_3(  &
+    lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1), &
+    tff(i,j),tff(i,j+1),tff(i+1,j),tff(i+1,j+1),&
+    time_now, fuel_time_cell)
+write(*,*)'result after step i and j',result,i,j
+end do
+end do
 
 
 !!!! Test #2
@@ -353,6 +369,22 @@ write(*,*)"lfn",lfn00,lfn01,lfn10,lfn11
 write(*,*)"tign",tign00,tign01,tign10,tign11
 
 write(*,*)"Result5=",Result5
+
+print*,""
+
+print*,""
+print*,""
+print*,""
+print*,""
+print*,""
+print*,"Big test, lfn- plane z=y-2; tign=y tnow=2"
+
+
+
+
+
+
+
 
 
  end program test
