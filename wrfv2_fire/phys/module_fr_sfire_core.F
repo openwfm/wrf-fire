@@ -863,7 +863,7 @@ real::ps,aps,area,ta,out
 real::t00,t01,t10,t11
 real,parameter::safe=tiny(aps)
 character(len=128)::msg
-
+real::dx,dy ! mesh sizes
 !*** local
 integer::i,j,k
 
@@ -917,6 +917,9 @@ external dggglm
 
 ! a very crude approximation - replace by a better code
 ! call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
+
+dx=1
+dy=1
 t00=tign00-time_now
 if(lfn00>=0. .or. t00>0.)t00=0.
 t01=tign01-time_now
@@ -965,6 +968,7 @@ print*,"Case 4"
  dt_dy=-(t00-t01+t10-t11)/2
 
  write(*,*)"dt_dx,dt_dy",dt_dx,dt_dy
+ write(*,*)"dx,dy",dx,dy
 
  u(1)=dt_dx
  u(2)=dt_dy
@@ -976,12 +980,15 @@ Write(*,*)"u=",u(1),u(2),u(3)
     u(1)=-u(1)/fuel_time_cell
     u(2)=-u(2)/fuel_time_cell
     u(3)=-u(3)/fuel_time_cell
+write(*,*)"u/fuel_time_cell",u(1),u(2),u(3)
+
+write(*,*)"intexp(u(1)),intexp(u(2))",intexp(u(1)*dx),intexp(u(2)*dy)
 
     !fuel_burn(i,j)=1-exp(u(3))*intexp(u(1)*dx)*intexp(u(2)*dy)
     s1=u(1)
     s2=u(2)            
     out=1-exp(u(3))*intexp(s1)*intexp(s2)
-    !print *,'intexp
+    print *,intexp(s1),intexp(s2),out
     if ( out<0 .or. out>1.0 ) then
         print *,'case4, out should be between 0 and 1'
     end if
@@ -1235,7 +1242,6 @@ write(*,*)"vector u",u(1),u(2),u(3)
 
             s3=ah*s3                                                
             out=out+s1+s2+s3
-            out=1-out !fuel_left
             if(out<0 .or. out>1) then                                  
                 print *,':fuel_fraction should be between 0 and 1'
                 !print *, 'eps= ', eps
@@ -1249,8 +1255,10 @@ write(*,*)"vector u",u(1),u(2),u(3)
         end if
     end do ! k     
 
+            out=1-out !fuel_left
 end if ! if case0, elseif case4 ,else case123
 
+write(*,*)"out=",out
 
 900 continue 
 if(out>1. .or. out<0.)call crash('fuel_left_cell_3: fuel fraction out of bounds [0,1]')

@@ -234,7 +234,7 @@ write(*,*)' '
 
         write(*,*)"Tests for fuel_left calculation"
 
-write(*,*)"Test1, result in Matlab u=-(2;0;1) f =0.0830"
+write(*,*)"Test1, result in Matlab u=(-2;0;1) f =0.9169"
 
 lfn00=-1.
 lfn01=-1.
@@ -257,7 +257,7 @@ write(*,*)"tign",tign00,tign01,tign10,tign11
 write(*,*)"Result1=",result1
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-write(*,*)"Test2, result in Matlab u=(-1;0;2) f =0.1660"
+write(*,*)"Test2, result in Matlab u=(1;0;1) f =0.1660"
 
 lfn00=-2.
 lfn01=-2.
@@ -270,7 +270,7 @@ tign11=2.
 time_now=3
 fuel_time_cell= 8.235294 ;
 
-result1= fuel_left_cell_3(  &
+Result2= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
@@ -294,7 +294,7 @@ tign11=4.
 time_now=10
 fuel_time_cell= 8.235294 ;
 
-result1= fuel_left_cell_3(  &
+result3= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
@@ -306,7 +306,7 @@ write(*,*)"Result3=",result3
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-write(*,*)"Test4, result in Matlab u=(-4;-4;2) f =0.2108"
+write(*,*)"Test4, result in Matlab u=(-4;-4;2) f =0.7891"
 
 lfn00=-3.
 lfn01=-1.
@@ -319,7 +319,7 @@ tign11=10.
 time_now=10
 fuel_time_cell= 8.235294 ;
 
-result1= fuel_left_cell_3(  &
+Result4= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
@@ -331,7 +331,7 @@ write(*,*)"Result4=",Result4
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-write(*,*)"Test5, result in Matlab u=(-2;-2;3) f =0.0511"
+write(*,*)"Test5, result in Matlab u=(-2;-2;3) f =0.9488"
 
 lfn00=-1.
 lfn01=1.
@@ -344,7 +344,7 @@ tign11=2.
 time_now=2
 fuel_time_cell= 8.235294 ;
 
-result1= fuel_left_cell_3(  &
+Result5= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
