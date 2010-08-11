@@ -546,7 +546,7 @@ do ij=1,num_tiles
                 ifms,ifme,jfms,jfme,  &
                 ifts,ifte,jfts,jfte,  &
                 fxlong,fxlat          )
-            call set_ideal_coord( dxf,dyf, &
+            call set_ideal_coord( dx,dy, &
                 ids,ide,jds,jde,  &
                 ims,ime,jms,jme,  &
                 its,ite,jts,jte,  &
