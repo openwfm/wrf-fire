@@ -546,6 +546,11 @@ do ij=1,num_tiles
                 ifms,ifme,jfms,jfme,  &
                 ifts,ifte,jfts,jfte,  &
                 fxlong,fxlat          )
+            call set_ideal_coord( dxf,dyf, &
+                ids,ide,jds,jde,  &
+                ims,ime,jms,jme,  &
+                its,ite,jts,jte,  &
+                xlong,xlat          )
         elseif(use_atm_vars)then
             ! assume halo xlong xlat
             ! interpolate nodal coordinates
