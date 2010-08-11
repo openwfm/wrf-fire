@@ -1,7 +1,6 @@
-disp('1. install mexnc under the same directory as wrf-fire, then')
-disp('2. start matlab in wrf/WRFV3/test/em_fire to set up the paths properly')
+disp('1. start matlab in wrf/WRFV3/test/em_fire to set up the paths properly')
 disp('   or cd there and run startup while in the directory')
-disp('3. read a wrfrst file into the workspace as in')
+disp('2. read a wrfrst file into the workspace as in')
 disp('   >> ncload wrfrst_d01_0001-01-01_00:01:00')
 
 % note the variables are read here without the WRF permutation of dimensions 

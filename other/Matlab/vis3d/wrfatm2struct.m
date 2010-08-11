@@ -8,14 +8,24 @@ function p=wrfatm2struct(filename,timesteps)
 % p           structure with several arrays from WRF and few more 
 % additional fields in p computed:
 % p.alt_at_w  altitude at w-points
-% p.altitude  altitide interpolated to theta-points
+% p.altitude  altitide interpolated to theta-points (centers of 3D cells)
+% p.uc,vc,wc  wind interpolated to theta-points (centers of 3D cells)
 % p.times     reformatted as as cell array of strings
 if ~exist('timesteps','var'),
     timesteps=[];
 end
 p=nc2struct(filename,{'U','V','W','PH','PHB','HGT','QVAPOR','T','Z0','Times'},{'DX','DY'},timesteps);
+
+% add altitude
 p.alt_at_w=(p.ph+p.phb)/9.81; % geopotential altitude at w-points
 p.altitude=(p.alt_at_w(:,:,1:end-1,:)+p.alt_at_w(:,:,2:end,:))*0.5; % interpolate to center altitude
+
+% add wind
+p.uc = 0.5*(p.u(1:end-1,:,:,:) + p.u(2:end,:,:,:));
+p.vc = 0.5*(p.v(:,1:end-1,:,:) + p.v(:,2:end,:,:));
+p.wc = 0.5*(p.w(:,:,1:end-1,:) + p.w(:,:,2:end,:));
+
+
 for i=1:size(p.times,2), % make Times readable
     times{i}=char(p.times(:,1)'); 
 end
