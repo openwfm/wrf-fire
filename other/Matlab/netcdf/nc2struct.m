@@ -31,27 +31,28 @@ for i=1:length({varnames{:}}),
     if ~isempty(times) && ~isempty(v.var_value),
         switch ndims(v.var_value)
             case 2
-                p.(lower(varname))=v.var_value(:,times);
+                val=v.var_value(:,times);
             case 4
-                p.(lower(varname))=v.var_value(:,:,:,times);
+                val=v.var_value(:,:,:,times);
             otherwise
                 warning('argument times supported only for 2d and 4d arrays')
-                p.(lower(varname))=v.var_value;
+                val=v.var_value;
         end % case
     else
-        p.(lower(varname))=v.var_value; 
+        val=v.var_value; 
     end
+    p.(lower(varname))=double(val);
 end
 
 for i=1:length({gattnames{:}}),
     gattname=gattnames{i};
     try
-        v=ncgetgatt(filename,gattname);
-        p.(lower(gattname))=v;
+        val=ncgetgatt(filename,gattname);
     catch ME
         warning(['global attribute ',gattname,' does not exist in file ',filename])
-        p.(lower(gattname))=[];
+        v=[];
     end
+    p.(lower(gattname))=double(val);
 end
 
 end
