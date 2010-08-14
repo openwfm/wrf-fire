@@ -32,10 +32,12 @@ for i=1:length({varnames{:}}),
         switch ndims(v.var_value)
             case 2
                 val=v.var_value(:,times);
+            case 3
+                val=v.var_value(:,:,times);
             case 4
                 val=v.var_value(:,:,:,times);
             otherwise
-                warning('argument times supported only for 2d and 4d arrays')
+                warning('unsupported number of dimensions')
                 val=v.var_value;
         end % case
     else
