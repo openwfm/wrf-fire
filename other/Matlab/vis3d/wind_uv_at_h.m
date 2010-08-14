@@ -24,6 +24,7 @@ clear alt_bu alt_bv z0_bu z0_bv % free some memory
 p.uch=log_interp_vert(p.uc,p.alt_at_w,p.z0,levels);
 p.vch=log_interp_vert(p.vc,p.alt_at_w,p.z0,levels);
 
+p.levels=levels;
 
 end
 
