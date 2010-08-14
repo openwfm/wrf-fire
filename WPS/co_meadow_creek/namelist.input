@@ -1,7 +1,7 @@
  &time_control
- run_days                            = 3,
+ run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 0,
+ run_minutes                         = 5,
  run_seconds                         = 0,
  start_year                          = 2010,2010,2010,2010,2010,2010,
  start_month                         = 06,06,06,06,06,06,
@@ -17,7 +17,7 @@
  end_second                          = 00,00,00,00,00,00,
  interval_seconds                    =  10800
  input_from_file                     = .true.,.true.,.true.,.true.,.true.,.true.,
- history_interval_s                  =  600,300,150,100,60,30
+ history_interval_s                  =  1,1,1,1,1,1, !600,300,150,100,60,30
  frames_per_outfile                  = 1000,1000,1000,1000,1000,1000,
  restart                             = .false.,
  restart_interval                    = 180,
@@ -29,7 +29,7 @@
  /
 
  &domains
- time_step                           = 250,
+ time_step                           = 1,
  time_step_fract_num                 = 0,
  time_step_fract_den                 = 10,
  max_dom                             = 6,
@@ -95,10 +95,10 @@
  w_damping                           = 0,
  diff_opt                            = 2,
  km_opt                              = 4,
- damp_opt                            = 0,
+ damp_opt                            = 1,
  base_temp                           = 290.
  zdamp                               = 5000.,5000,5000,5000,5000,5000,
- dampcoef                            = 0.2,0.2,0.2,0.2,0.2,0.2,
+ dampcoef                            = 0.1,0.1,0.1,0.1,0.1,0.1,
  khdif                               = 0.,0.01,0.01,0.01,0.01,0.01,
  kvdif                               = 0.,0.01,0.01,0.01,0.01,0.01,
  non_hydrostatic                     = .true.,
@@ -137,7 +137,7 @@
  fire_ignition_end_time3  =0,0,0,0,0,      4, ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 0,0,0,0,0,1,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
+ fire_print_msg     = 0,0,0,0,0,0,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
  fire_print_file    = 0,0,0,0,0,0,    ! 1 to write text output files for matlab
 !
 ! method selections for experiments, *do not change*
