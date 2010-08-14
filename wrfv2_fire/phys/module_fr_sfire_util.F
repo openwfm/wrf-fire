@@ -1014,7 +1014,7 @@ return
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,1)name,i,k,j,aa
 call message(msg)
-1 format(a,'(',i6,',',i6,',',i6,') = ',a)
+1 format(a30,'(',i6,',',i6,',',i6,') = ',g13.5)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
 if(aa.ne.aa)goto 10
