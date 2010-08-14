@@ -14,7 +14,9 @@ function p=wrfatm2struct(filename,timesteps)
 if ~exist('timesteps','var'),
     timesteps=[];
 end
-p=nc2struct(filename,{'U','V','W','PH','PHB','HGT','QVAPOR','T','Z0','Times'},{'DX','DY'},timesteps);
+p=nc2struct(filename,{'U','V','W','PH','PHB','HGT','QVAPOR','T','Z0',...
+    'XLONG','XLAT','GRNHFX','FGRNHFX','FXLONG','FXLAT','Times'},...
+    {'DX','DY'},timesteps);
 
 % add altitude
 p.alt_at_w=(p.ph+p.phb)/9.81; % geopotential altitude at w-points
