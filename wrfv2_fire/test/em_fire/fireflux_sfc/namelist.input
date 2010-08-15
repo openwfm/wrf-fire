@@ -1,13 +1,13 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 25,
+ run_minutes                         = 20,
  run_seconds                         = 0,
  start_year                          = 2006, 0001, 0001,
  start_month                         = 02,   01,   01,
  start_day                           = 23,   01,   01,
  start_hour                          = 12,   00,   00,
- start_minute                        = 35,   01,   01,
+ start_minute                        = 40,   01,   01,
  start_second                        = 00,   00,   00,
  end_year                            = 2006, 0001, 0001,
  end_month                           = 02,   01,   01,
@@ -15,32 +15,32 @@
  end_hour                            = 13,   00,   00,
  end_minute                          = 00,   600,   600,
  end_second                          = 0,   00,   00,
- history_interval_s                  = 60,   30,   30,
+ history_interval_s                  = 10,   30,   30,
  frames_per_outfile                  = 1000, 1000, 1000,
  restart                             = .false.,
- restart_interval                    = 1
+ restart_interval                    = 2
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
  io_form_boundary                    = 2
- debug_level                         = 0
+ debug_level                         = 1
 /
 
  &domains
  time_step                           = 0,
  !time_step                           = 5,
  time_step_fract_num                 = 1,
- time_step_fract_den                 = 10,
+ time_step_fract_den                 = 100,
  max_dom                             = 1,
  s_we                                = 1,     1,     1,
  e_we                                = 200,    43,    43,
  s_sn                                = 1,     1,     1,
  e_sn                                = 320,    43,    43,
  s_vert                              = 1,     1,     1,
- e_vert                              = 81,    41,    41,
+ e_vert                              = 161,    41,    41,
  dx                                  = 5,    30,    10,
  dy                                  = 5,    30,    10,
- ztop                                = 400, 1500, 1500,
+ ztop                                = 1200, 1500, 1500,
  grid_id                             = 1,     2,     3,
  parent_id                           = 0,     1,     2,
  i_parent_start                      = 0,     1,    1,
@@ -125,20 +125,20 @@
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 ! ignition 
  fire_num_ignitions = 2,        ! integer, only the first fire_num_ignition used, up to 5 allowed
- fire_ignition_start_x1 =  500,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_start_x1 =  475,  ! start points of ignition lines, in m from lower left corner
  fire_ignition_start_y1 = 1075,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x1 =    300,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_end_x1 =    305,  ! end points of ignition lines, in m from lower left corner
  fire_ignition_end_y1 =   1075,  ! end points of ignition lines, in m from lower left corner
  fire_ignition_radius1 =     ,  ! all within this radius will ignite, > fire mesh step
- fire_ignition_start_time1 =480, ! sec for ignition from the start
- fire_ignition_end_time1  = 644,  ! sec for ignition from the start
- fire_ignition_start_x2 =  500,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_start_time1 =180, ! sec for ignition from the start
+ fire_ignition_end_time1  = 334,  ! sec for ignition from the start
+ fire_ignition_start_x2 =  475,  ! start points of ignition lines, in m from lower left corner
  fire_ignition_start_y2 = 1075,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x2 =    700,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_end_x2 =    690,  ! end points of ignition lines, in m from lower left corner
  fire_ignition_end_y2 =   1075,  ! end points of ignition lines, in m from lower left corner
  fire_ignition_radius2 =     2,  ! all within this radius will ignite, > fire mesh step
- fire_ignition_start_time2 =480 ,  ! sec for ignition from the start! end ignition for sfire
- fire_ignition_end_time2  = 634,  ! sec for ignition from the start! end ignition for sfire
+ fire_ignition_start_time2 =180 ,  ! sec for ignition from the start! end ignition for sfire
+ fire_ignition_end_time2  = 344,  ! sec for ignition from the start! end ignition for sfire
  fire_ignition_start_x3 = 1400,  ! start points of ignition lines, in m from lower left corner
  fire_ignition_start_y3 = 1400,  ! start points of ignition lines, in m from lower left corner
  fire_ignition_end_x3 =   1400,  ! end points of ignition lines, in m from lower left corner
@@ -174,7 +174,7 @@
 ! 
  stretch_grd = .true.,
  stretch_hyp = .true.,
- z_grd_scale = 1.2
+ z_grd_scale = 1.85
 !
 ! Surface initialization
 !
@@ -188,7 +188,8 @@
 ! sfc_vegfra = 0.5,               ! Vegetation fraction, needed only with Noah LSM (sf_surface_physics=2)
 !
 ! files
-fire_read_atm_ht = .true.,      ! read file ht_input
+fire_read_atm_ht = .false.,      ! read file ht_input
+fire_read_lu = .true.,
 !
 ! method switches for developers only, do not change!
 !
