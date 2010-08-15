@@ -29,7 +29,8 @@ for i=1:length({varnames{:}}),
         v.var_value=[];
     end
     if ~isempty(times) && ~isempty(v.var_value),
-        switch ndims(v.var_value)
+        dims=length(v.dimlength);
+        switch dims
             case 2
                 val=v.var_value(:,times);
             case 3

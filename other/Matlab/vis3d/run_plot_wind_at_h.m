@@ -1,6 +1,6 @@
 % run_plot_at_h
 % wrfout='fireflux_small/wrfout_d01_2006-02-23_12:43:00';
-timestep=5;
+timestep=1;
 levels=[1,2,6,46, 100, 250]; % in m, what gets computed
 ilevels=[4]; % indices, which levels from above get displayed
 ilevels=[];
