@@ -35,6 +35,12 @@ no. 1, pp. 49–59, 2005
 
 --------------------------------------------------------------------
 
+CURRENT ACTIVITY
+
+For current activity and development trends please check out
+http://ccm.ucdenver.edu/wiki/User:Jmandel/blog
+http://www.openwfm.org/wiki/WRF-Fire_development_notes
+
 SUPPORT
 
 For support please subscribe to the wrf-fire mailing list at NCAR at
