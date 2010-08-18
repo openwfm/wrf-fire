@@ -437,13 +437,25 @@ real, intent(out),dimension(3,3)::tff,lff
 !       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
 
       lff(1,1)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))
+    !  write(*,*)"lff(1,1)",lff(1,1)
+    !  write(*,*)"tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
+    !                                 tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
+    !                                 lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),",tign(icl-1,jcl-1), &
+    !                                    tign(icl-1,jcl),tign(icl,jcl-1),  & 
+    !                                 tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
+    !                                 lfn(icl,jcl-1),lfn(icl,jcl)
       call tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
                                      tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
                                      lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),tff(1,1),time_now)
+    !  write(*,*)"tff(1,1)",tff(1,1)
 
       lff(1,2)=0.5*(lfn(icl-1,jcl)+lfn(icl,jcl))
+    !  write(*,*)"lff(1,2)",lff(1,2)
+
       call tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),lfn(icl,jcl), &
                              lff(1,2),tff(1,2),time_now)
+    !  write(*,*)"tff(1,2)",tff(1,2)
+
 
       lff(1,3)=0.25*(lfn(icl-1,jcl+1)+lfn(icl-1,jcl)+lfn(icl,jcl+1)+lfn(icl,jcl))
       call tign_four_pnts_interp(tign(icl-1,jcl),tign(icl-1,jcl+1),tign(icl,jcl),  & 
@@ -453,12 +465,11 @@ real, intent(out),dimension(3,3)::tff,lff
       lff(2,1)=0.5*(lfn(icl,jcl-1)+lfn(icl,jcl))   
       call tign_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),lfn(icl,jcl), &
                              lff(2,1),tff(2,1),time_now)
-
       lff(2,2)=lfn(icl,jcl)
       tff(2,2)=tign(icl,jcl)
 
       lff(2,3)=0.5*(lfn(icl,jcl+1)+lfn(icl,jcl))   
-      call tign_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+11),lfn(icl,jcl), &
+      call tign_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+1),lfn(icl,jcl), &
                              lff(2,3),tff(2,3),time_now)
 
       lff(3,1)=0.25*(lfn(icl,jcl-1)+lfn(icl,jcl)+lfn(icl+1,jcl-1)+lfn(icl+1,jcl))
@@ -474,7 +485,6 @@ real, intent(out),dimension(3,3)::tff,lff
       call tign_four_pnts_interp(tign(icl,jcl),tign(icl,jcl+1),tign(icl+1,jcl),  & 
                                      tign(icl+1,jcl+1),lfn(icl,jcl),lfn(icl,jcl+1),      &
                                      lfn(icl+1,jcl),lfn(icl+1,jcl+1),lff(3,3),tff(3,3),time_now)
-
 
 
 
@@ -542,9 +552,14 @@ err=0.0001
 ! to check later why does it appear to be Dummy variable and where
 !tign_subcl=time_now;
 !!!!!! will remove later
+!write(*,*)"4pnts interp:   &
+!tign1,tign2,tign3,tign4,lfn1-4,lfn_sbcl,time_now",tign1,tign2,tign3,tign4, &
+!lfn1,lfn2,lfn3,lfn4,lfn_subcl,time_now   
 
 if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
+!print*,"bu"
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
+!   write(*,*)"tign_subcl",tign_subcl
 elseif((lfn1.gt.0).AND.(lfn2.gt.0).AND.(lfn3.gt.0).AND.(lfn4.gt.0))then
    !if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
    !   call crash('tign_four_pnts_interp: when lfn1(2,3,4)>0 their tign1(2,3,4) should = time_now')
@@ -583,6 +598,7 @@ b=0;
    endif
    if (lfn3.le.0) then
 !       if (tign3.gt.time_now)
+
 !           call crash('tign_four_pnts_interp tign3 should be less then time_now');
 !       else
 ! Can not assign to a named constant
@@ -920,14 +936,17 @@ external dggglm
 
 dx=1
 dy=1
-t00=tign00-time_now
-if(lfn00>=0. .or. t00>0.)t00=0.
-t01=tign01-time_now
-if(lfn01>=0. .or. t01>0.)t01=0.
-t10=tign10-time_now
-if(lfn10>=0. .or. t10>0.)t10=0.
-t11=tign11-time_now
-if(lfn11>=0. .or. t11>0.)t11=0.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!comment - changed tign-time_now to time_now-tign
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+t00=time_now-tign00
+if(lfn00>=0. .or. t00<0.)t00=0.
+t01=time_now-tign01
+if(lfn01>=0. .or. t01<0.)t01=0.
+t10=time_now-tign10
+if(lfn10>=0. .or. t10<0.)t10=0.
+t11=time_now-tign11
+if(lfn11>=0. .or. t11<0.)t11=0.
 
 !if (t00<0 .or. t01 <0 .or. t10<0 .or. t11<0) then
 !   print *,'tign00=',tign00,'tign10=',tign10,&
@@ -960,12 +979,13 @@ print*,"Case 4"
 ! u(2)=dt/dy
 ! u(3)=t(h/2,h/2)-h/2(dt/dx+dt/dy)
 
- tign_middle=-(t00+t01+t10+t11)/4
+ tign_middle=(t00+t01+t10+t11)/4
  write(*,*)"tign_middle",tign_middle
+ write(*,*)"t00,t01,t10,t11",t00,t01,t10,t11
 
  ! since mesh_size is 1 we replace fd(1) and fd(2) by 1
- dt_dx=-(t00-t10+t01-t11)/2
- dt_dy=-(t00-t01+t10-t11)/2
+ dt_dx=(t10-t00+t11-t01)/2
+ dt_dy=(t01-t00+t11-t10)/2
 
  write(*,*)"dt_dx,dt_dy",dt_dx,dt_dy
  write(*,*)"dx,dy",dx,dy
@@ -1060,8 +1080,8 @@ print*,"Case 123"
 ! approximate L(x,y)=u(1)*x+u(2)*y+u(3)
  lfn_middle=(lfn00+lfn01+lfn10+lfn11)/4
  print *,"lfn_middle",lfn_middle
- dt_dx=(lfn00-lfn10+lfn01-lfn11)/2
- dt_dy=(lfn00-lfn01+lfn10-lfn11)/2
+ dt_dx=(lfn10-lfn00+lfn11-lfn01)/2
+ dt_dy=(lfn01-lfn00+lfn11-lfn10)/2
 print *,"dt_dx,dt_dy",dt_dx,dt_dy
  u(1)=dt_dx
  u(2)=dt_dy
@@ -1074,7 +1094,7 @@ write(*,*)"vector u before c",u(1),u(2),u(3)
 
     if (lfn00 <= 0) then
                         a=a+lfn00*lfn00
-                        if (t00 > 0) then
+                        if (t00 < 0) then
                         call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
                         b=b+t00*lfn00
@@ -1086,7 +1106,7 @@ write(*,*)"vector u before c",u(1),u(2),u(3)
 
     if (lfn01 <= 0) then
                         a=a+lfn01*lfn01
-                        if (t01> 0) then
+                        if (t01< 0) then
                         call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
                         b=b+t01*lfn01
@@ -1097,7 +1117,7 @@ write(*,*)"vector u before c",u(1),u(2),u(3)
 
     if (lfn10<=0) then
                         a=a+lfn10*lfn10
-                        if (t10>0) then
+                        if (t10<0) then
                         call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
                         b=b+t10*lfn10
@@ -1107,7 +1127,7 @@ write(*,*)"vector u before c",u(1),u(2),u(3)
 
     if (lfn11<=0) then
                         a=a+lfn11*lfn11
-                        if (t11>0) then
+                        if (t11<0) then
                         call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
                         else
                         b=b+t11*lfn11
