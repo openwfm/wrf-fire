@@ -2,8 +2,10 @@ function v_levels=log_interp_vert(u,alt_bu,z0,levels)
 % vertical log interpolation
 % u         values given at u poits (half eta levels)
 % alt_bu    altitude at cell bottoms under u points 
-% z0  roughtness height 
-% alt_at_w
+% z0        roughtness height 
+% levels    heights to interpolate to (3rd index)
+% Note: the computation runs over all i,j (dimensions 1 and 2 in u) 
+% and all timesteps (dimensions 4)
 
 % extend u by zeros at the ground
 s=size1(u,4);
