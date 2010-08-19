@@ -1,7 +1,7 @@
 &fuel_scalars                      ! scalar fuel constants
 cmbcnst  = 17.433e+06,             ! J/kg combustion heat dry fuel
 hfgl     = 17.e4 ,                 ! W/m^2 heat flux to ignite canopy
-fuelmc_g = 0.08,                   ! ground fuel moisture, set = 0 for dry
+fuelmc_g = 0.18,                   ! ground fuel moisture, set = 0 for dry
 !jc fuelmc_g = 0.09,                   ! ground fuel moisture, set = 0 for dry
 fuelmc_c = 1.00,                   ! canopy fuel moisture, set = 0 for dry
 nfuelcats = 13,                    ! number of fuel categories used
@@ -9,7 +9,7 @@ no_fuel_cat = 14                   ! extra category for no fuel
 /
 
 &fuel_categories                 
- fgi =  0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, 
+ fgi =  0.166, 0.897, 1.08, 2.468, 0.785, 1.345, 1.092, 
 !jc fgi=  0.166, 0.897, 1.076, 2.468, 0.785, 1.345, 1.092
         1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7, 
  fueldepthm=0.305, 0.305, 0.762, 1.829, 0.61,  0.762, 0.762, 
