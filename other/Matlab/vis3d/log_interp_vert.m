@@ -1,6 +1,7 @@
 function v_levels=log_interp_vert(u,alt_bu,z0,levels)
 % vertical log interpolation
-% u   values given at u poits (half eta levels)
+% u         values given at u poits (half eta levels)
+% alt_bu    altitude at cell bottoms under u points 
 % z0  roughtness height 
 % alt_at_w
 
@@ -14,7 +15,7 @@ alt_u=0.5*(alt_bu(:,:,1:end-1,:)+alt_bu(:,:,2:end,:));
 
 levels=levels(:);
 if any(levels<=0),
-    levels
+    disp(levels)
     error('levels must be positive for log interpolation')
 end
 log_levels=log(levels); % interpolate to there
@@ -25,7 +26,7 @@ for t=1:s(4)
         for j=1:s(2)
             heights=[z0(i,j,t);squeeze(alt_u(i,j,:,t))-alt_bu(i,j,1,t)];
             if any(heights<=0),
-                heights
+                disp(heights)
                 error('heights must be positive for log interpolation')
             end
             log_heights=log(heights);

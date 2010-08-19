@@ -12,18 +12,6 @@ if any(p.z0(:)<=0),
     error('roughness height z0 must be positive')
 end
 
-% altitudes of the location at cell bottoms under u and v points 
-[alt_bu,alt_bv]=interp_w2buv(p.alt_at_w);
-
-% roughness of the ground under the u and v points
-[z0_bu,z0_bv]=interp_w2buv(p.z0);
-
-% log interpolation of the wind at u and v points to height
-p.uah=log_interp_vert(p.u,alt_bu,z0_bu,heights);
-p.vah=log_interp_vert(p.v,alt_bv,z0_bv,heights);
-
-clear alt_bu alt_bv z0_bu z0_bv % free some memory
-
 % log interpolation of the wind at center points to height
 p.uch=log_interp_vert(p.uc,p.alt_at_w,p.z0,heights);
 p.vch=log_interp_vert(p.vc,p.alt_at_w,p.z0,heights);

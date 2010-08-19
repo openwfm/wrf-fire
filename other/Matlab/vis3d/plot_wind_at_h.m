@@ -1,4 +1,4 @@
-function plot_wind_at_h(p,iheights,levels,alpha,timestep,windscale,heightscale)
+function plot_wind_at_h(p,iheights,levels,alpha,timestep,windscale,heightscale,units)
 x=p.xlat;
 y=p.xlong;
 clf
@@ -25,8 +25,10 @@ for i=levels(:)'
     hold on
 end
 caxis([0,windscale])
-title(p.times,'Interpreter','none')
-colorbar
+title({'Horizontal wind speed',p.times{1}},'Interpreter','none')
+xlabel('m'), ylabel('m')  % for now, ideal only
+h=colorbar
+xlabel(h,'m/s')
 axis('image')
 a=[min(x(:)),max(x(:)),min(y(:)),max(y(:)),0,heightscale]; % var limits
 axis(a);     % set var limits
