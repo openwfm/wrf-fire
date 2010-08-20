@@ -33,7 +33,7 @@ end
 
 altw=(ph_2+phb)/9.81; % geopotential altitude at w-points
 
-[uahm,vahm]=u_v_at_h(z0,u_2,v_2,altw,height);
+[uahm,vahm]=uah_vah(z0,u_2,v_2,altw,height);
 
 err_uah=big(uah-uahm)
 err_uah=big(vah-vahm)

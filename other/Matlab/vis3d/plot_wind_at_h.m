@@ -1,4 +1,4 @@
-function plot_wind_at_h(p,iheights,levels,alpha,timestep,windscale,heightscale,units)
+function plot_wind_at_h(p,iheights,levels,alpha,timestep,windscale,heightscale)
 x=p.xlat;
 y=p.xlong;
 clf
@@ -12,14 +12,14 @@ hgt=p.hgt(:,:,timestep); % terrain height
 % wind at given height
 for i=iheights(:)'
     z=p.heights(i)*ones(size(x));
-    ws=sqrt(p.uch(:,:,i,timestep).^2 + p.vch(:,:,i,timestep).^2)
+    ws=sqrt(p.uch(:,:,i,timestep).^2 + p.vch(:,:,i,timestep).^2);
     print_layer_msg(i,z,ws)
     surf(x,y,z+hgt,ws,'EdgeAlpha',alpha*0,'FaceAlpha',alpha)
     hold on
 end
 for i=levels(:)'
     z=p.altitude(:,:,i,timestep)-hgt;
-    ws=sqrt(p.uc(:,:,i,timestep).^2 + p.vc(:,:,i,timestep).^2)
+    ws=sqrt(p.uc(:,:,i,timestep).^2 + p.vc(:,:,i,timestep).^2);
     print_layer_msg(i,z,ws)
     surf(x,y,z+hgt,ws,'EdgeAlpha',alpha*0,'FaceAlpha',alpha)
     hold on

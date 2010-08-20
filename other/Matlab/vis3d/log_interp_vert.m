@@ -2,7 +2,7 @@ function v_levels=log_interp_vert(u,hgtu,z0,levels)
 % vertical log interpolation
 % u         values given at u poits (half eta levels)
 % hgtu      heights at u points 
-% z0        roughtness height 
+% z0        roughness height 
 % levels    heights to interpolate to (3rd index)
 % Note: the computation runs over all i,j (dimensions 1 and 2 in u) 
 % and all timesteps (dimensions 4)
