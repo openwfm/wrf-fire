@@ -612,7 +612,13 @@ do ij=1,num_tiles
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
     
-        if(use_atm_vars)then                                  
+      if(use_atm_vars)then                                  
+     
+        call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,z0,'z0',id)
+        call write_array_m3(its,ite+1,kts,kde-1,jts,jte,ims,ime,kms,kme,jms,jme,u,'u_2',id)
+        call write_array_m3(its,ite,kts,kde-1,jts,jte+1,ims,ime,kms,kme,jms,jme,v,'v_2',id)
+        call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,ph,'ph_2',id)
+        call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
         call interpolate_atm2fire(id,                     & ! flag for debug output
             fire_wind_height,                             & ! height to interpolate to
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
@@ -630,9 +636,11 @@ do ij=1,num_tiles
             z0,zs,                                        & ! 2D atm grid arrays in
             uah,vah,                                      & ! 2D atm grid out
             fp%vx,fp%vy)                                    ! fire grid arrays out
-            call print_2d_stats(its,snode(ite,ipe,1),jts,jte,ims,ime,jms,jme,uah,'UAH')
-            call print_2d_stats(its,ite,jts,snode(jde,jpe,1),ims,ime,jms,jme,vah,'VAH')
-        endif
+        call print_2d_stats(its,snode(ite,ipe,1),jts,jte,ims,ime,jms,jme,uah,'UAH')
+        call print_2d_stats(its,ite,jts,snode(jde,jpe,1),ims,ime,jms,jme,vah,'VAH')
+        call write_array_m(its,ite+1,jts,jte,ims,ime,jms,jme,uah,'uah',id)
+        call write_array_m(its,ite,jts,jte+1,ims,ime,jms,jme,vah,'vah',id)
+      endif
     
     endif
 
@@ -1198,7 +1206,7 @@ endif
        its,ite,jts1,jte, &        ! tile dims
        va)                           ! array
  
-!   store the tile for diagnostics
+!   store the output for diagnostics
     do j = jts,snode(jte,jpe,1)
       do i = its,snode(ite,ipe,1)
         uah(i,j)=ua(i,j)
