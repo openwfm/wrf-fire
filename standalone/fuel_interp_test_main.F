@@ -7,6 +7,7 @@ integer :: ims,ime,jms,jme,icl,jcl,i,j
 real,dimension(3,3)::tff,lff,lfn,tign,lfn1,tign1,lfn2,tign2
 real,dimension(3,3)::real_tff,real_lff
 real, dimension(5,5)::d
+real, dimension(5,3)::lfn3,tign3
 real::tign_err
 real,dimension(2,2)::rslt
 real::test1_err,test2_err,test3_err,test4_err,test5_err
@@ -485,62 +486,65 @@ write(*,*)'rslt',rslt
 !!!! Test #2
 
 write(*,*)'MAIN TEST #2'
+time_now=10
+data lfn3/-1., 0., 1., &
+         -1., 0.,1., &
+         -1., 0.,1., &
+         -1., 0., 1., &
+         -1.,0.,1./
 
-data lfn2/1., 0., 1., &
-         1., 0.,1., &
-         1., 0.,1./
-
-data tign2/2.0, 2., 2., &
-          2.0, 2., 2., &
-          2.0, 2., 2. /
-
-!print*,time_now
-!write(*,101)'tign',tign2
-!write(*,101)'lfn',lfn2
-
- !       print *,"this is fuel_interp_test.exe"
-  !      call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
-   !                                 tign2,lfn2,tff,lff)
-!write(*,101)'tign',tign2
-!write(*,101)'lfn',lfn2
-!write(*,101)'tff',tff
-!write(*,101)'lff',lff
+data tign3/1.0, 1., 1., &
+          1.0, 1., 2., &
+          2.0, 2., 2.,  &
+          2.,2.,2., &
+          2.,2.,2./
+print*,time_now
+write(*,101)'tign',tign3
+write(*,101)'lfn',lfn3
+do icl=2,4
+        print *,"this is fuel_interp_test.exe"
+        write(*,*)"icl,jcl",icl,jcl
+  !     call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
+  !                                  tign3,lfn3,tff,lff)
+write(*,101)'tign(icl-1:icl+1,1:3)',tign3(1,1:3)
+write(*,101)'tign(icl-1:icl+1,1:3)',tign3(2,1)
+write(*,101)'tign(icl-1:icl+1,1:3)',tign3(2,2)
+write(*,101)'tign(icl-1:icl+1,1:3)',tign3(2,3)
+write(*,101)'tign(icl-1:icl+1,1:3)',tign3(3,1)
+write(*,101)'tign(icl-1:icl+1,1:3)',tign3
+write(*,101)'lfn',lfn3(icl-1:icl+1,1:3)
+write(*,101)'tff',tff
+write(*,101)'lff',lff
 
 d=1e20
-d(1:5:2,1:5:2)=tign2
+d(1:5:2,1:5:2)=tign3(icl-1:icl+1,1:3)
 d(2:4,2:4)=tff
-!write(*,*)'tign and tff'
-!write(*,'(5f7.3)')d
-!write(*,*)' '
-d(1:5:2,1:5:2)=lfn2
+write(*,*)'tign and tff'
+write(*,'(5f7.3)')d
+write(*,*)' '
+d(1:5:2,1:5:2)=lfn3(icl-1:icl+1,1:3)
 d(2:4,2:4)=lff
-!write(*,*)'lfn and lff'
-!write(*,'(5f7.3)')d
-!write(*,*)' '
-
- !       write(*,*)"Real result - calculated result"
- !	write(*,*)real_tff-tff
- !	test1_err=maxval(abs(real_tff-tff))
- !	write(*,*)"test1_err=",test1_err
-
+write(*,*)'lfn and lff'
+write(*,'(5f7.3)')d
+write(*,*)' '
 
 fuel_time_cell= 8.235294 ;
- !       write(*,*)"Calculation of fuel_frac over 4 subcells"
+        write(*,*)"Calculation of fuel_frac over 4 subcells"
 result=0;
 do i=1,2
    do j=1,2
 
 
-!write(*,*)'lff',lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1)
+write(*,*)'lff',lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1)
 
-!result=fuel_left_cell_3(  &
-!    lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1), &
-!    tff(i,j),tff(i,j+1),tff(i+1,j),tff(i+1,j+1),&
-!    time_now, fuel_time_cell)
-!write(*,*)'result after step i and j',result,i,j
+result=fuel_left_cell_3(  &
+    lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1), &
+    tff(i,j),tff(i,j+1),tff(i+1,j),tff(i+1,j+1),&
+    time_now, fuel_time_cell)
+write(*,*)'result after step i and j',result,i,j
 end do
 end do
-
+end do
 
 
 
