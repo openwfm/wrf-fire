@@ -1032,9 +1032,9 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
     
 !*** local
 character(len=256)::msg
-#define TDIMS its-1,ite+2,jts-1,jte+2
-real, dimension(its-1:ite+2,jts-1:jte+2):: ua,va   ! atm winds, interpolated over height, still staggered grid
-real, dimension(its-1:ite+2,kds:kde,jts-1:jte+2):: altw,altub,altvb,hgtu,hgtv ! altitudes
+#define TDIMS its-2,ite+2,jts-2,jte+2
+real, dimension(its-2:ite+2,jts-2:jte+2):: ua,va   ! atm winds, interpolated over height, still staggered grid
+real, dimension(its-2:ite+2,kds:kde,jts-2:jte+2):: altw,altub,altvb,hgtu,hgtv ! altitudes
 integer:: i,j,k,ifts1,ifte1,jfts1,jfte1,ite1,jte1,its2,ite2,jts2,jte2,kdmax,its1,jts1,ips1,jps1
 real:: ground,loght,loglast,logz0,logfwh,ht,zr
 
@@ -1104,11 +1104,17 @@ endif
     ! we compute few extra entries, and rely on argument arrays initized beyond tile bounds
     ! but the code is much cleaner
 
+    do k=kds,kdmax+1
+      do i = its2,ite2       
+        altw(i,k,jts2-1) = 0.                                ! initialize
+      enddo
+    enddo
     do j = jts2,jte2          
       do k=kds,kdmax+1
         do i = its2,ite2       
           altw(i,k,j) = (ph(i,k,j)+phb(i,k,j))/g             ! altitude of the bottom w-point 
         enddo
+        altw(its2-1,k,j) = 0.                                ! initialize 
       enddo
       do k=kds,kdmax+1
         do i = its2,ite2       
