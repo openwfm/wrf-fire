@@ -1,7 +1,7 @@
-function v_levels=log_interp_vert(u,alt_bu,z0,levels)
+function v_levels=log_interp_vert(u,hgtu,z0,levels)
 % vertical log interpolation
 % u         values given at u poits (half eta levels)
-% alt_bu    altitude at cell bottoms under u points 
+% hgtu      heights at u points 
 % z0        roughtness height 
 % levels    heights to interpolate to (3rd index)
 % Note: the computation runs over all i,j (dimensions 1 and 2 in u) 
@@ -11,9 +11,6 @@ function v_levels=log_interp_vert(u,alt_bu,z0,levels)
 s=size1(u,4);
 u0=zeros(s(1),s(2),s(3)+1,s(4));
 u0(:,:,2:end,:)=u;
-
-% find altitude at u (half eta levels)
-alt_u=0.5*(alt_bu(:,:,1:end-1,:)+alt_bu(:,:,2:end,:));
 
 levels=levels(:);
 if any(levels<=0),
@@ -26,7 +23,11 @@ v_levels=zeros(s(1),s(2),n,s(4));
 for t=1:s(4)
     for i=1:s(1)
         for j=1:s(2)
-            heights=[z0(i,j,t);squeeze(alt_u(i,j,:,t))-alt_bu(i,j,1,t)];
+            heights=[z0(i,j,t);squeeze(hgtu(i,j,:,t))];
+            if heights(2)<=heights(1),
+                disp(heights)
+                error('first level must be higher than z0')
+            end
             if any(heights<=0),
                 disp(heights)
                 error('heights must be positive for log interpolation')
