@@ -1040,6 +1040,13 @@ real:: ground,loght,loglast,logz0,logfwh,ht,zr
 
 !*** executable
 
+
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
+  write(msg,7001)'interpolate_atm2fire: atm tile   ','its',its,ite,jts,jte
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+
 if(kds.ne.1)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
   write(msg,*)'WARNING: bottom index kds=',kds,' should be 1?'
@@ -1135,7 +1142,7 @@ endif
     ! interpolate u, staggered in X
 
     do j = jts2,jte2            ! compute on domain by 1 smaller, otherwise z0 and ph not available
-      do i = its2+1,jte2        ! compute with halo 2
+      do i = its2+1,ite2        ! compute with halo 2
         zr = 0.5*(z0(i,j)+z0(i-1,j)) ! interpolated roughness length under this u point
         if(fire_wind_height > zr)then       !  
           do k=kds,kdmax
