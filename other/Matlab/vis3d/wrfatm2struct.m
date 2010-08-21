@@ -23,7 +23,7 @@ p.alt_at_w=(p.ph+p.phb)/9.81; % geopotential altitude at w-points
 p.altitude=(p.alt_at_w(:,:,1:end-1,:)+p.alt_at_w(:,:,2:end,:))*0.5; % interpolate to center altitude
 % subtract the altitude of the ground to get height (above the ground)
 for k=1:size(p.altitude,3)
-    p.height(:,:,k)=p.altitude(:,:,k)-p.alt_at_w(:,:,1);
+    p.height(:,:,k,:)=p.altitude(:,:,k,:)-p.alt_at_w(:,:,1,:);
 end
 
 
