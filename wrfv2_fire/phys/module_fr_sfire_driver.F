@@ -639,10 +639,6 @@ do ij=1,num_tiles
             z0,zs,                                        & ! 2D atm grid arrays in
             uah,vah,                                      & ! 2D atm grid out
             fp%vx,fp%vy)                                    ! fire grid arrays out
-        call print_2d_stats(its,snode(ite,ipe,1),jts,jte,ims,ime,jms,jme,uah,'UAH')
-        call print_2d_stats(its,ite,jts,snode(jde,jpe,1),ims,ime,jms,jme,vah,'VAH')
-        call write_array_m(its,ite+1,jts,jte,ims,ime,jms,jme,uah,'uah',id)
-        call write_array_m(its,ite,jts,jte+1,ims,ime,jms,jme,vah,'vah',id)
       endif
     
     endif
@@ -1053,12 +1049,6 @@ real:: ground,loght,loglast,logz0,logfwh,ht,zr
 !*** executable
 
 
-!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
-  write(msg,7001)'interpolate_atm2fire: atm tile   ','its',its,ite,jts,jte
-  call message(msg)
-!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
-
 if(kds.ne.1)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
   write(msg,*)'WARNING: bottom index kds=',kds,' should be 1?'
@@ -1102,8 +1092,8 @@ endif
     if(fire_print_msg.gt.0)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
        write(msg,'(a,f7.2,a)')'interpolate_atm2fire: log-interpolation of wind to',fire_wind_height,' m'
-!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
        call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
     endif
 
     ! indexing
@@ -1115,6 +1105,16 @@ endif
     ite2=min(ide,ite+2)
     jts2=max(jds,jts-1)
     jte2=min(jde,jte+2)
+
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
+  write(msg,7001)'atm input  ','tile',its,ite,jts,jte
+  call message(msg)
+  write(msg,7001)'set values ','tile',its2,ite2,jts2,jte2
+  call message(msg)
+  write(msg,7001)'out uah vah','tile',its,ite1,jts,jte1
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
     kdmax=kde-1   ! max layer to interpolate from, can be less
 
@@ -1215,6 +1215,10 @@ endif
 
     ips1=snode(ips,ids,1)
     its1=snode(its,ids,1)
+    jps1=snode(jps,jds,1)
+    jts1=snode(jts,jds,1)
+
+
     call continue_at_boundary(1,1,0., & ! x direction 
        TDIMS,                  & ! memory dims atm grid tile
        ids+1,ide,jds,jde, &          ! domain dims - where u wind defined
@@ -1222,8 +1226,6 @@ endif
        its1,ite,jts,jte, &        ! tile dims
        ua)                           ! array
 
-    jps1=snode(jps,jds,1)
-    jts1=snode(jts,jds,1)
     call continue_at_boundary(1,1,0., & ! y direction 
        TDIMS,                  & ! memory dims atm grid tile
        ids,ide,jds+1,jde, &      ! domain dims - where u wind defined
@@ -1231,9 +1233,10 @@ endif
        its,ite,jts1,jte, &        ! tile dims
        va)                           ! array
  
+
 !   store the output for diagnostics
-    do j = jts,snode(jte,jpe,1)
-      do i = its,snode(ite,ipe,1)
+    do j = jts,jte1
+      do i = its,ite1
         uah(i,j)=ua(i,j)
         vah(i,j)=va(i,j)
       enddo
@@ -1241,10 +1244,14 @@ endif
 
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,12)'atm mesh wind U at',fire_wind_height,' m'
-    call print_2d_stats(its2+1,ite2,jts2,jte2,TDIMS,ua,msg)
+    call print_2d_stats(its,ite1,jts,jte1,TDIMS,ua,msg)
     write(msg,12)'atm mesh wind V at',fire_wind_height,' m'
-    call print_2d_stats(its2,ite2,jts2+1,jte2,TDIMS,va,msg)
+    call print_2d_stats(its,ite1,jts,jte1,TDIMS,va,msg)
 12  format(a,f6.2,a)
+    call print_2d_stats(its,ite1,jts,jte,ims,ime,jms,jme,uah,'UAH')
+    call print_2d_stats(its,ite,jts,jte1,ims,ime,jms,jme,vah,'VAH')
+    call write_array_m(its,ite1,jts,jte,ims,ime,jms,jme,uah,'uah',id)
+    call write_array_m(its,ite,jts,jte1,ims,ime,jms,jme,vah,'vah',id)
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
 !      ---------------
