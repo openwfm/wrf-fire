@@ -167,6 +167,7 @@ subroutine continue_at_boundary(ix,iy,bias, & ! do x direction or y direction
     ids,ide,jds,jde, &                ! domain dims
     ips,ipe,jps,jpe, &                ! patch dims
     its,ite,jts,jte, &                ! tile dims
+    itso,iteo,jtso,jteo, &            ! tile dims where set
     lfn)                              ! array
 implicit none
 !*** description
@@ -178,9 +179,10 @@ integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain dims
     ips,ipe,jps,jpe, &                ! patch dims
     its,ite,jts,jte                   ! tile dims
+integer, intent(out)::itso,jtso,iteo,jteo ! where set
 real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 !*** local
-integer i,j,itso,jtso,iteo,jteo
+integer i,j
 character(len=128)::msg
 integer::its1,ite1,jts1,jte1
 integer,parameter::halo=1           ! width of halo region to update 
@@ -207,8 +209,8 @@ if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+halo
 if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+halo
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call message(msg)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 if(ix.ne.0)then
     if(its.eq.ids)then
         do j=jts1,jte1
@@ -224,8 +226,8 @@ if(ix.ne.0)then
     endif
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: x:',its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jts1,':',jte1
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
     call message(msg)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 endif
 if(iy.ne.0)then
     if(jts.eq.jds)then

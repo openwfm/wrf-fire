@@ -509,7 +509,7 @@ do ij=1,num_tiles
     jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
         
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-    write(msg,'(3(a,i3,1x))')'tile=',ij,' id=',id,' ifun=',ifun
+    write(msg,'(a,i3,1x,a,i7,1x,a,i3)')'tile=',ij,' id=',id,' ifun=',ifun
     call message(msg)
     write(msg,7001)'atm tile   ','its',its,ite,jts,jte
     call message(msg)                   
@@ -947,7 +947,7 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
     
 !*** local
 real, dimension(its-2:ite+2,jts-2:jte+2):: za      ! terrain height
-integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
+integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1,itso,jtso,iteo,jteo
 
 ! terrain height
 
@@ -967,6 +967,7 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1
     ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
     ips,ipe,jps,jpe, &            ! patch dims - winds defined up to +1
     its1,ite1,jts1,jte1, &                ! tile dims
+    itso,jtso,iteo,jteo, &
     za)                               ! array
 
     ! interpolate to tile plus strip along domain boundary if at boundary
@@ -1044,6 +1045,7 @@ character(len=256)::msg
 real, dimension(its-2:ite+2,jts-2:jte+2):: ua,va   ! atm winds, interpolated over height, still staggered grid
 real, dimension(its-2:ite+2,kds:kde,jts-2:jte+2):: altw,altub,altvb,hgtu,hgtv ! altitudes
 integer:: i,j,k,ifts1,ifte1,jfts1,jfte1,ite1,jte1,its2,ite2,jts2,jte2,kdmax,its1,jts1,ips1,jps1
+integer::itsou,iteou,jtsou,jteou,itsov,iteov,jtsov,jteov
 real:: ground,loght,loglast,logz0,logfwh,ht,zr
 
 !*** executable
@@ -1224,15 +1226,16 @@ endif
        ids+1,ide,jds,jde, &          ! domain dims - where u wind defined
        ips1,ipe,jps,jpe, &            ! patch dims 
        its1,ite,jts,jte, &        ! tile dims
+       itsou,iteou,jtsou,jteou, & ! where set
        ua)                           ! array
 
     call continue_at_boundary(1,1,0., & ! y direction 
        TDIMS,                  & ! memory dims atm grid tile
-       ids,ide,jds+1,jde, &      ! domain dims - where u wind defined
+       ids,ide,jds+1,jde, &      ! domain dims - where v wind defined
        ips,ipe,jps1,jpe, &            ! patch dims 
        its,ite,jts1,jte, &        ! tile dims
+       itsov,iteov,jtsov,jteov, & ! where set
        va)                           ! array
- 
 
 !   store the output for diagnostics
     do j = jts,jte1
@@ -1242,11 +1245,15 @@ endif
       enddo
     enddo
 
+#ifdef DEBUG_OUT
+        call write_array_m(itsou,iteou,jtsou,jteou,TDIMS,ua,'ua',id)
+        call write_array_m(itsov,iteov,jtsov,jteov,TDIMS,va,'va',id)
+#endif
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,12)'atm mesh wind U at',fire_wind_height,' m'
-    call print_2d_stats(its,ite1,jts,jte1,TDIMS,ua,msg)
+    call print_2d_stats(itsou,iteou,jtsou,jteou,TDIMS,ua,msg)
     write(msg,12)'atm mesh wind V at',fire_wind_height,' m'
-    call print_2d_stats(its,ite1,jts,jte1,TDIMS,va,msg)
+    call print_2d_stats(itsov,iteov,jtsov,jteov,TDIMS,va,msg)
 12  format(a,f6.2,a)
     call print_2d_stats(its,ite1,jts,jte,ims,ime,jms,jme,uah,'UAH')
     call print_2d_stats(its,ite,jts,jte1,ims,ime,jms,jme,vah,'VAH')
@@ -1286,15 +1293,15 @@ endif
 ! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
 ! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
     
-    ifts1=snode(ifts,ifps,-ir) ! go 1 atm cell beyond patch boundary but not between tiles
-    ifte1=snode(ifte,ifpe,+ir)
-    jfts1=snode(jfts,jfps,-jr)
-    jfte1=snode(jfte,jfpe,+jr)
+    ifts1=snode(ifts,ifps,-1) ! go 1 beyond patch boundary but not between tiles
+    ifte1=snode(ifte,ifpe,+1)
+    jfts1=snode(jfts,jfps,-1)
+    jfte1=snode(jfte,jfpe,+1)
     
     !    its2+1,ite2,jts2,jte2,  & ! where atm grid values set
     call interpolate_2d(  &
         TDIMS,                  & ! memory dims atm grid tile
-        TDIMS,                  & ! where set
+        TDIMS,& ! where set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
@@ -1305,7 +1312,7 @@ endif
     !    its2,ite2,jts2+1,jte2,  & ! where atm grid values set
     call interpolate_2d(  &
         TDIMS,                  & ! memory dims atm grid tile
-        TDIMS,                  & ! where set 
+        TDIMS,& ! where set 
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
         ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
@@ -1314,7 +1321,11 @@ endif
         vf)                      ! out fire grid
 
 call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
-
+call print_2d_stats_vec(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,vf,'fire wind extended')
+#ifdef DEBUG_OUT
+        call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,'uf1',id)
+        call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,vf,'vf1',id)
+#endif
 return
 
 end subroutine interpolate_atm2fire
