@@ -1293,10 +1293,10 @@ endif
 ! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
 ! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
     
-    ifts1=snode(ifts,ifps,-1) ! go 1 beyond patch boundary but not between tiles
-    ifte1=snode(ifte,ifpe,+1)
-    jfts1=snode(jfts,jfps,-1)
-    jfte1=snode(jfte,jfpe,+1)
+    ifts1=max(snode(ifts,ifps,-1),ifds) ! go 1 beyond patch boundary but not at domain boundary
+    ifte1=min(snode(ifte,ifpe,+1),ifde)
+    jfts1=max(snode(jfts,jfps,-1),jfds)
+    jfte1=min(snode(jfte,jfpe,+1),jfde)
     
     !    its2+1,ite2,jts2,jte2,  & ! where atm grid values set
     call interpolate_2d(  &
