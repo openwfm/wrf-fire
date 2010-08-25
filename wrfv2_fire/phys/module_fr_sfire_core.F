@@ -322,6 +322,7 @@ do icl=its,ite
      lff(isubcl,jsubcl),lff(isubcl,jsubcl+1),lff(isubcl+1,jsubcl),lff(isubcl+1,jsubcl+1), &
      tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
      time_now, fuel_time(icl,jcl)) 
+! dont forget to change fire_area_ff here
         else
           call crash('fuel_left: unknown fuel_left_method')
         endif
@@ -404,7 +405,6 @@ subroutine tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
 real, intent(in):: time_now    ! not ignited nodes will have tign set to >= time_now
 integer, intent(in) :: icl,jcl
-!integer, intent(in) :: isubcl,jsubcl
 integer, intent(in) :: ims,ime,jms,jme  ! memory dimensions of all arrays
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign
 real, intent(out),dimension(3,3)::tff,lff
@@ -437,24 +437,14 @@ real, intent(out),dimension(3,3)::tff,lff
 !       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
 
       lff(1,1)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))
-    !  write(*,*)"lff(1,1)",lff(1,1)
-    !  write(*,*)"tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
-    !                                 tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
-    !                                 lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),",tign(icl-1,jcl-1), &
-    !                                    tign(icl-1,jcl),tign(icl,jcl-1),  & 
-    !                                 tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
-    !                                 lfn(icl,jcl-1),lfn(icl,jcl)
       call tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
                                      tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
                                      lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),tff(1,1),time_now)
-    !  write(*,*)"tff(1,1)",tff(1,1)
 
       lff(1,2)=0.5*(lfn(icl-1,jcl)+lfn(icl,jcl))
-    !  write(*,*)"lff(1,2)",lff(1,2)
 
       call tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),lfn(icl,jcl), &
                              lff(1,2),tff(1,2),time_now)
-    !  write(*,*)"tff(1,2)",tff(1,2)
 
 
       lff(1,3)=0.25*(lfn(icl-1,jcl+1)+lfn(icl-1,jcl)+lfn(icl,jcl+1)+lfn(icl,jcl))
@@ -502,7 +492,6 @@ err=0.0001
 if((lfn1.le.0).AND.(lfn2.le.0)) then
    tign_subcl=0.5*(tign1+tign2)
 elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
-!   if ((tign1.ne.time_now).OR.(tign.ne.time_now))then
     if  ((abs(tign1-time_now).gt.err).or.(abs(tign2-time_now).gt.err)) then
       call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
@@ -549,17 +538,9 @@ real,intent(out) :: tign_subcl
 
 real :: a,b,c,err
 err=0.0001
-! to check later why does it appear to be Dummy variable and where
-!tign_subcl=time_now;
-!!!!!! will remove later
-!write(*,*)"4pnts interp:   &
-!tign1,tign2,tign3,tign4,lfn1-4,lfn_sbcl,time_now",tign1,tign2,tign3,tign4, &
-!lfn1,lfn2,lfn3,lfn4,lfn_subcl,time_now   
 
 if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
-!print*,"bu"
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
-!   write(*,*)"tign_subcl",tign_subcl
 elseif((lfn1.gt.0).AND.(lfn2.gt.0).AND.(lfn3.gt.0).AND.(lfn4.gt.0))then
    !if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
    !   call crash('tign_four_pnts_interp: when lfn1(2,3,4)>0 their tign1(2,3,4) should = time_now')
@@ -780,7 +761,7 @@ end subroutine fuel_left_cell_1
 !****************************************
 !
 ! function calculation fuel_frac made by Volodymyr Kondratenko on the base of
-! the code made by Jan Mandel and Minjeon
+! the code made by Jan Mandel and Minjeong
 
 real function fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
@@ -948,13 +929,6 @@ if(lfn10>=0. .or. t10<0.)t10=0.
 t11=time_now-tign11
 if(lfn11>=0. .or. t11<0.)t11=0.
 
-!if (t00<0 .or. t01 <0 .or. t10<0 .or. t11<0) then
-!   print *,'tign00=',tign00,'tign10=',tign10,&
-!          'tign01=',tign01,'tign11=',tign11
-!end if
-
-
-
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
 print*,"Case 0"
@@ -1039,11 +1013,6 @@ print*,"Case 123"
     tign(4)=t01
     tign(5)=t00
     npoint = 0 ! number of points in polygon
-    !print *,'time_now=',time_now
-    !print *,'lfn00=',lfn00,'lfn10=',lfn10,&
-    !        'lfn01=',lfn01,'lfn11=',lfn11
-    !print *,'t00=',t00,'t10=',t10,&
-    !        't01=',t01,'t11=',t11
 
     do k=1,4
         lfn0=lfn(k  )
