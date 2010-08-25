@@ -30,9 +30,14 @@ a=zeros(m,n);
 for i=1:length(tiles)
     b=zeros(m,n);
     b(1:mm(i),1:nn(i))=tile{i};
-    if(any(a(:) ~=0 & b(:)~=0)),
-        error('tiles overlap')
+    overlap= a(:) ~=0 & b(:)~=0;
+    if(any(overlap)),
+        warning('tiles overlap')
+        if(any(a(overlap) ~= b(overlap))),
+            warning('inconsistent values on overlap')
+        end
     end
+    
     a=a+b;
 end
 end
