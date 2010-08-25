@@ -1,4 +1,4 @@
-# defines FC, FCFLAGS, FFREE
+# fefines FC, FCFLAGS, FFREE
 include make.inc
 DEFS =
 WRF = ../wrfv2_fire/phys
@@ -18,8 +18,10 @@ MAKEFILE=Makefile
 	$(FC) -c $(FFLAGS) $*.f90
 
 MODEL_MAIN_OBJ = \
+    module_domain.o \
     wrf_netcdf.o \
-    wrf_namelist.o \
+    module_configure.o \
+    module_fr_sfire_driver.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
@@ -28,7 +30,7 @@ MODEL_MAIN_OBJ = \
 
 MODEL_INIT_OBJ = \
     wrf_netcdf.o \
-    wrf_namelist.o \
+    module_configure.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
@@ -46,22 +48,34 @@ FUEL_INTERP_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-
 .PHONY: all
 
 
-all: model_test_main.exe model_test_init.exe
+all: fire.exe init.exe
 
-model_test_main.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)
-	$(FC) $(FCFLAGS) -o model_test_main.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
+#.PHONY: all
 
-model_test_init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
+default: fire 
+
+init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
 
 fuel: fuel_interp_test.exe
  
 fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
 	$(FC) $(FCFLAGS) -o fuel_interp_test.exe $(FUEL_INTERP_OBJ)
+
+all: fire init fuel
+
+fire: fire.exe
+
+init: init.exe
+
+fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)
+	$(FC) $(FCFLAGS) -o fire.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
+
+init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
+	$(FC) $(FCFLAGS) $(LDFLAGS) -o init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
  
 # for the order of generating modules
 
@@ -69,14 +83,23 @@ fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
 model_test_main.o: $(MAKEFILE) \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o  \
-    module_fr_sfire_util.o \
-    wrf_namelist.o \
+    module_domain.o \
+    module_configure.o \
+    module_fr_sfire_driver.o \
+    wrf_fakes.o \
     wrf_netcdf.o
 
+module_fr_sfire_driver.o: $(MAKEFILE) \
+    module_domain.o \
+    module_configure.o \
+    module_fr_sfire_model.o  \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o
+
 model_test_init.o: $(MAKEFILE) \
-   wrf_namelist.o \
-   wrf_netcdf.o \
-   module_fr_sfire_util.o
+    module_configure.o \
+    wrf_netcdf.o \
+    module_fr_sfire_util.o
 
 model_fuel_interp_test.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
@@ -96,14 +119,22 @@ module_fr_sfire_phys.o: $(MAKEFILE) \
     module_fr_sfire_util.o 
 
 module_fr_sfire_util.o: $(MAKEFILE) \
+    sfire_id.inc \
     wrf_fakes.o
 
 wrf_netcdf.o: $(MAKEFILE) \
     module_fr_sfire_util.o
 
-wrf_namelist.o: $(MAKEFILE) $(NAMELIST) \
+module_configure.o: $(MAKEFILE) $(NAMELIST) \
     wrf_netcdf.o \
     module_fr_sfire_util.o
+
+sfire_id.inc: always
+	chmod +x commit_hash
+	./commit_hash > sfire_id.inc
+	cat sfire_id.inc
+
+always:
 
 clean:
 	rm -f *.mod *.o *.f90 *.s *.exe

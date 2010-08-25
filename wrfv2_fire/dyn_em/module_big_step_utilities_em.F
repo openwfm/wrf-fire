@@ -2528,9 +2528,10 @@ SUBROUTINE w_damp( rw_tend, max_vert_cfl,max_horiz_cfl, &
         cf_d = abs(mut(i,j))
         if(cf_n .gt. cf_d*w_beta )then
 #endif
-
+!$OMP CRITICAL(big_step_utilities)
            WRITE(temp,*)i,j,k,' vert_cfl,w,d(eta)=',vert_cfl,w(i,k,j),-1./rdnw(k)
            CALL wrf_debug ( 100 , TRIM(temp) )
+!$OMP END CRITICAL(big_step_utilities)
            if ( vert_cfl > 2. ) some = some + 1
            rw_tend(i,k,j) = rw_tend(i,k,j)-sign(1.,w(i,k,j))*w_alpha*(vert_cfl-w_beta)*mut(i,j)
         endif
@@ -2575,8 +2576,10 @@ SUBROUTINE w_damp( rw_tend, max_vert_cfl,max_horiz_cfl, &
         cf_d = abs(mut(i,j))
         if(cf_n .gt. cf_d*w_beta )then
 #endif
+!$OMP CRITICAL(big_step_utilities)
            WRITE(temp,*)i,j,k,' vert_cfl,w,d(eta)=',vert_cfl,w(i,k,j),-1./rdnw(k)
            CALL wrf_debug ( 100 , TRIM(temp) )
+!$OMP END CRITICAL(big_step_utilities)
            if ( vert_cfl > 2. ) some = some + 1
         endif
      END DO
@@ -2586,12 +2589,14 @@ SUBROUTINE w_damp( rw_tend, max_vert_cfl,max_horiz_cfl, &
    IF ( some .GT. 0 ) THEN
      CALL get_current_time_string( time_str )
      CALL get_current_grid_name( grid_str )
+!$OMP CRITICAL(big_step_utilities)
      WRITE(wrf_err_message,*)some,                                            &
             ' points exceeded cfl=2 in domain '//TRIM(grid_str)//' at time '//TRIM(time_str)//' hours'
      CALL wrf_debug ( 0 , TRIM(wrf_err_message) )
      WRITE(wrf_err_message,*)'MAX AT i,j,k: ',maxi,maxj,maxk,' vert_cfl,w,d(eta)=',max_vert_cfl, &
                              maxdub,maxdeta
      CALL wrf_debug ( 0 , TRIM(wrf_err_message) )
+!$OMP END CRITICAL(big_step_utilities)
    ENDIF
 
 END SUBROUTINE w_damp
@@ -5237,8 +5242,10 @@ END SUBROUTINE phy_prep
 #if ( WRF_DFI_RADAR == 1 )
          if (config_flags%dfi_radar == 1 .and. PRESENT(dfi_stage) .and.  dfi_stage ==DFI_FWD  &
              .and. PRESENT(dfi_tten_rad) ) then
+!$OMP CRITICAL(big_step_utilities)
              WRITE(wrf_err_message,*)'Add radar tendency: i_start,j_start: ', i_start, j_start
              CALL wrf_debug ( 50 , TRIM(wrf_err_message) )
+!$OMP END CRITICAL(big_step_utilities)
          endif
      dfi_tten_max=-999
      old_max=-999

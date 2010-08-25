@@ -787,7 +787,7 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !
 !                                  /\
 !                                  |              
-! fuel_frac_left  =      1   -     | 1 -  exp(-T(x,y)*fuel_speed)) dxdy
+! fuel_frac_left  =      1   -     | 1 -  exp(-T(x,y)/fuel_time_cell)) dxdy
 !                                  |            
 !                                 \/
 !                                0<x<1

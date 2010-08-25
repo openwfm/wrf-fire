@@ -1,8 +1,9 @@
 function v=ncvar(filename,varname)
-% simplified interface to mexnc('get_var_double',...)
-fprintf('ncdump/ncvar: open %s\n',filename)
+% read all about variable varname from filename
+
+% fprintf('ncdump/ncvar: open %s\n',filename)
 ncid = netcdf.open(filename,'NC_NOWRITE');
-fprintf('reading variable %s\n',varname)
+%fprintf('reading variable %s\n',varname)
 varid = netcdf.inqVarID(ncid,char(varname));
 v=ncvarinfo(ncid,varid); % find out all about this variable
 [s,c]=getstartcount(v);
