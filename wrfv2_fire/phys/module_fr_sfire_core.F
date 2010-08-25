@@ -1536,7 +1536,7 @@ type(fire_params),intent(in)::fp
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
    ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
-integer::i,j
+integer::i,j,itso,iteo,jtso,jteo
 character(len=128)msg
 
 ! constants
@@ -1566,12 +1566,11 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
     ids,ide,jds,jde, &                    ! domain - nodes where lfn defined
     ips,ipe,jps,jpe, &                    ! patch - nodes owned by this process 
     ints,inte,jnts,jnte, &                ! tile - nodes update by this thread
+    itso,iteo,jtso,jteo, &                ! where set now
     lfn)                                  ! array
 
-    call print_2d_stats(ints-1,inte+1,jnts,jnte,lims,lime,ljms,ljme, &
-                   lfn,'tend_ls: lfn cont dir x')
-    call print_2d_stats(ints,inte,jnts-1,jnte+1,lims,lime,ljms,ljme, &
-                   lfn,'tend_ls: lfn cont dir y')
+    call print_2d_stats(itso,iteo,jtso,jteo,lims,lime,ljms,ljme, &
+                   lfn,'tend_ls: lfn cont')
 
 #ifdef DEBUG_OUT
     call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)

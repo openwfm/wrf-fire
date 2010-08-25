@@ -24,7 +24,9 @@ state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"  
 # outputs to atm model
 state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
 state    real     rqvfrten  ikj      fire        1         z     hr   "RQVFRTEN" "humidity tendency" 
+
 # diagnostics only
+state    real     avg_fuel_frac ij   fire        1         z     hr   "AVG_FUEL_FRAC" "fuel remaining averaged to atmospheric grid" "1"
 state    real     grnhfx    ij       fire        1         z     hr   "GRNHFX"   "heat flux from ground fire" "W/m^2"
 state    real     grnqfx    ij       fire        1         z     hr   "GRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     canhfx    ij       fire        1         z     hr   "CANHFX"   "heat flux from crown fire" "W/m^2"
