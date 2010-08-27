@@ -1,4 +1,4 @@
-function [uah,vah]=u_v_at_h(z0,u,v,altw,heights)
+% function [uah,vah]=u_v_at_h(z0,u,v,altw,heights)
 % [uah,vah]=u_v_at_h(z0,u,v,altw,heights)
 % interpolate wind on staggered grid to given
 %
@@ -36,14 +36,14 @@ for k=1:size(hgtu,3)
 end
 
 % log interpolation of the wind at u and v points to height
-ua=log_interp_vert(u(2:end-1,:,:),hgtu,z0u,heights);
-va=log_interp_vert(v(:,2:end-1,:),hgtv,z0v,heights);
+ua=log_interp_vert(u(2:end-1,:,:),hgtu,z0u,height);
+va=log_interp_vert(v(:,2:end-1,:),hgtv,z0v,height);
 
 % extend by extrapolation in staggered dimension
-for i=length(heights(:)):-1:1
-    h=heights(i);
+for i=length(height(:)):-1:1
+    h=height(i);
     uah(:,:,i)=[2*ua(1,:,i)-ua(2,:,i);ua(:,:,i);2*ua(end,:,i)-ua(end-1,:,i)];
     vah(:,:,i)=[2*va(:,1,i)-va(:,2,i),va(:,:,i),2*va(:,end,i)-va(:,end-1,i)];
 end
 
-end
+% end

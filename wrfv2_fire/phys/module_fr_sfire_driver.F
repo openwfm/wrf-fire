@@ -1049,8 +1049,20 @@ integer::itst,itet,jtst,jtet,itsu,iteu,jtsu,jteu,itsv,itev,jtsv,jtev
 integer::kdmax,its1,jts1,ips1,jps1
 integer::itsou,iteou,jtsou,jteou,itsov,iteov,jtsov,jteov
 real:: ground,loght,loglast,logz0,logfwh,ht,zr
+real::r_nan
+integer::i_nan
+equivalence (i_nan,r_nan)
 
 !*** executable
+
+! debug init local arrays
+i_nan=2147483647
+ua=r_nan
+va=r_nan
+altw=r_nan
+altub=r_nan
+hgtu=r_nan
+hgtv=r_nan
 
 
 if(kds.ne.1)then
@@ -1179,6 +1191,12 @@ endif
       enddo
     enddo
 
+#ifdef DEBUG_OUT
+        call write_array_m3(itsu,iteu,kds,kdmax,jtsu,jteu,its-2,ite+2,kds,kde,jts-2,jte+2,altub,'altub',id)
+        call write_array_m3(itsv,itev,kds,kdmax,jtsv,jtev,its-2,ite+2,kds,kde,jts-2,jte+2,altvb,'altvb',id)
+        call write_array_m3(itsu,iteu,kds,kdmax,jtsu,jteu,its-2,ite+2,kds,kde,jts-2,jte+2,hgtu,'hgtu',id)
+        call write_array_m3(itsv,itev,kds,kdmax,jtsv,jtev,its-2,ite+2,kds,kde,jts-2,jte+2,hgtv,'hgtv',id)
+#endif
     logfwh = log(fire_wind_height)
 
     ! interpolate u, staggered in X
@@ -1188,7 +1206,7 @@ endif
         zr = 0.5*(z0(i,j)+z0(i-1,j)) ! interpolated roughness length under this u point
         if(fire_wind_height > zr)then       !  
           do k=kds,kdmax
-            ! ht = hgtu(i,k,j)      ! height of this u point above the ground
+            ht = hgtu(i,k,j)      ! height of this u point above the ground
             if( .not. ht < fire_wind_height) then ! found layer k this point is in
               loght = log(ht)
               if(k.eq.kds)then               ! first layer, log linear interpolation from 0 at zr
@@ -1215,7 +1233,7 @@ endif
 
     do j = jtsv,jtev
       do i = itsv,itev
-        zr = 0.5*(z0(i,j-1)+z0(i,j)) ! roughness length under this u point
+        zr = 0.5*(z0(i,j-1)+z0(i,j)) ! roughness length under this v point
         if(fire_wind_height > zr)then       !  
           do k=kds,kdmax
             ht = hgtv(i,k,j)      ! height of this u point above the ground
@@ -1241,19 +1259,34 @@ endif
       enddo
     enddo
 
+#ifdef DEBUG_OUT
+!   store the output for diagnostics
+    do j = jts,jte1
+      do i = its,ite1
+        uah(i,j)=ua(i,j)
+        vah(i,j)=va(i,j)
+      enddo
+    enddo
+
+    call write_array_m(its,ite1,jts,jte,ims,ime,jms,jme,uah,'uah_n',id) ! no reflection
+    call write_array_m(its,ite,jts,jte1,ims,ime,jms,jme,vah,'vah_n',id)
+#endif
+
+    ips1 = ifval(ips.eq.ids,ips+1,ips)
     call continue_at_boundary(1,1,0., & ! x direction 
        TDIMS,                  &! memory dims atm grid tile
        ids+1,ide,jds,jde, &     ! domain dims - where u defined
-       ips,ipe,jps,jpe, &     ! patch dims 
-       its,ite,jts,jte, & ! tile dims - in nonextended direction one beyond if at patch boundary but not domain
+       ips1,ipe,jps,jpe, &     ! patch dims 
+       itsu,iteu,jtsu,jteu, & ! tile dims - in nonextended direction one beyond if at patch boundary but not domain
        itsou,iteou,jtsou,jteou, & ! out, where set
        ua)                           ! array
 
+    jps1 = ifval(jps.eq.jds,jps+1,jps)
     call continue_at_boundary(1,1,0., & ! y direction 
        TDIMS,                  & ! memory dims atm grid tile
        ids,ide,jds+1,jde, &      ! domain dims - where v wind defined
-       ips,ipe,jps,jpe, &        ! patch dims 
-       its,ite,jts,jte, & ! tile dims
+       ips,ipe,jps1,jpe, &        ! patch dims 
+       itsv,itev,jtsv,jtev, & ! tile dims
        itsov,iteov,jtsov,jteov, & ! where set
        va)                           ! array
 
@@ -1269,6 +1302,7 @@ endif
         call write_array_m(itsou,iteou,jtsou,jteou,TDIMS,ua,'ua',id)
         call write_array_m(itsov,iteov,jtsov,jteov,TDIMS,va,'va',id)
 #endif
+
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     ! don't have all values valid, don't check
      write(msg,12)'atm mesh wind U at',fire_wind_height,' m'
@@ -1314,38 +1348,38 @@ endif
 ! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
 ! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
     
-    ifts1=max(snode(ifts,ifps,-1),ifds) ! go 1 beyond patch boundary but not at domain boundary
-    ifte1=min(snode(ifte,ifpe,+1),ifde)
-    jfts1=max(snode(jfts,jfps,-1),jfds)
-    jfte1=min(snode(jfte,jfpe,+1),jfde)
-    
-    !    its2+1,ite2,jts2,jte2,  & ! where atm grid values set
+    ! ifts1=max(snode(ifts,ifps,-1),ifds) ! go 1 beyond patch boundary but not at domain boundary
+    ! ifte1=min(snode(ifte,ifpe,+1),ifde)
+    ! jfts1=max(snode(jfts,jfps,-1),jfds)
+    ! jfte1=min(snode(jfte,jfpe,+1),jfde)
+
     call interpolate_2d(  &
         TDIMS,                  & ! memory dims atm grid tile
-        TDIMS,& ! where set
+        itsou,iteou,jtsou,jteou,& ! where set
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
+        ifts,ifte,jfts,jfte,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
         real(ids),real(jds),ifds-0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
         ua,                     & ! in atm grid     
         uf)                      ! out fire grid
 
-    !    its2,ite2,jts2+1,jte2,  & ! where atm grid values set
     call interpolate_2d(  &
         TDIMS,                  & ! memory dims atm grid tile
-        TDIMS,& ! where set 
+        itsov,iteov,jtsov,jteov,& ! where set 
         ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts1,ifte1,jfts1,jfte1,& ! dimensions on the fire grid to interpolate to
+        ifts,ifte,jfts,jfte,& ! dimensions on the fire grid to interpolate to
         ir,jr,                  & ! refinement ratio
         real(ids),real(jds),ifds+(ir-1)*0.5,jfds-0.5, & ! line up by lower left corner of domain
         va,                     & ! in atm grid     
         vf)                      ! out fire grid
 
 call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
-call print_2d_stats_vec(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,vf,'fire wind extended')
+! call print_2d_stats_vec(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,vf,'fire wind extended')
 #ifdef DEBUG_OUT
-        call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,'uf1',id)
-        call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,vf,'vf1',id)
+        call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,'uf1',id)
+        call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vf,'vf1',id)
+        ! call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,'uf1',id)
+        ! call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,vf,'vf1',id)
 #endif
 return
 
