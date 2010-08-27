@@ -1044,7 +1044,9 @@ character(len=256)::msg
 #define TDIMS its-2,ite+2,jts-2,jte+2
 real, dimension(its-2:ite+2,jts-2:jte+2):: ua,va   ! atm winds, interpolated over height, still staggered grid
 real, dimension(its-2:ite+2,kds:kde,jts-2:jte+2):: altw,altub,altvb,hgtu,hgtv ! altitudes
-integer:: i,j,k,ifts1,ifte1,jfts1,jfte1,ite1,jte1,its2,ite2,jts2,jte2,kdmax,its1,jts1,ips1,jps1
+integer:: i,j,k,ifts1,ifte1,jfts1,jfte1,ite1,jte1
+integer::itst,itet,jtst,jtet,itsu,iteu,jtsu,jteu,itsv,itev,jtsv,jtev
+integer::kdmax,its1,jts1,ips1,jps1
 integer::itsou,iteou,jtsou,jteou,itsov,iteov,jtsov,jteov
 real:: ground,loght,loglast,logz0,logfwh,ht,zr
 
@@ -1100,52 +1102,78 @@ endif
 
     ! indexing
        
-    ! extended tile boundaries, with halos width 2
-    ! this are the loop bounds for most computations
-    ! but not all entries are valid
-    its2=max(ids,its-1)
-    ite2=min(ide,ite+2)
-    jts2=max(jds,jts-1)
-    jte2=min(jde,jte+2)
+    ! file for u
+    itst=ifval(ids.eq.its,its,its-1)
+    itet=ifval(ide.eq.ite,ite,ite+1)
+    jtst=ifval(jds.ge.jts,jts,jts-1)
+    jtet=ifval(jde.eq.jte,jte,jte+1)
 
+if(fire_print_msg.ge.1)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
   write(msg,7001)'atm input  ','tile',its,ite,jts,jte
   call message(msg)
-  write(msg,7001)'set values ','tile',its2,ite2,jts2,jte2
-  call message(msg)
-  write(msg,7001)'out uah vah','tile',its,ite1,jts,jte1
+  write(msg,7001)'altw       ','tile',itst,itet,jtst,jtet
   call message(msg)
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+endif
+7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
 
     kdmax=kde-1   ! max layer to interpolate from, can be less
 
-    ! precompute altitudes
-    ! do all in as few loops as possible
-    ! we compute few extra entries, and rely on argument arrays initized beyond tile bounds
-    ! but the code is much cleaner
-
-    do k=kds,kdmax+1
-      do i = its2,ite2       
-        altw(i,k,jts2-1) = 0.                                ! initialize
-      enddo
-    enddo
-    do j = jts2,jte2          
+    do j = jtst,jtet
       do k=kds,kdmax+1
-        do i = its2,ite2       
+        do i = itst,itet       
           altw(i,k,j) = (ph(i,k,j)+phb(i,k,j))/g             ! altitude of the bottom w-point 
         enddo
-        altw(its2-1,k,j) = 0.                                ! initialize 
       enddo
+    enddo
+
+! values at u points
+    itsu=ifval(ids.eq.its,its+1,its)  ! staggered direction
+    iteu=ifval(ide.eq.ite,ite,ite+1)  ! staggered direction
+    jtsu=ifval(jds.ge.jts,jts,jts-1)
+    jteu=ifval(jde.eq.jte,jte,jte+1)
+
+if(fire_print_msg.ge.1)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+  write(msg,7001)'u interp at','tile',itsu,iteu,jtsu,jteu
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+endif
+
+    do j = jtsu,jteu          
       do k=kds,kdmax+1
-        do i = its2,ite2       
+        do i = itsu,iteu       
           altub(i,k,j)= 0.5*(altw(i-1,k,j)+altw(i,k,j))      ! altitude of the bottom point under u-point
+        enddo
+      enddo
+      do k=kds,kdmax
+        do i = itsu,iteu       
+          hgtu(i,k,j) =  0.5*(altub(i,k,j)+altub(i,k+1,j)) - altub(i,kds,j)  ! height of the u-point above the ground
+        enddo
+      enddo
+    enddo
+
+! values at v points
+    jtsv=ifval(jds.eq.jts,jts+1,jts)  ! staggered direction
+    jtev=ifval(jde.eq.jte,jte,jte+1)  ! staggered direction
+    itsv=ifval(ids.ge.its,its,its-1)
+    itev=ifval(ide.eq.ite,ite,ite+1)
+
+if(fire_print_msg.ge.1)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+  write(msg,7001)'v interp at','tile',itsv,itev,jtsv,jtev
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+endif
+    do j = jtsv,jtev          
+      do k=kds,kdmax+1
+        do i = itsv,itev       
           altvb(i,k,j)= 0.5*(altw(i,k,j-1)+altw(i,k,j))      ! altitude of the bottom point under v-point
         enddo
       enddo
       do k=kds,kdmax
-        do i = its2,ite2       
-          hgtu(i,k,j) =  0.5*(altub(i,k,j)+altub(i,k+1,j)) - altub(i,kds,j)  ! height of the u-point above the ground
+        do i = itsv,itev       
           hgtv(i,k,j) =  0.5*(altvb(i,k,j)+altvb(i,k+1,j)) - altvb(i,kds,j)  ! height of the v-point above the ground
         enddo
       enddo
@@ -1155,12 +1183,12 @@ endif
 
     ! interpolate u, staggered in X
 
-    do j = jts2,jte2            ! compute on domain by 1 smaller, otherwise z0 and ph not available
-      do i = its2+1,ite2        ! compute with halo 2
+    do j = jtsu,jteu            ! compute on domain by 1 smaller, otherwise z0 and ph not available
+      do i = itsu,iteu        ! compute with halo 2
         zr = 0.5*(z0(i,j)+z0(i-1,j)) ! interpolated roughness length under this u point
         if(fire_wind_height > zr)then       !  
           do k=kds,kdmax
-            ht = hgtu(i,k,j)      ! height of this u point above the ground
+            ! ht = hgtu(i,k,j)      ! height of this u point above the ground
             if( .not. ht < fire_wind_height) then ! found layer k this point is in
               loght = log(ht)
               if(k.eq.kds)then               ! first layer, log linear interpolation from 0 at zr
@@ -1181,13 +1209,12 @@ endif
           ua(i,j)=0.
         endif
       enddo
-      ua(its2,j)=0.   ! initialize
     enddo
 
     ! interpolate v, staggered in Y
 
-    do j = jts2+1,jte2
-      do i = its2,ite2
+    do j = jtsv,jtev
+      do i = itsv,itev
         zr = 0.5*(z0(i,j-1)+z0(i,j)) ! roughness length under this u point
         if(fire_wind_height > zr)then       !  
           do k=kds,kdmax
@@ -1211,29 +1238,22 @@ endif
         else  ! roughness higher than the fire wind height
           va(i,j)=0.
         endif
-        va(i,jts2)=0.   ! initialize
       enddo
     enddo
 
-    ips1=snode(ips,ids,1)
-    its1=snode(its,ids,1)
-    jps1=snode(jps,jds,1)
-    jts1=snode(jts,jds,1)
-
-
     call continue_at_boundary(1,1,0., & ! x direction 
-       TDIMS,                  & ! memory dims atm grid tile
-       ids+1,ide,jds,jde, &          ! domain dims - where u wind defined
-       ips1,ipe,jps,jpe, &            ! patch dims 
-       its1,ite,jts,jte, &        ! tile dims
-       itsou,iteou,jtsou,jteou, & ! where set
+       TDIMS,                  &! memory dims atm grid tile
+       ids+1,ide,jds,jde, &     ! domain dims - where u defined
+       ips,ipe,jps,jpe, &     ! patch dims 
+       its,ite,jts,jte, & ! tile dims - in nonextended direction one beyond if at patch boundary but not domain
+       itsou,iteou,jtsou,jteou, & ! out, where set
        ua)                           ! array
 
     call continue_at_boundary(1,1,0., & ! y direction 
        TDIMS,                  & ! memory dims atm grid tile
        ids,ide,jds+1,jde, &      ! domain dims - where v wind defined
-       ips,ipe,jps1,jpe, &            ! patch dims 
-       its,ite,jts1,jte, &        ! tile dims
+       ips,ipe,jps,jpe, &        ! patch dims 
+       its,ite,jts,jte, & ! tile dims
        itsov,iteov,jtsov,jteov, & ! where set
        va)                           ! array
 
@@ -1250,10 +1270,11 @@ endif
         call write_array_m(itsov,iteov,jtsov,jteov,TDIMS,va,'va',id)
 #endif
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-    write(msg,12)'atm mesh wind U at',fire_wind_height,' m'
-    call print_2d_stats(itsou,iteou,jtsou,jteou,TDIMS,ua,msg)
-    write(msg,12)'atm mesh wind V at',fire_wind_height,' m'
-    call print_2d_stats(itsov,iteov,jtsov,jteov,TDIMS,va,msg)
+    ! don't have all values valid, don't check
+     write(msg,12)'atm mesh wind U at',fire_wind_height,' m'
+     call print_2d_stats(itsou,iteou,jtsou,jteou,TDIMS,ua,msg)
+     write(msg,12)'atm mesh wind V at',fire_wind_height,' m'
+     call print_2d_stats(itsov,iteov,jtsov,jteov,TDIMS,va,msg)
 12  format(a,f6.2,a)
     call print_2d_stats(its,ite1,jts,jte,ims,ime,jms,jme,uah,'UAH')
     call print_2d_stats(its,ite,jts,jte1,ims,ime,jms,jme,vah,'VAH')

@@ -1282,6 +1282,18 @@ end subroutine read_array_2d_real
 !***
 !
 
+! general conditional expression
+pure integer function ifval(l,i,j)
+implicit none
+logical, intent(in)::l
+integer, intent(in)::i,j
+if(l)then
+	ifval=i
+else
+	ifval=j
+endif
+end function ifval
+
 ! function to go beyond domain boundary if tile is next to it
 pure integer function snode(t,d,i)
 implicit none
