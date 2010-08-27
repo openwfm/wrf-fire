@@ -412,7 +412,7 @@ CONTAINS
       INTEGER , DIMENSION(ims:ime,jms:jme), INTENT(OUT) :: isltyp , ivgtyp
       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: landmask
 
-      INTEGER :: i , j , l , ll, dominant_index
+      INTEGER :: i , j , l , ll, dominant_index, k
       REAL :: dominant_value
 
 #ifdef WRF_CHEM
@@ -532,7 +532,8 @@ endif
                   WRITE ( message , FMT = '('//num_cat_count//'(i3,1x))' ) (ints(l),l=1,num_soil_top_cat)
                   CALL wrf_debug(1,message)
                   WRITE ( message , FMT = '('//num_cat_count//'(i3,1x))' ) &
-                     nint(soil_top_cat(i,ints(1:num_soil_top_cat),j)*100)
+                     (nint(soil_top_cat(i,ints(k),j)*100), k=1,num_soil_top_cat)
+!                    nint(soil_top_cat(i,ints(1:num_soil_top_cat),j)*100)
 !                    nint(soil_top_cat(i,(ints(k),k=1:num_soil_top_cat),j)*100)
                   CALL wrf_debug(1,message)
                   dominant_index = 8
