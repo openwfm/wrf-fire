@@ -360,6 +360,7 @@ BENCH_START(surf_driver_tim)
      &        ,GSW=grid%gsw    ,SWDOWN=grid%swdown        ,GZ1OZ0=gz1oz0      ,HFX=grid%hfx              &
      &        ,HT=grid%ht              ,IFSNOW=config_flags%ifsnow      ,ISFFLX=config_flags%isfflx      &
      &        ,FRACTIONAL_SEAICE=config_flags%fractional_seaice           &
+     &        ,TICE2TSK_IF2COLD=config_flags%tice2tsk_if2cold             &
      &        ,ISLTYP=grid%isltyp      ,ITIMESTEP=grid%itimestep, JULIAN_IN=grid%julian                  &
      &        ,IVGTYP=grid%ivgtyp      ,LH=grid%lh              ,LOWLYR=grid%lowlyr      &
      &        ,MAVAIL=grid%mavail      ,NUM_SOIL_LAYERS=config_flags%num_soil_layers        &
@@ -463,7 +464,7 @@ BENCH_START(surf_driver_tim)
      &        ,VEGF_PX=grid%vegf_px, SNOWNCV=grid%snowncv                 &   ! P-X LSM
      &        ,ANAL_INTERVAL=config_flags%auxinput9_interval_s+config_flags%auxinput9_interval_m*60  &   ! P-X LSM
      &        ,PXLSM_SMOIS_INIT=config_flags%pxlsm_smois_init             &   ! P-X LSM
-     &        ,PXLSM_SOIL_NUDGE=config_flags%grid_sfdda                   &   ! P-X LSM
+     &        ,PXLSM_SOIL_NUDGE=config_flags%pxlsm_soil_nudge             &   ! P-X LSM
            ! Optional PX LSM nudging
      &        ,t2_ndg_old=grid%t2_ndg_old                  &
      &        ,q2_ndg_old=grid%q2_ndg_old                  &
