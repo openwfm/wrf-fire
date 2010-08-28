@@ -254,6 +254,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             lfn_out,                                      & ! work - one timestep    
+            grid%avg_fuel_frac,                           & ! out redundant arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
             grid%ros,                                   & ! rate of spread
@@ -307,7 +308,8 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
-    lfn_out,                                & ! fire wind velocities, out level set function    
+    lfn_out,                                      & ! out level set function    
+    avg_fuel_frac,                                &
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
     ros,                                          &
@@ -380,6 +382,7 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
     fire_area                                        ! fraction of each cell burning
 
 real, intent(out), dimension(ims:ime, jms:jme):: &  ! redundant arrays, for display purposes only (atm grid)
+    avg_fuel_frac,                               &  ! average fuel fraction
     grnhfx,                                      &  ! heat flux from ground fire (W/m^2) 
     grnqfx,                                      &  ! moisture flux from ground fire (W/m^2) 
     canhfx,                                      &  ! heat flux from crown fire (W/m^2) 
@@ -400,7 +403,7 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params ar
 type(fire_params),intent(inout)::fp
     
 !*** local
-real :: dxf,dyf,time_start,latm
+real :: dxf,dyf,time_start,latm, s
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ij,i,j,k,id,pid,kpe1, &
     ifts,ifte,jfts,jfte                          ! fire tile
@@ -648,6 +651,13 @@ do ij=1,num_tiles
           call sum_2d_cells(        &
             ifms,ifme,jfms,jfme,  &
             ifts,ifte,jfts,jfte,  &
+            fuel_frac,              &
+            ims, ime, jms, jme,   &
+            its,ite,jts,jte,      &
+            avg_fuel_frac)
+          call sum_2d_cells(        &
+            ifms,ifme,jfms,jfme,  &
+            ifts,ifte,jfts,jfte,  &
             fgrnhfx,              &
             ims, ime, jms, jme,   &
             its,ite,jts,jte,      &
@@ -665,11 +675,13 @@ do ij=1,num_tiles
           write(msg,'(a,f6.3)')'fire-atmosphere feedback scaling ',fire_atm_feedback
 !$OMP end CRITICAL(SFIRE_DRIVER_CRIT)
 	  call message(msg)
+          s = 1./(ir*jr)
           do j=jts,jte
             do i=its,ite
                 ! scale ground fluxes to get the averages
-                grnhfx(i,j)=fire_atm_feedback*grnhfx(i,j)/(ir*jr)
-                grnqfx(i,j)=fire_atm_feedback*grnqfx(i,j)/(ir*jr)
+                avg_fuel_frac(i,j)=avg_fuel_frac(i,j)*s
+                grnhfx(i,j)=fire_atm_feedback*grnhfx(i,j)*s
+                grnqfx(i,j)=fire_atm_feedback*grnqfx(i,j)*s
                 ! we do not have canopy fluxes yet...
                 canhfx(i,j)=0
                 canqfx(i,j)=0
