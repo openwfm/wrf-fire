@@ -149,11 +149,15 @@ call allocate2d(grid%fcanhfx,ifms,ifme,jfms,jfme,'fcanhfx')          !
 call allocate2d(grid%fcanqfx,ifms,ifme,jfms,jfme,'fcanqfx')          ! 
 
 ! atmosphere compatibility arrays
+call allocate2d(grid%xlong,ims,ime,jms,jme,'xlong') 
+call allocate2d(grid%xlat,ims,ime,jms,jme,'xlat') 
 call allocate2d(grid%ht,ims,ime,jms,jme,'ht') 
 call allocate2d(grid%grnhfx,ims,ime,jms,jme,'grnhfx') 
 call allocate2d(grid%grnqfx,ims,ime,jms,jme,'qrnqfx') 
 call allocate2d(grid%canhfx,ims,ime,jms,jme,'canhfx')
 call allocate2d(grid%canqfx,ims,ime,jms,jme,'canqfx') 
+call allocate3d(grid%ph,ims,ime,kms,kme,jms,jme,'ph') 
+call allocate3d(grid%phb,ims,ime,kms,kme,jms,jme,'phb') 
 call allocate3d(grid%u_2,ims,ime,kms,kme,jms,jme,'u_2') 
 call allocate3d(grid%v_2,ims,ime,kms,kme,jms,jme,'v_2') 
 call allocate2d(grid%uah,ims,ime,jms,jme,'uah')                  ! 
@@ -166,14 +170,20 @@ input%dzdxf    =>grid%dzdxf(1:nfx,1:nfy)
 input%dzdyf    =>grid%dzdyf(1:nfx,1:nfy)
 input%vf       =>grid%uf(1:nfx,1:nfy)
 input%uf       =>grid%vf(1:nfx,1:nfy)
-call allocate3d(input%u,1,nx,1,ny,1,nz,'u') 
-call allocate3d(input%v,1,nx,1,ny,1,nz,'v') 
+call allocate3d(input%ph, 1,nx,1,ny,1,nz+1,'ph') 
+call allocate3d(input%phb,1,nx,1,ny,1,nz+1,'phb') 
+call allocate3d(input%u,  1,nx+1,1,ny,1,nz,'u') 
+call allocate3d(input%v,  1,nx,1,ny+1,1,nz,'v') 
 
 call read_vars(inputfile,info,input)
 
 ! sfire uses wrf ordering of dimensions
-grid%u_2(1:nx,1:nz,1:ny)=reshape(input%u,(/nx,nz,ny/),order=(/1,3,2/))
-grid%v_2(1:nx,1:nz,1:ny)=reshape(input%v,(/nx,nz,ny/),order=(/1,3,2/))
+grid%ph (1:nx,1:nz+1,1:ny)=reshape(input%ph, (/nx,nz+1,ny/),order=(/1,3,2/))
+grid%phb(1:nx,1:nz+1,1:ny)=reshape(input%phb,(/nx,nz+1,ny/),order=(/1,3,2/))
+deallocate(input%ph)
+deallocate(input%phb)
+grid%u_2(1:nx+1,1:nz,1:ny)=reshape(input%u,(/nx+1,nz,ny/),order=(/1,3,2/))
+grid%v_2(1:nx,1:nz,1:ny+1)=reshape(input%v,(/nx,nz,ny+1/),order=(/1,3,2/))
 deallocate(input%u)
 deallocate(input%v)
 
