@@ -57,6 +57,7 @@ character(len=nf90_max_name),parameter::                        &
                               var_nfuel_cat='NFUEL_CAT',        &
                               var_u='U',                        &
                               var_v='V',                        &
+                              var_z0='Z0',                      &
                               var_ph='PH',                      &
                               var_phb='PHB',                    &
                               var_dzdxf='DZDXF',                &
@@ -77,7 +78,7 @@ type output_vars
 end type
 
 type input_vars
-  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf
+  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,z0
   real,dimension(:,:,:),pointer::u,v,ph,phb
 end type
 
@@ -437,6 +438,16 @@ call check(nf90_inq_varid(ncid,var_dzdxf,varid))
 call check(nf90_get_var(ncid,varid,input%dzdxf,start=s(1:3),count=c(1:3)))
 call check(nf90_inq_varid(ncid,var_dzdyf,varid))
 call check(nf90_get_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
+
+s(:)=1
+
+c(1)=info%natmx
+c(2)=info%natmy
+c(3)=1
+c(4)=1
+
+call check(nf90_inq_varid(ncid,var_z0,varid))
+call check(nf90_get_var(ncid,varid,input%z0,start=s,count=c))
 
 c(1)=info%natmx
 c(2)=info%natmy

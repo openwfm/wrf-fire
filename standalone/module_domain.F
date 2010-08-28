@@ -56,8 +56,6 @@ module module_domain
 
       ! atmospheric variables for compatibility
 
-      real, pointer, dimension(:,:,:)::ph => null()            ! geopotential perturbation
-      real, pointer, dimension(:,:,:)::phb => null()           ! geopotential base 
       real, pointer, dimension(:,:,:)::u_2 => null()           ! wind on atmospheric mesh
       real, pointer, dimension(:,:,:)::v_2 => null()           ! wind on atmospheric mesh
       real, pointer, dimension(:,:,:)::ph_2  => null()         ! geopotential perturbation
