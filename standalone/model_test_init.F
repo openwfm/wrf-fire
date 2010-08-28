@@ -35,8 +35,8 @@ grid%dt=real(config_flags%time_step)+real(config_flags%time_step_fract_num)/real
 allocate(input%nfuel_cat(grid%nfirex,grid%nfirey))
 allocate(input%dzdxf(grid%nfirex,grid%nfirey)) 
 allocate(input%dzdyf(grid%nfirex,grid%nfirey))
-allocate(input%vx(grid%natmx+1,grid%natmy))
-allocate(input%vy(grid%natmx,grid%natmy+1))
+allocate(input%uah(grid%natmx+1,grid%natmy))
+allocate(input%vah(grid%natmx,grid%natmy+1))
 allocate(input%zsf(grid%nfirex,grid%nfirey))
 
 ! initialize input variables

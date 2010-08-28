@@ -48,11 +48,15 @@ default: fire
 
 all: fire init
 
+rmfirex: 
+	cd ../wrfv2_fire/test/em_fire; rm -f fire.exe;
+
 fire: fire.exe
+	cd ../wrfv2_fire/test/em_fire; ln -s ../../../standalone/fire.exe fire.exe
 
 init: init.exe
 
-fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)
+fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ) rmfirex
 	$(FC) $(FCFLAGS) -o fire.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
 
 init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
