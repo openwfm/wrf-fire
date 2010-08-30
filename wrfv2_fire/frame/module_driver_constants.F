@@ -61,6 +61,10 @@ MODULE module_driver_constants
 
    INTEGER , PARAMETER :: max_bogus =  5
 
+   ! The maximum number of fire ignitions
+
+   INTEGER , PARAMETER :: max_ignitions = 15
+
    !  2. Following related to driver leve data structures for DM_PARALLEL communications
 
 #ifdef DM_PARALLEL

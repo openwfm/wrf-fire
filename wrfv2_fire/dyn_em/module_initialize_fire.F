@@ -244,8 +244,8 @@ write(6,*) '*************************************'
    IF (sfc_init) THEN
     DO j = jts, jte
       DO i = its, ite
-          grid%xlat(i,j) = config_flags%fire_lat_init     !Ak/sk (35)
-         grid%xlong(i,j) = config_flags%fire_lon_init     !Ak/ak (-111)
+!          grid%xlat(i,j) = config_flags%fire_lat_init     !Ak/sk (35)
+!         grid%xlong(i,j) = config_flags%fire_lon_init     !Ak/ak (-111)
          grid%xland(i,j) = 1.                             !Ak/ak
       grid%lu_index(i,j) = config_flags%sfc_lu_index      !AK/ak land use index (28)
            grid%tsk(i,j) = config_flags%sfc_tsk           !AK/ak  surface skin temperature [K] (285)

@@ -811,8 +811,8 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
     ! this is only until I figure out how to input arrays through the namelist...
     if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
     ! figure out which kind of coordinates from the first given
-    ideal=config_flags%fire_ignition_start_x1 .ne.0. .or. config_flags%fire_ignition_start_y1 .ne. 0.
-    real=config_flags%fire_ignition_start_lon1 .ne. 0. .or. config_flags%fire_ignition_start_lat1 .ne. 0.
+!    ideal=config_flags%fire_ignition_start_x1 .ne.0. .or. config_flags%fire_ignition_start_y1 .ne. 0.
+!    real=config_flags%fire_ignition_start_lon1 .ne. 0. .or. config_flags%fire_ignition_start_lat1 .ne. 0.
     if(ideal)call message('Using ideal ignition coordinates, m from the lower left domain corner')
     if(real)call message('Using real ignition coordinates, longitude and latitude')
     if(ideal.and.real)call crash('Only one of the ideal or real coordinates may be given')
@@ -820,68 +820,68 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
     fire_ignition_longlat=0  ! default, if no ignition
     if(ideal)then
         ! use values from _x and _y variables
-        fire_ignition_longlat=0
-        fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
-        fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
-        fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
-        fire_ignition_end_y(1)=config_flags%fire_ignition_end_y1
-        fire_ignition_start_x(2)=config_flags%fire_ignition_start_x2
-        fire_ignition_start_y(2)=config_flags%fire_ignition_start_y2
-        fire_ignition_end_x(2)=config_flags%fire_ignition_end_x2
-        fire_ignition_end_y(2)=config_flags%fire_ignition_end_y2
-        fire_ignition_start_x(3)=config_flags%fire_ignition_start_x3
-        fire_ignition_start_y(3)=config_flags%fire_ignition_start_y3
-        fire_ignition_end_x(3)=config_flags%fire_ignition_end_x3
-        fire_ignition_end_y(3)=config_flags%fire_ignition_end_y3
-        fire_ignition_start_x(4)=config_flags%fire_ignition_start_x4
-        fire_ignition_start_y(4)=config_flags%fire_ignition_start_y4
-        fire_ignition_end_x(4)=config_flags%fire_ignition_end_x4
-        fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
-        fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
-        fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
-        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x5
-        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y5
+!        fire_ignition_longlat=0
+!        fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
+!        fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
+!        fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
+!        fire_ignition_end_y(1)=config_flags%fire_ignition_end_y1
+!        fire_ignition_start_x(2)=config_flags%fire_ignition_start_x2
+!        fire_ignition_start_y(2)=config_flags%fire_ignition_start_y2
+!        fire_ignition_end_x(2)=config_flags%fire_ignition_end_x2
+!        fire_ignition_end_y(2)=config_flags%fire_ignition_end_y2
+!        fire_ignition_start_x(3)=config_flags%fire_ignition_start_x3
+!        fire_ignition_start_y(3)=config_flags%fire_ignition_start_y3
+!        fire_ignition_end_x(3)=config_flags%fire_ignition_end_x3
+!        fire_ignition_end_y(3)=config_flags%fire_ignition_end_y3
+!        fire_ignition_start_x(4)=config_flags%fire_ignition_start_x4
+!        fire_ignition_start_y(4)=config_flags%fire_ignition_start_y4
+!        fire_ignition_end_x(4)=config_flags%fire_ignition_end_x4
+!        fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
+!        fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
+!        fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
+!        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x5
+!        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y5
     endif
     if(real)then
         ! use values from _long and _lat
         fire_ignition_longlat=1
-        fire_ignition_start_x(1)=config_flags%fire_ignition_start_lon1
-        fire_ignition_start_y(1)=config_flags%fire_ignition_start_lat1
-        fire_ignition_end_x(1)=config_flags%fire_ignition_end_lon1
-        fire_ignition_end_y(1)=config_flags%fire_ignition_end_lat1
-        fire_ignition_start_x(2)=config_flags%fire_ignition_start_lon2
-        fire_ignition_start_y(2)=config_flags%fire_ignition_start_lat2
-        fire_ignition_end_x(2)=config_flags%fire_ignition_end_lon2
-        fire_ignition_end_y(2)=config_flags%fire_ignition_end_lat2
-        fire_ignition_start_x(3)=config_flags%fire_ignition_start_lon3
-        fire_ignition_start_y(3)=config_flags%fire_ignition_start_lat3
-        fire_ignition_end_x(3)=config_flags%fire_ignition_end_lon3
-        fire_ignition_end_y(3)=config_flags%fire_ignition_end_lat3
-        fire_ignition_start_x(4)=config_flags%fire_ignition_start_lon4
-        fire_ignition_start_y(4)=config_flags%fire_ignition_start_lat4
-        fire_ignition_end_x(4)=config_flags%fire_ignition_end_lon4
-        fire_ignition_end_y(4)=config_flags%fire_ignition_end_lat4
-        fire_ignition_start_x(5)=config_flags%fire_ignition_start_lon5
-        fire_ignition_start_y(5)=config_flags%fire_ignition_start_lat5
-        fire_ignition_end_x(5)=config_flags%fire_ignition_end_lon5
-        fire_ignition_end_y(5)=config_flags%fire_ignition_end_lat5
+!        fire_ignition_start_x(1)=config_flags%fire_ignition_start_lon1
+!        fire_ignition_start_y(1)=config_flags%fire_ignition_start_lat1
+!        fire_ignition_end_x(1)=config_flags%fire_ignition_end_lon1
+!        fire_ignition_end_y(1)=config_flags%fire_ignition_end_lat1
+!        fire_ignition_start_x(2)=config_flags%fire_ignition_start_lon2
+!        fire_ignition_start_y(2)=config_flags%fire_ignition_start_lat2
+!        fire_ignition_end_x(2)=config_flags%fire_ignition_end_lon2
+!        fire_ignition_end_y(2)=config_flags%fire_ignition_end_lat2
+!        fire_ignition_start_x(3)=config_flags%fire_ignition_start_lon3
+!        fire_ignition_start_y(3)=config_flags%fire_ignition_start_lat3
+!        fire_ignition_end_x(3)=config_flags%fire_ignition_end_lon3
+!        fire_ignition_end_y(3)=config_flags%fire_ignition_end_lat3
+!        fire_ignition_start_x(4)=config_flags%fire_ignition_start_lon4
+!        fire_ignition_start_y(4)=config_flags%fire_ignition_start_lat4
+!        fire_ignition_end_x(4)=config_flags%fire_ignition_end_lon4
+!        fire_ignition_end_y(4)=config_flags%fire_ignition_end_lat4
+!        fire_ignition_start_x(5)=config_flags%fire_ignition_start_lon5
+!        fire_ignition_start_y(5)=config_flags%fire_ignition_start_lat5
+!        fire_ignition_end_x(5)=config_flags%fire_ignition_end_lon5
+!        fire_ignition_end_y(5)=config_flags%fire_ignition_end_lat5
     endif
     ! common to both cases
-        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
-        fire_ignition_start_time(1)=config_flags%fire_ignition_start_time1 
-        fire_ignition_end_time(1)=config_flags%fire_ignition_end_time1 
-        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
-        fire_ignition_start_time(2)=config_flags%fire_ignition_start_time2 
-        fire_ignition_end_time(2)=config_flags%fire_ignition_end_time2 
-        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
-        fire_ignition_start_time(3)=config_flags%fire_ignition_start_time3 
-        fire_ignition_end_time(3)=config_flags%fire_ignition_end_time3 
-        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
-        fire_ignition_start_time(4)=config_flags%fire_ignition_start_time4 
-        fire_ignition_end_time(4)=config_flags%fire_ignition_end_time4 
-        fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
-        fire_ignition_start_time(5)=config_flags%fire_ignition_start_time5
-        fire_ignition_end_time(5)=config_flags%fire_ignition_end_time5
+!        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
+!        fire_ignition_start_time(1)=config_flags%fire_ignition_start_time1 
+!        fire_ignition_end_time(1)=config_flags%fire_ignition_end_time1 
+!        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
+!        fire_ignition_start_time(2)=config_flags%fire_ignition_start_time2 
+!        fire_ignition_end_time(2)=config_flags%fire_ignition_end_time2 
+!        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
+!        fire_ignition_start_time(3)=config_flags%fire_ignition_start_time3 
+!        fire_ignition_end_time(3)=config_flags%fire_ignition_end_time3 
+!        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
+!        fire_ignition_start_time(4)=config_flags%fire_ignition_start_time4 
+!        fire_ignition_end_time(4)=config_flags%fire_ignition_end_time4 
+!        fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
+!        fire_ignition_start_time(5)=config_flags%fire_ignition_start_time5
+!        fire_ignition_end_time(5)=config_flags%fire_ignition_end_time5
 
     ! 
         fire_num_ignitions=0      

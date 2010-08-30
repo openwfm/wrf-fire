@@ -279,8 +279,11 @@ gen_get_nl_config ( char * dirname )
 	    } else if ( !strcmp( p->nentries, "max_instruments" )) {
               fprintf(fp,"  IF ( id_id .LT. 1 .OR. id_id .GT. max_instruments ) THEN\n") ;
               fprintf(fp,"    WRITE(emess,*)'nl_%s_%s: Out of range instruments number: ',id_id\n",gs,p->name) ;
+	    } else if ( !strcmp( p->nentries, "max_ignitions" )) {
+	      fprintf(fp,"  IF ( id_id .LT. 1 .OR. id_id .GT. max_ignitions ) THEN\n" ) ;
+	      fprintf(fp,"    WRITE(emess,*)'nl_%s_%s: Out of range ignition number: ',id_id\n",gs,p->name) ;
 	    } else {
-	      fprintf(stderr,"Registry WARNING: multi element rconfig entry must be either max_domains, max_moves, max_eta, max_outer_iterations, or max_instruments \n") ;
+	      fprintf(stderr,"Registry WARNING: multi element rconfig entry must be either max_domains, max_moves, max_eta, max_outer_iterations, max_instruments, or max_ignitions \n") ;
 	    }
             fprintf(fp,"    CALL wrf_error_fatal(emess)\n") ;
             fprintf(fp,"  ENDIF\n" ) ;
@@ -319,8 +322,11 @@ gen_get_nl_config ( char * dirname )
 	    } else if ( !strcmp( p->nentries, "max_instruments" )) {
               fprintf(fp,"  IF ( id_id .LT. 1 .OR. id_id .GT. max_instruments ) THEN\n") ;
               fprintf(fp,"    WRITE(emess,*)'nl_%s_%s: Out of range instruments number: ',id_id\n",gs,p->name) ;
+	    } else if ( !strcmp( p->nentries, "max_ignitions" )) {
+	      fprintf(fp,"  IF ( id_id .LT. 1 .OR. id_id .GT. max_ignitions ) THEN\n" ) ;
+	      fprintf(fp,"    WRITE(emess,*)'nl_%s_%s: Out of range ignition number: ',id_id\n",gs,p->name) ;
 	    } else {
-	      fprintf(stderr,"Registry WARNING: multi element rconfig entry must be either max_domains, max_moves, max_eta, max_outer_iterations, or max_instruments \n") ;
+	      fprintf(stderr,"Registry WARNING: multi element rconfig entry must be either max_domains, max_moves, max_eta, max_outer_iterations, max_instruments, or max_ignitions \n") ;
 	    }
             fprintf(fp,"    CALL wrf_error_fatal(emess)\n") ;
             fprintf(fp,"  ENDIF\n" ) ;
