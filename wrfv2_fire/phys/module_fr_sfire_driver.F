@@ -483,6 +483,11 @@ pid=0
 if(itimestep.le.10.or.mod(itimestep,10).eq.0)pid=itimestep ! print 1-10 then every 10th
 !pid=itimestep
 
+if(ifun.eq.3)then
+ call print_chsum(ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,1,0,0,u,'u')
+ call print_chsum(ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,0,1,0,v,'v')
+ call print_chsum(ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,0,0,1,ph,'ph')
+endif
 
 ! fake atm tile bounds
 kts=kps
@@ -726,6 +731,15 @@ do ij=1,num_tiles
 enddo ! tiles
 !$OMP END PARALLEL DO
 
+#ifdef DEBUG_OUT
+if(ifun.eq.1)then
+    if(pid.ne.0)then
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
+        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%zsf,'zsf',pid)
+    endif
+endif
+#endif
+
 if (ifun.eq.3)then
     ignitions_done=ignitions_done_tile(1) ! all should be the same
     do i=1,ignitions_done
@@ -746,16 +760,11 @@ if (ifun.eq.3)then
             call crash('sfire_driver_phys: Ignition failed, no nodes ignited. Bad coordinates?')
         endif
     enddo
-endif
 
-#ifdef DEBUG_OUT
-if(ifun.eq.1)then
-    if(pid.ne.0)then
-        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'zs',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%zsf,'zsf',pid)
-    endif
-#endif
-elseif(ifun.eq.3)then
+ call print_chsum(ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,1,0,0,uah,'uah')
+ call print_chsum(ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,1,0,vah,'vah')
+ call print_chsum(ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vx,'uf')
+ call print_chsum(ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vy,'vf')
 #ifdef DEBUG_OUT
     if(pid.gt.0)then
         call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,u,'u',pid)
@@ -764,14 +773,22 @@ elseif(ifun.eq.3)then
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vy,'vf',pid)
     endif
 #endif
-elseif(ifun.eq.5)then
+endif
+
+if(ifun.eq.5)then
 #ifdef DEBUG_OUT
     if(pid.gt.0)then
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,lfn,'lfn',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,tign,'tign',pid)
     endif
 #endif
-elseif(ifun.eq.6)then
+endif
+
+if(ifun.eq.6)then
+    call print_chsum(ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fgrnhfx,'fgrnhfx')
+    call print_chsum(ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fgrnqfx,'fgrnqfx')
+    call print_chsum(ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,0,grnhfx,'grnhfx')
+    call print_chsum(ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,0,grnqfx,'grnqfx')
 #ifdef DEBUG_OUT
     if(pid.gt.0)then
         call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)

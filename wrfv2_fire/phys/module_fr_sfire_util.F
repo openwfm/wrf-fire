@@ -1312,5 +1312,75 @@ msg=id
 call message(msg)
 end subroutine print_id
 
+subroutine print_chsum( & 
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+    istag,kstag,jstag,       &
+    a,name)                      
+
+#ifdef DM_PARALLEL
+    USE module_dm
+#endif
+
+integer, intent(in):: &
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch dims
+    istag,kstag,jstag
+real, intent(in),dimension(ims:ime,kms:kme,jms:jme)::a
+character(len=*)::name
+
+!$ external, logical:: omp_in_parallel
+!$ external, integer:: omp_get_thread_num
+
+!*** local
+integer::lsum
+integer::i,j,k,n,imax,jmax,kmax,iel,thread
+integer, save::psum,gsum
+real::rel
+equivalence(rel,iel)
+character(len=256)msg
+
+if(fire_print_msg.le.0)return
+
+imax=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
+kmax=ifval(kpe.eq.kde.and.kstag.ne.0,kpe+1,kpe)
+jmax=ifval(jpe.eq.jde.and.jstag.ne.0,jpe+1,jpe)
+lsum=0
+do j=jps,jmax
+  do k=kps,kmax
+    do i=ips,imax
+      rel=a(i,k,j)
+      lsum=ieor(lsum,iel)
+    enddo
+  enddo
+enddo
+
+! get process sum over all threads
+thread=0
+!$ thread=omp_get_thread_num
+if(thread.eq.0)psum=0
+!$OMP BARRIER
+!$OMP CRITICAL(CHSUM)
+psum=ieor(psum,lsum)
+!$OMP END CRITICAL(CHSUM)
+!$OMP BARRIER
+
+! get global sum over all processes
+if(thread.eq.0)then
+#ifdef DM_PARALLEL
+    gsum = wrf_dm_bxor_integer ( psum )
+#else
+    gsum = lsum
+#endif
+    write(msg,1)name,ids,ide,kds,kde,jds,jde,gsum
+1   format(a10,' dims',6i5,' chsum ',z8)
+    call message(msg)
+endif
+
+end subroutine print_chsum 
+
+
 
 end module module_fr_sfire_util
