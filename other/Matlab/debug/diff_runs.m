@@ -9,14 +9,15 @@ function err=diff_runs(runs,vars,root,wrffile,timestep)
 %wrffile='wrfout_d01_2006-02-23_12:42:00'
 %diff_runs(runs,vars,root,wrffile,1)
 
-p1=nc2struct([root,runs{1},'/',wrffile],vars,{},timestep)
+file=[root,runs{1},'/',wrffile];
+p1=nc2struct(file,vars,{},timestep);
 for i=2:length(runs)
     run=runs{i};
-    p=nc2struct([root,run,'/',wrffile],vars,{},timestep)
-    run
+    file=[root,run,'/',wrffile];
+    p=nc2struct(file,vars,{},timestep);
     for j=1:length(vars)
-        var=lower(vars{j})
-        e=big(getfield(p1,var)-getfield(p,var))
+        var=lower(vars{j});
+        e=big(getfield(p1,var)-getfield(p,var));
         err(i,j)=e;
     end
 end
