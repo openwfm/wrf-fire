@@ -1133,7 +1133,7 @@ character(len=128)::fname,msg
 if(fire_print_file.eq.0.or.id.le.0)return
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call wrf_get_nproc (nprocs)
-call wrf_get_myproc( myproc )
+call wrf_get_myproc(myproc)
 
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 if(nprocs.eq.1)then
@@ -1141,17 +1141,13 @@ if(nprocs.eq.1)then
 else
     write(fname,4)name,'_',id,'.',myproc,'.txt'
 endif
-do ilen=len(fname),2,-1
-    if(fname(ilen:ilen).ne.' ')goto 19
-enddo
-19 continue
 
 iu=0
 do i=6,99
     inquire(unit=i,opened=op)
     if(.not.op.and.iu.le.0)iu=i
 enddo
-if(iu.gt.0)open(iu,file=fname(1:ilen),form='formatted',status='unknown')
+if(iu.gt.0)open(iu,file=trim(fname),form='formatted',status='unknown')
 
 if(iu.le.0)call crash('write_array_m: cannot find available fortran unit')
 
@@ -1164,15 +1160,15 @@ write(iu,1)real(kte)
 write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
 write(msg,2)name,'(',its,':',ite,',',jts,':',jte,',', &
-kts,':',kte,') -> ',fname(1:ilen) 
+kts,':',kte,') -> ',trim(fname) 
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call message(msg)
 return
 
 1 format(e20.12)
 2 format(2a,3(i5,a,i5,a),2a)
-3 format(a,a,i5.5,a)
-4 format(a,a,i5.5,a,i4.4,a)
+3 format(a,a,i6.6,a)
+4 format(a,a,i6.6,a,i4.4,a)
 
 
 end subroutine write_array_m3

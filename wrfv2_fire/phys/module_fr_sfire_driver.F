@@ -423,7 +423,7 @@ type(fire_params),intent(inout)::fp
 !*** local
 real :: dxf,dyf,time_start,latm, s
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
-    ij,i,j,k,id,pid,kpe1, &
+    ij,i,j,k,id,pid,ipe1,jpe1,ite1,jte1, &
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
@@ -493,13 +493,16 @@ endif
 kts=kps
 kte=kpe
 
+! staggered atm patch bounds
+ipe1=ifval(ipe.eq.ide,ipe+1,ipe)
+jpe1=ifval(jpe.eq.jde,jpe+1,jpe)
+
 ! set up fire tiles & interpolate to fire grid
-!$OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ifts,ifte,jfts,jfte,msg,id) &
+!$OMP PARALLEL DO PRIVATE(ij,its,ite,jts,jte,ite1,jte1,ifts,ifte,jfts,jfte,msg,id) &
 !$OMP SCHEDULE(STATIC)
 do ij=1,num_tiles
 
-    id=0  ! do not print/write anything
-    if(itimestep.le.10.or.mod(itimestep,10).eq.0)id=itimestep+ij*10000
+    id = ifval(pid.ne.0,pid+ij*10000,0) ! for print
 
     ignitions_done_tile(ij)=0
 
@@ -513,6 +516,10 @@ do ij=1,num_tiles
     jfts= (jts-jds)*jr+jfds       ! start fire tile in j
     jfte= (jte-jds+1)*jr+jfds-1   ! end fire tile in j
         
+! staggered atm tile bounds
+    ite1=ifval(ite.eq.ide,ite+1,ite)
+    jte1=ifval(jte.eq.jde,jte+1,jte)
+
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(a,i3,1x,a,i7,1x,a,i3)')'tile=',ij,' id=',id,' ifun=',ifun
     call message(msg)
@@ -623,8 +630,8 @@ do ij=1,num_tiles
       if(use_atm_vars)then                                  
      
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,z0,'z0',id)
-        call write_array_m3(its,ite+1,kts,kde-1,jts,jte,ims,ime,kms,kme,jms,jme,u,'u_2',id)
-        call write_array_m3(its,ite,kts,kde-1,jts,jte+1,ims,ime,kms,kme,jms,jme,v,'v_2',id)
+        call write_array_m3(its,ite1,kts,kde-1,jts,jte,ims,ime,kms,kme,jms,jme,u,'u_2',id)
+        call write_array_m3(its,ite,kts,kde-1,jts,jte1,ims,ime,kms,kme,jms,jme,v,'v_2',id)
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,ph,'ph_2',id)
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
         call interpolate_atm2fire(id,                     & ! flag for debug output
@@ -767,8 +774,12 @@ if (ifun.eq.3)then
  call print_chsum(ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vy,'vf')
 #ifdef DEBUG_OUT
     if(pid.gt.0)then
-        call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,u,'u',pid)
-        call write_array_m3(ips,ipe+1,kds,kds+1,jps,jpe+1,ims,ime,kms,kme,jms,jme,v,'v',pid)
+        call write_array_m(ips,ipe1,jps,jpe,ims,ime,jms,jme,uah,'uah',pid)
+        call write_array_m(ips,ipe,jps,jpe1,ims,ime,jms,jme,vah,'vah',pid)
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
+        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
+        call write_array_m3(ips,ipe1,kds,kde+1,jps,jpe,ims,ime,kms,kme,jms,jme,u,'u',pid)
+        call write_array_m3(ips,ipe,kds,kde+1,jps,jpe1,ims,ime,kms,kme,jms,jme,v,'v',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vx,'uf',pid)
         call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vy,'vf',pid)
     endif
@@ -1329,8 +1340,8 @@ endif
 12  format(a,f6.2,a)
     call print_2d_stats(its,ite1,jts,jte,ims,ime,jms,jme,uah,'UAH')
     call print_2d_stats(its,ite,jts,jte1,ims,ime,jms,jme,vah,'VAH')
-    call write_array_m(its,ite1,jts,jte,ims,ime,jms,jme,uah,'uah',id)
-    call write_array_m(its,ite,jts,jte1,ims,ime,jms,jme,vah,'vah',id)
+    !call write_array_m(its,ite1,jts,jte,ims,ime,jms,jme,uah,'uah',id)
+    !call write_array_m(its,ite,jts,jte1,ims,ime,jms,jme,vah,'vah',id)
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
 !      ---------------
