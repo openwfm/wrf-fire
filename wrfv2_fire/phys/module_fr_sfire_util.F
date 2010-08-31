@@ -86,9 +86,13 @@ if(fire_print_msg.gt.0)then
 #endif
     call wrf_message(msg)
     inquire(unit=6,opened=op)
-    if(op)flush(6)
+    if(op)then 
+      call flush(6)
+    endif
     inquire(unit=0,opened=op)
-    if(op)flush(0)
+    if(op)then
+      call flush(0)
+    endif
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
