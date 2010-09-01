@@ -1312,7 +1312,7 @@ msg=id
 call message(msg)
 end subroutine print_id
 
-subroutine print_chsum( & 
+subroutine print_chsum( id, & 
     ims,ime,kms,kme,jms,jme, &                ! memory dims
     ids,ide,kds,kde,jds,jde, &                ! domain dims
     ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
@@ -1323,7 +1323,7 @@ subroutine print_chsum( &
     USE module_dm
 #endif
 
-integer, intent(in):: &
+integer, intent(in):: id, &
     ims,ime,kms,kme,jms,jme, &                ! memory dims
     ids,ide,kds,kde,jds,jde, &                ! domain dims
     ips,ipe,kps,kpe,jps,jpe, &                ! patch dims
@@ -1336,7 +1336,7 @@ character(len=*)::name
 
 !*** local
 integer::lsum
-integer::i,j,k,n,imax,jmax,kmax,iel,thread
+integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
 integer, save::psum,gsum
 real::rel
 equivalence(rel,iel)
@@ -1344,13 +1344,17 @@ character(len=256)msg
 
 if(fire_print_msg.le.0)return
 
-imax=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
-kmax=ifval(kpe.eq.kde.and.kstag.ne.0,kpe+1,kpe)
-jmax=ifval(jpe.eq.jde.and.jstag.ne.0,jpe+1,jpe)
+ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
+kpe1=ifval(kpe.eq.kde.and.kstag.ne.0,kpe+1,kpe)
+jpe1=ifval(jpe.eq.jde.and.jstag.ne.0,jpe+1,jpe)
+is=ifval(istag.ne.0,1,0)
+ks=ifval(kstag.ne.0,1,0)
+js=ifval(jstag.ne.0,1,0)
+
 lsum=0
-do j=jps,jmax
-  do k=kps,kmax
-    do i=ips,imax
+do j=jps,jpe1
+  do k=kps,kpe1
+    do i=ips,ipe1
       rel=a(i,k,j)
       lsum=ieor(lsum,iel)
     enddo
@@ -1359,7 +1363,7 @@ enddo
 
 ! get process sum over all threads
 thread=0
-!$ thread=omp_get_thread_num
+!$ thread=omp_get_thread_num()
 if(thread.eq.0)psum=0
 !$OMP BARRIER
 !$OMP CRITICAL(CHSUM)
@@ -1374,8 +1378,8 @@ if(thread.eq.0)then
 #else
     gsum = lsum
 #endif
-    write(msg,1)name,ids,ide,kds,kde,jds,jde,gsum
-1   format(a10,' dims',6i5,' chsum ',z8)
+    write(msg,1)id,name,ids,ide+is,kds,kde+ks,jds,jde+js,gsum
+1   format(i6,1x,a10,' dims',6i5,' chsum ',z8.8)
     call message(msg)
 endif
 
