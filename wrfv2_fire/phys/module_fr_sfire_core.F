@@ -225,6 +225,7 @@ end subroutine ignite_fire
 !            
 
 subroutine fuel_left(&
+    ifds,ifde,jfds,jfde&
     ims,ime,jms,jme, &
     its,ite,jts,jte, &
     ifs,ife,jfs,jfe, &
@@ -238,7 +239,8 @@ implicit none
 
 !*** arguments
 
-integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe
+integer, intent(in) ::ifds,ifde,jfds,jfde,its,ite,jts,jte,ims,ime &
+                      ,jms,jme,ifs,ife,jfs,jfe
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: time_now
 real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
@@ -256,7 +258,7 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,ir,jr,icl,jcl,isubcl,jsubcl,i2,j2,ii,jj
+integer::i,j,ir,jr,icl,jcl,isubcl,jsubcl,i2,j2,ii,jj,its1,jts1,ite1,jte1
 real::fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry,tignf(2,2)
 real,dimension(3,3)::tff,lff
 ! help variables instead of arrays fuel_left_f and fire_area_f 
@@ -300,13 +302,81 @@ ry=1./jr
 
 !  Loop over cells in Tile 
 !  Changes made by Volodymyr Kondratenko 09/24/2009
-do icl=its,ite
+its1=max(its,ifds+1)
+do icl=its1,ite
   do jcl=jts,jte
     helpsum1=0
     helpsum2=0
+
+if (icl.eq.ifs) then
+     if (lfn(icl,jcl).lt.0) then
+      call crash('tign_interp:  lfn on the boundary should be not burning but &
+lfn<0, when icl=its ')
+     elseif (jcl.eq.jfs) then            
+                call tign_lfn_interpolation(time_now,icl+1,jcl+1,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+   
+     elseif (jcl.eq.jfe) then            
+                call tign_lfn_interpolation(time_now,icl+1,jcl-1,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+     else
+    
+                call tign_lfn_interpolation(time_now,icl+1,jcl,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+     endif
+
+elseif (icl.eq.ife) then
+     if (lfn(icl,jcl).lt.0) then
+      call crash('tign_interp:  lfn on the boundary should be not burning but &
+lfn<0 when icl=ite')
+
+     elseif (jcl.eq.jfs) then            
+                call tign_lfn_interpolation(time_now,icl-1,jcl+1,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+   
+     elseif (jcl.eq.jfe) then            
+                call tign_lfn_interpolation(time_now,icl-1,jcl-1,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+     else
+    
+                call tign_lfn_interpolation(time_now,icl-1,jcl,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+     endif   
+
+elseif (jcl.eq.jfs) then
+     if (lfn(icl,jcl).lt.0) then
+      call crash('tign_interp:  lfn on the boundary should be not burning but &
+lfn<0 when icl=ite')
+
+     else            
+                call tign_lfn_interpolation(time_now,icl,jcl+1,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+     endif
+
+elseif (jcl.eq.jfe) then
+     if (lfn(icl,jcl).lt.0) then
+      call crash('tign_interp:  lfn on the boundary should be not burning but &
+lfn<0 when icl=ite')
+
+     else            
+                call tign_lfn_interpolation(time_now,icl,jcl-1,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+     endif
+else
+
+
+
 !   Loop over subcells in cell #(icl,jcl)
+      write(*,*)"ifs,ife",ifs,ife
+      write(*,*)"jfs,jfe",jfs,jfe
+      write(*,*)"its,ite,jts,jte",its,ite,jts,jte
+      write(*,*)"ims,ime,jms,jme",ims,ime,jms,jme
+
+
     call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
+endif
+
     do isubcl=1,ir
       do jsubcl=1,jr 
 !we use 4 points of each subcell in fuel_left_cell_1
@@ -435,6 +505,8 @@ real, intent(out),dimension(3,3)::tff,lff
 !**********************
 	
 !       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
+! Checking whether icl or jcl is on the boundary
+
 
       lff(1,1)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))
       call tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
@@ -442,7 +514,6 @@ real, intent(out),dimension(3,3)::tff,lff
                                      lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),tff(1,1),time_now)
 
       lff(1,2)=0.5*(lfn(icl-1,jcl)+lfn(icl,jcl))
-
       call tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),lfn(icl,jcl), &
                              lff(1,2),tff(1,2),time_now)
 
@@ -486,13 +557,16 @@ subroutine tign_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,tign_subcl,time_now)
 
 real,intent(in) :: tign1,tign2,lfn1,lfn2,lfn_subcl,time_now
 real,intent(out) :: tign_subcl
-
 real :: a,b,c,err
-err=0.0001
+err=0.1
+
+!      write(*,*)"lfn1,lfn2,tign1,tign2,lfn_subcl,timenow",lfn1,lfn2,tign1,tign2,lfn_subcl,time_now
+
 if((lfn1.le.0).AND.(lfn2.le.0)) then
    tign_subcl=0.5*(tign1+tign2)
 elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
     if  ((abs(tign1-time_now).gt.err).or.(abs(tign2-time_now).gt.err)) then
+      write(*,*)"lfn1,lfn2,tign1,tign2,timenow",lfn1,lfn2,tign1,tign2,time_now
       call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
       tign_subcl=time_now;
