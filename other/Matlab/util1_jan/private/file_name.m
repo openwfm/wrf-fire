@@ -4,11 +4,11 @@ function id=file_id(name,num1,num2)
 % Jan Mandel 22-apr-05
 
 if num1>=0 & num2>=0,
-	id=sprintf('%s_%06i_%05i',name,num1,num2);
+	id=sprintf('%s_%08i_%05i',name,num1,num2);
 elseif num1>=0 & num2<0,
-	id=sprintf('%s_%05i',name,num1);
+	id=sprintf('%s_%08i',name,num1);
 elseif num1<0 & num2>=0,
-	id=sprintf('%s_%05i',name,num2);
+	id=sprintf('%s_%08i',name,num2);
 elseif num1<0 & num2<0,
 	id=name;
 end

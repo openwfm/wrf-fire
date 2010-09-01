@@ -1171,8 +1171,8 @@ return
 
 1 format(e20.12)
 2 format(2a,3(i5,a,i5,a),2a)
-3 format(a,a,i6.6,a)
-4 format(a,a,i6.6,a,i4.4,a)
+3 format(a,a,i8.8,a)
+4 format(a,a,i8.8,a,i4.4,a)
 
 
 end subroutine write_array_m3
