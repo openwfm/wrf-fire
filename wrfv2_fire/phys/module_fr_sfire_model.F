@@ -317,6 +317,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
     call fuel_left(&
+        ifds,ifde,jfds,jfde, &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &

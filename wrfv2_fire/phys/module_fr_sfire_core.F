@@ -224,8 +224,8 @@ end subroutine ignite_fire
 !**********************
 !            
 
-subroutine fuel_left(&
-    ifds,ifde,jfds,jfde&
+subroutine fuel_left( &
+    ifds,ifde,jfds,jfde, &
     ims,ime,jms,jme, &
     its,ite,jts,jte, &
     ifs,ife,jfs,jfe, &
@@ -303,79 +303,26 @@ ry=1./jr
 !  Loop over cells in Tile 
 !  Changes made by Volodymyr Kondratenko 09/24/2009
 its1=max(its,ifds+1)
-do icl=its1,ite
-  do jcl=jts,jte
+ite1=min(ite,ifde-1)
+jts1=max(jts,jfds+1)
+jte1=min(jte,jfde-1)
+write(*,*)"fuel_left_method",fuel_left_method
+do icl=its1,ite1
+  do jcl=jts1,jte1
     helpsum1=0
     helpsum2=0
 
-if (icl.eq.ifs) then
-     if (lfn(icl,jcl).lt.0) then
-      call crash('tign_interp:  lfn on the boundary should be not burning but &
-lfn<0, when icl=its ')
-     elseif (jcl.eq.jfs) then            
-                call tign_lfn_interpolation(time_now,icl+1,jcl+1,ims,ime,jms,jme, &
-                                  tign,lfn,tff,lff)
-   
-     elseif (jcl.eq.jfe) then            
-                call tign_lfn_interpolation(time_now,icl+1,jcl-1,ims,ime,jms,jme, &
-                                  tign,lfn,tff,lff)
-     else
-    
-                call tign_lfn_interpolation(time_now,icl+1,jcl,ims,ime,jms,jme, &
-                                  tign,lfn,tff,lff)
-     endif
-
-elseif (icl.eq.ife) then
-     if (lfn(icl,jcl).lt.0) then
-      call crash('tign_interp:  lfn on the boundary should be not burning but &
-lfn<0 when icl=ite')
-
-     elseif (jcl.eq.jfs) then            
-                call tign_lfn_interpolation(time_now,icl-1,jcl+1,ims,ime,jms,jme, &
-                                  tign,lfn,tff,lff)
-   
-     elseif (jcl.eq.jfe) then            
-                call tign_lfn_interpolation(time_now,icl-1,jcl-1,ims,ime,jms,jme, &
-                                  tign,lfn,tff,lff)
-     else
-    
-                call tign_lfn_interpolation(time_now,icl-1,jcl,ims,ime,jms,jme, &
-                                  tign,lfn,tff,lff)
-     endif   
-
-elseif (jcl.eq.jfs) then
-     if (lfn(icl,jcl).lt.0) then
-      call crash('tign_interp:  lfn on the boundary should be not burning but &
-lfn<0 when icl=ite')
-
-     else            
-                call tign_lfn_interpolation(time_now,icl,jcl+1,ims,ime,jms,jme, &
-                                  tign,lfn,tff,lff)
-     endif
-
-elseif (jcl.eq.jfe) then
-     if (lfn(icl,jcl).lt.0) then
-      call crash('tign_interp:  lfn on the boundary should be not burning but &
-lfn<0 when icl=ite')
-
-     else            
-                call tign_lfn_interpolation(time_now,icl,jcl-1,ims,ime,jms,jme, &
-                                  tign,lfn,tff,lff)
-     endif
-else
-
-
 
 !   Loop over subcells in cell #(icl,jcl)
-      write(*,*)"ifs,ife",ifs,ife
-      write(*,*)"jfs,jfe",jfs,jfe
+      write(*,*)"ifds,ifde",ifds,ifde
+      write(*,*)"jfds,jfde",jfds,jfde
       write(*,*)"its,ite,jts,jte",its,ite,jts,jte
-      write(*,*)"ims,ime,jms,jme",ims,ime,jms,jme
+      write(*,*)"icl,jcl",icl,jcl
 
 
     call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
-endif
+!endif
 
     do isubcl=1,ir
       do jsubcl=1,jr 
@@ -411,11 +358,13 @@ endif
         helpsum2=helpsum2+fire_area_ff
       enddo
     enddo
+    write(*,*)"fuel_frac",helpsum1
     fuel_frac(icl,jcl)=helpsum1 
     fire_area(icl,jcl)=helpsum2
   enddo 
 enddo
-  
+
+write(*,*)"finish"  
 
 
 
@@ -435,23 +384,23 @@ do j=jts,jte
 enddo
 
 ! consistency check after sum
-fmax=0
-do j=jts,jte
-    do i=its,ite        
-       if(fire_area(i,j).eq.0.)then
-           if(fuel_frac(i,j).lt.1.-1e-6)then
-!$OMP CRITICAL(SFIRE_CORE_CRIT)
-               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
-                   ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
-!$OMP END CRITICAL(SFIRE_CORE_CRIT)
-               call crash(msg)
-           endif
-       else
-           frat=(1-fuel_frac(i,j))/fire_area(i,j)
-           fmax=max(fmax,frat)
-       endif
-    enddo
-enddo
+!fmax=0
+!do j=jts,jte
+!    do i=its,ite        
+!       if(fire_area(i,j).eq.0.)then
+!           if(fuel_frac(i,j).lt.1.-1e-6)then
+!!$OMP CRITICAL(SFIRE_CORE_CRIT)
+!               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
+!                   ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
+!!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+!               call crash(msg)
+!           endif
+!       else
+!           frat=(1-fuel_frac(i,j))/fire_area(i,j)
+!           fmax=max(fmax,frat)
+!       endif
+!    enddo
+!enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,4i6,a,f10.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
