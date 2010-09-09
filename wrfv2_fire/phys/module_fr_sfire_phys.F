@@ -113,6 +113,7 @@ end type fire_params
    INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
+   CHARACTER (len=80), DIMENSION(mfuelcats ), save :: fuel_name
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
@@ -149,6 +150,7 @@ implicit none
 !*** purpose: initialize fuel tables and variables by constants
 !*** arguments: none
 logical, external:: wrf_dm_on_monitor
+!$ integer, external:: OMP_GET_THREAD_NUM
 !*** local
 integer:: i,j,k,ii,iounit
 character(len=128):: msg
@@ -156,29 +158,31 @@ character(len=128):: msg
 
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat
-namelist /fuel_categories/ fgi,fueldepthm,savr, &
+namelist /fuel_categories/ fuel_name,fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap
 
+!$  if (OMP_GET_THREAD_NUM() .ne. 0)then
+!$     call crash('init_fuel_cats: must be called from master thread')
+!$  endif
+
 IF ( wrf_dm_on_monitor() ) THEN
-    iounit=open_input_text_file('namelist.fire')
+    ! if we are the master task, read the file
+    iounit=open_text_file('namelist.fire','read')
     read(iounit,fuel_scalars)
     read(iounit,fuel_categories)
     CLOSE(iounit)
-ENDIF
     
-if (nfuelcats>mfuelcats) then
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-    write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-    call crash(msg)
-endif
-if (no_fuel_cat >= 1 .and. no_fuel_cat <= nfuelcats)then
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-    write(msg,*)'no_fuel_cat=',no_fuel_cat,' may not be between 1 and nfuelcats=',nfuelcats
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-    call crash(msg)
-endif
+    if (nfuelcats>mfuelcats) then
+        write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
+        call crash(msg)
+    endif
+        if (no_fuel_cat >= 1 .and. no_fuel_cat <= nfuelcats)then
+        write(msg,*)'no_fuel_cat=',no_fuel_cat,' may not be between 1 and nfuelcats=',nfuelcats
+        call crash(msg)
+    endif
+ENDIF
 
+! broadcast the contents of the file
 call wrf_dm_bcast_real(cmbcnst,1)
 call wrf_dm_bcast_real(hfgl,1)
 call wrf_dm_bcast_real(fuelmc_g,1)
@@ -215,7 +219,6 @@ END DO
 
 ! prints
 
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
 call message('**********************************************************')
 call message('FUEL COEFFICIENTS')
 write(msg,8)'cmbcnst    ',cmbcnst
@@ -235,13 +238,16 @@ call message(msg)
 write(msg,7)'no_fuel_cat',no_fuel_cat
 call message(msg)
 
-j=5
+j=1
 7 format(a,5(1x,i8,4x))
 8 format(a,5(1x,g12.5e2))
+9 format(a,5(1x,a))
 do i=1,nfuelcats,j
     k=min(i+j-1,nfuelcats)
     call message(' ')
     write(msg,7)'CATEGORY  ',(ii,ii=i,k)
+    call message(msg)
+    write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
     call message(msg)
     write(msg,8)'fgi       ',(fgi(ii),ii=i,k)
     call message(msg)
@@ -271,7 +277,8 @@ do i=1,nfuelcats,j
     call message(msg)
 enddo
 call message('**********************************************************')
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+
+! and print to file
 
 end subroutine init_fuel_cats
 

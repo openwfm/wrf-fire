@@ -102,33 +102,42 @@ end subroutine message
 !
 
 
-integer function open_input_text_file(filename)
+integer function open_text_file(filename,rw)
 implicit none
-character(len=*),intent(in):: filename
+character(len=*),intent(in):: filename,rw
 !$ integer, external:: OMP_GET_THREAD_NUM
 character(len=128):: msg
+character(len=1)::act
 integer::iounit,ierr
 logical::op
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('open_input_text_file: called from parallel loop')
 !$  endif
-!$OMP CRITICAL(SFIRE_OPEN_CRIT)
 
     do iounit=19,99
        inquire(iounit,opened=op)
        if(.not.op)goto 1
     enddo
-    call crash('open_input_text_file: Cannot find any available I/O unit')
+    call crash('open_text_file: Cannot find any available I/O unit')
 1   continue
-    OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+    act=rw(1:1)
+    select case (act)
+        case ('r','R')
+            OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='OLD',ACTION='READ',IOSTAT=ierr)
+        case ('w','W')
+            OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='UNKNOWN',ACTION='WRITE',IOSTAT=ierr)
+        case default
+            write(msg,*)'open_text_file: bad mode ',trim(rw),' for file ',trim(filename)
+    end select
+    
     if(ierr.ne.0)then 
-	write(msg,*)'open_input_text_file: Cannot open file ',filename
+	write(msg,*)'open_text_file: Cannot open file ',filename
         call crash(msg)
     endif
-!$OMP END CRITICAL(SFIRE_OPEN_CRIT)
-    open_input_text_file=iounit
-end function open_input_text_file
+    open_text_file=iounit
+
+end function open_text_file
 
 !
 !****************
