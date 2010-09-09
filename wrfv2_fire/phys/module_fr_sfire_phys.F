@@ -279,8 +279,38 @@ enddo
 call message('**********************************************************')
 
 ! and print to file
+call write_fuel_cats_m
 
 end subroutine init_fuel_cats
+
+subroutine write_fuel_cats_m
+implicit none
+integer:: iounit,i
+
+iounit = open_text_file('fuels.m','write')
+
+10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
+11 format('fuel(',i3,').',a,'=',g12.5e2,  ';% ',a)
+12 format('fuel(',i3,').',a,'=',i2,       ';% ',a)
+do i=1,nfuelcats
+    write(iounit,10)i,'fuel_name',trim(fuel_name(i)),'FUEL MODEL NAME'
+    write(iounit,11)i,'fgi',fgi(i),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' 
+    write(iounit,11)i,'fueldepthm',fueldepthm(i),'FUEL DEPTH (M)'
+    write(iounit,11)i,'savr',savr(i),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT'
+    write(iounit,11)i,'fuelmce',fuelmce(i),'MOISTURE CONTENT OF EXTINCTION'
+    write(iounit,11)i,'fueldens',fueldens(i),'OVENDRY PARTICLE DENSITY, LB/FT^3'
+    write(iounit,11)i,'st',st(i),'FUEL PARTICLE TOTAL MINERAL CONTENT'
+    write(iounit,11)i,'se',se(i),'FUEL PARTICLE EFFECTIVE MINERAL CONTENT'
+    write(iounit,11)i,'weight',weight(i),'WEIGHTING PARAMETER THAT DETERMINES THE SLOPE OF THE MASS LOSS CURVE'
+    write(iounit,11)i,'fci_d',fci_d(i),'INITIAL DRY MASS OF CANOPY FUEL'
+    write(iounit,11)i,'fct',fct(i),'BURN OUT TIME FOR CANOPY FUEL, AFTER DRY (S)'
+    write(iounit,12)i,'ichap',ichap(i),'1 if chaparral, 0 if not'
+    write(iounit,11)i,'fci',fci(i),'INITIAL TOTAL MASS OF CANOPY FUEL'
+    write(iounit,11)i,'fcbr',fcbr(i),'FUEL CANOPY BURN RATE (KG/M**2/S)'
+enddo
+ 
+close(iounit)
+end subroutine write_fuel_cats_m
 
 !
 !*******************
