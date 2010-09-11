@@ -279,7 +279,7 @@ enddo
 call message('**********************************************************')
 
 ! and print to file
-call write_fuels_m(20,10.,1.)
+call write_fuels_m(41,20.,1.)
 
 end subroutine init_fuel_cats
 
@@ -301,7 +301,7 @@ type(fire_params)::fp
 !end type fire_params
 real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,betafl,phiwc,r_0,fgip,ischap
 real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros
-real::ros_back,ros_wind,ros_slope,propx,propy
+real::ros_back,ros_wind,ros_slope,propx,propy,r
 
 fp%vx=>vx
 fp%vy=>vy
@@ -358,15 +358,16 @@ do k=1,nfuelcats
     propx=1.
     propy=0.
     do j=1,nsteps
+       r=float(j-1)/float(nsteps-1)
        ! line 1 varies windspeed (in x direction), zero slope
-       vx(1,j)=(maxwind*j)/nsteps
+       vx(1,j)=maxwind*r
        vy(1,j)=0.
        dzdxf(1,j)=0.
        dzdyf(1,j)=0.
        ! line 2 varies slope (in x direction), zero slope
        vx(2,j)=0.
        vy(2,j)=0.
-       dzdxf(2,j)=(maxslope*j)/nsteps
+       dzdxf(2,j)=maxslope*r
        dzdyf(2,j)=0.
     enddo
     do j=1,nsteps
@@ -384,7 +385,7 @@ enddo
 13 format('fuel(',i3,').',a,'(',i3,')=',g12.5e2,';% ',a)
  
 close(iounit)
-stop
+! stop
 end subroutine write_fuels_m
 
 !
@@ -776,8 +777,8 @@ endif
 !jm: huh ???
 !     fire_ros = 0.1*rosm
 !
-write(msg,*)i,j,' speed=',speed,' tanphi',tanphi,' ros=',ros_back,ros_wind,ros_slope
-call message(msg)
+!write(msg,*)i,j,' speed=',speed,' tanphi',tanphi,' ros=',ros_back,ros_wind,ros_slope
+!call message(msg)
       return
 
 contains
