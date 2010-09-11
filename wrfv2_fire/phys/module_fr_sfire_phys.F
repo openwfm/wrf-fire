@@ -12,7 +12,7 @@ use module_fr_sfire_util
 PRIVATE
 
 ! subroutines and functions 
-PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params
+PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m
 
 PUBLIC::fire_params
 
@@ -279,38 +279,113 @@ enddo
 call message('**********************************************************')
 
 ! and print to file
-call write_fuel_cats_m
+call write_fuels_m(20,10.,1.)
 
 end subroutine init_fuel_cats
 
-subroutine write_fuel_cats_m
+
+subroutine write_fuels_m(nsteps,maxwind,maxslope)
 implicit none
-integer:: iounit,i
+integer, intent(in):: nsteps   ! number of steps for speed computation
+real, intent(in):: maxwind,maxslope ! computer from zero to these
+
+integer:: iounit,k,j,i
+type(fire_params)::fp
+!type fire_params
+!real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
+!real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
+!real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
+!real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0 ! spread formula coefficients
+!real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
+!real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
+!end type fire_params
+real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,betafl,phiwc,r_0,fgip,ischap
+real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros
+real::ros_back,ros_wind,ros_slope,propx,propy
+
+fp%vx=>vx
+fp%vy=>vy
+fp%dzdxf=>dzdxf
+fp%dzdyf=>dzdyf
+fp%bbb=>bbb
+fp%betafl=>betafl
+fp%phiwc=>phiwc
+fp%r_0=>r_0
+fp%fgip=>fgip
+fp%ischap=>ischap
 
 iounit = open_text_file('fuels.m','write')
 
 10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
 11 format('fuel(',i3,').',a,'=',g12.5e2,  ';% ',a)
 12 format('fuel(',i3,').',a,'=',i2,       ';% ',a)
-do i=1,nfuelcats
-    write(iounit,10)i,'fuel_name',trim(fuel_name(i)),'FUEL MODEL NAME'
-    write(iounit,11)i,'fgi',fgi(i),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' 
-    write(iounit,11)i,'fueldepthm',fueldepthm(i),'FUEL DEPTH (M)'
-    write(iounit,11)i,'savr',savr(i),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT'
-    write(iounit,11)i,'fuelmce',fuelmce(i),'MOISTURE CONTENT OF EXTINCTION'
-    write(iounit,11)i,'fueldens',fueldens(i),'OVENDRY PARTICLE DENSITY, LB/FT^3'
-    write(iounit,11)i,'st',st(i),'FUEL PARTICLE TOTAL MINERAL CONTENT'
-    write(iounit,11)i,'se',se(i),'FUEL PARTICLE EFFECTIVE MINERAL CONTENT'
-    write(iounit,11)i,'weight',weight(i),'WEIGHTING PARAMETER THAT DETERMINES THE SLOPE OF THE MASS LOSS CURVE'
-    write(iounit,11)i,'fci_d',fci_d(i),'INITIAL DRY MASS OF CANOPY FUEL'
-    write(iounit,11)i,'fct',fct(i),'BURN OUT TIME FOR CANOPY FUEL, AFTER DRY (S)'
-    write(iounit,12)i,'ichap',ichap(i),'1 if chaparral, 0 if not'
-    write(iounit,11)i,'fci',fci(i),'INITIAL TOTAL MASS OF CANOPY FUEL'
-    write(iounit,11)i,'fcbr',fcbr(i),'FUEL CANOPY BURN RATE (KG/M**2/S)'
+do k=1,nfuelcats
+    write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
+    write(iounit,11)k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' 
+    write(iounit,11)k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)'
+    write(iounit,11)k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT'
+    write(iounit,11)k,'fuelmce',fuelmce(k),'MOISTURE CONTENT OF EXTINCTION'
+    write(iounit,11)k,'fueldens',fueldens(k),'OVENDRY PARTICLE DENSITY, LB/FT^3'
+    write(iounit,11)k,'st',st(k),'FUEL PARTICLE TOTAL MINERAL CONTENT'
+    write(iounit,11)k,'se',se(k),'FUEL PARTICLE EFFECTIVE MINERAL CONTENT'
+    write(iounit,11)k,'weight',weight(k),'WEIGHTING PARAMETER THAT DETERMINES THE SLOPE OF THE MASS LOSS CURVE'
+    write(iounit,11)k,'fci_d',fci_d(k),'INITIAL DRY MASS OF CANOPY FUEL'
+    write(iounit,11)k,'fct',fct(k),'BURN OUT TIME FOR CANOPY FUEL, AFTER DRY (S)'
+    write(iounit,12)k,'ichap',ichap(k),'1 if chaparral, 0 if not'
+    write(iounit,11)k,'fci',fci(k),'INITIAL TOTAL MASS OF CANOPY FUEL'
+    write(iounit,11)k,'fcbr',fcbr(k),'FUEL CANOPY BURN RATE (KG/M**2/S)'
+    write(iounit,11)k,'hfgl',hfgl,'SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)'
+    write(iounit,11)k,'cmbcnst',cmbcnst,'JOULES PER KG OF DRY FUEL'
+    write(iounit,11)k,'fuelheat',fuelheat,'FUEL PARTICLE LOW HEAT CONTENT, BTU/LB'
+    write(iounit,11)k,'fuelmc_g',fuelmc_g,'FUEL PARTICLE (SURFACE) MOISTURE CONTENT'
+    ! set up fuel arrays 
+    !subroutine set_fire_params( &
+    !                       ifds,ifde,jfds,jfde, &
+    !                       ifms,ifme,jfms,jfme, &
+    !                       ifts,ifte,jfts,jfte, &
+    !                       fdx,fdy,nfuel_cat0,  &
+    !                       nfuel_cat,fuel_time, &
+    !                       fp ) 
+    nfuel_cat = k
+    call set_fire_params( &
+                           1,2,1,nsteps, &
+                           1,2,1,nsteps, &
+                           1,2,1,nsteps, &
+                           0.,0.,k,  &
+                           nfuel_cat,fuel_time, &
+                           fp ) 
+    ! set up windspeed and slope table
+    propx=1.
+    propy=0.
+    do j=1,nsteps
+       ! line 1 varies windspeed (in x direction), zero slope
+       vx(1,j)=(maxwind*j)/nsteps
+       vy(1,j)=0.
+       dzdxf(1,j)=0.
+       dzdyf(1,j)=0.
+       ! line 2 varies slope (in x direction), zero slope
+       vx(2,j)=0.
+       vy(2,j)=0.
+       dzdxf(2,j)=(maxslope*j)/nsteps
+       dzdyf(2,j)=0.
+    enddo
+    do j=1,nsteps
+       do i=1,2
+          call fire_ros(ros_back,ros_wind,ros_slope, &
+             propx,propy,i,j,fp)
+          ros(i,j)=ros_back+ros_wind+ros_slope
+       enddo
+       write(iounit,13)k,'wind',j,vx(1,j),'wind speed'
+       write(iounit,13)k,'ros_wind',j,ros(1,j),'rate of spread for the wind speed'
+       write(iounit,13)k,'slope',j,dzdxf(2,j),'slope'
+       write(iounit,13)k,'ros_slope',j,ros(2,j),'rate of spread for the slope'
+    enddo
 enddo
+13 format('fuel(',i3,').',a,'(',i3,')=',g12.5e2,';% ',a)
  
 close(iounit)
-end subroutine write_fuel_cats_m
+stop
+end subroutine write_fuels_m
 
 !
 !*******************
@@ -322,8 +397,7 @@ subroutine set_fire_params( &
                            ifts,ifte,jfts,jfte, &
                            fdx,fdy,nfuel_cat0,  &
                            nfuel_cat,fuel_time, &
-                           fp                   &
-)
+                           fp ) 
 
 implicit none
 
@@ -702,6 +776,8 @@ endif
 !jm: huh ???
 !     fire_ros = 0.1*rosm
 !
+write(msg,*)i,j,' speed=',speed,' tanphi',tanphi,' ros=',ros_back,ros_wind,ros_slope
+call message(msg)
       return
 
 contains
