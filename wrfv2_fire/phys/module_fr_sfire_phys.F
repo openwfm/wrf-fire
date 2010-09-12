@@ -317,27 +317,26 @@ fp%ischap=>ischap
 iounit = open_text_file('fuels.m','write')
 
 10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
-11 format('fuel(',i3,').',a,'=',g12.5e2,  ';% ',a)
-12 format('fuel(',i3,').',a,'=',i2,       ';% ',a)
 do k=1,nfuelcats
     write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
-    write(iounit,11)k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' 
-    write(iounit,11)k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)'
-    write(iounit,11)k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT'
-    write(iounit,11)k,'fuelmce',fuelmce(k),'MOISTURE CONTENT OF EXTINCTION'
-    write(iounit,11)k,'fueldens',fueldens(k),'OVENDRY PARTICLE DENSITY, LB/FT^3'
-    write(iounit,11)k,'st',st(k),'FUEL PARTICLE TOTAL MINERAL CONTENT'
-    write(iounit,11)k,'se',se(k),'FUEL PARTICLE EFFECTIVE MINERAL CONTENT'
-    write(iounit,11)k,'weight',weight(k),'WEIGHTING PARAMETER THAT DETERMINES THE SLOPE OF THE MASS LOSS CURVE'
-    write(iounit,11)k,'fci_d',fci_d(k),'INITIAL DRY MASS OF CANOPY FUEL'
-    write(iounit,11)k,'fct',fct(k),'BURN OUT TIME FOR CANOPY FUEL, AFTER DRY (S)'
-    write(iounit,12)k,'ichap',ichap(k),'1 if chaparral, 0 if not'
-    write(iounit,11)k,'fci',fci(k),'INITIAL TOTAL MASS OF CANOPY FUEL'
-    write(iounit,11)k,'fcbr',fcbr(k),'FUEL CANOPY BURN RATE (KG/M**2/S)'
-    write(iounit,11)k,'hfgl',hfgl,'SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)'
-    write(iounit,11)k,'cmbcnst',cmbcnst,'JOULES PER KG OF DRY FUEL'
-    write(iounit,11)k,'fuelheat',fuelheat,'FUEL PARTICLE LOW HEAT CONTENT, BTU/LB'
-    write(iounit,11)k,'fuelmc_g',fuelmc_g,'FUEL PARTICLE (SURFACE) MOISTURE CONTENT'
+    call write_var(k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' )
+    call write_var(k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)')
+    call write_var(k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT')
+    call write_var(k,'fuelmce',fuelmce(k),'MOISTURE CONTENT OF EXTINCTION')
+    call write_var(k,'fueldens',fueldens(k),'OVENDRY PARTICLE DENSITY, LB/FT^3')
+    call write_var(k,'st',st(k),'FUEL PARTICLE TOTAL MINERAL CONTENT')
+    call write_var(k,'se',se(k),'FUEL PARTICLE EFFECTIVE MINERAL CONTENT')
+    call write_var(k,'weight',weight(k),'WEIGHTING PARAMETER THAT DETERMINES THE SLOPE OF THE MASS LOSS CURVE')
+    call write_var(k,'fci_d',fci_d(k),'INITIAL DRY MASS OF CANOPY FUEL')
+    call write_var(k,'fct',fct(k),'BURN OUT TIME FOR CANOPY FUEL, AFTER DRY (S)')
+    call write_var(k,'ichap',float(ichap(k)),'1 if chaparral, 0 if not')
+    call write_var(k,'fci',fci(k),'INITIAL TOTAL MASS OF CANOPY FUEL')
+    call write_var(k,'fcbr',fcbr(k),'FUEL CANOPY BURN RATE (KG/M**2/S)')
+    call write_var(k,'hfgl',hfgl,'SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)')
+    call write_var(k,'cmbcnst',cmbcnst,'JOULES PER KG OF DRY FUEL')
+    call write_var(k,'fuelheat',fuelheat,'FUEL PARTICLE LOW HEAT CONTENT, BTU/LB')
+    call write_var(k,'fuelmc_g',fuelmc_g,'FUEL PARTICLE (SURFACE) MOISTURE CONTENT')
+    call write_var(k,'fuelmc_c',fuelmc_c,'FUEL PARTICLE (CANOPY) MOISTURE CONTENT')
     ! set up fuel arrays 
     !subroutine set_fire_params( &
     !                       ifds,ifde,jfds,jfde, &
@@ -386,6 +385,20 @@ enddo
  
 close(iounit)
 ! stop
+
+contains
+
+subroutine write_var(k,name,value,descr)
+! write entry for one variable
+integer, intent(in)::k
+character(len=*), intent(in)::name,descr
+real, intent(in)::value
+write(iounit,11)k,name,value
+write(iounit,12)k,name,descr
+11 format('fuel(',i3,').',a,'=',g12.5e2,  ';')
+12 format('fuel(',i3,').',a,"_descr='",a,"';")
+end subroutine write_var
+
 end subroutine write_fuels_m
 
 !
