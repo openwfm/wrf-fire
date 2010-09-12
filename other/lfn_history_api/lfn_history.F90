@@ -146,6 +146,7 @@ real,dimension(NHIST)::htime
 call get_grid_info(idom,ntime=ltime,nx=lx,ny=ly)
 if( ltime .ne. ntime )then
   print*,'invalid ntime ',ntime
+  print*,'should be ',ltime
   print*,'this must be set from the output of get_grid_info'
   call abort()
 endif
@@ -261,11 +262,13 @@ if(present(ntime))then
   do i=1,NHIST
     if(ltime(i).eq.INVALID)then
       ntime=i-1
+      goto 10
     elseif(ltime(i).lt.0)then
       print*,'invalid time value in wrfinput file, ',ltime(i)
       call abort()
     endif
   enddo
+  10 continue
 endif
 end subroutine read_time
 
