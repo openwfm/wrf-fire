@@ -2,6 +2,7 @@ function ros=fire_ros(fuel,speed,tanphi)
 
 % given fuel params
 
+windrf=fuel.windrf;               % WIND REDUCTION FACTOR
 fgi=fuel.fgi;                     % INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)
 fueldepthm=fuel.fueldepthm;       % FUEL DEPTH (M)
 savr=fuel.savr;                   % FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT

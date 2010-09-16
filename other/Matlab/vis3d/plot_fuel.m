@@ -30,7 +30,7 @@ end
 
 figure(1)
 plot(f.wind*wind_conv,f.ros_wind*ros_conv)
-xlabel(['wind speed (',wind_unit,')'])
+xlabel(['wind speed at 6.1m (',wind_unit,')'])
 ylabel(['rate of spread (',ros_unit,')'])
 title(name)
 grid

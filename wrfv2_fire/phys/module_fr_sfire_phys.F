@@ -283,7 +283,7 @@ enddo
 call message('**********************************************************')
 
 ! and print to file
-call write_fuels_m(41,20.,1.)
+call write_fuels_m(61,30.,1.)
 
 end subroutine init_fuel_cats
 
