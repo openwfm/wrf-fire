@@ -502,7 +502,7 @@ do j=jfts,jfte
 
         c = 7.47 * exp( -0.133 * savr(k)**0.55)    ! const in wind coef
         fp%bbb(i,j) = 0.02526 * savr(k)**0.54      ! const in wind coef
-        c = c * windrf(k)**fp%bbb(i,j)             ! jm: wind reduction from 20ft per Baughman&Rothermel(1980)
+        c = c * windrf(k)**fp%bbb(i,j)             ! jm: wind reduction from 20ft per Baughman&Albini(1980)
         e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
         fp%phiwc(i,j) = c * (fp%betafl(i,j)/betaop)**(-e)
 
