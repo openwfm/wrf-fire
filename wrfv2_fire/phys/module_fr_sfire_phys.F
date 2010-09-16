@@ -115,10 +115,11 @@ end type fire_params
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
    CHARACTER (len=80), DIMENSION(mfuelcats ), save :: fuel_name
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
-   REAL   , DIMENSION( mfuelcats ), save :: weight,fgi,fci,fci_d,fct,fcbr, &
+   REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
                                             savr,st,se
-
+   DATA windrf /0.36, 0.36, 0.44,  0.55,  0.42,  0.44,  0.44, &     
+                0.36, 0.36, 0.36,  0.36,  0.43,  0.46,  1e-7, zf*0 /
    DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
               1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7, zf*0.  /
    DATA fueldepthm /0.305,  0.305,  0.762, 1.829, 0.61,  0.762,0.762, &
@@ -158,7 +159,7 @@ character(len=128):: msg
 
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat
-namelist /fuel_categories/ fuel_name,fgi,fueldepthm,savr, &
+namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
@@ -189,6 +190,7 @@ call wrf_dm_bcast_real(fuelmc_g,1)
 call wrf_dm_bcast_real(fuelmc_c,1)
 call wrf_dm_bcast_integer(nfuelcats,1)
 call wrf_dm_bcast_integer(no_fuel_cat,1)
+call wrf_dm_bcast_real(windrf,    nfuelcats)
 call wrf_dm_bcast_real(fgi,       nfuelcats)
 call wrf_dm_bcast_real(fueldepthm,nfuelcats)
 call wrf_dm_bcast_real(savr,      nfuelcats)
@@ -248,6 +250,8 @@ do i=1,nfuelcats,j
     write(msg,7)'CATEGORY  ',(ii,ii=i,k)
     call message(msg)
     write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'windrf    ',(windrf(ii),ii=i,k)
     call message(msg)
     write(msg,8)'fgi       ',(fgi(ii),ii=i,k)
     call message(msg)
@@ -319,6 +323,7 @@ iounit = open_text_file('fuels.m','write')
 10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
 do k=1,nfuelcats
     write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
+    call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM 20ft TO MIDFLAME HEIGHT' )
     call write_var(k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' )
     call write_var(k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)')
     call write_var(k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT')
@@ -496,7 +501,8 @@ do j=jfts,jfte
         rhob = fuelload/fueldepth    ! ovendry bulk density, lb/ft^3
 
         c = 7.47 * exp( -0.133 * savr(k)**0.55)    ! const in wind coef
-        fp%bbb(i,j) = 0.02526 * savr(k)**0.54                ! const in wind coef
+        fp%bbb(i,j) = 0.02526 * savr(k)**0.54      ! const in wind coef
+        c = c * windrf(k)**fp%bbb(i,j)             ! jm: wind reduction from 20ft per Baughman&Rothermel(1980)
         e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
         fp%phiwc(i,j) = c * (fp%betafl(i,j)/betaop)**(-e)
 
