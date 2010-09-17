@@ -17,12 +17,12 @@ end
 
 switch units
     case {'SB','sb','Scott-Burgan'}
-        wind_unit='mi/h';
+        wind_unit='20ft (mi/h)';
         ros_unit='ch/h';
         wind_conv=3600/1609.344;
         ros_conv=3600/20.1168;
     otherwise
-        wind_unit='m/s';
+        wind_unit='6.1m (m/s)';
         ros_unit='m/s';
         wind_conv=1;
         ros_conv=1;
@@ -30,7 +30,7 @@ end
 
 figure(1)
 plot(f.wind*wind_conv,f.ros_wind*ros_conv)
-xlabel(['wind speed at 6.1m (',wind_unit,')'])
+xlabel(['wind speed at ',wind_unit,')'])
 ylabel(['rate of spread (',ros_unit,')'])
 title(name)
 grid
