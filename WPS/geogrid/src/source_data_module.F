@@ -2335,6 +2335,13 @@ module source_data_module
       sub_y = 1
 
       istatus = 0
+      if (((index(trim(field_name),'FXLAT') /= 0) .and.      &
+            (len_trim(field_name) == len_trim('FXLAT'))) .or. &
+          ((index(trim(field_name),'FXLONG') /=0) .and.      &
+            (len_trim(field_name) == len_trim('FXLONG'))))then
+        call get_subgrid_dim_default(nest_num,dimnames,sub_x,sub_y,istatus)
+      endif
+
       do idx=1,num_entries
          if ((index(source_fieldname(idx),trim(field_name)) /= 0) .and. &
             (len_trim(source_fieldname(idx)) == len_trim(field_name))) then
@@ -2343,15 +2350,30 @@ module source_data_module
                if (is_output_stagger(idx)) then
                   call mprintf(.true.,ERROR,'Cannot use subgrids on variables with staggered grids')
                end if
-               dimnames(1) = trim(dimnames(1))//"_subgrid"
-               dimnames(2) = trim(dimnames(2))//"_subgrid"
-               sub_x = subgrid_ratio_x(nest_num)
-               sub_y = subgrid_ratio_y(nest_num)
+               call get_subgrid_dim_default(nest_num,dimnames,sub_x,sub_y,istatus)
             end if
          end if
       end do
 
    end subroutine get_subgrid_dim_name
+
+
+   subroutine get_subgrid_dim_default(nest_num,dimnames,sub_x,sub_y,istatus)
+   use gridinfo_module
+
+   implicit none
+
+   integer,intent(in)::nest_num
+   integer,intent(out)::sub_x,sub_y,istatus
+   character(len=128),dimension(2),intent(out)::dimnames
+
+   dimnames(1)='west_east_subgrid'
+   dimnames(2)='south_north_subgrid'
+   sub_x=subgrid_ratio_x(nest_num)
+   sub_y=subgrid_ratio_y(nest_num)
+   istatus=0
+
+   end subroutine get_subgrid_dim_default
 
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
