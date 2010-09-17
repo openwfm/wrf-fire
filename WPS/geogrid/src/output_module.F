@@ -779,21 +779,24 @@ module output_module
                                          fields(i)%sr_x,fields(i)%sr_y,istatus)
                sr_x=fields(i)%sr_x
                sr_y=fields(i)%sr_y
-               fields(i)%mem_start(1)   = (fields(i)%mem_start(1) - 1)*sr_x + 1
-               fields(i)%patch_start(1) = (fields(i)%patch_start(1) - 1)*sr_x + 1
-               fields(i)%dom_start(1)   = (fields(i)%dom_start(1) - 1)*sr_x + 1
 
-               fields(i)%mem_end(1)     = (fields(i)%mem_end(1) + 1)*sr_x
-               fields(i)%patch_end(1)   = (fields(i)%patch_end(1) + 1)*sr_x
-               fields(i)%dom_end(1)     = (fields(i)%dom_end(1) + 1)*sr_x
+               if(sr_x.gt.1.and.sr_y.gt.1)then
+                 fields(i)%mem_start(1)   = (fields(i)%mem_start(1) - 1)*sr_x + 1
+                 fields(i)%patch_start(1) = (fields(i)%patch_start(1) - 1)*sr_x + 1
+                 fields(i)%dom_start(1)   = (fields(i)%dom_start(1) - 1)*sr_x + 1
 
-               fields(i)%mem_start(2)   = (fields(i)%mem_start(2) - 1)*sr_y + 1
-               fields(i)%patch_start(2) = (fields(i)%patch_start(2) - 1)*sr_y + 1
-               fields(i)%dom_start(2)   = (fields(i)%dom_start(2) - 1)*sr_y + 1
+                 fields(i)%mem_end(1)     = (fields(i)%mem_end(1) + 1)*sr_x
+                 fields(i)%patch_end(1)   = (fields(i)%patch_end(1) + 1)*sr_x
+                 fields(i)%dom_end(1)     = (fields(i)%dom_end(1) + 1)*sr_x
 
-               fields(i)%mem_end(2)     = (fields(i)%mem_end(2) + 1)*sr_y
-               fields(i)%patch_end(2)   = (fields(i)%patch_end(2) + 1)*sr_y
-               fields(i)%dom_end(2)     = (fields(i)%dom_end(2) + 1)*sr_y
+                 fields(i)%mem_start(2)   = (fields(i)%mem_start(2) - 1)*sr_y + 1
+                 fields(i)%patch_start(2) = (fields(i)%patch_start(2) - 1)*sr_y + 1
+                 fields(i)%dom_start(2)   = (fields(i)%dom_start(2) - 1)*sr_y + 1
+
+                 fields(i)%mem_end(2)     = (fields(i)%mem_end(2) + 1)*sr_y
+                 fields(i)%patch_end(2)   = (fields(i)%patch_end(2) + 1)*sr_y
+                 fields(i)%dom_end(2)     = (fields(i)%dom_end(2) + 1)*sr_y
+               end if
          enddo
  
       else if (grid_type == 'E') then
