@@ -575,16 +575,16 @@ do ij=1,num_tiles
         if(ignition_longlat .eq.0)then
             ! set ideal fire mesh coordinates - used for ignition only
             ! do not forget to set unit_fxlong, unit_fxlat outside of parallel loop
-            call set_ideal_coord( dxf,dyf, &
-                ifds,ifde,jfds,jfde,  &
-                ifms,ifme,jfms,jfme,  &
-                ifts,ifte,jfts,jfte,  &
-                fxlong,fxlat          )
-            call set_ideal_coord( dx,dy, &
-                ids,ide,jds,jde,  &
-                ims,ime,jms,jme,  &
-                its,ite,jts,jte,  &
-                xlong,xlat          )
+            !call set_ideal_coord( dxf,dyf, &
+            !    ifds,ifde,jfds,jfde,  &
+            !    ifms,ifme,jfms,jfme,  &
+            !    ifts,ifte,jfts,jfte,  &
+            !    fxlong,fxlat          )
+            !call set_ideal_coord( dx,dy, &
+            !    ids,ide,jds,jde,  &
+            !    ims,ime,jms,jme,  &
+            !    its,ite,jts,jte,  &
+            !    xlong,xlat          )
         elseif(use_atm_vars)then
             ! assume halo xlong xlat
             ! interpolate nodal coordinates
