@@ -141,13 +141,13 @@ module process_tile_module
 
       call get_subgrid_dim_default(which_domain,dimnames,sub_x,sub_y,istatus)
       start_mem_sub_i = (start_mem_i - 1 ) * sub_x + 1
-      if(extra_col)then
+      if(.not.extra_col)then
         end_mem_sub_i = (end_mem_i) * sub_x
       else
         end_mem_sub_i = (end_mem_i + 1) * sub_x
       end if
       start_mem_sub_j = (start_mem_j -1 ) * sub_y + 1
-      if(extra_row)then
+      if(.not.extra_row)then
         end_mem_sub_j = (end_mem_j) * sub_y
       else
         end_mem_sub_j = (end_mem_j + 1) * sub_y

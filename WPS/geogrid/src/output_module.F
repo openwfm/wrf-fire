@@ -783,17 +783,17 @@ module output_module
                fields(i)%patch_start(1) = (fields(i)%patch_start(1) - 1)*sr_x + 1
                fields(i)%dom_start(1)   = (fields(i)%dom_start(1) - 1)*sr_x + 1
 
-               fields(i)%mem_end(1)     = (fields(i)%mem_end(1))*sr_x
-               fields(i)%patch_end(1)   = (fields(i)%patch_end(1) )*sr_x
-               fields(i)%dom_end(1)     = (fields(i)%dom_end(1) )*sr_x
+               fields(i)%mem_end(1)     = (fields(i)%mem_end(1) + 1)*sr_x
+               fields(i)%patch_end(1)   = (fields(i)%patch_end(1) + 1)*sr_x
+               fields(i)%dom_end(1)     = (fields(i)%dom_end(1) + 1)*sr_x
 
                fields(i)%mem_start(2)   = (fields(i)%mem_start(2) - 1)*sr_y + 1
                fields(i)%patch_start(2) = (fields(i)%patch_start(2) - 1)*sr_y + 1
                fields(i)%dom_start(2)   = (fields(i)%dom_start(2) - 1)*sr_y + 1
 
-               fields(i)%mem_end(2)     = (fields(i)%mem_end(2))*sr_y
-               fields(i)%patch_end(2)   = (fields(i)%patch_end(2) )*sr_y
-               fields(i)%dom_end(2)     = (fields(i)%dom_end(2) )*sr_y
+               fields(i)%mem_end(2)     = (fields(i)%mem_end(2) + 1)*sr_y
+               fields(i)%patch_end(2)   = (fields(i)%patch_end(2) + 1)*sr_y
+               fields(i)%dom_end(2)     = (fields(i)%dom_end(2) + 1)*sr_y
          enddo
  
       else if (grid_type == 'E') then
@@ -919,8 +919,6 @@ module output_module
                fields(nfields)%patch_end(2)   = (fields(nfields)%patch_end(2)            )*sr_y
                fields(nfields)%dom_end(2)     = (fields(nfields)%dom_end(2)              )*sr_y
 
-               call get_subgrid_dim_default(nest_num,fields(nfields)%dimnames, &
-                      sr_x,sr_y,istatus)
            endif
 
             nfields = nfields + 1
