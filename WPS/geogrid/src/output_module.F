@@ -777,19 +777,23 @@ module output_module
 
             call get_subgrid_dim_default(nest_num,fields(i)%dimnames,    &
                                          fields(i)%sr_x,fields(i)%sr_y,istatus)
-            fields(i)%dom_end(1)=(fields(i)%dom_end(1)-fields(i)%dom_start(1)+2) &
-                                     * fields(i)%sr_x
-            fields(i)%dom_end(2)=(fields(i)%dom_end(2)-fields(i)%dom_start(2)+2) &
-                                     * fields(i)%sr_y
-            fields(i)%mem_end(1)=(fields(i)%mem_end(1)-fields(i)%mem_start(1)+2) &
-                                     * fields(i)%sr_x
-            fields(i)%mem_end(2)=(fields(i)%mem_end(2)-fields(i)%mem_start(2)+2) &
-                                     * fields(i)%sr_y
-            fields(i)%patch_end(1)=(fields(i)%patch_end(1)-fields(i)%patch_start(1)+2) &
-                                     * fields(i)%sr_x
-            fields(i)%patch_end(2)=(fields(i)%patch_end(2)-fields(i)%patch_start(2)+2) &
-                                     * fields(i)%sr_y
-         
+               sr_x=fields(i)%sr_x
+               sr_y=fields(i)%sr_y
+               fields(i)%mem_start(1)   = (fields(i)%mem_start(1) - 1)*sr_x + 1
+               fields(i)%patch_start(1) = (fields(i)%patch_start(1) - 1)*sr_x + 1
+               fields(i)%dom_start(1)   = (fields(i)%dom_start(1) - 1)*sr_x + 1
+
+               fields(i)%mem_end(1)     = (fields(i)%mem_end(1))*sr_x
+               fields(i)%patch_end(1)   = (fields(i)%patch_end(1) )*sr_x
+               fields(i)%dom_end(1)     = (fields(i)%dom_end(1) )*sr_x
+
+               fields(i)%mem_start(2)   = (fields(i)%mem_start(2) - 1)*sr_y + 1
+               fields(i)%patch_start(2) = (fields(i)%patch_start(2) - 1)*sr_y + 1
+               fields(i)%dom_start(2)   = (fields(i)%dom_start(2) - 1)*sr_y + 1
+
+               fields(i)%mem_end(2)     = (fields(i)%mem_end(2))*sr_y
+               fields(i)%patch_end(2)   = (fields(i)%patch_end(2) )*sr_y
+               fields(i)%dom_end(2)     = (fields(i)%dom_end(2) )*sr_y
          enddo
  
       else if (grid_type == 'E') then

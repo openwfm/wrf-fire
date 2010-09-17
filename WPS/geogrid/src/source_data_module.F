@@ -2335,9 +2335,9 @@ module source_data_module
       sub_y = 1
 
       istatus = 0
-      if (((index(trim(field_name),'FXLAT') /= 0) .and.      &
+      if (((index(trim(field_name),'FXLAT') /= 0) .and.       &
             (len_trim(field_name) == len_trim('FXLAT'))) .or. &
-          ((index(trim(field_name),'FXLONG') /=0) .and.      &
+          ((index(trim(field_name),'FXLONG') /= 0) .and.      &
             (len_trim(field_name) == len_trim('FXLONG'))))then
         call get_subgrid_dim_default(nest_num,dimnames,sub_x,sub_y,istatus)
       endif
