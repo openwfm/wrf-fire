@@ -444,7 +444,7 @@ module output_module
       character (len=128) :: fieldname
       character (len=128) :: memorder, units, description
       character (len=128), dimension(3) :: dimnames 
-      integer :: sr_x, sr_y
+      integer :: sr_x, sr_y, istatus
   
       !
       ! First find out how many fields there are
@@ -467,7 +467,7 @@ module output_module
 #endif
   
 #ifdef _GEOGRID
-      if (grid_type == 'C') NUM_AUTOMATIC_FIELDS = 22
+      if (grid_type == 'C') NUM_AUTOMATIC_FIELDS = 24
       if (grid_type == 'E') NUM_AUTOMATIC_FIELDS = 7
   
       NUM_FIELDS = nfields+NUM_AUTOMATIC_FIELDS
@@ -569,7 +569,15 @@ module output_module
          fields(22)%fieldname = 'LANDMASK'
          fields(22)%units = 'none'
          fields(22)%descr = 'Landmask : 1=land, 0=water'
-   
+
+         fields(23)%fieldname = 'FXLONG'
+         fields(23)%units = 'degrees longitude'
+         fields(23)%descr = 'Longitude on refined grid'
+
+         fields(24)%fieldname = 'FXLAT'
+         fields(24)%units = 'degrees latitude'
+         fields(24)%descr = 'Latitude on refined grid'
+
       else if (grid_type == 'E') then
          fields(1)%fieldname = 'XLAT_M'
          fields(1)%units = 'degrees latitude'
@@ -761,7 +769,36 @@ module output_module
          fields(17)%dimnames(1) = 'west_east_stag'
          fields(17)%stagger = 'U'
          fields(17)%istagger = U
-   
+  
+         !
+         ! Perform adjustments for subgrid lat/lon fields
+         !
+         do i=23,24
+
+            call get_subgrid_dim_default(nest_num,fields(i)%dimnames,    &
+                                         fields(i)%sr_x,fields(i)%sr_y,istatus)
+               sr_x=fields(i)%sr_x
+               sr_y=fields(i)%sr_y
+
+               if(sr_x.gt.1.and.sr_y.gt.1)then
+                 fields(i)%mem_start(1)   = (fields(i)%mem_start(1) - 1)*sr_x + 1
+                 fields(i)%patch_start(1) = (fields(i)%patch_start(1) - 1)*sr_x + 1
+                 fields(i)%dom_start(1)   = (fields(i)%dom_start(1) - 1)*sr_x + 1
+
+                 fields(i)%mem_end(1)     = (fields(i)%mem_end(1) + 1)*sr_x
+                 fields(i)%patch_end(1)   = (fields(i)%patch_end(1) + 1)*sr_x
+                 fields(i)%dom_end(1)     = (fields(i)%dom_end(1) + 1)*sr_x
+
+                 fields(i)%mem_start(2)   = (fields(i)%mem_start(2) - 1)*sr_y + 1
+                 fields(i)%patch_start(2) = (fields(i)%patch_start(2) - 1)*sr_y + 1
+                 fields(i)%dom_start(2)   = (fields(i)%dom_start(2) - 1)*sr_y + 1
+
+                 fields(i)%mem_end(2)     = (fields(i)%mem_end(2) + 1)*sr_y
+                 fields(i)%patch_end(2)   = (fields(i)%patch_end(2) + 1)*sr_y
+                 fields(i)%dom_end(2)     = (fields(i)%dom_end(2) + 1)*sr_y
+               end if
+         enddo
+ 
       else if (grid_type == 'E') then
          ! Lat V
          fields(3)%stagger = 'V'
@@ -868,7 +905,7 @@ module output_module
             thalo_width = 0
 #endif
 
-            if (sr_x > 1) then
+            if (sr_x > 1 .and. sr_y > 1) then
                fields(nfields)%mem_start(1)   = (fields(nfields)%mem_start(1) + lhalo_width - 1)*sr_x + 1 - lhalo_width
                fields(nfields)%patch_start(1) = (fields(nfields)%patch_start(1)             - 1)*sr_x + 1
                fields(nfields)%dom_start(1)   = (fields(nfields)%dom_start(1)               - 1)*sr_x + 1
@@ -876,9 +913,7 @@ module output_module
                fields(nfields)%mem_end(1)     = (fields(nfields)%mem_end(1) - rhalo_width)*sr_x + rhalo_width
                fields(nfields)%patch_end(1)   = (fields(nfields)%patch_end(1)            )*sr_x
                fields(nfields)%dom_end(1)     = (fields(nfields)%dom_end(1)              )*sr_x
-            endif
-    
-            if (sr_y > 1) then
+
                fields(nfields)%mem_start(2)   = (fields(nfields)%mem_start(2) + bhalo_width - 1)*sr_y + 1 - bhalo_width
                fields(nfields)%patch_start(2) = (fields(nfields)%patch_start(2)             - 1)*sr_y + 1
                fields(nfields)%dom_start(2)   = (fields(nfields)%dom_start(2)               - 1)*sr_y + 1
@@ -886,8 +921,8 @@ module output_module
                fields(nfields)%mem_end(2)     = (fields(nfields)%mem_end(2) - thalo_width)*sr_y + thalo_width
                fields(nfields)%patch_end(2)   = (fields(nfields)%patch_end(2)            )*sr_y
                fields(nfields)%dom_end(2)     = (fields(nfields)%dom_end(2)              )*sr_y
-           endif
 
+           endif
 
             nfields = nfields + 1
    
