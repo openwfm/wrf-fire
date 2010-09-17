@@ -55,8 +55,8 @@ state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"
 state    real     ros       *i*j      fire        1         z    hr    "ROS" "rate of spread" "m/s"
 
 # constant data arrays
-state    real     fxlong    *i*j      fire        1         z    hr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
-state    real     fxlat     *i*j      fire        1         z    hr    "FXLAT"     "latitude of midpoints of fire cells" "degrees"
+state    real     fxlong    *i*j      fire        1         z  i102hr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
+state    real     fxlat     *i*j      fire        1         z  i102hr    "FXLAT"     "latitude of midpoints of fire cells" "degrees"
 state    real     fuel_time *i*j      fire        1         z    hr    "FUEL_TIME" "fuel"
 state    real     bbb       *i*j      fire        1         z    hr    "BBB"       "fuel"
 state    real     betafl    *i*j      fire        1         z    hr    "BETAFL"    "fuel"
