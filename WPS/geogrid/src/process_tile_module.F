@@ -140,17 +140,27 @@ module process_tile_module
       end if
 
       call get_subgrid_dim_default(which_domain,dimnames,sub_x,sub_y,istatus)
+      if(sub_x.gt.1)then
       start_mem_sub_i = (start_mem_i - 1 ) * sub_x + 1
       if(.not.extra_col)then
         end_mem_sub_i = (end_mem_i) * sub_x
       else
         end_mem_sub_i = (end_mem_i + 1) * sub_x
       end if
+      else
+      start_mem_sub_i=start_mem_i
+      end_mem_sub_i=end_mem_i
+      end if
+      if(sub_y.gt.1)then
       start_mem_sub_j = (start_mem_j -1 ) * sub_y + 1
       if(.not.extra_row)then
         end_mem_sub_j = (end_mem_j) * sub_y
       else
         end_mem_sub_j = (end_mem_j + 1) * sub_y
+      end if
+      else
+      start_mem_sub_j=start_mem_j
+      end_mem_sub_j=end_mem_j
       end if
     
       ! Allocate arrays to hold all lat/lon fields; these will persist for the duration of
@@ -705,7 +715,7 @@ module process_tile_module
                call get_subgrid_dim_name(which_domain, fieldname, dimnames, &
                                          sub_x, sub_y, istatus)
        
-               if (istagger == M .or. (sub_x > 1) .or. (sub_y > 1)) then
+               if (istagger == M .and. (sub_x .le. 1) .and. (sub_y .le. 1)) then
                   sm1 = start_mem_i
                   em1 = end_mem_i
                   sm2 = start_mem_j
@@ -714,7 +724,7 @@ module process_tile_module
                   xlon_ptr => xlon_array 
                   mapfac_ptr_x => mapfac_array_m_x
                   mapfac_ptr_y => mapfac_array_m_y
-               else if ( (sub_x > 1) .and. (sub_y > 1) ) then
+               else if ( (sub_x .gt. 1) .or. (sub_y .gt. 1) ) then
                   sm1 = start_mem_sub_i
                   em1 = end_mem_sub_i
                   sm2 = start_mem_sub_j
