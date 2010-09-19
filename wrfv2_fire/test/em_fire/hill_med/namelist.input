@@ -29,17 +29,17 @@
  &domains
  time_step                           = 0,
  !time_step                           = 5,
- time_step_fract_num                 = 25,
+ time_step_fract_num                 = 5,
  time_step_fract_den                 = 100,
  max_dom                             = 1,
  s_we                                = 1,     1,     1,
- e_we                                = 42,    43,    43,
+ e_we                                = 210,    43,    43,
  s_sn                                = 1,     1,     1,
- e_sn                                = 42,    43,    43,
+ e_sn                                = 210,    43,    43,
  s_vert                              = 1,     1,     1,
  e_vert                              = 41,    41,    41,
- dx                                  = 60,    30,    10,
- dy                                  = 60,    30,    10,
+ dx                                  = 12,    30,    10,
+ dy                                  = 12,    30,    10,
  ztop                                = 1500, 1500, 1500,
  grid_id                             = 1,     2,     3,
  parent_id                           = 0,     1,     2,
@@ -49,8 +49,8 @@
  parent_time_step_ratio              = 1,     2,     3,
  feedback                            = 1,
  smooth_option                       = 0
- sr_x                                = 10,     0,     0
- sr_y                                = 10,     0,     0
+ sr_x                                = 4,     0,     0
+ sr_y                                = 4,     0,     0
  /
 
  &physics
