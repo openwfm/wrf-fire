@@ -55,7 +55,7 @@ implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
 msg='crash: '//s
-call message(msg)
+call message(msg,level=0)
 !$OMP CRITICAL(SFIRE_MESSAGE_CRIT)
 call wrf_error_fatal(msg)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
@@ -65,19 +65,28 @@ end subroutine crash
 !****************
 !
 
-subroutine message(s)
+subroutine message(s,level)
 use module_wrf_error
 #ifdef _OPENMP
 use OMP_LIB 
 #endif
 implicit none
+!*** arguments
 character(len=*), intent(in)::s
-! local
+integer,intent(in),optional::level
+!*** local
 character(len=128)msg
 character(len=118)t
-integer m
+integer m,mlevel
 logical op
-if(fire_print_msg.gt.0)then
+!*** executable
+if(present(level))then
+    mlevel=level
+else
+    mlevel=2  ! default message level
+endif
+   
+if(fire_print_msg.ge.mlevel)then
 #ifdef _OPENMP
     m=omp_get_thread_num()
     t=s

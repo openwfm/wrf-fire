@@ -137,6 +137,7 @@ integer::ignited,ig,i,j,itso,iteo,jtso,jteo
 real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw
 character(len=128)::msg
 logical:: freeze_fire
+integer:: stat_lev=1
 
 !*** executable
 
@@ -250,7 +251,7 @@ elseif(ifun.eq.3)then   ! ignition if so specified
     
 elseif (ifun.eq.4) then  ! do the timestep
 
-    if(fire_print_msg.gt.0)then
+    if(fire_print_msg.ge.stat_lev)then
       aw=fun_real(RNRM_SUM,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
@@ -265,9 +266,9 @@ elseif (ifun.eq.4) then  ! do the timestep
         fp%vx,fp%vy)
 !$OMP SINGLE 
       write(msg,91)time_start,'Average wind        ',aw,'m/s'
-      call message(msg)
+      call message(msg,stat_lev)
       write(msg,91)time_start,'Maximum wind        ',mw,'m/s'
-      call message(msg)
+      call message(msg,stat_lev)
 !$OMP END SINGLE 
     endif
 
@@ -367,7 +368,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 
-    if(fire_print_msg.gt.0)then
+    if(fire_print_msg.ge.stat_lev)then
       tfa=fun_real(REAL_SUM,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
@@ -399,18 +400,18 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         0,0,0,       &                            ! staggering
         grnqfx,grnqfx) 
 !$OMP SINGLE 
-      write(msg,91)time_start,'Total fire area     ',tfa,'m^2'
-      call message(msg)
-      write(msg,91)time_start,'Total heat output   ',thf,'W'
-      call message(msg)
+      write(msg,91)time_start,'Fire area           ',tfa,'m^2'
+      call message(msg,stat_lev)
+      write(msg,91)time_start,'Heat output         ',thf,'W'
+      call message(msg,stat_lev)
       write(msg,91)time_start,'Max heat flux       ',mhf,'W/m^2'
-      call message(msg)
-      write(msg,91)time_start,'Total latent heat   ',tqf,'W'
-      call message(msg)
+      call message(msg,stat_lev)
+      write(msg,91)time_start,'Latent heat output  ',tqf,'W'
+      call message(msg,stat_lev)
       write(msg,91)time_start,'Max latent heat flux',mqf,'W/m^2'
-      call message(msg)
+      call message(msg,stat_lev)
 !$OMP END SINGLE
-91  format('At ',f11.3,' s: ',a,e12.3,1x,a)
+91  format('Time ',f11.3,' s ',a,e12.3,1x,a)
     endif
         
 
