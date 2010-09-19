@@ -42,6 +42,8 @@ real, save::            &
  fire_viscosity=0.4,    &  ! artificial viscosity
  fire_lfn_ext_up=1.        ! 0.=extend level set function at boundary by reflection, 1.=always up
 
+integer, parameter:: REAL_SUM=1, REAL_MAX=2
+
 contains
 
 !
@@ -1385,7 +1387,7 @@ if(thread.eq.0)then
 #ifdef DM_PARALLEL
     gsum = wrf_dm_bxor_integer ( psum )
 #else
-    gsum = lsum
+    gsum = psum
 #endif
     write(msg,1)id,name,ids,ide+is,kds,kde+ks,jds,jde+js,gsum
 1   format(i6,1x,a10,' dims',6i5,' chsum ',z8.8)
@@ -1395,5 +1397,88 @@ endif
 end subroutine print_chsum 
 
 
+real function fun_real(fun,  & 
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+    istag,kstag,jstag,       &                ! staggering
+    a)                      
+
+#ifdef DM_PARALLEL
+    USE module_dm
+#endif
+
+integer, intent(in)::  fun, &
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch dims
+    istag,kstag,jstag                         ! staggering
+real, intent(in),dimension(ims:ime,kms:kme,jms:jme)::a
+
+!$ external, logical:: omp_in_parallel
+!$ external, integer:: omp_get_thread_num
+
+!*** local
+real::lsum,void
+integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
+real, save::psum,gsum
+real::rel
+character(len=256)msg
+
+ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
+kpe1=ifval(kpe.eq.kde.and.kstag.ne.0,kpe+1,kpe)
+jpe1=ifval(jpe.eq.jde.and.jstag.ne.0,jpe+1,jpe)
+is=ifval(istag.ne.0,1,0)
+ks=ifval(kstag.ne.0,1,0)
+js=ifval(jstag.ne.0,1,0)
+
+if(fun.eq.REAL_SUM)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=lsum+a(i,k,j)
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.REAL_MAX)then
+  void=-huge(lsum)
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=max(lsum,a(i,k,j))
+      enddo
+    enddo
+  enddo
+else
+  call crash('fun_real: bad fun')
+endif
+
+! get process sum over all threads
+thread=0
+!$ thread=omp_get_thread_num()
+if(thread.eq.0)psum=void
+!$OMP BARRIER
+!$OMP CRITICAL(RDSUM)
+if(fun.eq.REAL_SUM)psum=psum+lsum
+if(fun.eq.REAL_MAX)psum=max(psum,lsum)
+!$OMP END CRITICAL(RDSUM)
+!$OMP BARRIER
+
+! get global sum over all processes
+if(thread.eq.0)then
+#ifdef DM_PARALLEL
+    if(fun.eq.REAL_SUM) gsum = wrf_dm_sum_real ( psum )
+    if(fun.eq.REAL_MAX) gsum = wrf_dm_max_real ( psum )
+#else
+    gsum = psum
+#endif
+endif
+
+fun_real=gsum
+
+end function fun_real
 
 end module module_fr_sfire_util

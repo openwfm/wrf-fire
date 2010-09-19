@@ -134,7 +134,7 @@ type(fire_params),intent(inout)::fp
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 integer::ignited,ig,i,j,itso,iteo,jtso,jteo
-real::tbound,err,erri,errj,maxgrad,grad
+real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf
 character(len=128)::msg
 logical:: freeze_fire
 
@@ -313,7 +313,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 
 elseif (ifun.eq.6) then ! timestep postprocessing
 
-    if(.not. freeze_fire)then
+  if(.not. freeze_fire)then
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
@@ -346,10 +346,57 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 
-    else
-        call message('sfire_model: EXPERIMENTAL: skipping fuel burnt computation')
+    if(fire_print_msg.gt.0)then
+      tfa=fun_real(REAL_SUM,  &
+        ifms,ifme,1,1,jfms,jfme, &                ! memory dims
+        ifds,ifde,1,1,jfds,jfde, &                ! domain dims
+        ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        fire_area) * fdx * fdy
+      thf=fun_real(REAL_SUM,  &
+        ifms,ifme,1,1,jfms,jfme, &                ! memory dims
+        ifds,ifde,1,1,jfds,jfde, &                ! domain dims
+        ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        grnhfx) * fdx * fdy
+      mhf=fun_real(REAL_MAX,  &
+        ifms,ifme,1,1,jfms,jfme, &                ! memory dims
+        ifds,ifde,1,1,jfds,jfde, &                ! domain dims
+        ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        grnhfx) 
+      tqf=fun_real(REAL_SUM,  &
+        ifms,ifme,1,1,jfms,jfme, &                ! memory dims
+        ifds,ifde,1,1,jfds,jfde, &                ! domain dims
+        ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        grnqfx) * fdx * fdy
+      mqf=fun_real(REAL_MAX,  &
+        ifms,ifme,1,1,jfms,jfme, &                ! memory dims
+        ifds,ifde,1,1,jfds,jfde, &                ! domain dims
+        ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        grnqfx) 
+!$OMP SINGLE 
+      write(msg,91)time_start,'Total fire area     ',tfa,'m^2'
+      call message(msg)
+      write(msg,91)time_start,'Total heat output   ',thf,'W'
+      call message(msg)
+      write(msg,91)time_start,'Max heat flux       ',mhf,'W/m^2'
+      call message(msg)
+      write(msg,91)time_start,'Total latent heat   ',tqf,'W'
+      call message(msg)
+      write(msg,91)time_start,'Max latent heat flux',mqf,'W/m^2'
+      call message(msg)
+!$OMP END SINGLE
+91  format('At ',f11.3,'s: ',a,e12.3,a)
+    endif
+        
 
-        if (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
+  else
+     call message('sfire_model: EXPERIMENTAL: skipping fuel burnt computation')
+
+     if (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
 
 !$OMP CRITICAL(SFIRE_MODEL_CRIT)
         write(msg,'(a,2e12.3,a)')'sfire_model: EXPERIMENTAL output constant heat flux', &
@@ -364,9 +411,9 @@ elseif (ifun.eq.6) then ! timestep postprocessing
             enddo
         enddo
 
-        endif
+      endif
 
-    endif
+   endif
 
     call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
