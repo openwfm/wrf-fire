@@ -264,12 +264,12 @@ elseif (ifun.eq.4) then  ! do the timestep
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
         fp%vx,fp%vy)
-!$OMP SINGLE 
+!$OMP MASTER 
       write(msg,91)time_start,'Average wind        ',aw,'m/s'
       call message(msg,stat_lev)
       write(msg,91)time_start,'Maximum wind        ',mw,'m/s'
       call message(msg,stat_lev)
-!$OMP END SINGLE 
+!$OMP END MASTER 
     endif
 
 !   compute fuel fraction at start
@@ -399,7 +399,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
         grnqfx,grnqfx) 
-!$OMP SINGLE 
+!$OMP MASTER 
       write(msg,91)time_start,'Fire area           ',tfa,'m^2'
       call message(msg,stat_lev)
       write(msg,91)time_start,'Heat output         ',thf,'W'
@@ -410,7 +410,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
       call message(msg,stat_lev)
       write(msg,91)time_start,'Max latent heat flux',mqf,'W/m^2'
       call message(msg,stat_lev)
-!$OMP END SINGLE
+!$OMP END MASTER
 91  format('Time ',f11.3,' s ',a,e12.3,1x,a)
     endif
         
