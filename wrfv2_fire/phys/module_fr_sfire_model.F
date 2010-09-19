@@ -256,13 +256,13 @@ elseif (ifun.eq.4) then  ! do the timestep
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        fp%uf,fp%vf)/((ifde-ifds+1)*(jfde-jfds+1))
+        fp%vx,fp%vy)/((ifde-ifds+1)*(jfde-jfds+1))
       mw=fun_real(RNRM_MAX,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        fp%uf,fp%vf)
+        fp%vx,fp%vy)
 !$OMP SINGLE 
       write(msg,91)time_start,'Average wind        ',aw,'m/s'
       call message(msg)

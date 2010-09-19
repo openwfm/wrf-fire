@@ -42,7 +42,7 @@ real, save::            &
  fire_viscosity=0.4,    &  ! artificial viscosity
  fire_lfn_ext_up=1.        ! 0.=extend level set function at boundary by reflection, 1.=always up
 
-integer, parameter:: REAL_SUM=1, REAL_MAX=2
+integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
 
 contains
 
