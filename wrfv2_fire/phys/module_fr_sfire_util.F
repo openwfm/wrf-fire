@@ -75,8 +75,8 @@ implicit none
 character(len=*), intent(in)::s
 integer,intent(in),optional::level
 !*** local
-character(len=128)msg
-character(len=118)t
+character(len=128)::msg
+character(len=118)::t
 integer m,mlevel
 logical op
 !*** executable
@@ -96,14 +96,16 @@ if(fire_print_msg.ge.mlevel)then
     msg='SFIRE:'//s
 #endif
     call wrf_message(msg)
-    inquire(unit=6,opened=op)
-    if(op)then 
-      call flush(6)
-    endif
-    inquire(unit=0,opened=op)
-    if(op)then
-      call flush(0)
-    endif
+!    inquire(unit=6,opened=op)
+!    if(op)then 
+!      call flush(6)
+!    endif
+!    inquire(unit=0,opened=op)
+!    if(op)then
+!      call flush(0)
+!    endif
+     flush(6)
+     flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -951,7 +953,7 @@ character(len=*),intent(in)::name
 integer:: i,j
 real:: t 
 real:: avg_a,max_a,min_a 
-character(len=25)id
+character(len=25)::id
 id=name
 call print_2d_stats(ips,ipe,jps,jpe, &
                          ims,ime,jms,jme, &
@@ -983,8 +985,8 @@ integer, intent(in)::ips,ipe,jps,jpe
 character(len=*),intent(in)::name
 real,intent(in)::min_a,max_a,avg_a
 !*** local
-character(len=128)msg
-character(len=24)id
+character(len=128)::msg
+character(len=24)::id
 if(fire_print_msg.eq.0)return
 id=name
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
@@ -1004,7 +1006,7 @@ real, intent(in)::a(ims:ime,kms:kme,jms:jme)
 character(len=*),intent(in)::name
 integer:: i,j,k
 real:: avg_a,max_a,min_a,t,aa,bb
-character(len=128)msg
+character(len=128)::msg
 ! if(fire_print_msg.eq.0)return
 ! check for nans in any case
 bb=0.
@@ -1057,7 +1059,7 @@ implicit none
 integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
-!!character(len=128)msg
+!!character(len=128)::msg
 !if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &

@@ -1257,7 +1257,7 @@ real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
-character(len=128)msg
+character(len=128)::msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
 
