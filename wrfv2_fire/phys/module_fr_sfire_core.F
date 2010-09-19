@@ -115,7 +115,7 @@ real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
 character(len=128):: msg
-real::cx2,cy2,dmax
+real::cx2,cy2,dmax,axmin,axmax,aymin,aymax
 
 st=max(start_ts,start_t) ! the start time of ignition in this time step
 et=min(end_ts,end_t)     ! the end time of ignition in this time step
@@ -150,6 +150,10 @@ dmax=0
 ! midpoint m = (mx,my)
 mx = (sx + ex)/2
 my = (sy + ey)/2
+!axmin=huge(axmin)
+!aymin=huge(aymin)
+!axmax=-huge(axmax)
+!aymax=-huge(aymax)
 do j=jfts,jfte   
     do i=ifts,ifte
         ! coordinates of the node (i,j), the lower left corner of the domain is (0 0)
@@ -157,6 +161,10 @@ do j=jfts,jfte
         ! ay = fdy*(j - jfds + 0.5)
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
+        !axmin=min(axmin,ax)
+        !axmax=max(axmax,ax)
+        !aymin=min(aymin,ay)
+        !aymax=max(aymax,ay)
         ! the following computation of distance is also for the case
         ! when s=e exactly or approximately 
         dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
@@ -210,12 +218,18 @@ do j=jfts,jfte
         ! call message(msg)
     enddo
 enddo
+axmin=coord_xf(ifts,jfts)
+aymin=coord_yf(ifts,jfts)
+axmax=coord_xf(ifte,jfte)
+aymax=coord_yf(ifte,jfte)
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
 call message(msg)
+write(msg,'(a,2f11.6,a,2f11.6)')'tile coord from  ',axmin,aymin,' to ',axmax,aymax
+call message(msg)
 write(msg,'(a,2f11.2,a,f8.1,a)')'units ',unit_xf,unit_yf,' m max dist ',dmax,' m'
 call message(msg)
-write(msg,'(a,f4.1,a,f8.1,a,i10)')' radius ',r,' time',time_ign,' ignited nodes',ignited
+write(msg,'(a,f4.1,a,2f8.1,a,i10)')' radius ',r,' time',st,et,' ignited nodes',ignited
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 end subroutine ignite_fire
