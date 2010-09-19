@@ -24,7 +24,7 @@
 # Change to the run directory (where job was submitted)
 cd $PBS_O_WORKDIR
 
-cp $PBS_NODEFILE nodes 
+cat $PBS_NODEFILE | sort -u > nodes 
 rm -f rsl.* *_*.txt wrfo* wrfr* 
-mpirun_rsh -np 1 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=1 ./ideal.exe 
-mpirun_rsh -np 2 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=12 ./wrf.exe 
+mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
+mpirun_rsh -np 2 -hostfile nodes OMP_NUM_THREADS=12 ./wrf.exe 

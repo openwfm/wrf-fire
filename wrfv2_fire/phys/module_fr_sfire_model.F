@@ -134,7 +134,7 @@ type(fire_params),intent(inout)::fp
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 integer::ignited,ig,i,j,itso,iteo,jtso,jteo
-real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf
+real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw
 character(len=128)::msg
 logical:: freeze_fire
 
@@ -250,6 +250,27 @@ elseif(ifun.eq.3)then   ! ignition if so specified
     
 elseif (ifun.eq.4) then  ! do the timestep
 
+    if(fire_print_msg.gt.0)then
+      aw=fun_real(RNRM_SUM,  &
+        ifms,ifme,1,1,jfms,jfme, &                ! memory dims
+        ifds,ifde,1,1,jfds,jfde, &                ! domain dims
+        ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        fp%uf,fp%vf)/((ifde-ifds+1)*(jfde-jfds+1))
+      mw=fun_real(RNRM_MAX,  &
+        ifms,ifme,1,1,jfms,jfme, &                ! memory dims
+        ifds,ifde,1,1,jfds,jfde, &                ! domain dims
+        ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        fp%uf,fp%vf)
+!$OMP SINGLE 
+      write(msg,91)time_start,'Average wind        ',aw,'m/s'
+      call message(msg)
+      write(msg,91)time_start,'Maximum wind        ',mw,'m/s'
+      call message(msg)
+!$OMP END SINGLE 
+    endif
+
 !   compute fuel fraction at start
 !    call fuel_left( &
 !        ifms,ifme,jfms,jfme, &
@@ -352,31 +373,31 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        fire_area) * fdx * fdy
+        fire_area,fire_area) * fdx * fdy
       thf=fun_real(REAL_SUM,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        grnhfx) * fdx * fdy
+        grnhfx,grnhfx) * fdx * fdy
       mhf=fun_real(REAL_MAX,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        grnhfx) 
+        grnhfx,grnhfx) 
       tqf=fun_real(REAL_SUM,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        grnqfx) * fdx * fdy
+        grnqfx,grnqfx) * fdx * fdy
       mqf=fun_real(REAL_MAX,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        grnqfx) 
+        grnqfx,grnqfx) 
 !$OMP SINGLE 
       write(msg,91)time_start,'Total fire area     ',tfa,'m^2'
       call message(msg)
@@ -389,7 +410,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
       write(msg,91)time_start,'Max latent heat flux',mqf,'W/m^2'
       call message(msg)
 !$OMP END SINGLE
-91  format('At ',f11.3,'s: ',a,e12.3,a)
+91  format('At ',f11.3,' s: ',a,e12.3,1x,a)
     endif
         
 

@@ -1402,7 +1402,7 @@ real function fun_real(fun,  &
     ids,ide,kds,kde,jds,jde, &                ! domain dims
     ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
     istag,kstag,jstag,       &                ! staggering
-    a)                      
+    a,b)                      
 
 #ifdef DM_PARALLEL
     USE module_dm
@@ -1413,16 +1413,14 @@ integer, intent(in)::  fun, &
     ids,ide,kds,kde,jds,jde, &                ! domain dims
     ips,ipe,kps,kpe,jps,jpe, &                ! patch dims
     istag,kstag,jstag                         ! staggering
-real, intent(in),dimension(ims:ime,kms:kme,jms:jme)::a
-
-!$ external, logical:: omp_in_parallel
-!$ external, integer:: omp_get_thread_num
+real, intent(in),dimension(ims:ime,kms:kme,jms:jme)::a,b
 
 !*** local
 real::lsum,void
 integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
 real, save::psum,gsum
 real::rel
+logical:: dosum,domax
 character(len=256)msg
 
 ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
@@ -1442,6 +1440,16 @@ if(fun.eq.REAL_SUM)then
       enddo
     enddo
   enddo
+elseif(fun.eq.RNRM_SUM)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=lsum+sqrt(a(i,k,j)*a(i,k,j)+b(i,k,j)*b(i,k,j))
+      enddo
+    enddo
+  enddo
 elseif(fun.eq.REAL_MAX)then
   void=-huge(lsum)
   lsum=void
@@ -1452,30 +1460,56 @@ elseif(fun.eq.REAL_MAX)then
       enddo
     enddo
   enddo
+elseif(fun.eq.RNRM_MAX)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=max(lsum,sqrt(a(i,k,j)*a(i,k,j)+b(i,k,j)*b(i,k,j)))
+      enddo
+    enddo
+  enddo
 else
   call crash('fun_real: bad fun')
 endif
 
+if(lsum.ne.lsum)call crash('fun_real: NaN detected')
+
+dosum=fun.eq.REAL_SUM.or.fun.eq.RNRM_SUM
+domax=fun.eq.REAL_MAX.or.fun.eq.RNRM_MAX
+
 ! get process sum over all threads
-thread=0
-!$ thread=omp_get_thread_num()
-if(thread.eq.0)psum=void
+!$OMP SINGLE
+! only one thread should write to shared variable
+psum=void
+!$OMP END SINGLE
 !$OMP BARRIER
+! now all threads know psum
+
 !$OMP CRITICAL(RDSUM)
-if(fun.eq.REAL_SUM)psum=psum+lsum
-if(fun.eq.REAL_MAX)psum=max(psum,lsum)
+! each thread adds its own lsum
+if(dosum)psum=psum+lsum
+if(domax)psum=max(psum,lsum)
 !$OMP END CRITICAL(RDSUM)
+
+! wait till all theads are done
 !$OMP BARRIER
 
 ! get global sum over all processes
-if(thread.eq.0)then
+!$OMP SINGLE
+! only one threads will do the mpi communication
 #ifdef DM_PARALLEL
-    if(fun.eq.REAL_SUM) gsum = wrf_dm_sum_real ( psum )
-    if(fun.eq.REAL_MAX) gsum = wrf_dm_max_real ( psum )
+    if(dosum) gsum = wrf_dm_sum_real ( psum )
+    if(domax) gsum = wrf_dm_max_real ( psum )
 #else
     gsum = psum
 #endif
-endif
+if(gsum.ne.gsum)call crash('fun_real: NaN detected')
+!$OMP END SINGLE
+
+!$OMP BARRIER
+! now gsum is known to all threads
 
 fun_real=gsum
 
