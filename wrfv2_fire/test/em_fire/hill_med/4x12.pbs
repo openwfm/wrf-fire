@@ -23,7 +23,7 @@
 # Change to the run directory (where job was submitted)
 cd $PBS_O_WORKDIR
 
-WD=4x12
+WD=4x12.dir
 rm -rf $WD
 mkdir $WD
 cd $WD
