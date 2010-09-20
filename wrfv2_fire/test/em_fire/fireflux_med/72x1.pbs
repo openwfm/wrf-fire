@@ -39,7 +39,7 @@ ln -s ../namelist.fire .
 ln -s ../namelist.input .
 ln -s ../wrf.exe .
 
-cat $PBS_NODEFILE  > unodes 
+cat $PBS_NODEFILE  > nodes 
 mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
 mpirun_rsh -np 72 -hostfile nodes OMP_NUM_THREADS=1 ./wrf.exe 
 
