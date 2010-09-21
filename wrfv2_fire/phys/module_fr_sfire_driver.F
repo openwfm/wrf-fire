@@ -258,6 +258,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%z0,                        & ! roughness height
             grid%ht,                        &                         ! terrain height
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
+            ubound(grid%lfn_time,1),                     & ! number of ignition histories
+            grid%lfn_hist,                              & ! ignitions histories as level set functions
+            grid%lfn_time,                              &  ! ignition times
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             lfn_out,                                      & ! work - one timestep    
@@ -317,6 +320,9 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     ph,phb,                                       &
     z0,zs,                                        & 
     xlong,xlat,                                   &
+    ign,                                          &  ! dimension of ignition histories
+    lfn_hist,                                     &  ! ignition histories as level set functions
+    lfn_time,                                     &  ! their ignition times
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
     lfn_out,                                      & ! out level set function    
@@ -388,6 +394,10 @@ real,intent(out),dimension(ims:ime,jms:jme)::&
     vah                                              ! atm wind at fire_wind_height, diagnostics
 
 real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat ! inout because of extension at bdry
+
+integer, intent(in):: ign                           ! number of ignition histories
+real, intent(in), dimension(ifms:ifme,ign,jfms:jfme):: lfn_hist  ! ignition histories
+real, intent(in), dimension(ign):: lfn_time         ! their end times
     
 real, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
     nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
@@ -674,6 +684,9 @@ do ij=1,num_tiles
         ignition_end_time,                      &
         ignitions_done_tile(ij),ignited_tile(1,ij),  &
         fxlong,fxlat,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
+        ign,                                          &  ! dimension of ignition histories
+        lfn_hist,                                     &  ! ignition histories as level set functions
+        lfn_time,                                     &  ! their ignition times
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes

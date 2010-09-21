@@ -32,6 +32,9 @@ subroutine sfire_model (                    &
     ignition_end_time,                      &
     ignitions_done,ignited_tile,            &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
+    ign,                                    &  ! dimension of ignition histories
+    lfn_hist,                               &  ! ignition histories as level set functions
+    lfn_time,                               &  ! their ignition times
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
     ros,                                    & ! output: rate of spread
@@ -108,6 +111,12 @@ integer, intent(out):: ignited_tile(num_ignitions),ignitions_done
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
 real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
+
+! ignition
+integer, intent(in):: ign                           ! number of ignition histories
+real, intent(in), dimension(ifms:ifme,ign,jfms:jfme):: lfn_hist  ! ignition histories
+real, intent(in), dimension(ign):: lfn_time         ! their end times
+
     
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
