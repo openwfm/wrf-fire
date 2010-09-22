@@ -242,15 +242,44 @@ subroutine lfn_ignition(id,ign,time_start,dt,     &
         ifms,ifme,jfms,jfme,                      &
         ifts,ifte,jfts,jfte,                      &
         lfn_time,lfn_hist,lfn,lfn_out,tign)
-integer, intent(in)::id,ign
-real, intent(in)::time_start,dt
+implicit none
+!*** ignition by replaying level set history
+! lfn_time(k) contains the time where the replay will stop and the simulation takes over
+! lfn_hist(i,k,j) is the time of ignition at (i,j)
+!*** arguments
+integer, intent(in)::id                     ! for display
+integer, intent(in)::ign                    ! max number of ignition histories            
+real, intent(in)::time_start,dt             ! current time at this timestep
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 real, intent(in), dimension (ign) :: lfn_time      ! igition histories
 real, intent(in), dimension (ifms:ifme,ign,jfms:jfme) :: lfn_hist      ! igition histories
-real, intent(in), dimension (ifms:ifme,jfms:jfme) :: lfn       ! model state
-real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: lfn_out,tign       ! model state
+real, intent(in), dimension (ifms:ifme,jfms:jfme) :: lfn       ! model state at the beginning of the timestep
+real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: lfn_out,tign  ! model state at the end of the timestep
+!*** local
+integer:: i,k,j
+real:: time_end,t
+!*** executable
+time_end = time_start + dt
+k=1 ! use only first slice, ignore the rest
+   if (lfn_time(k) .gt. time_start)then  ! still replaying this ignition
+     do j=jfts,jfte
+       do i=ifts,ifte
+         t = lfn_hist(i,k,j)
+         lfn_out(i,j)=t - time_end ! prescribe level set function inside
+         if(t .lt. time_end)then
+           tign(i,j)=t             ! set ignition time
+         endif
+       enddo
+     enddo
+   endif
+
+
 end subroutine lfn_ignition
+
+!
+!***
+!
 
 subroutine fuel_left(&
     ims,ime,jms,jme, &
