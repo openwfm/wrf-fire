@@ -315,6 +315,11 @@ elseif (ifun.eq.4) then  ! do the timestep
         lfn,lfn_out,tign,ros, fp &
     ) 
 
+    call lfn_ignition(id,ign,time_start,dt,       &
+        ifms,ifme,jfms,jfme,                      &
+        ifts,ifte,jfts,jfte,                      &
+        lfn_time,lfn_hist,lfn,lfn_out,tign)
+
     else
         call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
 

@@ -238,6 +238,20 @@ end subroutine ignite_fire
 !**********************
 !            
 
+subroutine lfn_ignition(id,ign,time_start,dt,     &
+        ifms,ifme,jfms,jfme,                      &
+        ifts,ifte,jfts,jfte,                      &
+        lfn_time,lfn_hist,lfn,lfn_out,tign)
+integer, intent(in)::id,ign
+real, intent(in)::time_start,dt
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
+real, intent(in), dimension (ign) :: lfn_time      ! igition histories
+real, intent(in), dimension (ifms:ifme,ign,jfms:jfme) :: lfn_hist      ! igition histories
+real, intent(in), dimension (ifms:ifme,jfms:jfme) :: lfn       ! model state
+real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: lfn_out,tign       ! model state
+end subroutine lfn_ignition
+
 subroutine fuel_left(&
     ims,ime,jms,jme, &
     its,ite,jts,jte, &
