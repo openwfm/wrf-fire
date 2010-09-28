@@ -19,19 +19,20 @@ fcbr=fuel.fcbr;                   % FUEL CANOPY BURN RATE (KG/M**2/S)
 hfgl=fuel.hfgl;                   % SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)
 cmbcnst=fuel.cmbcnst;             % JOULES PER KG OF DRY FUEL
 fuelheat=fuel.fuelheat;           % FUEL PARTICLE LOW HEAT CONTENT, BTU/LB
-fuelmc_g=fuel.fuelmc_g;           % FUEL PARTICLE (SURFACE) MOISTURE CONTENT
-fuelmc_c=fuel.fuelmc_c;           % FUEL PARTICLE (CANOPY) MOISTURE CONTENT
+fuelmc_g=fuel.fuelmc_g;           % FUEL PARTICLE (SURFACE) MOISTURE CONTENT, jm: 1 by weight?
+fuelmc_c=fuel.fuelmc_c;           % FUEL PARTICLE (CANOPY) MOISTURE CONTENT, 1
 
 % computations from CAWFE code: wf2_janice/fire_startup.m4 
 
-bmst     = fuelmc_g/(1+fuelmc_g);
+bmst     = fuelmc_g/(1+fuelmc_g);          % jm: 1 
 fuelheat = cmbcnst * 4.30e-04;             % convert J/kg to BTU/lb
 fci      = (1.+fuelmc_c)*fci_d;
 fuelloadm= (1.-bmst) * fgi;                % fuelload without moisture
+                                           % jm: 1.-bmst = 1/(1+fuelmc_g) so fgi includes moisture? 
 fuelload = fuelloadm * (.3048)^2 * 2.205;  % to lb/ft^2
 fueldepth= fueldepthm/0.3048;              % to ft
-betafl   = fuelload/(fueldepth * fueldens);% packing ratio
-betaop   = 3.348 * savr^(-0.8189);       % optimum packing ratio
+betafl   = fuelload/(fueldepth * fueldens);% packing ratio  jm: lb/ft^2/(ft * lb*ft^3) = 1
+betaop   = 3.348 * savr^(-0.8189);         % optimum packing ratio jm: units??  
 qig      = 250. + 1116.*fuelmc_g;          % heat of preignition, btu/lb
 epsilon  = exp(-138./savr );               % effective heating number
 rhob     = fuelload/fueldepth;             % ovendry bulk density, lb/ft^3
