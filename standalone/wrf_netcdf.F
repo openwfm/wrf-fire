@@ -50,13 +50,16 @@ character(len=nf90_max_name),parameter::                        &
                               var_vf='VF',                      &
                               unit_vf='',                       &
                               desc_vf='',                       &
-                              var_fgrnhfx='FGRNHFX',             &
-                              unit_fgrnhfx='',                   &
+                              var_fgrnhfx='FGRNHFX',            &
+                              unit_fgrnhfx='',                  &
                               desc_fgrnhfx=''
 character(len=nf90_max_name),parameter::                        &
                               var_nfuel_cat='NFUEL_CAT',        &
-                              var_u='U',                       &
-                              var_v='V',                       &
+                              var_u='U',                        &
+                              var_v='V',                        &
+                              var_z0='Z0',                      &
+                              var_ph='PH',                      &
+                              var_phb='PHB',                    &
                               var_dzdxf='DZDXF',                &
                               var_dzdyf='DZDYF',                &
                               var_zsf='ZSF'
@@ -75,8 +78,8 @@ type output_vars
 end type
 
 type input_vars
-  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,vx,vy
-  real,dimension(:,:,:),pointer::u,v
+  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,z0
+  real,dimension(:,:,:),pointer::u,v,ph,phb
 end type
 
 contains
@@ -436,9 +439,35 @@ call check(nf90_get_var(ncid,varid,input%dzdxf,start=s(1:3),count=c(1:3)))
 call check(nf90_inq_varid(ncid,var_dzdyf,varid))
 call check(nf90_get_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
 
-c(1)=info%natmx+1
+s(:)=1
+
+c(1)=info%natmx
 c(2)=info%natmy
 c(3)=1
+c(4)=1
+
+call check(nf90_inq_varid(ncid,var_z0,varid))
+call check(nf90_get_var(ncid,varid,input%z0,start=s,count=c))
+
+c(1)=info%natmx
+c(2)=info%natmy
+c(3)=info%natmz+1
+c(4)=1
+
+call check(nf90_inq_varid(ncid,var_ph,varid))
+call check(nf90_get_var(ncid,varid,input%ph,start=s,count=c))
+
+c(1)=info%natmx
+c(2)=info%natmy
+c(3)=info%natmz+1
+c(4)=1
+
+call check(nf90_inq_varid(ncid,var_phb,varid))
+call check(nf90_get_var(ncid,varid,input%phb,start=s,count=c))
+
+c(1)=info%natmx+1
+c(2)=info%natmy
+c(3)=info%natmz
 c(4)=1
 
 call check(nf90_inq_varid(ncid,var_u,varid))
@@ -446,7 +475,7 @@ call check(nf90_get_var(ncid,varid,input%u,start=s,count=c))
 
 c(1)=info%natmx
 c(2)=info%natmy+1
-c(3)=1
+c(3)=info%natmz
 c(4)=1
 
 call check(nf90_inq_varid(ncid,var_v,varid))

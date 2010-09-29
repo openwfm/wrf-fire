@@ -1665,6 +1665,7 @@
  DEST_RECORD fire_crwn_hgt              = SOURCE_RECORD fire_crwn_hgt SOURCE_REC_DEX
  DEST_RECORD fire_ext_grnd              = SOURCE_RECORD fire_ext_grnd SOURCE_REC_DEX
  DEST_RECORD fire_ext_crwn              = SOURCE_RECORD fire_ext_crwn SOURCE_REC_DEX
+ DEST_RECORD fire_wind_height           = SOURCE_RECORD fire_wind_height SOURCE_REC_DEX
  DEST_RECORD fire_fuel_read             = SOURCE_RECORD fire_fuel_read SOURCE_REC_DEX
  DEST_RECORD fire_fuel_cat              = SOURCE_RECORD fire_fuel_cat SOURCE_REC_DEX
  DEST_RECORD fire_print_msg             = SOURCE_RECORD fire_print_msg SOURCE_REC_DEX
@@ -1703,6 +1704,13 @@
  DEST_RECORD sfc_lu_index               = SOURCE_RECORD sfc_lu_index SOURCE_REC_DEX
  DEST_RECORD sfc_tsk                    = SOURCE_RECORD sfc_tsk SOURCE_REC_DEX
  DEST_RECORD sfc_tmn                    = SOURCE_RECORD sfc_tmn SOURCE_REC_DEX
+ DEST_RECORD fire_read_lu               = SOURCE_RECORD fire_read_lu SOURCE_REC_DEX
+ DEST_RECORD fire_read_tsk              = SOURCE_RECORD fire_read_tsk SOURCE_REC_DEX
+ DEST_RECORD fire_read_tmn              = SOURCE_RECORD fire_read_tmn SOURCE_REC_DEX
+ DEST_RECORD fire_read_atm_ht           = SOURCE_RECORD fire_read_atm_ht SOURCE_REC_DEX
+ DEST_RECORD fire_read_fire_ht          = SOURCE_RECORD fire_read_fire_ht SOURCE_REC_DEX
+ DEST_RECORD fire_read_atm_grad         = SOURCE_RECORD fire_read_atm_grad SOURCE_REC_DEX
+ DEST_RECORD fire_read_fire_grad        = SOURCE_RECORD fire_read_fire_grad SOURCE_REC_DEX
  DEST_RECORD sfc_vegfra                 = SOURCE_RECORD sfc_vegfra SOURCE_REC_DEX
  DEST_RECORD sfc_canwat                 = SOURCE_RECORD sfc_canwat SOURCE_REC_DEX
  DEST_RECORD sfc_ivgtyp                 = SOURCE_RECORD sfc_ivgtyp SOURCE_REC_DEX

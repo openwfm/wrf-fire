@@ -86,9 +86,13 @@ if(fire_print_msg.gt.0)then
 #endif
     call wrf_message(msg)
     inquire(unit=6,opened=op)
-    if(op)flush(6)
+    if(op)then 
+      call flush(6)
+    endif
     inquire(unit=0,opened=op)
-    if(op)flush(0)
+    if(op)then
+      call flush(0)
+    endif
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -167,6 +171,7 @@ subroutine continue_at_boundary(ix,iy,bias, & ! do x direction or y direction
     ids,ide,jds,jde, &                ! domain dims
     ips,ipe,jps,jpe, &                ! patch dims
     its,ite,jts,jte, &                ! tile dims
+    itso,iteo,jtso,jteo, &            ! tile dims where set
     lfn)                              ! array
 implicit none
 !*** description
@@ -178,9 +183,10 @@ integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain dims
     ips,ipe,jps,jpe, &                ! patch dims
     its,ite,jts,jte                   ! tile dims
+integer, intent(out)::itso,jtso,iteo,jteo ! where set
 real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 !*** local
-integer i,j,itso,jtso,iteo,jteo
+integer i,j
 character(len=128)::msg
 integer::its1,ite1,jts1,jte1
 integer,parameter::halo=1           ! width of halo region to update 
@@ -207,8 +213,8 @@ if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+halo
 if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+halo
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call message(msg)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 if(ix.ne.0)then
     if(its.eq.ids)then
         do j=jts1,jte1
@@ -224,8 +230,8 @@ if(ix.ne.0)then
     endif
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: x:',its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jts1,':',jte1
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
     call message(msg)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 endif
 if(iy.ne.0)then
     if(jts.eq.jds)then
@@ -1014,7 +1020,7 @@ return
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,1)name,i,k,j,aa
 call message(msg)
-1 format(a,'(',i6,',',i6,',',i6,') = ',a)
+1 format(a30,'(',i6,',',i6,',',i6,') = ',g13.5)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
 if(aa.ne.aa)goto 10
@@ -1131,7 +1137,7 @@ character(len=128)::fname,msg
 if(fire_print_file.eq.0.or.id.le.0)return
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call wrf_get_nproc (nprocs)
-call wrf_get_myproc( myproc )
+call wrf_get_myproc(myproc)
 
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 if(nprocs.eq.1)then
@@ -1139,17 +1145,13 @@ if(nprocs.eq.1)then
 else
     write(fname,4)name,'_',id,'.',myproc,'.txt'
 endif
-do ilen=len(fname),2,-1
-    if(fname(ilen:ilen).ne.' ')goto 19
-enddo
-19 continue
 
 iu=0
 do i=6,99
     inquire(unit=i,opened=op)
     if(.not.op.and.iu.le.0)iu=i
 enddo
-if(iu.gt.0)open(iu,file=fname(1:ilen),form='formatted',status='unknown')
+if(iu.gt.0)open(iu,file=trim(fname),form='formatted',status='unknown')
 
 if(iu.le.0)call crash('write_array_m: cannot find available fortran unit')
 
@@ -1162,15 +1164,15 @@ write(iu,1)real(kte)
 write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
 write(msg,2)name,'(',its,':',ite,',',jts,':',jte,',', &
-kts,':',kte,') -> ',fname(1:ilen) 
+kts,':',kte,') -> ',trim(fname) 
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call message(msg)
 return
 
 1 format(e20.12)
 2 format(2a,3(i5,a,i5,a),2a)
-3 format(a,a,i5.5,a)
-4 format(a,a,i5.5,a,i4.4,a)
+3 format(a,a,i8.8,a)
+4 format(a,a,i8.8,a,i4.4,a)
 
 
 end subroutine write_array_m3
@@ -1280,6 +1282,18 @@ end subroutine read_array_2d_real
 !***
 !
 
+! general conditional expression
+pure integer function ifval(l,i,j)
+implicit none
+logical, intent(in)::l
+integer, intent(in)::i,j
+if(l)then
+	ifval=i
+else
+	ifval=j
+endif
+end function ifval
+
 ! function to go beyond domain boundary if tile is next to it
 pure integer function snode(t,d,i)
 implicit none
@@ -1297,6 +1311,80 @@ character(len=128)::id,msg
 msg=id
 call message(msg)
 end subroutine print_id
+
+subroutine print_chsum( id, & 
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+    istag,kstag,jstag,       &
+    a,name)                      
+
+#ifdef DM_PARALLEL
+    USE module_dm
+#endif
+
+integer, intent(in):: id, &
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch dims
+    istag,kstag,jstag
+real, intent(in),dimension(ims:ime,kms:kme,jms:jme)::a
+character(len=*)::name
+
+!$ external, logical:: omp_in_parallel
+!$ external, integer:: omp_get_thread_num
+
+!*** local
+integer::lsum
+integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
+integer, save::psum,gsum
+real::rel
+equivalence(rel,iel)
+character(len=256)msg
+
+if(fire_print_msg.le.0)return
+
+ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
+kpe1=ifval(kpe.eq.kde.and.kstag.ne.0,kpe+1,kpe)
+jpe1=ifval(jpe.eq.jde.and.jstag.ne.0,jpe+1,jpe)
+is=ifval(istag.ne.0,1,0)
+ks=ifval(kstag.ne.0,1,0)
+js=ifval(jstag.ne.0,1,0)
+
+lsum=0
+do j=jps,jpe1
+  do k=kps,kpe1
+    do i=ips,ipe1
+      rel=a(i,k,j)
+      lsum=ieor(lsum,iel)
+    enddo
+  enddo
+enddo
+
+! get process sum over all threads
+thread=0
+!$ thread=omp_get_thread_num()
+if(thread.eq.0)psum=0
+!$OMP BARRIER
+!$OMP CRITICAL(CHSUM)
+psum=ieor(psum,lsum)
+!$OMP END CRITICAL(CHSUM)
+!$OMP BARRIER
+
+! get global sum over all processes
+if(thread.eq.0)then
+#ifdef DM_PARALLEL
+    gsum = wrf_dm_bxor_integer ( psum )
+#else
+    gsum = lsum
+#endif
+    write(msg,1)id,name,ids,ide+is,kds,kde+ks,jds,jde+js,gsum
+1   format(i6,1x,a10,' dims',6i5,' chsum ',z8.8)
+    call message(msg)
+endif
+
+end subroutine print_chsum 
+
 
 
 end module module_fr_sfire_util

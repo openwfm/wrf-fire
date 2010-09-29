@@ -8,7 +8,13 @@
 #<key>   <package       <associated               <package        <associated 4d scalars>
 #         name>          namelist choice>          state vars>
 # 
-package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,betafl,phiwc,r_0,fgip,ischap
+package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,betafl,phiwc,r_0,fgip,ischap,lfn_hist,lfn_time
+
+# level function history support
+dimspec   ign   2           constant=15      z    i_lfn_history
+state     real  lfn_hist    *i{ign}*j   fire   1    Z   i012hr     "LFN_HIST"    "level function history" "1"
+state     real  lfn_time    {ign}       fire   1    -   i012hr     "LFN_TIME"    "level function history time" "s"
+
 
 # fire variables on fire grid
 #
@@ -21,13 +27,18 @@ state    real     tign_g    *i*j     fire        1         z     hr   "TIGN_G"  
 
 # fire variables on atm grid
 #
-state    real     avg_fuel_frac ij   fire        1         z     hr   "AVG_FUEL_FRAC" "fuel remaining averaged to atmospheric grid" "1"
+# outputs to atm model
 state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
 state    real     rqvfrten  ikj      fire        1         z     hr   "RQVFRTEN" "humidity tendency" 
+
+# diagnostics only
+state    real     avg_fuel_frac ij   fire        1         z     hr   "AVG_FUEL_FRAC" "fuel remaining averaged to atmospheric grid" "1"
 state    real     grnhfx    ij       fire        1         z     hr   "GRNHFX"   "heat flux from ground fire" "W/m^2"
 state    real     grnqfx    ij       fire        1         z     hr   "GRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     canhfx    ij       fire        1         z     hr   "CANHFX"   "heat flux from crown fire" "W/m^2"
 state    real     canqfx    ij       fire        1         z     hr   "CANQFX"   "moisture flux from crown fire" "W/m^2"
+state    real     uah       ij       fire        1         X     hr   "UAH"      "wind at fire_wind_height" "m/s"
+state    real     vah       ij       fire        1         Y     hr   "VAH"      "wind at fire_wind_height" "m/s"
 
 # sfire variables on fire grid
 # (also using tign_g,zs,z_at_w,dz8w,nfuel_cat,fluxes,zsf)
@@ -44,8 +55,8 @@ state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"
 state    real     ros       *i*j      fire        1         z    hr    "ROS" "rate of spread" "m/s"
 
 # constant data arrays
-state    real     fxlong    *i*j      fire        1         z    hr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
-state    real     fxlat     *i*j      fire        1         z    hr    "FXLAT"     "latitude of midpoints of fire cells" "degrees"
+state    real     fxlong    *i*j      fire        1         z   ihr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
+state    real     fxlat     *i*j      fire        1         z   ihr    "FXLAT"     "latitude of midpoints of fire cells" "degrees"
 state    real     fuel_time *i*j      fire        1         z    hr    "FUEL_TIME" "fuel"
 state    real     bbb       *i*j      fire        1         z    hr    "BBB"       "fuel"
 state    real     betafl    *i*j      fire        1         z    hr    "BETAFL"    "fuel"
@@ -126,6 +137,7 @@ rconfig   integer fire_sprd_mdl          namelist,fire         max_domains      
 rconfig   real    fire_crwn_hgt          namelist,fire         max_domains           15.     -      "fire_crwn_hgt"    "height that heat from crown fire is released" "m"
 rconfig   real    fire_ext_grnd          namelist,fire         max_domains           50.     -      "fire_ext_grnd"    "extinction depth of sfc fire heat"   "m"
 rconfig   real    fire_ext_crwn          namelist,fire         max_domains           50.     -      "fire_ext_crwn"    "extinction depth of crown fire heat" "m"
+rconfig   real    fire_wind_height       namelist,fire         max_domains           6.096   -      "fire_wind_height" "height of uah,vah wind in fire spread formula" "m"
 rconfig   integer fire_fuel_read         namelist,fire         max_domains           -1      -      "fire_fuel_read"   "fuel categories are set by: if 0, uniform; if 1, user-presc; if 2, read from file"   ""
 rconfig   integer fire_fuel_cat          namelist,fire         max_domains           1       -      "fire_fuel_cat"     "fuel category if ifuelread=0"              ""
 # sfire switches
@@ -189,6 +201,9 @@ rconfig   integer sfc_isltyp             namelist,fire         max_domains      
 halo      HALO_FIRE_LFN dyn_em 24:lfn
 halo      HALO_FIRE_TIGN dyn_em 8:tign_g
 halo      HALO_FIRE_HT dyn_em 8:ht
+halo      HALO_FIRE_PHB dyn_em 8:phb
+halo      HALO_FIRE_Z0 dyn_em 8:z0
+halo      HALO_FIRE_PH dyn_em 8:ph_2
 halo      HALO_FIRE_WIND_F dyn_em 12:uf,vf
 halo      HALO_FIRE_LONGLAT dyn_em 24:xlong,xlat
 halo      HALO_FIRE_WIND_A dyn_em 8:u_2,v_2

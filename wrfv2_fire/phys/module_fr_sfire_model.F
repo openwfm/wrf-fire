@@ -133,7 +133,7 @@ type(fire_params),intent(inout)::fp
 
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
-integer::ignited,ig,i,j
+integer::ignited,ig,i,j,itso,iteo,jtso,jteo
 real::tbound,err,erri,errj,maxgrad,grad
 character(len=128)::msg
 logical:: freeze_fire
@@ -167,6 +167,7 @@ elseif(ifun.eq.2)then
             ifds,ifde,jfds,jfde, &                     ! domain dims 
             ifps,ifpe,jfps,jfpe, &            ! patch dims - winds defined up to +1
             ifts,ifte,jfts,jfte, &                ! tile dims
+            itso,iteo,jtso,jteo, &              ! where set now
             fp%zsf)                               ! array
 
 !       compute the gradients once for all

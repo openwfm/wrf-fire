@@ -21,8 +21,13 @@ p=nc2struct(filename,{'U','V','W','PH','PHB','HGT','QVAPOR','T','Z0',...
 % add altitude
 p.alt_at_w=(p.ph+p.phb)/9.81; % geopotential altitude at w-points
 p.altitude=(p.alt_at_w(:,:,1:end-1,:)+p.alt_at_w(:,:,2:end,:))*0.5; % interpolate to center altitude
+% subtract the altitude of the ground to get height (above the ground)
+for k=1:size(p.altitude,3)
+    p.height(:,:,k,:)=p.altitude(:,:,k,:)-p.alt_at_w(:,:,1,:);
+end
 
-% add wind
+
+% add wind at centers (theta points)
 p.uc = 0.5*(p.u(1:end-1,:,:,:) + p.u(2:end,:,:,:));
 p.vc = 0.5*(p.v(:,1:end-1,:,:) + p.v(:,2:end,:,:));
 p.wc = 0.5*(p.w(:,:,1:end-1,:) + p.w(:,:,2:end,:));

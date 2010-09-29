@@ -113,6 +113,7 @@ CONTAINS
    INTEGER :: xs , xe , ys , ye
    INTEGER :: mtn_type
    INTEGER :: &  ! fire mesh sizes
+              iots,iote,jots,jote, &            ! tile dims out
              ifds,ifde, kfds,kfde, jfds,jfde,                              &
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifts,ifte, kfts,kfte, jfts,jfte
@@ -569,6 +570,7 @@ write(6,*) '*************************************'
               ifds,ifde,jfds,jfde, &            ! domain dims
               ifds,ifde,jfds,jfde, &            ! patch dims = domain, not parallel!
               ifts,ifte,jfts,jfte, &            ! tile dims
+              iots,iote,jots,jote, &            ! tile dims out
               grid%zsf)                         ! array
   
       ! compute the terrain gradient by differencing
