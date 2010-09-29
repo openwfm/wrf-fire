@@ -57,14 +57,8 @@ all: fire.exe init.exe
 
 default: fire 
 
-init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
-
 fuel: fuel_interp_test.exe
  
-fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
-	$(FC) $(FCFLAGS) -o fuel_interp_test.exe $(FUEL_INTERP_OBJ)
-
 all: fire init fuel
 
 fire: fire.exe
@@ -76,6 +70,9 @@ fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)
 
 init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
+
+fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
+	$(FC) $(FCFLAGS) -o fuel_interp_test.exe $(FUEL_INTERP_OBJ)
  
 # for the order of generating modules
 
@@ -121,6 +118,10 @@ module_fr_sfire_phys.o: $(MAKEFILE) \
 module_fr_sfire_util.o: $(MAKEFILE) \
     sfire_id.inc \
     wrf_fakes.o
+
+fuel_interp_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_util.o 
 
 wrf_netcdf.o: $(MAKEFILE) \
     module_fr_sfire_util.o
