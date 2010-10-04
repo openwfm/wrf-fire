@@ -1,6 +1,5 @@
 	program test
 	use module_fr_sfire_core
-	! add call to your subroutine here 
         implicit none
 real :: time_now
 integer :: ims,ime,jms,jme,icl,jcl,i,j
@@ -15,6 +14,7 @@ real::lfn00,lfn01,lfn10,lfn11,tign00,tign01,tign10,tign11,fuel_time_cell
 real:: Result1,Result2,Result3,Result4,Result5,result
 real:: res1,res2,res3,res4,res5
 time_now=3.
+101 format(a/(3f7.3))
 ims=1
 ime=3
 jms=1
@@ -22,14 +22,7 @@ jme=3
 icl=2
 jcl=2
 
-
-!<<<<<<< HEAD:standalone/fuel_interp_test_main.F
-
 !!!!! Test #1
-print*,''
-print*,''
-print*,''
-print*,"4 Minitest that check if tign_interpolate is working properly"
 !lfn - plane Z=1.5-X;
 ! tign -- everywhere where lfn>=0, tign=3;
 ! everywhere where lfn<0, tign=Z+3;
@@ -49,36 +42,12 @@ data real_lff/0.0, -0.5, -1.0, &
           0.0, -0.5, -1.0, &
           0.0, -0.5, -1.0 /
 
-!write(*,101)'tign',tign
-!write(*,101)'lfn',lfn
-!        print *,"this is fuel_interp_test.exe"
         call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                     tign,lfn,tff,lff)
-!write(*,101)'tff',tff
-!write(*,101)'lff',lff
-101 format(a/(3f7.3))
 
-d=1e20
-d(1:5:2,1:5:2)=tign
-d(2:4,2:4)=tff
-!write(*,*)'tign and tff'
-!write(*,'(5f7.3)')d
-!write(*,*)' '
-d(1:5:2,1:5:2)=lfn
-d(2:4,2:4)=lff
-!write(*,*)'lfn and lff'
-!write(*,'(5f7.3)')d
-!write(*,*)' '
-
-!        write(*,*)"Maximum of (Real result - calculated result) for subcell &
-!                   tign,lfn calculation "
-!	write(*,*)real_tff-tff
 	test1_err=maxval(abs(real_tff-tff))
-!	write(*,*)"test1_err=",test1_err
 
 !!!! Test #2
-
-!=======
 !lfn - plane Z=4-X-Y;
 ! tign -- everywhere where lfn>=0, tign=3;
 ! everywhere where lfn<0, tign=Z+3;
