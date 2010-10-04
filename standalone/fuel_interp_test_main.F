@@ -2,16 +2,23 @@
 	use module_fr_sfire_core
         implicit none
 real :: time_now
-integer :: ims,ime,jms,jme,icl,jcl,i,j
-real,dimension(3,3)::tff,lff,lfn,tign,lfn1,tign1,lfn2,tign2
-real,dimension(3,3)::real_tff,real_lff
+integer :: ims,ime,jms,jme,icl,jcl,i,j,num_tests
+real,dimension(3,3)::tff,lff,lfn,tign,real_tff,real_lff
+real,dimension(3,3)::tff0,lff0,lfn0,tign0,real_tff0,real_lff0
+real,dimension(3,3)::tff1,lff1,lfn1,tign1,real_tff1,real_lff1
+real,dimension(3,3)::tff2,lff2,lfn2,tign2,real_tff2,real_lff2
+real,dimension(3,3)::tff3,lff3,lfn3,tign3,real_tff3,real_lff3
+real,dimension(3,3)::tff4,lff4,lfn4,tign4
+real,dimension(3,3)::tff5,lff5,lfn5,tign5
+real,dimension(3,3)::tff6,lff6,lfn6,tign6
+real,dimension(3,3)::tff7,lff7,lfn7,tign7
+real,dimension(3,3)::tff8,lff8,lfn8,tign8
+real,dimension(3,5)::tff9,lff9,lfn9,tign9
 real, dimension(5,5)::d
-real, dimension(5,3)::lfn3,tign3
-real::tign_err
-real,dimension(2,2)::rslt
-real::test1_err,test2_err,test3_err,test4_err,test5_err
+real,dimension(2,2)::result
+real::test_err,error,test1_err,test2_err,test3_err,test4_err,test5_err
 real::lfn00,lfn01,lfn10,lfn11,tign00,tign01,tign10,tign11,fuel_time_cell
-real:: Result1,Result2,Result3,Result4,Result5,result
+real:: res,Result1,Result2,Result3,Result4,Result5,result6
 real:: res1,res2,res3,res4,res5
 time_now=3.
 101 format(a/(3f7.3))
@@ -21,7 +28,8 @@ jms=1
 jme=3
 icl=2
 jcl=2
-
+error=0.0001
+num_tests=0
 !!!!! Test #1
 !lfn - plane Z=1.5-X;
 ! tign -- everywhere where lfn>=0, tign=3;
@@ -44,106 +52,119 @@ data real_lff/0.0, -0.5, -1.0, &
 
         call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                     tign,lfn,tff,lff)
-
-	test1_err=maxval(abs(real_tff-tff))
-
+test_err=1
+	test_err=maxval(abs(real_tff-tff))
+if (test_err>error) then
+	print*,'Test #1 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
 !!!! Test #2
 !lfn - plane Z=4-X-Y;
 ! tign -- everywhere where lfn>=0, tign=3;
 ! everywhere where lfn<0, tign=Z+3;
-data lfn/2.0, 1.0, 0.0, &
+data lfn1/2.0, 1.0, 0.0, &
          1.0, 0.0,-1.0, &
          0.0, -1.0,-2.0/
 
-data tign/3.0, 3.0, 3.0, &
+data tign1/3.0, 3.0, 3.0, &
           3.0, 3.0, 2.0, &
           3.0, 2.0, 1.0 /
 
-data real_tff/3.0, 3.0, 3.0, &
+data real_tff1/3.0, 3.0, 3.0, &
           3.0, 3.0, 2.5, &
           3.0, 2.5, 2.0 /
 
-data real_lff/1.0, 0.5, 0.0, &
+data real_lff1/1.0, 0.5, 0.0, &
           0.5, 0.0, -0.5, &
           0.0, -0.5, -1.0 /
 
         call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
-                                    tign,lfn,tff,lff)
+                                    tign1,lfn1,tff1,lff1)
 
-	test2_err=maxval(abs(real_tff-tff))
+test_err=1
+	test_err=maxval(abs(real_tff1-tff1))
 
+if (test_err>error) then
+	print*,'Test #2 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
 !!!! Test #3
 
 !=======
 !lfn - plane Z=3-X-Y;
 ! tign -- everywhere where lfn>=0, tign=3;
 ! everywhere where lfn<0, tign=Z+3;
-data lfn/1.0, 0.0, -1.0, &
+data lfn2/1.0, 0.0, -1.0, &
          0.0, -1.0,-2.0, &
          -1.0, -2.0,-3.0/
 
-data tign/3.0, 3.0, 2.0, &
+data tign2/3.0, 3.0, 2.0, &
           3.0, 2.0, 1.0, &
           2.0, 1.0, 0.0 /
 
-data real_tff/3.0, 2.5, 2.0, &
+data real_tff2/3.0, 2.5, 2.0, &
           2.5, 2.0, 1.5, &
           2.0, 1.5, 1.0 /
 
-data real_lff/0.0, -0.5, -1.0, &
+data real_lff2/0.0, -0.5, -1.0, &
           -0.5, -1.0, -1.5, &
           -1.0, -1.5, -2.0 /
 
 
 
         call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
-                                    tign,lfn,tff,lff)
+                                    tign2,lfn2,tff2,lff2)
 
-test3_err=maxval(abs(real_tff-tff))
-
+test_err=1
+test_err=maxval(abs(real_tff2-tff2))
+if (test_err>error) then
+	print*,'Test #3 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
 !!!! Test #4
 
 !=======
 !lfn - plane Z=5-X-Y;
 ! tign -- everywhere where lfn>=0, tign=3;
 ! everywhere where lfn<0, tign=Z+3;
-data lfn/3.0, 2.0, 1.0, &
+data lfn3/3.0, 2.0, 1.0, &
          2.0, 1.0, 0.0, &
          1.0, 0.0,-1.0/
 
-data tign/3.0, 3.0, 3.0, &
+data tign3/3.0, 3.0, 3.0, &
           3.0, 3.0, 3.0, &
           3.0, 3.0, 2.0 /
 
-data real_tff/3.0, 3.0, 3.0, &
+data real_tff3/3.0, 3.0, 3.0, &
           3.0, 3.0, 3.0, &
           3.0, 3.0, 3.0 /
 
-data real_lff/2.0, 1.5, 1.0, &
+data real_lff3/2.0, 1.5, 1.0, &
           1.5, 1.0, 0.5, &
           1.0, 0.5, 0.0 /
 
 
 
         call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
-                                    tign,lfn,tff,lff)
-        test4_err=maxval(abs(real_tff-tff))
-
-        write(*,*)"test1_err=",test1_err
-        write(*,*)"test2_err=",test2_err
-        write(*,*)"test3_err=",test3_err
-        write(*,*)"test4_err=",test4_err
-        write(*,*)"If all test*_err are equal to 0.0, than the code works"
-        write(*,*)"correctly for this set of tests"
-
-
+                                    tign3,lfn3,tff3,lff3)
+test_err=1
+test_err=maxval(abs(real_tff3-tff3))
+if (test_err>error) then
+	print*,'Test #4 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
 print*,''
-print*,''
-print*,''
-        write(*,*)"Tests for fuel_left calculation"
-
-!write(*,*)"Test1, result in Matlab u=(-2;0;1) f =0.9169"
-res1=0.9169
+!!!Tests for fuel_left calculation!!!
+!!!Test #5, result in Matlab u=(-2;0;1) f =0.91691!
+res=0.9169
 lfn00=-1.
 lfn01=-1.
 lfn10=1.
@@ -159,18 +180,21 @@ result1= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
-!print*,""
-test1_err=res1-result1
-!write(*,*)"lfn",lfn00,lfn01,lfn10,lfn11
-!print*,""
-!write(*,*)"tign",tign00,tign01,tign10,tign11
-!print*,""
-!write(*,*)"Result1=",result1
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-!print*,""
-!write(*,*)"Test2, result in Matlab u=(1;0;1) f =0.1660"
-res2=0.166
+test_err=1
+test_err=res-result1
+
+if (test_err>error) then
+	print*,'Test #5 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
+
+
+
+!Test#6, result in Matlab u=(1;0;1) f =0.1660
+res=0.166
 lfn00=-2.
 lfn01=-2.
 lfn10=-1.
@@ -182,17 +206,23 @@ tign11=2.
 time_now=3
 fuel_time_cell= 8.235294 ;
 
-Result2= fuel_left_cell_3(  &
+Result1= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
-!print*,""
-test2_err=res2-Result2
-!print*,""
 
+test_err=1
+test_err=res-result1
 
-!write(*,*)"Test3, result in Matlab u=-(2;0;4) f =0.4538"
-res3=0.4538
+if (test_err>error) then
+	print*,'Test #6 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
+
+!Test7, result in Matlab u=-(2;0;4) f =0.4538
+res=0.4538
 lfn00=-2.
 lfn01=-2.
 lfn10=-4.
@@ -204,19 +234,23 @@ tign11=4.
 time_now=10
 fuel_time_cell= 8.235294 ;
 
-result3= fuel_left_cell_3(  &
+result1= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
-!print*,""
-test3_err=res3-result3
 
-!print*,""
+test_err=1
+test_err=res-result1
+if (test_err>error) then
+	print*,'Test #7 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
 
 
-!write(*,*)"Test4, result in Matlab u=(-4;-4;6) f =0.5336"    
-! -4 -4 2  .7891"
-res4=0.5336
+!Test#8, result in Matlab u=(-4;-4;6) f =0.5336
+res=0.5336
 lfn00=-3.
 lfn01=-1.
 lfn10=-1.
@@ -228,19 +262,22 @@ tign11=10.
 time_now=10
 fuel_time_cell= 8.235294 ;
 
-Result4= fuel_left_cell_3(  &
+Result1= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
-!print*,""
-test4_err=res4-result4
 
-!print*,""
+test_err=1
+test_err=res-result1
+if (test_err>error) then
+	print*,'Test #8 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
 
-!write(*,*)"Test5, result in Matlab u=(-2;-2;1) f =0.9692"
-res5=0.9692
-!-2 -2 3 .9488
-
+!Test9, result in Matlab u=(-2;-2;1) f =0.9692
+res=0.9692
 lfn00=-1.
 lfn01=1.
 lfn10=1.
@@ -252,34 +289,23 @@ tign11=2.
 time_now=2
 fuel_time_cell= 8.235294 ;
 
-Result5= fuel_left_cell_3(  &
+Result1= fuel_left_cell_3(  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
-!print*,""
-test5_err=res5-result5
-!print*,""
-!print*,""
 
-
-        write(*,*)"test1_err=",test1_err
-        write(*,*)"test2_err=",test2_err
-        write(*,*)"test3_err=",test3_err
-        write(*,*)"test4_err=",test4_err
-        write(*,*)"test5_err=",test5_err
-        write(*,*)"If all test*_err are close to 0.0, than the code works"
-        write(*,*)"correctly for this set of tests"
-
-
-
-
-
+test_err=1
+test_err=res-result1
+if (test_err>error) then
+	print*,'Test #9 is not working, error ',test_err
+        print*,'is greater than 0.0001'
+else
+num_tests=num_tests+1;
+endif
 
 print*,""
-print*,""
-print*,""
 
-print*,"Main Test #1, we calculate the fuel_left of the center cell"
+print*,"Main Test (#10), we calculate the fuel_left of the center cell"
 print*,"(we have 9 cells initially)"
 print*,"The initial values are"
 print*,"lfn is described by the plane z=y-2; tign is described by the plane z=y"
@@ -287,38 +313,39 @@ print*,"lfn is described by the plane z=y-2; tign is described by the plane z=y"
 
 time_now=2.
 
-data lfn1/-1., 0., 1., &
+data lfn8/-1., 0., 1., &
          -1., 0.,1., &
          -1., 0.,1./
 
-data tign1/1.0, 2., 2., &
+data tign8/1.0, 2., 2., &
           1.0, 2., 2., &
           1.0, 2., 2. /
-
+res1=2.9752314E-02
+res2=2.9752314E-02
+res3=1.000
+res4=1.000
 print*,"time_now",time_now
-!print*,"tign",tign1
-!print*,"lfn",lfn1
-write(*,101)'tign',tign1
-write(*,101)'lfn',lfn1
+write(*,101)'tign',tign8
+write(*,101)'lfn',lfn8
 print*,"icl,jcl should be equal 2 here"
 write(*,*)'icl,jcl',icl,jcl
 print*,"calling tign_lfn_interpolation, that calculates"
         call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
-                                    tign1,lfn1,tff,lff)
+                                    tign8,lfn8,tff8,lff8)
 
 print*,"as result tff,lff are"
-write(*,101)'tff',tff
-write(*,101)'lff',lff
+write(*,101)'tff',tff8
+write(*,101)'lff',lff8
 
 d=1e20
-d(1:5:2,1:5:2)=tign1
-d(2:4,2:4)=tff
+d(1:5:2,1:5:2)=tign8
+d(2:4,2:4)=tff8
 write(*,*)'tign and tff, here you can check whether they were  & 
            calculated properly'
 write(*,'(5f7.3)')d
 write(*,*)' '
-d(1:5:2,1:5:2)=lfn1
-d(2:4,2:4)=lff
+d(1:5:2,1:5:2)=lfn8
+d(2:4,2:4)=lff8
 write(*,*)'lfn and lff, here you can check whether they were calculated properly'
 write(*,'(5f7.3)')d
 write(*,*)' '
@@ -327,18 +354,17 @@ write(*,*)' '
 fuel_time_cell= 8.235294 ;
 print*,"Calculation of fuel_frac over 4 subcells"
 
-result=0; ! Here we sum up all 4 results
 do i=1,2  ! Loop over 4 subcells
    do j=1,2
 print*,""
 print*,"meaning of tff and lff in the subcell",i,j
-write(*,*)'lff',lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1)
-write(*,*)'tff',tff(i,j),tff(i,j+1),tff(i+1,j),tff(i+1,j+1)
-rslt(i,j)= fuel_left_cell_3(  &
-    lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1), &
-    tff(i,j),tff(i,j+1),tff(i+1,j),tff(i+1,j+1),&
+write(*,*)'lff',lff8(i,j),lff8(i,j+1),lff8(i+1,j),lff8(i+1,j+1)
+write(*,*)'tff',tff8(i,j),tff8(i,j+1),tff8(i+1,j),tff8(i+1,j+1)
+result(i,j)= fuel_left_cell_3(  &
+    lff8(i,j),lff8(i,j+1),lff8(i+1,j),lff8(i+1,j+1), &
+    tff8(i,j),tff8(i,j+1),tff8(i+1,j),tff8(i+1,j+1),&
     time_now, fuel_time_cell)
-write(*,*)'result after step i and j',rslt(i,j),i,j
+write(*,*)'result after step i and j',result(i,j),i,j
 end do
 end do
 
@@ -355,13 +381,13 @@ ime=5
 jms=1
 jme=5
 
-data lfn3/-1., -1.,-1., &
+data lfn9/-1., -1.,-1., &
          -1., -1.,0., &
          0., 0.,0., &
          0., 1., 1., &
          1.,1.,1./
 
-data tign3/1.0, 1., 1., &
+data tign9/1.0, 1., 1., &
           1.0, 1., 2., &
           2.0, 2., 2.,  &
           2.,2.,2., &
@@ -370,15 +396,15 @@ data tign3/1.0, 1., 1., &
 do icl=2,4
         write(*,*)"icl,jcl",icl,jcl
        call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
-                                    tign3,lfn3,tff,lff)
+                                    tign9,lfn9,tff,lff)
 
 d=1e20
-d(1:5:2,1:5:2)=tign3(icl-1:icl+1,1:3)
+d(1:5:2,1:5:2)=tign9(icl-1:icl+1,1:3)
 d(2:4,2:4)=tff
 !write(*,*)'tign and tff'
 !write(*,'(5f7.3)')d
 !write(*,*)' '
-d(1:5:2,1:5:2)=lfn3(icl-1:icl+1,1:3)
+d(1:5:2,1:5:2)=lfn9(icl-1:icl+1,1:3)
 d(2:4,2:4)=lff
 !write(*,*)'lfn and lff'
 !write(*,'(5f7.3)')d
@@ -386,12 +412,12 @@ d(2:4,2:4)=lff
 
 fuel_time_cell= 8.235294 ;
         write(*,*)"Calculation of fuel_frac over 4 subcells"
-result=0;
+result6=0;
 do i=1,2
    do j=1,2
 
 
-result=fuel_left_cell_3(  &
+result6=fuel_left_cell_3(  &
     lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1), &
     tff(i,j),tff(i,j+1),tff(i+1,j),tff(i+1,j+1),&
     time_now, fuel_time_cell)
@@ -402,6 +428,8 @@ end do
 end do
 print*,"If the results for each correspondent subcell are equal in all cells"
 print*,"then the code is consistent"
+
+print*,num_tests,'of 11 tests worked succesfully'
 
 
  end program test
