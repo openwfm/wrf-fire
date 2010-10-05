@@ -2,24 +2,20 @@
 	use module_fr_sfire_core
         implicit none
 real :: time_now
-integer :: ims,ime,jms,jme,icl,jcl,i,j,num_tests
+integer :: ims,ime,jms,jme,icl,jcl,i,j,num_tests,flag
 real,dimension(3,3)::tff,lff,lfn,tign,real_tff,real_lff
 real,dimension(3,3)::tff0,lff0,lfn0,tign0,real_tff0,real_lff0
 real,dimension(3,3)::tff1,lff1,lfn1,tign1,real_tff1,real_lff1
 real,dimension(3,3)::tff2,lff2,lfn2,tign2,real_tff2,real_lff2
 real,dimension(3,3)::tff3,lff3,lfn3,tign3,real_tff3,real_lff3
-real,dimension(3,3)::tff4,lff4,lfn4,tign4
-real,dimension(3,3)::tff5,lff5,lfn5,tign5
-real,dimension(3,3)::tff6,lff6,lfn6,tign6
-real,dimension(3,3)::tff7,lff7,lfn7,tign7
 real,dimension(3,3)::tff8,lff8,lfn8,tign8
 real,dimension(3,5)::tff9,lff9,lfn9,tign9
 real, dimension(5,5)::d
 real,dimension(2,2)::result
-real::test_err,error,test1_err,test2_err,test3_err,test4_err,test5_err
+real::test_err,error
 real::lfn00,lfn01,lfn10,lfn11,tign00,tign01,tign10,tign11,fuel_time_cell
-real:: res,Result1,Result2,Result3,Result4,Result5,result6
-real:: res1,res2,res3,res4,res5
+real:: Result1,Result2,Result3,Result4,Result5,result6
+real:: res,res1,res2,res3,res4!
 time_now=3.
 101 format(a/(3f7.3))
 ims=1
@@ -368,19 +364,33 @@ write(*,*)'result after step i and j',result(i,j),i,j
 end do
 end do
 
+if (res1-result(1,1)>error.or.res2-result(1,2)>error.or.res3-result(2,1)>error.or.res4-result(2,2)>error) then
+	print*,'Test #10 is not working, one of errors '
+        print*,'For cell (1,1)',res1-result(1,1)
+        print*,'For cell (1,2)',res2-result(1,2)
+        print*,'For cell (2,1)',res3-result(2,1)
+        print*,'For cell (2,2)',res4-result(2,2)
+        print*,'is greater than 0.0001',error
+else
+num_tests=num_tests+1;
+endif
 
 print*,""
 print*,""
 !!!! Test #2
 
-write(*,*)'MAIN TEST #2'
+write(*,*)'MAIN TEST #2 (#11)'
 print*,"Check for consistency, for 3 inner cells with the same results"
 time_now=2.
 ims=1
 ime=5
 jms=1
 jme=5
-
+res1=2.9752314E-02
+res2=1.000
+res3=2.9752314E-02
+res4=1.000
+flag=1
 data lfn9/-1., -1.,-1., &
          -1., -1.,0., &
          0., 0.,0., &
@@ -396,19 +406,7 @@ data tign9/1.0, 1., 1., &
 do icl=2,4
         write(*,*)"icl,jcl",icl,jcl
        call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
-                                    tign9,lfn9,tff,lff)
-
-d=1e20
-d(1:5:2,1:5:2)=tign9(icl-1:icl+1,1:3)
-d(2:4,2:4)=tff
-!write(*,*)'tign and tff'
-!write(*,'(5f7.3)')d
-!write(*,*)' '
-d(1:5:2,1:5:2)=lfn9(icl-1:icl+1,1:3)
-d(2:4,2:4)=lff
-!write(*,*)'lfn and lff'
-!write(*,'(5f7.3)')d
-!write(*,*)' '
+                                    tign9,lfn9,tff9,lff9)
 
 fuel_time_cell= 8.235294 ;
         write(*,*)"Calculation of fuel_frac over 4 subcells"
@@ -417,15 +415,29 @@ do i=1,2
    do j=1,2
 
 
-result6=fuel_left_cell_3(  &
-    lff(i,j),lff(i,j+1),lff(i+1,j),lff(i+1,j+1), &
-    tff(i,j),tff(i,j+1),tff(i+1,j),tff(i+1,j+1),&
+result(i,j)=fuel_left_cell_3(  &
+    lff9(i,j),lff9(i,j+1),lff9(i+1,j),lff9(i+1,j+1), &
+    tff9(i,j),tff9(i,j+1),tff9(i+1,j),tff9(i+1,j+1),&
     time_now, fuel_time_cell)
-write(*,*)'result after step i and j',result,i,j
+write(*,*)'result after step i and j',result(i,j),i,j
 
 end do
 end do
+
+if (res1-result(1,1)>error.or.res2-result(1,2)>error.or.res3-result(2,1)>error.or.res4-result(2,2)>error) then
+	print*,'Test #10 is not working, one of errors '
+        print*,'For cell (1,1)',res1-result(1,1)
+        print*,'For cell (1,2)',res2-result(1,2)
+        print*,'For cell (2,1)',res3-result(2,1)
+        print*,'For cell (2,2)',res4-result(2,2)
+        print*,'is greater than 0.0001',error
+        flag=0 
+end if
+
 end do
+if (flag.eq.1) then 
+    num_tests=num_tests+1;
+endif
 print*,"If the results for each correspondent subcell are equal in all cells"
 print*,"then the code is consistent"
 

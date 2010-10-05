@@ -263,7 +263,6 @@ real::fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry,tignf(2,2)
 real,dimension(3,3)::tff,lff
 ! help variables instead of arrays fuel_left_f and fire_area_f 
 real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,txx,tyy
-! variables for calculation instead of lff(i,j) and tif(i,j)is lffij,tifij etc..#define IFCELLS (ite-its+1)*fuel_left_irl
 #define JFCELLS (jte-jts+1)*fuel_left_jrl
 character(len=128)::msg
 integer::m,omp_get_thread_num
@@ -306,25 +305,14 @@ its1=max(its,ifds+1)
 ite1=min(ite,ifde-1)
 jts1=max(jts,jfds+1)
 jte1=min(jte,jfde-1)
-!write(*,*)"fuel_left_method",fuel_left_method
 
 do icl=its1,ite1
   do jcl=jts1,jte1
     helpsum1=0
     helpsum2=0
-
-
 !   Loop over subcells in cell #(icl,jcl)
-!      write(*,*)"ifds,ifde",ifds,ifde
-!      write(*,*)"jfds,jfde",jfds,jfde
-!      write(*,*)"its,ite,jts,jte",its,ite,jts,jte
-!      write(*,*)"icl,jcl",icl,jcl
-
-
     call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
-!endif
-
     do isubcl=1,ir
       do jsubcl=1,jr 
 !we use 4 points of each subcell in fuel_left_cell_1
@@ -340,7 +328,6 @@ do icl=its1,ite1
      lff(isubcl,jsubcl),lff(isubcl,jsubcl+1),lff(isubcl+1,jsubcl),lff(isubcl+1,jsubcl+1), &
      tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
      time_now, fuel_time(icl,jcl)) 
-! dont forget to change fire_area_ff here
         else
           call crash('fuel_left: unknown fuel_left_method')
         endif
@@ -504,24 +491,26 @@ end subroutine tign_lfn_interpolation
 
 
 subroutine tign_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,tign_subcl,time_now)
+! Description: subroutine that is calculating tign of subcell that lies on the
+! line between 2 cells, lfn_subcl is interpolated linearly look at tign_lfn_interpolation
 
 real,intent(in) :: tign1,tign2,lfn1,lfn2,lfn_subcl,time_now
 real,intent(out) :: tign_subcl
 real :: a,b,c,err
 err=0.1
 
-!      write(*,*)"lfn1,lfn2,tign1,tign2,lfn_subcl,timenow",lfn1,lfn2,tign1,tign2,lfn_subcl,time_now
 
 if((lfn1.le.0).AND.(lfn2.le.0)) then
+! both lfn1,2<0, so we do linear interpolation
    tign_subcl=0.5*(tign1+tign2)
 elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
+! both lfn1,2>0, so we do linear interpolation, so it is equal to time_now
     if  ((abs(tign1-time_now).gt.err).or.(abs(tign2-time_now).gt.err)) then
-      write(*,*)"lfn1,lfn2,tign1,tign2,timenow",lfn1,lfn2,tign1,tign2,time_now
       call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
       tign_subcl=time_now;
    endif
-elseif(lfn_subcl.gt.0) then
+elseif(lfn_subcl.gt.0) then !So the subcell is not on fire
    if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err)) then
       call crash('tign_line_interp one of tign1,2 should be equal time_now')
    else
@@ -555,7 +544,9 @@ end subroutine tign_line_interp
 
 subroutine tign_four_pnts_interp(tign1,tign2,tign3,tign4,lfn1,lfn2,  &
 lfn3,lfn4,lfn_subcl,tign_subcl,time_now)
-
+! Description: subroutine that is calculating tign of subcell that lies in the
+! middle of the square with 4 cells in the endpoints, lfn_subcl is interpolated linearly
+! look at tign_lfn_interpolation
 real,intent(in) :: tign1,tign2,tign3,tign4
 real,intent(in) :: lfn1,lfn2,lfn3,lfn4,lfn_subcl,time_now
 real,intent(out) :: tign_subcl
@@ -564,14 +555,16 @@ real :: a,b,c,err
 err=0.0001
 
 if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
+! all 4 cells:i:1,4 lfn(i)<0, so we do linear interpolation
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
 elseif((lfn1.gt.0).AND.(lfn2.gt.0).AND.(lfn3.gt.0).AND.(lfn4.gt.0))then
+! all 4 cells:i:1,4 lfn(i)>0, not on fire so tign_subcl=time_now
    !if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
    !   call crash('tign_four_pnts_interp: when lfn1(2,3,4)>0 their tign1(2,3,4) should = time_now')
    !else
       tign_subcl=time_now;
    !endif
-elseif(lfn_subcl.gt.0) then
+elseif(lfn_subcl.gt.0) then  ! so the subcell is not on fire
   ! if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
   !    call crash('tign_line_interp one of tign1(2,3,4) should be equal time_now')
   ! else
@@ -583,6 +576,7 @@ else
 ! tign_subcl~=c*lfn_subcl+time_now;
 a=0; 
 b=0;
+!Calculating weights
    if (lfn1.le.0) then
 !       if (tign1.gt.time_now)
 !           call crash('tign_four_pnts_interp tign1 should be less then time_now');
@@ -936,14 +930,9 @@ external sggglm
 external dggglm
 !executable statements
 
-! a very crude approximation - replace by a better code
-! call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
 
 dx=1
 dy=1
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!comment - changed tign-time_now to time_now-tign
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 t00=time_now-tign00
 if(lfn00>=0. .or. t00<0.)t00=0.
 t01=time_now-tign01
@@ -954,14 +943,10 @@ t11=time_now-tign11
 if(lfn11>=0. .or. t11<0.)t11=0.
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
-!print*,"Case 0"
     out = 1.0 !  fuel_left, no burning
-!*** case4 all four coners are burning
+!*** case4 all four corners are burning
 else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
-!!!!!!!!!!!
-
-!print*,"Case 4"
-! All burning
+! All burning, use Finite Differences
 ! T=u(1)*x+u(2)*y+u(3)
 ! t(0,0)=tign(1,1)
 ! t(0,fd(2))=tign(1,2)
@@ -977,41 +962,28 @@ else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
 ! u(3)=t(h/2,h/2)-h/2(dt/dx+dt/dy)
 
  tign_middle=(t00+t01+t10+t11)/4
-! write(*,*)"tign_middle",tign_middle
-! write(*,*)"t00,t01,t10,t11",t00,t01,t10,t11
 
  ! since mesh_size is 1 we replace fd(1) and fd(2) by 1
  dt_dx=(t10-t00+t11-t01)/2
  dt_dy=(t01-t00+t11-t10)/2
 
-! write(*,*)"dt_dx,dt_dy",dt_dx,dt_dy
-! write(*,*)"dx,dy",dx,dy
-
  u(1)=dt_dx
  u(2)=dt_dy
  u(3)=tign_middle-(dt_dx+dt_dy)/2
 
-!Write(*,*)"coefficients of the plane u=",u(1),u(2),u(3)
-
-    ! integrate
-    u(1)=-u(1)/fuel_time_cell
-    u(2)=-u(2)/fuel_time_cell
-    u(3)=-u(3)/fuel_time_cell
-!write(*,*)"u/fuel_time_cell",u(1),u(2),u(3)
-
-!write(*,*)"intexp(u(1)),intexp(u(2))",intexp(u(1)*dx),intexp(u(2)*dy)
-    !fuel_burn(i,j)=1-exp(u(3))*intexp(u(1)*dx)*intexp(u(2)*dy)
+ ! integrate
+ u(1)=-u(1)/fuel_time_cell
+ u(2)=-u(2)/fuel_time_cell
+ u(3)=-u(3)/fuel_time_cell
     s1=u(1)
     s2=u(2)            
     out=1-exp(u(3))*intexp(s1)*intexp(s2)
-!    print *,intexp(s1),intexp(s2),out
     if ( out<0 .or. out>1.0 ) then
         print *,'case4, out should be between 0 and 1'
     end if
-!*** case 1,2,3
+!*** case 1,2,3- other cases
 
 else
-!print*,"Case 123"
     ! set xx, yy for the coner points
     ! move these values out of i and j loop to speed up
     xx(1) = -0.5
@@ -1065,24 +1037,19 @@ else
     xylist(npoint+1,2)=xylist(1,2)
 
 
-
-    !print *,'after LS in case3'pproximation of the plane for lfn using finite
-    !differences
+!approximation of the plane for lfn using finite differences, look at "case 4" explanations
 ! approximate L(x,y)=u(1)*x+u(2)*y+u(3)
  lfn_middle=(lfn00+lfn01+lfn10+lfn11)/4
-! print *,"lfn_middle",lfn_middle
  dt_dx=(lfn10-lfn00+lfn11-lfn01)/2
  dt_dy=(lfn01-lfn00+lfn11-lfn10)/2
-!print *,"dt_dx,dt_dy",dt_dx,dt_dy
  u(1)=dt_dx
  u(2)=dt_dy
  u(3)=lfn_middle-(dt_dx+dt_dy)/2
 ! finding the coefficient c, reminder we work over one subcell only
 ! T(x,y)=c*L(x,y)+time_now
-!write(*,*)"vector u before c",u(1),u(2),u(3)
     a=0
     b=0
-
+!Calculating weights
     if (lfn00 <= 0) then
                         a=a+lfn00*lfn00
                         if (t00 < 0) then
@@ -1090,8 +1057,6 @@ else
                         else
                         b=b+t00*lfn00
                         end if
-                     !   write(*,*)"t00,time_now,lfn00",t00,time_now,lfn00
-                     !   write(*,*)"a,b",a,b
     end if
 
 
@@ -1102,7 +1067,6 @@ else
                         else
                         b=b+t01*lfn01
                         end if
-                     !   write(*,*)"a,b",a,b
     end if
 
 
@@ -1113,7 +1077,6 @@ else
                         else
                         b=b+t10*lfn10
                         end if
-                      !  write(*,*)"a,b",a,b
   end if
 
     if (lfn11<=0) then
@@ -1123,7 +1086,6 @@ else
                         else
                         b=b+t11*lfn11
                         end if
-                      !  write(*,*)"a,b",a,b
     end if
 
 
@@ -1136,12 +1098,6 @@ else
                         u(2)=u(2)*c
                         u(3)=u(3)*c
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    !print *,'vecX from LS',vecX
-    !print *,'tign inputed',tign00,tign10,tign11,tign01
-
-!write(*,*)"vector u",u(1),u(2),u(3)
     ! rotate to gradient on x only
     nr = sqrt(u(1)**2+u(2)**2)
     if(.not.nr.gt.eps)then
