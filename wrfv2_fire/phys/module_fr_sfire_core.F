@@ -521,7 +521,8 @@ elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
       tign_subcl=time_now;
    endif
 elseif(lfn_subcl.gt.0) then
-   if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err)) then
+   if ((abs(tign1-time_now).gt.err).eqv.(abs(tign2-time_now).gt.err)) then
+      write(*,*)"lfn1,lfn2,tign1,tign2,timenow",lfn1,lfn2,tign1,tign2,time_now
       call crash('tign_line_interp one of tign1,2 should be equal time_now')
    else
       tign_subcl=time_now;
