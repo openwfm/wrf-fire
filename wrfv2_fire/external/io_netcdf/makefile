@@ -27,6 +27,19 @@ wrf_io.o:               wrf_io.F90 $(CODE)
                         a=$$? ; export a ; \
 			if [ $$a -a "$$WRFIO_NCD_LARGE_FILE_SUPPORT" = "1" ] ; then \
                           $(CPP1) -DWRFIO_NCD_LARGE_FILE_SUPPORT -I../ioapi_share wrf_io.F90 | $(M4) - > wrf_io.f ; \
+			elif [ "$$WRFIO_NETCDF4_FILE_SUPPORT" = "1" ] ; then \
+                          if test -z "$$WRFIO_NETCDF4_GZIP_LEVEL" ; then \
+                            WRFIO_NETCDF4_GZIP_LEVEL=0 ; \
+                          fi ; \
+                          if [ "$$WRFIO_NETCDF4_GZIP_LEVEL" -gt 0 -a -z "$$WRFIO_NETCDF4_SHUFFLE" ] ; then \
+                            WRFIO_NETCDF4_SHUFFLE=1 ; \
+                          else \
+                            WRFIO_NETCDF4_SHUFFLE=0 ; \
+                          fi ; \
+			  $(CPP1) -DWRFIO_NETCDF4_FILE_SUPPORT \
+			          -DWRFIO_NETCDF4_GZIP_LEVEL="$$WRFIO_NETCDF4_GZIP_LEVEL" \
+				  -DWRFIO_NETCDF4_SHUFFLE="$$WRFIO_NETCDF4_SHUFFLE" \
+				  -I../ioapi_share wrf_io.F90 | $(M4) - > wrf_io.f ; \
                         else \
                           $(CPP1) -I../ioapi_share wrf_io.F90 | $(M4) - > wrf_io.f ; \
                         fi
