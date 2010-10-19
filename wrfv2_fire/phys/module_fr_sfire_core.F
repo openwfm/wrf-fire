@@ -318,7 +318,11 @@ do icl=its1,ite1
       write(*,*)"jfds,jfde",jfds,jfde
       write(*,*)"its,ite,jts,jte",its,ite,jts,jte
       write(*,*)"icl,jcl",icl,jcl
-
+      print*,'lfn(163,83),tign(163,83)',lfn(163,83),tign(164,83)
+      print*,'lfn(165,83),tign(165,83)',lfn(165,83),tign(165,83)
+      print*,'lfn(164,82),tign(164,82)',lfn(164,82),tign(164,82)
+      print*,'lfn(164,84),tign(164,84)',lfn(164,84),tign(164,84)
+      print*,'lfn(164,83),tign(164,83)',lfn(164,83),tign(164,83)
 
     call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
@@ -542,6 +546,8 @@ else
                   should be negative');
    endif
    if (b.gt.0) then
+print*,'lfn1,lfn2',lfn1,lfn2
+print*,'tign1,tign2,time_now',tign1,tign2,time_now
       call crash('tign_ should be less than time_now');
    else
       c=b/a;
@@ -620,7 +626,7 @@ b=0;
            b=b+(tign4-time_now)*lfn4;
 !       endif
    endif 
-   if ((abs(a).lt.err).or.(b.lt.0)) then
+   if ((abs(a).lt.err).eqv.(b.lt.0)) then
       call crash('tign_four_pnts_interp: if E is on fire then one of cells &
                   should be on fire or tign_ should be less than time_now')
    else
