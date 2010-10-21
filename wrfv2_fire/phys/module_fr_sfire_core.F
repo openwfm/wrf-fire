@@ -314,15 +314,15 @@ do icl=its1,ite1
 
 
 !   Loop over subcells in cell #(icl,jcl)
-      write(*,*)"ifds,ifde",ifds,ifde
-      write(*,*)"jfds,jfde",jfds,jfde
-      write(*,*)"its,ite,jts,jte",its,ite,jts,jte
-      write(*,*)"icl,jcl",icl,jcl
-      print*,'lfn(163,83),tign(163,83)',lfn(163,83),tign(164,83)
-      print*,'lfn(165,83),tign(165,83)',lfn(165,83),tign(165,83)
-      print*,'lfn(164,82),tign(164,82)',lfn(164,82),tign(164,82)
-      print*,'lfn(164,84),tign(164,84)',lfn(164,84),tign(164,84)
-      print*,'lfn(164,83),tign(164,83)',lfn(164,83),tign(164,83)
+!      write(*,*)"ifds,ifde",ifds,ifde
+!      write(*,*)"jfds,jfde",jfds,jfde
+!      write(*,*)"its,ite,jts,jte",its,ite,jts,jte
+!      write(*,*)"icl,jcl",icl,jcl
+!      print*,'lfn(163,83),tign(163,83)',lfn(163,83),tign(164,83)
+!      print*,'lfn(165,83),tign(165,83)',lfn(165,83),tign(165,83)
+!      print*,'lfn(164,82),tign(164,82)',lfn(164,82),tign(164,82)
+!      print*,'lfn(164,84),tign(164,84)',lfn(164,84),tign(164,84)
+!      print*,'lfn(164,83),tign(164,83)',lfn(164,83),tign(164,83)
 
     call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
@@ -367,8 +367,6 @@ do icl=its1,ite1
     fire_area(icl,jcl)=helpsum2
   enddo 
 enddo
-
-write(*,*)"finish"  
 
 
 
@@ -513,32 +511,25 @@ real,intent(out) :: tign_subcl
 real :: a,b,c,err
 err=0.1
 
-!      write(*,*)"lfn1,lfn2,tign1,tign2,lfn_subcl,timenow",lfn1,lfn2,tign1,tign2,lfn_subcl,time_now
-
-if((lfn1.le.0).AND.(lfn2.le.0)) then
+if((lfn1.lt.0).AND.(lfn2.lt.0)) then
    tign_subcl=0.5*(tign1+tign2)
-elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
+elseif((lfn1.ge.0).AND.(lfn2.ge.0))then
     if  ((abs(tign1-time_now).gt.err).or.(abs(tign2-time_now).gt.err)) then
       write(*,*)"lfn1,lfn2,tign1,tign2,timenow",lfn1,lfn2,tign1,tign2,time_now
       call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
       tign_subcl=time_now;
    endif
-elseif(lfn_subcl.gt.0) then
-   if ((abs(tign1-time_now).gt.err).eqv.(abs(tign2-time_now).gt.err)) then
-      write(*,*)"lfn1,lfn2,tign1,tign2,timenow",lfn1,lfn2,tign1,tign2,time_now
-      call crash('tign_line_interp one of tign1,2 should be equal time_now')
-   else
+elseif(lfn_subcl.ge.0) then
       tign_subcl=time_now;
-   endif
 else
 !lfn_subcl<=0;
 !case when E is on fire
 ! tign_subcl~=c*lfn_subcl+time_now;
-   if (lfn1.le.0) then
+   if (lfn1.lt.0) then
       a=lfn1;
       b=tign1-time_now;
-   elseif (lfn2.le.0) then
+   elseif (lfn2.lt.0) then
       a=lfn2;
       b=tign2-time_now;
    else
@@ -546,8 +537,6 @@ else
                   should be negative');
    endif
    if (b.gt.0) then
-print*,'lfn1,lfn2',lfn1,lfn2
-print*,'tign1,tign2,time_now',tign1,tign2,time_now
       call crash('tign_ should be less than time_now');
    else
       c=b/a;
@@ -569,15 +558,15 @@ real,intent(out) :: tign_subcl
 real :: a,b,c,err
 err=0.0001
 
-if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
+if((lfn1.lt.0).AND.(lfn2.lt.0).AND.(lfn3.lt.0).AND.(lfn4.lt.0)) then
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
-elseif((lfn1.gt.0).AND.(lfn2.gt.0).AND.(lfn3.gt.0).AND.(lfn4.gt.0))then
+elseif((lfn1.ge.0).AND.(lfn2.ge.0).AND.(lfn3.ge.0).AND.(lfn4.ge.0))then
    !if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
    !   call crash('tign_four_pnts_interp: when lfn1(2,3,4)>0 their tign1(2,3,4) should = time_now')
    !else
       tign_subcl=time_now;
    !endif
-elseif(lfn_subcl.gt.0) then
+elseif(lfn_subcl.ge.0) then
   ! if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
   !    call crash('tign_line_interp one of tign1(2,3,4) should be equal time_now')
   ! else
@@ -589,7 +578,7 @@ else
 ! tign_subcl~=c*lfn_subcl+time_now;
 a=0; 
 b=0;
-   if (lfn1.le.0) then
+   if (lfn1.lt.0) then
 !       if (tign1.gt.time_now)
 !           call crash('tign_four_pnts_interp tign1 should be less then time_now');
 !       else
@@ -598,7 +587,7 @@ b=0;
            b=b+(tign1-time_now)*lfn1;
 !       endif
    endif
-   if (lfn2.le.0) then
+   if (lfn2.lt.0) then
 !       if (tign2.gt.time_now)
 !           call crash('tign_four_pnts_interp tign2 should be less then time_now');
 !       else
@@ -607,7 +596,7 @@ b=0;
            b=b+(tign2-time_now)*lfn2;
 !       endif
    endif
-   if (lfn3.le.0) then
+   if (lfn3.lt.0) then
 !       if (tign3.gt.time_now)
 
 !           call crash('tign_four_pnts_interp tign3 should be less then time_now');
@@ -617,7 +606,7 @@ b=0;
            b=b+(tign3-time_now)*lfn3;
 !       endif
    endif
-   if (lfn4.le.0) then
+   if (lfn4.lt.0) then
 !       if (tign4.gt.time_now)
 !           call crash('tign_four_pnts_interp tign4 should be less then time_now');
 !       else
@@ -626,7 +615,7 @@ b=0;
            b=b+(tign4-time_now)*lfn4;
 !       endif
    endif 
-   if ((abs(a).lt.err).eqv.(b.lt.0)) then
+   if ((abs(a).lt.err).or.(b.lt.0)) then
       call crash('tign_four_pnts_interp: if E is on fire then one of cells &
                   should be on fire or tign_ should be less than time_now')
    else
