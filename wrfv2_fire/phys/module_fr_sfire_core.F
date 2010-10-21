@@ -139,8 +139,8 @@ else
 	ey = end_y
 endif
 
-mid_t = (end_t + start_t)*0.5    ! ignition time in the middle
-dif_th = (end_t - start_t)*0.5   
+mid_t = (end_ts + start_ts)*0.5    ! ignition time in the middle
+dif_th = (end_ts - start_ts)*0.5   
 
 cx2=unit_xf*unit_xf
 cy2=unit_yf*unit_yf
