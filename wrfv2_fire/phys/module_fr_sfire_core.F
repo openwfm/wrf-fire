@@ -18,6 +18,22 @@ use module_fr_sfire_util
 ! subroutine fuel_left:  compute remaining fuel from time of ignition.
 ! subroutine prop_ls: propagation of curve in normal direction.
 
+! describe one ignition line
+type ignition_line_type
+  REAL  ros, &          ! subscale rate of spread during the ignition process
+        stop_time, &    ! when the ignition process stops from simulation start (s)
+        wind_red,  &    ! wind reduction factor at the ignition line
+        wrdist,   &     ! distance from the ignition line when the wind reduction stops
+        wrupwind, &     ! use distance interpolated between 0. = nearest 1. = upwind
+        start_x, &      ! x coordinate of the ignition line start point (m, or long/lat)
+        start_y, &      ! y coordinate of the ignition line start point
+        end_x, &        ! x coordinate of the ignition line end point
+        end_y, &        ! y coordinate of the ignition line end point
+        start_time, &   ! ignition time for the start point from simulation start (s)
+        end_time, &     ! ignition time for the end poin from simulation start (s)
+        radius          ! all within this radius ignites immediately
+end type ignition_line_type
+
 contains
 
 !
@@ -60,7 +76,7 @@ do j=jfts,jfte
         lfn(i,j) = lfn_init        ! no fire 
     enddo
 enddo
-call message('init_model_no_fire: state set to no fire')
+call message('init_no_fire: state set to no fire')
 
 end subroutine init_no_fire
 
@@ -72,8 +88,7 @@ end subroutine init_no_fire
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
-                        start_x,start_y,end_x,end_y,              &
-                        r,start_t,end_t,    &
+                        ignition_line,                            &
                         start_ts,end_ts,                    &
                         coord_xf,coord_yf,                &     
                         unit_xf,unit_yf,                  &
@@ -96,10 +111,7 @@ implicit none
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(in):: start_x,start_y          ! start of ignition line, from lower left corner
-real, intent(in):: end_x,end_y              ! end of ignition line, or zero
-real, intent(in):: r                        ! all within the radius of the line will ignite
-real, intent(in):: start_t,end_t            ! the ignition time for the start and the end of the line
+type(ignition_line_type), intent(in):: ignition_line    ! description of the ignition line
 real, intent(in):: start_ts,end_ts          ! the time step start and end 
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
@@ -116,6 +128,22 @@ real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
 character(len=128):: msg
 real::cx2,cy2,dmax,axmin,axmax,aymin,aymax
+real:: start_x,start_y          ! start of ignition line, from lower left corner
+real:: end_x,end_y              ! end of ignition line, or zero
+real:: r                        ! all within the radius of the line will ignite
+real:: start_t,end_t            ! the ignition time for the start and the end of the line
+
+!*** executable
+
+! copy ignition line fields to local variables
+start_x = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
+start_y = ignition_line%start_y ! y coordinate of the ignition line start point
+end_x   = ignition_line%end_x   ! x coordinate of the ignition line end point
+end_y   = ignition_line%end_y   ! y coordinate of the ignition line end point
+start_t = ignition_line%start_time ! ignition time for the start point from simulation start (s)
+end_t   = ignition_line%end_time! ignition time for the end poin from simulation start (s)
+r       = ignition_line%radius  ! all within this radius ignites immediately
+
 
 st=max(start_ts,start_t) ! the start time of ignition in this time step
 et=min(end_ts,end_t)     ! the end time of ignition in this time step

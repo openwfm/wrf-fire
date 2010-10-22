@@ -25,11 +25,7 @@ subroutine sfire_model (                    &
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,
-    ignition_start_x,ignition_start_y,      & ! ignition - small arrays
-    ignition_end_x,ignition_end_y,          &
-    ignition_radius,                        &
-    ignition_start_time,                    &
-    ignition_end_time,                      &
+    ignition_line,                          & ! small array of ignition line descriptions
     ignitions_done,ignited_tile,            &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
@@ -91,7 +87,7 @@ integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
 logical, intent(in):: restart               ! if true, use existing state
 logical, intent(out)::need_lfn_update       ! if true, halo update on lfn afterwards
 ! scalar data
-integer, intent(in) :: num_ignitions        ! number of ignition locations/times 
+integer, intent(in) :: num_ignitions        ! number of ignition lines
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
 integer, intent(in) :: ifds,ifde,jfds,jfde,&  ! fire domain bounds
         ifps,ifpe,jfps,jfpe                ! patch - nodes owned by this process
@@ -100,10 +96,7 @@ integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 ! array data
-real, dimension(num_ignitions), intent(in):: &   
-    ignition_start_x,ignition_start_y, &
-    ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
-    ignition_start_time, ignition_end_time  !  of ignition lines
+type(ignition_line_type), dimension (num_ignitions), intent(in):: ignition_line ! descriptions of ignition lines
 integer, intent(out):: ignited_tile(num_ignitions),ignitions_done
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
@@ -223,16 +216,12 @@ elseif(ifun.eq.3)then   ! ignition if so specified
     ! check for ignitions
     do ig = 1,num_ignitions
     
-        if(ignition_end_time(ig)>=time_start.and.ignition_start_time(ig)<time_start+dt)then 
+        if(ignition_line(ig)%end_time>=time_start.and.ignition_line(ig)%start_time<time_start+dt)then 
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
                 ifts,ifte,jfts,jfte,                      &
-                ignition_start_x(ig),ignition_start_y(ig),&
-                ignition_end_x(ig),ignition_end_y(ig),    &
-                ignition_radius(ig),                      &
-                ignition_start_time(ig),                  &  
-                ignition_end_time(ig),                    &  
+                ignition_line(ig),                        &
                 time_start,time_start+dt,                 &
                 coord_xf,coord_yf,unit_xf,unit_yf,        & 
                 lfn,tign,ignited)
