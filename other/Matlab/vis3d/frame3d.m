@@ -4,7 +4,8 @@ function frame3d(swind,amin,amax,astep,qstep,qs,...
 clf,hold off
 
 r = size(fxlong)./(size(xlong));  % refinement ratio
-ideal = all(xlong ==0);   % not populated in ideal case
+% see if xlong and xlat are bogus
+ideal = all(xlong(:) ==0)|any(abs(xlong(:))>180)|any(abs(xlat(:))>180);
 
 if ideal,
     % do not have xlong and xlat in ideal case, but we made the coordinates up
