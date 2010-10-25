@@ -325,16 +325,13 @@ do icl=its1,ite1
 
     do isubcl=1,ir
       do jsubcl=1,jr 
-!we use 4 points of each subcell in fuel_left_cell_1
-! and in fuel_left_cell_2: bottome left are (1,1), (1,2), (2,1), (2,2)
         if(fuel_left_method.eq.1)then
           call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
      lff(isubcl,jsubcl),lff(isubcl,jsubcl+1),lff(isubcl+1,jsubcl),lff(isubcl+1,jsubcl+1), &
      tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
      time_now, fuel_time(icl,jcl))
         elseif(fuel_left_method.eq.2)then
-          fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
-          fuel_left_ff=fuel_left_cell_3( &
+          call fuel_left_cell_3( fuel_left_ff, fire_area_ff, &
      lff(isubcl,jsubcl),lff(isubcl,jsubcl+1),lff(isubcl+1,jsubcl),lff(isubcl+1,jsubcl+1), &
      tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
      time_now, fuel_time(icl,jcl)) 
@@ -777,13 +774,14 @@ end subroutine fuel_left_cell_1
 ! function calculation fuel_frac made by Volodymyr Kondratenko on the base of
 ! the code made by Jan Mandel and Minjeong
 
-real function fuel_left_cell_3(  &
-    lfn00,lfn01,lfn10,lfn11, &
-    tign00,tign01,tign10,tign11,&
-    time_now, fuel_time_cell)
+subroutine fuel_left_cell_3( fuel_frac_left, fire_frac_area, &
+                             lfn00,lfn01,lfn10,lfn11, &
+                             tign00,tign01,tign10,tign11,&
+                             time_now, fuel_time_cell)
 !*** purpose: compute the fuel fraction left in one cell
 implicit none
 !*** arguments
+real, intent(out):: fuel_frac_left, fire_frac_area ! 
 real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners of the cell
 real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners of the cell
 real, intent(in)::time_now                   ! the time now
@@ -942,6 +940,15 @@ t10=time_now-tign10
 if(lfn10>=0. .or. t10<0.)t10=0.
 t11=time_now-tign11
 if(lfn11>=0. .or. t11<0.)t11=0.
+
+! approximate burning area, between 0 and 1  
+! was taken from fuel_left_cell_1 made by Jan, might need to be changed 
+ps = lfn00+lfn01+lfn10+lfn11
+aps = abs(lfn00)+abs(lfn01)+abs(lfn10)+abs(lfn11)
+aps=max(aps,safe)
+area =(-ps/aps+1.)/2.
+area = max(area,0.) ! make sure area is between 0 and 1
+area = min(area,1.)
 
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
@@ -1265,8 +1272,9 @@ write(*,*)"out=",out
 
 900 continue 
 if(out>1. .or. out<0.)call crash('fuel_left_cell_3: fuel fraction out of bounds [0,1]')
-fuel_left_cell_3 = out
-end function fuel_left_cell_3
+fuel_frac_left = out
+fire_frac_area= area
+end subroutine fuel_left_cell_3
 
 
 
