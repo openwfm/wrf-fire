@@ -1271,7 +1271,15 @@ end if ! if case0, elseif case4 ,else case123
 write(*,*)"out=",out
 
 900 continue 
-if(out>1. .or. out<0.)call crash('fuel_left_cell_3: fuel fraction out of bounds [0,1]')
+if(out>1. .or. out<0.) then
+    if (out>1. .and. out<1.001) then 
+        out=1.   
+    else if (out<0. .and. out>-0.999) then 
+             out=0.   
+    else
+       call crash('fuel_left_cell_3: fuel fraction out of bounds [0,1]')
+    end if
+end if    
 fuel_frac_left = out
 fire_frac_area= area
 end subroutine fuel_left_cell_3
