@@ -307,26 +307,21 @@ ite1=min(ite,ifde-1)
 jts1=max(jts,jfds+1)
 jte1=min(jte,jfde-1)
 write(*,*)"fuel_left_method",fuel_left_method
+! jm: initialize fuel_frac - we do not compute it near the domain boundary becau!se we cannot interpolate!
+do j=jts,jte
+   do i=its,ite
+      fuel_frac(i,j)=1.
+   enddo
+enddo
+
 do icl=its1,ite1
   do jcl=jts1,jte1
     helpsum1=0
     helpsum2=0
 
 
-!   Loop over subcells in cell #(icl,jcl)
-!      write(*,*)"ifds,ifde",ifds,ifde
-!      write(*,*)"jfds,jfde",jfds,jfde
-!      write(*,*)"its,ite,jts,jte",its,ite,jts,jte
-!      write(*,*)"icl,jcl",icl,jcl
-!      print*,'lfn(163,83),tign(163,83)',lfn(163,83),tign(164,83)
-!      print*,'lfn(165,83),tign(165,83)',lfn(165,83),tign(165,83)
-!      print*,'lfn(164,82),tign(164,82)',lfn(164,82),tign(164,82)
-!      print*,'lfn(164,84),tign(164,84)',lfn(164,84),tign(164,84)
-!      print*,'lfn(164,83),tign(164,83)',lfn(164,83),tign(164,83)
-
     call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
-!endif
 
     do isubcl=1,ir
       do jsubcl=1,jr 
