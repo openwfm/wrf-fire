@@ -21,7 +21,7 @@ use module_fr_sfire_util
 ! describe one ignition line
 type ignition_line_type
   REAL  ros, &          ! subscale rate of spread during the ignition process
-        stop_time, &    ! when the ignition process stops from simulation start (s)
+        stop_time, &    ! when the ignition process stops from ignition start (s)
         wind_red,  &    ! wind reduction factor at the ignition line
         wrdist,   &     ! distance from the ignition line when the wind reduction stops
         wrupwind, &     ! use distance interpolated between 0. = nearest 1. = upwind
@@ -131,7 +131,7 @@ real::cx2,cy2,dmax,axmin,axmax,aymin,aymax
 real:: start_x,start_y          ! start of ignition line, from lower left corner
 real:: end_x,end_y              ! end of ignition line, or zero
 real:: r                        ! all within the radius of the line will ignite
-real:: start_t,end_t            ! the ignition time for the start and the end of the line
+real:: start_t,end_t,stop_dt    ! the ignition time for the start and the end of the line, duration of the ignition
 
 !*** executable
 
@@ -143,9 +143,11 @@ end_y   = ignition_line%end_y   ! y coordinate of the ignition line end point
 start_t = ignition_line%start_time ! ignition time for the start point from simulation start (s)
 end_t   = ignition_line%end_time! ignition time for the end poin from simulation start (s)
 r       = ignition_line%radius  ! all within this radius ignites immediately
+stop_dt = ignition_line%stop_time ! when
 
 
-st=max(start_ts,start_t) ! the start time of ignition in this time step
+!st=start_t               ! the start time of ignition considered in this time step
+st=max(start_ts,start_t) ! for compatibility with 70e2662247c9e3fc9b8ad39daff073018b620747
 et=min(end_ts,end_t)     ! the end time of ignition in this time step
 
 if(st>et)return          ! no ignition in this time step, nothing to do
@@ -153,14 +155,16 @@ if(st>et)return          ! no ignition in this time step, nothing to do
 
 ! find the points where the ignition line starts and ends this time step
 ! compute in a way that is stable when end_t - start_t is small
-if(start_t < end_t)then
-        rels =  (st - start_t) / (end_t - start_t)
+if(start_t < end_t)then  ! we really want to test start_t .ne. end_t, but avoiding test of floats on equality
+        rels =  (st - start_t) / (end_t - start_t)  ! relative position of st in the segment (start,end)
 	sx = start_x + rels * (end_x - start_x)
 	sy = start_y + rels * (end_y - start_y)
-        rele =  (et - end_t) / (end_t - start_t)
+        rele =  (et - end_t) / (end_t - start_t)    ! relative position of et in the segment (start,end)
 	ex = end_x + rele * (end_x - start_x)
 	ey = end_y + rele * (end_y - start_y)
 else
+        rels = 0.
+        rele = 1.
 	sx = start_x
 	sy = start_y
 	ex = end_x
@@ -184,19 +188,14 @@ my = (sy + ey)/2
 !aymax=-huge(aymax)
 do j=jfts,jfte   
     do i=ifts,ifte
-        ! coordinates of the node (i,j), the lower left corner of the domain is (0 0)
-        ! ax = fdx*(i - ifds + 0.5)
-        ! ay = fdy*(j - jfds + 0.5)
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
-        !axmin=min(axmin,ax)
-        !axmax=max(axmax,ax)
-        !aymin=min(aymin,ay)
-        !aymax=max(aymax,ay)
+        dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
+
         ! the following computation of distance is also for the case
         ! when s=e exactly or approximately 
-        dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
-        ! compute distance of a=(ax,ay) and the nearest point on the segment
+
+        ! compute d = the distance of a=(ax,ay) and the nearest point on the segment
         ! [(sx,sy), (ex,ey)] as the distance of (ax,ay) from the midpoint (mx,my)
         ! minus a correction (because of rounding errors): |a-c|^2 = |a-m|^2 - |m-c|^2
         ! when |m-c| >= |s-e|/2 the nearest point is one of the endpoints
@@ -224,6 +223,7 @@ do j=jfts,jfte
             d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
         endif
         dmax=max(d,dmax)
+
         lfn_new=d-r
         if(lfn_new<=0) then
             ignited=ignited+1   ! count
