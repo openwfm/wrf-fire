@@ -196,7 +196,7 @@ do j=jfts,jfte
             tign(i,j)=time_ign + ros*d  ! newly ignited now
             if(tign(i,j) < start_ts)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-                write(msg,'(a,2i6,f11.6,a,f11.6)')'ignite_fire: cell ',i,j, &
+                write(msg,'(a,2i6,a,f11.6,a,f11.6)')'ignite_fire: cell ',i,j, &
                 ' ignition time ',tign(i,j),' is prior to start of time step at ',start_ts
                 call crash(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
