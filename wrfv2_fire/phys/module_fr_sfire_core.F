@@ -218,7 +218,7 @@ write(msg,'(a,2f11.6,a,2f11.6)')'tile coord from  ',axmin,aymin,' to ',axmax,aym
 call message(msg)
 write(msg,'(a,2f11.2,a,f8.1,a)')'units ',unit_xf,unit_yf,' m max dist ',dmax,' m'
 call message(msg)
-write(msg,'(a,f4.1,a,2f8.1,a,i10)')' radius ',r,' time',st,et,' ignited nodes',ignited
+write(msg,'(a,f4.1,a,2f8.1,a,i10)')' radius ',radius,' time',st,et,' ignited nodes',ignited
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 
