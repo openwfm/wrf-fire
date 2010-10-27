@@ -186,6 +186,8 @@ do j=jfts,jfte
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
 
+        ! get d= distance from the nearest point on the ignition segment
+        ! and time_ign = the ignition time there
         call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         dmax=max(d,dmax)
 
@@ -197,7 +199,7 @@ do j=jfts,jfte
             tign(i,j)=time_ign  ! newly ignited now
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
-        print *,'IGN:',i,j,d,lfn_new,lfn(i,j),tign(i,j)
+        !print *,'IGN:',i,j,d,lfn_new,lfn(i,j),tign(i,j)
  
     enddo
 enddo
@@ -277,15 +279,15 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
             t = st
         endif
         ! debug
-        write(*,*)'IGN2',i,j,d,sx
-        write(*,*)'IGN3',ex,sy,ey
-        write(*,*)'IGN4',ax,ay,dmc2
-        write(*,*)'IGN5',des2,cos2
-        write(*,*)'IGN6',cx2,cy2,dam2
-        write(*,*)'IGNX',st,et
-        write(*,*)'IGN7',mid_t,dif_t
-        write(*,*)'IGN8',des2,dames
-        write(*,*)'IGN9',am_es,mx,my
+        !write(*,*)'IGN2',i,j,d,sx
+        !write(*,*)'IGN3',ex,sy,ey
+        !write(*,*)'IGN4',ax,ay,dmc2
+        !write(*,*)'IGN5',des2,cos2
+        !write(*,*)'IGN6',cx2,cy2,dam2
+        !write(*,*)'IGNX',st,et
+        !write(*,*)'IGN7',mid_t,dif_t
+        !write(*,*)'IGN8',des2,dames
+        !write(*,*)'IGN9',am_es,mx,my
 END SUBROUTINE nearest
 
 end subroutine ignite_fire
