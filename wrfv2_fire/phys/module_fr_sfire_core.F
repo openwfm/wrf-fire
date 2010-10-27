@@ -122,7 +122,7 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
-real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign,rels,rele,mid_t,cos_ame,dif_th
+real::lfn_new,time_ign,ax,ay,rels,rele,d
 real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
@@ -130,39 +130,40 @@ character(len=128):: msg
 real::cx2,cy2,dmax,axmin,axmax,aymin,aymax
 real:: start_x,start_y          ! start of ignition line, from lower left corner
 real:: end_x,end_y              ! end of ignition line, or zero
-real:: r                        ! all within the radius of the line will ignite
-real:: start_t,end_t,stop_dt    ! the ignition time for the start and the end of the line, duration of the ignition
+real:: radius                   ! all within the radius of the line will ignite
+real:: start_time,end_time      ! the ignition time for the start and the end of the line
+real:: ros,tos                  ! ignition rate and time of spread
 
 !*** executable
 
 ! copy ignition line fields to local variables
-start_x = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
-start_y = ignition_line%start_y ! y coordinate of the ignition line start point
-end_x   = ignition_line%end_x   ! x coordinate of the ignition line end point
-end_y   = ignition_line%end_y   ! y coordinate of the ignition line end point
-start_t = ignition_line%start_time ! ignition time for the start point from simulation start (s)
-end_t   = ignition_line%end_time! ignition time for the end poin from simulation start (s)
-r       = ignition_line%radius  ! all within this radius ignites immediately
-stop_dt = ignition_line%stop_time ! when
+start_x    = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
+start_y    = ignition_line%start_y ! y coordinate of the ignition line start point
+end_x      = ignition_line%end_x   ! x coordinate of the ignition line end point
+end_y      = ignition_line%end_y   ! y coordinate of the ignition line end point
+start_time = ignition_line%start_time ! ignition time for the start point from simulation start (s)
+end_time   = ignition_line%end_time! ignition time for the end poin from simulation start (s)
+radius     = ignition_line%radius  ! all within this radius ignites immediately
+ros        = ignition_line%ros     ! rate of spread
 
 
-!st=start_t               ! the start time of ignition considered in this time step
-st=max(start_ts,start_t) ! for compatibility with 70e2662247c9e3fc9b8ad39daff073018b620747
-et=min(end_ts,end_t)     ! the end time of ignition in this time step
+tos        = radius/ros            ! time of spread to the given radius
+st         = start_time            ! the start time of ignition considered in this time step
+et         = min(end_ts,end_time)  ! the end time of the ignition segment in this time step
 
-if(st>et)return          ! no ignition in this time step, nothing to do
+! this should be called whenever (start_ts, end_ts) \subset (start_time, end_time + tos) 
+if(start_ts>et+tos) return           ! no ignition in this time step, nothing to do
 
-
-! find the points where the ignition line starts and ends this time step
-! compute in a way that is stable when end_t - start_t is small
-if(start_t < end_t)then  ! we really want to test start_t .ne. end_t, but avoiding test of floats on equality
-        rels =  (st - start_t) / (end_t - start_t)  ! relative position of st in the segment (start,end)
+if(start_time < end_time)then  ! we really want to test start_time .ne. end_time, but avoiding test of floats on equality
+        ! segment of nonzero length
+        rels =  (st - start_time) / (end_time - start_time)  ! relative position of st in the segment (start,end)
 	sx = start_x + rels * (end_x - start_x)
 	sy = start_y + rels * (end_y - start_y)
-        rele =  (et - end_t) / (end_t - start_t)    ! relative position of et in the segment (start,end)
+        rele =  (et - end_time) / (end_time - start_time)    ! relative position of et in the segment (start,end)
 	ex = end_x + rele * (end_x - start_x)
 	ey = end_y + rele * (end_y - start_y)
 else
+        ! just a point
         rels = 0.
         rele = 1.
 	sx = start_x
@@ -177,10 +178,6 @@ cy2=unit_yf*unit_yf
 
 ignited=0
 dmax=0
-!axmin=huge(axmin)
-!aymin=huge(aymin)
-!axmax=-huge(axmax)
-!aymax=-huge(aymax)
 do j=jfts,jfte   
     do i=ifts,ifte
         ax=coord_xf(i,j)
@@ -191,12 +188,19 @@ do j=jfts,jfte
         call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         dmax=max(d,dmax)
 
-        lfn_new=d-r
+        lfn_new=d - min( radius, ros*(end_ts - time_ign) )
         if(lfn_new<=0) then
             ignited=ignited+1   ! count
         endif
         if(lfn(i,j)>0 .and. lfn_new<=0) then
-            tign(i,j)=time_ign  ! newly ignited now
+            tign(i,j)=time_ign + ros*d  ! newly ignited now
+            if(tign(i,j) < start_ts)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+                write(msg,'(a,2i6,f11.6,a,f11.6)')'ignite_fire: cell ',i,j, &
+                ' ignition time ',tign(i,j),' is prior to start of time step at ',start_ts
+                call crash(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+            endif
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
         !print *,'IGN:',i,j,d,lfn_new,lfn(i,j),tign(i,j)
@@ -218,7 +222,7 @@ write(msg,'(a,f4.1,a,2f8.1,a,i10)')' radius ',r,' time',st,et,' ignited nodes',i
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 
-contains
+end subroutine ignite_fire
 
 ! called from the inside of a loop, inline if possible
 !DEC$ ATTRIBUTES FORCEINLINE
@@ -250,7 +254,7 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         ! |m-c| = |a-m| cos (a-m,e-s) 
         !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
 !***    local
-        real:: mx,my,dam2,dames,am_es,cos2,dmc2,cos_ame,mid_t,dif_t
+        real:: mx,my,dam2,dames,am_es,cos2,dmc2,cos_ame,mid_t,dif_t,des2
 !***    executable
         ! midpoint m = (mx,my)
         mx = (sx + ex)*0.5
@@ -290,7 +294,6 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         !write(*,*)'IGN9',am_es,mx,my
 END SUBROUTINE nearest
 
-end subroutine ignite_fire
 
 !
 !**********************

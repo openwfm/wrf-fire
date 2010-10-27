@@ -213,30 +213,6 @@ elseif(ifun.eq.2)then
 
 elseif(ifun.eq.3)then   ! ignition if so specified
 
-    ! check for ignitions
-    do ig = 1,num_ignitions
-    
-        if(ignition_line(ig)%end_time>=time_start.and.ignition_line(ig)%start_time<time_start+dt)then 
-            call ignite_fire(                             &
-                ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
-                ifms,ifme,jfms,jfme,                      &
-                ifts,ifte,jfts,jfte,                      &
-                ignition_line(ig),                        &
-                time_start,time_start+dt,                 &
-                coord_xf,coord_yf,unit_xf,unit_yf,        & 
-                lfn,tign,ignited)
-            ignitions_done=ignitions_done+1
-            ignited_tile(ignitions_done)=ignited
-                
-            need_lfn_update=.true. ! if ignition, lfn changed
-#ifdef DEBUG_OUT    
-            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
-            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_xf,'coord_xf_ig',id)
-            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_yf,'coord_yf_ig',id)
-#endif
-        endif
-        
-    enddo
     
 elseif (ifun.eq.4) then  ! do the timestep
 
@@ -315,6 +291,32 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     enddo
 
     endif
+
+    ! check for ignitions
+    do ig = 1,num_ignitions
+    
+!  for now, check for ignition every time step...
+!        if(ignition_line(ig)%end_time>=time_start.and.ignition_line(ig)%start_time<time_start+dt)then 
+            call ignite_fire(                             &
+                ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
+                ifms,ifme,jfms,jfme,                      &
+                ifts,ifte,jfts,jfte,                      &
+                ignition_line(ig),                        &
+                time_start,time_start+dt,                 &
+                coord_xf,coord_yf,unit_xf,unit_yf,        & 
+                lfn,tign,ignited)
+            ignitions_done=ignitions_done+1
+            ignited_tile(ignitions_done)=ignited
+                
+!            need_lfn_update=.true. ! if ignition, lfn changed
+#ifdef DEBUG_OUT    
+            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
+            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_xf,'coord_xf_ig',id)
+            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_yf,'coord_yf_ig',id)
+#endif
+!        endif
+        
+    enddo
             
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, &
                    lfn,'sfire_model: lfn out')
