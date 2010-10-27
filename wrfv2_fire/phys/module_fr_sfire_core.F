@@ -122,7 +122,7 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
-real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign,rels,rele,mid_t,cos_ame,dif_th
+real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign,rels,rele,mid_t,cos_ame,dif_t
 real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
@@ -171,9 +171,6 @@ else
 	ey = end_y
 endif
 
-mid_t = (end_ts + start_ts)*0.5    ! ignition time in the middle
-dif_th = (end_ts - start_ts)*0.5   
-
 cx2=unit_xf*unit_xf
 cy2=unit_yf*unit_yf
 
@@ -182,6 +179,9 @@ dmax=0
 ! midpoint m = (mx,my)
 mx = (sx + ex)/2
 my = (sy + ey)/2
+mid_t = (st + et)*0.5    ! ignition time at the midpoint
+dif_t = (et - st)*0.5    ! difference of the times at the endpoints
+
 !axmin=huge(axmin)
 !aymin=huge(aymin)
 !axmax=-huge(axmax)
@@ -230,20 +230,24 @@ do j=jfts,jfte
         endif
         if(lfn(i,j)>0 .and. lfn_new<=0) then
             cos_ame = sqrt(cos2)                        ! relative distance of c from m 
-	    time_ign = mid_t + sign(cos_ame,am_es)*dif_th ! ignition time at c by going from m
+	    time_ign = mid_t + sign(cos_ame,am_es)*dif_t ! ignition time at c by going from m
             tign(i,j)=time_ign  ! newly ignited now
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
 
         ! debug
-        ! write(msg,'(2i4,10f12.6)')i,j,d,sx,ex,sy,ey
-        ! call message(msg)
-        ! write(msg,'(10f12.6)')ax,ay,dmc2,des2,cos2
-        ! call message(msg)
-        ! write(msg,'(10f16.6)')unit_xf,unit_yf,cx2,cy2,dam2
-        ! call message(msg)
-        ! write(msg,'(10f16.6)')des2,dames,am_es,mx,my
-        ! call message(msg)
+        write(*,*)'IGN2',i,j,d,sx
+        write(*,*)'IGN3',ex,sy,ey
+        write(*,*)'IGN4',ax,ay,dmc2
+        write(*,*)'IGN5',des2,cos2
+        write(*,*)'IGN6',cx2,cy2,dam2
+        write(*,*)'IGNX',st,et
+        write(*,*)'IGN7',mid_t,dif_t
+        write(*,*)'IGN8',des2,dames
+        write(*,*)'IGN9',am_es,mx,my
+
+        print *,'IGN:',i,j,d,lfn_new,lfn(i,j),tign(i,j)
+        
     enddo
 enddo
 axmin=coord_xf(ifts,jfts)
