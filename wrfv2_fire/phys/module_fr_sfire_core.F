@@ -171,17 +171,12 @@ else
 	ey = end_y
 endif
 
-mid_t = (end_ts + start_ts)*0.5    ! ignition time in the middle
-dif_th = (end_ts - start_ts)*0.5   
 
 cx2=unit_xf*unit_xf
 cy2=unit_yf*unit_yf
 
 ignited=0
 dmax=0
-! midpoint m = (mx,my)
-mx = (sx + ex)/2
-my = (sy + ey)/2
 !axmin=huge(axmin)
 !aymin=huge(aymin)
 !axmax=-huge(axmax)
@@ -190,38 +185,8 @@ do j=jfts,jfte
     do i=ifts,ifte
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
-        dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
 
-        ! the following computation of distance is also for the case
-        ! when s=e exactly or approximately 
-
-        ! compute d = the distance of a=(ax,ay) and the nearest point on the segment
-        ! [(sx,sy), (ex,ey)] as the distance of (ax,ay) from the midpoint (mx,my)
-        ! minus a correction (because of rounding errors): |a-c|^2 = |a-m|^2 - |m-c|^2
-        ! when |m-c| >= |s-e|/2 the nearest point is one of the endpoints
-        !
-        !           a    
-        !          /| \
-        !     s---m-c--e
-        !
-        ! |m-c| = |a-m| cos (a-m,e-s) 
-        !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
-        des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
-        dames = dam2*des2
-        am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
-        if(dames>0)then
-            cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
-        else ! point a already is the midpoint
-            cos2 = 0.
-        endif
-        dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
-        if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
-            d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
-        elseif(am_es>0)then                             ! if cos > 0, closest is e
-            d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
-        else                                            ! closest is s
-            d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
-        endif
+        call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         dmax=max(d,dmax)
 
         lfn_new=d-r
@@ -229,21 +194,11 @@ do j=jfts,jfte
             ignited=ignited+1   ! count
         endif
         if(lfn(i,j)>0 .and. lfn_new<=0) then
-            cos_ame = sqrt(cos2)                        ! relative distance of c from m 
-	    time_ign = mid_t + sign(cos_ame,am_es)*dif_th ! ignition time at c by going from m
             tign(i,j)=time_ign  ! newly ignited now
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
-
-        ! debug
-        ! write(msg,'(2i4,10f12.6)')i,j,d,sx,ex,sy,ey
-        ! call message(msg)
-        ! write(msg,'(10f12.6)')ax,ay,dmc2,des2,cos2
-        ! call message(msg)
-        ! write(msg,'(10f16.6)')unit_xf,unit_yf,cx2,cy2,dam2
-        ! call message(msg)
-        ! write(msg,'(10f16.6)')des2,dames,am_es,mx,my
-        ! call message(msg)
+        print *,'IGN:',i,j,d,lfn_new,lfn(i,j),tign(i,j)
+ 
     enddo
 enddo
 axmin=coord_xf(ifts,jfts)
@@ -260,6 +215,79 @@ call message(msg)
 write(msg,'(a,f4.1,a,2f8.1,a,i10)')' radius ',r,' time',st,et,' ignited nodes',ignited
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
+
+contains
+
+! called from the inside of a loop, inline if possible
+!DEC$ ATTRIBUTES FORCEINLINE
+SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
+        implicit none
+!***    arguments
+        real, intent(out):: d,t
+        real, intent(in):: ax,ay,sx,sy,st,ex,ey,et,cx2,cy2
+        integer, intent(in)::i,j
+        ! input:
+        ! ax, ay       coordinates of point a
+        ! sx,sy,ex,ey  coordinates of endpoints of segment [x,y]
+        ! st,et        values at the endpoints x,y
+        ! cx2,cy2      x and y unit squared for computing distance 
+        ! output
+        ! d            the distance of a and the nearest point z on the segment [x,y]
+        ! t            linear interpolation from the values st,et to the point z
+        !
+        ! method: compute d as the distance (ax,ay) from the midpoint (mx,my)
+        ! minus a correction (because of rounding errors): |a-c|^2 = |a-m|^2 - |m-c|^2
+        ! when |m-c| >= |s-e|/2 the nearest point is one of the endpoints
+        ! the computation work also for the case when s=e exactly or approximately 
+        !
+        !
+        !           a    
+        !          /| \
+        !     s---m-c--e
+        !
+        ! |m-c| = |a-m| cos (a-m,e-s) 
+        !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
+!***    local
+        real:: mx,my,dam2,dames,am_es,cos2,dmc2,cos_ame,mid_t,dif_t
+!***    executable
+        ! midpoint m = (mx,my)
+        mx = (sx + ex)*0.5
+        my = (sy + ey)*0.5
+        dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
+        des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
+        dames = dam2*des2
+        am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
+        if(dames>0)then
+            cos2 = (am_es*am_es)/dames                  ! cos2 = cos^2 (a-m,e-s)
+        else ! point a already is the midpoint
+            cos2 = 0.
+        endif
+        dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
+            mid_t = (et + st)*0.5    ! interpolate to the middle
+            dif_t = (et - st)*0.5   
+        if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
+            d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
+            cos_ame = sqrt(cos2)                        ! relative distance of c from m 
+	    t = mid_t + sign(cos_ame,am_es)*dif_t ! interpolate to c by going from m
+        elseif(am_es>0)then                             ! if cos > 0, closest is e
+            d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
+            t = et
+        else                                            ! closest is s
+            d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
+            t = st
+        endif
+        ! debug
+        write(*,*)'IGN2',i,j,d,sx
+        write(*,*)'IGN3',ex,sy,ey
+        write(*,*)'IGN4',ax,ay,dmc2
+        write(*,*)'IGN5',des2,cos2
+        write(*,*)'IGN6',cx2,cy2,dam2
+        write(*,*)'IGNX',st,et
+        write(*,*)'IGN7',mid_t,dif_t
+        write(*,*)'IGN8',des2,dames
+        write(*,*)'IGN9',am_es,mx,my
+END SUBROUTINE nearest
+
 end subroutine ignite_fire
 
 !
