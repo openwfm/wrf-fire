@@ -199,6 +199,7 @@ do j=jfts,jfte
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
 
+        print *,'IGNA',i,j,lfn(i,j),tign(i,j)
         ! get d= distance from the nearest point on the ignition segment
         ! and time_ign = the ignition time there
         call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
@@ -206,13 +207,15 @@ do j=jfts,jfte
         dmin=min(d,dmin)
 
         lfn_new=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
-        if(lfn_new<=0) then
+        print *,'IGN:',i,j,d,time_ign,lfn_new
+        if(.not.lfn_new>0.) then
             ignited=ignited+1   ! count
         endif
-        if(lfn(i,j)>0 .and. lfn_new<=0) then
+        if(lfn(i,j)>0. .and. .not. lfn_new > 0.) then
             tign(i,j)=time_ign + ros*d  ! newly ignited now
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-            write(msg,'(a,2i6,a,2g13.6,a,f10.2)')'IGN ignited cell ',i,j,' at',ax,ay,' time',tign(i,j)
+            write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
+                    ' time',tign(i,j),' in [',start_ts,end_ts,']'
             call message(msg)
             write(msg,'(a,g10.3,a,f10.2,a,2f10.2,a)')'IGN distance',d,' from ignition line at',time_ign,' in [',st,et,']'
             call message(msg)
@@ -226,7 +229,7 @@ do j=jfts,jfte
             endif
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
-        !print *,'IGN:',i,j,d,lfn_new,lfn(i,j),tign(i,j)
+        print *,'IGNZ',i,j,lfn(i,j),tign(i,j)
  
     enddo
 enddo
