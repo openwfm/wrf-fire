@@ -272,7 +272,7 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         ! |m-c| = |a-m| cos (a-m,e-s) 
         !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
 !***    local
-        real:: mx,my,dam2,dames,am_es,cos2,dmc2,cos_ame,mid_t,dif_t,des2
+        real:: mx,my,dam2,dames,am_es,cos2,dmc2,mcrel,mid_t,dif_t,des2
 !***    executable
         ! midpoint m = (mx,my)
         mx = (sx + ex)*0.5
@@ -289,10 +289,10 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
         mid_t = (et + st)*0.5                           ! interpolate to the middle
         dif_t = (et - st)*0.5   
-        if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
+        if(4.*dmc2 < des2)then                         ! if |m-c|<=|e-s|/2
             d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
-            cos_ame = sqrt(cos2)                        ! relative distance of c from m 
-	    t = mid_t + sign(cos_ame,am_es)*dif_t       ! interpolate to c by going from m
+            mcrel = sqrt(4.*dmc2/des2)                        ! relative distance of c from m 
+	    t = mid_t + sign(mcrel,am_es)*dif_t       ! interpolate to c by going from m
         elseif(am_es>0)then                             ! if cos > 0, closest is e
             d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
             t = et
@@ -304,7 +304,7 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         write(*,*)'IGN2',i,j,d,sx
         write(*,*)'IGN3',ex,sy,ey
         write(*,*)'IGN4',ax,ay,dmc2
-        write(*,*)'IGN5',des2,cos2,cos_ame
+        write(*,*)'IGN5',des2,cos2,mcrel
         write(*,*)'IGN6',cx2,cy2,dam2
         write(*,*)'IGNX',st,et,t
         write(*,*)'IGN7',mid_t,dif_t
