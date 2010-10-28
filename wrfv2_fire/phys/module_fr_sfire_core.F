@@ -1476,6 +1476,7 @@ call message(msg)
     do j=jts,jte
         do i=its,ite
             lfn_out(i,j) = a1*lfn1(i,j) + a*(lfn_in(i,j) + dt*tend(i,j))
+            lfn_out(i,j) = min(lfn_out(i,j),lfn_in(i,j)) ! fire area can only increase
         enddo
     enddo      
 
