@@ -868,18 +868,23 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
        ignition_line(5)%end_y=config_flags%fire_ignition_end_lat5
     endif
     ! common to both cases
+       ignition_line(1)%ros=config_flags%fire_ignition_ros1 
        ignition_line(1)%radius=config_flags%fire_ignition_radius1 
        ignition_line(1)%start_time=config_flags%fire_ignition_start_time1 
        ignition_line(1)%end_time=config_flags%fire_ignition_end_time1 
+       ignition_line(2)%ros=config_flags%fire_ignition_ros2 
        ignition_line(2)%radius=config_flags%fire_ignition_radius2 
        ignition_line(2)%start_time=config_flags%fire_ignition_start_time2 
        ignition_line(2)%end_time=config_flags%fire_ignition_end_time2 
+       ignition_line(3)%ros=config_flags%fire_ignition_ros3 
        ignition_line(3)%radius=config_flags%fire_ignition_radius3 
        ignition_line(3)%start_time=config_flags%fire_ignition_start_time3 
        ignition_line(3)%end_time=config_flags%fire_ignition_end_time3 
+       ignition_line(4)%ros=config_flags%fire_ignition_ros4 
        ignition_line(4)%radius=config_flags%fire_ignition_radius4 
        ignition_line(4)%start_time=config_flags%fire_ignition_start_time4 
        ignition_line(4)%end_time=config_flags%fire_ignition_end_time4 
+       ignition_line(5)%ros=config_flags%fire_ignition_ros5 
        ignition_line(5)%radius=config_flags%fire_ignition_radius5 
        ignition_line(5)%start_time=config_flags%fire_ignition_start_time5
        ignition_line(5)%end_time=config_flags%fire_ignition_end_time5

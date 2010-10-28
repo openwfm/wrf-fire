@@ -127,7 +127,7 @@ real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
 character(len=128):: msg
-real::cx2,cy2,dmax,axmin,axmax,aymin,aymax
+real::cx2,cy2,dmax,axmin,axmax,aymin,aymax,dmin
 real:: start_x,start_y          ! start of ignition line, from lower left corner
 real:: end_x,end_y              ! end of ignition line, or zero
 real:: radius                   ! all within the radius of the line will ignite
@@ -152,16 +152,19 @@ st         = start_time            ! the start time of ignition considered in th
 et         = min(end_ts,end_time)  ! the end time of the ignition segment in this time step
 
 ! this should be called whenever (start_ts, end_ts) \subset (start_time, end_time + tos) 
-if(start_ts>et+tos) return           ! no ignition in this time step, nothing to do
+if(start_ts>et+tos .or. end_ts<st)return   ! too late or too early, nothing to do
 
 if(start_time < end_time)then  ! we really want to test start_time .ne. end_time, but avoiding test of floats on equality
         ! segment of nonzero length
-        rels =  (st - start_time) / (end_time - start_time)  ! relative position of st in the segment (start,end)
-	sx = start_x + rels * (end_x - start_x)
-	sy = start_y + rels * (end_y - start_y)
-        rele =  (et - end_time) / (end_time - start_time)    ! relative position of et in the segment (start,end)
-	ex = end_x + rele * (end_x - start_x)
-	ey = end_y + rele * (end_y - start_y)
+        !rels =  (st - start_time) / (end_time - start_time)  ! relative position of st in the segment (start,end)
+	!sx = start_x + rels * (end_x - start_x)
+	!sy = start_y + rels * (end_y - start_y)
+        rels = 0.
+        sx = start_x
+        sy = start_y
+        rele =  (et - start_time) / (end_time - start_time)    ! relative position of et in the segment (start,end)
+	ex = start_x + rele * (end_x - start_x)
+	ey = start_y + rele * (end_y - start_y)
 else
         ! just a point
         rels = 0.
@@ -176,8 +179,21 @@ endif
 cx2=unit_xf*unit_xf
 cy2=unit_yf*unit_yf
 
+axmin=coord_xf(ifts,jfts)
+aymin=coord_yf(ifts,jfts)
+axmax=coord_xf(ifte,jfte)
+aymax=coord_yf(ifte,jfte)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+write(msg,'(a,2f11.6,a,2f11.6)')'IGN from ',sx,sy,' to ',ex,ey
+call message(msg)
+write(msg,'(a,2f10.2,a,2f10.2,a)')'IGN timestep [',start_ts,end_ts,'] in [',start_time,end_time,']'
+call message(msg)
+write(msg,'(a,2g13.6,a,2g13.6)')'IGN tile coord from  ',axmin,aymin,' to ',axmax,aymax
+call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
 ignited=0
 dmax=0
+dmin=huge(dmax)
 do j=jfts,jfte   
     do i=ifts,ifte
         ax=coord_xf(i,j)
@@ -187,18 +203,25 @@ do j=jfts,jfte
         ! and time_ign = the ignition time there
         call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         dmax=max(d,dmax)
+        dmin=min(d,dmin)
 
-        lfn_new=d - min( radius, ros*(end_ts - time_ign) )
+        lfn_new=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
         if(lfn_new<=0) then
             ignited=ignited+1   ! count
         endif
         if(lfn(i,j)>0 .and. lfn_new<=0) then
             tign(i,j)=time_ign + ros*d  ! newly ignited now
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            write(msg,'(a,2i6,a,2g13.6,a,f10.2)')'IGN ignited cell ',i,j,' at',ax,ay,' time',tign(i,j)
+            call message(msg)
+            write(msg,'(a,g10.3,a,f10.2,a,2f10.2,a)')'IGN distance',d,' from ignition line at',time_ign,' in [',st,et,']'
+            call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
             if(tign(i,j) < start_ts)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-                write(msg,'(a,2i6,a,f11.6,a,f11.6)')'ignite_fire: cell ',i,j, &
+                write(msg,'(a,2i6,a,f11.6,a,f11.6)')'IGN ',i,j, &
                 ' ignition time ',tign(i,j),' is prior to start of time step at ',start_ts
-                call crash(msg)
+                call crash (msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
             endif
         endif
@@ -207,20 +230,15 @@ do j=jfts,jfte
  
     enddo
 enddo
-axmin=coord_xf(ifts,jfts)
-aymin=coord_yf(ifts,jfts)
-axmax=coord_xf(ifte,jfte)
-aymax=coord_yf(ifte,jfte)
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
+write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
 call message(msg)
-write(msg,'(a,2f11.6,a,2f11.6)')'tile coord from  ',axmin,aymin,' to ',axmax,aymax
-call message(msg)
-write(msg,'(a,2f11.2,a,f8.1,a)')'units ',unit_xf,unit_yf,' m max dist ',dmax,' m'
-call message(msg)
-write(msg,'(a,f4.1,a,2f8.1,a,i10)')' radius ',radius,' time',st,et,' ignited nodes',ignited
+write(msg,'(a,f4.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
+
+return
+99 continue
 
 end subroutine ignite_fire
 
@@ -269,12 +287,12 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
             cos2 = 0.
         endif
         dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
-            mid_t = (et + st)*0.5    ! interpolate to the middle
-            dif_t = (et - st)*0.5   
+        mid_t = (et + st)*0.5                           ! interpolate to the middle
+        dif_t = (et - st)*0.5   
         if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
             d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
             cos_ame = sqrt(cos2)                        ! relative distance of c from m 
-	    t = mid_t + sign(cos_ame,am_es)*dif_t ! interpolate to c by going from m
+	    t = mid_t + sign(cos_ame,am_es)*dif_t       ! interpolate to c by going from m
         elseif(am_es>0)then                             ! if cos > 0, closest is e
             d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
             t = et
@@ -283,15 +301,15 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
             t = st
         endif
         ! debug
-        !write(*,*)'IGN2',i,j,d,sx
-        !write(*,*)'IGN3',ex,sy,ey
-        !write(*,*)'IGN4',ax,ay,dmc2
-        !write(*,*)'IGN5',des2,cos2
-        !write(*,*)'IGN6',cx2,cy2,dam2
-        !write(*,*)'IGNX',st,et
-        !write(*,*)'IGN7',mid_t,dif_t
-        !write(*,*)'IGN8',des2,dames
-        !write(*,*)'IGN9',am_es,mx,my
+        write(*,*)'IGN2',i,j,d,sx
+        write(*,*)'IGN3',ex,sy,ey
+        write(*,*)'IGN4',ax,ay,dmc2
+        write(*,*)'IGN5',des2,cos2,cos_ame
+        write(*,*)'IGN6',cx2,cy2,dam2
+        write(*,*)'IGNX',st,et,t
+        write(*,*)'IGN7',mid_t,dif_t
+        write(*,*)'IGN8',des2,dames
+        write(*,*)'IGN9',am_es,mx,my
 END SUBROUTINE nearest
 
 
