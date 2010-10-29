@@ -194,6 +194,8 @@ call message(msg)
 ignited=0
 dmax=0
 dmin=huge(dmax)
+11      format('IGN ',6(a,g17.7,1x)) 
+12      format('IGN ',4(a,2g13.7,1x))
 do j=jfts,jfte   
     do i=ifts,ifte
         ax=coord_xf(i,j)
@@ -202,7 +204,7 @@ do j=jfts,jfte
         print *,'IGNA',i,j,lfn(i,j),tign(i,j)
         ! get d= distance from the nearest point on the ignition segment
         ! and time_ign = the ignition time there
-        call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
+        call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
         dmax=max(d,dmax)
         dmin=min(d,dmin)
 
@@ -247,12 +249,11 @@ end subroutine ignite_fire
 
 ! called from the inside of a loop, inline if possible
 !DEC$ ATTRIBUTES FORCEINLINE
-SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
+SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
         implicit none
 !***    arguments
         real, intent(out):: d,t
         real, intent(in):: ax,ay,sx,sy,st,ex,ey,et,cx2,cy2
-        integer, intent(in)::i,j
         ! input:
         ! ax, ay       coordinates of point a
         ! sx,sy,ex,ey  coordinates of endpoints of segment [x,y]
@@ -275,8 +276,15 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
         ! |m-c| = |a-m| cos (a-m,e-s) 
         !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
 !***    local
-        real:: mx,my,dam2,dames,am_es,cos2,dmc2,mcrel,mid_t,dif_t,des2
+        real:: mx,my,dam2,dames,am_es,cos2,dmc2,mcrel,mid_t,dif_t,des2,cx,cy
+        character(len=128):: msg
 !***    executable
+
+11      format('IGN ',6(a,g17.7,1x))
+12      format('IGN ',4(a,2g13.7,1x))
+        write(*,12)'find nearest to [',ax,ay,'] from [',sx,sy,'] [',ex,ey,']' ! DEB
+        write(*,12)'end times',st,et,' scale squared',cx2,cy2 ! DEB
+
         ! midpoint m = (mx,my)
         mx = (sx + ex)*0.5
         my = (sy + ey)*0.5
@@ -290,29 +298,27 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
             cos2 = 0.
         endif
         dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
-        mid_t = (et + st)*0.5                           ! interpolate to the middle
-        dif_t = (et - st)*0.5   
-        if(4.*dmc2 < des2)then                         ! if |m-c|<=|e-s|/2
-            d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
-            mcrel = sqrt(4.*dmc2/des2)                        ! relative distance of c from m 
-	    t = mid_t + sign(mcrel,am_es)*dif_t       ! interpolate to c by going from m
+        if(4.*dmc2 < des2)then                          ! if |m-c|<=|e-s|/2
+            ! d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
+            mcrel = sign(sqrt(4.*dmc2/des2),am_es)      ! relative distance of c from m 
+	    cx = (ex + sx)*0.5 + mcrel*(ex - sx)*0.5     ! interpolate to c by going from m
+	    cy = (ey + sy)*0.5 + mcrel*(ey - sy)*0.5     ! interpolate to c by going from m
+            d=sqrt((ax-cx)*(ax-cx)*cx2+(ay-cy)*(ay-cy)*cy2) ! |a-c|^2
+	    t = (et + st)*0.5 + mcrel*(et - st)*0.5     ! interpolate to c by going from m
+            write(*,11)'nearest at mcrel=',mcrel,' from middle, t=',t ! DEB
+            write(*,12)'nearest is [',cx,cy,']' ! DEB
         elseif(am_es>0)then                             ! if cos > 0, closest is e
             d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
             t = et
+            write(*,12)'nearest is [',ex,ey,']' ! DEB
         else                                            ! closest is s
             d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
             t = st
+            write(*,12)'nearest is [',sx,sy,']' ! DEB
         endif
-        ! debug
-        write(*,*)'IGN2',i,j,d,sx
-        write(*,*)'IGN3',ex,sy,ey
-        write(*,*)'IGN4',ax,ay,dmc2
-        write(*,*)'IGN5',des2,cos2,mcrel
-        write(*,*)'IGN6',cx2,cy2,dam2
-        write(*,*)'IGNX',st,et,t
-        write(*,*)'IGN7',mid_t,dif_t
-        write(*,*)'IGN8',des2,dames
-        write(*,*)'IGN9',am_es,mx,my
+
+        write(*,11)'distance d=',d,' interpolated time t=',t ! DEB
+        write(*,11)'dam2=',dam2,'des2=',des2,'dames=',dames,'am_es=',am_es,'cos2=',cos2,'dmc2=',dmc2 ! DEB
 END SUBROUTINE nearest
 
 
