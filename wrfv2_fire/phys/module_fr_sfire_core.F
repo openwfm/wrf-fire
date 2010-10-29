@@ -199,7 +199,7 @@ do j=jfts,jfte
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
 
-        print *,'IGNA',i,j,lfn(i,j),tign(i,j)
+        !print *,'IGNA',i,j,lfn(i,j),tign(i,j)
         ! get d= distance from the nearest point on the ignition segment
         ! and time_ign = the ignition time there
         call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
@@ -207,12 +207,13 @@ do j=jfts,jfte
         dmin=min(d,dmin)
 
         lfn_new=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
-        print *,'IGN:',i,j,d,time_ign,lfn_new
+        !print *,'IGN:',i,j,d,time_ign,lfn_new
         if(.not.lfn_new>0.) then
             ignited=ignited+1   ! count
         endif
         if(lfn(i,j)>0. .and. .not. lfn_new > 0.) then
-            tign(i,j)=time_ign + ros*d  ! newly ignited now
+            ! walking speed can be bigger that ros
+            tign(i,j)=max(start_ts,time_ign + ros*d)  ! newly ignited now
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
             write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
                     ' time',tign(i,j),' in [',start_ts,end_ts,']'
@@ -220,16 +221,18 @@ do j=jfts,jfte
             write(msg,'(a,g10.3,a,f10.2,a,2f10.2,a)')'IGN distance',d,' from ignition line at',time_ign,' in [',st,et,']'
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
-            if(tign(i,j) < start_ts)then
-!$OMP CRITICAL(SFIRE_CORE_CRIT)
-                write(msg,'(a,2i6,a,f11.6,a,f11.6)')'IGN ',i,j, &
-                ' ignition time ',tign(i,j),' is prior to start of time step at ',start_ts
-                call crash (msg)
-!$OMP END CRITICAL(SFIRE_CORE_CRIT)
-            endif
+
+!            if(tign(i,j) < start_ts)then
+!!$OMP CRITICAL(SFIRE_CORE_CRIT)
+!                write(msg,'(a,2i6,a,f11.6,a,f11.6)')'IGN ',i,j, &
+!                ' ignition time ',tign(i,j),' is prior to start of time step at ',start_ts
+!                call crash (msg)
+!!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+!            endif
+
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
-        print *,'IGNZ',i,j,lfn(i,j),tign(i,j)
+        !print *,'IGNZ',i,j,lfn(i,j),tign(i,j)
  
     enddo
 enddo
@@ -304,15 +307,15 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,i,j)
             t = st
         endif
         ! debug
-        write(*,*)'IGN2',i,j,d,sx
-        write(*,*)'IGN3',ex,sy,ey
-        write(*,*)'IGN4',ax,ay,dmc2
-        write(*,*)'IGN5',des2,cos2,mcrel
-        write(*,*)'IGN6',cx2,cy2,dam2
-        write(*,*)'IGNX',st,et,t
-        write(*,*)'IGN7',mid_t,dif_t
-        write(*,*)'IGN8',des2,dames
-        write(*,*)'IGN9',am_es,mx,my
+        !write(*,*)'IGN2',i,j,d,sx
+        !write(*,*)'IGN3',ex,sy,ey
+        !write(*,*)'IGN4',ax,ay,dmc2
+        !write(*,*)'IGN5',des2,cos2,mcrel
+        !write(*,*)'IGN6',cx2,cy2,dam2
+        !write(*,*)'IGNX',st,et,t
+        !write(*,*)'IGN7',mid_t,dif_t
+        !write(*,*)'IGN8',des2,dames
+        !write(*,*)'IGN9',am_es,mx,my
 END SUBROUTINE nearest
 
 
