@@ -53,46 +53,48 @@ call read_namelist(config_flags)           ! read flags from namelist.input
 call set_info_from_file(inputfile,info)     ! get dimensions
 
 ! set dimensions
-nx=info%natmx
-ny=info%natmy
-nz=info%natmz
+!nx=info%natmx
+!ny=info%natmy
+!nz=info%natmz
 nfx=info%nfirex
 nfy=info%nfirey
 sr_x=info%sr_x
 sr_y=info%sr_y
 
-write(6,2)' atmospheric domain size               ',config_flags%e_we,config_flags%e_sn,config_flags%e_vert
-if(config_flags%e_we.ne.nx+1 .or. config_flags%e_sn.ne.ny+1 .or. config_flags%e_vert.ne.nz+1)then
-  write(6,*)'dimensions in input file are ',nx,ny,nz,' must be 1 less than in namelist.input'
-  call crash('inconsistent input files')
-endif
+!write(6,2)' atmospheric domain size               ',config_flags%e_we,config_flags%e_sn,config_flags%e_vert
+!if(config_flags%e_we.ne.nx+1 .or. config_flags%e_sn.ne.ny+1 .or. config_flags%e_vert.ne.nz+1)then
+!  write(6,*)'dimensions in input file are ',nx,ny,nz,' must be 1 less than in namelist.input'
+!  call crash('inconsistent input files')
+!endif
 
 
 ! set atm domain size
-ids=1
-ide=nx+1
-jds=1
-jde=ny+1
-kds=1
-kde=nz+1
-ims=ids-nhalo
-ime=ide+nhalo
-jms=jds-nhalo
-jme=jde+nhalo
-kms=kds
-kme=kde
-ips=ids
-ipe=ide
-jps=jds
-jpe=jde
-kps=kds
-kpe=kde
+!ids=1
+!ide=nx+1
+!jds=1
+!jde=ny+1
+!kds=1
+!kde=nz+1
+!ims=ids-nhalo
+!ime=ide+nhalo
+!jms=jds-nhalo
+!jme=jde+nhalo
+!kms=kds
+!kme=kde
+!ips=ids
+!ipe=ide
+!jps=jds
+!jpe=jde
+!kps=kds
+!kpe=kde
+!
+!write(6,2)'fire_mesh refinement ratio  ',info%sr_x,info%sr_y
 
-write(6,2)'fire_mesh refinement ratio  ',info%sr_x,info%sr_y
 write(6,2)'fire domain size            ',nfx,nfy
-if(nfx.ne.sr_x*nx .or. nfy.ne.sr_y*ny)then
-   call crash('fire domain size is not multiple of atmospheric domain size')
-endif
+
+!if(nfx.ne.sr_x*nx .or. nfy.ne.sr_y*ny)then
+!   call crash('fire domain size is not multiple of atmospheric domain size')
+!endif
 
 
 ! set fire domain size
@@ -109,8 +111,8 @@ ifpe=nfx
 jfps=1
 jfpe=nfy
 
-write(6,2)'atmospheric domain dimensions',ids,ide,jds,jde,kds,kde
-write(6,2)'atmospheric memory dimensions',ims,ime,jms,jme,kms,kme
+!write(6,2)'atmospheric domain dimensions',ids,ide,jds,jde,kds,kde
+!write(6,2)'atmospheric memory dimensions',ims,ime,jms,jme,kms,kme
 write(6,2)'fire domain dimensions       ',ifds,ifde,jfds,jfde
 write(6,2)'fire memory dimensions       ',ifms,ifme,jfms,jfme
 2 format(a,6i6)
@@ -136,7 +138,7 @@ call allocate2d(grid%fgip,ifms,ifme,jfms,jfme,'fgip')            ! spread formul
 call allocate2d(grid%ischap,ifms,ifme,jfms,jfme,'ischap')          ! spread formula coeff
 call allocate2d(grid%fuel_time,ifms,ifme,jfms,jfme,'fuel_time')        ! 
 call allocate2d(grid%lfn,ifms,ifme,jfms,jfme,'lfn') 
-call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign_g') 
+call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign') 
 call allocate2d(grid%fuel_frac,ifms,ifme,jfms,jfme,'fuel_frac') 
 call allocate2d(grid%fire_area,ifms,ifme,jfms,jfme,'fire_area') 
 call allocate2d(grid%lfn_out,ifms,ifme,jfms,jfme,'lfn_out') 
@@ -149,21 +151,21 @@ call allocate2d(grid%fcanhfx,ifms,ifme,jfms,jfme,'fcanhfx')          !
 call allocate2d(grid%fcanqfx,ifms,ifme,jfms,jfme,'fcanqfx')          ! 
 
 ! atmosphere input/output compatibility arrays
-call allocate2d(grid%avg_fuel_frac,ims,ime,jms,jme,'avg_fuel_frac') 
-call allocate2d(grid%xlong,ims,ime,jms,jme,'xlong') 
-call allocate2d(grid%xlat,ims,ime,jms,jme,'xlat') 
-call allocate2d(grid%ht,ims,ime,jms,jme,'ht') 
-call allocate2d(grid%z0,ims,ime,jms,jme,'z0') 
-call allocate2d(grid%grnhfx,ims,ime,jms,jme,'grnhfx') 
-call allocate2d(grid%grnqfx,ims,ime,jms,jme,'qrnqfx') 
-call allocate2d(grid%canhfx,ims,ime,jms,jme,'canhfx')
-call allocate2d(grid%canqfx,ims,ime,jms,jme,'canqfx') 
-call allocate3d(grid%ph_2,ims,ime,kms,kme,jms,jme,'ph_2') 
-call allocate3d(grid%phb,ims,ime,kms,kme,jms,jme,'phb') 
-call allocate3d(grid%u_2,ims,ime,kms,kme,jms,jme,'u_2') 
-call allocate3d(grid%v_2,ims,ime,kms,kme,jms,jme,'v_2') 
-call allocate2d(grid%uah,ims,ime,jms,jme,'uah')                  ! 
-call allocate2d(grid%vah,ims,ime,jms,jme,'vah')                  ! 
+!call allocate2d(grid%avg_fuel_frac,ims,ime,jms,jme,'avg_fuel_frac') 
+!call allocate2d(grid%xlong,ims,ime,jms,jme,'xlong') 
+!call allocate2d(grid%xlat,ims,ime,jms,jme,'xlat') 
+!call allocate2d(grid%ht,ims,ime,jms,jme,'ht') 
+!call allocate2d(grid%z0,ims,ime,jms,jme,'z0') 
+!call allocate2d(grid%grnhfx,ims,ime,jms,jme,'grnhfx') 
+!call allocate2d(grid%grnqfx,ims,ime,jms,jme,'qrnqfx') 
+!call allocate2d(grid%canhfx,ims,ime,jms,jme,'canhfx')
+!call allocate2d(grid%canqfx,ims,ime,jms,jme,'canqfx') 
+!call allocate3d(grid%ph_2,ims,ime,kms,kme,jms,jme,'ph_2') 
+!call allocate3d(grid%phb,ims,ime,kms,kme,jms,jme,'phb') 
+!call allocate3d(grid%u_2,ims,ime,kms,kme,jms,jme,'u_2') 
+!call allocate3d(grid%v_2,ims,ime,kms,kme,jms,jme,'v_2') 
+!call allocate2d(grid%uah,ims,ime,jms,jme,'uah')                  ! 
+!call allocate2d(grid%vah,ims,ime,jms,jme,'vah')                  ! 
 
 ! prepare reading input file
 input%nfuel_cat=>grid%nfuel_cat(1:nfx,1:nfy)
@@ -172,24 +174,27 @@ input%dzdxf    =>grid%dzdxf(1:nfx,1:nfy)
 input%dzdyf    =>grid%dzdyf(1:nfx,1:nfy)
 input%vf       =>grid%uf(1:nfx,1:nfy)
 input%uf       =>grid%vf(1:nfx,1:nfy)
-call allocate3d(input%ph  ,1,nx,1,ny,1,nz+1,'ph') 
-call allocate3d(input%phb, 1,nx,1,ny,1,nz+1,'phb') 
-call allocate3d(input%u,   1,nx+1,1,ny,1,nz,'u') 
-call allocate3d(input%v,   1,nx,1,ny+1,1,nz,'v') 
+input%lfn      =>grid%lfn(1:nfx,1:nfy)
+input%tign     =>grid%tign_g(1:nfx,1:nfy)
+input%fuel_frac   =>grid%fuel_frac(1:nfx,1:nfy)
+!call allocate3d(input%ph  ,1,nx,1,ny,1,nz+1,'ph') 
+!call allocate3d(input%phb, 1,nx,1,ny,1,nz+1,'phb') 
+!call allocate3d(input%u,   1,nx+1,1,ny,1,nz,'u') 
+!call allocate3d(input%v,   1,nx,1,ny+1,1,nz,'v') 
 
 call read_vars(inputfile,info,input)
 
 ! sfire uses wrf ordering of dimensions
-grid%ph_2(1:nx,1:nz+1,1:ny)=reshape(input%ph, (/nx,nz+1,ny/),order=(/1,3,2/))
-grid%phb (1:nx,1:nz+1,1:ny)=reshape(input%phb,(/nx,nz+1,ny/),order=(/1,3,2/))
-deallocate(input%ph)
-deallocate(input%phb)
-grid%u_2(1:nx+1,1:nz,1:ny)=reshape(input%u,(/nx+1,nz,ny/),order=(/1,3,2/))
-grid%v_2(1:nx,1:nz,1:ny+1)=reshape(input%v,(/nx,nz,ny+1/),order=(/1,3,2/))
-deallocate(input%u)
-deallocate(input%v)
-grid%z0(1:nx,1:ny)=input%z0
-deallocate(input%z0)
+!grid%ph_2(1:nx,1:nz+1,1:ny)=reshape(input%ph, (/nx,nz+1,ny/),order=(/1,3,2/))
+!grid%phb (1:nx,1:nz+1,1:ny)=reshape(input%phb,(/nx,nz+1,ny/),order=(/1,3,2/))
+!deallocate(input%ph)
+!deallocate(input%phb)
+!grid%u_2(1:nx+1,1:nz,1:ny)=reshape(input%u,(/nx+1,nz,ny/),order=(/1,3,2/))
+!grid%v_2(1:nx,1:nz,1:ny+1)=reshape(input%v,(/nx,nz,ny+1/),order=(/1,3,2/))
+!deallocate(input%u)
+!deallocate(input%v)
+!grid%z0(1:nx,1:ny)=input%z0
+!deallocate(input%z0)
 
 ! time control
 ! NOTE: dt in the netcdf input file as returned in info%dt is WRONG !!

@@ -42,6 +42,8 @@ real, save::            &
  fire_viscosity=0.4,    &  ! artificial viscosity
  fire_lfn_ext_up=1.        ! 0.=extend level set function at boundary by reflection, 1.=always up
 
+integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
+
 contains
 
 !
@@ -53,7 +55,7 @@ implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
 msg='crash: '//s
-call message(msg)
+call message(msg,level=0)
 !$OMP CRITICAL(SFIRE_MESSAGE_CRIT)
 call wrf_error_fatal(msg)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
@@ -63,19 +65,28 @@ end subroutine crash
 !****************
 !
 
-subroutine message(s)
+subroutine message(s,level)
 use module_wrf_error
 #ifdef _OPENMP
 use OMP_LIB 
 #endif
 implicit none
+!*** arguments
 character(len=*), intent(in)::s
-! local
-character(len=128)msg
-character(len=118)t
-integer m
+integer,intent(in),optional::level
+!*** local
+character(len=128)::msg
+character(len=118)::t
+integer m,mlevel
 logical op
-if(fire_print_msg.gt.0)then
+!*** executable
+if(present(level))then
+    mlevel=level
+else
+    mlevel=2  ! default message level
+endif
+   
+if(fire_print_msg.ge.mlevel)then
 #ifdef _OPENMP
     m=omp_get_thread_num()
     t=s
@@ -85,14 +96,16 @@ if(fire_print_msg.gt.0)then
     msg='SFIRE:'//s
 #endif
     call wrf_message(msg)
-    inquire(unit=6,opened=op)
-    if(op)then 
-      call flush(6)
-    endif
-    inquire(unit=0,opened=op)
-    if(op)then
-      call flush(0)
-    endif
+!    inquire(unit=6,opened=op)
+!    if(op)then 
+!      call flush(6)
+!    endif
+!    inquire(unit=0,opened=op)
+!    if(op)then
+!      call flush(0)
+!    endif
+     flush(6)
+     flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -102,33 +115,42 @@ end subroutine message
 !
 
 
-integer function open_input_text_file(filename)
+integer function open_text_file(filename,rw)
 implicit none
-character(len=*),intent(in):: filename
+character(len=*),intent(in):: filename,rw
 !$ integer, external:: OMP_GET_THREAD_NUM
 character(len=128):: msg
+character(len=1)::act
 integer::iounit,ierr
 logical::op
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('open_input_text_file: called from parallel loop')
 !$  endif
-!$OMP CRITICAL(SFIRE_OPEN_CRIT)
 
     do iounit=19,99
        inquire(iounit,opened=op)
        if(.not.op)goto 1
     enddo
-    call crash('open_input_text_file: Cannot find any available I/O unit')
+    call crash('open_text_file: Cannot find any available I/O unit')
 1   continue
-    OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+    act=rw(1:1)
+    select case (act)
+        case ('r','R')
+            OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='OLD',ACTION='READ',IOSTAT=ierr)
+        case ('w','W')
+            OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='UNKNOWN',ACTION='WRITE',IOSTAT=ierr)
+        case default
+            write(msg,*)'open_text_file: bad mode ',trim(rw),' for file ',trim(filename)
+    end select
+    
     if(ierr.ne.0)then 
-	write(msg,*)'open_input_text_file: Cannot open file ',filename
+	write(msg,*)'open_text_file: Cannot open file ',filename
         call crash(msg)
     endif
-!$OMP END CRITICAL(SFIRE_OPEN_CRIT)
-    open_input_text_file=iounit
-end function open_input_text_file
+    open_text_file=iounit
+
+end function open_text_file
 
 !
 !****************
@@ -931,7 +953,7 @@ character(len=*),intent(in)::name
 integer:: i,j
 real:: t 
 real:: avg_a,max_a,min_a 
-character(len=25)id
+character(len=25)::id
 id=name
 call print_2d_stats(ips,ipe,jps,jpe, &
                          ims,ime,jms,jme, &
@@ -963,8 +985,8 @@ integer, intent(in)::ips,ipe,jps,jpe
 character(len=*),intent(in)::name
 real,intent(in)::min_a,max_a,avg_a
 !*** local
-character(len=128)msg
-character(len=24)id
+character(len=128)::msg
+character(len=24)::id
 if(fire_print_msg.eq.0)return
 id=name
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
@@ -984,7 +1006,7 @@ real, intent(in)::a(ims:ime,kms:kme,jms:jme)
 character(len=*),intent(in)::name
 integer:: i,j,k
 real:: avg_a,max_a,min_a,t,aa,bb
-character(len=128)msg
+character(len=128)::msg
 ! if(fire_print_msg.eq.0)return
 ! check for nans in any case
 bb=0.
@@ -1037,7 +1059,7 @@ implicit none
 integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
-!!character(len=128)msg
+!!character(len=128)::msg
 !if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &
@@ -1376,7 +1398,7 @@ if(thread.eq.0)then
 #ifdef DM_PARALLEL
     gsum = wrf_dm_bxor_integer ( psum )
 #else
-    gsum = lsum
+    gsum = psum
 #endif
     write(msg,1)id,name,ids,ide+is,kds,kde+ks,jds,jde+js,gsum
 1   format(i6,1x,a10,' dims',6i5,' chsum ',z8.8)
@@ -1386,5 +1408,122 @@ endif
 end subroutine print_chsum 
 
 
+real function fun_real(fun,  & 
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+    istag,kstag,jstag,       &                ! staggering
+    a,b)                      
+
+#ifdef DM_PARALLEL
+    USE module_dm
+#endif
+
+integer, intent(in)::  fun, &
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch dims
+    istag,kstag,jstag                         ! staggering
+real, intent(in),dimension(ims:ime,kms:kme,jms:jme)::a,b
+
+!*** local
+real::lsum,void
+integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
+real, save::psum,gsum
+real::rel
+logical:: dosum,domax
+character(len=256)msg
+
+ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
+kpe1=ifval(kpe.eq.kde.and.kstag.ne.0,kpe+1,kpe)
+jpe1=ifval(jpe.eq.jde.and.jstag.ne.0,jpe+1,jpe)
+is=ifval(istag.ne.0,1,0)
+ks=ifval(kstag.ne.0,1,0)
+js=ifval(jstag.ne.0,1,0)
+
+if(fun.eq.REAL_SUM)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=lsum+a(i,k,j)
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.RNRM_SUM)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=lsum+sqrt(a(i,k,j)*a(i,k,j)+b(i,k,j)*b(i,k,j))
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.REAL_MAX)then
+  void=-huge(lsum)
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=max(lsum,a(i,k,j))
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.RNRM_MAX)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=max(lsum,sqrt(a(i,k,j)*a(i,k,j)+b(i,k,j)*b(i,k,j)))
+      enddo
+    enddo
+  enddo
+else
+  call crash('fun_real: bad fun')
+endif
+
+if(lsum.ne.lsum)call crash('fun_real: NaN detected')
+
+dosum=fun.eq.REAL_SUM.or.fun.eq.RNRM_SUM
+domax=fun.eq.REAL_MAX.or.fun.eq.RNRM_MAX
+
+! get process sum over all threads
+!$OMP SINGLE
+! only one thread should write to shared variable
+psum=void
+!$OMP END SINGLE
+!$OMP BARRIER
+! now all threads know psum
+
+!$OMP CRITICAL(RDSUM)
+! each thread adds its own lsum
+if(dosum)psum=psum+lsum
+if(domax)psum=max(psum,lsum)
+!$OMP END CRITICAL(RDSUM)
+
+! wait till all theads are done
+!$OMP BARRIER
+
+! get global sum over all processes
+!$OMP SINGLE
+! only one threads will do the mpi communication
+#ifdef DM_PARALLEL
+    if(dosum) gsum = wrf_dm_sum_real ( psum )
+    if(domax) gsum = wrf_dm_max_real ( psum )
+#else
+    gsum = psum
+#endif
+if(gsum.ne.gsum)call crash('fun_real: NaN detected')
+!$OMP END SINGLE
+
+!$OMP BARRIER
+! now gsum is known to all threads
+
+fun_real=gsum
+
+end function fun_real
 
 end module module_fr_sfire_util

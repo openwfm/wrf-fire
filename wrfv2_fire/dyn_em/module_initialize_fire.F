@@ -28,7 +28,7 @@ MODULE module_initialize_ideal
    USE module_dm
 #endif
    USE module_fr_sfire_util, ONLY: continue_at_boundary,crash,read_array_2d_real, &
-     read_array_2d_integer,interpolate_2d
+     read_array_2d_integer,interpolate_2d,set_ideal_coord 
 
 CONTAINS
 
@@ -421,6 +421,20 @@ write(6,*) '*************************************'
   write (6,*)' fire memory bounds ',ifms,ifme, jfms,jfme,kfms,kfme
   write (6,*)' fire tile   bounds ',ifts,ifte, jfts,jfte,kfts,kfte
   write (6,*)' Note that atm mesh and fire mesh are cell-centered'
+
+! set ideal coordinates
+  call set_ideal_coord( fdx,fdy, &
+                ifds,ifde,jfds,jfde,  &
+                ifms,ifme,jfms,jfme,  &
+                ifts,ifte,jfts,jfte,  &
+                grid%fxlong,grid%fxlat          )
+  call set_ideal_coord( grid%dx,grid%dy, &
+                ids,ide,jds,jde,  &
+                ims,ime,jms,jme,  &
+                its,ite,jts,jte,  &
+                grid%xlong,grid%xlat          )
+
+! set terrain height
 
   DO j=jts,jte
   DO i=its,ite

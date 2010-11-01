@@ -8,9 +8,6 @@ wrf_fakes.F             stubs that perform various wrf functions
 To build the standalone driver, create your own make.inc, or link an existing one, and type make. 
 This will create file model_test_main.exe, then just execute this file.
 
-All I can say at the moment is that the standalone model runs and does something.
-Some sensible NetCDF WRF-compatible input and output comes later. 
-
 Spread rate calculation interface:
 
 The spread rate is computed in module_fr_sfire_phys.F (maybe it should be renamed to 
