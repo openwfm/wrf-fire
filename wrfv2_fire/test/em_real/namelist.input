@@ -1,24 +1,24 @@
  &time_control
- run_days                            = 0,
+ run_days                            = 2,
  run_hours                           = 0,
- run_minutes                         = 20,
+ run_minutes                         = 0,
  run_seconds                         = 0,
- start_year                          = 2005,
+ start_year                          = 2009,
  start_month                         = 08,
- start_day                           = 28,
- start_hour                          = 12,
+ start_day                           = 14,
+ start_hour                          = 06,
  start_minute                        = 00,
  start_second                        = 00,
- end_year                            = 2005,
+ end_year                            = 2009,
  end_month                           = 08,
- end_day                             = 28,
- end_hour                            = 15,
+ end_day                             = 16,
+ end_hour                            = 14,
  end_minute                          = 00,
  end_second                          = 00,
- interval_seconds                    = 10800
+ interval_seconds                    = 21600
  input_from_file                     = .true.,
- history_interval_s                  = 30,
- frames_per_outfile                  = 1000,
+ history_interval_s                  = 10,
+ frames_per_outfile                  = 100,
  restart                             = .false.,
  restart_interval                    = 1,
  io_form_history                     = 2
@@ -34,12 +34,12 @@
  time_step_fract_den                 = 10,
  max_dom                             = 1,
  s_we                                = 1,
- e_we                                = 43,
+ e_we                                = 161,
  s_sn                                = 1,
- e_sn                                = 43,
+ e_sn                                = 161,
  s_vert                              = 1,
  e_vert                              = 41,
- num_metgrid_levels                  = 30
+ num_metgrid_levels                  = 27
  dx                                  = 60,
  dy                                  = 60,
  grid_id                             = 1,
@@ -50,8 +50,8 @@
  parent_time_step_ratio              = 1,
  feedback                            = 1,
  smooth_option                       = 0
- sr_x                                = 10,
- sr_y                                = 10,
+ sr_x                                = 1,
+ sr_y                                = 1,
  sfcp_to_sfcp                        = .true.,
  p_top_requested                     = 10000
  /
@@ -108,18 +108,18 @@
 &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
  ifire              = 2,    ! integer, = 0: no fire, = 2: SFIRE 
 !
- fire_fuel_read     = -1,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
+ fire_fuel_read     = 2,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 
 ! ignition
- fire_num_ignitions = 3,        ! integer, only the first fire_num_ignition used, up to 5 allowed
- fire_ignition_start_lon1=-107.293664, ! start points of ignition lines, longitude 
- fire_ignition_start_lat1 =  39.698696, ! start points of ignition lines,latitude 
- fire_ignition_end_lon1 = -107.293664, ! end points of ignition lines
- fire_ignition_end_lat1 =    39.710990, ! end points of ignition lines
- fire_ignition_radius1 =    18, ! all within this radius (m) will ignite, > fire mesh step
- fire_ignition_start_time1  =      2, ! sec for ignition from the start
- fire_ignition_end_time1  =      2, ! sec for ignition from the start
+ fire_num_ignitions = 1,        ! integer, only the first fire_num_ignition used, up to 5 allowed
+ fire_ignition_start_lon1=  25.93628, ! start points of ignition lines, longitude 
+ fire_ignition_start_lat1 = 41.84842, ! start points of ignition lines,latitude 
+ fire_ignition_end_lon1 = 25.93615, ! end points of ignition lines
+ fire_ignition_end_lat1 = 41.83648, ! end points of ignition lines
+ fire_ignition_radius1 =    100, ! all within this radius (m) will ignite, > fire mesh step
+ fire_ignition_start_time1  =     20, ! sec for ignition from the start
+ fire_ignition_end_time1  =       20, ! sec for ignition from the start
  fire_ignition_start_lon2=-107.287954, ! start points of ignition lines, 
  fire_ignition_start_lat2 =  39.698696, ! start points of ignition lines, 
  fire_ignition_end_lon2 = -107.287954,! end points of ignition lines, 

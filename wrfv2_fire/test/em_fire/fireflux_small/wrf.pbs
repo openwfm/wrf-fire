@@ -7,7 +7,7 @@
 #PBS -l nodes=2:ppn=12
 
 # Set the maximum amount of the time the job will run (HH:MM:SS)
-#PBS -l walltime=03:00:00
+#PBS -l walltime=06:00:00
 
 # Give the job a name
 #PBS -N fireflux_small
@@ -24,7 +24,8 @@
 # Change to the run directory (where job was submitted)
 cd $PBS_O_WORKDIR
 
-cat $PBS_NODEFILE | sort -u > nodes 
+# cat $PBS_NODEFILE | sort -u > nodes 
+cat $PBS_NODEFILE > nodes 
 rm -f rsl.* *_*.txt wrfo* wrfr* 
 mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
-mpirun_rsh -np 2 -hostfile nodes OMP_NUM_THREADS=12 ./wrf.exe 
+mpirun_rsh -np 24 -hostfile nodes OMP_NUM_THREADS=1 ./wrf.exe 
