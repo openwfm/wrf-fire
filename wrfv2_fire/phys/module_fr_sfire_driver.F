@@ -133,7 +133,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
 !*** executable
 
-    call print_id
+    if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
 ! populate our structures from wrf
 
