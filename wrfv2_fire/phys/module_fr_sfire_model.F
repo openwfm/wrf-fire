@@ -136,8 +136,6 @@ integer:: stat_lev=1
 
 call check_mesh_2dim(ifts-1,ifte+1,jfts-1,jfte+1,ifms,ifme,jfms,jfme)
 
-    print *,'entry ifun=',ifun,' lfn(168,84)=',lfn(168,84),loc(lfn(168,84))
-
 xifms=ifms  ! dimensions for the include file
 xifme=ifme
 xjfms=jfms
@@ -263,7 +261,6 @@ elseif (ifun.eq.4) then  ! do the timestep
 
     if(.not. freeze_fire)then
 
-    print *,'prop1 ifun=',ifun,' lfn(168,84)=',lfn(168,84),loc(lfn(168,84))
     call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
@@ -272,9 +269,6 @@ elseif (ifun.eq.4) then  ! do the timestep
         time_start,dt,fdx,fdy,tbound,  &
         lfn,lfn_out,tign,ros, fp &
     ) 
-    print *,'prop2 ifun=',ifun,' lfn(168,84)=',lfn(168,84),loc(lfn(168,84))
-    print *,'prop2 ifun=',ifun,' lfn_out(168,84)=',lfn_out(168,84)
-
     else
         call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
 
@@ -301,7 +295,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     
 !  for now, check for ignition every time step...
 !        if(ignition_line(ig)%end_time>=time_start.and.ignition_line(ig)%start_time<time_start+dt)then 
-    print *,'befor ifun=',ifun,' lfn(168,84)=',lfn(168,84),loc(lfn(168,84))
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
@@ -310,8 +303,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
                 time_start,time_start+dt,                 &
                 coord_xf,coord_yf,unit_xf,unit_yf,        & 
                 lfn,tign,ignited)
-
-    print *,'after ifun=',ifun,' lfn(168,84)=',lfn(168,84),loc(lfn(168,84))
 
             ignitions_done=ignitions_done+1
             ignited_tile(ignitions_done)=ignited

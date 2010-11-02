@@ -201,7 +201,6 @@ do j=jfts,jfte
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
 
-        print *,'IGNA',i,j,lfn(i,j),tign(i,j)
         ! get d= distance from the nearest point on the ignition segment
         ! and time_ign = the ignition time there
         call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
@@ -209,19 +208,28 @@ do j=jfts,jfte
         dmin=min(d,dmin)
 
         lfn_new=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
-        print *,'IGN:',i,j,d,time_ign,lfn_new
+        if(fire_print_msg.ge.3)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            write(msg,*)'IGN1',i,j,lfn(i,j),tign(i,j)
+            call message(msg)
+            write(msg,*)'IGN2',i,j,lfn_new,time_ign,d
+            call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+        endif
         if(.not.lfn_new>0.) then
             ignited=ignited+1   ! count
         endif
         if(lfn(i,j)>0. .and. .not. lfn_new > 0.) then
             tign(i,j)=time_ign + ros*d  ! newly ignited now
+            if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-            write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
+                write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
                     ' time',tign(i,j),' in [',start_ts,end_ts,']'
-            call message(msg)
-            write(msg,'(a,g10.3,a,f10.2,a,2f10.2,a)')'IGN distance',d,' from ignition line at',time_ign,' in [',st,et,']'
-            call message(msg)
+                call message(msg)
+                write(msg,'(a,g10.3,a,f10.2,a,2f10.2,a)')'IGN distance',d,' from ignition line at',time_ign,' in [',st,et,']'
+                call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
+            endif
             if(tign(i,j) < start_ts)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
                 write(msg,'(a,2i6,a,f11.6,a,f11.6)')'IGN ',i,j, &
@@ -231,8 +239,12 @@ do j=jfts,jfte
             endif
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
-        print *,'IGNZ',i,j,lfn(i,j),tign(i,j)
- 
+        if(fire_print_msg.ge.3)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            write(msg,*)'IGN3',i,j,lfn(i,j),tign(i,j)
+            call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+        endif
     enddo
 enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
@@ -259,6 +271,7 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
         ! sx,sy,ex,ey  coordinates of endpoints of segment [x,y]
         ! st,et        values at the endpoints x,y
         ! cx2,cy2      x and y unit squared for computing distance 
+
         ! output
         ! d            the distance of a and the nearest point z on the segment [x,y]
         ! t            linear interpolation from the values st,et to the point z
@@ -282,8 +295,6 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
 
 11      format('IGN ',6(a,g17.7,1x))
 12      format('IGN ',4(a,2g13.7,1x))
-        write(*,12)'find nearest to [',ax,ay,'] from [',sx,sy,'] [',ex,ey,']' ! DEB
-        write(*,12)'end times',st,et,' scale squared',cx2,cy2 ! DEB
 
         ! midpoint m = (mx,my)
         mx = (sx + ex)*0.5
@@ -301,24 +312,31 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
         if(4.*dmc2 < des2)then                          ! if |m-c|<=|e-s|/2
             ! d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
             mcrel = sign(sqrt(4.*dmc2/des2),am_es)      ! relative distance of c from m 
-	    cx = (ex + sx)*0.5 + mcrel*(ex - sx)*0.5     ! interpolate to c by going from m
-	    cy = (ey + sy)*0.5 + mcrel*(ey - sy)*0.5     ! interpolate to c by going from m
-            d=sqrt((ax-cx)*(ax-cx)*cx2+(ay-cy)*(ay-cy)*cy2) ! |a-c|^2
-	    t = (et + st)*0.5 + mcrel*(et - st)*0.5     ! interpolate to c by going from m
-            write(*,11)'nearest at mcrel=',mcrel,' from middle, t=',t ! DEB
-            write(*,12)'nearest is [',cx,cy,']' ! DEB
         elseif(am_es>0)then                             ! if cos > 0, closest is e
-            d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
-            t = et
-            write(*,12)'nearest is [',ex,ey,']' ! DEB
+            mcrel = 1.0 
         else                                            ! closest is s
-            d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
-            t = st
-            write(*,12)'nearest is [',sx,sy,']' ! DEB
+            mcrel = -1.0
         endif
-
-        write(*,11)'distance d=',d,' interpolated time t=',t ! DEB
-        write(*,11)'dam2=',dam2,'des2=',des2,'dames=',dames,'am_es=',am_es,'cos2=',cos2,'dmc2=',dmc2 ! DEB
+	cx = (ex + sx)*0.5 + mcrel*(ex - sx)*0.5     ! interpolate to c by going from m
+	cy = (ey + sy)*0.5 + mcrel*(ey - sy)*0.5     ! interpolate to c by going from m
+        d=sqrt((ax-cx)*(ax-cx)*cx2+(ay-cy)*(ay-cy)*cy2) ! |a-c|^2
+	t = (et + st)*0.5 + mcrel*(et - st)*0.5     ! interpolate to c by going from m
+        if(fire_print_msg.ge.3)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            write(msg,12)'find nearest to [',ax,ay,'] from [',sx,sy,'] [',ex,ey,']' ! DEB
+            call message(msg)
+            write(msg,12)'end times',st,et,' scale squared',cx2,cy2 ! DEB
+            call message(msg)
+            write(msg,11)'nearest at mcrel=',mcrel,' from middle, t=',t ! DEB
+            call message(msg)
+            write(msg,12)'nearest is [',cx,cy,']' ! DEB
+            call message(msg)
+            write(msg,11)'dam2=',dam2,'des2=',des2,'dames=',dames
+            call message(msg)
+            write(msg,11)'am_es=',am_es,'cos2=',cos2,'dmc2=',dmc2 ! DEB
+            call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+        endif
 END SUBROUTINE nearest
 
 
