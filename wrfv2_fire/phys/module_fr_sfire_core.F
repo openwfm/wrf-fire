@@ -198,6 +198,7 @@ dmin=huge(dmax)
 12      format('IGN ',4(a,2g13.7,1x))
 do j=jfts,jfte   
     do i=ifts,ifte
+        if(i.eq.167.and.j.eq.84)fire_print_msg=3   ! DEBUG
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
 
@@ -210,9 +211,9 @@ do j=jfts,jfte
         lfn_new=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
         if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-            write(msg,*)'IGN1',i,j,lfn(i,j),tign(i,j)
+            write(msg,*)'IGN1 i,j=',i,j,' lfn(i,j)=',lfn(i,j),' tign(i,j)=',tign(i,j)
             call message(msg)
-            write(msg,*)'IGN2',i,j,lfn_new,time_ign,d
+            write(msg,*)'IGN2 i,j=',i,j,' lfn_new= ',lfn_new, ' time_ign= ',time_ign,' d=',d
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
@@ -241,10 +242,11 @@ do j=jfts,jfte
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
         if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-            write(msg,*)'IGN3',i,j,lfn(i,j),tign(i,j)
+            write(msg,*)'IGN3 i,j=',i,j,' lfn(i,j)=',lfn(i,j),' tign(i,j)=',tign(i,j)
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
+fire_print_msg=1  ! DEBUG
     enddo
 enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
@@ -327,9 +329,9 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
             call message(msg)
             write(msg,12)'end times',st,et,' scale squared',cx2,cy2 ! DEB
             call message(msg)
-            write(msg,11)'nearest at mcrel=',mcrel,' from middle, t=',t ! DEB
+            write(msg,11)'nearest at mcrel=',mcrel,'from the midpoint, t=',t ! DEB
             call message(msg)
-            write(msg,12)'nearest is [',cx,cy,']' ! DEB
+            write(msg,12)'nearest is [',cx,cy,'] d=',d ! DEB
             call message(msg)
             write(msg,11)'dam2=',dam2,'des2=',des2,'dames=',dames
             call message(msg)
