@@ -221,7 +221,7 @@ do j=jfts,jfte
             ignited=ignited+1   ! count
         endif
         if(lfn(i,j)>0. .and. .not. lfn_new > 0.) then
-            tign(i,j)=time_ign + ros*d  ! newly ignited now
+            tign(i,j)=time_ign + d/ros  ! newly ignited now
             if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
                 write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
