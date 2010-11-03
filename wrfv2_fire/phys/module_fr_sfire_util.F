@@ -85,27 +85,19 @@ if(present(level))then
 else
     mlevel=2  ! default message level
 endif
-   
 if(fire_print_msg.ge.mlevel)then
-#ifdef _OPENMP
-    m=omp_get_thread_num()
-    t=s
+      m=0
 !$OMP CRITICAL(SFIRE_MESSAGE_CRIT)
-    write(msg,'(a6,i3,a1,a118)')'SFIRE:',m,':',t
+#ifdef _OPENMP
+      m=omp_get_thread_num()
+      t=s
+      write(msg,'(a6,i3,a1,a118)')'SFIRE:',m,':',t
 #else
-    msg='SFIRE:'//s
+      msg='SFIRE:'//s
 #endif
-    call wrf_message(msg)
-!    inquire(unit=6,opened=op)
-!    if(op)then 
-!      call flush(6)
-!    endif
-!    inquire(unit=0,opened=op)
-!    if(op)then
-!      call flush(0)
-!    endif
-     flush(6)
-     flush(0)
+      call wrf_message(msg)
+      flush(6)
+      flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -1331,7 +1323,7 @@ subroutine print_id
 character(len=128)::id,msg
 #include "sfire_id.inc"
 msg=id
-call message(msg)
+call message(msg,level=1)
 end subroutine print_id
 
 subroutine print_chsum( id, & 
