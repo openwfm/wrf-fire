@@ -198,7 +198,6 @@ dmin=huge(dmax)
 12      format('IGN ',4(a,2g13.7,1x))
 do j=jfts,jfte   
     do i=ifts,ifte
-        if(i.eq.167.and.j.eq.84)fire_print_msg=3   ! DEBUG
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
 
@@ -231,12 +230,13 @@ do j=jfts,jfte
                 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
             endif
-            if(tign(i,j) < start_ts)then
+            if(tign(i,j) < start_ts .or. tign(i,j) > end_ts )then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-                write(msg,'(a,2i6,a,f11.6,a,f11.6)')'IGN ',i,j, &
-                ' ignition time ',tign(i,j),' is prior to start of time step at ',start_ts
-                call crash (msg)
+                write(msg,'(a,2i6,a,f11.6,a,2f11.6,a)')'WARNING ',i,j, &
+                ' fixing ignition time ',tign(i,j),' outside of the time step [',start_ts,end_ts,']'
+                call message (msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
+                tign(i,j) = min(max(tign(i,j),start_ts),end_ts)
             endif
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
@@ -246,7 +246,6 @@ do j=jfts,jfte
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
-fire_print_msg=1  ! DEBUG
     enddo
 enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
