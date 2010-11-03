@@ -866,13 +866,14 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 
 !*** calls
 intrinsic tiny
+#define dreal double precision
 
 !*** local
-real::ps,aps,area,ta,out
-real::t00,t01,t10,t11
-real,parameter::safe=tiny(aps)
+dreal::ps,aps,area,ta,out
+dreal::t00,t01,t10,t11
+dreal,parameter::safe=tiny(aps)
 character(len=128)::msg
-real::dx,dy ! mesh sizes
+dreal::dx,dy ! mesh sizes
 !*** local
 integer::i,j,k
 
@@ -882,41 +883,43 @@ parameter(mmax=3,nb=64,nmax=8,pmax=8)
 integer lda, ldb, lwork, info
 parameter (lda=nmax, ldb=nmax, lwork=mmax+nmax+nb*(nmax+pmax))
 integer n,m,p
-real,dimension(lda,mmax):: mA
-real,dimension(nmax):: vecD
-real,dimension(lwork):: WORK
-real,dimension(pmax):: vecY
-real,dimension(mmax):: vecX
-real,dimension(ldb,pmax)::mB
+dreal,dimension(lda,mmax):: mA
+dreal,dimension(nmax):: vecD
+dreal,dimension(lwork):: WORK
+dreal,dimension(pmax):: vecY
+dreal,dimension(mmax):: vecX
+dreal,dimension(ldb,pmax)::mB
 real,dimension(mmax)::u
 
-real::tweight,tdist
+dreal::tweight,tdist
 integer::kk,ll,ss
-real::rnorm
+dreal::rnorm
 real,dimension(8,2)::xylist,xytlist
-real,dimension(8)::tlist,llist,xt
-real,dimension(5)::xx,yy
-real,dimension(5)::lfn,tign
+dreal,dimension(8)::tlist,llist
+real,dimension(8)::xt
+dreal,dimension(5)::xx,yy
+dreal,dimension(5)::lfn,tign
 
 integer:: npoint
-real::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
-real::lfn0,lfn1,dist,nr,s,errQ,ae,ce,ceae,a0,a1,a2,d,cet
+dreal::tt,x0,y0,xts,xte,yts,yte
+real::xt1,xt2,ae
+dreal::lfn0,lfn1,dist,nr,s,errQ,ce,ceae,a0,a1,a2,d,cet
 real::s1,s2,s3
-real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
+dreal::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
 real,dimension(2,2)::mQ
 real,dimension(2)::ut
 
 !calls
 intrinsic epsilon
 
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
+dreal, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 
 !!!! For finite differences by VK
-real::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
-real:: alg_err
+dreal::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
+dreal:: alg_err
 integer::countt
 ! external functions    
-real::snrm2
+dreal::snrm2
 double precision :: dnrm2
 external dnrm2
 external snrm2
