@@ -11,7 +11,7 @@
 package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,betafl,phiwc,r_0,fgip,ischap,lfn_hist,lfn_time
 
 # level function history support
-dimspec   ign   2           constant=15      z    i_lfn_history
+dimspec   ign   2           constant=1      z    i_lfn_history
 state     real  lfn_hist    *i{ign}*j   fire   1    Z   i012hr     "LFN_HIST"    "level function history" "1"
 state     real  lfn_time    {ign}       fire   1    -   i012hr     "LFN_TIME"    "level function history time" "s"
 
