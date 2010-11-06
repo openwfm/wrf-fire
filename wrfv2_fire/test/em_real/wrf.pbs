@@ -4,13 +4,13 @@
 
 # Set the number of nodes and processes per node
 # each node contains 12 processing cores
-#PBS -l nodes=2:ppn=12
+#PBS -l nodes=4:ppn=12
 
 # Set the maximum amount of the time the job will run (HH:MM:SS)
 #PBS -l walltime=24:00:00
 
 # Give the job a name
-#PBS -N ninas_parallel
+#PBS -N harmanli-old
 
 # Keep all environment variables from the current session (PATH, LD_LIBRARY_PATH, etc)
 #PBS -V
@@ -27,4 +27,4 @@ cd $PBS_O_WORKDIR
 cp $PBS_NODEFILE nodes 
 rm -f rsl.* *_*.txt wrfo* wrfr* 
 mpirun_rsh -np 1 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=1 ./real.exe 
-mpirun_rsh -np 24 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=1 ./wrf.exe 
+mpirun_rsh -np 48 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=1 ./wrf.exe 
