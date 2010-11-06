@@ -113,8 +113,9 @@
 
 ! ignition
  fire_num_ignitions = 1,        ! integer, only the first fire_num_ignition used, up to 5 allowed
- fire_ignition_start_lon1=  25.93628, ! start points of ignition lines, longitude 
- fire_ignition_start_lat1 = 41.84842, ! start points of ignition lines,latitude 
+ fire_ignition_ros1= 0.1, ! rate of spread 
+ fire_ignition_start_lon1=  25.9367256, ! start points of ignition lines, longitude
+ fire_ignition_start_lat1 = 41.8486366, ! start points of ignition lines,latitude
  fire_ignition_end_lon1 = 25.93615, ! end points of ignition lines
  fire_ignition_end_lat1 = 41.83648, ! end points of ignition lines
  fire_ignition_radius1 =    100, ! all within this radius (m) will ignite, > fire mesh step
@@ -136,7 +137,7 @@
  fire_ignition_end_time3  =      4, ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 1,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
+ fire_print_msg     = 2,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
  fire_print_file    = 0,    ! 1 to write text output files for matlab
 !
 ! method selections for experiments, *do not change*
