@@ -269,7 +269,6 @@ elseif (ifun.eq.4) then  ! do the timestep
         time_start,dt,fdx,fdy,tbound,  &
         lfn,lfn_out,tign,ros, fp &
     ) 
-
     else
         call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
 
@@ -295,7 +294,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     do ig = 1,num_ignitions
     
 !  for now, check for ignition every time step...
-        if(ignition_line(ig)%end_time>=time_start.and.ignition_line(ig)%start_time<time_start+dt)then 
+!        if(ignition_line(ig)%end_time>=time_start.and.ignition_line(ig)%start_time<time_start+dt)then 
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
@@ -314,7 +313,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_xf,'coord_xf_ig',id)
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_yf,'coord_yf_ig',id)
 #endif
-        endif
+!        endif
         
     enddo
             
