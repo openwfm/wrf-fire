@@ -251,7 +251,7 @@ enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
 call message(msg)
-write(msg,'(a,f4.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
+write(msg,'(a,f6.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 
