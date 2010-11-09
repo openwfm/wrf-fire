@@ -866,14 +866,14 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 
 !*** calls
 intrinsic tiny
-#define dreal double precision
+#define DREAL real(kind=8)
 
 !*** local
-dreal::ps,aps,area,ta,out
-dreal::t00,t01,t10,t11
-dreal,parameter::safe=tiny(aps)
+DREAL::ps,aps,area,ta,out
+DREAL::t00,t01,t10,t11
+DREAL,parameter::safe=tiny(aps)
 character(len=128)::msg
-dreal::dx,dy ! mesh sizes
+DREAL::dx,dy ! mesh sizes
 !*** local
 integer::i,j,k
 
@@ -883,50 +883,41 @@ parameter(mmax=3,nb=64,nmax=8,pmax=8)
 integer lda, ldb, lwork, info
 parameter (lda=nmax, ldb=nmax, lwork=mmax+nmax+nb*(nmax+pmax))
 integer n,m,p
-dreal,dimension(lda,mmax):: mA
-dreal,dimension(nmax):: vecD
-dreal,dimension(lwork):: WORK
-dreal,dimension(pmax):: vecY
-dreal,dimension(mmax):: vecX
-dreal,dimension(ldb,pmax)::mB
+DREAL,dimension(lda,mmax):: mA
+DREAL,dimension(nmax):: vecD
+DREAL,dimension(lwork):: WORK
+DREAL,dimension(pmax):: vecY
+DREAL,dimension(mmax):: vecX
+DREAL,dimension(ldb,pmax)::mB
 real,dimension(mmax)::u
 
-dreal::tweight,tdist
+DREAL::tweight,tdist
 integer::kk,ll,ss
-dreal::rnorm
+DREAL::rnorm
 real,dimension(8,2)::xylist,xytlist
-dreal,dimension(8)::tlist,llist
+DREAL,dimension(8)::tlist,llist
 real,dimension(8)::xt
-dreal,dimension(5)::xx,yy
-dreal,dimension(5)::lfn,tign
+DREAL,dimension(5)::xx,yy
+DREAL,dimension(5)::lfn,tign
 
 integer:: npoint
-dreal::tt,x0,y0,xts,xte,yts,yte
+DREAL::tt,x0,y0,xts,xte,yts,yte
 real::xt1,xt2,ae
-dreal::lfn0,lfn1,dist,nr,s,errQ,ce,ceae,a0,a1,a2,d,cet
+DREAL::lfn0,lfn1,dist,nr,s,errQ,ce,ceae,a0,a1,a2,d,cet
 real::s1,s2,s3
-dreal::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
+DREAL::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
 real,dimension(2,2)::mQ
 real,dimension(2)::ut
 
 !calls
 intrinsic epsilon
 
-dreal, parameter:: zero=0.,one=1.,eps=epsilon(zero)
+DREAL, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 
 !!!! For finite differences by VK
-dreal::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
-dreal:: alg_err
+DREAL::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
+DREAL:: alg_err
 integer::countt
-! external functions    
-dreal::snrm2
-double precision :: dnrm2
-external dnrm2
-external snrm2
-! external subroutines
-external sggglm
-external dggglm
-!executable statements
 
 ! a very crude approximation - replace by a better code
 ! call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
