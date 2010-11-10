@@ -901,7 +901,6 @@ DREAL, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 !!!! For finite differences by VK
 DREAL::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
 DREAL:: alg_err
-
 alg_err=0
 dx=1
 dy=1
