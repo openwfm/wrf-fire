@@ -865,42 +865,42 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 
 !*** calls
 intrinsic tiny
-
+#define DREAL real(kind=8)
 !*** local
-real::ps,aps,area,ta,out
-real::t00,t01,t10,t11
-real,parameter::safe=tiny(aps)
+DREAL::ps,aps,area,ta,out
+DREAL::t00,t01,t10,t11
+DREAL,parameter::safe=tiny(aps)
 character(len=128)::msg
-real::dx,dy ! mesh sizes
+DREAL::dx,dy ! mesh sizes
 !*** local
 integer::i,j,k
 
-real,dimension(3)::u
+DREAL,dimension(3)::u
 
-real::tweight,tdist
+DREAL::tweight,tdist
 integer::kk,ll,ss
-real::rnorm
-real,dimension(8,2)::xylist,xytlist
-real,dimension(8)::tlist,llist,xt
-real,dimension(5)::xx,yy
-real,dimension(5)::lfn,tign
+DREAL::rnorm
+DREAL,dimension(8,2)::xylist,xytlist
+DREAL,dimension(8)::tlist,llist,xt
+DREAL,dimension(5)::xx,yy
+DREAL,dimension(5)::lfn,tign
 
 integer:: npoint
-real::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
-real::lfn0,lfn1,dist,nr,s,errQ,ae,ce,ceae,a0,a1,a2,d,cet
-real::s1,s2,s3
-real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
-real,dimension(2,2)::mQ
-real,dimension(2)::ut
+DREAL::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
+DREAL::lfn0,lfn1,dist,nr,s,errQ,ae,ce,ceae,a0,a1,a2,d,cet
+DREAL::s1,s2,s3
+DREAL::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
+DREAL,dimension(2,2)::mQ
+DREAL,dimension(2)::ut
 
 !calls
 intrinsic epsilon
 
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
+DREAL, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 
 !!!! For finite differences by VK
-real::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
-real:: alg_err
+DREAL::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
+DREAL:: alg_err
 
 alg_err=0
 dx=1
@@ -1232,7 +1232,7 @@ end subroutine fuel_left_cell_3
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 real function intexp(ab)
 implicit none
-real::ab
+DREAL::ab
 !calls
 intrinsic epsilon
 
@@ -1265,11 +1265,11 @@ end function intexp
 subroutine sortxt(xytlist,nrow,ncolumn,xt,nxt,nvec)
 implicit none
 integer::nrow,ncolumn,nxt,nvec
-real,dimension(nrow,ncolumn)::xytlist
-real,dimension(nxt)::xt
+DREAL,dimension(nrow,ncolumn)::xytlist
+DREAL,dimension(nxt)::xt
 
 integer::i,j
-real::temp
+DREAL::temp
 
 do i=1,nvec
   xt(i)=xytlist(i,1)
@@ -1292,9 +1292,9 @@ end subroutine !sortxt
 subroutine matvec(A,m,n,V,nv,out,nout,nrow,ncolumn)
 implicit none
 integer::m,n,nv,nout,nrow,ncolumn
-real,dimension(m,n)::A   ! allocated m by n 
-real,dimension(nv)::V    ! allocated nv
-real,dimension(nout)::out! allocated nout 
+DREAL,dimension(m,n)::A   ! allocated m by n 
+DREAL,dimension(nv)::V    ! allocated nv
+DREAL,dimension(nout)::out! allocated nout 
 
 integer::i,j
 
@@ -1311,9 +1311,9 @@ end subroutine
 subroutine matmatp(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)
 implicit none
 integer::mA,nA,mB,nB,mC,nC,nrow,ncolumn,nP
-real,dimension(mA,nA)::A   ! allocated m by n 
-real,dimension(mB,nB)::B   ! allocated m by n 
-real,dimension(mC,nC)::C   ! allocated m by n 
+DREAL,dimension(mA,nA)::A   ! allocated m by n 
+DREAL,dimension(mB,nB)::B   ! allocated m by n 
+DREAL,dimension(mC,nC)::C   ! allocated m by n 
 integer::i,j,k
 do i=1,nrow  
   do j=1,ncolumn
