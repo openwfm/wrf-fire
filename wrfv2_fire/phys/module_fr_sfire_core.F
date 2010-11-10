@@ -875,19 +875,7 @@ real::dx,dy ! mesh sizes
 !*** local
 integer::i,j,k
 
-! least squares
-integer::mmax,nb,nmax,pmax,nin,nout
-parameter(mmax=3,nb=64,nmax=8,pmax=8)
-integer lda, ldb, lwork, info
-parameter (lda=nmax, ldb=nmax, lwork=mmax+nmax+nb*(nmax+pmax))
-integer n,m,p
-real,dimension(lda,mmax):: mA
-real,dimension(nmax):: vecD
-real,dimension(lwork):: WORK
-real,dimension(pmax):: vecY
-real,dimension(mmax):: vecX
-real,dimension(ldb,pmax)::mB
-real,dimension(mmax)::u
+real,dimension(3)::u
 
 real::tweight,tdist
 integer::kk,ll,ss
@@ -913,15 +901,6 @@ real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 !!!! For finite differences by VK
 real::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
 real:: alg_err
-! external functions    
-real::snrm2
-double precision :: dnrm2
-external dnrm2
-external snrm2
-! external subroutines
-external sggglm
-external dggglm
-!executable statements
 
 alg_err=0
 dx=1
