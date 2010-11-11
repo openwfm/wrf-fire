@@ -552,17 +552,9 @@ err=0.0001
 if((lfn1.lt.0).AND.(lfn2.lt.0).AND.(lfn3.lt.0).AND.(lfn4.lt.0)) then
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
 elseif((lfn1.ge.0).AND.(lfn2.ge.0).AND.(lfn3.ge.0).AND.(lfn4.ge.0))then
-   !if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
-   !   call crash('tign_four_pnts_interp: when lfn1(2,3,4)>0 their tign1(2,3,4) should = time_now')
-   !else
       tign_subcl=time_now;
-   !endif
 elseif(lfn_subcl.ge.0) then
-  ! if ((abs(tign1-time_now).gt.err).OR.(abs(tign2-time_now).gt.err).OR.(abs(tign3-time_now).gt.err).OR.(abs(tign4-time_now).gt.err)) then
-  !    call crash('tign_line_interp one of tign1(2,3,4) should be equal time_now')
-  ! else
       tign_subcl=time_now;
-  ! endif
 else
 !lfn_subcl<=0;
 !case when E is on fire
@@ -570,41 +562,20 @@ else
 a=0; 
 b=0;
    if (lfn1.lt.0) then
-!       if (tign1.gt.time_now)
-!           call crash('tign_four_pnts_interp tign1 should be less then time_now');
-!       else
-! Can not assign to a named constant
            a=a+lfn1*lfn1;
            b=b+(tign1-time_now)*lfn1;
-!       endif
    endif
    if (lfn2.lt.0) then
-!       if (tign2.gt.time_now)
-!           call crash('tign_four_pnts_interp tign2 should be less then time_now');
-!       else
-! Can not assign to a named constant
            a=a+lfn2*lfn2;
            b=b+(tign2-time_now)*lfn2;
-!       endif
    endif
    if (lfn3.lt.0) then
-!       if (tign3.gt.time_now)
-
-!           call crash('tign_four_pnts_interp tign3 should be less then time_now');
-!       else
-! Can not assign to a named constant
            a=a+lfn3*lfn3;
            b=b+(tign3-time_now)*lfn3;
-!       endif
    endif
    if (lfn4.lt.0) then
-!       if (tign4.gt.time_now)
-!           call crash('tign_four_pnts_interp tign4 should be less then time_now');
-!       else
-! Can not assign to a named constant
            a=a+lfn4*lfn4;
            b=b+(tign4-time_now)*lfn4;
-!       endif
    endif 
    if ((abs(a).lt.err).or.(b.lt.0)) then
       call crash('tign_four_pnts_interp: if E is on fire then one of cells &
@@ -1192,13 +1163,13 @@ else
             s3=ah*s3                                                
             out=out+s1+s2+s3
             if(out<0 .or. out>1) then                                  
-                print *,':fuel_fraction should be between 0 and 1'
+             print *,'WARNING::fuel_fraction is out of bounds, should be between 0 and 1'
                 !print *, 'eps= ', eps
                 !print *, 'xt1= ', xt1, 'xt2= ', xt2
                 !print *,'ae= ',ae,'ce= ',ce,'ah= ',ah,'ch= ',ch
                 !print *,'a0= ', a0,'a1= ', a1,'a2= ', a2
-                print *,'s1= ', s1,'s2= ', s2,'s3= ', s3
-                print *,':fuel_fraction =',out
+                !print *,'s1= ', s1,'s2= ', s2,'s3= ', s3
+                print *,'fuel_fraction =',out
             end if!print
                 
         end if
@@ -1208,17 +1179,6 @@ else
 end if ! if case0, elseif case4 ,else case123
 
 900 continue 
-if(out>1. .or. out<0.) then
-if (out>1.) then
-   alg_err=max(alg_err,out-1.)
-print*,'fuel_left_cell_3: fuel fraction out of bounds [0,1]'
-print*,'max of alg_err',alg_err
-else if (out>1.) then
-   alg_err=max(alg_err, -out)
-print*,'fuel_left_cell_3: fuel fraction out of bounds [0,1]'
-print*,'max of alg_err',alg_err
-end if
-end if    
 fuel_frac_left = out
 fire_frac_area= area
 end subroutine fuel_left_cell_3
