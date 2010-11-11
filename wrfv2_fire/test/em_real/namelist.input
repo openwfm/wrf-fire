@@ -1,7 +1,7 @@
  &time_control
- run_days                            = 1,
+ run_days                            = 3,
  run_hours                           = 0,
- run_minutes                         = 30,
+ run_minutes                         = 0,
  run_seconds                         = 0,
  start_year                          = 2009,
  start_month                         = 08,
@@ -11,8 +11,8 @@
  start_second                        = 00,
  end_year                            = 2009,
  end_month                           = 08,
- end_day                             = 14,
- end_hour                            = 12,
+ end_day                             = 17,
+ end_hour                            = 06,
  end_minute                          = 00,
  end_second                          = 00,
  interval_seconds                    = 21600
@@ -30,7 +30,7 @@
 
  &domains
  time_step                           = 0,
- time_step_fract_num                 = 2,
+ time_step_fract_num                 = 1,
  time_step_fract_den                 = 10,
  max_dom                             = 1,
  s_we                                = 1,
