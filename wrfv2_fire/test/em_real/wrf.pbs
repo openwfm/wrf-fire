@@ -4,7 +4,7 @@
 
 # Set the number of nodes and processes per node
 # each node contains 12 processing cores
-#PBS -l nodes=5:ppn=12
+#PBS -l nodes=6:ppn=12
 
 # Set the maximum amount of the time the job will run (HH:MM:SS)
 #PBS -l walltime=96:00:00
@@ -27,6 +27,6 @@ cd $PBS_O_WORKDIR
 cp $PBS_NODEFILE nodes 
 rm -f rsl.* *_*.txt wrfo* wrfr* 
 mpirun_rsh -np 1 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=1 ./real.exe 
-mv rsl.out.0000 real.out
-mv rsl.error.0000 real.error
-mpirun_rsh -np 60 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=1 ./wrf.exe 
+mv rsl.out.0000 rsl.out.real
+mv rsl.error.0000 rsl.error.real
+mpirun_rsh -np 72 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=1 ./wrf.exe 
