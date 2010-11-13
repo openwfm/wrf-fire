@@ -19,12 +19,12 @@ qstep=[20,20];        % quiver step for wind on the surface fire grid
 astep=[2,2,1];        % quiver step for wind on the atmosphere grid
 qs=1;                 % scaling for quiver arrows, 0=default
 
-% Harmanli
-% astep=[10,10,1];
-% qs=0.005;
-% amin=[1,1,1];
-% amax=[160,160,1];
-% swind=0;              % do not display surface wind
+Harmanli
+astep=[10,10,1];
+qs=0.005;
+amin=[1,1,1];
+amax=[160,160,1];
+swind=0;              % do not display surface wind
 
 %-------------------------------------------------
 
