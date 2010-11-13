@@ -1,7 +1,7 @@
 &fuel_scalars                      ! scalar fuel constants
 cmbcnst  = 17.433e+06,             ! J/kg combustion heat dry fuel
 hfgl     = 17.e4 ,                 ! W/m^2 heat flux to ignite canopy
-fuelmc_g = 0.12,                   ! ground fuel moisture, set = 0 for dry
+fuelmc_g = 0.15,                   ! ground fuel moisture, set = 0 for dry
 !jm fuelmc_g = 0.08,                   ! ground fuel moisture, set = 0 for dry
 !jc fuelmc_g = 0.09,                   ! ground fuel moisture, set = 0 for dry
 fuelmc_c = 1.00,                   ! canopy fuel moisture, set = 0 for dry

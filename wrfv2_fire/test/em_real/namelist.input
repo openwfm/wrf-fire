@@ -18,9 +18,9 @@
  interval_seconds                    = 21600
  input_from_file                     = .true.,
  history_interval_s                  = 10,
- frames_per_outfile                  = 100,
+ frames_per_outfile                  = 10,
  restart                             = .false.,
- restart_interval                    = 1,
+ restart_interval                    = 60,
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2

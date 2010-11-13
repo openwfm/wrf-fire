@@ -25,7 +25,7 @@
 cd $PBS_O_WORKDIR
 
 cp $PBS_NODEFILE nodes 
-rm -f rsl.* *_*.txt wrfo* wrfr* 
+rm -f rsl.* *_*.txt wrfo* wrfr* core.*
 mpirun_rsh -np 1 -hostfile $PBS_NODEFILE OMP_NUM_THREADS=1 ./real.exe 
 mv rsl.out.0000 rsl.out.real
 mv rsl.error.0000 rsl.error.real
