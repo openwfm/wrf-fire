@@ -1,26 +1,26 @@
  &time_control
- run_days                            = 0,
+ run_days                            = 3,
  run_hours                           = 0,
- run_minutes                         = 20,
+ run_minutes                         = 0,
  run_seconds                         = 0,
- start_year                          = 2005,
+ start_year                          = 2009,
  start_month                         = 08,
- start_day                           = 28,
- start_hour                          = 12,
+ start_day                           = 14,
+ start_hour                          = 06,
  start_minute                        = 00,
  start_second                        = 00,
- end_year                            = 2005,
+ end_year                            = 2009,
  end_month                           = 08,
- end_day                             = 28,
- end_hour                            = 15,
+ end_day                             = 17,
+ end_hour                            = 06,
  end_minute                          = 00,
  end_second                          = 00,
- interval_seconds                    = 10800
+ interval_seconds                    = 21600
  input_from_file                     = .true.,
- history_interval_s                  = 30,
- frames_per_outfile                  = 1000,
+ history_interval_s                  = 10,
+ frames_per_outfile                  = 10,
  restart                             = .false.,
- restart_interval                    = 1,
+ restart_interval                    = 60,
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
@@ -30,16 +30,16 @@
 
  &domains
  time_step                           = 0,
- time_step_fract_num                 = 5,
+ time_step_fract_num                 = 2,
  time_step_fract_den                 = 10,
  max_dom                             = 1,
  s_we                                = 1,
- e_we                                = 43,
+ e_we                                = 161,
  s_sn                                = 1,
- e_sn                                = 43,
+ e_sn                                = 161,
  s_vert                              = 1,
  e_vert                              = 41,
- num_metgrid_levels                  = 30
+ num_metgrid_levels                  = 27
  dx                                  = 60,
  dy                                  = 60,
  grid_id                             = 1,
@@ -50,8 +50,8 @@
  parent_time_step_ratio              = 1,
  feedback                            = 1,
  smooth_option                       = 0
- sr_x                                = 10,
- sr_y                                = 10,
+ sr_x                                = 1,
+ sr_y                                = 1,
  sfcp_to_sfcp                        = .true.,
  p_top_requested                     = 10000
  /
@@ -108,18 +108,19 @@
 &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
  ifire              = 2,    ! integer, = 0: no fire, = 2: SFIRE 
 !
- fire_fuel_read     = -1,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
+ fire_fuel_read     = 2,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 
 ! ignition
- fire_num_ignitions = 3,        ! integer, only the first fire_num_ignition used, up to 5 allowed
- fire_ignition_start_lon1=-107.293664, ! start points of ignition lines, longitude 
- fire_ignition_start_lat1 =  39.698696, ! start points of ignition lines,latitude 
- fire_ignition_end_lon1 = -107.293664, ! end points of ignition lines
- fire_ignition_end_lat1 =    39.710990, ! end points of ignition lines
- fire_ignition_radius1 =    18, ! all within this radius (m) will ignite, > fire mesh step
- fire_ignition_start_time1  =      2, ! sec for ignition from the start
- fire_ignition_end_time1  =      2, ! sec for ignition from the start
+ fire_num_ignitions = 1,        ! integer, only the first fire_num_ignition used, up to 5 allowed
+ fire_ignition_ros1= 0.1, ! rate of spread 
+ fire_ignition_start_lon1=  25.9367256, ! start points of ignition lines, longitude
+ fire_ignition_start_lat1 = 41.8486366, ! start points of ignition lines,latitude
+ fire_ignition_end_lon1 = 25.93615, ! end points of ignition lines
+ fire_ignition_end_lat1 = 41.83648, ! end points of ignition lines
+ fire_ignition_radius1 =    100, ! all within this radius (m) will ignite, > fire mesh step
+ fire_ignition_start_time1  =     20, ! sec for ignition from the start
+ fire_ignition_end_time1  =       20, ! sec for ignition from the start
  fire_ignition_start_lon2=-107.287954, ! start points of ignition lines, 
  fire_ignition_start_lat2 =  39.698696, ! start points of ignition lines, 
  fire_ignition_end_lon2 = -107.287954,! end points of ignition lines, 
@@ -136,7 +137,7 @@
  fire_ignition_end_time3  =      4, ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 1,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
+ fire_print_msg     = 2,    ! 1 to print fire debugging/progress messages (compile with DEBUG OUT in the sf sources)
  fire_print_file    = 0,    ! 1 to write text output files for matlab
 !
 ! method selections for experiments, *do not change*
@@ -157,17 +158,17 @@
  spec_bdy_width                      = 5,
  spec_zone                           = 1,
  relax_zone                          = 4,
- specified                           = .true.,
+ specified                           = .false.,
  periodic_x                          = .false.,
  symmetric_xs                        = .false.,
  symmetric_xe                        = .false.,
- open_xs                             = .false.,
- open_xe                             = .false.,
+ open_xs                             = .true.,
+ open_xe                             = .true.,
  periodic_y                          = .false.,
  symmetric_ys                        = .false.,
  symmetric_ye                        = .false.,
- open_ys                             = .false.,
- open_ye                             = .false.,
+ open_ys                             = .true.,
+ open_ye                             = .true.,
  nested                              = .false.,
  /
 
