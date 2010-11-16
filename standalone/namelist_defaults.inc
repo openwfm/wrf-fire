@@ -1652,6 +1652,7 @@ fire_sprd_mdl = 1
 fire_crwn_hgt = 15.
 fire_ext_grnd = 50.
 fire_ext_crwn = 50.
+fire_wind_height = 6.096
 fire_fuel_read = -1
 fire_fuel_cat = 1
 fire_print_msg = 0

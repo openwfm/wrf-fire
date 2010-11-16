@@ -1,38 +1,16 @@
-#!/bin/bash
-# copy this script to your run directory and modify as desired
-# do NOT commit a copy!
-
-# Set the number of nodes and processes per node
-# each node contains 12 processing cores
-#PBS -l nodes=10:ppn=1
-
-# Set the maximum amount of the time the job will run (HH:MM:SS)
-#PBS -l walltime=01:00:00
-
-# Give the job a name
-#PBS -N fireflux_sfc
-
-# Keep all environment variables from the current session (PATH, LD_LIBRARY_PATH, etc)
-#PBS -V
-
-# Merge stderr and stdout
+#!/bin/sh
+#PBS -l nodes=2:ppn=12
 #PBS -j oe
-
-# Set log file
-#PBS -o wrf.log
-
-# Change to the run directory (where job was submitted)
+#PBS -o hpl.log
+#PBS -l walltime=20:00:00
+echo $PBS_NODEFILE
 cd $PBS_O_WORKDIR
-
-# Cleanup
-rm -f rsl.out.* rsl.error.* wrfout* wrfrst* wrfinput*
-
-# If the binary supports openmp, we should specify the number of thread to use
-# per process using the OMP_NUM_THREADS variable.
-export OMP_NUM_THREADS=12
-
-env
-
-# Execute the program through mpi with the machine file specified by PBS
-# mpirun -np 1 -machinefile $PBS_NODEFILE ./ideal.exe
-mpirun -np 10 -machinefile $PBS_NODEFILE ./wrf.exe
+rm -f hpl.machines
+cp $PBS_NODEFILE hpl.machines
+date
+export LD_LIBRARY_PATH='/usr/mpi/gcc/mvapich-1.2.0/lib:/usr/mpi/gcc/mvapich-1.2.0/lib/shared'
+export PATH="/usr/mpi/gcc/mvapich-1.2.0/bin:${PATH}"
+echo mpirun start
+mpirun -np 24 -machinefile hpl.machines ./wrf.exe >& hpl.out
+echo mpirun end
+date

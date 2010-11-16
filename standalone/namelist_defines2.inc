@@ -1656,6 +1656,7 @@ integer :: fire_sprd_mdl
 real :: fire_crwn_hgt
 real :: fire_ext_grnd
 real :: fire_ext_crwn
+real :: fire_wind_height
 integer :: fire_fuel_read
 integer :: fire_fuel_cat
 integer :: fire_print_msg

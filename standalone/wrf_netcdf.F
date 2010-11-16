@@ -50,13 +50,25 @@ character(len=nf90_max_name),parameter::                        &
                               var_vf='VF',                      &
                               unit_vf='',                       &
                               desc_vf='',                       &
-                              var_fgrnhfx='FGRNHFX',             &
-                              unit_fgrnhfx='',                   &
-                              desc_fgrnhfx=''
+                              var_fuel_frac='FUEL_FRAC',        &
+                              unit_fuel_frac='',                &
+                              desc_fuel_frac='',                &
+                              var_fire_area='FIRE_AREA',        &
+                              unit_fire_area='',                &
+                              desc_fire_area='',                &
+                              var_fgrnhfx='FGRNHFX',            &
+                              unit_fgrnhfx='',                  &
+                              desc_fgrnhfx='',                  &
+                              var_fgrnqfx='FGRNQFX',            &
+                              unit_fgrnqfx='',                  &
+                              desc_fgrnqfx=''
 character(len=nf90_max_name),parameter::                        &
                               var_nfuel_cat='NFUEL_CAT',        &
-                              var_u='U',                       &
-                              var_v='V',                       &
+                              var_u='U',                        &
+                              var_v='V',                        &
+                              var_z0='Z0',                      &
+                              var_ph='PH',                      &
+                              var_phb='PHB',                    &
                               var_dzdxf='DZDXF',                &
                               var_dzdyf='DZDYF',                &
                               var_zsf='ZSF'
@@ -71,12 +83,13 @@ end type
 
 ! pointer to all variables being written (to simplify interface)
 type output_vars
-  real,dimension(:,:),pointer::lfn,tign,fgrnhfx
+  real,dimension(:,:),pointer::lfn,tign,fgrnhfx,fgrnqfx,fuel_frac
 end type
 
 type input_vars
-  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf
-  real,dimension(:,:,:),pointer::u,v
+  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,lfn,tign,fuel_frac
+  ! real,dimension(:,:),pointer::z0
+  ! real,dimension(:,:,:),pointer::u,v,ph,phb
 end type
 
 contains
@@ -170,6 +183,8 @@ call check(nf90_close(ncid))
 call define_var(filename,var_lfn,dim_fire,unit_lfn,desc_lfn)
 call define_var(filename,var_tign,dim_fire,unit_tign,desc_tign)
 call define_var(filename,var_fgrnhfx,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
+call define_var(filename,var_fgrnqfx,dim_fire,unit_fgrnqfx,desc_fgrnqfx)
+call define_var(filename,var_fuel_frac,dim_fire,unit_fuel_frac,desc_fuel_frac)
 
 end subroutine create_output_file
 
@@ -340,6 +355,10 @@ call check(nf90_put_var(ncid,varid,output%tign,start=s,count=c))
 c(1:2)=(/size(output%fgrnhfx,1),size(output%fgrnhfx,2)/)
 call check(nf90_inq_varid(ncid,var_fgrnhfx,varid))
 call check(nf90_put_var(ncid,varid,output%fgrnhfx,start=s,count=c))
+call check(nf90_inq_varid(ncid,var_fgrnqfx,varid))
+call check(nf90_put_var(ncid,varid,output%fgrnqfx,start=s,count=c))
+call check(nf90_inq_varid(ncid,var_fuel_frac,varid))
+call check(nf90_put_var(ncid,varid,output%fuel_frac,start=s,count=c))
 
 ! close file
 call latch
@@ -373,9 +392,9 @@ call check(nf90_inq_dimid(ncid,dim_atm_y, adimid(2)))
 call check(nf90_inq_dimid(ncid,dim_atm_z, adimid(3)))
 
 call check(nf90_inquire_dimension(ncid,fdimid(3),len=it))
-if(it.ne.1)then
-  call crash('invalid number of time steps in input file, must be 1')
-endif
+!if(it.ne.1)then
+!  call crash('invalid number of time steps in input file, must be 1')
+!endif
 call check(nf90_inquire_dimension(ncid,fdimid(2),len=info%nfirey))
 call check(nf90_inquire_dimension(ncid,fdimid(1),len=info%nfirex))
 call check(nf90_inquire_dimension(ncid,adimid(2),len=info%natmy))
@@ -435,22 +454,58 @@ call check(nf90_inq_varid(ncid,var_dzdxf,varid))
 call check(nf90_get_var(ncid,varid,input%dzdxf,start=s(1:3),count=c(1:3)))
 call check(nf90_inq_varid(ncid,var_dzdyf,varid))
 call check(nf90_get_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
+call check(nf90_inq_varid(ncid,var_uf,varid))
+call check(nf90_get_var(ncid,varid,input%uf,start=s(1:3),count=c(1:3)))
+call check(nf90_inq_varid(ncid,var_vf,varid))
+call check(nf90_get_var(ncid,varid,input%vf,start=s(1:3),count=c(1:3)))
+call check(nf90_inq_varid(ncid,var_lfn,varid))
+call check(nf90_get_var(ncid,varid,input%lfn,start=s(1:3),count=c(1:3)))
+call check(nf90_inq_varid(ncid,var_tign,varid))
+call check(nf90_get_var(ncid,varid,input%tign,start=s(1:3),count=c(1:3)))
+call check(nf90_inq_varid(ncid,var_fuel_frac,varid))
+call check(nf90_get_var(ncid,varid,input%fuel_frac,start=s(1:3),count=c(1:3)))
 
-c(1)=info%natmx+1
-c(2)=info%natmy
-c(3)=1
-c(4)=1
+s(:)=1
 
-call check(nf90_inq_varid(ncid,var_u,varid))
-call check(nf90_get_var(ncid,varid,input%u,start=s,count=c))
-
-c(1)=info%natmx
-c(2)=info%natmy+1
-c(3)=1
-c(4)=1
-
-call check(nf90_inq_varid(ncid,var_v,varid))
-call check(nf90_get_var(ncid,varid,input%v,start=s,count=c))
+!c(1)=info%natmx
+!c(2)=info%natmy
+!c(3)=1
+!c(4)=1
+!
+!call check(nf90_inq_varid(ncid,var_z0,varid))
+!call check(nf90_get_var(ncid,varid,input%z0,start=s,count=c))
+!
+!c(1)=info%natmx
+!c(2)=info%natmy
+!c(3)=info%natmz+1
+!c(4)=1
+!
+!call check(nf90_inq_varid(ncid,var_ph,varid))
+!call check(nf90_get_var(ncid,varid,input%ph,start=s,count=c))
+!
+!c(1)=info%natmx
+!c(2)=info%natmy
+!c(3)=info%natmz+1
+!c(4)=1
+!
+!call check(nf90_inq_varid(ncid,var_phb,varid))
+!call check(nf90_get_var(ncid,varid,input%phb,start=s,count=c))
+!
+!c(1)=info%natmx+1
+!c(2)=info%natmy
+!c(3)=info%natmz
+!c(4)=1
+!
+!call check(nf90_inq_varid(ncid,var_u,varid))
+!call check(nf90_get_var(ncid,varid,input%u,start=s,count=c))
+!
+!c(1)=info%natmx
+!c(2)=info%natmy+1
+!c(3)=info%natmz
+!c(4)=1
+!
+!call check(nf90_inq_varid(ncid,var_v,varid))
+!call check(nf90_get_var(ncid,varid,input%v,start=s,count=c))
 
 call check(nf90_close(ncid))
 end subroutine read_vars

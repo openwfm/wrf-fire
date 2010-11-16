@@ -536,6 +536,12 @@ if test -n $NETCDF ; then
     echo " support in NetCDF, set the environment variable WRFIO_NCD_LARGE_FILE_SUPPORT"
     echo " to 1 and run configure again. Set to any other value to avoid this message."
   fi
+  if test -f $NETCDF/bin/nc-config ; then
+    if test -z "$WRFIO_NETCDF4_LINKOPTS" ; then
+      WRFIO_NETCDF_LINKOPTS=`$NETCDF/bin/nc-config --flibs`
+      echo "WRFIO_NETCDF_LINKOPTS=$WRFIO_NETCDF_LINKOPTS" >> configure.wrf
+    fi
+  fi
 fi
 echo "  "
 

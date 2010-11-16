@@ -19,7 +19,7 @@ function p=nc2struct(filename,varnames,gattnames,times,p)
 % will read variables U,V into p.u, p.v and global attributes DX DY into
 % p.dx p.dy, respectively
 
-
+disp(['nc2struct: reading from file ',filename])
 for i=1:length({varnames{:}}),
     varname=varnames{i};
     try

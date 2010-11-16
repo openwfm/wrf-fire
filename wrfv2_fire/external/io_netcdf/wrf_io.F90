@@ -1279,10 +1279,16 @@ SUBROUTINE ext_ncd_open_for_write_begin(FileName,Comm,IOComm,SysDepInfo,DataHand
   endif
   DH%TimeIndex = 0
   DH%Times     = ZeroDate
+#ifdef WRFIO_NETCDF4_FILE_SUPPORT
+  stat = NF_CREATE(FileName, IOR(NF_CLOBBER,NF_NETCDF4), DH%NCID)
+#else
+
 #ifdef WRFIO_NCD_LARGE_FILE_SUPPORT
   stat = NF_CREATE(FileName, IOR(NF_CLOBBER,NF_64BIT_OFFSET), DH%NCID)
 #else
   stat = NF_CREATE(FileName, NF_CLOBBER, DH%NCID)
+#endif
+
 #endif
   call netcdf_err(stat,Status)
   if(Status /= WRF_NO_ERR) then
@@ -2518,6 +2524,30 @@ subroutine ext_ncd_write_field(DataHandle,DateStr,Var,Field,FieldTypeIn,  &
       call wrf_debug ( WARN , TRIM(msg))
       return
     endif
+
+#ifdef WRFIO_NETCDF4_FILE_SUPPORT
+
+#ifdef WRFIO_NETCDF4_GZIP_LEVEL
+
+#ifndef WRFIO_NETCDF4_SHUFFLE
+#define WRFIO_NETCDF4_SHUFFLE 1
+#endif
+
+   stat = NF_DEF_VAR_DEFLATE(NCID,VarID,WRFIO_NETCDF4_SHUFFLE,1,WRFIO_NETCDF4_GZIP_LEVEL)
+   call netcdf_err(stat,Status)
+   if(Status /= WRF_NO_ERR) then
+     write(msg,*) 'ext_ncd_write_field: NetCDF error for ',TRIM(VarName),' in ',__FILE__,', line', __LINE__
+     call wrf_debug( WARN, TRIM(msg))
+     write(msg,*), 'ext_ncd_write_field: Error calling NF_DEF_VAR_DEFLATE with level ', &
+                    WRFIO_NETCDF4_GZIP_LEVEL,', shuffle ',WRFIO_NETCDF4_SHUFFLE
+     call wrf_debug( WARN, TRIM(msg))
+     return
+   endif
+
+#endif
+
+#endif
+
     DH%VarIDs(NVar) = VarID
     stat = NF_PUT_ATT_INT(NCID,VarID,'FieldType',NF_INT,1,FieldType)
     call netcdf_err(stat,Status)

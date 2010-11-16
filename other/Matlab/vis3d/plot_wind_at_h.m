@@ -12,21 +12,23 @@ hgt=p.hgt(:,:,timestep); % terrain height
 % wind at given height
 for i=iheights(:)'
     z=p.heights(i)*ones(size(x));
-    ws=sqrt(p.uch(:,:,i,timestep).^2 + p.vch(:,:,i,timestep).^2)
+    ws=sqrt(p.uch(:,:,i,timestep).^2 + p.vch(:,:,i,timestep).^2);
     print_layer_msg(i,z,ws)
     surf(x,y,z+hgt,ws,'EdgeAlpha',alpha*0,'FaceAlpha',alpha)
     hold on
 end
 for i=levels(:)'
     z=p.altitude(:,:,i,timestep)-hgt;
-    ws=sqrt(p.uc(:,:,i,timestep).^2 + p.vc(:,:,i,timestep).^2)
+    ws=sqrt(p.uc(:,:,i,timestep).^2 + p.vc(:,:,i,timestep).^2);
     print_layer_msg(i,z,ws)
     surf(x,y,z+hgt,ws,'EdgeAlpha',alpha*0,'FaceAlpha',alpha)
     hold on
 end
 caxis([0,windscale])
-title(p.times,'Interpreter','none')
-colorbar
+title({'Horizontal wind speed',p.times{1}},'Interpreter','none')
+xlabel('m'), ylabel('m')  % for now, ideal only
+h=colorbar
+xlabel(h,'m/s')
 axis('image')
 a=[min(x(:)),max(x(:)),min(y(:)),max(y(:)),0,heightscale]; % var limits
 axis(a);     % set var limits

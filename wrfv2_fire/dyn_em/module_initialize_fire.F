@@ -28,7 +28,7 @@ MODULE module_initialize_ideal
    USE module_dm
 #endif
    USE module_fr_sfire_util, ONLY: continue_at_boundary,crash,read_array_2d_real, &
-     read_array_2d_integer,interpolate_2d
+     read_array_2d_integer,interpolate_2d,set_ideal_coord 
 
 CONTAINS
 
@@ -113,6 +113,7 @@ CONTAINS
    INTEGER :: xs , xe , ys , ye
    INTEGER :: mtn_type
    INTEGER :: &  ! fire mesh sizes
+              iots,iote,jots,jote, &            ! tile dims out
              ifds,ifde, kfds,kfde, jfds,jfde,                              &
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifts,ifte, kfts,kfte, jfts,jfte
@@ -421,6 +422,20 @@ write(6,*) '*************************************'
   write (6,*)' fire tile   bounds ',ifts,ifte, jfts,jfte,kfts,kfte
   write (6,*)' Note that atm mesh and fire mesh are cell-centered'
 
+! set ideal coordinates
+  call set_ideal_coord( fdx,fdy, &
+                ifds,ifde,jfds,jfde,  &
+                ifms,ifme,jfms,jfme,  &
+                ifts,ifte,jfts,jfte,  &
+                grid%fxlong,grid%fxlat          )
+  call set_ideal_coord( grid%dx,grid%dy, &
+                ids,ide,jds,jde,  &
+                ims,ime,jms,jme,  &
+                its,ite,jts,jte,  &
+                grid%xlong,grid%xlat          )
+
+! set terrain height
+
   DO j=jts,jte
   DO i=its,ite
     grid%ht(i,j) = 0.
@@ -569,6 +584,7 @@ write(6,*) '*************************************'
               ifds,ifde,jfds,jfde, &            ! domain dims
               ifds,ifde,jfds,jfde, &            ! patch dims = domain, not parallel!
               ifts,ifte,jfts,jfte, &            ! tile dims
+              iots,iote,jots,jote, &            ! tile dims out
               grid%zsf)                         ! array
   
       ! compute the terrain gradient by differencing
