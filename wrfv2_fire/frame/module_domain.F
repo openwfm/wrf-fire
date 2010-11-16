@@ -752,10 +752,6 @@ CONTAINS
       new_grid%adaptation_domain = 1
       new_grid%last_step_updated = -1
 #endif
-     
-      ! need for allocation of subgrid arrays
-      CALL nl_get_sr_x(domain_id,new_grid%sr_x)
-      CALL nl_get_sr_y(domain_id,new_grid%sr_y)
 
       CALL alloc_space_field ( new_grid, domain_id , 3 , 3 , .FALSE. ,      &
                                sd1, ed1, sd2, ed2, sd3, ed3,       &
