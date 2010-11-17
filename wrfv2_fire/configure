@@ -423,7 +423,7 @@ else
   compileflags="${compileflags} "
 fi
 
-if [ `which timex` ] ; then
+if [ `which timex 2> /dev/null` ] ; then
   FORTRAN_COMPILER_TIMER=timex
 fi
 
