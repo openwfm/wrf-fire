@@ -18,6 +18,7 @@ libwrfio_int.a:		$(OBJS)
 			$(RANLIB) libwrfio_int.a
 
 io_int.o:               io_int.F90 module_internal_header_util.o
+			cp ../../inc/intio_tags.h intio_tags.h
 			$(CPP1)  -I../ioapi_share io_int.F90 | $(M4) - > io_int.f
 			@ if echo $(ARCHFLAGS) | $(FGREP) 'DVAR4D'; then \
                           echo COMPILING io_int.F90 for 4DVAR ; \
