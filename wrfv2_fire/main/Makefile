@@ -132,7 +132,7 @@ nup_em.o: \
 	../dyn_em/module_big_step_utilities_em.o \
 	$(ESMF_MOD_DEPENDENCE)
 
-# this already built above :../dyn_em/module_initialize.real.o \
+# this already built above :../dyn_em/module_initialize.real.o 
 real_em.o: \
 	../frame/module_machine.o \
 	../frame/module_domain.o \
