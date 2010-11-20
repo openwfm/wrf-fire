@@ -126,10 +126,14 @@ subroutine plt2d(tcr2d, iz, jz, llflag, &
   integer, dimension(liwk) :: iwrk
 
   integer :: ilev
+  integer :: found_it
   character(len=8) :: hlev
 
-  integer :: ioff, joff, i1, j1, ix, jx
+! declarations for windowing
+  integer :: ioff, joff, i1, j1, ix, jx, funit
   real, allocatable,dimension(:,:)  :: scr2d
+  logical :: is_used
+  namelist /plotfmt/ ix, jx, ioff, joff
   
 ! This version allows the plotting of subsets of a lat/lon grid (i.e. NCEP GFS).
 ! ix,jx are the dimensions of the subset. ioff,joff are the offsets from 1,1
@@ -138,6 +142,21 @@ subroutine plt2d(tcr2d, iz, jz, llflag, &
   jx = jz
   ioff = 0
   joff = 0
+
+! Read parameters from Fortran namelist
+  do funit=10,100
+    inquire(unit=funit, opened=is_used)
+    if (.not. is_used) exit
+  end do
+  open(funit,file='namelist.wps',status='old',form='formatted',err=1000)
+  read(funit,plotfmt,iostat=found_it)
+  close(funit)
+  if(found_it .gt. 0 ) then
+     print *,'error reading the plotfmt namelist record in namelist.wps'
+     print *,'you may have: ix, jx, ioff, joff ONLY'
+     stop 1234
+  end if
+
 
 ! ioff = 250     ! e.g. east of the Philippines from 0.5 degree GFS
 ! joff = 140
@@ -277,6 +296,9 @@ subroutine plt2d(tcr2d, iz, jz, llflag, &
 
   deallocate (scr2d)
   call frame
+  return
+1000 write(0,*) 'Error opening file namelist.wps, Stopping'
+  stop 'namelist missing'
 
 end subroutine plt2d
 
