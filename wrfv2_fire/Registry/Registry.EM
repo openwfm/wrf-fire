@@ -105,6 +105,7 @@ state    real   intq_gc        ij       dyn_em      1        -     -   "INTQ"  "
 state    real   pdhs           ij       dyn_em      1        -     -   "PDHS"  "hydrostatic dry surface pressure" "Pa"
 state    real   qv_gc          igj      dyn_em      1        Z     i1  "QV"     "mixing ratio"        "kg kg-1"
 state    real   sh_gc          igj      dyn_em      1        Z     i1  "SPECHUMD"  "Specific humidity"        "kg kg-1"
+state    real   icefrac_gc     ij       dyn_em      1        -     i1  "ICEFRAC"  "Sea ice fraction"  "0 - 1 fraction"
 ifdef RUC_CLOUD
 state    real   qr_gc          igj      dyn_em      1        Z     i1  "QR"    "rain water mixing ratio"   "kg kg-1"
 state    real   qc_gc          igj      dyn_em      1        Z     i1  "QC"    "cloud water mixing ratio"   "kg kg-1"
@@ -180,9 +181,8 @@ state    real   t              ikjb     dyn_em      2         -     \
 state    real   t_init         ikj     dyn_em      1         -      ir       "t_init" "initial potential temperature" "K"
 i1       real   t_tend         ikj     dyn_em      1         -  
 i1       real   t_tendf        ikj     dyn_em      1         -  
-state    real   tp             ikj     dyn_em      2         -  
 i1       real   t_2save        ikj     dyn_em      1         -   
-state    real   t_save         ikj     dyn_em      1         -               "t_save"
+state    real   t_save         ikj     dyn_em      1         -      -        "t_save"
 
 state    real   th_upstream_x       |     dyn_em      1      -      i3rh     "TH_UPSTREAM_X" "upstream theta x-advection" "K s-1"
 state    real   th_upstream_x_tend  |     dyn_em      1      -      i3rh     "TH_UPSTREAM_X_TEND" "tendency upstream theta x-advection" "K s-2"
@@ -217,12 +217,12 @@ state    real   mub_fine        ij     dyn_em      1         -      -           
 state    real   mub_save        ij     dyn_em      1         -      -           "mub_save" "nest temp, holds orig fine grid mub" "Pa"
 state    real   mu0             ij     dyn_em      1         -      i1          "mu0" "initial dry mass in column" "Pa"
 state    real   mudf            ij     dyn_em      1         -      -           "mudf" "" ""
-state    real   muu             ij     dyn_em      1          -                 "muu"
+state    real   muu             ij     dyn_em      1          -     -           "muu"
 i1       real   muus            ij     dyn_em      1          -     
-state    real   muv             ij     dyn_em      1          -                 "muv"
+state    real   muv             ij     dyn_em      1          -     -           "muv"
 i1       real   muvs            ij     dyn_em      1          -     
-state    real   mut             ij     dyn_em      1          -                 "mut"
-state    real   muts            ij     dyn_em      1          -                 "muts"
+state    real   mut             ij     dyn_em      1          -     -           "mut"
+state    real   muts            ij     dyn_em      1          -     -           "muts"
 i1       real   muave           ij     dyn_em      1          -     
 i1       real   mu_save         ij     dyn_em      1          -     
 i1       real   mu_tend         ij     dyn_em      1          -     
@@ -235,7 +235,7 @@ state    real   ht_coarse       ij     misc        1   -     r                - 
 
 
 # TKE
-state    real   tke            ikj     dyn_em      2         -       r        "tke"          "TURBULENCE KINETIC ENERGY"     "m2 s-2"
+state    real   tke            ikj     dyn_em      2         -       rh       "tke"          "TURBULENCE KINETIC ENERGY"     "m2 s-2"
 i1       real   tke_tend       ikj     dyn_em      1         -      
 
 # Pressure and Density
@@ -292,7 +292,7 @@ state    real   p_hyd_w         ikj     dyn_em      1         Z       r        "
 
 # 2m and 10m output diagnostics
 state    real   Q2               ij     misc        1         -     irhd      "Q2"                   "QV at 2 M"         "kg kg-1"
-state    real   T2               ij     misc        1         -     irhd      "T2"                   "TEMP at 2 M"       "K"
+state    real   T2               ij     misc        1         -     i01rhd    "T2"                   "TEMP at 2 M"       "K"
 state    real   TH2              ij     misc        1         -     irhd      "TH2"                  "POT TEMP at 2 M"   "K"
 state    real   PSFC             ij     misc        1         -     i01rhd    "PSFC"                 "SFC PRESSURE"      "Pa"
 
@@ -726,7 +726,7 @@ state    real   EXCH_H          ikj     misc        1         -     r          "
 state    real   EXCH_M          ikj     misc        1         -     r          "EXCH_M"               "EXCHANGE COEFFICIENTS "
 state    real  CT              ij      misc        1         -      r        "CT"                    "COUNTERGRADIENT TERM"    "K"
 state   real   THZ0             ij     misc        1         -      r        "THZ0"                  "POTENTIAL TEMPERATURE AT ZNT"                 "K"
-state    real  Z0               ij     misc        1         -      r        "Z0"                    "Background ROUGHNESS LENGTH"                  "m"
+state    real  Z0               ij     misc        1         -      rh        "Z0"                    "Background ROUGHNESS LENGTH"                  "m"
 state   real   QZ0              ij     misc        1         -      r        "QZ0"                   "SPECIFIC HUMIDITY AT ZNT"                     "kg kg-1"
 state   real   UZ0              ij     misc        1         -      r        "UZ0"                   "U WIND COMPONENT AT ZNT"                      "m s-1"
 state   real   VZ0              ij     misc        1         -      r        "VZ0"                   "V WIND COMPONENT AT ZNT"                      "m s-1"
@@ -939,6 +939,9 @@ state    real  xmb_shallow      ij      misc        1         -      rh       "X
 state    integer  k22_shallow   ij      misc        1         -      rh       "K22_SHALLOW"             "K22 LEVEL FROM SHALLOW CONVECTION (G3 only)"             ""
 state    integer  kbcon_shallow   ij      misc        1         -    rh       "KBCON_SHALLOW"             "KBCON LEVEL FROM SHALLOW CONVECTION (G3 only)"             ""
 state    integer  ktop_shallow   ij      misc        1         -     rh       "KTOP_SHALLOW"             "KTOP LEVEL FROM SHALLOW CONVECTION (G3 only)"             ""
+state    integer  k22_deep     ij      misc        1         -      h       "K22_DEEP"             "K22 LEVEL FROM DEEPCONVECTION (G3 only)"             ""
+state    integer  kbcon_deep     ij      misc        1         -    h       "KBCON_DEEP"             "KBCON LEVEL FROM DEEP CONVECTION (G3 only)"             ""
+state    integer  ktop_deep     ij      misc        1         -     h       "KTOP_DEEP"             "KTOP LEVEL FROM DEEP CONVECTION (G3 only)"             ""
 state    real  xf_ens           ije     misc        1         Z      r        "XF_ENS"                "MASS FLUX PDF IN GRELL CUMULUS SCHEME"     "mb hour-1"
 state    real  pr_ens           ije     misc        1         Z      r        "PR_ENS"                "PRECIP RATE PDF IN GRELL CUMULUS SCHEME"    "mb hour-1"
 state    real  cugd_tten        ikj     misc        1         -      h        "CUGD_TTEN"             "INITIAL TTENDENCY OUT OFF GRELL CUMULUS SCHEME"  "K s-1"
@@ -946,6 +949,16 @@ state    real  cugd_qvten       ikj     misc        1         -      h        "C
 state    real  cugd_ttens       ikj     misc        1         -      h        "CUGD_TTENS"            "INITIAL SUBSIDENCE TTENDENCY OUT OFF GRELL CUMULUS SCHEME"  "K s-1"
 state    real  cugd_qvtens      ikj     misc        1         -      h        "CUGD_QVTENS"           "INITIAL SUBSIDNCE QTENDENCY OUT OFF GRELL CUMULUS SCHEME"  "K s-1"
 state    real  cugd_qcten       ikj     misc        1         -      h        "CUGD_QCTEN"            "INITIAL TEMPERATURE TENDENCY OUT OFF GRELL CUMULUS SCHEME"  "K s-1"
+state    real  GD_CLOUD         ikj      misc        1         -      rh      "GD_CLOUD"              "CLOUD WATER/ICE MIXING RAIO IN GD CLOUD"         "kg kg-1"
+state    real  GD_CLOUD2        ikj      misc        1         -      rh      "GD_CLOUD2"              "TEST for GD CLOUD"         "kg kg-1"
+state    real  GD_CLDFR         ikj      misc        1         -      rh     "GD_CLDFR"              "GD CLOUD Fraction"         " ? "
+state    real  RAINCV_A           ij      misc        1         -      r      "RAINCV_A"             "taveragd TIME-STEP CUMULUS PRECIPITATION"                         "mm"
+state    real  RAINCV_B           ij      misc        1         -      rh      "RAINCV_B"             "taveragd TIME-STEP CUMULUS PRECIPITATION"                         "mm"
+state    real  GD_CLOUD_A        ikj      misc        1         -      r      "GD_CLOUD_A"           "taveragd CLOUD WATER MIXING RAIO IN GD CLOUD"         "kg kg-1"
+state    real  GD_CLOUD2_A       ikj      misc        1         -      r      "GD_CLOUD2_A"          "taveragd cloud ice mix ratio in GD"         "kg kg-1"
+state    real  GD_CLOUD_B        ikj      misc        1         -      rh      "GD_CLOUD_B"           "taveragd CLOUD WATER MIXING RAIO IN GD CLOUD"         "kg kg-1"
+state    real  GD_CLOUD2_B       ikj      misc        1         -      rh      "GD_CLOUD2_B"          "taveragd cloud ice mix ratio in GD"         "kg kg-1"
+state integer  STEPAVE_COUNT     -        misc        1         -      rh      "STEPAVE_COUNT"        "time steps contained in averages for convective transport" ""
 state    real  RTHFTEN          ikj     misc        1         -      r        "RTHFTEN"               "TEMPERATURE TENDENCY USED IN GRELL CUMULUS SCHEME"  "K s-1"      
 state    real  RQVFTEN          ikj     misc        1         -      r        "RQVFTEN"               "MOISTURE TENDENCY USED IN GRELL CUMULUS SCHEME"     "kg s-1"
 
@@ -954,7 +967,7 @@ state integer  STEPCU          -        misc        1         -      r        "S
 state    real  RTHRATEN        ikj      misc        1         -      rd       "RTHRATEN"              "COUPLED THETA TENDENCY DUE TO RADIATION"              "Pa K s-1"
 state    real  RTHRATENLW      ikj      misc        1         -      r        "RTHRATLW"              "UNCOUPLED THETA TENDENCY DUE TO LONG WAVE RADIATION"    "K s-1"
 state    real  RTHRATENSW      ikj      misc        1         -      r        "RTHRATSW"              "UNCOUPLED THETA TENDENCY DUE TO SHORT WAVE RADIATION"   "K s-1"
-state    real  CLDFRA          ikj      misc        1         -      r        "CLDFRA"                "CLOUD FRACTION"                                       ""
+state    real  CLDFRA          ikj      misc        1         -      rh       "CLDFRA"                "CLOUD FRACTION"                                       ""
 
 state    real  SWDOWN           ij      misc        1         -      rhd      "SWDOWN"                "DOWNWARD SHORT WAVE FLUX AT GROUND SURFACE"           "W m-2"      
 state    real  SWDOWNC          ij      misc        1         -      -        "SWDOWNC"               "DOWNWARD CLEAR-SKY SHORT WAVE FLUX AT GROUND SURFACE"           "W m-2"      
@@ -995,22 +1008,22 @@ state integer  I_ACLWUPB        ij      misc        1         -      rhd=(interp
 state integer  I_ACLWUPBC       ij      misc        1         -      rhd=(interp_fcni)u=(copy_fcni)     "I_ACLWUPBC"    "BUCKET FOR UPWELLING CLEAR SKY LONGWAVE FLUX AT BOTTOM" "J m-2"
 state integer  I_ACLWDNB        ij      misc        1         -      rhd=(interp_fcni)u=(copy_fcni)     "I_ACLWDNB"     "BUCKET FOR DOWNWELLING LONGWAVE FLUX AT BOTTOM"          "J m-2"
 state integer  I_ACLWDNBC       ij      misc        1         -      rhd=(interp_fcni)u=(copy_fcni)     "I_ACLWDNBC"    "BUCKET FOR DOWNWELLING CLEAR SKY LONGWAVE FLUX AT BOTTOM" "J m-2"
-state    real  SWUPT            ij      misc        1         -      rhdu     "SWUPT"                 "INSTANTANEOUS UPWELLING SHORTWAVE FLUX AT TOP"          "J m-2"
-state    real  SWUPTC           ij      misc        1         -      rhdu     "SWUPTC"                "INSTANTANEOUS UPWELLING CLEAR SKY SHORTWAVE FLUX AT TOP" "J m-2"
-state    real  SWDNT            ij      misc        1         -      rhdu     "SWDNT"                 "INSTANTANEOUS DOWNWELLING SHORTWAVE FLUX AT TOP"          "J m-2"
-state    real  SWDNTC           ij      misc        1         -      rhdu     "SWDNTC"                "INSTANTANEOUS DOWNWELLING CLEAR SKY SHORTWAVE FLUX AT TOP" "J m-2"
-state    real  SWUPB            ij      misc        1         -      rhdu     "SWUPB"                 "INSTANTANEOUS UPWELLING SHORTWAVE FLUX AT BOTTOM"          "J m-2"
-state    real  SWUPBC           ij      misc        1         -      rhdu     "SWUPBC"                "INSTANTANEOUS UPWELLING CLEAR SKY SHORTWAVE FLUX AT BOTTOM" "J m-2"
-state    real  SWDNB            ij      misc        1         -      rhdu     "SWDNB"                 "INSTANTANEOUS DOWNWELLING SHORTWAVE FLUX AT BOTTOM"          "J m-2"
-state    real  SWDNBC           ij      misc        1         -      rhdu     "SWDNBC"                "INSTANTANEOUS DOWNWELLING CLEAR SKY SHORTWAVE FLUX AT BOTTOM" "J m-2"
-state    real  LWUPT            ij      misc        1         -      rhdu     "LWUPT"                 "INSTANTANEOUS UPWELLING LONGWAVE FLUX AT TOP"          "J m-2"
-state    real  LWUPTC           ij      misc        1         -      rhdu     "LWUPTC"                "INSTANTANEOUS UPWELLING CLEAR SKY LONGWAVE FLUX AT TOP" "J m-2"
-state    real  LWDNT            ij      misc        1         -      rhdu     "LWDNT"                 "INSTANTANEOUS DOWNWELLING LONGWAVE FLUX AT TOP"          "J m-2"
-state    real  LWDNTC           ij      misc        1         -      rhdu     "LWDNTC"                "INSTANTANEOUS DOWNWELLING CLEAR SKY LONGWAVE FLUX AT TOP" "J m-2"
-state    real  LWUPB            ij      misc        1         -      rhdu     "LWUPB"                 "INSTANTANEOUS UPWELLING LONGWAVE FLUX AT BOTTOM"          "J m-2"
-state    real  LWUPBC           ij      misc        1         -      rhdu     "LWUPBC"                "INSTANTANEOUS UPWELLING CLEAR SKY LONGWAVE FLUX AT BOTTOM" "J m-2"
-state    real  LWDNB            ij      misc        1         -      rhdu     "LWDNB"                 "INSTANTANEOUS DOWNWELLING LONGWAVE FLUX AT BOTTOM"          "J m-2"
-state    real  LWDNBC           ij      misc        1         -      rhdu     "LWDNBC"                "INSTANTANEOUS DOWNWELLING CLEAR SKY LONGWAVE FLUX AT BOTTOM" "J m-2"
+state    real  SWUPT            ij      misc        1         -      rhdu     "SWUPT"                 "INSTANTANEOUS UPWELLING SHORTWAVE FLUX AT TOP"          "W m-2"
+state    real  SWUPTC           ij      misc        1         -      rhdu     "SWUPTC"                "INSTANTANEOUS UPWELLING CLEAR SKY SHORTWAVE FLUX AT TOP" "W m-2"
+state    real  SWDNT            ij      misc        1         -      rhdu     "SWDNT"                 "INSTANTANEOUS DOWNWELLING SHORTWAVE FLUX AT TOP"          "W m-2"
+state    real  SWDNTC           ij      misc        1         -      rhdu     "SWDNTC"                "INSTANTANEOUS DOWNWELLING CLEAR SKY SHORTWAVE FLUX AT TOP" "W m-2"
+state    real  SWUPB            ij      misc        1         -      rhdu     "SWUPB"                 "INSTANTANEOUS UPWELLING SHORTWAVE FLUX AT BOTTOM"          "W m-2"
+state    real  SWUPBC           ij      misc        1         -      rhdu     "SWUPBC"                "INSTANTANEOUS UPWELLING CLEAR SKY SHORTWAVE FLUX AT BOTTOM" "W m-2"
+state    real  SWDNB            ij      misc        1         -      rhdu     "SWDNB"                 "INSTANTANEOUS DOWNWELLING SHORTWAVE FLUX AT BOTTOM"          "W m-2"
+state    real  SWDNBC           ij      misc        1         -      rhdu     "SWDNBC"                "INSTANTANEOUS DOWNWELLING CLEAR SKY SHORTWAVE FLUX AT BOTTOM" "W m-2"
+state    real  LWUPT            ij      misc        1         -      rhdu     "LWUPT"                 "INSTANTANEOUS UPWELLING LONGWAVE FLUX AT TOP"          "W m-2"
+state    real  LWUPTC           ij      misc        1         -      rhdu     "LWUPTC"                "INSTANTANEOUS UPWELLING CLEAR SKY LONGWAVE FLUX AT TOP" "W m-2"
+state    real  LWDNT            ij      misc        1         -      rhdu     "LWDNT"                 "INSTANTANEOUS DOWNWELLING LONGWAVE FLUX AT TOP"          "W m-2"
+state    real  LWDNTC           ij      misc        1         -      rhdu     "LWDNTC"                "INSTANTANEOUS DOWNWELLING CLEAR SKY LONGWAVE FLUX AT TOP" "W m-2"
+state    real  LWUPB            ij      misc        1         -      rhdu     "LWUPB"                 "INSTANTANEOUS UPWELLING LONGWAVE FLUX AT BOTTOM"          "W m-2"
+state    real  LWUPBC           ij      misc        1         -      rhdu     "LWUPBC"                "INSTANTANEOUS UPWELLING CLEAR SKY LONGWAVE FLUX AT BOTTOM" "W m-2"
+state    real  LWDNB            ij      misc        1         -      rhdu     "LWDNB"                 "INSTANTANEOUS DOWNWELLING LONGWAVE FLUX AT BOTTOM"          "W m-2"
+state    real  LWDNBC           ij      misc        1         -      rhdu     "LWDNBC"                "INSTANTANEOUS DOWNWELLING CLEAR SKY LONGWAVE FLUX AT BOTTOM" "W m-2"
 
 state    real  SWCF             ij      misc        1         -      r         "SWCF"                  "SHORT WAVE CLOUD FORCING AT TOA"                     "W m-2"
 state    real  LWCF             ij      misc        1         -      r         "LWCF"                  "LONG WAVE CLOUD FORCING AT TOA"                      "W m-2"
@@ -1110,7 +1123,7 @@ state    real  SNOWC            ij      misc        1         -     irhd=(interp
 state    real  dfi_SNOWC        ij      misc        1         -      r        "SNOWC_dfi"             "FLAG INDICATING SNOW COVERAGE (1 FOR SNOW COVER)"         ""
 state    real  MAVAIL           ij      misc        1         -      r        "MAVAIL"                "SURFACE MOISTURE AVAILABILITY"                ""
                                                 
-state   real   tkesfcf          ij      misc        1         -      r        "tkesfcf"               "TKE AT THE SURFACE"                           "m2 s-2"      
+state   real   tkesfcf          ij      misc        1         -      rh       "tkesfcf"               "TKE AT THE SURFACE"                           "m2 s-2"      
 state    real   sr             ij      dyn_em      1         -      irh         "sr" "fraction of frozen precipitation"
 state    real   potevp         ij      dyn_em      1         -       rh         "potevp" "accumulated potential evaporation" "W m-2"
 state    real   snopcx         ij      dyn_em      1         -       rh         "snopcx" "snow phase change heat flux" "W m-2"
@@ -1179,8 +1192,8 @@ state    real  TOB_NDG_OLD       ij         misc      1         -      i9r      
 state    real  ODIS_NDG_OLD      ij         misc      1         -      i9r      "ODIS_NDG_OLD"            "OLD ODIS FOR SURFACE FDDA GRID NUDGING"  "km"
 state    real  TOB_NDG_NEW       ij         misc      1         -      i9r      "TOB_NDG_NEW"             "NEW TOB FOR SURFACE FDDA GRID NUDGING"  ""
 state    real  ODIS_NDG_NEW      ij         misc      1         -      i9r      "ODIS_NDG_NEW"            "NEW ODIS FOR SURFACE FDDA GRID NUDGING"  "km"
-state    real  SN_NDG_NEW        ij         misc      1         -      i9r      "SN_NDG_NEW"              "NEW Snow Depth"  "m"
-state    real  SN_NDG_OLD        ij         misc      1         -      i9r      "SN_NDG_OLD"              "OLD Snow Depth"  "m"
+state    real  SN_NDG_NEW        ij         misc      1         -      i9r      "SN_NDG_NEW"              "NEW Snow Water Equivalent"  "mm"
+state    real  SN_NDG_OLD        ij         misc      1         -      i9r      "SN_NDG_OLD"              "OLD Snow Water Equivalent"  "mm"
 
 
 # flag for nest movement
@@ -1385,6 +1398,7 @@ rconfig   real    lonc_loc             namelist,tc     	max_bogus      -999.   i
 rconfig   real    vmax_meters_per_second   namelist,tc  max_bogus      -999.   irh    "vmax_meters_per_second"  "vmax of bogus storm in meters per second"  ""
 rconfig   real    rmax                 namelist,tc     	max_bogus      -999.   irh    "rmax"  "maximum radius outward from storm center"  ""
 rconfig   real    vmax_ratio           namelist,tc      max_bogus      -999.   irh    "vmax_ratio"  ""  ""
+rconfig   real    rankine_lid          namelist,tc      1              -999.   irh    "top pressure limit for the tc bogus scheme"
 
 
 # Physics
@@ -1403,6 +1417,7 @@ rconfig   integer     bl_pbl_physics      namelist,physics	max_domains    0     
 rconfig   integer     sf_urban_physics    namelist,physics      max_domains    0       rh       "sf_urban_physics"     "activate urban model  0=no, 1=Noah_UCM 2=BEP_UCM"   ""
 rconfig   real    BLDT                    namelist,physics	max_domains    0       h    "BLDT"          ""      ""
 rconfig   integer     cu_physics          namelist,physics	max_domains    0       rh       "cu_physics"            ""      ""
+rconfig   integer     cu_diag             namelist,physics      max_domains    0       rh       "cu_diag"            " additional t-averaged stuff for cuphys"      ""
 rconfig   real    CUDT                    namelist,physics	max_domains    0       h    "CUDT"          ""      ""
 rconfig   real    GSMDT                   namelist,physics	max_domains    0       h    "GSMDT"          ""      ""
 rconfig   integer ISFFLX                  namelist,physics 	1             1       irh    "ISFFLX"                        ""      ""
@@ -1422,6 +1437,7 @@ rconfig   integer cugd_avedx              namelist,physics      1            1  
 rconfig   integer clos_choice             namelist,physics      1             0       rh    "clos_choice"                    ""      ""
 rconfig   integer imomentum               namelist,physics      1             0       rh    "imomentum"                    "momentum transport in G3 scheme"      ""
 rconfig   integer ishallow                namelist,physics      1             0       rh    "ishallow"  "shallow convection in G3 scheme"      ""
+rconfig   real    convtrans_avglen_m      namelist,physics      1             30      rh    "convtrans_avglen_m"  "averaging time for convective transport output variables (minutes)"      ""
 rconfig   integer     chem_opt            namelist,physics	max_domains    0       rh       "chem_opt"              ""      ""
 rconfig   integer num_land_cat            namelist,physics	1            24       -      "num_land_cat"                  ""      ""
 rconfig   integer num_soil_cat            namelist,physics	1            16       -      "num_soil_cat"                  ""      ""
@@ -1454,6 +1470,7 @@ rconfig   integer slope_rad               namelist,physics      max_domains    0
 rconfig   integer topo_shading            namelist,physics      max_domains    0       -     "topo_shading" "1: apply topographic shading to radiation, 0:not" ""
 rconfig   integer no_mp_heating           namelist,physics      1              0       -     "no_mp_heating" "switch to turn of latent heating in mp schemes"   ""
 rconfig   integer fractional_seaice       namelist,physics      1              0       -     "fractional_seaice" "Fractional sea-ice option"
+rconfig   logical tice2tsk_if2cold        namelist,physics      1              .false. -     "tice2tsk_if2cold" "Avoid low ice temps when ice frac and Tsk are inconsistent"
 rconfig   real    bucket_mm               namelist,physics      1             -1.      h     "bucket_mm" "bucket reset value for water accumulations -1: inactive"   ""
 rconfig   real    bucket_J                namelist,physics      1             -1.      h     "bucket_J"  "bucket reset value for energy accumulations -1: inactive"   ""
 rconfig   real    mp_tend_lim             namelist,physics      1             10.      -     "mp_tend_lim" "limit on temp tendency from mp latent heating"   "K/s"
@@ -1495,6 +1512,7 @@ rconfig   integer if_ramping              namelist,fdda         1              0
 rconfig   real    rinblw                  namelist,fdda         1              0       h        "grid_fdda"            ""      ""
 rconfig   integer xwavenum                namelist,fdda         max_domains    0       rh       "grid_fdda"            "top wave number to nudge in x direction"      "" 
 rconfig   integer ywavenum                namelist,fdda         max_domains    0       rh       "grid_fdda"            "top wave number to nudge in y direction"      ""
+rconfig   integer pxlsm_soil_nudge        namelist,fdda         max_domains    0       rh       "pxlsm_soil_nudge"     "nudge pxlsm soil"      ""
 
 #Observational Nudging
 rconfig   integer     obs_nudge_opt       namelist,fdda            max_domains    0       rh       "obs_nudge_opt"     "Obs-nudging flag for domain"          ""
@@ -1778,6 +1796,7 @@ package   bmjscheme      cu_physics==2               -             -
 package   gdscheme       cu_physics==3               -             -
 package   sasscheme      cu_physics==4               -             -
 package   g3scheme       cu_physics==5               -             state:cugd_qvten,cugd_tten,cugd_qvtens,cugd_ttens,cugd_qcten,xmb_shallow,k22_shallow,kbcon_shallow,ktop_shallow
+package   g3tave         cu_diag==1                  -             state:GD_CLOUD,GD_CLOUD2,GD_CLDFR,RAINCV_A,RAINCV_B,GD_CLOUD_A,GD_CLOUD_B,GD_CLOUD2_A,GD_CLOUD2_B,kbcon_deep,ktop_deep,k22_deep
 package   kfscheme       cu_physics==99              -             -
 
 package   psufddagd      grid_fdda==1                -             fdda3d:u_ndg_old,v_ndg_old,t_ndg_old,q_ndg_old,ph_ndg_old,u_ndg_new,v_ndg_new,t_ndg_new,q_ndg_new,ph_ndg_new;fdda2d:mu_ndg_old,mu_ndg_new;state:rundgdten,rvndgdten,rthndgdten,rphndgdten,rqvndgdten,rmundgdten
@@ -1810,10 +1829,10 @@ package   dfi_dfl       dfi_opt==1                  -             state:dfi_u,df
 package   dfi_ddfi      dfi_opt==2                  -             state:dfi_u,dfi_v,dfi_w,dfi_ph,dfi_phb,dfi_ph0,dfi_php,dfi_t,dfi_p,dfi_ww,dfi_mu,dfi_tke,dfi_pb,dfi_al,dfi_alt,dfi_TSLB,dfi_SMOIS,dfi_SNOW,dfi_SNOWH,dfi_CANWAT,dfi_SMFR3D,dfi_KEEPFR3DFLAG,dfi_TSK,dfi_SOILT1,dfi_TSNAV,dfi_SNOWC,dfi_QVG,dfi_rh,dfi_tten_rad
 package   dfi_tdfi      dfi_opt==3                  -             state:dfi_u,dfi_v,dfi_w,dfi_ph,dfi_phb,dfi_ph0,dfi_php,dfi_t,dfi_p,dfi_ww,dfi_mu,dfi_tke,dfi_pb,dfi_al,dfi_alt,dfi_TSLB,dfi_SMOIS,dfi_SNOW,dfi_SNOWH,dfi_CANWAT,dfi_SMFR3D,dfi_KEEPFR3DFLAG,dfi_TSK,dfi_SOILT1,dfi_TSNAV,dfi_SNOWC,dfi_QVG,dfi_rh,dfi_tten_rad
 ifdef RUC_CLOUD
-package   realonly       use_wps_input==1            -             state:u_gc,v_gc,t_gc,rh_gc,ght_gc,p_gc,xlat_gc,xlong_gc,ht_gc,tsk_gc,tavgsfc,tmn_gc,pslv_gc,sct_dom_gc,scb_dom_gc,greenfrac,albedo12m,pd_gc,psfc_gc,intq_gc,pdhs,sh_gc,qv_gc,qr_gc,qc_gc,qs_gc,qi_gc,qg_gc,qni_gc
+package   realonly       use_wps_input==1            -             state:u_gc,v_gc,t_gc,rh_gc,ght_gc,p_gc,xlat_gc,xlong_gc,ht_gc,tsk_gc,tavgsfc,tmn_gc,pslv_gc,sct_dom_gc,scb_dom_gc,greenfrac,albedo12m,pd_gc,psfc_gc,intq_gc,pdhs,sh_gc,qv_gc,qr_gc,qc_gc,qs_gc,qi_gc,qg_gc,qni_gc,icefrac_gc
 endif
 ifndef RUC_CLOUD
-package   realonly       use_wps_input==1            -             state:u_gc,v_gc,t_gc,rh_gc,ght_gc,p_gc,xlat_gc,xlong_gc,ht_gc,tsk_gc,tavgsfc,tmn_gc,pslv_gc,sct_dom_gc,scb_dom_gc,greenfrac,albedo12m,pd_gc,psfc_gc,intq_gc,pdhs,sh_gc,qv_gc
+package   realonly       use_wps_input==1            -             state:u_gc,v_gc,t_gc,rh_gc,ght_gc,p_gc,xlat_gc,xlong_gc,ht_gc,tsk_gc,tavgsfc,tmn_gc,pslv_gc,sct_dom_gc,scb_dom_gc,greenfrac,albedo12m,pd_gc,psfc_gc,intq_gc,pdhs,sh_gc,qv_gc,icefrac_gc
 endif
 
 

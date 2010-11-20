@@ -104,6 +104,7 @@ void write_index_file(
       fprintf(f,"known_lat = %f\n",idx.known_lat);
       fprintf(f,"known_lon = %f\n",idx.known_lon);
       fprintf(f,"dx = %e\n",idx.dx);
+      fprintf(f,"dy = %e\n",idx.dy);
       break;
     case polar: /* Polar Stereographic (geogrid code = PROJ_PS) */
       fprintf(f,"projection = %s\n","polar");
@@ -114,6 +115,7 @@ void write_index_file(
       fprintf(f,"known_lat = %f\n",idx.known_lat);
       fprintf(f,"known_lon = %f\n",idx.known_lon);
       fprintf(f,"dx = %e\n",idx.dx);
+      fprintf(f,"dy = %e\n",idx.dy);
       break;
     case mercator: /* Mercator (geogrid code = PROJ_MERC) */
       fprintf(f,"projection = %s\n","mercator");
@@ -124,6 +126,7 @@ void write_index_file(
       fprintf(f,"known_lat = %f\n",idx.known_lat);
       fprintf(f,"known_lon = %f\n",idx.known_lon);
       fprintf(f,"dx = %e\n",idx.dx);
+      fprintf(f,"dy = %e\n",idx.dy);
       break;
     case regular_ll: /* Cylindrical (geographic) Lat/Lon (geogrid code = PROJ_LATLON) */
       fprintf(f,"projection = %s\n","regular_ll");
@@ -156,6 +159,7 @@ void write_index_file(
       fprintf(f,"known_lat = %f\n",idx.known_lat);
       fprintf(f,"known_lon = %f\n",idx.known_lon);
       fprintf(f,"dx = %e\n",idx.dx);
+      fprintf(f,"dy = %e\n",idx.dy);
       break;
     default:
       fprintf(stderr,"Invalid project.");
@@ -197,8 +201,9 @@ void write_index_file(
   fprintf(f,"missing_value = %f\n",idx.missing);
   fprintf(f,"scale_factor = %f\n",idx.scalefactor);
   
-  if (idx.bottom_top) fprintf(f,"row_order = bottom_top\n");
-  else fprintf(f,"row_order = top_bottom\n");
+  fprintf(f,"row_order = bottom_top\n");
+  //if (idx.bottom_top) fprintf(f,"row_order = bottom_top\n");
+  //else fprintf(f,"row_order = top_bottom\n");
   
   if (idx.endian)
     fprintf(f,"endian = little\n");
@@ -218,7 +223,8 @@ void write_tile(
   float *arr              /* tile data buffer */
                 )
 {
-  int itx,ity,isgn,endian,nx,ny,nz;
+  int itx,ity,isgn,endian,nx,ny,nz,i,j;
+  float swp;
   
   /* get global index for construction tile file name */
   itx=itile_x*idx.tx+1;

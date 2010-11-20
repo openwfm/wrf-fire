@@ -14,6 +14,7 @@ ARCHFLAGS       =    $(COREDEFS) -DIWORDSIZE=$(IWORDSIZE) -DDWORDSIZE=$(DWORDSIZ
                       CONFIGURE_GRIB2_FLAG \
                       CONFIGURE_RTTOV_FLAG \
                       CONFIGURE_CRTM_FLAG \
+                      CONFIGURE_4DVAR_FLAG \
                       CONFIGURE_NESTOPT \
                       -DUSE_ALLOCATABLES \
                       -DGRIB1 \
@@ -39,7 +40,6 @@ INCLUDE_MODULES =    $(MODULE_SRCH_FLAG) \
                       -I$(WRF_SRC_ROOT_DIR)/phys \
                       -I$(WRF_SRC_ROOT_DIR)/chem -I$(WRF_SRC_ROOT_DIR)/inc \
                       -I$(NETCDFPATH)/include \
-                      CONFIGURE_CRTM_INC \
                       CONFIGURE_RTTOV_INC
 REGISTRY        =    Registry
 
@@ -56,7 +56,7 @@ REGISTRY        =    Registry
 #NOWIN LIB_EXTERNAL    = \
 #NOWIN                      CONFIGURE_NETCDF_LIB_PATH CONFIGURE_PNETCDF_LIB_PATH CONFIGURE_GRIB2_LIB CONFIGURE_ATMPOM_LIB
 
-LIB             =    $(LIB_BUNDLED) $(LIB_EXTERNAL) $(LIB_LOCAL)
+LIB             =    $(LIB_BUNDLED) $(LIB_EXTERNAL) $(LIB_LOCAL) $(WRFIO_NETCDF_LINKOPTS)
 LDFLAGS         =    $(OMP) $(FCFLAGS) $(LDFLAGS_LOCAL) CONFIGURE_LDFLAGS
 ENVCOMPDEFS     =    CONFIGURE_COMPILEFLAGS
 CPPFLAGS        =    $(ARCHFLAGS) $(ENVCOMPDEFS) -I$(LIBINCLUDE) $(TRADFLAG) CONFIGURE_COMMS_INCLUDE
@@ -92,7 +92,7 @@ wrfio_nf :
 
 wrfio_pnf : 
 	( cd $(WRF_SRC_ROOT_DIR)/external/io_pnetcdf ; \
-          make NETCDFPATH="$(PNETCDFPATH)" RANLIB="$(RANLIB)" CPP="$(CPP)" \
+          make NETCDFPATH="$(PNETCDFPATH)" RANLIB="$(RANLIB)" CPP="$(CPP) $(ARCHFLAGS)" \
           FC="$(FC) $(PROMOTION) $(FCFLAGS)" TRADFLAG="$(TRADFLAG)" AR="$(AR)" ARFLAGS="$(ARFLAGS)" )
 
 wrfio_grib_share :
@@ -115,8 +115,8 @@ wrfio_grib2 :
 wrfio_int : 
 	( cd $(WRF_SRC_ROOT_DIR)/external/io_int ; \
           make CC="$(CC)" RM="$(RM)" RANLIB="$(RANLIB)" CPP="$(CPP)" \
-          FC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" \
-          TRADFLAG="$(TRADFLAG)" AR="$(AR)" ARFLAGS="$(ARFLAGS)" all )
+          FC="$(SFC) $(PROMOTION) $(FCDEBUG) $(FCBASEOPTS)" FGREP="$(FGREP)" \
+          TRADFLAG="$(TRADFLAG)" AR="$(AR)" ARFLAGS="$(ARFLAGS)" ARCHFLAGS="$(ARCHFLAGS)" all )
 
 esmf_time : 
 	( cd $(WRF_SRC_ROOT_DIR)/external/esmf_time_f90 ; \
@@ -172,6 +172,11 @@ wrfio_esmf :
 	$(CPP) -I$(WRF_SRC_ROOT_DIR)/inc $(CPPFLAGS) $(OMPCPP) $*.F  > $*.bb
 	$(SED_FTN) $*.bb | $(CPP) > $*.f90
 	$(RM) $*.b $*.bb
+	@ if echo $(ARCHFLAGS) | $(FGREP) 'DVAR4D'; then \
+          echo COMPILING $*.F for 4DVAR ; \
+          $(WRF_SRC_ROOT_DIR)/var/build/da_name_space.pl $*.f90 > $*.f90.tmp ; \
+          mv $*.f90.tmp $*.f90 ; \
+        fi
 	if $(FGREP) '!$$OMP' $*.f90 ; then \
           if [ -n "$(OMP)" ] ; then echo COMPILING $*.F WITH OMP ; fi ; \
 	  $(FC) -o $@ -c $(FCFLAGS) $(OMP) $(MODULE_DIRS) $(PROMOTION) $(FCSUFFIX) $*.f90 ; \
