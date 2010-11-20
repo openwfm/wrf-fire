@@ -1961,17 +1961,12 @@ module process_tile_module
     
       ! Local variables
       integer :: i, j, k
-      real :: l_sr_y, dratio
+      real :: l_sr_y
 
-      dratio=1.
-      do i=2,idom
-        dratio=dratio*parent_grid_ratio(i)
-      enddo
-
+      ! calculate the refinement ratio from the top-level domain
       l_sr_y=1.
       if (present(sr_y)) l_sr_y=sr_y
-      l_sr_y=dratio*l_sr_y    
-
+      l_sr_y=l_sr_y*moad_grid_ratio(idom)
 
       if (present(mapfac)) then
          do k=start_mem_k,end_mem_k
@@ -2034,17 +2029,12 @@ module process_tile_module
     
       ! Local variables
       integer :: i, j, k
-      real :: l_sr_x, dratio
+      real :: l_sr_x
 
-      dratio=1.
-      do i=2,idom
-        dratio=dratio*parent_grid_ratio(i)
-      enddo
-
+      ! calculate the refinement ratio from the top-level domain
       l_sr_x=1.
       if (present(sr_x)) l_sr_x=sr_x
-    
-      l_sr_x=l_sr_x*dratio
+      l_sr_x=l_sr_x*moad_grid_ratio(idom)
 
       if (present(mapfac)) then
          do k=start_mem_k, end_mem_k
