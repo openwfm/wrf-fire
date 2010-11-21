@@ -32,6 +32,7 @@ module process_tile_module
       use output_module
       use smooth_module
       use source_data_module
+      use gridinfo_module, only : subgrid_ratio_x, subgrid_ratio_y
     
       implicit none
 
@@ -74,8 +75,12 @@ module process_tile_module
       type (bitarray) :: processed_domain 
       type (hashtable) :: processed_fieldnames
       character (len=128), dimension(2) :: dimnames
-      integer :: sub_x, sub_y, idom
-   
+      integer :: sr_x, sr_y
+      logical :: subgrid_var
+  
+      sr_x=subgrid_ratio_x(which_domain)
+      sr_y=subgrid_ratio_y(which_domain)
+
       datestr = '0000-00-00_00:00:00'
       field_count = 0
       mass_flag=1.0
@@ -139,28 +144,18 @@ module process_tile_module
          end_dom_stag_j = dummy_end_dom_j
       end if
 
-      call get_subgrid_dim_default(which_domain,dimnames,sub_x,sub_y,istatus)
-      if(sub_x.gt.1)then
-      start_mem_sub_i = (start_mem_i - 1 ) * sub_x + 1
+      start_mem_sub_i = (start_mem_i - 1 ) * sr_x + 1
       if(.not.extra_col)then
-        end_mem_sub_i = (end_mem_i) * sub_x
+        end_mem_sub_i = (end_mem_i) * sr_x
       else
-        end_mem_sub_i = (end_mem_i + 1) * sub_x
+        end_mem_sub_i = (end_mem_i + 1) * sr_x
       end if
-      else
-      start_mem_sub_i=start_mem_i
-      end_mem_sub_i=end_mem_i
-      end if
-      if(sub_y.gt.1)then
-      start_mem_sub_j = (start_mem_j -1 ) * sub_y + 1
+
+      start_mem_sub_j = (start_mem_j -1 ) * sr_y + 1
       if(.not.extra_row)then
-        end_mem_sub_j = (end_mem_j) * sub_y
+        end_mem_sub_j = (end_mem_j) * sr_y
       else
-        end_mem_sub_j = (end_mem_j + 1) * sub_y
-      end if
-      else
-      start_mem_sub_j=start_mem_j
-      end_mem_sub_j=end_mem_j
+        end_mem_sub_j = (end_mem_j + 1) * sr_y
       end if
     
       ! Allocate arrays to hold all lat/lon fields; these will persist for the duration of
@@ -201,7 +196,7 @@ module process_tile_module
          call get_lat_lon_fields(clat_array, clon_array, start_mem_i, &
                                start_mem_j, end_mem_i, end_mem_j, M, comp_ll=.true.)
          call get_lat_lon_fields(xlat_array_subgrid, xlon_array_subgrid, &
-                                 start_mem_sub_i, start_mem_sub_j, end_mem_sub_i, end_mem_sub_j, M, sub_x=sub_x, sub_y=sub_y)
+                                 start_mem_sub_i, start_mem_sub_j, end_mem_sub_i, end_mem_sub_j, M, sub_x=sr_x, sub_y=sr_y)
          call get_map_factor(xlat_array_subgrid, xlon_array_subgrid, mapfac_array_x_subgrid, &
                              mapfac_array_y_subgrid, start_mem_sub_i, start_mem_sub_j, end_mem_sub_i, end_mem_sub_j)
 
@@ -712,10 +707,11 @@ module process_tile_module
        
                call get_output_stagger(fieldname, istagger, istatus)
                dimnames(:) = 'null'
-               call get_subgrid_dim_name(which_domain, fieldname, dimnames, &
-                                         sub_x, sub_y, istatus)
+
+               subgrid_var=is_subgrid_var(fieldname)
+               if( subgrid_var ) call get_subgrid_dim_name(dimnames)
        
-               if (istagger == M .and. (sub_x .le. 1) .and. (sub_y .le. 1)) then
+               if (istagger == M .and. .not. subgrid_var ) then
                   sm1 = start_mem_i
                   em1 = end_mem_i
                   sm2 = start_mem_j
@@ -724,7 +720,7 @@ module process_tile_module
                   xlon_ptr => xlon_array 
                   mapfac_ptr_x => mapfac_array_m_x
                   mapfac_ptr_y => mapfac_array_m_y
-               else if ( (sub_x .gt. 1) .or. (sub_y .gt. 1) ) then
+               else if ( subgrid_var ) then
                   sm1 = start_mem_sub_i
                   em1 = end_mem_sub_i
                   sm2 = start_mem_sub_j
@@ -787,14 +783,14 @@ module process_tile_module
                   call mprintf(.true.,LOGFILE,'Processing field %i of %i (%s)', &
                                i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=fieldname)
 
-                  if ((sub_x > 1) .or. (sub_y > 1)) then
+                  if ( subgrid_var ) then
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                 sm1, em1, sm2, em2, min_level, max_level, &
-                                processed_domain, 1, sr_x=sub_x, sr_y=sub_y)
+                                processed_domain, 1, sr_x=sr_x, sr_y=sr_y)
                   else
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                 sm1, em1, sm2, em2, min_level, max_level, &
-                                processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y)
+                                processed_domain, 1, landmask=landmask)
                   end if
         
                   ! If user wants to halt when a missing value is found in output field, check now
@@ -891,10 +887,10 @@ module process_tile_module
 
                      if (grid_type == 'C') then
                         call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, &
-                                       which_domain, mapfac_ptr_x, sub_x)
+                                       which_domain, mapfac_ptr_x, subgrid_var)
                      else if (grid_type == 'E') then
                         call calc_dfdx(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, &
-                                       which_domain, sr_x=sub_x)
+                                       which_domain, subgrid_var=subgrid_var)
                      end if
                      call write_field(sm1, em1, sm2, em2, &
                                       min_level, max_level, trim(gradname), datestr, real_array=slp_field)
@@ -910,10 +906,10 @@ module process_tile_module
 
                      if (grid_type == 'C') then
                         call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, &
-                                       which_domain, mapfac_ptr_y, sub_y)
+                                       which_domain, mapfac_ptr_y, subgrid_var)
                      else if (grid_type == 'E') then
                         call calc_dfdy(field, slp_field, sm1, sm2, min_level, em1, em2, max_level, &
-                                       which_domain, sr_y=sub_y)
+                                       which_domain, subgrid_var=subgrid_var)
                      end if
                      call write_field(sm1, em1, sm2, em2, &
                                       min_level, max_level, trim(gradname), datestr, real_array=slp_field)
@@ -940,14 +936,14 @@ module process_tile_module
                                   i1=field_count,i2=NUM_FIELDS-NUM_AUTOMATIC_FIELDS,s1=domname)
                   end if
 
-                  if ((sub_x > 1) .or. (sub_y > 1)) then
+                  if ( subgrid_var ) then
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                      sm1, em1, sm2, em2, min_category, max_category, &
-                                     processed_domain, 1, sr_x=sub_x, sr_y=sub_y)
+                                     processed_domain, 1, sr_x=sr_x, sr_y=sr_y)
                   else
                      call calc_field(fieldname, field, xlat_ptr, xlon_ptr, istagger, &
                                      sm1, em1, sm2, em2, min_category, max_category, &
-                                     processed_domain, 1, landmask=landmask, sr_x=sub_x, sr_y=sub_y)
+                                     processed_domain, 1, landmask=landmask)
                   end if
        
                   ! Find fractions
@@ -1944,7 +1940,7 @@ module process_tile_module
    !   the result in dst_array.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine calc_dfdy(src_arr, dst_arr, start_mem_i, start_mem_j, start_mem_k, &
-                        end_mem_i, end_mem_j, end_mem_k, idom, mapfac, sr_y)
+                        end_mem_i, end_mem_j, end_mem_k, idom, mapfac, subgrid_var)
    
       ! Modules
       use gridinfo_module
@@ -1957,7 +1953,7 @@ module process_tile_module
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j,start_mem_k:end_mem_k), intent(out) :: dst_arr
       integer,intent(in) :: idom
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(in), optional :: mapfac
-      integer, intent(in), optional :: sr_y
+      logical, intent(in), optional :: subgrid_var
     
       ! Local variables
       integer :: i, j, k
@@ -1965,7 +1961,9 @@ module process_tile_module
 
       ! calculate the refinement ratio from the top-level domain
       l_sr_y=1.
-      if (present(sr_y)) l_sr_y=sr_y
+      if (present(subgrid_var)) then
+        if (subgrid_var) l_sr_y=subgrid_ratio_y(idom)
+      end if
       l_sr_y=l_sr_y*moad_grid_ratio(idom)
 
       if (present(mapfac)) then
@@ -2012,7 +2010,7 @@ module process_tile_module
    !   the result in dst_array.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine calc_dfdx(src_arr, dst_arr, start_mem_i, start_mem_j, &
-                        start_mem_k, end_mem_i, end_mem_j, end_mem_k, idom, mapfac, sr_x)
+                        start_mem_k, end_mem_i, end_mem_j, end_mem_k, idom, mapfac, subgrid_var)
    
       ! Modules
       use gridinfo_module
@@ -2025,7 +2023,7 @@ module process_tile_module
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j, start_mem_k:end_mem_k), intent(out) :: dst_arr
       integer, intent(in) :: idom
       real, dimension(start_mem_i:end_mem_i, start_mem_j:end_mem_j), intent(in), optional :: mapfac
-      integer, intent(in), optional :: sr_x
+      logical, intent(in), optional :: subgrid_var
     
       ! Local variables
       integer :: i, j, k
@@ -2033,7 +2031,9 @@ module process_tile_module
 
       ! calculate the refinement ratio from the top-level domain
       l_sr_x=1.
-      if (present(sr_x)) l_sr_x=sr_x
+      if (present(subgrid_var)) then 
+        if (subgrid_var) l_sr_x=subgrid_ratio_x(idom)
+      end if
       l_sr_x=l_sr_x*moad_grid_ratio(idom)
 
       if (present(mapfac)) then
