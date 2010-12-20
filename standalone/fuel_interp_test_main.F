@@ -14,8 +14,9 @@ real, dimension(5,5)::d
 real,dimension(2,2)::result
 real::test_err,error
 real::lfn00,lfn01,lfn10,lfn11,tign00,tign01,tign10,tign11,fuel_time_cell
-real:: Result1,Result2,Result3,Result4,Result5,result6
+real:: result1,Result2,Result3,Result4,Result5,result6
 real:: res,res1,res2,res3,res4!
+real::fire_area
 time_now=3.
 101 format(a/(3f7.3))
 ims=1
@@ -26,6 +27,7 @@ icl=2
 jcl=2
 error=0.0001
 num_tests=0
+fire_area=0;
 !!!!! Test #1
 !lfn - plane Z=1.5-X;
 ! tign -- everywhere where lfn>=0, tign=3;
@@ -172,7 +174,8 @@ tign11=2.
 time_now=2
 fuel_time_cell= 8.235294 ;
 
-result1= fuel_left_cell_3(  &
+call fuel_left_cell_3(  &
+    result1,fire_area,  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
@@ -202,7 +205,8 @@ tign11=2.
 time_now=3
 fuel_time_cell= 8.235294 ;
 
-Result1= fuel_left_cell_3(  &
+call fuel_left_cell_3(  &
+    result1,fire_area,  & 
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
@@ -230,7 +234,8 @@ tign11=4.
 time_now=10
 fuel_time_cell= 8.235294 ;
 
-result1= fuel_left_cell_3(  &
+call fuel_left_cell_3(  &
+    result1,fire_area,  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
@@ -258,7 +263,8 @@ tign11=10.
 time_now=10
 fuel_time_cell= 8.235294 ;
 
-Result1= fuel_left_cell_3(  &
+call fuel_left_cell_3(  &
+    result1,fire_area,  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
@@ -285,7 +291,8 @@ tign11=2.
 time_now=2
 fuel_time_cell= 8.235294 ;
 
-Result1= fuel_left_cell_3(  &
+call fuel_left_cell_3(  &
+    result1,fire_area,  &
     lfn00,lfn01,lfn10,lfn11, &
     tign00,tign01,tign10,tign11,&
     time_now, fuel_time_cell)
@@ -356,7 +363,8 @@ print*,""
 print*,"meaning of tff and lff in the subcell",i,j
 write(*,*)'lff',lff8(i,j),lff8(i,j+1),lff8(i+1,j),lff8(i+1,j+1)
 write(*,*)'tff',tff8(i,j),tff8(i,j+1),tff8(i+1,j),tff8(i+1,j+1)
-result(i,j)= fuel_left_cell_3(  &
+call fuel_left_cell_3(  &
+    result(i,j),fire_area,  &
     lff8(i,j),lff8(i,j+1),lff8(i+1,j),lff8(i+1,j+1), &
     tff8(i,j),tff8(i,j+1),tff8(i+1,j),tff8(i+1,j+1),&
     time_now, fuel_time_cell)
@@ -415,7 +423,8 @@ do i=1,2
    do j=1,2
 
 
-result(i,j)=fuel_left_cell_3(  &
+call fuel_left_cell_3(  &
+    result(i,j),fire_area,  &
     lff9(i,j),lff9(i,j+1),lff9(i+1,j),lff9(i+1,j+1), &
     tff9(i,j),tff9(i,j+1),tff9(i+1,j),tff9(i+1,j+1),&
     time_now, fuel_time_cell)
