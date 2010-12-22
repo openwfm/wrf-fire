@@ -934,10 +934,12 @@ u(3)=-u(3)/fuel_time_cell
         print *,'case4, out should be between 0 and 1'
     end if
 !*** case 1,2,3- other cases
-
+!*** part of cell is burning 
 else
     ! set xx, yy for the coner points
     ! move these values out of i and j loop to speed up
+    ! comments for xx, yy - make center [0,0], cyclic, counterclockwise
+    ! comments for lfn,tign - cyclic, counterclockwise
     xx(1) = -0.5
     xx(2) =  0.5
     xx(3) =  0.5
@@ -965,33 +967,31 @@ else
         lfn1=lfn(k+1)
         if ( lfn0 <= 0.0 ) then
             npoint = npoint + 1
-            xylist(npoint,1)=xx(k)
+            xylist(npoint,1)=xx(k) ! add corner to list
             xylist(npoint,2)=yy(k)
-            tlist(npoint)=-tign(k)
+            tlist(npoint)=-tign(k) ! time since ignition
             llist(npoint)=lfn0
         end if
         if ( lfn0*lfn1 < 0 ) then
             npoint = npoint + 1
+! coordinates of intersection of the fire line with segment k k+1
+! lfn(t)=lfn0+t*(lfn1-lfn0)=0            
             tt=lfn0/(lfn0-lfn1)
             x0=xx(k)+( xx(k+1)-xx(k) )*tt
             y0=yy(k)+( yy(k+1)-yy(k) )*tt
             xylist(npoint,1)=x0
             xylist(npoint,2)=y0
-            tlist(npoint)=0 ! on fireline
-            llist(npoint)=0
+            tlist(npoint)=0 ! now at ignition
+            llist(npoint)=0 ! on fireline
         end if
     end do
 
-    ! make the list circular
+    ! make the list circular and trim to size
     tlist(npoint+1)=tlist(1)
     llist(npoint+1)=llist(1)   
     xylist(npoint+1,1)=xylist(1,1)
     xylist(npoint+1,2)=xylist(1,2)
 
-
-
-    !print *,'after LS in case3'pproximation of the plane for lfn using finite
-    !differences
 ! approximate L(x,y)=u(1)*x+u(2)*y+u(3)
  lfn_middle=(lfn00+lfn01+lfn10+lfn11)/4
  dt_dx=(lfn10-lfn00+lfn11-lfn01)/2
@@ -1059,6 +1059,7 @@ else
     endif
     c = u(1)/nr
     s = u(2)/nr
+! rotation such that Q*u(1:2)-[something;0]
     mQ(1,1)=c
     mQ(1,2)=s
     mQ(2,1)=-s
@@ -1067,10 +1068,10 @@ else
     call matvec(mQ,2,2,u,3,ut,2,2,2)            
     errQ = ut(2) ! should be zero            
     ae = -ut(1)/fuel_time_cell
-    ce = -u(3)/fuel_time_cell      
-    cet=ce!keep ce
+    ce = -u(3)/fuel_time_cell ! -T(xt,yt)/fuel_time=ae*xt+ce      
+    cet=ce!keep ce for later
     call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)            
-    call sortxt( xytlist, 8,2, xt,8,npoint )            
+    call sortxt( xytlist, 8,2, xt,8,npoint ) !sort ascending in x           
     out=0.0
     aupp=0.0
     cupp=0.0
@@ -1084,27 +1085,28 @@ else
         ah=0
         ch=0
         if ( xt2-xt1 > eps*100 ) then
-                
-            do ss=1,npoint
-                xts=xytlist(ss,1)
+! slice of nonzero width                
+! find slice height as h=ah*x+ch
+            do ss=1,npoint ! pass counterclockwise
+                xts=xytlist(ss,1) ! start point of the line
                 yts=xytlist(ss,2)
-                xte=xytlist(ss+1,1)
+                xte=xytlist(ss+1,1) ! end point of the line
                 yte=xytlist(ss+1,2)
                   
                 if ( (xts>xt1 .and. xte>xt1) .or. &
                      (xts<xt2 .and. xte<xt2) ) then
                     aa = 0 ! do nothing
                     cc = 0
-                else
+                else ! line y=a*x+c through (xts,yts), (xte,yte)
                     aa = (yts-yte)/(xts-xte)
                     cc = (xts*yte-xte*yts)/(xts-xte)                    
-                    if (xte<xts) then
+                    if (xte<xts) then ! upper boundary
                         aupp = aa
                         cupp = cc
                         ah=ah+aa
                         ch=ch+cc
                         upper=upper+1
-                    else
+                    else              ! lower boundary
                         alow = aa
                         clow = cc
                         lower=lower+1
@@ -1112,8 +1114,9 @@ else
                 end if!(xts>xt1 .and. xte>xt1)              
             end do ! ss
             ce=cet !use stored ce
+!shift small amounts exp(-**) to avoid negative fuel burnt
             if (ae*xt1+ce > 0 ) then
-              ce=ce-(ae*xt1+ce)!shift small amounts exp(-**)
+              ce=ce-(ae*xt1+ce)!
             end if
             if (ae*xt2+ce > 0) then
             ce=ce-(ae*xt2+ce)
