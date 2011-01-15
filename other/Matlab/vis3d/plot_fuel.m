@@ -11,6 +11,35 @@ function plot_fuel(f,units)
 
 name=['Fuel model ',f.fuel_name];
 
+disp(f.fuel_name)
+fprintf('%s fgi = %g\n',f.fgi_descr,f.fgi)
+fprintf('%s fuelmc_g = %g\n',f.fuelmc_g_descr,f.fuelmc_g)
+fprintf('%s cmbcnst = %g\n',f.cmbcnst_descr,f.cmbcnst)
+fprintf('%s weight = %g\n',f.weight_descr,f.weight)
+disp('*** without for evaporation heat of moisture ***')
+h = f.cmbcnst/(1+f.fuelmc_g);
+fprintf('specific heat contents of fuel (J/kg) %g\n',h) 
+hd=f.fgi*h;
+fprintf('heat density (J/m^2) %g\n',hd)
+Tf=f.weight/0.8514; % fuel burns as exp(-t/Tf)
+fprintf('initial slope of mass-loss curve (1/s) %g\n',1/Tf)
+fprintf('maximal heat flux density (J/m^2/s) %g\n',hd/Tf)
+disp('*** with correction for evaporation of moisture ***')
+Lw=2.5e6;
+fprintf('latent heat of moisure (J/kg) %g\n',Lw)
+hw = (f.cmbcnst - Lw*f.fuelmc_g) /(1+f.fuelmc_g);
+fprintf('specific heat contents of fuel (J/kg) %g\n',hw)
+fprintf('relative correction due to evaporation %g%%\n',100*(hw/h-1)) 
+hd=f.fgi*hw;
+fprintf('heat density (J/m^2) %g\n',hd)
+Tf=f.weight/0.8514; % fuel burns as exp(-t/Tf)
+fprintf('initial slope of mass-loss curve (1/s) %g\n',1/Tf)
+fprintf('maximal heat flux density (J/m^2/s) %g\n',hd/Tf)
+
+
+Tf=f.weight/0.8514; % fuel burns as exp(-t/Tf)
+
+
 if ~exist('units'),
     units='metric';
 end
