@@ -495,11 +495,29 @@ end subroutine tign_lfn_interpolation
 
 
 
+!
+!************************
+!
 subroutine tign_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,tign_subcl,time_now)
+!***purpose: computes time of ignition of the point(*_subcl) that lies on the line
+! between two points, whose lfn and tign is known
+! since lfn is interpolated linearly, lfn_subcl is known 
 
 real,intent(in) :: tign1,tign2,lfn1,lfn2,lfn_subcl,time_now
 real,intent(out) :: tign_subcl
 real :: a,b,c,err
+
+! Case 1: both points are on fire -> tign is interpolated linearly
+!         tign_subcl=0.5*(tign1+tign2)
+! Case 2: both points are not on fire -> subcl - not burning
+! Case 3: One point is not fire, another is not
+!         simple subcase of Case 3 from subroutine tign_four_pnts_interp
+!!! since we have just one point on fire        
+!     lfn(Ai)
+!  c= -----------------, where Ai - burning point
+!     tign(Ai)-time_now
+!
+
 err=0.1
 
 if((lfn1.lt.0).AND.(lfn2.lt.0)) then
@@ -542,20 +560,49 @@ end subroutine tign_line_interp
 subroutine tign_four_pnts_interp(tign1,tign2,tign3,tign4,lfn1,lfn2,  &
 lfn3,lfn4,lfn_subcl,tign_subcl,time_now)
 
-real,intent(in) :: tign1,tign2,tign3,tign4
-real,intent(in) :: lfn1,lfn2,lfn3,lfn4,lfn_subcl,time_now
+!***purpose: computes time of ignition of the point(*_subcl) that lies on the middle
+! of square with given 4 points on its ends, whose lfn and tign is known
+! since lfn is interpolated linearly, lfn_subcl is known 
+
+!***arguments
+real,intent(in) :: tign1,tign2,tign3,tign4 ! time of ignition of all corner points
+real,intent(in) :: lfn1,lfn2,lfn3,lfn4,lfn_subcl ! lfn of central and all corner points
+real,intent(in) :: time_now
 real,intent(out) :: tign_subcl
+
+! Case 1: all 4 points are on fire -> tign is interpolated linearly
+!   tign_subcl=0.25*(tign1+tign2+tign3+tign4)
+! Case 2: both points are not on fire -> subcl - not burning
+! Case 3: One points are on fire, other are not
+! here we assume that when lfn=0 -> tign=time_now
+! for this case tign of central point is approximated by
+! tign~=c*lfn+To, which for our case is
+! tign_subcl~=c*lfn_subcl+time_now
+! where c is computing by least squares
+!
+! sum(c*lfn(Ai)+time_now-tign(Ai))^2 ---> min
+! for all lfn(Ai)<0
+!
+! solution for 'c' would be 
+!
+!         sum(lfn(Ai)*lfn(Ai)
+!    c=   ------------------------------, both sums are over Ai, s.t lfn(Ai)<0
+!         sum(tign(Ai)-time_now)*lfn(Ai)
+!
+
 
 real :: a,b,c,err
 err=0.0001
-
+! Case 1
 if((lfn1.lt.0).AND.(lfn2.lt.0).AND.(lfn3.lt.0).AND.(lfn4.lt.0)) then
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
+! Case 2
 elseif((lfn1.ge.0).AND.(lfn2.ge.0).AND.(lfn3.ge.0).AND.(lfn4.ge.0))then
       tign_subcl=time_now;
 elseif(lfn_subcl.ge.0) then
       tign_subcl=time_now;
 else
+! Case 3
 !lfn_subcl<=0;
 !case when E is on fire
 ! tign_subcl~=c*lfn_subcl+time_now;
