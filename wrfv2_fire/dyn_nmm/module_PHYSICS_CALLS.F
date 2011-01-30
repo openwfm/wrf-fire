@@ -1193,7 +1193,9 @@
      &          ,GRDFLX=GRNFLX,GSW=RSW_NET_SFC,SWDOWN=RSW_DN_SFC        &
      &          ,GZ1OZ0=GZ1OZ0,HFX=TWBS                                 &
      &          ,HT=SFCZ,IFSNOW=IDUMMY,ISFFLX=ISFFLX                    &
-     &          ,FRACTIONAL_SEAICE=FRACTIONAL_SEAICE,ISLTYP=ISLTYP      &
+     &          ,FRACTIONAL_SEAICE=FRACTIONAL_SEAICE                    &
+     &          ,TICE2TSK_IF2COLD=CONFIG_FLAGS%TICE2TSK_IF2COLD         &
+     &          ,ISLTYP=ISLTYP                                          &
      &          ,ITIMESTEP=NTSD,IVGTYP=IVGTYP,LOWLYR=LOWLYR             &
      &          ,MAVAIL=ONE,RMOL=RMOL,MOL=MOL                           &
      &          ,NUM_SOIL_LAYERS=NSOIL,P8W=P8W                          &
@@ -1505,8 +1507,19 @@
 !dbg print *,'TURBL: IGS,IGE,JGS,JGE,kpblmin,kpblmax=',IGS,IGE,JGS,JGE,kpblmin,kpblmax
 !dbg
 
+!      print *,'grid%id  gwd_opt at module_PHYSICS ',grid%id, grid%gwd_opt
+!      WRITE(0,*)'grid%id  gwd_opt at module_PHYSICS ',grid%id, grid%gwd_opt
+!      WRITE(MESSAGE,125)grid%gwd_opt
+!125   FORMAT(1X,'grid%id  module_PHYSICS.F :  gwd_opt  ',I2,2X,I2)
+
+
+#ifdef HWRF
+      IF (grid%gwd_opt .eq. 2 .AND. grid%id.eq.1) THEN                                        !Kwon's doing for parent only now
+#else
       IF (grid%gwd_opt .eq. 2) THEN
-       
+#endif
+!      print *,'==grid%id  gwd_opt at module_PHYSICS inside gwd ',grid%id, grid%gwd_opt        !because there is no data for nest domain
+
         CALL wrf_message("GWD usage currently may be problematic for some cases - use at own risk")
 
       CALL GWD_driver(U=U_PHY,V=V_PHY,T=T_PHY                           &
@@ -1870,9 +1883,7 @@
 #endif
      &                 ,AVCNVC,ACUTIM,IHE,IHW                           &
      &                 ,GRID,CONFIG_FLAGS                               &
-#ifdef HWRF
-     &                 ,NRND1                                              &  ! NRND1 is zhang's doing
-#endif
+     &                 ,NRND1                                              &  ! NRND1 for random no restart
      &                 ,IDS,IDE,JDS,JDE,KDS,KDE                         &
      &                 ,IMS,IME,JMS,JME,KMS,KME                         &
      &                 ,IPS,IPE,JPS,JPE,KPS,KPE                         &
@@ -2025,11 +2036,10 @@
 !-----------------------------------------------------------------------
       INTEGER :: DTEMP_CHECK=2.0
       REAL :: TCHANGE
-!zhang's doing  random number restart
-      INTEGER,   DIMENSION(2)       :: NRND1
+!  random number restart
+      INTEGER,DIMENSION(:),INTENT(INOUT) ::   NRND1
       INTEGER, SAVE  :: nfirst
       data nfirst /0/
-!end of zhang's doing
 #if (NMM_CORE==1)
       INTEGER                    :: IDT                
       REAL,   DIMENSION(2)       :: RND1 
@@ -2303,13 +2313,11 @@
 !$omp parallel do                                                       &
 !$omp& private(i,j)
              IF (wrf_dm_on_monitor()) THEN   !!!! For bit reproducibility of random numbers 
-!zhang's doing  For bit reproducibility of random numbers when restarting
              if (restart .and. nfirst .eq. 0 ) then
              call random_seed(put=nrnd1)
              nfirst=1
              endif
              call random_seed(get=nrnd1)
-!end of zhang's doing
               DO J=JDS,JDE       !JTS,JTE
                DO I=IDS,IDE      !ITS,ITE       
                   CALL RANDOM_NUMBER(rnd1)

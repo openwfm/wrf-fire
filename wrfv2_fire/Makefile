@@ -66,17 +66,25 @@ wrf : framework_only
 	if [ $(ESMF_COUPLING) -eq 1 ] ; then \
 	  ( cd main ; $(MAKE) MODULE_DIRS="$(ALL_MODULES)" SOLVER=em em_wrf_SST_ESMF ) ; \
 	fi
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 all_wrfvar : 
 	$(MAKE) MODULE_DIRS="$(DA_WRFVAR_MODULES)" ext
 	$(MAKE) MODULE_DIRS="$(DA_WRFVAR_MODULES)" toolsdir
+	if [ $(CRTM) ] ; then \
+	  (cd var/external/crtm; \
+	  . configure/$(SFC).setup; $(MAKE) $(J) ) ; \
+	fi
 	if [ $(BUFR) ] ; then \
-	  ( cd var/external/bufr;  \
-	  $(MAKE) FC="$(SFC)" CC="$(SCC)" CPP="$(CPP)" CFLAGS="$(CFLAGS)" FFLAGS="$(FCDEBUG) $(FORMAT_FIXED)" RANLIB="$(RANLIB)" AR="$(AR)" ARFLAGS="$(ARFLAGS)" ) ; \
+	  (cd var/external/bufr;  \
+	  $(MAKE) $(J) FC="$(SFC)" CC="$(SCC)" CPP="$(CPP)" CPPFLAGS="$(CPPFLAGS)" CFLAGS="$(CFLAGS)" FFLAGS="$(FCDEBUG) $(FORMAT_FIXED)" RANLIB="$(RANLIB)" AR="$(AR)" ARFLAGS="$(ARFLAGS)" ) ; \
 	fi
 #	( cd var/build; touch depend.txt; make links; make depend; $(MAKE) $(J) all_wrfvar )
 	( cd var/build; make depend; $(MAKE) $(J) all_wrfvar )
-	( cd var/obsproc; $(MAKE) BUFR_CPP="$(BUFR_CPP)" )
+	( cd var/obsproc; $(MAKE) $(J) BUFR_CPP="$(BUFR_CPP)" )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 ### 3.a.  rules to build the framework and then the experimental core
 
@@ -101,11 +109,14 @@ em_fire : wrf
 	( cd test/em_fire ; /bin/rm -f README.namelist ; ln -s ../../run/README.namelist . )
 	( cd test/em_fire ; /bin/rm -f gribmap.txt ; ln -s ../../run/gribmap.txt . )
 	( cd test/em_fire ; /bin/rm -f grib2map.tbl ; ln -s ../../run/grib2map.tbl . )
+	( cd test/em_fire ; /bin/sh create_links.sh )
 	( cd run ; /bin/rm -f ideal.exe ; ln -s ../main/ideal.exe . )
 	( cd run ; if test -f namelist.input ; then \
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_fire/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_fire/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_quarter_ss : wrf
 	@ echo '--------------------------------------'
@@ -120,6 +131,8 @@ em_quarter_ss : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_quarter_ss/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_quarter_ss/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_squall2d_x : wrf
 	@ echo '--------------------------------------'
@@ -134,6 +147,8 @@ em_squall2d_x : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_squall2d_x/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_squall2d_x/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_squall2d_y : wrf
 	@ echo '--------------------------------------'
@@ -148,6 +163,8 @@ em_squall2d_y : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_squall2d_y/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_squall2d_y/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_b_wave : wrf
 	@ echo '--------------------------------------'
@@ -162,6 +179,8 @@ em_b_wave : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_b_wave/namelist.input . )
 	( cd run ; /bin/rm -f input_jet ; ln -s ../test/em_b_wave/input_jet . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_les : wrf
 	@ echo '--------------------------------------'
@@ -176,6 +195,8 @@ em_les : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_les/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_les/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_seabreeze2d_x : wrf
 	@ echo '--------------------------------------'
@@ -190,6 +211,8 @@ em_seabreeze2d_x : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_seabreeze2d_x/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_seabreeze2d_x/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_scm_xy : wrf
 	@ echo '--------------------------------------'
@@ -202,6 +225,8 @@ em_scm_xy : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_scm_xy/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_scm_xy/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 convert_em : framework_only
 	if [ $(WRF_CONVERT) -eq 1 ] ; then \
@@ -288,6 +313,8 @@ em_real : wrf
 	( cd run ; if test -f namelist.input ; then \
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_real/namelist.input . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 
 em_hill2d_x : wrf
@@ -303,6 +330,8 @@ em_hill2d_x : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_hill2d_x/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_hill2d_x/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_grav2d_x : wrf
 	@ echo '--------------------------------------'
@@ -317,6 +346,8 @@ em_grav2d_x : wrf
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_grav2d_x/namelist.input . )
 	( cd run ; /bin/rm -f input_sounding ; ln -s ../test/em_grav2d_x/input_sounding . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 em_heldsuarez : wrf
 	@ echo '--------------------------------------'
@@ -330,6 +361,8 @@ em_heldsuarez : wrf
 	( cd run ; if test -f namelist.input ; then \
 		/bin/cp -f namelist.input namelist.input.backup ; fi ; \
 		/bin/rm -f namelist.input ; ln -s ../test/em_heldsuarez/namelist.input . )
+	@echo "build started:   $(START_OF_COMPILE)"
+	@echo "build completed:" `date`
 
 #### anthropogenic emissions converter
 
@@ -475,7 +508,10 @@ shared :
 
 chemics :
 	@ echo '--------------------------------------'
-	( cd chem ; $(MAKE) )
+	if [ $(WRF_KPP) -eq 1 ] ; then ( cd chem ; $(MAKE) ) ; fi
+	if [ $(WRF_KPP) -eq 0 ] ; then ( cd chem ; $(MAKE) $(J) ) ; fi
+#	( cd chem ; $(MAKE) )
+#	( cd chem ; $(MAKE) $(J) )
 
 physics :
 	@ echo '--------------------------------------'
