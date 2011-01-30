@@ -283,8 +283,9 @@ enddo
 call message('**********************************************************')
 
 ! and print to file
-call write_fuels_m(61,30.,1.)
-
+IF ( wrf_dm_on_monitor() ) THEN
+  call write_fuels_m(61,30.,1.)
+ENDIF
 end subroutine init_fuel_cats
 
 

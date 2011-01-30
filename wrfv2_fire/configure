@@ -21,7 +21,9 @@ while [ $# -ge 1 ]; do
       -time) shift ; FORTRAN_COMPILER_TIMER=$1 ;;
       chem) WRF_CHEM=1  ;;
       kpp) WRF_KPP=1  ;;
-      wrfda) wrf_core=DA_CORE  ;;
+      radardfi) WRF_DFI_RADAR=1  ;;
+      wrfda) wrf_core=DA_CORE ;;
+      4dvar) wrf_core=4D_DA_CORE ;;
       arw) wrf_core=EM_CORE  ;;
       nmm) wrf_core=NMM_CORE  ;;
       coamps) wrf_core=COAMPS_CORE  ;;
@@ -296,6 +298,21 @@ else
   echo "PHDF5 not set in environment. Will configure WRF for use without."
 fi
 
+if [ "$wrf_core" = "DA_CORE" ]; then
+   if [ -n "$WRFPLUS_DIR" ] ; then
+      echo "To compile WRFDA without 4DVAR, please remove \$WRFPLUS_DIR from environment. "
+      exit
+   fi
+fi
+
+if [ "$wrf_core" = "4D_DA_CORE" ]; then
+   if [ -n "$WRFPLUS_DIR" ] ; then
+      echo "Will use WRFPLUS in dir: $WRFPLUS_DIR"
+   else
+      echo "WRFPLUS_DIR not set in environment. Please compile WRFPLUS and set WRFPLUS_DIR."
+      exit
+   fi
+fi
 # Users who are cross-compiling can set environment variable 
 # $WRF_OS to override the value normally obtained from `uname`.  
 # If $WRF_OS is set, then $WRF_MACH can also be set to override 
@@ -383,6 +400,12 @@ if [ -n "$WRF_NMM_CORE" ]; then
     fi
   fi
 fi
+if [ -n "$WRF_DFI_RADAR" ] ; then
+  if [ $WRF_DFI_RADAR = 1 ] ; then
+    echo building WRF with radar dfi option
+    compileflags="${compileflags}!-DWRF_DFI_RADAR=1"
+  fi
+fi
 if [ -n "$WRF_CHEM" ] ; then
   if [ $WRF_CHEM = 1 ] ; then
     echo building WRF with chemistry option
@@ -400,7 +423,7 @@ else
   compileflags="${compileflags} "
 fi
 
-if [ `which timex` ] ; then
+if [ `which timex 2> /dev/null` ] ; then
   FORTRAN_COMPILER_TIMER=timex
 fi
 
@@ -529,4 +552,3 @@ if [ "$wrf_core" = "DA_CORE" ]; then
     /bin/mv configure.wrf.edit configure.wrf
   fi
 fi
-
