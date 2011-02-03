@@ -106,6 +106,19 @@ end subroutine message
 !****************
 !
 
+subroutine time_start
+use module_timing
+implicit none
+call start_timing
+end subroutine time_start
+
+subroutine time_end(string)
+use module_timing
+implicit none
+character(len=*)string
+call end_timing(string)
+end subroutine time_end
+
 
 integer function open_text_file(filename,rw)
 implicit none
