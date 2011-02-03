@@ -133,6 +133,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
 !*** executable
 
+    call time_start
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
 ! populate our structures from wrf
@@ -272,6 +273,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
       enddo
     enddo
     if(tsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
+    call time_end('sfire')
 
 end subroutine sfire_driver_em
 
