@@ -412,6 +412,14 @@
        ENDDO
 
        DO j = jts,min(jte,jde-1)
+       DO k = kts,kte
+       DO i = its, min(ite,ide-1)
+          grid%ph_1(i,k,j)=grid%ph_2(i,k,j)
+       ENDDO
+       ENDDO
+       ENDDO
+
+       DO j = jts,min(jte,jde-1)
        DO i = its, min(ite,ide-1)
            IF ( grid%imask_nostag(i,j) .EQ. 1 ) THEN
              grid%mu_1(i,j)=grid%mu_2(i,j)
@@ -449,6 +457,24 @@
      ENDDO
     ENDIF
 
+! Use equations from calc_p_rho_phi to derive p and al from ph
+
+    DO j=jts,min(jte,jde-1)
+    DO k=kts,kte-1
+    DO i=its,min(ite,ide-1)
+       qvf = 1.+rvovrd*moist(i,k,j,P_QV)
+       grid%al(i,k,j)=-1./(grid%mub(i,j)+grid%mu_1(i,j))*(grid%alb(i,k,j)*grid%mu_1(i,j)  &
+                  +grid%rdnw(k)*(grid%ph_1(i,k+1,j)-grid%ph_1(i,k,j)))
+       grid%p(i,k,j)=p1000mb*( (r_d*(t0+grid%t_1(i,k,j))*qvf)/                     &
+                  (p1000mb*(grid%al(i,k,j)+grid%alb(i,k,j))) )**cpovcv  &
+                  -grid%pb(i,k,j)
+       grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
+       grid%alt(i,k,j) = grid%al(i,k,j) + grid%alb(i,k,j)
+    ENDDO
+    ENDDO
+    ENDDO
+
+#if 0
      DO j = jts,min(jte,jde-1)
 
        k = kte-1
@@ -482,6 +508,7 @@
        ENDDO
 
      ENDDO
+#endif
 
    ENDIF
 
@@ -1065,7 +1092,7 @@
            call sum_pm_sorgam (                                             &
                 grid%alt, chem, grid%h2oaj, grid%h2oai,                                    &
                 grid%pm2_5_dry, grid%pm2_5_water, grid%pm2_5_dry_ec, grid%pm10,                 &
-                ids,ide, jds,jde, kds,kde,                                  &
+                grid%dust_opt,ids,ide, jds,jde, kds,kde,                    &
                 ims,ime, jms,jme, kms,kme,                                  &
                 its,ite, jts,jte, kts,kte-1                                 )
 

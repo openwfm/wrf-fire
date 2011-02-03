@@ -196,6 +196,16 @@ integer::oops1,oops2
       grid%tlp  = a
       grid%tiso = tiso
 
+      !  Replace traditional seaice field with optional seaice (AFWA source)
+
+      IF ( flag_icefrac .EQ. 1 ) THEN
+         DO j=jts,MIN(jde-1,jte)
+            DO i=its,MIN(ide-1,ite)
+               grid%xice(i,j) = grid%icefrac_gc(i,j)
+            END DO
+         END DO
+      END IF
+
       !  Fix the snow (water equivalent depth, kg/m^2) and the snowh (physical snow
       !  depth, m) fields.
 
@@ -317,6 +327,34 @@ integer::oops1,oops2
       !  vertical locations already.
 
       IF ( flag_metgrid .EQ. 1 ) THEN  !   <----- START OF VERTICAL INTERPOLATION PART ---->
+
+         !  If this is data from the PINTERP program, it is emulating METGRID output.
+         !  One of the caveats of this data is the way that the vertical structure is
+         !  handled.  We take the k=1 level and toss it (it is disposable), and we
+         !  swap in the surface data.  This is done for all of the 3d fields about
+         !  which we show some interest: u, v, t, rh, ght, and p.  For u, v, and rh,
+         !  we assume no interesting vertical structure, and just assign the 1000 mb
+         !  data.  We directly use the 2-m temp for surface temp.  We use the surface
+         !  pressure field and the topography elevation for the lowest level of
+         !  pressure and height, respectively.
+
+         IF ( flag_pinterp .EQ. 1 ) THEN
+
+            WRITE ( a_message , * ) 'Data from P_INTERP program, filling k=1 level with artificial surface fields.'
+            CALL wrf_message ( a_message )
+            DO j=jts,jte
+               DO i=its,ite
+                  grid%u_gc(i,1,j) = grid%u_gc(i,2,j)
+                  grid%v_gc(i,1,j) = grid%v_gc(i,2,j)
+                  grid%rh_gc(i,1,j) = grid%rh_gc(i,2,j)
+                  grid%t_gc(i,1,j) = grid%t2(i,j)
+                  grid%ght_gc(i,1,j) = grid%ht(i,j)
+                  grid%p_gc(i,1,j) = grid%psfc(i,j)
+               END DO
+            END DO
+            flag_psfc = 0
+
+         END IF
 
          !  Variables that are named differently between SI and WPS.
 
@@ -897,18 +935,27 @@ integer::oops1,oops2
                             ims , ime , jms , jme , kms , kme , &
                             its , ite , jts , jte , kts , kte )
      
+         CALL vert_interp ( grid%p_gc , grid%pd_gc , grid%p               , grid%pb , &
+                            num_metgrid_levels , 'T' , &
+                            interp_type , lagrange_order , t_extrap_type , &
+                            lowest_lev_from_sfc , use_levels_below_ground , use_surface , &
+                            zap_close_levels , force_sfc_in_vinterp , &
+                            ids , ide , jds , jde , kds , kde , &
+                            ims , ime , jms , jme , kms , kme , &
+                            its , ite , jts , jte , kts , kte )
+
          !  Do not have full pressure on eta levels, get a first guess at Qv by using
          !  dry pressure.  The use of u_1 (rh) and v_1 (temperature) is temporary.
          !  We fix the approximation to Qv after the total pressure is available on
          !  eta surfaces.
 
          grid%v_1 = grid%t_2
-         CALL theta_to_t ( grid%v_1 , grid%pb , p00 , &
+         CALL theta_to_t ( grid%v_1 , grid%p  , p00 , &
                            ids , ide , jds , jde , kds , kde , &
                            ims , ime , jms , jme , kms , kme , &
                            its , ite , jts , jte , kts , kte )
 
-         CALL rh_to_mxrat (grid%u_1, grid%v_1, grid%pb, moist(:,:,:,P_QV) ,       &
+         CALL rh_to_mxrat (grid%u_1, grid%v_1, grid%p , moist(:,:,:,P_QV) ,       &
                            config_flags%rh2qv_wrt_liquid ,                        &
                            config_flags%qv_max_p_safe ,                           &
                            config_flags%qv_max_flag , config_flags%qv_max_value , &
@@ -1174,14 +1221,12 @@ integer::oops1,oops2
       !  surface_input_source=3 => use dominant data from static file (dominant category as input)
 
       IF ( config_flags%surface_input_source .EQ. 1 ) THEN
-         grid%vegcat (its,jts) = 0
-         grid%soilcat(its,jts) = 0
-      END IF
 
       !  Generate the vegetation and soil category information from the fractional input
       !  data, or use the existing dominant category fields if they exist.
 
-      IF ( ( grid%soilcat(its,jts) .LT. 0.5 ) .AND. ( grid%vegcat(its,jts) .LT. 0.5 ) ) THEN
+         grid%vegcat (its,jts) = 0
+         grid%soilcat(its,jts) = 0
 
          num_veg_cat      = SIZE ( grid%landusef , DIM=2 )
          num_soil_top_cat = SIZE ( grid%soilctop , DIM=2 )
@@ -1928,28 +1973,6 @@ endif
          END DO
       END DO
      
-      !  Recompute Qv with full pressure on eta levels.  We use the temporary
-      !  space of v_1 for total theta, which gets diagnosed into temperature.
-      !  The u_1 array is RH on eta levels from the initial interpolation.  The
-      !  previous value of moist was computed with dry pressure, not total
-      !  pressure.
-
-      grid%v_1 = grid%t_2 + 300
-      CALL theta_to_t ( grid%v_1 , grid%pb + grid%p , p00 , &
-                        ids , ide , jds , jde , kds , kde , &
-                        ims , ime , jms , jme , kms , kme , &
-                        its , ite , jts , jte , kts , kte )
-
-      CALL rh_to_mxrat (grid%u_1, grid%v_1, grid%pb + grid%p, moist(:,:,:,P_QV) , &
-                        config_flags%rh2qv_wrt_liquid ,                           &
-                        config_flags%qv_max_p_safe ,                              &
-                        config_flags%qv_max_flag , config_flags%qv_max_value ,    &
-                        config_flags%qv_min_p_safe ,                              &
-                        config_flags%qv_min_flag , config_flags%qv_min_value ,    &
-                        ids , ide , jds , jde , kds , kde ,                       &
-                        ims , ime , jms , jme , kms , kme ,                       &
-                        its , ite , jts , jte , kts , kte-1 )
-
       !  If this is data from the SI, then we probably do not have the original
       !  surface data laying around.  Note that these are all the lowest levels
       !  of the respective 3d arrays.  For surface pressure, we assume that the
@@ -2128,6 +2151,10 @@ endif
 
       ALLOCATE ( t_init_int(ims:ime,kms:kme,jms:jme) )
 
+      !  Fill config_flags the options for a particular domain
+
+      CALL model_to_grid_config_rec ( grid%id , model_config_rec , config_flags )
+
       !  Some of the many weird geopotential initializations that we'll see today: grid%ph0 is total,
       !  and grid%ph_2 is a perturbation from the base state geopotential.  We set the base geopotential
       !  at the lowest level to terrain elevation * gravity.
@@ -2141,9 +2168,27 @@ endif
 
       !  To define the base state, we call a USER MODIFIED routine to set the three
       !  necessary constants:  p00 (sea level pressure, Pa), t00 (sea level temperature, K),
-      !  and A (temperature difference, from 1000 mb to 300 mb, K).
+      !  and A (temperature difference, from 1000 mb to 300 mb, K), and constant stratosphere
+      !  temp (tiso, K) either from input file or from namelist (for backward compatibiliy).
 
-      CALL const_module_initialize ( p00 , t00 , a , tiso ) 
+      IF ( config_flags%use_baseparam_fr_nml ) then
+      ! get these from namelist
+         CALL wrf_message('ndown: using namelist constants')
+         CALL const_module_initialize ( p00 , t00 , a , tiso ) 
+      ELSE
+      ! get these constants from model data
+         CALL wrf_message('ndown: using constants from file')
+         t00  = grid%t00
+         p00  = grid%p00
+         a    = grid%tlp
+         tiso = grid%tiso
+
+         IF (t00 .LT. 100. .or. p00 .LT. 10000.) THEN
+            WRITE(wrf_err_message,*)&
+      'ndown_em: did not find base state parameters in wrfout. Add use_baseparam_fr_nml = .t. in &dynamics and rerun'
+            CALL wrf_error_fatal(TRIM(wrf_err_message))
+         ENDIF
+      ENDIF
 
       !  Base state potential temperature and inverse density (alpha = 1/rho) from
       !  the half eta levels and the base-profile surface pressure.  Compute 1/rho
@@ -2308,6 +2353,61 @@ endif
       END DO
 
    END SUBROUTINE find_my_parent
+
+!---------------------------------------------------------------------
+
+   RECURSIVE SUBROUTINE find_my_parent2 ( grid_ptr_in , grid_ptr_out , id_wanted , found_the_id )
+
+      USE module_domain
+
+      TYPE(domain) , POINTER               :: grid_ptr_in
+      TYPE(domain) , POINTER               :: grid_ptr_out
+      INTEGER                , INTENT(IN ) :: id_wanted
+      LOGICAL                , INTENT(OUT) :: found_the_id
+
+      !  Local
+
+      TYPE(domain) , POINTER :: grid_ptr_holder
+      INTEGER :: kid
+
+      !  Initializations 
+
+      found_the_id = .FALSE.
+      grid_ptr_holder => grid_ptr_in
+
+
+      !  Have we found the correct location?  If so, we can just pop back up with
+      !  the pointer to the right location (i.e. the parent), thank you very much.
+
+      IF ( id_wanted .EQ. grid_ptr_in%grid_id ) THEN
+
+         found_the_id = .TRUE.
+         grid_ptr_out => grid_ptr_in
+
+
+      !  We gotta keep looking.
+
+      ELSE
+
+      !  We drill down and process each nest from this domain.  We don't have to 
+      !  worry about siblings, as we are running over all of the kids for this parent, 
+      !  so it amounts to the same set of domains being tested.  
+
+         loop_over_all_kids : DO kid = 1 , grid_ptr_in%num_nests
+
+            IF ( ASSOCIATED ( grid_ptr_in%nests(kid)%ptr ) ) THEN
+
+               CALL find_my_parent2 ( grid_ptr_in%nests(kid)%ptr , grid_ptr_out , id_wanted , found_the_id )
+               IF ( found_the_id ) THEN
+                  EXIT loop_over_all_kids
+               END IF
+
+            END IF
+         END DO loop_over_all_kids
+
+      END IF
+
+   END SUBROUTINE find_my_parent2
 
 #endif
 

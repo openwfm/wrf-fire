@@ -217,7 +217,7 @@ module process_domain_module
     
       ! Local variables
       integer :: istatus, i, j, k, sp1, ep1, sp2, ep2, sp3, ep3, &
-                 lh_mult, rh_mult, bh_mult, th_mult, subx, suby
+                 lh_mult, rh_mult, bh_mult, th_mult
       integer :: we_mem_subgrid_s, we_mem_subgrid_e, &
                  sn_mem_subgrid_s, sn_mem_subgrid_e
       integer :: we_patch_subgrid_s, we_patch_subgrid_e, &
@@ -227,6 +227,7 @@ module process_domain_module
       character (len=128) :: grid_type, datestr, cname, stagger, cunits, cdesc
       character (len=128), dimension(3) :: dimnames
       type (fg_input) :: field
+      logical :: is_subgrid
 
       ! Initialize the input module to read static input data for this domain
       call mprintf(.true.,LOGFILE,'Opening static input file.')
@@ -338,7 +339,7 @@ module process_domain_module
       istatus = 0
       do while (istatus == 0)  
         call read_next_field(sp1, ep1, sp2, ep2, sp3, ep3, cname, cunits, cdesc, &
-                             memorder, stagger, dimnames, subx, suby, &
+                             memorder, stagger, dimnames, is_subgrid, &
                              real_array, istatus)
         if (istatus == 0) then
 
@@ -405,25 +406,22 @@ module process_domain_module
 
           end if
 
-          if (subx > 1) then
-             we_mem_subgrid_s   = (we_mem_s                 + HALO_WIDTH*lh_mult - 1)*subx - HALO_WIDTH*lh_mult + 1
-             we_mem_subgrid_e   = (we_mem_e   + (1-rh_mult) - HALO_WIDTH*rh_mult    )*subx + HALO_WIDTH*rh_mult
-             we_patch_subgrid_s = (we_patch_s                                    - 1)*subx                      + 1
-             we_patch_subgrid_e = (we_patch_e + (1-rh_mult)                         )*subx
-          end if
-          if (suby > 1) then
-             sn_mem_subgrid_s   = (sn_mem_s                 + HALO_WIDTH*bh_mult - 1)*suby - HALO_WIDTH*bh_mult + 1
-             sn_mem_subgrid_e   = (sn_mem_e   + (1-th_mult) - HALO_WIDTH*th_mult    )*suby + HALO_WIDTH*th_mult
-             sn_patch_subgrid_s = (sn_patch_s                                    - 1)*suby                      + 1
-             sn_patch_subgrid_e = (sn_patch_e + (1-th_mult)                         )*suby
-          end if
+          we_mem_subgrid_s   = (we_mem_s                 + HALO_WIDTH*lh_mult - 1)*sub_x - HALO_WIDTH*lh_mult + 1
+          we_mem_subgrid_e   = (we_mem_e   + (1-rh_mult) - HALO_WIDTH*rh_mult    )*sub_x + HALO_WIDTH*rh_mult
+          we_patch_subgrid_s = (we_patch_s                                    - 1)*sub_x                      + 1
+          we_patch_subgrid_e = (we_patch_e + (1-rh_mult)                         )*sub_x
+          sn_mem_subgrid_s   = (sn_mem_s                 + HALO_WIDTH*bh_mult - 1)*sub_y - HALO_WIDTH*bh_mult + 1
+          sn_mem_subgrid_e   = (sn_mem_e   + (1-th_mult) - HALO_WIDTH*th_mult    )*sub_y + HALO_WIDTH*th_mult
+          sn_patch_subgrid_s = (sn_patch_s                                    - 1)*sub_y                      + 1
+          sn_patch_subgrid_e = (sn_patch_e + (1-th_mult)                         )*sub_y
     
           ! Having read in a field, we write each level individually to the
           !   storage module; levels will be reassembled later on when they
           !   are written.
           do k=sp3,ep3
-             field%header%sr_x=subx
-             field%header%sr_y=suby
+             field%header%sr_x=sub_x
+             field%header%sr_y=sub_y
+             field%header%is_subgrid=is_subgrid
              field%header%version = 1
              field%header%date = start_date(n) 
              field%header%time_dependent = .false.
@@ -439,7 +437,7 @@ module process_domain_module
              field%header%is_wind_grid_rel = .true.
              field%header%array_has_missing_values = .false.
              if (gridtype == 'C') then
-                if (subx > 1 .or. suby > 1) then
+                if (is_subgrid) then
                    field%map%stagger = M
                    field%header%dim1(1) = we_mem_subgrid_s
                    field%header%dim1(2) = we_mem_subgrid_e
@@ -478,7 +476,7 @@ module process_domain_module
 
              allocate(field%valid_mask)
 
-             if (subx > 1 .or. suby > 1) then
+             if (is_subgrid) then
                 allocate(field%r_arr(we_mem_subgrid_s:we_mem_subgrid_e,&
                                      sn_mem_subgrid_s:sn_mem_subgrid_e))
                 field%r_arr(we_patch_subgrid_s:we_patch_subgrid_e,sn_patch_subgrid_s:sn_patch_subgrid_e) = &
@@ -719,9 +717,10 @@ integer, parameter :: BDR_WIDTH = 3
                      if (idx > num_entries) idx = num_entries ! The last entry is a default
                   end if
 
-                  ! Do a simple check to see whether this is a global lat/lon dataset
-                  if ( (fg_data%iproj == PROJ_LATLON .or. fg_data%iproj == PROJ_GAUSS) .and. &
-                      abs(fg_data%nx * fg_data%deltalon - 360.) < 0.0001) then
+                  ! Do a simple check to see whether this is a global dataset
+                  ! Note that we do not currently support regional Gaussian grids
+                  if ((fg_data%iproj == PROJ_LATLON .and. abs(fg_data%nx * fg_data%deltalon - 360.) < 0.0001) &
+                       .or. (fg_data%iproj == PROJ_GAUSS)) then
                      bdr_wdth = BDR_WIDTH
                      allocate(halo_slab(1-BDR_WIDTH:fg_data%nx+BDR_WIDTH,1:fg_data%ny))
 
@@ -766,8 +765,9 @@ integer, parameter :: BDR_WIDTH = 3
                   field%header%description(1:46) = fg_data%desc
                   call get_z_dim_name(fg_data%field,field%header%vertical_coord)
                   field%header%vertical_level = nint(fg_data%xlvl) 
-                  field%header%sr_x = 1
-                  field%header%sr_y = 1
+                  field%header%sr_x = sub_x
+                  field%header%sr_y = sub_y
+                  field%header%is_subgrid = .false.
                   field%header%array_order = 'XY ' 
                   field%header%is_wind_grid_rel = fg_data%is_wind_grid_rel 
                   field%header%array_has_missing_values = .false.
@@ -1117,7 +1117,7 @@ integer, parameter :: BDR_WIDTH = 3
       !   now we simply output every field from the storage module.
       !
     
-      title = 'OUTPUT FROM METGRID V3.2' 
+      title = 'OUTPUT FROM METGRID V3.2.1' 
    
       ! Initialize the output module for this domain and time
       call mprintf(.true.,LOGFILE,'Initializing output module.')
@@ -1317,6 +1317,7 @@ integer, parameter :: BDR_WIDTH = 3
                   mask_field%header%vertical_level = 1
                   mask_field%header%sr_x = 1
                   mask_field%header%sr_y = 1
+                  mask_field%header%is_subgrid = .false.
                   mask_field%header%array_order = 'XY'
                   mask_field%header%dim1(1) = 1
                   mask_field%header%dim1(2) = fg_data%nx
@@ -1327,8 +1328,9 @@ integer, parameter :: BDR_WIDTH = 3
                   mask_field%map%stagger = M
 
                   ! Do a simple check to see whether this is a global lat/lon dataset
-                  if ( (fg_data%iproj == PROJ_LATLON .or. fg_data%iproj == PROJ_GAUSS) .and. &
-                      abs(fg_data%nx * fg_data%deltalon - 360.) < 0.0001) then
+                  ! Note that we do not currently support regional Gaussian grids
+                  if ((fg_data%iproj == PROJ_LATLON .and. abs(fg_data%nx * fg_data%deltalon - 360.) < 0.0001) &
+                       .or. (fg_data%iproj == PROJ_GAUSS)) then
                      allocate(mask_field%r_arr(1-BDR_WIDTH:fg_data%nx+BDR_WIDTH,1:fg_data%ny))
 
                      mask_field%r_arr(1:fg_data%nx,                      1:fg_data%ny) = &
@@ -2042,6 +2044,7 @@ integer, parameter :: BDR_WIDTH = 3
       field%header%vertical_level = 0
       field%header%sr_x = 1
       field%header%sr_y = 1
+      field%header%is_subgrid = .false.
       field%header%array_order = 'XY ' 
       field%header%is_wind_grid_rel = .true.
       field%header%array_has_missing_values = .false.
