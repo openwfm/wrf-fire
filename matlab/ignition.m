@@ -52,7 +52,7 @@ bnd_size=size(bound(1,:));
  xv=bound(1,:);
  yv=bound(2,:);
  
- A = inpolygon(x,y,xv,yv);
+ [IN,ON] = inpolygon(x,y,xv,yv);
  
  
  
@@ -61,8 +61,8 @@ bnd_size=size(bound(1,:));
  
  
  n=9; m=9; % size of the matrix
- ign_x=4;
- ign_y=5;
+ ign_x=3;
+ ign_y=3;
  time_now=10;
  % matrix of 'time of ignition' of the nodes ignition point has time_ign=0
  B=zeros(n,m);
@@ -84,7 +84,7 @@ bnd_size=size(bound(1,:));
  eps=0.1;
  for i=1:n
      for j=1:m
-         if A(i,j)>0
+         if IN(i,j)>0
             a_old=line_sign(ign_x,ign_y,i,j,bound(1,1),bound(2,1));
             k=2;
          while (k>0)&&(k<=bnd_size(2))
@@ -108,17 +108,23 @@ bnd_size=size(bound(1,:));
                     end
           
                 elseif a_new==0
-                  b1=sqrt((i-ign_x)^2+(j-ign_y)^2);
-                  b2=sqrt((i-bound(1,k))^2+(j-bound(2,k))^2);
-                  b3=sqrt((bound(1,k)-ign_x)^2+(bound(2,k)-ign_y)^2);
-                    if (b1+b2<b3+eps)&&(b1+b2>b3-eps)
-                        B(i,j)=time_now*b1/b3; 
+                    if (ON(i,j)>0)
+                        B(i,j)=time_now;
                         k=-1;
+                        
                     else
-                       a_new=line_sign(ign_x,ign_y,i,j,bound(1,k+1),bound(2,k+1));
-                       k=k+1;
-                    end 
-                end
+                        b1=sqrt((i-ign_x)^2+(j-ign_y)^2);
+                        b2=sqrt((i-bound(1,k))^2+(j-bound(2,k))^2);
+                        b3=sqrt((bound(1,k)-ign_x)^2+(bound(2,k)-ign_y)^2);
+                        if (b1+b2<b3+eps)&&(b1+b2>b3-eps)
+                            B(i,j)=time_now*b1/b3; 
+                            k=-1;
+                        else
+                            a_new=line_sign(ign_x,ign_y,i,j,bound(1,k+1),bound(2,k+1));
+                            k=k+1;
+                        end
+                    end  
+                  end
                 a_old=a_new;   
                 k=k+1;       
           end
