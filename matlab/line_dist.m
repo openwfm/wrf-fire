@@ -1,6 +1,10 @@
-function signn=line_dist(x1,y1,x2,y2,x3,y3)
-% if sign is positive -> from one side, negative -> from another
-signn=(y3-y1)*(x2-x1)-(y2-y1)*(x3-x1);
+function dist=line_dist(x1,y1,x2,y2,x3,y3)
+% finds the distance from (x3,y3) to line through (x1,y1) and (x2,y2)
+A=y1-y2;
+B=x2-x1;
+C=x1*y2-y1*x2;
+dist=(abs(A*x3+B*y3+C))/(sqrt(A*A+B*B));
+
 end
 
 
