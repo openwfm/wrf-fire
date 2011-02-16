@@ -705,7 +705,7 @@ type(fire_params),intent(in)::fp
 
 !*** local
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
-real:: umid, phis, phiw, spdms, umidm, excess
+real:: umid, phis, phiw, spdms, umidm, excess, tanphim
 integer, parameter::ibeh=1
 real, parameter::ros_max=6.
 character(len=128)msg
@@ -746,9 +746,9 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
         phiw = umid**fp%bbb(i,j) * fp%phiwc(i,j) ! wind coef
         phis=0.
-        if (tanphi .gt. 0.) then
-            phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphi**2   ! slope factor
-        endif
+        tanphim=max(tanphi,0.0)
+        tanphim=min(tanphim,5.0)  ! jm
+        phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
         ros_back = fp%r_0(i,j) * .00508
         ros_wind = ros_back*phiw
