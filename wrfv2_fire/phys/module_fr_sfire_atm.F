@@ -7,7 +7,7 @@
 
 module module_fr_sfire_atm
 
-use module_model_constants, only: cp,xlv
+use module_model_constants, only: cp,xlv,g
 use module_fr_sfire_util
 
 contains

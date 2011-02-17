@@ -79,7 +79,6 @@ use module_fr_sfire_core, only: ignition_line_type
 USE module_domain, only: domain
 USE module_configure, only: grid_config_rec_type
 use module_model_constants, only: reradius,    & ! 1/earth radiusw
-                                  g,           & ! gravitation acceleration
                                   pi2            ! 2*pi
 
 implicit none
