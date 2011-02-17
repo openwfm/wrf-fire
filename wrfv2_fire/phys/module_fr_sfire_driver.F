@@ -16,7 +16,7 @@
 ! the model gives to WRF for safekeeping because it is not allowed 
 ! to save anything.
 
-! This code is described in [1]. The fire model is coupled with WRF 
+! This code is described in [1,5]. The fire model is coupled with WRF 
 ! but the fire code itself is not dependent on WRF in any way other 
 ! than calls to few WRF utilities from module_fr_sfire_util. This 
 ! model uses a level set function method for advancing the fireline. 
@@ -62,7 +62,11 @@
 ! Atmosphere-Fire Module for WRF, Preprints of Joint MM5/Weather 
 ! Research and Forecasting Model Users' Workshop, Boulder, CO, 
 ! June 22-25, 2004, pp. 221-223, NCAR
-
+!
+! [5] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled
+! atmosphere-wildland fire modeling with WRF-Fire version 3.3", Geoscientific Model
+! Development (GMD), submitted. Updated version available at http://arxiv.org/abs/1102.1343
+!
 module module_fr_sfire_driver
 ! use this module for standalone call, you only need to provide some mock-up wrf modules  
 
