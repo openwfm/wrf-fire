@@ -316,6 +316,13 @@ if(fire_print_msg.ge.1)then
 endif
 7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
 
+!**********************************************************
+!*                                                        *
+!*           find the altitude of the w points            *
+!*                                                        *
+!**********************************************************
+!! in future, replace by z8w & test if the same
+
     kdmax=kde-1   ! max layer to interpolate from, can be less
 
     do j = jtst,jtet
@@ -338,6 +345,12 @@ if(fire_print_msg.ge.1)then
   call message(msg)
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 endif
+
+!**********************************************************
+!*                                                        *
+!*  interpolate the altitude from w points to u points    *
+!*                                                        *
+!**********************************************************
 
     do j = jtsu,jteu          
       do k=kds,kdmax+1
@@ -364,6 +377,13 @@ if(fire_print_msg.ge.1)then
   call message(msg)
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 endif
+
+!**********************************************************
+!*                                                        *
+!*  interpolate the altitude from w points to v points    *
+!*                                                        *
+!**********************************************************
+
     do j = jtsv,jtev          
       do k=kds,kdmax+1
         do i = itsv,itev       
@@ -384,6 +404,13 @@ endif
         call write_array_m3(itsv,itev,kds,kdmax,jtsv,jtev,its-2,ite+2,kds,kde,jts-2,jte+2,hgtv,'hgtv',id)
 #endif
     logfwh = log(fire_wind_height)
+
+
+!**********************************************************
+!*                                                        *
+!*  interpolate u to the fire mesh at fire_wind_height    *
+!*                                                        *
+!**********************************************************
 
     ! interpolate u, staggered in X
 
@@ -414,6 +441,13 @@ endif
         endif
       enddo
     enddo
+
+
+!**********************************************************
+!*                                                        *
+!*  interpolate v to the fire mesh at fire_wind_height    *
+!*                                                        *
+!**********************************************************
 
     ! interpolate v, staggered in Y
 
