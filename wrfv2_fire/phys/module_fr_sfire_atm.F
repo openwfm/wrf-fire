@@ -298,13 +298,26 @@ endif
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
     endif
 
-    ! indexing
+! indexing
        
-    ! file for u
+! for w 
     itst=ifval(ids.eq.its,its,its-1)
     itet=ifval(ide.eq.ite,ite,ite+1)
     jtst=ifval(jds.ge.jts,jts,jts-1)
     jtet=ifval(jde.eq.jte,jte,jte+1)
+
+! for u
+    itsu=ifval(ids.eq.its,its+1,its)  ! staggered direction
+    iteu=ifval(ide.eq.ite,ite,ite+1)  ! staggered direction
+    jtsu=ifval(jds.ge.jts,jts,jts-1)
+    jteu=ifval(jde.eq.jte,jte,jte+1)
+
+! for v
+    jtsv=ifval(jds.eq.jts,jts+1,jts)  ! staggered direction
+    jtev=ifval(jde.eq.jte,jte,jte+1)  ! staggered direction
+    itsv=ifval(ids.ge.its,its,its-1)
+    itev=ifval(ide.eq.ite,ite,ite+1)
+
 
 if(fire_print_msg.ge.1)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
@@ -334,11 +347,6 @@ endif
     enddo
 
 ! values at u points
-    itsu=ifval(ids.eq.its,its+1,its)  ! staggered direction
-    iteu=ifval(ide.eq.ite,ite,ite+1)  ! staggered direction
-    jtsu=ifval(jds.ge.jts,jts,jts-1)
-    jteu=ifval(jde.eq.jte,jte,jte+1)
-
 if(fire_print_msg.ge.1)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
   write(msg,7001)'u interp at','tile',itsu,iteu,jtsu,jteu
@@ -366,11 +374,6 @@ endif
     enddo
 
 ! values at v points
-    jtsv=ifval(jds.eq.jts,jts+1,jts)  ! staggered direction
-    jtev=ifval(jde.eq.jte,jte,jte+1)  ! staggered direction
-    itsv=ifval(ids.ge.its,its,its-1)
-    itev=ifval(ide.eq.ite,ite,ite+1)
-
 if(fire_print_msg.ge.1)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
   write(msg,7001)'v interp at','tile',itsv,itev,jtsv,jtev
@@ -403,12 +406,12 @@ endif
         call write_array_m3(itsu,iteu,kds,kdmax,jtsu,jteu,its-2,ite+2,kds,kde,jts-2,jte+2,hgtu,'hgtu',id)
         call write_array_m3(itsv,itev,kds,kdmax,jtsv,jtev,its-2,ite+2,kds,kde,jts-2,jte+2,hgtv,'hgtv',id)
 #endif
-    logfwh = log(fire_wind_height)
 
+    logfwh = log(fire_wind_height)
 
 !**********************************************************
 !*                                                        *
-!*  interpolate u to the fire mesh at fire_wind_height    *
+!*  interpolate u vertically to fire_wind_height          *
 !*                                                        *
 !**********************************************************
 
@@ -445,7 +448,7 @@ endif
 
 !**********************************************************
 !*                                                        *
-!*  interpolate v to the fire mesh at fire_wind_height    *
+!*  interpolate v vertically to fire_wind_height          *
 !*                                                        *
 !**********************************************************
 
@@ -491,6 +494,13 @@ endif
     call write_array_m(its,ite1,jts,jte,ims,ime,jms,jme,uah,'uah_n',id) ! no reflection
     call write_array_m(its,ite,jts,jte1,ims,ime,jms,jme,vah,'vah_n',id)
 #endif
+
+!**********************************************************
+!*                                                        *
+!*  interpolate ua,va vertically to the fire mesh         *
+!*                                                        *
+!**********************************************************
+
 
     ips1 = ifval(ips.eq.ids,ips+1,ips)
     call continue_at_boundary(1,1,0., & ! x direction 
