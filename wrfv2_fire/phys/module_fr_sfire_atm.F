@@ -658,16 +658,16 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
     vf                                              ! 
 
 !*** local
-  integer:: i,j,k,jcb,jcm,icb,icm,kdmax
+  integer:: i,j,k,jcb,jcm,icb,icm,kdmax,kmin,kmax
   integer::itst,itet,jtst,jtet
   integer::iftst,iftet,jftst,jftet
   real:: wjcb,wjcm,wicb,wicm,ht,i_g,loght,zr,ht_last,logwh,wh,loght_last,uk,vk,uk1,vk1,z0,logz0
-  real, dimension (its-1:ite+1,kds:kde,jts-1:jts+1):: z
+  real, dimension (its-1:ite+1,kds:kde,jts-1:jte+1):: z
   character(len=128)::msg
 
 !*** executable
 
-  print *,'interpolate_wind2fire_height complete, id=',id
+  ! print *,'interpolate_wind2fire_height start, id=',id
 
   kdmax=kde-1                                       ! max layer to use
 
@@ -679,6 +679,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   jtst=ifval(jds.ge.jts,jts,jts-1)
   jtet=ifval(jde.eq.jte,jte,jte+1)
   
+  print *,'its, ite, jts, jte    =',its, ite, jts, jte
   print *,'itst, itet, jtst, jtet=',itst, itet, jtst, jtet
 
 ! get altitudes
@@ -687,6 +688,9 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
     do k=kds,kdmax+1
       do i = itst,itet       
         z(i,k,j) = (ph(i,k,j)+phb(i,k,j))*i_g      ! altitude of the bottom w-point 
+
+        ! print *,'i,k,j=',i,k,j,'ph, phb, z=',ph(i,k,j),phb(i,k,j),z(i,k,j)
+
       enddo
     enddo
     do k=kds,kdmax
@@ -716,6 +720,9 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
 
 ! vertical and horizontal interpolation
 
+  kmin=kde  ! init stats
+  kmax=kds
+
   loop_j: do j = jftst,jftet
     call coarse(j,jr,-2,jcb,wjcb)    ! get interpolation coefficients from the boundary 
     call coarse(j,jr,ir,jcm,wjcm)    ! get interpolation coefficients from the midpoint 
@@ -725,7 +732,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       z0 = fz0(i,j)                    ! roughness length 
       wh = fwh(i,j)                    ! wind height
 
-      print *,'i=',i,' j=',j,' icb=',icb,' jcb=',jcb,' z0=',z0,' wh=',wh
+      ! print *,'i=',i,' j=',j,' icb=',icb,' jcb=',jcb,' z0=',z0,' wh=',wh
+
 
       if(.not. wh > z0)then
          goto 92
@@ -735,7 +743,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
         ! interpolate height from atmospheric cell midpoints
         ht=interpolate_h(its-1,ite+1,kds,kde,jts-1,jts+1,icm,k,jcm,wicm,wjcm,z)
         
-        print *,'i=',i,' j=',j,'k=',k,' ht=',ht
+        ! print *,'i=',i,' j=',j,'k=',k,' ht=',ht
 
         if(.not. ht < wh) exit loop_k ! found layer k this point is in
         ht_last = ht
@@ -743,6 +751,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       if(k .gt. kdmax) then
           goto 91  ! run out of vertical levels, this must be wrong
       endif
+      kmin=min(k,kmin)
+      kmax=max(k,kmax)
       ! found layer k, ht_last < wh <= ht
       logz0 = log(z0)
       logwh= log(wh)
@@ -752,23 +762,23 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       ! interpolate u at level k from staggered coarse grid: boundary in i, midpoints in j
       uk=interpolate_h(ims,ime,kms,kme,jms,jme,icb,k,jcm,wicb,wjcm,u) - u_frame
 
-      print *,'i=',i,' j=',j,' uk=',uk
+      ! print *,'i=',i,' j=',j,' uk=',uk
 
       ! interpolate v at level k from staggered coarse grid: midpoints in i, boundary in j
       vk=interpolate_h(ims,ime,kms,kme,jms,jme,icm,k,jcb,wicm,wjcb,v) - v_frame
 
-      print *,'i=',i,' j=',j,' vk=',vk
+      ! print *,'i=',i,' j=',j,' vk=',vk
 
       if(k.gt.kds)then           ! interpolate u,v horizontaly at the previous layer,  k-1
         ! interpolate u at level k-1 from staggered coarse grid: boundary in i, midpoints in j
         uk1=interpolate_h(ims,ime,kms,kme,jms,jme,icb,k-1,jcm,wicb,wjcm,u)
         
-        print *,'i=',i,' j=',j,' uk1=',uk1
+        ! print *,'i=',i,' j=',j,' uk1=',uk1
 
         ! interpolate v at level k-1 from staggered coarse grid: midpoints in i, boundary in j
         vk1=interpolate_h(ims,ime,kms,kme,jms,jme,icm,k-1,jcb,wicm,wjcb,v)
         
-        print *,'i=',i,' j=',j,' uk1=',uk1
+        ! print *,'i=',i,' j=',j,' uk1=',uk1
 
       else ! there is no previous layer, wind at roughness is assumed 0
         uk1=0. 
@@ -779,12 +789,17 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       uf(i,j)= uk1 + (uk - uk1) * ( logwh - loght_last) / (loght - loght_last)
       vf(i,j)= vk1 + (vk - vk1) * ( logwh - loght_last) / (loght - loght_last)
         
-      print *,'i=',i,' j=',j,' uk=',uk,' vk=',vk,' uk1=',uk1,' vk1=',vk1,' uf=',uf(i,j),' vf=',vf(i,j)
+      ! print *,'i=',i,' j=',j,' uk=',uk,' vk=',vk,' uk1=',uk1,' vk1=',vk1,' uf=',uf(i,j),' vf=',vf(i,j)
 
     enddo loop_i
   enddo loop_j
 
-  print *,'interpolate_wind2fire_height complete, id=',id
+  ! print *,'interpolate_wind2fire_height complete, id=',id
+
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+  write(msg,*)'wind interpolated from layers',kmin,' to ',kmax
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
 
   call print_chsum(id,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,uf,'uf')
   call print_chsum(id,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,vf,'vf')
