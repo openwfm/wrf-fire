@@ -63,7 +63,10 @@ state    real     betafl    *i*j      fire        1         z    hr    "BETAFL" 
 state    real     phiwc     *i*j      fire        1         z    hr    "PHIWC"     "fuel"
 state    real     r_0       *i*j      fire        1         z    hr    "R_0"       "fuel"
 state    real     fgip      *i*j      fire        1         z    hr    "FGIP"      "fuel"
+state    real     fz0       *i*j      fire        1         z    hr    "FZ0"       "fuel roughness height"
+state    real     fwh       *i*j      fire        1         z    hr    "FZ0"       "fuel fire wind height"
 state    real     ischap    *i*j      fire        1         z    hr    "ISCHAP"    "fuel"
+
 
 #
 # fire configure namelist variables
@@ -143,6 +146,7 @@ rconfig   real    fire_crwn_hgt          namelist,fire         max_domains      
 rconfig   real    fire_ext_grnd          namelist,fire         max_domains           50.     -      "fire_ext_grnd"    "extinction depth of sfc fire heat"   "m"
 rconfig   real    fire_ext_crwn          namelist,fire         max_domains           50.     -      "fire_ext_crwn"    "extinction depth of crown fire heat" "m"
 rconfig   real    fire_wind_height       namelist,fire         max_domains           6.096   -      "fire_wind_height" "height of uah,vah wind in fire spread formula" "m"
+rconfig   integer fuel_using_z0          namelist,fire         max_domains           1       -      "fuel_using_z0"    "0=fuel roughness from fuel categories, 1=piecewise const from z0, 2=interpolated from z0""   ""
 rconfig   integer fire_fuel_read         namelist,fire         max_domains           -1      -      "fire_fuel_read"   "fuel categories are set by: if 0, uniform; if 1, user-presc; if 2, read from file"   ""
 rconfig   integer fire_fuel_cat          namelist,fire         max_domains           1       -      "fire_fuel_cat"     "fuel category if ifuelread=0"              ""
 # sfire switches

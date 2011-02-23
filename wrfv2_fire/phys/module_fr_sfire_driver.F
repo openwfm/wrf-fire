@@ -243,6 +243,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             unit_fxlong,unit_fxlat,                           & ! coordinates of grid center
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
             config_flags%fire_wind_height,              &  ! height of wind input to fire spread formula
+            config_flags%fuel_using_z0,                 &  ! use z0 from atm modes for fuel
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
             ignition_line,              &
@@ -262,6 +263,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%fxlong,grid%fxlat,                           &       
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,                      & 
+            grid%fz0, grid%fwh,                    &
             fp &
         )
 
@@ -300,6 +302,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
     fire_wind_height,                             & ! for vertical wind interpolation
+    fuel_using_z0,                                &
     num_ignitions,                                & 
     ignition_longlat,                             &
     ignition_line,                                &
@@ -318,6 +321,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fxlong,fxlat,                                 & !  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,                                & ! save constant internal data, fire grid
+    fz0,fwh,                                      &
     fp                                           & ! fire params
     )
 USE module_dm, only:wrf_dm_maxval
@@ -360,6 +364,8 @@ real, intent(in):: &
     fire_ext_crwn,                                & ! wind height for vertical interploation to fire spread
     fire_wind_height 
 
+integer, intent(in):: fuel_using_z0                 ! flag to use atm z0 or not
+
 
 integer, intent(in):: num_ignitions                 ! number of ignitions, can be 0
 integer, intent(in):: ignition_longlat       ! if 1 ignition give as long/lat, otherwise as m from lower left corner
@@ -375,8 +381,9 @@ real,intent(out),dimension(ims:ime,jms:jme)::&
 
 real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat ! inout because of extension at bdry
     
-real, intent(inout), dimension(ifms:ifme,jfms:jfme):: &
-    nfuel_cat                                       ! fuel data; can be also set inside (cell based, fire grid)
+real, intent(inout), dimension(ifms:ifme,jfms:jfme):: & ! fuel data; can be also set inside (cell based, fire grid)
+    fz0,fwh,                                          &  
+    nfuel_cat                                      
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
     lfn,tign,fuel_frac,                        &     ! state: level function, ign time, fuel left
@@ -410,6 +417,7 @@ type(fire_params),intent(inout)::fp
 real :: dxf,dyf,time_start,latm, s
 integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ij,i,j,k,id,pid,ipe1,jpe1,ite1,jte1, &
+    ii,jj,                                 &
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
@@ -606,6 +614,47 @@ do ij=1,num_tiles
         endif
 
      endif
+ 
+     if(fire_wind_height > 0.)then                  ! set fz0,fwh for compatibility
+        do j=jfts,jfte
+           do i=ifts,ifte
+               fwh(i,j)=fire_wind_height
+           enddo
+        enddo
+     endif
+     if(fuel_using_z0.eq.0)then
+        call message('using roughness from fuel categories')
+        call crash('not implemented')
+     elseif(fuel_using_z0.eq.1)then
+        call message('using piecewise constant atmosphere scale roughness')
+        do j=jfts,jfte,jr
+           do i=ifts,ifte,ir
+              do jj=j,j+jr-1
+                 do ii=i,i+ir-1
+                     fz0(ii,jj)=z0(i,j)
+                 enddo
+              enddo
+           enddo
+       enddo
+     elseif(fuel_using_z0.eq.2)then
+        call message('using bilinearly interpolated atmosphere scale roughness')
+        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            z0,                                       & ! atm grid arrays in
+            fz0)                                      ! fire grid arrays out
+     elseif(fuel_using_z0.eq.3)then
+        call message('using previous version, subroutine interpolate_atm2fire')
+     else
+        call crash('unknown fuel_using_z0') 
+     endif
+
 
     elseif(ifun.eq.2)then  
                
@@ -621,7 +670,9 @@ do ij=1,num_tiles
         call write_array_m3(its,ite,kts,kde-1,jts,jte1,ims,ime,kms,kme,jms,jme,v,'v_2',id)
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,ph,'ph_2',id)
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
-        call interpolate_atm2fire(id,                     & ! flag for debug output
+        
+        if(fuel_using_z0.eq.3)then
+          call interpolate_atm2fire(id,                     & ! flag for debug output
             fire_wind_height,                             & ! height to interpolate to
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
@@ -638,6 +689,24 @@ do ij=1,num_tiles
             z0,zs,                                        & ! 2D atm grid arrays in
             uah,vah,                                      & ! 2D atm grid out
             fp%vx,fp%vy)                                    ! fire grid arrays out
+        else
+          call interpolate_wind2fire_height(id,       & ! to identify debugging prints and files if needed
+            ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+            ims,ime, kms,kme, jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            u_frame, v_frame,                             & ! velocity frame correction
+            u,v,ph,phb,                                   & ! input atmospheric arrays
+            fz0,fwh,                                      & ! input fire arrays
+            fp%vx,fp%vy)                                          ! output fire arrays
+        endif
+
+
       endif
     
     endif

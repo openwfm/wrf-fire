@@ -663,6 +663,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   integer::iftst,iftet,jftst,jftet
   real:: wjcb,wjcm,wicb,wicm,ht,i_g,loght,zr,ht_last,logwh,wh,loght_last,uk,vk,uk1,vk1,z0,logz0
   real, dimension (its-1:ite+1,kds:kde,jts-1:jts+1):: z
+  character(len=128)::msg
 
   kdmax=kde-1                                       ! max layer to use
 
@@ -684,7 +685,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
     enddo
     do k=kds,kdmax
       do i = itst,itet       
-        z(i,k,j) = (z(i,k,j)+z(i,k+1,j))*0.5   ! altitude of the cell center 
+        z(i,k,j) = (z(i,k,j)+z(i,k+1,j))*0.5 - z(i,kds,j)   ! height of the cell center 
       enddo
     enddo
   enddo
@@ -716,7 +717,9 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       z0 = fz0(i,j)                    ! roughness length 
       wh = fwh(i,j)                    ! wind height
 
-      if(.not.wh > z0) goto 92
+      if(.not. wh > z0)then
+         goto 92
+      endif
       ht_last=z0                     ! initialize starting height of this layer
       loop_k: do k=kds,kdmax         ! search for layer k such that ht(k-1)<=wh<ht(k), ht(0)=z0
         ! interpolate height from atmospheric cell midpoints
@@ -724,7 +727,9 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
         if(.not. ht < wh) exit loop_k ! found layer k this point is in
         ht_last = ht
       enddo loop_k
-      if(k .gt. kdmax) goto 91  ! run out of vertical levels, this must be wrong
+      if(k .gt. kdmax) then
+          goto 91  ! run out of vertical levels, this must be wrong
+      endif
       ! found layer k, ht_last < wh <= ht
       logz0 = log(z0)
       logwh= log(wh)
@@ -752,10 +757,14 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
     enddo loop_i
   enddo loop_j
 
-  91 call crash('interpolate_wind2fire_height: fire wind height too large, increase kdmax or atm height')
-  92 call crash('interpolate_wind2fire_height: fire wind height must be more than the roughness height')
-
   return
+
+  91 call crash('interpolate_wind2fire_height: fire wind height too large, increase kdmax or atm height')
+  92 continue
+  write(msg,*)'fz0(',i,j,')=',fz0(i,j),'fwh(',i,j,')=',fwh(i,j)
+  call message(msg)
+  call crash('interpolate_wind2fire_height: fire wind height must be more than the roughness height')
+
 
 contains
 
