@@ -665,6 +665,10 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   real, dimension (its-1:ite+1,kds:kde,jts-1:jts+1):: z
   character(len=128)::msg
 
+!*** executable
+
+  print *,'interpolate_wind2fire_height complete, id=',id
+
   kdmax=kde-1                                       ! max layer to use
 
 ! find the altitude of atm cell centers            
@@ -780,14 +784,21 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
     enddo loop_i
   enddo loop_j
 
+  print *,'interpolate_wind2fire_height complete, id=',id
+
+  call print_chsum(id,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,uf,'uf')
+  call print_chsum(id,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,vf,'vf')
+
+
   return
 
   91 call crash('interpolate_wind2fire_height: fire wind height too large, increase kdmax or atm height')
   92 continue
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
   write(msg,*)'fz0(',i,j,')=',fz0(i,j),'fwh(',i,j,')=',fwh(i,j)
   call message(msg)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
   call crash('interpolate_wind2fire_height: fire wind height must be more than the roughness height')
-
 
 contains
 
