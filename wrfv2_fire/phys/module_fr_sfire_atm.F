@@ -674,6 +674,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   itet=ifval(ide.eq.ite,ite,ite+1)
   jtst=ifval(jds.ge.jts,jts,jts-1)
   jtet=ifval(jde.eq.jte,jte,jte+1)
+  
+  print *,'itst, itet, jtst, jtet=',itst, itet, jtst, jtet
 
 ! get altitudes
   i_g = 1./g
@@ -697,6 +699,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   jftst=ifval(jfds.ge.jfts,jfts+jr/2,jfts)
   jftet=ifval(jfde.eq.jfte,jfte-jr/2,jfte)
 
+  print *,'iftst, iftet, jftst, jftet=',iftst, iftet, jftst, jftet
+
 ! zero out first, to prevent unitialized values on strips along domain boundaries
 ! it would be faster but longer code to do just cleanup loop on the strips
    do j = jfts,jfte
@@ -717,6 +721,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       z0 = fz0(i,j)                    ! roughness length 
       wh = fwh(i,j)                    ! wind height
 
+      print *,'i=',i,' j=',j,' icb=',icb,' jcb=',jcb,' z0=',z0,' wh=',wh
+
       if(.not. wh > z0)then
          goto 92
       endif
@@ -724,6 +730,9 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       loop_k: do k=kds,kdmax         ! search for layer k such that ht(k-1)<=wh<ht(k), ht(0)=z0
         ! interpolate height from atmospheric cell midpoints
         ht=interpolate_h(its-1,ite+1,kds,kde,jts-1,jts+1,icm,k,jcm,wicm,wjcm,z)
+        
+        print *,'i=',i,' j=',j,'k=',k,' ht=',ht
+
         if(.not. ht < wh) exit loop_k ! found layer k this point is in
         ht_last = ht
       enddo loop_k
@@ -738,14 +747,25 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
 
       ! interpolate u at level k from staggered coarse grid: boundary in i, midpoints in j
       uk=interpolate_h(ims,ime,kms,kme,jms,jme,icb,k,jcm,wicb,wjcm,u) - u_frame
+
+      print *,'i=',i,' j=',j,' uk=',uk
+
       ! interpolate v at level k from staggered coarse grid: midpoints in i, boundary in j
       vk=interpolate_h(ims,ime,kms,kme,jms,jme,icm,k,jcb,wicm,wjcb,v) - v_frame
+
+      print *,'i=',i,' j=',j,' vk=',vk
 
       if(k.gt.kds)then           ! interpolate u,v horizontaly at the previous layer,  k-1
         ! interpolate u at level k-1 from staggered coarse grid: boundary in i, midpoints in j
         uk1=interpolate_h(ims,ime,kms,kme,jms,jme,icb,k-1,jcm,wicb,wjcm,u)
+        
+        print *,'i=',i,' j=',j,' uk1=',uk1
+
         ! interpolate v at level k-1 from staggered coarse grid: midpoints in i, boundary in j
         vk1=interpolate_h(ims,ime,kms,kme,jms,jme,icm,k-1,jcb,wicm,wjcb,v)
+        
+        print *,'i=',i,' j=',j,' uk1=',uk1
+
       else ! there is no previous layer, wind at roughness is assumed 0
         uk1=0. 
         vk1=0.
@@ -754,6 +774,9 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       ! log interpolate the wind to wh
       uf(i,j)= uk1 + (uk - uk1) * ( logwh - loght_last) / (loght - loght_last)
       vf(i,j)= vk1 + (vk - vk1) * ( logwh - loght_last) / (loght - loght_last)
+        
+      print *,'i=',i,' j=',j,' uk=',uk,' vk=',vk,' uk1=',uk1,' vk1=',vk1,' uf=',uf(i,j),' vf=',vf(i,j)
+
     enddo loop_i
   enddo loop_j
 
