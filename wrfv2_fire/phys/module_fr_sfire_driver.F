@@ -627,10 +627,10 @@ do ij=1,num_tiles
         call crash('not implemented')
      elseif(fuel_using_z0.eq.1)then
         call message('using piecewise constant atmosphere scale roughness')
-        do j=jfts,jfte,jr
-           do i=ifts,ifte,ir
-              do jj=j,j+jr-1
-                 do ii=i,i+ir-1
+        do j=jts,jte
+           do i=its,ite
+              do jj=(j-1)*jr+1,(j-1)*jr+jr
+                 do ii=(i-1)*ir+1,(i-1)*ir+ir
                      fz0(ii,jj)=z0(i,j)
                  enddo
               enddo
