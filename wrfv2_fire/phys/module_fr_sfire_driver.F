@@ -242,7 +242,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%u_frame,grid%v_frame,                  &
             unit_fxlong,unit_fxlat,                           & ! coordinates of grid center
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
-            config_flags%fire_wind_height,              &  ! height of wind input to fire spread formula
             config_flags%fuel_using_z0,                 &  ! use z0 from atm modes for fuel
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
@@ -301,7 +300,6 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     u_frame,v_frame,                              &
     unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
-    fire_wind_height,                             & ! for vertical wind interpolation
     fuel_using_z0,                                &
     num_ignitions,                                & 
     ignition_longlat,                             &
@@ -361,8 +359,7 @@ real, intent(in):: &
     unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
     fire_crwn_hgt,                                & ! lowest height crown fire heat is released (m)
     fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
-    fire_ext_crwn,                                & ! wind height for vertical interploation to fire spread
-    fire_wind_height 
+    fire_ext_crwn                                   ! and for the canopy (m) 
 
 integer, intent(in):: fuel_using_z0                 ! flag to use atm z0 or not
 
@@ -617,13 +614,6 @@ do ij=1,num_tiles
 
      endif
  
-     if(fire_wind_height > 0.)then                  ! set fz0,fwh for compatibility
-        do j=jfts,jfte
-           do i=ifts,ifte
-               fwh(i,j)=fire_wind_height
-           enddo
-        enddo
-     endif
      if(fuel_using_z0.eq.0)then
         call message('using roughness from fuel categories')
         call crash('not implemented')
@@ -675,7 +665,6 @@ do ij=1,num_tiles
         
         if(fuel_using_z0.eq.3)then
           call interpolate_atm2fire(id,                     & ! flag for debug output
-            fire_wind_height,                             & ! height to interpolate to
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
             ips,ipe, jps,jpe,                             &
@@ -732,7 +721,7 @@ do ij=1,num_tiles
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         ros,                                    & ! output: rate of spread for display
         nfuel_cat,                              & ! fuel data per point 
-        fuel_time,                              & ! save derived internal data
+        fuel_time,fwh,fz0,                      & ! save derived internal data
         fp                                      & ! fire coefficients
     )
     

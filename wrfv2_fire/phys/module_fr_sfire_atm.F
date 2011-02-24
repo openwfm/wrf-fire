@@ -8,6 +8,7 @@
 module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
+use module_fr_sfire_phys, only: fire_wind_height
 use module_fr_sfire_util
 
 contains
@@ -177,7 +178,6 @@ END SUBROUTINE fire_tendency
 !***
 !
 subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no output
-    fire_wind_height,                             & ! interpolation height
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
     ips,ipe,jps,jpe,                              &
@@ -200,7 +200,6 @@ implicit none
 
 !*** arguments
 integer, intent(in)::id                           
-real, intent(in):: fire_wind_height                 ! height above the terrain for vertical interpolation
 integer, intent(in)::                             &
     ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
     ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
