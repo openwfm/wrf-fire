@@ -19,6 +19,7 @@ function B=ignition6(data)
 % Command line: what to do to call the function
 %--------------------------------------
 
+%  addpath ../util1_jan
 %  data='data.txt'
 %  B=ignition6(data)
 
