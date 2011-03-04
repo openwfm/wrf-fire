@@ -20,7 +20,7 @@ $sw_rwordsize="\$\(NATIVE_RWORDSIZE\)";
 $sw_rttov_flag = "" ;
 $sw_rttov_inc = "" ;
 $sw_crtm_flag = "" ;
-$sw_crtm_inc = "" ;
+$sw_4dvar_flag = "" ;
 $WRFCHEM = 0 ;
 $sw_os = "ARCH" ;           # ARCH will match any
 $sw_mach = "ARCH" ;         # ARCH will match any
@@ -30,7 +30,6 @@ $sw_nmm_core = "-DNMM_CORE=\$\(WRF_NMM_CORE\)" ;
 $sw_em_core = "-DEM_CORE=\$\(WRF_EM_CORE\)" ;
 $sw_exp_core = "-DEXP_CORE=\$\(WRF_EXP_CORE\)" ;
 $sw_coamps_core = "-DCOAMPS_CORE=\$\(WRF_COAMPS_CORE\)" ;
-$sw_dfi_radar = "-DDFI_RADAR=\$\(WRF_DFI_RADAR\)" ;
 $sw_dmparallel = "" ;
 $sw_ompparallel = "" ;
 $sw_stubmpi = "" ;
@@ -93,7 +92,6 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
       $sw_nmm_core = "-DNMM_CORE=0" ;
       $sw_exp_core = "-DEXP_CORE=0" ;
       $sw_coamps_core = "-DCOAMPS_CORE=0" ;
-      $sw_dfi_radar = "-DDFI_RADAR=0" ;
     }
     if ( index ( $sw_wrf_core , "DA_CORE" ) > -1 ) 
     {
@@ -102,16 +100,14 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
       $sw_nmm_core = "-DNMM_CORE=0" ;
       $sw_exp_core = "-DEXP_CORE=0" ;
       $sw_coamps_core = "-DCOAMPS_CORE=0" ;
-      $sw_dfi_radar = "-DDFI_RADAR=0" ;
     }
-    if ( index ( $sw_wrf_core , "DFI_RADAR" ) > -1 )
+    if ( index ( $sw_wrf_core , "4D_DA_CORE" ) > -1 ) 
     {
       $sw_em_core = "-DEM_CORE=1" ;
-      $sw_da_core = "-DDA_CORE=0" ;
+      $sw_da_core = "-DDA_CORE=1" ;
       $sw_nmm_core = "-DNMM_CORE=0" ;
       $sw_exp_core = "-DEXP_CORE=0" ;
       $sw_coamps_core = "-DCOAMPS_CORE=0" ;
-      $sw_dfi_radar = "-DDFI_RADAR=1" ;
     }
     if ( index ( $sw_wrf_core , "NMM_CORE" ) > -1 ) 
     {
@@ -120,7 +116,6 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
       $sw_nmm_core = "-DNMM_CORE=1" ;
       $sw_exp_core = "-DEXP_CORE=0" ;
       $sw_coamps_core = "-DCOAMPS_CORE=0" ;
-      $sw_dfi_radar = "-DDFI_RADAR=0" ;
     }
     if ( index ( $sw_wrf_core , "EXP_CORE" ) > -1 ) 
     {
@@ -129,7 +124,6 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
       $sw_nmm_core = "-DNMM_CORE=0" ;
       $sw_exp_core = "-DEXP_CORE=1" ;
       $sw_coamps_core = "-DCOAMPS_CORE=0" ;
-      $sw_dfi_radar = "-DDFI_RADAR=0" ;
     }
     if ( index ( $sw_wrf_core , "COAMPS_CORE" ) > -1 ) 
     {
@@ -138,7 +132,6 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
       $sw_nmm_core = "-DNMM_CORE=0" ;
       $sw_exp_core = "-DEXP_CORE=0" ;
       $sw_coamps_core = "-DCOAMPS_CORE=1" ;
-      $sw_dfi_radar = "-DDFI_RADAR=0" ;
     }
   }
   if ( substr( $ARGV[0], 1, 13 ) eq "compileflags=" )
@@ -209,12 +202,15 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
      if ( $ENV{CRTM} )
        {
        $sw_crtm_flag = "-DCRTM";
-       $sw_crtm_inc = "-I$ENV{CRTM}/src";
        }
      if ( $ENV{RTTOV} )
        {
        $sw_rttov_flag = "-DRTTOV";
-       $sw_rttov_inc = "-I$ENV{RTTOV}/src";
+       $sw_rttov_inc = "-I$ENV{RTTOV}/include -I$ENV{RTTOV}/mod";
+       }
+     if ( $sw_wrf_core eq "4D_DA_CORE" )
+       {
+       $sw_4dvar_flag = "-DVAR4D";
        }
    }
 
@@ -323,8 +319,8 @@ while ( <CONFIGURE_DEFAULTS> )
     $_ =~ s/CONFIGURE_DMPARALLEL/$sw_dmparallelflag/g ;
     $_ =~ s/CONFIGURE_STUBMPI/$sw_stubmpi/g ;
     $_ =~ s/CONFIGURE_NESTOPT/$sw_nest_opt/g ;
+    $_ =~ s/CONFIGURE_4DVAR_FLAG/$sw_4dvar_flag/g ;
     $_ =~ s/CONFIGURE_CRTM_FLAG/$sw_crtm_flag/g ;
-    $_ =~ s/CONFIGURE_CRTM_INC/$sw_crtm_inc/g ;
     $_ =~ s/CONFIGURE_RTTOV_FLAG/$sw_rttov_flag/g ;
     $_ =~ s/CONFIGURE_RTTOV_INC/$sw_rttov_inc/g ;
     if ( $sw_ifort_r8 ) {
@@ -342,9 +338,9 @@ while ( <CONFIGURE_DEFAULTS> )
       { $_ =~ s/CONFIGURE_WRFIO_NF/wrfio_nf/g ;
 	$_ =~ s:CONFIGURE_NETCDF_FLAG:-DNETCDF: ;
         if ( $sw_os == Interix ) {
-	  $_ =~ s:CONFIGURE_NETCDF_LIB_PATH:\$\(WRF_SRC_ROOT_DIR\)/external/io_netcdf/libwrfio_nf.a -L$sw_netcdf_path/lib $sw_usenetcdff -lnetcdf: ;
+	  $_ =~ s:CONFIGURE_NETCDF_LIB_PATH:\$\(WRF_SRC_ROOT_DIR\)/external/io_netcdf/libwrfio_nf.a -L$sw_netcdf_path/lib $sw_usenetcdff -lnetcdf : ;
         } else {
-	  $_ =~ s:CONFIGURE_NETCDF_LIB_PATH:-L\$\(WRF_SRC_ROOT_DIR\)/external/io_netcdf -lwrfio_nf -L$sw_netcdf_path/lib $sw_usenetcdff -lnetcdf: ;
+	  $_ =~ s:CONFIGURE_NETCDF_LIB_PATH:-L\$\(WRF_SRC_ROOT_DIR\)/external/io_netcdf -lwrfio_nf -L$sw_netcdf_path/lib $sw_usenetcdff -lnetcdf : ;
         }
 	 }
     else                   
@@ -575,7 +571,6 @@ while ( <ARCH_PREAMBLE> )
   $_ =~ s:CONFIGURE_NMM_CORE:$sw_nmm_core:g ;
   $_ =~ s:CONFIGURE_COAMPS_CORE:$sw_coamps_core:g ;
   $_ =~ s:CONFIGURE_EXP_CORE:$sw_exp_core:g ;
-  $_ =~ s:CONFIGURE_DFI_RADAR:$sw_dfi_radar:g ;
 
   @preamble = ( @preamble, $_ ) ;
   }

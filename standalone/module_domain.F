@@ -58,14 +58,19 @@ module module_domain
 
       real, pointer, dimension(:,:,:)::u_2 => null()           ! wind on atmospheric mesh
       real, pointer, dimension(:,:,:)::v_2 => null()           ! wind on atmospheric mesh
+      real, pointer, dimension(:,:,:)::ph_2  => null()         ! geopotential perturbation
+      real, pointer, dimension(:,:,:)::phb => null()           ! base geopotential
+      real, pointer, dimension(:,:)::z0 => null()              ! terrain roughness height, on atmosphere mesh
       real, pointer, dimension(:,:)::ht => null()              ! terrain height, on atmosphere mesh
+      real, pointer, dimension(:,:)::uah => null()             ! vertically interpolated wind to fire_wind_height, diagnostic
+      real, pointer, dimension(:,:)::vah => null()
       real, pointer, dimension(:,:)::xlong => null()           ! nodal coordinates
       real, pointer, dimension(:,:)::xlat => null()            ! nodal coordinates 
       real, pointer, dimension(:,:)::grnhfx => null()          ! outputs heat fluxes on atm grid 
       real, pointer, dimension(:,:)::grnqfx => null()
       real, pointer, dimension(:,:)::canhfx => null()
       real, pointer, dimension(:,:)::canqfx => null()           
-      real, pointer, dimension(:,:)::avg_fuel_frac => null()   ! fuel_frac averaged to atmosphere grid
+      real, pointer, dimension(:,:)::avg_fuel_frac => null()   ! fuel_frac averaged to atmosphere grid, diagnostic
 
    end type domain
 

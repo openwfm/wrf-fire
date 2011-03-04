@@ -18,6 +18,22 @@ use module_fr_sfire_util
 ! subroutine fuel_left:  compute remaining fuel from time of ignition.
 ! subroutine prop_ls: propagation of curve in normal direction.
 
+! describe one ignition line
+type ignition_line_type
+  REAL  ros, &          ! subscale rate of spread during the ignition process
+        stop_time, &    ! when the ignition process stops from ignition start (s)
+        wind_red,  &    ! wind reduction factor at the ignition line
+        wrdist,   &     ! distance from the ignition line when the wind reduction stops
+        wrupwind, &     ! use distance interpolated between 0. = nearest 1. = upwind
+        start_x, &      ! x coordinate of the ignition line start point (m, or long/lat)
+        start_y, &      ! y coordinate of the ignition line start point
+        end_x, &        ! x coordinate of the ignition line end point
+        end_y, &        ! y coordinate of the ignition line end point
+        start_time, &   ! ignition time for the start point from simulation start (s)
+        end_time, &     ! ignition time for the end poin from simulation start (s)
+        radius          ! all within this radius ignites immediately
+end type ignition_line_type
+
 contains
 
 !
@@ -60,7 +76,7 @@ do j=jfts,jfte
         lfn(i,j) = lfn_init        ! no fire 
     enddo
 enddo
-call message('init_model_no_fire: state set to no fire')
+call message('init_no_fire: state set to no fire')
 
 end subroutine init_no_fire
 
@@ -72,8 +88,7 @@ end subroutine init_no_fire
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
-                        start_x,start_y,end_x,end_y,              &
-                        r,start_t,end_t,    &
+                        ignition_line,                            &
                         start_ts,end_ts,                    &
                         coord_xf,coord_yf,                &     
                         unit_xf,unit_yf,                  &
@@ -96,10 +111,7 @@ implicit none
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(in):: start_x,start_y          ! start of ignition line, from lower left corner
-real, intent(in):: end_x,end_y              ! end of ignition line, or zero
-real, intent(in):: r                        ! all within the radius of the line will ignite
-real, intent(in):: start_t,end_t            ! the ignition time for the start and the end of the line
+type(ignition_line_type), intent(in):: ignition_line    ! description of the ignition line
 real, intent(in):: start_ts,end_ts          ! the time step start and end 
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
@@ -110,60 +122,166 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
-real::mx,my,ax,ay,dam2,d,dames,des2,am_es,cos2,lfn_new,dmc2,time_ign,rels,rele,mid_t,cos_ame,dif_th
+real::lfn_new,time_ign,ax,ay,rels,rele,d
 real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
 character(len=128):: msg
-real::cx2,cy2,dmax
+real::cx2,cy2,dmax,axmin,axmax,aymin,aymax,dmin
+real:: start_x,start_y          ! start of ignition line, from lower left corner
+real:: end_x,end_y              ! end of ignition line, or zero
+real:: radius                   ! all within the radius of the line will ignite
+real:: start_time,end_time      ! the ignition time for the start and the end of the line
+real:: ros,tos                  ! ignition rate and time of spread
 
-st=max(start_ts,start_t) ! the start time of ignition in this time step
-et=min(end_ts,end_t)     ! the end time of ignition in this time step
+!*** executable
 
-if(st>et)return          ! no ignition in this time step, nothing to do
+! copy ignition line fields to local variables
+start_x    = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
+start_y    = ignition_line%start_y ! y coordinate of the ignition line start point
+end_x      = ignition_line%end_x   ! x coordinate of the ignition line end point
+end_y      = ignition_line%end_y   ! y coordinate of the ignition line end point
+start_time = ignition_line%start_time ! ignition time for the start point from simulation start (s)
+end_time   = ignition_line%end_time! ignition time for the end poin from simulation start (s)
+radius     = ignition_line%radius  ! all within this radius ignites immediately
+ros        = ignition_line%ros     ! rate of spread
 
 
-! find the points where the ignition line starts and ends this time step
-! compute in a way that is stable when end_t - start_t is small
-if(start_t < end_t)then
-        rels =  (st - start_t) / (end_t - start_t)
-	sx = start_x + rels * (end_x - start_x)
-	sy = start_y + rels * (end_y - start_y)
-        rele =  (et - end_t) / (end_t - start_t)
-	ex = end_x + rele * (end_x - start_x)
-	ey = end_y + rele * (end_y - start_y)
+tos        = radius/ros            ! time of spread to the given radius
+st         = start_time            ! the start time of ignition considered in this time step
+et         = min(end_ts,end_time)  ! the end time of the ignition segment in this time step
+
+! this should be called whenever (start_ts, end_ts) \subset (start_time, end_time + tos) 
+if(start_ts>et+tos .or. end_ts<st)return   ! too late or too early, nothing to do
+
+if(start_time < end_time)then  ! we really want to test start_time .ne. end_time, but avoiding test of floats on equality
+        ! segment of nonzero length
+        !rels =  (st - start_time) / (end_time - start_time)  ! relative position of st in the segment (start,end)
+	!sx = start_x + rels * (end_x - start_x)
+	!sy = start_y + rels * (end_y - start_y)
+        rels = 0.
+        sx = start_x
+        sy = start_y
+        rele =  (et - start_time) / (end_time - start_time)    ! relative position of et in the segment (start,end)
+	ex = start_x + rele * (end_x - start_x)
+	ey = start_y + rele * (end_y - start_y)
 else
+        ! just a point
+        rels = 0.
+        rele = 1.
 	sx = start_x
 	sy = start_y
 	ex = end_x
 	ey = end_y
 endif
 
-mid_t = (end_ts + start_ts)*0.5    ! ignition time in the middle
-dif_th = (end_ts - start_ts)*0.5   
 
 cx2=unit_xf*unit_xf
 cy2=unit_yf*unit_yf
 
+axmin=coord_xf(ifts,jfts)
+aymin=coord_yf(ifts,jfts)
+axmax=coord_xf(ifte,jfte)
+aymax=coord_yf(ifte,jfte)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+write(msg,'(a,2f11.6,a,2f11.6)')'IGN from ',sx,sy,' to ',ex,ey
+call message(msg)
+write(msg,'(a,2f10.2,a,2f10.2,a)')'IGN timestep [',start_ts,end_ts,'] in [',start_time,end_time,']'
+call message(msg)
+write(msg,'(a,2g13.6,a,2g13.6)')'IGN tile coord from  ',axmin,aymin,' to ',axmax,aymax
+call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
 ignited=0
 dmax=0
-! midpoint m = (mx,my)
-mx = (sx + ex)/2
-my = (sy + ey)/2
+dmin=huge(dmax)
+11      format('IGN ',6(a,g17.7,1x)) 
+12      format('IGN ',4(a,2g13.7,1x))
 do j=jfts,jfte   
     do i=ifts,ifte
-        ! coordinates of the node (i,j), the lower left corner of the domain is (0 0)
-        ! ax = fdx*(i - ifds + 0.5)
-        ! ay = fdy*(j - jfds + 0.5)
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
-        ! the following computation of distance is also for the case
-        ! when s=e exactly or approximately 
-        dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
-        ! compute distance of a=(ax,ay) and the nearest point on the segment
-        ! [(sx,sy), (ex,ey)] as the distance of (ax,ay) from the midpoint (mx,my)
+
+        ! get d= distance from the nearest point on the ignition segment
+        ! and time_ign = the ignition time there
+        call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
+        dmax=max(d,dmax)
+        dmin=min(d,dmin)
+
+        lfn_new=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
+        if(fire_print_msg.ge.3)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            write(msg,*)'IGN1 i,j=',i,j,' lfn(i,j)=',lfn(i,j),' tign(i,j)=',tign(i,j)
+            call message(msg)
+            write(msg,*)'IGN2 i,j=',i,j,' lfn_new= ',lfn_new, ' time_ign= ',time_ign,' d=',d
+            call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+        endif
+        if(.not.lfn_new>0.) then
+            ignited=ignited+1   ! count
+        endif
+        if(lfn(i,j)>0. .and. .not. lfn_new > 0.) then
+            tign(i,j)=time_ign + d/ros  ! newly ignited now
+            if(fire_print_msg.ge.3)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+                write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
+                    ' time',tign(i,j),' in [',start_ts,end_ts,']'
+                call message(msg)
+                write(msg,'(a,g10.3,a,f10.2,a,2f10.2,a)')'IGN distance',d,' from ignition line at',time_ign,' in [',st,et,']'
+                call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+            endif
+            if(tign(i,j) < start_ts .or. tign(i,j) > end_ts )then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+                write(msg,'(a,2i6,a,f11.6,a,2f11.6,a)')'WARNING ',i,j, &
+                ' fixing ignition time ',tign(i,j),' outside of the time step [',start_ts,end_ts,']'
+                call message (msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+                tign(i,j) = min(max(tign(i,j),start_ts),end_ts)
+            endif
+        endif
+        lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
+        if(fire_print_msg.ge.3)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            write(msg,*)'IGN3 i,j=',i,j,' lfn(i,j)=',lfn(i,j),' tign(i,j)=',tign(i,j)
+            call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+        endif
+    enddo
+enddo
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
+call message(msg)
+write(msg,'(a,f6.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
+call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+
+return
+99 continue
+
+end subroutine ignite_fire
+
+! called from the inside of a loop, inline if possible
+!DEC$ ATTRIBUTES FORCEINLINE
+SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
+        implicit none
+!***    arguments
+        real, intent(out):: d,t
+        real, intent(in):: ax,ay,sx,sy,st,ex,ey,et,cx2,cy2
+        ! input:
+        ! ax, ay       coordinates of point a
+        ! sx,sy,ex,ey  coordinates of endpoints of segment [x,y]
+        ! st,et        values at the endpoints x,y
+        ! cx2,cy2      x and y unit squared for computing distance 
+
+        ! output
+        ! d            the distance of a and the nearest point z on the segment [x,y]
+        ! t            linear interpolation from the values st,et to the point z
+        !
+        ! method: compute d as the distance (ax,ay) from the midpoint (mx,my)
         ! minus a correction (because of rounding errors): |a-c|^2 = |a-m|^2 - |m-c|^2
         ! when |m-c| >= |s-e|/2 the nearest point is one of the endpoints
+        ! the computation work also for the case when s=e exactly or approximately 
+        !
         !
         !           a    
         !          /| \
@@ -171,6 +289,18 @@ do j=jfts,jfte
         !
         ! |m-c| = |a-m| cos (a-m,e-s) 
         !       = |a-m| (a-m).(e-s))/(|a-m|*|e-s|)
+!***    local
+        real:: mx,my,dam2,dames,am_es,cos2,dmc2,mcrel,mid_t,dif_t,des2,cx,cy
+        character(len=128):: msg
+!***    executable
+
+11      format('IGN ',6(a,g17.7,1x))
+12      format('IGN ',4(a,2g13.7,1x))
+
+        ! midpoint m = (mx,my)
+        mx = (sx + ex)*0.5
+        my = (sy + ey)*0.5
+        dam2=(ax-mx)*(ax-mx)*cx2+(ay-my)*(ay-my)*cy2      ! |a-m|^2
         des2 = (ex-sx)*(ex-sx)*cx2+(ey-sy)*(ey-sy)*cy2          ! des2 = |e-s|^2
         dames = dam2*des2
         am_es=(ax-mx)*(ex-sx)*cx2+(ay-my)*(ey-sy)*cy2       ! am_es = (a-m).(e-s)
@@ -180,45 +310,36 @@ do j=jfts,jfte
             cos2 = 0.
         endif
         dmc2 = dam2*cos2                                ! dmc2 = |m-c|^2
-        if(4.*dmc2 <= des2)then                         ! if |m-c|<=|e-s|/2
-            d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
+        if(4.*dmc2 < des2)then                          ! if |m-c|<=|e-s|/2
+            ! d = sqrt(max(dam2 - dmc2,0.))               ! d=|a-m|^2 - |m-c|^2, guard rounding
+            mcrel = sign(sqrt(4.*dmc2/des2),am_es)      ! relative distance of c from m 
         elseif(am_es>0)then                             ! if cos > 0, closest is e
-            d = sqrt((ax-ex)*(ax-ex)*cx2+(ay-ey)*(ay-ey)*cy2)   ! |a-e|
+            mcrel = 1.0 
         else                                            ! closest is s
-            d = sqrt((ax-sx)*(ax-sx)*cx2+(ay-sy)*(ay-sy)*cy2)   ! |a-s|
+            mcrel = -1.0
         endif
-        dmax=max(d,dmax)
-        lfn_new=d-r
-        if(lfn_new<=0) then
-            ignited=ignited+1   ! count
-        endif
-        if(lfn(i,j)>0 .and. lfn_new<=0) then
-            cos_ame = sqrt(cos2)                        ! relative distance of c from m 
-	    time_ign = mid_t + sign(cos_ame,am_es)*dif_th ! ignition time at c by going from m
-            tign(i,j)=time_ign  ! newly ignited now
-        endif
-        lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
-
-        ! debug
-        ! write(msg,'(2i4,10f12.6)')i,j,d,sx,ex,sy,ey
-        ! call message(msg)
-        ! write(msg,'(10f12.6)')ax,ay,dmc2,des2,cos2
-        ! call message(msg)
-        ! write(msg,'(10f16.6)')unit_xf,unit_yf,cx2,cy2,dam2
-        ! call message(msg)
-        ! write(msg,'(10f16.6)')des2,dames,am_es,mx,my
-        ! call message(msg)
-    enddo
-enddo
+	cx = (ex + sx)*0.5 + mcrel*(ex - sx)*0.5     ! interpolate to c by going from m
+	cy = (ey + sy)*0.5 + mcrel*(ey - sy)*0.5     ! interpolate to c by going from m
+        d=sqrt((ax-cx)*(ax-cx)*cx2+(ay-cy)*(ay-cy)*cy2) ! |a-c|^2
+	t = (et + st)*0.5 + mcrel*(et - st)*0.5     ! interpolate to c by going from m
+        if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-write(msg,'(a,2f11.6,a,2f11.6)')'ignite_fire: from',sx,sy,' to ',ex,ey
-call message(msg)
-write(msg,'(a,2f11.2,a,f8.1,a)')'units ',unit_xf,unit_yf,' m max dist ',dmax,' m'
-call message(msg)
-write(msg,'(a,f4.1,a,f8.1,a,i10)')' radius ',r,' time',time_ign,' ignited nodes',ignited
-call message(msg)
+            write(msg,12)'find nearest to [',ax,ay,'] from [',sx,sy,'] [',ex,ey,']' ! DEB
+            call message(msg)
+            write(msg,12)'end times',st,et,' scale squared',cx2,cy2 ! DEB
+            call message(msg)
+            write(msg,11)'nearest at mcrel=',mcrel,'from the midpoint, t=',t ! DEB
+            call message(msg)
+            write(msg,12)'nearest is [',cx,cy,'] d=',d ! DEB
+            call message(msg)
+            write(msg,11)'dam2=',dam2,'des2=',des2,'dames=',dames
+            call message(msg)
+            write(msg,11)'am_es=',am_es,'cos2=',cos2,'dmc2=',dmc2 ! DEB
+            call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
-end subroutine ignite_fire
+        endif
+END SUBROUTINE nearest
+
 
 !
 !**********************
@@ -1439,7 +1560,7 @@ real::gradx,grady,aspeed,err,aerr,time_now
 integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
-character(len=128)msg
+character(len=128)::msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
 
@@ -1562,6 +1683,7 @@ call message(msg)
     do j=jts,jte
         do i=its,ite
             lfn_out(i,j) = a1*lfn1(i,j) + a*(lfn_in(i,j) + dt*tend(i,j))
+            lfn_out(i,j) = min(lfn_out(i,j),lfn_in(i,j)) ! fire area can only increase
         enddo
     enddo      
 
@@ -1718,7 +1840,7 @@ type(fire_params),intent(in)::fp
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
    ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
-integer::i,j
+integer::i,j,itso,iteo,jtso,jteo
 character(len=128)msg
 
 ! constants
@@ -1748,12 +1870,11 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
     ids,ide,jds,jde, &                    ! domain - nodes where lfn defined
     ips,ipe,jps,jpe, &                    ! patch - nodes owned by this process 
     ints,inte,jnts,jnte, &                ! tile - nodes update by this thread
+    itso,iteo,jtso,jteo, &                ! where set now
     lfn)                                  ! array
 
-    call print_2d_stats(ints-1,inte+1,jnts,jnte,lims,lime,ljms,ljme, &
-                   lfn,'tend_ls: lfn cont dir x')
-    call print_2d_stats(ints,inte,jnts-1,jnte+1,lims,lime,ljms,ljme, &
-                   lfn,'tend_ls: lfn cont dir y')
+    call print_2d_stats(itso,iteo,jtso,jteo,lims,lime,ljms,ljme, &
+                   lfn,'tend_ls: lfn cont')
 
 #ifdef DEBUG_OUT
     call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)

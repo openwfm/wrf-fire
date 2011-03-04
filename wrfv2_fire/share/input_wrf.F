@@ -44,7 +44,7 @@
     INTEGER       IBDY, NAMELEN
     LOGICAL wrf_dm_on_monitor
     EXTERNAL wrf_dm_on_monitor
-    Type(WRFU_Time) time, currtime
+    Type(WRFU_Time) time, currtime, currentTime
     CHARACTER*19  new_date
     CHARACTER*24  base_date
     CHARACTER*80  fname
@@ -101,6 +101,8 @@
     WRITE(wrf_err_message,*)'input_wrf: begin, fid = ',fid
     CALL wrf_debug( 300 , wrf_err_message )
 
+    CALL modify_io_masks ( grid%id )   ! this adjusts the I/O masks according to the users run-time specs, if any
+
     ierr = 0
 
     CALL get_ijk_from_grid (  grid ,                        &
@@ -140,23 +142,10 @@
           curtime = domain_get_current_time( grid )
           DO i = 1, MAX_WRF_ALARMS
             IF ( grid%alarms_created(i) .AND. .NOT. i .EQ. boundary_only ) THEN
-              IF ( i .LT. 10 ) THEN
-                write(alarmname,'("WRF_ALARM_ISRINGING_0",i1)')i
-              ELSE
-                write(alarmname,'("WRF_ALARM_ISRINGING_",i2)')i
-              ENDIF
+              write(alarmname,'("WRF_ALARM_ISRINGING_",i2.2)')i
               CALL wrf_get_dom_ti_integer( fid, TRIM(alarmname), iring, 1, icnt, ierr )
-              IF ( iring .EQ. 1 ) THEN
-                CALL WRFU_AlarmRingerOn( grid%alarms( i ) )
-              ELSE
-                CALL WRFU_AlarmRingerOff( grid%alarms( i ) )
-              ENDIF
   
-              IF ( i .LT. 10 ) THEN
-                write(alarmname,'("WRF_ALARM_SECS_TIL_NEXT_RING_0",i1)')i
-              ELSE
-                write(alarmname,'("WRF_ALARM_SECS_TIL_NEXT_RING_",i2)')i
-              ENDIF
+              write(alarmname,'("WRF_ALARM_SECS_TIL_NEXT_RING_",i2.2)')i
               CALL wrf_get_dom_ti_integer( fid, TRIM(alarmname), seconds, 1, icnt, ierr )
               IF ( ierr .EQ. 0 &
                    .AND. seconds .GE. 0 ) THEN  ! disallow negative intervals; can happen with wrfbdy datasets
@@ -168,6 +157,13 @@
                 CALL WRFU_TimeIntervalSet(interval,S=seconds)
                 ringTime = curtime + interval
                 CALL WRFU_AlarmSet( grid%alarms(i), RingInterval=interval2, RingTime=ringTime )
+
+              ENDIF
+
+              IF ( iring .EQ. 1 ) THEN
+                CALL WRFU_AlarmRingerOn( grid%alarms( i ) )
+              ELSE
+                CALL WRFU_AlarmRingerOff( grid%alarms( i ) )
               ENDIF
             ENDIF
           ENDDO
@@ -651,7 +647,7 @@
             CALL wrf_atotime( current_date(1:19), time )
             CALL domain_clock_get( grid, current_time=currtime, &
                                          current_timestr=currtimestr )
-#if (DA_CORE != 1)
+#if (DA_CORE != 1) 
 ! Don't perform the check for WRFVAR, as we're not passing the right dates
 ! around
             CALL domain_clockprint(150, grid, &
@@ -680,10 +676,17 @@
 ! iterate forward to the correct interval in the input LBC file
 !
     IF ( switch .EQ. boundary_only ) THEN
+        CALL domain_clock_get( grid, current_time=currentTime )
         CALL wrf_get_dom_td_char ( fid , 'THISBDYTIME' ,  current_date(1:19), this_datestr , ierr )
         CALL wrf_atotime( this_datestr(1:19), grid%this_bdy_time )
         CALL wrf_get_dom_td_char ( fid , 'NEXTBDYTIME' ,  current_date(1:19), next_datestr , ierr )
         CALL wrf_atotime( next_datestr(1:19), grid%next_bdy_time )
+#if (DA_CORE != 1)
+        IF( currentTime .GE. grid%next_bdy_time ) THEN
+          IF ( wrf_dm_on_monitor() ) write(0,*) 'THIS TIME ',this_datestr(1:19),'NEXT TIME ',next_datestr(1:19)
+          RETURN
+        ENDIF
+#endif
     ENDIF
 
 #if ( ( EM_CORE == 1 ) && ( DA_CORE != 1 ) )
@@ -1239,7 +1242,9 @@
       ENDIF
     ENDIF
 
+#if (DA_CORE != 1)
     CALL wrf_tsin( grid , ierr )
+#endif
 
     WRITE(wrf_err_message,*)'input_wrf: end, fid = ',fid
     CALL wrf_debug( 300 , wrf_err_message )

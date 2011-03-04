@@ -65,6 +65,7 @@ SUBROUTINE fire_tendency( &
    REAL :: xlv_i
    REAL :: z_w
    REAL :: fact_g, fact_c
+   REAL :: alfg_i, alfc_i
 
    REAL, DIMENSION( its:ite,kts:kte,jts:jte ) :: hfx,qfx
    
@@ -85,6 +86,8 @@ SUBROUTINE fire_tendency( &
 
    cp_i = 1./cp     ! inverse of specific heat
    xlv_i = 1./xlv   ! inverse of latent heat
+   alfg_i = 1./alfg
+   alfc_i = 1./alfc
 
 !!write(msg,'(8e11.3)')cp,cp_i,xlv,xlv_i,alfg,alfc,z1can
 !!call message(msg)
@@ -113,11 +116,11 @@ SUBROUTINE fire_tendency( &
 
             ! --- heat flux
 
-            fact_g = cp_i * EXP( - alfg * z_w )
+            fact_g = cp_i * EXP( - alfg_i * z_w )
             IF ( z_w < z1can ) THEN
                fact_c = cp_i
             ELSE
-               fact_c = cp_i * EXP( - alfc * (z_w - z1can) )
+               fact_c = cp_i * EXP( - alfc_i * (z_w - z1can) )
             END IF
             hfx(i,k,j) = fact_g * grnhfx(i,j) + fact_c * canhfx(i,j) 
 
@@ -127,11 +130,11 @@ SUBROUTINE fire_tendency( &
 
             ! --- vapor flux
 
-            fact_g = xlv_i * EXP( - alfg * z_w )
+            fact_g = xlv_i * EXP( - alfg_i * z_w )
             IF (z_w < z1can) THEN
                fact_c = xlv_i
             ELSE
-               fact_c = xlv_i * EXP( - alfc * (z_w - z1can) )
+               fact_c = xlv_i * EXP( - alfc_i * (z_w - z1can) )
             END IF
             qfx(i,k,j) = fact_g * grnqfx(i,j) + fact_c * canqfx(i,j) 
             
@@ -169,5 +172,9 @@ SUBROUTINE fire_tendency( &
    RETURN
 
 END SUBROUTINE fire_tendency
+
+!
+!***
+!
 
 end module module_fr_sfire_atm

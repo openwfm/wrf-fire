@@ -1,4 +1,8 @@
-This is the coupled WRF-Fire model, combining WRF and the SFIRE codes.
+WRF-Fire is a coupled atmosphere-wildland fire model combining WRF and
+fire model code, released and distributed by NCAR as a part of WRF. 
+This repository contains a development version of WRF-Fire with the latest
+features and bug fixes, and additional utilities.
+The code from this repository is submitted to WRF release from time to time.
 
 For terms and conditions see the file license.txt
 
@@ -6,22 +10,24 @@ Documentation is in progress. Current drafts of the technical documentation and
 user's guide can be found at
 
 http://www.openwfm.org/wiki/WRF-Fire_documentation
-
-If you find this code useful please acknowledge our work by citing the paper
-[1].  Yes this is a strange reference for an atmospheric scientist but it  
-is the only one we have at the moment. Please see the sections
-"Fireline propagation model", "Coupling ﬁre and weather models", and
-"Level-set-based wildland fire model".  The fire model is based on [2] 
-but not all features from [2] are implemented here yet.
+http://www.openwfm.org/wiki/WRF-Fire_publications
 
 We hope you find the code useful. Please let us know if we can help. But
 do us a favor and before you ask a question (such as, what is git?) 
 please google first. You may need to find a local guru for Linux questions.
-Thank you!
 
-Janice Coen - physics
-Jan Mandel - the fire code
-Jonathan Beezley - WRF infrastructure and WPS
+If you find this code useful please acknowledge our work by citing the paper
+[1]. For the description of the fire code, see the sections
+"Fireline propagation model", "Coupling ﬁre and weather models", and
+"Level-set-based wildland fire model".  The fire model is based on [2] 
+but not all features from [2] are implemented here yet. The preprint [3]
+describes the code as of WRF release 3.3 planned in Spring 2011 and 
+this repository as of early November 2010. The paper [4] is just an
+extended abstract but it mentions few more advanced features.
+
+Thank you for using WRF-Fire!
+
+References
 
 [1] Jan Mandel, Jonathan D. Beezley, Janice L. Coen, Minjeong Kim, Data 
 Assimilation for Wildland Fires: Ensemble Kalman filters in coupled 
@@ -32,6 +38,15 @@ Preprint available from http://arxiv.org/abs/0712.3965
 [2] J. L. Coen, “Simulation of the Big Elk Fire using using coupled 
 atmosphere-fire modeling,” International Journal of Wildland Fire, vol. 14,
 no. 1, pp. 49–59, 2005
+
+[3] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled 
+atmosphere-wildland fire modeling with WRF-Fire version 3.3", Geoscientific Model 
+Development (GMD), submitted. Also available at http://arxiv.org/abs/1102.1343 
+
+[4] Jan Mandel, Jonathan Beezley, and Adam Kochanski, "An overview of 
+the coupled atmosphere-wildland fire model WRF-Fire",
+91st American Meteorological Society Annual Meeting], Seattle, WA, January 25, 2011. 
+http://ams.confex.com/ams/91Annual/webprogram/Manuscript/Paper185887/ams2011-fire.pdf 
 
 --------------------------------------------------------------------
 
@@ -47,9 +62,7 @@ For support please subscribe to the wrf-fire mailing list at NCAR at
 http://mailman.ucar.edu/mailman/listinfo/wrf-fire
 or see http://www.openwfm.org/wiki/WRF-Fire_user_support 
 
-You can also ask directly Jan.Mandel@gmail.com
-
-Answers to any questions may be copied or summarized to the wrf-fire list
+NOTE: Answers to any questions may be copied or summarized to the wrf-fire list
 and/or the wiki.
 
 

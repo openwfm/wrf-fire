@@ -34,6 +34,13 @@ MODEL_INIT_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
+FUELS_OBJ = \
+    fuels_main.o \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+    
+
 NAMELIST= \
     namelist_statements.inc \
     namelist_defaults.inc \
@@ -67,15 +74,24 @@ fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
 
 all: fire init fuel
 
+rmfirex: 
+	cd ../wrfv2_fire/test/em_fire; rm -f fire.exe;
+
 fire: fire.exe
+	cd ../wrfv2_fire/test/em_fire; ln -s ../../../standalone/fire.exe fire.exe
 
 init: init.exe
 
-fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ)
+fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ) rmfirex
 	$(FC) $(FCFLAGS) -o fire.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
 
 init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
+
+fuels: fuels.exe
+
+fuels.exe: $(MAKEFILE) $(FUELS_OBJ)
+	$(FC) $(FCFLAGS) $(LDFLAGS) -o fuels.exe $(FUELS_OBJ) $(LDFLAGS)
  
 # for the order of generating modules
 
@@ -133,6 +149,11 @@ sfire_id.inc: always
 	chmod +x commit_hash
 	./commit_hash > sfire_id.inc
 	cat sfire_id.inc
+
+fuels_main.o: $(MAKEFILE) \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
 
 always:
 

@@ -42,6 +42,8 @@ real, save::            &
  fire_viscosity=0.4,    &  ! artificial viscosity
  fire_lfn_ext_up=1.        ! 0.=extend level set function at boundary by reflection, 1.=always up
 
+integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
+
 contains
 
 !
@@ -53,7 +55,7 @@ implicit none
 character(len=*), intent(in)::s
 character(len=128)msg
 msg='crash: '//s
-call message(msg)
+call message(msg,level=0)
 !$OMP CRITICAL(SFIRE_MESSAGE_CRIT)
 call wrf_error_fatal(msg)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
@@ -63,32 +65,39 @@ end subroutine crash
 !****************
 !
 
-subroutine message(s)
+subroutine message(s,level)
 use module_wrf_error
 #ifdef _OPENMP
 use OMP_LIB 
 #endif
 implicit none
+!*** arguments
 character(len=*), intent(in)::s
-! local
-character(len=128)msg
-character(len=118)t
-integer m
+integer,intent(in),optional::level
+!*** local
+character(len=128)::msg
+character(len=118)::t
+integer m,mlevel
 logical op
-if(fire_print_msg.gt.0)then
-#ifdef _OPENMP
-    m=omp_get_thread_num()
-    t=s
+!*** executable
+if(present(level))then
+    mlevel=level
+else
+    mlevel=2  ! default message level
+endif
+if(fire_print_msg.ge.mlevel)then
+      m=0
 !$OMP CRITICAL(SFIRE_MESSAGE_CRIT)
-    write(msg,'(a6,i3,a1,a118)')'SFIRE:',m,':',t
+#ifdef _OPENMP
+      m=omp_get_thread_num()
+      t=s
+      write(msg,'(a6,i3,a1,a118)')'SFIRE:',m,':',t
 #else
-    msg='SFIRE:'//s
+      msg='SFIRE:'//s
 #endif
-    call wrf_message(msg)
-    inquire(unit=6,opened=op)
-    if(op)flush(6)
-    inquire(unit=0,opened=op)
-    if(op)flush(0)
+      call wrf_message(msg)
+      flush(6)
+      flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -97,34 +106,56 @@ end subroutine message
 !****************
 !
 
-
-integer function open_input_text_file(filename)
+subroutine time_start
+use module_timing
 implicit none
-character(len=*),intent(in):: filename
+call start_timing
+end subroutine time_start
+
+subroutine time_end(string)
+use module_timing
+implicit none
+character(len=*)string
+call end_timing(string)
+end subroutine time_end
+
+
+integer function open_text_file(filename,rw)
+implicit none
+character(len=*),intent(in):: filename,rw
 !$ integer, external:: OMP_GET_THREAD_NUM
 character(len=128):: msg
+character(len=1)::act
 integer::iounit,ierr
 logical::op
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('open_input_text_file: called from parallel loop')
 !$  endif
-!$OMP CRITICAL(SFIRE_OPEN_CRIT)
 
     do iounit=19,99
        inquire(iounit,opened=op)
        if(.not.op)goto 1
     enddo
-    call crash('open_input_text_file: Cannot find any available I/O unit')
+    call crash('open_text_file: Cannot find any available I/O unit')
 1   continue
-    OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+    act=rw(1:1)
+    select case (act)
+        case ('r','R')
+            OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='OLD',ACTION='READ',IOSTAT=ierr)
+        case ('w','W')
+            OPEN(iounit, FILE=filename,FORM='FORMATTED',STATUS='UNKNOWN',ACTION='WRITE',IOSTAT=ierr)
+        case default
+            write(msg,*)'open_text_file: bad mode ',trim(rw),' for file ',trim(filename)
+    end select
+    
     if(ierr.ne.0)then 
-	write(msg,*)'open_input_text_file: Cannot open file ',filename
+	write(msg,*)'open_text_file: Cannot open file ',filename
         call crash(msg)
     endif
-!$OMP END CRITICAL(SFIRE_OPEN_CRIT)
-    open_input_text_file=iounit
-end function open_input_text_file
+    open_text_file=iounit
+
+end function open_text_file
 
 !
 !****************
@@ -167,6 +198,7 @@ subroutine continue_at_boundary(ix,iy,bias, & ! do x direction or y direction
     ids,ide,jds,jde, &                ! domain dims
     ips,ipe,jps,jpe, &                ! patch dims
     its,ite,jts,jte, &                ! tile dims
+    itso,iteo,jtso,jteo, &            ! tile dims where set
     lfn)                              ! array
 implicit none
 !*** description
@@ -178,9 +210,10 @@ integer, intent(in)::ims,ime,jms,jme, &                ! memory dims
     ids,ide,jds,jde, &                ! domain dims
     ips,ipe,jps,jpe, &                ! patch dims
     its,ite,jts,jte                   ! tile dims
+integer, intent(out)::itso,jtso,iteo,jteo ! where set
 real,intent(inout),dimension(ims:ime,jms:jme)::lfn
 !*** local
-integer i,j,itso,jtso,iteo,jteo
+integer i,j
 character(len=128)::msg
 integer::its1,ite1,jts1,jte1
 integer,parameter::halo=1           ! width of halo region to update 
@@ -207,8 +240,8 @@ if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+halo
 if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+halo
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call message(msg)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 if(ix.ne.0)then
     if(its.eq.ids)then
         do j=jts1,jte1
@@ -224,8 +257,8 @@ if(ix.ne.0)then
     endif
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: x:',its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jts1,':',jte1
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
     call message(msg)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 endif
 if(iy.ne.0)then
     if(jts.eq.jds)then
@@ -925,7 +958,7 @@ character(len=*),intent(in)::name
 integer:: i,j
 real:: t 
 real:: avg_a,max_a,min_a 
-character(len=25)id
+character(len=25)::id
 id=name
 call print_2d_stats(ips,ipe,jps,jpe, &
                          ims,ime,jms,jme, &
@@ -957,8 +990,8 @@ integer, intent(in)::ips,ipe,jps,jpe
 character(len=*),intent(in)::name
 real,intent(in)::min_a,max_a,avg_a
 !*** local
-character(len=128)msg
-character(len=24)id
+character(len=128)::msg
+character(len=24)::id
 if(fire_print_msg.eq.0)return
 id=name
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
@@ -978,7 +1011,7 @@ real, intent(in)::a(ims:ime,kms:kme,jms:jme)
 character(len=*),intent(in)::name
 integer:: i,j,k
 real:: avg_a,max_a,min_a,t,aa,bb
-character(len=128)msg
+character(len=128)::msg
 ! if(fire_print_msg.eq.0)return
 ! check for nans in any case
 bb=0.
@@ -1014,7 +1047,7 @@ return
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,1)name,i,k,j,aa
 call message(msg)
-1 format(a,'(',i6,',',i6,',',i6,') = ',a)
+1 format(a30,'(',i6,',',i6,',',i6,') = ',g13.5)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
 if(aa.ne.aa)goto 10
@@ -1031,7 +1064,7 @@ implicit none
 integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
-!!character(len=128)msg
+!!character(len=128)::msg
 !if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &
@@ -1131,7 +1164,7 @@ character(len=128)::fname,msg
 if(fire_print_file.eq.0.or.id.le.0)return
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call wrf_get_nproc (nprocs)
-call wrf_get_myproc( myproc )
+call wrf_get_myproc(myproc)
 
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 if(nprocs.eq.1)then
@@ -1139,17 +1172,13 @@ if(nprocs.eq.1)then
 else
     write(fname,4)name,'_',id,'.',myproc,'.txt'
 endif
-do ilen=len(fname),2,-1
-    if(fname(ilen:ilen).ne.' ')goto 19
-enddo
-19 continue
 
 iu=0
 do i=6,99
     inquire(unit=i,opened=op)
     if(.not.op.and.iu.le.0)iu=i
 enddo
-if(iu.gt.0)open(iu,file=fname(1:ilen),form='formatted',status='unknown')
+if(iu.gt.0)open(iu,file=trim(fname),form='formatted',status='unknown')
 
 if(iu.le.0)call crash('write_array_m: cannot find available fortran unit')
 
@@ -1162,15 +1191,15 @@ write(iu,1)real(kte)
 write(iu,1)(((a(i,k,j),i=its,ite),j=jts,jte),k=kts,kte)
 close(iu)
 write(msg,2)name,'(',its,':',ite,',',jts,':',jte,',', &
-kts,':',kte,') -> ',fname(1:ilen) 
+kts,':',kte,') -> ',trim(fname) 
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call message(msg)
 return
 
 1 format(e20.12)
 2 format(2a,3(i5,a,i5,a),2a)
-3 format(a,a,i5.5,a)
-4 format(a,a,i5.5,a,i4.4,a)
+3 format(a,a,i8.8,a)
+4 format(a,a,i8.8,a,i4.4,a)
 
 
 end subroutine write_array_m3
@@ -1280,6 +1309,18 @@ end subroutine read_array_2d_real
 !***
 !
 
+! general conditional expression
+pure integer function ifval(l,i,j)
+implicit none
+logical, intent(in)::l
+integer, intent(in)::i,j
+if(l)then
+	ifval=i
+else
+	ifval=j
+endif
+end function ifval
+
 ! function to go beyond domain boundary if tile is next to it
 pure integer function snode(t,d,i)
 implicit none
@@ -1295,8 +1336,199 @@ subroutine print_id
 character(len=128)::id,msg
 #include "sfire_id.inc"
 msg=id
-call message(msg)
+call message(msg,level=1)
 end subroutine print_id
 
+subroutine print_chsum( id, & 
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+    istag,kstag,jstag,       &
+    a,name)                      
+
+#ifdef DM_PARALLEL
+    USE module_dm
+#endif
+
+integer, intent(in):: id, &
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch dims
+    istag,kstag,jstag
+real, intent(in),dimension(ims:ime,kms:kme,jms:jme)::a
+character(len=*)::name
+
+!$ external, logical:: omp_in_parallel
+!$ external, integer:: omp_get_thread_num
+
+!*** local
+integer::lsum
+integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
+integer, save::psum,gsum
+real::rel
+equivalence(rel,iel)
+character(len=256)msg
+
+if(fire_print_msg.le.0)return
+
+ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
+kpe1=ifval(kpe.eq.kde.and.kstag.ne.0,kpe+1,kpe)
+jpe1=ifval(jpe.eq.jde.and.jstag.ne.0,jpe+1,jpe)
+is=ifval(istag.ne.0,1,0)
+ks=ifval(kstag.ne.0,1,0)
+js=ifval(jstag.ne.0,1,0)
+
+lsum=0
+do j=jps,jpe1
+  do k=kps,kpe1
+    do i=ips,ipe1
+      rel=a(i,k,j)
+      lsum=ieor(lsum,iel)
+    enddo
+  enddo
+enddo
+
+! get process sum over all threads
+thread=0
+!$ thread=omp_get_thread_num()
+if(thread.eq.0)psum=0
+!$OMP BARRIER
+!$OMP CRITICAL(CHSUM)
+psum=ieor(psum,lsum)
+!$OMP END CRITICAL(CHSUM)
+!$OMP BARRIER
+
+! get global sum over all processes
+if(thread.eq.0)then
+#ifdef DM_PARALLEL
+    gsum = wrf_dm_bxor_integer ( psum )
+#else
+    gsum = psum
+#endif
+    write(msg,1)id,name,ids,ide+is,kds,kde+ks,jds,jde+js,gsum
+1   format(i6,1x,a10,' dims',6i5,' chsum ',z8.8)
+    call message(msg)
+endif
+
+end subroutine print_chsum 
+
+
+real function fun_real(fun,  & 
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+    istag,kstag,jstag,       &                ! staggering
+    a,b)                      
+
+#ifdef DM_PARALLEL
+    USE module_dm
+#endif
+
+integer, intent(in)::  fun, &
+    ims,ime,kms,kme,jms,jme, &                ! memory dims
+    ids,ide,kds,kde,jds,jde, &                ! domain dims
+    ips,ipe,kps,kpe,jps,jpe, &                ! patch dims
+    istag,kstag,jstag                         ! staggering
+real, intent(in),dimension(ims:ime,kms:kme,jms:jme)::a,b
+
+!*** local
+real::lsum,void
+integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
+real, save::psum,gsum
+real::rel
+logical:: dosum,domax
+character(len=256)msg
+
+ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
+kpe1=ifval(kpe.eq.kde.and.kstag.ne.0,kpe+1,kpe)
+jpe1=ifval(jpe.eq.jde.and.jstag.ne.0,jpe+1,jpe)
+is=ifval(istag.ne.0,1,0)
+ks=ifval(kstag.ne.0,1,0)
+js=ifval(jstag.ne.0,1,0)
+
+if(fun.eq.REAL_SUM)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=lsum+a(i,k,j)
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.RNRM_SUM)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=lsum+sqrt(a(i,k,j)*a(i,k,j)+b(i,k,j)*b(i,k,j))
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.REAL_MAX)then
+  void=-huge(lsum)
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=max(lsum,a(i,k,j))
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.RNRM_MAX)then
+  void=0.
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=max(lsum,sqrt(a(i,k,j)*a(i,k,j)+b(i,k,j)*b(i,k,j)))
+      enddo
+    enddo
+  enddo
+else
+  call crash('fun_real: bad fun')
+endif
+
+if(lsum.ne.lsum)call crash('fun_real: NaN detected')
+
+dosum=fun.eq.REAL_SUM.or.fun.eq.RNRM_SUM
+domax=fun.eq.REAL_MAX.or.fun.eq.RNRM_MAX
+
+! get process sum over all threads
+!$OMP SINGLE
+! only one thread should write to shared variable
+psum=void
+!$OMP END SINGLE
+!$OMP BARRIER
+! now all threads know psum
+
+!$OMP CRITICAL(RDSUM)
+! each thread adds its own lsum
+if(dosum)psum=psum+lsum
+if(domax)psum=max(psum,lsum)
+!$OMP END CRITICAL(RDSUM)
+
+! wait till all theads are done
+!$OMP BARRIER
+
+! get global sum over all processes
+!$OMP SINGLE
+! only one threads will do the mpi communication
+#ifdef DM_PARALLEL
+    if(dosum) gsum = wrf_dm_sum_real ( psum )
+    if(domax) gsum = wrf_dm_max_real ( psum )
+#else
+    gsum = psum
+#endif
+if(gsum.ne.gsum)call crash('fun_real: NaN detected')
+!$OMP END SINGLE
+
+!$OMP BARRIER
+! now gsum is known to all threads
+
+fun_real=gsum
+
+end function fun_real
 
 end module module_fr_sfire_util

@@ -1656,6 +1656,7 @@ integer , DIMENSION(max_domains) :: fire_sprd_mdl
 real , DIMENSION(max_domains) :: fire_crwn_hgt
 real , DIMENSION(max_domains) :: fire_ext_grnd
 real , DIMENSION(max_domains) :: fire_ext_crwn
+real , DIMENSION(max_domains) :: fire_wind_height
 integer , DIMENSION(max_domains) :: fire_fuel_read
 integer , DIMENSION(max_domains) :: fire_fuel_cat
 integer , DIMENSION(max_domains) :: fire_print_msg

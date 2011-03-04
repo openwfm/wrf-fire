@@ -16,6 +16,7 @@ module gridinfo_module
    ! Variables
    integer :: iproj_type, n_domains, io_form_output, dyn_opt
    integer, dimension(MAX_DOMAINS) :: parent_grid_ratio, parent_id, ixdim, jydim
+   integer, dimension(MAX_DOMAINS) :: moad_grid_ratio
    integer, dimension(MAX_DOMAINS) :: subgrid_ratio_x, subgrid_ratio_y
    real :: known_lat, known_lon, pole_lat, pole_lon, stand_lon, truelat1, truelat2, &
            known_x, known_y, dxkm, dykm, phi, lambda, ref_lat, ref_lon, ref_x, ref_y, &
@@ -90,6 +91,7 @@ module gridinfo_module
          geog_data_res(i) = 'default'
          parent_id(i) = 1
          parent_grid_ratio(i) = INVALID
+         moad_grid_ratio(i) = INVALID
          s_we(i) = 1
          e_we(i) = INVALID
          s_sn(i) = 1
@@ -112,6 +114,7 @@ module gridinfo_module
          subgrid_ratio_x(i) = 1
          subgrid_ratio_y(i) = 1
       end do
+      moad_grid_ratio(1) = 1
       opt_output_from_geogrid_path = './'
       opt_geogrid_tbl_path = 'geogrid/'
       interval_seconds = INVALID
@@ -581,6 +584,12 @@ module gridinfo_module
          end do
 
       end if
+
+      ! calculate the grid ratio between each domain and the moad (mother of all domains)
+      !   i.e. the product of parent_grid_ratio traversing down the nest tree
+      do i=2,n_domains
+        moad_grid_ratio(i)=moad_grid_ratio(parent_id(i))*parent_grid_ratio(i)
+      end do
   
       return
   
