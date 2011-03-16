@@ -96,8 +96,8 @@ if(fire_print_msg.ge.mlevel)then
       msg='SFIRE:'//s
 #endif
       call wrf_message(msg)
-      flush(6)
-      flush(0)
+      ! flush(6) ! will not work on intel compiler
+      ! flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
