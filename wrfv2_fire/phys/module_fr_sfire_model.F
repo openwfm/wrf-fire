@@ -203,7 +203,7 @@ elseif(ifun.eq.2)then
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
-            fdx,fdy,time_start,  &
+            fdx,fdy,time_start,dt,  &
             fuel_frac,fire_area,lfn,tign)
             
             need_lfn_update=.true. ! because we have set lfn 
