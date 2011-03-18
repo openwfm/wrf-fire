@@ -136,7 +136,7 @@ real:: ros,tos                  ! ignition rate and time of spread
 
 !*** executable
 
-call check_lfn_tign("ignite_fire start:",end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+call check_lfn_tign('ignite_fire start',end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
 ! copy ignition line fields to local variables
 start_x    = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
@@ -200,6 +200,7 @@ dmin=huge(dmax)
 12      format('IGN ',4(a,2g13.7,1x))
 do j=jfts,jfte   
     do i=ifts,ifte
+        call check_lfn_tign_ij(i,j,'ignite_fire start',end_ts,lfn(i,j),tign(i,j))
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
 
@@ -248,13 +249,7 @@ do j=jfts,jfte
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
-        if(.not.lfn(i,j)<0. .and. tign(i,j)<end_ts)then
-!$OMP CRITICAL(SFIRE_CORE_CRIT)
-            write(msg,*)'i,j=',i,j,' lfn=',lfn(i,j),' tign=',tign(i,j),' end_ts=',end_ts
-            call message(msg)
-            call crash('ignite_fire: if lfn >= 0 must have tign >= end of time step')
-!$OMP END CRITICAL(SFIRE_CORE_CRIT)
-        endif
+        call check_lfn_tign_ij(i,j,'ignite_fire end',end_ts,lfn(i,j),tign(i,j))
     enddo
 enddo
 call check_lfn_tign("ignite_fire end:",end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
@@ -284,29 +279,38 @@ real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: &
                    lfn, tign                ! level function, ignition time (state)
 !*** local
 integer:: i,j
+!***    executable
 
 do j=jfts,jfte   
     do i=ifts,ifte
-        if(lfn(i,j)>0. .and. tign(i,j)<time_now)call crashij('if lfn > 0 must have tign >= time_now')
-        if(lfn(i,j)<0. .and. .not. tign(i,j)<time_now)call crashij('if lfn < 0 must have tign < time_now')
+       call check_lfn_tign_ij(i,j,s,time_now,lfn(i,j),tign(i,j))
     enddo
 enddo
 
-contains
-
-subroutine crashij(what)
-!*** print error message for i,j and crash
-character(len=*),intent(in)::what              ! for print
-character(len=128):: msg
-!$OMP CRITICAL(SFIRE_CORE_CRIT)
-write(msg,*)'i,j=',i,j,' lfn=',lfn(i,j),' tign=',tign(i,j),' time_now=',time_now
-call message(msg)
-msg=s//": "//what
-call crash(msg)
-!$OMP END CRITICAL(SFIRE_CORE_CRIT)
-end subroutine crashij 
-
 end subroutine check_lfn_tign 
+
+subroutine check_lfn_tign_ij(i,j,s,time_now,lfnij,tignij)
+!*** purpose: check consistency of lfn and ignition
+implicit none
+!*** arguments
+integer, intent(in)::i,j                    ! indices
+character(len=*),intent(in)::s              ! for print
+real, intent(in)::time_now                  ! end of timestep = time_now
+real, intent(in):: lfnij, tignij                ! level function, ignition time (state)
+!*** local
+character(len=128):: msg
+!***    executable
+
+if(.not.(lfnij<0. .eqv. tignij<time_now))then
+   !$OMP CRITICAL(SFIRE_CORE_CRIT)
+   write(msg,*)'i,j=',i,j,' lfn=',lfnij,' tign=',tignij,' time_now=',time_now
+   call message(msg)
+   msg=s//': must have lfn<0 <=> tign<time_now'
+   call crash(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+endif
+end subroutine check_lfn_tign_ij
+
 
 ! called from the inside of a loop, inline if possible
 !DEC$ ATTRIBUTES FORCEINLINE
@@ -440,7 +444,7 @@ integer::m,omp_get_thread_num
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
-call check_check_lfn_tign("fuel_left start",time_now,its,ite,jts,jte,ims,ime,jms,jme,lfn, tign)
+call check_lfn_tign("fuel_left start",time_now,its,ite,jts,jte,ims,ime,jms,jme,lfn, tign)
 
 ! refinement
 ir=fuel_left_irl
@@ -1629,8 +1633,6 @@ write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 
-call check_check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in, tign)
-
     a=fire_back_weight ! from module_fr_sfire_util
     a1=1. - a
     
@@ -1758,6 +1760,7 @@ call check_check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn
             endif
             ! set the ignition time outside of burning region
             if(lfn_out(i,j)>0.)tign(i,j)=time_now
+            call check_lfn_tign_ij(i,j,'prop_ls',time_now,lfn_out(i,j),tign(i,j))
         enddo
     enddo
     
@@ -1850,7 +1853,7 @@ call check_check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn
     call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
                    lfn_out,'prop_ls: lfn out')
 
-    call check_check_lfn_tign('prop_ls end',ts+dt,its,ite,jts,jte,ims,ime,jms,jme,lfn_out, tign)
+    call check_lfn_tign('prop_ls end',ts+dt,its,ite,jts,jte,ims,ime,jms,jme,lfn_out, tign)
 end subroutine prop_ls
 
 !
