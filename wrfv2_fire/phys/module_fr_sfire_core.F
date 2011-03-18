@@ -248,11 +248,11 @@ do j=jfts,jfte
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
-        if(lfn(i,j)>0. .and. tign(i,j)<end_ts)then
+        if(.not.lfn(i,j)<0. .and. tign(i,j)<end_ts)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
             write(msg,*)'i,j=',i,j,' lfn=',lfn(i,j),' tign=',tign(i,j),' end_ts=',end_ts
             call message(msg)
-            call crash('ignite_fire: if lfn > 0 must have tign >= end of time step')
+            call crash('ignite_fire: if lfn >= 0 must have tign >= end of time step')
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
     enddo
