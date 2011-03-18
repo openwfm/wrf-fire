@@ -125,7 +125,8 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
-real::lfn_new,time_ign,ax,ay,rels,rele,d
+real::lfn_new,tign_new,time_ign,ax,ay,rels,rele,d
+! real:: lfn_new_chk,tign_new_chk,tmperr
 real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
@@ -201,6 +202,7 @@ dmax=0
 dmin=huge(dmax)
 11      format('IGN ',6(a,g17.7,1x)) 
 12      format('IGN ',4(a,2g13.7,1x))
+tmperr=0.
 do j=jfts,jfte   
     do i=ifts,ifte
         call check_lfn_tign_ij(i,j,'ignite_fire start',end_ts,lfn(i,j),tign(i,j))
@@ -210,10 +212,26 @@ do j=jfts,jfte
         ! get d= distance from the nearest point on the ignition segment
         ! and time_ign = the ignition time there
         call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
+
+
+        ! collect statistics
         dmax=max(d,dmax)
         dmin=min(d,dmin)
 
-        lfn_new=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
+        ! tentative new level set function and time of ignition
+        ! lfn_new_chk=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
+        ! tign_new_chk = time_ign + d/ros
+        if(radius < ros*(end_ts - time_ign))then
+            lfn_new = d - radius
+            tign_new= time_ign + d/ros
+        else
+            lfn_new=d-ros*(end_ts - time_ign)
+            tign_new=lfn_new/ros + end_ts  ! consistent even with rounding errors
+        endif
+        ! tmperr=max(tmperr,abs(lfn_new - lfn_new_chk)+abs(tign_new-tign_new_chk))
+        !lfn_new=lfn_new_chk
+        !tign_new=tign_new_chk
+        
         if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
             write(msg,*)'IGN1 i,j=',i,j,' lfn(i,j)=',lfn(i,j),' tign(i,j)=',tign(i,j)
@@ -225,8 +243,8 @@ do j=jfts,jfte
         if(.not.lfn_new>0.) then
             ignited=ignited+1   ! count
         endif
-        if(lfn(i,j)>0. .and. .not. lfn_new > 0.) then
-            tign(i,j)=time_ign + d/ros  ! newly ignited now
+        if(.not. lfn(i,j)<0. .and. lfn_new < 0.) then
+            tign(i,j)=tign_new  ! newly ignited now
             if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
                 write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
@@ -255,6 +273,8 @@ do j=jfts,jfte
         call check_lfn_tign_ij(i,j,'ignite_fire end',end_ts,lfn(i,j),tign(i,j))
     enddo
 enddo
+! write(msg,*)'ignite_fire: max error ',tmperr
+! call message(msg)
 call check_lfn_tign("ignite_fire end:",end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 if(fire_print_msg .ge. 2)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
