@@ -136,6 +136,8 @@ real:: ros,tos                  ! ignition rate and time of spread
 
 !*** executable
 
+call check_lfn_tign("ignite_fire start:",end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+
 ! copy ignition line fields to local variables
 start_x    = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
 start_y    = ignition_line%start_y ! y coordinate of the ignition line start point
@@ -255,12 +257,15 @@ do j=jfts,jfte
         endif
     enddo
 enddo
+call check_lfn_tign("ignite_fire end:",end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+if(fire_print_msg .ge. 2)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
 call message(msg)
 write(msg,'(a,f6.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
+endif
 end subroutine ignite_fire
 
 !
@@ -435,6 +440,7 @@ integer::m,omp_get_thread_num
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
+call check_check_lfn_tign("fuel_left start",time_now,its,ite,jts,jte,ims,ime,jms,jme,lfn, tign)
 
 ! refinement
 ir=fuel_left_irl
@@ -1623,6 +1629,8 @@ write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 
+call check_check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in, tign)
+
     a=fire_back_weight ! from module_fr_sfire_util
     a1=1. - a
     
@@ -1842,6 +1850,7 @@ call message(msg)
     call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
                    lfn_out,'prop_ls: lfn out')
 
+    call check_check_lfn_tign('prop_ls end',ts+dt,its,ite,jts,jte,ims,ime,jms,jme,lfn_out, tign)
 end subroutine prop_ls
 
 !
