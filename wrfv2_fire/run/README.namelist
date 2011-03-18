@@ -45,7 +45,8 @@ information on NMM specific settings (http://www.dtcenter.org/wrf-nmm/users)
  input_from_file (max_dom)           = T,       ; whether nested run will have input files for domains other than 1
  fine_input_stream (max_dom)         = 0,       ; field selection from nest input for its initialization
                                                   0: all fields are used; 2: only static and time-varying, masked land 
-                                                  surface fields are used.
+                                                  surface fields are used. In V3.2, this requires the use of 
+                                                  io_form_auxinput2
  history_interval (max_dom)          = 60,  	; history output file interval in minutes
  frames_per_outfile (max_dom)        = 1, 	; output times per history output file, used to split output files 
                                                   into smaller pieces
@@ -59,6 +60,8 @@ information on NMM specific settings (http://www.dtcenter.org/wrf-nmm/users)
  io_form_boundary                    = 2,       ; netCDF format
                                      = 4,       ; PHD5 format
                                      = 5,       ; GRIB1 format
+                                     = 10,      ; GRIB2 format
+                                     = 11,      ; pnetCDF format
  frames_per_emissfile                = 12,  ; Number of times in each chemistry emission file.
  io_style_emiss                      = 1,   ; Style to use for the chemistry emission files.
                                                 ; 0 = Do not read emissions from files.
@@ -87,6 +90,7 @@ For SST updating (used only with sst_update=1):
  
  auxinput4_inname                    = "wrflowinp_d<domain>" 
  auxinput4_interval                  = 360      ; minutes generally matches time given by interval_seconds
+ io_form_auxinput4                   = 2        ; IO format, required in V3.2
 
 Additional settings when running WRFVAR:
 
@@ -317,6 +321,7 @@ Namelist variables for controlling the adaptive time step option:
                                      = 6, WSM 6-class graupel scheme
                                      = 7, Goddard GCE scheme (also uses gsfcgce_hail, gsfcgce_2ice)
                                      = 8, Thompson scheme (new for V3.1)
+                                     = 9, Milbrandt-Yau 2-moment scheme (new for V3.2)
                                      = 10, Morrison (2 moments)
                                      = 14, WDM 5-class scheme
                                      = 16, WDM 6-class scheme
@@ -413,7 +418,10 @@ Namelist variables for controlling the adaptive time step option:
  sf_urban_physics(max_dom)           = 0, ; activate urban canopy model (in Noah LSM only)
                                      = 0: no
                                      = 1: Single-layer, UCM 
-                                     = 2: Multi-layer, BEP scheme (works only with MYJ and BouLac PBL)
+                                     = 2: Multi-layer, Building Environment Parameterization (BEP) scheme 
+                                          (works only with MYJ and BouLac PBL)
+                                     = 3: Multi-layer, Building Environment Model (BEM) scheme 
+                                          (works only with MYJ and BouLac PBL)
 
  bl_pbl_physics (max_dom)            boundary-layer option
                                      = 0, no boundary-layer 
@@ -515,9 +523,10 @@ Namelist variables for controlling the adaptive time step option:
                                                 ; from 3 m to surface, and set smois and sh2o
  sst_update                          = 0        ; time-varying sea-surface temp (0=no, 1=yes). If selected real 
                                                 ; puts SST, XICE, ALBEDO and VEGFRA in wrflowinp_d01 file, and wrf updates 
-                                                ; these from it at same interval as boundary file. To read this, the time-control
-                                                ; namelist must include  auxinput4_interval,  auxinput4_end_h, and
-                                                ; auxinput4_inname = "wrflowinp_d<domain>"
+                                                ; these from it at same interval as boundary file. Also requires
+                                                ; namelists in &time_control: auxinput4_interval, auxinput4_end_h,
+                                                ; auxinput4_inname = "wrflowinp_d<domain>", 
+                                                ; and in V3.2 io_form_auxinput4
  usemonalb                           = .true.   ; use monthly albedo map instead of table value
                                                 ; (must be used for NMM and recommended for sst_update=1)
  rdmaxalb                            = .true.   ; use snow albedo from geogrid; false means using values from table
@@ -527,15 +536,16 @@ Namelist variables for controlling the adaptive time step option:
  tmn_update                          = 0        ; update deep soil temperature (1, yes; 0, no)
  lagday                              = 150      ; days over which tmn is computed using skin temperature
  sst_skin                            = 0        ; calculate skin SST
- slope_rad (max_dom)                 = 0        ; slope effects for ra_sw_physics=1 (1=on, 0=off)
- topo_shading (max_dom)              = 0        ; neighboring-point shadow effects for ra_sw_physics=1 (1=on, 0=off)
+ slope_rad (max_dom)                 = 0        ; slope effects for solar radiation (1=on, 0=off)
+ topo_shading (max_dom)              = 0        ; neighboring-point shadow effects for solar radiation (1=on, 0=off)
  shadlen                             = 25000.   ; max shadow length in meters for topo_shading=1
  omlcall                             = 0        ; activate simple ocean mixed layer model (0=no, 1=yes); works with 
                                                   sf_surface_physics = 1 only
  oml_hml0                            = 50       ; oml model can be initialized with a constant depth everywhere (m)
  oml_gamma                           = 0.14     ; oml deep water lapse rate (K m-1)
- isftcflx                            = 0        ; alternative Ck, Cd formulation for tropical storm application (0=default, 1=new)
+ isftcflx                            = 0        ; alternative Ck, Cd formulation for tropical storm application (0=default, 1=new, 2=Garratt)
  fractional_seaice                   = 0        ; treat sea-ice as fractional field (1) or ice/no-ice flag (0)
+ tice2tsk_if2cold                    = .false.  ; set Tice to Tsk to avoid unrealistically low sea ice temperatures
  iz0tlnd                             = 0        ; thermal roughness length for sfclay and myjsfc (0 - old, 1 - veg dependent Czil)
  mp_tend_lim                         = 10.,     ; limit on temp tendency from mp latent heating from radar data assimilation
  prec_acc_dt (max_dom)               = 0.,      ; number of minutes in precipitation bucket (ARW only) - will add three
@@ -576,8 +586,10 @@ Namelist variables for controlling the adaptive time step option:
                                                   the analysis, which is based on the distance between the grid point to the nearest
                                                   obs. The analysis without nearby observation is used at a reduced weight.
 
+ pxlsm_soil_nudge(max_dom)           = 1        ; PXLSM Soil nudging option (requires wrfsfdda file)
+
 The following are for spectral nudging:
- fgdtzero (max_dom)                  = 0,       ; nudging tendencies are set to zero in between fdda calls
+ fgdtzero (max_dom)                  = 0,       ; 1= nudging tendencies are set to zero in between fdda calls
  if_no_pbl_nudging_ph                = 0,       ; 1= no nudging of ph in the pbl, 0= nuding in the pbl
  if_zfac_ph (max_dom)                = 0,       ; 0= nudge ph in all layers, 1= limit nudging to levels above k_zfac_ph
   k_zfac_ph (max_dom)                = 10,      ; 10= model level below which nudging is switched off for ph

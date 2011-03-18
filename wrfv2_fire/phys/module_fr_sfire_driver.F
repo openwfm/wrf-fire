@@ -69,6 +69,7 @@ module module_fr_sfire_driver
 use module_fr_sfire_model
 use module_fr_sfire_phys
 use module_fr_sfire_util
+use module_fr_sfire_core, only: ignition_line_type
 
 USE module_domain, only: domain
 USE module_configure, only: grid_config_rec_type
@@ -120,14 +121,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 !*** local
     INTEGER:: fire_num_ignitions
     integer, parameter::fire_max_ignitions=5
-    REAL, DIMENSION(fire_max_ignitions)::  &
-        fire_ignition_start_x, &
-        fire_ignition_start_y, &
-        fire_ignition_end_x, &
-        fire_ignition_end_y, &
-        fire_ignition_start_time, &
-        fire_ignition_end_time, &
-        fire_ignition_radius
+    TYPE(ignition_line_type), DIMENSION(fire_max_ignitions):: ignition_line
     integer::fire_ifun,ir,jr,fire_ignition_longlat,istep,itimestep
     logical::need_lfn_update,restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
@@ -139,7 +133,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
 !*** executable
 
-    call print_id
+    call time_start
+    if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
 ! populate our structures from wrf
 
@@ -158,9 +153,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             
     ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
-        fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-        fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions, &
-        unit_fxlong,unit_fxlat)
+        ignition_line,fire_num_ignitions,unit_fxlong,unit_fxlat)
 
     ! copy configuration flags to sfire internal structures
     call set_flags(config_flags)
@@ -248,11 +241,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             config_flags%fire_wind_height,              &  ! height of wind input to fire spread formula
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
-            fire_ignition_start_x,fire_ignition_start_y, & ! ignition - small arrays
-            fire_ignition_end_x,fire_ignition_end_y,     &
-            fire_ignition_radius,        &
-            fire_ignition_start_time,     &
-            fire_ignition_end_time,     &
+            ignition_line,              &
             grid%u_2,grid%v_2,           &          ! atm arrays in
             grid%ph_2,grid%phb,               & ! geopotential
             grid%z0,                        & ! roughness height
@@ -287,6 +276,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
       enddo
     enddo
     if(tsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
+    call time_end('sfire')
 
 end subroutine sfire_driver_em
 
@@ -311,11 +301,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fire_wind_height,                             & ! for vertical wind interpolation
     num_ignitions,                                & 
     ignition_longlat,                             &
-    ignition_start_x,ignition_start_y,            & ! ignition - small arrays
-    ignition_end_x,ignition_end_y,                &
-    ignition_radius,                              &
-    ignition_start_time,                          &
-    ignition_end_time,                            &
+    ignition_line,                                &
     u,v,                                       & ! in arrays, atm grid
     ph,phb,                                       &
     z0,zs,                                        & 
@@ -336,7 +322,7 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     fuel_time,                                & ! save constant internal data, fire grid
     fp                                           & ! fire params
     )
-USE module_dm, only:wrf_dm_maxval_integer
+USE module_dm, only:wrf_dm_maxval
 
 implicit none
 
@@ -378,12 +364,8 @@ real, intent(in):: &
 
 
 integer, intent(in):: num_ignitions                 ! number of ignitions, can be 0
-real, dimension(num_ignitions), intent(in):: &   
-    ignition_start_x,ignition_start_y, &
-    ignition_end_x,ignition_end_y,ignition_radius, & ! start, end, radius, time
-    ignition_start_time,     &                      !  of ignition lines start
-    ignition_end_time                           !  of ignition lines end
 integer, intent(in):: ignition_longlat       ! if 1 ignition give as long/lat, otherwise as m from lower left corner
+TYPE (ignition_line_type), DIMENSION(num_ignitions), intent(out):: ignition_line
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v, & ! wind velocity (m/s) (staggered atm grid) 
                               ph, phb                      ! geopotential (w-points atm grid)
@@ -677,11 +659,7 @@ do ij=1,num_tiles
         ifts,ifte,jfts,jfte,                    & ! fire patch dims
         time_start,dt,                          & ! time and increment
         dxf,dyf,                                & ! fire mesh spacing
-        ignition_start_x,ignition_start_y,      & ! ignition - small arrays
-        ignition_end_x,ignition_end_y,          &
-        ignition_radius,                        &
-        ignition_start_time,                    &
-        ignition_end_time,                      &
+        ignition_line,                          & ! description of ignition lines
         ignitions_done_tile(ij),ignited_tile(1,ij),  &
         fxlong,fxlat,unit_fxlong,unit_fxlat,      & ! fire mesh coordinates
         ign,                                          &  ! dimension of ignition histories
@@ -774,7 +752,7 @@ if (ifun.eq.3)then
         enddo
 #ifdef DM_PARALLEL
         call message('sfire_driver_phys: checking ignitions, collect counts')
-        call wrf_dm_maxval_integer(ignited_patch(i),idex,jdex)
+        call wrf_dm_maxval(ignited_patch(i),idex,jdex)
         call message('sfire_driver_phys: collected')
 #endif
         if(ignited_patch(i).eq.0)then
@@ -831,18 +809,14 @@ end subroutine sfire_driver_phys
 !
 
 subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
-    fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-    fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time,fire_num_ignitions, &
-    unit_fxlong,unit_fxlat)
+    ignition_line,fire_num_ignitions,unit_fxlong,unit_fxlat)
     USE module_configure
     implicit none
 ! create ignition arrays from scalar flags
 !*** arguments
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
     integer, intent(in)::fire_max_ignitions
-    real, dimension(fire_max_ignitions), intent(out):: &
-        fire_ignition_start_x,fire_ignition_start_y,fire_ignition_end_x,fire_ignition_end_y, &
-        fire_ignition_radius,fire_ignition_start_time,fire_ignition_end_time
+    TYPE (ignition_line_type), DIMENSION(fire_max_ignitions), intent(out):: ignition_line ! any values from input discarded 
     integer, intent(out)::fire_num_ignitions,fire_ignition_longlat
     real, intent(out)::unit_fxlong,unit_fxlat
 !*** local
@@ -861,79 +835,84 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
 
     fire_ignition_longlat=0  ! default, if no ignition
     if(ideal)then
-        ! use values from _x and _y variables
-        fire_ignition_longlat=0
-        fire_ignition_start_x(1)=config_flags%fire_ignition_start_x1
-        fire_ignition_start_y(1)=config_flags%fire_ignition_start_y1
-        fire_ignition_end_x(1)=config_flags%fire_ignition_end_x1
-        fire_ignition_end_y(1)=config_flags%fire_ignition_end_y1
-        fire_ignition_start_x(2)=config_flags%fire_ignition_start_x2
-        fire_ignition_start_y(2)=config_flags%fire_ignition_start_y2
-        fire_ignition_end_x(2)=config_flags%fire_ignition_end_x2
-        fire_ignition_end_y(2)=config_flags%fire_ignition_end_y2
-        fire_ignition_start_x(3)=config_flags%fire_ignition_start_x3
-        fire_ignition_start_y(3)=config_flags%fire_ignition_start_y3
-        fire_ignition_end_x(3)=config_flags%fire_ignition_end_x3
-        fire_ignition_end_y(3)=config_flags%fire_ignition_end_y3
-        fire_ignition_start_x(4)=config_flags%fire_ignition_start_x4
-        fire_ignition_start_y(4)=config_flags%fire_ignition_start_y4
-        fire_ignition_end_x(4)=config_flags%fire_ignition_end_x4
-        fire_ignition_end_y(4)=config_flags%fire_ignition_end_y4
-        fire_ignition_start_x(5)=config_flags%fire_ignition_start_x5
-        fire_ignition_start_y(5)=config_flags%fire_ignition_start_y5
-        fire_ignition_end_x(5)=config_flags%fire_ignition_end_x5
-        fire_ignition_end_y(5)=config_flags%fire_ignition_end_y5
+       ! use values from _x and _y variables
+       fire_ignition_longlat=0
+       ignition_line(1)%start_x=config_flags%fire_ignition_start_x1
+       ignition_line(1)%start_y=config_flags%fire_ignition_start_y1
+       ignition_line(1)%end_x=config_flags%fire_ignition_end_x1
+       ignition_line(1)%end_y=config_flags%fire_ignition_end_y1
+       ignition_line(2)%start_x=config_flags%fire_ignition_start_x2
+       ignition_line(2)%start_y=config_flags%fire_ignition_start_y2
+       ignition_line(2)%end_x=config_flags%fire_ignition_end_x2
+       ignition_line(2)%end_y=config_flags%fire_ignition_end_y2
+       ignition_line(3)%start_x=config_flags%fire_ignition_start_x3
+       ignition_line(3)%start_y=config_flags%fire_ignition_start_y3
+       ignition_line(3)%end_x=config_flags%fire_ignition_end_x3
+       ignition_line(3)%end_y=config_flags%fire_ignition_end_y3
+       ignition_line(4)%start_x=config_flags%fire_ignition_start_x4
+       ignition_line(4)%start_y=config_flags%fire_ignition_start_y4
+       ignition_line(4)%end_x=config_flags%fire_ignition_end_x4
+       ignition_line(4)%end_y=config_flags%fire_ignition_end_y4
+       ignition_line(5)%start_x=config_flags%fire_ignition_start_x5
+       ignition_line(5)%start_y=config_flags%fire_ignition_start_y5
+       ignition_line(5)%end_x=config_flags%fire_ignition_end_x5
+       ignition_line(5)%end_y=config_flags%fire_ignition_end_y5
     endif
     if(real)then
         ! use values from _long and _lat
-        fire_ignition_longlat=1
-        fire_ignition_start_x(1)=config_flags%fire_ignition_start_lon1
-        fire_ignition_start_y(1)=config_flags%fire_ignition_start_lat1
-        fire_ignition_end_x(1)=config_flags%fire_ignition_end_lon1
-        fire_ignition_end_y(1)=config_flags%fire_ignition_end_lat1
-        fire_ignition_start_x(2)=config_flags%fire_ignition_start_lon2
-        fire_ignition_start_y(2)=config_flags%fire_ignition_start_lat2
-        fire_ignition_end_x(2)=config_flags%fire_ignition_end_lon2
-        fire_ignition_end_y(2)=config_flags%fire_ignition_end_lat2
-        fire_ignition_start_x(3)=config_flags%fire_ignition_start_lon3
-        fire_ignition_start_y(3)=config_flags%fire_ignition_start_lat3
-        fire_ignition_end_x(3)=config_flags%fire_ignition_end_lon3
-        fire_ignition_end_y(3)=config_flags%fire_ignition_end_lat3
-        fire_ignition_start_x(4)=config_flags%fire_ignition_start_lon4
-        fire_ignition_start_y(4)=config_flags%fire_ignition_start_lat4
-        fire_ignition_end_x(4)=config_flags%fire_ignition_end_lon4
-        fire_ignition_end_y(4)=config_flags%fire_ignition_end_lat4
-        fire_ignition_start_x(5)=config_flags%fire_ignition_start_lon5
-        fire_ignition_start_y(5)=config_flags%fire_ignition_start_lat5
-        fire_ignition_end_x(5)=config_flags%fire_ignition_end_lon5
-        fire_ignition_end_y(5)=config_flags%fire_ignition_end_lat5
+       fire_ignition_longlat=1
+       ignition_line(1)%start_x=config_flags%fire_ignition_start_lon1
+       ignition_line(1)%start_y=config_flags%fire_ignition_start_lat1
+       ignition_line(1)%end_x=config_flags%fire_ignition_end_lon1
+       ignition_line(1)%end_y=config_flags%fire_ignition_end_lat1
+       ignition_line(2)%start_x=config_flags%fire_ignition_start_lon2
+       ignition_line(2)%start_y=config_flags%fire_ignition_start_lat2
+       ignition_line(2)%end_x=config_flags%fire_ignition_end_lon2
+       ignition_line(2)%end_y=config_flags%fire_ignition_end_lat2
+       ignition_line(3)%start_x=config_flags%fire_ignition_start_lon3
+       ignition_line(3)%start_y=config_flags%fire_ignition_start_lat3
+       ignition_line(3)%end_x=config_flags%fire_ignition_end_lon3
+       ignition_line(3)%end_y=config_flags%fire_ignition_end_lat3
+       ignition_line(4)%start_x=config_flags%fire_ignition_start_lon4
+       ignition_line(4)%start_y=config_flags%fire_ignition_start_lat4
+       ignition_line(4)%end_x=config_flags%fire_ignition_end_lon4
+       ignition_line(4)%end_y=config_flags%fire_ignition_end_lat4
+       ignition_line(5)%start_x=config_flags%fire_ignition_start_lon5
+       ignition_line(5)%start_y=config_flags%fire_ignition_start_lat5
+       ignition_line(5)%end_x=config_flags%fire_ignition_end_lon5
+       ignition_line(5)%end_y=config_flags%fire_ignition_end_lat5
     endif
     ! common to both cases
-        fire_ignition_radius(1)=config_flags%fire_ignition_radius1 
-        fire_ignition_start_time(1)=config_flags%fire_ignition_start_time1 
-        fire_ignition_end_time(1)=config_flags%fire_ignition_end_time1 
-        fire_ignition_radius(2)=config_flags%fire_ignition_radius2 
-        fire_ignition_start_time(2)=config_flags%fire_ignition_start_time2 
-        fire_ignition_end_time(2)=config_flags%fire_ignition_end_time2 
-        fire_ignition_radius(3)=config_flags%fire_ignition_radius3 
-        fire_ignition_start_time(3)=config_flags%fire_ignition_start_time3 
-        fire_ignition_end_time(3)=config_flags%fire_ignition_end_time3 
-        fire_ignition_radius(4)=config_flags%fire_ignition_radius4 
-        fire_ignition_start_time(4)=config_flags%fire_ignition_start_time4 
-        fire_ignition_end_time(4)=config_flags%fire_ignition_end_time4 
-        fire_ignition_radius(5)=config_flags%fire_ignition_radius5 
-        fire_ignition_start_time(5)=config_flags%fire_ignition_start_time5
-        fire_ignition_end_time(5)=config_flags%fire_ignition_end_time5
+       ignition_line(1)%ros=config_flags%fire_ignition_ros1 
+       ignition_line(1)%radius=config_flags%fire_ignition_radius1 
+       ignition_line(1)%start_time=config_flags%fire_ignition_start_time1 
+       ignition_line(1)%end_time=config_flags%fire_ignition_end_time1 
+       ignition_line(2)%ros=config_flags%fire_ignition_ros2 
+       ignition_line(2)%radius=config_flags%fire_ignition_radius2 
+       ignition_line(2)%start_time=config_flags%fire_ignition_start_time2 
+       ignition_line(2)%end_time=config_flags%fire_ignition_end_time2 
+       ignition_line(3)%ros=config_flags%fire_ignition_ros3 
+       ignition_line(3)%radius=config_flags%fire_ignition_radius3 
+       ignition_line(3)%start_time=config_flags%fire_ignition_start_time3 
+       ignition_line(3)%end_time=config_flags%fire_ignition_end_time3 
+       ignition_line(4)%ros=config_flags%fire_ignition_ros4 
+       ignition_line(4)%radius=config_flags%fire_ignition_radius4 
+       ignition_line(4)%start_time=config_flags%fire_ignition_start_time4 
+       ignition_line(4)%end_time=config_flags%fire_ignition_end_time4 
+       ignition_line(5)%ros=config_flags%fire_ignition_ros5 
+       ignition_line(5)%radius=config_flags%fire_ignition_radius5 
+       ignition_line(5)%start_time=config_flags%fire_ignition_start_time5
+       ignition_line(5)%end_time=config_flags%fire_ignition_end_time5
 
     ! 
         fire_num_ignitions=0      
         do i=1,min(5,config_flags%fire_num_ignitions)
             ! count the ignitions 
-            if(fire_ignition_radius(i).gt.0.)fire_num_ignitions=i
+            if(ignition_line(i)%radius.gt.0.)fire_num_ignitions=i
             ! expand ignition data given as zero
-            if(fire_ignition_end_x(i).eq.0.)fire_ignition_end_x(i)=fire_ignition_start_x(i)
-            if(fire_ignition_end_y(i).eq.0.)fire_ignition_end_y(i)=fire_ignition_start_y(i)
-            if(fire_ignition_end_time(i).eq.0.)fire_ignition_end_time(i)=fire_ignition_start_time(i)
+            if(ignition_line(i)%end_x.eq.0.)ignition_line(i)%end_x=ignition_line(i)%start_x
+            if(ignition_line(i)%end_y.eq.0.)ignition_line(i)%end_y=ignition_line(i)%start_y
+            if(ignition_line(i)%end_time.eq.0.)ignition_line(i)%end_time=ignition_line(i)%start_time
         enddo
 
     if(fire_ignition_longlat .eq. 0)then

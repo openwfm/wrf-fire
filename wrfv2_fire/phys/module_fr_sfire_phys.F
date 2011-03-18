@@ -71,24 +71,6 @@ end type fire_params
 !D      FCI            INITIAL TOTAL MASS OF CANOPY FUEL
 !D      FCBR           FUEL CANOPY BURN RATE (KG/M**2/S) 
 
-! =============================================================================
-! Standard 13 fire behavior fuel models (for surface fires), along with some
-!          estimated canopy properties (for crown fire).
-! =============================================================================
-!  FUEL MODEL 1: Short grass (1 ft)
-!  FUEL MODEL 2: Timber (grass and understory)
-!  FUEL MODEL 3: Tall grass (2.5 ft)
-!  FUEL MODEL 4: Chaparral (6 ft)
-!  FUEL MODEL 5: Brush (2 ft) 
-!  FUEL MODEL 6: Dormant brush, hardwood slash
-!  FUEL MODEL 7: Southern rough
-!  FUEL MODEL 8: Closed timber litter
-!  FUEL MODEL 9: Hardwood litter
-!  FUEL MODEL 10: Timber (litter + understory)
-!  FUEL MODEL 11: Light logging slash
-!  FUEL MODEL 12: Medium logging slash
-!  FUEL MODEL 13: Heavy logging slash
-!  FUEL MODEL 14: no fuel
 !
 
 ! scalar fuel coefficients
@@ -118,6 +100,26 @@ end type fire_params
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
                                             savr,st,se
+! =============================================================================
+! Standard 13 fire behavior fuel models (for surface fires), along with some
+!          estimated canopy properties (for crown fire).
+! =============================================================================
+   DATA fuel_name /  &
+     'FUEL MODEL 1: Short grass (1 ft)', &
+     'FUEL MODEL 2: Timber (grass and understory)', &
+     'FUEL MODEL 3: Tall grass (2.5 ft)', &
+     'FUEL MODEL 4: Chaparral (6 ft)', &
+     'FUEL MODEL 5: Brush (2 ft) ', &
+     'FUEL MODEL 6: Dormant brush, hardwood slash', &
+     'FUEL MODEL 7: Southern rough', &
+     'FUEL MODEL 8: Closed timber litter', &
+     'FUEL MODEL 9: Hardwood litter', &
+     'FUEL MODEL 10: Timber (litter + understory)', &
+     'FUEL MODEL 11: Light logging slash', &
+     'FUEL MODEL 12: Medium logging slash', &
+     'FUEL MODEL 13: Heavy logging slash', &
+     'FUEL MODEL 14: no fuel', &
+     zf*' '/
    DATA windrf /0.36, 0.36, 0.44,  0.55,  0.42,  0.44,  0.44, &     
                 0.36, 0.36, 0.36,  0.36,  0.43,  0.46,  1e-7, zf*0 /
    DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
@@ -283,8 +285,9 @@ enddo
 call message('**********************************************************')
 
 ! and print to file
-call write_fuels_m(61,30.,1.)
-
+IF ( wrf_dm_on_monitor() ) THEN
+  call write_fuels_m(61,30.,1.)
+ENDIF
 end subroutine init_fuel_cats
 
 
@@ -704,7 +707,7 @@ type(fire_params),intent(in)::fp
 
 !*** local
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
-real:: umid, phis, phiw, spdms, umidm, excess
+real:: umid, phis, phiw, spdms, umidm, excess, tanphim
 integer, parameter::ibeh=1
 real, parameter::ros_max=6.
 character(len=128)msg
@@ -745,9 +748,9 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
         phiw = umid**fp%bbb(i,j) * fp%phiwc(i,j) ! wind coef
         phis=0.
-        if (tanphi .gt. 0.) then
-            phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphi**2   ! slope factor
-        endif
+        tanphim=max(tanphi,0.0)
+        tanphim=min(tanphim,5.0)  ! jm
+        phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
         ros_back = fp%r_0(i,j) * .00508
         ros_wind = ros_back*phiw

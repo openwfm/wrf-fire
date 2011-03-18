@@ -5,7 +5,7 @@ PROGRAM real_data
    USE module_machine
    USE module_domain, ONLY : domain, alloc_and_configure_domain, &
         domain_clock_set, head_grid, program_name, domain_clockprint
-   USE module_initialize_real, ONLY : wrfu_initialize, find_my_parent
+   USE module_initialize_real, ONLY : wrfu_initialize, find_my_parent, find_my_parent2
    USE module_initialize_real
    USE module_io_domain
    USE module_driver_constants
@@ -101,7 +101,11 @@ real::t1,t2
 
    CALL       wrf_debug ( 100 , 'real_em: calling init_modules ' )
    CALL init_modules(1)   ! Phase 1 returns after MPI_INIT() (if it is called)
+#ifdef NO_LEAP_CALENDAR
+   CALL WRFU_Initialize( defaultCalendar=WRFU_CAL_NOLEAP, rc=rc )
+#else
    CALL WRFU_Initialize( defaultCalendar=WRFU_CAL_GREGORIAN, rc=rc )
+#endif
    CALL init_modules(2)   ! Phase 2 resumes after MPI_INIT() (if it is called)
 
    !  The configuration switches mostly come from the NAMELIST input.
@@ -184,7 +188,8 @@ real::t1,t2
             CALL nl_get_j_parent_start ( domain_id, j_parent_start )
             grid_ptr2 => head_grid
             found_the_id = .FALSE.
-            CALL find_my_parent ( grid_ptr2 , grid_ptr , domain_id , parent_id , found_the_id )
+!           CALL find_my_parent ( grid_ptr2 , grid_ptr , domain_id , parent_id , found_the_id )
+            CALL find_my_parent2( grid_ptr2 , grid_ptr ,             parent_id , found_the_id )
             IF ( found_the_id ) THEN
 
                sibling_count = 0

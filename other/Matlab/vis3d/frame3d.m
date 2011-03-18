@@ -1,10 +1,11 @@
 function frame3d(swind,amin,amax,astep,qstep,qs,...
-    fxlong,fxlat,xlong,xlat,zsf,fgrnhfx,uf,vf,u,v,w,ph,phb,hgt)
+    fxlong,fxlat,xlong,xlat,zsf,fgrnhfx,fuel_frac,uf,vf,u,v,w,ph,phb,hgt)
 
 clf,hold off
 
 r = size(fxlong)./(size(xlong));  % refinement ratio
-ideal = all(xlong ==0);   % not populated in ideal case
+% see if xlong and xlat are bogus
+ideal = all(xlong(:) ==0)|any(abs(xlong(:))>180)|any(abs(xlat(:))>180);
 
 if ideal,
     % do not have xlong and xlat in ideal case, but we made the coordinates up
@@ -31,10 +32,10 @@ aspect_ratio = [xscale yscale 1];
 dmin=1+r.*(amin(1:2)-1);
 dmax=r.*amax(1:2);
 
-% surface colored by heat flux
+% surface colored by heat flux and fuel fraction
 i=dmin(1):dmax(1);j=dmin(2):dmax(2);
 hs=surf(fxlong(i,j),fxlat(i,j),zsf(i,j),fgrnhfx(i,j),'EdgeColor','none','FaceAlpha',0.7); 
-caxis([0,1e6]);   % for heat flux color
+% caxis([0,1e6]);   % for heat flux color
 axis tight, colorbar
 hold on
 [c,hc]=contour3(fxlong(i,j),fxlat(i,j),zsf(i,j));
@@ -82,7 +83,7 @@ if ideal
 else
     % set(gca,'PlotBoxAspectRatioMode','auto');
     xlabel('longitude (deg)')
-    ylabel('latitutude (deg)')
+    ylabel('latitude (deg)')
 end
 zlabel('z (m)')
 set(gca,'DataAspectRatio',[xscale yscale 1]);
