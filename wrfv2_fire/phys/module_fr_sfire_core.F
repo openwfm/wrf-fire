@@ -246,6 +246,13 @@ do j=jfts,jfte
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
+        if(lfn(i,j)>0. .and. tign(i,j)<end_ts)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            write(msg,*)'i,j=',i,j,' lfn=',lfn(i,j),' tign=',tign(i,j),' end_ts=',end_ts
+            call message(msg)
+            call crash('ignite_fire: if lfn > 0 must have tign >= end of time step')
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+        endif
     enddo
 enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
@@ -254,11 +261,47 @@ call message(msg)
 write(msg,'(a,f6.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
-
-return
-99 continue
-
 end subroutine ignite_fire
+
+!
+!***
+!
+
+subroutine check_lfn_tign(s,time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+!*** purpose: check consistency of lfn and ignition
+implicit none
+!*** arguments
+character(len=*),intent(in)::s              ! for print
+real, intent(in)::time_now                    ! end of timestep = time_now
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
+                   lfn, tign                ! level function, ignition time (state)
+!*** local
+integer:: i,j
+
+do j=jfts,jfte   
+    do i=ifts,ifte
+        if(lfn(i,j)>0. .and. tign(i,j)<time_now)call crashij('if lfn > 0 must have tign >= time_now')
+        if(lfn(i,j)<0. .and. .not. tign(i,j)<time_now)call crashij('if lfn < 0 must have tign < time_now')
+    enddo
+enddo
+
+contains
+
+subroutine crashij(what)
+!*** print error message for i,j and crash
+character(len=*),intent(in)::what              ! for print
+character(len=128):: msg
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+write(msg,*)'i,j=',i,j,' lfn=',lfn(i,j),' tign=',tign(i,j),' time_now=',time_now
+call message(msg)
+msg=s//": "//what
+call crash(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+end subroutine crashij 
+
+end subroutine check_lfn_tign 
 
 ! called from the inside of a loop, inline if possible
 !DEC$ ATTRIBUTES FORCEINLINE
