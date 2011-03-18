@@ -44,7 +44,7 @@ subroutine init_no_fire(&
     ifds,ifde,jfds,jfde, &
     ifms,ifme,jfms,jfme, &
     ifts,ifte,jfts,jfte, &
-    fdx,fdy,time_now,    & ! scalars in
+    fdx,fdy,time_start,dt,  & ! scalars in
     fuel_frac,fire_area,lfn,tign)    ! arrays out            
 implicit none
              
@@ -54,7 +54,7 @@ implicit none
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(in) :: fdx,fdy,time_now        ! mesh spacing, time
+real, intent(in) :: fdx,fdy,time_start,dt   ! mesh spacing, time
 real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
                    fuel_frac,fire_area,lfn,tign       ! model state
 
@@ -64,7 +64,9 @@ intrinsic epsilon
 !*** local
 integer:: i,j
 real lfn_init,time_init
+real::time_now
 
+time_now = time_start+dt
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
  
@@ -77,6 +79,7 @@ do j=jfts,jfte
     enddo
 enddo
 call message('init_no_fire: state set to no fire')
+call check_lfn_tign('init_no_fire',time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
 end subroutine init_no_fire
 
@@ -1633,6 +1636,8 @@ write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 
+call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,tign)
+
     a=fire_back_weight ! from module_fr_sfire_util
     a1=1. - a
     
@@ -1647,6 +1652,7 @@ call message(msg)
     ihe=min(ite+1,ide)
     jhs=max(jts-1,jds) 
     jhe=min(jte+1,jde)
+
 
 #ifdef DEBUG_OUT    
     call write_array_m(ihs,ihe,jhs,jhe,ims,ime,jms,jme,lfn_in,'lfn_in',id)
@@ -1751,16 +1757,18 @@ call message(msg)
     !        = ts + dt * lfn_in / (lfn_in - lfn_out)
 
     time_now=ts+dt
-    time_now = time_now + abs(time_now)*epsilon(time_now)*2.
+    !time_now = time_now + abs(time_now)*epsilon(time_now)*2.
     do j=jts,jte
         do i=its,ite
-            ! interpolate the cross-over time
-            if (.not. lfn_out(i,j)>0 .and. lfn_in(i,j)>0)then
-                tign(i,j) = ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j))
+            call check_lfn_tign_ij(i,j,'prop_ls before',ts,lfn_in(i,j),tign(i,j))
+            if (lfn_out(i,j) < 0. ) then  ! now on fire
+               if( lfn_in(i,j) > 0)  then ! was not before, set ignition time by interpolation
+                  tign(i,j) = ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j))
+               endif  !  was already burning, leave ignition time unchanged
+            else ! set the ignition time outside of burning region
+               tign(i,j)=time_now
             endif
-            ! set the ignition time outside of burning region
-            if(lfn_out(i,j)>0.)tign(i,j)=time_now
-            call check_lfn_tign_ij(i,j,'prop_ls',time_now,lfn_out(i,j),tign(i,j))
+            call check_lfn_tign_ij(i,j,'prop_ls after',time_now,lfn_out(i,j),tign(i,j))
         enddo
     enddo
     
