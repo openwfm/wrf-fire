@@ -324,11 +324,11 @@ real, intent(in):: lfnij, tignij                ! level function, ignition time 
 character(len=128):: msg
 !***    executable
 
-if(.not.(lfnij<0. .eqv. tignij<time_now))then
+if(lfnij>0. .and. tignij<time_now)then
    !$OMP CRITICAL(SFIRE_CORE_CRIT)
    write(msg,*)'i,j=',i,j,' lfn=',lfnij,' tign=',tignij,' time_now=',time_now
    call message(msg)
-   msg=s//': must have lfn<0 <=> tign<time_now'
+   msg=s//': inconsistent state: lfn>0 and tign<time_now'
    call crash(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
