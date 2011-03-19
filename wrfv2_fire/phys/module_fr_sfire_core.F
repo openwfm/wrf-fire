@@ -1451,6 +1451,7 @@ real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_now
+real::tmp
 integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
@@ -1592,16 +1593,20 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     ! 0        is the level set function value at time tign(i,j)
     ! thus assuming the level function is approximately linear =>
     ! tign(i,j)= ts + ((ts + td) - ts) * lfn_in / (lfn_in - lfn_out)
-    !        = ts + dt * lfn_in / (lfn_in - lfn_out)
+    !        =        ts + dt * lfn_in  / (lfn_in - lfn_out)
+    !        = (ts + dt) + dt * lfn_out / (lfn_in - lfn_out)
+    ! the second form is better because we want make sure tign < ts+dt (used only for lfn_out < 0)
 
     time_now=ts+dt
-    !time_now = time_now + abs(time_now)*epsilon(time_now)*2.
+    ! time_now = time_now + abs(time_now)*epsilon(time_now)*2.
+    ! tmp=0.
     do j=jts,jte
         do i=its,ite
             call check_lfn_tign_ij(i,j,'prop_ls before',ts,lfn_in(i,j),tign(i,j))
             if (lfn_out(i,j) < 0. ) then  ! now on fire
-               if( lfn_in(i,j) > 0)  then ! was not before, set ignition time by interpolation
-                  tign(i,j) = ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j))
+               if( .not. lfn_in(i,j) < 0)  then ! was not before, set ignition time by interpolation
+                  tign(i,j) = time_now + dt * lfn_out(i,j) / (lfn_in(i,j) - lfn_out(i,j))
+                  ! tmp = max(tmp,abs(ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j)) - tign(i,j)))
                endif  !  was already burning, leave ignition time unchanged
             else ! set the ignition time outside of burning region
                tign(i,j)=time_now
@@ -1609,6 +1614,8 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
             call check_lfn_tign_ij(i,j,'prop_ls after',time_now,lfn_out(i,j),tign(i,j))
         enddo
     enddo
+    ! write(msg,*)'prop_ls: tign err',tmp
+    ! call message(msg)
     
     ! check local speed error and stats 
     ! may not work correctly in parallel
