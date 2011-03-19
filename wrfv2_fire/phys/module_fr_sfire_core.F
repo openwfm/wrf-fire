@@ -298,7 +298,7 @@ character(len=*),intent(in)::s              ! for print
 real, intent(in)::time_now                    ! end of timestep = time_now
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
+real, intent(in), dimension (ifms:ifme,jfms:jfme) :: & 
                    lfn, tign                ! level function, ignition time (state)
 !*** local
 integer:: i,j
@@ -464,7 +464,7 @@ integer::m,omp_get_thread_num
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
-call check_lfn_tign("fuel_left start",time_now,its,ite,jts,jte,ims,ime,jms,jme,lfn, tign)
+call check_lfn_tign('fuel_left start',time_now,its,ite,jts,jte,ims,ime,jms,jme,lfn, tign)
 
 ! refinement
 ir=fuel_left_irl
