@@ -646,13 +646,11 @@ real, intent(out),dimension(3,3)::tff,lff
 !       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
 ! Checking whether icl or jcl is on the boundary
 
-
       lff(1,1)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))
       call tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
                                      tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
                                      lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),tff(1,1),time_now)
 
-      lff(1,2)=0.5*(lfn(icl-1,jcl)+lfn(icl,jcl))
       call tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),lfn(icl,jcl), &
                              lff(1,2),tff(1,2),time_now)
 
@@ -662,13 +660,11 @@ real, intent(out),dimension(3,3)::tff,lff
                                      tign(icl,jcl+1),lfn(icl-1,jcl),lfn(icl-1,jcl+1),      &
                                      lfn(icl,jcl),lfn(icl,jcl+1),lff(1,3),tff(1,3),time_now)
 
-      lff(2,1)=0.5*(lfn(icl,jcl-1)+lfn(icl,jcl))   
       call tign_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),lfn(icl,jcl), &
                              lff(2,1),tff(2,1),time_now)
       lff(2,2)=lfn(icl,jcl)
       tff(2,2)=tign(icl,jcl)
 
-      lff(2,3)=0.5*(lfn(icl,jcl+1)+lfn(icl,jcl))   
       call tign_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+1),lfn(icl,jcl), &
                              lff(2,3),tff(2,3),time_now)
 
@@ -677,7 +673,6 @@ real, intent(out),dimension(3,3)::tff,lff
                                      tign(icl+1,jcl),lfn(icl,jcl-1),lfn(icl,jcl),      &
                                      lfn(icl+1,jcl-1),lfn(icl+1,jcl),lff(3,1),tff(3,1),time_now)
 
-      lff(3,2)=0.5*(lfn(icl+1,jcl)+lfn(icl,jcl))
       call tign_line_interp(tign(icl+1,jcl),tign(icl,jcl),lfn(icl+1,jcl),lfn(icl,jcl), &
                              lff(3,2),tff(3,2),time_now)
 
@@ -698,56 +693,46 @@ end subroutine tign_lfn_interpolation
 subroutine tign_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,tign_subcl,time_now)
 !***purpose: computes time of ignition of the point(*_subcl) that lies on the line
 ! between two points, whose lfn and tign is known
-! since lfn is interpolated linearly, lfn_subcl is known 
 
-real,intent(in) :: tign1,tign2,lfn1,lfn2,lfn_subcl,time_now
-real,intent(out) :: tign_subcl
-real :: a,b,c,err
+!*** arguments
+!
+real,intent(in) :: tign1,tign2   ! ignition times at the two endpoints
+real,intent(in) :: lfn1,lfn2     ! level set function at the two endpoints
+real,intent(in) :: time_now      ! tign>=time_now => no fire
+real,intent(out) :: lfn_subcl,tign_subcl ! interpolated to midpoint
 
 ! Case 1: both points are on fire -> tign is interpolated linearly
-!         tign_subcl=0.5*(tign1+tign2)
-! Case 2: both points are not on fire -> subcl - not burning
-! Case 3: One point is not fire, another is not
-!         simple subcase of Case 3 from subroutine tign_four_pnts_interp
-!!! since we have just one point on fire        
-!     lfn(Ai)
-!  c= -----------------, where Ai - burning point
-!     tign(Ai)-time_now
-!
+! Case 2: both points are not on fire -> tign_subcl=time_now, not burning
+! Case 3: One point is not fire, another is not -> tign_subcl set from
+!         the equation  tign - time_now = c*lfn, where the proportionality
+!         constant is found from the values of tign and lfn at the burning endpoint.
+!         In particular, lfn(x)=0 implies tign(x)=time_now, so the representations of
+!         the fireline by lfn and tign are consistent.
+!         This is a special case of Case 3 from subroutine tign_four_pnts_interp.
 
-err=0.1
+!*** local
+real :: c
 
-if((lfn1.le.0).AND.(lfn2.le.0)) then
-   tign_subcl=0.5*(tign1+tign2)
-elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
-    if  ((abs(tign1-time_now).gt.err).or.(abs(tign2-time_now).gt.err)) then
-      write(*,*)"lfn1,lfn2,tign1,tign2,timenow",lfn1,lfn2,tign1,tign2,time_now
-      call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
+!*** executable
+
+! check consistency of inputs
+call check_lfn_tign_ij(0,1,'tign_line_interp',time_now,lfn1,tign1) 
+call check_lfn_tign_ij(0,2,'tign_line_interp',time_now,lfn2,tign2) 
+
+lfn_subcl=0.5*(lfn1+lfn2)  ! interpolate lfn linearly
+if ((lfn1 < 0.).AND.(lfn2 < 0.)) then
+   tign_subcl=0.5*(tign1+tign2) ! both on fire, interpolate linearly
+elseif (.not.(lfn1 < 0).AND..not.(lfn2 < 0))then ! never test floats on equality
+   tign_subcl=time_now         ! none is on fire
+else  ! one is on fire one is not
+   if (lfn1 < 0) then  ! 1 is on fire, 2 is not
+      c = (tign1-time_now)/lfn1
+   elseif (lfn2 < 0) then
+      c = (tign2-time_now)/lfn2
    else
-      tign_subcl=time_now;
+      call crash('tign_line_interp: one of lfn1 or lfn2 should be < 0')
    endif
-elseif(lfn_subcl.gt.0) then
-      tign_subcl=time_now;
-else
-!lfn_subcl<=0;
-!case when E is on fire
-! tign_subcl~=c*lfn_subcl+time_now;
-   if (lfn1.lt.0) then
-      a=lfn1;
-      b=tign1-time_now;
-   elseif (lfn2.lt.0) then
-      a=lfn2;
-      b=tign2-time_now;
-   else
-      call crash('tign_line_interp: if E is on fire then one of lfn1 or lfn2 &
-                  should be negative');
-   endif
-   if (b.gt.0) then
-      call crash('tign_ should be less than time_now');
-   else
-      c=b/a;
-      tign_subcl=c*lfn_subcl+time_now;
-   endif
+   tign_subcl=c*lfn_subcl+time_now;
 endif
 end subroutine tign_line_interp
 !
