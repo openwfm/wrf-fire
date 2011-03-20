@@ -618,7 +618,8 @@ integer, intent(in) :: ims,ime,jms,jme  ! memory dimensions of all arrays
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign
 real, intent(out),dimension(3,3)::tff,lff
 
-!   (3,1)-------------(3,2)-------------(3,3)
+!     |                 |                 |       
+!  -(3,1)-------------(3,2)-------------(3,3)
 !     |                 |                 |
 !     |   (2,1)         |      (2,2)      |       
 !     |                 |                 |
@@ -633,17 +634,11 @@ real, intent(out),dimension(3,3)::tff,lff
 !     |                 |                 |       the subcells, numbered (1,1)...(3,3)
 !   (1,1)-------------(1,2)-------------(1,3)--     
 !     |                 |                 |       
-!     |   (2,1)         |      (2,2)      |      
-!     |                 |                 |     
-!     |                 |                 |    
-!     |               node                |   
-!     -------------(icl-1,jcl------------------  
-!     |                 |                 |     )
 !
 
 !**********************
 	
-!       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
+!       Direct calculation tif and lff, avoiding big auxiliary arrays, just for case ir=jr=2
 ! Checking whether icl or jcl is on the boundary
 
       call tign_lfn_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
@@ -660,6 +655,7 @@ real, intent(out),dimension(3,3)::tff,lff
 
       call tign_lfn_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),lfn(icl,jcl), &
                              lff(2,1),tff(2,1),time_now)
+
       lff(2,2)=lfn(icl,jcl)
       tff(2,2)=tign(icl,jcl)
 
@@ -676,8 +672,6 @@ real, intent(out),dimension(3,3)::tff,lff
       call tign_lfn_four_pnts_interp(tign(icl,jcl),tign(icl,jcl+1),tign(icl+1,jcl),  & 
                                      tign(icl+1,jcl+1),lfn(icl,jcl),lfn(icl,jcl+1),      &
                                      lfn(icl+1,jcl),lfn(icl+1,jcl+1),lff(3,3),tff(3,3),time_now)
-
-
 
 end subroutine tign_lfn_interpolation
 
@@ -715,10 +709,11 @@ call check_lfn_tign_ij(0,1,'tign_lfn_line_interp',time_now,lfn1,tign1)
 call check_lfn_tign_ij(0,2,'tign_lfn_line_interp',time_now,lfn2,tign2) 
 
 lfn_subcl=0.5*(lfn1+lfn2)  ! interpolate lfn linearly
-if ((lfn1 < 0.).AND.(lfn2 < 0.)) then
+
+if (.not. lfn_subcl < 0.) then ! never test floats on equality
+   tign_subcl=time_now         ! midpoint not on fire => none on fire
+elseif ((lfn1 < 0.).AND.(lfn2 < 0.)) then
    tign_subcl=0.5*(tign1+tign2) ! both on fire, interpolate linearly
-elseif (.not.(lfn1 < 0).AND..not.(lfn2 < 0))then ! never test floats on equality
-   tign_subcl=time_now         ! none is on fire
 else  ! one is on fire one is not
    if (lfn1 < 0) then  ! 1 is on fire, 2 is not
       c = (tign1-time_now)/lfn1
@@ -727,6 +722,7 @@ else  ! one is on fire one is not
    else
       call crash('tign_lfn_line_interp: one of lfn1 or lfn2 should be < 0')
    endif
+   if( c > 0.)call crash('tign_lfn_line_interp: bad ignition times, c>0')
    tign_subcl=c*lfn_subcl+time_now;
 endif
 end subroutine tign_lfn_line_interp
@@ -778,41 +774,35 @@ call check_lfn_tign_ij(0,4,'tign_lfn_four_pnts_interp',time_now,lfn4,tign4)
  
 lfn_subcl=0.25*(lfn1+lfn2+lfn3+lfn4)
 
+if(.not. lfn_subcl < 0.) then ! midpoint not on fire, most frequent
+      tign_subcl=time_now
 ! Case 1
-if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
-   tign_subcl=0.25*(tign1+tign2+tign3+tign4)
-! Case 2
-elseif((lfn1.gt.0).AND.(lfn2.gt.0).AND.(lfn3.gt.0).AND.(lfn4.gt.0))then
-      tign_subcl=time_now;
-elseif(lfn_subcl.gt.0) then
-      tign_subcl=time_now;
-else
+elseif((lfn1 < 0.).AND.(lfn2 < 0.).AND.(lfn3 < 0.).AND.(lfn4 < 0.)) then
+   tign_subcl=0.25*(tign1+tign2+tign3+tign4)  ! all on fire, interpolate
+! Case 2  
+else ! some on fire
 ! Case 3
-!lfn_subcl<=0;
-!case when E is on fire
-! tign_subcl~=c*lfn_subcl+time_now;
-a=0; 
-b=0;
-   if (lfn1.lt.0) then
-           a=a+lfn1*lfn1;
-           b=b+(tign1-time_now)*lfn1;
-   endif
-   if (lfn2.lt.0) then
-           a=a+lfn2*lfn2;
-           b=b+(tign2-time_now)*lfn2;
-   endif
-   if (lfn3.lt.0) then
-           a=a+lfn3*lfn3;
-           b=b+(tign3-time_now)*lfn3;
-   endif
-   if (lfn4.lt.0) then
-           a=a+lfn4*lfn4;
-           b=b+(tign4-time_now)*lfn4;
-   endif 
-   if ((abs(a).lt.err).or.(b.lt.0)) then
-      call crash('tign_four_pnts_interp: if E is on fire then one of cells &
-                  should be on fire or tign_ should be less than time_now')
-   else
+! tign_subcl~=c*lfn_subcl+time_now
+   a=0; 
+   b=0;
+      if (lfn1 < 0.) then
+         a=a+lfn1*lfn1
+         b=b+(tign1-time_now)*lfn1
+      endif
+      if (lfn2 < 0.) then
+           a=a+lfn2*lfn2 
+           b=b+(tign2-time_now)*lfn2
+      endif
+      if (lfn3 < 0.) then
+           a=a+lfn3*lfn3
+           b=b+(tign3-time_now)*lfn3
+      endif
+      if (lfn4 < 0.) then
+           a=a+lfn4*lfn4
+           b=b+(tign4-time_now)*lfn4
+      endif 
+      if (.not. a>0.) call crash('tign_lfn_four_pnts_interp: none of lfn < 0')
+      if( b < 0.)call crash('tign_lfn_four_pnts_interp: bad ignition times, b<0') ! can have 0 because of rounding
       c=b/a;
       tign_subcl=c*lfn_subcl+time_now;
    endif
