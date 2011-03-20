@@ -64,10 +64,8 @@ all: fire.exe init.exe
 
 default: fire 
 
-init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o model_test_init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
-
 fuel: fuel_interp_test.exe
+fuel_interp_test: fuel_interp_test.exe
  
 fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
 	$(FC) $(FCFLAGS) -o fuel_interp_test.exe $(FUEL_INTERP_OBJ)
@@ -95,6 +93,9 @@ fuels.exe: $(MAKEFILE) $(FUELS_OBJ)
  
 # for the order of generating modules
 
+fuel_interp_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_util.o 
 
 model_test_main.o: $(MAKEFILE) \
     module_fr_sfire_model.o \
