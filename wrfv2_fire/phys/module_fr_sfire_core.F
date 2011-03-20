@@ -1112,8 +1112,8 @@ ps = lfn00+lfn01+lfn10+lfn11
 aps = abs(lfn00)+abs(lfn01)+abs(lfn10)+abs(lfn11)
 aps=max(aps,safe)
 area =(-ps/aps+1.)/2.
-area = max(area,0.) ! make sure area is between 0 and 1
-area = min(area,1.)
+area = max(area,zero) ! make sure area is between 0 and 1
+area = min(area,one)
 
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
