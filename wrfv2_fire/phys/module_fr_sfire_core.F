@@ -646,38 +646,34 @@ real, intent(out),dimension(3,3)::tff,lff
 !       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
 ! Checking whether icl or jcl is on the boundary
 
-      lff(1,1)=0.25*(lfn(icl-1,jcl-1)+lfn(icl-1,jcl)+lfn(icl,jcl-1)+lfn(icl,jcl))
-      call tign_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
+      call tign_lfn_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
                                      tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
                                      lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),tff(1,1),time_now)
 
-      call tign_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),lfn(icl,jcl), &
+      call tign_lfn_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),lfn(icl,jcl), &
                              lff(1,2),tff(1,2),time_now)
 
 
-      lff(1,3)=0.25*(lfn(icl-1,jcl+1)+lfn(icl-1,jcl)+lfn(icl,jcl+1)+lfn(icl,jcl))
-      call tign_four_pnts_interp(tign(icl-1,jcl),tign(icl-1,jcl+1),tign(icl,jcl),  & 
+      call tign_lfn_four_pnts_interp(tign(icl-1,jcl),tign(icl-1,jcl+1),tign(icl,jcl),  & 
                                      tign(icl,jcl+1),lfn(icl-1,jcl),lfn(icl-1,jcl+1),      &
                                      lfn(icl,jcl),lfn(icl,jcl+1),lff(1,3),tff(1,3),time_now)
 
-      call tign_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),lfn(icl,jcl), &
+      call tign_lfn_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),lfn(icl,jcl), &
                              lff(2,1),tff(2,1),time_now)
       lff(2,2)=lfn(icl,jcl)
       tff(2,2)=tign(icl,jcl)
 
-      call tign_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+1),lfn(icl,jcl), &
+      call tign_lfn_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+1),lfn(icl,jcl), &
                              lff(2,3),tff(2,3),time_now)
 
-      lff(3,1)=0.25*(lfn(icl,jcl-1)+lfn(icl,jcl)+lfn(icl+1,jcl-1)+lfn(icl+1,jcl))
-      call tign_four_pnts_interp(tign(icl,jcl-1),tign(icl,jcl),tign(icl+1,jcl-1),  & 
+      call tign_lfn_four_pnts_interp(tign(icl,jcl-1),tign(icl,jcl),tign(icl+1,jcl-1),  & 
                                      tign(icl+1,jcl),lfn(icl,jcl-1),lfn(icl,jcl),      &
                                      lfn(icl+1,jcl-1),lfn(icl+1,jcl),lff(3,1),tff(3,1),time_now)
 
-      call tign_line_interp(tign(icl+1,jcl),tign(icl,jcl),lfn(icl+1,jcl),lfn(icl,jcl), &
+      call tign_lfn_line_interp(tign(icl+1,jcl),tign(icl,jcl),lfn(icl+1,jcl),lfn(icl,jcl), &
                              lff(3,2),tff(3,2),time_now)
 
-      lff(3,3)=0.25*(lfn(icl,jcl)+lfn(icl,jcl+1)+lfn(icl+1,jcl)+lfn(icl+1,jcl+1))
-      call tign_four_pnts_interp(tign(icl,jcl),tign(icl,jcl+1),tign(icl+1,jcl),  & 
+      call tign_lfn_four_pnts_interp(tign(icl,jcl),tign(icl,jcl+1),tign(icl+1,jcl),  & 
                                      tign(icl+1,jcl+1),lfn(icl,jcl),lfn(icl,jcl+1),      &
                                      lfn(icl+1,jcl),lfn(icl+1,jcl+1),lff(3,3),tff(3,3),time_now)
 
@@ -685,12 +681,11 @@ real, intent(out),dimension(3,3)::tff,lff
 
 end subroutine tign_lfn_interpolation
 
-
-
 !
 !************************
 !
-subroutine tign_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,tign_subcl,time_now)
+
+subroutine tign_lfn_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,tign_subcl,time_now)
 !***purpose: computes time of ignition of the point(*_subcl) that lies on the line
 ! between two points, whose lfn and tign is known
 
@@ -708,7 +703,7 @@ real,intent(out) :: lfn_subcl,tign_subcl ! interpolated to midpoint
 !         constant is found from the values of tign and lfn at the burning endpoint.
 !         In particular, lfn(x)=0 implies tign(x)=time_now, so the representations of
 !         the fireline by lfn and tign are consistent.
-!         This is a special case of Case 3 from subroutine tign_four_pnts_interp.
+!         This is a special case of Case 3 from subroutine tign_lfn_four_pnts_interp.
 
 !*** local
 real :: c
@@ -716,8 +711,8 @@ real :: c
 !*** executable
 
 ! check consistency of inputs
-call check_lfn_tign_ij(0,1,'tign_line_interp',time_now,lfn1,tign1) 
-call check_lfn_tign_ij(0,2,'tign_line_interp',time_now,lfn2,tign2) 
+call check_lfn_tign_ij(0,1,'tign_lfn_line_interp',time_now,lfn1,tign1) 
+call check_lfn_tign_ij(0,2,'tign_lfn_line_interp',time_now,lfn2,tign2) 
 
 lfn_subcl=0.5*(lfn1+lfn2)  ! interpolate lfn linearly
 if ((lfn1 < 0.).AND.(lfn2 < 0.)) then
@@ -730,17 +725,17 @@ else  ! one is on fire one is not
    elseif (lfn2 < 0) then
       c = (tign2-time_now)/lfn2
    else
-      call crash('tign_line_interp: one of lfn1 or lfn2 should be < 0')
+      call crash('tign_lfn_line_interp: one of lfn1 or lfn2 should be < 0')
    endif
    tign_subcl=c*lfn_subcl+time_now;
 endif
-end subroutine tign_line_interp
+end subroutine tign_lfn_line_interp
 !
 !************************
 !
 
-subroutine tign_four_pnts_interp(tign1,tign2,tign3,tign4,lfn1,lfn2,  &
-lfn3,lfn4,lfn_subcl,tign_subcl,time_now)
+subroutine tign_lfn_four_pnts_interp(tign1,tign2,tign3,tign4, &
+  lfn1,lfn2,lfn3,lfn4,lfn_subcl,tign_subcl,time_now)
 
 !***purpose: computes time of ignition of the point(*_subcl) that lies on the middle
 ! of square with given 4 points on its ends, whose lfn and tign is known
@@ -748,19 +743,19 @@ lfn3,lfn4,lfn_subcl,tign_subcl,time_now)
 
 !***arguments
 real,intent(in) :: tign1,tign2,tign3,tign4 ! time of ignition of all corner points
-real,intent(in) :: lfn1,lfn2,lfn3,lfn4,lfn_subcl ! lfn of central and all corner points
+real,intent(in) :: lfn1,lfn2,lfn3,lfn4 ! lfn of central and all corner points
 real,intent(in) :: time_now
-real,intent(out) :: tign_subcl
+real,intent(out) :: lfn_subcl,tign_subcl
 
 ! Case 1: all 4 points are on fire -> tign is interpolated linearly
 !   tign_subcl=0.25*(tign1+tign2+tign3+tign4)
-! Case 2: both points are not on fire -> subcl - not burning
-! Case 3: One points are on fire, other are not
-! here we assume that when lfn=0 -> tign=time_now
-! for this case tign of central point is approximated by
-! tign~=c*lfn+To, which for our case is
+! Case 2: all points are not on fire -> subcl - not burning
+! Case 3: some points are on fire, others are not
+! Here we assume that when lfn(x)=0 -> tign(x)=time_now (values interpolated to point x)
+! For this case, tign of central point is approximated by
+! tign~=c*lfn+time_now, which for our case is
 ! tign_subcl~=c*lfn_subcl+time_now
-! where c is computing by least squares
+! where c is computed by least squares from the values at the points that are on fire
 !
 ! sum(c*lfn(Ai)+time_now-tign(Ai))^2 ---> min
 ! for all lfn(Ai)<0
@@ -775,6 +770,14 @@ real,intent(out) :: tign_subcl
 
 real :: a,b,c,err
 err=0.0001
+
+call check_lfn_tign_ij(0,1,'tign_lfn_four_pnts_interp',time_now,lfn1,tign1) 
+call check_lfn_tign_ij(0,2,'tign_lfn_four_pnts_interp',time_now,lfn2,tign2) 
+call check_lfn_tign_ij(0,3,'tign_lfn_four_pnts_interp',time_now,lfn3,tign3) 
+call check_lfn_tign_ij(0,4,'tign_lfn_four_pnts_interp',time_now,lfn4,tign4) 
+ 
+lfn_subcl=0.25*(lfn1+lfn2+lfn3+lfn4)
+
 ! Case 1
 if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
@@ -815,7 +818,7 @@ b=0;
    endif
 endif
 
-end subroutine tign_four_pnts_interp
+end subroutine tign_lfn_four_pnts_interp
 
 
 !
