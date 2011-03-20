@@ -722,7 +722,7 @@ else  ! one is on fire one is not
    else
       call crash('tign_lfn_line_interp: one of lfn1 or lfn2 should be < 0')
    endif
-   if( c > 0.)call crash('tign_lfn_line_interp: bad ignition times, c>0')
+   if( c < 0.)call crash('tign_lfn_line_interp: bad ignition times, c<0')
    tign_subcl=c*lfn_subcl+time_now;
 endif
 end subroutine tign_lfn_line_interp
@@ -775,16 +775,16 @@ call check_lfn_tign_ij(0,4,'tign_lfn_four_pnts_interp',time_now,lfn4,tign4)
 lfn_subcl=0.25*(lfn1+lfn2+lfn3+lfn4)
 
 if(.not. lfn_subcl < 0.) then ! midpoint not on fire, most frequent
+      ! Case 2  
       tign_subcl=time_now
-! Case 1
 elseif((lfn1 < 0.).AND.(lfn2 < 0.).AND.(lfn3 < 0.).AND.(lfn4 < 0.)) then
-   tign_subcl=0.25*(tign1+tign2+tign3+tign4)  ! all on fire, interpolate
-! Case 2  
+      ! Case 1
+      tign_subcl=0.25*(tign1+tign2+tign3+tign4)  ! all on fire, interpolate
 else ! some on fire
-! Case 3
-! tign_subcl~=c*lfn_subcl+time_now
-   a=0; 
-   b=0;
+      ! Case 3
+      ! tign_subcl~=c*lfn_subcl+time_now
+      a=0; 
+      b=0;
       if (lfn1 < 0.) then
          a=a+lfn1*lfn1
          b=b+(tign1-time_now)*lfn1
@@ -805,7 +805,6 @@ else ! some on fire
       if( b < 0.)call crash('tign_lfn_four_pnts_interp: bad ignition times, b<0') ! can have 0 because of rounding
       c=b/a;
       tign_subcl=c*lfn_subcl+time_now;
-   endif
 endif
 
 end subroutine tign_lfn_four_pnts_interp
