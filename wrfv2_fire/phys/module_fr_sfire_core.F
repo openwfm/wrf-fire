@@ -717,16 +717,16 @@ real :: a,b,c,err
 
 err=0.1
 
-if((lfn1.lt.0).AND.(lfn2.lt.0)) then
+if((lfn1.le.0).AND.(lfn2.le.0)) then
    tign_subcl=0.5*(tign1+tign2)
-elseif((lfn1.ge.0).AND.(lfn2.ge.0))then
+elseif((lfn1.gt.0).AND.(lfn2.gt.0))then
     if  ((abs(tign1-time_now).gt.err).or.(abs(tign2-time_now).gt.err)) then
       write(*,*)"lfn1,lfn2,tign1,tign2,timenow",lfn1,lfn2,tign1,tign2,time_now
       call crash('line_interp: when lfn1(2)>0 their tign1(2) should = time_now')
    else
       tign_subcl=time_now;
    endif
-elseif(lfn_subcl.ge.0) then
+elseif(lfn_subcl.gt.0) then
       tign_subcl=time_now;
 else
 !lfn_subcl<=0;
@@ -791,12 +791,12 @@ real,intent(out) :: tign_subcl
 real :: a,b,c,err
 err=0.0001
 ! Case 1
-if((lfn1.lt.0).AND.(lfn2.lt.0).AND.(lfn3.lt.0).AND.(lfn4.lt.0)) then
+if((lfn1.le.0).AND.(lfn2.le.0).AND.(lfn3.le.0).AND.(lfn4.le.0)) then
    tign_subcl=0.25*(tign1+tign2+tign3+tign4)
 ! Case 2
-elseif((lfn1.ge.0).AND.(lfn2.ge.0).AND.(lfn3.ge.0).AND.(lfn4.ge.0))then
+elseif((lfn1.gt.0).AND.(lfn2.gt.0).AND.(lfn3.gt.0).AND.(lfn4.gt.0))then
       tign_subcl=time_now;
-elseif(lfn_subcl.ge.0) then
+elseif(lfn_subcl.gt.0) then
       tign_subcl=time_now;
 else
 ! Case 3
