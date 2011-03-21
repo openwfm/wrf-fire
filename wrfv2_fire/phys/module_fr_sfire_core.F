@@ -964,7 +964,7 @@ end subroutine fuel_left_cell_1
 !****************************************
 !
 ! function calculation fuel_frac made by Volodymyr Kondratenko on the base of
-! the code made by Jan Mandel and Minjeong
+! the Matlab code made by Jan Mandel and the fortran port by Minjeong Kim
 
 subroutine fuel_left_cell_2( fuel_frac_left, fire_frac_area, &
                              lfn00,lfn01,lfn10,lfn11, &
@@ -977,9 +977,9 @@ real, intent(out):: fuel_frac_left, fire_frac_area !
 real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners of the cell
 real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners of the cell
 real, intent(in)::time_now                   ! the time now
-real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
+real, intent(in)::fuel_time_cell             ! burns time to 1/e
 !*** Description
-! The area burning is given by the condition L <= 0, where the function P is
+! The burning area is given by the condition L <= 0, where the function L is
 ! interpolated from lfn(i,j)
 !
 ! The time since ignition is the function T, interpolated in from tign(i,j)-time_now.
@@ -1094,6 +1094,15 @@ DREAL, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 !!!! For finite differences by VK
 DREAL::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
 DREAL:: alg_err
+
+!*** executable
+
+! check consistency
+call check_lfn_tign_ij(0,0,'fuel_left_cell_2',time_now,lfn00,tign00) 
+call check_lfn_tign_ij(0,1,'fuel_left_cell_2',time_now,lfn01,tign01) 
+call check_lfn_tign_ij(1,0,'fuel_left_cell_2',time_now,lfn10,tign10) 
+call check_lfn_tign_ij(1,1,'fuel_left_cell_2',time_now,lfn11,tign11) 
+
 alg_err=0
 dx=1
 dy=1
@@ -1107,7 +1116,7 @@ t11=time_now-tign11
 if(lfn11>=0. .or. t11<0.)t11=0.
 
 ! approximate burning area, between 0 and 1  
-! was taken from fuel_left_cell_1 made by Jan, might need to be changed 
+! was taken from fuel_left_cell_1 made by Jan, will need to be changed 
 ps = lfn00+lfn01+lfn10+lfn11
 aps = abs(lfn00)+abs(lfn01)+abs(lfn10)+abs(lfn11)
 aps=max(aps,safe)
