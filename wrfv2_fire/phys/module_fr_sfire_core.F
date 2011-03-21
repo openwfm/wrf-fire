@@ -4,7 +4,6 @@
 ! With contributions by Minjeong Kim.
 #define DEBUG_OUT
 #define DEBUG_PRINT
-!#define FUEL_LEFT_2
 !#define DEBUG_OUT_FUEL_LEFT    
 
 module module_fr_sfire_core
@@ -1050,12 +1049,6 @@ real, intent(in)::fuel_time_cell             ! burns time to 1/e
 ! When X is small then the fuel burnt in one timestep in the cell is
 ! approximately proportional to the area of the burning region.
 
-!#ifndef FUEL_LEFT
-!call crash('fuel_left_cell_2: not implemented, please use fire_fuel_left_method=1')
-!fuel_left_cell_2=0.  ! to avoid compiler warning about value not set
-!end function fuel_left_cell_2
-!#else
-
 !*** calls
 intrinsic tiny
 #define DREAL real(kind=8)
@@ -1451,9 +1444,6 @@ end function intexp
 !****************************************
 
 
-
-!#ifdef FUEL_LEFT_2
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine sortxt(xytlist,nrow,ncolumn,xt,nxt,nvec)
 implicit none
@@ -1478,7 +1468,7 @@ do i=1,nvec-1
   end do
 end do
 
-end subroutine !sortxt
+end subroutine sortxt
 !
 !****************************************
 !
@@ -1521,7 +1511,6 @@ end subroutine
 !
 !****************************************
 !
-!#endif
 
 subroutine prop_ls( id, &                                ! for debug
                 ids,ide,jds,jde, &                       ! domain dims
