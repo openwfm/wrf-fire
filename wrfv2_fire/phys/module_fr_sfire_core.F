@@ -529,7 +529,7 @@ do icl=its1,ite1
      tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
      time_now, fuel_time(icl,jcl))
         elseif(fuel_left_method.eq.2)then
-          call fuel_left_cell_3( fuel_left_ff, fire_area_ff, &
+          call fuel_left_cell_2( fuel_left_ff, fire_area_ff, &
      lff(isubcl,jsubcl),lff(isubcl,jsubcl+1),lff(isubcl+1,jsubcl),lff(isubcl+1,jsubcl+1), &
      tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
      time_now, fuel_time(icl,jcl)) 
@@ -966,7 +966,7 @@ end subroutine fuel_left_cell_1
 ! function calculation fuel_frac made by Volodymyr Kondratenko on the base of
 ! the code made by Jan Mandel and Minjeong
 
-subroutine fuel_left_cell_3( fuel_frac_left, fire_frac_area, &
+subroutine fuel_left_cell_2( fuel_frac_left, fire_frac_area, &
                              lfn00,lfn01,lfn10,lfn11, &
                              tign00,tign01,tign10,tign11,&
                              time_now, fuel_time_cell)
@@ -1051,9 +1051,9 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 ! approximately proportional to the area of the burning region.
 
 !#ifndef FUEL_LEFT
-!call crash('fuel_left_cell_3: not implemented, please use fire_fuel_left_method=1')
-!fuel_left_cell_3=0.  ! to avoid compiler warning about value not set
-!end function fuel_left_cell_3
+!call crash('fuel_left_cell_2: not implemented, please use fire_fuel_left_method=1')
+!fuel_left_cell_2=0.  ! to avoid compiler warning about value not set
+!end function fuel_left_cell_2
 !#else
 
 !*** calls
@@ -1406,7 +1406,7 @@ end if ! if case0, elseif case4 ,else case123
 900 continue 
 fuel_frac_left = out
 fire_frac_area= area
-end subroutine fuel_left_cell_3
+end subroutine fuel_left_cell_2
 
 
 
