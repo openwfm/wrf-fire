@@ -1056,9 +1056,7 @@ intrinsic tiny
 DREAL::ps,aps,area,ta,out
 DREAL::t00,t01,t10,t11
 DREAL,parameter::safe=tiny(aps)
-character(len=128)::msg
 DREAL::dx,dy ! mesh sizes
-!*** local
 integer::i,j,k
 
 DREAL,dimension(3)::u
@@ -1078,6 +1076,7 @@ DREAL::s1,s2,s3
 DREAL::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
 DREAL,dimension(2,2)::mQ
 DREAL,dimension(2)::ut
+character(len=128)::msg
 
 !calls
 intrinsic epsilon
@@ -1120,6 +1119,7 @@ area = min(area,one)
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
     out = 1.0 !  fuel_left, no burning
+    area= 0.
 !*** case4 all four coners are burning
 else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
 ! All burning
@@ -1153,9 +1153,10 @@ u(2)=-u(2)/fuel_time_cell
 u(3)=-u(3)/fuel_time_cell
     s1=u(1)
     s2=u(2)            
-    out=1-exp(u(3))*intexp(s1)*intexp(s2)
+    out=exp(u(3))*intexp(s1)*intexp(s2)
+    area=1
     if ( out<0 .or. out>1.0 ) then
-        print *,'case4, out should be between 0 and 1'
+        call message('WARNING: fuel_left_cell: case all burning: out should be between 0 and 1')
     end if
 !*** case 1,2,3- other cases
 !*** part of cell is burning 
