@@ -325,8 +325,10 @@ character(len=128):: msg
 
 if(.not. lfnij<0. .and. tignij<time_now)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-   write(msg,*)'i,j=',i,j,' lfn=',lfnij,' tign=',tignij,' time_now=',time_now
-   call message(msg)
+   write(msg,1)'i,j=',i,j,' lfn=',lfnij,' tign=',tignij,' time_now=',time_now
+   call message(msg,level=0)
+   write(msg,1)' tign-time_now=',tignij-time_now
+   call message(msg,level=0)
    msg=s//': inconsistent state: lfn>=0 and tign<time_now'
    call crash(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
