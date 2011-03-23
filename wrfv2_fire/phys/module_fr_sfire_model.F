@@ -260,15 +260,22 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   lfn does not change, tign has no halos
 
     if(.not. freeze_fire)then
-
-    call prop_ls(id,     &
+      if(time_start+dt > fire_replay_time) then    
+        call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
         ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
         ifts,ifte,jfts,jfte,                      &
         time_start,dt,fdx,fdy,tbound,  &
         lfn,lfn_out,tign,ros, fp &
-    ) 
+        ) 
+      else
+        do j=jfts,jfte
+          do i=ifts,ifte
+            lfn_out(i,j) = tign(i,j) - (time_start + dt) ! <0 if burning at the end of the time step
+          enddo
+        enddo
+      endif
     else
         call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
 
@@ -279,7 +286,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! some thread may still be using lfn as input in their tile halo
 
     if(.not. freeze_fire)then
-    
     do j=jfts,jfte
         do i=ifts,ifte
             lfn(i,j)=lfn_out(i,j)

@@ -201,6 +201,13 @@ CONTAINS
    CALL wrf_dm_bcast_bytes( jcm , IWORDSIZE )
 #endif
 
+! JM read ignition time from file if we are replaying fire history up to the specified time
+   if(config_flags%fire_replay_time > 0.) then 
+       write(6,*)'SFIRE will replay fire from given ignition times until ',config_flags%fire_replay_time,'s.'
+       write(6,*)'Reading the ground ignition times at every point into array TIGN_G from file.'
+       call read_array_2d_real('input_tign_g',grid%tign_g,ids,ide,jds,jde,ims,ime,jms,jme) 
+   endif
+
 !AK/ak land use initialization (USGS) 
    IF (sfc_init) THEN  
     mminlu2=' '

@@ -63,20 +63,41 @@ intrinsic epsilon
 !*** local
 integer:: i,j
 real:: lfn_init,time_init,time_now
+character(len=128):: msg
 
 time_now = time_start+dt
 time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
+
+if(fire_replay_time > 0.) then
+
+  do j=jfts,jfte
+     do i=ifts,ifte
+        fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
+        fire_area(i,j)=0.          ! nothing burning
+        lfn(i,j) = tign(i,j)       ! use specified ignition time as leve set function 
+        if(tign(i,j) < time_start)then
+           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' < time_start =',time_start
+           call message(msg,level=0)
+           call crash('init_no_fire: ignition time may not be in the past')
+        endif
+     enddo
+  enddo
+  call message('init_no_fire: using given ignition time as history',level=1)
  
-do j=jfts,jfte
-    do i=ifts,ifte
+else
+
+  do j=jfts,jfte
+     do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
         tign(i,j) = time_init      ! ignition in future
         lfn(i,j) = lfn_init        ! no fire 
-    enddo
-enddo
-call message('init_no_fire: state set to no fire')
+     enddo
+  enddo
+  call message('init_no_fire: state set to no fire',level=1)
+endif
+
 call check_lfn_tign('init_no_fire',time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
 end subroutine init_no_fire

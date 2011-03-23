@@ -1426,7 +1426,7 @@ TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
 ! copy flags from wrf to module_fr_sfire_util
 ! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
-
+fire_replay_time        = config_flags%fire_replay_time
 fire_print_msg          = config_flags%fire_print_msg
 fire_print_file         = config_flags%fire_print_file
 fuel_left_method        = config_flags%fire_fuel_left_method

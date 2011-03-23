@@ -23,7 +23,7 @@ integer,save::          &
  fire_print_file=1,     &  ! write many files by write_array_m; compile with DEBUG_OUT, do not run in parallel
  fuel_left_method=1,    &  ! 1=simple, 2=exact in linear case
  fuel_left_irl=2,       &  ! refinement for fuel calculation, must be even
- fuel_left_jrl=2,       &
+ fuel_left_jrl=2,       &  ! currently, 2 only supported
  boundary_guard=-1,     &  ! crash if fire gets this many cells to domain boundary, -1=off
  fire_grows_only=1,     &  ! fire can spread out only (level set functions may not increase)
  fire_upwinding=3,      &  ! upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian 
@@ -34,7 +34,8 @@ integer,save::          &
  
 
 real, save::            &
- fire_const_time=-1,    &  ! time from ignition to start constant heat output  <0=never
+ fire_replay_time=0.,    &  ! if >0, set lfn from tign until this time, and read tign in ideal
+ fire_const_time=-1.,    &  ! time from ignition to start constant heat output  <0=never
  fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_const_grnqfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
