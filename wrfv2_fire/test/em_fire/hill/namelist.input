@@ -16,7 +16,7 @@
  end_minute                          = 600,   600,   600,
  end_second                          = 00,   00,   00,
  history_interval_s                  = 5,   30,   30,
- frames_per_outfile                  = 1000, 1000, 1000,
+ frames_per_outfile                  = 10, 1000, 1000,
  restart                             = .false.,
  restart_interval                    = 1
  io_form_history                     = 2
@@ -151,7 +151,7 @@
  !fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 !
 ! verbosity
- fire_print_msg     = 2,        ! 1 print fire debugging messages
+ fire_print_msg     = 1,        ! 1 print fire debugging messages
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! experiments

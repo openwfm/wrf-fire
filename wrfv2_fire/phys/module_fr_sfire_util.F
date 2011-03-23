@@ -96,8 +96,8 @@ if(fire_print_msg.ge.mlevel)then
       msg='SFIRE:'//s
 #endif
       call wrf_message(msg)
-      flush(6)
-      flush(0)
+      ! flush(6) ! will not work on intel compiler
+      ! flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -107,13 +107,13 @@ end subroutine message
 !
 
 subroutine time_start
-use module_timing
+use module_timing, only:start_timing
 implicit none
 call start_timing
 end subroutine time_start
 
 subroutine time_end(string)
-use module_timing
+use module_timing, only:end_timing
 implicit none
 character(len=*)string
 call end_timing(string)

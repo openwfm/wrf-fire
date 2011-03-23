@@ -1,4 +1,4 @@
-function fuel_fraction=fuel_burnt(lfn,tign,tnow,fd,fuel_time)
+function fuel_fraction=fuel_burnt_fd(lfn,tign,tnow,fd,fuel_time)
 % lfn       - level set function, size (2,2)
 % tign      - time of ignition, size (2,2)
 % tnow      - time now
@@ -26,7 +26,7 @@ function fuel_fraction=fuel_burnt(lfn,tign,tnow,fd,fuel_time)
 %       assume T=0 when lfn=0
 figs=1:4;
 for i=figs,figure(i),clf,hold off,end
-% tign 
+% tign
 % lfn
 if all(lfn(:)>=0),
     % nothing burning, nothing to do - most common case, put it first
@@ -34,17 +34,31 @@ if all(lfn(:)>=0),
 elseif all(lfn(:)<=0),
     % all burning
     % T=u(1)*x+u(2)*y+u(3)
-    % set up least squares(A*u-v)*inv(C)*(A*u-v)->min
-    A=[0,      0,    1;
-       fd(1),  0,    1;
-       0,    fd(2),  1;
-       fd(1),fd(2),  1];
-    v=tnow-tign(:) ;   % time from ignition
-    rw=2*ones(4,1);
-    u = lscov(A,v,rw);  % solve least squares to get coeffs of T
-    residual=norm(A*u-v); % zero if T is linear
-    u
-    display('fuel_burnt coefficients of u')
+    % t(0,0)=tign(1,1)
+% t(0,msh_sz)=tign(1,2)
+% t(msh_sz,0)=tign(2,1)
+% t(msh_sz,msh_sz)=tign(2,2)
+% msh_sz=h
+% t(g/2,h/2)=sum(tign(i,i))/4
+% dt/dx=(1/2h)*(t10-t00+t11-t01)
+% dt/dy=(1/2h)*(t01-t00+t11-t10)
+% approximate T(x,y)=u(1)*x+u(2)*y+u(3) Using finite differences
+% t(x,y)=t(h/2,h/2)+(x-h/2)*dt/dx+(y-h/2)*dt/dy
+% u(1)=dt/dx
+% u(2)=dt/dy
+% u(3)=t(h/2,h/2)-h/2(dt/dx+dt/dy)
+
+ tign_middle=(tign(1,1)+tign(1,2)+tign(2,1)+tign(2,2))/4;
+ dt_dx=(tign(1,1)-tign(2,1)+tign(1,2)-tign(2,2))/(2*fd(1));
+ dt_dy=(tign(1,1)-tign(1,2)+tign(2,1)-tign(2,2))/(2*fd(2));
+%  dt_dx=(tign(2,1)-tign(1,1)+tign(2,2)-tign(1,2))/(2*fd(1));
+%  dt_dy=(tign(1,2)-tign(1,1)+tign(2,2)-tign(2,1))/(2*fd(2));
+
+ u(1)=dt_dx;
+ u(2)=dt_dy;
+ u(3)=tign_middle-(dt_dx*fd(1)+dt_dy*fd(2))/2;
+ u1=u'
+ display('fuel_burnt_fd coefficients of u')
     % integrate
     uu = -u / fuel_time;
     fuel_fraction = 1 - exp(uu(3)) * intexp(uu(1)*fd(1)) * intexp(uu(2)*fd(2));
@@ -104,23 +118,39 @@ else
     patch(xylist(:,1),xylist(:,2),zeros(points+1,1),250,'FaceAlpha',0.3)
     patch(xylist(:,1),xylist(:,2),Tlist,100,'FaceAlpha',0.3)
     hold off,grid on,drawnow,pause(0.5)
-    % set up least squares
-    A=[xylist(1:points,1:2),ones(points,1)];
-    v=Tlist(1:points);
-    for i=1:points
-        for j=1:points
-            if(j~=i),
-                dist(j)=norm(xylist(i,:)-xylist(j,:));
-            else
-                dist(j)=max(fd);  % large
-            end
-        end
-        rw(i)=1+min(dist);  % weight = 1+min dist from other nodes
+ %%%%% Approximation of the plane for lfn using finite differences
+% approximate L(x,y)=u(1)*x+u(2)*y+u(3)
+ lfn_middle=(lfn(1,1)+lfn(1,2)+lfn(2,1)+lfn(2,2))/4;
+ dt_dx=(lfn(1,1)-lfn(2,1)+lfn(1,2)-lfn(2,2))/(2*fd(1));
+ dt_dy=(lfn(1,1)-lfn(1,2)+lfn(2,1)-lfn(2,2))/(2*fd(2));
+ % I feel that it is right but not least squares tnow-tign
+ u(1)=dt_dx;
+ u(2)=dt_dy;
+ u(3)=lfn_middle-(dt_dx*fd(1)+dt_dy*fd(2))/2;
+% finding the coefficient c, reminder we work over one subcell only
+% T(x,y)=c*L(x,y) in the sence of least squares
+    a=0; b=0;
+    for i=1:2
+        for j=1:2
+    if (lfn(i,j)<=0) 
+                        a=a+lfn(i,j)*lfn(i,j);
+                        if (tign(i,j)>tnow)
+                        disp('fuel_burnt_fd: tign(i1) should be less then time_now');
+                        else
+                        b=b+(tign(i,j)-tnow)*lfn(i,j);
+                        end
     end
-    u = lscov(A,v,rw);  % solve least squares to get coeffs of T
-    u
-    display('fuel_burnt coefficients of u')
-    residual=norm(A*u-v); % should be zero if T and L are linear
+        end
+        end
+                     if (a==0)
+                        display('fuel_burnt_fd: if c is on fire then one of cells should be on fire');
+                     end
+                        c=b/a;
+                        u(1)=u(1)*c;
+                        u(2)=u(2)*c;
+                        u(3)=u(3)*c;
+    u=u'
+    display('fuel_burnt_fd coefficients of u')
     nr=sqrt(u(1)*u(1)+u(2)*u(2));
     c=u(1)/nr;
     s=u(2)/nr;
@@ -235,7 +265,7 @@ else
         end
     end
     fuel_fraction=fuel_fraction/(fd(1)*fd(2));
-    display('fuel_burnt2')
+    % display('fuel_burnt_fd')
     %fuel_fraction=1-fuel_fraction;
 end
 for i=figs,figure(i),hold off,end
