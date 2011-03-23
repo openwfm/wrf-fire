@@ -212,7 +212,7 @@ elseif(ifun.eq.2)then
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
-            fdx,fdy,time_start,  &
+            fdx,fdy,time_start,dt,  &
             fuel_frac,fire_area,lfn,tign)
             
             need_lfn_update=.true. ! because we have set lfn 
@@ -345,6 +345,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
     call fuel_left(&
+        ifds,ifde,jfds,jfde, &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &

@@ -70,7 +70,7 @@ module module_domain
       real, pointer, dimension(:,:)::grnqfx => null()
       real, pointer, dimension(:,:)::canhfx => null()
       real, pointer, dimension(:,:)::canqfx => null()           
-      real, pointer, dimension(:,:)::avg_fuel_frac => null()   ! average fule fraction, for display
+      real, pointer, dimension(:,:)::avg_fuel_frac => null()   ! fuel_frac averaged to atmosphere grid, diagnostic
 
    end type domain
 

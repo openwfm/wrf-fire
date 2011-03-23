@@ -4,7 +4,6 @@
 ! With contributions by Minjeong Kim.
 #define DEBUG_OUT
 #define DEBUG_PRINT
-!#define FUEL_LEFT
 !#define DEBUG_OUT_FUEL_LEFT    
 
 module module_fr_sfire_core
@@ -44,7 +43,7 @@ subroutine init_no_fire(&
     ifds,ifde,jfds,jfde, &
     ifms,ifme,jfms,jfme, &
     ifts,ifte,jfts,jfte, &
-    fdx,fdy,time_now,    & ! scalars in
+    fdx,fdy,time_start,dt,  & ! scalars in
     fuel_frac,fire_area,lfn,tign)    ! arrays out            
 implicit none
              
@@ -54,7 +53,7 @@ implicit none
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
-real, intent(in) :: fdx,fdy,time_now        ! mesh spacing, time
+real, intent(in) :: fdx,fdy,time_start,dt   ! mesh spacing, time
 real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
                    fuel_frac,fire_area,lfn,tign       ! model state
 
@@ -63,10 +62,11 @@ intrinsic epsilon
                                                 
 !*** local
 integer:: i,j
-real lfn_init,time_init
+real:: lfn_init,time_init,time_now
 
+time_now = time_start+dt
+time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
-time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
  
 do j=jfts,jfte
     do i=ifts,ifte
@@ -77,6 +77,7 @@ do j=jfts,jfte
     enddo
 enddo
 call message('init_no_fire: state set to no fire')
+call check_lfn_tign('init_no_fire',time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
 end subroutine init_no_fire
 
@@ -122,7 +123,8 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
-real::lfn_new,time_ign,ax,ay,rels,rele,d
+real::lfn_new,tign_new,time_ign,ax,ay,rels,rele,d
+! real:: lfn_new_chk,tign_new_chk,tmperr
 real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
@@ -135,6 +137,8 @@ real:: start_time,end_time      ! the ignition time for the start and the end of
 real:: ros,tos                  ! ignition rate and time of spread
 
 !*** executable
+
+call check_lfn_tign('ignite_fire start',end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
 ! copy ignition line fields to local variables
 start_x    = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
@@ -196,18 +200,36 @@ dmax=0
 dmin=huge(dmax)
 11      format('IGN ',6(a,g17.7,1x)) 
 12      format('IGN ',4(a,2g13.7,1x))
+! tmperr=0.
 do j=jfts,jfte   
     do i=ifts,ifte
+        call check_lfn_tign_ij(i,j,'ignite_fire start',end_ts,lfn(i,j),tign(i,j))
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
 
         ! get d= distance from the nearest point on the ignition segment
         ! and time_ign = the ignition time there
         call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
+
+
+        ! collect statistics
         dmax=max(d,dmax)
         dmin=min(d,dmin)
 
-        lfn_new=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
+        ! tentative new level set function and time of ignition
+        ! lfn_new_chk=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
+        ! tign_new_chk = time_ign + d/ros
+        if(radius < ros*(end_ts - time_ign))then
+            lfn_new = d - radius
+            tign_new= time_ign + d/ros
+        else
+            lfn_new=d-ros*(end_ts - time_ign)
+            tign_new=lfn_new/ros + end_ts  ! consistent even with rounding errors
+        endif
+        ! tmperr=max(tmperr,abs(lfn_new - lfn_new_chk)+abs(tign_new-tign_new_chk))
+        !lfn_new=lfn_new_chk
+        !tign_new=tign_new_chk
+        
         if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
             write(msg,*)'IGN1 i,j=',i,j,' lfn(i,j)=',lfn(i,j),' tign(i,j)=',tign(i,j)
@@ -219,8 +241,8 @@ do j=jfts,jfte
         if(.not.lfn_new>0.) then
             ignited=ignited+1   ! count
         endif
-        if(lfn(i,j)>0. .and. .not. lfn_new > 0.) then
-            tign(i,j)=time_ign + d/ros  ! newly ignited now
+        if(.not. lfn(i,j)<0. .and. lfn_new < 0.) then
+            tign(i,j)=tign_new  ! newly ignited now
             if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
                 write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
@@ -246,19 +268,73 @@ do j=jfts,jfte
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
+        call check_lfn_tign_ij(i,j,'ignite_fire end',end_ts,lfn(i,j),tign(i,j))
     enddo
 enddo
+! write(msg,*)'ignite_fire: max error ',tmperr
+! call message(msg)
+call check_lfn_tign("ignite_fire end:",end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+if(fire_print_msg .ge. 2)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
 call message(msg)
 write(msg,'(a,f6.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
 call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
-
-return
-99 continue
-
+endif
 end subroutine ignite_fire
+
+!
+!***
+!
+
+subroutine check_lfn_tign(s,time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+!*** purpose: check consistency of lfn and ignition
+implicit none
+!*** arguments
+character(len=*),intent(in)::s              ! for print
+real, intent(in)::time_now                    ! end of timestep = time_now
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+real, intent(in), dimension (ifms:ifme,jfms:jfme) :: & 
+                   lfn, tign                ! level function, ignition time (state)
+!*** local
+integer:: i,j
+!***    executable
+
+do j=jfts,jfte   
+    do i=ifts,ifte
+       call check_lfn_tign_ij(i,j,s,time_now,lfn(i,j),tign(i,j))
+    enddo
+enddo
+
+end subroutine check_lfn_tign 
+
+subroutine check_lfn_tign_ij(i,j,s,time_now,lfnij,tignij)
+!*** purpose: check consistency of lfn and ignition
+implicit none
+!*** arguments
+integer, intent(in)::i,j                    ! indices
+character(len=*),intent(in)::s              ! for print
+real, intent(in)::time_now                  ! end of timestep = time_now
+real, intent(in):: lfnij, tignij                ! level function, ignition time (state)
+!*** local
+character(len=128):: msg
+!***    executable
+
+if(.not. lfnij<0. .and. tignij<time_now)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+   write(msg,*)'i,j=',i,j,' lfn=',lfnij,' tign=',tignij,' time_now=',time_now
+   call message(msg,level=0)
+   write(msg,*)' tign-time_now=',tignij-time_now
+   call message(msg,level=0)
+   msg=s//': inconsistent state: lfn>=0 and tign<time_now'
+   call crash(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+endif
+
+end subroutine check_lfn_tign_ij
+
 
 ! called from the inside of a loop, inline if possible
 !DEC$ ATTRIBUTES FORCEINLINE
@@ -388,7 +464,8 @@ end subroutine lfn_ignition
 !***
 !
 
-subroutine fuel_left(&
+subroutine fuel_left( &
+    ifds,ifde,jfds,jfde, &
     ims,ime,jms,jme, &
     its,ite,jts,jte, &
     ifs,ife,jfs,jfe, &
@@ -402,7 +479,8 @@ implicit none
 
 !*** arguments
 
-integer, intent(in) :: its,ite,jts,jte,ims,ime,jms,jme,ifs,ife,jfs,jfe
+integer, intent(in) ::ifds,ifde,jfds,jfde,its,ite,jts,jte,ims,ime &
+                      ,jms,jme,ifs,ife,jfs,jfe
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: time_now
 real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
@@ -420,8 +498,9 @@ real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 !*** local
 
-integer::i,j,ir,jr,icl,jcl,isubcl,jsubcl,i2,j2,ii,jj
+integer::i,j,ir,jr,icl,jcl,isubcl,jsubcl,i2,j2,ii,jj,its1,jts1,ite1,jte1
 real::fmax,frat,helpsum1,helpsum2,fuel_left_ff,fire_area_ff,rx,ry,tignf(2,2)
+real,dimension(3,3)::tff,lff
 ! help variables instead of arrays fuel_left_f and fire_area_f 
 real::lffij,lffi1j,lffij1,lffi1j1,tifij,tifi1j,tifij1,tifi1j1,tx,ty,txx,tyy
 ! variables for calculation instead of lff(i,j) and tif(i,j)is lffij,tifij etc..#define IFCELLS (ite-its+1)*fuel_left_irl
@@ -432,6 +511,7 @@ integer::m,omp_get_thread_num
 
 call check_mesh_2dim(its-1,ite+1,jts-1,jte+1,ims,ime,jms,jme)
 call check_mesh_2dim(its,ite,jts,jte,ifs,ife,jfs,jfe)
+call check_lfn_tign('fuel_left start',time_now,its,ite,jts,jte,ims,ime,jms,jme,lfn, tign)
 
 ! refinement
 ir=fuel_left_irl
@@ -463,110 +543,40 @@ ry=1./jr
 
 !  Loop over cells in Tile 
 !  Changes made by Volodymyr Kondratenko 09/24/2009
-do icl=its,ite
-  do jcl=jts,jte
+its1=max(its,ifds+1)
+ite1=min(ite,ifde-1)
+jts1=max(jts,jfds+1)
+jte1=min(jte,jfde-1)
+write(*,*)"fuel_left_method",fuel_left_method
+! jm: initialize fuel_frac - we do not compute it near the domain boundary becau!se we cannot interpolate!
+do j=jts,jte
+   do i=its,ite
+      fuel_frac(i,j)=1.
+   enddo
+enddo
+
+do icl=its1,ite1
+  do jcl=jts1,jte1
     helpsum1=0
     helpsum2=0
-!   Loop over subcells in cell #(icl,jcl)
+
+
+    call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+
     do isubcl=1,ir
       do jsubcl=1,jr 
-        i=(icl-its)*ir+isubcl
-        j=(jcl-jts)*jr+jsubcl
-
-!       Direct calculation tif and lff, avoiding arrays, just for case ir=jr=2
-        if ((isubcl.eq.1).and.(jsubcl.eq.1)) then
-           i2=icl-1
-           j2=jcl-1
-           ty=0.5
-           tx=0.5
-           tyy=1.0
-           txx=1.0
-        else if ((isubcl.eq.2).and.(jsubcl.eq.1)) then
-           i2=icl
-           j2=jcl-1
-           ty=0.5
-           tx=0
-           tyy=1.0
-           txx=0.5
-        else if ((isubcl.eq.1).and.(jsubcl.eq.2)) then
-           i2=icl-1
-           j2=jcl
-           tx=0.5
-           ty=0
-           txx=1.0
-           tyy=0.5
-        else if ((isubcl.eq.2).and.(jsubcl.eq.2)) then
-           i2=icl
-           j2=jcl
-           tx=0
-           ty=0
-           txx=0.5
-           tyy=0.5
-        else
-           call crash('fuel_left: isubcl,jsubcl should be only 1 or 2')
-        endif 
-
-! calculation lff and tif in 4 endpoints of subcell                    
-        lffij=                             &    
-                  (1-tx)*(1-ty)*lfn(i2,j2)      &
-             +    (1-tx)*ty  *lfn(i2,j2+1)      &
-             +     tx*(1-ty)*lfn(i2+1,j2)       &
-             +       tx*ty  *lfn(i2+1,j2+1)
-        lffi1j=                            &
-                    (1-txx)*(1-ty)*lfn(i2,j2)   &
-             +      (1-txx)*ty  *lfn(i2,j2+1)   &
-             +      (txx)*(1-ty)*lfn(i2+1,j2)   &
-             +      (txx)*ty  *lfn(i2+1,j2+1)
-        lffij1=                            &
-                    (1-tx)*(1-tyy)*lfn(i2,j2)   &
-             +      (1-tx)*(tyy)  *lfn(i2,j2+1) &
-             +      tx*(1-tyy)*lfn(i2+1,j2)     &
-             +      tx*(tyy)  *lfn(i2+1,j2+1)
-        lffi1j1 =                               &
-                      (1-txx)*(1-tyy)*lfn(i2,j2)     &
-             +      (1-txx)*(tyy)  *lfn(i2,j2+1)   &        
-             +      (txx)*(1-tyy)*lfn(i2+1,j2)     &
-             +      (txx)*(tyy)  *lfn(i2+1,j2+1)
-
-        ! get ready to fix up tign values to be interpolated
-        do ii=1,2
-          do jj=1,2
-            tignf(ii,jj)=tign(i2+ii-1,j2+jj-1)
-          enddo
-        enddo
-        tifij=                                 &
-                   (1-tx)*(1-ty)*tignf(1,1)        &
-             +     (1-tx)*ty*tignf(1,1+1)          &
-             +     tx*(1-ty)*tignf(1+1,1)          &
-             +     tx*ty*tignf(1+1,1+1)
-        tifi1j=                               &
-                   (1-txx)*(1-ty)*tignf(1,1)      &
-             +     (1-txx)*ty*tignf(1,1+1)        &
-             +     (txx)*(1-ty)*tignf(1+1,1)      &
-             +     (txx)*(ty)*tignf(1+1,1+1)            
-        tifij1=                               &
-                   (1-tx)*(1-tyy)*tignf(1,1)      &
-             +     (1-tx)*(tyy)*tignf(1,1+1)      &
-             +      tx*(1-tyy)*tignf(1+1,1)       &
-             +      tx*(tyy)*tignf(1+1,1+1)
-        tifi1j1=                               &
-                   (1-txx)*(1-tyy)*tignf(1,1)     &
-             +     (1-txx)*(tyy)*tignf(1,1+1)     &
-             +     (txx)*(1-tyy)*tignf(1+1,1)     &
-             +     (txx)*(tyy)*tignf(1+1,1+1) 
-
-         
         if(fuel_left_method.eq.1)then
           call fuel_left_cell_1( fuel_left_ff, fire_area_ff, &
-             lffij,lffij1,lffi1j,lffi1j1,&
-             tifij,tifij1,tifi1j,tifi1j1,&
-             time_now, fuel_time(icl,jcl))
+     lff(isubcl,jsubcl),lff(isubcl,jsubcl+1),lff(isubcl+1,jsubcl),lff(isubcl+1,jsubcl+1), &
+     tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
+     time_now, fuel_time(icl,jcl))
         elseif(fuel_left_method.eq.2)then
-          fire_area_ff=0  ! initialize to something until computed in fuel_left_f(i,j)
-          fuel_left_ff=fuel_left_cell_2( &
-             lffij,lffij1,lffi1j,lffi1j1,&
-             tifij,tifij1,tifi1j,tifi1j1,&
-             time_now, fuel_time(icl,jcl)) 
+          call fuel_left_cell_2( fuel_left_ff, fire_area_ff, &
+     lff(isubcl,jsubcl),lff(isubcl,jsubcl+1),lff(isubcl+1,jsubcl),lff(isubcl+1,jsubcl+1), &
+     tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
+     time_now, fuel_time(icl,jcl)) 
+! dont forget to change fire_area_ff here
         else
           call crash('fuel_left: unknown fuel_left_method')
         endif
@@ -589,7 +599,6 @@ do icl=its,ite
     fire_area(icl,jcl)=helpsum2
   enddo 
 enddo
-  
 
 
 
@@ -609,23 +618,23 @@ do j=jts,jte
 enddo
 
 ! consistency check after sum
-fmax=0
-do j=jts,jte
-    do i=its,ite        
-       if(fire_area(i,j).eq.0.)then
-           if(fuel_frac(i,j).lt.1.-1e-6)then
-!$OMP CRITICAL(SFIRE_CORE_CRIT)
-               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
-                   ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
-!$OMP END CRITICAL(SFIRE_CORE_CRIT)
-               call crash(msg)
-           endif
-       else
-           frat=(1-fuel_frac(i,j))/fire_area(i,j)
-           fmax=max(fmax,frat)
-       endif
-    enddo
-enddo
+!fmax=0
+!do j=jts,jte
+!    do i=its,ite        
+!       if(fire_area(i,j).eq.0.)then
+!           if(fuel_frac(i,j).lt.1.-1e-6)then
+!!$OMP CRITICAL(SFIRE_CORE_CRIT)
+!               write(msg,'(a,2i6,2(a,f11.8))')'fuel_left: at node',i,j, &
+!                   ' fuel burnt',1-fuel_frac(i,j),' but fire area',fire_area(i,j)
+!!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+!               call crash(msg)
+!           endif
+!       else
+!           frat=(1-fuel_frac(i,j))/fire_area(i,j)
+!           fmax=max(fmax,frat)
+!       endif
+!    enddo
+!enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,4i6,a,f10.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
@@ -638,6 +647,217 @@ end subroutine fuel_left
 !
 !************************
 !
+
+
+!
+!*************************
+!Subroutine that is calculating tign and lfn of four endpoints of the subcell
+! that is located at isubcl,jsubcl of the cell -(icl,jcl)
+!
+subroutine tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
+                                  tign,lfn,tff,lff)
+real, intent(in):: time_now    ! not ignited nodes will have tign set to >= time_now
+integer, intent(in) :: icl,jcl
+integer, intent(in) :: ims,ime,jms,jme  ! memory dimensions of all arrays
+real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign
+real, intent(out),dimension(3,3)::tff,lff
+
+!     |                 |                 |       
+!  -(3,1)-------------(3,2)-------------(3,3)
+!     |                 |                 |
+!     |   (2,1)         |      (2,2)      |       
+!     |                 |                 |
+!     |                 |                 |
+!     |                 |                 |
+!     |                 |                 |
+!   (2,1)--------node-(icl,jcl)---------(2,3)-----------(icl,jcl+1)-------------|
+!     |          sub-node (2,2)           |
+!     |                 |                 |
+!     |   (1,1)         |      (1,2)      |       each fire mesh cell is decomposed in 4
+!     |                 |                 |       tff,lff is computed at the nodes of 
+!     |                 |                 |       the subcells, numbered (1,1)...(3,3)
+!   (1,1)-------------(1,2)-------------(1,3)--     
+!     |                 |                 |       
+!
+
+!**********************
+	
+!       Direct calculation tif and lff, avoiding big auxiliary arrays, just for case ir=jr=2
+! Checking whether icl or jcl is on the boundary
+
+      call tign_lfn_four_pnts_interp(tign(icl-1,jcl-1),tign(icl-1,jcl),tign(icl,jcl-1),  & 
+                                     tign(icl,jcl),lfn(icl-1,jcl-1),lfn(icl-1,jcl),      &
+                                     lfn(icl,jcl-1),lfn(icl,jcl),lff(1,1),tff(1,1),time_now)
+
+      call tign_lfn_line_interp(tign(icl-1,jcl),tign(icl,jcl),lfn(icl-1,jcl),lfn(icl,jcl), &
+                             lff(1,2),tff(1,2),time_now)
+
+
+      call tign_lfn_four_pnts_interp(tign(icl-1,jcl),tign(icl-1,jcl+1),tign(icl,jcl),  & 
+                                     tign(icl,jcl+1),lfn(icl-1,jcl),lfn(icl-1,jcl+1),      &
+                                     lfn(icl,jcl),lfn(icl,jcl+1),lff(1,3),tff(1,3),time_now)
+
+      call tign_lfn_line_interp(tign(icl,jcl-1),tign(icl,jcl),lfn(icl,jcl-1),lfn(icl,jcl), &
+                             lff(2,1),tff(2,1),time_now)
+
+      lff(2,2)=lfn(icl,jcl)
+      tff(2,2)=tign(icl,jcl)
+
+      call tign_lfn_line_interp(tign(icl,jcl+1),tign(icl,jcl),lfn(icl,jcl+1),lfn(icl,jcl), &
+                             lff(2,3),tff(2,3),time_now)
+
+      call tign_lfn_four_pnts_interp(tign(icl,jcl-1),tign(icl,jcl),tign(icl+1,jcl-1),  & 
+                                     tign(icl+1,jcl),lfn(icl,jcl-1),lfn(icl,jcl),      &
+                                     lfn(icl+1,jcl-1),lfn(icl+1,jcl),lff(3,1),tff(3,1),time_now)
+
+      call tign_lfn_line_interp(tign(icl+1,jcl),tign(icl,jcl),lfn(icl+1,jcl),lfn(icl,jcl), &
+                             lff(3,2),tff(3,2),time_now)
+
+      call tign_lfn_four_pnts_interp(tign(icl,jcl),tign(icl,jcl+1),tign(icl+1,jcl),  & 
+                                     tign(icl+1,jcl+1),lfn(icl,jcl),lfn(icl,jcl+1),      &
+                                     lfn(icl+1,jcl),lfn(icl+1,jcl+1),lff(3,3),tff(3,3),time_now)
+
+end subroutine tign_lfn_interpolation
+
+!
+!************************
+!
+
+subroutine tign_lfn_line_interp(tign1,tign2,lfn1,lfn2,lfn_subcl,tign_subcl,time_now)
+!***purpose: computes time of ignition of the point(*_subcl) that lies on the line
+! between two points, whose lfn and tign is known
+
+!*** arguments
+!
+real,intent(in) :: tign1,tign2   ! ignition times at the two endpoints
+real,intent(in) :: lfn1,lfn2     ! level set function at the two endpoints
+real,intent(in) :: time_now      ! tign>=time_now => no fire
+real,intent(out) :: lfn_subcl,tign_subcl ! interpolated to midpoint
+
+! Case 1: both points are on fire -> tign is interpolated linearly
+! Case 2: both points are not on fire -> tign_subcl=time_now, not burning
+! Case 3: One point is not fire, another is not -> tign_subcl set from
+!         the equation  tign - time_now = c*lfn, where the proportionality
+!         constant is found from the values of tign and lfn at the burning endpoint.
+!         In particular, lfn(x)=0 implies tign(x)=time_now, so the representations of
+!         the fireline by lfn and tign are consistent.
+!         This is a special case of Case 3 from subroutine tign_lfn_four_pnts_interp.
+
+!*** local
+real :: c
+
+!*** executable
+
+! check consistency of inputs
+call check_lfn_tign_ij(0,1,'tign_lfn_line_interp',time_now,lfn1,tign1) 
+call check_lfn_tign_ij(0,2,'tign_lfn_line_interp',time_now,lfn2,tign2) 
+
+lfn_subcl=0.5*(lfn1+lfn2)  ! interpolate lfn linearly
+
+if (.not. lfn_subcl < 0.) then ! never test floats on equality
+   tign_subcl=time_now         ! midpoint not on fire => none on fire
+elseif ((lfn1 < 0.).AND.(lfn2 < 0.)) then
+   tign_subcl=0.5*(tign1+tign2) ! both on fire, interpolate linearly
+else  ! one is on fire one is not
+   if (lfn1 < 0) then  ! 1 is on fire, 2 is not
+      c = (tign1-time_now)/lfn1
+   elseif (lfn2 < 0) then
+      c = (tign2-time_now)/lfn2
+   else
+      call crash('tign_lfn_line_interp: one of lfn1 or lfn2 should be < 0')
+   endif
+   if( c < 0.)call crash('tign_lfn_line_interp: bad ignition times, c<0')
+   tign_subcl=c*lfn_subcl+time_now;
+endif
+end subroutine tign_lfn_line_interp
+!
+!************************
+!
+
+subroutine tign_lfn_four_pnts_interp(tign1,tign2,tign3,tign4, &
+  lfn1,lfn2,lfn3,lfn4,lfn_subcl,tign_subcl,time_now)
+
+!***purpose: computes time of ignition of the point(*_subcl) that lies on the middle
+! of square with given 4 points on its ends, whose lfn and tign is known
+! since lfn is interpolated linearly, lfn_subcl is known 
+
+!***arguments
+real,intent(in) :: tign1,tign2,tign3,tign4 ! time of ignition of all corner points
+real,intent(in) :: lfn1,lfn2,lfn3,lfn4 ! lfn of central and all corner points
+real,intent(in) :: time_now
+real,intent(out) :: lfn_subcl,tign_subcl
+
+! Case 1: all 4 points are on fire -> tign is interpolated linearly
+!   tign_subcl=0.25*(tign1+tign2+tign3+tign4)
+! Case 2: all points are not on fire -> subcl - not burning
+! Case 3: some points are on fire, others are not
+! Here we assume that when lfn(x)=0 -> tign(x)=time_now (values interpolated to point x)
+! For this case, tign of central point is approximated by
+! tign~=c*lfn+time_now, which for our case is
+! tign_subcl~=c*lfn_subcl+time_now
+! where c is computed by least squares from the values at the points that are on fire
+!
+! sum(c*lfn(Ai)+time_now-tign(Ai))^2 ---> min
+! for all lfn(Ai)<0
+!
+! solution for 'c' would be 
+!
+!         sum(lfn(Ai)*lfn(Ai)
+!    c=   ------------------------------, both sums are over Ai, s.t lfn(Ai)<0
+!         sum(tign(Ai)-time_now)*lfn(Ai)
+!
+
+
+real :: a,b,c,err
+err=0.0001
+
+call check_lfn_tign_ij(0,1,'tign_lfn_four_pnts_interp',time_now,lfn1,tign1) 
+call check_lfn_tign_ij(0,2,'tign_lfn_four_pnts_interp',time_now,lfn2,tign2) 
+call check_lfn_tign_ij(0,3,'tign_lfn_four_pnts_interp',time_now,lfn3,tign3) 
+call check_lfn_tign_ij(0,4,'tign_lfn_four_pnts_interp',time_now,lfn4,tign4) 
+ 
+lfn_subcl=0.25*(lfn1+lfn2+lfn3+lfn4)
+
+if(.not. lfn_subcl < 0.) then ! midpoint not on fire, most frequent
+      ! Case 2  
+      tign_subcl=time_now
+elseif((lfn1 < 0.).AND.(lfn2 < 0.).AND.(lfn3 < 0.).AND.(lfn4 < 0.)) then
+      ! Case 1
+      tign_subcl=0.25*(tign1+tign2+tign3+tign4)  ! all on fire, interpolate
+else ! some on fire
+      ! Case 3
+      ! tign_subcl~=c*lfn_subcl+time_now
+      a=0; 
+      b=0;
+      if (lfn1 < 0.) then
+         a=a+lfn1*lfn1
+         b=b+(tign1-time_now)*lfn1
+      endif
+      if (lfn2 < 0.) then
+           a=a+lfn2*lfn2 
+           b=b+(tign2-time_now)*lfn2
+      endif
+      if (lfn3 < 0.) then
+           a=a+lfn3*lfn3
+           b=b+(tign3-time_now)*lfn3
+      endif
+      if (lfn4 < 0.) then
+           a=a+lfn4*lfn4
+           b=b+(tign4-time_now)*lfn4
+      endif 
+      if (.not. a>0.) call crash('tign_lfn_four_pnts_interp: none of lfn < 0')
+      if( b < 0.)call crash('tign_lfn_four_pnts_interp: bad ignition times, b<0') ! can have 0 because of rounding
+      c=b/a;
+      tign_subcl=c*lfn_subcl+time_now;
+endif
+
+end subroutine tign_lfn_four_pnts_interp
+
+
+!
+!************************
+!
+
 
 subroutine fuel_left_cell_1( fuel_frac_left, fire_frac_area, &
     lfn00,lfn01,lfn10,lfn11, &
@@ -786,20 +1006,23 @@ end subroutine fuel_left_cell_1
 !
 !****************************************
 !
+! function calculation fuel_frac made by Volodymyr Kondratenko on the base of
+! the Matlab code made by Jan Mandel and the fortran port by Minjeong Kim
 
-real function fuel_left_cell_2(  &
-    lfn00,lfn01,lfn10,lfn11, &
-    tign00,tign01,tign10,tign11,&
-    time_now, fuel_time_cell)
+subroutine fuel_left_cell_2( fuel_frac_left, fire_frac_area, &
+                             lfn00,lfn01,lfn10,lfn11, &
+                             tign00,tign01,tign10,tign11,&
+                             time_now, fuel_time_cell)
 !*** purpose: compute the fuel fraction left in one cell
 implicit none
 !*** arguments
+real, intent(out):: fuel_frac_left, fire_frac_area ! 
 real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners of the cell
 real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners of the cell
 real, intent(in)::time_now                   ! the time now
-real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
+real, intent(in)::fuel_time_cell             ! burns time to 1/e
 !*** Description
-! The area burning is given by the condition L <= 0, where the function P is
+! The burning area is given by the condition L <= 0, where the function L is
 ! interpolated from lfn(i,j)
 !
 ! The time since ignition is the function T, interpolated in from tign(i,j)-time_now.
@@ -869,144 +1092,123 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 !
 ! When X is small then the fuel burnt in one timestep in the cell is
 ! approximately proportional to the area of the burning region.
-!
-
-#ifndef FUEL_LEFT
-call crash('fuel_left_cell_2: not implemented, please use fire_fuel_left_method=1')
-fuel_left_cell_2=0.  ! to avoid compiler warning about value not set
-end function fuel_left_cell_2
-#else
 
 !*** calls
 intrinsic tiny
-
+#define DREAL real(kind=8)
 !*** local
-real::ps,aps,area,ta,out
-real::t00,t01,t10,t11
-real,parameter::safe=tiny(aps)
-character(len=128)::msg
-
-!*** local
+DREAL::ps,aps,area,ta,out
+DREAL::t00,t01,t10,t11
+DREAL,parameter::safe=tiny(aps)
+DREAL::dx,dy ! mesh sizes
 integer::i,j,k
 
-! least squares
-integer::mmax,nb,nmax,pmax,nin,nout
-parameter(mmax=3,nb=64,nmax=8,pmax=8)
-integer lda, ldb, lwork, info
-parameter (lda=nmax, ldb=nmax, lwork=mmax+nmax+nb*(nmax+pmax))
-integer n,m,p
-real,dimension(lda,mmax):: mA
-real,dimension(nmax):: vecD
-real,dimension(lwork):: WORK
-real,dimension(pmax):: vecY
-real,dimension(mmax):: vecX
-real,dimension(ldb,pmax)::mB
-real,dimension(mmax)::u
+DREAL,dimension(3)::u
 
-real::tweight,tdist
+DREAL::tweight,tdist
 integer::kk,ll,ss
-real::rnorm
-real,dimension(8,2)::xylist,xytlist
-real,dimension(8)::tlist,llist,xt
-real,dimension(5)::xx,yy
-real,dimension(5)::lfn,tign
+DREAL::rnorm
+DREAL,dimension(8,2)::xylist,xytlist
+DREAL,dimension(8)::tlist,llist,xt
+DREAL,dimension(5)::xx,yy
+DREAL,dimension(5)::lfn,tign
 
 integer:: npoint
-real::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
-real::lfn0,lfn1,dist,nr,c,s,errQ,ae,ce,ceae,a0,a1,a2,d,cet
-real::s1,s2,s3
-real::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
-real,dimension(2,2)::mQ
-real,dimension(2)::ut
+DREAL::tt,x0,y0,xts,xte,yts,yte,xt1,xt2
+DREAL::lfn0,lfn1,dist,nr,s,errQ,ae,ce,ceae,a0,a1,a2,d,cet
+DREAL::s1,s2,s3
+DREAL::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
+DREAL,dimension(2,2)::mQ
+DREAL,dimension(2)::ut
+character(len=128)::msg
 
 !calls
 intrinsic epsilon
 
-real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
+DREAL, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 
+!!!! For finite differences by VK
+DREAL::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
+DREAL:: alg_err
 
-! external functions    
-real::snrm2
-double precision :: dnrm2
-external dnrm2
-external snrm2
-! external subroutines
-external sggglm
-external dggglm
-!executable statements
+!*** executable
 
-! a very crude approximation - replace by a better code
-! call check_mesh_2dim(ids,ide+1,jds,jde+1,ims,ime,jms,jme)
-t00=tign00-time_now
-if(lfn00>=0. .or. t00>0.)t00=0.
-t01=tign01-time_now
-if(lfn01>=0. .or. t01>0.)t01=0.
-t10=tign10-time_now
-if(lfn10>=0. .or. t10>0.)t10=0.
-t11=tign11-time_now
-if(lfn11>=0. .or. t11>0.)t11=0.
+! check consistency
+call check_lfn_tign_ij(0,0,'fuel_left_cell_2',time_now,lfn00,tign00) 
+call check_lfn_tign_ij(0,1,'fuel_left_cell_2',time_now,lfn01,tign01) 
+call check_lfn_tign_ij(1,0,'fuel_left_cell_2',time_now,lfn10,tign10) 
+call check_lfn_tign_ij(1,1,'fuel_left_cell_2',time_now,lfn11,tign11) 
 
-!if (t00<0 .or. t01 <0 .or. t10<0 .or. t11<0) then
-!   print *,'tign00=',tign00,'tign10=',tign10,&
-!          'tign01=',tign01,'tign11=',tign11
-!end if
+alg_err=0
+dx=1
+dy=1
+t00=time_now-tign00
+if(lfn00>=0. .or. t00<0.)t00=0.
+t01=time_now-tign01
+if(lfn01>=0. .or. t01<0.)t01=0.
+t10=time_now-tign10
+if(lfn10>=0. .or. t10<0.)t10=0.
+t11=time_now-tign11
+if(lfn11>=0. .or. t11<0.)t11=0.
 
-
+! approximate burning area, between 0 and 1  
+! was taken from fuel_left_cell_1 made by Jan, will need to be changed 
+ps = lfn00+lfn01+lfn10+lfn11
+aps = abs(lfn00)+abs(lfn01)+abs(lfn10)+abs(lfn11)
+aps=max(aps,safe)
+area =(-ps/aps+1.)/2.
+area = max(area,zero) ! make sure area is between 0 and 1
+area = min(area,one)
 
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
     out = 1.0 !  fuel_left, no burning
+    area= 0.
 !*** case4 all four coners are burning
 else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
-    ! least squares, A matrix for points
-    mA(1,1)=0.0
-    mA(2,1)=1.0
-    mA(3,1)=0.0
-    mA(4,1)=1.0
-    mA(1,2)=0.0
-    mA(2,2)=0.0
-    mA(3,2)=1.0
-    mA(4,2)=1.0
-    mA(1,3)=1.0
-    mA(2,3)=1.0
-    mA(3,3)=1.0
-    mA(4,3)=1.0
-    ! D vector, time from ignition
-    vecD(1)=time_now-tign00
-    vecD(2)=time_now-tign10
-    vecD(3)=time_now-tign01
-    vecD(4)=time_now-tign11
-    ! B matrix, weights
-    do kk=1,4
-    do ll=1,4
-        mB(kk,ll)=0.0
-    end do
-        mB(kk,kk)=2.0
-    end do
-    ! set the m,n,p
-    n=4 ! rows of matrix A and B
-    m=3 ! columns of matrix A
-    p=4 ! columns of matrix B
-    ! call least squqres in LAPACK            
-    call SGGGLM(N,M,P,mA,LDA,mB,LDB,vecD,vecX,vecY, &
-                WORK,LWORK,INFO)
-    rnorm=snrm2(p,vecY,1)            
-    ! integrate
-    u(1)=-vecX(1)/fuel_time_cell
-    u(2)=-vecX(2)/fuel_time_cell
-    u(3)=-vecX(3)/fuel_time_cell            
-    !fuel_burn(i,j)=1-exp(u(3))*intexp(u(1)*dx)*intexp(u(2)*dy)
+! All burning
+! T=u(1)*x+u(2)*y+u(3)
+! t(0,0)=tign(1,1)
+! t(0,fd(2))=tign(1,2)
+! t(fd(1),0)=tign(2,1)
+! t(fd(1),fd(2))=tign(2,2)
+! t(g/2,h/2)=sum(tign(i,i))/4
+! dt/dx=(1/2h)*(t10-t00+t11-t01)
+! dt/dy=(1/2h)*(t01-t00+t11-t10)
+! approximate T(x,y)=u(1)*x+u(2)*y+u(3) Using finite differences
+! t(x,y)=t(h/2,h/2)+(x-h/2)*dt/dx+(y-h/2)*dt/dy
+! u(1)=dt/dx
+! u(2)=dt/dy
+! u(3)=t(h/2,h/2)-h/2(dt/dx+dt/dy)
+
+ tign_middle=(t00+t01+t10+t11)/4
+
+ ! since mesh_size is 1 we replace fd(1) and fd(2) by 1
+ dt_dx=(t10-t00+t11-t01)/2
+ dt_dy=(t01-t00+t11-t10)/2
+
+ u(1)=dt_dx
+ u(2)=dt_dy
+ u(3)=tign_middle-(dt_dx+dt_dy)/2
+
+! integrate
+u(1)=-u(1)/fuel_time_cell
+u(2)=-u(2)/fuel_time_cell
+u(3)=-u(3)/fuel_time_cell
     s1=u(1)
     s2=u(2)            
-    out=1-exp(u(3))*intexp(s1)*intexp(s2)
-    !print *,'intexp
+    out=exp(u(3))*intexp(s1)*intexp(s2)
+    area=1
     if ( out<0 .or. out>1.0 ) then
-        print *,'case4, out should be between 0 and 1'
+        call message('WARNING: fuel_left_cell: case all burning: out should be between 0 and 1')
     end if
-!*** case 1,2,3
+!*** case 1,2,3- other cases
+!*** part of cell is burning 
 else
     ! set xx, yy for the coner points
     ! move these values out of i and j loop to speed up
+    ! comments for xx, yy - make center [0,0], cyclic, counterclockwise
+    ! comments for lfn,tign - cyclic, counterclockwise
     xx(1) = -0.5
     xx(2) =  0.5
     xx(3) =  0.5
@@ -1028,78 +1230,96 @@ else
     tign(4)=t01
     tign(5)=t00
     npoint = 0 ! number of points in polygon
-    !print *,'time_now=',time_now
-    !print *,'lfn00=',lfn00,'lfn10=',lfn10,&
-    !        'lfn01=',lfn01,'lfn11=',lfn11
-    !print *,'t00=',t00,'t10=',t10,&
-    !        't01=',t01,'t11=',t11
 
     do k=1,4
         lfn0=lfn(k  )
         lfn1=lfn(k+1)
         if ( lfn0 <= 0.0 ) then
             npoint = npoint + 1
-            xylist(npoint,1)=xx(k)
+            xylist(npoint,1)=xx(k) ! add corner to list
             xylist(npoint,2)=yy(k)
-            tlist(npoint)=-tign(k)
+            tlist(npoint)=-tign(k) ! time since ignition
             llist(npoint)=lfn0
         end if
         if ( lfn0*lfn1 < 0 ) then
             npoint = npoint + 1
+! coordinates of intersection of the fire line with segment k k+1
+! lfn(t)=lfn0+t*(lfn1-lfn0)=0            
             tt=lfn0/(lfn0-lfn1)
             x0=xx(k)+( xx(k+1)-xx(k) )*tt
             y0=yy(k)+( yy(k+1)-yy(k) )*tt
             xylist(npoint,1)=x0
             xylist(npoint,2)=y0
-            tlist(npoint)=0 ! on fireline
-            llist(npoint)=0
+            tlist(npoint)=0 ! now at ignition
+            llist(npoint)=0 ! on fireline
         end if
     end do
 
-    ! make the list circular
+    ! make the list circular and trim to size
     tlist(npoint+1)=tlist(1)
     llist(npoint+1)=llist(1)   
     xylist(npoint+1,1)=xylist(1,1)
     xylist(npoint+1,2)=xylist(1,2)
-    !* least squares, A matrix for points
-    do kk=1,npoint
-        mA(kk,1)=xylist(kk,1)
-        mA(kk,2)=xylist(kk,2)
-        mA(kk,3)=1.0
-        vecD(kk)=tlist(kk) ! D vector,time from ignition
-    end do
-    ! B matrix, weights
-    do kk=1,ldb
-    do ll=1,pmax
-        mB(kk,ll)=0.0 ! clear
-    end do
-    end do
-        
-    do kk=1,npoint
-        mb(kk,kk) = 10 ! large enough
-        do ll=1,npoint
-            if ( kk .ne. ll ) then
-                dist = sqrt( (xylist(kk,1)-xylist(ll,1))**2+ &
-                             (xylist(kk,2)-xylist(ll,2))**2 )                   
-                mB(kk,kk)=min( mB(kk,kk) , dist )
-            end if              
-        end do !ll
-        mB(kk,kk)=mB(kk,kk)+1.
-    end do ! kk
-    ! set the m,n,p
-    n=npoint ! rows of matrix A and B
-    m=3 ! columns of matrix A
-    p=npoint ! columns of matrix B
-    !* call least squqres in LAPACK                  
-    call SGGGLM(N,M,P,mA,LDA,mB,LDB,vecD,vecX,vecY, &
-                        WORK,LWORK,INFO)
-    !print *,'after LS in case3'
-    !print *,'vecX from LS',vecX
-    !print *,'tign inputed',tign00,tign10,tign11,tign01
-    rnorm=snrm2(p,vecY,1)
-    u(1)=vecX(1)
-    u(2)=vecX(2)
-    u(3)=vecX(3)            
+
+! approximate L(x,y)=u(1)*x+u(2)*y+u(3)
+ lfn_middle=(lfn00+lfn01+lfn10+lfn11)/4
+ dt_dx=(lfn10-lfn00+lfn11-lfn01)/2
+ dt_dy=(lfn01-lfn00+lfn11-lfn10)/2
+ u(1)=dt_dx
+ u(2)=dt_dy
+ u(3)=lfn_middle-(dt_dx+dt_dy)/2
+! finding the coefficient c, reminder we work over one subcell only
+! T(x,y)=c*L(x,y)+time_now
+    a=0
+    b=0
+
+    if (lfn00 <= 0) then
+                        a=a+lfn00*lfn00
+                        if (t00 < 0) then
+                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
+                        else
+                        b=b+t00*lfn00
+                        end if
+    end if
+
+
+    if (lfn01 <= 0) then
+                        a=a+lfn01*lfn01
+                        if (t01< 0) then
+                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
+                        else
+                        b=b+t01*lfn01
+                        end if
+    end if
+
+
+    if (lfn10<=0) then
+                        a=a+lfn10*lfn10
+                        if (t10<0) then
+                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
+                        else
+                        b=b+t10*lfn10
+                        end if
+  end if
+
+    if (lfn11<=0) then
+                        a=a+lfn11*lfn11
+                        if (t11<0) then
+                        call crash('fuel_burnt_fd: tign(i1) should be less then time_now')
+                        else
+                        b=b+t11*lfn11
+                        end if
+    end if
+
+
+                     if (a==0) then
+                        call crash('fuel_burnt_fd: if c is on fire then one of cells should be on fire')
+                     end if
+                        c=b/a
+                        u(1)=u(1)*c
+                        u(2)=u(2)*c
+                        u(3)=u(3)*c
+
     ! rotate to gradient on x only
     nr = sqrt(u(1)**2+u(2)**2)
     if(.not.nr.gt.eps)then
@@ -1108,6 +1328,7 @@ else
     endif
     c = u(1)/nr
     s = u(2)/nr
+! rotation such that Q*u(1:2)-[something;0]
     mQ(1,1)=c
     mQ(1,2)=s
     mQ(2,1)=-s
@@ -1116,10 +1337,10 @@ else
     call matvec(mQ,2,2,u,3,ut,2,2,2)            
     errQ = ut(2) ! should be zero            
     ae = -ut(1)/fuel_time_cell
-    ce = -u(3)/fuel_time_cell      
-    cet=ce!keep ce
+    ce = -u(3)/fuel_time_cell ! -T(xt,yt)/fuel_time=ae*xt+ce      
+    cet=ce!keep ce for later
     call matmatp(xylist,8,2,mQ,2,2,xytlist,8,2,npoint+1,2,2)            
-    call sortxt( xytlist, 8,2, xt,8,npoint )            
+    call sortxt( xytlist, 8,2, xt,8,npoint ) !sort ascending in x           
     out=0.0
     aupp=0.0
     cupp=0.0
@@ -1133,27 +1354,28 @@ else
         ah=0
         ch=0
         if ( xt2-xt1 > eps*100 ) then
-                
-            do ss=1,npoint
-                xts=xytlist(ss,1)
+! slice of nonzero width                
+! find slice height as h=ah*x+ch
+            do ss=1,npoint ! pass counterclockwise
+                xts=xytlist(ss,1) ! start point of the line
                 yts=xytlist(ss,2)
-                xte=xytlist(ss+1,1)
+                xte=xytlist(ss+1,1) ! end point of the line
                 yte=xytlist(ss+1,2)
                   
                 if ( (xts>xt1 .and. xte>xt1) .or. &
                      (xts<xt2 .and. xte<xt2) ) then
                     aa = 0 ! do nothing
                     cc = 0
-                else
+                else ! line y=a*x+c through (xts,yts), (xte,yte)
                     aa = (yts-yte)/(xts-xte)
                     cc = (xts*yte-xte*yts)/(xts-xte)                    
-                    if (xte<xts) then
+                    if (xte<xts) then ! upper boundary
                         aupp = aa
                         cupp = cc
                         ah=ah+aa
                         ch=ch+cc
                         upper=upper+1
-                    else
+                    else              ! lower boundary
                         alow = aa
                         clow = cc
                         lower=lower+1
@@ -1161,8 +1383,9 @@ else
                 end if!(xts>xt1 .and. xte>xt1)              
             end do ! ss
             ce=cet !use stored ce
+!shift small amounts exp(-**) to avoid negative fuel burnt
             if (ae*xt1+ce > 0 ) then
-              ce=ce-(ae*xt1+ce)!shift small amounts exp(-**)
+              ce=ce-(ae*xt1+ce)!
             end if
             if (ae*xt2+ce > 0) then
             ce=ce-(ae*xt2+ce)
@@ -1211,33 +1434,36 @@ else
 
             s3=ah*s3                                                
             out=out+s1+s2+s3
-            out=1-out !fuel_left
             if(out<0 .or. out>1) then                                  
-                print *,':fuel_fraction should be between 0 and 1'
+             print *,'WARNING::fuel_fraction is out of bounds, should be between 0 and 1'
                 !print *, 'eps= ', eps
                 !print *, 'xt1= ', xt1, 'xt2= ', xt2
                 !print *,'ae= ',ae,'ce= ',ce,'ah= ',ah,'ch= ',ch
                 !print *,'a0= ', a0,'a1= ', a1,'a2= ', a2
-                print *,'s1= ', s1,'s2= ', s2,'s3= ', s3
-                print *,':fuel_fraction =',out
+                !print *,'s1= ', s1,'s2= ', s2,'s3= ', s3
+                print *,'fuel_fraction =',out
             end if!print
                 
         end if
     end do ! k     
-    
+
+            out=1-out !fuel_left
 end if ! if case0, elseif case4 ,else case123
 
 900 continue 
-if(out>1. .or. out<0.)call crash('fuel_left_cell_2: fuel fraction out of bounds [0,1]')
-fuel_left_cell_2 = out
-end function fuel_left_cell_2
+fuel_frac_left = out
+fire_frac_area= area
+end subroutine fuel_left_cell_2
 
-!
-!****************************************
-!
+
+
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 real function intexp(ab)
 implicit none
-real::ab
+DREAL::ab
 !calls
 intrinsic epsilon
 
@@ -1249,18 +1475,29 @@ if ( eps < abs(ab)**3/6. ) then
   else
     intexp=1+ab/2.
 end if
-end function
+end function intexp
 !
 !****************************************
 !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!         
+!**************************************** 
+!       
+
+
+!
+!****************************************
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine sortxt(xytlist,nrow,ncolumn,xt,nxt,nvec)
 implicit none
 integer::nrow,ncolumn,nxt,nvec
-real,dimension(nrow,ncolumn)::xytlist
-real,dimension(nxt)::xt
+DREAL,dimension(nrow,ncolumn)::xytlist
+DREAL,dimension(nxt)::xt
 
 integer::i,j
-real::temp
+DREAL::temp
 
 do i=1,nvec
   xt(i)=xytlist(i,1)
@@ -1276,16 +1513,16 @@ do i=1,nvec-1
   end do
 end do
 
-end subroutine !sortxt
+end subroutine sortxt
 !
 !****************************************
 !
 subroutine matvec(A,m,n,V,nv,out,nout,nrow,ncolumn)
 implicit none
 integer::m,n,nv,nout,nrow,ncolumn
-real,dimension(m,n)::A   ! allocated m by n 
-real,dimension(nv)::V    ! allocated nv
-real,dimension(nout)::out! allocated nout 
+DREAL,dimension(m,n)::A   ! allocated m by n 
+DREAL,dimension(nv)::V    ! allocated nv
+DREAL,dimension(nout)::out! allocated nout 
 
 integer::i,j
 
@@ -1302,9 +1539,9 @@ end subroutine
 subroutine matmatp(A,mA,nA,B,mB,nB,C,mC,nC,nrow,ncolumn,nP)
 implicit none
 integer::mA,nA,mB,nB,mC,nC,nrow,ncolumn,nP
-real,dimension(mA,nA)::A   ! allocated m by n 
-real,dimension(mB,nB)::B   ! allocated m by n 
-real,dimension(mC,nC)::C   ! allocated m by n 
+DREAL,dimension(mA,nA)::A   ! allocated m by n 
+DREAL,dimension(mB,nB)::B   ! allocated m by n 
+DREAL,dimension(mC,nC)::C   ! allocated m by n 
 integer::i,j,k
 do i=1,nrow  
   do j=1,ncolumn
@@ -1319,7 +1556,6 @@ end subroutine
 !
 !****************************************
 !
-#endif
 
 subroutine prop_ls( id, &                                ! for debug
                 ids,ide,jds,jde, &                       ! domain dims
@@ -1417,7 +1653,8 @@ real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 ! scalars
 real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
-real::gradx,grady,aspeed,err,aerr,time_now
+real::gradx,grady,aspeed,err,aerr,time_future,time_now
+real::tmp
 integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
@@ -1441,6 +1678,8 @@ write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 
+call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,tign)
+
     a=fire_back_weight ! from module_fr_sfire_util
     a1=1. - a
     
@@ -1455,6 +1694,7 @@ call message(msg)
     ihe=min(ite+1,ide)
     jhs=max(jts-1,jds) 
     jhe=min(jte+1,jde)
+
 
 #ifdef DEBUG_OUT    
     call write_array_m(ihs,ihe,jhs,jhe,ims,ime,jms,jme,lfn_in,'lfn_in',id)
@@ -1556,20 +1796,28 @@ call message(msg)
     ! 0        is the level set function value at time tign(i,j)
     ! thus assuming the level function is approximately linear =>
     ! tign(i,j)= ts + ((ts + td) - ts) * lfn_in / (lfn_in - lfn_out)
-    !        = ts + dt * lfn_in / (lfn_in - lfn_out)
+    !        =        ts + dt * lfn_in  / (lfn_in - lfn_out)
+    !        = (ts + dt) + dt * lfn_out / (lfn_in - lfn_out)
+    ! the second form is better because we want make sure tign < ts+dt (used only for lfn_out < 0)
 
     time_now=ts+dt
-    time_now = time_now + abs(time_now)*epsilon(time_now)*2.
+    time_future=ts+2*dt
     do j=jts,jte
         do i=its,ite
-            ! interpolate the cross-over time
-            if (.not. lfn_out(i,j)>0 .and. lfn_in(i,j)>0)then
-                tign(i,j) = ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j))
+            call check_lfn_tign_ij(i,j,'prop_ls before',ts,lfn_in(i,j),tign(i,j))
+            if (lfn_out(i,j) < 0. ) then  ! now on fire
+               if( .not. lfn_in(i,j) < 0)  then ! was not before, set ignition time by interpolation
+                  tign(i,j) = time_now + dt * lfn_out(i,j) / (lfn_in(i,j) - lfn_out(i,j))
+                  ! tmp = max(tmp,abs(ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j)) - tign(i,j)))
+               endif  !  was already burning, leave ignition time unchanged
+            else ! set the ignition time outside of burning region
+               tign(i,j)=time_future
             endif
-            ! set the ignition time outside of burning region
-            if(lfn_out(i,j)>0.)tign(i,j)=time_now
+            call check_lfn_tign_ij(i,j,'prop_ls after',time_now,lfn_out(i,j),tign(i,j))
         enddo
     enddo
+    ! write(msg,*)'prop_ls: tign err',tmp
+    ! call message(msg)
     
     ! check local speed error and stats 
     ! may not work correctly in parallel
@@ -1660,6 +1908,7 @@ call message(msg)
     call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
                    lfn_out,'prop_ls: lfn out')
 
+    call check_lfn_tign('prop_ls end',ts+dt,its,ite,jts,jte,ims,ime,jms,jme,lfn_out, tign)
 end subroutine prop_ls
 
 !
