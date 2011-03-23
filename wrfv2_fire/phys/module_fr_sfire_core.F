@@ -62,12 +62,11 @@ intrinsic epsilon
                                                 
 !*** local
 integer:: i,j
-real lfn_init,time_init
-real::time_now
+real:: lfn_init,time_init,time_now
 
 time_now = time_start+dt
+time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
-time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
  
 do j=jfts,jfte
     do i=ifts,ifte
@@ -325,9 +324,9 @@ character(len=128):: msg
 
 if(.not. lfnij<0. .and. tignij<time_now)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-   write(msg,1)'i,j=',i,j,' lfn=',lfnij,' tign=',tignij,' time_now=',time_now
+   write(msg,*)'i,j=',i,j,' lfn=',lfnij,' tign=',tignij,' time_now=',time_now
    call message(msg,level=0)
-   write(msg,1)' tign-time_now=',tignij-time_now
+   write(msg,*)' tign-time_now=',tignij-time_now
    call message(msg,level=0)
    msg=s//': inconsistent state: lfn>=0 and tign<time_now'
    call crash(msg)
@@ -1611,7 +1610,7 @@ real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 ! scalars
 real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
-real::gradx,grady,aspeed,err,aerr,time_now
+real::gradx,grady,aspeed,err,aerr,time_future,time_now
 real::tmp
 integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
@@ -1759,8 +1758,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     ! the second form is better because we want make sure tign < ts+dt (used only for lfn_out < 0)
 
     time_now=ts+dt
-    ! time_now = time_now + abs(time_now)*epsilon(time_now)*2.
-    ! tmp=0.
+    time_future=ts+2*dt
     do j=jts,jte
         do i=its,ite
             call check_lfn_tign_ij(i,j,'prop_ls before',ts,lfn_in(i,j),tign(i,j))
@@ -1770,7 +1768,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                   ! tmp = max(tmp,abs(ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j)) - tign(i,j)))
                endif  !  was already burning, leave ignition time unchanged
             else ! set the ignition time outside of burning region
-               tign(i,j)=time_now
+               tign(i,j)=time_future
             endif
             call check_lfn_tign_ij(i,j,'prop_ls after',time_now,lfn_out(i,j),tign(i,j))
         enddo
