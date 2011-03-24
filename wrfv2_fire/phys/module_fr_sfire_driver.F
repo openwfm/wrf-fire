@@ -149,7 +149,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     fp%dzdxf => grid%dzdxf   ! terrain grad 
     fp%dzdyf => grid%dzdyf   ! terrain grad 
     fp%bbb => grid%bbb       ! spread formula coeff 
-    fp%betafl => grid%betafl ! spread formula coeff 
+    fp%phisc => grid%phisc   ! spread formula coeff 
     fp%phiwc => grid%phiwc   ! spread formula coeff 
     fp%r_0 => grid%r_0       ! spread formula coeff 
     fp%fgip => grid%fgip     ! spread formula coeff 

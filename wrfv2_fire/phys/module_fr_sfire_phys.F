@@ -9,6 +9,7 @@ module module_fr_sfire_phys
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_util
 
+implicit none
 PRIVATE
 
 ! subroutines and functions 
@@ -25,7 +26,7 @@ type fire_params
 real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
 real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
 real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
-real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0 ! spread formula coefficients
+real,pointer,dimension(:,:):: bbb,phisc,phiwc,r_0 ! spread formula coefficients
 real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
 real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
 end type fire_params
@@ -96,7 +97,7 @@ end type fire_params
 
 ! fuel categorytables
    INTEGER, PARAMETER :: nf=14              ! fuel cats in data stmts, for fillers only`
-   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, 
+   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, can be reset from namelist.fire
    INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
@@ -104,7 +105,8 @@ end type fire_params
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
-                                            savr,st,se,fcwh,fcz0
+                                            fcwh,fcz0, &
+                                            savr,st,se,adjr0,adjrw,adjrs
 ! =============================================================================
 ! Standard 13 fire behavior fuel models (for surface fires), along with some
 !          estimated canopy properties (for crown fire).
@@ -153,6 +155,9 @@ end type fire_params
               0.12, 0.12, 0.6, 0.6, 1.38, 1.8, 1.8, zf*0 / ! fuel wind height, added jm 2/23/11
    DATA fcz0 /0.3, 0.3, 0.75, 18.,  0.6,  0.75, 0.75, &
               0.06, 0.06, 0.3, 0.3, 0.69, 0.9, 0.9, zf*0 /  ! fuel roughness height, added jm 2/23/11
+   DATA adjr0 /mfuelcats*1./
+   DATA adjrw /mfuelcats*1./
+   DATA adjrs /mfuelcats*1./
 ! =========================================================================
 
 contains
@@ -171,7 +176,7 @@ character(len=128):: msg
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fcwh,fcz0
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fcwh,fcz0,adjr0,adjrw,adjrs
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -214,8 +219,11 @@ call wrf_dm_bcast_real(weight,    nfuelcats)
 call wrf_dm_bcast_real(fci_d,     nfuelcats)
 call wrf_dm_bcast_real(fct,       nfuelcats)
 call wrf_dm_bcast_integer(ichap,  nfuelcats)
-call wrf_dm_bcast_integer(fcwh,   nfuelcats)
-call wrf_dm_bcast_integer(fcz0,   nfuelcats)
+call wrf_dm_bcast_real(fcwh,      nfuelcats)
+call wrf_dm_bcast_real(fcz0,      nfuelcats)
+call wrf_dm_bcast_real(adjr0,     nfuelcats)
+call wrf_dm_bcast_real(adjrw,     nfuelcats)
+call wrf_dm_bcast_real(adjrs,     nfuelcats)
 
 ! compute derived scalars
 
@@ -300,6 +308,12 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'fcbr      ',(fcbr(ii),ii=i,k)
     call message(msg)
+    write(msg,8)'adjr0     ',(adjr0(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjrw     ',(adjrw(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjrs     ',(adjrs(ii),ii=i,k)
+    call message(msg)
 enddo
 call message('**********************************************************')
 
@@ -317,14 +331,6 @@ real, intent(in):: maxwind,maxslope ! computer from zero to these
 
 integer:: iounit,k,j,i
 type(fire_params)::fp
-!type fire_params
-!real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
-!real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
-!real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
-!real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0 ! spread formula coefficients
-!real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
-!real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
-!end type fire_params
 real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,betafl,phiwc,r_0,fgip,ischap
 real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
 real::ros_back,ros_wind,ros_slope,propx,propy,r
@@ -334,7 +340,7 @@ fp%vy=>vy
 fp%dzdxf=>dzdxf
 fp%dzdyf=>dzdyf
 fp%bbb=>bbb
-fp%betafl=>betafl
+fp%phisc=>phisc
 fp%phiwc=>phiwc
 fp%r_0=>r_0
 fp%fgip=>fgip
@@ -359,6 +365,9 @@ do k=1,nfuelcats
     call write_var(k,'ichap',float(ichap(k)),'1 if chaparral, 0 if not')
     call write_var(k,'fci',fci(k),'INITIAL TOTAL MASS OF CANOPY FUEL')
     call write_var(k,'fcbr',fcbr(k),'FUEL CANOPY BURN RATE (KG/M**2/S)')
+    call write_var(k,'adjr0',adjr0(k),'MULTIPLICATIVE ADJUSTMENT OF BACKING SPREAD RATE')
+    call write_var(k,'adjrw',adjrw(k),'MULTIPLICATIVE ADJUSTMENT OF WIND CONTRIBUTION TO SPREAD RATE')
+    call write_var(k,'adjrs',adjrs(k),'MULTIPLICATIVE ADJUSTMENT OF SLOPE CONTRIBUTION TO SPREAD RATE')
     call write_var(k,'hfgl',hfgl,'SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)')
     call write_var(k,'cmbcnst',cmbcnst,'JOULES PER KG OF DRY FUEL')
     call write_var(k,'fuelheat',fuelheat,'FUEL PARTICLE LOW HEAT CONTENT, BTU/LB')
@@ -462,7 +471,7 @@ type(fire_params),intent(inout)::fp
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
         qig, epsilon, rhob, wn, betaop, e, c, &
         xifr, etas, etam, a, gammax, gamma, ratio, ir, &
-        fuelloadm,fdxinv,fdyinv
+        fuelloadm,fdxinv,fdyinv,betafl
 integer:: i,j,k
 integer::nerr
 character(len=128)::msg
@@ -477,7 +486,7 @@ do j=jfts,jfte
      if(k.eq.no_fuel_cat)then   ! no fuel 
         fp%fgip(i,j)=0.            ! no mass 
         fp%ischap(i,j)=0.
-        fp%betafl(i,j)=0.          ! to prevent division by zero
+        fp%phisc(i,j)=0.          ! 
         fp%bbb(i,j)=1.             !
         fuel_time(i,j)=7./0.85  ! does not matter, just what was there before
         fp%phiwc(i,j)=0.
@@ -528,7 +537,7 @@ do j=jfts,jfte
         fuelloadm= (1.-bmst) * fgi(k)  !  fuelload without moisture
         fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
         fueldepth = fueldepthm(k)/0.3048               ! to ft
-        fp%betafl(i,j) = fuelload/(fueldepth * fueldens(k))! packing ratio
+        betafl = fuelload/(fueldepth * fueldens(k))! packing ratio
         betaop = 3.348 * savr(k)**(-0.8189)     ! optimum packing ratio
         qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
         epsilon = exp(-138./savr(k) )    ! effective heating number
@@ -538,12 +547,15 @@ do j=jfts,jfte
         fp%bbb(i,j) = 0.02526 * savr(k)**0.54      ! const in wind coef
         c = c * windrf(k)**fp%bbb(i,j)             ! jm: wind reduction from 20ft per Baughman&Albini(1980)
         e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
-        fp%phiwc(i,j) = c * (fp%betafl(i,j)/betaop)**(-e)
+        fp%phiwc(i,j) = c * (betafl/betaop)**(-e)
+
+        ! phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
+        fp%phisc(i,j) = 5.275 *(betafl)**(-0.3)    ! const in slope coeff
 
         rtemp2 = savr(k)**1.5
         gammax = rtemp2/(495. + 0.0594*rtemp2)              ! maximum rxn vel, 1/min
         a = 1./(4.774 * savr(k)**0.1 - 7.27)   ! coef for optimum rxn vel
-        ratio = fp%betafl(i,j)/betaop
+        ratio = betafl/betaop
         gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
 
         wn = fuelload/(1 + st(k))       ! net fuel loading, lb/ft^2
@@ -555,11 +567,19 @@ do j=jfts,jfte
         ! jm: irm set but never used??
 
         xifr = exp( (0.792 + 0.681*savr(k)**0.5) &
-            * (fp%betafl(i,j)+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
+            * (betafl+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
 
 !        ... r_0 is the spread rate for a fire on flat ground with no wind.
 
         fp%r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
+        fp%r_0(i,j) = fp%r_0(i,j) * .00508             ! convert to m/s
+        fp%phiwc(i,j) = fp%phiwc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
+        fp%phisc(i,j) = fp%phisc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
+
+        ! apply adjustments
+        fp%r_0(i,j)   = fp%r_0(i,j)   * adjr0(k)
+        fp%phiwc(i,j) = fp%phiwc(i,j) * adjrw(k)
+        fp%phisc(i,j) = fp%phisc(i,j) * adjrs(k)
      endif
   enddo
 enddo
@@ -777,17 +797,13 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         umidm = min(spdms,30.)       ! max input wind spd is 30 m/s   !param!
         umid = umidm * 196.850                    ! m/s to ft/min
         !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
-        phiw = umid**fp%bbb(i,j) * fp%phiwc(i,j) ! wind coef
-        phis=0.
+        ros_wind = fp%phiwc(i,j) * (umid**fp%bbb(i,j)) ! wind coef
         tanphim=max(tanphi,0.0)
         tanphim=min(tanphim,5.0)  ! jm
-        phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
+        ! phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
+        ros_slope = fp%phisc(i,j) *tanphim**2   ! slope factor
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
-        ros_back = fp%r_0(i,j) * .00508
-        ros_wind = ros_back*phiw
-        ros_slope= ros_back*phis
-        
-
+        ros_back = fp%r_0(i,j)
     else                                   ! MacArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
         ros_back = 0.18*exp(0.8424)
