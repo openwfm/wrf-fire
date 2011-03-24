@@ -533,6 +533,8 @@ do j=jfts,jfte
 
         fp%r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
         fp%r_0(i,j) = fp%r_0(i,j) * .00508             ! convert to m/s
+        fp%phiwc(i,j) = fp%phiwc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
+        fp%phisc(i,j) = fp%phisc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
      endif
   enddo
 enddo
@@ -750,18 +752,13 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         umidm = min(spdms,30.)       ! max input wind spd is 30 m/s   !param!
         umid = umidm * 196.850                    ! m/s to ft/min
         !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
-        phiw = umid**fp%bbb(i,j) * fp%phiwc(i,j) ! wind coef
-        phis=0.
+        ros_wind = fp%phiwc(i,j) * (umid**fp%bbb(i,j)) ! wind coef
         tanphim=max(tanphi,0.0)
         tanphim=min(tanphim,5.0)  ! jm
         ! phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
-        phis = fp%phisc(i,j) *tanphim**2   ! slope factor
+        ros_slope = fp%phisc(i,j) *tanphim**2   ! slope factor
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
         ros_back = fp%r_0(i,j)
-        ros_wind = ros_back*phiw
-        ros_slope= ros_back*phis
-        
-
     else                                   ! MacArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
         ros_back = 0.18*exp(0.8424)
