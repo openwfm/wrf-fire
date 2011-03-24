@@ -9,6 +9,7 @@ module module_fr_sfire_phys
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_util
 
+implicit none
 PRIVATE
 
 ! subroutines and functions 
@@ -91,7 +92,7 @@ end type fire_params
 
 ! fuel categorytables
    INTEGER, PARAMETER :: nf=14              ! fuel cats in data stmts, for fillers only`
-   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, 
+   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, can be reset from namelist.fire
    INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
@@ -99,7 +100,7 @@ end type fire_params
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
-                                            savr,st,se
+                                            savr,st,se,adjr0,adjrw,adjrs
 ! =============================================================================
 ! Standard 13 fire behavior fuel models (for surface fires), along with some
 !          estimated canopy properties (for crown fire).
@@ -144,6 +145,9 @@ end type fire_params
    DATA fct / 60., 60., 60., 60., 60., 60., 60.,  &
             60., 120., 180., 180., 180., 180. , 60. , zf*0.   /
    DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , zf*0/ 
+   DATA adjr0 /mfuelcats*1./
+   DATA adjrw /mfuelcats*1./
+   DATA adjrs /mfuelcats*1./
 ! =========================================================================
 
 contains
@@ -162,7 +166,7 @@ character(len=128):: msg
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,adjr0,adjrw,adjrs
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -204,6 +208,9 @@ call wrf_dm_bcast_real(weight,    nfuelcats)
 call wrf_dm_bcast_real(fci_d,     nfuelcats)
 call wrf_dm_bcast_real(fct,       nfuelcats)
 call wrf_dm_bcast_integer(ichap,  nfuelcats)
+call wrf_dm_bcast_real(adjr0,     nfuelcats)
+call wrf_dm_bcast_real(adjrw,     nfuelcats)
+call wrf_dm_bcast_real(adjrs,     nfuelcats)
 
 ! compute derived scalars
 
@@ -281,6 +288,12 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'fcbr      ',(fcbr(ii),ii=i,k)
     call message(msg)
+    write(msg,8)'adjr0     ',(adjr0(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjrw     ',(adjrw(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjrs     ',(adjrs(ii),ii=i,k)
+    call message(msg)
 enddo
 call message('**********************************************************')
 
@@ -298,14 +311,6 @@ real, intent(in):: maxwind,maxslope ! computer from zero to these
 
 integer:: iounit,k,j,i
 type(fire_params)::fp
-!type fire_params
-!real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
-!real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
-!real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
-!real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0 ! spread formula coefficients
-!real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
-!real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
-!end type fire_params
 real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap
 real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros
 real::ros_back,ros_wind,ros_slope,propx,propy,r
@@ -340,6 +345,9 @@ do k=1,nfuelcats
     call write_var(k,'ichap',float(ichap(k)),'1 if chaparral, 0 if not')
     call write_var(k,'fci',fci(k),'INITIAL TOTAL MASS OF CANOPY FUEL')
     call write_var(k,'fcbr',fcbr(k),'FUEL CANOPY BURN RATE (KG/M**2/S)')
+    call write_var(k,'adjr0',adjr0(k),'MULTIPLICATIVE ADJUSTMENT OF BACKING SPREAD RATE')
+    call write_var(k,'adjrw',adjrw(k),'MULTIPLICATIVE ADJUSTMENT OF WIND CONTRIBUTION TO SPREAD RATE')
+    call write_var(k,'adjrs',adjrs(k),'MULTIPLICATIVE ADJUSTMENT OF SLOPE CONTRIBUTION TO SPREAD RATE')
     call write_var(k,'hfgl',hfgl,'SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)')
     call write_var(k,'cmbcnst',cmbcnst,'JOULES PER KG OF DRY FUEL')
     call write_var(k,'fuelheat',fuelheat,'FUEL PARTICLE LOW HEAT CONTENT, BTU/LB')
@@ -535,6 +543,11 @@ do j=jfts,jfte
         fp%r_0(i,j) = fp%r_0(i,j) * .00508             ! convert to m/s
         fp%phiwc(i,j) = fp%phiwc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
         fp%phisc(i,j) = fp%phisc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
+
+        ! apply adjustments
+        fp%r_0(i,j)   = fp%r_0(i,j)   * adjr0(k)
+        fp%phiwc(i,j) = fp%phiwc(i,j) * adjrw(k)
+        fp%phisc(i,j) = fp%phisc(i,j) * adjrs(k)
      endif
   enddo
 enddo
