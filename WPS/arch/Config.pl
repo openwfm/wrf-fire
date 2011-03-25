@@ -18,6 +18,10 @@ $sw_compileflags="";
 $WRFCHEM = 0 ;
 $sw_os = "ARCH" ;           # ARCH will match any
 $sw_mach = "ARCH" ;         # ARCH will match any
+$sw_geotiff_inc="";
+$sw_geotiff_lib="";
+$sw_libtiff_inc="";
+$sw_libtiff_lib="";
 
 while ( substr( $ARGV[0], 0, 1 ) eq "-" )
  {
@@ -84,6 +88,21 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
  else
    {
    printf "\$JASPERLIB or \$JASPERINC not found in environment, configuring to build without grib2 I/O...\n" ;
+   }
+
+ if ( $ENV{GEOTIFF} && $ENV{LIBTIFF} )
+   {
+   printf "Configuring to use GeoTIFF library to build GeoTIFF I/O...\n" ;
+   printf("   \$GEOTIFF = %s\n",$ENV{GEOTIFF});
+   printf("   \$LIBTIFF = %s\n",$ENV{LIBTIFF});
+   $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
+   $sw_libtiff_inc = "-I$ENV{LIBTIFF}/include";
+   $sw_geotiff_lib = "-L$ENV{GEOTIFF}/lib -lgeotiff";
+   $sw_libtiff_lib = "-L$ENV{LIBTIFF}/lib -ltiff";
+   }
+ else
+   {
+   printf "\$GEOTIFF or \$LIBTIFF not found in environment, configuring to build without GeoTIFF I/O...\n" ;
    }
 
 # A separately-installed ESMF library is required to build the ESMF 
@@ -199,7 +218,6 @@ while ( <CONFIGURE_DEFAULTS> )
         $_ =~ s:CONFIGURE_GRIB2_LIB::g ;
       }
 
-
     # ESMF substitutions in configure.defaults
     if ( $sw_esmflib_path && $sw_esmfinc_path )
       {
@@ -254,6 +272,22 @@ while ( <ARCH_PREAMBLE> )
   if ( $sw_os eq "CYGWIN_NT" ) {
     $_ =~ s/^WRF_DIR.*$/COMPILING_ON_CYGWIN_NT = yes/ ;  # will get from environment
   }
+
+    if ( $sw_geotiff_inc && $sw_geotiff_lib && $sw_libtiff_inc && $sw_libtiff_lib )
+    { $_ =~ s/GEOTIFF_LIB/$sw_geotiff_lib/g ;
+      $_ =~ s/GEOTIFF_INC/$sw_geotiff_inc/g ;
+      $_ =~ s/LIBTIFF_LIB/$sw_libtiff_lib/g ;
+      $_ =~ s/LIBTIFF_INC/$sw_libtiff_inc/g ;
+      $_ =~ s/GEOTIFF_CPP_DEF/-D_HAS_GEOTIFF/g ;
+    }
+    else
+    { $_ =~ s/GEOTIFF_LIB//g ;
+      $_ =~ s/GEOTIFF_INC//g ;
+      $_ =~ s/LIBTIFF_LIB//g ;
+      $_ =~ s/LIBTIFF_INC//g ;
+      $_ =~ s/GEOTIFF_CPP_DEF//g ;
+    }
+
   # ESMF substitutions in preamble
   if ( $sw_esmflib_path && $sw_esmfinc_path )
     {

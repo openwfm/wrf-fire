@@ -14,7 +14,7 @@ AR		=	ar ru
 
 .c.o:
 	$(RM) $@
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $<	
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(GEOTIFF_CPPFLAGS) $(GEOTIFF_CFLAGS) -c $<	
 
 .f.o:
 	$(RM) $@ $*.mod
@@ -22,6 +22,6 @@ AR		=	ar ru
 
 .F.o:
 	$(RM) $@ $*.mod
-	$(CPP) $(CPPFLAGS) $(FDEFS) $(WRF_INCLUDE) $< > $*.f90
+	$(CPP) $(CPPFLAGS) $(GEOTIFF_CPPFLAGS) $(FDEFS) $(WRF_INCLUDE) $< > $*.f90
 	$(FC) $(FFLAGS) -c $*.f90 $(WRF_INCLUDE)
 #	$(RM) $*.f90

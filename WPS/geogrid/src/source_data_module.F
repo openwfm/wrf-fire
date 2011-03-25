@@ -36,7 +36,7 @@ module source_data_module
                   source_stdlon, source_scale_factor, source_missing_value, source_fill_missing
    character (len=128), pointer, dimension(:) :: source_fieldname, source_path, source_interp_string, &
                   source_dominant_category, source_dominant_only, source_dfdx, source_dfdy, &
-                  source_z_dim_name, source_units, source_descr
+                  source_z_dim_name, source_units, source_descr, source_geotiff_file
    character (len=128) :: source_mminlu
    logical, pointer, dimension(:) :: is_proj, is_wordsize, is_endian, is_fieldtype, &
                   is_dest_fieldtype, is_priority, is_tile_x, is_tile_y, is_tile_z, &
@@ -48,12 +48,12 @@ module source_data_module
                   is_dominant_only, is_dfdx, is_dfdy, is_z_dim_name, &
                   is_smooth_option, is_smooth_passes, is_signed, is_missing_value, &
                   is_fill_missing, is_halt_missing, is_output_stagger, is_row_order, &
-                  is_units, is_descr, is_subgrid
+                  is_units, is_descr, is_subgrid, is_geotiff
 
    type (list), pointer, dimension(:) :: source_res_path, source_interp_option, source_landmask_land, &
                                          source_landmask_water
    type (hashtable) :: bad_files   ! Track which files produce errors when we try to open them
-   type (hashtable) :: duplicate_fnames  ! Remember which output fields we have returned 
+   type (hashtable) :: duplicate_fnames  ! Remember which output fields we have returned
 
  
    contains
@@ -221,6 +221,7 @@ module source_data_module
       allocate(is_missing_value(num_entries))
       allocate(is_fill_missing(num_entries))
       allocate(is_subgrid(num_entries))
+      allocate(is_geotiff(num_entries))
 
       write(source_mminlu,'(a4)') 'USGS'
       source_iswater = 16
@@ -543,12 +544,16 @@ module source_data_module
                   source_z_dim_name(i)(1:ispace-idx) = buffer(idx+1:ispace-1)
 
                else if (index('subgrid',trim(buffer(1:idx-1))) /= 0) then
+                  ispace = idx+1
+                  do while ((ispace < eos) .and. (buffer(ispace:ispace) /= ' '))
+                     ispace = ispace + 1
+                  end do 
                   if (index('yes',trim(buffer(idx+1:eos-1))) /= 0) then
                      is_subgrid(i) = .true.
                   else if (index('no',trim(buffer(idx+1:eos-1))) /= 0) then
                      is_subgrid(i) = .false.
                   end if
-     
+
                else
                    call mprintf(.true., WARN, 'In GEOGRID.TBL, unrecognized option %s in '// &
                                 'entry %i.',i1=idx, s1=buffer(i:idx-1))
@@ -594,6 +599,9 @@ module source_data_module
    subroutine get_source_params(res_string)
  
       use stringutil
+#ifdef _HAS_GEOTIFF
+      use geotiff_module, only : open_geotiff,merge_geotiff_header
+#endif
  
       implicit none
   
@@ -642,6 +650,7 @@ module source_data_module
          is_descr(idx)        = .false.
          is_signed(idx)       = .false.
          is_missing_value(idx) = .false.
+         is_geotiff(idx)       = .false.
    
          
          ! Set the interpolator sequence for the field to be the first value in res_string that matches
@@ -943,6 +952,10 @@ module source_data_module
                   else if (index('scale_factor',trim(buffer(1:i-1))) /= 0) then
                      is_scale_factor(idx) = .true.
                      read(buffer(i+1:eos-1),*) source_scale_factor(idx)
+
+                  else if (index('geotiff',trim(buffer(i:i-1))) /= 0) then
+                     is_geotiff(idx) = .true.
+                     read(buffer(i+1:eos-1),*) source_geotiff_file(idx)
           
                   else
                      call mprintf(.true., WARN, 'In %s, unrecognized option %s in entry %i.', &
@@ -956,6 +969,41 @@ module source_data_module
             end do   ! while eos /= 0 }
      
          end if   !} index(buffer, '=====') /= 0
+
+#ifdef _HAS_GEOTIFF
+         if(is_geotiff(idx)) then
+           call open_geotiff(TRIM(source_path(idx))//TRIM(source_geotiff_file(idx)), &
+                             TRIM(source_fieldname(idx)))
+           call merge_geotiff_header(source_fieldname(idx),is_proj(idx),source_proj(idx),&
+                        is_fieldtype(idx),source_fieldtype(idx),           &
+                        is_units(idx),source_units(idx),                   &
+                        is_descr(idx),source_descr(idx),is_dx(idx),        &
+                        source_dx(idx),is_dy(idx),source_dy(idx),          &
+                        is_known_x(idx),source_known_x(idx),               &
+                        is_known_y(idx),source_known_y(idx),               &
+                        is_known_lat(idx),source_known_lat(idx),           &
+                        is_known_lon(idx),source_known_lon(idx),           &
+                        is_stdlon(idx),source_stdlon(idx),                 &
+                        is_truelat1(idx),source_truelat1(idx),             &
+                        is_truelat2(idx),source_truelat2(idx),             &
+                        is_row_order(idx),source_row_order(idx),           &
+                        is_tile_x(idx),source_tile_x(idx),                 &
+                        is_tile_y(idx),source_tile_y(idx),                 &
+                        is_tile_z(idx),source_tile_z(idx),                 &
+                        is_tile_z_start(idx),source_tile_z_start(idx),     &
+                        is_tile_z_end(idx),  source_tile_z_end(idx),       &
+                        is_category_min(idx),source_category_min(idx),     &
+                        is_category_max(idx),source_category_max(idx),     &
+                        is_tile_bdr(idx),source_tile_bdr(idx),             &
+                        is_missing_value(idx),source_missing_value(idx))
+         endif
+#else
+         if(is_geotiff(idx)) then
+           call mprintf(.true.,ERROR,'A geotiff file has been specified in %s, '//       &
+                                     'but geogrid has not been compiled with geotiff '// &
+                                     'support.',s1=trim(test_fname))
+         endif
+#endif
      
          go to 30
     
@@ -2594,7 +2642,9 @@ module source_data_module
                             file_name, array, start_x_dim, end_x_dim, start_y_dim, &
                             end_y_dim, start_z_dim, end_z_dim, npts_bdr, &
                             istatus)
- 
+#ifdef _HAS_GEOTIFF
+   use geotiff_module, only : read_geogrid_tile
+#endif
       implicit none
   
       ! Arguments
@@ -2644,8 +2694,20 @@ module source_data_module
 
       scalefac = 1.0
 
-      call read_geogrid(file_name, strlen, array, xdim, ydim, zdim, &
-                        sign_convention, local_endian, scalefac, local_wordsize, istatus)
+      if(is_geotiff_file(field_name,ilevel)) then
+
+#ifdef _HAS_GEOTIFF
+        call read_geogrid_tile(field_name,start_x_dim-npts_bdr,end_x_dim+npts_bdr, &
+                               start_y_dim-npts_bdr,end_y_dim+npts_bdr,           &
+                               start_z_dim,end_z_dim,array,istatus)
+#else
+        call mprintf(.true.,ERROR,"GEOTIFF file specified for %s, but geogrid not "// &
+                                  "compiled with geotiff support.",s1=trim(field_name))
+#endif
+      else
+        call read_geogrid(file_name, strlen, array, xdim, ydim, zdim, &
+                          sign_convention, local_endian, scalefac, local_wordsize, istatus)
+      endif
 
       if (irow_order == TOP_BOTTOM) then
          allocate(temprow(xdim))
@@ -2702,7 +2764,23 @@ module source_data_module
       end do
 
    end subroutine get_row_order
-  
+ 
+   logical function is_geotiff_file(fieldname,ilevel)
+   implicit none
+   character(len=*),intent(in)::fieldname
+   integer,intent(in)::ilevel
+   integer::idx
+   is_geotiff_file=.false.
+   do idx=1,num_entries
+     if ((index(source_fieldname(idx),trim(fieldname)) /= 0) .and.     &
+         (len_trim(source_fieldname(idx)) == len_trim(fieldname)) .and. &
+         (ilevel == source_priority(idx))) then
+        is_geotiff_file = is_geotiff(idx)
+        exit
+     endif
+   enddo
+   end function is_geotiff_file
+
  
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! Name: get_tile_dimensions
