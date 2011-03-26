@@ -88,7 +88,7 @@ end type fire_params
    DATA hfgl     / 17.e4 /                ! W/m^2
    DATA fuelmc_g / 0.08  /                ! set = 0 for dry ground fuel
    DATA fuelmc_c / 1.00  /                ! set = 0 for dry canopy
-   DATA fire_wind_height/0./              ! m, 6.1m Behave, 0 to use fcwh in each category
+   DATA fire_wind_height/6.096/           ! m, 6.096m Behave, 0 to use fcwh in each category
 !  REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
 !  REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
 !  real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
