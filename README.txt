@@ -16,14 +16,15 @@ We hope you find the code useful. Please let us know if we can help. But
 do us a favor and before you ask a question (such as, what is git?) 
 please google first. You may need to find a local guru for Linux questions.
 
-If you find this code useful please acknowledge our work by citing the paper
-[1]. For the description of the fire code, see the sections
-"Fireline propagation model", "Coupling ﬁre and weather models", and
-"Level-set-based wildland fire model".  The fire model is based on [2] 
-but not all features from [2] are implemented here yet. The preprint [3]
-describes the code as of WRF release 3.3 planned in Spring 2011 and 
-this repository as of early November 2010. The paper [4] is just an
-extended abstract but it mentions few more advanced features.
+If you find this code useful please acknowledge our work by citing the papers
+[1] or [2]. [2] describes the code as of WRF release 3.3 planned in Spring 2011 and 
+this repository as of early November 2010. The arXiv version [3] will be updated
+to keep up with the current development version (the master branch in this repository).
+[4] is just an extended abstract but it mentions few more advanced features not
+described anywhere else at the moment.
+
+The physical fire model is based on CAWFE [5] but not all features from [5] 
+are implemented here yet. 
 
 Thank you for using WRF-Fire!
 
@@ -35,18 +36,22 @@ atmosphere-surface models, IEEE Control Systems Magazine, 2009,
 29, Issue 3, June 2009, 47-65. http://dx.doi.org/10.1109/MCS.2009.932224
 Preprint available from http://arxiv.org/abs/0712.3965
 
-[2] J. L. Coen, “Simulation of the Big Elk Fire using using coupled 
-atmosphere-fire modeling,” International Journal of Wildland Fire, vol. 14,
-no. 1, pp. 49–59, 2005
+[2] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled 
+atmosphere-wildland fire modeling with WRF-Fire version 3.3", Geoscientific Model 
+Development Discussions 4, 497-545, 2011. http://dx.doi.org/10.5194/gmdd-4-497-2011
 
 [3] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled 
-atmosphere-wildland fire modeling with WRF-Fire version 3.3", Geoscientific Model 
-Development (GMD), submitted. Also available at http://arxiv.org/abs/1102.1343 
+atmosphere-wildland fire modeling with WRF-Fire. http://arxiv.org/abs/1102.1343
 
 [4] Jan Mandel, Jonathan Beezley, and Adam Kochanski, "An overview of 
 the coupled atmosphere-wildland fire model WRF-Fire",
 91st American Meteorological Society Annual Meeting], Seattle, WA, January 25, 2011. 
 http://ams.confex.com/ams/91Annual/webprogram/Manuscript/Paper185887/ams2011-fire.pdf 
+
+[5] J. L. Coen, Simulation of the Big Elk Fire using using coupled 
+atmosphere-fire modeling,” International Journal of Wildland Fire, vol. 14,
+no. 1, pp. 49–59, 2005
+
 
 --------------------------------------------------------------------
 

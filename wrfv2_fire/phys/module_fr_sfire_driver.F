@@ -16,13 +16,8 @@
 ! the model gives to WRF for safekeeping because it is not allowed 
 ! to save anything.
 
-! This code is described in [1]. The fire model is coupled with WRF 
-! but the fire code itself is not dependent on WRF in any way other 
-! than calls to few WRF utilities from module_fr_sfire_util. This 
-! model uses a level set function method for advancing the fireline. 
-! It is a reimplementation of an earlier model, which used fireline 
-! propagation by tracers and was coupled with the Clark-Hall 
-! atmospheric code, described in [2]. For WRF documentation see [3].
+! This code as submitted to WRF 3.3 is described in [1]. The arXiv 
+! version of the document [2] is intended to keep up with the code.
 
 ! If you use this code, please acknowledge our work by citing [1].
 ! Thank you.
@@ -33,30 +28,30 @@
 ! method by Mijeong Kim. Contribution to fuel calculation by Volodymyr
 ! Kondratenko.
 !
-! The fire physics is adapted from an earlier code by Terry  
-! L. Clark, Janice L. Coen, and Don Latham [2]. The interface with 
-! WRF is adapted from a code by Ned Patton for coupling of the earlier 
-! fire model with WRF, based on the foundation outlined in [4].
-! The changes in WRF infrastructure and support of
-! refined fire grids were provided by John Michalakes.
+! This code has grown out of CAWFE [3] and the code coupling the CAWFE
 
+! The fire physics code is adapted from the CAWFE code [3].
+! The interface with is adapted from a code by Ned Patton  
+! coupling a port of the CAWFE fire module to WRF [4].
+! Support of refined fire grids was provided by John Michalakes.
 ! Jonathan D. Beezley has set up and maintained the WRF build and
 ! execution environment, provided software engineering infrastructure 
 ! including synchronization with the WRF repository, and was responsibe
-! for all aspects of WRF modification.
+! for all aspects of WRF modification. UCD students Minjeong Kim and
+! Volodymyr Kondratenko have contributed to the implementation.
 
 ! Refefences
 !
-! [1] Jan Mandel, Jonathan D. Beezley, Janice L. Coen, and Minjeong Kim,
-! Data Asimilation for Wildland Fires: Ensemble Kalman filters in 
-! coupled atmosphere-surface models, IEEE Control Systems Magazine 29,
-! Issue 3, June 2009, 47-65. 
+! [1] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled
+! atmosphere-wildland fire modeling with WRF-Fire version 3.3", Geoscientific Model
+! Development Discussions 4, 497-545, 2011. http://dx.doi.org/10.5194/gmdd-4-497-2011
+!
+! [2] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled
+! atmosphere-wildland fire modeling with WRF-Fire. http://arxiv.org/abs/1102.1343
 
-! [2] T. L. Clark, J. Coen, and D. Latham, Description of a coupled 
+! [3] T. L. Clark, J. Coen, and D. Latham, Description of a coupled 
 ! atmosphere-fire model, Intl. J. Wildland Fire, vol. 13, pp. 49-64, 
 ! 2004
-!
-! [3] http://www.mmm.ucar.edu/wrf/OnLineTutorial/Introduction/index.html
 !
 ! [4] Edward G. Patton and Janice L. Coen, WRF-Fire: A Coupled 
 ! Atmosphere-Fire Module for WRF, Preprints of Joint MM5/Weather 
