@@ -1,4 +1,6 @@
 
+#ifndef _TESTING_GEOTIFF
+
 #ifdef _HAS_GEOTIFF
 
 #include "geotiff_stubs.h"
@@ -253,4 +255,55 @@ void read_geotiff_tile(TIFF *filep, int *xtile, int *ytile,
 int dummy_c_function() {
   return 0;
 }
+#endif
+
+#else //testing only
+
+#include <stdio.h>
+#include "geotiff_stubs.h"
+
+void geotiff_header(TIFF *filep, int *nx, int *ny, int *nz, int *tilex, int *tiley,  \
+                      int *proj, fltType *dx, fltType *dy, int *known_x, int *known_y, \
+		      fltType *known_lat, fltType *known_lon, fltType *stdlon,         \
+		      fltType *truelat1, fltType *truelat2, int *status) {
+
+  *nx=10000;
+  *ny=12000;
+  *nz=1;
+  *tilex=100;
+  *tiley=120;
+  *proj=regular_ll;
+  *dx=30;
+  *dy=30;
+  *known_x=0;
+  *known_y=0;
+  *known_lat=F_INVALID;
+  *known_lon=F_INVALID;
+  *stdlon=F_INVALID;
+  *truelat1=F_INVALID;
+  *truelat2=F_INVALID;
+  *status=0;
+}
+void geotiff_open(char *filename, TIFF *filep, int *status){
+  *status=0;
+}
+void geotiff_close(TIFF *filep) {
+  filep=0;
+}
+void get_pointer_size(int *psize){
+  int *i;
+  *psize=sizeof(i);
+}
+void read_geotiff_tile(TIFF *filep, int *xtile, int *ytile, int *nx, int *ny, int *nz, \
+                       fltType *buffer, int *status) {
+  int i;
+  fltType val;
+  val=*xtile + (*ytile);
+  fprintf(stdout,"Writing %f to tile (%i,%i).\n",val,*xtile,*ytile);
+  for(i=0;i< (*nx) * (*ny) * (*nz) ; i++) {
+    buffer[i]=val;
+  }
+  *status=0;
+}
+
 #endif

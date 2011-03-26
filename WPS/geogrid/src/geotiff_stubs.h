@@ -1,4 +1,8 @@
+#ifdef _TESTING_GEOTIFF
+#define TIFF int
+#else
 #include <xtiffio.h>
+#endif
 
 #ifndef GEOTIFF_STUBS_H
 #define GEOTIFF_STUBS_H

@@ -1,3 +1,7 @@
+#ifdef _TESTING_GEOTIFF
+#define _HAS_GEOTIFF 1
+#endif
+
 #ifdef _HAS_GEOTIFF
 
 module geotiff_module
@@ -81,7 +85,8 @@ geotiff_file_names(nfiles)=filename
 geotiff_field_names(nfiles)=fieldname
 call open_geotiff_l(cfile,g%gtiff_p)
 call geotiff_header(g%gtiff_p,g%nx,g%ny,g%nz,g%tx,g%ty,g%proj%proj_id,g%proj%dx, &
-                    g%proj%dy,g%proj%known_x,g%proj%known_y,g%proj%stdlon,       &
+                    g%proj%dy,g%proj%known_x,g%proj%known_y,g%proj%known_lat,    &
+                    g%proj%known_lon,g%proj%stdlon,       &
                     g%proj%truelat1,g%proj%truelat2,status)
 if(status .ne. 0)then
   call mprintf(.true.,ERROR,"Error reading geotiff file "//TRIM(filename))
@@ -234,11 +239,11 @@ implicit none
 character(len=*),intent(in)::filename
 character(len=1),dimension(:),pointer::gtiff_p
 
-integer::ptr_size
+integer::ptr_size,i,stat
 
 call get_pointer_size(ptr_size)
 allocate(gtiff_p(ptr_size))
-call geotiff_open(filename,gtiff_p)
+call geotiff_open(filename,gtiff_p,stat)!gtiff_p)
 
 end subroutine open_geotiff_l
 
@@ -347,12 +352,13 @@ allocate(buffer(gtif%tx,gtif%ty,gtif%nz))
 
 is=xs
 
+!print*,xs,xe,ys,ye
+
 do i=xts,xte
   js=ys
   do j=yts,yte
 
     call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,stat)
-
     xlsl=1
     ylsl=1
     xlel=gtif%tx
@@ -362,9 +368,10 @@ do i=xts,xte
     if(j.eq.yts)ylsl=yls
     if(j.eq.yte)ylel=yle
     
-    ie=is+xle-xls
-    je=js+yle-yls
+    ie=is+xlel-xlsl
+    je=js+ylel-ylsl
 
+!    print*,is,ie,js,je,buffer(xlsl,ylsl,1)
     if(stat .eq. 0)then
       array(is:ie,js:je,:)=buffer(xlsl:xlel,ylsl:ylel,:)
     else

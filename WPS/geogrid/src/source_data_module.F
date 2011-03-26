@@ -171,6 +171,7 @@ module source_data_module
       allocate(source_interp_option(num_entries))
       allocate(source_landmask_land(num_entries))
       allocate(source_landmask_water(num_entries))
+      allocate(source_geotiff_file(num_entries))
       do i=1,num_entries
          call list_init(source_res_path(i))
          call list_init(source_interp_option(i))
@@ -733,7 +734,7 @@ module source_data_module
       30 buffer = ' '
          read(funit,'(a)',end=40, err=1001) buffer
          call despace(buffer)
-     
+         
          ! Is this line a comment?
          if (buffer(1:1) == '#') then
             ! Do nothing.
@@ -970,6 +971,10 @@ module source_data_module
      
          end if   !} index(buffer, '=====') /= 0
 
+         go to 30
+
+     40 continue
+    
 #ifdef _HAS_GEOTIFF
          if(is_geotiff(idx)) then
            call open_geotiff(TRIM(source_path(idx))//TRIM(source_geotiff_file(idx)), &
@@ -1004,10 +1009,8 @@ module source_data_module
                                      'support.',s1=trim(test_fname))
          endif
 #endif
-     
-         go to 30
-    
-    40 close(funit)
+
+        close(funit)
 
       end do
 
@@ -2697,8 +2700,8 @@ module source_data_module
       if(is_geotiff_file(field_name,ilevel)) then
 
 #ifdef _HAS_GEOTIFF
-        call read_geogrid_tile(field_name,start_x_dim-npts_bdr,end_x_dim+npts_bdr, &
-                               start_y_dim-npts_bdr,end_y_dim+npts_bdr,           &
+        call read_geogrid_tile(field_name,start_x_dim,end_x_dim, &
+                               start_y_dim,end_y_dim,            &
                                start_z_dim,end_z_dim,array,istatus)
 #else
         call mprintf(.true.,ERROR,"GEOTIFF file specified for %s, but geogrid not "// &
