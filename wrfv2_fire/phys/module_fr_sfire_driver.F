@@ -1,6 +1,7 @@
+
 ! SFIRE - Spread fire model in WRF-Fire
 !
-!*** Jan Mandel August 2007 - July 2010 
+!*** Jan Mandel August 2007 - March 2011 
 !*** email: Jan.Mandel@gmail.com
 
 ! For support please subscribe to the wrf-fire mailing list at NCAR at
