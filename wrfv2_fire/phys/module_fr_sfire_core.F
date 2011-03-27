@@ -530,6 +530,7 @@ write(*,*)"fuel_left_method",fuel_left_method
 do j=jts,jte
    do i=its,ite
       fuel_frac(i,j)=1.
+      fire_area(i,j)=0.
    enddo
 enddo
 
@@ -571,10 +572,12 @@ do icl=its1,ite1
 
         helpsum1=helpsum1+fuel_left_ff
         helpsum2=helpsum2+fire_area_ff
+        ! write(*,*)icl,jcl,isubcl,jsubcl,fuel_left_ff,fire_area_ff
       enddo
     enddo
-    fuel_frac(icl,jcl)=helpsum1 
-    fire_area(icl,jcl)=helpsum2
+    ! write(*,*)icl,jcl,helpsum1,helpsum2
+    fuel_frac(icl,jcl)=helpsum1 / (ir*jr) ! multiply by weight for averaging over coarse cell
+    fire_area(icl,jcl)=helpsum2 / (ir*jr) ! multiply by weight for averaging over coarse cell
   enddo 
 enddo
 
@@ -586,14 +589,6 @@ enddo
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
 #endif
-
-! finish the averaging
-do j=jts,jte
-    do i=its,ite        
-        fuel_frac(i,j) = fuel_frac(i,j) /(ir*jr) ! multiply by weight for averaging over coarse cell
-        fire_area(i,j) = fire_area(i,j) /(ir*jr) ! 
-    enddo
-enddo
 
 ! consistency check after sum
 !fmax=0
