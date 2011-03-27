@@ -1,6 +1,6 @@
 ! SFIRE - Spread fire model in WRF-Fire
 !
-!*** Jan Mandel August 2007 - July 2010 
+!*** Jan Mandel August 2007 - March 2011 
 !*** email: Jan.Mandel@gmail.com
 
 ! For support please subscribe to the wrf-fire mailing list at NCAR at
@@ -24,12 +24,6 @@
 
 ! Acknowledgements
 !
-! Contributions to development of the level set 
-! method by Mijeong Kim. Contribution to fuel calculation by Volodymyr
-! Kondratenko.
-!
-! This code has grown out of CAWFE [3] and the code coupling the CAWFE
-
 ! The fire physics code is adapted from the CAWFE code [3].
 ! The interface with is adapted from a code by Ned Patton  
 ! coupling a port of the CAWFE fire module to WRF [4].
@@ -38,7 +32,8 @@
 ! execution environment, provided software engineering infrastructure 
 ! including synchronization with the WRF repository, and was responsibe
 ! for all aspects of WRF modification. UCD students Minjeong Kim and
-! Volodymyr Kondratenko have contributed to the implementation.
+! Volodymyr Kondratenko have contributed to the implementation of the
+! fire propagation by the level set method.
 
 ! Refefences
 !
@@ -57,6 +52,7 @@
 ! Atmosphere-Fire Module for WRF, Preprints of Joint MM5/Weather 
 ! Research and Forecasting Model Users' Workshop, Boulder, CO, 
 ! June 22-25, 2004, pp. 221-223, NCAR
+!
 
 module module_fr_sfire_driver
 ! use this module for standalone call, you only need to provide some mock-up wrf modules  
