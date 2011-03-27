@@ -461,7 +461,7 @@ integer, intent(in) ::ifds,ifde,jfds,jfde,its,ite,jts,jte,ims,ime &
                       ,jms,jme,ifs,ife,jfs,jfe
 real, intent(in), dimension(ims:ime,jms:jme)::lfn,tign,fuel_time
 real, intent(in):: time_now
-real, intent(inout), dimension(ifs:ife,jfs:jfe)::fuel_frac
+real, intent(out), dimension(ifs:ife,jfs:jfe)::fuel_frac
 real, intent(out), dimension(ims:ime,jms:jme):: fire_area
 
 ! ims,ime,jms,jme   in   memory dimensions
@@ -573,7 +573,7 @@ do icl=its1,ite1
         helpsum2=helpsum2+fire_area_ff
       enddo
     enddo
-    fuel_frac(icl,jcl)=min(helpsum1,fuel_frac(icl,jcl)) 
+    fuel_frac(icl,jcl)=helpsum1 
     fire_area(icl,jcl)=helpsum2
   enddo 
 enddo
