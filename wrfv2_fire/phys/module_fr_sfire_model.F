@@ -127,7 +127,7 @@ type(fire_params),intent(inout)::fp
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 integer::ignited,ig,i,j,itso,iteo,jtso,jteo
-real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw
+real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
 logical:: freeze_fire
 integer:: stat_lev=1
@@ -348,8 +348,9 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     
     do j=jfts,jfte
         do i=ifts,ifte
-            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j) ! fuel lost this timestep
-            fuel_frac(i,j)=fuel_frac_end(i,j) ! copy new value to state array
+            t = min(fuel_frac(i,j),fuel_frac_end(i,j)) ! do not allow fuel fraction to increase, in case of approximation error 
+            fuel_frac_burnt(i,j)=fuel_frac(i,j)-t ! fuel lost this timestep
+            fuel_frac(i,j)=t ! copy new value to state array
         enddo
     enddo
 
