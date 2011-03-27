@@ -229,7 +229,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%u_frame,grid%v_frame,                  &
             unit_fxlong,unit_fxlat,                           & ! coordinates of grid center
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
-            config_flags%fuel_using_z0,                 &  ! use z0 from atm modes for fuel
             fire_num_ignitions,                                & 
             fire_ignition_longlat,      &
             ignition_line,              &
@@ -287,7 +286,6 @@ subroutine sfire_driver_phys (ifun,need_lfn_update,    &
     u_frame,v_frame,                              &
     unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
-    fuel_using_z0,                                &
     num_ignitions,                                & 
     ignition_longlat,                             &
     ignition_line,                                &
@@ -347,8 +345,6 @@ real, intent(in):: &
     fire_crwn_hgt,                                & ! lowest height crown fire heat is released (m)
     fire_ext_grnd,                                & ! extinction depth of ground fire heat (m)
     fire_ext_crwn                                   ! and for the canopy (m) 
-
-integer, intent(in):: fuel_using_z0                 ! flag to use atm z0 or not
 
 
 integer, intent(in):: num_ignitions                 ! number of ignitions, can be 0
@@ -633,6 +629,7 @@ do ij=1,num_tiles
      else
         call crash('unknown fuel_using_z0') 
      endif
+     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'driver_phys:fz0')        
 
 
     elseif(ifun.eq.2)then  
@@ -650,6 +647,7 @@ do ij=1,num_tiles
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,ph,'ph_2',id)
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
         
+        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,z0,'driver_phys:z0')
         if(fuel_using_z0.eq.3)then
           call interpolate_atm2fire(id,                     & ! flag for debug output
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
@@ -668,6 +666,7 @@ do ij=1,num_tiles
             uah,vah,                                      & ! 2D atm grid out
             fp%vx,fp%vy)                                    ! fire grid arrays out
         else
+          call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'driver_phys:fz0')        
           call interpolate_wind2fire_height(id,       & ! to identify debugging prints and files if needed
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
@@ -1103,6 +1102,7 @@ fire_lfn_ext_up         = config_flags%fire_lfn_ext_up
 fire_test_steps         = config_flags%fire_test_steps 
 !fire_topo_from_atm      = config_flags%fire_topo_from_atm
 fire_advection          = config_flags%fire_advection
+fuel_using_z0           = config_flags%fuel_using_z0
 
 
 

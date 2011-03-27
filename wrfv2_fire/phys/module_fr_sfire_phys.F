@@ -514,7 +514,7 @@ do j=jfts,jfte
         else
             fwh(i,j)=fcwh(k)
         endif
-        fz0(i,j)=fcz0(k)
+        if(fuel_using_z0.eq.0)fz0(i,j)=fcz0(k)
         fuel_time(i,j)=weight(k)/0.85 ! cell based
         
         ! do not understand calculations of stime in binit.m4

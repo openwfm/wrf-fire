@@ -58,7 +58,7 @@ state    real     phiwc     *i*j      fire        1         z    hr    "PHIWC"  
 state    real     r_0       *i*j      fire        1         z    hr    "R_0"       "fuel"
 state    real     fgip      *i*j      fire        1         z    hr    "FGIP"      "fuel"
 state    real     fz0       *i*j      fire        1         z    hr    "FZ0"       "fuel roughness height"
-state    real     fwh       *i*j      fire        1         z    hr    "FZ0"       "fuel fire wind height"
+state    real     fwh       *i*j      fire        1         z    hr    "FWH"       "fuel fire wind height"
 state    real     ischap    *i*j      fire        1         z    hr    "ISCHAP"    "fuel"
 
 
