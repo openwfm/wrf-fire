@@ -118,11 +118,11 @@ subroutine merge_geotiff_header(field,is_proj,proj,is_fieldtype,fieldtype,     &
 implicit none
 
 character(len=*),intent(in)::field
-logical,intent(in)::is_proj,is_fieldtype,is_units,is_description,is_dx,is_dy,  &
-                    is_known_x,is_known_y,is_known_lat,is_known_lon,is_stdlon, &
-                    is_truelat1,is_truelat2,is_row_order,is_tile_x,is_tile_y,  &
-                    is_tile_z,is_tile_z_start,is_tile_z_end,is_category_min,   &
-                    is_category_max,is_tile_bdr,is_missing_value
+logical,intent(inout)::is_proj,is_fieldtype,is_units,is_description,is_dx,is_dy,  &
+                       is_known_x,is_known_y,is_known_lat,is_known_lon,is_stdlon, &
+                       is_truelat1,is_truelat2,is_row_order,is_tile_x,is_tile_y,  &
+                       is_tile_z,is_tile_z_start,is_tile_z_end,is_category_min,   &
+                       is_category_max,is_tile_bdr,is_missing_value
 integer,intent(inout)::proj,fieldtype,row_order,tile_x,tile_y,tile_z,          &
                        tile_z_start,tile_z_end,category_min,category_max,      &
                        tile_bdr
@@ -137,42 +137,52 @@ call get_geotiff_def(field,g)
 if(.not.is_proj)then
   call check_invalid("projection",g%proj%proj_id)
   proj=geotiff_projections(g%proj%proj_id)
+  is_proj=.true.
 endif
 if(.not.is_dx)then
   call check_invalid("dx",g%proj%dx)
   dx=g%proj%dx
+  is_dx=.true.
 endif
 if(.not.is_dy)then
   call check_invalid("dy",g%proj%dy)
   dy=g%proj%dy
+  is_dy=.true.
 endif
 if(.not.is_known_x)then
   call check_invalid("known_x",g%proj%known_x)
   known_x=g%proj%known_x
+  is_known_x=.true.
 endif
 if(.not.is_known_y)then
   call check_invalid("known_y",g%proj%known_y)
   known_y=g%proj%known_y
+  is_known_y=.true.
 endif
 if(.not.is_known_lat)then
   call check_invalid("known_lat",g%proj%known_lat)
   known_lat=g%proj%known_lat
+  is_known_lat=.true.
 endif
 if(.not.is_known_lon)then
   call check_invalid("known_lon",g%proj%known_lon)
   known_lon=g%proj%known_lon
+  is_known_lon=.true.
 endif
 if(.not.is_stdlon.and.proj.ne.PROJ_LATLON)then
   call check_invalid("stdlon",g%proj%stdlon)
   stdlon=g%proj%stdlon
+  is_stdlon=.true.
 endif
 if(.not.is_truelat1.and.proj.ne.PROJ_LATLON)then
   call check_invalid("truelat1",g%proj%truelat1)
   truelat1=g%proj%truelat1
+  is_truelat1=.true.
 endif
 if(.not.is_truelat2.and.proj.ne.PROJ_LATLON)then
   call check_invalid("truelat2",g%proj%truelat2)
   truelat2=g%proj%truelat2
+  is_truelat2=.true.
 endif
 if(is_tile_x)then
   g%tx=tile_x
