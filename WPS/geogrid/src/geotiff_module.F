@@ -26,7 +26,8 @@ type geotiff_t
   ! geotiff file handle stored as an array of characters, because the 
   ! length of the handle can vary, we will query the tiff library
   ! and allocate the necessary memory before opening.
-  character(len=1),dimension(:),pointer::gtiff_p
+  !character(len=1),dimension(:),pointer::gtiff_p
+  integer::gtiff_p
 
   ! global size of the image
   integer :: nx,ny,nz
@@ -237,12 +238,10 @@ implicit none
 !    and store the TIFF file handle.
 
 character(len=*),intent(in)::filename
-character(len=1),dimension(:),pointer::gtiff_p
+integer,intent(out)::gtiff_p
 
 integer::ptr_size,i,stat
 
-call get_pointer_size(ptr_size)
-allocate(gtiff_p(ptr_size))
 call geotiff_open(filename,gtiff_p,stat)!gtiff_p)
 
 end subroutine open_geotiff_l
@@ -252,9 +251,9 @@ implicit none
 
 !*** close a tiff file and deallocate pointer memory
 
-character(len=1),dimension(:),pointer::gtiff_p
+integer,intent(inout)::gtiff_p
 call geotiff_close(gtiff_p)
-deallocate(gtiff_p)
+gtiff_p=-1
 end subroutine close_geotiff_l
 
 subroutine destroy_all()
@@ -325,7 +324,7 @@ implicit none
 !    output:
 !      real, tile(nx,ny) : tile data read from file
 !      integer, stat : error status
-character(len=1),dimension(:),intent(in)::gtiff
+integer,intent(in)::gtiff
 integer,intent(in)::nx,ny,nz,ix,iy
 real,dimension(nx,ny),intent(out)::tile
 integer,intent(out)::stat

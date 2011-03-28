@@ -9,6 +9,9 @@
 #include <geo_normalize.h>
 #include <geovalues.h>
 
+int num_open_geotiff_files=-1;
+TIFF *open_geotiff_files[MAX_OPEN_GEOTIFF_FILES];
+
 void get_tile_size(TIFF *filep, int *x, int *y) {
   if( TIFFIsTiled(filep) ) {
     TIFFGetField(filep,TIFFTAG_TILEWIDTH,x);
@@ -20,8 +23,15 @@ void get_tile_size(TIFF *filep, int *x, int *y) {
   }
 }
 
+TIFF *get_tiff_file(int filenum) {
+  if(filenum < 0 || filenum > num_open_geotiff_files)
+    return( (TIFF*) 0);
+  else
+    return(open_geotiff_files[filenum]);
+}
+
 void geotiff_header(
-    TIFF *filep,
+    int *filen,
     int *nx,
     int *ny,
     int *nz,
@@ -43,9 +53,14 @@ void geotiff_header(
   double tmpdble;
   int tmpint;
   double x,y;
+  TIFF *filep=get_tiff_file(*filen);
+  
+  if(!filep){
+    *status=1;
+    return;
+  }
 
   *status=0;
-
   GTIF *gtifh=GTIFNew(filep);
   GTIFDefn g;
   GTIFGetDefn(gtifh,&g);
@@ -70,9 +85,8 @@ void geotiff_header(
   y=0;
   *known_x=x;
   *known_y=y;
-
   if ( !GTIFImageToPCS( gtifh, &x, &y) ) *status=1;
-
+  
   if(g.Model == ModelTypeGeographic) {
     *proj=(int) regular_ll;
     *known_lon=x;
@@ -122,35 +136,27 @@ void geotiff_header(
   if( !TIFFGetField(filep,TIFFTAG_IMAGEDEPTH,nz) ) *nz=1;
   
   get_tile_size(filep,tilex,tiley);
+
+  GTIFFree(gtifh);
 }
 
-int geotiff_check(TIFF *filep) {
-  int nx,ny,nz,tx,ty,proj,known_x,known_y,status;
-  fltType dx,dy,known_lat,known_lon,stdlon,truelat1,truelat2;
-  
-  geotiff_header(filep,&nx,&ny,&nz,&tx,&ty,&proj,&dx,&dy,&known_x,&known_y,
-                 &known_lat,&known_lon,&stdlon,&truelat1,&truelat2,
-		 &status);
-  return (status);
-
-}
-
-void geotiff_open(char *filename,TIFF *filep,int *status) {
+void geotiff_open(char *filename,int *filep,int *status) {
+  *filep=++num_open_geotiff_files;
   *status=0;
-  if (!_HAVE_PROJ4) {
-    *status=1;
+  //if (!_HAVE_PROJ4) {
+  //  *status=1;
+  //}
+  open_geotiff_files[*filep]=XTIFFOpen(filename,"r");
+  if (!open_geotiff_files[*filep]) *status=1;
+}
+
+void geotiff_close(int *filep) {
+  TIFF *file=get_tiff_file(*filep);
+  if (file)  {
+  XTIFFClose(open_geotiff_files[*filep]);
+  open_geotiff_files[*filep]=(TIFF *)0;
   }
-  filep=XTIFFOpen(filename,"r");
-  if (!filep) *status=1;
-}
-
-void geotiff_close(TIFF *filep) {
-  XTIFFClose(filep);
-}
-
-void get_pointer_size(int *psize) {
-  TIFF *p;
-  *psize=sizeof(p);
+  *filep=-1;
 }
 
 int read_tile_tiled(TIFF *filep,int xtile,int ytile,void *buffer) {
@@ -169,12 +175,17 @@ int read_tile_stripped(TIFF *filep,int xtile,int ytile,void *buffer) {
   return(status);
 }
 
-void read_geotiff_tile(TIFF *filep, int *xtile, int *ytile, 
+void read_geotiff_tile(int *filen, int *xtile, int *ytile, 
                        int *nx, int *ny, int *nz, fltType *buffer, 
 		       int *status) {
   int tx,ty,mx,my,i;
   int np,sf,tilesize;
   void *tilebuf;
+  TIFF *filep=get_tiff_file(*filen);
+  if(!filep) {
+    *status=1;
+    return;
+  }
   get_tile_size(filep,&tx,&ty);
   TIFFGetField(filep,TIFFTAG_IMAGEWIDTH,&mx);
   TIFFGetField(filep,TIFFTAG_IMAGELENGTH,&my);
@@ -262,7 +273,7 @@ int dummy_c_function() {
 #include <stdio.h>
 #include "geotiff_stubs.h"
 
-void geotiff_header(TIFF *filep, int *nx, int *ny, int *nz, int *tilex, int *tiley,  \
+void geotiff_header(int *filep, int *nx, int *ny, int *nz, int *tilex, int *tiley,  \
                       int *proj, fltType *dx, fltType *dy, int *known_x, int *known_y, \
 		      fltType *known_lat, fltType *known_lon, fltType *stdlon,         \
 		      fltType *truelat1, fltType *truelat2, int *status) {
@@ -284,17 +295,17 @@ void geotiff_header(TIFF *filep, int *nx, int *ny, int *nz, int *tilex, int *til
   *truelat2=F_INVALID;
   *status=0;
 }
-void geotiff_open(char *filename, TIFF *filep, int *status){
+void geotiff_open(char *filename, int *filep, int *status){
   *status=0;
 }
-void geotiff_close(TIFF *filep) {
+void geotiff_close(int *filep) {
   filep=0;
 }
 void get_pointer_size(int *psize){
   int *i;
   *psize=sizeof(i);
 }
-void read_geotiff_tile(TIFF *filep, int *xtile, int *ytile, int *nx, int *ny, int *nz, \
+void read_geotiff_tile(int *filep, int *xtile, int *ytile, int *nx, int *ny, int *nz, \
                        fltType *buffer, int *status) {
   int i;
   fltType val;
