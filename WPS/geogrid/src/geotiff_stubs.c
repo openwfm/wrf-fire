@@ -19,7 +19,7 @@ void get_tile_size(TIFF *filep, int *x, int *y) {
   }
   else {
     TIFFGetField(filep,TIFFTAG_IMAGEWIDTH,x);
-    *y=TIFFStripSize(filep);
+    *y=1;//TIFFStripSize(filep);
   }
 }
 
@@ -124,10 +124,18 @@ void geotiff_header(
   GTIFKeyGet(gtifh,ProjCenterLongGeoKey,&tmpdble,0,1);
   *stdlon=tmpdble;
 
-  TIFFGetField(filep,TIFFTAG_XRESOLUTION,&tmpdble);
-  *dx=tmpdble;
-  TIFFGetField(filep,TIFFTAG_YRESOLUTION,&tmpdble);
-  *dy=tmpdble;
+  //TIFFGetField(filep,TIFFTAG_XRESOLUTION,&tmpdble);
+  //*dx=tmpdble;
+  //TIFFGetField(filep,TIFFTAG_YRESOLUTION,&tmpdble);
+  //*dy=tmpdble;
+
+  short count;
+  double *scale;
+  TIFFGetField(filep,TIFFTAG_GEOPIXELSCALE,&count,&scale);
+  *dx=scale[0];
+  GTIFKeyGet(gtifh,TIFFTAG_GEOPIXELSCALE,&tmpdble,1,1);
+  *dy=scale[1];
+
   TIFFGetField(filep,TIFFTAG_IMAGEWIDTH,&tmpint);
   *nx=tmpint;
   TIFFGetField(filep,TIFFTAG_IMAGELENGTH,&tmpint);
@@ -204,7 +212,7 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
   tilesize=tx*ty*(np/8);
   tilebuf=_TIFFmalloc(tilesize);
 
-  if(TIFFIsTiled) {
+  if(TIFFIsTiled(filep)) {
     *status=read_tile_tiled(filep,*xtile,*ytile,tilebuf);
   }
   else {

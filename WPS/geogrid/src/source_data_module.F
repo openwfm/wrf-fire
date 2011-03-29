@@ -1001,6 +1001,10 @@ module source_data_module
                         is_category_max(idx),source_category_max(idx),     &
                         is_tile_bdr(idx),source_tile_bdr(idx),             &
                         is_missing_value(idx),source_missing_value(idx))
+           is_wordsize(idx)=.true.
+           source_wordsize(idx)=4
+           is_scale_factor(idx)=.true.
+           source_scale_factor(idx)=1.
          endif
 #else
          if(is_geotiff(idx)) then
@@ -2668,10 +2672,12 @@ module source_data_module
       integer :: xdim,ydim,zdim
       real :: scalefac
       real, allocatable, dimension(:) :: temprow
+      logical :: geotiff
   
+      geotiff=is_geotiff_file(field_name,ilevel)
       call get_tile_fname(file_name, xlat, xlon, ilevel, field_name, istatus)
-
-      if (index(file_name, 'OUTSIDE') /= 0) then
+!      print*,trim(file_name)
+      if (.not.geotiff .and. index(file_name, 'OUTSIDE') /= 0) then
          istatus = 1
          return
       else if (hash_search(bad_files, file_name)) then
@@ -2697,8 +2703,8 @@ module source_data_module
 
       scalefac = 1.0
 
-      if(is_geotiff_file(field_name,ilevel)) then
-
+      if(geotiff) then
+        print*,"calling read_geogrid_tile ",start_x_dim,end_x_dim,start_y_dim,end_y_dim
 #ifdef _HAS_GEOTIFF
         call read_geogrid_tile(field_name,start_x_dim,end_x_dim, &
                                start_y_dim,end_y_dim,            &
@@ -2774,6 +2780,7 @@ module source_data_module
    integer,intent(in)::ilevel
    integer::idx
    is_geotiff_file=.false.
+  ! print*,trim(fieldname),' ',ilevel
    do idx=1,num_entries
      if ((index(source_fieldname(idx),trim(fieldname)) /= 0) .and.     &
          (len_trim(source_fieldname(idx)) == len_trim(fieldname)) .and. &

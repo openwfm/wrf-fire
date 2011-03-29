@@ -95,8 +95,8 @@ endif
 
 ! add defaults
 g%missing=-99
-g%tx=256
-g%ty=256
+!g%tx=256
+!g%ty=256
 g%bdr=3
 g%categorical=.false.
 g%nz=1
@@ -184,21 +184,21 @@ if(.not.is_truelat2.and.proj.ne.PROJ_LATLON)then
   truelat2=g%proj%truelat2
   is_truelat2=.true.
 endif
-if(is_tile_x)then
-  g%tx=tile_x
-endif
-if(is_tile_y)then
-  g%ty=tile_y
-endif
+!if(is_tile_x)then
+!  g%tx=tile_x
+!endif
+!if(is_tile_y)then
+!  g%ty=tile_y
+!endif
 if(is_fieldtype)then
   g%categorical=(fieldtype.eq.CATEGORICAL)
 endif
-if(is_tile_z)then
-  g%nz=tile_z
-endif
-if(is_tile_z_start.and.is_tile_z_end)then
-  g%nz=tile_z_end-tile_z_start+1
-endif
+!if(is_tile_z)then
+!  g%nz=tile_z
+!endif
+!if(is_tile_z_start.and.is_tile_z_end)then
+!  g%nz=tile_z_end-tile_z_start+1
+!endif
 if(.not.(is_category_min.and.is_category_max).and.g%categorical)then
   call mprintf(.true.,ERROR,"Field %s marked as categorical with no category bounds", &
           s1=TRIM(field))
@@ -295,8 +295,8 @@ implicit none
 integer,intent(in)::nt,ig
 integer,intent(out)::it,lt
 
-it=(ig-1)/nt
-lt=ig - it*nt + 1
+it=floor(real(ig-1)/nt)
+lt=ig - it*nt
 it=it+1
 
 end subroutine index2tile
@@ -339,6 +339,7 @@ integer,intent(in)::nx,ny,nz,ix,iy
 real,dimension(nx,ny),intent(out)::tile
 integer,intent(out)::stat
 call read_geotiff_tile(gtiff,ix,iy,nx,ny,nz,tile,stat)
+#print*,"called geotiff stubs for tile ",ix,iy," status=",stat
 end subroutine read_tile_l
 
 subroutine read_geogrid_tile(field,xs,xe,ys,ye,zs,ze, &
@@ -361,7 +362,7 @@ allocate(buffer(gtif%tx,gtif%ty,gtif%nz))
 
 is=xs
 
-!print*,xs,xe,ys,ye
+print*,xs,xe,ys,ye,gtif%tx,gtif%ty
 
 do i=xts,xte
   js=ys
@@ -369,18 +370,18 @@ do i=xts,xte
 
     call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,stat)
     xlsl=1
-    ylsl=1
-    xlel=gtif%tx
-    ylel=gtif%ty
     if(i.eq.xts)xlsl=xls
-    if(i.eq.xte)xlel=xle
+    ylsl=1
     if(j.eq.yts)ylsl=yls
+    xlel=xlsl+gtif%tx-1
+    if(i.eq.xte)xlel=xle
+    ylel=ylsl+gtif%ty-1
     if(j.eq.yte)ylel=yle
     
     ie=is+xlel-xlsl
     je=js+ylel-ylsl
 
-!    print*,is,ie,js,je,buffer(xlsl,ylsl,1)
+    print*,is,ie,js,je,xlsl,xlel,ylsl,ylel,stat
     if(stat .eq. 0)then
       array(is:ie,js:je,:)=buffer(xlsl:xlel,ylsl:ylel,:)
     else
