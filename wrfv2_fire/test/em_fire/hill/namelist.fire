@@ -1,4 +1,5 @@
 &fuel_scalars                      ! scalar fuel constants
+fire_wind_height = 0.,             ! height to take wind from (m), 6.096 Behave, 0 to use fcwh
 cmbcnst  = 17.433e+06,             ! J/kg combustion heat dry fuel
 hfgl     = 17.e4 ,                 ! W/m^2 heat flux to ignite canopy
 fuelmc_g = 0.08,                   ! ground fuel moisture, set = 0 for dry

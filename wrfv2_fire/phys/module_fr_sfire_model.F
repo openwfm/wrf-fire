@@ -32,7 +32,7 @@ subroutine sfire_model (                    &
     grnhfx,grnqfx,                          & ! output: heat fluxes
     ros,                                    & ! output: rate of spread
     nfuel_cat,                              & ! fuel data per point 
-    fuel_time,                              & ! save derived internal data
+    fuel_time,fwh,fz0,                      & ! save derived internal data
     fp &
 ) 
 
@@ -119,7 +119,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
  
 ! constant arrays - set at initialization
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
-real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
+real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time,fwh,fz0
 type(fire_params),intent(inout)::fp
 
 !*** local
@@ -194,8 +194,8 @@ elseif(ifun.eq.2)then
             ifts,ifte,jfts,jfte, &
             fdx,fdy,nfuel_cat0,  &
             nfuel_cat,fuel_time, &
-            fp  &
-)
+            fwh,fz0,             &
+            fp) 
 
         ! initialize model state to no fire
         if(.not.restart)then

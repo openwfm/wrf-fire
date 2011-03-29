@@ -177,6 +177,7 @@
 !
 ! method switches for developers only, do not change!
 !
+ fuel_using_z0 = 3,             ! 0 = from fuel categores, 1=constant from atm, 2=bilinear from atm, 3=interpolation and wind reduction per Behave
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
  fire_fuel_left_irl=2,          ! refinement to integrate fuel_left, must be even
  fire_fuel_left_jrl=2,          ! refinement to integrate fuel_left, must be even
