@@ -44,7 +44,7 @@ fi
 
 #cat $PBS_NODEFILE | sort -u > nodes 
 cat $PBS_NODEFILE > nodes 
-mpirun -np 1 -hostfile nodes ./ideal.exe 
+mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
 mv rsl.error.0000 ideal.log
-mpirun -np 12 -hostfile nodes ./wrf.exe 
+mpirun_rsh -np 12 -hostfile nodes OMP_NUM_THREADS=1 ./wrf.exe 
 
