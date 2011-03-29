@@ -187,7 +187,8 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
                        int *nx, int *ny, int *nz, fltType *buffer, 
 		       int *status) {
   int tx,ty,mx,my,i;
-  int np,sf,tilesize;
+  unsigned short np,sf;
+  int tilesize;
   void *tilebuf;
   TIFF *filep=get_tiff_file(*filen);
   if(!filep) {
@@ -216,7 +217,7 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
     *status=read_tile_tiled(filep,*xtile,*ytile,tilebuf);
   }
   else {
-    *status=read_tile_stripped(filep,*xtile,*ytile,tilebuf);
+    *status=read_tile_stripped(filep,tilesize,*ytile,tilebuf);
   }
 
   switch (sf) {
