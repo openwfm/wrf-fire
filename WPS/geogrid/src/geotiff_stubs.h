@@ -61,8 +61,8 @@ const int _HAVE_PROJ4=0;
 #endif
 
 #define CONVERT_BUFFER(T,n)                          \
-  for(i=0;i<tilesize;i+=n) {                     \
-    buffer[i] = (fltType) *( (T*) (tilebuf+i) );     \
+  for(i=0;i<tilesize;i++) {                     \
+    buffer[i] = (fltType) ( ( (T*) tilebuf)[i] );     \
   }
 
 #endif

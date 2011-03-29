@@ -210,8 +210,8 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
  
   TIFFGetField(filep,TIFFTAG_SAMPLEFORMAT,&sf);
   TIFFGetField(filep,TIFFTAG_BITSPERSAMPLE,&np);
-  tilesize=tx*ty*(np/8);
-  tilebuf=_TIFFmalloc(tilesize);
+  tilesize=tx*ty;
+  tilebuf=_TIFFmalloc(tilesize*np/8);
 
   if(TIFFIsTiled(filep)) {
     *status=read_tile_tiled(filep,*xtile,*ytile,tilebuf);
