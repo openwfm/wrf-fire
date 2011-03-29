@@ -525,7 +525,7 @@ its1=max(its,ifds+1)
 ite1=min(ite,ifde-1)
 jts1=max(jts,jfds+1)
 jte1=min(jte,jfde-1)
-write(*,*)"fuel_left_method",fuel_left_method
+
 ! jm: initialize fuel_frac - we do not compute it near the domain boundary becau!se we cannot interpolate!
 do j=jts,jte
    do i=its,ite
