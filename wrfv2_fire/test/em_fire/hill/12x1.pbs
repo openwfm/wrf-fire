@@ -37,9 +37,14 @@ ln -s ../input_sounding .
 ln -s ../namelist.fire .
 ln -s ../namelist.input .
 ln -s ../wrf.exe .
+if [ -e ../input_tign_g ]
+then
+  ln -s ../input_tign_g .
+fi
 
 #cat $PBS_NODEFILE | sort -u > nodes 
 cat $PBS_NODEFILE > nodes 
 mpirun -np 1 -hostfile nodes ./ideal.exe 
+mv rsl.error.0000 ideal.log
 mpirun -np 12 -hostfile nodes ./wrf.exe 
 

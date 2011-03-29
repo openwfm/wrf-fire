@@ -145,7 +145,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     fp%dzdxf => grid%dzdxf   ! terrain grad 
     fp%dzdyf => grid%dzdyf   ! terrain grad 
     fp%bbb => grid%bbb       ! spread formula coeff 
-    fp%betafl => grid%betafl ! spread formula coeff 
+    fp%phisc => grid%phisc   ! spread formula coeff 
     fp%phiwc => grid%phiwc   ! spread formula coeff 
     fp%r_0 => grid%r_0       ! spread formula coeff 
     fp%fgip => grid%fgip     ! spread formula coeff 
@@ -1426,7 +1426,7 @@ TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
 ! copy flags from wrf to module_fr_sfire_util
 ! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
-
+fire_replay_time        = config_flags%fire_replay_time
 fire_print_msg          = config_flags%fire_print_msg
 fire_print_file         = config_flags%fire_print_file
 fuel_left_method        = config_flags%fire_fuel_left_method

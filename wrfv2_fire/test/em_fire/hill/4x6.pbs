@@ -3,13 +3,13 @@
 
 # Set the number of nodes and processes per node
 # each node contains 12 processing cores
-#PBS -l nodes=1:ppn=1
+#PBS -l nodes=2:ppn=12
 
 # Set the maximum amount of the time the job will run (HH:MM:SS)
-#PBS -l walltime=06:00:00
+#PBS -l walltime=03:00:00
 
 # Give the job a name
-#PBS -N hill_1x1 
+#PBS -N hill_4x6
 
 # Keep all environment variables from the current session (PATH, LD_LIBRARY_PATH, etc)
 #PBS -V
@@ -18,12 +18,12 @@
 #PBS -j oe
 
 # Set log file
-#PBS -o 1x1.log
+#PBS -o 4x6.log
 
 # Change to the run directory (where job was submitted)
 cd $PBS_O_WORKDIR
 
-WD=1x1
+WD=4x6
 rm -rf $WD
 mkdir $WD
 cd $WD
@@ -42,8 +42,10 @@ then
   ln -s ../input_tign_g .
 fi
 
-cat $PBS_NODEFILE | sort -u > nodes 
+
+cat $PBS_NODEFILE | sort -u  > unodes
+cat unodes unodes > nodes
 mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
 mv rsl.error.0000 ideal.log
-mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./wrf.exe 
+mpirun_rsh -np 4 -hostfile nodes OMP_NUM_THREADS=6 ./wrf.exe 
 

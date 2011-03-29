@@ -4,7 +4,6 @@
 ! With contributions by Minjeong Kim.
 #define DEBUG_OUT
 #define DEBUG_PRINT
-!#define FUEL_LEFT_2
 !#define DEBUG_OUT_FUEL_LEFT    
 
 module module_fr_sfire_core
@@ -63,22 +62,42 @@ intrinsic epsilon
                                                 
 !*** local
 integer:: i,j
-real lfn_init,time_init
-real::time_now
+real:: lfn_init,time_init,time_now
+character(len=128):: msg
 
 time_now = time_start+dt
+time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
-time_init=time_now + max(time_now,1.0)*epsilon(time_now) ! a bit in future
+
+if(fire_replay_time > 0.) then
+
+  do j=jfts,jfte
+     do i=ifts,ifte
+        fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
+        fire_area(i,j)=0.          ! nothing burning
+        lfn(i,j) = tign(i,j)       ! use specified ignition time as leve set function 
+        if(tign(i,j) < time_start)then
+           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' < time_start =',time_start
+           call message(msg,level=0)
+           call crash('init_no_fire: ignition time may not be in the past')
+        endif
+     enddo
+  enddo
+  call message('init_no_fire: using given ignition time as history',level=1)
  
-do j=jfts,jfte
-    do i=ifts,ifte
+else
+
+  do j=jfts,jfte
+     do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
         tign(i,j) = time_init      ! ignition in future
         lfn(i,j) = lfn_init        ! no fire 
-    enddo
-enddo
-call message('init_no_fire: state set to no fire')
+     enddo
+  enddo
+  call message('init_no_fire: state set to no fire',level=1)
+endif
+
 call check_lfn_tign('init_no_fire',time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
 end subroutine init_no_fire
@@ -324,14 +343,17 @@ real, intent(in):: lfnij, tignij                ! level function, ignition time 
 character(len=128):: msg
 !***    executable
 
-if(lfnij>0. .and. tignij<time_now)then
-   !$OMP CRITICAL(SFIRE_CORE_CRIT)
+if(.not. lfnij<0. .and. tignij<time_now)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
    write(msg,*)'i,j=',i,j,' lfn=',lfnij,' tign=',tignij,' time_now=',time_now
-   call message(msg)
-   msg=s//': inconsistent state: lfn>0 and tign<time_now'
+   call message(msg,level=0)
+   write(msg,*)' tign-time_now=',tignij-time_now
+   call message(msg,level=0)
+   msg=s//': inconsistent state: lfn>=0 and tign<time_now'
    call crash(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
+
 end subroutine check_lfn_tign_ij
 
 
@@ -528,7 +550,7 @@ do icl=its1,ite1
      tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
      time_now, fuel_time(icl,jcl))
         elseif(fuel_left_method.eq.2)then
-          call fuel_left_cell_3( fuel_left_ff, fire_area_ff, &
+          call fuel_left_cell_2( fuel_left_ff, fire_area_ff, &
      lff(isubcl,jsubcl),lff(isubcl,jsubcl+1),lff(isubcl+1,jsubcl),lff(isubcl+1,jsubcl+1), &
      tff(isubcl,jsubcl),tff(isubcl,jsubcl+1),tff(isubcl+1,jsubcl),tff(isubcl+1,jsubcl+1), &
      time_now, fuel_time(icl,jcl)) 
@@ -963,9 +985,9 @@ end subroutine fuel_left_cell_1
 !****************************************
 !
 ! function calculation fuel_frac made by Volodymyr Kondratenko on the base of
-! the code made by Jan Mandel and Minjeong
+! the Matlab code made by Jan Mandel and the fortran port by Minjeong Kim
 
-subroutine fuel_left_cell_3( fuel_frac_left, fire_frac_area, &
+subroutine fuel_left_cell_2( fuel_frac_left, fire_frac_area, &
                              lfn00,lfn01,lfn10,lfn11, &
                              tign00,tign01,tign10,tign11,&
                              time_now, fuel_time_cell)
@@ -976,9 +998,9 @@ real, intent(out):: fuel_frac_left, fire_frac_area !
 real, intent(in)::lfn00,lfn01,lfn10,lfn11    ! level set function at 4 corners of the cell
 real, intent(in)::tign00,tign01,tign10,tign11! ignition time at the  4 corners of the cell
 real, intent(in)::time_now                   ! the time now
-real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
+real, intent(in)::fuel_time_cell             ! burns time to 1/e
 !*** Description
-! The area burning is given by the condition L <= 0, where the function P is
+! The burning area is given by the condition L <= 0, where the function L is
 ! interpolated from lfn(i,j)
 !
 ! The time since ignition is the function T, interpolated in from tign(i,j)-time_now.
@@ -1049,12 +1071,6 @@ real, intent(in)::fuel_time_cell            ! time to burns off to 1/e
 ! When X is small then the fuel burnt in one timestep in the cell is
 ! approximately proportional to the area of the burning region.
 
-!#ifndef FUEL_LEFT
-!call crash('fuel_left_cell_3: not implemented, please use fire_fuel_left_method=1')
-!fuel_left_cell_3=0.  ! to avoid compiler warning about value not set
-!end function fuel_left_cell_3
-!#else
-
 !*** calls
 intrinsic tiny
 #define DREAL real(kind=8)
@@ -1062,9 +1078,7 @@ intrinsic tiny
 DREAL::ps,aps,area,ta,out
 DREAL::t00,t01,t10,t11
 DREAL,parameter::safe=tiny(aps)
-character(len=128)::msg
 DREAL::dx,dy ! mesh sizes
-!*** local
 integer::i,j,k
 
 DREAL,dimension(3)::u
@@ -1084,6 +1098,7 @@ DREAL::s1,s2,s3
 DREAL::upper,lower,ah,ch,aa,cc,aupp,cupp,alow,clow
 DREAL,dimension(2,2)::mQ
 DREAL,dimension(2)::ut
+character(len=128)::msg
 
 !calls
 intrinsic epsilon
@@ -1093,6 +1108,15 @@ DREAL, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 !!!! For finite differences by VK
 DREAL::tign_middle,dt_dx,dt_dy,lfn_middle,a,b,c
 DREAL:: alg_err
+
+!*** executable
+
+! check consistency
+call check_lfn_tign_ij(0,0,'fuel_left_cell_2',time_now,lfn00,tign00) 
+call check_lfn_tign_ij(0,1,'fuel_left_cell_2',time_now,lfn01,tign01) 
+call check_lfn_tign_ij(1,0,'fuel_left_cell_2',time_now,lfn10,tign10) 
+call check_lfn_tign_ij(1,1,'fuel_left_cell_2',time_now,lfn11,tign11) 
+
 alg_err=0
 dx=1
 dy=1
@@ -1106,7 +1130,7 @@ t11=time_now-tign11
 if(lfn11>=0. .or. t11<0.)t11=0.
 
 ! approximate burning area, between 0 and 1  
-! was taken from fuel_left_cell_1 made by Jan, might need to be changed 
+! was taken from fuel_left_cell_1 made by Jan, will need to be changed 
 ps = lfn00+lfn01+lfn10+lfn11
 aps = abs(lfn00)+abs(lfn01)+abs(lfn10)+abs(lfn11)
 aps=max(aps,safe)
@@ -1117,6 +1141,7 @@ area = min(area,one)
 !*** case0 Do nothing
 if ( lfn00>=0 .and. lfn10>=0 .and. lfn01>=0 .and. lfn11>=0 ) then
     out = 1.0 !  fuel_left, no burning
+    area= 0.
 !*** case4 all four coners are burning
 else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
 ! All burning
@@ -1150,9 +1175,10 @@ u(2)=-u(2)/fuel_time_cell
 u(3)=-u(3)/fuel_time_cell
     s1=u(1)
     s2=u(2)            
-    out=1-exp(u(3))*intexp(s1)*intexp(s2)
+    out=exp(u(3))*intexp(s1)*intexp(s2)
+    area=1
     if ( out<0 .or. out>1.0 ) then
-        print *,'case4, out should be between 0 and 1'
+        call message('WARNING: fuel_left_cell: case all burning: out should be between 0 and 1')
     end if
 !*** case 1,2,3- other cases
 !*** part of cell is burning 
@@ -1405,7 +1431,7 @@ end if ! if case0, elseif case4 ,else case123
 900 continue 
 fuel_frac_left = out
 fire_frac_area= area
-end subroutine fuel_left_cell_3
+end subroutine fuel_left_cell_2
 
 
 
@@ -1441,9 +1467,6 @@ end function intexp
 !****************************************
 
 
-
-!#ifdef FUEL_LEFT_2
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine sortxt(xytlist,nrow,ncolumn,xt,nxt,nvec)
 implicit none
@@ -1468,7 +1491,7 @@ do i=1,nvec-1
   end do
 end do
 
-end subroutine !sortxt
+end subroutine sortxt
 !
 !****************************************
 !
@@ -1511,7 +1534,6 @@ end subroutine
 !
 !****************************************
 !
-!#endif
 
 subroutine prop_ls( id, &                                ! for debug
                 ids,ide,jds,jde, &                       ! domain dims
@@ -1609,7 +1631,7 @@ real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 ! scalars
 real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
-real::gradx,grady,aspeed,err,aerr,time_now
+real::gradx,grady,aspeed,err,aerr,time_future,time_now
 real::tmp
 integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
@@ -1757,8 +1779,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     ! the second form is better because we want make sure tign < ts+dt (used only for lfn_out < 0)
 
     time_now=ts+dt
-    ! time_now = time_now + abs(time_now)*epsilon(time_now)*2.
-    ! tmp=0.
+    time_future=ts+2*dt
     do j=jts,jte
         do i=its,ite
             call check_lfn_tign_ij(i,j,'prop_ls before',ts,lfn_in(i,j),tign(i,j))
@@ -1768,7 +1789,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                   ! tmp = max(tmp,abs(ts + dt * lfn_in(i,j) / (lfn_in(i,j) - lfn_out(i,j)) - tign(i,j)))
                endif  !  was already burning, leave ignition time unchanged
             else ! set the ignition time outside of burning region
-               tign(i,j)=time_now
+               tign(i,j)=time_future
             endif
             call check_lfn_tign_ij(i,j,'prop_ls after',time_now,lfn_out(i,j),tign(i,j))
         enddo
