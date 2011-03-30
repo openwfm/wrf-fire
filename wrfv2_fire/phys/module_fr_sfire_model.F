@@ -194,7 +194,6 @@ elseif(ifun.eq.2)then
             ifts,ifte,jfts,jfte, &
             fdx,fdy,nfuel_cat0,  &
             nfuel_cat,fuel_time, &
-            fwh,fz0,             &
             fp) 
 
         ! initialize model state to no fire

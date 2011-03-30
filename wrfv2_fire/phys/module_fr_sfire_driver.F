@@ -597,41 +597,6 @@ do ij=1,num_tiles
         endif
 
      endif
- 
-     select case(fire_wind_log_interp)
-     case(1)
-        call message('fire_wind_log_interp=1: log interpolation on fire mesh, roughness and wind height from fuel categories')
-     case(2)
-        call message('fire_wind_log_interp=2: log interpolation on fire mesh, piecewise constant roughness from landuse, constant fire_wind_height')
-        do j=jts,jte
-           do i=its,ite
-              do jj=(j-1)*jr+1,(j-1)*jr+jr
-                 do ii=(i-1)*ir+1,(i-1)*ir+ir
-                     fz0(ii,jj)=z0(i,j)
-                 enddo
-              enddo
-           enddo
-       enddo
-     case(3)
-        call message('fire_wind_log_interp=3: log interpolation on fire mesh, interpolated roughness from landuse, constant fire_wind_height')
-        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
-            ids,ide,  jds,jde,                    & ! atm grid dimensions
-            ims,ime,  jms,jme,                    &
-            ips,ipe,jps,jpe,                              &
-            its,ite,jts,jte,                              &
-            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-            ifms, ifme, jfms, jfme,                       &
-            ifts,ifte,jfts,jfte,                          &
-            ir,jr,                                        & ! atm/fire grid ratio
-            z0,                                       & ! atm grid arrays in
-            fz0)                                      ! fire grid arrays out
-     case(4)
-        call message('fire_wind_log_interp=4: log interpolation on atmospheric mesh, roughness from landuse, constant fire_wind_height')
-     case default
-        call crash('unknown fire_wind_log_interp') 
-     end select 
-     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'driver_phys:fz0')        
-
 
     elseif(ifun.eq.2)then  
                
@@ -639,7 +604,7 @@ do ij=1,num_tiles
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
-    
+ 
       if(use_atm_vars)then                                  
      
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,z0,'z0',id)
@@ -648,8 +613,8 @@ do ij=1,num_tiles
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,ph,'ph_2',id)
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
         
-        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,z0,'driver_phys:z0')
         if(fire_wind_log_interp.eq.4)then
+          call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,z0,'driver_phys:z0')
           call interpolate_atm2fire(id,                     & ! flag for debug output
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
@@ -686,7 +651,6 @@ do ij=1,num_tiles
 
 
       endif
-    
     endif
 
 !   the following executes in any case
@@ -711,8 +675,24 @@ do ij=1,num_tiles
         fuel_time,fwh,fz0,                      & ! save derived internal data
         fp                                      & ! fire coefficients
     )
+
     
-    if(ifun.eq.6)then ! heat fluxes into the atmosphere    
+     if(ifun.eq.2)then
+        call setup_wind_log_interpolation(           &
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            z0,                                           & ! atm grid arrays in
+            nfuel_cat,                              & ! fuel data per point 
+            fz0,fwh)                                  ! fire arrays out
+
+    
+    elseif(ifun.eq.6)then ! heat fluxes into the atmosphere    
     
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fire_driver:fgrnhfx')
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
@@ -777,7 +757,7 @@ if(ifun.eq.1)then
 endif
 #endif
 
-if (ifun.eq.3)then
+if (ifun.eq.4)then
     ignitions_done=ignitions_done_tile(1) ! all should be the same
     do i=1,ignitions_done
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
@@ -974,81 +954,6 @@ end subroutine fire_ignition_convert
 !*****************************
 !
 
-subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
-    ids,ide, jds,jde,                    & ! atm grid dimensions
-    ims,ime, jms,jme,                    &
-    ips,ipe,jps,jpe,                              &
-    its,ite,jts,jte,                              &
-    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-    ifms, ifme, jfms, jfme,                       &
-    ifts,ifte,jfts,jfte,                          &
-    ir,jr,                                        & ! atm/fire grid ratio
-    zs,                                       & ! atm grid arrays in
-    zsf)                                      ! fire grid arrays out
-    
-implicit none
-!*** purpose: interpolate height
-
-!*** arguments
-integer, intent(in)::id,                          &
-    ids,ide, jds,jde,                    & ! atm domain bounds
-    ims,ime,jms,jme,                    & ! atm memory bounds 
-    ips,ipe,jps,jpe,                              &
-    its,ite,jts,jte,                              & ! atm tile bounds
-    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
-    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
-    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
-    ir,jr                                         ! atm/fire grid refinement ratio
-real, intent(in), dimension(ims:ime, jms:jme):: zs  ! terrain height at atm cell centers                                        & ! terrain height  
-real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
-    zsf                                             ! terrain height fire grid nodes
-    
-    
-!*** local
-real, dimension(its-2:ite+2,jts-2:jte+2):: za      ! terrain height
-integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1,itso,jtso,iteo,jteo
-
-! terrain height
-
-    jts1=max(jts-1,jds) ! lower loop limit by one less when at end of domain
-    its1=max(its-1,ids) ! ASSUMES THE HALO IS THERE if patch != domain
-    jte1=min(jte+1,jde) 
-    ite1=min(ite+1,ide)
-    do j = jts1,jte1
-        do i = its1,ite1 
-            ! copy to local array
-            za(i,j)=zs(i,j)           
-        enddo
-    enddo
-
-    call continue_at_boundary(1,1,0., & ! do x direction or y direction
-    its-2,ite+2,jts-2,jte+2,           &                ! memory dims
-    ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
-    ips,ipe,jps,jpe, &            ! patch dims - winds defined up to +1
-    its1,ite1,jts1,jte1, &                ! tile dims
-    itso,jtso,iteo,jteo, &
-    za)                               ! array
-
-    ! interpolate to tile plus strip along domain boundary if at boundary
-    jfts1=snode(jfts,jfds,-1) ! lower loop limit by one less when at end of domain
-    ifts1=snode(ifts,ifds,-1)
-    jfte1=snode(jfte,jfde,+1) 
-    ifte1=snode(ifte,ifde,+1)
-                     
-    call interpolate_2d(  &
-        its-2,ite+2,jts-2,jte+2, & ! memory dims atm grid tile
-        its1-1,ite1+1,jts1-1,jte1+1, & ! where atm grid values set
-        ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
-        ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
-        za,                     & ! in atm grid     
-        zsf)                      ! out fire grid
-
-end subroutine interpolate_z2fire
-!
-!*****************************
-!
 
 !
 !***
