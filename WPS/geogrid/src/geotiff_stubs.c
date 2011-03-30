@@ -175,10 +175,13 @@ int read_tile_tiled(TIFF *filep,int xtile,int ytile,void *buffer) {
   return(status);
 }
 
-int read_tile_stripped(TIFF *filep,int xtile,int ytile,void *buffer) {
+int read_tile_stripped(TIFF *filep,int tilesize,int ytile,void *buffer) {
   int status,result;
   status=0;
-  result=TIFFReadEncodedStrip(filep,ytile,buffer,xtile);
+  result=TIFFReadEncodedStrip(filep,ytile,buffer,tilesize);
+#ifdef _GEOTIFF_EXTRA_DEBUG
+fprintf(stdout,"%i\n",ytile);
+#endif
   if(result == -1) status=99;
   return(status);
 }
@@ -213,11 +216,14 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
   tilesize=tx*ty;
   tilebuf=_TIFFmalloc(tilesize*np/8);
 
+  for(i=0;i<tilesize;i++) buffer[i]=-1;
+  for(i=0;i<tilesize*np/8;i++) *((unsigned char *)tilebuf)=0x00;
+
   if(TIFFIsTiled(filep)) {
-    *status=read_tile_tiled(filep,*xtile,*ytile,tilebuf);
+    *status=read_tile_tiled(filep,*xtile-1,*ytile-1,tilebuf);
   }
   else {
-    *status=read_tile_stripped(filep,tilesize,*ytile,tilebuf);
+    *status=read_tile_stripped(filep,tilesize*np/8,*ytile-1,tilebuf);
   }
 
   switch (sf) {

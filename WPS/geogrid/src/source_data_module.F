@@ -2704,7 +2704,6 @@ module source_data_module
       scalefac = 1.0
 
       if(geotiff) then
-        print*,"calling read_geogrid_tile ",start_x_dim,end_x_dim,start_y_dim,end_y_dim
 #ifdef _HAS_GEOTIFF
         call read_geogrid_tile(field_name,start_x_dim,end_x_dim, &
                                start_y_dim,end_y_dim,            &

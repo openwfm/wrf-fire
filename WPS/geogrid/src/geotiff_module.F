@@ -339,7 +339,7 @@ integer,intent(in)::nx,ny,nz,ix,iy
 real,dimension(nx,ny),intent(out)::tile
 integer,intent(out)::stat
 call read_geotiff_tile(gtiff,ix,iy,nx,ny,nz,tile,stat)
-#print*,"called geotiff stubs for tile ",ix,iy," status=",stat
+!print*,"called geotiff stubs for tile ",ix,iy," status=",stat
 end subroutine read_tile_l
 
 subroutine read_geogrid_tile(field,xs,xe,ys,ye,zs,ze, &
@@ -359,16 +359,22 @@ call index2tilebound(gtif%tx,xs,xe,xts,xls,xte,xle)
 call index2tilebound(gtif%ty,ys,ye,yts,yls,yte,yle)
 
 allocate(buffer(gtif%tx,gtif%ty,gtif%nz))
+buffer(:,:,:)=-2
 
 is=xs
 
+#ifdef _GEOTIFF_EXTRA_DEBUG
 print*,xs,xe,ys,ye,gtif%tx,gtif%ty
+#endif
 
 do i=xts,xte
   js=ys
   do j=yts,yte
 
     call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,stat)
+    if(stat.eq.99)then
+      call mprintf(.true.,ERROR,"Internal error in geotiff stubs.")
+    endif
     xlsl=1
     if(i.eq.xts)xlsl=xls
     ylsl=1
@@ -381,7 +387,10 @@ do i=xts,xte
     ie=is+xlel-xlsl
     je=js+ylel-ylsl
 
+#ifdef _GEOTIFF_EXTRA_DEBUG
     print*,is,ie,js,je,xlsl,xlel,ylsl,ylel,stat
+    print*,buffer(xlsl:xlel,ylsl:ylel,:)
+#endif
     if(stat .eq. 0)then
       array(is:ie,js:je,:)=buffer(xlsl:xlel,ylsl:ylel,:)
     else
