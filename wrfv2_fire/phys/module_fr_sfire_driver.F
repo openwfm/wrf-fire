@@ -598,10 +598,10 @@ do ij=1,num_tiles
 
      endif
  
-     if(fuel_using_z0.eq.0)then
+     if(fire_wind_log_interp.eq.0)then
         call message('using roughness from fuel categories')
         call crash('not implemented')
-     elseif(fuel_using_z0.eq.1)then
+     elseif(fire_wind_log_interp.eq.1)then
         call message('using piecewise constant atmosphere scale roughness')
         do j=jts,jte
            do i=its,ite
@@ -612,7 +612,7 @@ do ij=1,num_tiles
               enddo
            enddo
        enddo
-     elseif(fuel_using_z0.eq.2)then
+     elseif(fire_wind_log_interp.eq.2)then
         call message('using bilinearly interpolated atmosphere scale roughness')
         call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
@@ -625,10 +625,10 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             z0,                                       & ! atm grid arrays in
             fz0)                                      ! fire grid arrays out
-     elseif(fuel_using_z0.eq.3)then
+     elseif(fire_wind_log_interp.eq.3)then
         call message('using previous version, subroutine interpolate_atm2fire')
      else
-        call crash('unknown fuel_using_z0') 
+        call crash('unknown fire_wind_log_interp') 
      endif
      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'driver_phys:fz0')        
 
@@ -649,7 +649,7 @@ do ij=1,num_tiles
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
         
         call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,z0,'driver_phys:z0')
-        if(fuel_using_z0.eq.3)then
+        if(fire_wind_log_interp.eq.3)then
           call interpolate_atm2fire(id,                     & ! flag for debug output
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
@@ -1101,9 +1101,9 @@ fire_upwind_split       = config_flags%fire_upwind_split
 fire_viscosity          = config_flags%fire_viscosity 
 fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
 fire_test_steps         = config_flags%fire_test_steps 
-!fire_topo_from_atm      = config_flags%fire_topo_from_atm
+!fire_topo_from_atm     = config_flags%fire_topo_from_atm
 fire_advection          = config_flags%fire_advection
-fuel_using_z0           = config_flags%fuel_using_z0
+fire_wind_log_interp    = config_flags%fire_wind_log_interp
 
 
 
