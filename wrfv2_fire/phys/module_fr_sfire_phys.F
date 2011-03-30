@@ -509,12 +509,12 @@ do j=jfts,jfte
         endif
 
 !       other quantities passed directly, not in fp
-        if(fire_wind_height>0)then
-            fwh(i,j)=fire_wind_height
-        else
+        if(fire_wind_log_interp.eq.1)then
+            fz0(i,j)=fcz0(k)
             fwh(i,j)=fcwh(k)
+        else
+            fwh(i,j)=fire_wind_height
         endif
-        if(fire_wind_log_interp.eq.0)fz0(i,j)=fcz0(k)
         fuel_time(i,j)=weight(k)/0.85 ! cell based
         
         ! do not understand calculations of stime in binit.m4

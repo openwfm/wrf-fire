@@ -598,11 +598,11 @@ do ij=1,num_tiles
 
      endif
  
-     if(fire_wind_log_interp.eq.0)then
-        call message('using roughness from fuel categories')
-        call crash('not implemented')
-     elseif(fire_wind_log_interp.eq.1)then
-        call message('using piecewise constant atmosphere scale roughness')
+     select case(fire_wind_log_interp)
+     case(1)
+        call message('fire_wind_log_interp=1: log interpolation on fire mesh, roughness and wind height from fuel categories')
+     case(2)
+        call message('fire_wind_log_interp=2: log interpolation on fire mesh, piecewise constant roughness from landuse, constant fire_wind_height')
         do j=jts,jte
            do i=its,ite
               do jj=(j-1)*jr+1,(j-1)*jr+jr
@@ -612,8 +612,8 @@ do ij=1,num_tiles
               enddo
            enddo
        enddo
-     elseif(fire_wind_log_interp.eq.2)then
-        call message('using bilinearly interpolated atmosphere scale roughness')
+     case(3)
+        call message('fire_wind_log_interp=3: log interpolation on fire mesh, interpolated roughness from landuse, constant fire_wind_height')
         call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
@@ -625,11 +625,11 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             z0,                                       & ! atm grid arrays in
             fz0)                                      ! fire grid arrays out
-     elseif(fire_wind_log_interp.eq.3)then
-        call message('using previous version, subroutine interpolate_atm2fire')
-     else
+     case(4)
+        call message('fire_wind_log_interp=4: log interpolation on atmospheric mesh, roughness from landuse, constant fire_wind_height')
+     case default
         call crash('unknown fire_wind_log_interp') 
-     endif
+     end select 
      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'driver_phys:fz0')        
 
 
@@ -649,7 +649,7 @@ do ij=1,num_tiles
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
         
         call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,z0,'driver_phys:z0')
-        if(fire_wind_log_interp.eq.3)then
+        if(fire_wind_log_interp.eq.4)then
           call interpolate_atm2fire(id,                     & ! flag for debug output
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
