@@ -31,7 +31,8 @@ integer,save::          &
  fire_upwind_split=0,   &  ! 1=upwind advection separately from normal direction spread
  fire_test_steps=0,     &  ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)
  fire_topo_from_atm=1,  &  ! 0 = expect ZSF set correctly on entry, 1 = populate by interploating from atmosphere
- fire_advection=0          ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
+ fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
+ fire_wind_log_interp      ! kind of vertical log layer wind interpolation, see driver
  
 
 real, save::            &

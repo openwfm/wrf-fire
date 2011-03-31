@@ -15,7 +15,11 @@ PRIVATE
 ! subroutines and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m
 
+! types
 PUBLIC::fire_params
+
+! variables
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats
 
 ! arrays passed to fire_ros
 type fire_params
@@ -75,7 +79,7 @@ end type fire_params
 !
 
 ! scalar fuel coefficients
-   REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c
+   REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c, fire_wind_height
 ! computed values
    REAL, SAVE:: bmst,fuelheat
 
@@ -84,6 +88,7 @@ end type fire_params
    DATA hfgl     / 17.e4 /                ! W/m^2
    DATA fuelmc_g / 0.08  /                ! set = 0 for dry ground fuel
    DATA fuelmc_c / 1.00  /                ! set = 0 for dry canopy
+   DATA fire_wind_height/6.096/           ! m, 6.096m Behave, 0 to use fcwh in each category
 !  REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
 !  REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
 !  real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
@@ -100,6 +105,7 @@ end type fire_params
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
+                                            fcwh,fcz0, &
                                             savr,st,se,adjr0,adjrw,adjrs
 ! =============================================================================
 ! Standard 13 fire behavior fuel models (for surface fires), along with some
@@ -122,7 +128,7 @@ end type fire_params
      'FUEL MODEL 14: no fuel', &
      zf*' '/
    DATA windrf /0.36, 0.36, 0.44,  0.55,  0.42,  0.44,  0.44, &     
-                0.36, 0.36, 0.36,  0.36,  0.43,  0.46,  1e-7, zf*0 /
+                0.36, 0.36, 0.36,  0.36,  0.43,  0.46,  1e-7, zf*0 / ! added jmandel October 2010
    DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
               1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7, zf*0.  /
    DATA fueldepthm /0.305,  0.305,  0.762, 1.829, 0.61,  0.762,0.762, &
@@ -145,10 +151,22 @@ end type fire_params
    DATA fct / 60., 60., 60., 60., 60., 60., 60.,  &
             60., 120., 180., 180., 180., 180. , 60. , zf*0.   /
    DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , zf*0/ 
+   DATA fcwh  / 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, &
+         6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, zf*0. / ! consistent with BEHAVE
+! roughness length 0.13*fueldepthm except cat 3 fz0=0.1 for consistency with landuse
+ ! fz0 =   0.0396,0.0396,0.0991,0.2378,0.0793,0.0991,0.0991,
+   DATA fcz0 /  0.0396,0.0396,0.1000,0.2378,0.0793,0.0991,0.0991, &
+         0.0079,0.0079,0.0396,0.0396,0.0911,0.1188,0.0396, zf * 0. /
+   !DATA fcwh /0.6 , 0.6,  1.5, 36,  1.2,  1.5, 1.5, &
+   !           0.12, 0.12, 0.6, 0.6, 1.38, 1.8, 1.8, zf*0 / ! fuel wind height, added jm 2/23/11
+   !DATA fcz0 /0.3, 0.3, 0.75, 18.,  0.6,  0.75, 0.75, &
+   !           0.06, 0.06, 0.3, 0.3, 0.69, 0.9, 0.9, zf*0 /  ! fuel roughness height, added jm 2/23/11
    DATA adjr0 /mfuelcats*1./
    DATA adjrw /mfuelcats*1./
    DATA adjrs /mfuelcats*1./
 ! =========================================================================
+
+  logical, save :: have_fuel_cats=.false.
 
 contains
 
@@ -164,9 +182,9 @@ character(len=128):: msg
 !*** executable
 
 ! read 
-namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat
+namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,adjr0,adjrw,adjrs
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fcwh,fcz0,adjr0,adjrw,adjrs
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -194,6 +212,7 @@ call wrf_dm_bcast_real(cmbcnst,1)
 call wrf_dm_bcast_real(hfgl,1)
 call wrf_dm_bcast_real(fuelmc_g,1)
 call wrf_dm_bcast_real(fuelmc_c,1)
+call wrf_dm_bcast_real(fire_wind_height,1)
 call wrf_dm_bcast_integer(nfuelcats,1)
 call wrf_dm_bcast_integer(no_fuel_cat,1)
 call wrf_dm_bcast_real(windrf,    nfuelcats)
@@ -208,6 +227,8 @@ call wrf_dm_bcast_real(weight,    nfuelcats)
 call wrf_dm_bcast_real(fci_d,     nfuelcats)
 call wrf_dm_bcast_real(fct,       nfuelcats)
 call wrf_dm_bcast_integer(ichap,  nfuelcats)
+call wrf_dm_bcast_real(fcwh,      nfuelcats)
+call wrf_dm_bcast_real(fcz0,      nfuelcats)
 call wrf_dm_bcast_real(adjr0,     nfuelcats)
 call wrf_dm_bcast_real(adjrw,     nfuelcats)
 call wrf_dm_bcast_real(adjrs,     nfuelcats)
@@ -260,6 +281,10 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
     call message(msg)
+    write(msg,8)'fcwh      ',(fcwh(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'fcz0      ',(fcz0(ii),ii=i,k)
+    call message(msg)
     write(msg,8)'windrf    ',(windrf(ii),ii=i,k)
     call message(msg)
     write(msg,8)'fgi       ',(fgi(ii),ii=i,k)
@@ -297,10 +322,14 @@ do i=1,nfuelcats,j
 enddo
 call message('**********************************************************')
 
+have_fuel_cats=.true.
+
 ! and print to file
 IF ( wrf_dm_on_monitor() ) THEN
   call write_fuels_m(61,30.,1.)
 ENDIF
+
+
 end subroutine init_fuel_cats
 
 
@@ -312,8 +341,10 @@ real, intent(in):: maxwind,maxslope ! computer from zero to these
 integer:: iounit,k,j,i
 type(fire_params)::fp
 real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap
-real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros
+real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
 real::ros_back,ros_wind,ros_slope,propx,propy,r
+
+if(.not.have_fuel_cats)call crash('write_fuels_m: fuel categories not yet set')
 
 fp%vx=>vx
 fp%vy=>vy
@@ -331,7 +362,9 @@ iounit = open_text_file('fuels.m','write')
 10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
 do k=1,nfuelcats
     write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
-    call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM 20ft TO MIDFLAME HEIGHT' )
+    call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM FCWH TO MIDFLAME HEIGHT' )
+    call write_var(k,'fcwh',fcwh(k),'WIND HEIGHT TO INTERPOLATE VERTICALLY TO (M)' )
+    call write_var(k,'fcz0',fcz0(k),'ROUGHNESS LENGTH FOR VERTICAL WIND LOG INTERPOLATION (M)' )
     call write_var(k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' )
     call write_var(k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)')
     call write_var(k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT')
@@ -454,6 +487,8 @@ integer::nerr
 character(len=128)::msg
 
 !*** executable
+
+if(.not.have_fuel_cats)call crash('set_fire_params: fuel categories not yet set')
 
 nerr=0
 do j=jfts,jfte
