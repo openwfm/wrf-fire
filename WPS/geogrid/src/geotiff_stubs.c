@@ -8,6 +8,7 @@
 #include <geotiff.h>
 #include <geo_normalize.h>
 #include <geovalues.h>
+#include <math.h>
 
 int num_open_geotiff_files=-1;
 TIFF *open_geotiff_files[MAX_OPEN_GEOTIFF_FILES];
@@ -202,7 +203,7 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
   unsigned short np,sf;
   int tilesize;
   void *tilebuf;
-  int xt,yt;
+  int xt,yt,ntx,nty;
 
   TIFF *filep=get_tiff_file(*filen);
   if(!filep) {
@@ -219,9 +220,14 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
   }
 
   xt=*xtile-1;
-  yt=-*ytile-1;
+  yt=-*ytile;
 
-  if(*xtile > mx/tx || *xtile < 1 || -*ytile > my/ty || -*ytile < 1) {
+  ntx=ceil(((float) mx) / tx);
+  nty=ceil(((float) my) / ty);
+  if(xt >= ntx || xt < 0 || yt >= nty || yt < 0) {
+#ifdef _GEOTIFF_EXTRA_DEBUG
+    fprintf(stdout,"TILE: %i %i %i %i\n",*xtile,xt,*ytile,yt);
+#endif
     *status=1;
     return;
   }

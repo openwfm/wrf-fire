@@ -358,6 +358,9 @@ type(geotiff_t),pointer::gtif
 integer::xts,xte,xls,xle,yts,yte,yls,yle
 real,dimension(:,:,:),allocatable::buffer
 integer::i,j,xlsl,xlel,ylsl,ylel,is,ie,js,je,k
+integer::lstat
+
+lstat=1
 
 call get_geotiff_def(field,gtif)
 call index2tilebound(gtif%tx,xs,xe,xts,xls,xte,xle)
@@ -400,6 +403,7 @@ do i=xts,xte
     !print*,buffer(xlsl:xlel,ylsl:ylel,:)
 #endif
     if(stat .eq. 0)then
+      lstat=0
       do k=0,je-js
         array(is:ie,js+k,:)=buffer(xlsl:xlel,ylsl+k,:)
       enddo
@@ -424,7 +428,7 @@ if(gtif%categorical)then
     enddo
   enddo
 endif
-
+stat=lstat
 end subroutine read_geogrid_tile
 
 subroutine get_geotiff_def(field,gtif)
