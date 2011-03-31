@@ -24,6 +24,9 @@ void get_tile_size(TIFF *filep, int *x, int *y) {
 }
 
 TIFF *get_tiff_file(int filenum) {
+#ifdef _GEOTIFF_EXTRA_DEBUG
+  fprintf(stdout,"getting open geotiff file %i\n",filenum);
+#endif
   if(filenum < 0 || filenum > num_open_geotiff_files)
     return( (TIFF*) 0);
   else
@@ -81,9 +84,16 @@ void geotiff_header(
   *truelat1=F_INVALID;
   *truelat2=F_INVALID;
 
+  TIFFGetField(filep,TIFFTAG_IMAGEWIDTH,&tmpint);
+  *nx=tmpint;
+  TIFFGetField(filep,TIFFTAG_IMAGELENGTH,&tmpint);
+  *ny=tmpint;
+
+  if( !TIFFGetField(filep,TIFFTAG_IMAGEDEPTH,nz) ) *nz=1;
+  
   x=0;
   y=0;
-  *known_x=x;
+  *known_x=x+1;
   *known_y=y;
   if ( !GTIFImageToPCS( gtifh, &x, &y) ) *status=1;
   
@@ -136,13 +146,6 @@ void geotiff_header(
   GTIFKeyGet(gtifh,TIFFTAG_GEOPIXELSCALE,&tmpdble,1,1);
   *dy=scale[1];
 
-  TIFFGetField(filep,TIFFTAG_IMAGEWIDTH,&tmpint);
-  *nx=tmpint;
-  TIFFGetField(filep,TIFFTAG_IMAGELENGTH,&tmpint);
-  *ny=tmpint;
-
-  if( !TIFFGetField(filep,TIFFTAG_IMAGEDEPTH,nz) ) *nz=1;
-  
   get_tile_size(filep,tilex,tiley);
 
   GTIFFree(gtifh);
@@ -150,6 +153,9 @@ void geotiff_header(
 
 void geotiff_open(char *filename,int *filep,int *status) {
   *filep=++num_open_geotiff_files;
+#ifdef _GEOTIFF_EXTRA_DEBUG
+  fprintf(stdout,"opening %s as %i.\n",filename,*filep);
+#endif
   *status=0;
   //if (!_HAVE_PROJ4) {
   //  *status=1;
@@ -171,6 +177,9 @@ int read_tile_tiled(TIFF *filep,int xtile,int ytile,void *buffer) {
   int status,result;
   status=0;
   result=TIFFReadTile(filep,buffer,xtile,ytile,0,0);
+#ifdef _GEOTIFF_EXTRA_DEBUG
+fprintf(stdout,"xtile=%i,ytile=%i\n",xtile,ytile);
+#endif
   if(result == -1) status=99;
   return(status);
 }
@@ -180,7 +189,7 @@ int read_tile_stripped(TIFF *filep,int tilesize,int ytile,void *buffer) {
   status=0;
   result=TIFFReadEncodedStrip(filep,ytile,buffer,tilesize);
 #ifdef _GEOTIFF_EXTRA_DEBUG
-fprintf(stdout,"%i\n",ytile);
+fprintf(stdout,"ytile=%i\n",ytile);
 #endif
   if(result == -1) status=99;
   return(status);
@@ -193,6 +202,8 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
   unsigned short np,sf;
   int tilesize;
   void *tilebuf;
+  int xt,yt;
+
   TIFF *filep=get_tiff_file(*filen);
   if(!filep) {
     *status=1;
@@ -206,7 +217,11 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
     *status=99;
     return;
   }
-  if(*xtile > mx/tx || *xtile < 0 || *ytile > my/ty || *ytile < 0) {
+
+  xt=*xtile-1;
+  yt=-*ytile-1;
+
+  if(*xtile > mx/tx || *xtile < 1 || -*ytile > my/ty || -*ytile < 1) {
     *status=1;
     return;
   }
@@ -220,10 +235,10 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
   for(i=0;i<tilesize*np/8;i++) *((unsigned char *)tilebuf)=0x00;
 
   if(TIFFIsTiled(filep)) {
-    *status=read_tile_tiled(filep,*xtile-1,*ytile-1,tilebuf);
+    *status=read_tile_tiled(filep,xt,yt,tilebuf);
   }
   else {
-    *status=read_tile_stripped(filep,tilesize*np/8,*ytile-1,tilebuf);
+    *status=read_tile_stripped(filep,tilesize*np/8,yt,tilebuf);
   }
 
   switch (sf) {

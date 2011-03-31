@@ -954,7 +954,7 @@ module source_data_module
                      is_scale_factor(idx) = .true.
                      read(buffer(i+1:eos-1),*) source_scale_factor(idx)
 
-                  else if (index('geotiff',trim(buffer(i:i-1))) /= 0) then
+                  else if (index('geotiff',trim(buffer(1:i-1))) /= 0) then
                      is_geotiff(idx) = .true.
                      read(buffer(i+1:eos-1),*) source_geotiff_file(idx)
           
@@ -1005,6 +1005,50 @@ module source_data_module
            source_wordsize(idx)=4
            is_scale_factor(idx)=.true.
            source_scale_factor(idx)=1.
+           call mprintf(.true.,INFORM,'For geotiff file, %s, using the following parameters:', &
+                        s1=TRIM(source_geotiff_file(idx)))
+           if(is_descr(idx)) &
+             call mprintf(.true.,INFORM,'description=%s',s1=TRIM(source_descr(idx)))
+           if(is_units(idx)) &
+             call mprintf(.true.,INFORM,'units=%s',s1=TRIM(source_units(idx)))
+           if(is_proj(idx)) &
+             call mprintf(.true.,INFORM,'proj=%i',i1=source_proj(idx))
+           if(is_stdlon(idx)) &
+             call mprintf(.true.,INFORM,'stdlon=%f',f1=source_stdlon(idx))
+           if(is_truelat1(idx)) &
+             call mprintf(.true.,INFORM,'truelat1=%f',f1=source_truelat1(idx))
+           if(is_truelat2(idx)) &
+             call mprintf(.true.,INFORM,'truelat2=%f',f1=source_truelat2(idx))
+           if(is_dx(idx)) &
+             call mprintf(.true.,INFORM,'dx=%f',f1=source_dx(idx))
+           if(is_dy(idx)) &
+             call mprintf(.true.,INFORM,'dy=%f',f1=source_dy(idx))
+           if(is_known_x(idx)) &
+             call mprintf(.true.,INFORM,'known_x=%f',f1=source_known_x(idx))
+           if(is_known_y(idx)) &
+             call mprintf(.true.,INFORM,'known_y=%f',f1=source_known_y(idx))
+           if(is_known_lon(idx)) &
+             call mprintf(.true.,INFORM,'known_lon=%f',f1=source_known_lon(idx))
+           if(is_known_lat(idx)) &
+             call mprintf(.true.,INFORM,'known_lat=%f',f1=source_known_lat(idx))
+           if(is_fieldtype(idx)) &
+             call mprintf(.true.,INFORM,'fieldtype=%i',i1=source_fieldtype(idx))
+           if(is_category_min(idx)) &
+             call mprintf(.true.,INFORM,'category_min=%i',i1=source_category_min(idx))
+           if(is_category_max(idx)) &
+             call mprintf(.true.,INFORM,'category_max=%i',i1=source_category_max(idx))
+           if(is_row_order(idx)) &
+             call mprintf(.true.,INFORM,'row_order=%i',i1=source_row_order(idx))
+           if(is_tile_x(idx)) &
+             call mprintf(.true.,INFORM,'tile_x=%i',i1=source_tile_x(idx))
+           if(is_tile_y(idx)) &
+             call mprintf(.true.,INFORM,'tile_y=%i',i1=source_tile_y(idx))
+           if(is_tile_z(idx)) &
+             call mprintf(.true.,INFORM,'tile_z=%i',i1=source_tile_z(idx))
+           if(is_tile_bdr(idx)) &
+             call mprintf(.true.,INFORM,'tile_bdr=%i',i1=source_tile_bdr(idx))
+           if(is_missing_value(idx)) &
+             call mprintf(.true.,INFORM,'missing_value=%f',f1=source_missing_value(idx))
          endif
 #else
          if(is_geotiff(idx)) then
@@ -2946,10 +2990,15 @@ module source_data_module
       rx = real(source_tile_x(idx)) * real(floor((rx-0.5) / real(source_tile_x(idx)))) + 1.0
       ry = real(source_tile_y(idx)) * real(floor((ry-0.5) / real(source_tile_y(idx)))) + 1.0
 
-      if (rx > 0. .and. ry > 0.) then
+      if (rx > 0. .and. ry > 0. .and. &
+          nint(rx)+source_tile_x(idx)-1 < 100000 .and. &
+          nint(ry)+source_tile_y(idx)-1 < 100000) then
          write(test_fname, '(a,i5.5,a1,i5.5,a1,i5.5,a1,i5.5)') trim(source_path(idx)), &
                   nint(rx),'-',nint(rx)+source_tile_x(idx)-1,'.',nint(ry),'-',nint(ry)+source_tile_y(idx)-1
-      end if
+      else
+         write(test_fname,'(a,i10.10,a1,i10.10,a1,i10.10,a1,i10.10)') trim(source_path(idx)), & 
+                  nint(rx),'-',nint(rx)+source_tile_x(idx)-1,'.',nint(ry),'-',nint(ry)+source_tile_y(idx)-1
+      endif
 
    end subroutine get_tile_fname
  

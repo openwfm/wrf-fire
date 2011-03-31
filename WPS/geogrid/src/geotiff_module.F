@@ -43,6 +43,7 @@ type geotiff_t
 
   ! categorical flag
   logical :: categorical
+  integer :: cat_min,cat_max
 
   ! projection information
   type(proj_t) :: proj
@@ -192,6 +193,8 @@ endif
 !endif
 if(is_fieldtype)then
   g%categorical=(fieldtype.eq.CATEGORICAL)
+  g%cat_min=category_min
+  g%cat_max=category_max
 endif
 !if(is_tile_z)then
 !  g%nz=tile_z
@@ -209,6 +212,8 @@ endif
 if(is_missing_value)then
   g%missing=missing_value
 endif
+row_order=BOTTOM_TOP
+is_row_order=.true.
 end subroutine merge_geotiff_header
 
 subroutine check_invalid_i(parm,val)
@@ -352,7 +357,7 @@ integer,intent(out)::stat
 type(geotiff_t),pointer::gtif
 integer::xts,xte,xls,xle,yts,yte,yls,yle
 real,dimension(:,:,:),allocatable::buffer
-integer::i,j,xlsl,xlel,ylsl,ylel,is,ie,js,je
+integer::i,j,xlsl,xlel,ylsl,ylel,is,ie,js,je,k
 
 call get_geotiff_def(field,gtif)
 call index2tilebound(gtif%tx,xs,xe,xts,xls,xte,xle)
@@ -364,7 +369,7 @@ buffer(:,:,:)=-2
 is=xs
 
 #ifdef _GEOTIFF_EXTRA_DEBUG
-print*,xs,xe,ys,ye,gtif%tx,gtif%ty
+print*,"xs,xe,ys,ye,tx,ty=",xs,xe,ys,ye,gtif%tx,gtif%ty
 #endif
 
 do i=xts,xte
@@ -379,20 +384,25 @@ do i=xts,xte
     if(i.eq.xts)xlsl=xls
     ylsl=1
     if(j.eq.yts)ylsl=yls
-    xlel=xlsl+gtif%tx-1
+    xlel=gtif%tx
     if(i.eq.xte)xlel=xle
-    ylel=ylsl+gtif%ty-1
+    ylel=gtif%ty
     if(j.eq.yte)ylel=yle
     
     ie=is+xlel-xlsl
     je=js+ylel-ylsl
 
 #ifdef _GEOTIFF_EXTRA_DEBUG
-    print*,is,ie,js,je,xlsl,xlel,ylsl,ylel,stat
-    print*,buffer(xlsl:xlel,ylsl:ylel,:)
+    print*,"is,ie,js,je=",is,ie,js,je
+    print*,"i,xlsl,xlel=",i,xlsl,xlel
+    print*,"j,ylsl,ylel,stat=",j,ylsl,ylel,stat
+    !if(stat.eq.0) &
+    !print*,buffer(xlsl:xlel,ylsl:ylel,:)
 #endif
     if(stat .eq. 0)then
-      array(is:ie,js:je,:)=buffer(xlsl:xlel,ylsl:ylel,:)
+      do k=0,je-js
+        array(is:ie,js+k,:)=buffer(xlsl:xlel,ylsl+k,:)
+      enddo
     else
       array(is:ie,js:je,:)=gtif%missing
     endif
@@ -402,6 +412,18 @@ do i=xts,xte
   enddo
   is=ie+1
 enddo
+
+if(gtif%categorical)then
+  do k=zs,ze
+    do j=ys,ye
+      do i=xs,xe
+        if(array(i,j,k).lt.gtif%cat_min.or.array(i,j,k).gt.gtif%cat_max)then
+          array(i,j,k)=gtif%missing
+        endif
+      enddo
+    enddo
+  enddo
+endif
 
 end subroutine read_geogrid_tile
 
