@@ -11,6 +11,8 @@ module module_fr_sfire_core
 use module_fr_sfire_phys
 use module_fr_sfire_util
 
+implicit none
+
 ! The mathematical core of the fire spread model. No physical constants here.
 ! 
 ! subroutine sfire_core: only this routine should be called from the outside.
@@ -69,7 +71,7 @@ time_now = time_start+dt
 time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 
-if(fire_replay_time > 0.) then
+if(fire_perimeter_time > 0.) then
 
   do j=jfts,jfte
      do i=ifts,ifte

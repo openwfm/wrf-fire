@@ -10,6 +10,8 @@ use module_fr_sfire_core
 use module_fr_sfire_util
 use module_fr_sfire_phys
 
+implicit none
+
 contains
 
 subroutine sfire_model (                    &
@@ -260,7 +262,7 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   lfn does not change, tign has no halos
 
     if(.not. freeze_fire)then
-      if(time_start+dt > fire_replay_time) then    
+      if(time_start+dt > fire_perimeter_time) then    
         call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
