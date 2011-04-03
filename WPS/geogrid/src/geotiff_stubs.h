@@ -2,6 +2,7 @@
 #define TIFF int
 #else
 #include <xtiffio.h>
+#include <geo_config.h>
 #endif
 
 #ifndef GEOTIFF_STUBS_H
@@ -28,7 +29,7 @@ extern "C" {
   void geotiff_header(int *filep, int *nx, int *ny, int *nz, int *tilex, int *tiley,  \
                       int *proj, fltType *dx, fltType *dy, int *known_x, int *known_y, \
 		      fltType *known_lat, fltType *known_lon, fltType *stdlon,         \
-		      fltType *truelat1, fltType *truelat2, int *status);
+		      fltType *truelat1, fltType *truelat2, int *orientation, int *status);
   void get_tile_size(TIFF *filep, int *x, int *y);
   void geotiff_open(char *filename, int *filep, int *status);
   void geotiff_close(int *filep);
@@ -54,7 +55,7 @@ const int I_INVALID=-1;
 const fltType F_INVALID=-1;
 #define MAX_OPEN_GEOTIFF_FILES 64
 
-#ifdef HAVE_GTIFPROJ4
+#ifdef HAVE_LIBPROJ
 const int _HAVE_PROJ4=1;
 #else
 const int _HAVE_PROJ4=0;

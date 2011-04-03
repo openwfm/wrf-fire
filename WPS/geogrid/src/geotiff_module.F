@@ -32,6 +32,9 @@ type geotiff_t
   ! global size of the image
   integer :: nx,ny,nz
 
+  ! pixel fill order
+  integer :: orientation
+
   ! tile size of the image
   integer :: tx,ty
 
@@ -56,6 +59,7 @@ integer,parameter::MAX_GEOTIFF_FILES=32, MAX_FILE_LENGTH=MAX_FILENAME_LEN
 character(len=MAX_FILE_LENGTH),dimension(MAX_GEOTIFF_FILES),save::geotiff_file_names,geotiff_field_names
 type(geotiff_t),dimension(MAX_GEOTIFF_FILES),target,save::geotiff_file_p
 integer,save::nfiles=0
+integer,parameter::GTIF_TOPBOTTOM=1,GTIF_BOTTOMTOP=4
 
 interface check_invalid
   module procedure check_invalid_i,check_invalid_r
@@ -70,7 +74,7 @@ implicit none
 character(len=*),intent(in)::filename ! geotiff file to open
 character(len=*),intent(in)::fieldname
 type(geotiff_t),pointer::g
-integer::nz,status
+integer::nz,status,orientation
 character(len=MAX_FILE_LENGTH)::cfile
 
 if(nfiles+1 > MAX_GEOTIFF_FILES)then
@@ -89,7 +93,7 @@ call open_geotiff_l(cfile,g%gtiff_p)
 call geotiff_header(g%gtiff_p,g%nx,g%ny,g%nz,g%tx,g%ty,g%proj%proj_id,g%proj%dx, &
                     g%proj%dy,g%proj%known_x,g%proj%known_y,g%proj%known_lat,    &
                     g%proj%known_lon,g%proj%stdlon,       &
-                    g%proj%truelat1,g%proj%truelat2,status)
+                    g%proj%truelat1,g%proj%truelat2,g%orientation,status)
 if(status .ne. 0)then
   call mprintf(.true.,ERROR,"Error reading geotiff file "//TRIM(filename))
 endif
@@ -101,6 +105,9 @@ g%missing=-99
 g%bdr=3
 g%categorical=.false.
 g%nz=1
+
+call geotiff2geogrid_index(g,g%proj%known_x,g%proj%known_y,g%proj%known_x,g%proj%known_y)
+
 end subroutine open_geotiff
 
 subroutine merge_geotiff_header(field,is_proj,proj,is_fieldtype,fieldtype,     &
@@ -286,10 +293,10 @@ do i=1,nfiles
 end do
 end subroutine destroy_all
 
-subroutine index2tile(nt,ig,it,lt)
+subroutine index2tile_c(nt,ig,it,lt)
 implicit none
 
-!*** Convert global index to tile index (1D).
+!*** Convert global index to tile index (1D), 0-based indexing
 !    input:
 !      integer, nt : tile dimension
 !      integer, ig : global index
@@ -300,13 +307,72 @@ implicit none
 integer,intent(in)::nt,ig
 integer,intent(out)::it,lt
 
-it=floor(real(ig-1)/nt)
+it=floor(real(ig)/nt)
 lt=ig - it*nt
+
+end subroutine index2tile_c
+
+subroutine tile2index_c(nt,ig,it,lt)
+implicit none
+
+!*** Convert tile index to global index (1D), 0-based indexing
+!    input:
+!      integer, nt : tile dimension
+!      integer, it : tile containing global index i
+!      integer, lt : local index within tile
+!    output:
+!      integer, ig : global index
+
+integer,intent(in)::nt,it,lt
+integer,intent(out)::ig
+
+if(lt.lt.0.or.lt.ge.nt)then
+  call mprintf(.true.,ERROR,"Internal error: tile2index_c.")
+endif
+ig=it*nt+lt
+
+end subroutine tile2index_c
+
+subroutine index2tile_f(nt,ig,it,lt)
+implicit none
+
+!*** Convert global index to tile index (1D), 1-based indexing
+!    input:
+!      integer, nt : tile dimension
+!      integer, ig : global index
+!    output:
+!      integer, it : tile containing global index i
+!      integer, lt : local index within tile
+
+integer,intent(in)::nt,ig
+integer,intent(out)::it,lt
+
+call index2tile_c(nt,ig-1,it,lt)
 it=it+1
+lt=lt+1
 
-end subroutine index2tile
+end subroutine index2tile_f
 
-subroutine index2tilebound(nt,is,ie,ts,ls,te,le)
+subroutine tile2index_f(nt,ig,it,lt)
+implicit none
+
+!*** Convert tile index to global index (1D), 1-based indexing
+!    input:
+!      integer, nt : tile dimension
+!      integer, it : tile containing global index i
+!      integer, lt : local index within tile
+!    output:
+!      integer, ig : global index
+
+integer,intent(in)::nt,it,lt
+integer,intent(out)::ig
+
+call tile2index_c(nt,ig,it-1,lt-1)
+ig=ig+1
+
+end subroutine tile2index_f
+
+subroutine index2tilebound_c(nt,is,ie,ts,ls,te,le)
 implicit none
 
 !*** For given global index bounds, get tile index bounds that cover the 
@@ -321,10 +387,114 @@ implicit none
 integer,intent(in)::nt,is,ie
 integer,intent(out)::ts,ls,te,le
 
-call index2tile(nt,is,ts,ls)
-call index2tile(nt,ie,te,le)
+call index2tile_c(nt,is,ts,ls)
+call index2tile_c(nt,ie,te,le)
 
-end subroutine index2tilebound
+end subroutine index2tilebound_c
+
+subroutine index2tilebound_f(nt,is,ie,ts,ls,te,le)
+implicit none
+
+!*** For given global index bounds, get tile index bounds that cover the 
+!    requested interval.
+!    input:
+!      integer, nt : tile dimension
+!      integer, is, ie : global start and end indices 
+!    output:
+!      integer, ts,te : tile start and end indices
+!      integer, ls,le : local start and end indices
+
+integer,intent(in)::nt,is,ie
+integer,intent(out)::ts,ls,te,le
+
+call index2tile_f(nt,is,ts,ls)
+call index2tile_f(nt,ie,te,le)
+
+end subroutine index2tilebound_f
+
+subroutine tilebound2index_c(nt,is,ie,ts,ls,te,le)
+implicit none
+
+!*** For given tile index bounds, get global index bounds that cover the 
+!    requested interval.
+!    input:
+!      integer, nt : tile dimension
+!      integer, ts,te : tile start and end indices
+!      integer, ls,le : local start and end indices
+!    output:
+!      integer, is, ie : global start and end indices 
+
+integer,intent(in)::nt
+integer,intent(out)::is,ie
+integer,intent(in)::ts,ls,te,le
+
+call tile2index_c(nt,is,ts,ls)
+call tile2index_c(nt,ie,te,le)
+
+end subroutine tilebound2index_c
+
+subroutine tilebound2index_f(nt,is,ie,ts,ls,te,le)
+implicit none
+
+!*** For given tile index bounds, get global index bounds that cover the 
+!    requested interval.
+!    input:
+!      integer, nt : tile dimension
+!      integer, ts,te : tile start and end indices
+!      integer, ls,le : local start and end indices
+!    output:
+!      integer, is, ie : global start and end indices 
+
+integer,intent(in)::nt
+integer,intent(out)::is,ie
+integer,intent(in)::ts,ls,te,le
+
+call tile2index_f(nt,is,ts,ls)
+call tile2index_f(nt,ie,te,le)
+
+end subroutine tilebound2index_f
+
+subroutine geogrid2geotiff_index(gtif,ix,iy,ox,oy)
+implicit none
+
+!*** Convert global geogrid index to global geotiff index.
+
+type(geotiff_t),intent(in)::gtif
+integer,intent(in)::ix,iy
+integer,intent(out)::ox,oy
+
+if(gtif%orientation.eq.GTIF_BOTTOMTOP)then
+  ox=ix-1
+  oy=iy-1
+elseif(gtif%orientation.eq.GTIF_TOPBOTTOM)then
+  ox=ix-1
+  oy=gtif%ny-iy
+else
+  call mprintf(.true.,ERROR,"Invalid geotiff orientation")
+endif
+
+end subroutine geogrid2geotiff_index
+
+subroutine geotiff2geogrid_index(gtif,ix,iy,ox,oy)
+implicit none
+
+!*** Convert global geotff index to global geogrid index.
+
+type(geotiff_t),intent(in)::gtif
+integer,intent(in)::ix,iy
+integer,intent(out)::ox,oy
+
+if(gtif%orientation.eq.GTIF_BOTTOMTOP)then
+  ox=ix+1
+  oy=iy+1
+elseif(gtif%orientation.eq.GTIF_TOPBOTTOM)then
+  ox=ix+1
+  oy=gtif%ny-iy
+else
+  call mprintf(.true.,ERROR,"Invalid geotiff orientation")
+endif
+
+end subroutine geotiff2geogrid_index
 
 subroutine read_tile_l(gtiff,nx,ny,nz,ix,iy,tile,stat)
 implicit none
@@ -350,71 +520,114 @@ end subroutine read_tile_l
 subroutine read_geogrid_tile(field,xs,xe,ys,ye,zs,ze, &
                              array,stat)
 implicit none
+
+!*** Read a tile for geogrid with global indices (xs,xe) x (ys,ye) x (zs,ze).
+!    This involves converting the indices to geotiff representation, 
+!    reading multiple tiles from the geotiff file, and filling the 
+!    output array in bottom to top order.
+
 character(len=*),intent(in)::field
 integer,intent(in)::xs,xe,ys,ye,zs,ze
 real,dimension(xs:xe,ys:ye,zs:ze),intent(out)::array
 integer,intent(out)::stat
+
+integer::gxs,gxe,gys,gye
+integer::xts,xls,xte,xle
+integer::yts,yls,yte,yle
+integer::i,j,k,is,ie,js,je
+integer::xlsl,ylsl,xlel,ylel
+integer::gxlsl,gylsl,gxlel,gylel
 type(geotiff_t),pointer::gtif
-integer::xts,xte,xls,xle,yts,yte,yls,yle
-real,dimension(:,:,:),allocatable::buffer
-integer::i,j,xlsl,xlel,ylsl,ylel,is,ie,js,je,k
 integer::lstat
+real,dimension(:,:,:),allocatable::buffer
+#ifdef _GEOTIFF_EXTRA_DEBUG
+integer::ii,jj,kk
+logical,dimension(xs:xe,ys:ye,zs:ze)::isset
+isset(:,:,:)=.false.
+#endif
 
-lstat=1
-
+stat=1
 call get_geotiff_def(field,gtif)
-call index2tilebound(gtif%tx,xs,xe,xts,xls,xte,xle)
-call index2tilebound(gtif%ty,ys,ye,yts,yls,yte,yle)
 
-allocate(buffer(gtif%tx,gtif%ty,gtif%nz))
-buffer(:,:,:)=-2
+call geogrid2geotiff_index(gtif,xs,ys,gxs,gys)
+call geogrid2geotiff_index(gtif,xe,ye,gxe,gye)
 
-is=xs
+call minmax(gxs,gxe)
+call minmax(gys,gye)
+
+call index2tilebound_c(gtif%tx,gxs,gxe,xts,xls,xte,xle)
+call index2tilebound_c(gtif%ty,gys,gye,yts,yls,yte,yle)
+
+allocate(buffer(0:gtif%tx-1,0:gtif%ty-1,0:gtif%nz-1))
+
+buffer(:,:,:)=R_INVALID
 
 #ifdef _GEOTIFF_EXTRA_DEBUG
-print*,"xs,xe,ys,ye,tx,ty=",xs,xe,ys,ye,gtif%tx,gtif%ty
+print*,'xs,xe,ys,ye=',xs,xe,ys,ye
+print*,'xts,xls,xte,xle=',xts,xls,xte,xle
+print*,'yts,yls,yte,yle=',yts,yls,yte,yle
 #endif
 
 do i=xts,xte
-  js=ys
   do j=yts,yte
-
-    call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,stat)
+    call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,lstat)
     if(stat.eq.99)then
       call mprintf(.true.,ERROR,"Internal error in geotiff stubs.")
     endif
-    xlsl=1
-    if(i.eq.xts)xlsl=xls
-    ylsl=1
-    if(j.eq.yts)ylsl=yls
-    xlel=gtif%tx
-    if(i.eq.xte)xlel=xle
-    ylel=gtif%ty
-    if(j.eq.yte)ylel=yle
-    
-    ie=is+xlel-xlsl
-    je=js+ylel-ylsl
+
+    if(lstat.eq.0)then
+      stat=0
+
+      xlsl=0
+      if(i.eq.xts)xlsl=xls
+      ylsl=0
+      if(j.eq.yts)ylsl=yls
+      xlel=gtif%tx-1
+      if(i.eq.xte)xlel=xle
+      ylel=gtif%ty-1
+      if(j.eq.yte)ylel=yle
+  
+      call check_range('read_geogrid_tile: xlsl',xlsl,0,xlel)
+      call check_range('read_geogrid_tile: xlel',xlel,xlsl,gtif%tx-1)
+      call check_range('read_geogrid_tile: ylsl',ylsl,0,ylel)
+      call check_range('read_geogrid_tile: ylel',ylel,ylsl,gtif%ty-1)
+ 
+      call tilebound2index_c(gtif%tx,gxlsl,gxlel,i,xlsl,i,xlel)
+      call tilebound2index_c(gtif%ty,gylsl,gylel,j,ylsl,j,ylel)
+      call geotiff2geogrid_index(gtif,gxlsl,gylsl,is,js)
+      call geotiff2geogrid_index(gtif,gxlel,gylel,ie,je)
+  
+      call minmax(is,ie)
+      call minmax(js,je)
+  
+      call check_range('read_geogrid_tile: is',is,xs,ie)
+      call check_range('read_geogrid_tile: ie',ie,is,xe)
+      call check_range('read_geogrid_tile: js',js,ys,je)
+      call check_range('read_geogrid_tile: je',je,js,ye)
 
 #ifdef _GEOTIFF_EXTRA_DEBUG
-    print*,"is,ie,js,je=",is,ie,js,je
-    print*,"i,xlsl,xlel=",i,xlsl,xlel
-    print*,"j,ylsl,ylel,stat=",j,ylsl,ylel,stat
-    !if(stat.eq.0) &
-    !print*,buffer(xlsl:xlel,ylsl:ylel,:)
-#endif
-    if(stat .eq. 0)then
-      lstat=0
-      do k=0,je-js
-        array(is:ie,js+k,:)=buffer(xlsl:xlel,ylsl+k,:)
+      print*,'is,ie,js,je=',is,ie,js,je
+      print*,'xls,xle,yls,yle=',xlsl,xlel,ylsl,ylel
+      do kk=zs,ze
+        do jj=js,je
+          do ii=is,ie
+            if(isset(ii,jj,kk))then
+              call mprintf(.true.,ERROR,"Internal error: index already set %i %i", &
+                           i1=ii,i2=jj)
+            else
+              isset(ii,jj,kk)=.true.
+            endif
+          enddo
+        enddo
       enddo
+#endif
+
+      call fill_geogrid_tile(gtif,buffer(xlsl:xlel,ylsl:ylel,:),array(is:ie,js:je,:))
     else
       array(is:ie,js:je,:)=gtif%missing
     endif
 
-    js=je+1
-
   enddo
-  is=ie+1
 enddo
 
 if(gtif%categorical)then
@@ -428,8 +641,76 @@ if(gtif%categorical)then
     enddo
   enddo
 endif
-stat=lstat
+
+#ifdef _GEOTIFF_EXTRA_DEBUG
+do kk=zs,ze
+  do jj=ys,ye
+    do ii=xs,xe
+      if(.not.isset(ii,jj,kk))then
+        call mprintf(.true.,ERROR,"Unset index at %i %i",i1=ii,i2=jj)
+      endif
+    enddo
+  enddo
+enddo
+#endif
+
 end subroutine read_geogrid_tile
+
+subroutine minmax(is,ie)
+implicit none
+integer,intent(inout)::is,ie
+integer::tmp
+if(is.gt.ie)then
+  tmp=is
+  is=ie
+  ie=tmp
+endif
+end subroutine minmax
+
+subroutine check_range(msg,i,is,ie)
+implicit none
+!*** Check for programming errors: is <= i <= ie
+character(len=*),intent(in)::msg
+integer,intent(in)::i,is,ie
+
+if(i.lt.is)then
+  call mprintf(.true.,ERROR,"Internal error: "//trim(msg)//" i < is")
+elseif(i.gt.ie)then
+  call mprintf(.true.,ERROR,"Internal error: "//trim(msg)//" i > ie")
+endif
+
+end subroutine check_range
+
+subroutine fill_geogrid_tile(gtif,a,b)
+implicit none
+
+!*** Copy the contents of a into b, flipping the contents vertically if
+!    necessary.
+
+type(geotiff_t),intent(in)::gtif
+real,dimension(:,:,:),intent(in)::a
+real,dimension(:,:,:),intent(out)::b
+
+integer::i
+
+if(size(a,1).ne.size(b,1).or.size(a,2).ne.size(b,2).or. &
+   size(a,3).ne.size(b,3))then
+  call mprintf(.true.,ERROR,"internal error in geotiff_module: array sizes do not match.")
+endif
+
+if(gtif%orientation.eq.GTIF_BOTTOMTOP)then
+  do i=1,size(a,2)
+    b(:,i,:)=a(:,i,:)
+  enddo
+elseif(gtif%orientation.eq.GTIF_TOPBOTTOM)then
+  do i=1,size(a,2)
+    b(:,i,:)=a(:,size(a,2)-i+1,:)
+  enddo
+else
+  call mprintf(.true.,ERROR,"Invalid pixel fill order.")
+endif
+
+end subroutine fill_geogrid_tile
 
 subroutine get_geotiff_def(field,gtif)
 implicit none

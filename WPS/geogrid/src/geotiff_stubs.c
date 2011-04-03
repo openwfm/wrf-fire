@@ -51,11 +51,13 @@ void geotiff_header(
     fltType *stdlon,
     fltType *truelat1,
     fltType *truelat2,
+    int *orientation,
     int *status
     ) {
 
   double tmpdble;
   int tmpint;
+  short tmpshort;
   double x,y;
   TIFF *filep=get_tiff_file(*filen);
   
@@ -91,10 +93,13 @@ void geotiff_header(
   *ny=tmpint;
 
   if( !TIFFGetField(filep,TIFFTAG_IMAGEDEPTH,nz) ) *nz=1;
+
+  if( !TIFFGetField(filep,TIFFTAG_ORIENTATION,&tmpshort) ) tmpshort=ORIENTATION_TOPLEFT;
+  *orientation=tmpshort;
   
   x=0;
   y=0;
-  *known_x=x+1;
+  *known_x=x;
   *known_y=y;
   if ( !GTIFImageToPCS( gtifh, &x, &y) ) *status=1;
   
@@ -104,6 +109,14 @@ void geotiff_header(
     *known_lat=y;
   }
   else {
+
+    if( !_HAVE_PROJ4) {
+      fprintf(stdout,"GEOTIFF not compiled with PROJ4 support!\n");
+      fprintf(stdout,"Cannot geolocate projected data without PROJ4.\n");
+      *status=1;
+      return;
+    }
+
     switch (g.CTProjection) {
       case CT_AlbersEqualArea:
         *proj=(int) albers_nad83;
@@ -179,7 +192,7 @@ int read_tile_tiled(TIFF *filep,int xtile,int ytile,void *buffer) {
   status=0;
   result=TIFFReadTile(filep,buffer,xtile,ytile,0,0);
 #ifdef _GEOTIFF_EXTRA_DEBUG
-fprintf(stdout,"xtile=%i,ytile=%i\n",xtile,ytile);
+fprintf(stdout,"xtile=%i,ytile=%i,bytes=%i\n",xtile,ytile,result);
 #endif
   if(result == -1) status=99;
   return(status);
@@ -190,7 +203,7 @@ int read_tile_stripped(TIFF *filep,int tilesize,int ytile,void *buffer) {
   status=0;
   result=TIFFReadEncodedStrip(filep,ytile,buffer,tilesize);
 #ifdef _GEOTIFF_EXTRA_DEBUG
-fprintf(stdout,"ytile=%i\n",ytile);
+fprintf(stdout,"ytile=%i,bytes=%i\n",ytile,result);
 #endif
   if(result == -1) status=99;
   return(status);
@@ -219,15 +232,15 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
     return;
   }
 
-  xt=*xtile-1;
-  yt=-*ytile;
+  xt=*xtile;
+  yt=*ytile;
 
   ntx=ceil(((float) mx) / tx);
   nty=ceil(((float) my) / ty);
-  if(xt >= ntx || xt < 0 || yt >= nty || yt < 0) {
 #ifdef _GEOTIFF_EXTRA_DEBUG
-    fprintf(stdout,"TILE: %i %i %i %i\n",*xtile,xt,*ytile,yt);
+    fprintf(stdout,"TILE: %i of %i %i of %i\n",xt,ntx,yt,nty);
 #endif
+  if(xt >= ntx || xt < 0 || yt >= nty || yt < 0) {
     *status=1;
     return;
   }
@@ -238,7 +251,7 @@ void read_geotiff_tile(int *filen, int *xtile, int *ytile,
   tilebuf=_TIFFmalloc(tilesize*np/8);
 
   for(i=0;i<tilesize;i++) buffer[i]=-1;
-  for(i=0;i<tilesize*np/8;i++) *((unsigned char *)tilebuf)=0x00;
+  for(i=0;i<tilesize*np/8;i++) *((unsigned char *)tilebuf)=0xFF;
 
   if(TIFFIsTiled(filep)) {
     *status=read_tile_tiled(filep,xt,yt,tilebuf);
