@@ -960,7 +960,7 @@ module source_data_module
           
                   else
                      call mprintf(.true., WARN, 'In %s, unrecognized option %s in entry %i.', &
-                                  s1=trim(test_fname), s2=buffer(i:i-1), i1=i)
+                                  s1=trim(test_fname), s2=buffer(1:i-1), i1=i)
           
                   end if
        
@@ -2720,7 +2720,6 @@ module source_data_module
   
       geotiff=is_geotiff_file(field_name,ilevel)
       call get_tile_fname(file_name, xlat, xlon, ilevel, field_name, istatus)
-!      print*,trim(file_name)
       if (.not.geotiff .and. index(file_name, 'OUTSIDE') /= 0) then
          istatus = 1
          return
@@ -2823,7 +2822,6 @@ module source_data_module
    integer,intent(in)::ilevel
    integer::idx
    is_geotiff_file=.false.
-  ! print*,trim(fieldname),' ',ilevel
    do idx=1,num_entries
      if ((index(source_fieldname(idx),trim(fieldname)) /= 0) .and.     &
          (len_trim(source_fieldname(idx)) == len_trim(fieldname)) .and. &
@@ -3291,43 +3289,46 @@ module source_data_module
             end if
          end if
       end do
-  
-      ! If either min_category or max_category is specified, then both must be specified
-      do i=1,num_entries
-         if (is_category_min(i) .or. is_category_max(i)) then
-            if (.not. is_category_min(i)) then
-               call mprintf(.true., ERROR, 'In GEOGRID.TBL, for index file of data at '// &
-                            'entry %i, category_max is specified, but category_min is '// &
-                            'not. Both must be specified.',i1=i)
-            else if (.not. is_category_max(i)) then
-               call mprintf(.true., ERROR, 'In GEOGRID.TBL, for index file of data at '// &
-                            'entry %i, category_min is specified, but category_max is '// &
-                            'not. Both must be specified.',i1=i)
-            end if
-         end if
-      end do
-  
-      ! For continuous data, (category_max - category_min + 1) should equal tile_z
-      do i=1,num_entries
-         if (is_fieldtype(i)) then
-            if (source_fieldtype(i) == CONTINUOUS) then
-               if (is_category_max(i) .and. is_category_min(i) .and. is_tile_z(i)) then
-                  if (source_tile_z(i) /= (source_category_max(i) - source_category_min(i) + 1)) then
-                     call mprintf(.true., ERROR, 'In GEOGRID.TBL, tile_z must equal '// &
-                                  '(category_max - category_min + 1) at entry %i.',i1=i)
-                  end if
-               else if (is_category_max(i) .and. is_category_min(i) .and. &
-                        is_tile_z_start(i) .and. is_tile_z_end(i)) then
-                  if (source_tile_z_end(i) /= source_category_max(i) .or. &
-                      source_tile_z_start(i) /= source_category_min(i)) then
-                     call mprintf(.true., ERROR, 'In GEOGRID.TBL, tile_z_end must equal '// &
-                                  'category_max, and tile_z_start must equal category_min '// &
-                                  'at entry %i.',i1=i)
-                  end if
-               end if
-            end if
-         end if
-      end do
+
+! category min/max is not set in GEOGRID.TBL, where this subroutine is called... this causes 
+! periodic crashes due to if's on unset memory
+!  
+!      ! If either min_category or max_category is specified, then both must be specified
+!      do i=1,num_entries
+!         if (is_category_min(i) .or. is_category_max(i)) then
+!            if (.not. is_category_min(i)) then
+!               call mprintf(.true., ERROR, 'In GEOGRID.TBL, for index file of data at '// &
+!                            'entry %i, category_max is specified, but category_min is '// &
+!                            'not. Both must be specified.',i1=i)
+!            else if (.not. is_category_max(i)) then
+!               call mprintf(.true., ERROR, 'In GEOGRID.TBL, for index file of data at '// &
+!                            'entry %i, category_min is specified, but category_max is '// &
+!                            'not. Both must be specified.',i1=i)
+!            end if
+!         end if
+!      end do
+!  
+!      ! For continuous data, (category_max - category_min + 1) should equal tile_z
+!      do i=1,num_entries
+!         if (is_fieldtype(i)) then
+!            if (source_fieldtype(i) == CONTINUOUS) then
+!               if (is_category_max(i) .and. is_category_min(i) .and. is_tile_z(i)) then
+!                  if (source_tile_z(i) /= (source_category_max(i) - source_category_min(i) + 1)) then
+!                     call mprintf(.true., ERROR, 'In GEOGRID.TBL, tile_z must equal '// &
+!                                  '(category_max - category_min + 1) at entry %i.',i1=i)
+!                  end if
+!               else if (is_category_max(i) .and. is_category_min(i) .and. &
+!                        is_tile_z_start(i) .and. is_tile_z_end(i)) then
+!                  if (source_tile_z_end(i) /= source_category_max(i) .or. &
+!                      source_tile_z_start(i) /= source_category_min(i)) then
+!                     call mprintf(.true., ERROR, 'In GEOGRID.TBL, tile_z_end must equal '// &
+!                                  'category_max, and tile_z_start must equal category_min '// &
+!                                  'at entry %i.',i1=i)
+!                  end if
+!               end if
+!            end if
+!         end if
+!      end do
   
       ! Make sure that user has not named a dominant category or computed slope field 
       !    the same as a fractional field
