@@ -571,7 +571,7 @@ print*,'yts,yls,yte,yle=',yts,yls,yte,yle
 do i=xts,xte
   do j=yts,yte
     call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,lstat)
-    if(stat.eq.99)then
+    if(lstat.eq.99)then
       call mprintf(.true.,ERROR,"Internal error in geotiff stubs.")
     endif
 
