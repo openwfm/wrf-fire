@@ -153,6 +153,7 @@ module proc_point_module
       do i=src_min_x,src_max_x
          do j=src_min_y,src_max_y
             where_maps_to(i,j,1) = NOT_PROCESSED 
+            where_maps_to(i,j,2) = NOT_PROCESSED
          end do
       end do
 
