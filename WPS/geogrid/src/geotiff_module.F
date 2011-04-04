@@ -715,7 +715,7 @@ end subroutine fill_geogrid_tile
 subroutine get_geotiff_def(field,gtif)
 implicit none
 character(len=*),intent(in)::field
-type(geotiff_t),pointer,intent(out)::gtif
+type(geotiff_t),pointer::gtif
 integer::i
 do i=1,nfiles
   if(    TRIM(geotiff_field_names(i)) .eq.     TRIM(field) .and. &
