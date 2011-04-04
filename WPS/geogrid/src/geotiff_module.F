@@ -547,6 +547,9 @@ isset(:,:,:)=.false.
 #endif
 
 stat=1
+
+if(xe.lt.xs.or.ye.lt.ys.or.ze.lt.zs)return
+
 call get_geotiff_def(field,gtif)
 
 call geogrid2geotiff_index(gtif,xs,ys,gxs,gys)
@@ -570,7 +573,36 @@ print*,'yts,yls,yte,yle=',yts,yls,yte,yle
 
 do i=xts,xte
   do j=yts,yte
+      
+    xlsl=0
+    if(i.eq.xts)xlsl=xls
+    ylsl=0
+    if(j.eq.yts)ylsl=yls
+    xlel=gtif%tx-1
+    if(i.eq.xte)xlel=xle
+    ylel=gtif%ty-1
+    if(j.eq.yte)ylel=yle
+
+    call check_range('read_geogrid_tile: xlsl',xlsl,0,xlel)
+    call check_range('read_geogrid_tile: xlel',xlel,xlsl,gtif%tx-1)
+    call check_range('read_geogrid_tile: ylsl',ylsl,0,ylel)
+    call check_range('read_geogrid_tile: ylel',ylel,ylsl,gtif%ty-1)
+ 
+    call tilebound2index_c(gtif%tx,gxlsl,gxlel,i,xlsl,i,xlel)
+    call tilebound2index_c(gtif%ty,gylsl,gylel,j,ylsl,j,ylel)
+    call geotiff2geogrid_index(gtif,gxlsl,gylsl,is,js)
+    call geotiff2geogrid_index(gtif,gxlel,gylel,ie,je)
+
+    call minmax(is,ie)
+    call minmax(js,je)
+
+    call check_range('read_geogrid_tile: is',is,xs,ie)
+    call check_range('read_geogrid_tile: ie',ie,is,xe)
+    call check_range('read_geogrid_tile: js',js,ys,je)
+    call check_range('read_geogrid_tile: je',je,js,ye)
+
     call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,lstat)
+
     if(lstat.eq.99)then
       call mprintf(.true.,ERROR,"Internal error in geotiff stubs.")
     endif
@@ -578,32 +610,6 @@ do i=xts,xte
     if(lstat.eq.0)then
       stat=0
 
-      xlsl=0
-      if(i.eq.xts)xlsl=xls
-      ylsl=0
-      if(j.eq.yts)ylsl=yls
-      xlel=gtif%tx-1
-      if(i.eq.xte)xlel=xle
-      ylel=gtif%ty-1
-      if(j.eq.yte)ylel=yle
-  
-      call check_range('read_geogrid_tile: xlsl',xlsl,0,xlel)
-      call check_range('read_geogrid_tile: xlel',xlel,xlsl,gtif%tx-1)
-      call check_range('read_geogrid_tile: ylsl',ylsl,0,ylel)
-      call check_range('read_geogrid_tile: ylel',ylel,ylsl,gtif%ty-1)
- 
-      call tilebound2index_c(gtif%tx,gxlsl,gxlel,i,xlsl,i,xlel)
-      call tilebound2index_c(gtif%ty,gylsl,gylel,j,ylsl,j,ylel)
-      call geotiff2geogrid_index(gtif,gxlsl,gylsl,is,js)
-      call geotiff2geogrid_index(gtif,gxlel,gylel,ie,je)
-  
-      call minmax(is,ie)
-      call minmax(js,je)
-  
-      call check_range('read_geogrid_tile: is',is,xs,ie)
-      call check_range('read_geogrid_tile: ie',ie,is,xe)
-      call check_range('read_geogrid_tile: js',js,ys,je)
-      call check_range('read_geogrid_tile: je',je,js,ye)
 
 #ifdef _GEOTIFF_EXTRA_DEBUG
       print*,'is,ie,js,je=',is,ie,js,je
