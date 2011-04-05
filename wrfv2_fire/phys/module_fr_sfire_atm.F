@@ -690,9 +690,10 @@ character(len=128)msg
            enddo
        enddo
        do j=jfts,jfte
-           do i=ifts,ifte
-               fwh(i,j)=fire_wind_height
-           enddo
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            fwh(i,j)=fcwh(k)
+          enddo
        enddo
 
      case(3)
@@ -709,9 +710,10 @@ character(len=128)msg
             z0,                                       & ! atm grid arrays in
             fz0)                                      ! fire grid arrays out
        do j=jfts,jfte
-           do i=ifts,ifte
-               fwh(i,j)=fire_wind_height
-           enddo
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            fwh(i,j)=fcwh(k)
+          enddo
        enddo
 
      case(4)
