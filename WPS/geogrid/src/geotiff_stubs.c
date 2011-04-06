@@ -137,16 +137,28 @@ void geotiff_header(
 
     if( !GTIFProj4ToLatLong( &g, 1, &x, &y) ) *status=1;
     *known_lon=x;
-    *known_lat=y; 
+    *known_lat=y;
+ 
+    if(!GTIFKeyGet(gtifh,ProjStdParallel1GeoKey,&tmpdble,0,1)) {
+      *status=1;
+      fprintf(stdout,"WARNING: Could not read truelat1.\n");
+    }
+    *truelat1=tmpdble;
+    if(!GTIFKeyGet(gtifh,ProjStdParallel2GeoKey,&tmpdble,0,1)) {
+      *status=1;
+      fprintf(stdout,"WARNING: Could not read truelat2.\n");
+    }
+    *truelat2=tmpdble;
+    if(!GTIFKeyGet(gtifh,ProjNatOriginLongGeoKey,&tmpdble,0,1)) {
+      if(!GTIFKeyGet(gtifh,ProjCenterLongGeoKey,&tmpdble,0,1)) {
+        *status=1;
+        fprintf(stdout,"WARNING: Could not read stdlon.\n");
+      }
+    }
+    *stdlon=tmpdble;
+
   }
   
-
-  GTIFKeyGet(gtifh,ProjStdParallel1GeoKey,&tmpdble,0,1);
-  *truelat1=tmpdble;
-  GTIFKeyGet(gtifh,ProjStdParallel2GeoKey,&tmpdble,0,1);
-  *truelat2=tmpdble;
-  GTIFKeyGet(gtifh,ProjCenterLongGeoKey,&tmpdble,0,1);
-  *stdlon=tmpdble;
 
   //TIFFGetField(filep,TIFFTAG_XRESOLUTION,&tmpdble);
   //*dx=tmpdble;

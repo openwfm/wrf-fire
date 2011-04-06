@@ -609,29 +609,27 @@ do i=xts,xte
 
     if(lstat.eq.0)then
       stat=0
-
-
-#ifdef _GEOTIFF_EXTRA_DEBUG
-      print*,'is,ie,js,je=',is,ie,js,je
-      print*,'xls,xle,yls,yle=',xlsl,xlel,ylsl,ylel
-      do kk=zs,ze
-        do jj=js,je
-          do ii=is,ie
-            if(isset(ii,jj,kk))then
-              call mprintf(.true.,ERROR,"Internal error: index already set %i %i", &
-                           i1=ii,i2=jj)
-            else
-              isset(ii,jj,kk)=.true.
-            endif
-          enddo
-        enddo
-      enddo
-#endif
-
       call fill_geogrid_tile(gtif,buffer(xlsl:xlel,ylsl:ylel,:),array(is:ie,js:je,:))
     else
       array(is:ie,js:je,:)=gtif%missing
     endif
+
+#ifdef _GEOTIFF_EXTRA_DEBUG
+    print*,'is,ie,js,je=',is,ie,js,je
+    print*,'xls,xle,yls,yle=',xlsl,xlel,ylsl,ylel
+    do kk=zs,ze
+      do jj=js,je
+        do ii=is,ie
+          if(isset(ii,jj,kk))then
+            call mprintf(.true.,ERROR,"Internal error: index already set %i %i", &
+                         i1=ii,i2=jj)
+          else
+            isset(ii,jj,kk)=.true.
+          endif
+        enddo
+      enddo
+    enddo
+#endif
 
   enddo
 enddo
