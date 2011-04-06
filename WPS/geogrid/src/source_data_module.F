@@ -3008,10 +3008,9 @@ module source_data_module
          write(test_fname, '(a,i5.5,a1,i5.5,a1,i5.5,a1,i5.5)') trim(source_path(idx)), &
                   nint(rx),'-',nint(rx)+source_tile_x(idx)-1,'.',nint(ry),'-',nint(ry)+source_tile_y(idx)-1
       else
-         write(test_fname,'(a,i10.10,a1,i10.10,a1,i10.10,a1,i10.10)') trim(source_path(idx)), & 
+         write(test_fname,'(a,i10,a1,i10,a1,i10,a1,i10)') trim(source_path(idx)), & 
                   nint(rx),'-',nint(rx)+source_tile_x(idx)-1,'.',nint(ry),'-',nint(ry)+source_tile_y(idx)-1
       endif
-
    end subroutine get_tile_fname
  
  
