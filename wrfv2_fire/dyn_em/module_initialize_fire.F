@@ -119,6 +119,7 @@ CONTAINS
              ifts,ifte, kfts,kfte, jfts,jfte
 
    REAL :: mtn_ht, mtn_max, mtn_x, mtn_y, mtn_z, grad_max
+   REAL :: tign_max,tign_min
    REAL :: mtn_axs, mtn_ays, mtn_axe, mtn_aye
    REAL :: mtn_fxs, mtn_fys, mtn_fxe, mtn_fye
    REAL :: mtn_xs, mtn_ys, mtn_xe, mtn_ye
@@ -402,7 +403,7 @@ write(6,*) '*************************************'
        ifms,ifme, jfms,jfme,kfms,kfme,  & 
        ifts,ifte, jfts,jfte,kfts,kfte)
 
-  write (6,*)' ******** SFIRE ideal initialization ********'
+  write (6,*)' ******** SFIRE ideal initialization start ********'
 
   ! fire grid step size
   fdx = grid%dx/grid%sr_x
@@ -617,6 +618,27 @@ write(6,*) '*************************************'
     ENDDO
     write(6, *)' Max terrain height on the fire mesh       ',mtn_max
     write(6, *)' Max terrain gradient on the fire mesh     ',grad_max
+
+! JM read ignition time from file if we are replaying fire history up to the specified time
+   ! write(6,*)'fire_perimeter_time=',config_flags%fire_perimeter_time
+   if(config_flags%fire_perimeter_time > 0.) then 
+       write(6,*)'Reading ignition times from file input_tign_g to replay fire until perimeter at ',config_flags%fire_perimeter_time
+       call read_array_2d_real('input_tign_g',grid%tign_g,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+       tign_max = -huge(tign_max)
+       tign_min = huge(tign_min)
+       k=0
+       do j=jfds,jfde
+          do i=ifds,ifde
+             tign_max=max(tign_max,grid%tign_g(i,j))
+             tign_min=min(tign_min,grid%tign_g(i,j))
+             if(grid%tign_g(i,j) < config_flags%fire_perimeter_time) k=k+1
+          enddo
+       enddo
+       write(6,*)'min max ignition time given ',tign_min,tign_max
+       write(6,*)k,real(k)/((ifde-ifds+1)*(jfde-jfds+1)),'% cells ignited at time ',config_flags%fire_perimeter_time
+   endif
+
+  write (6,*)' ******** SFIRE ideal initialization complete ********'
   
 ! the rest of initialization dependent on the atmosphere grid terrain height set
 

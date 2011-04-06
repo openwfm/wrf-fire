@@ -1,4 +1,5 @@
 &fuel_scalars                      ! scalar fuel constants
+fire_wind_height = 0.,             ! height to take wind from (m), 6.096 Behave, 0 to use fcwh
 cmbcnst  = 17.433e+06,             ! J/kg combustion heat dry fuel
 hfgl     = 17.e4 ,                 ! W/m^2 heat flux to ignite canopy
 fuelmc_g = 0.08,                   ! ground fuel moisture, set = 0 for dry
@@ -51,7 +52,13 @@ no_fuel_cat = 14                   ! extra category for no fuel
 !      1.121, 1.121, 1.121, 1.121, 1.121, 1.121, 0., 
 ! fct = 60., 60., 60., 60., 60., 60., 60.,  
 !      60., 120., 180., 180., 180., 180. , 60., 
-! ichap = 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
+! ichap = 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  adjr0 = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
+          1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
+  adjrw = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
+          1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
+  adjrs = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
+          1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
  /
 
 

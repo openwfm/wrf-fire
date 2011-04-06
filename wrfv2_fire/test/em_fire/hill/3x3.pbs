@@ -3,13 +3,13 @@
 
 # Set the number of nodes and processes per node
 # each node contains 12 processing cores
-#PBS -l nodes=1:ppn=12
+#PBS -l nodes=1:ppn=9
 
 # Set the maximum amount of the time the job will run (HH:MM:SS)
-#PBS -l walltime=03:00:00
+#PBS -l walltime=06:00:00
 
 # Give the job a name
-#PBS -N hill_1x12 
+#PBS -N hill_3x3 
 
 # Keep all environment variables from the current session (PATH, LD_LIBRARY_PATH, etc)
 #PBS -V
@@ -18,12 +18,12 @@
 #PBS -j oe
 
 # Set log file
-#PBS -o 1x12.log
+#PBS -o 3x3.log
 
 # Change to the run directory (where job was submitted)
 cd $PBS_O_WORKDIR
 
-WD=1x12
+WD=3x3
 rm -rf $WD
 mkdir $WD
 cd $WD
@@ -42,10 +42,10 @@ then
   ln -s ../input_tign_g .
 fi
 
-
-cat $PBS_NODEFILE | sort -u > nodes 
+cat $PBS_NODEFILE | sort -u > node 
+cat node node node > nodes
 mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
 mv rsl.error.0000 ideal.error.log
 mv rsl.out.0000 ideal.out.log
-mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=12 ./wrf.exe 
+mpirun_rsh -np 3 -hostfile nodes OMP_NUM_THREADS=3 ./wrf.exe 
 

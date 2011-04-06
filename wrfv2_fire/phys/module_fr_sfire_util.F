@@ -17,24 +17,27 @@ module module_fr_sfire_util
 ! 3. add a line in Registry.EM to define the variable and set default value
 ! 4. add the variable and value in namelist.input
 
+implicit none
 
 integer,save::          &
  fire_print_msg=1,      &  ! print SFIRE progress 
  fire_print_file=1,     &  ! write many files by write_array_m; compile with DEBUG_OUT, do not run in parallel
  fuel_left_method=1,    &  ! 1=simple, 2=exact in linear case
  fuel_left_irl=2,       &  ! refinement for fuel calculation, must be even
- fuel_left_jrl=2,       &
+ fuel_left_jrl=2,       &  ! currently, 2 only supported
  boundary_guard=-1,     &  ! crash if fire gets this many cells to domain boundary, -1=off
  fire_grows_only=1,     &  ! fire can spread out only (level set functions may not increase)
  fire_upwinding=3,      &  ! upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian 
  fire_upwind_split=0,   &  ! 1=upwind advection separately from normal direction spread
  fire_test_steps=0,     &  ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)
  fire_topo_from_atm=1,  &  ! 0 = expect ZSF set correctly on entry, 1 = populate by interploating from atmosphere
- fire_advection=0          ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
+ fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
+ fire_wind_log_interp      ! kind of vertical log layer wind interpolation, see driver
  
 
 real, save::            &
- fire_const_time=-1,    &  ! time from ignition to start constant heat output  <0=never
+ fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign in ideal
+ fire_const_time=-1.,    &  ! time from ignition to start constant heat output  <0=never
  fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_const_grnqfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
@@ -96,8 +99,8 @@ if(fire_print_msg.ge.mlevel)then
       msg='SFIRE:'//s
 #endif
       call wrf_message(msg)
-      flush(6)
-      flush(0)
+      ! flush(6) ! will not work on intel compiler
+      ! flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -107,13 +110,13 @@ end subroutine message
 !
 
 subroutine time_start
-use module_timing
+use module_timing, only:start_timing
 implicit none
 call start_timing
 end subroutine time_start
 
 subroutine time_end(string)
-use module_timing
+use module_timing, only:end_timing
 implicit none
 character(len=*)string
 call end_timing(string)
@@ -1224,9 +1227,9 @@ do j=jts,jte
         ia(i,j)=a(i,j)
 	r=ia(i,j)
 	if(r.ne.a(i,j))then
-           write(6,*)'Reading file ',trim(filename)
-           write(6,*)'value at position ',i,j,' cannot be converted to integer'
-           write(6,*)'read ',a(i,j),' converted as',k,' converted as ',r
+           !write(6,*)'Reading file ',trim(filename)
+           !write(6,*)'value at position ',i,j,' cannot be converted to integer'
+           !write(6,*)'read ',a(i,j),' converted as',k,' converted as ',r
 	   msg=trim(filename)//' is not integer file'
 	   call crash(msg)
         endif

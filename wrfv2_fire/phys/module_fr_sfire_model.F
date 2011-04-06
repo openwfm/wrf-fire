@@ -10,6 +10,8 @@ use module_fr_sfire_core
 use module_fr_sfire_util
 use module_fr_sfire_phys
 
+implicit none
+
 contains
 
 subroutine sfire_model (                    &
@@ -32,7 +34,7 @@ subroutine sfire_model (                    &
     grnhfx,grnqfx,                          & ! output: heat fluxes
     ros,                                    & ! output: rate of spread
     nfuel_cat,                              & ! fuel data per point 
-    fuel_time,                              & ! save derived internal data
+    fuel_time,fwh,fz0,                      & ! save derived internal data
     fp &
 ) 
 
@@ -119,7 +121,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
  
 ! constant arrays - set at initialization
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
-real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
+real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time,fwh,fz0
 type(fire_params),intent(inout)::fp
 
 !*** local
@@ -127,7 +129,7 @@ type(fire_params),intent(inout)::fp
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 integer::ignited,ig,i,j,itso,iteo,jtso,jteo
-real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw
+real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
 logical:: freeze_fire
 integer:: stat_lev=1
@@ -194,8 +196,7 @@ elseif(ifun.eq.2)then
             ifts,ifte,jfts,jfte, &
             fdx,fdy,nfuel_cat0,  &
             nfuel_cat,fuel_time, &
-            fp  &
-)
+            fp) 
 
         ! initialize model state to no fire
         if(.not.restart)then
@@ -203,7 +204,7 @@ elseif(ifun.eq.2)then
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
-            fdx,fdy,time_start,  &
+            fdx,fdy,time_start,dt,  &
             fuel_frac,fire_area,lfn,tign)
             
             need_lfn_update=.true. ! because we have set lfn 
@@ -260,15 +261,22 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   lfn does not change, tign has no halos
 
     if(.not. freeze_fire)then
-
-    call prop_ls(id,     &
+      if(time_start+dt > fire_perimeter_time) then    
+        call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
         ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
         ifts,ifte,jfts,jfte,                      &
         time_start,dt,fdx,fdy,tbound,  &
         lfn,lfn_out,tign,ros, fp &
-    ) 
+        ) 
+      else
+        do j=jfts,jfte
+          do i=ifts,ifte
+            lfn_out(i,j) = tign(i,j) - (time_start + dt) ! <0 if burning at the end of the time step
+          enddo
+        enddo
+      endif
     else
         call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
 
@@ -279,7 +287,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! some thread may still be using lfn as input in their tile halo
 
     if(.not. freeze_fire)then
-    
     do j=jfts,jfte
         do i=ifts,ifte
             lfn(i,j)=lfn_out(i,j)
@@ -330,6 +337,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
     call fuel_left(&
+        ifds,ifde,jfds,jfde, &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
@@ -341,8 +349,9 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     
     do j=jfts,jfte
         do i=ifts,ifte
-            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j) ! fuel lost this timestep
-            fuel_frac(i,j)=fuel_frac_end(i,j) ! copy new value to state array
+            t = min(fuel_frac(i,j),fuel_frac_end(i,j)) ! do not allow fuel fraction to increase, in case of approximation error 
+            fuel_frac_burnt(i,j)=fuel_frac(i,j)-t ! fuel lost this timestep
+            fuel_frac(i,j)=t ! copy new value to state array
         enddo
     enddo
 

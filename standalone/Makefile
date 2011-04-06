@@ -48,12 +48,29 @@ NAMELIST= \
     namelist_defines2.inc \
     config_assigns.inc
 
-#.PHONY: all
+FUEL_INTERP_OBJ = \
+    fuel_interp_test_main.o \
+    module_fr_sfire_core.o \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
 
+.PHONY: all
+
+
+all: fire.exe init.exe
+
+#.PHONY: all
 
 default: fire 
 
-all: fire init
+fuel: fuel_interp_test.exe
+fuel_interp_test: fuel_interp_test.exe
+ 
+fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
+	$(FC) $(FCFLAGS) -o fuel_interp_test.exe $(FUEL_INTERP_OBJ)
+
+all: fire init fuel
 
 rmfirex: 
 	cd ../wrfv2_fire/test/em_fire; rm -f fire.exe;
@@ -76,7 +93,13 @@ fuels.exe: $(MAKEFILE) $(FUELS_OBJ)
  
 # for the order of generating modules
 
+fuel_interp_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_util.o 
+
 model_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_model.o \
+    module_fr_sfire_core.o  \
     module_domain.o \
     module_configure.o \
     module_fr_sfire_driver.o \
@@ -88,12 +111,18 @@ module_fr_sfire_driver.o: $(MAKEFILE) \
     module_configure.o \
     module_fr_sfire_model.o  \
     module_fr_sfire_phys.o \
-    module_fr_sfire_util.o \
+    module_fr_sfire_util.o
 
 model_test_init.o: $(MAKEFILE) \
     module_configure.o \
     wrf_netcdf.o \
     module_fr_sfire_util.o
+
+model_fuel_interp_test.o: $(MAKEFILE) \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_util.o \
+    wrf_namelist.o \
+    wrf_netcdf.o
 
 module_fr_sfire_model.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \

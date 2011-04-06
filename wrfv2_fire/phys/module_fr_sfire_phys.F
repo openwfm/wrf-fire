@@ -9,19 +9,24 @@ module module_fr_sfire_phys
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_util
 
+implicit none
 PRIVATE
 
 ! subroutines and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m
 
+! types
 PUBLIC::fire_params
+
+! variables
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats
 
 ! arrays passed to fire_ros
 type fire_params
 real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
 real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
 real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
-real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0 ! spread formula coefficients
+real,pointer,dimension(:,:):: bbb,phisc,phiwc,r_0 ! spread formula coefficients
 real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
 real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
 end type fire_params
@@ -71,28 +76,10 @@ end type fire_params
 !D      FCI            INITIAL TOTAL MASS OF CANOPY FUEL
 !D      FCBR           FUEL CANOPY BURN RATE (KG/M**2/S) 
 
-! =============================================================================
-! Standard 13 fire behavior fuel models (for surface fires), along with some
-!          estimated canopy properties (for crown fire).
-! =============================================================================
-!  FUEL MODEL 1: Short grass (1 ft)
-!  FUEL MODEL 2: Timber (grass and understory)
-!  FUEL MODEL 3: Tall grass (2.5 ft)
-!  FUEL MODEL 4: Chaparral (6 ft)
-!  FUEL MODEL 5: Brush (2 ft) 
-!  FUEL MODEL 6: Dormant brush, hardwood slash
-!  FUEL MODEL 7: Southern rough
-!  FUEL MODEL 8: Closed timber litter
-!  FUEL MODEL 9: Hardwood litter
-!  FUEL MODEL 10: Timber (litter + understory)
-!  FUEL MODEL 11: Light logging slash
-!  FUEL MODEL 12: Medium logging slash
-!  FUEL MODEL 13: Heavy logging slash
-!  FUEL MODEL 14: no fuel
 !
 
 ! scalar fuel coefficients
-   REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c
+   REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c, fire_wind_height
 ! computed values
    REAL, SAVE:: bmst,fuelheat
 
@@ -101,6 +88,7 @@ end type fire_params
    DATA hfgl     / 17.e4 /                ! W/m^2
    DATA fuelmc_g / 0.08  /                ! set = 0 for dry ground fuel
    DATA fuelmc_c / 1.00  /                ! set = 0 for dry canopy
+   DATA fire_wind_height/6.096/           ! m, 6.096m Behave, 0 to use fcwh in each category
 !  REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
 !  REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
 !  real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
@@ -109,7 +97,7 @@ end type fire_params
 
 ! fuel categorytables
    INTEGER, PARAMETER :: nf=14              ! fuel cats in data stmts, for fillers only`
-   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, 
+   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, can be reset from namelist.fire
    INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
@@ -117,9 +105,30 @@ end type fire_params
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
-                                            savr,st,se
+                                            fcwh,fcz0, &
+                                            savr,st,se,adjr0,adjrw,adjrs
+! =============================================================================
+! Standard 13 fire behavior fuel models (for surface fires), along with some
+!          estimated canopy properties (for crown fire).
+! =============================================================================
+   DATA fuel_name /  &
+     'FUEL MODEL 1: Short grass (1 ft)', &
+     'FUEL MODEL 2: Timber (grass and understory)', &
+     'FUEL MODEL 3: Tall grass (2.5 ft)', &
+     'FUEL MODEL 4: Chaparral (6 ft)', &
+     'FUEL MODEL 5: Brush (2 ft) ', &
+     'FUEL MODEL 6: Dormant brush, hardwood slash', &
+     'FUEL MODEL 7: Southern rough', &
+     'FUEL MODEL 8: Closed timber litter', &
+     'FUEL MODEL 9: Hardwood litter', &
+     'FUEL MODEL 10: Timber (litter + understory)', &
+     'FUEL MODEL 11: Light logging slash', &
+     'FUEL MODEL 12: Medium logging slash', &
+     'FUEL MODEL 13: Heavy logging slash', &
+     'FUEL MODEL 14: no fuel', &
+     zf*' '/
    DATA windrf /0.36, 0.36, 0.44,  0.55,  0.42,  0.44,  0.44, &     
-                0.36, 0.36, 0.36,  0.36,  0.43,  0.46,  1e-7, zf*0 /
+                0.36, 0.36, 0.36,  0.36,  0.43,  0.46,  1e-7, zf*0 / ! added jmandel October 2010
    DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
               1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7, zf*0.  /
    DATA fueldepthm /0.305,  0.305,  0.762, 1.829, 0.61,  0.762,0.762, &
@@ -142,7 +151,22 @@ end type fire_params
    DATA fct / 60., 60., 60., 60., 60., 60., 60.,  &
             60., 120., 180., 180., 180., 180. , 60. , zf*0.   /
    DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , zf*0/ 
+   DATA fcwh  / 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, &
+         6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, zf*0. / ! consistent with BEHAVE
+! roughness length 0.13*fueldepthm except cat 3 fz0=0.1 for consistency with landuse
+ ! fz0 =   0.0396,0.0396,0.0991,0.2378,0.0793,0.0991,0.0991,
+   DATA fcz0 /  0.0396,0.0396,0.1000,0.2378,0.0793,0.0991,0.0991, &
+         0.0079,0.0079,0.0396,0.0396,0.0911,0.1188,0.0396, zf * 0. /
+   !DATA fcwh /0.6 , 0.6,  1.5, 36,  1.2,  1.5, 1.5, &
+   !           0.12, 0.12, 0.6, 0.6, 1.38, 1.8, 1.8, zf*0 / ! fuel wind height, added jm 2/23/11
+   !DATA fcz0 /0.3, 0.3, 0.75, 18.,  0.6,  0.75, 0.75, &
+   !           0.06, 0.06, 0.3, 0.3, 0.69, 0.9, 0.9, zf*0 /  ! fuel roughness height, added jm 2/23/11
+   DATA adjr0 /mfuelcats*1./
+   DATA adjrw /mfuelcats*1./
+   DATA adjrs /mfuelcats*1./
 ! =========================================================================
+
+  logical, save :: have_fuel_cats=.false.
 
 contains
 
@@ -158,9 +182,9 @@ character(len=128):: msg
 !*** executable
 
 ! read 
-namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat
+namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fcwh,fcz0,adjr0,adjrw,adjrs
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -188,6 +212,7 @@ call wrf_dm_bcast_real(cmbcnst,1)
 call wrf_dm_bcast_real(hfgl,1)
 call wrf_dm_bcast_real(fuelmc_g,1)
 call wrf_dm_bcast_real(fuelmc_c,1)
+call wrf_dm_bcast_real(fire_wind_height,1)
 call wrf_dm_bcast_integer(nfuelcats,1)
 call wrf_dm_bcast_integer(no_fuel_cat,1)
 call wrf_dm_bcast_real(windrf,    nfuelcats)
@@ -202,6 +227,11 @@ call wrf_dm_bcast_real(weight,    nfuelcats)
 call wrf_dm_bcast_real(fci_d,     nfuelcats)
 call wrf_dm_bcast_real(fct,       nfuelcats)
 call wrf_dm_bcast_integer(ichap,  nfuelcats)
+call wrf_dm_bcast_real(fcwh,      nfuelcats)
+call wrf_dm_bcast_real(fcz0,      nfuelcats)
+call wrf_dm_bcast_real(adjr0,     nfuelcats)
+call wrf_dm_bcast_real(adjrw,     nfuelcats)
+call wrf_dm_bcast_real(adjrs,     nfuelcats)
 
 ! compute derived scalars
 
@@ -251,6 +281,10 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
     call message(msg)
+    write(msg,8)'fcwh      ',(fcwh(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'fcz0      ',(fcz0(ii),ii=i,k)
+    call message(msg)
     write(msg,8)'windrf    ',(windrf(ii),ii=i,k)
     call message(msg)
     write(msg,8)'fgi       ',(fgi(ii),ii=i,k)
@@ -279,13 +313,23 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'fcbr      ',(fcbr(ii),ii=i,k)
     call message(msg)
+    write(msg,8)'adjr0     ',(adjr0(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjrw     ',(adjrw(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjrs     ',(adjrs(ii),ii=i,k)
+    call message(msg)
 enddo
 call message('**********************************************************')
+
+have_fuel_cats=.true.
 
 ! and print to file
 IF ( wrf_dm_on_monitor() ) THEN
   call write_fuels_m(61,30.,1.)
 ENDIF
+
+
 end subroutine init_fuel_cats
 
 
@@ -296,24 +340,18 @@ real, intent(in):: maxwind,maxslope ! computer from zero to these
 
 integer:: iounit,k,j,i
 type(fire_params)::fp
-!type fire_params
-!real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
-!real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
-!real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
-!real,pointer,dimension(:,:):: bbb,betafl,phiwc,r_0 ! spread formula coefficients
-!real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
-!real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
-!end type fire_params
-real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,betafl,phiwc,r_0,fgip,ischap
-real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros
+real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap
+real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
 real::ros_back,ros_wind,ros_slope,propx,propy,r
+
+if(.not.have_fuel_cats)call crash('write_fuels_m: fuel categories not yet set')
 
 fp%vx=>vx
 fp%vy=>vy
 fp%dzdxf=>dzdxf
 fp%dzdyf=>dzdyf
 fp%bbb=>bbb
-fp%betafl=>betafl
+fp%phisc=>phisc
 fp%phiwc=>phiwc
 fp%r_0=>r_0
 fp%fgip=>fgip
@@ -324,7 +362,9 @@ iounit = open_text_file('fuels.m','write')
 10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
 do k=1,nfuelcats
     write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
-    call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM 20ft TO MIDFLAME HEIGHT' )
+    call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM FCWH TO MIDFLAME HEIGHT' )
+    call write_var(k,'fcwh',fcwh(k),'WIND HEIGHT TO INTERPOLATE VERTICALLY TO (M)' )
+    call write_var(k,'fcz0',fcz0(k),'ROUGHNESS LENGTH FOR VERTICAL WIND LOG INTERPOLATION (M)' )
     call write_var(k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' )
     call write_var(k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)')
     call write_var(k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT')
@@ -338,6 +378,9 @@ do k=1,nfuelcats
     call write_var(k,'ichap',float(ichap(k)),'1 if chaparral, 0 if not')
     call write_var(k,'fci',fci(k),'INITIAL TOTAL MASS OF CANOPY FUEL')
     call write_var(k,'fcbr',fcbr(k),'FUEL CANOPY BURN RATE (KG/M**2/S)')
+    call write_var(k,'adjr0',adjr0(k),'MULTIPLICATIVE ADJUSTMENT OF BACKING SPREAD RATE')
+    call write_var(k,'adjrw',adjrw(k),'MULTIPLICATIVE ADJUSTMENT OF WIND CONTRIBUTION TO SPREAD RATE')
+    call write_var(k,'adjrs',adjrs(k),'MULTIPLICATIVE ADJUSTMENT OF SLOPE CONTRIBUTION TO SPREAD RATE')
     call write_var(k,'hfgl',hfgl,'SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)')
     call write_var(k,'cmbcnst',cmbcnst,'JOULES PER KG OF DRY FUEL')
     call write_var(k,'fuelheat',fuelheat,'FUEL PARTICLE LOW HEAT CONTENT, BTU/LB')
@@ -438,12 +481,14 @@ type(fire_params),intent(inout)::fp
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
         qig, epsilon, rhob, wn, betaop, e, c, &
         xifr, etas, etam, a, gammax, gamma, ratio, ir, &
-        fuelloadm,fdxinv,fdyinv
+        fuelloadm,fdxinv,fdyinv,betafl
 integer:: i,j,k
 integer::nerr
 character(len=128)::msg
 
 !*** executable
+
+if(.not.have_fuel_cats)call crash('set_fire_params: fuel categories not yet set')
 
 nerr=0
 do j=jfts,jfte
@@ -453,7 +498,7 @@ do j=jfts,jfte
      if(k.eq.no_fuel_cat)then   ! no fuel 
         fp%fgip(i,j)=0.            ! no mass 
         fp%ischap(i,j)=0.
-        fp%betafl(i,j)=0.          ! to prevent division by zero
+        fp%phisc(i,j)=0.          ! 
         fp%bbb(i,j)=1.             !
         fuel_time(i,j)=7./0.85  ! does not matter, just what was there before
         fp%phiwc(i,j)=0.
@@ -495,7 +540,7 @@ do j=jfts,jfte
         fuelloadm= (1.-bmst) * fgi(k)  !  fuelload without moisture
         fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
         fueldepth = fueldepthm(k)/0.3048               ! to ft
-        fp%betafl(i,j) = fuelload/(fueldepth * fueldens(k))! packing ratio
+        betafl = fuelload/(fueldepth * fueldens(k))! packing ratio
         betaop = 3.348 * savr(k)**(-0.8189)     ! optimum packing ratio
         qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
         epsilon = exp(-138./savr(k) )    ! effective heating number
@@ -505,12 +550,15 @@ do j=jfts,jfte
         fp%bbb(i,j) = 0.02526 * savr(k)**0.54      ! const in wind coef
         c = c * windrf(k)**fp%bbb(i,j)             ! jm: wind reduction from 20ft per Baughman&Albini(1980)
         e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
-        fp%phiwc(i,j) = c * (fp%betafl(i,j)/betaop)**(-e)
+        fp%phiwc(i,j) = c * (betafl/betaop)**(-e)
+
+        ! phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
+        fp%phisc(i,j) = 5.275 *(betafl)**(-0.3)    ! const in slope coeff
 
         rtemp2 = savr(k)**1.5
         gammax = rtemp2/(495. + 0.0594*rtemp2)              ! maximum rxn vel, 1/min
         a = 1./(4.774 * savr(k)**0.1 - 7.27)   ! coef for optimum rxn vel
-        ratio = fp%betafl(i,j)/betaop
+        ratio = betafl/betaop
         gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
 
         wn = fuelload/(1 + st(k))       ! net fuel loading, lb/ft^2
@@ -522,11 +570,19 @@ do j=jfts,jfte
         ! jm: irm set but never used??
 
         xifr = exp( (0.792 + 0.681*savr(k)**0.5) &
-            * (fp%betafl(i,j)+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
+            * (betafl+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
 
 !        ... r_0 is the spread rate for a fire on flat ground with no wind.
 
         fp%r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
+        fp%r_0(i,j) = fp%r_0(i,j) * .00508             ! convert to m/s
+        fp%phiwc(i,j) = fp%phiwc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
+        fp%phisc(i,j) = fp%phisc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
+
+        ! apply adjustments
+        fp%r_0(i,j)   = fp%r_0(i,j)   * adjr0(k)
+        fp%phiwc(i,j) = fp%phiwc(i,j) * adjrw(k)
+        fp%phisc(i,j) = fp%phisc(i,j) * adjrs(k)
      endif
   enddo
 enddo
@@ -744,17 +800,13 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         umidm = min(spdms,30.)       ! max input wind spd is 30 m/s   !param!
         umid = umidm * 196.850                    ! m/s to ft/min
         !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
-        phiw = umid**fp%bbb(i,j) * fp%phiwc(i,j) ! wind coef
-        phis=0.
+        ros_wind = fp%phiwc(i,j) * (umid**fp%bbb(i,j)) ! wind coef
         tanphim=max(tanphi,0.0)
         tanphim=min(tanphim,5.0)  ! jm
-        phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
+        ! phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
+        ros_slope = fp%phisc(i,j) *tanphim**2   ! slope factor
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
-        ros_back = fp%r_0(i,j) * .00508
-        ros_wind = ros_back*phiw
-        ros_slope= ros_back*phis
-        
-
+        ros_back = fp%r_0(i,j)
     else                                   ! MacArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
         ros_back = 0.18*exp(0.8424)

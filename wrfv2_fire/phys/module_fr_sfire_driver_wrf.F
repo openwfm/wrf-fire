@@ -1,5 +1,8 @@
 ! WRF:MEDIATION_LAYER:FIRE_MODEL
 
+! This is WRF interface driver for SFIRE, the fire module in WRF-Fire.
+! Please see module_fr_sfire_driver.F for acknowledgements.
+
 
 #define DEBUG_OUT
 
