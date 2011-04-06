@@ -1,3 +1,11 @@
+/******************************************************************************
+ * geotiff_stubs.h
+ * Jonathan Beezley (jon.beezley@gmail.com)
+ * April 4, 2011
+ *
+ * Provides several stubs, callable from fortran,  to the geotiff library.
+ ******************************************************************************/
+
 #ifdef _TESTING_GEOTIFF
 #define TIFF int
 #else
@@ -8,6 +16,7 @@
 #ifndef GEOTIFF_STUBS_H
 #define GEOTIFF_STUBS_H
 
+// cpp defines for fortran name mangling
 #ifdef _UNDERSCORE
 #define geotiff_header geotiff_header_
 #define geotiff_open geotiff_open_
@@ -21,13 +30,15 @@
 #define read_geotiff_tile read_geotiff_tile__
 #endif
 
+/* In case someone wants to compile WPS with double precision... */
 typedef float fltType;
 
+/* Function declarations */
 #ifdef __cplusplus
 extern "C" {
 #endif
   void geotiff_header(int *filep, int *nx, int *ny, int *nz, int *tilex, int *tiley,  \
-                      int *proj, fltType *dx, fltType *dy, int *known_x, int *known_y, \
+                      int *proj, fltType *dx, fltType *dy, fltType *known_x, fltType *known_y, \
 		      fltType *known_lat, fltType *known_lon, fltType *stdlon,         \
 		      fltType *truelat1, fltType *truelat2, int *orientation, int *status);
   void get_tile_size(TIFF *filep, int *x, int *y);
@@ -51,16 +62,21 @@ typedef enum {
   albers_nad83=5       /* Albers Equal Area Conic (geogrid code PROJ_ALBERS_NAD83) */
 } Projection;
 
+/* invalid values, these are shared with variables in geotiff_module.F */
 const int I_INVALID=-1;
 const fltType F_INVALID=-1;
+
+/* The maximum number of geotiff files that can be opened at once */
 #define MAX_OPEN_GEOTIFF_FILES 64
 
+/* For geographic projections (not regular_ll), we need libproj4 support. */
 #ifdef HAVE_LIBPROJ
 const int _HAVE_PROJ4=1;
 #else
 const int _HAVE_PROJ4=0;
 #endif
 
+/* Convert a buffer from a given type in the image to floats. */
 #define CONVERT_BUFFER(T,n)                          \
   for(i=0;i<tilesize;i++) {                     \
     buffer[i] = (fltType) ( ( (T*) tilebuf)[i] );     \

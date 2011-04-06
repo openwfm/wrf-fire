@@ -977,9 +977,11 @@ module source_data_module
     
 #ifdef _HAS_GEOTIFF
          if(is_geotiff(idx)) then
-           call open_geotiff(TRIM(source_path(idx))//TRIM(source_geotiff_file(idx)), &
-                             TRIM(source_fieldname(idx)))
-           call merge_geotiff_header(source_fieldname(idx),is_proj(idx),source_proj(idx),&
+           if(source_geotiff_file(idx)(1:1) .ne. '/')then
+             source_geotiff_file(idx)=TRIM(source_path(idx))//TRIM(source_geotiff_file(idx))
+           endif
+           call open_geotiff(source_geotiff_file(idx))
+           call merge_geotiff_header(source_geotiff_file(idx),is_proj(idx),source_proj(idx),&
                         is_fieldtype(idx),source_fieldtype(idx),           &
                         is_units(idx),source_units(idx),                   &
                         is_descr(idx),source_descr(idx),is_dx(idx),        &
@@ -1077,12 +1079,18 @@ module source_data_module
    !   get_datalist() subroutine.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine datalist_destroy()
- 
+#ifdef _HAVE_GEOTIFF
+      use geotiff_module, only : destroy_all
+#endif
       implicit none
   
       ! Local variables
       integer :: i
   
+#ifdef _HAVE_GEOTIFF
+      call destroy_all()
+#endif
+
       if (associated(source_wordsize)) then
          deallocate(source_wordsize)
          deallocate(source_endian)
@@ -2717,6 +2725,7 @@ module source_data_module
       real :: scalefac
       real, allocatable, dimension(:) :: temprow
       logical :: geotiff
+      character(len=256) :: gtiff_file
   
       geotiff=is_geotiff_file(field_name,ilevel)
       call get_tile_fname(file_name, xlat, xlon, ilevel, field_name, istatus)
@@ -2748,7 +2757,12 @@ module source_data_module
 
       if(geotiff) then
 #ifdef _HAS_GEOTIFF
-        call read_geogrid_tile(field_name,start_x_dim,end_x_dim, &
+        call get_geotiff_filename(field_name,ilevel,gtiff_file,istatus)
+        if(istatus.ne.0)then
+          call mprintf(.true.,ERROR,"Could not find geotiff file for "// &
+                                    TRIM(field_name))
+        endif
+        call read_geogrid_tile(gtiff_file,start_x_dim,end_x_dim, &
                                start_y_dim,end_y_dim,            &
                                start_z_dim,end_z_dim,array,istatus)
 #else
@@ -3150,7 +3164,28 @@ module source_data_module
  
    end subroutine get_data_projection
  
- 
+   subroutine get_geotiff_filename(field_name,ilevel,file_name,istatus)
+   implicit none
+   character(len=*),intent(in)::field_name
+   integer,intent(in)::ilevel
+   character(len=*),intent(out)::file_name
+   integer,intent(out)::istatus
+   integer::idx
+   istatus=1
+   do idx=1,num_entries
+         if ((index(source_fieldname(idx),trim(field_name)) /= 0) .and. &
+             (len_trim(source_fieldname(idx)) == len_trim(field_name))) then
+            if (ilevel == source_priority(idx)) then
+               if (is_geotiff(idx)) then
+                  file_name=trim(source_geotiff_file(idx))
+                  istatus = 0
+                  exit
+               end if 
+            end if
+         end if
+   end do
+   end subroutine get_geotiff_filename
+
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! Name: check_data_specification
    !
