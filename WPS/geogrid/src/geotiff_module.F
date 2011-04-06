@@ -653,6 +653,8 @@ isset(:,:,:)=.false.
 
 stat=1
 
+if(xe.lt.xs.or.ye.lt.ys.or.ze.lt.zs)return
+
 ! get the geotiff structure for this field
 call get_geotiff_def(field,gtif)
 
@@ -703,7 +705,7 @@ do i=xts,xte
 
       ! at least one tile contains valid data so return success to geogrid.
       stat=0
-
+  
       ! get local tile indices falling within the requested region
       ! default, the whole tile (0:tx-1,0:ty-1), unless we are at the first or
       ! last tile.
@@ -715,17 +717,17 @@ do i=xts,xte
       if(i.eq.xte)xlel=xle
       ylel=gtif%ty-1
       if(j.eq.yte)ylel=yle
-
+  
       ! sanity checking of all of the indices to avoid memory overflows
       call check_range('read_geogrid_tile: xlsl',xlsl,0,xlel)
       call check_range('read_geogrid_tile: xlel',xlel,xlsl,gtif%tx-1)
       call check_range('read_geogrid_tile: ylsl',ylsl,0,ylel)
       call check_range('read_geogrid_tile: ylel',ylel,ylsl,gtif%ty-1)
- 
+   
       ! get global coordinates of the local tile region
       call tilebound2index_c(gtif%tx,gxlsl,gxlel,i,xlsl,i,xlel)
       call tilebound2index_c(gtif%ty,gylsl,gylel,j,ylsl,j,ylel)
-
+  
       ! convert global coordinates to geogrid convention
       call geotiff2geogrid_index(gtif,gxlsl,gylsl,is,js)
       call geotiff2geogrid_index(gtif,gxlel,gylel,ie,je)
@@ -739,23 +741,8 @@ do i=xts,xte
       call check_range('read_geogrid_tile: ie',ie,is,xe)
       call check_range('read_geogrid_tile: js',js,ys,je)
       call check_range('read_geogrid_tile: je',je,js,ye)
-
-#ifdef _GEOTIFF_EXTRA_DEBUG
-      print*,'is,ie,js,je=',is,ie,js,je
-      print*,'xls,xle,yls,yle=',xlsl,xlel,ylsl,ylel
-      do kk=zs,ze
-        do jj=js,je
-          do ii=is,ie
-            if(isset(ii,jj,kk))then
-              call mprintf(.true.,ERROR,"Internal error: index already set %i %i", &
-                           i1=ii,i2=jj)
-            else
-              isset(ii,jj,kk)=.true.
-            endif
-          enddo
-        enddo
-      enddo
-#endif
+  
+      call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,lstat)
 
       ! copy tile data from geotiff buffer to output array
       call fill_geogrid_tile(gtif,buffer(xlsl:xlel,ylsl:ylel,:),array(is:ie,js:je,:))
@@ -764,6 +751,23 @@ do i=xts,xte
       ! file, so we fill in the missing value and continue to the next tile
       array(is:ie,js:je,:)=gtif%missing
     endif
+
+#ifdef _GEOTIFF_EXTRA_DEBUG
+    print*,'is,ie,js,je=',is,ie,js,je
+    print*,'xls,xle,yls,yle=',xlsl,xlel,ylsl,ylel
+    do kk=zs,ze
+      do jj=js,je
+        do ii=is,ie
+          if(isset(ii,jj,kk))then
+            call mprintf(.true.,ERROR,"Internal error: index already set %i %i", &
+                         i1=ii,i2=jj)
+          else
+            isset(ii,jj,kk)=.true.
+          endif
+        enddo
+      enddo
+    enddo
+#endif
 
   enddo
 enddo
@@ -855,7 +859,7 @@ end subroutine fill_geogrid_tile
 subroutine get_geotiff_def(field,gtif)
 implicit none
 character(len=*),intent(in)::field
-type(geotiff_t),pointer,intent(out)::gtif
+type(geotiff_t),pointer::gtif
 integer::i
 do i=1,nfiles
   if(    TRIM(geotiff_field_names(i)) .eq.     TRIM(field) .and. &
