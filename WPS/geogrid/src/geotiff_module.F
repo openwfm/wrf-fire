@@ -690,6 +690,42 @@ print*,'yts,yls,yte,yle=',yts,yls,yte,yle
 do i=xts,xte
   do j=yts,yte
 
+    ! get local tile indices falling within the requested region
+    ! default, the whole tile (0:tx-1,0:ty-1), unless we are at the first or
+    ! last tile.
+    xlsl=0
+    if(i.eq.xts)xlsl=xls
+    ylsl=0
+    if(j.eq.yts)ylsl=yls
+    xlel=gtif%tx-1
+    if(i.eq.xte)xlel=xle
+    ylel=gtif%ty-1
+    if(j.eq.yte)ylel=yle
+
+    ! sanity checking of all of the indices to avoid memory overflows
+    call check_range('read_geogrid_tile: xlsl',xlsl,0,xlel)
+    call check_range('read_geogrid_tile: xlel',xlel,xlsl,gtif%tx-1)
+    call check_range('read_geogrid_tile: ylsl',ylsl,0,ylel)
+    call check_range('read_geogrid_tile: ylel',ylel,ylsl,gtif%ty-1)
+ 
+    ! get global coordinates of the local tile region
+    call tilebound2index_c(gtif%tx,gxlsl,gxlel,i,xlsl,i,xlel)
+    call tilebound2index_c(gtif%ty,gylsl,gylel,j,ylsl,j,ylel)
+
+    ! convert global coordinates to geogrid convention
+    call geotiff2geogrid_index(gtif,gxlsl,gylsl,is,js)
+    call geotiff2geogrid_index(gtif,gxlel,gylel,ie,je)
+
+    ! make sure that the is <= ie, etc...
+    call minmax(is,ie)
+    call minmax(js,je)
+
+    ! more sanity checking
+    call check_range('read_geogrid_tile: is',is,xs,ie)
+    call check_range('read_geogrid_tile: ie',ie,is,xe)
+    call check_range('read_geogrid_tile: js',js,ys,je)
+    call check_range('read_geogrid_tile: je',je,js,ye)
+  
     ! get the tile buffer
     call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,lstat)
 
@@ -706,44 +742,6 @@ do i=xts,xte
       ! at least one tile contains valid data so return success to geogrid.
       stat=0
   
-      ! get local tile indices falling within the requested region
-      ! default, the whole tile (0:tx-1,0:ty-1), unless we are at the first or
-      ! last tile.
-      xlsl=0
-      if(i.eq.xts)xlsl=xls
-      ylsl=0
-      if(j.eq.yts)ylsl=yls
-      xlel=gtif%tx-1
-      if(i.eq.xte)xlel=xle
-      ylel=gtif%ty-1
-      if(j.eq.yte)ylel=yle
-  
-      ! sanity checking of all of the indices to avoid memory overflows
-      call check_range('read_geogrid_tile: xlsl',xlsl,0,xlel)
-      call check_range('read_geogrid_tile: xlel',xlel,xlsl,gtif%tx-1)
-      call check_range('read_geogrid_tile: ylsl',ylsl,0,ylel)
-      call check_range('read_geogrid_tile: ylel',ylel,ylsl,gtif%ty-1)
-   
-      ! get global coordinates of the local tile region
-      call tilebound2index_c(gtif%tx,gxlsl,gxlel,i,xlsl,i,xlel)
-      call tilebound2index_c(gtif%ty,gylsl,gylel,j,ylsl,j,ylel)
-  
-      ! convert global coordinates to geogrid convention
-      call geotiff2geogrid_index(gtif,gxlsl,gylsl,is,js)
-      call geotiff2geogrid_index(gtif,gxlel,gylel,ie,je)
-  
-      ! make sure that the is <= ie, etc...
-      call minmax(is,ie)
-      call minmax(js,je)
-  
-      ! more sanity checking
-      call check_range('read_geogrid_tile: is',is,xs,ie)
-      call check_range('read_geogrid_tile: ie',ie,is,xe)
-      call check_range('read_geogrid_tile: js',js,ys,je)
-      call check_range('read_geogrid_tile: je',je,js,ye)
-  
-      call read_tile_l(gtif%gtiff_p,gtif%tx,gtif%ty,gtif%nz,i,j,buffer,lstat)
-
       ! copy tile data from geotiff buffer to output array
       call fill_geogrid_tile(gtif,buffer(xlsl:xlel,ylsl:ylel,:),array(is:ie,js:je,:))
     else
