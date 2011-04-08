@@ -1,29 +1,34 @@
-function B=ignition6(data)
+function B=ignition7(data)
+
+%%%%% What is new in this version %%%%%
+%  Added calculation of ignition time for points, that are outside
+%  the burning area
 
 % The function Ignition plots and showes how the fire was propagating,
 %           given ignition point, boundary region and time_now
-% Input:    String - data, that contains the name of the Text file.
-%           First 2 columns - coordinates of all the
-%           points on the boundary (lon,lat). 
+% Input:    data1 : String - data, that contains the name of the Text file.
 %           1rt row - time_now (second number is not needed, is set to 0);
-%           2nd row - size of the mesh;
-%           3rd row - coordinates of ignition point;
+%           2nd row - size of the mesh (m,n);
+%           3rd row - coordinates of the ignition point(ign_x,ign_y);
 %           All next rows - coordinates of all the
-%           points on the boundary (lon,lat). 
+%           points of the fire perimeter (lon,lat). 
 %
-% Output:   Matrix of time of ignition
+%           data2: matrix of the lon coordinates of the mesh points 
+%
+%           data3: matrix of the lat coordinates of the mesh points
+%
+% Output:   Matrix of time of ignition of all the mesh points
 %
 %
-% Volodymyr Kondratenko           February 17 2011
+% Volodymyr Kondratenko           April 8 2011
 %--------------------------------------
 % Command line: what to do to call the function
 %--------------------------------------
 
-%  addpath ../util1_jan
 %  data='data.txt'
 %  B=ignition6(data)
 
-
+% utility to creat the test files
 % Code:
 % Getting data
 
@@ -96,9 +101,10 @@ for i=1:mesh_size(1)
         if (ON(i,j)>0)          % The point we check is on the boundary
             B(i,j)=time_now;
             k=-1;
-        elseif IN(i,j)>0        % The point is inside the burning region
+        else
             a_old=line_sign(ign_pnt(1),ign_pnt(2),i,j,bound(1,1),bound(1,2));
             k=2;
+           
             while (k>0)&&(k<=bnd_size(1))
                 if (a_old==0)
                     a_new=a_old;
@@ -107,15 +113,30 @@ for i=1:mesh_size(1)
                     a_new=line_sign(ign_pnt(1),ign_pnt(2),i,j,bound(k,1),bound(k,2));
                 end
                 if a_old*a_new<0  
-                    % Check if the point is on the line between 
-                    % the ignition point and 2 boundary points
-                    a1=line_sign(i,j,bound(k,1),bound(k,2),ign_pnt(1),ign_pnt(2));
-                    a2=line_sign(i,j,bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
-                    if a1*a2<0
-                        dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
-                        dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),i,j);
-                        B(i,j)=time_now*(dist1-dist2)/dist1;
-                        k=-1;
+            
+                    if IN(i,j)>0        % The point is inside the burning region
+                    
+                        % Check if the point is on the line between 
+                        % the ignition point and 2 boundary points
+                        a1=line_sign(i,j,bound(k,1),bound(k,2),ign_pnt(1),ign_pnt(2));
+                        a2=line_sign(i,j,bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
+                        if a1*a2<0
+                            dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+                            dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),i,j);
+                            B(i,j)=time_now*(dist1-dist2)/dist1;
+                            k=-1;
+                        end
+                    else % point outside the burning region
+                        % Check if 2 boundary points on the line between 
+                        % the point and the ignition point
+                        a1=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+                        a2=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),i,j);
+                        if a1*a2<0
+                            dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+                            dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),i,j);
+                            B(i,j)=time_now*dist2/dist1;
+                            k=-1;
+                        end 
                     end
                 elseif a_new==0
                     % Case if the line goes exactly through the boundary point                                           
@@ -123,20 +144,29 @@ for i=1:mesh_size(1)
                     b1=sqrt((i-ign_pnt(1))^2+(j-ign_pnt(2))^2);
                     b2=sqrt((i-bound(k,1))^2+(j-bound(k,2))^2);
                     b3=sqrt((bound(k,1)-ign_pnt(1))^2+(bound(k,2)-ign_pnt(2))^2);
-                    if (b1+b2<b3+eps)&&(b1+b2>b3-eps)
-                        B(i,j)=time_now*b1/b3; 
-                        k=-1;
+                    if IN(i,j)>0
+                        if (b1+b2<b3+eps)&&(b1+b2>b3-eps)
+                            B(i,j)=time_now*b1/b3; 
+                            k=-1;
+                        else
+                            a_new=line_sign(ign_pnt(1),ign_pnt(2),i,j,bound(k+1,1),bound(k+1,2));
+                            k=k+1;
+                        end
                     else
-                        a_new=line_sign(ign_pnt(1),ign_pnt(2),i,j,bound(k+1,1),bound(k+1,2));
-                        k=k+1;
+                        if (b2+b3<b1+eps)&&(b2+b3>b1-eps)
+                            B(i,j)=time_now*b1/b3; 
+                            k=-1;
+                        else
+                            a_new=line_sign(ign_pnt(1),ign_pnt(2),i,j,bound(k+1,1),bound(k+1,2));
+                            k=k+1;
+                        end
+                        
                     end
                 end
                 a_old=a_new;   
                 k=k+1;       
             end
-        else
-            B(i,j)=time_now+1;
-        end                
+       end                
     end
 end
 
@@ -159,9 +189,9 @@ write_array_2d('data_out1.txt',B)
 % Plot the results
 % questio: if ignition point coordinates are real and not on the mesh, than
 % plot will not print them
-x=1:1:9
-y=1:1:9
-figure(2)
-surf(x,y,B)
-B
+%x=1:1:9
+%y=1:1:9
+%figure(2)
+%surf(x,y,B)
+%B
  
