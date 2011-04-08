@@ -18,7 +18,6 @@ subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
     restart,                                &
-    need_lfn_update,                          & ! if lfn needs to be synced between tiles
     num_ignitions,                          & ! number of ignitions before advancing
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
@@ -63,7 +62,6 @@ subroutine sfire_model (                    &
 !       call sfire_model(....)
 !   end parallel loop over tiles
 !
-!   if need_lfn_update, halo exchange on lfn width 2
 !   
 !   if ifun=0
 !       halo exchange on z width 2
@@ -87,7 +85,6 @@ integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
                                             ! 5 = copy timestep output to input
                                             ! 6 = compute output fluxes
 logical, intent(in):: restart               ! if true, use existing state
-logical, intent(out)::need_lfn_update       ! if true, halo update on lfn afterwards
 ! scalar data
 integer, intent(in) :: num_ignitions        ! number of ignition lines
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
@@ -145,7 +142,6 @@ xjfme=jfme
 
 
 ! init flags
-need_lfn_update=.false.
 ignitions_done=0
 freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
 
@@ -207,8 +203,6 @@ elseif(ifun.eq.2)then
             fdx,fdy,time_start,dt,  &
             fuel_frac,fire_area,lfn,tign)
             
-            need_lfn_update=.true. ! because we have set lfn 
-
         endif
 
 elseif(ifun.eq.3)then   ! ignition if so specified
@@ -314,7 +308,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             ignitions_done=ignitions_done+1
             ignited_tile(ignitions_done)=ignited
                 
-!            need_lfn_update=.true. ! if ignition, lfn changed
 #ifdef DEBUG_OUT    
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_xf,'coord_xf_ig',id)
@@ -326,9 +319,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, &
                    lfn,'sfire_model: lfn out')
-
-    
-    need_lfn_update=.true. ! duh
 
 elseif (ifun.eq.6) then ! timestep postprocessing
 

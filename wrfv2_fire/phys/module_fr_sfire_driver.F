@@ -115,7 +115,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     integer, parameter::fire_max_ignitions=5
     TYPE(ignition_line_type), DIMENSION(fire_max_ignitions):: ignition_line
     integer::fire_ifun,ir,jr,fire_ignition_longlat,istep,itimestep
-    logical::need_lfn_update,restart
+    logical::restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
@@ -167,7 +167,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     do istep=0,tsteps ! istep >0 is for testing only, exit after the first call
       itimestep = grid%itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
 
-      need_lfn_update=.false.
       do fire_ifun=fire_ifun_start,fire_ifun_end
 
         ! 1 = initialize run pass 1: interpolate height to zsf=terrain
@@ -178,10 +177,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         ! 6 = compute output fluxes
 
 #ifdef DM_PARALLEL
-        if(need_lfn_update)then
-!           halo exchange on lfn width 2
-#include "HALO_FIRE_LFN.inc"
-        endif
 
         if(fire_ifun.eq.1)then
 !       halo exchange on topography
@@ -209,12 +204,14 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         elseif(fire_ifun.eq.6)then
 !           computing fuel_left needs ignition time from neighbors
 #include "HALO_FIRE_TIGN.inc"
+            call message('halo exchange on lfn width 2')
+#include "HALO_FIRE_LFN.inc"
 
         endif
 #endif
         ! need domain by 1 smaller, in last row.col winds are not set properly
         call sfire_driver_phys ( &
-            fire_ifun,need_lfn_update,                  &
+            fire_ifun,                  &
             ids,ide-1, kds,kde, jds,jde-1,                          &
             ims,ime, kms,kme, jms,jme,                          &
             ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1),                          & 
@@ -257,6 +254,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             if(fire_ifun.eq.2)then
 !               halo exchange on all fuel data width 2
 #include "HALO_FIRE_FUEL.inc"
+!           fire state was initialized
+            call message('halo exchange on lfn width 2')
+#include "HALO_FIRE_LFN.inc"
             endif
 #endif
 
@@ -274,7 +274,7 @@ end subroutine sfire_driver_em
 !
 
 ! module_fr_sfire_driver%%sfire_driver
-subroutine sfire_driver_phys (ifun,need_lfn_update,    &
+subroutine sfire_driver_phys (ifun,    &
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
     ips,ipe, kps,kpe, jps,jpe,                    &
@@ -334,7 +334,6 @@ integer, intent(in)::ifun,                        &
 logical, intent(in)::restart
     
 
-logical, intent(out)::need_lfn_update
 
 integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! atm grid tiling
 
@@ -655,7 +654,7 @@ do ij=1,num_tiles
 
 !   the following executes in any case
 
-    call sfire_model (id,ifun,restart,need_lfn_update,  &
+    call sfire_model (id,ifun,restart,  &
         num_ignitions,                          & ! switches
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
         ifds,ifde,jfds,jfde,                    & ! fire domain dims
