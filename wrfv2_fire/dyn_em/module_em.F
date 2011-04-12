@@ -182,7 +182,7 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                          fnm, fnp, rdn, rdnw,                             &
                          dt, rdx, rdy, khdif, kvdif, xkmhd, xkhh,         &
                          diff_6th_opt, diff_6th_factor,                   &
-                         dampcoef,zdamp,damp_opt,                         &
+                         dampcoef,zdamp,damp_opt,rad_nudge,               &
                          cf1, cf2, cf3, cfn, cfn1, n_moist,               &
                          non_hydrostatic, top_lid,                        &
                          u_frame, v_frame,                                &
@@ -295,7 +295,7 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
    INTEGER, INTENT( IN ) :: diff_6th_opt
    REAL,    INTENT( IN ) :: diff_6th_factor
 
-   INTEGER, INTENT( IN ) :: damp_opt
+   INTEGER, INTENT( IN ) :: damp_opt, rad_nudge
 
    REAL, INTENT( IN ) :: zdamp, dampcoef
 
@@ -647,6 +647,14 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                               mut, muu, muv, ph, phb,          &
                               u_base, v_base, t_base, z_base,  &
                               dampcoef, zdamp,                 &
+                              ids, ide, jds, jde, kds, kde,    &
+                              ims, ime, jms, jme, kms, kme,    &
+                              its, ite, jts, jte, kts, kte   )
+
+    IF( rad_nudge .eq. 1 )                                     &
+       CALL theta_relaxation( t_tendf, t, t_init,              &
+                              mut, ph, phb,                    &
+                              t_base, z_base,                  &
                               ids, ide, jds, jde, kds, kde,    &
                               ims, ime, jms, jme, kms, kme,    &
                               its, ite, jts, jte, kts, kte   )
@@ -1069,7 +1077,7 @@ SUBROUTINE rk_update_scalar( scs, sce,                      &
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme ),                &
          INTENT(IN)                                  :: advect_tend
 
-   REAL, DIMENSION(ims:ime, kms:kme, jms:jme ), INTENT(INOUT) :: advh_t,  advz_t ! accumulating for output
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme ), INTENT(INOUT) , OPTIONAL :: advh_t,  advz_t ! accumulating for output
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme ), INTENT(IN   ) :: h_tendency, z_tendency ! from rk_scalar_tend
 
    REAL, DIMENSION(ims:ime, jms:jme  ), INTENT(IN   ) ::  mu_old,  &
@@ -1221,15 +1229,17 @@ SUBROUTINE rk_update_scalar( scs, sce,                      &
       ENDDO
 
       ! This is separated from the k/i-loop above for better performance
-      IF(tenddec.and.rk_step.eq.config_flags%rk_ord) THEN
-      DO  k = kts, min(kte,kde-1)
-      DO  i = its, min(ite,ide-1)
+      IF ( PRESENT(advh_t) .AND. PRESENT(advz_t) ) THEN
+        IF(tenddec.and.rk_step.eq.config_flags%rk_ord) THEN
+          DO  k = kts, min(kte,kde-1)
+          DO  i = its, min(ite,ide-1)
 
-          advh_t(i,k,j) = advh_t(i,k,j) + (dt*h_tendency(i,k,j)* msfty(i,j))*r_munew(i)
-          advz_t(i,k,j) = advz_t(i,k,j) + (dt*z_tendency(i,k,j)* msfty(i,j))*r_munew(i)
+            advh_t(i,k,j) = advh_t(i,k,j) + (dt*h_tendency(i,k,j)* msfty(i,j))*r_munew(i)
+            advz_t(i,k,j) = advz_t(i,k,j) + (dt*z_tendency(i,k,j)* msfty(i,j))*r_munew(i)
 
-      ENDDO
-      ENDDO
+          ENDDO
+          ENDDO
+        END IF
       END IF
       
       ENDDO
