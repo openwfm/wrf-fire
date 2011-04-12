@@ -794,11 +794,13 @@ END SUBROUTINE rk_addtend_dry
 !-------------------------------------------------------------------------------
 
 SUBROUTINE rk_scalar_tend ( scs, sce, config_flags,          &
+                            tenddec,                        & 
                             rk_step, dt,                     &
                             ru, rv, ww, mut, mub, mu_old,    &
                             alt,                             &
                             scalar_old, scalar,              &
                             scalar_tends, advect_tend,       &
+                            h_tendency, z_tendency,          & 
                             RQVFTEN,                         &
                             base, moist_step, fnm, fnp,      &
                             msfux, msfuy, msfvx, msfvx_inv,  &
@@ -817,6 +819,8 @@ SUBROUTINE rk_scalar_tend ( scs, sce, config_flags,          &
 
    TYPE(grid_config_rec_type   ) ,   INTENT(IN   ) :: config_flags
 
+   LOGICAL ,                INTENT(IN   ) :: tenddec ! tendency term
+
    INTEGER ,                INTENT(IN   ) :: rk_step, scs, sce
    INTEGER ,                INTENT(IN   ) :: ids, ide, jds, jde, kds, kde, &
                                              ims, ime, jms, jme, kms, kme, &
@@ -831,6 +835,7 @@ SUBROUTINE rk_scalar_tend ( scs, sce, config_flags,          &
                                          INTENT(INOUT)  :: scalar_tends
                                                     
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme  ), INTENT(INOUT) :: advect_tend
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme  ), INTENT(  OUT) :: h_tendency, z_tendency 
 
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme  ), INTENT(OUT  ) :: RQVFTEN
 
@@ -895,6 +900,16 @@ SUBROUTINE rk_scalar_tend ( scs, sce, config_flags,          &
                       ims, ime, jms, jme, kms, kme, &
                       its, ite, jts, jte, kts, kte )
 
+     CALL zero_tend ( h_tendency(ims,kms,jms),      &
+                      ids, ide, jds, jde, kds, kde, &
+                      ims, ime, jms, jme, kms, kme, &
+                      its, ite, jts, jte, kts, kte )
+
+     CALL zero_tend ( z_tendency(ims,kms,jms),      &
+                      ids, ide, jds, jde, kds, kde, &
+                      ims, ime, jms, jme, kms, kme, &
+                      its, ite, jts, jte, kts, kte )
+
      CALL nl_get_time_step ( 1, time_step )
 
       IF( (rk_step == 3) .and. (adv_opt == POSITIVEDEF) ) THEN
@@ -902,8 +917,10 @@ SUBROUTINE rk_scalar_tend ( scs, sce, config_flags,          &
         CALL advect_scalar_pd       ( scalar(ims,kms,jms,im),             &
                                       scalar_old(ims,kms,jms,im),         &
                                       advect_tend(ims,kms,jms),           &
+                                      h_tendency(ims,kms,jms),            & 
+                                      z_tendency(ims,kms,jms),            & 
                                       ru, rv, ww, mut, mub, mu_old,       &
-                                      time_step, config_flags,            &
+                                      time_step, config_flags, tenddec,   & 
                                       msfux, msfuy, msfvx, msfvy,         &
                                       msftx, msfty, fnm, fnp,             &
                                       rdx, rdy, rdnw,dt,                  &
@@ -916,8 +933,10 @@ SUBROUTINE rk_scalar_tend ( scs, sce, config_flags,          &
         CALL advect_scalar_mono       ( scalar(ims,kms,jms,im),             &
                                         scalar_old(ims,kms,jms,im),         &
                                         advect_tend(ims,kms,jms),           &
+                                        h_tendency(ims,kms,jms),            & 
+                                        z_tendency(ims,kms,jms),            & 
                                         ru, rv, ww, mut, mub, mu_old,       &
-                                        config_flags,                       &
+                                        config_flags, tenddec,              & 
                                         msfux, msfuy, msfvx, msfvy,         &
                                         msftx, msfty, fnm, fnp,             &
                                         rdx, rdy, rdnw,dt,                  &
@@ -941,7 +960,9 @@ SUBROUTINE rk_scalar_tend ( scs, sce, config_flags,          &
 
       END IF
 
-     IF((config_flags%cu_physics == GDSCHEME .OR. config_flags%cu_physics == G3SCHEME) & 
+     IF((config_flags%cu_physics == GDSCHEME .OR. config_flags%cu_physics == G3SCHEME .OR. &
+         config_flags%cu_physics == KFETASCHEME .OR. &      ! new trigger in KF
+         config_flags%cu_physics == TIEDTKESCHEME  ) &      ! Tiedtke
                      .and. moist_step .and. ( im == P_QV) ) THEN
 
         CALL set_tend( RQVFTEN, advect_tend, msfty,    &
@@ -1011,10 +1032,14 @@ END SUBROUTINE rk_scalar_tend
 
 SUBROUTINE rk_update_scalar( scs, sce,                      &
                              scalar_1, scalar_2, sc_tend,   &
-                             advect_tend, msftx, msfty,     &
+                             advh_t, advz_t,                & 
+                             advect_tend,                   &
+                             h_tendency, z_tendency,        & 
+                             msftx, msfty,                  &
                              mu_old, mu_new, mu_base,       &
                              rk_step, dt, spec_zone,        &
                              config_flags,                  &
+                             tenddec,                      & 
                              ids, ide, jds, jde, kds, kde,  &
                              ims, ime, jms, jme, kms, kme,  &
                              its, ite, jts, jte, kts, kte  )
@@ -1024,6 +1049,8 @@ SUBROUTINE rk_update_scalar( scs, sce,                      &
    !  Input data.
 
    TYPE(grid_config_rec_type   ) ,   INTENT(IN   ) :: config_flags
+
+   LOGICAL ,                INTENT(IN   ) :: tenddec 
 
    INTEGER ,                INTENT(IN   ) :: scs, sce, rk_step, spec_zone
    INTEGER ,                INTENT(IN   ) :: ids, ide, jds, jde, kds, kde, &
@@ -1041,6 +1068,9 @@ SUBROUTINE rk_update_scalar( scs, sce,                      &
 
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme ),                &
          INTENT(IN)                                  :: advect_tend
+
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme ), INTENT(INOUT) :: advh_t,  advz_t ! accumulating for output
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme ), INTENT(IN   ) :: h_tendency, z_tendency ! from rk_scalar_tend
 
    REAL, DIMENSION(ims:ime, jms:jme  ), INTENT(IN   ) ::  mu_old,  &
                                                           mu_new,  &
@@ -1189,6 +1219,19 @@ SUBROUTINE rk_update_scalar( scs, sce,                      &
 
       ENDDO
       ENDDO
+
+      ! This is separated from the k/i-loop above for better performance
+      IF(tenddec.and.rk_step.eq.config_flags%rk_ord) THEN
+      DO  k = kts, min(kte,kde-1)
+      DO  i = its, min(ite,ide-1)
+
+          advh_t(i,k,j) = advh_t(i,k,j) + (dt*h_tendency(i,k,j)* msfty(i,j))*r_munew(i)
+          advz_t(i,k,j) = advz_t(i,k,j) + (dt*z_tendency(i,k,j)* msfty(i,j))*r_munew(i)
+
+      ENDDO
+      ENDDO
+      END IF
+      
       ENDDO
 
       ENDDO
@@ -1478,6 +1521,7 @@ SUBROUTINE calculate_phy_tend (config_flags,mu,muu,muv,pi3d,           &
                      RQVBLTEN,RQCBLTEN,RQIBLTEN,                       &
                      RTHCUTEN,RQVCUTEN,RQCCUTEN,RQRCUTEN,              &
                      RQICUTEN,RQSCUTEN,                                &
+                     RUCUTEN, RVCUTEN,                                 & ! Tiedtke and NSAS
                      RUNDGDTEN,RVNDGDTEN,RTHNDGDTEN,RQVNDGDTEN,        &
                      RMUNDGDTEN,                                       &
                      ids,ide, jds,jde, kds,kde,                        &
@@ -1516,6 +1560,10 @@ SUBROUTINE calculate_phy_tend (config_flags,mu,muu,muv,pi3d,           &
                                                              RQRCUTEN, &
                                                              RQICUTEN, &
                                                              RQSCUTEN
+
+      REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ),              &
+                INTENT(INOUT)   ::                            RUCUTEN, &
+                                                              RVCUTEN
 ! pbl
 
       REAL,     DIMENSION( ims:ime, kms:kme, jms:jme )               , &
@@ -1581,6 +1629,18 @@ SUBROUTINE calculate_phy_tend (config_flags,mu,muu,muv,pi3d,           &
       ENDDO
       ENDDO
       ENDDO
+
+      IF (config_flags%cu_physics == TIEDTKESCHEME .or.     &
+          config_flags%cu_physics == NSASSCHEME ) THEN
+        DO J=jts,jtf
+        DO I=its,itf
+        DO K=kts,ktf
+           RUCUTEN(I,K,J) =mu(I,J)*RUCUTEN(I,K,J)
+           RVCUTEN(I,K,J) =mu(I,J)*RVCUTEN(I,K,J)
+        ENDDO
+        ENDDO
+        ENDDO
+      ENDIF
 
       IF (P_QC .ge. PARAM_FIRST_SCALAR)THEN
          DO J=jts,jtf

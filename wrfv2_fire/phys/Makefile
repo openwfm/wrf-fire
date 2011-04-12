@@ -16,14 +16,18 @@ MODULES = \
 	module_bl_gwdo.o \
 	module_bl_myjurb.o \
 	module_bl_boulac.o \
+	module_bl_temf.o \
 	module_cu_g3.o \
 	module_cu_kf.o  \
 	module_cu_bmj.o \
 	module_cu_kfeta.o \
+	module_cu_tiedtke.o\
 	module_cu_gd.o \
+	module_cu_nsas.o \
 	module_cu_sas.o \
 	module_mp_kessler.o \
 	module_mp_lin.o  \
+	module_mp_sbu_ylin.o  \
 	module_mp_wsm3.o \
 	module_mp_wsm5.o \
 	module_mp_wsm6.o \
@@ -38,6 +42,7 @@ MODULES = \
 	module_mp_wdm6.o \
 	module_ra_sw.o  \
 	module_ra_gsfcsw.o \
+	module_ra_goddard.o \
 	module_ra_rrtm.o  \
 	module_ra_rrtmg_lw.o  \
 	module_ra_rrtmg_sw.o  \
@@ -67,6 +72,8 @@ MODULES = \
 	module_sf_qnsesfc.o \
 	module_sf_mynn.o \
 	module_sf_pxsfclay.o \
+	module_sf_temfsfclay.o \
+	module_sf_idealscmsfclay.o \
 	module_physics_addtendc.o \
 	module_physics_init.o \
 	module_gfs_machine.o \
@@ -86,7 +93,9 @@ MODULES = \
 	module_fdda_spnudging.o \
 	module_fddagd_driver.o  \
         module_fddaobs_rtfdda.o \
-	module_fddaobs_driver.o
+	module_fddaobs_driver.o \
+	module_wind_generic.o \
+	module_wind_fitch.o
 
 FIRE_MODULES = \
         module_fr_sfire_driver.o \
@@ -116,7 +125,7 @@ include ../configure.wrf
 
 nmm_contrib : $(NMM_OBJS) $(NMM_MODULES) $(MODULES) $(OBJS)
 
-non_nmm : $(MODULES) $(FIRE_MODULES) $(OBJS)
+non_nmm : $(MODULES) $(FIRE_MODULES) $(WIND_MODULES) $(OBJS)
 
 clean:
 	@ echo 'use the clean script'
@@ -152,6 +161,8 @@ module_cu_kfeta.o: ../frame/module_wrf_error.o
 
 module_cu_gd.o:
 
+module_cu_nsas.o:
+
 module_gfs_physcons.o: module_gfs_machine.o
 
 module_gfs_funcphys.o: module_gfs_machine.o \
@@ -160,6 +171,10 @@ module_gfs_funcphys.o: module_gfs_machine.o \
 module_cu_sas.o: module_gfs_machine.o \
 		 module_gfs_funcphys.o \
 		 module_gfs_physcons.o
+
+module_cu_tiedtke.o:module_gfs_machine.o \
+		module_gfs_funcphys.o \
+		module_gfs_physcons.o
 
 module_ra_gfdleta.o:  ../frame/module_dm.o \
 		module_mp_etanew.o
@@ -176,11 +191,17 @@ module_ra_cam.o: module_ra_cam_support.o \
 
 module_mp_lin.o : ../frame/module_wrf_error.o
 
+module_mp_sbu_ylin.o : ../frame/module_wrf_error.o \
+                   ../share/module_model_constants.o
+
 module_mp_milbrandt2mom.o : ../frame/module_wrf_error.o \
 		../share/module_model_constants.o
 
-module_mp_thompson.o : ../frame/module_wrf_error.o \
-			 ../frame/module_dm.o
+module_mp_thompson.o : ../frame/module_wrf_error.o 
+
+module_ra_goddard.o : ../frame/module_wrf_error.o
+
+module_mp_gsfcgce.o : ../frame/module_wrf_error.o
 
 module_sf_myjsfc.o: ../share/module_model_constants.o 
 
@@ -248,12 +269,15 @@ module_physics_init.o : \
 		module_bl_mynn.o                \
 		module_bl_myjurb.o              \
 		module_bl_boulac.o              \
+		module_bl_temf.o              \
 		module_cu_kf.o			\
 	        module_cu_g3.o                  \
 		module_cu_kfeta.o		\
 		module_cu_bmj.o			\
 		module_cu_gd.o			\
+		module_cu_nsas.o		\
 		module_cu_sas.o			\
+		module_mp_sbu_ylin.o		\
 		module_mp_wsm3.o		\
 		module_mp_wsm5.o		\
 		module_mp_wsm6.o		\
@@ -269,6 +293,7 @@ module_physics_init.o : \
                 module_mp_milbrandt2mom.o     \
 		module_mp_wdm5.o		\
 		module_mp_wdm6.o		\
+		module_wind_fitch.o		\
 		../frame/module_state_description.o \
 		../frame/module_configure.o \
 		../frame/module_wrf_error.o \
@@ -278,7 +303,7 @@ module_physics_init.o : \
 
 module_microphysics_driver.o: \
 		module_mixactivate.o \
-		module_mp_kessler.o module_mp_lin.o \
+		module_mp_kessler.o  module_mp_sbu_ylin.o module_mp_lin.o \
 		module_mp_wsm3.o module_mp_wsm5.o \
 		module_mp_wsm6.o module_mp_etanew.o \
 		module_mp_HWRF.o  \
@@ -301,7 +326,9 @@ module_cumulus_driver.o: \
 		module_cu_kfeta.o \
 		module_cu_bmj.o \
 		module_cu_gd.o \
+		module_cu_nsas.o \
 		module_cu_sas.o \
+		module_cu_tiedtke.o \
 		../frame/module_state_description.o \
 		../frame/module_configure.o \
 		../frame/module_domain.o \
@@ -321,6 +348,8 @@ module_pbl_driver.o:  \
 		module_bl_gfs.o \
 		module_bl_mynn.o \
 		module_bl_gwdo.o \
+		module_wind_fitch.o \
+		module_bl_temf.o \
 		../frame/module_state_description.o \
 		../frame/module_configure.o \
 		../share/module_model_constants.o 
@@ -365,6 +394,8 @@ module_surface_driver.o: \
 		module_sf_sfcdiags_ruclsm.o     \
 		module_sf_sstskin.o		\
 		module_sf_tmnupdate.o		\
+		module_sf_temfsfclay.o		\
+		module_sf_idealscmsfclay.o	\
 		../frame/module_state_description.o \
 		../frame/module_configure.o \
 		../share/module_model_constants.o  
@@ -432,6 +463,9 @@ module_fdda_spnudging.o :\
 
 module_sf_bep.o :\
 		module_sf_urban.o
+
+module_wind_fitch.o :\
+		module_wind_generic.o
 
 module_mp_wsm5.o :\
 		module_mp_wsm5_accel.F

@@ -109,6 +109,18 @@ SUBROUTINE solve_em ( grid , config_flags  &
    LOGICAL                         :: specified_bdy, channel_bdy
 
    REAL                            :: t_new
+   
+   ! Changes in tendency at this timestep
+   real ,DIMENSION(grid%sm31:grid%em31,grid%sm32:grid%em32,grid%sm33:grid%em33) :: h_tendency, &
+                                                                                   z_tendency
+                                                                                   
+   ! Whether advection should produce decoupled horizontal and vertical advective tendency outputs
+   LOGICAL                        :: tenddec
+   
+#ifdef WRF_CHEM
+   ! Index cross-referencing array for tendency accumulation
+   INTEGER, DIMENSION( num_chem ) :: adv_ct_indices
+#endif
 
 ! storage for tendencies and decoupled state (generated from Registry)
 
@@ -304,6 +316,19 @@ SUBROUTINE solve_em ( grid , config_flags  &
    ENDIF
 # endif
 !--------------------------------------------------------------
+   adv_ct_indices(   :  ) = 1
+   IF ( config_flags%chemdiag == USECHEMDIAG ) THEN
+   ! modify tendency list here
+   ! note that the referencing direction here is opposite of that in chem_driver
+       adv_ct_indices(p_co  ) = p_advh_co
+       adv_ct_indices(p_o3  ) = p_advh_o3
+       adv_ct_indices(p_no  ) = p_advh_no
+       adv_ct_indices(p_no2 ) = p_advh_no2
+       adv_ct_indices(p_hno3) = p_advh_hno3
+       adv_ct_indices(p_iso ) = p_advh_iso
+       adv_ct_indices(p_ho  ) = p_advh_ho
+       adv_ct_indices(p_ho2 ) = p_advh_ho2
+   END IF
 #endif
 
    rk_order = config_flags%rk_ord
@@ -634,7 +659,7 @@ BENCH_END(set_phys_bc_tim)
                              , psim , psih , wspd , gz1oz0      &
                              , br , chklowq                     &
                              , cu_act_flag , hol , th_phy       &
-                             , pi_phy , p_phy , t_phy           &
+                             , pi_phy , p_phy , grid%t_phy      &
                              , u_phy , v_phy                    &
                              , dz8w , p8w , t8w , rho_phy , rho &
                              , ids, ide, jds, jde, kds, kde     &
@@ -647,6 +672,13 @@ BENCH_END(set_phys_bc_tim)
                              , k_start , k_end                  &
                              , f_flux                           &
                             )
+
+#ifdef DM_PARALLEL
+       IF ( config_flags%bl_pbl_physics == MYNNPBLSCHEME2 .OR. &
+            config_flags%bl_pbl_physics == MYNNPBLSCHEME3 ) THEN
+#        include "HALO_EM_SCALAR_E_5.inc"
+       ENDIF
+#endif
 
        CALL first_rk_step_part2 (    grid, config_flags         &
                              , moist , moist_tend               &
@@ -662,7 +694,7 @@ BENCH_END(set_phys_bc_tim)
                              , psim , psih , wspd , gz1oz0      &
                              , br , chklowq                     &
                              , cu_act_flag , hol , th_phy       &
-                             , pi_phy , p_phy , t_phy           &
+                             , pi_phy , p_phy , grid%t_phy      &
                              , u_phy , v_phy                    &
                              , dz8w , p8w , t8w , rho_phy , rho &
                              , nba_mij, num_nba_mij             & !JDM 
@@ -1933,9 +1965,10 @@ BENCH_END(small_step_finish_tim)
              moist_tile_loop_1: DO ij = 1 , grid%num_tiles
 
                CALL wrf_debug ( 200 , ' call rk_scalar_tend' )
+               tenddec = .false.
 
 BENCH_START(rk_scalar_tend_tim)
-               CALL rk_scalar_tend (  im, im, config_flags,                  &
+               CALL rk_scalar_tend (  im, im, config_flags, tenddec,         & 
                            rk_step, dt_rk,                                   &
                            grid%ru_m, grid%rv_m, grid%ww_m,                  &
                            grid%muts, grid%mub, grid%mu_1,                   &
@@ -1943,7 +1976,7 @@ BENCH_START(rk_scalar_tend_tim)
                            moist_old(ims,kms,jms,im),                        &
                            moist(ims,kms,jms,im),                            &
                            moist_tend(ims,kms,jms,im),                       &
-                           advect_tend,grid%rqvften,                         &
+                           advect_tend,h_tendency,z_tendency,grid%rqvften,   & 
                            grid%qv_base, .true., grid%fnm, grid%fnp,         &
                            grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv,&
                            grid%msfvy, grid%msftx,grid%msfty,                & 
@@ -2003,16 +2036,20 @@ BENCH_END(rlx_bdy_scalar_tim)
              moist_tile_loop_2: DO ij = 1 , grid%num_tiles
 
                CALL wrf_debug ( 200 , ' call rk_update_scalar' )
+               tenddec = .false.
 
 BENCH_START(update_scal_tim)
                CALL rk_update_scalar( im, im,                     &
                                moist_old(ims,kms,jms,im),         &
                                moist(ims,kms,jms,im),             &
                                moist_tend(ims,kms,jms,im),        &
-                               advect_tend, grid%msftx,grid%msfty, &
+                               advh_t(ims,kms,jms,1),             & 
+                               advz_t(ims,kms,jms,1),             & 
+                               advect_tend, h_tendency,z_tendency,& 
+                               grid%msftx,grid%msfty, &
                                grid%mu_1, grid%mu_2, grid%mub,    &
                                rk_step, dt_rk, grid%spec_zone,    &
-                               config_flags,                      &
+                               config_flags, tenddec,             & 
                                ids, ide, jds, jde, kds, kde,     &
                                ims, ime, jms, jme, kms, kme,     &
                                grid%i_start(ij), grid%i_end(ij), &
@@ -2062,7 +2099,8 @@ BENCH_START(tke_adv_tim)
          tke_tile_loop_1: DO ij = 1 , grid%num_tiles
 
            CALL wrf_debug ( 200 , ' call rk_scalar_tend for tke' )
-           CALL rk_scalar_tend ( 1, 1, config_flags,                               &
+           tenddec = .false.
+           CALL rk_scalar_tend ( 1, 1, config_flags, tenddec,                      & 
                             rk_step, dt_rk,                                        &
                             grid%ru_m, grid%rv_m, grid%ww_m,                       &
                             grid%muts, grid%mub, grid%mu_1,                        &
@@ -2070,7 +2108,7 @@ BENCH_START(tke_adv_tim)
                             grid%tke_1,                                            &
                             grid%tke_2,                                            &
                             tke_tend(ims,kms,jms),                                 &
-                            advect_tend,grid%rqvften,                              &
+                            advect_tend,h_tendency,z_tendency,grid%rqvften,        & 
                             grid%qv_base, .false., grid%fnm, grid%fnp,             &
                             grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv,     &
                             grid%msfvy, grid%msftx,grid%msfty,                     &
@@ -2092,14 +2130,18 @@ BENCH_START(tke_adv_tim)
          tke_tile_loop_2: DO ij = 1 , grid%num_tiles
 
            CALL wrf_debug ( 200 , ' call rk_update_scalar' )
+           tenddec = .false.
            CALL rk_update_scalar( 1, 1,                             &
                              grid%tke_1,                            &
                              grid%tke_2,                            &
                              tke_tend(ims,kms,jms),                 &
-                             advect_tend,grid%msftx,grid%msfty,     &
+                             advh_t(ims,kms,jms,1),                 & 
+                             advz_t(ims,kms,jms,1),                 & 
+                             advect_tend,h_tendency,z_tendency,     & 
+                             grid%msftx,grid%msfty,     &
                              grid%mu_1, grid%mu_2, grid%mub,        &
                              rk_step, dt_rk, grid%spec_zone,        &
-                             config_flags,                          &
+                             config_flags, tenddec,                 & 
                              ids, ide, jds, jde, kds, kde,     &
                              ims, ime, jms, jme, kms, kme,     &
                              grid%i_start(ij), grid%i_end(ij), &
@@ -2144,7 +2186,9 @@ BENCH_START(chem_adv_tim)
            chem_tile_loop_1: DO ij = 1 , grid%num_tiles
 
              CALL wrf_debug ( 200 , ' call rk_scalar_tend in chem_tile_loop_1' )
-             CALL rk_scalar_tend ( ic, ic, config_flags,                         &
+             tenddec = (( config_flags%chemdiag == USECHEMDIAG ) .and. &
+                        ( adv_ct_indices(ic) >= PARAM_FIRST_SCALAR ))
+             CALL rk_scalar_tend ( ic, ic, config_flags, tenddec,                & 
                               rk_step, dt_rk,                                    &
                               grid%ru_m, grid%rv_m, grid%ww_m,                   &
                               grid%muts, grid%mub, grid%mu_1,                    &
@@ -2152,7 +2196,7 @@ BENCH_START(chem_adv_tim)
                               chem_old(ims,kms,jms,ic),                          &
                               chem(ims,kms,jms,ic),                              &
                               chem_tend(ims,kms,jms,ic),                         &
-                              advect_tend,grid%rqvften,                          &
+                              advect_tend,h_tendency,z_tendency,grid%rqvften,    & 
                               grid%qv_base, .false., grid%fnm, grid%fnp,         &
                               grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv, &
                               grid%msfvy, grid%msftx,grid%msfty,                 &
@@ -2212,14 +2256,19 @@ BENCH_START(chem_adv_tim)
          chem_tile_loop_2: DO ij = 1 , grid%num_tiles
 
            CALL wrf_debug ( 200 , ' call rk_update_scalar' )
+           tenddec = (( config_flags%chemdiag == USECHEMDIAG ) .and. &
+                      ( adv_ct_indices(ic) >= PARAM_FIRST_SCALAR ))
            CALL rk_update_scalar( ic, ic,                           &
                                   chem_old(ims,kms,jms,ic),         &  ! was chem_1
                                   chem(ims,kms,jms,ic),             &
                                   chem_tend(ims,kms,jms,ic),        &
-                                  advect_tend, grid%msftx, grid%msfty, &
+                                  advh_ct(ims,kms,jms,adv_ct_indices(ic)), & 
+                                  advz_ct(ims,kms,jms,adv_ct_indices(ic)), & 
+                                  advect_tend,h_tendency,z_tendency,     & 
+                                  grid%msftx, grid%msfty, &
                                   grid%mu_1, grid%mu_2, grid%mub,      &
                                   rk_step, dt_rk, grid%spec_zone,      &
-                                  config_flags,                     &
+                                  config_flags, tenddec,               & 
                                   ids, ide, jds, jde, kds, kde,     &
                                   ims, ime, jms, jme, kms, kme,     &
                                   grid%i_start(ij), grid%i_end(ij), &
@@ -2263,7 +2312,8 @@ BENCH_START(tracer_adv_tim)
            tracer_tile_loop_1: DO ij = 1 , grid%num_tiles
 
              CALL wrf_debug ( 15 , ' call rk_scalar_tend in tracer_tile_loop_1' )
-             CALL rk_scalar_tend ( ic, ic, config_flags,                         &
+             tenddec = .false.
+             CALL rk_scalar_tend ( ic, ic, config_flags, tenddec,                & 
                               rk_step, dt_rk,                                    &
                               grid%ru_m, grid%rv_m, grid%ww_m,                   &
                               grid%muts, grid%mub, grid%mu_1,                    &
@@ -2271,7 +2321,7 @@ BENCH_START(tracer_adv_tim)
                               tracer_old(ims,kms,jms,ic),                          &
                               tracer(ims,kms,jms,ic),                              &
                               tracer_tend(ims,kms,jms,ic),                         &
-                              advect_tend,grid%rqvften,                          &
+                              advect_tend,h_tendency,z_tendency,grid%rqvften,    & 
                               grid%qv_base, .false., grid%fnm, grid%fnp,         &
                               grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv, &
                               grid%msfvy, grid%msftx,grid%msfty,                 &
@@ -2331,14 +2381,18 @@ BENCH_START(tracer_adv_tim)
          tracer_tile_loop_2: DO ij = 1 , grid%num_tiles
 
            CALL wrf_debug ( 200 , ' call rk_update_scalar' )
+           tenddec = .false.
            CALL rk_update_scalar( ic, ic,                           &
                                   tracer_old(ims,kms,jms,ic),       &
                                   tracer(ims,kms,jms,ic),           &
                                   tracer_tend(ims,kms,jms,ic),      &
-                                  advect_tend, grid%msftx, grid%msfty, &
+                                  advh_t(ims,kms,jms,1),             & 
+                                  advz_t(ims,kms,jms,1),             & 
+                                  advect_tend,h_tendency,z_tendency, & 
+                                  grid%msftx, grid%msfty, &
                                   grid%mu_1, grid%mu_2, grid%mub,      &
                                   rk_step, dt_rk, grid%spec_zone,      &
-                                  config_flags,                     &
+                                  config_flags, tenddec,               & 
                                   ids, ide, jds, jde, kds, kde,     &
                                   ims, ime, jms, jme, kms, kme,     &
                                   grid%i_start(ij), grid%i_end(ij), &
@@ -2392,7 +2446,8 @@ BENCH_END(tracer_adv_tim)
          scalar_tile_loop_1: DO ij = 1 , grid%num_tiles
 
            CALL wrf_debug ( 200 , ' call rk_scalar_tend' )
-           CALL rk_scalar_tend ( is, is, config_flags,                            &
+           tenddec = .false.
+           CALL rk_scalar_tend ( is, is, config_flags, tenddec,                   & 
                                  rk_step, dt_rk,                                  &
                                  grid%ru_m, grid%rv_m, grid%ww_m,                 &
                                  grid%muts, grid%mub, grid%mu_1,                  &
@@ -2400,7 +2455,7 @@ BENCH_END(tracer_adv_tim)
                                  scalar_old(ims,kms,jms,is),                      &
                                  scalar(ims,kms,jms,is),                          &
                                  scalar_tend(ims,kms,jms,is),                     &
-                                 advect_tend,grid%rqvften,                        &
+                                 advect_tend,h_tendency,z_tendency,grid%rqvften,  & 
                                  grid%qv_base, .false., grid%fnm, grid%fnp,       &
                                  grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv, &
                                  grid%msfvy, grid%msftx,grid%msfty,               &
@@ -2456,14 +2511,18 @@ BENCH_END(tracer_adv_tim)
          scalar_tile_loop_2: DO ij = 1 , grid%num_tiles
 
            CALL wrf_debug ( 200 , ' call rk_update_scalar' )
+           tenddec = .false.
            CALL rk_update_scalar( is, is,                           &
                                   scalar_old(ims,kms,jms,is),       &  ! was scalar_1
                                   scalar(ims,kms,jms,is),           &
                                   scalar_tend(ims,kms,jms,is),      &
-                                  advect_tend, grid%msftx, grid%msfty, &
+                                  advh_t(ims,kms,jms,1),            & 
+                                  advz_t(ims,kms,jms,1),            & 
+                                  advect_tend,h_tendency,z_tendency,& 
+                                  grid%msftx, grid%msfty, &
                                   grid%mu_1, grid%mu_2, grid%mub,                  &
                                   rk_step, dt_rk, grid%spec_zone,        &
-                                  config_flags,     &
+                                  config_flags, tenddec,     & 
                                   ids, ide, jds, jde, kds, kde,     &
                                   ims, ime, jms, jme, kms, kme,     &
                                   grid%i_start(ij), grid%i_end(ij), &
@@ -3167,6 +3226,9 @@ BENCH_START(micro_driver_tim)
       &        , HAIL=config_flags%gsfcgce_hail                           & ! for gsfcgce
       &        , ICE2=config_flags%gsfcgce_2ice                           & ! for gsfcgce
 !     &        , ccntype=config_flags%milbrandt_ccntype                   & ! for milbrandt (2mom)
+! YLIN
+! RI_CURR INPUT
+      &        , RI_CURR=grid%rimi                                          &
                                                                           )
 BENCH_END(micro_driver_tim)
 
