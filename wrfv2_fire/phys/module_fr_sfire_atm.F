@@ -1,8 +1,4 @@
 !WRF:MEDIATION_LAYER:FIRE_MODEL
-
-!*** Jan Mandel August 2007 - February 2008
-!*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
-
 ! Routines dealing with the atmosphere
 
 module module_fr_sfire_atm
@@ -22,9 +18,8 @@ SUBROUTINE fire_tendency( &
     rthfrten,rqvfrten)             ! theta and Qv tendencies 
 
 ! This routine is atmospheric physics 
-! it does NOT go into module_fr_sfire_phys because it is not fire physics
+! it does NOT go into module_fr_sfire_phys because it is not related to fire physical processes
 
-! taken from the code by Ned Patton, only order of arguments change to the convention here
 ! --- this routine takes fire generated heat and moisture fluxes and
 !     calculates their influence on the theta and water vapor 
 ! --- note that these tendencies are valid at the Arakawa-A location
@@ -46,7 +41,7 @@ SUBROUTINE fire_tendency( &
    REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: dz8w   ! dz across w-lvl
    REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: rho    ! density
 
-   REAL, INTENT(in) :: alfg ! extinction depth ground fire heat (m)
+   REAL, INTENT(in) :: alfg ! extinction depth surface fire heat (m)
    REAL, INTENT(in) :: alfc ! extinction depth crown  fire heat (m)
    REAL, INTENT(in) :: z1can    ! height of crown fire heat release (m)
 

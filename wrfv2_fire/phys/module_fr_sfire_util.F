@@ -1,9 +1,6 @@
 !
-!*** Jan Mandel August-October 2007
-!*** email: jmandel@ucar.edu or Jan.Mandel@gmail.com or Jan.Mandel@cudenver.edu
-!
-! This module contains general purpose utilities and WRF wrappers because I want the
-! model to be able to run standalone. No physics here.
+! This module contains general purpose utilities and WRF wrappers because some
+! applications require this module to run standalone. No physics here.
 ! Some are dependent on WRF indexing scheme. Some violate WRF conventions but these
 ! are not called from the WRF dependent code. Some are not called at all.
 ! 
@@ -96,8 +93,8 @@ if(fire_print_msg.ge.mlevel)then
       msg='SFIRE:'//s
 #endif
       call wrf_message(msg)
-      flush(6)
-      flush(0)
+!      flush(6)
+!      flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -1135,7 +1132,6 @@ end subroutine write_array_m
 subroutine write_array_m3(its,ite,kts,kte,jts,jte,           &
                          ims,ime,kms,kme,jms,jme,               &
                          a,name,id)
-use module_dm
 
 implicit none
 ! debug
@@ -1224,7 +1220,6 @@ end subroutine read_array_2d_integer
         
 
 subroutine read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
-use module_dm
 #ifdef _OPENMP
 use OMP_LIB 
 #endif
@@ -1319,13 +1314,6 @@ else
 endif
 end function snode
 
-subroutine print_id
-character(len=128)::id,msg
-#include "sfire_id.inc"
-msg=id
-call message(msg,level=1)
-end subroutine print_id
-
 subroutine print_chsum( id, & 
     ims,ime,kms,kme,jms,jme, &                ! memory dims
     ids,ide,kds,kde,jds,jde, &                ! domain dims
@@ -1334,7 +1322,7 @@ subroutine print_chsum( id, &
     a,name)                      
 
 #ifdef DM_PARALLEL
-    USE module_dm
+    USE module_dm , only : wrf_dm_bxor_integer
 #endif
 
 integer, intent(in):: id, &
@@ -1408,7 +1396,7 @@ real function fun_real(fun,  &
     a,b)                      
 
 #ifdef DM_PARALLEL
-    USE module_dm
+    USE module_dm , only : wrf_dm_sum_real , wrf_dm_max_real
 #endif
 
 integer, intent(in)::  fun, &
