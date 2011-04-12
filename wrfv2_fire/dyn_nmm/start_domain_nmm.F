@@ -111,6 +111,15 @@
       REAL :: TSTART
 !zhang's doing ends
 #endif
+#ifdef HWRFX
+!     gopal's doing for the moving nest (MSLP computation)
+!-----------------------------------------------------------------------------------------------------
+      REAL, PARAMETER                                       :: LAPSR=6.5E-3, GI=1./G,D608=0.608
+      REAL, PARAMETER                                       :: COEF3=287.05*GI*LAPSR, COEF2=-1./COEF3
+      REAL, PARAMETER                                       :: TRG=2.0*R_D*GI,LAPSI=1.0/LAPSR
+      REAL                                                  :: RTOPP,APELP,DZ,SFCT,A
+!-----------------------------------------------------------------------------------------------------
+#endif
 
 !
 !!!   REAL,ALLOCATABLE,DIMENSION(:,:) :: RAINBL,RAINNC,RAINNC           &
@@ -122,12 +131,18 @@
      &                                    ,RUBLTEN,RVBLTEN              &
      &                                    ,RQCCUTEN,RQICUTEN,RQRCUTEN   &
      &                                    ,RQSCUTEN,RQVCUTEN,RTHCUTEN   &
+     &                                    ,RUSHTEN,RVSHTEN              &
+     &                                    ,RQCSHTEN,RQISHTEN,RQRSHTEN   &
+     &                                    ,RQSSHTEN,RQVSHTEN,RTHSHTEN   &
+     &                                    ,RQGSHTEN                     &
      &                                    ,RTHRATEN                     &
      &                                    ,RTHRATENLW,RTHRATENSW
       REAL,ALLOCATABLE,DIMENSION(:,:) :: EMISS,EMTEMP,GLW,HFX           &
      &                                  ,NCA                            &
      &                                  ,QFX,RAINBL,RAINC,RAINNC        &
      &                                  ,RAINNCV                        &
+     &                                  ,SNOWNC,SNOWNCV                 &
+     &                                  ,GRAUPELNC,GRAUPELNCV           &
      &                                  ,SNOWC,THC,TMN,TSFC
 
       REAL,ALLOCATABLE,DIMENSION(:,:) :: Z0_DUM, ALBEDO_DUM
@@ -1434,6 +1449,53 @@
       ENDIF    !zhang 
 #endif
 
+#ifdef HWRFX
+! XUEJIN's doing
+! add to output MSLP at the initial time
+!
+!    COMPUTATION OF MSLP         ! This is gopal's doing
+!
+
+
+     DO J=JFS,JFE
+      DO I=IFS,IFE
+         grid%Z(I,J,1)=grid%FIS(I,J)*GI
+      ENDDO
+     ENDDO
+
+     DO K=KPS,2
+      DO J=JFS,JFE
+       DO I=IFS,IFE
+          APELP      = (grid%PINT(I,J,K+1)+grid%PINT(I,J,K))
+          RTOPP      = TRG*grid%T(I,J,K)*(1.0+grid%Q(I,J,K)*P608)/APELP
+          DZ         = RTOPP*(grid%DETA1(K)*grid%PDTOP+grid%DETA2(K)*grid%PD(I,J))
+          grid%Z(I,J,K+1) = grid%Z(I,J,K) + DZ
+       ENDDO
+      ENDDO
+     ENDDO
+
+     grid%MSLP=-9999.99
+     DO J=JFS,JFE
+      DO I=IFS,IFE
+         SFCT      = grid%T(I,J,1)*(1.+D608*grid%Q(I,J,1)) + LAPSR*(grid%Z(I,J,1)+grid%Z(I,J,2))*0.5
+         A         = LAPSR*grid%Z(I,J,1)/SFCT
+         grid%MSLP(I,J) = grid%PINT(I,J,1)*(1-A)**COEF2
+      ENDDO
+     ENDDO
+
+! SET BACK Z AS IN ORIGINAL CODE
+
+     DO K=KPS,KPE
+      DO J=JFS,JFE
+       DO I=IFS,IFE
+         grid%Z(I,J,K)=grid%PINT(I,J,K)
+       ENDDO
+      ENDDO
+     ENDDO
+
+#endif
+
+
 #ifndef NO_RESTRICT_ACCEL
 !----------------------------------------------------------------------
 !***  RESTRICTING THE ACCELERATION ALONG THE BOUNDARIES
@@ -1530,6 +1592,10 @@
       ALLOCATE(RAINC(IMS:IME,JMS:JME),STAT=I)   ; RAINC    = 0.
       ALLOCATE(RAINNC(IMS:IME,JMS:JME),STAT=I)  ; RAINNC   = 0.
       ALLOCATE(RAINNCV(IMS:IME,JMS:JME),STAT=I) ; RAINNCV  = 0.
+      ALLOCATE(SNOWNC(IMS:IME,JMS:JME),STAT=I)  ; SNOWNC   = 0.
+      ALLOCATE(SNOWNCV(IMS:IME,JMS:JME),STAT=I) ; SNOWNCV  = 0.
+      ALLOCATE(GRAUPELNC(IMS:IME,JMS:JME),STAT=I)  ; GRAUPELNC   = 0.
+      ALLOCATE(GRAUPELNCV(IMS:IME,JMS:JME),STAT=I) ; GRAUPELNCV  = 0.
 
       ALLOCATE(ZS(KMS:KME),STAT=I)              ; ZS       = 0.
       ALLOCATE(SNOWC(IMS:IME,JMS:JME),STAT=I)   ; SNOWC    = 0.
@@ -1552,6 +1618,15 @@
       ALLOCATE(RQSCUTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RQSCUTEN = 0.
       ALLOCATE(RQVCUTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RQVCUTEN = 0.
       ALLOCATE(RTHCUTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RTHCUTEN = 0.
+      ALLOCATE(RUSHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)     ; RUSHTEN = 0.
+      ALLOCATE(RVSHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)     ; RVSHTEN = 0.
+      ALLOCATE(RQCSHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RQCSHTEN = 0.
+      ALLOCATE(RQISHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RQISHTEN  = 0.
+      ALLOCATE(RQRSHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RQRSHTEN = 0.
+      ALLOCATE(RQSSHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RQSSHTEN = 0.
+      ALLOCATE(RQGSHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RQGSHTEN = 0.
+      ALLOCATE(RQVSHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RQVSHTEN = 0.
+      ALLOCATE(RTHSHTEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RTHSHTEN = 0.
       ALLOCATE(RTHRATEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RTHRATEN  = 0.
       ALLOCATE(RTHRATENLW(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; RTHRATENLW = 0.
       ALLOCATE(RTHRATENSW(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; RTHRATENSW = 0.
@@ -1717,13 +1792,18 @@
 
       CALL PHY_INIT(GRID%ID,CONFIG_FLAGS,GRID%DT,LRESTART,SFULL,SMID    &
      &             ,grid%pt,TSFC,GRID%RADT,GRID%BLDT,GRID%CUDT,GRID%GSMDT    &
+     &             ,grid%DUCUDT, grid%DVCUDT                            &
      &             ,RTHCUTEN, RQVCUTEN, RQRCUTEN                        &
      &             ,RQCCUTEN, RQSCUTEN, RQICUTEN                        &
+     &             ,RUSHTEN,  RVSHTEN,  RTHSHTEN                        &
+     &             ,RQVSHTEN, RQRSHTEN, RQCSHTEN                        &
+     &             ,RQSSHTEN, RQISHTEN, RQGSHTEN                        &
      &             ,RUBLTEN,RVBLTEN,RTHBLTEN                            &
      &             ,RQVBLTEN,RQCBLTEN,RQIBLTEN                          &
      &             ,RTHRATEN,RTHRATENLW,RTHRATENSW                      &
      &             ,STEPBL,STEPRA,STEPCU                                &
      &             ,grid%w0avg, RAINNC, RAINC, grid%raincv, RAINNCV               &
+     &             ,SNOWNC, SNOWNCV, GRAUPELNC, GRAUPELNCV              &
      &             ,NCA,GRID%SWRAD_SCAT                                 &
      &             ,grid%cldefi,LOWLYR                                       &
      &             ,grid%mass_flux                                           &
@@ -1735,8 +1815,7 @@
      &             ,grid%xlat,grid%xlong,grid%albedo,grid%albbck                            &
      &             ,GRID%GMT,GRID%JULYR,GRID%JULDAY                     &
      &             ,GRID%LEVSIZ, NUM_OZMIXM, NUM_AEROSOLC, GRID%PAERLEV &
-     &             ,TMN,grid%xland,grid%znt,grid%z0,grid%ustar,grid%mol,grid%pblh,grid%tke_myj             &
-     &             ,grid%DUCUDT, grid%DVCUDT                                      &
+     &             ,TMN,grid%xland,grid%znt,grid%z0,grid%ustar,grid%mol,grid%pblh,grid%tke_pbl             &
      &             ,grid%exch_h,THC,SNOWC,grid%mavail,HFX,QFX,RAINBL              &
      &             ,grid%stc,ZS,DZS,GRID%NUM_SOIL_LAYERS,WARM_RAIN           &
      &             ,ADV_MOIST_COND                                      &
@@ -2072,6 +2151,15 @@
       DEALLOCATE(RQSCUTEN)
       DEALLOCATE(RQVCUTEN)
       DEALLOCATE(RTHCUTEN)
+      DEALLOCATE(RUSHTEN)
+      DEALLOCATE(RVSHTEN)
+      DEALLOCATE(RQCSHTEN)
+      DEALLOCATE(RQISHTEN)
+      DEALLOCATE(RQRSHTEN)
+      DEALLOCATE(RQSSHTEN)
+      DEALLOCATE(RQGSHTEN)
+      DEALLOCATE(RQVSHTEN)
+      DEALLOCATE(RTHSHTEN)
       DEALLOCATE(RTHRATEN)
       DEALLOCATE(RTHRATENLW)
       DEALLOCATE(RTHRATENSW)

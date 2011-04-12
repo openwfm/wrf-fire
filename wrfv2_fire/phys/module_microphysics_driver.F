@@ -40,19 +40,22 @@ SUBROUTINE microphysics_driver(                                          &
                       ,hailnc,    hailncv                                &
                       ,graupelnc, graupelncv                             &
                       ,refl_10cm                                         & ! HM, 9/22/09, add for refl
-                                                                         )
+! YLIN
+! Added the RI_CURR array to the call
+                      ,ri_curr                                           &
+                                                   )
 ! Framework
 #if(NMM_CORE==1)
    USE module_state_description, ONLY :                                  &
-                     KESSLERSCHEME, LINSCHEME, WSM3SCHEME, WSM5SCHEME    &
+                     KESSLERSCHEME, LINSCHEME, SBU_YLINSCHEME, WSM3SCHEME, WSM5SCHEME    &
                     ,WSM6SCHEME, ETAMPNEW, etamp_HWRF,THOMPSON, MORR_TWO_MOMENT     &
-                    ,GSFCGCESCHEME, WDM5SCHEME, WDM6SCHEME, THOMPSON07  &
+                    ,GSFCGCESCHEME, WDM5SCHEME, WDM6SCHEME  &
                     ,MILBRANDT2MOM !,MILBRANDT3MOM
 #else
    USE module_state_description, ONLY :                                  &
-                     KESSLERSCHEME, LINSCHEME, WSM3SCHEME, WSM5SCHEME    &
+                     KESSLERSCHEME, LINSCHEME, SBU_YLINSCHEME, WSM3SCHEME, WSM5SCHEME    &
                     ,WSM6SCHEME, ETAMPNEW,THOMPSON, MORR_TWO_MOMENT     &
-                    ,GSFCGCESCHEME, WDM5SCHEME, WDM6SCHEME, THOMPSON07  &
+                    ,GSFCGCESCHEME, WDM5SCHEME, WDM6SCHEME &
                     ,MILBRANDT2MOM !,MILBRANDT3MOM
 #endif
 
@@ -64,12 +67,12 @@ SUBROUTINE microphysics_driver(                                          &
 
    USE module_mp_kessler
    USE module_mp_lin
+   USE module_mp_sbu_ylin
    USE module_mp_wsm3
    USE module_mp_wsm5
    USE module_mp_wsm6
    USE module_mp_etanew
    USE module_mp_thompson
-   USE module_mp_thompson07
    USE module_mp_gsfcgce
    USE module_mp_morr_two_moment
    USE module_mp_wdm5
@@ -307,6 +310,11 @@ SUBROUTINE microphysics_driver(                                          &
    REAL, DIMENSION( ims:ime, jms:jme ),                           &
          OPTIONAL,                                                &
          INTENT(IN) :: mu
+! YLIN
+! Added RI_CURR similar to microphysics fields above
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                  &
+         OPTIONAL,                                                &
+         INTENT(INOUT) :: ri_curr
 
 
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme ),                   &
@@ -396,7 +404,7 @@ SUBROUTINE microphysics_driver(                                          &
 
 !-----------
        IF( PRESENT(chem_opt) .AND. PRESENT(progn) ) THEN
-       IF( chem_opt==0 .AND. progn==1 .AND. mp_physics==LINSCHEME ) THEN
+       IF( chem_opt==0 .AND. progn==1 .AND. (mp_physics==LINSCHEME  .OR. mp_physics==MORR_TWO_MOMENT)) THEN
           IF( PRESENT( QNDROP_CURR ) ) THEN
              CALL wrf_debug ( 100 , 'microphysics_driver: calling prescribe_aerosol_mixactivate' )
 ! 06-nov-2005 rce - id  & itimestep added to arg list
@@ -411,8 +419,8 @@ SUBROUTINE microphysics_driver(                                          &
                   its,ite, jts,jte, kts,kte,                    &
                   F_QC=f_qc, F_QI=f_qi                          )
           END IF
-       ELSE IF( progn==1 .AND. mp_physics/=LINSCHEME ) THEN
-             call wrf_error_fatal("SETTINGS ERROR: Prognostic cloud droplet number can only be used with the mp_physics=LINSCHEME.")
+       ELSE IF( progn==1 .AND. mp_physics/=LINSCHEME .AND. mp_physics/=MORR_TWO_MOMENT) THEN
+             call wrf_error_fatal("SETTINGS ERROR: Prognostic cloud droplet number can only be used with the mp_physics=LINSCHEME or MORRISON.")
        END IF
        END IF
 
@@ -520,9 +528,13 @@ SUBROUTINE microphysics_driver(                                          &
                     ,qscuten=qscuten                     &  ! hm
                     ,qicuten=qicuten                     &  ! hm
                     ,mu=mu                          &  ! hm
+                    ,F_QNDROP=f_qndrop                   &  ! hm for wrf-chem
+                 ,QNDROP=qndrop_curr                     &  ! hm for wrf-chem
                  ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde &
                  ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme &
                  ,ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte &
+                 ,QLSINK=qlsink                                     & ! jdf for wrf-chem
+                 ,PRECR=precr,PRECI=preci,PRECS=precs,PRECG=precg   & ! jdf for wrf-chem
                                                                     )
         ELSE
            Call wrf_error_fatal( 'arguments not present for calling morrison two moment')
@@ -711,6 +723,48 @@ SUBROUTINE microphysics_driver(                                          &
              ELSE
                 CALL wrf_error_fatal ( 'arguments not present for calling lin_et_al' )
              ENDIF
+
+       CASE (SBU_YLINSCHEME)
+             CALL wrf_debug ( 100 , 'microphysics_driver: calling sbu_ylin' )
+             IF ( PRESENT( QV_CURR ) .AND. PRESENT ( QC_CURR ) .AND.  &
+                  PRESENT( QR_CURR ) .AND. PRESENT ( QI_CURR ) .AND.  &
+                  PRESENT( QS_CURR )                           .AND.  &
+                  PRESENT( RI_CURR )                           .AND.  &
+                  PRESENT( RAINNC  ) .AND. PRESENT ( RAINNCV ) .AND.  &
+                  PRESENT( Z       ) ) THEN
+               CALL sbu_ylin(                                       &
+                  TH=th                                             &
+                 ,QV=qv_curr                                        &
+                 ,QL=qc_curr                                        &
+                 ,QR=qr_curr                                        &
+                 ,QI=qi_curr                                        &
+                 ,QS=qs_curr                                        &
+                 ,RI3D=ri_curr                                      &
+!                 ,QLSINK=qlsink                                     &
+                 ,RHO=rho, PII=pi_phy, P=p, DT_IN=dt, Z=z           &
+                 ,HT=ht, DZ8W=dz8w                                  &
+!                 , GRAV=G,  CP=cp                  &
+!                 ,RAIR=r_d, RVAPOR=R_v                              &
+!                 ,XLS=xls, XLV=xlv, XLF=xlf                         &
+!                 ,RHOWATER=rhowater, RHOSNOW=rhosnow                &
+!                 ,EP2=ep_2,SVP1=svp1,SVP2=svp2                      &
+!                 ,SVP3=svp3,SVPT0=svpt0                             &
+                 ,RAINNC=rainnc, RAINNCV=rainncv                    &
+!                 ,SNOWNC=snownc, SNOWNCV=snowncv                    &
+!                 ,GRAUPELNC=graupelnc, GRAUPELNCV=graupelncv, SR=sr &
+                 ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde &
+                 ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme &
+                 ,ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte &
+!                 ,PRECR=precr,PRECI=preci,PRECS=precs,PRECG=precg   &
+!                 ,F_QG=f_qg                                         &
+!                 ,F_QNDROP=f_qndrop                      &
+!                 ,QG=qg_curr                                        &
+!                 ,QNDROP=qndrop_curr                                &
+                                                                     )
+             ELSE
+                CALL wrf_error_fatal ( 'arguments not present for calling sbu_ylin' )
+             ENDIF
+
 
         CASE (WSM3SCHEME)
              CALL wrf_debug ( 100 , 'microphysics_driver: calling wsm3' )
@@ -935,37 +989,6 @@ SUBROUTINE microphysics_driver(                                          &
                                                                     )
              ELSE
                 CALL wrf_error_fatal ( 'arguments not present for calling etampnew' )
-             ENDIF
-
-        CASE (THOMPSON07)
-             CALL wrf_debug ( 100 , 'microphysics_driver: calling thompson07 et al' )
-             IF ( PRESENT( QV_CURR ) .AND. PRESENT ( QC_CURR ) .AND.  &
-                  PRESENT( QR_CURR ) .AND. PRESENT ( QI_CURR ) .AND.  &
-                  PRESENT( QS_CURR ) .AND. PRESENT ( QG_CURR ) .AND.  &
-                                           PRESENT ( QNI_CURR ).AND.  &
-                  PRESENT( RAINNC  ) .AND. PRESENT ( RAINNCV ) ) THEN
-             CALL mp_gt_driver07(                        &
-                     QV=qv_curr,                         &
-                     QC=qc_curr,                         &
-                     QR=qr_curr,                         &
-                     QI=qi_curr,                         &
-                     QS=qs_curr,                         &
-                     QG=qg_curr,                         &
-                     NI=qni_curr,                        &
-                     TH=th,                              &
-                     PII=pi_phy,                         &
-                     P=p,                                &
-                     DZ=dz8w,                            &
-                     DT_IN=dt,                           &
-                     ITIMESTEP=itimestep,                &
-                     RAINNC=RAINNC,                      &
-                     RAINNCV=RAINNCV,                    &
-                     SR=SR                               &
-                 ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde &
-                 ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme &
-                 ,ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte)
-             ELSE
-                CALL wrf_error_fatal ( 'arguments not present for calling thompson07' )
              ENDIF
 
       CASE DEFAULT

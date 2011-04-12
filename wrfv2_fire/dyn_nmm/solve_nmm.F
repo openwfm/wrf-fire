@@ -85,7 +85,7 @@
      &          ,NTSD_current,L
 #ifdef HWRF
 !zhang's doing
-      INTEGER,SAVE :: NTSD_restart1,NTSD_restart2
+      INTEGER,SAVE :: NTSD_restart1,NTSD_restart2,NTSD_restart3
 #endif
       integer :: ierr
       INTEGER,SAVE :: NTSD_restart
@@ -94,7 +94,7 @@
       INTEGER :: KVH,NTSD_rad,RC
       INTEGER :: NUM_OZMIXM,NUM_AEROSOLC
 !
-      REAL :: DT_INV,FICE,FRAIN,GPS,QI,QR,QW,WC
+      REAL :: DT_INV,FICE,FRAIN,GPS,QI,QR,QW,WC,WP
 !
       LOGICAL :: LAST_TIME,OPERATIONAL_PHYSICS
 !
@@ -221,6 +221,7 @@
 !zhang's doing: temporarily hardwired for two domains
           if( grid%id .eq. 1 ) NTSD_restart1=INT(grid%TSTART*3600./GRID%DT+0.5)
           if( grid%id .eq. 2 ) NTSD_restart2=INT(grid%TSTART*3600./GRID%DT+0.5)
+          if( grid%id .eq. 3 ) NTSD_restart3=INT(grid%TSTART*3600./GRID%DT+0.5)
 #endif
           IHRST=grid%nstart_hour
           NTSD_restart=grid%ntsd
@@ -231,6 +232,7 @@
 !zhang's doing
           NTSD_restart1=0
           NTSD_restart2=0
+          NTSD_restart3=0
 #else
           NTSD_restart=0
 #endif
@@ -240,6 +242,7 @@
 !zhang's doing
       if( grid%id .eq. 1 ) grid%ntsd=NTSD_restart1+NTSD_current
       if( grid%id .eq. 2 ) grid%ntsd=NTSD_restart2+NTSD_current
+      if( grid%id .eq. 3 ) grid%ntsd=NTSD_restart3+NTSD_current
 #else
       grid%ntsd=NTSD_restart+NTSD_current
 #endif
@@ -258,6 +261,7 @@
       EULER=model_config_rec%EULER_ADV
       IDTADT=model_config_rec%IDTADT
       IDTADC=model_config_rec%IDTADC
+      WP=model_config_rec%WP(grid%id)
 !
 !-----------------------------------------------------------------------
       CALL WRF_GET_DM_COMMUNICATOR(MPI_COMM_COMP)
@@ -1109,7 +1113,7 @@
       CALL HADZ(grid%ntsd,GRID%DT,grid%hydro,grid%hbm2,grid%deta1,grid%deta2,grid%pdtop               &
      &         ,grid%dx_nmm,grid%dy_nmm,grid%fad                                       &
      &         ,grid%few,grid%fns,grid%fne,grid%fse                                         &
-     &         ,grid%pdsl,grid%u,grid%v,grid%w,grid%z                                            &
+     &         ,grid%pdsl,grid%u,grid%v,grid%w,grid%z,WP                                    &
      &         ,grid%ihe,grid%ihw,grid%ive,grid%ivw                                         &
      &         ,IDS,IDF,JDS,JDF,KDS,KDE                                 &
      &         ,IMS,IME,JMS,JME,KMS,KME                                 &
@@ -1135,6 +1139,7 @@
 !
       btimx=timef()
 !
+
       CALL EPS(grid%ntsd,GRID%DT,grid%hydro,grid%dx_nmm,grid%dy_nmm,grid%fad                     &
      &        ,grid%deta1,grid%deta2,grid%pdtop,grid%pt                                     &
      &        ,grid%hbm2,grid%hbm3                                                &
@@ -1142,6 +1147,8 @@
      &        ,grid%dwdt,grid%dwdtmn,grid%dwdtmx                                       &
      &        ,grid%fns,grid%few,grid%fne,grid%fse                                          &
      &        ,grid%t,grid%u,grid%v,grid%w,grid%q,grid%cwm                                            &
+     &        ,grid%def3d,grid%hdac                                                &
+     &        ,WP                                                 &
      &        ,grid%ihe,grid%ihw,grid%ive,grid%ivw                                          &
      &        ,IDS,IDF,JDS,JDF,KDS,KDE                                  &
      &        ,IMS,IME,JMS,JME,KMS,KME                                  &
@@ -1543,7 +1550,7 @@
      &            ,grid%czen,grid%czmean,grid%sigt4,grid%rlwin,grid%rswin,grid%radot                 &
      &            ,grid%pd,grid%res,grid%pint,grid%t,grid%q,grid%cwm,grid%f_ice,grid%f_rain,grid%sr                 &
      &            ,grid%q2,grid%u,grid%v,grid%ths,grid%nmm_tsk,grid%sst,grid%prec,grid%sno                     &
-     &            ,grid%fis,grid%z0,grid%z0base,grid%ustar,grid%mixht,grid%pblh,grid%lpbl,grid%el_myj          &   !PLee (3/07)
+     &            ,grid%fis,grid%z0,grid%z0base,grid%ustar,grid%mixht,grid%pblh,grid%lpbl,grid%el_pbl          &   !PLee (3/07)
      &            ,MOIST,grid%rmol,grid%mol                                      &
      &            ,grid%exch_h,grid%exch_m,grid%f,grid%akhs,grid%akms,grid%akhs_out,grid%akms_out         &
      &            ,grid%thz0,grid%qz0,grid%uz0,grid%vz0,grid%qsh,grid%mavail                         &
@@ -1608,7 +1615,7 @@
 
 ! Coupling insertion:->
       call ATM_DOFLUXES(grid%twbs,grid%qwbs,grid%rlwin,grid%rswin,grid%radot,grid%rswout, &
-                        grid%taux,grid%tauy,grid%pint(:,:,1),grid%prec)
+      grid%taux,grid%tauy,grid%pint(:,:,1),grid%prec,grid%u10,grid%v10)
 !<-:Coupling insertion
 !
 
@@ -1914,6 +1921,7 @@
 #else
      &          ,grid%t,grid%q,grid%u,grid%v,grid%q2,grid%z,grid%w,grid%sm,grid%sice                &
 #endif
+     &          ,grid%def3d                                              &
      &          ,grid%ihe,grid%ihw,grid%ive,grid%ivw                   &
      &          ,CONFIG_FLAGS                                          &
      &          ,IDS,IDF,JDS,JDF,KDS,KDE                               &
@@ -2124,13 +2132,13 @@
       bocov_tim=bocov_tim+timef()-btimx
 !
 !----------------------------------------------------------------------
-!***  COPY THE NMM VARIABLE grid%q2 TO THE WRF VARIABLE grid%tke_myj
+!***  COPY THE NMM VARIABLE grid%q2 TO THE WRF VARIABLE grid%tke_pbl
 !----------------------------------------------------------------------
 !
       DO K=KTS,KTE
       DO J=JTS,JTE
       DO I=ITS,ITE
-        grid%tke_myj(I,J,K)=0.5*grid%q2(I,J,K) !TKE is grid%q squared over 2
+        grid%tke_pbl(I,J,K)=0.5*grid%q2(I,J,K) !TKE is grid%q squared over 2
       ENDDO
       ENDDO
       ENDDO
@@ -2253,6 +2261,23 @@
    ENDIF
 #endif
 
+#ifdef HWRFX
+!    output MSLP over parent domain for diagonostic purposes. outputs are hourly.
+!    This is gopal's doing
+
+     IF(grid%id .EQ. 1 .AND. MOD(grid%NTSD,n_print_time)==0)THEN
+      WRITE(0,*)'COMPUTING MSLP OVER THE PARENT DOMAIN'
+
+      CALL MSLP_DIAG (grid%MSLP,grid%PINT,grid%T,grid%Q                &
+                     ,grid%FIS,grid%PD,grid%DETA1,grid%DETA2,grid%PDTOP     &
+                     ,IDS,IDF,JDS,JDF,KDS,KDE      &
+                     ,IMS,IME,JMS,JME,KMS,KME      &
+                     ,ITS,ITE,JTS,JTE,KTS,KTE      )
+
+
+     ENDIF
+
+#endif
 
 !#define COPY_OUT
 !#include <scalar_derefs.inc>

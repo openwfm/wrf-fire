@@ -101,6 +101,8 @@ CONTAINS
               INTEGER, ALLOCATABLE::  ITEMP(:,:)
               INTEGER :: my_e,my_n,my_s,my_w,my_ne,my_nw,my_se,my_sw,myi,myj,npe
               INTEGER :: istat,inpes,jnpes
+#else
+        integer, allocatable:: ihw(:),ihe(:)
 #endif
 
 
@@ -163,7 +165,7 @@ CONTAINS
 
         REAL, PARAMETER:: DTR=0.01745329
         REAL, PARAMETER:: W_NMM=0.08
-#ifdef HWRF
+#if defined(HWRF)
         REAL, PARAMETER:: DDFC=1.0
 #else
         REAL, PARAMETER:: DDFC=8.0
@@ -1037,8 +1039,12 @@ CONTAINS
      &,                                ITS,ITE,JTS,JTE,1,1 )
 
         IF (WRF_DM_ON_MONITOR()) THEN
-
-        DEALLOCATE(SM_G,SICE_G)
+#if defined(HWRF)
+          ! SM_G is still needed for the high-res grid
+#else
+          DEALLOCATE(SM_G)
+#endif
+          deallocate(SICE_G)
         DEALLOCATE(IHE_G,IHW_G)
 
         ENDIF
@@ -1052,6 +1058,7 @@ CONTAINS
 
 #else
 ! serial sea ice reprocessing
+        allocate(IHE(JDS:JDE-1),IHW(JDS:JDE-1))
 
        DO j = jts, MIN(jte,jde-1)
           IHE(J)=MOD(J+1,2)
@@ -1088,6 +1095,7 @@ CONTAINS
        ENDDO
       ENDDO
 
+        DEALLOCATE(IHE,IHW)
 #endif
 
 ! this block meant to guarantee land/sea agreement between sm and landmask
@@ -2035,6 +2043,13 @@ CONTAINS
      ALLOCATE (NVLON(NIDE,NJDE))
      ALLOCATE (HRES_SM(NIDE,NJDE))
 
+#if defined(DM_PARALLEL)
+       if(wrf_dm_on_monitor()) then
+          ! Only the monitor process does the actual work (kinda
+          ! stupid; should be parallelized, but it's better than
+          ! writing garbage like it did before with >1 process)
+
+          ! Get high-res lat & lon:
      CALL EARTH_LATLON_hwrf (  NHLAT,NHLON,NVLAT,NVLON,  &    ! rotated lat,lon at H and V points
                           NDLMD,NDPHD,NWBD,NSBD,    &
                           tph0d,tlm0d,              &
@@ -2042,18 +2057,20 @@ CONTAINS
                           1,NIDE,1,NJDE,1,1,        &
                           1,NIDE,1,NJDE,1,1         )
 
-     CALL G2T2H_hwrf ( grid%SM,HRES_SM,                  & ! output grid index and weights
+          ! Interpolate landmask to high-res grid:
+          CALL G2T2H_hwrf ( SM_G,HRES_SM,   & ! output grid index and weights
                   NHLAT,NHLON,                 & ! target (hres) input lat lon in degrees
                   grid%DLMD,grid%DPHD,WBD,SBD,           & ! parent res, west and south boundaries
                   tph0d,tlm0d,                 & ! parent central lat,lon, all in degrees
-                  IDE,JDE,IMS,IME,JMS,JME,     & ! parent imax and jmax, ime,jme
+               IDE,JDE,IDS,IDE,JDS,JDE,     & ! parent imax and jmax, ime,jme
                   1,NIDE,1,NJDE,1,1,           &
                   1,NIDE,1,NJDE,1,1,           &
                   1,NIDE,1,NJDE,1,1            )
 
-#ifdef DM_PARALLEL
+          ! We're done with the low-res sm grid now:
+          deallocate(SM_G)
 
-      if (MYPE .eq. 0 ) then
+          ! Write out high-res grid for coupler:
          WRITE(65)NHLAT(1:NIDE,1:NJDE)
          WRITE(65)NHLON(1:NIDE,1:NJDE)
          WRITE(65)NVLAT(1:NIDE,1:NJDE)
@@ -2061,6 +2078,22 @@ CONTAINS
          WRITE(65)HRES_SM(1:NIDE,1:NJDE)
       endif
 #else
+       ! This code is the same as above, but for the non-mpi version:
+       CALL EARTH_LATLON_hwrf (  NHLAT,NHLON,NVLAT,NVLON,  &    ! rotated lat,lon at H and V points
+            NDLMD,NDPHD,NWBD,NSBD,    &
+            tph0d,tlm0d,              &
+            1,NIDE,1,NJDE,1,1,        &
+            1,NIDE,1,NJDE,1,1,        &
+            1,NIDE,1,NJDE,1,1         )
+       CALL G2T2H_hwrf ( grid%SM,HRES_SM,                  & ! output grid index and weights
+            NHLAT,NHLON,                 & ! target (hres) input lat lon in degrees
+            grid%DLMD,grid%DPHD,WBD,SBD,           & ! parent res, west and south boundaries
+            tph0d,tlm0d,                 & ! parent central lat,lon, all in degrees
+            IDE,JDE,IMS,IME,JMS,JME,     & ! parent imax and jmax, ime,jme
+            1,NIDE,1,NJDE,1,1,           &
+            1,NIDE,1,NJDE,1,1,           &
+            1,NIDE,1,NJDE,1,1            )
+
          WRITE(65)NHLAT(1:NIDE,1:NJDE)
          WRITE(65)NHLON(1:NIDE,1:NJDE)
          WRITE(65)NVLAT(1:NIDE,1:NJDE)
@@ -2947,13 +2980,6 @@ CONTAINS
        ENDDO
        ENDDO
 
-!       write(message,*) 'psfc points (final combined)'
-!       CALL wrf_message(message)
-!       DO J=min(JTE,JDE-1),JTS,-loopinc
-!         write(message,633) (psfc_out(I,J)/100.,I=its,min(ite,IDE-1),iloopinc)
-!         CALL wrf_message(message)
-!       ENDDO
-	
 	deallocate(dum2d,dum2db)
 
 	END SUBROUTINE compute_nmm_surfacep
@@ -5171,8 +5197,8 @@ END SUBROUTINE EARTH_LATLON_hwrf
      ENDDO
 
 
-     DO J=JTS,MIN(JTE,JDE)  !-1)
-      DO I=ITS,MIN(ITE,IDE) !-1)
+     DO J=MAX(3,JTS),MIN(JTE,JDE)  !-1)
+      DO I=MAX(3,ITS),MIN(ITE,IDE) !-1)
             IF(MOD(JJH(I,J),2) .NE. 0)THEN    ! 1,3,5,7
                 HRES_SM(I,J) = NBWGT(1,I,J)*SM(IIH(I,J),JJH(I,J)  )    &
                              + NBWGT(2,I,J)*SM(IIH(I,J)+1, JJH(I,J)  )    &
@@ -5193,6 +5219,17 @@ END SUBROUTINE EARTH_LATLON_hwrf
 
       ENDDO
      ENDDO
+!    Boundary treatment in J direction
+     DO J=MAX(3,JTS),MIN(JTE,JDE)
+       HRES_SM(2,J)=HRES_SM(3,J)
+       HRES_SM(1,J)=HRES_SM(2,J)
+     END DO
+!    Boundary treatment in J direction and 4 corners
+     DO I=ITS,MIN(ITE,IDE) 
+       HRES_SM(I,2)=HRES_SM(I,3)
+       HRES_SM(I,1)=HRES_SM(I,2)
+     END DO
+
 
   RETURN
   END SUBROUTINE G2T2H_hwrf

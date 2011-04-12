@@ -1,3 +1,0 @@
-#!/bin/csh -f
-# usage: compareto ~/tmp/xxxxx
-diff $2 . $1 | grep -v Only | less

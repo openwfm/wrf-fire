@@ -20,13 +20,18 @@ CONTAINS
 !=================================================================
    SUBROUTINE phy_init ( id, config_flags, DT, restart, zfull, zhalf,     &
                          p_top, TSK,RADT,BLDT,CUDT,MPDT,         &
+                         RUCUTEN, RVCUTEN,                       &
                          RTHCUTEN, RQVCUTEN, RQRCUTEN,           &
                          RQCCUTEN, RQSCUTEN, RQICUTEN,           &
+                         RUSHTEN,  RVSHTEN,  RTHSHTEN,           &
+                         RQVSHTEN, RQRSHTEN, RQCSHTEN,           &
+                         RQSSHTEN, RQISHTEN, RQGSHTEN,           &
                          RUBLTEN,RVBLTEN,RTHBLTEN,               &
                          RQVBLTEN,RQCBLTEN,RQIBLTEN,             &
                          RTHRATEN,RTHRATENLW,RTHRATENSW,         &
                          STEPBL,STEPRA,STEPCU,                   &
                          W0AVG, RAINNC, RAINC, RAINCV, RAINNCV,  &
+                         SNOWNC, SNOWNCV, GRAUPELNC, GRAUPELNCV, &
                          NCA,swrad_scat,                         &
                          CLDEFI,LOWLYR,                          &
                          MASS_FLUX,                              &
@@ -38,13 +43,7 @@ CONTAINS
                          lu_state,                               &
                          XLAT,XLONG,ALBEDO,ALBBCK,GMT,JULYR,JULDAY,&
                          levsiz, n_ozmixm, n_aerosolc, paerlev,  &
-                         TMN,XLAND,ZNT,Z0,UST,MOL,PBLH,TKE_MYJ,  &
-#if (NMM_CORE != 1)
-                         TKE_PBL,  &
-#endif
-#if (NMM_CORE == 1)
-                         RUCUTEN, RVCUTEN,  &
-#endif
+                         TMN,XLAND,ZNT,Z0,UST,MOL,PBLH,TKE_PBL,  &
                          EXCH_H,THC,SNOWC,MAVAIL,HFX,QFX,RAINBL, &
                          TSLB,ZS,DZS,num_soil_layers,warm_rain,  &
                          adv_moist_cond,                         &
@@ -99,12 +98,18 @@ CONTAINS
 #endif
                          t00, p00, tlp,                          & !for obs-nudging
                          TYR,TYRA,TDLY,TLAG,NYEAR,NDAY,tmn_update,   &
-                         ACHFX,ACLHF,ACGRDFLX                   &
+                         ACHFX,ACLHF,ACGRDFLX                    &
+   ! OPTIONAL 
+                         ,te_temf          & ! WA 12/21/09
+                         ,cf3d_temf        & ! WA 9/27/10
+                         ,wm_temf          & ! WA 2/22/11
                          )
 
 !-----------------------------------------------------------------
    USE module_domain
    USE module_wrf_error
+   USE module_wind_generic
+   USE module_wind_fitch
    IMPLICIT NONE
 !-----------------------------------------------------------------
    TYPE (grid_config_rec_type)              :: config_flags
@@ -120,7 +125,8 @@ CONTAINS
 
    INTEGER , INTENT(IN)        :: num_soil_layers
    INTEGER , INTENT(IN)        :: lagday
-   INTEGER , INTENT(OUT) ,OPTIONAL      :: nyear, nday
+   INTEGER , INTENT(OUT) ,OPTIONAL      :: nyear
+   REAL    , INTENT(OUT) ,OPTIONAL      :: nday
 
    LOGICAL,  INTENT(IN)        :: start_of_simulation
    REAL,     INTENT(IN)        :: DT, p_top, DX, DY
@@ -194,9 +200,11 @@ CONTAINS
 
 ! cps
 
-   REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) ::    &
-             RTHCUTEN, RQVCUTEN, RQRCUTEN, RQCCUTEN, RQSCUTEN,   &
-             RQICUTEN
+   REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) :: &
+             RUCUTEN, RVCUTEN, RTHCUTEN, RQVCUTEN, RQRCUTEN, RQCCUTEN, &
+             RQSCUTEN, RQICUTEN,                                       &
+             RUSHTEN, RVSHTEN, RTHSHTEN, RQVSHTEN, RQRSHTEN, RQCSHTEN, &
+             RQSSHTEN, RQISHTEN, RQGSHTEN
 
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) :: W0AVG
 
@@ -208,7 +216,8 @@ CONTAINS
              RTHFTEN, RQVFTEN
 
    REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(OUT) ::           &
-             RAINNC, RAINC, RAINCV, RAINNCV
+             RAINNC, RAINC, RAINCV, RAINNCV,  &
+             SNOWNC, SNOWNCV, GRAUPELNC, GRAUPELNCV
 
    REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(OUT) :: CLDEFI, NCA
 
@@ -222,14 +231,7 @@ CONTAINS
    REAL,     DIMENSION(1:num_soil_layers),      INTENT(INOUT) :: ZS,DZS
 
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) ::    &
-             RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,RQCBLTEN,RQIBLTEN,EXCH_H,TKE_MYJ
-#if (NMM_CORE != 1)
-   REAL, DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) ::    TKE_PBL
-#endif 
-#if (NMM_CORE == 1)
-   REAL,     DIMENSION(IMS:IME,JMS:JME,KMS:KME), INTENT(INOUT) :: &
-             RUCUTEN, RVCUTEN
-#endif
+             RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,RQCBLTEN,RQIBLTEN,EXCH_H,TKE_PBL
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , OPTIONAL, INTENT(OUT) ::    &
              cugd_tten,cugd_ttens,cugd_qvten,                &
              cugd_qvtens,cugd_qcten
@@ -341,6 +343,13 @@ CONTAINS
 #endif
    REAL, OPTIONAL, INTENT(IN) :: p00, t00, tlp   ! for obs-nudging base-state calcn
 
+! WA 12/21/09
+   REAL,OPTIONAL, DIMENSION( ims:ime , kms:kme , jms:jme ) , &
+          INTENT(OUT) ::    te_temf, cf3d_temf    
+! WA 2/22/11
+   REAL,OPTIONAL, DIMENSION( ims:ime , jms:jme ) , &
+          INTENT(OUT) ::    wm_temf
+
 ! Local data
 
    REAL    :: ALBLND,ZZLND,ZZWTR,THINLD,XMAVA,CEN_LAT,pptop
@@ -406,6 +415,15 @@ integer myproc
 !-- temporary fix by ww
    landuse_ISICE = isice
 
+! Added for Wind Turbine parameterization code -- This will only read in an optional 
+! configuration file with information that will be used by inividual turbine init routines 
+! as each domain is initialized.
+  IF ( id .EQ. 1 ) THEN
+    CALL init_module_wind_generic
+    CALL init_module_wind_fitch
+  ENDIF
+!
+
   IF(.not.restart)THEN
 !-- initialize common variables
 
@@ -423,6 +441,8 @@ integer myproc
       QFX(i,j)=0.
       RAINBL(i,j)=0.
       RAINNCV(i,j)=0.
+      SNOWNCV(i,j)=0.
+      GRAUPELNCV(i,j)=0.
       ACSNOW(i,j)=0.
       DO k=kms,kme  !wig, 17-May-2006: Added for idealized chem. runs
          EXCH_H(i,k,j) = 0.
@@ -434,7 +454,7 @@ integer myproc
    IF(PRESENT(TMN_UPDATE))THEN
    if(tmn_update.eq.1) then
    nyear=1
-   nday=1
+   nday=0.
    DO j=jts,jtf
    DO i=its,itf
       TYR(i,j)=TMN(i,j)
@@ -532,10 +552,7 @@ integer myproc
    CALL bl_init(STEPBL,BLDT,DT,RUBLTEN,RVBLTEN,RTHBLTEN,        &
                 RQVBLTEN,RQCBLTEN,RQIBLTEN,TSK,TMN,             &
                 config_flags,restart,UST,LOWLYR,TSLB,ZS,DZS,    &
-                num_soil_layers,TKE_MYJ,                        &
-#if (NMM_CORE != 1)
-                TKE_PBL,                                     &
-#endif
+                num_soil_layers,TKE_PBL,                        &
                 EXCH_H,VEGFRA,                                  &
                 SNOW,SNOWC, CANWAT,SMSTAV,                      &
                 SMSTOT, SFCRUNOFF,UDRUNOFF,ACSNOW,ACSNOM,       &
@@ -550,6 +567,7 @@ integer myproc
                 TRIM (MMINLU_LOC),                              &
                 allowed_to_read ,                               &
                 start_of_simulation ,                           &
+                te_temf,cf3d_temf,wm_temf,                      & ! WA
                 DZR, DZB, DZG,                                  & !Optional urban
                 TR_URB2D,TB_URB2D,TG_URB2D,TC_URB2D,QC_URB2D,   & !Optional urban
                 XXXR_URB2D,XXXB_URB2D,XXXG_URB2D,XXXC_URB2D,    & !Optional urban
@@ -580,12 +598,9 @@ integer myproc
 
    CALL wrf_debug ( 200 , 'module_start: phy_init: Before call to cu_init' )
 
-   CALL cu_init(STEPCU,CUDT,DT,RTHCUTEN,RQVCUTEN,RQRCUTEN,      &
-                RQCCUTEN,RQSCUTEN,RQICUTEN,NCA,RAINC,           &
-#if (NMM_CORE == 1)
-                         RUCUTEN, RVCUTEN,  &
-#endif
-                RAINCV,W0AVG,config_flags,restart,              &
+   CALL cu_init(STEPCU,CUDT,DT,RUCUTEN,RVCUTEN,RTHCUTEN,        &
+                RQVCUTEN,RQRCUTEN,RQCCUTEN,RQSCUTEN,RQICUTEN,   &
+                NCA,RAINC,RAINCV,W0AVG,config_flags,restart,    &
                 CLDEFI,LOWLYR,MASS_FLUX,                        &
                 RTHFTEN, RQVFTEN,                               &
                 APR_GR,APR_W,APR_MC,APR_ST,APR_AS,              &
@@ -597,9 +612,20 @@ integer myproc
                 ims, ime, jms, jme, kms, kme,                   &
                 its, ite, jts, jte, kts, kte                    )
 
+   CALL wrf_debug ( 200 , 'module_start: phy_init: Before call to shcu_init' )
+
+   CALL shcu_init(STEPCU,CUDT,DT,RUSHTEN,RVSHTEN,RTHSHTEN,      &
+                RQVSHTEN,RQRSHTEN,RQCSHTEN,                     &
+                RQSSHTEN,RQISHTEN,RQGSHTEN,                     &
+                NCA,RAINC,RAINCV,config_flags,restart,          &
+                allowed_to_read, start_of_simulation,           &
+                ids, ide, jds, jde, kds, kde,                   &
+                ims, ime, jms, jme, kms, kme,                   &
+                its, ite, jts, jte, kts, kte                    )
+
    CALL wrf_debug ( 200 , 'module_start: phy_init: Before call to mp_init' )
 
-   CALL mp_init(RAINNC,config_flags,restart,warm_rain,          &
+   CALL mp_init(RAINNC,SNOWNC,GRAUPELNC,config_flags,restart,warm_rain,          &
                 adv_moist_cond,                                 &
                 MPDT, DT, DX, DY, LOWLYR,                       &
                 F_ICE_PHY,F_RAIN_PHY,F_RIMEF_PHY,               &
@@ -635,6 +661,9 @@ integer myproc
                   model_config_rec%obs_no_pbl_nudge_uv,         &
                   model_config_rec%obs_no_pbl_nudge_t,          &
                   model_config_rec%obs_no_pbl_nudge_q,          &
+                  model_config_rec%obs_sfc_scheme_horiz,        &
+                  model_config_rec%obs_sfc_scheme_vert,         &
+                  model_config_rec%obs_max_sndng_gap,           &
                   model_config_rec%obs_sfcfact,                 &
                   model_config_rec%obs_sfcfacr,                 &
                   model_config_rec%obs_dpsmx,                   &
@@ -1109,7 +1138,7 @@ integer myproc
 
         CASE (RRTMG_LWSCHEME)
              CALL rrtmg_lwinit(                             &
-                           allowed_to_read ,                &
+                           p_top, allowed_to_read ,         &
                            ids, ide, jds, jde, kds, kde,    &
                            ims, ime, jms, jme, kms, kme,    &
                            its, ite, jts, jte, kts, kte     )
@@ -1236,10 +1265,7 @@ integer myproc
    SUBROUTINE bl_init(STEPBL,BLDT,DT,RUBLTEN,RVBLTEN,RTHBLTEN,  &
                 RQVBLTEN,RQCBLTEN,RQIBLTEN,TSK,TMN,             &
                 config_flags,restart,UST,LOWLYR,TSLB,ZS,DZS,    &
-                num_soil_layers,TKE_MYJ,                        &
-#if (NMM_CORE != 1)
-                TKE_PBL,                                     &
-#endif
+                num_soil_layers,TKE_PBL,                        &
                 EXCH_H,VEGFRA,                                  &
                 SNOW,SNOWC, CANWAT,SMSTAV,                      &
                 SMSTOT, SFCRUNOFF,UDRUNOFF,ACSNOW,ACSNOM,       &
@@ -1254,6 +1280,7 @@ integer myproc
                 MMINLU,                                         &
                 allowed_to_read,                                &
                 start_of_simulation,                            &
+                te_temf,cf3d_temf,wm_temf,                      & ! WA
 !                num_roof_layers,num_wall_layers,num_road_layers,& !Optional urban
                 DZR, DZB, DZG,                                  & !Optional urban
                 TR_URB2D,TB_URB2D,TG_URB2D,TC_URB2D,QC_URB2D,   & !Optional urban
@@ -1302,9 +1329,12 @@ integer myproc
    USE module_bl_myjpbl
    USE module_bl_myjurb
    USE module_bl_boulac
+   USE module_bl_camuwpbl_driver, ONLY :  camuwpblinit
    USE module_bl_qnsepbl
 #if ( EM_CORE == 1 )
    USE module_bl_mynn
+   USE module_bl_temf
+   USE module_sf_temfsfclay
    USE module_sf_mynn
 #endif
 
@@ -1375,11 +1405,7 @@ integer myproc
                                                           RQVBLTEN, &
                                                           RQCBLTEN, &
                                                           RQIBLTEN, &
-                                                          TKE_MYJ
-#if (NMM_CORE != 1)
-   REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) ::       &
                                                           TKE_PBL
-#endif
    REAL,  DIMENSION( ims:ime , jms:jme ) , INTENT(IN) ::     TSK
    REAL,  DIMENSION( ims:ime , jms:jme ) , INTENT(INOUT) ::  TMN
    CHARACTER(LEN=*), INTENT(IN)   :: MMINLU
@@ -1387,6 +1413,11 @@ integer myproc
    INTEGER,  INTENT(IN)           :: ISURBAN
    INTEGER :: isn, isfc
    INTEGER :: k
+
+   REAL, OPTIONAL, DIMENSION( ims:ime , kms:kme , jms:jme ) , &
+            INTENT(OUT) :: te_temf, cf3d_temf !WA 
+   REAL, OPTIONAL, DIMENSION( ims:ime , jms:jme ) , &
+            INTENT(OUT) :: wm_temf
 
 !URBAN
 !   REAL, DIMENSION(1:num_roof_layers), INTENT(INOUT) :: DZR  !Optional urban
@@ -1566,6 +1597,13 @@ integer myproc
            isfc=5
 !          isfc=3
 
+      CASE (TEMFSFCSCHEME)
+           CALL wrf_debug( 100, 'calling temfsfclayinit' )
+           CALL temfsfclayinit( restart, allowed_to_read ,        &
+                             wm_temf,                          &
+                         ids, ide, jds, jde, kds, kde,         &
+                         ims, ime, jms, jme, kms, kme,         &
+                         its, ite, jts, jte, kts, kte          )
 #endif
 
       CASE DEFAULT
@@ -1693,6 +1731,8 @@ integer myproc
       CASE (YSUSCHEME)
            if(isfc .ne. 1)CALL wrf_error_fatal &
             ( 'module_physics_init: use sfclay scheme for this pbl option' )
+           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) CALL wrf_error_fatal &
+            ( 'module_physics_init: use myj (option 2) or boulac (option 8) with BEP/BEM urban scheme' )
            CALL ysuinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,    &
                         RQCBLTEN,RQIBLTEN,P_QI,               &
                         PARAM_FIRST_SCALAR,                   &
@@ -1704,6 +1744,8 @@ integer myproc
       CASE (MRFSCHEME)
            if(isfc .ne. 1)CALL wrf_error_fatal &
             ( 'module_physics_init: use sfclay scheme for this pbl option' )
+           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) CALL wrf_error_fatal &
+            ( 'module_physics_init: use myj (option 2) or boulac (option 8) with BEP/BEM urban scheme' )
            CALL mrfinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,    &
                         RQCBLTEN,RQIBLTEN,P_QI,               &
                         PARAM_FIRST_SCALAR,                   &
@@ -1715,6 +1757,8 @@ integer myproc
       CASE (ACMPBLSCHEME)
            if(isfc .ne. 1 .and. isfc .ne. 7)CALL wrf_error_fatal &
             ( 'module_physics_init: use sfclay or pxsfc scheme for this pbl option' )
+           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) CALL wrf_error_fatal &
+            ( 'module_physics_init: use myj (option 2) or boulac (option 8) with BEP/BEM urban scheme' )
            CALL acminit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,    &
                         RQCBLTEN,RQIBLTEN,P_QI,               &
                         PARAM_FIRST_SCALAR,                   &
@@ -1726,6 +1770,8 @@ integer myproc
       CASE (GFSSCHEME)
            if(isfc .ne. 2)CALL wrf_error_fatal &
             ( 'module_physics_init: use myjsfc scheme for this pbl option' )
+           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) CALL wrf_error_fatal &
+            ( 'module_physics_init: use myj (option 2) or boulac (option 8) with BEP/BEM urban scheme' )
            CALL gfsinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,    &
                         RQCBLTEN,RQIBLTEN,P_QI,               &
                         PARAM_FIRST_SCALAR,                   &
@@ -1739,7 +1785,7 @@ integer myproc
             ( 'module_physics_init: use myjsfc scheme for this pbl option' )
           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) THEN
            CALL myjurbinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN, &
-                        TKE_MYJ,EXCH_H,restart,               &
+                        TKE_PBL,EXCH_H,restart,               &
                         allowed_to_read ,                     &
                         ids, ide, jds, jde, kds, kde,         &
                         ims, ime, jms, jme, kms, kme,         &
@@ -1747,7 +1793,7 @@ integer myproc
           ELSE
 
            CALL myjpblinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN, &
-                        TKE_MYJ,EXCH_H,restart,               &
+                        TKE_PBL,EXCH_H,restart,               &
                         allowed_to_read ,                     &
                         ids, ide, jds, jde, kds, kde,         &
                         ims, ime, jms, jme, kms, kme,         &
@@ -1756,8 +1802,10 @@ integer myproc
       CASE (QNSEPBLSCHEME)
            if(isfc .ne. 4)CALL wrf_error_fatal &
             ( 'module_physics_init: use qnsesfc scheme for this pbl option' )
+           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) CALL wrf_error_fatal &
+            ( 'module_physics_init: use myj (option 2) or boulac (option 8) with BEP/BEM urban scheme' )
            CALL qnsepblinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN, &
-                        TKE_MYJ,EXCH_H,restart,               &
+                        TKE_PBL,EXCH_H,restart,               &
                         allowed_to_read ,                     &
                         ids, ide, jds, jde, kds, kde,         &
                         ims, ime, jms, jme, kms, kme,         &
@@ -1772,6 +1820,14 @@ integer myproc
                          ids, ide, jds, jde, kds, kde,         &
                          ims, ime, jms, jme, kms, kme,         &
                          its, ite, jts, jte, kts, kte          )
+        CASE (CAMUWPBLSCHEME)
+           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) CALL wrf_error_fatal &
+            ( 'module_physics_init: use myj (option 2) or boulac (option 8) with BEP/BEM urban scheme' )
+           CALL camuwpblinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN, &
+                restart,TKE_PBL,config_flags%grid_id,           &
+                ids, ide, jds, jde, kds, kde,         &
+                ims, ime, jms, jme, kms, kme,         &
+                its, ite, jts, jte, kts, kte          )
 #endif
 
 #if ( EM_CORE == 1 )
@@ -1781,6 +1837,8 @@ integer myproc
         CASE (MYNNPBLSCHEME2, MYNNPBLSCHEME3)
            IF(isfc .NE. 5 .AND. isfc .NE. 1 .AND. isfc .NE. 2) CALL wrf_error_fatal &
                 ( 'module_physics_init: use mynnsfc or sfclay or myjsfc scheme for this pbl option')
+           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) CALL wrf_error_fatal &
+            ( 'module_physics_init: use myj (option 2) or boulac (option 8) with BEP/BEM urban scheme' )
            
            SELECT CASE(config_flags%bl_pbl_physics)
 
@@ -1801,6 +1859,25 @@ integer myproc
                 &,IMS,IME,JMS,JME,KMS,KME                    &
                 &,ITS,ITE,JTS,JTE,KTS,KTE)
 
+      CASE (TEMFPBLSCHEME)
+           ! if(isfc .ne. 0)CALL wrf_error_fatal &
+           !  ( 'module_physics_init: use sfclay scheme = 0 for this pbl option' )
+           IF ((SF_URBAN_PHYSICS.eq.2).OR.(SF_URBAN_PHYSICS.EQ.3)) CALL wrf_error_fatal &
+            ( 'module_physics_init: use myj (option 2) or boulac (option 8) with BEP/BEM urban scheme' )
+         IF ( PRESENT( te_temf ) .AND. PRESENT( cf3d_temf )) THEN
+           CALL temfinit(RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,    &
+                        RQCBLTEN,RQIBLTEN,P_QI,               &
+                        PARAM_FIRST_SCALAR,                   &
+                        restart,                              &
+                        allowed_to_read ,                     &
+                        te_temf,cf3d_temf,                    & ! WA
+                        ids, ide, jds, jde, kds, kde,         &
+                        ims, ime, jms, jme, kms, kme,         &
+                        its, ite, jts, jte, kts, kte          )
+             ELSE
+                CALL wrf_error_fatal ( 'arguments not present for calling TEMF scheme' )
+         ENDIF
+
 #endif
 
       CASE DEFAULT
@@ -1811,22 +1888,19 @@ integer myproc
    END SUBROUTINE bl_init
 
 !==================================================================
-   SUBROUTINE cu_init(STEPCU,CUDT,DT,RTHCUTEN,RQVCUTEN,RQRCUTEN,  &
-                      RQCCUTEN,RQSCUTEN,RQICUTEN,NCA,RAINC,       &
-#if (NMM_CORE == 1)
-                         RUCUTEN, RVCUTEN,  &
-#endif
-                      RAINCV,W0AVG,config_flags,restart,          &
-                      CLDEFI,LOWLYR,MASS_FLUX,                    &
-                      RTHFTEN, RQVFTEN,                           &
-                      APR_GR,APR_W,APR_MC,APR_ST,APR_AS,          &
-                      APR_CAPMA,APR_CAPME,APR_CAPMI,              &
-                      cugd_tten,cugd_ttens,cugd_qvten,            &
-                      cugd_qvtens,cugd_qcten,                     &
-                      allowed_to_read, start_of_simulation,       &
-                      ids, ide, jds, jde, kds, kde,               &
-                      ims, ime, jms, jme, kms, kme,               &
-                      its, ite, jts, jte, kts, kte                )
+   SUBROUTINE cu_init(STEPCU,CUDT,DT,RUCUTEN,RVCUTEN,RTHCUTEN,     &
+                      RQVCUTEN,RQRCUTEN,RQCCUTEN,RQSCUTEN,RQICUTEN,&
+                      NCA,RAINC,RAINCV,W0AVG,config_flags,restart, &
+                      CLDEFI,LOWLYR,MASS_FLUX,                     &
+                      RTHFTEN, RQVFTEN,                            &
+                      APR_GR,APR_W,APR_MC,APR_ST,APR_AS,           &
+                      APR_CAPMA,APR_CAPME,APR_CAPMI,               &
+                      cugd_tten,cugd_ttens,cugd_qvten,             &
+                      cugd_qvtens,cugd_qcten,                      &
+                      allowed_to_read, start_of_simulation,        &
+                      ids, ide, jds, jde, kds, kde,                &
+                      ims, ime, jms, jme, kms, kme,                &
+                      its, ite, jts, jte, kts, kte                 )
 !------------------------------------------------------------------
    USE module_cu_kf
    USE module_cu_kfeta
@@ -1834,6 +1908,9 @@ integer myproc
    USE module_cu_gd,  ONLY : GDINIT
    USE module_cu_g3,  ONLY : G3INIT
    USE module_cu_sas
+   USE module_cu_camzm_driver, ONLY : zm_conv_init
+   USE module_cu_nsas
+   USE module_cu_tiedtke
 !------------------------------------------------------------------
    IMPLICIT NONE
 !------------------------------------------------------------------
@@ -1851,7 +1928,8 @@ integer myproc
    INTEGER , INTENT(INOUT)     :: STEPCU
 
    REAL ,   DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(INOUT) ::    &
-            RTHCUTEN, RQVCUTEN, RQCCUTEN, RQRCUTEN, RQICUTEN, RQSCUTEN
+            RUCUTEN, RVCUTEN, RTHCUTEN, &
+            RQVCUTEN, RQCCUTEN, RQRCUTEN, RQICUTEN, RQSCUTEN
    REAL ,   DIMENSION( ims:ime , kms:kme , jms:jme ) , OPTIONAL, INTENT(INOUT) ::    &
                         cugd_tten,cugd_ttens,cugd_qvten,            &
                         cugd_qvtens,cugd_qcten
@@ -1872,10 +1950,6 @@ integer myproc
                                    APR_CAPMA,APR_CAPME,APR_CAPMI
 
    INTEGER, DIMENSION( ims:ime , jms:jme ), INTENT(INOUT):: LOWLYR
-#if (NMM_CORE == 1)
-   REAL,     DIMENSION(IMS:IME,JMS:JME,KMS:KME), INTENT(INOUT) :: &
-             RUCUTEN, RVCUTEN
-#endif
 
 ! LOCAL VAR
 
@@ -1902,6 +1976,7 @@ integer myproc
      ENDDO
    ENDIF
 
+!-- deep convection and hybrid deep-shallow convection schemes
    cps_select: SELECT CASE(config_flags%cu_physics)
 
      CASE (KFSCHEME)
@@ -1941,6 +2016,15 @@ integer myproc
                       ids, ide, jds, jde, kds, kde,               &
                       ims, ime, jms, jme, kms, kme,               &
                       its, ite, jts, jte, kts, kte                )
+     CASE (NSASSCHEME)
+         CALL nsasinit(RTHCUTEN,RQVCUTEN,RQCCUTEN,RQICUTEN,       &
+                      RUCUTEN,RVCUTEN,                            & 
+                      restart,P_QC,P_QI,PARAM_FIRST_SCALAR,       &
+                      allowed_to_read ,                           &
+                      ids, ide, jds, jde, kds, kde,               &
+                      ims, ime, jms, jme, kms, kme,               &
+                      its, ite, jts, jte, kts, kte                )
+
 #if ( EM_CORE == 1 )
      CASE (G3SCHEME)
           CALL g3init(RTHCUTEN,RQVCUTEN,RQCCUTEN,RQICUTEN,        &
@@ -1956,10 +2040,28 @@ integer myproc
                       ims, ime, jms, jme, kms, kme,               &
                       its, ite, jts, jte, kts, kte                )
 #endif
+     CASE (SASSCHEME)
           CALL sasinit(RTHCUTEN,RQVCUTEN,RQCCUTEN,RQICUTEN,       &
-#if (NMM_CORE == 1)
                       RUCUTEN,RVCUTEN,                            &   ! gopal's doing for SAS
-#endif
+                      restart,P_QC,P_QI,PARAM_FIRST_SCALAR,       &
+                      allowed_to_read ,                           &
+                      ids, ide, jds, jde, kds, kde,               &
+                      ims, ime, jms, jme, kms, kme,               &
+                      its, ite, jts, jte, kts, kte                )
+
+     CASE (CAMZMSCHEME)
+          CALL zm_conv_init(rucuten, rvcuten, rthcuten, rqvcuten,       &
+                      rqccuten, rqicuten,                               &
+                      p_qc, p_qi, param_first_scalar,                   &
+                      restart,                                          &
+                      ids, ide, jds, jde, kds, kde,                     &
+                      ims, ime, jms, jme, kms, kme,                     &
+                      its, ite, jts, jte, kts, kte                      )
+
+! Tiedtke Scheme - ZCX&YQW
+      CASE (TIEDTKESCHEME)
+          CALL tiedtkeinit(RTHCUTEN,RQVCUTEN,RQCCUTEN,RQICUTEN,   &
+                      RUCUTEN,RVCUTEN,                            & 
                       restart,P_QC,P_QI,PARAM_FIRST_SCALAR,       &
                       allowed_to_read ,                           &
                       ids, ide, jds, jde, kds, kde,               &
@@ -1973,7 +2075,95 @@ integer myproc
    END SUBROUTINE cu_init
 
 !==================================================================
-   SUBROUTINE mp_init(RAINNC,config_flags,restart,warm_rain,      &
+   SUBROUTINE shcu_init(STEPCU,CUDT,DT,RUSHTEN,RVSHTEN,RTHSHTEN,   &
+                      RQVSHTEN,RQRSHTEN,RQCSHTEN,                  &
+                      RQSSHTEN,RQISHTEN,RQGSHTEN,                  &
+                      NCA,RAINC,RAINCV,config_flags,restart,       &
+                      allowed_to_read, start_of_simulation,        &
+                      ids, ide, jds, jde, kds, kde,                &
+                      ims, ime, jms, jme, kms, kme,                &
+                      its, ite, jts, jte, kts, kte                 )
+!------------------------------------------------------------------
+   USE uwshcu,        ONLY: init_uwshcu
+   USE physconst,     ONLY: cpair, gravit, latice, latvap, mwdry, mwh2o, &
+                            rair, zvir
+   USE shr_kind_mod,  ONLY: r8 => shr_kind_r8
+
+!------------------------------------------------------------------
+   IMPLICIT NONE
+!------------------------------------------------------------------
+   TYPE (grid_config_rec_type) :: config_flags
+   LOGICAL , INTENT(IN)        :: restart
+
+
+   INTEGER , INTENT(IN)        :: ids, ide, jds, jde, kds, kde,   &
+                                  ims, ime, jms, jme, kms, kme,   &
+                                  its, ite, jts, jte, kts, kte
+
+   REAL ,    INTENT(IN)        :: DT, CUDT
+   LOGICAL , INTENT(IN)        :: start_of_simulation
+   LOGICAL , INTENT(IN)        :: allowed_to_read
+   INTEGER , INTENT(INOUT)     :: STEPCU
+
+   REAL ,   DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(INOUT) ::    &
+            RUSHTEN, RVSHTEN, RTHSHTEN, &
+            RQVSHTEN, RQCSHTEN, RQRSHTEN, RQISHTEN, RQSSHTEN, RQGSHTEN
+
+   REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(OUT):: RAINC, RAINCV
+
+   REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(INOUT):: NCA
+
+! LOCAL VAR
+
+  INTEGER :: i,j,itf,jtf
+
+!--------------------------------------------------------------------
+
+! Some of this stuff is redundant with deep convection, but redo it
+! in case deep is turned off...
+
+!-- calculate cumulus parameterization time step
+
+   itf=min0(ite,ide-1)
+   jtf=min0(jte,jde-1)
+!
+   STEPCU = nint(CUDT*60./DT)
+   STEPCU = max(STEPCU,1)
+
+!-- initialization
+
+   IF(start_of_simulation)THEN
+     DO j=jts,jtf
+     DO i=its,itf
+        RAINC(i,j)=0.
+        RAINCV(i,j)=0.
+     ENDDO
+     ENDDO
+   ENDIF
+
+!-- independent shallow convection schemes
+   shcu_select: SELECT CASE(config_flags%shcu_physics)
+
+   CASE (CAMUWSHCUSCHEME)
+      CALL init_uwshcu(r8,latvap,cpair,latice,zvir,rair,gravit,      &
+           mwh2o/mwdry,                                              &
+           rushten, rvshten, rthshten, rqvshten,                     &
+           rqcshten, rqrshten, rqishten, rqsshten, rqgshten,         &
+           p_qc, p_qr, p_qi, p_qs, p_qg,                             &
+           config_flags%bl_pbl_physics, param_first_scalar, restart, &
+           config_flags%grid_id,                                     &
+           ids, ide, jds, jde, kds, kde,                             &
+           ims, ime, jms, jme, kms, kme,                             &
+           its, ite, jts, jte, kts, kte                              )
+
+   CASE DEFAULT
+
+   END SELECT shcu_select
+
+   END SUBROUTINE shcu_init
+
+!==================================================================
+   SUBROUTINE mp_init(RAINNC,SNOWNC,GRAUPELNC,config_flags,restart,warm_rain,      &
                       adv_moist_cond,                             &
                       MPDT, DT, DX, DY, LOWLYR,                   & ! for eta mp
                       F_ICE_PHY,F_RAIN_PHY,F_RIMEF_PHY,           & ! for eta mp
@@ -1991,7 +2181,6 @@ integer myproc
    USE module_mp_HWRF
 #endif
    USE module_mp_thompson
-   USE module_mp_thompson07
    USE module_mp_morr_two_moment
    USE module_mp_milbrandt2mom
 !  USE module_mp_milbrandt3mom
@@ -2012,7 +2201,7 @@ integer myproc
                                   its, ite, jts, jte, kts, kte
 
    INTEGER , DIMENSION( ims:ime , jms:jme ) ,INTENT(INOUT)  :: LOWLYR
-   REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(INOUT) :: RAINNC
+   REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(INOUT) :: RAINNC,SNOWNC,GRAUPELNC
    REAL,     DIMENSION( ims:ime , kms:kme, jms:jme ) , INTENT(INOUT) :: &
                                   F_ICE_PHY,F_RAIN_PHY,F_RIMEF_PHY
    REAL , DIMENSION(:) ,INTENT(INOUT)  :: mp_restart_state,tbpvs_state,tbpvs0_state
@@ -2030,6 +2219,8 @@ integer myproc
      DO j=jts,jtf
      DO i=its,itf
         RAINNC(i,j) = 0.
+        SNOWNC(i,j) = 0.
+        GRAUPELNC(i,j) = 0.
      ENDDO
      ENDDO
    ENDIF
@@ -2066,9 +2257,6 @@ integer myproc
 ! Cycling the WRF forecast with moving nests will cause this initialization to be
 ! called for each nest move. This is potentially very computationally expensive.
          IF(start_of_simulation.or.restart.or.config_flags%cycling)CALL thompson_init
-
-     CASE (THOMPSON07)
-         IF(start_of_simulation.or.restart.or.config_flags%cycling)CALL thompson07_init
 
      CASE (MORR_TWO_MOMENT)
          CALL morr_two_moment_init
@@ -2198,6 +2386,8 @@ integer myproc
                         no_pbl_nudge_uv,                           &
                         no_pbl_nudge_t,                            &
                         no_pbl_nudge_q,                            &
+                        sfc_scheme_horiz, sfc_scheme_vert,         &
+                        maxsnd_gap,                                &
                         sfcfact, sfcfacr, dpsmx,                   &
                         nudge_wind, nudge_temp, nudge_mois,        &
                         nudgezfullr1_uv, nudgezrampr1_uv,          &
@@ -2244,6 +2434,9 @@ integer myproc
    INTEGER , INTENT(IN)    :: no_pbl_nudge_uv(maxdom)  ! flags for no wind nudging in pbl
    INTEGER , INTENT(IN)    :: no_pbl_nudge_t(maxdom)   ! flags for no temperature nudging in pbl
    INTEGER , INTENT(IN)    :: no_pbl_nudge_q(maxdom)   ! flags for no moisture nudging in pbl
+   INTEGER , INTENT(IN)    :: sfc_scheme_horiz ! horizontal spreading scheme for surf obs (wrf or orig mm5)
+   INTEGER , INTENT(IN)    :: sfc_scheme_vert  ! vertical   spreading scheme for surf obs (orig or regime vif)
+   REAL    , INTENT(IN)    :: maxsnd_gap       ! max allowed pressure gap in soundings for interp (centibars) 
    REAL    , INTENT(IN)    :: sfcfact      ! scale factor applied to time window for surface obs
    REAL    , INTENT(IN)    :: sfcfacr      ! scale fac applied to horiz rad of infl for sfc obs
    REAL    , INTENT(IN)    :: dpsmx        ! max pressure change allowed within horiz. infl. range
@@ -2301,6 +2494,8 @@ integer myproc
                         no_pbl_nudge_uv,                           &
                         no_pbl_nudge_t,                            &
                         no_pbl_nudge_q,                            &
+                        sfc_scheme_horiz, sfc_scheme_vert,         &
+                        maxsnd_gap,                                &
                         sfcfact, sfcfacr, dpsmx,                   &
                         nudge_wind, nudge_temp, nudge_mois,        &
                         nudgezfullr1_uv, nudgezrampr1_uv,          &

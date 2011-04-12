@@ -24,9 +24,9 @@ CONTAINS
      &          ,t_phy,u10,udrunoff,ust,uz0,u_frame,u_phy,v10,vegfra  &
      &          ,vz0,v_frame,v_phy,warm_rain,wspd,xice,xland,z,znt,zs &
 #if (NMM_CORE==1)
-     &          ,xicem,isice,iswater,ct,tke_myj,sfenth                &
+     &          ,xicem,isice,iswater,ct,tke_pbl,sfenth                &
 #else
-     &          ,xicem,isice,iswater,ct,tke_myj                       &
+     &          ,xicem,isice,iswater,ct,tke_pbl                       &
 #endif
      &          ,albbck,embck,lh,sh2o,shdmax,shdmin,z0                &
      &          ,flqc,flhc,psfc,sst,sstsk,dtw,sst_update,sst_skin,t2,emiss               &
@@ -61,7 +61,7 @@ CONTAINS
      &           ,f_qi,f_qs,f_qg                                      &
              !  Other optionals (more or less em specific)
      &          ,capg,hol,mol                                         &
-     &          ,rainncv,rainbl,regime,thc                            &
+     &          ,rainncv,rainshv,rainbl,regime,thc                    &
      &          ,qsg,qvg,qcg,soilt1,tsnav                             &
      &          ,smfr3d,keepfr3dflag,dew                              &
              !  Other optionals (more or less nmm specific)
@@ -70,6 +70,11 @@ CONTAINS
      &          ,t2_ndg_old, q2_ndg_old, t2_ndg_new, q2_ndg_new       &
      &          ,sn_ndg_old, sn_ndg_new                               &
      &          ,t2obs, q2obs                                         &
+             ! OPTIONAL, Required by TEMF surface layer 1/7/09 WA
+     &          ,hd_temf,te_temf,fCor,exch_temf,wm_temf               &
+             ! Required by ideal SCM surface layer 1/6/10 WA
+     &          ,hfx_force,lh_force,tsk_force                       &
+     &          ,hfx_force_tend,lh_force_tend,tsk_force_tend          &
              !  Optional observation nudging
      &          ,uratx,vratx,tratx                                    &
              !  Optional simple oml model
@@ -108,6 +113,8 @@ CONTAINS
                                        ,QNSESFCSCHEME             &
                                        ,GFSSFCSCHEME              &
                                        ,PXSFCSCHEME               &
+                                       ,TEMFSFCSCHEME             &
+                                       ,IDEALSCMSFCSCHEME         &
                                        ,SLABSCHEME                &
                                        ,LSMSCHEME                 &
                                        ,RUCLSMSCHEME              &
@@ -123,6 +130,7 @@ CONTAINS
                                        ,LSMSCHEME                 &
                                        ,RUCLSMSCHEME              &
                                        ,PXLSMSCHEME               &
+                                       ,TEMFSFCSCHEME             &
                                        ,GFDLSFCSCHEME             &
                                        ,GFDLSLAB 
 
@@ -139,6 +147,8 @@ CONTAINS
    USE module_sf_ruclsm
    USE module_sf_pxsfclay
    USE module_sf_pxlsm
+   USE module_sf_temfsfclay
+   USE module_sf_idealscmsfclay
 #if ( EM_CORE==1)
    USE module_sf_mynn
    USE module_sf_oml
@@ -237,7 +247,7 @@ CONTAINS
 !-- TAUY          RHO*U**2 for ocean coupling
 !-- LH            net upward latent heat flux at surface (W/m^2)
 !-- REGIME        flag indicating PBL regime (stable, unstable, etc.)
-!-- tke_myj       turbulence kinetic energy from Mellor-Yamada-Janjic (MYJ) (m^2/s^2)
+!-- tke_pbl       turbulence kinetic energy from PBL schemes (m^2/s^2)
 !-- akhs          sfc exchange coefficient of heat/moisture from MYJ
 !-- akms          sfc exchange coefficient of momentum from MYJ
 !-- thz0          potential temperature at roughness length (K)
@@ -356,7 +366,7 @@ CONTAINS
    LOGICAL, INTENT(IN )::   WARM_RAIN
    LOGICAL, INTENT(IN)::   tice2tsk_if2cold
    INTEGER, INTENT(INOUT ),OPTIONAL ::   NYEAR
-   INTEGER, INTENT(INOUT ),OPTIONAL ::   NDAY
+   REAL   , INTENT(INOUT ),OPTIONAL ::   NDAY
    INTEGER, INTENT(IN ),OPTIONAL ::   YR
    REAL , INTENT(IN )::   U_FRAME
    REAL , INTENT(IN )::   V_FRAME
@@ -451,7 +461,7 @@ CONTAINS
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(IN )::   V_PHY
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(IN )::   Z
 
-   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) ::   TKE_MYJ
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) ::   TKE_PBL
    REAL, DIMENSION(1:num_soil_layers), INTENT(IN)::   DZS
    REAL, DIMENSION(1:num_soil_layers), INTENT(IN)::   ZS
    REAL, INTENT(IN )::   DT
@@ -591,6 +601,7 @@ CONTAINS
    REAL, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(INOUT)::   mol
    REAL, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(INOUT)::   regime
    REAL, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(IN )::     rainncv
+   REAL, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(IN )::     rainshv
    REAL, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(INOUT)::   RAINBL
    REAL, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(INOUT)::   t2
    REAL, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(IN )::     thc
@@ -609,6 +620,15 @@ CONTAINS
 
    REAL, DIMENSION( ims:ime, jms:jme ) , INTENT(OUT), OPTIONAL  ::   NOAHRES
 
+! Variables for TEMF surface layer
+   REAL,OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) :: te_temf
+   REAL,OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: hd_temf, exch_temf, wm_temf
+   REAL,OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN   ) :: fCor
+
+! Variables for ideal SCM surface layer
+   REAL,OPTIONAL, INTENT(INOUT) :: hfx_force,lh_force,tsk_force
+   REAL,OPTIONAL, INTENT(IN   ) :: hfx_force_tend,lh_force_tend,tsk_force_tend
+
 !  LOCAL  VAR
 
    REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ) ::v_phytmp
@@ -625,7 +645,7 @@ CONTAINS
 
    REAL    :: DTMIN,DTBL
 !
-   INTEGER :: i,J,K,NK,jj,ij,n
+   INTEGER :: i,J,K,NK,jj,ij
    INTEGER :: gfdl_ntsflg
    LOGICAL :: radiation, myj, frpcpn, isisfc
    LOGICAL, INTENT(in), OPTIONAL :: rdlai2d
@@ -756,6 +776,7 @@ CONTAINS
       DO j=j_start(ij),j_end(ij)
       DO i=i_start(ij),i_end(ij)
          RAINBL(i,j) = RAINBL(i,j) + RAINCV(i,j) + RAINNCV(i,j)
+         IF ( PRESENT( rainshv ))RAINBL(i,j) = RAINBL(i,j) + RAINSHV(i,j)
          RAINBL(i,j) = MAX (RAINBL(i,j), 0.0)
       ENDDO
       ENDDO
@@ -768,6 +789,7 @@ CONTAINS
       DO j=j_start(ij),j_end(ij)
       DO i=i_start(ij),i_end(ij)
          RAINBL(i,j) = RAINBL(i,j) + RAINCV(i,j)
+         IF ( PRESENT( rainshv ))RAINBL(i,j) = RAINBL(i,j) + RAINSHV(i,j)
          RAINBL(i,j) = MAX (RAINBL(i,j), 0.0)
       ENDDO
       ENDDO
@@ -1099,7 +1121,7 @@ CONTAINS
            CALL MYJSFC_SEAICE_WRAPPER(itimestep,ht,dz8w,             &
                 p_phy,p8w,th_phy,t_phy,                              &
                 qv_curr,qc_curr,                                     &
-                u_phy,v_phy,tke_myj,                                 &
+                u_phy,v_phy,tke_pbl,                                 &
                 tsk,qsfc,thz0,qz0,uz0,vz0,                           &
                 lowlyr,                                              &
                 xland,ivgtyp,isurban,iz0tlnd,                        &
@@ -1123,7 +1145,7 @@ CONTAINS
             CALL MYJSFC(itimestep,ht,dz8w,                         &
               p_phy,p8w,th_phy,t_phy,                              &
               qv_curr,qc_curr,                                      &
-              u_phy,v_phy,tke_myj,                                 &
+              u_phy,v_phy,tke_pbl,                                 &
               tsk,qsfc,thz0,qz0,uz0,vz0,                           &
               lowlyr,                                              &
               xland,ivgtyp,isurban,iz0tlnd,                        &
@@ -1158,7 +1180,7 @@ CONTAINS
             CALL QNSESFC(itimestep,ht,dz8w,                         &
               p_phy,p8w,th_phy,t_phy,                              &
               qv_curr,qc_curr,                                     &
-              u_phy,v_phy,tke_myj,                                 &
+              u_phy,v_phy,tke_pbl,                                 &
               tsk,qsfc,thz0,qz0,uz0,vz0,                           &
               lowlyr,                                              &
               xland,                                               &
@@ -1235,6 +1257,63 @@ CONTAINS
        ELSE
           CALL wrf_error_fatal('Lacking arguments for SFCLAY_mynn in surface driver')
  
+       ENDIF
+#endif
+
+#if ( EM_CORE==1)
+     CASE (TEMFSFCSCHEME)
+       IF (PRESENT(qv_curr).and.PRESENT(hd_temf)) THEN
+         CALL wrf_debug( 100, 'in TEMFSFCLAY' )
+! WA 9/7/09 must initialize Z0 and ZNT for TEMF in ideal cases
+       ! DO J=j_start(ij),j_end(ij)
+       ! DO I=i_start(ij),i_end(ij)
+       !    CHKLOWQ(i,j) = 1.0
+       !    Z0(i,j) = 0.03      ! For GABLS2
+       !    ZNT(i,j) = 0.03     ! For GABLS2
+       ! ENDDO
+       ! ENDDO
+         CALL TEMFSFCLAY(u3d=u_phytmp,v3d=v_phytmp,th3d=th_phy,    &
+               qv3d=qv_curr,p3d=p_phy,pi3d=pi_phy,rho=rho,z=z,ht=ht, &
+               CP=cp,G=g,ROVCP=rovcp,R=r_d,XLV=xlv,psfc=psfc,chs=chs,&
+               chs2=chs2,cqs2=cqs2,CPM=cpm,znt=znt,ust=ust,        &
+               MAVAIL=mavail,XLAND=xland,HFX=hfx,QFX=qfx,LH=lh,   &
+               TSK=tsk,FLHC=flhc,FLQC=flqc,QGH=qgh,qsfc=qsfc,      &
+               U10=u10,V10=v10,TH2=th2,T2=t2,Q2=q2,                &
+               SVP1=svp1,SVP2=svp2,SVP3=svp3,SVPT0=svpt0,EP1=ep_1, &
+               EP2=ep_2,KARMAN=karman,fCor=fCor,te_temf=te_temf,   &
+               hd_temf=hd_temf,exch_temf=exch_temf,wm_temf=wm_temf,&
+               ids=ids,ide=ide, jds=jds,jde=jde, kds=kds,kde=kde,  &
+               ims=ims,ime=ime, jms=jms,jme=jme, kms=kms,kme=kme,  &
+               its=i_start(ij),ite=i_end(ij),                      &
+               jts=j_start(ij),jte=j_end(ij), kts=kts,kte=kte )
+       ELSE
+         CALL wrf_error_fatal('Lacking arguments for TEMFSFCLAY in surface driver')
+       ENDIF
+
+     CASE (IDEALSCMSFCSCHEME)
+       IF (PRESENT(qv_curr)) THEN
+         CALL wrf_debug( 100, 'in IDEALSCMSFCLAY' )
+         CALL IDEALSCMSFCLAY(u3d=u_phytmp,v3d=v_phytmp,th3d=th_phy,    &
+               qv3d=qv_curr,p3d=p_phy,pi3d=pi_phy,rho=rho,z=z,ht=ht, &
+               CP=cp,G=g,ROVCP=rovcp,R=r_d,XLV=xlv,psfc=psfc,chs=chs,&
+               chs2=chs2,cqs2=cqs2,CPM=cpm,znt=znt,ust=ust,        &
+               MAVAIL=mavail,XLAND=xland,HFX=hfx,QFX=qfx,LH=lh,   &
+               TSK=tsk,FLHC=flhc,FLQC=flqc,QGH=qgh,qsfc=qsfc,      &
+               U10=u10,V10=v10,TH2=th2,T2=t2,Q2=q2,                &
+               SVP1=svp1,SVP2=svp2,SVP3=svp3,SVPT0=svpt0,EP1=ep_1, &
+               EP2=ep_2,KARMAN=karman,fCor=fCor,   &
+               exch_temf=exch_temf,                &
+               hfx_force=hfx_force,lh_force=lh_force,tsk_force=tsk_force, &
+               hfx_force_tend=hfx_force_tend,                      &
+               lh_force_tend=lh_force_tend,                        &
+               tsk_force_tend=tsk_force_tend,                      &
+               dt=dt,itimestep=itimestep,                          &
+               ids=ids,ide=ide, jds=jds,jde=jde, kds=kds,kde=kde,  &
+               ims=ims,ime=ime, jms=jms,jme=jme, kms=kms,kme=kme,  &
+               its=i_start(ij),ite=i_end(ij),                      &
+               jts=j_start(ij),jte=j_end(ij), kts=kts,kte=kte )
+       ELSE
+         CALL wrf_error_fatal('Lacking arguments for IDEALSCMSFCLAY in surface driver')
        ENDIF
 #endif
 
@@ -1536,13 +1615,6 @@ CONTAINS
          DO i=i_start(ij),i_end(ij)                           !urban
           IF( IVGTYP(I,J) == ISURBAN .or. IVGTYP(I,J) == 31 .or. &  !urban
               IVGTYP(I,J) == 32 .or. IVGTYP(I,J) == 33 ) THEN !urban
-!             TH2(I,J)  = TH2_URB2D(I,J)                       !urban
-!             T2(I,J)   = TH2_URB2D(I,J)/(1.E5/PSFC(I,J))**RCP !urban
-!m             T2(I,J)   = TH2_URB2D(I,J)                       !urban
-!             T2(I,J)   = FRC_URB2D(i,j)*TH2_URB2D(I,J) + (1-FRC_URB2D(i,j))*T2(I,J) !urban
-!             TH2(I,J) = T2(I,J)*(1.E5/PSFC(I,J))**RCP                               !urban
-!m             Q2(I,J)   = Q2_URB2D(I,J)                                            !urban
-!             Q2(I,J)   = FRC_URB2D(i,j)*Q2_URB2D(I,J) +(1-FRC_URB2D(i,j))* Q2(I,J)  !urban
              U10(I,J)  = U10_URB2D(I,J)                       !urban
              V10(I,J)  = V10_URB2D(I,J)                       !urban
              PSIM(I,J) = PSIM_URB2D(I,J)                      !urban

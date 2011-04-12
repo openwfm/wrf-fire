@@ -7,7 +7,7 @@
 #      define DEC_PNG dec_png
 # else
 #   ifdef F2CSTYLE
-#      define MOVA2I mova2i_
+#      define MOVA2I mova2i__
 #      define DEC_JPEG2000 dec_jpeg2000__
 #      define ENC_JPEG2000 enc_jpeg2000__
 #      define ENC_PNG enc_png__

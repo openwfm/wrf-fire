@@ -78,7 +78,6 @@ CONTAINS
 
    DO J=jts,jte
 
-      CALL wrf_debug( 100, 'Call OML' )
          DO i=its,ite
             IF (XLAND(I,J).GT.1.5) THEN
                CALL OML1D(I,J,TML(i,j),T0ML(i,j),HML(i,j),H0ML(i,j),           &
@@ -213,7 +212,9 @@ CONTAINS
 ! limit to positive h change
         if(h.lt.hold)h=hold
 
-        if(h.ne.0.)then
+!       if(h.ne.0.)then
+! no change unless tml is warmer than layer mean temp tmol or tsk-5 (see omlinit)
+        if(tml.ge.tmoml .and. h.ne.0.)then
           tml=max(t0ml - Gam*(h-h0) + 0.5*Gam*h + A2/h, tmoml)
           u=hu2/h
           v=hv2/h

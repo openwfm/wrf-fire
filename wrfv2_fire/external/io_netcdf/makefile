@@ -4,7 +4,7 @@ OBJSL   = wrf_io.o field_routines.o module_wrfsi_static.o
 OBJS    = $(OBJSL)
 CODE    = ext_ncd_get_dom_ti.code ext_ncd_get_var_td.code ext_ncd_get_var_ti.code ext_ncd_put_dom_ti.code ext_ncd_put_var_td.code ext_ncd_put_var_ti.code transpose.code 
 FFLAGS  =  $(FCFLAGS) -I$(NETCDFPATH)/include -I../ioapi_share
-LIBS    = -L$(NETCDFPATH)/lib -lnetcdf $(shell $(NETCDFPATH)/bin/nc-config --flibs 2> /dev/null)
+LIBS    = -L$(NETCDFPATH)/lib -lnetcdf
 CPP1    = $(CPP) -C -P $(TRADFLAG)
 M4      = m4 -Uinclude -Uindex -Ulen
 AR      = ar
@@ -27,19 +27,6 @@ wrf_io.o:               wrf_io.F90 $(CODE)
                         a=$$? ; export a ; \
 			if [ $$a -a "$$WRFIO_NCD_LARGE_FILE_SUPPORT" = "1" ] ; then \
                           $(CPP1) -DWRFIO_NCD_LARGE_FILE_SUPPORT -I../ioapi_share wrf_io.F90 | $(M4) - > wrf_io.f ; \
-			elif [ "$$WRFIO_NETCDF4_FILE_SUPPORT" = "1" ] ; then \
-                          if test -z "$$WRFIO_NETCDF4_GZIP_LEVEL" ; then \
-                            WRFIO_NETCDF4_GZIP_LEVEL=0 ; \
-                          fi ; \
-                          if [ "$$WRFIO_NETCDF4_GZIP_LEVEL" -gt 0 -a -z "$$WRFIO_NETCDF4_SHUFFLE" ] ; then \
-                            WRFIO_NETCDF4_SHUFFLE=1 ; \
-                          else \
-                            WRFIO_NETCDF4_SHUFFLE=0 ; \
-                          fi ; \
-			  $(CPP1) -DWRFIO_NETCDF4_FILE_SUPPORT \
-			          -DWRFIO_NETCDF4_GZIP_LEVEL="$$WRFIO_NETCDF4_GZIP_LEVEL" \
-				  -DWRFIO_NETCDF4_SHUFFLE="$$WRFIO_NETCDF4_SHUFFLE" \
-				  -I../ioapi_share wrf_io.F90 | $(M4) - > wrf_io.f ; \
                         else \
                           $(CPP1) -I../ioapi_share wrf_io.F90 | $(M4) - > wrf_io.f ; \
                         fi
