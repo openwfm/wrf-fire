@@ -54,6 +54,7 @@
        rqcshten, rqrshten, rqishten, rqsshten, rqgshten,         &
        p_qc, p_qr, p_qi, p_qs, p_qg,                             &
        bl_pbl_physics, param_first_scalar, restart,              &
+       grid_id,                                                  &
        ids, ide, jds, jde, kds, kde,                             &
        ims, ime, jms, jme, kms, kme,                             &
        its, ite, jts, jte, kts, kte                              )
@@ -87,6 +88,7 @@
 
 #ifdef WRF_PORT
     LOGICAL , INTENT(IN)           ::   restart
+    INTEGER , INTENT(IN)           ::   grid_id
     INTEGER , INTENT(IN)           ::   ids, ide, jds, jde, kds, kde, &
                                         ims, ime, jms, jme, kms, kme, &
                                         its, ite, jts, jte, kts, kte, &
@@ -113,11 +115,10 @@
 !
 ! The CAM UW shallow Cu scheme only works with PBL schemes that generate
 ! TKE. So, for example, YSU would be an invalid choice to combine with
-! the UW scheme. For now, we are coupling into the tke_myj version of
-! TKE used by MYJ and CAMUWPBL. At some point, it would be great to unify
+! the UW scheme. For now, we are coupling into the tke_pbl version of
+! TKE used by MYJ, CAMUWPBL and others. At some point, it would be great to unify
 ! all the different TKEs output so that things work together properly.
-! For now, we are not trying to deal with the cacophony of variables,
-! i.e. tke & tke_pbl.
+! QKE from MYNN remains separate
 !
   select case(bl_pbl_physics)
   case (CAMUWPBLSCHEME, MYJPBLSCHEME)
@@ -148,7 +149,7 @@
 ! This would avoid mistakes from multiple initiations.
 !
   if( bl_pbl_physics /= CAMUWPBLSCHEME ) then
-     call vd_register
+     if(grid_id.eq.1)call vd_register
   end if
 #endif
 

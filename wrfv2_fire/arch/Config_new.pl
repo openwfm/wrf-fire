@@ -343,7 +343,7 @@ while ( <CONFIGURE_DEFAULTS> )
     if ( $sw_netcdf_path ) 
       { $_ =~ s/CONFIGURE_WRFIO_NF/wrfio_nf/g ;
 	$_ =~ s:CONFIGURE_NETCDF_FLAG:-DNETCDF: ;
-        if ( $sw_os == Interix ) {
+        if ( $sw_os eq "Interix" ) {
 	  $_ =~ s:CONFIGURE_NETCDF_LIB_PATH:\$\(WRF_SRC_ROOT_DIR\)/external/io_netcdf/libwrfio_nf.a -L$sw_netcdf_path/lib $sw_usenetcdff -lnetcdf : ;
         } else {
 	  $_ =~ s:CONFIGURE_NETCDF_LIB_PATH:-L\$\(WRF_SRC_ROOT_DIR\)/external/io_netcdf -lwrfio_nf -L$sw_netcdf_path/lib $sw_usenetcdff -lnetcdf : ;
@@ -358,7 +358,7 @@ while ( <CONFIGURE_DEFAULTS> )
     if ( $sw_pnetcdf_path ) 
       { $_ =~ s/CONFIGURE_WRFIO_PNF/wrfio_pnf/g ;
 	$_ =~ s:CONFIGURE_PNETCDF_FLAG:-DPNETCDF: ;
-        if ( $sw_os == Interix ) {
+        if ( $sw_os eq "Interix" ) {
 	  $_ =~ s:CONFIGURE_PNETCDF_LIB_PATH:\$\(WRF_SRC_ROOT_DIR\)/external/io_pnetcdf/libwrfio_pnf.a -L$sw_pnetcdf_path/lib -lpnetcdf: ;
         } else {
 	  $_ =~ s:CONFIGURE_PNETCDF_LIB_PATH:-L\$\(WRF_SRC_ROOT_DIR\)/external/io_pnetcdf -lwrfio_pnf -L$sw_pnetcdf_path/lib -lpnetcdf: ;
@@ -408,7 +408,7 @@ while ( <CONFIGURE_DEFAULTS> )
       {
         $_ =~ s:CONFIGURE_ESMF_FLAG::g ;
         $_ =~ s:ESMFLIBFLAG::g ;
-        if ( $sw_os == Interix ) {
+        if ( $sw_os eq "Interix" ) {
            $_ =~ s:ESMFIOLIB:\$\(WRF_SRC_ROOT_DIR\)/external/esmf_time_f90/libesmf_time.a:g ;
            $_ =~ s:ESMFIOEXTLIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/esmf_time_f90/libesmf_time.a:g ;
         } else {
@@ -418,15 +418,15 @@ while ( <CONFIGURE_DEFAULTS> )
       }
      if ( $ENV{HWRF} )
        {
-        $_ =~ s:CONFIGURE_ATMPOM_LIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/atm_pom  -latm_pom:g ;
-        $_ =~ s:CONFIGURE_ATMPOM_INC:-I\$\(WRF_SRC_ROOT_DIR\)/external/atm_pom:g;
-        $_ =~ s/CONFIGURE_ATMPOM/atm_pom/g ;
+        $_ =~ s:CONFIGURE_ATMOCN_LIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/atm_ocn  -latm_ocn:g ;
+        $_ =~ s:CONFIGURE_ATMOCN_INC:-I\$\(WRF_SRC_ROOT_DIR\)/external/atm_ocn:g;
+        $_ =~ s/CONFIGURE_ATMOCN/atm_ocn/g ;
        }
      else
        {
-        $_ =~ s:CONFIGURE_ATMPOM_LIB::g ;
-        $_ =~ s/CONFIGURE_ATMPOM//g ;
-        $_ =~ s:CONFIGURE_ATMPOM_INC::g;
+        $_ =~ s:CONFIGURE_ATMOCN_LIB::g ;
+        $_ =~ s/CONFIGURE_ATMOCN//g ;
+        $_ =~ s:CONFIGURE_ATMOCN_INC::g;
        }
 
     if ( ! (substr( $_, 0, 5 ) eq "#ARCH") ) { @machopts = ( @machopts, $_ ) ; }
@@ -564,13 +564,13 @@ while ( <ARCH_PREAMBLE> )
     }
   if ( $ENV{HWRF} )
     {
-    $_ =~ s:CONFIGURE_ATMPOM_LIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/atm_pom  -latm_pom:g ;
-    $_ =~ s/CONFIGURE_ATMPOM/atm_pom/g ;
+    $_ =~ s:CONFIGURE_ATMOCN_LIB:-L\$\(WRF_SRC_ROOT_DIR\)/external/atm_ocn  -latm_ocn:g ;
+    $_ =~ s/CONFIGURE_ATMOCN/atm_ocn/g ;
     }
   else
     {
-    $_ =~ s:CONFIGURE_ATMPOM_LIB::g ;
-    $_ =~ s/CONFIGURE_ATMPOM//g ;
+    $_ =~ s:CONFIGURE_ATMOCN_LIB::g ;
+    $_ =~ s/CONFIGURE_ATMOCN//g ;
     }
   $_ =~ s:CONFIGURE_EM_CORE:$sw_em_core:g ;
   $_ =~ s:CONFIGURE_DA_CORE:$sw_da_core:g ;

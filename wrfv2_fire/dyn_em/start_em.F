@@ -598,7 +598,12 @@
 
 !     Set a starting timestep.
 
-      grid%dt = grid%starting_time_step / grid%parent_time_step_ratio
+      grid%dt = grid%starting_time_step
+
+!     Initialize max cfl values
+      
+      grid%last_max_vert_cfl = 0
+      grid%last_max_horiz_cfl = 0
 
 !     Check to assure that time_step_sound is to be dynamically set.
 
@@ -653,8 +658,9 @@
         grid%stepfg=max(grid%stepfg,1)
      ENDIF
      
-     IF ( ( grid%dfi_opt .NE. DFI_NODFI .and. grid%dfi_stage .EQ. DFI_FWD) .or.            &
-          ( grid%dfi_opt .EQ. DFI_NODFI)) THEN
+    IF ( ( grid%dfi_opt .EQ. DFI_NODFI ) .or. &
+          ( ( grid%dfi_stage .NE. DFI_BCK ) .and. &
+          ( grid%dfi_stage .NE. DFI_STARTBCK ) ) ) THEN    !tgs, mods by tah
 
      CALL phy_init (  grid%id , config_flags, grid%DT, grid%RESTART, grid%znw, grid%znu,   &
                       grid%p_top, grid%tsk, grid%RADT,grid%BLDT,grid%CUDT, MPDT, &
@@ -669,6 +675,7 @@
                       grid%rthraten,grid%rthratenlw,grid%rthratensw,         &
                       grid%stepbl,grid%stepra,grid%stepcu,                   &
                       grid%w0avg, grid%rainnc, grid%rainc, grid%raincv, grid%rainncv,  &
+                      grid%snownc, grid%snowncv, grid%graupelnc, grid%graupelncv,  &
                       grid%nca,grid%swrad_scat,                    &
                       grid%cldefi,grid%lowlyr,                          &
                       grid%mass_flux,                              &
@@ -687,8 +694,7 @@
                       grid%lu_state,                                      &
                       grid%xlat,grid%xlong,grid%albedo,grid%albbck,grid%GMT,grid%JULYR,grid%JULDAY,     &
                       grid%levsiz, num_ozmixm, num_aerosolc, grid%paerlev,  &
-                      grid%tmn,grid%xland,grid%znt,grid%z0,grid%ust,grid%mol,grid%pblh,grid%tke_myj,    &
-                      grid%tke_pbl,                                                                  &
+                      grid%tmn,grid%xland,grid%znt,grid%z0,grid%ust,grid%mol,grid%pblh,grid%tke_pbl,    &
                       grid%exch_h,grid%thc,grid%snowc,grid%mavail,grid%hfx,grid%qfx,grid%rainbl, &
                       grid%tslb,grid%zs,grid%dzs,config_flags%num_soil_layers,grid%warm_rain,  &
                       grid%adv_moist_cond,                         &

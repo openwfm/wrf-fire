@@ -13,7 +13,7 @@ CONTAINS
                  ,ust,pblh,hfx,qfx,grdflx                          &
                  ,u_phy,v_phy,th_phy,rho                           &
                  ,p_phy,pi_phy,p8w,t_phy,dz8w,z                    &
-                 ,tke_myj,el_myj,exch_h,exch_m,akhs,akms           &
+                 ,exch_h,exch_m,akhs,akms                          &
                  ,thz0,qz0,uz0,vz0,qsfc,f                          &
                  ,lowlyr,u10,v10,t2                                   &
                  ,psim,psih,gz1oz0, wspd,br,chklowq                &
@@ -40,6 +40,7 @@ CONTAINS
                  ,hol, mol, regime                                 &
              ! Optional gravity-wave drag             
                  ,gwd_opt                                          &
+                 ,dtaux3d,dtauy3d                                  &
                  ,dusfcg,dvsfcg,var2d,oc12d                        &
                  ,oa1,oa2,oa3,oa4,ol1,ol2,ol3,ol4                  &
              !  Optional moisture tracers
@@ -56,8 +57,9 @@ CONTAINS
                ,b_u_bep,b_v_bep,b_t_bep,b_q_bep            &
                ,sf_bep,vl_bep                              &
                ,sf_sfclay_physics,sf_urban_physics         &
+               ,tke_pbl,el_pbl                             &
 #if (NMM_CORE != 1)
-               ,tke_pbl,el_pbl,wu_tur,wv_tur,wt_tur,wq_tur &
+               ,wu_tur,wv_tur,wt_tur,wq_tur &
 #endif
                ,a_e_bep,b_e_bep,dlg_bep                              &
                ,dl_u_bep                                             &
@@ -190,12 +192,10 @@ CONTAINS
 !-- HFX           upward heat flux at the surface (W/m^2)
 !-- QFX           upward moisture flux at the surface (kg/m^2/s)
 !-- REGIME        flag indicating PBL regime (stable, unstable, etc.)
-!-- tke_myj       turbulence kinetic energy from Mellor-Yamada-Janjic (MYJ) (m^2/s^2)
-!-- el_myj        mixing length from Mellor-Yamada-Janjic (MYJ) (m)
 !-- akhs          sfc exchange coefficient of heat/moisture from MYJ
 !-- akms          sfc exchange coefficient of momentum from MYJ
-!-- tke_pbl       turbulence kinetic energy from Bougeault and Lacarrere (BOULAC) (m^2/s^2)
-!-- el_pbl        length scale from Bougeault and Lacarrere (BOULAC) (m)
+!-- tke_pbl       turbulence kinetic energy from PBL schemes (m^2/s^2)
+!-- el_pbl        length scale from PBL schemes (m)
 !-- wu_tur        turbulent flux of momentum (x) (m^2/s^2)
 !-- wv_tur        turbulent flux of momentum (y) (m^2/s^2)
 !-- wt_tur        turbulent flux of potential temperature  (K m/s)
@@ -369,10 +369,8 @@ CONTAINS
                INTENT(INOUT)    ::                       RUBLTEN, &
                                                          RVBLTEN, &
                                                         RTHBLTEN, &
-                                                  EXCH_H,EXCH_M,TKE_MYJ
+                                                  EXCH_H,EXCH_M,TKE_PBL
 #if (NMM_CORE != 1)
-   REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
-               INTENT(INOUT)    ::                 tke_pbl,el_pbl
  REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
                INTENT(OUT)    ::                       WU_TUR,WV_TUR,WT_TUR,WQ_TUR
 !
@@ -395,7 +393,7 @@ CONTAINS
 
 !
    REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
-               INTENT(OUT)    ::                          EL_MYJ
+               INTENT(OUT)    ::                          EL_PBL
 
    REAL ,                             INTENT(IN   )  ::  u_frame, &
                                                          v_frame
@@ -483,7 +481,12 @@ CONTAINS
 !
    INTEGER,    OPTIONAL, INTENT(IN)    ::               gwd_opt
    REAL,       OPTIONAL, INTENT(IN)    ::               p_top
-
+!
+  real,   dimension( ims:ime, kms:kme, jms:jme )                             , &
+          optional                                                           , &
+             intent(inout  )   ::                                     dtaux3d, &
+                                                                      dtauy3d
+!
   real,   dimension( ims:ime, jms:jme )                                      , &
           optional                                                           , &
              intent(inout  )   ::                                      dusfcg, &
@@ -1004,8 +1007,8 @@ CONTAINS
               ,QZ0=qz0,UZ0=uz0,VZ0=vz0                              &
               ,LOWLYR=lowlyr                                        &
               ,XLAND=xland,SICE=xice,SNOW=snow                      &
-              ,TKE_MYJ=tke_myj,EXCH_H=exch_h,USTAR=ust,ZNT=znt      &
-              ,EL_MYJ=el_myj,PBLH=pblh,KPBL=kpbl,CT=ct              &
+              ,TKE_MYJ=tke_pbl,EXCH_H=exch_h,USTAR=ust,ZNT=znt      &
+              ,EL_MYJ=el_pbl,PBLH=pblh,KPBL=kpbl,CT=ct              &
               ,AKHS=akhs,AKMS=akms,ELFLX=lh,MIXHT=mixht             &  
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten                  &
@@ -1027,9 +1030,9 @@ CONTAINS
               ,QZ0=qz0,UZ0=uz0,VZ0=vz0                              &
               ,LOWLYR=lowlyr                                        &
               ,XLAND=xland,SICE=xice,SNOW=snow                      &
-              ,TKE_MYJ=tke_myj,EXCH_H=exch_h,EXCH_M=exch_m          &
+              ,TKE_MYJ=tke_pbl,EXCH_H=exch_h,EXCH_M=exch_m          &
               ,USTAR=ust,ZNT=znt                                    &
-              ,EL_MYJ=el_myj,PBLH=pblh,KPBL=kpbl,CT=ct              &
+              ,EL_MYJ=el_pbl,PBLH=pblh,KPBL=kpbl,CT=ct              &
               ,AKHS=akhs,AKMS=akms,ELFLX=lh                         &
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten                  &
@@ -1077,8 +1080,8 @@ CONTAINS
               ,QZ0=qz0,UZ0=uz0,VZ0=vz0,CORF=f                       &
               ,LOWLYR=lowlyr                                        &
               ,XLAND=xland,SICE=xice,SNOW=snow                      &
-              ,TKE=tke_myj,EXCH_H=exch_h,EXCH_M=exch_m,USTAR=ust,ZNT=znt      &
-              ,EL_MYJ=el_myj,PBLH=pblh,KPBL=kpbl,CT=ct              &
+              ,TKE=tke_pbl,EXCH_H=exch_h,EXCH_M=exch_m,USTAR=ust,ZNT=znt      &
+              ,EL_MYJ=el_pbl,PBLH=pblh,KPBL=kpbl,CT=ct              &
               ,AKHS=akhs,AKMS=akms,ELFLX=lh                         &
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten                  &
@@ -1238,7 +1241,7 @@ CONTAINS
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten               &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqvblten                             &
               ,TKE=tke_pbl,DLK=el_pbl,WU=wu_tur,WV=wv_tur,WT=wt_tur,WQ=wq_tur  &
-              ,EXCH_H=exch_h,EXCH_M=exch_m                                     &
+              ,EXCH_H=exch_h,EXCH_M=exch_m,PBLH=pblh                           &
               ,A_U_BEP=a_u_bep,A_V_BEP=a_v_bep,A_T_BEP=a_t_bep                 &
               ,A_Q_BEP=a_q_bep                                                 &
               ,A_E_BEP=a_e_bep,B_U_BEP=b_u_bep,B_V_BEP=b_v_bep                 &
@@ -1249,9 +1252,6 @@ CONTAINS
               ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme                 &
               ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte  )
 
-              if(flag_myjsfc)then
-               tke_myj(its:ite,kts:kte,jts:jte)=tke_pbl(its:ite,kts:kte,jts:jte)
-              endif
            CASE (CAMUWPBLSCHEME)
               
            IF ( PRESENT( z_at_w )  .AND. PRESENT( tauresx2d )) THEN 
@@ -1260,7 +1260,7 @@ CONTAINS
               CALL CAMUWPBL(DT=dt,U_PHY=u_phy,V_PHY=v_phy,TH_PHY=th_phy,RHO=rho   &
                ,QV_CURR=qv_curr,HFX=hfx,QFX=qfx,USTAR=ust,RUBLTEN=rublten         &
                ,RVBLTEN=rvblten,RTHBLTEN=rthblten,RQVBLTEN=rqvblten               &
-               ,RQCBLTEN=rqcblten,TKE_MYJ=tke_myj,PBLH2D=pblh,KPBL2D=kpbl         &
+               ,RQCBLTEN=rqcblten,TKE_PBL=tke_pbl,PBLH2D=pblh,KPBL2D=kpbl         &
                ,P8W=p8w,P_PHY=p_phy,Z=z,T_PHY=t_phy,QC_CURR=qc_curr               &
                ,QI_CURR=qi_curr,Z_AT_W=z_at_w,CLDFRA=cldfra,HT=ht                 &
                ,RTHRATENLW=rthratenlw,EXNER=pi_phy,ITIMESTEP=itimestep            &
@@ -1284,13 +1284,14 @@ CONTAINS
 
    END SELECT pbl_select
 
-   IF (PRESENT(gwd_opt)) THEN
+   IF (PRESENT(dtaux3d)) THEN
        IF(gwd_opt .EQ. 1)THEN
              CALL gwdo(                                              &
                U3D=u_phytmp,V3D=v_phytmp,T3D=t_phy      &
               ,QV3D=qv_curr                                         &
               ,P3D=p_phy,P3DI=p8w,PI3D=pi_phy,Z=z                        &
               ,RUBLTEN=rublten,RVBLTEN=rvblten                      &
+              ,DTAUX3D=dtaux3d,DTAUY3D=dtauy3d                      &
               ,DUSFCG=dusfcg,DVSFCG=dvsfcg &
               ,VAR2D=var2d,OC12D=oc12d     &
               ,OA2D1=oa1,OA2D2=oa2,OA2D3=oa3,OA2D4=oa4  &

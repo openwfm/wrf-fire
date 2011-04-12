@@ -17,7 +17,7 @@ CONTAINS
                      ,itimestep,dt,dx,cudt,curr_secs,adapt_step_flag  &
                      ,rainc,raincv,pratec,nca                         &
                      ,z,z_at_w,dz8w,mavail,pblh,p8w,psfc,tsk          &
-                     ,tke_myj, ust                                    &
+                     ,tke_pbl, ust                                    &
                      ,forcet,forceq,w0avg,stepcu,gsw                  &
                      ,cldefi,lowlyr,xland,cu_act_flag,warm_rain       &
                      ,hfx,qfx,cldfra,tpert2d,htop,hbot,kpbl,ht&
@@ -186,7 +186,7 @@ CONTAINS
 !-- th_phy        potential temperature (K)
 !-- t_phy         temperature (K)
 !-- tsk           skin temperature (K)
-!-- tke_myj       turbulent kinetic energy from MYJ scheme (m2/s2)
+!-- tke_pbl       turbulent kinetic energy from PBL scheme (m2/s2)
 !-- ust           u* in similarity theory (m/s)
 !-- w             vertical velocity (m/s)
 !-- moist         moisture array (4D - last index is species) (kg/kg)
@@ -305,7 +305,7 @@ CONTAINS
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                 &
          INTENT(IN ),OPTIONAL ::                         z_at_w  &
                                                       ,  cldfra  &
-                                                      , tke_myj  
+                                                      , tke_pbl  
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                 &
          INTENT(INOUT)  ::                                       &
@@ -499,10 +499,13 @@ CONTAINS
        enddo
       ENDDO
       !$OMP END PARALLEL DO
+      endif
+
+      IF ( cu_physics == G3SCHEME .OR. cu_physics == KFETASCHEME ) THEN
 #ifdef DM_PARALLEL
 #include "HALO_CUP_G3_IN.inc"
 #endif
-      endif
+      ENDIF
 #endif
 
 ! DON'T JUDGE TIME STEP HERE, SINCE KF NEEDS ACCUMULATED W FIELD.
@@ -578,11 +581,6 @@ CONTAINS
 
      CASE (KFETASCHEME)
           CALL wrf_debug(100,'in kf_eta_cps')
-#if  ( EM_CORE == 1 )
-#ifdef DM_PARALLEL                                      ! chen
-#include "HALO_CUP_G3_IN.inc"                           ! chen
-#endif                                                  ! chen
-#endif                                                  ! chen
           CALL KF_ETA_CPS(                                      &
                 U=u ,V=v ,TH=th ,T=t ,W=w ,RHO=rho              &
                ,CUDT=cudt_pass                                  &
@@ -757,7 +755,7 @@ CONTAINS
                ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte     &
                ,ITIMESTEP=itimestep, BL_PBL_PHYSICS=bl_pbl_physics  &
                ,SF_SFCLAY_PHYSICS=sf_sfclay_physics                 &
-               ,TH=th, T_PHY=t, TSK=tsk, TKE_MYJ=tke_myj, UST=ust   &
+               ,TH=th, T_PHY=t, TSK=tsk, TKE_PBL=tke_pbl, UST=ust   &
                ,QV=qv_curr, QC=qc_curr, QI=qi_curr, MAVAIL=mavail   &
                ,KPBL=kpbl, PBLH=pblh, XLAND=xland                   & 
                ,Z=z, Z_AT_W=z_at_w                                  &
@@ -850,7 +848,7 @@ CONTAINS
                 P_FIRST_SCALAR=param_first_scalar               &
                ,CP=cp,CLIQ=cliq,CPV=cpv,G=g,XLV=xlv,R_D=r_d     &
                ,R_V=r_v,EP_1=ep_1,EP_2=EP_2                     &
-               ,CICE=cice,XLV0=xlv0,XLS=xls,PSAT=psat           &
+               ,CICE=cice,XLS=xls,PSAT=psat                     &
                ,F_QI=f_qi,F_QC=f_qc                             & 
                ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde &
                ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme &
