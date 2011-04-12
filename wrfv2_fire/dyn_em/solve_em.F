@@ -702,6 +702,10 @@ BENCH_END(set_phys_bc_tim)
                              , ids, ide, jds, jde, kds, kde     &
                              , ims, ime, jms, jme, kms, kme     &
                              , ips, ipe, jps, jpe, kps, kpe     &
+                             , imsx, imex, jmsx, jmex, kmsx, kmex    &
+                             , ipsx, ipex, jpsx, jpex, kpsx, kpex    &
+                             , imsy, imey, jmsy, jmey, kmsy, kmey    &
+                             , ipsy, ipey, jpsy, jpey, kpsy, kpey    &
                              , k_start , k_end                  &
                             )
 
@@ -3084,8 +3088,9 @@ BENCH_END(bc_end_tim)
 BENCH_START(advance_ppt_tim)
      CALL wrf_debug ( 200 , ' call advance_ppt' )
      CALL advance_ppt(grid%rthcuten,grid%rqvcuten,grid%rqccuten,grid%rqrcuten, &
-                      grid%rqicuten,grid%rqscuten,grid%rainc,grid%raincv,grid%pratec, grid%nca,    &
-                      grid%htop,grid%hbot,grid%cutop,grid%cubot,                 &
+                      grid%rqicuten,grid%rqscuten,           &
+                      grid%rainc,grid%raincv,grid%rainsh,grid%pratec,grid%pratesh, &
+                      grid%nca,grid%htop,grid%hbot,grid%cutop,grid%cubot,  &
                       grid%cuppt, grid%dt, config_flags,                   &
                       ids,ide, jds,jde, kds,kde,             &
                       ims,ime, jms,jme, kms,kme,             &
