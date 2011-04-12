@@ -561,6 +561,21 @@ integer::oops1,oops2
                   END DO
                END DO
             END DO
+
+            !  For UM data, the "surface" and the "first hybrid" level for the theta-level data fields are the same.  
+            !  Average the surface (k=1) and the second hybrid level (k=num_metgrid_levels-1) to get the first hybrid
+            !  layer.  We only do this for the theta-level data: pressure, temperature, specific humidity, and
+            !  geopotential height (i.e. we do not modify u, v, or the rho-based pressure).
+
+            DO j = jts, MIN(jte,jde-1)
+               DO i = its, MIN(ite,ide-1)
+                  IF ( skip_middle_points_t ( ids , ide , jds , jde , i , j , em_width , hold_ups ) ) CYCLE 
+                  grid%  p_gc(i,num_metgrid_levels,j) = ( grid%  p_gc(i,1,j) + grid%  p_gc(i,num_metgrid_levels-1,j) ) * 0.5
+                  grid%  t_gc(i,num_metgrid_levels,j) = ( grid%  t_gc(i,1,j) + grid%  t_gc(i,num_metgrid_levels-1,j) ) * 0.5
+                  grid% sh_gc(i,num_metgrid_levels,j) = ( grid% sh_gc(i,1,j) + grid% sh_gc(i,num_metgrid_levels-1,j) ) * 0.5
+                  grid%ght_gc(i,num_metgrid_levels,j) = ( grid%ght_gc(i,1,j) + grid%ght_gc(i,num_metgrid_levels-1,j) ) * 0.5
+               END DO
+            END DO
          END IF
 
          !  Check for and semi-fix missing surface fields.
@@ -2185,7 +2200,7 @@ endif
             DO i = its, min(ide-1,ite)
                IF ( skip_middle_points_t ( ids , ide , jds , jde , i , j , em_width , hold_ups ) ) CYCLE 
                p_surf = p00 * EXP ( -t00/a + ( (t00/a)**2 - 2.*g*grid%ht(i,j)/a/r_d ) **0.5 )
-               grid%psfc(i,j)=p_surf + grid%p(i,1,j)
+!              grid%psfc(i,j)=p_surf + grid%p(i,1,j)
                grid%th2(i,j)=grid%t2(i,j)*(p00/(grid%p(i,1,j)+grid%pb(i,1,j)))**(r_d/cp)
             END DO
          END DO
@@ -3048,7 +3063,7 @@ end subroutine fillitup
          DO i = istart , iend
             ko_above_sfc(i) = -1
          END DO
-         DO ko = kstart+1 , kend
+         DO ko = kstart+1 , generic
             DO i = istart , iend
                IF ( ko_above_sfc(i) .EQ. -1 ) THEN
                   IF ( porig(i,1,j) .GT. porig(i,ko,j) ) THEN
@@ -4201,13 +4216,13 @@ print *,'p target= ',target_x
              if ( p(i,k,j) .NE. 0. ) then
                t(i,k,j) = t(i,k,j) / ( ( p00 / p(i,k,j) ) ** (Rd / Cp) )
              else
-               WRITE(mess,FMT='(*)') 'Troubles in theta_to_t'
+               WRITE(mess,*) 'Troubles in theta_to_t'
                CALL wrf_debug(0,mess)
-               WRITE(mess,FMT='(*)') "i,j,k = ", i,j,k
+               WRITE(mess,*) "i,j,k = ", i,j,k
                CALL wrf_debug(0,mess)
-               WRITE(mess,FMT='(*)') "p(i,k,j) = ", p(i,k,j)
+               WRITE(mess,*) "p(i,k,j) = ", p(i,k,j)
                CALL wrf_debug(0,mess)
-               WRITE(mess,FMT='(*)') "t(i,k,j) = ", t(i,k,j)
+               WRITE(mess,*) "t(i,k,j) = ", t(i,k,j)
                CALL wrf_debug(0,mess)
              endif
             END DO
@@ -4477,14 +4492,14 @@ print *,'p sfc = ',psfc(i,j)
                      es=.01*rh(i,k,j)*svp1*10.*EXP(svp2*(t(i,k,j)-svpt0)/(t(i,k,j)-svp3))
                      IF (es .ge. p(i,k,j)/100.)THEN
                        q(i,k,j)=0.0
-                       WRITE(mess,FMT='(*)') 'Warning: vapor pressure exceeds total pressure, setting Qv to 0'
+                       WRITE(mess,*) 'Warning: vapor pressure exceeds total pressure, setting Qv to 0'
                        CALL wrf_debug(0,mess)
                      ELSE
                        q(i,k,j)=eps*es/(p(i,k,j)/100.-es)
                      ENDIF
                   else
                      q(i,k,j)=0.0
-                     WRITE(mess,FMT='(*)') 't(i,j,k) was 0 at ', i,j,k,', setting Qv to 0'
+                     WRITE(mess,*) 't(i,j,k) was 0 at ', i,j,k,', setting Qv to 0'
                      CALL wrf_debug(0,mess)
                   endif
                END DO
@@ -5550,8 +5565,8 @@ FUNCTION skip_middle_points_t ( ids , ide , jds , jde , &
    IF ( subtleties_exist ) THEN
       skip_it = .FALSE.
    ELSE
-      IF ( ( i_in .GE. ids+width+slop ) .AND. ( i_in .LE. ide-1-slop )   .AND. &
-           ( j_in .GE. jds+width+slop ) .AND. ( j_in .LE. jde-1-slop ) ) THEN
+      IF ( ( i_in .GT. ids+width+slop ) .AND. ( i_in .LT. ide-1-width-slop )   .AND. &
+           ( j_in .GT. jds+width+slop ) .AND. ( j_in .LT. jde-1-width-slop ) ) THEN
          skip_it = .TRUE.
       ELSE
          skip_it = .FALSE.

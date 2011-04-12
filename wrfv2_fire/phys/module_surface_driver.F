@@ -71,7 +71,7 @@ CONTAINS
      &          ,sn_ndg_old, sn_ndg_new                               &
      &          ,t2obs, q2obs                                         &
              ! OPTIONAL, Required by TEMF surface layer 1/7/09 WA
-     &          ,hd_temf,te_temf,fCor,exch_temf                       &
+     &          ,hd_temf,te_temf,fCor,exch_temf,wm_temf               &
              ! Required by ideal SCM surface layer 1/6/10 WA
      &          ,hfx_force,lh_force,tsk_force                       &
      &          ,hfx_force_tend,lh_force_tend,tsk_force_tend          &
@@ -366,7 +366,7 @@ CONTAINS
    LOGICAL, INTENT(IN )::   WARM_RAIN
    LOGICAL, INTENT(IN)::   tice2tsk_if2cold
    INTEGER, INTENT(INOUT ),OPTIONAL ::   NYEAR
-   INTEGER, INTENT(INOUT ),OPTIONAL ::   NDAY
+   REAL   , INTENT(INOUT ),OPTIONAL ::   NDAY
    INTEGER, INTENT(IN ),OPTIONAL ::   YR
    REAL , INTENT(IN )::   U_FRAME
    REAL , INTENT(IN )::   V_FRAME
@@ -622,7 +622,7 @@ CONTAINS
 
 ! Variables for TEMF surface layer
    REAL,OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) :: te_temf
-   REAL,OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: hd_temf, exch_temf
+   REAL,OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: hd_temf, exch_temf, wm_temf
    REAL,OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN   ) :: fCor
 
 ! Variables for ideal SCM surface layer
@@ -1281,7 +1281,7 @@ CONTAINS
                U10=u10,V10=v10,TH2=th2,T2=t2,Q2=q2,                &
                SVP1=svp1,SVP2=svp2,SVP3=svp3,SVPT0=svpt0,EP1=ep_1, &
                EP2=ep_2,KARMAN=karman,fCor=fCor,te_temf=te_temf,   &
-               hd_temf=hd_temf,exch_temf=exch_temf,                &
+               hd_temf=hd_temf,exch_temf=exch_temf,wm_temf=wm_temf,&
                ids=ids,ide=ide, jds=jds,jde=jde, kds=kds,kde=kde,  &
                ims=ims,ime=ime, jms=jms,jme=jme, kms=kms,kme=kme,  &
                its=i_start(ij),ite=i_end(ij),                      &
@@ -1615,13 +1615,6 @@ CONTAINS
          DO i=i_start(ij),i_end(ij)                           !urban
           IF( IVGTYP(I,J) == ISURBAN .or. IVGTYP(I,J) == 31 .or. &  !urban
               IVGTYP(I,J) == 32 .or. IVGTYP(I,J) == 33 ) THEN !urban
-!             TH2(I,J)  = TH2_URB2D(I,J)                       !urban
-!             T2(I,J)   = TH2_URB2D(I,J)/(1.E5/PSFC(I,J))**RCP !urban
-!m             T2(I,J)   = TH2_URB2D(I,J)                       !urban
-!             T2(I,J)   = FRC_URB2D(i,j)*TH2_URB2D(I,J) + (1-FRC_URB2D(i,j))*T2(I,J) !urban
-!             TH2(I,J) = T2(I,J)*(1.E5/PSFC(I,J))**RCP                               !urban
-!m             Q2(I,J)   = Q2_URB2D(I,J)                                            !urban
-!             Q2(I,J)   = FRC_URB2D(i,j)*Q2_URB2D(I,J) +(1-FRC_URB2D(i,j))* Q2(I,J)  !urban
              U10(I,J)  = U10_URB2D(I,J)                       !urban
              V10(I,J)  = V10_URB2D(I,J)                       !urban
              PSIM(I,J) = PSIM_URB2D(I,J)                      !urban

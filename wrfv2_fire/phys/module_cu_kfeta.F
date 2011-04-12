@@ -2,6 +2,12 @@ MODULE module_cu_kfeta
 
    USE module_wrf_error
 
+!
+!  V3.3: A new trigger function is added based Ma and Tan (2009):
+!   Ma, L.-M. and Z.-M. Tan, 2009: Improving the behavior of 
+!   the cumulus parameterization for tropical cyclone prediction: 
+!   Convection trigger. Atmospheric Research, 92, 190 - 211.
+!
 !--------------------------------------------------------------------
 ! Lookup table variables:
       INTEGER, PARAMETER :: KFNT=250,KFNP=220
@@ -207,6 +213,29 @@ CONTAINS
       ENDDO
    ENDDO
    lastdt = dt
+!
+!...CHECK FOR CONVECTIVE INITIATION EVERY 5 MINUTES (OR NTST/2)...
+!
+! Modified for adaptive time step
+!
+   if (ADAPT_STEP_FLAG) then
+      if ( (KTAU .eq. 1) .or. (cudt .eq. 0) .or. &
+           ( CURR_SECS + dt >= &
+           ( int( CURR_SECS / ( cudt * 60 ) ) + 1 ) * cudt * 60 ) ) then
+         run_param = .TRUE.
+      else
+         run_param = .FALSE.
+      endif
+
+   else
+      if (MOD(KTAU,NTST) .EQ. 0 .or. KTAU .eq. 1) then
+         run_param = .TRUE.
+      else
+         run_param = .FALSE.
+      endif
+   endif
+
+   if (run_param) then
 
 ! New trigger function
      IF (trigger.eq.2) THEN         
@@ -354,29 +383,6 @@ CONTAINS
         ENDDO
         ENDDO
      ENDIF       ! endif (trigger.eq.2)          
-!
-!...CHECK FOR CONVECTIVE INITIATION EVERY 5 MINUTES (OR NTST/2)...
-!
-! Modified for adaptive time step
-!
-   if (ADAPT_STEP_FLAG) then
-      if ( (KTAU .eq. 1) .or. (cudt .eq. 0) .or. &
-           ( CURR_SECS + dt >= &
-           ( int( CURR_SECS / ( cudt * 60 ) ) + 1 ) * cudt * 60 ) ) then
-         run_param = .TRUE.
-      else
-         run_param = .FALSE.
-      endif
-
-   else
-      if (MOD(KTAU,NTST) .EQ. 0 .or. KTAU .eq. 1) then
-         run_param = .TRUE.
-      else
-         run_param = .FALSE.
-      endif
-   endif
-
-   if (run_param) then
 !
      DO J = jts,jte
      DO I= its,ite

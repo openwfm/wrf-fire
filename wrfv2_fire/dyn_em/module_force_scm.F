@@ -194,19 +194,19 @@ CONTAINS
      tau_y = tau_y + dt*tau_y_tend 
      tau_largescale = tau_largescale + dt*tau_largescale_tend 
 
-     if ( scm_th_adv ) then
+     if ( scm_th_adv .AND. th_upstream_x(1) > 0.) then
        th_upstream_x = th_upstream_x + dt*th_upstream_x_tend
        th_upstream_y = th_upstream_y + dt*th_upstream_y_tend
      endif
-     if ( scm_qv_adv) then
+     if ( scm_qv_adv .AND. qv_upstream_x(1) > 0.) then
        qv_upstream_x = qv_upstream_x + dt*qv_upstream_x_tend
        qv_upstream_y = qv_upstream_y + dt*qv_upstream_y_tend
      endif
-     if ( scm_ql_adv) then
+     if ( scm_ql_adv .AND. ql_upstream_x(1) > 0.) then
        ql_upstream_x = ql_upstream_x + dt*ql_upstream_x_tend
        ql_upstream_y = ql_upstream_y + dt*ql_upstream_y_tend
      endif
-     if ( scm_wind_adv ) then
+     if ( scm_wind_adv .AND. u_upstream_x(1) > -900.) then
        u_upstream_x = u_upstream_x + dt*u_upstream_x_tend
        u_upstream_y = u_upstream_y + dt*u_upstream_y_tend
        v_upstream_x = v_upstream_x + dt*v_upstream_x_tend
@@ -216,16 +216,16 @@ CONTAINS
        w_subs = w_subs + dt*w_subs_tend
      endif
 
-     if ( scm_force_th_largescale ) then
+     if ( scm_force_th_largescale .AND. th_largescale(1) > 0.) then
        th_largescale = th_largescale + dt*th_largescale_tend
      endif
-     if ( scm_force_qv_largescale) then
+     if ( scm_force_qv_largescale .AND. qv_largescale(1) > 0.) then
        qv_largescale = qv_largescale + dt*qv_largescale_tend
      endif
-     if ( scm_force_ql_largescale) then
+     if ( scm_force_ql_largescale.AND. ql_largescale(1) > 0.) then
        ql_largescale = ql_largescale + dt*ql_largescale_tend
      endif
-     if ( scm_force_wind_largescale ) then
+     if ( scm_force_wind_largescale .AND. u_largescale(1) > -900.) then
        u_largescale = u_largescale + dt*u_largescale_tend
        v_largescale = v_largescale + dt*v_largescale_tend
      endif
@@ -250,6 +250,7 @@ CONTAINS
      v_ls_tend  = 0.0
      w_dthdz     = 0.0
      w_dqvdz     = 0.0
+     w_dqldz     = 0.0
      w_dudz      = 0.0
      w_dvdz      = 0.0
      adv_timescale_x = 0.0
@@ -268,36 +269,16 @@ CONTAINS
        CALL wrf_debug ( 100, message )
     enddo
 
-    if ( scm_th_adv .or. scm_qv_adv .or. scm_wind_adv ) then
+    if ( scm_th_adv .or. scm_qv_adv .or. scm_ql_adv .or. scm_wind_adv ) then
        if ( scm_th_adv ) CALL wrf_debug ( 100, 'k  tau_x  tau_y t_ups_x t_ups_y t_m ' )
        do k = kms,kme-1
-
-          u_x = interp_0(u_upstream_x,z_force,z(ids,k,jds),num_force_layers)
-          u_y = interp_0(u_upstream_y,z_force,z(ids,k,jds),num_force_layers)
-
-          v_x = interp_0(v_upstream_x,z_force,z(ids,k,jds),num_force_layers)
-          v_y = interp_0(v_upstream_y,z_force,z(ids,k,jds),num_force_layers)
-
           adv_timescale_x(k) = interp_0(tau_x,z_force,z(ids,k,jds),num_force_layers)
           adv_timescale_y(k) = interp_0(tau_y,z_force,z(ids,k,jds),num_force_layers)
-
-
-!          tau_u(k) = dx/abs(u(ids,k,jds))
-!          tau_v(k) = dx/abs(v(ids,k,jds))
-!          adv_timescale_x(k) = dx/abs(u(ids,k,jds))
-!          adv_timescale_y(k) = dx/abs(v(ids,k,jds))
-
-          if ( scm_wind_adv ) then
-             u_adv_tend(k) = (u_x-u(ids,k,jds))/adv_timescale_x(k) + (u_y-u(ids,k,jds))/adv_timescale_y(k)
-             v_adv_tend(k) = (v_x-v(ids,k,jds))/adv_timescale_x(k) + (v_y-v(ids,k,jds))/adv_timescale_y(k)
-          endif
-
        enddo
     endif
 
-
     if ( scm_th_adv ) then
-       if ( th_upstream_x(kms) > 0.) then
+       if ( th_upstream_x(1) > 0.) then
           do k = kms,kme-1
              t_x = interp_0(th_upstream_x,z_force,z(ids,k,jds),num_force_layers)
              t_y = interp_0(th_upstream_y,z_force,z(ids,k,jds),num_force_layers)
@@ -328,12 +309,14 @@ CONTAINS
      endif
 
     if ( scm_qv_adv ) then
-       if ( qv_upstream_x(kms) > 0.) then
+       if ( qv_upstream_x(1) > 0.) then
           do k = kms,kme-1
              qv_x = interp_0(qv_upstream_x,z_force,z(ids,k,jds),num_force_layers)
              qv_y = interp_0(qv_upstream_y,z_force,z(ids,k,jds),num_force_layers)
 
              qv_adv_tend(k) = (qv_x-qv(ids,k,jds))/adv_timescale_x(k) + (qv_y-qv(ids,k,jds))/adv_timescale_y(k)
+             WRITE( message, * ) 'qv_adv_tend branch 1',k,adv_timescale_x(k), qv_upstream_x(k), adv_timescale_y(k), qv_x, qv_y, qv(ids,k,jds), qv_adv_tend(k)
+             CALL wrf_debug ( 100, message )
           enddo
        else ! WA if upstream is empty, use tendency only not value+tend
           do k = kms,kme-1
@@ -341,12 +324,14 @@ CONTAINS
              qv_y = interp_0(dt*qv_upstream_y_tend,z_force,z(ids,k,jds),num_force_layers)
 
              qv_adv_tend(k) = qv_x/adv_timescale_x(k) + qv_y/adv_timescale_y(k)
+             WRITE( message, * ) 'qv_adv_tend branch 2',k,adv_timescale_x(k), adv_timescale_y(k), qv_upstream_x(k), qv_x, qv_y, qv(ids,k,jds), qv_adv_tend(k)
+             CALL wrf_debug ( 100, message )
           enddo
        endif
     endif
 
     if ( scm_ql_adv ) then
-       if ( ql_upstream_x(kms) > 0.) then
+       if ( ql_upstream_x(1) > 0.) then
           do k = kms,kme-1
              ql_x = interp_0(ql_upstream_x,z_force,z(ids,k,jds),num_force_layers)
              ql_y = interp_0(ql_upstream_y,z_force,z(ids,k,jds),num_force_layers)
@@ -364,7 +349,7 @@ CONTAINS
     endif
 
     if ( scm_wind_adv ) then
-       if ( u_upstream_x(kms) > -900.) then
+       if ( u_upstream_x(1) > -900.) then
           do k = kms,kme-1
              u_x = interp_0(u_upstream_x,z_force,z(ids,k,jds),num_force_layers)
              u_y = interp_0(u_upstream_y,z_force,z(ids,k,jds),num_force_layers)
@@ -398,7 +383,7 @@ CONTAINS
     endif
 
     if ( scm_force_th_largescale ) then
-       if ( th_largescale(kms) > 0.) then
+       if ( th_largescale(1) > 0.) then
           do k = kms,kme-1
              t_ls = interp_0(th_largescale,z_force,z(ids,k,jds),num_force_layers)
              th_ls_tend(k) = (t_ls-th(ids,k,jds))/ls_timescale(k)
@@ -412,7 +397,7 @@ CONTAINS
     endif
 
     if ( scm_force_qv_largescale ) then
-       if ( qv_largescale(kms) > 0.) then
+       if ( qv_largescale(1) > 0.) then
           do k = kms,kme-1
              qv_ls = interp_0(qv_largescale,z_force,z(ids,k,jds),num_force_layers)
              qv_ls_tend(k) = (qv_ls-qv(ids,k,jds))/ls_timescale(k)
@@ -426,7 +411,7 @@ CONTAINS
     endif
 
     if ( scm_force_ql_largescale ) then
-       if ( ql_largescale(kms) > 0.) then
+       if ( ql_largescale(1) > 0.) then
           do k = kms,kme-1
              ql_ls = interp_0(ql_largescale,z_force,z(ids,k,jds),num_force_layers)
              ql_ls_tend(k) = (ql_ls-ql(ids,k,jds))/ls_timescale(k)
@@ -440,7 +425,7 @@ CONTAINS
     endif
 
     if ( scm_force_wind_largescale ) then
-       if ( u_largescale(kms) > -900.) then
+       if ( u_largescale(1) > -900.) then
           do k = kms,kme-1
              u_ls = interp_0(u_largescale,z_force,z(ids,k,jds),num_force_layers)
              v_ls = interp_0(v_largescale,z_force,z(ids,k,jds),num_force_layers)
@@ -483,10 +468,10 @@ CONTAINS
 
 ! set tendencies for return
 ! vertical advection tendencies need to be interpolated back to half levels
-    CALL wrf_debug ( 100, 'j, k, th_adv_ten, qv_adv_ten, u_adv_ten, v_adv_ten')
+    CALL wrf_debug ( 100, 'j, k, th_adv_ten, qv_adv_ten, ql_adv_ten, u_adv_ten, v_adv_ten')
     do j = jms,jme
     do k = kms,kme-1
-    if(j==1) WRITE( message, '(i4,4f12.4)' ) k,th_adv_tend(k),qv_adv_tend(k),u_adv_tend(k),v_adv_tend(k)
+    if(j==1) WRITE( message, * ) k,th_adv_tend(k),qv_adv_tend(k),ql_adv_tend(k), u_adv_tend(k),v_adv_tend(k)
     if(j==1) CALL wrf_debug ( 100, message )
     do i = ims,ime
        thten(i,k,j) = thten(i,k,j) + th_adv_tend(k) +              &

@@ -742,7 +742,7 @@
                       t00, p00, a,                      & ! for obs_nudge base state
                       grid%TYR, grid%TYRA, grid%TDLY, grid%TLAG, grid%NYEAR, grid%NDAY,grid%tmn_update, &
                       grid%achfx, grid%aclhf, grid%acgrdflx                 &
-                      ,grid%te_temf,grid%cf3d_temf             & ! WA
+                      ,grid%te_temf,grid%cf3d_temf,grid%wm_temf        & ! WA
                       )
        ENDIF   !tgs
 
@@ -1149,7 +1149,9 @@
                 ims,ime, jms,jme, kms,kme,                                  &
                 its,ite, jts,jte, kts,kte-1                                 )
 
-        case (CBMZ_MOSAIC_4BIN,CBMZ_MOSAIC_8BIN,CBMZ_MOSAIC_4BIN_AQ,CBMZ_MOSAIC_8BIN_AQ)
+        case (CBMZ_MOSAIC_4BIN,CBMZ_MOSAIC_8BIN,CBMZ_MOSAIC_4BIN_AQ,CBMZ_MOSAIC_8BIN_AQ, &
+              CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ,       &
+              CBMZ_MOSAIC_DMS_8BIN_AQ)
            call sum_pm_mosaic (                                             &
                 grid%alt, chem,                                                  &
                 grid%pm2_5_dry, grid%pm2_5_water, grid%pm2_5_dry_ec, grid%pm10,                 &
