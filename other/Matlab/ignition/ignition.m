@@ -3,6 +3,7 @@ function B=ignition(data)
 %%%%% What is new in this version %%%%%
 %  Added calculation of ignition time for points, that are outside
 %  the burning area
+% Time of ignition of the ignition point = ign_time
 
 % The function Ignition plots and showes how the fire was propagating,
 %           given ignition point, boundary region and time_now
@@ -20,7 +21,7 @@ function B=ignition(data)
 % Output:   Matrix of time of ignition of all the mesh points
 %
 %
-% Volodymyr Kondratenko           April 8 2011
+% Volodymyr Kondratenko           February 17 2011
 %--------------------------------------
 % Command line: what to do to call the function
 %--------------------------------------
@@ -96,6 +97,7 @@ end
  
 aa=0;
 eps=0.1;
+ign_time=1; % time of ignition of the ignition point
 for i=1:mesh_size(1)     
     for j=1:mesh_size(2)
         if (ON(i,j)>0)          % The point we check is on the boundary
@@ -123,7 +125,7 @@ for i=1:mesh_size(1)
                         if a1*a2<0
                             dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
                             dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),i,j);
-                            B(i,j)=time_now*(dist1-dist2)/dist1;
+                            B(i,j)=(time_now-ign_time)*(dist1-dist2)/dist1+ign_time;
                             k=-1;
                         end
                     else % point outside the burning region
@@ -134,7 +136,7 @@ for i=1:mesh_size(1)
                         if a1*a2<0
                             dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
                             dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),i,j);
-                            B(i,j)=time_now*dist2/dist1;
+                            B(i,j)=(time_now-ign_time)*(dist2+dist1)/dist1+ign_time;
                             k=-1;
                         end 
                     end
@@ -146,7 +148,7 @@ for i=1:mesh_size(1)
                     b3=sqrt((bound(k,1)-ign_pnt(1))^2+(bound(k,2)-ign_pnt(2))^2);
                     if IN(i,j)>0
                         if (b1+b2<b3+eps)&&(b1+b2>b3-eps)
-                            B(i,j)=time_now*b1/b3; 
+                            B(i,j)=(time_now-ign_time)*b1/b3+ign_time; 
                             k=-1;
                         else
                             a_new=line_sign(ign_pnt(1),ign_pnt(2),i,j,bound(k+1,1),bound(k+1,2));
@@ -154,7 +156,7 @@ for i=1:mesh_size(1)
                         end
                     else
                         if (b2+b3<b1+eps)&&(b2+b3>b1-eps)
-                            B(i,j)=time_now*b1/b3; 
+                            B(i,j)=(time_now-ign_time)*b1/b3+ign_time; 
                             k=-1;
                         else
                             a_new=line_sign(ign_pnt(1),ign_pnt(2),i,j,bound(k+1,1),bound(k+1,2));
@@ -171,9 +173,9 @@ for i=1:mesh_size(1)
 end
 
 % check if ign_pnt(1), ign_pnt(2) - integers, 
-% than set B(ignition point)=0
+% than set B(ignition point)=ign_time
 if (rem(ign_pnt(1),1)==0) && (rem(ign_pnt(2),1)==0)
-    B(ign_pnt(1),ign_pnt(1))=0;
+    B(ign_pnt(1),ign_pnt(1))=ign_time;
 end    
 
 % Writing the data to the file data_out.txt
