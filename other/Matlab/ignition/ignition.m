@@ -1,4 +1,4 @@
-function B=ignition7(data)
+function B=ignition(data)
 
 %%%%% What is new in this version %%%%%
 %  Added calculation of ignition time for points, that are outside

@@ -1,7 +1,8 @@
 function tign=create_tign
 % nodify to your liking
 [ii,jj]=meshgrid(1:420);
-tign=sqrt(2*(ii-200).^2+(jj-171).^2)+1;
+tign=ignition('data.txt');
+%tign=sqrt(2*(ii-200).^2+(jj-171).^2)+1;
 % mesh(tign)
 write_array_2d('input_tign_g',tign)
 end
