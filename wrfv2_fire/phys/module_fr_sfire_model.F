@@ -10,13 +10,14 @@ use module_fr_sfire_core
 use module_fr_sfire_util
 use module_fr_sfire_phys
 
+implicit none
+
 contains
 
 subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
     restart,                                &
-    need_lfn_update,                          & ! if lfn needs to be synced between tiles
     num_ignitions,                          & ! number of ignitions before advancing
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
@@ -32,7 +33,7 @@ subroutine sfire_model (                    &
     grnhfx,grnqfx,                          & ! output: heat fluxes
     ros,                                    & ! output: rate of spread
     nfuel_cat,                              & ! fuel data per point 
-    fuel_time,                              & ! save derived internal data
+    fuel_time,fwh,fz0,                      & ! save derived internal data
     fp &
 ) 
 
@@ -61,7 +62,6 @@ subroutine sfire_model (                    &
 !       call sfire_model(....)
 !   end parallel loop over tiles
 !
-!   if need_lfn_update, halo exchange on lfn width 2
 !   
 !   if ifun=0
 !       halo exchange on z width 2
@@ -85,7 +85,6 @@ integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
                                             ! 5 = copy timestep output to input
                                             ! 6 = compute output fluxes
 logical, intent(in):: restart               ! if true, use existing state
-logical, intent(out)::need_lfn_update       ! if true, halo update on lfn afterwards
 ! scalar data
 integer, intent(in) :: num_ignitions        ! number of ignition lines
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
@@ -119,7 +118,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
  
 ! constant arrays - set at initialization
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
-real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time
+real,intent(inout),dimension(ifms:ifme,jfms:jfme):: fuel_time,fwh,fz0
 type(fire_params),intent(inout)::fp
 
 !*** local
@@ -127,7 +126,7 @@ type(fire_params),intent(inout)::fp
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
 real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
 integer::ignited,ig,i,j,itso,iteo,jtso,jteo
-real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw
+real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
 logical:: freeze_fire
 integer:: stat_lev=1
@@ -143,7 +142,6 @@ xjfme=jfme
 
 
 ! init flags
-need_lfn_update=.false.
 ignitions_done=0
 freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
 
@@ -194,8 +192,7 @@ elseif(ifun.eq.2)then
             ifts,ifte,jfts,jfte, &
             fdx,fdy,nfuel_cat0,  &
             nfuel_cat,fuel_time, &
-            fp  &
-)
+            fp) 
 
         ! initialize model state to no fire
         if(.not.restart)then
@@ -206,8 +203,6 @@ elseif(ifun.eq.2)then
             fdx,fdy,time_start,dt,  &
             fuel_frac,fire_area,lfn,tign)
             
-            need_lfn_update=.true. ! because we have set lfn 
-
         endif
 
 elseif(ifun.eq.3)then   ! ignition if so specified
@@ -260,7 +255,7 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   lfn does not change, tign has no halos
 
     if(.not. freeze_fire)then
-      if(time_start+dt > fire_replay_time) then    
+      if(time_start+dt > fire_perimeter_time) then    
         call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
@@ -313,7 +308,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             ignitions_done=ignitions_done+1
             ignited_tile(ignitions_done)=ignited
                 
-!            need_lfn_update=.true. ! if ignition, lfn changed
 #ifdef DEBUG_OUT    
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_xf,'coord_xf_ig',id)
@@ -325,9 +319,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, &
                    lfn,'sfire_model: lfn out')
-
-    
-    need_lfn_update=.true. ! duh
 
 elseif (ifun.eq.6) then ! timestep postprocessing
 
@@ -348,8 +339,9 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     
     do j=jfts,jfte
         do i=ifts,ifte
-            fuel_frac_burnt(i,j)=fuel_frac(i,j)-fuel_frac_end(i,j) ! fuel lost this timestep
-            fuel_frac(i,j)=fuel_frac_end(i,j) ! copy new value to state array
+            t = min(fuel_frac(i,j),fuel_frac_end(i,j)) ! do not allow fuel fraction to increase, in case of approximation error 
+            fuel_frac_burnt(i,j)=fuel_frac(i,j)-t ! fuel lost this timestep
+            fuel_frac(i,j)=t ! copy new value to state array
         enddo
     enddo
 

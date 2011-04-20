@@ -1,6 +1,6 @@
 include ../../configure.wps
 
-OBJS = cio.o wrf_debug.o bitarray_module.o constants_module.o module_stringutil.o geogrid.o gridinfo_module.o hash_module.o interp_module.o list_module.o llxy_module.o misc_definitions_module.o module_debug.o module_map_utils.o output_module.o parallel_module.o process_tile_module.o proc_point_module.o queue_module.o read_geogrid.o smooth_module.o source_data_module.o
+OBJS = cio.o wrf_debug.o bitarray_module.o constants_module.o module_stringutil.o geogrid.o gridinfo_module.o hash_module.o interp_module.o list_module.o llxy_module.o misc_definitions_module.o module_debug.o module_map_utils.o output_module.o parallel_module.o process_tile_module.o proc_point_module.o queue_module.o read_geogrid.o smooth_module.o source_data_module.o geotiff_module.o geotiff_stubs.o
 
 all:
 	clear ;
@@ -16,6 +16,7 @@ geogrid.exe: $(OBJS)
 		$(WRF_DIR)/frame/module_internal_header_util.o \
 		$(WRF_INCLUDE) \
 		$(WRF_LIB) \
+		$(GEOTIFF_LFLAGS) $(LIBTIFF_LFLAGS) \
 		$(MPI_LIB)
 
 bitarray_module.o: module_debug.o
@@ -58,9 +59,13 @@ read_geogrid.o:
 
 smooth_module.o: parallel_module.o
 
-source_data_module.o: module_stringutil.o gridinfo_module.o hash_module.o list_module.o llxy_module.o misc_definitions_module.o module_debug.o
+source_data_module.o: module_stringutil.o gridinfo_module.o hash_module.o list_module.o llxy_module.o misc_definitions_module.o module_debug.o geotiff_module.o
 
 wrf_debug.o: cio.o
+
+geotiff_stubs.o: geotiff_stubs.c geotiff_stubs.h
+
+geotiff_module.o: module_debug.o geotiff_stubs.o
 
 clean:
 	$(RM) $(OBJS) *.f90 *.mod

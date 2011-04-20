@@ -48,7 +48,12 @@ WRF_LIB         =       -L$(WRF_DIR)/external/io_grib1 -lio_grib1 \
                         -L$(WRF_DIR)/external/io_grib_share -lio_grib_share \
                         -L$(WRF_DIR)/external/io_int -lwrfio_int \
                         -L$(WRF_DIR)/external/io_netcdf -lwrfio_nf \
-                        -L$(NETCDF)/lib CONFIGURE_NETCDFF_LIB -lnetcdf
+                        -L$(NETCDF)/lib CONFIGURE_NETCDFF_LIB -lnetcdf \
+			$(WRFIO_NETCDF_LINKOPTS)
+
+GEOTIFF_LFLAGS = GEOTIFF_LIB LIBTIFF_LIB
+GEOTIFF_CFLAGS = GEOTIFF_INC LIBTIFF_INC
+GEOTIFF_CPPFLAGS = GEOTIFF_CPP_DEF
 
 #### Architecture specific settings ####
 

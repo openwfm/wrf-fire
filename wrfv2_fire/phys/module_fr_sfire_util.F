@@ -17,6 +17,7 @@ module module_fr_sfire_util
 ! 3. add a line in Registry.EM to define the variable and set default value
 ! 4. add the variable and value in namelist.input
 
+implicit none
 
 integer,save::          &
  fire_print_msg=1,      &  ! print SFIRE progress 
@@ -30,11 +31,12 @@ integer,save::          &
  fire_upwind_split=0,   &  ! 1=upwind advection separately from normal direction spread
  fire_test_steps=0,     &  ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)
  fire_topo_from_atm=1,  &  ! 0 = expect ZSF set correctly on entry, 1 = populate by interploating from atmosphere
- fire_advection=0          ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
+ fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
+ fire_wind_log_interp      ! kind of vertical log layer wind interpolation, see driver
  
 
 real, save::            &
- fire_replay_time=0.,    &  ! if >0, set lfn from tign until this time, and read tign in ideal
+ fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign in ideal
  fire_const_time=-1.,    &  ! time from ignition to start constant heat output  <0=never
  fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_const_grnqfx=-1., &  ! if both >=0, the constant heat flux to output then
@@ -1225,9 +1227,9 @@ do j=jts,jte
         ia(i,j)=a(i,j)
 	r=ia(i,j)
 	if(r.ne.a(i,j))then
-           write(6,*)'Reading file ',trim(filename)
-           write(6,*)'value at position ',i,j,' cannot be converted to integer'
-           write(6,*)'read ',a(i,j),' converted as',k,' converted as ',r
+           !write(6,*)'Reading file ',trim(filename)
+           !write(6,*)'value at position ',i,j,' cannot be converted to integer'
+           !write(6,*)'read ',a(i,j),' converted as',k,' converted as ',r
 	   msg=trim(filename)//' is not integer file'
 	   call crash(msg)
         endif

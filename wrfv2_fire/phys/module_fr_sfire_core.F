@@ -11,6 +11,8 @@ module module_fr_sfire_core
 use module_fr_sfire_phys
 use module_fr_sfire_util
 
+implicit none
+
 ! The mathematical core of the fire spread model. No physical constants here.
 ! 
 ! subroutine sfire_core: only this routine should be called from the outside.
@@ -69,17 +71,17 @@ time_now = time_start+dt
 time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 
-if(fire_replay_time > 0.) then
+if(fire_perimeter_time > 0.) then
 
   do j=jfts,jfte
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
-        lfn(i,j) = tign(i,j)       ! use specified ignition time as leve set function 
-        if(tign(i,j) < time_start)then
-           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' < time_start =',time_start
+        lfn(i,j) = tign(i,j)-time_now       ! use specified ignition time as level set function 
+        if(.not.lfn(i,j) > 0.)then
+           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' <= time_now =',time_now
            call message(msg,level=0)
-           call crash('init_no_fire: ignition time may not be in the past')
+           call crash('init_no_fire: ignition time must be after the end of the time step')
         endif
      enddo
   enddo
@@ -525,11 +527,12 @@ its1=max(its,ifds+1)
 ite1=min(ite,ifde-1)
 jts1=max(jts,jfds+1)
 jte1=min(jte,jfde-1)
-write(*,*)"fuel_left_method",fuel_left_method
+
 ! jm: initialize fuel_frac - we do not compute it near the domain boundary becau!se we cannot interpolate!
 do j=jts,jte
    do i=its,ite
       fuel_frac(i,j)=1.
+      fire_area(i,j)=0.
    enddo
 enddo
 
@@ -571,10 +574,12 @@ do icl=its1,ite1
 
         helpsum1=helpsum1+fuel_left_ff
         helpsum2=helpsum2+fire_area_ff
+        ! write(*,*)icl,jcl,isubcl,jsubcl,fuel_left_ff,fire_area_ff
       enddo
     enddo
-    fuel_frac(icl,jcl)=helpsum1 
-    fire_area(icl,jcl)=helpsum2
+    ! write(*,*)icl,jcl,helpsum1,helpsum2
+    fuel_frac(icl,jcl)=helpsum1 / (ir*jr) ! multiply by weight for averaging over coarse cell
+    fire_area(icl,jcl)=helpsum2 / (ir*jr) ! multiply by weight for averaging over coarse cell
   enddo 
 enddo
 
@@ -586,14 +591,6 @@ enddo
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fuel_left_f,'fuel_left_f',0)
     call write_array_m(1,IFCELLS,1,JFCELLS,1,IFCELLS,1,JFCELLS,fire_area_f,'fire_area_f',0)
 #endif
-
-! finish the averaging
-do j=jts,jte
-    do i=its,ite        
-        fuel_frac(i,j) = fuel_frac(i,j) /(ir*jr) ! multiply by weight for averaging over coarse cell
-        fire_area(i,j) = fire_area(i,j) /(ir*jr) ! 
-    enddo
-enddo
 
 ! consistency check after sum
 !fmax=0
