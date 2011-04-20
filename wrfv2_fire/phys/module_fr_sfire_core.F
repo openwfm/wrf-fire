@@ -77,11 +77,11 @@ if(fire_perimeter_time > 0.) then
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
-        lfn(i,j) = tign(i,j)       ! use specified ignition time as leve set function 
-        if(tign(i,j) < time_start)then
-           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' < time_start =',time_start
+        lfn(i,j) = tign(i,j)-time_now       ! use specified ignition time as level set function 
+        if(.not.lfn(i,j) > 0.)then
+           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' <= time_now =',time_now
            call message(msg,level=0)
-           call crash('init_no_fire: ignition time may not be in the past')
+           call crash('init_no_fire: ignition time must be after the end of the time step')
         endif
      enddo
   enddo
