@@ -20,6 +20,7 @@ PUBLIC::fire_params
 
 ! variables
 PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats
+! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 ! arrays passed to fire_ros
 type fire_params
@@ -88,7 +89,7 @@ end type fire_params
    DATA hfgl     / 17.e4 /                ! W/m^2
    DATA fuelmc_g / 0.08  /                ! set = 0 for dry ground fuel
    DATA fuelmc_c / 1.00  /                ! set = 0 for dry canopy
-   DATA fire_wind_height/6.096/           ! m, 6.096m Behave, 0 to use fcwh in each category
+   DATA fire_wind_height/6.096/           ! m, 6.096m Behave, 0 to use fwh in each category
 !  REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
 !  REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
 !  real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
@@ -179,23 +180,31 @@ logical, external:: wrf_dm_on_monitor
 !*** local
 integer:: i,j,k,ii,iounit
 character(len=128):: msg
+REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 !*** executable
 
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fcwh,fcz0,adjr0,adjrw,adjrs
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,adjr0,adjrw,adjrs
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
 !$  endif
 
 IF ( wrf_dm_on_monitor() ) THEN
-    ! if we are the master task, read the file
+    ! we are the master task
+    ! copy in defaults
+    fwh=fcwh
+    fz0=fcz0
+    ! read the file
     iounit=open_text_file('namelist.fire','read')
     read(iounit,fuel_scalars)
     read(iounit,fuel_categories)
     CLOSE(iounit)
+    ! copy out to permanent names
+    fcwh=fwh
+    fcz0=fz0
     
     if (nfuelcats>mfuelcats) then
         write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
@@ -281,9 +290,9 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
     call message(msg)
-    write(msg,8)'fcwh      ',(fcwh(ii),ii=i,k)
+    write(msg,8)'fwh       ',(fcwh(ii),ii=i,k)
     call message(msg)
-    write(msg,8)'fcz0      ',(fcz0(ii),ii=i,k)
+    write(msg,8)'fz0       ',(fcz0(ii),ii=i,k)
     call message(msg)
     write(msg,8)'windrf    ',(windrf(ii),ii=i,k)
     call message(msg)
@@ -363,8 +372,8 @@ iounit = open_text_file('fuels.m','write')
 do k=1,nfuelcats
     write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
     call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM FCWH TO MIDFLAME HEIGHT' )
-    call write_var(k,'fcwh',fcwh(k),'WIND HEIGHT TO INTERPOLATE VERTICALLY TO (M)' )
-    call write_var(k,'fcz0',fcz0(k),'ROUGHNESS LENGTH FOR VERTICAL WIND LOG INTERPOLATION (M)' )
+    call write_var(k,'fwh',fcwh(k),'WIND HEIGHT TO INTERPOLATE VERTICALLY TO (M)' )
+    call write_var(k,'fz0',fcz0(k),'ROUGHNESS LENGTH FOR VERTICAL WIND LOG INTERPOLATION (M)' )
     call write_var(k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' )
     call write_var(k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)')
     call write_var(k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT')
