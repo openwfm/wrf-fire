@@ -818,9 +818,10 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         ros_back = fp%r_0(i,j)
     else                                   ! MacArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
-        ros_back = 0.18*exp(0.8424)
+        ros_back = 0.18
         ros_wind = 0.18*exp(0.8424*max(speed,0.)) - ros_back
         ros_slope =0.
+        ! note: ros = ros_back + ros_wind + ros_slope
     endif
 !
 else   ! chaparral
