@@ -129,7 +129,7 @@
  fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 ! ignition 
- fire_perimeter_time  =20,       !  replay fire from input_tign_g until this, or set to 0 or less for no replay
+ fire_perimeter_time  =60,       !  replay fire from input_tign_g until this, or set to 0 or less for no replay
  fire_num_ignitions = 0,         ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_ros1 = 0.1,      ! ignition rate of spread, m/s
  fire_ignition_start_x1 = 1005,  ! start points of ignition lines, in m from lower left corner
