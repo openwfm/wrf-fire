@@ -102,6 +102,7 @@ end type fire_params
    INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
+   INTEGER, SAVE      :: ibeh=1             ! type of spread formula
    CHARACTER (len=80), DIMENSION(mfuelcats ), save :: fuel_name
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
@@ -184,7 +185,7 @@ REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 !*** executable
 
 ! read 
-namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height
+namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,adjr0,adjrw,adjrs
 
@@ -224,6 +225,7 @@ call wrf_dm_bcast_real(fuelmc_c,1)
 call wrf_dm_bcast_real(fire_wind_height,1)
 call wrf_dm_bcast_integer(nfuelcats,1)
 call wrf_dm_bcast_integer(no_fuel_cat,1)
+call wrf_dm_bcast_integer(ibeh,1)
 call wrf_dm_bcast_real(windrf,    nfuelcats)
 call wrf_dm_bcast_real(fgi,       nfuelcats)
 call wrf_dm_bcast_real(fueldepthm,nfuelcats)
@@ -771,7 +773,6 @@ type(fire_params),intent(in)::fp
 !*** local
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
 real:: umid, phis, phiw, spdms, umidm, excess, tanphim
-integer, parameter::ibeh=1
 real, parameter::ros_max=6.
 character(len=128)msg
 real::cor_wind,cor_slope,nvx,nvy,scale
@@ -816,12 +817,25 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         ros_slope = fp%phisc(i,j) *tanphim**2   ! slope factor
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
         ros_back = fp%r_0(i,j)
-    else                                   ! MacArthur formula (Australian)
+    elseif(ibeh.eq.2)then ! for testing only, spread rate = wind but not < 0
+        ros_back = 0.
+        ros_wind = max(speed,0.)
+        ros_slope= 0.
+    elseif(ibeh.eq.3)then ! for testing only, spread rate = wind but not < 0
+        ros_back = 0.
+        ros_wind = speed
+        ros_slope= 0.
+    elseif(ibeh.eq.0)then                                  ! MacArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
         ros_back = 0.18
         ros_wind = 0.18*exp(0.8424*max(speed,0.)) - ros_back
         ros_slope =0.
         ! note: ros = ros_back + ros_wind + ros_slope
+    else ! error, but prevent unintialized variables
+        ! just so that there is something there
+        ros_back=-999.
+        ros_wind=-999.
+        ros_slope=-999.
     endif
 !
 else   ! chaparral
