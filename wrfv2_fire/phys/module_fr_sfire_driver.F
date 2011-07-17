@@ -17,17 +17,16 @@
 ! the model gives to WRF for safekeeping because it is not allowed 
 ! to save anything.
 
-! This code as submitted to WRF 3.3 is described in [1]. The arXiv 
-! version of the document [2] is intended to keep up with the code.
+! This code as of mid-2011 is described in [1]. 
 
 ! If you use this code, please acknowledge our work by citing [1].
 ! Thank you.
 
 ! Acknowledgements
 !
-! The fire physics code is adapted from the CAWFE code [3].
+! The fire physics code is adapted from the CAWFE code [2].
 ! The interface with is adapted from a code by Ned Patton  
-! coupling a port of the CAWFE fire module to WRF [4].
+! coupling a port of the CAWFE fire module to WRF [3].
 ! Support of refined fire grids was provided by John Michalakes.
 ! Jonathan D. Beezley has set up and maintained the WRF build and
 ! execution environment, provided software engineering infrastructure 
@@ -38,13 +37,10 @@
 
 ! Refefences
 !
-! [1] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled
-! atmosphere-wildland fire modeling with WRF-Fire version 3.3", Geoscientific Model
-! Development Discussions 4, 497-545, 2011. http://dx.doi.org/10.5194/gmdd-4-497-2011
+! [1] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled atmosphere-wildland
+! fire modeling with WRF 3.3 and SFIRE 2011, Geoscientific Model Development (GMD) 4, 
+! 591-610, 2011. doi:10.5194/gmd-4-591-2011
 !
-! [2] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled
-! atmosphere-wildland fire modeling with WRF-Fire. http://arxiv.org/abs/1102.1343
-
 ! [3] T. L. Clark, J. Coen, and D. Latham, Description of a coupled 
 ! atmosphere-fire model, Intl. J. Wildland Fire, vol. 13, pp. 49-64, 
 ! 2004
