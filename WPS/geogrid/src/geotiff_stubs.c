@@ -44,7 +44,7 @@ void get_tile_size(TIFF *filep, int *x, int *y) {
   }
   else {
     TIFFGetField(filep,TIFFTAG_IMAGEWIDTH,x);
-    *y=1;
+    TIFFGetField(filep,TIFFTAG_ROWSPERSTRIP,y);
   }
 }
 

@@ -17,8 +17,8 @@ do us a favor and before you ask a question (such as, what is git?)
 please google first. You may need to find a local guru for Linux questions.
 
 If you find this code useful please acknowledge our work by citing the papers
-[1] or [2]. [2] describes the code as of WRF release 3.3 planned in Spring 2011 and 
-this repository as of early November 2010. The arXiv version [3] will be updated
+[1] or [2]. [2] describes the code as of mid-2011. Code with a subset of features
+is distributed as WRF-Fire in WRF release.  The arXiv version [3] will be updated
 to keep up with the current development version (the master branch in this repository).
 [4] is just an extended abstract but it mentions few more advanced features not
 described anywhere else at the moment.
@@ -36,9 +36,9 @@ atmosphere-surface models, IEEE Control Systems Magazine, 2009,
 29, Issue 3, June 2009, 47-65. http://dx.doi.org/10.1109/MCS.2009.932224
 Preprint available from http://arxiv.org/abs/0712.3965
 
-[2] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled 
-atmosphere-wildland fire modeling with WRF-Fire version 3.3", Geoscientific Model 
-Development Discussions 4, 497-545, 2011. http://dx.doi.org/10.5194/gmdd-4-497-2011
+[2] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled atmosphere-wildland
+fire modeling with WRF 3.3 and SFIRE 2011, Geoscientific Model Development (GMD) 4,
+591-610, 2011. doi:10.5194/gmd-4-591-2011
 
 [3] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled 
 atmosphere-wildland fire modeling with WRF-Fire. http://arxiv.org/abs/1102.1343
