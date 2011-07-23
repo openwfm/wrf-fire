@@ -8,7 +8,7 @@
 module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
-use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat
+use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
 use module_fr_sfire_util
 
 implicit none
@@ -676,9 +676,6 @@ character(len=128)msg
                 fz0(i,j)=fcz0(k)
                 fwh(i,j)=fcwh(k)
             endif
-            if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
-                 call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
-            endif
           enddo
        enddo
 
@@ -738,7 +735,28 @@ character(len=128)msg
         call crash('msg') 
 
      end select 
-     
+
+     if (fire_wind_log_interp.ne.4 .and. fire_use_windrf .eq.2)then
+       call message('setup_wind_log_interpolation: resetting wind interpolation height from wind reduction factors')
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then 
+                fwh(i,j) = fz0(i,j) ** (1.-windrf(k)) * fire_wind_height ** windrf(k) ! GMD paper eq. (26)
+            endif
+          enddo
+       enddo
+     endif
+
+!      consistency check
+       do j=jfts,jfte
+          do i=ifts,ifte
+            if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+                 call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+            endif
+          enddo
+       enddo
+
      have_wind_log_interpolation = .true.
 
      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'setup_wind_log:fz0')        

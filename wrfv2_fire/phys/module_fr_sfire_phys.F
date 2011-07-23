@@ -19,7 +19,8 @@ PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write
 PUBLIC::fire_params
 
 ! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
+
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 ! arrays passed to fire_ros
@@ -559,8 +560,8 @@ do j=jfts,jfte
 
         c = 7.47 * exp( -0.133 * savr(k)**0.55)    ! const in wind coef
         fp%bbb(i,j) = 0.02526 * savr(k)**0.54      ! const in wind coef
-        if(fire_wind_log_interp .eq. 4) then
-            c = c * windrf(k)**fp%bbb(i,j)             ! jm: wind reduction from 20ft per Baughman&Albini(1980)
+        if(fire_wind_log_interp .eq. 4 .or. fire_use_windrf .eq. 1) then
+            c = c * windrf(k)**fp%bbb(i,j)             ! jm: multiply wind by reduction factor
         endif
         e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
         fp%phiwc(i,j) = c * (betafl/betaop)**(-e)
