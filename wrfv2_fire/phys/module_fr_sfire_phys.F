@@ -19,7 +19,7 @@ PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write
 PUBLIC::fire_params
 
 ! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 ! arrays passed to fire_ros

@@ -8,7 +8,7 @@
 module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
-use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats
+use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat
 use module_fr_sfire_util
 
 implicit none
@@ -663,15 +663,19 @@ character(len=128)msg
        do j=jfts,jfte
           do i=ifts,ifte
             k = int(nfuel_cat(i,j))
-            if(k < 1 .or. k  > nfuelcats) then
+            if(k.eq.no_fuel_cat)then ! no fuel, interpolation does not matter
+                fz0(i,j)=0.01
+                fwh(i,j)=0.02
+            elseif(k < 1 .or. k  > nfuelcats) then
 !$OMP CRITICAL(SFIRE_ATM_CRIT)
                  write(msg,*)'i,j,nfuel_cat,nfuelcats=',i,j,k,nfuelcats
 !$OMP END CRITICAL(SFIRE_ATM_CRIT)
                  call message(msg)
                  call crash('setup_wind_log_interpolation: fuel category out of bounds')
+            else
+                fz0(i,j)=fcz0(k)
+                fwh(i,j)=fcwh(k)
             endif
-            fz0(i,j)=fcz0(k)
-            fwh(i,j)=fcwh(k)
             if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
                  call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
             endif
@@ -692,7 +696,11 @@ character(len=128)msg
        do j=jfts,jfte
           do i=ifts,ifte
             k = int(nfuel_cat(i,j))
-            fwh(i,j)=fcwh(k)
+            if(k.ne.no_fuel_cat)then ! no fuel, interpolation does not matter
+                fwh(i,j)=fcwh(k)
+            else
+                fwh(i,j)=fz0(i,j)*2
+            endif
           enddo
        enddo
 
@@ -712,7 +720,11 @@ character(len=128)msg
        do j=jfts,jfte
           do i=ifts,ifte
             k = int(nfuel_cat(i,j))
-            fwh(i,j)=fcwh(k)
+            if(k.ne.no_fuel_cat)then ! no fuel, interpolation does not matter
+                fwh(i,j)=fcwh(k)
+            else
+                fwh(i,j)=fz0(i,j)*2
+            endif
           enddo
        enddo
 
