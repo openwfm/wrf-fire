@@ -665,7 +665,7 @@ character(len=128)msg
             k = int(nfuel_cat(i,j))
             if(k.eq.no_fuel_cat)then ! no fuel, interpolation does not matter
                 fz0(i,j)=0.01
-                fwh(i,j)=0.02
+                fwh(i,j)=fz0(i,j)*1.001
             elseif(k < 1 .or. k  > nfuelcats) then
 !$OMP CRITICAL(SFIRE_ATM_CRIT)
                  write(msg,*)'i,j,nfuel_cat,nfuelcats=',i,j,k,nfuelcats
@@ -699,7 +699,7 @@ character(len=128)msg
             if(k.ne.no_fuel_cat)then ! no fuel, interpolation does not matter
                 fwh(i,j)=fcwh(k)
             else
-                fwh(i,j)=fz0(i,j)*2
+                fwh(i,j)=fz0(i,j)*1.001
             endif
           enddo
        enddo
@@ -723,7 +723,7 @@ character(len=128)msg
             if(k.ne.no_fuel_cat)then ! no fuel, interpolation does not matter
                 fwh(i,j)=fcwh(k)
             else
-                fwh(i,j)=fz0(i,j)*2
+                fwh(i,j)=fz0(i,j)*1.001
             endif
           enddo
        enddo
