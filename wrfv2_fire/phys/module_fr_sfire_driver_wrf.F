@@ -11,6 +11,7 @@ module module_fr_sfire_driver_wrf
 
 use module_fr_sfire_driver
 use module_fr_sfire_atm
+USE module_utility, only: WRFU_TimeInterval,WRFU_TimeIntervalGet, WRFU_SUCCESS
 implicit none
 
 contains
@@ -88,6 +89,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ,ips,ipe, kps,kpe, jps,jpe
     real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
 
+
     ! local
     integer :: &  ! fire mesh sizes
              ifds,ifde, kfds,kfde, jfds,jfde,                              &
@@ -95,8 +97,17 @@ subroutine sfire_driver_em_step (grid , config_flags               &
              ifps,ifpe, kfps,kfpe, jfps,jfpe                              
     integer :: its,ite,jts,jte,kts,kte            ! atm tile
     integer:: ij 
+    real::time_step_start,time_step_end,time_step_length
+
+    ! executable
 
     call message('sfire_driver_em_step: SFIRE step start')
+    
+    time_step_start=TimeInterval2Sec(domain_get_time_since_sim_start(grid)) 
+    time_step_length=TimeInterval2Sec(domain_get_time_step(grid))
+
+    print *,'time_step_start=',time_step_start,'time_step_length=',time_step_length
+    
 
     ! get fire mesh dimensions
     CALL get_ijk_from_subgrid (  grid ,                   &
@@ -143,6 +154,22 @@ subroutine sfire_driver_em_step (grid , config_flags               &
     call message('sfire_driver_em_step: SFIRE step complete')
             
 end subroutine sfire_driver_em_step
+
+double precision function TimeInterval2Sec(time)
+! convert ESMF_Timeinterval type to seconds
+    TYPE(WRFU_TimeInterval), intent(in) :: time
+! local
+    integer::rc,S,Sn,Sd
+! executable
+    call WRFU_TimeIntervalGet(time,S=S,Sd=Sd,Sn=Sn,rc=rc)
+    if(rc.ne.WRFU_SUCCESS)call crash('WRFU_TimeIntervalGet failed')
+    print *,'WRFU_TimeIntervalGet returned S=',S,'Sn=',Sn,'Sd=',Sd
+    if(Sd.ne.0)then
+         TimeInterval2Sec=dble(S)+dble(Sn)/dble(Sd)
+    else
+         TimeInterval2Sec=dble(S)
+    endif
+end function TimeInterval2Sec
 
 end module module_fr_sfire_driver_wrf
 
