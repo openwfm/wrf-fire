@@ -1004,6 +1004,7 @@ fire_test_steps         = config_flags%fire_test_steps
 !fire_topo_from_atm     = config_flags%fire_topo_from_atm
 fire_advection          = config_flags%fire_advection
 fire_wind_log_interp    = config_flags%fire_wind_log_interp
+fire_use_windrf         = config_flags%fire_use_windrf
 
 
 
