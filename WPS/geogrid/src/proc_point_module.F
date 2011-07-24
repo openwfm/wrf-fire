@@ -153,6 +153,7 @@ module proc_point_module
       do i=src_min_x,src_max_x
          do j=src_min_y,src_max_y
             where_maps_to(i,j,1) = NOT_PROCESSED 
+            where_maps_to(i,j,2) = NOT_PROCESSED
          end do
       end do
 
@@ -503,7 +504,7 @@ module proc_point_module
       rsr_y = 1.0
       if (present(sr_x)) rsr_x = real(sr_x)
       if (present(sr_y)) rsr_y = real(sr_y)
-
+      
       ! Assume source data is on unstaggered grid; specify M for istagger argument
       call get_data_tile(rlat, rlon, ilevel, fieldname, &
                          src_fname, src_array, src_min_x, src_max_x, src_min_y, &

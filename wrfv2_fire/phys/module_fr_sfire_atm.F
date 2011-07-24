@@ -8,8 +8,12 @@
 module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
-use module_fr_sfire_phys, only: fire_wind_height
+use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats
 use module_fr_sfire_util
+
+implicit none
+
+logical, save :: have_wind_log_interpolation = .false.  ! status
 
 contains
 
@@ -618,6 +622,122 @@ end subroutine interpolate_atm2fire
 !***
 !
 
+subroutine setup_wind_log_interpolation(          &
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts, ifte, jfts, jfte,                       &
+            ir,jr,                                        & ! atm/fire grid ratio
+            z0,                                           & ! atm grid arrays in
+            nfuel_cat,                                    & ! fire array in
+            fz0,fwh)                                        ! fire arrays out
+!*** arguments 
+integer, intent(in)::                    &
+    ids,ide, jds,jde,                    & ! atm domain bounds
+    ims,ime, jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                     &
+    its,ite,jts,jte,                     & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts, ifte, jfts, jfte,                       & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real,intent(in),dimension(ims:ime,jms:jme)::z0    ! landuse roughness length
+real,intent(in),dimension(ifms:ifme,jfms:jfme)::nfuel_cat   ! fuel category
+real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
+    fz0,                                          & ! roughness height
+    fwh                                             ! height to read the wind from
+!*** local
+integer::i,j,ii,jj,k,id=0
+character(len=128)msg
+!*** executable
+ 
+     if(.not.have_fuel_cats)call crash('setup_wind_log_interpolation: fuel categories not yet set')
+
+     select case(fire_wind_log_interp)
+
+     case(1)
+       call message('fire_wind_log_interp=1: log interpolation on fire mesh, roughness and wind height from fuel categories')
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k < 1 .or. k  > nfuelcats) then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'i,j,nfuel_cat,nfuelcats=',i,j,k,nfuelcats
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                 call message(msg)
+                 call crash('setup_wind_log_interpolation: fuel category out of bounds')
+            endif
+            fz0(i,j)=fcz0(k)
+            fwh(i,j)=fcwh(k)
+            if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+                 call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+            endif
+          enddo
+       enddo
+
+     case(2)
+        call message('fire_wind_log_interp=2: log interpolation on fire mesh, piecewise constant roughness from landuse, constant fire_wind_height')
+        do j=jts,jte
+           do i=its,ite
+              do jj=(j-1)*jr+1,(j-1)*jr+jr
+                 do ii=(i-1)*ir+1,(i-1)*ir+ir
+                     fz0(ii,jj)=z0(i,j)
+                 enddo
+              enddo
+           enddo
+       enddo
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            fwh(i,j)=fcwh(k)
+          enddo
+       enddo
+
+     case(3)
+       call message('fire_wind_log_interp=3: log interpolation on fire mesh, interpolated roughness from landuse, constant fire_wind_height')
+       call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            z0,                                       & ! atm grid arrays in
+            fz0)                                      ! fire grid arrays out
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            fwh(i,j)=fcwh(k)
+          enddo
+       enddo
+
+     case(4)
+        call message('fire_wind_log_interp=4: log interpolation on atmospheric mesh, roughness from landuse, constant fire_wind_height')
+
+     case default
+        !$OMP CRITICAL(SFIRE_ATM_CRIT)
+        write(msg,*)'setup_wind_log_interpolation: invalid fire_wind_log_interp=',fire_wind_log_interp
+        !$OMP END CRITICAL(SFIRE_ATM_CRIT)
+        call crash('msg') 
+
+     end select 
+     
+     have_wind_log_interpolation = .true.
+
+     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'setup_wind_log:fz0')        
+     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'setup_wind_log:fwh')        
+
+end subroutine setup_wind_log_interpolation
+
+!
+!***
+!
+
 subroutine interpolate_wind2fire_height(id,       & ! to identify debugging prints and files if needed
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
@@ -665,6 +785,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   character(len=128)::msg
 
 !*** executable
+
+  if(.not. have_wind_log_interpolation) call crash('interpolate_wind2fire_height: wind_log_interpolation must be set up first')
 
   ! print *,'interpolate_wind2fire_height start, id=',id
 
@@ -734,7 +856,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       ! print *,'i=',i,' j=',j,' icb=',icb,' jcb=',jcb,' z0=',z0,' wh=',wh
 
 
-      if(.not. wh > z0)then
+      if(.not. wh > z0 .or. .not. z0 > 0)then
          goto 92
       endif
       ht_last=z0                     ! initialize starting height of this layer
@@ -800,10 +922,6 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   call message(msg)
 !$OMP END CRITICAL(SFIRE_ATM_CRIT)
 
-  call print_chsum(id,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,uf,'uf')
-  call print_chsum(id,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,vf,'vf')
-
-
   return
 
   91 call crash('interpolate_wind2fire_height: fire wind height too large, increase kdmax or atm height')
@@ -812,7 +930,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   write(msg,*)'fz0(',i,j,')=',fz0(i,j),'fwh(',i,j,')=',fwh(i,j)
   call message(msg)
 !$OMP END CRITICAL(SFIRE_ATM_CRIT)
-  call crash('interpolate_wind2fire_height: fire wind height must be more than the roughness height')
+  call crash('interpolate_wind2fire_height: must have fire wind height > roughness height > 0')
 
 contains
 
@@ -873,5 +991,82 @@ subroutine coarse(ix,nr,ia,ic,w)
 end subroutine coarse
 
 end subroutine interpolate_wind2fire_height
+
+!
+!*****************************
+!
+
+subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+    ids,ide, jds,jde,                    & ! atm grid dimensions
+    ims,ime, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              &
+    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,                       &
+    ifts,ifte,jfts,jfte,                          &
+    ir,jr,                                        & ! atm/fire grid ratio
+    zs,                                       & ! atm grid arrays in
+    zsf)                                      ! fire grid arrays out
+    
+implicit none
+!*** purpose: interpolate height
+
+!*** arguments
+integer, intent(in)::id,                          &
+    ids,ide, jds,jde,                    & ! atm domain bounds
+    ims,ime,jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real, intent(in), dimension(ims:ime, jms:jme):: zs  ! terrain height at atm cell centers                                        & ! terrain height  
+real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
+    zsf                                             ! terrain height fire grid nodes
+    
+    
+!*** local
+real, dimension(its-2:ite+2,jts-2:jte+2):: za      ! terrain height
+integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1,itso,jtso,iteo,jteo
+
+! terrain height
+
+    jts1=max(jts-1,jds) ! lower loop limit by one less when at end of domain
+    its1=max(its-1,ids) ! ASSUMES THE HALO IS THERE if patch != domain
+    jte1=min(jte+1,jde) 
+    ite1=min(ite+1,ide)
+    do j = jts1,jte1
+        do i = its1,ite1 
+            ! copy to local array
+            za(i,j)=zs(i,j)           
+        enddo
+    enddo
+
+    call continue_at_boundary(1,1,0., & ! do x direction or y direction
+    its-2,ite+2,jts-2,jte+2,           &                ! memory dims
+    ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
+    ips,ipe,jps,jpe, &            ! patch dims - winds defined up to +1
+    its1,ite1,jts1,jte1, &                ! tile dims
+    itso,jtso,iteo,jteo, &
+    za)                               ! array
+
+    ! interpolate to tile plus strip along domain boundary if at boundary
+    jfts1=snode(jfts,jfds,-1) ! lower loop limit by one less when at end of domain
+    ifts1=snode(ifts,ifds,-1)
+    jfte1=snode(jfte,jfde,+1) 
+    ifte1=snode(ifte,ifde,+1)
+                     
+    call interpolate_2d(  &
+        its-2,ite+2,jts-2,jte+2, & ! memory dims atm grid tile
+        its1-1,ite1+1,jts1-1,jte1+1, & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
+        ir,jr,                  & ! refinement ratio
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
+        za,                     & ! in atm grid     
+        zsf)                      ! out fire grid
+
+end subroutine interpolate_z2fire
 
 end module module_fr_sfire_atm

@@ -19,7 +19,8 @@ PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write
 PUBLIC::fire_params
 
 ! variables
-PUBLIC:: fire_wind_height
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats
+! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 ! arrays passed to fire_ros
 type fire_params
@@ -88,7 +89,7 @@ end type fire_params
    DATA hfgl     / 17.e4 /                ! W/m^2
    DATA fuelmc_g / 0.08  /                ! set = 0 for dry ground fuel
    DATA fuelmc_c / 1.00  /                ! set = 0 for dry canopy
-   DATA fire_wind_height/6.096/           ! m, 6.096m Behave, 0 to use fcwh in each category
+   DATA fire_wind_height/6.096/           ! m, 6.096m Behave, 0 to use fwh in each category
 !  REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
 !  REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
 !  real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
@@ -101,6 +102,7 @@ end type fire_params
    INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
+   INTEGER, SAVE      :: ibeh=1             ! type of spread formula
    CHARACTER (len=80), DIMENSION(mfuelcats ), save :: fuel_name
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
@@ -151,14 +153,22 @@ end type fire_params
    DATA fct / 60., 60., 60., 60., 60., 60., 60.,  &
             60., 120., 180., 180., 180., 180. , 60. , zf*0.   /
    DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , zf*0/ 
-   DATA fcwh /0.6 , 0.6,  1.5, 36,  1.2,  1.5, 1.5, &
-              0.12, 0.12, 0.6, 0.6, 1.38, 1.8, 1.8, zf*0 / ! fuel wind height, added jm 2/23/11
-   DATA fcz0 /0.3, 0.3, 0.75, 18.,  0.6,  0.75, 0.75, &
-              0.06, 0.06, 0.3, 0.3, 0.69, 0.9, 0.9, zf*0 /  ! fuel roughness height, added jm 2/23/11
+   DATA fcwh  / 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, &
+         6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, zf*0. / ! consistent with BEHAVE
+! roughness length 0.13*fueldepthm except cat 3 fz0=0.1 for consistency with landuse
+ ! fz0 =   0.0396,0.0396,0.0991,0.2378,0.0793,0.0991,0.0991,
+   DATA fcz0 /  0.0396,0.0396,0.1000,0.2378,0.0793,0.0991,0.0991, &
+         0.0079,0.0079,0.0396,0.0396,0.0911,0.1188,0.0396, zf * 0. /
+   !DATA fcwh /0.6 , 0.6,  1.5, 36,  1.2,  1.5, 1.5, &
+   !           0.12, 0.12, 0.6, 0.6, 1.38, 1.8, 1.8, zf*0 / ! fuel wind height, added jm 2/23/11
+   !DATA fcz0 /0.3, 0.3, 0.75, 18.,  0.6,  0.75, 0.75, &
+   !           0.06, 0.06, 0.3, 0.3, 0.69, 0.9, 0.9, zf*0 /  ! fuel roughness height, added jm 2/23/11
    DATA adjr0 /mfuelcats*1./
    DATA adjrw /mfuelcats*1./
    DATA adjrs /mfuelcats*1./
 ! =========================================================================
+
+  logical, save :: have_fuel_cats=.false.
 
 contains
 
@@ -171,23 +181,31 @@ logical, external:: wrf_dm_on_monitor
 !*** local
 integer:: i,j,k,ii,iounit
 character(len=128):: msg
+REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 !*** executable
 
 ! read 
-namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height
+namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fcwh,fcz0,adjr0,adjrw,adjrs
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,adjr0,adjrw,adjrs
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
 !$  endif
 
 IF ( wrf_dm_on_monitor() ) THEN
-    ! if we are the master task, read the file
+    ! we are the master task
+    ! copy in defaults
+    fwh=fcwh
+    fz0=fcz0
+    ! read the file
     iounit=open_text_file('namelist.fire','read')
     read(iounit,fuel_scalars)
     read(iounit,fuel_categories)
     CLOSE(iounit)
+    ! copy out to permanent names
+    fcwh=fwh
+    fcz0=fz0
     
     if (nfuelcats>mfuelcats) then
         write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
@@ -207,6 +225,7 @@ call wrf_dm_bcast_real(fuelmc_c,1)
 call wrf_dm_bcast_real(fire_wind_height,1)
 call wrf_dm_bcast_integer(nfuelcats,1)
 call wrf_dm_bcast_integer(no_fuel_cat,1)
+call wrf_dm_bcast_integer(ibeh,1)
 call wrf_dm_bcast_real(windrf,    nfuelcats)
 call wrf_dm_bcast_real(fgi,       nfuelcats)
 call wrf_dm_bcast_real(fueldepthm,nfuelcats)
@@ -241,13 +260,6 @@ DO i = 1,nfuelcats
     endif
 END DO
 
-if(.not. fire_wind_height>0)then
-    ! reset wind reduction factors
-    do i=1,nfuelcats
-        windrf(i)=1.
-    enddo
-endif
-   
 ! prints
 
 call message('**********************************************************')
@@ -279,6 +291,10 @@ do i=1,nfuelcats,j
     write(msg,7)'CATEGORY  ',(ii,ii=i,k)
     call message(msg)
     write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'fwh       ',(fcwh(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'fz0       ',(fcz0(ii),ii=i,k)
     call message(msg)
     write(msg,8)'windrf    ',(windrf(ii),ii=i,k)
     call message(msg)
@@ -317,10 +333,14 @@ do i=1,nfuelcats,j
 enddo
 call message('**********************************************************')
 
+have_fuel_cats=.true.
+
 ! and print to file
 IF ( wrf_dm_on_monitor() ) THEN
   call write_fuels_m(61,30.,1.)
 ENDIF
+
+
 end subroutine init_fuel_cats
 
 
@@ -334,6 +354,8 @@ type(fire_params)::fp
 real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap
 real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
 real::ros_back,ros_wind,ros_slope,propx,propy,r
+
+if(.not.have_fuel_cats)call crash('write_fuels_m: fuel categories not yet set')
 
 fp%vx=>vx
 fp%vy=>vy
@@ -351,7 +373,9 @@ iounit = open_text_file('fuels.m','write')
 10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
 do k=1,nfuelcats
     write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
-    call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM 20ft TO MIDFLAME HEIGHT' )
+    call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM FCWH TO MIDFLAME HEIGHT' )
+    call write_var(k,'fwh',fcwh(k),'WIND HEIGHT TO INTERPOLATE VERTICALLY TO (M)' )
+    call write_var(k,'fz0',fcz0(k),'ROUGHNESS LENGTH FOR VERTICAL WIND LOG INTERPOLATION (M)' )
     call write_var(k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' )
     call write_var(k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)')
     call write_var(k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT')
@@ -388,7 +412,6 @@ do k=1,nfuelcats
                            1,2,1,nsteps, &
                            0.,0.,k,  &
                            nfuel_cat,fuel_time, &
-                           fwh,fz0,      &
                            fp ) 
     ! set up windspeed and slope table
     propx=1.
@@ -448,7 +471,6 @@ subroutine set_fire_params( &
                            ifts,ifte,jfts,jfte, &
                            fdx,fdy,nfuel_cat0,  &
                            nfuel_cat,fuel_time, &
-                           fwh,fz0,             &
                            fp ) 
 
 implicit none
@@ -462,8 +484,7 @@ integer, intent(in)::ifms,ifme,jfms,jfme                        ! memory array b
 real, intent(in):: fdx,fdy                                      ! fire mesh spacing
 integer,intent(in)::nfuel_cat0                                  ! default fuel category, if nfuel_cat=0
 real, intent(in),dimension(ifms:ifme, jfms:jfme)::nfuel_cat  ! fuel data
-real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time, &! fire params arrays
-                           fwh,fz0
+real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 type(fire_params),intent(inout)::fp
 
 !*** local
@@ -478,6 +499,8 @@ character(len=128)::msg
 
 !*** executable
 
+if(.not.have_fuel_cats)call crash('set_fire_params: fuel categories not yet set')
+
 nerr=0
 do j=jfts,jfte
    do i=ifts,ifte
@@ -491,8 +514,6 @@ do j=jfts,jfte
         fuel_time(i,j)=7./0.85  ! does not matter, just what was there before
         fp%phiwc(i,j)=0.
         fp%r_0(i,j)=0.             ! no fuel, no spread.
-        fwh(i,j) = 0.2             ! just so that something is there
-        fz0(i,j) = 0.1
      else
         if(k.eq.0.and.nfuel_cat0.ge.1.and.nfuel_cat0.le.nfuelcats)then
             ! replace k=0 by default
@@ -508,13 +529,6 @@ do j=jfts,jfte
             call crash('set_fire_params: fuel category out of bounds')
         endif
 
-!       other quantities passed directly, not in fp
-        if(fire_wind_height>0)then
-            fwh(i,j)=fire_wind_height
-        else
-            fwh(i,j)=fcwh(k)
-        endif
-        if(fuel_using_z0.eq.0)fz0(i,j)=fcz0(k)
         fuel_time(i,j)=weight(k)/0.85 ! cell based
         
         ! do not understand calculations of stime in binit.m4
@@ -759,7 +773,6 @@ type(fire_params),intent(in)::fp
 !*** local
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
 real:: umid, phis, phiw, spdms, umidm, excess, tanphim
-integer, parameter::ibeh=1
 real, parameter::ros_max=6.
 character(len=128)msg
 real::cor_wind,cor_slope,nvx,nvy,scale
@@ -804,11 +817,25 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         ros_slope = fp%phisc(i,j) *tanphim**2   ! slope factor
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
         ros_back = fp%r_0(i,j)
-    else                                   ! MacArthur formula (Australian)
+    elseif(ibeh.eq.2)then ! for testing only, spread rate = wind but not < 0
+        ros_back = 0.
+        ros_wind = max(speed,0.)
+        ros_slope= 0.
+    elseif(ibeh.eq.3)then ! for testing only, spread rate = wind but not < 0
+        ros_back = 0.
+        ros_wind = speed
+        ros_slope= 0.
+    elseif(ibeh.eq.0)then                                  ! MacArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
-        ros_back = 0.18*exp(0.8424)
+        ros_back = 0.18
         ros_wind = 0.18*exp(0.8424*max(speed,0.)) - ros_back
         ros_slope =0.
+        ! note: ros = ros_back + ros_wind + ros_slope
+    else ! error, but prevent unintialized variables
+        ! just so that there is something there
+        ros_back=-999.
+        ros_wind=-999.
+        ros_slope=-999.
     endif
 !
 else   ! chaparral

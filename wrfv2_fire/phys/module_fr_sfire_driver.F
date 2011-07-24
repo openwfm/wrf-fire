@@ -17,17 +17,16 @@
 ! the model gives to WRF for safekeeping because it is not allowed 
 ! to save anything.
 
-! This code as submitted to WRF 3.3 is described in [1]. The arXiv 
-! version of the document [2] is intended to keep up with the code.
+! This code as of mid-2011 is described in [1]. 
 
 ! If you use this code, please acknowledge our work by citing [1].
 ! Thank you.
 
 ! Acknowledgements
 !
-! The fire physics code is adapted from the CAWFE code [3].
+! The fire physics code is adapted from the CAWFE code [2].
 ! The interface with is adapted from a code by Ned Patton  
-! coupling a port of the CAWFE fire module to WRF [4].
+! coupling a port of the CAWFE fire module to WRF [3].
 ! Support of refined fire grids was provided by John Michalakes.
 ! Jonathan D. Beezley has set up and maintained the WRF build and
 ! execution environment, provided software engineering infrastructure 
@@ -38,13 +37,10 @@
 
 ! Refefences
 !
-! [1] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled
-! atmosphere-wildland fire modeling with WRF-Fire version 3.3", Geoscientific Model
-! Development Discussions 4, 497-545, 2011. http://dx.doi.org/10.5194/gmdd-4-497-2011
+! [1] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled atmosphere-wildland
+! fire modeling with WRF 3.3 and SFIRE 2011, Geoscientific Model Development (GMD) 4, 
+! 591-610, 2011. doi:10.5194/gmd-4-591-2011
 !
-! [2] Jan Mandel, Jonathan D. Beezley, and Adam K. Kochanski, "Coupled
-! atmosphere-wildland fire modeling with WRF-Fire. http://arxiv.org/abs/1102.1343
-
 ! [3] T. L. Clark, J. Coen, and D. Latham, Description of a coupled 
 ! atmosphere-fire model, Intl. J. Wildland Fire, vol. 13, pp. 49-64, 
 ! 2004
@@ -115,7 +111,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     integer, parameter::fire_max_ignitions=5
     TYPE(ignition_line_type), DIMENSION(fire_max_ignitions):: ignition_line
     integer::fire_ifun,ir,jr,fire_ignition_longlat,istep,itimestep
-    logical::need_lfn_update,restart
+    logical::restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
@@ -167,7 +163,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     do istep=0,tsteps ! istep >0 is for testing only, exit after the first call
       itimestep = grid%itimestep + istep ! in the first call, do fire_test_steps steps of the fire model
 
-      need_lfn_update=.false.
       do fire_ifun=fire_ifun_start,fire_ifun_end
 
         ! 1 = initialize run pass 1: interpolate height to zsf=terrain
@@ -178,10 +173,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         ! 6 = compute output fluxes
 
 #ifdef DM_PARALLEL
-        if(need_lfn_update)then
-!           halo exchange on lfn width 2
-#include "HALO_FIRE_LFN.inc"
-        endif
 
         if(fire_ifun.eq.1)then
 !       halo exchange on topography
@@ -209,12 +200,14 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         elseif(fire_ifun.eq.6)then
 !           computing fuel_left needs ignition time from neighbors
 #include "HALO_FIRE_TIGN.inc"
+            call message('halo exchange on lfn width 2')
+#include "HALO_FIRE_LFN.inc"
 
         endif
 #endif
         ! need domain by 1 smaller, in last row.col winds are not set properly
         call sfire_driver_phys ( &
-            fire_ifun,need_lfn_update,                  &
+            fire_ifun,                  &
             ids,ide-1, kds,kde, jds,jde-1,                          &
             ims,ime, kms,kme, jms,jme,                          &
             ips,min(ipe,ide-1), kps,kpe, jps,min(jpe,jde-1),                          & 
@@ -257,6 +250,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             if(fire_ifun.eq.2)then
 !               halo exchange on all fuel data width 2
 #include "HALO_FIRE_FUEL.inc"
+!           fire state was initialized
+            call message('halo exchange on lfn width 2')
+#include "HALO_FIRE_LFN.inc"
             endif
 #endif
 
@@ -274,7 +270,7 @@ end subroutine sfire_driver_em
 !
 
 ! module_fr_sfire_driver%%sfire_driver
-subroutine sfire_driver_phys (ifun,need_lfn_update,    &
+subroutine sfire_driver_phys (ifun,    &
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
     ips,ipe, kps,kpe, jps,jpe,                    &
@@ -334,7 +330,6 @@ integer, intent(in)::ifun,                        &
 logical, intent(in)::restart
     
 
-logical, intent(out)::need_lfn_update
 
 integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! atm grid tiling
 
@@ -597,41 +592,6 @@ do ij=1,num_tiles
         endif
 
      endif
- 
-     if(fuel_using_z0.eq.0)then
-        call message('using roughness from fuel categories')
-        call crash('not implemented')
-     elseif(fuel_using_z0.eq.1)then
-        call message('using piecewise constant atmosphere scale roughness')
-        do j=jts,jte
-           do i=its,ite
-              do jj=(j-1)*jr+1,(j-1)*jr+jr
-                 do ii=(i-1)*ir+1,(i-1)*ir+ir
-                     fz0(ii,jj)=z0(i,j)
-                 enddo
-              enddo
-           enddo
-       enddo
-     elseif(fuel_using_z0.eq.2)then
-        call message('using bilinearly interpolated atmosphere scale roughness')
-        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
-            ids,ide,  jds,jde,                    & ! atm grid dimensions
-            ims,ime,  jms,jme,                    &
-            ips,ipe,jps,jpe,                              &
-            its,ite,jts,jte,                              &
-            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-            ifms, ifme, jfms, jfme,                       &
-            ifts,ifte,jfts,jfte,                          &
-            ir,jr,                                        & ! atm/fire grid ratio
-            z0,                                       & ! atm grid arrays in
-            fz0)                                      ! fire grid arrays out
-     elseif(fuel_using_z0.eq.3)then
-        call message('using previous version, subroutine interpolate_atm2fire')
-     else
-        call crash('unknown fuel_using_z0') 
-     endif
-     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'driver_phys:fz0')        
-
 
     elseif(ifun.eq.2)then  
                
@@ -639,7 +599,7 @@ do ij=1,num_tiles
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
-    
+ 
       if(use_atm_vars)then                                  
      
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,z0,'z0',id)
@@ -648,8 +608,8 @@ do ij=1,num_tiles
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,ph,'ph_2',id)
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
         
-        call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,z0,'driver_phys:z0')
-        if(fuel_using_z0.eq.3)then
+        if(fire_wind_log_interp.eq.4)then
+          call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,z0,'driver_phys:z0')
           call interpolate_atm2fire(id,                     & ! flag for debug output
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
@@ -686,12 +646,11 @@ do ij=1,num_tiles
 
 
       endif
-    
     endif
 
 !   the following executes in any case
 
-    call sfire_model (id,ifun,restart,need_lfn_update,  &
+    call sfire_model (id,ifun,restart,  &
         num_ignitions,                          & ! switches
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
         ifds,ifde,jfds,jfde,                    & ! fire domain dims
@@ -711,8 +670,24 @@ do ij=1,num_tiles
         fuel_time,fwh,fz0,                      & ! save derived internal data
         fp                                      & ! fire coefficients
     )
+
     
-    if(ifun.eq.6)then ! heat fluxes into the atmosphere    
+     if(ifun.eq.2)then
+        call setup_wind_log_interpolation(           &
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            z0,                                           & ! atm grid arrays in
+            nfuel_cat,                              & ! fuel data per point 
+            fz0,fwh)                                  ! fire arrays out
+
+    
+    elseif(ifun.eq.6)then ! heat fluxes into the atmosphere    
     
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fire_driver:fgrnhfx')
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
@@ -777,7 +752,7 @@ if(ifun.eq.1)then
 endif
 #endif
 
-if (ifun.eq.3)then
+if (ifun.eq.4)then
     ignitions_done=ignitions_done_tile(1) ! all should be the same
     do i=1,ignitions_done
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
@@ -974,81 +949,6 @@ end subroutine fire_ignition_convert
 !*****************************
 !
 
-subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
-    ids,ide, jds,jde,                    & ! atm grid dimensions
-    ims,ime, jms,jme,                    &
-    ips,ipe,jps,jpe,                              &
-    its,ite,jts,jte,                              &
-    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-    ifms, ifme, jfms, jfme,                       &
-    ifts,ifte,jfts,jfte,                          &
-    ir,jr,                                        & ! atm/fire grid ratio
-    zs,                                       & ! atm grid arrays in
-    zsf)                                      ! fire grid arrays out
-    
-implicit none
-!*** purpose: interpolate height
-
-!*** arguments
-integer, intent(in)::id,                          &
-    ids,ide, jds,jde,                    & ! atm domain bounds
-    ims,ime,jms,jme,                    & ! atm memory bounds 
-    ips,ipe,jps,jpe,                              &
-    its,ite,jts,jte,                              & ! atm tile bounds
-    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
-    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
-    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
-    ir,jr                                         ! atm/fire grid refinement ratio
-real, intent(in), dimension(ims:ime, jms:jme):: zs  ! terrain height at atm cell centers                                        & ! terrain height  
-real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
-    zsf                                             ! terrain height fire grid nodes
-    
-    
-!*** local
-real, dimension(its-2:ite+2,jts-2:jte+2):: za      ! terrain height
-integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1,itso,jtso,iteo,jteo
-
-! terrain height
-
-    jts1=max(jts-1,jds) ! lower loop limit by one less when at end of domain
-    its1=max(its-1,ids) ! ASSUMES THE HALO IS THERE if patch != domain
-    jte1=min(jte+1,jde) 
-    ite1=min(ite+1,ide)
-    do j = jts1,jte1
-        do i = its1,ite1 
-            ! copy to local array
-            za(i,j)=zs(i,j)           
-        enddo
-    enddo
-
-    call continue_at_boundary(1,1,0., & ! do x direction or y direction
-    its-2,ite+2,jts-2,jte+2,           &                ! memory dims
-    ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
-    ips,ipe,jps,jpe, &            ! patch dims - winds defined up to +1
-    its1,ite1,jts1,jte1, &                ! tile dims
-    itso,jtso,iteo,jteo, &
-    za)                               ! array
-
-    ! interpolate to tile plus strip along domain boundary if at boundary
-    jfts1=snode(jfts,jfds,-1) ! lower loop limit by one less when at end of domain
-    ifts1=snode(ifts,ifds,-1)
-    jfte1=snode(jfte,jfde,+1) 
-    ifte1=snode(ifte,ifde,+1)
-                     
-    call interpolate_2d(  &
-        its-2,ite+2,jts-2,jte+2, & ! memory dims atm grid tile
-        its1-1,ite1+1,jts1-1,jte1+1, & ! where atm grid values set
-        ifms,ifme,jfms,jfme,    & ! array dims fire grid
-        ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
-        ir,jr,                  & ! refinement ratio
-        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
-        za,                     & ! in atm grid     
-        zsf)                      ! out fire grid
-
-end subroutine interpolate_z2fire
-!
-!*****************************
-!
 
 !
 !***
@@ -1083,7 +983,7 @@ TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
 ! copy flags from wrf to module_fr_sfire_util
 ! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
-fire_replay_time        = config_flags%fire_replay_time
+fire_perimeter_time     = config_flags%fire_perimeter_time
 fire_print_msg          = config_flags%fire_print_msg
 fire_print_file         = config_flags%fire_print_file
 fuel_left_method        = config_flags%fire_fuel_left_method
@@ -1101,9 +1001,9 @@ fire_upwind_split       = config_flags%fire_upwind_split
 fire_viscosity          = config_flags%fire_viscosity 
 fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
 fire_test_steps         = config_flags%fire_test_steps 
-!fire_topo_from_atm      = config_flags%fire_topo_from_atm
+!fire_topo_from_atm     = config_flags%fire_topo_from_atm
 fire_advection          = config_flags%fire_advection
-fuel_using_z0           = config_flags%fuel_using_z0
+fire_wind_log_interp    = config_flags%fire_wind_log_interp
 
 
 

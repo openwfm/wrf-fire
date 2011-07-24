@@ -11,6 +11,8 @@ module module_fr_sfire_core
 use module_fr_sfire_phys
 use module_fr_sfire_util
 
+implicit none
+
 ! The mathematical core of the fire spread model. No physical constants here.
 ! 
 ! subroutine sfire_core: only this routine should be called from the outside.
@@ -69,17 +71,17 @@ time_now = time_start+dt
 time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 
-if(fire_replay_time > 0.) then
+if(fire_perimeter_time > 0.) then
 
   do j=jfts,jfte
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
-        lfn(i,j) = tign(i,j)       ! use specified ignition time as leve set function 
-        if(tign(i,j) < time_start)then
-           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' < time_start =',time_start
+        lfn(i,j) = tign(i,j)-time_now       ! use specified ignition time as level set function 
+        if(.not.lfn(i,j) > 0.)then
+           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' <= time_now =',time_now
            call message(msg,level=0)
-           call crash('init_no_fire: ignition time may not be in the past')
+           call crash('init_no_fire: ignition time must be after the end of the time step')
         endif
      enddo
   enddo
