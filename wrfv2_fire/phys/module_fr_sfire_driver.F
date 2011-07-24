@@ -77,6 +77,7 @@ contains
 
 #define DEBUG_OUT
 subroutine sfire_driver_em ( grid , config_flags                    & 
+            ,time_step_start,dt                                     &
             ,fire_ifun_start,fire_ifun_end,tsteps                   &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
@@ -97,6 +98,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 !*** arguments
     TYPE(domain) , TARGET :: grid                             ! state 
     TYPE (grid_config_rec_type) , INTENT(IN)  :: config_flags ! namelist
+    real, intent(in):: time_step_start, dt
     integer, intent(in)::     fire_ifun_start,fire_ifun_end,tsteps ! driver cycle controls
     integer, intent(in):: &
              ids,ide, kds,kde, jds,jde,                              &
@@ -205,6 +207,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
         endif
 #endif
+        ! print *,'dt: ',dt,grid%dt,' diff ', dt-grid%dt
         ! need domain by 1 smaller, in last row.col winds are not set properly
         call sfire_driver_phys ( &
             fire_ifun,                  &
@@ -219,7 +222,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%i_start,min(grid%i_end,ide-1),                    &
             grid%j_start,min(grid%j_end,jde-1),                    &                 
             itimestep,restart,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
-            grid%dt,grid%dx,grid%dy,                    &
+            time_step_start,dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
             unit_fxlong,unit_fxlat,                           & ! coordinates of grid center
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
@@ -279,7 +282,8 @@ subroutine sfire_driver_phys (ifun,    &
     ifps, ifpe, jfps, jfpe,                       & ! fire patch in - will use smaller
     ir,jr,                                        & ! atm/fire grid ratio
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
-    itimestep,restart,ifuelread,nfuel_cat0,dt,dx,dy,      & ! in scalars
+    itimestep,restart,ifuelread,nfuel_cat0,       & ! in scalars
+    time_step_start,dt,dx,dy,                     & ! in scalars
     u_frame,v_frame,                              &
     unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
@@ -334,7 +338,8 @@ logical, intent(in)::restart
 integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! atm grid tiling
 
 real, intent(in):: &
-    dt,                                           & ! time step
+    time_step_start,                              & ! time step start
+    dt,                                           & ! time step length
     dx,dy,                                        & ! atm grid step
     u_frame,v_frame,                              & ! velocity offset
     unit_fxlong,unit_fxlat,                       & ! fxlong, fxlat units in m  
@@ -404,12 +409,13 @@ integer::ignitions_done,ignited_patch(num_ignitions),idex,jdex
 !*** executable
 
 ! time - assume dt does not change
-time_start = itimestep * dt
+! time_start = (itimestep-1) * dt     ! timestep 1 starts at 0
+! print *,'time_start: ',time_start,time_step_start,' diff ', time_start-time_step_start
+time_start = time_step_start ! use the time passed from wrf
 
 ! fire mesh step
 dxf=dx/ir
 dyf=dy/jr
-
 
 
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
