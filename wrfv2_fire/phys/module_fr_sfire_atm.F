@@ -651,7 +651,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
     fwh                                             ! height to read the wind from
 !*** local
 integer::i,j,ii,jj,k,id=0
-character(len=128)msg
+character(len=128)::msg
+real::r
 !*** executable
  
      if(.not.have_fuel_cats)call crash('setup_wind_log_interpolation: fuel categories not yet set')
@@ -743,6 +744,19 @@ character(len=128)msg
             k = int(nfuel_cat(i,j))
             if(k.ne.no_fuel_cat)then 
                 fwh(i,j) = fz0(i,j) ** (1.-windrf(k)) * fire_wind_height ** windrf(k) ! GMD paper eq. (26)
+            endif
+          enddo
+       enddo
+     endif
+
+     if ((fire_wind_log_interp.eq.2.or.fire_wind_log_interp.eq.3) .and. fire_use_windrf .eq.3)then
+       call message('setup_wind_log_interpolation: adjusting wind interpolation height for LANDUSE roughness height')
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then 
+                r = log(fcwh(k)/fcz0(k))/log(fire_wind_height/fcz0(k))! GMD paper eq. (25)
+                fwh(i,j) = fz0(i,j) ** (1.-r) * fire_wind_height ** r ! GMD paper eq. (26)
             endif
           enddo
        enddo
