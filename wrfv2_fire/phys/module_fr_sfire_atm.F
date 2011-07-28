@@ -728,6 +728,7 @@ real::r
 
      case(4)
         call message('fire_wind_log_interp=4: log interpolation on atmospheric mesh, roughness from landuse, constant fire_wind_height')
+        return
 
      case default
         !$OMP CRITICAL(SFIRE_ATM_CRIT)
@@ -737,7 +738,15 @@ real::r
 
      end select 
 
-     if (fire_wind_log_interp.ne.4 .and. fire_use_windrf .eq.2)then
+     select case(fire_use_windrf)
+
+     case(0)  
+       call message('setup_wind_log_interpolation: not using wind reduction factors')
+
+     case(1)
+       call message('setup_wind_log_interpolation: multiplying wind by reduction factors')
+
+     case(2)
        call message('setup_wind_log_interpolation: resetting wind interpolation height from wind reduction factors')
        do j=jfts,jfte
           do i=ifts,ifte
@@ -747,9 +756,9 @@ real::r
             endif
           enddo
        enddo
-     endif
 
-     if ((fire_wind_log_interp.eq.2.or.fire_wind_log_interp.eq.3) .and. fire_use_windrf .eq.3)then
+     case(3)
+      if(fire_wind_log_interp.eq.2.or.fire_wind_log_interp.eq.3)then
        call message('setup_wind_log_interpolation: adjusting wind interpolation height for LANDUSE roughness height')
        do j=jfts,jfte
           do i=ifts,ifte
@@ -760,12 +769,26 @@ real::r
             endif
           enddo
        enddo
-     endif
+      else
+       call message('setup_wind_log_interpolation: not using wind reduction factors')
+      endif
+
+     case default
+        !$OMP CRITICAL(SFIRE_ATM_CRIT)
+        write(msg,*)'setup_wind_log_interpolation: invalid fire_use_windrf=',fire_use_windrf
+        !$OMP END CRITICAL(SFIRE_ATM_CRIT)
+        call crash('msg') 
+
+     end select 
 
 !      consistency check
        do j=jfts,jfte
           do i=ifts,ifte
             if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                 call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
                  call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
             endif
           enddo
