@@ -766,6 +766,19 @@ real::r
             if(k.ne.no_fuel_cat)then 
                 r = log(fcwh(k)/fcz0(k))/log(fire_wind_height/fcz0(k))! GMD paper eq. (25)
                 fwh(i,j) = fz0(i,j) ** (1.-r) * fire_wind_height ** r ! GMD paper eq. (26)
+
+                if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'category ',k, 'roughness ',fcz0(k),' midflame height ',fcwh(k),'fire wind height ',fire_wind_height
+                 call message(msg,level=-1)
+                 write(msg,*)'computed wind reduction factor ',r
+                 call message(msg,level=-1)
+                 write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                 call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                 call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+                endif
+
             endif
           enddo
        enddo
