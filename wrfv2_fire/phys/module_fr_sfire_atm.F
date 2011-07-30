@@ -614,9 +614,35 @@ call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,vf,'fire wind
         ! call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,'uf1',id)
         ! call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,vf,'vf1',id)
 #endif
+
 return
 
 end subroutine interpolate_atm2fire
+
+subroutine apply_windrf(                            &
+            ifms,ifme,jfms,jfme,                    &
+            ifts,ifte,jfts,jfte,                    &
+            nfuel_cat,uf,vf)
+integer::                                           &
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts, ifte, jfts, jfte                          ! fire tile bounds
+real,intent(in),dimension(ifms:ifme,jfms:jfme)::nfuel_cat
+real,intent(inout),dimension(ifms:ifme,jfms:jfme)::uf,vf
+!*** local
+    integer::i,j,k
+!*** executable
+
+    do j = jfts,jfte
+      do i = ifts,ifte
+          k=int( nfuel_cat(i,j) )
+          if(k.ne.no_fuel_cat)then 
+              uf(i,j)=uf(i,j)*windrf(k)
+              vf(i,j)=vf(i,j)*windrf(k)
+          endif
+      enddo
+    enddo
+
+end subroutine apply_windrf
 
 !
 !***

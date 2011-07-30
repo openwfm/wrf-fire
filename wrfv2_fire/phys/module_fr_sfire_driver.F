@@ -626,6 +626,12 @@ do ij=1,num_tiles
             z0,zs,                                        & ! 2D atm grid arrays in
             uah,vah,                                      & ! 2D atm grid out
             fp%vx,fp%vy)                                    ! fire grid arrays out
+
+          call apply_windrf(                        &
+            ifms,ifme,jfms,jfme,                    &
+            ifts,ifte,jfts,jfte,                    &
+            nfuel_cat,fp%vx,fp%vy)
+
         else
           call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'driver_phys:fz0')        
           call interpolate_wind2fire_height(id,       & ! to identify debugging prints and files if needed
@@ -642,6 +648,14 @@ do ij=1,num_tiles
             u,v,ph,phb,                                   & ! input atmospheric arrays
             fz0,fwh,                                      & ! input fire arrays
             fp%vx,fp%vy)                                          ! output fire arrays
+
+          if(fire_use_windrf.eq.1)then
+            call apply_windrf(                      &
+            ifms,ifme,jfms,jfme,                    &
+            ifts,ifte,jfts,jfte,                    &
+            nfuel_cat,fp%vx,fp%vy)
+          endif
+
         endif
 
 

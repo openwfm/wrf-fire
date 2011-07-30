@@ -560,9 +560,9 @@ do j=jfts,jfte
 
         c = 7.47 * exp( -0.133 * savr(k)**0.55)    ! const in wind coef
         fp%bbb(i,j) = 0.02526 * savr(k)**0.54      ! const in wind coef
-        if(fire_wind_log_interp .eq. 4 .or. fire_use_windrf .eq. 1) then
-            c = c * windrf(k)**fp%bbb(i,j)             ! jm: multiply wind by reduction factor
-        endif
+        !if(fire_wind_log_interp .eq. 4 .or. fire_use_windrf .eq. 1) then
+        !     c = c * windrf(k)**fp%bbb(i,j)             ! jm: multiply wind by reduction factor
+        !endif
         e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
         fp%phiwc(i,j) = c * (betafl/betaop)**(-e)
 
