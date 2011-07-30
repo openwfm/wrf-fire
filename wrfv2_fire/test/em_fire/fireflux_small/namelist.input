@@ -187,7 +187,7 @@
 fire_read_atm_ht = .false.,      ! read terrain height from file ht_input
 fire_read_lu = .true.,          ! read land use data from input_lu file
 !
-! method switches for developers only, do not change!
+! method switches for developers only, do not change! 
 !
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
  fire_fuel_left_irl=2,          ! refinement to integrate fuel_left, must be even
