@@ -38,6 +38,6 @@ for i=1:size(p.times,2), % make Times readable
 end
 p.times=times;
 %test 
-max_rel_err_hgt=big(squeeze(p.alt_at_w(:,:,1,:))-squeeze(p.hgt))/big(p.hgt);
+max_rel_err_hgt=big(squeeze(p.alt_at_w(:,:,1,:))-squeeze(p.hgt))/max(big(p.hgt),realmin);
 fprintf('relative error of geopotential ground altitude %g\n',max_rel_err_hgt)
 end

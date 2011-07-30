@@ -36,6 +36,17 @@ plot(direction,altitude)
 xlabel('direction degrees')
 ylabel('alitude m')
 title('Wind direction');
+figure(3)
+plot(u,altitude)
+xlabel('speed m/s')
+ylabel('alitude m')
+title('Wind U');
+figure(4)
+plot(v,altitude)
+xlabel('speed m/s')
+ylabel('alitude m')
+title('Wind V');
+
 
 % no temperature yet
 % t=interp2(t,i1,i2);
