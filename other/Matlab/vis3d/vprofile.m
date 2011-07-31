@@ -68,25 +68,50 @@ end
 
 figure(1)
 plot(speed,altitude)
+if fwh>0,
+    hold on
+    plot(sf,fwh,'*')
+    hold off
+end
 xlabel('speed m/s')
-ylabel('alitude m')
+ylabel('altitude m')
 title('Wind speed');
+print('-dpng','speed.png')
 figure(2)
 plot(direction,altitude)
+if fwh>0,
+    hold on
+    plot(df,fwh,'*')
+    hold off
+end
 xlabel('direction degrees')
-ylabel('alitude m')
+ylabel('altitude m')
 title('Wind direction');
+print('-dpng','direction.png')
 figure(3)
 plot(u,altitude)
+if fwh>0,
+    hold on
+    plot(uf,fwh,'*')
+    hold off
+end
 xlabel('speed m/s')
 ylabel('alitude m')
 title('Wind U');
+print('-dpng','windu.png')
 figure(4)
 plot(v,altitude)
+if fwh>0,
+    hold on
+    plot(vf,fwh,'*')
+    hold off
+end
 xlabel('speed m/s')
-ylabel('alitude m')
+ylabel('altitude m')
 title('Wind V');
+print('-dpng','windv.png')
 
+disp('PNG files with figures created')
 
 % no temperature yet
 % t=interp2(t,i1,i2);
