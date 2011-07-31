@@ -29,8 +29,7 @@ disp(['Time is ',p.times{1}])
 % wind profile
 u=interp_12(p.u,i1+0.5,i2);  % staggered in x1
 v=interp_12(p.v,i1,i2+0.5);  % staggered in x2
-[direction,speed]=cart2pol(-v,u); % wind from north to south is direction zero  
-direction=180*direction/pi;  % convert to degrees
+[direction,speed]=pol(u,v); % wind from north to south is direction zero  
 
 layers=5;
 fprintf('Wind profile at (%gm %gm) from lower left corner of domain\n',x1,x2)
@@ -48,7 +47,8 @@ if fwh > 0,
 end
 uf = interp2(p.uf, fi1, fi2);
 vf = interp2(p.vf, fi1, fi2);
-[df,sf]=cart2pol(-vf,uf);
+[df,sf]=pol(uf,vf);
+
 if sf<=0,
   fprintf('No fuel at this location, wind not interpolated.\n') 
 end
@@ -59,7 +59,7 @@ fprintf('z0   %7.3f %7.3f %7.3f %7.3f\n',dz0,0,0,0)  % at roughness height
 if fwh>0,
      fprintf('fwh  %7.3f %7.3f %7.3f %7.3f %7.3f\n',fwh,uf,vf,sf,df)
 elseif sf>0,
-     fprintf('             %7.3f %7.3f %7.3f %7.3f\n',uf,vf,sf,df)
+     fprintf('reduced      %7.3f %7.3f %7.3f %7.3f\n',uf,vf,sf,df)
 end
 for i=1:layers,
      fprintf('%3i  %7.3f %7.3f %7.3f %7.3f %7.3f\n',i,altitude(i),u(i),v(i),speed(i),direction(i))
@@ -94,6 +94,9 @@ title('Wind V');
     
 end 
  
-
+function [d,s]=pol(u,v)
+     [d,s]=cart2pol(-v,u); % wind from north to south is direction zero  
+     d=180*d/pi;  % convert to degrees
+end 
 
 
