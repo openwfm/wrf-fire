@@ -14,7 +14,8 @@ function p=wrfatm2struct(filename,timesteps)
 if ~exist('timesteps','var'),
     timesteps=[];
 end
-p=nc2struct(filename,{'U','V','W','PH','PHB','HGT','QVAPOR','T','Z0',...
+p=nc2struct(filename,{'U','V','W','PH','PHB','HGT','Z0','T',...
+    'FZ0','FWH','UF','VF',...
     'XLONG','XLAT','GRNHFX','FGRNHFX','FXLONG','FXLAT','Times'},...
     {'DX','DY'},timesteps);
 
@@ -26,6 +27,13 @@ for k=1:size(p.altitude,3)
     p.height(:,:,k,:)=p.altitude(:,:,k,:)-p.alt_at_w(:,:,1,:);
 end
 
+% refinement ratios
+p.sr_x=size(p.fxlong,1)/size(p.xlong,1);
+p.sr_y=size(p.fxlong,2)/size(p.xlong,2);
+
+% fire mesh step
+p.fdx = p.dx/p.sr_x;
+p.fdy = p.dy/p.sr_y;
 
 % add wind at centers (theta points)
 p.uc = 0.5*(p.u(1:end-1,:,:,:) + p.u(2:end,:,:,:));
@@ -38,6 +46,6 @@ for i=1:size(p.times,2), % make Times readable
 end
 p.times=times;
 %test 
-max_rel_err_hgt=big(squeeze(p.alt_at_w(:,:,1,:))-squeeze(p.hgt))/big(p.hgt);
+max_rel_err_hgt=big(squeeze(p.alt_at_w(:,:,1,:))-squeeze(p.hgt))/max(big(p.hgt),realmin);
 fprintf('relative error of geopotential ground altitude %g\n',max_rel_err_hgt)
 end
