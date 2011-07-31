@@ -65,9 +65,15 @@ for i=1:layers,
      fprintf('%3i  %7.3f %7.3f %7.3f %7.3f %7.3f\n',i,altitude(i),u(i),v(i),speed(i),direction(i))
 end
 
-
+mm=[layers,size(p.u,3)];
+for i=1:2
+m=mm(i);
+speedfile=sprintf('speed_%i.png',m);
+directionfile=sprintf('direction_%i.png',m);
+windufile=sprintf('windu_%i.png',m);
+windvfile=sprintf('windv_%i.png',m);
 figure(1)
-plot(speed,altitude)
+plot(speed(1:m),altitude(1:m))
 if fwh>0,
     hold on
     plot(sf,fwh,'*')
@@ -76,9 +82,9 @@ end
 xlabel('speed m/s')
 ylabel('altitude m')
 title('Wind speed');
-print('-dpng','speed.png')
+print('-dpng',speedfile)
 figure(2)
-plot(direction,altitude)
+plot(direction(1:m),altitude(1:m))
 if fwh>0,
     hold on
     plot(df,fwh,'*')
@@ -87,9 +93,9 @@ end
 xlabel('direction degrees')
 ylabel('altitude m')
 title('Wind direction');
-print('-dpng','direction.png')
+print('-dpng',directionfile)
 figure(3)
-plot(u,altitude)
+plot(u(1:m),altitude(1:m))
 if fwh>0,
     hold on
     plot(uf,fwh,'*')
@@ -98,9 +104,9 @@ end
 xlabel('speed m/s')
 ylabel('alitude m')
 title('Wind U');
-print('-dpng','windu.png')
+print('-dpng',windufile)
 figure(4)
-plot(v,altitude)
+plot(v(1:m),altitude(1:m))
 if fwh>0,
     hold on
     plot(vf,fwh,'*')
@@ -109,7 +115,8 @@ end
 xlabel('speed m/s')
 ylabel('altitude m')
 title('Wind V');
-print('-dpng','windv.png')
+print('-dpng',windvfile)
+end
 
 disp('PNG files with figures created')
 
