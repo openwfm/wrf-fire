@@ -26,6 +26,18 @@ u=interp_12(p.u,i1+0.5,i2);  % staggered in x1
 v=interp_12(p.v,i1,i2+0.5);  % staggered in x2
 [direction,speed]=cart2pol(-v,u); % wind from north to south is direction zero  
 direction=180*direction/pi;  % convert to degrees
+
+layers=5;
+fprintf('Wind profile at %gm %gm from lower left corner of domain\n',x1,x2)
+fprintf('Time step %i at %s\n',tstep,p.times{1})
+z0 = interp2(p.z0, i1, i2);
+fprintf('Rougness height %5.3fm\n',z0);
+fprintf('layer altitude     U      V     speed\n')  
+for i=1:layers,
+     fprintf('%3i  %7.3f %7.3f %7.3f %7.3f \n',i,altitude(i),u(i),v(i),speed(i))
+end
+
+
 figure(1)
 plot(speed,altitude)
 xlabel('speed m/s')
@@ -53,21 +65,7 @@ title('Wind V');
 % q=interp2(qvapor,i1,i2);
     
 end 
-
-function r=interp_12(a,i1,i2)
-% horizontal interpolation
-    if isempty(a),
-        r=[];
-    else
-        nv=size(a,3); % number of vertical layers
-        r=zeros(nv,1);
-        for i=1:nv
-            b=squeeze(double(a(:,:,i)));
-            r(i)=interp2(b,i1,i2);
-        end
-    end
-end
-        
+ 
 
 
 
