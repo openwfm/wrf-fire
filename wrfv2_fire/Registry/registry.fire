@@ -46,7 +46,13 @@ state    real     fgrnhfx   *i*j      fire        1         z    hr    "FGRNHFX"
 state    real     fgrnqfx   *i*j      fire        1         z    hr    "FGRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     fcanhfx   *i*j      fire        1         z    hr    "FCANHFX"   "heat flux from crown fire" "W/m^2"
 state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"   "moisture flux from crown fire" "W/m^2"
-state    real     ros       *i*j      fire        1         z    hr    "ROS" "rate of spread" "m/s"
+
+# diagnostics only
+state    real     ros       *i*j      fire        1         z    hr    "ROS" "rate of spread in the normal direction to the fireline" "m/s"
+state    real     rosx      *i*j      fire        1         z    hr    "ROSX" "X component of the spread vector" "m/s"
+state    real     rosy      *i*j      fire        1         z    hr    "ROSY" "Y component of the spread vector" "m/s"
+state    real     fhyphfx   *i*j      fire        1         z    hr    "FHYPHFX" "initial sensible heat flux if a hypothetical fire starts here " "W/m^2"
+state    real     fhypqfx   *i*j      fire        1         z    hr    "FHYPQFX" "initial latent heat flux if a hypothetical fire starts here " "W/m^2"
 
 # constant data arrays
 state    real     fxlong    *i*j      fire        1         z   ihr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
