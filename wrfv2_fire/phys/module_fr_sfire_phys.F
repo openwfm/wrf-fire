@@ -745,27 +745,7 @@ propx,propy,i,j,fp)
 
 implicit none
 
-! copied from wf2_janice 
-! with the following changes ONLY: 
-!   0.5*(speed + abs(speed)) -> max(speed,0.)
-!   index l -> j 
-!   took out some prints
-!   argument fuelloadm never used??
-!   not using nfuel_cat here - cell info was put into arrays passed as arguments
-!       in include file to avoid transcription errors when used elsewhere
-!   betaop is absorbed in phiwc, see module_fr_sfire_model/fire_startup
-!   return the backing, wind, and slope contributions to the rate of spread separately
-!       because they may be needed to take advantage of known wind and slope vectors.
-!       They should add up to get the total rate of spread.
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!     ... calculates fire spread rate with mcarthur formula or Rothermel
-!           using fuel type of fuel cell
-!
-!      
-!         m/s =(ft/min) *.3048/60. =(ft/min) * .00508   ! conversion rate
-!         ft/min = m/s * 2.2369 * 88. = m/s *  196.850 ! conversion rate
-!      
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+! compute the wind speed and slope normal to the fireline and call fire_ros_cawfe
 
 !*** arguments
 real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
@@ -775,11 +755,7 @@ type(fire_params),intent(in)::fp
 
 !*** local
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
-real:: umid, phis, phiw, spdms, umidm, excess, tanphim
-real, parameter::ros_max=6.
-character(len=128)msg
 real::cor_wind,cor_slope,nvx,nvy,scale
-
 
 !*** executable
 
@@ -805,6 +781,56 @@ else
     cor_wind=1.
     cor_slope=1.
 endif
+
+call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
+speed,tanphi,cor_wind,cor_slope,i,j,fp)
+
+end subroutine fire_ros
+
+!
+!***
+!
+
+subroutine fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
+speed,tanphi,cor_wind,cor_slope,i,j,fp)
+
+implicit none
+
+! find rate of spread from wind speed and slope
+! copied from wf2_janice 
+! with the following changes ONLY: 
+!   0.5*(speed + abs(speed)) -> max(speed,0.)
+!   index l -> j 
+!   took out some prints
+!   argument fuelloadm never used??
+!   not using nfuel_cat here - cell info was put into arrays passed as arguments
+!       in include file to avoid transcription errors when used elsewhere
+!   betaop is absorbed in phiwc, see module_fr_sfire_model/fire_startup
+!   return the backing, wind, and slope contributions to the rate of spread separately
+!       because they may be needed to take advantage of known wind and slope vectors.
+!       They should add up to get the total rate of spread.
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+!     ... calculates fire spread rate with mcarthur formula or Rothermel
+!           using fuel type of fuel cell
+!
+!      
+!         m/s =(ft/min) *.3048/60. =(ft/min) * .00508   ! conversion rate
+!         ft/min = m/s * 2.2369 * 88. = m/s *  196.850 ! conversion rate
+!      
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+!*** arguments
+real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
+real, intent(in)::speed,tanphi,cor_wind,cor_slope
+integer, intent(in)::i,j         ! node mesh coordinates
+type(fire_params),intent(in)::fp
+
+!*** local
+real:: umid, phis, phiw, spdms, umidm, excess, tanphim
+real, parameter::ros_max=6.
+character(len=128)msg
+
+!*** executable
 
 if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test for .eq. 0 for speed
     if (ibeh .eq. 1) then                ! use Rothermel formula
@@ -841,7 +867,7 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         ros_slope=-999.
     endif
 !
-else   ! chaparral
+else   ! chaparral model from Clark et al 2004
 !        .... spread rate has no dependency on fuel character, only windspeed.
     spdms = max(speed,0.)      
     ! rosm = 1.2974 * spdms**1.41       ! spread rate, m/s
@@ -856,7 +882,7 @@ else   ! chaparral
     ros_slope =0.
 
 endif
-! if advection, multiply by the cosines
+!  multiply by the correction factors (from angle calculations)
 ros_wind=ros_wind*cor_wind
 ros_slope=ros_slope*cor_slope
 !
@@ -886,6 +912,6 @@ real, intent(in)::u,v
 nrm2=sqrt(u*u+v*v)
 end function nrm2
 
-end subroutine fire_ros 
+end subroutine fire_ros_cawfe
 
 end module module_fr_sfire_phys
