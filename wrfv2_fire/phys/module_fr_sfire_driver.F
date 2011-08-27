@@ -140,6 +140,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     fp%r_0 => grid%r_0       ! spread formula coeff 
     fp%fgip => grid%fgip     ! spread formula coeff 
     fp%ischap => grid%ischap ! spread formula coeff 
+    fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
             
     ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &

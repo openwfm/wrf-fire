@@ -13,7 +13,7 @@ implicit none
 PRIVATE
 
 ! subroutines and functions 
-PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m
+PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m,fire_ros_diagnostics
 
 ! types
 PUBLIC::fire_params
@@ -31,6 +31,7 @@ real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1)
 real,pointer,dimension(:,:):: bbb,phisc,phiwc,r_0 ! spread formula coefficients
 real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
 real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
+real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s) 
 end type fire_params
 
 ! use as
@@ -913,5 +914,75 @@ nrm2=sqrt(u*u+v*v)
 end function nrm2
 
 end subroutine fire_ros_cawfe
+
+subroutine fire_ros_diagnostics(fp,               &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ros0,rosx,rosy,fhyphfx,fhypqfx)              ! fire spread diagnostic variables
+
+!*** arguments
+type(fire_params), intent(in)::fp
+integer, intent(in)::                             &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte                          ! tile dims
+real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
+        ros0,rosx,rosy,fhyphfx,fhypqfx              ! fire spread diagnostic variables
+
+!*** local
+integer:: i,j
+real, dimension(ifts:ifte,jfts:jfte):: burn_rate_frac
+real:: cor_wind=1.,cor_slope=1.,dt_fake=1.
+real:: ros_back,ros_wind,ros_slope,speed,tanphi,front_speed,ros_x,ros_y
+
+!*** executable
+
+do j=jfts,jfte
+  do i=ifts,ifte
+!   compute the fire spread rate and vector
+
+    ! wind speed is total speed 
+    speed =  sqrt(fp%vx(i,j)*fp%vx(i,j)+ fp%vy(i,j)*fp%vy(i,j))+tiny(speed)
+    ! slope is total slope
+    tanphi = sqrt(fp%dzdxf(i,j)*fp%dzdxf(i,j) + fp%dzdyf(i,j)*fp%dzdyf(i,j))+tiny(tanphi)
+
+    call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
+      speed,tanphi,cor_wind,cor_slope,i,j,fp)
+
+    ros_x = ros_wind * fp%vx(i,j)/speed + ros_slope * fp%dzdxf(i,j)/tanphi ! x direction component
+    ros_y = ros_wind * fp%vy(i,j)/speed + ros_slope * fp%dzdyf(i,j)/tanphi ! y direction component
+   
+!   store to out
+    ros0(i,j) = ros_back      ! direction-less spread rate component
+    rosx(i,j) = ros_x
+    rosy(i,j) = ros_y
+
+    ! max fire front speed in this location (m/s)
+    front_speed = ros_back + sqrt(ros_x*ros_x + ros_y*ros_y)
+
+    ! fuel fraction loss per fire front unit length traveled per unit time
+    burn_rate_frac(i,j) = 0.5 * front_speed / fp%fuel_time(i,j) 
+
+    ! fireline element of length ds moves in time dt by front_speed * dt covering area ds * dt * front_speed (m^2)
+    ! after time dt the fuel fraction decrease is 0 at the leading edge and dt/fuel_time at the trailing edge 
+    ! so the average fuel consumption over this zone is 0.5 * dt/fuel_time  (1)
+    ! fuel load is fgip (kg/m^2)
+    ! and the amount of fuel burned fireline length ds travels over time dt is 0.5 fgip * ds * dt^2 * front_speed/fuel_time (kg)
+    ! note: dt because 1. it travels more 2. it burns longer
+    ! fgip*burn_rate_frac(i,j) = (kg/m^2) * (m/s^2) = kg/m/s^2
+
+    ! http://www.forestencyclopedia.net/p/p487
+    ! H = I*w*r  = (J/kg) * (kg/m^2) * (m/s) = J/m/s
+
+  enddo
+enddo
+
+call heat_fluxes(dt_fake,                        &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        fp%fgip,burn_rate_frac,                      & !in
+        fhyphfx,fhypqfx)                           !out
+
+end subroutine fire_ros_diagnostics
 
 end module module_fr_sfire_phys

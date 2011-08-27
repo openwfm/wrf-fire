@@ -322,6 +322,11 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 
 elseif (ifun.eq.6) then ! timestep postprocessing
 
+  call fire_ros_diagnostics(fp,               &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ros0,rosx,rosy,fhyphfx,fhypqfx)              ! fire spread diagnostic variables
+
   if(.not. freeze_fire)then
 
     ! compute the heat fluxes from the fuel burned
