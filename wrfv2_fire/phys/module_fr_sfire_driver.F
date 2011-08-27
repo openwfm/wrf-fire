@@ -241,7 +241,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%uah,grid%vah,                          &
             grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
-            grid%ros,                                   & ! rate of spread
+            grid%ros,grid%ros0,grid%rosx,grid%rosy,grid%fhyphfx,grid%fhypqfx,  & ! rate of spread diagnostic variables
             grid%fxlong,grid%fxlat,                           &       
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,                      & 
@@ -301,7 +301,7 @@ subroutine sfire_driver_phys (ifun,    &
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     uah,vah,                                      & ! out atm grid
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
-    ros,                                          &
+    ros,ros0,rosx,rosy,fhyphfx,fhypqfx,           & ! fire spread diagnostic variables
     fxlong,fxlat,                                 & !  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,                                & ! save constant internal data, fire grid
@@ -384,8 +384,10 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
     fgrnhfx,                                      &  ! heat flux from ground fire (W/m^2) 
     fgrnqfx,                                      &  ! moisture flux from ground fire (W/m^2) 
     fcanhfx,                                      &  ! heat flux from crown fire (W/m^2) 
-    fcanqfx,                                      &   ! moisture flux from crown fire (W/m^2) 
-    ros                                             ! fire rate of spread (m/s)
+    fcanqfx,                                      &  ! moisture flux from crown fire (W/m^2) 
+    ros,                                          &  ! fire rate of spread normal to the fireline (m/s)
+    ros0,rosx,rosy,                               &  ! fire spread vector (m/s)
+    fhyphfx,fhypqfx                                  ! heat fluxes from the fire spread vector
 
 !  ***** data (constant in time) *****
 
@@ -685,7 +687,7 @@ do ij=1,num_tiles
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
-        ros,                                    & ! output: rate of spread for display
+        ros,ros0,rosx,rosy,fhyphfx,fhypqfx,     & ! fire spread diagnostic variables
         nfuel_cat,                              & ! fuel data per point 
         fuel_time,fwh,fz0,                      & ! save derived internal data
         fp                                      & ! fire coefficients

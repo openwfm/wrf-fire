@@ -31,7 +31,7 @@ subroutine sfire_model (                    &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
-    ros,                                    & ! output: rate of spread
+    ros,ros0,rosx,rosy,fhyphfx,fhypqfx,     & ! fire spread diagnostic variables
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,fwh,fz0,                      & ! save derived internal data
     fp &
@@ -114,7 +114,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     lfn_out, &                              !                              
     grnhfx,grnqfx, &                        ! heat fluxes J/m^2/s  (cell)             
-    ros                                     ! output: rate of spread
+    ros,ros0,rosx,rosy,fhyphfx,fhypqfx      ! fire spread diagnostic variables
  
 ! constant arrays - set at initialization
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
