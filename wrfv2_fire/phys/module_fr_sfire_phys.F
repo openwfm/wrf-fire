@@ -960,7 +960,7 @@ do j=jfts,jfte
     front_speed = ros_back + sqrt(ros_x*ros_x + ros_y*ros_y)
 
     ! fuel fraction loss per fire front unit length traveled per unit time
-    burn_rate_frac(i,j) = 0.5 * front_speed / fp%fuel_time(i,j) 
+    ! burn_rate_frac(i,j) = 0.5 * front_speed / fp%fuel_time(i,j) 
 
     ! fireline element of length ds moves in time dt by front_speed * dt covering area ds * dt * front_speed (m^2)
     ! after time dt the fuel fraction decrease is 0 at the leading edge and dt/fuel_time at the trailing edge 
@@ -972,6 +972,8 @@ do j=jfts,jfte
 
     ! http://www.forestencyclopedia.net/p/p487
     ! H = I*w*r  = (J/kg) * (kg/m^2) * (m/s) = J/m/s
+    ! fuel fraction loss per fire front unit length traveled 
+    burn_rate_frac(i,j) =  front_speed  ! for the fireline intensity 
 
   enddo
 enddo
