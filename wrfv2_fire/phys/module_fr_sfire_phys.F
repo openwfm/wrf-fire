@@ -644,8 +644,10 @@ do j=jfts,jfte
              fgip(i,j)               &     ! init mass from fuel model no (kg/m^2) = fgi(nfuel_cat(i,j)
              * fuel_frac_burnt(i,j)        ! fraction burned this call    (1)
          grnhft(i,j) = (dmass/dt)*(1.-bmst)*cmbcnst         ! J/m^2/sec
-         grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! what the #!@* is that??
-         ! xlv is defined in module_model_constants.. who knows that it is.. why .56 ??
+         grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! 
+         ! bmst = relative water contents; 0.56 = est. ratio of water from burning
+         ! xlv = nominal specific latent heat of water J/kg (dependence on temperature ignored)
+         ! xlv is  defined in module_model_constants 
     enddo
 enddo
 
