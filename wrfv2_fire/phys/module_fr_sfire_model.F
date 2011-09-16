@@ -17,7 +17,7 @@ contains
 subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
-    restart,                                &
+    restart,                                & ! use existing state
     num_ignitions,                          & ! number of ignitions before advancing
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
@@ -178,7 +178,7 @@ elseif(ifun.eq.2)then
 !$OMP END CRITICAL(SFIRE_MODEL_CRIT)
         call message(msg)
 
-        if(.not.restart)call set_nfuel_cat( &
+        call set_nfuel_cat(      &       ! also on restart
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             ifuelread,nfuel_cat0,&
@@ -186,7 +186,7 @@ elseif(ifun.eq.2)then
 
         ! uses nfuel_cat to set the other fuel data arrays
         ! needs zsf on halo width 1 to compute the terrain gradient
-        if(.not.restart)call set_fire_params(   & 
+        call set_fire_params(    &       ! also on restart
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
@@ -331,16 +331,21 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
+    write(msg,*)'time_start=',time_start,' dt=',dt,' before fuel_left'
+    call message(msg,1)
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'model: lfn')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign,'model: tign')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_time,'model: fuel_time')
     call fuel_left(&
         ifds,ifde,jfds,jfde, &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
         lfn,tign,fuel_time,time_start+dt,fuel_frac_end,fire_area) !fuel_frac_end is private and tile based
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
 
-    call print_2d_stats(ifts,ifte,jfts,jfte, &
-                   ifts,ifte,jfts,jfte, &
-                   fuel_frac_end,'model: fuel_frac end')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_end,'model: fuel_frac end')
     
     do j=jfts,jfte
         do i=ifts,ifte
@@ -350,9 +355,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         enddo
     enddo
 
-    call print_2d_stats(ifts,ifte,jfts,jfte, &
-                   ifts,ifte,jfts,jfte, &
-                   fuel_frac_burnt,'model: fuel_frac burned')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_burnt,'model: fuel_frac burned')
         
     call heat_fluxes(dt,                          &
         ifms,ifme,jfms,jfme,                      &

@@ -611,7 +611,7 @@ enddo
 !    enddo
 !enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-write(msg,'(a,4i6,a,f10.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
+write(msg,'(a,4i6,a,e15.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 return

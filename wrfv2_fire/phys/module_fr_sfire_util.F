@@ -1043,7 +1043,7 @@ do j=jps,jpe
   enddo
 enddo
 if(bb.ne.bb)goto 10 ! should never happen 
-if(fire_print_msg.eq.0)return
+if(fire_print_msg.le.0)return
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1)*(kpe-kps+1))
 call print_stat_line(name,ips,ipe,jps,jpe,min_a,max_a,avg_a)
 return

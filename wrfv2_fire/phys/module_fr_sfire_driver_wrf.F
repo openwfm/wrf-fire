@@ -131,6 +131,14 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ,ifps,ifpe, jfps,jfpe                                   &
             ) 
 
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,0,0,0,z_at_w,'z_at_w')
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,0,0,0,dz8w,'dz8w')
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,0,0,0,rho,'rho')
+   call print_chsum(0,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,0,grid%mut,'mu')
+   call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'rho')
+   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,z_at_w,'z_at_w')
+   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,dz8w,'dz8w')
+
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     do ij=1,grid%num_tiles
        ! SFIRE works on domain by 1 smaller, in last row&col winds are not set properly

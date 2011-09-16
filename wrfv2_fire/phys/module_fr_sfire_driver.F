@@ -153,13 +153,13 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
     itimestep=grid%itimestep
-    restart=config_flags%restart
+    restart=config_flags%restart .or. config_flags%cycling
 
     
 
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-    write(msg,'(a,i1,a,i1,a,i4)') &
-       'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end,' test steps',tsteps
+    write(msg,'(a,i1,a,i1,a,l1)') &
+       'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end,' restart=',restart
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
     call message(msg)
 
@@ -672,6 +672,8 @@ do ij=1,num_tiles
     endif
 
 !   the following executes in any case
+    call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,lfn,'lfn')
+    call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,tign,'tign')
 
     call sfire_model (id,ifun,restart,  &
         num_ignitions,                          & ! switches
@@ -800,6 +802,8 @@ if (ifun.eq.4)then
  !call print_chsum(itimestep,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,1,vah,'vah')
  call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vx,'uf')
  call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vy,'vf')
+ call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,lfn,'lfn')
+ call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,tign,'tign')
 #ifdef DEBUG_OUT
     if(pid.gt.0)then
  !       call write_array_m(ips,ipe1,jps,jpe,ims,ime,jms,jme,uah,'uah',pid)
