@@ -28,7 +28,6 @@ integer,save::          &
  boundary_guard=-1,     &  ! crash if fire gets this many cells to domain boundary, -1=off
  fire_grows_only=1,     &  ! fire can spread out only (level set functions may not increase)
  fire_upwinding=3,      &  ! upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian 
- fire_upwind_split=0,   &  ! 1=upwind advection separately from normal direction spread
  fire_test_steps=0,     &  ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)
  fire_topo_from_atm=1,  &  ! 0 = expect ZSF set correctly on entry, 1 = populate by interploating from atmosphere
  fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
@@ -1207,38 +1206,10 @@ return
 
 
 end subroutine write_array_m3
+
 !
 !***
 !
-subroutine read_array_2d_integer(filename,ia,its,ite,jts,jte,ims,ime,jms,jme)
-!*** arguments
-integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
-integer, intent(out), dimension(ims:ime,jms:jme):: ia
-character(len=*),intent(in)::filename
-!*** local
-real, allocatable, dimension(:,:)::a
-integer::i,j
-real::r
-character(len=256)msg
-!*** executable
-allocate(a(ims:ime,jms:jme))
-call read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
-do j=jts,jte
-    do i=its,ite
-        ia(i,j)=a(i,j)
-	r=ia(i,j)
-	if(r.ne.a(i,j))then
-           !write(6,*)'Reading file ',trim(filename)
-           !write(6,*)'value at position ',i,j,' cannot be converted to integer'
-           !write(6,*)'read ',a(i,j),' converted as',k,' converted as ',r
-	   msg=trim(filename)//' is not integer file'
-	   call crash(msg)
-        endif
-    enddo
-enddo
-end subroutine read_array_2d_integer
-
-        
 
 subroutine read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
 use module_dm
