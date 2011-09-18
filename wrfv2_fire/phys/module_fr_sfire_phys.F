@@ -631,20 +631,24 @@ real, intent(in)::dt          ! dt  the fire time step (the fire model advances 
 integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,iffs,iffe,jffs,jffe   ! dimensions                   
 real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip
 real, intent(in),dimension(iffs:iffe,jffs:jffe):: fuel_frac_burnt
-real, intent(out),dimension(ifms:ifme,jfms:jfme):: grnhft,grnqft
+real, intent(out),dimension(ifms:ifme,jfms:jfme):: grnhft
+real, intent(out),dimension(ifms:ifme,jfms:jfme),optional:: grnqft
 
 !*** local
 integer::i,j
 real:: dmass
+logical::latent
+
 
 !*** executable        
+latent = present(grnqft)
 do j=jfts,jfte
     do i=ifts,ifte
          dmass =                     &     ! ground fuel dry mass burnt this call (kg/m^2)
              fgip(i,j)               &     ! init mass from fuel model no (kg/m^2) = fgi(nfuel_cat(i,j)
              * fuel_frac_burnt(i,j)        ! fraction burned this call    (1)
          grnhft(i,j) = (dmass/dt)*(1.-bmst)*cmbcnst         ! J/m^2/sec
-         grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! 
+         if(latent)grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! 
          ! bmst = relative water contents; 0.56 = est. ratio of water from burning
          ! xlv = nominal specific latent heat of water J/kg (dependence on temperature ignored)
          ! xlv is  defined in module_model_constants 
@@ -932,8 +936,8 @@ real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
 
 !*** local
 integer:: i,j
-real, dimension(ifts:ifte,jfts:jfte):: burn_rate_frac
-real:: cor_wind=1.,cor_slope=1.,dt_fake=1.
+real, dimension(ifts:ifte,jfts:jfte):: ros
+real:: cor_wind=1.,cor_slope=1.
 real:: ros_back,ros_wind,ros_slope,speed,tanphi,front_speed,ros_x,ros_y
 
 !*** executable
@@ -959,10 +963,55 @@ do j=jfts,jfte
     rosy(i,j) = ros_y
 
     ! max fire front speed in this location (m/s)
-    front_speed = ros_back + sqrt(ros_x*ros_x + ros_y*ros_y)
+    ros(i,j) = ros_back + sqrt(ros_x*ros_x + ros_y*ros_y)
+
+  enddo
+enddo
+
+call fireline_intensity(fp,                        &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ros,                                      & !in
+        fhyphfx,fhypqfx)                            !out
+
+end subroutine fire_ros_diagnostics
+
+!
+!***
+!
+
+subroutine fireline_intensity(fp,                 &  ! fuel params
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        irms,irme,jrms,jrme,                      &  ! memory dims for ros
+        ros,                                      &  ! rate of spread in
+        fibyram,filimit)                             ! intensities out
+
+!*** arguments
+type(fire_params), intent(in)::fp
+integer, intent(in)::                             &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        irms,irme,jrms,jrme                         ! memory dims for ros
+real, intent(in), dimension(irms:irme,jrms:jrme) :: ros ! in rate of spread
+real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
+        fibyram,filimit                             ! out fireline intensities
+
+!*** local
+integer:: i,j
+real, dimension(ifts:ifte,jfts:jfte):: rate_frac
+real:: dt_fake=1.
+
+call heat_fluxes(dt_fake,                        &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        fp%fgip,ros,                              & !in
+        fibyram)                                    !out
 
     ! fuel fraction loss per fire front unit length traveled per unit time
-    ! burn_rate_frac(i,j) = 0.5 * front_speed / fp%fuel_time(i,j) 
+    ! burn_rate(i,j) = 0.5 * front_speed / fp%fuel_time(i,j) 
 
     ! fireline element of length ds moves in time dt by front_speed * dt covering area ds * dt * front_speed (m^2)
     ! after time dt the fuel fraction decrease is 0 at the leading edge and dt/fuel_time at the trailing edge 
@@ -975,18 +1024,22 @@ do j=jfts,jfte
     ! http://www.forestencyclopedia.net/p/p487
     ! H = I*w*r  = (J/kg) * (kg/m^2) * (m/s) = J/m/s
     ! fuel fraction loss per fire front unit length traveled 
-    burn_rate_frac(i,j) =  front_speed  ! for the fireline intensity 
 
-  enddo
+do j=jfts,jfte
+    do i=ifts,ifte
+       rate_frac(i,j)=0.5*ros(i,j)/fp%fuel_time(i,j)
+    enddo
 enddo
 
 call heat_fluxes(dt_fake,                        &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
-        fp%fgip,burn_rate_frac,                      & !in
-        fhyphfx,fhypqfx)                           !out
+        fp%fgip,rate_frac,                        & !in
+        filimit)                                    !out
 
-end subroutine fire_ros_diagnostics
+end subroutine fireline_intensity
+
+!*** executable
 
 end module module_fr_sfire_phys
