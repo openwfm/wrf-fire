@@ -924,7 +924,9 @@ end subroutine fire_ros_cawfe
 subroutine fire_ros_diagnostics(fp,               &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
-        ros0,rosx,rosy,fhyphfx,fhypqfx)              ! fire spread diagnostic variables
+        ros0,rosx,rosy,                           &  ! fire spread diagnostic variables
+        fdintens,fdintens2)                          ! fireline intensities for danger rating
+
 
 !*** arguments
 type(fire_params), intent(in)::fp
@@ -932,7 +934,8 @@ integer, intent(in)::                             &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte                          ! tile dims
 real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
-        ros0,rosx,rosy,fhyphfx,fhypqfx              ! fire spread diagnostic variables
+        ros0,rosx,rosy,                           &  ! fire spread diagnostic variables
+        fdintens,fdintens2                           ! fireline intensities for danger rating
 
 !*** local
 integer:: i,j
@@ -968,12 +971,12 @@ do j=jfts,jfte
   enddo
 enddo
 
-call fireline_intensity(fp,                        &
+call fireline_intensity(fp,                       &  ! fuel properties
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ros,                                      & !in
-        fhyphfx,fhypqfx)                            !out
+        fdintens,fdintens2)                         ! fireline intensities out
 
 end subroutine fire_ros_diagnostics
 
