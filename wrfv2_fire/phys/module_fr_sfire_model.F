@@ -133,6 +133,7 @@ real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
 logical:: freeze_fire
 integer:: stat_lev=1
+real::fireline_mask=-1.
 
 !*** executable
 
@@ -278,7 +279,8 @@ elseif (ifun.eq.4) then  ! do the timestep
         call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
 
     endif
-    
+
+
 elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! this cannot be done in the time step itself because of race condition
     ! some thread may still be using lfn as input in their tile halo
@@ -324,7 +326,33 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
                    lfn,'sfire_model: lfn out')
 
 elseif (ifun.eq.6) then ! timestep postprocessing
+    ! have halo on lfn now
 
+    ! diagnostics
+    call fireline_intensity(fp,                   &  ! fuel properties
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifms,ifme,jfms,jfme,                      &  ! ros dims
+        ros,                                      & !in
+        fintens,fintens2)                         ! fireline intensities out
+
+    if(fireline_mask < 0.) then
+      do j=jfts,jfte
+        do i=ifts,ifte
+          ! if the sign of lfn is the same as all of its neighbors or we are at domain boundary, we are not near the fireline
+          if( (lfn(i-1,j-1)>0. .and. lfn(i-1,j)>0. .and. lfn(i,j-1)>0. .and. lfn(i,j)>0.  .and. &
+            lfn(i+1,j+1)>0. .and. lfn(i+1,j)>0. .and. lfn(i,j+1)>0. ) .or.                   &
+           (lfn(i-1,j-1)<0. .and. lfn(i-1,j)<0. .and. lfn(i,j-1)<0. .and. lfn(i,j)<0.  .and. &
+            lfn(i+1,j+1)<0. .and. lfn(i+1,j)<0. .and. lfn(i,j+1)<0. ) .or.                   &
+            ifts.eq.ifds .or. ifte .eq. ifde .or. jfts.eq.jfds .or. jfte.eq.jfde) then
+               ros(i,j)=fireline_mask
+               fintens(i,j)=fireline_mask
+               fintens2(i,j)=fireline_mask
+           endif
+        enddo
+      enddo
+    endif
+    
   call fire_ros_diagnostics(fp,               &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims

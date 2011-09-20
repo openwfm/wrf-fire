@@ -13,7 +13,7 @@ implicit none
 PRIVATE
 
 ! subroutines and functions 
-PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m,fire_ros_diagnostics
+PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m,fire_ros_diagnostics,fireline_intensity
 
 ! types
 PUBLIC::fire_params
@@ -1009,7 +1009,7 @@ real:: dt_fake=1.
 call heat_fluxes(dt_fake,                        &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
-        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        irms,irme,jrms,jrme,                      &  ! ros dims
         fp%fgip,ros,                              & !in
         fibyram)                                    !out
 
@@ -1037,7 +1037,7 @@ enddo
 call heat_fluxes(dt_fake,                        &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
-        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        irms,irme,jrms,jrme,                      &  ! tile dims
         fp%fgip,rate_frac,                        & !in
         filimit)                                    !out
 
