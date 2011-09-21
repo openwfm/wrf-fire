@@ -333,7 +333,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifms,ifme,jfms,jfme,                      &  ! ros dims
-        ros,                                      & !in
+        ros,nfuel_cat,                            & !in
         fintens,fintens2)                         ! fireline intensities out
 
     if(fireline_mask < 0.) then
@@ -344,7 +344,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
             lfn(i+1,j+1)>0. .and. lfn(i+1,j)>0. .and. lfn(i,j+1)>0. ) .or.                   &
            (lfn(i-1,j-1)<0. .and. lfn(i-1,j)<0. .and. lfn(i,j-1)<0. .and. lfn(i,j)<0.  .and. &
             lfn(i+1,j+1)<0. .and. lfn(i+1,j)<0. .and. lfn(i,j+1)<0. ) .or.                   &
-            ifts.eq.ifds .or. ifte .eq. ifde .or. jfts.eq.jfds .or. jfte.eq.jfde) then
+            i.eq.ifds .or. i .eq. ifde .or. j.eq.jfds .or. j.eq.jfde) then
                ros(i,j)=fireline_mask
                fintens(i,j)=fireline_mask
                fintens2(i,j)=fireline_mask
@@ -356,6 +356,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
   call fire_ros_diagnostics(fp,               &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
+        nfuel_cat,                                &  !
         ros0,rosx,rosy,                           &  ! fire spread diagnostic variables
         fdintens,fdintens2)                          ! fireline intensities for danger rating
 

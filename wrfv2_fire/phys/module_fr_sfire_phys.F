@@ -109,7 +109,7 @@ end type fire_params
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
-                                            fcwh,fcz0, &
+                                            fcwh,fcz0, ffw, &
                                             savr,st,se,adjr0,adjrw,adjrs
 ! =============================================================================
 ! Standard 13 fire behavior fuel models (for surface fires), along with some
@@ -165,6 +165,7 @@ end type fire_params
    !           0.12, 0.12, 0.6, 0.6, 1.38, 1.8, 1.8, zf*0 / ! fuel wind height, added jm 2/23/11
    !DATA fcz0 /0.3, 0.3, 0.75, 18.,  0.6,  0.75, 0.75, &
    !           0.06, 0.06, 0.3, 0.3, 0.69, 0.9, 0.9, zf*0 /  ! fuel roughness height, added jm 2/23/11
+   DATA ffw /nf* 0.9, zf*0/
    DATA adjr0 /mfuelcats*1./
    DATA adjrw /mfuelcats*1./
    DATA adjrs /mfuelcats*1./
@@ -189,7 +190,7 @@ REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,adjr0,adjrw,adjrs
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -242,6 +243,7 @@ call wrf_dm_bcast_real(fct,       nfuelcats)
 call wrf_dm_bcast_integer(ichap,  nfuelcats)
 call wrf_dm_bcast_real(fcwh,      nfuelcats)
 call wrf_dm_bcast_real(fcz0,      nfuelcats)
+call wrf_dm_bcast_real(ffw,       nfuelcats)
 call wrf_dm_bcast_real(adjr0,     nfuelcats)
 call wrf_dm_bcast_real(adjrw,     nfuelcats)
 call wrf_dm_bcast_real(adjrs,     nfuelcats)
@@ -326,6 +328,8 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'fcbr      ',(fcbr(ii),ii=i,k)
     call message(msg)
+    write(msg,8)'ffw       ',(ffw(ii),ii=i,k)
+    call message(msg)
     write(msg,8)'adjr0     ',(adjr0(ii),ii=i,k)
     call message(msg)
     write(msg,8)'adjrw     ',(adjrw(ii),ii=i,k)
@@ -394,6 +398,7 @@ do k=1,nfuelcats
     call write_var(k,'adjr0',adjr0(k),'MULTIPLICATIVE ADJUSTMENT OF BACKING SPREAD RATE')
     call write_var(k,'adjrw',adjrw(k),'MULTIPLICATIVE ADJUSTMENT OF WIND CONTRIBUTION TO SPREAD RATE')
     call write_var(k,'adjrs',adjrs(k),'MULTIPLICATIVE ADJUSTMENT OF SLOPE CONTRIBUTION TO SPREAD RATE')
+    call write_var(k,'ffw',ffw(k),'FUEL FRACTION CONSUMED IN THE FLAMING ZONE')
     call write_var(k,'hfgl',hfgl,'SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)')
     call write_var(k,'cmbcnst',cmbcnst,'JOULES PER KG OF DRY FUEL')
     call write_var(k,'fuelheat',fuelheat,'FUEL PARTICLE LOW HEAT CONTENT, BTU/LB')
@@ -924,6 +929,7 @@ end subroutine fire_ros_cawfe
 subroutine fire_ros_diagnostics(fp,               &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
+        nfuel_cat,                                &
         ros0,rosx,rosy,                           &  ! fire spread diagnostic variables
         fdintens,fdintens2)                          ! fireline intensities for danger rating
 
@@ -933,6 +939,7 @@ type(fire_params), intent(in)::fp
 integer, intent(in)::                             &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte                          ! tile dims
+real, intent(in), dimension(ifms:ifme,jfms:jfme) :: nfuel_cat 
 real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
         ros0,rosx,rosy,                           &  ! fire spread diagnostic variables
         fdintens,fdintens2                           ! fireline intensities for danger rating
@@ -975,7 +982,7 @@ call fireline_intensity(fp,                       &  ! fuel properties
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
-        ros,                                      & !in
+        ros,nfuel_cat,                            & !in
         fdintens,fdintens2)                         ! fireline intensities out
 
 end subroutine fire_ros_diagnostics
@@ -988,7 +995,7 @@ subroutine fireline_intensity(fp,                 &  ! fuel params
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         irms,irme,jrms,jrme,                      &  ! memory dims for ros
-        ros,                                      &  ! rate of spread in
+        ros,nfuel_cat,                            &  ! rate of spread in
         fibyram,filimit)                             ! intensities out
 
 !*** arguments
@@ -998,11 +1005,12 @@ integer, intent(in)::                             &
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         irms,irme,jrms,jrme                         ! memory dims for ros
 real, intent(in), dimension(irms:irme,jrms:jrme) :: ros ! in rate of spread
+real, intent(in), dimension(ifms:ifme,jfms:jfme) :: nfuel_cat 
 real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
         fibyram,filimit                             ! out fireline intensities
 
 !*** local
-integer:: i,j
+integer:: i,j,k
 real, dimension(ifts:ifte,jfts:jfte):: rate_frac
 real:: dt_fake=1.
 
@@ -1013,6 +1021,13 @@ call heat_fluxes(dt_fake,                        &
         fp%fgip,ros,                              & !in
         fibyram)                                    !out
 
+! multiply by fuel fraction consumed in flaming zone for the category
+do j=jfts,jfte
+    do i=ifts,ifte
+       k=int( nfuel_cat(i,j) )
+       fibyram(i,j)=fibyram(i,j)*ffw(k)
+    enddo
+enddo
     ! fuel fraction loss per fire front unit length traveled per unit time
     ! burn_rate(i,j) = 0.5 * front_speed / fp%fuel_time(i,j) 
 
