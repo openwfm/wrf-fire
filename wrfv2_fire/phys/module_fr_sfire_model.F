@@ -31,8 +31,9 @@ subroutine sfire_model (                    &
     coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
-    ros,ros0,rosx,rosy,                     & ! fire spread diagnostic variables
-    fintens,fintens2,fdintens,fdintens2,    & ! fireline intensities
+    ros,flineint,flineint2,                 & ! diagnostic variables
+    f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
+    f_int,f_lineint,f_lineint2,             & ! fire risk intensities 
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,fwh,fz0,                      & ! save derived internal data
     fp &
@@ -115,8 +116,9 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     lfn_out, &                              !                              
     grnhfx,grnqfx, &                        ! heat fluxes J/m^2/s  (cell)             
-    ros,ros0,rosx,rosy, &                   ! fire spread diagnostic variables
-    fintens,fintens2,fdintens,fdintens2     ! fireline intensities
+    ros,flineint,flineint2,                 & ! diagnostic variables
+    f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
+    f_int,f_lineint,f_lineint2                ! fire risk intensities 
 
  
 ! constant arrays - set at initialization
@@ -334,7 +336,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifms,ifme,jfms,jfme,                      &  ! ros dims
         ros,nfuel_cat,                            & !in
-        fintens,fintens2)                         ! fireline intensities out
+        flineint,flineint2)                       ! fireline intensities out
 
     if(fireline_mask < 0.) then
       do j=jfts,jfte
@@ -346,8 +348,8 @@ elseif (ifun.eq.6) then ! timestep postprocessing
             lfn(i+1,j+1)<0. .and. lfn(i+1,j)<0. .and. lfn(i,j+1)<0. ) .or.                   &
             i.eq.ifds .or. i .eq. ifde .or. j.eq.jfds .or. j.eq.jfde) then
                ros(i,j)=fireline_mask
-               fintens(i,j)=fireline_mask
-               fintens2(i,j)=fireline_mask
+               flineint(i,j)=fireline_mask
+               flineint2(i,j)=fireline_mask
            endif
         enddo
       enddo
@@ -357,8 +359,8 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         nfuel_cat,                                &  !
-        ros0,rosx,rosy,                           &  ! fire spread diagnostic variables
-        fdintens,fdintens2)                          ! fireline intensities for danger rating
+        f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread diagnostic variables
+        f_lineint,f_lineint2)                         ! fireline intensities for danger rating
 
 
   if(.not. freeze_fire)then

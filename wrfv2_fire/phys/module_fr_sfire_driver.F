@@ -240,10 +240,11 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             lfn_out,                                      & ! work - one timestep    
             grid%avg_fuel_frac,                           & ! out redundant arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
-            grid%uah,grid%vah,                          &
+            grid%uah,grid%vah,                            &
             grid%fgrnhfx,grid%fgrnqfx,grid%fcanhfx,grid%fcanqfx, & ! out redundant arrays, atm grid
-            grid%ros,grid%ros0,grid%rosx,grid%rosy, & ! rate of spread diagnostic variables
-            grid%fintens,grid%fintens2,grid%fdintens,grid%fdintens2,  &
+            grid%ros,grid%flineint,grid%flineint2,         & ! diagnostic variables
+            grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,& ! fire risk spread 
+            grid%f_int,grid%f_lineint,grid%f_lineint2,     & ! fire risk intensities 
             grid%fxlong,grid%fxlat,                           &       
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,                      & 
@@ -303,8 +304,9 @@ subroutine sfire_driver_phys (ifun,    &
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
     uah,vah,                                      & ! out atm grid
     fgrnhfx,fgrnqfx,fcanhfx,fcanqfx,              & ! out redundant arrays, fire grid
-    ros,ros0,rosx,rosy,                           & ! fire spread diagnostic variables
-    fintens,fintens2,fdintens,fdintens2,          &
+    ros,flineint,flineint2,                       & ! diagnostic variables
+    f_ros0,f_rosx,f_rosy,f_ros,                   & ! fire risk spread 
+    f_int,f_lineint,f_lineint2,                   & ! fire risk intensities 
     fxlong,fxlat,                                 & !  
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,                                & ! save constant internal data, fire grid
@@ -388,9 +390,9 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
     fgrnqfx,                                      &  ! moisture flux from ground fire (W/m^2) 
     fcanhfx,                                      &  ! heat flux from crown fire (W/m^2) 
     fcanqfx,                                      &  ! moisture flux from crown fire (W/m^2) 
-    ros,                                          &  ! fire rate of spread normal to the fireline (m/s)
-    ros0,rosx,rosy,                               &  ! fire spread vector (m/s)
-    fintens,fintens2,fdintens,fdintens2              ! fireline intensities
+    ros,flineint,flineint2,                       & ! diagnostic variables
+    f_ros0,f_rosx,f_rosy,f_ros,                   & ! fire risk spread 
+    f_int,f_lineint,f_lineint2                      ! fire risk intensities 
 
 !  ***** data (constant in time) *****
 
@@ -692,8 +694,9 @@ do ij=1,num_tiles
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
-        ros,ros0,rosx,rosy,                     & ! fire spread diagnostic variables
-        fintens,fintens2,fdintens,fdintens2,    & ! fireline intensities
+        ros,flineint,flineint2,                 & ! diagnostic variables
+        f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
+        f_int,f_lineint,f_lineint2,             & ! fire risk intensities 
         nfuel_cat,                              & ! fuel data per point 
         fuel_time,fwh,fz0,                      & ! save derived internal data
         fp                                      & ! fire coefficients

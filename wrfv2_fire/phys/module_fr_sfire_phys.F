@@ -930,8 +930,8 @@ subroutine fire_ros_diagnostics(fp,               &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         nfuel_cat,                                &
-        ros0,rosx,rosy,                           &  ! fire spread diagnostic variables
-        fdintens,fdintens2)                          ! fireline intensities for danger rating
+        f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread diagnostic variables
+        f_lineint,f_lineint2)                       ! fireline intensities for danger rating
 
 
 !*** arguments
@@ -941,12 +941,11 @@ integer, intent(in)::                             &
         ifts,ifte,jfts,jfte                          ! tile dims
 real, intent(in), dimension(ifms:ifme,jfms:jfme) :: nfuel_cat 
 real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
-        ros0,rosx,rosy,                           &  ! fire spread diagnostic variables
-        fdintens,fdintens2                           ! fireline intensities for danger rating
+        f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread diagnostic variables
+        f_lineint,f_lineint2                        ! fireline intensities for danger rating
 
 !*** local
 integer:: i,j
-real, dimension(ifts:ifte,jfts:jfte):: ros
 real:: cor_wind=1.,cor_slope=1.
 real:: ros_back,ros_wind,ros_slope,speed,tanphi,front_speed,ros_x,ros_y
 
@@ -968,12 +967,12 @@ do j=jfts,jfte
     ros_y = ros_wind * fp%vy(i,j)/speed + ros_slope * fp%dzdyf(i,j)/tanphi ! y direction component
    
 !   store to out
-    ros0(i,j) = ros_back      ! direction-less spread rate component
-    rosx(i,j) = ros_x
-    rosy(i,j) = ros_y
+    f_ros0(i,j) = ros_back      ! direction-less spread rate component
+    f_rosx(i,j) = ros_x
+    f_rosy(i,j) = ros_y
 
     ! max fire front speed in this location (m/s)
-    ros(i,j) = ros_back + sqrt(ros_x*ros_x + ros_y*ros_y)
+    f_ros(i,j) = ros_back + sqrt(ros_x*ros_x + ros_y*ros_y)
 
   enddo
 enddo
@@ -981,9 +980,9 @@ enddo
 call fireline_intensity(fp,                       &  ! fuel properties
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
-        ifts,ifte,jfts,jfte,                      &  ! tile dims
-        ros,nfuel_cat,                            & !in
-        fdintens,fdintens2)                         ! fireline intensities out
+        ifms,ifme,jfms,jfme,                      &  ! f_ros dims
+        f_ros,nfuel_cat,                          & !in
+        f_lineint,f_lineint2)                     ! fireline intensities out
 
 end subroutine fire_ros_diagnostics
 
