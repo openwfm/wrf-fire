@@ -75,7 +75,9 @@ logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average ou
 
 contains
 
+! to write debugging information
 #define DEBUG_OUT
+
 subroutine sfire_driver_em ( grid , config_flags                    & 
             ,time_step_start,dt                                     &
             ,fire_ifun_start,fire_ifun_end,tsteps                   &
@@ -123,6 +125,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
 !*** executable
 
+    call sfire_debug_hook
     call time_start
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 

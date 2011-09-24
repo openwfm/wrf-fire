@@ -17,6 +17,9 @@ module module_fr_sfire_util
 ! 3. add a line in Registry.EM to define the variable and set default value
 ! 4. add the variable and value in namelist.input
 
+! to compile in a hook to attach debugger to a running process.
+#define DEBUG_HOOK
+
 implicit none
 
 integer,save::          &
@@ -1507,3 +1510,23 @@ fun_real=gsum
 end function fun_real
 
 end module module_fr_sfire_util
+
+! this subroutine is outside of any module and f77 style because some debuggers
+! notably gdb are terrible with fortran90
+
+#ifdef DEBUG_HOOK
+subroutine sfire_debug_hook
+integer*4 go,howlong
+go = 0
+howlong=1
+do while (go .eq. 0)
+call sleep(howlong)
+enddo
+end subroutine sfire_debug_hook
+#else
+subroutine sfire_debug_hook
+end subroutine sfire_debug_hook
+#endif
+
+
+
