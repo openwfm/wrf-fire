@@ -1516,11 +1516,10 @@ end module module_fr_sfire_util
 
 #ifdef DEBUG_HOOK
 subroutine sfire_debug_hook
-integer*4 go,howlong
-go = 0
-howlong=1
+integer, save:: go=0
+! set go=1 in debugger to continue
 do while (go .eq. 0)
-call sleep(howlong)
+call sleep(1)
 enddo
 end subroutine sfire_debug_hook
 #else
