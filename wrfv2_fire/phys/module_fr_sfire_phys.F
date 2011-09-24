@@ -1051,7 +1051,7 @@ enddo
 call heat_fluxes(dt_fake,                        &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
-        irms,irme,jrms,jrme,                      &  ! tile dims
+        ifts,ifte,jfts,jfte,                      &  ! rate_frac dims
         fp%fgip,rate_frac,                        & !in
         filimit)                                    !out
 
