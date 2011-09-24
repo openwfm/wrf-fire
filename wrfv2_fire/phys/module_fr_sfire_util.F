@@ -18,7 +18,7 @@ module module_fr_sfire_util
 ! 4. add the variable and value in namelist.input
 
 ! to compile in a hook to attach debugger to a running process.
-#define DEBUG_HOOK
+!#define DEBUG_HOOK
 
 implicit none
 

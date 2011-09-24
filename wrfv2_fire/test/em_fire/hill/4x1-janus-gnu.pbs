@@ -24,7 +24,7 @@
 cd $PBS_O_WORKDIR
 
 ulimit -c unlimited
-source /projects/jmandel/intel.rc
+source /projects/jmandel/gnu.rc
 
 WD=4x1
 rm -rf $WD
