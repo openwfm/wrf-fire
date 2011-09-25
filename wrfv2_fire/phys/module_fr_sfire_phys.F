@@ -13,7 +13,7 @@ implicit none
 PRIVATE
 
 ! subroutines and functions 
-PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m,fire_ros_diagnostics,fireline_intensity
+PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m,fire_risk,fire_intensity
 
 ! types
 PUBLIC::fire_params
@@ -926,13 +926,12 @@ end function nrm2
 
 end subroutine fire_ros_cawfe
 
-subroutine fire_ros_diagnostics(fp,               &
+subroutine fire_risk(fp,               &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         nfuel_cat,                                &
         f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread diagnostic variables
-        f_lineint,f_lineint2)                       ! fireline intensities for danger rating
-
+        f_int,f_lineint,f_lineint2)                  ! fireline intensities for danger rating
 
 !*** arguments
 type(fire_params), intent(in)::fp
@@ -942,11 +941,11 @@ integer, intent(in)::                             &
 real, intent(in), dimension(ifms:ifme,jfms:jfme) :: nfuel_cat 
 real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
         f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread diagnostic variables
-        f_lineint,f_lineint2                        ! fireline intensities for danger rating
+        f_int,f_lineint,f_lineint2                   ! fire intensities for danger rating
 
 !*** local
-integer:: i,j
-real:: cor_wind=1.,cor_slope=1.
+integer:: i,j,k
+real:: cor_wind=1.,cor_slope=1.,dt_fake=1.
 real:: ros_back,ros_wind,ros_slope,speed,tanphi,front_speed,ros_x,ros_y
 
 !*** executable
@@ -977,25 +976,25 @@ do j=jfts,jfte
   enddo
 enddo
 
-call fireline_intensity(fp,                       &  ! fuel properties
+call fire_intensity(fp,                       &  ! fuel properties
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifms,ifme,jfms,jfme,                      &  ! f_ros dims
         f_ros,nfuel_cat,                          & !in
-        f_lineint,f_lineint2)                     ! fireline intensities out
+        f_lineint,f_lineint2,f_int)                 ! fireline intensities out
 
-end subroutine fire_ros_diagnostics
+end subroutine fire_risk
 
 !
 !***
 !
 
-subroutine fireline_intensity(fp,                 &  ! fuel params
+subroutine fire_intensity(fp,                     &  ! fuel params
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         irms,irme,jrms,jrme,                      &  ! memory dims for ros
         ros,nfuel_cat,                            &  ! rate of spread in
-        fibyram,filimit)                             ! intensities out
+        fibyram,filimit,f_int)                       ! intensities out
 
 !*** arguments
 type(fire_params), intent(in)::fp
@@ -1007,11 +1006,14 @@ real, intent(in), dimension(irms:irme,jrms:jrme) :: ros ! in rate of spread
 real, intent(in), dimension(ifms:ifme,jfms:jfme) :: nfuel_cat 
 real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
         fibyram,filimit                             ! out fireline intensities
+real, intent(out), dimension(ifms:ifme,jfms:jfme), optional :: f_int ! fire intensity (J/m^2/s)
 
 !*** local
 integer:: i,j,k
 real, dimension(ifts:ifte,jfts:jfte):: rate_frac
 real:: dt_fake=1.
+
+!*** executable
 
 call heat_fluxes(dt_fake,                        &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
@@ -1048,6 +1050,7 @@ do j=jfts,jfte
     enddo
 enddo
 
+! multiply by heat contents * fuel load
 call heat_fluxes(dt_fake,                        &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
@@ -1055,7 +1058,31 @@ call heat_fluxes(dt_fake,                        &
         fp%fgip,rate_frac,                        & !in
         filimit)                                    !out
 
-end subroutine fireline_intensity
+if(present(f_int))then
+  do j=jfts,jfte
+    do i=ifts,ifte
+       k=int( nfuel_cat(i,j) )
+       ! in time tr the fraction of fuel consumed is ffw=1-exp(-tr/fuel_time)
+       ! giving flame residence time tr = - log(1-ffw)*fuel_time
+       ! fire intensity is heat contents * fuel load * fraction consumed / flame residence time
+       ! J/kg * kg/m^2 * 1 / s = J/m^2/s
+       ! this is averaged over the flame residence time, 
+       rate_frac(i,j)=ffw(k)/(fp%fuel_time(i,j)*(-log(1.-ffw(k))))
+    enddo
+  enddo
+
+  ! multiply by heat contents * fuel load J/m^2
+
+  call heat_fluxes(dt_fake,                       &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifts,ifte,jfts,jfte,                      &  ! rate_frac dims
+        fp%fgip,rate_frac,                        & !in
+        f_int)                                    !out
+
+endif
+
+end subroutine fire_intensity
 
 !*** executable
 

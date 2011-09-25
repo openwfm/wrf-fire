@@ -331,7 +331,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     ! have halo on lfn now
 
     ! diagnostics
-    call fireline_intensity(fp,                   &  ! fuel properties
+    call fire_intensity(fp,                   &  ! fuel properties
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifms,ifme,jfms,jfme,                      &  ! ros dims
@@ -355,12 +355,12 @@ elseif (ifun.eq.6) then ! timestep postprocessing
       enddo
     endif
     
-  call fire_ros_diagnostics(fp,               &
+  call fire_risk(fp,                              &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         nfuel_cat,                                &  !
-        f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread diagnostic variables
-        f_lineint,f_lineint2)                         ! fireline intensities for danger rating
+        f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread 
+        f_int,f_lineint,f_lineint2)                  ! fire intensities for danger rating
 
 
   if(.not. freeze_fire)then
