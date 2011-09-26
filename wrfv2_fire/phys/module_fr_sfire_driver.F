@@ -156,7 +156,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
     itimestep=grid%itimestep
-    restart=config_flags%restart .or. config_flags%cycling
+    restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
 
     
 
