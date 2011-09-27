@@ -35,7 +35,8 @@ integer,save::          &
  fire_topo_from_atm=1,  &  ! 0 = expect ZSF set correctly on entry, 1 = populate by interploating from atmosphere
  fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
  fire_wind_log_interp,  &  ! kind of vertical log layer wind interpolation, see driver
- fire_use_windrf           ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
+ fire_use_windrf,       &  ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
+ fire_fmc_read             ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
  
 
 real, save::            &

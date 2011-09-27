@@ -393,7 +393,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 
     call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_burnt,'model: fuel_frac burned')
         
-    call heat_fluxes(dt,                          &
+    call heat_fluxes(dt,fp,                       &
         ifms,ifme,jfms,jfme,                      &
         ifts,ifte,jfts,jfte,                      &
         ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned

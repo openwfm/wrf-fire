@@ -32,6 +32,7 @@ real,pointer,dimension(:,:):: bbb,phisc,phiwc,r_0 ! spread formula coefficients
 real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
 real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
 real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s) 
+real,pointer,dimension(:,:):: fmc_g                ! fuel moisture contents, ground (1) 
 end type fire_params
 
 ! use as
@@ -84,7 +85,7 @@ end type fire_params
 ! scalar fuel coefficients
    REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c, fire_wind_height
 ! computed values
-   REAL, SAVE:: bmst,fuelheat
+   REAL, SAVE:: fuelheat
 
 ! defaults, may be changed in init_fuel_cats
    DATA cmbcnst  / 17.433e+06/             ! J/kg dry fuel
@@ -250,7 +251,6 @@ call wrf_dm_bcast_real(adjrs,     nfuelcats)
 
 ! compute derived scalars
 
-bmst     = fuelmc_g/(1+fuelmc_g)
 fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
 
 ! compute derived fuel category coefficients 
@@ -275,8 +275,6 @@ call message(msg)
 write(msg,8)'fuelmc_g   ',fuelmc_g
 call message(msg)
 write(msg,8)'fuelmc_c   ',fuelmc_c
-call message(msg)
-write(msg,8)'bmst       ',bmst
 call message(msg)
 write(msg,8)'fuelheat   ',fuelheat
 call message(msg)
@@ -357,7 +355,7 @@ real, intent(in):: maxwind,maxslope ! computer from zero to these
 
 integer:: iounit,k,j,i
 type(fire_params)::fp
-real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap
+real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap,fmc_g
 real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
 real::ros_back,ros_wind,ros_slope,propx,propy,r
 
@@ -373,6 +371,7 @@ fp%phiwc=>phiwc
 fp%r_0=>r_0
 fp%fgip=>fgip
 fp%ischap=>ischap
+fp%fmc_g=>fmc_g
 
 iounit = open_text_file('fuels.m','write')
 
@@ -499,7 +498,7 @@ type(fire_params),intent(inout)::fp
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
         qig, epsilon, rhob, wn, betaop, e, c, &
         xifr, etas, etam, a, gammax, gamma, ratio, ir, &
-        fuelloadm,fdxinv,fdyinv,betafl
+        fuelloadm,fdxinv,fdyinv,betafl, bmst
 integer:: i,j,k
 integer::nerr
 character(len=128)::msg
@@ -545,6 +544,9 @@ do j=jfts,jfte
 
         fp%ischap(i,j)=ichap(k)
         fp%fgip(i,j)=fgi(k)
+        if(fire_fmc_read.eq.1)then
+           fp%fmc_g(i,j)=fuelmc_g
+        endif
 
         ! end jm addition
 
@@ -555,12 +557,13 @@ do j=jfts,jfte
         !     ...Settings of fire spread parameters from Rothermel follows. These
         !        don't need to be recalculated later.
         
+        bmst     = fp%fmc_g(i,j) / (1.+fp%fmc_g(i,j))
         fuelloadm= (1.-bmst) * fgi(k)  !  fuelload without moisture
         fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
         fueldepth = fueldepthm(k)/0.3048               ! to ft
         betafl = fuelload/(fueldepth * fueldens(k))! packing ratio
         betaop = 3.348 * savr(k)**(-0.8189)     ! optimum packing ratio
-        qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
+        qig = 250. + 1116.*fp%fmc_g(i,j)            ! heat of preignition, btu/lb
         epsilon = exp(-138./savr(k) )    ! effective heating number
         rhob = fuelload/fueldepth    ! ovendry bulk density, lb/ft^3
 
@@ -582,7 +585,7 @@ do j=jfts,jfte
         gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
 
         wn = fuelload/(1 + st(k))       ! net fuel loading, lb/ft^2
-        rtemp1 = fuelmc_g/fuelmce(k)
+        rtemp1 = fp%fmc_g(i,j)/fuelmce(k)
         etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
         etas = 0.174* se(k)**(-0.19)                ! mineral damping coef
         ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
@@ -620,7 +623,7 @@ end subroutine set_fire_params
 !*******************
 !
 
-subroutine heat_fluxes(dt,                        &
+subroutine heat_fluxes(dt,fp,                     &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         iffs,iffe,jffs,jffe,                      &  ! fuel_frac_burnt dims
@@ -632,6 +635,7 @@ implicit none
 ! compute the heat fluxes on the fire grid cells
 
 !*** arguments
+type(fire_params), intent(in)::fp
 real, intent(in)::dt          ! dt  the fire time step (the fire model advances time by this)
 integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,iffs,iffe,jffs,jffe   ! dimensions                   
 real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip
@@ -641,7 +645,7 @@ real, intent(out),dimension(ifms:ifme,jfms:jfme),optional:: grnqft
 
 !*** local
 integer::i,j
-real:: dmass
+real:: dmass,bmst
 logical::latent
 
 
@@ -652,6 +656,7 @@ do j=jfts,jfte
          dmass =                     &     ! ground fuel dry mass burnt this call (kg/m^2)
              fgip(i,j)               &     ! init mass from fuel model no (kg/m^2) = fgi(nfuel_cat(i,j)
              * fuel_frac_burnt(i,j)        ! fraction burned this call    (1)
+         bmst     = fp%fmc_g(i,j)/(1.+fp%fmc_g(i,j))
          grnhft(i,j) = (dmass/dt)*(1.-bmst)*cmbcnst         ! J/m^2/sec
          if(latent)grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! 
          ! bmst = relative water contents; 0.56 = est. ratio of water from burning
@@ -1015,7 +1020,7 @@ real:: dt_fake=1.
 
 !*** executable
 
-call heat_fluxes(dt_fake,                        &
+call heat_fluxes(dt_fake,fp,                       &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         irms,irme,jrms,jrme,                      &  ! ros dims
@@ -1051,7 +1056,7 @@ do j=jfts,jfte
 enddo
 
 ! multiply by heat contents * fuel load
-call heat_fluxes(dt_fake,                        &
+call heat_fluxes(dt_fake,fp,                       &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifts,ifte,jfts,jfte,                      &  ! rate_frac dims
@@ -1073,7 +1078,7 @@ if(present(f_int))then
 
   ! multiply by heat contents * fuel load J/m^2
 
-  call heat_fluxes(dt_fake,                       &
+  call heat_fluxes(dt_fake,fp,                      &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         ifts,ifte,jfts,jfte,                      &  ! rate_frac dims

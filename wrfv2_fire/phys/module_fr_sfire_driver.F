@@ -144,6 +144,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     fp%fgip => grid%fgip     ! spread formula coeff 
     fp%ischap => grid%ischap ! spread formula coeff 
     fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
+    fp%fmc_g => grid%fmc_g   ! fuel moisture, ground
             
     ! get ignition data 
     call fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_longlat, &
@@ -1040,6 +1041,7 @@ fire_test_steps         = config_flags%fire_test_steps
 fire_advection          = config_flags%fire_advection
 fire_wind_log_interp    = config_flags%fire_wind_log_interp
 fire_use_windrf         = config_flags%fire_use_windrf
+fire_fmc_read           = config_flags%fire_fmc_read
 
 
 
