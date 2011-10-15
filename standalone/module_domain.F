@@ -52,7 +52,22 @@ module module_domain
       real, pointer, dimension(:,:)::fgrnqfx  => null()        ! ground latent heat flux
       real, pointer, dimension(:,:)::fcanhfx  => null()        ! canopy sensible heat flux
       real, pointer, dimension(:,:)::fcanqfx  => null()        ! canopy latent heat flux
+
+      ! other fire model arrays
       real, pointer, dimension(:,:)::ros  => null()            ! rate of spread - for diagnostics only
+      real, pointer, dimension(:,:)::phisc  => null()          ! spread formula coeff
+      real, pointer, dimension(:,:)::fz0  => null()            ! 
+      real, pointer, dimension(:,:)::fwh  => null()            ! 
+      real, pointer, dimension(:,:)::fmc_g  => null()          ! fuel moisture, ground
+      real, pointer, dimension(:,:)::flineint  => null()       !
+      real, pointer, dimension(:,:)::flineint2  => null()      ! 
+      real, pointer, dimension(:,:)::f_lineint  => null()      !
+      real, pointer, dimension(:,:)::f_lineint2  => null()     ! 
+      real, pointer, dimension(:,:)::f_int  => null()          ! 
+      real, pointer, dimension(:,:)::f_ros  => null()          ! 
+      real, pointer, dimension(:,:)::f_ros0  => null()         ! 
+      real, pointer, dimension(:,:)::f_rosx  => null()         ! 
+      real, pointer, dimension(:,:)::f_rosy  => null()         ! 
 
       ! atmospheric variables for compatibility
 

@@ -1116,6 +1116,7 @@ integer :: history_begin_d
 integer :: history_begin_h
 integer :: history_begin_m
 integer :: history_begin_s
+integer :: history_begin
 integer :: inputout_begin_y
 integer :: inputout_begin_d
 integer :: inputout_begin_h
@@ -1126,11 +1127,13 @@ integer :: restart_begin_d
 integer :: restart_begin_h
 integer :: restart_begin_m
 integer :: restart_begin_s
+integer :: restart_begin
 integer :: history_end_y
 integer :: history_end_d
 integer :: history_end_h
 integer :: history_end_m
 integer :: history_end_s
+integer :: history_end
 integer :: inputout_end_y
 integer :: inputout_end_d
 integer :: inputout_end_h
@@ -1312,6 +1315,7 @@ real :: lonc_loc
 real :: vmax_meters_per_second
 real :: rmax
 real :: vmax_ratio
+real :: rankine_lid
 integer :: mp_physics
 integer :: gsfcgce_hail
 integer :: gsfcgce_2ice
@@ -1326,6 +1330,7 @@ integer :: bl_pbl_physics
 integer :: sf_urban_physics
 real :: bldt
 integer :: cu_physics
+integer :: cu_diag
 real :: cudt
 real :: gsmdt
 integer :: isfflx
@@ -1345,6 +1350,7 @@ integer :: cugd_avedx
 integer :: clos_choice
 integer :: imomentum
 integer :: ishallow
+real :: convtrans_avglen_m
 integer :: chem_opt
 integer :: num_land_cat
 integer :: num_soil_cat
@@ -1377,6 +1383,7 @@ integer :: slope_rad
 integer :: topo_shading
 integer :: no_mp_heating
 integer :: fractional_seaice
+logical :: tice2tsk_if2cold
 real :: bucket_mm
 real :: bucket_j
 real :: mp_tend_lim
@@ -1415,6 +1422,7 @@ integer :: if_ramping
 real :: rinblw
 integer :: xwavenum
 integer :: ywavenum
+integer :: pxlsm_soil_nudge
 integer :: obs_nudge_opt
 integer :: max_obs
 real :: fdda_start
@@ -1593,6 +1601,7 @@ integer :: mp_physics_dfi
 integer :: ifire
 integer :: fire_boundary_guard
 integer :: fire_num_ignitions
+real :: fire_ignition_ros1
 real :: fire_ignition_start_lon1
 real :: fire_ignition_start_lat1
 real :: fire_ignition_end_lon1
@@ -1600,6 +1609,7 @@ real :: fire_ignition_end_lat1
 real :: fire_ignition_radius1
 real :: fire_ignition_start_time1
 real :: fire_ignition_end_time1
+real :: fire_ignition_ros2
 real :: fire_ignition_start_lon2
 real :: fire_ignition_start_lat2
 real :: fire_ignition_end_lon2
@@ -1607,6 +1617,7 @@ real :: fire_ignition_end_lat2
 real :: fire_ignition_radius2
 real :: fire_ignition_start_time2
 real :: fire_ignition_end_time2
+real :: fire_ignition_ros3
 real :: fire_ignition_start_lon3
 real :: fire_ignition_start_lat3
 real :: fire_ignition_end_lon3
@@ -1614,6 +1625,7 @@ real :: fire_ignition_end_lat3
 real :: fire_ignition_radius3
 real :: fire_ignition_start_time3
 real :: fire_ignition_end_time3
+real :: fire_ignition_ros4
 real :: fire_ignition_start_lon4
 real :: fire_ignition_start_lat4
 real :: fire_ignition_end_lon4
@@ -1621,6 +1633,7 @@ real :: fire_ignition_end_lat4
 real :: fire_ignition_radius4
 real :: fire_ignition_start_time4
 real :: fire_ignition_end_time4
+real :: fire_ignition_ros5
 real :: fire_ignition_start_lon5
 real :: fire_ignition_start_lat5
 real :: fire_ignition_end_lon5
@@ -1648,6 +1661,7 @@ real :: fire_ignition_start_x5
 real :: fire_ignition_start_y5
 real :: fire_ignition_end_x5
 real :: fire_ignition_end_y5
+real :: fire_perimeter_time
 real :: fire_lat_init
 real :: fire_lon_init
 real :: fire_ign_time
@@ -1656,18 +1670,20 @@ integer :: fire_sprd_mdl
 real :: fire_crwn_hgt
 real :: fire_ext_grnd
 real :: fire_ext_crwn
-real :: fire_wind_height
+integer :: fire_wind_log_interp
+integer :: fire_use_windrf
 integer :: fire_fuel_read
+integer :: fire_fmc_read
 integer :: fire_fuel_cat
 integer :: fire_print_msg
 integer :: fire_print_file
+logical :: fire_restart
 integer :: fire_fuel_left_method
 integer :: fire_fuel_left_irl
 integer :: fire_fuel_left_jrl
 real :: fire_back_weight
 integer :: fire_grows_only
 integer :: fire_upwinding
-integer :: fire_upwind_split
 real :: fire_viscosity
 real :: fire_lfn_ext_up
 integer :: fire_topo_from_atm

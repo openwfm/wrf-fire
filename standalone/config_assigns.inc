@@ -1125,6 +1125,7 @@
  DEST_RECORD history_begin_h            = SOURCE_RECORD history_begin_h SOURCE_REC_DEX
  DEST_RECORD history_begin_m            = SOURCE_RECORD history_begin_m SOURCE_REC_DEX
  DEST_RECORD history_begin_s            = SOURCE_RECORD history_begin_s SOURCE_REC_DEX
+ DEST_RECORD history_begin              = SOURCE_RECORD history_begin SOURCE_REC_DEX
  DEST_RECORD inputout_begin_y           = SOURCE_RECORD inputout_begin_y SOURCE_REC_DEX
  DEST_RECORD inputout_begin_d           = SOURCE_RECORD inputout_begin_d SOURCE_REC_DEX
  DEST_RECORD inputout_begin_h           = SOURCE_RECORD inputout_begin_h SOURCE_REC_DEX
@@ -1135,11 +1136,13 @@
  DEST_RECORD restart_begin_h            = SOURCE_RECORD restart_begin_h 
  DEST_RECORD restart_begin_m            = SOURCE_RECORD restart_begin_m 
  DEST_RECORD restart_begin_s            = SOURCE_RECORD restart_begin_s 
+ DEST_RECORD restart_begin              = SOURCE_RECORD restart_begin 
  DEST_RECORD history_end_y              = SOURCE_RECORD history_end_y SOURCE_REC_DEX
  DEST_RECORD history_end_d              = SOURCE_RECORD history_end_d SOURCE_REC_DEX
  DEST_RECORD history_end_h              = SOURCE_RECORD history_end_h SOURCE_REC_DEX
  DEST_RECORD history_end_m              = SOURCE_RECORD history_end_m SOURCE_REC_DEX
  DEST_RECORD history_end_s              = SOURCE_RECORD history_end_s SOURCE_REC_DEX
+ DEST_RECORD history_end                = SOURCE_RECORD history_end SOURCE_REC_DEX
  DEST_RECORD inputout_end_y             = SOURCE_RECORD inputout_end_y SOURCE_REC_DEX
  DEST_RECORD inputout_end_d             = SOURCE_RECORD inputout_end_d SOURCE_REC_DEX
  DEST_RECORD inputout_end_h             = SOURCE_RECORD inputout_end_h SOURCE_REC_DEX
@@ -1321,6 +1324,7 @@
  DEST_RECORD vmax_meters_per_second     = SOURCE_RECORD vmax_meters_per_second SOURCE_REC_DEX
  DEST_RECORD rmax                       = SOURCE_RECORD rmax SOURCE_REC_DEX
  DEST_RECORD vmax_ratio                 = SOURCE_RECORD vmax_ratio SOURCE_REC_DEX
+ DEST_RECORD rankine_lid                = SOURCE_RECORD rankine_lid 
  DEST_RECORD mp_physics                 = SOURCE_RECORD mp_physics SOURCE_REC_DEX
  DEST_RECORD gsfcgce_hail               = SOURCE_RECORD gsfcgce_hail 
  DEST_RECORD gsfcgce_2ice               = SOURCE_RECORD gsfcgce_2ice 
@@ -1335,6 +1339,7 @@
  DEST_RECORD sf_urban_physics           = SOURCE_RECORD sf_urban_physics SOURCE_REC_DEX
  DEST_RECORD bldt                       = SOURCE_RECORD bldt SOURCE_REC_DEX
  DEST_RECORD cu_physics                 = SOURCE_RECORD cu_physics SOURCE_REC_DEX
+ DEST_RECORD cu_diag                    = SOURCE_RECORD cu_diag SOURCE_REC_DEX
  DEST_RECORD cudt                       = SOURCE_RECORD cudt SOURCE_REC_DEX
  DEST_RECORD gsmdt                      = SOURCE_RECORD gsmdt SOURCE_REC_DEX
  DEST_RECORD isfflx                     = SOURCE_RECORD isfflx 
@@ -1354,6 +1359,7 @@
  DEST_RECORD clos_choice                = SOURCE_RECORD clos_choice 
  DEST_RECORD imomentum                  = SOURCE_RECORD imomentum 
  DEST_RECORD ishallow                   = SOURCE_RECORD ishallow 
+ DEST_RECORD convtrans_avglen_m         = SOURCE_RECORD convtrans_avglen_m 
  DEST_RECORD chem_opt                   = SOURCE_RECORD chem_opt SOURCE_REC_DEX
  DEST_RECORD num_land_cat               = SOURCE_RECORD num_land_cat 
  DEST_RECORD num_soil_cat               = SOURCE_RECORD num_soil_cat 
@@ -1386,6 +1392,7 @@
  DEST_RECORD topo_shading               = SOURCE_RECORD topo_shading SOURCE_REC_DEX
  DEST_RECORD no_mp_heating              = SOURCE_RECORD no_mp_heating 
  DEST_RECORD fractional_seaice          = SOURCE_RECORD fractional_seaice 
+ DEST_RECORD tice2tsk_if2cold           = SOURCE_RECORD tice2tsk_if2cold 
  DEST_RECORD bucket_mm                  = SOURCE_RECORD bucket_mm 
  DEST_RECORD bucket_j                   = SOURCE_RECORD bucket_j 
  DEST_RECORD mp_tend_lim                = SOURCE_RECORD mp_tend_lim 
@@ -1424,6 +1431,7 @@
  DEST_RECORD rinblw                     = SOURCE_RECORD rinblw 
  DEST_RECORD xwavenum                   = SOURCE_RECORD xwavenum SOURCE_REC_DEX
  DEST_RECORD ywavenum                   = SOURCE_RECORD ywavenum SOURCE_REC_DEX
+ DEST_RECORD pxlsm_soil_nudge           = SOURCE_RECORD pxlsm_soil_nudge SOURCE_REC_DEX
  DEST_RECORD obs_nudge_opt              = SOURCE_RECORD obs_nudge_opt SOURCE_REC_DEX
  DEST_RECORD max_obs                    = SOURCE_RECORD max_obs 
  DEST_RECORD fdda_start                 = SOURCE_RECORD fdda_start SOURCE_REC_DEX
@@ -1602,6 +1610,7 @@
  DEST_RECORD ifire                      = SOURCE_RECORD ifire SOURCE_REC_DEX
  DEST_RECORD fire_boundary_guard        = SOURCE_RECORD fire_boundary_guard SOURCE_REC_DEX
  DEST_RECORD fire_num_ignitions         = SOURCE_RECORD fire_num_ignitions SOURCE_REC_DEX
+ DEST_RECORD fire_ignition_ros1         = SOURCE_RECORD fire_ignition_ros1 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lon1   = SOURCE_RECORD fire_ignition_start_lon1 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lat1   = SOURCE_RECORD fire_ignition_start_lat1 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_lon1     = SOURCE_RECORD fire_ignition_end_lon1 SOURCE_REC_DEX
@@ -1609,6 +1618,7 @@
  DEST_RECORD fire_ignition_radius1      = SOURCE_RECORD fire_ignition_radius1 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_time1  = SOURCE_RECORD fire_ignition_start_time1 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_time1    = SOURCE_RECORD fire_ignition_end_time1 SOURCE_REC_DEX
+ DEST_RECORD fire_ignition_ros2         = SOURCE_RECORD fire_ignition_ros2 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lon2   = SOURCE_RECORD fire_ignition_start_lon2 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lat2   = SOURCE_RECORD fire_ignition_start_lat2 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_lon2     = SOURCE_RECORD fire_ignition_end_lon2 SOURCE_REC_DEX
@@ -1616,6 +1626,7 @@
  DEST_RECORD fire_ignition_radius2      = SOURCE_RECORD fire_ignition_radius2 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_time2  = SOURCE_RECORD fire_ignition_start_time2 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_time2    = SOURCE_RECORD fire_ignition_end_time2 SOURCE_REC_DEX
+ DEST_RECORD fire_ignition_ros3         = SOURCE_RECORD fire_ignition_ros3 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lon3   = SOURCE_RECORD fire_ignition_start_lon3 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lat3   = SOURCE_RECORD fire_ignition_start_lat3 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_lon3     = SOURCE_RECORD fire_ignition_end_lon3 SOURCE_REC_DEX
@@ -1623,6 +1634,7 @@
  DEST_RECORD fire_ignition_radius3      = SOURCE_RECORD fire_ignition_radius3 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_time3  = SOURCE_RECORD fire_ignition_start_time3 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_time3    = SOURCE_RECORD fire_ignition_end_time3 SOURCE_REC_DEX
+ DEST_RECORD fire_ignition_ros4         = SOURCE_RECORD fire_ignition_ros4 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lon4   = SOURCE_RECORD fire_ignition_start_lon4 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lat4   = SOURCE_RECORD fire_ignition_start_lat4 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_lon4     = SOURCE_RECORD fire_ignition_end_lon4 SOURCE_REC_DEX
@@ -1630,6 +1642,7 @@
  DEST_RECORD fire_ignition_radius4      = SOURCE_RECORD fire_ignition_radius4 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_time4  = SOURCE_RECORD fire_ignition_start_time4 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_time4    = SOURCE_RECORD fire_ignition_end_time4 SOURCE_REC_DEX
+ DEST_RECORD fire_ignition_ros5         = SOURCE_RECORD fire_ignition_ros5 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lon5   = SOURCE_RECORD fire_ignition_start_lon5 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lat5   = SOURCE_RECORD fire_ignition_start_lat5 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_lon5     = SOURCE_RECORD fire_ignition_end_lon5 SOURCE_REC_DEX
@@ -1657,6 +1670,7 @@
  DEST_RECORD fire_ignition_start_y5     = SOURCE_RECORD fire_ignition_start_y5 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_x5       = SOURCE_RECORD fire_ignition_end_x5 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_y5       = SOURCE_RECORD fire_ignition_end_y5 SOURCE_REC_DEX
+ DEST_RECORD fire_perimeter_time        = SOURCE_RECORD fire_perimeter_time SOURCE_REC_DEX
  DEST_RECORD fire_lat_init              = SOURCE_RECORD fire_lat_init SOURCE_REC_DEX
  DEST_RECORD fire_lon_init              = SOURCE_RECORD fire_lon_init SOURCE_REC_DEX
  DEST_RECORD fire_ign_time              = SOURCE_RECORD fire_ign_time SOURCE_REC_DEX
@@ -1665,18 +1679,20 @@
  DEST_RECORD fire_crwn_hgt              = SOURCE_RECORD fire_crwn_hgt SOURCE_REC_DEX
  DEST_RECORD fire_ext_grnd              = SOURCE_RECORD fire_ext_grnd SOURCE_REC_DEX
  DEST_RECORD fire_ext_crwn              = SOURCE_RECORD fire_ext_crwn SOURCE_REC_DEX
- DEST_RECORD fire_wind_height           = SOURCE_RECORD fire_wind_height SOURCE_REC_DEX
+ DEST_RECORD fire_wind_log_interp       = SOURCE_RECORD fire_wind_log_interp SOURCE_REC_DEX
+ DEST_RECORD fire_use_windrf            = SOURCE_RECORD fire_use_windrf SOURCE_REC_DEX
  DEST_RECORD fire_fuel_read             = SOURCE_RECORD fire_fuel_read SOURCE_REC_DEX
+ DEST_RECORD fire_fmc_read              = SOURCE_RECORD fire_fmc_read SOURCE_REC_DEX
  DEST_RECORD fire_fuel_cat              = SOURCE_RECORD fire_fuel_cat SOURCE_REC_DEX
  DEST_RECORD fire_print_msg             = SOURCE_RECORD fire_print_msg SOURCE_REC_DEX
  DEST_RECORD fire_print_file            = SOURCE_RECORD fire_print_file SOURCE_REC_DEX
+ DEST_RECORD fire_restart               = SOURCE_RECORD fire_restart SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_method      = SOURCE_RECORD fire_fuel_left_method SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_irl         = SOURCE_RECORD fire_fuel_left_irl SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_jrl         = SOURCE_RECORD fire_fuel_left_jrl SOURCE_REC_DEX
  DEST_RECORD fire_back_weight           = SOURCE_RECORD fire_back_weight SOURCE_REC_DEX
  DEST_RECORD fire_grows_only            = SOURCE_RECORD fire_grows_only SOURCE_REC_DEX
  DEST_RECORD fire_upwinding             = SOURCE_RECORD fire_upwinding SOURCE_REC_DEX
- DEST_RECORD fire_upwind_split          = SOURCE_RECORD fire_upwind_split SOURCE_REC_DEX
  DEST_RECORD fire_viscosity             = SOURCE_RECORD fire_viscosity SOURCE_REC_DEX
  DEST_RECORD fire_lfn_ext_up            = SOURCE_RECORD fire_lfn_ext_up SOURCE_REC_DEX
  DEST_RECORD fire_topo_from_atm         = SOURCE_RECORD fire_topo_from_atm SOURCE_REC_DEX

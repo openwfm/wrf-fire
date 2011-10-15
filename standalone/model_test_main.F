@@ -44,7 +44,7 @@ type(grid_info)::info                    ! dimensions, grid controls
 integer:: nx,ny,nz,nfx,nfy,nfz,nsteps,itimestep,sr_x,sr_y
 integer::nhalo=5
 double precision:: dt, duration_s  ! may need more accurate time computation to get the number of timesteps right
-real:: time
+real:: time,time_step_start, dts
 logical::do_ouput
 
 !*** executable
@@ -225,7 +225,10 @@ grid%v_frame=0.
 call create_output_file(outputfile,info)
 
 ! initialize model
+   time_step_start  =0.
+   dts=dt
 call sfire_driver_em ( grid , config_flags                          &
+            ,time_step_start,dts                                    &
             ,1,2,0                                                 &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
@@ -237,7 +240,10 @@ call sfire_driver_em ( grid , config_flags                          &
 do itimestep=1,nsteps
 ! run  model
    grid%itimestep = itimestep
+   time_step_start = itimestep*dt
+   dts=dt
    call sfire_driver_em ( grid , config_flags                          &
+            ,time_step_start,dts                                    &
             ,3,6,0                                                  &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &

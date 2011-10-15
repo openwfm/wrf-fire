@@ -65,6 +65,7 @@ USE module_domain, only: domain
 USE module_configure, only: grid_config_rec_type
 use module_model_constants, only: reradius,    & ! 1/earth radiusw
                                   pi2            ! 2*pi
+USE module_dm, only:wrf_dm_maxval_integer
 
 implicit none
 
@@ -318,7 +319,6 @@ subroutine sfire_driver_phys (ifun,    &
     fz0,fwh,                                      &
     fp                                           & ! fire params
     )
-USE module_dm, only:wrf_dm_maxval
 
 implicit none
 
@@ -801,7 +801,7 @@ if (ifun.eq.4)then
         enddo
 #ifdef DM_PARALLEL
         call message('sfire_driver_phys: checking ignitions, collect counts')
-        call wrf_dm_maxval(ignited_patch(i),idex,jdex)
+        call wrf_dm_maxval_integer(ignited_patch(i),idex,jdex)
         call message('sfire_driver_phys: collected')
 #endif
         if(ignited_patch(i).eq.0)then
