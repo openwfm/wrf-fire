@@ -25,6 +25,7 @@ MODEL_MAIN_OBJ = \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
+    module_fr_sfire_atm.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
@@ -111,6 +112,7 @@ module_fr_sfire_driver.o: $(MAKEFILE) \
     module_configure.o \
     module_fr_sfire_model.o  \
     module_fr_sfire_phys.o \
+    module_fr_sfire_atm.o \
     module_fr_sfire_util.o
 
 model_test_init.o: $(MAKEFILE) \
@@ -131,6 +133,10 @@ module_fr_sfire_model.o: $(MAKEFILE) \
 module_fr_sfire_core.o: $(MAKEFILE) \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o 
+
+module_fr_sfire_atm.o: \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o
       
 module_fr_sfire_phys.o: $(MAKEFILE) \
     module_fr_sfire_util.o 
