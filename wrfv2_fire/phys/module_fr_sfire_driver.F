@@ -54,9 +54,10 @@
 module module_fr_sfire_driver
 ! use this module for standalone call, you only need to provide some mock-up wrf modules  
 
-use module_fr_sfire_model
-use module_fr_sfire_phys
-use module_fr_sfire_atm
+use module_fr_sfire_model, only: sfire_model
+use module_fr_sfire_phys, only: fire_params, init_fuel_cats
+use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
+   interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
 use module_fr_sfire_core, only: ignition_line_type
 
