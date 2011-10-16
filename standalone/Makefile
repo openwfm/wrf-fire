@@ -59,11 +59,9 @@ FUEL_INTERP_OBJ = \
 .PHONY: all
 
 
-all: fire.exe init.exe
-
 #.PHONY: all
 
-default: fire 
+default: fire init
 
 fuel: fuel_interp_test.exe
 fuel_interp_test: fuel_interp_test.exe
@@ -73,19 +71,17 @@ fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
 
 all: fire init fuel
 
-rmfirex: 
-	cd ../wrfv2_fire/test/em_fire; rm -f fire.exe;
-
 fire: fire.exe
-	cd ../wrfv2_fire/test/em_fire; ln -s ../../../standalone/fire.exe fire.exe
+	cd ../wrfv2_fire/test/em_fire; rm -f fire.exe; ln -s ../../../standalone/fire.exe fire.exe
 
 init: init.exe
+	cd ../wrfv2_fire/test/em_fire; rm -f init.exe; ln -s ../../../standalone/init.exe init.exe
 
-fire.exe: $(MAKEFILE) fire.o $(MODEL_MAIN_OBJ) rmfirex
+fire.exe: $(MAKEFILE) fire.o $(MODEL_MAIN_OBJ)
 	$(FC) $(FCFLAGS) -o fire.exe fire.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
 
 init.exe: $(MAKEFILE) init.o $(MODEL_INIT_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o init.exe init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
+	$(FC) $(FCFLAGS) -o init.exe init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
 
 fuels: fuels.exe
 

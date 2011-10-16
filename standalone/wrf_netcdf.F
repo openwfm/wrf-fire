@@ -87,7 +87,7 @@ type output_vars
 end type
 
 type input_vars
-  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,lfn,tign,fuel_frac
+  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,lfn,tign,fuel_frac,uah,vah,vx,vy
   ! real,dimension(:,:),pointer::z0
   ! real,dimension(:,:,:),pointer::u,v,ph,phb
 end type
