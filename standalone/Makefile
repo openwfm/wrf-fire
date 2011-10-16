@@ -81,11 +81,11 @@ fire: fire.exe
 
 init: init.exe
 
-fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ) rmfirex
-	$(FC) $(FCFLAGS) -o fire.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
+fire.exe: $(MAKEFILE) fire.o $(MODEL_MAIN_OBJ) rmfirex
+	$(FC) $(FCFLAGS) -o fire.exe fire.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
 
-init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
+init.exe: $(MAKEFILE) init.o $(MODEL_INIT_OBJ)
+	$(FC) $(FCFLAGS) $(LDFLAGS) -o init.exe init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
 
 fuels: fuels.exe
 
@@ -98,7 +98,7 @@ fuel_interp_test_main.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
     module_fr_sfire_util.o 
 
-model_test_main.o: $(MAKEFILE) \
+fire.o: $(MAKEFILE) \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o  \
     module_domain.o \
@@ -115,7 +115,7 @@ module_fr_sfire_driver.o: $(MAKEFILE) \
     module_fr_sfire_atm.o \
     module_fr_sfire_util.o
 
-model_test_init.o: $(MAKEFILE) \
+init.o: $(MAKEFILE) \
     module_configure.o \
     wrf_netcdf.o \
     module_fr_sfire_util.o
