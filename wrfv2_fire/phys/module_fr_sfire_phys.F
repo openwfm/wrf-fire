@@ -9,6 +9,34 @@ module module_fr_sfire_phys
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_util
 
+implicit none
+PRIVATE
+
+! subroutines and functions 
+PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m,fire_risk,fire_intensity
+
+! types
+PUBLIC::fire_params
+
+! variables
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
+
+! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
+
+! arrays passed to fire_ros
+type fire_params
+real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
+real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
+real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
+real,pointer,dimension(:,:):: bbb,phisc,phiwc,r_0 ! spread formula coefficients
+real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
+real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
+real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s) 
+real,pointer,dimension(:,:):: fmc_g                ! fuel moisture contents, ground (1) 
+end type fire_params
+
+! use as
+! type(fire_params)::fp
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
@@ -52,36 +80,19 @@ use module_fr_sfire_util
 !D      FCI            INITIAL TOTAL MASS OF CANOPY FUEL
 !D      FCBR           FUEL CANOPY BURN RATE (KG/M**2/S) 
 
-! =============================================================================
-! Standard 13 fire behavior fuel models (for surface fires), along with some
-!          estimated canopy properties (for crown fire).
-! =============================================================================
-!  FUEL MODEL 1: Short grass (1 ft)
-!  FUEL MODEL 2: Timber (grass and understory)
-!  FUEL MODEL 3: Tall grass (2.5 ft)
-!  FUEL MODEL 4: Chaparral (6 ft)
-!  FUEL MODEL 5: Brush (2 ft) 
-!  FUEL MODEL 6: Dormant brush, hardwood slash
-!  FUEL MODEL 7: Southern rough
-!  FUEL MODEL 8: Closed timber litter
-!  FUEL MODEL 9: Hardwood litter
-!  FUEL MODEL 10: Timber (litter + understory)
-!  FUEL MODEL 11: Light logging slash
-!  FUEL MODEL 12: Medium logging slash
-!  FUEL MODEL 13: Heavy logging slash
-!  FUEL MODEL 14: no fuel
 !
 
 ! scalar fuel coefficients
-   REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c
+   REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c, fire_wind_height
 ! computed values
-   REAL, SAVE:: bmst,fuelheat
+   REAL, SAVE:: fuelheat
 
 ! defaults, may be changed in init_fuel_cats
    DATA cmbcnst  / 17.433e+06/             ! J/kg dry fuel
    DATA hfgl     / 17.e4 /                ! W/m^2
    DATA fuelmc_g / 0.08  /                ! set = 0 for dry ground fuel
    DATA fuelmc_c / 1.00  /                ! set = 0 for dry canopy
+   DATA fire_wind_height/6.096/           ! m, 6.096m Behave, 0 to use fwh in each category
 !  REAL, PARAMETER :: bmst     = fuelmc_g/(1+fuelmc_g)
 !  REAL, PARAMETER :: fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
 !  real, parameter :: xlv      = 2.5e6                  ! to make it selfcontained
@@ -90,15 +101,39 @@ use module_fr_sfire_util
 
 ! fuel categorytables
    INTEGER, PARAMETER :: nf=14              ! fuel cats in data stmts, for fillers only`
-   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, 
+   INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, can be reset from namelist.fire
    INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
+   INTEGER, SAVE      :: ibeh=1             ! type of spread formula
+   CHARACTER (len=80), DIMENSION(mfuelcats ), save :: fuel_name
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
-   REAL   , DIMENSION( mfuelcats ), save :: weight,fgi,fci,fci_d,fct,fcbr, &
+   REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
-                                            savr,st,se
-
+                                            fcwh,fcz0, ffw, &
+                                            savr,st,se,adjr0,adjrw,adjrs
+! =============================================================================
+! Standard 13 fire behavior fuel models (for surface fires), along with some
+!          estimated canopy properties (for crown fire).
+! =============================================================================
+   DATA fuel_name /  &
+     'FUEL MODEL 1: Short grass (1 ft)', &
+     'FUEL MODEL 2: Timber (grass and understory)', &
+     'FUEL MODEL 3: Tall grass (2.5 ft)', &
+     'FUEL MODEL 4: Chaparral (6 ft)', &
+     'FUEL MODEL 5: Brush (2 ft) ', &
+     'FUEL MODEL 6: Dormant brush, hardwood slash', &
+     'FUEL MODEL 7: Southern rough', &
+     'FUEL MODEL 8: Closed timber litter', &
+     'FUEL MODEL 9: Hardwood litter', &
+     'FUEL MODEL 10: Timber (litter + understory)', &
+     'FUEL MODEL 11: Light logging slash', &
+     'FUEL MODEL 12: Medium logging slash', &
+     'FUEL MODEL 13: Heavy logging slash', &
+     'FUEL MODEL 14: no fuel', &
+     zf*' '/
+   DATA windrf /0.36, 0.36, 0.44,  0.55,  0.42,  0.44,  0.44, &     
+                0.36, 0.36, 0.36,  0.36,  0.43,  0.46,  1e-7, zf*0 / ! added jmandel October 2010
    DATA fgi / 0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, &
               1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7, zf*0.  /
    DATA fueldepthm /0.305,  0.305,  0.762, 1.829, 0.61,  0.762,0.762, &
@@ -121,7 +156,23 @@ use module_fr_sfire_util
    DATA fct / 60., 60., 60., 60., 60., 60., 60.,  &
             60., 120., 180., 180., 180., 180. , 60. , zf*0.   /
    DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , zf*0/ 
+   DATA fcwh  / 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, &
+         6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, zf*0. / ! consistent with BEHAVE
+! roughness length 0.13*fueldepthm except cat 3 fz0=0.1 for consistency with landuse
+ ! fz0 =   0.0396,0.0396,0.0991,0.2378,0.0793,0.0991,0.0991,
+   DATA fcz0 /  0.0396,0.0396,0.1000,0.2378,0.0793,0.0991,0.0991, &
+         0.0079,0.0079,0.0396,0.0396,0.0911,0.1188,0.0396, zf * 0. /
+   !DATA fcwh /0.6 , 0.6,  1.5, 36,  1.2,  1.5, 1.5, &
+   !           0.12, 0.12, 0.6, 0.6, 1.38, 1.8, 1.8, zf*0 / ! fuel wind height, added jm 2/23/11
+   !DATA fcz0 /0.3, 0.3, 0.75, 18.,  0.6,  0.75, 0.75, &
+   !           0.06, 0.06, 0.3, 0.3, 0.69, 0.9, 0.9, zf*0 /  ! fuel roughness height, added jm 2/23/11
+   DATA ffw /nf* 0.9, zf*0/
+   DATA adjr0 /mfuelcats*1./
+   DATA adjrw /mfuelcats*1./
+   DATA adjrs /mfuelcats*1./
 ! =========================================================================
+
+  logical, save :: have_fuel_cats=.false.
 
 contains
 
@@ -130,38 +181,56 @@ implicit none
 !*** purpose: initialize fuel tables and variables by constants
 !*** arguments: none
 logical, external:: wrf_dm_on_monitor
+!$ integer, external:: OMP_GET_THREAD_NUM
 !*** local
 integer:: i,j,k,ii,iounit
 character(len=128):: msg
+REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 !*** executable
 
 ! read 
-namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat
-namelist /fuel_categories/ fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap
+namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
+namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs
+
+!$  if (OMP_GET_THREAD_NUM() .ne. 0)then
+!$     call crash('init_fuel_cats: must be called from master thread')
+!$  endif
 
 IF ( wrf_dm_on_monitor() ) THEN
-    iounit=open_input_text_file('namelist.fire')
+    ! we are the master task
+    ! copy in defaults
+    fwh=fcwh
+    fz0=fcz0
+    ! read the file
+    iounit=open_text_file('namelist.fire','read')
     read(iounit,fuel_scalars)
     read(iounit,fuel_categories)
     CLOSE(iounit)
-ENDIF
+    ! copy out to permanent names
+    fcwh=fwh
+    fcz0=fz0
     
-if (nfuelcats>mfuelcats) then
-    write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
-    call crash(msg)
-endif
-if (no_fuel_cat >= 1 .and. no_fuel_cat <= nfuelcats)then
-    write(msg,*)'no_fuel_cat=',no_fuel_cat,' may not be between 1 and nfuelcats=',nfuelcats
-    call crash(msg)
-endif
+    if (nfuelcats>mfuelcats) then
+        write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
+        call crash(msg)
+    endif
+        if (no_fuel_cat >= 1 .and. no_fuel_cat <= nfuelcats)then
+        write(msg,*)'no_fuel_cat=',no_fuel_cat,' may not be between 1 and nfuelcats=',nfuelcats
+        call crash(msg)
+    endif
+ENDIF
 
+! broadcast the contents of the file
 call wrf_dm_bcast_real(cmbcnst,1)
 call wrf_dm_bcast_real(hfgl,1)
 call wrf_dm_bcast_real(fuelmc_g,1)
 call wrf_dm_bcast_real(fuelmc_c,1)
+call wrf_dm_bcast_real(fire_wind_height,1)
 call wrf_dm_bcast_integer(nfuelcats,1)
 call wrf_dm_bcast_integer(no_fuel_cat,1)
+call wrf_dm_bcast_integer(ibeh,1)
+call wrf_dm_bcast_real(windrf,    nfuelcats)
 call wrf_dm_bcast_real(fgi,       nfuelcats)
 call wrf_dm_bcast_real(fueldepthm,nfuelcats)
 call wrf_dm_bcast_real(savr,      nfuelcats)
@@ -173,10 +242,15 @@ call wrf_dm_bcast_real(weight,    nfuelcats)
 call wrf_dm_bcast_real(fci_d,     nfuelcats)
 call wrf_dm_bcast_real(fct,       nfuelcats)
 call wrf_dm_bcast_integer(ichap,  nfuelcats)
+call wrf_dm_bcast_real(fcwh,      nfuelcats)
+call wrf_dm_bcast_real(fcz0,      nfuelcats)
+call wrf_dm_bcast_real(ffw,       nfuelcats)
+call wrf_dm_bcast_real(adjr0,     nfuelcats)
+call wrf_dm_bcast_real(adjrw,     nfuelcats)
+call wrf_dm_bcast_real(adjrs,     nfuelcats)
 
 ! compute derived scalars
 
-bmst     = fuelmc_g/(1+fuelmc_g)
 fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
 
 ! compute derived fuel category coefficients 
@@ -202,8 +276,6 @@ write(msg,8)'fuelmc_g   ',fuelmc_g
 call message(msg)
 write(msg,8)'fuelmc_c   ',fuelmc_c
 call message(msg)
-write(msg,8)'bmst       ',bmst
-call message(msg)
 write(msg,8)'fuelheat   ',fuelheat
 call message(msg)
 write(msg,7)'nfuelcats  ',nfuelcats
@@ -211,13 +283,22 @@ call message(msg)
 write(msg,7)'no_fuel_cat',no_fuel_cat
 call message(msg)
 
-j=5
+j=1
 7 format(a,5(1x,i8,4x))
 8 format(a,5(1x,g12.5e2))
+9 format(a,5(1x,a))
 do i=1,nfuelcats,j
     k=min(i+j-1,nfuelcats)
     call message(' ')
     write(msg,7)'CATEGORY  ',(ii,ii=i,k)
+    call message(msg)
+    write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'fwh       ',(fcwh(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'fz0       ',(fcz0(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'windrf    ',(windrf(ii),ii=i,k)
     call message(msg)
     write(msg,8)'fgi       ',(fgi(ii),ii=i,k)
     call message(msg)
@@ -245,10 +326,146 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'fcbr      ',(fcbr(ii),ii=i,k)
     call message(msg)
+    write(msg,8)'ffw       ',(ffw(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjr0     ',(adjr0(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjrw     ',(adjrw(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'adjrs     ',(adjrs(ii),ii=i,k)
+    call message(msg)
 enddo
 call message('**********************************************************')
 
+have_fuel_cats=.true.
+
+! and print to file
+IF ( wrf_dm_on_monitor() ) THEN
+  call write_fuels_m(61,30.,1.)
+ENDIF
+
+
 end subroutine init_fuel_cats
+
+
+subroutine write_fuels_m(nsteps,maxwind,maxslope)
+implicit none
+integer, intent(in):: nsteps   ! number of steps for speed computation
+real, intent(in):: maxwind,maxslope ! computer from zero to these
+
+integer:: iounit,k,j,i
+type(fire_params)::fp
+real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap,fmc_g
+real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
+real::ros_back,ros_wind,ros_slope,propx,propy,r
+
+if(.not.have_fuel_cats)call crash('write_fuels_m: fuel categories not yet set')
+
+fp%vx=>vx
+fp%vy=>vy
+fp%dzdxf=>dzdxf
+fp%dzdyf=>dzdyf
+fp%bbb=>bbb
+fp%phisc=>phisc
+fp%phiwc=>phiwc
+fp%r_0=>r_0
+fp%fgip=>fgip
+fp%ischap=>ischap
+fp%fmc_g=>fmc_g
+
+iounit = open_text_file('fuels.m','write')
+
+10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
+do k=1,nfuelcats
+    write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
+    call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM FCWH TO MIDFLAME HEIGHT' )
+    call write_var(k,'fwh',fcwh(k),'WIND HEIGHT TO INTERPOLATE VERTICALLY TO (M)' )
+    call write_var(k,'fz0',fcz0(k),'ROUGHNESS LENGTH FOR VERTICAL WIND LOG INTERPOLATION (M)' )
+    call write_var(k,'fgi',fgi(k),'INITIAL TOTAL MASS OF SURFACE FUEL (KG/M**2)' )
+    call write_var(k,'fueldepthm',fueldepthm(k),'FUEL DEPTH (M)')
+    call write_var(k,'savr',savr(k),'FUEL PARTICLE SURFACE-AREA-TO-VOLUME RATIO, 1/FT')
+    call write_var(k,'fuelmce',fuelmce(k),'MOISTURE CONTENT OF EXTINCTION')
+    call write_var(k,'fueldens',fueldens(k),'OVENDRY PARTICLE DENSITY, LB/FT^3')
+    call write_var(k,'st',st(k),'FUEL PARTICLE TOTAL MINERAL CONTENT')
+    call write_var(k,'se',se(k),'FUEL PARTICLE EFFECTIVE MINERAL CONTENT')
+    call write_var(k,'weight',weight(k),'WEIGHTING PARAMETER THAT DETERMINES THE SLOPE OF THE MASS LOSS CURVE')
+    call write_var(k,'fci_d',fci_d(k),'INITIAL DRY MASS OF CANOPY FUEL')
+    call write_var(k,'fct',fct(k),'BURN OUT TIME FOR CANOPY FUEL, AFTER DRY (S)')
+    call write_var(k,'ichap',float(ichap(k)),'1 if chaparral, 0 if not')
+    call write_var(k,'fci',fci(k),'INITIAL TOTAL MASS OF CANOPY FUEL')
+    call write_var(k,'fcbr',fcbr(k),'FUEL CANOPY BURN RATE (KG/M**2/S)')
+    call write_var(k,'adjr0',adjr0(k),'MULTIPLICATIVE ADJUSTMENT OF BACKING SPREAD RATE')
+    call write_var(k,'adjrw',adjrw(k),'MULTIPLICATIVE ADJUSTMENT OF WIND CONTRIBUTION TO SPREAD RATE')
+    call write_var(k,'adjrs',adjrs(k),'MULTIPLICATIVE ADJUSTMENT OF SLOPE CONTRIBUTION TO SPREAD RATE')
+    call write_var(k,'ffw',ffw(k),'FUEL FRACTION CONSUMED IN THE FLAMING ZONE')
+    call write_var(k,'hfgl',hfgl,'SURFACE FIRE HEAT FLUX THRESHOLD TO IGNITE CANOPY (W/m^2)')
+    call write_var(k,'cmbcnst',cmbcnst,'JOULES PER KG OF DRY FUEL')
+    call write_var(k,'fuelheat',fuelheat,'FUEL PARTICLE LOW HEAT CONTENT, BTU/LB')
+    call write_var(k,'fuelmc_g',fuelmc_g,'FUEL PARTICLE (SURFACE) MOISTURE CONTENT')
+    call write_var(k,'fuelmc_c',fuelmc_c,'FUEL PARTICLE (CANOPY) MOISTURE CONTENT')
+    ! set up fuel arrays 
+    !subroutine set_fire_params( &
+    !                       ifds,ifde,jfds,jfde, &
+    !                       ifms,ifme,jfms,jfme, &
+    !                       ifts,ifte,jfts,jfte, &
+    !                       fdx,fdy,nfuel_cat0,  &
+    !                       nfuel_cat,fuel_time, &
+    !                       fp ) 
+    nfuel_cat = k
+    call set_fire_params( &
+                           1,2,1,nsteps, &
+                           1,2,1,nsteps, &
+                           1,2,1,nsteps, &
+                           0.,0.,k,  &
+                           nfuel_cat,fuel_time, &
+                           fp ) 
+    ! set up windspeed and slope table
+    propx=1.
+    propy=0.
+    do j=1,nsteps
+       r=float(j-1)/float(nsteps-1)
+       ! line 1 varies windspeed (in x direction), zero slope
+       vx(1,j)=maxwind*r
+       vy(1,j)=0.
+       dzdxf(1,j)=0.
+       dzdyf(1,j)=0.
+       ! line 2 varies slope (in x direction), zero slope
+       vx(2,j)=0.
+       vy(2,j)=0.
+       dzdxf(2,j)=maxslope*r
+       dzdyf(2,j)=0.
+    enddo
+    do j=1,nsteps
+       do i=1,2
+          call fire_ros(ros_back,ros_wind,ros_slope, &
+             propx,propy,i,j,fp)
+          ros(i,j)=ros_back+ros_wind+ros_slope
+       enddo
+       write(iounit,13)k,'wind',j,vx(1,j),'wind speed'
+       write(iounit,13)k,'ros_wind',j,ros(1,j),'rate of spread for the wind speed'
+       write(iounit,13)k,'slope',j,dzdxf(2,j),'slope'
+       write(iounit,13)k,'ros_slope',j,ros(2,j),'rate of spread for the slope'
+    enddo
+enddo
+13 format('fuel(',i3,').',a,'(',i3,')=',g12.5e2,';% ',a)
+ 
+close(iounit)
+! stop
+
+contains
+
+subroutine write_var(k,name,value,descr)
+! write entry for one variable
+integer, intent(in)::k
+character(len=*), intent(in)::name,descr
+real, intent(in)::value
+write(iounit,11)k,name,value
+write(iounit,12)k,name,descr
+11 format('fuel(',i3,').',a,'=',g12.5e2,  ';')
+12 format('fuel(',i3,').',a,"_descr='",a,"';")
+end subroutine write_var
+
+end subroutine write_fuels_m
 
 !
 !*******************
@@ -259,9 +476,8 @@ subroutine set_fire_params( &
                            ifms,ifme,jfms,jfme, &
                            ifts,ifte,jfts,jfte, &
                            fdx,fdy,nfuel_cat0,  &
-                           nfuel_cat,fuel_time  &
-#                          include "fr_sfire_params_args.h" 
-)
+                           nfuel_cat,fuel_time, &
+                           fp ) 
 
 implicit none
 
@@ -275,21 +491,21 @@ real, intent(in):: fdx,fdy                                      ! fire mesh spac
 integer,intent(in)::nfuel_cat0                                  ! default fuel category, if nfuel_cat=0
 real, intent(in),dimension(ifms:ifme, jfms:jfme)::nfuel_cat  ! fuel data
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
-#define IN out  /* the fire param arrays are set here, elsewhere read only */
-#include "fr_sfire_params_decl.h" 
-#undef IN
+type(fire_params),intent(inout)::fp
 
 !*** local
 
 real::  fuelload, fueldepth, rtemp1, rtemp2, &
         qig, epsilon, rhob, wn, betaop, e, c, &
         xifr, etas, etam, a, gammax, gamma, ratio, ir, &
-        fuelloadm,fdxinv,fdyinv
+        fuelloadm,fdxinv,fdyinv,betafl, bmst
 integer:: i,j,k
 integer::nerr
 character(len=128)::msg
 
 !*** executable
+
+if(.not.have_fuel_cats)call crash('set_fire_params: fuel categories not yet set')
 
 nerr=0
 do j=jfts,jfte
@@ -297,13 +513,13 @@ do j=jfts,jfte
      ! fuel category 
      k=int( nfuel_cat(i,j) )
      if(k.eq.no_fuel_cat)then   ! no fuel 
-        fgip(i,j)=0.            ! no mass 
-        ischap(i,j)=0
-        betafl(i,j)=0.          ! to prevent division by zero
-        bbb(i,j)=1.             !
+        fp%fgip(i,j)=0.            ! no mass 
+        fp%ischap(i,j)=0.
+        fp%phisc(i,j)=0.          ! 
+        fp%bbb(i,j)=1.             !
         fuel_time(i,j)=7./0.85  ! does not matter, just what was there before
-        phiwc(i,j)=0.
-        r_0(i,j)=0.             ! no fuel, no spread.
+        fp%phiwc(i,j)=0.
+        fp%r_0(i,j)=0.             ! no fuel, no spread.
      else
         if(k.eq.0.and.nfuel_cat0.ge.1.and.nfuel_cat0.le.nfuelcats)then
             ! replace k=0 by default
@@ -312,7 +528,9 @@ do j=jfts,jfte
         endif
    
         if(k.lt.1.or.k.gt.nfuelcats)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
             write(msg,'(3(a,i5))')'nfuel_cat(', i ,',',j,')=',k
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
             call message(msg)
             call crash('set_fire_params: fuel category out of bounds')
         endif
@@ -324,8 +542,11 @@ do j=jfts,jfte
         ! fuel decreases as exp(-t/fuel_time) 
         ! exp(-600*0.85/1000) = approx 0.6 
 
-        ischap(i,j)=ichap(k)
-        fgip(i,j)=fgi(k)
+        fp%ischap(i,j)=ichap(k)
+        fp%fgip(i,j)=fgi(k)
+        if(fire_fmc_read.eq.1)then
+           fp%fmc_g(i,j)=fuelmc_g
+        endif
 
         ! end jm addition
 
@@ -336,28 +557,35 @@ do j=jfts,jfte
         !     ...Settings of fire spread parameters from Rothermel follows. These
         !        don't need to be recalculated later.
         
+        bmst     = fp%fmc_g(i,j) / (1.+fp%fmc_g(i,j))
         fuelloadm= (1.-bmst) * fgi(k)  !  fuelload without moisture
         fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
         fueldepth = fueldepthm(k)/0.3048               ! to ft
-        betafl(i,j) = fuelload/(fueldepth * fueldens(k))! packing ratio
+        betafl = fuelload/(fueldepth * fueldens(k))! packing ratio
         betaop = 3.348 * savr(k)**(-0.8189)     ! optimum packing ratio
-        qig = 250. + 1116.*fuelmc_g            ! heat of preignition, btu/lb
+        qig = 250. + 1116.*fp%fmc_g(i,j)            ! heat of preignition, btu/lb
         epsilon = exp(-138./savr(k) )    ! effective heating number
         rhob = fuelload/fueldepth    ! ovendry bulk density, lb/ft^3
 
         c = 7.47 * exp( -0.133 * savr(k)**0.55)    ! const in wind coef
-        bbb(i,j) = 0.02526 * savr(k)**0.54                ! const in wind coef
+        fp%bbb(i,j) = 0.02526 * savr(k)**0.54      ! const in wind coef
+        !if(fire_wind_log_interp .eq. 4 .or. fire_use_windrf .eq. 1) then
+        !     c = c * windrf(k)**fp%bbb(i,j)             ! jm: multiply wind by reduction factor
+        !endif
         e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
-        phiwc(i,j) = c * (betafl(i,j)/betaop)**(-e)
+        fp%phiwc(i,j) = c * (betafl/betaop)**(-e)
+
+        ! phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
+        fp%phisc(i,j) = 5.275 *(betafl)**(-0.3)    ! const in slope coeff
 
         rtemp2 = savr(k)**1.5
         gammax = rtemp2/(495. + 0.0594*rtemp2)              ! maximum rxn vel, 1/min
         a = 1./(4.774 * savr(k)**0.1 - 7.27)   ! coef for optimum rxn vel
-        ratio = betafl(i,j)/betaop
+        ratio = betafl/betaop
         gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
 
         wn = fuelload/(1 + st(k))       ! net fuel loading, lb/ft^2
-        rtemp1 = fuelmc_g/fuelmce(k)
+        rtemp1 = fp%fmc_g(i,j)/fuelmce(k)
         etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
         etas = 0.174* se(k)**(-0.19)                ! mineral damping coef
         ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
@@ -365,17 +593,27 @@ do j=jfts,jfte
         ! jm: irm set but never used??
 
         xifr = exp( (0.792 + 0.681*savr(k)**0.5) &
-            * (betafl(i,j)+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
+            * (betafl+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
 
 !        ... r_0 is the spread rate for a fire on flat ground with no wind.
 
-        r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
+        fp%r_0(i,j) = ir*xifr/(rhob * epsilon *qig)    ! default spread rate in ft/min
+        fp%r_0(i,j) = fp%r_0(i,j) * .00508             ! convert to m/s
+        fp%phiwc(i,j) = fp%phiwc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
+        fp%phisc(i,j) = fp%phisc(i,j) * fp%r_0(i,j)              ! premultiply wind coefficient so it can be used additively
+
+        ! apply adjustments
+        fp%r_0(i,j)   = fp%r_0(i,j)   * adjr0(k)
+        fp%phiwc(i,j) = fp%phiwc(i,j) * adjrw(k)
+        fp%phisc(i,j) = fp%phisc(i,j) * adjrs(k)
      endif
   enddo
 enddo
 
 if(nerr.gt.1)then
-    write(msg,'(a,i6)')'set_fire_params: WARNING: fuel category 0 replaced in',nerr,' cells'
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+    write(msg,'(a,i6,a)')'set_fire_params: WARNING: fuel category 0 replaced in',nerr,' cells'
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 endif
 
@@ -385,7 +623,7 @@ end subroutine set_fire_params
 !*******************
 !
 
-subroutine heat_fluxes(dt,                        &
+subroutine heat_fluxes(dt,fp,                     &
         ifms,ifme,jfms,jfme,                      &  ! memory dims
         ifts,ifte,jfts,jfte,                      &  ! tile dims
         iffs,iffe,jffs,jffe,                      &  ! fuel_frac_burnt dims
@@ -397,25 +635,33 @@ implicit none
 ! compute the heat fluxes on the fire grid cells
 
 !*** arguments
+type(fire_params), intent(in)::fp
 real, intent(in)::dt          ! dt  the fire time step (the fire model advances time by this)
 integer, intent(in)::ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,iffs,iffe,jffs,jffe   ! dimensions                   
 real, intent(in),dimension(ifms:ifme,jfms:jfme):: fgip
 real, intent(in),dimension(iffs:iffe,jffs:jffe):: fuel_frac_burnt
-real, intent(out),dimension(ifms:ifme,jfms:jfme):: grnhft,grnqft
+real, intent(out),dimension(ifms:ifme,jfms:jfme):: grnhft
+real, intent(out),dimension(ifms:ifme,jfms:jfme),optional:: grnqft
 
 !*** local
 integer::i,j
-real:: dmass
+real:: dmass,bmst
+logical::latent
+
 
 !*** executable        
+latent = present(grnqft)
 do j=jfts,jfte
     do i=ifts,ifte
          dmass =                     &     ! ground fuel dry mass burnt this call (kg/m^2)
              fgip(i,j)               &     ! init mass from fuel model no (kg/m^2) = fgi(nfuel_cat(i,j)
              * fuel_frac_burnt(i,j)        ! fraction burned this call    (1)
+         bmst     = fp%fmc_g(i,j)/(1.+fp%fmc_g(i,j))
          grnhft(i,j) = (dmass/dt)*(1.-bmst)*cmbcnst         ! J/m^2/sec
-         grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! what the #!@* is that??
-         ! xlv is defined in module_model_constants.. who knows that it is.. why .56 ??
+         if(latent)grnqft(i,j) = (bmst+(1.-bmst)*.56)*(dmass/dt)*xlv  ! 
+         ! bmst = relative water contents; 0.56 = est. ratio of water from burning
+         ! xlv = nominal specific latent heat of water J/kg (dependence on temperature ignored)
+         ! xlv is  defined in module_model_constants 
     enddo
 enddo
 
@@ -448,12 +694,16 @@ integer:: i,j,iu1
 real:: t1
 character(len=128)msg
 
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,'(a,i3)')'set_nfuel_cat: ifuelread=',ifuelread 
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 
-if (ifuelread .eq. -1) then
-    call message('set_nfuel_cat: assuming nfuel_cat initialized elsewhere') 
+if (ifuelread .eq. -1 .or. ifuelread .eq. 2) then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+    call message('set_nfuel_cat: assuming nfuel_cat initialized already') 
     call message(msg)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
 else if (ifuelread .eq. 0) then
 !
     do j=jfts,jfte
@@ -461,7 +711,9 @@ else if (ifuelread .eq. 0) then
             nfuel_cat(i,j)=real(nfuel_cat0)
         enddo
     enddo
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,'(a,i3)')'set_nfuel_cat: fuel initialized with category',nfuel_cat0
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
          
 else if (ifuelread .eq. 1) then
@@ -506,12 +758,62 @@ end subroutine set_nfuel_cat
 !            
 
 subroutine fire_ros(ros_back,ros_wind,ros_slope, &
-vxij,vyij,dzdx,dzdy,propx,propy,i,j &
-#include "fr_sfire_params_args.h"
-)
-implicit none
-#include "fr_sfire_params_decl.h"
+propx,propy,i,j,fp)
 
+implicit none
+
+! compute the wind speed and slope normal to the fireline and call fire_ros_cawfe
+
+!*** arguments
+real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
+real, intent(in)::propx,propy
+integer, intent(in)::i,j         ! node mesh coordinates
+type(fire_params),intent(in)::fp
+
+!*** local
+real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
+real::cor_wind,cor_slope,nvx,nvy,scale
+
+!*** executable
+
+! make sure normal direction is size 1
+!scale=sqrt(propx*propx+propy*propy)+tiny(scale)
+scale=1.
+nvx=propx/scale
+nvy=propy/scale
+if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
+    ! wind speed is total speed 
+    speed =  sqrt(fp%vx(i,j)*fp%vx(i,j)+ fp%vy(i,j)*fp%vy(i,j))+tiny(speed)
+    ! slope is total slope
+    tanphi = sqrt(fp%dzdxf(i,j)*fp%dzdxf(i,j) + fp%dzdyf(i,j)*fp%dzdyf(i,j))+tiny(tanphi)
+    ! cos of wind and spread, if >0
+    cor_wind =  max(0.,(fp%vx(i,j)*nvx + fp%vy(i,j)*nvy)/speed)
+    ! cos of slope and spread, if >0
+    cor_slope = max(0., (fp%dzdxf(i,j)*nvx + fp%dzdyf(i,j)*nvy)/tanphi)
+else
+    ! wind speed in spread direction
+    speed =  fp%vx(i,j)*nvx + fp%vy(i,j)*nvy
+    ! slope in spread direction
+    tanphi = fp%dzdxf(i,j)*nvx + fp%dzdyf(i,j)*nvy
+    cor_wind=1.
+    cor_slope=1.
+endif
+
+call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
+speed,tanphi,cor_wind,cor_slope,i,j,fp)
+
+end subroutine fire_ros
+
+!
+!***
+!
+
+subroutine fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
+speed,tanphi,cor_wind,cor_slope,i,j,fp)
+
+implicit none
+
+! find rate of spread from wind speed and slope
 ! copied from wf2_janice 
 ! with the following changes ONLY: 
 !   0.5*(speed + abs(speed)) -> max(speed,0.)
@@ -536,74 +838,59 @@ implicit none
 
 !*** arguments
 real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
-real, intent(in)::vxij,vyij,dzdx,dzdy,propx,propy
+real, intent(in)::speed,tanphi,cor_wind,cor_slope
 integer, intent(in)::i,j         ! node mesh coordinates
+type(fire_params),intent(in)::fp
 
 !*** local
-real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
-real:: umid, phis, phiw, spdms, umidm, excess
-integer, parameter::ibeh=1
+real:: umid, phis, phiw, spdms, umidm, excess, tanphim
 real, parameter::ros_max=6.
 character(len=128)msg
-real::cor_wind,cor_slope,nvx,nvy,scale
-
 
 !*** executable
 
-! make sure normal direction is size 1
-!scale=sqrt(propx*propx+propy*propy)+tiny(scale)
-scale=1.
-nvx=propx/scale
-nvy=propy/scale
-if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
-    ! wind speed is total speed 
-    speed =  sqrt(vx(i,j)*vx(i,j)+ vy(i,j)*vy(i,j))+tiny(speed)
-    ! slope is total slope
-    tanphi = sqrt(dzdx*dzdx + dzdy*dzdy)+tiny(tanphi)
-    ! cos of wind and spread, if >0
-    cor_wind =  max(0.,(vx(i,j)*nvx + vy(i,j)*nvy)/speed)
-    ! cos of slope and spread, if >0
-    cor_slope = max(0., (dzdx*nvx + dzdy*nvy)/tanphi)
-else
-    ! wind speed in spread direction
-    speed =  vx(i,j)*nvx + vy(i,j)*nvy
-    ! slope in spread direction
-    tanphi = dzdx*nvx + dzdy*nvy
-    cor_wind=1.
-    cor_slope=1.
-endif
-
-if (ischap(i,j) .eq. 0) then            ! if not chaparral
+if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test for .eq. 0 for speed
     if (ibeh .eq. 1) then                ! use Rothermel formula
 !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
         spdms = max(speed,0.)          ! 
         umidm = min(spdms,30.)       ! max input wind spd is 30 m/s   !param!
         umid = umidm * 196.850                    ! m/s to ft/min
-        !  eqn.: phiw = c * umid**bbb(i,j) * (betafl(i,j)/betaop)**(-e) ! wind coef
-        phiw = umid**bbb(i,j) * phiwc(i,j) ! wind coef
-        phis=0.
-        if (tanphi .gt. 0.) then
-            phis = 5.275 *(betafl(i,j))**(-0.3) *tanphi**2   ! slope factor
-        endif
-        ! rosm = r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
-        ros_back = r_0(i,j) * .00508
-        ros_wind = ros_back*phiw
-        ros_slope= ros_back*phis
-        
-
-    else                                   ! MacArthur formula (Australian)
+        !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
+        ros_wind = fp%phiwc(i,j) * (umid**fp%bbb(i,j)) ! wind coef
+        tanphim=max(tanphi,0.0)
+        tanphim=min(tanphim,5.0)  ! jm
+        ! phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphim**2   ! slope factor
+        ros_slope = fp%phisc(i,j) *tanphim**2   ! slope factor
+        ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
+        ros_back = fp%r_0(i,j)
+    elseif(ibeh.eq.2)then ! for testing only, spread rate = wind but not < 0
+        ros_back = 0.
+        ros_wind = max(speed,0.)
+        ros_slope= 0.
+    elseif(ibeh.eq.3)then ! for testing only, spread rate = wind but not < 0
+        ros_back = 0.
+        ros_wind = speed
+        ros_slope= 0.
+    elseif(ibeh.eq.0)then                                  ! MacArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
-        ros_back = 0.18*exp(0.8424)
+        ros_back = 0.18
         ros_wind = 0.18*exp(0.8424*max(speed,0.)) - ros_back
         ros_slope =0.
+        ! note: ros = ros_back + ros_wind + ros_slope
+    else ! error, but prevent unintialized variables
+        ! just so that there is something there
+        ros_back=-999.
+        ros_wind=-999.
+        ros_slope=-999.
     endif
 !
-else   ! chaparral
+else   ! chaparral model from Clark et al 2004
 !        .... spread rate has no dependency on fuel character, only windspeed.
     spdms = max(speed,0.)      
     ! rosm = 1.2974 * spdms**1.41       ! spread rate, m/s
     ! note: backing ros is 0 for chaparral without setting nozero value below
-    !sp_n=.03333    ! chaparral backing fire spread rate 0.033 m/s   ! param!
+    !sp_n=.03333  
+    ! chaparral backing fire spread rate 0.033 m/s   ! param!
     !rosm= max(rosm, sp_n)   ! no less than backing r.o.s.
 
     ros_back=.03333    ! chaparral backing fire spread rate 0.033 m/s   ! param!
@@ -612,7 +899,7 @@ else   ! chaparral
     ros_slope =0.
 
 endif
-! if advection, multiply by the cosines
+!  multiply by the correction factors (from angle calculations)
 ros_wind=ros_wind*cor_wind
 ros_slope=ros_slope*cor_slope
 !
@@ -632,6 +919,8 @@ endif
 !jm: huh ???
 !     fire_ros = 0.1*rosm
 !
+!write(msg,*)i,j,' speed=',speed,' tanphi',tanphi,' ros=',ros_back,ros_wind,ros_slope
+!call message(msg)
       return
 
 contains
@@ -640,6 +929,166 @@ real, intent(in)::u,v
 nrm2=sqrt(u*u+v*v)
 end function nrm2
 
-end subroutine fire_ros 
+end subroutine fire_ros_cawfe
+
+subroutine fire_risk(fp,               &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        nfuel_cat,                                &
+        f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread diagnostic variables
+        f_int,f_lineint,f_lineint2)                  ! fireline intensities for danger rating
+
+!*** arguments
+type(fire_params), intent(in)::fp
+integer, intent(in)::                             &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte                          ! tile dims
+real, intent(in), dimension(ifms:ifme,jfms:jfme) :: nfuel_cat 
+real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
+        f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread diagnostic variables
+        f_int,f_lineint,f_lineint2                   ! fire intensities for danger rating
+
+!*** local
+integer:: i,j,k
+real:: cor_wind=1.,cor_slope=1.,dt_fake=1.
+real:: ros_back,ros_wind,ros_slope,speed,tanphi,front_speed,ros_x,ros_y
+
+!*** executable
+
+do j=jfts,jfte
+  do i=ifts,ifte
+!   compute the fire spread rate and vector
+
+    ! wind speed is total speed 
+    speed =  sqrt(fp%vx(i,j)*fp%vx(i,j)+ fp%vy(i,j)*fp%vy(i,j))+tiny(speed)
+    ! slope is total slope
+    tanphi = sqrt(fp%dzdxf(i,j)*fp%dzdxf(i,j) + fp%dzdyf(i,j)*fp%dzdyf(i,j))+tiny(tanphi)
+
+    call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
+      speed,tanphi,cor_wind,cor_slope,i,j,fp)
+
+    ros_x = ros_wind * fp%vx(i,j)/speed + ros_slope * fp%dzdxf(i,j)/tanphi ! x direction component
+    ros_y = ros_wind * fp%vy(i,j)/speed + ros_slope * fp%dzdyf(i,j)/tanphi ! y direction component
+   
+!   store to out
+    f_ros0(i,j) = ros_back      ! direction-less spread rate component
+    f_rosx(i,j) = ros_x
+    f_rosy(i,j) = ros_y
+
+    ! max fire front speed in this location (m/s)
+    f_ros(i,j) = ros_back + sqrt(ros_x*ros_x + ros_y*ros_y)
+
+  enddo
+enddo
+
+call fire_intensity(fp,                       &  ! fuel properties
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifms,ifme,jfms,jfme,                      &  ! f_ros dims
+        f_ros,nfuel_cat,                          & !in
+        f_lineint,f_lineint2,f_int)                 ! fireline intensities out
+
+end subroutine fire_risk
+
+!
+!***
+!
+
+subroutine fire_intensity(fp,                     &  ! fuel params
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        irms,irme,jrms,jrme,                      &  ! memory dims for ros
+        ros,nfuel_cat,                            &  ! rate of spread in
+        fibyram,filimit,f_int)                       ! intensities out
+
+!*** arguments
+type(fire_params), intent(in)::fp
+integer, intent(in)::                             &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        irms,irme,jrms,jrme                         ! memory dims for ros
+real, intent(in), dimension(irms:irme,jrms:jrme) :: ros ! in rate of spread
+real, intent(in), dimension(ifms:ifme,jfms:jfme) :: nfuel_cat 
+real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
+        fibyram,filimit                             ! out fireline intensities
+real, intent(out), dimension(ifms:ifme,jfms:jfme), optional :: f_int ! fire intensity (J/m^2/s)
+
+!*** local
+integer:: i,j,k
+real, dimension(ifts:ifte,jfts:jfte):: rate_frac
+real:: dt_fake=1.
+
+!*** executable
+
+call heat_fluxes(dt_fake,fp,                       &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        irms,irme,jrms,jrme,                      &  ! ros dims
+        fp%fgip,ros,                              & !in
+        fibyram)                                    !out
+
+! multiply by fuel fraction consumed in flaming zone for the category
+do j=jfts,jfte
+    do i=ifts,ifte
+       k=int( nfuel_cat(i,j) )
+       fibyram(i,j)=fibyram(i,j)*ffw(k)
+    enddo
+enddo
+    ! fuel fraction loss per fire front unit length traveled per unit time
+    ! burn_rate(i,j) = 0.5 * front_speed / fp%fuel_time(i,j) 
+
+    ! fireline element of length ds moves in time dt by front_speed * dt covering area ds * dt * front_speed (m^2)
+    ! after time dt the fuel fraction decrease is 0 at the leading edge and dt/fuel_time at the trailing edge 
+    ! so the average fuel consumption over this zone is 0.5 * dt/fuel_time  (1)
+    ! fuel load is fgip (kg/m^2)
+    ! and the amount of fuel burned fireline length ds travels over time dt is 0.5 fgip * ds * dt^2 * front_speed/fuel_time (kg)
+    ! note: dt because 1. it travels more 2. it burns longer
+    ! fgip*burn_rate_frac(i,j) = (kg/m^2) * (m/s^2) = kg/m/s^2
+
+    ! http://www.forestencyclopedia.net/p/p487
+    ! H = I*w*r  = (J/kg) * (kg/m^2) * (m/s) = J/m/s
+    ! fuel fraction loss per fire front unit length traveled 
+
+do j=jfts,jfte
+    do i=ifts,ifte
+       rate_frac(i,j)=0.5*ros(i,j)/fp%fuel_time(i,j)
+    enddo
+enddo
+
+! multiply by heat contents * fuel load
+call heat_fluxes(dt_fake,fp,                       &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifts,ifte,jfts,jfte,                      &  ! rate_frac dims
+        fp%fgip,rate_frac,                        & !in
+        filimit)                                    !out
+
+if(present(f_int))then
+  do j=jfts,jfte
+    do i=ifts,ifte
+       k=int( nfuel_cat(i,j) )
+       ! in time tr the fraction of fuel consumed is ffw=1-exp(-tr/fuel_time)
+       ! giving flame residence time tr = - log(1-ffw)*fuel_time
+       ! fire intensity is heat contents * fuel load * fraction consumed / flame residence time
+       ! J/kg * kg/m^2 * 1 / s = J/m^2/s
+       ! this is averaged over the flame residence time, 
+       rate_frac(i,j)=ffw(k)/(fp%fuel_time(i,j)*(-log(1.-ffw(k))))
+    enddo
+  enddo
+
+  ! multiply by heat contents * fuel load J/m^2
+
+  call heat_fluxes(dt_fake,fp,                      &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifts,ifte,jfts,jfte,                      &  ! rate_frac dims
+        fp%fgip,rate_frac,                        & !in
+        f_int)                                    !out
+
+endif
+
+end subroutine fire_intensity
+
+!*** executable
 
 end module module_fr_sfire_phys

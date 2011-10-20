@@ -37,6 +37,7 @@ module datatype_module
       logical :: is_wind_grid_rel
       logical :: array_has_missing_values
 
+      logical :: is_subgrid
       integer :: sr_x, sr_y
    end type header_info
 

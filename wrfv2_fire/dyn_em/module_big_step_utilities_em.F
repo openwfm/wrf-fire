@@ -2528,9 +2528,10 @@ SUBROUTINE w_damp( rw_tend, max_vert_cfl,max_horiz_cfl, &
         cf_d = abs(mut(i,j))
         if(cf_n .gt. cf_d*w_beta )then
 #endif
-
+!$OMP CRITICAL(big_step_utilities)
            WRITE(temp,*)i,j,k,' vert_cfl,w,d(eta)=',vert_cfl,w(i,k,j),-1./rdnw(k)
            CALL wrf_debug ( 100 , TRIM(temp) )
+!$OMP END CRITICAL(big_step_utilities)
            if ( vert_cfl > 2. ) some = some + 1
            rw_tend(i,k,j) = rw_tend(i,k,j)-sign(1.,w(i,k,j))*w_alpha*(vert_cfl-w_beta)*mut(i,j)
         endif
@@ -2575,8 +2576,10 @@ SUBROUTINE w_damp( rw_tend, max_vert_cfl,max_horiz_cfl, &
         cf_d = abs(mut(i,j))
         if(cf_n .gt. cf_d*w_beta )then
 #endif
+!$OMP CRITICAL(big_step_utilities)
            WRITE(temp,*)i,j,k,' vert_cfl,w,d(eta)=',vert_cfl,w(i,k,j),-1./rdnw(k)
            CALL wrf_debug ( 100 , TRIM(temp) )
+!$OMP END CRITICAL(big_step_utilities)
            if ( vert_cfl > 2. ) some = some + 1
         endif
      END DO
@@ -2586,12 +2589,14 @@ SUBROUTINE w_damp( rw_tend, max_vert_cfl,max_horiz_cfl, &
    IF ( some .GT. 0 ) THEN
      CALL get_current_time_string( time_str )
      CALL get_current_grid_name( grid_str )
+!$OMP CRITICAL(big_step_utilities)
      WRITE(wrf_err_message,*)some,                                            &
             ' points exceeded cfl=2 in domain '//TRIM(grid_str)//' at time '//TRIM(time_str)//' hours'
      CALL wrf_debug ( 0 , TRIM(wrf_err_message) )
      WRITE(wrf_err_message,*)'MAX AT i,j,k: ',maxi,maxj,maxk,' vert_cfl,w,d(eta)=',max_vert_cfl, &
                              maxdub,maxdeta
      CALL wrf_debug ( 0 , TRIM(wrf_err_message) )
+!$OMP END CRITICAL(big_step_utilities)
    ENDIF
 
 END SUBROUTINE w_damp
@@ -3595,31 +3600,32 @@ SUBROUTINE coriolis ( ru, rv, rw, ru_tend, rv_tend, rw_tend, &
    ENDDO
    ENDDO
 
-   IF ( (config_flags%open_xs) .and. (its == ids) ) THEN
+! boundary loops for coriolis not needed for open bdy  (commented out 20100611 JD)
+!  IF ( (config_flags%open_xs) .and. (its == ids) ) THEN
 
-     DO k=kts,ktf
-   
-       ru_tend(its,k,j)=ru_tend(its,k,j) + (msfux(its,j)/msfuy(its,j))*0.5*(f(its,j)+f(its,j))   &
-         *0.25*(rv(its,k,j+1)+rv(its,k,j+1)+rv(its,k,j)+rv(its,k,j)) &
-             - 0.5*(e(its,j)+e(its,j))*0.5*(cosa(its,j)+cosa(its,j)) &
-         *0.25*(rw(its,k+1,j)+rw(its,k,j)+rw(its,k+1,j)+rw(its,k,j))
+!    DO k=kts,ktf
+!  
+!      ru_tend(its,k,j)=ru_tend(its,k,j) + (msfux(its,j)/msfuy(its,j))*0.5*(f(its,j)+f(its,j))   &
+!        *0.25*(rv(its,k,j+1)+rv(its,k,j+1)+rv(its,k,j)+rv(its,k,j)) &
+!            - 0.5*(e(its,j)+e(its,j))*0.5*(cosa(its,j)+cosa(its,j)) &
+!        *0.25*(rw(its,k+1,j)+rw(its,k,j)+rw(its,k+1,j)+rw(its,k,j))
 
-     ENDDO
+!    ENDDO
 
-   ENDIF
+!  ENDIF
 
-   IF ( (config_flags%open_xe) .and. (ite == ide) ) THEN
+!  IF ( (config_flags%open_xe) .and. (ite == ide) ) THEN
 
-     DO k=kts,ktf
-   
-       ru_tend(ite,k,j)=ru_tend(ite,k,j) + (msfux(ite,j)/msfuy(ite,j))*0.5*(f(ite-1,j)+f(ite-1,j)) &
-         *0.25*(rv(ite-1,k,j+1)+rv(ite-1,k,j+1)+rv(ite-1,k,j)+rv(ite-1,k,j)) &
-             - 0.5*(e(ite-1,j)+e(ite-1,j))*0.5*(cosa(ite-1,j)+cosa(ite-1,j)) &
-         *0.25*(rw(ite-1,k+1,j)+rw(ite-1,k,j)+rw(ite-1,k+1,j)+rw(ite-1,k,j))
+!    DO k=kts,ktf
+!  
+!      ru_tend(ite,k,j)=ru_tend(ite,k,j) + (msfux(ite,j)/msfuy(ite,j))*0.5*(f(ite-1,j)+f(ite-1,j)) &
+!        *0.25*(rv(ite-1,k,j+1)+rv(ite-1,k,j+1)+rv(ite-1,k,j)+rv(ite-1,k,j)) &
+!            - 0.5*(e(ite-1,j)+e(ite-1,j))*0.5*(cosa(ite-1,j)+cosa(ite-1,j)) &
+!        *0.25*(rw(ite-1,k+1,j)+rw(ite-1,k,j)+rw(ite-1,k+1,j)+rw(ite-1,k,j))
 
-     ENDDO
+!    ENDDO
 
-   ENDIF
+!  ENDIF
 
    ENDDO
 
@@ -3640,20 +3646,21 @@ SUBROUTINE coriolis ( ru, rv, rw, ru_tend, rv_tend, rw_tend, &
    IF ( config_flags%open_ye .or. specified .or. &
         config_flags%nested .or. config_flags%polar) j_end   = MIN(jde-1,jte)
 
-   IF ( (config_flags%open_ys) .and. (jts == jds) ) THEN
+! boundary loops for coriolis not needed for open bdy  (commented out 20100611 JD)
+!  IF ( (config_flags%open_ys) .and. (jts == jds) ) THEN
 
-     DO k=kts,ktf
-     DO i=its,MIN(ide-1,ite)
-   
-        rv_tend(i,k,jts)=rv_tend(i,k,jts) - (msfvy(i,jts)/msfvx(i,jts))*0.5*(f(i,jts)+f(i,jts))    &
-         *0.25*(ru(i,k,jts)+ru(i+1,k,jts)+ru(i,k,jts)+ru(i+1,k,jts))   &
-             + (msfvy(i,jts)/msfvx(i,jts))*0.5*(e(i,jts)+e(i,jts))*0.5*(sina(i,jts)+sina(i,jts))   &
-             *0.25*(rw(i,k+1,jts)+rw(i,k,jts)+rw(i,k+1,jts)+rw(i,k,jts)) 
+!    DO k=kts,ktf
+!    DO i=its,MIN(ide-1,ite)
+!  
+!       rv_tend(i,k,jts)=rv_tend(i,k,jts) - (msfvy(i,jts)/msfvx(i,jts))*0.5*(f(i,jts)+f(i,jts))    &
+!        *0.25*(ru(i,k,jts)+ru(i+1,k,jts)+ru(i,k,jts)+ru(i+1,k,jts))   &
+!            + (msfvy(i,jts)/msfvx(i,jts))*0.5*(e(i,jts)+e(i,jts))*0.5*(sina(i,jts)+sina(i,jts))   &
+!            *0.25*(rw(i,k+1,jts)+rw(i,k,jts)+rw(i,k+1,jts)+rw(i,k,jts)) 
 
-     ENDDO
-     ENDDO
+!    ENDDO
+!    ENDDO
 
-   ENDIF
+!  ENDIF
 
    DO j=j_start, j_end
    DO k=kts,ktf
@@ -3669,20 +3676,21 @@ SUBROUTINE coriolis ( ru, rv, rw, ru_tend, rv_tend, rw_tend, &
    ENDDO
 
 
-   IF ( (config_flags%open_ye) .and. (jte == jde) ) THEN
+! boundary loops for coriolis not needed for open bdy  (commented out 20100611 JD)
+!  IF ( (config_flags%open_ye) .and. (jte == jde) ) THEN
 
-     DO k=kts,ktf
-     DO i=its,MIN(ide-1,ite)
-   
-        rv_tend(i,k,jte)=rv_tend(i,k,jte) - (msfvy(i,jte)/msfvx(i,jte))*0.5*(f(i,jte-1)+f(i,jte-1))        &
-         *0.25*(ru(i,k,jte-1)+ru(i+1,k,jte-1)+ru(i,k,jte-1)+ru(i+1,k,jte-1))   &
-             + (msfvy(i,jte)/msfvx(i,jte))*0.5*(e(i,jte-1)+e(i,jte-1))*0.5*(sina(i,jte-1)+sina(i,jte-1))   &
-             *0.25*(rw(i,k+1,jte-1)+rw(i,k,jte-1)+rw(i,k+1,jte-1)+rw(i,k,jte-1)) 
+!    DO k=kts,ktf
+!    DO i=its,MIN(ide-1,ite)
+!  
+!       rv_tend(i,k,jte)=rv_tend(i,k,jte) - (msfvy(i,jte)/msfvx(i,jte))*0.5*(f(i,jte-1)+f(i,jte-1))        &
+!        *0.25*(ru(i,k,jte-1)+ru(i+1,k,jte-1)+ru(i,k,jte-1)+ru(i+1,k,jte-1))   &
+!            + (msfvy(i,jte)/msfvx(i,jte))*0.5*(e(i,jte-1)+e(i,jte-1))*0.5*(sina(i,jte-1)+sina(i,jte-1))   &
+!            *0.25*(rw(i,k+1,jte-1)+rw(i,k,jte-1)+rw(i,k+1,jte-1)+rw(i,k,jte-1)) 
 
-     ENDDO
-     ENDDO
+!    ENDDO
+!    ENDDO
 
-   ENDIF
+!  ENDIF
 
 ! coriolis term for w-mometum 
 
@@ -3870,31 +3878,32 @@ SUBROUTINE perturbation_coriolis ( ru_in, rv_in, rw, ru_tend, rv_tend, rw_tend, 
      ENDDO
    ENDDO
 
-   IF ( (config_flags%open_xs) .and. (its == ids) ) THEN
+! boundary loops for coriolis not needed for open bdy  (commented out 20100611 JD)
+!  IF ( (config_flags%open_xs) .and. (its == ids) ) THEN
 
-     DO k=kts,ktf
-   
-       ru_tend(its,k,j)=ru_tend(its,k,j) + (msfux(its,j)/msfuy(its,j))*0.5*(f(its,j)+f(its,j))   &
-         *0.25*(rv(its,k,j+1)+rv(its,k,j+1)+rv(its,k,j)+rv(its,k,j)) &
-             - 0.5*(e(its,j)+e(its,j))*0.5*(cosa(its,j)+cosa(its,j)) &
-         *0.25*(rw(its,k+1,j)+rw(its,k,j)+rw(its,k+1,j)+rw(its,k,j))
+!    DO k=kts,ktf
+!  
+!      ru_tend(its,k,j)=ru_tend(its,k,j) + (msfux(its,j)/msfuy(its,j))*0.5*(f(its,j)+f(its,j))   &
+!        *0.25*(rv(its,k,j+1)+rv(its,k,j+1)+rv(its,k,j)+rv(its,k,j)) &
+!            - 0.5*(e(its,j)+e(its,j))*0.5*(cosa(its,j)+cosa(its,j)) &
+!        *0.25*(rw(its,k+1,j)+rw(its,k,j)+rw(its,k+1,j)+rw(its,k,j))
 
-     ENDDO
+!    ENDDO
 
-   ENDIF
+!  ENDIF
 
-   IF ( (config_flags%open_xe) .and. (ite == ide) ) THEN
+!  IF ( (config_flags%open_xe) .and. (ite == ide) ) THEN
 
-     DO k=kts,ktf
-   
-       ru_tend(ite,k,j)=ru_tend(ite,k,j) + (msfux(ite,j)/msfuy(ite,j))*0.5*(f(ite-1,j)+f(ite-1,j)) &
-         *0.25*(rv(ite-1,k,j+1)+rv(ite-1,k,j+1)+rv(ite-1,k,j)+rv(ite-1,k,j)) &
-             - 0.5*(e(ite-1,j)+e(ite-1,j))*0.5*(cosa(ite-1,j)+cosa(ite-1,j)) &
-         *0.25*(rw(ite-1,k+1,j)+rw(ite-1,k,j)+rw(ite-1,k+1,j)+rw(ite-1,k,j))
+!    DO k=kts,ktf
+!  
+!      ru_tend(ite,k,j)=ru_tend(ite,k,j) + (msfux(ite,j)/msfuy(ite,j))*0.5*(f(ite-1,j)+f(ite-1,j)) &
+!        *0.25*(rv(ite-1,k,j+1)+rv(ite-1,k,j+1)+rv(ite-1,k,j)+rv(ite-1,k,j)) &
+!            - 0.5*(e(ite-1,j)+e(ite-1,j))*0.5*(cosa(ite-1,j)+cosa(ite-1,j)) &
+!        *0.25*(rw(ite-1,k+1,j)+rw(ite-1,k,j)+rw(ite-1,k+1,j)+rw(ite-1,k,j))
 
-     ENDDO
+!    ENDDO
 
-   ENDIF
+!  ENDIF
 
    ENDDO
 
@@ -3963,20 +3972,21 @@ SUBROUTINE perturbation_coriolis ( ru_in, rv_in, rw, ru_tend, rv_tend, rw_tend, 
 !  compute coriolis forcing for v momentum equation
 !  Map scale factors: see comments above for Coriolis
 
-   IF ( (config_flags%open_ys) .and. (jts == jds) ) THEN
+! boundary loops for coriolis not needed for open bdy  (commented out 20100611 JD)
+!  IF ( (config_flags%open_ys) .and. (jts == jds) ) THEN
 
-     DO k=kts,ktf
-     DO i=its,MIN(ide-1,ite)
-   
-        rv_tend(i,k,jts)=rv_tend(i,k,jts) - (msfvy(i,jts)/msfvx(i,jts))*0.5*(f(i,jts)+f(i,jts))    &
-         *0.25*(ru(i,k,jts)+ru(i+1,k,jts)+ru(i,k,jts)+ru(i+1,k,jts))   &
-             + (msfvy(i,jts)/msfvx(i,jts))*0.5*(e(i,jts)+e(i,jts))*0.5*(sina(i,jts)+sina(i,jts))   &
-             *0.25*(rw(i,k+1,jts)+rw(i,k,jts)+rw(i,k+1,jts)+rw(i,k,jts)) 
+!    DO k=kts,ktf
+!    DO i=its,MIN(ide-1,ite)
+!  
+!       rv_tend(i,k,jts)=rv_tend(i,k,jts) - (msfvy(i,jts)/msfvx(i,jts))*0.5*(f(i,jts)+f(i,jts))    &
+!        *0.25*(ru(i,k,jts)+ru(i+1,k,jts)+ru(i,k,jts)+ru(i+1,k,jts))   &
+!            + (msfvy(i,jts)/msfvx(i,jts))*0.5*(e(i,jts)+e(i,jts))*0.5*(sina(i,jts)+sina(i,jts))   &
+!            *0.25*(rw(i,k+1,jts)+rw(i,k,jts)+rw(i,k+1,jts)+rw(i,k,jts)) 
 
-     ENDDO
-     ENDDO
+!    ENDDO
+!    ENDDO
 
-   ENDIF
+!  ENDIF
 
    DO j=j_start, j_end
    DO k=kts,ktf
@@ -3992,20 +4002,21 @@ SUBROUTINE perturbation_coriolis ( ru_in, rv_in, rw, ru_tend, rv_tend, rw_tend, 
    ENDDO
 
 
-   IF ( (config_flags%open_ye) .and. (jte == jde) ) THEN
+! boundary loops for coriolis not needed for open bdy  (commented out 20100611 JD)
+!  IF ( (config_flags%open_ye) .and. (jte == jde) ) THEN
 
-     DO k=kts,ktf
-     DO i=its,MIN(ide-1,ite)
-   
-        rv_tend(i,k,jte)=rv_tend(i,k,jte) - (msfvy(i,jte)/msfvx(i,jte))*0.5*(f(i,jte-1)+f(i,jte-1))        &
-         *0.25*(ru(i,k,jte-1)+ru(i+1,k,jte-1)+ru(i,k,jte-1)+ru(i+1,k,jte-1))   &
-             + (msfvy(i,jte)/msfvx(i,jte))*0.5*(e(i,jte-1)+e(i,jte-1))*0.5*(sina(i,jte-1)+sina(i,jte-1))   &
-             *0.25*(rw(i,k+1,jte-1)+rw(i,k,jte-1)+rw(i,k+1,jte-1)+rw(i,k,jte-1)) 
+!    DO k=kts,ktf
+!    DO i=its,MIN(ide-1,ite)
+!  
+!       rv_tend(i,k,jte)=rv_tend(i,k,jte) - (msfvy(i,jte)/msfvx(i,jte))*0.5*(f(i,jte-1)+f(i,jte-1))        &
+!        *0.25*(ru(i,k,jte-1)+ru(i+1,k,jte-1)+ru(i,k,jte-1)+ru(i+1,k,jte-1))   &
+!            + (msfvy(i,jte)/msfvx(i,jte))*0.5*(e(i,jte-1)+e(i,jte-1))*0.5*(sina(i,jte-1)+sina(i,jte-1))   &
+!            *0.25*(rw(i,k+1,jte-1)+rw(i,k,jte-1)+rw(i,k+1,jte-1)+rw(i,k,jte-1)) 
 
-     ENDDO
-     ENDDO
+!    ENDDO
+!    ENDDO
 
-   ENDIF
+!  ENDIF
 
 ! coriolis term for w-mometum 
 !  Map scale factors: see comments above for Coriolis
@@ -5198,7 +5209,7 @@ END SUBROUTINE phy_prep
    REAL, DIMENSION( ims:ime , kms:kme, jms:jme ),        &
          INTENT(IN), OPTIONAL ::               dfi_tten_rad
    INTEGER,      INTENT(IN   ) ,OPTIONAL   :: dfi_stage
-!  REAL :: dfi_tten_max, old_max
+   REAL :: dfi_tten_max, old_max
 #endif
 
    REAL mpten, mptenmax, mptenmin
@@ -5222,6 +5233,7 @@ END SUBROUTINE phy_prep
 
 !  set up loop bounds for this grid's boundary conditions
 
+
     i_start = its    
     i_end   = min( ite,ide-1 )
     j_start = jts    
@@ -5235,10 +5247,12 @@ END SUBROUTINE phy_prep
     k_end = min( kte, kde-1 )
 
 #if ( WRF_DFI_RADAR == 1 )
-         if (config_flags%dfi_radar == 1 .and. PRESENT(dfi_stage) .and.  dfi_stage ==DFI_FWD  &
+         if ( PRESENT(dfi_stage) .and.  dfi_stage ==DFI_FWD            &
              .and. PRESENT(dfi_tten_rad) ) then
+!$OMP CRITICAL(big_step_utilities)
              WRITE(wrf_err_message,*)'Add radar tendency: i_start,j_start: ', i_start, j_start
              CALL wrf_debug ( 50 , TRIM(wrf_err_message) )
+!$OMP END CRITICAL(big_step_utilities)
          endif
      dfi_tten_max=-999
      old_max=-999
@@ -5247,35 +5261,46 @@ END SUBROUTINE phy_prep
 !  add microphysics theta diff to perturbation theta, set h_diabatic
 
      IF ( config_flags%no_mp_heating .eq. 0 ) THEN
+       mptenmax = 0.
+       mptenmin = 999.
      DO j = j_start, j_end
      DO k = k_start, k_end
      DO i = i_start, i_end
-        mpten = th_phy(i,k,j)-h_diabatic(i,k,j)
-
+          mpten = th_phy(i,k,j)-h_diabatic(i,k,j)
 #if ( WRF_DFI_RADAR == 1 )
-        mpten=min(config_flags%mp_tend_lim*dt, mpten)
-        mpten=max(-config_flags%mp_tend_lim*dt, mpten)
+       if(mpten.gt.mptenmax) then
+          mptenmax=mpten
+          imax=i
+          jmax=j
+       endif
+       if(mpten.lt.mptenmin) then
+          mptenmin=mpten
+          imin=i
+          jmin=j
+       endif
+          mpten=min(config_flags%mp_tend_lim*dt, mpten)
+          mpten=max(-config_flags%mp_tend_lim*dt, mpten)
 
-        if (config_flags%dfi_radar == 1 .and. PRESENT(dfi_stage) .and.  &
-           dfi_stage == DFI_FWD .and. PRESENT(dfi_tten_rad) .and.      &
-           dfi_tten_rad(i,k,j) >= 1.0e-7 .and. dfi_tten_rad(i,k,j) <= 10. &
-           .and. k < k_end ) then
+       if(k < k_end ) then
+         if(dfi_tten_max < dfi_tten_rad(i,k,j) ) dfi_tten_max = dfi_tten_rad(i,k,j)
+         if(old_max < (th_phy(i,k,j)-h_diabatic(i,k,j)) ) old_max=th_phy(i,k,j)-h_diabatic(i,k,j)
+       endif
+
+       if ( PRESENT(dfi_stage) .and.                                   &
+          dfi_stage == DFI_FWD .and. PRESENT(dfi_tten_rad) .and.       &
+          dfi_tten_rad(i,k,j) >= -0.1 .and. dfi_tten_rad(i,k,j) <= 0.1 &
+          .and. k < k_end ) then
 ! add radar temp tendency
-!tgs         if(dfi_tten_rad(i,k,j) > th_phy(i,k,j)-h_diabatic(i,k,j) ) then
-         if(dfi_tten_rad(i,k,j) > mpten ) then
-            t_new(i,k,j) = t_new(i,k,j) + (dfi_tten_rad(i,k,j))
-         else
-!tgs            t_new(i,k,j) = t_new(i,k,j) + (th_phy(i,k,j)-h_diabatic(i,k,j))
-            t_new(i,k,j) = t_new(i,k,j) + mpten
-         endif
-        else
-!tgs         t_new(i,k,j) = t_new(i,k,j) + (th_phy(i,k,j)-h_diabatic(i,k,j))  
-         t_new(i,k,j) = t_new(i,k,j) + mpten
-        endif
+! there is radar coverage
+           t_new(i,k,j) = t_new(i,k,j) + (dfi_tten_rad(i,k,j))*dt
+       else
+! no radar coverage
+           t_new(i,k,j) = t_new(i,k,j) + mpten
+       endif
 #else
          t_new(i,k,j) = t_new(i,k,j) + mpten
 #endif
-         h_diabatic(i,k,j) =  (th_phy(i,k,j)-h_diabatic(i,k,j))/dt
+         h_diabatic(i,k,j) =  mpten/dt
      ENDDO
      ENDDO
      ENDDO

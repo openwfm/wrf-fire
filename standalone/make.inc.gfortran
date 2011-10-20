@@ -1,0 +1,5 @@
+FFREE=-ffree-form
+FFIXED=-ffixed-form
+FCFLAGS=-g
+FC=gfortran
+FP=gfortran

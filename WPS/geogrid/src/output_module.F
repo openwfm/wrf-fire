@@ -28,7 +28,7 @@ module output_module
       integer :: ndims, istagger
       integer, dimension(MAX_DIMENSIONS) :: dom_start, mem_start, patch_start
       integer, dimension(MAX_DIMENSIONS) :: dom_end, mem_end, patch_end
-      integer :: sr_x, sr_y  
+      logical :: is_subgrid
       real, pointer, dimension(:,:,:) :: rdata_arr
   
       character (len=128), dimension(MAX_DIMENSIONS) :: dimnames
@@ -422,6 +422,7 @@ module output_module
       use storage_module
 #endif
       use parallel_module
+      use gridinfo_module, only : subgrid_ratio_x, subgrid_ratio_y
   
       implicit none
   
@@ -444,8 +445,15 @@ module output_module
       character (len=128) :: fieldname
       character (len=128) :: memorder, units, description
       character (len=128), dimension(3) :: dimnames 
-      integer :: sr_x, sr_y
-  
+      integer :: sr_x, sr_y, istatus
+      logical :: subgrid_var
+ 
+      !
+      ! Get local nest subgrid refinement ratio
+      !
+      sr_x=subgrid_ratio_x(nest_num)
+      sr_y=subgrid_ratio_y(nest_num)
+
       !
       ! First find out how many fields there are
       !
@@ -457,7 +465,7 @@ module output_module
          call get_next_output_fieldname(nest_num, fieldname, ndims, &
                                         min_category, max_category, &
                                         istagger, memorder, dimnames, &
-                                        units, description, sr_x, sr_y, ifieldstatus)
+                                        units, description, subgrid_var, ifieldstatus)
    
          if (ifieldstatus == 0) nfields = nfields + 1
       end do
@@ -467,16 +475,12 @@ module output_module
 #endif
   
 #ifdef _GEOGRID
-      if (grid_type == 'C') NUM_AUTOMATIC_FIELDS = 22
+      if (grid_type == 'C') NUM_AUTOMATIC_FIELDS = 24
       if (grid_type == 'E') NUM_AUTOMATIC_FIELDS = 7
   
       NUM_FIELDS = nfields+NUM_AUTOMATIC_FIELDS
       allocate(fields(NUM_FIELDS))
   
-      ! Automatic fields will always be on the non-refined grid
-      sr_x=1
-      sr_y=1
-
       !
       ! There are some fields that will always be computed
       !   Initialize those fields first, followed by all user-specified fields
@@ -569,7 +573,15 @@ module output_module
          fields(22)%fieldname = 'LANDMASK'
          fields(22)%units = 'none'
          fields(22)%descr = 'Landmask : 1=land, 0=water'
-   
+
+         fields(23)%fieldname = 'FXLONG'
+         fields(23)%units = 'degrees longitude'
+         fields(23)%descr = 'Longitude on refined grid'
+
+         fields(24)%fieldname = 'FXLAT'
+         fields(24)%units = 'degrees latitude'
+         fields(24)%descr = 'Latitude on refined grid'
+
       else if (grid_type == 'E') then
          fields(1)%fieldname = 'XLAT_M'
          fields(1)%units = 'degrees latitude'
@@ -627,8 +639,7 @@ module output_module
          fields(i)%dimnames(3) = ' '
          fields(i)%mem_order = 'XY'
          fields(i)%stagger = 'M'
-         fields(i)%sr_x = 1
-         fields(i)%sr_y = 1
+         fields(i)%is_subgrid = .false.
          if (grid_type == 'C') then
             fields(i)%istagger = M
          else if (grid_type == 'E') then
@@ -761,7 +772,30 @@ module output_module
          fields(17)%dimnames(1) = 'west_east_stag'
          fields(17)%stagger = 'U'
          fields(17)%istagger = U
-   
+  
+         !
+         ! Perform adjustments for subgrid lat/lon fields
+         !
+         do i=23,24
+            fields(i)%is_subgrid=.true.
+            call get_subgrid_dim_name(fields(i)%dimnames(1:2))
+            fields(i)%mem_start(1)   = (fields(i)%mem_start(1) - 1)*sr_x + 1
+            fields(i)%patch_start(1) = (fields(i)%patch_start(1) - 1)*sr_x + 1
+            fields(i)%dom_start(1)   = (fields(i)%dom_start(1) - 1)*sr_x + 1
+
+            fields(i)%mem_end(1)     = (fields(i)%mem_end(1) + 1)*sr_x
+            fields(i)%patch_end(1)   = (fields(i)%patch_end(1) + 1)*sr_x
+            fields(i)%dom_end(1)     = (fields(i)%dom_end(1) + 1)*sr_x
+
+            fields(i)%mem_start(2)   = (fields(i)%mem_start(2) - 1)*sr_y + 1
+            fields(i)%patch_start(2) = (fields(i)%patch_start(2) - 1)*sr_y + 1
+            fields(i)%dom_start(2)   = (fields(i)%dom_start(2) - 1)*sr_y + 1
+
+            fields(i)%mem_end(2)     = (fields(i)%mem_end(2) + 1)*sr_y
+            fields(i)%patch_end(2)   = (fields(i)%patch_end(2) + 1)*sr_y
+            fields(i)%dom_end(2)     = (fields(i)%dom_end(2) + 1)*sr_y
+         enddo
+ 
       else if (grid_type == 'E') then
          ! Lat V
          fields(3)%stagger = 'V'
@@ -792,7 +826,7 @@ module output_module
          call get_next_output_fieldname(nest_num, fieldname, ndims, &
                                       min_category, max_category, &
                                       istagger, memorder, dimnames, &
-                                      units, description, sr_x, sr_y, ifieldstatus)
+                                      units, description, subgrid_var, ifieldstatus)
    
          if (ifieldstatus == 0) then !{
      
@@ -837,22 +871,21 @@ module output_module
             fields(nfields)%patch_end(2) = end_patch_2
             fields(nfields)%patch_end(3) = max_category
 
-            fields(nfields)%sr_x=sr_x
-            fields(nfields)%sr_y=sr_y
+            fields(nfields)%is_subgrid=subgrid_var
     
-            if (extra_col .and. (istagger == U .or. sr_x > 1)) then !{
+            if (extra_col .and. (istagger == U .or. subgrid_var)) then !{
                fields(nfields)%dom_end(1)   = fields(nfields)%dom_end(1) + 1
                fields(nfields)%mem_end(1)   = fields(nfields)%mem_end(1) + 1
                fields(nfields)%patch_end(1) = fields(nfields)%patch_end(1) + 1
-            else if ((istagger == U .or. sr_x > 1) .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
+            else if ((istagger == U .or. subgrid_var) .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
                fields(nfields)%dom_end(1)=fields(nfields)%dom_end(1) + 1
             end if !}
     
-            if (extra_row .and. (istagger == V .or. sr_y > 1)) then !{
+            if (extra_row .and. (istagger == V .or. subgrid_var)) then !{
                fields(nfields)%dom_end(2)   = fields(nfields)%dom_end(2) + 1
                fields(nfields)%mem_end(2)   = fields(nfields)%mem_end(2) + 1
                fields(nfields)%patch_end(2) = fields(nfields)%patch_end(2) + 1
-            else if ((istagger == V .or. sr_y > 1) .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
+            else if ((istagger == V .or. subgrid_var) .and. my_proc_id == IO_NODE .and. .not. do_tiled_output) then
                fields(nfields)%dom_end(2)=fields(nfields)%dom_end(2) + 1
             end if !}
 
@@ -868,7 +901,7 @@ module output_module
             thalo_width = 0
 #endif
 
-            if (sr_x > 1) then
+            if (subgrid_var) then
                fields(nfields)%mem_start(1)   = (fields(nfields)%mem_start(1) + lhalo_width - 1)*sr_x + 1 - lhalo_width
                fields(nfields)%patch_start(1) = (fields(nfields)%patch_start(1)             - 1)*sr_x + 1
                fields(nfields)%dom_start(1)   = (fields(nfields)%dom_start(1)               - 1)*sr_x + 1
@@ -876,9 +909,7 @@ module output_module
                fields(nfields)%mem_end(1)     = (fields(nfields)%mem_end(1) - rhalo_width)*sr_x + rhalo_width
                fields(nfields)%patch_end(1)   = (fields(nfields)%patch_end(1)            )*sr_x
                fields(nfields)%dom_end(1)     = (fields(nfields)%dom_end(1)              )*sr_x
-            endif
-    
-            if (sr_y > 1) then
+
                fields(nfields)%mem_start(2)   = (fields(nfields)%mem_start(2) + bhalo_width - 1)*sr_y + 1 - bhalo_width
                fields(nfields)%patch_start(2) = (fields(nfields)%patch_start(2)             - 1)*sr_y + 1
                fields(nfields)%dom_start(2)   = (fields(nfields)%dom_start(2)               - 1)*sr_y + 1
@@ -886,8 +917,8 @@ module output_module
                fields(nfields)%mem_end(2)     = (fields(nfields)%mem_end(2) - thalo_width)*sr_y + thalo_width
                fields(nfields)%patch_end(2)   = (fields(nfields)%patch_end(2)            )*sr_y
                fields(nfields)%dom_end(2)     = (fields(nfields)%dom_end(2)              )*sr_y
-           endif
 
+           endif
 
             nfields = nfields + 1
    
@@ -927,6 +958,7 @@ module output_module
       integer, dimension(3) :: sd, ed, sp, ep, sm, em
       real, pointer, dimension(:,:,:) :: real_dom_array
       logical :: allocated_real_locally
+      integer :: is_subgrid
   
       allocated_real_locally = .false.
   
@@ -979,7 +1011,13 @@ module output_module
          do i=1,NUM_FIELDS
             if ( (index(cname, trim(fields(i)%fieldname) ) /= 0) .and. &
                  (len_trim(cname) == len_trim(fields(i)%fieldname)) ) then
-    
+   
+               if (fields(i)%is_subgrid) then
+                 is_subgrid=1
+               else
+                 is_subgrid=0
+               end if
+
                ! Here, the output array has dimensions of the full grid if it was gathered together
                !   from all processors
                if (my_proc_id == IO_NODE .and. nprocs > 1 .and. .not. do_tiled_output) then
@@ -1037,10 +1075,8 @@ module output_module
                                                 trim(fields(i)%fieldname), trim(fields(i)%descr), istatus)
                         call ext_int_put_var_ti_char(handle, 'stagger', &
                                                 trim(fields(i)%fieldname), trim(fields(i)%stagger), istatus)
-                        call ext_int_put_var_ti_integer(handle,'sr_x', &
-                                                 trim(fields(i)%fieldname),(/fields(i)%sr_x/),1, istatus)
-                        call ext_int_put_var_ti_integer(handle,'sr_y', &
-                                                 trim(fields(i)%fieldname),(/fields(i)%sr_y/),1, istatus)
+                        call ext_int_put_var_ti_integer(handle,'subgrid', &
+                                                trim(fields(i)%fieldname),(/is_subgrid/),1, istatus)
                      end if
 #endif
 #ifdef IO_NETCDF
@@ -1051,10 +1087,8 @@ module output_module
                                                 trim(fields(i)%fieldname), trim(fields(i)%descr), istatus)
                         call ext_ncd_put_var_ti_char(handle, 'stagger', &
                                                 trim(fields(i)%fieldname), trim(fields(i)%stagger), istatus)
-                        call ext_ncd_put_var_ti_integer(handle,'sr_x', &
-                                                 trim(fields(i)%fieldname),(/fields(i)%sr_x/),1, istatus)
-                        call ext_ncd_put_var_ti_integer(handle,'sr_y', &
-                                                 trim(fields(i)%fieldname),(/fields(i)%sr_y/),1, istatus)
+                        call ext_ncd_put_var_ti_integer(handle,'subgrid', &
+                                                trim(fields(i)%fieldname),(/is_subgrid/),1, istatus)
                     end if
 #endif
 #ifdef IO_GRIB1
@@ -1065,10 +1099,8 @@ module output_module
                                                 trim(fields(i)%fieldname), trim(fields(i)%descr), istatus)
                         call ext_gr1_put_var_ti_char(handle, 'stagger', &
                                                 trim(fields(i)%fieldname), trim(fields(i)%stagger), istatus)
-                        call ext_gr1_put_var_ti_integer(handle,'sr_x', &
-                                                 trim(fields(i)%fieldname),(/fields(i)%sr_x/),1, istatus)
-                        call ext_gr1_put_var_ti_integer(handle,'sr_y', &
-                                                 trim(fields(i)%fieldname),(/fields(i)%sr_y/),1, istatus)
+                        call ext_gr1_put_var_ti_integer(handle,'subgrid', &
+                                                trim(fields(i)%fieldname),(/is_subgrid/),1, istatus)
                     end if
 #endif
                   end if

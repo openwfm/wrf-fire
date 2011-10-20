@@ -1,10 +1,11 @@
 function frame3d(swind,amin,amax,astep,qstep,qs,...
-    fxlong,fxlat,xlong,xlat,zsf,fgrnhfx,uf,vf,u,v,w,ph,phb,hgt)
+    fxlong,fxlat,xlong,xlat,zsf,fgrnhfx,fuel_frac,uf,vf,u,v,w,ph,phb,hgt)
 
 clf,hold off
 
 r = size(fxlong)./(size(xlong));  % refinement ratio
-ideal = all(xlong ==0);   % not populated in ideal case
+% see if xlong and xlat are bogus
+ideal = all(xlong(:) ==0)|any(abs(xlong(:))>180)|any(abs(xlat(:))>180);
 
 if ideal,
     % do not have xlong and xlat in ideal case, but we made the coordinates up
@@ -31,10 +32,10 @@ aspect_ratio = [xscale yscale 1];
 dmin=1+r.*(amin(1:2)-1);
 dmax=r.*amax(1:2);
 
-% surface colored by heat flux
+% surface colored by heat flux and fuel fraction
 i=dmin(1):dmax(1);j=dmin(2):dmax(2);
 hs=surf(fxlong(i,j),fxlat(i,j),zsf(i,j),fgrnhfx(i,j),'EdgeColor','none','FaceAlpha',0.7); 
-caxis([0,1e6]);   % for heat flux color
+% caxis([0,1e6]);   % for heat flux color
 axis tight, colorbar
 hold on
 [c,hc]=contour3(fxlong(i,j),fxlat(i,j),zsf(i,j));
@@ -44,7 +45,8 @@ for h=hc(:)', set(h,'EdgeColor','black');end  % color the contours black
 % surface wind arrows
 if swind,
     ii=dmin(1):qstep(1):dmax(1);jj=dmin(2):qstep(2):dmax(2);
-    hq=quiver3(fxlong(ii,jj),fxlat(ii,jj),zsf(ii,jj),xscale*uf(ii,jj),yscale*vf(ii,jj),zeros(size(vf(ii,jj))),qs);
+    hq=quiver3(fxlong(ii,jj),fxlat(ii,jj),zsf(ii,jj),...
+        xscale*uf(ii,jj),yscale*vf(ii,jj),zeros(size(vf(ii,jj))),qs);
     set(hq,'Color','black')
 end
 
@@ -64,7 +66,7 @@ vc = (v(:,1:end-1,:)+v(:,2:end,:))/2;  % from front and rear face to the center
 % atmosphere wind arrows
 ia=amin(1):astep(1):amax(1);
 ja=amin(2):astep(2):amax(2);
-colors={'white','red','green','blue','black'};
+colors={'red','green','blue','black'};
 for k=amin(3):astep(3):amax(3),
     q1=u(ia,ja,k)*xscale;
     q2=v(ia,ja,k)*yscale;
@@ -81,7 +83,7 @@ if ideal
 else
     % set(gca,'PlotBoxAspectRatioMode','auto');
     xlabel('longitude (deg)')
-    ylabel('latitutude (deg)')
+    ylabel('latitude (deg)')
 end
 zlabel('z (m)')
 set(gca,'DataAspectRatio',[xscale yscale 1]);

@@ -343,6 +343,17 @@ name=NFUEL_CAT
 	z_dim_name=fuel_cat
 	fill_missing = 0.
 	interp_option=default:nearest_neighbor+average_16pt+search
-	rel_path=default:landfire_data/
+	abs_path=./landfire_data
+	subgrid=yes
+==============================
+name=ZSF
+        priority = 1
+        dest_type = continuous
+        df_dx=DZDXF
+        df_dy=DZDYF
+        smooth_option = smth-desmth_special; smooth_passes=1
+	halt_on_missing=yes
+        interp_option = default:average_gcell(4.0)+four_pt+average_4pt
+	abs_path=./ned_data
 	subgrid=yes
 ==============================

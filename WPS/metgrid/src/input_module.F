@@ -114,18 +114,18 @@ module input_module
                               start_patch_j, end_patch_j, &
                               start_patch_k, end_patch_k, &
                               cname, cunits, cdesc, memorder, stagger, &
-                              dimnames, sr_x, sr_y, real_array, istatus)
+                              dimnames, is_subgrid, real_array, istatus)
  
       implicit none
   
       ! Arguments
       integer, intent(out) :: start_patch_i, end_patch_i, &
                               start_patch_j, end_patch_j, &
-                              start_patch_k, end_patch_k, &
-                              sr_x, sr_y
+                              start_patch_k, end_patch_k
       real, pointer, dimension(:,:,:) :: real_array
       character (len=*), intent(out) :: cname, memorder, stagger, cunits, cdesc
       character (len=128), dimension(3), intent(inout) :: dimnames
+      logical, intent(out) :: is_subgrid
       integer, intent(inout) :: istatus
   
 #include "wrf_io_flags.h"
@@ -138,6 +138,7 @@ module input_module
       real, pointer, dimension(:,:,:) :: real_domain
       character (len=20) :: datestr
       type (q_data) :: qd
+      integer :: sr_x, sr_y
   
       if (my_proc_id == IO_NODE .or. do_tiled_input) then
   
@@ -175,26 +176,33 @@ module input_module
 #ifdef IO_BINARY
          if (io_form_input == BINARY) then
             call ext_int_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
+            call ext_int_get_var_ti_integer(handle, 'subgrid', &
+                                            trim(cname), temp(1), 1, temp(3), istatus)
          end if
 #endif
 #ifdef IO_NETCDF
          if (io_form_input == NETCDF) then
             call ext_ncd_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
-            call ext_ncd_get_var_ti_integer(handle, 'sr_x', &
+            call ext_ncd_get_var_ti_integer(handle, 'subgrid', &
                                             trim(cname), temp(1), 1, temp(3), istatus)
-            call ext_ncd_get_var_ti_integer(handle, 'sr_y', &
-                                            trim(cname), temp(2), 1, temp(3), istatus)
          end if
 #endif
 #ifdef IO_GRIB1
          if (io_form_input == GRIB1) then
             call ext_gr1_get_var_info(handle, cname, ndim, memorder, stagger, domain_start, domain_end, wrftype, istatus)
-            call ext_gr1_get_var_ti_integer(handle, 'sr_x', &
+            call ext_gr1_get_var_ti_integer(handle, 'subgrid', &
                                             trim(cname), temp(1), 1, temp(3), istatus)
-            call ext_gr1_get_var_ti_integer(handle, 'sr_y', &
-                                            trim(cname), temp(2), 1, temp(3), istatus)
          end if
 #endif
+
+         call ext_get_dom_ti_integer_scalar('sr_x', sr_x)
+         call ext_get_dom_ti_integer_scalar('sr_y', sr_y)
+
+         if (temp(1) .eq. 1) then
+           is_subgrid=.true.
+         else
+           is_subgrid=.false.
+         end if
      
          call mprintf((istatus /= 0),ERROR,'In read_next_field(), problems with ext_pkg_get_var_info()')
 
@@ -247,14 +255,10 @@ module input_module
             cunits = qd%units
             cdesc = qd%description
             stagger = qd%stagger
-            sr_x = qd%sr_x
-            sr_y = qd%sr_y
          else
             cunits = ' '
             cdesc = ' '
             stagger = ' '
-            sr_x = temp(1)
-            sr_y = temp(2)
         
 #ifdef IO_NETCDF
             if (io_form_input == NETCDF) then
@@ -285,8 +289,7 @@ module input_module
          call parallel_bcast_char(dimnames(3), 128)
          call parallel_bcast_int(domain_start(3))
          call parallel_bcast_int(domain_end(3))
-         call parallel_bcast_int(sr_x)
-         call parallel_bcast_int(sr_y)
+         call parallel_bcast_logical(is_subgrid)
    
          sp1 = my_minx
          ep1 = my_maxx - 1
@@ -296,10 +299,10 @@ module input_module
          ep3 = domain_end(3)
    
          if (internal_gridtype == 'C') then
-            if (my_x /= nproc_x - 1 .or. stagger == 'U' .or. sr_x > 1) then
+            if (my_x /= nproc_x - 1 .or. stagger == 'U' .or. is_subgrid) then
                ep1 = ep1 + 1
             end if
-            if (my_y /= nproc_y - 1 .or. stagger == 'V' .or. sr_y > 1) then
+            if (my_y /= nproc_y - 1 .or. stagger == 'V' .or. is_subgrid) then
                ep2 = ep2 + 1
             end if
          else if (internal_gridtype == 'E') then
