@@ -298,10 +298,26 @@ if(is_missing_value)then
   g%missing=missing_value
 endif
 
+if(.not.is_tile_x)then
+  tile_x=256
+  is_tile_x=.true.
+endif
+if(.not.is_tile_y)then
+  tile_y=256
+  is_tile_y=.true.
+endif
+if(.not.is_tile_z .and. (.not.is_tile_z_start.or..not.is_tile_z_end))then
+  is_tile_z_start=.false.
+  is_tile_z_end=.false.
+  is_tile_z=.true.
+  tile_z=g%nz
+endif
+
 ! This module converts indexing automatically to bottom - top row ordering, so
 ! we ignore what the index file says.
 row_order=BOTTOM_TOP
 is_row_order=.true.
+
 
 end subroutine merge_geotiff_header
 

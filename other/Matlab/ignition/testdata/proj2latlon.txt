@@ -1,0 +1,1 @@
+ogr2ogr -s_srs "$(cat source.prj)" -t_srs EPSG:4326 dest.shp source.shp

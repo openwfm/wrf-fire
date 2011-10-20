@@ -17,6 +17,9 @@ module module_fr_sfire_util
 ! 3. add a line in Registry.EM to define the variable and set default value
 ! 4. add the variable and value in namelist.input
 
+! to compile in a hook to attach debugger to a running process.
+!#define DEBUG_HOOK
+
 implicit none
 
 integer,save::          &
@@ -28,11 +31,12 @@ integer,save::          &
  boundary_guard=-1,     &  ! crash if fire gets this many cells to domain boundary, -1=off
  fire_grows_only=1,     &  ! fire can spread out only (level set functions may not increase)
  fire_upwinding=3,      &  ! upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian 
- fire_upwind_split=0,   &  ! 1=upwind advection separately from normal direction spread
  fire_test_steps=0,     &  ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)
  fire_topo_from_atm=1,  &  ! 0 = expect ZSF set correctly on entry, 1 = populate by interploating from atmosphere
  fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
- fire_wind_log_interp      ! kind of vertical log layer wind interpolation, see driver
+ fire_wind_log_interp,  &  ! kind of vertical log layer wind interpolation, see driver
+ fire_use_windrf,       &  ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
+ fire_fmc_read             ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
  
 
 real, save::            &
@@ -1042,7 +1046,7 @@ do j=jps,jpe
   enddo
 enddo
 if(bb.ne.bb)goto 10 ! should never happen 
-if(fire_print_msg.eq.0)return
+if(fire_print_msg.le.0)return
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1)*(kpe-kps+1))
 call print_stat_line(name,ips,ipe,jps,jpe,min_a,max_a,avg_a)
 return
@@ -1206,38 +1210,10 @@ return
 
 
 end subroutine write_array_m3
+
 !
 !***
 !
-subroutine read_array_2d_integer(filename,ia,its,ite,jts,jte,ims,ime,jms,jme)
-!*** arguments
-integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
-integer, intent(out), dimension(ims:ime,jms:jme):: ia
-character(len=*),intent(in)::filename
-!*** local
-real, allocatable, dimension(:,:)::a
-integer::i,j
-real::r
-character(len=256)msg
-!*** executable
-allocate(a(ims:ime,jms:jme))
-call read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
-do j=jts,jte
-    do i=its,ite
-        ia(i,j)=a(i,j)
-	r=ia(i,j)
-	if(r.ne.a(i,j))then
-           !write(6,*)'Reading file ',trim(filename)
-           !write(6,*)'value at position ',i,j,' cannot be converted to integer'
-           !write(6,*)'read ',a(i,j),' converted as',k,' converted as ',r
-	   msg=trim(filename)//' is not integer file'
-	   call crash(msg)
-        endif
-    enddo
-enddo
-end subroutine read_array_2d_integer
-
-        
 
 subroutine read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
 use module_dm
@@ -1535,3 +1511,22 @@ fun_real=gsum
 end function fun_real
 
 end module module_fr_sfire_util
+
+! this subroutine is outside of any module and f77 style because some debuggers
+! notably gdb are terrible with fortran90
+
+#ifdef DEBUG_HOOK
+subroutine sfire_debug_hook
+integer, save:: go=0
+! set go=1 in debugger to continue
+do while (go .eq. 0)
+call sleep(1)
+enddo
+end subroutine sfire_debug_hook
+#else
+subroutine sfire_debug_hook
+end subroutine sfire_debug_hook
+#endif
+
+
+
