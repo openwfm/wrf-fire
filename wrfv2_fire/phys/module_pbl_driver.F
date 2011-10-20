@@ -8,19 +8,28 @@ CONTAINS
    SUBROUTINE pbl_driver(                                          &
                   itimestep,dt,u_frame,v_frame                     &
                  ,bldt,curr_secs,adapt_step_flag                   &
+                 ,bldtacttime                                      & 
                  ,rublten,rvblten,rthblten                         &
                  ,tsk,xland,znt,ht                                 &
                  ,ust,pblh,hfx,qfx,grdflx                          &
                  ,u_phy,v_phy,th_phy,rho                           &
                  ,p_phy,pi_phy,p8w,t_phy,dz8w,z                    &
-                 ,tke_myj,el_myj,exch_h,exch_m,akhs,akms           &
+                 ,exch_h,exch_m,akhs,akms                          &
                  ,thz0,qz0,uz0,vz0,qsfc,f                          &
-                 ,lowlyr,u10,v10                                   &
+                 ,lowlyr,u10,v10,t2                                   &
                  ,psim,psih,gz1oz0, wspd,br,chklowq                &
                  ,bl_pbl_physics, ra_lw_physics, dx                &
                  ,stepbl,warm_rain                                 &
                  ,kpbl,mixht,ct,lh,snow,xice                       &
                  ,znu, znw, mut, p_top                             &
+              ! OPTIONAL for TEMF scheme
+                 ,te_temf,km_temf,kh_temf                     &
+                 ,shf_temf,qf_temf,uw_temf,vw_temf                &
+                 ,hd_temf,lcl_temf,hct_temf                       &
+                 ,wupd_temf,mf_temf,thup_temf,qtup_temf,qlup_temf &
+                 ,exch_temf,cf3d_temf,cfm_temf                    &
+                 ,flhc,flqc                                        &
+              ! 
                  ,qke,tsq,qsq,cov,rmol,ch,qcg,grav_settling        &
 #if (NMM_CORE==1)
                  ,DISHEAT                                          &
@@ -32,6 +41,7 @@ CONTAINS
                  ,hol, mol, regime                                 &
              ! Optional gravity-wave drag             
                  ,gwd_opt                                          &
+                 ,dtaux3d,dtauy3d                                  &
                  ,dusfcg,dvsfcg,var2d,oc12d                        &
                  ,oa1,oa2,oa3,oa4,ol1,ol2,ol3,ol4                  &
              !  Optional moisture tracers
@@ -48,22 +58,32 @@ CONTAINS
                ,b_u_bep,b_v_bep,b_t_bep,b_q_bep            &
                ,sf_bep,vl_bep                              &
                ,sf_sfclay_physics,sf_urban_physics         &
+               ,tke_pbl,el_pbl                             &
 #if (NMM_CORE != 1)
-               ,tke_pbl,el_pbl,wu_tur,wv_tur,wt_tur,wq_tur &
+               ,wu_tur,wv_tur,wt_tur,wq_tur &
 #endif
                ,a_e_bep,b_e_bep,dlg_bep                              &
                ,dl_u_bep                                             &
+! Wind Turbine Parameterizations
+               ,phb,xlat_u,xlong_u,xlat_v,xlong_v,id                 &
+! variables required for camuwpbl scheme
+               , z_at_w,cldfra,rthratenlw,tauresx2d,tauresy2d        &
+               , tpert2d,qpert2d,wpert2d                 &
                                                                      )       
 !------------------------------------------------------------------
 #if (EM_CORE==1)
    USE module_state_description, ONLY :                            &
                    YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME,&
                    QNSEPBLSCHEME,MYNNPBLSCHEME2,MYNNPBLSCHEME3,BOULACSCHEME,&
-                   BEPSCHEME,BEP_BEMSCHEME,MYJSFCSCHEME, p_qi,param_first_scalar 
+                   CAMUWPBLSCHEME,BEPSCHEME,BEP_BEMSCHEME,MYJSFCSCHEME, &
+                   TEMFPBLSCHEME, &
+                   p_qi,param_first_scalar 
+   USE module_wind_generic, ONLY : windspec
 #else
    USE module_state_description, ONLY :                            &
                    YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME &
                    , QNSEPBLSCHEME, p_qi,param_first_scalar &
+                   , TEMFPBLSCHEME                          &
                    , MYJSFCSCHEME
 #endif
 
@@ -80,8 +100,11 @@ CONTAINS
    USE module_bl_gwdo
    USE module_bl_myjurb
    USE module_bl_boulac
+   USE module_bl_camuwpbl_driver, only:CAMUWPBL
+   USE module_bl_temf
 #if (EM_CORE==1)
    USE module_bl_mynn
+   USE module_wind_fitch
 #endif
 
    !  This driver calls subroutines for the PBL parameterizations.
@@ -94,6 +117,8 @@ CONTAINS
    !      6. mynnpbl3
    !      7. acmpbl
    !      8. boulacpbl
+   !      9. camuwpbl
+   !      10. temfpbl
    !      99. mrfpbl
    !
 !------------------------------------------------------------------
@@ -148,6 +173,7 @@ CONTAINS
 !                 PBL parameterization (kg/kg/s)
 !-- RQIBLTEN      Qi tendency due to 
 !                 PBL parameterization (kg/kg/s)
+!-- id            WRF grid id  (optional, only needed by turbine drag schemes)
 !-- itimestep     number of time steps
 !-- GLW           downward long wave flux at ground surface (W/m^2)
 !-- GSW           downward short wave flux at ground surface (W/m^2)
@@ -167,16 +193,31 @@ CONTAINS
 !-- HFX           upward heat flux at the surface (W/m^2)
 !-- QFX           upward moisture flux at the surface (kg/m^2/s)
 !-- REGIME        flag indicating PBL regime (stable, unstable, etc.)
-!-- tke_myj       turbulence kinetic energy from Mellor-Yamada-Janjic (MYJ) (m^2/s^2)
-!-- el_myj        mixing length from Mellor-Yamada-Janjic (MYJ) (m)
 !-- akhs          sfc exchange coefficient of heat/moisture from MYJ
 !-- akms          sfc exchange coefficient of momentum from MYJ
-!-- tke_pbl       turbulence kinetic energy from Bougeault and Lacarrere (BOULAC) (m^2/s^2)
-!-- el_pbl        length scale from Bougeault and Lacarrere (BOULAC) (m)
+!-- tke_pbl       turbulence kinetic energy from PBL schemes (m^2/s^2)
+!-- el_pbl        length scale from PBL schemes (m)
 !-- wu_tur        turbulent flux of momentum (x) (m^2/s^2)
 !-- wv_tur        turbulent flux of momentum (y) (m^2/s^2)
 !-- wt_tur        turbulent flux of potential temperature  (K m/s)
 !-- wq_tur        turbulent flux of water vapor  (- m/s)
+!-- te_temf       Total energy from TEMF BL scheme
+!-- km_temf       Exchange coefficient for momentum from TEMF BL scheme
+!-- kh_temf       Exchange coefficient for heat from TEMF BL scheme
+!-- shf_temf      Sensible heat flux from TEMF BL scheme
+!-- qf_temf       Water vapor flux from TEMF BL scheme
+!-- uw_temf       Momentum flux in U direction from TEMF BL scheme
+!-- vw_temf       Momentum flux in V direction from TEMF BL scheme
+!-- wupd_temf     Updraft velocity from TEMF BL scheme
+!-- mf_temf       Mass flux from TEMF BL scheme
+!-- thup_temf     Updraft thetal from TEMF BL scheme
+!-- qtup_temf     Updraft qt from TEMF BL scheme
+!-- qlup_temf     Updraft ql from TEMF BL scheme
+!-- cf3d_temf     3D cloud fraction from TEMF PBL
+!-- cfm_temf      Column cloud fraction from TEMF PBL
+!-- exch_temf     Surface exchange coefficient (as for moisture) from TEMF surface layer scheme
+!-- flhc          Surface exchange coefficient for heat (for TEMF)
+!-- flqc          Surface exchange coefficient for moisture (for TEMF)
 !-- thz0          potential temperature at roughness length (K)
 !-- uz0           u wind component at roughness length (m/s)
 !-- vz0           v wind component at roughness length (m/s)
@@ -259,6 +300,12 @@ CONTAINS
    REAL,       INTENT(IN   ),OPTIONAL    ::     bldt
    REAL,       INTENT(IN   ),OPTIONAL    ::     curr_secs
    LOGICAL,    INTENT(IN   ),OPTIONAL    ::     adapt_step_flag
+   REAL,       INTENT(INOUT),OPTIONAL    ::     bldtacttime  
+! Optional for Wind Turbine Parameterizations
+   REAL, DIMENSION( ims:ime, kms:kme ,jms:jme ), &
+         INTENT(IN), OPTIONAL    :: phb
+   REAL, DIMENSION( ims:ime, jms:jme ), &
+         INTENT(IN), OPTIONAL    :: xlat_u,xlong_u,xlat_v,xlong_v
 
 !
    REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
@@ -271,7 +318,20 @@ CONTAINS
                                                            v_phy, &
                                                             dz8w, &
                                                                z, &
-                                                          th_phy
+                                                          th_phy                                                             
+!3D Variables for camuwpbl scheme
+    REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),           &
+               INTENT(IN   ), OPTIONAL    ::              z_at_w, &
+                                                          cldfra, &
+                                                      rthratenlw
+
+!2D Variables required by camuwpbl scheme
+    REAL,       DIMENSION( ims:ime , jms:jme ),                   &
+               INTENT(INOUT   ), OPTIONAL    ::        tauresx2d, &
+                                                       tauresy2d, &
+                                                         tpert2d, &
+                                                         qpert2d, &
+                                                         wpert2d
 !
 !
    REAL,       DIMENSION( ims:ime , jms:jme ),                    &
@@ -303,6 +363,7 @@ CONTAINS
                                                           GRDFLX, &
                                                              U10, &
                                                              V10, &
+                                                              T2, &
                                                             WSPD
 
 !
@@ -310,10 +371,8 @@ CONTAINS
                INTENT(INOUT)    ::                       RUBLTEN, &
                                                          RVBLTEN, &
                                                         RTHBLTEN, &
-                                                  EXCH_H,EXCH_M,TKE_MYJ
+                                                  EXCH_H,EXCH_M,TKE_PBL
 #if (NMM_CORE != 1)
-   REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
-               INTENT(INOUT)    ::                 tke_pbl,el_pbl
  REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
                INTENT(OUT)    ::                       WU_TUR,WV_TUR,WT_TUR,WQ_TUR
 !
@@ -322,6 +381,7 @@ CONTAINS
    REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ), &
         &OPTIONAL, INTENT(INOUT) :: &
         & qke,tsq,qsq,cov!,k_m,k_h,k_q
+   INTEGER, OPTIONAL :: id
 
    REAL,    DIMENSION( ims:ime , jms:jme ), &
         &OPTIONAL, INTENT(IN) ::  &
@@ -335,7 +395,7 @@ CONTAINS
 
 !
    REAL,       DIMENSION( ims:ime, kms:kme, jms:jme ),            &
-               INTENT(OUT)    ::                          EL_MYJ
+               INTENT(OUT)    ::                          EL_PBL
 
    REAL ,                             INTENT(IN   )  ::  u_frame, &
                                                          v_frame
@@ -369,6 +429,20 @@ CONTAINS
    REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) ::vl_bep            ! volumes
  
 ! Bep changes end
+!  New variables for TEMF scheme
+   REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ),            &
+               INTENT(INOUT) :: te_temf
+   REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ),            &
+               INTENT(  OUT) :: km_temf, kh_temf,        &
+                         shf_temf,qf_temf,uw_temf,vw_temf,        &
+                         wupd_temf,mf_temf,thup_temf,qtup_temf,   &
+                         qlup_temf,cf3d_temf
+   REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ),            &
+               INTENT(INOUT) :: flhc,flqc
+   REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ),            &
+               INTENT(  OUT) :: hd_temf, lcl_temf, hct_temf, cfm_temf
+   REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ),            &
+               INTENT(INOUT) :: exch_temf
 
 !
 !
@@ -409,7 +483,12 @@ CONTAINS
 !
    INTEGER,    OPTIONAL, INTENT(IN)    ::               gwd_opt
    REAL,       OPTIONAL, INTENT(IN)    ::               p_top
-
+!
+  real,   dimension( ims:ime, kms:kme, jms:jme )                             , &
+          optional                                                           , &
+             intent(inout  )   ::                                     dtaux3d, &
+                                                                      dtauy3d
+!
   real,   dimension( ims:ime, jms:jme )                                      , &
           optional                                                           , &
              intent(inout  )   ::                                      dusfcg, &
@@ -469,7 +548,7 @@ CONTAINS
    LOGICAL :: flag_qv, flag_qc, flag_qr, flag_qi, flag_qs, flag_qg
    CHARACTER*256 :: message
    REAL    :: next_bl_time
-   LOGICAL :: run_param
+   LOGICAL :: run_param , doing_adapt_dt , decided
    LOGICAL :: do_adapt
    integer iu_bep,iurb,idiff
    real seamask,thsk,zzz,unew,vnew,tnew,qnew,umom,vmom
@@ -506,26 +585,74 @@ CONTAINS
 !print *,f_qv, f_qc, f_qr, f_qi, f_qs, f_qg,' f_qv, f_qc, f_qr, f_qi, f_qs, f_qg'
 
   if (bl_pbl_physics .eq. 0) return
+
 ! RAINBL in mm (Accumulation between PBL calls)
 !
-! Modified for adaptive time step
-!
-  IF ( (itimestep .EQ. 1) .OR. (MOD(itimestep,STEPBL) .EQ. 0) ) THEN
-    run_param = .TRUE.
-  ELSE
-    run_param = .FALSE.
-  ENDIF
+   doing_adapt_dt = .FALSE.
+   IF ( PRESENT(adapt_step_flag) ) THEN
+      IF ( adapt_step_flag ) THEN
+         doing_adapt_dt = .TRUE.
+         IF ( bldtacttime .eq. 0. ) THEN
+            bldtacttime = CURR_SECS + bldt*60.
+         END IF
+      END IF
+   END IF
 
-  IF (PRESENT(adapt_step_flag)) THEN
-    IF ((adapt_step_flag)) THEN
-      IF ( (itimestep .EQ. 1) .OR. (bldt .EQ. 0) .OR. &
-           ( CURR_SECS + dt >= ( INT( CURR_SECS / ( bldt * 60 ) + 1 ) * bldt * 60) ) ) THEN
-        run_param = .TRUE.
-      ELSE
-        run_param = .FALSE.
-      ENDIF
-    ENDIF
-  ENDIF
+!  Do we run through this scheme or not?
+
+!    Test 1:  If this is the initial model time, then yes.
+!                ITIMESTEP=1
+!    Test 2:  If the user asked for the pbl to be run every time step, then yes.
+!                BLDT=0 or STEPBL=1
+!    Test 3:  If not adaptive dt, and this is on the requested pbl frequency, then yes.
+!                MOD(ITIMESTEP,STEPBL)=0
+!    Test 4:  If using adaptive dt and the current time is past the last requested activate pbl time, then yes.
+!                CURR_SECS >= BLDTACTTIME
+
+!  If we do run through the scheme, we set the flag run_param to TRUE and we set the decided flag
+!  to TRUE.  The decided flag says that one of these tests was able to say "yes", run the scheme.
+!  We only proceed to other tests if the previous tests all have left decided as FALSE.
+
+!  If we set run_param to TRUE and this is adaptive time stepping, we set the time to the next
+!  pbl run.
+
+   run_param = .FALSE.
+   decided = .FALSE.
+   IF ( ( .NOT. decided ) .AND. &
+        ( itimestep .EQ. 1 ) ) THEN
+      run_param   = .TRUE.
+      decided     = .TRUE.
+   END IF
+
+   IF ( PRESENT(bldt) )THEN
+      IF ( ( .NOT. decided ) .AND. &
+           ( ( bldt .EQ. 0. ) .OR. ( stepbl .EQ. 1 ) ) ) THEN
+         run_param   = .TRUE.
+         decided     = .TRUE.
+      END IF
+   ELSE
+      IF ( ( .NOT. decided ) .AND. &
+                                   ( stepbl .EQ. 1 )   ) THEN
+         run_param   = .TRUE.
+         decided     = .TRUE.
+      END IF
+   END IF
+
+   IF ( ( .NOT. decided ) .AND. &
+        ( .NOT. doing_adapt_dt ) .AND. &
+        ( MOD(itimestep,stepbl) .EQ. 0 ) ) THEN
+      run_param   = .TRUE.
+      decided     = .TRUE.
+   END IF
+
+   IF ( ( .NOT. decided ) .AND. &
+        ( doing_adapt_dt ) .AND. &
+        ( curr_secs .GE. bldtacttime ) ) THEN
+      run_param   = .TRUE.
+      decided     = .TRUE.
+      bldtacttime = curr_secs + bldt*60
+   END IF
+
 
  IF (run_param) THEN
   radiation = .false.
@@ -552,12 +679,14 @@ CONTAINS
          DTBL = dt
       ELSE
          if (do_adapt) then
-            call wrf_message("WARNING: When using an adaptive time-step the boundary layer"// &
-                             " time-step should be 0 (i.e., equivalent to model time-step).  "// &
-                             "In order to proceed, for boundary layer calculations, the "// &
-                             "boundary layer time-step"// &
-                             " will be rounded to the nearest minute, possibly resulting in"// &
-                             " innacurate results.")
+            IF ( curr_secs .LT. 2. * dt ) THEN
+               call wrf_message("WARNING: When using an adaptive time-step the boundary layer"// &
+                                " time-step should be 0 (i.e., equivalent to model time-step).  ")
+               call wrf_message("In order to proceed, for boundary layer calculations, the "// &
+                                "boundary layer time-step"// &
+                                 " will be rounded to the nearest minute," )
+                call wrf_message("possibly resulting in innacurate results.")
+            END IF
             DTBL=bldt*60
          else
             DTBL=DT*STEPBL
@@ -725,6 +854,54 @@ CONTAINS
 
    pbl_select: SELECT CASE(bl_pbl_physics)
 
+      CASE (TEMFPBLSCHEME)
+! WA Test
+       ! WRITE( message , * ) 'Calling TEMF PBL scheme, timestep = ', itimestep
+       ! CALL wrf_message ( message )
+       ! print *,'Calling TEMF PBL scheme'
+        CALL wrf_debug(100,'in TEMF PBL')
+           IF ( PRESENT( qv_curr )  .AND. PRESENT( qc_curr )  .AND. &
+                PRESENT( qi_curr )                            .AND. &
+                PRESENT( rqvblten ) .AND. PRESENT( rqcblten ) .AND. &
+                PRESENT( rqiblten )                           .AND. &
+                PRESENT( te_temf ) .AND. PRESENT( cfm_temf ) .AND. &
+                PRESENT( hol      ) ) THEN
+             CALL temfpbl(                                              &
+               U3D=u_phytmp,V3D=v_phytmp,TH3D=th_phy,T3D=t_phy      &
+              ,QV3D=qv_curr,QC3D=qc_curr,QI3D=qi_curr               &
+              ,P3D=p_phy,P3DI=p8w,PI3D=pi_phy,RHO=rho               &
+              ,RUBLTEN=rublten,RVBLTEN=rvblten                      &
+              ,RTHBLTEN=rthblten,RQVBLTEN=rqvblten                  &
+              ,RQCBLTEN=rqcblten,RQIBLTEN=rqiblten                  &
+              ,FLAG_QI=flag_qi                                      &
+              ,g=g,cp=cp,rcp=rcp,r_d=r_d,r_v=r_v,cpv=cpv                    &
+              ,Z=z,XLV=XLV,PSFC=PSFC               &
+              ,MUT=mut,P_TOP=p_top                  &
+              ,ZNT=znt,HT=ht,UST=ust,ZOL=zol,HOL=hol,HPBL=pblh      &
+              ,PSIM=psim,PSIH=psih,XLAND=xland                      &
+              ,HFX=hfx,QFX=qfx,TSK=tskold,QSFC=qsfc,GZ1OZ0=gz1oz0   &
+              ,U10=u10,V10=v10,T2=t2                                &
+              ,WSPD=wspd,BR=br,DT=dtbl,DTMIN=dtmin,KPBL2D=kpbl      &
+              ,SVP1=svp1,SVP2=svp2,SVP3=svp3,SVPT0=svpt0            &
+              ,EP1=ep_1,EP2=ep_2,KARMAN=karman,EOMEG=eomeg          &
+              ,STBOLT=stbolt                                       &
+              ,te_temf=te_temf,kh_temf=kh_temf,km_temf=km_temf      &
+              ,shf_temf=shf_temf,qf_temf=qf_temf                    &
+              ,uw_temf=uw_temf,vw_temf=vw_temf                      &
+              ,hd_temf=hd_temf,lcl_temf=lcl_temf,hct_temf=hct_temf  &
+              ,wupd_temf=wupd_temf,mf_temf=mf_temf                  &
+              ,thup_temf=thup_temf,qtup_temf=qtup_temf,qlup_temf=qlup_temf  &
+              ,cf3d_temf=cf3d_temf,cfm_temf=cfm_temf                &
+              ,flhc=flhc,flqc=flqc,exch_temf=exch_temf              &
+              ,fCor=f                                            &
+              ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde      &
+              ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme      &
+              ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
+                                                                    )
+           ELSE
+               CALL wrf_error_fatal('Lack arguments to call TEMF pbl')
+           ENDIF
+
       CASE (YSUSCHEME)
         CALL wrf_debug(100,'in YSU PBL')
            IF ( PRESENT( qv_curr )  .AND. PRESENT( qc_curr )  .AND. &
@@ -882,8 +1059,8 @@ CONTAINS
               ,QZ0=qz0,UZ0=uz0,VZ0=vz0                              &
               ,LOWLYR=lowlyr                                        &
               ,XLAND=xland,SICE=xice,SNOW=snow                      &
-              ,TKE_MYJ=tke_myj,EXCH_H=exch_h,USTAR=ust,ZNT=znt      &
-              ,EL_MYJ=el_myj,PBLH=pblh,KPBL=kpbl,CT=ct              &
+              ,TKE_MYJ=tke_pbl,EXCH_H=exch_h,USTAR=ust,ZNT=znt      &
+              ,EL_MYJ=el_pbl,PBLH=pblh,KPBL=kpbl,CT=ct              &
               ,AKHS=akhs,AKMS=akms,ELFLX=lh,MIXHT=mixht             &  
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten                  &
@@ -905,9 +1082,9 @@ CONTAINS
               ,QZ0=qz0,UZ0=uz0,VZ0=vz0                              &
               ,LOWLYR=lowlyr                                        &
               ,XLAND=xland,SICE=xice,SNOW=snow                      &
-              ,TKE_MYJ=tke_myj,EXCH_H=exch_h,EXCH_M=exch_m          &
+              ,TKE_MYJ=tke_pbl,EXCH_H=exch_h,EXCH_M=exch_m          &
               ,USTAR=ust,ZNT=znt                                    &
-              ,EL_MYJ=el_myj,PBLH=pblh,KPBL=kpbl,CT=ct              &
+              ,EL_MYJ=el_pbl,PBLH=pblh,KPBL=kpbl,CT=ct              &
               ,AKHS=akhs,AKMS=akms,ELFLX=lh                         &
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten                  &
@@ -955,8 +1132,8 @@ CONTAINS
               ,QZ0=qz0,UZ0=uz0,VZ0=vz0,CORF=f                       &
               ,LOWLYR=lowlyr                                        &
               ,XLAND=xland,SICE=xice,SNOW=snow                      &
-              ,TKE=tke_myj,EXCH_H=exch_h,EXCH_M=exch_m,USTAR=ust,ZNT=znt      &
-              ,EL_MYJ=el_myj,PBLH=pblh,KPBL=kpbl,CT=ct              &
+              ,TKE=tke_pbl,EXCH_H=exch_h,EXCH_M=exch_m,USTAR=ust,ZNT=znt      &
+              ,EL_MYJ=el_pbl,PBLH=pblh,KPBL=kpbl,CT=ct              &
               ,AKHS=akhs,AKMS=akms,ELFLX=lh                         &
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten    &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten                  &
@@ -1055,6 +1232,24 @@ CONTAINS
                    ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
                    )
 
+               IF (windspec.GT.0                                         &
+                   .AND.PRESENT(id)                                      &
+                   .AND.PRESENT(phb)                                     &
+                   .AND.PRESENT(xlat_u).AND.PRESENT(xlong_u)             &
+                   .AND.PRESENT(xlat_v).AND.PRESENT(xlong_v)) THEN
+                 CALL turbine_drag(                                         &
+                     & ID=id                                                &
+                     &,PHB=phb,u=u_phy,v=v_phy                              &
+                     &,XLAT_U=xlat_u,XLONG_U=xlong_u                        &
+                     &,XLAT_V=xlat_v,XLONG_V=xlong_v                        &
+                     &,DX=dx,DZ=dz8w,DT=dt                                  &
+                     &,QKE=qke,DU=rublten,DV=rvblten                        &
+                     &,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde      &
+                     &,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme      &
+                     &,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
+                     &)
+               ENDIF
+
            ELSE
                WRITE ( message , FMT = '(A,12(L1,1X))' )            &
                  'present: '//                                      &
@@ -1098,7 +1293,7 @@ CONTAINS
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten               &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqvblten                             &
               ,TKE=tke_pbl,DLK=el_pbl,WU=wu_tur,WV=wv_tur,WT=wt_tur,WQ=wq_tur  &
-              ,EXCH_H=exch_h,EXCH_M=exch_m                                     &
+              ,EXCH_H=exch_h,EXCH_M=exch_m,PBLH=pblh                           &
               ,A_U_BEP=a_u_bep,A_V_BEP=a_v_bep,A_T_BEP=a_t_bep                 &
               ,A_Q_BEP=a_q_bep                                                 &
               ,A_E_BEP=a_e_bep,B_U_BEP=b_u_bep,B_V_BEP=b_v_bep                 &
@@ -1109,10 +1304,28 @@ CONTAINS
               ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme                 &
               ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte  )
 
-              if(flag_myjsfc)then
-               tke_myj(its:ite,kts:kte,jts:jte)=tke_pbl(its:ite,kts:kte,jts:jte)
-              endif
-
+           CASE (CAMUWPBLSCHEME)
+              
+           IF ( PRESENT( z_at_w )  .AND. PRESENT( tauresx2d )) THEN 
+              CALL wrf_debug(100,'in camuwpbl')
+              
+              CALL CAMUWPBL(DT=dt,U_PHY=u_phy,V_PHY=v_phy,TH_PHY=th_phy,RHO=rho   &
+               ,QV_CURR=qv_curr,HFX=hfx,QFX=qfx,USTAR=ust,RUBLTEN=rublten         &
+               ,RVBLTEN=rvblten,RTHBLTEN=rthblten,RQVBLTEN=rqvblten               &
+               ,RQCBLTEN=rqcblten,TKE_PBL=tke_pbl,PBLH2D=pblh,KPBL2D=kpbl         &
+               ,P8W=p8w,P_PHY=p_phy,Z=z,T_PHY=t_phy,QC_CURR=qc_curr               &
+               ,QI_CURR=qi_curr,Z_AT_W=z_at_w,CLDFRA=cldfra,HT=ht                 &
+               ,RTHRATENLW=rthratenlw,EXNER=pi_phy,ITIMESTEP=itimestep            &
+               ,TAURESX2D=tauresx2d,TAURESY2D=tauresy2d,KVH3D=exch_h,KVM3D=exch_m &
+               ,TPERT2D=tpert2d,QPERT2D=qpert2d,WPERT2D=wpert2d                   & 
+               ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde                 &
+               ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme                 &
+               ,ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte                 )
+              
+           ELSE
+               CALL wrf_debug(0,message)
+               CALL wrf_error_fatal('Lack arguments to call CAMUWPBL pbl')
+           ENDIF
 #endif
 
 
@@ -1123,13 +1336,14 @@ CONTAINS
 
    END SELECT pbl_select
 
-   IF (PRESENT(gwd_opt)) THEN
+   IF (PRESENT(dtaux3d)) THEN
        IF(gwd_opt .EQ. 1)THEN
              CALL gwdo(                                              &
                U3D=u_phytmp,V3D=v_phytmp,T3D=t_phy      &
               ,QV3D=qv_curr                                         &
               ,P3D=p_phy,P3DI=p8w,PI3D=pi_phy,Z=z                        &
               ,RUBLTEN=rublten,RVBLTEN=rvblten                      &
+              ,DTAUX3D=dtaux3d,DTAUY3D=dtauy3d                      &
               ,DUSFCG=dusfcg,DVSFCG=dvsfcg &
               ,VAR2D=var2d,OC12D=oc12d     &
               ,OA2D1=oa1,OA2D2=oa2,OA2D3=oa3,OA2D4=oa4  &

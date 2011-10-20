@@ -72,24 +72,28 @@ end type fire_params
 !D      FCBR           FUEL CANOPY BURN RATE (KG/M**2/S) 
 
 ! =============================================================================
-! Standard 13 fire behavior fuel models (for surface fires), along with some
+! Anderson 13 surface fire fuel models, along with some
 !          estimated canopy properties (for crown fire).
 ! =============================================================================
+!  --- Grass-dominated fuel models
 !  FUEL MODEL 1: Short grass (1 ft)
 !  FUEL MODEL 2: Timber (grass and understory)
 !  FUEL MODEL 3: Tall grass (2.5 ft)
+!  --- Shrub-dominated fuel models
 !  FUEL MODEL 4: Chaparral (6 ft)
 !  FUEL MODEL 5: Brush (2 ft) 
 !  FUEL MODEL 6: Dormant brush, hardwood slash
 !  FUEL MODEL 7: Southern rough
+!  --- Forest litter-dominated fuel models
 !  FUEL MODEL 8: Closed timber litter
 !  FUEL MODEL 9: Hardwood litter
 !  FUEL MODEL 10: Timber (litter + understory)
+!  --- Logging debris-dominated fuel models
 !  FUEL MODEL 11: Light logging slash
 !  FUEL MODEL 12: Medium logging slash
 !  FUEL MODEL 13: Heavy logging slash
+!  --- Fuel-free 
 !  FUEL MODEL 14: no fuel
-!
 
 ! scalar fuel coefficients
    REAL, SAVE:: cmbcnst,hfgl,fuelmc_g,fuelmc_c
@@ -688,9 +692,8 @@ implicit none
 !       because they may be needed to take advantage of known wind and slope vectors.
 !       They should add up to get the total rate of spread.
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!     ... calculates fire spread rate with mcarthur formula or Rothermel
+!     ... calculates fire spread rate with McArthur formula or Rothermel
 !           using fuel type of fuel cell
-!
 !      
 !         m/s =(ft/min) *.3048/60. =(ft/min) * .00508   ! conversion rate
 !         ft/min = m/s * 2.2369 * 88. = m/s *  196.850 ! conversion rate
@@ -740,9 +743,9 @@ endif
 if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test for .eq. 0 for speed
     if (ibeh .eq. 1) then                ! use Rothermel formula
 !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-        spdms = max(speed,0.)          ! 
-        umidm = min(spdms,30.)       ! max input wind spd is 30 m/s   !param!
-        umid = umidm * 196.850                    ! m/s to ft/min
+        spdms = max(speed,0.)            ! 
+        umidm = min(spdms,30.)           ! max input wind spd is 30 m/s   !param!
+        umid = umidm * 196.850           ! m/s to ft/min
         !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
         phiw = umid**fp%bbb(i,j) * fp%phiwc(i,j) ! wind coef
         phis=0.
@@ -755,7 +758,7 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         ros_slope= ros_back*phis
         
 
-    else                                   ! MacArthur formula (Australian)
+    else                                   ! McArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
         ros_back = 0.18*exp(0.8424)
         ros_wind = 0.18*exp(0.8424*max(speed,0.)) - ros_back

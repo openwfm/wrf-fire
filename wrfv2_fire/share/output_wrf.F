@@ -220,6 +220,16 @@
     CALL domain_clock_get( grid, current_time=currentTime, &
                                  start_time=startTime,     &
                                  current_timestr=current_date )
+
+    IF (switch .EQ. history_only) THEN
+      CALL nl_get_adjust_output_times( grid%id, adjust )
+      IF ( adjust ) THEN
+        CALL adjust_io_timestr( grid%io_intervals( history_alarm ), currentTime, startTime, timestring )
+        current_date_save = current_date
+        current_date = timestring
+      ENDIF
+    ENDIF
+
     WRITE ( wrf_err_message , * ) 'output_wrf: begin, current_date=',current_date
     CALL wrf_debug ( 300 , wrf_err_message )
 
@@ -525,7 +535,14 @@ endif
       CALL wrf_put_dom_ti_real      ( fid, 'PREC_ACC_DT', config_flags%prec_acc_dt , 1 , ierr ) 
       CALL wrf_put_dom_ti_integer   ( fid, 'OMLCALL',     config_flags%omlcall     , 1 , ierr ) 
       CALL wrf_put_dom_ti_integer   ( fid, 'ISFTCFLX',    config_flags%isftcflx    , 1 , ierr ) 
+      CALL wrf_put_dom_ti_integer   ( fid, 'ISHALLOW',    config_flags%ishallow    , 1 , ierr ) 
+
 #endif
+
+      CALL wrf_put_dom_ti_integer   ( fid, 'DFI_OPT',          config_flags%dfi_opt      , 1 , ierr ) 
+      CALL wrf_put_dom_ti_integer   ( fid, 'SHCU_PHYSICS',     config_flags%shcu_physics , 1 , ierr ) 
+      CALL wrf_put_dom_ti_integer   ( fid, 'SF_URBAN_PHYSICS', config_flags%sf_urban_physics , 1 , ierr ) 
+
       ENDIF ! history_only
     ENDIF
 
@@ -668,12 +685,14 @@ endif
       CALL wrf_put_dom_ti_integer ( fid , 'COMPRESSION' , config_flags%compression , 1 , ierr )
     ENDIF
 
-#if (EM_CORE == 1)
+#if ( (EM_CORE == 1) && (DA_CORE != 1) )
       save_topo_orig = grid%save_topo_from_real
 
 ! todo jm
     IF ( (first_history .LE. switch .AND. switch .LE. last_history ) .OR. &
-         ( (switch .EQ. input_only) .AND. (program_name(1:7) .NE. 'REAL_EM') ) .OR. &
+         ( (switch .EQ. input_only) .AND. &
+           (program_name(1:7) .NE. 'REAL_EM') .AND. &
+           (grid%dfi_opt .EQ. DFI_NODFI ) ) .OR. &
          ( switch .EQ. restart_only    ) ) THEN
 
          ! This flag sets the switch which defines the topography as the original
@@ -687,9 +706,6 @@ endif
        grid%save_topo_from_real=0
     ENDIF
 #endif
-
-    CALL nl_get_adjust_output_times( grid%id, adjust )
-    current_date_save = current_date
 
     IF ( (first_input   .LE. switch .AND. switch .LE. last_input) .OR. &
          (first_history .LE. switch .AND. switch .LE. last_history ) .OR. &
@@ -912,7 +928,10 @@ endif
             ENDIF
           ELSE IF ( p%Ndim .EQ. 2 ) THEN
             IF ((p%Restart.AND.switch.EQ.restart_only).OR.on_stream(p%streams,newswitch)) THEN
-              IF ( in_use_for_config(grid%id,TRIM(p%VarName)) ) THEN
+              IF ( in_use_for_config(grid%id,TRIM(p%VarName)) .AND.  &
+                   ( .NOT. p%subgrid_x .OR. (p%subgrid_x .AND. grid%sr_x .GT. 0) ) .AND. &
+                   ( .NOT. p%subgrid_y .OR. (p%subgrid_y .AND. grid%sr_y .GT. 0) )       &
+                 ) THEN
                 IF (switch.EQ.restart_only.OR.p%Ntl/100.EQ.mod(p%Ntl,100)) THEN
                   dname = p%DataName
                   IF (p%Ntl.GT.0.AND.switch.NE.restart_only)dname=dname(1:len(TRIM(dname))-2)
@@ -1019,7 +1038,10 @@ endif
             ENDIF
           ELSE IF ( p%Ndim .EQ. 3 ) THEN
             IF ((p%Restart.AND.switch.EQ.restart_only).OR.on_stream(p%streams,newswitch)) THEN
-              IF ( in_use_for_config(grid%id,TRIM(p%VarName)) ) THEN
+              IF ( in_use_for_config(grid%id,TRIM(p%VarName)) .AND.  &
+                   ( .NOT. p%subgrid_x .OR. (p%subgrid_x .AND. grid%sr_x .GT. 0) ) .AND. &
+                   ( .NOT. p%subgrid_y .OR. (p%subgrid_y .AND. grid%sr_y .GT. 0) )       &
+                 ) THEN
                 IF (switch.EQ.restart_only.OR.p%Ntl/100.EQ.mod(p%Ntl,100)) THEN
                   dname = p%DataName
                   IF (p%Ntl.GT.0.AND.switch.NE.restart_only)dname=dname(1:len(TRIM(dname))-2)
@@ -1207,9 +1229,14 @@ endif
          CALL wrf_bdyout( fid , grid , config_flags, switch, dryrun,  ierr )
        ENDIF
     ENDIF
-    current_date = current_date_save
 
-#if (EM_CORE == 1)
+    IF ( switch .EQ. history_only ) THEN
+      IF (adjust) THEN
+        current_date = current_date_save
+      ENDIF
+    ENDIF
+
+#if ( (EM_CORE == 1) && (DA_CORE != 1) )
       grid%save_topo_from_real = save_topo_orig
 #endif
 

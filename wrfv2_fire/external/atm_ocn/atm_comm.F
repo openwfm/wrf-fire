@@ -12,20 +12,23 @@
 
      &   MPI_INTEGER,MPI_STATUS_SIZE, &
      &   kind_REAL,kind_alt_REAL, &
-     &   MPI_kind_REAL,MPI_kind_alt_REAL 
+     &   MPI_kind_REAL,MPI_kind_alt_REAL
 
       implicit none
 
-      integer,parameter:: NSF=4, ND=2
-      real dtc,              &   !<- Coupling period 
-     &     dta,              &   !<- AM time step ("physical")
+      integer,parameter:: ND=2
+      integer Ocean_spec /-1/, WM_id /-10/
+      integer NSF
+      integer NSF_WM
+      real dtc,           &       !<- Coupling period
+     &     dta,           &     !<- AM time step ("physical")
      &     dta2dtc              !<- AM time step / Coupling period
       integer i_dtc2dta /100/   !<- Coupling period / AM time step
-      integer &!,dimension(ND):: 
+      integer & !,dimension(ND)::
      &ims,ime,jms,jme,its,ite,jts,jte,ids,idf,jds,jdf,  NGP
       integer kms,kme,kts,kte,kds,kde
       integer,parameter:: kind_R=kind_alt_REAL
-!     integer,parameter:: kind_tiling=kind_R
+!c     integer,parameter:: kind_tiling=kind_R
       integer,parameter:: kind_sfcflux=kind_R, &
      &                    kind_SST=kind_R, &
      &                    kind_SLM=kind_R, &
@@ -36,7 +39,7 @@
       integer rc /5/
       real,parameter:: &
      &   SLM_OS_value=1.,  &!<-must be real open sea mask value in AM
-     &   unrealistically_low_SST=0.01,  &! <- must be unreal low but &=0.,
+     &   unrealistically_low_SST=0.01, & ! <- must be unreal low but >=0.,
                                        ! see interp. --- check!
      &   unrealistically_low_SV=-1.E30, &
                      ! <- must be negative unreal low surface flux
@@ -49,10 +52,10 @@
       logical PHYS,zeroSF,nrmSF,sendSF,getSST
 
       TYPE SST_ARRAY
-        real(kind=kind_SST),dimension(:,:),allocatable:: a 
+        real(kind=kind_SST),dimension(:,:),pointer:: a 
       END TYPE SST_ARRAY
       TYPE SF_ARRAY
-        real(kind=kind_sfcflux),dimension(:,:,:),allocatable:: a 
+        real(kind=kind_sfcflux),dimension(:,:,:),pointer:: a
       END TYPE SF_ARRAY
 
       TYPE (SST_ARRAY), dimension(ND):: SST_cc
@@ -60,37 +63,75 @@
 
       character*12 sgid
 
-!ontrols:
+!Controls:
       integer nunit_announce /6/, VerbLev /3/
 
       SAVE
 
       END MODULE ATM_cc
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_CMP_START(atm_comm)
 
       USE ATM_cc
 
       implicit none
 
-      integer Atmos_id /1/, Atmos_master_rank_local /0/
-      character*20 s
       integer atm_comm
-!
+
+      integer Atmos_id /1/, Atmos_master_rank_local /0/, Atmos_spec /1/
+      integer ibuf(1),ierr
+      character*20 s
+!C
 
                       !<-id of OM as a component of the coupled system
       call CMP_INIT(Atmos_id,1)
                              !<-"flexibility level"
       if (Coupler_id.ge.0) VerbLev=min(VerbLev,ibuffer(4))
+      write(s,'(i2)') VerbLev
 
       call CMP_INTRO(Atmos_master_rank_local)
+      call ATM_ANNOUNCE('back from CMP_INTRO, VerbLev='//s,2)
 
       initialized=.true.
 
-      write(s,'(i2)') VerbLev
-      call ATM_ANNOUNCE('back from CMP_INTRO, VerbLev='//s,2)
+      call CMP_INTEGER_SEND(Atmos_spec,1)
+
+      call CMP_gnr_RECV(Ocean_spec,1,MPI_INTEGER)
+      write(s,'(i2)') Ocean_spec
+      call ATM_ANNOUNCE('back from CMP_INTEGER_RECV, OM spec is '//s,2)
+      call MPI_BCAST(Ocean_spec,1,MPI_INTEGER, &
+     &component_master_rank_local,MPI_COMM_Atmos,ierr)
+      call ATM_ANNOUNCE('ATM_CMP_START: Ocean_spec broadcast',2)
+
+      call CMP_gnr_RECV(WM_id,1,MPI_INTEGER)
+      write(s,'(i3)') WM_id
+      call ATM_ANNOUNCE('back from CMP_INTEGER_RECV, WM id is '//s,2)
+      call MPI_BCAST(WM_id,1,MPI_INTEGER, &
+     &component_master_rank_local,MPI_COMM_Atmos,ierr)
+      call ATM_ANNOUNCE('ATM_CMP_START: WM_id broadcast',2)
+      if (WM_id.gt.0) then
+        NSF_WM=2
+      else
+        NSF_WM=0
+      end if
+
+      if (Ocean_spec.eq.1) then
+        NSF=4+NSF_WM
+      else if (Ocean_spec.eq.2) then
+        NSF=8+NSF_WM
+      else if (Ocean_spec.eq.0) then
+        NSF=NSF_WM
+      else if (Coupler_id.ge.0) then
+        call GLOB_ABORT(Ocean_spec-1, &
+     &  'ATM_CMP_START received wrong Ocean_spec value, aborted',rc)
+      else
+        Ocean_spec=1
+        NSF=4
+        call ATM_ANNOUNCE('AM is standalone: Ocean_spec=1, NSF=4'// &
+     &  ' assigned (as if for POM coupling)',2)
+      end if
 
       if (kind_R.eq.kind_REAL) then
         MPI_kind_R=MPI_kind_REAL
@@ -117,12 +158,14 @@
       else 
         MPI_kind_lonlat=MPI_kind_alt_REAL
       end if
+
       atm_comm=MPI_COMM_Atmos
+
       return
       END
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_INIT_CHECK(s)
 
       USE ATM_cc, ONLY: initialized,rc
@@ -135,9 +178,9 @@
 
       return
       END
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       subroutine ATM_TSTEP_INIT(NTSD,NPHS,gid_,dta_, &
      &ids_,idf_,jds_,jdf_,its_,ite_,jts_,jte_,ims_,ime_,jms_,jme_, &
        !<-"domain"         !<-"tile"           !<-"memory" (tile+halo)
@@ -153,7 +196,7 @@
       integer NTSD,NPHS,gid_
       real dta_
       integer ids_,idf_,jds_,jdf_,its_,ite_,jts_,jte_, &
-     &ims_,ime_,jms_,jme_,kds_,kde_,kts_,kte_,kms_,kme_ 
+     &ims_,ime_,jms_,jme_,kds_,kde_,kts_,kte_,kms_,kme_
       real(kind=kind_lonlat),dimension(ims_:ime_,jms_:jme_):: &
      &HLON,HLAT,VLON,VLAT
       real(kind=kind_SLM),dimension(ims_:ime_,jms_:jme_):: SLM
@@ -164,7 +207,7 @@
       character*80 s1
 
       SAVE
-!
+!C
 
       gid=gid_
       call GLOB_ABORT((gid-1)*(gid-2), &
@@ -177,12 +220,12 @@
      &'" PHYS=",L1)') gid,NTSD,NPHS,KDT,PHYS
       call ATM_ANNOUNCE('ATM_TSTEP_INIT entered: '//trim(s1),3)
 
-!     IF (n_ts.eq.-1 .and. PHYS) THEN
-!       PHYS=.false.
-!       n_ts=0   ! init. value must be -1 . But if PHYS does not need
-!                ! this correction, init. value must be 0 (whereas this
-!                ! IF statement may stay)
-!     END IF
+!c     IF (n_ts.eq.-1 .and. PHYS) THEN
+!c       PHYS=.false.
+!c       n_ts=0   ! init. value must be -1 . But if PHYS does not need
+!c                ! this correction, init. value must be 0 (whereas this
+!c                ! IF statement may stay)
+!c     END IF
       if (.not.PHYS) then
         zeroSF=.false.
         nrmSF=.false.
@@ -262,9 +305,9 @@
 
       RETURN
       end
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_RECVdtc
 
       USE ATM_cc
@@ -276,7 +319,7 @@
       logical first/.true./
       character*20 s
       SAVE
-!
+!C
 
       write(s,'(1pe20.12)') dta
       call ATM_ANNOUNCE('ATM_RECVdtc: AM time step dta='//s,3)
@@ -293,11 +336,17 @@
         dtc=buf(1)
 
         if (Coupler_id.lt.0) then
-          if (gid.eq.1) then
-            dtc=dta*2            ! just having in mind that with gid=1
-          else                   ! dta value is 5 times its value with
-            dtc=dta*10           ! gid=2 (at this moment, 270s and 54s
-          end if                 ! respectively)
+           ! This section sets the coupling timestep when no coupling
+           ! is being done.  This relation must hold for the outermost domain:
+           !    dtc * N = dta * movemin
+           ! where N can be any integer greater than zero.
+          if(gid<1 .or. gid>3) then
+             write(s,'(1i8)') gid
+             call GLOB_ABORT(1,'invalid grid id '//s//'; I only know 1,2, and 3',1)
+          endif
+          dtc=dta
+          if(gid==2) dtc=dtc*3   ! domain 2 timestep = domain 1 timestep / 3
+          if(gid==3) dtc=dtc*9   ! domain 3 timestep = domain 1 timestep / 9
           write(s,'(1pe20.12)') dtc
           call ATM_ANNOUNCE('ATM_RECVdtc: C time step assigned '// &
      &    trim(s)//' : standalone mode',2)
@@ -331,9 +380,9 @@
 
       RETURN
       END
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_SENDGRIDS(HLON,HLAT,VLON,VLAT)
 
       USE ATM_cc
@@ -347,9 +396,9 @@
      &ALONt,ALATt,ALONv,ALATv
 
       integer buf(2)
-!
+!C
 
-!     IF (gid.ne.1) RETURN ! only "parent grid" dim. and coor. are sent
+!c     IF (gid.ne.1) RETURN ! only "parent grid" dim. and coor. are sent
 
       IF (.not.PHYS .or. n_ts(gid).ne.1) RETURN
       
@@ -361,7 +410,7 @@
       call CMP_INTEGER_SEND(buf,2)
       call ATM_ANNOUNCE('grid dimensions sent,'//sgid,1)
 
-!     IF (gid.eq.1) THEN    !  only "parent grid" coordinates are sent
+!c     IF (gid.eq.1) THEN    !  only "parent grid" coordinates are sent
 
         call ASSEMBLE(ALONt,HLON,kind_lonlat)
         call ASSEMBLE(ALATt,HLAT,kind_lonlat)
@@ -377,15 +426,15 @@
 
         call ATM_ANNOUNCE('the 4 grid arrays sent',1)
 
-!     END IF
+!c     END IF
 
       call ATM_ANNOUNCE('(BP) ATM_SENDGRIDS: returning',2)
 
       return
       END
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_SENDSLM(SLM)
 
       USE ATM_cc
@@ -396,9 +445,9 @@
 
       real(kind=kind_SLM),dimension(ids:idf,jds:jdf):: SLM_g
       integer buf(2)
-!
+!C
 
-!     IF (gid.ne.1) RETURN  !  only "parent grid" mask is sent
+!c     IF (gid.ne.1) RETURN  !  only "parent grid" mask is sent
       IF (.not.PHYS .or. n_ts(gid).ne.1) RETURN
       
 !temporarily excluded      if (Coupler_id.lt.0) return    !   <- standalone mode
@@ -415,9 +464,9 @@
 
       return
       END
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_GETSST(SST,SLM)
 
       USE ATM_cc
@@ -429,7 +478,7 @@
 
       integer i,j
       real(kind=kind_SST) SST_g(ids:idf,jds:jdf)
-!
+!C
 
       IF (.not.PHYS) RETURN
 
@@ -472,28 +521,34 @@
 
       return
       END
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_DOFLUXES(TWBS,QWBS,RLWIN,RSWIN,RADOT,RSWOUT, &
-!    &USTAR,U10,V10,PINT,PREC)
-     &TX,TY,PINT,PREC)
+!c    &USTAR,U10,V10,PINT,PREC)
+     &TX,TY,PINT,PREC,U10,V10)
 
       USE ATM_cc
 
       implicit none
 
       real(kind=kind_sfcflux),dimension(ims:ime,jms:jme):: &
-     &TWBS,QWBS,RLWIN,RSWIN,RADOT,RSWOUT,TX,TY,PINT,PREC 
-!    &TWBS,QWBS,RLWIN,RSWIN,RADOT,RSWOUT,USTAR,U10,V10,PINT,PREC
+     &TWBS,QWBS,RLWIN,RSWIN,RADOT,RSWOUT,TX,TY,PINT,PREC,U10,V10
+!c    &TWBS,QWBS,RLWIN,RSWIN,RADOT,RSWOUT,USTAR,U10,V10,PINT,PREC
 !       Act. arg. for PINT is a 3d array - so this only is OK if
 !       Ps=Act.arg.(:,:.1) - actually, Ps=PINT(:,1,:)
 
       real(kind=kind_sfcflux),dimension(ims:ime,jms:jme):: SWR,R
       real dtainv
-!
+!C
 
       IF (.not.PHYS) RETURN
+! Debug insertion:->
+!c     if (PREC(ims+3,jms+3).ne.0 .or. PREC(ims+5,jms+5).ne.0) then
+!c       print*,'ATM_DOFLUXES,gid,n_ts(gid),PREC(3,3),PREC(5,5): ',
+!c    &  gid,n_ts(gid),PREC(ims+3,jms+3),PREC(ims+5,jms+5)
+!c     end if
+! <-:Debug insertion
 
       call ATM_ANNOUNCE('ATM_DOFLUXES entered',3)
 
@@ -503,20 +558,55 @@
 
       SWR=-RSWIN+RSWOUT          ! Check sign! here SWR is meant to be
                                  ! positive upward
+!c     sf(gid)%a(:,:,NSF-1)=sf(gid)%a(:,:,NSF-1)-TX
+!c     sf(gid)%a(:,:,NSF)=sf(gid)%a(:,:,NSF)-TY
+!c                    ! <- signs for stress components are     changed
+!c                    ! so it is -stress
 
-!     R=SWR+RADOT-RLWIN          ! Check sign! here R (net radiation)
+!c     R=SWR+RADOT-RLWIN          ! Check sign! here R (net radiation)
                                  ! is meant to be positive upward
 
-      sf(gid)%a(:,:,1)=sf(gid)%a(:,:,1)-TWBS-QWBS+RADOT-RLWIN
+!oooooooooooooooooooooooooooooo
+      IF (Ocean_spec.eq.1) THEN
+!oooooooooooooooooooooooooooooo
+        sf(gid)%a(:,:,1)=sf(gid)%a(:,:,1)-TWBS-QWBS+RADOT-RLWIN
                                        ! -TWBS (-QWBS) is supposed to
                                        ! be sensible (latent) heat flux,
                                        ! positive upward
-      sf(gid)%a(:,:,2)=sf(gid)%a(:,:,2)+SWR
+        sf(gid)%a(:,:,2)=sf(gid)%a(:,:,2)+SWR
+        sf(gid)%a(:,:,NSF-NSF_WM-1)=sf(gid)%a(:,:,NSF-NSF_WM-1)-TX
+        sf(gid)%a(:,:,NSF-NSF_WM)=sf(gid)%a(:,:,NSF-NSF_WM)-TY
+                     ! <- signs for stress components are changed
+!ooooooooooooooooooooooooooooooooooo
+      ELSE IF (Ocean_spec.eq.2) THEN
+!ooooooooooooooooooooooooooooooooooo
+        sf(gid)%a(:,:,1)=sf(gid)%a(:,:,1)+PREC
+        sf(gid)%a(:,:,2)=sf(gid)%a(:,:,2)-TWBS
+        sf(gid)%a(:,:,3)=sf(gid)%a(:,:,3)-QWBS
+        sf(gid)%a(:,:,4)=sf(gid)%a(:,:,4)+PINT-101300.
+        sf(gid)%a(:,:,5)=sf(gid)%a(:,:,5)-SWR-RADOT+RLWIN
+        sf(gid)%a(:,:,6)=sf(gid)%a(:,:,6)-SWR
 
-      sf(gid)%a(:,:,3)=sf(gid)%a(:,:,3)-TX
-      sf(gid)%a(:,:,4)=sf(gid)%a(:,:,4)-TY
-                     ! <- signs for stress components are     changed
-                     ! so it is -stress
+        sf(gid)%a(:,:,NSF-NSF_WM-1)=sf(gid)%a(:,:,NSF-NSF_WM-1)+TX
+        sf(gid)%a(:,:,NSF-NSF_WM)=sf(gid)%a(:,:,NSF-NSF_WM)+TY
+                     ! <- signs for stress components are NOT changed
+        if (nrmSF) then
+          sf(gid)%a(:,:,1)=sf(gid)%a(:,:,1)*dtainv
+                        ! so this will be m/s; check what OM wants
+        end if
+!ooooooooooo
+      END IF
+!ooooooooooo
+
+
+!wwwwwwwwwwwwwwwwwwwwwwwww
+      IF (WM_id.gt.0) THEN
+!wwwwwwwwwwwwwwwwwwwwwwwww
+        sf(gid)%a(:,:,NSF-1)=sf(gid)%a(:,:,NSF-1)+U10
+        sf(gid)%a(:,:,NSF)=sf(gid)%a(:,:,NSF)+V10
+!wwwwwwwwwww
+      END IF
+!wwwwwwwwwww
 
       if (nrmSF) then
         sf(gid)%a=sf(gid)%a*dta2dtc
@@ -526,9 +616,9 @@
 
       return
       END
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_SENDFLUXES
 
       USE ATM_cc
@@ -537,7 +627,7 @@
 
       real(kind=kind_sfcflux) F(ids:idf,jds:jdf)
       integer n
-!
+!C
 
       if (.not.PHYS) RETURN
 
@@ -559,9 +649,9 @@
 
       return
       END
-!
-!***********************************************************************
-!
+!C
+!C***********************************************************************
+!C
       SUBROUTINE ATM_ANNOUNCE(s,DbgLev)
 
       USE ATM_cc, ONLY: nunit_announce,VerbLev,MPI_COMM_Atmos
@@ -572,7 +662,7 @@
       integer DbgLev
 
       integer ierr
-!
+!C
       if (DbgLev.le.VerbLev) then
         if (s(1:5).eq.'(BP) ') then
           call MPI_BARRIER(MPI_COMM_Atmos,ierr)

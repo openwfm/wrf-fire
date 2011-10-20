@@ -564,7 +564,7 @@ CONTAINS
          ALLOCATE ( intermediate_grid )
          ALLOCATE ( intermediate_grid%parents( max_parents ) )
          ALLOCATE ( intermediate_grid%nests( max_nests ) )
-
+         intermediate_grid%allocated=.false.
          NULLIFY( intermediate_grid%sibling )
          DO i = 1, max_nests
             NULLIFY( intermediate_grid%nests(i)%ptr )
@@ -4356,7 +4356,7 @@ integer myproc
       CALL mpi_allgatherv( MPI_IN_PLACE,                                  &
 #  else
       DO i = 1,elemsize*(km_e-km_s+1)
-        v_local(i) = v(i+km_s-1)
+        v_local(i) = v(i+elemsize*km_s-1)
       ENDDO
       CALL mpi_allgatherv( v_local,                                       &
 #  endif
@@ -4398,7 +4398,7 @@ integer myproc
       CALL mpi_allgatherv( MPI_IN_PLACE,                                  &
 #  else
       DO i = 1,elemsize*(km_e-km_s+1)
-        v_local(i) = v(i+km_s-1)
+        v_local(i) = v(i+elemsize*km_s-1)
       ENDDO
       CALL mpi_allgatherv( v_local,                                       &
 #  endif
