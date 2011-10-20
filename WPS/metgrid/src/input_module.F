@@ -387,7 +387,6 @@ module input_module
       integer :: istatus, i
       real :: wps_version
       character (len=128) :: cunits, cdesc, cstagger
-      integer, dimension(3) :: sr
       type (q_data) :: qd
   
       if (my_proc_id == IO_NODE .or. do_tiled_input) then
@@ -399,7 +398,6 @@ module input_module
                cunits = ' '
                cdesc = ' '
                cstagger = ' '
-               sr = 0
                call ext_int_get_var_ti_char(handle, 'units', 'VAR', cunits, istatus)
          
                if (istatus == 0) then
@@ -407,22 +405,12 @@ module input_module
           
                   if (istatus == 0) then
                      call ext_int_get_var_ti_char(handle, 'stagger', 'VAR', cstagger, istatus)
-
-                    if (istatus == 0) then
-                    call ext_int_get_var_ti_integer(handle, 'sr_x', 'VAR', sr(1), 1, sr(3), istatus)
-
-                        if (istatus == 0) then
-                        call ext_int_get_var_ti_integer(handle, 'sr_y', 'VAR', sr(2), 1, sr(3), istatus)
          
-                             qd%units = cunits
-                             qd%description = cdesc
-                             qd%stagger = cstagger
-                             qd%sr_x = sr(1)
-                             qd%sr_y = sr(2)
-                             call q_insert(unit_desc, qd)
- 
-                        end if
-                    end if
+                     qd%units = cunits
+                     qd%description = cdesc
+                     qd%stagger = cstagger
+                     call q_insert(unit_desc, qd)
+        
                   end if
                end if
             end do
