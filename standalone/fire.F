@@ -267,28 +267,33 @@ end subroutine sub_main
 !******************************
 !
 
-subroutine set_tiles(itiles,jtiles,ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+subroutine set_tiles(itiles,jtiles,ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end)
 !*** set tiles for standalone/testing
 implicit none
 !*** arguments
-integer,intent(in)::itiles,jtiles,ids,ide,jds,jde
+integer,intent(in)::itiles,jtiles,ips,ipe,jps,jpe
 integer,intent(out)::num_tiles
 integer,intent(out),dimension(itiles*jtiles)::i_start,i_end,j_start,j_end
 !*** local
 integer::i,j,istep,jstep,ij
+character(len=128)::msg
+write(msg,1)'patch',ips,':',ipe,jps,':',jpe
+1 format(a,5x,i6,a,2i6,a,i6)
+call message(msg,level=-1)
+if(ips.ge.ipe.or.jps.ge.jpe)call crash('bad domain bounds')
 num_tiles=itiles*jtiles
-istep=(ide-ids+itiles)/itiles
-jstep=(jde-jds+jtiles)/jtiles
+istep=(ipe-ips+itiles)/itiles
+jstep=(jpe-jps+jtiles)/jtiles
 do i=1,itiles
     do j=1,jtiles
         ij=j+(i-1)*jtiles
-        i_start(ij)=min(ide,ids+(i-1)*istep)
-        i_end(ij)  =min(ide,ids+(i  )*istep-1)
-        j_start(ij)=min(jde,jds+(j-1)*jstep)
-        j_end(ij)  =min(jde,jds+(j  )*jstep-1)
+        i_start(ij)=min(ipe,ips+(i-1)*istep)
+        i_end(ij)  =min(ipe,ips+(i  )*istep-1)
+        j_start(ij)=min(jpe,jps+(j-1)*jstep)
+        j_end(ij)  =min(jpe,jps+(j  )*jstep-1)
     enddo
 enddo
-call check_tiles(ids,ide,jds,jde,num_tiles,i_start,i_end,j_start,j_end)
+call check_tiles(ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end)
 end subroutine set_tiles
 
 
@@ -304,25 +309,18 @@ integer:: ij,ie
 !*** executable
 if(num_tiles.lt.1)call crash('check_tiles: need at least one tile')
 ie=0
-if (num_tiles.eq.1) then
-    if(i_start(1).ne.ips.or.i_end(1).ne.ipe.or.j_start(1).ne.jps.or.j_end(1).ne.jpe)ie=1
-else
-    do ij=1,num_tiles
-        if(i_start(ij).lt.ips.or.i_end(ij).gt.ipe &
-        .or.j_start(ij).lt.jps.or.j_end(ij).gt.jpe)ie=ij
-    enddo
-endif
-if(ie.ne.0)then        
-    write(msg,*)'bad tile ',ie
-    call message(msg)
-    write(msg,*)'patch dimensions:',ips,ipe,jps,jpe
-    call message(msg)
-    do ij=1,num_tiles
-        write(msg,*)'tile',ij,i_start(ij),i_end(ij),j_start(ij),j_end(ij)
-        call message(msg)
-    enddo
-    call crash('bad tile bounds')
-endif
+do ij=1,num_tiles
+    if(i_start(ij).lt.ips.or.i_end(ij).gt.ipe &
+    .or.j_start(ij).lt.jps.or.j_end(ij).gt.jpe)then
+        write(msg,1)'patch',ips,':',ipe,jps,':',jpe
+1       format(a,5x,i6,a,2i6,a,i6)
+        call message(msg,level=-1)
+        write(msg,2)'tile',ij,i_start(ij),':',i_end(ij),j_start(ij),':',j_end(ij)
+2       format(a,2i6,a,2i6,a,i6)
+        call message(msg,level=-1)
+        call crash('bad tile bounds')
+    endif
+enddo
 end subroutine check_tiles
 
 
