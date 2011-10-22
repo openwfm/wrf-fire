@@ -12,7 +12,7 @@ use module_fr_sfire_driver, only: sfire_driver_em, use_atm_vars
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
 use wrf_netcdf, only : grid_info, set_info_from_file, &
-                       create_output_file,write_vars,output_vars_fire, &
+                       create_output_file,write_vars,output_vars, &
                        input_vars_fire,read_vars_fire
 implicit none
 
@@ -34,7 +34,7 @@ integer::  &                ! fire mesh dimensions
 ! I/O interface
 character(len=*),parameter::inputfile='fire_input.nc'
 character(len=*),parameter::outputfile='fire_output.nc'
-type(output_vars_fire)::output                ! output arrays
+type(output_vars)::output                ! output arrays
 type(input_vars_fire)::input                  ! input arrays_fire
 
 ! other derived types

@@ -82,13 +82,13 @@ type grid_info
 end type
 
 ! pointers to all variables being written (to simplify interface)
-type output_vars
+type output_vars_fire
   real,dimension(:,:),pointer::lfn,tign,fgrnhfx,fgrnqfx,fuel_frac
 end type
 
 ! pointers to all variables being read (to simplify interface)
 type input_vars_fire
-  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,lfn,tign,fuel_frac,uah,vah
+  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,lfn,tign,fuel_frac
 end type
 type input_vars_atm
   real,dimension(:,:,:),pointer::u,v,ph,phb,z0
@@ -320,7 +320,7 @@ implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename
-type(output_vars),intent(in)::output
+type(output_vars_fire),intent(in)::output
 real,intent(in)::time
 
 !*** local

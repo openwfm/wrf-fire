@@ -17,7 +17,7 @@ MAKEFILE=Makefile
 	$(FP) $(FFLAGS) $(DEFS) -E $*.F > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
-MODEL_MAIN_OBJ = \
+ATM_OBJ = \
     module_domain.o \
     wrf_netcdf.o \
     module_configure.o \
@@ -29,7 +29,20 @@ MODEL_MAIN_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-MODEL_INIT_OBJ = \
+
+FIRE_OBJ = \
+    module_domain.o \
+    wrf_netcdf.o \
+    module_configure.o \
+    module_fr_sfire_driver.o \
+    module_fr_sfire_model.o \
+    module_fr_sfire_core.o \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_atm.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+
+INIT_OBJ = \
     wrf_netcdf.o \
     module_configure.o \
     module_fr_sfire_util.o  \
@@ -61,7 +74,7 @@ FUEL_INTERP_OBJ = \
 
 #.PHONY: all
 
-default: fire init
+default: atm fire init
 
 fuel: fuel_interp_test.exe
 fuel_interp_test: fuel_interp_test.exe
@@ -71,17 +84,23 @@ fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
 
 all: fire init fuel
 
+atm: atm.exe
+	cd ../wrfv2_fire/test/em_fire; rm -f atm.exe; ln -s ../../../standalone/atm.exe atm.exe
+
 fire: fire.exe
 	cd ../wrfv2_fire/test/em_fire; rm -f fire.exe; ln -s ../../../standalone/fire.exe fire.exe
 
 init: init.exe
 	cd ../wrfv2_fire/test/em_fire; rm -f init.exe; ln -s ../../../standalone/init.exe init.exe
 
-fire.exe: $(MAKEFILE) fire.o $(MODEL_MAIN_OBJ)
-	$(FC) $(FCFLAGS) -o fire.exe fire.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
+atm.exe: $(MAKEFILE) atm.o $(FIRE_OBJ)
+	$(FC) $(FCFLAGS) -o atm.exe fire.o $(FIRE_OBJ) $(LDFLAGS)
 
-init.exe: $(MAKEFILE) init.o $(MODEL_INIT_OBJ)
-	$(FC) $(FCFLAGS) -o init.exe init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
+fire.exe: $(MAKEFILE) fire.o $(FIRE_OBJ)
+	$(FC) $(FCFLAGS) -o fire.exe fire.o $(FIRE_OBJ) $(LDFLAGS)
+
+init.exe: $(MAKEFILE) init.o $(INIT_OBJ)
+	$(FC) $(FCFLAGS) -o init.exe init.o $(INIT_OBJ) $(LDFLAGS)
 
 fuels: fuels.exe
 
