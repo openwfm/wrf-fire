@@ -1311,13 +1311,6 @@ else
 endif
 end function snode
 
-subroutine print_id
-character(len=128)::id,msg
-#include "sfire_id.inc"
-msg=id
-call message(msg,level=1)
-end subroutine print_id
-
 subroutine print_chsum( id, & 
     ims,ime,kms,kme,jms,jme, &                ! memory dims
     ids,ide,kds,kde,jds,jde, &                ! domain dims

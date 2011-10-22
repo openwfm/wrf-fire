@@ -1,4 +1,4 @@
-# fefines FC, FCFLAGS, FFREE
+# defines FC, FCFLAGS, FFREE
 include make.inc
 DEFS =
 WRF = ../wrfv2_fire/phys
@@ -104,6 +104,7 @@ fire.o: $(MAKEFILE) \
     wrf_netcdf.o
 
 module_fr_sfire_driver.o: $(MAKEFILE) \
+    sfire_id.inc \
     module_domain.o \
     module_configure.o \
     module_fr_sfire_model.o  \
@@ -138,7 +139,6 @@ module_fr_sfire_phys.o: $(MAKEFILE) \
     module_fr_sfire_util.o 
 
 module_fr_sfire_util.o: $(MAKEFILE) \
-    sfire_id.inc \
     wrf_fakes.o
 
 wrf_netcdf.o: $(MAKEFILE) \
@@ -148,7 +148,7 @@ module_configure.o: $(MAKEFILE) $(NAMELIST) \
     wrf_netcdf.o \
     module_fr_sfire_util.o
 
-sfire_id.inc: always
+sfire_id.inc: __always
 	chmod +x commit_hash
 	./commit_hash > sfire_id.inc
 	cat sfire_id.inc
@@ -158,7 +158,7 @@ fuels_main.o: $(MAKEFILE) \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-always:
+__always:
 
 clean:
 	rm -f *.mod *.o *.f90 *.s *.exe

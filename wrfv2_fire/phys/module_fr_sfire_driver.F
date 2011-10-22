@@ -1049,4 +1049,11 @@ fire_fmc_read           = config_flags%fire_fmc_read
 
 end subroutine set_flags
 
+subroutine print_id
+character(len=128)::id,msg
+#include "sfire_id.inc"
+msg=id
+call message(msg,level=1)
+end subroutine print_id
+
 end module module_fr_sfire_driver
