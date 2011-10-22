@@ -371,8 +371,8 @@ end subroutine write_vars
 !*** READING 
 !
 
-subroutine set_info_from_file(filename,info)
-! get grid sizes from input file
+subroutine set_fire_info_from_file(filename,info)
+! get fire grid sizes from input file
 implicit none
 
 !*** arguments
@@ -384,9 +384,9 @@ integer::ncid,it
 integer,dimension(4)::fdimid,adimid
 
 !*** executable
+print *,'reading dimensions from file ',filename
 call ncopen(filename,nf90_nowrite,ncid)
 call check(nf90_inq_dimid(ncid,dim_time,fdimid(3)))
-adimid(4)=fdimid(3)
 call check(nf90_inq_dimid(ncid,dim_fire_x,fdimid(1)))
 call check(nf90_inq_dimid(ncid,dim_fire_y,fdimid(2)))
 call check(nf90_inq_dimid(ncid,dim_atm_x, adimid(1)))
@@ -394,9 +394,6 @@ call check(nf90_inq_dimid(ncid,dim_atm_y, adimid(2)))
 call check(nf90_inq_dimid(ncid,dim_atm_z, adimid(3)))
 
 call check(nf90_inquire_dimension(ncid,fdimid(3),len=it))
-!if(it.ne.1)then
-!  call crash('invalid number of time steps in input file, must be 1')
-!endif
 call check(nf90_inquire_dimension(ncid,fdimid(2),len=info%nfirey))
 call check(nf90_inquire_dimension(ncid,fdimid(1),len=info%nfirex))
 call check(nf90_inquire_dimension(ncid,adimid(2),len=info%natmy))
@@ -425,8 +422,68 @@ else
   endif
 endif
 call check(nf90_close(ncid))
-end subroutine set_info_from_file
+end subroutine set_fire_info_from_file
 
+integer function dim_read(ncid,dim_name)
+character(len=*),intent(in)::dim_name
+integer, intent(in)::ncid
+integer dim_val
+call check(nf90_inq_dimid(ncid,dim_name,dim_val))
+dim_read=dim_val
+end function dim_read
+
+subroutine set_atm_info_from_file(filename,info)
+! get grid sizes from input file
+implicit none
+
+!*** arguments
+character(len=*),intent(in)::filename
+type(grid_info),intent(inout)::info
+
+!*** local
+integer::ncid,it
+integer,dimension(4)::fdimid,adimid
+
+!*** executable
+call ncopen(filename,nf90_nowrite,ncid)
+call check(nf90_inq_dimid(ncid,dim_time,fdimid(3)))
+adimid(4)=fdimid(3)
+call check(nf90_inq_dimid(ncid,dim_fire_x,fdimid(1)))
+call check(nf90_inq_dimid(ncid,dim_fire_y,fdimid(2)))
+call check(nf90_inq_dimid(ncid,dim_atm_x, adimid(1)))
+call check(nf90_inq_dimid(ncid,dim_atm_y, adimid(2)))
+call check(nf90_inq_dimid(ncid,dim_atm_z, adimid(3)))
+
+call check(nf90_inquire_dimension(ncid,fdimid(3),len=it))
+call check(nf90_inquire_dimension(ncid,fdimid(2),len=info%nfirey))
+call check(nf90_inquire_dimension(ncid,fdimid(1),len=info%nfirex))
+call check(nf90_inquire_dimension(ncid,adimid(2),len=info%natmy))
+call check(nf90_inquire_dimension(ncid,adimid(1),len=info%natmx))
+call check(nf90_inquire_dimension(ncid,adimid(3),len=info%natmz))
+
+call check(nf90_get_att(ncid,nf90_global,'DX',info%dx))
+call check(nf90_get_att(ncid,nf90_global,'DY',info%dy))
+call check(nf90_get_att(ncid,nf90_global,'DT',info%dt))
+
+if(compat_fire_grid)then
+  info%sr_x=info%nfirex/(info%natmx+1)
+  info%sr_y=info%nfirey/(info%natmy+1)
+  if( (info%natmx+1)*info%sr_x .ne. info%nfirex .or. &
+      (info%natmy+1)*info%sr_y .ne. info%nfirey)then
+      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
+  endif
+  info%nfirex=info%natmx*info%sr_x
+  info%nfirey=info%natmy*info%sr_y
+else
+  info%sr_x=info%nfirex/info%natmx
+  info%sr_y=info%nfirey/info%natmy
+  if( info%natmx*info%sr_x .ne. info%nfirex .or. &
+      info%natmy*info%sr_y .ne. info%nfirey)then
+      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
+  endif
+endif
+call check(nf90_close(ncid))
+end subroutine set_atm_info_from_file
 !
 !***
 !

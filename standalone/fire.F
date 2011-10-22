@@ -11,7 +11,7 @@ subroutine sub_main
 use module_fr_sfire_driver, only: sfire_driver_em, use_atm_vars
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
-use wrf_netcdf, only : grid_info, set_info_from_file, &
+use wrf_netcdf, only : grid_info, set_fire_info_from_file, &
                        create_output_file,write_vars,output_vars_fire, &
                        input_vars_fire,read_vars_fire
 implicit none
@@ -50,7 +50,7 @@ logical::do_ouput
 !*** executable
 
 call read_namelist(config_flags)           ! read flags from namelist.input
-call set_info_from_file(inputfile,info)     ! get dimensions
+call set_fire_info_from_file(inputfile,info)     ! get dimensions
 
 ! set dimensions
 !nx=info%natmx
