@@ -11,7 +11,7 @@ implicit none
 character(len=*),parameter::inputfile='fire_input.nc'
 
 ! control whether the dimensions of the fire grid variables should have 
-! the same (incorrect) sizes that wrf outputs for compatibility
+! the same (incorrect) sizes that wrf outputs, for compatibility
 logical::compat_fire_grid=.true.
 
 ! output variable type
@@ -81,15 +81,17 @@ type grid_info
   real::dx,dy,dt                 ! mesh and time resolution (in terms of the atmospheric grid)
 end type
 
-! pointer to all variables being written (to simplify interface)
+! pointers to all variables being written (to simplify interface)
 type output_vars
   real,dimension(:,:),pointer::lfn,tign,fgrnhfx,fgrnqfx,fuel_frac
 end type
 
-type input_vars
+! pointers to all variables being read (to simplify interface)
+type input_vars_fire
   real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,lfn,tign,fuel_frac,uah,vah,vx,vy
-  ! real,dimension(:,:),pointer::z0
-  ! real,dimension(:,:,:),pointer::u,v,ph,phb
+end type
+type input_vars_atm
+  real,dimension(:,:,:),pointer::u,v,ph,phb,z0
 end type
 
 contains
@@ -259,7 +261,7 @@ implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename
-type(input_vars),intent(in)::input
+type(input_vars_fire),intent(in)::input
 type(grid_info),intent(in)::info
 
 !*** local
@@ -429,13 +431,13 @@ end subroutine set_info_from_file
 !***
 !
 
-subroutine read_vars(filename,info,input)
+subroutine read_vars_fire(filename,info,input)
 ! read all variables from input file
 implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename
-type(input_vars),intent(inout)::input
+type(input_vars_fire),intent(inout)::input
 type(grid_info),intent(in)::info
 
 !*** local
@@ -508,7 +510,7 @@ s(:)=1
 !call check(nf90_get_var(ncid,varid,input%v,start=s,count=c))
 
 call check(nf90_close(ncid))
-end subroutine read_vars
+end subroutine read_vars_fire
 
 subroutine check(ncerr,msg)
 implicit none

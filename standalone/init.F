@@ -11,7 +11,7 @@ use module_fr_sfire_util, only : crash
 implicit none
 
 type(grid_info)::grid
-type(input_vars)::input
+type(input_vars_fire)::input
 integer::ierr,i,j
 real,parameter::wind=10.,alpha=0.0
 type(grid_config_rec_type)::config_flags ! for the namelist

@@ -13,7 +13,7 @@ use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
 use wrf_netcdf, only : grid_info, set_info_from_file, &
                        create_output_file,write_vars,output_vars, &
-                       input_vars,read_vars
+                       input_vars_fire,read_vars_fire
 implicit none
 
 !*** local
@@ -35,7 +35,7 @@ integer::  &                ! fire mesh dimensions
 character(len=*),parameter::inputfile='fire_input.nc'
 character(len=*),parameter::outputfile='fire_output.nc'
 type(output_vars)::output                ! output arrays
-type(input_vars)::input                  ! input arrays
+type(input_vars_fire)::input                  ! input arrays_fire
 
 ! other derived types
 type(grid_info)::info                    ! dimensions, grid controls
@@ -182,7 +182,7 @@ input%fuel_frac   =>grid%fuel_frac(1:nfx,1:nfy)
 !call allocate3d(input%u,   1,nx+1,1,ny,1,nz,'u') 
 !call allocate3d(input%v,   1,nx,1,ny+1,1,nz,'v') 
 
-call read_vars(inputfile,info,input)
+call read_vars_fire(inputfile,info,input)
 
 ! sfire uses wrf ordering of dimensions
 !grid%ph_2(1:nx,1:nz+1,1:ny)=reshape(input%ph, (/nx,nz+1,ny/),order=(/1,3,2/))
