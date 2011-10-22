@@ -49,13 +49,15 @@ do j=1,grid%nfirey
   enddo
 enddo
 
-input%vx(:,:)=wind*cos(alpha)
-input%vy(:,:)=wind*sin(alpha)
+input%uf(:,:)=wind*cos(alpha)
+input%vf(:,:)=wind*sin(alpha)
 
 ! write variables to the file
 call write_inputs(inputfile,input,grid)
 
 ! clean up and exit
-deallocate(input%nfuel_cat,input%dzdxf,input%dzdyf,input%vx,input%vy,input%zsf)
+deallocate(input%nfuel_cat,input%dzdxf,input%dzdyf,input%uf,input%vf,input%zsf)
+
+
 
 end program model_test_init

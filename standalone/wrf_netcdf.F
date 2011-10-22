@@ -88,7 +88,7 @@ end type
 
 ! pointers to all variables being read (to simplify interface)
 type input_vars_fire
-  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,lfn,tign,fuel_frac,uah,vah,vx,vy
+  real,dimension(:,:),pointer::nfuel_cat,dzdxf,dzdyf,zsf,uf,vf,lfn,tign,fuel_frac,uah,vah
 end type
 type input_vars_atm
   real,dimension(:,:,:),pointer::u,v,ph,phb,z0
