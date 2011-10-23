@@ -74,7 +74,7 @@ FUEL_INTERP_OBJ = \
 
 #.PHONY: all
 
-default: atm fire init
+default: fire
 
 fuel: fuel_interp_test.exe
 fuel_interp_test: fuel_interp_test.exe

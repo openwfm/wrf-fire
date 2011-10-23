@@ -31,6 +31,8 @@ namelist /standalone/ compat_fire_grid
 
 #include "namelist_defaults.inc"
 
+write(*,'(2a)')'reading flags from file ',trim(nmlfile)
+
 open(iou,file=nmlfile,err=999)
 
 grp='time_control'

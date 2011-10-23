@@ -76,9 +76,10 @@ character(len=nf90_max_name),parameter::                        &
 ! grid information structure
 type grid_info
   integer::nfirex,nfirey,      & ! fire grid size
-           natmx,natmy,natmz,  & ! atmospheric grid size
-           sr_x,sr_y             ! subgrid refinement
-  real::dx,dy,dt                 ! mesh and time resolution (in terms of the atmospheric grid)
+           ntimes,             & ! number of times
+           dimids(3)             ! dimension ids, to check
+  real::fdx,fdy,dt               ! mesh and time resolution
+  character(len=NF90_MAX_NAME)::dim_fire_x,dim_fire_y,dim_time ! dimension names, for info only
 end type
 
 ! pointers to all variables being written (to simplify interface)
@@ -122,24 +123,24 @@ call check(nf90_create(filename,nf90_clobber,ncid))
 !!the dimension name, and the dimension length. (From NetCDF docs)
 
 call check(nf90_def_dim(ncid,dim_time,nf90_unlimited,dimid))
-if(compat_fire_grid)then
-  call check(nf90_def_dim(ncid,dim_fire_x,(info%natmx+1)*info%sr_x,dimid))
-  call check(nf90_def_dim(ncid,dim_fire_y,(info%natmy+1)*info%sr_y,dimid))
-else
+!if(compat_fire_grid)then
+!  call check(nf90_def_dim(ncid,dim_fire_x,(info%natmx+1)*info%sr_x,dimid))
+!  call check(nf90_def_dim(ncid,dim_fire_y,(info%natmy+1)*info%sr_y,dimid))
+!else
   call check(nf90_def_dim(ncid,dim_fire_x,info%nfirex,dimid))
   call check(nf90_def_dim(ncid,dim_fire_y,info%nfirey,dimid))
-endif
-call check(nf90_def_dim(ncid,dim_atm_x,info%natmx,dimid))
-call check(nf90_def_dim(ncid,dim_atm_y,info%natmy,dimid))
-call check(nf90_def_dim(ncid,dim_atm_z,info%natmz,dimid))
-call check(nf90_def_dim(ncid,dim_atm_x_s,info%natmx+1,dimid))
-call check(nf90_def_dim(ncid,dim_atm_y_s,info%natmy+1,dimid))
-call check(nf90_def_dim(ncid,dim_atm_z_s,info%natmz+1,dimid))
+!endif
+!call check(nf90_def_dim(ncid,dim_atm_x,info%natmx,dimid))
+!call check(nf90_def_dim(ncid,dim_atm_y,info%natmy,dimid))
+!call check(nf90_def_dim(ncid,dim_atm_z,info%natmz,dimid))
+!call check(nf90_def_dim(ncid,dim_atm_x_s,info%natmx+1,dimid))
+!call check(nf90_def_dim(ncid,dim_atm_y_s,info%natmy+1,dimid))
+!call check(nf90_def_dim(ncid,dim_atm_z_s,info%natmz+1,dimid))
 call check(nf90_def_dim(ncid,'DateStrLen',12,dimid))
 
 ! define global attributes
-call check(nf90_put_att(ncid,nf90_global,'DX',info%dx))
-call check(nf90_put_att(ncid,nf90_global,'DY',info%dy))
+!!call check(nf90_put_att(ncid,nf90_global,'DX',info%dx))
+!!call check(nf90_put_att(ncid,nf90_global,'DY',info%dy))
 call check(nf90_put_att(ncid,nf90_global,'DT',info%dt))
 call check(nf90_put_att(ncid,nf90_global,'STANDALONE_DRIVER',1))
 
@@ -293,17 +294,17 @@ call check(nf90_put_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
 call check(nf90_inq_varid(ncid,var_zsf,varid))
 call check(nf90_put_var(ncid,varid,input%zsf,start=s(1:3),count=c(1:3)))
 
-c(1)=info%natmx+1
-c(2)=info%natmy
+!c(1)=info%natmx+1
+!c(2)=info%natmy
 
-call check(nf90_inq_varid(ncid,var_uf,varid))
-call check(nf90_put_var(ncid,varid,input%uf,start=s,count=c))
+!call check(nf90_inq_varid(ncid,var_uf,varid))
+!call check(nf90_put_var(ncid,varid,input%uf,start=s,count=c))
 
-c(1)=info%natmx
-c(2)=info%natmy+1
+!c(1)=info%natmx
+!c(2)=info%natmy+1
 
-call check(nf90_inq_varid(ncid,var_vf,varid))
-call check(nf90_put_var(ncid,varid,input%vf,start=s,count=c))
+!call check(nf90_inq_varid(ncid,var_vf,varid))
+!call check(nf90_put_var(ncid,varid,input%vf,start=s,count=c))
 
 call check(nf90_close(ncid))
 
@@ -380,39 +381,45 @@ character(len=*),intent(in)::filename
 type(grid_info),intent(inout)::info
 
 !*** local
-integer::ncid,it,ndims,mdims=4
-integer,dimension(4)::fdimid,adimid,dims,sr
+integer::ncid,it,ndims
+integer, parameter:: mdims=3
+integer,dimension(mdims)::dims,sr,dimids
+real::dx,dy
+character(len=128)::msg
+character(len=NF90_MAX_NAME)::dimnames(mdims)
 
 !*** executable
 write(*,'(2a)')'reading dimensions from file ',trim(filename)
 call ncopen(filename,nf90_nowrite,ncid)
-call read_var_dims(ncid,'UF',mdims,ndims,dims,sr)
-
-call dim_read(ncid,dim_time,it)
-call dim_read(ncid,dim_fire_x,info%nfirex)
-call dim_read(ncid,dim_fire_y,info%nfirey)
-
-call att_read(ncid,'DX',info%dx)
-call att_read(ncid,'DY',info%dy)
+call read_var_dims(ncid,var_nfuel_cat,mdims,ndims,dims,sr,dimnames,dimids)
+if(ndims.ne.3)then
+    write(msg,'(2a,i2,a,i2)')var_nfuel_cat,' has ',ndims,' dimensions not ',mdims
+    call crash(msg)
+endif
+if((sr(1).ne.0.and.sr(2).eq.0).or.sr(1).lt.0.or.sr(2).lt.0)then
+    write(msg,'(a,2i5)')'bad subgrid refinement ratios',sr(1),sr(2)
+    call crash(msg)
+endif
+info%nfirex=dims(1)
+info%nfirey=dims(2)
+info%ntimes=dims(3)
+info%dim_fire_x=dimnames(1)
+info%dim_fire_y=dimnames(2)
+info%dim_time=dimnames(3)
+info%dimids=dimids
+	
+call att_read(ncid,'DX',info%fdx)
+call att_read(ncid,'DY',info%fdy)
+if(sr(1).ne.0)then
+    info%fdx=info%fdx/sr(1)
+    info%fdy=info%fdy/sr(2)
+endif
 call att_read(ncid,'DT',info%dt)
 
-!if(compat_fire_grid)then
-!  info%sr_x=info%nfirex/(info%natmx+1)
-!  info%sr_y=info%nfirey/(info%natmy+1)
-!  if( (info%natmx+1)*info%sr_x .ne. info%nfirex .or. &
-!      (info%natmy+1)*info%sr_y .ne. info%nfirey)then
-!      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
-!  endif
-!  info%nfirex=info%natmx*info%sr_x
-!  info%nfirey=info%natmy*info%sr_y
-!else
-!  info%sr_x=info%nfirex/info%natmx
-!  info%sr_y=info%nfirey/info%natmy
-!  if( info%natmx*info%sr_x .ne. info%nfirex .or. &
-!      info%natmy*info%sr_y .ne. info%nfirey)then
-!      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
-!  endif
-!endif
+write(*,'(4(a,1x))')'dimension names:',trim(info%dim_fire_x),trim(info%dim_fire_y),trim(info%dim_time)
+write(*,'(a,2i6)')'fire grid dimensions:',info%nfirex,info%nfirey
+write(*,'(a,i6)')'number of time frames',info%ntimes
+write(*,'(3(a,f8.4,1x))')'stepsizes fdx=',info%fdx,'fdy=',info%fdy,'dt=',info%dt
 call check(nf90_close(ncid))
 end subroutine set_fire_info_from_file
 
@@ -434,63 +441,7 @@ call check(nf90_get_att(ncid,nf90_global,att_name,att_val))
 write(*,'(a,1x,a,g20.5)')'attribute',trim(att_name),att_val
 end subroutine att_read
 
-subroutine set_atm_info_from_file(filename,info)
-! get grid sizes from input file
-implicit none
-
-!*** arguments
-character(len=*),intent(in)::filename
-type(grid_info),intent(inout)::info
-
-!*** local
-integer::ncid,it
-integer,dimension(4)::fdimid,adimid
-
-!*** executable
-call ncopen(filename,nf90_nowrite,ncid)
-call check(nf90_inq_dimid(ncid,dim_time,fdimid(3)))
-adimid(4)=fdimid(3)
-call check(nf90_inq_dimid(ncid,dim_fire_x,fdimid(1)))
-call check(nf90_inq_dimid(ncid,dim_fire_y,fdimid(2)))
-call check(nf90_inq_dimid(ncid,dim_atm_x, adimid(1)))
-call check(nf90_inq_dimid(ncid,dim_atm_y, adimid(2)))
-call check(nf90_inq_dimid(ncid,dim_atm_z, adimid(3)))
-
-call check(nf90_inquire_dimension(ncid,fdimid(3),len=it))
-call check(nf90_inquire_dimension(ncid,fdimid(2),len=info%nfirey))
-call check(nf90_inquire_dimension(ncid,fdimid(1),len=info%nfirex))
-call check(nf90_inquire_dimension(ncid,adimid(2),len=info%natmy))
-call check(nf90_inquire_dimension(ncid,adimid(1),len=info%natmx))
-call check(nf90_inquire_dimension(ncid,adimid(3),len=info%natmz))
-
-call check(nf90_get_att(ncid,nf90_global,'DX',info%dx))
-call check(nf90_get_att(ncid,nf90_global,'DY',info%dy))
-call check(nf90_get_att(ncid,nf90_global,'DT',info%dt))
-
-if(compat_fire_grid)then
-  info%sr_x=info%nfirex/(info%natmx+1)
-  info%sr_y=info%nfirey/(info%natmy+1)
-  if( (info%natmx+1)*info%sr_x .ne. info%nfirex .or. &
-      (info%natmy+1)*info%sr_y .ne. info%nfirey)then
-      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
-  endif
-  info%nfirex=info%natmx*info%sr_x
-  info%nfirey=info%natmy*info%sr_y
-else
-  info%sr_x=info%nfirex/info%natmx
-  info%sr_y=info%nfirey/info%natmy
-  if( info%natmx*info%sr_x .ne. info%nfirex .or. &
-      info%natmy*info%sr_y .ne. info%nfirey)then
-      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
-  endif
-endif
-call check(nf90_close(ncid))
-end subroutine set_atm_info_from_file
-!
-!***
-!
-
-subroutine read_var_dims(ncid,varname,mdims,ndims,dims,sr)
+subroutine read_var_dims(ncid,varname,mdims,ndims,dims,sr,dimnames,dimids)
 ! get variable dimensions from a file
 ! arguments
 integer, intent(in):: ncid             ! open netcdf file
@@ -499,8 +450,10 @@ integer, intent(in):: mdims            ! maximal number of dimensions
 integer, intent(out)::ndims            ! number of dimensions of this variable
 integer, intent(out)::dims(mdims)      ! the dimensions
 integer, intent(out), optional::sr(mdims)! refinement ratios
+character(len=*),intent(out),optional::dimnames(mdims) ! dimension names
+integer,intent(out),optional::dimids(mdims) ! dimension ids
 ! local
-integer::varid,dimid,xtype,dimids(mdims),idim,i,ratio,staglen,stagid,dimlen
+integer::varid,dimid,xtype,idimids(mdims),idim,i,ratio,staglen,stagid,dimlen
 character(len=NF90_MAX_NAME)::dimname,stagname
 character(len=128)::msg
 character(len=*), parameter:: subgrid='_subgrid'
@@ -515,9 +468,9 @@ endif
 if(xtype.ne.NF90_FLOAT)then
     call crash('only FLOAT variable allowed')
 endif
-call check(nf90_inquire_variable(ncid, varid, dimids=dimids))
+call check(nf90_inquire_variable(ncid, varid, dimids=idimids))
 do idim=1,ndims
-    call check(nf90_inquire_dimension(ncid, dimids(idim), dimname, dimlen))
+    call check(nf90_inquire_dimension(ncid, idimids(idim), dimname, dimlen))
     ratio=0
     i=index(dimname,subgrid,.true.)
     !print *,trim(dimname),subgrid,i,len(subgrid),len_trim(dimname)
@@ -530,6 +483,12 @@ do idim=1,ndims
     dims(idim) = dimlen - ratio 
     if(present(sr))then
         sr(idim)=ratio
+    endif
+    if(present(dimnames))then
+        dimnames(idim)=dimname
+    endif
+    if(present(dimids))then
+        dimids(idim)=idimids(idim)
     endif
 enddo
 2 format(3a,(4i6))
@@ -577,46 +536,6 @@ call check(nf90_inq_varid(ncid,var_fuel_frac,varid))
 call check(nf90_get_var(ncid,varid,input%fuel_frac,start=s(1:3),count=c(1:3)))
 
 s(:)=1
-
-!c(1)=info%natmx
-!c(2)=info%natmy
-!c(3)=1
-!c(4)=1
-!
-!call check(nf90_inq_varid(ncid,var_z0,varid))
-!call check(nf90_get_var(ncid,varid,input%z0,start=s,count=c))
-!
-!c(1)=info%natmx
-!c(2)=info%natmy
-!c(3)=info%natmz+1
-!c(4)=1
-!
-!call check(nf90_inq_varid(ncid,var_ph,varid))
-!call check(nf90_get_var(ncid,varid,input%ph,start=s,count=c))
-!
-!c(1)=info%natmx
-!c(2)=info%natmy
-!c(3)=info%natmz+1
-!c(4)=1
-!
-!call check(nf90_inq_varid(ncid,var_phb,varid))
-!call check(nf90_get_var(ncid,varid,input%phb,start=s,count=c))
-!
-!c(1)=info%natmx+1
-!c(2)=info%natmy
-!c(3)=info%natmz
-!c(4)=1
-!
-!call check(nf90_inq_varid(ncid,var_u,varid))
-!call check(nf90_get_var(ncid,varid,input%u,start=s,count=c))
-!
-!c(1)=info%natmx
-!c(2)=info%natmy+1
-!c(3)=info%natmz
-!c(4)=1
-!
-!call check(nf90_inq_varid(ncid,var_v,varid))
-!call check(nf90_get_var(ncid,varid,input%v,start=s,count=c))
 
 call check(nf90_close(ncid))
 end subroutine read_vars_fire

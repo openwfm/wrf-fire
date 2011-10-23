@@ -22,10 +22,6 @@ implicit none
 
 type(domain)::grid          ! all: state+inputs+outputs, compatible with wrf
 TYPE (grid_config_rec_type):: config_flags ! the namelist
-integer::  &                ! atmosphere mesh dimensions, for compatibility
-    ids,ide, kds,kde, jds,jde,& 
-    ims,ime, kms,kme, jms,jme,&
-    ips,ipe, kps,kpe, jps,jpe
 integer::  &                ! fire mesh dimensions
     ifds,ifde,jfds,jfde, &  ! the physical domain
     ifps,ifpe,jfps,jfpe, &  ! patch - assigned to one process. Here the same as domain.
@@ -41,7 +37,7 @@ type(input_vars_fire)::input                  ! input arrays_fire
 type(grid_info)::info                    ! dimensions, grid controls
 
 ! scalars
-integer:: nx,ny,nz,nfx,nfy,nfz,nsteps,itimestep,sr_x,sr_y
+integer:: nsteps,itimestep
 integer::nhalo=5
 double precision:: dt, duration_s  ! may need more accurate time computation to get the number of timesteps right
 real:: time,time_step_start, dts
@@ -53,66 +49,19 @@ call read_namelist(config_flags)           ! read flags from namelist.input
 call set_fire_info_from_file(inputfile,info)     ! get dimensions
 
 ! set dimensions
-!nx=info%natmx
-!ny=info%natmy
-!nz=info%natmz
-nfx=info%nfirex
-nfy=info%nfirey
-sr_x=info%sr_x
-sr_y=info%sr_y
-
-!write(6,2)' atmospheric domain size               ',config_flags%e_we,config_flags%e_sn,config_flags%e_vert
-!if(config_flags%e_we.ne.nx+1 .or. config_flags%e_sn.ne.ny+1 .or. config_flags%e_vert.ne.nz+1)then
-!  write(6,*)'dimensions in input file are ',nx,ny,nz,' must be 1 less than in namelist.input'
-!  call crash('inconsistent input files')
-!endif
-
-
-! set atm domain size
-!ids=1
-!ide=nx+1
-!jds=1
-!jde=ny+1
-!kds=1
-!kde=nz+1
-!ims=ids-nhalo
-!ime=ide+nhalo
-!jms=jds-nhalo
-!jme=jde+nhalo
-!kms=kds
-!kme=kde
-!ips=ids
-!ipe=ide
-!jps=jds
-!jpe=jde
-!kps=kds
-!kpe=kde
-!
-!write(6,2)'fire_mesh refinement ratio  ',info%sr_x,info%sr_y
-
-write(6,2)'fire domain size            ',nfx,nfy
-
-!if(nfx.ne.sr_x*nx .or. nfy.ne.sr_y*ny)then
-!   call crash('fire domain size is not multiple of atmospheric domain size')
-!endif
-
-
-! set fire domain size
 ifds=1
-ifde=nfx+sr_x
+ifde=info%nfirex
 jfds=1
-jfde=nfy+sr_y
-ifms=ifds-sr_x*nhalo
-ifme=ifde+sr_x*nhalo
-jfms=ifds-sr_y*nhalo
-jfme=ifde+sr_y*nhalo
+jfde=info%nfirey
+ifms=ifds-nhalo
+ifme=ifde+nhalo
+jfms=ifds-nhalo
+jfme=ifde+nhalo
 ifps=1
-ifpe=nfx
+ifpe=ifde
 jfps=1
-jfpe=nfy
+jfpe=jfde
 
-!write(6,2)'atmospheric domain dimensions',ids,ide,jds,jde,kds,kde
-!write(6,2)'atmospheric memory dimensions',ims,ime,jms,jme,kms,kme
 write(6,2)'fire domain dimensions       ',ifds,ifde,jfds,jfde
 write(6,2)'fire memory dimensions       ',ifms,ifme,jfms,jfme
 2 format(a,6i6)
@@ -142,45 +91,14 @@ call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign')
 call allocate2d(grid%fuel_frac,ifms,ifme,jfms,jfme,'fuel_frac') 
 call allocate2d(grid%fire_area,ifms,ifme,jfms,jfme,'fire_area') 
 call allocate2d(grid%lfn_out,ifms,ifme,jfms,jfme,'lfn_out') 
-call allocate2d(grid%ros,ifms,ifme,jfms,jfme,'ros') 
+
 
 ! output
+call allocate2d(grid%ros,ifms,ifme,jfms,jfme,'ros') 
 call allocate2d(grid%fgrnhfx,ifms,ifme,jfms,jfme,'fgrnhfx')          ! 
 call allocate2d(grid%fgrnqfx,ifms,ifme,jfms,jfme,'fgrnqfx')          ! 
 call allocate2d(grid%fcanhfx,ifms,ifme,jfms,jfme,'fcanhfx')          ! 
 call allocate2d(grid%fcanqfx,ifms,ifme,jfms,jfme,'fcanqfx')          ! 
-
-! atmosphere input/output compatibility arrays
-!call allocate2d(grid%avg_fuel_frac,ims,ime,jms,jme,'avg_fuel_frac') 
-!call allocate2d(grid%xlong,ims,ime,jms,jme,'xlong') 
-!call allocate2d(grid%xlat,ims,ime,jms,jme,'xlat') 
-!call allocate2d(grid%ht,ims,ime,jms,jme,'ht') 
-!call allocate2d(grid%z0,ims,ime,jms,jme,'z0') 
-!call allocate2d(grid%grnhfx,ims,ime,jms,jme,'grnhfx') 
-!call allocate2d(grid%grnqfx,ims,ime,jms,jme,'qrnqfx') 
-!call allocate2d(grid%canhfx,ims,ime,jms,jme,'canhfx')
-!call allocate2d(grid%canqfx,ims,ime,jms,jme,'canqfx') 
-!call allocate3d(grid%ph_2,ims,ime,kms,kme,jms,jme,'ph_2') 
-!call allocate3d(grid%phb,ims,ime,kms,kme,jms,jme,'phb') 
-!call allocate3d(grid%u_2,ims,ime,kms,kme,jms,jme,'u_2') 
-!call allocate3d(grid%v_2,ims,ime,kms,kme,jms,jme,'v_2') 
-!call allocate2d(grid%uah,ims,ime,jms,jme,'uah')                  ! 
-!call allocate2d(grid%vah,ims,ime,jms,jme,'vah')                  ! 
-
-! prepare reading input file
-input%nfuel_cat=>grid%nfuel_cat(1:nfx,1:nfy)
-input%zsf      =>grid%zsf(1:nfx,1:nfy)
-input%dzdxf    =>grid%dzdxf(1:nfx,1:nfy)
-input%dzdyf    =>grid%dzdyf(1:nfx,1:nfy)
-input%vf       =>grid%uf(1:nfx,1:nfy)
-input%uf       =>grid%vf(1:nfx,1:nfy)
-input%lfn      =>grid%lfn(1:nfx,1:nfy)
-input%tign     =>grid%tign_g(1:nfx,1:nfy)
-input%fuel_frac   =>grid%fuel_frac(1:nfx,1:nfy)
-!call allocate3d(input%ph  ,1,nx,1,ny,1,nz+1,'ph') 
-!call allocate3d(input%phb, 1,nx,1,ny,1,nz+1,'phb') 
-!call allocate3d(input%u,   1,nx+1,1,ny,1,nz,'u') 
-!call allocate3d(input%v,   1,nx,1,ny+1,1,nz,'v') 
 
 call read_vars_fire(inputfile,info,input)
 
@@ -209,14 +127,10 @@ duration_s = config_flags%run_seconds           &
 nsteps = nint( duration_s / dt ) ! number of time steps
 
 ! divide up for shared memory parallel execution
-call set_tiles(1,1,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
+!!call set_tiles(1,1,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
 
 ! set the scalars in grid type
-grid%sr_x = sr_x
-grid%sr_y = sr_y
 grid%dt = dt
-grid%dx = info%dx
-grid%dy = info%dy
 grid%itimestep=0
 grid%u_frame=0.
 grid%v_frame=0.
@@ -227,30 +141,30 @@ call create_output_file(outputfile,info)
 ! initialize model
    time_step_start  =0.
    dts=dt
-call sfire_driver_em ( grid , config_flags                          &
-            ,time_step_start,dts                                    &
-            ,1,2,0                                                 &
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,ifds,ifde, jfds,jfde                                   &
-            ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe )
+!call sfire_driver_em ( grid , config_flags                          &
+!            ,time_step_start,dts                                    &
+!            ,1,2,0                                                 &
+!            ,ids,ide, kds,kde, jds,jde                              &
+!            ,ims,ime, kms,kme, jms,jme                              &
+!            ,ips,ipe, kps,kpe, jps,jpe                              &
+!            ,ifds,ifde, jfds,jfde                                   &
+!            ,ifms,ifme, jfms,jfme                                   &
+!            ,ifps,ifpe, jfps,jfpe )
 
 do itimestep=1,nsteps
 ! run  model
    grid%itimestep = itimestep
    time_step_start = itimestep*dt
    dts=dt
-   call sfire_driver_em ( grid , config_flags                          &
-            ,time_step_start,dts                                    &
-            ,3,6,0                                                  &
-            ,ids,ide, kds,kde, jds,jde                              &
-            ,ims,ime, kms,kme, jms,jme                              &
-            ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,ifds,ifde, jfds,jfde                                   &
-            ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe )
+!   call sfire_driver_em ( grid , config_flags                          &
+!            ,time_step_start,dts                                    &
+!            ,3,6,0                                                  &
+!            ,ids,ide, kds,kde, jds,jde                              &
+!            ,ims,ime, kms,kme, jms,jme                              &
+!            ,ips,ipe, kps,kpe, jps,jpe                              &
+!            ,ifds,ifde, jfds,jfde                                   &
+!            ,ifms,ifme, jfms,jfme                                   &
+!            ,ifps,ifpe, jfps,jfpe )
     
     if(itimestep.le.10.or.mod(itimestep,10).eq.0)then
         time = dt*itimestep
@@ -262,6 +176,34 @@ do itimestep=1,nsteps
 enddo
 
 end subroutine sub_main
+
+!subroutine sfire_model (                    &
+!    id,                                     & ! unique number for prints and debug
+!    ifun,                                   & ! what to do see below
+!    restart,                                & ! use existing state
+!    num_ignitions,                          & ! number of ignitions before advancing
+!    ifuelread,nfuel_cat0,                   & ! initialize fuel categories
+!    ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+!    ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+!    ifps,ifpe,jfps,jfpe,                    & ! patch - nodes owned by this process
+!    ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
+!    time_start,dt,                          & ! time and increment
+!    fdx,fdy,                                & ! fire mesh spacing,
+!    ignition_line,                          & ! small array of ignition line descriptions
+!    ignitions_done,ignited_tile,            &
+!    coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
+!    lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
+!    grnhfx,grnqfx,                          & ! output: heat fluxes
+!    ros,flineint,flineint2,                 & ! diagnostic variables
+!    f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread
+!    f_int,f_lineint,f_lineint2,             & ! fire risk intensities
+!    nfuel_cat,                              & ! fuel data per point
+!    fuel_time,fwh,fz0,                      & ! save derived internal data
+!    fp &
+!)
+
+
+!subroutine model_driver(grid,config_flags)
 
 !
 !******************************
@@ -280,20 +222,20 @@ character(len=128)::msg
 write(msg,1)'patch',ips,':',ipe,jps,':',jpe
 1 format(a,5x,i6,a,2i6,a,i6)
 call message(msg,level=-1)
-if(ips.ge.ipe.or.jps.ge.jpe)call crash('bad domain bounds')
-num_tiles=itiles*jtiles
-istep=(ipe-ips+itiles)/itiles
-jstep=(jpe-jps+jtiles)/jtiles
-do i=1,itiles
-    do j=1,jtiles
-        ij=j+(i-1)*jtiles
-        i_start(ij)=min(ipe,ips+(i-1)*istep)
-        i_end(ij)  =min(ipe,ips+(i  )*istep-1)
-        j_start(ij)=min(jpe,jps+(j-1)*jstep)
-        j_end(ij)  =min(jpe,jps+(j  )*jstep-1)
-    enddo
-enddo
-call check_tiles(ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end)
+!if(ips.ge.ipe.or.jps.ge.jpe)call crash('bad domain bounds')
+!num_tiles=itiles*jtiles
+!istep=(ipe-ips+itiles)/itiles
+!jstep=(jpe-jps+jtiles)/jtiles
+!do i=1,itiles
+!    do j=1,jtiles
+!        ij=j+(i-1)*jtiles
+!        i_start(ij)=min(ipe,ips+(i-1)*istep)
+!        i_end(ij)  =min(ipe,ips+(i  )*istep-1)
+!        j_start(ij)=min(jpe,jps+(j-1)*jstep)
+!        j_end(ij)  =min(jpe,jps+(j  )*jstep-1)
+!    enddo
+!enddo
+!call check_tiles(ips,ipe,jps,jpe,num_tiles,i_start,i_end,j_start,j_end)
 end subroutine set_tiles
 
 
