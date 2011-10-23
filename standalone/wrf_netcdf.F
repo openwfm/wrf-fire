@@ -380,57 +380,59 @@ character(len=*),intent(in)::filename
 type(grid_info),intent(inout)::info
 
 !*** local
-integer::ncid,it
-integer,dimension(4)::fdimid,adimid
+integer::ncid,it,ndims,mdims=4
+integer,dimension(4)::fdimid,adimid,dims,sr
 
 !*** executable
-print *,'reading dimensions from file ',filename
+write(*,'(2a)')'reading dimensions from file ',trim(filename)
 call ncopen(filename,nf90_nowrite,ncid)
-call check(nf90_inq_dimid(ncid,dim_time,fdimid(3)))
-call check(nf90_inq_dimid(ncid,dim_fire_x,fdimid(1)))
-call check(nf90_inq_dimid(ncid,dim_fire_y,fdimid(2)))
-call check(nf90_inq_dimid(ncid,dim_atm_x, adimid(1)))
-call check(nf90_inq_dimid(ncid,dim_atm_y, adimid(2)))
-call check(nf90_inq_dimid(ncid,dim_atm_z, adimid(3)))
+call read_var_dims(ncid,'UF',mdims,ndims,dims,sr)
 
-call check(nf90_inquire_dimension(ncid,fdimid(3),len=it))
-call check(nf90_inquire_dimension(ncid,fdimid(2),len=info%nfirey))
-call check(nf90_inquire_dimension(ncid,fdimid(1),len=info%nfirex))
-call check(nf90_inquire_dimension(ncid,adimid(2),len=info%natmy))
-call check(nf90_inquire_dimension(ncid,adimid(1),len=info%natmx))
-call check(nf90_inquire_dimension(ncid,adimid(3),len=info%natmz))
+call dim_read(ncid,dim_time,it)
+call dim_read(ncid,dim_fire_x,info%nfirex)
+call dim_read(ncid,dim_fire_y,info%nfirey)
 
-call check(nf90_get_att(ncid,nf90_global,'DX',info%dx))
-call check(nf90_get_att(ncid,nf90_global,'DY',info%dy))
-call check(nf90_get_att(ncid,nf90_global,'DT',info%dt))
+call att_read(ncid,'DX',info%dx)
+call att_read(ncid,'DY',info%dy)
+call att_read(ncid,'DT',info%dt)
 
-if(compat_fire_grid)then
-  info%sr_x=info%nfirex/(info%natmx+1)
-  info%sr_y=info%nfirey/(info%natmy+1)
-  if( (info%natmx+1)*info%sr_x .ne. info%nfirex .or. &
-      (info%natmy+1)*info%sr_y .ne. info%nfirey)then
-      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
-  endif
-  info%nfirex=info%natmx*info%sr_x
-  info%nfirey=info%natmy*info%sr_y
-else
-  info%sr_x=info%nfirex/info%natmx
-  info%sr_y=info%nfirey/info%natmy
-  if( info%natmx*info%sr_x .ne. info%nfirex .or. &
-      info%natmy*info%sr_y .ne. info%nfirey)then
-      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
-  endif
-endif
+!if(compat_fire_grid)then
+!  info%sr_x=info%nfirex/(info%natmx+1)
+!  info%sr_y=info%nfirey/(info%natmy+1)
+!  if( (info%natmx+1)*info%sr_x .ne. info%nfirex .or. &
+!      (info%natmy+1)*info%sr_y .ne. info%nfirey)then
+!      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
+!  endif
+!  info%nfirex=info%natmx*info%sr_x
+!  info%nfirey=info%natmy*info%sr_y
+!else
+!  info%sr_x=info%nfirex/info%natmx
+!  info%sr_y=info%nfirey/info%natmy
+!  if( info%natmx*info%sr_x .ne. info%nfirex .or. &
+!      info%natmy*info%sr_y .ne. info%nfirey)then
+!      call crash('invalid dimensions in input file or compat_fire_grid set incorrectly')
+!  endif
+!endif
 call check(nf90_close(ncid))
 end subroutine set_fire_info_from_file
 
-integer function dim_read(ncid,dim_name)
+subroutine dim_read(ncid,dim_name,dim_len)
 character(len=*),intent(in)::dim_name
 integer, intent(in)::ncid
-integer dim_val
-call check(nf90_inq_dimid(ncid,dim_name,dim_val))
-dim_read=dim_val
-end function dim_read
+integer,intent(out):: dim_len
+integer:: dim_id
+call check(nf90_inq_dimid(ncid,dim_name,dim_id))
+call check(nf90_inquire_dimension(ncid,dim_id,len=dim_len))
+write(*,'(a,1x,a,i6)')'dimension',trim(dim_name),dim_len
+end subroutine dim_read
+
+subroutine att_read(ncid,att_name,att_val)
+integer, intent(in)::ncid
+character(len=*),intent(in)::att_name
+real, intent(out)::att_val
+call check(nf90_get_att(ncid,nf90_global,att_name,att_val))
+write(*,'(a,1x,a,g20.5)')'attribute',trim(att_name),att_val
+end subroutine att_read
 
 subroutine set_atm_info_from_file(filename,info)
 ! get grid sizes from input file
@@ -487,6 +489,56 @@ end subroutine set_atm_info_from_file
 !
 !***
 !
+
+subroutine read_var_dims(ncid,varname,mdims,ndims,dims,sr)
+! get variable dimensions from a file
+! arguments
+integer, intent(in):: ncid             ! open netcdf file
+character(len=*), intent(in):: varname ! variable name
+integer, intent(in):: mdims            ! maximal number of dimensions
+integer, intent(out)::ndims            ! number of dimensions of this variable
+integer, intent(out)::dims(mdims)      ! the dimensions
+integer, intent(out), optional::sr(mdims)! refinement ratios
+! local
+integer::varid,dimid,xtype,dimids(mdims),idim,i,ratio,staglen,stagid,dimlen
+character(len=NF90_MAX_NAME)::dimname,stagname
+character(len=128)::msg
+character(len=*), parameter:: subgrid='_subgrid'
+! executable
+call check(nf90_inq_varid(ncid, varname, varid))
+call check(nf90_inquire_variable(ncid,varid,xtype=xtype,ndims=ndims))
+if(ndims.gt.mdims)then
+    write(*,1)'variable ',trim(varname),' has ',ndims,' dimensions >',mdims
+    call crash('variable has too many dimensions')
+1 format(3a,i5,a,(4i6))
+endif
+if(xtype.ne.NF90_FLOAT)then
+    call crash('only FLOAT variable allowed')
+endif
+call check(nf90_inquire_variable(ncid, varid, dimids=dimids))
+do idim=1,ndims
+    call check(nf90_inquire_dimension(ncid, dimids(idim), dimname, dimlen))
+    ratio=0
+    i=index(dimname,subgrid,.true.)
+    !print *,trim(dimname),subgrid,i,len(subgrid),len_trim(dimname)
+    if ( i + len(subgrid) .eq. len_trim(dimname)+1) then ! subgrid, need to fix
+        stagname=dimname(1:i-1) // '_stag'
+        call check(nf90_inq_dimid(ncid, stagname, stagid))
+        call check(nf90_inquire_dimension(ncid, stagid, len=staglen))
+        ratio = dimlen/staglen
+    endif
+    dims(idim) = dimlen - ratio 
+    if(present(sr))then
+        sr(idim)=ratio
+    endif
+enddo
+2 format(3a,(4i6))
+write(*,2)'variable ',trim(varname),    ' dimensions    ',(dims(idim),idim=1,ndims)
+if(present(sr))then
+    write(*,2)'variable ',trim(varname),' subgrid ratios',(sr(idim),idim=1,ndims)
+endif
+end subroutine read_var_dims
+
 
 subroutine read_vars_fire(filename,info,input)
 ! read all variables from input file
