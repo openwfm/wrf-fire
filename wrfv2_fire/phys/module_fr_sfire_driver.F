@@ -79,9 +79,6 @@ USE module_domain, only: domain
 USE module_configure, only: grid_config_rec_type
 use module_model_constants, only: reradius,    & ! 1/earth radiusw
                                   pi2            ! 2*pi
-#ifdef DM_PARALLEL
-USE module_dm, only:wrf_dm_sum_integer
-#endif
 
 implicit none
 
@@ -404,9 +401,6 @@ integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
-integer::ignitions_done_tile(num_tiles),ignited_tile(fire_max_ignitions,num_tiles)
-integer::ignitions_done,ignited_patch(fire_max_ignitions),idex,jdex
-
 
 !*** executable
 
@@ -484,8 +478,6 @@ jpe1=ifval(jpe.eq.jde,jpe+1,jpe)
 do ij=1,num_tiles
 
     id = ifval(pid.ne.0,pid+ij*10000,0) ! for print
-
-    ignitions_done_tile(ij)=0
 
     ! set up tile bounds    
     its = i_start(ij)  ! start atmospheric tile in i
@@ -683,7 +675,6 @@ do ij=1,num_tiles
         time_start,dt,                          & ! time and increment
         dxf,dyf,                                & ! fire mesh spacing
         ignition,                          & ! description of ignition lines
-        ignitions_done_tile(ij),ignited_tile(1,ij),  &
         fxlong,fxlat,                           & ! fire mesh coordinates
         lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
@@ -696,8 +687,6 @@ do ij=1,num_tiles
         fp                                      & ! fire coefficients
     )
 
-     ! print *,'ifun=',ifun,' ignitions_done_tile(ij)=',ignitions_done_tile(ij)
-    
      if(ifun.eq.2)then
         call setup_wind_log_interpolation(           &
             ids,ide,  jds,jde,                    & ! atm grid dimensions
@@ -777,31 +766,6 @@ if(ifun.eq.1)then
     endif
 endif
 #endif
-
-!if (ifun.eq.5)then
-!    ignitions_done=ignitions_done_tile(1) ! all should be the same
-!!    print *,'ignitions_done=',ignitions_done
-!    do i=1,ignitions_done
-!        call sfire_debug_hook
-!!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-!        write(msg,'(2(a,i4,1x))')'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
-!!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
-!        call message(msg)
-!        ignited_patch(i)=0
-!        do ij=1,num_tiles
-!            ignited_patch(i)=ignited_patch(i)+ignited_tile(i,ij)
-!        enddo
-!#ifdef DM_PARALLEL
-!        call message('sfire_driver_phys: checking ignitions, collect counts')
-!        ignited_patch(i)=wrf_dm_sum_integer(ignited_patch(i))
-!        call message('sfire_driver_phys: collected')
-!#endif
-!        if(ignited_patch(i).eq.0)then
-!            call crash('sfire_driver_phys: Ignition failed, no nodes ignited. Bad coordinates?')
-!        endif
-!    enddo
-!endif
-!
 
 if (ifun.eq.4)then
 

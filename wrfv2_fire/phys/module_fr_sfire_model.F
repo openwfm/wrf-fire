@@ -26,7 +26,6 @@ subroutine sfire_model (                    &
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,
     ignition,                               & ! small array of ignition line descriptions
-    ignitions_done,ignited_tile,            &
     coord_xf,coord_yf,                      & ! fire mesh coordinates
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
@@ -96,7 +95,6 @@ REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 ! array data
 type(ignition_type), intent(in):: ignition  ! descriptions of ignition lines
-integer, intent(out):: ignited_tile(fire_max_ignitions),ignitions_done
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
     
@@ -145,7 +143,6 @@ xjfme=jfme
 
 
 ! init flags
-ignitions_done=0
 freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
@@ -308,10 +305,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
                 time_start,time_start+dt,                 &
                 coord_xf,coord_yf,ignition%unit_fxlong,ignition%unit_fxlat,        & 
                 lfn,tign,ignited)
-
-            ignitions_done=ignitions_done+1
-            ignited_tile(ignitions_done)=ignited
-	    !	print *,'ignitions_done=',ignitions_done,' ignited_tile=',ignited_tile(ignitions_done)
                 
 #ifdef DEBUG_OUT    
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
