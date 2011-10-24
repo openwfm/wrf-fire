@@ -396,6 +396,7 @@ get_sfire_id.inc:
 
 
 module_fr_sfire_driver.o: \
+		get_sfire_id.inc \
 		../share/module_model_constants.o  \
                 ../frame/module_comm_dm.o \
 		module_fr_sfire_phys.o \
@@ -404,7 +405,6 @@ module_fr_sfire_driver.o: \
 		module_fr_sfire_util.o 
 
 module_fr_sfire_driver_wrf.o: \
-		get_sfire_id.inc \
 		../share/module_model_constants.o  \
                 ../frame/module_comm_dm.o \
 		module_fr_sfire_driver.o \
