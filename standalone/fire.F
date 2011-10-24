@@ -143,7 +143,7 @@ grid%u_frame=0.
 grid%v_frame=0.
 
 ! start output file
-call create_output_file(outputfile,info)
+!call create_output_file(outputfile,info)
 
 ! initialize model
    time_step_start  =0.
@@ -188,7 +188,6 @@ end subroutine sub_main
 !    id,                                     & ! unique number for prints and debug
 !    ifun,                                   & ! what to do see below
 !    restart,                                & ! use existing state
-!    num_ignitions,                          & ! number of ignitions before advancing
 !    ifuelread,nfuel_cat0,                   & ! initialize fuel categories
 !    ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
 !    ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -196,9 +195,9 @@ end subroutine sub_main
 !    ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
 !    time_start,dt,                          & ! time and increment
 !    fdx,fdy,                                & ! fire mesh spacing,
-!    ignition_line,                          & ! small array of ignition line descriptions
+!    ignition,                          & ! small array of ignition line descriptions
 !    ignitions_done,ignited_tile,            &
-!    coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
+!    coord_xf,coord_yf,      & ! fire mesh coordinates
 !    lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
 !    grnhfx,grnqfx,                          & ! output: heat fluxes
 !    ros,flineint,flineint2,                 & ! diagnostic variables
