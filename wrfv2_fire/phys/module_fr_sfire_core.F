@@ -19,6 +19,7 @@ implicit none
 ! subroutine fuel_left:  compute remaining fuel from time of ignition.
 ! subroutine prop_ls: propagation of curve in normal direction.
 
+
 ! describe one ignition line
 type ignition_line_type
   REAL  ros, &          ! subscale rate of spread during the ignition process
@@ -34,6 +35,16 @@ type ignition_line_type
         end_time, &     ! ignition time for the end poin from simulation start (s)
         radius          ! all within this radius ignites immediately
 end type ignition_line_type
+
+integer, parameter:: fire_max_ignitions=5
+
+! container type for all ignitions and associated scalars
+type ignition_type
+    type(ignition_line_type):: line(fire_max_ignitions) ! descriptions of ignition lines
+    integer:: num_ignitions, &      ! number of ignitions specified
+        longlat                     ! 0 for ideal, 1 for real
+    real::  unit_fxlong,unit_fxlat  ! degree of longtitude/latitude in m; 1m for ideal
+end type ignition_type
 
 contains
 

@@ -8,7 +8,9 @@ subroutine sub_main
 
 !*** purpose: standalone driver with compatible files to WRF-Fire
 
-use module_fr_sfire_driver, only: sfire_driver_em, use_atm_vars
+use module_fr_sfire_driver, only: fire_ignition_convert,set_fp_from_grid
+use module_fr_sfire_core, only: ignition_type,fire_max_ignitions
+use module_fr_sfire_phys, only: fire_params
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
 use wrf_netcdf, only : grid_info, set_fire_info_from_file, &
@@ -42,11 +44,19 @@ integer::nhalo=5
 double precision:: dt, duration_s  ! may need more accurate time computation to get the number of timesteps right
 real:: time,time_step_start, dts
 logical::do_ouput
+TYPE(ignition_type) :: ignition
+type(fire_params)::fp
 
 !*** executable
 
 call read_namelist(config_flags)           ! read flags from namelist.input
 call set_fire_info_from_file(inputfile,info)     ! get dimensions
+
+! copy pointers to grid fields, to pass to the spread rate calculation
+call set_fp_from_grid(grid,fp)
+
+! get ignition data
+call fire_ignition_convert (config_flags,ignition)
 
 ! set dimensions
 ifds=1
@@ -89,16 +99,25 @@ call allocate2d(grid%fuel_time,ifms,ifme,jfms,jfme,'fuel_time')        !
 call allocate2d(grid%lfn,ifms,ifme,jfms,jfme,'lfn') 
 call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign') 
 call allocate2d(grid%fuel_frac,ifms,ifme,jfms,jfme,'fuel_frac') 
-call allocate2d(grid%fire_area,ifms,ifme,jfms,jfme,'fire_area') 
 call allocate2d(grid%lfn_out,ifms,ifme,jfms,jfme,'lfn_out') 
 
 
-! output
+! outputs
+call allocate2d(grid%fire_area,ifms,ifme,jfms,jfme,'fire_area') 
 call allocate2d(grid%ros,ifms,ifme,jfms,jfme,'ros') 
+call allocate2d(grid%flineint,ifms,ifme,jfms,jfme,'flineint') 
+call allocate2d(grid%flineint2,ifms,ifme,jfms,jfme,'flineint2') 
 call allocate2d(grid%fgrnhfx,ifms,ifme,jfms,jfme,'fgrnhfx')          ! 
 call allocate2d(grid%fgrnqfx,ifms,ifme,jfms,jfme,'fgrnqfx')          ! 
 call allocate2d(grid%fcanhfx,ifms,ifme,jfms,jfme,'fcanhfx')          ! 
 call allocate2d(grid%fcanqfx,ifms,ifme,jfms,jfme,'fcanqfx')          ! 
+call allocate2d(grid%f_ros,ifms,ifme,jfms,jfme,'f_ros')              ! 
+call allocate2d(grid%f_ros0,ifms,ifme,jfms,jfme,'f_ros0')            ! 
+call allocate2d(grid%f_rosx,ifms,ifme,jfms,jfme,'f_rosx')            ! 
+call allocate2d(grid%f_rosy,ifms,ifme,jfms,jfme,'f_rosy')            ! 
+call allocate2d(grid%f_lineint,ifms,ifme,jfms,jfme,'f_lineint')      ! 
+call allocate2d(grid%f_lineint2,ifms,ifme,jfms,jfme,'f_lineint2')    ! 
+call allocate2d(grid%f_int,ifms,ifme,jfms,jfme,'f_int')              ! 
 
 call read_vars_fire(inputfile,info,input)
 
