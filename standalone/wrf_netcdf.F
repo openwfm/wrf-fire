@@ -5,6 +5,7 @@
 module wrf_netcdf
 use netcdf
 use module_fr_sfire_util , only : crash, interpolate_2d, continue_at_boundary
+use module_domain, only: domain
 implicit none
 
 ! default input file name
@@ -41,9 +42,9 @@ character(len=nf90_max_name),parameter::                        &
                               var_lfn='LFN',                    &
                               unit_lfn='',                      &
                               desc_lfn='',                      &
-                              var_tign='TIGN_G',                &
-                              unit_tign='',                     &
-                              desc_tign='',                     &
+                              var_tign_g='TIGN_G',                &
+                              unit_tign_g='',                     &
+                              desc_tign_g='',                     &
                               var_uf='UF',                      &
                               unit_uf='',                       &
                               desc_uf='',                       &
@@ -184,7 +185,7 @@ call check(nf90_close(ncid))
 
 ! create all of the output variables
 call define_var(filename,var_lfn,dim_fire,unit_lfn,desc_lfn)
-call define_var(filename,var_tign,dim_fire,unit_tign,desc_tign)
+call define_var(filename,var_tign_g,dim_fire,unit_tign_g,desc_tign_g)
 call define_var(filename,var_fgrnhfx,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
 call define_var(filename,var_fgrnqfx,dim_fire,unit_fgrnqfx,desc_fgrnqfx)
 call define_var(filename,var_fuel_frac,dim_fire,unit_fuel_frac,desc_fuel_frac)
@@ -353,7 +354,7 @@ c(1:2)=(/size(output%lfn,1),size(output%lfn,2)/)
 call check(nf90_inq_varid(ncid,var_lfn,varid))
 call check(nf90_put_var(ncid,varid,output%lfn,start=s,count=c))
 c(1:2)=(/size(output%tign,1),size(output%tign,2)/)
-call check(nf90_inq_varid(ncid,var_tign,varid))
+call check(nf90_inq_varid(ncid,var_tign_g,varid))
 call check(nf90_put_var(ncid,varid,output%tign,start=s,count=c))
 c(1:2)=(/size(output%fgrnhfx,1),size(output%fgrnhfx,2)/)
 call check(nf90_inq_varid(ncid,var_fgrnhfx,varid))
@@ -498,47 +499,64 @@ if(present(sr))then
 endif
 end subroutine read_var_dims
 
+!
+!***
+!
 
-subroutine read_vars_fire(filename,info,input)
+subroutine read_one_fire_var(ncid,info,iframe,varname,v)
+implicit none
+!*** arguments
+integer, intent(in)::ncid             ! id of netcdf file open in data mode
+type(grid_info),intent(in)::info      ! dimensions
+integer, intent(in):: iframe          ! number of frame in the file
+character(len=*),intent(in)::varname  ! the variable name
+real, intent(out):: v(:,:)            ! values
+!*** local
+integer::varid,nx,ny,it,start(3),count(3)
+!*** executable
+nx=info%nfirex
+ny=info%nfirey
+
+write(*,'(2a)')'reading variable ',trim(varname)
+call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
+call check(nf90_get_var(ncid,varid,v(1:nx,1:ny),start=(/1,1,iframe/),count=(/nx,ny,1/)), &
+     'error reading '//trim(varname))
+
+end subroutine read_one_fire_var
+
+!
+!***
+!
+
+subroutine read_fire_vars(filename,info,iframe,grid)
 ! read all variables from input file
 implicit none
 
 !*** arguments
-character(len=*),intent(in)::filename
-type(input_vars_fire),intent(inout)::input
-type(grid_info),intent(in)::info
+character(len=*),intent(in)::filename ! the input file
+type(grid_info),intent(in)::info      ! dimensions
+integer, intent(in):: iframe          ! number of frame in the file
+type(domain),intent(inout)::grid      ! the mother of all arrays
 
 !*** local
 integer::ncid,varid,ierr
 integer,dimension(4)::s,c
 
 !*** executable
+write(*,'(3a,i4)')'reading file ',trim(filename),' frame ',iframe 
 call ncopen(filename,nf90_nowrite,ncid)
-s(:)=1
-c(:)=1
-c(1)=info%nfirex
-c(2)=info%nfirey
-call check(nf90_inq_varid(ncid,var_nfuel_cat,varid))
-call check(nf90_get_var(ncid,varid,input%nfuel_cat,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_dzdxf,varid))
-call check(nf90_get_var(ncid,varid,input%dzdxf,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_dzdyf,varid))
-call check(nf90_get_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_uf,varid))
-call check(nf90_get_var(ncid,varid,input%uf,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_vf,varid))
-call check(nf90_get_var(ncid,varid,input%vf,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_lfn,varid))
-call check(nf90_get_var(ncid,varid,input%lfn,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_tign,varid))
-call check(nf90_get_var(ncid,varid,input%tign,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_fuel_frac,varid))
-call check(nf90_get_var(ncid,varid,input%fuel_frac,start=s(1:3),count=c(1:3)))
 
-s(:)=1
+call read_one_fire_var(ncid,info,iframe,var_nfuel_cat,grid%nfuel_cat) 
+call read_one_fire_var(ncid,info,iframe,var_dzdxf,grid%dzdxf) 
+call read_one_fire_var(ncid,info,iframe,var_dzdyf,grid%dzdyf) 
+call read_one_fire_var(ncid,info,iframe,var_uf,grid%uf) 
+call read_one_fire_var(ncid,info,iframe,var_vf,grid%vf) 
+call read_one_fire_var(ncid,info,iframe,var_lfn,grid%lfn) 
+call read_one_fire_var(ncid,info,iframe,var_tign_g,grid%tign_g) 
+call read_one_fire_var(ncid,info,iframe,var_fuel_frac,grid%fuel_frac) 
 
 call check(nf90_close(ncid))
-end subroutine read_vars_fire
+end subroutine read_fire_vars
 
 subroutine check(ncerr,msg)
 implicit none

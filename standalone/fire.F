@@ -1,5 +1,14 @@
-module module_model_test
+module module_fire_standalone
+
 use module_fr_sfire_util, only: message,crash
+use module_fr_sfire_driver, only: fire_ignition_convert,set_fp_from_grid
+use module_fr_sfire_core, only: ignition_type,fire_max_ignitions
+use module_fr_sfire_phys, only: fire_params
+use module_domain, only: domain
+use module_configure, only: grid_config_rec_type,read_namelist
+use wrf_netcdf, only : grid_info, set_fire_info_from_file, &
+                       create_output_file,write_vars,output_vars_fire, &
+                       input_vars_fire,read_fire_vars
 implicit none
 
 contains 
@@ -8,14 +17,6 @@ subroutine sub_main
 
 !*** purpose: standalone driver with compatible files to WRF-Fire
 
-use module_fr_sfire_driver, only: fire_ignition_convert,set_fp_from_grid
-use module_fr_sfire_core, only: ignition_type,fire_max_ignitions
-use module_fr_sfire_phys, only: fire_params
-use module_domain, only: domain
-use module_configure, only: grid_config_rec_type,read_namelist
-use wrf_netcdf, only : grid_info, set_fire_info_from_file, &
-                       create_output_file,write_vars,output_vars_fire, &
-                       input_vars_fire,read_vars_fire
 implicit none
 
 !*** local
@@ -101,7 +102,6 @@ call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign')
 call allocate2d(grid%fuel_frac,ifms,ifme,jfms,jfme,'fuel_frac') 
 call allocate2d(grid%lfn_out,ifms,ifme,jfms,jfme,'lfn_out') 
 
-
 ! outputs
 call allocate2d(grid%fire_area,ifms,ifme,jfms,jfme,'fire_area') 
 call allocate2d(grid%ros,ifms,ifme,jfms,jfme,'ros') 
@@ -119,19 +119,7 @@ call allocate2d(grid%f_lineint,ifms,ifme,jfms,jfme,'f_lineint')      !
 call allocate2d(grid%f_lineint2,ifms,ifme,jfms,jfme,'f_lineint2')    ! 
 call allocate2d(grid%f_int,ifms,ifme,jfms,jfme,'f_int')              ! 
 
-call read_vars_fire(inputfile,info,input)
-
-! sfire uses wrf ordering of dimensions
-!grid%ph_2(1:nx,1:nz+1,1:ny)=reshape(input%ph, (/nx,nz+1,ny/),order=(/1,3,2/))
-!grid%phb (1:nx,1:nz+1,1:ny)=reshape(input%phb,(/nx,nz+1,ny/),order=(/1,3,2/))
-!deallocate(input%ph)
-!deallocate(input%phb)
-!grid%u_2(1:nx+1,1:nz,1:ny)=reshape(input%u,(/nx+1,nz,ny/),order=(/1,3,2/))
-!grid%v_2(1:nx,1:nz,1:ny+1)=reshape(input%v,(/nx,nz,ny+1/),order=(/1,3,2/))
-!deallocate(input%u)
-!deallocate(input%v)
-!grid%z0(1:nx,1:ny)=input%z0
-!deallocate(input%z0)
+call read_fire_vars(inputfile,info,1,grid)
 
 ! time control
 ! NOTE: dt in the netcdf input file as returned in info%dt is WRONG !!
@@ -327,15 +315,14 @@ endif
 p=0.
 end subroutine allocate3d
 
-
-end module module_model_test
+end module module_fire_standalone
 
 !
 !******************************
 !
 
 
-program model_test_main
-use module_model_test, only: sub_main
+program fire
+use module_fire_standalone, only: sub_main
 call  sub_main
-end program model_test_main
+end program fire
