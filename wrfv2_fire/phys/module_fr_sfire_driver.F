@@ -79,7 +79,9 @@ USE module_domain, only: domain
 USE module_configure, only: grid_config_rec_type
 use module_model_constants, only: reradius,    & ! 1/earth radiusw
                                   pi2            ! 2*pi
-USE module_dm, only:wrf_dm_maxval_integer
+#ifdef DM_PARALLEL
+USE module_dm, only:wrf_dm_sum_integer
+#endif
 
 implicit none
 
@@ -694,6 +696,7 @@ do ij=1,num_tiles
         fp                                      & ! fire coefficients
     )
 
+     ! print *,'ifun=',ifun,' ignitions_done_tile(ij)=',ignitions_done_tile(ij)
     
      if(ifun.eq.2)then
         call setup_wind_log_interpolation(           &
@@ -775,46 +778,48 @@ if(ifun.eq.1)then
 endif
 #endif
 
-if (ifun.eq.4)then
-    ignitions_done=ignitions_done_tile(1) ! all should be the same
-    do i=1,ignitions_done
-!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-        write(msg,'(2(a,i4,1x))')'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
-!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
-        call message(msg)
-        ignited_patch(i)=0
-        do ij=1,num_tiles
-            ignited_patch(i)=ignited_patch(i)+ignited_tile(i,ij)
-        enddo
-#ifdef DM_PARALLEL
-        call message('sfire_driver_phys: checking ignitions, collect counts')
-        call wrf_dm_maxval_integer(ignited_patch(i),idex,jdex)
-        call message('sfire_driver_phys: collected')
-#endif
-        if(ignited_patch(i).eq.0)then
-            call crash('sfire_driver_phys: Ignition failed, no nodes ignited. Bad coordinates?')
-        endif
-    enddo
-
- !call print_chsum(itimestep,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,1,0,0,uah,'uah')
- !call print_chsum(itimestep,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,1,vah,'vah')
- call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vx,'uf')
- call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vy,'vf')
- call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,lfn,'lfn')
- call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,tign,'tign')
-#ifdef DEBUG_OUT
-    if(pid.gt.0)then
- !       call write_array_m(ips,ipe1,jps,jpe,ims,ime,jms,jme,uah,'uah',pid)
- !       call write_array_m(ips,ipe,jps,jpe1,ims,ime,jms,jme,vah,'vah',pid)
-        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
-        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
-        call write_array_m3(ips,ipe1,kds,kde+1,jps,jpe,ims,ime,kms,kme,jms,jme,u,'u',pid)
-        call write_array_m3(ips,ipe,kds,kde+1,jps,jpe1,ims,ime,kms,kme,jms,jme,v,'v',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vx,'uf',pid)
-        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vy,'vf',pid)
-    endif
-#endif
-endif
+!if (ifun.eq.5)then
+!    ignitions_done=ignitions_done_tile(1) ! all should be the same
+!!    print *,'ignitions_done=',ignitions_done
+!    do i=1,ignitions_done
+!        call sfire_debug_hook
+!!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+!        write(msg,'(2(a,i4,1x))')'sfire_driver_phys: checking ignition ',i,' of ',ignitions_done
+!!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+!        call message(msg)
+!        ignited_patch(i)=0
+!        do ij=1,num_tiles
+!            ignited_patch(i)=ignited_patch(i)+ignited_tile(i,ij)
+!        enddo
+!#ifdef DM_PARALLEL
+!        call message('sfire_driver_phys: checking ignitions, collect counts')
+!        ignited_patch(i)=wrf_dm_sum_integer(ignited_patch(i))
+!        call message('sfire_driver_phys: collected')
+!#endif
+!        if(ignited_patch(i).eq.0)then
+!            call crash('sfire_driver_phys: Ignition failed, no nodes ignited. Bad coordinates?')
+!        endif
+!    enddo
+!
+! !call print_chsum(itimestep,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,1,0,0,uah,'uah')
+! !call print_chsum(itimestep,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,1,vah,'vah')
+! call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vx,'uf')
+! call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vy,'vf')
+! call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,lfn,'lfn')
+! call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,tign,'tign')
+!#ifdef DEBUG_OUT
+!    if(pid.gt.0)then
+! !       call write_array_m(ips,ipe1,jps,jpe,ims,ime,jms,jme,uah,'uah',pid)
+! !       call write_array_m(ips,ipe,jps,jpe1,ims,ime,jms,jme,vah,'vah',pid)
+!        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnhfx,'grnhfx',pid)
+!        call write_array_m(ips,ipe,jps,jpe,ims,ime,jms,jme,grnqfx,'grnqfx',pid)
+!        call write_array_m3(ips,ipe1,kds,kde+1,jps,jpe,ims,ime,kms,kme,jms,jme,u,'u',pid)
+!        call write_array_m3(ips,ipe,kds,kde+1,jps,jpe1,ims,ime,kms,kme,jms,jme,v,'v',pid)
+!        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vx,'uf',pid)
+!        call write_array_m(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fp%vy,'vf',pid)
+!    endif
+!#endif
+!endif
 
 if(ifun.eq.5)then
 #ifdef DEBUG_OUT

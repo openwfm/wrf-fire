@@ -311,6 +311,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 
             ignitions_done=ignitions_done+1
             ignited_tile(ignitions_done)=ignited
+	    !	print *,'ignitions_done=',ignitions_done,' ignited_tile=',ignited_tile(ignitions_done)
                 
 #ifdef DEBUG_OUT    
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
