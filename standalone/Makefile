@@ -3,7 +3,8 @@ include make.inc
 DEFS =
 WRF = ../wrfv2_fire/phys
 FPFLAGS= -I$(NETCDF)/include -I.
-LDFLAGS = -L$(NETCDF)/lib -lnetcdff -lnetcdf
+#LDFLAGS = -L$(NETCDF)/lib -lnetcdff -lnetcdf
+LDFLAGS = `$(NETCDF)/bin/nc-config --flibs`
 FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE)
 
 
