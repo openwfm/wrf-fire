@@ -4,6 +4,7 @@ use module_fr_sfire_util, only: message,crash
 use module_fr_sfire_driver, only: fire_ignition_convert,set_fp_from_grid
 use module_fr_sfire_core, only: ignition_type,fire_max_ignitions
 use module_fr_sfire_phys, only: fire_params
+use module_fr_sfire_model, only: sfire_model
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
 use wrf_netcdf, only : grid_info, set_fire_info_from_file, &
@@ -28,6 +29,7 @@ TYPE (grid_config_rec_type):: config_flags ! the namelist
 integer::  &                ! fire mesh dimensions
     ifds,ifde,jfds,jfde, &  ! the physical domain
     ifps,ifpe,jfps,jfpe, &  ! patch - assigned to one process. Here the same as domain.
+    ifts,ifte,jfts,jfte, &  ! memory allocated, needs a strip around the patch
     ifms,ifme,jfms,jfme     ! memory allocated, needs a strip around the patch
 
 ! I/O interface
@@ -40,13 +42,14 @@ type(input_vars_fire)::input                  ! input arrays_fire
 type(grid_info)::info                    ! dimensions, grid controls
 
 ! scalars
-integer:: nsteps,itimestep
+integer:: nsteps,itimestep,ifun_start,ifun_end,id,ifun
 integer::nhalo=5
-double precision:: dt, duration_s  ! may need more accurate time computation to get the number of timesteps right
-real:: time,time_step_start, dts
+double precision:: dt_double,duration_s  ! may need more accurate time computation to get the number of timesteps right
+real:: time_start,dt
 logical::do_ouput
 TYPE(ignition_type) :: ignition
 type(fire_params)::fp
+logical::restart=.false.
 
 !*** executable
 
@@ -72,9 +75,15 @@ ifps=1
 ifpe=ifde
 jfps=1
 jfpe=jfde
+ifts=1
+ifte=ifde
+jfts=1
+jfte=jfde
 
 write(6,2)'fire domain dimensions       ',ifds,ifde,jfds,jfde
 write(6,2)'fire memory dimensions       ',ifms,ifme,jfms,jfme
+write(6,2)'fire patch  dimensions       ',ifps,ifpe,jfps,jfpe
+write(6,2)'fire tile   dimensions       ',ifts,ifte,jfts,jfte
 2 format(a,6i6)
 
 ! allocate
@@ -98,7 +107,7 @@ call allocate2d(grid%fgip,ifms,ifme,jfms,jfme,'fgip')            ! spread formul
 call allocate2d(grid%ischap,ifms,ifme,jfms,jfme,'ischap')          ! spread formula coeff
 call allocate2d(grid%fuel_time,ifms,ifme,jfms,jfme,'fuel_time')        ! 
 call allocate2d(grid%lfn,ifms,ifme,jfms,jfme,'lfn') 
-call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign') 
+call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign_g') 
 call allocate2d(grid%fuel_frac,ifms,ifme,jfms,jfme,'fuel_frac') 
 call allocate2d(grid%lfn_out,ifms,ifme,jfms,jfme,'lfn_out') 
 
@@ -123,15 +132,16 @@ call read_fire_vars(inputfile,info,1,grid)
 
 ! time control
 ! NOTE: dt in the netcdf input file as returned in info%dt is WRONG !!
-dt=config_flags%time_step
+dt_double=config_flags%time_step
 if(config_flags%time_step_fract_den.ne.0)then
-  dt=dt+dble(config_flags%time_step_fract_num)/dble(config_flags%time_step_fract_den)
+  dt_double=dt_double+dble(config_flags%time_step_fract_num)/dble(config_flags%time_step_fract_den)
 endif
 duration_s = config_flags%run_seconds           &
            + 60d0*(config_flags%run_minutes     &
            + 60d0*(config_flags%run_hours       &
            + 24d0*(config_flags%run_days)))       
-nsteps = nint( duration_s / dt ) ! number of time steps
+nsteps = nint( duration_s / dt_double ) ! number of time steps
+dt = dt_double
 
 ! divide up for shared memory parallel execution
 !!call set_tiles(1,1,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
@@ -145,68 +155,46 @@ grid%v_frame=0.
 ! start output file
 !call create_output_file(outputfile,info)
 
-! initialize model
-   time_step_start  =0.
-   dts=dt
-!call sfire_driver_em ( grid , config_flags                          &
-!            ,time_step_start,dts                                    &
-!            ,1,2,0                                                 &
-!            ,ids,ide, kds,kde, jds,jde                              &
-!            ,ims,ime, kms,kme, jms,jme                              &
-!            ,ips,ipe, kps,kpe, jps,jpe                              &
-!            ,ifds,ifde, jfds,jfde                                   &
-!            ,ifms,ifme, jfms,jfme                                   &
-!            ,ifps,ifpe, jfps,jfpe )
 
 do itimestep=1,nsteps
-! run  model
-   grid%itimestep = itimestep
-   time_step_start = itimestep*dt
-   dts=dt
-!   call sfire_driver_em ( grid , config_flags                          &
-!            ,time_step_start,dts                                    &
-!            ,3,6,0                                                  &
-!            ,ids,ide, kds,kde, jds,jde                              &
-!            ,ims,ime, kms,kme, jms,jme                              &
-!            ,ips,ipe, kps,kpe, jps,jpe                              &
-!            ,ifds,ifde, jfds,jfde                                   &
-!            ,ifms,ifme, jfms,jfme                                   &
-!            ,ifps,ifpe, jfps,jfpe )
-    
-    if(itimestep.le.10.or.mod(itimestep,10).eq.0)then
-        time = dt*itimestep
-        output%lfn=>grid%lfn(ifps:ifpe,jfps:jfpe)
-        output%tign=>grid%tign_g(ifps:ifpe,jfps:jfpe)
-        output%fgrnhfx=>grid%fgrnhfx(ifps:ifpe,jfps:jfpe)
-        call write_vars(outputfile,output,time)
-    endif
+  grid%itimestep = itimestep
+  time_start = (itimestep-1)*dt
+  id=itimestep
+  if(itimestep.eq.1)then
+    ifun_start=1
+  else
+    ifun_start=3
+  endif
+  ifun_end=6
+  do ifun=ifun_start,ifun_end
+
+  call sfire_model (                    &
+    id,                                     & ! unique number for prints and debug
+    ifun,                                   & ! what to do see below
+    restart,                                & ! use existing state
+    config_flags%fire_fuel_read,config_flags%fire_fuel_cat,   & ! legacy initial constant fuel category
+    ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+    ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+    ifps,ifpe,jfps,jfpe,                    & ! patch - nodes owned by this process
+    ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
+    time_start,dt,                          & ! time and increment
+    info%fdx,info%fdy,                                & ! fire mesh spacing,
+    ignition,                               & ! small array of ignition line descriptions
+    grid%fxlong,grid%fxlat,                      & ! fire mesh coordinates
+    grid%lfn,grid%lfn_out,grid%tign_g,grid%fuel_frac,grid%fire_area,   & ! state: level function, ign time, fuel left, area burning
+    grid%grnhfx,grid%grnqfx,                          & ! output: heat fluxes
+    grid%ros,grid%flineint,grid%flineint2,                 & ! diagnostic variables
+    grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,             & ! fire risk spread
+    grid%f_int,grid%f_lineint,grid%f_lineint2,             & ! fire risk intensities
+    grid%nfuel_cat,                              & ! fuel data per point
+    grid%fuel_time,grid%fwh,grid%fz0,                      & ! save derived internal data
+    fp &
+)
+
+   enddo
 enddo
 
 end subroutine sub_main
-
-!subroutine sfire_model (                    &
-!    id,                                     & ! unique number for prints and debug
-!    ifun,                                   & ! what to do see below
-!    restart,                                & ! use existing state
-!    ifuelread,nfuel_cat0,                   & ! initialize fuel categories
-!    ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
-!    ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
-!    ifps,ifpe,jfps,jfpe,                    & ! patch - nodes owned by this process
-!    ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
-!    time_start,dt,                          & ! time and increment
-!    fdx,fdy,                                & ! fire mesh spacing,
-!    ignition,                          & ! small array of ignition line descriptions
-!    ignitions_done,ignited_tile,            &
-!    coord_xf,coord_yf,      & ! fire mesh coordinates
-!    lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
-!    grnhfx,grnqfx,                          & ! output: heat fluxes
-!    ros,flineint,flineint2,                 & ! diagnostic variables
-!    f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread
-!    f_int,f_lineint,f_lineint2,             & ! fire risk intensities
-!    nfuel_cat,                              & ! fuel data per point
-!    fuel_time,fwh,fz0,                      & ! save derived internal data
-!    fp &
-!)
 
 
 !subroutine model_driver(grid,config_flags)
