@@ -56,9 +56,6 @@ logical::restart=.false.
 call read_namelist(config_flags)           ! read flags from namelist.input
 call set_fire_info_from_file(inputfile,info)     ! get dimensions
 
-! copy pointers to grid fields, to pass to the spread rate calculation
-call set_fp_from_grid(grid,fp)
-
 ! get ignition data
 call fire_ignition_convert (config_flags,ignition)
 
@@ -97,11 +94,13 @@ call allocate2d(grid%dzdyf,ifms,ifme,jfms,jfme,'dzdyf')           ! terrain grad
 call allocate2d(grid%fxlong,ifms,ifme,jfms,jfme,'fxlong')          ! 
 call allocate2d(grid%fxlat,ifms,ifme,jfms,jfme,'fxlat')           !
 call allocate2d(grid%nfuel_cat,ifms,ifme,jfms,jfme,'nfuel_cat')          ! 
+call allocate2d(grid%fmc_g,ifms,ifme,jfms,jfme,'fmc_g')          ! 
 
 ! state
 call allocate2d(grid%bbb,ifms,ifme,jfms,jfme,'bbb')             ! spread formula coeff
 call allocate2d(grid%betafl,ifms,ifme,jfms,jfme,'betafl')          ! spread formula coeff
 call allocate2d(grid%phiwc,ifms,ifme,jfms,jfme,'phiwc')           ! spread formula coeff
+call allocate2d(grid%phisc,ifms,ifme,jfms,jfme,'phisc')           ! spread formula coeff
 call allocate2d(grid%r_0,ifms,ifme,jfms,jfme,'r_0')             ! spread formula coeff
 call allocate2d(grid%fgip,ifms,ifme,jfms,jfme,'fgip')            ! spread formula coeff
 call allocate2d(grid%ischap,ifms,ifme,jfms,jfme,'ischap')          ! spread formula coeff
@@ -129,6 +128,9 @@ call allocate2d(grid%f_lineint2,ifms,ifme,jfms,jfme,'f_lineint2')    !
 call allocate2d(grid%f_int,ifms,ifme,jfms,jfme,'f_int')              ! 
 
 call read_fire_vars(inputfile,info,1,grid)
+
+! copy pointers to grid fields, to pass to the spread rate calculation
+call set_fp_from_grid(grid,fp)
 
 ! time control
 ! NOTE: dt in the netcdf input file as returned in info%dt is WRONG !!
@@ -182,7 +184,7 @@ do itimestep=1,nsteps
     ignition,                               & ! small array of ignition line descriptions
     grid%fxlong,grid%fxlat,                      & ! fire mesh coordinates
     grid%lfn,grid%lfn_out,grid%tign_g,grid%fuel_frac,grid%fire_area,   & ! state: level function, ign time, fuel left, area burning
-    grid%grnhfx,grid%grnqfx,                          & ! output: heat fluxes
+    grid%fgrnhfx,grid%fgrnqfx,                          & ! output: heat fluxes
     grid%ros,grid%flineint,grid%flineint2,                 & ! diagnostic variables
     grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,             & ! fire risk spread
     grid%f_int,grid%f_lineint,grid%f_lineint2,             & ! fire risk intensities
