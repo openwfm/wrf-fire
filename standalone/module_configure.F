@@ -22,7 +22,7 @@ type(grid_config_rec_type), intent(out)::config_flags
 
 !*** local
 character(len=32)::grp
-integer::iou
+integer::iou=1
 #include "namelist_defines.inc"
 #include "namelist_statements.inc"
 namelist /standalone/ compat_fire_grid

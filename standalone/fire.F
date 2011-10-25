@@ -1,7 +1,7 @@
 module module_fire_standalone
 
 use module_fr_sfire_util, only: message,crash
-use module_fr_sfire_driver, only: fire_ignition_convert,set_fp_from_grid
+use module_fr_sfire_driver, only: fire_ignition_convert,set_fp_from_grid,set_flags
 use module_fr_sfire_core, only: ignition_type,fire_max_ignitions
 use module_fr_sfire_phys, only: fire_params
 use module_fr_sfire_model, only: sfire_model
@@ -54,6 +54,8 @@ logical::restart=.false.
 !*** executable
 
 call read_namelist(config_flags)           ! read flags from namelist.input
+call set_flags(config_flags)               ! copy configuration flags to sfire internal structures
+
 call set_fire_info_from_file(inputfile,info)     ! get dimensions
 
 ! get ignition data

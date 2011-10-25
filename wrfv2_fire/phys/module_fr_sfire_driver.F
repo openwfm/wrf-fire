@@ -84,7 +84,7 @@ implicit none
 
 
 private
-public sfire_driver_em,use_atm_vars,fire_ignition_convert,set_fp_from_grid
+public sfire_driver_em,use_atm_vars,fire_ignition_convert,set_fp_from_grid,set_flags
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
 
@@ -822,6 +822,7 @@ subroutine fire_ignition_convert (config_flags,ignition)
     integer::i
     logical:: real,ideal
     real::lat_ctr,lon_ctr
+    character(len=128)msg
 !*** executable
     ! this is only until I figure out how to input arrays through the namelist...
     if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
@@ -928,6 +929,34 @@ subroutine fire_ignition_convert (config_flags,ignition)
        ignition%unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
        ignition%unit_fxlong=cos(lat_ctr*pi2/360.)*ignition%unit_fxlat  ! latitude
     endif
+
+    if(fire_print_msg.ge.2)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+       if(ignition%longlat .eq. 0)then
+         write(msg,1)'start x','start y','end x','end y','start t','end t','ros','radius'
+       else
+         write(msg,1)'start lon','start lat','end lon','end lat','start time','end time','ros','radius'
+       endif
+1      format(4a10,4a9)
+2      format(4f10.3,4f9.2)
+3      format(4f10.5,4f9.2)
+       call message(msg)
+       do i=1,5
+         if(ignition%longlat .eq. 0)then
+           write(msg,2)ignition%line(i)%start_x, ignition%line(i)%start_y, &
+                      ignition%line(i)%end_x,  ignition%line(i)%end_y,        &
+                      ignition%line(i)%start_time, ignition%line(i)%end_time, &
+                      ignition%line(i)%ros, ignition%line(i)%radius
+         else
+           write(msg,3)ignition%line(i)%start_x, ignition%line(i)%start_y, &
+                      ignition%line(i)%end_x,  ignition%line(i)%end_y,        &
+                      ignition%line(i)%start_time, ignition%line(i)%end_time, &
+                      ignition%line(i)%ros, ignition%line(i)%radius
+         endif
+         call message(msg)
+       enddo
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+     endif
 
 end subroutine fire_ignition_convert
 
