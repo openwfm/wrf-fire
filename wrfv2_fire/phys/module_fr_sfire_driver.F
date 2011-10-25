@@ -445,14 +445,6 @@ call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme) ! check if fire pa
 call check_mesh_2dim(ips,ipe,jps,jpe,ids,ide,jds,jde)        ! check if atm patch fits in atm domain
 call check_mesh_2dim(ifps,ifpe,jfps,jfpe,ifds,ifde,jfds,jfde) ! check if fire patch fits in fire domain
 
-!$OMP SINGLE
-! init rest of fuel tables with derived constants
-if(ifun.eq.1) then
-   call init_fuel_cats  ! common for all threads
-endif
-!$OMP END SINGLE
-
-
 pid=0
 if(fire_print_file.gt.0)then
     if(itimestep.le.fire_print_file.or.mod(itimestep,fire_print_file).eq.0)pid=itimestep ! print 1-fire_print_file then every fire_print_file-th
