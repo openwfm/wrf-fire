@@ -23,6 +23,7 @@ module module_fr_sfire_util
 use module_domain, only: domain
 use module_model_constants, only: reradius,    & ! 1/earth radiusw
                                   pi2            ! 2*pi
+use module_configure, only: grid_config_rec_type
 
 
 implicit none
@@ -81,18 +82,6 @@ type ignition_type
         longlat                     ! 0 for ideal, 1 for real
     real::  unit_fxlong,unit_fxlat  ! degree of longtitude/latitude in m; 1m for ideal
 end type ignition_type
-
-! arrays passed to fire_ros
-type fire_params
-real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
-real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
-real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
-real,pointer,dimension(:,:):: bbb,phisc,phiwc,r_0 ! spread formula coefficients
-real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
-real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
-real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s) 
-real,pointer,dimension(:,:):: fmc_g                ! fuel moisture contents, ground (1) 
-end type fire_params
 
 contains
 
@@ -281,27 +270,6 @@ fire_fmc_read           = config_flags%fire_fmc_read
 
 end subroutine set_flags
 
-subroutine set_fp_from_grid(grid,fp)
-    implicit none
-    type(domain),intent(in)::grid
-    type(fire_params),intent(out)::fp
-
-    ! pointers to be passed to fire spread formulas
-    fp%vx => grid%uf         ! fire winds
-    fp%vy => grid%vf         ! fire winds
-    fp%zsf => grid%zsf       ! terrain height 
-    fp%dzdxf => grid%dzdxf   ! terrain grad 
-    fp%dzdyf => grid%dzdyf   ! terrain grad 
-    fp%bbb => grid%bbb       ! spread formula coeff 
-    fp%phisc => grid%phisc   ! spread formula coeff 
-    fp%phiwc => grid%phiwc   ! spread formula coeff 
-    fp%r_0 => grid%r_0       ! spread formula coeff 
-    fp%fgip => grid%fgip     ! spread formula coeff 
-    fp%ischap => grid%ischap ! spread formula coeff 
-    fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
-    fp%fmc_g => grid%fmc_g   ! fuel moisture, ground
-
-end subroutine set_fp_from_grid
 !
 !*****************************
 !

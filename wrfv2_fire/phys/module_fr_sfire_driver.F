@@ -69,7 +69,7 @@ module module_fr_sfire_driver
 ! use this module for standalone call, you only need to provide some mock-up wrf modules  
 
 use module_fr_sfire_model, only: sfire_model
-use module_fr_sfire_phys, only: fire_params, init_fuel_cats
+use module_fr_sfire_phys, only: fire_params, init_fuel_cats, set_fp_from_grid
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
@@ -82,7 +82,7 @@ implicit none
 
 
 private
-public sfire_driver_em,use_atm_vars,fire_ignition_convert,set_fp_from_grid,set_flags
+public sfire_driver_em,use_atm_vars
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
 

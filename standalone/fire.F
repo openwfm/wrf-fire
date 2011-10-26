@@ -1,9 +1,9 @@
 module module_fire_standalone
 
 use module_fr_sfire_util, only: message,crash, &
-          fire_ignition_convert,set_fp_from_grid,set_flags, &
-          ignition_type,fire_max_ignitions, &
-          fire_params
+          fire_ignition_convert,set_flags, &
+          ignition_type,fire_max_ignitions
+use module_fr_sfire_phys, only: set_fp_from_grid,fire_params
 use module_fr_sfire_model, only: sfire_model
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist

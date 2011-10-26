@@ -147,14 +147,15 @@ module_fr_sfire_phys.o: $(MAKEFILE) \
     module_fr_sfire_util.o 
 
 module_fr_sfire_util.o: $(MAKEFILE) \
+    module_domain.o \
+    module_configure.o \
     wrf_fakes.o
 
 wrf_netcdf.o: $(MAKEFILE) \
     module_fr_sfire_util.o
 
 module_configure.o: $(MAKEFILE) $(NAMELIST) \
-    wrf_netcdf.o \
-    module_fr_sfire_util.o
+    wrf_fakes.o
 
 sfire_id.inc: __always
 	chmod +x commit_hash
