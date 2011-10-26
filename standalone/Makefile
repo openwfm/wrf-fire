@@ -22,7 +22,6 @@ ATM_OBJ = \
     module_domain.o \
     wrf_netcdf.o \
     module_configure.o \
-    module_fr_sfire_driver.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
@@ -35,7 +34,6 @@ FIRE_OBJ = \
     module_domain.o \
     wrf_netcdf.o \
     module_configure.o \
-    module_fr_sfire_driver.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
@@ -119,18 +117,8 @@ fire.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
     module_domain.o \
     module_configure.o \
-    module_fr_sfire_driver.o \
     wrf_fakes.o \
     wrf_netcdf.o
-
-module_fr_sfire_driver.o: $(MAKEFILE) \
-    sfire_id.inc \
-    module_domain.o \
-    module_configure.o \
-    module_fr_sfire_model.o  \
-    module_fr_sfire_phys.o \
-    module_fr_sfire_atm.o \
-    module_fr_sfire_util.o
 
 init.o: $(MAKEFILE) \
     module_configure.o \

@@ -16,27 +16,11 @@ PRIVATE
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m,fire_risk,fire_intensity
 
 ! types
-PUBLIC::fire_params
 
 ! variables
 PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
-
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
-! arrays passed to fire_ros
-type fire_params
-real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
-real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
-real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
-real,pointer,dimension(:,:):: bbb,phisc,phiwc,r_0 ! spread formula coefficients
-real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
-real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
-real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s) 
-real,pointer,dimension(:,:):: fmc_g                ! fuel moisture contents, ground (1) 
-end type fire_params
-
-! use as
-! type(fire_params)::fp
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
