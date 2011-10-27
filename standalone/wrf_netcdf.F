@@ -30,9 +30,6 @@ character(len=nf90_max_name),parameter::                        &
                               dim_atm_y_s='south_north_stag',   &
                               dim_atm_z_s='bottom_top_stag',    &
                               dim_time='Time'
-character(len=nf90_max_name),dimension(3),parameter::           &
-        dim_fire=(/dim_fire_x,dim_fire_y,dim_time/)
-
 ! variable names
 character(len=nf90_max_name),parameter::                        &
                               var_lfn='LFN',                    &
@@ -65,12 +62,12 @@ character(len=nf90_max_name),parameter::                        &
                               var_r_0='R_0',                    &
                               unit_r_0='m/s',                   &
                               desc_r_0='R_0',                   &
-                              var_flineint='F_LINEINT',         &
+                              var_flineint='FLINEINT',          &
                               unit_flineint='J/m/s',            &
-                              desc_flineint='F_LINEINT',        &
-                              var_flineint2='F_LINEINT2',       & 
+                              desc_flineint='Byram fireline intensity',         &
+                              var_flineint2='FLINEINT2',        & 
                               unit_flineint2='J/m/s^2',         & 
-                              desc_flineint2='F_LINEINT2'        
+                              desc_flineint2='New fireline intensity'        
 ! inputs
 character(len=nf90_max_name),parameter::                        &
                               var_nfuel_cat='NFUEL_CAT',        &
@@ -127,14 +124,10 @@ call check(nf90_create(filename,nf90_clobber,ncid))
 
 ! define all dimensions
 
-!!The function NF90_DEF_DIM adds a new dimension to an open netCDF dataset in 
-!!define mode. It returns (as an argument) a dimension ID, given the netCDF ID,
-!!the dimension name, and the dimension length. (From NetCDF docs)
-
-call check(nf90_def_dim(ncid,dim_time,nf90_unlimited,dimid))
-call check(nf90_def_dim(ncid,dim_fire_x,info%nfirex,dimid))
-call check(nf90_def_dim(ncid,dim_fire_y,info%nfirey,dimid))
-call check(nf90_def_dim(ncid,'DateStrLen',times_length,dimid))
+call create_dim(ncid,info%dim_time,nf90_unlimited)
+call create_dim(ncid,info%dim_fire_x,info%nfirex)
+call create_dim(ncid,info%dim_fire_y,info%nfirey)
+call create_dim(ncid,'DateStrLen',times_length)
 
 ! define global attributes
 call check(nf90_put_att(ncid,nf90_global,'FDX',info%fdx))
@@ -146,6 +139,20 @@ call check(nf90_enddef(ncid))
 call check(nf90_close(ncid))
 
 end subroutine create_dim_attr
+
+subroutine create_dim(ncid,dimname,dimsize)
+integer, intent(in):: ncid
+character(len=*),intent(in)::dimname  ! dimension name to create
+integer, intent(in):: dimsize
+integer::dimid
+
+!!The function NF90_DEF_DIM adds a new dimension to an open netCDF dataset in 
+!!define mode. It returns (as an argument) a dimension ID, given the netCDF ID,
+!!the dimension name, and the dimension length. (From NetCDF docs)
+
+write(*,'(3a,i10)')'creating dimension ',trim(dimname),' size',dimsize
+call check(nf90_def_dim(ncid,dimname,dimsize,dimid))
+end subroutine create_dim
 
 !
 !***
@@ -165,6 +172,7 @@ type(grid_info),intent(in)::info       ! grid information structure
 
 !*** local
 integer::ncid,dimid,timeid,strlenid,varid
+character(len=NF90_MAX_NAME), dimension(3)::dim_fire
 
 !*** executable
 
@@ -181,6 +189,7 @@ call check(nf90_enddef(ncid))
 call check(nf90_close(ncid))
 
 ! create all of the output variables
+dim_fire=(/info%dim_fire_x,info%dim_fire_y,info%dim_time/)
 call define_var(filename,var_lfn,dim_fire,unit_lfn,desc_lfn)
 call define_var(filename,var_tign_g,dim_fire,unit_tign_g,desc_tign_g)
 call define_var(filename,var_fgrnhfx,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
@@ -289,14 +298,14 @@ call write_fire_var(ncid,info,iframe,var_fire_area,grid%fire_area)
 call write_fire_var(ncid,info,iframe,var_fgrnhfx,grid%fgrnhfx)
 call write_fire_var(ncid,info,iframe,var_fgrnqfx,grid%fgrnqfx)
 call write_fire_var(ncid,info,iframe,var_ros,grid%ros)
-call write_fire_var(ncid,info,iframe,var_flineint,grid%flineint)
-call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
+call write_fire_var(ncid,info,iframe,var_r_0,grid%r_0)
 call write_fire_var(ncid,info,iframe,var_flineint,grid%flineint)
 call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
 
 ! close file
 call latch
 call check(nf90_close(ncid))
+call print_var_dims(filename,var_lfn)  ! check
 end subroutine write_vars
 
 !
@@ -379,6 +388,17 @@ end subroutine att_read
 !***
 !
 
+subroutine print_var_dims(filename,varname)
+character(len=*), intent(in)::filename,varname
+integer, parameter:: mdims=3
+integer::ncid,ndims,dims(mdims),dimids(mdims),i
+character(len=NF90_MAX_NAME)::dimnames(mdims)
+call ncopen(filename,nf90_nowrite,ncid)
+call read_var_dims(ncid,varname,mdims,ndims,dims,dimnames=dimnames)
+write(*,'(3a,4(2a,i5,1x))')'variable ',varname,' dimensions ',(dimnames(i),'=',dims(i),i=1,ndims)
+call check(nf90_close(ncid))
+end subroutine print_var_dims
+
 subroutine read_var_dims(ncid,varname,mdims,ndims,dims,sr,dimnames,dimids)
 ! get variable dimensions from a file
 ! arguments
@@ -411,7 +431,7 @@ do idim=1,ndims
     call check(nf90_inquire_dimension(ncid, idimids(idim), dimname, dimlen))
     ratio=0
     i=index(dimname,subgrid,.true.)
-    !print *,trim(dimname),subgrid,i,len(subgrid),len_trim(dimname)
+    ! print *,trim(dimname),subgrid,i,len(subgrid),len_trim(dimname)
     if ( i + len(subgrid) .eq. len_trim(dimname)+1) then ! subgrid, need to fix
         stagname=dimname(1:i-1) // '_stag'
         call check(nf90_inq_dimid(ncid, stagname, stagid))
@@ -454,7 +474,7 @@ integer::varid,nx,ny,it,start(3),count(3)
 nx=info%nfirex
 ny=info%nfirey
 
-write(*,'(2a)')'writing variable ',trim(varname)
+write(*,'(3a,2i5)')'writing variable ',trim(varname),' size ',nx,ny
 call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
 call check(nf90_put_var(ncid,varid,v(1:nx,1:ny),start=(/1,1,iframe/),count=(/nx,ny,1/)), &
      'error writing '//trim(varname))
@@ -526,17 +546,23 @@ end subroutine read_vars
 !***
 !
 
-subroutine check(ncerr,msg)
+subroutine check(ncerr,msg,cont)
 implicit none
 integer,intent(in)::ncerr
 character(len=*), optional, intent(in)::msg
+logical, intent(in), optional::cont
+character(len=128)::message
 if(ncerr.ne.nf90_noerr)then
   write(6,'(2a)')"NetCDF error: ",trim(nf90_strerror(ncerr))
   if(present(msg))then
-    call crash(msg)
+    message=msg
   else
-    call crash("NETCDF ERROR")
+    message="NETCDF ERROR"
   endif
+  if(present(cont))then
+    if(cont)return
+  endif
+  call crash(message)
 endif
 end subroutine check
 
