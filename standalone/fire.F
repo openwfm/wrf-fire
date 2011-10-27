@@ -7,7 +7,7 @@ use module_fr_sfire_phys, only: set_fp_from_grid,fire_params
 use module_fr_sfire_model, only: sfire_model
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
-use wrf_netcdf, only : grid_info, set_fire_info_from_file, &
+use wrf_netcdf, only : grid_info, read_info, &
                        create_output_file,write_vars,output_vars_fire, &
                        input_vars_fire,read_vars
 implicit none
@@ -37,15 +37,16 @@ character(len=*),parameter::inputfile='fire_input.nc'
 character(len=*),parameter::outputfile='fire_output.nc'
 type(output_vars_fire)::output                ! output arrays
 type(input_vars_fire)::input                  ! input arrays_fire
+real, pointer, dimension(:,:) ::  uf1, vf1, uf2, vf2   ! stored wind fields
 
 ! other derived types
 type(grid_info)::info                    ! dimensions, grid controls
 
 ! scalars
-integer:: nsteps,itimestep,ifun_start,ifun_end,id,ifun
+integer:: nsteps,itimestep,ifun_start,ifun_end,id,ifun,iframe,istep
 integer::nhalo=5
-double precision:: dt_double,duration_s  ! may need more accurate time computation to get the number of timesteps right
-real:: time_start,dt
+double precision:: dt_double,duration_s,frame_s  ! may need more accurate time computation to get the number of timesteps right
+real:: time_start,dt,t
 logical::do_ouput
 TYPE(ignition_type) :: ignition
 type(fire_params)::fp
@@ -56,7 +57,7 @@ logical::restart=.false.
 call read_namelist(config_flags)           ! read flags from namelist.input
 call set_flags(config_flags)               ! copy configuration flags to sfire internal structures
 
-call set_fire_info_from_file(inputfile,info)     ! get dimensions
+call read_info(inputfile,info)             ! get dimensions
 
 ! get ignition data
 call fire_ignition_convert (config_flags,ignition)
@@ -129,7 +130,11 @@ call allocate2d(grid%f_lineint,ifms,ifme,jfms,jfme,'f_lineint')      !
 call allocate2d(grid%f_lineint2,ifms,ifme,jfms,jfme,'f_lineint2')    ! 
 call allocate2d(grid%f_int,ifms,ifme,jfms,jfme,'f_int')              ! 
 
-call read_vars(inputfile,info,1,grid)
+! local
+call allocate2d(uf1,ifms,ifme,jfms,jfme,'uf1')              ! fire winds
+call allocate2d(vf1,ifms,ifme,jfms,jfme,'vf1')              ! fire winds
+call allocate2d(uf2,ifms,ifme,jfms,jfme,'uf2')              ! fire winds
+call allocate2d(vf2,ifms,ifme,jfms,jfme,'vf2')              ! fire winds
 
 ! copy pointers to grid fields, to pass to the spread rate calculation
 call set_fp_from_grid(grid,fp)
@@ -144,8 +149,18 @@ duration_s = config_flags%run_seconds           &
            + 60d0*(config_flags%run_minutes     &
            + 60d0*(config_flags%run_hours       &
            + 24d0*(config_flags%run_days)))       
-nsteps = nint( duration_s / dt_double ) ! number of time steps
+
+if(config_flags%history_interval.ne.0)config_flags%history_interval_m=config_flags%history_interval
+frame_s = config_flags%history_interval_s           &
+           + 60d0*(config_flags%history_interval_m     &
+           + 60d0*(config_flags%history_interval_h       &
+           + 24d0*(config_flags%history_interval_d)))       
+
+nsteps = nint( frame_s / dt_double ) ! number of time steps for the duration
+dt_double = frame_s / nsteps
 dt = dt_double
+
+write(*,'(a,f10.3,a,i6,a,f10.3,a)')'frame ',frame_s,'s ',nsteps,' time steps at ',dt_double,'s'
 
 ! divide up for shared memory parallel execution
 !!call set_tiles(1,1,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
@@ -157,45 +172,64 @@ grid%u_frame=0.
 grid%v_frame=0.
 
 ! start output file
-!call create_output_file(outputfile,info)
+call create_output_file(outputfile,info)
 
+if(info%ntimes.lt.3)then
+  write(*,'(a,i5)')'ntimes=',info%ntimes
+  call crash('need at least 3 steps')
+endif
+call read_vars(inputfile,info,2,grid)
+uf1=grid%uf
+vf1=grid%vf
+itimestep = 0
+ifun_start=1
+do iframe=3,info%ntimes ! interval ending with iframe
+  call read_vars(inputfile,info,iframe,grid)
+  uf2=grid%uf
+  vf2=grid%vf
+  do istep=1,nsteps
+    itimestep=info%ntimes * (iframe - 1) + 1
+    grid%itimestep = itimestep
+    id=itimestep
+    ifun_end=6
+    ! interpolate time
+    time_start = dt_double * (nsteps * (iframe - 1) + istep - 1)
+    ! interpolate wind
+    t = (istep - 0.5)/real(nsteps)
+    grid%uf = (1. - t)*uf1 + t*uf2
+    grid%vf = (1. - t)*vf1 + t*vf2
 
-do itimestep=1,nsteps
-  grid%itimestep = itimestep
-  time_start = (itimestep-1)*dt
-  id=itimestep
-  if(itimestep.eq.1)then
-    ifun_start=1
-  else
+    do ifun=ifun_start,ifun_end
+  
+      call sfire_model (                    &
+        id,                                     & ! unique number for prints and debug
+        ifun,                                   & ! what to do see below
+        restart,                                & ! use existing state
+        config_flags%fire_fuel_read,config_flags%fire_fuel_cat,   & ! legacy initial constant fuel category
+        ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+        ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
+        ifps,ifpe,jfps,jfpe,                    & ! patch - nodes owned by this process
+        ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
+        time_start,dt,                          & ! time and increment
+        info%fdx,info%fdy,                                & ! fire mesh spacing,
+        ignition,                               & ! small array of ignition line descriptions
+        grid%fxlong,grid%fxlat,                      & ! fire mesh coordinates
+        grid%lfn,grid%lfn_out,grid%tign_g,grid%fuel_frac,grid%fire_area,   & ! state: level function, ign time, fuel left, area burning
+        grid%fgrnhfx,grid%fgrnqfx,                          & ! output: heat fluxes
+        grid%ros,grid%flineint,grid%flineint2,                 & ! diagnostic variables
+        grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,             & ! fire risk spread
+        grid%f_int,grid%f_lineint,grid%f_lineint2,             & ! fire risk intensities
+        grid%nfuel_cat,                              & ! fuel data per point
+        grid%fuel_time,grid%fwh,grid%fz0,                      & ! save derived internal data
+        fp &
+      )
+    
+    enddo
     ifun_start=3
-  endif
-  ifun_end=6
-  do ifun=ifun_start,ifun_end
-
-  call sfire_model (                    &
-    id,                                     & ! unique number for prints and debug
-    ifun,                                   & ! what to do see below
-    restart,                                & ! use existing state
-    config_flags%fire_fuel_read,config_flags%fire_fuel_cat,   & ! legacy initial constant fuel category
-    ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
-    ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
-    ifps,ifpe,jfps,jfpe,                    & ! patch - nodes owned by this process
-    ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
-    time_start,dt,                          & ! time and increment
-    info%fdx,info%fdy,                                & ! fire mesh spacing,
-    ignition,                               & ! small array of ignition line descriptions
-    grid%fxlong,grid%fxlat,                      & ! fire mesh coordinates
-    grid%lfn,grid%lfn_out,grid%tign_g,grid%fuel_frac,grid%fire_area,   & ! state: level function, ign time, fuel left, area burning
-    grid%fgrnhfx,grid%fgrnqfx,                          & ! output: heat fluxes
-    grid%ros,grid%flineint,grid%flineint2,                 & ! diagnostic variables
-    grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,             & ! fire risk spread
-    grid%f_int,grid%f_lineint,grid%f_lineint2,             & ! fire risk intensities
-    grid%nfuel_cat,                              & ! fuel data per point
-    grid%fuel_time,grid%fwh,grid%fz0,                      & ! save derived internal data
-    fp &
-)
-
-   enddo
+  enddo
+  call write_vars(outputfile,grid,info,iframe)
+  uf1=uf2
+  vf1=vf2
 enddo
 
 end subroutine sub_main

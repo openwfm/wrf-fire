@@ -8,8 +8,9 @@ use module_fr_sfire_util , only : crash, interpolate_2d, continue_at_boundary
 use module_domain, only: domain
 implicit none
 
-! default input file name
+! default file names
 character(len=*),parameter::inputfile='fire_input.nc'
+character(len=*),parameter::outputfile='fire_output.nc'
 
 ! control whether the dimensions of the fire grid variables should have 
 ! the same (incorrect) sizes that wrf outputs, for compatibility
@@ -31,11 +32,6 @@ character(len=nf90_max_name),parameter::                        &
                               dim_time='Time'
 character(len=nf90_max_name),dimension(3),parameter::           &
         dim_fire=(/dim_fire_x,dim_fire_y,dim_time/)
-character(len=nf90_max_name),dimension(4),parameter::           &
-        dim_atm=(/dim_atm_x,dim_atm_y,dim_atm_z,dim_time/),     &
-        dim_atm_u=(/dim_atm_x_s,dim_atm_y,dim_atm_z,dim_time/), &
-        dim_atm_v=(/dim_atm_x,dim_atm_y_s,dim_atm_z,dim_time/), &
-        dim_atm_w=(/dim_atm_x,dim_atm_y,dim_atm_z_s,dim_time/)
 
 ! variable names
 character(len=nf90_max_name),parameter::                        &
@@ -61,18 +57,26 @@ character(len=nf90_max_name),parameter::                        &
                               unit_fgrnhfx='',                  &
                               desc_fgrnhfx='',                  &
                               var_fgrnqfx='FGRNQFX',            &
-                              unit_fgrnqfx='',                  &
-                              desc_fgrnqfx=''
+                              unit_fgrnqfx='J/m^2',             &
+                              desc_fgrnqfx='heat flux',         &
+                              var_ros='ROS',                    &
+                              unit_ros='m/s',                   &
+                              desc_ros='ROS',                   &
+                              var_r_0='R_0',                    &
+                              unit_r_0='m/s',                   &
+                              desc_r_0='R_0',                   &
+                              var_flineint='F_LINEINT',         &
+                              unit_flineint='J/m/s',            &
+                              desc_flineint='F_LINEINT',        &
+                              var_flineint2='F_LINEINT2',       & 
+                              unit_flineint2='J/m/s^2',         & 
+                              desc_flineint2='F_LINEINT2'        
+! inputs
 character(len=nf90_max_name),parameter::                        &
                               var_nfuel_cat='NFUEL_CAT',        &
-                              var_u='U',                        &
-                              var_v='V',                        &
-                              var_z0='Z0',                      &
-                              var_ph='PH',                      &
-                              var_phb='PHB',                    &
                               var_dzdxf='DZDXF',                &
                               var_dzdyf='DZDYF',                &
-                              var_zsf='ZSF'
+                              var_zsf='ZSF'                    
 character(len=nf90_max_name),parameter::var_times='Times' 
 
 ! grid information structure
@@ -80,6 +84,7 @@ integer, parameter::times_length=19
 type grid_info
   integer::nfirex,nfirey,      & ! fire grid size
            ntimes,             & ! number of times
+           sr_x,sr_y,          & ! refinement factors, for WRF compatibility
            dimids(3)             ! dimension ids, to check
   real::fdx,fdy,dt               ! mesh and time resolution
   character(len=NF90_MAX_NAME)::dim_fire_x,dim_fire_y,dim_time ! dimension names, for info only
@@ -127,24 +132,13 @@ call check(nf90_create(filename,nf90_clobber,ncid))
 !!the dimension name, and the dimension length. (From NetCDF docs)
 
 call check(nf90_def_dim(ncid,dim_time,nf90_unlimited,dimid))
-!if(compat_fire_grid)then
-!  call check(nf90_def_dim(ncid,dim_fire_x,(info%natmx+1)*info%sr_x,dimid))
-!  call check(nf90_def_dim(ncid,dim_fire_y,(info%natmy+1)*info%sr_y,dimid))
-!else
-  call check(nf90_def_dim(ncid,dim_fire_x,info%nfirex,dimid))
-  call check(nf90_def_dim(ncid,dim_fire_y,info%nfirey,dimid))
-!endif
-!call check(nf90_def_dim(ncid,dim_atm_x,info%natmx,dimid))
-!call check(nf90_def_dim(ncid,dim_atm_y,info%natmy,dimid))
-!call check(nf90_def_dim(ncid,dim_atm_z,info%natmz,dimid))
-!call check(nf90_def_dim(ncid,dim_atm_x_s,info%natmx+1,dimid))
-!call check(nf90_def_dim(ncid,dim_atm_y_s,info%natmy+1,dimid))
-!call check(nf90_def_dim(ncid,dim_atm_z_s,info%natmz+1,dimid))
-call check(nf90_def_dim(ncid,'DateStrLen',12,dimid))
+call check(nf90_def_dim(ncid,dim_fire_x,info%nfirex,dimid))
+call check(nf90_def_dim(ncid,dim_fire_y,info%nfirey,dimid))
+call check(nf90_def_dim(ncid,'DateStrLen',times_length,dimid))
 
 ! define global attributes
-!!call check(nf90_put_att(ncid,nf90_global,'DX',info%dx))
-!!call check(nf90_put_att(ncid,nf90_global,'DY',info%dy))
+call check(nf90_put_att(ncid,nf90_global,'FDX',info%fdx))
+call check(nf90_put_att(ncid,nf90_global,'FDY',info%fdy))
 call check(nf90_put_att(ncid,nf90_global,'DT',info%dt))
 call check(nf90_put_att(ncid,nf90_global,'STANDALONE_DRIVER',1))
 
@@ -192,6 +186,11 @@ call define_var(filename,var_tign_g,dim_fire,unit_tign_g,desc_tign_g)
 call define_var(filename,var_fgrnhfx,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
 call define_var(filename,var_fgrnqfx,dim_fire,unit_fgrnqfx,desc_fgrnqfx)
 call define_var(filename,var_fuel_frac,dim_fire,unit_fuel_frac,desc_fuel_frac)
+call define_var(filename,var_fire_area,dim_fire,unit_fire_area,desc_fire_area)
+call define_var(filename,var_flineint,dim_fire,unit_flineint,desc_flineint)
+call define_var(filename,var_flineint2,dim_fire,unit_flineint2,desc_flineint2)
+call define_var(filename,var_ros,dim_fire,unit_ros,desc_ros)
+call define_var(filename,var_r_0,dim_fire,unit_r_0,desc_r_0)
 
 end subroutine create_output_file
 
@@ -258,114 +257,42 @@ end subroutine define_var
 !***
 !
 
-subroutine write_inputs(filename,input,info)
-implicit none
-
-! write simulation input file in a way compatible 
-! with the wrf input file
-
-!*** arguments
-character(len=*),intent(in)::filename
-type(input_vars_fire),intent(in)::input
-type(grid_info),intent(in)::info
-
-!*** local
-integer::ncid,varid
-integer,dimension(4)::s,c
-
-!*** executable
-call create_dim_attr(filename,info)
-call define_var(filename,var_nfuel_cat,dim_fire,'','')
-call define_var(filename,var_u,dim_atm_u,'','')
-call define_var(filename,var_v,dim_atm_v,'','')
-call define_var(filename,var_dzdxf,dim_fire,'','')
-call define_var(filename,var_dzdyf,dim_fire,'','')
-call define_var(filename,var_zsf,dim_fire,'','')
-
-call ncopen(filename,nf90_write,ncid)
-
-s(:)=1
-c(:)=1
-c(1)=info%nfirex
-c(2)=info%nfirey
-
-call check(nf90_inq_varid(ncid,var_nfuel_cat,varid))
-call check(nf90_put_var(ncid,varid,input%nfuel_cat,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_dzdxf,varid))
-call check(nf90_put_var(ncid,varid,input%dzdxf,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_dzdyf,varid))
-call check(nf90_put_var(ncid,varid,input%dzdyf,start=s(1:3),count=c(1:3)))
-call check(nf90_inq_varid(ncid,var_zsf,varid))
-call check(nf90_put_var(ncid,varid,input%zsf,start=s(1:3),count=c(1:3)))
-
-!c(1)=info%natmx+1
-!c(2)=info%natmy
-
-!call check(nf90_inq_varid(ncid,var_uf,varid))
-!call check(nf90_put_var(ncid,varid,input%uf,start=s,count=c))
-
-!c(1)=info%natmx
-!c(2)=info%natmy+1
-
-!call check(nf90_inq_varid(ncid,var_vf,varid))
-!call check(nf90_put_var(ncid,varid,input%vf,start=s,count=c))
-
-call check(nf90_close(ncid))
-
-end subroutine write_inputs
-
-!
-!***
-!
-
-subroutine write_vars(filename,output,time)
+subroutine write_vars(filename,grid,info,iframe)
 !*** append variables to an output file (extending by the unlimited time
 !    dimension)
 implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename
-type(output_vars_fire),intent(in)::output
-real,intent(in)::time
+type(domain),intent(inout)::grid      ! the mother of all arrays
+type(grid_info),intent(in)::info    ! dimensions
+integer, intent(in)::iframe         ! frame to write into
 
 !*** local
-integer::ncid,tstep,dimid,varid
-integer,dimension(3)::s,c
-character(len=12)::timestr
+integer::ncid,dimid,varid
 
 !*** executable
 
 ! open the file
 call ncopen(filename,nf90_write,ncid)
 
-! get the current number of timeslices already written
-call check(nf90_inq_dimid(ncid,dim_time,dimid))
-call check(nf90_inquire_dimension(ncid,dimid,len=tstep))
-
+write(*,'(3a,i4,2a)')'writing file ',trim(filename),' frame ',iframe,' time ',info%times 
 ! write out the current simulation time
-call check(nf90_inq_varid(ncid,'Times',varid))
-write(timestr,'(E12.3)')time
-call check(nf90_put_var(ncid,varid,timestr,start=(/1,tstep+1/),count=(/12,1/)))
+call check(nf90_inq_varid(ncid,var_times,varid),'cannot find '//trim(var_times))
+call check(nf90_put_var(ncid,varid,info%times,start=(/1,iframe/),count=(/times_length,1/)), &
+     'error writing '//trim(var_times))
 
-! set up start and count variables for nf90_put_var so that it writes to the
-! correct time slice and write data for each variable
-s(:)=1
-c(:)=0
-s(3)=tstep+1
-c(3)=1
-c(1:2)=(/size(output%lfn,1),size(output%lfn,2)/)
-call check(nf90_inq_varid(ncid,var_lfn,varid))
-call check(nf90_put_var(ncid,varid,output%lfn,start=s,count=c))
-c(1:2)=(/size(output%tign,1),size(output%tign,2)/)
-call check(nf90_inq_varid(ncid,var_tign_g,varid))
-call check(nf90_put_var(ncid,varid,output%tign,start=s,count=c))
-c(1:2)=(/size(output%fgrnhfx,1),size(output%fgrnhfx,2)/)
-call check(nf90_inq_varid(ncid,var_fgrnhfx,varid))
-call check(nf90_put_var(ncid,varid,output%fgrnhfx,start=s,count=c))
-call check(nf90_inq_varid(ncid,var_fgrnqfx,varid))
-call check(nf90_put_var(ncid,varid,output%fgrnqfx,start=s,count=c))
-call check(nf90_inq_varid(ncid,var_fuel_frac,varid))
-call check(nf90_put_var(ncid,varid,output%fuel_frac,start=s,count=c))
+call write_fire_var(ncid,info,iframe,var_lfn,grid%lfn)
+call write_fire_var(ncid,info,iframe,var_tign_g,grid%tign_g)
+call write_fire_var(ncid,info,iframe,var_fuel_frac,grid%fuel_frac)
+call write_fire_var(ncid,info,iframe,var_fire_area,grid%fire_area)
+call write_fire_var(ncid,info,iframe,var_fgrnhfx,grid%fgrnhfx)
+call write_fire_var(ncid,info,iframe,var_fgrnqfx,grid%fgrnqfx)
+call write_fire_var(ncid,info,iframe,var_ros,grid%ros)
+call write_fire_var(ncid,info,iframe,var_flineint,grid%flineint)
+call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
+call write_fire_var(ncid,info,iframe,var_flineint,grid%flineint)
+call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
 
 ! close file
 call latch
@@ -376,7 +303,7 @@ end subroutine write_vars
 !*** READING 
 !
 
-subroutine set_fire_info_from_file(filename,info)
+subroutine read_info(filename,info)
 ! get fire grid sizes from input file
 implicit none
 
@@ -411,6 +338,8 @@ info%dim_fire_x=dimnames(1)
 info%dim_fire_y=dimnames(2)
 info%dim_time=dimnames(3)
 info%dimids=dimids
+info%sr_x=sr(1)
+info%sr_y=sr(2)
 	
 call att_read(ncid,'DX',info%fdx)
 call att_read(ncid,'DY',info%fdy)
@@ -425,7 +354,7 @@ write(*,'(a,2i6)')'fire grid dimensions:',info%nfirex,info%nfirey
 write(*,'(a,i6)')'number of time frames',info%ntimes
 write(*,'(3(a,f8.4,1x))')'stepsizes fdx=',info%fdx,'fdy=',info%fdy,'dt=',info%dt
 call check(nf90_close(ncid))
-end subroutine set_fire_info_from_file
+end subroutine read_info
 
 subroutine dim_read(ncid,dim_name,dim_len)
 character(len=*),intent(in)::dim_name
@@ -444,6 +373,11 @@ real, intent(out)::att_val
 call check(nf90_get_att(ncid,nf90_global,att_name,att_val))
 write(*,'(a,1x,a,g20.5)')'attribute',trim(att_name),att_val
 end subroutine att_read
+
+
+!
+!***
+!
 
 subroutine read_var_dims(ncid,varname,mdims,ndims,dims,sr,dimnames,dimids)
 ! get variable dimensions from a file
@@ -506,7 +440,32 @@ end subroutine read_var_dims
 !***
 !
 
-subroutine read_one_fire_var(ncid,info,iframe,varname,v)
+subroutine write_fire_var(ncid,info,iframe,varname,v)
+implicit none
+!*** arguments
+integer, intent(in)::ncid             ! id of netcdf file open in data mode
+type(grid_info),intent(in)::info      ! dimensions
+integer, intent(in):: iframe          ! number of frame in the file
+character(len=*),intent(in)::varname  ! the variable name
+real, intent(in):: v(:,:)            ! values
+!*** local
+integer::varid,nx,ny,it,start(3),count(3)
+!*** executable
+nx=info%nfirex
+ny=info%nfirey
+
+write(*,'(2a)')'writing variable ',trim(varname)
+call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
+call check(nf90_put_var(ncid,varid,v(1:nx,1:ny),start=(/1,1,iframe/),count=(/nx,ny,1/)), &
+     'error writing '//trim(varname))
+
+end subroutine write_fire_var
+
+!
+!***
+!
+
+subroutine read_fire_var(ncid,info,iframe,varname,v)
 implicit none
 !*** arguments
 integer, intent(in)::ncid             ! id of netcdf file open in data mode
@@ -525,7 +484,7 @@ call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
 call check(nf90_get_var(ncid,varid,v(1:nx,1:ny),start=(/1,1,iframe/),count=(/nx,ny,1/)), &
      'error reading '//trim(varname))
 
-end subroutine read_one_fire_var
+end subroutine read_fire_var
 
 !
 !***
@@ -554,17 +513,18 @@ call check(nf90_get_var(ncid,varid,info%times,start=(/1,iframe/),count=(/times_l
      'error reading '//trim(var_times))
 write(*,'(2a)')'Time ',info%times
 
-call read_one_fire_var(ncid,info,iframe,var_nfuel_cat,grid%nfuel_cat) 
-call read_one_fire_var(ncid,info,iframe,var_dzdxf,grid%dzdxf) 
-call read_one_fire_var(ncid,info,iframe,var_dzdyf,grid%dzdyf) 
-call read_one_fire_var(ncid,info,iframe,var_uf,grid%uf) 
-call read_one_fire_var(ncid,info,iframe,var_vf,grid%vf) 
-!call read_one_fire_var(ncid,info,iframe,var_lfn,grid%lfn) 
-!call read_one_fire_var(ncid,info,iframe,var_tign_g,grid%tign_g) 
-!call read_one_fire_var(ncid,info,iframe,var_fuel_frac,grid%fuel_frac) 
+call read_fire_var(ncid,info,iframe,var_nfuel_cat,grid%nfuel_cat) 
+call read_fire_var(ncid,info,iframe,var_dzdxf,grid%dzdxf) 
+call read_fire_var(ncid,info,iframe,var_dzdyf,grid%dzdyf) 
+call read_fire_var(ncid,info,iframe,var_uf,grid%uf) 
+call read_fire_var(ncid,info,iframe,var_vf,grid%vf) 
 
 call check(nf90_close(ncid))
 end subroutine read_vars
+
+!
+!***
+!
 
 subroutine check(ncerr,msg)
 implicit none
@@ -579,6 +539,10 @@ if(ncerr.ne.nf90_noerr)then
   endif
 endif
 end subroutine check
+
+!
+!***
+!
 
 subroutine ncopen(filename,mode,ncid)
 !*** purpose: open netcdf file with an informative error message 
