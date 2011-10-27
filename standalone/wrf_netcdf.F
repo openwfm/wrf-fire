@@ -73,14 +73,17 @@ character(len=nf90_max_name),parameter::                        &
                               var_dzdxf='DZDXF',                &
                               var_dzdyf='DZDYF',                &
                               var_zsf='ZSF'
+character(len=nf90_max_name),parameter::var_times='Times' 
 
 ! grid information structure
+integer, parameter::times_length=19
 type grid_info
   integer::nfirex,nfirey,      & ! fire grid size
            ntimes,             & ! number of times
            dimids(3)             ! dimension ids, to check
   real::fdx,fdy,dt               ! mesh and time resolution
   character(len=NF90_MAX_NAME)::dim_fire_x,dim_fire_y,dim_time ! dimension names, for info only
+  character(len=times_length)::times ! the time string from the file
 end type
 
 ! pointers to all variables being written (to simplify interface)
@@ -528,13 +531,13 @@ end subroutine read_one_fire_var
 !***
 !
 
-subroutine read_fire_vars(filename,info,iframe,grid)
+subroutine read_vars(filename,info,iframe,grid)
 ! read all variables from input file
 implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename ! the input file
-type(grid_info),intent(in)::info      ! dimensions
+type(grid_info),intent(inout)::info   ! dimensions
 integer, intent(in):: iframe          ! number of frame in the file
 type(domain),intent(inout)::grid      ! the mother of all arrays
 
@@ -546,17 +549,22 @@ integer,dimension(4)::s,c
 write(*,'(3a,i4)')'reading file ',trim(filename),' frame ',iframe 
 call ncopen(filename,nf90_nowrite,ncid)
 
+call check(nf90_inq_varid(ncid,var_times,varid),'cannot find '//trim(var_times))
+call check(nf90_get_var(ncid,varid,info%times,start=(/1,iframe/),count=(/times_length,1/)), &
+     'error reading '//trim(var_times))
+write(*,'(2a)')'Time ',info%times
+
 call read_one_fire_var(ncid,info,iframe,var_nfuel_cat,grid%nfuel_cat) 
 call read_one_fire_var(ncid,info,iframe,var_dzdxf,grid%dzdxf) 
 call read_one_fire_var(ncid,info,iframe,var_dzdyf,grid%dzdyf) 
 call read_one_fire_var(ncid,info,iframe,var_uf,grid%uf) 
 call read_one_fire_var(ncid,info,iframe,var_vf,grid%vf) 
-call read_one_fire_var(ncid,info,iframe,var_lfn,grid%lfn) 
-call read_one_fire_var(ncid,info,iframe,var_tign_g,grid%tign_g) 
-call read_one_fire_var(ncid,info,iframe,var_fuel_frac,grid%fuel_frac) 
+!call read_one_fire_var(ncid,info,iframe,var_lfn,grid%lfn) 
+!call read_one_fire_var(ncid,info,iframe,var_tign_g,grid%tign_g) 
+!call read_one_fire_var(ncid,info,iframe,var_fuel_frac,grid%fuel_frac) 
 
 call check(nf90_close(ncid))
-end subroutine read_fire_vars
+end subroutine read_vars
 
 subroutine check(ncerr,msg)
 implicit none

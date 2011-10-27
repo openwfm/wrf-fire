@@ -9,7 +9,7 @@ use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
 use wrf_netcdf, only : grid_info, set_fire_info_from_file, &
                        create_output_file,write_vars,output_vars_fire, &
-                       input_vars_fire,read_fire_vars
+                       input_vars_fire,read_vars
 implicit none
 
 contains 
@@ -129,7 +129,7 @@ call allocate2d(grid%f_lineint,ifms,ifme,jfms,jfme,'f_lineint')      !
 call allocate2d(grid%f_lineint2,ifms,ifme,jfms,jfme,'f_lineint2')    ! 
 call allocate2d(grid%f_int,ifms,ifme,jfms,jfme,'f_int')              ! 
 
-call read_fire_vars(inputfile,info,1,grid)
+call read_vars(inputfile,info,1,grid)
 
 ! copy pointers to grid fields, to pass to the spread rate calculation
 call set_fp_from_grid(grid,fp)

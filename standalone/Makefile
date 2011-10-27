@@ -1,7 +1,7 @@
 # defines FC, FCFLAGS, FFREE
 include make.inc
 DEFS =
-WRF = ../wrfv2_fire/phys
+WRF = ../wrfv2_fire
 FPFLAGS= -I$(NETCDF)/include -I.
 #LDFLAGS = -L$(NETCDF)/lib -lnetcdff -lnetcdf
 LDFLAGS = `$(NETCDF)/bin/nc-config --flibs`
@@ -10,8 +10,8 @@ FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE)
 
 MAKEFILE=Makefile
 
-%.o: $(WRF)/%.F 
-	$(FP) $(FFLAGS) $(DEFS) -E $(WRF)/$*.F > $*.f90
+%.o: $(WRF)/phys/%.F 
+	$(FP) $(FFLAGS) $(DEFS) -E $(WRF)/phys/$*.F > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
 %.o: %.F 
