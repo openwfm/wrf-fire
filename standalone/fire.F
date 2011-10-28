@@ -9,7 +9,7 @@ use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
 use wrf_netcdf, only : grid_info, read_info, &
                        create_output_file,write_vars, &
-                       read_vars
+                       read_vars, debug_print
 implicit none
 
 contains 
@@ -54,6 +54,8 @@ logical::restart=.false.
 
 call read_namelist(config_flags)           ! read flags from namelist.input
 call set_flags(config_flags)               ! copy configuration flags to sfire internal structures
+
+debug_print = config_flags%fire_print_msg.ge.2 ! if we write a lot
 
 call read_info(inputfile,info)             ! get dimensions
 
@@ -309,7 +311,7 @@ character(len=*),intent(in)::s
 !*** local
 integer::err
 !*** executable
-write(6,1) ims,ime,jms,jme,trim(s)
+if(debug_print)write(6,1) ims,ime,jms,jme,trim(s)
 if(associated(p))call crash('already allocated')
 1 format('allocate2d',2(1x,i6,' :',i6),1x,a)
 allocate(p(ims:ime,jms:jme),stat=err)
@@ -330,7 +332,7 @@ character(len=*),intent(in)::s
 !*** local
 integer::err
 !*** executable
-write(6,1) ims,ime,jms,jme,kms,kme,trim(s)
+if(debug_print)write(6,1) ims,ime,jms,jme,kms,kme,trim(s)
 1 format('allocate3d',3(1x,i6,' :',i6),1x,a)
 if(associated(p))call crash('already allocated')
 allocate(p(ims:ime,jms:jme,kms:kme),stat=err)

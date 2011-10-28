@@ -16,6 +16,7 @@ character(len=*),parameter::outputfile='fire_output.nc'
 ! 
 logical::compat_fire_grid=.true.
 logical::debug_print=.true.
+!logical::debug_print=.false.
 
 ! output variable type
 integer,parameter::vartype=nf90_float,field_type=104
@@ -23,25 +24,35 @@ integer,parameter::vartype=nf90_float,field_type=104
 ! max number of dimensions
 integer, parameter:: mdims=4
 
-! dimension names
-character(len=nf90_max_name)::                        &
-                              dim_fire_x='west_east_subgrid',   &
-                              dim_fire_y='south_north_subgrid', &
-                              dim_atm_x='west_east',            &
-                              dim_atm_y='south_north',          &
-                              dim_atm_z='bottom_top',           &
-                              dim_atm_x_s='west_east_stag',     &
-                              dim_atm_y_s='south_north_stag',   &
-                              dim_atm_z_s='bottom_top_stag',    &
-                              dim_time='Time'
 ! variable names
-character(len=nf90_max_name),parameter::                        &
+character(len=nf90_max_name)::                        &
+                              var_nfuel_cat='NFUEL_CAT',        &
+                              unit_nfuel_cat='',                &
+                              desc_nfuel_cat='',                &
+                              var_dzdxf='DZDXF',                &
+                              unit_dzdxf='',                    &
+                              desc_dzdxf='',                    &
+                              var_dzdyf='DZDYF',                &
+                              unit_dzdyf='',                    &
+                              desc_dzdyf='',                    &
+                              var_zsf='ZSF',                    &
+                              unit_zsf='',                      &
+                              desc_zsf='',                      &
                               var_lfn='LFN',                    &
                               unit_lfn='',                      &
                               desc_lfn='',                      &
                               var_tign_g='TIGN_G',              &
                               unit_tign_g='',                   &
                               desc_tign_g='',                   &
+                              var_fmc_g='FMC_G',                &
+                              unit_fmc_g='',                    &
+                              desc_fmc_g='',                    &
+                              var_fxlong='FXLONG',              &
+                              unit_fxlong='',                   &
+                              desc_fxlong='',                   &
+                              var_fxlat='FXLAT',                &
+                              unit_fxlat='',                    &
+                              desc_fxlat='',                    &
                               var_uf='UF',                      &
                               unit_uf='',                       &
                               desc_uf='',                       &
@@ -71,14 +82,8 @@ character(len=nf90_max_name),parameter::                        &
                               desc_flineint='Byram fireline intensity',         &
                               var_flineint2='FLINEINT2',        & 
                               unit_flineint2='J/m/s^2',         & 
-                              desc_flineint2='New fireline intensity'        
+                              desc_flineint2='New fireline intensity' 
 
-! inputs
-character(len=nf90_max_name),parameter::                        &
-                              var_nfuel_cat='NFUEL_CAT',        &
-                              var_dzdxf='DZDXF',                &
-                              var_dzdyf='DZDYF',                &
-                              var_zsf='ZSF'                    
 character(len=nf90_max_name),parameter::var_times='Times' 
 
 ! grid information structure
@@ -99,8 +104,12 @@ type grid_info
   integer :: sr_x,sr_y           ! refinement ratios
   integer :: nstagx,nstagy
   character(len=nf90_max_name)::      &
+    dim_atm_x='west_east',            &
+    dim_atm_y='south_north',          &
+    dim_atm_z='bottom_top',           &
     dim_atm_x_s='west_east_stag',     &
-    dim_atm_y_s='south_north_stag'
+    dim_atm_y_s='south_north_stag',   &
+    dim_atm_z_s='bottom_top_stag'
 end type
 
 contains
@@ -196,16 +205,19 @@ call check(nf90_close(ncid))
 
 ! create all of the output variables
 dim_fire=(/info%dim_fire_x,info%dim_fire_y,info%dim_time/)
-call define_var(filename,var_lfn,3,dim_fire,unit_lfn,desc_lfn)
-call define_var(filename,var_tign_g,3,dim_fire,unit_tign_g,desc_tign_g)
-call define_var(filename,var_fgrnhfx,3,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
-call define_var(filename,var_fgrnqfx,3,dim_fire,unit_fgrnqfx,desc_fgrnqfx)
-call define_var(filename,var_fuel_frac,3,dim_fire,unit_fuel_frac,desc_fuel_frac)
-call define_var(filename,var_fire_area,3,dim_fire,unit_fire_area,desc_fire_area)
-call define_var(filename,var_flineint,3,dim_fire,unit_flineint,desc_flineint)
-call define_var(filename,var_flineint2,3,dim_fire,unit_flineint2,desc_flineint2)
-call define_var(filename,var_ros,3,dim_fire,unit_ros,desc_ros)
-call define_var(filename,var_r_0,3,dim_fire,unit_r_0,desc_r_0)
+call define_var(filename,info,var_zsf,3,dim_fire,unit_zsf,desc_zsf)
+call define_var(filename,info,var_lfn,3,dim_fire,unit_lfn,desc_lfn)
+call define_var(filename,info,var_tign_g,3,dim_fire,unit_tign_g,desc_tign_g)
+call define_var(filename,info,var_fxlong,3,dim_fire,unit_fxlong,desc_fxlong)
+call define_var(filename,info,var_fxlat,3,dim_fire,unit_fxlat,desc_fxlat)
+call define_var(filename,info,var_fgrnhfx,3,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
+call define_var(filename,info,var_fgrnqfx,3,dim_fire,unit_fgrnqfx,desc_fgrnqfx)
+call define_var(filename,info,var_fuel_frac,3,dim_fire,unit_fuel_frac,desc_fuel_frac)
+call define_var(filename,info,var_fire_area,3,dim_fire,unit_fire_area,desc_fire_area)
+call define_var(filename,info,var_flineint,3,dim_fire,unit_flineint,desc_flineint)
+call define_var(filename,info,var_flineint2,3,dim_fire,unit_flineint2,desc_flineint2)
+call define_var(filename,info,var_ros,3,dim_fire,unit_ros,desc_ros)
+call define_var(filename,info,var_r_0,3,dim_fire,unit_r_0,desc_r_0)
 
 end subroutine create_output_file
 
@@ -213,7 +225,7 @@ end subroutine create_output_file
 !***
 !
 
-subroutine define_var(filename,varname,ndims,dims,units,description)
+subroutine define_var(filename,info,varname,ndims,dims,units,description)
 
 !*** define a variable in a netcdf data set, the file is assumed to exist and
 !    have valid meta-data (as created by create_output_file)
@@ -222,6 +234,7 @@ implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename,varname  ! create variable varname in filename
+type(grid_info), intent(in)::info
 integer, intent(in)::ndims
 character(len=NF90_MAX_NAME),intent(in)::dims(ndims) ! the dimension names of the variable
 character(len=*),intent(in) ::units,description ! attributes created by wrf 
@@ -252,11 +265,11 @@ call check(nf90_put_att(ncid,varid,'description',description))
 call check(nf90_put_att(ncid,varid,'units',units))
 if(ndims.eq.3)then
   stag='Z'
-elseif(trim(dims(1)).eq.dim_atm_x_s)then
+elseif(trim(dims(1)).eq.info%dim_atm_x_s)then
   stag='X'
-elseif(trim(dims(2)).eq.dim_atm_y_s)then
+elseif(trim(dims(2)).eq.info%dim_atm_y_s)then
   stag='Y'
-elseif(trim(dims(3)).eq.dim_atm_z_s)then
+elseif(trim(dims(3)).eq.info%dim_atm_z_s)then
   stag='Z'
 else
   stag=''
@@ -294,14 +307,19 @@ integer::ncid,dimid,varid
 call print_var_info(filename,var_lfn)
 call ncopen(filename,nf90_write,ncid)
 
-write(*,'(3a,i4,2a)')'writing file ',trim(filename),' frame ',iframe,' time ',info%times 
+if(debug_print)write(*,'(3a,i4,2a)')'writing file ',trim(filename), &
+   ' frame ',iframe,' time ',info%times 
+
 ! write out the current simulation time
 call check(nf90_inq_varid(ncid,var_times,varid),'cannot find '//trim(var_times))
-call check(nf90_put_var(ncid,varid,info%times,start=(/1,iframe/),count=(/info%len_time_string,1/)), &
-     'error writing '//trim(var_times))
+call check(nf90_put_var(ncid,varid,info%times,start=(/1,iframe/), &
+     count=(/info%len_time_string,1/)), 'error writing '//trim(var_times))
 
 call write_fire_var(ncid,info,iframe,var_lfn,grid%lfn)
 call write_fire_var(ncid,info,iframe,var_tign_g,grid%tign_g)
+call write_fire_var(ncid,info,iframe,var_fxlong,grid%fxlong)
+call write_fire_var(ncid,info,iframe,var_fxlat,grid%fxlat)
+call write_fire_var(ncid,info,iframe,var_zsf,grid%zsf)
 call write_fire_var(ncid,info,iframe,var_fuel_frac,grid%fuel_frac)
 call write_fire_var(ncid,info,iframe,var_fire_area,grid%fire_area)
 call write_fire_var(ncid,info,iframe,var_fgrnhfx,grid%fgrnhfx)
@@ -375,7 +393,8 @@ if(compat_fire_grid)then
         call check(nf90_inq_dimid(ncid, stagname, stagid))
         call check(nf90_inquire_dimension(ncid, stagid, len=stag(idim)))
         sr(idim) = dims(idim)/stag(idim)
-        write(*,'(3a,i5,a,i5)')'dimension ',trim(stagname),' length ',stag(idim),' ratio ',sr(idim)
+        if(debug_print)write(*,'(3a,i5,a,i5)')'dimension ',trim(stagname), &
+           ' length ',stag(idim),' ratio ',sr(idim)
     endif
     stagnames(idim)=stagname
     dims(idim) = dims(idim) - sr(idim)
@@ -385,6 +404,8 @@ if(compat_fire_grid)then
     call crash(msg)
   endif
 endif
+
+call check(nf90_close(ncid))
 
 ! store the rest in info
 info%nfirex=dims(1)
@@ -400,11 +421,14 @@ if(sr(1).ne.0)then
     info%fdy=info%fdy/sr(2)
 endif
 	
-write(*,'(4(a,1x))')'dimension names:',trim(info%dim_fire_x),trim(info%dim_fire_y),trim(info%dim_time)
-write(*,'(a,2i6)')'fire grid dimensions:',info%nfirex,info%nfirey
-write(*,'(a,i6)')'number of time frames',info%ntimes
-write(*,'(3(a,f8.4,1x))')'stepsizes fdx=',info%fdx,'fdy=',info%fdy,'dt=',info%dt
-call check(nf90_close(ncid))
+if(debug_print)then
+  write(*,'(4(a,1x))')'dimension names:',trim(info%dim_fire_x),trim(info%dim_fire_y), &
+     trim(info%dim_time)
+  write(*,'(a,2i6)')'fire grid dimensions:',info%nfirex,info%nfirey
+  write(*,'(a,i6)')'number of time frames',info%ntimes
+  write(*,'(3(a,f8.4,1x))')'stepsizes fdx=',info%fdx,'fdy=',info%fdy,'dt=',info%dt
+endif
+
 end subroutine read_info
 
 subroutine dim_read(ncid,dim_name,dim_len)
@@ -414,7 +438,7 @@ integer,intent(out):: dim_len
 integer:: dim_id
 call check(nf90_inq_dimid(ncid,dim_name,dim_id))
 call check(nf90_inquire_dimension(ncid,dim_id,len=dim_len))
-write(*,'(a,1x,a,i6)')'dimension',trim(dim_name),dim_len
+if(debug_print)write(*,'(a,1x,a,i6)')'dimension',trim(dim_name),dim_len
 end subroutine dim_read
 
 subroutine att_read(ncid,att_name,att_val)
@@ -422,7 +446,7 @@ integer, intent(in)::ncid
 character(len=*),intent(in)::att_name
 real, intent(out)::att_val
 call check(nf90_get_att(ncid,nf90_global,att_name,att_val))
-write(*,'(a,1x,a,g20.5)')'attribute',trim(att_name),att_val
+if(debug_print)write(*,'(a,1x,a,g20.5)')'attribute',trim(att_name),att_val
 end subroutine att_read
 
 !
@@ -439,9 +463,9 @@ integer::ncid,ndims,dimlengths(mdims),dimids(mdims),i,type
 character(len=NF90_MAX_NAME)::dimnames(mdims)
 
 !*** executable
-write(*,'(4a)')'reading file ',filename,' dimensions of variable ',trim(varname)
+if(debug_print)write(*,'(4a)')'reading file ',filename,' dimensions of variable ',trim(varname)
 call read_var_info(filename,varname,ndims,dimlengths,dimnames)
-write(*,'(3a,4(2a,i5,1x))')'variable ',trim(varname),' dimensions ', &
+if(debug_print)write(*,'(3a,4(2a,i5,1x))')'variable ',trim(varname),' dimensions ', &
   (trim(dimnames(i)),'=',dimlengths(i),i=1,ndims)
 
 end subroutine print_var_info
@@ -469,7 +493,7 @@ integer::varid,dimid,idimids(mdims),idim,i,dimlen,xtype
 character(len=NF90_MAX_NAME)::dimname
 
 ! executable
-write(*,'(4a)')'reading file ',trim(filename),' variable ',trim(varname)
+if(debug_print)write(*,'(4a)')'reading file ',trim(filename),' variable ',trim(varname)
 call ncopen(filename,nf90_nowrite,ncid)
 call check(nf90_inq_varid(ncid, varname, varid))
 call check(nf90_inquire_variable(ncid,varid,ndims=ndims,xtype=xtype))
@@ -506,15 +530,38 @@ integer, intent(in):: iframe          ! number of frame in the file
 character(len=*),intent(in)::varname  ! the variable name
 real, intent(in):: v(:,:)            ! values
 !*** local
-integer::varid,nx,ny,it,start(3),count(3)
+integer::varid,nx,ny,i,j
+real::v2(info%nfirex,info%nfirey),vmin,vmax,err
+logical::read_check=.false.
 !*** executable
 nx=info%nfirex
 ny=info%nfirey
 
-write(*,'(3a,2i5)')'writing variable ',trim(varname),' size ',nx,ny
+vmin=huge(vmin)
+vmax=-huge(vmax)
+do j=1,ny
+  do i=1,nx
+    vmin=min(vmin,v(i,j))
+    vmax=max(vmax,v(i,j))
+  enddo
+enddo
+
+if(debug_print)write(*,'(3a,2i5,2(a,g19.6))')'writing variable ',trim(varname), &
+    ' size ',nx,ny,' min',vmin,' max',vmax
 call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
 call check(nf90_put_var(ncid,varid,v(1:nx,1:ny),start=(/1,1,iframe/),count=(/nx,ny,1/)), &
      'error writing '//trim(varname))
+
+if(read_check)then
+  call read_fire_var(ncid,info,iframe,varname,v2) ! read back to check
+  err=0
+  do j=1,ny
+    do i=1,nx
+      err=max(err,v(i,j)-v2(i,j))
+    enddo
+  enddo
+  write(*,'(a,g19.6)')'max write-read error',err
+endif
 
 end subroutine write_fire_var
 
@@ -536,7 +583,7 @@ integer::varid,nx,ny,it,start(3),count(3)
 nx=info%nfirex
 ny=info%nfirey
 
-write(*,'(2a)')'reading variable ',trim(varname)
+if(debug_print)write(*,'(2a)')'reading variable ',trim(varname)
 call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
 call check(nf90_get_var(ncid,varid,v(1:nx,1:ny),start=(/1,1,iframe/),count=(/nx,ny,1/)), &
      'error reading '//trim(varname))
@@ -562,17 +609,21 @@ integer::ncid,varid,ierr
 integer,dimension(4)::s,c
 
 !*** executable
-write(*,'(3a,i4)')'reading file ',trim(filename),' frame ',iframe 
+if(debug_print)write(*,'(3a,i4)')'reading file ',trim(filename),' frame ',iframe 
 call ncopen(filename,nf90_nowrite,ncid)
 
 call check(nf90_inq_varid(ncid,var_times,varid),'cannot find '//trim(var_times))
 call check(nf90_get_var(ncid,varid,info%times,start=(/1,iframe/),count=(/info%len_time_string,1/)), &
      'error reading '//trim(var_times))
-write(*,'(2a)')'Time ',info%times
+if(debug_print)write(*,'(2a)')'Time ',info%times
 
 call read_fire_var(ncid,info,iframe,var_nfuel_cat,grid%nfuel_cat) 
 call read_fire_var(ncid,info,iframe,var_dzdxf,grid%dzdxf) 
 call read_fire_var(ncid,info,iframe,var_dzdyf,grid%dzdyf) 
+call read_fire_var(ncid,info,iframe,var_zsf,grid%zsf) 
+call read_fire_var(ncid,info,iframe,var_fxlong,grid%fxlong) 
+call read_fire_var(ncid,info,iframe,var_fxlat,grid%fxlat) 
+call read_fire_var(ncid,info,iframe,var_fmc_g,grid%fmc_g) 
 call read_fire_var(ncid,info,iframe,var_uf,grid%uf) 
 call read_fire_var(ncid,info,iframe,var_vf,grid%vf) 
 
