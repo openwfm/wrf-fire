@@ -396,9 +396,9 @@ integer, parameter:: mdims=3
 integer::ncid,ndims,dims(mdims),dimids(mdims),i
 character(len=NF90_MAX_NAME)::dimnames(mdims)
 call ncopen(filename,nf90_nowrite,ncid)
-write(*,'(3a)')'trying to read dimensions of variable ',varname
+write(*,'(3a)')'trying to read dimensions of variable ',trim(varname)
 call read_var_dims(ncid,varname,mdims,ndims,dims,dimnames=dimnames,no_check_stag=.true.)
-write(*,'(3a,4(2a,i5,1x))')'variable ',varname,' dimensions ',(dimnames(i),'=',dims(i),i=1,ndims)
+write(*,'(3a,4(2a,i5,1x))')'variable ',trim(varname),' dimensions ',(trim(dimnames(i)),'=',dims(i),i=1,ndims)
 call check(nf90_close(ncid))
 end subroutine print_var_dims
 
