@@ -260,6 +260,7 @@ call check(nf90_put_att(ncid,varid,'coordinates','XLONG XLAT'))
 ! close file
 call check(nf90_enddef(ncid))
 call check(nf90_close(ncid))
+call print_var_dims(filename,varname)  ! check
 end subroutine define_var
 
 !
@@ -283,6 +284,7 @@ integer::ncid,dimid,varid
 !*** executable
 
 ! open the file
+call print_var_dims(filename,var_lfn)
 call ncopen(filename,nf90_write,ncid)
 
 write(*,'(3a,i4,2a)')'writing file ',trim(filename),' frame ',iframe,' time ',info%times 
@@ -305,7 +307,6 @@ call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
 ! close file
 call latch
 call check(nf90_close(ncid))
-call print_var_dims(filename,var_lfn)  ! check
 end subroutine write_vars
 
 !
@@ -394,13 +395,15 @@ integer, parameter:: mdims=3
 integer::ncid,ndims,dims(mdims),dimids(mdims),i
 character(len=NF90_MAX_NAME)::dimnames(mdims)
 call ncopen(filename,nf90_nowrite,ncid)
-call read_var_dims(ncid,varname,mdims,ndims,dims,dimnames=dimnames)
+write(*,'(3a)')'trying to read dimensions of variable ',varname
+call read_var_dims(ncid,varname,mdims,ndims,dims,dimnames=dimnames,no_check_stag=.true.)
 write(*,'(3a,4(2a,i5,1x))')'variable ',varname,' dimensions ',(dimnames(i),'=',dims(i),i=1,ndims)
 call check(nf90_close(ncid))
 end subroutine print_var_dims
 
-subroutine read_var_dims(ncid,varname,mdims,ndims,dims,sr,dimnames,dimids)
+subroutine read_var_dims(ncid,varname,mdims,ndims,dims,sr,dimnames,dimids,no_check_stag)
 ! get variable dimensions from a file
+implicit none
 ! arguments
 integer, intent(in):: ncid             ! open netcdf file
 character(len=*), intent(in):: varname ! variable name
@@ -410,12 +413,14 @@ integer, intent(out)::dims(mdims)      ! the dimensions
 integer, intent(out), optional::sr(mdims)! refinement ratios
 character(len=*),intent(out),optional::dimnames(mdims) ! dimension names
 integer,intent(out),optional::dimids(mdims) ! dimension ids
+logical, intent(in), optional:: no_check_stag
 ! local
 integer::varid,dimid,xtype,idimids(mdims),idim,i,ratio,staglen,stagid,dimlen
 character(len=NF90_MAX_NAME)::dimname,stagname
 character(len=128)::msg
 character(len=*), parameter:: subgrid='_subgrid'
 ! executable
+write(*,'(2a)')'reading variable ',trim(varname)
 call check(nf90_inq_varid(ncid, varname, varid))
 call check(nf90_inquire_variable(ncid,varid,xtype=xtype,ndims=ndims))
 if(ndims.gt.mdims)then
@@ -428,7 +433,10 @@ if(xtype.ne.NF90_FLOAT)then
 endif
 call check(nf90_inquire_variable(ncid, varid, dimids=idimids))
 do idim=1,ndims
+    write(*,'(a,i3,a,i6)')'inquiring dimension ',idim,' id',idimids(idim)
     call check(nf90_inquire_dimension(ncid, idimids(idim), dimname, dimlen))
+    write(*,'(3a,i5)')'got dimension name ',trim(dimname),' length',dimlen
+    if(.not.present(no_check_stag))then
     ratio=0
     i=index(dimname,subgrid,.true.)
     ! print *,trim(dimname),subgrid,i,len(subgrid),len_trim(dimname)
@@ -441,6 +449,7 @@ do idim=1,ndims
     dims(idim) = dimlen - ratio 
     if(present(sr))then
         sr(idim)=ratio
+    endif
     endif
     if(present(dimnames))then
         dimnames(idim)=dimname

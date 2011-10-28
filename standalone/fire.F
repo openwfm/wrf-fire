@@ -59,6 +59,9 @@ call set_flags(config_flags)               ! copy configuration flags to sfire i
 
 call read_info(inputfile,info)             ! get dimensions
 
+! start empty NetCDF file with the dimensions
+call create_output_file(outputfile,info)
+
 ! get ignition data
 call fire_ignition_convert (config_flags,ignition)
 
@@ -172,7 +175,7 @@ grid%u_frame=0.
 grid%v_frame=0.
 
 ! start output file
-call create_output_file(outputfile,info)
+!! call create_output_file(outputfile,info)
 
 if(info%ntimes.lt.3)then
   write(*,'(a,i5)')'ntimes=',info%ntimes
