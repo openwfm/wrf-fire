@@ -190,16 +190,16 @@ call check(nf90_close(ncid))
 
 ! create all of the output variables
 dim_fire=(/info%dim_fire_x,info%dim_fire_y,info%dim_time/)
-call define_var(filename,var_lfn,dim_fire,unit_lfn,desc_lfn)
-call define_var(filename,var_tign_g,dim_fire,unit_tign_g,desc_tign_g)
-call define_var(filename,var_fgrnhfx,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
-call define_var(filename,var_fgrnqfx,dim_fire,unit_fgrnqfx,desc_fgrnqfx)
-call define_var(filename,var_fuel_frac,dim_fire,unit_fuel_frac,desc_fuel_frac)
-call define_var(filename,var_fire_area,dim_fire,unit_fire_area,desc_fire_area)
-call define_var(filename,var_flineint,dim_fire,unit_flineint,desc_flineint)
-call define_var(filename,var_flineint2,dim_fire,unit_flineint2,desc_flineint2)
-call define_var(filename,var_ros,dim_fire,unit_ros,desc_ros)
-call define_var(filename,var_r_0,dim_fire,unit_r_0,desc_r_0)
+call define_var(filename,var_lfn,3,dim_fire,unit_lfn,desc_lfn)
+call define_var(filename,var_tign_g,3,dim_fire,unit_tign_g,desc_tign_g)
+call define_var(filename,var_fgrnhfx,3,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
+call define_var(filename,var_fgrnqfx,3,dim_fire,unit_fgrnqfx,desc_fgrnqfx)
+call define_var(filename,var_fuel_frac,3,dim_fire,unit_fuel_frac,desc_fuel_frac)
+call define_var(filename,var_fire_area,3,dim_fire,unit_fire_area,desc_fire_area)
+call define_var(filename,var_flineint,3,dim_fire,unit_flineint,desc_flineint)
+call define_var(filename,var_flineint2,3,dim_fire,unit_flineint2,desc_flineint2)
+call define_var(filename,var_ros,3,dim_fire,unit_ros,desc_ros)
+call define_var(filename,var_r_0,3,dim_fire,unit_r_0,desc_r_0)
 
 end subroutine create_output_file
 
@@ -207,7 +207,7 @@ end subroutine create_output_file
 !***
 !
 
-subroutine define_var(filename,varname,dims,units,description)
+subroutine define_var(filename,varname,ndims,dims,units,description)
 
 !*** define a variable in a netcdf data set, the file is assumed to exist and
 !    have valid meta-data (as created by create_output_file)
@@ -216,12 +216,13 @@ implicit none
 
 !*** arguments
 character(len=*),intent(in)::filename,varname  ! create variable varname in filename
-character(len=*),dimension(:),intent(in)::dims ! the dimension names of the variable
+integer, intent(in)::ndims
+character(len=NF90_MAX_NAME),dimension(ndims),intent(in)::dims ! the dimension names of the variable
 character(len=*),intent(in)::units,description ! attributes created by wrf (not used at the moment)
 
 !*** local
 integer::ncid,i,varid
-integer,dimension(4)::dimids
+integer,dimension(ndims)::dimids
 character(len=*),parameter::memorder='XYZ'
 character(len=3)::stag
 
@@ -230,7 +231,7 @@ character(len=3)::stag
 call ncopen(filename,nf90_write,ncid)
 
 ! get dimension id's
-do i=1,size(dims)
+do i=1,ndims
   call check(nf90_inq_dimid(ncid,dims(i),dimids(i)))
 enddo
 
@@ -243,7 +244,7 @@ call check(nf90_put_att(ncid,varid,'FieldType',field_type))
 call check(nf90_put_att(ncid,varid,'MemoryOrder',memorder(1:size(dims))))
 call check(nf90_put_att(ncid,varid,'description',description))
 call check(nf90_put_att(ncid,varid,'units',units))
-if(size(dims).eq.3)then
+if(ndims.eq.3)then
   stag='Z'
 elseif(trim(dims(1)).eq.dim_atm_x_s)then
   stag='X'
@@ -260,6 +261,7 @@ call check(nf90_put_att(ncid,varid,'coordinates','XLONG XLAT'))
 ! close file
 call check(nf90_enddef(ncid))
 call check(nf90_close(ncid))
+call print_var_dims(filename,varname)  ! check
 end subroutine define_var
 
 !
@@ -305,7 +307,6 @@ call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
 ! close file
 call latch
 call check(nf90_close(ncid))
-call print_var_dims(filename,var_lfn)  ! check
 end subroutine write_vars
 
 !
