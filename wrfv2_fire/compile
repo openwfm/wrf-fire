@@ -346,8 +346,8 @@ else
   make -j 2 >& /dev/null
   if ( $status == 0 ) then              # Parallel make ok
     if ( ! $?J ) then                   # J not defined
-      echo setting parallel make -j 2   # Set default to 2
-      setenv J "-j 2"
+      echo setting parallel make -j 1   # Set default to 2
+      setenv J "-j 1"
     else
 #     J is defined, check that it is a correctly formed variable
       set first2chars = `echo $J | cut -c 1-2`         # Are 1st two chars are -j?
