@@ -8,8 +8,8 @@ use module_fr_sfire_model, only: sfire_model
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
 use wrf_netcdf, only : grid_info, read_info, &
-                       create_output_file,write_vars,output_vars_fire, &
-                       input_vars_fire,read_vars
+                       create_output_file,write_vars, &
+                       read_vars
 implicit none
 
 contains 
@@ -35,8 +35,6 @@ integer::  &                ! fire mesh dimensions
 ! I/O interface
 character(len=*),parameter::inputfile='fire_input.nc'
 character(len=*),parameter::outputfile='fire_output.nc'
-type(output_vars_fire)::output                ! output arrays
-type(input_vars_fire)::input                  ! input arrays_fire
 real, pointer, dimension(:,:) ::  uf1, vf1, uf2, vf2   ! stored wind fields
 
 ! other derived types
