@@ -292,8 +292,11 @@ RANLIB          =       ranlib
 ###########################################################
 #ARCH	(gross) PC Linux x86_64, gfortran compiler,	serial
 #
-COMPRESSION_LIBS=       -L/opt/lib/gfortran-4.1.2/jasper-1.900.1/lib -ljasper -lpng
-COMPRESSION_INC =       -I/opt/lib/gfortran-4.1.2/jasper-1.900.1/include
+LP = /opt/lib/gcc-4.4
+COMPRESSION_LIBS	=	-L$(LP)/jasper/lib -L$(LP)/libpng/lib -L$(LP)/zlib/lib \
+				-ljasper -lpng12 -lpng -lz
+
+COMPRESSION_INC		=	-I$(LP)/jasper/include -I$(LP)/libpng/include -I$(LP)/zlib/include
 FC              =       gfortran
 SFC             =       gfortran
 FFLAGS          =       -ffree-form -O -fconvert=big-endian -frecord-marker=4
