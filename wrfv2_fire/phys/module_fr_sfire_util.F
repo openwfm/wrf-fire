@@ -46,6 +46,7 @@ integer,save::          &
  
 
 real, save::            &
+ fireline_mask=-1.,     &  ! if <= 0, ros (and derived intensities) on exit away from the fireline 
  fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign in ideal
  fire_const_time=-1.,    &  ! time from ignition to start constant heat output  <0=never
  fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
@@ -245,6 +246,7 @@ TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
 ! copy flags from wrf to module_fr_sfire_util
 ! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
+fireline_mask           = config_flags%fireline_mask
 fire_perimeter_time     = config_flags%fire_perimeter_time
 fire_print_msg          = config_flags%fire_print_msg
 fire_print_file         = config_flags%fire_print_file

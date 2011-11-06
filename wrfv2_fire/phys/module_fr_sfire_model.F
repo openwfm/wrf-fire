@@ -130,7 +130,6 @@ real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
 logical:: freeze_fire
 integer:: stat_lev=1
-real::fireline_mask=-1.
 
 !*** executable
 
@@ -332,7 +331,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ros,nfuel_cat,                            & !in
         flineint,flineint2)                       ! fireline intensities out
 
-    if(fireline_mask < 0.) then
+    if(.not.fireline_mask > 0.) then
       do j=jfts,jfte
         do i=ifts,ifte
           ! if the sign of lfn is the same as all of its neighbors or we are at domain boundary, we are not near the fireline
