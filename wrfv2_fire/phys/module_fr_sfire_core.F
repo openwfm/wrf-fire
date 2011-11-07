@@ -1802,8 +1802,9 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     do j=jts1,jte1
         do i=its1,ite1
             if(lfn_out(i,j)>0.0)then   ! a point out of burning region
-                if(lfn_out(i+1,j)<=0.or.lfn_out(i,j+1)<=0.or. & ! neighbor in burning region
-                   lfn_out(i-1,j)<=0.or.lfn_out(i,j-1)<=0)then ! point next to fireline
+                if(.not. lfn_out(i-1,j-1)>0. .or. .not. lfn_out(i-1,j)>0. .or. .not. lfn_out(i,j-1)>0. .or. &
+                .not. lfn_out(i+1,j+1)>0. .or. .not. lfn_out(i+1,j)>0. .or. .not. lfn_out(i,j+1)>0. ) then 
+                   ! point next to fireline
                    gradx=(lfn_out(i+1,j)-lfn_out(i-1,j))/(2.0*dx) ! central differences
                    grady=(lfn_out(i,j+1)-lfn_out(i,j-1))/(2.0*dy)
                    grad2=sqrt(gradx*gradx+grady*grady)
@@ -1929,7 +1930,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
     ! check array dimensions
     call check_mesh_2dim(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme)
     call check_mesh_2dim(ints,inte,jnts,jnte,tims,time,tjms,tjme)
-    
+  
     call continue_at_boundary(1,1,fire_lfn_ext_up, &   !extend by extrapolation but never down 
     lims,lime,ljms,ljme, &                ! memory dims
     ids,ide,jds,jde, &                    ! domain - nodes where lfn defined
@@ -1990,11 +1991,25 @@ intrinsic max,min,sqrt,nint,tiny,huge
     
             ! get rate of spread from wind speed and slope
 
-            call fire_ros(ros_back,ros_wind,ros_slope, &
-            nvx,nvy,i,j,fp)
+            if(ros_default<0. .or. & ! never compare reals on equality with zero
+                .not. lfn(i-1,j-1)>0. .or. .not. lfn(i-1,j)>0. .or. .not. lfn(i,j-1)>0. .or. .not. lfn(i,j)>0.  .or. &
+                .not. lfn(i+1,j+1)>0. .or. .not. lfn(i+1,j)>0. .or. .not. lfn(i,j+1)>0. ) then 
 
-            rr=ros_back + ros_wind + ros_slope
-            if(fire_grows_only.gt.0)rr=max(rr,0.)
+                ! when ros_default turned off, or
+                ! in or next to the fire region, use the actually computed rate of spread
+                call fire_ros(ros_back,ros_wind,ros_slope, &
+                nvx,nvy,i,j,fp)
+
+                rr=ros_back + ros_wind + ros_slope
+                if(fire_grows_only.gt.0)rr=max(rr,0.)
+
+            else
+
+                ! away from the fire, use default rate
+                rr=ros_default
+
+            endif
+               
 
             ! set ros for output
             if(i.ge.its.and.i.le.ite.and.j.ge.jts.and.j.le.jte)ros(i,j)=rr

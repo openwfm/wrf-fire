@@ -34,6 +34,8 @@ public:: fire_params
 PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
+PUBLIC::ros_max
+real::ros_max=6.
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
@@ -864,7 +866,6 @@ type(fire_params),intent(in)::fp
 
 !*** local
 real:: umid, phis, phiw, spdms, umidm, excess, tanphim
-real, parameter::ros_max=6.
 character(len=128)msg
 
 !*** executable

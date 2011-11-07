@@ -54,7 +54,8 @@ real, save::            &
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
  fire_back_weight=0.5,  &  ! RK parameter, 0 = Euler method, 0.5 = Heun, 1 = fake backward Euler
  fire_viscosity=0.4,    &  ! artificial viscosity
- fire_lfn_ext_up=1.        ! 0.=extend level set function at boundary by reflection, 1.=always up
+ fire_lfn_ext_up=1.,    &  ! 0.=extend level set function at boundary by reflection, 1.=always up
+ ros_default=0.01          ! if >= 0, default rate of spread outside of fire region 
 
 integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
 
@@ -246,6 +247,7 @@ TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
 ! copy flags from wrf to module_fr_sfire_util
 ! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
+ros_default             = config_flags%fire_ros_default
 fireline_mask           = config_flags%fireline_mask
 fire_perimeter_time     = config_flags%fire_perimeter_time
 fire_print_msg          = config_flags%fire_print_msg
