@@ -1991,22 +1991,24 @@ intrinsic max,min,sqrt,nint,tiny,huge
     
             ! get rate of spread from wind speed and slope
 
+            call fire_ros(ros_back,ros_wind,ros_slope, &
+            nvx,nvy,i,j,fp)
+
+            rr=ros_back + ros_wind + ros_slope
+            if(fire_grows_only.gt.0)rr=max(rr,0.)
+
             if(ros_default<0. .or. & ! never compare reals on equality with zero
                 .not. lfn(i-1,j-1)>0. .or. .not. lfn(i-1,j)>0. .or. .not. lfn(i,j-1)>0. .or. .not. lfn(i,j)>0.  .or. &
                 .not. lfn(i+1,j+1)>0. .or. .not. lfn(i+1,j)>0. .or. .not. lfn(i,j+1)>0. ) then 
 
                 ! when ros_default turned off, or
                 ! in or next to the fire region, use the actually computed rate of spread
-                call fire_ros(ros_back,ros_wind,ros_slope, &
-                nvx,nvy,i,j,fp)
-
-                rr=ros_back + ros_wind + ros_slope
-                if(fire_grows_only.gt.0)rr=max(rr,0.)
+                continue
 
             else
 
-                ! away from the fire, use default rate
-                rr=ros_default
+                ! away from the fire, use default rate unless given is smaller
+                rr=min(rr,ros_default)
 
             endif
                
