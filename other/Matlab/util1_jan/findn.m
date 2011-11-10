@@ -2,18 +2,19 @@ function i=findn(a)
 % i=findn(a)
 % find nonzeros in an array and return their indices as rows
 f=find(a(:));
+s=size(a);
 switch ndims(a)
     case 1
-        i=f;
+        i=find(a);
     case 2
-        [i1,i2]=ndgrid(1:size(a,1),1:size(a,2));
-        i=[i1(f),i2(f)];  
+        [i1,i2]=ind2sub(s,f);
+        i=[i1,i2];
     case 3
-        [i1,i2,i3]=ndgrid(1:size(a,1),1:size(a,2),1:size(a,3));
-        i=[i1(f),i2(f),i3(f)];
+        [i1,i2,i3]=ind2sub(s,f);
+        i=[i1,i2,i3];
     case 4        
-        [i1,i2,i3,i4]=ndgrid(1:size(a,1),1:size(a,2),1:size(a,3),1:size(a,4));
-        i=[i1(f),i2(f),i3(f),i4(f)];  
+        [i1,i2,i3,i4]=ind2sub(s,f);
+        i=[i1,i2,i3,i4];  
     otherwise
             error('at most 4 dimensions supported')
 end
