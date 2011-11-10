@@ -1997,18 +1997,21 @@ intrinsic max,min,sqrt,nint,tiny,huge
             rr=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)rr=max(rr,0.)
 
-            if(ros_default<0. .or. & ! never compare reals on equality with zero
-                .not. lfn(i-1,j-1)>0. .or. .not. lfn(i-1,j)>0. .or. .not. lfn(i,j-1)>0. .or. .not. lfn(i,j)>0.  .or. &
-                .not. lfn(i+1,j+1)>0. .or. .not. lfn(i+1,j)>0. .or. .not. lfn(i,j+1)>0. ) then 
+            if(.not.ros_default<0)then ! given default spread rate, override
 
-                ! when ros_default turned off, or
-                ! in or next to the fire region, use the actually computed rate of spread
-                continue
+               if     (lfn(i-1,j-1)>0. .and. lfn(i-1,j)>0. .and. lfn(i,j-1)>0. .and.  lfn(i,j)>0.  .and. &
+                 lfn(i+1,j+1)>0. .and. lfn(i+1,j)>0. .and. lfn(i,j+1)>0. ) then  
 
-            else
+                 ! away from the fire, use default rate unless given is smaller
+                 rr=min(rr,ros_default)
 
-                ! away from the fire, use default rate unless given is smaller
-                rr=min(rr,ros_default)
+               elseif (lfn(i-1,j-1)<0. .and. lfn(i-1,j)<0. .and. lfn(i,j-1)<0. .and.  lfn(i,j)<0.  .and. &
+                 lfn(i+1,j+1)<0. .and. lfn(i+1,j)<0. .and. lfn(i,j+1)<0. ) then
+ 
+                 ! completely inside the fire
+                 rr=0.
+
+               endif
 
             endif
                
