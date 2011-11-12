@@ -1616,6 +1616,8 @@ NAMELIST /fire/ fire_ignition_start_x5
 NAMELIST /fire/ fire_ignition_start_y5
 NAMELIST /fire/ fire_ignition_end_x5
 NAMELIST /fire/ fire_ignition_end_y5
+NAMELIST /fire/ fireline_mask
+NAMELIST /fire/ fire_ros_default
 NAMELIST /fire/ fire_perimeter_time
 NAMELIST /fire/ fire_lat_init
 NAMELIST /fire/ fire_lon_init

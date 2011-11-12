@@ -1670,6 +1670,8 @@
  DEST_RECORD fire_ignition_start_y5     = SOURCE_RECORD fire_ignition_start_y5 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_x5       = SOURCE_RECORD fire_ignition_end_x5 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_y5       = SOURCE_RECORD fire_ignition_end_y5 SOURCE_REC_DEX
+ DEST_RECORD fireline_mask              = SOURCE_RECORD fireline_mask SOURCE_REC_DEX
+ DEST_RECORD fire_ros_default           = SOURCE_RECORD fire_ros_default SOURCE_REC_DEX
  DEST_RECORD fire_perimeter_time        = SOURCE_RECORD fire_perimeter_time SOURCE_REC_DEX
  DEST_RECORD fire_lat_init              = SOURCE_RECORD fire_lat_init SOURCE_REC_DEX
  DEST_RECORD fire_lon_init              = SOURCE_RECORD fire_lon_init SOURCE_REC_DEX

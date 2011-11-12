@@ -1661,6 +1661,8 @@ real :: fire_ignition_start_x5
 real :: fire_ignition_start_y5
 real :: fire_ignition_end_x5
 real :: fire_ignition_end_y5
+real :: fireline_mask
+real :: fire_ros_default
 real :: fire_perimeter_time
 real :: fire_lat_init
 real :: fire_lon_init

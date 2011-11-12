@@ -1661,6 +1661,8 @@ real , DIMENSION(max_domains) :: fire_ignition_start_x5
 real , DIMENSION(max_domains) :: fire_ignition_start_y5
 real , DIMENSION(max_domains) :: fire_ignition_end_x5
 real , DIMENSION(max_domains) :: fire_ignition_end_y5
+real , DIMENSION(max_domains) :: fireline_mask
+real , DIMENSION(max_domains) :: fire_ros_default
 real , DIMENSION(max_domains) :: fire_perimeter_time
 real , DIMENSION(max_domains) :: fire_lat_init
 real , DIMENSION(max_domains) :: fire_lon_init
