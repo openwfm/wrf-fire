@@ -85,6 +85,8 @@ type ignition_type
     real::  unit_fxlong,unit_fxlat  ! degree of longtitude/latitude in m; 1m for ideal
 end type ignition_type
 
+integer::mlevel_default=2   ! default message level in call message
+
 contains
 
 
@@ -314,7 +316,7 @@ logical op
 if(present(level))then
     mlevel=level
 else
-    mlevel=2  ! default message level
+    mlevel=mlevel_default  ! default message level
 endif
 if(fire_print_msg.ge.mlevel)then
       m=0
