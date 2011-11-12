@@ -13,7 +13,7 @@ module module_fr_sfire_util
 ! various method selection parameters
 ! 1. add the parameter and its static default here
 ! optional:
-! 2. add copy from config_flags in module_fr_sfire_driver%%set_flags
+! 2. add copy from config_flags in subroutine set_flags
 ! 3. add a line in Registry.EM to define the variable and set default value
 ! 4. add the variable and value in namelist.input
 
@@ -29,6 +29,7 @@ use module_configure, only: grid_config_rec_type
 implicit none
 
 integer,save::          &
+ fire_stabilize_lfn=1,  &  ! guard against uncontrolled descent
  fire_print_msg=1,      &  ! print SFIRE progress 
  fire_print_file=1,     &  ! write many files by write_array_m; compile with DEBUG_OUT, do not run in parallel
  fuel_left_method=1,    &  ! 1=simple, 2=exact in linear case
@@ -249,6 +250,7 @@ TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
 ! copy flags from wrf to module_fr_sfire_util
 ! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
+fire_stabilize_lfn      = config_flags%fire_stabilize_lfn
 ros_default             = config_flags%fire_ros_default
 fireline_mask           = config_flags%fireline_mask
 fire_perimeter_time     = config_flags%fire_perimeter_time

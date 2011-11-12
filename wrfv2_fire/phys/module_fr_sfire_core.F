@@ -1620,7 +1620,7 @@ integer::ihs2,ihe2,jhs2,jhe2
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)::msg
 integer::nfirenodes,nfireline
-real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
+real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr,lfn_min
 
 ! constants
 integer,parameter :: mstep=1000, printl=1
@@ -1750,6 +1750,18 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
             lfn_out(i,j) = min(lfn_out(i,j),lfn_in(i,j)) ! fire area can only increase
         enddo
     enddo      
+
+    if(fire_stabilize_lfn>0)then
+      ! do not let lfn go below old values of neighbors when outside of fire
+      do j=jts,jte
+        do i=its,ite
+          if(lfn_out(i,j)>0.)then
+               lfn_min=min(lfn_in(i-1,j),lfn_in(i,j-1),lfn_in(i+1,j),lfn_in(i,j+1))  
+               lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
+          endif
+        enddo
+      enddo      
+    endif
 
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
