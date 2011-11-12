@@ -167,6 +167,14 @@ fuels_main.o: $(MAKEFILE) \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
+INC = ../wrfv2_fire/inc
+update:
+	cp $(INC)/config_assigns.inc .
+	cp $(INC)/namelist_defaults.inc .
+	cp $(INC)/namelist_defines2.inc .
+	cp $(INC)/namelist_defines.inc .
+	cp $(INC)/namelist_statements.inc .
+
 __always:
 
 clean:
