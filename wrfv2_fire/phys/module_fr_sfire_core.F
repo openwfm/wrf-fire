@@ -1726,6 +1726,8 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
         
     tbound=min(tbound,tbound2)
 
+    if(fire_print_msg.ge.mlevel_default)then
+
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
     write(msg,'(a,f10.2,4(a,f7.2))')'prop_ls: time',ts,' dt=',dt,' bound',min(tbound,999.99), &
         ' dx=',dx,' dy=',dy
@@ -1737,6 +1739,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
         ' > bound =',tbound
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         call message(msg)
+    endif
     endif
     
     ! combine lfn1 and lfn_in + dt*tend -> lfn_out
@@ -1825,6 +1828,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
             endif
         enddo
     enddo
+    if(fire_print_msg.ge.mlevel_default)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
     write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
         (100.*nfirenodes)/((ite1-its1+1)*(jte1-jts1+1)),'% next to fireline',nfireline
@@ -1833,6 +1837,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     if(nfireline>0)then
         call print_stat_line('speed error',its1,ite1,jts1,jte1,min_err,max_err,sum_err/nfireline)
         call print_stat_line('abs(speed error)',its1,ite1,jts1,jte1,min_aerr,max_aerr,sum_aerr/nfireline)
+    endif
     endif
 
     ! check if the fire did not get to the domain boundary
@@ -1862,7 +1867,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     write(msg,'(a,i2,a,2i8)')'prop_ls: fire',boundary_guard, &
         ' cells from domain boundary at node ',i,j
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
-    call message(msg)     
+    call message(msg,level=0)     
     call crash('prop_ls: increase the fire region')
 10  continue
 
