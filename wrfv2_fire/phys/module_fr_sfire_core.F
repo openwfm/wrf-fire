@@ -1752,12 +1752,16 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     enddo      
 
     if(fire_stabilize_lfn>0)then
-      ! do not let lfn go below old values of neighbors when outside of fire
       do j=jts,jte
         do i=its,ite
           if(lfn_out(i,j)>0.)then
+               ! do not let lfn go below old values of neighbors when outside of fire
                lfn_min=min(lfn_in(i-1,j),lfn_in(i,j-1),lfn_in(i+1,j),lfn_in(i,j+1))  
                lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
+          elseif (lfn_in(i-1,j)<0. .and. lfn_in(i,j-1)<0. .and. &
+               lfn_in(i+1,j)<0. .and. lfn_in(i,j+1)<0. ) then
+               ! completely inside the fire, no chnage
+               lfn_out(i,j)=lfn_in(i,j)
           endif
         enddo
       enddo      
@@ -2021,16 +2025,12 @@ intrinsic max,min,sqrt,nint,tiny,huge
 
                  ! away from the fire, use default rate unless given is smaller
                  rr=min(rr,ros_default)
-
-               elseif (lfn(i-1,j-1)<0. .and. lfn(i-1,j)<0. .and. lfn(i,j-1)<0. .and.  lfn(i,j)<0.  .and. &
-                 lfn(i+1,j+1)<0. .and. lfn(i+1,j)<0. .and. lfn(i,j+1)<0. ) then
- 
-                 ! completely inside the fire
-                 rr=0.
-
                endif
 
             endif
+
+
+
                
 
             ! set ros for output
