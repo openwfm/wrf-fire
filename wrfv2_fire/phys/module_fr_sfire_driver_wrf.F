@@ -40,9 +40,7 @@ subroutine sfire_driver_em_init (grid , config_flags               &
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifps,ifpe, kfps,kfpe, jfps,jfpe                              
     real::time_step_start, dt ! dummies, avoid uninitialized
-    ! dummies
 
-    real,dimension(1,1,1)::rho,z_at_w,dz8w
 
     call message('sfire_driver_em_init: SFIRE initialization start')
 
@@ -102,13 +100,14 @@ subroutine sfire_driver_em_step (grid , config_flags               &
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifps,ifpe, kfps,kfpe, jfps,jfpe                              
     integer :: its,ite,jts,jte,kts,kte            ! atm tile
-    integer:: ij 
+    integer:: ij , i , j, k
     real::time_step_start,dt
+    integer::ipps,ippe,jpps,jppe
 
     ! executable
 
     call message('sfire_driver_em_step: SFIRE step start')
-    
+
     ! times in seconds
 
     time_step_start=TimeInterval2Sec(domain_get_time_since_sim_start(grid)) 
@@ -135,9 +134,14 @@ subroutine sfire_driver_em_step (grid , config_flags               &
    call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,0,0,0,dz8w,'dz8w')
    call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,0,0,0,rho,'rho')
    call print_chsum(0,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,0,grid%mut,'mu')
-   call print_3d_stats(ips,ipe,kps,kpe,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'rho')
-   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,z_at_w,'z_at_w')
-   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,dz8w,'dz8w')
+   ! note: values at boundary may be invalid, not used in fire_tendency below
+   ipps=max(ips,ids+1)
+   jpps=max(jps,jds+1)
+   ippe=min(ipe,ide-1)
+   jppe=min(jpe,jde-1)
+   call print_3d_stats(ipps,ippe,kps,kpe,jpps,jppe,ims,ime,kms,kme,jms,jme,rho,'rho')
+   call print_3d_stats(ipps,ippe,kps,kpe-1,jpps,jppe,ims,ime,kms,kme,jms,jme,z_at_w,'z_at_w')
+   call print_3d_stats(ipps,ippe,kps,kpe-1,jpps,jppe,ims,ime,kms,kme,jms,jme,dz8w,'dz8w',(/1e-6,1e6/))
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     do ij=1,grid%num_tiles

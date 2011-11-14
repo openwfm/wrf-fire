@@ -1239,15 +1239,30 @@ end subroutine print_stat_line
 
 subroutine print_3d_stats(ips,ipe,kps,kpe,jps,jpe, &
                          ims,ime,kms,kme,jms,jme, &
-                         a,name)
+                         a,name,bounds)
 implicit none
 integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme,kms,kme,kps,kpe
 real, intent(in)::a(ims:ime,kms:kme,jms:jme)
 character(len=*),intent(in)::name
+real, intent(in), optional::bounds(2)
 integer:: i,j,k
 real:: avg_a,max_a,min_a,t,aa,bb
 character(len=128)::msg
 ! if(fire_print_msg.eq.0)return
+if(present(bounds))then
+    do j=jps,jpe
+       do k=kps,kpe
+          do i=ips,ipe
+             if(a(i,k,j)>bounds(2) .or. a(i,k,j)< bounds(1))then
+                 write(msg,*)trim(name),'(',i,',',k,',',j,')=',a(i,k,j), &
+                  ' out of bounds',bounds
+                 call crash(msg)
+             endif
+           enddo
+        enddo
+     enddo
+endif
+
 ! check for nans in any case
 bb=0.
 do j=jps,jpe
