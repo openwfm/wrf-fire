@@ -2038,7 +2038,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
             rr=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)rr=max(rr,0.)
 
-            if(.not.ros_default<0)then ! given default spread rate >= 0, override away from fire
+            if(.not.ros_default<0.)then ! given default spread rate >= 0, override away from fire
 
                if     (lfn(i-1,j-1)>0. .and. lfn(i-1,j)>0. .and. lfn(i,j-1)>0. .and.  lfn(i,j)>0.  .and. &
                  lfn(i+1,j+1)>0. .and. lfn(i+1,j)>0. .and. lfn(i,j+1)>0. ) then  
