@@ -2018,7 +2018,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
             rr=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)rr=max(rr,0.)
 
-            if(.not.ros_default<0)then ! given default spread rate, override
+            if(.not.ros_default<0)then ! given default spread rate >= 0, override away from fire
 
                if     (lfn(i-1,j-1)>0. .and. lfn(i-1,j)>0. .and. lfn(i,j-1)>0. .and.  lfn(i,j)>0.  .and. &
                  lfn(i+1,j+1)>0. .and. lfn(i+1,j)>0. .and. lfn(i,j+1)>0. ) then  
@@ -2113,16 +2113,20 @@ real diff2x
 ! 1st order ENO scheme
 
 if    (.not.diffLx>0 .and. .not.diffRx>0)then
+! diffLx <=0 & diffRx <= 0 - slope left to right down, take right
     diff2x=diffRx
 elseif(.not.diffLx<0 .and. .not.diffRx<0)then
+! diffLx >=0 & diffRx >= 0 - slope left to right up, take left
     diff2x=diffLx
 elseif(.not.diffLx<0 .and. .not.diffRx>0)then
+! diffLx >=0 & diffRx <= 0  - hill, up then down, take bigger
     if(.not. abs(diffRx) < abs(diffLx))then
         diff2x=diffRx
     else
         diff2x=diffLx
     endif
 else
+! diffLx >=0 & diffRx <= 0  - valley, down then up, use zero
     diff2x=0.
 endif
 
