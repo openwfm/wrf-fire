@@ -1621,6 +1621,8 @@ integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)::msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr,lfn_min
+integer, parameter::itrs=2165,itre=2175,jtrs=1245,jtre=1255
+integer:: ittrs,ittre,jttrs,jttre,istep=0
 
 ! constants
 integer,parameter :: mstep=1000, printl=1
@@ -1751,6 +1753,20 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
         enddo
     enddo      
 
+    ittrs=max(its,itrs)
+    jttrs=max(jts,jtrs)
+    ittre=min(ite,itre)
+    jttre=min(jte,jtre)
+    istep=istep+1
+
+
+11  format(a,i8,11f12.4)
+    write(*,*)'section id=',id,' dims',ittrs,':',ittre,jttrs,':',jttre
+    do i=ittrs,ittre
+       if(jttre.ge.jttrs)write(*,11)'lfn_orig',istep,(lfn_out(i,j),j=jttrs,jttre)
+       if(jttre.ge.jttrs)write(*,11)'ros_disp',istep,(ros(i,j),j=jttrs,jttre)
+    enddo
+
     if(fire_stabilize_lfn>0)then
       do j=jts,jte
         do i=its,ite
@@ -1766,6 +1782,10 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
         enddo
       enddo      
     endif
+
+    do i=ittrs,ittre
+       if(jttre.ge.jttrs)write(*,11)'lfn_stab',istep,(lfn_out(i,j),j=jttrs,jttre)
+    enddo
 
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
