@@ -1230,7 +1230,7 @@ character(len=24)::id
 if(fire_print_msg.eq.0)return
 id=name
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
-write(msg,'(a,4i4,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
+write(msg,'(a,4i6,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call message(msg)
 if(.not.avg_a.eq.avg_a)call crash('NaN detected')

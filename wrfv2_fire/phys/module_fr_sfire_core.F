@@ -19,6 +19,7 @@ implicit none
 ! subroutine fuel_left:  compute remaining fuel from time of ignition.
 ! subroutine prop_ls: propagation of curve in normal direction.
 
+real, allocatable, dimension(:,:)::tendx,tendy,tendr
 
 contains
 
@@ -1621,7 +1622,8 @@ integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)::msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr,lfn_min
-integer, parameter::itrs=2165,itre=2175,jtrs=1245,jtre=1255
+integer, parameter::itrs=1531,itre=1541,jtrs=1108,jtre=1118
+! integer, parameter::itrs=2165,itre=2175,jtrs=1245,jtre=1255
 ! integer, parameter::itrs=0,itre=0,jtrs=0,jtre=0 !! to turn off
 integer:: ittrs,ittre,jttrs,jttre,istep=0
 
@@ -1635,6 +1637,10 @@ real, parameter:: zero=0.,one=1.,eps=epsilon(zero),tol=100*eps, &
 intrinsic max,min,sqrt,nint,epsilon,tiny,huge
   
 !*** executable
+
+allocate(tendx(ims:ime,jms:jme))
+allocate(tendy(ims:ime,jms:jme))
+allocate(tendr(ims:ime,jms:jme))
 
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':',jte
@@ -1761,10 +1767,14 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     istep=istep+1
 
 
-11  format(a,i8,11f12.4)
+11  format(a,i8,11(1x,e12.4))
     if(ittre.ge.ittrs)write(*,*)'section id=',id,' istep=',istep,' dims',ittrs,':',ittre,jttrs,':',jttre
     do i=ittrs,ittre
        if(jttre.ge.jttrs)write(*,11)'lfn_orig',istep,(lfn_out(i,j),j=jttrs,jttre)
+       if(jttre.ge.jttrs)write(*,11)'tendx   ',istep,(tendx(i,j),j=jttrs,jttre)
+       if(jttre.ge.jttrs)write(*,11)'tendy   ',istep,(tendy(i,j),j=jttrs,jttre)
+       if(jttre.ge.jttrs)write(*,11)'tendr   ',istep,(tendr(i,j),j=jttrs,jttre)
+       if(jttre.ge.jttrs)write(*,11)'tend_out',istep,(tend(i,j),j=jttrs,jttre)
        if(jttre.ge.jttrs)write(*,11)'ros_disp',istep,(ros(i,j),j=jttrs,jttre)
     enddo
 
@@ -1787,6 +1797,9 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     do i=ittrs,ittre
        if(jttre.ge.jttrs)write(*,11)'lfn_stab',istep,(lfn_out(i,j),j=jttrs,jttre)
     enddo
+deallocate(tendx)
+deallocate(tendy)
+deallocate(tendr)
 
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
@@ -1952,7 +1965,7 @@ type(fire_params),intent(in)::fp
 !*** local 
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
-   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed
+   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,diff
 integer::i,j,itso,iteo,jtso,jteo
 character(len=128)msg
 
@@ -2050,12 +2063,9 @@ intrinsic max,min,sqrt,nint,tiny,huge
 
             endif
 
-
-
-               
-
             ! set ros for output
             if(i.ge.its.and.i.le.ite.and.j.ge.jts.and.j.le.jte)ros(i,j)=rr
+
 
             ! get rate of spread
             te = -rr*grad   ! normal term 
@@ -2066,7 +2076,14 @@ intrinsic max,min,sqrt,nint,tiny,huge
             endif
 
             ! add numerical viscosity
-            te=te + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
+            diff = fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
+            te=te + diff
+
+!           record for debug
+            tendr(i,j) = diff
+            tendx(i,j) = -rr*abs(diff2x)
+            tendy(i,j) = -rr*abs(diff2y)
+
 
             tend(i,j)=te
         enddo
@@ -2147,7 +2164,7 @@ elseif(.not.diffLx<0 .and. .not.diffRx>0)then
         diff2x=diffLx
     endif
 else
-! diffLx >=0 & diffRx <= 0  - valley, down then up, use zero
+! diffLx <=0 & diffRx >= 0  - valley, down then up, use zero
     diff2x=0.
 endif
 
