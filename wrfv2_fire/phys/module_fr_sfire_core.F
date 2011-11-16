@@ -1755,12 +1755,14 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
       do j=jts,jte
         do i=its,ite
           if(lfn_out(i,j)>0.)then
-               ! do not let lfn go below old values of neighbors when outside of fire
+               ! when outside of fire, do not let lfn go below the old values of neighbors
                lfn_min=min(lfn_in(i-1,j),lfn_in(i,j-1),lfn_in(i+1,j),lfn_in(i,j+1))  
                lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
-          elseif (lfn_in(i-1,j)<0. .and. lfn_in(i,j-1)<0. .and. &
-               lfn_in(i+1,j)<0. .and. lfn_in(i,j+1)<0. ) then
-               ! completely inside the fire, no chnage
+          elseif ( (.not. lfn_in(i-1,j)>0. .or. .not. ros(i-1,j) > 0.) &
+             .and. (.not. lfn_in(i,j-1)>0. .or. .not. ros(i,j-1) > 0.) &
+             .and. (.not. lfn_in(i+1,j)>0. .or. .not. ros(i+1,j) > 0.) &
+             .and. (.not. lfn_in(i,j+1)>0. .or. .not. ros(i,j+1) > 0.) ) then
+               ! completely inside the fire, accounting for a no-spread region, no not chnage
                lfn_out(i,j)=lfn_in(i,j)
           endif
         enddo
