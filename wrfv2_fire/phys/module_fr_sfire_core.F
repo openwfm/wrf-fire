@@ -1782,15 +1782,32 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     if(fire_stabilize_lfn>0)then
       do j=jts,jte
         do i=its,ite
-          if(lfn_out(i,j)>0.)then
-               ! when outside of fire, do not let lfn go below the old values of neighbors
-               lfn_min=min(lfn_in(i-1,j),lfn_in(i,j-1),lfn_in(i+1,j),lfn_in(i,j+1))  
+          if(lfn_in(i,j)>0. ) then
+            if (.not. ros(i,j) > 0. .and. .not. lfn_out(i,j) > 0.)then
+               ! not burnable trying to go on fire, do not change
+               lfn_out(i,j) = lfn_in(i,j)
+            elseif ( &
+                   ( lfn_in(i-1,j  )>0. ) &
+             .and. ( lfn_in(i  ,j-1)>0. ) &
+             .and. ( lfn_in(i+1,j  )>0. ) &
+             .and. ( lfn_in(i  ,j+1)>0. ) &
+               ) then
+               ! completely outside of fire do not let lfn go below the old values of neighbors
+               ! except those with no fuel do not count
+               lfn_min = lfn_in(i,j) 
+               if(ros(i-1,j  ) > 0.)lfn_min=min(lfn_min,lfn_in(i-1,j  ))  
+               if(ros(i  ,j-1) > 0.)lfn_min=min(lfn_min,lfn_in(i  ,j-1))  
+               if(ros(i+1,j  ) > 0.)lfn_min=min(lfn_min,lfn_in(i+1,j  ))  
+               if(ros(i  ,j+1) > 0.)lfn_min=min(lfn_min,lfn_in(i  ,j+1))  
                lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
-          elseif ( (.not. lfn_in(i-1,j)>0. .or. .not. ros(i-1,j) > 0.) &
-             .and. (.not. lfn_in(i,j-1)>0. .or. .not. ros(i,j-1) > 0.) &
-             .and. (.not. lfn_in(i+1,j)>0. .or. .not. ros(i+1,j) > 0.) &
-             .and. (.not. lfn_in(i,j+1)>0. .or. .not. ros(i,j+1) > 0.) ) then
-               ! completely inside the fire, accounting for a no-spread region, no not chnage
+            endif 
+          elseif ( &
+                   (.not. lfn_in(i-1,j  )>0. .or. .not. ros(i-1,j  ) > 0.) &
+             .and. (.not. lfn_in(i  ,j-1)>0. .or. .not. ros(i  ,j-1) > 0.) &
+             .and. (.not. lfn_in(i+1,j  )>0. .or. .not. ros(i+1,j  ) > 0.) &
+             .and. (.not. lfn_in(i  ,j+1)>0. .or. .not. ros(i  ,j+1) > 0.) &
+               ) then
+               ! completely inside the fire except for not burnable, no not change
                lfn_out(i,j)=lfn_in(i,j)
           endif
         enddo
