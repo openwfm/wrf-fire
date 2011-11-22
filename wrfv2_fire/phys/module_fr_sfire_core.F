@@ -1622,9 +1622,10 @@ integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)::msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr,lfn_min
-integer, parameter::itrs=1810,itre=1820,jtrs=850,jtre=860
+! integer, parameter::itrs=1810,itre=1820,jtrs=850,jtre=860
 ! integer, parameter::itrs=1531,itre=1541,jtrs=1108,jtre=1118
 ! integer, parameter::itrs=2165,itre=2175,jtrs=1245,jtre=1255
+integer, parameter::itrs=2145,itre=2155,jtrs=1240,jtre=1250
 ! integer, parameter::itrs=0,itre=0,jtrs=0,jtre=0 !! to turn off
 integer:: ittrs,ittre,jttrs,jttre,istep=0
 
