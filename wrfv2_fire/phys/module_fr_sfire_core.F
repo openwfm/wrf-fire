@@ -1875,8 +1875,10 @@ deallocate(tendr)
     do j=jts1,jte1
         do i=its1,ite1
             if(lfn_out(i,j)>0.0)then   ! a point out of burning region
-                if(.not. lfn_out(i-1,j-1)>0. .or. .not. lfn_out(i-1,j)>0. .or. .not. lfn_out(i,j-1)>0. .or. &
-                .not. lfn_out(i+1,j+1)>0. .or. .not. lfn_out(i+1,j)>0. .or. .not. lfn_out(i,j+1)>0. ) then 
+              !  if(lfn_out(i+1,j)<=0.or.lfn_out(i,j+1)<=0.or. & ! neighbor in burning region
+              !     lfn_out(i-1,j)<=0.or.lfn_out(i,j-1)<=0)then ! point next to fireline
+                if( .not. lfn_out(i-1,j)>0. .or. .not. lfn_out(i,j-1)>0. .or. &
+                    .not. lfn_out(i+1,j)>0. .or. .not. lfn_out(i,j+1)>0. ) then 
                    ! point next to fireline
                    gradx=(lfn_out(i+1,j)-lfn_out(i-1,j))/(2.0*dx) ! central differences
                    grady=(lfn_out(i,j+1)-lfn_out(i,j-1))/(2.0*dy)
