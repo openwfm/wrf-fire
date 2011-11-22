@@ -11,7 +11,7 @@ use module_fr_sfire_util, only : crash
 implicit none
 
 type(grid_info)::grid
-type(input_vars)::input
+type(input_vars_fire)::input
 integer::ierr,i,j
 real,parameter::wind=10.,alpha=0.0
 type(grid_config_rec_type)::config_flags ! for the namelist
@@ -35,8 +35,8 @@ grid%dt=real(config_flags%time_step)+real(config_flags%time_step_fract_num)/real
 allocate(input%nfuel_cat(grid%nfirex,grid%nfirey))
 allocate(input%dzdxf(grid%nfirex,grid%nfirey)) 
 allocate(input%dzdyf(grid%nfirex,grid%nfirey))
-allocate(input%uah(grid%natmx+1,grid%natmy))
-allocate(input%vah(grid%natmx,grid%natmy+1))
+!allocate(input%uah(grid%natmx+1,grid%natmy))
+!allocate(input%vah(grid%natmx,grid%natmy+1))
 allocate(input%zsf(grid%nfirex,grid%nfirey))
 
 ! initialize input variables
@@ -49,13 +49,15 @@ do j=1,grid%nfirey
   enddo
 enddo
 
-input%vx(:,:)=wind*cos(alpha)
-input%vy(:,:)=wind*sin(alpha)
+input%uf(:,:)=wind*cos(alpha)
+input%vf(:,:)=wind*sin(alpha)
 
 ! write variables to the file
 call write_inputs(inputfile,input,grid)
 
 ! clean up and exit
-deallocate(input%nfuel_cat,input%dzdxf,input%dzdyf,input%vx,input%vy,input%zsf)
+deallocate(input%nfuel_cat,input%dzdxf,input%dzdyf,input%uf,input%vf,input%zsf)
+
+
 
 end program model_test_init

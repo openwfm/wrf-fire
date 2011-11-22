@@ -1116,6 +1116,7 @@ integer , DIMENSION(max_domains) :: history_begin_d
 integer , DIMENSION(max_domains) :: history_begin_h
 integer , DIMENSION(max_domains) :: history_begin_m
 integer , DIMENSION(max_domains) :: history_begin_s
+integer , DIMENSION(max_domains) :: history_begin
 integer , DIMENSION(max_domains) :: inputout_begin_y
 integer , DIMENSION(max_domains) :: inputout_begin_d
 integer , DIMENSION(max_domains) :: inputout_begin_h
@@ -1126,11 +1127,13 @@ integer :: restart_begin_d
 integer :: restart_begin_h
 integer :: restart_begin_m
 integer :: restart_begin_s
+integer :: restart_begin
 integer , DIMENSION(max_domains) :: history_end_y
 integer , DIMENSION(max_domains) :: history_end_d
 integer , DIMENSION(max_domains) :: history_end_h
 integer , DIMENSION(max_domains) :: history_end_m
 integer , DIMENSION(max_domains) :: history_end_s
+integer , DIMENSION(max_domains) :: history_end
 integer , DIMENSION(max_domains) :: inputout_end_y
 integer , DIMENSION(max_domains) :: inputout_end_d
 integer , DIMENSION(max_domains) :: inputout_end_h
@@ -1312,6 +1315,7 @@ real , DIMENSION(max_bogus) :: lonc_loc
 real , DIMENSION(max_bogus) :: vmax_meters_per_second
 real , DIMENSION(max_bogus) :: rmax
 real , DIMENSION(max_bogus) :: vmax_ratio
+real :: rankine_lid
 integer , DIMENSION(max_domains) :: mp_physics
 integer :: gsfcgce_hail
 integer :: gsfcgce_2ice
@@ -1326,6 +1330,7 @@ integer , DIMENSION(max_domains) :: bl_pbl_physics
 integer , DIMENSION(max_domains) :: sf_urban_physics
 real , DIMENSION(max_domains) :: bldt
 integer , DIMENSION(max_domains) :: cu_physics
+integer , DIMENSION(max_domains) :: cu_diag
 real , DIMENSION(max_domains) :: cudt
 real , DIMENSION(max_domains) :: gsmdt
 integer :: isfflx
@@ -1345,6 +1350,7 @@ integer :: cugd_avedx
 integer :: clos_choice
 integer :: imomentum
 integer :: ishallow
+real :: convtrans_avglen_m
 integer , DIMENSION(max_domains) :: chem_opt
 integer :: num_land_cat
 integer :: num_soil_cat
@@ -1377,6 +1383,7 @@ integer , DIMENSION(max_domains) :: slope_rad
 integer , DIMENSION(max_domains) :: topo_shading
 integer :: no_mp_heating
 integer :: fractional_seaice
+logical :: tice2tsk_if2cold
 real :: bucket_mm
 real :: bucket_j
 real :: mp_tend_lim
@@ -1415,6 +1422,7 @@ integer :: if_ramping
 real :: rinblw
 integer , DIMENSION(max_domains) :: xwavenum
 integer , DIMENSION(max_domains) :: ywavenum
+integer , DIMENSION(max_domains) :: pxlsm_soil_nudge
 integer , DIMENSION(max_domains) :: obs_nudge_opt
 integer :: max_obs
 real , DIMENSION(max_domains) :: fdda_start
@@ -1593,6 +1601,7 @@ integer , DIMENSION(max_domains) :: mp_physics_dfi
 integer , DIMENSION(max_domains) :: ifire
 integer , DIMENSION(max_domains) :: fire_boundary_guard
 integer , DIMENSION(max_domains) :: fire_num_ignitions
+real , DIMENSION(max_domains) :: fire_ignition_ros1
 real , DIMENSION(max_domains) :: fire_ignition_start_lon1
 real , DIMENSION(max_domains) :: fire_ignition_start_lat1
 real , DIMENSION(max_domains) :: fire_ignition_end_lon1
@@ -1600,6 +1609,7 @@ real , DIMENSION(max_domains) :: fire_ignition_end_lat1
 real , DIMENSION(max_domains) :: fire_ignition_radius1
 real , DIMENSION(max_domains) :: fire_ignition_start_time1
 real , DIMENSION(max_domains) :: fire_ignition_end_time1
+real , DIMENSION(max_domains) :: fire_ignition_ros2
 real , DIMENSION(max_domains) :: fire_ignition_start_lon2
 real , DIMENSION(max_domains) :: fire_ignition_start_lat2
 real , DIMENSION(max_domains) :: fire_ignition_end_lon2
@@ -1607,6 +1617,7 @@ real , DIMENSION(max_domains) :: fire_ignition_end_lat2
 real , DIMENSION(max_domains) :: fire_ignition_radius2
 real , DIMENSION(max_domains) :: fire_ignition_start_time2
 real , DIMENSION(max_domains) :: fire_ignition_end_time2
+real , DIMENSION(max_domains) :: fire_ignition_ros3
 real , DIMENSION(max_domains) :: fire_ignition_start_lon3
 real , DIMENSION(max_domains) :: fire_ignition_start_lat3
 real , DIMENSION(max_domains) :: fire_ignition_end_lon3
@@ -1614,6 +1625,7 @@ real , DIMENSION(max_domains) :: fire_ignition_end_lat3
 real , DIMENSION(max_domains) :: fire_ignition_radius3
 real , DIMENSION(max_domains) :: fire_ignition_start_time3
 real , DIMENSION(max_domains) :: fire_ignition_end_time3
+real , DIMENSION(max_domains) :: fire_ignition_ros4
 real , DIMENSION(max_domains) :: fire_ignition_start_lon4
 real , DIMENSION(max_domains) :: fire_ignition_start_lat4
 real , DIMENSION(max_domains) :: fire_ignition_end_lon4
@@ -1621,6 +1633,7 @@ real , DIMENSION(max_domains) :: fire_ignition_end_lat4
 real , DIMENSION(max_domains) :: fire_ignition_radius4
 real , DIMENSION(max_domains) :: fire_ignition_start_time4
 real , DIMENSION(max_domains) :: fire_ignition_end_time4
+real , DIMENSION(max_domains) :: fire_ignition_ros5
 real , DIMENSION(max_domains) :: fire_ignition_start_lon5
 real , DIMENSION(max_domains) :: fire_ignition_start_lat5
 real , DIMENSION(max_domains) :: fire_ignition_end_lon5
@@ -1648,6 +1661,7 @@ real , DIMENSION(max_domains) :: fire_ignition_start_x5
 real , DIMENSION(max_domains) :: fire_ignition_start_y5
 real , DIMENSION(max_domains) :: fire_ignition_end_x5
 real , DIMENSION(max_domains) :: fire_ignition_end_y5
+real , DIMENSION(max_domains) :: fire_perimeter_time
 real , DIMENSION(max_domains) :: fire_lat_init
 real , DIMENSION(max_domains) :: fire_lon_init
 real , DIMENSION(max_domains) :: fire_ign_time
@@ -1656,18 +1670,20 @@ integer , DIMENSION(max_domains) :: fire_sprd_mdl
 real , DIMENSION(max_domains) :: fire_crwn_hgt
 real , DIMENSION(max_domains) :: fire_ext_grnd
 real , DIMENSION(max_domains) :: fire_ext_crwn
-real , DIMENSION(max_domains) :: fire_wind_height
+integer , DIMENSION(max_domains) :: fire_wind_log_interp
+integer , DIMENSION(max_domains) :: fire_use_windrf
 integer , DIMENSION(max_domains) :: fire_fuel_read
+integer , DIMENSION(max_domains) :: fire_fmc_read
 integer , DIMENSION(max_domains) :: fire_fuel_cat
 integer , DIMENSION(max_domains) :: fire_print_msg
 integer , DIMENSION(max_domains) :: fire_print_file
+logical , DIMENSION(max_domains) :: fire_restart
 integer , DIMENSION(max_domains) :: fire_fuel_left_method
 integer , DIMENSION(max_domains) :: fire_fuel_left_irl
 integer , DIMENSION(max_domains) :: fire_fuel_left_jrl
 real , DIMENSION(max_domains) :: fire_back_weight
 integer , DIMENSION(max_domains) :: fire_grows_only
 integer , DIMENSION(max_domains) :: fire_upwinding
-integer , DIMENSION(max_domains) :: fire_upwind_split
 real , DIMENSION(max_domains) :: fire_viscosity
 real , DIMENSION(max_domains) :: fire_lfn_ext_up
 integer , DIMENSION(max_domains) :: fire_topo_from_atm

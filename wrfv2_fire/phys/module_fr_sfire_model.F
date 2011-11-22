@@ -18,7 +18,6 @@ subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
     restart,                                & ! use existing state
-    num_ignitions,                          & ! number of ignitions before advancing
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -26,9 +25,8 @@ subroutine sfire_model (                    &
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,
-    ignition_line,                          & ! small array of ignition line descriptions
-    ignitions_done,ignited_tile,            &
-    coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
+    ignition,                               & ! small array of ignition line descriptions
+    coord_xf,coord_yf,                      & ! fire mesh coordinates
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
     ros,flineint,flineint2,                 & ! diagnostic variables
@@ -88,7 +86,6 @@ integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
                                             ! 6 = compute output fluxes
 logical, intent(in):: restart               ! if true, use existing state
 ! scalar data
-integer, intent(in) :: num_ignitions        ! number of ignition lines
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
 integer, intent(in) :: ifds,ifde,jfds,jfde,&  ! fire domain bounds
         ifps,ifpe,jfps,jfpe                ! patch - nodes owned by this process
@@ -97,11 +94,9 @@ integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 ! array data
-type(ignition_line_type), dimension (num_ignitions), intent(in):: ignition_line ! descriptions of ignition lines
-integer, intent(out):: ignited_tile(num_ignitions),ignitions_done
+type(ignition_type), intent(in):: ignition  ! descriptions of ignition lines
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
-real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
     
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
@@ -148,10 +143,12 @@ xjfme=jfme
 
 
 ! init flags
-ignitions_done=0
 freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
+!$OMP SINGLE
+   call init_fuel_cats  ! initialize fuel subsystem
+!$OMP END SINGLE
 elseif(ifun.eq.2)then   
         ! initialize all arrays that the model will not change later
 
@@ -299,21 +296,18 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     endif
 
     ! check for ignitions
-    do ig = 1,num_ignitions
+    do ig = 1,ignition%num_ignitions
     
 !  for now, check for ignition every time step...
-!        if(ignition_line(ig)%end_time>=time_start.and.ignition_line(ig)%start_time<time_start+dt)then 
+!        if(ignition%line(ig)%end_time>=time_start.and.ignition%line(ig)%start_time<time_start+dt)then 
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
                 ifts,ifte,jfts,jfte,                      &
-                ignition_line(ig),                        &
+                ignition%line(ig),                        &
                 time_start,time_start+dt,                 &
-                coord_xf,coord_yf,unit_xf,unit_yf,        & 
+                coord_xf,coord_yf,ignition%unit_fxlong,ignition%unit_fxlat,        & 
                 lfn,tign,ignited)
-
-            ignitions_done=ignitions_done+1
-            ignited_tile(ignitions_done)=ignited
                 
 #ifdef DEBUG_OUT    
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
