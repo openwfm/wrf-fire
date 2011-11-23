@@ -1626,9 +1626,10 @@ integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)::msg
 integer::nfirenodes,nfireline
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr,lfn_min
-integer, parameter::itrs=1810,itre=1820,jtrs=850,jtre=860
+! integer, parameter::itrs=1810,itre=1820,jtrs=850,jtre=860
 ! integer, parameter::itrs=1531,itre=1541,jtrs=1108,jtre=1118
 ! integer, parameter::itrs=2165,itre=2175,jtrs=1245,jtre=1255
+integer, parameter::itrs=2145,itre=2155,jtrs=1240,jtre=1250
 ! integer, parameter::itrs=0,itre=0,jtrs=0,jtre=0 !! to turn off
 integer:: ittrs,ittre,jttrs,jttre,istep=0
 
@@ -1791,23 +1792,15 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                ! not burnable trying to go on fire, do not change
                lfn_out(i,j) = lfn_in(i,j)
             else
-              lfn_min =  min(lfn_in(i-1,j  ),lfn_in(i  ,j-1),lfn_in(i+1,j  ), lfn_in(i  ,j+1))  
-              if ( lfn_min > 0. ) then
-                ! completely outside of fire do not let lfn go below the old values of neighbors
-                ! except those with no fuel do not count
-                lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
-              endif
+             lfn_min =  min(lfn_in(i-1,j  ),lfn_in(i  ,j-1),lfn_in(i+1,j  ), lfn_in(i  ,j+1))  
+             if ( lfn_min > 0. ) then
+               ! completely outside of fire do not let lfn go below the old values of neighbors
+               ! except those with no fuel do not count
+               lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
+             endif
             endif 
           else ! cut off at large negative number
             lfn_out(i,j) = max(lfn_out(i,j), -lfn_max)
-          !elseif ( &
-          !         (.not. lfn_in(i-1,j  )>0. .or. .not. ros(i-1,j  ) > 0.) &
-          !   .and. (.not. lfn_in(i  ,j-1)>0. .or. .not. ros(i  ,j-1) > 0.) &
-          !   .and. (.not. lfn_in(i+1,j  )>0. .or. .not. ros(i+1,j  ) > 0.) &
-          !   .and. (.not. lfn_in(i  ,j+1)>0. .or. .not. ros(i  ,j+1) > 0.) &
-          !     ) then
-          !     ! completely inside the fire except for not burnable, no not change
-          !     lfn_out(i,j)=lfn_in(i,j)
           endif
         enddo
       enddo      
