@@ -1791,11 +1791,12 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                ! not burnable trying to go on fire, do not change
                lfn_out(i,j) = lfn_in(i,j)
             else
-             lfn_min =  min(lfn_in(i-1,j  ),lfn_in(i  ,j-1),lfn_in(i+1,j  ), lfn_in(i  ,j+1))  
-             if ( lfn_min > 0. ) then
-               ! completely outside of fire do not let lfn go below the old values of neighbors
-               ! except those with no fuel do not count
-               lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
+              lfn_min =  min(lfn_in(i-1,j  ),lfn_in(i  ,j-1),lfn_in(i+1,j  ), lfn_in(i  ,j+1))  
+              if ( lfn_min > 0. ) then
+                ! completely outside of fire do not let lfn go below the old values of neighbors
+                ! except those with no fuel do not count
+                lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
+              endif
             endif 
           else ! cut off at large negative number
             lfn_out(i,j) = max(lfn_out(i,j), -lfn_max)
