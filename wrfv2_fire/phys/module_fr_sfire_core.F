@@ -21,6 +21,8 @@ implicit none
 
 real, allocatable, dimension(:,:)::tendx,tendy,tendr
 
+real:: lfn_max
+
 contains
 
 !
@@ -163,6 +165,8 @@ ros        = ignition_line%ros     ! rate of spread
 tos        = radius/ros            ! time of spread to the given radius
 st         = start_time            ! the start time of ignition considered in this time step
 et         = min(end_ts,end_time)  ! the end time of the ignition segment in this time step
+
+lfn_max = unit_xf*(ifde - ifds) + unit_yf*(jfds - jfde)
 
 ! this should be called whenever (start_ts, end_ts) \subset (start_time, end_time + tos) 
 if(start_ts>et+tos .or. end_ts<st)return   ! too late or too early, nothing to do
@@ -1786,29 +1790,23 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
             if (.not. ros(i,j) > 0. .and. .not. lfn_out(i,j) > 0.)then
                ! not burnable trying to go on fire, do not change
                lfn_out(i,j) = lfn_in(i,j)
-            elseif ( &
-                   ( lfn_in(i-1,j  )>0. ) &
-             .and. ( lfn_in(i  ,j-1)>0. ) &
-             .and. ( lfn_in(i+1,j  )>0. ) &
-             .and. ( lfn_in(i  ,j+1)>0. ) &
-               ) then
+            else
+             lfn_min =  min(lfn_in(i-1,j  ),lfn_in(i  ,j-1),lfn_in(i+1,j  ), lfn_in(i  ,j+1))  
+             if ( lfn_min > 0. ) then
                ! completely outside of fire do not let lfn go below the old values of neighbors
                ! except those with no fuel do not count
-               lfn_min = lfn_in(i,j) 
-               if(ros(i-1,j  ) > 0.)lfn_min=min(lfn_min,lfn_in(i-1,j  ))  
-               if(ros(i  ,j-1) > 0.)lfn_min=min(lfn_min,lfn_in(i  ,j-1))  
-               if(ros(i+1,j  ) > 0.)lfn_min=min(lfn_min,lfn_in(i+1,j  ))  
-               if(ros(i  ,j+1) > 0.)lfn_min=min(lfn_min,lfn_in(i  ,j+1))  
                lfn_out(i,j)=max(lfn_min,lfn_out(i,j))
             endif 
-          elseif ( &
-                   (.not. lfn_in(i-1,j  )>0. .or. .not. ros(i-1,j  ) > 0.) &
-             .and. (.not. lfn_in(i  ,j-1)>0. .or. .not. ros(i  ,j-1) > 0.) &
-             .and. (.not. lfn_in(i+1,j  )>0. .or. .not. ros(i+1,j  ) > 0.) &
-             .and. (.not. lfn_in(i  ,j+1)>0. .or. .not. ros(i  ,j+1) > 0.) &
-               ) then
-               ! completely inside the fire except for not burnable, no not change
-               lfn_out(i,j)=lfn_in(i,j)
+          else ! cut off at large negative number
+            lfn_out(i,j) = max(lfn_out(i,j), -lfn_max)
+          !elseif ( &
+          !         (.not. lfn_in(i-1,j  )>0. .or. .not. ros(i-1,j  ) > 0.) &
+          !   .and. (.not. lfn_in(i  ,j-1)>0. .or. .not. ros(i  ,j-1) > 0.) &
+          !   .and. (.not. lfn_in(i+1,j  )>0. .or. .not. ros(i+1,j  ) > 0.) &
+          !   .and. (.not. lfn_in(i  ,j+1)>0. .or. .not. ros(i  ,j+1) > 0.) &
+          !     ) then
+          !     ! completely inside the fire except for not burnable, no not change
+          !     lfn_out(i,j)=lfn_in(i,j)
           endif
         enddo
       enddo      
