@@ -710,7 +710,8 @@ real::r
        enddo
 
      case(2)
-        call message('fire_wind_log_interp=2: log interpolation on fire mesh, piecewise constant roughness from landuse, constant fire_wind_height')
+        call message('fire_wind_log_interp=2: log interpolation on fire mesh' // &
+          'piecewise constant roughness from landuse, constant fire_wind_height')
         do j=jts,jte
            do i=its,ite
               do jj=(j-1)*jr+1,(j-1)*jr+jr
@@ -733,7 +734,8 @@ real::r
        enddo
 
      case(3)
-       call message('fire_wind_log_interp=3: log interpolation on fire mesh, interpolated roughness from landuse, constant fire_wind_height')
+       call message('fire_wind_log_interp=3: log interpolation on fire mesh,' // &
+           ' interpolated roughness from landuse, constant fire_wind_height')
        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
@@ -758,7 +760,8 @@ real::r
        enddo
 
      case(4)
-        call message('fire_wind_log_interp=4: log interpolation on atmospheric mesh, roughness from landuse, constant fire_wind_height')
+        call message('fire_wind_log_interp=4: log interpolation on atmospheric' // &
+           ' mesh, roughness from landuse, constant fire_wind_height')
         return
 
      case default

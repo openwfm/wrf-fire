@@ -1,34 +1,47 @@
-# fefines FC, FCFLAGS, FFREE
+# defines FC, FCFLAGS, FFREE
 include make.inc
 DEFS =
-WRF = ../wrfv2_fire/phys
+WRF = ../wrfv2_fire
 FPFLAGS= -I$(NETCDF)/include -I.
-LDFLAGS = -L$(NETCDF)/lib -lnetcdf
+#LDFLAGS = -L$(NETCDF)/lib -lnetcdff -lnetcdf
+LDFLAGS = `$(NETCDF)/bin/nc-config --flibs`
 FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE)
 
 
 MAKEFILE=Makefile
 
-%.o: $(WRF)/%.F 
-	$(FP) $(FFLAGS) $(DEFS) -E $(WRF)/$*.F > $*.f90
+%.o: $(WRF)/phys/%.F 
+	$(FP) $(FFLAGS) $(DEFS) -E $(WRF)/phys/$*.F > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
 %.o: %.F 
 	$(FP) $(FFLAGS) $(DEFS) -E $*.F > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
-MODEL_MAIN_OBJ = \
+ATM_OBJ = \
     module_domain.o \
     wrf_netcdf.o \
     module_configure.o \
-    module_fr_sfire_driver.o \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o \
     module_fr_sfire_phys.o \
+    module_fr_sfire_atm.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-MODEL_INIT_OBJ = \
+
+FIRE_OBJ = \
+    module_domain.o \
+    wrf_netcdf.o \
+    module_configure.o \
+    module_fr_sfire_model.o \
+    module_fr_sfire_core.o \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_atm.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+
+INIT_OBJ = \
     wrf_netcdf.o \
     module_configure.o \
     module_fr_sfire_util.o  \
@@ -58,11 +71,9 @@ FUEL_INTERP_OBJ = \
 .PHONY: all
 
 
-all: fire.exe init.exe
-
 #.PHONY: all
 
-default: fire 
+default: fire
 
 fuel: fuel_interp_test.exe
 fuel_interp_test: fuel_interp_test.exe
@@ -72,19 +83,23 @@ fuel_interp_test.exe: $(MAKEFILE) $(FUEL_INTERP_OBJ)
 
 all: fire init fuel
 
-rmfirex: 
-	cd ../wrfv2_fire/test/em_fire; rm -f fire.exe;
+atm: atm.exe
+	cd ../wrfv2_fire/test/em_fire; rm -f atm.exe; ln -s ../../../standalone/atm.exe atm.exe
 
 fire: fire.exe
-	cd ../wrfv2_fire/test/em_fire; ln -s ../../../standalone/fire.exe fire.exe
+	cd ../wrfv2_fire/test/em_fire; rm -f fire.exe; ln -s ../../../standalone/fire.exe fire.exe
 
 init: init.exe
+	cd ../wrfv2_fire/test/em_fire; rm -f init.exe; ln -s ../../../standalone/init.exe init.exe
 
-fire.exe: $(MAKEFILE) model_test_main.o $(MODEL_MAIN_OBJ) rmfirex
-	$(FC) $(FCFLAGS) -o fire.exe model_test_main.o $(MODEL_MAIN_OBJ) $(LDFLAGS)
+atm.exe: $(MAKEFILE) atm.o $(FIRE_OBJ)
+	$(FC) $(FCFLAGS) -o atm.exe fire.o $(FIRE_OBJ) $(LDFLAGS)
 
-init.exe: $(MAKEFILE) model_test_init.o $(MODEL_INIT_OBJ)
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o init.exe model_test_init.o $(MODEL_INIT_OBJ) $(LDFLAGS)
+fire.exe: $(MAKEFILE) fire.o $(FIRE_OBJ)
+	$(FC) $(FCFLAGS) -o fire.exe fire.o $(FIRE_OBJ) $(LDFLAGS)
+
+init.exe: $(MAKEFILE) init.o $(INIT_OBJ)
+	$(FC) $(FCFLAGS) -o init.exe init.o $(INIT_OBJ) $(LDFLAGS)
 
 fuels: fuels.exe
 
@@ -97,23 +112,15 @@ fuel_interp_test_main.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
     module_fr_sfire_util.o 
 
-model_test_main.o: $(MAKEFILE) \
+fire.o: $(MAKEFILE) \
     module_fr_sfire_model.o \
     module_fr_sfire_core.o  \
     module_domain.o \
     module_configure.o \
-    module_fr_sfire_driver.o \
     wrf_fakes.o \
     wrf_netcdf.o
 
-module_fr_sfire_driver.o: $(MAKEFILE) \
-    module_domain.o \
-    module_configure.o \
-    module_fr_sfire_model.o  \
-    module_fr_sfire_phys.o \
-    module_fr_sfire_util.o
-
-model_test_init.o: $(MAKEFILE) \
+init.o: $(MAKEFILE) \
     module_configure.o \
     wrf_netcdf.o \
     module_fr_sfire_util.o
@@ -131,22 +138,26 @@ module_fr_sfire_model.o: $(MAKEFILE) \
 module_fr_sfire_core.o: $(MAKEFILE) \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o 
+
+module_fr_sfire_atm.o: \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o
       
 module_fr_sfire_phys.o: $(MAKEFILE) \
     module_fr_sfire_util.o 
 
 module_fr_sfire_util.o: $(MAKEFILE) \
-    sfire_id.inc \
+    module_domain.o \
+    module_configure.o \
     wrf_fakes.o
 
 wrf_netcdf.o: $(MAKEFILE) \
     module_fr_sfire_util.o
 
 module_configure.o: $(MAKEFILE) $(NAMELIST) \
-    wrf_netcdf.o \
-    module_fr_sfire_util.o
+    wrf_fakes.o
 
-sfire_id.inc: always
+sfire_id.inc: __always
 	chmod +x commit_hash
 	./commit_hash > sfire_id.inc
 	cat sfire_id.inc
@@ -156,7 +167,7 @@ fuels_main.o: $(MAKEFILE) \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
-always:
+__always:
 
 clean:
 	rm -f *.mod *.o *.f90 *.s *.exe

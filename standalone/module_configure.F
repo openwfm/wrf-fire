@@ -1,7 +1,11 @@
 module module_configure
-use wrf_netcdf , only : compat_fire_grid
-use module_fr_sfire_util , only : crash
+use module_wrf_error, only: wrf_error_fatal
+
 implicit none
+
+private
+public read_namelist,grid_config_rec_type
+
 
 ! type for all namelist fields, domain 1 only
 integer,parameter::max_domains=10,max_moves=1,max_eta=501,max_bogus=5
@@ -22,14 +26,18 @@ type(grid_config_rec_type), intent(out)::config_flags
 
 !*** local
 character(len=32)::grp
-integer::iou
+integer::iou=1
 #include "namelist_defines.inc"
 #include "namelist_statements.inc"
-namelist /standalone/ compat_fire_grid
+
+integer::placeholder
+namelist /standalone/ placeholder
 
 !*** executable
 
 #include "namelist_defaults.inc"
+
+write(*,'(2a)')'reading flags from file ',trim(nmlfile)
 
 open(iou,file=nmlfile,err=999)
 
@@ -59,10 +67,10 @@ close(iou)
 return
 
 998 continue
-call crash('error reading namelist group '//grp)
+call wrf_error_fatal('error reading namelist group '//grp)
 
 999 continue
-call crash('error opening namelist '//trim(nmlfile))
+call wrf_error_fatal('error opening namelist '//trim(nmlfile))
 
 end subroutine read_namelist
 

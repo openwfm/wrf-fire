@@ -19,21 +19,6 @@ implicit none
 ! subroutine fuel_left:  compute remaining fuel from time of ignition.
 ! subroutine prop_ls: propagation of curve in normal direction.
 
-! describe one ignition line
-type ignition_line_type
-  REAL  ros, &          ! subscale rate of spread during the ignition process
-        stop_time, &    ! when the ignition process stops from ignition start (s)
-        wind_red,  &    ! wind reduction factor at the ignition line
-        wrdist,   &     ! distance from the ignition line when the wind reduction stops
-        wrupwind, &     ! use distance interpolated between 0. = nearest 1. = upwind
-        start_x, &      ! x coordinate of the ignition line start point (m, or long/lat)
-        start_y, &      ! y coordinate of the ignition line start point
-        end_x, &        ! x coordinate of the ignition line end point
-        end_y, &        ! y coordinate of the ignition line end point
-        start_time, &   ! ignition time for the start point from simulation start (s)
-        end_time, &     ! ignition time for the end poin from simulation start (s)
-        radius          ! all within this radius ignites immediately
-end type ignition_line_type
 
 contains
 

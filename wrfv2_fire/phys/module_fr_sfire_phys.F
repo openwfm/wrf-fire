@@ -12,31 +12,28 @@ use module_fr_sfire_util
 implicit none
 PRIVATE
 
-! subroutines and functions 
-PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params,write_fuels_m,fire_risk,fire_intensity
-
-! types
-PUBLIC::fire_params
-
-! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
-
-! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
-
-! arrays passed to fire_ros
 type fire_params
 real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
-real,pointer,dimension(:,:):: zsf                  ! terrain height (m) 
-real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1) 
+real,pointer,dimension(:,:):: zsf                  ! terrain height (m)
+real,pointer,dimension(:,:):: dzdxf,dzdyf          ! terrain grad (1)
 real,pointer,dimension(:,:):: bbb,phisc,phiwc,r_0 ! spread formula coefficients
 real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (kg/m^2)
 real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
-real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s) 
-real,pointer,dimension(:,:):: fmc_g                ! fuel moisture contents, ground (1) 
+real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s)
+real,pointer,dimension(:,:):: fmc_g                ! fuel moisture contents, ground (1)
 end type fire_params
 
-! use as
-! type(fire_params)::fp
+! subroutenes and functions 
+PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
+write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid
+
+! types
+public:: fire_params
+
+! variables
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
+! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
+
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
@@ -175,6 +172,29 @@ end type fire_params
   logical, save :: have_fuel_cats=.false.
 
 contains
+
+subroutine set_fp_from_grid(grid,fp)
+    implicit none
+    type(domain),intent(in)::grid
+    type(fire_params),intent(out)::fp
+
+    ! pointers to be passed to fire spread formulas
+    fp%vx => grid%uf         ! fire winds
+    fp%vy => grid%vf         ! fire winds
+    fp%zsf => grid%zsf       ! terrain height
+    fp%dzdxf => grid%dzdxf   ! terrain grad
+    fp%dzdyf => grid%dzdyf   ! terrain grad
+    fp%bbb => grid%bbb       ! spread formula coeff
+    fp%phisc => grid%phisc   ! spread formula coeff
+    fp%phiwc => grid%phiwc   ! spread formula coeff
+    fp%r_0 => grid%r_0       ! spread formula coeff
+    fp%fgip => grid%fgip     ! spread formula coeff
+    fp%ischap => grid%ischap ! spread formula coeff
+    fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
+    fp%fmc_g => grid%fmc_g   ! fuel moisture, ground
+
+end subroutine set_fp_from_grid
+
 
 subroutine init_fuel_cats
 implicit none
