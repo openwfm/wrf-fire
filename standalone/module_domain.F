@@ -52,25 +52,22 @@ module module_domain
       real, pointer, dimension(:,:)::fgrnqfx  => null()        ! ground latent heat flux
       real, pointer, dimension(:,:)::fcanhfx  => null()        ! canopy sensible heat flux
       real, pointer, dimension(:,:)::fcanqfx  => null()        ! canopy latent heat flux
+
+      ! other fire model arrays
       real, pointer, dimension(:,:)::ros  => null()            ! rate of spread - for diagnostics only
-
-      ! atmospheric variables for compatibility
-
-      real, pointer, dimension(:,:,:)::u_2 => null()           ! wind on atmospheric mesh
-      real, pointer, dimension(:,:,:)::v_2 => null()           ! wind on atmospheric mesh
-      real, pointer, dimension(:,:,:)::ph_2  => null()         ! geopotential perturbation
-      real, pointer, dimension(:,:,:)::phb => null()           ! base geopotential
-      real, pointer, dimension(:,:)::z0 => null()              ! terrain roughness height, on atmosphere mesh
-      real, pointer, dimension(:,:)::ht => null()              ! terrain height, on atmosphere mesh
-      real, pointer, dimension(:,:)::uah => null()             ! vertically interpolated wind to fire_wind_height, diagnostic
-      real, pointer, dimension(:,:)::vah => null()
-      real, pointer, dimension(:,:)::xlong => null()           ! nodal coordinates
-      real, pointer, dimension(:,:)::xlat => null()            ! nodal coordinates 
-      real, pointer, dimension(:,:)::grnhfx => null()          ! outputs heat fluxes on atm grid 
-      real, pointer, dimension(:,:)::grnqfx => null()
-      real, pointer, dimension(:,:)::canhfx => null()
-      real, pointer, dimension(:,:)::canqfx => null()           
-      real, pointer, dimension(:,:)::avg_fuel_frac => null()   ! average fule fraction, for display
+      real, pointer, dimension(:,:)::phisc  => null()          ! spread formula coeff
+      real, pointer, dimension(:,:)::fz0  => null()            ! 
+      real, pointer, dimension(:,:)::fwh  => null()            ! 
+      real, pointer, dimension(:,:)::fmc_g  => null()          ! fuel moisture, ground
+      real, pointer, dimension(:,:)::flineint  => null()       !
+      real, pointer, dimension(:,:)::flineint2  => null()      ! 
+      real, pointer, dimension(:,:)::f_lineint  => null()      !
+      real, pointer, dimension(:,:)::f_lineint2  => null()     ! 
+      real, pointer, dimension(:,:)::f_int  => null()          ! 
+      real, pointer, dimension(:,:)::f_ros  => null()          ! 
+      real, pointer, dimension(:,:)::f_ros0  => null()         ! 
+      real, pointer, dimension(:,:)::f_rosx  => null()         ! 
+      real, pointer, dimension(:,:)::f_rosy  => null()         ! 
 
    end type domain
 

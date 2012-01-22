@@ -1115,6 +1115,7 @@ NAMELIST /time_control/ history_begin_d
 NAMELIST /time_control/ history_begin_h
 NAMELIST /time_control/ history_begin_m
 NAMELIST /time_control/ history_begin_s
+NAMELIST /time_control/ history_begin
 NAMELIST /time_control/ inputout_begin_y
 NAMELIST /time_control/ inputout_begin_d
 NAMELIST /time_control/ inputout_begin_h
@@ -1125,11 +1126,13 @@ NAMELIST /time_control/ restart_begin_d
 NAMELIST /time_control/ restart_begin_h
 NAMELIST /time_control/ restart_begin_m
 NAMELIST /time_control/ restart_begin_s
+NAMELIST /time_control/ restart_begin
 NAMELIST /time_control/ history_end_y
 NAMELIST /time_control/ history_end_d
 NAMELIST /time_control/ history_end_h
 NAMELIST /time_control/ history_end_m
 NAMELIST /time_control/ history_end_s
+NAMELIST /time_control/ history_end
 NAMELIST /time_control/ inputout_end_y
 NAMELIST /time_control/ inputout_end_d
 NAMELIST /time_control/ inputout_end_h
@@ -1304,6 +1307,7 @@ NAMELIST /tc/ lonc_loc
 NAMELIST /tc/ vmax_meters_per_second
 NAMELIST /tc/ rmax
 NAMELIST /tc/ vmax_ratio
+NAMELIST /tc/ rankine_lid
 NAMELIST /physics/ mp_physics
 NAMELIST /physics/ gsfcgce_hail
 NAMELIST /physics/ gsfcgce_2ice
@@ -1318,6 +1322,7 @@ NAMELIST /physics/ bl_pbl_physics
 NAMELIST /physics/ sf_urban_physics
 NAMELIST /physics/ bldt
 NAMELIST /physics/ cu_physics
+NAMELIST /physics/ cu_diag
 NAMELIST /physics/ cudt
 NAMELIST /physics/ gsmdt
 NAMELIST /physics/ isfflx
@@ -1337,6 +1342,7 @@ NAMELIST /physics/ cugd_avedx
 NAMELIST /physics/ clos_choice
 NAMELIST /physics/ imomentum
 NAMELIST /physics/ ishallow
+NAMELIST /physics/ convtrans_avglen_m
 NAMELIST /physics/ chem_opt
 NAMELIST /physics/ num_land_cat
 NAMELIST /physics/ num_soil_cat
@@ -1369,6 +1375,7 @@ NAMELIST /physics/ slope_rad
 NAMELIST /physics/ topo_shading
 NAMELIST /physics/ no_mp_heating
 NAMELIST /physics/ fractional_seaice
+NAMELIST /physics/ tice2tsk_if2cold
 NAMELIST /physics/ bucket_mm
 NAMELIST /physics/ bucket_j
 NAMELIST /physics/ mp_tend_lim
@@ -1405,6 +1412,7 @@ NAMELIST /fdda/ if_ramping
 NAMELIST /fdda/ rinblw
 NAMELIST /fdda/ xwavenum
 NAMELIST /fdda/ ywavenum
+NAMELIST /fdda/ pxlsm_soil_nudge
 NAMELIST /fdda/ obs_nudge_opt
 NAMELIST /fdda/ max_obs
 NAMELIST /fdda/ fdda_start
@@ -1548,6 +1556,7 @@ NAMELIST /grib2/ compression
 NAMELIST /fire/ ifire
 NAMELIST /fire/ fire_boundary_guard
 NAMELIST /fire/ fire_num_ignitions
+NAMELIST /fire/ fire_ignition_ros1
 NAMELIST /fire/ fire_ignition_start_lon1
 NAMELIST /fire/ fire_ignition_start_lat1
 NAMELIST /fire/ fire_ignition_end_lon1
@@ -1555,6 +1564,7 @@ NAMELIST /fire/ fire_ignition_end_lat1
 NAMELIST /fire/ fire_ignition_radius1
 NAMELIST /fire/ fire_ignition_start_time1
 NAMELIST /fire/ fire_ignition_end_time1
+NAMELIST /fire/ fire_ignition_ros2
 NAMELIST /fire/ fire_ignition_start_lon2
 NAMELIST /fire/ fire_ignition_start_lat2
 NAMELIST /fire/ fire_ignition_end_lon2
@@ -1562,6 +1572,7 @@ NAMELIST /fire/ fire_ignition_end_lat2
 NAMELIST /fire/ fire_ignition_radius2
 NAMELIST /fire/ fire_ignition_start_time2
 NAMELIST /fire/ fire_ignition_end_time2
+NAMELIST /fire/ fire_ignition_ros3
 NAMELIST /fire/ fire_ignition_start_lon3
 NAMELIST /fire/ fire_ignition_start_lat3
 NAMELIST /fire/ fire_ignition_end_lon3
@@ -1569,6 +1580,7 @@ NAMELIST /fire/ fire_ignition_end_lat3
 NAMELIST /fire/ fire_ignition_radius3
 NAMELIST /fire/ fire_ignition_start_time3
 NAMELIST /fire/ fire_ignition_end_time3
+NAMELIST /fire/ fire_ignition_ros4
 NAMELIST /fire/ fire_ignition_start_lon4
 NAMELIST /fire/ fire_ignition_start_lat4
 NAMELIST /fire/ fire_ignition_end_lon4
@@ -1576,6 +1588,7 @@ NAMELIST /fire/ fire_ignition_end_lat4
 NAMELIST /fire/ fire_ignition_radius4
 NAMELIST /fire/ fire_ignition_start_time4
 NAMELIST /fire/ fire_ignition_end_time4
+NAMELIST /fire/ fire_ignition_ros5
 NAMELIST /fire/ fire_ignition_start_lon5
 NAMELIST /fire/ fire_ignition_start_lat5
 NAMELIST /fire/ fire_ignition_end_lon5
@@ -1603,6 +1616,7 @@ NAMELIST /fire/ fire_ignition_start_x5
 NAMELIST /fire/ fire_ignition_start_y5
 NAMELIST /fire/ fire_ignition_end_x5
 NAMELIST /fire/ fire_ignition_end_y5
+NAMELIST /fire/ fire_perimeter_time
 NAMELIST /fire/ fire_lat_init
 NAMELIST /fire/ fire_lon_init
 NAMELIST /fire/ fire_ign_time
@@ -1611,18 +1625,20 @@ NAMELIST /fire/ fire_sprd_mdl
 NAMELIST /fire/ fire_crwn_hgt
 NAMELIST /fire/ fire_ext_grnd
 NAMELIST /fire/ fire_ext_crwn
-NAMELIST /fire/ fire_wind_height
+NAMELIST /fire/ fire_wind_log_interp
+NAMELIST /fire/ fire_use_windrf
 NAMELIST /fire/ fire_fuel_read
+NAMELIST /fire/ fire_fmc_read
 NAMELIST /fire/ fire_fuel_cat
 NAMELIST /fire/ fire_print_msg
 NAMELIST /fire/ fire_print_file
+NAMELIST /fire/ fire_restart
 NAMELIST /fire/ fire_fuel_left_method
 NAMELIST /fire/ fire_fuel_left_irl
 NAMELIST /fire/ fire_fuel_left_jrl
 NAMELIST /fire/ fire_back_weight
 NAMELIST /fire/ fire_grows_only
 NAMELIST /fire/ fire_upwinding
-NAMELIST /fire/ fire_upwind_split
 NAMELIST /fire/ fire_viscosity
 NAMELIST /fire/ fire_lfn_ext_up
 NAMELIST /fire/ fire_topo_from_atm

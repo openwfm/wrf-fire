@@ -1,10 +1,19 @@
 !WRF:MEDIATION_LAYER:FIRE_MODEL
+
+!*** Jan Mandel August 2007 - February 2010
+!*** email: Jan.Mandel@gmail.com
+
 ! Routines dealing with the atmosphere
 
 module module_fr_sfire_atm
 
-use module_model_constants, only: cp,xlv
+use module_model_constants, only: cp,xlv,g
+use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
 use module_fr_sfire_util
+
+implicit none
+
+logical, save :: have_wind_log_interpolation = .false.  ! status
 
 contains
 
@@ -18,8 +27,9 @@ SUBROUTINE fire_tendency( &
     rthfrten,rqvfrten)             ! theta and Qv tendencies 
 
 ! This routine is atmospheric physics 
-! it does NOT go into module_fr_sfire_phys because it is not related to fire physical processes
+! it does NOT go into module_fr_sfire_phys because it is not fire physics
 
+! taken from the code by Ned Patton, only order of arguments change to the convention here
 ! --- this routine takes fire generated heat and moisture fluxes and
 !     calculates their influence on the theta and water vapor 
 ! --- note that these tendencies are valid at the Arakawa-A location
@@ -41,7 +51,7 @@ SUBROUTINE fire_tendency( &
    REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: dz8w   ! dz across w-lvl
    REAL, INTENT(in), DIMENSION( ims:ime,kms:kme,jms:jme ) :: rho    ! density
 
-   REAL, INTENT(in) :: alfg ! extinction depth surface fire heat (m)
+   REAL, INTENT(in) :: alfg ! extinction depth ground fire heat (m)
    REAL, INTENT(in) :: alfc ! extinction depth crown  fire heat (m)
    REAL, INTENT(in) :: z1can    ! height of crown fire heat release (m)
 
@@ -171,5 +181,1034 @@ END SUBROUTINE fire_tendency
 !
 !***
 !
+subroutine interpolate_atm2fire(id,               & ! for debug output, <= 0 no output
+    ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+    ims,ime, kms,kme, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              &
+    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,                       &
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+    ifts,ifte,jfts,jfte,                          &
+    ir,jr,                                        & ! atm/fire grid ratio
+    u_frame, v_frame,                             & ! velocity frame correction
+    u,v,                                          & ! atm grid arrays in
+    ph,phb,                                       &
+    z0,zs,                                        &
+    uah,vah,                                      &
+    uf,vf)                                          ! fire grid arrays out
+    
+implicit none
+! Jan Mandel, October 2010
+!*** purpose: interpolate winds and height
+
+!*** arguments
+integer, intent(in)::id                           
+integer, intent(in)::                             &
+    ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
+    ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real, intent(in):: u_frame, v_frame                 ! velocity frame correction
+real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::&
+    u,v,                                          & ! atm wind velocity, staggered  
+    ph,phb                                          ! geopotential
+real,intent(in),dimension(ims:ime,jms:jme)::&
+    z0,                                           & ! roughness height
+    zs                                              ! terrain height
+real,intent(out),dimension(ims:ime,jms:jme)::&
+    uah,                                           & ! atm wind at fire_wind_height, diagnostics
+    vah                                              ! 
+real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
+    uf,vf                                           ! wind velocity fire grid nodes 
+    
+    
+!*** local
+character(len=256)::msg
+#define TDIMS its-2,ite+2,jts-2,jte+2
+real, dimension(its-2:ite+2,jts-2:jte+2):: ua,va   ! atm winds, interpolated over height, still staggered grid
+real, dimension(its-2:ite+2,kds:kde,jts-2:jte+2):: altw,altub,altvb,hgtu,hgtv ! altitudes
+integer:: i,j,k,ifts1,ifte1,jfts1,jfte1,ite1,jte1
+integer::itst,itet,jtst,jtet,itsu,iteu,jtsu,jteu,itsv,itev,jtsv,jtev
+integer::kdmax,its1,jts1,ips1,jps1
+integer::itsou,iteou,jtsou,jteou,itsov,iteov,jtsov,jteov
+real:: ground,loght,loglast,logz0,logfwh,ht,zr
+real::r_nan
+integer::i_nan
+equivalence (i_nan,r_nan)
+
+!*** executable
+
+! debug init local arrays
+i_nan=2147483647
+ua=r_nan
+va=r_nan
+altw=r_nan
+altub=r_nan
+hgtu=r_nan
+hgtv=r_nan
+
+
+if(kds.ne.1)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+  write(msg,*)'WARNING: bottom index kds=',kds,' should be 1?'
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+endif
+
+!                            ^ j
+!        ------------        |
+!        |          |         ----> i
+!        u    p     |
+!        |          |    nodes in cell (i,j)
+!        ------v-----    view from top     
+!
+!             v(ide,jde+1)
+!            -------x------        
+!            |            |      
+!            |            |      
+! u(ide,jde) x      x     x u(ide+1,jde) 
+!            | p(ide,hde) |   
+!            |            |   p=ph,phb,z0,...
+!            -------x------        
+!              v(ide,jde)
+!
+! staggered values set u(ids:ide+1,jds:jde) v(ids:ide,jds:jde+1)
+! p=ph+phb set at (ids:ide,jds:jde) 
+! location of u(i,j) needs p(i-1,j) and p(i,j)
+! location of v(i,j) needs p(i,j-1) and p(i,j)
+! *** NOTE need HALO in ph, phb
+! so we can compute only u(ids+1:ide,jds:jde) v(ids:ide,jds+1,jde)
+! unless we extend p at the boundary
+! but because we care about the fire way in the inside it does not matter
+! if the fire gets close to domain boundary the simulation is over anyway
+
+    ite1=snode(ite,ide,1)
+    jte1=snode(jte,jde,1)
+    ! do this in any case to check for nans
+    call print_3d_stats(its,ite1,kds,kde,jts,jte,ims,ime,kms,kme,jms,jme,u,'wind U in')
+    call print_3d_stats(its,ite,kds,kde,jts,jte1,ims,ime,kms,kme,jms,jme,v,'wind V in')
+
+    if(fire_print_msg.gt.0)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+       write(msg,'(a,f7.2,a)')'interpolate_atm2fire: log-interpolation of wind to',fire_wind_height,' m'
+       call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+    endif
+
+! indexing
+       
+! for w 
+    itst=ifval(ids.eq.its,its,its-1)
+    itet=ifval(ide.eq.ite,ite,ite+1)
+    jtst=ifval(jds.ge.jts,jts,jts-1)
+    jtet=ifval(jde.eq.jte,jte,jte+1)
+
+! for u
+    itsu=ifval(ids.eq.its,its+1,its)  ! staggered direction
+    iteu=ifval(ide.eq.ite,ite,ite+1)  ! staggered direction
+    jtsu=ifval(jds.ge.jts,jts,jts-1)
+    jteu=ifval(jde.eq.jte,jte,jte+1)
+
+! for v
+    jtsv=ifval(jds.eq.jts,jts+1,jts)  ! staggered direction
+    jtev=ifval(jde.eq.jte,jte,jte+1)  ! staggered direction
+    itsv=ifval(ids.ge.its,its,its-1)
+    itev=ifval(ide.eq.ite,ite,ite+1)
+
+
+if(fire_print_msg.ge.1)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+  write(msg,7001)'atm input  ','tile',its,ite,jts,jte
+  call message(msg)
+  write(msg,7001)'altw       ','tile',itst,itet,jtst,jtet
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+endif
+7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
+
+!**********************************************************
+!*                                                        *
+!*           find the altitude of the w points            *
+!*                                                        *
+!**********************************************************
+!! in future, replace by z8w & test if the same
+
+    kdmax=kde-1   ! max layer to interpolate from, can be less
+
+    do j = jtst,jtet
+      do k=kds,kdmax+1
+        do i = itst,itet       
+          altw(i,k,j) = (ph(i,k,j)+phb(i,k,j))/g             ! altitude of the bottom w-point 
+        enddo
+      enddo
+    enddo
+
+! values at u points
+if(fire_print_msg.ge.1)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+  write(msg,7001)'u interp at','tile',itsu,iteu,jtsu,jteu
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+endif
+
+!**********************************************************
+!*                                                        *
+!*  interpolate the altitude from w points to u points    *
+!*                                                        *
+!**********************************************************
+
+    do j = jtsu,jteu          
+      do k=kds,kdmax+1
+        do i = itsu,iteu       
+          altub(i,k,j)= 0.5*(altw(i-1,k,j)+altw(i,k,j))      ! altitude of the bottom point under u-point
+        enddo
+      enddo
+      do k=kds,kdmax
+        do i = itsu,iteu       
+          hgtu(i,k,j) =  0.5*(altub(i,k,j)+altub(i,k+1,j)) - altub(i,kds,j)  ! height of the u-point above the ground
+        enddo
+      enddo
+    enddo
+
+! values at v points
+if(fire_print_msg.ge.1)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+  write(msg,7001)'v interp at','tile',itsv,itev,jtsv,jtev
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+endif
+
+!**********************************************************
+!*                                                        *
+!*  interpolate the altitude from w points to v points    *
+!*                                                        *
+!**********************************************************
+
+    do j = jtsv,jtev          
+      do k=kds,kdmax+1
+        do i = itsv,itev       
+          altvb(i,k,j)= 0.5*(altw(i,k,j-1)+altw(i,k,j))      ! altitude of the bottom point under v-point
+        enddo
+      enddo
+      do k=kds,kdmax
+        do i = itsv,itev       
+          hgtv(i,k,j) =  0.5*(altvb(i,k,j)+altvb(i,k+1,j)) - altvb(i,kds,j)  ! height of the v-point above the ground
+        enddo
+      enddo
+    enddo
+
+#ifdef DEBUG_OUT
+        call write_array_m3(itsu,iteu,kds,kdmax,jtsu,jteu,its-2,ite+2,kds,kde,jts-2,jte+2,altub,'altub',id)
+        call write_array_m3(itsv,itev,kds,kdmax,jtsv,jtev,its-2,ite+2,kds,kde,jts-2,jte+2,altvb,'altvb',id)
+        call write_array_m3(itsu,iteu,kds,kdmax,jtsu,jteu,its-2,ite+2,kds,kde,jts-2,jte+2,hgtu,'hgtu',id)
+        call write_array_m3(itsv,itev,kds,kdmax,jtsv,jtev,its-2,ite+2,kds,kde,jts-2,jte+2,hgtv,'hgtv',id)
+#endif
+
+    logfwh = log(fire_wind_height)
+
+!**********************************************************
+!*                                                        *
+!*  interpolate u vertically to fire_wind_height          *
+!*                                                        *
+!**********************************************************
+
+    ! interpolate u, staggered in X
+
+    do j = jtsu,jteu            ! compute on domain by 1 smaller, otherwise z0 and ph not available
+      do i = itsu,iteu        ! compute with halo 2
+        zr = 0.5*(z0(i,j)+z0(i-1,j)) ! interpolated roughness length under this u point
+        if(fire_wind_height > zr)then       !  
+          do k=kds,kdmax
+            ht = hgtu(i,k,j)      ! height of this u point above the ground
+            if( .not. ht < fire_wind_height) then ! found layer k this point is in
+              loght = log(ht)
+              if(k.eq.kds)then               ! first layer, log linear interpolation from 0 at zr
+                logz0 = log(zr)
+                ua(i,j)= u(i,k,j)*(logfwh-logz0)/(loght-logz0)
+              else                           ! log linear interpolation
+                loglast=log(hgtu(i,k-1,j))
+                ua(i,j)= u(i,k-1,j) + (u(i,k,j) - u(i,k-1,j)) * ( logfwh - loglast) / (loght - loglast)
+              endif
+              goto 10
+            endif
+            if(k.eq.kdmax)then                 ! last layer, still not high enough
+              ua(i,j)=u(i,k,j) 
+            endif
+          enddo
+10        continue
+        else  ! roughness higher than the fire wind height
+          ua(i,j)=0.
+        endif
+      enddo
+    enddo
+
+
+!**********************************************************
+!*                                                        *
+!*  interpolate v vertically to fire_wind_height          *
+!*                                                        *
+!**********************************************************
+
+    ! interpolate v, staggered in Y
+
+    do j = jtsv,jtev
+      do i = itsv,itev
+        zr = 0.5*(z0(i,j-1)+z0(i,j)) ! roughness length under this v point
+        if(fire_wind_height > zr)then       !  
+          do k=kds,kdmax
+            ht = hgtv(i,k,j)      ! height of this u point above the ground
+            if( .not. ht < fire_wind_height) then ! found layer k this point is in
+              loght = log(ht)
+              if(k.eq.kds)then               ! first layer, log linear interpolation from 0 at zr
+                logz0 = log(zr)
+                va(i,j)= v(i,k,j)*(logfwh-logz0)/(loght-logz0)
+              else                           ! log linear interpolation
+                loglast=log(hgtv(i,k-1,j))
+                va(i,j)= v(i,k-1,j) + (v(i,k,j) - v(i,k-1,j)) * ( logfwh - loglast) / (loght - loglast)
+              endif
+              goto 11
+            endif
+            if(k.eq.kdmax)then                 ! last layer, still not high enough
+              va(i,j)=v(i,k,j) 
+            endif
+          enddo
+11        continue
+        else  ! roughness higher than the fire wind height
+          va(i,j)=0.
+        endif
+      enddo
+    enddo
+
+#ifdef DEBUG_OUT
+!   store the output for diagnostics
+    do j = jts,jte1
+      do i = its,ite1
+        uah(i,j)=ua(i,j)
+        vah(i,j)=va(i,j)
+      enddo
+    enddo
+
+    call write_array_m(its,ite1,jts,jte,ims,ime,jms,jme,uah,'uah_n',id) ! no reflection
+    call write_array_m(its,ite,jts,jte1,ims,ime,jms,jme,vah,'vah_n',id)
+#endif
+
+!**********************************************************
+!*                                                        *
+!*  interpolate ua,va vertically to the fire mesh         *
+!*                                                        *
+!**********************************************************
+
+
+    ips1 = ifval(ips.eq.ids,ips+1,ips)
+    call continue_at_boundary(1,1,0., & ! x direction 
+       TDIMS,                  &! memory dims atm grid tile
+       ids+1,ide,jds,jde, &     ! domain dims - where u defined
+       ips1,ipe,jps,jpe, &     ! patch dims 
+       itsu,iteu,jtsu,jteu, & ! tile dims - in nonextended direction one beyond if at patch boundary but not domain
+       itsou,iteou,jtsou,jteou, & ! out, where set
+       ua)                           ! array
+
+    jps1 = ifval(jps.eq.jds,jps+1,jps)
+    call continue_at_boundary(1,1,0., & ! y direction 
+       TDIMS,                  & ! memory dims atm grid tile
+       ids,ide,jds+1,jde, &      ! domain dims - where v wind defined
+       ips,ipe,jps1,jpe, &        ! patch dims 
+       itsv,itev,jtsv,jtev, & ! tile dims
+       itsov,iteov,jtsov,jteov, & ! where set
+       va)                           ! array
+
+!   store the output for diagnostics
+    do j = jts,jte1
+      do i = its,ite1
+        uah(i,j)=ua(i,j)
+        vah(i,j)=va(i,j)
+      enddo
+    enddo
+
+#ifdef DEBUG_OUT
+        call write_array_m(itsou,iteou,jtsou,jteou,TDIMS,ua,'ua',id)
+        call write_array_m(itsov,iteov,jtsov,jteov,TDIMS,va,'va',id)
+#endif
+
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+    ! don't have all values valid, don't check
+     write(msg,12)'atm mesh wind U at',fire_wind_height,' m'
+     call print_2d_stats(itsou,iteou,jtsou,jteou,TDIMS,ua,msg)
+     write(msg,12)'atm mesh wind V at',fire_wind_height,' m'
+     call print_2d_stats(itsov,iteov,jtsov,jteov,TDIMS,va,msg)
+12  format(a,f6.2,a)
+    call print_2d_stats(its,ite1,jts,jte,ims,ime,jms,jme,uah,'UAH')
+    call print_2d_stats(its,ite,jts,jte1,ims,ime,jms,jme,vah,'VAH')
+    !call write_array_m(its,ite1,jts,jte,ims,ime,jms,jme,uah,'uah',id)
+    !call write_array_m(its,ite,jts,jte1,ims,ime,jms,jme,vah,'vah',id)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+
+!      ---------------
+!     | F | F | F | F |   Example of atmospheric and fire grid with
+!     |-------|-------|   ir=jr=4.
+!     | F | F | F | F |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!     ua------z-------|   interpolated to midpoints of the cells of the fine fire grid F.
+!     | F | F | F | F |   This is (1,1) cell of atmosphere grid, and [*] is the (1,1) cell of the fire grid.
+!     |---------------|   ua(1,1) <--> uf(0.5,2.5)
+!     | * | F | F | F |   va(1,1) <--> vf(2.5,0.5)
+!      -------va------    za(1,1) <--> zf(2.5,2.5)
+!
+!   ^ x2
+!   |  --------va(1,2)---------
+!   | |            |           |   Example of atmospheric and fire grid with
+!   | |            |           |   ir=jr=1.
+!   | |          za,zf         |   Winds are given at the midpoints of the sides of the atmosphere grid,
+!   | ua(1,1)----uf,vf-----ua(2,1) interpolated to midpoints of the cells of the (the same) fire grid 
+!   | |           (1,1)        |   ua(1,1) <--> uf(0.5,1) 
+!   | |            |           |   va(1,1) <--> vf(1,0.5) 
+!   | |            |           |   za(1,1) <--> zf(1,1)
+!   |  --------va(1,1)---------
+!   |--------------------> x1 
+!
+! Meshes are aligned by the lower left cell of the domain. Then in the above figure
+! u = node with the ua component of the wind at (ids,jds), midpoint of side
+! v = node with the va component of the wind at (ids,jds), midpoint of side
+! * = fire grid node at (ifds,jfds)
+! z = node with height, midpoint of cell
+! 
+! ua(ids,jds)=uf(ifds-0.5,jfds+jr*0.5-0.5)         = uf(ifds-0.5,jfds+(jr-1)*0.5)
+! va(ids,jds)=vf(ifds+ir*0.5-0.5,jfds-0.5)         = vf(ifds+(ir-1)*0.5,jfds-0.5)
+! za(ids,jds)=zf(ifds+ir*0.5-0.5,jfds+jr*0.5-0.5)  = zf(ifds+(ir-1)*0.5,jfds+(jr-1)*0.5)
+    
+    ! ifts1=max(snode(ifts,ifps,-1),ifds) ! go 1 beyond patch boundary but not at domain boundary
+    ! ifte1=min(snode(ifte,ifpe,+1),ifde)
+    ! jfts1=max(snode(jfts,jfps,-1),jfds)
+    ! jfte1=min(snode(jfte,jfpe,+1),jfde)
+
+    call interpolate_2d(  &
+        TDIMS,                  & ! memory dims atm grid tile
+        itsou,iteou,jtsou,jteou,& ! where set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte,jfts,jfte,& ! dimensions on the fire grid to interpolate to
+        ir,jr,                  & ! refinement ratio
+        real(ids),real(jds),ifds-0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
+        ua,                     & ! in atm grid     
+        uf)                      ! out fire grid
+
+    call interpolate_2d(  &
+        TDIMS,                  & ! memory dims atm grid tile
+        itsov,iteov,jtsov,jteov,& ! where set 
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts,ifte,jfts,jfte,& ! dimensions on the fire grid to interpolate to
+        ir,jr,                  & ! refinement ratio
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds-0.5, & ! line up by lower left corner of domain
+        va,                     & ! in atm grid     
+        vf)                      ! out fire grid
+
+call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,vf,'fire wind (m/s)')
+! call print_2d_stats_vec(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,vf,'fire wind extended')
+#ifdef DEBUG_OUT
+        call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,'uf1',id)
+        call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,vf,'vf1',id)
+        ! call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,'uf1',id)
+        ! call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,vf,'vf1',id)
+#endif
+
+return
+
+end subroutine interpolate_atm2fire
+
+subroutine apply_windrf(                            &
+            ifms,ifme,jfms,jfme,                    &
+            ifts,ifte,jfts,jfte,                    &
+            nfuel_cat,uf,vf)
+integer::                                           &
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts, ifte, jfts, jfte                          ! fire tile bounds
+real,intent(in),dimension(ifms:ifme,jfms:jfme)::nfuel_cat
+real,intent(inout),dimension(ifms:ifme,jfms:jfme)::uf,vf
+!*** local
+    integer::i,j,k
+!*** executable
+
+    do j = jfts,jfte
+      do i = ifts,ifte
+          k=int( nfuel_cat(i,j) )
+          if(k.ne.no_fuel_cat)then 
+              uf(i,j)=uf(i,j)*windrf(k)
+              vf(i,j)=vf(i,j)*windrf(k)
+          else
+              uf(i,j)=0.
+              vf(i,j)=0.
+          endif
+      enddo
+    enddo
+
+end subroutine apply_windrf
+
+!
+!***
+!
+
+subroutine setup_wind_log_interpolation(          &
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts, ifte, jfts, jfte,                       &
+            ir,jr,                                        & ! atm/fire grid ratio
+            z0,                                           & ! atm grid arrays in
+            nfuel_cat,                                    & ! fire array in
+            fz0,fwh)                                        ! fire arrays out
+!*** arguments 
+integer, intent(in)::                    &
+    ids,ide, jds,jde,                    & ! atm domain bounds
+    ims,ime, jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                     &
+    its,ite,jts,jte,                     & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts, ifte, jfts, jfte,                       & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real,intent(in),dimension(ims:ime,jms:jme)::z0    ! landuse roughness length
+real,intent(in),dimension(ifms:ifme,jfms:jfme)::nfuel_cat   ! fuel category
+real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
+    fz0,                                          & ! roughness height
+    fwh                                             ! height to read the wind from
+!*** local
+integer::i,j,ii,jj,k,id=0
+character(len=128)::msg
+real::r
+!*** executable
+ 
+     if(.not.have_fuel_cats)call crash('setup_wind_log_interpolation: fuel categories not yet set')
+
+     select case(fire_wind_log_interp)
+
+     case(1)
+       call message('fire_wind_log_interp=1: log interpolation on fire mesh, roughness and wind height from fuel categories')
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.eq.no_fuel_cat)then ! no fuel
+                fz0(i,j)=-1.
+                fwh(i,j)=-1.
+            elseif(k < 1 .or. k  > nfuelcats) then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'i,j,nfuel_cat,nfuelcats=',i,j,k,nfuelcats
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                 call message(msg)
+                 call crash('setup_wind_log_interpolation: fuel category out of bounds')
+            else
+                fz0(i,j)=fcz0(k)
+                fwh(i,j)=fcwh(k)
+            endif
+          enddo
+       enddo
+
+     case(2)
+        call message('fire_wind_log_interp=2: log interpolation on fire mesh' // &
+          'piecewise constant roughness from landuse, constant fire_wind_height')
+        do j=jts,jte
+           do i=its,ite
+              do jj=(j-1)*jr+1,(j-1)*jr+jr
+                 do ii=(i-1)*ir+1,(i-1)*ir+ir
+                     fz0(ii,jj)=z0(i,j)
+                 enddo
+              enddo
+           enddo
+       enddo
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then ! no fuel, interpolation does not matter
+                fwh(i,j)=fcwh(k)
+            else
+                fz0(i,j)=-1.
+                fwh(i,j)=-1.
+            endif
+          enddo
+       enddo
+
+     case(3)
+       call message('fire_wind_log_interp=3: log interpolation on fire mesh,' // &
+           ' interpolated roughness from landuse, constant fire_wind_height')
+       call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            z0,                                       & ! atm grid arrays in
+            fz0)                                      ! fire grid arrays out
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then ! no fuel, interpolation does not matter
+                fwh(i,j)=fcwh(k)
+            else
+                fz0(i,j)=-1.
+                fwh(i,j)=-1.
+            endif
+          enddo
+       enddo
+
+     case(4)
+        call message('fire_wind_log_interp=4: log interpolation on atmospheric' // &
+           ' mesh, roughness from landuse, constant fire_wind_height')
+        return
+
+     case default
+        !$OMP CRITICAL(SFIRE_ATM_CRIT)
+        write(msg,*)'setup_wind_log_interpolation: invalid fire_wind_log_interp=',fire_wind_log_interp
+        !$OMP END CRITICAL(SFIRE_ATM_CRIT)
+        call crash('msg') 
+
+     end select 
+
+     select case(fire_use_windrf)
+
+     case(0)  
+       call message('setup_wind_log_interpolation: not using wind reduction factors')
+
+     case(1)
+       call message('setup_wind_log_interpolation: multiplying wind by reduction factors')
+
+     case(2)
+       call message('setup_wind_log_interpolation: resetting wind interpolation height from wind reduction factors')
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then 
+                fwh(i,j) = fz0(i,j) ** (1.-windrf(k)) * fire_wind_height ** windrf(k) ! GMD paper eq. (26)
+
+                if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                  write(msg,*)'category ',k,'windrf=',windrf(k),' fire_wind_height=',fire_wind_height
+                  call message(msg,level=-1)
+                  write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                  call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                  call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+                endif
+
+            endif
+          enddo
+       enddo
+
+     case(3)
+      if(fire_wind_log_interp.eq.2.or.fire_wind_log_interp.eq.3)then
+       call message('setup_wind_log_interpolation: adjusting wind interpolation height for LANDUSE roughness height')
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then 
+                r = log(fcwh(k)/fcz0(k))/log(fire_wind_height/fcz0(k))! GMD paper eq. (25)
+                fwh(i,j) = fz0(i,j) ** (1.-r) * fire_wind_height ** r ! GMD paper eq. (26)
+
+                if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                  write(msg,*)'category ',k, 'roughness ',fcz0(k),' midflame height ',fcwh(k),' fire_wind_height=',fire_wind_height
+                  call message(msg,level=-1)
+                  write(msg,*)'computed wind reduction factor ',r
+                  call message(msg,level=-1)
+                  write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                  call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                  call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+                endif
+
+            endif
+          enddo
+       enddo
+      else
+       call message('setup_wind_log_interpolation: not using wind reduction factors')
+      endif
+
+     case default
+        !$OMP CRITICAL(SFIRE_ATM_CRIT)
+        write(msg,*)'setup_wind_log_interpolation: invalid fire_use_windrf=',fire_use_windrf
+        !$OMP END CRITICAL(SFIRE_ATM_CRIT)
+        call crash('msg') 
+
+     end select 
+
+!      consistency check
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then 
+              if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                 call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                 call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+              endif
+            else
+              if(.not.fwh(i,j)<0.)then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                 call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                 call crash('setup_wind_log_interpolation: no fuel must be signalled by fwh<0')
+              endif
+            endif
+          enddo
+       enddo
+
+     have_wind_log_interpolation = .true.
+
+     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'setup_wind_log:fz0')        
+     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'setup_wind_log:fwh')        
+
+end subroutine setup_wind_log_interpolation
+
+!
+!***
+!
+
+subroutine interpolate_wind2fire_height(id,       & ! to identify debugging prints and files if needed
+    ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+    ims,ime, kms,kme, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              &
+    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,                       &
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+    ifts,ifte,jfts,jfte,                          &
+    ir,jr,                                        & ! atm/fire grid ratio
+    u_frame, v_frame,                             & ! velocity frame correction
+    u,v,ph,phb,                                   & ! input atmospheric arrays
+    fz0,fwh,                                      & ! input fire arrays
+    uf,vf)                                          ! output fire arrays
+
+  implicit none
+!*** arguments
+integer, intent(in):: id,                         & ! debug identification
+    ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
+    ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real, intent(in):: u_frame, v_frame                 ! velocity frame correction
+real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::&
+    u,v,                                          & ! atm wind velocity, staggered  
+    ph,phb                                          ! geopotential
+real,intent(in),dimension(ifms:ifme,jfms:jfme)::&
+    fz0,                                          & ! roughness height
+    fwh                                             ! height to read the wind from
+real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
+    uf,                                           & ! atm wind at fire_wind_height, diagnostics
+    vf                                              ! 
+
+!*** local
+  integer:: i,j,k,jcb,jcm,icb,icm,kdmax,kmin,kmax
+  integer::itst,itet,jtst,jtet
+  integer::iftst,iftet,jftst,jftet
+  real:: wjcb,wjcm,wicb,wicm,ht,i_g,loght,zr,ht_last,logwh,wh,loght_last,uk,vk,uk1,vk1,z0,logz0
+  real, dimension (its-1:ite+1,kds:kde,jts-1:jte+1):: z
+  character(len=128)::msg
+
+!*** executable
+
+  if(.not. have_wind_log_interpolation) call crash('interpolate_wind2fire_height: wind_log_interpolation must be set up first')
+
+  ! print *,'interpolate_wind2fire_height start, id=',id
+
+  kdmax=kde-1                                       ! max layer to use
+
+! find the altitude of atm cell centers            
+
+! index bounds for cell centers - need to go one beyond if at end of tile but not domain  
+  itst=ifval(ids.eq.its,its,its-1)
+  itet=ifval(ide.eq.ite,ite,ite+1)
+  jtst=ifval(jds.ge.jts,jts,jts-1)
+  jtet=ifval(jde.eq.jte,jte,jte+1)
+  
+  ! print *,'its, ite, jts, jte    =',its, ite, jts, jte
+  ! print *,'itst, itet, jtst, jtet=',itst, itet, jtst, jtet
+
+! get altitudes
+  i_g = 1./g
+  do j = jtst,jtet
+    do k=kds,kdmax+1
+      do i = itst,itet       
+        z(i,k,j) = (ph(i,k,j)+phb(i,k,j))*i_g      ! altitude of the bottom w-point 
+
+        ! print *,'i,k,j=',i,k,j,'ph, phb, z=',ph(i,k,j),phb(i,k,j),z(i,k,j)
+
+      enddo
+    enddo
+    do k=kds,kdmax
+      do i = itst,itet       
+        z(i,k,j) = (z(i,k,j)+z(i,k+1,j))*0.5 - z(i,kds,j)   ! height of the cell center 
+      enddo
+    enddo
+  enddo
+
+! index bounds for fire mesh cell centers
+! to prevent setting values from uninitialized memory
+  iftst=ifval(ifds.eq.ifts,ifts+ir/2,ifts)
+  iftet=ifval(ifde.eq.ifte,ifte-ir/2,ifte)
+  jftst=ifval(jfds.ge.jfts,jfts+jr/2,jfts)
+  jftet=ifval(jfde.eq.jfte,jfte-jr/2,jfte)
+
+  print *,'iftst, iftet, jftst, jftet=',iftst, iftet, jftst, jftet
+
+! zero out first, to prevent unitialized values on strips along domain boundaries
+! it would be faster but longer code to do just cleanup loop on the strips
+   do j = jfts,jfte
+     do i = ifts,ifte
+       uf(i,j)=0.
+       vf(i,j)=0.
+     enddo
+  enddo
+
+! vertical and horizontal interpolation
+
+  kmin=kde  ! init stats
+  kmax=kds
+
+  loop_j: do j = jftst,jftet
+    call coarse(j,jr,-2,jcb,wjcb)    ! get interpolation coefficients from the boundary 
+    call coarse(j,jr,ir,jcm,wjcm)    ! get interpolation coefficients from the midpoint 
+    loop_i: do i = iftst,iftet
+      call coarse(i,ir,-2,icb,wicb)    ! get interpolation coefficients from the boundary 
+      call coarse(i,ir,ir,icm,wicm)    ! get interpolation coefficients from the midpoint 
+      z0 = fz0(i,j)                    ! roughness length 
+      wh = fwh(i,j)                    ! wind height
+
+      ! print *,'i=',i,' j=',j,' icb=',icb,' jcb=',jcb,' z0=',z0,' wh=',wh
+
+
+      if( wh > z0 .and. z0 > 0)then
+
+      ht_last=z0                     ! initialize starting height of this layer
+      loop_k: do k=kds,kdmax         ! search for layer k such that ht(k-1)<=wh<ht(k), ht(0)=z0
+        ! interpolate height from atmospheric cell midpoints
+        ht=interpolate_h(its-1,ite+1,kds,kde,jts-1,jts+1,icm,k,jcm,wicm,wjcm,z)
+        
+        ! print *,'i=',i,' j=',j,'k=',k,' ht=',ht
+
+        if(.not. ht < wh) exit loop_k ! found layer k this point is in
+        ht_last = ht
+      enddo loop_k
+      if(k .gt. kdmax) then
+          goto 91  ! run out of vertical levels, this must be wrong
+      endif
+      kmin=min(k,kmin)
+      kmax=max(k,kmax)
+      ! found layer k, ht_last < wh <= ht
+      logz0 = log(z0)
+      logwh= log(wh)
+      loght_last = log(ht_last)
+      loght = log(ht)
+
+      ! interpolate u at level k from staggered coarse grid: boundary in i, midpoints in j
+      uk=interpolate_h(ims,ime,kms,kme,jms,jme,icb,k,jcm,wicb,wjcm,u) - u_frame
+
+      ! print *,'i=',i,' j=',j,' uk=',uk
+
+      ! interpolate v at level k from staggered coarse grid: midpoints in i, boundary in j
+      vk=interpolate_h(ims,ime,kms,kme,jms,jme,icm,k,jcb,wicm,wjcb,v) - v_frame
+
+      ! print *,'i=',i,' j=',j,' vk=',vk
+
+      if(k.gt.kds)then           ! interpolate u,v horizontaly at the previous layer,  k-1
+        ! interpolate u at level k-1 from staggered coarse grid: boundary in i, midpoints in j
+        uk1=interpolate_h(ims,ime,kms,kme,jms,jme,icb,k-1,jcm,wicb,wjcm,u)
+        
+        ! print *,'i=',i,' j=',j,' uk1=',uk1
+
+        ! interpolate v at level k-1 from staggered coarse grid: midpoints in i, boundary in j
+        vk1=interpolate_h(ims,ime,kms,kme,jms,jme,icm,k-1,jcb,wicm,wjcb,v)
+        
+        ! print *,'i=',i,' j=',j,' uk1=',uk1
+
+      else ! there is no previous layer, wind at roughness is assumed 0
+        uk1=0. 
+        vk1=0.
+      endif
+
+      ! log interpolate the wind to wh
+      uf(i,j)= uk1 + (uk - uk1) * ( logwh - loght_last) / (loght - loght_last)
+      vf(i,j)= vk1 + (vk - vk1) * ( logwh - loght_last) / (loght - loght_last)
+        
+      ! print *,'i=',i,' j=',j,' uk=',uk,' vk=',vk,' uk1=',uk1,' vk1=',vk1,' uf=',uf(i,j),' vf=',vf(i,j)
+
+    else
+      ! no fuel, no wind 
+      uf(i,j) = 0.
+      vf(i,j) = 0.
+
+    endif
+
+    enddo loop_i
+  enddo loop_j
+
+  ! print *,'interpolate_wind2fire_height complete, id=',id
+
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+  write(msg,*)'wind interpolated from layers',kmin,' to ',kmax
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+
+  return
+
+  91 call crash('interpolate_wind2fire_height: fire wind height too large, increase kdmax or atm height')
+  92 continue
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+  write(msg,*)'fz0(',i,j,')=',fz0(i,j),'fwh(',i,j,')=',fwh(i,j)
+  call message(msg)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+  call crash('interpolate_wind2fire_height: must have fire wind height > roughness height > 0')
+
+contains
+
+real function interpolate_h(ims,ime,kms,kme,jms,jme,ic,kc,jc,wic,wjc,a)
+!*** purpose: bilinear interpolation from a(ic:ic+1,k,jc:jc+1) with weights wicm wjcm
+  implicit none
+!*** arguments
+  integer, intent(in)::ims,ime,jms,kms,kme,jme,ic,kc,jc
+  real, intent(in)::wic,wjc,a(ims:ime,kms:kme,jms:jme)
+!*** executable
+  interpolate_h = &
+    a(ic,kc,jc)    *wic     *wjc      + &
+    a(ic,kc,jc+1)  *wic     *(1.-wjc) + &
+    a(ic+1,kc,jc)  *(1.-wic)*wjc      + &
+    a(ic+1,kc,jc+1)*(1.-wic)*(1.-wjc)
+end function interpolate_h
+
+
+subroutine coarse(ix,nr,ia,ic,w)
+!*** find coarse mesh index and interpolation weight
+!*** arguments
+    implicit none
+    integer, intent(in)::ix,nr,ia
+    integer, intent(out)::ic
+    real, intent(out)::w
+!*** description
+! given fine mesh with nr cells for each coarse mesh cell and such that
+!   coarse mesh node 1 is aligned with the fine mesh at (na+1)/2
+! for fine mesh node ix find its coarse mesh coordinate c and return 
+!   ic=floor(c), the index of the nearest coarse mesh node below 
+!   w =1-(c-ic), the interpolation weight from coarse mesh node ic to fine mesh node ix 
+!
+! Intended use:
+! fine mesh nodes are always at the middle of their cells
+!
+! the alignment when the coarse nodes are on the boundary of coarse cells:
+! |---1---|---2---|.......|--nr---|   fine mesh
+! 1-------------------------------2   coarse mesh
+! ia = -2  because coarse node 1 is aligned with the fine mesh at -1/2 = (-2 + 1)/2
+!
+! the alignment when the coarse node is at the midpoint of coarse  cell:
+! |---1---|---2---|---3---|---4---|   fine mesh, here nr=4
+! |---------------1---------------|   coarse mesh
+! ia = nr because coarse node 1 is aligned with the fine mesh at (nr + 1)/2
+! here,  (4 + 1)/2 = 2.5
+!
+
+!*** local
+    real:: c,a
+
+!*** executable
+
+  a = (ia + 1)*0.5    ! the location on the fine grid where coarse node 1 is aligned
+  c = 1 + (ix - a)/nr ! coarse mesh coordinate of ix
+  ic= floor(c)        ! nearest coarse node to the left
+  w = (1 + ic) - c    ! interpolation weight, 1-(c-ic)
+
+end subroutine coarse
+
+end subroutine interpolate_wind2fire_height
+
+!
+!*****************************
+!
+
+subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+    ids,ide, jds,jde,                    & ! atm grid dimensions
+    ims,ime, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              &
+    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,                       &
+    ifts,ifte,jfts,jfte,                          &
+    ir,jr,                                        & ! atm/fire grid ratio
+    zs,                                       & ! atm grid arrays in
+    zsf)                                      ! fire grid arrays out
+    
+implicit none
+!*** purpose: interpolate height
+
+!*** arguments
+integer, intent(in)::id,                          &
+    ids,ide, jds,jde,                    & ! atm domain bounds
+    ims,ime,jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real, intent(in), dimension(ims:ime, jms:jme):: zs  ! terrain height at atm cell centers                                        & ! terrain height  
+real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
+    zsf                                             ! terrain height fire grid nodes
+    
+    
+!*** local
+real, dimension(its-2:ite+2,jts-2:jte+2):: za      ! terrain height
+integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1,itso,jtso,iteo,jteo
+
+! terrain height
+
+    jts1=max(jts-1,jds) ! lower loop limit by one less when at end of domain
+    its1=max(its-1,ids) ! ASSUMES THE HALO IS THERE if patch != domain
+    jte1=min(jte+1,jde) 
+    ite1=min(ite+1,ide)
+    do j = jts1,jte1
+        do i = its1,ite1 
+            ! copy to local array
+            za(i,j)=zs(i,j)           
+        enddo
+    enddo
+
+    call continue_at_boundary(1,1,0., & ! do x direction or y direction
+    its-2,ite+2,jts-2,jte+2,           &                ! memory dims
+    ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
+    ips,ipe,jps,jpe, &            ! patch dims - winds defined up to +1
+    its1,ite1,jts1,jte1, &                ! tile dims
+    itso,jtso,iteo,jteo, &
+    za)                               ! array
+
+    ! interpolate to tile plus strip along domain boundary if at boundary
+    jfts1=snode(jfts,jfds,-1) ! lower loop limit by one less when at end of domain
+    ifts1=snode(ifts,ifds,-1)
+    jfte1=snode(jfte,jfde,+1) 
+    ifte1=snode(ifte,ifde,+1)
+                     
+    call interpolate_2d(  &
+        its-2,ite+2,jts-2,jte+2, & ! memory dims atm grid tile
+        its1-1,ite1+1,jts1-1,jte1+1, & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
+        ir,jr,                  & ! refinement ratio
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
+        za,                     & ! in atm grid     
+        zsf)                      ! out fire grid
+
+end subroutine interpolate_z2fire
 
 end module module_fr_sfire_atm

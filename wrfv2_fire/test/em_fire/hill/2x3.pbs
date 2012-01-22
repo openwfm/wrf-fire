@@ -37,8 +37,15 @@ ln -s ../input_sounding .
 ln -s ../namelist.fire .
 ln -s ../namelist.input .
 ln -s ../wrf.exe .
+if [ -e ../input_tign_g ]
+then
+  ln -s ../input_tign_g .
+fi
+
 
 cat $PBS_NODEFILE  > nodes 
 mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
+mv rsl.error.0000 ideal.error.log
+mv rsl.out.0000 ideal.out.log
 mpirun_rsh -np 2 -hostfile nodes OMP_NUM_THREADS=3 ./wrf.exe 
 

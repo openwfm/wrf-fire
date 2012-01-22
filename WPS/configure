@@ -152,3 +152,9 @@ fi
 # Found perl, so proceed with configuration
 perl arch/Config.pl -perl=$PERL -netcdf=$NETCDF -netcdff=$NETCDFF -os=$os -mach=$mach 
 
+if test -f $NETCDF/bin/nc-config ; then
+  if test -z "$WRFIO_NETCDF4_LINKOPTS" ; then
+    WRFIO_NETCDF_LINKOPTS=`$NETCDF/bin/nc-config --flibs`
+    echo "WRFIO_NETCDF_LINKOPTS=$WRFIO_NETCDF_LINKOPTS" >> configure.wps
+  fi
+fi

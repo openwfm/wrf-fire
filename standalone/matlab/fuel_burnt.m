@@ -11,7 +11,7 @@ function fuel_fraction=fuel_burnt(lfn,tign,tnow,fd,fuel_time)
 %  fuel_burnt  =  ----------   |  ( 1  -  exp( - ----------- ) ) dxdy
 %                 fd(1)*fd(2)  |                  fuel_time
 %                             \/
-%                        (x,y) in R; 
+%                        (x,y) in R;
 %                         L(x,y)<=0
 %
 % where R is the rectangle [0,fd(1)] * [0,fd(2)]
@@ -20,13 +20,14 @@ function fuel_fraction=fuel_burnt(lfn,tign,tnow,fd,fuel_time)
 % note that fuel_left = 1 - fuel_burnt
 %
 % Requirements:
-%       exact in the case when T and L are linear 
+%       exact in the case when T and L are linear
 %       varies continuously with input
 %       value of tign-tnow where lfn>0 ignored
 %       assume T=0 when lfn=0
 figs=1:4;
 for i=figs,figure(i),clf,hold off,end
-
+% tign 
+% lfn
 if all(lfn(:)>=0),
     % nothing burning, nothing to do - most common case, put it first
     fuel_fraction=0;
@@ -38,10 +39,12 @@ elseif all(lfn(:)<=0),
        fd(1),  0,    1;
        0,    fd(2),  1;
        fd(1),fd(2),  1];
-    v=tnow-tign(:);    % time from ignition
+    v=tnow-tign(:) ;   % time from ignition
     rw=2*ones(4,1);
     u = lscov(A,v,rw);  % solve least squares to get coeffs of T
-    residual=norm(A*u-v) % zero if T is linear
+    residual=norm(A*u-v); % zero if T is linear
+    u
+    display('fuel_burnt coefficients of u')
     % integrate
     uu = -u / fuel_time;
     fuel_fraction = 1 - exp(uu(3)) * intexp(uu(1)*fd(1)) * intexp(uu(2)*fd(2));
@@ -79,7 +82,7 @@ else
             xylist(points,:)=[x0,y0];
             Tlist(points)=0; % now at ignition
             Llist(points)=0; % at fireline
-        end
+     end
     end
     % make the lists circular and trim to size
     Tlist(points+1)=Tlist(1);
@@ -101,7 +104,7 @@ else
     patch(xylist(:,1),xylist(:,2),zeros(points+1,1),250,'FaceAlpha',0.3)
     patch(xylist(:,1),xylist(:,2),Tlist,100,'FaceAlpha',0.3)
     hold off,grid on,drawnow,pause(0.5)
-    % set up least squares 
+    % set up least squares
     A=[xylist(1:points,1:2),ones(points,1)];
     v=Tlist(1:points);
     for i=1:points
@@ -115,13 +118,15 @@ else
         rw(i)=1+min(dist);  % weight = 1+min dist from other nodes
     end
     u = lscov(A,v,rw);  % solve least squares to get coeffs of T
-    residual=norm(A*u-v) % should be zero if T and L are linear
+    u
+    display('fuel_burnt coefficients of u')
+    residual=norm(A*u-v); % should be zero if T and L are linear
     nr=sqrt(u(1)*u(1)+u(2)*u(2));
     c=u(1)/nr;
     s=u(2)/nr;
     Q=[c,  s; -s, c];  % rotation such that Q*u(1:2)=[something;0]
-    ut=Q*u(1:2);
-    errQ=ut(2)  % should be zero
+     ut=Q*u(1:2);
+    errQ=ut(2);  % should be zero
     ae=-ut(1)/fuel_time;
     ce=-u(3)/fuel_time;     %  -T(xt,yt)/fuel_time=ae*xt+ce
     cet=ce;  %keep ce for later
@@ -143,7 +148,7 @@ else
             for s=1:points % pass counterclockwise
                 xts=xytlist(s,1); % start point of the line
                 yts=xytlist(s,2);
-                xte=xytlist(s+1,1); % end point of the line 
+                xte=xytlist(s+1,1); % end point of the line
                 yte=xytlist(s+1,2);
                 if (xts>xt1 & xte > xt1) | (xts<xt2 & xte < xt2)
                     plot([xts,xte],[yts,yte],'--k')
@@ -161,7 +166,7 @@ else
                     else % lower boundary
                         alow=a;
                         clow=c;
-                        plot([xts,xte],[yts,yte],'m')
+      plot([xts,xte],[yts,yte],'m')
                         lower=lower+1;
                     end
                 end
@@ -175,7 +180,7 @@ else
                ce=ce-(ae*xt1+ce);end;
             if ae*xt2+ce > 0;%disp('ae*xt2+ce');disp(ae*xt2+ce);pause;
                ce=ce-(ae*xt2+ce);end;
-            
+
             ah=aupp-alow;
             ch=cupp-clow;
             % debug only
@@ -202,7 +207,7 @@ else
             % expand in Taylor series around ae=0
             % collect(expand(taylor(int(x*(-exp(ae*(x+ceae))),x,xt1,xt2)*ae^2,ae,4)/ae^2),ae)
             % =(1/8*xt1^4+1/3*xt1^3*ceae+1/4*xt1^2*ceae^2-1/8*xt2^4-1/3*xt2^3*ceae-1/4*xt2^2*ceae^2)*ae^2
-            %     + (-1/3*xt2^3-1/2*xt2^2*ceae+1/3*xt1^3+1/2*xt1^2*ceae)*ae 
+ %     + (-1/3*xt2^3-1/2*xt2^2*ceae+1/3*xt1^3+1/2*xt1^2*ceae)*ae
             %     + 1/2*xt1^2-1/2*xt2^2
             %
             % coefficient at ae^2 in the expansion, after some algebra
@@ -229,7 +234,8 @@ else
             end
         end
     end
-    fuel_fraction=fuel_fraction/(fd(1)*fd(2))
+    fuel_fraction=fuel_fraction/(fd(1)*fd(2));
+    display('fuel_burnt2')
     %fuel_fraction=1-fuel_fraction;
 end
 for i=figs,figure(i),hold off,end
@@ -245,3 +251,4 @@ else
     s = 1 + ab/2+ab^2/6;   % last term (a*b)^2/6 for small a*b
 end
 end
+           

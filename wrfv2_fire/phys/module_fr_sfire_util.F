@@ -17,24 +17,37 @@ module module_fr_sfire_util
 ! 3. add a line in Registry.EM to define the variable and set default value
 ! 4. add the variable and value in namelist.input
 
+! to compile in a hook to attach debugger to a running process.
+!#define DEBUG_HOOK
+
+use module_domain, only: domain
+use module_model_constants, only: reradius,    & ! 1/earth radiusw
+                                  pi2            ! 2*pi
+use module_configure, only: grid_config_rec_type
+
+
+implicit none
 
 integer,save::          &
  fire_print_msg=1,      &  ! print SFIRE progress 
  fire_print_file=1,     &  ! write many files by write_array_m; compile with DEBUG_OUT, do not run in parallel
  fuel_left_method=1,    &  ! 1=simple, 2=exact in linear case
  fuel_left_irl=2,       &  ! refinement for fuel calculation, must be even
- fuel_left_jrl=2,       &
+ fuel_left_jrl=2,       &  ! currently, 2 only supported
  boundary_guard=-1,     &  ! crash if fire gets this many cells to domain boundary, -1=off
  fire_grows_only=1,     &  ! fire can spread out only (level set functions may not increase)
  fire_upwinding=3,      &  ! upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian 
- fire_upwind_split=0,   &  ! 1=upwind advection separately from normal direction spread
  fire_test_steps=0,     &  ! 0=no fire, 1=normal, >1 = do specified number of steps and terminate (testing only)
  fire_topo_from_atm=1,  &  ! 0 = expect ZSF set correctly on entry, 1 = populate by interploating from atmosphere
- fire_advection=0          ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
+ fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
+ fire_wind_log_interp=4,&  ! kind of vertical log layer wind interpolation, see driver
+ fire_use_windrf=0,     &  ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
+ fire_fmc_read=1           ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
  
 
 real, save::            &
- fire_const_time=-1,    &  ! time from ignition to start constant heat output  <0=never
+ fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign in ideal
+ fire_const_time=-1.,    &  ! time from ignition to start constant heat output  <0=never
  fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_const_grnqfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
@@ -44,8 +57,222 @@ real, save::            &
 
 integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
 
+! describe one ignition line
+type ignition_line_type
+  REAL  ros, &          ! subscale rate of spread during the ignition process
+        stop_time, &    ! when the ignition process stops from ignition start (s)
+        wind_red,  &    ! wind reduction factor at the ignition line
+        wrdist,   &     ! distance from the ignition line when the wind reduction stops
+        wrupwind, &     ! use distance interpolated between 0. = nearest 1. = upwind
+        start_x, &      ! x coordinate of the ignition line start point (m, or long/lat)
+        start_y, &      ! y coordinate of the ignition line start point
+        end_x, &        ! x coordinate of the ignition line end point
+        end_y, &        ! y coordinate of the ignition line end point
+        start_time, &   ! ignition time for the start point from simulation start (s)
+        end_time, &     ! ignition time for the end poin from simulation start (s)
+        radius          ! all within this radius ignites immediately
+end type ignition_line_type
+
+integer, parameter:: fire_max_ignitions=5
+
+! container type for all ignitions and associated scalars
+type ignition_type
+    type(ignition_line_type):: line(fire_max_ignitions) ! descriptions of ignition lines
+    integer:: num_ignitions, &      ! number of ignitions specified
+        longlat                     ! 0 for ideal, 1 for real
+    real::  unit_fxlong,unit_fxlat  ! degree of longtitude/latitude in m; 1m for ideal
+end type ignition_type
+
 contains
 
+
+subroutine fire_ignition_convert (config_flags,ignition)
+    USE module_configure
+    implicit none
+! create ignition arrays from scalar flags
+!*** arguments
+    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    TYPE (ignition_type), INTENT(OUT):: ignition ! any values from input discarded 
+!*** local
+    integer::i
+    logical:: real,ideal
+    real::lat_ctr,lon_ctr
+    character(len=128)msg
+!*** executable
+    ! this is only until I figure out how to input arrays through the namelist...
+    if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
+    ! figure out which kind of coordinates from the first given
+    ideal=config_flags%fire_ignition_start_x1 .ne.0. .or. config_flags%fire_ignition_start_y1 .ne. 0.
+    real=config_flags%fire_ignition_start_lon1 .ne. 0. .or. config_flags%fire_ignition_start_lat1 .ne. 0.
+    if(ideal)call message('Using ideal ignition coordinates, m from the lower left domain corner')
+    if(real)call message('Using real ignition coordinates, longitude and latitude')
+    if(ideal.and.real)call crash('Only one of the ideal or real coordinates may be given')
+
+    ignition%longlat=0  ! default, if no ignition
+    if(ideal)then
+       ! use values from _x and _y variables
+       ignition%longlat=0
+       ignition%line(1)%start_x=config_flags%fire_ignition_start_x1
+       ignition%line(1)%start_y=config_flags%fire_ignition_start_y1
+       ignition%line(1)%end_x=config_flags%fire_ignition_end_x1
+       ignition%line(1)%end_y=config_flags%fire_ignition_end_y1
+       ignition%line(2)%start_x=config_flags%fire_ignition_start_x2
+       ignition%line(2)%start_y=config_flags%fire_ignition_start_y2
+       ignition%line(2)%end_x=config_flags%fire_ignition_end_x2
+       ignition%line(2)%end_y=config_flags%fire_ignition_end_y2
+       ignition%line(3)%start_x=config_flags%fire_ignition_start_x3
+       ignition%line(3)%start_y=config_flags%fire_ignition_start_y3
+       ignition%line(3)%end_x=config_flags%fire_ignition_end_x3
+       ignition%line(3)%end_y=config_flags%fire_ignition_end_y3
+       ignition%line(4)%start_x=config_flags%fire_ignition_start_x4
+       ignition%line(4)%start_y=config_flags%fire_ignition_start_y4
+       ignition%line(4)%end_x=config_flags%fire_ignition_end_x4
+       ignition%line(4)%end_y=config_flags%fire_ignition_end_y4
+       ignition%line(5)%start_x=config_flags%fire_ignition_start_x5
+       ignition%line(5)%start_y=config_flags%fire_ignition_start_y5
+       ignition%line(5)%end_x=config_flags%fire_ignition_end_x5
+       ignition%line(5)%end_y=config_flags%fire_ignition_end_y5
+    endif
+    if(real)then
+        ! use values from _long and _lat
+       ignition%longlat=1
+       ignition%line(1)%start_x=config_flags%fire_ignition_start_lon1
+       ignition%line(1)%start_y=config_flags%fire_ignition_start_lat1
+       ignition%line(1)%end_x=config_flags%fire_ignition_end_lon1
+       ignition%line(1)%end_y=config_flags%fire_ignition_end_lat1
+       ignition%line(2)%start_x=config_flags%fire_ignition_start_lon2
+       ignition%line(2)%start_y=config_flags%fire_ignition_start_lat2
+       ignition%line(2)%end_x=config_flags%fire_ignition_end_lon2
+       ignition%line(2)%end_y=config_flags%fire_ignition_end_lat2
+       ignition%line(3)%start_x=config_flags%fire_ignition_start_lon3
+       ignition%line(3)%start_y=config_flags%fire_ignition_start_lat3
+       ignition%line(3)%end_x=config_flags%fire_ignition_end_lon3
+       ignition%line(3)%end_y=config_flags%fire_ignition_end_lat3
+       ignition%line(4)%start_x=config_flags%fire_ignition_start_lon4
+       ignition%line(4)%start_y=config_flags%fire_ignition_start_lat4
+       ignition%line(4)%end_x=config_flags%fire_ignition_end_lon4
+       ignition%line(4)%end_y=config_flags%fire_ignition_end_lat4
+       ignition%line(5)%start_x=config_flags%fire_ignition_start_lon5
+       ignition%line(5)%start_y=config_flags%fire_ignition_start_lat5
+       ignition%line(5)%end_x=config_flags%fire_ignition_end_lon5
+       ignition%line(5)%end_y=config_flags%fire_ignition_end_lat5
+    endif
+    ! common to both cases
+       ignition%line(1)%ros=config_flags%fire_ignition_ros1 
+       ignition%line(1)%radius=config_flags%fire_ignition_radius1 
+       ignition%line(1)%start_time=config_flags%fire_ignition_start_time1 
+       ignition%line(1)%end_time=config_flags%fire_ignition_end_time1 
+       ignition%line(2)%ros=config_flags%fire_ignition_ros2 
+       ignition%line(2)%radius=config_flags%fire_ignition_radius2 
+       ignition%line(2)%start_time=config_flags%fire_ignition_start_time2 
+       ignition%line(2)%end_time=config_flags%fire_ignition_end_time2 
+       ignition%line(3)%ros=config_flags%fire_ignition_ros3 
+       ignition%line(3)%radius=config_flags%fire_ignition_radius3 
+       ignition%line(3)%start_time=config_flags%fire_ignition_start_time3 
+       ignition%line(3)%end_time=config_flags%fire_ignition_end_time3 
+       ignition%line(4)%ros=config_flags%fire_ignition_ros4 
+       ignition%line(4)%radius=config_flags%fire_ignition_radius4 
+       ignition%line(4)%start_time=config_flags%fire_ignition_start_time4 
+       ignition%line(4)%end_time=config_flags%fire_ignition_end_time4 
+       ignition%line(5)%ros=config_flags%fire_ignition_ros5 
+       ignition%line(5)%radius=config_flags%fire_ignition_radius5 
+       ignition%line(5)%start_time=config_flags%fire_ignition_start_time5
+       ignition%line(5)%end_time=config_flags%fire_ignition_end_time5
+
+    ! 
+        ignition%num_ignitions=0      
+        do i=1,min(5,config_flags%fire_num_ignitions)
+            ! count the ignitions 
+            if(ignition%line(i)%radius.gt.0.)ignition%num_ignitions=i
+            ! expand ignition data given as zero
+            if(ignition%line(i)%end_x.eq.0.)ignition%line(i)%end_x=ignition%line(i)%start_x
+            if(ignition%line(i)%end_y.eq.0.)ignition%line(i)%end_y=ignition%line(i)%start_y
+            if(ignition%line(i)%end_time.eq.0.)ignition%line(i)%end_time=ignition%line(i)%start_time
+        enddo
+
+    if(ignition%longlat .eq. 0)then
+       ! ideal
+       !  ignition is in m
+       ignition%unit_fxlong=1.  
+       ignition%unit_fxlat=1.
+       ! will set fire mesh coordinates to uniform mesh below
+    else
+       ! real
+       lat_ctr=config_flags%cen_lat
+       lon_ctr=config_flags%cen_lon
+       ! 1 degree in m (approximate OK)
+       ignition%unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
+       ignition%unit_fxlong=cos(lat_ctr*pi2/360.)*ignition%unit_fxlat  ! latitude
+    endif
+
+    if(fire_print_msg.ge.2)then
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+       if(ignition%longlat .eq. 0)then
+         write(msg,1)'start x','start y','end x','end y','start t','end t','ros','radius'
+       else
+         write(msg,1)'start lon','start lat','end lon','end lat','start time','end time','ros','radius'
+       endif
+1      format(4a10,4a9)
+2      format(4f10.3,4f9.2)
+3      format(4f10.5,4f9.2)
+       call message(msg)
+       do i=1,5
+         if(ignition%longlat .eq. 0)then
+           write(msg,2)ignition%line(i)%start_x, ignition%line(i)%start_y, &
+                      ignition%line(i)%end_x,  ignition%line(i)%end_y,        &
+                      ignition%line(i)%start_time, ignition%line(i)%end_time, &
+                      ignition%line(i)%ros, ignition%line(i)%radius
+         else
+           write(msg,3)ignition%line(i)%start_x, ignition%line(i)%start_y, &
+                      ignition%line(i)%end_x,  ignition%line(i)%end_y,        &
+                      ignition%line(i)%start_time, ignition%line(i)%end_time, &
+                      ignition%line(i)%ros, ignition%line(i)%radius
+         endif
+         call message(msg)
+       enddo
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+     endif
+
+end subroutine fire_ignition_convert
+
+!
+!*****************************
+!
+subroutine set_flags(config_flags)
+USE module_configure
+implicit none
+TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+! copy flags from wrf to module_fr_sfire_util
+! for instructions how to add a flag see the top of module_fr_sfire_util.F
+
+fire_perimeter_time     = config_flags%fire_perimeter_time
+fire_print_msg          = config_flags%fire_print_msg
+fire_print_file         = config_flags%fire_print_file
+fuel_left_method        = config_flags%fire_fuel_left_method
+fuel_left_irl           = config_flags%fire_fuel_left_irl
+fuel_left_jrl           = config_flags%fire_fuel_left_jrl
+fire_const_time         = config_flags%fire_const_time
+fire_const_grnhfx       = config_flags%fire_const_grnhfx
+fire_const_grnqfx       = config_flags%fire_const_grnqfx
+fire_atm_feedback       = config_flags%fire_atm_feedback
+boundary_guard          = config_flags%fire_boundary_guard
+fire_back_weight        = config_flags%fire_back_weight
+fire_grows_only         = config_flags%fire_grows_only
+fire_upwinding          = config_flags%fire_upwinding
+fire_viscosity          = config_flags%fire_viscosity 
+fire_lfn_ext_up         = config_flags%fire_lfn_ext_up 
+fire_test_steps         = config_flags%fire_test_steps 
+!fire_topo_from_atm     = config_flags%fire_topo_from_atm
+fire_advection          = config_flags%fire_advection
+fire_wind_log_interp    = config_flags%fire_wind_log_interp
+fire_use_windrf         = config_flags%fire_use_windrf
+fire_fmc_read           = config_flags%fire_fmc_read
+
+end subroutine set_flags
+
+!
+!*****************************
+!
 !
 !****************
 !
@@ -96,8 +323,8 @@ if(fire_print_msg.ge.mlevel)then
       msg='SFIRE:'//s
 #endif
       call wrf_message(msg)
-      flush(6)
-      flush(0)
+      ! flush(6) ! will not work on intel compiler
+      ! flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -105,6 +332,19 @@ end subroutine message
 !
 !****************
 !
+
+subroutine time_start
+use module_timing, only:start_timing
+implicit none
+call start_timing
+end subroutine time_start
+
+subroutine time_end(string)
+use module_timing, only:end_timing
+implicit none
+character(len=*)string
+call end_timing(string)
+end subroutine time_end
 
 
 integer function open_text_file(filename,rw)
@@ -1026,7 +1266,7 @@ do j=jps,jpe
   enddo
 enddo
 if(bb.ne.bb)goto 10 ! should never happen 
-if(fire_print_msg.eq.0)return
+if(fire_print_msg.le.0)return
 avg_a = avg_a/((ipe-ips+1)*(jpe-jps+1)*(kpe-kps+1))
 call print_stat_line(name,ips,ipe,jps,jpe,min_a,max_a,avg_a)
 return
@@ -1190,38 +1430,10 @@ return
 
 
 end subroutine write_array_m3
+
 !
 !***
 !
-subroutine read_array_2d_integer(filename,ia,its,ite,jts,jte,ims,ime,jms,jme)
-!*** arguments
-integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
-integer, intent(out), dimension(ims:ime,jms:jme):: ia
-character(len=*),intent(in)::filename
-!*** local
-real, allocatable, dimension(:,:)::a
-integer::i,j
-real::r
-character(len=256)msg
-!*** executable
-allocate(a(ims:ime,jms:jme))
-call read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
-do j=jts,jte
-    do i=its,ite
-        ia(i,j)=a(i,j)
-	r=ia(i,j)
-	if(r.ne.a(i,j))then
-           write(6,*)'Reading file ',trim(filename)
-           write(6,*)'value at position ',i,j,' cannot be converted to integer'
-           write(6,*)'read ',a(i,j),' converted as',k,' converted as ',r
-	   msg=trim(filename)//' is not integer file'
-	   call crash(msg)
-        endif
-    enddo
-enddo
-end subroutine read_array_2d_integer
-
-        
 
 subroutine read_array_2d_real(filename,a,its,ite,jts,jte,ims,ime,jms,jme)
 use module_dm
@@ -1318,13 +1530,6 @@ else
     snode=t+i
 endif
 end function snode
-
-subroutine print_id
-character(len=128)::id,msg
-#include "sfire_id.inc"
-msg=id
-call message(msg,level=1)
-end subroutine print_id
 
 subroutine print_chsum( id, & 
     ims,ime,kms,kme,jms,jme, &                ! memory dims
@@ -1519,3 +1724,22 @@ fun_real=gsum
 end function fun_real
 
 end module module_fr_sfire_util
+
+! this subroutine is outside of any module and f77 style because some debuggers
+! notably gdb are terrible with fortran90
+
+#ifdef DEBUG_HOOK
+subroutine sfire_debug_hook
+integer, save:: go=0
+! set go=1 in debugger to continue
+do while (go .eq. 0)
+call sleep(1)
+enddo
+end subroutine sfire_debug_hook
+#else
+subroutine sfire_debug_hook
+end subroutine sfire_debug_hook
+#endif
+
+
+
