@@ -54,7 +54,7 @@ SUBROUTINE fddaobs_driver( inest, domid, parid, restart,         &
                max_obs, nobs_ndg_vars,                           &
                nobs_err_flds, nstat, varobs, errf, dx,           &
                KPBL, HT, mut, muu, muv,                          &
-               msftx, msfty, msfux, msfuy, msfvx, msfvy, p_phy, t_tendf, t0,             &
+               msftx, msfty, msfux, msfuy, msfvx, msfvy, p_phy, t_tendf, fddat0,             &
                ub, vb, tb, qvb, pbase, ptop, pp, phb, ph,        &
                uratx, vratx, tratx, ru_tendf, rv_tendf,          &
                moist_tend, savwt,                                &
@@ -146,7 +146,7 @@ SUBROUTINE fddaobs_driver( inest, domid, parid, restart,         &
 
   REAL, INTENT(IN) :: p_phy( ims:ime, kms:kme, jms:jme )
   REAL, INTENT(INOUT) :: t_tendf( ims:ime, kms:kme, jms:jme )
-  REAL, INTENT(IN) :: t0
+  REAL, INTENT(IN) :: fddat0
   REAL, INTENT(INOUT) :: savwt( nobs_ndg_vars, ims:ime, kms:kme, jms:jme )
   REAL, INTENT(INOUT) :: regime( ims:ime, jms:jme )
   REAL, INTENT(IN) :: pblh( ims:ime, jms:jme )
@@ -281,7 +281,7 @@ SUBROUTINE fddaobs_driver( inest, domid, parid, restart,         &
   IF( nsta.GT.0 ) THEN
     IF( MOD(ktau,infr).EQ.0 .OR. idarst.EQ.1) THEN
 
-        CALL errob(inest, ub, vb, tb, t0, qvb, pbase, pp, rcp,       &
+        CALL errob(inest, ub, vb, tb, fddat0, qvb, pbase, pp, rcp,       &
                    z,                                                &
                    uratx, vratx, tratx, kpbl,                        &
                    nobs_ndg_vars, nobs_err_flds, max_obs, maxdom,    &

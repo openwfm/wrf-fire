@@ -23,7 +23,9 @@ subroutine sfire_driver_em_init (grid , config_flags               &
 
     ! stub to call sfire_driver_em with irun=0 and omit last 3 args
 
-    USE module_domain , only: domain , get_ijk_from_subgrid
+    USE module_domain , only: domain , get_ijk_from_subgrid , &
+                              domain_get_time_since_sim_start , &
+                              domain_get_time_step 
     USE module_configure , only : grid_config_rec_type
     implicit none
 
@@ -83,7 +85,9 @@ subroutine sfire_driver_em_step (grid , config_flags               &
 
     ! stub to call sfire_driver_em 
 
-    USE module_domain, only: domain , get_ijk_from_subgrid
+    USE module_domain, only: domain , get_ijk_from_subgrid , &
+                              domain_get_time_since_sim_start , &
+                              domain_get_time_step 
     USE module_configure , only : grid_config_rec_type
     USE module_fr_sfire_util, only : fire_test_steps
     implicit none
