@@ -1,12 +1,18 @@
 #!/bin/bash
 
+compiler=pgi
+if [ $# -gt 0 ] ; then
+  echo $1
+  compiler=$1
+fi
+
 toplevel=${PWD}
 gittop=${toplevel}/..
 regdir=${gittop}/other/regressiontest
-scratch=/scratch
+scratch=${HOME}/scratch
 user=${USER}
 hashid=$(git rev-parse HEAD)
-logdir=${scratch}/${user}/ifort_regtest_${hashid}
+logdir=${scratch}/${compiler}_regtest_${hashid}
 ideal_nml=${regdir}/namelist.ideal
 real_nml=${regdir}/namelist.real
 sounding=${regdir}/input_sounding
@@ -14,22 +20,29 @@ ideal_fire_nml=${regdir}/namelist.fire.ideal
 real_fire_nml=${regdir}/namelist.fire.real
 metdata=${regdir}
 nameprefix="std_"
-numprocs=8
+numprocs=10
 maxprocs=${numprocs}
 maxcores=${numprocs}
 maxthreads=${numprocs}
 procscl=2
 thrdscl=2
 realout='wrfout_d01_2005-08-28_12:00:00'
-idealout='wrfout_d01_0001-01-01_00:00:00'
+idealout='wrfout_d01_0001-01-01_00:01:00'
 ctimefile="${logdir}/compile_time.log"
 rtimefile="${logdir}/run_time.log"
 infofile="${logdir}/regtest_info.log"
 
-export NETCDF=/opt/wrf-libs/netcdf
-export PATH=/opt/intel11-libs/bin:$PATH
+if [ ${compiler} == pgi ] ; then
+  export NETCDF=/opt/lib/pgi-11.9/netcdf-4.1.3
+elif [ ${compiler} == gcc ] ; then
+  export NETCDF=/opt/lib/gcc-4.4/netcdf-4.1.3
+else
+  echo Unknown compiler; $compiler 
+  exit 1
+fi
+#export PATH=/opt/intel11-libs/bin:$PATH
 ulimit -s unlimited > /dev/null
-mpd &> /dev/null &
+#mpd &> /dev/null &
 
 if [ ! -f compile ] || [ ! -f configure ] ; then
   echo "not in toplevel directory!!!"
@@ -112,19 +125,19 @@ else
   lout="${realout}"
 fi
 
-if [ $copt -eq 5 ] ; then
+if [ $copt -eq 9 -o $copt -eq 1 ] ; then
   nproc=1
   nthread=1
   usempi=false
-elif [ $copt -eq 6 ] ; then
+elif [ $copt -eq 10 -o $copt -eq 2 ] ; then
   nproc=1
   nthread=$maxthreads
   usempi=false
-elif [ $copt -eq 7 ] ; then
+elif [ $copt -eq 11 -o $copt -eq 3 ] ; then
   nproc=$maxprocs
   nthread=1
   usempi=true
-elif [ $copt -eq 8 ] ; then
+elif [ $copt -eq 12 -o $copt -eq 4 ] ; then
   nproc=$maxprocs
   nthread=$maxthreads
   usempi=true
@@ -237,11 +250,17 @@ if [ ! -d ${logdir} ] ; then
 fi
 
 info_header
-for copt in 5 6 7 8 ; do
+if [ $compiler == pgi ] ; then
+  opts=(1 2 3 4)
+fi
+if [ $compiler == gcc ] ; then
+  opts=(9 10 11 12)
+fi
+for copt in ${opts[*]} ; do
 
   for nest in 1 ; do
 
-    for dbg in 1 ; do
+    for dbg in 0 1 ; do
 
       cd ${toplevel}
       ./clean -a &> /dev/null
@@ -250,11 +269,12 @@ for copt in 5 6 7 8 ; do
       else
 	dflag=' '
       fi
+      echo "./configure $dflag $copt $net"
       ./configure $dflag > /dev/null <<EOF
 $copt
 $nest
 EOF
-      for targ in em_fire em_real ; do
+      for targ in em_fire ; do
 
 	name="${nameprefix}$(printf '%s_C%1d_N%1d_D%1d' $targ $copt $nest $dbg)"
 	cname="${name}_compile.log"

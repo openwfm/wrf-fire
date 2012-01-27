@@ -13,11 +13,11 @@ package   fire_sfire    ifire==2                    -             state:nfuel_ca
 # fire variables on fire grid
 #
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
-state    real  nfuel_cat *i*j     fire        1         z     i012hr        "NFUEL_CAT"        "fuel data"   
+state    real     nfuel_cat *i*j     fire        1         z   i012hr   "NFUEL_CAT"        "fuel data"   
 state    real     zsf       *i*j     fire        1         z   i012hr   "ZSF"      "height of surface above sea level" "m"
 state    real     dzdxf     *i*j     fire        1         z   i012hr   "DZDXF"    "surface gradient x" "1"
 state    real     dzdyf     *i*j     fire        1         z   i012hr   "DZDYF"    "surface gradient y" "1"
-state    real     tign_g    *i*j     fire        1         z   i012hr   "TIGN_G"   "ignition time on ground" "s"
+
 
 # fire variables on atm grid
 #
@@ -35,10 +35,12 @@ state    real     uah       ij       fire        1         X     hr   "UAH"     
 state    real     vah       ij       fire        1         Y     hr   "VAH"      "wind at fire_wind_height" "m/s"
 
 # sfire variables on fire grid
-# (also using tign_g,zs,z_at_w,dz8w,nfuel_cat,fluxes,zsf)
+# (also using inputs: zs,z_at_w,dz8w,nfuel_cat,zsf)
 #
-state    real     lfn       *i*j      fire        1         z    hr    "LFN" "level function" "1"
-state    real     fuel_frac *i*j      fire        1         z    hr    "FUEL_FRAC" "fuel remaining" "1"
+state    real     tign_g    *i*j      fire        1         z   i102hr "TIGN_G"    "ignition time on ground" "s"
+state    real     lfn       *i*j      fire        1         z   i102hr "LFN"       "level function" "1"
+state    real     fuel_frac *i*j      fire        1         z   i102hr "FUEL_FRAC" "fuel remaining" "1"
+state    real     fmc_g     *i*j      fire        1         z   i102hr "FMC_G"     "fuel moisture contents" "1"
 state    real     fire_area *i*j      fire        1         z    hr    "FIRE_AREA" "fraction of cell area on fire" "1"
 state    real     uf        *i*j      fire        1         z    hr    "UF"        "fire wind" "m/s"
 state    real     vf        *i*j      fire        1         z    hr    "VF"        "fire wind" "m/s"
@@ -46,7 +48,20 @@ state    real     fgrnhfx   *i*j      fire        1         z    hr    "FGRNHFX"
 state    real     fgrnqfx   *i*j      fire        1         z    hr    "FGRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     fcanhfx   *i*j      fire        1         z    hr    "FCANHFX"   "heat flux from crown fire" "W/m^2"
 state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"   "moisture flux from crown fire" "W/m^2"
-state    real     ros       *i*j      fire        1         z    hr    "ROS" "rate of spread" "m/s"
+
+# diagnostics
+# for the actual modeled fire
+state    real     ros       *i*j      fire        1         z    hr    "ROS" "rate of spread in the normal direction to the fireline" "m/s"
+state    real     flineint  *i*j      fire        1         z    hr    "FLINEINT" "fireline intensity" "W/m"
+state    real     flineint2 *i*j      fire        1         z    hr    "FLINEINT2" "alternative fireline intensity" "J/m/s^2"
+# for fire risk rating - independent on any actual fire going on
+state    real     f_ros0    *i*j      fire        1         z    hr    "F_ROS0" "base rate of spread in all directions" "m/s"
+state    real     f_rosx    *i*j      fire        1         z    hr    "F_ROSX" "X component of the spread vector driven by wind and slope" "m/s"
+state    real     f_rosy    *i*j      fire        1         z    hr    "F_ROSY" "Y component of the spread vector driven by wind and slope" "m/s"
+state    real     f_ros     *i*j      fire        1         z    hr    "F_ROS" "max spread rate in any direction" "m/s"
+state    real     f_int     *i*j      fire        1         z    hr    "F_INT" "fire reaction intensity for risk rating, without fire" "J/m^2/s"
+state    real     f_lineint *i*j      fire        1         z    hr    "F_LINEINT" "Byram fireline intensity for risk rating, without fire" "J/m/s"
+state    real     f_lineint2 *i*j     fire        1         z    hr    "F_LINEINT2" "alternative fireline intensity for risk rating, without fire" "J/m/s^2"
 
 # constant data arrays
 state    real     fxlong    *i*j      fire        1         z   ihr    "FXLONG"    "longitude of midpoints of fire cells" "degrees"
@@ -140,12 +155,16 @@ rconfig   integer fire_sprd_mdl          namelist,fire         max_domains      
 rconfig   real    fire_crwn_hgt          namelist,fire         max_domains           15.     -      "fire_crwn_hgt"    "height that heat from crown fire is released" "m"
 rconfig   real    fire_ext_grnd          namelist,fire         max_domains           50.     -      "fire_ext_grnd"    "extinction depth of sfc fire heat"   "m"
 rconfig   real    fire_ext_crwn          namelist,fire         max_domains           50.     -      "fire_ext_crwn"    "extinction depth of crown fire heat" "m"
-rconfig   integer fire_wind_log_interp   namelist,fire         max_domains           4       -      "fire_wind_log_interp"    "kind of vertical wind interpolation from log boundary layer""   ""
+rconfig   integer fire_wind_log_interp   namelist,fire         max_domains           4       -      "fire_wind_log_interp" "1 = fz0/fwh from fuel categores, 2=fz0 const rom z0,3=fz0 interp from z0, 4=interpolation on atm mesh and wind reduction" "" 
+rconfig   integer fire_use_windrf        namelist,fire         max_domains           0       -      "fire_use_windrf" "only for fire_wind_log_interp.ne.4: 0=ignore windrf, 1=multiply wind by windrf, 2=set fwh from windrf, 3=adjust fwh for z0" "" 
 rconfig   integer fire_fuel_read         namelist,fire         max_domains           -1      -      "fire_fuel_read"   "fuel categories are set by: if 0, uniform; if 1, user-presc; if 2, read from file"   ""
+rconfig   integer fire_fmc_read          namelist,fire         max_domains           1       -      "fire_fmc_read"    "fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal"   ""
 rconfig   integer fire_fuel_cat          namelist,fire         max_domains           1       -      "fire_fuel_cat"     "fuel category if ifuelread=0"              ""
 # sfire switches
 rconfig   integer fire_print_msg         namelist,fire         max_domains           0       -      "fire_write_msg"    "write fire statistics, 0 no writes, 1+ for more"  ""
 rconfig   integer fire_print_file        namelist,fire         max_domains           0       -      "fire_write_file"   "write fire output text files, 0 no writes, 1+ for more" ""
+rconfig   logical fire_restart           namelist,fire         max_domains           .false. -      "fire_restart"   "restart run, do not initialize state" ""
+
 # method selection
 rconfig   integer fire_fuel_left_method  namelist,fire         max_domains           1       -      "fire_fuel_left_method"   "1 or 2, compute fuel_left" ""
 rconfig   integer fire_fuel_left_irl     namelist,fire         max_domains           2       -      "fire_fuel_left_irl"   "submesh to compute fuel lwft, even, at least 2" ""
@@ -153,7 +172,6 @@ rconfig   integer fire_fuel_left_jrl     namelist,fire         max_domains      
 rconfig   real    fire_back_weight       namelist,fire         max_domains           0.5     -      "fire_back_weight"   "RK timestepping coefficient, 0=forward, 0.5=Heun" "1"
 rconfig   integer fire_grows_only        namelist,fire         max_domains            1       -     "fire_grows_only" "if >0 level set function cannot increase = fire can only grow" "1"
 rconfig   integer fire_upwinding         namelist,fire         max_domains            3       -     "fire_upwinding" "upwind normal spread: 1=standard, 2=godunov, 3=eno, 4=sethian" "1"
-rconfig   integer fire_upwind_split      namelist,fire         max_domains            0       -     "fire_upwind_split" "1=upwind advection separately from normal direction spread" "1"
 rconfig   real    fire_viscosity         namelist,fire         max_domains           0.4     -      "fire_viscosity"   "artificial viscosity in level set method" "1"
 rconfig   real    fire_lfn_ext_up        namelist,fire         max_domains           1.0     -      "fire_lfn_ext_up"   "0.=extend level set function at boundary by reflection, 1.=always up" "1"
 rconfig   integer fire_topo_from_atm     namelist,fire         max_domains            1      -      "fire_topo_from_atm" "0 = do nothing, 1 = populate ZSF by interpolating from atmosphere" "1"

@@ -28,7 +28,7 @@ MODULE module_initialize_ideal
    USE module_dm
 #endif
    USE module_fr_sfire_util, ONLY: continue_at_boundary,crash,read_array_2d_real, &
-     read_array_2d_integer,interpolate_2d,set_ideal_coord 
+     interpolate_2d,set_ideal_coord 
 
 CONTAINS
 

@@ -14,6 +14,7 @@ MODULES =                 		\
         module_solvedebug_em.o    	\
         module_bc_em.o                  \
         module_init_utilities.o         \
+        module_wps_io_arw.o             \
 	module_damping_em.o		\
 	module_polarfft.o		\
         module_force_scm.o              \
@@ -23,6 +24,7 @@ MODULES =                 		\
 	module_sfs_nba.o		\
         module_convtrans_prep.o         \
 	module_sfs_driver.o		\
+	module_stoch.o		\
 	$(CASE_MODULE)
 
 # possible CASE_MODULE settings
@@ -137,7 +139,6 @@ module_initialize_b_wave.o : \
 		module_init_utilities.o
 
 module_force_scm.o: module_init_utilities.o
-module_convtrans_prep.o: module_convtrans_prep.o
 
 module_initialize_grav2d_x.o: \
 		../frame/module_domain.o \
@@ -217,6 +218,17 @@ module_initialize_seabreeze2d_x.o : \
 		../share/module_bc.o \
 		module_init_utilities.o
 
+module_initialize_tropical_cyclone.o : \
+		../frame/module_domain.o \
+		../frame/module_configure.o  \
+		../frame/module_state_description.o \
+		../frame/module_timing.o \
+		../frame/module_dm.o \
+		../share/module_io_domain.o \
+		../share/module_model_constants.o \
+		../share/module_bc.o \
+		module_init_utilities.o
+
 module_initialize_scm_xy.o : \
 		../frame/module_domain.o \
 		../frame/module_configure.o  \
@@ -270,6 +282,7 @@ nest_init_utils.o: \
 
 start_em.o:     module_bc_em.o \
                 module_avgflx_em.o              \
+                module_stoch.o              \
 		../frame/module_domain.o \
 		../frame/module_configure.o  \
 		../frame/module_state_description.o \
@@ -280,7 +293,8 @@ start_em.o:     module_bc_em.o \
 		../share/module_model_constants.o \
 		../share/module_bc.o \
 		../share/module_date_time.o \
-		../phys/module_physics_init.o 
+		../phys/module_physics_init.o \
+		$(CF)
 
 solve_em.o:     module_small_step_em.o \
 		module_em.o            \
@@ -314,6 +328,7 @@ module_first_rk_step_part1.o : \
 		../phys/module_radiation_driver.o \
 		../phys/module_surface_driver.o \
 		../phys/module_cumulus_driver.o \
+		../phys/module_shallowcu_driver.o \
 		../phys/module_pbl_driver.o \
 		../frame/module_comm_dm.o \
 		../phys/module_fddagd_driver.o
@@ -322,12 +337,14 @@ module_first_rk_step_part2.o : \
                 module_em.o \
 		module_diffusion_em.o  \
                 module_bc_em.o         \
+                module_stoch.o         \
 		module_sfs_driver.o \
 		../frame/module_domain.o \
 		../frame/module_state_description.o \
 		../frame/module_driver_constants.o \
 		../frame/module_configure.o \
 		../frame/module_dm.o \
+		../frame/module_driver_constants.o \
 		../share/module_bc.o \
 		../frame/module_comm_dm.o \
 		../phys/module_fddaobs_driver.o \

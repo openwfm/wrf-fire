@@ -37,16 +37,16 @@ lib$(LIBTARGET).a:	$(OBJS2)
 g1print.exe:		g1print.o gribcode.o module_debug.o debug_cio.o lib$(LIBTARGET).a
 			$(FC) -o $(@) $(LDFLAGS) g1print.o gribcode.o module_debug.o debug_cio.o lib$(LIBTARGET).a
 
-g2print.exe:		filelist.o gridinfo.o g2print.o
+g2print.exe:		filelist.o gridinfo.o g2print.o new_storage.o
 			if [ -z $(COMPILING_ON_CYGWIN_NT) ] ; then \
 			  $(FC) -o $(@) $(LDFLAGS) g2print.o \
-				filelist.o gridinfo.o \
+				filelist.o gridinfo.o new_storage.o \
 				-L. -l$(LIBTARGET) \
 				-L./ngl -lw3 -lg2_4 \
 				$(COMPRESSION_LIBS) ; \
                         else \
 			  $(FC) -o $(@) $(LDFLAGS) g2print.o \
-				filelist.o gridinfo.o \
+				filelist.o gridinfo.o new_storage.o \
 				lib$(LIBTARGET).a  \
 				./ngl/w3/libw3.a ./ngl/g2/libg2_4.a \
 				$(COMPRESSION_LIBS) ; \

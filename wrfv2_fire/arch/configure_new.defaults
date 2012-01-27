@@ -316,9 +316,9 @@ DMPARALLEL      =       # 1
 OMPCPP		=	# -D_OPENMP
 OMP		=	# -mp -Minfo=mp -Mrecursive
 OMPCC		=	# -mp
-SFC		=       pgf90
-SCC		=       pgcc
-CCOMP		=       pgcc
+SFC		=       pgf90 
+SCC		=       pgcc 
+CCOMP		=       pgcc 
 DM_FC		=	mpif90 -f90=$(SFC)
 DM_CC		=       mpicc -cc=$(SCC)
 FC              =       CONFIGURE_FC
@@ -475,7 +475,7 @@ CPP             =      cpp -C -P -xassembler-with-cpp
 AR              =      ar
 ARFLAGS         =      ru
 M4              =      m4 -B 14000
-RANLIB          =      ranlib
+RANLIB          =      ranlib -c
 CC_TOOLS        =      $(SCC) 
 
 ###########################################################
@@ -500,7 +500,7 @@ CFLAGS_LOCAL    =       -w -O3 -c -DLANDREAD_STUB -DMACOS
 LDFLAGS_LOCAL   =
 CPLUSPLUSLIB    =       
 ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
-FCOPTIM         =       -O3 -ftree-vectorize -ftree-loop-linear -funroll-loops
+FCOPTIM         =       -O3 -ftree-vectorize -funroll-loops
 FCREDUCEDOPT	=       $(FCOPTIM)
 FCNOOPT         =       -O0
 FCDEBUG         =       # -g $(FCNOOPT)
@@ -571,6 +571,7 @@ OMP		=	# -qsmp=noauto
 OMPCC		=	# -qsmp=noauto
 SFC		=       xlf90_r
 SCC		=       cc_r
+SC99		=	c99_r
 CCOMP		=       cc_r
 DM_FC		=	mpxlf90_r
 DM_CC		=       mpcc_r
@@ -594,7 +595,7 @@ FORMAT_FIXED    =       -qfixed
 FORMAT_FREE     =       -qfree=f90
 FCSUFFIX        =       -qsuffix=f=f90
 BYTESWAPIO      =       
-FCBASEOPTS_NO_G =       -w -qspill=20000 -qmaxmem=32767 $(FORMAT_FREE) $(BYTESWAPIO)  #-qflttrap=zerodivide:invalid:enable -qsigtrap -C # -qinitauto=7FF7FFFF
+FCBASEOPTS_NO_G =       -w -qspill=81920 $(FORMAT_FREE) $(BYTESWAPIO)  #-qflttrap=zerodivide:invalid:enable -qsigtrap -C # -qinitauto=7FF7FFFF
 FCBASEOPTS      =       $(FCBASEOPTS_NO_G) $(FCDEBUG)
 MODULE_SRCH_FLAG =     
 TRADFLAG        =       
@@ -662,11 +663,11 @@ OMPCPP		=	# -D_OPENMP
 OMP		=	# -qsmp=noauto
 OMPCC		=	# -qsmp=noauto
 # these have to be the same as DM_FC on surveyor or it fails with weird errors in time manager
-SFC             =       time mpixlf90_r
-SCC             =       time mpixlc_r
-CCOMP           =       time mpixlc_r
-DM_FC           =       time mpixlf90_r
-DM_CC           =       time mpixlc_r -DMPI2_SUPPORT
+SFC             =       mpixlf90_r
+SCC             =       mpixlc_r
+CCOMP           =       mpixlc_r
+DM_FC           =       mpixlf90_r
+DM_CC           =       mpixlc_r -DMPI2_SUPPORT
 FC              =        $(DM_FC)
 CC              =       $(DM_CC) -DFSEEKO64_OK
 LD              =       $(FC)
@@ -782,7 +783,8 @@ RANLIB          =       ranlib
 CC_TOOLS        =       $(SCC) 
 
 LIB_EXTERNAL    = \
-                     ../external/io_netcdf/libwrfio_nf.a CONFIGURE_NETCDF_PATH/lib/libnetcdf.lib
+                     ../external/io_netcdf/libwrfio_nf.a CONFIGURE_NETCDF_PATH/lib/libnetcdf.lib \
+                     ../external/wavelet/libWavelet.a ../external/wavelet/lib_wavelet.a
 ESMF_IO_LIB     =    ../external/esmf_time_f90/libesmf_time.a
 LIB_BUNDLED     = \
                      ../external/fftpack/fftpack5/libfftpack.a \

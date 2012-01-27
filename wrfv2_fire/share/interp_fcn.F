@@ -658,6 +658,69 @@
 
 !==================================
 
+   SUBROUTINE p2c ( cfld,                                 &  ! CD field
+                    cids, cide, ckds, ckde, cjds, cjde,   &
+                    cims, cime, ckms, ckme, cjms, cjme,   &
+                    cits, cite, ckts, ckte, cjts, cjte,   &
+                    nfld,                                 &  ! ND field
+                    nids, nide, nkds, nkde, njds, njde,   &
+                    nims, nime, nkms, nkme, njms, njme,   &
+                    nits, nite, nkts, nkte, njts, njte,   &
+                    shw,                                  &  ! stencil half width
+                    imask,                                &  ! interpolation mask
+                    xstag, ystag,                         &  ! staggering of field
+                    ipos, jpos,                           &  ! Position of lower left of nest in CD
+                    nri, nrj,                             &  ! nest ratios
+                    cbdy_xs, nbdy_xs,                     &  ! boundary arrays
+                    cbdy_xe, nbdy_xe,                     &  ! no needed, but registry builds interface
+                    cbdy_ys, nbdy_ys,                     &  ! for lateral bc forcing this way
+                    cbdy_ye, nbdy_ye,                     &
+                    cbdy_txs, nbdy_txs,                   &
+                    cbdy_txe, nbdy_txe,                   &
+                    cbdy_tys, nbdy_tys,                   &
+                    cbdy_tye, nbdy_tye                    &
+                    )   
+     USE module_configure
+     IMPLICIT NONE
+
+     INTEGER, INTENT(IN) :: cids, cide, ckds, ckde, cjds, cjde,   &
+                            cims, cime, ckms, ckme, cjms, cjme,   &
+                            cits, cite, ckts, ckte, cjts, cjte,   &
+                            nids, nide, nkds, nkde, njds, njde,   &
+                            nims, nime, nkms, nkme, njms, njme,   &
+                            nits, nite, nkts, nkte, njts, njte,   &
+                            shw,                                  &
+                            ipos, jpos,                           &
+                            nri, nrj
+
+     LOGICAL, INTENT(IN) :: xstag, ystag
+
+     REAL, DIMENSION ( cims:cime, ckms:ckme, cjms:cjme ) :: cfld
+     REAL, DIMENSION ( nims:nime, nkms:nkme, njms:njme ) :: nfld
+     INTEGER, DIMENSION ( nims:nime, njms:njme ) :: imask
+     REAL,  DIMENSION( * ), INTENT(INOUT) :: cbdy_xs, cbdy_txs, nbdy_xs, nbdy_txs
+     REAL,  DIMENSION( * ), INTENT(INOUT) :: cbdy_xe, cbdy_txe, nbdy_xe, nbdy_txe
+     REAL,  DIMENSION( * ), INTENT(INOUT) :: cbdy_ys, cbdy_tys, nbdy_ys, nbdy_tys
+     REAL,  DIMENSION( * ), INTENT(INOUT) :: cbdy_ye, cbdy_tye, nbdy_ye, nbdy_tye
+
+     CALL  interp_fcn  (cfld,                             &  ! CD field
+                        cids, cide, ckds, ckde, cjds, cjde,   &
+                        cims, cime, ckms, ckme, cjms, cjme,   &
+                        cits, cite, ckts, ckte, cjts, cjte,   &
+                        nfld,                             &  ! ND field
+                        nids, nide, nkds, nkde, njds, njde,   &
+                        nims, nime, nkms, nkme, njms, njme,   &
+                        nits, nite, nkts, nkte, njts, njte,   &
+                        shw,                                  &  ! stencil half width for interp
+                        imask,                                &  ! interpolation mask
+                        xstag, ystag,                         &  ! staggering of field
+                        ipos, jpos,                           &  ! Position of lower left of nest in CD
+                        nri, nrj                             )   ! nest ratios
+
+   END SUBROUTINE p2c
+
+!==================================
+
    SUBROUTINE bdy_interp ( cfld,                                 &  ! CD field
                            cids, cide, ckds, ckde, cjds, cjde,   &
                            cims, cime, ckms, ckme, cjms, cjme,   &
@@ -1328,7 +1391,7 @@
                            xstag, ystag,                         &  ! staggering of field
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj,                             &  ! nest ratios
-                           clu, nlu                              )
+                           clu, nlu, cflag, nflag                )
 
       USE module_configure
       USE module_wrf_error
@@ -1345,7 +1408,7 @@
                              nits, nite, nkts, nkte, njts, njte,   &
                              shw,                                  &
                              ipos, jpos,                           &
-                             nri, nrj
+                             nri, nrj, cflag, nflag
       LOGICAL, INTENT(IN) :: xstag, ystag
    
       REAL, DIMENSION ( cims:cime, ckms:ckme, cjms:cjme ) :: cfld
@@ -1358,13 +1421,9 @@
       ! Local
    
       INTEGER ci, cj, ck, ni, nj, nk, ip, jp
-      INTEGER :: icount , ii , jj , ist , ien , jst , jen , iswater
+      INTEGER :: icount , ii , jj , ist , ien , jst , jen
       REAL :: avg , sum , dx , dy
       INTEGER , PARAMETER :: max_search = 5
-   
-      !  Find out what the water value is.
-   
-      CALL nl_get_iswater(1,iswater)
 
       !  Right now, only mass point locations permitted.
    
@@ -1421,19 +1480,19 @@
    
                   !  This is a "water only" field.  If this is a land point, no operations required.
 
-                  IF      ( ( NINT(nlu(ni  ,nj  )) .NE. iswater ) ) THEN
+                  IF      ( ( NINT(nlu(ni  ,nj  )) .NE. nflag ) ) THEN
                      ! noop
 !                    nfld(ni,nk,nj) =  1.e20
-                     nfld(ni,nk,nj) = -1
+                     nfld(ni,nk,nj) = 0
 
                   !  If this is a nested water point, and the surrounding coarse values are all water points,
                   !  then this is a simple 4-pt interpolation.
 
-                  ELSE IF ( ( NINT(nlu(ni  ,nj  )) .EQ. iswater ) .AND. &
-                            ( NINT(clu(ci  ,cj  )) .EQ. iswater ) .AND. &
-                            ( NINT(clu(ci+1,cj  )) .EQ. iswater ) .AND. &
-                            ( NINT(clu(ci  ,cj+1)) .EQ. iswater ) .AND. &
-                            ( NINT(clu(ci+1,cj+1)) .EQ. iswater ) ) THEN
+                  ELSE IF ( ( NINT(nlu(ni  ,nj  )) .EQ. nflag ) .AND. &
+                            ( NINT(clu(ci  ,cj  )) .EQ. nflag ) .AND. &
+                            ( NINT(clu(ci+1,cj  )) .EQ. nflag ) .AND. &
+                            ( NINT(clu(ci  ,cj+1)) .EQ. nflag ) .AND. &
+                            ( NINT(clu(ci+1,cj+1)) .EQ. nflag ) ) THEN
                      nfld(ni,nk,nj) = ( 1. - dx ) * ( ( 1. - dy ) * cfld(ci  ,ck,cj  )   + &
                                                              dy   * cfld(ci  ,ck,cj+1) ) + &
                                              dx   * ( ( 1. - dy ) * cfld(ci+1,ck,cj  )   + &
@@ -1442,32 +1501,32 @@
                   !  If this is a nested water point and there are NO coarse water values surrounding,
                   !  we temporarily punt.
 
-                  ELSE IF ( ( NINT(nlu(ni  ,nj  )) .EQ. iswater ) .AND. &
-                            ( NINT(clu(ci  ,cj  )) .NE. iswater ) .AND. &
-                            ( NINT(clu(ci+1,cj  )) .NE. iswater ) .AND. &
-                            ( NINT(clu(ci  ,cj+1)) .NE. iswater ) .AND. &
-                            ( NINT(clu(ci+1,cj+1)) .NE. iswater ) ) THEN
+                  ELSE IF ( ( NINT(nlu(ni  ,nj  )) .EQ. nflag ) .AND. &
+                            ( NINT(clu(ci  ,cj  )) .NE. nflag ) .AND. &
+                            ( NINT(clu(ci+1,cj  )) .NE. nflag ) .AND. &
+                            ( NINT(clu(ci  ,cj+1)) .NE. nflag ) .AND. &
+                            ( NINT(clu(ci+1,cj+1)) .NE. nflag ) ) THEN
 !                    nfld(ni,nk,nj) = -1.e20
                      nfld(ni,nk,nj) = -1
 
                   !  If there are some land points and some water points, take an average. 
                   
-                  ELSE IF ( NINT(nlu(ni  ,nj  )) .EQ. iswater ) THEN
+                  ELSE IF ( NINT(nlu(ni  ,nj  )) .EQ. nflag ) THEN
                      icount = 0
                      sum = 0
-                     IF ( NINT(clu(ci  ,cj  )) .EQ. iswater ) THEN
+                     IF ( NINT(clu(ci  ,cj  )) .EQ. nflag ) THEN
                         icount = icount + 1
                         sum = sum + cfld(ci  ,ck,cj  )
                      END IF
-                     IF ( NINT(clu(ci+1,cj  )) .EQ. iswater ) THEN
+                     IF ( NINT(clu(ci+1,cj  )) .EQ. nflag ) THEN
                         icount = icount + 1
                         sum = sum + cfld(ci+1,ck,cj  )
                      END IF
-                     IF ( NINT(clu(ci  ,cj+1)) .EQ. iswater ) THEN
+                     IF ( NINT(clu(ci  ,cj+1)) .EQ. nflag ) THEN
                         icount = icount + 1
                         sum = sum + cfld(ci  ,ck,cj+1)
                      END IF
-                     IF ( NINT(clu(ci+1,cj+1)) .EQ. iswater ) THEN
+                     IF ( NINT(clu(ci+1,cj+1)) .EQ. nflag ) THEN
                         icount = icount + 1
                         sum = sum + cfld(ci+1,ck,cj+1)
                      END IF
@@ -1527,7 +1586,7 @@
                        sum = 0
                        DO jj = jst,jen
                           DO ii = ist,ien
-                             IF ( NINT(clu(ii,jj)) .EQ. iswater ) THEN
+                             IF ( NINT(clu(ii,jj)) .EQ. nflag ) THEN
                                 icount = icount + 1
                                 sum = sum + cfld(ii,nk,jj)
                              END IF
@@ -3301,7 +3360,117 @@
      ENDDO
 
   END SUBROUTINE interp_hnear_nmm
+  SUBROUTINE force_sst_nmm    (cfld,                                 &  ! CD field
+                               cids, cide, ckds, ckde, cjds, cjde,   &
+                               cims, cime, ckms, ckme, cjms, cjme,   &
+                               cits, cite, ckts, ckte, cjts, cjte,   &
+                               nfld,                                 &  ! ND field
+                               nids, nide, nkds, nkde, njds, njde,   &
+                               nims, nime, nkms, nkme, njms, njme,   &
+                               nits, nite, nkts, nkte, njts, njte,   &
+                               shw,                                  &  ! stencil half width for interp
+                               imask,                                &  ! interpolation mask
+                               xstag, ystag,                         &  ! staggering of field
+                               ipos, jpos,                           &  ! Position of lower left of nest in CD
+                               nri, nrj,                             &  ! nest ratios                         
+                               CII, IIH, CJJ, JJH, CBWGT1, HBWGT1,   &  ! south-western grid locs and weights 
+                               CBWGT2, HBWGT2, CBWGT3, HBWGT3,       &  ! note that "C"ourse grid ones are
+                               CBWGT4, HBWGT4, CCSST, CSST           )  ! just dummys
+     USE module_timing
+     IMPLICIT NONE
+
+     INTEGER, INTENT(IN) :: cids, cide, ckds, ckde, cjds, cjde,   &
+                            cims, cime, ckms, ckme, cjms, cjme,   &
+                            cits, cite, ckts, ckte, cjts, cjte,   &
+                            nids, nide, nkds, nkde, njds, njde,   &
+                            nims, nime, nkms, nkme, njms, njme,   &
+                            nits, nite, nkts, nkte, njts, njte,   &
+                            shw,                                  &
+                            ipos, jpos,                           &
+                            nri, nrj
+     LOGICAL, INTENT(IN) :: xstag, ystag
+
+     REAL, DIMENSION ( cims:cime, cjms:cjme ) :: cfld
+     REAL, DIMENSION ( nims:nime, njms:njme ) :: nfld
+     REAL,    DIMENSION ( cims:cime, cjms:cjme ), INTENT(IN) :: CBWGT1,CBWGT2,CBWGT3,CBWGT4    ! dummy
+     REAL,    DIMENSION ( nims:nime, njms:njme ), INTENT(IN) :: HBWGT1,HBWGT2,HBWGT3,HBWGT4
+     INTEGER, DIMENSION ( cims:cime, cjms:cjme ), INTENT(IN) :: CII,CJJ                        ! dummy
+     INTEGER, DIMENSION ( nims:nime, njms:njme ), INTENT(IN) :: IIH,JJH
+     INTEGER, DIMENSION ( nims:nime, njms:njme ) :: imask
+     INTEGER , INTENT(IN) :: csst(*), ccsst(*)
+!    local
+
+     LOGICAL  FLIP
+     INTEGER  i,j,k,n
+     REAL     SUM,AMAXVAL
+     REAL,    DIMENSION (4, nims:nime, njms:njme ) :: NBWGT
+
+     if(csst(1) /= 1) return
+
 !
+!*** INDEX CONVENTIONS
+!***                     NBWGT4=0
+!***                      4
+!***
+!***
+!***
+!***                   h
+!***             1                 2
+!***            NBWGT1=1           NBWGT2=0
+!***
+!***
+!***                      3
+!***                     NBWGT3=0
+
+     DO J=NJTS,MIN(NJTE,NJDE-1)
+      DO I=NITS,MIN(NITE,NIDE-1)
+            NBWGT(1,I,J)=HBWGT1(I,J)
+            NBWGT(2,I,J)=HBWGT2(I,J)
+            NBWGT(3,I,J)=HBWGT3(I,J)
+            NBWGT(4,I,J)=HBWGT4(I,J)
+      ENDDO
+     ENDDO
+
+     DO J=NJTS,MIN(NJTE,NJDE-1)
+      DO I=NITS,MIN(NITE,NIDE-1)
+          AMAXVAL=0.
+          DO N=1,4
+            AMAXVAL=amax1(NBWGT(N,I,J),AMAXVAL)
+          ENDDO
+
+          FLIP=.TRUE.
+          SUM=0.0
+          DO N=1,4
+             IF(AMAXVAL .EQ. NBWGT(N,I,J) .AND. FLIP)THEN
+               NBWGT(N,I,J)=1.0
+               FLIP=.FALSE.
+             ELSE
+               NBWGT(N,I,J)=0.0
+             ENDIF
+             SUM=SUM+NBWGT(N,I,J)
+             IF(SUM .GT. 1.0)CALL wrf_error_fatal ( "horizontal interp error - interp_hnear_nmm" )
+          ENDDO
+      ENDDO
+     ENDDO
+
+       DO J=NJTS,MIN(NJTE,NJDE-1)
+        DO I=NITS,MIN(NITE,NIDE-1)
+            IF(MOD(JJH(I,J),2) .NE. 0)THEN    ! 1,3,5,7 
+                NFLD(I,J) = NBWGT(1,I,J)*CFLD(IIH(I,J),  JJH(I,J)  ) &
+                          + NBWGT(2,I,J)*CFLD(IIH(I,J)+1,JJH(I,J)  ) &
+                          + NBWGT(3,I,J)*CFLD(IIH(I,J),  JJH(I,J)-1) &
+                          + NBWGT(4,I,J)*CFLD(IIH(I,J),  JJH(I,J)+1)
+            ELSE
+                NFLD(I,J) = NBWGT(1,I,J)*CFLD(IIH(I,J),  JJH(I,J)  ) &
+                          + NBWGT(2,I,J)*CFLD(IIH(I,J)+1,JJH(I,J)  ) &
+                          + NBWGT(3,I,J)*CFLD(IIH(I,J)+1,JJH(I,J)-1) &
+                          + NBWGT(4,I,J)*CFLD(IIH(I,J)+1,JJH(I,J)+1)
+            ENDIF
+        ENDDO
+       ENDDO
+
+
+     END SUBROUTINE force_sst_nmm
 !=======================================================================================
 !  E grid nearest neighbour interpolation for H points.
 !  This routine assumes cfld and nfld are in IKJ or ILJ

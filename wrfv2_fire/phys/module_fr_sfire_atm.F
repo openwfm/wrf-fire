@@ -8,7 +8,7 @@
 module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
-use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats
+use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
 use module_fr_sfire_util
 
 implicit none
@@ -614,9 +614,38 @@ call print_2d_stats_vec(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,uf,vf,'fire wind
         ! call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,uf,'uf1',id)
         ! call write_array_m(ifts1,ifte1,jfts1,jfte1,ifms,ifme,jfms,jfme,vf,'vf1',id)
 #endif
+
 return
 
 end subroutine interpolate_atm2fire
+
+subroutine apply_windrf(                            &
+            ifms,ifme,jfms,jfme,                    &
+            ifts,ifte,jfts,jfte,                    &
+            nfuel_cat,uf,vf)
+integer::                                           &
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts, ifte, jfts, jfte                          ! fire tile bounds
+real,intent(in),dimension(ifms:ifme,jfms:jfme)::nfuel_cat
+real,intent(inout),dimension(ifms:ifme,jfms:jfme)::uf,vf
+!*** local
+    integer::i,j,k
+!*** executable
+
+    do j = jfts,jfte
+      do i = ifts,ifte
+          k=int( nfuel_cat(i,j) )
+          if(k.ne.no_fuel_cat)then 
+              uf(i,j)=uf(i,j)*windrf(k)
+              vf(i,j)=vf(i,j)*windrf(k)
+          else
+              uf(i,j)=0.
+              vf(i,j)=0.
+          endif
+      enddo
+    enddo
+
+end subroutine apply_windrf
 
 !
 !***
@@ -651,7 +680,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
     fwh                                             ! height to read the wind from
 !*** local
 integer::i,j,ii,jj,k,id=0
-character(len=128)msg
+character(len=128)::msg
+real::r
 !*** executable
  
      if(.not.have_fuel_cats)call crash('setup_wind_log_interpolation: fuel categories not yet set')
@@ -663,23 +693,25 @@ character(len=128)msg
        do j=jfts,jfte
           do i=ifts,ifte
             k = int(nfuel_cat(i,j))
-            if(k < 1 .or. k  > nfuelcats) then
+            if(k.eq.no_fuel_cat)then ! no fuel
+                fz0(i,j)=-1.
+                fwh(i,j)=-1.
+            elseif(k < 1 .or. k  > nfuelcats) then
 !$OMP CRITICAL(SFIRE_ATM_CRIT)
                  write(msg,*)'i,j,nfuel_cat,nfuelcats=',i,j,k,nfuelcats
 !$OMP END CRITICAL(SFIRE_ATM_CRIT)
                  call message(msg)
                  call crash('setup_wind_log_interpolation: fuel category out of bounds')
-            endif
-            fz0(i,j)=fcz0(k)
-            fwh(i,j)=fcwh(k)
-            if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
-                 call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+            else
+                fz0(i,j)=fcz0(k)
+                fwh(i,j)=fcwh(k)
             endif
           enddo
        enddo
 
      case(2)
-        call message('fire_wind_log_interp=2: log interpolation on fire mesh, piecewise constant roughness from landuse, constant fire_wind_height')
+        call message('fire_wind_log_interp=2: log interpolation on fire mesh' // &
+          'piecewise constant roughness from landuse, constant fire_wind_height')
         do j=jts,jte
            do i=its,ite
               do jj=(j-1)*jr+1,(j-1)*jr+jr
@@ -692,12 +724,18 @@ character(len=128)msg
        do j=jfts,jfte
           do i=ifts,ifte
             k = int(nfuel_cat(i,j))
-            fwh(i,j)=fcwh(k)
+            if(k.ne.no_fuel_cat)then ! no fuel, interpolation does not matter
+                fwh(i,j)=fcwh(k)
+            else
+                fz0(i,j)=-1.
+                fwh(i,j)=-1.
+            endif
           enddo
        enddo
 
      case(3)
-       call message('fire_wind_log_interp=3: log interpolation on fire mesh, interpolated roughness from landuse, constant fire_wind_height')
+       call message('fire_wind_log_interp=3: log interpolation on fire mesh,' // &
+           ' interpolated roughness from landuse, constant fire_wind_height')
        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
@@ -712,12 +750,19 @@ character(len=128)msg
        do j=jfts,jfte
           do i=ifts,ifte
             k = int(nfuel_cat(i,j))
-            fwh(i,j)=fcwh(k)
+            if(k.ne.no_fuel_cat)then ! no fuel, interpolation does not matter
+                fwh(i,j)=fcwh(k)
+            else
+                fz0(i,j)=-1.
+                fwh(i,j)=-1.
+            endif
           enddo
        enddo
 
      case(4)
-        call message('fire_wind_log_interp=4: log interpolation on atmospheric mesh, roughness from landuse, constant fire_wind_height')
+        call message('fire_wind_log_interp=4: log interpolation on atmospheric' // &
+           ' mesh, roughness from landuse, constant fire_wind_height')
+        return
 
      case default
         !$OMP CRITICAL(SFIRE_ATM_CRIT)
@@ -726,7 +771,98 @@ character(len=128)msg
         call crash('msg') 
 
      end select 
-     
+
+     select case(fire_use_windrf)
+
+     case(0)  
+       call message('setup_wind_log_interpolation: not using wind reduction factors')
+
+     case(1)
+       call message('setup_wind_log_interpolation: multiplying wind by reduction factors')
+
+     case(2)
+       call message('setup_wind_log_interpolation: resetting wind interpolation height from wind reduction factors')
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then 
+                fwh(i,j) = fz0(i,j) ** (1.-windrf(k)) * fire_wind_height ** windrf(k) ! GMD paper eq. (26)
+
+                if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                  write(msg,*)'category ',k,'windrf=',windrf(k),' fire_wind_height=',fire_wind_height
+                  call message(msg,level=-1)
+                  write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                  call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                  call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+                endif
+
+            endif
+          enddo
+       enddo
+
+     case(3)
+      if(fire_wind_log_interp.eq.2.or.fire_wind_log_interp.eq.3)then
+       call message('setup_wind_log_interpolation: adjusting wind interpolation height for LANDUSE roughness height')
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then 
+                r = log(fcwh(k)/fcz0(k))/log(fire_wind_height/fcz0(k))! GMD paper eq. (25)
+                fwh(i,j) = fz0(i,j) ** (1.-r) * fire_wind_height ** r ! GMD paper eq. (26)
+
+                if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                  write(msg,*)'category ',k, 'roughness ',fcz0(k),' midflame height ',fcwh(k),' fire_wind_height=',fire_wind_height
+                  call message(msg,level=-1)
+                  write(msg,*)'computed wind reduction factor ',r
+                  call message(msg,level=-1)
+                  write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                  call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                  call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+                endif
+
+            endif
+          enddo
+       enddo
+      else
+       call message('setup_wind_log_interpolation: not using wind reduction factors')
+      endif
+
+     case default
+        !$OMP CRITICAL(SFIRE_ATM_CRIT)
+        write(msg,*)'setup_wind_log_interpolation: invalid fire_use_windrf=',fire_use_windrf
+        !$OMP END CRITICAL(SFIRE_ATM_CRIT)
+        call crash('msg') 
+
+     end select 
+
+!      consistency check
+       do j=jfts,jfte
+          do i=ifts,ifte
+            k = int(nfuel_cat(i,j))
+            if(k.ne.no_fuel_cat)then 
+              if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                 call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                 call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+              endif
+            else
+              if(.not.fwh(i,j)<0.)then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                 call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                 call crash('setup_wind_log_interpolation: no fuel must be signalled by fwh<0')
+              endif
+            endif
+          enddo
+       enddo
+
      have_wind_log_interpolation = .true.
 
      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'setup_wind_log:fz0')        
@@ -800,8 +936,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   jtst=ifval(jds.ge.jts,jts,jts-1)
   jtet=ifval(jde.eq.jte,jte,jte+1)
   
-  print *,'its, ite, jts, jte    =',its, ite, jts, jte
-  print *,'itst, itet, jtst, jtet=',itst, itet, jtst, jtet
+  ! print *,'its, ite, jts, jte    =',its, ite, jts, jte
+  ! print *,'itst, itet, jtst, jtet=',itst, itet, jtst, jtet
 
 ! get altitudes
   i_g = 1./g
@@ -856,9 +992,8 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       ! print *,'i=',i,' j=',j,' icb=',icb,' jcb=',jcb,' z0=',z0,' wh=',wh
 
 
-      if(.not. wh > z0 .or. .not. z0 > 0)then
-         goto 92
-      endif
+      if( wh > z0 .and. z0 > 0)then
+
       ht_last=z0                     ! initialize starting height of this layer
       loop_k: do k=kds,kdmax         ! search for layer k such that ht(k-1)<=wh<ht(k), ht(0)=z0
         ! interpolate height from atmospheric cell midpoints
@@ -911,6 +1046,13 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       vf(i,j)= vk1 + (vk - vk1) * ( logwh - loght_last) / (loght - loght_last)
         
       ! print *,'i=',i,' j=',j,' uk=',uk,' vk=',vk,' uk1=',uk1,' vk1=',vk1,' uf=',uf(i,j),' vf=',vf(i,j)
+
+    else
+      ! no fuel, no wind 
+      uf(i,j) = 0.
+      vf(i,j) = 0.
+
+    endif
 
     enddo loop_i
   enddo loop_j

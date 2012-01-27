@@ -11,6 +11,7 @@ module module_fr_sfire_driver_wrf
 
 use module_fr_sfire_driver
 use module_fr_sfire_atm
+USE module_utility, only: WRFU_TimeInterval,WRFU_TimeIntervalGet, WRFU_SUCCESS
 implicit none
 
 contains
@@ -22,8 +23,10 @@ subroutine sfire_driver_em_init (grid , config_flags               &
 
     ! stub to call sfire_driver_em with irun=0 and omit last 3 args
 
-    USE module_domain
-    USE module_configure
+    USE module_domain , only: domain , get_ijk_from_subgrid , &
+                              domain_get_time_since_sim_start , &
+                              domain_get_time_step 
+    USE module_configure , only : grid_config_rec_type
     implicit none
 
     TYPE(domain) , TARGET          :: grid   ! data
@@ -38,6 +41,7 @@ subroutine sfire_driver_em_init (grid , config_flags               &
              ifds,ifde, kfds,kfde, jfds,jfde,                              &
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifps,ifpe, kfps,kfpe, jfps,jfpe                              
+    real::time_step_start, dt ! dummies, avoid uninitialized
     ! dummies
 
     real,dimension(1,1,1)::rho,z_at_w,dz8w
@@ -50,7 +54,12 @@ subroutine sfire_driver_em_init (grid , config_flags               &
                             ifms,ifme, jfms,jfme,kfms,kfme,                        &
                             ifps,ifpe, jfps,jfpe,kfps,kfpe) 
 
+    ! times in seconds
+    time_step_start=TimeInterval2Sec(domain_get_time_since_sim_start(grid)) 
+    dt=TimeInterval2Sec(domain_get_time_step(grid))
+
     call sfire_driver_em ( grid , config_flags               & 
+            ,time_step_start,dt                                 &
             ,1,2,0                        & ! ifun start, end, test steps
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
@@ -76,8 +85,11 @@ subroutine sfire_driver_em_step (grid , config_flags               &
 
     ! stub to call sfire_driver_em 
 
-    USE module_domain
-    USE module_configure
+    USE module_domain, only: domain , get_ijk_from_subgrid , &
+                              domain_get_time_since_sim_start , &
+                              domain_get_time_step 
+    USE module_configure , only : grid_config_rec_type
+    USE module_fr_sfire_util, only : fire_test_steps
     implicit none
 
     TYPE(domain) , TARGET          :: grid   ! data
@@ -88,6 +100,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ,ips,ipe, kps,kpe, jps,jpe
     real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
 
+
     ! local
     integer :: &  ! fire mesh sizes
              ifds,ifde, kfds,kfde, jfds,jfde,                              &
@@ -95,8 +108,16 @@ subroutine sfire_driver_em_step (grid , config_flags               &
              ifps,ifpe, kfps,kfpe, jfps,jfpe                              
     integer :: its,ite,jts,jte,kts,kte            ! atm tile
     integer:: ij 
+    real::time_step_start,dt
+
+    ! executable
 
     call message('sfire_driver_em_step: SFIRE step start')
+    
+    ! times in seconds
+
+    time_step_start=TimeInterval2Sec(domain_get_time_since_sim_start(grid)) 
+    dt=TimeInterval2Sec(domain_get_time_step(grid))
 
     ! get fire mesh dimensions
     CALL get_ijk_from_subgrid (  grid ,                   &
@@ -105,6 +126,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
                             ifps,ifpe, jfps,jfpe,kfps,kfpe) 
 
     call sfire_driver_em ( grid , config_flags               & 
+            ,time_step_start,dt                                 &
             ,3,6,fire_test_steps                                &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
@@ -113,6 +135,14 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
             ) 
+
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,z_at_w,'z_at_w')
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,dz8w,'dz8w')
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,rho,'rho')
+   call print_chsum(0,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,0,grid%mut,'mu')
+   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'rho')
+   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,z_at_w,'z_at_w')
+   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,dz8w,'dz8w')
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     do ij=1,grid%num_tiles
@@ -143,6 +173,24 @@ subroutine sfire_driver_em_step (grid , config_flags               &
     call message('sfire_driver_em_step: SFIRE step complete')
             
 end subroutine sfire_driver_em_step
+
+double precision function TimeInterval2Sec(time)
+! convert ESMF_Timeinterval type to seconds
+! has double precision type just in case it is needed in future
+! will silently convert to single precition on use.
+    TYPE(WRFU_TimeInterval), intent(in) :: time
+! local
+    integer::rc,S,Sn,Sd
+! executable
+    call WRFU_TimeIntervalGet(time,S=S,Sd=Sd,Sn=Sn,rc=rc)
+    if(rc.ne.WRFU_SUCCESS)call crash('TimeInterval2Sec: WRFU_TimeIntervalGet failed')
+    ! print *,'WRFU_TimeIntervalGet returned S=',S,'Sn=',Sn,'Sd=',Sd
+    if(Sd.ne.0)then
+         TimeInterval2Sec=dble(S)+dble(Sn)/dble(Sd)
+    else
+         TimeInterval2Sec=dble(S)
+    endif
+end function TimeInterval2Sec
 
 end module module_fr_sfire_driver_wrf
 

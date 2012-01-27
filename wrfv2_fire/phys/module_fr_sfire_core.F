@@ -8,7 +8,7 @@
 
 module module_fr_sfire_core
 
-use module_fr_sfire_phys
+use module_fr_sfire_phys, only: fire_params , fire_ros
 use module_fr_sfire_util
 
 implicit none
@@ -19,21 +19,6 @@ implicit none
 ! subroutine fuel_left:  compute remaining fuel from time of ignition.
 ! subroutine prop_ls: propagation of curve in normal direction.
 
-! describe one ignition line
-type ignition_line_type
-  REAL  ros, &          ! subscale rate of spread during the ignition process
-        stop_time, &    ! when the ignition process stops from ignition start (s)
-        wind_red,  &    ! wind reduction factor at the ignition line
-        wrdist,   &     ! distance from the ignition line when the wind reduction stops
-        wrupwind, &     ! use distance interpolated between 0. = nearest 1. = upwind
-        start_x, &      ! x coordinate of the ignition line start point (m, or long/lat)
-        start_y, &      ! y coordinate of the ignition line start point
-        end_x, &        ! x coordinate of the ignition line end point
-        end_y, &        ! y coordinate of the ignition line end point
-        start_time, &   ! ignition time for the start point from simulation start (s)
-        end_time, &     ! ignition time for the end poin from simulation start (s)
-        radius          ! all within this radius ignites immediately
-end type ignition_line_type
 
 contains
 
@@ -77,11 +62,11 @@ if(fire_perimeter_time > 0.) then
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
-        lfn(i,j) = tign(i,j)       ! use specified ignition time as leve set function 
-        if(tign(i,j) < time_start)then
-           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' < time_start =',time_start
+        lfn(i,j) = tign(i,j)-time_now       ! use specified ignition time as level set function 
+        if(.not.lfn(i,j) > 0.)then
+           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' <= time_now =',time_now
            call message(msg,level=0)
-           call crash('init_no_fire: ignition time may not be in the past')
+           call crash('init_no_fire: ignition time must be after the end of the time step')
         endif
      enddo
   enddo
@@ -611,7 +596,7 @@ enddo
 !    enddo
 !enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-write(msg,'(a,4i6,a,f10.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
+write(msg,'(a,4i6,a,e15.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 return
@@ -1924,7 +1909,7 @@ type(fire_params),intent(in)::fp
 !*** local 
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
-   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed,tanphi
+   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed
 integer::i,j,itso,iteo,jtso,jteo
 character(len=128)msg
 
@@ -1938,11 +1923,6 @@ real, parameter:: zero=0.,one=1.,tol=100*eps, &
 ! f90 intrinsic function
 
 intrinsic max,min,sqrt,nint,tiny,huge
-
-
-#ifdef DEBUG_OUT
-real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
-#endif
 
 !*** executable
     
@@ -2019,50 +1999,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
             ! set ros for output
             if(i.ge.its.and.i.le.ite.and.j.ge.jts.and.j.le.jte)ros(i,j)=rr
 
-            if(fire_upwind_split.eq.0)then
-
-                ! get rate of spread
-                te = -rr*grad   ! normal term 
-
-            else
-
-                ! normal direction backing rate only
-                te = - ros_back*grad
-
-		! advection in wind direction 
-                if (abs(speed)> eps) then
-                    advx=fp%vx(i,j)*ros_wind/speed
-                    advy=fp%vy(i,j)*ros_wind/speed
-                else 
-                    advx=0
-                    advy=0
-                endif
-
-                ! tanphi =  dzdxf*nvx + dzdyf*nvy
-		! advection from slope direction 
-                if(abs(tanphi)>eps) then
-                    advx=advx+fp%dzdxf(i,j)*ros_slope/tanphi
-                    advy=advy+fp%dzdyf(i,j)*ros_slope/tanphi
-                endif
-
-                if(fire_upwind_split.eq.1)then   
-
-                    ! one-sided upwinding
-                    te = te - max(advx,0.)*diffLx - min(advx,0.)*diffRy &
-                            - max(advy,0.)*diffLy - min(advy,0.)*diffRy
-
-
-                elseif(fire_upwind_split.eq.2)then   
- 
-                    ! Lax-Friedrichs
-                    call crash('prop_ls: bad fire_upwind_split, Lax-Friedrichs not done yet')
-
-                else
-
-                    call crash('prop_ls: bad fire_upwind_split')
-
-                endif
-            endif
+            ! get rate of spread
+            te = -rr*grad   ! normal term 
 
             ! cfl condition
             if (grad > 0.) then
@@ -2073,29 +2011,8 @@ real,dimension(tims:time,tjms:tjme)::rra,grada,speeda,tanphia
             te=te + fire_viscosity*abs(rr)*((diffRx-diffLx)+(diffRy-diffLy))
 
             tend(i,j)=te
-#ifdef DEBUG_OUT    
-            rra(i,j)=rr
-            grada(i,j)=grad    
-            speeda(i,j)=speed
-            tanphia(i,j)=tanphi
-#endif
-            !write(msg,*)i,j,grad,dzdx,dzdy
-            !call message(msg)
-
-            !if(abs(te)>1e4)then
-            !    write(msg,'(a,2i5,e12.3)')'tend_ls: tend out of bounds at ',i,j,te
-            !    call crash(msg)
-            !endif
         enddo
     enddo        
-
-#ifdef DEBUG_OUT    
-    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,rra,'rr',id)
-    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,grada,'grad',id)
-    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,speeda,'speed',id)
-    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tanphia,'tanphi',id)
-    call write_array_m(ints,inte,jnts,jnte,tims,time,tjms,tjme,tend,'tend',id)
-#endif
 
     call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
                    tend,'tend_ls: tend out')

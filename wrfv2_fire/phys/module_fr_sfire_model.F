@@ -1,7 +1,4 @@
 !
-!*** Jan Mandel October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
-!
-
 #define DEBUG_OUT
 
 module module_fr_sfire_model
@@ -17,8 +14,7 @@ contains
 subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
-    restart,                                &
-    num_ignitions,                          & ! number of ignitions before advancing
+    restart,                                & ! use existing state
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -26,12 +22,13 @@ subroutine sfire_model (                    &
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,
-    ignition_line,                          & ! small array of ignition line descriptions
-    ignitions_done,ignited_tile,            &
-    coord_xf,coord_yf,unit_xf,unit_yf,      & ! fire mesh coordinates
+    ignition,                               & ! small array of ignition line descriptions
+    coord_xf,coord_yf,                      & ! fire mesh coordinates
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
-    ros,                                    & ! output: rate of spread
+    ros,flineint,flineint2,                 & ! diagnostic variables
+    f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
+    f_int,f_lineint,f_lineint2,             & ! fire risk intensities 
     nfuel_cat,                              & ! fuel data per point 
     fuel_time,fwh,fz0,                      & ! save derived internal data
     fp &
@@ -86,7 +83,6 @@ integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
                                             ! 6 = compute output fluxes
 logical, intent(in):: restart               ! if true, use existing state
 ! scalar data
-integer, intent(in) :: num_ignitions        ! number of ignition lines
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
 integer, intent(in) :: ifds,ifde,jfds,jfde,&  ! fire domain bounds
         ifps,ifpe,jfps,jfpe                ! patch - nodes owned by this process
@@ -95,11 +91,9 @@ integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 ! array data
-type(ignition_line_type), dimension (num_ignitions), intent(in):: ignition_line ! descriptions of ignition lines
-integer, intent(out):: ignited_tile(num_ignitions),ignitions_done
+type(ignition_type), intent(in):: ignition  ! descriptions of ignition lines
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
-real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
     
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
@@ -114,7 +108,10 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     lfn_out, &                              !                              
     grnhfx,grnqfx, &                        ! heat fluxes J/m^2/s  (cell)             
-    ros                                     ! output: rate of spread
+    ros,flineint,flineint2,                 & ! diagnostic variables
+    f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
+    f_int,f_lineint,f_lineint2                ! fire risk intensities 
+
  
 ! constant arrays - set at initialization
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::nfuel_cat ! cell based, data, constant
@@ -130,6 +127,7 @@ real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
 logical:: freeze_fire
 integer:: stat_lev=1
+real::fireline_mask=-1.
 
 !*** executable
 
@@ -142,10 +140,12 @@ xjfme=jfme
 
 
 ! init flags
-ignitions_done=0
 freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
+!$OMP SINGLE
+   call init_fuel_cats  ! initialize fuel subsystem
+!$OMP END SINGLE
 elseif(ifun.eq.2)then   
         ! initialize all arrays that the model will not change later
 
@@ -178,7 +178,7 @@ elseif(ifun.eq.2)then
 !$OMP END CRITICAL(SFIRE_MODEL_CRIT)
         call message(msg)
 
-        if(.not.restart)call set_nfuel_cat( &
+        call set_nfuel_cat(      &       ! also on restart
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             ifuelread,nfuel_cat0,&
@@ -186,7 +186,7 @@ elseif(ifun.eq.2)then
 
         ! uses nfuel_cat to set the other fuel data arrays
         ! needs zsf on halo width 1 to compute the terrain gradient
-        if(.not.restart)call set_fire_params(   & 
+        call set_fire_params(    &       ! also on restart
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
@@ -275,7 +275,8 @@ elseif (ifun.eq.4) then  ! do the timestep
         call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
 
     endif
-    
+
+
 elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! this cannot be done in the time step itself because of race condition
     ! some thread may still be using lfn as input in their tile halo
@@ -292,21 +293,18 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     endif
 
     ! check for ignitions
-    do ig = 1,num_ignitions
+    do ig = 1,ignition%num_ignitions
     
 !  for now, check for ignition every time step...
-!        if(ignition_line(ig)%end_time>=time_start.and.ignition_line(ig)%start_time<time_start+dt)then 
+!        if(ignition%line(ig)%end_time>=time_start.and.ignition%line(ig)%start_time<time_start+dt)then 
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
                 ifts,ifte,jfts,jfte,                      &
-                ignition_line(ig),                        &
+                ignition%line(ig),                        &
                 time_start,time_start+dt,                 &
-                coord_xf,coord_yf,unit_xf,unit_yf,        & 
+                coord_xf,coord_yf,ignition%unit_fxlong,ignition%unit_fxlat,        & 
                 lfn,tign,ignited)
-
-            ignitions_done=ignitions_done+1
-            ignited_tile(ignitions_done)=ignited
                 
 #ifdef DEBUG_OUT    
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
@@ -321,21 +319,60 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
                    lfn,'sfire_model: lfn out')
 
 elseif (ifun.eq.6) then ! timestep postprocessing
+    ! have halo on lfn now
+
+    ! diagnostics
+    call fire_intensity(fp,                   &  ! fuel properties
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        ifms,ifme,jfms,jfme,                      &  ! ros dims
+        ros,nfuel_cat,                            & !in
+        flineint,flineint2)                       ! fireline intensities out
+
+    if(fireline_mask < 0.) then
+      do j=jfts,jfte
+        do i=ifts,ifte
+          ! if the sign of lfn is the same as all of its neighbors or we are at domain boundary, we are not near the fireline
+          if( (lfn(i-1,j-1)>0. .and. lfn(i-1,j)>0. .and. lfn(i,j-1)>0. .and. lfn(i,j)>0.  .and. &
+            lfn(i+1,j+1)>0. .and. lfn(i+1,j)>0. .and. lfn(i,j+1)>0. ) .or.                   &
+           (lfn(i-1,j-1)<0. .and. lfn(i-1,j)<0. .and. lfn(i,j-1)<0. .and. lfn(i,j)<0.  .and. &
+            lfn(i+1,j+1)<0. .and. lfn(i+1,j)<0. .and. lfn(i,j+1)<0. ) .or.                   &
+            i.eq.ifds .or. i .eq. ifde .or. j.eq.jfds .or. j.eq.jfde) then
+               ros(i,j)=fireline_mask
+               flineint(i,j)=fireline_mask
+               flineint2(i,j)=fireline_mask
+           endif
+        enddo
+      enddo
+    endif
+    
+  call fire_risk(fp,                              &
+        ifms,ifme,jfms,jfme,                      &  ! memory dims
+        ifts,ifte,jfts,jfte,                      &  ! tile dims
+        nfuel_cat,                                &  !
+        f_ros0,f_rosx,f_rosy,f_ros,               &  ! fire spread 
+        f_int,f_lineint,f_lineint2)                  ! fire intensities for danger rating
+
 
   if(.not. freeze_fire)then
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
+    write(msg,*)'time_start=',time_start,' dt=',dt,' before fuel_left'
+    call message(msg,1)
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'model: lfn')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign,'model: tign')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_time,'model: fuel_time')
     call fuel_left(&
         ifds,ifde,jfds,jfde, &
         ifms,ifme,jfms,jfme, &
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
         lfn,tign,fuel_time,time_start+dt,fuel_frac_end,fire_area) !fuel_frac_end is private and tile based
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
 
-    call print_2d_stats(ifts,ifte,jfts,jfte, &
-                   ifts,ifte,jfts,jfte, &
-                   fuel_frac_end,'model: fuel_frac end')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_end,'model: fuel_frac end')
     
     do j=jfts,jfte
         do i=ifts,ifte
@@ -345,11 +382,9 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         enddo
     enddo
 
-    call print_2d_stats(ifts,ifte,jfts,jfte, &
-                   ifts,ifte,jfts,jfte, &
-                   fuel_frac_burnt,'model: fuel_frac burned')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_burnt,'model: fuel_frac burned')
         
-    call heat_fluxes(dt,                          &
+    call heat_fluxes(dt,fp,                       &
         ifms,ifme,jfms,jfme,                      &
         ifts,ifte,jfts,jfte,                      &
         ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned

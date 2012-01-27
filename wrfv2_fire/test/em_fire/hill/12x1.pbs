@@ -3,7 +3,7 @@
 
 # Set the number of nodes and processes per node
 # each node contains 12 processing cores
-#PBS -l nodes=1:ppn=12
+#PBS -l nodes=2:ppn=6
 
 # Set the maximum amount of the time the job will run (HH:MM:SS)
 #PBS -l walltime=03:00:00
