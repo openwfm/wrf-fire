@@ -839,7 +839,7 @@ CONTAINS
 !--- program, depending what your detrainment is!!)
 !
       entr_rate =.2/radius
-      entr_rate3=.2/500.
+      entr_rate3=.2/200.
 !
 !--- entrainment of mass
 !
@@ -914,6 +914,7 @@ CONTAINS
   else
      do i=its,itf
          cap_max(i)=cap_maxs
+          cap_max3(i)=25.
          if(gsw(i,j).lt.1.or.high_resolution.eq.1)cap_max(i)=25.
        iresult=0
      enddo
@@ -925,6 +926,7 @@ CONTAINS
 #else
       do i=its,itf
           cap_max(i)=cap_maxs
+          cap_max3(i)=25.
           if(gsw(i,j).lt.1.or.high_resolution.eq.1)cap_max(i)=25.
         iresult=0
 
@@ -1377,7 +1379,7 @@ CONTAINS
         xff_shal(1:9)=0.
         if(ierr5(i).eq.0)then
           xkshal=(xaa3(i)-aa3(i))/mbdt_s
-          if(xkshal.gt.0.)xkshal=+1.e6
+          if(xkshal.ge.0.)xkshal=+1.e6
           if(xkshal.gt.-1.e-4 .and. xkshal.lt.0.)xkshal=-1.e-4
           xff_shal(1)=max(0.,-(aa3(i)-aa3_0(i))/(xkshal*dtime))
           xff_shal(2)=max(0.,-(aa3(i)-aa3_0(i))/(xkshal*dtime))
@@ -3350,7 +3352,6 @@ CONTAINS
                       massfln(i,j,nall+8)=0.
                       xff_ens3(9) =0.
                       massfln(i,j,nall+9)=0.
-                      closure_n(i)=closure_n(i)-1.
                       xff_ens3(13) =0.
                       massfln(i,j,nall+13)=0.
                       xff_ens3(15) =0.
@@ -4360,7 +4361,7 @@ CONTAINS
 !------- LIQUID WATER CONTENT IN cloud after rainout
 !
         clw_all(i,k)=QC(I,K)-QRCH
-        QRC(I,K)=(QC(I,K)-QRCH)/(1.+C0*DZ)
+        QRC(I,K)=(QC(I,K)-QRCH)/(1.+C0*DZ*zu(i,k))
         if(qrc(i,k).lt.0.)then
           qrc(i,k)=0.
         endif
@@ -4566,7 +4567,6 @@ CONTAINS
      ENDDO
      ENDDO
 
-   ENDIF
      DO j=jts,jtf
      DO i=its,itf
         APR_GR(i,j)=0.
@@ -4579,6 +4579,8 @@ CONTAINS
         APR_CAPMI(i,j)=0.
      ENDDO
      ENDDO
+
+   ENDIF
 
    END SUBROUTINE g3init
 

@@ -42,7 +42,7 @@ module wrf_data_pnc
   integer                , parameter      :: WrfDataHandleMax = 99
   integer                , parameter      :: MaxDims          = 2000 ! = NF_MAX_VARS
   integer                , parameter      :: MaxVars          = 3000
-  integer                , parameter      :: MaxTimes         = 9000000
+  integer                , parameter      :: MaxTimes         = 10000
   integer                , parameter      :: DateStrLen       = 19
   integer                , parameter      :: VarNameLen       = 31
   integer                , parameter      :: NO_DIM           = 0
@@ -2445,7 +2445,7 @@ subroutine ext_pnc_write_field(DataHandle,DateStr,Var,Field,FieldType,Comm, &
               exit
             else
               Status = WRF_WARN_DIMNAME_REDEFINED
-              write(msg,*) 'Warning DIM ',i,', NAME ',TRIM(DH%DimNames(i)),' REDIFINED  by var ', &
+              write(msg,*) 'Warning DIM ',i,', NAME ',TRIM(DH%DimNames(i)),' REDEFINED  by var ', &
                            TRIM(Var),' ',DH%DimLengths(i),Length_global(j) ,' in ', __FILE__ ,' line', __LINE__ 
               call wrf_debug ( WARN , TRIM(msg))
               return
@@ -2565,12 +2565,14 @@ subroutine ext_pnc_write_field(DataHandle,DateStr,Var,Field,FieldType,Comm, &
       return
     endif
 
+#if 0
     WRITE(msg,*) 'ARPDBG: MemoryStart = ',lMemoryStart(1:NDim)
     CALL wrf_message(msg)
     WRITE(msg,*) 'ARPDBG:  lMemoryEnd = ',lMemoryEnd(1:NDim)
     CALL wrf_message(msg)
     WRITE(msg,*) 'ARPDBG:      Length = ',Length(1:NDim)
     CALL wrf_message(msg)
+#endif
 
     IF(quilting)THEN
        ! Don't pass in PatchStart and PatchEnd here since we want to

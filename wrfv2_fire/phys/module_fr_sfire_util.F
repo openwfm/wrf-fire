@@ -1545,7 +1545,7 @@ subroutine print_chsum( id, &
     a,name)                      
 
 #ifdef DM_PARALLEL
-    USE module_dm
+    USE module_dm , only : wrf_dm_bxor_integer
 #endif
 
 integer, intent(in):: id, &
@@ -1619,7 +1619,7 @@ real function fun_real(fun,  &
     a,b)                      
 
 #ifdef DM_PARALLEL
-    USE module_dm
+    USE module_dm , only : wrf_dm_sum_real , wrf_dm_max_real
 #endif
 
 integer, intent(in)::  fun, &

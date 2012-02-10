@@ -249,7 +249,7 @@ module input_module
 #endif
      
          call mprintf((istatus /= 0),ERROR,'In read_next_field(), got error code %i.', i1=istatus)
-     
+
          if (io_form_input == BINARY) then
             qd = q_remove(unit_desc)
             cunits = qd%units
@@ -412,14 +412,15 @@ module input_module
                      call q_insert(unit_desc, qd)
         
                   end if
-       
                end if
             end do
          end if
 #endif
      
          call ext_get_dom_ti_char          ('TITLE', title)
-         if (index(title,'GEOGRID V3.2.1') /= 0) then
+         if (index(title,'GEOGRID V3.3') /= 0) then
+            wps_version = 3.3
+         else if (index(title,'GEOGRID V3.2.1') /= 0) then
             wps_version = 3.21
          else if (index(title,'GEOGRID V3.2') /= 0) then
             wps_version = 3.2

@@ -8,7 +8,7 @@
 
 module module_fr_sfire_core
 
-use module_fr_sfire_phys
+use module_fr_sfire_phys, only: fire_params , fire_ros
 use module_fr_sfire_util
 
 implicit none

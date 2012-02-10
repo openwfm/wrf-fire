@@ -19,14 +19,14 @@ program plotfmt
 !   Set up the graceful stop (Sun, SGI, DEC).
 !
    integer, external :: graceful_stop
-#if defined(_DOUBLEUNDERSCORE) && defined(MACOS)
+#if (defined(_DOUBLEUNDERSCORE) && defined(MACOS)) || defined(NO_SIGNAL)
    ! we do not do any signaling
 #else
    integer, external :: signal
 #endif
    integer :: iii
 
-#if defined(_DOUBLEUNDERSCORE) && defined(MACOS)
+#if (defined(_DOUBLEUNDERSCORE) && defined(MACOS)) || defined(NO_SIGNAL)
   ! still more no signaling
 #else
   iii = signal(2, graceful_stop, -1)
@@ -163,6 +163,13 @@ subroutine plt2d(tcr2d, iz, jz, llflag, &
 ! ix = 20
 ! jx = 20
 
+  if (ix+ioff .gt. iz .or. jx+joff .gt. jz) then
+!   print *,'map subset is too large. Setting to full domain'
+    ix = iz
+    jx = jz
+    ioff = 0
+    joff = 0
+  endif
 ! compute upper left point for the map   (works for NCEP GFS and godas)
   pl1 = lat1 + (joff*dy)  
   pl2 = lon1 + (ioff*dx)
