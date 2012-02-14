@@ -167,11 +167,144 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
    DATA adjr0 /mfuelcats*1./
    DATA adjrw /mfuelcats*1./
    DATA adjrs /mfuelcats*1./
+
+! moisture behavior
+  integer, parameter::max_moisture_classes=5
+  integer, parameter::zm=max_moisture_classes - 3
+  integer:: moisture_classes=3
+  real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,hysteresis,saturation_rain 
+  integer, dimension(max_moisture_classes):: drying_model,wetting_model
+    
+  real, dimension(7)::eq_p
+
+  data drying_lag                 /1., 10., 100. , zm*0./  ! time lag (h) approaching equilibrium moisture 
+  data hysteresis                 /0., 0., 0.    , zm*0./  ! equilibrium moisture increases by 1/2 of this
+                                                  ! when approached from above and decreases when from below
+  data wetting_lag                   /14, 140., 1400., zm*0./  ! time lag (h) for approaching saturation in rain
+                                                  ! 7% / hour initial rise per Fosberg and Deeming (1971)
+  data saturation_moisture        /2.5, 2.5, 2.5 , zm*0./  ! saturation moisture contents (1) in rain
+  data saturation_rain            /8.0, 8.0, 8.0 , zm*0./  ! stronger rain matters only in duration (mm/h) 
+  data drying_model               /1,   1,   1,    zm*0 /
+  data wetting_model              /1,   1,   1,    zm*0 /
+  data eq_p/  1.035e-09, &   !(3.893e-10, 1.681e-09) ! coefficients of the equilibrium fuel moisture polynomial
+              -2.62e-07, &   !(-4.593e-07, -6.473e-08) ! fitted from the graph in Schroeder and Buck (1970)
+              2.507e-05, &   !(2.194e-06, 4.795e-05)
+              -0.001107, &   !(-0.002353, 0.000139)
+                0.02245, &   !(-0.009188, 0.05409)
+               -0.05901, &   !(-0.3721, 0.254)
+                  3.043/   !(2.17, 3.915)
+
 ! =========================================================================
 
   logical, save :: have_fuel_cats=.false.
 
 contains
+
+subroutine advance_moisture(    &
+    initialize,                 & ! 0 = run,  1 = initialize previous values, 2 = initialize also the moisture
+    fmc_gc_init,                & ! initial value of moisture
+    ims,ime,  jms,jme,          & ! memory dimensions
+    its,ite,  jts,jte,          & ! tile dimensions
+    nfmc,                       & ! number of moisture fields
+    timestep,                   & ! moisture model time step
+    rainc, rainnc,              & ! accumulated rain 
+    t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
+    rain_old,                   & ! previous value of accumulated rain
+    t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
+    rh_sfc,                     & ! relative humidity
+    fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+    )
+
+!*** arguments
+integer, intent(in)::           &
+    initialize,                 & ! 0 = run,  other = initialize
+    ims,ime,  jms,jme,          & ! memory dimensions
+    its,ite,  jts,jte,          & ! tile dimensions
+    nfmc                          ! number of moisture fields
+real, intent(in):: fmc_gc_init,timestep
+real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
+real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
+real, intent(out), dimension(ims:ime,jms:jme):: rh_sfc ! diagnostics
+real, intent(inout), dimension(ims:ime,jms:jme,nfmc):: fmc_gc
+
+!*** local
+integer:: i,j,k
+real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R
+real::rain_thr=0.05
+
+!*** executable
+
+if(initialize.ge.1)call copy2old
+if(initialize.ge.2)call init_fmc_gc
+
+do j=jts,jte
+    do i=its,ite
+       rain_int = ((rainc(i,j) + rainnc(i,j)) - rain_old(i,j))/timestep ! rain intensity
+       R = rain_int - rain_thr
+       do k=1,nfmc
+          if (R > 0.) then
+              select case(wetting_model(k))
+                  case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
+                      tend=(saturation_moisture(k)-fmc_gc(i,j,k))/wetting_lag(k) * (1. - exp(R/saturation_rain(k)))
+              end select
+          else ! not raining
+              ! relative humidity
+              T = t2(i,j)
+              P = psfc(i,j)
+              Q = q2(i,j)
+              ES=610.78*exp(17.269*(T-273.161)/(T-35.861));
+              QRS=0.622*ES/(P-0.378*ES);
+              RH = 100.*Q/QRS;
+              rh_sfc(i,j)=RH ! diagnostics
+              select case(drying_model(k))
+                  case(1) ! Van Wagner formula (1972) per Viney (1991)
+                      EMC_d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
+                      EMC_w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
+                      if (fmc_gc(i,j,k) > EMC_d) then
+                          tend = (EMC_d - fmc_gc(i,j,k)) / drying_lag(k)
+                      elseif(fmc_gc(i,j,k) < EMC_w)then 
+                          tend = (EMC_w - fmc_gc(i,j,k)) / drying_lag(k)
+                      else
+                          tend = 0.
+                      endif
+              end select
+          endif
+          fmc_gc(i,j,k) = fmc_gc (i,j,k)+ timestep*tend
+      enddo
+   enddo
+enddo
+          
+call copy2old
+return
+
+contains
+
+subroutine copy2old
+
+do j=jts,jte
+    do i=its,ite
+        rain_old(i,j) = rainc(i,j) + rainnc(i,j)
+        t2_old(i,j) = t2(i,j)
+        q2_old(i,j) = q2(i,j)
+        psfc_old(i,j) = psfc(i,j)
+    enddo
+enddo
+
+end subroutine copy2old
+
+subroutine init_fmc_gc
+    do k=1,nfmc
+        do j=jts,jte
+            do i=its,ite
+                fmc_gc(i,j,k)=0.1
+            enddo
+        enddo
+    enddo
+end subroutine init_fmc_gc
+
+
+end subroutine advance_moisture
+
 
 subroutine set_fp_from_grid(grid,fp)
     implicit none
