@@ -258,7 +258,7 @@ do k=1,nfmc
     ! interpolate moisture contents in the class k to the fire mesh
     call interpolate_z2fire(id,          & ! for debug output, <= 0 no output
     ids,ide,jds,jde,                     & ! atm grid dimensions
-    its-1,ite+1,jms-1,jme+1,             &
+    its-1,ite+1,jts-1,jte+1,             & ! memory dimensions
     ips,ipe,jps,jpe,                     &
     its,ite,jts,jte,                     &
     ifds, ifde, jfds, jfde,              & ! fire grid dimensions

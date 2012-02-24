@@ -58,7 +58,6 @@ state    real     t2_old    ij       fire        1         z     hr   "T2_OLD" "
 state    real     q2_old    ij       fire        1         z     hr   "Q2_OLD" "previous value of accumulated rain" "mm"
 state    real     psfc_old  ij       fire        1         z     hr   "PSFC_OLD" "previous value of accumulated rain" "mm"
 rconfig  integer  fuel_moisture_steps  namelist,fire  max_domains 0    -      "fuel_moisture_steps" "0=moisture model off, >0 run moisture model every x timesteps"
-i1    real        ffmc_gc  *i*j      fire        1         -    
 
 # diagnostics
 # for the actual modeled fire
@@ -241,6 +240,8 @@ halo      HALO_FIRE_LONGLAT dyn_em 24:xlong,xlat
 halo      HALO_FIRE_WIND_A dyn_em 8:u_2,v_2
 halo      HALO_FIRE_ZSF dyn_em 24:zsf
 halo      HALO_FIRE_FUEL dyn_em 8:fuel_frac,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,nfuel_cat,dzdxf,dzdyf,fz0,fwh
+halo	  HALO_FIRE_MOISTURE_FIREGRID dyn_em 8:fmc_g
+halo	  HALO_FIRE_MOISTURE_ATMGRID dyn_em 8:fmc_gc
 #
 # ----------------------------------------
 #  end fire variables and configuration
