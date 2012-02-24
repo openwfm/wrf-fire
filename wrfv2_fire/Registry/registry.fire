@@ -52,7 +52,7 @@ state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"
 # fuel moisture model variables
 dimspec  num_fmc    -   namelist=nfmc              c      fuel_moisture_classes 
 rconfig  integer  nfmc  namelist,fire  1    5  -   "nfmc" "number of fuel moisture classes"
-state    real     fmc_gc  ij{num_fmc} fire      1           z    hr   "FMC_GC"  "fuel moisture contents by class" "1"
+state    real     fmc_gc  i{num_fmc}j fire      1           z    hr   "FMC_GC"  "fuel moisture contents by class" "1"
 state    real     rain_old  ij       fire        1         z     hr   "RAIN_OLD" "previous value of accumulated rain" "mm"
 state    real     t2_old    ij       fire        1         z     hr   "T2_OLD" "previous value of accumulated rain" "mm"
 state    real     q2_old    ij       fire        1         z     hr   "Q2_OLD" "previous value of accumulated rain" "mm"
