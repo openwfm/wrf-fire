@@ -612,10 +612,10 @@ character(len=128)msg
 if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme)then
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,*)'mesh dimensions:  ',ids,ide,jds,jde
-    call message(msg)
+    call message(msg,level=0)
     write(msg,*)'memory dimensions:',ims,ime,jms,jme
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-    call message(msg)
+    call message(msg,level=0)
     call crash('check_mesh_2dim: memory dimensions too small')
 endif
 end subroutine check_mesh_2dim
@@ -674,7 +674,7 @@ jsz2 = jte2-jts2+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
-    call message('all mesh sizes must be positive')
+    call message('all mesh sizes must be positive',level=0)
     goto 9
 endif
 
@@ -683,7 +683,7 @@ ir=isz2/isz1
 jr=jsz2/jsz1
 
 if(isz2.ne.isz1*ir .or. jsz2.ne.jsz1*jr)then
-    call message('input mesh size must be multiple of output mesh size')
+    call message('input mesh size must be multiple of output mesh size',level=0)
     goto 9
 endif
 
@@ -710,14 +710,14 @@ return
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,91)its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
-call message(msg)
+call message(msg,level=0)
 write(msg,91)its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
-call message(msg)
+call message(msg,level=0)
 write(msg,92)'input  mesh size:',isz2,jsz2
-call message(msg)
+call message(msg,level=0)
 91 format('dimensions: ',8i8)
 write(msg,92)'output mesh size:',isz1,jsz1
-call message(msg)
+call message(msg,level=0)
 92 format(a,2i8)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call crash('module_fr_spread_util:sum_mesh_cells: bad mesh sizes')
@@ -885,14 +885,14 @@ return
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
-call message(msg)
+call message(msg,level=0)
 write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-call message(msg)
+call message(msg,level=0)
 write(msg,92)'input  mesh size:',isz2,jsz2
-call message(msg)
+call message(msg,level=0)
 91 format('dimensions: ',8i8)
 write(msg,92)'output mesh size:',isz1,jsz1
-call message(msg)
+call message(msg,level=0)
 92 format(a,2i8)
 call crash("module_fr_sfire_util:interpolate_2dmesh_cells: bad mesh sizes")
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
@@ -974,14 +974,14 @@ return
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
-call message(msg)
+call message(msg,level=0)
 write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-call message(msg)
+call message(msg,level=0)
 write(msg,92)'input  mesh size:',isz2,jsz2
-call message(msg)
+call message(msg,level=0)
 91 format('dimensions: ',8i8)
 write(msg,92)'output mesh size:',isz1,jsz1
-call message(msg)
+call message(msg,level=0)
 92 format(a,2i8)
 call crash("module_fr_sfire_util:interpolate_2d_cells2nodes: bad mesh sizes")
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
@@ -1304,7 +1304,7 @@ id=name
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,'(a,4i4,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call message(msg)
+call message(msg,level=0)
 if(.not.avg_a.eq.avg_a)call crash('NaN detected')
 end subroutine print_stat_line
 
@@ -1353,7 +1353,7 @@ return
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,1)name,i,k,j,aa
-call message(msg)
+call message(msg,level=0)
 1 format(a30,'(',i6,',',i6,',',i6,') = ',g13.5)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
@@ -1568,7 +1568,7 @@ rewind(iu,err=9)
 read(iu,*,err=10)ni,nj
 if(ni.ne.mi.or.nj.ne.mj)then
     write(msg,'(a,2i6,a,2i6)')'Array dimensions',ni,nj,' in the input file should be ',mi,mj
-    call message(msg)
+    call message(msg,level=0)
     goto 10
 endif
 do i=its,ite
