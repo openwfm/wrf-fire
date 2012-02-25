@@ -59,8 +59,8 @@ state    real     q2_old    ij       fire        1         z     hr   "Q2_OLD" "
 state    real     psfc_old  ij       fire        1         z     hr   "PSFC_OLD" "previous value of accumulated rain" "mm"
 rconfig logical  initialize_fmc    namelist,fire  1    .true.  hr   "initialize_fmc" "set initial moisture to fuelmc_g from namelist.fire"
 rconfig logical  dynamic_fuel_moisture  namelist,fire  1    .true.  hr   "run fuel moisture model or not"
-halo	  HALO_FIRE_MOIST_FIREGRID dyn_em 24:fmc_g
-halo	  HALO_FIRE_MOIST_ATMGRID dyn_em 8:fmc_gc
+halo      HALO_FIRE_MFG dyn_em 24:fmc_g
+halo      HALO_FIRE_MAG dyn_em 8:fmc_gc
 
 # diagnostics
 # for the actual modeled fire

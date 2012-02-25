@@ -108,7 +108,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
     USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
 halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
-halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub
+halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
 #endif
 
     implicit none
@@ -214,7 +214,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub
 
             if(run_moisture)then
             ! have interpolated to the fire grid, update coefficients 
-#include "HALO_FIRE_MOIST_FIREGRID.inc"
+#include "HALO_FIRE_MFG.inc"
             endif
 
         elseif(fire_ifun.eq.6)then
@@ -285,7 +285,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub
             elseif(fire_ifun.eq.3)then
                 if(run_moisture)then
                 ! moisture model has advanced, prepare for interpolation to the fire grid
-#include "HALO_FIRE_MOIST_ATMGRID.inc"
+#include "HALO_FIRE_MAG.inc"
                 endif
             endif
 #endif
