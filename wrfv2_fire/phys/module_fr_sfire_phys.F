@@ -342,7 +342,7 @@ do j=jts,jte
             if (R > 0.) then
                 select case(wetting_model(k))
                 case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
-                        tend=(saturation_moisture(k)-fmc)/wetting_lag(k) * (1. - exp(R/saturation_rain(k)))
+                        tend=(saturation_moisture(k)-fmc)/wetting_lag(k) * (1. - exp(-R/saturation_rain(k)))
                 end select
             else ! not raining
                 ! average the inputs for second order accuracy
