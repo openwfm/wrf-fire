@@ -736,7 +736,7 @@ real::r
      case(3)
        call message('fire_wind_log_interp=3: log interpolation on fire mesh,' // &
            ' interpolated roughness from landuse, constant fire_wind_height')
-       call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+       call interpolate_z2fire(id,1,                & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
             ips,ipe,jps,jpe,                              &

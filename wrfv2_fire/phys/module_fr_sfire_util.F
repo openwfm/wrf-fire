@@ -90,6 +90,7 @@ contains
 !
 
 subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+    istrip,                              & ! width of strip to extrapolate to around domain
     ids,ide, jds,jde,                    & ! atm grid dimensions
     ims,ime, jms,jme,                    &
     ips,ipe,jps,jpe,                              &
@@ -106,6 +107,7 @@ implicit none
 
 !*** arguments
 integer, intent(in)::id,                          &
+    istrip,                                       &
     ids,ide, jds,jde,                    & ! atm domain bounds
     ims,ime,jms,jme,                    & ! atm memory bounds 
     ips,ipe,jps,jpe,                              &
@@ -122,6 +124,8 @@ real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
 !*** local
 real, dimension(its-2:ite+2,jts-2:jte+2):: za      ! terrain height
 integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1,itso,jtso,iteo,jteo
+
+if(istrip.gt.1)call crash('interpolate_z2fire: istrip should be 0 or 1 or less')
 
 ! terrain height
 
@@ -145,10 +149,10 @@ integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1,itso,jtso,iteo,jteo
     za)                               ! array
 
     ! interpolate to tile plus strip along domain boundary if at boundary
-    jfts1=snode(jfts,jfds,-1) ! lower loop limit by one less when at end of domain
-    ifts1=snode(ifts,ifds,-1)
-    jfte1=snode(jfte,jfde,+1) 
-    ifte1=snode(ifte,ifde,+1)
+    jfts1=snode(jfts,jfds,-istrip) ! lower loop limit by one less when at end of domain
+    ifts1=snode(ifts,ifds,-istrip)
+    jfte1=snode(jfte,jfde,+istrip) 
+    ifte1=snode(ifte,ifde,+istrip)
                      
     call interpolate_2d(  &
         its-2,ite+2,jts-2,jte+2, & ! memory dims atm grid tile

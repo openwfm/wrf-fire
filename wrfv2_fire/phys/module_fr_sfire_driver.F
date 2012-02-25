@@ -569,7 +569,7 @@ do ij=1,num_tiles
 !    
 !        ! interpolate terrain height
 !        if(fire_topo_from_atm.eq.1)then
-!            call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+!            call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
 !                ids,ide,  jds,jde,                    & ! atm grid dimensions
 !                ims,ime,  jms,jme,                    &
 !                ips,ipe,jps,jpe,                              &
@@ -607,7 +607,7 @@ do ij=1,num_tiles
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlat,'xlat',id)
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlong,'xlong',id)
 #endif
-        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+        call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
             ips,ipe,jps,jpe,                              &
@@ -619,7 +619,7 @@ do ij=1,num_tiles
             xlat,                                       & ! atm grid arrays in
             fxlat)                                      ! fire grid arrays out
 
-        call interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+        call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
             ips,ipe,jps,jpe,                              &
