@@ -26,7 +26,7 @@ end type fire_params
 
 ! subroutenes and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
-write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid
+write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_moisture
 
 ! types
 public:: fire_params
@@ -281,13 +281,14 @@ enddo
 
 end subroutine fuel_moisture
 
+
 subroutine advance_moisture(    &
-    initialize,                 & ! 0 = run,  1 = initialize previous values, 2 = initialize also moisture
-    fmc_gc_init,                & ! initial value of moisture
-    ims,ime,  jms,jme,          & ! memory dimensions
-    its,ite,  jts,jte,          & ! tile dimensions
+    initialize,    & !  initialize timestepping
+    initialize_fmc,              & 
+    ims,ime,  jms,jme,      & ! memory dimensions
+    its,ite,  jts,jte,              & ! tile dimensions
     nfmc,                       & ! number of moisture fields
-    timestep,                   & ! moisture model time step
+    moisture_dt,                   & ! timestep = time step time elapsed from the last call
     rainc, rainnc,              & ! accumulated rain 
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
     rain_old,                   & ! previous value of accumulated rain
@@ -296,15 +297,18 @@ subroutine advance_moisture(    &
     )
 
 !*** arguments
+logical, intent(in):: initialize,initialize_fmc
 integer, intent(in)::           &
-    initialize,                 & ! 0 = run,  other = initialize
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc                          ! number of moisture fields
-real, intent(in):: fmc_gc_init,timestep
+real, intent(in):: moisture_dt
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+
+!*** module variables
+! fuelmc_g
 
 !*** local
 integer:: i,j,k
@@ -312,8 +316,19 @@ real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc
 
 !*** executable
 
-if(initialize.ge.1)call copy2old
-if(initialize.ge.2)call init_fmc_gc
+if(initialize)then
+	call copy2old
+	if(initialize_fmc)then
+	        do j=jts,jte
+                        do k=1,nfmc
+                                do i=its,ite
+                                       fmc_gc(i,k,j)=fuelmc_g ! from module
+                               enddo
+                       enddo
+                enddo
+          endif
+	return
+endif
 
 do j=jts,jte
     do k=1,nfmc
@@ -322,7 +337,7 @@ do j=jts,jte
             fmc = fmc_gc(i,k,j)
             ! compute the rain intensity from the difference of accumulated rain
             rain_diff = ((rainc(i,j) + rainnc(i,j)) - rain_old(i,j))
-            rain_int  = rain_diff/timestep 
+            rain_int  = rain_diff / moisture_dt 
             R = rain_int - rain_threshold(k)
             if (R > 0.) then
                 select case(wetting_model(k))
@@ -351,12 +366,13 @@ do j=jts,jte
                         endif
                 end select
             endif
-          fmc_gc(i,k,j) = fmc + timestep*tend
+          fmc_gc(i,k,j) = fmc + moisture_dt * tend
       enddo
    enddo
 enddo
           
 call copy2old
+
 return
 
 contains
@@ -373,17 +389,6 @@ do j=jts,jte
 enddo
 
 end subroutine copy2old
-
-subroutine init_fmc_gc
-    do j=jts,jte
-        do k=1,nfmc
-            do i=its,ite
-                fmc_gc(i,k,j)=fmc_gc_init
-            enddo
-        enddo
-    enddo
-end subroutine init_fmc_gc
-
 
 end subroutine advance_moisture
 
