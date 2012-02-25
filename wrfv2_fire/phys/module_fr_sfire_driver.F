@@ -214,7 +214,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub
 
             if(run_moisture)then
             ! have interpolated to the fire grid, update coefficients 
-#include "HALO_FIRE_MOIST_FIREGRID.inc"
+#include "HALO_FIRE_MFG.inc"
             endif
 
         elseif(fire_ifun.eq.6)then
@@ -285,7 +285,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub
             elseif(fire_ifun.eq.3)then
                 if(run_moisture)then
                 ! moisture model has advanced, prepare for interpolation to the fire grid
-#include "HALO_FIRE_MOIST_ATMGRID.inc"
+#include "HALO_FIRE_MAG.inc"
                 endif
             endif
 #endif
