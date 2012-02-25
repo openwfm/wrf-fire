@@ -108,7 +108,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
     USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
 halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
-halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub
+halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
 #endif
 
     implicit none
