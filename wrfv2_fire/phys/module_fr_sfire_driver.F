@@ -133,6 +133,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
     type(fire_params)::fp
+    real:: time_step_end
 
     logical:: run_moisture
     real::    dt_moisture
@@ -160,12 +161,45 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
     itimestep=grid%itimestep
+    time_step_end = time_step_start + dt
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
     
     ! **** moisture model
     ! run moisture model this timestep?
-    run_moisture = .true.  .or. config_flags%dynamic_fuel_moisture
-    dt_moisture  = dt      ! Time since moisture model run the last time. Should be long. ********* REPLACE *********
+    run_moisture = .false.
+    if(config_flags%fmoist_run)then
+        if(fire_ifun_start < 3)then
+            call message('moisture model runs because are initializing')
+            grid%fmoist_lasttime=0.
+            run_moisture = .true. 
+        endif
+        if(config_flags%fmoist_freq > 0)then  ! go by mutliples?
+            if(mod(grid%itimestep,config_flags%fmoist_freq) .eq. 0)then
+                write(msg,*)'moisture model runs because timestep ',grid%itimestep,' is multiple of ',config_flags%fmoist_freq
+                call message(msg)
+                run_moisture = .true. ! yes, it is the given multiple
+            endif
+        else   ! no, by specified interval
+            if(.not. time_step_end  < grid%fmoist_nexttime) then ! the time has come
+                write(msg,*)'moisture model runs because time ',grid%fmoist_nexttime,'s has arrived'
+                run_moisture = .true.
+            endif
+        endif
+    endif
+    if(run_moisture)then
+        dt_moisture  = time_step_end - grid%fmoist_lasttime  ! Time since moisture model run the last time. Should be long.
+        grid%fmoist_lasttime = time_step_end
+        write(msg,*)'moisture time step is ',dt_moisture,'s'
+        call message(msg)
+        if(config_flags%fmoist_freq > 0)then
+        else
+            grid%fmoist_nexttime = time_step_end + config_flags%fmoist_dt
+            write(msg,*)'next run at ',grid%fmoist_nexttime,'s'
+        endif
+     endif
+ 
+
+        
 
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(a,i1,a,i1,a,l1)') &
