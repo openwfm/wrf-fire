@@ -36,15 +36,32 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 
-! moisture behavior
+! moisture behavior, see Mandel et al EGU 2012
+
+!! To add moisture classes:
+!  1. change parameter max_moisture_classes below
+!  2. change the default of nfmc to the same value in Registry/registry.fire
+!  3. add the appropriate lines real::fmc_gw<number>= <default values>
+!  4. add dfault 
+
+!*** dimensions
+   INTEGER, PARAMETER :: mfuelcats = 30     ! max number of fuel categories 
   integer, parameter::max_moisture_classes=5
+!***
+
   integer, parameter::zm=max_moisture_classes - 3
   integer:: moisture_classes=3
   real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold
   integer, dimension(max_moisture_classes):: drying_model,wetting_model
+   ! relative weights of moisture class for each fuel category
+   integer::itmp
+   real, dimension(mfuelcats):: &  ! should sum up to one
+     fmc_gw1=(/ (1.0, itmp=1,mfuelcats) /), & 
+     fmc_gw2=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw3=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw4=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw5=(/ (0.0, itmp=1,mfuelcats) /) 
     
-  real, dimension(7)::eq_p
-
   data drying_lag                 /1., 10., 100. , zm*0./  ! time lag (h) approaching equilibrium moisture 
   data wetting_lag                   /14, 140., 1400., zm*0./  ! time lag (h) for approaching saturation in rain
   data saturation_moisture        /2.5, 2.5, 2.5 , zm*0./  ! saturation moisture contents (1) in rain
@@ -52,7 +69,7 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
   data rain_threshold             /0.05, 0.05, 0.05, zm*0 /! rain intensity this small is same as nothing
   data drying_model               /1,   1,   1,    zm*0 /
   data wetting_model              /1,   1,   1,    zm*0 /
-  real:: fmc_gc_default=0.09
+  real, dimension(7)::eq_p
   data eq_p/  1.035e-09, &   !(3.893e-10, 1.681e-09) ! coefficients of the equilibrium fuel moisture polynomial
               -2.62e-07, &   !(-4.593e-07, -6.473e-08) ! fitted from the graph in Schroeder and Buck (1970)
               2.507e-05, &   !(2.194e-06, 4.795e-05)
@@ -60,6 +77,8 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
                 0.02245, &   !(-0.009188, 0.05409)
                -0.05901, &   !(-0.3721, 0.254)
                   3.043/   !(2.17, 3.915)
+   
+   ! =========================================================================
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
@@ -125,7 +144,6 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
 ! fuel categorytables
    INTEGER, PARAMETER :: nf=14              ! fuel cats in data stmts, for fillers only`
    INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, can be reset from namelist.fire
-   INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
    INTEGER, SAVE      :: ibeh=1             ! type of spread formula
@@ -194,10 +212,8 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
    DATA adjr0 /mfuelcats*1./
    DATA adjrw /mfuelcats*1./
    DATA adjrs /mfuelcats*1./
-   integer, parameter::nz_fmc_gw = (max_moisture_classes-1)*mfuelcats
-   DATA fmc_gw /mfuelcats*1,nz_fmc_gw*0./                  ! row k are relative weights of moisture class k for each fuel category
-       
-! =========================================================================
+   
+   ! =========================================================================
 
   logical, save :: have_fuel_cats=.false.
 
@@ -431,7 +447,10 @@ REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw1,fmc_gw2,fmc_gw3,fmc_gw4,fmc_gw5
+
+namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold, &
+    drying_model,wetting_model
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -446,6 +465,12 @@ IF ( wrf_dm_on_monitor() ) THEN
     iounit=open_text_file('namelist.fire','read')
     read(iounit,fuel_scalars)
     read(iounit,fuel_categories)
+    read(iounit,moisture)
+    fmc_gw(1:mfuelcats,1)=fmc_gw1
+    fmc_gw(1:mfuelcats,2)=fmc_gw2
+    fmc_gw(1:mfuelcats,3)=fmc_gw3
+    fmc_gw(1:mfuelcats,4)=fmc_gw4
+    fmc_gw(1:mfuelcats,5)=fmc_gw5
     CLOSE(iounit)
     ! copy out to permanent names
     fcwh=fwh
