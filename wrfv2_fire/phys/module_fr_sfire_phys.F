@@ -329,8 +329,17 @@ real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
 !*** local
 integer:: i,j,k
 real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc
+character(len=128)::msg
 
 !*** executable
+
+if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+   write(msg,*)'moisture_classes=',moisture_classes,' > nfmc=',nfmc,' or >  max_moisture_classes=',max_moisture_classes
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+    call message(msg)
+    call crash('advance_moisture: bad number of  moisture classes')
+endif
 
 if(initialize)then
 	call copy2old

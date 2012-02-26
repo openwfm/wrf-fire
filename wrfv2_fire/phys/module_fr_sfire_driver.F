@@ -641,7 +641,8 @@ do ij=1,num_tiles
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
 
         !  initialize the moisture model
-        call advance_moisture(    &
+        if(run_moisture)then
+            call advance_moisture(    &
                .true.,             & !  initialize timestepping
                initialize_fmc,    & ! if true, set initial moisture to fuelmc_g 
                ims,ime,  jms,jme,      & ! memory dimensions
@@ -654,6 +655,7 @@ do ij=1,num_tiles
                t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
                fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
                )
+         endif
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
  
@@ -721,7 +723,8 @@ do ij=1,num_tiles
       ! still with ifun=3
       
       ! one timestep of the moisture model
-      call advance_moisture(    &
+      if(run_moisture)then
+       call advance_moisture(    &
         .false.,                 & 
         .false.,                 & 
         ims,ime,  jms,jme,          & ! memory dimensions
@@ -734,11 +737,13 @@ do ij=1,num_tiles
         t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
         fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
         )
+      endif
         
     elseif(ifun.eq.4)then
     
       ! interpolate and compute weighted average to get the fuel moisture
-      call fuel_moisture(                &
+      if(run_moisture)then
+        call fuel_moisture(                &
         id,                                     & ! for prints and maybe file names
         nfmc,                                &
         ids,ide, jds,jde,               & ! atm grid dimensions
@@ -752,7 +757,8 @@ do ij=1,num_tiles
         nfuel_cat,                         & ! fuel data
         fmc_gc,                             & ! moisture contents by class on atmospheric grid
         fmc_g                                & ! weighted fuel moisture contents on fire grid
-    )
+        )
+      endif
 
     endif
 
