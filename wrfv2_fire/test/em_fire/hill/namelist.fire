@@ -63,5 +63,6 @@ no_fuel_cat = 14                   ! extra category for no fuel
           1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
  /
 
-
+&moisture
+/
 

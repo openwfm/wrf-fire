@@ -458,9 +458,11 @@ namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,
 
 IF ( wrf_dm_on_monitor() ) THEN
     ! we are the master task
+    
     ! copy in defaults
     fwh=fcwh
     fz0=fcz0
+    
     ! read the file
     iounit=open_text_file('namelist.fire','read')
     read(iounit,fuel_scalars)
@@ -472,6 +474,7 @@ IF ( wrf_dm_on_monitor() ) THEN
     fmc_gw(1:mfuelcats,4)=fmc_gw4
     fmc_gw(1:mfuelcats,5)=fmc_gw5
     CLOSE(iounit)
+    
     ! copy out to permanent names
     fcwh=fwh
     fcz0=fz0
@@ -486,7 +489,7 @@ IF ( wrf_dm_on_monitor() ) THEN
     endif
 ENDIF
 
-! broadcast the contents of the file
+! broadcast fuel tables
 call wrf_dm_bcast_real(cmbcnst,1)
 call wrf_dm_bcast_real(hfgl,1)
 call wrf_dm_bcast_real(fuelmc_g,1)
@@ -513,7 +516,18 @@ call wrf_dm_bcast_real(ffw,       nfuelcats)
 call wrf_dm_bcast_real(adjr0,     nfuelcats)
 call wrf_dm_bcast_real(adjrw,     nfuelcats)
 call wrf_dm_bcast_real(adjrs,     nfuelcats)
+! broadcast moisture tables
+call wrf_dm_bcast_integer(moisture_classes,1)
+call wrf_dm_bcast_real(drying_lag,     max_moisture_classes)
+call wrf_dm_bcast_real(wetting_lag,     max_moisture_classes)
+call wrf_dm_bcast_real(saturation_moisture,     max_moisture_classes)
+call wrf_dm_bcast_real(saturation_rain,     max_moisture_classes)
+call wrf_dm_bcast_real(rain_threshold,     max_moisture_classes)
+call wrf_dm_bcast_integer(drying_model,     max_moisture_classes)
+call wrf_dm_bcast_integer(wetting_model,     max_moisture_classes)
+call wrf_dm_bcast_real(fmc_gw,     mfuelcats*max_moisture_classes)
 
+!-------------------------------- fuel model
 ! compute derived scalars
 
 fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
