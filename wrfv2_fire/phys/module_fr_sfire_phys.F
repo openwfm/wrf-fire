@@ -448,7 +448,7 @@ implicit none
 logical, external:: wrf_dm_on_monitor
 !$ integer, external:: OMP_GET_THREAD_NUM
 !*** local
-integer:: i,j,k,ii,iounit
+integer:: i,j,k,ii,iounit,ierr
 character(len=128):: msg
 REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 !*** executable
@@ -474,9 +474,12 @@ IF ( wrf_dm_on_monitor() ) THEN
     
     ! read the file
     iounit=open_text_file('namelist.fire','read')
-    read(iounit,fuel_scalars)
-    read(iounit,fuel_categories)
-    read(iounit,moisture)
+    read(iounit,fuel_scalars,iostat=ierr)
+    if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_scalars in file namelist.fire')
+    read(iounit,fuel_categories,iostat=ierr)
+    if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_categories in file namelist.fire')
+    read(iounit,moisture,iostat=ierr)
+    if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist moisture in file namelist.fire')
     fmc_gw(1:mfuelcats,1)=fmc_gw1
     fmc_gw(1:mfuelcats,2)=fmc_gw2
     fmc_gw(1:mfuelcats,3)=fmc_gw3
