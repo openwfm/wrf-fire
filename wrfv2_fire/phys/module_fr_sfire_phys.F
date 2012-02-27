@@ -32,7 +32,7 @@ write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_m
 public:: fire_params
 
 ! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,moisture_classes
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 

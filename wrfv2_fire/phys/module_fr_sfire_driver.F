@@ -69,7 +69,7 @@ module module_fr_sfire_driver
 ! use this module for standalone call, you only need to provide some mock-up wrf modules  
 
 use module_fr_sfire_model, only: sfire_model
-use module_fr_sfire_phys, only: fire_params, init_fuel_cats, set_fp_from_grid, fuel_moisture, advance_moisture
+use module_fr_sfire_phys, only: fire_params, init_fuel_cats, set_fp_from_grid, fuel_moisture, advance_moisture, moisture_classes
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
@@ -683,7 +683,7 @@ do ij=1,num_tiles
                initialize_fmc,    & ! if true, set initial moisture to fuelmc_g 
                ims,ime,  jms,jme,      & ! memory dimensions
                its,ite,  jts,jte,              & ! tile dimensions
-               nfmc,                       & ! number of moisture fields
+               nfmc,                       & ! dimension of the number of moisture fields
                dt_moisture,              & ! moisture model time step
                rainc, rainnc,              & ! accumulated rain 
                t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -691,6 +691,7 @@ do ij=1,num_tiles
                t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
                fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
                )
+               call print_3d_stats(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'driver_phys: fmc_gc')
          endif
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
@@ -760,19 +761,21 @@ do ij=1,num_tiles
       
       ! one timestep of the moisture model
       if(run_moisture)then
-       call advance_moisture(    &
-        .false.,                 & 
-        .false.,                 & 
-        ims,ime,  jms,jme,          & ! memory dimensions
-        its,ite,  jts,jte,          & ! tile dimensions
-        nfmc,                       & ! number of moisture fields
-        dt_moisture,                & ! moisture model time step
-        rainc, rainnc,              & ! accumulated rain 
-        t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
-        rain_old,                   & ! previous value of accumulated rain
-        t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
-        fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
-        )
+          call print_3d_stats(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'driver_phys:fmc_gc')
+          call advance_moisture(    &
+              .false.,                 & 
+              .false.,                 & 
+              ims,ime,  jms,jme,          & ! memory dimensions
+              its,ite,  jts,jte,          & ! tile dimensions
+              nfmc,                       & ! number of moisture fields
+              dt_moisture,                & ! moisture model time step
+              rainc, rainnc,              & ! accumulated rain 
+              t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
+              rain_old,                   & ! previous value of accumulated rain
+              t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
+              fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+          )
+          call print_3d_stats(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'fmc_gc')
       endif
         
     elseif(ifun.eq.4)then
@@ -794,6 +797,7 @@ do ij=1,num_tiles
         fmc_gc,                             & ! moisture contents by class on atmospheric grid
         fmc_g                                & ! weighted fuel moisture contents on fire grid
         )
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
       endif
 
     endif
