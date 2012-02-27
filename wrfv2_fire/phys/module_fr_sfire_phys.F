@@ -271,6 +271,8 @@ do k=1,nfmc
         enddo
     enddo
 
+    call print_2d_stats(its,ite,jts,jte,its-1,ite+1,jts-1,jte+1,fmc_k,'advance_moisture: class fmc_k')
+
     ! interpolate moisture contents in the class k to the fire mesh
     call interpolate_z2fire(id,0,        & ! for debug output, <= 0 no output
     ids,ide,jds,jde,                     & ! atm grid dimensions
@@ -284,13 +286,19 @@ do k=1,nfmc
     fmc_k,                               & ! atm grid arrays in
     fmc_f)                                 ! fire grid arrays out
 
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fmc_f,'advance_moisture: interpolated to fire mesh, fmc_f')
+
     ! add moisture contents for class k to the fuel moisture
     do j=jfts,jfte
         do i=ifts,ifte
             n = nfuel_cat(i,j)
-            fmc_g(i,j)=fmc_g(i,j)+fmc_gw(k,n)*fmc_f(i,j)      ! initialize sum over classes
+            if(n > 0)then
+                fmc_g(i,j)=fmc_g(i,j)+fmc_gw(n,k)*fmc_f(i,j)      ! add to sum over classes
+            endif
         enddo
     enddo
+
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'advance_moisture: fire mesh sum fmc_g')
 
 enddo
 
@@ -330,15 +338,22 @@ real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
 integer:: i,j,k
 real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc
 character(len=128)::msg
+integer::msglevel=2
 
 !*** executable
 
-if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
+if(msglevel>1)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-   write(msg,*)'moisture_classes=',moisture_classes,' > nfmc=',nfmc,' or >  max_moisture_classes=',max_moisture_classes
+    write(msg,*)'advance moisture: using ',moisture_classes,' moisture classes from available ',nfmc
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
-    call crash('advance_moisture: bad number of  moisture classes')
+endif
+
+if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+    write(msg,*)'advance_moisture: moisture_classes=',moisture_classes,' > nfmc=',nfmc,' or >  max_moisture_classes=',max_moisture_classes
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+    call crash(msg)
 endif
 
 if(initialize)then
@@ -349,7 +364,7 @@ if(initialize)then
                                 do i=its,ite
                                        fmc_gc(i,k,j)=fuelmc_g ! from module
                                enddo
-                       enddo
+                        enddo
                 enddo
           endif
 	return
