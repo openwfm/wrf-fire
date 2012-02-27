@@ -56,11 +56,11 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
    ! relative weights of moisture class for each fuel category
    integer::itmp
    real, dimension(mfuelcats):: &  ! should sum up to one
-     fmc_gw1=(/ (1.0, itmp=1,mfuelcats) /), & 
-     fmc_gw2=(/ (0.0, itmp=1,mfuelcats) /), & 
-     fmc_gw3=(/ (0.0, itmp=1,mfuelcats) /), & 
-     fmc_gw4=(/ (0.0, itmp=1,mfuelcats) /), & 
-     fmc_gw5=(/ (0.0, itmp=1,mfuelcats) /) 
+     fmc_gw01=(/ (1.0, itmp=1,mfuelcats) /), & 
+     fmc_gw02=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw03=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw04=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw05=(/ (0.0, itmp=1,mfuelcats) /) 
     
   data drying_lag                 /1., 10., 100. , zm*0./  ! time lag (h) approaching equilibrium moisture 
   data wetting_lag                   /14, 140., 1400., zm*0./  ! time lag (h) for approaching saturation in rain
@@ -448,7 +448,7 @@ implicit none
 logical, external:: wrf_dm_on_monitor
 !$ integer, external:: OMP_GET_THREAD_NUM
 !*** local
-integer:: i,j,k,ii,iounit,ierr
+integer:: i,j,k,ii,iounit,ierr,kk
 character(len=128):: msg
 REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 !*** executable
@@ -456,7 +456,7 @@ REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw1,fmc_gw2,fmc_gw3,fmc_gw4,fmc_gw5
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
 
 namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold, &
     drying_model,wetting_model
@@ -480,11 +480,11 @@ IF ( wrf_dm_on_monitor() ) THEN
     if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_categories in file namelist.fire')
     read(iounit,moisture,iostat=ierr)
     if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist moisture in file namelist.fire')
-    fmc_gw(1:mfuelcats,1)=fmc_gw1
-    fmc_gw(1:mfuelcats,2)=fmc_gw2
-    fmc_gw(1:mfuelcats,3)=fmc_gw3
-    fmc_gw(1:mfuelcats,4)=fmc_gw4
-    fmc_gw(1:mfuelcats,5)=fmc_gw5
+    fmc_gw(1:mfuelcats,1)=fmc_gw01
+    fmc_gw(1:mfuelcats,2)=fmc_gw02
+    fmc_gw(1:mfuelcats,3)=fmc_gw03
+    fmc_gw(1:mfuelcats,4)=fmc_gw04
+    fmc_gw(1:mfuelcats,5)=fmc_gw05
     CLOSE(iounit)
     
     ! copy out to permanent names
@@ -573,11 +573,14 @@ write(msg,7)'nfuelcats  ',nfuelcats
 call message(msg)
 write(msg,7)'no_fuel_cat',no_fuel_cat
 call message(msg)
+write(msg,7)'moisture_classes',moisture_classes
+call message(msg)
 
 j=1
 7 format(a,5(1x,i8,4x))
 8 format(a,5(1x,g12.5e2))
 9 format(a,5(1x,a))
+10 format(a,i2.2,2x,5(1x,g12.5e2))
 do i=1,nfuelcats,j
     k=min(i+j-1,nfuelcats)
     call message(' ')
@@ -625,9 +628,38 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'adjrs     ',(adjrs(ii),ii=i,k)
     call message(msg)
+    do kk=1,moisture_classes 
+        write(msg,10)'fmc_gw',kk,(fmc_gw(ii,kk),ii=i,k)
+        call message(msg)
+    enddo
 enddo
+call message(' ')
 call message('**********************************************************')
 
+j=1
+do i=1,moisture_classes,j
+    k=min(i+j-1,nfuelcats)
+    call message(' ')
+    write(msg,7)'FUEL MOISTURE CLASS',(ii,ii=i,k)
+    call message(msg)
+    write(msg,7)'drying_model       ',(drying_model(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'drying_lag (h)     ',(drying_lag(ii),ii=i,k)
+    call message(msg)
+    write(msg,7)'wetting_model      ',(wetting_model(ii),ii=i,k)
+    call message(msg)
+    write(msg,8)'wetting_lag (h)    ',(wetting_lag(ii),ii=i,k)
+    call message(msg)    
+    write(msg,8)'saturation_moisture',(saturation_moisture(ii),ii=i,k)
+    call message(msg)    
+    write(msg,8)'saturation_rain    ',(saturation_rain(ii),ii=i,k)
+    call message(msg)    
+    write(msg,8)'rain_threshold     ',(rain_threshold(ii),ii=i,k)
+    call message(msg)    
+enddo
+call message(' ')
+call message('**********************************************************')
+call message(' ')
 have_fuel_cats=.true.
 
 ! and print to file
