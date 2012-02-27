@@ -133,7 +133,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     real:: corner_ll,corner_ul,corner_ur,corner_lr
     character(len=128)msg
     type(fire_params)::fp
-    real:: time_step_end
+    real:: moisture_time
 
     logical:: run_moisture
     real::    dt_moisture
@@ -161,45 +161,47 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
     itimestep=grid%itimestep
-    time_step_end = time_step_start + dt
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
     
     ! **** moisture model
     ! run moisture model this timestep?
+    moisture_time = time_step_start
     run_moisture = .false.
     if(config_flags%fmoist_run)then
         if(fire_ifun_start < 3)then
             call message('moisture model runs because are initializing')
             grid%fmoist_lasttime=0.
             run_moisture = .true. 
+        else
+            if(config_flags%fmoist_freq > 0)then  ! go by mutliples?
+                if(mod(grid%itimestep,config_flags%fmoist_freq) .eq. 0)then
+                    write(msg,'(a,i10,a,i10)')'moisture model runs because timestep ',grid%itimestep,' is a multiple of ',config_flags%fmoist_freq
+                    call message(msg)
+                    run_moisture = .true. ! yes, it is the given multiple
+                endif
+            else   ! no, by specified interval
+                if(.not. moisture_time  < grid%fmoist_nexttime) then ! the time has come
+                    write(msg,'(a,f12.2,a)')'moisture model runs because time ',grid%fmoist_nexttime,'s has arrived'
+                    call message(msg)
+                    run_moisture = .true.
+                endif
+            endif
         endif
-        if(config_flags%fmoist_freq > 0)then  ! go by mutliples?
-            if(mod(grid%itimestep,config_flags%fmoist_freq) .eq. 0)then
-                write(msg,*)'moisture model runs because timestep ',grid%itimestep,' is multiple of ',config_flags%fmoist_freq
+        if(run_moisture)then
+            dt_moisture  = moisture_time - grid%fmoist_lasttime  ! Time since moisture model run the last time. Should be long.
+            grid%fmoist_lasttime = moisture_time
+            if(config_flags%fmoist_freq > 0)then
+                write(msg,'(a,f12.2,a,i10,a)')'moisture time step is ',dt_moisture,'s running every ',config_flags%fmoist_freq,' steps'
                 call message(msg)
-                run_moisture = .true. ! yes, it is the given multiple
+            else
+                grid%fmoist_nexttime = moisture_time + config_flags%fmoist_dt
+                write(msg,'(a,f12.2,a,f12.2,a)')'moisture time step is ',dt_moisture,'s next run at ',grid%fmoist_nexttime,'s'
+                call message(msg)
             endif
-        else   ! no, by specified interval
-            if(.not. time_step_end  < grid%fmoist_nexttime) then ! the time has come
-                write(msg,*)'moisture model runs because time ',grid%fmoist_nexttime,'s has arrived'
-                run_moisture = .true.
-            endif
+        else
+            call message('moisture model does not run this time step')
         endif
     endif
-    if(run_moisture)then
-        dt_moisture  = time_step_end - grid%fmoist_lasttime  ! Time since moisture model run the last time. Should be long.
-        grid%fmoist_lasttime = time_step_end
-        write(msg,*)'moisture time step is ',dt_moisture,'s'
-        call message(msg)
-        if(config_flags%fmoist_freq > 0)then
-        else
-            grid%fmoist_nexttime = time_step_end + config_flags%fmoist_dt
-            write(msg,*)'next run at ',grid%fmoist_nexttime,'s'
-        endif
-     endif
- 
-
-        
 
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(a,i1,a,i1,a,l1)') &
@@ -302,7 +304,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             run_moisture,dt_moisture,                    &    ! moisture model control
             grid%rainc, grid%rainnc,                       & ! accumulated rain from different sources
             grid%t2, grid%q2, grid%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
-    	   grid%rain_old,                   & ! previous value of accumulated rain
+            grid%rain_old,                   & ! previous value of accumulated rain
             grid%t2_old, grid%q2_old, grid%psfc_old,   & ! previous values of the atmospheric state at surface
             grid%fmc_gc,                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
             fp%fmc_g )                             !  write-only alias. need to exit before using fp again
