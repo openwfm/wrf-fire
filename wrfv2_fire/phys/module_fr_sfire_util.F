@@ -1312,6 +1312,26 @@ call message(msg,level=0)
 if(.not.avg_a.eq.avg_a)call crash('NaN detected')
 end subroutine print_stat_line
 
+subroutine print_3d_stats_by_slice(ips,ipe,kps,kpe,jps,jpe, &
+                         ims,ime,kms,kme,jms,jme, &
+                         a,name)
+implicit none
+integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme,kms,kme,kps,kpe
+real, intent(in)::a(ims:ime,kms:kme,jms:jme)
+character(len=*),intent(in)::name
+integer::k
+character(len=128)::msg
+do k=kps,kpe
+! print 3d stats for each horizontal slice separately
+!$OMP CRITICAL(SFIRE_UTIL_CRIT)
+    write(msg,'(i2,1x,a)')k,name
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
+    call print_3d_stats(ips,ipe,kps,kpe,jps,jpe, &
+                         ims,ime,kms,kme,jms,jme, &
+                         a,msg)
+enddo
+end subroutine print_3d_stats_by_slice 
+
 
 subroutine print_3d_stats(ips,ipe,kps,kpe,jps,jpe, &
                          ims,ime,kms,kme,jms,jme, &

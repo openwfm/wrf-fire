@@ -254,9 +254,10 @@ real,intent(inout),dimension(ims:ime,nfmc,jms:jme):: fmc_gc
 real,intent(out),dimension(ifms:ifme,jfms:jfme):: fmc_g ! fuel data
 
 !**** local
-real, dimension(its-1:its+1,jts-1:jts+1):: fmc_k  ! copy of fmc_gc(:,k,:) 
+real, dimension(its-1:ite+1,jts-1:jte+1):: fmc_k  ! copy of fmc_gc(:,k,:) 
 real, dimension(ifts:ifte,jfts:jfte):: fmc_f      ! interpolation of fmc_gc(:,k,:) to the fire grid 
 integer::i,j,k,n
+integer::ibs,ibe,jbs,jbe
 
  
 do j=jfts,jfte
@@ -265,15 +266,22 @@ do j=jfts,jfte
     enddo
 enddo
 
-do k=1,nfmc
+! one beyond the tile but not beyond the domain boundary
+ibs=max(jds,jts-1)
+ibe=min(jde,jte+1)
+jbs=max(ids,its-1)
+jbe=min(ide,ite+1)
 
-    do j=jts-1,jts+1
-        do i=its-1,its+1
+do k=1,moisture_classes
+
+    ! copy halo beyond the tile but not beyond the domain boundary
+    do j=jbs,jbe
+        do i=ibs,ibe
             fmc_k(i,j)=fmc_gc(i,k,j)      ! copy slice to 2d array
         enddo
     enddo
 
-    call print_2d_stats(its,ite,jts,jte,its-1,ite+1,jts-1,jte+1,fmc_k,'advance_moisture: class fmc_k')
+    call print_2d_stats(ibs,ibe,jbs,jbe,its-1,ite+1,jts-1,jte+1,fmc_k,'fuel_moisture: fmc_k')
 
     ! interpolate moisture contents in the class k to the fire mesh
     call interpolate_z2fire(id,0,        & ! for debug output, <= 0 no output
@@ -288,7 +296,7 @@ do k=1,nfmc
     fmc_k,                               & ! atm grid arrays in
     fmc_f)                                 ! fire grid arrays out
 
-    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fmc_f,'advance_moisture: interpolated to fire mesh, fmc_f')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fmc_f,'fuel_moisture: fmc_f')
 
     ! add moisture contents for class k to the fuel moisture
     do j=jfts,jfte
@@ -300,7 +308,7 @@ do k=1,nfmc
         enddo
     enddo
 
-    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'advance_moisture: fire mesh sum fmc_g')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'fuel_moisture: fmc_g')
 
 enddo
 
@@ -331,6 +339,7 @@ do j=jts,jte
         enddo
     enddo
 enddo
+call message('moisture contents in all classes initialized from namelist.fire')
 end subroutine initialize_moisture_classes
 
 subroutine advance_moisture(    &
@@ -367,7 +376,7 @@ integer::msglevel=2
 
 if(msglevel>1)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-    write(msg,*)'advance moisture: using ',moisture_classes,' moisture classes from available ',nfmc
+    write(msg,'(a,f10.2,a,i4,a,i4)')'advance moisture dt=',moisture_dt,'s using ',moisture_classes,' classes from possible ',nfmc
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 endif
@@ -379,9 +388,7 @@ if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
     call crash(msg)
 endif
 
-if(initialize)then
-	call copy2old
-endif
+if(initialize) call copy2old
 
 do j=jts,jte
     do k=1,nfmc
