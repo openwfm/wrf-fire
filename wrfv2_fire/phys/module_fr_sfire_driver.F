@@ -154,6 +154,11 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ! get ignition data 
     call fire_ignition_convert (config_flags,ignition)
 
+! store computed mesh units  
+    grid%unit_fxlong = ignition%unit_fxlong
+    grid%unit_fxlat = ignition%unit_fxlat
+
+
     ! copy configuration flags to sfire internal structures
     call set_flags(config_flags)
 
@@ -329,6 +334,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 
       enddo
     enddo
+
     if(tsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
     call time_end('sfire')
 
