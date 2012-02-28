@@ -55,6 +55,7 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
   integer, dimension(max_moisture_classes):: drying_model,wetting_model
    ! relative weights of moisture class for each fuel category
    integer::itmp
+   CHARACTER (len=80), DIMENSION(max_moisture_classes), save :: moisture_class_name
    real, dimension(mfuelcats):: &  ! should sum up to one
      fmc_gw01=(/ (1.0, itmp=1,mfuelcats) /), & 
      fmc_gw02=(/ (0.0, itmp=1,mfuelcats) /), & 
@@ -62,6 +63,7 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
      fmc_gw04=(/ (0.0, itmp=1,mfuelcats) /), & 
      fmc_gw05=(/ (0.0, itmp=1,mfuelcats) /) 
     
+  data moisture_class_name /'1-hour fuel','10-hour fuel','100-hour fuel',zm*'NOT USED'/
   data drying_lag                 /1., 10., 100. , zm*0./  ! time lag (h) approaching equilibrium moisture 
   data wetting_lag                   /14, 140., 1400., zm*0./  ! time lag (h) for approaching saturation in rain
   data saturation_moisture        /2.5, 2.5, 2.5 , zm*0./  ! saturation moisture contents (1) in rain
@@ -485,7 +487,7 @@ namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
 
 namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold, &
-    drying_model,wetting_model
+    drying_model,wetting_model, moisture_class_name
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -612,7 +614,7 @@ do i=1,nfuelcats,j
     call message(' ')
     write(msg,7)'CATEGORY  ',(ii,ii=i,k)
     call message(msg)
-    write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
+    write(msg,9)'fuel name ',(trim(fuel_name(ii)),ii=i,k)
     call message(msg)
     write(msg,8)'fwh       ',(fcwh(ii),ii=i,k)
     call message(msg)
@@ -667,6 +669,8 @@ do i=1,moisture_classes,j
     k=min(i+j-1,nfuelcats)
     call message(' ')
     write(msg,7)'FUEL MOISTURE CLASS',(ii,ii=i,k)
+    call message(msg)
+    write(msg,9)'moisture class name',(trim(moisture_class_name(ii)),ii=i,k)
     call message(msg)
     write(msg,7)'drying_model       ',(drying_model(ii),ii=i,k)
     call message(msg)
