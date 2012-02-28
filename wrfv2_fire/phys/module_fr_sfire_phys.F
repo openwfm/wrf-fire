@@ -26,7 +26,7 @@ end type fire_params
 
 ! subroutenes and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
-write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_moisture
+write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_moisture,initialize_moisture_classes
 
 ! types
 public:: fire_params
@@ -305,10 +305,34 @@ enddo
 
 end subroutine fuel_moisture
 
+subroutine initialize_moisture_classes( &
+    ims,ime,  jms,jme,          & ! memory dimensions
+    its,ite,  jts,jte,          & ! tile dimensions
+    nfmc,                       & ! number of moisture fields
+    fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+    )
+!*** arguments
+integer, intent(in)::           &
+    ims,ime,  jms,jme,          & ! memory dimensions
+    its,ite,  jts,jte,          & ! tile dimensions
+    nfmc                          ! number of moisture fields
+real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+!*** module variables
+! fuelmc_g
+!*** local
+integer:: i,j,k
+
+do j=jts,jte
+    do k=1,nfmc
+        do i=its,ite
+            fmc_gc(i,k,j)=fuelmc_g ! from module
+        enddo
+    enddo
+enddo
+end subroutine initialize_moisture_classes
 
 subroutine advance_moisture(    &
     initialize,    & !  initialize timestepping
-    initialize_fmc,              & 
     ims,ime,  jms,jme,      & ! memory dimensions
     its,ite,  jts,jte,              & ! tile dimensions
     nfmc,                       & ! number of moisture fields
@@ -321,7 +345,7 @@ subroutine advance_moisture(    &
     )
 
 !*** arguments
-logical, intent(in):: initialize,initialize_fmc
+logical, intent(in):: initialize
 integer, intent(in)::           &
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
@@ -330,9 +354,6 @@ real, intent(in):: moisture_dt
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
-
-!*** module variables
-! fuelmc_g
 
 !*** local
 integer:: i,j,k
@@ -358,16 +379,6 @@ endif
 
 if(initialize)then
 	call copy2old
-	if(initialize_fmc)then
-	        do j=jts,jte
-                        do k=1,nfmc
-                                do i=its,ite
-                                       fmc_gc(i,k,j)=fuelmc_g ! from module
-                               enddo
-                        enddo
-                enddo
-          endif
-	return
 endif
 
 do j=jts,jte
