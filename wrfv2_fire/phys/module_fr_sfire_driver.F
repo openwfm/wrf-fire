@@ -166,6 +166,11 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ! refinement r
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
+    write(msg,'(a,2i4)')'fire mesh refinement ratios', ir,jr
+    call message(msg)
+    if(ir.le.0.or.jr.le.0.or.mod(ir,2).ne.0.or.mod(jr,2).ne.0)then
+        call crash('fire mesh refinement ratio must be positive even')
+    endif
     itimestep=grid%itimestep
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
     
