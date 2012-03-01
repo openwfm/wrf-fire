@@ -415,8 +415,8 @@ do j=jts,jte
                 RH = 100.*Q/QRS
                 select case(drying_model(k))
                 case(1) ! Van Wagner (1972) per Viney (1991)
-                        EMC_d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
-                        EMC_w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
+                        EMC_d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
+                        EMC_w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
                         if (fmc > EMC_d) then
                             tend = (EMC_d - fmc) / drying_lag(k)
                         elseif(fmc < EMC_w)then 
