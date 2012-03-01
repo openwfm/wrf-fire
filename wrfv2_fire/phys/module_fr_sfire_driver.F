@@ -334,6 +334,8 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%rain_old,                   & ! previous value of accumulated rain
             grid%t2_old, grid%q2_old, grid%psfc_old,   & ! previous values of the atmospheric state at surface
             grid%fmc_gc,                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+            grid%fmc_equi,                      & ! fuel moisture fields updated, by class, equilibrium diagnostic 
+            grid%fmc_tend,                      & ! fuel moisture fields updated, by class, tendency diagnostic
             fp%fmc_g )                             !  write-only alias. need to exit before using fp again
  
 
@@ -407,6 +409,8 @@ subroutine sfire_driver_phys (ifun,    &
     rain_old,                   & ! previous value of accumulated rain
     t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
     fmc_gc,                    &  ! fuel moisture fields updated, by class, assumed set to something reasonable
+    fmc_equi,                    &  ! fuel moisture fields updated, by class equilibrium diagnostic
+    fmc_tend,                    &  ! fuel moisture fields updated, by class tendency diagnostic
     fmc_g)                          ! fuel moisture, alias of fp%fmc_g
     
 
@@ -492,6 +496,7 @@ real, intent(in)::dt_moisture
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi,fmc_tend
 real, intent(inout), dimension(ifms:ifme,jfms:jfme):: fmc_g
 
 
@@ -711,7 +716,9 @@ do ij=1,num_tiles
                    ims,ime,  jms,jme,      & ! memory dimensions
                    its,ite,  jts,jte,          & ! tile dimensions
                    nfmc,                       & ! number of moisture fields
-                   fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+                   fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
+                   fmc_equi,                   & ! fuel moisture fields equilibrium by class
+                   fmc_tend                    & ! fuel moisture fields tendency by class
                    )
             endif
             call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'initial fmc_gc')
@@ -725,9 +732,13 @@ do ij=1,num_tiles
                t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
                rain_old,                   & ! previous value of accumulated rain
                t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
-               fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+               fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
+               fmc_equi,                   & ! fuel moisture fields equilibrium by class
+               fmc_tend                    & ! fuel moisture fields tendency by class
                )
-            call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after  advance: fmc_gc')
+            call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
+            call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_tend,'tendency fmc_tend')
+            call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after advance fmc_gc')
          endif
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
@@ -808,7 +819,9 @@ do ij=1,num_tiles
               t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
               rain_old,                   & ! previous value of accumulated rain
               t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
-              fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+              fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
+              fmc_equi,                   &  ! fuel moisture fields updated, by class equilibrium diagnostic
+              fmc_tend                    &  ! fuel moisture fields updated, by class tendency diagnostic
           )
           call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after  advance fmc_gc')
       endif

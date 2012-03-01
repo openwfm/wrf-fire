@@ -318,8 +318,10 @@ end subroutine fuel_moisture
 subroutine initialize_moisture_classes( &
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
-    nfmc,                       & ! number of moisture fields
-    fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+    nfmc,                       & ! dimension of moisture fields
+    fmc_gc,                     & ! fuel moisture by class, updated
+    fmc_equi,                   & ! fuel moisture equilibrium by classe, for diagnostics
+    fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics
     )
 !*** arguments
 integer, intent(in)::           &
@@ -327,6 +329,7 @@ integer, intent(in)::           &
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc                          ! number of moisture fields
 real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
 !*** module variables
 ! fuelmc_g
 !*** local
@@ -335,7 +338,9 @@ integer:: i,j,k
 do j=jts,jte
     do k=1,nfmc
         do i=its,ite
-            fmc_gc(i,k,j)=fuelmc_g ! from module
+            fmc_gc(i,k,j)=fuelmc_g ! global value from module
+            fmc_equi(i,k,j)=-9999  ! avoid uninitialized arrays
+            fmc_tend(i,k,j)=-9999  ! avoid uninitialized arrays
         enddo
     enddo
 enddo
@@ -343,16 +348,18 @@ call message('moisture contents in all classes initialized from namelist.fire')
 end subroutine initialize_moisture_classes
 
 subroutine advance_moisture(    &
-    initialize,    & !  initialize timestepping
-    ims,ime,  jms,jme,      & ! memory dimensions
-    its,ite,  jts,jte,              & ! tile dimensions
-    nfmc,                       & ! number of moisture fields
-    moisture_dt,                   & ! timestep = time step time elapsed from the last call
+    initialize,                 & !  initialize timestepping
+    ims,ime,  jms,jme,          & ! memory dimensions
+    its,ite,  jts,jte,          & ! tile dimensions
+    nfmc,                       & ! dimension of moisture fields
+    moisture_dt,                & ! timestep = time step time elapsed from the last call
     rainc, rainnc,              & ! accumulated rain 
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
     rain_old,                   & ! previous value of accumulated rain
     t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
-    fmc_gc                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+    fmc_gc,                     & ! fuel moisture by class, updated
+    fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics
+    fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics
     )
 
 !*** arguments
@@ -365,10 +372,11 @@ real, intent(in):: moisture_dt
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
 
 !*** local
 integer:: i,j,k
-real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc
+real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, tlag, equi, d, w
 character(len=128)::msg
 integer::msglevel=2
 
@@ -402,7 +410,8 @@ do j=jts,jte
             if (R > 0.) then
                 select case(wetting_model(k))
                 case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
-                        tend=(saturation_moisture(k)-fmc)/wetting_lag(k) * (1. - exp(-R/saturation_rain(k)))
+                    equi=saturation_moisture(k)
+                    tlag=wetting_lag(k) * (1. - exp(-R/saturation_rain(k)))
                 end select
             else ! not raining
                 ! average the inputs for second order accuracy
@@ -415,18 +424,30 @@ do j=jts,jte
                 RH = 100.*Q/QRS
                 select case(drying_model(k))
                 case(1) ! Van Wagner (1972) per Viney (1991)
-                        EMC_d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
-                        EMC_w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
-                        if (fmc > EMC_d) then
-                            tend = (EMC_d - fmc) / drying_lag(k)
-                        elseif(fmc < EMC_w)then 
-                            tend = (EMC_w - fmc) / drying_lag(k)
-                        else
-                            tend = 0.
-                        endif
+                    d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
+                    w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
+                    EMC_d = max(d,w)
+                    EMC_w = min(d,w)
+                    tlag=drying_lag(k)
+                    if    (fmc > EMC_d)then ! drying, fmc going down to equilibrium
+                        equi=EMC_d
+                    elseif(fmc < EMC_w)then ! wetting, fmc going up to equilibrium
+                        equi=EMC_w
+                    else
+                        equi=fmc  
+                    endif
                 end select
             endif
-          fmc_gc(i,k,j) = fmc + moisture_dt * tend
+            !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIMELAG KIND NEED TO
+            !COMPUTE THE OUTPUT fmc_gc(i,k,j) AND SET TLAG <=0
+            !
+            if(tlag > 0.0)then
+                tend=(equi-fmc)/tlag
+                fmc_gc(i,k,j) = fmc + moisture_dt * tend
+                ! diagnostics out
+                fmc_equi(i,k,j)=equi
+                fmc_tend(i,k,j)=tend
+            endif
       enddo
    enddo
 enddo
