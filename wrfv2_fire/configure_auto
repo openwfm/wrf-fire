@@ -173,22 +173,22 @@ optnum=-1
 for (( i=0 ; i<${#opts[@]} ; i++ )) ; do
 	o="${opts[$i]}"
 	
-	echo $o | grep -E $CC >& /dev/null
+	echo $o | grep -E "$CC" >& /dev/null
 	if [ $? -ne 0 ] ; then
 		continue
 	fi
 
-	echo $o | grep -E $FC >& /dev/null
+	echo $o | grep -E "$FC" >& /dev/null
 	if [ $? -ne 0 ] ; then
 		continue
 	fi
 
-	echo $o | grep -E $RE >& /dev/null
+	echo $o | grep -E "$RE" >& /dev/null
 	if [ $? -ne 0 ] ; then
 		continue
 	fi
 
-	echo $o | grep -E $pstring >& /dev/null
+	echo $o | grep -E "$pstring" >& /dev/null
 	if [ $? -ne 0 ] ; then
 		continue
 	fi
