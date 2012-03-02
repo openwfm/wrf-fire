@@ -452,6 +452,15 @@ do j=jts,jte
                 ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
                 QRS=0.622*ES/(P-0.378*ES)
                 RH = Q/QRS
+                if(RH < 0.0 .or. RH > 1.0)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+                    write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH,' from T=',T,' P=',P,' Q=',Q
+                    call message(msg) 
+                    write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' ES=',ES,' QRS=',QRS,' t2=',t2(i,j),' psfc=',psfc(i,j),' q2=',q2(i,j)
+                    call message(msg) 
+                    call crash('Relative humidity must be between 0 and 1')
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+                endif
                 rhmax=max(RH,rhmax)         
                 rhmin=min(RH,rhmin)         
                 !print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
