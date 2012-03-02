@@ -1,4 +1,4 @@
-function A=ignition7(data,lat,long)
+function A=ignition7(data,wrf_out)
 
 % The function Ignition plots and showes how the fire was propagating,
 %           given ignition point, boundary region and time_now
@@ -30,35 +30,42 @@ function A=ignition7(data,lat,long)
 % 2nd row - # of longtitude
 % Rest coordinates of the grid points
 format long
+var=ncload(wrf_out);
+unit_long=(wrf_out,'UNIT_FXLONG');
+unit_lat=(wrf_out,'UNIT_FXLAT');
+long=(wrf_out,'FXLONG');
+lat=(wrf_out,'FXLAT');
+mat_size=size(long);
+
 A=1;
-fid = fopen(lat);
-latitude = fscanf(fid,'%g',[1 inf]); 
-latitude = latitude';
-fclose(fid)
-matrix_size=size(latitude);
-lat_size=latitude(1,1)*latitude(2,1);   
-if (lat_size~=matrix_size(1)-2)
-    display('First row should be equal to the dimension of the latitude mesh')
-   lat_size
-   matrix_size(1)
-end
-lat=latitude(3:matrix_size(1),1); 
+%fid = fopen(lat);
+%latitude = fscanf(fid,'%g',[1 inf]); 
+%latitude = latitude';
+%fclose(fid)
+%matrix_size=size(latitude);
+%lat_size=latitude(1,1)*latitude(2,1);   
+%if (lat_size~=matrix_size(1)-2)
+%    display('First row should be equal to the dimension of the latitude mesh')
+%   lat_size
+%   matrix_size(1)
+%end
+%lat=latitude(3:matrix_size(1),1); 
 
 % Getting Longtitude
 
-fid = fopen(long);
-longtitude = fscanf(fid,'%f',[1 inf]); % It has two rows now.
-longtitude = longtitude';
-fclose(fid)
-matrix_size=size(longtitude);
-long_size=longtitude(1,1)*longtitude(2,1); 
-if (long_size~=matrix_size(1)-2)
-    display('First row should be equal to the dimension of the latitude mesh')
-  long_size
-  matrix_size(1)
-end
-long=longtitude(3:matrix_size(1),1); 
-matrix_size=matrix_size(1)-2;
+%fid = fopen(long);
+%longtitude = fscanf(fid,'%f',[1 inf]); % It has two rows now.
+%longtitude = longtitude';
+%fclose(fid)
+%matrix_size=size(longtitude);
+%long_size=longtitude(1,1)*longtitude(2,1); 
+%if (long_size~=matrix_size(1)-2)
+%    display('First row should be equal to the dimension of the latitude mesh')
+%  long_size
+%  matrix_size(1)
+%end
+%long=longtitude(3:matrix_size(1),1); 
+%matrix_size=matrix_size(1)-2;
 % Getting Boundary information
 
 fid = fopen(data);
@@ -113,11 +120,11 @@ yv=bound(:,2);
 %reradius,    & ! 1/earth radiusw
 %                 pi2   ! 2*pi   
 
-for i=1:matrix_size
-%     for j=1:lat_size
-          C(i,1)=sqrt((long(i)-ign_pnt(1))^2+(lat(i)-ign_pnt(2))^2);
+%for i=1:grid_1
+%     for j=1:grid_2
+%          C(i,j)=sqrt((unit_long(1,1,1)*(long(i)-ign_pnt(1)))^2+(unit_lat(1,1,1)*(lat(i)-ign_pnt(2)))^2);
 %     end
-end
+%end
  
 %--------------------------------------------------------------------%
 % Algorythm
@@ -141,43 +148,43 @@ end
  
 aa=0;
 eps=0.1;
-for i=1:matrix_size     
-    for j=1:1
+for i=1:grid_1     
+    for j=1:grid_2
         if (ON(i,j)>0)          % The point we check is on the boundary
             B(i,j)=time_now;
             k=-1;
         elseif IN(i,j)>0        % The point is inside the burning region
-            a_old=line_sign(ign_pnt(1),ign_pnt(2),long(i),lat(i),bound(1,1),bound(1,2));
+            a_old=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(1,1),bound(1,2));
             k=2;
             while (k>0)&&(k<=bnd_size(1))
                 if (a_old==0)
                     a_new=a_old;
                     k=1;
                 else
-                    a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i),lat(i),bound(k,1),bound(k,2));
+                    a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2));
                 end
                 if a_old*a_new<0  
                     % Check if the point is on the line between 
                     % the ignition point and 2 boundary points
-                    a1=line_sign(long(i),lat(i),bound(k,1),bound(k,2),ign_pnt(1),ign_pnt(2));
-                    a2=line_sign(long(i),lat(i),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
+                    a1=line_sign(long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),ign_pnt(1),ign_pnt(2));
+                    a2=line_sign(long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
                     if a1*a2<0
                         dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
-                        dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i),lat(i));
+                        dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
                         B(i,j)=time_now*(dist1-dist2)/dist1;
                         k=-1;
                     end
                 elseif a_new==0
                     % Case if the line goes exactly through the boundary point                                           
                     % Check if the point lies between ignition point and boundary point
-                    b1=sqrt((long(i)-ign_pnt(1))^2+(lat(i)-ign_pnt(2))^2);
-                    b2=sqrt((long(i)-bound(k,1))^2+(lat(i)-bound(k,2))^2);
+                    b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
+                    b2=sqrt((long(i,j,1)-bound(k,1))^2+(lat(i,j,1)-bound(k,2))^2);
                     b3=sqrt((bound(k,1)-ign_pnt(1))^2+(bound(k,2)-ign_pnt(2))^2);
                     if (b1+b2<b3+eps)&&(b1+b2>b3-eps)
                         B(i,j)=time_now*b1/b3; 
                         k=-1;
                     else
-                        a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i),lat(i),bound(k+1,1),bound(k+1,2));
+                        a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k+1,1),bound(k+1,2));
                         k=k+1;
                     end
                 end
