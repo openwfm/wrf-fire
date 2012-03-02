@@ -376,7 +376,7 @@ real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
 
 !*** local
 integer:: i,j,k
-real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, tlag, equi, d, w
+real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, tlag, equi, d, w, rhmax, rhmin
 character(len=128)::msg
 integer::msglevel=2
 logical::bad_data,check_data=.true.
@@ -403,28 +403,31 @@ call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,t2,'T2')
 call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,q2,'Q2')
 call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,psfc,'PSFC')
 
-bad_data=.false.
+if(initialize) then 
+    call message('advance_moisture: initializing, copying surface variables to old')
+    call copy2old
+endif
+
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
+
 if(check_data)then
     do j=jts,jte
         do i=its,ite
-            bad_data=bad_data.and. .not.(t2(i,j)>0.0 .and. psfc(i,j)>0.0 .and. .not. q2(i,j) < 0.0 )
+            if( .not.(t2(i,j)>0.0 .and. psfc(i,j)>0.0 .and. .not. q2(i,j) < 0.0 ))then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+                 write(msg,'(a,2i4,a,3e12.2)')'At i j',i,j,' t2 psfc q2 are ',t2(i,j),psfc(i,j),q2(i,j)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+                 call message(msg) 
+                 call crash('invalid data passed from WRF, must have t2 psfc>0, q2 >= 0')
+            endif
         enddo
     enddo
 endif
 
-!!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-!                 write(msg,'(a,2i4,a,3e12.2)')'At i j',i,j,' t2 psfc q2 are ',t2(i,j),psfc(i,j),q2(i,j)
-!                 call message(msg) 
-!!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-if(bad_data)then
-    call message('WARNING: invalid data passed from WRF, must have t2 psfc>0, q2 >= 0',level=0)
-endif
-	
-
-if(initialize) call copy2old
-
 ! one time step
 
+rhmax=0.
+rhmin=1.
 do j=jts,jte
     do k=1,nfmc
         do i=its,ite
@@ -449,11 +452,14 @@ do j=jts,jte
                 ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
                 QRS=0.622*ES/(P-0.378*ES)
                 RH = Q/QRS
-                ! print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
+                rhmax=max(RH,rhmax)         
+                rhmin=min(RH,rhmin)         
+                !print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
                 select case(drying_model(k))
-                case(1) ! Van Wagner (1972) per Viney (1991)
+                case(1) ! Van Wagner (1972) per Viney (1991) eq (7) (8)
                     d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
                     w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
+                    if(d.ne.d.or.w.ne.w)call crash('equilibrium moisture calculation failed, result is NaN')
                     EMC_d = max(d,w)
                     EMC_w = min(d,w)
                     tlag=drying_lag(k)
@@ -467,8 +473,8 @@ do j=jts,jte
                     ! print *,'ADV_MOIST i=',i,' j=',j,' d=',d,' w=',w,' tlag=',tlag,' equi=',equi,' fmc=',fmc
                 end select
             endif
-            !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIMELAG KIND NEED TO
-            !COMPUTE THE OUTPUT fmc_gc(i,k,j) AND SET TLAG <=0
+            !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIMELAG KIND 
+            ! SHOULD COMPUTE fmc_gc(i,k,j) DIRECTLY AND SET TLAG < 0
             !
             if(tlag > 0.0)then
                 tend=(equi-fmc)/tlag
@@ -480,9 +486,24 @@ do j=jts,jte
       enddo
    enddo
 enddo
-          
+
+
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_tend,'tendency fmc_tend')
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after advance fmc_gc')
+
 call copy2old
 
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+     write(msg,'(a,2f5.2)')'Relative humidity min max ',rhmin,rhmax
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+     if(rhmax>1.0 .or. rhmin<0.0)then
+         call message(msg,level=0) 
+         call crash('Relative humidity must be between 0 and 1')
+     else
+         call message(msg) 
+     endif
+          
 return
 
 contains

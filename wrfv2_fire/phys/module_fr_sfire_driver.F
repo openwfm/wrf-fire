@@ -721,24 +721,21 @@ do ij=1,num_tiles
                    fmc_tend                    & ! fuel moisture fields tendency by class
                    )
             endif
-            call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'initial fmc_gc')
-            call advance_moisture(    &
-               .true.,             & !  initialize timestepping
-               ims,ime,  jms,jme,      & ! memory dimensions
-               its,ite,  jts,jte,              & ! tile dimensions
-               nfmc,                       & ! dimension of the number of moisture fields
-               dt_moisture,              & ! moisture model time step
-               rainc, rainnc,              & ! accumulated rain 
-               t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
-               rain_old,                   & ! previous value of accumulated rain
-               t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
-               fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
-               fmc_equi,                   & ! fuel moisture fields equilibrium by class
-               fmc_tend                    & ! fuel moisture fields tendency by class
-               )
-            call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
-            call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_tend,'tendency fmc_tend')
-            call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after advance fmc_gc')
+            ! initializing here makes no sense because t2 q2 psfc are not set yet
+            !call advance_moisture(    &
+            !   .true.,             & !  initialize timestepping
+            !   ims,ime,  jms,jme,      & ! memory dimensions
+            !   its,ite,  jts,jte,              & ! tile dimensions
+            !   nfmc,                       & ! dimension of the number of moisture fields
+            !   dt_moisture,              & ! moisture model time step
+            !   rainc, rainnc,              & ! accumulated rain 
+            !   t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
+            !   rain_old,                   & ! previous value of accumulated rain
+            !   t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
+            !   fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
+            !   fmc_equi,                   & ! fuel moisture fields equilibrium by class
+            !   fmc_tend                    & ! fuel moisture fields tendency by class
+            !   )
          endif
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
@@ -808,9 +805,8 @@ do ij=1,num_tiles
       
       ! one timestep of the moisture model
       if(run_advance_moisture)then
-          call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
           call advance_moisture(    &
-              .false.,                 & 
+              itimestep.eq.1,             & 
               ims,ime,  jms,jme,          & ! memory dimensions
               its,ite,  jts,jte,          & ! tile dimensions
               nfmc,                       & ! number of moisture fields
@@ -823,7 +819,6 @@ do ij=1,num_tiles
               fmc_equi,                   &  ! fuel moisture fields updated, by class equilibrium diagnostic
               fmc_tend                    &  ! fuel moisture fields updated, by class tendency diagnostic
           )
-          call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after  advance fmc_gc')
       endif
         
     elseif(ifun.eq.4)then
