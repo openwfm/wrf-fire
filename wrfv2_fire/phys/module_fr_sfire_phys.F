@@ -379,8 +379,11 @@ integer:: i,j,k
 real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, tlag, equi, d, w
 character(len=128)::msg
 integer::msglevel=2
+logical::bad_data,check_data=.true.
 
 !*** executable
+
+! check arguments
 
 if(msglevel>1)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
@@ -396,7 +399,31 @@ if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
     call crash(msg)
 endif
 
+call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,t2,'T2')
+call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,q2,'Q2')
+call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,psfc,'PSFC')
+
+bad_data=.false.
+if(check_data)then
+    do j=jts,jte
+        do i=its,ite
+            bad_data=bad_data.and. .not.(t2(i,j)>0.0 .and. psfc(i,j)>0.0 .and. .not. q2(i,j) < 0.0 )
+        enddo
+    enddo
+endif
+
+!!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+!                 write(msg,'(a,2i4,a,3e12.2)')'At i j',i,j,' t2 psfc q2 are ',t2(i,j),psfc(i,j),q2(i,j)
+!                 call message(msg) 
+!!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+if(bad_data)then
+    call message('WARNING: invalid data passed from WRF, must have t2 psfc>0, q2 >= 0',level=0)
+endif
+	
+
 if(initialize) call copy2old
+
+! one time step
 
 do j=jts,jte
     do k=1,nfmc
@@ -421,7 +448,8 @@ do j=jts,jte
                 ! compute the relative humidity
                 ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
                 QRS=0.622*ES/(P-0.378*ES)
-                RH = 100.*Q/QRS
+                RH = Q/QRS
+                ! print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
                 select case(drying_model(k))
                 case(1) ! Van Wagner (1972) per Viney (1991)
                     d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
@@ -436,6 +464,7 @@ do j=jts,jte
                     else
                         equi=fmc  
                     endif
+                    ! print *,'ADV_MOIST i=',i,' j=',j,' d=',d,' w=',w,' tlag=',tlag,' equi=',equi,' fmc=',fmc
                 end select
             endif
             !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIMELAG KIND NEED TO
