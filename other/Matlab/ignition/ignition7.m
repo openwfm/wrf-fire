@@ -18,10 +18,14 @@ function A=ignition7(data,wrf_out)
 %--------------------------------------
 % Command line: what to do to call the function
 %--------------------------------------
-
-%  addpath ../util1_jan
+%
+% This code is done for the real case for the witch_fire
+% put the file and data.txt in the run folder
+%
+%  addpath ../../other/Matlab/util1_jan
 %  data='data.txt'
-%  B=ignition6(data)
+% wrf_out='wrfout_d01_2007-10-21_12:00:00'; // or if you use another wrf_out, that you have
+%  B=ignition6(data,wrf_out);
 
 
 % Code:
@@ -170,17 +174,25 @@ for i=1:grid_1
                     a1=line_sign(long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),ign_pnt(1),ign_pnt(2));
                     a2=line_sign(long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
                     if a1*a2<0
-                        dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
-                        dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
+                        b1=bound(k,1)*unit_long;
+                        b2=bound(k,2)*unit_lat;
+                        b3=bound(k-1,1)*unit_long;
+                        b4=bound(k-1,2)*unit_lat;
+                        i1=ign_pnt(1)*unit_long;
+                        i2=ign_pnt(2)*unit_lat;
+                        p1=long(i,j,1)*unit_long;
+                        p2=lat(i,j,1)*unit_lat;
+                        dist1=line_dist(b1,b2,b3,b4,i1,i2);
+                        dist2=line_dist(b1,b2,b3,b4,p1,p2);
                         B(i,j)=time_now*(dist1-dist2)/dist1;
                         k=-1;
                     end
                 elseif a_new==0
                     % Case if the line goes exactly through the boundary point                                           
                     % Check if the point lies between ignition point and boundary point
-                    b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
-                    b2=sqrt((long(i,j,1)-bound(k,1))^2+(lat(i,j,1)-bound(k,2))^2);
-                    b3=sqrt((bound(k,1)-ign_pnt(1))^2+(bound(k,2)-ign_pnt(2))^2);
+                    b1=sqrt(((long(i,j,1)-ign_pnt(1))*unit_long)^2+((lat(i,j,1)-ign_pnt(2))*unit_lat)^2);
+                    b2=sqrt(((long(i,j,1)-bound(k,1))*unit_long)^2+((lat(i,j,1)-bound(k,2))*unit_lat)^2);
+                    b3=sqrt(((bound(k,1)-ign_pnt(1))*unit_long)^2+((bound(k,2)-ign_pnt(2))*unit_long)^2);
                     if (b1+b2<b3+eps)&&(b1+b2>b3-eps)
                         B(i,j)=time_now*b1/b3; 
                         k=-1;
