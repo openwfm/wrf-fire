@@ -31,12 +31,13 @@ function A=ignition7(data,wrf_out)
 % Rest coordinates of the grid points
 format long
 var=ncload(wrf_out);
-unit_long=(wrf_out,'UNIT_FXLONG');
-unit_lat=(wrf_out,'UNIT_FXLAT');
-long=(wrf_out,'FXLONG');
-lat=(wrf_out,'FXLAT');
+unit_long=ncread(wrf_out,'UNIT_FXLONG');
+unit_lat=ncread(wrf_out,'UNIT_FXLAT');
+long=ncread(wrf_out,'FXLONG');
+lat=ncread(wrf_out,'FXLAT');
 mat_size=size(long);
-
+grid_1=mat_size(1);
+grid_2=mat_size(2);
 A=1;
 %fid = fopen(lat);
 %latitude = fscanf(fid,'%g',[1 inf]); 
