@@ -379,7 +379,7 @@ integer:: i,j,k
 real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, tlag, equi, d, w, rhmax, rhmin
 character(len=128)::msg
 integer::msglevel=2
-logical::bad_data,check_data=.true.
+logical, parameter::check_data=.true.,check_rh=.false.
 
 !*** executable
 
@@ -452,17 +452,21 @@ do j=jts,jte
                 ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
                 QRS=0.622*ES/(P-0.378*ES)
                 RH = Q/QRS
-                if(RH < 0.0 .or. RH > 1.0)then
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-                    write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH,' from T=',T,' P=',P,' Q=',Q
-                    call message(msg) 
-                    write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' ES=',ES,' QRS=',QRS,' t2=',t2(i,j),' psfc=',psfc(i,j),' q2=',q2(i,j)
-                    call message(msg) 
-                    call crash('Relative humidity must be between 0 and 1')
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-                endif
                 rhmax=max(RH,rhmax)         
                 rhmin=min(RH,rhmin)         
+                if(.not.check_rh)then
+                    RH = min(RH,1.0)
+                else
+                    if(RH < 0.0 .or. RH > 1.0 .or. RH .ne. RH .or. .not. QRS > 0.)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH,' from T=',T,' P=',P,' Q=',Q
+                        call message(msg) 
+                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' ES=',ES,' QRS=',QRS,' t2=',t2(i,j),' psfc=',psfc(i,j),' q2=',q2(i,j)
+                        call message(msg) 
+                        call crash('Relative humidity must be between 0 and 1, saturated water contents must be >0')
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+                    endif
+                endif 
                 !print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
                 select case(drying_model(k))
                 case(1) ! Van Wagner (1972) per Viney (1991) eq (7) (8)
@@ -496,6 +500,12 @@ do j=jts,jte
    enddo
 enddo
 
+if(.not.(rhmax<=1.0 .and. rhmin>=0))then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+     write(msg,'(a,2f8.2,a)')'WARNING Relative humidity min max ',rhmin,rhmax,' should be between 0 and 1'
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+     call message(msg) 
+endif
 
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_tend,'tendency fmc_tend')
@@ -503,16 +513,6 @@ call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,j
 
 call copy2old
 
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-     write(msg,'(a,2f5.2)')'Relative humidity min max ',rhmin,rhmax
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-     if(rhmax>1.0 .or. rhmin<0.0)then
-         call message(msg,level=0) 
-         call crash('Relative humidity must be between 0 and 1')
-     else
-         call message(msg) 
-     endif
-          
 return
 
 contains
