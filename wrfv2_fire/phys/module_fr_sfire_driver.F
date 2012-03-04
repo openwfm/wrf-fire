@@ -575,6 +575,10 @@ if(ifun.eq.3)then
  call print_chsum(itimestep,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe,jps,jpe,0,1,0,ph,'ph')
 endif
 
+call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,lfn,'lfn')
+call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,tign,'tign')
+
+
 ! fake atm tile bounds
 kts=kps
 kte=kpe
@@ -805,6 +809,7 @@ do ij=1,num_tiles
       
       ! one timestep of the moisture model
       if(run_advance_moisture)then
+          call message('advance_moisture start')
           call advance_moisture(    &
               itimestep.eq.1,             & 
               ims,ime,  jms,jme,          & ! memory dimensions
@@ -819,6 +824,7 @@ do ij=1,num_tiles
               fmc_equi,                   &  ! fuel moisture fields updated, by class equilibrium diagnostic
               fmc_tend                    &  ! fuel moisture fields updated, by class tendency diagnostic
           )
+          call message('advance_moisture end')
       endif
         
     elseif(ifun.eq.4)then
@@ -826,6 +832,7 @@ do ij=1,num_tiles
       ! interpolate and compute weighted average to get the fuel moisture
       !! print *,'ifun=4, run_fuel_moisture=',run_fuel_moisture
       if(run_fuel_moisture)then
+        call message('fuel_moisture start')
         call fuel_moisture(                &
         id,                                     & ! for prints and maybe file names
         nfmc,                                &
@@ -841,14 +848,11 @@ do ij=1,num_tiles
         fmc_gc,                             & ! moisture contents by class on atmospheric grid
         fmc_g                                & ! weighted fuel moisture contents on fire grid
         )
+        call message('fuel_moisture end')
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
       endif
 
     endif
-
-!   the following executes in any case
-    call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,lfn,'lfn')
-    call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,tign,'tign')
 
     call sfire_model (id,ifun,restart,  &
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
@@ -951,14 +955,20 @@ if(ifun.eq.1)then
 endif
 #endif
 
+if (ifun.eq.3)then
+ call print_chsum(itimestep,ims,ime,1,nfmc,jms,jme,ids,ide,1,moisture_classes,jds,jde,ips,ipe,1,moisture_classes,jps,jpe,0,0,0,fmc_gc,'fmc_gc')
+endif
+
 if (ifun.eq.4)then
 
+ call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fmc_g,'fmc_g')
  !call print_chsum(itimestep,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,1,0,0,uah,'uah')
  !call print_chsum(itimestep,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,1,vah,'vah')
  call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vx,'uf')
  call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,fp%vy,'vf')
  call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,lfn,'lfn')
  call print_chsum(itimestep,ifms,ifme,1,1,jfms,jfme,ifds,ifde,1,1,jfds,jfde,ifps,ifpe,1,1,jfps,jfpe,0,0,0,tign,'tign')
+
 #ifdef DEBUG_OUT
     if(pid.gt.0)then
  !       call write_array_m(ips,ipe1,jps,jpe,ims,ime,jms,jme,uah,'uah',pid)
