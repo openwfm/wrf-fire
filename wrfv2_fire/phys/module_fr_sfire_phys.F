@@ -258,8 +258,12 @@ real, dimension(its-1:ite+1,jts-1:jte+1):: fmc_k  ! copy of fmc_gc(:,k,:)
 real, dimension(ifts:ifte,jfts:jfte):: fmc_f      ! interpolation of fmc_gc(:,k,:) to the fire grid 
 integer::i,j,k,n
 integer::ibs,ibe,jbs,jbe
+character(len=128)::msg
 
  
+call check_mesh_2dim(ifts,ifte,jfts,jfte,ifds,ifde,jfds,jfde) ! check if fire tile fits into domain
+call check_mesh_2dim(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme) ! check if fire tile fits into memory
+
 do j=jfts,jfte
     do i=ifts,ifte
         fmc_g(i,j)=0.               ! initialize sum over classes
@@ -267,10 +271,12 @@ do j=jfts,jfte
 enddo
 
 ! one beyond the tile but not beyond the domain boundary
-ibs=max(jds,jts-1)
-ibe=min(jde,jte+1)
-jbs=max(ids,its-1)
-jbe=min(ide,ite+1)
+ibs=max(ids,its-1)
+ibe=min(ide,ite+1)
+jbs=max(jds,jts-1)
+jbe=min(jde,jte+1)
+
+call check_mesh_2dim(ibs,ibe,jbs,jbe,ims,ime,jms,jme) ! check if tile with halo fits into memory
 
 do k=1,moisture_classes
 
