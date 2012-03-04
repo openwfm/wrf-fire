@@ -32,7 +32,7 @@ write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_m
 public:: fire_params
 
 ! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,moisture_classes
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,moisture_classes,fmoist_run,fmoist_interp
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 
@@ -49,6 +49,7 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
   integer, parameter::max_moisture_classes=5
 !***
 
+  logical::fmoist_run,fmoist_interp
   integer, parameter::zm=max_moisture_classes - 3
   integer:: moisture_classes=3
   real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold
@@ -260,6 +261,7 @@ integer::i,j,k,n
 integer::ibs,ibe,jbs,jbe
 character(len=128)::msg
 
+if(.not.fmoist_interp)call crash('fuel_moisture should not be called because fmoist_interp not set?')
  
 call check_mesh_2dim(ifts,ifte,jfts,jfte,ifds,ifde,jfds,jfde) ! check if fire tile fits into domain
 call check_mesh_2dim(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme) ! check if fire tile fits into memory
@@ -404,6 +406,8 @@ if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call crash(msg)
 endif
+
+if(.not.fmoist_run)call crash('advance_moisture should not be called because fmoist_run not set?')
 
 call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,t2,'T2')
 call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,q2,'Q2')
@@ -572,6 +576,7 @@ logical, external:: wrf_dm_on_monitor
 integer:: i,j,k,ii,iounit,ierr,kk
 character(len=128):: msg
 REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
+logical::fmoist
 !*** executable
 
 ! read 
@@ -585,6 +590,8 @@ namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
 !$  endif
+ 
+    fmoist = fmoist_run.or.fmoist_interp ! will deal with moisture
 
 IF ( wrf_dm_on_monitor() ) THEN
     ! we are the master task
@@ -599,8 +606,10 @@ IF ( wrf_dm_on_monitor() ) THEN
     if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_scalars in file namelist.fire')
     read(iounit,fuel_categories,iostat=ierr)
     if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_categories in file namelist.fire')
-    read(iounit,moisture,iostat=ierr)
-    if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist moisture in file namelist.fire')
+    if(fmoist)then
+        read(iounit,moisture,iostat=ierr)
+        if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist moisture in file namelist.fire')
+    endif
     fmc_gw(1:mfuelcats,1)=fmc_gw01
     fmc_gw(1:mfuelcats,2)=fmc_gw02
     fmc_gw(1:mfuelcats,3)=fmc_gw03
@@ -694,8 +703,10 @@ write(msg,7)'nfuelcats  ',nfuelcats
 call message(msg)
 write(msg,7)'no_fuel_cat',no_fuel_cat
 call message(msg)
-write(msg,7)'moisture_classes',moisture_classes
-call message(msg)
+if(fmoist)then
+    write(msg,7)'moisture_classes',moisture_classes
+    call message(msg)
+endif
 
 j=1
 7 format(a,5(1x,i8,4x))
@@ -749,40 +760,44 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'adjrs     ',(adjrs(ii),ii=i,k)
     call message(msg)
-    do kk=1,moisture_classes 
-        write(msg,10)'fmc_gw',kk,(fmc_gw(ii,kk),ii=i,k)
-        call message(msg)
-    enddo
+    if(fmoist)then
+        do kk=1,moisture_classes 
+            write(msg,10)'fmc_gw',kk,(fmc_gw(ii,kk),ii=i,k)
+            call message(msg)
+        enddo
+    endif
 enddo
 call message(' ')
 call message('**********************************************************')
 
-j=1
-do i=1,moisture_classes,j
-    k=min(i+j-1,nfuelcats)
+if(fmoist)then
+    j=1
+    do i=1,moisture_classes,j
+        k=min(i+j-1,nfuelcats)
+        call message(' ')
+        write(msg,7)'FUEL MOISTURE CLASS',(ii,ii=i,k)
+        call message(msg)
+        write(msg,9)'moisture class name',(trim(moisture_class_name(ii)),ii=i,k)
+        call message(msg)
+        write(msg,7)'drying_model       ',(drying_model(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'drying_lag (h)     ',(drying_lag(ii),ii=i,k)
+        call message(msg)
+        write(msg,7)'wetting_model      ',(wetting_model(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'wetting_lag (h)    ',(wetting_lag(ii),ii=i,k)
+        call message(msg)    
+        write(msg,8)'saturation_moisture',(saturation_moisture(ii),ii=i,k)
+        call message(msg)    
+        write(msg,8)'saturation_rain    ',(saturation_rain(ii),ii=i,k)
+        call message(msg)    
+        write(msg,8)'rain_threshold     ',(rain_threshold(ii),ii=i,k)
+        call message(msg)    
+    enddo
     call message(' ')
-    write(msg,7)'FUEL MOISTURE CLASS',(ii,ii=i,k)
-    call message(msg)
-    write(msg,9)'moisture class name',(trim(moisture_class_name(ii)),ii=i,k)
-    call message(msg)
-    write(msg,7)'drying_model       ',(drying_model(ii),ii=i,k)
-    call message(msg)
-    write(msg,8)'drying_lag (h)     ',(drying_lag(ii),ii=i,k)
-    call message(msg)
-    write(msg,7)'wetting_model      ',(wetting_model(ii),ii=i,k)
-    call message(msg)
-    write(msg,8)'wetting_lag (h)    ',(wetting_lag(ii),ii=i,k)
-    call message(msg)    
-    write(msg,8)'saturation_moisture',(saturation_moisture(ii),ii=i,k)
-    call message(msg)    
-    write(msg,8)'saturation_rain    ',(saturation_rain(ii),ii=i,k)
-    call message(msg)    
-    write(msg,8)'rain_threshold     ',(rain_threshold(ii),ii=i,k)
-    call message(msg)    
-enddo
-call message(' ')
-call message('**********************************************************')
-call message(' ')
+    call message('**********************************************************')
+    call message(' ')
+endif
 have_fuel_cats=.true.
 
 ! and print to file

@@ -70,7 +70,7 @@ module module_fr_sfire_driver
 
 use module_fr_sfire_model, only: sfire_model
 use module_fr_sfire_phys, only: fire_params, init_fuel_cats, set_fp_from_grid, fuel_moisture, &
-   advance_moisture, initialize_moisture_classes, moisture_classes
+   advance_moisture, initialize_moisture_classes, moisture_classes, fmoist_run, fmoist_interp
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
@@ -136,7 +136,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     type(fire_params)::fp
     real:: moisture_time
 
-    logical:: run_advance_moisture,run_fuel_moisture, fmoist_run, fmoist_interp, moisture_initializing
+    logical:: run_advance_moisture,run_fuel_moisture, moisture_initializing
     real::    dt_moisture
 
 
