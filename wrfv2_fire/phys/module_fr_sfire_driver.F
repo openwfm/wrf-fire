@@ -931,7 +931,8 @@ endif
 #endif
 
 if (ifun.eq.3)then
- call print_chsum(itimestep,ims,ime,1,nfmc,jms,jme,ids,ide,1,moisture_classes,jds,jde,ips,ipe,1,moisture_classes,jps,jpe,0,0,0,fmc_gc,'fmc_gc')
+ call print_3d_stats_by_slice(ips,ipe,1,moisture_classes,jps,jpe,ims,ime,1,nfmc,jms,jme,fmc_gc,'fmc_gc')
+ call print_chsum(itimestep,ims,ime,0,nfmc,jms,jme,ids,ide,1,moisture_classes,jds,jde,ips,ipe,1,moisture_classes,jps,jpe,0,0,0,fmc_gc,'fmc_gc')
 endif
 
 if (ifun.eq.4)then
