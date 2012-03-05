@@ -70,7 +70,7 @@ module module_fr_sfire_driver
 
 use module_fr_sfire_model, only: sfire_model
 use module_fr_sfire_phys, only: fire_params, init_fuel_cats, set_fp_from_grid, fuel_moisture, &
-   advance_moisture, initialize_moisture_classes, moisture_classes, fmoist_run, fmoist_interp
+   advance_moisture, moisture_classes, fmoist_run, fmoist_interp
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
@@ -327,7 +327,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%fz0, grid%fwh,                    &
             fp,                                    & ! structure with pointers passed to spread rate calculation
             config_flags%nfmc,         & ! moisture model variables start
-            config_flags%initialize_fmc, &
+            config_flags%fmoist_init, &
             run_advance_moisture,run_fuel_moisture,dt_moisture,     &    ! moisture model control
             grid%rainc, grid%rainnc,                       & ! accumulated rain from different sources
             grid%t2, grid%q2, grid%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -402,7 +402,7 @@ subroutine sfire_driver_phys (ifun,    &
     fz0,fwh,                                      &
     fp,                                           & ! fire params
     nfmc,                                     & ! number of fuel moisture classes
-    initialize_fmc,                                    &
+    fmoist_init,                                    &
     run_advance_moisture,run_fuel_moisture,dt_moisture,& ! moisture model control
     rainc,rainnc,              & ! accumulated rain from different sources
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -491,7 +491,8 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
 
     
 ! moisture model arguments
-logical, intent(in)::initialize_fmc,run_advance_moisture,run_fuel_moisture
+logical, intent(in)::run_advance_moisture,run_fuel_moisture
+integer, intent(in)::fmoist_init
 real, intent(in)::dt_moisture
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
@@ -712,35 +713,8 @@ do ij=1,num_tiles
                
         ! after the loop where zsf created exited and all synced
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
-
-        !  initialize the moisture model
-        if(run_advance_moisture)then
-            if(initialize_fmc)then
-               call initialize_moisture_classes( &
-                   ims,ime,  jms,jme,      & ! memory dimensions
-                   its,ite,  jts,jte,          & ! tile dimensions
-                   nfmc,                       & ! number of moisture fields
-                   fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
-                   fmc_equi,                   & ! fuel moisture fields equilibrium by class
-                   fmc_tend                    & ! fuel moisture fields tendency by class
-                   )
-            endif
-            ! initializing here makes no sense because t2 q2 psfc are not set yet
-            !call advance_moisture(    &
-            !   .true.,             & !  initialize timestepping
-            !   ims,ime,  jms,jme,      & ! memory dimensions
-            !   its,ite,  jts,jte,              & ! tile dimensions
-            !   nfmc,                       & ! dimension of the number of moisture fields
-            !   dt_moisture,              & ! moisture model time step
-            !   rainc, rainnc,              & ! accumulated rain 
-            !   t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
-            !   rain_old,                   & ! previous value of accumulated rain
-            !   t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
-            !   fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
-            !   fmc_equi,                   & ! fuel moisture fields equilibrium by class
-            !   fmc_tend                    & ! fuel moisture fields tendency by class
-            !   )
-         endif
+ 
+        ! cannot initialize moisture model because T2 Q2 PSFC are not set yet
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
  
@@ -811,7 +785,8 @@ do ij=1,num_tiles
       if(run_advance_moisture)then
           call message('advance_moisture start')
           call advance_moisture(    &
-              itimestep.eq.1,             & 
+              itimestep.eq.1,             & ! initialize?
+              fmoist_init,                & ! how to initialize if we do
               ims,ime,  jms,jme,          & ! memory dimensions
               its,ite,  jts,jte,          & ! tile dimensions
               nfmc,                       & ! number of moisture fields

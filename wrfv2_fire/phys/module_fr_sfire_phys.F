@@ -1,4 +1,5 @@
 !
+
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! This file contains parts copied and/or adapted from earlier codes by 
@@ -26,7 +27,7 @@ end type fire_params
 
 ! subroutenes and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
-write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_moisture,initialize_moisture_classes
+write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_moisture
 
 ! types
 public:: fire_params
@@ -323,40 +324,9 @@ enddo
 
 end subroutine fuel_moisture
 
-subroutine initialize_moisture_classes( &
-    ims,ime,  jms,jme,          & ! memory dimensions
-    its,ite,  jts,jte,          & ! tile dimensions
-    nfmc,                       & ! dimension of moisture fields
-    fmc_gc,                     & ! fuel moisture by class, updated
-    fmc_equi,                   & ! fuel moisture equilibrium by classe, for diagnostics
-    fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics
-    )
-!*** arguments
-integer, intent(in)::           &
-    ims,ime,  jms,jme,          & ! memory dimensions
-    its,ite,  jts,jte,          & ! tile dimensions
-    nfmc                          ! number of moisture fields
-real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
-real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
-!*** module variables
-! fuelmc_g
-!*** local
-integer:: i,j,k
-
-do j=jts,jte
-    do k=1,nfmc
-        do i=its,ite
-            fmc_gc(i,k,j)=fuelmc_g ! global value from module
-            fmc_equi(i,k,j)=-9999  ! avoid uninitialized arrays
-            fmc_tend(i,k,j)=-9999  ! avoid uninitialized arrays
-        enddo
-    enddo
-enddo
-call message('moisture contents in all classes initialized from namelist.fire')
-end subroutine initialize_moisture_classes
-
 subroutine advance_moisture(    &
-    initialize,                 & !  initialize timestepping
+    initialize,                 & ! initialize timestepping
+    fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc,                       & ! dimension of moisture fields
@@ -373,6 +343,7 @@ subroutine advance_moisture(    &
 !*** arguments
 logical, intent(in):: initialize
 integer, intent(in)::           &
+    fmoist_init,                &
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc                          ! number of moisture fields
@@ -442,7 +413,6 @@ do j=jts,jte
     do k=1,nfmc
         do i=its,ite
             ! old fuel moisture contents
-            fmc = fmc_gc(i,k,j)
             ! compute the rain intensity from the difference of accumulated rain
             rain_diff = ((rainc(i,j) + rainnc(i,j)) - rain_old(i,j))
             rain_int  = rain_diff / moisture_dt 
@@ -450,7 +420,8 @@ do j=jts,jte
             if (R > 0.) then
                 select case(wetting_model(k))
                 case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
-                    equi=saturation_moisture(k)
+                    EMC_w=saturation_moisture(k)
+                    EMC_d=saturation_moisture(k)
                     tlag=wetting_lag(k) * (1. - exp(-R/saturation_rain(k)))
                 end select
             else ! not raining
@@ -486,20 +457,28 @@ do j=jts,jte
                     EMC_d = max(d,w)
                     EMC_w = min(d,w)
                     tlag=drying_lag(k)
-                    if    (fmc > EMC_d)then ! drying, fmc going down to equilibrium
-                        equi=EMC_d
-                    elseif(fmc < EMC_w)then ! wetting, fmc going up to equilibrium
-                        equi=EMC_w
-                    else
-                        equi=fmc  
-                    endif
-                    ! print *,'ADV_MOIST i=',i,' j=',j,' d=',d,' w=',w,' tlag=',tlag,' equi=',equi,' fmc=',fmc
                 end select
             endif
-            !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIMELAG KIND 
+            !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIME LAG KIND 
+            ! ARE RESPONSIBLE FOR THEIR OWN LOGIC, THESE MODELS
             ! SHOULD COMPUTE fmc_gc(i,k,j) DIRECTLY AND SET TLAG < 0
             !
             if(tlag > 0.0)then
+
+                if(.not.initialize)then
+                    fmc = fmc_gc(i,k,j)
+                    equi = max(min(fmc, EMC_d),EMC_w)
+                elseif(fmoist_init.eq.1)then
+                    fmc = fuelmc_g
+                    equi = fmc        
+                elseif(fmoist_init.eq.2)then
+                    fmc=0.5*(EMC_d+EMC_w)
+                    equi=fmc
+                else ! do not change fmc_gc
+                    fmc = fmc_gc(i,k,j)
+                    equi=fmc
+                endif
+
                 tend=(equi-fmc)/tlag
                 fmc_gc(i,k,j) = fmc + moisture_dt * tend
                 ! diagnostics out
@@ -539,6 +518,9 @@ do j=jts,jte
 enddo
 
 end subroutine copy2old
+
+subroutine get_equi_moist
+end subroutine get_equi_moist
 
 end subroutine advance_moisture
 
