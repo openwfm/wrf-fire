@@ -63,6 +63,7 @@ state    real     fmoist_lasttime -  fire        -         -     hr   "FMOIST_LA
 state    real     fmoist_nexttime -  fire        -         -     hr   "FMOIST_NEXTTIME" "next time the moisture model will run" "s"
 rconfig logical   fmoist_run        namelist,fire  max_domains   .false.       hr   "run moisture model (on the atmospheric grid), output to fmc_gc"
 rconfig logical   fmoist_interp     namelist,fire  max_domains   .false.       hr   "interpolate moisture from the model or the input to fuels on the fire grid"
+rconfig logical   fmoist_only       namelist,fire  max_domains   .false.       hr   "only run moisture model, skip fire"
 rconfig integer   fmoist_freq       namelist,fire  max_domains    0       hr   "fmoist_freq"    "frequency to run moisture model 0: use fmoist_dt, k>0: every k timesteps" "1"
 rconfig real      fmoist_dt         namelist,fire  max_domains    600     hr   "fmoist_dt  "    "moisture model time step" "s"
 rconfig integer   fmoist_init       namelist,fire  max_domains    0       hr   "initialize_fmc" "set initial moisture 1= fuelmc_g from namelist.fire, 2=equilibrium, other=none"

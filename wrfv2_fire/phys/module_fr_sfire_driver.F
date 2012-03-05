@@ -70,7 +70,7 @@ module module_fr_sfire_driver
 
 use module_fr_sfire_model, only: sfire_model
 use module_fr_sfire_phys, only: fire_params, init_fuel_cats, set_fp_from_grid, fuel_moisture, &
-   advance_moisture, moisture_classes, fmoist_run, fmoist_interp
+   advance_moisture, moisture_classes
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
@@ -86,6 +86,8 @@ private
 public sfire_driver_em,use_atm_vars
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
+
+logical:: moisture_run, moisture_interp, fire_run  ! which kind of model to run overall
 
 contains
 
@@ -176,8 +178,10 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     
     ! **** moisture model
 
-    fmoist_run    = config_flags%fmoist_run
-    fmoist_interp = config_flags%fmoist_interp
+    ! decide what to run - moisture, interpolation, or fire model itself
+    moisture_run    = config_flags%fmoist_run
+    moisture_interp = config_flags%fmoist_interp 
+    fire_run = .not. config_flags%fmoist_only
 
     !decide what to run
     moisture_time = time_step_start
@@ -187,7 +191,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     
     
     
-    if(fmoist_run)then
+    if(moisture_run)then
         if(moisture_initializing)then
             if(fire_ifun_end>2)call crash('initialization must be run separately')
             grid%fmoist_lasttime=moisture_time ! initialize the last time the model has run to start of run
@@ -219,13 +223,13 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
                     write(msg,'(a,f12.2,a,f12.2,a)')'moisture time step is ',dt_moisture,'s next run at ',grid%fmoist_nexttime,'s'
                     call message(msg)
                 endif
-                if(fmoist_interp)then
+                if(moisture_interp)then
                     call message('moisture interpolation to fuels will run because moisture model does')
                     run_fuel_moisture=.true.
                 endif
             endif
         endif
-    elseif(itimestep.eq.1.and.fmoist_interp)then
+    elseif(itimestep.eq.1.and.moisture_interp)then
             call message('initializing, moisture interpolation to fuels will run from input data')
             run_fuel_moisture=.true.
     endif
@@ -249,6 +253,8 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
         ! 6 = compute output fluxes
 
 #ifdef DM_PARALLEL
+
+       if(fire_run)then
 
         if(fire_ifun.eq.1)then
         
@@ -286,6 +292,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 #include "HALO_FIRE_LFN.inc"
 
         endif
+       endif
 #endif
         ! print *,'dt: ',dt,grid%dt,' diff ', dt-grid%dt
         ! need domain by 1 smaller, in last row.col winds are not set properly
@@ -340,18 +347,21 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
  
 
 #ifdef DM_PARALLEL
+          if(fire_run)then
             if(fire_ifun.eq.2)then
 !               halo exchange on all fuel data width 2
 #include "HALO_FIRE_FUEL.inc"
-!           fire state was initialized
-            call message('halo exchange on lfn width 2')
+!               fire state was initialized
+                call message('halo exchange on lfn width 2')
 #include "HALO_FIRE_LFN.inc"
-            elseif(fire_ifun.eq.3)then
-                if(run_fuel_moisture)then
+          endif
+          if(run_fuel_moisture)then
+            if(fire_ifun.eq.3)then
                      ! prepare for interpolation to the fire grid
 #include "HALO_FIRE_MAG.inc"
                 endif
             endif
+          endif
 #endif
 
                 
@@ -567,7 +577,7 @@ if(fire_print_file.gt.0)then
 endif
 
 if(ifun.eq.1)then
-         call init_fuel_cats ! properties of fuel categories and moisture classes from namelist.fire
+         call init_fuel_cats(moisture_run .or. moisture_interp) ! properties of fuel categories and moisture classes from namelist.fire
 endif
 
 if(ifun.eq.3)then
@@ -631,7 +641,33 @@ do ij=1,num_tiles
     write(msg,'(a,2i9)')'refinement ratio:',ir,jr
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
-    if(ifun.eq.1)then   ! set terrain
+    if(run_advance_moisture)then
+      if(ifun.eq.3)then 
+      
+      ! one timestep of the moisture model
+          call message('advance_moisture start')
+          call advance_moisture(    &
+              itimestep.eq.1,             & ! initialize?
+              fmoist_init,                & ! how to initialize if we do
+              ims,ime,  jms,jme,          & ! memory dimensions
+              its,ite,  jts,jte,          & ! tile dimensions
+              nfmc,                       & ! number of moisture fields
+              dt_moisture,                & ! moisture model time step
+              rainc, rainnc,              & ! accumulated rain 
+              t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
+              rain_old,                   & ! previous value of accumulated rain
+              t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
+              fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
+              fmc_equi,                   &  ! fuel moisture fields updated, by class equilibrium diagnostic
+              fmc_tend                    &  ! fuel moisture fields updated, by class tendency diagnostic
+          )
+          call message('advance_moisture end')
+      endif
+    endif
+        
+    if(fire_run)then
+
+     if(ifun.eq.1)then   ! set terrain
 
       if(restart)then
           
@@ -779,29 +815,6 @@ do ij=1,num_tiles
 
       endif
 
-      ! still with ifun=3
-      
-      ! one timestep of the moisture model
-      if(run_advance_moisture)then
-          call message('advance_moisture start')
-          call advance_moisture(    &
-              itimestep.eq.1,             & ! initialize?
-              fmoist_init,                & ! how to initialize if we do
-              ims,ime,  jms,jme,          & ! memory dimensions
-              its,ite,  jts,jte,          & ! tile dimensions
-              nfmc,                       & ! number of moisture fields
-              dt_moisture,                & ! moisture model time step
-              rainc, rainnc,              & ! accumulated rain 
-              t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
-              rain_old,                   & ! previous value of accumulated rain
-              t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
-              fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
-              fmc_equi,                   &  ! fuel moisture fields updated, by class equilibrium diagnostic
-              fmc_tend                    &  ! fuel moisture fields updated, by class tendency diagnostic
-          )
-          call message('advance_moisture end')
-      endif
-        
     elseif(ifun.eq.4)then
     
       ! interpolate and compute weighted average to get the fuel moisture
@@ -917,6 +930,7 @@ do ij=1,num_tiles
        endif
 
     endif ! ifun=6
+  endif
 
 enddo ! tiles
 !$OMP END PARALLEL DO

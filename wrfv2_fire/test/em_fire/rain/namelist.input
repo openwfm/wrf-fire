@@ -152,8 +152,9 @@
  !fire_ignition_start_time3 = 4,  ! sec for ignition from the start! end ignition for sfire
  !fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 ! moisture model
- fmoist_run = .true.,        ! run the moisture model
- fmoist_interp = .true.,     ! interpolate moisture to fuels
+ fmoist_run = .true.,        ! yes do run the moisture model
+ fmoist_interp = .true.,     ! yes do interpolate moisture to fuels
+ fmoist_only = .true.,      ! do not skip the fire model and run moisture only
  fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
  fmoist_dt = 10,             ! moisture model time step (s)
  fmoist_init = 1,            ! initialize fuel moisture classes 1= by fuelmc_g from namelist.fire, 2=by equilibrium, else = from wrfinput

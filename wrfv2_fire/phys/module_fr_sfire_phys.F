@@ -25,7 +25,7 @@ real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s)
 real,pointer,dimension(:,:):: fmc_g                ! fuel moisture contents, ground (1)
 end type fire_params
 
-! subroutenes and functions 
+! subroutines and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
 write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_moisture
 
@@ -33,7 +33,7 @@ write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_m
 public:: fire_params
 
 ! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,moisture_classes,fmoist_run,fmoist_interp
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,moisture_classes
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 
@@ -50,7 +50,6 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
   integer, parameter::max_moisture_classes=5
 !***
 
-  logical::fmoist_run,fmoist_interp
   integer, parameter::zm=max_moisture_classes - 3
   integer:: moisture_classes=3
   real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold
@@ -262,8 +261,6 @@ integer::i,j,k,n
 integer::ibs,ibe,jbs,jbe
 character(len=128)::msg
 
-if(.not.fmoist_interp)call crash('fuel_moisture should not be called because fmoist_interp not set?')
- 
 call check_mesh_2dim(ifts,ifte,jfts,jfte,ifds,ifde,jfds,jfde) ! check if fire tile fits into domain
 call check_mesh_2dim(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme) ! check if fire tile fits into memory
 
@@ -325,7 +322,7 @@ enddo
 end subroutine fuel_moisture
 
 subroutine advance_moisture(    &
-    initialize,                 & ! initialize timestepping
+    initialize,                 & ! initialize timestepping. true on the first call at time 0, then false
     fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
@@ -336,8 +333,8 @@ subroutine advance_moisture(    &
     rain_old,                   & ! previous value of accumulated rain
     t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
     fmc_gc,                     & ! fuel moisture by class, updated
-    fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics
-    fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics
+    fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics only
+    fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
     )
 
 !*** arguments
@@ -352,6 +349,9 @@ real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
 real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
+
+!*** global
+! fuel properties moisture set by init_fuel_cats
 
 !*** local
 integer:: i,j,k
@@ -377,8 +377,6 @@ if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call crash(msg)
 endif
-
-if(.not.fmoist_run)call crash('advance_moisture should not be called because fmoist_run not set?')
 
 call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,t2,'T2')
 call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,q2,'Q2')
@@ -548,17 +546,17 @@ subroutine set_fp_from_grid(grid,fp)
 end subroutine set_fp_from_grid
 
 
-subroutine init_fuel_cats
+subroutine init_fuel_cats(init_fuel_moisture)
 implicit none
 !*** purpose: initialize fuel tables and variables by constants
-!*** arguments: none
+!*** arguments: 
+logical, intent(in)::init_fuel_moisture
 logical, external:: wrf_dm_on_monitor
 !$ integer, external:: OMP_GET_THREAD_NUM
 !*** local
 integer:: i,j,k,ii,iounit,ierr,kk
 character(len=128):: msg
 REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
-logical::fmoist
 !*** executable
 
 ! read 
@@ -573,8 +571,6 @@ namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,
 !$     call crash('init_fuel_cats: must be called from master thread')
 !$  endif
  
-    fmoist = fmoist_run.or.fmoist_interp ! will deal with moisture
-
 IF ( wrf_dm_on_monitor() ) THEN
     ! we are the master task
     
@@ -588,7 +584,7 @@ IF ( wrf_dm_on_monitor() ) THEN
     if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_scalars in file namelist.fire')
     read(iounit,fuel_categories,iostat=ierr)
     if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_categories in file namelist.fire')
-    if(fmoist)then
+    if(init_fuel_moisture)then
         read(iounit,moisture,iostat=ierr)
         if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist moisture in file namelist.fire')
     endif
@@ -685,7 +681,7 @@ write(msg,7)'nfuelcats  ',nfuelcats
 call message(msg)
 write(msg,7)'no_fuel_cat',no_fuel_cat
 call message(msg)
-if(fmoist)then
+if(init_fuel_moisture)then
     write(msg,7)'moisture_classes',moisture_classes
     call message(msg)
 endif
@@ -742,7 +738,7 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'adjrs     ',(adjrs(ii),ii=i,k)
     call message(msg)
-    if(fmoist)then
+    if(init_fuel_moisture)then
         do kk=1,moisture_classes 
             write(msg,10)'fmc_gw',kk,(fmc_gw(ii,kk),ii=i,k)
             call message(msg)
@@ -752,7 +748,7 @@ enddo
 call message(' ')
 call message('**********************************************************')
 
-if(fmoist)then
+if(init_fuel_moisture)then
     j=1
     do i=1,moisture_classes,j
         k=min(i+j-1,nfuelcats)
