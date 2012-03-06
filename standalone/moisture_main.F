@@ -19,7 +19,8 @@ real, dimension(nsteps)::t,q,p,rain
 ! test data
 integer, parameter::zs=nsteps-10;
 data dt/600./
-data t/300.,300.,300.,305.,310., 290.,290.,290.,290.,280.,zs*270/
+data t/300.,300.,300.,305.,310., 305.,303.,300.,295.,290.,zs*285/
+!data t/300.,300.,300.,305.,310., 290.,290.,290.,290.,280.,zs*270/
 data q/nsteps*0.002/
 data p/nsteps*1e5/
 data rain/0.0,0.01,0.01,0.1,1.0, 2.0,3.0,5.0,5.0,6.0,zs*6.0/
