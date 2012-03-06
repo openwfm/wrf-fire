@@ -373,7 +373,8 @@ endif
 
 if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-    write(msg,*)'advance_moisture: moisture_classes=',moisture_classes,' > nfmc=',nfmc,' or >  max_moisture_classes=',max_moisture_classes
+    write(msg,*)'advance_moisture: moisture_classes=',moisture_classes, &
+       ' > nfmc=',nfmc,' or >  max_moisture_classes=',max_moisture_classes
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call crash(msg)
 endif
@@ -438,9 +439,11 @@ do j=jts,jte
                 else
                     if(RH < 0.0 .or. RH > 1.0 .or. RH .ne. RH .or. .not. QRS > 0.)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH,' from T=',T,' P=',P,' Q=',Q
+                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH, &
+                            ' from T=',T,' P=',P,' Q=',Q
                         call message(msg) 
-                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' ES=',ES,' QRS=',QRS,' t2=',t2(i,j),' psfc=',psfc(i,j),' q2=',q2(i,j)
+                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' ES=',ES, &
+                            ' QRS=',QRS,' t2=',t2(i,j),' psfc=',psfc(i,j),' q2=',q2(i,j)
                         call message(msg) 
                         call crash('Relative humidity must be between 0 and 1, saturated water contents must be >0')
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
