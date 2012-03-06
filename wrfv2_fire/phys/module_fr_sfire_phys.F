@@ -27,7 +27,7 @@ end type fire_params
 
 ! subroutines and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
-write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_moisture
+write_fuels_m,fire_risk,fire_intensity,fuel_moisture,advance_moisture
 
 ! types
 public:: fire_params
@@ -521,29 +521,6 @@ subroutine get_equi_moist
 end subroutine get_equi_moist
 
 end subroutine advance_moisture
-
-
-subroutine set_fp_from_grid(grid,fp)
-    implicit none
-    type(domain),intent(in)::grid
-    type(fire_params),intent(out)::fp
-
-    ! pointers to be passed to fire spread formulas
-    fp%vx => grid%uf         ! fire winds
-    fp%vy => grid%vf         ! fire winds
-    fp%zsf => grid%zsf       ! terrain height
-    fp%dzdxf => grid%dzdxf   ! terrain grad
-    fp%dzdyf => grid%dzdyf   ! terrain grad
-    fp%bbb => grid%bbb       ! spread formula coeff
-    fp%phisc => grid%phisc   ! spread formula coeff
-    fp%phiwc => grid%phiwc   ! spread formula coeff
-    fp%r_0 => grid%r_0       ! spread formula coeff
-    fp%fgip => grid%fgip     ! spread formula coeff
-    fp%ischap => grid%ischap ! spread formula coeff
-    fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
-    fp%fmc_g => grid%fmc_g   ! fuel moisture, ground
-
-end subroutine set_fp_from_grid
 
 
 subroutine init_fuel_cats(init_fuel_moisture)
