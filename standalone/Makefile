@@ -68,12 +68,24 @@ FUEL_INTERP_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
+MOISTURE_OBJ = \
+    moisture_main.o \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+    
+
 .PHONY: all
 
 
 #.PHONY: all
 
 default: fire
+
+moisture: moisture.exe
+moisture.exe: $(MAKEFILE) $(MOISTURE_OBJ)
+	$(FC) $(FCFLAGS) -o moisture.exe $(MOISTURE_OBJ)
+
 
 fuel: fuel_interp_test.exe
 fuel_interp_test: fuel_interp_test.exe
@@ -108,7 +120,7 @@ fuels.exe: $(MAKEFILE) $(FUELS_OBJ)
  
 # for the order of generating modules
 
-fuel_interp_test_main.o: $(MAKEFILE) \
+moisture_main.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
     module_fr_sfire_util.o 
 
@@ -124,6 +136,10 @@ init.o: $(MAKEFILE) \
     module_configure.o \
     wrf_netcdf.o \
     module_fr_sfire_util.o
+
+fuel_interp_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o 
 
 model_fuel_interp_test.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
@@ -147,8 +163,6 @@ module_fr_sfire_phys.o: $(MAKEFILE) \
     module_fr_sfire_util.o 
 
 module_fr_sfire_util.o: $(MAKEFILE) \
-    module_domain.o \
-    module_configure.o \
     wrf_fakes.o
 
 wrf_netcdf.o: $(MAKEFILE) \
