@@ -157,7 +157,7 @@
  fmoist_only = .true.,      ! do not skip the fire model and run moisture only
  fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
  fmoist_dt = 10,             ! moisture model time step (s)
- fmoist_init = 1,            ! initialize fuel moisture classes 1= by fuelmc_g from namelist.fire, 2=by equilibrium, else = from wrfinput
+ fmoist_init = 2,            ! initialize fuel moisture classes 1= by fuelmc_g from namelist.fire, 2=by equilibrium, else = from wrfinput
                              ! otherwise fmc_gc (moisture in all classes) must be set in input data from WPS
 !
 ! verbosity
