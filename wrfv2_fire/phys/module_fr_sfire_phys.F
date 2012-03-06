@@ -386,9 +386,9 @@ call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,psfc,'PSFC')
 if(initialize) then 
     call message('advance_moisture: initializing, copying surface variables to old')
     call copy2old
+else
+    call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
 endif
-
-call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
 
 if(check_data)then
     do j=jts,jte

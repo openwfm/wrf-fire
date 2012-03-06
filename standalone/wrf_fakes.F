@@ -149,7 +149,6 @@ MODULE module_timing
    INTEGER, PRIVATE :: cn = 0 
    REAL, PRIVATE    :: elapsed_seconds , elapsed_seconds_total = 0
    REAL, PRIVATE    :: cpu_1 , cpu_2 , cpu_seconds , cpu_seconds_total = 0
-   data cn /0/
 
 CONTAINS
 
