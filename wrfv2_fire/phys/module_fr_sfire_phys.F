@@ -239,6 +239,8 @@ subroutine fuel_moisture(                &
     fmc_g                                & ! weighted fuel moisture contents on fire grid
     )
 
+implicit none
+
 !**** arguments
 integer, intent(in)::                    &
     id,nfmc,                             &
@@ -250,6 +252,7 @@ integer, intent(in)::                    &
     ifms, ifme, jfms, jfme,              &
     ifts,ifte,jfts,jfte,                 &
     ir,jr                                  ! atm/fire grid ratio
+
 
 real,intent(in),dimension(ifms:ifme,jfms:jfme):: nfuel_cat ! fuel data
 real,intent(inout),dimension(ims:ime,nfmc,jms:jme):: fmc_gc
@@ -338,6 +341,8 @@ subroutine advance_moisture(    &
     fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
     )
 
+implicit none
+
 !*** arguments
 logical, intent(in):: initialize
 integer, intent(in)::           &
@@ -356,7 +361,8 @@ real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
 
 !*** local
 integer:: i,j,k
-real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, rlag, equi, d, w, rhmax, rhmin, change
+real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, rlag, equi, &
+    d, w, rhmax, rhmin, change, rainmax,rainmin
 real, parameter::tol=1e-2 ! relative change larger than that will switch to exponential ode solver 
 character(len=128)::msg
 integer::msglevel=2
@@ -408,15 +414,23 @@ endif
 
 ! one time step
 
-rhmax=0.
-rhmin=1.
+rhmax=-huge(rhmax)
+rhmin=huge(rhmin)
+rainmax=-huge(rainmax)
+rainmin= huge(rainmin)
 do j=jts,jte
     do k=1,moisture_classes
         do i=its,ite
             ! old fuel moisture contents
             ! compute the rain intensity from the difference of accumulated rain
             rain_diff = ((rainc(i,j) + rainnc(i,j)) - rain_old(i,j))
-            rain_int  = rain_diff / moisture_dt 
+            if(moisture_dt > 0)then
+                rain_int  = rain_diff / moisture_dt 
+            else
+                rain_int  = 0.
+            endif
+            rainmax = max(rainmax,rain_int)
+            rainmin = min(rainmin,rain_int)
             R = rain_int - rain_threshold(k)
             if (R > 0.) then
                 select case(wetting_model(k))
@@ -498,11 +512,17 @@ do j=jts,jte
    enddo
 enddo
 
-if(.not.(rhmax<=1.0 .and. rhmin>=0))then
+if(fire_print_msg.ge.2)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-     write(msg,'(a,2f8.2,a)')'WARNING Relative humidity min max ',rhmin,rhmax,' should be between 0 and 1'
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-     call message(msg) 
+    write(msg,2)'Rain intensity    min',rainmin,  ' max',rainmax,' mm/h'
+    call message(msg) 
+    write(msg,2)'Relative humidity min',100*rhmin,' max',100*rhmax,'%'
+    call message(msg) 
+    if(.not.(rhmax<=1.0 .and. rhmin>=0))then
+        call message('WARNING Relative humidity must be between 0 and 100%')
+    endif
+2   format(2(a,f10.2),a)
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
 endif
 
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
