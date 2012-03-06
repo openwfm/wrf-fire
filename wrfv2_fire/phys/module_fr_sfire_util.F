@@ -1135,7 +1135,7 @@ do k=kps,kpe
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,'(i2,1x,a)')k,name
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-    call print_3d_stats(ips,ipe,kps,kpe,jps,jpe, &
+    call print_3d_stats(ips,ipe,k,k,jps,jpe, &
                          ims,ime,kms,kme,jms,jme, &
                          a,msg)
 enddo
@@ -1163,7 +1163,7 @@ do j=jps,jpe
   enddo
 enddo
 if(bb.eq.bb.and.fire_print_msg.eq.0)return
-avg_a=0
+avg_a=0.
 max_a=-huge(max_a)
 min_a= huge(min_a)
 t=huge(t)

@@ -409,7 +409,7 @@ endif
 rhmax=0.
 rhmin=1.
 do j=jts,jte
-    do k=1,nfmc
+    do k=1,moisture_classes
         do i=its,ite
             ! old fuel moisture contents
             ! compute the rain intensity from the difference of accumulated rain
