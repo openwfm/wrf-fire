@@ -9,7 +9,7 @@ integer::its=ims,ite=ime,jts=jms,jte=jme
 real, dimension(ims:ime,1:nfmc,jms:jme)::fmc_gc,fmc_equi,fmc_tend
 real, dimension(ims:ime,jms:jme)::t2,q2,psfc,t2_old,q2_old,psfc_old, &
    rainc,rainnc,rain_old
-integer, parameter::nsteps=50
+integer, parameter::nsteps=100
 logical::initialize
 integer::fmoist_init=2
 real::moisture_dt,dt
@@ -19,11 +19,11 @@ real, dimension(nsteps)::t,q,p,rain
 ! test data
 integer, parameter::zs=nsteps-10;
 data dt/600./
-data t/300.,300.,300.,305.,310., 305.,303.,300.,295.,290.,zs*285/
-!data t/300.,300.,300.,305.,310., 290.,290.,290.,290.,280.,zs*270/
-data q/nsteps*0.002/
+!data t/300.,300.,300.,305.,310., 305.,303.,340.,240.,240.,zs*285/
+data t/300.,300.,300.,305.,310., 290.,290.,290.,290.,280.,zs*270/
+data q/nsteps*0.001/
 data p/nsteps*1e5/
-data rain/0.0,0.01,0.01,0.1,1.0, 2.0,3.0,5.0,5.0,6.0,zs*6.0/
+data rain/0.0,0.01,0.01,0.1,3.0, 5.0,8.0,11.0,15.0,18.0,zs*20.0/
 
 !*** executable
 fire_print_msg = 2
@@ -42,7 +42,7 @@ do istep=1,nsteps
     endif
 
     write(*,*)'step',istep,' dt=',moisture_dt,' t=',t(istep),' q2=',q(istep),' p=',p(istep), &
-        ' rain=',rain(istep)
+        ' rain=',rain(istep),' time=',moisture_dt*(istep-1)/3600,' h'
  
     t2=t(istep)
     q2=q(istep)

@@ -52,7 +52,8 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
 
   integer, parameter::zm=max_moisture_classes - 3
   integer:: moisture_classes=3
-  real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold
+  real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,saturation_rain, &
+         rain_threshold,rec_drying_lag_sec,rec_wetting_lag_sec
   integer, dimension(max_moisture_classes):: drying_model,wetting_model
    ! relative weights of moisture class for each fuel category
    integer::itmp
@@ -355,7 +356,8 @@ real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
 
 !*** local
 integer:: i,j,k
-real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, tlag, equi, d, w, rhmax, rhmin
+real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, rlag, equi, d, w, rhmax, rhmin, change
+real, parameter::tol=1e-2 ! relative change larger than that will switch to exponential ode solver 
 character(len=128)::msg
 integer::msglevel=2
 logical, parameter::check_data=.true.,check_rh=.false.
@@ -421,7 +423,7 @@ do j=jts,jte
                 case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
                     EMC_w=saturation_moisture(k)
                     EMC_d=saturation_moisture(k)
-                    tlag=wetting_lag(k) * (1. - exp(-R/saturation_rain(k)))
+                    rlag=rec_wetting_lag_sec(k) * (1. - exp(-R/saturation_rain(k)))
                 end select
             else ! not raining
                 ! average the inputs for second order accuracy
@@ -457,14 +459,14 @@ do j=jts,jte
                     if(d.ne.d.or.w.ne.w)call crash('equilibrium moisture calculation failed, result is NaN')
                     EMC_d = max(d,w)
                     EMC_w = min(d,w)
-                    tlag=drying_lag(k)
+                    rlag=rec_drying_lag_sec(k)
                 end select
             endif
             !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIME LAG KIND 
             ! ARE RESPONSIBLE FOR THEIR OWN LOGIC, THESE MODELS
             ! SHOULD COMPUTE fmc_gc(i,k,j) DIRECTLY AND SET TLAG < 0
             !
-            if(tlag > 0.0)then
+            if(rlag > 0.0)then
 
                 if(.not.initialize)then
                     fmc = fmc_gc(i,k,j)
@@ -480,8 +482,14 @@ do j=jts,jte
                     equi=fmc
                 endif
 
-                tend=(equi-fmc)/tlag
-                fmc_gc(i,k,j) = fmc + moisture_dt * tend
+                tend=(equi-fmc)*rlag
+                change = moisture_dt * tend
+                if(abs(change) < fmc*tol)then
+                     fmc = fmc + change   ! standard 2nd order midpoint method
+                else
+                     fmc = fmc + (equi-fmc)*exp(-moisture_dt*rlag)
+                endif
+                fmc_gc(i,k,j) = fmc
                 ! diagnostics out
                 fmc_equi(i,k,j)=equi
                 fmc_tend(i,k,j)=tend
@@ -626,6 +634,12 @@ call wrf_dm_bcast_real(rain_threshold,     max_moisture_classes)
 call wrf_dm_bcast_integer(drying_model,     max_moisture_classes)
 call wrf_dm_bcast_integer(wetting_model,     max_moisture_classes)
 call wrf_dm_bcast_real(fmc_gw,     mfuelcats*max_moisture_classes)
+
+! moisture model derived scalars
+do i=1,moisture_classes
+    rec_drying_lag_sec(i)  = 1.0/(3600.0*drying_lag(i))
+    rec_wetting_lag_sec(i) = 1.0/(3600.0*wetting_lag(i))
+enddo
 
 !-------------------------------- fuel model
 ! compute derived scalars
