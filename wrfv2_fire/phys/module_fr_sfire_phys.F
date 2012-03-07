@@ -367,6 +367,7 @@ real, parameter::tol=1e-2 ! relative change larger than that will switch to expo
 character(len=128)::msg
 integer::msglevel=2
 logical, parameter::check_data=.true.,check_rh=.false.
+real::epsilon,Pws,Pw
 
 !*** executable
 
@@ -445,21 +446,26 @@ do j=jts,jte
                 P = 0.5 * (psfc_old(i,j) + psfc(i,j))
                 Q = 0.5 * (q2_old(i,j) + q2(i,j))
                 ! compute the relative humidity
-                ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
-                QRS=0.622*ES/(P-0.378*ES)
-                RH = Q/QRS
+                ! ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
+                ! QRS=0.622*ES/(P-0.378*ES)
+                ! RH = Q/QRS
+		! function rh_from_q from Adam Kochanski following Murphy and Koop, Q.J.R. Meteorol. Soc (2005) 131 1539-1565 eq. (10)
+                epsilon = 0.622 ! Molecular weight of water (18.02 g/mol) to molecular weight of dry air (28.97 g/mol)
+                ! vapor pressure [Pa]
+                Pw=q*P/(epsilon+(1-epsilon)*q); 
+                ! saturation vapor pressure [Pa]
+                Pws= exp( 54.842763 - 6763.22/T - 4.210 * log(T) + 0.000367*T + tanh(0.0415*(T - 218.8)) * (53.878 - 1331.22/T - 9.44523 * log(T) + 0.014025*T)); 
+                !realtive humidity [%]
+                RH = Pw/Pws
                 rhmax=max(RH,rhmax)         
                 rhmin=min(RH,rhmin)         
                 if(.not.check_rh)then
                     RH = min(RH,1.0)
                 else
-                    if(RH < 0.0 .or. RH > 1.0 .or. RH .ne. RH .or. .not. QRS > 0.)then
+                    if(RH < 0.0 .or. RH > 1.0 .or. RH .ne. RH )then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
                         write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH, &
                             ' from T=',T,' P=',P,' Q=',Q
-                        call message(msg) 
-                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' ES=',ES, &
-                            ' QRS=',QRS,' t2=',t2(i,j),' psfc=',psfc(i,j),' q2=',q2(i,j)
                         call message(msg) 
                         call crash('Relative humidity must be between 0 and 1, saturated water contents must be >0')
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
