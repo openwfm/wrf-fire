@@ -426,7 +426,7 @@ do j=jts,jte
             ! compute the rain intensity from the difference of accumulated rain
             rain_diff = ((rainc(i,j) + rainnc(i,j)) - rain_old(i,j))
             if(moisture_dt > 0)then
-                rain_int  = rain_diff / moisture_dt 
+                rain_int  = 3600. * rain_diff / moisture_dt 
             else
                 rain_int  = 0.
             endif
