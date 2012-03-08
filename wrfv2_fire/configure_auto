@@ -17,6 +17,7 @@ FALSE=1
 : ${NETCDF:=/usr/local}
 : ${VERBOSE:=$FALSE}
 : ${NESTING:=1}
+export NETCDF
 
 function p_usage {
   echo "usage: $0 [-c CC] [-f FC] [-r regex] [-s] [-d] [-g] [-n netcdf] [-1] [-v] [-e #] [-h]" >&2
@@ -134,7 +135,7 @@ fi
 i=0
 tmp=.$$.tmp
 echo '1\n1\n'      | \
-./configure        | \
+./configure     2> /dev/null   | \
 grep '^ *[0-9]\+.' > $tmp
 
 while read line
