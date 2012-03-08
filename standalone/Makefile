@@ -68,12 +68,17 @@ FUEL_INTERP_OBJ = \
     module_fr_sfire_util.o  \
     wrf_fakes.o
 
+MOISTURE_TEST_OBJ = \
+    moisture_test_main.o \
+    module_fr_sfire_phys.o \
+    module_fr_sfire_util.o  \
+    wrf_fakes.o
+    
 MOISTURE_OBJ = \
     moisture_main.o \
     module_fr_sfire_phys.o \
     module_fr_sfire_util.o  \
     wrf_fakes.o
-    
 
 .PHONY: all
 
@@ -83,8 +88,11 @@ MOISTURE_OBJ = \
 default: fire
 
 moisture: moisture.exe
-moisture.exe: $(MAKEFILE) $(MOISTURE_OBJ)
-	$(FC) $(FCFLAGS) -o moisture.exe $(MOISTURE_OBJ)
+moisture.exe: $(MAKEFILE) libesmf_time.a $(MOISTURE_OBJ)
+	$(FC) $(FCFLAGS) -o moisture.exe $(MOISTURE_OBJ) -L. -lesmf_time $(LDFLAGS)
+moisture_test: moisture_test.exe
+moisture_test.exe: $(MAKEFILE) $(MOISTURE_TEST_OBJ)
+	$(FC) $(FCFLAGS) -o moisture_test.exe $(MOISTURE_TEST_OBJ)
 
 
 fuel: fuel_interp_test.exe
@@ -119,6 +127,10 @@ fuels.exe: $(MAKEFILE) $(FUELS_OBJ)
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o fuels.exe $(FUELS_OBJ) $(LDFLAGS)
  
 # for the order of generating modules
+
+moisture_test_main.o: $(MAKEFILE) \
+    module_fr_sfire_core.o  \
+    module_fr_sfire_util.o 
 
 moisture_main.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
@@ -183,5 +195,35 @@ fuels_main.o: $(MAKEFILE) \
 
 __always:
 
+
+# build rules for ESMF time support
+ESMF_OBJS=ESMF_Alarm.o ESMF_BaseTime.o ESMF_Time.o \
+        ESMF_Base.o ESMF_Calendar.o ESMF_Fraction.o   \
+        ESMF_TimeInterval.o ESMF_Stubs.o ESMF_Clock.o Meat.o \
+		ESMF_AlarmClock.o ESMF_Mod.o
+
+libesmf_time.a: $(ESMF_OBJS)
+	$(RM) $@
+	$(AR) ru $@ $^
+
+ESMF_Alarm.o : ESMF_BaseTime.o ESMF_Time.o ESMF_TimeInterval.o
+ESMF_BaseTime.o : ESMF_Base.o
+ESMF_Time.o : ESMF_BaseTime.o ESMF_TimeInterval.o ESMF_Calendar.o \
+              ESMF_Stubs.o
+ESMF_Base.o :
+ESMF_Calendar.o : ESMF_BaseTime.o
+ESMF_Fraction.o : ESMF_BaseTime.o
+ESMF_TimeInterval.o : ESMF_BaseTime.o ESMF_Calendar.o ESMF_Fraction.o
+Meat.o : ESMF_Alarm.o ESMF_BaseTime.o ESMF_Clock.o ESMF_Time.o \
+        ESMF_Base.o ESMF_Calendar.o ESMF_Fraction.o    \
+        ESMF_TimeInterval.o
+ESMF_Mod.o : ESMF_Alarm.o ESMF_BaseTime.o ESMF_Clock.o ESMF_Time.o \
+        ESMF_Base.o ESMF_Calendar.o ESMF_Fraction.o    \
+        ESMF_TimeInterval.o Meat.o ESMF_Stubs.o ESMF_AlarmClock.o
+ESMF_AlarmClock.o : ESMF_Alarm.o ESMF_Clock.o
+ESMF_Clock.o : ESMF_BaseTime.o ESMF_Time.o ESMF_TimeInterval.o
+$(ESMF_OBJS) : %.o : $(WRF)/external/esmf_time_F90/%.F90
+	$(FC) -c $< -I$(WRF)/external/esmf_time_f90 -I. -DMAX_HISTORY=25 -o $@
+
 clean:
-	rm -f *.mod *.o *.f90 *.s *.exe
+	rm -f *.mod *.o *.f90 *.s *.exe *.a

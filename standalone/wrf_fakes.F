@@ -71,6 +71,14 @@ end module module_wrf_error
 subroutine latch
 end
 
+subroutine wrf_error_fatal(s)
+! ESMF has this subroutine outside the module for some reason
+use module_wrf_error, ONLY : wrf_error_fatal_mod => wrf_error_fatal
+implicit none
+character(len=*),intent(in)::s
+call wrf_error_fatal_mod(s)
+end subroutine wrf_error_fatal
+
 !
 !*** various stubs, mostly doing nothing
 !
