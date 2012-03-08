@@ -284,6 +284,74 @@ read(wrfstr,'(I04,A1,I02,A1,I02,A1,I02,A1,I02,A1,I02)') &
 call ESMF_TimeSet(time,YY=year,MM=month,DD=day,H=hour,M=minute,S=second)
 end subroutine parse_wrf_time
 
+subroutine get_next_timestep(files,ifile,istep)
+! choose a file and time step within the file to use
+! for the next call to the moisture model
+! 
+! This assumes files are in sequential order, and 
+! allows for reanalysis runs where there may be
+! time step overlaps from one file to the next.
+! Here, we prefer to move on to the next file
+! rather than the next time step in the old file
+! to use model arrays closer to reanalysis.
+! If there is no overlap, this routine will
+! increment from one file to the next as expected.
+!
+! This subroutine will return istep=ifile=0, when
+! there are no more steps to process.
+implicit none
+type(ncfile),dimension(:),intent(in)::files
+integer,intent(inout)::ifile,istep
+
+integer::nfile,nstep
+type(ESMF_Time)::time1,time2,time3
+nfile=size(files)
+if(ifile.lt.1)then
+    ! for initialization only
+    ifile=1
+    istep=1
+    return
+endif
+nstep=size(files(ifile)%times)
+time1=files(ifile)%times(istep)
+
+if(istep+1.le.size(files(ifile)%times))then
+    time2=files(ifile)%times(istep+1)
+else
+    ifile=ifile+1
+    istep=1
+    goto 990
+endif
+
+if(ifile+1.le.nfile)then
+    ! if there is another file after the current one
+    time3=files(ifile+1)%times(1)
+else
+    ! if there is not another file pick next time step in current file
+    istep=istep+1
+    goto 990
+endif
+
+if(time2.ge.time3)then
+    ! if next file has a time step closer to the current time
+    ! or if there are no more time steps in the current file,
+    ! use the next file
+    ifile=ifile+1
+    istep=1
+else
+    ! otherwise use the next step in the current file
+    istep=istep+1
+endif
+
+ 990 continue
+if(ifile.gt.nfile.or.istep.gt.size(files(ifile)%times))then
+    ! make sure the current time step is valid
+    ! end if not
+    istep=0
+    ifile=0
+endif
+end subroutine get_next_timestep
+
 subroutine check(status)
 integer,intent(in)::status
 if(status.ne.nf90_noerr) then
@@ -351,21 +419,21 @@ fire_print_msg = 2
 call init_fuel_cats(.true.)
 print *,moisture_classes,' moisture classes'
 
-ifile=1
+ifile=0
 ii=0
-do istep=1,nsteps
+istep=0
+call get_next_timestep(wrffile,ifile,ii)
+do while(ifile.gt.0)
+    istep=istep+1
     oldtime=timenow
-    ii=ii+1 
-    if(ii.gt.wrffile(ifile)%ntime)then
-        ifile=ifile+1
-        ii=1
-    endif
-
-    if(ifile.gt.nfile) goto 99
+    timenow=wrffile(ifile)%times(ii)
     print*,'reading file ',ifile,' of ',nfile
     print*,'time step ',ii,' of ',wrffile(ifile)%ntime
+    !if(istep.gt.1)then
+    call ESMF_TimeGet(timenow,timeString=timediffstr)
+    print*,'time: ',trim(timediffstr)
+    !endif
     call read_file(wrffile(ifile),ii,vars)
-    timenow=wrffile(ifile)%times(ii)
    
 
     if(istep.eq.1)then
@@ -399,7 +467,7 @@ do istep=1,nsteps
         vars%fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
         )
     call write_output(outputfname,vars)
-
+    call get_next_timestep(wrffile,ifile,ii)
 enddo
  99 continue
 call destroy_vars(vars)
