@@ -129,7 +129,7 @@ fuels.exe: $(MAKEFILE) $(FUELS_OBJ)
 # for the order of generating modules
 
 moisture_test_main.o: $(MAKEFILE) \
-    module_fr_sfire_core.o  \
+    module_fr_sfire_phys.o  \
     module_fr_sfire_util.o 
 
 moisture_main.o: $(MAKEFILE) \
