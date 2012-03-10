@@ -85,6 +85,90 @@ end type ignition_type
 
 contains
 
+!
+!*****************************
+!
+
+subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
+    istrip,                              & ! width of strip to extrapolate to around domain
+    ids,ide, jds,jde,                    & ! atm grid dimensions
+    ims,ime, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              &
+    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,                       &
+    ifts,ifte,jfts,jfte,                          &
+    ir,jr,                                        & ! atm/fire grid ratio
+    zs,                                       & ! atm grid arrays in
+    zsf)                                      ! fire grid arrays out
+    
+implicit none
+!*** purpose: interpolate height
+
+!*** arguments
+integer, intent(in)::id,                          &
+    istrip,                                       &
+    ids,ide, jds,jde,                    & ! atm domain bounds
+    ims,ime,jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+    ir,jr                                         ! atm/fire grid refinement ratio
+real, intent(in), dimension(ims:ime, jms:jme):: zs  ! terrain height at atm cell centers                                        & ! terrain height  
+real,intent(out), dimension(ifms:ifme,jfms:jfme)::&
+    zsf                                             ! terrain height fire grid nodes
+    
+    
+!*** local
+real, dimension(its-2:ite+2,jts-2:jte+2):: za      ! terrain height
+integer:: i,j,jts1,jte1,its1,ite1,jfts1,jfte1,ifts1,ifte1,itso,jtso,iteo,jteo
+
+if(istrip.gt.1)call crash('interpolate_z2fire: istrip should be 0 or 1 or less')
+
+! terrain height
+
+    jts1=max(jts-1,jds) ! lower loop limit by one less when at end of domain
+    its1=max(its-1,ids) ! ASSUMES THE HALO IS THERE if patch != domain
+    jte1=min(jte+1,jde) 
+    ite1=min(ite+1,ide)
+    do j = jts1,jte1
+        do i = its1,ite1 
+            ! copy to local array
+            za(i,j)=zs(i,j)           
+        enddo
+    enddo
+
+    call continue_at_boundary(1,1,0., & ! do x direction or y direction
+    its-2,ite+2,jts-2,jte+2,           &                ! memory dims
+    ids,ide,jds,jde, &            ! domain dims - winds defined up to +1
+    ips,ipe,jps,jpe, &            ! patch dims - winds defined up to +1
+    its1,ite1,jts1,jte1, &                ! tile dims
+    itso,jtso,iteo,jteo, &
+    za)                               ! array
+
+    ! interpolate to tile plus strip along domain boundary if at boundary
+    jfts1=snode(jfts,jfds,-istrip) ! lower loop limit by one less when at end of domain
+    ifts1=snode(ifts,ifds,-istrip)
+    jfte1=snode(jfte,jfde,+istrip) 
+    ifte1=snode(ifte,ifde,+istrip)
+                     
+    call interpolate_2d(  &
+        its-2,ite+2,jts-2,jte+2, & ! memory dims atm grid tile
+        its1-1,ite1+1,jts1-1,jte1+1, & ! where atm grid values set
+        ifms,ifme,jfms,jfme,    & ! array dims fire grid
+        ifts1,ifte1,jfts1,jfte1,  & ! dimensions fire grid tile
+        ir,jr,                  & ! refinement ratio
+        real(ids),real(jds),ifds+(ir-1)*0.5,jfds+(jr-1)*0.5, & ! line up by lower left corner of domain
+        za,                     & ! in atm grid     
+        zsf)                      ! out fire grid
+
+end subroutine interpolate_z2fire
+
+!
+!***********************************************************************
+!
 
 subroutine fire_ignition_convert (config_flags,ignition)
     USE module_configure
@@ -323,8 +407,8 @@ if(fire_print_msg.ge.mlevel)then
       msg='SFIRE:'//s
 #endif
       call wrf_message(msg)
-      ! flush(6) ! will not work on intel compiler
-      ! flush(0)
+      flush(6) ! will not work on intel compiler
+      flush(0)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 endif
 end subroutine message
@@ -532,10 +616,10 @@ character(len=128)msg
 if(ids<ims.or.ide>ime.or.jds<jms.or.jde>jme)then
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,*)'mesh dimensions:  ',ids,ide,jds,jde
-    call message(msg)
+    call message(msg,level=0)
     write(msg,*)'memory dimensions:',ims,ime,jms,jme
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-    call message(msg)
+    call message(msg,level=0)
     call crash('check_mesh_2dim: memory dimensions too small')
 endif
 end subroutine check_mesh_2dim
@@ -594,7 +678,7 @@ jsz2 = jte2-jts2+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
-    call message('all mesh sizes must be positive')
+    call message('all mesh sizes must be positive',level=0)
     goto 9
 endif
 
@@ -603,7 +687,7 @@ ir=isz2/isz1
 jr=jsz2/jsz1
 
 if(isz2.ne.isz1*ir .or. jsz2.ne.jsz1*jr)then
-    call message('input mesh size must be multiple of output mesh size')
+    call message('input mesh size must be multiple of output mesh size',level=0)
     goto 9
 endif
 
@@ -630,14 +714,14 @@ return
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,91)its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
-call message(msg)
+call message(msg,level=0)
 write(msg,91)its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
-call message(msg)
+call message(msg,level=0)
 write(msg,92)'input  mesh size:',isz2,jsz2
-call message(msg)
+call message(msg,level=0)
 91 format('dimensions: ',8i8)
 write(msg,92)'output mesh size:',isz1,jsz1
-call message(msg)
+call message(msg,level=0)
 92 format(a,2i8)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call crash('module_fr_spread_util:sum_mesh_cells: bad mesh sizes')
@@ -805,14 +889,14 @@ return
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
-call message(msg)
+call message(msg,level=0)
 write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-call message(msg)
+call message(msg,level=0)
 write(msg,92)'input  mesh size:',isz2,jsz2
-call message(msg)
+call message(msg,level=0)
 91 format('dimensions: ',8i8)
 write(msg,92)'output mesh size:',isz1,jsz1
-call message(msg)
+call message(msg,level=0)
 92 format(a,2i8)
 call crash("module_fr_sfire_util:interpolate_2dmesh_cells: bad mesh sizes")
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
@@ -894,14 +978,14 @@ return
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,91)ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2
-call message(msg)
+call message(msg,level=0)
 write(msg,91)ids1,ide1,jds1,jde1,ims1,ime1,jms1,jme1
-call message(msg)
+call message(msg,level=0)
 write(msg,92)'input  mesh size:',isz2,jsz2
-call message(msg)
+call message(msg,level=0)
 91 format('dimensions: ',8i8)
 write(msg,92)'output mesh size:',isz1,jsz1
-call message(msg)
+call message(msg,level=0)
 92 format(a,2i8)
 call crash("module_fr_sfire_util:interpolate_2d_cells2nodes: bad mesh sizes")
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
@@ -1224,9 +1308,29 @@ id=name
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,'(a,4i4,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call message(msg)
+call message(msg,level=0)
 if(.not.avg_a.eq.avg_a)call crash('NaN detected')
 end subroutine print_stat_line
+
+subroutine print_3d_stats_by_slice(ips,ipe,kps,kpe,jps,jpe, &
+                         ims,ime,kms,kme,jms,jme, &
+                         a,name)
+implicit none
+integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme,kms,kme,kps,kpe
+real, intent(in)::a(ims:ime,kms:kme,jms:jme)
+character(len=*),intent(in)::name
+integer::k
+character(len=128)::msg
+do k=kps,kpe
+! print 3d stats for each horizontal slice separately
+!$OMP CRITICAL(SFIRE_UTIL_CRIT)
+    write(msg,'(i2,1x,a)')k,name
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
+    call print_3d_stats(ips,ipe,kps,kpe,jps,jpe, &
+                         ims,ime,kms,kme,jms,jme, &
+                         a,msg)
+enddo
+end subroutine print_3d_stats_by_slice 
 
 
 subroutine print_3d_stats(ips,ipe,kps,kpe,jps,jpe, &
@@ -1273,7 +1377,7 @@ return
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,1)name,i,k,j,aa
-call message(msg)
+call message(msg,level=0)
 1 format(a30,'(',i6,',',i6,',',i6,') = ',g13.5)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
@@ -1488,7 +1592,7 @@ rewind(iu,err=9)
 read(iu,*,err=10)ni,nj
 if(ni.ne.mi.or.nj.ne.mj)then
     write(msg,'(a,2i6,a,2i6)')'Array dimensions',ni,nj,' in the input file should be ',mi,mj
-    call message(msg)
+    call message(msg,level=0)
     goto 10
 endif
 do i=its,ite

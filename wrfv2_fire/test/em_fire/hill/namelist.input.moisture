@@ -151,10 +151,12 @@
  !fire_ignition_start_time3 = 4,  ! sec for ignition from the start! end ignition for sfire
  !fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 ! moisture model
- fmoist_run = .true.,        ! run moisture model
- fmoist_freq = 0,            ! use specified dt
- fmoist_dt = 10,             ! moisture model time step
- initialize_fmc = .true.,    ! initialize fuel moisture classes
+ fmoist_run = .true.,        ! run the moisture model
+ fmoist_interp = .true.,     ! interpolate moisture to fuels
+ fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
+ fmoist_dt = 10,             ! moisture model time step (s)
+ initialize_fmc = .true.,    ! initialize fuel moisture classes by fuelmc_g from namelist.fire
+                             ! otherwise fmc_gc (moisture in all classes) must be set in input data from WPS
 !
 ! verbosity
  fire_print_msg     = 2,        ! 1 print fire debugging messages

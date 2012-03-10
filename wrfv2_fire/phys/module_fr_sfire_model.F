@@ -143,9 +143,10 @@ xjfme=jfme
 freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
-!$OMP SINGLE
-   call init_fuel_cats  ! initialize fuel subsystem
-!$OMP END SINGLE
+! !$OMP SINGLE
+!! done in driver now
+!   call init_fuel_cats  ! initialize fuel subsystem
+! !$OMP END SINGLE
 elseif(ifun.eq.2)then   
         ! initialize all arrays that the model will not change later
 

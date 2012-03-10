@@ -1,4 +1,5 @@
 !
+
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! This file contains parts copied and/or adapted from earlier codes by 
@@ -11,6 +12,7 @@ use module_fr_sfire_util
 
 implicit none
 PRIVATE
+
 
 type fire_params
 real,pointer,dimension(:,:):: vx,vy                ! wind velocity (m/s)
@@ -25,15 +27,62 @@ end type fire_params
 
 ! subroutenes and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
-write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid
+write_fuels_m,fire_risk,fire_intensity,set_fp_from_grid, fuel_moisture,advance_moisture
 
 ! types
 public:: fire_params
 
 ! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,moisture_classes,fmoist_run,fmoist_interp
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
+
+! moisture behavior, see Mandel et al EGU 2012
+
+!! To add moisture classes:
+!  1. change parameter max_moisture_classes below
+!  2. change the default of nfmc to the same value in Registry/registry.fire
+!  3. add the appropriate lines real::fmc_gw<number>= <default values>
+!  4. add dfault 
+
+!*** dimensions
+   INTEGER, PARAMETER :: mfuelcats = 30     ! max number of fuel categories 
+  integer, parameter::max_moisture_classes=5
+!***
+
+  logical::fmoist_run,fmoist_interp
+  integer, parameter::zm=max_moisture_classes - 3
+  integer:: moisture_classes=3
+  real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold
+  integer, dimension(max_moisture_classes):: drying_model,wetting_model
+   ! relative weights of moisture class for each fuel category
+   integer::itmp
+   CHARACTER (len=80), DIMENSION(max_moisture_classes), save :: moisture_class_name
+   real, dimension(mfuelcats):: &  ! should sum up to one
+     fmc_gw01=(/ (1.0, itmp=1,mfuelcats) /), & 
+     fmc_gw02=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw03=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw04=(/ (0.0, itmp=1,mfuelcats) /), & 
+     fmc_gw05=(/ (0.0, itmp=1,mfuelcats) /) 
+    
+  data moisture_class_name /'1-hour fuel','10-hour fuel','100-hour fuel',zm*'NOT USED'/
+  data drying_lag                 /1., 10., 100. , zm*0./  ! time lag (h) approaching equilibrium moisture 
+  data wetting_lag                   /14, 140., 1400., zm*0./  ! time lag (h) for approaching saturation in rain
+  data saturation_moisture        /2.5, 2.5, 2.5 , zm*0./  ! saturation moisture contents (1) in rain
+  data saturation_rain            /8.0, 8.0, 8.0 , zm*0./  ! stronger rain matters only in duration (mm/h) 
+  data rain_threshold             /0.05, 0.05, 0.05, zm*0 /! rain intensity this small is same as nothing
+  data drying_model               /1,   1,   1,    zm*0 /
+  data wetting_model              /1,   1,   1,    zm*0 /
+  real, dimension(7)::eq_p
+  data eq_p/  1.035e-09, &   !(3.893e-10, 1.681e-09) ! coefficients of the equilibrium fuel moisture polynomial
+              -2.62e-07, &   !(-4.593e-07, -6.473e-08) ! fitted from the graph in Schroeder and Buck (1970)
+              2.507e-05, &   !(2.194e-06, 4.795e-05)
+              -0.001107, &   !(-0.002353, 0.000139)
+                0.02245, &   !(-0.009188, 0.05409)
+               -0.05901, &   !(-0.3721, 0.254)
+                  3.043/   !(2.17, 3.915)
+   
+   ! =========================================================================
 
 ! Following table copied from module_fr_cawfe_fuel by Ned Patton with minor changes. 
 ! Based on:           Clark, T. L., J. L. Coen and D. Latham: 2004, 
@@ -99,7 +148,6 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
 ! fuel categorytables
    INTEGER, PARAMETER :: nf=14              ! fuel cats in data stmts, for fillers only`
    INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, can be reset from namelist.fire
-   INTEGER, PARAMETER :: mfuelcats = 30     ! number of fuel categories 
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
    INTEGER, SAVE      :: ibeh=1             ! type of spread formula
@@ -108,7 +156,8 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
                                             fcwh,fcz0, ffw, &
-                                            savr,st,se,adjr0,adjrw,adjrs
+                                            savr,st,se,adjr0,adjrw,adjrs, &
+                                            fmc_gw(mfuelcats,max_moisture_classes) 
 ! =============================================================================
 ! Standard 13 fire behavior fuel models (for surface fires), along with some
 !          estimated canopy properties (for crown fire).
@@ -167,11 +216,314 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf
    DATA adjr0 /mfuelcats*1./
    DATA adjrw /mfuelcats*1./
    DATA adjrs /mfuelcats*1./
-! =========================================================================
+   
+   ! =========================================================================
 
   logical, save :: have_fuel_cats=.false.
 
 contains
+
+subroutine fuel_moisture(                &
+    id,                                  & ! for prints and maybe file names
+    nfmc,                                &
+    ids,ide, jds,jde,                    & ! atm grid dimensions
+    ims,ime, jms,jme,                    &
+    ips,ipe,jps,jpe,                     &
+    its,ite,jts,jte,                     &
+    ifds, ifde, jfds, jfde,              & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,              &
+    ifts,ifte,jfts,jfte,                 &
+    ir,jr,                               & ! atm/fire grid ratio
+    nfuel_cat,                           & ! fuel data
+    fmc_gc,                              & ! moisture contents by class on atmospheric grid
+    fmc_g                                & ! weighted fuel moisture contents on fire grid
+    )
+
+!**** arguments
+integer, intent(in)::                    &
+    id,nfmc,                             &
+    ids,ide, jds,jde,                    & ! atm grid dimensions
+    ims,ime, jms,jme,                    &
+    ips,ipe,jps,jpe,                     &
+    its,ite,jts,jte,                     &
+    ifds, ifde, jfds, jfde,              & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,              &
+    ifts,ifte,jfts,jfte,                 &
+    ir,jr                                  ! atm/fire grid ratio
+
+real,intent(in),dimension(ifms:ifme,jfms:jfme):: nfuel_cat ! fuel data
+real,intent(inout),dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+real,intent(out),dimension(ifms:ifme,jfms:jfme):: fmc_g ! fuel data
+
+!**** local
+real, dimension(its-1:ite+1,jts-1:jte+1):: fmc_k  ! copy of fmc_gc(:,k,:) 
+real, dimension(ifts:ifte,jfts:jfte):: fmc_f      ! interpolation of fmc_gc(:,k,:) to the fire grid 
+integer::i,j,k,n
+integer::ibs,ibe,jbs,jbe
+character(len=128)::msg
+
+if(.not.fmoist_interp)call crash('fuel_moisture should not be called because fmoist_interp not set?')
+ 
+call check_mesh_2dim(ifts,ifte,jfts,jfte,ifds,ifde,jfds,jfde) ! check if fire tile fits into domain
+call check_mesh_2dim(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme) ! check if fire tile fits into memory
+
+do j=jfts,jfte
+    do i=ifts,ifte
+        fmc_g(i,j)=0.               ! initialize sum over classes
+    enddo
+enddo
+
+! one beyond the tile but not beyond the domain boundary
+ibs=max(ids,its-1)
+ibe=min(ide,ite+1)
+jbs=max(jds,jts-1)
+jbe=min(jde,jte+1)
+
+call check_mesh_2dim(ibs,ibe,jbs,jbe,ims,ime,jms,jme) ! check if tile with halo fits into memory
+
+do k=1,moisture_classes
+
+    ! copy halo beyond the tile but not beyond the domain boundary
+    do j=jbs,jbe
+        do i=ibs,ibe
+            fmc_k(i,j)=fmc_gc(i,k,j)      ! copy slice to 2d array
+        enddo
+    enddo
+
+    call print_2d_stats(ibs,ibe,jbs,jbe,its-1,ite+1,jts-1,jte+1,fmc_k,'fuel_moisture: fmc_k')
+
+    ! interpolate moisture contents in the class k to the fire mesh
+    call interpolate_z2fire(id,0,        & ! for debug output, <= 0 no output
+    ids,ide,jds,jde,                     & ! atm grid dimensions
+    its-1,ite+1,jts-1,jte+1,             & ! memory dimensions
+    ips,ipe,jps,jpe,                     &
+    its,ite,jts,jte,                     &
+    ifds, ifde, jfds, jfde,              & ! fire grid dimensions
+    ifts, ifte, jfts, jfte,              &
+    ifts,ifte,  jfts,jfte,               &
+    ir,jr,                               & ! atm/fire grid ratio
+    fmc_k,                               & ! atm grid arrays in
+    fmc_f)                                 ! fire grid arrays out
+
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fmc_f,'fuel_moisture: fmc_f')
+
+    ! add moisture contents for class k to the fuel moisture
+    do j=jfts,jfte
+        do i=ifts,ifte
+            n = nfuel_cat(i,j)
+            if(n > 0)then
+                fmc_g(i,j)=fmc_g(i,j)+fmc_gw(n,k)*fmc_f(i,j)      ! add to sum over classes
+            endif
+        enddo
+    enddo
+
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'fuel_moisture: fmc_g')
+
+enddo
+
+
+end subroutine fuel_moisture
+
+subroutine advance_moisture(    &
+    initialize,                 & ! initialize timestepping
+    fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
+    ims,ime,  jms,jme,          & ! memory dimensions
+    its,ite,  jts,jte,          & ! tile dimensions
+    nfmc,                       & ! dimension of moisture fields
+    moisture_dt,                & ! timestep = time step time elapsed from the last call
+    rainc, rainnc,              & ! accumulated rain 
+    t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
+    rain_old,                   & ! previous value of accumulated rain
+    t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
+    fmc_gc,                     & ! fuel moisture by class, updated
+    fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics
+    fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics
+    )
+
+!*** arguments
+logical, intent(in):: initialize
+integer, intent(in)::           &
+    fmoist_init,                &
+    ims,ime,  jms,jme,          & ! memory dimensions
+    its,ite,  jts,jte,          & ! tile dimensions
+    nfmc                          ! number of moisture fields
+real, intent(in):: moisture_dt
+real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
+real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
+real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
+
+!*** local
+integer:: i,j,k
+real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, tlag, equi, d, w, rhmax, rhmin
+character(len=128)::msg
+integer::msglevel=2
+logical, parameter::check_data=.true.,check_rh=.false.
+
+!*** executable
+
+! check arguments
+
+if(msglevel>1)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+    write(msg,'(a,f10.2,a,i4,a,i4)')'advance moisture dt=',moisture_dt,'s using ',moisture_classes,' classes from possible ',nfmc
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+    call message(msg)
+endif
+
+if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+    write(msg,*)'advance_moisture: moisture_classes=',moisture_classes,' > nfmc=',nfmc,' or >  max_moisture_classes=',max_moisture_classes
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+    call crash(msg)
+endif
+
+if(.not.fmoist_run)call crash('advance_moisture should not be called because fmoist_run not set?')
+
+call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,t2,'T2')
+call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,q2,'Q2')
+call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,psfc,'PSFC')
+
+if(initialize) then 
+    call message('advance_moisture: initializing, copying surface variables to old')
+    call copy2old
+endif
+
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
+
+if(check_data)then
+    do j=jts,jte
+        do i=its,ite
+            if( .not.(t2(i,j)>0.0 .and. psfc(i,j)>0.0 .and. .not. q2(i,j) < 0.0 ))then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+                 write(msg,'(a,2i4,a,3e12.2)')'At i j',i,j,' t2 psfc q2 are ',t2(i,j),psfc(i,j),q2(i,j)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+                 call message(msg) 
+                 call crash('invalid data passed from WRF, must have t2 psfc>0, q2 >= 0')
+            endif
+        enddo
+    enddo
+endif
+
+! one time step
+
+rhmax=0.
+rhmin=1.
+do j=jts,jte
+    do k=1,nfmc
+        do i=its,ite
+            ! old fuel moisture contents
+            ! compute the rain intensity from the difference of accumulated rain
+            rain_diff = ((rainc(i,j) + rainnc(i,j)) - rain_old(i,j))
+            rain_int  = rain_diff / moisture_dt 
+            R = rain_int - rain_threshold(k)
+            if (R > 0.) then
+                select case(wetting_model(k))
+                case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
+                    EMC_w=saturation_moisture(k)
+                    EMC_d=saturation_moisture(k)
+                    tlag=wetting_lag(k) * (1. - exp(-R/saturation_rain(k)))
+                end select
+            else ! not raining
+                ! average the inputs for second order accuracy
+                T = 0.5 * (t2_old(i,j) + t2(i,j))
+                P = 0.5 * (psfc_old(i,j) + psfc(i,j))
+                Q = 0.5 * (q2_old(i,j) + q2(i,j))
+                ! compute the relative humidity
+                ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
+                QRS=0.622*ES/(P-0.378*ES)
+                RH = Q/QRS
+                rhmax=max(RH,rhmax)         
+                rhmin=min(RH,rhmin)         
+                if(.not.check_rh)then
+                    RH = min(RH,1.0)
+                else
+                    if(RH < 0.0 .or. RH > 1.0 .or. RH .ne. RH .or. .not. QRS > 0.)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH,' from T=',T,' P=',P,' Q=',Q
+                        call message(msg) 
+                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' ES=',ES,' QRS=',QRS,' t2=',t2(i,j),' psfc=',psfc(i,j),' q2=',q2(i,j)
+                        call message(msg) 
+                        call crash('Relative humidity must be between 0 and 1, saturated water contents must be >0')
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+                    endif
+                endif 
+                !print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
+                select case(drying_model(k))
+                case(1) ! Van Wagner (1972) per Viney (1991) eq (7) (8)
+                    d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
+                    w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
+                    if(d.ne.d.or.w.ne.w)call crash('equilibrium moisture calculation failed, result is NaN')
+                    EMC_d = max(d,w)
+                    EMC_w = min(d,w)
+                    tlag=drying_lag(k)
+                end select
+            endif
+            !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIME LAG KIND 
+            ! ARE RESPONSIBLE FOR THEIR OWN LOGIC, THESE MODELS
+            ! SHOULD COMPUTE fmc_gc(i,k,j) DIRECTLY AND SET TLAG < 0
+            !
+            if(tlag > 0.0)then
+
+                if(.not.initialize)then
+                    fmc = fmc_gc(i,k,j)
+                    equi = max(min(fmc, EMC_d),EMC_w)
+                elseif(fmoist_init.eq.1)then
+                    fmc = fuelmc_g
+                    equi = fmc        
+                elseif(fmoist_init.eq.2)then
+                    fmc=0.5*(EMC_d+EMC_w)
+                    equi=fmc
+                else ! do not change fmc_gc
+                    fmc = fmc_gc(i,k,j)
+                    equi=fmc
+                endif
+
+                tend=(equi-fmc)/tlag
+                fmc_gc(i,k,j) = fmc + moisture_dt * tend
+                ! diagnostics out
+                fmc_equi(i,k,j)=equi
+                fmc_tend(i,k,j)=tend
+            endif
+      enddo
+   enddo
+enddo
+
+if(.not.(rhmax<=1.0 .and. rhmin>=0))then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+     write(msg,'(a,2f8.2,a)')'WARNING Relative humidity min max ',rhmin,rhmax,' should be between 0 and 1'
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+     call message(msg) 
+endif
+
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_tend,'tendency fmc_tend')
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after advance fmc_gc')
+
+call copy2old
+
+return
+
+contains
+
+subroutine copy2old
+
+do j=jts,jte
+    do i=its,ite
+        rain_old(i,j) = rainc(i,j) + rainnc(i,j)
+        t2_old(i,j) = t2(i,j)
+        q2_old(i,j) = q2(i,j)
+        psfc_old(i,j) = psfc(i,j)
+    enddo
+enddo
+
+end subroutine copy2old
+
+subroutine get_equi_moist
+end subroutine get_equi_moist
+
+end subroutine advance_moisture
+
 
 subroutine set_fp_from_grid(grid,fp)
     implicit none
@@ -203,30 +555,50 @@ implicit none
 logical, external:: wrf_dm_on_monitor
 !$ integer, external:: OMP_GET_THREAD_NUM
 !*** local
-integer:: i,j,k,ii,iounit
+integer:: i,j,k,ii,iounit,ierr,kk
 character(len=128):: msg
 REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
+logical::fmoist
 !*** executable
 
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
+
+namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold, &
+    drying_model,wetting_model, moisture_class_name
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
 !$  endif
+ 
+    fmoist = fmoist_run.or.fmoist_interp ! will deal with moisture
 
 IF ( wrf_dm_on_monitor() ) THEN
     ! we are the master task
+    
     ! copy in defaults
     fwh=fcwh
     fz0=fcz0
+    
     ! read the file
     iounit=open_text_file('namelist.fire','read')
-    read(iounit,fuel_scalars)
-    read(iounit,fuel_categories)
+    read(iounit,fuel_scalars,iostat=ierr)
+    if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_scalars in file namelist.fire')
+    read(iounit,fuel_categories,iostat=ierr)
+    if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist fuel_categories in file namelist.fire')
+    if(fmoist)then
+        read(iounit,moisture,iostat=ierr)
+        if(ierr.ne.0)call crash('init_fuel_cats: error reading namelist moisture in file namelist.fire')
+    endif
+    fmc_gw(1:mfuelcats,1)=fmc_gw01
+    fmc_gw(1:mfuelcats,2)=fmc_gw02
+    fmc_gw(1:mfuelcats,3)=fmc_gw03
+    fmc_gw(1:mfuelcats,4)=fmc_gw04
+    fmc_gw(1:mfuelcats,5)=fmc_gw05
     CLOSE(iounit)
+    
     ! copy out to permanent names
     fcwh=fwh
     fcz0=fz0
@@ -241,7 +613,7 @@ IF ( wrf_dm_on_monitor() ) THEN
     endif
 ENDIF
 
-! broadcast the contents of the file
+! broadcast fuel tables
 call wrf_dm_bcast_real(cmbcnst,1)
 call wrf_dm_bcast_real(hfgl,1)
 call wrf_dm_bcast_real(fuelmc_g,1)
@@ -268,7 +640,18 @@ call wrf_dm_bcast_real(ffw,       nfuelcats)
 call wrf_dm_bcast_real(adjr0,     nfuelcats)
 call wrf_dm_bcast_real(adjrw,     nfuelcats)
 call wrf_dm_bcast_real(adjrs,     nfuelcats)
+! broadcast moisture tables
+call wrf_dm_bcast_integer(moisture_classes,1)
+call wrf_dm_bcast_real(drying_lag,     max_moisture_classes)
+call wrf_dm_bcast_real(wetting_lag,     max_moisture_classes)
+call wrf_dm_bcast_real(saturation_moisture,     max_moisture_classes)
+call wrf_dm_bcast_real(saturation_rain,     max_moisture_classes)
+call wrf_dm_bcast_real(rain_threshold,     max_moisture_classes)
+call wrf_dm_bcast_integer(drying_model,     max_moisture_classes)
+call wrf_dm_bcast_integer(wetting_model,     max_moisture_classes)
+call wrf_dm_bcast_real(fmc_gw,     mfuelcats*max_moisture_classes)
 
+!-------------------------------- fuel model
 ! compute derived scalars
 
 fuelheat = cmbcnst * 4.30e-04     ! convert J/kg to BTU/lb
@@ -302,17 +685,22 @@ write(msg,7)'nfuelcats  ',nfuelcats
 call message(msg)
 write(msg,7)'no_fuel_cat',no_fuel_cat
 call message(msg)
+if(fmoist)then
+    write(msg,7)'moisture_classes',moisture_classes
+    call message(msg)
+endif
 
 j=1
 7 format(a,5(1x,i8,4x))
 8 format(a,5(1x,g12.5e2))
 9 format(a,5(1x,a))
+10 format(a,i2.2,2x,5(1x,g12.5e2))
 do i=1,nfuelcats,j
     k=min(i+j-1,nfuelcats)
     call message(' ')
     write(msg,7)'CATEGORY  ',(ii,ii=i,k)
     call message(msg)
-    write(msg,9)'fuel name ',(fuel_name(ii),ii=i,k)
+    write(msg,9)'fuel name ',(trim(fuel_name(ii)),ii=i,k)
     call message(msg)
     write(msg,8)'fwh       ',(fcwh(ii),ii=i,k)
     call message(msg)
@@ -354,9 +742,44 @@ do i=1,nfuelcats,j
     call message(msg)
     write(msg,8)'adjrs     ',(adjrs(ii),ii=i,k)
     call message(msg)
+    if(fmoist)then
+        do kk=1,moisture_classes 
+            write(msg,10)'fmc_gw',kk,(fmc_gw(ii,kk),ii=i,k)
+            call message(msg)
+        enddo
+    endif
 enddo
+call message(' ')
 call message('**********************************************************')
 
+if(fmoist)then
+    j=1
+    do i=1,moisture_classes,j
+        k=min(i+j-1,nfuelcats)
+        call message(' ')
+        write(msg,7)'FUEL MOISTURE CLASS',(ii,ii=i,k)
+        call message(msg)
+        write(msg,9)'moisture class name',(trim(moisture_class_name(ii)),ii=i,k)
+        call message(msg)
+        write(msg,7)'drying_model       ',(drying_model(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'drying_lag (h)     ',(drying_lag(ii),ii=i,k)
+        call message(msg)
+        write(msg,7)'wetting_model      ',(wetting_model(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'wetting_lag (h)    ',(wetting_lag(ii),ii=i,k)
+        call message(msg)    
+        write(msg,8)'saturation_moisture',(saturation_moisture(ii),ii=i,k)
+        call message(msg)    
+        write(msg,8)'saturation_rain    ',(saturation_rain(ii),ii=i,k)
+        call message(msg)    
+        write(msg,8)'rain_threshold     ',(rain_threshold(ii),ii=i,k)
+        call message(msg)    
+    enddo
+    call message(' ')
+    call message('**********************************************************')
+    call message(' ')
+endif
 have_fuel_cats=.true.
 
 ! and print to file
