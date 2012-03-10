@@ -24,14 +24,14 @@ integer::istep,i,k,nsteps=999999
 real::t,p,q,rain,hours,fmc(nfmc),hours_old
 
 !*** executable
-fire_print_msg = 0   ! change to 2 to get more debugging prints
 
 infile='moisture_input.txt'
 outfile='moisture_output.txt'
 prtfile='moisture_print.txt'
 
+fire_print_msg = 2   ! change to 2 to get more debugging prints
+
 call init_fuel_cats(.true.)
-print *,moisture_classes,' moisture classes'
 
 open(1,file=trim(infile),form='formatted',status='old',err=91)
 open(7,file=trim(prtfile),form='formatted',status='unknown',err=93)
@@ -39,12 +39,14 @@ open(8,file=trim(outfile),form='formatted',status='unknown',err=92)
 
 ! write header
 do i=6,7
-    write(i,1)'Time', 'T','P','Q','RAIN',('FMC',k,k=1,moisture_classes)
-    write(i,2)'hours','K','Pa','kg/kg','mm',('kg/kg',k=1,moisture_classes)
+    write(i,1)'Step','Time', 'T','P','Q','RAIN',('EQUI',k,'FMC',k,k=1,moisture_classes)
+    write(i,2)' ','hours','K','Pa','kg/kg','mm',('kg/kg','kg/kg',k=1,moisture_classes)
 enddo
-1 format(a8,  a6,  a9,  a6  ,a8, 9(a5,i1))
-2 format(a8,  a6,  a9,  a6  ,a8, 9a6)
-3 format(f8.2,f6.1,f9.1,f6.3,f8.1,9f6.3)
+1 format(a4,a8,  a6,  a9,  a6  ,a8, 18(a5,i1))
+2 format(a4,a8,  a6,  a9,  a6  ,a8, 18a6)
+3 format(i4,f8.2,f6.1,f9.1,f6.3,f8.1,18f6.3)
+
+fire_print_msg = 0   ! change to 2 to get more debugging prints
 
 do istep=1,999999
 
@@ -67,8 +69,6 @@ do istep=1,999999
     psfc=p
     rainc=0.
     rainnc=rain
-       
-    write(6,*) 'step ',istep
 
     call advance_moisture(    &
         initialize,                 & ! initialize timestepping. true on the first call at time 0, then false
@@ -86,13 +86,9 @@ do istep=1,999999
         fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
         )
 
-    do k=1,moisture_classes
-        write(6,*)'Class ',k, 'FMC equilibrium ',fmc_equi(its,k,jts),' tendency ',fmc_tend(its,k,jts)
-    enddo
-
     ! print the output
     do i=6,8
-        write(i,3)hours,t,p,q,rain,(fmc_gc(its,k,jts),k=1,moisture_classes)
+        write(i,3)istep,hours,t,p,q,rain,(fmc_equi(its,k,jts),fmc_gc(its,k,jts),k=1,moisture_classes)
     enddo
 
 enddo
@@ -100,7 +96,7 @@ enddo
 write(6,*)'Maximum number of steps reached before reading whole input file ',trim(infile)
 
 9 continue
-write(6,*)'Completed ',istep,' steps'
+write(6,*)'Completed ',istep-1,' steps'
 write(6,*)'Input from flat text file ',trim(infile) 
 write(6,*)'Output with headers is in ',trim(prtfile) 
 write(6,*)'Output as a flat text is in ',trim(outfile) 
