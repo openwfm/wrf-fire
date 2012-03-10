@@ -42,9 +42,9 @@ do i=6,7
     write(i,1)'Time', 'T','P','Q','RAIN',('FMC',k,k=1,moisture_classes)
     write(i,2)'hours','K','Pa','kg/kg','mm',('kg/kg',k=1,moisture_classes)
 enddo
-1 format(a8,  a6,  a9,  a6  ,a6, 9(a5,i1))
-2 format(a8,  a6,  a9,  a6  ,a6, 9a6)
-3 format(f8.2,f6.1,f9.1,f6.3,f6.1,9f6.3)
+1 format(a8,  a6,  a9,  a6  ,a8, 9(a5,i1))
+2 format(a8,  a6,  a9,  a6  ,a8, 9a6)
+3 format(f8.2,f6.1,f9.1,f6.3,f8.1,9f6.3)
 
 do istep=1,999999
 
