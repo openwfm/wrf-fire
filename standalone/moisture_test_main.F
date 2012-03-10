@@ -40,7 +40,7 @@ open(8,file=trim(outfile),form='formatted',status='unknown',err=92)
 ! write header
 if(moisture_classes>5)call crash('at most 5 moisture classes allowed')
 do i=6,7
-    write(i,1)'Step','Time', 'T','P','Q','RAIN',('EQUI',k,'LAG',k,'FMC',k,k=1,moisture_classes)
+    write(i,1)'Step','Time', 'T','P','Q','RAIN',('EQUI',k,'TLAG',k,'FMC',k,k=1,moisture_classes)
     write(i,2)' ','hours','K','Pa','kg/kg','mm',('kg/kg','hours','kg/kg',k=1,moisture_classes)
 enddo
 1 format(a4,a8,  a6,  a9,  a6  ,a8, 15(a5,i1))
