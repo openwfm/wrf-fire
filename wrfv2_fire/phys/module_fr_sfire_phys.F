@@ -338,7 +338,7 @@ subroutine advance_moisture(    &
     t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
     fmc_gc,                     & ! fuel moisture by class, updated
     fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics only
-    fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
+    fmc_lag                    & ! fuel moisture tendency by classe, for diagnostics only
     )
 
 implicit none
@@ -354,7 +354,7 @@ real, intent(in):: moisture_dt
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
-real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_tend
+real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_lag
 
 !*** global
 ! fuel properties moisture set by init_fuel_cats
@@ -514,12 +514,7 @@ do j=jts,jte
                 endif
                 ! diagnostics out
                 fmc_equi(i,k,j)=equi
-                if(moisture_dt > 0.)then
-                    fmc_tend(i,k,j)=(fmc - fmc_gc(i,k,j))/moisture_dt
-                else
-                    fmc_tend(i,k,j)=tend
-                endif
-                ! update
+                fmc_lag(i,k,j)=1.0/(3600.0*rlag)
                 fmc_gc(i,k,j) = fmc
             endif
       enddo
@@ -540,7 +535,7 @@ if(fire_print_msg.ge.2)then
 endif
 
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
-call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_tend,'tendency fmc_tend')
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_lag,'time lag')
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after advance fmc_gc')
 
 call copy2old

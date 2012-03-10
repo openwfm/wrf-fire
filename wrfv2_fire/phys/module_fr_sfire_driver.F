@@ -346,7 +346,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%t2_old, grid%q2_old, grid%psfc_old,   & ! previous values of the atmospheric state at surface
             grid%fmc_gc,                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
             grid%fmc_equi,                      & ! fuel moisture fields updated, by class, equilibrium diagnostic 
-            grid%fmc_tend,                      & ! fuel moisture fields updated, by class, tendency diagnostic
+            grid%fmc_lag,                      & ! fuel moisture fields updated, by class, tendency diagnostic
             fp%fmc_g )                             !  write-only alias. need to exit before using fp again
  
 
@@ -424,7 +424,7 @@ subroutine sfire_driver_phys (ifun,    &
     t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
     fmc_gc,                    &  ! fuel moisture fields updated, by class, assumed set to something reasonable
     fmc_equi,                    &  ! fuel moisture fields updated, by class equilibrium diagnostic
-    fmc_tend,                    &  ! fuel moisture fields updated, by class tendency diagnostic
+    fmc_lag,                    &  ! fuel moisture fields updated, by class tendency diagnostic
     fmc_g)                          ! fuel moisture, alias of fp%fmc_g
     
 
@@ -511,7 +511,7 @@ real, intent(in)::dt_moisture
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
-real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi,fmc_tend
+real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi,fmc_lag
 real, intent(inout), dimension(ifms:ifme,jfms:jfme):: fmc_g
 
 
@@ -663,7 +663,7 @@ do ij=1,num_tiles
               t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
               fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
               fmc_equi,                   &  ! fuel moisture fields updated, by class equilibrium diagnostic
-              fmc_tend                    &  ! fuel moisture fields updated, by class tendency diagnostic
+              fmc_lag                    &  ! fuel moisture fields updated, by class tendency diagnostic
           )
           call message('advance_moisture end')
       endif
