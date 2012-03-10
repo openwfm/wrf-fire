@@ -39,39 +39,12 @@ unit_long=ncread(wrf_out,'UNIT_FXLONG');
 unit_lat=ncread(wrf_out,'UNIT_FXLAT');
 long=ncread(wrf_out,'FXLONG');
 lat=ncread(wrf_out,'FXLAT');
+long=long*unit_long;
+lat=lat*unit_lat;
 mat_size=size(long);
 grid_1=mat_size(1);
 grid_2=mat_size(2);
 A=1;
-%fid = fopen(lat);
-%latitude = fscanf(fid,'%g',[1 inf]); 
-%latitude = latitude';
-%fclose(fid)
-%matrix_size=size(latitude);
-%lat_size=latitude(1,1)*latitude(2,1);   
-%if (lat_size~=matrix_size(1)-2)
-%    display('First row should be equal to the dimension of the latitude mesh')
-%   lat_size
-%   matrix_size(1)
-%end
-%lat=latitude(3:matrix_size(1),1); 
-
-% Getting Longtitude
-
-%fid = fopen(long);
-%longtitude = fscanf(fid,'%f',[1 inf]); % It has two rows now.
-%longtitude = longtitude';
-%fclose(fid)
-%matrix_size=size(longtitude);
-%long_size=longtitude(1,1)*longtitude(2,1); 
-%if (long_size~=matrix_size(1)-2)
-%    display('First row should be equal to the dimension of the latitude mesh')
-%  long_size
-%  matrix_size(1)
-%end
-%long=longtitude(3:matrix_size(1),1); 
-%matrix_size=matrix_size(1)-2;
-% Getting Boundary information
 
 fid = fopen(data);
 data = fscanf(fid,'%g %g',[2 inf]); % It has two rows now.
@@ -82,8 +55,12 @@ data_size=size(data);
 time_now=data(1,1);  % time of ignition on the boundary 
 mesh_size=data(2,:); % size of the matrix
 ign_pnt=data(3,:);   % coordinates of the ignition point    
-
+ign_pnt(1)=ign_pnt(1)*unit_long;
+ign_pnt(2)=ign_pnt(2)*unit_lat;
 bound=data(4:data_size(1),:); 
+bound(:,1)=bound(:,1)*unit_long;
+bound(:,2)=bound(:,2)*unit_lat;
+
 % bound - set of ordered points of the boundary 1st=last 
 % bound(i,1)-horisontal; bound(i,1)-vertical coordinate
 bnd_size=size(bound);
@@ -97,22 +74,6 @@ C=zeros(mesh_size);        % Matrix of distances from ignition point to all poin
 %  or outside (IN(x,y)<0)
 %  ON - matrix that, shows whether the point is on the boundary or not
 %  Both matrices evaluated using "polygon" 
-%display('READ');
-%long_size
-%lat_size
-%x=ones(matrix_size-2,1);
-%size(x)
-%size(x(1,:))
-%size(long)
-
-%for i=1:long_size
-%     x(i,:)=lat';
-%end
-%y=ones(long_size,lat_size);
-
-%for j=1:lat_size
-%     y(:,j)=long;
-%end
 xv=bound(:,1);
 yv=bound(:,2);
 [IN,ON] = inpolygon(lat,long,xv,yv);
@@ -174,25 +135,25 @@ for i=1:grid_1
                     a1=line_sign(long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),ign_pnt(1),ign_pnt(2));
                     a2=line_sign(long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
                     if a1*a2<0
-                        b1=bound(k,1)*unit_long;
-                        b2=bound(k,2)*unit_lat;
-                        b3=bound(k-1,1)*unit_long;
-                        b4=bound(k-1,2)*unit_lat;
-                        i1=ign_pnt(1)*unit_long;
-                        i2=ign_pnt(2)*unit_lat;
-                        p1=long(i,j,1)*unit_long;
-                        p2=lat(i,j,1)*unit_lat;
-                        dist1=line_dist(b1,b2,b3,b4,i1,i2);
-                        dist2=line_dist(b1,b2,b3,b4,p1,p2);
+                        %b1=bound(k,1)*unit_long;
+                        %b2=bound(k,2)*unit_lat;
+                        %b3=bound(k-1,1)*unit_long;
+                        %b4=bound(k-1,2)*unit_lat;
+                        %i1=ign_pnt(1)*unit_long;
+                        %i2=ign_pnt(2)*unit_lat;
+                        %p1=long(i,j,1)*unit_long;
+                        %p2=lat(i,j,1)*unit_lat;
+                        dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+                        dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
                         B(i,j)=time_now*(dist1-dist2)/dist1;
                         k=-1;
                     end
                 elseif a_new==0
                     % Case if the line goes exactly through the boundary point                                           
                     % Check if the point lies between ignition point and boundary point
-                    b1=sqrt(((long(i,j,1)-ign_pnt(1))*unit_long)^2+((lat(i,j,1)-ign_pnt(2))*unit_lat)^2);
-                    b2=sqrt(((long(i,j,1)-bound(k,1))*unit_long)^2+((lat(i,j,1)-bound(k,2))*unit_lat)^2);
-                    b3=sqrt(((bound(k,1)-ign_pnt(1))*unit_long)^2+((bound(k,2)-ign_pnt(2))*unit_long)^2);
+                    b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
+                    b2=sqrt((long(i,j,1)-bound(k,1))^2+(lat(i,j,1)-bound(k,2))^2);
+                    b3=sqrt((bound(k,1)-ign_pnt(1))^2+(bound(k,2)-ign_pnt(2))^2);
                     if (b1+b2<b3+eps)&&(b1+b2>b3-eps)
                         B(i,j)=time_now*b1/b3; 
                         k=-1;
