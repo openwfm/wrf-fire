@@ -425,7 +425,7 @@ do j=jts,jte
             ! old fuel moisture contents
             ! compute the rain intensity from the difference of accumulated rain
             rain_diff = ((rainc(i,j) + rainnc(i,j)) - rain_old(i,j))
-            if(moisture_dt > 0)then
+            if(moisture_dt > 0.)then
                 rain_int  = 3600. * rain_diff / moisture_dt 
             else
                 rain_int  = 0.
@@ -512,10 +512,15 @@ do j=jts,jte
                      ! print *,'exponential method'
                      fmc = fmc + (equi - fmc)*(1 - exp(-moisture_dt*rlag))
                 endif
-                fmc_gc(i,k,j) = fmc
                 ! diagnostics out
                 fmc_equi(i,k,j)=equi
-                fmc_tend(i,k,j)=tend
+                if(moisture_dt > 0.)then
+                    fmc_tend(i,k,j)=(fmc - fmc_gc(i,k,j))/moisture_dt
+                else
+                    fmc_tend(i,k,j)=tend
+                endif
+                ! update
+                fmc_gc(i,k,j) = fmc
             endif
       enddo
    enddo
