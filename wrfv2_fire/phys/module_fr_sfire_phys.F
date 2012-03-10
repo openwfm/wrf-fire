@@ -506,9 +506,11 @@ do j=jts,jte
                 tend=(equi-fmc)*rlag
                 change = moisture_dt * tend
                 if(abs(change) < fmc*tol)then
+		     ! print *,'midpoint method'
                      fmc = fmc + change   ! standard 2nd order midpoint method
                 else
-                     fmc = fmc + (equi-fmc)*exp(-moisture_dt*rlag)
+                     ! print *,'exponential method'
+                     fmc = fmc + (equi - fmc)*(1 - exp(-moisture_dt*rlag))
                 endif
                 fmc_gc(i,k,j) = fmc
                 ! diagnostics out
