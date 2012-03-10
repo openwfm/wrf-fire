@@ -12,7 +12,7 @@ implicit none
 character(len=128)::infile,outfile,prtfile
 integer, parameter::nfmc=5 ! change if needed
 
-integer, parameter:: ims=1,ime=10,jms=1,jme=5
+integer, parameter:: ims=1,ime=1,jms=1,jme=1
 integer::its=ims,ite=ime,jts=jms,jte=jme
 real, dimension(ims:ime,1:nfmc,jms:jme)::fmc_gc,fmc_equi,fmc_tend
 real, dimension(ims:ime,jms:jme)::t2,q2,psfc,t2_old,q2_old,psfc_old, &
@@ -56,11 +56,11 @@ do istep=1,999999
     if(istep.eq.1)then
         moisture_dt=0.  ! required on initialization
         initialize=.true.
-        hours_old=hours
     else
         moisture_dt=3600*(hours - hours_old)  !
         initialize=.false.
     endif
+    hours_old=hours
 
     t2=t
     q2=q
