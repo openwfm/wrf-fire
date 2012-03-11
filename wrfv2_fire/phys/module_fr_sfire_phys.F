@@ -362,9 +362,9 @@ real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_lag
 !*** local
 integer:: i,j,k
 real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, rlag, equi, &
-    d, w, rhmax, rhmin, change, rainmax,rainmin
+    d, w, rhmax, rhmin, change, rainmax,rainmin, fmc_old
 real, parameter::tol=1e-2 ! relative change larger than that will switch to exponential ode solver 
-character(len=128)::msg
+character(len=256)::msg
 integer::msglevel=2
 logical, parameter::check_data=.true.,check_rh=.false.
 real::epsilon,Pws,Pw
@@ -490,32 +490,44 @@ do j=jts,jte
             if(rlag > 0.0)then
 
                 if(.not.initialize)then
-                    fmc = fmc_gc(i,k,j)
+                    fmc_old = fmc_gc(i,k,j)
                     equi = max(min(fmc, EMC_d),EMC_w)
                 elseif(fmoist_init.eq.1)then
-                    fmc = fuelmc_g
-                    equi = fmc        
+                    fmc_old = fuelmc_g
+                    equi = fmc_old        
                 elseif(fmoist_init.eq.2)then
-                    fmc=0.5*(EMC_d+EMC_w)
-                    equi=fmc
+                    fmc_old=0.5*(EMC_d+EMC_w)
+                    equi=fmc_old
                 else ! do not change fmc_gc
-                    fmc = fmc_gc(i,k,j)
-                    equi=fmc
+                    fmc_old = fmc_gc(i,k,j)
+                    equi=fmc_old
                 endif
 
-                tend=(equi-fmc)*rlag
-                change = moisture_dt * tend
-                if(abs(change) < fmc*tol)then
-		     ! print *,'midpoint method'
-                     fmc = fmc + change   ! standard 2nd order midpoint method
+                change = moisture_dt * rlag 
+
+                if(change  < tol)then
+                     if(fire_print_msg.ge.3)call message('midpoint method')
+                     fmc = fmc_old + (equi - fmc_old)*change   ! standard 2nd order midpoint method
                 else
-                     ! print *,'exponential method'
-                     fmc = fmc + (equi - fmc)*(1 - exp(-moisture_dt*rlag))
+                     if(fire_print_msg.ge.3)call message('exponential method')
+                     fmc = fmc_old + (equi - fmc_old)*(1 - exp(-change))
                 endif
+                fmc_gc(i,k,j) = fmc
+
                 ! diagnostics out
                 fmc_equi(i,k,j)=equi
                 fmc_lag(i,k,j)=1.0/(3600.0*rlag)
-                fmc_gc(i,k,j) = fmc
+                 
+                ! diagnostic prints
+                if(fire_print_msg.ge.3)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+		    write(msg,*)'i=',i,' j=',j,'EMC_w=',EMC_w,' EMC_d=',EMC_d
+                    call message(msg)
+                    write(msg,*)'fmc_old=',fmc,' equi=',equi,' change=',change,' fmc=',fmc
+                    call message(msg)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+                endif
+
             endif
       enddo
    enddo
