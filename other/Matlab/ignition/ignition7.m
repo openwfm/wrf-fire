@@ -25,7 +25,8 @@ function A=ignition7(data,wrf_out)
 %  addpath ../../other/Matlab/util1_jan
 %  data='data.txt'
 % wrf_out='wrfout_d01_2007-10-21_12:00:00'; // or if you use another wrf_out, that you have
-%  B=ignition6(data,wrf_out);
+% files ignition7.m and data.txt should be copied from other/Matlab/ignition folder to run folder
+%  B=ignition7(data,wrf_out);
 
 
 % Code:
@@ -37,6 +38,8 @@ format long
 var=ncload(wrf_out);
 unit_long=ncread(wrf_out,'UNIT_FXLONG');
 unit_lat=ncread(wrf_out,'UNIT_FXLAT');
+unit_long=unit_long(1);
+unit_lat=unit_lat(1);
 long=ncread(wrf_out,'FXLONG');
 lat=ncread(wrf_out,'FXLAT');
 long=long*unit_long;
