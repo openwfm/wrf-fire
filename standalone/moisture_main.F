@@ -267,7 +267,7 @@ else
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
     vars%rainnc(:,:)=0.
 endif
-if(all(vars%t2.eq.0).or.all(vars%q2.eq.0).or.all(vars%psfc.eq.0))then
+if(any(vars%t2.le.0).or.any(vars%q2.lt.0).or.any(vars%psfc.le.0))then
     ierr=1
 else
     ierr=0
@@ -533,12 +533,12 @@ do while(ifile.gt.0)
         vars%fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
         )
     call write_output(outputfname,vars)
+    10001 continue
     if(restart)then
         restart=.false.
     else
         call get_next_timestep(wrffile,ifile,ii)
     endif
-    10001 continue
 enddo
  99 continue
 call destroy_vars(vars)
