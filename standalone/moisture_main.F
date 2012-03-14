@@ -217,22 +217,30 @@ call check(nf90_close(ncid))
 deallocate(tmp)
 end subroutine write_output
 
-subroutine read_file(wrffile,itime,vars)
+subroutine read_file(wrffile,atime,vars)
 implicit none
 type(ncfile),intent(in)::wrffile
-integer,intent(in)::itime
+integer,intent(in)::atime
 type(ncvars),intent(inout)::vars
-integer::varid,i,j,k
+integer::varid,i,j,k,itime
 real,dimension(:,:,:),allocatable::tmp
 
+if(atime.gt.0)then
+    itime=atime
+else
+    itime=size(wrffile%times)
+endif
 vars%time=wrffile%times(itime)
 
-!allocate(tmp(its:ite,jts:jte,nfmc))
-!call check(nf90_inq_varid(wrffile%ncid,'FMC_GC',varid))
-!call check(nf90_get_var(wrffile%ncid,varid,tmp, &
-!        start=(/its,jts,1,itime/), count=(/ite,jte,nfmc,1/)))
-!call transpose_var(tmp,vars%fmc_gc)
-
+if(nf90_inq_varid(wrffile%ncid,'FMC_GC',varid).eq.0)then
+    allocate(tmp(its:ite,jts:jte,nfmc))
+    call check(nf90_get_var(wrffile%ncid,varid,tmp, &
+            start=(/its,jts,1,itime/), count=(/ite,jte,nfmc,1/)))
+    call transpose_var(tmp,vars%fmc_gc)
+    deallocate(tmp)
+else
+    vars%fmc_gc=0.
+endif
 call check(nf90_inq_varid(wrffile%ncid,'T2',varid))
 call check(nf90_get_var(wrffile%ncid,varid,vars%t2, &
         start=(/its,jts,itime/), count=(/ite,jte,1/)))
@@ -245,14 +253,19 @@ call check(nf90_inq_varid(wrffile%ncid,'PSFC',varid))
 call check(nf90_get_var(wrffile%ncid,varid,vars%psfc, &
         start=(/its,jts,itime/), count=(/ite,jte,1/)))
 
-call check(nf90_inq_varid(wrffile%ncid,'RAINC',varid))
-call check(nf90_get_var(wrffile%ncid,varid,vars%rainc, &
-        start=(/its,jts,itime/), count=(/ite,jte,1/)))
-
-call check(nf90_inq_varid(wrffile%ncid,'RAINNC',varid))
-call check(nf90_get_var(wrffile%ncid,varid,vars%rainnc, &
-        start=(/its,jts,itime/), count=(/ite,jte,1/)))
-!deallocate(tmp)
+if(nf90_inq_varid(wrffile%ncid,'RAINC',varid).eq.0)then
+    call check(nf90_get_var(wrffile%ncid,varid,vars%rainc, &
+            start=(/its,jts,itime/), count=(/ite,jte,1/)))
+    
+    call check(nf90_inq_varid(wrffile%ncid,'RAINNC',varid))
+    call check(nf90_get_var(wrffile%ncid,varid,vars%rainnc, &
+            start=(/its,jts,itime/), count=(/ite,jte,1/)))
+else
+    call check(nf90_inq_varid(wrffile%ncid,'RAIN',varid))
+    call check(nf90_get_var(wrffile%ncid,varid,vars%rainc, &
+            start=(/its,jts,itime/), count=(/ite,jte,1/)))
+    vars%rainnc(:,:)=0.
+endif
 end subroutine read_file
 
 subroutine transpose_var(A,B)
@@ -378,13 +391,15 @@ real::moisture_dt,dt
 integer::istep,i
 
 integer :: numarg,ifile,ii,nfile,s,sn,sd
+logical::restart
 character(len=120) :: wrfoutfname
 character(len=*),parameter :: outputfname='moisture.nc'
 character(len=64)::timediffstr
 
 type(ncfile),dimension(:),allocatable::wrffile
+type(ncfile)::wrfoutfile
 type(ncvars)::vars
-type(ESMF_Time)::oldtime,timenow
+type(ESMF_Time)::oldtime,timenow,starttime
 type(ESMF_TimeInterval)::timedt
 
 !integer,external :: iargc
@@ -397,20 +412,32 @@ if(numarg .lt. 1)then
     call abort()
 endif
 
-allocate(wrffile(numarg))
+call getarg(1,wrfoutfname)
+if(trim(wrfoutfname).eq.'-r')then
+    allocate(wrffile(numarg-1))
+else
+    allocate(wrffile(numarg))
+endif
 
 nfile=0
+restart=.false.
 do i=1,numarg
     call getarg(i,wrfoutfname)
-    print*,'using: '//trim(wrfoutfname)
-    call initialize_and_check(wrfoutfname,wrffile(i))
-    nfile=nfile+1
+    if(trim(wrfoutfname).eq.'-r')then
+        restart=.true.
+        call initialize_and_check(outputfname,wrfoutfile)
+    else
+        print*,'using: '//trim(wrfoutfname)
+        nfile=nfile+1
+        call initialize_and_check(wrfoutfname,wrffile(nfile))
+    endif
 enddo
 call initialize_vars(vars)
-oldtime=wrffile(i)%times(1)
+oldtime=wrffile(1)%times(1)
 timenow=oldtime
 nsteps=99999
 
+if(.not.restart) &
 call create_output(outputfname)
 
 !*** executable
@@ -423,6 +450,26 @@ ifile=0
 ii=0
 istep=0
 call get_next_timestep(wrffile,ifile,ii)
+if(restart)then
+    starttime=wrfoutfile%times(size(wrfoutfile%times))
+else
+    starttime=wrffile(1)%times(1)
+endif
+do while(restart.and.wrffile(ifile)%times(ii).le.starttime)
+    call get_next_timestep(wrffile,ifile,ii)
+    if(ifile.eq.0)goto 1000
+enddo
+ 1000 continue
+if(ifile.eq.0)then
+    call crash('no new time steps available')
+endif
+print*,'starting at file ',ifile,' step ',ii
+call ESMF_TimeGet(wrffile(ifile)%times(ii),TimeString=timediffstr)
+print*,'wrffile time=',trim(timediffstr)
+call ESMF_TimeGet(starttime,TimeString=timediffstr)
+print*,'restart time=',trim(timediffstr)
+call get_next_timestep(wrffile,ifile,ii)
+
 do while(ifile.gt.0)
     istep=istep+1
     oldtime=timenow
@@ -433,7 +480,13 @@ do while(ifile.gt.0)
     call ESMF_TimeGet(timenow,timeString=timediffstr)
     print*,'time: ',trim(timediffstr)
     !endif
-    call read_file(wrffile(ifile),ii,vars)
+
+    if(restart)then
+        call read_file(wrfoutfile,-1,vars)
+        fmoist_init=3
+    else
+        call read_file(wrffile(ifile),ii,vars)
+    endif
    
 
     if(istep.eq.1)then
@@ -467,7 +520,11 @@ do while(ifile.gt.0)
         vars%fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
         )
     call write_output(outputfname,vars)
-    call get_next_timestep(wrffile,ifile,ii)
+    if(restart)then
+        restart=.false.
+    else
+        call get_next_timestep(wrffile,ifile,ii)
+    endif
 enddo
  99 continue
 call destroy_vars(vars)
