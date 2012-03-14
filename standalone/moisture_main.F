@@ -217,11 +217,12 @@ call check(nf90_close(ncid))
 deallocate(tmp)
 end subroutine write_output
 
-subroutine read_file(wrffile,atime,vars)
+subroutine read_file(wrffile,atime,vars,ierr)
 implicit none
 type(ncfile),intent(in)::wrffile
 integer,intent(in)::atime
 type(ncvars),intent(inout)::vars
+integer,intent(out)::ierr
 integer::varid,i,j,k,itime
 real,dimension(:,:,:),allocatable::tmp
 
@@ -265,6 +266,11 @@ else
     call check(nf90_get_var(wrffile%ncid,varid,vars%rainc, &
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
     vars%rainnc(:,:)=0.
+endif
+if(all(vars%t2.eq.0).or.all(vars%q2.eq.0).or.all(vars%psfc.eq.0))then
+    ierr=1
+else
+    ierr=0
 endif
 end subroutine read_file
 
@@ -390,7 +396,7 @@ integer::fmoist_init=2
 real::moisture_dt,dt
 integer::istep,i
 
-integer :: numarg,ifile,ii,nfile,s,sn,sd
+integer :: numarg,ifile,ii,nfile,s,sn,sd,ierr
 logical::restart
 character(len=120) :: wrfoutfname
 character(len=*),parameter :: outputfname='moisture.nc'
@@ -472,6 +478,22 @@ call get_next_timestep(wrffile,ifile,ii)
 
 do while(ifile.gt.0)
     istep=istep+1
+    !endif
+
+    if(restart)then
+        call read_file(wrfoutfile,-1,vars,ierr)
+        if(ierr.ne.0)then
+            call crash('invalid restart file')
+        endif
+        fmoist_init=3
+    else
+        call read_file(wrffile(ifile),ii,vars,ierr)
+        if(ierr.ne.0)then
+            print*,'invalid data: skipping file ',ifile,' step ',ii
+            goto 10001
+        endif
+    endif
+   
     oldtime=timenow
     timenow=wrffile(ifile)%times(ii)
     print*,'reading file ',ifile,' of ',nfile
@@ -479,15 +501,6 @@ do while(ifile.gt.0)
     !if(istep.gt.1)then
     call ESMF_TimeGet(timenow,timeString=timediffstr)
     print*,'time: ',trim(timediffstr)
-    !endif
-
-    if(restart)then
-        call read_file(wrfoutfile,-1,vars)
-        fmoist_init=3
-    else
-        call read_file(wrffile(ifile),ii,vars)
-    endif
-   
 
     if(istep.eq.1)then
         dt=0.  ! required on initialization
@@ -525,6 +538,7 @@ do while(ifile.gt.0)
     else
         call get_next_timestep(wrffile,ifile,ii)
     endif
+    10001 continue
 enddo
  99 continue
 call destroy_vars(vars)
