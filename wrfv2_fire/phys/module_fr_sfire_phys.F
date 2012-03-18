@@ -328,14 +328,15 @@ end subroutine fuel_moisture
 subroutine advance_moisture(    &
     initialize,                 & ! initialize timestepping. true on the first call at time 0, then false
     fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
+    rh_in,                      & ! 0=compute rh from t2 q2 psfc, 1=take rh as input
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc,                       & ! dimension of moisture fields
     moisture_dt,                & ! timestep = time step time elapsed from the last call
     rainc, rainnc,              & ! accumulated rain 
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
-    rain_old,                   & ! previous value of accumulated rain
-    t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
+    rh,                         & ! relative humidity
+    rain_old,t2_old,rh_old,     & ! previous values
     fmc_gc,                     & ! fuel moisture by class, updated
     fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics only
     fmc_lag                    & ! fuel moisture tendency by classe, for diagnostics only
@@ -352,7 +353,7 @@ integer, intent(in)::           &
     nfmc                          ! number of moisture fields
 real, intent(in):: moisture_dt
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
-real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
+real, intent(inout), dimension(ims:ime,jms:jme):: rain_old, rh, rh_old, t2_old
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
 real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_lag
 
@@ -361,7 +362,7 @@ real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_lag
 
 !*** local
 integer:: i,j,k
-real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, rlag, equi, &
+real::rain_int, T, P, Q, QRS, ES, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, rlag, equi, &
     d, w, rhmax, rhmin, change, rainmax,rainmin, fmc_old
 real, parameter::tol=1e-2 ! relative change larger than that will switch to exponential ode solver 
 character(len=256)::msg
@@ -392,13 +393,6 @@ call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,t2,'T2')
 call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,q2,'Q2')
 call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,psfc,'PSFC')
 
-if(initialize) then 
-    call message('advance_moisture: initializing, copying surface variables to old')
-    call copy2old
-else
-    call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
-endif
-
 if(check_data)then
     do j=jts,jte
         do i=its,ite
@@ -413,10 +407,63 @@ if(check_data)then
     enddo
 endif
 
-! one time step
+! compute relative humidity
+if(rh_in .eq. 0)then
+    do j=jts,jte
+        do i=its,ite
+            T = t2(i,j)
+            P = psfc(i,j)
+            Q = q2(i,j)
+            ! function rh_from_q from Adam Kochanski following Murphy and Koop, Q.J.R. Meteorol. Soc (2005) 131 1539-1565 eq. (10)
+            epsilon = 0.622 ! Molecular weight of water (18.02 g/mol) to molecular weight of dry air (28.97 g/mol)
+            ! vapor pressure [Pa]
+            Pw=q*P/(epsilon+(1-epsilon)*q); 
+            ! saturation vapor pressure [Pa]
+            Pws= exp( 54.842763 - 6763.22/T - 4.210 * log(T) + 0.000367*T + &
+                tanh(0.0415*(T - 218.8)) * (53.878 - 1331.22/T - 9.44523 * log(T) + 0.014025*T))
+            !realtive humidity [%]
+            rh(i,j) = Pw/Pws
+            if(rh(i,j) < 0.0 .or. rh(i,j) > 1.0 .or. rh(i,j) .ne. rh(i,j) )then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+                write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',rh(i,j), &
+                    ' from T=',T,' P=',P,' Q=',Q
+                call message(msg) 
+                call crash('Relative humidity must be between 0 and 1')
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+    `        endif
+        enddo
+    enddo
+endif
 
+! check relative humidity
 rhmax=-huge(rhmax)
 rhmin=huge(rhmin)
+do j=jts,jte
+    do i=its,ite
+        rhmax=max(rh(i,j),rhmax)         
+        rhmin=min(rh(i,j),rhmin)         
+        if(check_rh)then
+            if(rh(i,j) < 0.0 .or. rh(i,j) > 1.0 .or. rh(i,j) .ne. rh(i,j) )then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+                write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',rh(i,j), &
+                        ' from T=',T,' P=',P,' Q=',Q
+                call message(msg) 
+                call crash('Relative humidity must be between 0 and 1')
+!OMP END CRITICAL(SFIRE_PHYS_CRIT)
+            endif
+        endif 
+    enddo
+enddo
+
+if(initialize) then 
+    call message('advance_moisture: initializing, copying surface variables to old')
+    call copy2old
+else
+    call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
+endif
+
+! one time step
+
 rainmax=-huge(rainmax)
 rainmin= huge(rainmin)
 do j=jts,jte
@@ -441,42 +488,13 @@ do j=jts,jte
                     rlag=rec_wetting_lag_sec(k) * (1. - exp(-R/saturation_rain(k)))
                 end select
             else ! not raining
-                ! average the inputs for second order accuracy
-                T = 0.5 * (t2_old(i,j) + t2(i,j))
-                P = 0.5 * (psfc_old(i,j) + psfc(i,j))
-                Q = 0.5 * (q2_old(i,j) + q2(i,j))
-                ! compute the relative humidity
-                ! ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
-                ! QRS=0.622*ES/(P-0.378*ES)
-                ! RH = Q/QRS
-		! function rh_from_q from Adam Kochanski following Murphy and Koop, Q.J.R. Meteorol. Soc (2005) 131 1539-1565 eq. (10)
-                epsilon = 0.622 ! Molecular weight of water (18.02 g/mol) to molecular weight of dry air (28.97 g/mol)
-                ! vapor pressure [Pa]
-                Pw=q*P/(epsilon+(1-epsilon)*q); 
-                ! saturation vapor pressure [Pa]
-                Pws= exp( 54.842763 - 6763.22/T - 4.210 * log(T) + 0.000367*T + &
-                    tanh(0.0415*(T - 218.8)) * (53.878 - 1331.22/T - 9.44523 * log(T) + 0.014025*T))
-                !realtive humidity [%]
-                RH = Pw/Pws
-                rhmax=max(RH,rhmax)         
-                rhmin=min(RH,rhmin)         
-                if(.not.check_rh)then
-                    RH = min(RH,1.0)
-                else
-                    if(RH < 0.0 .or. RH > 1.0 .or. RH .ne. RH )then
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH, &
-                            ' from T=',T,' P=',P,' Q=',Q
-                        call message(msg) 
-                        call crash('Relative humidity must be between 0 and 1, saturated water contents must be >0')
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-                    endif
-                endif 
-                !print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
+                ! average the inputs for second order accuracy, cut off
+                RRH = min(0.5*(rh(i,j)+rh_old(i,j),1.0)
+                T = 0.5*(t2(i,j)+t2_old(i,j))
                 select case(drying_model(k))
                 case(1) ! Van Wagner (1972) per Viney (1991) eq (7) (8)
-                    d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
-                    w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
+                    d=0.924*RRH**0.679 + 0.000499*exp(0.1*RRH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RRH)) ! equilibrium moisture for drying
+                    w=0.618*RRH**0.753 + 0.000454*exp(0.1*RRH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RRH)) ! equilibrium moisture for adsorbtion
                     if(d.ne.d.or.w.ne.w)call crash('equilibrium moisture calculation failed, result is NaN')
                     EMC_d = max(d,w)
                     EMC_w = min(d,w)
@@ -562,8 +580,7 @@ do j=jts,jte
     do i=its,ite
         rain_old(i,j) = rainc(i,j) + rainnc(i,j)
         t2_old(i,j) = t2(i,j)
-        q2_old(i,j) = q2(i,j)
-        psfc_old(i,j) = psfc(i,j)
+        rh_old(i,j) = rh(i,j)
     enddo
 enddo
 
