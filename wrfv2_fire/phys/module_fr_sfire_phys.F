@@ -383,7 +383,7 @@ call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0
 call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rainc,'rainc')
 call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rainnc,'rainnc')
 call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rain_old,'rain_old')
-call print_chsum(1,ims,ime,1,nfmc,jms,jme,ids,ide,1,nfmc,jds,jde,its,ite,1,nfmc,jts,jte,0,0,0,fmc_gc,'fmc_gc')
+call print_chsum(1,ims,ime,1,nfmc,jms,jme,ids,ide,1,moisture_classes,jds,jde,its,ite,1,moisture_classes,jts,jte,0,0,0,fmc_gc,'fmc_gc')
 !*** executable
 
 ! check arguments
@@ -506,7 +506,7 @@ do j=jts,jte
 
                 if(.not.initialize)then
                     fmc_old = fmc_gc(i,k,j)
-                    equi = max(min(fmc, EMC_d),EMC_w)
+                    equi = max(min(fmc_old, EMC_d),EMC_w)
                 elseif(fmoist_init.eq.1)then
                     fmc_old = fuelmc_g
                     equi = fmc_old        
@@ -528,6 +528,13 @@ do j=jts,jte
                      fmc = fmc_old + (equi - fmc_old)*(1 - exp(-change))
                 endif
                 fmc_gc(i,k,j) = fmc
+                if(i.eq.1.and.j.eq.1)then
+                    write(msg,*)'DEBUG i=',i,' j=',j,' k=',k,' equi=',equi,' fmc_old=',fmc_old,'  change=',change
+                    call message(msg)
+                    write(msg,*)'DEBUG i=',i,' j=',j,' k=',k, 'fmc=',fmc,' fmc_gc=',fmc_gc(i,k,j)
+                    call message(msg)
+                endif
+
 
                 ! diagnostics out
                 fmc_equi(i,k,j)=equi
@@ -576,7 +583,9 @@ call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0
 call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rainc,'rainc')
 call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rainnc,'rainnc')
 call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rain_old,'rain_old')
-call print_chsum(2,ims,ime,1,nfmc,jms,jme,ids,ide,1,nfmc,jds,jde,its,ite,1,nfmc,jts,jte,0,0,0,fmc_gc,'fmc_gc')
+call print_chsum(2,ims,ime,1,nfmc,jms,jme,ids,ide,1,moisture_classes,jds,jde,its,ite,1,moisture_classes,jts,jte,0,0,0,fmc_gc,'fmc_gc')
+write(msg,*)'DEBUG ',its,jts,(' k=',k,' fmc_gc=',fmc_gc(its,k,jts),k=1,nfmc)
+call message(msg)
 return
 
 contains
