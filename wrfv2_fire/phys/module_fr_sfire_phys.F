@@ -491,7 +491,7 @@ do j=jts,jte
 
                 if(.not.initialize)then
                     fmc_old = fmc_gc(i,k,j)
-                    equi = max(min(fmc, EMC_d),EMC_w)
+                    equi = max(min(fmc_old, EMC_d),EMC_w)
                 elseif(fmoist_init.eq.1)then
                     fmc_old = fuelmc_g
                     equi = fmc_old        
