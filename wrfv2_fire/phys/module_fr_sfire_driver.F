@@ -654,6 +654,7 @@ do ij=1,num_tiles
               itimestep.eq.1,             & ! initialize?
               fmoist_init,                & ! how to initialize if we do
               ims,ime,  jms,jme,          & ! memory dimensions
+              ids,ide,  jds,jde,          &
               its,ite,  jts,jte,          & ! tile dimensions
               nfmc,                       & ! number of moisture fields
               dt_moisture,                & ! moisture model time step

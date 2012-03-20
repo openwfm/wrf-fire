@@ -329,6 +329,7 @@ subroutine advance_moisture(    &
     initialize,                 & ! initialize timestepping. true on the first call at time 0, then false
     fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
     ims,ime,  jms,jme,          & ! memory dimensions
+    ids,ide,  jds,jde,          &
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc,                       & ! dimension of moisture fields
     moisture_dt,                & ! timestep = time step time elapsed from the last call
@@ -348,6 +349,7 @@ logical, intent(in):: initialize
 integer, intent(in)::           &
     fmoist_init,                &
     ims,ime,  jms,jme,          & ! memory dimensions
+    ids,ide,  jds,jde,          &
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc                          ! number of moisture fields
 real, intent(in):: moisture_dt
@@ -369,6 +371,19 @@ integer::msglevel=2
 logical, parameter::check_data=.true.,check_rh=.false.
 real::epsilon,Pws,Pw
 
+fmc_equi(:,:,:)=99
+fmc_lag(:,:,:)=99
+
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,t2,'t2')
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,t2_old,'t2_old')
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,q2,'q2')
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,q2_old,'q2_old')
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,psfc,'psfc')
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,psfc_old,'psfc_old')
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rainc,'rainc')
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rainnc,'rainnc')
+call print_chsum(1,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rain_old,'rain_old')
+call print_chsum(1,ims,ime,1,nfmc,jms,jme,ids,ide,1,nfmc,jds,jde,its,ite,1,nfmc,jts,jte,0,0,0,fmc_gc,'fmc_gc')
 !*** executable
 
 ! check arguments
@@ -552,6 +567,16 @@ call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,j
 
 call copy2old
 
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,t2,'t2')
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,t2_old,'t2_old')
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,q2,'q2')
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,q2_old,'q2_old')
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,psfc,'psfc')
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,psfc_old,'psfc_old')
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rainc,'rainc')
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rainnc,'rainnc')
+call print_chsum(2,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,its,ite,1,1,jts,jte,0,0,0,rain_old,'rain_old')
+call print_chsum(2,ims,ime,1,nfmc,jms,jme,ids,ide,1,nfmc,jds,jde,its,ite,1,nfmc,jts,jte,0,0,0,fmc_gc,'fmc_gc')
 return
 
 contains
