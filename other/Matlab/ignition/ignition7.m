@@ -25,8 +25,7 @@ function A=ignition7(data,wrf_out)
 %  addpath ../../other/Matlab/util1_jan
 %  data='data.txt'
 % wrf_out='wrfout_d01_2007-10-21_12:00:00'; // or if you use another wrf_out, that you have
-% files ignition7.m and data.txt should be copied from other/Matlab/ignition folder to run folder
-%  B=ignition7(data,wrf_out);
+%  B=ignition6(data,wrf_out);
 
 
 % Code:
@@ -47,7 +46,7 @@ lat=lat*unit_lat;
 mat_size=size(long);
 grid_1=mat_size(1);
 grid_2=mat_size(2);
-A=1;
+
 
 fid = fopen(data);
 data = fscanf(fid,'%g %g',[2 inf]); % It has two rows now.
@@ -79,7 +78,15 @@ C=zeros(mesh_size);        % Matrix of distances from ignition point to all poin
 %  Both matrices evaluated using "polygon" 
 xv=bound(:,1);
 yv=bound(:,2);
-[IN,ON] = inpolygon(lat,long,xv,yv);
+xv=xv*100000;
+yv=yv*100000;
+lat1=lat*100000;
+long1=long*100000;
+[IN,ON] = inpolygon(long1,lat1,xv,yv);
+xv(5)
+yv(5)
+lat1(5,5)
+long1(5,5)
  
 % Calculation of the matrix of distances
 % || ( (coord_xf(i,j) - x)*unit_xf , (coord_yf(i,j) - y)*unit_yf ) ||
@@ -187,14 +194,17 @@ fclose(fid);
 
 write_array_2d('data_out1.txt',B)
 
-
+A=B;
 
 % Plot the results
 % questio: if ignition point coordinates are real and not on the mesh, than
 % plot will not print them
-%x=1:1:9
-%y=1:1:9
-%figure(2)
+%size(B)
+%grid_1
+%grid_2
+%x=1:1:grid_2;
+%y=1:1:grid_1;
+%figure(3)
 %surf(x,y,B)
 %B
  
