@@ -187,6 +187,7 @@ rconfig   integer fire_fuel_cat          namelist,fire         max_domains      
 rconfig   integer fire_print_msg         namelist,fire         max_domains           0       -      "fire_write_msg"    "write fire statistics, 0 no writes, 1+ for more"  ""
 rconfig   integer fire_print_file        namelist,fire         max_domains           0       -      "fire_write_file"   "write fire output text files, 0 no writes, 1+ for more" ""
 rconfig   logical fire_restart           namelist,fire         max_domains           .false. -      "fire_restart"   "restart run, do not initialize state" ""
+rconfig   integer fire_time_step_ratio   namelist,fire         max_domains           1       -      "fire_time_step_ratio"   "number of fire time steps per atmospheric step" ""
 
 # method selection
 rconfig   integer fire_fuel_left_method  namelist,fire         max_domains           1       -      "fire_fuel_left_method"   "1 or 2, compute fuel_left" ""
