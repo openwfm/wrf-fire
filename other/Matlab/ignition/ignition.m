@@ -159,9 +159,9 @@ write_array_2d('data_out1.txt',B)
 % Plot the results
 % questio: if ignition point coordinates are real and not on the mesh, than
 % plot will not print them
-x=1:1:9
-y=1:1:9
-figure(2)
-surf(x,y,B)
-B
+%x=1:1:9
+%y=1:1:9
+%figure(2)
+%surf(x,y,B)
+%B
  

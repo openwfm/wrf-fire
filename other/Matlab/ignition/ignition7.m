@@ -23,8 +23,11 @@ function A=ignition7(data,wrf_out)
 % put the file and data.txt in the run folder
 %
 %  addpath ../../other/Matlab/util1_jan
-%  data='data.txt'
-% wrf_out='wrfout_d01_2007-10-21_12:00:00'; // or if you use another wrf_out, that you have
+%  addpath ../../other/Matlab/netcdf
+  addpath('../../other/Matlab/util1_jan');
+  addpath('../../other/Matlab/netcdf');
+  %  data='data.txt';
+%  wrf_out='wrfout_d01_2007-10-21_12:00:00_real'; // or if you use another wrf_out, that you have
 %  B=ignition6(data,wrf_out);
 
 
@@ -34,7 +37,7 @@ function A=ignition7(data,wrf_out)
 % 2nd row - # of longtitude
 % Rest coordinates of the grid points
 format long
-var=ncload(wrf_out);
+%var=ncload(wrf_out);
 unit_long=ncread(wrf_out,'UNIT_FXLONG');
 unit_lat=ncread(wrf_out,'UNIT_FXLAT');
 unit_long=unit_long(1);
@@ -83,10 +86,11 @@ yv=yv*100000;
 lat1=lat*100000;
 long1=long*100000;
 [IN,ON] = inpolygon(long1,lat1,xv,yv);
-xv(5)
-yv(5)
-lat1(5,5)
-long1(5,5)
+
+%xv(5)
+%yv(5)
+%lat1(5,5)
+%long1(5,5)
  
 % Calculation of the matrix of distances
 % || ( (coord_xf(i,j) - x)*unit_xf , (coord_yf(i,j) - y)*unit_yf ) ||
