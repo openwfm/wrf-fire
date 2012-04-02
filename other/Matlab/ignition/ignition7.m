@@ -172,7 +172,9 @@ for i=1:grid_1
                 a_old=a_new;   
                 k=k+1;       
             end
-        else    % poin is outside the burning region
+        else  
+            
+           % point is outside the burning region
            % B(i,j)=time_now+1;
         a_old=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(1,1),bound(1,2));
             k=2;
@@ -187,12 +189,14 @@ for i=1:grid_1
                     % The point and second boundary point should be on the 
                     % same side from the line going between ignition point
                     % and first boundary point
-                    a1=line_sign(ign_pnt(1),ign_pnt(2),bound(k,1),bound(k,2),long(i,j,1),lat(i,j,1));
-                    a2=line_sign(ign_pnt(1),ign_pnt(2),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
-                    if a1*a2>0
+                    a1=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+                    a2=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
+                    if a1*a2<0
                         dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
-                        dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
-                        B(i,j)=time_now*(dist1+dist2)/dist1;
+                        b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
+                        %   dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
+                        B(i,j)=time_now*b1/dist1;
+                       
                         k=-1;
                     end
                 elseif a_new==0
@@ -211,7 +215,7 @@ for i=1:grid_1
                 end
                 a_old=a_new;   
                 k=k+1;       
-            end
+          end
         
         end                
     end
