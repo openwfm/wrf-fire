@@ -27,12 +27,12 @@ function [unit_long,unit_lat,long,lat,time_now,mesh_size,ign_pnt,bound]=read_fil
 
 
 format long
-unit_long=ncread(wrf_out,'UNIT_FXLONG');
-unit_lat=ncread(wrf_out,'UNIT_FXLAT');
+unit_long=ncread(wrfout,'UNIT_FXLONG');
+unit_lat=ncread(wrfout,'UNIT_FXLAT');
 unit_long=unit_long(1);
 unit_lat=unit_lat(1);
-long=ncread(wrf_out,'FXLONG');
-lat=ncread(wrf_out,'FXLAT');
+long=ncread(wrfout,'FXLONG');
+lat=ncread(wrfout,'FXLAT');
 long=long*unit_long;
 lat=lat*unit_lat;
 
