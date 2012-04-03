@@ -69,7 +69,7 @@ moisture_class_name =
 '10 hour fine fuel',
 moisture_classes=2,   ! number of classes
 drying_model=1, 1,    ! number of model - only 1= equilibrium moisture Van Wagner (1972) per Viney (1991)  allowed at this moment
-drying_lag=10.0, 100.0,   ! so-called 10hr and 100hr fuel
+drying_lag=1.0, 10.0,   ! so-called 10hr and 100hr fuel
 wetting_model=1, 1,   ! number of model - only 1= allowed at this moment
 wetting_lag=14.0, 140.0,  ! 14 is callibrated to VanWagner&Pickett 1985, Canadian fire danger rating system 
 saturation_moisture=2.5, 2.5, ! ditto

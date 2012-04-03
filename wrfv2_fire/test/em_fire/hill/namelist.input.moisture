@@ -59,7 +59,7 @@
  ra_lw_physics                       = 0,     0,     0,
  ra_sw_physics                       = 0,     0,     0,
  radt                                = 30,    30,    30,
- sf_sfclay_physics                   = 0,     0,     0,
+ sf_sfclay_physics                   = 1,     0,     0,
  sf_surface_physics                  = 0,     0,     0,
  bl_pbl_physics                      = 0,     0,     0,
  bldt                                = 0,     0,     0,
@@ -155,8 +155,7 @@
  fmoist_interp = .true.,     ! interpolate moisture to fuels
  fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
  fmoist_dt = 10,             ! moisture model time step (s)
- initialize_fmc = .true.,    ! initialize fuel moisture classes by fuelmc_g from namelist.fire
-                             ! otherwise fmc_gc (moisture in all classes) must be set in input data from WPS
+ fmoist_init = 2,            ! set initial moisture 1= fuelmc_g from namelist.fire, 2=equilibrium, other=none
 !
 ! verbosity
  fire_print_msg     = 2,        ! 1 print fire debugging messages
