@@ -1,5 +1,9 @@
 function [unit_long,unit_lat,long,lat,time_now,mesh_size,ign_pnt,bound]=read_file_ignition(data,wrfout)
 
+% Volodymyr Kondratenko           April 3 2012
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 % Input:    data : String - data, that contains the name of the Text file.
 %                  First 2 columns - coordinates of all the
 %                  points on the boundary (lon,lat). 

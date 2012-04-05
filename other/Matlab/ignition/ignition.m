@@ -190,7 +190,6 @@ fclose(fid);
 
 write_array_2d('data_out1.txt',B)
 
-A=B;
 
 % Plot the results
 % questio: if ignition point coordinates are real and not on the mesh, than
