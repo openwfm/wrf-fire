@@ -678,7 +678,6 @@ CONTAINS
       real :: wndm,ckg
       real :: yz,y1,y2,y3,y4,windmks,znott,znotm
       integer:: i,j,ii,iq,nnest,icnt,ngd,ip
-      data amask/ -98.0/
 
 !-----------------------------------------------------------------------
 !     internal variables
@@ -702,6 +701,7 @@ CONTAINS
       equivalence (table(129),table3(1))
       equivalence (table(183),table4(1))
 
+      data amask/ -98.0/
 !-----------------------------------------------------------------------
 !     tables used to obtain the vapor pressures or saturated vapor 
 !     pressure
@@ -827,7 +827,6 @@ CONTAINS
         else
           ecof(i) = wetc(i)
           land(i) = 0.0
-#ifdef HWRF
           zot (i) = zoc(i)
 !  now use 2 regime fit for znot thermal
           windmks=wind(i)*.01
@@ -839,20 +838,6 @@ CONTAINS
                                   2.46e-4*wind(i))**2)
 ! back to cgs
           zot (i) = 100.*znott
-#else
-!         zot (i) = zoc(i)
-!  now use 2 regime fit for znot thermal
-    windmks=wind(i)*.01
-    znott=1.9551e-5  - 2.6338e-7 * windmks
-    if(windmks.le.10.) znott=0.0025542 * windmks **(-1.8023)
-    znott=amax1(1.e-6,znott)
-!  go back to moon et al for below 7m/s
-   if(windmks.le. 7.)                         &
-   znott = (0.0185/9.8*(7.59e-8*wind(i)**2+   &
-                                  2.46e-4*wind(i))**2)
-! back to cgs
-   zot (i) = 100.*znott
-#endif
 !   end of kwon correction....
 !     in hwrf, thermal znot(zot) is passed as argument zoc
 !     in hwrf, momentum znot is recalculated internally
@@ -1540,7 +1525,7 @@ CONTAINS
         write(6,345) indx(i), j, tstar(indx(i)), tsp(i), ip
 345   format(2X, ' I, J, OLD T*, NEW T*, NPTS ', 2I5, 2E14.8, I5)
 
-        write(6,350) reflect, sigt4, shfx, alevp, delten, diffot
+!       write(6,350) reflect, sigt4, shfx, alevp, delten, diffot
 350   format(2X, ' REFLECT, SIGT4, SHFX, ALEVP, DELTEN, DIFFOT ', &
             6E14.8)
 

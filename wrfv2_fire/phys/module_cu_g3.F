@@ -1379,7 +1379,7 @@ CONTAINS
         xff_shal(1:9)=0.
         if(ierr5(i).eq.0)then
           xkshal=(xaa3(i)-aa3(i))/mbdt_s
-          if(xkshal.gt.0.)xkshal=+1.e6
+          if(xkshal.ge.0.)xkshal=+1.e6
           if(xkshal.gt.-1.e-4 .and. xkshal.lt.0.)xkshal=-1.e-4
           xff_shal(1)=max(0.,-(aa3(i)-aa3_0(i))/(xkshal*dtime))
           xff_shal(2)=max(0.,-(aa3(i)-aa3_0(i))/(xkshal*dtime))
@@ -3119,7 +3119,7 @@ CONTAINS
        pcrit,acrit,acritt
 
      integer :: nall2,ixxx,irandom
-     integer,  dimension (8) :: seed
+     integer,  dimension (12) :: seed
 
 
       DATA PCRIT/850.,800.,750.,700.,650.,600.,550.,500.,450.,400.,    &
@@ -4361,7 +4361,7 @@ CONTAINS
 !------- LIQUID WATER CONTENT IN cloud after rainout
 !
         clw_all(i,k)=QC(I,K)-QRCH
-        QRC(I,K)=(QC(I,K)-QRCH)/(1.+C0*DZ)
+        QRC(I,K)=(QC(I,K)-QRCH)/(1.+C0*DZ*zu(i,k))
         if(qrc(i,k).lt.0.)then
           qrc(i,k)=0.
         endif

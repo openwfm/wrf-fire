@@ -106,6 +106,10 @@ CONTAINS
               ,shadowmask,ht,dx,dy                 &
               ,SWUPFLX,SWUPFLXC,SWDNFLX,SWDNFLXC                          & ! Optional
               ,LWUPFLX,LWUPFLXC,LWDNFLX,LWDNFLXC                          & ! Optional
+              ,radtacttime                                                &
+              ,ALSWVISDIR, ALSWVISDIF, ALSWNIRDIR, ALSWNIRDIF             & !fds ssib alb comp (06/2010)
+              ,SWVISDIR, SWVISDIF, SWNIRDIR, SWNIRDIF                     & !fds ssib swr comp (06/2010)
+              ,SF_SURFACE_PHYSICS                                         & !fds
                                                                           )
 
 
@@ -121,11 +125,13 @@ CONTAINS
                                        ,HWRFSWSCHEME, HWRFLWSCHEME  &
 #endif
                                        ,goddardlwscheme                 & 
-                                       ,goddardswscheme                   
-
+                                       ,goddardswscheme                 &  
+                                       ,FLGLWSCHEME, FLGSWSCHEME
 
    USE module_model_constants
+#ifndef HWRF
    USE module_wrf_error , ONLY : wrf_err_message
+#endif
 
 ! *** add new modules of schemes here
 
@@ -142,6 +148,7 @@ CONTAINS
    USE module_ra_hs         , ONLY : hsrad
 
    USE module_ra_goddard    , ONLY : goddardrad
+   USE module_ra_flg        , ONLY : RAD_FLG
 
 
 
@@ -335,6 +342,8 @@ CONTAINS
    REAL,  DIMENSION( ims:ime, levsiz, jms:jme, n_ozmixm ),  OPTIONAL,    &
           INTENT(IN   ) ::                                  OZMIXM
 
+   REAL,  DIMENSION( ims:ime, levsiz, jms:jme, n_ozmixm ) :: OZFLG
+
    REAL,  DIMENSION(levsiz), OPTIONAL, INTENT(IN )  ::     PIN
 
    REAL,  DIMENSION(ims:ime,jms:jme), OPTIONAL, INTENT(IN )  ::      m_ps_1,m_ps_2
@@ -374,7 +383,7 @@ CONTAINS
                          tauaerlw9,tauaerlw10,tauaerlw11,tauaerlw12, & ! czhao 
                          tauaerlw13,tauaerlw14,tauaerlw15,tauaerlw16
 
-   LOGICAL, OPTIONAL :: cu_rad_feedback
+   LOGICAL, INTENT(IN) :: cu_rad_feedback
 
    INTEGER, INTENT(IN   ), OPTIONAL  ::   aer_ra_feedback
 
@@ -426,8 +435,19 @@ CONTAINS
          INTENT(INOUT)  ::                                  SWCF, &
                                                             LWCF, &
                                                              OLR
-
-
+! ---- fds (06/2010) ssib alb components ------------
+   REAL, DIMENSION( ims:ime, jms:jme ),          OPTIONAL ,       &
+         INTENT(IN   )  ::                            ALSWVISDIR, &
+                                                      ALSWVISDIF, &
+                                                      ALSWNIRDIR, &
+                                                      ALSWNIRDIF
+! ---- fds (06/2010) ssib swr components ------------
+   REAL, DIMENSION( ims:ime, jms:jme ),          OPTIONAL ,       &
+         INTENT(OUT  )  ::                              SWVISDIR, &
+                                                        SWVISDIF, &
+                                                        SWNIRDIR, &
+                                                        SWNIRDIF
+   INTEGER,    OPTIONAL, INTENT(IN   )    ::  sf_surface_physics
 !
    REAL, DIMENSION( ims:ime, jms:jme ),                           &
          INTENT(IN   )  ::                                  XLAT, &
@@ -519,7 +539,7 @@ CONTAINS
      REAL, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(IN)  :: ht
      INTEGER, DIMENSION( ims:ime, jms:jme ), OPTIONAL, INTENT(IN) :: shadowmask
 
-
+   REAL , OPTIONAL, INTENT(INOUT) ::    radtacttime ! Storing the time in s when radiation is called next
 ! LOCAL  VAR
 
    REAL, DIMENSION( ims:ime, jms:jme ) ::             GLAT,GLON
@@ -539,7 +559,8 @@ CONTAINS
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ) :: qi_save,qc_save
 
    REAL    ::    next_rad_time
-   LOGICAL ::    run_param
+   LOGICAL ::    run_param , doing_adapt_dt , decided
+   LOGICAL ::    flg_lw, flg_sw
 !------------------------------------------------------------------
 ! solar related variables are added to declaration
 !-------------------------------------------------
@@ -547,10 +568,13 @@ CONTAINS
    REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme), INTENT(OUT) :: COSZEN
    REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme), INTENT(OUT) :: HRANG
 !------------------------------------------------------------------
+#ifdef HWRF
+   CHARACTER(len=265) :: wrf_err_message
+#endif
 
    CALL wrf_debug (1, 'Top of Radiation Driver')
-   WRITE ( wrf_err_message , * ) 'itimestep = ',itimestep,', dt = ',dt,', lw and sw options = ',lw_physics,sw_physics
-   CALL wrf_debug (1, wrf_err_message )
+!  WRITE ( wrf_err_message , * ) 'itimestep = ',itimestep,', dt = ',dt,', lw and sw options = ',lw_physics,sw_physics
+!  CALL wrf_debug (1, wrf_err_message )
    if (lw_physics .eq. 0 .and. sw_physics .eq. 0)         return
 
 ! ra_call_offset = -1 gives old method where radiation may be called just before output
@@ -558,28 +582,62 @@ CONTAINS
 !                     and is also consistent with removal of offset in new XTIME
 ! also need to account for stepra=1 which always has zero modulo output
 
-!
-! Calculate whether or not to run the radiation step.
-! If CURR_SECS is passed in, we will calculate based upon that.  If it
-!   is not passed in, we'll do the old method of using the time STEP number
-!   
+   doing_adapt_dt = .FALSE.
+   IF ( PRESENT(adapt_step_flag) ) THEN
+      IF ( adapt_step_flag ) THEN
+         doing_adapt_dt = .TRUE.
+         IF ( radtacttime .eq. 0. ) THEN
+            radtacttime = CURR_SECS + radt*60.
+         END IF
+      END IF
+   END IF
 
-   IF ( (itimestep .EQ. 1) .OR. (MOD(itimestep,STEPRA) .EQ. 1 + ra_call_offset) .OR. &
-        (STEPRA .EQ. 1) ) THEN
-     run_param = .TRUE.
-   ELSE
-     run_param = .FALSE.
-   ENDIF
-   IF (PRESENT(adapt_step_flag)) THEN
-     IF ((adapt_step_flag)) THEN
-       IF ( (itimestep .EQ. 1) .OR. (radt .EQ. 0) .OR. &
-           ( CURR_SECS + dt >= ( INT( CURR_SECS / ( radt * 60 ) + 1 ) * radt * 60) ) ) THEN
-         run_param = .TRUE.
-       ELSE
-         run_param = .FALSE.
-       ENDIF
-     ENDIF
-   ENDIF
+!  Do we run through this scheme or not?
+
+!    Test 1:  If this is the initial model time, then yes.
+!                ITIMESTEP=1
+!    Test 2:  If the user asked for the radiation to be run every time step, then yes.
+!                RADT=0 or STEPRA=1
+!    Test 3:  If not adaptive dt, and this is on the requested radiation frequency, then yes.
+!                MOD(ITIMESTEP,STEPRA)=0 (or 1, depending on the offset setting)
+!    Test 4:  If using adaptive dt and the current time is past the last requested activate radiation time, then yes.
+!                CURR_SECS >= RADTACTTIME
+
+!  If we do run through the scheme, we set the flag run_param to TRUE and we set the decided flag
+!  to TRUE.  The decided flag says that one of these tests was able to say "yes", run the scheme.
+!  We only proceed to other tests if the previous tests all have left decided as FALSE.
+
+!  If we set run_param to TRUE and this is adaptive time stepping, we set the time to the next
+!  radiation run.
+
+   run_param = .FALSE.
+   decided = .FALSE.
+   IF ( ( .NOT. decided ) .AND. &
+        ( itimestep .EQ. 1 ) ) THEN
+      run_param   = .TRUE.
+      decided     = .TRUE.
+   END IF
+
+   IF ( ( .NOT. decided ) .AND. &
+        ( ( radt .EQ. 0. ) .OR. ( stepra .EQ. 1 ) ) ) THEN
+      run_param   = .TRUE.
+      decided     = .TRUE.
+   END IF
+
+   IF ( ( .NOT. decided ) .AND. &
+        ( .NOT. doing_adapt_dt ) .AND. &
+        ( MOD(itimestep,stepra) .EQ. 1+ra_call_offset ) ) THEN
+      run_param   = .TRUE.
+      decided     = .TRUE.
+   END IF
+
+   IF ( ( .NOT. decided ) .AND. &
+        ( doing_adapt_dt ) .AND. &
+        ( curr_secs .GE. radtacttime ) ) THEN
+      run_param   = .TRUE.
+      decided     = .TRUE.
+      radtacttime = curr_secs + radt*60
+   END IF
 
    Radiation_step: IF ( run_param ) then
 
@@ -697,7 +755,6 @@ CONTAINS
 
 ! temporarily modify hydrometeors (currently only done for GD scheme and WRF-Chem)
 !
-     IF ( PRESENT( cu_rad_feedback ) ) THEN
        IF ( PRESENT( qc ) .AND. PRESENT( qc_adjust ) .AND. cu_rad_feedback ) THEN
           DO j=jts,jte
           DO k=kts,kte
@@ -718,8 +775,6 @@ CONTAINS
           ENDDO
           ENDDO
        ENDIF
-     ENDIF
-
 
 ! Fill temporary water variable depending on micro package (tgs 25 Apr 2006)
      if(PRESENT(qc) .and. PRESENT(F_QC)) then
@@ -930,7 +985,7 @@ CONTAINS
              IF ( PRESENT( OZMIXM ) .AND. PRESENT( PIN ) .AND. &
                   PRESENT(M_PS_1) .AND. PRESENT(M_PS_2) .AND.  &
                   PRESENT(M_HYBI0) .AND. PRESENT(AEROSOLC_1)    &
-                  .AND. PRESENT(AEROSOLC_2) ) THEN
+                  .AND. PRESENT(AEROSOLC_2).AND. PRESENT(ALSWVISDIR) ) THEN
              CALL CAMRAD(RTHRATENLW=RTHRATEN,RTHRATENSW=RTHRATENSW,    &
                      dolw=.true.,dosw=.false.,                         &
                      SWUPT=SWUPT,SWUPTC=SWUPTC,                        &
@@ -951,6 +1006,11 @@ CONTAINS
                     ,QI3D=qi                                           &
                     ,QS3D=qs                                           &
                     ,QG3D=qg                                           &
+                    ,ALSWVISDIR=alswvisdir ,ALSWVISDIF=alswvisdif      &  !fds ssib alb comp (06/2010)
+                    ,ALSWNIRDIR=alswnirdir ,ALSWNIRDIF=alswnirdif      &  !fds ssib alb comp (06/2010)
+                    ,SWVISDIR=swvisdir ,SWVISDIF=swvisdif              &  !fds ssib swr comp (06/2010)
+                    ,SWNIRDIR=swnirdir ,SWNIRDIF=swnirdif              &  !fds ssib swr comp (06/2010)
+                    ,SF_SURFACE_PHYSICS=sf_surface_physics             &  !fds
                     ,F_QV=f_qv,F_QC=f_qc,F_QR=f_qr                     &
                     ,F_QI=f_qi,F_QS=f_qs,F_QG=f_qg                     &
                     ,f_ice_phy=f_ice_phy,f_rain_phy=f_rain_phy         &
@@ -1024,6 +1084,49 @@ CONTAINS
                      ids,ide, jds,jde, kds,kde,            &
                      ims,ime, jms,jme, kms,kme,            &
                      its,ite, jts,jte, kts,kte            )
+
+! -- add by Jin Kong 10/2011
+        CASE (FLGLWSCHEME)
+          CALL wrf_debug (100, 'CALL Fu-Liou-Gu')
+          flg_lw  = .true.
+!test Jin Kong 11/01/2011 for ozone
+          ozflg = 0.
+!test over
+          CALL RAD_FLG(                               &
+               peven=p8w,podd=p,t8w=t8w,degrees=t     &
+              ,pi3d=pi,o3=ozflg                       &
+              ,G=G,CP=CP                              &
+              ,albedo=ALBEDO,tskin=tsk                &
+              ,h2o=QV,cld_iccld=QI,cld_wlcld=QC       &
+              ,cld_prwc=QR,cld_pgwc=QG,cld_snow=QS    &
+              ,F_QV=F_QV,F_QC=F_QC,F_QR=F_QR          &
+              ,F_QI=F_QI,F_QS=F_QS,F_QG=F_QG          &
+              ,warm_rain=warm_rain                    &
+              ,cloudstrf=CLDFRA                       &
+              ,emiss=EMISS                            &
+              ,air_den=rho                            &
+              ,dz3d=dz8w                              &
+              ,SOLCON=SOLCON                          &
+              ,declin=DECLIN                          &
+              ,xtime=xtime, xlong=xlong, xlat=xlat    &
+              ,JULDAY=JULDAY                          &
+              ,gmt=gmt, radt=radt, degrad=degrad      &
+              ,dtcolumn=dt                            &
+              ,ids=ids,ide=ide,jds=jds,jde=jde        &
+              ,kds=kds,kde=kde                        &     
+              ,ims=ims,idim=ime,jms=jms,jdim=jme      &
+              ,kms=kms,kmax=kme                       &
+              ,its=its,ite=ite,jts=jts,jte=jte        &
+              ,kts=kts,kte=kte                        &
+		      ,uswtop=RSWTOA,ulwtop=RLWTOA            &
+		      ,NETSWBOT=GSW,DLWBOT=GLW                &
+		      ,DSWBOT=SWDOWN,deltat=RTHRATEN          &
+		      ,dtshort=RTHRATENSW,dtlongwv=RTHRATENLW &
+              )
+
+          CALL wrf_debug(100, 'a4 Fu_Liou-Gu')
+! -- end 
+
 
         CASE DEFAULT
   
@@ -1196,7 +1299,7 @@ CONTAINS
              IF ( PRESENT( OZMIXM ) .AND. PRESENT( PIN ) .AND. &
                   PRESENT(M_PS_1) .AND. PRESENT(M_PS_2) .AND.  &
                   PRESENT(M_HYBI0) .AND. PRESENT(AEROSOLC_1)    &
-                  .AND. PRESENT(AEROSOLC_2) ) THEN
+                  .AND. PRESENT(AEROSOLC_2) .AND. PRESENT(ALSWVISDIR)) THEN
              CALL CAMRAD(RTHRATENLW=RTHRATEN,RTHRATENSW=RTHRATENSW,    &
                      dolw=.false.,dosw=.true.,                         &
                      SWUPT=SWUPT,SWUPTC=SWUPTC,                        &
@@ -1217,6 +1320,11 @@ CONTAINS
                     ,QI3D=qi                                           &
                     ,QS3D=qs                                           &
                     ,QG3D=qg                                           &
+                    ,ALSWVISDIR=alswvisdir ,ALSWVISDIF=alswvisdif      &  !fds ssib alb comp (06/2010)
+                    ,ALSWNIRDIR=alswnirdir ,ALSWNIRDIF=alswnirdif      &  !fds ssib alb comp (06/2010)
+                    ,SWVISDIR=swvisdir ,SWVISDIF=swvisdif              &  !fds ssib swr comp (06/2010)
+                    ,SWNIRDIR=swnirdir ,SWNIRDIF=swnirdif              &  !fds ssib swr comp (06/2010)
+                    ,SF_SURFACE_PHYSICS=sf_surface_physics             &  !fds
                     ,F_QV=f_qv,F_QC=f_qc,F_QR=f_qr                     &
                     ,F_QI=f_qi,F_QS=f_qs,F_QG=f_qg                     &
                     ,f_ice_phy=f_ice_phy,f_rain_phy=f_rain_phy         &
@@ -1268,6 +1376,11 @@ CONTAINS
                      XLAND=XLAND,XICE=XICE,SNOW=SNOW,                  &
                      QV3D=qv,QC3D=qc,QR3D=qr,                          &
                      QI3D=qi,QS3D=qs,QG3D=qg,                          &
+                     ALSWVISDIR=alswvisdir ,ALSWVISDIF=alswvisdif,     &  !Zhenxin ssib alb comp (06/2010)
+                     ALSWNIRDIR=alswnirdir ,ALSWNIRDIF=alswnirdif,     &  !Zhenxin ssib alb comp (06/2010)
+                     SWVISDIR=swvisdir ,SWVISDIF=swvisdif,             &  !Zhenxin ssib swr comp (06/2010)
+                     SWNIRDIR=swnirdir ,SWNIRDIF=swnirdif,             &  !Zhenxin ssib swr comp (06/2010)
+                     SF_SURFACE_PHYSICS=sf_surface_physics,            &  !Zhenxin ssib sw_phy   (06/2010)
                      F_QV=f_qv,F_QC=f_qc,F_QR=f_qr,                    &
                      F_QI=f_qi,F_QS=f_qs,F_QG=f_qg,                    &
 #ifdef WRF_CHEM
@@ -1368,6 +1481,13 @@ CONTAINS
              CALL wrf_error_fatal ( wrf_err_message )
            END IF
 
+! -- add by Jin Kong 10/2011
+!--- the following FLGSWSCHEME is for testing only
+        CASE (FLGSWSCHEME)
+          flg_sw = .true.
+!--- No need to do anything since the short and long wave is calculted in one program
+! -- end 
+
         CASE DEFAULT
 
              WRITE( wrf_err_message , * ) 'The shortwave option does not exist: sw_physics = ', sw_physics
@@ -1405,7 +1525,6 @@ CONTAINS
 
      ENDIF
 
-     IF ( PRESENT( cu_rad_feedback ) ) THEN
        IF ( PRESENT( qc  ) .AND. PRESENT( qc_adjust ) .AND. cu_rad_feedback ) THEN
            DO j=jts,jte
            DO k=kts,kte
@@ -1424,7 +1543,6 @@ CONTAINS
            ENDDO
            ENDDO
         ENDIF
-      ENDIF
 
    ENDDO
    !$OMP END PARALLEL DO

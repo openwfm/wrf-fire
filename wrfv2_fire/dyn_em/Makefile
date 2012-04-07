@@ -14,6 +14,7 @@ MODULES =                 		\
         module_solvedebug_em.o    	\
         module_bc_em.o                  \
         module_init_utilities.o         \
+        module_wps_io_arw.o             \
 	module_damping_em.o		\
 	module_polarfft.o		\
         module_force_scm.o              \
@@ -138,7 +139,6 @@ module_initialize_b_wave.o : \
 		module_init_utilities.o
 
 module_force_scm.o: module_init_utilities.o
-module_convtrans_prep.o: module_convtrans_prep.o
 
 module_initialize_grav2d_x.o: \
 		../frame/module_domain.o \

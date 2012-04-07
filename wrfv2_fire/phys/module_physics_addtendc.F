@@ -509,7 +509,7 @@ SUBROUTINE phy_bl_ten(config_flags,rk_step,n_moist,n_scalar,     &
      
        ENDIF
 
-      CASE (QNSEPBLSCHEME)
+      CASE (QNSEPBLSCHEME,QNSEPBL09SCHEME)
 
            CALL add_a2a(rt_tendf,RTHBLTEN,config_flags,          &
                 ids,ide, jds, jde, kds, kde,                     &
@@ -1090,7 +1090,7 @@ SUBROUTINE phy_cu_ten(config_flags,rk_step,n_moist,n_scalar,     &
 
        ENDIF
 
-   CASE (SASSCHEME)
+   CASE (SASSCHEME,OSASSCHEME)
         CALL add_a2a(rt_tendf,RTHCUTEN,config_flags,             &
                 ids,ide, jds, jde, kds, kde,                     &
                 ims, ime, jms, jme, kms, kme,                    &

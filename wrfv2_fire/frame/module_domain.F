@@ -68,6 +68,8 @@ MODULE module_domain
      MODULE PROCEDURE get_ijk_from_grid1, get_ijk_from_grid2
    END INTERFACE
 
+   INTEGER, PARAMETER :: max_hst_mods = 200
+
 CONTAINS
 
    SUBROUTINE adjust_domain_dims_for_move( grid , dx, dy )
@@ -921,6 +923,23 @@ CONTAINS
       grid%ntsloc        = 0
       grid%ntsloc_domain = 0
 
+#if (EM_CORE == 1)
+! Allocate storage for track metadata
+      ALLOCATE( grid%track_time_in( grid%track_loc_in ) )
+      ALLOCATE( grid%track_lat_in( grid%track_loc_in ) )
+      ALLOCATE( grid%track_lon_in( grid%track_loc_in ) )
+
+      ALLOCATE( grid%track_time_domain( grid%track_loc_in ) )
+      ALLOCATE( grid%track_lat_domain( grid%track_loc_in ) )
+      ALLOCATE( grid%track_lon_domain( grid%track_loc_in ) )
+      ALLOCATE( grid%track_i( grid%track_loc_in ) )
+      ALLOCATE( grid%track_j( grid%track_loc_in ) )
+
+      grid%track_loc        = 0
+      grid%track_loc_domain = 0
+      grid%track_have_calculated = .FALSE.
+      grid%track_have_input      = .FALSE.
+#endif
 #ifdef DM_PARALLEL
       CALL wrf_get_dm_communicator ( grid%communicator )
       CALL wrf_dm_define_comms( grid )
@@ -1003,7 +1022,7 @@ CONTAINS
       INTEGER            :: lineno, fieldno, istrm, retval, itrace
       LOGICAL            :: keepgoing, noerr, gavewarning, ignorewarning, found
       LOGICAL, SAVE      :: you_warned_me = .FALSE.
-      LOGICAL, SAVE      :: you_warned_me2(100,max_domains) = .FALSE.
+      LOGICAL, SAVE      :: you_warned_me2(max_hst_mods,max_domains) = .FALSE.
 
       gavewarning = .FALSE.
 
@@ -1178,7 +1197,7 @@ CONTAINS
      CHARACTER*256, INTENT(IN )   :: dname, fname, lookee
      CHARACTER*256, INTENT(OUT)   :: mess
      LOGICAL,       INTENT(OUT)   :: found
-     LOGICAL,       INTENT(INOUT) :: you_warned_me2(100,max_domains)
+     LOGICAL,       INTENT(INOUT) :: you_warned_me2(max_hst_mods,max_domains)
    ! Local
      INTEGER                      :: retval
 
@@ -1204,10 +1223,10 @@ CONTAINS
          CALL reset_mask( p_stream, strmtyp_int + istrm - 1)
        ENDIF
      ENDIF
-     IF ( count_em > 100 ) THEN
-       WRITE(mess,*)'ERROR module_domain:  Array size for you_warned_me2 is fixed at 100'
+     IF ( count_em > max_hst_mods ) THEN
+       WRITE(mess,*)'ERROR module_domain:  Array size for you_warned_me2 is fixed at ',max_hst_mods
        CALL wrf_message(mess)
-       CALL wrf_error_fatal('Did you really type > 100 fields into '//TRIM(fname)//' ?')
+       CALL wrf_error_fatal('Did you really type > max_hst_mods fields into ', TRIM(fname) ,' ?')
      ELSE
        IF ( .NOT. you_warned_me2(count_em,id) ) THEN
          CALL wrf_message(mess)     ! Write warning message once for each field
@@ -1591,6 +1610,39 @@ CONTAINS
       IF ( ASSOCIATED( grid%ts_filename ) ) THEN
         DEALLOCATE( grid%ts_filename )
       ENDIF 
+#if (EM_CORE == 1)
+      IF ( ASSOCIATED( grid%track_time_in ) ) THEN
+        DEALLOCATE( grid%track_time_in )
+      ENDIF
+ 
+      IF ( ASSOCIATED( grid%track_lat_in ) ) THEN
+        DEALLOCATE( grid%track_lat_in )
+      ENDIF
+ 
+      IF ( ASSOCIATED( grid%track_lon_in ) ) THEN
+        DEALLOCATE( grid%track_lon_in )
+      ENDIF
+ 
+      IF ( ASSOCIATED( grid%track_i ) ) THEN
+        DEALLOCATE( grid%track_i )
+      ENDIF
+ 
+      IF ( ASSOCIATED( grid%track_j ) ) THEN
+        DEALLOCATE( grid%track_j )
+      ENDIF
+
+      IF ( ASSOCIATED( grid%track_time_domain ) ) THEN
+        DEALLOCATE( grid%track_time_domain )
+      ENDIF
+ 
+      IF ( ASSOCIATED( grid%track_lat_domain ) ) THEN
+        DEALLOCATE( grid%track_lat_domain )
+      ENDIF
+ 
+      IF ( ASSOCIATED( grid%track_lon_domain ) ) THEN
+        DEALLOCATE( grid%track_lon_domain )
+      ENDIF
+#endif
       DEALLOCATE( grid )
       NULLIFY( grid )
 
@@ -1601,15 +1653,17 @@ CONTAINS
       TYPE(domain), POINTER :: grid
       TYPE(fieldlist), POINTER :: p, q
       p => grid%head_statevars
-      DO WHILE ( ASSOCIATED( p%next ) )
+      DO WHILE ( ASSOCIATED( p ) )
          q => p ; p => p%next ; DEALLOCATE(q)
       ENDDO
       NULLIFY(grid%head_statevars) ; NULLIFY( grid%tail_statevars)
+#if (DA_CORE != 1)
       IF ( .NOT. grid%is_intermediate ) THEN
         ALLOCATE( grid%head_statevars )
         NULLIFY( grid%head_statevars%next)
         grid%tail_statevars => grid%head_statevars
       ENDIF
+#endif
    END SUBROUTINE dealloc_linked_lists
 
    RECURSIVE SUBROUTINE show_nest_subtree ( grid )
@@ -2859,10 +2913,18 @@ END SUBROUTINE get_current_grid_name
            ds(1) = grid%sd31 ; de(1) = grid%ed31 ; ds(2) = grid%sd32 ; de(2) = grid%ed32 ; ds(3) = grid%sd33 ; de(3) = grid%ed33 ;
            ms(1) = grid%sm31 ; me(1) = grid%em31 ; ms(2) = grid%sm32 ; me(2) = grid%em32 ; ms(3) = grid%sm33 ; me(3) = grid%em33 ;
            ps(1) = grid%sp31 ; pe(1) = grid%ep31 ; ps(2) = grid%sp32 ; pe(2) = grid%ep32 ; ps(3) = grid%sp33 ; pe(3) = grid%ep33 ;
-           mxs(1) = grid%sm31x ; mxe(1) = grid%em31x ; mxs(2) = grid%sm32x ; mxe(2) = grid%em32x ; mxs(3) = grid%sm33x ; mxe(3) = grid%em33x ;
-           pxs(1) = grid%sp31x ; pxe(1) = grid%ep31x ; pxs(2) = grid%sp32x ; pxe(2) = grid%ep32x ; pxs(3) = grid%sp33x ; pxe(3) = grid%ep33x ;
-           mys(1) = grid%sm31y ; mye(1) = grid%em31y ; mys(2) = grid%sm32y ; mye(2) = grid%em32y ; mys(3) = grid%sm33y ; mye(3) = grid%em33y ;
-           pys(1) = grid%sp31y ; pye(1) = grid%ep31y ; pys(2) = grid%sp32y ; pye(2) = grid%ep32y ; pys(3) = grid%sp33y ; pye(3) = grid%ep33y ;
+           mxs(1) = grid%sm31x ; mxe(1) = grid%em31x 
+           mxs(2) = grid%sm32x ; mxe(2) = grid%em32x 
+           mxs(3) = grid%sm33x ; mxe(3) = grid%em33x 
+           pxs(1) = grid%sp31x ; pxe(1) = grid%ep31x 
+           pxs(2) = grid%sp32x ; pxe(2) = grid%ep32x 
+           pxs(3) = grid%sp33x ; pxe(3) = grid%ep33x
+           mys(1) = grid%sm31y ; mye(1) = grid%em31y 
+           mys(2) = grid%sm32y ; mye(2) = grid%em32y 
+           mys(3) = grid%sm33y ; mye(3) = grid%em33y 
+           pys(1) = grid%sp31y ; pye(1) = grid%ep31y 
+           pys(2) = grid%sp32y ; pye(2) = grid%ep32y 
+           pys(3) = grid%sp33y ; pye(3) = grid%ep33y 
      ELSE
         WRITE(mess,*)'internal error: get_ijk_from_grid_id: no such grid id:',id
         CALL wrf_error_fatal(TRIM(mess))

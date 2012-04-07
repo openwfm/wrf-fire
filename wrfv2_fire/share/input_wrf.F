@@ -89,6 +89,13 @@
     TYPE(WRFU_TimeInterval) :: interval, interval2
     integer s, iring
 
+    !  Local variables: are we are using the correct hypsometric option for ARW ideal cases.
+
+    CHARACTER (LEN=80) :: input_name
+    LOGICAL :: this_is_an_ideal_run
+    INTEGER :: loop, hypsometric_opt
+
+
 !<DESCRIPTION>
 !
 ! Core wrf input routine for all input data streams. Part of mediation layer.
@@ -122,10 +129,32 @@
 
     dryrun        = ( filestate .EQ. WRF_FILE_OPENED_NOT_COMMITTED )
 
-    WRITE(wrf_err_message,*)'input_wrf: dryrun = ',dryrun
+    WRITE(wrf_err_message,*)'input_wrf: dryrun = ',dryrun,' switch ',switch
     CALL wrf_debug( 300 , wrf_err_message )
 
     check_if_dryrun : IF ( .NOT. dryrun ) THEN
+
+#if (EM_CORE == 1)
+      IF ( switch .EQ. input_only ) THEN
+
+        !  Make sure for ARW ideal cases that the hypsometric option, the
+        !  way that we integrate the heigh field, is set to 1.  This is the
+        !  method that is used in all of the "ideal" programs to get the
+        !  base-state height (phb).
+
+        CALL wrf_get_dom_ti_char ( fid , 'TITLE' , input_name , ierr )
+        this_is_an_ideal_run = INDEX(TRIM(input_name) , 'IDEAL' ) .NE. 0
+        IF ( this_is_an_ideal_run ) THEN
+          grid%hypsometric_opt = 1
+          config_flags%hypsometric_opt = 1
+	  DO loop = 1 , grid%max_dom
+            CALL nl_set_hypsometric_opt ( loop , 1 ) 
+          END DO
+          WRITE(wrf_err_message,*)'Ideal cases do not support the hypsometric option.'
+          CALL wrf_debug( 0 , wrf_err_message )
+        END IF
+      END IF
+#endif
 
 ! simulation start time is a Singleton maintained by head_grid
     IF ( ( switch .EQ.     input_only  ) .OR. &
@@ -263,6 +292,26 @@
        IF ( ierr3 .NE. 0 ) CALL wrf_error_fatal( 'wrf_get_dom_ti_integer getting dimension information from dataset' )
 
 #if (EM_CORE == 1)
+
+       IF ( ( switch .EQ. input_only ) .AND. ( config_flags%io_form_input .EQ. 2 ) ) THEN
+
+        !  For backward compatibility.  If we do not find the hypsometric_opt defined
+        !  in the input data, this is pre version 3.4.  Most likely, the hypsometric_opt
+        !  was the default value, 1.  
+
+        hypsometric_opt = -1
+        CALL wrf_get_dom_ti_integer ( fid , 'HYPSOMETRIC_OPT' , hypsometric_opt , 1 , icnt , ierr )
+        IF ( ( hypsometric_opt .NE. 1 ) .AND. ( hypsometric_opt .NE. 2 ) ) THEN
+          grid%hypsometric_opt = 1
+          config_flags%hypsometric_opt = 1
+	  DO loop = 1 , grid%max_dom
+            CALL nl_set_hypsometric_opt ( loop , 1 ) 
+          END DO
+          WRITE(wrf_err_message,*)'Resetting the hypsometric_opt from default value of 2 to 1'
+          CALL wrf_debug( 0 , wrf_err_message )
+        END IF
+       END IF
+
        !  Test to make sure that the grid distances are the right size.
 
        CALL wrf_get_dom_ti_real ( fid , 'DX' ,  dx_compare , 1 , icnt , ierr )
@@ -282,6 +331,33 @@
        END IF
 #endif
     END IF
+
+#if (EM_CORE == 1)
+    IF ( switch .EQ. auxinput2_only ) THEN
+       ierr = 0
+       CALL wrf_get_dom_ti_integer ( fid , 'I_PARENT_START' ,    itmp , 1 , icnt , ierr3 )
+       ierr = max( ierr, ierr3 )
+       IF ( itmp .NE. config_flags%i_parent_start ) THEN
+          ierr = 1
+          WRITE(wrf_err_message,*)'i_parent_start from namelist.input file = ',config_flags%i_parent_start
+          CALL wrf_message(wrf_err_message)
+          WRITE(wrf_err_message,*)'i_parent_start from gridded input file  = ',itmp
+          CALL wrf_message(wrf_err_message)
+       END IF
+       CALL wrf_get_dom_ti_integer ( fid , 'J_PARENT_START' ,    itmp , 1 , icnt , ierr3 )
+       ierr = max( ierr, ierr3 )
+       IF ( itmp .NE. config_flags%j_parent_start ) THEN
+          ierr = 1
+          WRITE(wrf_err_message,*)'j_parent_start from namelist.input file = ',config_flags%j_parent_start
+          CALL wrf_message(wrf_err_message)
+          WRITE(wrf_err_message,*)'j_parent_start from gridded input file  = ',itmp
+          CALL wrf_message(wrf_err_message)
+       END IF
+       IF ( ierr .NE. 0 ) THEN
+          CALL wrf_error_fatal( 'Nest start locations do not match: namelist.input vs gridded input file' )
+       END IF
+    END IF
+#endif
 
     ! do the check later (see check_if_dryrun below)
 
@@ -479,12 +555,18 @@
           WRITE(wrf_err_message,*)'input_wrf: global attribute SF_SURFACE_PHYSICS returns ', itmp
           CALL wrf_debug ( 300 , wrf_err_message )
           IF ( config_flags%sf_surface_physics /= itmp ) THEN
-             call wrf_message("----------------- ERROR -------------------")
-             WRITE(wrf_err_message,'("namelist    : sf_surface_physics = ",I10)') config_flags%sf_surface_physics
-             call wrf_message(wrf_err_message)
-             WRITE(wrf_err_message,'("input files : SF_SURFACE_PHYSICS = ",I10, " (from wrfinput files).")') itmp
-             call wrf_message(wrf_err_message)
-             call wrf_error_fatal("Mismatch between namelist and global attribute SF_SURFACE_PHYSICS")
+             IF ( ( config_flags%sf_surface_physics == LSMSCHEME ) .and. ( itmp == NOAHMPSCHEME ) ) then
+                ! All is well.  Noah-MP and Noah have compatible wrfinput files.
+             ELSE IF ( ( config_flags%sf_surface_physics == NOAHMPSCHEME ) .and. ( itmp == LSMSCHEME ) ) then
+                ! All is well.  Noah-MP and Noah have compatible wrfinput files.
+             ELSE
+                call wrf_message("----------------- ERROR -------------------")
+                WRITE(wrf_err_message,'("namelist    : sf_surface_physics = ",I10)') config_flags%sf_surface_physics
+                call wrf_message(wrf_err_message)
+                WRITE(wrf_err_message,'("input files : SF_SURFACE_PHYSICS = ",I10, " (from wrfinput files).")') itmp
+                call wrf_message(wrf_err_message)
+                call wrf_error_fatal("Mismatch between namelist and global attribute SF_SURFACE_PHYSICS")
+             END IF
           END IF
        END IF
     END IF
@@ -633,6 +715,28 @@
                 ENDIF
          ENDIF
        ENDIF
+
+#endif
+
+#if (DA_CORE == 1)
+    ! Test here to check that config_flags%hypsometric_opt in namelist
+    ! is equal to what is in the global attributes of the wrfinput files
+
+    IF ( switch .EQ. input_only  ) THEN
+       CALL wrf_get_dom_ti_integer ( fid, 'HYPSOMETRIC_OPT', itmp, 1, icnt, ierr )
+       IF ( ierr .EQ. 0 ) THEN
+          WRITE(wrf_err_message,*)'input_wrf: global attribute HYPSOMETRIC_OPT returns ', itmp
+          CALL wrf_debug ( 300 , wrf_err_message )
+          IF ( config_flags%hypsometric_opt /= itmp ) THEN
+             call wrf_message("----------------- WARNING  -------------------")
+             WRITE(wrf_err_message,'("namelist    : hypsometric_opt = ",I10)') config_flags%hypsometric_opt
+             call wrf_message(wrf_err_message)
+             WRITE(wrf_err_message,'("input files : HYPSOMETRIC_OPT = ",I10, " (from wrfinput files).")') itmp
+             call wrf_message(wrf_err_message)
+             call wrf_error_fatal("Mismatch between namelist and global attribute HYPSOMETRIC_OPT")
+          END IF
+       END IF
+    END IF
 
 #endif
 
@@ -1286,6 +1390,11 @@
 
 #if (DA_CORE != 1)
     CALL wrf_tsin( grid , ierr )
+#if (EM_CORE == 1)
+    if (config_flags%track_loc_in > 0 ) then
+       call track_input( grid , ierr )
+    end if
+#endif
 #endif
 
     WRITE(wrf_err_message,*)'input_wrf: end, fid = ',fid

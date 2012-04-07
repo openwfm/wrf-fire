@@ -3,7 +3,7 @@ module module_stoch
 !
 ! Purpose: Stochastic kinetic-energy backscatter scheme (SKEB)
 ! Author : Judith Berner, NCAR  (berner@ucar.edu)
-! Date   : Dec 2020
+! Date   : Dec 2010
 ! Version: 1.0
 !
 !***********************************************************************
@@ -56,6 +56,7 @@ module module_stoch
 
 !     --------- Others -------------------------------------------------
       REAL, PARAMETER:: RPI= 3.141592653589793 !4.0*atan(1.0) 
+      REAL, PARAMETER:: CP= 1006 ! specific heat of dry air in J/(Kg*K)= m^2/(K* s^2)
 
       save
 
@@ -80,7 +81,7 @@ contains
 
       IMPLICIT NONE
       INTEGER :: IER,IK,IL,iseed1,iseed2,I,J
-      INTEGER :: iseed(18),itime_step,stoch_vertstruc_opt
+      INTEGER :: itime_step,stoch_vertstruc_opt
       INTEGER :: KMAX,LMAX,LENSAV,ILEV
       INTEGER , INTENT(IN)     ::  ids, ide, jds, jde, kds, kde,   &
                                    ims, ime, jms, jme, kms, kme,   &
@@ -91,6 +92,11 @@ contains
       REAL, DIMENSION (ims:ime,jms:jme)         :: SPSTREAM_AMP,SPT_AMP
       REAL, DIMENSION (ids:ide,jds:jde)         :: ZCHI,ZCHIT
       LOGICAL :: is_print = .true.
+      INTEGER , ALLOCATABLE , DIMENSION(:) :: iseed
+      INTEGER :: how_many
+
+      LOGICAL , EXTERNAL      :: wrf_dm_on_monitor
+
     
 !     --------- SETUP PARAMETERS ---------------------------------------
       KMAX=(jde-jds)+1 !NLAT
@@ -205,6 +211,11 @@ contains
       ENDDO
       ENDDO
       ZGAMMAN=4.0*ZGAMMAN !account for all quadrants, although only one is Filled
+
+!     A value TOT_BACKSCAT_PSI=xx m^2/S^3 means that in each gridbox and on average,
+!     a dissipation rate of D=TOT_BACKSCAT_PSI m^2/s^3 is backscattered onto the resolved streamfunction
+!     The resulting units for ZCONSTF0 are  sqrt(m^2/(s^3*s)) = m^2/s^2, which is the unit of dpsi/dt
+!     Note, that the unit of IK has the unit m here.
       ZCONSTF0=SQRT(ALPH*TOT_BACKSCAT_PSI/(float(itime_step)*ZSIGMA2_EPS*ZGAMMAN))/(2*RPI)
 
       ZCHIT    =  0.0
@@ -229,7 +240,11 @@ contains
       ENDDO
       ENDDO
       ZGAMMAN=4.0*ZGAMMAN !account for all quadrants, although only one is Filled
-      ZCONSTF0T=SQRT(ALPH*TOT_BACKSCAT_T/(float(itime_step)*ZSIGMA2_EPS*ZGAMMAN))/(2*RPI)
+
+!     A value TOT_BACKSCAT_T= xx m^2/S^3  means that in each gridbox and on average,
+!     a dissipation rate of D=TOT_BACKSCAT_T m^2/s^3 is backscattered onto the resolved temperture pattern
+!     The resulting units for ZCONSTF0T are m^2/s^3* (K* s^2)/m^2 = K/s , which is the unit of dT/dt
+      ZCONSTF0T=TOT_BACKSCAT_T /cp* SQRT(ALPH/(ZSIGMA2_EPS*ZGAMMAN))/(2*RPI)
 
 !     Now the wavenumber-dependent amplitudes
 !     Note: There are symmetries and anti-symmetries to ensure real-valued back transforms
@@ -277,40 +292,48 @@ contains
       ENDDO
       ENDDO
 
+
+
 !     Array for vertical structure if desired
-      IF (stoch_vertstruc_opt==1) then
-      VERTSTRUCC=0.0
-      VERTSTRUCS=0.0
-      RHOKLMAX= sqrt(KMAX**2/DY**2 + LMAX**2/DX**2)
-      ZREF=32.0
-      DO ILEV=kds,kde
-        DO IK=jts,jte
-          DO IL=its,ite
-          if (IK.le.(KMAX/2)) then
-            RHOKL   = sqrt((IK+1)**2/DY**2 + (IL+1)**2/DX**2)
-            EPS     = ((RHOKLMAX - RHOKL)/ RHOKLMAX)  * (ILEV/ZREF) * RPI
-            VERTSTRUCC(IL,ILEV,IK) =  cos ( eps* (IK+1) )
-            VERTSTRUCS(IL,ILEV,IK) =  sin ( eps* (IK+1) )
-          endif
+      IF (stoch_vertstruc_opt>0) then
+        VERTSTRUCC=0.0
+        VERTSTRUCS=0.0
+        RHOKLMAX= sqrt(KMAX**2/DY**2 + LMAX**2/DX**2)
+        ZREF=32.0
+        DO ILEV=kts,kte
+          DO IK=jts,jte
+            DO IL=its,ite
+            if (IL.le.(LMAX/2)) then
+              RHOKL   = sqrt((IK+1)**2/DY**2 + (IL+1)**2/DX**2)
+              EPS     = ((RHOKLMAX - RHOKL)/ RHOKLMAX)  * (ILEV/ZREF) * RPI
+              VERTSTRUCC(IL,ILEV,IK) =  cos ( eps* (IL+1) )
+              VERTSTRUCS(IL,ILEV,IK) =  sin ( eps* (IL+1) )
+             else
+              RHOKL   = sqrt((IK+1)**2/DY**2 + (LMAX-IL+2)**2/DX**2)
+              EPS     = ((RHOKLMAX - RHOKL)/ RHOKLMAX)  * (ILEV/ZREF) * RPI
+              VERTSTRUCC (IL,ILEV,IK) =   cos ( eps* (LMAX-IL+2) )
+              VERTSTRUCS (IL,ILEV,IK) = - sin ( eps* (LMAX-IL+2) )
+            endif
+            ENDDO
           ENDDO
         ENDDO
-        DO IK=jts,jte
-          DO IL=its,ite
-          if  (IK .gt. KMAX/2) then
-            VERTSTRUCC (IL,ILEV,IK) =   cos ( eps* (IK+1) )
-            VERTSTRUCS (IL,ILEV,IK) = - sin ( eps* (IK+1) )
-          endif
-          ENDDO
-        ENDDO
-       ENDDO
-       endif
+      END IF
              
 !      Set seed for random number generator 
-       iseed=0
-       iseed(1) = iseed1
-       iseed(2) = iseed2
-       call random_seed
-       call random_seed(put=iseed(1:18))   ! set random seed.
+
+       CALL random_seed(size=how_many)
+       ALLOCATE(iseed(how_many))
+       IF ( wrf_dm_on_monitor() ) THEN
+          iseed=0
+          iseed(1) = iseed1
+          iseed(2) = iseed2
+          call random_seed(put=iseed(1:how_many))   ! set random seed on monitor.
+          call random_seed(get=iseed(1:how_many))
+       END IF
+#ifdef DM_PARALLEL
+       CALL wrf_dm_bcast_integer ( iseed , how_many )
+       CALL random_seed(put=iseed(1:how_many))   ! set random seed on each proc
+#endif
 
        END subroutine SETUP_STOCH
 
@@ -358,20 +381,28 @@ contains
           ENDDO
         ENDDO
       ELSE
-        CALL RANDOM_NUMBER(ZRANDNOSS1)
-        CALL RANDOM_NUMBER(ZRANDNOSC1)
-        CALL RANDOM_NUMBER(ZRANDNOSS2)
-        CALL RANDOM_NUMBER(ZRANDNOSC2)
+        DO IK=jds,jde
+          DO IL=ids,ide
+            CALL RANDOM_NUMBER(z)
+            ZRANDNOSS1(IL,IK)=z-0.5
+            CALL RANDOM_NUMBER(z)
+            ZRANDNOSC1(IL,IK)=z-0.5
+            CALL RANDOM_NUMBER(z)
+            ZRANDNOSS2(IL,IK)=z-0.5
+            CALL RANDOM_NUMBER(z)
+            ZRANDNOSC2(IL,IK)=z-0.5
+          ENDDO
+        ENDDO
       ENDIF
 
 !     Note: There are symmetries and anti-symmetries to ensure real-valued back transforms
       DO IK=jts,jte
       if (IK.le.(KMAX/2)) then
         DO IL=its,ite
-          SPSTREAMFORCC(IL,IK)  = (1.-ALPH)*SPSTREAMFORCC(IL,IK) + SPSTREAM_AMP(IL,IK)*(ZRANDNOSC1(IL,IK)-0.5)
-          SPSTREAMFORCS(IL,IK)  = (1.-ALPH)*SPSTREAMFORCS(IL,IK) + SPSTREAM_AMP(IL,IK)*(ZRANDNOSS1(IL,IK)-0.5)
-          SPTFORCC(IL,IK)       = (1.-ALPH)*SPTFORCC(IL,IK)      + SPT_AMP(IL,IK)     *(ZRANDNOSC2(IL,IK)-0.5)
-          SPTFORCS(IL,IK)       = (1.-ALPH)*SPTFORCS(IL,IK)      + SPT_AMP(IL,IK)     *(ZRANDNOSS2(IL,IK)-0.5)
+          SPSTREAMFORCC(IL,IK)  = (1.-ALPH)*SPSTREAMFORCC(IL,IK) + SPSTREAM_AMP(IL,IK)*(ZRANDNOSC1(IL,IK))
+          SPSTREAMFORCS(IL,IK)  = (1.-ALPH)*SPSTREAMFORCS(IL,IK) + SPSTREAM_AMP(IL,IK)*(ZRANDNOSS1(IL,IK))
+          SPTFORCC(IL,IK)       = (1.-ALPH)*SPTFORCC(IL,IK)      + SPT_AMP(IL,IK)     *(ZRANDNOSC2(IL,IK))
+          SPTFORCS(IL,IK)       = (1.-ALPH)*SPTFORCS(IL,IK)      + SPT_AMP(IL,IK)     *(ZRANDNOSS2(IL,IK))
         ENDDO
       endif
       ENDDO
@@ -381,22 +412,22 @@ contains
         DO IL=its,ite
         if (IL>1) then
           SPSTREAMFORCC(IL,IK)=   (1.-ALPH)*      SPSTREAMFORCC(IL,IK) + &
-                                                  SPSTREAM_AMP(IL,IK) * (ZRANDNOSC1(LMAX-IL+2,KMAX-IK+2)-0.5)
+                                                  SPSTREAM_AMP(IL,IK) * ZRANDNOSC1(LMAX-IL+2,KMAX-IK+2)
           SPSTREAMFORCS(IL,IK)= -((1.-ALPH)*(-1.0*SPSTREAMFORCS(IL,IK))+ & 
-                                                  SPSTREAM_AMP(IL,IK) * (ZRANDNOSS1(LMAX-IL+2,KMAX-IK+2)-0.5))
+                                                  SPSTREAM_AMP(IL,IK) * ZRANDNOSS1(LMAX-IL+2,KMAX-IK+2))
           SPTFORCC(IL,IK)=   (1.-ALPH)*      SPTFORCC(IL,IK) + &
-                                                  SPT_AMP(IL,IK) * (ZRANDNOSC2(LMAX-IL+2,KMAX-IK+2)-0.5)
+                                                  SPT_AMP(IL,IK) * ZRANDNOSC2(LMAX-IL+2,KMAX-IK+2)
           SPTFORCS(IL,IK)= -((1.-ALPH)*(-1.0*SPTFORCS(IL,IK))+ & 
-                                                  SPT_AMP(IL,IK) * (ZRANDNOSS2(LMAX-IL+2,KMAX-IK+2)-0.5))
+                                                  SPT_AMP(IL,IK) * ZRANDNOSS2(LMAX-IL+2,KMAX-IK+2))
         else
           SPSTREAMFORCC(1,IK) =   (1.-ALPH) *     SPSTREAMFORCC(1,IK)  + & 
-                                                  SPSTREAM_AMP(1,IK)  * (ZRANDNOSC1(1,KMAX-IK+2)-0.5)
+                                                  SPSTREAM_AMP(1,IK)  * ZRANDNOSC1(1,KMAX-IK+2)
           SPSTREAMFORCS(1,IK) = -((1.-ALPH)*(-1.0*SPSTREAMFORCS(1,IK))+ & 
-                                                  SPSTREAM_AMP(1,IK)  * (ZRANDNOSS1(1,KMAX-IK+2)-0.5))
+                                                  SPSTREAM_AMP(1,IK)  * ZRANDNOSS1(1,KMAX-IK+2))
           SPTFORCC(1,IK) =   (1.-ALPH) *     SPTFORCC(1,IK)  + & 
-                                                  SPT_AMP(1,IK)  * (ZRANDNOSC2(1,KMAX-IK+2)-0.5)
+                                                  SPT_AMP(1,IK)  * ZRANDNOSC2(1,KMAX-IK+2)
           SPTFORCS(1,IK) = -((1.-ALPH)*(-1.0*SPTFORCS(1,IK))+ & 
-                                                  SPT_AMP(1,IK)  * (ZRANDNOSS2(1,KMAX-IK+2)-0.5))
+                                                  SPT_AMP(1,IK)  * ZRANDNOSS2(1,KMAX-IK+2))
          endif
        ENDDO
      endif
@@ -407,10 +438,11 @@ contains
 !     ------------------------------------------------------------------
 !************** ADD STOCHASTIC TENDENCIES TO PHYSICAL TENDENCIES********
 !     ------------------------------------------------------------------
-      SUBROUTINE UPDATE_STOCH_TEN(                                  &
+      SUBROUTINE CALCULATE_STOCH_TEN(                                  &
                        ru_tendf,rv_tendf,t_tendf,                   &
                        GPUFORC,GPVFORC,GPTFORC,                     &
                        ru_real,rv_real,rt_real,                     &
+                       mu,mub,                                      & 
                        ids, ide, jds, jde, kds, kde,                &
                        ims, ime, jms, jme, kms, kme,                &
                        its, ite, jts, jte, kts, kte,                &
@@ -428,14 +460,16 @@ contains
        REAL , DIMENSION(ims:ime , kms:kme, jms:jme),INTENT(IN) ::   &
                                         ru_real,rv_real,rt_real
 
+
+       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(IN) :: mu,mub
+
        INTEGER :: I,J,K
        REAL    :: dt
-    
+
        DO j = jts,MIN(jde-1,jte)
          DO k = kts,kte-1
            DO i = its,ite 
              GPUFORC(i,k,j)= ru_real(i,k,j)
-             ru_tendf(i,k,j) = ru_tendf(i,k,j) + GPUFORC(i,k,j)
            ENDDO
          ENDDO
        ENDDO
@@ -444,25 +478,24 @@ contains
          DO k = kts,kte-1
            DO i = its,MIN(ide-1,ite)
              GPVFORC(i,k,j)= rv_real(i,k,j)
-             rv_tendf(i,k,j) = rv_tendf(i,k,j) +  GPVFORC(i,k,j)
            ENDDO
          ENDDO
        ENDDO
-
+ 
        DO j = jts,MIN(jde-1,jte)
          DO k = kts,kte-1
            DO i = its,MIN(ide-1,ite)
              GPTFORC(i,k,j)= rt_real(i,k,j)
-             t_tendf(i,k,j) = t_tendf(i,k,j) +  GPTFORC(i,k,j)
            ENDDO
          ENDDO
        ENDDO
 
-       END SUBROUTINE UPDATE_STOCH_TEN
+       END SUBROUTINE CALCULATE_STOCH_TEN
 !     ------------------------------------------------------------------
 
-      SUBROUTINE UPDATE_STOCH_TEN_SUBDOMAINS(ru_tendf,rv_tendf,t_tendf, &
+      SUBROUTINE UPDATE_STOCH_TEN(ru_tendf,rv_tendf,t_tendf, &
                        GPUFORC,GPVFORC,GPTFORC,                    &
+                       mu,mub,                                      & 
                        ids, ide, jds, jde, kds, kde,                &
                        ims, ime, jms, jme, kms, kme,                &
                        its, ite, jts, jte, kts, kte,                &
@@ -476,16 +509,19 @@ contains
        REAL , DIMENSION(ims:ime , kms:kme, jms:jme),INTENT(INOUT) :: &
                                        ru_tendf, rv_tendf, t_tendf
 
-       REAL , DIMENSION(ims:ime , kms:kme, jms:jme),INTENT(IN) :: &
+       !REAL , DIMENSION(ims:ime , kms:kme, jms:jme),INTENT(IN) :: &
+       REAL , DIMENSION(ims:ime , kms:kme, jms:jme)           :: &
                                        GPUFORC,GPVFORC,GPTFORC 
 
+       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(IN) :: mu,mub
+
        INTEGER :: I,J,K
-       REAL  :: dt
+       REAL  :: dt,xm
 
        DO j = jts,MIN(jde-1,jte)
          DO k = kts,kte-1
            DO i = its,ite 
-             ru_tendf(i,k,j) = ru_tendf(i,k,j) +  GPUFORC(i,k,j) 
+             ru_tendf(i,k,j) = ru_tendf(i,k,j) +  GPUFORC(i,k,j)  * (mu(i,j)+mub(i,j)) 
            ENDDO
          ENDDO
        ENDDO
@@ -493,7 +529,7 @@ contains
        DO j = jts,jte
          DO i = its,MIN(ide-1,ite)
            DO k = kts,kte-1
-             rv_tendf(i,k,j) = rv_tendf(i,k,j) +  GPVFORC(i,k,j) 
+             rv_tendf(i,k,j) = rv_tendf(i,k,j) +  GPVFORC(i,k,j) *  (mu(i,j)+mub(i,j)) 
            ENDDO
          ENDDO
        ENDDO
@@ -501,12 +537,12 @@ contains
        DO j = jts,MIN(jde-1,jte)
          DO k = kts,kte-1
            DO i = its,MIN(ide-1,ite)
-             t_tendf(i,k,j) = t_tendf(i,k,j) + GPTFORC(i,k,j) 
+             t_tendf(i,k,j) = t_tendf(i,k,j) + GPTFORC(i,k,j) * (mu(i,j)+mub(i,j))
            ENDDO
          ENDDO
        ENDDO
 
-       END SUBROUTINE UPDATE_STOCH_TEN_SUBDOMAINS
+       END SUBROUTINE UPDATE_STOCH_TEN
 !     ------------------------------------------------------------------
 !!************** TRANSFORM FROM SPHERICAL HARMONICS TO GRIDPOILT SPACE**
 !     ------------------------------------------------------------------
@@ -839,7 +875,8 @@ contains
       TYPE (grid_config_rec_type)                       :: config_flags
 !
 ! Arguments
-     INTEGER, INTENT(OUT ) :: seed1, seed2, nens
+     INTEGER, INTENT(OUT) :: seed1, seed2
+     INTEGER, INTENT(IN ) :: nens
 
 ! Local
       integer            :: date_time(8)
@@ -886,6 +923,7 @@ contains
                 config_flags%cu_physics
  
  
+        idiv=2;
         seed1 = newtime+iphys+nens*1000000
         seed2 = mod(newtime+iphys+nens*1000000,idiv)
         if(is_print) print *,'Rand_seed (iphys/newtime/idiv):',iphys,newtime,idiv,nens
