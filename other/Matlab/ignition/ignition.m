@@ -106,9 +106,15 @@ for i=1:grid_1
                     a2=line_sign(long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
                     if a1*a2<0
                      
-                        dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
-                        dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
-                        B(i,j)=time_now*(dist1-dist2)/dist1;
+                        %dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+                        %dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
+                        %B(i,j)=time_now*(dist1-dist2)/dist1;
+                        
+                        [x,y]=line_inter(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
+                        b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
+                        b2=sqrt((x-ign_pnt(1))^2+(y-ign_pnt(2))^2);
+                         
+                        B(i,j)=time_now*b1/b2;
                         k=-1;
                     end
                 elseif a_new==0
@@ -137,6 +143,7 @@ for i=1:grid_1
             while (k>0)&&(k<=bnd_size(1))
                 if (a_old==0)
                     a_new=a_old;
+
                     k=1;
                 else
                     a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2));
@@ -148,10 +155,17 @@ for i=1:grid_1
                     a1=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
                     a2=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
                     if a1*a2<0
-                        dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+                        [x,y]=line_inter(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
                         b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
+                        b2=sqrt((x-ign_pnt(1))^2+(y-ign_pnt(2))^2);
+                         
+                        B(i,j)=time_now*b1/b2;
+                        
+                        
+                        %dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+                        %b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
                         %   dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
-                        B(i,j)=time_now*b1/dist1;
+                        %B(i,j)=time_now*b1/dist1;
                        
                         k=-1;
                     end
