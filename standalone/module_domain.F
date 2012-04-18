@@ -26,6 +26,33 @@ module module_domain
       real, pointer, dimension(:,:)::fgip  => null()
       real, pointer, dimension(:,:)::ischap => null()          ! fire spread formula coefficients
       real, pointer, dimension(:,:)::fuel_time => null()       ! fuel coefficient  
+      real, pointer, dimension(:,:)::u_2 => null()
+      real, pointer, dimension(:,:)::v_2 => null()
+      real, pointer, dimension(:,:)::ph_2 => null()
+      real, pointer, dimension(:,:)::phb => null()
+      real, pointer, dimension(:,:)::z0 => null()
+      real, pointer, dimension(:,:)::ht => null()
+      real, pointer, dimension(:,:)::xlong => null()
+      real, pointer, dimension(:,:)::xlat => null()
+      real, pointer, dimension(:,:)::avg_fuel_frac => null()
+      real, pointer, dimension(:,:)::grnhfx => null()
+      real, pointer, dimension(:,:)::grnqfx => null()
+      real, pointer, dimension(:,:)::canhfx => null()
+      real, pointer, dimension(:,:)::canqfx => null()
+      real, pointer, dimension(:,:)::uah => null()
+      real, pointer, dimension(:,:)::vah => null()
+      real, pointer, dimension(:,:)::rainc => null()
+      real, pointer, dimension(:,:)::rainnc => null()
+      real, pointer, dimension(:,:)::t2 => null()
+      real, pointer, dimension(:,:)::q2 => null()
+      real, pointer, dimension(:,:)::psfc => null()
+      real, pointer, dimension(:,:)::rain_old => null()
+      real, pointer, dimension(:,:)::t2_old => null()
+      real, pointer, dimension(:,:)::q2_old => null()
+      real, pointer, dimension(:,:)::psfc_old => null()
+      real, pointer, dimension(:,:,:)::fmc_gc => null()
+      real, pointer, dimension(:,:,:)::fmc_equi => null()
+      real, pointer, dimension(:,:,:)::fmc_lag => null()
 
       ! mesh and housekeeping
 
@@ -35,6 +62,8 @@ module module_domain
       integer, dimension(max_tiles):: i_start,i_end,j_start,j_end
       real:: dt,dx,dy                                          ! time and space stepsizes (atmosphere scale)
       real:: u_frame,v_frame                                   ! must be zero, for compatibility
+      real:: unit_fxlong,unit_fxlat
+      real:: fmoist_nexttime,fmoist_lasttime
 
       ! fire model state arrays 
        
