@@ -42,10 +42,14 @@ allocate(grid%dzdyf(info%nfirex,info%nfirey))
 allocate(grid%zsf(info%nfirex,info%nfirey))
 allocate(grid%uf(info%nfirex,info%nfirey))
 allocate(grid%vf(info%nfirex,info%nfirey))
+allocate(grid%fxlat(info%nfirex,info%nfirey))
+allocate(grid%fxlong(info%nfirex,info%nfirey))
 
 ! initialize input variables
 do j=1,info%nfirey
   do i=1,info%nfirex
+    grid%fxlat(i,j)=(j-1)*info%fdy
+    grid%fxlong(i,j)=(i-1)*info%fdx
     grid%zsf(i,j)=1000.
     grid%dzdxf(i,j)=0.
     grid%dzdyf(i,j)=0.
@@ -60,7 +64,7 @@ grid%vf(:,:)=wind*sin(alpha)
 call write_inputs(inputfile,grid,info)
 
 ! clean up and exit
-deallocate(grid%nfuel_cat,grid%dzdxf,grid%dzdyf,grid%uf,grid%vf,grid%zsf)
+deallocate(grid%nfuel_cat,grid%dzdxf,grid%dzdyf,grid%uf,grid%vf,grid%zsf,grid%fxlat,grid%fxlong)
 
 
 

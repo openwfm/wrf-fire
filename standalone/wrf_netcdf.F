@@ -365,6 +365,8 @@ call write_fire_var(ncid,info,1,var_dzdyf,grid%dzdyf)
 call write_fire_var(ncid,info,1,var_zsf,grid%zsf)
 call write_fire_var(ncid,info,1,var_uf,grid%uf)
 call write_fire_var(ncid,info,1,var_vf,grid%vf)
+call write_fire_var(ncid,info,1,var_fxlat,grid%fxlat)
+call write_fire_var(ncid,info,1,var_fxlong,grid%fxlong)
 
 call latch
 call check(nf90_close(ncid))
