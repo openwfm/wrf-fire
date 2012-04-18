@@ -13,7 +13,7 @@ implicit none
 type(domain)::grid
 type(grid_info)::info
 integer::ierr,i,j
-real,parameter::wind=10.,alpha=0.0
+real,parameter::wind=1.,alpha=0.0
 type(grid_config_rec_type)::config_flags ! for the namelist
 
 ! read namelist parameters
@@ -44,6 +44,7 @@ allocate(grid%uf(info%nfirex,info%nfirey))
 allocate(grid%vf(info%nfirex,info%nfirey))
 allocate(grid%fxlat(info%nfirex,info%nfirey))
 allocate(grid%fxlong(info%nfirex,info%nfirey))
+allocate(grid%fmc_g(info%nfirex,info%nfirey))
 
 ! initialize input variables
 do j=1,info%nfirey
@@ -54,6 +55,7 @@ do j=1,info%nfirey
     grid%dzdxf(i,j)=0.
     grid%dzdyf(i,j)=0.
     grid%nfuel_cat(i,j)=3
+    grid%fmc_g(i,j)=.08
   enddo
 enddo
 
@@ -64,7 +66,8 @@ grid%vf(:,:)=wind*sin(alpha)
 call write_inputs(inputfile,grid,info)
 
 ! clean up and exit
-deallocate(grid%nfuel_cat,grid%dzdxf,grid%dzdyf,grid%uf,grid%vf,grid%zsf,grid%fxlat,grid%fxlong)
+deallocate(grid%nfuel_cat,grid%dzdxf,grid%dzdyf,grid%uf,grid%vf,grid%zsf,&
+           grid%fxlat,grid%fxlong,grid%fmc_g)
 
 
 

@@ -145,8 +145,8 @@ if (compat_fire_grid)then
 endif
 
 ! define global attributes
-call check(nf90_put_att(ncid,nf90_global,'DX',info%fdx/info%sr_x))
-call check(nf90_put_att(ncid,nf90_global,'DY',info%fdy/info%sr_y))
+call check(nf90_put_att(ncid,nf90_global,'DX',info%fdx*info%sr_x))
+call check(nf90_put_att(ncid,nf90_global,'DY',info%fdy*info%sr_y))
 call check(nf90_put_att(ncid,nf90_global,'FDX',info%fdx))
 call check(nf90_put_att(ncid,nf90_global,'FDY',info%fdy))
 call check(nf90_put_att(ncid,nf90_global,'DT',info%dt))
@@ -336,6 +336,8 @@ call write_fire_var(ncid,info,iframe,var_ros,grid%ros)
 call write_fire_var(ncid,info,iframe,var_r_0,grid%r_0)
 call write_fire_var(ncid,info,iframe,var_flineint,grid%flineint)
 call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
+call write_fire_var(ncid,info,iframe,var_uf,grid%uf)
+call write_fire_var(ncid,info,iframe,var_vf,grid%vf)
 
 ! close file
 call latch
@@ -365,6 +367,7 @@ call write_fire_var(ncid,info,1,var_dzdyf,grid%dzdyf)
 call write_fire_var(ncid,info,1,var_zsf,grid%zsf)
 call write_fire_var(ncid,info,1,var_uf,grid%uf)
 call write_fire_var(ncid,info,1,var_vf,grid%vf)
+call write_fire_var(ncid,info,1,var_fmc_g,grid%fmc_g)
 call write_fire_var(ncid,info,1,var_fxlat,grid%fxlat)
 call write_fire_var(ncid,info,1,var_fxlong,grid%fxlong)
 

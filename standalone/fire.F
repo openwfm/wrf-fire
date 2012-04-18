@@ -216,7 +216,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
       grid%uf = (1. - t)*uf1 + t*uf2
       grid%vf = (1. - t)*vf1 + t*vf2
     endif
-
+ 
     do ifun=ifun_start,ifun_end
   
       call sfire_model (                    &
