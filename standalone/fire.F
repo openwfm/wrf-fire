@@ -186,7 +186,7 @@ if(info%ntimes.lt.3)then
   uniform=.true.
   call read_vars(inputfile,info,1,grid)
   iframe_start=1
-  iframe_end=1
+  iframe_end=int(duration_s/frame_s)
 else
   uniform=.false.
   call read_vars(inputfile,info,2,grid)
