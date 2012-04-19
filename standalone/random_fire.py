@@ -6,8 +6,8 @@ from random import randint,seed
 import subprocess as sp
 
 sigma=1.
-nx=512
-ny=512
+nx=256
+ny=256
 dx=6.
 dy=6.
 igntime=2.
@@ -21,7 +21,7 @@ ceny=ny*dy/2.
 dz=sqrt(dx**2+dy**2)
 ignr=dz*2
 historys=runtime
-timestep=dz*.5/6.
+timestep=dz*1.0/6.
 
 ignxsigma=sigma*dx*nx/10.
 ignysigma=sigma*dy*ny/10.
@@ -46,3 +46,8 @@ args=[ str(a) for a in args]
 print ' '.join(['fire.py'] +args)
 p=sp.Popen(['python','fire.py']+args)
 p.communicate()
+
+f=open('params.txt','w')
+for i in xrange(0,len(args),2):
+    f.write('%s=%s\n' % (args[i][2:],args[i+1]))
+f.close()
