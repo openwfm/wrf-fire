@@ -3,7 +3,6 @@
 #include <string.h>
 #ifdef USE_PNG
 #include <png.h>
-#include <zlib.h>
 #endif /* USE_PNG */
 
 #ifdef __64BIT__
