@@ -39,9 +39,7 @@
      &                    ,DETA1,DETA2,AETA1,AETA2,ETA1,ETA2,PDTOP,PT   &
      &                    ,PD,RES,PINT,T,Q,MOIST,THS,ALBEDO,EPSR        &
      &                    ,F_ICE,F_RAIN                                 &
-#ifdef WRF_CHEM
      &                    ,GD_CLOUD,GD_CLOUD2                           &
-#endif
      &                    ,SM,HBM2,CLDFRA,N_MOIST,RESTRT                &
      &                    ,RLWTT,RSWTT,RLWIN,RSWIN,RSWINC,RSWOUT        &
      &                    ,RLWTOA,RSWTOA,CZMEAN                         &
@@ -139,11 +137,13 @@
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: CFRACH,CFRACL    &
      &                                                ,CFRACM,CZMEAN    &
      &                                                ,SIGT4
+
+      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME ),INTENT(IN) ::            &   !<--- Used only with physics (IKJ)
+     &                              GD_CLOUD,GD_CLOUD2                  
 !
 #ifdef WRF_CHEM
       REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME ),INTENT(IN) ::            &   !<--- Used only with physics (IKJ)
      &                              GAER1,GAER2,GAER3,GAER4,            &
-     &                              GD_CLOUD,GD_CLOUD2,                 &
      &                              PM2_5_DRY,PM2_5_WATER,PM2_5_DRY_EC, &
      &                              TAUAER1,TAUAER2,TAUAER3,TAUAER4,    &
      &                              WAER1,WAER2,WAER3,WAER4
@@ -349,15 +349,15 @@
      &                 ,J_START=GRID%J_START,J_END=GRID%J_END           &
      &                 ,KTS=KTS,KTE=KTE,NUM_TILES=GRID%NUM_TILES        &
      &                 ,ITIMESTEP=NTSD,DT=DT                            &
-#ifdef WRF_CHEM
      &                 ,CU_RAD_FEEDBACK=config_flags%cu_rad_feedback    &
+     &                 ,QC_ADJUST=GD_CLOUD,QI_ADJUST=GD_CLOUD2          &
+#ifdef WRF_CHEM
      &                 ,AER_RA_FEEDBACK=config_flags%aer_ra_feedback    &
      &                 ,PM2_5_DRY=pm2_5_dry,PM2_5_WATER=pm2_5_water     &
      &                 ,PM2_5_DRY_EC=pm2_5_dry_ec                       &
      &                 ,TAUAER300=tauaer1,TAUAER400=tauaer2,TAUAER600=tauaer3,TAUAER999=tauaer4 & ! jcb
      &                 ,GAER300=gaer1,GAER400=gaer2,GAER600=gaer3,GAER999=gaer4 & ! jcb
      &                 ,WAER300=waer1,WAER400=waer2,WAER600=waer3,WAER999=waer4 & ! jcb
-     &                 ,QC_ADJUST=GD_CLOUD,QI_ADJUST=GD_CLOUD2          &
 #endif
      &                 ,RTHRATENLW=THRATENLW,RTHRATENSW=THRATENSW       &
      &                 ,RTHRATEN=RTHRATEN                               &
@@ -663,6 +663,7 @@
      &                ,HLENS,HLENSW,HLENNW,HANGL,HANIS,HSLOP,HZMAX      & ! GWD
      &                ,CROT,SROT                                        & ! GWD
      &                ,DEW                                              & ! RUC LSM
+     &                ,RC_MF                                            & ! QNSE
      &                ,GRID,CONFIG_FLAGS                                &
      &                ,IHE,IHW,IVE,IVW                                  &
      &                ,DISHEAT                                          &
@@ -817,6 +818,8 @@
       REAL,DIMENSION(IMS:IME,NSOIL,JMS:JME),INTENT(INOUT) :: KEEPFR3DFLAG & !<--- Used only in physics (IKJ)
      &                                                      ,SH2O,SMC     &
      &                                                      ,SMFR3D,STC
+
+      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(INOUT) :: RC_MF        ! QNSE only
 !
       REAL,DIMENSION(IMS:IME,NSOIL,JMS:JME)               :: SMCREL
 !
@@ -889,6 +892,10 @@
 !dbg integer :: kpblmin,kpblmax,lpblmin,lpblmax    !dbg
 !
 !
+    TYPE(WRFU_Time)                :: currentTime
+    INTEGER                         :: yr, month, day, hr, minute, sec, rc
+    CHARACTER*80                    :: mesg
+
     INTEGER  :: isurban
     CHARACTER(len=256) :: MMINLU
 !-----------------------------------------------------------------------
@@ -1195,6 +1202,14 @@
       NUM_ROAD_LAYERS=GRID%NUM_SOIL_LAYERS   !urban
       CALL nl_get_isurban(grid%id, isurban)
       call nl_get_mminlu(grid%id, mminlu)
+
+     CALL domain_clock_get( grid, current_time=currentTime, &
+                            current_timestr=mesg )
+     CALL WRFU_TimeGet( currentTime, YY=yr, dayOfYear=day, H=hr, M=minute, S=sec, rc=rc)
+         IF( rc/= WRFU_SUCCESS)THEN
+         CALL wrf_error_fatal('WRFU_TimeGet failed')
+         ENDIF
+
 !
 !-----------------------------------------------------------------------
 !
@@ -1281,6 +1296,43 @@
      &        ,RDLAI2D=config_flags%rdlai2d                                   &
      &        ,usemonalb=config_flags%usemonalb                           &
      &        ,NOAHRES=grid%noahres                                       &
+! for NOAH-MP LSM
+     &        ,YR=yr                                       &
+     &        ,idveg=config_flags%dveg, iopt_crs=config_flags%opt_crs  &
+     &        ,iopt_btr=config_flags%opt_btr, iopt_run=config_flags%opt_run &
+     &        ,iopt_sfc=config_flags%opt_sfc, iopt_frz=config_flags%opt_frz &
+     &        ,iopt_inf=config_flags%opt_inf, iopt_rad=config_flags%opt_rad &
+     &        ,iopt_alb=config_flags%opt_alb ,iopt_snf=config_flags%opt_snf &
+     &        ,iopt_tbot=config_flags%opt_tbot, iopt_stc=config_flags%opt_stc &
+     &        ,isnowxy=grid%isnowxy                                           &
+     &        ,tvxy=grid%tvxy     ,tgxy=grid%tgxy                             &
+     &        ,canicexy=grid%canicexy,canliqxy=grid%canliqxy                  &
+     &        ,eahxy=grid%eahxy                                               &
+     &        ,tahxy=grid%tahxy    ,cmxy=grid%cmxy     ,chxy=grid%chxy        &
+     &        ,fwetxy=grid%fwetxy  ,sneqvoxy=grid%sneqvoxy                    &
+     &        ,alboldxy=grid%alboldxy ,qsnowxy=grid%qsnowxy                   &
+     &        ,wslakexy=grid%wslakexy ,zwtxy=grid%zwtxy    ,waxy=grid%waxy    &
+     &        ,wtxy=grid%wtxy    ,tsnoxy=grid%tsnoxy   ,zsnsoxy=grid%zsnsoxy  &
+     &        ,snicexy=grid%snicexy  ,snliqxy=grid%snliqxy                    &
+     &        ,lfmassxy=grid%lfmassxy ,rtmassxy=grid%rtmassxy                 &
+     &        ,stmassxy=grid%stmassxy ,woodxy=grid%woodxy                     &
+     &        ,stblcpxy=grid%stblcpxy ,fastcpxy=grid%fastcpxy                 &
+     &        ,xsaixy=grid%xsaixy ,tradxy=grid%tradxy                         &
+     &        ,tsxy=grid%tsxy     ,neexy=grid%neexy    ,gppxy=grid%gppxy      &
+     &        ,nppxy=grid%nppxy   ,fvegxy=grid%fvegxy   ,qinxy=grid%qinxy     &
+     &        ,runsfxy=grid%runsfxy ,runsbxy=grid%runsbxy ,ecanxy=grid%ecanxy &
+     &        ,edirxy=grid%edirxy   ,etranxy=grid%etranxy  ,fsaxy=grid%fsaxy  &
+     &        ,firaxy=grid%firaxy                                             &
+     &        ,aparxy=grid%aparxy ,psnxy=grid%psnxy                           &
+     &        ,savxy=grid%savxy    ,sagxy=grid%sagxy ,fsnoxy=grid%fsnoxy      &
+     &        ,t2mvxy=grid%t2mvxy ,t2mbxy=grid%t2mbxy ,chstarxy=grid%chstarxy &
+     &        ,rssunxy=grid%rssunxy ,rsshaxy=grid%rsshaxy ,bgapxy=grid%bgapxy &
+     &        ,wgapxy=grid%wgapxy   ,gapxy=grid%gapxy, tgvxy=grid%tgvxy       &
+     &        ,tgbxy=grid%tgbxy,q2mvxy=grid%q2mvxy, q2mbxy=grid%q2mbxy        &
+     &        ,chvxy=grid%chvxy,chbxy=grid%chbxy                              &
+     &        ,coszen=grid%czen,xlat_urb2d=grid%xlat                              &
+
+
      &                                                          )
 !
 !-----------------------------------------------------------------------
@@ -1355,6 +1407,7 @@
      &               ,BL_PBL_PHYSICS=config_flags%bl_pbl_physics      &
      &               ,RA_LW_PHYSICS=config_flags%ra_lw_physics        &
      &               ,MFSHCONV=config_flags%mfshconv                  &  ! work with QNSE PBL
+     &               ,rc_mf=rc_mf                                     &  ! QNSE
      &               ,IDS=IDS,IDE=IDE,JDS=JDS,JDE=JDE,KDS=KDS,KDE=KDE &
      &               ,IMS=IMS,IME=IME,JMS=JMS,JME=JME,KMS=KMS,KME=KME &
      &               ,I_START=GRID%I_START,I_END=GRID%I_END           &
@@ -1905,10 +1958,10 @@
      &                 ,APR_CAPME          ,APR_CAPMI                   &
      &                 ,MASS_FLUX         ,XF_ENS                       &
      &                 ,PR_ENS,GSW                                      &
+     &                 ,GD_CLOUD,GD_CLOUD2                              &
 #ifdef WRF_CHEM
-     &                 ,GD_CLOUD,GD_CLOUD2,RAINCV                       &
+     &                 ,RAINCV                                          &
 #endif
-!
      &                 ,PDTOP,PT,PD,RES,PINT,T,Q,CWM,TCUCN              &
      &                 ,OMGALF,U,V,W,Z,FIS,W0AVG                        &
      &                 ,PREC,ACPREC,CUPREC,CUPPT,CPRATE                 &
@@ -2025,9 +2078,9 @@
       REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME,N_MOIST)                   &
      &                                           ,INTENT(INOUT) :: MOIST
 !
-#ifdef WRF_CHEM
       REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(INOUT) :: GD_CLOUD &
      &                                                        ,GD_CLOUD2
+#ifdef WRF_CHEM
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: RAINCV
 #endif
 !
@@ -2394,10 +2447,7 @@
      &                 ,APR_CAPME=APR_CAPME,APR_CAPMI=APR_CAPMI         &
      &                 ,MASS_FLUX=MASS_FLUX,XF_ENS=XF_ENS               &
      &                 ,PR_ENS=PR_ENS                                   &
-#ifdef WRF_CHEM
      &                 ,GD_CLOUD=GD_CLOUD,GD_CLOUD2=GD_CLOUD2           &
-#endif
-
      &                 ,ENSDIM=ENSDIM,MAXIENS=1,MAXENS=3                &
      &                 ,MAXENS2=3,MAXENS3=16                            &
      &                 ,RTHCUTEN=RTHCUTEN,RQVCUTEN=RQVCUTEN             &
