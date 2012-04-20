@@ -1,0 +1,238 @@
+#!/bin/bash
+
+# Jonathan Beezley (jon.beezley@gmail.com)
+# Feb 29, 2012
+# Addon script for automated building of WRF.  See ./configure_auto -h for documentation.
+
+# set defaults
+TRUE=0
+FALSE=1
+: ${CC:='gcc'}
+: ${FC:='gfortran'}
+: ${RE:='.*'}
+: ${DEBUG:=$FALSE}
+: ${OPENMP:=$FALSE}
+: ${MPI:=$FALSE}
+: ${ONE:=$FALSE}
+: ${NETCDF:=/usr/local}
+: ${VERBOSE:=$FALSE}
+: ${NESTING:=1}
+export NETCDF
+
+function p_usage {
+  echo "usage: $0 [-c CC] [-f FC] [-r regex] [-s] [-d] [-g] [-n netcdf] [-1] [-v] [-e #] [-h]" >&2
+}
+
+function torf {
+  if [ $1 -eq $TRUE ] ; then
+	  echo "yes"
+  else
+	  echo "no"
+  fi
+}
+
+function p_verbose {
+  if [ $VERBOSE -eq $TRUE ] ; then
+	  echo "${@}"
+  fi
+}
+
+function p_help {
+  p_usage
+  echo  "-c CC     : C compiler                              default : $CC" >&2
+  echo  "-f FC     : Fortran compiler                        default : $FC" >&2
+  echo  "-r regex  : Extra regex to pick configure option    default : $RE" >&2
+  echo  "-s        : Use openmp                              default : $(torf $OPENMP)" >&2
+  echo  "-d        : Use mpi                                 default : $(torf $MPI)" >&2
+  echo  "-g        : Debug (-g -O0)                          default : $(torf $DEBUG)" >&2
+  echo  "-n netcdf : NetCDF install prefix                   default : $NETCDF" >&2
+  echo  "-1        : Use the first option match              default : $(torf $ONE)" >&2
+  echo  "-e #      : Select nesting option                   default : $NESTING" >&2
+  echo  "-v        : Verbose output                          default : $(torf $VERBOSE)" >&2
+  echo  "-h        : Print help and exit" >&2
+  echo  "" >&2
+  echo  "This is an addon script useful for compiling WRF in automated environments.
+The build configuration is determined by named arguments and CC/FC
+environment variables.  The script chooses matching build options from 
+the list of available options displayed by the default configure script,
+so compatible builds can be started that don't depend on the numbering
+provided by a particular version of WRF.  The CC/FC variables should 
+be in the option list title in arch/configure_new.defaults.  This means
+FC=PGI will work but not FC=pgf90.  Future versions of this script may
+allow for better selection of compilers and path substitution.  By default,
+the script will succeed only if exactly one option matches.  You can refine
+the selection by providing a regex with the -r option.  The -1 option will
+use the first match it encounters and not error out if there are more." >&2
+  exit 1
+}
+
+# parse commandline options
+while getopts ":c:f:r:sdgn:ve:h" opt; do
+	case $opt in
+		c)
+			CC=$OPTARG
+			;;
+		f)
+			FC=$OPTARG
+			;;
+		r)
+			RE=$OPTARG
+			;;
+		n)
+			export NETCDF=$OPTARG
+			;;
+		s)
+			OPENMP=$TRUE
+			;;
+		d)
+			MPI=$TRUE
+			;;
+		g)
+			DEBUG=$TRUE
+			;;
+		1)
+			ONE=$TRUE
+			;;
+		v)
+			VERBOSE=$TRUE
+			;;
+		e)
+			NESTING=$OPTARG
+			;;
+		h|\?)
+			p_help
+			;;
+	esac
+done
+
+# check that nesting is valid
+if [[ $NESTING != [1-3] || ( $NESTING == 0 && $MPI == $TRUE ) ]] ; then
+	echo "Invalid nesting option $NESTING." >&2
+	exit 4
+fi
+
+p_verbose  ""
+p_verbose  "Options parsed:"
+p_verbose  "CC=$CC"
+p_verbose  "FC=$FC"
+p_verbose  "RE=$RE"
+p_verbose  "OPENMP=$(torf $OPENMP)"
+p_verbose  "MPI=$(torf $MPI)"
+p_verbose  "DEBUG=$(torf $DEBUG)"
+p_verbose  "NETCDF=$NETCDF"
+p_verbose  "NESTING=$NESTING"
+p_verbose  "ONE=$(torf $ONE)"
+p_verbose  "VERBOSE=$(torf $VERBOSE)"
+p_verbose  ""
+
+# make sure we are in the right place
+if [ ! -x configure ] ; then
+	echo "Could not find configure script in $PWD" >&2
+	exit 99
+fi
+
+# get output of ./configure for base options on this machine
+i=0
+tmp=.$$.tmp
+echo '1\n1\n'      | \
+./configure     2> /dev/null   | \
+grep '^ *[0-9]\+.' > $tmp
+
+while read line
+do 
+	opts[$i]="$line"
+	i=$(($i + 1))
+done < $tmp
+rm -f $tmp
+
+p_verbose "Options available:"
+for (( i=0 ; i<${#opts[@]} ; i++ )) ; do 
+	p_verbose "${opts[$i]}"
+done
+p_verbose ""
+
+# construct parallelism string
+if [ $OPENMP -eq $TRUE ] ; then
+	if [ $MPI -eq $TRUE ] ; then
+		pstring='dm[+]sm'
+	else
+		pstring='smpar'
+	fi
+else
+	if [ $MPI -eq $TRUE ] ; then
+		pstring='dmpar'
+	else
+		pstring='serial'
+	fi
+fi
+
+p_verbose "Parallel option: $pstring"
+p_verbose ""
+
+# search for option in option array
+optnum=-1
+for (( i=0 ; i<${#opts[@]} ; i++ )) ; do
+	o="${opts[$i]}"
+	
+	echo $o | grep -E "$CC" >& /dev/null
+	if [ $? -ne 0 ] ; then
+		continue
+	fi
+
+	echo $o | grep -E "$FC" >& /dev/null
+	if [ $? -ne 0 ] ; then
+		continue
+	fi
+
+	echo $o | grep -E "$RE" >& /dev/null
+	if [ $? -ne 0 ] ; then
+		continue
+	fi
+
+	echo $o | grep -E "$pstring" >& /dev/null
+	if [ $? -ne 0 ] ; then
+		continue
+	fi
+	
+	if [ $optnum -ne -1 ] ; then
+		echo "More than one option matched.  Use -1 flag to default to the first." >&2
+		exit 2
+	fi
+	optnum=$((i+1))
+	
+	if [ $ONE -eq $TRUE ] ; then
+		break
+	fi
+
+done
+
+if [ $optnum -eq -1 ] ; then
+	echo "No options matched.  Use -v flag to see details." >&2
+	exit 3
+fi
+
+p_verbose "Selected option:"
+p_verbose "${opts[$((optnum-1))]}"
+p_verbose ""
+
+if [ $DEBUG -eq $TRUE ] ; then
+	d="-d"
+else
+	d=""
+fi
+
+# Remove old configure.wrf if it exists
+rm -f configure.wrf
+
+runstring="echo '$optnum\n$NESTING\n' | ./configure $d"
+p_verbose "Running:"
+p_verbose "$runstring"
+p_verbose
+
+eval $runstring >& configure.log
+
+if [ ! -f configure.wrf ] ; then
+	echo "configure.wrf was not generated.  Something has gone wrong!" >&2
+	exit 98
+fi
+exit 0

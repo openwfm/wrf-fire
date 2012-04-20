@@ -110,20 +110,41 @@ subroutine sfire_driver_em_step (grid , config_flags               &
     integer:: ij 
     real::time_step_start,dt
 
+    integer::fire_time_step_ratio,itime_step,i,j
+    real,dimension( ips:ipe , jps:jpe ) :: grnhfx_save, grnqfx_save,    &
+                                           canhfx_save, canqfx_save
+
     ! executable
 
     call message('sfire_driver_em_step: SFIRE step start')
     
     ! times in seconds
 
+    ! get fire time step refinement from namelist
+    fire_time_step_ratio=config_flags%fire_time_step_ratio
+    
+    if(fire_time_step_ratio.lt.1)then
+        call crash('fire_time_step_ratio must be >= 1')
+    endif
+
     time_step_start=TimeInterval2Sec(domain_get_time_since_sim_start(grid)) 
-    dt=TimeInterval2Sec(domain_get_time_step(grid))
+    dt=TimeInterval2Sec(domain_get_time_step(grid))/fire_time_step_ratio
+    
 
     ! get fire mesh dimensions
     CALL get_ijk_from_subgrid (  grid ,                   &
                             ifds,ifde, jfds,jfde,kfds,kfde,                        &
                             ifms,ifme, jfms,jfme,kfms,kfme,                        &
                             ifps,ifpe, jfps,jfpe,kfps,kfpe) 
+
+    ! save fluxes for tendency
+    grnhfx_save(:,:)=0.
+    grnqfx_save(:,:)=0.
+    canhfx_save(:,:)=0.
+    canqfx_save(:,:)=0.
+
+    ! fire time step loop
+    do itime_step = 1,fire_time_step_ratio
 
     call sfire_driver_em ( grid , config_flags               & 
             ,time_step_start,dt                                 &
@@ -135,6 +156,30 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
             ) 
+
+        ! accumulate fluxes for atmospheric tendency
+        do j=jps,jpe
+            do i=ips,ipe
+                grnhfx_save(i,j)=grnhfx_save(i,j) + grid%grnhfx(i,j)
+                grnqfx_save(i,j)=grnqfx_save(i,j) + grid%grnqfx(i,j)
+                canhfx_save(i,j)=canhfx_save(i,j) + grid%canhfx(i,j)
+                canqfx_save(i,j)=canqfx_save(i,j) + grid%canqfx(i,j)
+            enddo
+        enddo
+
+        time_step_start=time_step_start+dt
+    enddo
+
+        ! copy fluxes back to grid structure
+        do j=jps,jpe
+            do i=ips,ipe
+                grid%grnhfx(i,j)=grnhfx_save(i,j)/fire_time_step_ratio
+                grid%grnqfx(i,j)=grnqfx_save(i,j)/fire_time_step_ratio
+                grid%canhfx(i,j)=canhfx_save(i,j)/fire_time_step_ratio
+                grid%canqfx(i,j)=canqfx_save(i,j)/fire_time_step_ratio
+            enddo
+        enddo
+
 
    call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,z_at_w,'z_at_w')
    call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,dz8w,'dz8w')

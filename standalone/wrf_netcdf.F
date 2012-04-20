@@ -145,6 +145,8 @@ if (compat_fire_grid)then
 endif
 
 ! define global attributes
+call check(nf90_put_att(ncid,nf90_global,'DX',info%fdx*info%sr_x))
+call check(nf90_put_att(ncid,nf90_global,'DY',info%fdy*info%sr_y))
 call check(nf90_put_att(ncid,nf90_global,'FDX',info%fdx))
 call check(nf90_put_att(ncid,nf90_global,'FDY',info%fdy))
 call check(nf90_put_att(ncid,nf90_global,'DT',info%dt))
@@ -206,6 +208,12 @@ call check(nf90_close(ncid))
 ! create all of the output variables
 dim_fire=(/info%dim_fire_x,info%dim_fire_y,info%dim_time/)
 call define_var(filename,info,var_zsf,3,dim_fire,unit_zsf,desc_zsf)
+call define_var(filename,info,var_dzdxf,3,dim_fire,unit_dzdxf,desc_dzdxf)
+call define_var(filename,info,var_dzdyf,3,dim_fire,unit_dzdyf,desc_dzdyf)
+call define_var(filename,info,var_nfuel_cat,3,dim_fire,unit_nfuel_cat,desc_nfuel_cat)
+call define_var(filename,info,var_uf,3,dim_fire,unit_uf,desc_uf)
+call define_var(filename,info,var_vf,3,dim_fire,unit_vf,desc_vf)
+call define_var(filename,info,var_fmc_g,3,dim_fire,unit_fmc_g,desc_fmc_g)
 call define_var(filename,info,var_lfn,3,dim_fire,unit_lfn,desc_lfn)
 call define_var(filename,info,var_tign_g,3,dim_fire,unit_tign_g,desc_tign_g)
 call define_var(filename,info,var_fxlong,3,dim_fire,unit_fxlong,desc_fxlong)
@@ -328,12 +336,44 @@ call write_fire_var(ncid,info,iframe,var_ros,grid%ros)
 call write_fire_var(ncid,info,iframe,var_r_0,grid%r_0)
 call write_fire_var(ncid,info,iframe,var_flineint,grid%flineint)
 call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
+call write_fire_var(ncid,info,iframe,var_uf,grid%uf)
+call write_fire_var(ncid,info,iframe,var_vf,grid%vf)
 
 ! close file
 call latch
 call check(nf90_close(ncid))
 call print_var_info(filename,var_lfn)
 end subroutine write_vars
+
+subroutine write_inputs(filename,grid,info)
+implicit none
+character(len=*),intent(in)::filename
+type(domain),intent(in)::grid
+type(grid_info),intent(in)::info
+
+integer::ncid,dimid,varid
+
+call create_output_file(filename,info)
+call ncopen(filename,nf90_write,ncid)
+
+! write out the current simulation time
+call check(nf90_inq_varid(ncid,var_times,varid),'cannot find '//trim(var_times))
+call check(nf90_put_var(ncid,varid,info%times,start=(/1,1/), &
+     count=(/info%len_time_string,1/)), 'error writing '//trim(var_times))
+
+call write_fire_var(ncid,info,1,var_nfuel_cat,grid%nfuel_cat)
+call write_fire_var(ncid,info,1,var_dzdxf,grid%dzdxf)
+call write_fire_var(ncid,info,1,var_dzdyf,grid%dzdyf)
+call write_fire_var(ncid,info,1,var_zsf,grid%zsf)
+call write_fire_var(ncid,info,1,var_uf,grid%uf)
+call write_fire_var(ncid,info,1,var_vf,grid%vf)
+call write_fire_var(ncid,info,1,var_fmc_g,grid%fmc_g)
+call write_fire_var(ncid,info,1,var_fxlat,grid%fxlat)
+call write_fire_var(ncid,info,1,var_fxlong,grid%fxlong)
+
+call latch
+call check(nf90_close(ncid))
+end subroutine write_inputs
 
 !
 !*** READING 

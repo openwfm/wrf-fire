@@ -403,6 +403,7 @@ write(6,*) '*************************************'
        ifms,ifme, jfms,jfme,kfms,kfme,  & 
        ifts,ifte, jfts,jfte,kfts,kfte)
 
+IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
   write (6,*)' ******** SFIRE ideal initialization start ********'
 
   ! fire grid step size
@@ -639,6 +640,9 @@ write(6,*) '*************************************'
    endif
 
   write (6,*)' ******** SFIRE ideal initialization complete ********'
+else
+  write (6,*)' ******** SFIRE ideal initialization skipped ********'
+endif
   
 ! the rest of initialization dependent on the atmosphere grid terrain height set
 

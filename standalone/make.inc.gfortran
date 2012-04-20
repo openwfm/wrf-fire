@@ -1,4 +1,4 @@
-FFREE=-ffree-form
+FFREE=-ffree-form -ffree-line-length-none
 FFIXED=-ffixed-form
 FCFLAGS=-g
 FC=gfortran
