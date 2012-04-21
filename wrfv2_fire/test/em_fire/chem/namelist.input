@@ -202,7 +202,7 @@
 
 &chem
  kemit                               = 19,
- chem_opt                            = 13,
+ chem_opt                            = 14,
  bioemdt                             = 1,
  photdt                              = 1,
  chemdt                              = .1,

@@ -216,12 +216,8 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ids,ide-1, kds,kde, jds,jde-1,  & ! domain dimensions
             ims,ime, kms,kme, jms,jme,      &
             its,ite, kts,kte, jts,jte,      &
-            config_flags%kemit,             & ! number of vertical levels for chem
             grid%grnhfx,                    & ! fire input variables
-            grid%emis_ant)                    ! emission output 
-                                              ! I have no idea if this is the right array to
-                                              ! or if this is the correct way to
-                                              ! pass it.  (Following chem_dbg)
+            grid%tracer)                      ! emission output 
 #endif
 
        ! debug print to compare
