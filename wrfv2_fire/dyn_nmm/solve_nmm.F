@@ -1546,9 +1546,7 @@
      &                ,grid%deta1,grid%deta2,grid%aeta1,grid%aeta2,grid%eta1,grid%eta2,grid%pdtop,grid%pt      &
      &                ,grid%pd,grid%res,grid%pint,grid%t,grid%q,MOIST,grid%ths,grid%albedo,grid%epsr           &
      &                ,grid%f_ice,grid%f_rain                                    &
-#ifdef WRF_CHEM
-     &                ,GD_CLOUD,GD_CLOUD2                              &
-#endif
+     &                ,grid%GD_CLOUD,grid%GD_CLOUD2                              &
      &                ,grid%sm,grid%hbm2,grid%cldfra,N_MOIST,RESTRT                   &
      &                ,grid%rlwtt,grid%rswtt,grid%rlwin,grid%rswin,grid%rswinc,grid%rswout           &
      &                ,grid%rlwtoa,grid%rswtoa,grid%czmean                            &
@@ -1670,6 +1668,7 @@
      &            ,grid%hstdv,grid%hcnvx,grid%hasyw,grid%hasys,grid%hasysw,grid%hasynw,grid%hlenw,grid%hlens   & ! GWD
      &            ,grid%hlensw,grid%hlennw,grid%hangl,grid%hanis,grid%hslop,grid%hzmax,grid%crot,grid%srot     & ! GWD
      &            ,grid%dew                                            & ! RUC LSM
+     &            ,grid%rc_mf                                          & ! QNSE
      &            ,GRID,CONFIG_FLAGS                                   &
      &            ,grid%ihe,grid%ihw,grid%ive,grid%ivw                                     &
      &            ,GRID%DISHEAT                                             &
@@ -1857,10 +1856,10 @@
      &             ,grid%apr_capme,grid%apr_capmi                                &
      &             ,grid%mass_flux,grid%xf_ens                                   &
      &             ,grid%pr_ens,grid%gsw                                         &
+     &             ,grid%GD_CLOUD,grid%GD_CLOUD2                                 &
 #ifdef WRF_CHEM
-     &             ,GD_CLOUD,GD_CLOUD2,RAINCV                          &
+     &             ,RAINCV                          &
 #endif
-!
      &             ,grid%pdtop,grid%pt,grid%pd,grid%res,grid%pint,grid%t,grid%q,grid%cwm,grid%tcucn                 &
      &             ,grid%omgalf,grid%u,grid%v,grid%w,grid%z,grid%fis,grid%w0avg                           &
      &             ,grid%prec,grid%acprec,grid%cuprec,grid%cuppt,grid%cprate                    &
