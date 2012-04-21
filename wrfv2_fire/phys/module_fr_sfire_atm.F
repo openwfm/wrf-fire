@@ -1142,7 +1142,7 @@ subroutine fire_emission(                    &
              kemit,                          &
              grnhfx,                         & ! input variables from fire model
              emis_ant                        ) ! output emissions array
-use module_state_description , only: num_emis_ant, p_so2
+use module_state_description , only: num_emis_ant, p_e_smoke
     INTEGER , INTENT(in) :: ids,ide, kds,kde, jds,jde, &
                             ims,ime, kms,kme, jms,jme, &
                             its,ite, kts,kte, jts,jte,kemit
@@ -1153,8 +1153,8 @@ use module_state_description , only: num_emis_ant, p_so2
     integer::i,j,k,l
     
     ! just a dumb placeholder
-    k=kds    ! dump into surface layer
-    l=p_so2  ! dump into so2 emmisions
+    k=kds      ! dump into surface layer
+    l=p_e_so2  ! dump into so2 emmisions
     do j=jts,jte
         do i=its,ite
             emis_ant(i,k,j,l) = emis_ant(i,k,j,l) + grnhfx(i,j)

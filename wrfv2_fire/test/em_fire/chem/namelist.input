@@ -16,14 +16,14 @@
  end_minute                          = 600,   600,   600,
  end_second                          = 00,   00,   00,
  history_interval_s                  = 5,   30,   30,
- frames_per_outfile                  = 2, 1000, 1000,
+ frames_per_outfile                  = 2000, 1000, 1000,
  restart                             = .false.,
  restart_interval_s                  = 10
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
  io_form_boundary                    = 2
- debug_level                         = 1 
+ debug_level                         = 1
  cycling                             = F
  /
 
@@ -96,6 +96,7 @@
  time_step_sound                     = 20,     20,     20,
  moist_adv_opt                       = 1,      1,      1,
  scalar_adv_opt                      = 1,      1,      1,
+ tracer_opt                          = 1,
  /
 
  &bdy_control
@@ -201,13 +202,13 @@
 
 &chem
  kemit                               = 19,
- chem_opt                            = 14,
- bioemdt                             = 30,
- photdt                              = 30,
- chemdt                              = 5.00,
- io_style_emissions                  = 1,  
+ chem_opt                            = 13,
+ bioemdt                             = 1,
+ photdt                              = 1,
+ chemdt                              = .1,
+ io_style_emissions                  = 0,  
  emiss_opt                           = 3,          3,
- chem_in_opt                         = 0,          0,
+ chem_in_opt                         = 1,          0,
  phot_opt                            = 2,          0,
  gas_drydep_opt                      = 0,          1, 
  aer_drydep_opt                      = 0,          1, 
