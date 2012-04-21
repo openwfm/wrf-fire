@@ -1134,5 +1134,34 @@ end subroutine coarse
 
 end subroutine interpolate_wind2fire_height
 
+#ifdef WRF_CHEM
+subroutine fire_emission(                    &
+             ids,ide, kds,kde, jds,jde,      & ! domain dimensions
+             ims,ime, kms,kme, jms,jme,      &
+             its,ite, kts,kte, jts,jte,      &
+             kemit,                          &
+             grnhfx,                         & ! input variables from fire model
+             emis_ant                        ) ! output emissions array
+use module_state_description , only: num_emis_ant, p_so2
+    INTEGER , INTENT(in) :: ids,ide, kds,kde, jds,jde, &
+                            ims,ime, kms,kme, jms,jme, &
+                            its,ite, kts,kte, jts,jte,kemit
+
+    real,intent(in),dimension( ims:ime,jms:jme ) :: grnhfx
+    real,intent(inout),dimension( ims:ime,kms:kemit,jms:jme,num_emis_ant ) :: emis_ant
+    
+    integer::i,j,k,l
+    
+    ! just a dumb placeholder
+    k=kds    ! dump into surface layer
+    l=p_so2  ! dump into so2 emmisions
+    do j=jts,jte
+        do i=its,ite
+            emis_ant(i,k,j,l) = emis_ant(i,k,j,l) + grnhfx(i,j)
+        enddo
+    enddo
+
+end subroutine fire_emission
+#endif
 
 end module module_fr_sfire_atm
