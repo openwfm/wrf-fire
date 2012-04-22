@@ -14,7 +14,7 @@ logical,private,save::initialized=.false.
 type ncvars
     real,pointer,dimension(:,:,:)::fmc_gc,fmc_equi,fmc_tend
     real,pointer,dimension(:,:)::t2,q2,psfc,rainc,rainnc, &
-               t2_old,q2_old,psfc_old,rain_old
+               t2_old,q2_old,psfc_old,rain_old,rh_fire
     type(ESMF_Time)::time
 end type
 
@@ -110,6 +110,7 @@ allocate(vars%t2_old(ims:ime,jms:jme))
 allocate(vars%q2_old(ims:ime,jms:jme))
 allocate(vars%psfc_old(ims:ime,jms:jme))
 allocate(vars%rain_old(ims:ime,jms:jme))
+allocate(vars%rh_fire(ims:ime,jms:jme))
 end subroutine initialize_vars
 
 subroutine destroy_vars(vars)
@@ -127,6 +128,7 @@ deallocate(vars%t2_old)
 deallocate(vars%q2_old)
 deallocate(vars%psfc_old)
 deallocate(vars%rain_old)
+deallocate(vars%rh_fire)
 end subroutine destroy_vars
 
 subroutine create_output(filename)
@@ -211,6 +213,11 @@ if(.not.smalloutput)then
     call check(nf90_inq_varid(ncid,'RAIN',varid))
     call check(nf90_put_var(ncid,varid,vars%rainc+vars%rainnc, &
                  start=(/its,jts,itime/),count=(/ite,jte,1/)))
+
+    call check(nf90_inq_varid(ncid,'RH_FIRE',varid))
+    call check(nf90_put_var(ncid,varid,vars%rh_fire, &
+                 start=(/its,jts,itime/),count=(/ite,jte,1/)))
+
 endif
          
 call check(nf90_close(ncid))
@@ -528,6 +535,7 @@ do while(ifile.gt.0)
         vars%t2, vars%q2, vars%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
         vars%rain_old,                   & ! previous value of accumulated rain
         vars%t2_old, vars%q2_old, vars%psfc_old,   & ! previous values of the atmospheric state at surface
+        vars%rh_fire,                    & ! relative humidity diagnostics
         vars%fmc_gc,                     & ! fuel moisture by class, updated
         vars%fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics only
         vars%fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
