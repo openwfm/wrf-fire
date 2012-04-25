@@ -85,8 +85,8 @@ state    real     f_lineint *i*j      fire        1         z    hr    "F_LINEIN
 state    real     f_lineint2 *i*j     fire        1         z    hr    "F_LINEINT2" "alternative fireline intensity for risk rating, without fire" "J/m/s^2"
 
 # constant data arrays
-state    real     fxlong    *i*j      fire        1         z   ihr    "FXLONG"    "longitude of midpoints of fire cells, or grid coordinate in ideal" "degrees"
-state    real     fxlat     *i*j      fire        1         z   ihr    "FXLAT"     "latitude of midpoints of fire cells, or grid coordinate in ideal" "degrees"
+state    real     fxlong    *i*j      fire        1         z   i012hr    "FXLONG"    "longitude of midpoints of fire cells, or grid coordinate in ideal" "degrees"
+state    real     fxlat     *i*j      fire        1         z   i012hr    "FXLAT"     "latitude of midpoints of fire cells, or grid coordinate in ideal" "degrees"
 state    real     unit_fxlong -         -         -         -    hr    "UNIT_FXLONG" "length of 1 unit in fxlong" "m"
 state    real     unit_fxlat  -         -         -         -    hr    "UNIT_FXLAT" "length of 1 unit in fxlat" "m"
 state    real     fuel_time *i*j      fire        1         z    hr    "FUEL_TIME" "fuel"
