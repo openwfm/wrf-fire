@@ -1,3 +1,31 @@
+!
+!*** moisture_main.F
+!
+! This is the main driver for the standalone moisture model.  To compile,
+! create a make.inc file in this directory from one of the example 
+! make.inc.* files.  Make sure to set NETCDF to the prefix path of your
+! netcdf installation.  Then, type `make moisture` to create moisture.exe.
+!
+! This program requires one or more wrfout files to run.  It relies on 
+! surface variables T2, Q2, and PSFC to be computed from the WRF run,
+! which generally requires a nonzero sfclay option.  The command line
+! syntax for this program is:
+!
+!   ./moisture.exe [-r] wrfout1 [wrfout2 [wrfout3 [...]]]
+!
+! -r, when present indicates a restart run.  The program will open up a 
+! previous output file named moisture.nc and use the last time step
+! present in that file to initialize a new run.
+!
+! The wrfout files specified on the command line must be in sequential
+! order, but they can contain overlapping time steps.  This is useful
+! for outputs from operational reanalysis runs.  When two files contain
+! data for the same time step, this program will always use the second
+! file (with time step closer to the reanalysis).  
+!
+! For every time step computed by this program, it will output surface
+! fields to moisture.nc, a netcdf file with similar conventions as a
+! wrfout file.
 
 module moisture_util
 use module_fr_sfire_util, only : crash
@@ -5,22 +33,44 @@ use esmf_mod
 use netcdf
 implicit none
 
+! size parameters that depend on WRF
 integer,parameter::TIMESTRLEN=19,nfmc=5
+
+! if true, the program will only output moisture fields
+! but the outputs cannot be used for restarting
 logical,parameter::smalloutput=.false.
+
+! model array allocation size for compatibility with WRF
 integer,save:: ims,ime,jms,jme
+
+! model array domain size
 integer,save::its,ite,jts,jte
+
+! initially set to false to indicate that the sizes above
+! have not been initialized
 logical,private,save::initialized=.false.
 
+! a simple data structure to group together all variables used
+! by the moisture model at a particular time step
 type ncvars
+    ! model variables
     real,pointer,dimension(:,:,:)::fmc_gc,fmc_equi,fmc_tend
     real,pointer,dimension(:,:)::t2,q2,psfc,rainc,rainnc, &
                t2_old,q2_old,psfc_old,rain_old
+    ! time stamp
     type(ESMF_Time)::time
 end type
 
+! a data structure that contains metadata information about a 
+! wrfout file
 type ncfile
+    ! number of time steps in the file
     integer::ntime
+
+    ! array of time stamps contained in the file
     type(ESMF_Time),dimension(:),pointer::times
+
+    ! file handle
     integer::ncid
 end type
 
@@ -30,15 +80,20 @@ subroutine initialize_and_check(filename,wrffile)
 ! open a file and initialize an ncfile type
 ! if module is not initialized, then initialize
 ! otherwise check that sizes are consistent
+
+! the name of the file to open
 character(len=*),intent(in)::filename
+
+! ncfile type initialized on output
 type(ncfile),intent(out)::wrffile
+
+! local variables dealing with netcdf i/o
 integer::dimidx,dimidy,dimidtime,dimidfuel
 integer::varidtime
 integer::nx,ny,nfuel,i,rc
 character(len=TIMESTRLEN),dimension(:),allocatable::timestr
 
-call ESMF_Initialize(defaultCalKind=ESMF_CAL_GREGORIAN)
-
+! open the file and collect metadata
 call check(nf90_open(filename,nf90_nowrite,wrffile%ncid))
 call check(nf90_inq_dimid(wrffile%ncid,'west_east',  dimidx))
 call check(nf90_inq_dimid(wrffile%ncid,'south_north',dimidy))
@@ -48,6 +103,10 @@ call check(nf90_inquire_dimension(wrffile%ncid,dimidy,len=ny))
 call check(nf90_inquire_dimension(wrffile%ncid,dimidtime,len=wrffile%ntime))
 
 if(.not.initialized)then
+    ! the ESMF time modules need to be initialized on first call
+    call ESMF_Initialize(defaultCalKind=ESMF_CAL_GREGORIAN)
+    
+    ! on first call set module level variables containing array sizes
     ims=1
     ime=nx
     jms=1
@@ -58,34 +117,40 @@ if(.not.initialized)then
     jte=jme
     initialized=.true.
 else
+    ! on later calls check that the file sizes are consistant with the sizes
+    ! as stored
     if( (nx.ne.ime-ims+1) .or. &
         (ny.ne.jme-jms+1) ) then
         call crash('Incompatible file: '//trim(filename))
     endif
 endif
 
+! allocate memory for ncfile data type
 allocate(wrffile%times(wrffile%ntime))
 allocate(timestr(wrffile%ntime))
 
-print*,wrffile%ntime
 call check(nf90_inq_varid(wrffile%ncid,'Times',varidtime))
 call check(nf90_get_var(wrffile%ncid,varidtime,timestr))
 
+! go through all time stamps in the file and store them as ESMF types
 do i=1,wrffile%ntime
     call parse_wrf_time(timestr(i),wrffile%times(i))
 enddo
 
+! free local memory
 deallocate(timestr)
 
 end subroutine initialize_and_check
 
 subroutine alldone()
 implicit none
+! called at then end of execution to free allocated memory
 call ESMF_Finalize()
 end subroutine alldone
 
 subroutine destroy_file(wrffile)
 implicit none
+! free memory allocated in a ncfile data structure
 type(ncfile),intent(inout)::wrffile
 call check(nf90_close(wrffile%ncid))
 deallocate(wrffile%times)
@@ -94,6 +159,7 @@ end subroutine destroy_file
 
 subroutine initialize_vars(vars)
 implicit none
+! Allocate memory for the model arrays
 type(ncvars),intent(inout)::vars
 if(.not.initialized)then
   call crash('Module not initialized')
@@ -114,6 +180,7 @@ end subroutine initialize_vars
 
 subroutine destroy_vars(vars)
 implicit none
+! free memory from model arrays
 type(ncvars),intent(inout)::vars
 deallocate(vars%fmc_gc)
 deallocate(vars%fmc_equi)
@@ -131,7 +198,10 @@ end subroutine destroy_vars
 
 subroutine create_output(filename)
 implicit none
+! create an output netcdf file with metadata initialized
+! for the model being run.... does not write any data
 character(len=*),intent(in)::filename
+
 integer::ncid,nxid,nyid,timeid,fuelid,dateid
 integer::tmp
 
@@ -161,29 +231,39 @@ end subroutine create_output
 
 subroutine write_output(filename,vars)
 implicit none
+! write arrays from the model into a preinitialized output file
 character(len=*),intent(in)::filename
 type(ncvars),intent(in)::vars
+
 integer::ncid,varid,dimid,itime
 character(len=TIMESTRLEN)::timestr
 real,dimension(:,:,:),allocatable::tmp
 
+! allocate temporary memory for transposing 3D arrays
 allocate(tmp(its:ite,jts:jte,1:nfmc))
+
 print*,'writing output to '//trim(filename)
 call check(nf90_open(filename,NF90_WRITE,ncid))
+
+! get the number of time frames already present and set the
+! output time frame to the end of the file
 call check(nf90_inq_dimid(ncid,'Time',dimid))
 call check(nf90_inquire_dimension(ncid,dimid,len=itime))
 itime=itime+1
 
+! write time string
 call check(nf90_inq_varid(ncid,'Times',varid))
 call ESMF_TimeGet(vars%time,timeString=timestr)
 call check(nf90_put_var(ncid,varid,timestr, &
              start=(/1,itime/),count=(/TIMESTRLEN,1/)))
 
+! write FMC_GC
 call check(nf90_inq_varid(ncid,'FMC_GC',varid))
 call transpose_var(vars%fmc_gc,tmp)
 call check(nf90_put_var(ncid,varid,tmp, &
              start=(/its,jts,1,itime/),count=(/ite,jte,nfmc,1/)))
 
+! the following variables are diagnostic only, but useful for restarting
 if(.not.smalloutput)then
 
     call check(nf90_inq_varid(ncid,'FMC_EQUI',varid))
@@ -212,20 +292,25 @@ if(.not.smalloutput)then
     call check(nf90_put_var(ncid,varid,vars%rainc+vars%rainnc, &
                  start=(/its,jts,itime/),count=(/ite,jte,1/)))
 endif
-         
+
+! free allocated memory
 call check(nf90_close(ncid))
 deallocate(tmp)
 end subroutine write_output
 
 subroutine read_file(wrffile,atime,vars,ierr)
 implicit none
-type(ncfile),intent(in)::wrffile
-integer,intent(in)::atime
-type(ncvars),intent(inout)::vars
-integer,intent(out)::ierr
+! read array data for the model from a file 
+type(ncfile),intent(in)::wrffile ! initialized ncfile object
+integer,intent(in)::atime        ! the time step in the file to read
+type(ncvars),intent(inout)::vars ! on return contains data from the file
+integer,intent(out)::ierr        ! error flag, 0 on success, otherwise read error
+
 integer::varid,i,j,k,itime
 real,dimension(:,:,:),allocatable::tmp
 
+! if the time step is unspecified (<= 0) then
+! just read the last time step
 if(atime.gt.0)then
     itime=atime
 else
@@ -233,6 +318,8 @@ else
 endif
 vars%time=wrffile%times(itime)
 
+! read FMC_GC if it is present (generally, this test will
+! only pass when we are reading for a restart)
 if(nf90_inq_varid(wrffile%ncid,'FMC_GC',varid).eq.0)then
     allocate(tmp(its:ite,jts:jte,nfmc))
     call check(nf90_get_var(wrffile%ncid,varid,tmp, &
@@ -242,6 +329,8 @@ if(nf90_inq_varid(wrffile%ncid,'FMC_GC',varid).eq.0)then
 else
     vars%fmc_gc=0.
 endif
+
+! read variables that should always be present
 call check(nf90_inq_varid(wrffile%ncid,'T2',varid))
 call check(nf90_get_var(wrffile%ncid,varid,vars%t2, &
         start=(/its,jts,itime/), count=(/ite,jte,1/)))
@@ -267,6 +356,10 @@ else
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
     vars%rainnc(:,:)=0.
 endif
+
+! here we preempt any model errors by detecting if the data is correct
+! if not, the main code will skip this time step and move on to the
+! next
 if(any(vars%t2.le.0).or.any(vars%q2.lt.0).or.any(vars%psfc.le.0))then
     ierr=1
 else
@@ -276,12 +369,21 @@ end subroutine read_file
 
 subroutine transpose_var(A,B)
 implicit none
+! do a transpose on a 3D array to account for different
+! storage conventions between wrf output and runtime
+! B(i,k,j)=A(i,j,k)
 real,dimension(:,:,:),intent(in)::A
 real,dimension(:,:,:),intent(out)::B
+
 integer::i,j,k
-do i=1,size(A,1)
-    do j=1,size(A,2)
-        do k=1,size(A,3)
+if( size(A,1).ne.size(B,1) .or. &
+    size(A,2).ne.size(B,3) .or. &
+    size(A,3).ne.size(B,2) )then
+  call crash('Invalid array sizes in transpose')
+endif
+do j=1,size(A,2)
+    do k=1,size(A,3)
+        do i=1,size(A,1)
             B(i,k,j)=A(i,j,k)
         enddo
     enddo
@@ -373,6 +475,7 @@ end subroutine get_next_timestep
 
 subroutine check(status)
 integer,intent(in)::status
+! check a netcdf status code for error
 if(status.ne.nf90_noerr) then
     call crash(trim(nf90_strerror(status)))
 endif
@@ -380,24 +483,19 @@ end subroutine check
 
 end module moisture_util
 
-! standalone moisture model test
 program moisture_main
 use moisture_util
 use module_fr_sfire_phys, only: advance_moisture, init_fuel_cats, moisture_classes
 use module_fr_sfire_util, only: fire_print_msg 
 implicit none
 
-real, dimension(:,:,:),allocatable::fmc_gc,fmc_equi,fmc_tend
-real, dimension(:,:),pointer::t2,q2,psfc,t2_old,q2_old,psfc_old, &
-   rainc,rainnc,rain_old
-integer::nsteps=100
 logical::initialize
 integer::fmoist_init=2
 real::moisture_dt,dt
 integer::istep,i
+logical::restart
 
 integer :: numarg,ifile,ii,nfile,s,sn,sd,ierr
-logical::restart
 character(len=120) :: wrfoutfname
 character(len=*),parameter :: outputfname='moisture.nc'
 character(len=64)::timediffstr
@@ -408,23 +506,26 @@ type(ncvars)::vars
 type(ESMF_Time)::oldtime,timenow,starttime
 type(ESMF_TimeInterval)::timedt
 
-!integer,external :: iargc
-
 ! parse commandline argument for wrfout file name
 numarg=iargc()
 
 if(numarg .lt. 1)then
-    print*, 'This program takes at least one argument, the wrfout files to run the moisture model from.'
+    print*, 'usage: ./moisture.exe [-r] wrfout1 [wrfout2 [wrfout3 [...]]]'
     call abort()
 endif
 
+! check for restart flag
 call getarg(1,wrfoutfname)
+
+! allocate local storage for wrfout metadata
 if(trim(wrfoutfname).eq.'-r')then
     allocate(wrffile(numarg-1))
 else
     allocate(wrffile(numarg))
 endif
 
+! open files and populate ncfile objects for each
+! check that the sizes are consistent
 nfile=0
 restart=.false.
 do i=1,numarg
@@ -438,48 +539,68 @@ do i=1,numarg
         call initialize_and_check(wrfoutfname,wrffile(nfile))
     endif
 enddo
+
+! allocate memore for model arrays
 call initialize_vars(vars)
+
 oldtime=wrffile(1)%times(1)
 timenow=oldtime
-nsteps=99999
 
+! if this isn't a restart run, we need to create
+! a new output file, clobber anything that might
+! be there, otherwise we append data to the restart
 if(.not.restart) &
 call create_output(outputfname)
 
-!*** executable
+! model initialization calls
 fire_print_msg = 2
-
 call init_fuel_cats(.true.)
 print *,moisture_classes,' moisture classes'
 
+! initialize various looping indices
 ifile=0
 ii=0
 istep=0
+
+! get the first file/time step we will read
 call get_next_timestep(wrffile,ifile,ii)
 if(restart)then
     starttime=wrfoutfile%times(size(wrfoutfile%times))
 else
     starttime=wrffile(1)%times(1)
 endif
+
+! for restarts, we have to find the first time step in the 
+! wrfout's after the the time in the restart
 do while(restart.and.wrffile(ifile)%times(ii).le.starttime)
     call get_next_timestep(wrffile,ifile,ii)
     if(ifile.eq.0)goto 1000
 enddo
  1000 continue
+
+! after all the initialization code, we crash here if there are no
+! new time steps to read
 if(ifile.eq.0)then
     call crash('no new time steps available')
 endif
+
+! let's tell the user what we are doing
 print*,'starting at file ',ifile,' step ',ii
 call ESMF_TimeGet(wrffile(ifile)%times(ii),TimeString=timediffstr)
 print*,'wrffile time=',trim(timediffstr)
 call ESMF_TimeGet(starttime,TimeString=timediffstr)
-print*,'restart time=',trim(timediffstr)
+print*,'(re)start time=',trim(timediffstr)
+
+! get the next target time step
 call get_next_timestep(wrffile,ifile,ii)
 
+! main program loop, go until get_next_timestep returns ifile==0
 do while(ifile.gt.0)
-    istep=istep+1
-    !endif
 
+    ! keep track of the number of loops we have made
+    istep=istep+1
+    
+    ! read initialization data
     if(restart)then
         call read_file(wrfoutfile,-1,vars,ierr)
         if(ierr.ne.0)then
@@ -493,12 +614,14 @@ do while(ifile.gt.0)
             goto 10001
         endif
     endif
-   
+    
+    ! increment time keeping
     oldtime=timenow
     timenow=wrffile(ifile)%times(ii)
+
+    ! let's tell the user what we are doing
     print*,'reading file ',ifile,' of ',nfile
     print*,'time step ',ii,' of ',wrffile(ifile)%ntime
-    !if(istep.gt.1)then
     call ESMF_TimeGet(timenow,timeString=timediffstr)
     print*,'time: ',trim(timediffstr)
 
@@ -506,9 +629,9 @@ do while(ifile.gt.0)
         dt=0.  ! required on initialization
         initialize=.true.
     else
+        ! get the number of seconds that the model needs to advance
         timedt=timenow-oldtime
         call ESMF_TimeIntervalGet(timedt,S=s,sn=sn,sd=sd,TimeString=timediffstr)
-        !print*,trim(timediffstr),s,sn,sd
         if(sd.gt.0)then
             dt=dble(s)+dble(sn)/dble(sd)
         else
@@ -532,15 +655,22 @@ do while(ifile.gt.0)
         vars%fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics only
         vars%fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
         )
+
+    ! write the results to the output file
     call write_output(outputfname,vars)
-    10001 continue
+
+    10001 continue ! we skip to here on invalid data
+
+    ! after the first pass through the loop, nothing special needs to be done
+    ! for restart runs, so turn of the restart flag here
     if(restart)then
         restart=.false.
     else
         call get_next_timestep(wrffile,ifile,ii)
     endif
-enddo
- 99 continue
+enddo ! end main loop
+
+! free up allocated memory
 call destroy_vars(vars)
 do i=1,nfile
     call destroy_file(wrffile(i))
