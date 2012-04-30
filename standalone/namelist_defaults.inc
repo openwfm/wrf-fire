@@ -1744,6 +1744,7 @@ fire_fuel_cat = 1
 fire_print_msg = 0
 fire_print_file = 0
 fire_restart = .false.
+fire_time_step_ratio = 1
 fire_fuel_left_method = 1
 fire_fuel_left_irl = 2
 fire_fuel_left_jrl = 2
