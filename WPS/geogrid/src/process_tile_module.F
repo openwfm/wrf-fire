@@ -1603,16 +1603,25 @@ module process_tile_module
 
       ! Local variables
       integer :: i, j
-      real :: rx, ry
+      real :: rx, ry, dx, dy
     
       rx = 1.0
       ry = 1.0
-      if (present(sub_x)) rx = real(sub_x)
-      if (present(sub_y)) ry = real(sub_y)
+      dx = 1.0
+      dy = 1.0
+
+      if (present(sub_x)) then 
+          rx = real(sub_x)
+          dx = .5 + .5/rx
+      end if
+      if (present(sub_y)) then
+          ry = real(sub_y)
+          dy = .5 + .5/ry
+      end if
 
       do i=start_mem_i, end_mem_i
          do j=start_mem_j, end_mem_j
-            call xytoll(real(i-1)/rx+1.0, real(j-1)/ry+1.0, &
+            call xytoll(real(i-1)/rx+dx, real(j-1)/ry+dy, &
                         xlat_arr(i,j), xlon_arr(i,j), stagger, comp_ll=comp_ll)
          end do
       end do

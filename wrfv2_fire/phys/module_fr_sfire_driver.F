@@ -726,30 +726,6 @@ do ij=1,num_tiles
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlat,'xlat',id)
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlong,'xlong',id)
 #endif
-        call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
-            ids,ide,  jds,jde,                    & ! atm grid dimensions
-            ims,ime,  jms,jme,                    &
-            ips,ipe,jps,jpe,                              &
-            its,ite,jts,jte,                              &
-            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-            ifms, ifme, jfms, jfme,                       &
-            ifts,ifte,jfts,jfte,                          &
-            ir,jr,                                        & ! atm/fire grid ratio
-            xlat,                                       & ! atm grid arrays in
-            fxlat)                                      ! fire grid arrays out
-
-        call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
-            ids,ide,  jds,jde,                    & ! atm grid dimensions
-            ims,ime,  jms,jme,                    &
-            ips,ipe,jps,jpe,                              &
-            its,ite,jts,jte,                              &
-            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
-            ifms, ifme, jfms, jfme,                       &
-            ifts,ifte,jfts,jfte,                          &
-            ir,jr,                                        & ! atm/fire grid ratio
-            xlong,                                       & ! atm grid arrays in
-            fxlong)                                      ! fire grid arrays out
-
         endif
 
      endif
