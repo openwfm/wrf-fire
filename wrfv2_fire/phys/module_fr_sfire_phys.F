@@ -513,7 +513,7 @@ do j=jts,jte
 
                 if(change  < tol)then
                      if(fire_print_msg.ge.3)call message('midpoint method')
-                     fmc = fmc_old + (equi - fmc_old)*change   ! standard 2nd order midpoint method
+                     fmc = fmc_old + (equi - fmc_old)*change*(1.0 - 0.5*change)  ! 2nd order Taylor
                 else
                      if(fire_print_msg.ge.3)call message('exponential method')
                      fmc = fmc_old + (equi - fmc_old)*(1 - exp(-change))
