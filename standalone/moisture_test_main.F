@@ -43,9 +43,9 @@ do i=6,7
     write(i,1)'Step','Time', 'T','P','Q','RAIN','RH',('EQUI',k,'TLAG',k,'FMC',k,k=1,moisture_classes)
     write(i,2)' ','hours','K','Pa','kg/kg','mm','1',('kg/kg','hours','kg/kg',k=1,moisture_classes)
 enddo
-1 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 15(a5,i1))
-2 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 15a6)
-3 format(i4,f8.2,f6.1,f9.1,f6.3,f8.1,f6.3,5(f6.3,f6.1,f6.3))
+1 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a5,i1,a8,i1,a5,i1))
+2 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a6,a9,a6))
+3 format(i4,f8.2,f6.1,f9.1,f6.3,f8.1,f6.3,5(f6.3,f9.1,f6.3))
 
 fire_print_msg = 0   ! change to 2 to get more debugging prints
 
