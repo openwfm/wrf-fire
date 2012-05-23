@@ -543,6 +543,10 @@ if(fire_print_msg.ge.2)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,2)'Rain intensity    min',rainmin,  ' max',rainmax,' mm/h'
     call message(msg) 
+    if(rainmin <0.)then
+        call message('WARNING rain accumulation must increase')
+    endif
+    call message(msg) 
     write(msg,2)'Relative humidity min',100*rhmin,' max',100*rhmax,'%'
     call message(msg) 
     if(.not.(rhmax<=1.0 .and. rhmin>=0))then
