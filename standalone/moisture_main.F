@@ -59,6 +59,9 @@ type ncvars
                t2_old,q2_old,psfc_old,rain_old,rh_fire
     ! time stamp
     type(ESMF_Time)::time
+
+    ! rain accumulation variable
+    real,pointer,dimension(:,:)::rain_accum,rain_zero
 end type
 
 ! a data structure that contains metadata information about a 
@@ -69,6 +72,9 @@ type ncfile
 
     ! array of time stamps contained in the file
     type(ESMF_Time),dimension(:),pointer::times
+
+    ! the start time of the simulation
+    type(ESMF_Time)::starttime
 
     ! file handle
     integer::ncid
@@ -92,6 +98,7 @@ integer::dimidx,dimidy,dimidtime,dimidfuel
 integer::varidtime
 integer::nx,ny,nfuel,i,rc
 character(len=TIMESTRLEN),dimension(:),allocatable::timestr
+character(len=TIMESTRLEN)::stimestr
 
 ! open the file and collect metadata
 call check(nf90_open(filename,nf90_nowrite,wrffile%ncid))
@@ -137,6 +144,10 @@ do i=1,wrffile%ntime
     call parse_wrf_time(timestr(i),wrffile%times(i))
 enddo
 
+! get start time
+call check(nf90_get_att(wrffile%ncid,NF90_GLOBAL,'START_DATE',stimestr))
+call parse_wrf_time(stimestr,wrffile%starttime)
+
 ! free local memory
 deallocate(timestr)
 
@@ -177,6 +188,10 @@ allocate(vars%q2_old(ims:ime,jms:jme))
 allocate(vars%psfc_old(ims:ime,jms:jme))
 allocate(vars%rain_old(ims:ime,jms:jme))
 allocate(vars%rh_fire(ims:ime,jms:jme))
+allocate(vars%rain_accum(ims:ime,jms:jme))
+allocate(vars%rain_zero(ims:ime,jms:jme))
+vars%rain_accum(:,:)=0.
+vars%rain_zero(:,:)=0.
 end subroutine initialize_vars
 
 subroutine destroy_vars(vars)
@@ -196,6 +211,8 @@ deallocate(vars%q2_old)
 deallocate(vars%psfc_old)
 deallocate(vars%rain_old)
 deallocate(vars%rh_fire)
+deallocate(vars%rain_accum)
+deallocate(vars%rain_zero)
 end subroutine destroy_vars
 
 subroutine create_output(filename)
@@ -291,7 +308,7 @@ if(.not.smalloutput)then
                  start=(/its,jts,itime/),count=(/ite,jte,1/)))
 
     call check(nf90_inq_varid(ncid,'RAIN',varid))
-    call check(nf90_put_var(ncid,varid,vars%rainc+vars%rainnc, &
+    call check(nf90_put_var(ncid,varid,vars%rain_accum, &
                  start=(/its,jts,itime/),count=(/ite,jte,1/)))
 
     call check(nf90_inq_varid(ncid,'RH_FIRE',varid))
@@ -315,6 +332,7 @@ integer,intent(out)::ierr        ! error flag, 0 on success, otherwise read erro
 
 integer::varid,i,j,k,itime
 real,dimension(:,:,:),allocatable::tmp
+real,dimension(ims:ime,jms:jme)::rainold
 
 ! if the time step is unspecified (<= 0) then
 ! just read the last time step
@@ -354,15 +372,36 @@ if(nf90_inq_varid(wrffile%ncid,'RAINC',varid).eq.0)then
     call check(nf90_get_var(wrffile%ncid,varid,vars%rainc, &
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
     
+    if(itime.gt.1)then
+        call check(nf90_get_var(wrffile%ncid,varid,rainold, &
+               start=(/its,jts,itime-1/),count=(/ite,jte,1/)))
+        vars%rainc(:,:)=vars%rainc(:,:)-rainold(:,:)
+    endif
+
     call check(nf90_inq_varid(wrffile%ncid,'RAINNC',varid))
     call check(nf90_get_var(wrffile%ncid,varid,vars%rainnc, &
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
+    
+    if(itime.gt.1)then
+        call check(nf90_get_var(wrffile%ncid,varid,rainold, &
+               start=(/its,jts,itime-1/),count=(/ite,jte,1/)))
+        vars%rainnc(:,:)=vars%rainnc(:,:)-rainold(:,:)
+    endif
 else
     call check(nf90_inq_varid(wrffile%ncid,'RAIN',varid))
     call check(nf90_get_var(wrffile%ncid,varid,vars%rainc, &
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
     vars%rainnc(:,:)=0.
+    
+    if(itime.gt.1)then
+        call check(nf90_get_var(wrffile%ncid,varid,rainold, &
+               start=(/its,jts,itime-1/),count=(/ite,jte,1/)))
+        vars%rainc(:,:)=vars%rainc(:,:)-rainold(:,:)
+    endif
 endif
+
+! calculate total rain accumulation for this moisture run
+vars%rain_accum(:,:)=vars%rain_accum(:,:) + vars%rainc(:,:) + vars%rainnc(:,:)
 
 ! here we preempt any model errors by detecting if the data is correct
 ! if not, the main code will skip this time step and move on to the
@@ -654,7 +693,7 @@ do while(ifile.gt.0)
         its,ite,  jts,jte,          & ! tile dimensions
         nfmc,                       & ! dimension of moisture fields
         dt,                & ! timestep = time step time elapsed from the last call
-        vars%rainc, vars%rainnc,              & ! accumulated rain
+        vars%rain_accum, vars%rain_zero,              & ! accumulated rain
         vars%t2, vars%q2, vars%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
         vars%rain_old,                   & ! previous value of accumulated rain
         vars%t2_old, vars%q2_old, vars%psfc_old,   & ! previous values of the atmospheric state at surface
