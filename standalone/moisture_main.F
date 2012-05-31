@@ -552,6 +552,10 @@ type(ncvars)::vars
 type(ESMF_Time)::oldtime,timenow,starttime
 type(ESMF_TimeInterval)::timedt
 
+#ifndef GFORTRAN_IARGC
+integer,external::iargc
+#endif
+
 ! parse commandline argument for wrfout file name
 numarg=iargc()
 
