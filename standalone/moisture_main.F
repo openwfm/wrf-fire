@@ -680,6 +680,9 @@ do while(ifile.gt.0)
         dt=0.  ! required on initialization
         initialize=.true.
     else
+        if(timenow.lt.oldtime)then
+            call crash('Negative time step detected.')
+        endif
         ! get the number of seconds that the model needs to advance
         timedt=timenow-oldtime
         call ESMF_TimeIntervalGet(timedt,S=s,sn=sn,sd=sd,TimeString=timediffstr)
