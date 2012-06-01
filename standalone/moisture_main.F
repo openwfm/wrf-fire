@@ -244,6 +244,7 @@ if(.not.smalloutput)then
     call check(nf90_def_var(ncid,'Q2',NF90_REAL,(/nxid,nyid,timeid/),tmp))
     call check(nf90_def_var(ncid,'PSFC',NF90_REAL,(/nxid,nyid,timeid/),tmp))
     call check(nf90_def_var(ncid,'RAIN',NF90_REAL,(/nxid,nyid,timeid/),tmp))
+    call check(nf90_def_var(ncid,'RH_FIRE',NF90_REAL,(/nxid,nyid,timeid/),tmp))
 endif
 call check(nf90_close(ncid))
 end subroutine create_output
