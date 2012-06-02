@@ -51,7 +51,7 @@ plot(hours,orig.fmc_equi,'r--',hours,out.fmc_equi,'k-')
 xlabel hours
 ylabel kg/kg
 title('Equilibrium moisture')
-h=legend(orig.id,out.id)
+h=legend(orig.id,out.id);
 set(h,'Interpreter','none')
 plot_moisture(3,orig)
 plot_moisture(4,out)
@@ -60,20 +60,31 @@ plot_all(6,out)
 end
 
 function plot_moisture(f,s)
-figure(f)
-plot(s.hours(s.r),s.fmc_equi(s.r),'r--',s.hours(s.r),s.fmc_gc(s.r),'k-')
+figure(f);
+[d,w]=equilibrium_moisture(s.rh_fire,s.t2);
+plot(s.hours(s.r),s.fmc_equi(s.r),'r--',...
+     s.hours(s.r),d(s.r),'g-.',...
+     s.hours(s.r),w(s.r),'b:',...
+     s.hours(s.r),s.fmc_gc(s.r),'k-')
 xlabel hours
 ylabel kg/kg
-title(['Fuel moisture from ',s.id])
-h=legend('Equilibrium','Actual');
+h=title(['Fuel moisture from ',s.id]);
+set(h,'Interpreter','none')
+h=legend('Equilibrium','Drying','Wetting','Actual');
 set(h,'Interpreter','none')
 setvmax(1)
 end
 
 function plot_all(f,s)
 figure(f)
-plot(s.hours(s.r),s.t2(s.r)/max(s.t2),s.hours(s.r),s.psfc(s.r)/max(s.psfc),...
-    s.hours(s.r),s.q2(s.r)/max(s.q2),s.hours(s.r),s.rh_fire(s.r),s.hours(s.r),s.fmc_equi(s.r),...
+[d,w]=equilibrium_moisture(s.rh_fire,s.t2);
+plot(s.hours(s.r),s.t2(s.r)/max(s.t2),...
+    s.hours(s.r),s.psfc(s.r)/max(s.psfc),...
+    s.hours(s.r),s.q2(s.r)/max(s.q2),...
+    s.hours(s.r),s.rh_fire(s.r),...
+    s.hours(s.r),s.fmc_equi(s.r),...
+    s.hours(s.r),d(s.r),'g-.',...
+    s.hours(s.r),w(s.r),'b:',...
     s.hours(s.r),s.fmc_gc(s.r))
 h=title(['From ',s.id]);
 set(h,'Interpreter','none');
