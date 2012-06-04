@@ -553,10 +553,19 @@ type(ncvars)::vars
 type(ESMF_Time)::oldtime,timenow,starttime
 type(ESMF_TimeInterval)::timedt
 
+integer,parameter::iprint=100,jprint=100
+integer::k
+real::hours,t,q,p,rain
+real,dimension(5)::fmc_equi,fmc_tend,fmc_gc
+logical,parameter::debugprint=.false.
 
 #ifndef GFORTRAN_IARGC
 integer,external::iargc
 #endif
+
+3 format(i4,f8.2,f6.1,f9.1,f6.3,f8.1,f6.3,5(f6.3,f9.1,f6.3))
+
+hours=0
 
 ! parse commandline argument for wrfout file name
 numarg=iargc()
@@ -697,7 +706,8 @@ do while(ifile.gt.0)
         endif
         initialize=.false.
     endif
- 
+
+
     call advance_moisture(    &
         initialize,                 & ! initialize timestepping. true on the first call at time 0, then false
         fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
@@ -715,6 +725,20 @@ do while(ifile.gt.0)
         vars%fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
         )
 
+    if(debugprint)then
+        hours=hours+dt
+        t=vars%t2(iprint,jprint)
+        q=vars%q2(iprint,jprint)
+        p=vars%psfc(iprint,jprint)
+        rain=vars%rain_accum(iprint,jprint) + vars%rain_zero(iprint,jprint)
+        fmc_equi(:)=vars%fmc_equi(iprint,:,jprint)
+        fmc_tend(:)=vars%fmc_tend(iprint,:,jprint)
+        fmc_gc(:)=vars%fmc_gc(iprint,:,jprint)
+        write(*,3)iglobal,hours,t,p,q,rain, &
+                  vars%rh_fire(iprint,jprint),   &
+               (fmc_equi(k),fmc_tend(k),fmc_gc(k), &
+                k=1,moisture_classes)
+    endif
     ! write the results to the output file
     call write_output(outputfname,vars)
 
