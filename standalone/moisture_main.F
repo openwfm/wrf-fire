@@ -539,7 +539,7 @@ implicit none
 logical::initialize
 integer::fmoist_init=2
 real::moisture_dt,dt
-integer::istep,i
+integer::istep,i,iglobal
 logical::restart
 
 integer :: numarg,ifile,ii,nfile,s,sn,sd,ierr
@@ -552,6 +552,7 @@ type(ncfile)::wrfoutfile
 type(ncvars)::vars
 type(ESMF_Time)::oldtime,timenow,starttime
 type(ESMF_TimeInterval)::timedt
+
 
 #ifndef GFORTRAN_IARGC
 integer,external::iargc
@@ -645,11 +646,14 @@ print*,'(re)start time=',trim(timediffstr)
 ! get the next target time step
 call get_next_timestep(wrffile,ifile,ii)
 
+iglobal=0
+
 ! main program loop, go until get_next_timestep returns ifile==0
 do while(ifile.gt.0)
 
     ! keep track of the number of loops we have made
     istep=istep+1
+    iglobal=iglobal+1
     
     ! read initialization data
     if(restart)then
@@ -676,7 +680,7 @@ do while(ifile.gt.0)
     call ESMF_TimeGet(timenow,timeString=timediffstr)
     print*,'time: ',trim(timediffstr)
 
-    if(istep.eq.1)then
+    if(iglobal.eq.1)then
         dt=0.  ! required on initialization
         initialize=.true.
     else
