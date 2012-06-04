@@ -557,14 +557,20 @@ integer,parameter::iprint=100,jprint=100
 integer::k
 real::hours,t,q,p,rain
 real,dimension(5)::fmc_equi,fmc_tend,fmc_gc
-logical,parameter::debugprint=.false.
+logical,parameter::debugprint=.true.
+integer,parameter::debugfile=8
 
 #ifndef GFORTRAN_IARGC
 integer,external::iargc
 #endif
 
+1 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a5,i1,a8,i1,a5,i1))
+2 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a6,a9,a6))
 3 format(i4,f8.2,f6.1,f9.1,f6.3,f8.1,f6.3,5(f6.3,f9.1,f6.3))
 
+open(debugfile,file='moisture_output.txt',form='formatted',status='unknown')
+write(debugfile,1)'Step','Time', 'T','P','Q','RAIN','RH',('EQUI',k,'TLAG',k,'FMC',k,k=1,moisture_classes)
+write(debugfile,2)' ','hours','K','Pa','kg/kg','mm','1',('kg/kg','hours','kg/kg',k=1,moisture_classes)
 hours=0
 
 ! parse commandline argument for wrfout file name
@@ -726,7 +732,7 @@ do while(ifile.gt.0)
         )
 
     if(debugprint)then
-        hours=hours+dt
+        hours=hours+dt/3600.
         t=vars%t2(iprint,jprint)
         q=vars%q2(iprint,jprint)
         p=vars%psfc(iprint,jprint)
@@ -734,7 +740,7 @@ do while(ifile.gt.0)
         fmc_equi(:)=vars%fmc_equi(iprint,:,jprint)
         fmc_tend(:)=vars%fmc_tend(iprint,:,jprint)
         fmc_gc(:)=vars%fmc_gc(iprint,:,jprint)
-        write(*,3)iglobal,hours,t,p,q,rain, &
+        write(debugfile,3)iglobal,hours,t,p,q,rain, &
                   vars%rh_fire(iprint,jprint),   &
                (fmc_equi(k),fmc_tend(k),fmc_gc(k), &
                 k=1,moisture_classes)
