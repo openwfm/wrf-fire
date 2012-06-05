@@ -566,9 +566,11 @@ integer,external::iargc
 2 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a6,a9,a6))
 3 format(i4,f8.2,f6.1,f9.1,f6.3,f8.1,f6.3,5(f6.3,f9.1,f6.3))
 
-open(debugfile,file='moisture_output.txt',form='formatted',status='unknown')
-write(debugfile,1)'Step','Time', 'T','P','Q','RAIN','RH',('EQUI',k,'TLAG',k,'FMC',k,k=1,moisture_classes)
-write(debugfile,2)' ','hours','K','Pa','kg/kg','mm','1',('kg/kg','hours','kg/kg',k=1,moisture_classes)
+if(debugprint)then
+    open(debugfile,file='moisture_output.txt',form='formatted',status='unknown')
+    write(debugfile,1)'Step','Time', 'T','P','Q','RAIN','RH',('EQUI',k,'TLAG',k,'FMC',k,k=1,moisture_classes)
+    write(debugfile,2)' ','hours','K','Pa','kg/kg','mm','1',('kg/kg','hours','kg/kg',k=1,moisture_classes)
+endif
 hours=0
 
 ! parse commandline argument for wrfout file name
