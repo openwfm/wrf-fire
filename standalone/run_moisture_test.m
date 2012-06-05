@@ -50,7 +50,7 @@ set(h,'Interpreter','none')
 figure(2)
 plot(hours,orig.fmc_equi,'r--',hours,out.fmc_equi,'k-')
 xlabel hours
-ylabel kg/kg
+set(ylabel('kg/kg'),'Interpreter','none')
 title('Equilibrium moisture')
 h=legend(orig.id,out.id);
 set(h,'Interpreter','none')
@@ -68,7 +68,7 @@ plot(s.hours(s.r),s.fmc_equi(s.r),'r--',...
      s.hours(s.r),w(s.r),'b-.',...
      s.hours(s.r),s.fmc_gc(s.r),'k-')
 xlabel hours
-ylabel kg/kg
+set(ylabel('Fuel moisture contents (kg / kg)'),'Interpreter','none')
 h=title(['Fuel moisture ',s.id]);
 set(h,'Interpreter','none')
 h=legend('Equilibrium','Drying','Wetting','Actual');
