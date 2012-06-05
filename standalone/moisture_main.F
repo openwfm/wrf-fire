@@ -555,7 +555,7 @@ integer,parameter::iprint=100,jprint=100
 integer::k
 real::hours,t,q,p,rain
 real,dimension(5)::fmc_equi,fmc_tend,fmc_gc
-logical,parameter::debugprint=.true.
+logical,parameter::debugprint=.false.
 integer,parameter::debugfile=8
 
 #ifndef GFORTRAN_IARGC
