@@ -73,7 +73,7 @@ h=title(['Fuel moisture ',s.id]);
 set(h,'Interpreter','none')
 h=legend('Equilibrium','Drying','Wetting','Actual');
 set(h,'Interpreter','none')
-setvmax(1)
+setvmax(0.3)
 end
 
 function plot_all(f,s)

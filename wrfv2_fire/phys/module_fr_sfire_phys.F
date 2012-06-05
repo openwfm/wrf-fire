@@ -364,7 +364,7 @@ real, intent(out), dimension(ims:ime,jms:jme)::rh_fire
 !*** local
 integer:: i,j,k
 real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, rlag, equi, &
-    d, w, rhmax, rhmin, change, rainmax,rainmin, fmc_old
+    d, w, rhmax, rhmin, change, rainmax,rainmin, fmc_old, H
 real, parameter::tol=1e-2 ! relative change larger than that will switch to exponential ode solver 
 character(len=256)::msg
 integer::msglevel=2
@@ -452,7 +452,7 @@ do j=jts,jte
             ! saturation vapor pressure [Pa]
             Pws= exp( 54.842763 - 6763.22/T - 4.210 * log(T) + 0.000367*T + &
                 tanh(0.0415*(T - 218.8)) * (53.878 - 1331.22/T - 9.44523 * log(T) + 0.014025*T))
-            !realtive humidity [%]
+            !realtive humidity [1]
             RH = Pw/Pws
             rh_fire(i,j)=RH
             rhmax=max(RH,rhmax)         
@@ -481,9 +481,12 @@ do j=jts,jte
             else ! not raining
                 select case(drying_model(k))
                 case(1) ! Van Wagner and Pickett (1972) per Viney (1991) eq (7) (8)
-                    d=0.942*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
-                    w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
+                    H = RH * 100.
+                    d=0.942*H**0.679 + 0.000499*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for drying
+                    w=0.618*H**0.753 + 0.000454*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for adsorbtion
                     if(d.ne.d.or.w.ne.w)call crash('equilibrium moisture calculation failed, result is NaN')
+                    d = d*0.01
+                    w = w*0.01
                     EMC_d = max(d,w)
                     EMC_w = min(d,w)
                     rlag=rec_drying_lag_sec(k)
