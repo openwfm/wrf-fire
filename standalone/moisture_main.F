@@ -352,8 +352,6 @@ if(nf90_inq_varid(wrffile%ncid,'FMC_GC',varid).eq.0)then
             start=(/its,jts,1,itime/), count=(/ite,jte,nfmc,1/)))
     call transpose_var(tmp,vars%fmc_gc)
     deallocate(tmp)
-else
-    vars%fmc_gc=0.
 endif
 
 ! read variables that should always be present
