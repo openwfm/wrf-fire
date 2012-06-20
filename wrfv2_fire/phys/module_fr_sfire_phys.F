@@ -553,7 +553,7 @@ if(fire_print_msg.ge.2)then
         call message('WARNING Relative humidity must be between 0 and 100%')
     endif
 2   format(2(a,f10.2),a)
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
 endif
 
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
