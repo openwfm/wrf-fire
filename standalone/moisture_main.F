@@ -323,17 +323,24 @@ call check(nf90_close(ncid))
 deallocate(tmp)
 end subroutine write_output
 
-subroutine read_file(wrffile,atime,vars,ierr)
+subroutine read_file(wrffile,atime,vars,ierr,restart)
 implicit none
 ! read array data for the model from a file 
 type(ncfile),intent(in)::wrffile ! initialized ncfile object
 integer,intent(in)::atime        ! the time step in the file to read
 type(ncvars),intent(inout)::vars ! on return contains data from the file
 integer,intent(out)::ierr        ! error flag, 0 on success, otherwise read error
+logical,optional,intent(in)::restart ! if this a restart, we will read fmc_gc
 
 integer::varid,i,j,k,itime
+logical::r
 real,dimension(:,:,:),allocatable::tmp
 real,dimension(ims:ime,jms:jme)::rainold
+
+r=.false.
+if(present(restart))then
+    r=restart
+endif
 
 ! if the time step is unspecified (<= 0) then
 ! just read the last time step
@@ -346,7 +353,7 @@ vars%time=wrffile%times(itime)
 
 ! read FMC_GC if it is present (generally, this test will
 ! only pass when we are reading for a restart)
-if(nf90_inq_varid(wrffile%ncid,'FMC_GC',varid).eq.0)then
+if(r.and.nf90_inq_varid(wrffile%ncid,'FMC_GC',varid).eq.0)then
     allocate(tmp(its:ite,jts:jte,nfmc))
     call check(nf90_get_var(wrffile%ncid,varid,tmp, &
             start=(/its,jts,1,itime/), count=(/ite,jte,nfmc,1/)))
@@ -672,7 +679,7 @@ do while(ifile.gt.0)
     
     ! read initialization data
     if(restart)then
-        call read_file(wrfoutfile,-1,vars,ierr)
+        call read_file(wrfoutfile,-1,vars,ierr,restart=.true.)
         if(ierr.ne.0)then
             call crash('invalid restart file')
         endif
