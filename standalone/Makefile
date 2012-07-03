@@ -1,4 +1,4 @@
-# defines FC, FCFLAGS, FFREE
+# fefines FC, FCFLAGS, FFREE
 include make.inc
 DEFS =
 WRF = ../wrfv2_fire
@@ -6,6 +6,7 @@ FPFLAGS= -I$(NETCDF)/include -I.
 #LDFLAGS = -L$(NETCDF)/lib -lnetcdff -lnetcdf
 LDFLAGS = `$(NETCDF)/bin/nc-config --flibs`
 FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE)
+INC = $(WRF)/inc
 
 
 MAKEFILE=Makefile
@@ -233,8 +234,12 @@ ESMF_Mod.o : ESMF_Alarm.o ESMF_BaseTime.o ESMF_Clock.o ESMF_Time.o \
         ESMF_TimeInterval.o Meat.o ESMF_Stubs.o ESMF_AlarmClock.o
 ESMF_AlarmClock.o : ESMF_Alarm.o ESMF_Clock.o
 ESMF_Clock.o : ESMF_BaseTime.o ESMF_Time.o ESMF_TimeInterval.o
-$(ESMF_OBJS) : %.o : $(WRF)/external/esmf_time_F90/%.F90
+$(ESMF_OBJS) : %.o : $(WRF)/external/esmf_time_f90/%.F90
 	$(FC) -c $< -I$(WRF)/external/esmf_time_f90 -I. -DMAX_HISTORY=25 -o $@
+
+INCFILES = $(INC)/config_assigns.inc $(INC)/namelist_defaults.inc $(INC)/namelist_defines.inc $(INC)/namelist_defines2.inc $(INC)/namelist_statements.inc
+sync_inc: $(INCFILES)
+	cp $(INCFILES) .
 
 clean:
 	rm -f *.mod *.o *.f90 *.s *.exe *.a

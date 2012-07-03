@@ -75,5 +75,7 @@ wetting_lag=14.0, 140.0,  ! 14 is callibrated to VanWagner&Pickett 1985, Canadia
 saturation_moisture=2.5, 2.5, ! ditto
 saturation_rain = 8.0,8.0, !  stronger rain than this (mm/h) does not make much difference.
 rain_threshold = 0.05,0.05 ! mm/h rain too weak to wet anything.
+init_equi_mult = 1.,1., ! Constant multiplier that is used when initializing to equilibrium
+                        ! initial moisture <- init_equi_mult * equilibrium
 /
 

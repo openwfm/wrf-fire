@@ -1747,6 +1747,7 @@ integer , DIMENSION(max_domains) :: fire_fuel_cat
 integer , DIMENSION(max_domains) :: fire_print_msg
 integer , DIMENSION(max_domains) :: fire_print_file
 logical , DIMENSION(max_domains) :: fire_restart
+integer , DIMENSION(max_domains) :: fire_time_step_ratio
 integer , DIMENSION(max_domains) :: fire_fuel_left_method
 integer , DIMENSION(max_domains) :: fire_fuel_left_irl
 integer , DIMENSION(max_domains) :: fire_fuel_left_jrl

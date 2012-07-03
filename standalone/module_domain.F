@@ -50,6 +50,7 @@ module module_domain
       real, pointer, dimension(:,:)::t2_old => null()
       real, pointer, dimension(:,:)::q2_old => null()
       real, pointer, dimension(:,:)::psfc_old => null()
+      real, pointer, dimension(:,:)::rh_fire => null()
       real, pointer, dimension(:,:,:)::fmc_gc => null()
       real, pointer, dimension(:,:,:)::fmc_equi => null()
       real, pointer, dimension(:,:,:)::fmc_lag => null()

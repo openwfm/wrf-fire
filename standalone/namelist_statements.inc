@@ -1702,6 +1702,7 @@ NAMELIST /fire/ fire_fuel_cat
 NAMELIST /fire/ fire_print_msg
 NAMELIST /fire/ fire_print_file
 NAMELIST /fire/ fire_restart
+NAMELIST /fire/ fire_time_step_ratio
 NAMELIST /fire/ fire_fuel_left_method
 NAMELIST /fire/ fire_fuel_left_irl
 NAMELIST /fire/ fire_fuel_left_jrl
