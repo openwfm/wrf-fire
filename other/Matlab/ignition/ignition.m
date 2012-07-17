@@ -135,58 +135,59 @@ for i=1:grid_1
                 k=k+1;       
             end
         else  
-            
-           % point is outside the burning region
-           % B(i,j)=time_now+1;
-        a_old=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(1,1),bound(1,2));
-            k=2;
-            while (k>0)&&(k<=bnd_size(1))
-                if (a_old==0)
-                    a_new=a_old;
-
-                    k=1;
-                else
-                    a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2));
-                end
-                if a_old*a_new<0  
-                    % The point and second boundary point should be on the 
-                    % same side from the line going between ignition point
-                    % and first boundary point
-                    a1=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
-                    a2=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
-                    if a1*a2<0
-                        [x,y]=line_inter(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
-                        b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
-                        b2=sqrt((x-ign_pnt(1))^2+(y-ign_pnt(2))^2);
-                         
-                        B(i,j)=time_now*b1/b2;
-                        
-                        
-                        %dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
-                        %b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
-                        %   dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
-                        %B(i,j)=time_now*b1/dist1;
-                       
-                        k=-1;
-                    end
-                elseif a_new==0
-                    % Case if the line goes exactly through the boundary point                                           
-                    % Check if the boundary point lies between ignition point and the point
-                    b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
-                    b2=sqrt((long(i,j,1)-bound(k,1))^2+(lat(i,j,1)-bound(k,2))^2);
-                    b3=sqrt((bound(k,1)-ign_pnt(1))^2+(bound(k,2)-ign_pnt(2))^2);
-                    if (b2+b3<b1+eps)&&(b2+b3>b1-eps)
-                        B(i,j)=time_now*b1/b3; 
-                        k=-1;
-                    else
-                        a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k+1,1),bound(k+1,2));
-                        k=k+1;
-                    end
-                end
-                a_old=a_new;   
-                k=k+1;       
-          end
-        
+            B(i,j)=time_now+1;
+%             
+%            % point is outside the burning region
+%            % B(i,j)=time_now+1;
+%         a_old=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(1,1),bound(1,2));
+%             k=2;
+%             while (k>0)&&(k<=bnd_size(1))
+%                 if (a_old==0)
+%                     a_new=a_old;
+% 
+%                     k=1;
+%                 else
+%                     a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2));
+%                 end
+%                 if a_old*a_new<0  
+%                     % The point and second boundary point should be on the 
+%                     % same side from the line going between ignition point
+%                     % and first boundary point
+%                     a1=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+%                     a2=line_sign(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
+%                     if a1*a2<0
+%                         [x,y]=line_inter(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2));
+%                         b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
+%                         b2=sqrt((x-ign_pnt(1))^2+(y-ign_pnt(2))^2);
+%                          
+%                         B(i,j)=time_now*b1/b2;
+%                         
+%                         
+%                         %dist1=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),ign_pnt(1),ign_pnt(2));
+%                         %b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
+%                         %   dist2=line_dist(bound(k,1),bound(k,2),bound(k-1,1),bound(k-1,2),long(i,j,1),lat(i,j,1));
+%                         %B(i,j)=time_now*b1/dist1;
+%                        
+%                         k=-1;
+%                     end
+%                 elseif a_new==0
+%                     % Case if the line goes exactly through the boundary point                                           
+%                     % Check if the boundary point lies between ignition point and the point
+%                     b1=sqrt((long(i,j,1)-ign_pnt(1))^2+(lat(i,j,1)-ign_pnt(2))^2);
+%                     b2=sqrt((long(i,j,1)-bound(k,1))^2+(lat(i,j,1)-bound(k,2))^2);
+%                     b3=sqrt((bound(k,1)-ign_pnt(1))^2+(bound(k,2)-ign_pnt(2))^2);
+%                     if (b2+b3<b1+eps)&&(b2+b3>b1-eps)
+%                         B(i,j)=time_now*b1/b3; 
+%                         k=-1;
+%                     else
+%                         a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k+1,1),bound(k+1,2));
+%                         k=k+1;
+%                     end
+%                 end
+%                 a_old=a_new;   
+%                 k=k+1;       
+%           end
+%         
         end                
     end
 end

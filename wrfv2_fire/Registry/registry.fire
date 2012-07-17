@@ -59,6 +59,7 @@ state    real     rain_old  ij       fire        1         z     hr   "RAIN_OLD"
 state    real     t2_old    ij       fire        1         z     hr   "T2_OLD" "previous value of accumulated rain" "mm"
 state    real     q2_old    ij       fire        1         z     hr   "Q2_OLD" "previous value of accumulated rain" "mm"
 state    real     psfc_old  ij       fire        1         z     hr   "PSFC_OLD" "previous value of accumulated rain" "mm"
+state    real     rh_fire   ij       fire        1         z     hr   "RH_FIRE" "relative humidity at the surface" "1"
 state    real     fmoist_lasttime -  fire        -         -     hr   "FMOIST_LASTTIME" "last time the moisture model was run" "s"
 state    real     fmoist_nexttime -  fire        -         -     hr   "FMOIST_NEXTTIME" "next time the moisture model will run" "s"
 rconfig logical   fmoist_run        namelist,fire  max_domains   .false.       hr   "run moisture model (on the atmospheric grid), output to fmc_gc"
@@ -85,8 +86,8 @@ state    real     f_lineint *i*j      fire        1         z    hr    "F_LINEIN
 state    real     f_lineint2 *i*j     fire        1         z    hr    "F_LINEINT2" "alternative fireline intensity for risk rating, without fire" "J/m/s^2"
 
 # constant data arrays
-state    real     fxlong    *i*j      fire        1         z   ihr    "FXLONG"    "longitude of midpoints of fire cells, or grid coordinate in ideal" "degrees"
-state    real     fxlat     *i*j      fire        1         z   ihr    "FXLAT"     "latitude of midpoints of fire cells, or grid coordinate in ideal" "degrees"
+state    real     fxlong    *i*j      fire        1         z   i012hr    "FXLONG"    "longitude of midpoints of fire cells, or grid coordinate in ideal" "degrees"
+state    real     fxlat     *i*j      fire        1         z   i012hr    "FXLAT"     "latitude of midpoints of fire cells, or grid coordinate in ideal" "degrees"
 state    real     unit_fxlong -         -         -         -    hr    "UNIT_FXLONG" "length of 1 unit in fxlong" "m"
 state    real     unit_fxlat  -         -         -         -    hr    "UNIT_FXLAT" "length of 1 unit in fxlat" "m"
 state    real     fuel_time *i*j      fire        1         z    hr    "FUEL_TIME" "fuel"
@@ -187,6 +188,7 @@ rconfig   integer fire_fuel_cat          namelist,fire         max_domains      
 rconfig   integer fire_print_msg         namelist,fire         max_domains           0       -      "fire_write_msg"    "write fire statistics, 0 no writes, 1+ for more"  ""
 rconfig   integer fire_print_file        namelist,fire         max_domains           0       -      "fire_write_file"   "write fire output text files, 0 no writes, 1+ for more" ""
 rconfig   logical fire_restart           namelist,fire         max_domains           .false. -      "fire_restart"   "restart run, do not initialize state" ""
+rconfig   integer fire_time_step_ratio   namelist,fire         max_domains           1       -      "fire_time_step_ratio"   "number of fire time steps per atmospheric step" ""
 
 # method selection
 rconfig   integer fire_fuel_left_method  namelist,fire         max_domains           1       -      "fire_fuel_left_method"   "1 or 2, compute fuel_left" ""

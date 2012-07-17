@@ -95,9 +95,16 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
    printf "Configuring to use GeoTIFF library to build GeoTIFF I/O...\n" ;
    printf("   \$GEOTIFF = %s\n",$ENV{GEOTIFF});
    printf("   \$LIBTIFF = %s\n",$ENV{LIBTIFF});
-   $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
-   $sw_libtiff_inc = "-I$ENV{LIBTIFF}/include";
+   if (-e "$ENV{GEOTIFF}/include/geotiff.h") {
+     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
+   } elsif ( -e "$ENV{GEOTIFF}/include/geotiff/geotiff.h") {
+     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include/geotiff";
+   } else {
+     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
+     printf("WARNING: Could not find geotiff headers");
+   }
    $sw_geotiff_lib = "-L$ENV{GEOTIFF}/lib -lgeotiff";
+   $sw_libtiff_inc = "-I$ENV{LIBTIFF}/include";
    $sw_libtiff_lib = "-L$ENV{LIBTIFF}/lib -ltiff";
    }
  else
