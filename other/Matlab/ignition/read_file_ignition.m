@@ -48,13 +48,16 @@ data_size=size(data);
 
 time_now=data(1,1);  
 mesh_size=data(2,:); 
-ign_pnt=data(3,:);       
+ign_pnt=data(3,:);    
+ign_pnt
+
 ign_pnt(1)=ign_pnt(1)*unit_long;
 ign_pnt(2)=ign_pnt(2)*unit_lat;
 bound=data(4:data_size(1),:); 
 bound(:,1)=bound(:,1)*unit_long;
 bound(:,2)=bound(:,2)*unit_lat;
 
+plot(bound(:,1),bound(:,2),'-',ign_pnt(1),ign_pnt(2),'o')
 
 
 
