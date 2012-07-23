@@ -59,6 +59,9 @@ type ncvars
                t2_old,q2_old,psfc_old,rain_old,rh_fire
     ! time stamp
     type(ESMF_Time)::time
+
+    ! rain accumulation variable
+    real,pointer,dimension(:,:)::rain_accum,rain_zero
 end type
 
 ! a data structure that contains metadata information about a 
@@ -69,6 +72,9 @@ type ncfile
 
     ! array of time stamps contained in the file
     type(ESMF_Time),dimension(:),pointer::times
+
+    ! the start time of the simulation
+    type(ESMF_Time)::starttime
 
     ! file handle
     integer::ncid
@@ -92,6 +98,7 @@ integer::dimidx,dimidy,dimidtime,dimidfuel
 integer::varidtime
 integer::nx,ny,nfuel,i,rc
 character(len=TIMESTRLEN),dimension(:),allocatable::timestr
+character(len=TIMESTRLEN)::stimestr
 
 ! open the file and collect metadata
 call check(nf90_open(filename,nf90_nowrite,wrffile%ncid))
@@ -137,6 +144,10 @@ do i=1,wrffile%ntime
     call parse_wrf_time(timestr(i),wrffile%times(i))
 enddo
 
+! get start time
+call check(nf90_get_att(wrffile%ncid,NF90_GLOBAL,'START_DATE',stimestr))
+call parse_wrf_time(stimestr,wrffile%starttime)
+
 ! free local memory
 deallocate(timestr)
 
@@ -177,6 +188,10 @@ allocate(vars%q2_old(ims:ime,jms:jme))
 allocate(vars%psfc_old(ims:ime,jms:jme))
 allocate(vars%rain_old(ims:ime,jms:jme))
 allocate(vars%rh_fire(ims:ime,jms:jme))
+allocate(vars%rain_accum(ims:ime,jms:jme))
+allocate(vars%rain_zero(ims:ime,jms:jme))
+vars%rain_accum(:,:)=0.
+vars%rain_zero(:,:)=0.
 end subroutine initialize_vars
 
 subroutine destroy_vars(vars)
@@ -196,6 +211,8 @@ deallocate(vars%q2_old)
 deallocate(vars%psfc_old)
 deallocate(vars%rain_old)
 deallocate(vars%rh_fire)
+deallocate(vars%rain_accum)
+deallocate(vars%rain_zero)
 end subroutine destroy_vars
 
 subroutine create_output(filename)
@@ -227,6 +244,7 @@ if(.not.smalloutput)then
     call check(nf90_def_var(ncid,'Q2',NF90_REAL,(/nxid,nyid,timeid/),tmp))
     call check(nf90_def_var(ncid,'PSFC',NF90_REAL,(/nxid,nyid,timeid/),tmp))
     call check(nf90_def_var(ncid,'RAIN',NF90_REAL,(/nxid,nyid,timeid/),tmp))
+    call check(nf90_def_var(ncid,'RH_FIRE',NF90_REAL,(/nxid,nyid,timeid/),tmp))
 endif
 call check(nf90_close(ncid))
 end subroutine create_output
@@ -291,7 +309,7 @@ if(.not.smalloutput)then
                  start=(/its,jts,itime/),count=(/ite,jte,1/)))
 
     call check(nf90_inq_varid(ncid,'RAIN',varid))
-    call check(nf90_put_var(ncid,varid,vars%rainc+vars%rainnc, &
+    call check(nf90_put_var(ncid,varid,vars%rain_accum, &
                  start=(/its,jts,itime/),count=(/ite,jte,1/)))
 
     call check(nf90_inq_varid(ncid,'RH_FIRE',varid))
@@ -305,16 +323,24 @@ call check(nf90_close(ncid))
 deallocate(tmp)
 end subroutine write_output
 
-subroutine read_file(wrffile,atime,vars,ierr)
+subroutine read_file(wrffile,atime,vars,ierr,restart)
 implicit none
 ! read array data for the model from a file 
 type(ncfile),intent(in)::wrffile ! initialized ncfile object
 integer,intent(in)::atime        ! the time step in the file to read
 type(ncvars),intent(inout)::vars ! on return contains data from the file
 integer,intent(out)::ierr        ! error flag, 0 on success, otherwise read error
+logical,optional,intent(in)::restart ! if this a restart, we will read fmc_gc
 
 integer::varid,i,j,k,itime
+logical::r
 real,dimension(:,:,:),allocatable::tmp
+real,dimension(ims:ime,jms:jme)::rainold
+
+r=.false.
+if(present(restart))then
+    r=restart
+endif
 
 ! if the time step is unspecified (<= 0) then
 ! just read the last time step
@@ -327,14 +353,12 @@ vars%time=wrffile%times(itime)
 
 ! read FMC_GC if it is present (generally, this test will
 ! only pass when we are reading for a restart)
-if(nf90_inq_varid(wrffile%ncid,'FMC_GC',varid).eq.0)then
+if(r.and.nf90_inq_varid(wrffile%ncid,'FMC_GC',varid).eq.0)then
     allocate(tmp(its:ite,jts:jte,nfmc))
     call check(nf90_get_var(wrffile%ncid,varid,tmp, &
             start=(/its,jts,1,itime/), count=(/ite,jte,nfmc,1/)))
     call transpose_var(tmp,vars%fmc_gc)
     deallocate(tmp)
-else
-    vars%fmc_gc=0.
 endif
 
 ! read variables that should always be present
@@ -354,15 +378,36 @@ if(nf90_inq_varid(wrffile%ncid,'RAINC',varid).eq.0)then
     call check(nf90_get_var(wrffile%ncid,varid,vars%rainc, &
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
     
+    if(itime.gt.1)then
+        call check(nf90_get_var(wrffile%ncid,varid,rainold, &
+               start=(/its,jts,itime-1/),count=(/ite,jte,1/)))
+        vars%rainc(:,:)=vars%rainc(:,:)-rainold(:,:)
+    endif
+
     call check(nf90_inq_varid(wrffile%ncid,'RAINNC',varid))
     call check(nf90_get_var(wrffile%ncid,varid,vars%rainnc, &
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
+    
+    if(itime.gt.1)then
+        call check(nf90_get_var(wrffile%ncid,varid,rainold, &
+               start=(/its,jts,itime-1/),count=(/ite,jte,1/)))
+        vars%rainnc(:,:)=vars%rainnc(:,:)-rainold(:,:)
+    endif
 else
     call check(nf90_inq_varid(wrffile%ncid,'RAIN',varid))
     call check(nf90_get_var(wrffile%ncid,varid,vars%rainc, &
             start=(/its,jts,itime/), count=(/ite,jte,1/)))
     vars%rainnc(:,:)=0.
+    
+    if(itime.gt.1)then
+        call check(nf90_get_var(wrffile%ncid,varid,rainold, &
+               start=(/its,jts,itime-1/),count=(/ite,jte,1/)))
+        vars%rainc(:,:)=vars%rainc(:,:)-rainold(:,:)
+    endif
 endif
+
+! calculate total rain accumulation for this moisture run
+vars%rain_accum(:,:)=vars%rain_accum(:,:) + vars%rainc(:,:) + vars%rainnc(:,:)
 
 ! here we preempt any model errors by detecting if the data is correct
 ! if not, the main code will skip this time step and move on to the
@@ -499,7 +544,7 @@ implicit none
 logical::initialize
 integer::fmoist_init=2
 real::moisture_dt,dt
-integer::istep,i
+integer::istep,i,iglobal
 logical::restart
 
 integer :: numarg,ifile,ii,nfile,s,sn,sd,ierr
@@ -512,6 +557,28 @@ type(ncfile)::wrfoutfile
 type(ncvars)::vars
 type(ESMF_Time)::oldtime,timenow,starttime
 type(ESMF_TimeInterval)::timedt
+
+integer,parameter::iprint=100,jprint=100
+integer::k
+real::hours,t,q,p,rain
+real,dimension(5)::fmc_equi,fmc_tend,fmc_gc
+logical,parameter::debugprint=.false.
+integer,parameter::debugfile=8
+
+#ifndef GFORTRAN_IARGC
+integer,external::iargc
+#endif
+
+1 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a5,i1,a8,i1,a5,i1))
+2 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a6,a9,a6))
+3 format(i4,f8.2,f6.1,f9.1,f6.3,f8.1,f6.3,5(f6.3,f9.1,f6.3))
+
+if(debugprint)then
+    open(debugfile,file='moisture_output.txt',form='formatted',status='unknown')
+    write(debugfile,1)'Step','Time', 'T','P','Q','RAIN','RH',('EQUI',k,'TLAG',k,'FMC',k,k=1,moisture_classes)
+    write(debugfile,2)' ','hours','K','Pa','kg/kg','mm','1',('kg/kg','hours','kg/kg',k=1,moisture_classes)
+endif
+hours=0
 
 ! parse commandline argument for wrfout file name
 numarg=iargc()
@@ -601,15 +668,18 @@ print*,'(re)start time=',trim(timediffstr)
 ! get the next target time step
 call get_next_timestep(wrffile,ifile,ii)
 
+iglobal=0
+
 ! main program loop, go until get_next_timestep returns ifile==0
 do while(ifile.gt.0)
 
     ! keep track of the number of loops we have made
     istep=istep+1
+    iglobal=iglobal+1
     
     ! read initialization data
     if(restart)then
-        call read_file(wrfoutfile,-1,vars,ierr)
+        call read_file(wrfoutfile,-1,vars,ierr,restart=.true.)
         if(ierr.ne.0)then
             call crash('invalid restart file')
         endif
@@ -632,10 +702,13 @@ do while(ifile.gt.0)
     call ESMF_TimeGet(timenow,timeString=timediffstr)
     print*,'time: ',trim(timediffstr)
 
-    if(istep.eq.1)then
+    if(iglobal.eq.1)then
         dt=0.  ! required on initialization
         initialize=.true.
     else
+        if(timenow.lt.oldtime)then
+            call crash('Negative time step detected.')
+        endif
         ! get the number of seconds that the model needs to advance
         timedt=timenow-oldtime
         call ESMF_TimeIntervalGet(timedt,S=s,sn=sn,sd=sd,TimeString=timediffstr)
@@ -646,7 +719,8 @@ do while(ifile.gt.0)
         endif
         initialize=.false.
     endif
- 
+
+
     call advance_moisture(    &
         initialize,                 & ! initialize timestepping. true on the first call at time 0, then false
         fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
@@ -654,7 +728,7 @@ do while(ifile.gt.0)
         its,ite,  jts,jte,          & ! tile dimensions
         nfmc,                       & ! dimension of moisture fields
         dt,                & ! timestep = time step time elapsed from the last call
-        vars%rainc, vars%rainnc,              & ! accumulated rain
+        vars%rain_accum, vars%rain_zero,              & ! accumulated rain
         vars%t2, vars%q2, vars%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
         vars%rain_old,                   & ! previous value of accumulated rain
         vars%t2_old, vars%q2_old, vars%psfc_old,   & ! previous values of the atmospheric state at surface
@@ -664,6 +738,20 @@ do while(ifile.gt.0)
         vars%fmc_tend                    & ! fuel moisture tendency by classe, for diagnostics only
         )
 
+    if(debugprint)then
+        hours=hours+dt/3600.
+        t=vars%t2(iprint,jprint)
+        q=vars%q2(iprint,jprint)
+        p=vars%psfc(iprint,jprint)
+        rain=vars%rain_accum(iprint,jprint) + vars%rain_zero(iprint,jprint)
+        fmc_equi(:)=vars%fmc_equi(iprint,:,jprint)
+        fmc_tend(:)=vars%fmc_tend(iprint,:,jprint)
+        fmc_gc(:)=vars%fmc_gc(iprint,:,jprint)
+        write(debugfile,3)iglobal,hours,t,p,q,rain, &
+                  vars%rh_fire(iprint,jprint),   &
+               (fmc_equi(k),fmc_tend(k),fmc_gc(k), &
+                k=1,moisture_classes)
+    endif
     ! write the results to the output file
     call write_output(outputfname,vars)
 

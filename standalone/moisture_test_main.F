@@ -22,6 +22,7 @@ integer::fmoist_init=2   ! initialize at equilibrium
 real::moisture_dt,dt
 integer::istep,i,k,nsteps=999999
 real::t,p,q,rain,hours,fmc(nfmc),hours_old
+character(len=100)::fmt(8)
 
 !*** executable
 
@@ -43,9 +44,11 @@ do i=6,7
     write(i,1)'Step','Time', 'T','P','Q','RAIN','RH',('EQUI',k,'TLAG',k,'FMC',k,k=1,moisture_classes)
     write(i,2)' ','hours','K','Pa','kg/kg','mm','1',('kg/kg','hours','kg/kg',k=1,moisture_classes)
 enddo
-1 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a5,i1,a8,i1,a5,i1))
-2 format(a4,a8,  a6,  a9,  a6  ,a8, a6, 5(a6,a9,a6))
-3 format(i4,f8.2,f6.1,f9.1,f6.3,f8.1,f6.3,5(f6.3,f9.1,f6.3))
+1 format(a4,a8,  a6,  a9,  a8  ,a8, a6, 5(a5,i1,a8,i1,a5,i1))
+2 format(a4,a8,  a6,  a9,  a8  ,a8, a6, 5(a6,a9,a6))
+fmt(6)='(i4,f8.2,f6.1,f9.1,f8.5,f8.1,f6.3,5(f6.3,f9.1,f6.3))'
+fmt(7)=fmt(6)
+fmt(8)='(i4,21e14.7)'
 
 fire_print_msg = 0   ! change to 2 to get more debugging prints
 
@@ -90,7 +93,7 @@ do istep=1,999999
 
     ! print the output
     do i=6,8
-        write(i,3)istep,hours,t,p,q,rain,rh_fire(its,jts),(fmc_equi(its,k,jts),fmc_lag(its,k,jts),fmc_gc(its,k,jts), &
+        write(i,fmt(i))istep,hours,t,p,q,rain,rh_fire(its,jts),(fmc_equi(its,k,jts),fmc_lag(its,k,jts),fmc_gc(its,k,jts), &
             k=1,moisture_classes)
     enddo
 
