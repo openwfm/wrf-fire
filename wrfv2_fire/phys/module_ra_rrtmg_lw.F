@@ -17,7 +17,8 @@
 !     -------------
 !
       integer, parameter :: kind_ib = selected_int_kind(13)  ! 8 byte integer
-      integer, parameter :: kind_im = selected_int_kind(6)   ! 4 byte integer
+      ! integer, parameter :: kind_im = selected_int_kind(6)   ! 4 byte integer
+      integer, parameter :: kind_im =  4 
       integer, parameter :: kind_in = kind(1)                ! native integer
 
 !
