@@ -6,7 +6,8 @@ function image_array_2d(a)
 %
 [m,n]=size(a);
 h=imagesc(flipud(a'));
-axis image
-warning('the vertical label is upside down')
+axis image;
+t=get(gca,'YTickLabel');  %  put vertical label upside down
+set(gca,'YTickLabel',flipud(t))
 colorbar
 end
