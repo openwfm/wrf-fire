@@ -128,6 +128,7 @@ character(len=128)::msg
 logical:: freeze_fire
 integer:: stat_lev=1
 real::fireline_mask=-1.
+real:: d,tdummy,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,hfrac,thfx,tqfx ! for freeze_fire experiment
 
 !*** executable
 
@@ -140,7 +141,7 @@ xjfme=jfme
 
 
 ! init flags
-freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
+freeze_fire = fire_const_time > 0.
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 ! !$OMP SINGLE
@@ -385,6 +386,53 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         enddo
     enddo
 
+  else
+
+       !*******************************************************************
+       ! Ronan you can change this line if you want a different dependence on time
+
+       hfrac = exp(-((time_start + dt-fire_const_time)/fire_const_time_sigma)**2) 
+
+       !*******************************************************************
+
+       thfx = fire_const_grnhfx*hfrac
+       tqfx = fire_const_grnqfx*hfrac
+
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
+        write(msg,'(a,2e12.3,a)')'sfire_model: EXPERIMENTAL artificial heat flux', &
+           fire_const_grnhfx, fire_const_grnqfx, ' W/m^2'
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
+        call message(msg)
+
+        ! position of the circular fire
+        sx = fire_const_time_x
+        sy = fire_const_time_y
+        ex = fire_const_time_x
+        ey = fire_const_time_y
+        ! values to interpolate between (sx,sy), (ex,ey)
+        st = 0. ! unused
+        ey = 0. ! unused
+        cx2=ignition%unit_fxlong**2 ! units of grid cell squared to measure distances
+        cy2=ignition%unit_fxlat **2
+        
+        do j=jfts,jfte
+            do i=ifts,ifte
+                ax=coord_xf(i,j)
+                ay=coord_yf(i,j)
+                ! compute d = distance from the line (sx,sy) to (ex,ey) 
+                call nearest(d,tdummy,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2) ! output t unused
+                if( d < fire_const_time_r) then
+                    fire_area(i,j) = 1
+                else
+                    fire_area(i,j) = 0
+                endif
+                grnhfx(i,j)=thfx*fire_area(i,j)
+                grnqfx(i,j)=tqfx*fire_area(i,j)
+            enddo
+        enddo
+
+   endif
+
     call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_burnt,'model: fuel_frac burned')
         
     call heat_fluxes(dt,fp,                       &
@@ -442,29 +490,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     endif
         
 
-  else
-     call message('sfire_model: EXPERIMENTAL: skipping fuel burnt computation')
-
-     if (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
-
-!$OMP CRITICAL(SFIRE_MODEL_CRIT)
-        write(msg,'(a,2e12.3,a)')'sfire_model: EXPERIMENTAL output constant heat flux', &
-           fire_const_grnhfx, fire_const_grnqfx, ' W/s'
-!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
-        call message(msg)
-        
-        do j=jfts,jfte
-            do i=ifts,ifte
-                grnhfx(i,j)=fire_const_grnhfx
-                grnqfx(i,j)=fire_const_grnqfx
-            enddo
-        enddo
-
-      endif
-
-   endif
-
-    call print_2d_stats(ifts,ifte,jfts,jfte, &
+   call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
                    grnhfx,'model: heat flux(J/m^2/s)')
 
