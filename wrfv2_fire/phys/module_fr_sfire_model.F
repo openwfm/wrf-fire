@@ -128,7 +128,7 @@ character(len=128)::msg
 logical:: freeze_fire
 integer:: stat_lev=1
 real::fireline_mask=-1.
-real:: d,tdummy,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,hfrac,thfx,tqfx ! for freeze_fire experiment
+real:: d,tdummy,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2,hfrac,ghfx,gqfx ! for freeze_fire experiment
 
 !*** executable
 
@@ -142,6 +142,7 @@ xjfme=jfme
 
 ! init flags
 freeze_fire = fire_const_time > 0.
+print *,'ifun=',ifun,' fire_const_time=',fire_const_time,' freeze_fire=',freeze_fire
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 ! !$OMP SINGLE
@@ -386,7 +387,18 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         enddo
     enddo
 
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_burnt,'model: fuel_frac burned')
+        
+    call heat_fluxes(dt,fp,                       &
+        ifms,ifme,jfms,jfme,                      &
+        ifts,ifte,jfts,jfte,                      &
+        ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned
+        fp%fgip,                                     &
+        fuel_frac_burnt,                          & !
+        grnhfx,grnqfx)                              !out
+
   else
+       ! artificial heat flux given in namelist.input
 
        !*******************************************************************
        ! Ronan you can change this line if you want a different dependence on time
@@ -395,20 +407,22 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 
        !*******************************************************************
 
-       thfx = fire_const_grnhfx*hfrac
-       tqfx = fire_const_grnqfx*hfrac
+       ghfx = fire_const_grnhfx*hfrac
+       gqfx = fire_const_grnqfx*hfrac
 
 !$OMP CRITICAL(SFIRE_MODEL_CRIT)
-        write(msg,'(a,2e12.3,a)')'sfire_model: EXPERIMENTAL artificial heat flux', &
-           fire_const_grnhfx, fire_const_grnqfx, ' W/m^2'
-!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
+        write(msg,'(a,2e12.3,a,e12.3,a)')'sfire_model: given heat flux', &
+           ghfx, gqfx, ' W/m^2 '
         call message(msg)
+        write(msg,'(e12.3,a,2e12.3)')hfrac,' of max ',fire_const_grnhfx,fire_const_grnqfx
+        call message(msg)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
 
         ! position of the circular fire
-        sx = fire_const_time_x
-        sy = fire_const_time_y
-        ex = fire_const_time_x
-        ey = fire_const_time_y
+        sx = fire_const_x
+        sy = fire_const_y
+        ex = fire_const_x
+        ey = fire_const_y
         ! values to interpolate between (sx,sy), (ex,ey)
         st = 0. ! unused
         ey = 0. ! unused
@@ -421,27 +435,19 @@ elseif (ifun.eq.6) then ! timestep postprocessing
                 ay=coord_yf(i,j)
                 ! compute d = distance from the line (sx,sy) to (ex,ey) 
                 call nearest(d,tdummy,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2) ! output t unused
-                if( d < fire_const_time_r) then
-                    fire_area(i,j) = 1
+                if( d < fire_const_r) then
+                    fire_area(i,j) = 1.
                 else
-                    fire_area(i,j) = 0
+                    fire_area(i,j) = 0.
                 endif
-                grnhfx(i,j)=thfx*fire_area(i,j)
-                grnqfx(i,j)=tqfx*fire_area(i,j)
+                grnhfx(i,j)=ghfx*fire_area(i,j)
+                grnqfx(i,j)=gqfx*fire_area(i,j)
             enddo
         enddo
 
    endif
 
-    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_burnt,'model: fuel_frac burned')
-        
-    call heat_fluxes(dt,fp,                       &
-        ifms,ifme,jfms,jfme,                      &
-        ifts,ifte,jfts,jfte,                      &
-        ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned
-        fp%fgip,                                     &
-        fuel_frac_burnt,                          & !
-        grnhfx,grnqfx)                              !out
+   ! this should run in any case
 
     if(fire_print_msg.ge.stat_lev)then
       tfa=fun_real(REAL_SUM,  &

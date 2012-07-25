@@ -44,11 +44,11 @@ integer,save::          &
 
 real, save::            &
  fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign in ideal
- fire_const_time=-1.,   &  ! if >0, time from simulation start to the max of gaussian artificial fire (s)
- fire_const_time_sigma=100., & ! stdev width of the gaussina impulse (s)
- fire_const_time_x=500., & ! position of the circular fire (m or lon/lat) 
- fire_const_time_y=500., & ! position of the circular fire (m or lon/lat)
- fire_const_time_r=500., & ! position of the circular fire (m or lon/lat)
+ fire_const_time=10.,   &  ! if >0, time from simulation start to the max of gaussian artificial fire (s)
+ fire_const_time_sigma=5., & ! stdev width of the gaussina impulse (s)
+ fire_const_x=500., & ! position of the circular fire (m or lon/lat) 
+ fire_const_y=500., & ! position of the circular fire (m or lon/lat)
+ fire_const_r=500., & ! position of the circular fire (m or lon/lat)
  fire_const_grnhfx=1e6, &  ! the heat flux at time fire_const_time (W/m^2)
  fire_const_grnqfx=1e6, &  ! the moisture flux at fire_const_time (W/m^2)
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
