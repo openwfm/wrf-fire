@@ -291,7 +291,6 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
         enddo
     enddo
 
-    endif
 
     ! check for ignitions
     do ig = 1,ignition%num_ignitions
@@ -315,6 +314,9 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 !        endif
         
     enddo
+    else
+        call message('sfire_model: EXPERIMENTAL: skipping ignition')
+    endif
             
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, &
                    lfn,'sfire_model: lfn out')
