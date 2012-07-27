@@ -10,14 +10,14 @@
 # 
 package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,unit_fxlong,unit_fxlat
 
-# fire variables on fire grid
+# fire input variables on fire grid
 #
 #<Table> <Type> <Sym>       <Dims>   <Use>   <NumTLev> <Stagger> <IO>     <DNAME>             <DESCRIP>     <UNITS>   
 state    real     nfuel_cat *i*j     fire        1         z   i012hr   "NFUEL_CAT"        "fuel data"   
 state    real     zsf       *i*j     fire        1         z   i012hr   "ZSF"      "height of surface above sea level" "m"
 state    real     dzdxf     *i*j     fire        1         z   i012hr   "DZDXF"    "surface gradient x" "1"
 state    real     dzdyf     *i*j     fire        1         z   i012hr   "DZDYF"    "surface gradient y" "1"
-
+state    real     fire_hfx  *i*j     fire        1         z   i012hr   "FIRE_HFX" "observed fire heat flux" "W/m^2"
 
 # fire variables on atm grid
 #
@@ -201,13 +201,33 @@ rconfig   real    fire_viscosity         namelist,fire         max_domains      
 rconfig   real    fire_lfn_ext_up        namelist,fire         max_domains           1.0     -      "fire_lfn_ext_up"   "0.=extend level set function at boundary by reflection, 1.=always up" "1"
 rconfig   integer fire_topo_from_atm     namelist,fire         max_domains            1      -      "fire_topo_from_atm" "0 = do nothing, 1 = populate ZSF by interpolating from atmosphere" "1"
 rconfig   integer fire_advection         namelist,fire         max_domains            1      -      "fire_advection" "0 = fire spread computed from normal wind speed/slope, 1 = fireline particle speed projected on normal" "0"
+
 # experiments
+# testing the fire model alone
 rconfig   integer fire_test_steps        namelist,fire         max_domains            0      -      "fire_test_steps" ">0 = on first call, do specified number of steps and terminate (testing only)" "1"
+# stopped fire - defunct, leaving for compatibily with existing namelist.input files
 rconfig   real    fire_const_time        namelist,fire         max_domains          -1.      -      "fire_const_time"   "time from ignition to freeze fire, <0 never" "s"
 rconfig   real    fire_const_grnhfx      namelist,fire         max_domains           0.      -      "fire_const_grnhfx"   "if both >=0, the amount of constant heat flux" "1"
 rconfig   real    fire_const_grnqfx      namelist,fire         max_domains           0.      -      "fire_const_grnqfx"   "if both >=0, the amount of constant heat flux" "1"
+# given heatflux
+rconfig   integer fire_hfx_given         namelist,fire         max_domains           0       -      "fire_hfx_given" "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 4=by parameters" ""
+rconfig   integer fire_hfx_num_lines     namelist,fire         max_domains           1       -      "fire_hfx_num_lines" "number of heatflux parameter sets defining the heaflux lines" ""
+rconfig   real    fire_hfx_latent_part   namelist,fire         max_domains       0.084       -      "fire_hfx_latent_part" "proportion of the given heat flux released as latent, the rest is sensible" "1"
+rconfig   real    fire_hfx_start_time1   namelist,fire         max_domains           0.      -      "fire_hfx_start_time1" "time from start of run when artificial heatlux begins full value" "s"
+rconfig   real    fire_hfx_end_time1     namelist,fire         max_domains           0.      -      "fire_hfx_end_time1" "ending time for heatflux from beginning of run" "s"
+rconfig   real    fire_hfx_trans_time1   namelist,fire         max_domains           0.      -      "fire_hfx_trans_time1" "transition time for heatflux from 1% to 100%" "s"
+rconfig   real    fire_hfx_radius1       namelist,fire         max_domains           0.      -      "fire_hfx_radius1" "ending time for heatflux from beginning of run" "s"
+rconfig   real    fire_hfx_start_x1      namelist,fire         max_domains           0.      -      "fire_hfx_start_radius1" "radius of the heatflux circle" "m"
+rconfig   real    fire_hfx_end_x1        namelist,fire         max_domains           0.      -      "fire_hfx_end_x1" "end point for the center of the heatflux circle" "m"
+rconfig   real    fire_hfx_start_lat1    namelist,fire         max_domains           0.      -      "fire_hfx_start_lat1" "start point for the center of the heatflux circle" "degrees"
+rconfig   real    fire_hfx_end_lat1      namelist,fire         max_domains           0.      -      "fire_hfx_end_lat1" "end point for the center of the heatflux circle" "degrees"
+rconfig   real    fire_hfx_start_y1      namelist,fire         max_domains           0.      -      "fire_hfx_start_y1" "radius of the heatflux circle" "m"
+rconfig   real    fire_hfx_end_y1        namelist,fire         max_domains           0.      -      "fire_hfx_end_y1" "end point for the center of the heatflux circle" "m"
+rconfig   real    fire_hfx_start_lon1    namelist,fire         max_domains           0.      -      "fire_hfx_start_lon1" "start point for the center of the heatflux circle" "degrees"
+rconfig   real    fire_hfx_end_lon1      namelist,fire         max_domains           0.      -      "fire_hfx_end_lon1" "end point for the center of the heatflux circle" "degrees"
+#
 rconfig   real    fire_atm_feedback      namelist,fire         max_domains           1.      -      "fire_atm_feedback"   "the heat fluxes to the atmosphere are multiplied by this" "1"
-rconfig   integer fire_mountain_type     namelist,fire         max_domains            0      -      "fire_mountain_type" "in ideal: 0=none, 1=COS hill, 2=EW ridge, 3=NS ridge" "1"
+rconfig   integer fire_mountain_type     namelist,fire         max_domains           0       -      "fire_mountain_type" "in ideal: 0=none, 1=COS hill, 2=EW ridge, 3=NS ridge" "1"
 rconfig   real    fire_mountain_height   namelist,fire         max_domains         500.      -      "fire_mountain_height" "ideal mountain height" "m"
 rconfig   real    fire_mountain_start_x  namelist,fire         max_domains         100.      -      "fire_mountain_start_x" "x coord of start of the mountain" "m"
 rconfig   real    fire_mountain_start_y  namelist,fire         max_domains         100.      -      "fire_mountain_start_y" "y coord of start of the mountain" "m"
