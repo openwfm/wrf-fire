@@ -39,22 +39,20 @@ integer,save::          &
  fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
  fire_wind_log_interp=4,&  ! kind of vertical log layer wind interpolation, see driver
  fire_use_windrf=0,     &  ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
- fire_fmc_read=1           ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
+ fire_fmc_read=1,       &  ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
+ fire_hfx_given=0,      &  ! "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 4=by parameters" ""
+ fire_hfx_num_lines=1        ! number of heatflux parameter sets defining the heaflux lines (must be 1) 
  
 
 real, save::            &
  fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign in ideal
- fire_const_time=10.,   &  ! if >0, time from simulation start to the max of gaussian artificial fire (s)
- fire_const_time_sigma=5., & ! stdev width of the gaussina impulse (s)
- fire_const_x=500., & ! position of the circular fire (m or lon/lat) 
- fire_const_y=500., & ! position of the circular fire (m or lon/lat)
- fire_const_r=500., & ! position of the circular fire (m or lon/lat)
- fire_const_grnhfx=1e6, &  ! the heat flux at time fire_const_time (W/m^2)
- fire_const_grnqfx=1e6, &  ! the moisture flux at fire_const_time (W/m^2)
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
  fire_back_weight=0.5,  &  ! RK parameter, 0 = Euler method, 0.5 = Heun, 1 = fake backward Euler
  fire_viscosity=0.4,    &  ! artificial viscosity
- fire_lfn_ext_up=1.        ! 0.=extend level set function at boundary by reflection, 1.=always up
+ fire_lfn_ext_up=1,     &  ! 0.=extend level set function at boundary by reflection, 1.=always up
+ fire_hfx_value=0.,     &  ! heat flux value specified when given by parameterst flux value specified when given by parameters:w
+ fire_hfx_latent_part=0.084   ! proportion of the given heat flux released as latent, the rest is sensible
+
 
 integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
 

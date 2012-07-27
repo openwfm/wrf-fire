@@ -334,6 +334,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,& ! fire risk spread 
             grid%f_int,grid%f_lineint,grid%f_lineint2,     & ! fire risk intensities 
             grid%fxlong,grid%fxlat,                           &       
+            grid%fire_hfx,                                & !
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,                      & 
             grid%fz0, grid%fwh,                    &
@@ -413,6 +414,7 @@ subroutine sfire_driver_phys (ifun,    &
     f_ros0,f_rosx,f_rosy,f_ros,                   & ! fire risk spread 
     f_int,f_lineint,f_lineint2,                   & ! fire risk intensities 
     fxlong,fxlat,                                 & !  
+    fire_hfx,                                     & ! 
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,                                & ! save constant internal data, fire grid
     fz0,fwh,                                      &
@@ -522,7 +524,8 @@ real, intent(inout), dimension(ifms:ifme,jfms:jfme):: fmc_g
 
 !  ***** data (constant in time) *****
 
-real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh coordinates
+real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat, & ! fire mesh coordinates
+    fire_hfx
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 
 type(fire_params),intent(inout)::fp
@@ -837,7 +840,8 @@ do ij=1,num_tiles
         dxf,dyf,                                & ! fire mesh spacing
         ignition,                          & ! description of ignition lines
         fxlong,fxlat,                           & ! fire mesh coordinates
-        lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+        fire_hfx,                               & ! given heat flux
+        lfn,lfn_out,tign,fuel_frac,             & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         ros,flineint,flineint2,                 & ! diagnostic variables
@@ -1170,10 +1174,11 @@ fire_print_file         = config_flags%fire_print_file
 fuel_left_method        = config_flags%fire_fuel_left_method
 fuel_left_irl           = config_flags%fire_fuel_left_irl
 fuel_left_jrl           = config_flags%fire_fuel_left_jrl
-fire_const_time         = config_flags%fire_const_time
-fire_const_grnhfx       = config_flags%fire_const_grnhfx
-fire_const_grnqfx       = config_flags%fire_const_grnqfx
 fire_atm_feedback       = config_flags%fire_atm_feedback
+fire_hfx_given          = config_flags%fire_hfx_given
+fire_hfx_num_lines      = config_flags%fire_hfx_num_lines
+fire_hfx_latent_part    = config_flags%fire_hfx_latent_part
+fire_hfx_value          = config_flags%fire_hfx_value
 boundary_guard          = config_flags%fire_boundary_guard
 fire_back_weight        = config_flags%fire_back_weight
 fire_grows_only         = config_flags%fire_grows_only
