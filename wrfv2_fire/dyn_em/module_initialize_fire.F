@@ -125,6 +125,7 @@ CONTAINS
    REAL :: mtn_xs, mtn_ys, mtn_xe, mtn_ye
    REAL :: fdx,fdy ! fire mesh step
    INTEGER:: ir,jr ! refinement factors
+   REAL :: minhfx,maxhfx,totheat
 
    logical have_fire_ht,have_fire_grad,have_atm_grad
 
@@ -444,8 +445,30 @@ IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
   ENDDO
   ENDDO
 
-  if(config_flags%fire_fuel_read.eq.2) &
+  if(config_flags%fire_fuel_read.eq.2) then
+      write(6,*)'Reading fuel map from file input_fc'
       call read_array_2d_real('input_fc',grid%nfuel_cat,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+  endif
+
+  if(config_flags%fire_hfx_given.eq.2) then
+      write(6,*)'Reading given heat flux from file input_hfx'
+      call read_array_2d_real('input_hfx',grid%fire_hfx,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+      maxhfx=-huge(maxhfx)
+      minhfx=huge(minhfx)
+      totheat=0.
+      do j=jfds,jfde
+         do i=ifds,ifde
+             minhfx  = max(minhfx,grid%fire_hfx(i,j))
+             maxhfx  = max(maxhfx,grid%fire_hfx(i,j))
+             totheat = totheat + grid%fire_hfx(i,j)*fdx*fdy
+         enddo
+      enddo
+      write(6,*)'Given heat flux min ',minhfx,' max ',maxhfx,' W/m^2'
+      write(6,*)'Total heat ',totheat,' W'
+      if(minhfx<0.)call crash('Heat flux must be nonnegative number')
+  endif
+
+
 
 
   have_fire_grad=.false.

@@ -158,9 +158,7 @@
 !
  stretch_grd = .true.,          ! vertical grid stretching in ideal (on/off)
  stretch_hyp = .false.,         ! hyperbolic tang grid stretching in ideal (more levels at the surface)
- fire_const_time = 10.,         ! (s) if >0, time from start to stop fire evolution and keep heat output constant
- fire_const_grnhfx = 1e6,       ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
- fire_const_grnqfx = 1e6,       ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
+ fire_hfx_given = 2,            ! 0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 4=by parameters
  fire_test_steps=0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
  fire_mountain_type=0,          ! in ideal: 0=none, 1= hill, 2=EW ridge, 3=NS ridge
  fire_mountain_height=500.,     ! (m) ideal mountain height
