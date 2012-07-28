@@ -74,7 +74,7 @@ use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
-!use module_fr_sfire_util, only: lines_type,fire_max_ignitions
+!use module_fr_sfire_util, only: lines_type,fire_max_lines
 
 
 ! WRF dependencies
@@ -134,7 +134,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
              ifps,ifpe, jfps,jfpe 
 
 !*** local
-    TYPE(lines_type):: ignition
+    TYPE(lines_type):: ignition, hfx
     integer::fire_ifun,ir,jr,istep,itimestep,i
     logical::restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
@@ -161,6 +161,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ! **** THE FOLLOWING REALLY SHOULD BE DONE ONCE NOT EVERY TIMESTEP
     ! get ignition data 
     call fire_ignition_convert (config_flags,ignition)
+    call fire_hfx_convert (config_flags,hfx)
 
 ! store computed mesh units  
     grid%unit_fxlong = ignition%unit_fxlong
@@ -1021,11 +1022,15 @@ subroutine fire_ignition_convert (config_flags,ignition)
 !*** local
     integer::i
     logical:: real,ideal
-    real::lat_ctr,lon_ctr
     character(len=128)msg
 !*** executable
+
+    ignition%max_lines=5 ! number of lines that have entries in the namelist
+    ignition%num_lines=config_flags%fire_num_ignitions
+
     ! this is only until I figure out how to input arrays through the namelist...
-    if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
+    if(fire_max_lines.lt.ignition%max_lines)call crash('fire_max_lines too small')
+
     ! figure out which kind of coordinates from the first given
     ideal=config_flags%fire_ignition_start_x1 .ne.0. .or. config_flags%fire_ignition_start_y1 .ne. 0.
     real=config_flags%fire_ignition_start_lon1 .ne. 0. .or. config_flags%fire_ignition_start_lat1 .ne. 0.
@@ -1104,62 +1109,136 @@ subroutine fire_ignition_convert (config_flags,ignition)
        ignition%line(5)%start_time=config_flags%fire_ignition_start_time5
        ignition%line(5)%end_time=config_flags%fire_ignition_end_time5
 
-    ! 
-        ignition%num_lines=0      
-        do i=1,min(5,config_flags%fire_num_ignitions)
-            ! count the ignitions 
-            if(ignition%line(i)%radius.gt.0.)ignition%num_lines=i
+       call postprocess_lines(ignition,'ros',config_flags)
+
+     end subroutine fire_ignition_convert
+
+     subroutine postprocess_lines(lines,value_name,config_flags)
+!      count lines, fill endpoints, print stats
+!***   arguments
+        type(lines_type), intent(inout)::lines
+        character(len=3), intent(in)::value_name  
+        TYPE (grid_config_rec_type) , INTENT(IN)  :: config_flags ! namelist
+!***   local
+     integer::i,n
+     real::value
+     real::lat_ctr,lon_ctr
+     character(len=128)msg
+!***   executable
+
+        n=lines%num_lines
+        do i=1,n
+            ! find the last line that has positive radius and reset num_lines if needed
+            if(lines%line(i)%radius.gt.0.)lines%num_lines=i
             ! expand ignition data given as zero
-            if(ignition%line(i)%end_x.eq.0.)ignition%line(i)%end_x=ignition%line(i)%start_x
-            if(ignition%line(i)%end_y.eq.0.)ignition%line(i)%end_y=ignition%line(i)%start_y
-            if(ignition%line(i)%end_time.eq.0.)ignition%line(i)%end_time=ignition%line(i)%start_time
+            if(lines%line(i)%end_x.eq.0.)lines%line(i)%end_x=lines%line(i)%start_x
+            if(lines%line(i)%end_y.eq.0.)lines%line(i)%end_y=lines%line(i)%start_y
+            if(lines%line(i)%end_time.eq.0.)lines%line(i)%end_time=lines%line(i)%start_time
         enddo
 
-    if(ignition%longlat .eq. 0)then
+    if(lines%longlat .eq. 0)then
        ! ideal
        !  ignition is in m
-       ignition%unit_fxlong=1.  
-       ignition%unit_fxlat=1.
+       lines%unit_fxlong=1.  
+       lines%unit_fxlat=1.
        ! will set fire mesh coordinates to uniform mesh below
     else
        ! real
        lat_ctr=config_flags%cen_lat
        lon_ctr=config_flags%cen_lon
        ! 1 degree in m (approximate OK)
-       ignition%unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
-       ignition%unit_fxlong=cos(lat_ctr*pi2/360.)*ignition%unit_fxlat  ! latitude
+       lines%unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
+       lines%unit_fxlong=cos(lat_ctr*pi2/360.)*lines%unit_fxlat  ! latitude
     endif
 
     if(fire_print_msg.ge.2)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-       if(ignition%longlat .eq. 0)then
-         write(msg,1)'start x','start y','end x','end y','start t','end t','ros','radius'
+       if(lines%longlat .eq. 0)then
+         write(msg,1)'start x','start y','end x','end y','start t','end t',value_name,'radius'
        else
-         write(msg,1)'start lon','start lat','end lon','end lat','start time','end time','ros','radius'
+         write(msg,1)'start lon','start lat','end lon','end lat','start time','end time',value_name,'radius'
        endif
 1      format(4a10,4a9)
 2      format(4f10.3,4f9.2)
 3      format(4f10.5,4f9.2)
        call message(msg)
-       do i=1,5
-         if(ignition%longlat .eq. 0)then
-           write(msg,2)ignition%line(i)%start_x, ignition%line(i)%start_y, &
-                      ignition%line(i)%end_x,  ignition%line(i)%end_y,        &
-                      ignition%line(i)%start_time, ignition%line(i)%end_time, &
-                      ignition%line(i)%ros, ignition%line(i)%radius
+       do i=1,lines%num_lines
+         select case (value_name)
+              case ('ros')
+                  value = lines%line(i)%ros
+              case ('hfx')
+                  value = lines%line(i)%hfx_value
+              case default
+                  call crash('postprocess_lines: bad value_name '//value_name)
+         end select
+         if(lines%longlat .eq. 0)then
+           write(msg,2)lines%line(i)%start_x, lines%line(i)%start_y, &
+                      lines%line(i)%end_x,  lines%line(i)%end_y,        &
+                      lines%line(i)%start_time, lines%line(i)%end_time, &
+                      value, lines%line(i)%radius
          else
-           write(msg,3)ignition%line(i)%start_x, ignition%line(i)%start_y, &
-                      ignition%line(i)%end_x,  ignition%line(i)%end_y,        &
-                      ignition%line(i)%start_time, ignition%line(i)%end_time, &
-                      ignition%line(i)%ros, ignition%line(i)%radius
+           write(msg,3)lines%line(i)%start_x, lines%line(i)%start_y, &
+                      lines%line(i)%end_x,  lines%line(i)%end_y,        &
+                      lines%line(i)%start_time, lines%line(i)%end_time, &
+                      value, lines%line(i)%radius
          endif
          call message(msg)
        enddo
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
      endif
+end subroutine postprocess_lines
 
-end subroutine fire_ignition_convert
 
+subroutine fire_hfx_convert (config_flags,hfx)
+    implicit none
+! create heat flux line(s) from scalar flags
+!*** arguments
+    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    TYPE (lines_type), INTENT(OUT):: hfx ! any values from input discarded 
+!*** local
+    integer::i
+    logical:: real,ideal
+    real::lat_ctr,lon_ctr
+    character(len=128)msg
+!*** executable
+    ! this is only until I figure out how to input arrays through the namelist...
+    hfx%num_lines=config_flags%fire_hfx_num_lines
+    if(fire_max_lines.lt.hfx%num_lines)call crash('fire_max_lines too small')
+
+    ! figure out which kind of coordinates from the first given
+    ideal=config_flags%fire_hfx_start_x1 .ne.0. .or. config_flags%fire_hfx_start_y1 .ne. 0.
+    real=config_flags%fire_hfx_start_lon1 .ne. 0. .or. config_flags%fire_hfx_start_lat1 .ne. 0.
+    if(ideal)call message('Using ideal heat flux line coordinates, m from the lower left domain corner')
+    if(real)call message('Using real heat flux line coordinates, longitude and latitude')
+    if(ideal.and.real)call crash('Only one of the ideal or real coordinates may be given')
+
+    hfx%longlat=0  ! default, if no ignition
+    if(ideal)then
+       ! use values from _x and _y variables
+       hfx%longlat=0
+       hfx%line(1)%start_x=config_flags%fire_hfx_start_x1
+       hfx%line(1)%start_y=config_flags%fire_hfx_start_y1
+       hfx%line(1)%end_x=config_flags%fire_hfx_end_x1
+       hfx%line(1)%end_y=config_flags%fire_hfx_end_y1
+    endif
+    if(real)then
+        ! use values from _long and _lat
+       hfx%longlat=1
+       hfx%line(1)%start_x=config_flags%fire_hfx_start_lon1
+       hfx%line(1)%start_y=config_flags%fire_hfx_start_lat1
+       hfx%line(1)%end_x=config_flags%fire_hfx_end_lon1
+       hfx%line(1)%end_y=config_flags%fire_hfx_end_lat1
+    endif
+    ! common to both cases
+       hfx%line(1)%radius=config_flags%fire_hfx_radius1 
+       hfx%line(1)%start_time=config_flags%fire_hfx_start_time1 
+       hfx%line(1)%end_time=config_flags%fire_hfx_end_time1 
+       hfx%line(1)%trans_time=config_flags%fire_hfx_trans_time1 
+       hfx%line(1)%hfx_value=config_flags%fire_hfx_value1 
+
+       call postprocess_lines(hfx,'ros',config_flags)
+
+end subroutine fire_hfx_convert
 
 subroutine set_flags(config_flags)
 USE module_configure
@@ -1178,7 +1257,6 @@ fire_atm_feedback       = config_flags%fire_atm_feedback
 fire_hfx_given          = config_flags%fire_hfx_given
 fire_hfx_num_lines      = config_flags%fire_hfx_num_lines
 fire_hfx_latent_part    = config_flags%fire_hfx_latent_part
-fire_hfx_value          = config_flags%fire_hfx_value
 boundary_guard          = config_flags%fire_boundary_guard
 fire_back_weight        = config_flags%fire_back_weight
 fire_grows_only         = config_flags%fire_grows_only

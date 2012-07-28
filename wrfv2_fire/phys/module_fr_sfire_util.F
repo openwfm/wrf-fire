@@ -69,16 +69,18 @@ type line_type
         end_y, &        ! y coordinate of the ignition line end point
         start_time, &   ! time for the start point from simulation start (s)
         end_time, &     ! time for the end poin from simulation start (s)
+        trans_time, &   ! transition time (s)
         radius, &       ! thickness of the line
         hfx_value       ! heat flux value associated with the line
 end type line_type
 
-integer, parameter:: fire_max_ignitions=5
+integer, parameter:: fire_max_lines=5
 
 ! container type for all ignitions and associated scalars
 type lines_type
-    type(line_type):: line(fire_max_ignitions) ! descriptions of ignition lines
-    integer:: num_lines, &      ! number of line specified
+    type(line_type):: line(fire_max_lines) ! descriptions of ignition lines
+    integer:: num_lines, &      ! number of lines used
+        max_lines,       &      ! max number of lines that can be specified through namelist
         longlat                     ! 0 for ideal, 1 for real
     real::  unit_fxlong,unit_fxlat  ! degree of longtitude/latitude in m; 1m for ideal
 end type lines_type
