@@ -318,7 +318,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             time_step_start,dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
-            ignition,              &
+            ignition,hfx,              &  ! lines
             grid%u_2,grid%v_2,           &          ! atm arrays in
             grid%ph_2,grid%phb,               & ! geopotential
             grid%z0,                        & ! roughness height
@@ -399,8 +399,8 @@ subroutine sfire_driver_phys (ifun,    &
     time_step_start,dt,dx,dy,                     & ! in scalars
     u_frame,v_frame,                              &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
-    ignition,                                     &
-    u,v,                                       & ! in arrays, atm grid
+    ignition,hfx,                                 & ! lines
+    u,v,                                          & ! in arrays, atm grid
     ph,phb,                                       &
     z0,zs,                                        & 
     xlong,xlat,                                   &
@@ -470,7 +470,7 @@ real, intent(in):: &
     fire_ext_crwn                                   ! and for the canopy (m) 
 
 
-TYPE (lines_type), intent(inout):: ignition
+TYPE (lines_type), intent(inout):: ignition,hfx
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v, & ! wind velocity (m/s) (staggered atm grid) 
                               ph, phb                      ! geopotential (w-points atm grid)
@@ -839,7 +839,7 @@ do ij=1,num_tiles
         ifts,ifte,jfts,jfte,                    & ! fire patch dims
         time_start,dt,                          & ! time and increment
         dxf,dyf,                                & ! fire mesh spacing
-        ignition,                          & ! description of ignition lines
+        ignition,hfx,                           & ! description of ignition lines
         fxlong,fxlat,                           & ! fire mesh coordinates
         fire_hfx,                               & ! given heat flux
         lfn,lfn_out,tign,fuel_frac,             & ! state: level function, ign time, fuel left
@@ -1123,7 +1123,7 @@ subroutine fire_ignition_convert (config_flags,ignition)
      integer::i,n
      real::value
      real::lat_ctr,lon_ctr
-     character(len=128)msg
+     character(len=128)msg,f2,f3
 !***   executable
 
         n=lines%num_lines
@@ -1159,30 +1159,35 @@ subroutine fire_ignition_convert (config_flags,ignition)
          write(msg,1)'start lon','start lat','end lon','end lat','start time','end time',value_name,'radius'
        endif
 1      format(4a10,4a9)
-2      format(4f10.3,4f9.2)
-3      format(4f10.5,4f9.2)
        call message(msg)
        do i=1,lines%num_lines
          select case (value_name)
               case ('ros')
                   value = lines%line(i)%ros
+                  f2='(4f10.3,4f9.2)'
+                  f3='(4f10.5,4f9.2)'
               case ('hfx')
                   value = lines%line(i)%hfx_value
+                  f2='(4f10.3,2f9.2,e9.2,f9.2)'
+                  f3='(4f10.5,2f9.2,e9.2,f9.2)'
               case default
                   call crash('postprocess_lines: bad value_name '//value_name)
          end select
          if(lines%longlat .eq. 0)then
-           write(msg,2)lines%line(i)%start_x, lines%line(i)%start_y, &
+           write(msg,f2)lines%line(i)%start_x, lines%line(i)%start_y, &
                       lines%line(i)%end_x,  lines%line(i)%end_y,        &
                       lines%line(i)%start_time, lines%line(i)%end_time, &
                       value, lines%line(i)%radius
          else
-           write(msg,3)lines%line(i)%start_x, lines%line(i)%start_y, &
+           write(msg,f3)lines%line(i)%start_x, lines%line(i)%start_y, &
                       lines%line(i)%end_x,  lines%line(i)%end_y,        &
                       lines%line(i)%start_time, lines%line(i)%end_time, &
                       value, lines%line(i)%radius
          endif
          call message(msg)
+         if(lines%line(i)%start_time > lines%line(i)%end_time)then
+              call crash('start time may not be after end time')
+         endif
        enddo
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
      endif
@@ -1236,7 +1241,7 @@ subroutine fire_hfx_convert (config_flags,hfx)
        hfx%line(1)%trans_time=config_flags%fire_hfx_trans_time1 
        hfx%line(1)%hfx_value=config_flags%fire_hfx_value1 
 
-       call postprocess_lines(hfx,'ros',config_flags)
+       call postprocess_lines(hfx,'hfx',config_flags)
 
 end subroutine fire_hfx_convert
 
