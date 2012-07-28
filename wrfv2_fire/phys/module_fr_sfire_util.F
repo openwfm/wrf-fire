@@ -57,7 +57,7 @@ real, save::            &
 integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
 
 ! describe one ignition line
-type ignition_line_type
+type line_type
   REAL  ros, &          ! subscale rate of spread during the ignition process
         stop_time, &    ! when the ignition process stops from ignition start (s)
         wind_red,  &    ! wind reduction factor at the ignition line
@@ -67,20 +67,21 @@ type ignition_line_type
         start_y, &      ! y coordinate of the ignition line start point
         end_x, &        ! x coordinate of the ignition line end point
         end_y, &        ! y coordinate of the ignition line end point
-        start_time, &   ! ignition time for the start point from simulation start (s)
-        end_time, &     ! ignition time for the end poin from simulation start (s)
-        radius          ! all within this radius ignites immediately
-end type ignition_line_type
+        start_time, &   ! time for the start point from simulation start (s)
+        end_time, &     ! time for the end poin from simulation start (s)
+        radius, &       ! thickness of the line
+        hfx_value       ! heat flux value associated with the line
+end type line_type
 
 integer, parameter:: fire_max_ignitions=5
 
 ! container type for all ignitions and associated scalars
-type ignition_type
-    type(ignition_line_type):: line(fire_max_ignitions) ! descriptions of ignition lines
-    integer:: num_ignitions, &      ! number of ignitions specified
+type lines_type
+    type(line_type):: line(fire_max_ignitions) ! descriptions of ignition lines
+    integer:: num_lines, &      ! number of line specified
         longlat                     ! 0 for ideal, 1 for real
     real::  unit_fxlong,unit_fxlat  ! degree of longtitude/latitude in m; 1m for ideal
-end type ignition_type
+end type lines_type
 
 contains
 

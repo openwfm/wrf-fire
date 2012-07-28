@@ -92,7 +92,7 @@ integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 ! array data
-type(ignition_type), intent(in):: ignition  ! descriptions of ignition lines
+type(lines_type), intent(in):: ignition  ! descriptions of ignition lines
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                      ! node coordinates  
 real, dimension(ifms:ifme, jfms:jfme), intent(inout):: & 
@@ -298,7 +298,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 
 
     ! check for ignitions
-    do ig = 1,ignition%num_ignitions
+    do ig = 1,ignition%num_lines
     
 !  for now, check for ignition every time step...
 !        if(ignition%line(ig)%end_time>=time_start.and.ignition%line(ig)%start_time<time_start+dt)then 

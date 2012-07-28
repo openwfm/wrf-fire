@@ -74,7 +74,7 @@ use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
-use module_fr_sfire_core, only: ignition_type,fire_max_ignitions
+!use module_fr_sfire_util, only: lines_type,fire_max_ignitions
 
 
 ! WRF dependencies
@@ -134,7 +134,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
              ifps,ifpe, jfps,jfpe 
 
 !*** local
-    TYPE(ignition_type):: ignition
+    TYPE(lines_type):: ignition
     integer::fire_ifun,ir,jr,istep,itimestep,i
     logical::restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
@@ -469,7 +469,7 @@ real, intent(in):: &
     fire_ext_crwn                                   ! and for the canopy (m) 
 
 
-TYPE (ignition_type), intent(inout):: ignition
+TYPE (lines_type), intent(inout):: ignition
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v, & ! wind velocity (m/s) (staggered atm grid) 
                               ph, phb                      ! geopotential (w-points atm grid)
@@ -1017,7 +1017,7 @@ subroutine fire_ignition_convert (config_flags,ignition)
 ! create ignition arrays from scalar flags
 !*** arguments
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    TYPE (ignition_type), INTENT(OUT):: ignition ! any values from input discarded 
+    TYPE (lines_type), INTENT(OUT):: ignition ! any values from input discarded 
 !*** local
     integer::i
     logical:: real,ideal
@@ -1105,10 +1105,10 @@ subroutine fire_ignition_convert (config_flags,ignition)
        ignition%line(5)%end_time=config_flags%fire_ignition_end_time5
 
     ! 
-        ignition%num_ignitions=0      
+        ignition%num_lines=0      
         do i=1,min(5,config_flags%fire_num_ignitions)
             ! count the ignitions 
-            if(ignition%line(i)%radius.gt.0.)ignition%num_ignitions=i
+            if(ignition%line(i)%radius.gt.0.)ignition%num_lines=i
             ! expand ignition data given as zero
             if(ignition%line(i)%end_x.eq.0.)ignition%line(i)%end_x=ignition%line(i)%start_x
             if(ignition%line(i)%end_y.eq.0.)ignition%line(i)%end_y=ignition%line(i)%start_y
