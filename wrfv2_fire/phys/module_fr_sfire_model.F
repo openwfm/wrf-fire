@@ -556,16 +556,20 @@ end subroutine sfire_model
              ncells=0
              do j=jfts,jfte
                  do i=ifts,ifte
+                     ! distance squared from the center
                      d2 = (hfx%unit_fxlong*(ax - coord_xf(i,j)))**2 +  (hfx%unit_fxlat*(ay - coord_yf(i,j)))**2
                      if(d2 < radius**2)then
                          fa=1.
                      else
                          fa=0.
                      endif
+                     ! set heat fluxes
+                     thfx= hfx%line(k)%hfx_value * hfrac * fa  ! total heat flux at this point
+                     grnhfx(i,j)= grnhfx(i,j) + (1.-fire_hfx_latent_part) * thfx
+                     grnqfx(i,j)= grnqfx(i,j) + fire_hfx_latent_part * thfx
+                     ! set fire area
                      fire_area(i,j) = max(fire_area(i,j),fa)
-                     thfx=max(grnhfx(i,j), hfx%line(k)%hfx_value*hfrac)
-                     grnhfx(i,j)= (1.-fire_hfx_latent_part) * thfx
-                     grnqfx(i,j)= fire_hfx_latent_part * thfx
+                     ! set stats
                      nfa=nfa+fa;
                      ncells=ncells+1
                  enddo

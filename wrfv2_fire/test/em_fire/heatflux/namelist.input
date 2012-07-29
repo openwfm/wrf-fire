@@ -158,6 +158,7 @@
 !
  stretch_grd = .true.,          ! vertical grid stretching in ideal (on/off)
  stretch_hyp = .false.,         ! hyperbolic tang grid stretching in ideal (more levels at the surface)
+! prescribed fire heat flux
  fire_hfx_given = 3,            ! 0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 3=by parameters
  fire_hfx_latent_part=0.084,    ! part of the combustion heat that goes towards latent heat (moisture flux)
  fire_hfx_value1=1e6            ! heatflux values used in setting by parameters (W/m^2)
@@ -169,14 +170,18 @@
  fire_hfx_end_x1=500,           ! end point for the center of the heatflux circle (m)
  fire_hfx_start_y1=1000,        ! start point for the center of the heatflux circle (m)
  fire_hfx_end_y1=1000,          ! end point for the center of the heatflux circle (m)
+!
  fire_test_steps=0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
+! hill in ideal
  fire_mountain_type=0,          ! in ideal: 0=none, 1= hill, 2=EW ridge, 3=NS ridge
  fire_mountain_height=500.,     ! (m) ideal mountain height
  fire_mountain_start_x=1000.,   ! (m) coord of start of the mountain from lower left corder (just like ignition)
  fire_mountain_start_y=1100.,   ! (m) coord of start of the mountain from lower left corder (just like ignition)
  fire_mountain_end_x=1500.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
  fire_mountain_end_y=1400.,     ! (m) coord of end of the mountain from lower left corder (just like ignition)
+! terrain input
  fire_topo_from_atm=1,          ! 0 = fire mesh topo set from fine-res data, 1 = populate by interpolating from atmosphere
+! atmosphere setup in ideal
  !delt_perturbation = 3.0,       ! Temperature perturbation for creating cold (negative) / warm (positive) bubble [K], 0 turns it off
  !xrad_perturbation = 10000.0,   ! Horizontal radius of the bubble in E-W direction [m]
  !yrad_perturbation = 10000.0,   ! Horizontal radius of the bubble in N-S direction [m]
