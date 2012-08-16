@@ -18,4 +18,7 @@ ncreplace('wrfinput_d01','FMC_GC',x)
 To use constant moisture in some moisture class: set in namelist.fire
 drying_lag and wetting lag to a large number, such as 1e10
 
+The proportions of moisture classes in fuel categories are in the arrays
+fmc_gw01,..., fmc_gw05 in namelist.fire
+
 
