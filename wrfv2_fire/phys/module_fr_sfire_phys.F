@@ -54,7 +54,7 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
   integer:: moisture_classes=3
   real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,saturation_rain, &
          rain_threshold,rec_drying_lag_sec,rec_wetting_lag_sec
-  integer, dimension(max_moisture_classes):: drying_model,wetting_model
+  integer, dimension(max_moisture_classes):: drying_model,wetting_model,fmc_gc_initialization
    ! relative weights of moisture class for each fuel category
    integer::itmp
    CHARACTER (len=80), DIMENSION(max_moisture_classes), save :: moisture_class_name
@@ -71,8 +71,9 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
   data saturation_moisture        /2.5, 2.5, 2.5 , zm*0./  ! saturation moisture contents (1) in rain
   data saturation_rain            /8.0, 8.0, 8.0 , zm*0./  ! stronger rain matters only in duration (mm/h) 
   data rain_threshold             /0.05, 0.05, 0.05, zm*0 /! rain intensity this small is same as nothing
-  data drying_model               /1,   1,   1,    zm*0 /
-  data wetting_model              /1,   1,   1,    zm*0 /
+  data drying_model               /1,   1,   1,    zm*1 /
+  data wetting_model              /1,   1,   1,    zm*1 /
+  data fmc_gc_initialization      /2,   2,   2,    zm*2 /  ! initialization 0=input, 1=from fuelmc_g, 2=from equilibrium
   real, dimension(7)::eq_p
   data eq_p/  1.035e-09, &   !(3.893e-10, 1.681e-09) ! coefficients of the equilibrium fuel moisture polynomial
               -2.62e-07, &   !(-4.593e-07, -6.473e-08) ! fitted from the graph in Schroeder and Buck (1970)
@@ -327,7 +328,6 @@ end subroutine fuel_moisture
 
 subroutine advance_moisture(    &
     initialize,                 & ! initialize timestepping. true on the first call at time 0, then false
-    fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc,                       & ! dimension of moisture fields
@@ -347,7 +347,6 @@ implicit none
 !*** arguments
 logical, intent(in):: initialize
 integer, intent(in)::           &
-    fmoist_init,                &
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc                          ! number of moisture fields
@@ -498,19 +497,16 @@ do j=jts,jte
             !
             if(rlag > 0.0)then
 
-                if(.not.initialize)then
+                if(.not.initialize .or. fmc_gc_initialization(k).eq.0)then ! take old from before, no initialization
                     fmc_old = fmc_gc(i,k,j)
-                    equi = max(min(fmc_old, EMC_d),EMC_w)
-                elseif(fmoist_init.eq.1)then
+                elseif(fmc_gc_initialization(k).eq.1)then ! from scalar fuelmc_g
                     fmc_old = fuelmc_g
-                    equi = fmc_old        
-                elseif(fmoist_init.eq.2)then
+                elseif(fmc_gc_initialization(k).eq.2)then ! from computed equilibrium
                     fmc_old=0.5*(EMC_d+EMC_w)
-                    equi=fmc_old
-                else ! do not change fmc_gc
-                    fmc_old = fmc_gc(i,k,j)
-                    equi=fmc_old
+                else
+                    call crash('bad value of fmc_gc_initialization(k), must be between 0 and 2')
                 endif
+                equi = max(min(fmc_old, EMC_d),EMC_w) ! take lower or upper equilibrium value 
 
                 change = moisture_dt * rlag 
 
@@ -606,7 +602,7 @@ namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
 
 namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold, &
-    drying_model,wetting_model, moisture_class_name
+    drying_model,wetting_model, moisture_class_name,fmc_gc_initialization
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -686,6 +682,7 @@ call wrf_dm_bcast_real(saturation_rain,     max_moisture_classes)
 call wrf_dm_bcast_real(rain_threshold,     max_moisture_classes)
 call wrf_dm_bcast_integer(drying_model,     max_moisture_classes)
 call wrf_dm_bcast_integer(wetting_model,     max_moisture_classes)
+call wrf_dm_bcast_integer(fmc_gc_initialization,     max_moisture_classes)
 call wrf_dm_bcast_real(fmc_gw,     mfuelcats*max_moisture_classes)
 
 ! moisture model derived scalars
@@ -809,6 +806,8 @@ if(init_fuel_moisture)then
         write(msg,8)'drying_lag (h)         ',(drying_lag(ii),ii=i,k)
         call message(msg)
         write(msg,7)'wetting_model          ',(wetting_model(ii),ii=i,k)
+        call message(msg)
+        write(msg,7)'fmc_gc_initialization  ',(fmc_gc_initialization(ii),ii=i,k)
         call message(msg)
         write(msg,8)'wetting_lag (h)        ',(wetting_lag(ii),ii=i,k)
         call message(msg)    

@@ -341,7 +341,6 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%fz0, grid%fwh,                    &
             fp,                                    & ! structure with pointers passed to spread rate calculation
             config_flags%nfmc,         & ! moisture model variables start
-            config_flags%fmoist_init, &
             run_advance_moisture,run_fuel_moisture,dt_moisture,     &    ! moisture model control
             grid%rainc, grid%rainnc,                       & ! accumulated rain from different sources
             grid%t2, grid%q2, grid%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -421,7 +420,6 @@ subroutine sfire_driver_phys (ifun,    &
     fz0,fwh,                                      &
     fp,                                           & ! fire params
     nfmc,                                     & ! number of fuel moisture classes
-    fmoist_init,                                    &
     run_advance_moisture,run_fuel_moisture,dt_moisture,& ! moisture model control
     rainc,rainnc,              & ! accumulated rain from different sources
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -512,7 +510,6 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
     
 ! moisture model arguments
 logical, intent(in)::run_advance_moisture,run_fuel_moisture
-integer, intent(in)::fmoist_init
 real, intent(in)::dt_moisture
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
@@ -660,7 +657,6 @@ do ij=1,num_tiles
           call message('advance_moisture start')
           call advance_moisture(    &
               itimestep.eq.1,             & ! initialize?
-              fmoist_init,                & ! how to initialize if we do
               ims,ime,  jms,jme,          & ! memory dimensions
               its,ite,  jts,jte,          & ! tile dimensions
               nfmc,                       & ! number of moisture fields
