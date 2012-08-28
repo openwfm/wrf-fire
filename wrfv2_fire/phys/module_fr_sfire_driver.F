@@ -822,8 +822,8 @@ do ij=1,num_tiles
         fmc_g                                & ! weighted fuel moisture contents on fire grid
         )
         call message('fuel_moisture end')
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
       endif
+      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
 
     endif
 

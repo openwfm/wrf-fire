@@ -15,10 +15,10 @@
  end_hour                            = 00,   00,   00,
  end_minute                          = 600,   600,   600,
  end_second                          = 00,   00,   00,
- history_interval_s                  = 5,   30,   30,
- frames_per_outfile                  = 2, 1000, 1000,
+ history_interval_s                  = 1,   30,   30,
+ frames_per_outfile                  = 10, 1000, 1000,
  restart                             = .false.,
- restart_interval_s                  = 10
+ restart_interval_s                  = 100
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2

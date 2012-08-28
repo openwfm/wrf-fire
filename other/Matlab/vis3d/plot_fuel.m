@@ -99,7 +99,20 @@ name=['Fuel model ',f.fuel_name];
 title(name)
 grid
 
+figure(3)
+plot(f.fmc_g,f.ros_fmc_g*ros_conv)
+xlabel('ground fuel moisture content (1)')
+ylabel(['rate of spread (',ros_unit,')'])
+name=['Fuel model ',f.fuel_name];
+title(name)
+grid
+
 fprintf('\nzero wind rate of spread %g %s\n',fire_ros(f,0,0)*ros_conv,ros_unit')
+
+
+fprintf('\nzero wind rate of spread %g %s\n',fire_ros(f,0,0)*ros_conv,ros_unit')
+
+
 
 err=big(check_ros(f));
 fprintf('\nmax rel err in rate of spread between WRF-Fire and fire_ros.m %g\n',err)

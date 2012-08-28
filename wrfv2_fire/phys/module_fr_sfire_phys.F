@@ -840,8 +840,8 @@ real, intent(in):: maxwind,maxslope ! computer from zero to these
 
 integer:: iounit,k,j,i
 type(fire_params)::fp
-real, dimension(1:2,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap,fmc_g
-real, dimension(1:2,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
+real, dimension(1:3,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap,fmc_g
+real, dimension(1:3,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
 real::ros_back,ros_wind,ros_slope,propx,propy,r
 
 if(.not.have_fuel_cats)call crash('write_fuels_m: fuel categories not yet set')
@@ -914,14 +914,22 @@ do k=1,nfuelcats
        vy(1,j)=0.
        dzdxf(1,j)=0.
        dzdyf(1,j)=0.
+       fmc_g(1,j)=fuelmc_g
        ! line 2 varies slope (in x direction), zero slope
        vx(2,j)=0.
        vy(2,j)=0.
        dzdxf(2,j)=maxslope*r
        dzdyf(2,j)=0.
+       fmc_g(2,j)=fuelmc_g
+       ! line 3 varies moisture, zero slope and wind
+       vx(3,j)=0.
+       vy(3,j)=0.
+       dzdxf(3,j)=0.
+       dzdyf(3,j)=0.
+       fmc_g(3,j)=(fuelmce(k)*(j-1))/(nsteps-2)
     enddo
     do j=1,nsteps
-       do i=1,2
+       do i=1,3
           call fire_ros(ros_back,ros_wind,ros_slope, &
              propx,propy,i,j,fp)
           ros(i,j)=ros_back+ros_wind+ros_slope
@@ -930,6 +938,8 @@ do k=1,nfuelcats
        write(iounit,13)k,'ros_wind',j,ros(1,j),'rate of spread for the wind speed'
        write(iounit,13)k,'slope',j,dzdxf(2,j),'slope'
        write(iounit,13)k,'ros_slope',j,ros(2,j),'rate of spread for the slope'
+       write(iounit,13)k,'fmc_g',j,fmc_g(3,j),'fuel moisture content'
+       write(iounit,13)k,'ros_fmc_g',j,ros(3,j),'rate of spread for the fuel moisture content'
     enddo
 enddo
 13 format('fuel(',i3,').',a,'(',i3,')=',g12.5e2,';% ',a)
