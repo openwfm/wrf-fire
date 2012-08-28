@@ -76,22 +76,32 @@ switch units
         ros_conv=1;
 end
 
-figure(1)
+
+
+figure(1) % wind dependence
+for i=1:length(f.wind),
+    ros_wind(i) = fire_ros(f,f.wind(i),0);
+end
+err_wind=big(ros_wind-f.ros_wind)
 if logscale,
-    loglog(f.wind*wind_conv,f.ros_wind*ros_conv)
+    loglog(f.wind*wind_conv,ros_wind*ros_conv,'r',f.wind*wind_conv,f.ros_wind*ros_conv,'b')
 else
-    plot(f.wind*wind_conv,f.ros_wind*ros_conv)
+    plot(f.wind*wind_conv,ros_wind*ros_conv,'r',f.wind*wind_conv,f.ros_wind*ros_conv,'b')
 end
 xlabel(['wind speed at ',wind_unit,')'])
 ylabel(['rate of spread (',ros_unit,')'])
 title(name)
 grid
 
-figure(2)
+figure(2) % slope dependence
+for i=1:length(f.slope),
+    ros_slope(i) = fire_ros(f,0,f.slope(i));
+end
+err_slope=big(ros_slope-f.ros_slope)
 if logscale
-    loglog(f.slope,f.ros_slope*ros_conv)
+    loglog(f.slope,ros_slope*ros_conv,'r',f.slope,f.ros_slope*ros_conv,'b')
 else
-    plot(f.slope,f.ros_slope*ros_conv)
+    plot(f.slope,ros_slope*ros_conv,'r',f.slope,f.ros_slope*ros_conv,'b')
 end
 xlabel('slope (1)')
 ylabel(['rate of spread (',ros_unit,')'])
@@ -100,7 +110,22 @@ title(name)
 grid
 
 figure(3)
-plot(f.fmc_g,f.ros_fmc_g*ros_conv)
+if(isfield(f,'fmc_g')),
+    fmc_g=f.fmc_g;
+else
+    nsteps=100;
+    fmc_g=f.fuelmce*[0:nsteps-1]/nsteps-2;
+end
+for i=1:length(fmc_g),
+    ros_fmc_g(i) = fire_ros(f,0,0,fmc_g(i));
+end
+if(isfield(f,'fmc_g')),
+    err_fmc_g=big(ros_fmc_g-f.ros_fmc_g)
+    plot(fmc_g,ros_fmc_g*ros_conv,'r',f.fmc_g,f.ros_fmc_g*ros_conv,'b',...
+        f.fuelmc_g,interp1(fmc_g,ros_fmc_g*ros_conv,f.fuelmc_g),'+k')
+else
+    plot(fmc_g,ros_fmc_g*ros_conv,'b')
+end
 xlabel('ground fuel moisture content (1)')
 ylabel(['rate of spread (',ros_unit,')'])
 name=['Fuel model ',f.fuel_name];
