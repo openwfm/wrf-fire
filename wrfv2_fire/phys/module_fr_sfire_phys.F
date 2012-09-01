@@ -479,10 +479,10 @@ do j=jts,jte
                 end select
             else ! not raining
                 select case(drying_model(k))
-                case(1) ! Van Wagner and Pickett (1972) per Viney (1991) eq (7) (8)
+                case(1) ! Van Wagner and Pickett (1972, 1985) per Viney (1991) eq (7) (8)
                     H = RH * 100.
-                    d=0.942*H**0.679 + 0.000499*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for drying
-                    w=0.618*H**0.753 + 0.000454*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for adsorbtion
+                    d=0.942*H**0.679 + 0.4994e-4*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for drying
+                    w=0.618*H**0.753 + 0.4540e-4*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for adsorbtion
                     if(d.ne.d.or.w.ne.w)call crash('equilibrium moisture calculation failed, result is NaN')
                     d = d*0.01
                     w = w*0.01
