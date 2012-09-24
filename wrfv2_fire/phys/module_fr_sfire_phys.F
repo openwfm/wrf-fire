@@ -976,7 +976,7 @@ integer, intent(in)::ifts,ifte,jfts,jfte                        ! fire tile boun
 integer, intent(in)::ifms,ifme,jfms,jfme                        ! memory array bounds
 real, intent(in):: fdx,fdy                                      ! fire mesh spacing
 integer,intent(in)::nfuel_cat0                                  ! default fuel category, if nfuel_cat=0
-real, intent(in),dimension(ifms:ifme, jfms:jfme)::nfuel_cat  ! fuel data
+real, intent(inout),dimension(ifms:ifme, jfms:jfme)::nfuel_cat  ! fuel data
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 type(fire_params),intent(inout)::fp
 
@@ -1008,11 +1008,11 @@ do j=jfts,jfte
         fp%phiwc(i,j)=0.
         fp%r_0(i,j)=0.             ! no fuel, no spread.
      else
-        if(k.eq.0.and.nfuel_cat0.ge.1.and.nfuel_cat0.le.nfuelcats)then
-            ! replace k=0 by default
-            k=nfuel_cat0
-            nerr=nerr+1
-        endif
+        ! if(k.eq.0.and.nfuel_cat0.ge.1.and.nfuel_cat0.le.nfuelcats)then
+        !     ! replace k=0 by default
+        !     k=nfuel_cat0
+        !     nerr=nerr+1
+        ! endif
    
         if(k.lt.1.or.k.gt.nfuelcats)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
