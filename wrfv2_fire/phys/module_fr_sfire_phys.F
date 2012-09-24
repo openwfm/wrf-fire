@@ -1019,6 +1019,9 @@ do j=jfts,jfte
             write(msg,'(3(a,i5))')'nfuel_cat(', i ,',',j,')=',k
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
             call message(msg)
+            if(k.eq.0)then
+                call message('Possibly nfuel_cat is uninitialized on input')
+            endif
             call crash('set_fire_params: fuel category out of bounds')
         endif
 
