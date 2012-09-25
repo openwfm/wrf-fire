@@ -77,5 +77,6 @@ saturation_rain = 8.0,8.0, !  stronger rain than this (mm/h) does not make much 
 rain_threshold = 0.05,0.05 ! mm/h rain too weak to wet anything.
 init_equi_mult = 1.,1., ! Constant multiplier that is used when initializing to equilibrium
                         ! initial moisture <- init_equi_mult * equilibrium
+fmc_gc_initialization =   2,     2,    ! 0 = from input, 1 = from fuelmc_g in namelist.input 2 = from equibrium
 /
 
