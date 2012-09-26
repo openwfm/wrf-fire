@@ -90,6 +90,6 @@ wetting_lag=            1e9,   1e9,   1e9,  1e9,   1e9, ! 14 is callibrated to V
 saturation_moisture=    2.5,   2.5,   2.5,  2.5,   2.5, ! ditto
 saturation_rain =       8.0,   8.0,   8.0,  8.0,   8.0, ! stronger rain than this (mm/h) does not make much difference.
 rain_threshold =       0.05,  0.05,  0.05,  0.05,  0.05,! mm/h rain too weak to wet anything.
-!fmc_gc_initialization =   0,     0,     0,     0,     0,! 0 = from input, 1 = from fuelmc_g in namelist.input 2 = from equibrium
+fmc_gc_initialization =   0,     0,     0,     0,     0,! 0 = from input, 1 = from fuelmc_g in namelist.input 2 = from equibrium
 /
 
