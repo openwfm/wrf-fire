@@ -23,6 +23,7 @@ real,pointer,dimension(:,:):: fgip                 ! init mass of surface fuel (
 real,pointer,dimension(:,:):: ischap               ! 1 if chapparal
 real,pointer,dimension(:,:):: fuel_time            ! time to burn to 1/e (s)
 real,pointer,dimension(:,:):: fmc_g                ! fuel moisture contents, ground (1)
+real,pointer,dimension(:,:):: nfuel_cat            ! fuel category (integer values)
 end type fire_params
 
 ! subroutines and functions 
@@ -840,8 +841,8 @@ real, intent(in):: maxwind,maxslope ! computer from zero to these
 
 integer:: iounit,k,j,i,isave
 type(fire_params)::fp
-real, dimension(1:3,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap,fmc_g,wind
-real, dimension(1:3,1:nsteps)::nfuel_cat,fuel_time,ros,fwh,fz0
+real, dimension(1:3,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap,fmc_g,wind,nfuel_cat
+real, dimension(1:3,1:nsteps)::fuel_time,ros,fwh,fz0
 real::ros_back,ros_wind,ros_slope,propx,propy,r
 
 if(.not.have_fuel_cats)call crash('write_fuels_m: fuel categories not yet set')
@@ -857,6 +858,7 @@ fp%r_0=>r_0
 fp%fgip=>fgip
 fp%ischap=>ischap
 fp%fmc_g=>fmc_g
+fp%nfuel_cat=>nfuel_cat
 
 iounit = open_text_file('fuels.m','write')
 
@@ -1008,6 +1010,8 @@ character(len=128)::msg
 
 if(.not.have_fuel_cats)call crash('set_fire_params: fuel categories not yet set')
 
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%fmc_g,'set_fire_params: fmc_g')
+
 nerr=0
 do j=jfts,jfte
    do i=ifts,ifte
@@ -1111,6 +1115,14 @@ do j=jfts,jfte
         fp%r_0(i,j)   = fp%r_0(i,j)   * adjr0(k)
         fp%phiwc(i,j) = fp%phiwc(i,j) * adjrw(k)
         fp%phisc(i,j) = fp%phisc(i,j) * adjrs(k)
+
+        ! test fmc
+        if(fp%r_0(i,j) > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+             write(msg,'(a,2i6,3(a,e13.5))') 'set_fire_params: at ',i,j,' base rate of spread',fp%r_0(i,j),' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+             call crash(msg)
+        endif
      endif
   enddo
 enddo
@@ -1348,9 +1360,10 @@ integer, intent(in)::i,j         ! node mesh coordinates
 type(fire_params),intent(in)::fp
 
 !*** local
-real:: umid, phis, phiw, spdms, umidm, excess, tanphim
+real:: umid, phis, phiw, spdms, umidm, excess, tanphim,ros
 real, parameter::ros_max=6.
 character(len=128)msg
+integer::k
 
 !*** executable
 
@@ -1426,7 +1439,16 @@ endif
 !
 !write(msg,*)i,j,' speed=',speed,' tanphi',tanphi,' ros=',ros_back,ros_wind,ros_slope
 !call message(msg)
-      return
+
+k = int(fp%nfuel_cat(i,j))
+ros=ros_back+ros_wind+ros_slope
+if(ros > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+      write(msg,'(a,2i6,3(a,e13.5))') 'set_fire_params: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+      call crash(msg)
+endif
+return
 
 contains
 real function nrm2(u,v)

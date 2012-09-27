@@ -1297,6 +1297,8 @@ subroutine set_fp_from_grid(grid,fp)
     fp%ischap => grid%ischap ! spread formula coeff
     fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
     fp%fmc_g => grid%fmc_g   ! fuel moisture, ground
+    fp%nfuel_cat => grid%nfuel_cat ! fuel category
+
 
 end subroutine set_fp_from_grid
 
