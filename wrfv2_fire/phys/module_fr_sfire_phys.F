@@ -1119,9 +1119,11 @@ do j=jfts,jfte
         ! test fmc
         if(fp%r_0(i,j) > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-             write(msg,'(a,2i6,3(a,e13.5))') 'set_fire_params: at ',i,j,' base rate of spread',fp%r_0(i,j),' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
+             write(msg,'(a,2i6,3(a,e14.6))') 'set_fire_params: at ',i,j,' base rate of spread',fp%r_0(i,j),' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
+             call message(msg)
+             write(msg,'(5(a,e14.6))')'rtemp1=',rtemp1,' etam=',etam
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-             call crash(msg)
+             call crash('propagation above extinction moisture')
         endif
      endif
   enddo
@@ -1401,6 +1403,14 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         ros_wind=-999.
         ros_slope=-999.
     endif
+    k = int(fp%nfuel_cat(i,j))
+    ros=ros_back+ros_wind+ros_slope
+    if(ros > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+          write(msg,'(a,2i6,3(a,e13.5))') 'fire_ros_cawfe: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+          call crash(msg)
+    endif
 !
 else   ! chaparral model from Clark et al 2004
 !        .... spread rate has no dependency on fuel character, only windspeed.
@@ -1440,14 +1450,6 @@ endif
 !write(msg,*)i,j,' speed=',speed,' tanphi',tanphi,' ros=',ros_back,ros_wind,ros_slope
 !call message(msg)
 
-k = int(fp%nfuel_cat(i,j))
-ros=ros_back+ros_wind+ros_slope
-if(ros > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-      write(msg,'(a,2i6,3(a,e13.5))') 'set_fire_params: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-      call crash(msg)
-endif
 return
 
 contains
