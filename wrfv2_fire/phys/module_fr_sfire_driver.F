@@ -828,6 +828,7 @@ do ij=1,num_tiles
     endif
 
     call sfire_model (id,ifun,restart,  &
+        run_fuel_moisture,                      & ! if fuel moisture needs to be updated
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
         ifds,ifde,jfds,jfde,                    & ! fire domain dims
         ifms,ifme,jfms,jfme,                    & ! fire memory dims
@@ -1297,6 +1298,8 @@ subroutine set_fp_from_grid(grid,fp)
     fp%ischap => grid%ischap ! spread formula coeff
     fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
     fp%fmc_g => grid%fmc_g   ! fuel moisture, ground
+    fp%nfuel_cat => grid%nfuel_cat ! fuel category
+
 
 end subroutine set_fp_from_grid
 

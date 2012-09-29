@@ -156,7 +156,6 @@
  fmoist_interp = .true.,     ! interpolate moisture to fuels
  fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
  fmoist_dt = 10,             ! moisture model time step (s)
- fmoist_init = 2,            ! set initial moisture 1= fuelmc_g from namelist.fire, 2=equilibrium, other=none
 !
 ! verbosity
  fire_print_msg     = 0,        ! 1 print fire debugging messages
