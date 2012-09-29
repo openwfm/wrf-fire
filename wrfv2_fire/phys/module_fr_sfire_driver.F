@@ -92,7 +92,7 @@ public sfire_driver_em,use_atm_vars,set_flags,fire_ignition_convert, &
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
 
-logical:: moisture_run, moisture_interp, fire_run  ! which kind of model to run overall
+logical:: fmoist_run, fmoist_interp, fire_run  ! which kind of model to run overall
 
 contains
 
@@ -185,8 +185,9 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ! **** moisture model
 
     ! decide what to run - moisture, interpolation, or fire model itself
-    moisture_run    = config_flags%fmoist_run
-    moisture_interp = config_flags%fmoist_interp 
+    fmoist_run    = config_flags%fmoist_run
+    fmoist_interp = config_flags%fmoist_interp 
+    if(fire_fmc_read.ne.0.and.fmoist_run)call crash('fmoist_run=T requires fire_fmc_read=0')
     fire_run = .not. config_flags%fmoist_only
 
     !decide what to run
@@ -197,7 +198,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     
     
     
-    if(moisture_run)then
+    if(fmoist_run)then
         if(moisture_initializing)then
             if(fire_ifun_end>2)call crash('initialization must be run separately')
             grid%fmoist_lasttime=moisture_time ! initialize the last time the model has run to start of run
@@ -229,13 +230,13 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
                     write(msg,'(a,f12.2,a,f12.2,a)')'moisture time step is ',dt_moisture,'s next run at ',grid%fmoist_nexttime,'s'
                     call message(msg)
                 endif
-                if(moisture_interp)then
+                if(fmoist_interp)then
                     call message('moisture interpolation to fuels will run because moisture model does')
                     run_fuel_moisture=.true.
                 endif
             endif
         endif
-    elseif(itimestep.eq.1.and.moisture_interp)then
+    elseif(itimestep.eq.1.and.fmoist_interp)then
             call message('initializing, moisture interpolation to fuels will run from input data')
             run_fuel_moisture=.true.
     endif
@@ -586,7 +587,7 @@ if(fire_print_file.gt.0)then
 endif
 
 if(ifun.eq.1)then
-         call init_fuel_cats(moisture_run .or. moisture_interp) ! properties of fuel categories and moisture classes from namelist.fire
+         call init_fuel_cats(fmoist_run .or. fmoist_interp) ! properties of fuel categories and moisture classes from namelist.fire
 endif
 
 if(ifun.eq.3)then
