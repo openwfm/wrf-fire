@@ -368,8 +368,13 @@ real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc
 real, parameter::tol=1e-2 ! relative change larger than that will switch to exponential ode solver 
 character(len=256)::msg
 integer::msglevel=2
-logical, parameter::check_data=.true.,check_rh=.false.
-real::epsilon,Pws,Pw
+logical, parameter::check_rh=.false.
+integer::check_data=2  ! 0=nothing, 1=replace data quietly, 2=warning, 3=crash
+real::epsilon,Pws,Pw,t2_min,q2_min,psfc_min
+real::t2_floor=200.    ! minimum allowed temperature (K)
+real::q2_floor=1e-8    ! miniumu allowed moisture contents (kg/kg)
+real::psfc_floor=1000. ! mimimum allowed surface pressiure (Pa)
+
 
 !*** executable
 
@@ -377,9 +382,9 @@ real::epsilon,Pws,Pw
 
 if(msglevel>1)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-    write(msg,'(a,f10.2,a,i4,a,i4)')'advance moisture dt=',moisture_dt,'s using ',moisture_classes,' classes from possible ',nfmc
+    write(msg,'(a,f10.2,a,i4,a,i4)')'advance_moisture dt=',moisture_dt,'s using ',moisture_classes,' classes from possible ',nfmc
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-    call message(msg)
+    call message(msg,level=2)
 endif
 
 if(moisture_classes > nfmc .or. moisture_classes > max_moisture_classes)then
@@ -401,18 +406,30 @@ else
     call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
 endif
 
-if(check_data)then
+if(check_data > 1)then
+    t2_min = huge(t2_min)
+    q2_min = huge(q2_min)
+    psfc_min = huge(psfc_min)
     do j=jts,jte
         do i=its,ite
-            if( .not.(t2(i,j)>0.0 .and. psfc(i,j)>0.0 .and. .not. q2(i,j) < 0.0 ))then
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-                 write(msg,'(a,2i4,a,3e12.2)')'At i j',i,j,' t2 psfc q2 are ',t2(i,j),psfc(i,j),q2(i,j)
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-                 call message(msg) 
-                 call crash('invalid data passed from WRF, must have t2 psfc>0, q2 >= 0')
-            endif
+            t2_min=min(t2(i,j),t2_min)
+            q2_min=min(q2(i,j),q2_min)
+            psfc_min=min(psfc(i,j),psfc_min)
         enddo
     enddo
+    if( t2_min<t2_floor .or. psfc_min<psfc_floor .or. q2_min<q2_floor)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+91      format(3(a,' min',e12.2,' floor',e12.2,1x))
+        write(msg,91)'t2',t2_min,t2_floor,'q2',q2_min,q2_floor,'psfc',psfc_min,psfc_floor
+        call message(msg,level=0) 
+        select case(check_data)
+        case(2) 
+            call message('WARNING: advance_moisture: nonphysical input values replaced by floor',level=0)
+        case(3)
+            call crash('advance_moisture: invalid data passed from WRF')
+        end select 
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+    endif
 endif
 
 ! one time step
@@ -440,6 +457,13 @@ do j=jts,jte
             T = 0.5 * (t2_old(i,j) + t2(i,j))
             P = 0.5 * (psfc_old(i,j) + psfc(i,j))
             Q = 0.5 * (q2_old(i,j) + q2(i,j))
+
+            ! replace nonphysical values by floor
+            if(check_data>0)then
+                T = max(T,t2_floor)
+                P = max(P,psfc_floor)
+                Q = max(Q,q2_floor)
+	    endif
 
             ! compute the relative humidity
             ! ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
