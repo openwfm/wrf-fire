@@ -407,7 +407,7 @@ else
     call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
 endif
 
-if(check_data > 0 .or.msglevel.ge.2)then
+if(check_data.ge.2 .or. msglevel.ge.2)then
     t2_min = huge(t2_min)
     q2_min = huge(q2_min)
     psfc_min = huge(psfc_min)
