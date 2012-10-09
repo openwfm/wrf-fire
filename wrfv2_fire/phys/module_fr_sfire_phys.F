@@ -367,9 +367,10 @@ real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc
     d, w, rhmax, rhmin, change, rainmax,rainmin, fmc_old, H
 real, parameter::tol=1e-2 ! relative change larger than that will switch to exponential ode solver 
 character(len=256)::msg
+logical::bad_wrf
 integer::msglevel=2
 logical, parameter::check_rh=.false.
-integer::check_data=2  ! 0=nothing, 1=replace data quietly, 2=warning, 3=crash
+integer::check_data=3  ! 0=nothing, 1=replace quietly, 2=warning (also printed if msglevel>2), 3=crash
 real::epsilon,Pws,Pw,t2_min,q2_min,psfc_min
 real::t2_floor=200.    ! minimum allowed temperature (K)
 real::q2_floor=1e-8    ! miniumu allowed moisture contents (kg/kg)
@@ -406,7 +407,7 @@ else
     call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
 endif
 
-if(check_data > 1)then
+if(check_data > 0 .or.msglevel.ge.2)then
     t2_min = huge(t2_min)
     q2_min = huge(q2_min)
     psfc_min = huge(psfc_min)
@@ -417,17 +418,21 @@ if(check_data > 1)then
             psfc_min=min(psfc(i,j),psfc_min)
         enddo
     enddo
-    if( t2_min<t2_floor .or. psfc_min<psfc_floor .or. q2_min<q2_floor)then
+    bad_wrf = ( t2_min<t2_floor .or. psfc_min<psfc_floor .or. q2_min<q2_floor)
+    if(bad_wrf .or. msglevel.ge.2)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-91      format(3(a,' min',e12.2,' floor',e12.2,1x))
-        write(msg,91)'t2',t2_min,t2_floor,'q2',q2_min,q2_floor,'psfc',psfc_min,psfc_floor
+91      format(a,3(2x,a,e11.3))
+        write(msg,91)'minimal  ','t2',t2_min,'q2',q2_min,'psfc',psfc_min
         call message(msg,level=0) 
-        select case(check_data)
-        case(2) 
-            call message('WARNING: advance_moisture: nonphysical input values replaced by floor',level=0)
-        case(3)
+        write(msg,91)'floor    ','t2',t2_floor,'q2',q2_floor,'psfc',psfc_floor
+        call message(msg,level=0) 
+        if(check_data.ge.3)then
+    endif
+    if(bad_wrf)then
             call crash('advance_moisture: invalid data passed from WRF')
-        end select 
+        else
+            call message('WARNING: advance_moisture: nonphysical input values replaced by floor',level=0)
+        endif
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     endif
 endif
@@ -459,7 +464,7 @@ do j=jts,jte
             Q = 0.5 * (q2_old(i,j) + q2(i,j))
 
             ! replace nonphysical values by floor
-            if(check_data>0)then
+            if(check_data .ge. 1)then
                 T = max(T,t2_floor)
                 P = max(P,psfc_floor)
                 Q = max(Q,q2_floor)
