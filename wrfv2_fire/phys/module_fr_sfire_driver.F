@@ -74,7 +74,7 @@ use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
-use module_fr_sfire_core, only: ignition_type,fire_max_ignitions
+!use module_fr_sfire_util, only: lines_type,fire_max_lines
 
 
 ! WRF dependencies
@@ -92,7 +92,7 @@ public sfire_driver_em,use_atm_vars,set_flags,fire_ignition_convert, &
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
 
-logical:: moisture_run, moisture_interp, fire_run  ! which kind of model to run overall
+logical:: fmoist_run, fmoist_interp, fire_run  ! which kind of model to run overall
 
 contains
 
@@ -134,7 +134,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
              ifps,ifpe, jfps,jfpe 
 
 !*** local
-    TYPE(ignition_type):: ignition
+    TYPE(lines_type):: ignition, hfx
     integer::fire_ifun,ir,jr,istep,itimestep,i
     logical::restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
@@ -161,6 +161,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ! **** THE FOLLOWING REALLY SHOULD BE DONE ONCE NOT EVERY TIMESTEP
     ! get ignition data 
     call fire_ignition_convert (config_flags,ignition)
+    call fire_hfx_convert (config_flags,hfx)
 
 ! store computed mesh units  
     grid%unit_fxlong = ignition%unit_fxlong
@@ -175,8 +176,8 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     jr=grid%sr_y
     write(msg,'(a,2i4)')'fire mesh refinement ratios', ir,jr
     call message(msg)
-    if(ir.le.0.or.jr.le.0.or.mod(ir,2).ne.0.or.mod(jr,2).ne.0)then
-        call crash('fire mesh refinement ratio must be positive even')
+    if(ir.le.0.or.jr.le.0)then
+        call crash('fire mesh refinement ratio must be positive')
     endif
     itimestep=grid%itimestep
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
@@ -184,8 +185,9 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ! **** moisture model
 
     ! decide what to run - moisture, interpolation, or fire model itself
-    moisture_run    = config_flags%fmoist_run
-    moisture_interp = config_flags%fmoist_interp 
+    fmoist_run    = config_flags%fmoist_run
+    fmoist_interp = config_flags%fmoist_interp 
+    if(fire_fmc_read.ne.0.and.fmoist_run)call crash('fmoist_run=T requires fire_fmc_read=0')
     fire_run = .not. config_flags%fmoist_only
 
     !decide what to run
@@ -196,7 +198,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     
     
     
-    if(moisture_run)then
+    if(fmoist_run)then
         if(moisture_initializing)then
             if(fire_ifun_end>2)call crash('initialization must be run separately')
             grid%fmoist_lasttime=moisture_time ! initialize the last time the model has run to start of run
@@ -228,13 +230,13 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
                     write(msg,'(a,f12.2,a,f12.2,a)')'moisture time step is ',dt_moisture,'s next run at ',grid%fmoist_nexttime,'s'
                     call message(msg)
                 endif
-                if(moisture_interp)then
+                if(fmoist_interp)then
                     call message('moisture interpolation to fuels will run because moisture model does')
                     run_fuel_moisture=.true.
                 endif
             endif
         endif
-    elseif(itimestep.eq.1.and.moisture_interp)then
+    elseif(itimestep.eq.1.and.fmoist_interp)then
             call message('initializing, moisture interpolation to fuels will run from input data')
             run_fuel_moisture=.true.
     endif
@@ -317,7 +319,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             time_step_start,dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
-            ignition,              &
+            ignition,hfx,              &  ! lines
             grid%u_2,grid%v_2,           &          ! atm arrays in
             grid%ph_2,grid%phb,               & ! geopotential
             grid%z0,                        & ! roughness height
@@ -334,12 +336,12 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,& ! fire risk spread 
             grid%f_int,grid%f_lineint,grid%f_lineint2,     & ! fire risk intensities 
             grid%fxlong,grid%fxlat,                           &       
+            grid%fire_hfx,                                & !
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,                      & 
             grid%fz0, grid%fwh,                    &
             fp,                                    & ! structure with pointers passed to spread rate calculation
             config_flags%nfmc,         & ! moisture model variables start
-            config_flags%fmoist_init, &
             run_advance_moisture,run_fuel_moisture,dt_moisture,     &    ! moisture model control
             grid%rainc, grid%rainnc,                       & ! accumulated rain from different sources
             grid%t2, grid%q2, grid%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -397,8 +399,8 @@ subroutine sfire_driver_phys (ifun,    &
     time_step_start,dt,dx,dy,                     & ! in scalars
     u_frame,v_frame,                              &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
-    ignition,                                     &
-    u,v,                                       & ! in arrays, atm grid
+    ignition,hfx,                                 & ! lines
+    u,v,                                          & ! in arrays, atm grid
     ph,phb,                                       &
     z0,zs,                                        & 
     xlong,xlat,                                   &
@@ -413,12 +415,12 @@ subroutine sfire_driver_phys (ifun,    &
     f_ros0,f_rosx,f_rosy,f_ros,                   & ! fire risk spread 
     f_int,f_lineint,f_lineint2,                   & ! fire risk intensities 
     fxlong,fxlat,                                 & !  
+    fire_hfx,                                     & ! 
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,                                & ! save constant internal data, fire grid
     fz0,fwh,                                      &
     fp,                                           & ! fire params
     nfmc,                                     & ! number of fuel moisture classes
-    fmoist_init,                                    &
     run_advance_moisture,run_fuel_moisture,dt_moisture,& ! moisture model control
     rainc,rainnc,              & ! accumulated rain from different sources
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -467,7 +469,7 @@ real, intent(in):: &
     fire_ext_crwn                                   ! and for the canopy (m) 
 
 
-TYPE (ignition_type), intent(inout):: ignition
+TYPE (lines_type), intent(inout):: ignition,hfx
 
 real,intent(in),dimension(ims:ime,kms:kme,jms:jme)::u,v, & ! wind velocity (m/s) (staggered atm grid) 
                               ph, phb                      ! geopotential (w-points atm grid)
@@ -509,7 +511,6 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
     
 ! moisture model arguments
 logical, intent(in)::run_advance_moisture,run_fuel_moisture
-integer, intent(in)::fmoist_init
 real, intent(in)::dt_moisture
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
@@ -522,7 +523,8 @@ real, intent(inout), dimension(ifms:ifme,jfms:jfme):: fmc_g
 
 !  ***** data (constant in time) *****
 
-real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat ! fire mesh coordinates
+real, dimension(ifms:ifme, jfms:jfme), intent(inout)::fxlong,fxlat, & ! fire mesh coordinates
+    fire_hfx
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::fuel_time   ! fire params arrays
 
 type(fire_params),intent(inout)::fp
@@ -585,7 +587,7 @@ if(fire_print_file.gt.0)then
 endif
 
 if(ifun.eq.1)then
-         call init_fuel_cats(moisture_run .or. moisture_interp) ! properties of fuel categories and moisture classes from namelist.fire
+         call init_fuel_cats(fmoist_run .or. fmoist_interp) ! properties of fuel categories and moisture classes from namelist.fire
 endif
 
 if(ifun.eq.3)then
@@ -656,7 +658,6 @@ do ij=1,num_tiles
           call message('advance_moisture start')
           call advance_moisture(    &
               itimestep.eq.1,             & ! initialize?
-              fmoist_init,                & ! how to initialize if we do
               ims,ime,  jms,jme,          & ! memory dimensions
               its,ite,  jts,jte,          & ! tile dimensions
               nfmc,                       & ! number of moisture fields
@@ -822,12 +823,13 @@ do ij=1,num_tiles
         fmc_g                                & ! weighted fuel moisture contents on fire grid
         )
         call message('fuel_moisture end')
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
       endif
+      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
 
     endif
 
     call sfire_model (id,ifun,restart,  &
+        run_fuel_moisture,                      & ! if fuel moisture needs to be updated
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
         ifds,ifde,jfds,jfde,                    & ! fire domain dims
         ifms,ifme,jfms,jfme,                    & ! fire memory dims
@@ -835,9 +837,10 @@ do ij=1,num_tiles
         ifts,ifte,jfts,jfte,                    & ! fire patch dims
         time_start,dt,                          & ! time and increment
         dxf,dyf,                                & ! fire mesh spacing
-        ignition,                          & ! description of ignition lines
+        ignition,hfx,                           & ! description of ignition lines
         fxlong,fxlat,                           & ! fire mesh coordinates
-        lfn,lfn_out,tign,fuel_frac,                     & ! state: level function, ign time, fuel left
+        fire_hfx,                               & ! given heat flux
+        lfn,lfn_out,tign,fuel_frac,             & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         ros,flineint,flineint2,                 & ! diagnostic variables
@@ -1013,15 +1016,19 @@ subroutine fire_ignition_convert (config_flags,ignition)
 ! create ignition arrays from scalar flags
 !*** arguments
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-    TYPE (ignition_type), INTENT(OUT):: ignition ! any values from input discarded 
+    TYPE (lines_type), INTENT(OUT):: ignition ! any values from input discarded 
 !*** local
     integer::i
     logical:: real,ideal
-    real::lat_ctr,lon_ctr
     character(len=128)msg
 !*** executable
+
+    ignition%max_lines=5 ! number of lines that have entries in the namelist
+    ignition%num_lines=config_flags%fire_num_ignitions
+
     ! this is only until I figure out how to input arrays through the namelist...
-    if(fire_max_ignitions.lt.5)call crash('fire_max_ignitions too small')
+    if(fire_max_lines.lt.ignition%max_lines)call crash('fire_max_lines too small')
+
     ! figure out which kind of coordinates from the first given
     ideal=config_flags%fire_ignition_start_x1 .ne.0. .or. config_flags%fire_ignition_start_y1 .ne. 0.
     real=config_flags%fire_ignition_start_lon1 .ne. 0. .or. config_flags%fire_ignition_start_lat1 .ne. 0.
@@ -1100,62 +1107,141 @@ subroutine fire_ignition_convert (config_flags,ignition)
        ignition%line(5)%start_time=config_flags%fire_ignition_start_time5
        ignition%line(5)%end_time=config_flags%fire_ignition_end_time5
 
-    ! 
-        ignition%num_ignitions=0      
-        do i=1,min(5,config_flags%fire_num_ignitions)
-            ! count the ignitions 
-            if(ignition%line(i)%radius.gt.0.)ignition%num_ignitions=i
+       call postprocess_lines(ignition,'ros',config_flags)
+
+     end subroutine fire_ignition_convert
+
+     subroutine postprocess_lines(lines,value_name,config_flags)
+!      count lines, fill endpoints, print stats
+!***   arguments
+        type(lines_type), intent(inout)::lines
+        character(len=3), intent(in)::value_name  
+        TYPE (grid_config_rec_type) , INTENT(IN)  :: config_flags ! namelist
+!***   local
+     integer::i,n
+     real::value
+     real::lat_ctr,lon_ctr
+     character(len=128)msg,f2,f3
+!***   executable
+
+        n=lines%num_lines
+        do i=1,n
+            ! find the last line that has positive radius and reset num_lines if needed
+            if(lines%line(i)%radius.gt.0.)lines%num_lines=i
             ! expand ignition data given as zero
-            if(ignition%line(i)%end_x.eq.0.)ignition%line(i)%end_x=ignition%line(i)%start_x
-            if(ignition%line(i)%end_y.eq.0.)ignition%line(i)%end_y=ignition%line(i)%start_y
-            if(ignition%line(i)%end_time.eq.0.)ignition%line(i)%end_time=ignition%line(i)%start_time
+            if(lines%line(i)%end_x.eq.0.)lines%line(i)%end_x=lines%line(i)%start_x
+            if(lines%line(i)%end_y.eq.0.)lines%line(i)%end_y=lines%line(i)%start_y
+            if(lines%line(i)%end_time.eq.0.)lines%line(i)%end_time=lines%line(i)%start_time
         enddo
 
-    if(ignition%longlat .eq. 0)then
+    if(lines%longlat .eq. 0)then
        ! ideal
        !  ignition is in m
-       ignition%unit_fxlong=1.  
-       ignition%unit_fxlat=1.
+       lines%unit_fxlong=1.  
+       lines%unit_fxlat=1.
        ! will set fire mesh coordinates to uniform mesh below
     else
        ! real
        lat_ctr=config_flags%cen_lat
        lon_ctr=config_flags%cen_lon
        ! 1 degree in m (approximate OK)
-       ignition%unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
-       ignition%unit_fxlong=cos(lat_ctr*pi2/360.)*ignition%unit_fxlat  ! latitude
+       lines%unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
+       lines%unit_fxlong=cos(lat_ctr*pi2/360.)*lines%unit_fxlat  ! latitude
     endif
 
     if(fire_print_msg.ge.2)then
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-       if(ignition%longlat .eq. 0)then
-         write(msg,1)'start x','start y','end x','end y','start t','end t','ros','radius'
+       if(lines%longlat .eq. 0)then
+         write(msg,1)'start x','start y','end x','end y','start t','end t',value_name,'radius'
        else
-         write(msg,1)'start lon','start lat','end lon','end lat','start time','end time','ros','radius'
+         write(msg,1)'start lon','start lat','end lon','end lat','start time','end time',value_name,'radius'
        endif
 1      format(4a10,4a9)
-2      format(4f10.3,4f9.2)
-3      format(4f10.5,4f9.2)
        call message(msg)
-       do i=1,5
-         if(ignition%longlat .eq. 0)then
-           write(msg,2)ignition%line(i)%start_x, ignition%line(i)%start_y, &
-                      ignition%line(i)%end_x,  ignition%line(i)%end_y,        &
-                      ignition%line(i)%start_time, ignition%line(i)%end_time, &
-                      ignition%line(i)%ros, ignition%line(i)%radius
+       do i=1,lines%num_lines
+         select case (value_name)
+              case ('ros')
+                  value = lines%line(i)%ros
+                  f2='(4f10.3,4f9.2)'
+                  f3='(4f10.5,4f9.2)'
+              case ('hfx')
+                  value = lines%line(i)%hfx_value
+                  f2='(4f10.3,2f9.2,e9.2,f9.2)'
+                  f3='(4f10.5,2f9.2,e9.2,f9.2)'
+              case default
+                  call crash('postprocess_lines: bad value_name '//value_name)
+         end select
+         if(lines%longlat .eq. 0)then
+           write(msg,f2)lines%line(i)%start_x, lines%line(i)%start_y, &
+                      lines%line(i)%end_x,  lines%line(i)%end_y,        &
+                      lines%line(i)%start_time, lines%line(i)%end_time, &
+                      value, lines%line(i)%radius
          else
-           write(msg,3)ignition%line(i)%start_x, ignition%line(i)%start_y, &
-                      ignition%line(i)%end_x,  ignition%line(i)%end_y,        &
-                      ignition%line(i)%start_time, ignition%line(i)%end_time, &
-                      ignition%line(i)%ros, ignition%line(i)%radius
+           write(msg,f3)lines%line(i)%start_x, lines%line(i)%start_y, &
+                      lines%line(i)%end_x,  lines%line(i)%end_y,        &
+                      lines%line(i)%start_time, lines%line(i)%end_time, &
+                      value, lines%line(i)%radius
          endif
          call message(msg)
+         if(lines%line(i)%start_time > lines%line(i)%end_time)then
+              call crash('start time may not be after end time')
+         endif
        enddo
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
      endif
+end subroutine postprocess_lines
 
-end subroutine fire_ignition_convert
 
+subroutine fire_hfx_convert (config_flags,hfx)
+    implicit none
+! create heat flux line(s) from scalar flags
+!*** arguments
+    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+    TYPE (lines_type), INTENT(OUT):: hfx ! any values from input discarded 
+!*** local
+    integer::i
+    logical:: real,ideal
+    real::lat_ctr,lon_ctr
+    character(len=128)msg
+!*** executable
+    ! this is only until I figure out how to input arrays through the namelist...
+    hfx%num_lines=config_flags%fire_hfx_num_lines
+    if(fire_max_lines.lt.hfx%num_lines)call crash('fire_max_lines too small')
+
+    ! figure out which kind of coordinates from the first given
+    ideal=config_flags%fire_hfx_start_x1 .ne.0. .or. config_flags%fire_hfx_start_y1 .ne. 0.
+    real=config_flags%fire_hfx_start_lon1 .ne. 0. .or. config_flags%fire_hfx_start_lat1 .ne. 0.
+    if(ideal)call message('Using ideal heat flux line coordinates, m from the lower left domain corner')
+    if(real)call message('Using real heat flux line coordinates, longitude and latitude')
+    if(ideal.and.real)call crash('Only one of the ideal or real coordinates may be given')
+
+    hfx%longlat=0  ! default, if no ignition
+    if(ideal)then
+       ! use values from _x and _y variables
+       hfx%longlat=0
+       hfx%line(1)%start_x=config_flags%fire_hfx_start_x1
+       hfx%line(1)%start_y=config_flags%fire_hfx_start_y1
+       hfx%line(1)%end_x=config_flags%fire_hfx_end_x1
+       hfx%line(1)%end_y=config_flags%fire_hfx_end_y1
+    endif
+    if(real)then
+        ! use values from _long and _lat
+       hfx%longlat=1
+       hfx%line(1)%start_x=config_flags%fire_hfx_start_lon1
+       hfx%line(1)%start_y=config_flags%fire_hfx_start_lat1
+       hfx%line(1)%end_x=config_flags%fire_hfx_end_lon1
+       hfx%line(1)%end_y=config_flags%fire_hfx_end_lat1
+    endif
+    ! common to both cases
+       hfx%line(1)%radius=config_flags%fire_hfx_radius1 
+       hfx%line(1)%start_time=config_flags%fire_hfx_start_time1 
+       hfx%line(1)%end_time=config_flags%fire_hfx_end_time1 
+       hfx%line(1)%trans_time=config_flags%fire_hfx_trans_time1 
+       hfx%line(1)%hfx_value=config_flags%fire_hfx_value1 
+
+       call postprocess_lines(hfx,'hfx',config_flags)
+
+end subroutine fire_hfx_convert
 
 subroutine set_flags(config_flags)
 USE module_configure
@@ -1170,10 +1256,10 @@ fire_print_file         = config_flags%fire_print_file
 fuel_left_method        = config_flags%fire_fuel_left_method
 fuel_left_irl           = config_flags%fire_fuel_left_irl
 fuel_left_jrl           = config_flags%fire_fuel_left_jrl
-fire_const_time         = config_flags%fire_const_time
-fire_const_grnhfx       = config_flags%fire_const_grnhfx
-fire_const_grnqfx       = config_flags%fire_const_grnqfx
 fire_atm_feedback       = config_flags%fire_atm_feedback
+fire_hfx_given          = config_flags%fire_hfx_given
+fire_hfx_num_lines      = config_flags%fire_hfx_num_lines
+fire_hfx_latent_part    = config_flags%fire_hfx_latent_part
 boundary_guard          = config_flags%fire_boundary_guard
 fire_back_weight        = config_flags%fire_back_weight
 fire_grows_only         = config_flags%fire_grows_only
@@ -1213,6 +1299,8 @@ subroutine set_fp_from_grid(grid,fp)
     fp%ischap => grid%ischap ! spread formula coeff
     fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
     fp%fmc_g => grid%fmc_g   ! fuel moisture, ground
+    fp%nfuel_cat => grid%nfuel_cat ! fuel category
+
 
 end subroutine set_fp_from_grid
 

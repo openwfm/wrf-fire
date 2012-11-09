@@ -15,10 +15,10 @@
  end_hour                            = 00,   00,   00,
  end_minute                          = 600,   600,   600,
  end_second                          = 00,   00,   00,
- history_interval_s                  = 1,   30,   30,
- frames_per_outfile                  = 10, 1000, 1000,
+ history_interval_s                  = 5,   30,   30,
+ frames_per_outfile                  = 2, 1000, 1000,
  restart                             = .false.,
- restart_interval_s                  = 100
+ restart_interval_s                  = 10
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
@@ -151,7 +151,8 @@
  !fire_ignition_start_time3 = 4,  ! sec for ignition from the start! end ignition for sfire
  !fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 ! moisture model
- fmoist_run = .true.,        ! run the moisture model
+ fire_fmc_read=0,            ! fmg_g not set
+ fmoist_run = .true.,        ! run the moisture model, set to false to keep moisture constant
  fmoist_interp = .true.,     ! interpolate moisture to fuels
  fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
  fmoist_dt = 10,             ! moisture model time step (s)

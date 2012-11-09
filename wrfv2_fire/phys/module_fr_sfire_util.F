@@ -39,23 +39,25 @@ integer,save::          &
  fire_advection=0,      &  ! 0 = fire spread from normal wind/slope (CAWFE), 1 = full speed projected
  fire_wind_log_interp=4,&  ! kind of vertical log layer wind interpolation, see driver
  fire_use_windrf=0,     &  ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
- fire_fmc_read=1           ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
+ fire_fmc_read=1,       &  ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
+ fire_hfx_given=0,      &  ! "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 4=by parameters" ""
+ fire_hfx_num_lines=1        ! number of heatflux parameter sets defining the heaflux lines (must be 1) 
  
 
 real, save::            &
  fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign in ideal
- fire_const_time=-1.,    &  ! time from ignition to start constant heat output  <0=never
- fire_const_grnhfx=-1., &  ! if both >=0, the constant heat flux to output then
- fire_const_grnqfx=-1., &  ! if both >=0, the constant heat flux to output then
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
  fire_back_weight=0.5,  &  ! RK parameter, 0 = Euler method, 0.5 = Heun, 1 = fake backward Euler
  fire_viscosity=0.4,    &  ! artificial viscosity
- fire_lfn_ext_up=1.        ! 0.=extend level set function at boundary by reflection, 1.=always up
+ fire_lfn_ext_up=1,     &  ! 0.=extend level set function at boundary by reflection, 1.=always up
+ fire_hfx_value=0.,     &  ! heat flux value specified when given by parameterst flux value specified when given by parameters:w
+ fire_hfx_latent_part=0.084   ! proportion of the given heat flux released as latent, the rest is sensible
+
 
 integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
 
 ! describe one ignition line
-type ignition_line_type
+type line_type
   REAL  ros, &          ! subscale rate of spread during the ignition process
         stop_time, &    ! when the ignition process stops from ignition start (s)
         wind_red,  &    ! wind reduction factor at the ignition line
@@ -65,20 +67,23 @@ type ignition_line_type
         start_y, &      ! y coordinate of the ignition line start point
         end_x, &        ! x coordinate of the ignition line end point
         end_y, &        ! y coordinate of the ignition line end point
-        start_time, &   ! ignition time for the start point from simulation start (s)
-        end_time, &     ! ignition time for the end poin from simulation start (s)
-        radius          ! all within this radius ignites immediately
-end type ignition_line_type
+        start_time, &   ! time for the start point from simulation start (s)
+        end_time, &     ! time for the end poin from simulation start (s)
+        trans_time, &   ! transition time (s)
+        radius, &       ! thickness of the line
+        hfx_value       ! heat flux value associated with the line
+end type line_type
 
-integer, parameter:: fire_max_ignitions=5
+integer, parameter:: fire_max_lines=5
 
 ! container type for all ignitions and associated scalars
-type ignition_type
-    type(ignition_line_type):: line(fire_max_ignitions) ! descriptions of ignition lines
-    integer:: num_ignitions, &      ! number of ignitions specified
+type lines_type
+    type(line_type):: line(fire_max_lines) ! descriptions of ignition lines
+    integer:: num_lines, &      ! number of lines used
+        max_lines,       &      ! max number of lines that can be specified through namelist
         longlat                     ! 0 for ideal, 1 for real
     real::  unit_fxlong,unit_fxlat  ! degree of longtitude/latitude in m; 1m for ideal
-end type ignition_type
+end type lines_type
 
 contains
 
@@ -360,7 +365,7 @@ if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+halo
 if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+halo
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
-call message(msg)
+call message(msg,level=3)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 if(ix.ne.0)then
     if(its.eq.ids)then
@@ -377,7 +382,7 @@ if(ix.ne.0)then
     endif
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: x:',its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jts1,':',jte1
-    call message(msg)
+    call message(msg,level=3)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 endif
 if(iy.ne.0)then
@@ -396,7 +401,7 @@ if(iy.ne.0)then
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: y:',its,':',ite,',',jts,':',jte,' ->',its1,':',ite1,',',jtso,':',jteo
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-    call message(msg)
+    call message(msg,level=3)
 endif
 ! corners of the domain
 if(ix.ne.0.and.iy.ne.0)then

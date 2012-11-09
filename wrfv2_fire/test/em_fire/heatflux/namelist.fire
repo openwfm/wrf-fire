@@ -1,5 +1,5 @@
 &fuel_scalars                      ! scalar fuel constants
-fire_wind_height = 6.096,          ! height to take wind from (m), 6.096 Behave, 0 to use fwh
+fire_wind_height = 6.096,          ! height to interpolate wind to (m), 6.096 Behave, 0 to use fwh in each category  
 cmbcnst  = 17.433e+06,             ! J/kg combustion heat dry fuel
 hfgl     = 17.e4 ,                 ! W/m^2 heat flux to ignite canopy
 fuelmc_g = 0.08,                   ! ground fuel moisture, set = 0 for dry
@@ -26,7 +26,13 @@ no_fuel_cat = 14                   ! extra category for no fuel
 '13: Heavy logging slash',
 '14: no fuel'
  windrf= 0.36, 0.36, 0.44,  0.55,  0.42,  0.44,  0.44,
-         0.36, 0.36, 0.36,  0.36,  0.43,  0.46, 1e-7
+         0.36, 0.36, 0.36,  0.36,  0.43,  0.46, 1e-7,
+ fwh =   6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096,
+         6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096,
+! roughness length 0.13*fueldepthm except cat 3 fz0=0.1 for consistency with landuse 
+ ! fz0 =   0.0396,0.0396,0.0991,0.2378,0.0793,0.0991,0.0991,  
+ fz0 =   0.0396,0.0396,0.1000,0.2378,0.0793,0.0991,0.0991, 
+         0.0079,0.0079,0.0396,0.0396,0.0911,0.1188,0.0396,
  fgi =  0.166, 0.897, 0.675, 2.468, 0.785, 1.345, 1.092, 
 !jc fgi=  0.166, 0.897, 1.076, 2.468, 0.785, 1.345, 1.092
         1.121, 0.780, 2.694, 2.582, 7.749, 13.024, 1.e-7, 
@@ -52,31 +58,8 @@ no_fuel_cat = 14                   ! extra category for no fuel
 !      1.121, 1.121, 1.121, 1.121, 1.121, 1.121, 0., 
 ! fct = 60., 60., 60., 60., 60., 60., 60.,  
 !      60., 120., 180., 180., 180., 180. , 60., 
-! ichap = 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  ffw =   0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9,
-          0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9,
-  adjr0 = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
-          1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
-  adjrw = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
-          1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
-  adjrs = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
-          1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
+! ichap = 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
  /
 
-&moisture
-moisture_class_name = 
-'1 hour fine fuel',
-'10 hour fine fuel',
-moisture_classes=2,   ! number of classes
-drying_model=1, 1,    ! number of model - only 1= equilibrium moisture Van Wagner (1972) per Viney (1991)  allowed at this moment
-drying_lag=1.0, 10.0,   ! so-called 10hr and 100hr fuel
-wetting_model=1, 1,   ! number of model - only 1= allowed at this moment
-wetting_lag=14.0, 140.0,  ! 14 is callibrated to VanWagner&Pickett 1985, Canadian fire danger rating system 
-saturation_moisture=2.5, 2.5, ! ditto
-saturation_rain = 8.0,8.0, !  stronger rain than this (mm/h) does not make much difference.
-rain_threshold = 0.05,0.05 ! mm/h rain too weak to wet anything.
-init_equi_mult = 1.,1., ! Constant multiplier that is used when initializing to equilibrium
-                        ! initial moisture <- init_equi_mult * equilibrium
-fmc_gc_initialization =   2,     2,    ! 0 = from input, 1 = from fuelmc_g in namelist.input 2 = from equibrium
-/
+
 

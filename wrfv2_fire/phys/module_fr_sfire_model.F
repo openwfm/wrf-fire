@@ -15,6 +15,7 @@ subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
     restart,                                & ! use existing state
+    run_fuel_moisture,                      & ! if need update fuel moisture in pass 4
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
     ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -22,8 +23,9 @@ subroutine sfire_model (                    &
     ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
     time_start,dt,                          & ! time and increment
     fdx,fdy,                                & ! fire mesh spacing,
-    ignition,                               & ! small array of ignition line descriptions
+    ignition,hfx,                           & ! small array of ignition line descriptions
     coord_xf,coord_yf,                      & ! fire mesh coordinates
+    fire_hfx,                               & ! input: given heat flux, or set inside
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     grnhfx,grnqfx,                          & ! output: heat fluxes
     ros,flineint,flineint2,                 & ! diagnostic variables
@@ -82,6 +84,7 @@ integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
                                             ! 5 = copy timestep output to input
                                             ! 6 = compute output fluxes
 logical, intent(in):: restart               ! if true, use existing state
+logical, intent(in)::run_fuel_moisture      ! 
 ! scalar data
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
 integer, intent(in) :: ifds,ifde,jfds,jfde,&  ! fire domain bounds
@@ -91,9 +94,11 @@ integer, intent(in) :: ifms,ifme,jfms,jfme  ! fire memory array bounds
 REAL,INTENT(in) :: time_start,dt            ! starting time, time step
 REAL,INTENT(in) :: fdx,fdy                  ! spacing of the fire mesh
 ! array data
-type(ignition_type), intent(in):: ignition  ! descriptions of ignition lines
+type(lines_type), intent(in):: ignition,hfx  ! descriptions of ignition lines and hfx lines
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
-    coord_xf,coord_yf                       !  node coordinates  
+    coord_xf,coord_yf                      ! node coordinates  
+real, dimension(ifms:ifme, jfms:jfme), intent(inout):: & 
+    fire_hfx                                ! given heat flux
     
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
@@ -140,7 +145,8 @@ xjfme=jfme
 
 
 ! init flags
-freeze_fire = fire_const_time > 0. .and. time_start < fire_const_time
+freeze_fire = fire_hfx_given .ne.  0
+print *,'ifun=',ifun,' fire_hfx_given=',fire_hfx_given,' freeze_fire=',freeze_fire
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 ! !$OMP SINGLE
@@ -210,6 +216,18 @@ elseif(ifun.eq.3)then   ! ignition if so specified
 
     
 elseif (ifun.eq.4) then  ! do the timestep
+     
+    if(run_fuel_moisture)then
+        ! uses nfuel_cat to set the other fuel data arrays
+        ! needs zsf on halo width 1 to compute the terrain gradient
+        call set_fire_params(    &       ! also on restart
+            ifds,ifde,jfds,jfde, &
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            fdx,fdy,nfuel_cat0,  &
+            nfuel_cat,fuel_time, &
+            fp) 
+    endif
 
     if(fire_print_msg.ge.stat_lev)then
       aw=fun_real(RNRM_SUM,  &
@@ -291,10 +309,9 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
         enddo
     enddo
 
-    endif
 
     ! check for ignitions
-    do ig = 1,ignition%num_ignitions
+    do ig = 1,ignition%num_lines
     
 !  for now, check for ignition every time step...
 !        if(ignition%line(ig)%end_time>=time_start.and.ignition%line(ig)%start_time<time_start+dt)then 
@@ -315,6 +332,9 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 !        endif
         
     enddo
+    else
+        call message('sfire_model: EXPERIMENTAL: skipping ignition')
+    endif
             
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, &
                    lfn,'sfire_model: lfn out')
@@ -355,12 +375,15 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         f_int,f_lineint,f_lineint2)                  ! fire intensities for danger rating
 
 
-  if(.not. freeze_fire)then
+  select case(fire_hfx_given)
+     
+    case(0)   ! normal
 
     ! compute the heat fluxes from the fuel burned
     ! needs lfn and tign from neighbors so halo must be updated before
 !$OMP CRITICAL(SFIRE_MODEL_CRIT)
     write(msg,*)'time_start=',time_start,' dt=',dt,' before fuel_left'
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
     call message(msg,1)
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'model: lfn')
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign,'model: tign')
@@ -371,7 +394,6 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifts,ifte,jfts,jfte, &
         ifts,ifte,jfts,jfte, &
         lfn,tign,fuel_time,time_start+dt,fuel_frac_end,fire_area) !fuel_frac_end is private and tile based
-!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
 
     call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_end,'model: fuel_frac end')
     
@@ -392,6 +414,33 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         fp%fgip,                                     &
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
+
+    case (1, 2)
+       print *,"expecting fire_hfx to be set in WRF, from wrfinput or wrfrst files"
+
+       do j=jfts,jfte
+           do i=ifts,ifte
+              grnhfx(i,j) = (1. - fire_hfx_latent_part)*fire_hfx(i,j)
+              grnqfx(i,j) =       fire_hfx_latent_part *fire_hfx(i,j)
+           enddo
+       enddo
+
+    case (3)
+    
+       call message('artificial heat flux from parameters given in namelist.input')
+
+       call param_hfx( time_start, &
+                            ifms,ifme,jfms,jfme, &
+                            ifts,ifte,jfts,jfte, &
+                            coord_xf,coord_yf,   &
+                            hfx,                 &
+                            fire_area,grnhfx,grnqfx)
+
+   case default
+        call crash('bad fire_hfx_given')
+   end select
+
+   ! this should run in any case
 
     if(fire_print_msg.ge.stat_lev)then
       tfa=fun_real(REAL_SUM,  &
@@ -440,29 +489,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     endif
         
 
-  else
-     call message('sfire_model: EXPERIMENTAL: skipping fuel burnt computation')
-
-     if (fire_const_grnhfx >= 0. .and. fire_const_grnqfx >= 0.) then
-
-!$OMP CRITICAL(SFIRE_MODEL_CRIT)
-        write(msg,'(a,2e12.3,a)')'sfire_model: EXPERIMENTAL output constant heat flux', &
-           fire_const_grnhfx, fire_const_grnqfx, ' W/s'
-!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
-        call message(msg)
-        
-        do j=jfts,jfte
-            do i=ifts,ifte
-                grnhfx(i,j)=fire_const_grnhfx
-                grnqfx(i,j)=fire_const_grnqfx
-            enddo
-        enddo
-
-      endif
-
-   endif
-
-    call print_2d_stats(ifts,ifte,jfts,jfte, &
+   call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
                    grnhfx,'model: heat flux(J/m^2/s)')
 
@@ -475,6 +502,120 @@ endif
 
 end subroutine sfire_model
 
+       subroutine param_hfx( time_now,&
+                            ifms,ifme,jfms,jfme, &
+                            ifts,ifte,jfts,jfte, &
+                            coord_xf,coord_yf,   &
+                            hfx,                 &
+                            fire_area,grnhfx,grnqfx)
+!***   generate artifical heat flux from a parametric description
+!***   arguments
+       real, intent(in)::time_now
+       integer, intent(in):: & 
+                            ifms,ifme,jfms,jfme, &
+                            ifts,ifte,jfts,jfte  
+       type(lines_type), intent(in)::hfx
+       real, dimension(ifms:ifme,jfms:jfme), intent(in)::coord_xf,coord_yf ! nodal coordinates
+       real, dimension(ifms:ifme,jfms:jfme), intent(out)::fire_area,grnhfx,grnqfx ! the imposed heat flux
+       character(len=128):: msg
+!***   local
+       integer::i,j,k,nfa,ncells
+       real:: d2,ax,ay,hfrac,fa,thfx,t,r,radius
+       real, parameter:: sigma_mult=3.   ! 3 gives drop to 1% in trans. time from gaussian kernel 
+       real:: maxspeed=100  ! max speed how the circle can move
+
+       do j=jfts,jfte  ! zero out the outputs
+           do i=ifts,ifte
+              fire_area(i,j)=0
+              grnhfx(i,j) = 0.
+              grnqfx(i,j) = 0.
+           enddo
+       enddo
+
+       do k=1,hfx%num_lines
+          if(hfx%line(k)%radius > 0.)then
+             ! processing heatflux line i
+             ! find the time multiplier
+             t = max(hfx%line(k)%start_time - time_now, time_now - hfx%line(k)%end_time)
+             if(t > 0.)then  ! postitive distance from the time interval
+                 r = t / hfx%line(k)%trans_time  ! position in the transition - 1 is at transition distance 
+                 hfrac = exp(-(sigma_mult * r)**2/2.)  ! gaussian kernel
+             else
+                 hfrac = 1.0
+             endif
+             
+
+             ! find the coordinates of the center of the heat flux circle now
+             ax = safe_prop(time_now, &
+                              hfx%line(k)%start_time,&
+                              hfx%line(k)%end_time,&
+                              hfx%line(k)%start_x,&
+                              hfx%line(k)%end_x, &
+                              hfx%unit_fxlong*maxspeed)
+             ay = safe_prop(time_now,&
+                              hfx%line(k)%start_time,&
+                              hfx%line(k)%end_time,&
+                              hfx%line(k)%start_y,&
+                              hfx%line(k)%end_y, &
+                              hfx%unit_fxlat*maxspeed)
+
+             radius=hfx%line(k)%radius
+
+             write(msg,*)'hfx line ',i,' at ',time_now,'s ',hfrac,' of max ', hfx%line(k)%hfx_value
+             call message(msg)
+             write(msg,*)'center ',ax,ay,' radius ',radius
+             call message(msg)
+
+             nfa=0
+             ncells=0
+             do j=jfts,jfte
+                 do i=ifts,ifte
+                     ! distance squared from the center
+                     d2 = (hfx%unit_fxlong*(ax - coord_xf(i,j)))**2 +  (hfx%unit_fxlat*(ay - coord_yf(i,j)))**2
+                     if(d2 < radius**2)then
+                         fa=1.
+                     else
+                         fa=0.
+                     endif
+                     ! set heat fluxes
+                     thfx= hfx%line(k)%hfx_value * hfrac * fa  ! total heat flux at this point
+                     grnhfx(i,j)= grnhfx(i,j) + (1.-fire_hfx_latent_part) * thfx
+                     grnqfx(i,j)= grnqfx(i,j) + fire_hfx_latent_part * thfx
+                     ! set fire area
+                     fire_area(i,j) = max(fire_area(i,j),fa)
+                     ! set stats
+                     nfa=nfa+fa;
+                     ncells=ncells+1
+                 enddo
+             enddo
+             write(msg,*)'Number of cells in fire area in this tile ',nfa,' ',(100.*nfa)/ncells,' %'
+             call message(msg)
+         endif
+      enddo
+ end subroutine param_hfx
+                          
+
+                 
+real function safe_prop(t,t1,t2,x1,x2,ms)
+!  return x between x1 and x2 in the same proportion as is t between t1 and t2, safe in the case when t1=t2 and x1=x2
+!  safe_prop = x1 + (t-t1)*(x2-x1)/(t2-t1) 
+!  future: abs((x2-x1)/(t2-t1)) capped at ms but still return x1 when t=t1 and x2 when t=t2
+real, intent(in)::t,t1,t2,x1,x2,ms
+real:: p,x
+       if(t2 < t1)call crash('safe_prop: must have t2>t1')
+       if(.not.ms>0.)call crash('safe_prop: must have ms>0')
+       if(t1 .eq. t2)then
+           if(x1.eq.x2)then
+               x=x1
+           else
+               call crash('safe_prop: infinite speed')
+           endif
+       else
+           p = (t - t1)/(t2 - t1)   ! 0 at t1, 1 at t2
+           x = x1*(1.-p) + x2*p
+       endif
+       safe_prop=x
+end function safe_prop 
 !
 !*****************
 !
