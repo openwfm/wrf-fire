@@ -1,9 +1,10 @@
 module module_fire_standalone
 
+use module_fr_sfire_driver, only: set_flags, fire_ignition_convert, &
+                                  set_fp_from_grid
 use module_fr_sfire_util, only: message,crash, &
-          fire_ignition_convert,set_flags, &
           ignition_type,fire_max_ignitions
-use module_fr_sfire_phys, only: set_fp_from_grid,fire_params
+use module_fr_sfire_phys, only: fire_params, init_fuel_cats
 use module_fr_sfire_model, only: sfire_model
 use module_domain, only: domain
 use module_configure, only: grid_config_rec_type,read_namelist
@@ -48,7 +49,8 @@ real:: time_start,dt,t
 logical::do_ouput
 TYPE(ignition_type) :: ignition
 type(fire_params)::fp
-logical::restart=.false.
+logical::restart=.false.,uniform=.false.
+integer::iframe_start,iframe_end
 
 !*** executable
 
@@ -141,6 +143,7 @@ call allocate2d(vf2,ifms,ifme,jfms,jfme,'vf2')              ! fire winds
 
 ! copy pointers to grid fields, to pass to the spread rate calculation
 call set_fp_from_grid(grid,fp)
+call init_fuel_cats(.true.)
 
 ! time control
 ! NOTE: dt in the netcdf input file as returned in info%dt is WRONG !!
@@ -178,18 +181,28 @@ grid%v_frame=0.
 !! call create_output_file(outputfile,info)
 
 if(info%ntimes.lt.3)then
-  write(*,'(a,i5)')'ntimes=',info%ntimes
-  call crash('need at least 3 steps')
+  !write(*,'(a,i5)')'ntimes=',info%ntimes
+  !call crash('need at least 3 steps')
+  uniform=.true.
+  call read_vars(inputfile,info,1,grid)
+  iframe_start=1
+  iframe_end=int(duration_s/frame_s)
+else
+  uniform=.false.
+  call read_vars(inputfile,info,2,grid)
+  iframe_start=3
+  iframe_end=info%ntimes
+  uf1=grid%uf
+  vf1=grid%vf
 endif
-call read_vars(inputfile,info,2,grid)
-uf1=grid%uf
-vf1=grid%vf
 itimestep = 0
 ifun_start=1
-do iframe=3,info%ntimes ! interval ending with iframe
-  call read_vars(inputfile,info,iframe,grid)
-  uf2=grid%uf
-  vf2=grid%vf
+do iframe=iframe_start,iframe_end ! interval ending with iframe
+  if(.not.uniform)then
+    call read_vars(inputfile,info,iframe,grid)
+    uf2=grid%uf
+    vf2=grid%vf
+  endif
   do istep=1,nsteps
     itimestep=info%ntimes * (iframe - 1) + 1
     grid%itimestep = itimestep
@@ -198,10 +211,12 @@ do iframe=3,info%ntimes ! interval ending with iframe
     ! interpolate time
     time_start = dt_double * (nsteps * (iframe - 1) + istep - 1)
     ! interpolate wind
-    t = (istep - 0.5)/real(nsteps)
-    grid%uf = (1. - t)*uf1 + t*uf2
-    grid%vf = (1. - t)*vf1 + t*vf2
-
+    if(.not.uniform)then
+      t = (istep - 0.5)/real(nsteps)
+      grid%uf = (1. - t)*uf1 + t*uf2
+      grid%vf = (1. - t)*vf1 + t*vf2
+    endif
+ 
     do ifun=ifun_start,ifun_end
   
       call sfire_model (                    &
@@ -231,8 +246,10 @@ do iframe=3,info%ntimes ! interval ending with iframe
     ifun_start=3
   enddo
   call write_vars(outputfile,grid,info,iframe)
-  uf1=uf2
-  vf1=vf2
+  if(.not.uniform)then
+    uf1=uf2
+    vf1=vf2
+  endif
 enddo
 
 end subroutine sub_main
@@ -305,7 +322,7 @@ subroutine allocate2d(p,ims,ime,jms,jme,s)
 !*** allocate a pointer with error checking and initialization
 implicit none
 !*** arguments
-real, pointer, intent(out), dimension(:,:)::p
+real, pointer, dimension(:,:)::p
 integer, intent(in):: ims,ime,jms,jme
 character(len=*),intent(in)::s
 !*** local
@@ -326,7 +343,7 @@ subroutine allocate3d(p,ims,ime,jms,jme,kms,kme,s)
 !*** allocate a pointer with error checking and initialization
 implicit none
 !*** arguments
-real, pointer, intent(out), dimension(:,:,:)::p
+real, pointer, dimension(:,:,:)::p
 integer, intent(in):: ims,ime,jms,jme,kms,kme
 character(len=*),intent(in)::s
 !*** local

@@ -53,7 +53,7 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
   integer, parameter::zm=max_moisture_classes - 3
   integer:: moisture_classes=3
   real, dimension(max_moisture_classes):: drying_lag,wetting_lag,saturation_moisture,saturation_rain, &
-         rain_threshold,rec_drying_lag_sec,rec_wetting_lag_sec
+         rain_threshold,rec_drying_lag_sec,rec_wetting_lag_sec,init_equi_mult
   integer, dimension(max_moisture_classes):: drying_model,wetting_model
    ! relative weights of moisture class for each fuel category
    integer::itmp
@@ -73,6 +73,7 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
   data rain_threshold             /0.05, 0.05, 0.05, zm*0 /! rain intensity this small is same as nothing
   data drying_model               /1,   1,   1,    zm*0 /
   data wetting_model              /1,   1,   1,    zm*0 /
+  data init_equi_mult             /1.,  1.,  1.,   zm*1./
   real, dimension(7)::eq_p
   data eq_p/  1.035e-09, &   !(3.893e-10, 1.681e-09) ! coefficients of the equilibrium fuel moisture polynomial
               -2.62e-07, &   !(-4.593e-07, -6.473e-08) ! fitted from the graph in Schroeder and Buck (1970)
@@ -336,9 +337,10 @@ subroutine advance_moisture(    &
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
     rain_old,                   & ! previous value of accumulated rain
     t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
+    rh_fire,                    & ! relative humidity at surface, for diagnostic only
     fmc_gc,                     & ! fuel moisture by class, updated
     fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics only
-    fmc_lag                    & ! fuel moisture tendency by classe, for diagnostics only
+    fmc_lag                     & ! fuel moisture tendency by classe, for diagnostics only
     )
 
 implicit none
@@ -355,6 +357,7 @@ real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
 real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_lag
+real, intent(out), dimension(ims:ime,jms:jme)::rh_fire 
 
 !*** global
 ! fuel properties moisture set by init_fuel_cats
@@ -362,7 +365,7 @@ real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_lag
 !*** local
 integer:: i,j,k
 real::rain_int, T, P, Q, QRS, ES, RH, tend, EMC_d, EMC_w, EMC, R, rain_diff, fmc, rlag, equi, &
-    d, w, rhmax, rhmin, change, rainmax,rainmin, fmc_old
+    d, w, rhmax, rhmin, change, rainmax,rainmin, fmc_old, H
 real, parameter::tol=1e-2 ! relative change larger than that will switch to exponential ode solver 
 character(len=256)::msg
 integer::msglevel=2
@@ -433,6 +436,42 @@ do j=jts,jte
             rainmax = max(rainmax,rain_int)
             rainmin = min(rainmin,rain_int)
             R = rain_int - rain_threshold(k)
+
+            ! average the inputs for second order accuracy
+            T = 0.5 * (t2_old(i,j) + t2(i,j))
+            P = 0.5 * (psfc_old(i,j) + psfc(i,j))
+            Q = 0.5 * (q2_old(i,j) + q2(i,j))
+
+            ! compute the relative humidity
+            ! ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
+            ! QRS=0.622*ES/(P-0.378*ES)
+            ! RH = Q/QRS
+            ! function rh_from_q from Adam Kochanski following Murphy and Koop, Q.J.R. Meteorol. Soc (2005) 131 1539-1565 eq. (10)
+            epsilon = 0.622 ! Molecular weight of water (18.02 g/mol) to molecular weight of dry air (28.97 g/mol)
+            ! vapor pressure [Pa]
+            Pw=q*P/(epsilon+(1-epsilon)*q); 
+            ! saturation vapor pressure [Pa]
+            Pws= exp( 54.842763 - 6763.22/T - 4.210 * log(T) + 0.000367*T + &
+                tanh(0.0415*(T - 218.8)) * (53.878 - 1331.22/T - 9.44523 * log(T) + 0.014025*T))
+            !realtive humidity [1]
+            RH = Pw/Pws
+            rh_fire(i,j)=RH
+            rhmax=max(RH,rhmax)         
+            rhmin=min(RH,rhmin)         
+            if(.not.check_rh)then
+                RH = min(RH,1.0)
+            else
+                if(RH < 0.0 .or. RH > 1.0 .or. RH .ne. RH )then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+                    write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH, &
+                        ' from T=',T,' P=',P,' Q=',Q
+                    call message(msg) 
+                    call crash('Relative humidity must be between 0 and 1, saturated water contents must be >0')
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+                endif
+            endif 
+            !print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
+
             if (R > 0.) then
                 select case(wetting_model(k))
                 case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
@@ -441,43 +480,14 @@ do j=jts,jte
                     rlag=rec_wetting_lag_sec(k) * (1. - exp(-R/saturation_rain(k)))
                 end select
             else ! not raining
-                ! average the inputs for second order accuracy
-                T = 0.5 * (t2_old(i,j) + t2(i,j))
-                P = 0.5 * (psfc_old(i,j) + psfc(i,j))
-                Q = 0.5 * (q2_old(i,j) + q2(i,j))
-                ! compute the relative humidity
-                ! ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
-                ! QRS=0.622*ES/(P-0.378*ES)
-                ! RH = Q/QRS
-		! function rh_from_q from Adam Kochanski following Murphy and Koop, Q.J.R. Meteorol. Soc (2005) 131 1539-1565 eq. (10)
-                epsilon = 0.622 ! Molecular weight of water (18.02 g/mol) to molecular weight of dry air (28.97 g/mol)
-                ! vapor pressure [Pa]
-                Pw=q*P/(epsilon+(1-epsilon)*q); 
-                ! saturation vapor pressure [Pa]
-                Pws= exp( 54.842763 - 6763.22/T - 4.210 * log(T) + 0.000367*T + &
-                    tanh(0.0415*(T - 218.8)) * (53.878 - 1331.22/T - 9.44523 * log(T) + 0.014025*T))
-                !realtive humidity [%]
-                RH = Pw/Pws
-                rhmax=max(RH,rhmax)         
-                rhmin=min(RH,rhmin)         
-                if(.not.check_rh)then
-                    RH = min(RH,1.0)
-                else
-                    if(RH < 0.0 .or. RH > 1.0 .or. RH .ne. RH )then
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
-                        write(msg,'(a,2i6,5(a,f10.2))')'At i,j ',i,j,' RH=',RH, &
-                            ' from T=',T,' P=',P,' Q=',Q
-                        call message(msg) 
-                        call crash('Relative humidity must be between 0 and 1, saturated water contents must be >0')
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-                    endif
-                endif 
-                !print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
                 select case(drying_model(k))
-                case(1) ! Van Wagner (1972) per Viney (1991) eq (7) (8)
-                    d=0.924*RH**0.679 + 0.000499*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for drying
-                    w=0.618*RH**0.753 + 0.000454*exp(0.1*RH) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*RH)) ! equilibrium moisture for adsorbtion
+                case(1) ! Van Wagner and Pickett (1972) per Viney (1991) eq (7) (8)
+                    H = RH * 100.
+                    d=0.942*H**0.679 + 0.000499*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for drying
+                    w=0.618*H**0.753 + 0.000454*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for adsorbtion
                     if(d.ne.d.or.w.ne.w)call crash('equilibrium moisture calculation failed, result is NaN')
+                    d = d*0.01
+                    w = w*0.01
                     EMC_d = max(d,w)
                     EMC_w = min(d,w)
                     rlag=rec_drying_lag_sec(k)
@@ -496,7 +506,7 @@ do j=jts,jte
                     fmc_old = fuelmc_g
                     equi = fmc_old        
                 elseif(fmoist_init.eq.2)then
-                    fmc_old=0.5*(EMC_d+EMC_w)
+                    fmc_old=init_equi_mult(k)*0.5*(EMC_d+EMC_w)
                     equi=fmc_old
                 else ! do not change fmc_gc
                     fmc_old = fmc_gc(i,k,j)
@@ -507,7 +517,7 @@ do j=jts,jte
 
                 if(change  < tol)then
                      if(fire_print_msg.ge.3)call message('midpoint method')
-                     fmc = fmc_old + (equi - fmc_old)*change   ! standard 2nd order midpoint method
+                     fmc = fmc_old + (equi - fmc_old)*change*(1.0 - 0.5*change)  ! 2nd order Taylor
                 else
                      if(fire_print_msg.ge.3)call message('exponential method')
                      fmc = fmc_old + (equi - fmc_old)*(1 - exp(-change))
@@ -543,7 +553,7 @@ if(fire_print_msg.ge.2)then
         call message('WARNING Relative humidity must be between 0 and 100%')
     endif
 2   format(2(a,f10.2),a)
-!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
 endif
 
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
@@ -594,7 +604,7 @@ namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
 
 namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold, &
-    drying_model,wetting_model, moisture_class_name
+    drying_model,wetting_model, moisture_class_name, init_equi_mult
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')

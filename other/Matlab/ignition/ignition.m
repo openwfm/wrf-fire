@@ -164,7 +164,19 @@ for i=1:grid_1
                 else
                     a_new=line_sign(ign_pnt(1),ign_pnt(2),long(i,j,1),lat(i,j,1),bound(k,1),bound(k,2));
                 end
-                if a_old*a_new<0  
+                if (k==2)&&(i==1)&&(j==1)
+                    'a_old, k=1'
+                    a_old
+                    'a_new'
+                    a_new
+                end
+                if (k==10)&&(i==1)&&(j==1)
+                    'a_old, k=10'
+                    a_old
+                    'a_new'
+                    a_new
+                end
+                if a_old*a_new<0
                     % The point and second boundary point should be on the 
                     % same side from the line going between ignition point
                     % and first boundary point
@@ -206,10 +218,37 @@ for i=1:grid_1
                 % ignition point is on the boundary
                 
                 end
-
+        if (i==1)&&(j==1)
+        k
+        end
+                
            end
           
-        end                
+        end
+        if (i==1)&&(j==1)
+            'i,j=1'
+            'IN(i,j)=' 
+            ON(1,1)
+            'a_old=' 
+            a_old
+            'a_new=' 
+            a_new
+            'k=' 
+            k
+            'long(i,j)=' 
+            long(1,1,1)
+            
+            'lat(i,j)=' 
+            lat(1,1,1)
+            'ign_pnt='
+            ign_pnt
+            'time_ign=' 
+            time_now
+            
+            'tign(1,1)=' 
+            B(1,1)
+            
+        end
     end
 end
 
@@ -220,9 +259,10 @@ if (rem(ign_pnt(1),1)==0) && (rem(ign_pnt(2),1)==0)
 end    
 
 % Writing the data to the file data_out.txt
-fid = fopen('data_out.txt', 'w');
-dlmwrite('data_out.txt', B, 'delimiter', '\t','precision', '%.4f');
+fid = fopen('data_out_new.txt', 'w');
+dlmwrite('data_out_new.txt', B, 'delimiter', '\t','precision', '%.4f');
 fclose(fid);
+'printed'
 
 write_array_2d('data_out1.txt',B)
 

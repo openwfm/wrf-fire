@@ -4,7 +4,7 @@ use module_wrf_error, only: wrf_error_fatal
 implicit none
 
 private
-public read_namelist,grid_config_rec_type
+public read_namelist,grid_config_rec_type,nmlfile
 
 
 ! type for all namelist fields, domain 1 only
