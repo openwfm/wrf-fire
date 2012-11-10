@@ -1,4 +1,4 @@
-function [unit_long,unit_lat,long,lat,time_now,bound]=read_file_perimeter(data,wrfout)
+function [long,lat,time_now,bound]=read_file_perimeter(data,wrfout)
 
 % Volodymyr Kondratenko           April 3 2012
 
@@ -32,12 +32,14 @@ function [unit_long,unit_lat,long,lat,time_now,bound]=read_file_perimeter(data,w
 
 format long
 unit_long=ncread(wrfout,'UNIT_FXLONG');
+unit_lat=ncread(wrfout,'UNIT_FXLAT');
 unit_long
 unit_lat
-unit_lat=ncread(wrfout,'UNIT_FXLAT');
 unit_long=unit_long(1);
 unit_lat=unit_lat(1);
 long=ncread(wrfout,'FXLONG');
+n=size(long(:,1,1))
+n
 lat=ncread(wrfout,'FXLAT');
 long=long*unit_long;
 lat=lat*unit_lat;
@@ -53,8 +55,10 @@ time_now=data(1,1);
 bound=data(2:data_size(1),:); 
 bound(:,1)=bound(:,1)*unit_long;
 bound(:,2)=bound(:,2)*unit_lat;
+% bound - set of ordered points of the boundary 1st=last 
+% bound(i,1)-horisontal; bound(i,2)-vertical coordinate
 
-plot(bound(:,1),bound(:,2),'-',ign_pnt(1),ign_pnt(2),'o')
+plot(bound(:,1),bound(:,2),'-')
 
 
 
