@@ -33,13 +33,9 @@ function [long,lat,time_now,bound]=read_file_perimeter(data,wrfout)
 format long
 unit_long=ncread(wrfout,'UNIT_FXLONG');
 unit_lat=ncread(wrfout,'UNIT_FXLAT');
-unit_long
-unit_lat
 unit_long=unit_long(1);
 unit_lat=unit_lat(1);
 long=ncread(wrfout,'FXLONG');
-n=size(long(:,1,1))
-n
 lat=ncread(wrfout,'FXLAT');
 long=long*unit_long;
 lat=lat*unit_lat;
