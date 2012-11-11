@@ -1,5 +1,5 @@
        
-function tign=perimeter(long,lat,time_now,bound,V)
+function result=perimeter(long,lat,time_now,bound,V)
 
 % Description of the function
 
@@ -89,12 +89,20 @@ A(2:n+1,2:m+1)=IN(:,:,1);
 tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;
 
 % Stop when the matrix converges
-changed=1
+changed=1;
 for istep=1:max(size(tign)),
     if changed==0, 
-        tign
+        % Writing the data to the file data_out.txt
+fid = fopen('data_out_tign.txt', 'w');
+dlmwrite('data_out_tign.txt', tign, 'delimiter', '\t','precision', '%.4f');
+fclose(fid);
+'printed'
+
+write_array_2d('data_out_wrf_tign.txt',tign)
+result=0;
         break
     end
+        
     
 tign_last=tign;
 
