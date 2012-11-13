@@ -1,5 +1,5 @@
        
-function tign=perimeter(long,lat,time_now,bound,V)
+function result=perimeter(long,lat,time_now,bound,V)
 
 % Description of the function
 
@@ -55,6 +55,7 @@ addpath('../../other/Matlab/util1_jan');
 addpath('../../other/Matlab/netcdf');
 
 format long
+result=1;
 
 bnd_size=size(bound);
 n=size(long,1);
@@ -89,12 +90,19 @@ A(2:n+1,2:m+1)=IN(:,:,1);
 tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;
 
 % Stop when the matrix converges
-changed=1
+changed=1;
 for istep=1:max(size(tign)),
     if changed==0, 
-        tign
+        % Writing the data to the file data_out.txt
+fid = fopen('data_out_tign_fstep.txt', 'w');
+dlmwrite('data_out_tign_out_fstep.txt', tign, 'delimiter', '\t','precision', '%.4f');
+fclose(fid);
+'printed'
+
+%write_array_2d('data_out_wrf_tign.txt',tign)
         break
     end
+        
     
 tign_last=tign;
 
@@ -106,9 +114,9 @@ fprintf('step %i tign changed at %i points\n',istep,changed)
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'step %i tign changed at %i points\n',istep,changed); % It has two rows now.
 fclose(fid);
-%figure(1),mesh(tign_last),title('tign last (outside)')
-%figure(2),mesh(tign-tign_last),title('Difference (outside)')
-%figure(3),mesh(tign),title('tign new (outside)')
+figure(1),mesh(tign_last),title('tign last (outside)')
+figure(2),mesh(tign-tign_last),title('Difference (outside)')
+figure(3),mesh(tign),title('tign new (outside)')
 
 drawnow
 
@@ -125,7 +133,9 @@ changed=1;
 for istep=1:max(size(tign)),
     if changed==0, 
         break
-        tign
+    
+        result=0;
+
     end
     
 tign_last=tign;
@@ -134,18 +144,18 @@ tign_last=tign;
 tign=tign_update(long,lat,tign,A,IN,V,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
-%fprintf('step %i tign changed at %i points\n',istep,changed)
+fprintf('step %i tign changed at %i points\n',istep,changed)
 % Writing the data to the file data_out.txt
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'step %i tign changed at %i points\n',istep,changed); % It has two rows now.
 fclose(fid);
 
-%figure(4),mesh(tign_last),title('tign last')
-%figure(5),mesh(tign-tign_last),title('Difference')
-%figure(6),mesh(tign),title('tign new')
+figure(4),mesh(tign_last),title('tign last')
+figure(5),mesh(tign-tign_last),title('Difference')
+figure(6),mesh(tign),title('tign new')
 
 drawnow
-
+result=0;
 end
 
 if changed~=0,
@@ -190,10 +200,10 @@ for i=2:n-1
                     for b=j-1:j+1  
                     	% loop over all neighbors
                         if (A(a,b)==1) % was already updated 
-                        	tign_new=tign(a,b)-sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+ ...
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/                 ...
-                                     R_wind([lat(a-1,b-1,1)-lat(i-1,j-1,1),          ... 
-                                     long(a-1,b-1,1)-long(i-1,j-1,1)],V(:,i-1,j-1));
+                        	tign_new=tign(a,b)-sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
+                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/                   ...
+                                     R_wind((long(a-1,b-1,1)-long(i-1,j-1,1))*V(1,i-1,j-1)+  ... 
+                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*V(2,i-1,j-1));
                             % update of the tign based on tign and ros
                             % of the neighbour
          
@@ -223,10 +233,10 @@ for i=2:n-1
                 for a=i-1:i+1  
                 	for b=j-1:j+1  
                     	if (A(a,b)==1)                                
-                        	tign_new=tign(a,b)+sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+ ...
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/                 ...
-                                     R_wind(dot([long(i-1,j-1,1)-long(a-1,b-1,1),        ... 
-                                     lat(i-1,j-1,1)-lat(a-1,b-1,1)],V(:,a-1,b-1)));
+                        	tign_new=tign(a,b)+sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
+                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/                    ...
+                                     R_wind((long(i-1,j-1,1)-long(a-1,b-1,1))*V(1,a-1,b-1)+ ... 
+                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*V(2,a-1,b-1));
                             % Here the direction of the vector is
                             % opposite, since fire is going from the
                             % inside point towards the point that was
