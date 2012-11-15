@@ -107,7 +107,7 @@ for istep=1:max(size(tign)),
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-tign=tign_update(long,lat,tign,A,IN,V,time_now);
+[tign,A]=tign_update(long,lat,tign,A,IN,V,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
 fprintf('step %i tign changed at %i points\n',istep,changed)
@@ -145,7 +145,7 @@ for istep=1:max(size(tign)),
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-tign=tign_update(long,lat,tign,A,IN,V,time_now);
+[tign,A]=tign_update(long,lat,tign,A,IN,V,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
 fprintf('step %i tign changed at %i points\n',istep,changed)
@@ -179,7 +179,7 @@ R=a0*x^(alpha)+b0;
 
 end
 
-function tign=tign_update(long,lat,tign,A,IN,V,time_now)
+function [tign,A]=tign_update(long,lat,tign,A,IN,V,time_now)
   
 % tign  array same size as A and V: time of ignition at all points
 % A,IN flags from above
@@ -189,7 +189,6 @@ n=size(tign,1);
 m=size(tign,2);
 for i=2:n-1
     for j=2:m-1
-        
         % [a1,a2,b1,b2]=point_location(i,j,n,m);
         % Needed to know what is the amount of points that surrounds (i,j)
         sum_A=sum(sum(A(i-1:i+1,j-1:j+1)));
