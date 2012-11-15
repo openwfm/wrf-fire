@@ -98,6 +98,8 @@ module module_domain
       real, pointer, dimension(:,:)::f_ros0  => null()         ! 
       real, pointer, dimension(:,:)::f_rosx  => null()         ! 
       real, pointer, dimension(:,:)::f_rosy  => null()         ! 
+      real, pointer, dimension(:,:)::fire_hfx  => null()       ! 
+
 
    end type domain
 
