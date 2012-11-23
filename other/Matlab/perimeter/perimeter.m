@@ -91,6 +91,7 @@ tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;
 
 % Stop when the matrix converges
 changed=1;
+changed_old=2;
 for istep=1:max(size(tign)),
     if changed==0, 
         % Writing the data to the file data_out.txt
@@ -100,6 +101,12 @@ for istep=1:max(size(tign)),
 'first part done'
 
 %write_array_2d('data_out_wrf_tign.txt',tign)
+        break
+    elseif (changed_old==changed)
+    fid = fopen('no_fixed_point_outside.txt', 'w'); 
+    dlmwrite('output_tign.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
+    fclose(fid);
+    'no_fixed_point_outside'
         break
     end
         
@@ -114,14 +121,17 @@ fprintf('step %i tign changed at %i points\n',istep,changed)
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'step %i tign changed at %i points\n',istep,changed); % It has two rows now.
 fclose(fid);
-figure(1),mesh(tign_last(2:n+1,2:m+1)),title('tign last (outside)')
-figure(2),mesh(tign-tign_last),title('Difference (outside)')
-figure(3),mesh(tign(2:n+1,2:m+1)),title('tign new (outside)')
+figure(1),mesh(tign_last(2:n+1,2:m+1)),title(['tign last (outside), step',int2str(istep)])
+figure(2),mesh(tign-tign_last),title(['Difference (outside), step',int2str(istep)])
+figure(3),mesh(tign(2:n+1,2:m+1)),title(['tign new (outside), step',int2str(istep)])
 
 drawnow
 
 end
 
+if changed~=0,
+    warning('did not find fixed point')
+end
 % Second step, we keep the values of the points outside and update the
 % points inside
 
@@ -132,11 +142,12 @@ tign(2:n+1,2:m+1)=(1-IN(:,:,1)).*tign(2:n+1,2:m+1);
 changed=1;
 for istep=1:max(size(tign)),
     if changed==0, 
-        break
-    fid = fopen('data_out_tign_fstep.txt', 'w');
-    dlmwrite('data_out_tign_out_fstep.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
+    fid = fopen('output_tign.txt', 'w');
+    dlmwrite('output_tign.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
     'printed'
+   
+    break
    
         result=0;
 
@@ -154,9 +165,9 @@ fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'step %i tign changed at %i points\n',istep,changed); % It has two rows now.
 fclose(fid);
 
-figure(4),mesh(tign_last(2:n+1,2:m+1)),title('tign last')
-figure(5),mesh(tign-tign_last),title('Difference')
-figure(6),mesh(tign(2:n+1,2:m+1)),title('tign new')
+figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
+figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
+figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
 
 drawnow
 result=0;
