@@ -104,7 +104,7 @@ for istep=1:max(size(tign)),
         break
     elseif (changed_old==changed)
     fid = fopen('no_fixed_point_outside.txt', 'w'); 
-    dlmwrite('output_tign.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
+    dlmwrite('no_fixed_point_outside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
     'no_fixed_point_outside'
         break
@@ -148,6 +148,12 @@ for istep=1:max(size(tign)),
     'printed'
    
     break
+elseif (changed_old==changed)
+	    fid = fopen('no_fixed_point_inside.txt', 'w');
+		    dlmwrite('no_fixed_point_inside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
+			    fclose(fid);
+				    'no_fixed_point_outside'
+					        break
    
         result=0;
 
