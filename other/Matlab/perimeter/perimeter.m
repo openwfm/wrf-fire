@@ -64,6 +64,7 @@ m=size(long,2);
 tign=zeros(n,m);      % "time of ignition matrix" of the nodes 
 A=zeros(n,m);         % A=1 where time of ignition was updated at least once 
 
+data_steps='';
 %  IN - matrix, that shows, whether the point is inside (IN(x,y)>0) the burning region
 %  or outside (IN(x,y)<0)
 %  ON - matrix that, shows whether the point is on the boundary or not
@@ -98,16 +99,17 @@ for istep=1:max(size(tign)),
 %fid = fopen('data_out_tign_fstep.txt', 'w');
 %dlmwrite('data_out_tign_out_fstep.txt', tign, 'delimiter', '\t','precision', '%.4f');
 %fclose(fid);
+data_steps=sprintf('%s\n%s',data_steps,'first part done');
 'first part done'
-
 %write_array_2d('data_out_wrf_tign.txt',tign)
         break
     elseif (changed_old==changed)
     fid = fopen('no_fixed_point_outside.txt', 'w'); 
     dlmwrite('no_fixed_point_outside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
-    'no_fixed_point_outside'
-        break
+    data_steps=sprintf('%s\n%s',data_steps,'no_fixed_point_outside');
+    
+    %        break
     end
         
     
@@ -117,6 +119,8 @@ tign_last=tign;
 [tign,A]=tign_update(long,lat,tign,A,IN,V,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
+data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
+
 fprintf('step %i tign changed at %i points\n',istep,changed)
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'step %i tign changed at %i points\n',istep,changed); % It has two rows now.
@@ -130,6 +134,7 @@ drawnow
 end
 
 if changed~=0,
+   data_steps=sprintf('%s\n%s',data_steps,'did not find fixed point outside');
     warning('did not find fixed point')
 end
 % Second step, we keep the values of the points outside and update the
@@ -146,15 +151,19 @@ for istep=1:max(size(tign)),
     dlmwrite('output_tign.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
     'printed'
+    fid = fopen('data_out_steps.txt', 'w');
+    fprintf(fid,'%s',data_steps); % It has two rows now.
+    fclose(fid);
+
    
     break
 elseif (changed_old==changed)
 	    fid = fopen('no_fixed_point_inside.txt', 'w');
 		    dlmwrite('no_fixed_point_inside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
 			    fclose(fid);
-				    'no_fixed_point_outside'
-					        break
-   
+				    'no_fixed_point_inside'
+		%			        break
+             data_steps=sprintf('%s\n%s',data_steps,'no_fixed_point_inside');   
         result=0;
 
     end
@@ -165,6 +174,7 @@ tign_last=tign;
 [tign,A]=tign_update(long,lat,tign,A,IN,V,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
+data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
 fprintf('step %i tign changed at %i points\n',istep,changed)
 % Writing the data to the file data_out.txt
 fid = fopen('data_out_steps.txt', 'w');
@@ -180,7 +190,8 @@ result=0;
 end
 
 if changed~=0,
-    warning('did not find fixed point')
+    data_steps=sprintf('%s\n%s',data_steps,'did not find fixed point inside');
+    warning('did not find fixed point inside')
 end
 
 end
