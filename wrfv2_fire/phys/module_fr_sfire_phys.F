@@ -426,6 +426,7 @@ if(check_data.ge.2 .or. msglevel.ge.2)then
         call message(msg,level=0) 
         write(msg,91)'floor    ','t2',t2_floor,'q2',q2_floor,'psfc',psfc_floor
         call message(msg,level=0) 
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     endif
     if(bad_wrf)then
         if(check_data.ge.3)then
@@ -433,7 +434,6 @@ if(check_data.ge.2 .or. msglevel.ge.2)then
         else
             call message('WARNING: advance_moisture: nonphysical input values replaced by floor',level=0)
         endif
-!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     endif
 endif
 

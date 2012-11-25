@@ -76,7 +76,6 @@ do istep=1,999999
 
     call advance_moisture(    &
         initialize,                 & ! initialize timestepping. true on the first call at time 0, then false
-        fmoist_init,                & ! initial moisture: 1=fuelmc_g, 2=equilibrium, else = none
         ims,ime,  jms,jme,          & ! memory dimensions
         its,ite,  jts,jte,          & ! tile dimensions
         nfmc,                       & ! dimension of moisture fields

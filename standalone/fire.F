@@ -3,7 +3,7 @@ module module_fire_standalone
 use module_fr_sfire_driver, only: set_flags, fire_ignition_convert, &
                                   set_fp_from_grid
 use module_fr_sfire_util, only: message,crash, &
-          ignition_type,fire_max_ignitions
+          lines_type
 use module_fr_sfire_phys, only: fire_params, init_fuel_cats
 use module_fr_sfire_model, only: sfire_model
 use module_domain, only: domain
@@ -47,10 +47,11 @@ integer::nhalo=5
 double precision:: dt_double,duration_s,frame_s  ! may need more accurate time computation to get the number of timesteps right
 real:: time_start,dt,t
 logical::do_ouput
-TYPE(ignition_type) :: ignition
+TYPE(lines_type) :: ignition, hfx
 type(fire_params)::fp
 logical::restart=.false.,uniform=.false.
 integer::iframe_start,iframe_end
+logical::run_fuel_moisture=.false.
 
 !*** executable
 
@@ -223,6 +224,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
         id,                                     & ! unique number for prints and debug
         ifun,                                   & ! what to do see below
         restart,                                & ! use existing state
+        run_fuel_moisture,                      & ! run the moisture model
         config_flags%fire_fuel_read,config_flags%fire_fuel_cat,   & ! legacy initial constant fuel category
         ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                    & ! fire memory dims - how declared
@@ -230,8 +232,9 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
         ifts,ifte,jfts,jfte,                    & ! fire tile dims  - this thread
         time_start,dt,                          & ! time and increment
         info%fdx,info%fdy,                                & ! fire mesh spacing,
-        ignition,                               & ! small array of ignition line descriptions
+        ignition,hfx,                               & ! small array of ignition line descriptions
         grid%fxlong,grid%fxlat,                      & ! fire mesh coordinates
+        grid%fire_hfx,                          & ! given heat flux (experimental)
         grid%lfn,grid%lfn_out,grid%tign_g,grid%fuel_frac,grid%fire_area,   & ! state: level function, ign time, fuel left, area burning
         grid%fgrnhfx,grid%fgrnqfx,                          & ! output: heat fluxes
         grid%ros,grid%flineint,grid%flineint2,                 & ! diagnostic variables
