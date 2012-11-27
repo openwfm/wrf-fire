@@ -96,20 +96,17 @@ changed_old=2;
 for istep=1:max(size(tign)),
     if changed==0, 
         % Writing the data to the file data_out.txt
-%fid = fopen('data_out_tign_fstep.txt', 'w');
-%dlmwrite('data_out_tign_out_fstep.txt', tign, 'delimiter', '\t','precision', '%.4f');
-%fclose(fid);
-data_steps=sprintf('%s\n%s',data_steps,'first part done');
-'first part done'
-%write_array_2d('data_out_wrf_tign.txt',tign)
+        data_steps=sprintf('%s\n%s',data_steps,'first part done');
+        fid = fopen('output_tign_outside.txt', 'w');
+        dlmwrite('output_tign_outside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
+        fclose(fid);
+        'first part done'
         break
     elseif (changed_old==changed)
     fid = fopen('no_fixed_point_outside.txt', 'w'); 
     dlmwrite('no_fixed_point_outside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
     data_steps=sprintf('%s\n%s',data_steps,'no_fixed_point_outside');
-    
-    %        break
     end
         
     
@@ -121,15 +118,17 @@ tign_last=tign;
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
 
-fprintf('step %i tign changed at %i points\n',istep,changed)
-fid = fopen('data_out_steps.txt', 'w');
-fprintf(fid,'step %i tign changed at %i points\n',istep,changed); % It has two rows now.
+fid = fopen('matrix_A.txt', 'w');
+dlmwrite('matrix_A.txt', A(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
 fclose(fid);
-figure(1),mesh(tign_last(2:n+1,2:m+1)),title(['tign last (outside), step',int2str(istep)])
-figure(2),mesh(tign-tign_last),title(['Difference (outside), step',int2str(istep)])
-figure(3),mesh(tign(2:n+1,2:m+1)),title(['tign new (outside), step',int2str(istep)])
-
-drawnow
+fid = fopen('data_out_steps.txt', 'w');
+fprintf(fid,'%s',data_steps); % It has two rows now.
+fclose(fid);
+% figure(1),mesh(tign_last(2:n+1,2:m+1)),title(['tign last (outside), step',int2str(istep)])
+% figure(2),mesh(tign-tign_last),title(['Difference (outside), step',int2str(istep)])
+% figure(3),mesh(tign(2:n+1,2:m+1)),title(['tign new (outside), step',int2str(istep)])
+% 
+% drawnow
 
 end
 
@@ -162,7 +161,6 @@ elseif (changed_old==changed)
 		    dlmwrite('no_fixed_point_inside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
 			    fclose(fid);
 				    'no_fixed_point_inside'
-		%			        break
              data_steps=sprintf('%s\n%s',data_steps,'no_fixed_point_inside');   
         result=0;
 
@@ -175,17 +173,20 @@ tign_last=tign;
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
-fprintf('step %i tign changed at %i points\n',istep,changed)
-% Writing the data to the file data_out.txt
-fid = fopen('data_out_steps.txt', 'w');
-fprintf(fid,'step %i tign changed at %i points\n',istep,changed); % It has two rows now.
+fid = fopen('matrix_A.txt', 'w');
+dlmwrite('matrix_A.txt', A(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
 fclose(fid);
 
-figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
-figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
-figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
+% Writing the data to the file data_out.txt
+fid = fopen('data_out_steps.txt', 'w');
+fprintf(fid,'%s',data_steps); % It has two rows now.
+fclose(fid);
 
-drawnow
+% figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
+% figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
+% figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
+% 
+% drawnow
 result=0;
 end
 
@@ -217,7 +218,6 @@ n=size(tign,1);
 m=size(tign,2);
 for i=2:n-1
     for j=2:m-1
-        % [a1,a2,b1,b2]=point_location(i,j,n,m);
         % Needed to know what is the amount of points that surrounds (i,j)
         sum_A=sum(sum(A(i-1:i+1,j-1:j+1)));
         % sum_A>0 if tign available at at least one neighbor
@@ -288,138 +288,6 @@ for i=2:n-1
 end
 end
 
-% function [a1,a2,b1,b2]=point_location(i,j,n,m);
-% % Depending on the location of the point, gives the bounds for the loop
-% if (i==1) a1=i; a2=i+1;
-%     
-% elseif (i==n) a1=i-1; a2=i;
-% 
-% else a1=i-1; a2=i+1;
-% 
-% end
-% 
-% if (j==1) b1=j; b2=j+1;
-%     
-% elseif (j==m) b1=j-1; b2=j;
-% 
-% else b1=j-1; b2=j+1;
-% 
-% end
-% 
-% end
-
-
-
-
-% Previous versions of the code
-
-%%%%%% (1) %%%%%%
-% tign(i,j)=min([ ...
-% (A(i-1,j-1)==0)*2*time_now+c,  ...
-% (A(i-1,j)==0)*2*time_now+tign(i-1,j)+1/R_wind(dot([0,-1],V(:,i-1,j))),                      ...
-% (A(i-1,j+1)==0)*2*time_now+tign(i-1,j+1)+sqrt(2)/R_wind(dot([-1,-1],V(:,i-1,j+1))/sqrt(2)), ...
-% (A(i,j-1)==0)*2*time_now+tign(i,j-1)+1/R_wind(dot([1,0],V(:,i,j-1))),                       ...
-% (A(i,j+1)==0)*2*time_now+tign(i,j+1)+1/R_wind(dot([-1,0],V(:,i,j+1))),                      ...
-% (A(i+1,j-1)==0)*2*time_now+tign(i+1,j-1)+sqrt(2)/R_wind(dot([1,1],V(:,i+1,j-1))/sqrt(2)),   ...
-% (A(i+1,j)==0)*2*time_now+tign(i+1,j)+1/R_wind(dot([0,1],V(:,i+1,j))),                       ...
-% (A(i+1,j+1)==0)*2*time_now+tign(i+1,j+1)+sqrt(2)/R_wind(dot([-1,1],V(:,i+
-% 1,j+1))/sqrt(2))]);
-%if (tign(i,j)>1.5*time_now) % think about this later
-%                    display('tign(i,j)>time_now');
-%                    i
-%                    j
-%                end
-% if (tign(i,j)>time_now+dt)||(tign(i,j)<time_now)
-%                     tign(i,j)=0;
-%                 else
-%                     A(i,j)=1;
-%                 end
-%%%%%% (1) %%%%%%
-
-%%%%%% (2) %%%%%%
-% tign(i,j)=max([ ...
-% (A(i-1,j-1)==1)*(tign(i-1,j-1)+sqrt(2)/R_wind(dot([1,-1],V(:,i-1,j-1))/sqrt(2))),  ...
-% (A(i-1,j)==1)*(tign(i-1,j)+1/R_wind(dot([0,-1],V(:,i-1,j)))),                      ...
-% (A(i-1,j+1)==1)*(tign(i-1,j+1)+sqrt(2)/R_wind(dot([-1,-1],V(:,i-1,j+1))/sqrt(2))), ...
-% (A(i,j-1)==1)*(tign(i,j-1)+1/R_wind(dot([1,0],V(:,i,j-1)))),                       ...
-% (A(i,j+1)==1)*(tign(i,j+1)+1/R_wind(dot([-1,0],V(:,i,j+1)))),                      ...
-% (A(i+1,j-1)==1)*(tign(i+1,j-1)+sqrt(2)/R_wind(dot([1,1],V(:,i+1,j-1))/sqrt(2))),   ...
-% (A(i+1,j)==1)*(tign(i+1,j)+1/R_wind(dot([0,1],V(:,i+1,j)))),                       ...
-% (A(i+1,j+1)==1)*(tign(i+1,j+1)+sqrt(2)/R_wind(dot([-1,1],V(:,i+1,j+1))/sqrt(2)))]);
-%                 
-%                 if (tign(i,j)==0) % think about this later
-%                     display('tign(i,j)==0');
-%                     i
-%                     j
-%                 end
-%                 
-%                 if (tign(i,j)<time_now-dt)||(tign(i,j)>time_now)
-%                     tign(i,j)=0;
-%                 else
-%                     A(i,j)=1;
-%                 end
-%%%%%% (2) %%%%%%                     
-
-%%%%%% (3) %%%%%%
-%     for i=2:mesh_size(1)-1
-%         for j=2:mesh_size(2)-1
-%           
-%             if (B(i,j)<2)
-%             sum=A(i-1,j-1)+A(i-1,j)+A(i-1,j+1)+A(i,j-1)+ ...
-%                 A(i,j+1)+A(i+1,j-1)+A(i+1,j)+A(i+1,j+1);  
-%             if (sum~=0)
-%                  if (IN(i,j)>0)
-%                  % Do all of it as a separate function
-%                  tign_old=(A(i,j)==0)*0+(A(i,j)==1)*tign(i,j);  % if my update is correct than we dont set it to inf but just keep the previous tign
-%                      for a=i-1:i+1  % tign(IN()>0)=inf, <0 = 0 thats for the initialization 
-%                          for b=j-1:j+1  % then tign=min(tign, inf) ot max(0,tign)
-%                              if (A(a,b)==1) % add this if Jan likes my idea &&(tign(a,b)~=inf) 
-%                                  if (i==5) &&(j==6)
-%                                          c=1;
-%                                       end
-%                                  tign_new=tign(a,b)+sqrt((a-i)^2+(b-j)^2)/R_wind(dot([b-j,a-i],V(:,a,b))); % I stoppped here
-%                                  if (tign_old<tign_new)&&(tign_new<=time_now);
-%                                      tign_old=tign_new;
-%                                  end
-%                              end
-%                          end
-%                      end
-%                         tign(i,j)=tign_old;
-%                         A(i,j)=1;
-%                                  
-% %%%%%% (1) %%%%%%
-%                 
-%                 
-%                  else
-%                      tign_old=(A(i,j)==0)*inf+(A(i,j)==1)*tign(i,j);
-%                         for a=i-1:i+1  % tign(IN()>0)=inf, <0 = 0 thats for the initialization 
-%                             for b=j-1:j+1  % then tign=min(tign, inf) ot max(0,tign)
-%                                 if (A(a,b)==1) % add this if Jan likes my idea &&(tign(a,b)~=0)  
-%                                       if (i==2) &&(j==9)
-%                                          c=1;
-%                                       end
-%                                     tign_new=tign(a,b)+sqrt((a-i)^2+(b-j)^2)/R_wind(dot([b-j,a-i],V(:,a,b)));
-%                                     if (tign_old>tign_new)&&(tign_new>=time_now);
-%                                         tign_old=tign_new;
-%                                     end
-%                                 end
-%                             end
-%                         end
-%                         tign(i,j)=tign_old;
-%                         A(i,j)=1;
-% 
-%                         
-% %%%%%% (2) %%%%%%                        
-%                     end
-%                 
-%             end        
-%             end
-%             
-%        end
-% 
-%     end
-
-%%%%%% (3) %%%%%%
 
 
 
