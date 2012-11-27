@@ -113,6 +113,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
     integer::fire_time_step_ratio,itime_step,i,j
     real,dimension( ips:ipe , jps:jpe ) :: grnhfx_save, grnqfx_save,    &
                                            canhfx_save, canqfx_save
+    character(len=128)::msg
 
     ! executable
 
@@ -211,6 +212,9 @@ subroutine sfire_driver_em_step (grid , config_flags               &
      enddo
    
 #ifdef WRF_CHEM
+     write(msg,99)lbound(grid%chem,4),ubound(grid%chem,4),lbound(grid%tracer,4),ubound(grid%tracer,4)
+99   format('chem species',i3,':',i3,'  tracers',i3,':',i3)
+     call message(msg)
      ! fire emission source for wrf chem
      call fire_emission(                    &
             ids,ide-1, kds,kde, jds,jde-1,  & ! domain dimensions
