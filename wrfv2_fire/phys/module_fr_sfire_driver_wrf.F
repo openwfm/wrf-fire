@@ -90,6 +90,9 @@ subroutine sfire_driver_em_step (grid , config_flags               &
                               domain_get_time_step 
     USE module_configure , only : grid_config_rec_type
     USE module_fr_sfire_util, only : fire_test_steps
+#ifdef WRF_CHEM
+    USE module_state_description, only: num_chem,num_tracer
+#endif
     implicit none
 
     TYPE(domain) , TARGET          :: grid   ! data
@@ -212,8 +215,11 @@ subroutine sfire_driver_em_step (grid , config_flags               &
      enddo
    
 #ifdef WRF_CHEM
-     write(msg,99)lbound(grid%chem,4),ubound(grid%chem,4),lbound(grid%tracer,4),ubound(grid%tracer,4)
-99   format('chem species',i3,':',i3,'  tracers',i3,':',i3)
+     write(msg,991)lbound(grid%chem,4),ubound(grid%chem,4),lbound(grid%tracer,4),ubound(grid%tracer,4)
+991  format('chem species',i3,':',i3,'  tracers',i3,':',i3)
+     call message(msg)
+     write(msg,992)num_chem, num_tracer
+992  format('number of chem species:',i4,'  tracers:',i3)
      call message(msg)
      ! fire emission source for wrf chem
      call fire_emission(                    &
