@@ -6,9 +6,9 @@ addpath ../../other/Matlab/perimeter
 addpath('../../other/Matlab/util1_jan');
 addpath('../../other/Matlab/netcdf');
 
-[long,lat,time_now,bound]=read_file_perimeter(data,'wrfout_d01_2007-10-21_12:00:00_real_case');
+[long,lat,ux,vx,dzdxf,dzdyf,time_now,bound]=read_file_perimeter(data,'wrfout_d01_2007-10-21_12:00:00_real_case');
 V=ones(2,size(long,1),size(long,2));
-tign=perimeter(long,lat,time_now,bound,V);
+tign=perimeter(long,lat,ux,vx,dzdxf,dzdyf,time_now,bound,V);
 
 % Writing the data to the file data_out.txt
 fid = fopen('data_out_tign.txt', 'w');

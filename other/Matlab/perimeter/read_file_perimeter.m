@@ -1,4 +1,4 @@
-function [long,lat,time_now,bound]=read_file_perimeter(data,wrfout)
+function [long,lat,ux,vx,dzdxf,dzdyf,time_now,bound]=read_file_perimeter(data,wrfout)
 
 % Volodymyr Kondratenko           April 3 2012
 
@@ -33,6 +33,11 @@ function [long,lat,time_now,bound]=read_file_perimeter(data,wrfout)
 format long
 unit_long=ncread(wrfout,'UNIT_FXLONG');
 unit_lat=ncread(wrfout,'UNIT_FXLAT');
+ux=ncread(wrfout,'UX');
+vx=ncread(wrfout,'VX');
+dzdxf=ncread(wrfout,'DZDXF');
+dzdyf=ncread(wrfout,'DYDXF');
+
 unit_long=unit_long(1);
 unit_lat=unit_lat(1);
 long=ncread(wrfout,'FXLONG');

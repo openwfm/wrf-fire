@@ -1,5 +1,5 @@
        
-function result=perimeter(long,lat,time_now,bound,V)
+function result=perimeter(long,lat,ux,vx,dzdxf,dzdyf,time_now,bound,V)
 
 % Description of the function
 
@@ -231,10 +231,13 @@ for i=2:n-1
                     for b=j-1:j+1  
                     	% loop over all neighbors
                         if (A(a,b)==1) % was already updated 
+                            wind=(long(a-1,b-1,1)-long(i-1,j-1, 1))*vx(i-1,j-1,1)+  ... 
+                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*ux(i-1,j-1,1);
+                            angle=(long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(i-1,j-1,1)+  ... 
+                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(i-1,j-1,1);
                         	tign_new=tign(a,b)-sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/                   ...
-                                     R_wind((long(a-1,b-1,1)-long(i-1,j-1,1))*V(1,i-1,j-1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*V(2,i-1,j-1));
+                                     fire_ros(fuel,wind,angle);
                             % update of the tign based on tign and ros
                             % of the neighbour
          
@@ -263,11 +266,14 @@ for i=2:n-1
                     
                 for a=i-1:i+1  
                 	for b=j-1:j+1  
-                    	if (A(a,b)==1)                                
-                        	tign_new=tign(a,b)+sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
+                    	if (A(a,b)==1)            
+                            wind=(long(i-1,j-1,1)-long(a-1,b-1,1))*vx(a-1,b-1,1)+  ... 
+                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*ux(a-1,b-1,2);
+                            angle=(long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(a-1,b-1,1)+  ... 
+                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(a-1,b-1,2);
+                            tign_new=tign(a,b)+sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/                    ...
-                                     R_wind((long(i-1,j-1,1)-long(a-1,b-1,1))*V(1,a-1,b-1)+ ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*V(2,a-1,b-1));
+                                     fire_ros(fuel,wind,angle);
                             % Here the direction of the vector is
                             % opposite, since fire is going from the
                             % inside point towards the point that was
