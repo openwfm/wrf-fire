@@ -215,12 +215,14 @@ subroutine sfire_driver_em_step (grid , config_flags               &
      enddo
    
 #ifdef WRF_CHEM
+
      write(msg,991)lbound(grid%chem,4),ubound(grid%chem,4),lbound(grid%tracer,4),ubound(grid%tracer,4)
 991  format('chem species',i3,':',i3,'  tracers',i3,':',i3)
      call message(msg)
-     write(msg,992)num_chem, num_tracer
-992  format('number of chem species:',i4,'  tracers:',i3)
+     write(msg,992)num_chem, num_tracer,config_flags%chem_opt,config_flags%tracer_opt
+992  format('number of chem species:',i4,'  tracers:',i3,' chem_opt=',i3,' tracer_opt=',i3)
      call message(msg)
+      
      ! fire emission source for wrf chem
      call fire_emission(                    &
             ids,ide-1, kds,kde, jds,jde-1,  & ! domain dimensions
