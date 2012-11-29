@@ -17,3 +17,4 @@ fclose(fid);
 'printed'
 
 write_array_2d('data_out_wrf_tign.txt',B)
+

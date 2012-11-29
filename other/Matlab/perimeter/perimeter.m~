@@ -54,6 +54,8 @@ function result=perimeter(long,lat,ux,vx,dzdxf,dzdyf,time_now,bound,V)
 addpath('../../other/Matlab/util1_jan');
 addpath('../../other/Matlab/netcdf');
 
+fuels % Needed to create fuel variable
+
 format long
 result=1;
 
@@ -113,14 +115,11 @@ for istep=1:max(size(tign)),
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,tign,A,IN,V,time_now);
+[tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,fuel,tign,A,IN,V,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
 
-fid = fopen('matrix_A.txt', 'w');
-dlmwrite('matrix_A.txt', A(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'%s',data_steps); % It has two rows now.
 fclose(fid);
@@ -169,13 +168,10 @@ elseif (changed_old==changed)
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,tign,A,IN,V,time_now);
+[tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,tign,A,IN,V,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
-fid = fopen('matrix_A.txt', 'w');
-dlmwrite('matrix_A.txt', A(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
 
 % Writing the data to the file data_out.txt
 fid = fopen('data_out_steps.txt', 'w');
@@ -208,7 +204,7 @@ R=a0*x^(alpha)+b0;
 
 end
 
-function [tign,A]=tign_update(long,lat,tign,A,IN,V,time_now)
+function [tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,tign,A,IN,V,time_now)
   
 % tign  array same size as A and V: time of ignition at all points
 % A,IN flags from above
@@ -267,14 +263,13 @@ for i=2:n-1
                 for a=i-1:i+1  
                 	for b=j-1:j+1  
                     	if (A(a,b)==1)            
-                            wind=(long(a-1,b-1,1)-long(i-1,j-1, 1))*vx(i-1,j-1,1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*ux(i-1,j-1,1);
-                            angle=(long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(i-1,j-1,1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(i-1,j-1,1);
-                        	tign_new=tign(a,b)+sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
+                            wind=(long(i-1,j-1,1)-long(a-1,b-1,1))*vx(a-1,b-1,1)+  ... 
+                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*ux(a-1,b-1,1);
+                            angle=(long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(a-1,b-1,1)+  ... 
+                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(a-1,b-1,1);
+                            tign_new=tign(a,b)+sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/                    ...
-                                     R_wind((long(i-1,j-1,1)-long(a-1,b-1,1))*V(1,a-1,b-1)+ ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*V(2,a-1,b-1));
+                                     fire_ros(fuel,wind,angle);
                             % Here the direction of the vector is
                             % opposite, since fire is going from the
                             % inside point towards the point that was
