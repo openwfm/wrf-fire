@@ -1,5 +1,5 @@
        
-function result=perimeter(long,lat,ux,vx,dzdxf,dzdyf,time_now,bound,V)
+function result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
 
 % Description of the function
 
@@ -115,7 +115,7 @@ for istep=1:max(size(tign)),
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,fuel,tign,A,IN,V,time_now);
+[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
@@ -168,7 +168,7 @@ elseif (changed_old==changed)
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,tign,A,IN,V,time_now);
+[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
@@ -180,9 +180,9 @@ fclose(fid);
 
 % figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
 % figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
-% figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
+ figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
 % 
-% drawnow
+ drawnow
 result=0;
 end
 
@@ -204,7 +204,7 @@ R=a0*x^(alpha)+b0;
 
 end
 
-function [tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,tign,A,IN,V,time_now)
+function [tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,fuel,tign,A,IN,time_now)
   
 % tign  array same size as A and V: time of ignition at all points
 % A,IN flags from above

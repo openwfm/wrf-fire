@@ -1,5 +1,5 @@
        
-function result=perimeter(long,lat,ux,vx,dzdxf,dzdyf,time_now,bound,V)
+function result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
 
 % Description of the function
 
@@ -115,7 +115,7 @@ for istep=1:max(size(tign)),
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,fuel,tign,A,IN,V,time_now);
+[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
@@ -168,7 +168,7 @@ elseif (changed_old==changed)
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,fuel,tign,A,IN,V,time_now);
+[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
@@ -180,9 +180,9 @@ fclose(fid);
 
 % figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
 % figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
-% figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
+ figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
 % 
-% drawnow
+ drawnow
 result=0;
 end
 
@@ -204,7 +204,7 @@ R=a0*x^(alpha)+b0;
 
 end
 
-function [tign,A]=tign_update(long,lat,vx,ux,dzdxf,dzdyf,fuel,tign,A,IN,V,time_now)
+function [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now)
   
 % tign  array same size as A and V: time of ignition at all points
 % A,IN flags from above
@@ -227,8 +227,8 @@ for i=2:n-1
                     for b=j-1:j+1  
                     	% loop over all neighbors
                         if (A(a,b)==1) % was already updated 
-                            wind=(long(a-1,b-1,1)-long(i-1,j-1, 1))*vx(i-1,j-1,1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*ux(i-1,j-1,1);
+                            wind=(long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(i-1,j-1,1)+  ... 
+                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(i-1,j-1,1);
                             angle=(long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(i-1,j-1,1)+  ... 
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(i-1,j-1,1);
                         	tign_new=tign(a,b)-sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
@@ -263,8 +263,8 @@ for i=2:n-1
                 for a=i-1:i+1  
                 	for b=j-1:j+1  
                     	if (A(a,b)==1)            
-                            wind=(long(i-1,j-1,1)-long(a-1,b-1,1))*vx(a-1,b-1,1)+  ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*ux(a-1,b-1,1);
+                            wind=(long(i-1,j-1,1)-long(a-1,b-1,1))*vf(a-1,b-1,1)+  ... 
+                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(a-1,b-1,1);
                             angle=(long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(a-1,b-1,1)+  ... 
                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(a-1,b-1,1);
                             tign_new=tign(a,b)+sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
