@@ -146,7 +146,6 @@ xjfme=jfme
 
 ! init flags
 freeze_fire = fire_hfx_given .ne.  0
-print *,'ifun=',ifun,' fire_hfx_given=',fire_hfx_given,' freeze_fire=',freeze_fire
 
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 ! !$OMP SINGLE
@@ -415,8 +414,11 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         fuel_frac_burnt,                          & !
         grnhfx,grnqfx)                              !out
 
-    case (1, 2)
-       print *,"expecting fire_hfx to be set in WRF, from wrfinput or wrfrst files"
+    case (1, 2) 
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
+       write(msg,*)"model: expecting fire_hfx to be set in WRF, from wrfinput or wrfrst files"
+       call message(msg)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
 
        do j=jfts,jfte
            do i=ifts,ifte
@@ -561,10 +563,12 @@ end subroutine sfire_model
 
              radius=hfx%line(k)%radius
 
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
              write(msg,*)'hfx line ',i,' at ',time_now,'s ',hfrac,' of max ', hfx%line(k)%hfx_value
              call message(msg)
              write(msg,*)'center ',ax,ay,' radius ',radius
              call message(msg)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
 
              nfa=0
              ncells=0
@@ -588,8 +592,12 @@ end subroutine sfire_model
                      ncells=ncells+1
                  enddo
              enddo
+
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
              write(msg,*)'Number of cells in fire area in this tile ',nfa,' ',(100.*nfa)/ncells,' %'
              call message(msg)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
+
          endif
       enddo
  end subroutine param_hfx
