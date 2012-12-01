@@ -579,10 +579,10 @@ end subroutine sfire_model
                  enddo
              enddo
 
-!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
              write(msg,*)'Number of cells in fire area in this tile ',nfa,' ',(100.*nfa)/ncells,' %'
              call message(msg)
-!$OMP CRITICAL(SFIRE_MODEL_CRIT)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
 
          endif
       enddo
