@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
- run_hours                           = 0,
- run_minutes                         = 5,
+ run_hours                           = 24,
+ run_minutes                         = 0,
  run_seconds                         = 0,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
@@ -15,10 +15,10 @@
  end_hour                            = 00,   00,   00,
  end_minute                          = 600,   600,   600,
  end_second                          = 00,   00,   00,
- history_interval_s                  = 1,   30,   30,
- frames_per_outfile                  = 10, 1000, 1000,
+ history_interval                    = 5,   30,   30,
+ frames_per_outfile                  = 288, 1000, 1000,
  restart                             = .false.,
- restart_interval_s                  = 100
+ restart_interval                    = 360
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
@@ -28,10 +28,10 @@
  /
 
  &domains
- time_step                           = 0,
+ time_step                           = 12,
  !time_step                           = 5,
- time_step_fract_num                 = 25,
- time_step_fract_den                 = 100,
+ !time_step_fract_num                 = 25,
+ !time_step_fract_den                 = 100,
  max_dom                             = 1,
  s_we                                = 1,     1,     1,
  e_we                                = 42,    43,    43,
@@ -39,8 +39,8 @@
  e_sn                                = 42,    43,    43,
  s_vert                              = 1,     1,     1,
  e_vert                              = 41,    41,    41,
- dx                                  = 60,    30,    10,
- dy                                  = 60,    30,    10,
+ dx                                  = 2000,    30,    10,
+ dy                                  = 2000,    30,    10,
  ztop                                = 1500, 1500, 1500,
  grid_id                             = 1,     2,     3,
  parent_id                           = 0,     1,     2,
@@ -60,7 +60,7 @@
  ra_sw_physics                       = 0,     0,     0,
  radt                                = 30,    30,    30,
  sf_sfclay_physics                   = 1,     0,     0,
- sf_surface_physics                  = 0,     0,     0,
+ sf_surface_physics                  = 1,     0,     0,
  bl_pbl_physics                      = 0,     0,     0,
  bldt                                = 0,     0,     0,
  cu_physics                          = 0,     0,     0,
@@ -122,27 +122,27 @@
 
  &fire ! be sure to set sr_x,sr_y in domains-namelist (to set refinement in x,y)
  ifire              = 2,    ! integer, = 0: no fire, 2=turn on fire model
- fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
+ fire_fuel_read     = -1,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 ! ignition 
  fire_num_ignitions = 2,         ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_ros1 = 0.1,      ! ignition rate of spread, m/s
- fire_ignition_start_x1 = 1005,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_start_y1 =  500,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x1 =   1005,  ! end points of ignition lines, in m from lower left corner
- fire_ignition_end_y1 =   1900,  ! end points of ignition lines, in m from lower left corner
- fire_ignition_radius1 =    18,  ! all within this radius will ignite, > fire mesh step
+ fire_ignition_start_x1 = 66000,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_start_y1 = 59400,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_end_x1 =   62400,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_end_y1 =   67600,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_radius1 =    400,  ! all within this radius will ignite, > fire mesh step
  fire_ignition_start_time1 = 2,  ! sec for ignition from the start
- fire_ignition_end_time1  =502,  ! sec for ignition from the start
- fire_ignition_ros2 = 0.01,      ! ignition rate of spread, m/s
- fire_ignition_start_x2 = 1503,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_start_y2 =  500,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x2 =   1503,  ! end points of ignition lines, in m from lower left corner
- fire_ignition_end_y2 =   1900,  ! end points of ignition lines, in m from lower left corner
- fire_ignition_radius2 =    18,  ! all within this radius will ignite, > fire mesh step
+ fire_ignition_end_time1  = 20,  ! sec for ignition from the start
+ fire_ignition_ros2 = 0.1,       ! ignition rate of spread, m/s
+ fire_ignition_start_x2 = 66000,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_start_y2 = 59400,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_end_x2 =   78200,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_end_y2 =   57000,  ! end points of ignition lines, in m from lower left corner
+ fire_ignition_radius2 =    400,  ! all within this radius will ignite, > fire mesh step
  fire_ignition_start_time2 = 3,  ! sec for ignition from the start! end ignition for sfire
- fire_ignition_end_time2  =503,  ! sec for ignition from the start! end ignition for sfire
- fire_ignition_ros3 = 0.1,      ! ignition rate of spread, m/s
+ fire_ignition_end_time2  = 30,  ! sec for ignition from the start! end ignition for sfire
+ fire_ignition_ros3 = 0.1,       ! ignition rate of spread, m/s
  !fire_ignition_start_x3 = 1400,  ! start points of ignition lines, in m from lower left corner
  !fire_ignition_start_y3 = 1400,  ! start points of ignition lines, in m from lower left corner
  !fire_ignition_end_x3 =   1400,  ! end points of ignition lines, in m from lower left corner
@@ -151,7 +151,8 @@
  !fire_ignition_start_time3 = 4,  ! sec for ignition from the start! end ignition for sfire
  !fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 ! moisture model
- fmoist_run = .true.,        ! run the moisture model
+ fire_fmc_read = 0,               ! 0 = fmc not set use wrfinput, 1=from fuelmc_g, 2=read in ideal.exe
+ fmoist_run = .true.,        ! run the moisture model, set to false to keep moisture constant
  fmoist_interp = .true.,     ! interpolate moisture to fuels
  fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
  fmoist_dt = 10,             ! moisture model time step (s)

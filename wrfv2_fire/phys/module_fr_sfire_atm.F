@@ -76,6 +76,7 @@ SUBROUTINE fire_tendency( &
    
 !!   character(len=128)::msg
 
+
         do j=jts,jte
             do k=kts,min(kte+1,kde)
                do i=its,ite
@@ -158,6 +159,7 @@ SUBROUTINE fire_tendency( &
 !   multiply by dry air mass (mu) to eliminate the need to 
 !   call sr. calculate_phy_tend (in dyn_em/module_em.F)
 
+   ! print *,'fire_tendency:',i_st,i_en,j_st,j_en
    DO j = j_st,j_en
       DO k = k_st,k_en-1
          DO i = i_st,i_en
@@ -166,6 +168,8 @@ SUBROUTINE fire_tendency( &
 
             rthfrten(i,k,j) = - mu(i,j) * rho_i * (hfx(i,k+1,j)-hfx(i,k,j)) / dz8w(i,k,j)
             rqvfrten(i,k,j) = - mu(i,j) * rho_i * (qfx(i,k+1,j)-qfx(i,k,j)) / dz8w(i,k,j)
+ 
+            ! print *,i,j,k,rthfrten(i,k,j)
 
          END DO
       END DO

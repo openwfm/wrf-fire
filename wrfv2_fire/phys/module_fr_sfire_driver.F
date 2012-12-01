@@ -92,7 +92,7 @@ public sfire_driver_em,use_atm_vars,set_flags,fire_ignition_convert, &
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
 
-logical:: moisture_run, moisture_interp, fire_run  ! which kind of model to run overall
+logical:: fmoist_run, fmoist_interp, fire_run  ! which kind of model to run overall
 
 contains
 
@@ -176,8 +176,8 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     jr=grid%sr_y
     write(msg,'(a,2i4)')'fire mesh refinement ratios', ir,jr
     call message(msg)
-    if(ir.le.0.or.jr.le.0.or.mod(ir,2).ne.0.or.mod(jr,2).ne.0)then
-        call crash('fire mesh refinement ratio must be positive even')
+    if(ir.le.0.or.jr.le.0)then
+        call crash('fire mesh refinement ratio must be positive')
     endif
     itimestep=grid%itimestep
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
@@ -185,8 +185,9 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     ! **** moisture model
 
     ! decide what to run - moisture, interpolation, or fire model itself
-    moisture_run    = config_flags%fmoist_run
-    moisture_interp = config_flags%fmoist_interp 
+    fmoist_run    = config_flags%fmoist_run
+    fmoist_interp = config_flags%fmoist_interp 
+    if(fire_fmc_read.ne.0.and.fmoist_run)call crash('fmoist_run=T requires fire_fmc_read=0')
     fire_run = .not. config_flags%fmoist_only
 
     !decide what to run
@@ -197,7 +198,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     
     
     
-    if(moisture_run)then
+    if(fmoist_run)then
         if(moisture_initializing)then
             if(fire_ifun_end>2)call crash('initialization must be run separately')
             grid%fmoist_lasttime=moisture_time ! initialize the last time the model has run to start of run
@@ -229,13 +230,13 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
                     write(msg,'(a,f12.2,a,f12.2,a)')'moisture time step is ',dt_moisture,'s next run at ',grid%fmoist_nexttime,'s'
                     call message(msg)
                 endif
-                if(moisture_interp)then
+                if(fmoist_interp)then
                     call message('moisture interpolation to fuels will run because moisture model does')
                     run_fuel_moisture=.true.
                 endif
             endif
         endif
-    elseif(itimestep.eq.1.and.moisture_interp)then
+    elseif(itimestep.eq.1.and.fmoist_interp)then
             call message('initializing, moisture interpolation to fuels will run from input data')
             run_fuel_moisture=.true.
     endif
@@ -341,7 +342,6 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%fz0, grid%fwh,                    &
             fp,                                    & ! structure with pointers passed to spread rate calculation
             config_flags%nfmc,         & ! moisture model variables start
-            config_flags%fmoist_init, &
             run_advance_moisture,run_fuel_moisture,dt_moisture,     &    ! moisture model control
             grid%rainc, grid%rainnc,                       & ! accumulated rain from different sources
             grid%t2, grid%q2, grid%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -421,7 +421,6 @@ subroutine sfire_driver_phys (ifun,    &
     fz0,fwh,                                      &
     fp,                                           & ! fire params
     nfmc,                                     & ! number of fuel moisture classes
-    fmoist_init,                                    &
     run_advance_moisture,run_fuel_moisture,dt_moisture,& ! moisture model control
     rainc,rainnc,              & ! accumulated rain from different sources
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
@@ -512,7 +511,6 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
     
 ! moisture model arguments
 logical, intent(in)::run_advance_moisture,run_fuel_moisture
-integer, intent(in)::fmoist_init
 real, intent(in)::dt_moisture
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
@@ -589,7 +587,7 @@ if(fire_print_file.gt.0)then
 endif
 
 if(ifun.eq.1)then
-         call init_fuel_cats(moisture_run .or. moisture_interp) ! properties of fuel categories and moisture classes from namelist.fire
+         call init_fuel_cats(fmoist_run .or. fmoist_interp) ! properties of fuel categories and moisture classes from namelist.fire
 endif
 
 if(ifun.eq.3)then
@@ -660,7 +658,6 @@ do ij=1,num_tiles
           call message('advance_moisture start')
           call advance_moisture(    &
               itimestep.eq.1,             & ! initialize?
-              fmoist_init,                & ! how to initialize if we do
               ims,ime,  jms,jme,          & ! memory dimensions
               its,ite,  jts,jte,          & ! tile dimensions
               nfmc,                       & ! number of moisture fields
@@ -826,12 +823,13 @@ do ij=1,num_tiles
         fmc_g                                & ! weighted fuel moisture contents on fire grid
         )
         call message('fuel_moisture end')
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
       endif
+      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
 
     endif
 
     call sfire_model (id,ifun,restart,  &
+        run_fuel_moisture,                      & ! if fuel moisture needs to be updated
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
         ifds,ifde,jfds,jfde,                    & ! fire domain dims
         ifms,ifme,jfms,jfme,                    & ! fire memory dims
@@ -1301,6 +1299,8 @@ subroutine set_fp_from_grid(grid,fp)
     fp%ischap => grid%ischap ! spread formula coeff
     fp%fuel_time => grid%fuel_time ! time for fuel to burn to 1/e
     fp%fmc_g => grid%fmc_g   ! fuel moisture, ground
+    fp%nfuel_cat => grid%nfuel_cat ! fuel category
+
 
 end subroutine set_fp_from_grid
 

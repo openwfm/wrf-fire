@@ -52,7 +52,7 @@ state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"
 # fuel moisture model section
 dimspec  num_fmc    -   namelist=nfmc              z      fuel_moisture_classes 
 rconfig  integer  nfmc  namelist,fire  1    5  -   "nfmc" "number of fuel moisture classes"
-state    real     fmc_gc  i{num_fmc}j fire      1           z   i102hr   "FMC_GC"  "fuel moisture contents by class" "1"
+state    real     fmc_gc  i{num_fmc}j fire      1           z   ihr   "FMC_GC"  "fuel moisture contents by class" "1"
 state    real     fmc_equi  i{num_fmc}j fire     1         z     hr   "FMC_EQUI"  "fuel moisture contents by class equilibrium (diagnostics only)" "1"
 state    real     fmc_lag  i{num_fmc}j fire     1         z      hr   "FMC_TEND"  "fuel moisture contents by class time lag (diagnostics only)" "h"
 state    real     rain_old  ij       fire        1         z     hr   "RAIN_OLD" "previous value of accumulated rain" "mm"
@@ -67,7 +67,6 @@ rconfig logical   fmoist_interp     namelist,fire  max_domains   .false.       h
 rconfig logical   fmoist_only       namelist,fire  max_domains   .false.       hr   "only run moisture model, skip fire"
 rconfig integer   fmoist_freq       namelist,fire  max_domains    0       hr   "fmoist_freq"    "frequency to run moisture model 0: use fmoist_dt, k>0: every k timesteps" "1"
 rconfig real      fmoist_dt         namelist,fire  max_domains    600     hr   "fmoist_dt  "    "moisture model time step" "s"
-rconfig integer   fmoist_init       namelist,fire  max_domains    2       hr   "fmoist_init" "set initial moisture 1= fuelmc_g from namelist.fire, 2=equilibrium, other=none"
 halo      HALO_FIRE_MFG dyn_em 24:fmc_g
 halo      HALO_FIRE_MAG dyn_em 8:fmc_gc
 
@@ -182,7 +181,7 @@ rconfig   real    fire_ext_crwn          namelist,fire         max_domains      
 rconfig   integer fire_wind_log_interp   namelist,fire         max_domains           4       -      "fire_wind_log_interp" "1 = fz0/fwh from fuel categores, 2=fz0 const rom z0,3=fz0 interp from z0, 4=interpolation on atm mesh and wind reduction" "" 
 rconfig   integer fire_use_windrf        namelist,fire         max_domains           0       -      "fire_use_windrf" "only for fire_wind_log_interp.ne.4: 0=ignore windrf, 1=multiply wind by windrf, 2=set fwh from windrf, 3=adjust fwh for z0" "" 
 rconfig   integer fire_fuel_read         namelist,fire         max_domains           -1      -      "fire_fuel_read"   "fuel categories are set by: if 0, uniform; if 1, user-presc; if 2, read from file"   ""
-rconfig   integer fire_fmc_read          namelist,fire         max_domains           1       -      "fire_fmc_read"    "fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal"   ""
+rconfig   integer fire_fmc_read          namelist,fire         max_domains           1       -      "fire_fmc_read"    "fuel moisture: 0 not set use wrfinput, 1 from namelist.fire, 2 read from file in ideal"   ""
 rconfig   integer fire_fuel_cat          namelist,fire         max_domains           1       -      "fire_fuel_cat"     "fuel category if ifuelread=0"              ""
 # sfire switches
 rconfig   integer fire_print_msg         namelist,fire         max_domains           0       -      "fire_write_msg"    "write fire statistics, 0 no writes, 1+ for more"  ""

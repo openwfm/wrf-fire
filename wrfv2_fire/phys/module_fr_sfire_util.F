@@ -365,7 +365,7 @@ if(ite.eq.ipe.and..not.ite.eq.ide)ite1=ite+halo
 if(jte.eq.jpe.and..not.jte.eq.jde)jte1=jte+halo
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,'(a,2i5,a,f5.2)')'continue_at_boundary: directions',ix,iy,' bias ',bias 
-call message(msg)
+call message(msg,level=3)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 if(ix.ne.0)then
     if(its.eq.ids)then
@@ -382,7 +382,7 @@ if(ix.ne.0)then
     endif
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: x:',its,':',ite,',',jts,':',jte,' ->',itso,':',iteo,',',jts1,':',jte1
-    call message(msg)
+    call message(msg,level=3)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 endif
 if(iy.ne.0)then
@@ -401,7 +401,7 @@ if(iy.ne.0)then
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
     write(msg,'(8(a,i5))')'continue_at_boundary: y:',its,':',ite,',',jts,':',jte,' ->',its1,':',ite1,',',jtso,':',jteo
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-    call message(msg)
+    call message(msg,level=3)
 endif
 ! corners of the domain
 if(ix.ne.0.and.iy.ne.0)then
