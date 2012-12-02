@@ -140,7 +140,9 @@ end
 
 % Initializing flag matrix A and time of ignition (tign)
 A(2:n+1,2:m+1)=1-IN(:,:,1);
-tign(2:n+1,2:m+1)=(1-IN(:,:,1)).*tign(2:n+1,2:m+1);
+final_tign=tign;
+tign_in=zeros(n+2,m+2);
+tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
 
 changed=1;
 for istep=1:max(size(tign)),
@@ -165,22 +167,22 @@ elseif (changed_old==changed)
 
     end
     
-tign_last=tign;
+tign_last=tign_in;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now);
+[tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign_in,A,IN,time_now);
 
-changed=sum(tign(:)~=tign_last(:));
+changed=sum(tign_in(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
 
 % Writing the data to the file data_out.txt
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'%s',data_steps); % It has two rows now.
 fclose(fid);
-
+final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 % figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
 % figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
- figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
+ figure(6),mesh(final_tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
 % 
  drawnow
 result=0;
