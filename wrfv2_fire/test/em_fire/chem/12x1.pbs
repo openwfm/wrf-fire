@@ -27,13 +27,14 @@ WD=12x1
 #rm -rf $WD
 mkdir $WD
 cd $WD
+rm rsl.* wrfout* wrfrst* core*
 pwd
 ln -s ../ideal.exe .
 #ln -s ../input_fc .
 #ln -s ../input_ht .
 #ln -s ../input_lu .
 ln -s ../input_sounding .
-#ln -s ../LANDUSE.TBL .
+ln -s ../LANDUSE.TBL .
 ln -s ../namelist.fire .
 ln -s ../namelist.input .
 ln -s ../wrf.exe .
