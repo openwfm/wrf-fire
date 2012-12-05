@@ -80,6 +80,8 @@ lat1=lat*100000;
 long1=long*100000;
 [IN,ON] = inpolygon(long1,lat1,xv,yv);
 
+[ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel);
+
 % Code
 
 % First step, we set everything inside to time_now and update the points
@@ -115,7 +117,7 @@ for istep=1:max(size(tign)),
 tign_last=tign;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now);
+[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
@@ -140,7 +142,9 @@ end
 
 % Initializing flag matrix A and time of ignition (tign)
 A(2:n+1,2:m+1)=1-IN(:,:,1);
-tign(2:n+1,2:m+1)=(1-IN(:,:,1)).*tign(2:n+1,2:m+1);
+final_tign=tign;
+tign_in=zeros(n+2,m+2);
+tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
 
 changed=1;
 for istep=1:max(size(tign)),
@@ -165,22 +169,22 @@ elseif (changed_old==changed)
 
     end
     
-tign_last=tign;
+tign_last=tign_in;
 
 % tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now);
+[tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign_in,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
 
-changed=sum(tign(:)~=tign_last(:));
+changed=sum(tign_in(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
 
 % Writing the data to the file data_out.txt
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'%s',data_steps); % It has two rows now.
 fclose(fid);
-
+final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 % figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
 % figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
- figure(6),mesh(tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
+ figure(6),mesh(final_tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
 % 
  drawnow
 result=0;
@@ -204,7 +208,7 @@ R=a0*x^(alpha)+b0;
 
 end
 
-function [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now)
+function [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0)
   
 % tign  array same size as A and V: time of ignition at all points
 % A,IN flags from above
@@ -231,9 +235,24 @@ for i=2:n-1
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(i-1,j-1,1);
                             angle=(long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(i-1,j-1,1)+  ... 
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(i-1,j-1,1);
+                            if ~ichap,
+                                %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
+                                spdms = max(wind,0.);
+                                umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
+                                umid = umidm * 196.850;                    % m/s to ft/min
+                                %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
+                                phiw = umid^bbb * phiwc;                   % wind coef
+                                phis = 5.275 * betafl^(-0.3) *max(0,tanphi)^2;   % slope factor
+                                ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
+                            else  % chapparal
+                                %        .... spread rate has no dependency on fuel character, only windspeed.
+                                spdms = max(speed,0.);
+                                ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
+                            end
+                            ros=min(ros,6);
                         	tign_new=tign(a,b)-sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/                   ...
-                                     fire_ros(fuel,wind,angle);
+                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;                   ...
+                                     
                             % update of the tign based on tign and ros
                             % of the neighbour
          
