@@ -186,7 +186,7 @@ fprintf(fid,'%s',data_steps); % It has two rows now.
 fclose(fid);
 % figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
 % figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
- figure(6),mesh(final_tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
+% figure(6),mesh(final_tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
 % 
  drawnow
 result=0;
