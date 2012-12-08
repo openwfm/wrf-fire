@@ -122,6 +122,8 @@ tign_last=tign;
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
 
+data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign-tign_last));
+
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'%s',data_steps); % It has two rows now.
 fclose(fid);
@@ -176,12 +178,12 @@ tign_last=tign_in;
 
 changed=sum(tign_in(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
+data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign_in-tign_last));
 
 % Writing the data to the file data_out.txt
 fid = fopen('data_out_steps.txt', 'w');
 fprintf(fid,'%s',data_steps); % It has two rows now.
 fclose(fid);
-final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 % figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
 % figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
  figure(6),mesh(final_tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
@@ -189,10 +191,15 @@ final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign
  drawnow
 result=0;
 end
-
+final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
+fid = fopen('output_tign.txt', 'w');
+    dlmwrite('output_tign.txt', final_tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
+    fclose(fid);
 if changed~=0,
     data_steps=sprintf('%s\n%s',data_steps,'did not find fixed point inside');
     warning('did not find fixed point inside')
+    
+    'printed'
 end
 
 end
