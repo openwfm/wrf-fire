@@ -57,7 +57,6 @@ addpath('../../other/Matlab/netcdf');
 fuels % Needed to create fuel variable
 
 format long
-result=1;
 
 bnd_size=size(bound);
 n=size(long,1);
@@ -167,8 +166,7 @@ elseif (changed_old==changed)
 			    fclose(fid);
 				    'no_fixed_point_inside'
              data_steps=sprintf('%s\n%s',data_steps,'no_fixed_point_inside');   
-        result=0;
-
+        
     end
     
 tign_last=tign_in;
@@ -189,9 +187,10 @@ fclose(fid);
 % figure(6),mesh(final_tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
 % 
  drawnow
-result=0;
 end
 final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
+result=final_tign(2:n+1,2:m+1);
+
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', final_tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
