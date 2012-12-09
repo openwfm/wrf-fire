@@ -65,7 +65,10 @@ m=size(long,2);
 tign=zeros(n,m);      % "time of ignition matrix" of the nodes 
 A=zeros(n,m);         % A=1 where time of ignition was updated at least once 
 
-data_steps='';
+data_steps='started';
+fid = fopen('data_out_steps.txt', 'w');
+fprintf(fid,'%s',data_steps); % It has two rows now.
+fclose(fid);
 %  IN - matrix, that shows, whether the point is inside (IN(x,y)>0) the burning region
 %  or outside (IN(x,y)<0)
 %  ON - matrix that, shows whether the point is on the boundary or not

@@ -65,7 +65,7 @@ m=size(long,2);
 tign=zeros(n,m);      % "time of ignition matrix" of the nodes 
 A=zeros(n,m);         % A=1 where time of ignition was updated at least once 
 
-data_steps='';
+data_steps='sta';
 %  IN - matrix, that shows, whether the point is inside (IN(x,y)>0) the burning region
 %  or outside (IN(x,y)<0)
 %  ON - matrix that, shows whether the point is on the boundary or not
@@ -166,8 +166,7 @@ elseif (changed_old==changed)
 			    fclose(fid);
 				    'no_fixed_point_inside'
              data_steps=sprintf('%s\n%s',data_steps,'no_fixed_point_inside');   
-        result=0;
-
+        
     end
     
 tign_last=tign_in;
@@ -190,7 +189,7 @@ fclose(fid);
  drawnow
 end
 final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
-result(:,:)=final_tign(2:n+1,2+m+1);
+result=final_tign(2:n+1,2:m+1);
 
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', final_tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
