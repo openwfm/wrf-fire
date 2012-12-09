@@ -99,6 +99,21 @@ tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;
 % Stop when the matrix converges
 changed=1;
 changed_old=2;
+fidd = fopen('Mymatrix.txt','wt');
+fprintf(fidd,'%s\n','wind_vf');
+result=print_matrix(vf,fidd);
+fprintf(fidd,'%s\n','wind_uf');
+result=print_matrix(uf,fidd);
+fprintf(fidd,'%s\n','angle_dzdxf');
+result=print_matrix(dzdxf,fidd);
+fprintf(fidd,'%s\n','angle_dzdyf');
+result=print_matrix(dzdyf,fidd);
+fprintf(fidd,'%s\n','lat');
+result=print_matrix(lat(:,:,1),fidd);
+fprintf(fidd,'%s\n','long');
+result=print_matrix(long(:,:,1),fidd);
+fprintf(fidd,'%s\n','IN');
+result=print_matrix(IN,fidd);
 for istep=1:max(size(tign)),
     if changed==0, 
         % Writing the data to the file data_out.txt
@@ -120,6 +135,10 @@ tign_last=tign;
 
 % tign_update - updates the tign of the points
 [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
+
+fprintf(fidd,'%s%i\n','outside step',istep);
+result=print_matrix(tign,fidd);
+result=print_matrix(A,fidd);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
@@ -151,6 +170,7 @@ tign_in=zeros(n+2,m+2);
 tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
 
 changed=1;
+
 for istep=1:max(size(tign)),
     if changed==0, 
     fid = fopen('output_tign.txt', 'w');
@@ -176,7 +196,11 @@ tign_last=tign_in;
 
 % tign_update - updates the tign of the points
 [tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign_in,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
-
+% i,j=10, i,j=100, i,j=1000
+fprintf(fidd,'%s%i\n','inside step',istep);
+result=print_matrix(tign_in,fidd);
+result=print_matrix(A,fidd);
+    
 changed=sum(tign_in(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
 data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign_in-tign_last));
@@ -203,7 +227,7 @@ if changed~=0,
     
     'printed'
 end
-
+fclose(fidd);
 end
 
 function [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0)
@@ -444,6 +468,30 @@ r_0      = ir*xifr/(rhob * epsilon *qig);  % default spread rate in ft/min
 % computations from CAWFE code: wf2_janice/fire_ros.m4 
 
 
+end
+
+function result=print_matrix(tign,fid)
+
+
+fprintf(fid,'%s\n','i=10');
+
+for ii = 8:12
+    fprintf(fid,'%g\t',tign(ii,8:12));
+    fprintf(fid,'\n');
+end
+fprintf(fid,'%s\n','i=100');
+
+for ii = 98:102
+    fprintf(fid,'%g\t',tign(ii,98:102));
+    fprintf(fid,'\n');
+end
+fprintf(fid,'%s\n','i=1000');
+
+for ii = 998:1002
+    fprintf(fid,'%g\t',tign(ii,998:1002));
+    fprintf(fid,'\n');
+end
+result=0;
 end
 
 
