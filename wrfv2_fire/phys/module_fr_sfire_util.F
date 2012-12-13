@@ -454,11 +454,11 @@ end subroutine check_mesh_3dim
 !
 
 subroutine sum_2d_cells(       &
-       ims2,ime2,jms2,jme2,    &
-       its2,ite2,jts2,jte2,    &
+       ifms,ifme,jfms,jfme,    &
+       ifts,ifte,jtfs,jfte,    &
        v2,                     &  ! input       
-       ims1,ime1,jms1,jme1,    &
-       its1,ite1,jts1,jte1,    &
+       ims,ime,jms,jme,    &
+       its,ite,jts,jte,    &
        v1)                        ! output
 implicit none
 
@@ -468,27 +468,27 @@ implicit none
 !*** arguments
 ! the dimensions are in cells, not nodes!
 
-integer, intent(in)::its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
-real, intent(out)::v1(ims1:ime1,jms1:jme1)
-integer, intent(in)::its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
-real, intent(in)::v2(ims2:ime2,jms2:jme2)
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
+real, intent(out)::v1(ims:ime,jms:jme)
+integer, intent(in)::ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme
+real, intent(in)::v2(ifms:ifme,jfms:jfme)
 
 !*** local
-integer:: i1,i2,j1,j2,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase
+integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase
 real t
 character(len=128)msg
 
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_2dim(its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1)
-call check_mesh_2dim(its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2)
+call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
+call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
 
 ! compute mesh sizes
-isz1 = ite1-its1+1
-jsz1 = jte1-jts1+1
-isz2 = ite2-its2+1
-jsz2 = jte2-jts2+1
+isz1 = ite-its+1
+jsz1 = jte-jts+1
+isz2 = ifte-ifts+1
+jsz2 = jfte-jtfs+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
@@ -507,19 +507,19 @@ endif
 
 
 ! v1 = sum(v2)
-do j1=jts1,jte1
-    jbase=jts2+jr*(j1-jts1)
-    do i1=its1,ite1
-       ibase=its2+ir*(i1-its1)
+do j=jts,jte
+    jbase=jtfs+jr*(j-jts)
+    do i=its,ite
+       ibase=ifts+ir*(i-its)
        t=0.
        do joff=0,jr-1
-           j2=joff+jbase
+           j_f=joff+jbase
            do ioff=0,ir-1
-               i2=ioff+ibase
-               t=t+v2(i2,j2)
+               i_f=ioff+ibase
+               t=t+v2(i_f,j_f)
            enddo
        enddo
-       v1(i1,j1)=t
+       v1(i,j)=t
     enddo
 enddo
 
@@ -527,9 +527,9 @@ return
 
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
-write(msg,91)its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
+write(msg,91)ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme
 call message(msg,level=0)
-write(msg,91)its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
+write(msg,91)its,ite,jts,jte,ims,ime,jms,jme
 call message(msg,level=0)
 write(msg,92)'input  mesh size:',isz2,jsz2
 call message(msg,level=0)
@@ -538,7 +538,7 @@ write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg,level=0)
 92 format(a,2i8)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call crash('module_fr_spread_util:sum_mesh_cells: bad mesh sizes')
+call crash('sum_2d_cells: bad mesh sizes')
 
 end subroutine sum_2d_cells
 
