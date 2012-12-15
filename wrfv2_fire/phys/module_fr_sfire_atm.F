@@ -10,12 +10,248 @@ module module_fr_sfire_atm
 use module_model_constants, only: cp,xlv,g
 use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
 use module_fr_sfire_util
+#ifdef WRF_CHEM
+use module_fr_sfire_phys, only:  mfuelcats, nfuelcats    ! for emissions
+USE module_state_description, only: num_chem,num_tracer
+USE module_configure, only: &
+p_co,  &
+p_no,  &
+p_no2,  &
+p_so2,  &
+p_nh3,  &
+p_oc1,  &
+p_oc2,  &
+p_bc1,  &
+p_bc2,  &
+p_ald,  &
+p_csl,  &
+p_eth,  &
+p_hc3,  &
+p_hc5,  &
+p_hcho,  &
+p_iso,  &
+p_ket,  &
+p_mgly,  &
+p_ol2,  &
+p_olt, &
+p_oli, &
+p_ora2,&
+p_tol, &
+p_xyl
+#endif
 
 implicit none
 
 logical, save :: have_wind_log_interpolation = .false.  ! status
 
+#ifdef WRF_CHEM
+! emission tables
+REAL, dimension(mfuelcats), save:: &
+co=0.,  &
+no=0.,  &
+no2=0.,  &
+so2=0.,  &
+nh3=0.,  &
+oc1=0.,  &
+oc2=0.,  &
+bc1=0.,  &
+bc2=0.,  &
+ald=0.,  &
+csl=0.,  &
+eth=0.,  &
+hc3=0.,  &
+hc5=0.,  &
+hcho=0.,  &
+iso=0.,  &
+ket=0.,  &
+mgly=0.,  &
+ol2=0., &
+olt=0., &
+oli=0., &
+ora2=0.,&
+tol=0., &
+xyl=0.
+
+! reciprocal molecular weights  (mol/g)
+REAL, PARAMETER :: &
+             imw_co    = 1./28.010, &
+             imw_no    = 1./30.,    &
+             imw_no2   = 1./46.,    & 
+             imw_so2   = 1./64.,    &
+             imw_nh3   = 1./17.    
+
+#endif
+
 contains
+
+#ifdef WRF_CHEM
+! chem arrays are chem tracer
+! indices p_species are generated in inc/scalar_indices.inc and included in frame/module_configure.F
+
+subroutine read_emissions_table
+   integer compatible_chem_opt
+   namelist/emissions/ compatible_chem_opt, &
+co,  &
+no,  &
+no2,  &
+so2,  &
+nh3,  &
+oc1,  &
+oc2,  &
+bc1,  &
+bc2,  &
+ald,  &
+csl,  &
+eth,  &
+hc3,  &
+hc5,  &
+hcho,  &
+iso,  &
+ket,  &
+mgly,  &
+ol2, &
+olt, &
+oli, &
+ora2,&
+tol, &
+xyl
+
+end subroutine read_emissions_table
+
+subroutine sum_2d_cells_chem(       &
+       ifms,ifme,jfms,jfme,    &
+       ifts,ifte,jtfs,jfte,    &
+       ids,ide,kds,kde,jds,jde,          &
+       ims,ime,kms,kme,jms,jme,          &
+       its,ite,kts,kte,jts,jte,          &
+       rho,dz8w,                         & ! input on atmosphere mesh 
+       fgip, fuel_frac_burnt, nfuel_cat, & ! input on fire mesh
+       chem,tracer)                        ! output
+
+
+implicit none
+
+!*** purpose
+! average fire emissions from fire mesh to coarser atmosphereic mesh and add to chemistry arrays
+
+!*** arguments
+! the dimensions are in cells, not nodes!
+
+! input
+integer, intent(in)::its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme &! atm grid dims
+       ,ids,ide,kds,kde,jds,jde          
+integer, intent(in)::ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme          ! fire grid dims
+real, intent(in)::rho(ims:ime,kms:kme,jms:jme),  &                    ! air density  kg/m^3
+                  dz8w(ims:ime,kms:kme,jms:jme)                       ! layer height
+real, intent(in), dimension(ifms:ifme,jfms:jfme):: fgip, &            ! initial fuel load kg/m^2 
+                                            fuel_frac_burnt, &        ! fuel fraction burned this step kg/kg
+                                            nfuel_cat                 ! fuel category (Anderson= 1 to 13)
+! update
+real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:kme,jms:jme,num_tracer)
+
+!*** local
+integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw
+real::fuel_burnt,iair,conv
+character(len=128)msg
+
+!*** executable
+
+!check mesh dimensions and domain dimensions
+call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
+call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
+
+! compute mesh sizes
+isz1 = ite-its+1
+jsz1 = jte-jts+1
+isz2 = ifte-ifts+1
+jsz2 = jfte-jtfs+1
+
+
+! check mesh sizes
+if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
+    call message('all mesh sizes must be positive',level=0)
+    goto 9
+endif
+
+! compute mesh ratios
+ir=isz2/isz1
+jr=jsz2/jsz1
+
+if(isz2.ne.isz1*ir .or. jsz2.ne.jsz1*jr)then
+    call message('input mesh size must be multiple of output mesh size',level=0)
+    goto 9
+endif
+
+! fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
+
+! emis_X(g/kg)*fuel_burnt(kg/m^2)/mw_X(g/mol) = emissions (mol/m^2)
+! rho(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
+
+k1 = kds               ! 1st layer index
+do j=jts,jte
+    jbase=jtfs+jr*(j-jts)                                            ! indexing
+    do i=its,ite
+       ibase=ifts+ir*(i-its)                                         ! indexing
+       iair = 28.97e3/(rho(i,kds,j)*dz8w(i,kds,j))                   ! 1e6/air_in_1st_layer (mmol/m^2)
+       conv = iair/(ir*jr)                                           ! conversion factor - averating fire cells over atm cell
+       do joff=0,jr-1
+           j_f=joff+jbase
+           do ioff=0,ir-1
+               i_f=ioff+ibase
+
+               !*** fire cell (i_f,j_f) contributes to atmosphere cell (i,j) at ground level
+
+               fuel_burnt = fgip(i_f,j_f) * fuel_frac_burnt(i_f,j_f) ! kg/m^2 
+               cat = nfuel_cat(i_f, j_f)                       ! usually 1 to 13
+
+               ! emissions given in g/kg
+               chem(i,k1,j,p_co  )=chem(i,k1,j,p_co  )+co  (cat)*fuel_burnt*conv*imw_co
+               chem(i,k1,j,p_no  )=chem(i,k1,j,p_no  )+no  (cat)*fuel_burnt*conv*imw_no 
+               chem(i,k1,j,p_no2 )=chem(i,k1,j,p_no2 )+no2 (cat)*fuel_burnt*conv*imw_no2
+               chem(i,k1,j,p_so2 )=chem(i,k1,j,p_so2 )+so2 (cat)*fuel_burnt*conv*imw_so2
+               chem(i,k1,j,p_nh3 )=chem(i,k1,j,p_nh3 )+nh3 (cat)*fuel_burnt*conv*imw_nh3
+               ! emissions given in mol/kg
+               chem(i,k1,j,p_ald )=chem(i,k1,j,p_ald )+ald (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_csl )=chem(i,k1,j,p_csl )+csl (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_eth )=chem(i,k1,j,p_eth )+eth (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_hc3 )=chem(i,k1,j,p_hc3 )+ald (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_hc5 )=chem(i,k1,j,p_hc5 )+hc5 (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_hcho)=chem(i,k1,j,p_hcho)+hcho(cat)*fuel_burnt*conv
+               chem(i,k1,j,p_iso )=chem(i,k1,j,p_iso )+iso (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_ket )=chem(i,k1,j,p_ket )+ket (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_mgly)=chem(i,k1,j,p_mgly)+mgly(cat)*fuel_burnt*conv
+               chem(i,k1,j,p_ol2 )=chem(i,k1,j,p_ol2 )+ol2 (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_olt )=chem(i,k1,j,p_olt )+olt (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_oli )=chem(i,k1,j,p_oli )+oli (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_ora2)=chem(i,k1,j,p_ora2)+ora2(cat)*fuel_burnt*conv
+               chem(i,k1,j,p_tol )=chem(i,k1,j,p_tol )+tol (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_xyl )=chem(i,k1,j,p_xyl )+xyl (cat)*fuel_burnt*conv
+           enddo
+       enddo
+    enddo
+enddo
+
+return
+
+9 continue
+!$OMP CRITICAL(SFIRE_UTIL_CRIT)
+write(msg,91)ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme
+call message(msg,level=0)
+write(msg,91)its,ite,jts,jte,ims,ime,jms,jme
+call message(msg,level=0)
+write(msg,92)'input  mesh size:',isz2,jsz2
+call message(msg,level=0)
+91 format('dimensions: ',8i8)
+write(msg,92)'output mesh size:',isz1,jsz1
+call message(msg,level=0)
+92 format(a,2i8)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
+call crash('sum_2d_cells_chem: bad mesh sizes')
+
+
+end subroutine sum_2d_cells_chem
+
+#endif
 
 SUBROUTINE fire_tendency( &
     ids,ide, kds,kde, jds,jde,   & ! dimensions
@@ -1165,97 +1401,7 @@ use module_state_description , only: num_tracer, p_smoke
     enddo
 
 end subroutine fire_emission
-
-subroutine sum_2d_cells_chem(       &
-       ifms,ifme,jfms,jfme,    &
-       ifts,ifte,jtfs,jfte,    &
-       vf,                     &  ! input
-       ims,ime,jms,jme,    &
-       its,ite,jts,jte,    &
-       v)                        ! output
-implicit none
-
-!*** purpose
-! sum cell values in mesh2 to cell values of coarser mesh1
-
-!*** arguments
-! the dimensions are in cells, not nodes!
-
-integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
-real, intent(out)::v(ims:ime,jms:jme)
-integer, intent(in)::ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme
-real, intent(in)::vf(ifms:ifme,jfms:jfme)
-
-!*** local
-integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase
-real t
-character(len=128)msg
-
-!*** executable
-
-!check mesh dimensions and domain dimensions
-call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
-call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
-
-! compute mesh sizes
-isz1 = ite-its+1
-jsz1 = jte-jts+1
-isz2 = ifte-ifts+1
-jsz2 = jfte-jtfs+1
-
-! check mesh sizes
-if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
-    call message('all mesh sizes must be positive',level=0)
-    goto 9
-endif
-
-! compute mesh ratios
-ir=isz2/isz1
-jr=jsz2/jsz1
-
-if(isz2.ne.isz1*ir .or. jsz2.ne.jsz1*jr)then
-    call message('input mesh size must be multiple of output mesh size',level=0)
-    goto 9
-endif
-
-
-! v = sum(vf)
-do j=jts,jte
-    jbase=jtfs+jr*(j-jts)
-    do i=its,ite
-       ibase=ifts+ir*(i-its)
-       t=0.
-       do joff=0,jr-1
-           j_f=joff+jbase
-           do ioff=0,ir-1
-               i_f=ioff+ibase
-               t=t+vf(i_f,j_f)
-           enddo
-       enddo
-       v(i,j)=t
-    enddo
-enddo
-
-return
-
-9 continue
-!$OMP CRITICAL(SFIRE_UTIL_CRIT)
-write(msg,91)ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme
-call message(msg,level=0)
-write(msg,91)its,ite,jts,jte,ims,ime,jms,jme
-call message(msg,level=0)
-write(msg,92)'input  mesh size:',isz2,jsz2
-call message(msg,level=0)
-91 format('dimensions: ',8i8)
-write(msg,92)'output mesh size:',isz1,jsz1
-call message(msg,level=0)
-92 format(a,2i8)
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call crash('sum_2d_cells_chem: bad mesh sizes')
-
-
-end subroutine sum_2d_cells_chem
-
 #endif
+
 
 end module module_fr_sfire_atm
