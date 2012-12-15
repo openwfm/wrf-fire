@@ -10,6 +10,10 @@ module module_fr_sfire_atm
 use module_model_constants, only: cp,xlv,g
 use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
 use module_fr_sfire_util
+#ifdef DM_PARALLEL
+    USE module_dm , only : wrf_dm_sum_real
+#endif
+
 
 #ifdef WRF_CHEM
 use module_fr_sfire_phys, only:  mfuelcats, nfuelcats    ! for emissions
@@ -158,7 +162,7 @@ call wrf_dm_bcast_real(xyl, nfuelcats)
 
 end subroutine read_emissions_table
 
-subroutine add_fire_emissions_to_chem(       &
+subroutine add_fire_emissions_to_chem(dt,dx,dy,      &
        ifms,ifme,jfms,jfme,    &
        ifts,ifte,jtfs,jfte,    &
        ids,ide,kds,kde,jds,jde,          &
@@ -178,6 +182,7 @@ implicit none
 ! the dimensions are in cells, not nodes!
 
 ! input
+real, intent(in):: dt,dx,dy                                           ! time step & mesh spacing
 integer, intent(in)::its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme &! atm grid dims
        ,ids,ide,kds,kde,jds,jde          
 integer, intent(in)::ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme          ! fire grid dims
@@ -193,6 +198,28 @@ real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:k
 integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw
 real::fuel_burnt,iair,conv
 character(len=128)msg
+
+real:: for total_emis  ! for emission (g)
+real:: gm2             ! emission of species (g/m2)
+real:: da              ! area of one fire grid cell
+real:: &
+       t_co,  &
+       t_no,  &
+       t_no2, &
+       t_so2, &
+       t_nh3
+real:: &
+       r_co,  &
+       r_no,  &
+       r_no2, &
+       r_so2, &
+       r_nh3
+real, save:: &
+       c_co =0., &
+       c_no =0., &
+       c_no2=0., &
+       c_so2=0., &
+       c_nh3=0.
 
 !*** executable
 
@@ -222,6 +249,13 @@ if(isz2.ne.isz1*ir .or. jsz2.ne.jsz1*jr)then
     goto 9
 endif
 
+! initialize emissions statistics per timestep
+t_co  = 0.
+t_no  = 0.
+t_no2 = 0.
+t_so2 = 0.
+t_nh3 = 0.
+
 ! fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
 
 ! emis_X(g/kg)*fuel_burnt(kg/m^2)/mw_X(g/mol) = emissions (mol/m^2)
@@ -245,11 +279,27 @@ do j=jts,jte
                cat = nfuel_cat(i_f, j_f)                       ! usually 1 to 13
 
                ! emissions given in g/kg
-               chem(i,k1,j,p_co  )=chem(i,k1,j,p_co  )+co  (cat)*fuel_burnt*conv*imw_co
-               chem(i,k1,j,p_no  )=chem(i,k1,j,p_no  )+no  (cat)*fuel_burnt*conv*imw_no 
-               chem(i,k1,j,p_no2 )=chem(i,k1,j,p_no2 )+no2 (cat)*fuel_burnt*conv*imw_no2
-               chem(i,k1,j,p_so2 )=chem(i,k1,j,p_so2 )+so2 (cat)*fuel_burnt*conv*imw_so2
-               chem(i,k1,j,p_nh3 )=chem(i,k1,j,p_nh3 )+nh3 (cat)*fuel_burnt*conv*imw_nh3
+
+               gm2=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_co = t_co + gm2                                           ! add to the total
+               chem(i,k1,j,p_co  )=chem(i,k1,j,p_co  ) + gm2*conv*imw_co   ! add to chem
+
+               gm2=no  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_no = t_no + gm2                                           ! add to the total
+               chem(i,k1,j,p_no  )=chem(i,k1,j,p_no  ) + gm2*conv*imw_no   ! add to chem
+
+               gm2=no2 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_no2= t_no2+ gm2                                           ! add to the total
+               chem(i,k1,j,p_no2 )=chem(i,k1,j,p_no2 ) + gm2*conv*imw_no2  ! add to chem
+
+               gm2=so2 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_so2= t_so2+ gm2                                           ! add to the total
+               chem(i,k1,j,p_so2 )=chem(i,k1,j,p_so2 ) + gm2*conv*imw_so2  ! add to chem
+
+               gm2=nh3 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_nh3= t_nh3+ gm2                                           ! add to the total
+               chem(i,k1,j,p_nh3 )=chem(i,k1,j,p_nh3 ) + gm2*conv*imw_nh3  ! add to chem
+
                ! emissions given in mol/kg
                chem(i,k1,j,p_ald )=chem(i,k1,j,p_ald )+ald (cat)*fuel_burnt*conv
                chem(i,k1,j,p_csl )=chem(i,k1,j,p_csl )+csl (cat)*fuel_burnt*conv
@@ -270,6 +320,38 @@ do j=jts,jte
        enddo
     enddo
 enddo
+
+! sum over processes
+t_co  = wrf_dm_sum_real(t_co )
+t_no  = wrf_dm_sum_real(t_no )
+t_no2 = wrf_dm_sum_real(t_no2)
+t_so2 = wrf_dm_sum_real(t_so2)
+t_nh3 = wrf_dm_sum_real(t_nh3)
+
+! add to cumulative totals in kilograms
+scale = 1e-3*dx*dy/(ir*jr)
+c_co  = c_co + scale*t_co
+c_no  = c_no + scale*t_no
+c_no2 = c_no2+ scale*t_no2
+c_so2 = c_so2+ scale*t_so2
+c_nh3 = c_nh3+ scale*t_nh3
+
+! scale the totals to get total emission rate kg/s
+scale = scale/dt
+r_co  = t_co  * scale 
+r_no  = t_no  * scale 
+r_no2 = t_no2 * scale 
+r_so2 = t_so2 * scale 
+r_nh3 = t_nh3 * scale 
+
+write(msg,80)'Total emissions     ','CO ','NO ','NO2','SO2','NH3'
+call message(msg)
+write(msg,81)'Cumulative      (kg)', c_co,c_no,c_no2,c_so2,c_nh3
+call message(msg)
+write(msg,81)'Current rate (kg/s)', c_co,c_no,c_no2,c_so2,c_nh3
+call message(msg)
+80 format(a,5a12)
+81 format(a,5g12.2)
 
 return
 

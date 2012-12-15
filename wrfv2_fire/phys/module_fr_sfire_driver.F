@@ -152,8 +152,6 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     type(fire_params)::fp
     real:: moisture_time
 
-    real, dimension( ifms:ifme, jfms:jfme):: fuel_frac_burnt
-
     logical:: run_advance_moisture,run_fuel_moisture, moisture_initializing
     real::    dt_moisture
 
@@ -342,7 +340,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
-            fuel_frac_burnt,                              &
+            grid%fuel_frac_burnt,                         &
             lfn_out,                                      & ! work - one timestep    
             grid%avg_fuel_frac,                           & ! out redundant arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
@@ -389,12 +387,12 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 #endif
 
 #ifdef WRF_CHEM
-      subroutine add_fire_emissions_to_chem(       &
+      call add_fire_emissions_to_chem(dt,grid%dx,grid%dy,      &
        ifms,ifme,jfms,jfme,    &
-       ifds,ifde,jfds,jfde,    &               ! use domain instead of tile
+       ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
        ids,ide,kds,kde,jds,jde,          &
        ims,ime,kms,kme,jms,jme,          &
-       its,ite,kts,kte,jts,jte,          &
+       ips,ipe,kps,kpe,jps,jpe,          &
        rho,dz8w,                         & ! from atmosphere state
        grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
        grid%chem,grid%tracer)              ! update/output
