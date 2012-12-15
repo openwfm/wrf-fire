@@ -92,10 +92,13 @@ implicit none
 private
 public sfire_driver_em,use_atm_vars,set_flags,fire_ignition_convert, &
        set_fp_from_grid
+public ifun_beg, ifun_step, ifun_end
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
 
 logical:: fmoist_run, fmoist_interp, fire_run  ! which kind of model to run overall
+
+integer, parameter:: ifun_beg=1, ifun_step=3, ifun_end=6  
 
 contains
 

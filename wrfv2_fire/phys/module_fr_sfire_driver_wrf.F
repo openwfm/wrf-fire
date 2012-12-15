@@ -60,7 +60,7 @@ subroutine sfire_driver_em_init (grid , config_flags               &
 
     call sfire_driver_em ( grid , config_flags               & 
             ,time_step_start,dt                                 &
-            ,1,2,0                        & ! ifun start, end, test steps
+            ,ifun_beg,ifun_step-1,0                        & ! ifun start, end, test steps
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
@@ -152,7 +152,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
 
     call sfire_driver_em ( grid , config_flags               & 
             ,time_step_start,dt                                 &
-            ,3,6,fire_test_steps                                &
+            ,ifun_step,ifun_end,fire_test_steps                     &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
