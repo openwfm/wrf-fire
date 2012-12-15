@@ -27,6 +27,7 @@ subroutine sfire_model (                    &
     coord_xf,coord_yf,                      & ! fire mesh coordinates
     fire_hfx,                               & ! input: given heat flux, or set inside
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
+    fuel_frac_burnt,                        & ! output: fuel fraction burnt in this timestep
     fgrnhfx,fgrnqfx,                          & ! output: heat fluxes
     ros,flineint,flineint2,                 & ! diagnostic variables
     f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
@@ -107,7 +108,8 @@ REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
     fuel_frac                               ! fuel fraction (node), currently redundant
 
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
-    fire_area                               ! fraction of each cell burning
+    fire_area, &                            ! fraction of each cell burning
+    fuel_frac_burnt                         ! fuel fraction burned in this timestep
     
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
@@ -126,7 +128,7 @@ type(fire_params),intent(inout)::fp
 !*** local
 
 integer :: xifms,xifme,xjfms,xjfme  ! memory bounds for pass-through arguments to normal spread
-real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_burnt,fuel_frac_end
+real, dimension(ifts:ifte,jfts:jfte)::fuel_frac_end
 integer::ignited,ig,i,j,itso,iteo,jtso,jteo
 real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
@@ -404,12 +406,12 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         enddo
     enddo
 
-    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_burnt,'model: fuel_frac burned')
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_frac_burnt,'model: fuel_frac burned')
         
     call heat_fluxes(dt,fp,                       &
         ifms,ifme,jfms,jfme,                      &
         ifts,ifte,jfts,jfte,                      &
-        ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned
+        ifms,ifme,jfms,jfme,                      &  ! fuel_frac_burned has standard memory dimensions
         fp%fgip,                                     &
         fuel_frac_burnt,                          & !
         fgrnhfx,fgrnqfx)                              !out

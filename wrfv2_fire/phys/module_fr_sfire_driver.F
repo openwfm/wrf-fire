@@ -149,6 +149,8 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
     type(fire_params)::fp
     real:: moisture_time
 
+    real, dimension( ifms:ifme, jfms:jfme):: fuel_frac_burnt
+
     logical:: run_advance_moisture,run_fuel_moisture, moisture_initializing
     real::    dt_moisture
 
@@ -337,6 +339,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
+            fuel_frac_burnt,                              &
             lfn_out,                                      & ! work - one timestep    
             grid%avg_fuel_frac,                           & ! out redundant arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
@@ -416,6 +419,7 @@ subroutine sfire_driver_phys (ifun,    &
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
+    fuel_frac_burnt,                              & 
     lfn_out,                                      & ! out level set function    
     avg_fuel_frac,                                &
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
@@ -500,7 +504,8 @@ real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
     lfn_out                                    ! fire wind velocities
 
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
-    fire_area                                        ! fraction of each cell burning
+    fire_area, &                               ! fraction of each cell burning
+    fuel_frac_burnt
 
 real, intent(out), dimension(ims:ime, jms:jme):: &  ! redundant arrays, for display purposes only (atm grid)
     avg_fuel_frac,                               &  ! average fuel fraction
@@ -852,6 +857,7 @@ do ij=1,num_tiles
         fire_hfx,                               & ! given heat flux
         lfn,lfn_out,tign,fuel_frac,             & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
+        fuel_frac_burnt,                        & ! output: fuel fraction burned in this step
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         ros,flineint,flineint2,                 & ! diagnostic variables
         f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
