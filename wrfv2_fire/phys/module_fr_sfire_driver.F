@@ -113,7 +113,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe )
+            ,ifps,ifpe, jfps,jfpe                                   &
+            ,rho,z_at_w,dz8w                                        &
+)
 
 !*** purpose: driver from grid structure
 
@@ -138,6 +140,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
              ifds,ifde, jfds,jfde,                                   &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
+    real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
 
 !*** local
     TYPE(lines_type):: ignition, hfx
@@ -385,6 +388,17 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
           endif
 #endif
 
+#ifdef WRF_CHEM
+      subroutine add_fire_emissions_to_chem(       &
+       ifms,ifme,jfms,jfme,    &
+       ifds,ifde,jfds,jfde,    &               ! use domain instead of tile
+       ids,ide,kds,kde,jds,jde,          &
+       ims,ime,kms,kme,jms,jme,          &
+       its,ite,kts,kte,jts,jte,          &
+       rho,dz8w,                         & ! from atmosphere state
+       grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
+       grid%chem,grid%tracer)              ! update/output
+#endif 
                 
 
       enddo
