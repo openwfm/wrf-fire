@@ -10,6 +10,7 @@ module module_fr_sfire_atm
 use module_model_constants, only: cp,xlv,g
 use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
 use module_fr_sfire_util
+
 #ifdef WRF_CHEM
 use module_fr_sfire_phys, only:  mfuelcats, nfuelcats    ! for emissions
 USE module_state_description, only: num_chem,num_tracer
@@ -89,7 +90,9 @@ contains
 ! indices p_species are generated in inc/scalar_indices.inc and included in frame/module_configure.F
 
 subroutine read_emissions_table
-   integer compatible_chem_opt
+   implicit none
+   logical, external:: wrf_dm_on_monitor
+   integer compatible_chem_opt,iounit,ierr
    namelist/emissions/ compatible_chem_opt, &
 co,  &
 no,  &
@@ -116,9 +119,46 @@ ora2,&
 tol, &
 xyl
 
+!$  if (OMP_GET_THREAD_NUM() .ne. 0)then
+!$     call crash('read_emissions_table: must be called from master thread')
+!$  endif
+
+IF ( wrf_dm_on_monitor() ) THEN
+    ! we are the master task
+
+    iounit=open_text_file('namelist.fire_emissions','read')
+    read(iounit,emissions,iostat=ierr)
+    if(ierr.ne.0)call crash('read_emissions_table: error reading namelist emissions in file namelist.fire_emissions')
+    CLOSE(iounit)
+ENDIF
+call wrf_dm_bcast_real(co,  nfuelcats)
+call wrf_dm_bcast_real(no,  nfuelcats)
+call wrf_dm_bcast_real(no2,  nfuelcats)
+call wrf_dm_bcast_real(so2,  nfuelcats)
+call wrf_dm_bcast_real(nh3,  nfuelcats)
+call wrf_dm_bcast_real(oc1,  nfuelcats)
+call wrf_dm_bcast_real(oc2,  nfuelcats)
+call wrf_dm_bcast_real(bc1,  nfuelcats)
+call wrf_dm_bcast_real(bc2,  nfuelcats)
+call wrf_dm_bcast_real(ald,  nfuelcats)
+call wrf_dm_bcast_real(csl,  nfuelcats)
+call wrf_dm_bcast_real(eth,  nfuelcats)
+call wrf_dm_bcast_real(hc3,  nfuelcats)
+call wrf_dm_bcast_real(hc5,  nfuelcats)
+call wrf_dm_bcast_real(hcho,  nfuelcats)
+call wrf_dm_bcast_real(iso,  nfuelcats)
+call wrf_dm_bcast_real(ket,  nfuelcats)
+call wrf_dm_bcast_real(mgly,  nfuelcats)
+call wrf_dm_bcast_real(ol2, nfuelcats)
+call wrf_dm_bcast_real(olt, nfuelcats)
+call wrf_dm_bcast_real(oli, nfuelcats)
+call wrf_dm_bcast_real(ora2,nfuelcats)
+call wrf_dm_bcast_real(tol, nfuelcats)
+call wrf_dm_bcast_real(xyl, nfuelcats)
+
 end subroutine read_emissions_table
 
-subroutine sum_2d_cells_chem(       &
+subroutine add_fire_emmissions(       &
        ifms,ifme,jfms,jfme,    &
        ifts,ifte,jtfs,jfte,    &
        ids,ide,kds,kde,jds,jde,          &
@@ -246,10 +286,9 @@ write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg,level=0)
 92 format(a,2i8)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call crash('sum_2d_cells_chem: bad mesh sizes')
+call crash('add_fire_emmissions: bad mesh sizes')
 
-
-end subroutine sum_2d_cells_chem
+end subroutine add_fire_emmissions
 
 #endif
 

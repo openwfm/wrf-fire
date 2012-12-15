@@ -76,6 +76,9 @@ use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpo
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 
+#ifdef WRF_CHEM
+use module_fr_sfire_atm, only: read_emissions_table, add_fire_emmissions
+#endif
 
 ! WRF dependencies
 USE module_domain, only: domain
@@ -264,6 +267,10 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
        if(fire_run)then
 
         if(fire_ifun.eq.1)then
+
+#ifdef WRF_CHEM
+        call read_emissions_table
+#endif
         
 !       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
