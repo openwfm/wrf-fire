@@ -27,7 +27,7 @@ subroutine sfire_model (                    &
     coord_xf,coord_yf,                      & ! fire mesh coordinates
     fire_hfx,                               & ! input: given heat flux, or set inside
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
-    grnhfx,grnqfx,                          & ! output: heat fluxes
+    fgrnhfx,fgrnqfx,                          & ! output: heat fluxes
     ros,flineint,flineint2,                 & ! diagnostic variables
     f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
     f_int,f_lineint,f_lineint2,             & ! fire risk intensities 
@@ -112,7 +112,7 @@ REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     lfn_out, &                              !                              
-    grnhfx,grnqfx, &                        ! heat fluxes J/m^2/s  (cell)             
+    fgrnhfx,fgrnqfx, &                        ! heat fluxes J/m^2/s  (cell)             
     ros,flineint,flineint2,                 & ! diagnostic variables
     f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
     f_int,f_lineint,f_lineint2                ! fire risk intensities 
@@ -412,7 +412,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifts,ifte,jfts,jfte,                      &  ! fuel_frac_burned is tile dimensioned
         fp%fgip,                                     &
         fuel_frac_burnt,                          & !
-        grnhfx,grnqfx)                              !out
+        fgrnhfx,fgrnqfx)                              !out
 
     case (1, 2) 
 !$OMP CRITICAL(SFIRE_MODEL_CRIT)
@@ -422,8 +422,8 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 
        do j=jfts,jfte
            do i=ifts,ifte
-              grnhfx(i,j) = (1. - fire_hfx_latent_part)*fire_hfx(i,j)
-              grnqfx(i,j) =       fire_hfx_latent_part *fire_hfx(i,j)
+              fgrnhfx(i,j) = (1. - fire_hfx_latent_part)*fire_hfx(i,j)
+              fgrnqfx(i,j) =       fire_hfx_latent_part *fire_hfx(i,j)
            enddo
        enddo
 
@@ -436,7 +436,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
                             ifts,ifte,jfts,jfte, &
                             coord_xf,coord_yf,   &
                             hfx,                 &
-                            fire_area,grnhfx,grnqfx)
+                            fire_area,fgrnhfx,fgrnqfx)
 
    case default
         call crash('bad fire_hfx_given')
@@ -456,25 +456,25 @@ elseif (ifun.eq.6) then ! timestep postprocessing
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        grnhfx,grnhfx) * fdx * fdy
+        fgrnhfx,fgrnhfx) * fdx * fdy
       mhf=fun_real(REAL_MAX,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        grnhfx,grnhfx) 
+        fgrnhfx,fgrnhfx) 
       tqf=fun_real(REAL_SUM,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        grnqfx,grnqfx) * fdx * fdy
+        fgrnqfx,fgrnqfx) * fdx * fdy
       mqf=fun_real(REAL_MAX,  &
         ifms,ifme,1,1,jfms,jfme, &                ! memory dims
         ifds,ifde,1,1,jfds,jfde, &                ! domain dims
         ifts,ifte,1,1,jfts,jfte, &                ! patch or tile dims
         0,0,0,       &                            ! staggering
-        grnqfx,grnqfx) 
+        fgrnqfx,fgrnqfx) 
 !$OMP MASTER 
       write(msg,91)time_start,'Fire area           ',tfa,'m^2'
       call message(msg,stat_lev)
@@ -493,7 +493,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 
    call print_2d_stats(ifts,ifte,jfts,jfte, &
                    ifms,ifme,jfms,jfme, &
-                   grnhfx,'model: heat flux(J/m^2/s)')
+                   fgrnhfx,'model: heat flux(J/m^2/s)')
 
 else
 !$OMP CRITICAL(SFIRE_MODEL_CRIT)
@@ -509,7 +509,7 @@ end subroutine sfire_model
                             ifts,ifte,jfts,jfte, &
                             coord_xf,coord_yf,   &
                             hfx,                 &
-                            fire_area,grnhfx,grnqfx)
+                            fire_area,fgrnhfx,fgrnqfx)
 !***   generate artifical heat flux from a parametric description
 !***   arguments
        real, intent(in)::time_now
@@ -518,7 +518,7 @@ end subroutine sfire_model
                             ifts,ifte,jfts,jfte  
        type(lines_type), intent(in)::hfx
        real, dimension(ifms:ifme,jfms:jfme), intent(in)::coord_xf,coord_yf ! nodal coordinates
-       real, dimension(ifms:ifme,jfms:jfme), intent(out)::fire_area,grnhfx,grnqfx ! the imposed heat flux
+       real, dimension(ifms:ifme,jfms:jfme), intent(out)::fire_area,fgrnhfx,fgrnqfx ! the imposed heat flux
        character(len=128):: msg
 !***   local
        integer::i,j,k,nfa,ncells
@@ -529,8 +529,8 @@ end subroutine sfire_model
        do j=jfts,jfte  ! zero out the outputs
            do i=ifts,ifte
               fire_area(i,j)=0
-              grnhfx(i,j) = 0.
-              grnqfx(i,j) = 0.
+              fgrnhfx(i,j) = 0.
+              fgrnqfx(i,j) = 0.
            enddo
        enddo
 
@@ -583,8 +583,8 @@ end subroutine sfire_model
                      endif
                      ! set heat fluxes
                      thfx= hfx%line(k)%hfx_value * hfrac * fa  ! total heat flux at this point
-                     grnhfx(i,j)= grnhfx(i,j) + (1.-fire_hfx_latent_part) * thfx
-                     grnqfx(i,j)= grnqfx(i,j) + fire_hfx_latent_part * thfx
+                     fgrnhfx(i,j)= fgrnhfx(i,j) + (1.-fire_hfx_latent_part) * thfx
+                     fgrnqfx(i,j)= fgrnqfx(i,j) + fire_hfx_latent_part * thfx
                      ! set fire area
                      fire_area(i,j) = max(fire_area(i,j),fa)
                      ! set stats
