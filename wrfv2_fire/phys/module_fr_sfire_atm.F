@@ -158,7 +158,7 @@ call wrf_dm_bcast_real(xyl, nfuelcats)
 
 end subroutine read_emissions_table
 
-subroutine add_fire_emmissions(       &
+subroutine add_fire_emissions_to_chem(       &
        ifms,ifme,jfms,jfme,    &
        ifts,ifte,jtfs,jfte,    &
        ids,ide,kds,kde,jds,jde,          &
@@ -286,9 +286,9 @@ write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg,level=0)
 92 format(a,2i8)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call crash('add_fire_emmissions: bad mesh sizes')
+call crash('add_fire_emissions_to_chem: bad mesh sizes')
 
-end subroutine add_fire_emmissions
+end subroutine add_fire_emissions_to_chem
 
 #endif
 
