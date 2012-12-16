@@ -409,11 +409,11 @@ r_no2 = t_no2 * scale
 r_so2 = t_so2 * scale 
 r_nh3 = t_nh3 * scale 
 
-write(msg,80)'Total emissions     ','CO ','NO ','NO2','SO2','NH3'
+write(msg,80)'Total emissions    ','CO ','NO ','NO2','SO2','NH3'
 call message(msg)
-write(msg,81)'Cumulative      (kg)', c_co,c_no,c_no2,c_so2,c_nh3
+write(msg,81)'Cumulative     (kg)', c_co,c_no,c_no2,c_so2,c_nh3
 call message(msg)
-write(msg,81)'Current rate (kg/s)', c_co,c_no,c_no2,c_so2,c_nh3
+write(msg,81)'Current rate (kg/s)', r_co,r_no,r_no2,r_so2,r_nh3
 call message(msg)
 80 format(a,5a12)
 81 format(a,5g12.2)
