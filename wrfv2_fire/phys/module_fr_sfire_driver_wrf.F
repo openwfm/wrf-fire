@@ -44,7 +44,7 @@ subroutine sfire_driver_em_init (grid , config_flags               &
     real::time_step_start, dt ! dummies, avoid uninitialized
     ! dummies
 
-    real,dimension(1,1,1)::rho,z_at_w,dz8w
+    real,dimension(1,1,1)::rho,rho_phy,z_at_w,dz8w
 
     call message('sfire_driver_em_init: SFIRE initialization start')
 
@@ -67,7 +67,7 @@ subroutine sfire_driver_em_init (grid , config_flags               &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w                                        &
+            ,rho,rho_phy,z_at_w,dz8w                                        &
             ) 
 
     call message('sfire_driver_em_init: SFIRE initialization complete')
@@ -82,7 +82,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,rho,z_at_w,dz8w ) 
+            ,rho,rho_phy,z_at_w,dz8w ) 
 
     ! stub to call sfire_driver_em 
 
@@ -102,7 +102,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
              ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe
-    real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
+    real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,rho_phy,z_at_w,dz8w
 
 
     ! local
@@ -160,7 +160,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w                                        &
+            ,rho,rho_phy,z_at_w,dz8w                                        &
             ) 
 
         ! accumulate fluxes for atmospheric tendency
@@ -192,6 +192,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
    call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,rho,'rho')
    call print_chsum(0,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,0,grid%mut,'mu')
    call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'rho')
+   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,rho_phy,'rho_phy')
    call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,z_at_w,'z_at_w')
    call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,dz8w,'dz8w')
 
