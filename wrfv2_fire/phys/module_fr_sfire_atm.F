@@ -311,6 +311,9 @@ t_nh3 = 0.
 ! emis_X(g/kg)*fuel_burnt(kg/m^2)/mw_X(g/mol) = emissions (mol/m^2)
 ! rho_phy(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
 
+k1 = kts 
+write(msg,'(a,i3)')'Fire missions insterted into atmpsphere level',k1
+
 do j=jts,jte
     jbase=jtfs+jr*(j-jts)                   ! indexing
     do i=its,ite
