@@ -172,7 +172,7 @@ call wrf_dm_bcast_real(xyl, nfuelcats)
 
 end subroutine read_emissions_table
 
-subroutine add_fire_emissions_to_chem(dt,dx,dy,      &
+subroutine add_fire_emissions_to_chem(chem_opt,dt,dx,dy,      &
        ifms,ifme,jfms,jfme,    &
        ifts,ifte,jtfs,jfte,    &
        ids,ide,kds,kde,jds,jde,          &
@@ -192,6 +192,7 @@ implicit none
 ! the dimensions are in cells, not nodes!
 
 ! input
+integer, intent(in)::chem_opt
 real, intent(in):: dt,dx,dy                                           ! time step & mesh spacing
 integer, intent(in)::its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme &! atm grid dims
        ,ids,ide,kds,kde,jds,jde          
@@ -236,9 +237,9 @@ real, save:: &
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
 
-write(msg,'(a,i3)')'add_fire_emissions_to_chem: num_chem=',num_chem 
+write(msg,'(a,i3,a,i3)')'add_fire_emissions_to_chem: chem_opt=',chem_opt,' species ',num_chem
 call message(msg)
-write(msg,'(a,30i3)')'pointers=', &
+write(msg,'(a,30i3)')'pointers used=', &
 p_co,  &
 p_no,  &
 p_no2,  &
@@ -266,6 +267,14 @@ p_ora2,&
 p_tol, &
 p_xyl
 call message(msg)
+993 format(a,4(1x,i3,':',i3))
+write(msg,993)'array chem has dimension ',&
+         lbound(chem,1),ubound(chem,1), &
+         lbound(chem,2),ubound(chem,2), &
+         lbound(chem,3),ubound(chem,3), &
+         lbound(chem,4),ubound(chem,4)
+call message(msg)
+
 
 ! compute mesh sizes
 isz1 = ite-its+1
