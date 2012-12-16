@@ -24,6 +24,8 @@ p_no,  &
 p_no2,  &
 p_so2,  &
 p_nh3,  &
+p_p25i, &
+p_p25j, &
 p_oc1,  &
 p_oc2,  &
 p_bc1,  &
@@ -50,6 +52,7 @@ implicit none
 logical, save :: have_wind_log_interpolation = .false.  ! status
 
 #ifdef WRF_CHEM
+
 ! emission tables
 REAL, dimension(mfuelcats), save:: &
 co=0.,  &
@@ -65,6 +68,8 @@ ald=0.,  &
 csl=0.,  &
 eth=0.,  &
 hc3=0.,  &
+p25i=0., &
+p25j=0., &
 hc5=0.,  &
 hcho=0.,  &
 iso=0.,  &
@@ -77,13 +82,14 @@ ora2=0.,&
 tol=0., &
 xyl=0.
 
-! reciprocal molecular weights  (mol/g)
-REAL, PARAMETER :: &
+real, parameter:: & ! reciprocal molecular weights  (mol/g)
              imw_co    = 1./28.010, &
              imw_no    = 1./30.,    &
              imw_no2   = 1./46.,    & 
              imw_so2   = 1./64.,    &
              imw_nh3   = 1./17.    
+
+real, parameter:: mw_air=28.97   ! molecular weight of air g/mol
 
 #endif
 
@@ -103,6 +109,8 @@ no,  &
 no2,  &
 so2,  &
 nh3,  &
+p25i, &
+p25j, &
 oc1,  &
 oc2,  &
 bc1,  &
@@ -140,6 +148,8 @@ call wrf_dm_bcast_real(no,  nfuelcats)
 call wrf_dm_bcast_real(no2,  nfuelcats)
 call wrf_dm_bcast_real(so2,  nfuelcats)
 call wrf_dm_bcast_real(nh3,  nfuelcats)
+call wrf_dm_bcast_real(p25i,  nfuelcats)
+call wrf_dm_bcast_real(p25j,  nfuelcats)
 call wrf_dm_bcast_real(oc1,  nfuelcats)
 call wrf_dm_bcast_real(oc2,  nfuelcats)
 call wrf_dm_bcast_real(bc1,  nfuelcats)
@@ -168,7 +178,7 @@ subroutine add_fire_emissions_to_chem(dt,dx,dy,      &
        ids,ide,kds,kde,jds,jde,          &
        ims,ime,kms,kme,jms,jme,          &
        its,ite,kts,kte,jts,jte,          &
-       rho,dz8w,                         & ! input on atmosphere mesh 
+       rho_phy,dz8w,                         & ! input on atmosphere mesh 
        fgip, fuel_frac_burnt, nfuel_cat, & ! input on fire mesh
        chem,tracer)                        ! output
 
@@ -186,7 +196,7 @@ real, intent(in):: dt,dx,dy                                           ! time ste
 integer, intent(in)::its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme &! atm grid dims
        ,ids,ide,kds,kde,jds,jde          
 integer, intent(in)::ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme          ! fire grid dims
-real, intent(in)::rho(ims:ime,kms:kme,jms:jme),  &                    ! air density  kg/m^3
+real, intent(in)::rho_phy(ims:ime,kms:kme,jms:jme),  &                ! air density  kg/m^3
                   dz8w(ims:ime,kms:kme,jms:jme)                       ! layer height
 real, intent(in), dimension(ifms:ifme,jfms:jfme):: fgip, &            ! initial fuel load kg/m^2 
                                             fuel_frac_burnt, &        ! fuel fraction burned this step kg/kg
@@ -196,12 +206,11 @@ real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:k
 
 !*** local
 integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw
-real::fuel_burnt,iair,conv
+real::fuel_burnt,vol,air,conv, avgw, scale
 character(len=128)msg
 
-real:: for total_emis  ! for emission (g)
+real:: total_emis      ! for emission (g)
 real:: gm2             ! emission of species (g/m2)
-real:: da              ! area of one fire grid cell
 real:: &
        t_co,  &
        t_no,  &
@@ -249,6 +258,8 @@ if(isz2.ne.isz1*ir .or. jsz2.ne.jsz1*jr)then
     goto 9
 endif
 
+avgw = 1.0/(ir*jr)     ! averaging weight = 1/number of fire cells per atm cell
+
 ! initialize emissions statistics per timestep
 t_co  = 0.
 t_no  = 0.
@@ -256,18 +267,17 @@ t_no2 = 0.
 t_so2 = 0.
 t_nh3 = 0.
 
-! fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
-
+! conversion fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
 ! emis_X(g/kg)*fuel_burnt(kg/m^2)/mw_X(g/mol) = emissions (mol/m^2)
-! rho(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
+! rho_phy(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
 
-k1 = kds               ! 1st layer index
 do j=jts,jte
-    jbase=jtfs+jr*(j-jts)                                            ! indexing
+    jbase=jtfs+jr*(j-jts)                   ! indexing
     do i=its,ite
-       ibase=ifts+ir*(i-its)                                         ! indexing
-       iair = 28.97e3/(rho(i,kds,j)*dz8w(i,kds,j))                   ! 1e6/air_in_1st_layer (mmol/m^2)
-       conv = iair/(ir*jr)                                           ! conversion factor - averating fire cells over atm cell
+       ibase=ifts+ir*(i-its)                ! indexing
+       air = 1e6*mw_air/rho_phy(i,kds,j)    ! 1e6*mw_air/air density 
+       vol = avgw/dz8w(i,kds,j)             ! averaging volume factor / 1st layer depth
+
        do joff=0,jr-1
            j_f=joff+jbase
            do ioff=0,ir-1
@@ -279,6 +289,10 @@ do j=jts,jte
                cat = nfuel_cat(i_f, j_f)                       ! usually 1 to 13
 
                ! emissions given in g/kg
+
+               ! fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
+               ! conv = 1e6*air*vol
+               conv = avgw*1e6*mw_air/(rho_phy(i,kds,j)*dz8w(i,kds,j))
 
                gm2=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
                t_co = t_co + gm2                                           ! add to the total
@@ -300,7 +314,18 @@ do j=jts,jte
                t_nh3= t_nh3+ gm2                                           ! add to the total
                chem(i,k1,j,p_nh3 )=chem(i,k1,j,p_nh3 ) + gm2*conv*imw_nh3  ! add to chem
 
-               ! emissions given in mol/kg
+               ! aerosols, see chem/emissions_driver.F line 515
+               ! already given in ppm*m
+               ! conv = vol
+               conv = avgw/dz8w(i,kds,j)   
+
+               chem(i,k1,j,p_p25i )=chem(i,k1,j,p_p25i )+p25i (cat)*fuel_burnt*conv
+               chem(i,k1,j,p_p25j )=chem(i,k1,j,p_p25j )+p25j (cat)*fuel_burnt*conv
+
+               ! emissions already given in mol/kg
+               ! conv = 1e6*air*vol
+               conv = avgw*1e6*mw_air/(rho_phy(i,kds,j)*dz8w(i,kds,j))
+
                chem(i,k1,j,p_ald )=chem(i,k1,j,p_ald )+ald (cat)*fuel_burnt*conv
                chem(i,k1,j,p_csl )=chem(i,k1,j,p_csl )+csl (cat)*fuel_burnt*conv
                chem(i,k1,j,p_eth )=chem(i,k1,j,p_eth )+eth (cat)*fuel_burnt*conv
@@ -329,7 +354,7 @@ t_so2 = wrf_dm_sum_real(t_so2)
 t_nh3 = wrf_dm_sum_real(t_nh3)
 
 ! add to cumulative totals in kilograms
-scale = 1e-3*dx*dy/(ir*jr)
+scale = 1e-3*dx*dy*avgw
 c_co  = c_co + scale*t_co
 c_no  = c_no + scale*t_no
 c_no2 = c_no2+ scale*t_no2
