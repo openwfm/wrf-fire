@@ -114,7 +114,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,rho_phy,z_at_w,dz8w                                        &
+            ,rho,z_at_w,dz8w                                        &
 )
 
 !*** purpose: driver from grid structure
@@ -140,7 +140,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
              ifds,ifde, jfds,jfde,                                   &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
-    real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,rho_phy,z_at_w,dz8w
+    real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
 
 !*** local
     TYPE(lines_type):: ignition, hfx
@@ -402,7 +402,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
        ids,ide,kds,kde,jds,jde,          &
        ims,ime,kms,kme,jms,jme,          &
        ips,ipe,kps,kpe,jps,jpe,          &
-       rho_phy,dz8w,                     & ! from atmosphere state
+       rho,dz8w,                         & ! from atmosphere state
        grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
        grid%chem,grid%tracer)              ! update/output
 #endif 

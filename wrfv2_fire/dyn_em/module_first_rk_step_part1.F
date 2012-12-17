@@ -749,7 +749,7 @@ BENCH_START(fire_driver_tim)
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
-            ,rho,rho_phy,grid%z_at_w,dz8w)
+            ,rho,grid%z_at_w,dz8w)
         endif
 
 BENCH_END(fire_driver_tim)

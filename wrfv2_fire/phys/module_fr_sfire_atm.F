@@ -178,7 +178,7 @@ subroutine add_fire_emissions_to_chem(chem_opt,dt,dx,dy,      &
        ids,ide,kds,kde,jds,jde,          &
        ims,ime,kms,kme,jms,jme,          &
        its,ite,kts,kte,jts,jte,          &
-       rho_phy,dz8w,                         & ! input on atmosphere mesh 
+       rho,dz8w,                         & ! input on atmosphere mesh 
        fgip, fuel_frac_burnt, nfuel_cat, & ! input on fire mesh
        chem,tracer)                        ! output
 
@@ -197,7 +197,7 @@ real, intent(in):: dt,dx,dy                                           ! time ste
 integer, intent(in)::its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme &! atm grid dims
        ,ids,ide,kds,kde,jds,jde          
 integer, intent(in)::ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme          ! fire grid dims
-real, intent(in)::rho_phy(ims:ime,kms:kme,jms:jme),  &                ! air density  kg/m^3
+real, intent(in)::rho(ims:ime,kms:kme,jms:jme),  &                ! air density  kg/m^3
                   dz8w(ims:ime,kms:kme,jms:jme)                       ! layer height
 real, intent(in), dimension(ifms:ifme,jfms:jfme):: fgip, &            ! initial fuel load kg/m^2 
                                             fuel_frac_burnt, &        ! fuel fraction burned this step kg/kg
@@ -309,7 +309,7 @@ t_nh3 = 0.
 
 ! conversion fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
 ! emis_X(g/kg)*fuel_burnt(kg/m^2)/mw_X(g/mol) = emissions (mol/m^2)
-! rho_phy(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
+! rho(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
 
 k1 = kts 
 write(msg,'(a,i3)')'Fire missions insterted into atmpsphere level',k1
@@ -318,7 +318,7 @@ do j=jts,jte
     jbase=jtfs+jr*(j-jts)                   ! indexing
     do i=its,ite
        ibase=ifts+ir*(i-its)                ! indexing
-       air = 1e6*mw_air/rho_phy(i,kds,j)    ! 1e6*mw_air/air density 
+       air = 1e6*mw_air/rho(i,kds,j)    ! 1e6*mw_air/air density 
        vol = avgw/dz8w(i,kds,j)             ! averaging volume factor / 1st layer depth
 
        do joff=0,jr-1
@@ -335,7 +335,7 @@ do j=jts,jte
 
                ! fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
                ! conv = 1e6*air*vol
-               conv = avgw*1e6*mw_air/(rho_phy(i,kds,j)*dz8w(i,kds,j))
+               conv = avgw*1e6*mw_air/(rho(i,kds,j)*dz8w(i,kds,j))
 
                gm2=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
                t_co = t_co + gm2                                           ! add to the total
@@ -367,7 +367,7 @@ do j=jts,jte
 
                ! emissions already given in mol/kg
                ! conv = 1e6*air*vol
-               conv = avgw*1e6*mw_air/(rho_phy(i,kds,j)*dz8w(i,kds,j))
+               conv = avgw*1e6*mw_air/(rho(i,kds,j)*dz8w(i,kds,j))
 
                chem(i,k1,j,p_ald )=chem(i,k1,j,p_ald )+ald (cat)*fuel_burnt*conv
                chem(i,k1,j,p_csl )=chem(i,k1,j,p_csl )+csl (cat)*fuel_burnt*conv
