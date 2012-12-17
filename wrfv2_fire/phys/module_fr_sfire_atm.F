@@ -461,8 +461,8 @@ call wrf_dm_sum_reals(t_chem,s_chem)
 call wrf_dm_sum_reals(t_fuel,s_fuel)
 
 ! scale
-s_chem = s_chem*dx*dy*avgw 
-s_fuel = s_fuel*dx*dy*avgw 
+s_chem = s_chem*dx*dy 
+s_fuel = s_fuel*dx*dy 
 
 ! get rates
 r_chem = s_chem/dt 
@@ -473,7 +473,7 @@ c_chem = c_chem + s_chem
 c_fuel = c_fuel + s_fuel
 
 if(fire_print_msg .ge. msglevel)then
-    if(sum(c_fuel)>0.)then
+    if(sum(t_chem)>0.)then
 
         call message('Total emissions in g when emissions table is in g/m^2, in general: units from table * m^2',level=msglevel)
         write(msg,80)'Emissions ','co','no','no2','so2','nh3','p25i','p25j','oc1'
@@ -502,8 +502,9 @@ if(fire_print_msg .ge. msglevel)then
                 write(msg,83)fuel_name(cat),' burned',c_fuel(cat),'kg, rate',r_fuel(cat),' kg/s'
                 call message(msg,level=msglevel)
             endif
-            write(msg,83)'Total fuel',' burned',sum(c_fuel),'kg, rate',sum(r_fuel),' kg/s'
         enddo
+        write(msg,83)'Total fuel',' burned',sum(c_fuel),'kg, rate',sum(r_fuel),' kg/s'
+        call message(msg,level=msglevel)
 
     endif
 endif
