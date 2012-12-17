@@ -323,7 +323,7 @@ do j=jts,jte
 
                t_fuel(cat)=t_fuel(cat) + fuel_burnt
 
-               ! emissions given in g/kg
+               ! chem compounds emissions given in g/kg
 
                ! fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
                ! conv = 1e6*air*vol
@@ -350,6 +350,7 @@ do j=jts,jte
                chem(i,k1,j,p_nh3 )=chem(i,k1,j,p_nh3 ) + emis*conv*imw_nh3  ! add to chem
 
                ! aerosols, see chem/emissions_driver.F line 515
+
                ! already given in ppm*m
                ! conv = vol
                conv = avgw/dz8w(i,kds,j)   
@@ -357,11 +358,29 @@ do j=jts,jte
                emis=p25i (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_p25i) = t_chem(p_p25i) + emis                         ! add to total
                chem(i,k1,j,p_p25i )=chem(i,k1,j,p_p25i )+emis*conv
+
                emis=p25j (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_p25j) = t_chem(p_p25j) + emis                         ! add to total
                chem(i,k1,j,p_p25j )=chem(i,k1,j,p_p25j )+emis*conv
 
+               emis=oc1  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_oc1 ) = t_chem(p_oc1 ) + emis                         ! add to total
+               chem(i,k1,j,p_oc1  )=chem(i,k1,j,p_oc1  )+emis*conv
+
+               emis=oc2  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_oc2 ) = t_chem(p_oc2 ) + emis                         ! add to total
+               chem(i,k1,j,p_oc2  )=chem(i,k1,j,p_oc2  )+emis*conv
+
+               emis=bc1  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_bc1 ) = t_chem(p_bc1 ) + emis                         ! add to total
+               chem(i,k1,j,p_bc1  )=chem(i,k1,j,p_bc1  )+emis*conv
+
+               emis=bc2  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_bc2 ) = t_chem(p_bc2 ) + emis                         ! add to total
+               chem(i,k1,j,p_bc2  )=chem(i,k1,j,p_bc2  )+emis*conv
+
                ! emissions already given in mol/kg
+
                ! conv = 1e6*air*vol
                conv = avgw*1e6*mw_air/(rho(i,kds,j)*dz8w(i,kds,j))
 
@@ -380,6 +399,10 @@ do j=jts,jte
 
                emis=eth (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_eth) = t_chem(p_eth) + emis                         ! add to total
+               chem(i,k1,j,p_hc3 )=chem(i,k1,j,p_hc3 )+emis*conv
+
+               emis=hc3 (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_hc3) = t_chem(p_hc3) + emis                         ! add to total
                chem(i,k1,j,p_hc3 )=chem(i,k1,j,p_hc3 )+emis*conv
 
                emis=hc5 (cat)*fuel_burnt                                    ! emission from fire cell
