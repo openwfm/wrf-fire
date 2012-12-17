@@ -11,13 +11,14 @@ use module_model_constants, only: cp,xlv,g
 use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
 use module_fr_sfire_util
 #ifdef DM_PARALLEL
-    USE module_dm , only : wrf_dm_sum_real
+    USE module_dm , only : wrf_dm_sum_reals
 #endif
 
 
 #ifdef WRF_CHEM
 use module_fr_sfire_phys, only:  mfuelcats, nfuelcats    ! for emissions
 USE module_state_description, only: num_chem,num_tracer
+use module_fr_sfire_phys, only: fuel_name
 USE module_configure, only: &
 p_co,  &
 p_no,  &
@@ -90,6 +91,9 @@ real, parameter:: & ! reciprocal molecular weights  (mol/g)
              imw_nh3   = 1./17.    
 
 real, parameter:: mw_air=28.97   ! molecular weight of air g/mol
+
+! should be stored in the registry future because of restarts
+real, allocatable, dimension(:)::c_chem,c_fuel  ! cumulative burnt
 
 #endif
 
@@ -170,6 +174,12 @@ call wrf_dm_bcast_real(ora2,nfuelcats)
 call wrf_dm_bcast_real(tol, nfuelcats)
 call wrf_dm_bcast_real(xyl, nfuelcats)
 
+! should be stored in the registry future because of restarts
+allocate(c_chem(num_chem))
+c_chem=0.  ! cumulative burnt
+allocate(c_fuel(nfuelcats))
+c_fuel=0.  ! total per timestep, rate burnt, cumulative burnt
+
 end subroutine read_emissions_table
 
 subroutine add_fire_emissions_to_chem(chem_opt,dt,dx,dy,      &
@@ -207,29 +217,12 @@ real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:k
 
 !*** local
 integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw
-real::fuel_burnt,vol,air,conv, avgw, scale
+real::fuel_burnt,vol,air,conv, avgw,emis 
 character(len=128)msg
 
-real:: total_emis      ! for emission (g)
-real:: gm2             ! emission of species (g/m2)
-real:: &
-       t_co,  &
-       t_no,  &
-       t_no2, &
-       t_so2, &
-       t_nh3
-real:: &
-       r_co,  &
-       r_no,  &
-       r_no2, &
-       r_so2, &
-       r_nh3
-real, save:: &
-       c_co =0., &
-       c_no =0., &
-       c_no2=0., &
-       c_so2=0., &
-       c_nh3=0.
+real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
+real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
+
 
 !*** executable
 
@@ -301,11 +294,8 @@ endif
 avgw = 1.0/(ir*jr)     ! averaging weight = 1/number of fire cells per atm cell
 
 ! initialize emissions statistics per timestep
-t_co  = 0.
-t_no  = 0.
-t_no2 = 0.
-t_so2 = 0.
-t_nh3 = 0.
+t_chem = 0.
+t_fuel = 0.
 
 ! conversion fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
 ! emis_X(g/kg)*fuel_burnt(kg/m^2)/mw_X(g/mol) = emissions (mol/m^2)
@@ -331,95 +321,162 @@ do j=jts,jte
                fuel_burnt = fgip(i_f,j_f) * fuel_frac_burnt(i_f,j_f) ! kg/m^2 
                cat = nfuel_cat(i_f, j_f)                       ! usually 1 to 13
 
+               t_fuel(cat)=t_fuel(cat) + fuel_burnt
+
                ! emissions given in g/kg
 
                ! fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
                ! conv = 1e6*air*vol
                conv = avgw*1e6*mw_air/(rho(i,kds,j)*dz8w(i,kds,j))
 
-               gm2=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
-               t_co = t_co + gm2                                           ! add to the total
-               chem(i,k1,j,p_co  )=chem(i,k1,j,p_co  ) + gm2*conv*imw_co   ! add to chem
+               emis=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_chem(p_co) = t_chem(p_co) + emis                           ! add to total
+               chem(i,k1,j,p_co  )=chem(i,k1,j,p_co  ) + emis*conv*imw_co   ! add to chem
 
-               gm2=no  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
-               t_no = t_no + gm2                                           ! add to the total
-               chem(i,k1,j,p_no  )=chem(i,k1,j,p_no  ) + gm2*conv*imw_no   ! add to chem
+               emis=no  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_chem(p_no) = t_chem(p_no) + emis                           ! add to total
+               chem(i,k1,j,p_no  )=chem(i,k1,j,p_no  ) + emis*conv*imw_no   ! add to chem
 
-               gm2=no2 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
-               t_no2= t_no2+ gm2                                           ! add to the total
-               chem(i,k1,j,p_no2 )=chem(i,k1,j,p_no2 ) + gm2*conv*imw_no2  ! add to chem
+               emis=no2 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_chem(p_no2) = t_chem(p_no2) + emis                         ! add to total
+               chem(i,k1,j,p_no2 )=chem(i,k1,j,p_no2 ) + emis*conv*imw_no2  ! add to chem
 
-               gm2=so2 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
-               t_so2= t_so2+ gm2                                           ! add to the total
-               chem(i,k1,j,p_so2 )=chem(i,k1,j,p_so2 ) + gm2*conv*imw_so2  ! add to chem
+               emis=so2 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_chem(p_so2) = t_chem(p_so2) + emis                         ! ads to total
+               chem(i,k1,j,p_so2 )=chem(i,k1,j,p_so2 ) + emis*conv*imw_so2  ! add to chem
 
-               gm2=nh3 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
-               t_nh3= t_nh3+ gm2                                           ! add to the total
-               chem(i,k1,j,p_nh3 )=chem(i,k1,j,p_nh3 ) + gm2*conv*imw_nh3  ! add to chem
+               emis=nh3 (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
+               t_chem(p_nh3) = t_chem(p_nh3) + emis                         ! add to total
+               chem(i,k1,j,p_nh3 )=chem(i,k1,j,p_nh3 ) + emis*conv*imw_nh3  ! add to chem
 
                ! aerosols, see chem/emissions_driver.F line 515
                ! already given in ppm*m
                ! conv = vol
                conv = avgw/dz8w(i,kds,j)   
 
-               chem(i,k1,j,p_p25i )=chem(i,k1,j,p_p25i )+p25i (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_p25j )=chem(i,k1,j,p_p25j )+p25j (cat)*fuel_burnt*conv
+               emis=p25i (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_p25i) = t_chem(p_p25i) + emis                         ! add to total
+               chem(i,k1,j,p_p25i )=chem(i,k1,j,p_p25i )+emis*conv
+               emis=p25j (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_p25j) = t_chem(p_p25j) + emis                         ! add to total
+               chem(i,k1,j,p_p25j )=chem(i,k1,j,p_p25j )+emis*conv
 
                ! emissions already given in mol/kg
                ! conv = 1e6*air*vol
                conv = avgw*1e6*mw_air/(rho(i,kds,j)*dz8w(i,kds,j))
 
-               chem(i,k1,j,p_ald )=chem(i,k1,j,p_ald )+ald (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_csl )=chem(i,k1,j,p_csl )+csl (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_eth )=chem(i,k1,j,p_eth )+eth (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_hc3 )=chem(i,k1,j,p_hc3 )+ald (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_hc5 )=chem(i,k1,j,p_hc5 )+hc5 (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_hcho)=chem(i,k1,j,p_hcho)+hcho(cat)*fuel_burnt*conv
-               chem(i,k1,j,p_iso )=chem(i,k1,j,p_iso )+iso (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_ket )=chem(i,k1,j,p_ket )+ket (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_mgly)=chem(i,k1,j,p_mgly)+mgly(cat)*fuel_burnt*conv
-               chem(i,k1,j,p_ol2 )=chem(i,k1,j,p_ol2 )+ol2 (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_olt )=chem(i,k1,j,p_olt )+olt (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_oli )=chem(i,k1,j,p_oli )+oli (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_ora2)=chem(i,k1,j,p_ora2)+ora2(cat)*fuel_burnt*conv
-               chem(i,k1,j,p_tol )=chem(i,k1,j,p_tol )+tol (cat)*fuel_burnt*conv
-               chem(i,k1,j,p_xyl )=chem(i,k1,j,p_xyl )+xyl (cat)*fuel_burnt*conv
+ 
+               emis=ald (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_p25i) = t_chem(p_p25i) + emis                         ! add to total
+               chem(i,k1,j,p_ald )=chem(i,k1,j,p_ald )+emis*conv
+
+               emis=csl (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_csl) = t_chem(p_csl) + emis                         ! add to total
+               chem(i,k1,j,p_csl )=chem(i,k1,j,p_csl )+emis*conv
+
+               emis=eth (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_eth) = t_chem(p_eth) + emis                         ! add to total
+               chem(i,k1,j,p_eth )=chem(i,k1,j,p_eth )+emis*conv
+
+               emis=eth (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_eth) = t_chem(p_eth) + emis                         ! add to total
+               chem(i,k1,j,p_hc3 )=chem(i,k1,j,p_hc3 )+emis*conv
+
+               emis=hc5 (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_hc5) = t_chem(p_hc5) + emis                         ! add to total
+               chem(i,k1,j,p_hc5 )=chem(i,k1,j,p_hc5 )+emis*conv
+
+               emis=hcho (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_hcho) = t_chem(p_hcho) + emis                         ! add to total
+               chem(i,k1,j,p_hcho)=chem(i,k1,j,p_hcho)+emis*conv
+
+               emis=iso (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_iso) = t_chem(p_iso) + emis                         ! add to total
+               chem(i,k1,j,p_iso )=chem(i,k1,j,p_iso )+emis*conv
+
+               emis=ket (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_ket) = t_chem(p_ket) + emis                         ! add to total
+               chem(i,k1,j,p_ket )=chem(i,k1,j,p_ket )+emis*conv
+
+               emis=mgly (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_mgly) = t_chem(p_mgly) + emis                         ! add to total
+               chem(i,k1,j,p_mgly)=chem(i,k1,j,p_mgly)+emis*conv
+
+               emis=ol2 (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_ol2) = t_chem(p_ol2) + emis                         ! add to total
+               chem(i,k1,j,p_ol2 )=chem(i,k1,j,p_ol2 )+emis*conv
+
+               emis=olt (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_olt) = t_chem(p_olt) + emis                         ! add to total
+               chem(i,k1,j,p_olt )=chem(i,k1,j,p_olt )+emis*conv
+
+               emis=oli (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_oli) = t_chem(p_oli) + emis                         ! add to total
+               chem(i,k1,j,p_oli )=chem(i,k1,j,p_oli )+emis*conv
+
+               emis=ora2 (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_ora2) = t_chem(p_ora2) + emis                         ! add to total
+               chem(i,k1,j,p_ora2)=chem(i,k1,j,p_ora2)+emis*conv
+
+               emis=tol (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_tol) = t_chem(p_tol) + emis                         ! add to total
+               chem(i,k1,j,p_tol )=chem(i,k1,j,p_tol )+emis*conv
+
+               emis=xyl (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_xyl) = t_chem(p_xyl) + emis                         ! add to total
+               chem(i,k1,j,p_xyl )=chem(i,k1,j,p_xyl )+emis*conv
            enddo
        enddo
     enddo
 enddo
 
 ! sum over processes
-t_co  = wrf_dm_sum_real(t_co )
-t_no  = wrf_dm_sum_real(t_no )
-t_no2 = wrf_dm_sum_real(t_no2)
-t_so2 = wrf_dm_sum_real(t_so2)
-t_nh3 = wrf_dm_sum_real(t_nh3)
+call wrf_dm_sum_reals(t_chem,s_chem)
+call wrf_dm_sum_reals(t_fuel,s_fuel)
 
-! add to cumulative totals in kilograms
-scale = 1e-3*dx*dy*avgw
-c_co  = c_co + scale*t_co
-c_no  = c_no + scale*t_no
-c_no2 = c_no2+ scale*t_no2
-c_so2 = c_so2+ scale*t_so2
-c_nh3 = c_nh3+ scale*t_nh3
+! scale
+s_chem = s_chem*dx*dy*avgw 
+s_fuel = s_fuel*dx*dy*avgw 
 
-! scale the totals to get total emission rate kg/s
-scale = scale/dt
-r_co  = t_co  * scale 
-r_no  = t_no  * scale 
-r_no2 = t_no2 * scale 
-r_so2 = t_so2 * scale 
-r_nh3 = t_nh3 * scale 
+! get rates
+r_chem = s_chem/dt 
+r_fuel = s_fuel/dt 
 
-write(msg,80)'Total emissions    ','CO ','NO ','NO2','SO2','NH3'
-call message(msg)
-write(msg,81)'Cumulative     (kg)', c_co,c_no,c_no2,c_so2,c_nh3
-call message(msg)
-write(msg,81)'Current rate (kg/s)', r_co,r_no,r_no2,r_so2,r_nh3
-call message(msg)
-80 format(a,5a12)
-81 format(a,5g12.2)
+! add to cumulative totals
+c_chem = c_chem + s_chem
+c_fuel = c_fuel + s_fuel
+
+call message('Total emissions in g when emissions table is in g/m^2, in general: units from table * m^2')
+write(msg,81)'Emissions ','co','no','no2','so2','nh3','p25i','p25j','oc1'
+call message(msg,level=1)
+write(msg,81)'Cumulative',c_chem(p_co),c_chem(p_no),c_chem(p_no2),c_chem(p_so2),c_chem(p_nh3),c_chem(p_p25i),c_chem(p_p25j),c_chem(p_oc1)
+call message(msg,level=1)
+write(msg,81)'Rate per s',r_chem(p_co),r_chem(p_no),r_chem(p_no2),r_chem(p_so2),r_chem(p_nh3),r_chem(p_p25i),r_chem(p_p25j),r_chem(p_oc1)
+call message(msg,level=1)
+
+write(msg,81)'Emissions ', 'oc2','bc1','bc2','ald','csl','eth','hc3','hc5'
+call message(msg,level=1)
+write(msg,81)'Cumulative', c_chem(p_oc2),c_chem(p_bc1),c_chem(p_bc2),c_chem(p_ald),c_chem(p_csl),c_chem(p_eth),c_chem(p_hc3),c_chem(p_hc5)
+call message(msg,level=1)
+write(msg,81)'Rate per s',r_chem(p_oc2),r_chem(p_bc1),r_chem(p_bc2),r_chem(p_ald),r_chem(p_csl),r_chem(p_eth),r_chem(p_hc3),r_chem(p_hc5)
+call message(msg,level=1)
+
+write(msg,81)'Emissions ', 'hcho','iso','ket','mgly','ol2','olt'
+call message(msg,level=1)
+write(msg,81)'Cumulative',c_chem(p_hcho),c_chem(p_iso),c_chem(p_ket),c_chem(p_mgly),c_chem(p_ol2),c_chem(p_olt)
+call message(msg,level=1)
+write(msg,81)'Rate per s',r_chem(p_hcho),r_chem(p_iso),r_chem(p_ket),r_chem(p_mgly),r_chem(p_ol2),r_chem(p_olt)
+call message(msg,level=1)
+80 format(a,8a12)
+81 format(a,8g12.2)
+
+do cat=1,nfuelcats
+    if(c_fuel(cat) > 0.)then 
+        write(msg,83)cat,fuel_name(cat),' burned',c_fuel(cat),'kg, rate',r_fuel(cat),' kg/s'
+        call message(msg)
+    endif
+enddo
+83 format(i3,1x,a30,a,g14.4,a,g14.4,a,a)
 
 return
 

@@ -28,7 +28,7 @@ end type fire_params
 
 ! subroutines and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
-write_fuels_m,fire_risk,fire_intensity,fuel_moisture,advance_moisture
+write_fuels_m,fire_risk,fire_intensity,fuel_moisture,advance_moisture,fuel_name
 
 ! types
 public:: fire_params
