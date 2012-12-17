@@ -84,16 +84,16 @@ tol=0., &
 xyl=0.
 
 real, parameter:: & ! reciprocal molecular weights  (mol/g)
-             imw_co    = 1./28.010, &
-             imw_no    = 1./30.,    &
-             imw_no2   = 1./46.,    & 
-             imw_so2   = 1./64.,    &
-             imw_nh3   = 1./17.    
+             imw_co    = 1./28.010,&
+             imw_no    = 1./30.006,&
+             imw_no2   = 1./46.006,& 
+             imw_so2   = 1./64.066,&
+             imw_nh3   = 1./17.031    
 
 real, parameter:: mw_air=28.97   ! molecular weight of air g/mol
 
 ! should be stored in the registry future because of restarts
-real, allocatable, dimension(:)::c_chem,c_fuel  ! cumulative burnt
+real, allocatable, save, dimension(:)::c_chem,c_fuel  ! cumulative burnt
 
 #endif
 
@@ -472,8 +472,8 @@ c_chem = c_chem + s_chem
 c_fuel = c_fuel + s_fuel
 
 if(fire_print_msg .ge. msglevel)then
+    if(sum(c_fuel)>0.)then
 
-    if(sum(c_chem)>0. .or. sum(r_chem)>0.)then
         call message('Total emissions in g when emissions table is in g/m^2, in general: units from table * m^2',level=msglevel)
         write(msg,80)'Emissions ','co','no','no2','so2','nh3','p25i','p25j','oc1'
         call message(msg,level=msglevel)
@@ -495,19 +495,20 @@ if(fire_print_msg .ge. msglevel)then
         call message(msg,level=msglevel)
         write(msg,81)'Rate per s',r_chem(p_hcho),r_chem(p_iso),r_chem(p_ket),r_chem(p_mgly),r_chem(p_ol2),r_chem(p_olt)
         call message(msg,level=msglevel)
-    endif
     
-    do cat=1,nfuelcats
-        if(c_fuel(cat) > 0.)then 
-            write(msg,83)cat,fuel_name(cat),' burned',c_fuel(cat),'kg, rate',r_fuel(cat),' kg/s'
-            call message(msg,level=msglevel)
-        endif
-    enddo
+        do cat=1,nfuelcats
+            if(c_fuel(cat) > 0.)then 
+                write(msg,83)fuel_name(cat),' burned',c_fuel(cat),'kg, rate',r_fuel(cat),' kg/s'
+                call message(msg,level=msglevel)
+            endif
+            write(msg,83)'Total fuel',' burned',sum(c_fuel),'kg, rate',sum(r_fuel),' kg/s'
+        enddo
 
+    endif
 endif
 80 format(a,8a11)
 81 format(a,8e11.3)
-83 format(i3,1x,a30,a,g14.4,a,g14.4,a,a)
+83 format(a30,a,g14.4,a,g14.4,a,a)
 
 return
 
