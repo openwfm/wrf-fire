@@ -388,14 +388,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 
 #ifdef WRF_CHEM
 
-993 format(a,4(1x,i3,':',i3))
-     write(msg,993)'array chem has dimension ',&
-         lbound(grid%chem,1),ubound(grid%chem,1), &
-         lbound(grid%chem,2),ubound(grid%chem,2), &
-         lbound(grid%chem,3),ubound(grid%chem,3), &
-         lbound(grid%chem,4),ubound(grid%chem,4)
-     call message(msg)
-
+     if(grid%chem_opt>0)then
       call add_fire_emissions_to_chem(grid%chem_opt,dt,grid%dx,grid%dy,      &
        ifms,ifme,jfms,jfme,    &
        ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
@@ -405,6 +398,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
        rho,dz8w,                         & ! from atmosphere state
        grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
        grid%chem,grid%tracer)              ! update/output
+     endif
 #endif 
                 
 

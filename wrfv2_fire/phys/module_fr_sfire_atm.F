@@ -473,27 +473,29 @@ c_fuel = c_fuel + s_fuel
 
 if(fire_print_msg .ge. msglevel)then
 
-    call message('Total emissions in g when emissions table is in g/m^2, in general: units from table * m^2')
-    write(msg,81)'Emissions ','co','no','no2','so2','nh3','p25i','p25j','oc1'
-    call message(msg,level=msglevel)
-    write(msg,81)'Cumulative',c_chem(p_co),c_chem(p_no),c_chem(p_no2),c_chem(p_so2),c_chem(p_nh3),c_chem(p_p25i),c_chem(p_p25j),c_chem(p_oc1)
-    call message(msg,level=msglevel)
-    write(msg,81)'Rate per s',r_chem(p_co),r_chem(p_no),r_chem(p_no2),r_chem(p_so2),r_chem(p_nh3),r_chem(p_p25i),r_chem(p_p25j),r_chem(p_oc1)
-    call message(msg,level=msglevel)
-    
-    write(msg,81)'Emissions ', 'oc2','bc1','bc2','ald','csl','eth','hc3','hc5'
-    call message(msg,level=msglevel)
-    write(msg,81)'Cumulative', c_chem(p_oc2),c_chem(p_bc1),c_chem(p_bc2),c_chem(p_ald),c_chem(p_csl),c_chem(p_eth),c_chem(p_hc3),c_chem(p_hc5)
-    call message(msg,level=msglevel)
-    write(msg,81)'Rate per s',r_chem(p_oc2),r_chem(p_bc1),r_chem(p_bc2),r_chem(p_ald),r_chem(p_csl),r_chem(p_eth),r_chem(p_hc3),r_chem(p_hc5)
-    call message(msg,level=msglevel)
-    
-    write(msg,81)'Emissions ', 'hcho','iso','ket','mgly','ol2','olt'
-    call message(msg,level=msglevel)
-    write(msg,81)'Cumulative',c_chem(p_hcho),c_chem(p_iso),c_chem(p_ket),c_chem(p_mgly),c_chem(p_ol2),c_chem(p_olt)
-    call message(msg,level=msglevel)
-    write(msg,81)'Rate per s',r_chem(p_hcho),r_chem(p_iso),r_chem(p_ket),r_chem(p_mgly),r_chem(p_ol2),r_chem(p_olt)
-    call message(msg,level=msglevel)
+    if(sum(c_chem)>0. .or. sum(r_chem)>0.)then
+        call message('Total emissions in g when emissions table is in g/m^2, in general: units from table * m^2',level=msglevel)
+        write(msg,80)'Emissions ','co','no','no2','so2','nh3','p25i','p25j','oc1'
+        call message(msg,level=msglevel)
+        write(msg,81)'Cumulative',c_chem(p_co),c_chem(p_no),c_chem(p_no2),c_chem(p_so2),c_chem(p_nh3),c_chem(p_p25i),c_chem(p_p25j),c_chem(p_oc1)
+        call message(msg,level=msglevel)
+        write(msg,81)'Rate per s',r_chem(p_co),r_chem(p_no),r_chem(p_no2),r_chem(p_so2),r_chem(p_nh3),r_chem(p_p25i),r_chem(p_p25j),r_chem(p_oc1)
+        call message(msg,level=msglevel)
+        
+        write(msg,80)'Emissions ', 'oc2','bc1','bc2','ald','csl','eth','hc3','hc5'
+        call message(msg,level=msglevel)
+        write(msg,81)'Cumulative', c_chem(p_oc2),c_chem(p_bc1),c_chem(p_bc2),c_chem(p_ald),c_chem(p_csl),c_chem(p_eth),c_chem(p_hc3),c_chem(p_hc5)
+        call message(msg,level=msglevel)
+        write(msg,81)'Rate per s',r_chem(p_oc2),r_chem(p_bc1),r_chem(p_bc2),r_chem(p_ald),r_chem(p_csl),r_chem(p_eth),r_chem(p_hc3),r_chem(p_hc5)
+        call message(msg,level=msglevel)
+        
+        write(msg,80)'Emissions ', 'hcho','iso','ket','mgly','ol2','olt'
+        call message(msg,level=msglevel)
+        write(msg,81)'Cumulative',c_chem(p_hcho),c_chem(p_iso),c_chem(p_ket),c_chem(p_mgly),c_chem(p_ol2),c_chem(p_olt)
+        call message(msg,level=msglevel)
+        write(msg,81)'Rate per s',r_chem(p_hcho),r_chem(p_iso),r_chem(p_ket),r_chem(p_mgly),r_chem(p_ol2),r_chem(p_olt)
+        call message(msg,level=msglevel)
+    endif
     
     do cat=1,nfuelcats
         if(c_fuel(cat) > 0.)then 
@@ -503,8 +505,8 @@ if(fire_print_msg .ge. msglevel)then
     enddo
 
 endif
-80 format(a,8a12)
-81 format(a,8e12.3)
+80 format(a,8a11)
+81 format(a,8e11.3)
 83 format(i3,1x,a30,a,g14.4,a,g14.4,a,a)
 
 return
@@ -1479,7 +1481,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   jftst=ifval(jfds.ge.jfts,jfts+jr/2,jfts)
   jftet=ifval(jfde.eq.jfte,jfte-jr/2,jfte)
 
-  print *,'iftst, iftet, jftst, jftet=',iftst, iftet, jftst, jftet
+  ! print *,'iftst, iftet, jftst, jftet=',iftst, iftet, jftst, jftet
 
 ! zero out first, to prevent unitialized values on strips along domain boundaries
 ! it would be faster but longer code to do just cleanup loop on the strips
