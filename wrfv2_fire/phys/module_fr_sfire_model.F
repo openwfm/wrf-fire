@@ -385,7 +385,7 @@ elseif (ifun.eq.6) then ! timestep postprocessing
 !$OMP CRITICAL(SFIRE_MODEL_CRIT)
     write(msg,*)'time_start=',time_start,' dt=',dt,' before fuel_left'
 !$OMP END CRITICAL(SFIRE_MODEL_CRIT)
-    call message(msg,1)
+    call message(msg)
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'model: lfn')
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign,'model: tign')
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_time,'model: fuel_time')
