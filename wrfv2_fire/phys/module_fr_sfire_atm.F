@@ -487,7 +487,7 @@ c_chem = c_chem + s_chem
 c_fuel = c_fuel + s_fuel
 
 if(fire_print_msg .ge. msglevel)then
-    if(sum(t_chem)>0.)then
+    ! if(sum(t_chem)>0.)then
 
         call message('Total emissions in g or mol per the table',level=msglevel)
         write(msg,80)'Emissions ','co','no','no2','so2','nh3','p25i','p25j','oc1'
@@ -520,7 +520,7 @@ if(fire_print_msg .ge. msglevel)then
         write(msg,83)'Total fuel',' burned',sum(c_fuel),'kg, rate',sum(r_fuel),' kg/s'
         call message(msg,level=msglevel)
 
-    endif
+    ! endif
 endif
 80 format(a,8a11)
 81 format(a,8e11.3)

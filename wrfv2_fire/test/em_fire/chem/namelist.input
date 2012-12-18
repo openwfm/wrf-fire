@@ -158,7 +158,7 @@
  fmoist_dt = 10,             ! moisture model time step (s)
 !
 ! verbosity
- fire_print_msg     = 1,        ! 1 print fire debugging messages
+ fire_print_msg     = 2,        ! 1 print fire debugging messages
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! experiments
