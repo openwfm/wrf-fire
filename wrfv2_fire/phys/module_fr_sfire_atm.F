@@ -96,6 +96,7 @@ real, parameter:: mw_air=28.97   ! molecular weight of air g/mol
 real, pointer, save, dimension(:)::c_chem
 real, pointer, save, dimension(:)::c_fuel
 logical, save:: emis_read = .false.
+integer, save:: msglevel =1,printsums=0 ! when to print 
 
 #endif
 
@@ -108,9 +109,10 @@ contains
 subroutine read_emissions_table
    implicit none
    logical, external:: wrf_dm_on_monitor
+   external::wrf_dm_bcast_integer , wrf_dm_bcast_real
    integer compatible_chem_opt,iounit,ierr
    character(len=128)::msg
-   namelist/emissions/ compatible_chem_opt, &
+   namelist/emissions/ compatible_chem_opt, printsums, &
 co,  &
 no,  &
 no2,  &
@@ -152,6 +154,7 @@ IF ( wrf_dm_on_monitor() ) THEN
     write(msg,'(a,i3,a)')'reading emissions table for',nfuelcats,' fuel categories'
     call message(msg,level=0)
 ENDIF
+call wrf_dm_bcast_integer(printsums, 1)
 call wrf_dm_bcast_real(co,  nfuelcats)
 call wrf_dm_bcast_real(no,  nfuelcats)
 call wrf_dm_bcast_real(no2,  nfuelcats)
@@ -179,15 +182,17 @@ call wrf_dm_bcast_real(ora2,nfuelcats)
 call wrf_dm_bcast_real(tol, nfuelcats)
 call wrf_dm_bcast_real(xyl, nfuelcats)
 
-! should be stored in the registry future because of restarts
-write(msg,'(a,i3,a,i3)')'allocating c_chem size',num_chem,' c_fuel size',nfuelcats
-call message(msg,level=2)
-allocate(c_chem(num_chem))
-c_chem=0.  ! cumulative burnt
-allocate(c_fuel(nfuelcats))
-c_fuel=0.  ! total per timestep, rate burnt, cumulative burnt
-write(msg,'(a,i3,a,i3)')'allocated c_chem size',size(c_chem),' c_fuel size',size(c_fuel)
-call message(msg,level=2)
+if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
+   ! should be stored in the registry future because of restarts
+   write(msg,'(a,i3,a,i3)')'allocating c_chem size',num_chem,' c_fuel size',nfuelcats
+   call message(msg,level=2)
+   allocate(c_chem(num_chem))
+   c_chem=0.  ! cumulative burnt
+   allocate(c_fuel(nfuelcats))
+   c_fuel=0.  ! total per timestep, rate burnt, cumulative burnt
+   write(msg,'(a,i3,a,i3)')'allocated c_chem size',size(c_chem),' c_fuel size',size(c_fuel)
+   call message(msg,level=2)
+endif
 
 emis_read=.true.
 
@@ -234,7 +239,6 @@ character(len=128)msg
 real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
 
-integer, parameter:: msglevel =1 ! when to print 
 
 
 !*** executable
@@ -464,29 +468,29 @@ do j=jts,jte
     enddo
 enddo
 
-! sum over processes
-call wrf_dm_sum_reals(t_chem,s_chem)
-call wrf_dm_sum_reals(t_fuel,s_fuel)
+if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
+    ! sum over processes
+    call wrf_dm_sum_reals(t_chem,s_chem)
+    call wrf_dm_sum_reals(t_fuel,s_fuel)
+    
+    ! scale
+    s_chem = s_chem*dx*dy 
+    s_fuel = s_fuel*dx*dy 
+    
+    ! get rates
+    r_chem = s_chem/dt 
+    r_fuel = s_fuel/dt 
+    
+    ! add to cumulative totals
+    if(size(c_chem).ne.num_chem)call crash('add_fire_emissions_to_chem: bad size c_chem')
+    if(size(c_fuel).ne.nfuelcats)then
+        write(msg,*)'size(c_fuel)=',size(c_fuel),' nfuelcats=',nfuelcats
+        call message(msg,0)
+        call crash('add_fire_emissions_to_chem: bad size c_fuel')
+    endif
+    c_chem = c_chem + s_chem
+    c_fuel = c_fuel + s_fuel
 
-! scale
-s_chem = s_chem*dx*dy 
-s_fuel = s_fuel*dx*dy 
-
-! get rates
-r_chem = s_chem/dt 
-r_fuel = s_fuel/dt 
-
-! add to cumulative totals
-if(size(c_chem).ne.num_chem)call crash('add_fire_emissions_to_chem: bad size c_chem')
-if(size(c_fuel).ne.nfuelcats)then
-    write(msg,*)'size(c_fuel)=',size(c_fuel),' nfuelcats=',nfuelcats
-    call message(msg,0)
-    call crash('add_fire_emissions_to_chem: bad size c_fuel')
-endif
-c_chem = c_chem + s_chem
-c_fuel = c_fuel + s_fuel
-
-if(fire_print_msg .ge. msglevel)then
     ! if(sum(t_chem)>0.)then
 
         call message('Total emissions in g or mol per the table',level=msglevel)
