@@ -274,10 +274,6 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 
         if(fire_ifun.eq.1)then
 
-#ifdef WRF_CHEM
-        call read_emissions_table
-#endif
-        
 !       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
 !!            if(fire_topo_from_atm.eq.1)then
@@ -618,6 +614,11 @@ endif
 
 if(ifun.eq.1)then
          call init_fuel_cats(fmoist_run .or. fmoist_interp) ! properties of fuel categories and moisture classes from namelist.fire
+#ifdef WRF_CHEM
+        ! need reading fuel categories first
+        call read_emissions_table
+#endif
+        
 endif
 
 if(ifun.eq.3)then

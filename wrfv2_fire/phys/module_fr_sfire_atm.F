@@ -92,8 +92,10 @@ real, parameter:: & ! reciprocal molecular weights  (mol/g)
 
 real, parameter:: mw_air=28.97   ! molecular weight of air g/mol
 
-! should be stored in the registry future because of restarts
-real, allocatable, save, dimension(:)::c_chem,c_fuel  ! cumulative burnt
+! should be declared in the registry and stored in the state in future because of restarts
+real, pointer, save, dimension(:)::c_chem
+real, pointer, save, dimension(:)::c_fuel
+logical, save:: emis_read = .false.
 
 #endif
 
@@ -107,6 +109,7 @@ subroutine read_emissions_table
    implicit none
    logical, external:: wrf_dm_on_monitor
    integer compatible_chem_opt,iounit,ierr
+   character(len=128)::msg
    namelist/emissions/ compatible_chem_opt, &
 co,  &
 no,  &
@@ -146,6 +149,8 @@ IF ( wrf_dm_on_monitor() ) THEN
     read(iounit,emissions,iostat=ierr)
     if(ierr.ne.0)call crash('read_emissions_table: error reading namelist emissions in file namelist.fire_emissions')
     CLOSE(iounit)
+    write(msg,'(a,i3,a)')'reading emissions table for',nfuelcats,' fuel categories'
+    call message(msg,level=0)
 ENDIF
 call wrf_dm_bcast_real(co,  nfuelcats)
 call wrf_dm_bcast_real(no,  nfuelcats)
@@ -175,10 +180,16 @@ call wrf_dm_bcast_real(tol, nfuelcats)
 call wrf_dm_bcast_real(xyl, nfuelcats)
 
 ! should be stored in the registry future because of restarts
+write(msg,'(a,i3,a,i3)')'allocating c_chem size',num_chem,' c_fuel size',nfuelcats
+call message(msg,level=2)
 allocate(c_chem(num_chem))
 c_chem=0.  ! cumulative burnt
 allocate(c_fuel(nfuelcats))
 c_fuel=0.  ! total per timestep, rate burnt, cumulative burnt
+write(msg,'(a,i3,a,i3)')'allocated c_chem size',size(c_chem),' c_fuel size',size(c_fuel)
+call message(msg,level=2)
+
+emis_read=.true.
 
 end subroutine read_emissions_table
 
@@ -232,6 +243,7 @@ integer, parameter:: msglevel =1 ! when to print
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
 
+if(.not.emis_read)call crash('add_fire_emissions_to_chem: read_emissions_table must be called first') 
 write(msg,'(a,i3,a,i3)')'add_fire_emissions_to_chem: chem_opt=',chem_opt,' species ',num_chem
 call message(msg)
 write(msg,'(a,30i3)')'pointers used=', &
@@ -323,7 +335,7 @@ do j=jts,jte
                fuel_burnt = fgip(i_f,j_f) * fuel_frac_burnt(i_f,j_f) ! kg/m^2 
                cat = nfuel_cat(i_f, j_f)                       ! usually 1 to 13
 
-               t_fuel(cat)=t_fuel(cat) + fuel_burnt
+               if(cat.ne.no_fuel_cat)t_fuel(cat)=t_fuel(cat) + fuel_burnt
 
                !*** chem compounds emissions given in g/kg
 
@@ -465,13 +477,19 @@ r_chem = s_chem/dt
 r_fuel = s_fuel/dt 
 
 ! add to cumulative totals
+if(size(c_chem).ne.num_chem)call crash('add_fire_emissions_to_chem: bad size c_chem')
+if(size(c_fuel).ne.nfuelcats)then
+    write(msg,*)'size(c_fuel)=',size(c_fuel),' nfuelcats=',nfuelcats
+    call message(msg,0)
+    call crash('add_fire_emissions_to_chem: bad size c_fuel')
+endif
 c_chem = c_chem + s_chem
 c_fuel = c_fuel + s_fuel
 
 if(fire_print_msg .ge. msglevel)then
     if(sum(t_chem)>0.)then
 
-        call message('Total emissions in g when emissions table is in g/m^2, in general: units from table * m^2',level=msglevel)
+        call message('Total emissions in g or mol per the table',level=msglevel)
         write(msg,80)'Emissions ','co','no','no2','so2','nh3','p25i','p25j','oc1'
         call message(msg,level=msglevel)
         write(msg,81)'Cumulative',c_chem(p_co),c_chem(p_no),c_chem(p_no2),c_chem(p_so2),c_chem(p_nh3),c_chem(p_p25i),c_chem(p_p25j),c_chem(p_oc1)
