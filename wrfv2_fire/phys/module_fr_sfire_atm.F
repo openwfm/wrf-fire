@@ -358,7 +358,7 @@ do j=jts,jte
                ! conv = avgw*1e6*mw_air/(rho(i,kds,j)*dz8w(i,kds,j)) 
 
                emis=ald (cat)*fuel_burnt                                    ! emission from fire cell
-               t_chem(p_p25i) = t_chem(p_p25i) + emis                         ! add to total
+               t_chem(p_ald) = t_chem(p_ald) + emis                         ! add to total
                chem(i,k1,j,p_ald )=chem(i,k1,j,p_ald )+emis*conv
 
                emis=csl (cat)*fuel_burnt                                    ! emission from fire cell
@@ -368,10 +368,6 @@ do j=jts,jte
                emis=eth (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_eth) = t_chem(p_eth) + emis                         ! add to total
                chem(i,k1,j,p_eth )=chem(i,k1,j,p_eth )+emis*conv
-
-               emis=eth (cat)*fuel_burnt                                    ! emission from fire cell
-               t_chem(p_eth) = t_chem(p_eth) + emis                         ! add to total
-               chem(i,k1,j,p_hc3 )=chem(i,k1,j,p_hc3 )+emis*conv
 
                emis=hc3 (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_hc3) = t_chem(p_hc3) + emis                         ! add to total
