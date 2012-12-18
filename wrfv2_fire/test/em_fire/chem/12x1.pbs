@@ -24,10 +24,10 @@
 cd $PBS_O_WORKDIR
 
 WD=12x1
-#rm -rf $WD
+rm -rf $WD
 mkdir $WD
 cd $WD
-rm rsl.* wrfout* wrfrst* core*
+rm -f rsl.* wrfout* wrfrst* core*
 pwd
 ln -s ../ideal.exe .
 #ln -s ../input_fc .
@@ -36,6 +36,7 @@ ln -s ../ideal.exe .
 ln -s ../input_sounding .
 ln -s ../LANDUSE.TBL .
 ln -s ../namelist.fire .
+ln -s ../namelist.fire_emissions .
 ln -s ../namelist.input .
 ln -s ../wrf.exe .
 if [ -e ../input_tign_g ]
@@ -45,9 +46,9 @@ fi
 
 #cat $PBS_NODEFILE | sort -u > nodes 
 cat $PBS_NODEFILE > nodes 
-#mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
-#mv rsl.error.0000 ideal.error.log
-#mv rsl.out.0000 ideal.out.log
-#matlab < ../make_usgs.m
+mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
+mv rsl.error.0000 ideal.error.log
+mv rsl.out.0000 ideal.out.log
+matlab < ../make_usgs.m
 mpirun_rsh -np 12 -hostfile nodes OMP_NUM_THREADS=1 ./wrf.exe 
 
