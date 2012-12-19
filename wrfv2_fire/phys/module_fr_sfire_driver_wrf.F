@@ -60,13 +60,14 @@ subroutine sfire_driver_em_init (grid , config_flags               &
 
     call sfire_driver_em ( grid , config_flags               & 
             ,time_step_start,dt                                 &
-            ,1,2,0                        & ! ifun start, end, test steps
+            ,ifun_beg,ifun_step-1,0                        & ! ifun start, end, test steps
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
+            ,rho,z_at_w,dz8w                                        &
             ) 
 
     call message('sfire_driver_em_init: SFIRE initialization complete')
@@ -90,6 +91,9 @@ subroutine sfire_driver_em_step (grid , config_flags               &
                               domain_get_time_step 
     USE module_configure , only : grid_config_rec_type
     USE module_fr_sfire_util, only : fire_test_steps
+#ifdef WRF_CHEM
+    USE module_state_description, only: num_chem,num_tracer
+#endif
     implicit none
 
     TYPE(domain) , TARGET          :: grid   ! data
@@ -113,6 +117,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
     integer::fire_time_step_ratio,itime_step,i,j
     real,dimension( ips:ipe , jps:jpe ) :: grnhfx_save, grnqfx_save,    &
                                            canhfx_save, canqfx_save
+    character(len=128)::msg
 
     ! executable
 
@@ -148,13 +153,14 @@ subroutine sfire_driver_em_step (grid , config_flags               &
 
     call sfire_driver_em ( grid , config_flags               & 
             ,time_step_start,dt                                 &
-            ,3,6,fire_test_steps                                &
+            ,ifun_step,ifun_end,fire_test_steps                     &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
+            ,rho,z_at_w,dz8w                                        &
             ) 
 
         ! accumulate fluxes for atmospheric tendency
@@ -211,6 +217,14 @@ subroutine sfire_driver_em_step (grid , config_flags               &
      enddo
    
 #ifdef WRF_CHEM
+
+     write(msg,991)lbound(grid%chem,4),ubound(grid%chem,4),lbound(grid%tracer,4),ubound(grid%tracer,4)
+991  format('chem species',i3,':',i3,'  tracers',i3,':',i3)
+     call message(msg)
+     write(msg,992)num_chem, num_tracer,config_flags%chem_opt,config_flags%tracer_opt
+992  format('number of chem species:',i4,'  tracers:',i3,' chem_opt=',i3,' tracer_opt=',i3)
+     call message(msg)
+      
      ! fire emission source for wrf chem
      call fire_emission(                    &
             ids,ide-1, kds,kde, jds,jde-1,  & ! domain dimensions

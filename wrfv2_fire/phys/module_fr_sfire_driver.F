@@ -76,6 +76,9 @@ use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpo
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 
+#ifdef WRF_CHEM
+use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
+#endif
 
 ! WRF dependencies
 USE module_domain, only: domain
@@ -89,10 +92,13 @@ implicit none
 private
 public sfire_driver_em,use_atm_vars,set_flags,fire_ignition_convert, &
        set_fp_from_grid
+public ifun_beg, ifun_step, ifun_end
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
 
 logical:: fmoist_run, fmoist_interp, fire_run  ! which kind of model to run overall
+
+integer, parameter:: ifun_beg=1, ifun_step=3, ifun_end=6  
 
 contains
 
@@ -107,7 +113,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
-            ,ifps,ifpe, jfps,jfpe )
+            ,ifps,ifpe, jfps,jfpe                                   &
+            ,rho,z_at_w,dz8w                                        &
+)
 
 !*** purpose: driver from grid structure
 
@@ -132,6 +140,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
              ifds,ifde, jfds,jfde,                                   &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
+    real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
 
 !*** local
     TYPE(lines_type):: ignition, hfx
@@ -264,7 +273,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
        if(fire_run)then
 
         if(fire_ifun.eq.1)then
-        
+
 !       halo exchange on topography
 #include "HALO_FIRE_LONGLAT.inc"
 !!            if(fire_topo_from_atm.eq.1)then
@@ -327,6 +336,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
+            grid%fuel_frac_burnt,                         &
             lfn_out,                                      & ! work - one timestep    
             grid%avg_fuel_frac,                           & ! out redundant arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
@@ -374,6 +384,20 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
           endif
 #endif
 
+#ifdef WRF_CHEM
+
+     if(grid%chem_opt>0)then
+      call add_fire_emissions_to_chem(grid%chem_opt,dt,grid%dx,grid%dy,      &
+       ifms,ifme,jfms,jfme,    &
+       ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
+       ids,ide,kds,kde,jds,jde,          &
+       ims,ime,kms,kme,jms,jme,          &
+       ips,ipe,kps,kpe,jps,jpe,          &
+       rho,dz8w,                         & ! from atmosphere state
+       grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
+       grid%chem,grid%tracer)              ! update/output
+     endif
+#endif 
                 
 
       enddo
@@ -408,6 +432,7 @@ subroutine sfire_driver_phys (ifun,    &
     xlong,xlat,                                   &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
+    fuel_frac_burnt,                              & 
     lfn_out,                                      & ! out level set function    
     avg_fuel_frac,                                &
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
@@ -495,7 +520,8 @@ real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
     lfn_out                                    ! fire wind velocities
 
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
-    fire_area                                        ! fraction of each cell burning
+    fire_area, &                               ! fraction of each cell burning
+    fuel_frac_burnt
 
 real, intent(out), dimension(ims:ime, jms:jme):: &  ! redundant arrays, for display purposes only (atm grid)
     avg_fuel_frac,                               &  ! average fuel fraction
@@ -593,6 +619,11 @@ endif
 
 if(ifun.eq.1)then
          call init_fuel_cats(fmoist_run .or. fmoist_interp) ! properties of fuel categories and moisture classes from namelist.fire
+#ifdef WRF_CHEM
+        ! need reading fuel categories first
+        call read_emissions_table
+#endif
+        
 endif
 
 if(ifun.eq.3)then
@@ -849,6 +880,7 @@ do ij=1,num_tiles
         fire_hfx,                               & ! given heat flux
         lfn,lfn_out,tign,fuel_frac,             & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
+        fuel_frac_burnt,                        & ! output: fuel fraction burned in this step
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes
         ros,flineint,flineint2,                 & ! diagnostic variables
         f_ros0,f_rosx,f_rosy,f_ros,             & ! fire risk spread 
