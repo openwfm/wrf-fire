@@ -1656,6 +1656,7 @@ integer, save:: go=0
 ! set go=1 in debugger to continue
 do while (go .eq. 0)
 call sleep(1)
+call wrf_dm_bcast_integer(go, 1)
 enddo
 end subroutine sfire_debug_hook
 #else
