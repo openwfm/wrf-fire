@@ -5160,7 +5160,7 @@ END SUBROUTINE sorgam_depdriver
 ! added JM 12/18/2012: also when there is no nonnegative root
 
 !          IF (disc<0.0) THEN
-          IF (disc<0.0 .or. (bb>0.0 .and. aa*cc > 0.0)) THEN
+          IF (disc<0.0.or.(bb>0.0.and.aa>0.0.and.cc>0.0).or.(bb<0.0.and.aa<0.0.and.cc<0.0)) THEN
             xno3 = 0.0
             ah2o = 1000.0*wh2o
             ynh4 = twoso4
