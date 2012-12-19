@@ -1668,6 +1668,7 @@
  DEST_RECORD iofields_filename          = SOURCE_RECORD iofields_filename SOURCE_REC_DEX
  DEST_RECORD ignore_iofields_warning    = SOURCE_RECORD ignore_iofields_warning 
  DEST_RECORD nfmc                       = SOURCE_RECORD nfmc 
+ DEST_RECORD nefms                      = SOURCE_RECORD nefms 
  DEST_RECORD fmoist_run                 = SOURCE_RECORD fmoist_run SOURCE_REC_DEX
  DEST_RECORD fmoist_interp              = SOURCE_RECORD fmoist_interp SOURCE_REC_DEX
  DEST_RECORD fmoist_only                = SOURCE_RECORD fmoist_only SOURCE_REC_DEX

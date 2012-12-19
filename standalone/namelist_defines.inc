@@ -1659,6 +1659,7 @@ integer :: io_form_gfdda
 character*256 , DIMENSION(max_domains) :: iofields_filename
 logical :: ignore_iofields_warning
 integer :: nfmc
+integer :: nefms
 logical , DIMENSION(max_domains) :: fmoist_run
 logical , DIMENSION(max_domains) :: fmoist_interp
 logical , DIMENSION(max_domains) :: fmoist_only

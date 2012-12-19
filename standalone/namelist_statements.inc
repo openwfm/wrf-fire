@@ -1613,6 +1613,7 @@ NAMELIST /fdda/ io_form_gfdda
 NAMELIST /time_control/ iofields_filename
 NAMELIST /time_control/ ignore_iofields_warning
 NAMELIST /fire/ nfmc
+NAMELIST /fire/ nefms
 NAMELIST /fire/ fmoist_run
 NAMELIST /fire/ fmoist_interp
 NAMELIST /fire/ fmoist_only

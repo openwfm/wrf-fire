@@ -286,12 +286,14 @@ call check_mesh_2dim(ibs,ibe,jbs,jbe,ims,ime,jms,jme) ! check if tile with halo 
 
 do k=1,moisture_classes
 
+!    do j=jbs,jbe
+!        do i=ibs,ibe
+!            fmc_k(i,j)=fmc_gc(i,k,j)      ! copy slice to 2d array
+!        enddo
+!    enddo
+
     ! copy halo beyond the tile but not beyond the domain boundary
-    do j=jbs,jbe
-        do i=ibs,ibe
-            fmc_k(i,j)=fmc_gc(i,k,j)      ! copy slice to 2d array
-        enddo
-    enddo
+    fmc_k(ibs:ibe,jbs:jbe) = fmc_gc(ibs:ibe,k,jbs:jbe)
 
     call print_2d_stats(ibs,ibe,jbs,jbe,its-1,ite+1,jts-1,jte+1,fmc_k,'fuel_moisture: fmc_k')
 
@@ -332,13 +334,15 @@ subroutine advance_moisture(    &
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
     nfmc,                       & ! dimension of moisture fields
+    nefms,                      & ! dimension of extended fuel moisture state
     moisture_dt,                & ! timestep = time step time elapsed from the last call
     rainc, rainnc,              & ! accumulated rain 
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
     rain_old,                   & ! previous value of accumulated rain
     t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
     rh_fire,                    & ! relative humidity at surface, for diagnostic only
-    fmc_gc,                     & ! fuel moisture by class, updated
+    efms,                       & ! fuel moisture extended state, updated
+    efms_cov,                   & ! extended fuel moisture state covariance, updated
     fmc_equi,                   & ! fuel moisture equilibrium by class, for diagnostics only
     fmc_lag                     & ! fuel moisture tendency by classe, for diagnostics only
     )
@@ -350,11 +354,13 @@ logical, intent(in):: initialize
 integer, intent(in)::           &
     ims,ime,  jms,jme,          & ! memory dimensions
     its,ite,  jts,jte,          & ! tile dimensions
-    nfmc                          ! number of moisture fields
+    nfmc,                       & ! number of moisture fields
+    nefms
 real, intent(in):: moisture_dt
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
-real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+real, intent(inout), dimension(ims:ime,nefms,jms:jme) :: efms
+real, intent(inout), dimension(nefms,nefms,ims:ime,jms:jme) :: efms_cov
 real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_lag
 real, intent(out), dimension(ims:ime,jms:jme)::rh_fire 
 
@@ -375,7 +381,8 @@ real::epsilon,Pws,Pw,t2_min,q2_min,psfc_min
 real::t2_floor=200.    ! minimum allowed temperature (K)
 real::q2_floor=1e-8    ! miniumu allowed moisture contents (kg/kg)
 real::psfc_floor=1000. ! mimimum allowed surface pressiure (Pa)
-
+real, dimension(29,29) :: Jac ! the Jacobian of the moisture evolution function (at current working point)
+integer :: Jacdim = 29
 
 !*** executable
 
@@ -404,7 +411,7 @@ if(initialize) then
     call message('advance_moisture: initializing, copying surface variables to old')
     call copy2old
 else
-    call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'before advance fmc_gc')
+    call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,efms,'before advance efms')
 endif
 
 if(check_data.ge.2 .or. msglevel.ge.2)then
@@ -437,15 +444,21 @@ if(check_data.ge.2 .or. msglevel.ge.2)then
     endif
 endif
 
-! one time step
 
+! allocate space for Jacobian
+Jac(:,:) = 0.
+do i=1,Jacdim
+    Jac(i,i) = 1.
+enddo
+
+! one time step
 rhmax=-huge(rhmax)
 rhmin=huge(rhmin)
 rainmax=-huge(rainmax)
 rainmin= huge(rainmin)
 do j=jts,jte
-    do k=1,moisture_classes
-        do i=its,ite
+   do i=its,ite
+      do k=1,moisture_classes
             ! old fuel moisture contents
             ! compute the rain intensity from the difference of accumulated rain
             rain_diff = ((rainc(i,j) + rainnc(i,j)) - rain_old(i,j))
@@ -468,7 +481,7 @@ do j=jts,jte
                 T = max(T,t2_floor)
                 P = max(P,psfc_floor)
                 Q = max(Q,q2_floor)
-	    endif
+            endif
 
             ! compute the relative humidity
             ! ES=610.78*exp(17.269*(T-273.161)/(T-35.861))
@@ -500,11 +513,13 @@ do j=jts,jte
             endif 
             !print *,'ADV_MOIST i=',i,' j=',j,' T=',T,' P=',P,' Q=',Q,' ES=',ES,' QRS=',QRS,' RH=',RH
 
+            ! fixme: mv - maybe here r0 should be used as the threshold?
             if (R > 0.) then
                 select case(wetting_model(k))
                 case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
                     EMC_w=saturation_moisture(k)
                     EMC_d=saturation_moisture(k)
+                    !fixme: mv - also here the equation is different and has no r0
                     rlag=rec_wetting_lag_sec(k) * (1. - exp(-R/saturation_rain(k)))
                 end select
             else ! not raining
@@ -523,12 +538,12 @@ do j=jts,jte
             endif
             !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIME LAG KIND 
             ! ARE RESPONSIBLE FOR THEIR OWN LOGIC, THESE MODELS
-            ! SHOULD COMPUTE fmc_gc(i,k,j) DIRECTLY AND SET TLAG < 0
+            ! SHOULD COMPUTE efms(i,k,j) DIRECTLY AND SET TLAG < 0
             !
             if(rlag > 0.0)then
 
                 if(.not.initialize .or. fmc_gc_initialization(k).eq.0)then ! take old from before, no initialization
-                    fmc_old = fmc_gc(i,k,j)
+                    fmc_old = efms(i,k,j)
                 elseif(fmc_gc_initialization(k).eq.1)then ! from scalar fuelmc_g
                     fmc_old = fuelmc_g
                 elseif(fmc_gc_initialization(k).eq.2)then ! from computed equilibrium
@@ -547,7 +562,7 @@ do j=jts,jte
                      if(fire_print_msg.ge.3)call message('exponential method')
                      fmc = fmc_old + (equi - fmc_old)*(1 - exp(-change))
                 endif
-                fmc_gc(i,k,j) = fmc
+                efms(i,k,j) = fmc
 
                 ! diagnostics out
                 fmc_equi(i,k,j)=equi
@@ -556,7 +571,7 @@ do j=jts,jte
                 ! diagnostic prints
                 if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-		    write(msg,*)'i=',i,' j=',j,'EMC_w=',EMC_w,' EMC_d=',EMC_d
+                write(msg,*)'i=',i,' j=',j,'EMC_w=',EMC_w,' EMC_d=',EMC_d
                     call message(msg)
                     write(msg,*)'fmc_old=',fmc,' equi=',equi,' change=',change,' fmc=',fmc
                     call message(msg)
@@ -586,8 +601,7 @@ endif
 
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_equi,'equilibrium fmc_equi')
 call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_lag,'time lag')
-call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,fmc_gc,'after advance fmc_gc')
-
+call print_3d_stats_by_slice(its,ite,1,moisture_classes,jts,jte,ims,ime,1,nfmc,jms,jme,efms,'after advance efms')
 call copy2old
 
 return
@@ -596,14 +610,19 @@ contains
 
 subroutine copy2old
 
-do j=jts,jte
-    do i=its,ite
-        rain_old(i,j) = rainc(i,j) + rainnc(i,j)
-        t2_old(i,j) = t2(i,j)
-        q2_old(i,j) = q2(i,j)
-        psfc_old(i,j) = psfc(i,j)
-    enddo
-enddo
+rain_old(:,:) = rainc(:,:) + rainnc(:,:)
+t2_old(:,:) = t2(:,:)
+q2_old(:,:) = q2(:,:)
+psfc_old(:,:) = psfc(:,:)
+
+!do j=jts,jte
+!    do i=its,ite
+!        rain_old(i,j) = rainc(i,j) + rainnc(i,j)
+!        t2_old(i,j) = t2(i,j)
+!        q2_old(i,j) = q2(i,j)
+!        psfc_old(i,j) = psfc(i,j)
+!    enddo
+!enddo
 
 end subroutine copy2old
 

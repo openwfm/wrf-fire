@@ -1659,6 +1659,7 @@ integer :: io_form_gfdda
 character*256 :: iofields_filename
 logical :: ignore_iofields_warning
 integer :: nfmc
+integer :: nefms
 logical :: fmoist_run
 logical :: fmoist_interp
 logical :: fmoist_only

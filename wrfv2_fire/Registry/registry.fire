@@ -50,25 +50,28 @@ state    real     fcanhfx   *i*j      fire        1         z    hr    "FCANHFX"
 state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"   "moisture flux from crown fire" "W/m^2"
 
 # fuel moisture model section
-dimspec  num_fmc    -   namelist=nfmc              z      fuel_moisture_classes 
-rconfig  integer  nfmc  namelist,fire  1    5  -   "nfmc" "number of fuel moisture classes"
-state    real     fmc_gc  i{num_fmc}j fire      1           z   ihr   "FMC_GC"  "fuel moisture contents by class" "1"
-state    real     fmc_equi  i{num_fmc}j fire     1         z     hr   "FMC_EQUI"  "fuel moisture contents by class equilibrium (diagnostics only)" "1"
-state    real     fmc_lag  i{num_fmc}j fire     1         z      hr   "FMC_TEND"  "fuel moisture contents by class time lag (diagnostics only)" "h"
-state    real     rain_old  ij       fire        1         z     hr   "RAIN_OLD" "previous value of accumulated rain" "mm"
-state    real     t2_old    ij       fire        1         z     hr   "T2_OLD" "previous value of accumulated rain" "mm"
-state    real     q2_old    ij       fire        1         z     hr   "Q2_OLD" "previous value of accumulated rain" "mm"
-state    real     psfc_old  ij       fire        1         z     hr   "PSFC_OLD" "previous value of accumulated rain" "mm"
-state    real     rh_fire   ij       fire        1         z     hr   "RH_FIRE" "relative humidity at the surface" "1"
-state    real     fmoist_lasttime -  fire        -         -     hr   "FMOIST_LASTTIME" "last time the moisture model was run" "s"
-state    real     fmoist_nexttime -  fire        -         -     hr   "FMOIST_NEXTTIME" "next time the moisture model will run" "s"
-rconfig logical   fmoist_run        namelist,fire  max_domains   .false.       hr   "run moisture model (on the atmospheric grid), output to fmc_gc"
+dimspec  num_fmc    -   namelist=nfmc                                   z         fuel_moisture_classes 
+rconfig  integer  nfmc  namelist,fire               1               5       hr   "nfmc" "number of fuel moisture classes"
+dimspec  efms_dim   -   namelist=nefms                                  z         fuel_moisture_classes_cov
+rconfig  integer  nefms namelist,fire               1               7       hr   "nefms"  "dimension of extended fuel moisture state" "1"
+state    real     efms      i{efms_dim}j            fire        1       z   ihr   "EFMS"  "extended fuel moisture state (moisture by class and assimilated equilibria)" "1"
+state    real     efms_cov  {efms_dim}{efms_dim}ij  fire        1       z   hr    "EFMS_COV" "extended fuel moisture state covariance" "1"
+state    real     fmc_equi  i{num_fmc}j             fire        1       z   hr   "FMC_EQUI"  "fuel moisture contents by class equilibrium (diagnostics only)" "1"
+state    real     fmc_lag   i{num_fmc}j             fire        1       z   hr   "FMC_TEND"  "fuel moisture contents by class time lag (diagnostics only)" "h"
+state    real     rain_old  ij                      fire        1       z   hr   "RAIN_OLD" "previous value of accumulated rain" "mm"
+state    real     t2_old    ij                      fire        1       z   hr   "T2_OLD" "previous value of accumulated rain" "mm"
+state    real     q2_old    ij                      fire        1       z   hr   "Q2_OLD" "previous value of accumulated rain" "mm"
+state    real     psfc_old  ij                      fire        1       z   hr   "PSFC_OLD" "previous value of accumulated rain" "mm"
+state    real     rh_fire   ij                      fire        1       z   hr   "RH_FIRE" "relative humidity at the surface" "1"
+state    real     fmoist_lasttime -                 fire        -       -   hr   "FMOIST_LASTTIME" "last time the moisture model was run" "s"
+state    real     fmoist_nexttime -                 fire        -       -   hr   "FMOIST_NEXTTIME" "next time the moisture model will run" "s"
+rconfig logical   fmoist_run        namelist,fire  max_domains   .false.       hr   "run moisture model (on the atmospheric grid), output to efms"
 rconfig logical   fmoist_interp     namelist,fire  max_domains   .false.       hr   "interpolate moisture from the model or the input to fuels on the fire grid"
 rconfig logical   fmoist_only       namelist,fire  max_domains   .false.       hr   "only run moisture model, skip fire"
 rconfig integer   fmoist_freq       namelist,fire  max_domains    0       hr   "fmoist_freq"    "frequency to run moisture model 0: use fmoist_dt, k>0: every k timesteps" "1"
 rconfig real      fmoist_dt         namelist,fire  max_domains    600     hr   "fmoist_dt  "    "moisture model time step" "s"
 halo      HALO_FIRE_MFG dyn_em 24:fmc_g
-halo      HALO_FIRE_MAG dyn_em 8:fmc_gc
+halo      HALO_FIRE_MAG dyn_em 8:efms
 
 # diagnostics
 # for the actual modeled fire

@@ -1656,6 +1656,7 @@ io_form_gfdda = 2
 iofields_filename = "NONE_SPECIFIED"
 ignore_iofields_warning = .true.
 nfmc = 5
+nefms = 7
 fmoist_run = .false.
 fmoist_interp = .false.
 fmoist_only = .false.
