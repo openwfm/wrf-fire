@@ -13,7 +13,7 @@
  end_month                           = 01,   01,   01,
  end_day                             = 01,   01,   01,
  end_hour                            = 00,   00,   00,
- end_minute                          = 600,   600,   600,
+ end_minute                          = 60,   60,   60,
  end_second                          = 00,   00,   00,
  history_interval_s                  = 5,   30,   30,
  frames_per_outfile                  = 2000, 1000, 1000,
