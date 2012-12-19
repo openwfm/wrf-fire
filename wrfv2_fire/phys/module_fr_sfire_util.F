@@ -190,6 +190,21 @@ end subroutine crash
 !****************
 !
 
+subroutine warning(s,level)
+implicit none
+!*** arguments
+character(len=*), intent(in)::s
+character(len=128)::msg
+integer,intent(in),optional::level
+msg='WARNING:'//s
+if(present(level))then
+    call message(msg,level=level)
+else
+    call message(msg,level=0)
+endif
+end subroutine warning
+
+
 subroutine message(s,level)
 use module_wrf_error
 #ifdef _OPENMP
