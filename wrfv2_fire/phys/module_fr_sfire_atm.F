@@ -96,7 +96,7 @@ real, parameter:: mw_air=28.97   ! molecular weight of air g/mol
 real, pointer, save, dimension(:)::c_chem
 real, pointer, save, dimension(:)::c_fuel
 logical, save:: emis_read = .false.
-integer, save:: msglevel =1,printsums=0 ! when to print 
+integer, save:: msglevel =1,printsums=0 ! when to print sums
 
 #endif
 
