@@ -1126,6 +1126,7 @@ do j=jfts,jfte
         wn = fuelload/(1 + st(k))       ! net fuel loading, lb/ft^2
         rtemp1 = fp%fmc_g(i,j)/fuelmce(k)
         etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
+        etam = max(etam,0.0)
         etas = 0.174* se(k)**(-0.19)                ! mineral damping coef
         ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
         ! jm irm = ir * 1055./( 0.3048**2 * 60.) * 1.e-6     !for mw/m^2
@@ -1150,10 +1151,11 @@ do j=jfts,jfte
         if(fp%r_0(i,j) > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
              write(msg,'(a,2i6,3(a,e14.6))') 'set_fire_params: at ',i,j,' base rate of spread',fp%r_0(i,j),' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
-             call message(msg)
+             call message(msg,level=0)
              write(msg,'(5(a,e14.6))')'rtemp1=',rtemp1,' etam=',etam
+             call message(msg,level=0)
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-             call crash('propagation above extinction moisture')
+             call warning('propagation above extinction moisture',level=0)
         endif
      endif
   enddo
@@ -1437,9 +1439,9 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
     ros=ros_back+ros_wind+ros_slope
     if(ros > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-          write(msg,'(a,2i6,3(a,e13.5))') 'fire_ros_cawfe: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
+          write(msg,'(a,2i6,3(a,e13.5))') 'WARNING: fire_ros_cawfe: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-          call crash(msg)
+          call warning(msg)
     endif
 !
 else   ! chaparral model from Clark et al 2004
