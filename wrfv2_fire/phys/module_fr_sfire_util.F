@@ -1665,18 +1665,19 @@ end module module_fr_sfire_util
 ! this subroutine is outside of any module and f77 style because some debuggers
 ! notably gdb are terrible with fortran90
 
+subroutine sfire_debug_hook(fire_debug_hook_sec)
+integer, intent(in)::fire_debug_hook_sec
 #ifdef DEBUG_HOOK
-subroutine sfire_debug_hook
-integer, save:: go=0
-! set go=1 in debugger to continue
-do while (go .eq. 0)
-call sleep(1)
+integer:: go=0
+external:: wrf_dm_bcast_integer
+go = fire_debug_hook_sec
+do while (go .gt. 0)
+    call sleep(go)
+    ! set go=0 in debugger to continue
+    call wrf_dm_bcast_integer(go,1)
 enddo
-end subroutine sfire_debug_hook
-#else
-subroutine sfire_debug_hook
-end subroutine sfire_debug_hook
 #endif
+end subroutine sfire_debug_hook
 
 
 

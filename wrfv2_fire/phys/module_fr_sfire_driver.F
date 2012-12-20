@@ -141,6 +141,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
     real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
+    external:: sfire_debug_hook
 
 !*** local
     TYPE(lines_type):: ignition, hfx
@@ -159,7 +160,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 
 !*** executable
 
-    call sfire_debug_hook
+    call sfire_debug_hook(grid%fire_debug_hook_sec)
     call time_start
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
