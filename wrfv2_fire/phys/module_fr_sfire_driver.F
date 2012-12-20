@@ -141,7 +141,6 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
     real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
-    external:: sfire_debug_hook
 
 !*** local
     TYPE(lines_type):: ignition, hfx
