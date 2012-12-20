@@ -367,34 +367,36 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 
 #ifdef DM_PARALLEL
           if(fire_run)then
-            if(fire_ifun.eq.2)then
-!               halo exchange on all fuel data width 2
+              if(fire_ifun.eq.2)then
+!                 halo exchange on all fuel data width 2
 #include "HALO_FIRE_FUEL.inc"
-!               fire state was initialized
-                call message('halo exchange on lfn width 2')
+!                 fire state was initialized
+                  call message('halo exchange on lfn width 2')
 #include "HALO_FIRE_LFN.inc"
-          endif
-          if(run_fuel_moisture)then
-            if(fire_ifun.eq.3)then
+              endif
+              if(run_fuel_moisture)then
+                  if(fire_ifun.eq.3)then
                      ! prepare for interpolation to the fire grid
 #include "HALO_FIRE_MAG.inc"
-                endif
-            endif
+                  endif
+              endif
           endif
 #endif
 
 #ifdef WRF_CHEM
-
-     if(grid%chem_opt>0)then
-      call add_fire_emissions_to_chem(grid%chem_opt,dt,grid%dx,grid%dy,      &
-       ifms,ifme,jfms,jfme,    &
-       ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
-       ids,ide,kds,kde,jds,jde,          &
-       ims,ime,kms,kme,jms,jme,          &
-       ips,ipe,kps,kpe,jps,jpe,          &
-       rho,dz8w,                         & ! from atmosphere state
-       grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
-       grid%chem,grid%tracer)              ! update/output
+     if(fire_ifun.eq.6)then
+         if(grid%chem_opt>0)then
+             call add_fire_emissions_to_chem( &
+                 grid%chem_opt,dt,grid%dx,grid%dy,      &
+                 ifms,ifme,jfms,jfme,    &
+                 ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
+                 ids,ide,kds,kde,jds,jde,          &
+                 ims,ime,kms,kme,jms,jme,          &
+                 ips,ipe,kps,kpe,jps,jpe,          &
+                 rho,dz8w,                         & ! from atmosphere state
+                 grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
+                 grid%chem,grid%tracer)              ! update/output
+          endif
      endif
 #endif 
                 

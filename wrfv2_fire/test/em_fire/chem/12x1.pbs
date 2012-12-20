@@ -9,7 +9,7 @@
 #PBS -l walltime=09:00:00
 
 # Give the job a name
-#PBS -N chem_12x1_gcc
+#PBS -N chem_12x1
 
 # Keep all environment variables from the current session (PATH, LD_LIBRARY_PATH, etc)
 #PBS -V
