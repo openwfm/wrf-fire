@@ -76,10 +76,6 @@ use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpo
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 
-#ifdef WRF_CHEM
-use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
-#endif
-
 ! WRF dependencies
 USE module_domain, only: domain
 USE module_configure, only: grid_config_rec_type
@@ -126,6 +122,11 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
 halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
 #endif
+
+#ifdef WRF_CHEM
+use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
+#endif
+
 
     implicit none
 !*** arguments
@@ -286,6 +287,11 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
+#ifdef WRF_CHEM
+        ! need reading fuel categories first
+        call read_emissions_table(grid%chem_opt)
+#endif
+        
 
         elseif(fire_ifun.eq.3)then
 !           halo exchange on atm winds and geopotential, width 1 for interpolation
@@ -616,11 +622,6 @@ endif
 
 if(ifun.eq.1)then
          call init_fuel_cats(fmoist_run .or. fmoist_interp) ! properties of fuel categories and moisture classes from namelist.fire
-#ifdef WRF_CHEM
-        ! need reading fuel categories first
-        call read_emissions_table
-#endif
-        
 endif
 
 if(ifun.eq.3)then
