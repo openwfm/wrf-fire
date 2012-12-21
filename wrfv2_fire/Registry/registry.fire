@@ -210,7 +210,7 @@ rconfig   real    fire_const_grnhfx      namelist,fire         max_domains      
 rconfig   real    fire_const_grnqfx      namelist,fire         max_domains           0.      -      "fire_const_grnqfx"   "if both >=0, the amount of constant heat flux" "1"
 # given heatflux
 rconfig   integer fire_hfx_given         namelist,fire         max_domains           0       -      "fire_hfx_given" "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 3=by parameters" ""
-rconfig   integer fire_hfx_num_lines     namelist,fire         max_domains           1       -      "fire_hfx_num_lines" "number of heatflux parameter sets defining the heaflux lines" ""
+rconfig   integer fire_hfx_num_lines     namelist,fire         max_domains           0       -      "fire_hfx_num_lines" "number of heatflux parameter sets defining the heaflux lines" ""
 rconfig   real    fire_hfx_latent_part   namelist,fire         max_domains       0.084       -      "fire_hfx_latent_part" "proportion of the given heat flux released as latent, the rest is sensible" "1"
 rconfig   real    fire_hfx_value1        namelist,fire         max_domains           0.      -      "fire_hfx_value1" "heatflux values used in setting by parameters" "W/m^2"
 rconfig   real    fire_hfx_start_time1   namelist,fire         max_domains           0.      -      "fire_hfx_start_time1" "time from start of run when artificial heatlux begins full value" "s"
