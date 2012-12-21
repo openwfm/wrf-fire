@@ -202,8 +202,8 @@
 
 &chem
  kemit                               = 19,
- chem_opt                            = 2,
- ! chem_opt                            = 112,
+ !chem_opt                            = 2,
+ chem_opt                            = 112,
  bioemdt                             = 1,
  photdt                              = 1,
  chemdt                              = .1,

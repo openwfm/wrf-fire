@@ -27,6 +27,7 @@ p_no,  &
 p_no2,  &
 p_so2,  &
 p_nh3,  &
+p_p25,  &
 p_p25i, &
 p_p25j, &
 p_oc1,  &
@@ -52,7 +53,7 @@ p_bigalk, &
 p_bigene, &
 p_c10h16, &
 p_c2h4, &
-! p_c3h5oh, &
+p_c2h5oh, &
 p_c2h6, &
 p_c3h6, &
 p_c3h8, &
@@ -61,7 +62,7 @@ p_ch3oh, &
 p_cres, &
 p_glyald, &
 ! p_hyac, &
-! p_isop, &
+p_isopr, &
 p_macr, &
 p_mek, &
 p_mvk
@@ -90,6 +91,7 @@ ald=0.,  &
 csl=0.,  &
 eth=0.,  &
 hc3=0.,  &
+p25=0., &
 p25i=0., &
 p25j=0., &
 hc5=0.,  &
@@ -107,7 +109,7 @@ bigalk=0., &
 bigene=0., &
 c10h16=0., &
 c2h4=0., &
-! c3h5oh=0., &
+c2h5oh=0., &
 c2h6=0., &
 c3h6=0., &
 c3h8=0., &
@@ -116,7 +118,7 @@ ch3oh=0., &
 cres=0., &
 glyald=0., &
 ! hyac=0., &
-! isop=0., &
+isopr=0., &
 macr=0., &
 mek=0., &
 mvk=0.
@@ -162,6 +164,7 @@ no,  &
 no2,  &
 so2,  &
 nh3,  &
+p25, &
 p25i, &
 p25j, &
 oc1,  &
@@ -187,7 +190,7 @@ bigalk, &
 bigene, &
 c10h16, &
 c2h4, &
-! c3h5oh, &
+c2h5oh, &
 c2h6, &
 c3h6, &
 c3h8, &
@@ -196,7 +199,7 @@ ch3oh, &
 cres, &
 glyald, &
 ! hyac, &
-! isop, &
+isopr, &
 macr, &
 mek, &
 mvk
@@ -231,6 +234,7 @@ call wrf_dm_bcast_real(no,  nfuelcats)
 call wrf_dm_bcast_real(no2,  nfuelcats)
 call wrf_dm_bcast_real(so2,  nfuelcats)
 call wrf_dm_bcast_real(nh3,  nfuelcats)
+call wrf_dm_bcast_real(p25,  nfuelcats)
 call wrf_dm_bcast_real(p25i,  nfuelcats)
 call wrf_dm_bcast_real(p25j,  nfuelcats)
 call wrf_dm_bcast_real(oc1,  nfuelcats)
@@ -310,7 +314,7 @@ character(len=128)msg
 real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
 
-integer, parameter:: np=42,line=8
+integer, parameter:: np=45,line=8
 integer:: pointers(np)
 character(len=8)::names(np)
 
@@ -332,6 +336,7 @@ p_no,  &
 p_no2,  &
 p_so2,  &
 p_nh3,  &
+p_p25, &
 p_p25i, &
 p_p25j, &
 p_oc1,  &
@@ -357,7 +362,7 @@ p_bigalk, &
 p_bigene, &
 p_c10h16, &
 p_c2h4, &
-! p_c3h5oh, &
+p_c2h5oh, &
 p_c2h6, &
 p_c3h6, &
 p_c3h8, &
@@ -366,7 +371,7 @@ p_ch3oh, &
 p_cres, &
 p_glyald, &
 ! p_hyac, &
-! p_isop, &
+p_isopr, &
 p_macr, &
 p_mek, &
 p_mvk &
@@ -380,6 +385,7 @@ names= (/ &
 'no2     ',  &
 'so2     ',  &
 'nh3     ',  &
+'p25     ', &
 'p25i    ', &
 'p25j    ', &
 'oc1     ',  &
@@ -405,7 +411,7 @@ names= (/ &
 'bigene  ', &
 'c10h16  ', &
 'c2h4    ', &
-! 'c3h5oh   ', &
+'c2h5oh  ', &
 'c2h6    ', &
 'c3h6    ', &
 'c3h8    ', &
@@ -414,7 +420,7 @@ names= (/ &
 'cres    ', &
 'glyald  ', &
 ! 'hyac     ', &
-! 'isop     ', &
+'isopr   ', &
 'macr    ', &
 'mek     ', &
 'mvk     '  &
@@ -613,6 +619,10 @@ do j=jts,jte
                t_chem(p_c2h4) = t_chem(p_c2h4) + emis                         ! add to total
                chem(i,k1,j,p_c2h4 )=chem(i,k1,j,p_c2h4 )+emis*conv
 
+               emis=c2h5oh (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_c2h5oh) = t_chem(p_c2h5oh) + emis                         ! add to total
+               chem(i,k1,j,p_c2h5oh )=chem(i,k1,j,p_c2h5oh )+emis*conv
+
                emis=c2h6 (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_c2h6) = t_chem(p_c2h6) + emis                         ! add to total
                chem(i,k1,j,p_c2h6 )=chem(i,k1,j,p_c2h6 )+emis*conv
@@ -641,6 +651,10 @@ do j=jts,jte
                t_chem(p_glyald) = t_chem(p_glyald) + emis                         ! add to total
                chem(i,k1,j,p_glyald )=chem(i,k1,j,p_glyald )+emis*conv
 
+               emis=isopr (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_isopr) = t_chem(p_isopr) + emis                         ! add to total
+               chem(i,k1,j,p_isopr )=chem(i,k1,j,p_isopr )+emis*conv
+
                emis=macr (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_macr) = t_chem(p_macr) + emis                         ! add to total
                chem(i,k1,j,p_macr )=chem(i,k1,j,p_macr )+emis*conv
@@ -659,6 +673,10 @@ do j=jts,jte
                ! see also chem/emissions_driver.F line 515
 
                conv = avgw*1e6/(rho(i,k1,j)*dz8w(i,k1,j))
+
+               emis=p25 (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_p25) = t_chem(p_p25) + emis                         ! add to total
+               chem(i,k1,j,p_p25 )=chem(i,k1,j,p_p25 )+emis*conv
 
                emis=p25i (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_p25i) = t_chem(p_p25i) + emis                         ! add to total
