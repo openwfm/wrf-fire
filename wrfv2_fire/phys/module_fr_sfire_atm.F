@@ -438,6 +438,10 @@ do i=1,np,line
    call message(' ')
 enddo
 
+if(maxval(pointers) > ubound(chem,4) .or. minval(pointers) < lbound(chem,4))then 
+    call crash('add_fire_emissions_to_chem: a chem pointer is out of bounds')
+endif
+
 
 ! compute mesh sizes
 isz1 = ite-its+1
