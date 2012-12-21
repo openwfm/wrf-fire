@@ -303,14 +303,16 @@ real, intent(in), dimension(ifms:ifme,jfms:jfme):: fgip, &            ! initial 
 real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:kme,jms:jme,num_tracer)
 
 !*** local
-integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw
+integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw,m
 real::fuel_burnt,vol,air,conv, avgw,emis 
 character(len=128)msg
 
 real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
 
-
+integer, parameter:: np=42,line=8
+integer:: pointers(np)
+character(len=8)::names(np)
 
 !*** executable
 
@@ -321,7 +323,8 @@ call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
 if(.not.emis_read)call crash('add_fire_emissions_to_chem: read_emissions_table must be called first') 
 write(msg,'(a,i3,a,i3)')'add_fire_emissions_to_chem: chem_opt=',chem_opt,' species ',num_chem
 call message(msg)
-write(msg,'(a,30i3)')'pointers used=', &
+
+pointers= (/ &
 p_co,  &
 p_ch4, &
 p_h2, &
@@ -342,9 +345,7 @@ p_hc3,  &
 p_hc5,  &
 p_hcho,  &
 p_iso,  &
-p_ket
-call message(msg)
-write(msg,'(a,30i3)')'pointers used=', &
+p_ket, &
 p_mgly,  &
 p_ol2,  &
 p_olt, &
@@ -368,8 +369,57 @@ p_glyald, &
 ! p_isop, &
 p_macr, &
 p_mek, &
-p_mvk
-call message(msg)
+p_mvk &
+/)
+
+names= (/ &
+'co      ',  &
+'ch4     ', &
+'h2      ', &
+'no      ',  &
+'no2     ',  &
+'so2     ',  &
+'nh3     ',  &
+'p25i    ', &
+'p25j    ', &
+'oc1     ',  &
+'oc2     ',  &
+'bc1     ',  &
+'bc2     ',  &
+'ald     ',  &
+'csl     ',  &
+'eth     ',  &
+'hc3     ',  &
+'hc5     ',  &
+'hcho    ',  &
+'iso     ',  &
+'ket     ', &
+'mgly    ',  &
+'ol2     ',  &
+'olt     ', &
+'oli     ', &
+'ora2    ',&
+'tol     ', &
+'xyl     ', &
+'bigalk  ', &
+'bigene  ', &
+'c10h16  ', &
+'c2h4    ', &
+! 'c3h5oh   ', &
+'c2h6    ', &
+'c3h6    ', &
+'c3h8    ', &
+'ch3cooh ', &
+'ch3oh   ', &
+'cres    ', &
+'glyald  ', &
+! 'hyac     ', &
+! 'isop     ', &
+'macr    ', &
+'mek     ', &
+'mvk     '  &
+/)
+
 
 993 format(a,4(1x,i3,':',i3))
 write(msg,993)'array chem has dimension ',&
@@ -378,6 +428,15 @@ write(msg,993)'array chem has dimension ',&
          lbound(chem,3),ubound(chem,3), &
          lbound(chem,4),ubound(chem,4)
 call message(msg)
+
+do i=1,np,line
+   m=min(i+line-1,np)
+   write(msg,'(a,8(1x,a8))')'Species',(trim(names(j)),j=i,m)
+   call message(msg)
+   write(msg,'(a,8i9)')     'Pointer',(pointers(j),j=i,m)
+   call message(msg)
+   call message(' ')
+enddo
 
 
 ! compute mesh sizes
@@ -648,40 +707,27 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     c_chem = c_chem + s_chem
     c_fuel = c_fuel + s_fuel
 
-    ! if(sum(t_chem)>0.)then
+    call message('Total emissions in g or mol per the table',level=msglevel)
+    do i=1,np,line
+        m=min(i+line-1,np)
+        write(msg,80)'Emissions ',(trim(names(j)),j=i,m)
+        call message(msg,level=msglevel)
+        write(msg,81)'Cumulative',(c_chem(pointers(j)),j=i,m)
+        call message(msg,level=msglevel)
+        write(msg,81)'Rate per s',(r_chem(pointers(j)),j=i,m)
+        call message(msg,level=msglevel)
+        call message(' ',level=msglevel)
+    enddo
 
-        call message('Total emissions in g or mol per the table',level=msglevel)
-        write(msg,80)'Emissions ','co','no','no2','so2','nh3','p25i','p25j','oc1'
-        call message(msg,level=msglevel)
-        write(msg,81)'Cumulative',c_chem(p_co),c_chem(p_no),c_chem(p_no2),c_chem(p_so2),c_chem(p_nh3),c_chem(p_p25i),c_chem(p_p25j),c_chem(p_oc1)
-        call message(msg,level=msglevel)
-        write(msg,81)'Rate per s',r_chem(p_co),r_chem(p_no),r_chem(p_no2),r_chem(p_so2),r_chem(p_nh3),r_chem(p_p25i),r_chem(p_p25j),r_chem(p_oc1)
-        call message(msg,level=msglevel)
-        
-        write(msg,80)'Emissions ', 'oc2','bc1','bc2','ald','csl','eth','hc3','hc5'
-        call message(msg,level=msglevel)
-        write(msg,81)'Cumulative', c_chem(p_oc2),c_chem(p_bc1),c_chem(p_bc2),c_chem(p_ald),c_chem(p_csl),c_chem(p_eth),c_chem(p_hc3),c_chem(p_hc5)
-        call message(msg,level=msglevel)
-        write(msg,81)'Rate per s',r_chem(p_oc2),r_chem(p_bc1),r_chem(p_bc2),r_chem(p_ald),r_chem(p_csl),r_chem(p_eth),r_chem(p_hc3),r_chem(p_hc5)
-        call message(msg,level=msglevel)
-        
-        write(msg,80)'Emissions ', 'hcho','iso','ket','mgly','ol2','olt'
-        call message(msg,level=msglevel)
-        write(msg,81)'Cumulative',c_chem(p_hcho),c_chem(p_iso),c_chem(p_ket),c_chem(p_mgly),c_chem(p_ol2),c_chem(p_olt)
-        call message(msg,level=msglevel)
-        write(msg,81)'Rate per s',r_chem(p_hcho),r_chem(p_iso),r_chem(p_ket),r_chem(p_mgly),r_chem(p_ol2),r_chem(p_olt)
-        call message(msg,level=msglevel)
-    
-        do cat=1,nfuelcats
-            if(c_fuel(cat) > 0.)then 
-                write(msg,83)fuel_name(cat),' burned',c_fuel(cat),'kg, rate',r_fuel(cat),' kg/s'
-                call message(msg,level=msglevel)
-            endif
-        enddo
-        write(msg,83)'Total fuel',' burned',sum(c_fuel),'kg, rate',sum(r_fuel),' kg/s'
-        call message(msg,level=msglevel)
+    do cat=1,nfuelcats
+        if(c_fuel(cat) > 0.)then 
+            write(msg,83)fuel_name(cat),' burned',c_fuel(cat),'kg, rate',r_fuel(cat),' kg/s'
+            call message(msg,level=msglevel)
+        endif
+    enddo
+    write(msg,83)'Total fuel',' burned',sum(c_fuel),'kg, rate',sum(r_fuel),' kg/s'
+    call message(msg,level=msglevel)
 
-    ! endif
 endif
 80 format(a,8a11)
 81 format(a,8e11.3)
