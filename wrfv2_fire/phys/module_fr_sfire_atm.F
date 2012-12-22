@@ -212,7 +212,7 @@ IF ( wrf_dm_on_monitor() ) THEN
     ! we are the master task
 
     iounit=open_text_file('namelist.fire_emissions','read')
-    compatible_chem_opt=0
+    compatible_chem_opt=-99
     read(iounit,emissions,iostat=ierr)
     if(ierr.ne.0)call crash('read_emissions_table: error reading namelist emissions in file namelist.fire_emissions')
     CLOSE(iounit)
