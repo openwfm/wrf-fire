@@ -1915,6 +1915,7 @@ subroutine fire_emission(                    &
              ids,ide, kds,kde, jds,jde,      & ! domain dimensions
              ims,ime, kms,kme, jms,jme,      &
              its,ite, kts,kte, jts,jte,      &
+             rho,dz8w,                       &
              grnhfx,                         & ! input variables from fire model
              tracer                          ) ! output emissions array
 use module_state_description , only: num_tracer, p_smoke
@@ -1924,6 +1925,7 @@ use module_state_description , only: num_tracer, p_smoke
 
     real,intent(in),dimension( ims:ime,jms:jme ) :: grnhfx
     real,intent(inout),dimension( ims:ime,kms:kme,jms:jme,num_tracer ) :: tracer
+    real,intent(in),dimension( ims:ime,kms:kme,jms:jme ) :: rho,dz8w
     
     integer::i,j,k,l
     
@@ -1932,7 +1934,7 @@ use module_state_description , only: num_tracer, p_smoke
     l=p_smoke  ! dump into so2 emmisions
     do j=jts,jte
         do i=its,ite
-            tracer(i,k,j,l) = tracer(i,k,j,l) + grnhfx(i,j)
+            tracer(i,k,j,l) = tracer(i,k,j,l) + grnhfx(i,j)/(rho(i,k,j)*dz8w(i,k,j))
         enddo
     enddo
 

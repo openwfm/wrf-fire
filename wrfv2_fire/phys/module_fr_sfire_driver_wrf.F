@@ -226,12 +226,15 @@ subroutine sfire_driver_em_step (grid , config_flags               &
      call message(msg)
       
      ! fire emission source for wrf chem
-     call fire_emission(                    &
+     if(config_flags%tracer_opt>0)then          
+         call fire_emission(                &
             ids,ide-1, kds,kde, jds,jde-1,  & ! domain dimensions
             ims,ime, kms,kme, jms,jme,      &
             its,ite, kts,kte, jts,jte,      &
+            rho,dz8w,                       &
             grid%grnhfx,                    & ! fire input variables
             grid%tracer)                      ! emission output 
+     endif
 #endif
 
        ! debug print to compare
