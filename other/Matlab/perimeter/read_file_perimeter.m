@@ -34,9 +34,13 @@ format long
 unit_long=ncread(wrfout,'UNIT_FXLONG');
 unit_lat=ncread(wrfout,'UNIT_FXLAT');
 uf=ncread(wrfout,'UF');
+uf=uf(:,:,7);
 vf=ncread(wrfout,'VF');
+vf=vf(:,:,7);
 dzdxf=ncread(wrfout,'DZDXF');
-dzdyf=ncread(wrfout,'DZDXF');
+dzdxf=dzdxf(:,:,7);
+dzdyf=ncread(wrfout,'DZDYF');
+dzdyf=dzdyf(:,:,7);
 
 unit_long=unit_long(1);
 unit_lat=unit_lat(1);

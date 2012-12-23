@@ -473,10 +473,10 @@ end
 function result=print_matrix(tign,fid)
 
 
-fprintf(fid,'%s\n','i=10');
+fprintf(fid,'%s\n','j=1740:1744, i=2750:2754');
 
-for ii = 8:12
-    fprintf(fid,'%g\t',tign(ii,8:12));
+for ii = 2750:2754
+    fprintf(fid,'%g\t',tign(ii,1740:1744));
     fprintf(fid,'\n');
 end
 fprintf(fid,'%s\n','i=100');
