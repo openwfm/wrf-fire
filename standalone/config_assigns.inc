@@ -1754,6 +1754,7 @@
  DEST_RECORD fire_print_file            = SOURCE_RECORD fire_print_file SOURCE_REC_DEX
  DEST_RECORD fire_restart               = SOURCE_RECORD fire_restart SOURCE_REC_DEX
  DEST_RECORD fire_time_step_ratio       = SOURCE_RECORD fire_time_step_ratio SOURCE_REC_DEX
+ DEST_RECORD fire_debug_hook_sec        = SOURCE_RECORD fire_debug_hook_sec SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_method      = SOURCE_RECORD fire_fuel_left_method SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_irl         = SOURCE_RECORD fire_fuel_left_irl SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_jrl         = SOURCE_RECORD fire_fuel_left_jrl SOURCE_REC_DEX

@@ -140,6 +140,7 @@ call allocate2d(grid%fuel_time,ifms,ifme,jfms,jfme,'fuel_time')        !
 call allocate2d(grid%lfn,ifms,ifme,jfms,jfme,'lfn') 
 call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign') 
 call allocate2d(grid%fuel_frac,ifms,ifme,jfms,jfme,'fuel_frac') 
+call allocate2d(grid%fuel_frac_burnt,ifms,ifme,jfms,jfme,'fuel_frac_burnt') 
 call allocate2d(grid%fire_area,ifms,ifme,jfms,jfme,'fire_area') 
 call allocate2d(grid%lfn_out,ifms,ifme,jfms,jfme,'lfn_out') 
 call allocate2d(grid%ros,ifms,ifme,jfms,jfme,'ros') 

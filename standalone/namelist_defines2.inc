@@ -1745,6 +1745,7 @@ integer :: fire_print_msg
 integer :: fire_print_file
 logical :: fire_restart
 integer :: fire_time_step_ratio
+integer :: fire_debug_hook_sec
 integer :: fire_fuel_left_method
 integer :: fire_fuel_left_irl
 integer :: fire_fuel_left_jrl

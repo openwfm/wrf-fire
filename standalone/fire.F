@@ -117,6 +117,7 @@ call allocate2d(grid%fuel_time,ifms,ifme,jfms,jfme,'fuel_time')        !
 call allocate2d(grid%lfn,ifms,ifme,jfms,jfme,'lfn') 
 call allocate2d(grid%tign_g,ifms,ifme,jfms,jfme,'tign_g') 
 call allocate2d(grid%fuel_frac,ifms,ifme,jfms,jfme,'fuel_frac') 
+call allocate2d(grid%fuel_frac_burnt,ifms,ifme,jfms,jfme,'fuel_frac_burnt') 
 call allocate2d(grid%lfn_out,ifms,ifme,jfms,jfme,'lfn_out') 
 
 ! outputs
@@ -236,6 +237,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
         grid%fxlong,grid%fxlat,                      & ! fire mesh coordinates
         grid%fire_hfx,                          & ! given heat flux (experimental)
         grid%lfn,grid%lfn_out,grid%tign_g,grid%fuel_frac,grid%fire_area,   & ! state: level function, ign time, fuel left, area burning
+        grid%fuel_frac_burnt,                   &
         grid%fgrnhfx,grid%fgrnqfx,                          & ! output: heat fluxes
         grid%ros,grid%flineint,grid%flineint2,                 & ! diagnostic variables
         grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,             & ! fire risk spread
