@@ -287,14 +287,12 @@ call check_mesh_2dim(ibs,ibe,jbs,jbe,ims,ime,jms,jme) ! check if tile with halo 
 
 do k=1,moisture_classes
 
-!    do j=jbs,jbe
-!        do i=ibs,ibe
-!            fmc_k(i,j)=fmc_gc(i,k,j)      ! copy slice to 2d array
-!        enddo
-!    enddo
-
     ! copy halo beyond the tile but not beyond the domain boundary
-    fmc_k(ibs:ibe,jbs:jbe) = fmc_gc(ibs:ibe,k,jbs:jbe)
+    do j=jbs,jbe
+        do i=ibs,ibe
+            fmc_k(i,j)=fmc_gc(i,k,j)      ! copy slice to 2d array
+        enddo
+    enddo
 
     call print_2d_stats(ibs,ibe,jbs,jbe,its-1,ite+1,jts-1,jte+1,fmc_k,'fuel_moisture: fmc_k')
 
@@ -382,8 +380,7 @@ real::epsilon,Pws,Pw,t2_min,q2_min,psfc_min
 real::t2_floor=200.    ! minimum allowed temperature (K)
 real::q2_floor=1e-8    ! miniumu allowed moisture contents (kg/kg)
 real::psfc_floor=1000. ! mimimum allowed surface pressiure (Pa)
-real, dimension(29,29) :: Jac ! the Jacobian of the moisture evolution function (at current working point)
-integer :: Jacdim = 29
+real, dimension(nefms,nefms) :: Jac ! the Jacobian of the moisture evolution function (at current working point)
 
 !*** executable
 
@@ -446,9 +443,9 @@ if(check_data.ge.2 .or. msglevel.ge.2)then
 endif
 
 
-! allocate space for Jacobian
+! initialize the jacobian into a unit matrix
 Jac(:,:) = 0.
-do i=1,Jacdim
+do i=1,nefms
     Jac(i,i) = 1.
 enddo
 
@@ -611,19 +608,14 @@ contains
 
 subroutine copy2old
 
-rain_old(:,:) = rainc(:,:) + rainnc(:,:)
-t2_old(:,:) = t2(:,:)
-q2_old(:,:) = q2(:,:)
-psfc_old(:,:) = psfc(:,:)
-
-!do j=jts,jte
-!    do i=its,ite
-!        rain_old(i,j) = rainc(i,j) + rainnc(i,j)
-!        t2_old(i,j) = t2(i,j)
-!        q2_old(i,j) = q2(i,j)
-!        psfc_old(i,j) = psfc(i,j)
-!    enddo
-!enddo
+do j=jts,jte
+    do i=its,ite
+        rain_old(i,j) = rainc(i,j) + rainnc(i,j)
+        t2_old(i,j) = t2(i,j)
+        q2_old(i,j) = q2(i,j)
+        psfc_old(i,j) = psfc(i,j)
+    enddo
+enddo
 
 end subroutine copy2old
 
