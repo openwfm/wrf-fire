@@ -1660,23 +1660,27 @@ fun_real=gsum
 
 end function fun_real
 
+subroutine sfire_debug_hook(fire_debug_hook_sec)
+integer, intent(in)::fire_debug_hook_sec
+#define DEBUG_HOOK
+#ifdef DEBUG_HOOK
+integer,save:: go=-1
+external:: wrf_dm_bcast_integer
+if(go<0)then
+    go = fire_debug_hook_sec
+endif
+do while (go .ne. 0)
+    call sleep(go)
+    ! set go=0 in debugger to continue
+    call wrf_dm_bcast_integer(abs(go),1)
+enddo
+#endif
+end subroutine sfire_debug_hook
+
 end module module_fr_sfire_util
 
 ! this subroutine is outside of any module and f77 style because some debuggers
 ! notably gdb are terrible with fortran90
-
-#ifdef DEBUG_HOOK
-subroutine sfire_debug_hook
-integer, save:: go=0
-! set go=1 in debugger to continue
-do while (go .eq. 0)
-call sleep(1)
-enddo
-end subroutine sfire_debug_hook
-#else
-subroutine sfire_debug_hook
-end subroutine sfire_debug_hook
-#endif
 
 
 

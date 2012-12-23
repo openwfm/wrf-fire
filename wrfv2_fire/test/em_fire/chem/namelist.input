@@ -158,7 +158,7 @@
  fmoist_dt = 10,             ! moisture model time step (s)
 !
 ! verbosity
- fire_print_msg     = 2,        ! 1 print fire debugging messages
+ fire_print_msg     = 1,        ! 1 print fire summary messages 2=tracing
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! experiments
@@ -184,6 +184,7 @@
 !
 ! method switches for developers only, do not change!
 !
+ fire_debug_hook_sec= 0,        ! if >0, seconds to sleep in spin in debug hook and wait for debugger to attach to the process
  fire_use_windrf=0,             ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh, 3=adjust fwh for z0
  fire_wind_log_interp = 1,      ! 1 = from fuel categores, 2=constant from atm, 3=bilinear from atm, 4=interpolation and wind reduction per Behave
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
@@ -201,8 +202,8 @@
 
 &chem
  kemit                               = 19,
- ! chem_opt                            = 14,
- chem_opt                            = 2,
+ !chem_opt                            = 2,
+ chem_opt                            = 112,
  bioemdt                             = 1,
  photdt                              = 1,
  chemdt                              = .1,

@@ -76,10 +76,6 @@ use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpo
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 
-#ifdef WRF_CHEM
-use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
-#endif
-
 ! WRF dependencies
 USE module_domain, only: domain
 USE module_configure, only: grid_config_rec_type
@@ -127,6 +123,11 @@ halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub
 halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
 #endif
 
+#ifdef WRF_CHEM
+use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
+#endif
+
+
     implicit none
 !*** arguments
     TYPE(domain) , TARGET :: grid                             ! state 
@@ -159,7 +160,7 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 
 !*** executable
 
-    call sfire_debug_hook
+    call sfire_debug_hook(grid%fire_debug_hook_sec)
     call time_start
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
@@ -286,6 +287,11 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
+#ifdef WRF_CHEM
+        ! need reading fuel categories first
+        call read_emissions_table(grid%chem_opt)
+#endif
+        
 
         elseif(fire_ifun.eq.3)then
 !           halo exchange on atm winds and geopotential, width 1 for interpolation
@@ -368,34 +374,36 @@ halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_
 
 #ifdef DM_PARALLEL
           if(fire_run)then
-            if(fire_ifun.eq.2)then
-!               halo exchange on all fuel data width 2
+              if(fire_ifun.eq.2)then
+!                 halo exchange on all fuel data width 2
 #include "HALO_FIRE_FUEL.inc"
-!               fire state was initialized
-                call message('halo exchange on lfn width 2')
+!                 fire state was initialized
+                  call message('halo exchange on lfn width 2')
 #include "HALO_FIRE_LFN.inc"
-          endif
-          if(run_fuel_moisture)then
-            if(fire_ifun.eq.3)then
+              endif
+              if(run_fuel_moisture)then
+                  if(fire_ifun.eq.3)then
                      ! prepare for interpolation to the fire grid
 #include "HALO_FIRE_MAG.inc"
-                endif
-            endif
+                  endif
+              endif
           endif
 #endif
 
 #ifdef WRF_CHEM
-
-     if(grid%chem_opt>0)then
-      call add_fire_emissions_to_chem(grid%chem_opt,dt,grid%dx,grid%dy,      &
-       ifms,ifme,jfms,jfme,    &
-       ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
-       ids,ide,kds,kde,jds,jde,          &
-       ims,ime,kms,kme,jms,jme,          &
-       ips,ipe,kps,kpe,jps,jpe,          &
-       rho,dz8w,                         & ! from atmosphere state
-       grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
-       grid%chem,grid%tracer)              ! update/output
+     if(fire_ifun.eq.6)then
+         if(grid%chem_opt>0)then
+             call add_fire_emissions_to_chem( &
+                 grid%chem_opt,dt,grid%dx,grid%dy,      &
+                 ifms,ifme,jfms,jfme,    &
+                 ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
+                 ids,ide,kds,kde,jds,jde,          &
+                 ims,ime,kms,kme,jms,jme,          &
+                 ips,ipe,kps,kpe,jps,jpe,          &
+                 rho,dz8w,                         & ! from atmosphere state
+                 grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
+                 grid%chem,grid%tracer)              ! update/output
+          endif
      endif
 #endif 
                 
@@ -619,11 +627,6 @@ endif
 
 if(ifun.eq.1)then
          call init_fuel_cats(fmoist_run .or. fmoist_interp) ! properties of fuel categories and moisture classes from namelist.fire
-#ifdef WRF_CHEM
-        ! need reading fuel categories first
-        call read_emissions_table
-#endif
-        
 endif
 
 if(ifun.eq.3)then
