@@ -160,7 +160,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
 
 !*** executable
 
-    call sfire_debug_hook(grid%fire_debug_hook_sec)
+    call sfire_debug_hook(config_flags%fire_debug_hook_sec)
     call time_start
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
