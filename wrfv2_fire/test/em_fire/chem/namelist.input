@@ -125,6 +125,7 @@
  ifire              = 2,    ! integer, = 0: no fire, 2=turn on fire model
  fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
+ sfc_full_init =.true.,
 ! ignition 
  fire_num_ignitions = 2,         ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_ros1 = 0.1,      ! ignition rate of spread, m/s
