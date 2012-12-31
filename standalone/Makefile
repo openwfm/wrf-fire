@@ -4,12 +4,16 @@ DEFS =
 WRF = ../wrfv2_fire
 FPFLAGS= -I$(NETCDF)/include -I.
 #LDFLAGS = -L$(NETCDF)/lib -lnetcdff -lnetcdf
-LDFLAGS = `$(NETCDF)/bin/nc-config --flibs`
+LDFLAGS = `$(NETCDF)/bin/nc-config --flibs` -lblas
 FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE)
 INC = $(WRF)/inc
 
 
 MAKEFILE=Makefile
+
+module_fr_sfire_lapack.o: $(WRF)/phys/module_fr_sfire_lapack.f 
+	$(FC) -c $(FFLAGS) -ffixed-form $(WRF)/phys/module_fr_sfire_lapack.f
+
 
 %.o: $(WRF)/phys/%.F 
 	$(FP) $(FFLAGS) $(DEFS) -E $(WRF)/phys/$*.F > $*.f90
@@ -41,6 +45,7 @@ FIRE_OBJ = \
     module_fr_sfire_atm.o \
     module_fr_sfire_util.o  \
 	module_fr_sfire_driver.o \
+    module_fr_sfire_lapack.o \
     wrf_fakes.o
 
 INIT_OBJ = \
@@ -136,7 +141,7 @@ moisture_test_main.o: $(MAKEFILE) \
 
 moisture_main.o: $(MAKEFILE) \
     module_fr_sfire_core.o  \
-    module_fr_sfire_util.o 
+    module_fr_sfire_util.o
 
 fire.o: $(MAKEFILE) \
     module_fr_sfire_model.o \
@@ -190,7 +195,8 @@ module_fr_sfire_driver.o: $(MAKEFILE) \
     module_fr_sfire_phys.o \
 	module_fr_sfire_model.o \
 	module_fr_sfire_atm.o \
-	module_fr_sfire_util.o
+	module_fr_sfire_util.o \
+    module_fr_sfire_lapack.o
 
 module_configure.o: $(MAKEFILE) $(NAMELIST) \
     wrf_fakes.o
