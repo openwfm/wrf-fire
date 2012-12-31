@@ -9,6 +9,7 @@ module module_fr_sfire_phys
 
 use module_model_constants, only: cp,xlv
 use module_fr_sfire_util
+use module_fr_sfire_lapack, only: SSYSV, SGEMM
 
 implicit none
 PRIVATE
@@ -49,7 +50,8 @@ PUBLIC:: mfuelcats
 
 !*** dimensions
    INTEGER, PARAMETER :: mfuelcats = 30     ! max number of fuel categories 
-  integer, parameter::max_moisture_classes=5
+   integer, parameter::max_moisture_classes=5
+   integer, parameter:: max_efms_dim = max_moisture_classes + 3   ! max dimension of assimilated moisture state
 !***
 
   integer, parameter::zm=max_moisture_classes - 3
@@ -84,6 +86,10 @@ PUBLIC:: mfuelcats
                 0.02245, &   !(-0.009188, 0.05409)
                -0.05901, &   !(-0.3721, 0.254)
                   3.043/   !(2.17, 3.915)
+
+! the following may be modified by init_fuel_cats                 
+  real:: moisture_proc_noise_var = 0.001            ! process noise covariance (assumed diagonal)
+  real:: background_moisture_var = 0.01             ! background (initial guess) variance (assumed diagonal), may be modified by init_fuel_cats
    
    ! =========================================================================
 
@@ -380,7 +386,7 @@ real::epsilon,Pws,Pw,t2_min,q2_min,psfc_min
 real::t2_floor=200.    ! minimum allowed temperature (K)
 real::q2_floor=1e-8    ! miniumu allowed moisture contents (kg/kg)
 real::psfc_floor=1000. ! mimimum allowed surface pressiure (Pa)
-real, dimension(nefms,nefms) :: Jac ! the Jacobian of the moisture evolution function (at current working point)
+real, dimension(max_efms_dim,max_efms_dim) :: Jac, Ptmp ! the Jacobian of the moisture evolution function (at current working point)
 
 !*** executable
 
@@ -578,6 +584,19 @@ do j=jts,jte
 
             endif
       enddo
+
+      ! the covariance update is efms_cov <- Jac * fms_cov * Jac' + Q
+      ! first compute Ptmp <- P*J^T
+      call SGEMM('N', 'T', nefms, nefms, nefms, 1., efms_cov(:,:,i,j), nefms, &
+                 Jac, max_efms_dim, 0., Ptmp, max_efms_dim)
+      ! then compute fms_cov <- J*Ptmp
+      call SGEMM('N', 'N', nefms, nefms, nefms, 1., Jac, max_efms_dim, &
+                 Ptmp, max_efms_dim, 0., efms_cov(:, :, i, j), nefms)
+      ! now add the process noise covariance to the diagonal
+      do k=1,nefms
+        efms_cov(k, k, i, j) = efms_cov(k, k, i, j) + moisture_proc_noise_var
+      enddo
+
    enddo
 enddo
 
@@ -644,7 +663,7 @@ namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
 
 namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold, &
-    drying_model,wetting_model, moisture_class_name,fmc_gc_initialization
+    drying_model,wetting_model, moisture_class_name,fmc_gc_initialization,moisture_proc_noise_var,background_moisture_var
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('init_fuel_cats: must be called from master thread')
@@ -726,6 +745,8 @@ call wrf_dm_bcast_integer(drying_model,     max_moisture_classes)
 call wrf_dm_bcast_integer(wetting_model,     max_moisture_classes)
 call wrf_dm_bcast_integer(fmc_gc_initialization,     max_moisture_classes)
 call wrf_dm_bcast_real(fmc_gw,     mfuelcats*max_moisture_classes)
+call wrf_dm_bcast_real(background_moisture_var, 1)
+call wrf_dm_bcast_real(moisture_proc_noise_var, 1)
 
 ! moisture model derived scalars
 do i=1,moisture_classes
