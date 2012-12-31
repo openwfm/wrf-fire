@@ -141,7 +141,8 @@ FIRE_MODULES = \
         module_fr_sfire_model.o \
         module_fr_sfire_core.o \
         module_fr_sfire_phys.o \
-        module_fr_sfire_util.o
+        module_fr_sfire_util.o \
+        module_fr_sfire_lapack.o
   
 OBJS    =
 
