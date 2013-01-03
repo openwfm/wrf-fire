@@ -1910,7 +1910,7 @@ end subroutine coarse
 
 end subroutine interpolate_wind2fire_height
 
-#ifdef WRF_CHEM
+!#ifdef WRF_CHEM
 subroutine fire_emission(                    &
              ids,ide, kds,kde, jds,jde,      & ! domain dimensions
              ims,ime, kms,kme, jms,jme,      &
@@ -1918,7 +1918,7 @@ subroutine fire_emission(                    &
              rho,dz8w,                       &
              grnhfx,                         & ! input variables from fire model
              tracer                          ) ! output emissions array
-use module_state_description , only: num_tracer, p_smoke
+use module_state_description , only: num_tracer, p_tr17_1
     INTEGER , INTENT(in) :: ids,ide, kds,kde, jds,jde, &
                             ims,ime, kms,kme, jms,jme, &
                             its,ite, kts,kte, jts,jte
@@ -1930,8 +1930,9 @@ use module_state_description , only: num_tracer, p_smoke
     integer::i,j,k,l
     
     ! just a dumb placeholder
+    if(num_tracer<p_tr17_1)call crash('fire_emission: num_tracer<p_tr17_1')
     k=kds      ! dump into surface layer
-    l=p_smoke  ! dump into so2 emmisions
+    l=p_tr17_1  ! dump into so2 emmisions
     do j=jts,jte
         do i=its,ite
             tracer(i,k,j,l) = tracer(i,k,j,l) + grnhfx(i,j)/(rho(i,k,j)*dz8w(i,k,j))
@@ -1939,7 +1940,7 @@ use module_state_description , only: num_tracer, p_smoke
     enddo
 
 end subroutine fire_emission
-#endif
+!#endif
 
 
 end module module_fr_sfire_atm

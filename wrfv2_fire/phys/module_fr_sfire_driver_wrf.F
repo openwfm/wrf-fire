@@ -91,8 +91,9 @@ subroutine sfire_driver_em_step (grid , config_flags               &
                               domain_get_time_step 
     USE module_configure , only : grid_config_rec_type
     USE module_fr_sfire_util, only : fire_test_steps
+    USE module_state_description, only: num_tracer
 #ifdef WRF_CHEM
-    USE module_state_description, only: num_chem,num_tracer
+    USE module_state_description, only: num_chem
 #endif
     implicit none
 
@@ -218,12 +219,22 @@ subroutine sfire_driver_em_step (grid , config_flags               &
    
 #ifdef WRF_CHEM
 
-     write(msg,991)lbound(grid%chem,4),ubound(grid%chem,4),lbound(grid%tracer,4),ubound(grid%tracer,4)
-991  format('chem species',i3,':',i3,'  tracers',i3,':',i3)
+     write(msg,991)lbound(grid%chem,4),ubound(grid%chem,4)
+991  format('chem array dimensions ',i3,':',i3)
      call message(msg)
-     write(msg,992)num_chem, num_tracer,config_flags%chem_opt,config_flags%tracer_opt
-992  format('number of chem species:',i4,'  tracers:',i3,' chem_opt=',i3,' tracer_opt=',i3)
+     write(msg,992)num_chem, config_flags%chem_opt
+992  format('number of chem species:',i4,' chem_opt=',i3)
      call message(msg)
+
+#endif
+
+     write(msg,993)lbound(grid%tracer,4),ubound(grid%tracer,4)
+993  format('tracer array dimensions ',i3,':',i3)
+     call message(msg)
+     write(msg,994)num_tracer,config_flags%tracer_opt
+994  format('number of tracers:',i3,' tracer_opt=',i3)
+     call message(msg)
+
       
      ! fire emission source for wrf chem
      if(config_flags%tracer_opt>0)then          
@@ -235,7 +246,6 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             grid%grnhfx,                    & ! fire input variables
             grid%tracer)                      ! emission output 
      endif
-#endif
 
        ! debug print to compare
 
