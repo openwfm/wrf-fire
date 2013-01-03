@@ -223,7 +223,7 @@ IF ( wrf_dm_on_monitor() ) THEN
         call  message(msg,level=0)
         write(msg,'(a,10i4)')'compatible_chem_opt=', compatible_chem_opt
         call  message(msg,level=0)
-        call crash('chem_opt in namelist.input is not inconsistent with namelist.fire_emissions')
+        call crash('chem_opt in namelist.input is not consistent with namelist.fire_emissions')
     endif
 ENDIF
 call wrf_dm_bcast_integer(printsums, 1)
