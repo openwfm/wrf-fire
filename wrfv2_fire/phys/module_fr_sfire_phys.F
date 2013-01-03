@@ -1,6 +1,7 @@
 !
 
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
+!*** Martin Vejmelka, 2013, email: vejmelkam@gmail.com - added fuel moisture assimilation
 !
 ! This file contains parts copied and/or adapted from earlier codes by 
 ! Terry Clark, Janice Coen, Don Latham, and Net Patton.
@@ -51,7 +52,7 @@ PUBLIC:: mfuelcats
 !*** dimensions
    INTEGER, PARAMETER :: mfuelcats = 30     ! max number of fuel categories 
    integer, parameter::max_moisture_classes=5
-   integer, parameter:: max_efms_dim = max_moisture_classes + 3   ! max dimension of assimilated moisture state
+   integer, parameter:: max_nefms = max_moisture_classes + 3   ! max dimension of assimilated moisture state
 !***
 
   integer, parameter::zm=max_moisture_classes - 3
@@ -364,6 +365,7 @@ integer, intent(in)::           &
 real, intent(in):: moisture_dt
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
+! efms layout is (moisture_1, moisture_2, ..., moisture_(moisture_classes), deltaE, deltaS)
 real, intent(inout), dimension(ims:ime,nefms,jms:jme) :: efms
 real, intent(inout), dimension(nefms,nefms,ims:ime,jms:jme) :: efms_cov
 real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi, fmc_lag
@@ -386,7 +388,9 @@ real::epsilon,Pws,Pw,t2_min,q2_min,psfc_min
 real::t2_floor=200.    ! minimum allowed temperature (K)
 real::q2_floor=1e-8    ! miniumu allowed moisture contents (kg/kg)
 real::psfc_floor=1000. ! mimimum allowed surface pressiure (Pa)
-real, dimension(max_efms_dim,max_efms_dim) :: Jac, Ptmp ! the Jacobian of the moisture evolution function (at current working point)
+real, dimension(max_nefms,max_nefms) :: Jac, Ptmp ! the Jacobian of the moisture evolution function (at current working point)
+integer :: active_equi_ndx  ! the index of the equilibrium used in the current model
+                          ! (1 - drying/wetting model equi, 2 - rain equi), see efms comment above
 
 !*** executable
 
@@ -449,7 +453,7 @@ if(check_data.ge.2 .or. msglevel.ge.2)then
 endif
 
 
-! initialize the jacobian into a unit matrix
+! initialize the jacobian to a unit matrix
 Jac(:,:) = 0.
 do i=1,nefms
     Jac(i,i) = 1.
@@ -462,6 +466,15 @@ rainmax=-huge(rainmax)
 rainmin= huge(rainmin)
 do j=jts,jte
    do i=its,ite
+
+      !if we are initializing, then setup background guess covariance
+      if(initialize) then
+         efms_cov(:,:,i,j) = 0.
+         do k=1,nefms
+            efms_cov(k,k,i,j) = background_moisture_var
+         enddo
+      endif
+   
       do k=1,moisture_classes
             ! old fuel moisture contents
             ! compute the rain intensity from the difference of accumulated rain
@@ -526,6 +539,7 @@ do j=jts,jte
                     !fixme: mv - also here the equation is different and has no r0
                     rlag=rec_wetting_lag_sec(k) * (1. - exp(-R/saturation_rain(k)))
                 end select
+                active_equi_ndx = 2      ! in Jacobian, compute dm_i/ddeltaS
             else ! not raining
                 select case(drying_model(k))
                 case(1) ! Van Wagner and Pickett (1972, 1985) per Viney (1991) eq (7) (8)
@@ -539,6 +553,7 @@ do j=jts,jte
                     EMC_w = min(d,w)
                     rlag=rec_drying_lag_sec(k)
                 end select
+                active_equi_ndx = 1      ! in Jacobian, compute dm_i/ddeltaE
             endif
             !*** MODELS THAT ARE NOT OF THE EXPONENTIAL TIME LAG KIND 
             ! ARE RESPONSIBLE FOR THEIR OWN LOGIC, THESE MODELS
@@ -546,7 +561,7 @@ do j=jts,jte
             !
             if(rlag > 0.0)then
 
-                if(.not.initialize .or. fmc_gc_initialization(k).eq.0)then ! take old from before, no initialization
+                if(.not.initialize .or. fmc_gc_initialization(k).eq.0) then ! take old from before, no initialization
                     fmc_old = efms(i,k,j)
                 elseif(fmc_gc_initialization(k).eq.1)then ! from scalar fuelmc_g
                     fmc_old = fuelmc_g
@@ -560,10 +575,20 @@ do j=jts,jte
                 change = moisture_dt * rlag 
 
                 if(change  < tol)then
-                     if(fire_print_msg.ge.3)call message('midpoint method')
-                     fmc = fmc_old + (equi - fmc_old)*change*(1.0 - 0.5*change)  ! 2nd order Taylor
+                    if(fire_print_msg.ge.3)call message('midpoint method')
+                    ! Jacobian needs computing only if not in "dead zone" model
+                    ! in dead zone (no moisture change), Jacobian is the identity matrix
+                    if(fmc_old.ne.equi) then
+                        Jac(k,k) = exp(-change)
+                        Jac(k,moisture_classes+active_equi_ndx) = 1.0 - exp(-change)
+                    endif
+                    fmc = fmc_old + (equi - fmc_old)*change*(1.0 - 0.5*change)  ! 2nd order Taylor
                 else
-                     if(fire_print_msg.ge.3)call message('exponential method')
+                     if(fire_print_msg.ge.3) call message('exponential method')
+                     if(fmc_old.ne.equi) then
+                       Jac(k,k) = 1.0 - change * (1.0 - 0.5 * change)
+                       Jac(k,moisture_classes+active_equi_ndx) = change * (1.0 - 0.5 * change) 
+                     endif
                      fmc = fmc_old + (equi - fmc_old)*(1 - exp(-change))
                 endif
                 efms(i,k,j) = fmc
@@ -575,7 +600,7 @@ do j=jts,jte
                 ! diagnostic prints
                 if(fire_print_msg.ge.3)then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-                write(msg,*)'i=',i,' j=',j,'EMC_w=',EMC_w,' EMC_d=',EMC_d
+                    write(msg,*)'i=',i,' j=',j,'EMC_w=',EMC_w,' EMC_d=',EMC_d
                     call message(msg)
                     write(msg,*)'fmc_old=',fmc,' equi=',equi,' change=',change,' fmc=',fmc
                     call message(msg)
@@ -588,10 +613,10 @@ do j=jts,jte
       ! the covariance update is efms_cov <- Jac * fms_cov * Jac' + Q
       ! first compute Ptmp <- P*J^T
       call SGEMM('N', 'T', nefms, nefms, nefms, 1., efms_cov(:,:,i,j), nefms, &
-                 Jac, max_efms_dim, 0., Ptmp, max_efms_dim)
+                 Jac, max_nefms, 0., Ptmp, max_nefms)
       ! then compute fms_cov <- J*Ptmp
-      call SGEMM('N', 'N', nefms, nefms, nefms, 1., Jac, max_efms_dim, &
-                 Ptmp, max_efms_dim, 0., efms_cov(:, :, i, j), nefms)
+      call SGEMM('N', 'N', nefms, nefms, nefms, 1., Jac, max_nefms, &
+                 Ptmp, max_nefms, 0., efms_cov(:, :, i, j), nefms)
       ! now add the process noise covariance to the diagonal
       do k=1,nefms
         efms_cov(k, k, i, j) = efms_cov(k, k, i, j) + moisture_proc_noise_var
