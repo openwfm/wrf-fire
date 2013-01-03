@@ -46,9 +46,9 @@ fi
 
 #cat $PBS_NODEFILE | sort -u > nodes 
 cat $PBS_NODEFILE > nodes 
-mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
+env > env.log
+mpirun -np 1 -f nodes ./ideal.exe 
 mv rsl.error.0000 ideal.error.log
 mv rsl.out.0000 ideal.out.log
-matlab < ../make_usgs.m
-mpirun_rsh -np 6 -hostfile nodes OMP_NUM_THREADS=1 ./wrf.exe 
+mpirun -np 6 -f nodes ./wrf.exe 
 
