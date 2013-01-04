@@ -99,21 +99,21 @@ tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;
 % Stop when the matrix converges
 changed=1;
 changed_old=2;
-fidd = fopen('Mymatrix.txt','wt');
-fprintf(fidd,'%s\n','wind_vf');
-result=print_matrix(vf,fidd);
-fprintf(fidd,'%s\n','wind_uf');
-result=print_matrix(uf,fidd);
-fprintf(fidd,'%s\n','angle_dzdxf');
-result=print_matrix(dzdxf,fidd);
-fprintf(fidd,'%s\n','angle_dzdyf');
-result=print_matrix(dzdyf,fidd);
-fprintf(fidd,'%s\n','lat');
-result=print_matrix(lat(:,:,1),fidd);
-fprintf(fidd,'%s\n','long');
-result=print_matrix(long(:,:,1),fidd);
-fprintf(fidd,'%s\n','IN');
-result=print_matrix(IN,fidd);
+%fidd = fopen('Mymatrix.txt','wt');
+%fprintf(fidd,'%s\n','wind_vf');
+%result=print_matrix(vf,fidd);
+%fprintf(fidd,'%s\n','wind_uf');
+%result=print_matrix(uf,fidd);
+%fprintf(fidd,'%s\n','angle_dzdxf');
+%result=print_matrix(dzdxf,fidd);
+%fprintf(fidd,'%s\n','angle_dzdyf');
+%result=print_matrix(dzdyf,fidd);
+%fprintf(fidd,'%s\n','lat');
+%result=print_matrix(lat(:,:,1),fidd);
+%fprintf(fidd,'%s\n','long');
+%result=print_matrix(long(:,:,1),fidd);
+%fprintf(fidd,'%s\n','IN');
+%result=print_matrix(IN,fidd);
 for istep=1:max(size(tign)),
     if changed==0, 
         % Writing the data to the file data_out.txt
@@ -136,9 +136,9 @@ tign_last=tign;
 % tign_update - updates the tign of the points
 [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
 
-fprintf(fidd,'%s%i\n','outside step',istep);
-result=print_matrix(tign,fidd);
-result=print_matrix(A,fidd);
+%fprintf(fidd,'%s%i\n','outside step',istep);
+%result=print_matrix(tign,fidd);
+%result=print_matrix(A,fidd);
 
 changed=sum(tign(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
@@ -197,9 +197,9 @@ tign_last=tign_in;
 % tign_update - updates the tign of the points
 [tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign_in,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
 % i,j=10, i,j=100, i,j=1000
-fprintf(fidd,'%s%i\n','inside step',istep);
-result=print_matrix(tign_in,fidd);
-result=print_matrix(A,fidd);
+%fprintf(fidd,'%s%i\n','inside step',istep);
+%result=print_matrix(tign_in,fidd);
+%result=print_matrix(A,fidd);
     
 changed=sum(tign_in(:)~=tign_last(:));
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
