@@ -1912,6 +1912,7 @@ end subroutine interpolate_wind2fire_height
 
 !#ifdef WRF_CHEM
 subroutine fire_emission(                    &
+             tracer_opt,                     &
              ids,ide, kds,kde, jds,jde,      & ! domain dimensions
              ims,ime, kms,kme, jms,jme,      &
              its,ite, kts,kte, jts,jte,      &
@@ -1919,6 +1920,10 @@ subroutine fire_emission(                    &
              grnhfx,                         & ! input variables from fire model
              tracer                          ) ! output emissions array
 use module_state_description , only: num_tracer, p_tr17_1
+#ifdef WRF_CHEM
+use module_state_description , only: p_smoke
+#endif
+    integer, intent(in)::tracer_opt
     INTEGER , INTENT(in) :: ids,ide, kds,kde, jds,jde, &
                             ims,ime, kms,kme, jms,jme, &
                             its,ite, kts,kte, jts,jte
@@ -1930,9 +1935,24 @@ use module_state_description , only: num_tracer, p_tr17_1
     integer::i,j,k,l
     
     ! just a dumb placeholder
-    if(num_tracer<p_tr17_1)call crash('fire_emission: num_tracer<p_tr17_1')
     k=kds      ! dump into surface layer
-    l=p_tr17_1  ! dump into so2 emmisions
+
+    select case(tracer_opt)
+    case(0)
+       return ! no tracers
+    case(1)
+#ifdef WRF_CHEM
+        l=p_smoke 
+#else
+        call crash('fire_emission: tracer_opt=1 requires WRF-Chem')
+#endif
+    case(2)
+        l=p_tr17_1 
+    case default 
+        call crash('fire_emission: tracer_opt not supported')
+    end select
+
+    if(num_tracer<l)call crash('fire_emission: num_tracer too small')
     do j=jts,jte
         do i=its,ite
             tracer(i,k,j,l) = tracer(i,k,j,l) + grnhfx(i,j)/(rho(i,k,j)*dz8w(i,k,j))
