@@ -371,7 +371,7 @@ character(len=256)::msg
 logical::bad_wrf
 integer::msglevel=2
 logical, parameter::check_rh=.false.
-integer::check_data=3  ! 0=nothing, 1=replace quietly, 2=warning (also printed if msglevel>2), 3=crash
+integer::check_data=2  ! 0=nothing, 1=replace quietly, 2=warning (also printed if msglevel>2), 3=crash
 real::epsilon,Pws,Pw,t2_min,q2_min,psfc_min
 real::t2_floor=200.    ! minimum allowed temperature (K)
 real::q2_floor=1e-8    ! miniumu allowed moisture contents (kg/kg)
