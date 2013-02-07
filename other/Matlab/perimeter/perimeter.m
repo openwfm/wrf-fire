@@ -1,60 +1,32 @@
-       
 function result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
 
-% Description of the function
+% Volodymyr Kondratenko           December 8 2012	
 
-% This function creates the initial matrix of times of ignitions
-% given the perimeter and tign at the points of the perimeter and
-% is using Wind variable in its calculations
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+% The function creates the initial matrix of times of ignitions
+%			given the perimeter and time of ignition at the points of the perimeter and
+%			is using wind and terrain gradient in its calculations
+% Input: We get it after reading the data using function read_file_perimeter.m 
+%        
+%        long			FXLONG*UNIT_FXLONG, longtitude coordinates of the mesh converted into meters
+%        lat			FXLAT*UNIT_FXLAT, latitude coordinates of the mesh converted into meters 
+%        uf,vf			horizontal wind velocity vectors of the points of the mesh 
+%        dzdxf,dzdyf	terrain gradient of the points of the mesh
+%        time_now		time of ignition on the fireline (fire perimeter)
+%        bound			set of ordered points of the fire perimeter 1st=last 
+%						bound(i,1)-horisontal; bound(i,1)-vertical coordinate
 %
-%--------------------------------------------------------------------%
-% Algorythm
-%--------------------------------------------------------------------%
-% 1) mark the points that are on the perimeter on the flag matrix
-% 2) Go over the points and check if any of 9 around is =0
-% 3) If yes, calculate
-
-
-%  Comments for myself
-
-% 1 ---This function works if the original perimeter is defined on the grid
-% points;
-% 2) So far I will do the loop until all the flags would be marked
-% 2a) Think how to go over only unmarked flags (create a matrix of indexes and updated every time)
+% Output:   Matrix of time of ignition
 %
-% 3) So far the coordinates of the matrix are integer indexes, later
-% coefficients of the matrix
-% 
-% 3a) Think what to do if the points of the boundary don't lie on the grid
-%
-% 4) Will the tign of the points inside be less than the perimeter points
-%
-% 5) Updating everything but the boundary points
-%
-% 6) Why max and not a sum over points with weight
-%
-% 7) if my update (March 8) is correct than we dont set it to inf but just keep the previous tign
-% tign(IN()>0)=inf, <0 = 0 thats for the initialization 
-% then tign=min(tign, inf) ot max(0,tign)
-% 
-% 8) When R=0, and it is obstacle
-
-% Tasks
-
-% 1) Correct my writing of the code
-% 2) Do the boundary
-% 3) Fedir&Oshkiv the case when the points of the perimeter are not on the
-%    mesh
-% 4) Rewrite the code for longtitude and latitude and add their reading
-% 5) Write the function that reads R as a separate function
-% 6) reshape to long and lat
-
-% Reading the data
+% Code:
 
 addpath('../../other/Matlab/util1_jan');
 addpath('../../other/Matlab/netcdf');
 
-fuels % Needed to create fuel variable
+fuels % This function is needed to create fuel variable, that contains all the characteristics 
+      % types of fuel, this function lies in the same folder where you run the main_function.m
+	  % (where is it originally located/can be created?)
 
 format long
 
@@ -63,17 +35,23 @@ n=size(long,1);
 m=size(long,2);
 
 tign=zeros(n,m);      % "time of ignition matrix" of the nodes 
-A=zeros(n,m);         % A=1 where time of ignition was updated at least once 
+A=zeros(n,m);         % flag matrix of the nodes, A(i,j)=1 if the time of ignition of the 
+                      % point (i,j) was updated at least once 
 
-data_steps='started';
-fid = fopen('data_out_steps.txt', 'w');
-fprintf(fid,'%s',data_steps); % It has two rows now.
+data_steps='started'; 
+	% string variable, where the status of the code is printed
+fid = fopen('data_out_steps.txt', 'w'); 
+	% Output file, where data_steps is written, shows the status of the code, while the code is still running
+
+fprintf(fid,'%s',data_steps);  
 fclose(fid);
+
 %  IN - matrix, that shows, whether the point is inside (IN(x,y)>0) the burning region
 %  or outside (IN(x,y)<0)
 %  ON - matrix that, shows whether the point is on the boundary or not
 %  Both matrices evaluated using "polygon", coefficients are multiplied by
 %  10^6, because the function looses acuracy when it deals with decimals
+
 xv=bound(:,1);
 yv=bound(:,2);
 xv=xv*100000;
@@ -82,88 +60,63 @@ lat1=lat*100000;
 long1=long*100000;
 [IN,ON] = inpolygon(long1,lat1,xv,yv);
 
+% Code 
+
 [ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel);
+% Calculates needed variables for rate of fire spread calculation
 
-% Code
-
-% First step, we set everything inside to time_now and update the points
-% outside
+%%%%%%% First part %%%%%%%
+% Set everything inside to time_now and update the tign of the points outside
 
 % Initializing flag matrix A and time of ignition (tign)
 % Extending the boundaries, in order to speed up the algorythm
 A=zeros(n+2,m+2);
 tign=zeros(n+2,m+2);
-A(2:n+1,2:m+1)=IN(:,:,1);
-tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;
+A(2:n+1,2:m+1)=IN(:,:,1);				% Points inside are addumed to be already updated 
+tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;	% and their time of ignition is set to time_now
 
-% Stop when the matrix converges
 changed=1;
-changed_old=2;
-%fidd = fopen('Mymatrix.txt','wt');
-%fprintf(fidd,'%s\n','wind_vf');
-%result=print_matrix(vf,fidd);
-%fprintf(fidd,'%s\n','wind_uf');
-%result=print_matrix(uf,fidd);
-%fprintf(fidd,'%s\n','angle_dzdxf');
-%result=print_matrix(dzdxf,fidd);
-%fprintf(fidd,'%s\n','angle_dzdyf');
-%result=print_matrix(dzdyf,fidd);
-%fprintf(fidd,'%s\n','lat');
-%result=print_matrix(lat(:,:,1),fidd);
-%fprintf(fidd,'%s\n','long');
-%result=print_matrix(long(:,:,1),fidd);
-%fprintf(fidd,'%s\n','IN');
-%result=print_matrix(IN,fidd);
+
+% The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
+% reaches the max(size()) of the mesh
 for istep=1:max(size(tign)),
     if changed==0, 
-        % Writing the data to the file data_out.txt
+        % The matrix coverged
         data_steps=sprintf('%s\n%s',data_steps,'first part done');
         fid = fopen('output_tign_outside.txt', 'w');
         dlmwrite('output_tign_outside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
         fclose(fid);
         'first part done'
         break
-    elseif (changed_old==changed)
-    fid = fopen('no_fixed_point_outside.txt', 'w'); 
-    dlmwrite('no_fixed_point_outside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
-    fclose(fid);
-    data_steps=sprintf('%s\n%s',data_steps,'no_fixed_point_outside');
     end
         
     
 tign_last=tign;
 
-% tign_update - updates the tign of the points
-[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
-
-%fprintf(fidd,'%s%i\n','outside step',istep);
-%result=print_matrix(tign,fidd);
-%result=print_matrix(A,fidd);
+% tign_update - updates the time of ignition of the points
+[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
 
 changed=sum(tign(:)~=tign_last(:));
-data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
 
+data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
 data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign-tign_last));
 
 fid = fopen('data_out_steps.txt', 'w');
-fprintf(fid,'%s',data_steps); % It has two rows now.
+fprintf(fid,'%s',data_steps); 
 fclose(fid);
-% figure(1),mesh(tign_last(2:n+1,2:m+1)),title(['tign last (outside), step',int2str(istep)])
-% figure(2),mesh(tign-tign_last),title(['Difference (outside), step',int2str(istep)])
-% figure(3),mesh(tign(2:n+1,2:m+1)),title(['tign new (outside), step',int2str(istep)])
-% 
-% drawnow
-
 end
 
 if changed~=0,
    data_steps=sprintf('%s\n%s',data_steps,'did not find fixed point outside');
     warning('did not find fixed point')
 end
-% Second step, we keep the values of the points outside and update the
-% points inside
+
+%%%%%%% Second part %%%%%%%
+
+% Set all the points outside to time_now and update the points inside
 
 % Initializing flag matrix A and time of ignition (tign)
+% Extending the boundaries, in order to speed up the algorythm
 A(2:n+1,2:m+1)=1-IN(:,:,1);
 final_tign=tign;
 tign_in=zeros(n+2,m+2);
@@ -171,49 +124,31 @@ tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
 
 changed=1;
 
+% The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
+% % reaches the max(size()) of the mesh
 for istep=1:max(size(tign)),
     if changed==0, 
-    fid = fopen('output_tign.txt', 'w');
-    dlmwrite('output_tign.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
-    fclose(fid);
-    'printed'
-    fid = fopen('data_out_steps.txt', 'w');
-    fprintf(fid,'%s',data_steps); % It has two rows now.
-    fclose(fid);
-
-   
-    break
-elseif (changed_old==changed)
-	    fid = fopen('no_fixed_point_inside.txt', 'w');
-		    dlmwrite('no_fixed_point_inside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
-			    fclose(fid);
-				    'no_fixed_point_inside'
-             data_steps=sprintf('%s\n%s',data_steps,'no_fixed_point_inside');   
-        
+		% The matrix of tign converged
+		fid = fopen('output_tign.txt', 'w');
+		dlmwrite('output_tign.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
+		fclose(fid);
+		'printed'
+		break
     end
     
 tign_last=tign_in;
 
 % tign_update - updates the tign of the points
-[tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign_in,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
-% i,j=10, i,j=100, i,j=1000
-%fprintf(fidd,'%s%i\n','inside step',istep);
-%result=print_matrix(tign_in,fidd);
-%result=print_matrix(A,fidd);
+[tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign_in,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
     
 changed=sum(tign_in(:)~=tign_last(:));
+
 data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
 data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign_in-tign_last));
 
-% Writing the data to the file data_out.txt
 fid = fopen('data_out_steps.txt', 'w');
-fprintf(fid,'%s',data_steps); % It has two rows now.
+fprintf(fid,'%s',data_steps); 
 fclose(fid);
-% figure(4),mesh(tign_last(2:n+1,2:m+1)),title(['tign last, step',int2str(istep)])
-% figure(5),mesh(tign-tign_last),title(['Difference, step',int2str(istep)])
-% figure(6),mesh(final_tign(2:n+1,2:m+1)),title(['tign new, step',int2str(istep)])
-% 
- drawnow
 end
 final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 result=final_tign(2:n+1,2:m+1);
@@ -221,17 +156,20 @@ result=final_tign(2:n+1,2:m+1);
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', final_tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
+    
 if changed~=0,
     data_steps=sprintf('%s\n%s',data_steps,'did not find fixed point inside');
     warning('did not find fixed point inside')
     
     'printed'
 end
-fclose(fidd);
 end
 
-function [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,fuel,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0)
+function [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0)
   
+% Does one iteration of the algorythm and updates the tign of the points of
+% the mesh that are next to the previously updated neighbors
+
 % tign  array same size as A and V: time of ignition at all points
 % A,IN flags from above
 % V - wind; the first dim = x y coord
@@ -240,24 +178,37 @@ n=size(tign,1);
 m=size(tign,2);
 for i=2:n-1
     for j=2:m-1
-        % Needed to know what is the amount of points that surrounds (i,j)
+        % sum_A is needed to know what is the amount of points that surrounds (i,j)
         sum_A=sum(sum(A(i-1:i+1,j-1:j+1)));
-        % sum_A>0 if tign available at at least one neighbor
         
         if (sum_A~=0)
+            
+            % sum_A>0 then at least on eneighbor was previously updated and its
+            % tign can be used to update the tign of the point (i,j)
+            
+            % I subtract 1 in all IN, long, lat, uf, vf, dzdxf, dzdyf
+            % matrices, because their boundaries were not updated, unlike
+            %%% tign (do the loop 1:n, 1:m and change the indexes in tign) %%%
             if (IN(i-1,j-1)>0) 
-                % Points are inside the perimeter
-                tign_old=(A(i,j)==1)*tign(i,j);  % previous tign if exists at this point
-                    
+                % The point is inside the perimeter
+                tign_old=(A(i,j)==1)*tign(i,j);  % set the tign to the previous tign if it already exists at 
+                                                 % this point, it will be updated if the results would be improved
+                                           
                 for a=i-1:i+1   
                     for b=j-1:j+1  
                     	% loop over all neighbors
-                        if (A(a,b)==1) % was already updated 
+                        if (A(a,b)==1) % the neighbor was already updated 
+                            % All the vectors are split in half-intervals
+                            % to get better calculation
+                            %%% Make a picture of what is happening %%%
                             
+                            % wind1 = vect.*(uf,vf)
                             wind1=0.5*((long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(i-1,j-1,1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(i-1,j-1,1));
+                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(i-1,j-1,1));                            
                             angle1=0.5*((long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(i-1,j-1,1)+  ... 
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(i-1,j-1,1));
+                            
+                            % This is needed to calculate the ros(i,j)     
                              if ~ichap,
                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
                                 spdms = max(wind1,0.);
@@ -274,10 +225,13 @@ for i=2:n-1
                             end
                             ros=min(ros,6);
                             
+                            % tign_new=tign(a,b)-delta(t);
                         	tign_new1=tign(a,b)-0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;                   ...
                                     
-                            
+                            % Same calculation for the second half of the
+                            % interval
+                                 
                             wind2=0.5*((long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(a-1,b-1,1)+  ... 
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(a-1,b-1,1));
                             angle2=0.5*((long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(a-1,b-1,1)+  ... 
@@ -300,10 +254,7 @@ for i=2:n-1
                         	tign_new2=-0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
                             tign_new=tign_new1+tign_new2;
-                            
-                            % update of the tign based on tign and ros
-                            % of the neighbour
-         
+                           
                             if (tign_old<tign_new)&&(tign_new<=time_now);
                             	% Looking for the max tign, which
                                 % should be <= than time_now, since the
@@ -349,8 +300,10 @@ for i=2:n-1
                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
                             end
                             ros=min(ros,6);
+                            % tign_new=tign(a,b)-delta(t);
                             tign_new1=tign(a,b)+0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
+                        
                             wind2=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(a-1,b-1,1)+  ... 
                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(a-1,b-1,1));
                             angle2=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(a-1,b-1,1)+  ... 
