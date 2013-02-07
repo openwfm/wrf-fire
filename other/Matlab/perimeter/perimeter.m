@@ -281,10 +281,10 @@ for i=2:n-1
                 for a=i-1:i+1  
                 	for b=j-1:j+1  
                     	if (A(a,b)==1)  
-                            wind1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(a-1,b-1,1)+  ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(a-1,b-1,1));
-                            angle1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(a-1,b-1,1)+  ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(a-1,b-1,1));
+                            wind1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(i-1,j-1,1)+  ... 
+                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(i-1,j-1,1));
+                            angle1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(i-1,j-1,1)+  ... 
+                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(i-1,j-1,1));
                             if ~ichap,
                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
                                 spdms = max(wind1,0.);
