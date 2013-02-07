@@ -72,7 +72,7 @@ long1=long*100000;
 % Extending the boundaries, in order to speed up the algorythm
 A=zeros(n+2,m+2);
 tign=zeros(n+2,m+2);
-A(2:n+1,2:m+1)=IN(:,:,1);				% Points inside are addumed to be already updated 
+A(2:n+1,2:m+1)=IN(:,:,1);				% Points inside are assumed to be already updated 
 tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;	% and their time of ignition is set to time_now
 
 changed=1;
@@ -422,6 +422,70 @@ r_0      = ir*xifr/(rhob * epsilon *qig);  % default spread rate in ft/min
 
 
 end
+
+function delat_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0)
+    %Extend the boundaries to speed up the algorithm, the values of the
+    %extended boundaries would be set to zeros and are never used in the
+    %code
+    delta_tign=zeros(size(long,1)+2,size(long,2)+2,9);
+    
+    long2=zeros(size(long,1)+2,size(long,2)+2);
+    long2(2:size(long,1)+1,2:size(long,2)+1)=long;
+    long=long2;
+    
+    lat2=zeros(size(long,1)+2,size(long,2)+2);
+    lat2(2:size(long,1)+1,2:size(long,2)+1)=lat;
+    lat=lat2;
+
+    vf2=zeros(size(long,1)+2,size(long,2)+2);
+    vf2(2:size(long,1)+1,2:size(long,2)+1)=vf;
+    vf=vf2;
+
+    uf2=zeros(size(long,1)+2,size(long,2)+2);
+    uf2(2:size(long,1)+1,2:size(long,2)+1)=uf;
+    uf=uf2;
+
+    dzdxf2=zeros(size(long,1)+2,size(long,2)+2);
+    dzdxf2(2:size(long,1)+1,2:size(long,2)+1)=dzdxf;
+    dzdxf=dzdxf2;
+
+    dzdyf2=zeros(size(long,1)+2,size(long,2)+2);
+    dzdyf2(2:size(long,1)+1,2:size(long,2)+1)=dzdyf;
+    dzdyf=dzdyf2;
+
+for i=2:size(long,1)+1
+    for j=2:size(long,2)+1
+        for a=-1:1
+            for b=-1:1
+                wind=0.5*((long(i,j,1)-long(i+a,j+b,1))*vf(i,j,1)+  ... 
+                      (lat(i,j,1)-lat(i+a,j+b,1))*uf(i,j,1));
+                angle=0.5*((long(i,j,1)-long(i+a,j+b,1))*dzdxf(i,j,1)+  ... 
+                       (lat(i,j,1)-lat(i+a,j+b,1))*dzdyf(i,j,1));
+                if ~ichap,
+                    %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
+                    spdms = max(wind1,0.);
+                    umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
+                    umid = umidm * 196.850;                    % m/s to ft/min
+                    %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
+                    phiw = umid^bbb * phiwc;                   % wind coef
+                    phis = 5.275 * betafl^(-0.3) *max(0,angle1)^2;   % slope factor
+                    ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
+                else  % chapparal
+                    %        .... spread rate has no dependency on fuel character, only windspeed.
+                    spdms = max(wind1,0.);
+                    ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
+                end
+                ros=min(ros,6);
+                % tign_new=tign(a,b)-delta(t);
+                tign(i,j,3*(a-1)+b)=0.5*sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
+                          (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
+            end
+        end
+    end
+end
+end
+
+
 
 function result=print_matrix(tign,fid)
 
