@@ -91,19 +91,19 @@ for istep=1:max(size(tign)),
     end
         
     
-tign_last=tign;
+    tign_last=tign;
 
-% tign_update - updates the time of ignition of the points
-[tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
+    % tign_update - updates the time of ignition of the points
+    [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
 
-changed=sum(tign(:)~=tign_last(:));
+    changed=sum(tign(:)~=tign_last(:));
 
-data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
-data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign-tign_last));
+    data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
+    data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign-tign_last));
 
-fid = fopen('data_out_steps.txt', 'w');
-fprintf(fid,'%s',data_steps); 
-fclose(fid);
+    fid = fopen('data_out_steps.txt', 'w');
+    fprintf(fid,'%s',data_steps); 
+    fclose(fid);
 end
 
 if changed~=0,
@@ -136,20 +136,21 @@ for istep=1:max(size(tign)),
 		break
     end
     
-tign_last=tign_in;
-
-% tign_update - updates the tign of the points
-[tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign_in,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
+    tign_last=tign_in;
     
-changed=sum(tign_in(:)~=tign_last(:));
+    % tign_update - updates the tign of the points
+    [tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign_in,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
+    
+    changed=sum(tign_in(:)~=tign_last(:));
 
-data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
-data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign_in-tign_last));
+    data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
+    data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign_in-tign_last));
 
-fid = fopen('data_out_steps.txt', 'w');
-fprintf(fid,'%s',data_steps); 
-fclose(fid);
+    fid = fopen('data_out_steps.txt', 'w');
+    fprintf(fid,'%s',data_steps); 
+    fclose(fid);
 end
+
 final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 result=final_tign(2:n+1,2:m+1);
 
