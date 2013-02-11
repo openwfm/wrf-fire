@@ -63,6 +63,7 @@ long1=long*100000;
 % Code 
 
 [ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel);
+delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0)
 % Calculates needed variables for rate of fire spread calculation
 
 %%%%%%% First part %%%%%%%
@@ -92,9 +93,9 @@ for istep=1:max(size(tign)),
         
     
     tign_last=tign;
-
+% tign_update - updates the time of ignition of the points
+[tign,A]=tign_update(tign,A,IN,delta_tign);
     % tign_update - updates the time of ignition of the points
-    [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
 
     changed=sum(tign(:)~=tign_last(:));
 
@@ -121,7 +122,7 @@ A(2:n+1,2:m+1)=1-IN(:,:,1);
 final_tign=tign;
 tign_in=zeros(n+2,m+2);
 tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
-
+tign_in(2:n+1,2:m+1)=IN(:,:,1).*inf;
 changed=1;
 
 % The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
@@ -139,7 +140,7 @@ for istep=1:max(size(tign)),
     tign_last=tign_in;
     
     % tign_update - updates the tign of the points
-    [tign_in,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign_in,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0);
+    [tign_in,A]=tign_update(tign,A,IN,delta_tign);
     
     changed=sum(tign_in(:)~=tign_last(:));
 
@@ -166,7 +167,7 @@ if changed~=0,
 end
 end
 
-function [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign,A,IN,time_now,ichap,bbb,phiwc,betafl,r_0)
+function [tign,A]=tign_update(tign,A,IN,delta_tign)
   
 % Does one iteration of the algorythm and updates the tign of the points of
 % the mesh that are next to the previously updated neighbors
@@ -175,10 +176,9 @@ function [tign,A]=tign_update(long,lat,vf,uf,dzdxf,dzdyf,tign,A,IN,time_now,icha
 % A,IN flags from above
 % V - wind; the first dim = x y coord
 % time_now = time of ignition on the perimeter
-n=size(tign,1);
-m=size(tign,2);
-for i=2:n-1
-    for j=2:m-1
+
+for i=2:size(tign,1)-1
+    for j=2:size(tign,2)-1
         % sum_A is needed to know what is the amount of points that surrounds (i,j)
         sum_A=sum(sum(A(i-1:i+1,j-1:j+1)));
         
@@ -192,9 +192,6 @@ for i=2:n-1
             %%% tign (do the loop 1:n, 1:m and change the indexes in tign) %%%
             if (IN(i-1,j-1)>0) 
                 % The point is inside the perimeter
-                tign_old=(A(i,j)==1)*tign(i,j);  % set the tign to the previous tign if it already exists at 
-                                                 % this point, it will be updated if the results would be improved
-                                           
                 for a=i-1:i+1   
                     for b=j-1:j+1  
                     	% loop over all neighbors
@@ -203,144 +200,38 @@ for i=2:n-1
                             % to get better calculation
                             %%% Make a picture of what is happening %%%
                             
-                            % wind1 = vect.*(uf,vf)
-                            wind1=0.5*((long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(i-1,j-1,1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(i-1,j-1,1));                            
-                            angle1=0.5*((long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(i-1,j-1,1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(i-1,j-1,1));
-                            
-                            % This is needed to calculate the ros(i,j)     
-                             if ~ichap,
-                                %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-                                spdms = max(wind1,0.);
-                                umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
-                                umid = umidm * 196.850;                    % m/s to ft/min
-                                %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
-                                phiw = umid^bbb * phiwc;                   % wind coef
-                                phis = 5.275 * betafl^(-0.3) *max(0,angle1)^2;   % slope factor
-                                ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
-                            else  % chapparal
-                                %        .... spread rate has no dependency on fuel character, only windspeed.
-                                spdms = max(wind1,0.);
-                                ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
-                            end
-                            ros=min(ros,6);
-                            
-                            % tign_new=tign(a,b)-delta(t);
-                        	tign_new1=tign(a,b)-0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;                   ...
-                                    
-                            % Same calculation for the second half of the
-                            % interval
-                                 
-                            wind2=0.5*((long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(a-1,b-1,1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(a-1,b-1,1));
-                            angle2=0.5*((long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(a-1,b-1,1)+  ... 
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(a-1,b-1,1));
-                            if ~ichap,
-                                %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-                                spdms = max(wind2,0.);
-                                umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
-                                umid = umidm * 196.850;                    % m/s to ft/min
-                                %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
-                                phiw = umid^bbb * phiwc;                   % wind coef
-                                phis = 5.275 * betafl^(-0.3) *max(0,angle2)^2;   % slope factor
-                                ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
-                            else  % chapparal
-                                %        .... spread rate has no dependency on fuel character, only windspeed.
-                                spdms = max(wind2,0.);
-                                ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
-                            end
-                            ros=min(ros,6);
-                        	tign_new2=-0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
-                            tign_new=tign_new1+tign_new2;
+                            tign_new=tign(a,b)-delta_tign(i,j,3*(a-i+1)+b-j+2)-delta_tign(a,b,10-3*(a-i+1)-b+j-2);
                            
-                            if (tign_old<tign_new)&&(tign_new<=time_now);
+                            if (tign(i,j)<tign_new)&&(tign_new<=time_now);
                             	% Looking for the max tign, which
                                 % should be <= than time_now, since the
                                 % point is inside of the preimeter
-                                tign_old=tign_new;
+                                tign(i,j)=tign_new;
                                 A(i,j)=1;
                             end
                         end
                     end
                 end
-            
-                tign(i,j)=tign_old;
-            
             else
                 % Points are outside of the perimeter
                 % Previous tign if exists at this point, 
                 % if not then inf
-                if (A(i,j)==1)
-                    tign_old=tign(i,j);
-                else
-                    tign_old=inf;
-                end
-                    
                 for a=i-1:i+1  
-                	for b=j-1:j+1  
-                    	if (A(a,b)==1)  
-                            wind1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(i-1,j-1,1)+  ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(i-1,j-1,1));
-                            angle1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(i-1,j-1,1)+  ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(i-1,j-1,1));
-                            if ~ichap,
-                                %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-                                spdms = max(wind1,0.);
-                                umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
-                                umid = umidm * 196.850;                    % m/s to ft/min
-                                %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
-                                phiw = umid^bbb * phiwc;                   % wind coef
-                                phis = 5.275 * betafl^(-0.3) *max(0,angle1)^2;   % slope factor
-                                ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
-                            else  % chapparal
-                                %        .... spread rate has no dependency on fuel character, only windspeed.
-                                spdms = max(wind1,0.);
-                                ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
-                            end
-                            ros=min(ros,6);
-                            % tign_new=tign(a,b)-delta(t);
-                            tign_new1=tign(a,b)+0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
-                        
-                            wind2=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(a-1,b-1,1)+  ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(a-1,b-1,1));
-                            angle2=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(a-1,b-1,1)+  ... 
-                                     (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(a-1,b-1,1));
-                            if ~ichap,
-                                %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-                                spdms = max(wind2,0.);
-                                umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
-                                umid = umidm * 196.850;                    % m/s to ft/min
-                                %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
-                                phiw = umid^bbb * phiwc;                   % wind coef
-                                phis = 5.275 * betafl^(-0.3) *max(0,angle2)^2;   % slope factor
-                                ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
-                            else  % chapparal
-                                %        .... spread rate has no dependency on fuel character, only windspeed.
-                                spdms = max(wind2,0.);
-                                ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
-                            end
-                            ros=min(ros,6);
-                            tign_new2=0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
-                                     (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
-                            tign_new=tign_new1+tign_new2;                    ...
+                	for b=j-1:j+1
+                        if (A(a,b)==1)  
+                            
+                            tign_new=tign(a,b)+delta_tign(i,j,3*(a-i+1)+b-j+2)+delta_tign(a,b,10-3*(a-i+1)-b+j-2);
                             % Here the direction of the vector is
                             % opposite, since fire is going from the
                             % inside point towards the point that was
                             % already computed
-                            if (tign_old>tign_new)&&(tign_new>=time_now);
-                            	tign_old=tign_new;
+                            if (tign(i,j)>tign_new)&&(tign_new>=time_now);
+                            	tign(i,j)=tign_new;
                             	A(i,j)=1;
                             end
                         end
                     end
                 end
-                
-                tign(i,j)=tign_old;
-          
             end
         end
     end
@@ -424,7 +315,7 @@ r_0      = ir*xifr/(rhob * epsilon *qig);  % default spread rate in ft/min
 
 end
 
-function delat_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0)
+function delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0)
     %Extend the boundaries to speed up the algorithm, the values of the
     %extended boundaries would be set to zeros and are never used in the
     %code
@@ -477,8 +368,8 @@ for i=2:size(long,1)+1
                     ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
                 end
                 ros=min(ros,6);
-                % tign_new=tign(a,b)-delta(t);
-                tign(i,j,3*(a-1)+b)=0.5*sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
+                % DEscribe the coefficient below
+                tign(i,j,3*(a+1)+b+2)=0.5*sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
                           (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
             end
         end
@@ -513,6 +404,121 @@ result=0;
 end
 
 
+
+
+% Old Code -- tign_update
+
+                            
+%                             % wind1 = vect.*(uf,vf)
+%                             wind1=0.5*((long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(i-1,j-1,1)+  ... 
+%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(i-1,j-1,1));                            
+%                             angle1=0.5*((long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(i-1,j-1,1)+  ... 
+%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(i-1,j-1,1));
+%                             
+%                             % This is needed to calculate the ros(i,j)     
+%                              if ~ichap,
+%                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
+%                                 spdms = max(wind1,0.);
+%                                 umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
+%                                 umid = umidm * 196.850;                    % m/s to ft/min
+%                                 %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
+%                                 phiw = umid^bbb * phiwc;                   % wind coef
+%                                 phis = 5.275 * betafl^(-0.3) *max(0,angle1)^2;   % slope factor
+%                                 ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
+%                             else  % chapparal
+%                                 %        .... spread rate has no dependency on fuel character, only windspeed.
+%                                 spdms = max(wind1,0.);
+%                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
+%                             end
+%                             ros=min(ros,6);
+%                             
+%                             % tign_new=tign(a,b)-delta(t);
+%                         	tign_new1=tign(a,b)-0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
+%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;                   ...
+%                                     
+%                             % Same calculation for the second half of the
+%                             % interval
+%                                  
+%                             wind2=0.5*((long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(a-1,b-1,1)+  ... 
+%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(a-1,b-1,1));
+%                             angle2=0.5*((long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(a-1,b-1,1)+  ... 
+%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(a-1,b-1,1));
+%                             if ~ichap,
+%                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
+%                                 spdms = max(wind2,0.);
+%                                 umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
+%                                 umid = umidm * 196.850;                    % m/s to ft/min
+%                                 %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
+%                                 phiw = umid^bbb * phiwc;                   % wind coef
+%                                 phis = 5.275 * betafl^(-0.3) *max(0,angle2)^2;   % slope factor
+%                                 ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
+%                             else  % chapparal
+%                                 %        .... spread rate has no dependency on fuel character, only windspeed.
+%                                 spdms = max(wind2,0.);
+%                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
+%                             end
+%                             ros=min(ros,6);
+%                         	tign_new2=-0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
+%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
+%                             tign_new=tign_new1+tign_new2;
+
+
+
+% OUTSIDE
+
+                            
+                            
+                            
+%                             wind1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(i-1,j-1,1)+  ... 
+%                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(i-1,j-1,1));
+%                             angle1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(i-1,j-1,1)+  ... 
+%                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(i-1,j-1,1));
+%                             if ~ichap,
+%                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
+%                                 spdms = max(wind1,0.);
+%                                 umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
+%                                 umid = umidm * 196.850;                    % m/s to ft/min
+%                                 %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
+%                                 phiw = umid^bbb * phiwc;                   % wind coef
+%                                 phis = 5.275 * betafl^(-0.3) *max(0,angle1)^2;   % slope factor
+%                                 ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
+%                             else  % chapparal
+%                                 %        .... spread rate has no dependency on fuel character, only windspeed.
+%                                 spdms = max(wind1,0.);
+%                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
+%                             end
+%                             ros=min(ros,6);
+%                             % tign_new=tign(a,b)-delta(t);
+%                             tign_new1=tign(a,b)+0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
+%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/r
+%                                      os;s
+%                         
+%                             wind2=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(a-1,b-1,1)+  ... 
+%                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(a-1,b-1,1));
+%                             angle2=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(a-1,b-1,1)+  ... 
+%                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(a-1,b-1,1));
+%                             if ~ichap,
+%                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
+%                                 spdms = max(wind2,0.);
+%                                 umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
+%                                 umid = umidm * 196.850;                    % m/s to ft/min
+%                                 %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
+%                                 phiw = umid^bbb * phiwc;                   % wind coef
+%                                 phis = 5.275 * betafl^(-0.3) *max(0,angle2)^2;   % slope factor
+%                                 ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
+%                             else  % chapparal
+%                                 %        .... spread rate has no dependency on fuel character, only windspeed.
+%                                 spdms = max(wind2,0.);
+%                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
+%                             end
+%                             ros=min(ros,6);
+%                             tign_new2=0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
+%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
+%                             tign_new=tign_new1+tign_new2;                    ...
+%                             % Here the direction of the vector is
+%                             % opposite, since fire is going from the
+%                             % inside point towards the point that was
+%                             % already computed
 
 
 
