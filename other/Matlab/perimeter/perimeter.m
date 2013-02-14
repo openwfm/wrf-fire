@@ -200,7 +200,7 @@ for i=2:size(tign,1)-1
                             % to get better calculation
                             %%% Make a picture of what is happening %%%
                             
-                            tign_new=tign(a,b)-delta_tign(i,j,3*(a-i+1)+b-j+2)-delta_tign(a,b,10-3*(a-i+1)-b+j-2);
+                            tign_new=tign(a,b)-delta_tign(i,j,a-i+2,b-i+2)-delta_tign(a,b,2-a+i,2-b+i);
                            
                             if (tign(i,j)<tign_new)&&(tign_new<=time_now);
                             	% Looking for the max tign, which
@@ -319,7 +319,7 @@ function delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,
     %Extend the boundaries to speed up the algorithm, the values of the
     %extended boundaries would be set to zeros and are never used in the
     %code
-    delta_tign=zeros(size(long,1)+2,size(long,2)+2,9);
+    delta_tign=zeros(size(long,1)+2,size(long,2)+2,3,3);
     
     long2=zeros(size(long,1)+2,size(long,2)+2);
     long2(2:size(long,1)+1,2:size(long,2)+1)=long;
@@ -369,7 +369,7 @@ for i=2:size(long,1)+1
                 end
                 ros=min(ros,6);
                 % DEscribe the coefficient below
-                tign(i,j,3*(a+1)+b+2)=0.5*sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
+                tign(i,j,a+2,b+2)=0.5*sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
                           (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
             end
         end
