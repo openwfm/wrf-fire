@@ -172,11 +172,6 @@ function [tign,A]=tign_update(tign,A,IN,delta_tign)
 % Does one iteration of the algorythm and updates the tign of the points of
 % the mesh that are next to the previously updated neighbors
 
-% tign  array same size as A and V: time of ignition at all points
-% A,IN flags from above
-% V - wind; the first dim = x y coord
-% time_now = time of ignition on the perimeter
-
 for i=2:size(tign,1)-1
     for j=2:size(tign,2)-1
         % sum_A is needed to know what is the amount of points that surrounds (i,j)
@@ -190,45 +185,35 @@ for i=2:size(tign,1)-1
             % I subtract 1 in all IN, long, lat, uf, vf, dzdxf, dzdyf
             % matrices, because their boundaries were not updated, unlike
             %%% tign (do the loop 1:n, 1:m and change the indexes in tign) %%%
-            if (IN(i-1,j-1)>0) 
-                % The point is inside the perimeter
-                for a=i-1:i+1   
-                    for b=j-1:j+1  
-                    	% loop over all neighbors
-                        if (A(a,b)==1) % the neighbor was already updated 
-                            % All the vectors are split in half-intervals
-                            % to get better calculation
-                            %%% Make a picture of what is happening %%%
+            
+               
+            for dx=-1:+1   
+                for dy=-1:+1  
+                    % loop over all neighbors
+                    if (A(i+dx,j+dy)==1) % the neighbor was already updated 
+                        % All the vectors are split in half-intervals
+                        % to get better calculation
+                        %%% Make a picture of what is happening %%%
+                        % I do multiplication by 0.5 here 0.5-(IN(i-1,j-1)>0
+                        tign_new=tign(i+dx,j+dy)+(0.5-(IN(i-1,j-1)>0))*(delta_tign(i,j,dx+2,dy+2)+delta_tign(i+dx,j+dy,2-dx,2-dy));
+                        
+                        if ((IN(i-1,j-1)>0)
                             
-                            tign_new=tign(a,b)-delta_tign(i,j,a-i+2,b-i+2)-delta_tign(a,b,2-a+i,2-b+i);
-                           
-                            if (tign(i,j)<tign_new)&&(tign_new<=time_now);
-                            	% Looking for the max tign, which
+                            if (tign(i,j)<tign_new)&&(tign_new<=time_now))
+                                % Looking for the max tign, which
                                 % should be <= than time_now, since the
                                 % point is inside of the preimeter
                                 tign(i,j)=tign_new;
                                 A(i,j)=1;
                             end
-                        end
-                    end
-                end
-            else
-                % Points are outside of the perimeter
-                % Previous tign if exists at this point, 
-                % if not then inf
-                for a=i-1:i+1  
-                	for b=j-1:j+1
-                        if (A(a,b)==1)  
-                            
-                            tign_new=tign(a,b)+delta_tign(i,j,3*(a-i+1)+b-j+2)+delta_tign(a,b,10-3*(a-i+1)-b+j-2);
-                            % Here the direction of the vector is
-                            % opposite, since fire is going from the
-                            % inside point towards the point that was
-                            % already computed
+                        elseif
                             if (tign(i,j)>tign_new)&&(tign_new>=time_now);
-                            	tign(i,j)=tign_new;
-                            	A(i,j)=1;
-                            end
+                                % Looking for the min tign, which
+                                % should be >= than time_now, since the
+                                % point is outside of the preimeter
+                                tign(i,j)=tign_new;
+                                A(i,j)=1;
+                            end 
                         end
                     end
                 end
@@ -369,7 +354,7 @@ for i=2:size(long,1)+1
                 end
                 ros=min(ros,6);
                 % DEscribe the coefficient below
-                tign(i,j,a+2,b+2)=0.5*sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
+                tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
                           (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
             end
         end
@@ -377,7 +362,29 @@ for i=2:size(long,1)+1
 end
 end
 
-
+function [tign,A]=point_update(i,j,tign,delta_tign,inside)
+    
+    for dx=-1:+1   
+        for dy=-1:+1  
+            % loop over all neighbors
+        	if (A(i+dx,j+dy)==1) % the neighbor was already updated 
+        	% All the vectors are split in half-intervals
+        	% to get better calculation
+            %%% Make a picture of what is happening %%%
+                            
+            tign_new=tign(i+dx,j+dy)-delta_tign(i,j,dx+2,dy+2)-delta_tign(i+dx,j+dy,2-dx,2-dy);
+                           
+                if (tign(i,j)<tign_new)&&(tign_new<=time_now);
+                    % Looking for the max tign, which
+                    % should be <= than time_now, since the
+                    % point is inside of the preimeter
+                    tign(i,j)=tign_new;
+                    A(i,j)=1;
+                end
+            end
+        end
+    end
+end
 
 function result=print_matrix(tign,fid)
 
