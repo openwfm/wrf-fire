@@ -121,7 +121,8 @@ end
 A(2:n+1,2:m+1)=1-IN(:,:,1);
 final_tign=tign;
 tign_in=zeros(n+2,m+2);
-tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
+%tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
+tign_in(2:n+1,2:m+1)=tign;
 tign_in(2:n+1,2:m+1)=IN(:,:,1).*inf;
 changed=1;
 
@@ -187,8 +188,8 @@ for i=2:size(tign,1)-1
             %%% tign (do the loop 1:n, 1:m and change the indexes in tign) %%%
             
                
-            for dx=-1:+1   
-                for dy=-1:+1  
+            for dx=-1:1   
+                for dy=-1:1  
                     % loop over all neighbors
                     if (A(i+dx,j+dy)==1) % the neighbor was already updated 
                         % All the vectors are split in half-intervals
