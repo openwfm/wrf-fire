@@ -121,7 +121,8 @@ end
 A(2:n+1,2:m+1)=1-IN(:,:,1);
 final_tign=tign;
 tign_in=zeros(n+2,m+2);
-tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
+%tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
+tign_in=tign;
 tign_in(2:n+1,2:m+1)=IN(:,:,1).*inf;
 changed=1;
 
@@ -187,42 +188,38 @@ for i=2:size(tign,1)-1
             %%% tign (do the loop 1:n, 1:m and change the indexes in tign) %%%
             
                
-            for dx=-1:+1   
-                for dy=-1:+1  
+            for dx=-1:1   
+                for dy=-1:1  
                     % loop over all neighbors
-                        if (A(i+dx,j+dy)==1) % the neighbor was already updated 
-                            % All the vectors are split in half-intervals
-                            % to get better calculation
-                            %%% Make a picture of what is happening %%%
-                            % I do multiplication by 0.5 here 0.5-(IN(i-1,j-1)>0
-                            tign_new=tign(i+dx,j+dy)+(0.5-(IN(i-1,j-1)>0))*(delta_tign(i,j,dx+2,dy+2)+delta_tign(i+dx,j+dy,2-dx,2-dy));
-                           
-                            if ((IN(i-1,j-1)>0)
-                                
-                                if (tign(i,j)<tign_new)&&(tign_new<=time_now))
-                                    % Looking for the max tign, which
-                                    % should be <= than time_now, since the
-                                    % point is inside of the preimeter
-                                    tign(i,j)=tign_new;
-                                    A(i,j)=1;
-                                end
-                            elseif
-                                
-                                if (tign(i,j)>tign_new)&&(tign_new>=time_now);
-                                    % Looking for the min tign, which
-                                    % should be >= than time_now, since the
-                                    % point is outside of the preimeter
-                                    tign(i,j)=tign_new;
-                                    A(i,j)=1;
-                                end
-                                
+                    if (A(i+dx,j+dy)==1) % the neighbor was already updated 
+                        % All the vectors are split in half-intervals
+                        % to get better calculation
+                        %%% Make a picture of what is happening %%%
+                        % I do multiplication by 0.5 here 0.5-(IN(i-1,j-1)>0
+                        tign_new=tign(i+dx,j+dy)+(0.5-(IN(i-1,j-1)>0))*(delta_tign(i,j,dx+2,dy+2)+delta_tign(i+dx,j+dy,2-dx,2-dy));
+                        
+                        if (IN(i-1,j-1)>0)
+                            
+                            if (tign(i,j)<tign_new)&&(tign_new<=time_now)
+                                % Looking for the max tign, which
+                                % should be <= than time_now, since the
+                                % point is inside of the preimeter
+                                tign(i,j)=tign_new;
+                                A(i,j)=1;
                             end
+                        elseif (tign(i,j)>tign_new)&&(tign_new>=time_now);
+                                % Looking for the min tign, which
+                                % should be >= than time_now, since the
+                                % point is outside of the preimeter
+                                tign(i,j)=tign_new;
+                                A(i,j)=1;
+                            end 
                         end
                     end
                 end
+            end
         end
     end
-end
 end
 
 function [ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel,fmc_g)
@@ -312,28 +309,28 @@ function delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,
     long2(2:size(long,1)+1,2:size(long,2)+1)=long;
     long=long2;
     
-    lat2=zeros(size(long,1)+2,size(long,2)+2);
-    lat2(2:size(long,1)+1,2:size(long,2)+1)=lat;
+    lat2=zeros(size(lat,1)+2,size(lat,2)+2);
+    lat2(2:size(lat,1)+1,2:size(lat,2)+1)=lat;
     lat=lat2;
 
-    vf2=zeros(size(long,1)+2,size(long,2)+2);
-    vf2(2:size(long,1)+1,2:size(long,2)+1)=vf;
+    vf2=zeros(size(vf,1)+2,size(vf,2)+2);
+    vf2(2:size(vf,1)+1,2:size(vf,2)+1)=vf;
     vf=vf2;
 
-    uf2=zeros(size(long,1)+2,size(long,2)+2);
-    uf2(2:size(long,1)+1,2:size(long,2)+1)=uf;
+    uf2=zeros(size(uf,1)+2,size(uf,2)+2);
+    uf2(2:size(uf,1)+1,2:size(uf,2)+1)=uf;
     uf=uf2;
 
-    dzdxf2=zeros(size(long,1)+2,size(long,2)+2);
-    dzdxf2(2:size(long,1)+1,2:size(long,2)+1)=dzdxf;
+    dzdxf2=zeros(size(dzdxf,1)+2,size(dzdxf,2)+2);
+    dzdxf2(2:size(dzdxf,1)+1,2:size(dzdxf,2)+1)=dzdxf;
     dzdxf=dzdxf2;
 
-    dzdyf2=zeros(size(long,1)+2,size(long,2)+2);
-    dzdyf2(2:size(long,1)+1,2:size(long,2)+1)=dzdyf;
+    dzdyf2=zeros(size(dzdyf,1)+2,size(dzdyf,2)+2);
+    dzdyf2(2:size(dzdyf,1)+1,2:size(dzdyf,2)+1)=dzdyf;
     dzdyf=dzdyf2;
 
-for i=2:size(long,1)+1
-    for j=2:size(long,2)+1
+for i=2:size(long,1)-1
+    for j=2:size(long,2)-1
         for a=-1:1
             for b=-1:1
                 wind=0.5*((long(i,j,1)-long(i+a,j+b,1))*vf(i,j,1)+  ... 
@@ -342,16 +339,16 @@ for i=2:size(long,1)+1
                        (lat(i,j,1)-lat(i+a,j+b,1))*dzdyf(i,j,1));
                 if ~ichap,
                     %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-                    spdms = max(wind1,0.);
+                    spdms = max(wind,0.);
                     umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
                     umid = umidm * 196.850;                    % m/s to ft/min
                     %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
                     phiw = umid^bbb * phiwc;                   % wind coef
-                    phis = 5.275 * betafl^(-0.3) *max(0,angle1)^2;   % slope factor
+                    phis = 5.275 * betafl^(-0.3) *max(0,angle)^2;   % slope factor
                     ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
                 else  % chapparal
                     %        .... spread rate has no dependency on fuel character, only windspeed.
-                    spdms = max(wind1,0.);
+                    spdms = max(wind,0.);
                     ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
                 end
                 ros=min(ros,6);
