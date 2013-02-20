@@ -72,13 +72,14 @@ delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,bet
 % Initializing flag matrix A and time of ignition (tign)
 % Extending the boundaries, in order to speed up the algorythm
 A=zeros(n+2,m+2);
-tign=zeros(n+2,m+2);
+tign=ones(n+2,m+2)*1000*time_now;
 A(2:n+1,2:m+1)=IN(:,:,1);				% Points inside are assumed to be already updated 
-tign(2:n+1,2:m+1)=IN(:,:,1)*time_now;	% and their time of ignition is set to time_now
+tign(2:n+1,2:m+1)=IN(:,:,1)*time_now+(1-IN(:,:,1))*1000*time_now;	% and their time of ignition is set to time_now
 
 changed=1;
 
-% The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
+% The algorithm stops when the matrix converges (tign_old-tign==0) or if
+% the amount of iterations
 % reaches the max(size()) of the mesh
 for istep=1:max(size(tign)),
     if changed==0, 
@@ -94,7 +95,7 @@ for istep=1:max(size(tign)),
     
     tign_last=tign;
 % tign_update - updates the time of ignition of the points
-[tign,A]=tign_update(tign,A,IN,delta_tign);
+[tign,A]=tign_update(tign,A,IN,delta_tign,time_now);
     % tign_update - updates the time of ignition of the points
 
     changed=sum(tign(:)~=tign_last(:));
@@ -122,8 +123,8 @@ A(2:n+1,2:m+1)=1-IN(:,:,1);
 final_tign=tign;
 tign_in=zeros(n+2,m+2);
 %tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
-tign_in=tign;
-tign_in(2:n+1,2:m+1)=IN(:,:,1).*inf;
+%tign_in=tign;
+tign_in(2:n+1,2:m+1)=(1-IN(:,:,1))*tign(2:n+1,2:m+1);
 changed=1;
 
 % The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
@@ -141,7 +142,7 @@ for istep=1:max(size(tign)),
     tign_last=tign_in;
     
     % tign_update - updates the tign of the points
-    [tign_in,A]=tign_update(tign,A,IN,delta_tign);
+    [tign_in,A]=tign_update(tign,A,IN,delta_tign,time_now);
     
     changed=sum(tign_in(:)~=tign_last(:));
 
@@ -168,7 +169,7 @@ if changed~=0,
 end
 end
 
-function [tign,A]=tign_update(tign,A,IN,delta_tign)
+function [tign,A]=tign_update(tign,A,IN,delta_tign,time_now)
   
 % Does one iteration of the algorythm and updates the tign of the points of
 % the mesh that are next to the previously updated neighbors
@@ -333,6 +334,9 @@ for i=2:size(long,1)-1
     for j=2:size(long,2)-1
         for a=-1:1
             for b=-1:1
+                if (a==1)&&(b==-1)
+                p='hello';
+                end
                 wind=0.5*((long(i,j,1)-long(i+a,j+b,1))*vf(i,j,1)+  ... 
                       (lat(i,j,1)-lat(i+a,j+b,1))*uf(i,j,1));
                 angle=0.5*((long(i,j,1)-long(i+a,j+b,1))*dzdxf(i,j,1)+  ... 
@@ -353,7 +357,7 @@ for i=2:size(long,1)-1
                 end
                 ros=min(ros,6);
                 % DEscribe the coefficient below
-                tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
+                delta_tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
                           (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
             end
         end
