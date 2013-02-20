@@ -156,6 +156,7 @@ end
 final_tign=zeros(n+2,m+2);
 final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 result=final_tign(2:n+1,2:m+1);
+mesh(result)
 
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', final_tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
