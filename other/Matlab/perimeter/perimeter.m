@@ -198,9 +198,7 @@ for i=2:size(tign,1)-1
                         % to get better calculation
                         %%% Make a picture of what is happening %%%
                         % I do multiplication by 0.5 here 0.5-(IN(i-1,j-1)>0
-                        if (i==5)&&(j==5)
-                        'hello'
-                        end
+                        
                         tign_new=tign(i+dx,j+dy)+(0.5-(IN(i-1,j-1)>0))*(delta_tign(i,j,dx+2,dy+2)+delta_tign(i+dx,j+dy,2-dx,2-dy));
                         
                         if (IN(i-1,j-1)>0)
