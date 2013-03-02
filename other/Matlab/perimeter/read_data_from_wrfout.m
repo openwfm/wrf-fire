@@ -1,22 +1,41 @@
-function [long,lat,uf,vf,dzdxf,dzdyf,time_now,bound]=read_data_from_wrfout(wrfout,time)
+function result=read_data_from_wrfout(wrfout,time)
+
+% for witch its 3100 2600
 
 format long
-unit_long=ncread(wrfout,'UNIT_FXLONG');
-unit_lat=ncread(wrfout,'UNIT_FXLAT');
-uf=ncread2(wrfout,'UF',time);
-vf=ncread2(wrfout,'VF',time);
-dzdxf=ncread2(wrfout,'DZDXF',time);
-dzdyf=ncread2(wrfout,'DZDYF',time);
-unit_long=unit_long(1);
-unit_lat=unit_lat(1);
-long=ncread2(wrfout,'FXLONG',time);
-lat=ncread(wrfout,'FXLAT',time);
+
+ncid = netcdf.open(wrfout,'NC_NOWRITE');
+
+varid = netcdf.inqVarID(ncid,char('UNIT_FXLONG'));
+unit_long=netcdf.getVar(ncid,varid,time,1);
+
+varid = netcdf.inqVarID(ncid,char('UNIT_FXLAT'));
+unit_lat=netcdf.getVar(ncid,varid,time,1);
+
+varid = netcdf.inqVarID(ncid,char('FXLONG'));
+long=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+
+varid = netcdf.inqVarID(ncid,char('FXLAT'));
+lat=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+
 long=long*unit_long;
 lat=lat*unit_lat;
 
-mkdir('../../other/Matlab/perimeter/','data_for_perimeter')
+varid = netcdf.inqVarID(ncid,char('UF'));
+long=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
 
-cd ../../other/Matlab/perimeter/data_for_perimeter
+varid = netcdf.inqVarID(ncid,char('VF'));
+long=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+
+varid = netcdf.inqVarID(ncid,char('DZDXF'));
+dzdxf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+
+varid = netcdf.inqVarID(ncid,char('DZDYF'));
+dzdyf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+
+mkdir('data_for_perimeter')
+
+cd data_for_perimeter
 
 fid = fopen('data_LONG.txt', 'w');
 dlmwrite('data_LONG.txt', long, 'delimiter', '\t','precision', '%.4f');
