@@ -22,10 +22,10 @@ long=long*unit_long;
 lat=lat*unit_lat;
 
 varid = netcdf.inqVarID(ncid,char('UF'));
-long=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+uf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
 
 varid = netcdf.inqVarID(ncid,char('VF'));
-long=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+vf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
 
 varid = netcdf.inqVarID(ncid,char('DZDXF'));
 dzdxf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);

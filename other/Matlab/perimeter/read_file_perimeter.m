@@ -1,4 +1,4 @@
-function [long,lat,uf,vf,dzdxf,dzdyf,time_now,bound]=read_file_perimeter(data,wrfout,time)
+function [long,lat,uf,vf,dzdxf,dzdyf,time_now,bound]=read_file_perimeter(data,data_long,data_lat,data_uf,data_vf,data_dzdxf,data_dzdyf,time)
 
 % Volodymyr Kondratenko           April 3 2012
 
@@ -33,47 +33,18 @@ function [long,lat,uf,vf,dzdxf,dzdyf,time_now,bound]=read_file_perimeter(data,wr
 
 
 format long
-unit_long=ncread(wrfout,'UNIT_FXLONG');
-unit_lat=ncread(wrfout,'UNIT_FXLAT');
-uf=ncread(wrfout,'UF');
-uf=uf(:,:,time);
-vf=ncread(wrfout,'VF');
-vf=vf(:,:,time);
-'uf(1000,1000)'  
- uf(1000,1000)
-'vf(1000,1000)' 
-vf(1000,1000)
-dzdxf=ncread(wrfout,'DZDXF');
-dzdxf=dzdxf(:,:,time);
-dzdyf=ncread(wrfout,'DZDYF');
-dzdyf=dzdyf(:,:,time);
-'dzdxf(1000,1000)' 
-dzdxf(1000,1000)
-'dzdyf(1000,1000)' 
-dzdyf(1000,1000)
-unit_long=unit_long(1);
-unit_lat=unit_lat(1);
-'unit_long' 
-unit_long
-'unit_lat' 
-unit_lat
-long=ncread(wrfout,'FXLONG');
-long=long(:,:,time);
-lat=ncread(wrfout,'FXLAT');
-lat=lat(:,:,time);
-long=long*unit_long;
-lat=lat*unit_lat;
-'long(1000,1000)' 
-long(1000,1000)
-'lat(1000,1000)' 
-lat(1000,1000)
+
+long=dlmread('data_LONG.txt', 'delimiter', '\t','precision', '%.4f');
+lat=dlmread('data_LAT.txt', 'delimiter', '\t','precision', '%.4f');
+uf=dlmread('data_UF.txt', 'delimiter', '\t','precision', '%.4f');
+vf=dlmread('data_VF.txt', 'delimiter', '\t','precision', '%.4f');
+dzdxf=dlmread('data_DZDXF.txt', 'delimiter', '\t','precision', '%.4f');
+dzdyf=dlmread('data_DZDYF.txt', 'delimiter', '\t','precision', '%.4f');
+
 
 fid = fopen(data);
 data = fscanf(fid,'%21g %*1s %19g %*3s \n',[2 inf]);
-%data = fscanf(fid,'%g %g',[2 inf]); % It has two rows now.
 data = data';
-'data(1:3,:)'
-data(1:3,:)
 fclose(fid)
 data_size=size(data);
 
@@ -82,10 +53,8 @@ time_now=data(1,1);
 bound=data(2:data_size(1),:); 
 bound(:,1)=bound(:,1)*unit_long;
 bound(:,2)=bound(:,2)*unit_lat;
-% bound - set of ordered points of the boundary 1st=last 
-% bound(i,1)-horisontal; bound(i,2)-vertical coordinate
 
-plot(bound(:,1),bound(:,2),'-')
+%plot(bound(:,1),bound(:,2),'-')
 
 
 
