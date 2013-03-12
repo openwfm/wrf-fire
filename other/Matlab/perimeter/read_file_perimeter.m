@@ -34,12 +34,12 @@ function [long,lat,uf,vf,dzdxf,dzdyf,time_now,bound]=read_file_perimeter(data,da
 
 format long
 
-long=dlmread('data_LONG.txt', 'delimiter', '\t','precision', '%.4f');
-lat=dlmread('data_LAT.txt', 'delimiter', '\t','precision', '%.4f');
-uf=dlmread('data_UF.txt', 'delimiter', '\t','precision', '%.4f');
-vf=dlmread('data_VF.txt', 'delimiter', '\t','precision', '%.4f');
-dzdxf=dlmread('data_DZDXF.txt', 'delimiter', '\t','precision', '%.4f');
-dzdyf=dlmread('data_DZDYF.txt', 'delimiter', '\t','precision', '%.4f');
+long=dlmread('data_LONG.txt');
+lat=dlmread('data_LAT.txt');
+uf=dlmread('data_UF.txt');
+vf=dlmread('data_VF.txt');
+dzdxf=dlmread('data_DZDXF.txt');
+dzdyf=dlmread('data_DZDYF.txt');
 
 
 fid = fopen(data);
@@ -49,6 +49,8 @@ fclose(fid)
 data_size=size(data);
 
 time_now=data(1,1);  
+unit_long=9.3189e+04
+unit_lat=1.1118e+05
 
 bound=data(2:data_size(1),:); 
 bound(:,1)=bound(:,1)*unit_long;
