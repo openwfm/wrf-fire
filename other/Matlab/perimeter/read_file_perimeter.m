@@ -49,8 +49,8 @@ fclose(fid)
 data_size=size(data);
 
 time_now=data(1,1);  
-unit_long=9.3189e+04
-unit_lat=1.1118e+05
+unit_long=9.3206484e+04;
+unit_lat=1.1117746e+05;
 
 bound=data(2:data_size(1),:); 
 bound(:,1)=bound(:,1)*unit_long;

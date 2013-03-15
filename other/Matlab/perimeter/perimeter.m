@@ -21,8 +21,8 @@ function result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
 %
 % Code:
 
-addpath('../../other/Matlab/util1_jan');
-addpath('../../other/Matlab/netcdf');
+%addpath('../../other/Matlab/util1_jan');
+%addpath('../../other/Matlab/netcdf');
 
 fuels % This function is needed to create fuel variable, that contains all the characteristics 
       % types of fuel, this function lies in the same folder where you run the main_function.m
@@ -63,7 +63,7 @@ long1=long*100000;
 % Code 
 
 [ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel);
-delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0)
+delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
 % Calculates needed variables for rate of fire spread calculation
 
 %%%%%%% First part %%%%%%%
@@ -306,7 +306,10 @@ function delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,
     %Extend the boundaries to speed up the algorithm, the values of the
     %extended boundaries would be set to zeros and are never used in the
     %code
+	result=1;
+    'hello'
     delta_tign=zeros(size(long,1)+2,size(long,2)+2,3,3);
+    rate_of_spread=zeros(size(long,1)+2,size(long,2)+2,3,3);
     
     long2=zeros(size(long,1)+2,size(long,2)+2);
     long2(2:size(long,1)+1,2:size(long,2)+1)=long;
@@ -336,9 +339,6 @@ for i=2:size(long,1)-1
     for j=2:size(long,2)-1
         for a=-1:1
             for b=-1:1
-                if (a==1)&&(b==-1)
-                p='hello';
-                end
                 wind=0.5*((long(i,j,1)-long(i+a,j+b,1))*vf(i,j,1)+  ... 
                       (lat(i,j,1)-lat(i+a,j+b,1))*uf(i,j,1));
                 angle=0.5*((long(i,j,1)-long(i+a,j+b,1))*dzdxf(i,j,1)+  ... 
@@ -357,13 +357,20 @@ for i=2:size(long,1)-1
                     spdms = max(wind,0.);
                     ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
                 end
-                ros=min(ros,6);
+                rate_of_spread(i,j,a+2,b+2)=min(ros,6);
                 % DEscribe the coefficient below
                 delta_tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
                           (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
             end
         end
+ 
+if (i==10)&&(j==10)
+  i
+  j
+    rate_of_spread(i,j,:,:)
+end
     end
+
 end
 end
 

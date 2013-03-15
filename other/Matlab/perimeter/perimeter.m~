@@ -21,8 +21,8 @@ function result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
 %
 % Code:
 
-addpath('../../other/Matlab/util1_jan');
-addpath('../../other/Matlab/netcdf');
+%addpath('../../other/Matlab/util1_jan');
+%addpath('../../other/Matlab/netcdf');
 
 fuels % This function is needed to create fuel variable, that contains all the characteristics 
       % types of fuel, this function lies in the same folder where you run the main_function.m
@@ -63,7 +63,7 @@ long1=long*100000;
 % Code 
 
 [ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel);
-delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0)
+delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
 % Calculates needed variables for rate of fire spread calculation
 
 %%%%%%% First part %%%%%%%
@@ -120,11 +120,11 @@ end
 % Initializing flag matrix A and time of ignition (tign)
 % Extending the boundaries, in order to speed up the algorythm
 A(2:n+1,2:m+1)=1-IN(:,:,1);
-final_tign=tign;
+%final_tign=tign;
 tign_in=zeros(n+2,m+2);
 %tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
 %tign_in=tign;
-tign_in(2:n+1,2:m+1)=(1-IN(:,:,1))*tign(2:n+1,2:m+1);
+tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*tign(2:n+1,2:m+1);
 changed=1;
 
 % The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
@@ -142,7 +142,7 @@ for istep=1:max(size(tign)),
     tign_last=tign_in;
     
     % tign_update - updates the tign of the points
-    [tign_in,A]=tign_update(tign,A,IN,delta_tign,time_now);
+    [tign_in,A]=tign_update(tign_in,A,IN,delta_tign,time_now);
     
     changed=sum(tign_in(:)~=tign_last(:));
 
@@ -153,9 +153,10 @@ for istep=1:max(size(tign)),
     fprintf(fid,'%s',data_steps); 
     fclose(fid);
 end
-
+final_tign=zeros(n+2,m+2);
 final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 result=final_tign(2:n+1,2:m+1);
+mesh(result)
 
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', final_tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
@@ -197,6 +198,7 @@ for i=2:size(tign,1)-1
                         % to get better calculation
                         %%% Make a picture of what is happening %%%
                         % I do multiplication by 0.5 here 0.5-(IN(i-1,j-1)>0
+                        
                         tign_new=tign(i+dx,j+dy)+(0.5-(IN(i-1,j-1)>0))*(delta_tign(i,j,dx+2,dy+2)+delta_tign(i+dx,j+dy,2-dx,2-dy));
                         
                         if (IN(i-1,j-1)>0)
@@ -304,7 +306,10 @@ function delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,
     %Extend the boundaries to speed up the algorithm, the values of the
     %extended boundaries would be set to zeros and are never used in the
     %code
+	result=1;
+    'hello'
     delta_tign=zeros(size(long,1)+2,size(long,2)+2,3,3);
+    rate_of_spread=zeros(size(long,1)+2,size(long,2)+2,3,3);
     
     long2=zeros(size(long,1)+2,size(long,2)+2);
     long2(2:size(long,1)+1,2:size(long,2)+1)=long;
@@ -334,9 +339,6 @@ for i=2:size(long,1)-1
     for j=2:size(long,2)-1
         for a=-1:1
             for b=-1:1
-                if (a==1)&&(b==-1)
-                p='hello';
-                end
                 wind=0.5*((long(i,j,1)-long(i+a,j+b,1))*vf(i,j,1)+  ... 
                       (lat(i,j,1)-lat(i+a,j+b,1))*uf(i,j,1));
                 angle=0.5*((long(i,j,1)-long(i+a,j+b,1))*dzdxf(i,j,1)+  ... 
@@ -355,13 +357,15 @@ for i=2:size(long,1)-1
                     spdms = max(wind,0.);
                     ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
                 end
-                ros=min(ros,6);
+                rate_of_spread(i,j,a+2,b+2)=min(ros,6);
                 % DEscribe the coefficient below
                 delta_tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
                           (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
             end
         end
     end
+if (i==100)&&(j==100)
+    rate_of_spread()
 end
 end
 
