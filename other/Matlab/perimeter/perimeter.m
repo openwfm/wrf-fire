@@ -364,11 +364,6 @@ for i=2:size(long,1)-1
             end
         end
  
-if (i==10)&&(j==10)
-  i
-  j
-    rate_of_spread(i,j,:,:)
-end
     end
 
 end
