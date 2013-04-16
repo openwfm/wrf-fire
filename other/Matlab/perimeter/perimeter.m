@@ -23,7 +23,7 @@ function result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
 
 %addpath('../../other/Matlab/util1_jan');
 %addpath('../../other/Matlab/netcdf');
-
+tic
 fuels % This function is needed to create fuel variable, that contains all the characteristics 
       % types of fuel, this function lies in the same folder where you run the main_function.m
 	  % (where is it originally located/can be created?)
@@ -94,7 +94,11 @@ for istep=1:max(size(tign)),
         
     
     tign_last=tign;
-% tign_update - updates the time of ignition of the points
+time_toc=toc;
+    data_steps=sprintf('%s\n %f -- How long does it take to run step %i',data_steps,time_toc,istep-1);
+
+    % tign_update - updates the time of ignition of the points
+ 
 [tign,A]=tign_update(tign,A,IN,delta_tign,time_now);
     % tign_update - updates the time of ignition of the points
 

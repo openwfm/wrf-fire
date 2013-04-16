@@ -23,7 +23,7 @@ function result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
 
 %addpath('../../other/Matlab/util1_jan');
 %addpath('../../other/Matlab/netcdf');
-
+tic
 fuels % This function is needed to create fuel variable, that contains all the characteristics 
       % types of fuel, this function lies in the same folder where you run the main_function.m
 	  % (where is it originally located/can be created?)
@@ -94,13 +94,17 @@ for istep=1:max(size(tign)),
         
     
     tign_last=tign;
-% tign_update - updates the time of ignition of the points
+time_toc=toc;
+    data_steps=sprintf('%s\n %f -- How long does it take to run the inpolygon',data_steps,time_toc);
+
+    % tign_update - updates the time of ignition of the points
+ 
 [tign,A]=tign_update(tign,A,IN,delta_tign,time_now);
     % tign_update - updates the time of ignition of the points
 
     changed=sum(tign(:)~=tign_last(:));
 
-    data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
+    data_steps=sprintf('%s\n step %i outside tign changed at %i points and it took %f',data_steps,istep,changed,time_toc);
     data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign-tign_last));
 
     fid = fopen('data_out_steps.txt', 'w');
@@ -363,9 +367,9 @@ for i=2:size(long,1)-1
                           (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
             end
         end
+ 
     end
-if (i==100)&&(j==100)
-    rate_of_spread()
+
 end
 end
 
