@@ -48,7 +48,7 @@ data = data';
 fclose(fid)
 data_size=size(data);
 
-time_now=data(1,1);  
+time_now=data(1,1)  
 unit_long=9.3206484e+04;
 unit_lat=1.1117746e+05;
 
@@ -56,6 +56,7 @@ bound=data(2:data_size(1),:);
 bound(:,1)=bound(:,1)*unit_long;
 bound(:,2)=bound(:,2)*unit_lat;
 
+size(bound)
 %plot(bound(:,1),bound(:,2),'-')
 
 
