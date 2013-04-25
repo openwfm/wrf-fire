@@ -74,7 +74,7 @@ toc
 % Initializing flag matrix A and time of ignition (tign)
 % Extending the boundaries, in order to speed up the algorythm
 A=[];
-C=[];
+C=zeros(n+2,m+2);
 % A contains coordinates of the points that were updated during the last
 % step
 IN_ext=(2)*ones(n+2,m+2);
@@ -85,7 +85,7 @@ for i=2:n+1
     for j=2:m+1
         if IN_ext(i,j)==1
             if sum(sum(IN_ext(i-1:i+1,j-1:j+1)))<9
-         A=[A;[i,j]];
+                A=[A;[i,j]];
             end
        end
     end
@@ -101,7 +101,7 @@ changed=1;
 % The algorithm stops when the matrix converges (tign_old-tign==0) or if
 % the amount of iterations
 % reaches the max(size()) of the mesh
-for istep=1:max(size(tign)),
+for istep=1:max(2*size(tign)),
     if changed==0, 
         % The matrix coverged
         data_steps=sprintf('%s\n%s',data_steps,'first part done');
@@ -119,7 +119,7 @@ time_toc=toc;
 
     % tign_update - updates the time of ignition of the points
  
-[tign,A]=tign_update(tign,A,IN_ext,delta_tign,time_now,0);
+[tign,A,C]=tign_update(tign,A,IN_ext,delta_tign,time_now,0);
     % tign_update - updates the time of ignition of the points
 
     changed=sum(tign(:)~=tign_last(:));
@@ -178,7 +178,7 @@ for istep=1:max(size(tign)),
 
     
     % tign_update - updates the tign of the points
-    [tign_in,A]=tign_update(tign_in,A,IN_ext,delta_tign,time_now,1);
+    [tign_in,A,C]=tign_update(tign_in,A,IN_ext,delta_tign,time_now,1);
   % hwen it is outside the last parameter is 0, inside 1  
     changed=sum(tign_in(:)~=tign_last(:));
 
@@ -206,11 +206,12 @@ if changed~=0,
 end
 end
 
-function [tign,A]=tign_update(tign,A,IN,delta_tign,time_now,where)
+function [tign,A,C]=tign_update(tign,A,IN,delta_tign,time_now,where)
   
 % Does one iteration of the algorythm and updates the tign of the points of
 % the mesh that are next to the previously updated neighbors
-B=[];
+%B=A(end,:);
+C=zeros(size(tign,1),size(tign,2));
 for i=1:size(A,1)
     for dx=-1:1   
         for dy=-1:1  
@@ -220,8 +221,11 @@ for i=1:size(A,1)
                         % Looking for the max tign, which
                         % should be <= than time_now, since the
                         % point is inside of the preimeter
-                        tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
-                        B=[B;[A(i,1)+dx,A(i,2)+dy]];
+                   %     if (B(end,1)~=A(i,1)+dx)||(B(end,2)~=A(i,2)+dy)
+                   %         B=[B;[A(i,1)+dx,A(i,2)+dy]];
+                            tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
+                            C(A(i,1)+dx,A(i,2)+dy)=1;
+                   %    end
                     end
             
                 elseif (1-where)*(1-IN(A(i,1)+dx,A(i,2)+dy))==1
@@ -231,14 +235,18 @@ for i=1:size(A,1)
                         % Looking for the min tign, which
                         % should be >= than time_now, since the
                         % point is outside of the preimeter
+                   %     if (B(end,1)~=A(i,1)+dx+1)||(B(end,2)~=A(i,2)+dy)
+                   %     B=[B;[A(i,1)+dx,A(i,2)+dy]];
                         tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
-                        B=[B;[A(i,1)+dx,A(i,2)+dy]];
-                    end 
+                        C(A(i,1)+dx,A(i,2)+dy)=1;
+                   %     end
+                    end
             end
         end
     end
 end
-A=B;
+A=[];
+[A(:,1),A(:,2)]=find(C>0);
 end
 
 function [ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel,fmc_g)
