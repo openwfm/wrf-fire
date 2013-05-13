@@ -12,6 +12,10 @@ module module_model_constants
    REAL   , PARAMETER :: g            = 9.81        ! gravity acceleration
 end module module_model_constants
 
+module module_state_description
+   integer, parameter:: num_tracer=1, p_tr17_1=1
+end module module_state_description
+
 !
 !***
 !
