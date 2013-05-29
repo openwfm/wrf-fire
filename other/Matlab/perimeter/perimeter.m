@@ -232,7 +232,7 @@ for i=1:size(A,1)
                 elseif (1-where)*(1-IN(A(i,1)+dx,A(i,2)+dy))==1
                     tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     
-                  if (A(i,1)+dx==1)&&(A(i,2)+dy==1)
+                  if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
                         display('i=1,j=1')
                         display('tign_new')   
                          tign_new
