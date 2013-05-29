@@ -46,7 +46,6 @@ fid = fopen('data_out_steps.txt', 'w');
 
 fprintf(fid,'%s',data_steps);  
 fclose(fid);
-toc
 %  IN - matrix, that shows, whether the point is inside (IN(x,y)>0) the burning region
 %  or outside (IN(x,y)<0)
 %  ON - matrix that, shows whether the point is on the boundary or not
@@ -64,9 +63,7 @@ long1=long*100000;
 % Code 
 
 [ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel);
-toc
 delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
-toc
 % Calculates needed variables for rate of fire spread calculation
 
 %%%%%%% First part %%%%%%%
@@ -81,7 +78,6 @@ C=zeros(n+2,m+2);
 IN_ext=(2)*ones(n+2,m+2);
 IN_ext(2:n+1,2:m+1)=IN(:,:,1);
 
-toc
 for i=2:n+1
     for j=2:m+1
         if IN_ext(i,j)==1
@@ -91,7 +87,6 @@ for i=2:n+1
        end
     end
 end
-toc
 tign=ones(n+2,m+2)*1000*time_now;
 tign(2:n+1,2:m+1)=IN(:,:,1)*time_now+(1-IN(:,:,1))*1000*time_now;	% and their time of ignition is set to time_now
 toc
@@ -106,16 +101,13 @@ for istep=1:max(2*size(tign)),
     if changed==0, 
         % The matrix coverged
         data_steps=sprintf('%s\n%s',data_steps,'first part done');
-        fid = fopen('output_tign_outside.txt', 'w');
-        dlmwrite('output_tign_outside.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
-        fclose(fid);
         'first part done'
         break
     end
         
     
     tign_last=tign;
-time_toc=toc;
+    time_toc=toc;
     data_steps=sprintf('%s\n %f -- How long does it take to run step %i',data_steps,time_toc,istep-1);
 
     % tign_update - updates the time of ignition of the points
@@ -145,7 +137,6 @@ end
 % Initializing flag matrix A and time of ignition (tign)
 % Extending the boundaries, in order to speed up the algorythm
 A=[];
-toc
 for i=2:n+1
     for j=2:m+1
         if IN_ext(i,j)==0
@@ -155,7 +146,6 @@ for i=2:n+1
        end
     end
 end
-toc
 
 tign_in=zeros(n+2,m+2);
 tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*tign(2:n+1,2:m+1);
@@ -166,9 +156,6 @@ changed=1;
 for istep=1:max(size(tign)),
     if changed==0, 
 		% The matrix of tign converged
-		fid = fopen('output_tign.txt', 'w');
-		dlmwrite('output_tign.txt', tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
-		fclose(fid);
 		'printed'
 		break
     end
@@ -193,10 +180,9 @@ end
 final_tign=zeros(n+2,m+2);
 final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 result=final_tign(2:n+1,2:m+1);
-mesh(result)
 
 fid = fopen('output_tign.txt', 'w');
-    dlmwrite('output_tign.txt', final_tign(2:n+1,2:m+1), 'delimiter', '\t','precision', '%.4f');
+    dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
     
 if changed~=0,
@@ -232,11 +218,15 @@ for i=1:size(A,1)
                 elseif (1-where)*(1-IN(A(i,1)+dx,A(i,2)+dy))==1
                     tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     
-                  if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
-                        display('i=1,j=1')
-                        display('tign_new')   
-                         tign_new
-                        display('tign(A(i,1),A(i,2))')
+if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
+    display('**********************************************************')
+display('i=1,j=1, (2,2) in extended array')
+display('we calculate it from the point')
+A(i,1)
+A(i,2)
+display('tign_new that was calculated')   
+tign_new
+display('tign(A(i,1),A(i,2))')
 tign(A(i,1),A(i,2))
 display('delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2) ')
 delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)
@@ -247,6 +237,8 @@ tign(A(i,1)+dx,A(i,2)+dy)
 
 display('time_now')
 time_now    
+display('check (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)')
+(tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)
 end
             
                     if (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now);
@@ -435,29 +427,29 @@ function [tign,A]=point_update(i,j,tign,delta_tign,inside)
     end
 end
 
-function result=print_matrix(tign,fid)
-
-
-fprintf(fid,'%s\n','j=1740:1744, i=2750:2754');
-
-for ii = 2750:2754
-    fprintf(fid,'%g\t',tign(ii,1740:1744));
-    fprintf(fid,'\n');
-end
-fprintf(fid,'%s\n','i=100');
-
-for ii = 98:102
-    fprintf(fid,'%g\t',tign(ii,98:102));
-    fprintf(fid,'\n');
-end
-fprintf(fid,'%s\n','i=1000');
-
-for ii = 998:1002
-    fprintf(fid,'%g\t',tign(ii,998:1002));
-    fprintf(fid,'\n');
-end
-result=0;
-end
+% function result=print_matrix(tign,fid)
+% 
+% 
+% fprintf(fid,'%s\n','j=1740:1744, i=2750:2754');
+% 
+% for ii = 2750:2754
+%     fprintf(fid,'%g\t',tign(ii,1740:1744));
+%     fprintf(fid,'\n');
+% end
+% fprintf(fid,'%s\n','i=100');
+% 
+% for ii = 98:102
+%     fprintf(fid,'%g\t',tign(ii,98:102));
+%     fprintf(fid,'\n');
+% end
+% fprintf(fid,'%s\n','i=1000');
+% 
+% for ii = 998:1002
+%     fprintf(fid,'%g\t',tign(ii,998:1002));
+%     fprintf(fid,'\n');
+% end
+% result=0;
+% end
 
 % for i=2:size(tign,1)-1
 %     for j=2:size(tign,2)-1

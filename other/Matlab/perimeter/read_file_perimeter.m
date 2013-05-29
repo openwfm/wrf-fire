@@ -56,8 +56,6 @@ bound=data(2:data_size(1),:);
 bound(:,1)=bound(:,1)*unit_long;
 bound(:,2)=bound(:,2)*unit_lat;
 
-size(bound)
-%plot(bound(:,1),bound(:,2),'-')
 
 
 

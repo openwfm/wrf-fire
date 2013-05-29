@@ -30,11 +30,3 @@ bound(:,2)=bound(:,2);
 result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound);
 figure
 surf(result)
-% Writing the data to the file data_out.txt
-fid = fopen('data_out_tign.txt', 'w');
-dlmwrite('data_out_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
-'printed'
-
-%write_array_2d('data_out_wrf_tign.txt',result)
-
