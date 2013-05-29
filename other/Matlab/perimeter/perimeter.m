@@ -30,6 +30,7 @@ fuels % This function is needed to create fuel variable, that contains all the c
 
 format long
 
+display('check function')
 bnd_size=size(bound);
 n=size(long,1);
 m=size(long,2);
@@ -230,6 +231,23 @@ for i=1:size(A,1)
             
                 elseif (1-where)*(1-IN(A(i,1)+dx,A(i,2)+dy))==1
                     tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
+                    
+                  if (A(i,1)+dx==1)&&(A(i,2)+dy==1)
+                        display('i=1,j=1')
+                        display('tign_new')   
+                         tign_new
+                        display('tign(A(i,1),A(i,2))')
+tign(A(i,1),A(i,2))
+display('delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2) ')
+delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)
+display('delta_tign(A(i,1),A(i,2),2-dx,2-dy)')
+delta_tign(A(i,1),A(i,2),2-dx,2-dy)
+display('tign(A(i,1)+dx,A(i,2)+dy')
+tign(A(i,1)+dx,A(i,2)+dy)
+
+display('time_now')
+time_now    
+end
             
                     if (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now);
                         % Looking for the min tign, which
