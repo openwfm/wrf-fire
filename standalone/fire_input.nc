@@ -1,0 +1,1 @@
+../wrfv2_fire/test/em_fire/hill/wrfout_d01_0001-01-01_00:00:00
