@@ -3,7 +3,7 @@ module module_fire_standalone
 use module_fr_sfire_driver, only: set_flags, fire_ignition_convert, &
                                   set_fp_from_grid
 use module_fr_sfire_util, only: message,crash, &
-          lines_type
+          lines_type, print_2d_stats
 use module_fr_sfire_phys, only: fire_params, init_fuel_cats
 use module_fr_sfire_model, only: sfire_model
 use module_domain, only: domain
@@ -36,7 +36,7 @@ integer::  &                ! fire mesh dimensions
 ! I/O interface
 character(len=*),parameter::inputfile='fire_input.nc'
 character(len=*),parameter::outputfile='fire_output.nc'
-real, pointer, dimension(:,:) ::  uf1, vf1, uf2, vf2   ! stored wind fields
+real, pointer, dimension(:,:) ::  uf1, vf1, uf2, vf2, fmc_g1, fmc_g2   ! stored input fields
 
 ! other derived types
 type(grid_info)::info                    ! dimensions, grid controls
@@ -142,6 +142,8 @@ call allocate2d(uf1,ifms,ifme,jfms,jfme,'uf1')              ! fire winds
 call allocate2d(vf1,ifms,ifme,jfms,jfme,'vf1')              ! fire winds
 call allocate2d(uf2,ifms,ifme,jfms,jfme,'uf2')              ! fire winds
 call allocate2d(vf2,ifms,ifme,jfms,jfme,'vf2')              ! fire winds
+call allocate2d(fmc_g1,ifms,ifme,jfms,jfme,'fmc_g1')              ! moisture 
+call allocate2d(fmc_g2,ifms,ifme,jfms,jfme,'fmc_g2')              ! moisture 
 
 ! copy pointers to grid fields, to pass to the spread rate calculation
 call set_fp_from_grid(grid,fp)
@@ -196,6 +198,7 @@ else
   iframe_end=info%ntimes
   uf1=grid%uf
   vf1=grid%vf
+  fmc_g1=grid%fmc_g
 endif
 itimestep = 0
 ifun_start=1
@@ -204,9 +207,10 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
     call read_vars(inputfile,info,iframe,grid)
     uf2=grid%uf
     vf2=grid%vf
+    fmc_g2=grid%fmc_g
   endif
   do istep=1,nsteps
-    itimestep=info%ntimes * (iframe - 1) + 1
+    itimestep=info%ntimes * (iframe - 1) + istep
     grid%itimestep = itimestep
     id=itimestep
     ifun_end=6
@@ -214,13 +218,20 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
     time_start = dt_double * (nsteps * (iframe - 1) + istep - 1)
     ! interpolate wind
     if(.not.uniform)then
-      t = (istep - 0.5)/real(nsteps)
+      t = (istep - 1.)/real(nsteps)
+      write(*,'(a,i4,a,i3,a,i8,a,f10.3,a,f10.3)')'frame',iframe,' step',istep,' id',id, &
+         ' start at ',time_start,'s t=',t
       grid%uf = (1. - t)*uf1 + t*uf2
       grid%vf = (1. - t)*vf1 + t*vf2
+      grid%fmc_g = (1. - t)*fmc_g1 + t*fmc_g2
     endif
  
     do ifun=ifun_start,ifun_end
   
+      if(ifun.eq.4)then
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%fmc_g,'fire:fmc_g')
+      endif
+
       call sfire_model (                    &
         id,                                     & ! unique number for prints and debug
         ifun,                                   & ! what to do see below
@@ -254,6 +265,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
   if(.not.uniform)then
     uf1=uf2
     vf1=vf2
+    fmc_g1=fmc_g2
   endif
 enddo
 

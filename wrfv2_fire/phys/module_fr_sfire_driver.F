@@ -858,8 +858,8 @@ do ij=1,num_tiles
         )
         call message('fuel_moisture end')
       endif
-      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
 
+      call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
     endif
 
     call sfire_model (id,ifun,restart,  &
