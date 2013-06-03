@@ -4,3 +4,8 @@ will produce wrfout with fmc_g and fmc_gc set
 Run ./fire.exe here to run the fire model from this fmc_g
 fire_input.nc is soft link to wrfout in hill
 namelist.input has fmoist_run = .false.,  fmoist_interp = .false.
+working with 
+4f8d1a29264de1cbd38671d242d5d3d1df606d23
+Author: Jan Mandel <Jan.Mandel@gmail.com>
+Date:   Sun Jun 2 18:16:28 2013 -0600
+
