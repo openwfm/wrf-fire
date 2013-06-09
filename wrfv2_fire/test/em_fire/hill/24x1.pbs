@@ -6,7 +6,7 @@
 #PBS -l nodes=2:ppn=12
 
 # Set the maximum amount of the time the job will run (HH:MM:SS)
-#PBS -l walltime=06:00:00
+#PBS -l walltime=00:06:00
 
 # Give the job a name
 #PBS -N hill_24x1
@@ -42,10 +42,11 @@ then
   ln -s ../input_tign_g .
 fi
 
+env
 
 cat $PBS_NODEFILE > nodes 
-mpirun_rsh -np 1 -hostfile nodes OMP_NUM_THREADS=1 ./ideal.exe 
+mpirun -np 1 -hostfile nodes -x OMP_NUM_THREADS=1 ./ideal.exe 
 mv rsl.error.0000 ideal.error.log
 mv rsl.out.0000 ideal.out.log
-mpirun_rsh -np 24 -hostfile nodes OMP_NUM_THREADS=1 ./wrf.exe 
+mpirun -np 24 -hostfile nodes -x OMP_NUM_THREADS=1 ./wrf.exe 
 
