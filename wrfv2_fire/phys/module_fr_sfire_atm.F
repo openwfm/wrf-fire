@@ -1964,7 +1964,7 @@ use module_state_description , only: p_smoke
         enddo
     enddo
 !$OMP CRITICAL(SFIRE_ATM_CRIT)
-    if(fire_print_msg >= 2)then
+    if(fire_print_msg >= 1)then
         write(msg,'(a,4i6,a,e13.4,a,i4)')'Tile ',its,ite,jts,jte,' added ',s,' total to tracer',l
         call message(msg,level=0)
     endif
