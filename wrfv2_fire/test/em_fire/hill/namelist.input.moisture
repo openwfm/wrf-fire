@@ -96,6 +96,7 @@
  time_step_sound                     = 20,     20,     20,
  moist_adv_opt                       = 1,      1,      1,
  scalar_adv_opt                      = 1,      1,      1,
+ tracer_opt                          = 2,      2,      2
  /
 
  &bdy_control

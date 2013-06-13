@@ -1933,6 +1933,8 @@ use module_state_description , only: p_smoke
     real,intent(in),dimension( ims:ime,kms:kme,jms:jme ) :: rho,dz8w
     
     integer::i,j,k,l
+    character(len=128)::msg
+    real::t,s
     
     ! just a dumb placeholder
     k=kds      ! dump into surface layer
@@ -1953,12 +1955,20 @@ use module_state_description , only: p_smoke
     end select
 
     if(num_tracer<l)call crash('fire_emission: num_tracer too small')
+    s=0
     do j=jts,jte
         do i=its,ite
-            tracer(i,k,j,l) = tracer(i,k,j,l) + grnhfx(i,j)/(rho(i,k,j)*dz8w(i,k,j))
+            t = grnhfx(i,j)/(rho(i,k,j)*dz8w(i,k,j))
+            tracer(i,k,j,l) = tracer(i,k,j,l) + t
+            s = s + t
         enddo
     enddo
-
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+    if(fire_print_msg >= 2)then
+        write(msg,'(a,4i6,a,e13.4,a,i4)')'Tile ',its,ite,jts,jte,' added ',s,' total to tracer',l
+        call message(msg,level=0)
+    endif
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
 end subroutine fire_emission
 !#endif
 
