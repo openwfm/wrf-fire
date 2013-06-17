@@ -54,7 +54,7 @@ real, save::            &
  fire_hfx_latent_part=0.084   ! proportion of the given heat flux released as latent, the rest is sensible
 
 
-integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
+integer, parameter:: REAL_SUM=10, REAL_MAX=20, REAL_MIN=21, REAL_AMAX=22, RNRM_SUM=30, RNRM_MAX=40
 
 ! describe one ignition line
 type line_type
@@ -75,6 +75,8 @@ type line_type
 end type line_type
 
 integer, parameter:: fire_max_lines=5
+
+integer:: stat_lev=1   ! print level to print statistics
 
 ! container type for all ignitions and associated scalars
 type lines_type
@@ -1565,7 +1567,7 @@ real::lsum,void
 integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
 real, save::psum,gsum
 real::rel
-logical:: dosum,domax
+logical:: dosum,domax,domin
 character(len=256)msg
 
 ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
@@ -1605,6 +1607,26 @@ elseif(fun.eq.REAL_MAX)then
       enddo
     enddo
   enddo
+elseif(fun.eq.REAL_AMAX)then
+  void=-huge(lsum)
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=max(lsum,abs(a(i,k,j)))
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.REAL_MIN)then
+  void=huge(lsum)
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=min(lsum,a(i,k,j))
+      enddo
+    enddo
+  enddo
 elseif(fun.eq.RNRM_MAX)then
   void=0.
   lsum=void
@@ -1622,7 +1644,8 @@ endif
 if(lsum.ne.lsum)call crash('fun_real: NaN detected')
 
 dosum=fun.eq.REAL_SUM.or.fun.eq.RNRM_SUM
-domax=fun.eq.REAL_MAX.or.fun.eq.RNRM_MAX
+domax=fun.eq.REAL_MAX.or.fun.eq.REAL_AMAX.or.fun.eq.RNRM_MAX
+domin=fun.eq.REAL_MIN
 
 ! get process sum over all threads
 !$OMP SINGLE
@@ -1636,6 +1659,7 @@ psum=void
 ! each thread adds its own lsum
 if(dosum)psum=psum+lsum
 if(domax)psum=max(psum,lsum)
+if(domin)psum=min(psum,lsum)
 !$OMP END CRITICAL(RDSUM)
 
 ! wait till all theads are done

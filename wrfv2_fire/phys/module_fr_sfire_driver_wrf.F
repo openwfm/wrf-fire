@@ -135,7 +135,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
 
     time_step_start=TimeInterval2Sec(domain_get_time_since_sim_start(grid)) 
     dt=TimeInterval2Sec(domain_get_time_step(grid))/fire_time_step_ratio
-    
+
 
     ! get fire mesh dimensions
     CALL get_ijk_from_subgrid (  grid ,                   &

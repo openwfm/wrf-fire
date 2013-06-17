@@ -133,7 +133,6 @@ integer::ignited,ig,i,j,itso,iteo,jtso,jteo
 real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
 logical:: freeze_fire
-integer:: stat_lev=1
 real::fireline_mask=-1.
 
 !*** executable
@@ -244,9 +243,9 @@ elseif (ifun.eq.4) then  ! do the timestep
         0,0,0,       &                            ! staggering
         fp%vx,fp%vy)
 !$OMP MASTER 
-      write(msg,91)time_start,'Average wind        ',aw,'m/s'
+      write(msg,91)time_start,'Average surface wind',aw,'m/s'
       call message(msg,stat_lev)
-      write(msg,91)time_start,'Maximum wind        ',mw,'m/s'
+      write(msg,91)time_start,'Maximum surface wind',mw,'m/s'
       call message(msg,stat_lev)
 !$OMP END MASTER 
     endif

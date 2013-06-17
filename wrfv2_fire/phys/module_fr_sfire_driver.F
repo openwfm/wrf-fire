@@ -148,7 +148,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
     integer::fire_ifun,ir,jr,istep,itimestep,i
     logical::restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
-    real:: corner_ll,corner_ul,corner_ur,corner_lr
+    real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
     character(len=128)msg
     type(fire_params)::fp
     real:: moisture_time
@@ -163,6 +163,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
     call sfire_debug_hook(config_flags%fire_debug_hook_sec)
     call time_start
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
+
 
 ! populate our structures from wrf
 
@@ -180,6 +181,69 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
 
     ! copy configuration flags to sfire internal structures
     call set_flags(config_flags)
+
+!   see what we got from wrf
+    if(fire_print_msg.ge.stat_lev)then
+
+      max_u=fun_real(REAL_AMAX,  &
+        ims,ime,kms,kme,jms,jme, &                ! memory dims
+        ids,ide,kds,kde,jds,jde, &                ! domain dims
+        ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+        1,0,0,       &                            ! staggering
+        grid%u_2,grid%u_2)
+
+      max_v=fun_real(REAL_AMAX,  &
+        ims,ime,kms,kme,jms,jme, &                ! memory dims
+        ids,ide,kds,kde,jds,jde, &                ! domain dims
+        ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+        0,0,1,       &                            ! staggering
+        grid%v_2,grid%v_2)
+
+      max_w=fun_real(REAL_AMAX,  &
+        ims,ime,kms,kme,jms,jme, &                ! memory dims
+        ids,ide,kds,kde,jds,jde, &                ! domain dims
+        ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+        0,1,0,       &                            ! staggering
+        grid%w_2,grid%w_2)
+
+      max_rho=fun_real(REAL_MAX,  &
+        ims,ime,kms,kme,jms,jme, &                ! memory dims
+        ids,ide,kds,kde,jds,jde, &                ! domain dims
+        ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        rho,rho)
+
+      min_rho=fun_real(REAL_MIN,  &
+        ims,ime,kms,kme,jms,jme, &                ! memory dims
+        ids,ide,kds,kde,jds,jde, &                ! domain dims
+        ips,ipe,kps,kpe,jps,jpe, &                ! patch or tile dims
+        0,0,0,       &                            ! staggering
+        rho,rho)
+
+      !write(msg,93)time_step_start,'Maximal u v w  wind',max_u,max_v,max_w,'m/s'
+      !call message(msg,stat_lev)
+      !write(msg,92)time_step_start,'Min and max rho    ',min_rho,max_rho,'kg/m^3'
+      !call message(msg,stat_lev)
+
+      write(msg,91)time_step_start,'Maximal u wind      ',max_u,'m/s'
+      call message(msg,stat_lev)
+      write(msg,91)time_step_start,'Maximal v wind      ',max_v,'m/s'
+      call message(msg,stat_lev)
+      write(msg,91)time_step_start,'Maximal w wind      ',max_w,'m/s'
+      call message(msg,stat_lev)
+      write(msg,91)time_step_start,'Minimal rho         ',min_rho,'kg/m^3'
+      call message(msg,stat_lev)
+      write(msg,91)time_step_start,'Maximal rho         ',max_rho,'kg/m^3'
+      call message(msg,stat_lev)
+
+
+93    format('Time ',f11.3,' s ',a,3e12.3,1x,a)
+92    format('Time ',f11.3,' s ',a,2e12.3,1x,a)
+91    format('Time ',f11.3,' s ',a,e12.3,1x,a)
+
+
+    endif
+
 
     ! refinement r
     ir=grid%sr_x ! refinement ratio
