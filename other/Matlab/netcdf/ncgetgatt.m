@@ -1,5 +1,6 @@
 function gattval=ncgetgatt(filename,gattname) 
-% get the value of global attribute
+% gattval=ncgetgatt(filename,gattname)
+% read from file the value of global attribute
 quiet=exist('q','var');
 % fprintf('ncgetatt: file %s\n',filename);
 ncid = netcdf.open(filename,'NC_NOWRITE');

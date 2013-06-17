@@ -1,6 +1,10 @@
 % function clamp2mesh
 % compute the nearest point in the fire mesh to the given coordinates
 % use to determine ignition points that lie on the mesh
+% run this in the directory with your wrfinput file
+
+% jan mandel, june 2013
+
 d=input('enter domain number: ');
 f=sprintf('wrfinput_d%02i',d);
 fprintf('reading file %s\n',f);

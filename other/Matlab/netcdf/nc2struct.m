@@ -1,5 +1,5 @@
-function p=nc2struct(filename,varnames,gattnames,times,p)
-% p=ncread2str(filename,varnames,g       p.(lower(varname))=[];attnames,times)
+function p=nc2struct(filename,varnames,gattnames,timesteps,p)
+% p=ncread2str(filename,varnames,gattnames,times,p)
 % read from netcdf file to structure
 %
 % arguments
@@ -28,15 +28,15 @@ for i=1:length({varnames{:}}),
         warning(['variable ',varname,' does not exist in file ',filename])
         v.var_value=[];
     end
-    if ~isempty(times) && ~isempty(v.var_value),
+    if exist('timesteps','var') && ~isempty(v.var_value),
         dims=length(v.dimlength);
         switch dims
             case 2
-                val=v.var_value(:,times);
+                val=v.var_value(:,timesteps);
             case 3
-                val=v.var_value(:,:,times);
+                val=v.var_value(:,:,timesteps);
             case 4
-                val=v.var_value(:,:,:,times);
+                val=v.var_value(:,:,:,timesteps);
             otherwise
                 warning('unsupported number of dimensions')
                 val=v.var_value;
