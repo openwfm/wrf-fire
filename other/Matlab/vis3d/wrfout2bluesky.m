@@ -33,11 +33,14 @@ lon=w.fxlong(:,:,1);
 fprintf('writing file %s\n',out);
 fid=fopen(out,'w');
 for i=1:s
-    b=w.fire_area(:,:,i)>0;  % burning fire mesh squares
-    fire_ctr_lon=mean(lon(b(:)));  % center longitude of the fire area 
-    fire_ctr_lat=mean(lat(b(:)));  % center latitude of the fire area 
-    fire_acres=w.dx*w.dy*sum(sum((w.fire_area(:,:,i))))/4046.86;
-    fprintf(fid,'1, %g, %g, %g, %s\n',fire_ctr_lon,fire_ctr_lat,fire_acres,t(i,:));
+    a=w.fire_area(:,:,i);  % burning fire mesh squares
+    cc=bwconncomp(a>0); % find connected components,  image processing toolbox
+    for id=1:length(cc.PixelIdxList)
+        fire_ctr_lon=mean(lon(cc.PixelIdxList{id}));  % center longitude of the fire area 
+        fire_ctr_lat=mean(lat(cc.PixelIdxList{id}));  % center latitude of the fire area 
+        fire_acres=w.dx*w.dy*sum(a(cc.PixelIdxList{id}))/4046.86; % burning acres
+        fprintf(fid,'%i, %g, %g, %g, %s\n',id,fire_ctr_lon,fire_ctr_lat,fire_acres,t(i,:));
+    end
 end
 fclose(fid);
 end
