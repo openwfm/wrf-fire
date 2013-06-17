@@ -1214,6 +1214,11 @@ return
 write(msg,1)name,i,k,j,aa
 call message(msg,level=0)
 1 format(a30,'(',i6,',',i6,',',i6,') = ',g13.5)
+write(msg,2)'patch dimensions ',ips,ipe,kps,kpe,jps,jpe
+call message(msg,level=0)
+write(msg,2)'memory dimensions',ims,ime,kms,kme,jms,jme
+call message(msg,level=0)
+2 format(a,6i8)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
 if(aa.ne.aa)goto 10

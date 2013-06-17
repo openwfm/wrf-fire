@@ -112,7 +112,7 @@ subroutine sfire_driver_em_step (grid , config_flags               &
              ifms,ifme, kfms,kfme, jfms,jfme,                              &
              ifps,ifpe, kfps,kfpe, jfps,jfpe                              
     integer :: its,ite,jts,jte,kts,kte            ! atm tile
-    integer:: ij 
+    integer:: ij, ipe1,jpe1,kpe1
     real::time_step_start,dt
 
     integer::fire_time_step_ratio,itime_step,i,j
@@ -149,6 +149,12 @@ subroutine sfire_driver_em_step (grid , config_flags               &
     canhfx_save(:,:)=0.
     canqfx_save(:,:)=0.
 
+    ! ignore last row in domain, not set properly
+    ! done below when setting ite,jte 
+    ipe1 = min(ipe,ide-1)
+    jpe1 = min(jpe,jde-1)
+    kpe1=kpe-1
+
     ! fire time step loop
     do itime_step = 1,fire_time_step_ratio
 
@@ -165,8 +171,8 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             ) 
 
         ! accumulate fluxes for atmospheric tendency
-        do j=jps,jpe
-            do i=ips,ipe
+        do j=jps,jpe1
+            do i=ips,ipe1
                 grnhfx_save(i,j)=grnhfx_save(i,j) + grid%grnhfx(i,j)
                 grnqfx_save(i,j)=grnqfx_save(i,j) + grid%grnqfx(i,j)
                 canhfx_save(i,j)=canhfx_save(i,j) + grid%canhfx(i,j)
@@ -178,8 +184,8 @@ subroutine sfire_driver_em_step (grid , config_flags               &
     enddo
 
         ! copy fluxes back to grid structure
-        do j=jps,jpe
-            do i=ips,ipe
+        do j=jps,jpe1
+            do i=ips,ipe1
                 grid%grnhfx(i,j)=grnhfx_save(i,j)/fire_time_step_ratio
                 grid%grnqfx(i,j)=grnqfx_save(i,j)/fire_time_step_ratio
                 grid%canhfx(i,j)=canhfx_save(i,j)/fire_time_step_ratio
@@ -187,14 +193,14 @@ subroutine sfire_driver_em_step (grid , config_flags               &
             enddo
         enddo
 
-
-   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,z_at_w,'z_at_w')
-   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,dz8w,'dz8w')
-   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe,kps,kpe-1,jps,jpe,0,0,0,rho,'rho')
-   call print_chsum(0,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe,1,1,jps,jpe,0,0,0,grid%mut,'mu')
-   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,rho,'rho')
-   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,z_at_w,'z_at_w')
-   call print_3d_stats(ips,ipe,kps,kpe-1,jps,jpe,ims,ime,kms,kme,jms,jme,dz8w,'dz8w')
+   
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe1,kps,kpe1,jps,jpe1,0,0,0,z_at_w,'z_at_w')
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe1,kps,kpe1,jps,jpe1,0,0,0,dz8w,'dz8w')
+   call print_chsum(0,ims,ime,kms,kme,jms,jme,ids,ide,kds,kde,jds,jde,ips,ipe1,kps,kpe1,jps,jpe1,0,0,0,rho,'rho')
+   call print_chsum(0,ims,ime,1,1,jms,jme,ids,ide,1,1,jds,jde,ips,ipe1,1,1,jps,jpe1,0,0,0,grid%mut,'mu')
+   call print_3d_stats(ips,ipe1,kps,kpe1,jps,jpe1,ims,ime,kms,kme,jms,jme,rho,'rho')
+   call print_3d_stats(ips,ipe1,kps,kpe1,jps,jpe1,ims,ime,kms,kme,jms,jme,z_at_w,'z_at_w')
+   call print_3d_stats(ips,ipe1,kps,kpe1,jps,jpe1,ims,ime,kms,kme,jms,jme,dz8w,'dz8w')
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     do ij=1,grid%num_tiles
