@@ -1,4 +1,5 @@
-data='data_perimeter.txt';
+data='data_perim.txt';
+%data='data_perimeter.txt';
 
 cd data_for_perimeter
 addpath ../../perimeter

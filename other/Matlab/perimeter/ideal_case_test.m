@@ -1,7 +1,7 @@
 for i=1:12
 	for j=1:12
-		long(i,j)=i;
-		lat(i,j)=j;
+		long(i,j)=i+100;
+		lat(i,j)=j+100;
       %  vx(i,j)=1;
       %  ux(i,j)=1;
       %  dzdxf(i,j)=1;
@@ -23,9 +23,9 @@ data_size=size(data);
 
 time_now=data(1,1);
 
-bound=data(2:data_size(1),:);
-bound(:,1)=bound(:,1);
-bound(:,2)=bound(:,2);
+bound=100+data(2:data_size(1),:);
+
+plot(bound(:,1),bound(:,2),'-');
 
 result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound);
 figure

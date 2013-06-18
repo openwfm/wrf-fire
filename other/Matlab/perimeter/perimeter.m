@@ -109,7 +109,7 @@ str=sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
 
     changed=sum(tign(:)~=tign_last(:));
 
-   sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign-tign_last))
+   sprintf('%s \n step %i outside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign-tign_last))
   
    end
 
@@ -125,6 +125,7 @@ end
 % Initializing flag matrix A and time of ignition (tign)
 % Extending the boundaries, in order to speed up the algorythm
 A=[];
+C=zeros(n+2,m+2);
 for i=2:n+1
     for j=2:m+1
         if IN_ext(i,j)==0
@@ -199,28 +200,28 @@ for i=1:size(A,1)
                 elseif (1-where)*(1-IN(A(i,1)+dx,A(i,2)+dy))==1
                     tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     
-% if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
-%     display('**********************************************************')
-% display('i=1,j=1, (2,2) in extended array')
-% display('we calculate it from the point')
-% A(i,1)
-% A(i,2)
-% display('tign_new that was calculated')   
-% tign_new
-% display('tign(A(i,1),A(i,2))')
-% tign(A(i,1),A(i,2))
-% display('delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2) ')
-% delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)
-% display('delta_tign(A(i,1),A(i,2),2-dx,2-dy)')
-% delta_tign(A(i,1),A(i,2),2-dx,2-dy)
-% display('tign(A(i,1)+dx,A(i,2)+dy')
-% tign(A(i,1)+dx,A(i,2)+dy)
-% 
-% display('time_now')
-% time_now    
-% display('check (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)')
-% (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)
-% end
+if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
+    display('**********************************************************')
+display('i=1,j=1, (2,2) in extended array')
+display('we calculate it from the point')
+A(i,1)
+A(i,2)
+display('tign_new that was calculated')   
+tign_new
+display('tign(A(i,1),A(i,2))')
+tign(A(i,1),A(i,2))
+display('delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2) ')
+delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)
+display('delta_tign(A(i,1),A(i,2),2-dx,2-dy)')
+delta_tign(A(i,1),A(i,2),2-dx,2-dy)
+display('tign(A(i,1)+dx,A(i,2)+dy')
+tign(A(i,1)+dx,A(i,2)+dy)
+
+display('time_now')
+time_now    
+display('check (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)')
+(tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)
+end
             
                     if (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now);
                         % Looking for the min tign, which
