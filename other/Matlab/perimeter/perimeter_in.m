@@ -1,4 +1,17 @@
-function result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
+function result=perimeter_in(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
+display('long(100,100), size long')
+long(100,100)
+size(long)
+display('lat')
+lat(100,100)
+display('dzdxf')
+dzdxf(100,100)
+display(dzdyf)
+dzdyf(100,100)
+display('time_now')
+time_now
+display('bound(100,:)')
+bound(100,:)
 
 % Volodymyr Kondratenko           December 8 2012	
 
@@ -52,6 +65,9 @@ yv=yv*100000;
 lat1=lat*100000;
 long1=long*100000;
 [IN,ON] = inpolygon(long1,lat1,xv,yv);
+fid = fopen('IN.txt', 'w');
+    dlmwrite('IN.txt', IN, 'delimiter', '\t','precision', '%.4f');
+    fclose(fid);
 
 % Code 
 
@@ -64,63 +80,60 @@ delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,bet
 
 % Initializing flag matrix A and time of ignition (tign)
 % Extending the boundaries, in order to speed up the algorythm
-A=[];
-C=zeros(n+2,m+2);
+%A=[];
+%C=zeros(n+2,m+2);
 % A contains coordinates of the points that were updated during the last
 % step
+
 IN_ext=(2)*ones(n+2,m+2);
 IN_ext(2:n+1,2:m+1)=IN(:,:,1);
 
-for i=2:n+1
-    for j=2:m+1
-        if IN_ext(i,j)==1
-            if sum(sum(IN_ext(i-1:i+1,j-1:j+1)))<9
-                A=[A;[i,j]];
-            end
-       end
-    end
-end
-tign=ones(n+2,m+2)*1000*time_now;
-tign(2:n+1,2:m+1)=IN(:,:,1)*time_now+(1-IN(:,:,1))*1000*time_now;	% and their time of ignition is set to time_now
-toc
+%for i=2:n+1
+%    for j=2:m+1
+%        if IN_ext(i,j)==1
+%            if sum(sum(IN_ext(i-1:i+1,j-1:j+1)))<9
+%                A=[A;[i,j]];
+%            end
+%       end
+%    end
+%end
+%tign=ones(n+2,m+2)*1000*time_now;
+%tign(2:n+1,2:m+1)=IN(:,:,1)*time_now+(1-IN(:,:,1))*1000*time_now;	% and their time of ignition is set to time_now
+%toc
 
 
-changed=1;
+%changed=1;
 
 % The algorithm stops when the matrix converges (tign_old-tign==0) or if
 % the amount of iterations
 % reaches the max(size()) of the mesh
-for istep=1:max(2*size(tign)),
-    if changed==0, 
+%for istep=1:max(2*size(tign)),
+%    if changed==0, 
         % The matrix coverged
-        'first part done'
-        break
-    end
+%        'first part done'
+%        break
+%    end
         
     
-    tign_last=tign;
-    time_toc=toc;
-display('%s\n %f -- How long does it take to run step %i',data_steps,time_toc,istep-1);
+%    tign_last=tign;
+%    time_toc=toc;
+%str=sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
 
     % tign_update - updates the time of ignition of the points
  
-[tign,A,C]=tign_update(tign,A,IN_ext,delta_tign,time_now,0);
+%[tign,A,C]=tign_update(tign,A,IN_ext,delta_tign,time_now,0);
     % tign_update - updates the time of ignition of the points
 
-    changed=sum(tign(:)~=tign_last(:));
+%    changed=sum(tign(:)~=tign_last(:));
 
-    data_steps=sprintf('%s\n step %i outside tign changed at %i points',data_steps,istep,changed);
-    data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign-tign_last));
+%   sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign-tign_last))
+  
+%   end
 
-    fid = fopen('data_out_steps.txt', 'w');
-    fprintf(fid,'%s',data_steps); 
-    fclose(fid);
-end
-
-if changed~=0,
-   data_steps=sprintf('%s\n%s',data_steps,'did not find fixed point outside');
-    warning('did not find fixed point')
-end
+%if changed~=0,
+   
+%   'did not find fixed point'
+%end
 
 %%%%%%% Second part %%%%%%%
 
@@ -129,6 +142,7 @@ end
 % Initializing flag matrix A and time of ignition (tign)
 % Extending the boundaries, in order to speed up the algorythm
 A=[];
+C=zeros(n+2,m+2);
 for i=2:n+1
     for j=2:m+1
         if IN_ext(i,j)==0
@@ -140,12 +154,12 @@ for i=2:n+1
 end
 
 tign_in=zeros(n+2,m+2);
-tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*tign(2:n+1,2:m+1);
+tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;;
 changed=1;
 
 % The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
 % % reaches the max(size()) of the mesh
-for istep=1:max(size(tign)),
+for istep=1:max(size(tign_in)),
     if changed==0, 
 		% The matrix of tign converged
 		'printed'
@@ -154,7 +168,7 @@ for istep=1:max(size(tign)),
     
     tign_last=tign_in;
     time_toc=toc;
-    data_steps=sprintf('%s\n %f -- How long does it take to run step %i',data_steps,time_toc,istep-1);
+   str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
 
     
     % tign_update - updates the tign of the points
@@ -162,27 +176,21 @@ for istep=1:max(size(tign)),
   % hwen it is outside the last parameter is 0, inside 1  
     changed=sum(tign_in(:)~=tign_last(:));
 
-    data_steps=sprintf('%s\n step %i inside tign changed at %i points',data_steps,istep,changed);
-    data_steps=sprintf('%s\n %f -- norm of the difference',data_steps,norm(tign_in-tign_last));
-
-    fid = fopen('data_out_steps.txt', 'w');
-    fprintf(fid,'%s',data_steps); 
-    fclose(fid);
+    sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
+    
 end
-final_tign=zeros(n+2,m+2);
-final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
+final_tign=tign_in;;
+%final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 result=final_tign(2:n+1,2:m+1);
 
-fid = fopen('output_tign.txt', 'w');
-    dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
+fid = fopen('output_tign_south.txt', 'w');
+    dlmwrite('output_tign_south.txt', result, 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
+
     
 if changed~=0,
-    data_steps=sprintf('%s\n%s',data_steps,'did not find fixed point inside');
-    warning('did not find fixed point inside')
-    
-    'printed'
-end
+    'did not find fixed point inside'
+   end
 end
 
 function [tign,A,C]=tign_update(tign,A,IN,delta_tign,time_now,where)
@@ -210,28 +218,28 @@ for i=1:size(A,1)
                 elseif (1-where)*(1-IN(A(i,1)+dx,A(i,2)+dy))==1
                     tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     
-% if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
-%     display('**********************************************************')
-% display('i=1,j=1, (2,2) in extended array')
-% display('we calculate it from the point')
-% A(i,1)
-% A(i,2)
-% display('tign_new that was calculated')   
-% tign_new
-% display('tign(A(i,1),A(i,2))')
-% tign(A(i,1),A(i,2))
-% display('delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2) ')
-% delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)
-% display('delta_tign(A(i,1),A(i,2),2-dx,2-dy)')
-% delta_tign(A(i,1),A(i,2),2-dx,2-dy)
-% display('tign(A(i,1)+dx,A(i,2)+dy')
-% tign(A(i,1)+dx,A(i,2)+dy)
-% 
-% display('time_now')
-% time_now    
-% display('check (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)')
-% (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)
-% end
+ if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
+     display('**********************************************************')
+ display('i=1,j=1, (2,2) in extended array')
+ display('we calculate it from the point')
+ A(i,1)
+ A(i,2)
+ display('tign_new that was calculated')   
+ tign_new
+ display('tign(A(i,1),A(i,2))')
+ tign(A(i,1),A(i,2))
+ display('delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2) ')
+ delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)
+ display('delta_tign(A(i,1),A(i,2),2-dx,2-dy)')
+ delta_tign(A(i,1),A(i,2),2-dx,2-dy)
+ display('tign(A(i,1)+dx,A(i,2)+dy')
+ tign(A(i,1)+dx,A(i,2)+dy)
+ 
+ display('time_now')
+ time_now    
+ display('check (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)')
+ (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)
+ end
             
                     if (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now);
                         % Looking for the min tign, which
