@@ -27,6 +27,6 @@ bound=100+data(2:data_size(1),:);
 
 plot(bound(:,1),bound(:,2),'-');
 
-result=perimeter(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound);
+result=perimeter_in(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound);
 figure
 surf(result)
