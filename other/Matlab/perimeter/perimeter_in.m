@@ -1,17 +1,4 @@
-function result=perimeter_in(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound)
-display('long(100,100), size long')
-long(100,100)
-size(long)
-display('lat')
-lat(100,100)
-display('dzdxf')
-dzdxf(100,100)
-display(dzdyf)
-dzdyf(100,100)
-display('time_now')
-time_now
-display('bound(100,:)')
-bound(100,:)
+function result=perimeter_in(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound,wrfout,interval,count)
 
 % Volodymyr Kondratenko           December 8 2012	
 
@@ -65,9 +52,6 @@ yv=yv*100000;
 lat1=lat*100000;
 long1=long*100000;
 [IN,ON] = inpolygon(long1,lat1,xv,yv);
-fid = fopen('IN.txt', 'w');
-    dlmwrite('IN.txt', IN, 'delimiter', '\t','precision', '%.4f');
-    fclose(fid);
 
 % Code 
 
@@ -168,7 +152,17 @@ for istep=1:max(size(tign_in)),
     
     tign_last=tign_in;
     time_toc=toc;
-   str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
+    str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
+   
+    
+    if ((time_old-tign_in(A(1,1)))>=(count*interval))
+    'getting new wind variables'
+        time_old=time_old-count*interval
+        time=time-count
+        [vf,uf]=get_wind(wrfout,time);
+        delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
+        
+    end
 
     
     % tign_update - updates the tign of the points
@@ -183,10 +177,9 @@ final_tign=tign_in;;
 %final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 result=final_tign(2:n+1,2:m+1);
 
-fid = fopen('output_tign_south.txt', 'w');
-    dlmwrite('output_tign_south.txt', result, 'delimiter', '\t','precision', '%.4f');
+fid = fopen('output_tign.txt', 'w');
+    dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
-
     
 if changed~=0,
     'did not find fixed point inside'
@@ -218,28 +211,10 @@ for i=1:size(A,1)
                 elseif (1-where)*(1-IN(A(i,1)+dx,A(i,2)+dy))==1
                     tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     
- if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
-     display('**********************************************************')
- display('i=1,j=1, (2,2) in extended array')
- display('we calculate it from the point')
- A(i,1)
- A(i,2)
- display('tign_new that was calculated')   
- tign_new
- display('tign(A(i,1),A(i,2))')
- tign(A(i,1),A(i,2))
- display('delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2) ')
- delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)
- display('delta_tign(A(i,1),A(i,2),2-dx,2-dy)')
- delta_tign(A(i,1),A(i,2),2-dx,2-dy)
- display('tign(A(i,1)+dx,A(i,2)+dy')
- tign(A(i,1)+dx,A(i,2)+dy)
+ %
+ % ifs for checking the boundary were here
+ %
  
- display('time_now')
- time_now    
- display('check (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)')
- (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)
- end
             
                     if (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now);
                         % Looking for the min tign, which
@@ -403,232 +378,40 @@ for i=2:size(long,1)-1
 end
 end
 
-function [tign,A]=point_update(i,j,tign,delta_tign,inside)
-    
-    for dx=-1:+1   
-        for dy=-1:+1  
-            % loop over all neighbors
-        	if (A(i+dx,j+dy)==1) % the neighbor was already updated 
-        	% All the vectors are split in half-intervals
-        	% to get better calculation
-            %%% Make a picture of what is happening %%%
-                            
-            tign_new=tign(i+dx,j+dy)-delta_tign(i,j,dx+2,dy+2)-delta_tign(i+dx,j+dy,2-dx,2-dy);
-                           
-                if (tign(i,j)<tign_new)&&(tign_new<=time_now);
-                    % Looking for the max tign, which
-                    % should be <= than time_now, since the
-                    % point is inside of the preimeter
-                    tign(i,j)=tign_new;
-                    A(i,j)=1;
-                end
-            end
-        end
-    end
+function [vf,uf]=get_wind(wrfout,time);
+
+format long
+
+ncid = netcdf.open(wrfout,'NC_NOWRITE');
+
+varid = netcdf.inqVarID(ncid,char('UF'));
+uf=netcdf.getVar(ncid,varid,[0,0,time],[3920,3860,1]);
+
+varid = netcdf.inqVarID(ncid,char('VF'));
+vf=netcdf.getVar(ncid,varid,[0,0,time],[3920,3860,1]);
+
 end
 
-% function result=print_matrix(tign,fid)
-% 
-% 
-% fprintf(fid,'%s\n','j=1740:1744, i=2750:2754');
-% 
-% for ii = 2750:2754
-%     fprintf(fid,'%g\t',tign(ii,1740:1744));
-%     fprintf(fid,'\n');
-% end
-% fprintf(fid,'%s\n','i=100');
-% 
-% for ii = 98:102
-%     fprintf(fid,'%g\t',tign(ii,98:102));
-%     fprintf(fid,'\n');
-% end
-% fprintf(fid,'%s\n','i=1000');
-% 
-% for ii = 998:1002
-%     fprintf(fid,'%g\t',tign(ii,998:1002));
-%     fprintf(fid,'\n');
-% end
-% result=0;
-% end
+% if (A(i,1)+dx==2)&&(A(i,2)+dy==2)
+%      display('**********************************************************')
+%  display('i=1,j=1, (2,2) in extended array')
+%  display('we calculate it from the point')
+%  A(i,1)
+%  A(i,2)
+%  display('tign_new that was calculated')   
+%  tign_new
+%  display('tign(A(i,1),A(i,2))')
+%  tign(A(i,1),A(i,2))
+%  display('delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2) ')
+%  delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)
+%  display('delta_tign(A(i,1),A(i,2),2-dx,2-dy)')
+%  delta_tign(A(i,1),A(i,2),2-dx,2-dy)
+%  display('tign(A(i,1)+dx,A(i,2)+dy')
+%  tign(A(i,1)+dx,A(i,2)+dy)
+%  
+%  display('time_now')
+%  time_now    
+%  display('check (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)')
+%  (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now)
+%  end
 
-% for i=2:size(tign,1)-1
-%     for j=2:size(tign,2)-1
-%         % sum_A is needed to know what is the amount of points that surrounds (i,j)
-%         sum_A=sum(sum(A(i-1:i+1,j-1:j+1)));
-%         
-%         if (sum_A~=0)
-%             
-%             % sum_A>0 then at least on eneighbor was previously updated and its
-%             % tign can be used to update the tign of the point (i,j)
-%             
-%             % I subtract 1 in all IN, long, lat, uf, vf, dzdxf, dzdyf
-%             % matrices, because their boundaries were not updated, unlike
-%             %%% tign (do the loop 1:n, 1:m and change the indexes in tign) %%%
-%             
-%                
-%             for dx=-1:1   
-%                 for dy=-1:1  
-%                     % loop over all neighbors
-%                     if (A(i+dx,j+dy)==1) % the neighbor was already updated 
-%                         % All the vectors are split in half-intervals
-%                         % to get better calculation
-%                         %%% Make a picture of what is happening %%%
-%                         % I do multiplication by 0.5 here 0.5-(IN(i-1,j-1)>0
-%                         
-%                         tign_new=tign(i+dx,j+dy)+(0.5-(IN(i-1,j-1)>0))*(delta_tign(i,j,dx+2,dy+2)+delta_tign(i+dx,j+dy,2-dx,2-dy));
-%                         
-%                         if (IN(i-1,j-1)>0)
-%                             
-%                             if (tign(i,j)<tign_new)&&(tign_new<=time_now)
-%                                 % Looking for the max tign, which
-%                                 % should be <= than time_now, since the
-%                                 % point is inside of the preimeter
-%                                 tign(i,j)=tign_new;
-%                                 A(i,j)=1;
-%                             end
-%                         elseif (tign(i,j)>tign_new)&&(tign_new>=time_now);
-%                                 % Looking for the min tign, which
-%                                 % should be >= than time_now, since the
-%                                 % point is outside of the preimeter
-%                                 tign(i,j)=tign_new;
-%                                 A(i,j)=1;
-%                             end 
-%                         end
-%                     end
-%                 end
-%             end
-%         end
-%     end
-
-
-
-% Old Code -- tign_update
-
-                            
-%                             % wind1 = vect.*(uf,vf)
-%                             wind1=0.5*((long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(i-1,j-1,1)+  ... 
-%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(i-1,j-1,1));                            
-%                             angle1=0.5*((long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(i-1,j-1,1)+  ... 
-%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(i-1,j-1,1));
-%                             
-%                             % This is needed to calculate the ros(i,j)     
-%                              if ~ichap,
-%                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-%                                 spdms = max(wind1,0.);
-%                                 umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
-%                                 umid = umidm * 196.850;                    % m/s to ft/min
-%                                 %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
-%                                 phiw = umid^bbb * phiwc;                   % wind coef
-%                                 phis = 5.275 * betafl^(-0.3) *max(0,angle1)^2;   % slope factor
-%                                 ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
-%                             else  % chapparal
-%                                 %        .... spread rate has no dependency on fuel character, only windspeed.
-%                                 spdms = max(wind1,0.);
-%                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
-%                             end
-%                             ros=min(ros,6);
-%                             
-%                             % tign_new=tign(a,b)-delta(t);
-%                         	tign_new1=tign(a,b)-0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
-%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;                   ...
-%                                     
-%                             % Same calculation for the second half of the
-%                             % interval
-%                                  
-%                             wind2=0.5*((long(a-1,b-1,1)-long(i-1,j-1, 1))*vf(a-1,b-1,1)+  ... 
-%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*uf(a-1,b-1,1));
-%                             angle2=0.5*((long(a-1,b-1,1)-long(i-1,j-1,1))*dzdxf(a-1,b-1,1)+  ... 
-%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))*dzdyf(a-1,b-1,1));
-%                             if ~ichap,
-%                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-%                                 spdms = max(wind2,0.);
-%                                 umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
-%                                 umid = umidm * 196.850;                    % m/s to ft/min
-%                                 %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
-%                                 phiw = umid^bbb * phiwc;                   % wind coef
-%                                 phis = 5.275 * betafl^(-0.3) *max(0,angle2)^2;   % slope factor
-%                                 ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
-%                             else  % chapparal
-%                                 %        .... spread rate has no dependency on fuel character, only windspeed.
-%                                 spdms = max(wind2,0.);
-%                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
-%                             end
-%                             ros=min(ros,6);
-%                         	tign_new2=-0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+   ...
-%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
-%                             tign_new=tign_new1+tign_new2;
-
-
-
-% OUTSIDE
-
-                            
-                            
-                            
-%                             wind1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(i-1,j-1,1)+  ... 
-%                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(i-1,j-1,1));
-%                             angle1=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(i-1,j-1,1)+  ... 
-%                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(i-1,j-1,1));
-%                             if ~ichap,
-%                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-%                                 spdms = max(wind1,0.);
-%                                 umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
-%                                 umid = umidm * 196.850;                    % m/s to ft/min
-%                                 %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
-%                                 phiw = umid^bbb * phiwc;                   % wind coef
-%                                 phis = 5.275 * betafl^(-0.3) *max(0,angle1)^2;   % slope factor
-%                                 ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
-%                             else  % chapparal
-%                                 %        .... spread rate has no dependency on fuel character, only windspeed.
-%                                 spdms = max(wind1,0.);
-%                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
-%                             end
-%                             ros=min(ros,6);
-%                             % tign_new=tign(a,b)-delta(t);
-%                             tign_new1=tign(a,b)+0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
-%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/r
-%                                      os;s
-%                         
-%                             wind2=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*vf(a-1,b-1,1)+  ... 
-%                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*uf(a-1,b-1,1));
-%                             angle2=0.5*((long(i-1,j-1,1)-long(a-1,b-1,1))*dzdxf(a-1,b-1,1)+  ... 
-%                                      (lat(i-1,j-1,1)-lat(a-1,b-1,1))*dzdyf(a-1,b-1,1));
-%                             if ~ichap,
-%                                 %       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
-%                                 spdms = max(wind2,0.);
-%                                 umidm = min(spdms,30.);                    % max input wind spd is 30 m/s   !param!
-%                                 umid = umidm * 196.850;                    % m/s to ft/min
-%                                 %  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
-%                                 phiw = umid^bbb * phiwc;                   % wind coef
-%                                 phis = 5.275 * betafl^(-0.3) *max(0,angle2)^2;   % slope factor
-%                                 ros = r_0*(1. + phiw + phis)  * .00508; % spread rate, m/s
-%                             else  % chapparal
-%                                 %        .... spread rate has no dependency on fuel character, only windspeed.
-%                                 spdms = max(wind2,0.);
-%                                 ros = max(.03333,1.2974 * spdms^1.41);       % spread rate, m/s
-%                             end
-%                             ros=min(ros,6);
-%                             tign_new2=0.5*sqrt((long(a-1,b-1,1)-long(i-1,j-1,1))^2+    ...
-%                                      (lat(a-1,b-1,1)-lat(i-1,j-1,1))^2)/ros;
-%                             tign_new=tign_new1+tign_new2;                    ...
-%                             % Here the direction of the vector is
-%                             % opposite, since fire is going from the
-%                             % inside point towards the point that was
-%                             % already computed
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
