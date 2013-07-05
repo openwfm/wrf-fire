@@ -1,4 +1,4 @@
-function result=perimeter_in(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound,wrfout,interval,count)
+function result=perimeter_in(long,lat,uf,vf,dzdxf,dzdyf,time_now,bound,wrfout,time,interval,count)
 
 % Volodymyr Kondratenko           December 8 2012	
 
@@ -141,8 +141,12 @@ tign_in=zeros(n+2,m+2);
 tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;;
 changed=1;
 
+time_old=time_now;
 % The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
 % % reaches the max(size()) of the mesh
+count
+interval
+count*interval
 for istep=1:max(size(tign_in)),
     if changed==0, 
 		% The matrix of tign converged
@@ -155,13 +159,14 @@ for istep=1:max(size(tign_in)),
     str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
    
     
-    if ((time_old-tign_in(A(1,1)))>=(count*interval))
+    if ((time_old-tign_in(A(1,1),A(1,2)))>=(count*interval))&&((time-count)>0)
     'getting new wind variables'
+        time_old
+        tign_in(A(1,1),A(1,2))
         time_old=time_old-count*interval
         time=time-count
         [vf,uf]=get_wind(wrfout,time);
         delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
-        
     end
 
     
