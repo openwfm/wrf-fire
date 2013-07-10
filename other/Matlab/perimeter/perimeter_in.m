@@ -374,7 +374,7 @@ for i=2:size(long,1)-1
                 rate_of_spread(i,j,a+2,b+2)=min(ros,6);
                 % DEscribe the coefficient below
                 delta_tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
-                          (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros;
+                          (lat(i+a,j+b,1)-lat(i,j,1))^2)/rate_of_spread(i,j,a+2,b+2;
             end
         end
  
@@ -395,6 +395,7 @@ uf=netcdf.getVar(ncid,varid,[0,0,time],[3920,3860,1]);
 varid = netcdf.inqVarID(ncid,char('VF'));
 vf=netcdf.getVar(ncid,varid,[0,0,time],[3920,3860,1]);
 
+netcdf.close(ncid);
 end
 
 % if (A(i,1)+dx==2)&&(A(i,2)+dy==2)

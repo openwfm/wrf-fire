@@ -33,6 +33,8 @@ dzdxf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
 varid = netcdf.inqVarID(ncid,char('DZDYF'));
 dzdyf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
 
+netcdf.close(ncid);
+
 mkdir('data_for_perimeter')
 
 cd data_for_perimeter
