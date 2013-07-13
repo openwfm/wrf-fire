@@ -28,7 +28,8 @@ end type fire_params
 
 ! subroutines and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
-write_fuels_m,fire_risk,fire_intensity,fuel_moisture,advance_moisture,fuel_name
+write_fuels_m,fire_risk,fire_intensity,fuel_moisture,advance_moisture,fuel_name,&
+fire_rate_of_spread
 
 ! types
 public:: fire_params
@@ -1307,6 +1308,29 @@ end subroutine set_nfuel_cat
 !
 !**********************
 !            
+
+real function fire_rate_of_spread(propx, propy, i,j,fp)
+! compute rate of spread at grid node (i,j) in the direction (dx,dy)
+implicit none
+!***arguments
+real, intent(in)::propx, propy! direction, need not be normalized
+integer, intent(in)::i,j         ! node mesh coordinates
+type(fire_params),intent(in)::fp
+!*** local
+real:: ros_back,ros_wind,ros_slope,nvx,nvy,scale,rr
+!*** executable
+scale=sqrt(propx*propx+propy*propy)
+if (.not. scale > 0.) scale =1.
+nvx=propx/scale
+nvy=propy/scale
+call fire_ros(ros_back,ros_wind,ros_slope, nvx,nvy,i,j,fp)
+rr = ros_back+ros_wind+ros_slope
+if(fire_grows_only.gt.0)rr=max(rr,0.)
+fire_rate_of_spread = rr
+
+end function fire_rate_of_spread
+
+
 
 subroutine fire_ros(ros_back,ros_wind,ros_slope, &
 propx,propy,i,j,fp)

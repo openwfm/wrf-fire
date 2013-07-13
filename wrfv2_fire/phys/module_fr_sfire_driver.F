@@ -70,7 +70,8 @@ module module_fr_sfire_driver
 
 use module_fr_sfire_model, only: sfire_model
 use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
-   advance_moisture, moisture_classes
+   advance_moisture, moisture_classes, &
+   fire_rate_of_spread
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
@@ -420,6 +421,8 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
             grid%ros,grid%flineint,grid%flineint2,         & ! diagnostic variables
             grid%f_ros0,grid%f_rosx,grid%f_rosy,grid%f_ros,& ! fire risk spread 
             grid%f_int,grid%f_lineint,grid%f_lineint2,     & ! fire risk intensities 
+            grid%f_ros11,grid%f_ros12,grid%f_ros13,grid%f_ros21,  & ! fire spread in nodal directions
+            grid%f_ros23,grid%f_ros31,grid%f_ros32,grid%f_ros33,  & ! fire spread in nodal directions
             grid%fxlong,grid%fxlat,                           &       
             grid%fire_hfx,                                & !
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
@@ -516,6 +519,8 @@ subroutine sfire_driver_phys (ifun,    &
     ros,flineint,flineint2,                       & ! diagnostic variables
     f_ros0,f_rosx,f_rosy,f_ros,                   & ! fire risk spread 
     f_int,f_lineint,f_lineint2,                   & ! fire risk intensities 
+    f_ros11,f_ros12,f_ros13,f_ros21,  & ! fire spread in nodal directions
+    f_ros23,f_ros31,f_ros32,f_ros33,  & ! fire spread in nodal directions
     fxlong,fxlat,                                 & !  
     fire_hfx,                                     & ! 
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
@@ -609,7 +614,9 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
     fcanqfx,                                      &  ! moisture flux from crown fire (W/m^2) 
     ros,flineint,flineint2,                       & ! diagnostic variables
     f_ros0,f_rosx,f_rosy,f_ros,                   & ! fire risk spread 
-    f_int,f_lineint,f_lineint2                      ! fire risk intensities 
+    f_int,f_lineint,f_lineint2,                   &  ! fire risk intensities 
+    f_ros11,f_ros12,f_ros13,f_ros21,  & ! fire spread in nodal directions
+    f_ros23,f_ros31,f_ros32,f_ros33     ! fire spread in nodal directions
 
     
 ! moisture model arguments
@@ -640,6 +647,7 @@ integer :: its,ite,jts,jte,kts,kte, &            ! tile
     ifts,ifte,jfts,jfte                          ! fire tile
 character(len=128)::msg
 character(len=3)::kk
+real, parameter::zero=0.
 
 !*** executable
 
@@ -931,6 +939,8 @@ do ij=1,num_tiles
       call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
     endif
 
+      
+
     call sfire_model (id,ifun,restart,  &
         run_fuel_moisture,                      & ! if fuel moisture needs to be updated
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
@@ -970,8 +980,32 @@ do ij=1,num_tiles
             fz0,fwh)                                  ! fire arrays out
 
     
-    elseif(ifun.eq.6)then ! heat fluxes into the atmosphere    
+    elseif(ifun.eq.6)then 
+
+    ! populate the rate of spread in the 8 directions
+    do j=jfts,jfte
+       do i=ifts,ifte
+          f_ros11(i,j)=fire_rate_of_spread( dxf*(1-2), dyf*(1-2), i,j,fp)
+          f_ros12(i,j)=fire_rate_of_spread( dxf*(1-2), dyf*(2-2), i,j,fp)
+          f_ros13(i,j)=fire_rate_of_spread( dxf*(1-2), dyf*(3-2), i,j,fp)
+          f_ros21(i,j)=fire_rate_of_spread( dxf*(2-2), dyf*(1-2), i,j,fp)
+          f_ros23(i,j)=fire_rate_of_spread( dxf*(2-2), dyf*(3-2), i,j,fp)
+          f_ros31(i,j)=fire_rate_of_spread( dxf*(3-2), dyf*(1-2), i,j,fp)
+          f_ros32(i,j)=fire_rate_of_spread( dxf*(3-2), dyf*(2-2), i,j,fp)
+          f_ros33(i,j)=fire_rate_of_spread( dxf*(3-2), dyf*(3-2), i,j,fp)
+       enddo
+    enddo
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,f_ros11,'driver_phys:f_ros11')        
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,f_ros12,'driver_phys:f_ros12')        
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,f_ros13,'driver_phys:f_ros13')        
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,f_ros21,'driver_phys:f_ros21')        
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,f_ros23,'driver_phys:f_ros23')        
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,f_ros31,'driver_phys:f_ros31')        
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,f_ros32,'driver_phys:f_ros32')        
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,f_ros33,'driver_phys:f_ros33')        
     
+    ! heat fluxes into the atmosphere    
+
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fire_driver:fgrnhfx')
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
     
