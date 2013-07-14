@@ -1,9 +1,10 @@
 function wrfout2bluesky(in,out)
+% wrfout2bluesky(in,out)
 % extract from wrfout the fire area info for bluesky
 % arguments
 %   in  wrfout file name
 %   out bluesky csv file name
-%
+
 % Jan Mandel, July 2013
 
 if ~exist('in','var')
@@ -46,11 +47,11 @@ fprintf('the center of the domain is at coordinates %g %g\n',lon_ctr,lat_ctr)
 
 lat=w.fxlat(:,:,1);
 lon=w.fxlong(:,:,1);
-w=nc2struct(in,{'FIRE_AREA'},{}); % read step istep
 fprintf('writing file %s\n',out);
 fid=fopen(out,'w');
 for istep=1:s
-    a=w.fire_area(:,:,istep);
+    w=nc2struct(in,{'FIRE_AREA'},{},istep); % read step istep
+    a=w.fire_area;
     ta=sum(a(:))*fdx*fdy;
     fprintf('timestep %i/%i %s total fire area %g m^2\n',istep,s,t(istep,:),ta)
     if(ta>0),

@@ -1,5 +1,5 @@
-function p=nc2struct(filename,varnames,gattnames,timesteps,p)
-% p=ncread2str(filename,varnames,gattnames,times,p)
+function p=nc2struct(filename,varnames,gattnames,timestep,p)
+% p=ncread2str(filename,varnames,gattnames,timestep,p)
 % read from netcdf file to structure
 %
 % arguments
@@ -19,33 +19,46 @@ function p=nc2struct(filename,varnames,gattnames,timesteps,p)
 % will read variables U,V into p.u, p.v and global attributes DX DY into
 % p.dx p.dy, respectively
 
-disp(['nc2struct: reading from file ',filename])
+fprintf('nc2struct: reading from file %s',filename)
+
+% reading values
+
+if ~exist('timestep','var'),
+    t=-1;
+    fprintf(' all timesteps\n')
+elseif isscalar(timestep) & isnumeric(timestep),
+    fprintf(' timestep %i only\n',timestep)
+    t=timestep-1; % netcdf dimensions start from 0
+else
+    error('timestep must be numeric scalar')
+end
 for i=1:length({varnames{:}}),
     varname=varnames{i};
     try
-        v=ncvar(filename,varname);
+        v=ncvar(filename,varname,[]);
     catch ME
         warning(['variable ',varname,' does not exist in file ',filename])
-        v.var_value=[];
+        v=[];
     end
-    if exist('timesteps','var') && ~isempty(v.var_value),
-        dims=length(v.dimlength);
-        switch dims
-            case 2
-                val=v.var_value(:,timesteps);
-            case 3
-                val=v.var_value(:,:,timesteps);
-            case 4
-                val=v.var_value(:,:,:,timesteps);
-            otherwise
-                warning('unsupported number of dimensions')
-                val=v.var_value;
-        end % case
-    else
-        val=v.var_value; 
+    if ~ isempty(v),
+        ndims=length(v.dimlength);
+        start=zeros(1,ndims);
+        count=v.dimlength;
+        if t >= 0, % read only one dimestep
+            if(v.dimids(ndims)~=0),
+                 warning('id of the last dimension is not 0, is it timestep?')
+            end
+	    start(ndims)=t;
+            count(ndims)=1;
+        end
+        v = ncvar(filename,varname,start, count); 
+        p.(lower(varname))=double(v.var_value);
+    else 
+        p.(lower(varname))=[];;
     end
-    p.(lower(varname))=double(val);
 end
+
+% reading attributes
 
 for i=1:length({gattnames{:}}),
     gattname=gattnames{i};
@@ -53,7 +66,7 @@ for i=1:length({gattnames{:}}),
         val=ncgetgatt(filename,gattname);
     catch ME
         warning(['global attribute ',gattname,' does not exist in file ',filename])
-        v=[];
+        val=[];
     end
     p.(lower(gattname))=double(val);
 end
