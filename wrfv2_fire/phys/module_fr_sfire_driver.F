@@ -142,7 +142,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
              ifds,ifde, jfds,jfde,                                   &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
-    real,dimension(ims:ime, kms:kme, jms:jme),intent(in)::rho,z_at_w,dz8w
+    real,dimension(ims:ime, kms:kme, jms:jme),intent(in), optional::rho,z_at_w,dz8w
 
 !*** local
     TYPE(lines_type):: ignition, hfx
@@ -185,7 +185,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
 
 !   see what we got from wrf
 !! need to replace ipe by min(ide-1,ipe) and similarly jpe
-    if(fire_print_msg.ge.2)then
+    if(fire_print_msg.ge.2 .and. fire_ifun_start .gt. 1)then
 
       ipe1=min(ide-1,ipe)
       jpe1=min(jde-1,jpe)
@@ -212,20 +212,6 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
         0,1,0,       &                            ! staggering
         grid%w_2,grid%w_2)
 
-      max_rho=fun_real(REAL_MAX,  &
-        ims,ime,kms,kme,jms,jme, &                ! memory dims
-        ids,ide,kds,kde,jds,jde, &                ! domain dims
-        ips,ipe1,kps,kpe1,jps,jpe1, &                ! patch or tile dims
-        0,0,0,       &                            ! staggering
-        rho,rho)
-
-      min_rho=fun_real(REAL_MIN,  &
-        ims,ime,kms,kme,jms,jme, &                ! memory dims
-        ids,ide,kds,kde,jds,jde, &                ! domain dims
-        ips,ipe1,kps,kpe1,jps,jpe1, &                ! patch or tile dims
-        0,0,0,       &                            ! staggering
-        rho,rho)
-
       !write(msg,93)time_step_start,'Maximal u v w  wind',max_u,max_v,max_w,'m/s'
       !call message(msg,0)
       !write(msg,92)time_step_start,'Min and max rho    ',min_rho,max_rho,'kg/m^3'
@@ -237,10 +223,30 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
       call message(msg,0)
       write(msg,91)time_step_start,'Maximal w wind      ',max_w,'m/s'
       call message(msg,0)
-      write(msg,91)time_step_start,'Minimal rho         ',min_rho,'kg/m^3'
-      call message(msg,0)
-      write(msg,91)time_step_start,'Maximal rho         ',max_rho,'kg/m^3'
-      call message(msg,0)
+
+      if (present(rho)) then
+
+        max_rho=fun_real(REAL_MAX,  &
+          ims,ime,kms,kme,jms,jme, &                ! memory dims
+          ids,ide,kds,kde,jds,jde, &                ! domain dims
+          ips,ipe1,kps,kpe1,jps,jpe1, &                ! patch or tile dims
+          0,0,0,       &                            ! staggering
+          rho,rho)
+  
+        min_rho=fun_real(REAL_MIN,  &
+          ims,ime,kms,kme,jms,jme, &                ! memory dims
+          ids,ide,kds,kde,jds,jde, &                ! domain dims
+          ips,ipe1,kps,kpe1,jps,jpe1, &                ! patch or tile dims
+          0,0,0,       &                            ! staggering
+          rho,rho)
+  
+  
+        write(msg,91)time_step_start,'Minimal rho         ',min_rho,'kg/m^3'
+        call message(msg,0)
+        write(msg,91)time_step_start,'Maximal rho         ',max_rho,'kg/m^3'
+        call message(msg,0)
+ 
+      endif
 
 
 93    format('Time ',f11.3,' s ',a,3e12.3,1x,a)
@@ -463,6 +469,9 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
 #ifdef WRF_CHEM
      if(fire_ifun.eq.6)then
          if(grid%chem_opt>0)then
+             if(.not.(present(rho).and.present(dz8w)))then
+                 call crash('sfire_driver_em: must have rho and dz8w')
+             endif
              call add_fire_emissions_to_chem( &
                  grid%chem_opt,dt,grid%dx,grid%dy,      &
                  ifms,ifme,jfms,jfme,    &
