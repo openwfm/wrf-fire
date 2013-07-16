@@ -44,8 +44,6 @@ subroutine sfire_driver_em_init (grid , config_flags               &
     real::time_step_start, dt ! dummies, avoid uninitialized
     ! dummies
 
-    real,dimension(1,1,1)::rho,z_at_w,dz8w
-
     call message('sfire_driver_em_init: SFIRE initialization start')
 
     ! get fire mesh dimensions
@@ -67,7 +65,6 @@ subroutine sfire_driver_em_init (grid , config_flags               &
             ,ifds,ifde, jfds,jfde                                   &
             ,ifms,ifme, jfms,jfme                                   &
             ,ifps,ifpe, jfps,jfpe                                   &
-            ,rho,z_at_w,dz8w                                        &
             ) 
 
     call message('sfire_driver_em_init: SFIRE initialization complete')
