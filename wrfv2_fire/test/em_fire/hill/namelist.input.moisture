@@ -96,6 +96,7 @@
  time_step_sound                     = 20,     20,     20,
  moist_adv_opt                       = 1,      1,      1,
  scalar_adv_opt                      = 1,      1,      1,
+ tracer_opt                          = 2,      2,      2
  /
 
  &bdy_control
@@ -155,6 +156,7 @@
  fmoist_interp = .true.,     ! interpolate moisture to fuels
  fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
  fmoist_dt = 10,             ! moisture model time step (s)
+ fire_fmc_read=0             ! do not read moistre field from file
 !
 ! verbosity
  fire_print_msg     = 2,        ! 1 print fire debugging messages

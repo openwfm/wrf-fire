@@ -73,6 +73,7 @@ module module_domain
       real, pointer, dimension(:,:)::lfn => null()             ! level set function
       real, pointer, dimension(:,:)::tign_g => null()          ! time of ignintion
       real, pointer, dimension(:,:)::fuel_frac => null()       ! remaining fuel fraction
+      real, pointer, dimension(:,:)::fuel_frac_burnt => null() ! fuel fraction burned in the time step
       real, pointer, dimension(:,:)::lfn_out  => null()        ! a copy of the level set function
       real, pointer, dimension(:,:)::fire_area  => null()      ! fraction of cell area burning
 

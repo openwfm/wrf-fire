@@ -1,21 +1,21 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 1,
+ run_minutes                         = 30,
  run_seconds                         = 0,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
  start_day                           = 01,   01,   01,
  start_hour                          = 00,   00,   00,
- start_minute                        = 01,   01,   01,
+ start_minute                        = 00,   01,   01,
  start_second                        = 00,   00,   00,
  end_year                            = 0001, 0001, 0001,
  end_month                           = 01,   01,   01,
  end_day                             = 01,   01,   01,
  end_hour                            = 00,   00,   00,
- end_minute                          = 600,   600,   600,
+ end_minute                          = 60,   600,   600,
  end_second                          = 00,   00,   00,
- history_interval_s                    = 1,   30,   30,
+ history_interval_s                  = 60,   30,   30,
  frames_per_outfile                  = 10, 1000, 1000,
  restart                             = .false.,
  restart_interval                    = 1000
@@ -27,20 +27,20 @@
  /
 
  &domains
- time_step                           = 0,
+ time_step                           = 1,
  !time_step                           = 5,
- time_step_fract_num                 = 25,
- time_step_fract_den                 = 100,
+ time_step_fract_num                 = 0,
+ time_step_fract_den                 = 1,
  max_dom                             = 1,
  s_we                                = 1,     1,     1,
  e_we                                = 42,    43,    43,
  s_sn                                = 1,     1,     1,
- e_sn                                = 3,    43,    43,
+ e_sn                                = 22,    43,    43,
  s_vert                              = 1,     1,     1,
- e_vert                              = 41,    41,    41,
- dx                                  = 60,    30,    10,
- dy                                  = 60,    30,    10,
- ztop                                = 1500, 1500, 1500,
+ e_vert                              = 61,    41,    41,
+ dx                                  = 100,    30,    10,
+ dy                                  = 100,    30,    10,
+ ztop                                = 6000, 1500, 1500,
  grid_id                             = 1,     2,     3,
  parent_id                           = 0,     1,     2,
  i_parent_start                      = 0,     1,    1,
@@ -103,11 +103,11 @@
  symmetric_xe                        = .false.,.false.,.false.,
  open_xs                             = .true., .false.,.false.,
  open_xe                             = .true., .false.,.false.,
- periodic_y                          = .false.,.false.,.false.,
+ periodic_y                          = .true.,.false.,.false.,
  symmetric_ys                        = .false.,.false.,.false.,
  symmetric_ye                        = .false.,.false.,.false.,
- open_ys                             = .true., .false.,.false.,
- open_ye                             = .true., .false.,.false.,
+ open_ys                             = .false., .false.,.false.,
+ open_ye                             = .false., .false.,.false.,
  nested                              = .false., .true., .true.,
  /
 
@@ -124,31 +124,16 @@
  fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 ! ignition 
- fire_num_ignitions = 3,         ! integer, only the first fire_num_ignition used, up to 5 allowed
+ fire_num_ignitions = 1,         ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_ros1 = 0.1,       ! rate of spread during ignition, m/s
  fire_ignition_start_x1 = 1005,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_start_y1 =  500,  ! start points of ignition lines, in m from lower left corner
+ fire_ignition_start_y1 =   60,  ! start points of ignition lines, in m from lower left corner
  fire_ignition_end_x1 =   1005,  ! end points of ignition lines, in m from lower left corner
  fire_ignition_end_y1 =   1900,  ! end points of ignition lines, in m from lower left corner
  fire_ignition_radius1 =    18,  ! all within this radius will ignite, > fire mesh step
- fire_ignition_start_time1 = 2,  ! sec for ignition from the start
- fire_ignition_end_time1  =502,  ! sec for ignition from the start
- fire_ignition_ros2 = 0.1,       ! rate of spread during ignition, m/s
- fire_ignition_start_x2 = 1503,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_start_y2 =  500,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x2 =   1503,  ! end points of ignition lines, in m from lower left corner
- fire_ignition_end_y2 =   1900,  ! end points of ignition lines, in m from lower left corner
- fire_ignition_radius2 =    18,  ! all within this radius will ignite, > fire mesh step
- fire_ignition_start_time2 = 3,  ! sec for ignition from the start! end ignition for sfire
- fire_ignition_end_time2  =503,  ! sec for ignition from the start! end ignition for sfire
- fire_ignition_ros3 = 0.1,       ! rate of spread during ignition, m/s
- fire_ignition_start_x3 = 1400,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_start_y3 = 1400,  ! start points of ignition lines, in m from lower left corner
- fire_ignition_end_x3 =   1400,  ! end points of ignition lines, in m from lower left corner
- fire_ignition_end_y3 =   1400,  ! end points of ignition lines, in m from lower left corner
- fire_ignition_radius3 =    50,  ! all within this radius will ignite, > fire mesh step
- fire_ignition_start_time3 = 4,  ! sec for ignition from the start! end ignition for sfire
- fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
+!
+ fire_ignition_start_time1 = 5,  ! sec for ignition from the start
+ fire_ignition_end_time1  = 3600,  ! sec for ignition from the start
 !
 ! verbosity
  fire_print_msg     = 2,        ! 1 print fire summary, 2 debugging messages, 3 voluminous debugging messages
@@ -161,13 +146,17 @@
 ! prescribed fire heat flux
  fire_hfx_given = 3,            ! 0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 3=by parameters
  fire_hfx_latent_part=0.084,    ! part of the combustion heat that goes towards latent heat (moisture flux)
- fire_hfx_value1=1e6            ! heatflux values used in setting by parameters (W/m^2)
- fire_hfx_start_time1=5,        ! time from start of run when artificial heatlux begins full value (s)
- fire_hfx_end_time1=100,        ! ending time for heatflux from beginning of run (s) 
+ fire_hfx_value1=80e3            ! heatflux values used in setting by parameters (W/m^2)
+!
+ fire_hfx_start_time1= 5,           ! time from start of run when artificial heatlux begins full value (s)
+ fire_hfx_end_time1  = 3600,        ! ending time for heatflux from beginning of run (s) 
+!
  fire_hfx_trans_time1=5,        ! transition time for heatflux from 1% to 100% (s)
- fire_hfx_radius1=300,          ! radius of the heatflux circle (m)
- fire_hfx_start_x1=1500,        ! start point for the center of the heatflux circle (m)
- fire_hfx_end_x1=500,           ! end point for the center of the heatflux circle (m)
+ fire_hfx_radius1=160,          ! radius of the heatflux circle (m)
+! 
+ fire_hfx_start_x1=500,        ! start point for the center of the heatflux circle (m)
+ fire_hfx_end_x1=1000,           ! end point for the center of the heatflux circle (m)
+!
  fire_hfx_start_y1=1000,        ! start point for the center of the heatflux circle (m)
  fire_hfx_end_y1=1000,          ! end point for the center of the heatflux circle (m)
 !
@@ -203,4 +192,6 @@
  fire_fuel_left_method=1,        ! for now, use 1 only
  fire_lfn_ext_up=1.0,           ! 0.=extend level set function at boundary by reflection, 1.=always up
  fire_advection=0,              ! 0 = cawfe, 1 = use abs speed/slope in spread rate, then project on normal to fireline
+! Ronan
+ z_grd_scale = -0.4
 /

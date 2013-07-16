@@ -103,11 +103,11 @@
  symmetric_xe                        = .false.,.false.,.false.,
  open_xs                             = .true., .false.,.false.,
  open_xe                             = .true., .false.,.false.,
- periodic_y                          = .false.,.false.,.false.,
+ periodic_y                          = .true.,.false.,.false.,
  symmetric_ys                        = .false.,.false.,.false.,
  symmetric_ye                        = .false.,.false.,.false.,
- open_ys                             = .true., .false.,.false.,
- open_ye                             = .true., .false.,.false.,
+ open_ys                             = .false., .false.,.false.,
+ open_ye                             = .false., .false.,.false.,
  nested                              = .false., .true., .true.,
  /
 
@@ -124,7 +124,7 @@
  fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
 ! ignition 
- fire_num_ignitions = 3,         ! integer, only the first fire_num_ignition used, up to 5 allowed
+ fire_num_ignitions = 0,         ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_ros1 = 0.1,       ! rate of spread during ignition, m/s
  fire_ignition_start_x1 = 1005,  ! start points of ignition lines, in m from lower left corner
  fire_ignition_start_y1 =  500,  ! start points of ignition lines, in m from lower left corner
@@ -167,9 +167,9 @@
  fire_hfx_trans_time1=5,        ! transition time for heatflux from 1% to 100% (s)
  fire_hfx_radius1=300,          ! radius of the heatflux circle (m)
  fire_hfx_start_x1=1500,        ! start point for the center of the heatflux circle (m)
- fire_hfx_end_x1=500,           ! end point for the center of the heatflux circle (m)
- fire_hfx_start_y1=1000,        ! start point for the center of the heatflux circle (m)
- fire_hfx_end_y1=1000,          ! end point for the center of the heatflux circle (m)
+ fire_hfx_end_x1=1500,           ! end point for the center of the heatflux circle (m)
+ fire_hfx_start_y1=90,        ! start point for the center of the heatflux circle (m)
+ fire_hfx_end_y1=90,          ! end point for the center of the heatflux circle (m)
 !
  fire_test_steps=0,             ! >0 = on first call, do specified number of steps and terminate (testing only)
 ! hill in ideal

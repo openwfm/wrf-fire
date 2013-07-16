@@ -241,6 +241,9 @@ CONTAINS
       END DO
     END DO     
 
+      if(config_flags%fire_fmc_read.eq.2) &
+          call read_array_2d_real   ('input_fmc_g',grid%fmc_g,    ids,ide,jds,jde,ims,ime,jms,jme) 
+
 !AK/ak surface initialization latitude, longitude, landuse index from from LANDUSE.TBL skin temperature and soil temperature
 write(6,*) '*************************************'
    IF (sfc_init) THEN

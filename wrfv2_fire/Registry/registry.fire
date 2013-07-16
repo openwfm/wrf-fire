@@ -42,6 +42,7 @@ state    real     lfn       *i*j      fire        1         z   i102hr "LFN"    
 state    real     fuel_frac *i*j      fire        1         z   i102hr "FUEL_FRAC" "fuel remaining" "1"
 state    real     fmc_g     *i*j      fire        1         z   i102hr "FMC_G"     "fuel moisture contents" "1"
 state    real     fire_area *i*j      fire        1         z    hr    "FIRE_AREA" "fraction of cell area on fire" "1"
+state    real     fuel_frac_burnt *i*j fire       1         z    hr    "FUEL_FRAC_BURNT" "fraction of fuel burnt in timestep" "1"
 state    real     uf        *i*j      fire        1         z    hr    "UF"        "fire wind" "m/s"
 state    real     vf        *i*j      fire        1         z    hr    "VF"        "fire wind" "m/s"
 state    real     fgrnhfx   *i*j      fire        1         z    hr    "FGRNHFX"   "heat flux from ground fire" "W/m^2"
@@ -188,6 +189,7 @@ rconfig   integer fire_print_msg         namelist,fire         max_domains      
 rconfig   integer fire_print_file        namelist,fire         max_domains           0       -      "fire_write_file"   "write fire output text files, 0 no writes, 1+ for more" ""
 rconfig   logical fire_restart           namelist,fire         max_domains           .false. -      "fire_restart"   "restart run, do not initialize state" ""
 rconfig   integer fire_time_step_ratio   namelist,fire         max_domains           1       -      "fire_time_step_ratio"   "number of fire time steps per atmospheric step" ""
+rconfig   integer fire_debug_hook_sec    namelist,fire         max_domains           0       -      "fire_debug_hook_sec"   "number of seconds to sleep in loop waiting fot debugger to attach" "s"
 
 # method selection
 rconfig   integer fire_fuel_left_method  namelist,fire         max_domains           1       -      "fire_fuel_left_method"   "1 or 2, compute fuel_left" ""
@@ -210,7 +212,7 @@ rconfig   real    fire_const_grnhfx      namelist,fire         max_domains      
 rconfig   real    fire_const_grnqfx      namelist,fire         max_domains           0.      -      "fire_const_grnqfx"   "if both >=0, the amount of constant heat flux" "1"
 # given heatflux
 rconfig   integer fire_hfx_given         namelist,fire         max_domains           0       -      "fire_hfx_given" "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 3=by parameters" ""
-rconfig   integer fire_hfx_num_lines     namelist,fire         max_domains           1       -      "fire_hfx_num_lines" "number of heatflux parameter sets defining the heaflux lines" ""
+rconfig   integer fire_hfx_num_lines     namelist,fire         max_domains           0       -      "fire_hfx_num_lines" "number of heatflux parameter sets defining the heaflux lines" ""
 rconfig   real    fire_hfx_latent_part   namelist,fire         max_domains       0.084       -      "fire_hfx_latent_part" "proportion of the given heat flux released as latent, the rest is sensible" "1"
 rconfig   real    fire_hfx_value1        namelist,fire         max_domains           0.      -      "fire_hfx_value1" "heatflux values used in setting by parameters" "W/m^2"
 rconfig   real    fire_hfx_start_time1   namelist,fire         max_domains           0.      -      "fire_hfx_start_time1" "time from start of run when artificial heatlux begins full value" "s"

@@ -13,7 +13,7 @@
  end_month                           = 01,   01,   01,
  end_day                             = 01,   01,   01,
  end_hour                            = 00,   00,   00,
- end_minute                          = 600,   600,   600,
+ end_minute                          = 60,   60,   60,
  end_second                          = 00,   00,   00,
  history_interval_s                  = 5,   30,   30,
  frames_per_outfile                  = 2000, 1000, 1000,
@@ -125,6 +125,7 @@
  ifire              = 2,    ! integer, = 0: no fire, 2=turn on fire model
  fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
+ sfc_full_init =.true.,
 ! ignition 
  fire_num_ignitions = 2,         ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_ros1 = 0.1,      ! ignition rate of spread, m/s
@@ -158,7 +159,7 @@
  fmoist_dt = 10,             ! moisture model time step (s)
 !
 ! verbosity
- fire_print_msg     = 0,        ! 1 print fire debugging messages
+ fire_print_msg     = 1,        ! 1 print fire summary messages 2=tracing
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! experiments
@@ -184,6 +185,7 @@
 !
 ! method switches for developers only, do not change!
 !
+ fire_debug_hook_sec= 0,        ! if >0, seconds to sleep in spin in debug hook and wait for debugger to attach to the process
  fire_use_windrf=0,             ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh, 3=adjust fwh for z0
  fire_wind_log_interp = 1,      ! 1 = from fuel categores, 2=constant from atm, 3=bilinear from atm, 4=interpolation and wind reduction per Behave
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
@@ -201,7 +203,8 @@
 
 &chem
  kemit                               = 19,
- chem_opt                            = 14,
+ !chem_opt                            = 2,
+ chem_opt                            = 112,
  bioemdt                             = 1,
  photdt                              = 1,
  chemdt                              = .1,

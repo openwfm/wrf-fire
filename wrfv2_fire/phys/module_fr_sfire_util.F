@@ -54,7 +54,7 @@ real, save::            &
  fire_hfx_latent_part=0.084   ! proportion of the given heat flux released as latent, the rest is sensible
 
 
-integer, parameter:: REAL_SUM=10, REAL_MAX=20, RNRM_SUM=30, RNRM_MAX=40
+integer, parameter:: REAL_SUM=10, REAL_MAX=20, REAL_MIN=21, REAL_AMAX=22, RNRM_SUM=30, RNRM_MAX=40
 
 ! describe one ignition line
 type line_type
@@ -75,6 +75,8 @@ type line_type
 end type line_type
 
 integer, parameter:: fire_max_lines=5
+
+integer:: stat_lev=1   ! print level to print statistics
 
 ! container type for all ignitions and associated scalars
 type lines_type
@@ -189,6 +191,21 @@ end subroutine crash
 !
 !****************
 !
+
+subroutine warning(s,level)
+implicit none
+!*** arguments
+character(len=*), intent(in)::s
+character(len=128)::msg
+integer,intent(in),optional::level
+msg='WARNING:'//s
+if(present(level))then
+    call message(msg,level=level)
+else
+    call message(msg,level=0)
+endif
+end subroutine warning
+
 
 subroutine message(s,level)
 use module_wrf_error
@@ -454,11 +471,11 @@ end subroutine check_mesh_3dim
 !
 
 subroutine sum_2d_cells(       &
-       ims2,ime2,jms2,jme2,    &
-       its2,ite2,jts2,jte2,    &
+       ifms,ifme,jfms,jfme,    &
+       ifts,ifte,jtfs,jfte,    &
        v2,                     &  ! input       
-       ims1,ime1,jms1,jme1,    &
-       its1,ite1,jts1,jte1,    &
+       ims,ime,jms,jme,    &
+       its,ite,jts,jte,    &
        v1)                        ! output
 implicit none
 
@@ -468,27 +485,27 @@ implicit none
 !*** arguments
 ! the dimensions are in cells, not nodes!
 
-integer, intent(in)::its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
-real, intent(out)::v1(ims1:ime1,jms1:jme1)
-integer, intent(in)::its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
-real, intent(in)::v2(ims2:ime2,jms2:jme2)
+integer, intent(in)::its,ite,jts,jte,ims,ime,jms,jme
+real, intent(out)::v1(ims:ime,jms:jme)
+integer, intent(in)::ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme
+real, intent(in)::v2(ifms:ifme,jfms:jfme)
 
 !*** local
-integer:: i1,i2,j1,j2,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase
+integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase
 real t
 character(len=128)msg
 
 !*** executable
 
 !check mesh dimensions and domain dimensions
-call check_mesh_2dim(its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1)
-call check_mesh_2dim(its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2)
+call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
+call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
 
 ! compute mesh sizes
-isz1 = ite1-its1+1
-jsz1 = jte1-jts1+1
-isz2 = ite2-its2+1
-jsz2 = jte2-jts2+1
+isz1 = ite-its+1
+jsz1 = jte-jts+1
+isz2 = ifte-ifts+1
+jsz2 = jfte-jtfs+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)then
@@ -507,19 +524,19 @@ endif
 
 
 ! v1 = sum(v2)
-do j1=jts1,jte1
-    jbase=jts2+jr*(j1-jts1)
-    do i1=its1,ite1
-       ibase=its2+ir*(i1-its1)
+do j=jts,jte
+    jbase=jtfs+jr*(j-jts)
+    do i=its,ite
+       ibase=ifts+ir*(i-its)
        t=0.
        do joff=0,jr-1
-           j2=joff+jbase
+           j_f=joff+jbase
            do ioff=0,ir-1
-               i2=ioff+ibase
-               t=t+v2(i2,j2)
+               i_f=ioff+ibase
+               t=t+v2(i_f,j_f)
            enddo
        enddo
-       v1(i1,j1)=t
+       v1(i,j)=t
     enddo
 enddo
 
@@ -527,9 +544,9 @@ return
 
 9 continue
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
-write(msg,91)its2,ite2,jts2,jte2,ims2,ime2,jms2,jme2
+write(msg,91)ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme
 call message(msg,level=0)
-write(msg,91)its1,ite1,jts1,jte1,ims1,ime1,jms1,jme1
+write(msg,91)its,ite,jts,jte,ims,ime,jms,jme
 call message(msg,level=0)
 write(msg,92)'input  mesh size:',isz2,jsz2
 call message(msg,level=0)
@@ -538,7 +555,7 @@ write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg,level=0)
 92 format(a,2i8)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call crash('module_fr_spread_util:sum_mesh_cells: bad mesh sizes')
+call crash('sum_2d_cells: bad mesh sizes')
 
 end subroutine sum_2d_cells
 
@@ -1117,13 +1134,17 @@ real,intent(in)::min_a,max_a,avg_a
 !*** local
 character(len=128)::msg
 character(len=24)::id
+!*** executable
+if(.not.avg_a.eq.avg_a)then
+    msg='NaN detected in '//trim(name)
+    call crash(msg)
+endif
 if(fire_print_msg.eq.0)return
 id=name
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
 write(msg,'(a,4i4,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call message(msg,level=0)
-if(.not.avg_a.eq.avg_a)call crash('NaN detected')
+call message(msg,level=2)
 end subroutine print_stat_line
 
 subroutine print_3d_stats_by_slice(ips,ipe,kps,kpe,jps,jpe, &
@@ -1193,6 +1214,11 @@ return
 write(msg,1)name,i,k,j,aa
 call message(msg,level=0)
 1 format(a30,'(',i6,',',i6,',',i6,') = ',g13.5)
+write(msg,2)'patch dimensions ',ips,ipe,kps,kpe,jps,jpe
+call message(msg,level=0)
+write(msg,2)'memory dimensions',ims,ime,kms,kme,jms,jme
+call message(msg,level=0)
+2 format(a,6i8)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call print_stat_line(name,ips,ipe,jps,jpe,aa,aa,aa)
 if(aa.ne.aa)goto 10
@@ -1546,7 +1572,7 @@ real::lsum,void
 integer::i,j,k,n,ipe1,jpe1,kpe1,iel,thread,is,js,ks
 real, save::psum,gsum
 real::rel
-logical:: dosum,domax
+logical:: dosum,domax,domin
 character(len=256)msg
 
 ipe1=ifval(ipe.eq.ide.and.istag.ne.0,ipe+1,ipe)
@@ -1586,6 +1612,26 @@ elseif(fun.eq.REAL_MAX)then
       enddo
     enddo
   enddo
+elseif(fun.eq.REAL_AMAX)then
+  void=-huge(lsum)
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=max(lsum,abs(a(i,k,j)))
+      enddo
+    enddo
+  enddo
+elseif(fun.eq.REAL_MIN)then
+  void=huge(lsum)
+  lsum=void
+  do j=jps,jpe1
+    do k=kps,kpe1
+      do i=ips,ipe1
+        lsum=min(lsum,a(i,k,j))
+      enddo
+    enddo
+  enddo
 elseif(fun.eq.RNRM_MAX)then
   void=0.
   lsum=void
@@ -1603,7 +1649,8 @@ endif
 if(lsum.ne.lsum)call crash('fun_real: NaN detected')
 
 dosum=fun.eq.REAL_SUM.or.fun.eq.RNRM_SUM
-domax=fun.eq.REAL_MAX.or.fun.eq.RNRM_MAX
+domax=fun.eq.REAL_MAX.or.fun.eq.REAL_AMAX.or.fun.eq.RNRM_MAX
+domin=fun.eq.REAL_MIN
 
 ! get process sum over all threads
 !$OMP SINGLE
@@ -1617,6 +1664,7 @@ psum=void
 ! each thread adds its own lsum
 if(dosum)psum=psum+lsum
 if(domax)psum=max(psum,lsum)
+if(domin)psum=min(psum,lsum)
 !$OMP END CRITICAL(RDSUM)
 
 ! wait till all theads are done
@@ -1641,23 +1689,27 @@ fun_real=gsum
 
 end function fun_real
 
+subroutine sfire_debug_hook(fire_debug_hook_sec)
+integer, intent(in)::fire_debug_hook_sec
+#define DEBUG_HOOK
+#ifdef DEBUG_HOOK
+integer,save:: go=-1
+external:: wrf_dm_bcast_integer
+if(go<0)then
+    go = fire_debug_hook_sec
+endif
+do while (go .ne. 0)
+    call sleep(go)
+    ! set go=0 in debugger to continue
+    call wrf_dm_bcast_integer(abs(go),1)
+enddo
+#endif
+end subroutine sfire_debug_hook
+
 end module module_fr_sfire_util
 
 ! this subroutine is outside of any module and f77 style because some debuggers
 ! notably gdb are terrible with fortran90
-
-#ifdef DEBUG_HOOK
-subroutine sfire_debug_hook
-integer, save:: go=0
-! set go=1 in debugger to continue
-do while (go .eq. 0)
-call sleep(1)
-enddo
-end subroutine sfire_debug_hook
-#else
-subroutine sfire_debug_hook
-end subroutine sfire_debug_hook
-#endif
 
 
 

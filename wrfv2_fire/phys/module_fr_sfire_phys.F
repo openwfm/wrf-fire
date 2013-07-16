@@ -28,13 +28,14 @@ end type fire_params
 
 ! subroutines and functions 
 PUBLIC:: init_fuel_cats,fire_ros,heat_fluxes,set_nfuel_cat,set_fire_params, &
-write_fuels_m,fire_risk,fire_intensity,fuel_moisture,advance_moisture
+write_fuels_m,fire_risk,fire_intensity,fuel_moisture,advance_moisture,fuel_name
 
 ! types
 public:: fire_params
 
 ! variables
 PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,moisture_classes
+PUBLIC:: mfuelcats
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
 
@@ -159,7 +160,7 @@ PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,
                                             fueldepthm,fueldens,fuelmce,   &
                                             fcwh,fcz0, ffw, &
                                             savr,st,se,adjr0,adjrw,adjrs, &
-                                            fmc_gw(mfuelcats,max_moisture_classes) 
+                                            fmc_gw(mfuelcats,max_moisture_classes)
 ! =============================================================================
 ! Standard 13 fire behavior fuel models (for surface fires), along with some
 !          estimated canopy properties (for crown fire).
@@ -370,7 +371,7 @@ character(len=256)::msg
 logical::bad_wrf
 integer::msglevel=2
 logical, parameter::check_rh=.false.
-integer::check_data=3  ! 0=nothing, 1=replace quietly, 2=warning (also printed if msglevel>2), 3=crash
+integer::check_data=2  ! 0=nothing, 1=replace quietly, 2=warning (also printed if msglevel>2), 3=crash
 real::epsilon,Pws,Pw,t2_min,q2_min,psfc_min
 real::t2_floor=200.    ! minimum allowed temperature (K)
 real::q2_floor=1e-8    ! miniumu allowed moisture contents (kg/kg)
@@ -1125,6 +1126,7 @@ do j=jfts,jfte
         wn = fuelload/(1 + st(k))       ! net fuel loading, lb/ft^2
         rtemp1 = fp%fmc_g(i,j)/fuelmce(k)
         etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
+        etam = max(etam,0.0)
         etas = 0.174* se(k)**(-0.19)                ! mineral damping coef
         ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
         ! jm irm = ir * 1055./( 0.3048**2 * 60.) * 1.e-6     !for mw/m^2
@@ -1149,10 +1151,11 @@ do j=jfts,jfte
         if(fp%r_0(i,j) > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
              write(msg,'(a,2i6,3(a,e14.6))') 'set_fire_params: at ',i,j,' base rate of spread',fp%r_0(i,j),' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
-             call message(msg)
+             call message(msg,level=0)
              write(msg,'(5(a,e14.6))')'rtemp1=',rtemp1,' etam=',etam
+             call message(msg,level=0)
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-             call crash('propagation above extinction moisture')
+             call warning('propagation above extinction moisture',level=0)
         endif
      endif
   enddo
@@ -1436,9 +1439,9 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
     ros=ros_back+ros_wind+ros_slope
     if(ros > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-          write(msg,'(a,2i6,3(a,e13.5))') 'fire_ros_cawfe: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
+          write(msg,'(a,2i6,3(a,e13.5))') 'WARNING: fire_ros_cawfe: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-          call crash(msg)
+          call warning(msg)
     endif
 !
 else   ! chaparral model from Clark et al 2004
