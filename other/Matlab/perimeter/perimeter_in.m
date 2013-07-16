@@ -56,7 +56,12 @@ long1=long*100000;
 % Code 
 
 [ichap,bbb,phiwc,betafl,r_0]=fire_ros_new(fuel);
-delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
+[delta_tign,rate_of_spread]=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
+max_ros=max(rate_of_spread,[],3);
+%fid = fopen('max_ros.txt', 'w');
+%    dlmwrite('max_ros.txt', max_ros, 'delimiter', '\t','precision', '%.4f');
+%    fclose(fid);
+
 % Calculates needed variables for rate of fire spread calculation
 
 %%%%%%% First part %%%%%%%
@@ -159,14 +164,15 @@ for istep=1:max(size(tign_in)),
     str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
    
     
-    if ((time_old-tign_in(A(1,1),A(1,2)))>=(count*interval))&&((time-count)>0)
+    if ((time_old-min(min(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
     'getting new wind variables'
         time_old
         tign_in(A(1,1),A(1,2))
+        min(min(tign_in(A(:,1),A(:,2))))
         time_old=time_old-count*interval
         time=time-count
         [vf,uf]=get_wind(wrfout,time);
-        delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
+        [delta_tign,rate_of_spread]=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0);
     end
 
     
@@ -174,11 +180,16 @@ for istep=1:max(size(tign_in)),
     [tign_in,A,C]=tign_update(tign_in,A,IN_ext,delta_tign,time_now,1);
   % hwen it is outside the last parameter is 0, inside 1  
     changed=sum(tign_in(:)~=tign_last(:));
+%    if (changed<=5)
+%       for i=1:size(A,1)
+%           A(i,:)
+%        end
+%    end 
 
     sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
-    
+   sprintf('size of A- %i',size(A,1))   
 end
-final_tign=tign_in;;
+final_tign=tign_in;
 %final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
 result=final_tign(2:n+1,2:m+1);
 
@@ -316,12 +327,11 @@ r_0      = ir*xifr/(rhob * epsilon *qig);  % default spread rate in ft/min
 
 end
 
-function delta_tign=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0)
+function [delta_tign,rate_of_spread]=delta_tign_calculation(long,lat,vf,uf,dzdxf,dzdyf,ichap,bbb,phiwc,betafl,r_0)
     %Extend the boundaries to speed up the algorithm, the values of the
     %extended boundaries would be set to zeros and are never used in the
     %code
 	result=1;
-    'hello'
     delta_tign=zeros(size(long,1)+2,size(long,2)+2,3,3);
     rate_of_spread=zeros(size(long,1)+2,size(long,2)+2,3,3);
     
@@ -374,7 +384,7 @@ for i=2:size(long,1)-1
                 rate_of_spread(i,j,a+2,b+2)=min(ros,6);
                 % DEscribe the coefficient below
                 delta_tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
-                          (lat(i+a,j+b,1)-lat(i,j,1))^2)/rate_of_spread(i,j,a+2,b+2;
+                          (lat(i+a,j+b,1)-lat(i,j,1))^2)/rate_of_spread(i,j,a+2,b+2);
             end
         end
  
