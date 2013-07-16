@@ -50,6 +50,9 @@ if fid < 0,
 end
 lat=w.fxlat(:,:,1);
 lon=w.fxlong(:,:,1);
+w=nc2struct(in{1},{'FIRE_AREA'},{},1); % the first fire area
+a_old=w.fire_area;
+fire_id=0;
 for ifile=1:length(in),
     w=nc2struct(in{ifile},{'Times'},{}); % read netcdf file
     t=char(w.times');  % convert times to character matrix one string per row
@@ -60,17 +63,27 @@ for ifile=1:length(in),
         a=w.fire_area;
         ta=sum(a(:))*fdx*fdy;
         fprintf('timestep %i/%i %s total fire area %g m^2\n',istep,s,t(istep,:),ta)
+        a_diff = a - a_old;
+        if any(a_diff(:)< - eps(single(1)))
+            warning('fire area can only increase')
+            a_diff = max(a_diff,0);
+        end 
         if(ta>0),
             cc=bwconncomp(a>0); % find connected components,  image processing toolbox
             for id=1:length(cc.PixelIdxList)
+                fire_id = fire_id+1;
                 fire_ctr_lon=mean(lon(cc.PixelIdxList{id}));  % center longitude of the fire area 
                 fire_ctr_lat=mean(lat(cc.PixelIdxList{id}));  % center latitude of the fire area 
-                fire_acres=fdx*fdy*sum(a(cc.PixelIdxList{id}))/4046.86; % burning acres
-                fprintf(fid,'%i, %g, %g, %g, %s\n',id,fire_ctr_lon,fire_ctr_lat,fire_acres,t(istep,:));
-                fprintf('%i, %g, %g, %g, %s\n',id,fire_ctr_lon,fire_ctr_lat,fire_acres,t(istep,:));
+                fire_acres=fdx*fdy*sum(a_diff(cc.PixelIdxList{id}))/4046.86; % newly burning acres
+                d=datenum(t(istep,:),'yyyy-mm-dd_HH:MM:SS'); % convert ESMF time string to double
+                tim=[datestr(d,'yyyymmddHHMM'),'L'];         % convert to bluesky time format
+                fprintf(fid,'%i, %g, %g, %g, %s\n',fire_id,fire_ctr_lon,fire_ctr_lat,fire_acres,tim);
+                fprintf('%i, %g, %g, %g, %s\n',fire_id,fire_ctr_lon,fire_ctr_lat,fire_acres,tim);
             end
         end
+        a_old=a;
     end
 end
 fclose(fid);
 end
+
