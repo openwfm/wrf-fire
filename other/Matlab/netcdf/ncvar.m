@@ -1,13 +1,12 @@
 function v=ncvar(filename,varname,start,count)
-% v=ncvar(filename,varname [,dims])
+% v=ncvar(filename,varname [,start,count])
 % read all about variable varname from filename
 % arguments:
 %      filename   character, NetCDF file name
 %      varname    character, variable name
 %      start,count not present: read all  variable data 
-%                 empty: no not read variable data 
+%                 empty: do not read variable data 
 %                 given: read in each dimension from start (begins at 0) count entries
-% if dims not present or empty, will not read value
 
 read_value=1;
 if exist('start','var')
