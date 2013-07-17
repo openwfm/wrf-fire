@@ -1,4 +1,4 @@
-function [long,lat,uf,vf,dzdxf,dzdyf,time_now,bound]=read_file_perimeter(data,data_long,data_lat,data_uf,data_vf,data_dzdxf,data_dzdyf,time)
+function [long,lat,ros,bound]=read_file_perimeter(data,wrfout,m,n,time)
 
 % Volodymyr Kondratenko           April 3 2012
 
@@ -33,51 +33,35 @@ function [long,lat,uf,vf,dzdxf,dzdyf,time_now,bound]=read_file_perimeter(data,da
 
 
 format long
-wrfout='wrfout_d05_2012-09-09_00:00:00';
-time=281;
-long=dlmread('data_LONG.txt');
-lat=dlmread('data_LAT.txt');
-%uf=dlmread('data_UF.txt');
-%vf=dlmread('data_VF.txt');
-dzdxf=dlmread('data_DZDXF.txt');
-dzdyf=dlmread('data_DZDYF.txt');
 
+ncid = netcdf.open(wrfout,'NC_NOWRITE');
 
+varid = netcdf.inqVarID(ncid,char('UNIT_FXLONG'));
+unit_long=netcdf.getVar(ncid,varid,time,1);
 
+varid = netcdf.inqVarID(ncid,char('UNIT_FXLAT'));
+unit_lat=netcdf.getVar(ncid,varid,time,1);
 
-time_now=216000;
+varid = netcdf.inqVarID(ncid,char('FXLONG'));
+long=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
+
+varid = netcdf.inqVarID(ncid,char('FXLAT'));
+lat=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
+
+long=long*unit_long;
+lat=lat*unit_lat;
+
+netcdf.close(ncid);
+
+ros=read_data_from_wrfout(wrfout,m,n,time);
 
 fid = fopen(data);
 bound = fscanf(fid,'%17g %*1s %17g %*3s',[2 inf]);
-% data = fscanf(fid,'%21g %*1s %19g %*3s \n',[2 inf]);
 
 bound = bound';
-fclose(fid)
+fclose(fid);
 
-unit_long=7.4518492e+04;
-unit_lat=1.1117746e+05;
 bound(:,1)=bound(:,1)*unit_long;
 bound(:,2)=bound(:,2)*unit_lat;
 
-
-ncid = netcdf.open(wrfout,'NC_NOWRITE');
-varid = netcdf.inqVarID(ncid,char('UF'));
-uf=netcdf.getVar(ncid,varid,[0,0,time],[3920,3860,1]);
-
-varid = netcdf.inqVarID(ncid,char('VF'));
-vf=netcdf.getVar(ncid,varid,[0,0,time],[3920,3860,1]);
-
-
-varid = netcdf.inqVarID(ncid,char('F_ROS'));
-max_ros_wrf=netcdf.getVar(ncid,varid,[0,0,time],[3920,3860,1]);
-
-fid = fopen('max_ros_from_wrf.txt', 'w');
-    dlmwrite('max_ros_from_wrf.txt', max_ros_wrf, 'delimiter', '\t','precision', '%.4f');
-    fclose(fid);
-
-size(bound)
-bound(100,:)
-
-
-
-
+end

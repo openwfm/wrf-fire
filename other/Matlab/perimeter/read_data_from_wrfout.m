@@ -1,4 +1,4 @@
-function result=read_data_from_wrfout(wrfout,time)
+function ros=read_data_from_wrfout(wrfout,m,n,time)
 
 % for witch its 3100 2600
 
@@ -6,63 +6,49 @@ format long
 
 ncid = netcdf.open(wrfout,'NC_NOWRITE');
 
-varid = netcdf.inqVarID(ncid,char('UNIT_FXLONG'));
-unit_long=netcdf.getVar(ncid,varid,time,1);
+varid = netcdf.inqVarID(ncid,char('F_ROS11'));
+f_ros11=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
 
-varid = netcdf.inqVarID(ncid,char('UNIT_FXLAT'));
-unit_lat=netcdf.getVar(ncid,varid,time,1);
+varid = netcdf.inqVarID(ncid,char('F_ROS12'));
+f_ros12=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
 
-varid = netcdf.inqVarID(ncid,char('FXLONG'));
-long=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+varid = netcdf.inqVarID(ncid,char('F_ROS13'));
+f_ros13=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
 
-varid = netcdf.inqVarID(ncid,char('FXLAT'));
-lat=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+varid = netcdf.inqVarID(ncid,char('F_ROS21'));
+f_ros21=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
 
-long=long*unit_long;
-lat=lat*unit_lat;
+varid = netcdf.inqVarID(ncid,char('F_ROS23'));
+f_ros23=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
 
-varid = netcdf.inqVarID(ncid,char('UF'));
-uf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+varid = netcdf.inqVarID(ncid,char('F_ROS31'));
+f_ros31=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
 
-varid = netcdf.inqVarID(ncid,char('VF'));
-vf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+varid = netcdf.inqVarID(ncid,char('F_ROS32'));
+f_ros32=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
 
-varid = netcdf.inqVarID(ncid,char('DZDXF'));
-dzdxf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
-
-varid = netcdf.inqVarID(ncid,char('DZDYF'));
-dzdyf=netcdf.getVar(ncid,varid,[0,0,time],[3000,1800,1]);
+varid = netcdf.inqVarID(ncid,char('F_ROS33'));
+f_ros33=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
 
 netcdf.close(ncid);
 
-mkdir('data_for_perimeter')
+ros=zeros(m,n,3,3);
 
-cd data_for_perimeter
+ros(:,:,1,1)=f_ros11;
 
-fid = fopen('data_LONG.txt', 'w');
-dlmwrite('data_LONG.txt', long, 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
+ros(:,:,1,2)=f_ros12;
 
-fid = fopen('data_LAT.txt', 'w');
-dlmwrite('data_LAT.txt', lat, 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
+ros(:,:,1,3)=f_ros13;
 
-fid = fopen('data_UF.txt', 'w');
-dlmwrite('data_UF.txt', uf, 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
+ros(:,:,3,1)=f_ros31;
 
-fid = fopen('data_VF.txt', 'w');
-dlmwrite('data_VF.txt', vf, 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
+ros(:,:,3,2)=f_ros32;
 
-fid = fopen('data_DZDXF.txt', 'w');
-dlmwrite('data_DZDXF.txt', dzdxf, 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
+ros(:,:,3,3)=f_ros33;
 
-fid = fopen('data_DZDYF.txt', 'w');
-dlmwrite('data_DZDYF.txt', dzdyf, 'delimiter', '\t','precision', '%.4f');
-fclose(fid);
+ros(:,:,2,1)=f_ros21;
 
+ros(:,:,2,3)=f_ros23;
 end
 
 function a=ncread(filename,varname,time)
