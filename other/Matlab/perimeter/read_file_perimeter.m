@@ -1,4 +1,4 @@
-function [long,lat,ros,bound]=read_file_perimeter(data,wrfout,m,n,time)
+function [long,lat,ros,A]=read_file_perimeter(data,wrfout,m,n,time)
 
 % Volodymyr Kondratenko           April 3 2012
 
@@ -34,27 +34,36 @@ function [long,lat,ros,bound]=read_file_perimeter(data,wrfout,m,n,time)
 
 format long
 
-ncid = netcdf.open(wrfout,'NC_NOWRITE');
+p=nc2struct(wrfout,{'UNIT_FXLONG','UNIX_FXLAT','FXLONG','FXLAT','TIGN_G'},{},time)
 
-varid = netcdf.inqVarID(ncid,char('UNIT_FXLONG'));
-unit_long=netcdf.getVar(ncid,varid,time,1);
 
-varid = netcdf.inqVarID(ncid,char('UNIT_FXLAT'));
-unit_lat=netcdf.getVar(ncid,varid,time,1);
-
-varid = netcdf.inqVarID(ncid,char('FXLONG'));
-long=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
-
-varid = netcdf.inqVarID(ncid,char('FXLAT'));
-lat=netcdf.getVar(ncid,varid,[0,0,time],[m,n,1]);
-
-long=long*unit_long;
-lat=lat*unit_lat;
-
-netcdf.close(ncid);
+fxlong=fxlong*unit_fxlong;
+fxlat=fxlat*unit_fxlat;
 
 ros=read_data_from_wrfout(wrfout,m,n,time);
 
+A=read_perim_from_tign(tign_g);
+
+end
+
+function A=read_perim_from_tign(tign);
+A=[];
+format long
+max_tign=max(tign(:))
+tign_copy=max_tign*ones(size(tign,1)+2,size(tign,2)+2);
+tign_copy(2:size(tign,1)+1,2:size(tign,2)+1)=tign;
+tign=tign_copy;
+for i=2:size(tign,1)-1
+    for j=2:size(tign,2)-1
+        if (tign(i,j)==max_tign)
+            if (max(any((tign(i-1:i+1,j-1:j+1))<max_tign))==1)
+            A=[A;[i,j]];
+            end
+       end
+    end
+end
+
+function bound=read_perim_from_file(data,unit_long,unit_lat);
 fid = fopen(data);
 bound = fscanf(fid,'%17g %*1s %17g %*3s',[2 inf]);
 
@@ -63,5 +72,5 @@ fclose(fid);
 
 bound(:,1)=bound(:,1)*unit_long;
 bound(:,2)=bound(:,2)*unit_lat;
-
 end
+
