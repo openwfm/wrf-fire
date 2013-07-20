@@ -168,13 +168,12 @@ integer, save:: msglevel =1,printsums=0 ! when to print sums
 
 contains
 
-#ifdef WRF_CHEM
 ! chem arrays are chem tracer
 ! indices p_species are generated in inc/scalar_indices.inc and included in frame/module_configure.F
 
-subroutine read_emissions_table(chem_opt)
+subroutine read_emissions_table(chem_opt,tracer_opt)
    implicit none
-   integer, intent(in)::chem_opt
+   integer, intent(in)::chem_opt,tracer_opt
    logical, external:: wrf_dm_on_monitor
    external::wrf_dm_bcast_integer , wrf_dm_bcast_real
    integer, dimension(10)::compatible_chem_opt
@@ -301,7 +300,7 @@ call wrf_dm_bcast_real(ch3cooh, nfuelcats)
 call wrf_dm_bcast_real(ch3oh, nfuelcats)
 call wrf_dm_bcast_real(cres, nfuelcats)
 call wrf_dm_bcast_real(glyald, nfuelcats)
-call wrf_dm_bcast_real(! hyac, nfuelcats)
+! call wrf_dm_bcast_real(hyac, nfuelcats)
 call wrf_dm_bcast_real(isopr, nfuelcats)
 call wrf_dm_bcast_real(macr, nfuelcats)
 call wrf_dm_bcast_real(mek, nfuelcats)
@@ -338,7 +337,7 @@ emis_read=.true.
 
 end subroutine read_emissions_table
 
-subroutine add_fire_emissions_to_chem(chem_opt,dt,dx,dy,      &
+subroutine add_fire_emissions_to_chem(chem_opt,tracer_opt,dt,dx,dy,      &
        ifms,ifme,jfms,jfme,    &
        ifts,ifte,jtfs,jfte,    &
        ids,ide,kds,kde,jds,jde,          &
@@ -358,7 +357,7 @@ implicit none
 ! the dimensions are in cells, not nodes!
 
 ! input
-integer, intent(in)::chem_opt
+integer, intent(in)::chem_opt,tracer_opt
 real, intent(in):: dt,dx,dy                                           ! time step & mesh spacing
 integer, intent(in)::its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme &! atm grid dims
        ,ids,ide,kds,kde,jds,jde          
@@ -379,9 +378,9 @@ character(len=128)msg
 real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
 
-integer, parameter:: np=46,line=8
-integer:: pointers(np)
-character(len=8)::names(np)
+integer, parameter:: chem_np=46,line=8
+integer:: chem_pointers(chem_np)
+character(len=8)::chem_names(chem_np)
 
 !*** executable
 
@@ -393,7 +392,8 @@ if(.not.emis_read)call crash('add_fire_emissions_to_chem: read_emissions_table m
 write(msg,'(a,i3,a,i3)')'add_fire_emissions_to_chem: chem_opt=',chem_opt,' species ',num_chem
 call message(msg)
 
-pointers= (/ &
+#ifdef WRF_CHEM
+chem_pointers= (/ &
 p_co,  &
 p_ch4, &
 p_h2, &
@@ -443,7 +443,7 @@ p_mvk, &
 p_smoke
 /)
 
-names= (/ &
+chem_names= (/ &
 'co      ',  &
 'ch4     ', &
 'h2      ', &
@@ -502,16 +502,16 @@ write(msg,993)'array chem has dimension ',&
          lbound(chem,4),ubound(chem,4)
 call message(msg)
 
-do i=1,np,line
-   m=min(i+line-1,np)
-   write(msg,'(a,8(1x,a8))')'Species',(trim(names(j)),j=i,m)
+do i=1,chem_np,line
+   m=min(i+line-1,chem_np)
+   write(msg,'(a,8(1x,a8))')'Species',(trim(chem_names(j)),j=i,m)
    call message(msg)
-   write(msg,'(a,8i9)')     'Pointer',(pointers(j),j=i,m)
+   write(msg,'(a,8i9)')     'Pointer',(chem_pointers(j),j=i,m)
    call message(msg)
    call message(' ')
 enddo
 
-if(maxval(pointers) > ubound(chem,4) .or. minval(pointers) < lbound(chem,4))then 
+if(maxval(chem_pointers) > ubound(chem,4) .or. minval(chem_pointers) < lbound(chem,4))then 
     call crash('add_fire_emissions_to_chem: a chem pointer is out of bounds')
 endif
 
@@ -797,13 +797,13 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     c_fuel = c_fuel + s_fuel
 
     call message('Total emissions in g or mol per the table',level=msglevel)
-    do i=1,np,line
-        m=min(i+line-1,np)
-        write(msg,80)'Emissions ',(trim(names(j)),j=i,m)
+    do i=1,chem_np,line
+        m=min(i+line-1,chem_np)
+        write(msg,80)'Emissions ',(trim(chem_names(j)),j=i,m)
         call message(msg,level=msglevel)
-        write(msg,81)'Cumulative',(c_chem(pointers(j)),j=i,m)
+        write(msg,81)'Cumulative',(c_chem(chem_pointers(j)),j=i,m)
         call message(msg,level=msglevel)
-        write(msg,81)'Rate per s',(r_chem(pointers(j)),j=i,m)
+        write(msg,81)'Rate per s',(r_chem(chem_pointers(j)),j=i,m)
         call message(msg,level=msglevel)
         call message(' ',level=msglevel)
     enddo
@@ -852,9 +852,9 @@ integer:: e
 end subroutine add_e
 
 
+#endif
 end subroutine add_fire_emissions_to_chem
 
-#endif
 
 SUBROUTINE fire_tendency( &
     ids,ide, kds,kde, jds,jde,   & ! dimensions
