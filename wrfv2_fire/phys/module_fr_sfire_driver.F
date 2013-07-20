@@ -124,7 +124,7 @@ halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub
 halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
 #endif
 
-use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
+use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
 
     implicit none
@@ -468,9 +468,9 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
      if(fire_ifun.eq.6)then
          if(grid%chem_opt>0 .or. grid%tracer_opt>0)then
              if(.not.(present(rho).and.present(dz8w)))then
-                 call crash('sfire_driver_em: must have rho and dz8w')
+                 call crash('sfire_driver_em: must have rho and dz8w to call add_fire_emissions')
              endif
-             call add_fire_emissions_to_chem( &
+             call add_fire_emissions( &
                  grid%chem_opt,grid%tracer_opt,dt,grid%dx,grid%dy,      &
                  ifms,ifme,jfms,jfme,    &
                  ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
