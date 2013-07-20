@@ -90,7 +90,7 @@ for i=2:n+1
 end
 
 tign_in=zeros(n+2,m+2);
-tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;;
+tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
 changed=1;
 
 time_old=time_now;
@@ -149,7 +149,73 @@ if changed~=0,
    end
 end
 
-function [tign,A,C]=tign_update(tign,A,IN,delta_tign,time_now,where)
+function result=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,interval,count)
+
+% Volodymyr Kondratenko           July 19 2013	
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+n=size(long,1);
+m=size(long,2);
+
+'perimeter_in_tign'
+
+[delta_tign]=delta_tign_calculation(long,lat,ros);
+
+C=zeros(n+2,m+2);
+
+tign_in=zeros(n+2,m+2);
+tign_in(2:n+1,2:m+1)=(tign_g(:,:)==time_now).*time_now;
+
+changed=1;
+time_old=time_now;
+
+count
+interval
+count*interval
+tic
+for istep=1:max(size(tign_in)),
+    if changed==0, 
+		'printed'
+		break
+    end
+    
+    tign_last=tign_in;
+    time_toc=toc;
+    str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
+   
+    
+    if ((time_old-min(min(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
+       'getting new ros'
+       time_old=time_old-count*interval
+       time=time-count
+       ros=read_data_from_wrfout(wrfout,size(long,1),size(long,2),time);
+       delta_tign=delta_tign_calculation(long,lat,ros);
+    end
+
+    [tign_in,A,C]=tign_update(tign_in,A,IN_ext,delta_tign,time_now,1);
+
+    changed=sum(tign_in(:)~=tign_last(:));
+
+   sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
+   sprintf('size of A- %i',size(A,1))   
+end
+
+final_tign=tign_in;
+result=final_tign(2:n+1,2:m+1);
+
+fid = fopen('output_tign.txt', 'w');
+    dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
+    fclose(fid);
+    
+if changed~=0,
+    'did not find fixed point inside'
+   end
+end
+
+
+
+
+function [tign,A,C]=tign_update(tign,A,delta_tign,time_now,where)
   
 % Does one iteration of the algorythm and updates the tign of the points of
 % the mesh that are next to the previously updated neighbors
@@ -158,7 +224,7 @@ C=zeros(size(tign,1),size(tign,2));
 for i=1:size(A,1)
     for dx=-1:1   
         for dy=-1:1  
-                if where*IN(A(i,1)+dx,A(i,2)+dy)==1
+                if where*(tign(A(i,1)+dx,A(i,2)+dy)<time_now)==1
                     tign_new=tign(A(i,1),A(i,2))-0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     if (tign(A(i,1)+dx,A(i,2)+dy)<tign_new)&&(tign_new<=time_now)
                         % Looking for the max tign, which
@@ -171,24 +237,24 @@ for i=1:size(A,1)
                    %    end
                     end
             
-                elseif (1-where)*(1-IN(A(i,1)+dx,A(i,2)+dy))==1
-                    tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
-                    
- %
- % ifs for checking the boundary were here
- %
- 
-            
-                    if (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now);
-                        % Looking for the min tign, which
-                        % should be >= than time_now, since the
-                        % point is outside of the preimeter
-                   %     if (B(end,1)~=A(i,1)+dx+1)||(B(end,2)~=A(i,2)+dy)
-                   %     B=[B;[A(i,1)+dx,A(i,2)+dy]];
-                        tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
-                        C(A(i,1)+dx,A(i,2)+dy)=1;
-                   %     end
-                    end
+%                 elseif (1-where)*(1-(tign(A(i,1)+dx,A(i,2)+dy)<time_now))==1
+%                     tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
+%                     
+%  %
+%  % ifs for checking the boundary were here
+%  %
+%  
+%             
+%                     if (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now);
+%                         % Looking for the min tign, which
+%                         % should be >= than time_now, since the
+%                         % point is outside of the preimeter
+%                    %     if (B(end,1)~=A(i,1)+dx+1)||(B(end,2)~=A(i,2)+dy)
+%                    %     B=[B;[A(i,1)+dx,A(i,2)+dy]];
+%                         tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
+%                         C(A(i,1)+dx,A(i,2)+dy)=1;
+%                    %     end
+%                     end
             end
         end
     end

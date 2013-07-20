@@ -1,4 +1,4 @@
-function [long,lat,ros,A]=read_file_perimeter(data,wrfout,m,n,time)
+function [long,lat,ros,A,tign_g]=read_file_perimeter(data,wrfout,m,n,time)
 
 % Volodymyr Kondratenko           April 3 2012
 

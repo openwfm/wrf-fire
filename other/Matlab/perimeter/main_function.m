@@ -19,8 +19,8 @@ addpath('../../netcdf');
 addpath('../../vis3d');
 %addpath /home/vkondrat/work/wrfout_files
 
-[long,lat,ros,bound]=read_file_perimeter(data,wrfout,m,n,time);
-tign=perimeter_in(long,lat,ros,time_now,bound,wrfout,interval,count);
+[long,lat,ros,A,tign_g]=read_file_perimeter(data,wrfout,m,n,time);
+tign=perimeter_in(long,lat,ros,time_now,A,tign_g,wrfout,interval,count);
 
 
 
