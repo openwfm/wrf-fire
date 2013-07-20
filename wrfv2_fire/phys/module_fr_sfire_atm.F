@@ -15,10 +15,12 @@ use module_fr_sfire_util
 #endif
 
 
-#ifdef WRF_CHEM
 use module_fr_sfire_phys, only:  mfuelcats, nfuelcats    ! for emissions
-USE module_state_description, only: num_chem,num_tracer
+USE module_state_description, only: num_tracer
 use module_fr_sfire_phys, only: fuel_name
+
+#ifdef WRF_CHEM
+USE module_state_description, only: num_chem
 USE module_configure, only: &
 p_co,  &
 p_ch4, &
@@ -65,14 +67,27 @@ p_glyald, &
 p_isopr, &
 p_macr, &
 p_mek, &
-p_mvk
+p_mvk, &
+p_smoke   ! tracer smoke exists only with CHEM
 #endif
+
+USE module_configure, only: &
+p_tr17_1, &
+p_tr17_2, &
+p_tr17_3, &
+p_tr17_4, &
+p_tr17_5, &
+p_tr17_6, &
+p_tr17_7, &
+p_tr17_8
 
 implicit none
 
-logical, save :: have_wind_log_interpolation = .false.  ! status
+#ifndef WRF_CHEM
+integer, parameter, private:: num_chem=0
+#endif
 
-#ifdef WRF_CHEM
+logical, save :: have_wind_log_interpolation = .false.  ! status
 
 ! emission tables
 REAL, dimension(mfuelcats), save:: &
@@ -121,7 +136,16 @@ glyald=0., &
 isopr=0., &
 macr=0., &
 mek=0., &
-mvk=0.
+mvk=0., &
+smoke=0., &
+tr17_1=0., &
+tr17_2=0., &
+tr17_3=0., &
+tr17_4=0., &
+tr17_5=0., &
+tr17_6=0., &
+tr17_7=0., &
+tr17_8=0.
 
 real, parameter:: & ! reciprocal molecular weights  (mol/g)
              imw_co    = 1./28.010,&
@@ -135,12 +159,12 @@ real, parameter:: & ! reciprocal molecular weights  (mol/g)
 real, parameter:: mw_air=28.97   ! molecular weight of air g/mol
 
 ! should be declared in the registry and stored in the state in future because of restarts
+
 real, pointer, save, dimension(:)::c_chem
 real, pointer, save, dimension(:)::c_fuel
+real, pointer, save, dimension(:)::c_tracer
 logical, save:: emis_read = .false.
 integer, save:: msglevel =1,printsums=0 ! when to print sums
-
-#endif
 
 contains
 
@@ -202,7 +226,16 @@ glyald, &
 isopr, &
 macr, &
 mek, &
-mvk
+mvk, &
+smoke, &
+tr17_1, &
+tr17_2, &
+tr17_3, &
+tr17_4, &
+tr17_5, &
+tr17_6, &
+tr17_7, &
+tr17_8
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('read_emissions_table: must be called from master thread')
@@ -256,13 +289,45 @@ call wrf_dm_bcast_real(oli, nfuelcats)
 call wrf_dm_bcast_real(ora2,nfuelcats)
 call wrf_dm_bcast_real(tol, nfuelcats)
 call wrf_dm_bcast_real(xyl, nfuelcats)
+call wrf_dm_bcast_real(bigalk, nfuelcats)
+call wrf_dm_bcast_real(bigene, nfuelcats)
+call wrf_dm_bcast_real(c10h16, nfuelcats)
+call wrf_dm_bcast_real(c2h4, nfuelcats)
+call wrf_dm_bcast_real(c2h5oh, nfuelcats)
+call wrf_dm_bcast_real(c2h6, nfuelcats)
+call wrf_dm_bcast_real(c3h6, nfuelcats)
+call wrf_dm_bcast_real(c3h8, nfuelcats)
+call wrf_dm_bcast_real(ch3cooh, nfuelcats)
+call wrf_dm_bcast_real(ch3oh, nfuelcats)
+call wrf_dm_bcast_real(cres, nfuelcats)
+call wrf_dm_bcast_real(glyald, nfuelcats)
+call wrf_dm_bcast_real(! hyac, nfuelcats)
+call wrf_dm_bcast_real(isopr, nfuelcats)
+call wrf_dm_bcast_real(macr, nfuelcats)
+call wrf_dm_bcast_real(mek, nfuelcats)
+call wrf_dm_bcast_real(mvk, nfuelcats)
+call wrf_dm_bcast_real(smoke, nfuelcats)
+call wrf_dm_bcast_real(tr17_1, nfuelcats)
+call wrf_dm_bcast_real(tr17_2, nfuelcats)
+call wrf_dm_bcast_real(tr17_3, nfuelcats)
+call wrf_dm_bcast_real(tr17_4, nfuelcats)
+call wrf_dm_bcast_real(tr17_5, nfuelcats)
+call wrf_dm_bcast_real(tr17_6, nfuelcats)
+call wrf_dm_bcast_real(tr17_7, nfuelcats)
+call wrf_dm_bcast_real(tr17_8, nfuelcats)
 
 if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
    ! should be stored in the registry future because of restarts
-   write(msg,'(a,i3,a,i3)')'allocating c_chem size',num_chem,' c_fuel size',nfuelcats
+   write(msg,'(3(a,i3,1x))')'allocating c_chem size',num_chem,'c_tracer size',num_tracer,'c_fuel size',nfuelcats
    call message(msg,level=2)
-   allocate(c_chem(num_chem))
-   c_chem=0.  ! cumulative burnt
+   if(num_chem>0)then
+      allocate(c_chem(num_chem))
+      c_chem=0.  ! cumulative burnt
+   endif
+   if(num_tracer>0)then
+      allocate(c_tracer(num_tracer))
+      c_tracer=0.  ! cumulative burnt
+   endif
    allocate(c_fuel(nfuelcats))
    c_fuel=0.  ! total per timestep, rate burnt, cumulative burnt
    write(msg,'(a,i3,a,i3)')'allocated c_chem size',size(c_chem),' c_fuel size',size(c_fuel)
@@ -314,7 +379,7 @@ character(len=128)msg
 real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
 
-integer, parameter:: np=45,line=8
+integer, parameter:: np=46,line=8
 integer:: pointers(np)
 character(len=8)::names(np)
 
@@ -374,7 +439,8 @@ p_glyald, &
 p_isopr, &
 p_macr, &
 p_mek, &
-p_mvk &
+p_mvk, &
+p_smoke
 /)
 
 names= (/ &
@@ -423,7 +489,8 @@ names= (/ &
 'isopr   ', &
 'macr    ', &
 'mek     ', &
-'mvk     '  &
+'mvk     ', &
+'smoke   '
 /)
 
 
