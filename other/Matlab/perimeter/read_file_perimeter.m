@@ -1,5 +1,4 @@
-function [long,lat,ros,A,tign_g]=read_file_perimeter(data,wrfout,m,n,time)
-
+function [long,lat,ros,A,tign_g]=read_file_perimeter(data,wrfout,time)
 % Volodymyr Kondratenko           April 3 2012
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -40,7 +39,7 @@ p=nc2struct(wrfout,{'UNIT_FXLONG','UNIX_FXLAT','FXLONG','FXLAT','TIGN_G'},{},tim
 fxlong=fxlong*unit_fxlong;
 fxlat=fxlat*unit_fxlat;
 
-ros=read_data_from_wrfout(wrfout,m,n,time);
+ros=read_data_from_wrfout(wrfout,time);
 
 A=read_perim_from_tign(tign_g);
 
