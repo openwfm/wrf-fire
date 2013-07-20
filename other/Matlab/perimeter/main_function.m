@@ -12,9 +12,10 @@ time=31;
 time_now=300.25;
 
 
+format long
 
 [long,lat,ros,A,tign_g]=read_file_perimeter(data,wrfout,time);
-tign=perimeter_in(long,lat,ros,time_now,A,tign_g,wrfout,interval,count);
+tign=perimeter_in(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count);
 
 
 

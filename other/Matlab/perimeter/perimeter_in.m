@@ -1,3 +1,10 @@
+function tign=perimeter_in(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count);
+
+tign=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count);
+
+end
+
+
 function result=perimeter_in(long,lat,ros,time_now,bound,wrfout,interval,count)
 
 % Volodymyr Kondratenko           December 8 2012	
@@ -149,7 +156,7 @@ if changed~=0,
    end
 end
 
-function result=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,interval,count)
+function result=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count)
 
 % Volodymyr Kondratenko           July 19 2013	
 
@@ -188,11 +195,11 @@ for istep=1:max(size(tign_in)),
        'getting new ros'
        time_old=time_old-count*interval
        time=time-count
-       ros=read_data_from_wrfout(wrfout,size(long,1),size(long,2),time);
+       ros=read_data_from_wrfout(wrfout,time);
        delta_tign=delta_tign_calculation(long,lat,ros);
     end
 
-    [tign_in,A,C]=tign_update(tign_in,A,IN_ext,delta_tign,time_now,1);
+    [tign_in,A,C]=tign_update(tign_in,A,delta_tign,time_now,1);
 
     changed=sum(tign_in(:)~=tign_last(:));
 
@@ -278,28 +285,13 @@ function delta_tign=delta_tign_calculation(long,lat,ros)
     lat2(2:size(lat,1)+1,2:size(lat,2)+1)=lat;
     lat=lat2;
 
-    vf2=zeros(size(vf,1)+2,size(vf,2)+2);
-    vf2(2:size(vf,1)+1,2:size(vf,2)+1)=vf;
-    vf=vf2;
-
-    uf2=zeros(size(uf,1)+2,size(uf,2)+2);
-    uf2(2:size(uf,1)+1,2:size(uf,2)+1)=uf;
-    uf=uf2;
-
-    dzdxf2=zeros(size(dzdxf,1)+2,size(dzdxf,2)+2);
-    dzdxf2(2:size(dzdxf,1)+1,2:size(dzdxf,2)+1)=dzdxf;
-    dzdxf=dzdxf2;
-
-    dzdyf2=zeros(size(dzdyf,1)+2,size(dzdyf,2)+2);
-    dzdyf2(2:size(dzdyf,1)+1,2:size(dzdyf,2)+1)=dzdyf;
-    dzdyf=dzdyf2;
 
 for i=2:size(long,1)-1
     for j=2:size(long,2)-1
         for a=-1:1
             for b=-1:1
                 delta_tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
-                          (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros(i,j,a+2,b+2);
+                          (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros(i-1,j-1,a+2,b+2);
             end
         end
  
