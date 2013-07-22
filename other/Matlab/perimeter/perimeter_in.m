@@ -5,7 +5,7 @@ tign=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count
 end
 
 
-function result=perimeter_in(long,lat,ros,time_now,bound,wrfout,interval,count)
+function result=perimeter_in_2(long,lat,ros,time_now,bound,wrfout,interval,count)
 
 % Volodymyr Kondratenko           December 8 2012	
 
@@ -118,13 +118,17 @@ for istep=1:max(size(tign_in)),
     str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
    
     
-    if ((time_old-min(min(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
+    if ((time_old-max(max(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
     'getting new ros'
-        time_old
-        tign_in(A(1,1),A(1,2))
-        min(min(tign_in(A(:,1),A(:,2))))
-        time_old=time_old-count*interval
-        time=time-count
+      sprintf('time_old= %f',time_old)  
+      sprintf('tign_in(A(1,1),A(1,2))= %f',tign_in(A(1,1),A(1,2)))
+      sprintf('min(min(tign_in(A(:,1),A(:,2))))= %f',min(min(tign_in(A(:,1),A(:,2)))))
+      sprintf('max(max(tign_in(A(:,1),A(:,2))))= %f',max(max(tign_in(A(:,1),A(:,2)))))      
+      sprintf('time_old-max(max(tign_in(A(:,1),A(:,2)))= %f',time_old-max(max(tign_in(A(:,1),A(:,2)))))
+        
+        count1=mod(time_old-max(max(tign_in(A(:,1),A(:,2)))),count*interval)
+        time_old=time_old-count1*interval
+        time=time-count1
        ros=read_data_from_wrfout(wrfout,size(long,1),size(long,2),time);
        delta_tign=delta_tign_calculation(long,lat,ros);
     end
