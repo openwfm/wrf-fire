@@ -203,7 +203,9 @@ for istep=1:max(size(tign_in)),
        delta_tign=delta_tign_calculation(long,lat,ros);
     end
 
+    contour(tign_in(2:end-1,2:end-1));drawnow
     [tign_in,A,C]=tign_update(tign_in,A,delta_tign,time_now,1);
+    contour(tign_in(2:end-1,2:end-1));title(sprintf('step %i',istep)),drawnow
 
     changed=sum(tign_in(:)~=tign_last(:));
 
