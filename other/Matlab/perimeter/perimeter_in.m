@@ -238,7 +238,7 @@ for i=1:size(A,1)
     for dx=-1:1   
         for dy=-1:1  
                 if where*(tign(A(i,1)+dx,A(i,2)+dy)<time_now)==1
-                    tign_new=tign(A(i,1),A(i,2))-0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
+                    tign_new=tign(A(i,1),A(i,2))-0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,-dx+2,-dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     if (tign(A(i,1)+dx,A(i,2)+dy)<tign_new)&&(tign_new<=time_now)
                         % Looking for the max tign, which
                         % should be <= than time_now, since the
