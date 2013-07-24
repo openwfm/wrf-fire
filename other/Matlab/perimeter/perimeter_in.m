@@ -179,7 +179,7 @@ tign_in(2:n+1,2:m+1)=(tign_g(:,:)==time_now).*time_now;
 
 changed=1;
 time_old=time_now;
-
+count_new=0;
 count
 interval
 count*interval
@@ -195,10 +195,11 @@ for istep=1:max(size(tign_in)),
     str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
    
     
-    if ((time_old-min(min(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
+    if ((time_old-max(max(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
        'getting new ros'
-       time_old=time_old-count*interval
-       time=time-count
+       count_new=floor((time_old-max(max(tign_in(A(:,1),A(:,2)))))/(count*interval))
+       time_old=time_old-count_new*interval
+       time=time-count_new
        ros=read_data_from_wrfout(wrfout,time);
        delta_tign=delta_tign_calculation(long,lat,ros);
     end
