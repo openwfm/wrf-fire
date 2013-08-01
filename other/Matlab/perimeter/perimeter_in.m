@@ -135,7 +135,7 @@ for istep=1:max(size(tign_in)),
 
     
     % tign_update - updates the tign of the points
-    [tign_in,A,C]=tign_update(tign_in,A,IN_ext,delta_tign,time_now,1);
+    [tign_in,A,C]=tign_update(tign_in,A,IN_ext,delta_tign,time_now);
   % when it is outside the last parameter is 0, inside 1  
     changed=sum(tign_in(:)~=tign_last(:));
 %    if (changed<=5)
@@ -170,48 +170,58 @@ m=size(long,2);
 
 'perimeter_in_tign'
 
-[delta_tign]=delta_tign_calculation(long,lat,ros);
-
-C=zeros(n+2,m+2);
+distance=get_distances(long,lat);
+[delta_tign]=delta_tign_calculation(distance,ros);
 
 tign_in=zeros(n+2,m+2);
 tign_in(2:n+1,2:m+1)=(tign_g(:,:)==time_now).*time_now;
-
+D=zeros(n+2,m+2);
 changed=1;
-time_old=time_now;
 count_new=0;
 count
 interval
 count*interval
 tic
+    sprintf('size of A- %i',size(A,1))
 for istep=1:max(size(tign_in)),
-    if changed==0, 
+    if size(A,1)==0, 
 		'printed'
 		break
     end
     
-    tign_last=tign_in;
     time_toc=toc;
     str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
-   
-    
-    if ((time_old-max(max(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
-       'getting new ros'
-       count_new=floor((time_old-max(max(tign_in(A(:,1),A(:,2)))))/(count*interval))
-       time_old=time_old-count_new*interval
-       time=time-count_new
-       ros=read_data_from_wrfout(wrfout,time);
-       delta_tign=delta_tign_calculation(long,lat,ros);
-    end
-
+    tign_last=tign_in;
     contour(tign_in(2:end-1,2:end-1));drawnow
-    [tign_in,A,C]=tign_update(tign_in,A,delta_tign,time_now,1);
+    [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval,ros);
+
     contour(tign_in(2:end-1,2:end-1));title(sprintf('step %i',istep)),drawnow
 
     changed=sum(tign_in(:)~=tign_last(:));
 
-   sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
-   sprintf('size of A- %i',size(A,1))   
+    sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
+    sprintf('size of A- %i',size(A,1))
+    [row,col]=find(D>0);
+    sprintf('size of D- %i',size(row,1))
+    
+    if (size(A,1)==0)
+        if (time-count)>0
+            'getting new ros'
+            A=[];
+            [A(:,1),A(:,2)]=find(D>0);
+            sprintf('size of A- %i',size(A,1))
+            D=zeros(n+2,m+2);
+            time_now=time_now-count*interval
+            time=time-1;
+            ros=read_data_from_wrfout(wrfout,time);
+            delta_tign=delta_tign_calculation(distance,ros);
+    
+        elseif (time-count)<0
+        
+        'time-count<0'
+        end
+    end
+       
 end
 
 final_tign=tign_in;
@@ -226,49 +236,32 @@ if changed~=0,
    end
 end
 
+function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,interval,ros)
+% A - set of points whose neighbors will be updated
+% C - set of points that will be updated next step
+% D - same as B, but in a matrix form and is being updated every step
+% separately
 
-
-
-function [tign,A,C]=tign_update(tign,A,delta_tign,time_now,where)
-  
 % Does one iteration of the algorythm and updates the tign of the points of
 % the mesh that are next to the previously updated neighbors
-%B=A(end,:);
 C=zeros(size(tign,1),size(tign,2));
 for i=1:size(A,1)
     for dx=-1:1   
         for dy=-1:1  
-                if where*(tign(A(i,1)+dx,A(i,2)+dy)<time_now)==1
+                if (tign(A(i,1)+dx,A(i,2)+dy)<time_now)==1
                     tign_new=tign(A(i,1),A(i,2))-0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,-dx+2,-dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     if (tign(A(i,1)+dx,A(i,2)+dy)<tign_new)&&(tign_new<=time_now)
-                        % Looking for the max tign, which
-                        % should be <= than time_now, since the
-                        % point is inside of the preimeter
-                   %     if (B(end,1)~=A(i,1)+dx)||(B(end,2)~=A(i,2)+dy)
-                   %         B=[B;[A(i,1)+dx,A(i,2)+dy]];
+                        if (time_now-tign_new<interval)
                             tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
                             C(A(i,1)+dx,A(i,2)+dy)=1;
-                   %    end
+                        else
+                            distance(A(i,1),A(i,2),2-dx,2-dy)=distance(A(i,1),A(i,2),2-dx,2-dy)-interval*ros(A(i,1),A(i,2),2-dx,2-dy);
+                            distance(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy)=distance(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy)-interval*ros(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy);
+                            D(A(i,1),A(i,2))=1;
+                        end
+                        
                     end
             
-%                 elseif (1-where)*(1-(tign(A(i,1)+dx,A(i,2)+dy)<time_now))==1
-%                     tign_new=tign(A(i,1),A(i,2))+0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,dx+2,dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
-%                     
-%  %
-%  % ifs for checking the boundary were here
-%  %
-%  
-%             
-%                     if (tign(A(i,1)+dx,A(i,2)+dy)>tign_new)&&(tign_new>=time_now);
-%                         % Looking for the min tign, which
-%                         % should be >= than time_now, since the
-%                         % point is outside of the preimeter
-%                    %     if (B(end,1)~=A(i,1)+dx+1)||(B(end,2)~=A(i,2)+dy)
-%                    %     B=[B;[A(i,1)+dx,A(i,2)+dy]];
-%                         tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
-%                         C(A(i,1)+dx,A(i,2)+dy)=1;
-%                    %     end
-%                     end
             end
         end
     end
@@ -277,12 +270,9 @@ A=[];
 [A(:,1),A(:,2)]=find(C>0);
 end
 
-
-function delta_tign=delta_tign_calculation(long,lat,ros)
-    %Extend the boundaries to speed up the algorithm, the values of the
-    %extended boundaries would be set to zeros and are never used in the
-    %code
-	delta_tign=zeros(size(long,1)+2,size(long,2)+2,3,3);
+function distance=get_distances(long,lat)
+    
+    distance=zeros(size(long,1)+2,size(long,2)+2,3,3);
     
     long2=zeros(size(long,1)+2,size(long,2)+2);
     long2(2:size(long,1)+1,2:size(long,2)+1)=long;
@@ -292,13 +282,34 @@ function delta_tign=delta_tign_calculation(long,lat,ros)
     lat2(2:size(lat,1)+1,2:size(lat,2)+1)=lat;
     lat=lat2;
 
-
-for i=2:size(long,1)-1
+    for i=2:size(long,1)-1
     for j=2:size(long,2)-1
         for a=-1:1
             for b=-1:1
-                delta_tign(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
-                          (lat(i+a,j+b,1)-lat(i,j,1))^2)/ros(i-1,j-1,a+2,b+2);
+                distance(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
+                          (lat(i+a,j+b,1)-lat(i,j,1))^2);
+            end
+        end
+ 
+    end
+
+end
+
+    
+end
+
+function delta_tign=delta_tign_calculation(distance,ros)
+    %Extend the boundaries to speed up the algorithm, the values of the
+    %extended boundaries would be set to zeros and are never used in the
+    %code
+	delta_tign=zeros(size(distance));
+    
+  
+for i=2:size(delta_tign,1)-1
+    for j=2:size(delta_tign,2)-1
+        for a=-1:1
+            for b=-1:1
+                delta_tign(i,j,a+2,b+2)=distance(i,j,a+2,b+2)/ros(i-1,j-1,a+2,b+2);
             end
         end
  
