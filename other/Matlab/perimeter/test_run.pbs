@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#PBS -N Perimeter
+#PBS -V
+#PBS -l nodes=1:ppn=12
+
+# Set the maximum amount of the time the job will run (HH:MM:SS)
+#PBS -l walltime=20:00:00
+cd $PBS_O_WORKDIR
+pwd
+cd ../../../wrfv2_fire/test/em_fire/
+matlab -nodesktop < run2.m

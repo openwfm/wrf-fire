@@ -136,7 +136,7 @@
  fire_crwn_hgt      = 0, 15.,  ! real   , height of canopy crown (m)
  fire_ext_grnd      = 0, 50.,  ! real   , extinction coeff surface fire
  fire_ext_crwn      = 0, 50.,  ! real   , extinction coeff crown fire 
- fire_fuel_read     = 0, 0,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
+ fire_fuel_read     = 0, 2,    ! integer, 0= use fire_fuel_cat, 1= by altitude 2= read from file
  fire_fuel_cat      = 0, 3,    ! integer, if specified which fuel category?
 ! ignition 
  fire_num_ignitions = 0,1,         ! integer, only the first fire_num_ignition used, up to 5 allowed
