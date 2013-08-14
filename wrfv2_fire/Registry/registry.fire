@@ -8,7 +8,7 @@
 #<key>   <package       <associated               <package        <associated 4d scalars>
 #         name>          namelist choice>          state vars>
 # 
-package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,unit_fxlong,unit_fxlat
+package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,unit_fxlong,unit_fxlat,ndwi,ndvi
 
 # fire input variables on fire grid
 #
@@ -19,7 +19,11 @@ state    real     dzdxf     *i*j     fire        1         z   i012hr   "DZDXF" 
 state    real     dzdyf     *i*j     fire        1         z   i012hr   "DZDYF"    "surface gradient y" "1"
 state    real     fire_hfx  *i*j     fire        1         z   i012hr   "FIRE_HFX" "observed fire heat flux" "W/m^2"
 
-# fire variables on atm grid
+# fire input variables on atm grid
+#
+# satellite sensing 
+state    real     ndwi      ij      fire        1         z   i012hr    "NDWI"    "Normalized Difference Water Index" "1"
+state    real     ndvi      ij      fire        1         z   i012hr    "NDVI"    "Normalized Difference Vegetation Index" "1"
 #
 # outputs to atm model
 state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
