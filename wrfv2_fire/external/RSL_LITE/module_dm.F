@@ -1,5 +1,3 @@
-!WRF:PACKAGE:RSL 
-!
 MODULE module_dm
 
    USE module_machine
@@ -15,6 +13,7 @@ MODULE module_dm
 #endif
 
    INTEGER :: ips_save, ipe_save, jps_save, jpe_save, itrace
+   INTEGER :: lats_to_mic, minx, miny
 
    INTEGER ntasks, ntasks_y, ntasks_x, mytask, mytask_x, mytask_y
    INTEGER local_communicator, local_communicator_periodic, local_iocommunicator
@@ -82,8 +81,12 @@ CONTAINS
      IMPLICIT NONE
      INTEGER, INTENT(IN)  :: ntasks
      INTEGER, INTENT(OUT) :: ntasks_x, ntasks_y
+     INTEGER lats_to_mic
      CALL nl_get_nproc_x ( 1, ntasks_x )
      CALL nl_get_nproc_y ( 1, ntasks_y )
+#ifndef NMM_CORE
+     CALL nl_get_lats_to_mic ( 1, lats_to_mic )
+#endif
 ! check if user has specified in the namelist
      IF ( ntasks_x .GT. 0 .OR. ntasks_y .GT. 0 ) THEN
        ! if only ntasks_x is specified then make it 1-d decomp in i
@@ -98,6 +101,17 @@ CONTAINS
          WRITE( wrf_err_message , * )'WRF_DM_INITIALIZE (RSL_LITE): nproc_x * nproc_y in namelist ne ',ntasks
          CALL wrf_error_fatal ( wrf_err_message )
        ENDIF
+#ifndef NMM_CORE
+     ELSE IF ( lats_to_mic .GT. 0 ) THEN
+       ntasks_x = ntasks / 2
+       ntasks_y = 2
+       IF ( ntasks_x * ntasks_y .NE. ntasks ) THEN
+         WRITE( wrf_err_message , * )&
+           'WRF_DM_INITIALIZE (lats_to_mic > 0) nproc_x (',ntasks_x,')* nproc_y (',ntasks_y,&
+           ') in namelist ne ',ntasks
+         CALL wrf_error_fatal ( wrf_err_message )
+       ENDIF
+#endif
      ELSE
        ! When neither is specified, work out mesh with MPASPECT
        ! Pass nproc_ln and nproc_nt so that number of procs in
@@ -211,7 +225,11 @@ CONTAINS
                                       sp3y , ep3y , sm3y , em3y , &
                                 bdx , bdy )
 
+#if ( defined(SGIALTIX) && (! defined(MOVE_NESTS) ) ) || ( defined(FUJITSU_FX10) && (! defined(MOVE_NESTS) ) )
       USE module_domain, ONLY : domain, head_grid, find_grid_by_id, alloc_space_field
+#else
+      USE module_domain, ONLY : domain, head_grid, find_grid_by_id
+#endif
 
       IMPLICIT NONE
       INTEGER, INTENT(IN)   :: sd1 , ed1 , sd2 , ed2 , sd3 , ed3 , bdx , bdy
@@ -259,6 +277,21 @@ CONTAINS
 
       INTEGER parent_max_halo_width
       INTEGER thisdomain_max_halo_width
+      INTEGER lats_to_mic
+
+     lats_to_mic=0
+#ifndef NMM_CORE
+     CALL nl_get_lats_to_mic( 1, lats_to_mic )
+#endif
+      IF ( lats_to_mic .GT. 0 ) THEN
+        minx = -99  ! code to task_for_point to do split decomposition over MIC and host
+        miny = lats_to_mic  ! number of latitudes that should be assigned to MIC
+      ELSE
+        minx = 1   ! normal
+        miny = 1   ! normal
+      ENDIF
+
+
 
       SELECT CASE ( model_data_order )
          ! need to finish other cases
@@ -440,7 +473,8 @@ CONTAINS
          DO i = c_ids, c_ide
             ni = ( i - i_parent_start ) * parent_grid_ratio + 1 + 1 ;
             CALL task_for_point ( ni, nj, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py, &
-                                  1, 1,  ierr )
+                                  minx, miny,  ierr )
+            IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (a)')
             IF ( Px .EQ. mytask_x ) THEN
                c_ipe = i
                IF ( c_ips .EQ. -1 ) c_ips = i
@@ -460,7 +494,8 @@ CONTAINS
          DO j = c_jds, c_jde
             nj = ( j - j_parent_start ) * parent_grid_ratio + 1 + 1 ;
             CALL task_for_point ( ni, nj, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py, &
-                                  1, 1, ierr )
+                                  minx, miny, ierr )
+            IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (b)')
 
 
             IF ( Py .EQ. mytask_y ) THEN
@@ -702,7 +737,8 @@ CONTAINS
     ierr = 0
     DO i = ids, ide
        CALL task_for_point ( i, j, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py, &
-                             1, 1, ierr )
+                             minx, miny, ierr )
+       IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (c)')
        IF ( Px .EQ. mytask_x ) THEN
           ipe = i
           IF ( ips .EQ. -1 ) ips = i
@@ -721,7 +757,8 @@ CONTAINS
     ierr = 0
     DO j = jds, jde
        CALL task_for_point ( i, j, ids, ide, jds, jde, ntasks_x, ntasks_y, Px, Py, &
-                             1, 1, ierr )
+                             minx, miny, ierr )
+       IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (d)')
        IF ( Py .EQ. mytask_y ) THEN
           jpe = j
           IF ( jps .EQ. -1 ) jps = j
@@ -792,7 +829,8 @@ CONTAINS
     ierr = 0
     DO k = kds, kde
        CALL task_for_point ( k, j, kds, kde, jds, jde, ntasks_x, ntasks_y, Px, Py, &
-                             1, 1, ierr )
+                             minx, miny, ierr )
+       IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (e)')
        IF ( Px .EQ. mytask_x ) THEN
           kpex = k
           IF ( kpsx .EQ. -1 ) kpsx = k
@@ -814,7 +852,8 @@ CONTAINS
     ierr = 0
     DO j = jds, jde
        CALL task_for_point ( k, j, kds, kde, jds, jde, ntasks_x, ntasks_y, Px, Py, &
-                             1, 1, ierr )
+                             minx, miny, ierr )
+       IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (f)')
        IF ( Py .EQ. mytask_y ) THEN
           jpex = j
           IF ( jpsx .EQ. -1 ) jpsx = j
@@ -850,7 +889,8 @@ CONTAINS
     ierr = 0
     DO i = ids, ide
        CALL task_for_point ( i, k, ids, ide, kds, kde, ntasks_y, ntasks_x, Py, Px, &
-                             1, 1, ierr ) ! x and y for proc mesh reversed
+                             miny, minx, ierr )
+       IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (g)')
        IF ( Py .EQ. mytask_y ) THEN
           ipey = i
           IF ( ipsy .EQ. -1 ) ipsy = i
@@ -874,7 +914,7 @@ CONTAINS
     ierr = 0
     DO i = ids, ide-1
        CALL task_for_point ( i, j, ids, ide-1, jds, jde-1, ntasks_x, ntasks_y, Px, Py, &
-                             1, 1 , ierr )
+                             minx, miny, ierr )
        IF ( Px .EQ. mytask_x ) THEN
           ipe = i
           IF ( Px .EQ. ntasks_x-1 ) ipe = ipe + 1
@@ -889,7 +929,7 @@ CONTAINS
     ierr = 0
     DO j = jds, jde-1
        CALL task_for_point ( i, j, ids, ide-1, jds, jde-1, ntasks_x, ntasks_y, Px, Py, &
-                             1 , 1 , ierr )
+                             minx, miny, ierr )
        IF ( Py .EQ. mytask_y ) THEN
           jpe = j
           IF ( Py .EQ. ntasks_y-1 ) jpe = jpe + 1
@@ -947,6 +987,11 @@ CONTAINS
     ELSE
       ims = max( ips - max(shw,maxhalowidth), ids - bdx ) - 1
       ime = min( ipe + max(shw,maxhalowidth), ide + bdx ) + 1
+#ifdef INTEL_ALIGN64
+! align on 64 byte boundaries if -align array64byte
+      ims = ips-CHUNK
+      ime = ime + (CHUNK-mod(ime-ims+1,CHUNK))
+#endif
     ENDIF
     imsx = ids
     imex = ide
@@ -2060,13 +2105,14 @@ END
                                     shw ,  xy , ds, de_in, ps, pe, nds,nde, & 
                                     sendbeg_m, sendw_m, sendbeg_p, sendw_p,   &
                                     recvbeg_m, recvw_m, recvbeg_p, recvw_p    )
-      USE module_dm, ONLY : ntasks_x, ntasks_y, mytask_x, mytask_y
+      USE module_dm, ONLY : ntasks_x, ntasks_y, mytask_x, mytask_y, minx, miny
       IMPLICIT NONE
       INTEGER, INTENT(IN)  :: id,shw,xy,ds,de_in,ps,pe,nds,nde
       LOGICAL, INTENT(IN)  :: is_intermediate  ! treated differently, coarse but with same decomp as nest
       INTEGER, INTENT(OUT) :: sendbeg_m, sendw_m, sendbeg_p, sendw_p
       INTEGER, INTENT(OUT) :: recvbeg_m, recvw_m, recvbeg_p, recvw_p
-      INTEGER k, kn, ni, nj, de, Px, Py, nt, me, lb, ub, ierr 
+      INTEGER k, kn, ni, nj, de, Px, Py, nt, ntx, nty, me, lb, ub, ierr 
+      INTEGER dum
       LOGICAL went
       INTEGER iter, plus_send_start, plus_recv_start, &
                     minus_send_start, minus_recv_start 
@@ -2081,10 +2127,12 @@ END
 #else
       de = de_in
 #endif
-
+      ntx = ntasks_x 
+      nty = ntasks_y 
       IF ( xy .EQ. 1 ) THEN  ! X/I axis
-        nt = ntasks_x 
+        nt = ntasks_x
         me = mytask_x
+        dum = 2 * nty  ! dummy dimension length for tfp to decompose without getting div 0
         IF ( is_intermediate ) THEN
            CALL nl_get_i_parent_start(id,parent_start)
            CALL nl_get_parent_grid_ratio(id,parent_grid_ratio)
@@ -2092,6 +2140,7 @@ END
       ELSE
         nt = ntasks_y
         me = mytask_y
+        dum = 2 * ntx  ! dummy dimension length for tfp to decompose without getting div 0
         IF ( is_intermediate ) THEN
            CALL nl_get_j_parent_start(id,parent_start)
            CALL nl_get_parent_grid_ratio(id,parent_grid_ratio)
@@ -2109,14 +2158,30 @@ END
         sendbeg_m = lb-ps+1
         DO k = lb,ps+shw-1
           went = .TRUE.
+          IF ( xy .eq. 1 ) THEN
           IF ( is_intermediate ) THEN
             kn =  ( k - parent_start ) * parent_grid_ratio + 1 + 1 ;
-            CALL task_for_point (kn,1,nds,nde,1,1,nt,1,Px,Py,1,1,ierr) ! assume same alg. for x and y and just use x
+              CALL task_for_point (kn,1,nds,nde,1,dum,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (h)')
           ELSE
-            CALL task_for_point (k,1,ds,de,1,1,nt,1,Px,Py,1,1,ierr) ! assume same alg. for x and y and just use x
+              CALL task_for_point (k,1,ds,de,1,dum,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (i)')
           ENDIF
           IF ( Px .NE. me+(iter-1) ) THEN
             exit
+          ENDIF
+          ELSE
+            IF ( is_intermediate ) THEN
+              kn =  ( k - parent_start ) * parent_grid_ratio + 1 + 1 ;
+              CALL task_for_point (1,kn,1,dum,nds,nde,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (h)')
+            ELSE
+              CALL task_for_point (1,k,1,dum,ds,de,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (i)')
+            ENDIF
+            IF ( Py .NE. me+(iter-1) ) THEN
+              exit
+            ENDIF
           ENDIF
           minus_send_start = minus_send_start+1
           sendw_m = sendw_m + 1
@@ -2130,14 +2195,30 @@ END
         recvbeg_m = ps - ub
         DO k = minus_recv_start,ps-shw,-1
           went = .TRUE.
+          IF ( xy .eq. 1 ) THEN
           IF ( is_intermediate ) THEN
             kn =  ( k - parent_start ) * parent_grid_ratio + 1 + 1 ;
-            CALL task_for_point (kn,1,nds,nde,1,1,nt,1,Px,Py,1,1,ierr) ! assume same alg. for x and y and just use x
+              CALL task_for_point (kn,1,nds,nde,1,dum,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (j)')
           ELSE
-            CALL task_for_point (k,1,ds,de,1,1,nt,1,Px,Py,1,1,ierr) ! assume same alg. for x and y and just use x
+              CALL task_for_point (k,1,ds,de,1,dum,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (k)')
           ENDIF
           IF ( Px .NE. me-iter ) THEN
             exit
+          ENDIF
+          ELSE
+            IF ( is_intermediate ) THEN
+              kn =  ( k - parent_start ) * parent_grid_ratio + 1 + 1 ;
+              CALL task_for_point (1,kn,1,dum,nds,nde,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (j)')
+            ELSE
+              CALL task_for_point (1,k,1,dum,ds,de,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (k)')
+            ENDIF
+            IF ( Py .NE. me-iter ) THEN
+              exit
+            ENDIF
           ENDIF
           minus_recv_start = minus_recv_start-1
           recvw_m = recvw_m + 1
@@ -2147,19 +2228,35 @@ END
       ! send to plus
       sendw_p = 0 
       sendbeg_p = 1
-      IF ( me .LT. nt-1 ) THEN
+      IF ( ( xy .eq. 1 .and. me .LT. ntx-1 ) .OR. ( xy .eq. 0 .and. me .LT. nty-1 ) ) THEN
         ub = plus_send_start
         sendbeg_p = pe - ub + 1 
         DO k = ub,pe-shw+1,-1
           went = .TRUE.
+          IF ( xy .eq. 1 ) THEN
           IF ( is_intermediate ) THEN
             kn =  ( k - parent_start ) * parent_grid_ratio + 1 + 1 ;
-            CALL task_for_point (kn,1,nds,nde,1,1,nt,1,Px,Py,1,1,ierr) ! assume same alg. for x and y and just use x
+              CALL task_for_point (kn,1,nds,nde,1,dum,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (l)')
           ELSE
-            CALL task_for_point (k,1,ds,de,1,1,nt,1,Px,Py,1,1,ierr) ! assume same alg. for x and y and just use x
+              CALL task_for_point (k,1,ds,de,1,dum,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (m)')
           ENDIF
           IF ( Px .NE. me-(iter-1) ) THEN
             exit
+          ENDIF
+          ELSE
+            IF ( is_intermediate ) THEN
+              kn =  ( k - parent_start ) * parent_grid_ratio + 1 + 1 ;
+              CALL task_for_point (1,kn,1,dum,nds,nde,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (l)')
+            ELSE
+              CALL task_for_point (1,k,1,dum,ds,de,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (m)')
+            ENDIF
+            IF ( Py .NE. me-(iter-1) ) THEN
+              exit
+            ENDIF
           ENDIF
           plus_send_start = plus_send_start - 1
           sendw_p = sendw_p + 1
@@ -2168,19 +2265,37 @@ END
       ! recv from plus
       recvw_p = 0 
       recvbeg_p = 1
-      IF ( me .LT. nt-1 ) THEN
+      IF ( ( xy .eq. 1 .and. me .LT. ntx-1 ) .OR. ( xy .eq. 0 .and. me .LT. nty-1 ) ) THEN
         lb = plus_recv_start
         recvbeg_p = lb - pe
         DO k = lb,pe+shw
           went = .TRUE.
+          IF ( xy .eq. 1 ) THEN
           IF ( is_intermediate ) THEN
             kn =  ( k - parent_start ) * parent_grid_ratio + 1 + 1 ;
-            CALL task_for_point (kn,1,nds,nde,1,1,nt,1,Px,Py,1,1,ierr) ! assume same alg. for x and y and just use x
+              CALL task_for_point (kn,1,nds,nde,1,dum,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (n)')
           ELSE
-            CALL task_for_point (k,1,ds,de,1,1,nt,1,Px,Py,1,1,ierr) ! assume same alg. for x and y and just use x
+
+              CALL task_for_point (k,1,ds,de,1,dum,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (o)')
           ENDIF
           IF ( Px .NE. me+iter ) THEN
             exit
+          ENDIF
+          ELSE
+            IF ( is_intermediate ) THEN
+              kn =  ( k - parent_start ) * parent_grid_ratio + 1 + 1 ;
+              CALL task_for_point (1,kn,1,dum,nds,nde,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (n)')
+            ELSE
+              CALL task_for_point (1,k,1,dum,ds,de,ntx,nty,Px,Py,minx,miny,ierr) ! modified to treat x and y separately
+              IF ( ierr .NE. 0 ) CALL wrf_error_fatal('error code returned by task_for_point in module_dm.F (o)')
+            ENDIF
+            IF ( Py .NE. me+iter ) THEN
+              exit
+            ENDIF
           ENDIF
           plus_recv_start = plus_recv_start + 1
           recvw_p = recvw_p + 1
@@ -2204,7 +2319,7 @@ END
       ! write(0,*)sendbeg_m, sendw_m, sendbeg_p, sendw_p, recvbeg_m, recvw_m, recvbeg_p, recvw_p
 #endif
       !if ( went ) then
-      !  write(0,*)'shw  ', shw , ' xy ',xy
+      !  write(0,*)'shw  ', shw , ' xy ',xy,' plus_send_start ',plus_send_start,' minus_send_start ', minus_send_start
       !  write(0,*)' ds, de, ps, pe, nds,nde ',ds, de, ps, pe, nds,nde
       !  write(0,*)'sendbeg_m, sendw_m, sendbeg_p, sendw_p, recvbeg_m, recvw_m, recvbeg_p, recvw_p '
       !  write(0,*)sendbeg_m, sendw_m, sendbeg_p, sendw_p, recvbeg_m, recvw_m, recvbeg_p, recvw_p
@@ -3324,6 +3439,348 @@ END
 
 !------------------------------------------------------------------
 
+   SUBROUTINE interp_domain_em_small_part1 ( grid, intermediate_grid, ngrid, config_flags    &
+!
+#include "dummy_new_args.inc"
+!
+                 )
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
+      USE module_comm_dm, ONLY: halo_em_horiz_interp_sub
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, &
+                            mytask, get_dm_max_halo_width
+      USE module_timing
+      IMPLICIT NONE
+!
+      TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
+      TYPE(domain), POINTER :: intermediate_grid
+      TYPE(domain), POINTER :: ngrid
+#include <dummy_new_decl.inc>
+      INTEGER nlev, msize
+      INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
+      INTEGER iparstrt,jparstrt,sw
+      TYPE (grid_config_rec_type)            :: config_flags
+      REAL xv(500)
+      INTEGER       ::           ids,  ide,  jds,  jde,  kds,  kde,    &
+                                 ims,  ime,  jms,  jme,  kms,  kme,    &
+                                 ips,  ipe,  jps,  jpe,  kps,  kpe
+
+      INTEGER       ::          cids, cide, cjds, cjde, ckds, ckde,    &
+                                cims, cime, cjms, cjme, ckms, ckme,    &
+                                cips, cipe, cjps, cjpe, ckps, ckpe
+      INTEGER       ::          iids, iide, ijds, ijde, ikds, ikde,    &
+                                iims, iime, ijms, ijme, ikms, ikme,    &
+                                iips, iipe, ijps, ijpe, ikps, ikpe
+      INTEGER       ::          nids, nide, njds, njde, nkds, nkde,    &
+                                nims, nime, njms, njme, nkms, nkme,    &
+                                nips, nipe, njps, njpe, nkps, nkpe
+
+      INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
+
+      INTEGER icoord, jcoord, idim_cd, jdim_cd, pgr 
+      INTEGER thisdomain_max_halo_width
+      INTEGER local_comm, myproc, nproc
+
+      CALL wrf_get_dm_communicator ( local_comm )
+      CALL wrf_get_myproc( myproc )
+      CALL wrf_get_nproc( nproc )
+
+      CALL get_ijk_from_grid (  grid ,                           &
+                                ids, ide, jds, jde, kds, kde,    &
+                                ims, ime, jms, jme, kms, kme,    &
+                                ips, ipe, jps, jpe, kps, kpe     )
+#ifdef DM_PARALLEL
+#  include "HALO_EM_HORIZ_INTERP.inc"
+#endif
+
+      CALL get_ijk_from_grid (  grid ,                   &
+                                cids, cide, cjds, cjde, ckds, ckde,    &
+                                cims, cime, cjms, cjme, ckms, ckme,    &
+                                cips, cipe, cjps, cjpe, ckps, ckpe    )
+      CALL get_ijk_from_grid (  intermediate_grid ,              &
+                                iids, iide, ijds, ijde, ikds, ikde,    &
+                                iims, iime, ijms, ijme, ikms, ikme,    &
+                                iips, iipe, ijps, ijpe, ikps, ikpe    )
+      CALL get_ijk_from_grid (  ngrid ,              &
+                                nids, nide, njds, njde, nkds, nkde,    &
+                                nims, nime, njms, njme, nkms, nkme,    &
+                                nips, nipe, njps, njpe, nkps, nkpe    )
+
+      CALL nl_get_parent_grid_ratio ( ngrid%id, pgr )
+      CALL nl_get_i_parent_start ( intermediate_grid%id, iparstrt )
+      CALL nl_get_j_parent_start ( intermediate_grid%id, jparstrt )
+      CALL nl_get_shw            ( intermediate_grid%id, sw )
+      icoord =    iparstrt - sw
+      jcoord =    jparstrt - sw
+      idim_cd = iide - iids + 1
+      jdim_cd = ijde - ijds + 1
+
+      nlev  = ckde - ckds + 1
+
+      ! get max_halo_width for parent. It may be smaller if it is moad
+      CALL get_dm_max_halo_width ( grid%id , thisdomain_max_halo_width )
+
+      !  How many 3d arrays, so far just 3d theta-300 and geopotential perturbation,
+      !  and the 2d topo elevation, three max press/temp/height fields, and three
+      !  min press/temp/height fields.
+   
+      msize = ( 2 )* nlev + 7
+   
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, calling rsl_lite_to_child')
+      CALL rsl_lite_to_child_info( local_communicator, msize*RWORDSIZE     &
+                              ,cips,cipe,cjps,cjpe                         &
+                              ,iids,iide,ijds,ijde                         &
+                              ,nids,nide,njds,njde                         &
+                              ,pgr , sw                                    &
+                              ,ntasks_x,ntasks_y                           &
+                              ,thisdomain_max_halo_width                   &
+                              ,icoord,jcoord                               &
+                              ,idim_cd,jdim_cd                             &
+                              ,pig,pjg,retval )
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, back from rsl_lite_to_child')
+      DO while ( retval .eq. 1 )
+         IF ( SIZE(grid%ph_2) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, ph_2')
+            DO k = ckds,ckde
+               xv(k)= grid%ph_2(pig,k,pjg)
+            ENDDO
+            CALL rsl_lite_to_child_msg(((ckde)-(ckds)+1)*RWORDSIZE,xv)
+         ENDIF
+   
+         IF ( SIZE(grid%t_2) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, t_2')
+            DO k = ckds,(ckde-1)
+               xv(k)= grid%t_2(pig,k,pjg)
+            ENDDO
+            CALL rsl_lite_to_child_msg((((ckde-1))-(ckds)+1)*RWORDSIZE,xv)
+         ENDIF
+   
+         IF ( SIZE(grid%ht) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, ht')
+            xv(1)= grid%ht(pig,pjg)
+            CALL rsl_lite_to_child_msg(RWORDSIZE,xv)
+         ENDIF
+   
+         IF ( SIZE(grid%t_max_p) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, t_max_p')
+            xv(1)= grid%t_max_p(pig,pjg)
+            CALL rsl_lite_to_child_msg(RWORDSIZE,xv)
+         ENDIF
+   
+         IF ( SIZE(grid%ght_max_p) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, ght_max_p')
+            xv(1)= grid%ght_max_p(pig,pjg)
+            CALL rsl_lite_to_child_msg(RWORDSIZE,xv)
+         ENDIF
+   
+         IF ( SIZE(grid%max_p) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, max_p')
+            xv(1)= grid%max_p(pig,pjg)
+            CALL rsl_lite_to_child_msg(RWORDSIZE,xv)
+         ENDIF
+   
+         IF ( SIZE(grid%t_min_p) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, t_min_p')
+            xv(1)= grid%t_min_p(pig,pjg)
+            CALL rsl_lite_to_child_msg(RWORDSIZE,xv)
+         ENDIF
+   
+         IF ( SIZE(grid%ght_min_p) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, ght_min_p')
+            xv(1)= grid%ght_min_p(pig,pjg)
+            CALL rsl_lite_to_child_msg(RWORDSIZE,xv)
+         ENDIF
+   
+         IF ( SIZE(grid%min_p) .GT. 1 ) THEN
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, min_p')
+            xv(1)= grid%min_p(pig,pjg)
+            CALL rsl_lite_to_child_msg(RWORDSIZE,xv)
+         ENDIF
+   
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, calling rsl_lite_to_child_info')
+         CALL rsl_lite_to_child_info( local_communicator, msize*RWORDSIZE  &
+                                     ,cips,cipe,cjps,cjpe                  &
+                                     ,iids,iide,ijds,ijde                  &
+                                     ,nids,nide,njds,njde                  &
+                                     ,pgr , sw                             &
+                                     ,ntasks_x,ntasks_y                    &
+                                     ,thisdomain_max_halo_width            &
+                                     ,icoord,jcoord                        &
+                                     ,idim_cd,jdim_cd                      &
+                                     ,pig,pjg,retval )
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, back from rsl_lite_to_child_info')
+      ENDDO
+
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, calling rsl_lite_bcast')
+      CALL rsl_lite_bcast_msgs( myproc, nproc, local_comm )
+!call wrf_debug(0,'/external/RSL_LITE/module_dm.F, back from rsl_lite_bcast')
+
+      RETURN
+   END SUBROUTINE interp_domain_em_small_part1
+
+!------------------------------------------------------------------
+
+   SUBROUTINE interp_domain_em_small_part2 ( grid, ngrid, config_flags    &
+!
+#include "dummy_new_args.inc"
+!
+                 )
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, &
+                            mytask, get_dm_max_halo_width
+      USE module_comm_nesting_dm, ONLY : halo_interp_down_sub
+      IMPLICIT NONE
+!
+      TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
+      TYPE(domain), POINTER :: ngrid
+#include <dummy_new_decl.inc>
+      INTEGER nlev, msize
+      INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
+      TYPE (grid_config_rec_type)            :: config_flags
+      REAL xv(500)
+      INTEGER       ::          cids, cide, cjds, cjde, ckds, ckde,    &
+                                cims, cime, cjms, cjme, ckms, ckme,    &
+                                cips, cipe, cjps, cjpe, ckps, ckpe
+      INTEGER       ::          nids, nide, njds, njde, nkds, nkde,    &
+                                nims, nime, njms, njme, nkms, nkme,    &
+                                nips, nipe, njps, njpe, nkps, nkpe
+      INTEGER       ::          ids, ide, jds, jde, kds, kde,    &
+                                ims, ime, jms, jme, kms, kme,    &
+                                ips, ipe, jps, jpe, kps, kpe
+
+      INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
+
+      INTEGER myproc
+      INTEGER ierr
+      INTEGER thisdomain_max_halo_width
+
+      CALL get_ijk_from_grid (  grid ,                   &
+                                cids, cide, cjds, cjde, ckds, ckde,    &
+                                cims, cime, cjms, cjme, ckms, ckme,    &
+                                cips, cipe, cjps, cjpe, ckps, ckpe    )
+      CALL get_ijk_from_grid (  ngrid ,              &
+                                nids, nide, njds, njde, nkds, nkde,    &
+                                nims, nime, njms, njme, nkms, nkme,    &
+                                nips, nipe, njps, njpe, nkps, nkpe    )
+
+      nlev  = ckde - ckds + 1 
+
+      CALL get_dm_max_halo_width ( ngrid%id , thisdomain_max_halo_width )
+
+      CALL rsl_lite_from_parent_info(pig,pjg,retval)
+      
+      DO while ( retval .eq. 1 )
+      
+         IF ( SIZE(grid%ph_2) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg(((ckde)-(ckds)+1)*RWORDSIZE,xv)
+            DO k = ckds,ckde
+               grid%ph_2(pig,k,pjg) = xv(k)
+            ENDDO
+         ENDIF
+   
+         IF ( SIZE(grid%t_2) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg((((ckde-1))-(ckds)+1)*RWORDSIZE,xv)
+            DO k = ckds,(ckde-1)
+               grid%t_2(pig,k,pjg) = xv(k)
+            ENDDO
+         ENDIF
+   
+         IF ( SIZE(grid%ht) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)
+            grid%ht(pig,pjg) = xv(1)
+         ENDIF
+   
+         IF ( SIZE(grid%t_max_p) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)
+            grid%t_max_p(pig,pjg) = xv(1)
+         ENDIF
+   
+         IF ( SIZE(grid%ght_max_p) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)
+            grid%ght_max_p(pig,pjg) = xv(1)
+         ENDIF
+   
+         IF ( SIZE(grid%max_p) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)
+            grid%max_p(pig,pjg) = xv(1)
+         ENDIF
+   
+         IF ( SIZE(grid%t_min_p) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)
+            grid%t_min_p(pig,pjg) = xv(1)
+         ENDIF
+   
+         IF ( SIZE(grid%ght_min_p) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)
+            grid%ght_min_p(pig,pjg) = xv(1)
+         ENDIF
+   
+         IF ( SIZE(grid%min_p) .GT. 1 ) THEN
+            CALL rsl_lite_from_parent_msg(RWORDSIZE,xv)
+            grid%min_p(pig,pjg) = xv(1)
+         ENDIF
+      
+         CALL rsl_lite_from_parent_info(pig,pjg,retval)
+         
+      ENDDO
+
+      CALL get_ijk_from_grid (  grid ,              &
+                                ids, ide, jds, jde, kds, kde,    &
+                                ims, ime, jms, jme, kms, kme,    &
+                                ips, ipe, jps, jpe, kps, kpe    )
+
+#include "HALO_INTERP_DOWN.inc"
+
+      CALL interp_fcn_bl ( grid%ph_2,                                           &       
+                           cids, cide, ckds, ckde, cjds, cjde,                  &         
+                           cims, cime, ckms, ckme, cjms, cjme,                  &         
+                           cips, cipe, ckps, MIN( ckde, ckpe ), cjps, cjpe,     &         
+                           ngrid%ph_2,                                          &   
+                           nids, nide, nkds, nkde, njds, njde,                  &         
+                           nims, nime, nkms, nkme, njms, njme,                  &         
+                           nips, nipe, nkps, MIN( nkde, nkpe ), njps, njpe,     &         
+                           config_flags%shw, ngrid%imask_nostag,                &         
+                           .FALSE., .FALSE.,                                    &         
+                           ngrid%i_parent_start, ngrid%j_parent_start,          &
+                           ngrid%parent_grid_ratio, ngrid%parent_grid_ratio,    &
+                           grid%ht, ngrid%ht,                                   &
+                           grid%t_max_p, ngrid%t_max_p,                         &
+                           grid%ght_max_p, ngrid%ght_max_p,                     &
+                           grid%max_p, ngrid%max_p,                             &
+                           grid%t_min_p, ngrid%t_min_p,                         &
+                           grid%ght_min_p, ngrid%ght_min_p,                     &
+                           grid%min_p, ngrid%min_p,                             &
+                           ngrid%znw, ngrid%p_top                               )
+      
+      CALL interp_fcn_bl ( grid%t_2,                                            &       
+                           cids, cide, ckds, ckde, cjds, cjde,                  &         
+                           cims, cime, ckms, ckme, cjms, cjme,                  &         
+                           cips, cipe, ckps, MIN( (ckde-1), ckpe ), cjps, cjpe, &         
+                           ngrid%t_2,                                           &   
+                           nids, nide, nkds, nkde, njds, njde,                  &         
+                           nims, nime, nkms, nkme, njms, njme,                  &         
+                           nips, nipe, nkps, MIN( (nkde-1), nkpe ), njps, njpe, &         
+                           config_flags%shw, ngrid%imask_nostag,                &         
+                           .FALSE., .FALSE.,                                    &         
+                           ngrid%i_parent_start, ngrid%j_parent_start,          &
+                           ngrid%parent_grid_ratio, ngrid%parent_grid_ratio,    & 
+                           grid%ht, ngrid%ht,                                   &
+                           grid%t_max_p, ngrid%t_max_p,                         &
+                           grid%ght_max_p, ngrid%ght_max_p,                     &
+                           grid%max_p, ngrid%max_p,                             &
+                           grid%t_min_p, ngrid%t_min_p,                         &
+                           grid%ght_min_p, ngrid%ght_min_p,                     &
+                           grid%min_p, ngrid%min_p,                             &
+                           ngrid%znu, ngrid%p_top                               )
+
+      RETURN
+   END SUBROUTINE interp_domain_em_small_part2
+
+!------------------------------------------------------------------
+
    SUBROUTINE feedback_nest_prep ( grid, config_flags    &
 !
 #include "dummy_new_args.inc"
@@ -3396,6 +3853,9 @@ END
 
       INTEGER local_comm, myproc, nproc, idum1, idum2
       INTEGER thisdomain_max_halo_width
+
+!cyl: add variables for trajectory
+      integer tjk
 
       INTERFACE
           SUBROUTINE feedback_nest_prep ( grid, config_flags    &
@@ -3515,6 +3975,9 @@ END
 
       LOGICAL, EXTERNAL  :: cd_feedback_mask
 
+!cyl: add variables for trajectory
+      integer tjk
+
 ! On entry to this routine, 
 !  "grid" refers to the parent domain
 !  "intermediate_grid" refers to local copy of parent domain that overlies this patch of nest
@@ -3540,6 +4003,28 @@ END
                                 nids, nide, njds, njde, nkds, nkde,    &
                                 nims, nime, njms, njme, nkms, nkme,    &
                                 nips, nipe, njps, njpe, nkps, nkpe    )
+
+!cyl add this for trajectory
+
+    do tjk = 1,config_flags%num_traj
+     if (ngrid%traj_long(tjk) .eq. -9999.0) then
+!       print*,'n=-9999',tjk
+        ngrid%traj_long(tjk)=grid%traj_long(tjk)
+        ngrid%traj_k(tjk)=grid%traj_k(tjk)
+     else
+!       print*,'p!=-9999',tjk
+        grid%traj_long(tjk)=ngrid%traj_long(tjk)
+        grid%traj_k(tjk)=ngrid%traj_k(tjk)
+     endif
+     if (ngrid%traj_lat(tjk) .eq. -9999.0) then
+         ngrid%traj_lat(tjk)=grid%traj_lat(tjk)
+         ngrid%traj_k(tjk)=grid%traj_k(tjk)
+     else
+         grid%traj_lat(tjk)=ngrid%traj_lat(tjk)
+         grid%traj_k(tjk)=ngrid%traj_k(tjk)
+     endif
+    enddo
+!endcyl
 
       CALL nl_get_i_parent_start ( intermediate_grid%id, iparstrt )
       CALL nl_get_j_parent_start ( intermediate_grid%id, jparstrt )
@@ -3592,6 +4077,53 @@ END
 ! NMM nesting infrastructure extended from EM core. This is gopal's doing.
 !==============================================================================
 
+   SUBROUTINE before_interp_halos_nmm(grid,config_flags &
+!
+#include "dummy_new_args.inc"
+!
+      )
+     ! This is called before interp_domain_nmm_part1 to do
+     ! pre-interpolation halo communication on the nest.
+     ! Author: Sam Trahan, February 2011
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
+      USE module_comm_dm_3, ONLY : HALO_NMM_WEIGHTS_sub
+      IMPLICIT NONE
+!
+      TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
+      TYPE (grid_config_rec_type)            :: config_flags
+#include <dummy_new_decl.inc>
+     INTEGER :: IDS,IDE,JDS,JDE,KDS,KDE, &
+                IMS,IME,JMS,JME,KMS,KME, &
+                IPS,IPE,JPS,JPE,KPS,KPE
+
+!#ifdef DEREF_KLUDGE
+!!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
+!   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
+!   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
+!   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
+!#endif
+#include "deref_kludge.h"
+
+!#define COPY_IN
+!#include <scalar_derefs.inc>
+
+     ! FIXME: Don't initialize these to -1; it is a waste.
+     ! Initialization is only for debugging purposes.
+      IDS=-1; IDE=-1; JDS=-1; JDE=-1; KDS=-1; KDE=-1
+      IMS=-1; IME=-1; JMS=-1; JME=-1; KMS=-1; KME=-1
+      IPS=-1; IPE=-1; JPS=-1; JPE=-1; KPS=-1; KPE=-1
+      CALL GET_IJK_FROM_GRID(GRID                                       &
+     &                      ,IDS,IDE,JDS,JDE,KDS,KDE                    &
+     &                      ,IMS,IME,JMS,JME,KMS,KME                    &
+     &                      ,IPS,IPE,JPS,JPE,KPS,KPE )
+
+#include "HALO_NMM_WEIGHTS.inc"
+   END SUBROUTINE before_interp_halos_nmm
+
    SUBROUTINE interp_domain_nmm_part1 ( grid, intermediate_grid, ngrid, config_flags    &
 !
 #include "dummy_new_args.inc"
@@ -3625,10 +4157,13 @@ END
                                 nips, nipe, njps, njpe, nkps, nkpe
 
       INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
-
+      LOGICAL feedback_flag, feedback_flag_v
       INTEGER icoord, jcoord, idim_cd, jdim_cd, pgr
       INTEGER local_comm, myproc, nproc
       INTEGER thisdomain_max_halo_width
+
+      LOGICAL interp_mp
+      interp_mp=grid%interp_mp .or. ngrid%interp_mp
 
       CALL wrf_get_dm_communicator ( local_comm )
       CALL wrf_get_myproc( myproc )
@@ -3704,17 +4239,20 @@ END
                                 ips, ipe, jps, jpe, kps, kpe
 
       INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
-
+      LOGICAL feedback_flag, feedback_flag_v
       INTEGER myproc
       INTEGER ierr
 
+      integer, parameter :: EConst=0, ECopy=1, EExtrap=2 ! MUST match module_interp_nmm
 !#ifdef DEREF_KLUDGE
 !!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
 !   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
 !   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
 !   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
 !#endif
+      LOGICAL interp_mp
 #include "deref_kludge.h"
+      interp_mp=grid%interp_mp .or. ngrid%interp_mp
 
 !#define COPY_IN
 !#include <scalar_derefs.inc>
@@ -3738,6 +4276,22 @@ END
 
 #include "HALO_INTERP_DOWN.inc"
 
+      ! Generate interpolation information and interpolate Q, T and
+      ! possibly PD while we're at it:
+
+      call store_interp_info(ngrid,grid)
+      call ext_c2n_fulldom(ngrid%IIH,ngrid%JJH,ngrid%HBWGT1, &
+           ngrid%HBWGT2,ngrid%HBWGT3,ngrid%HBWGT4,         &
+           ngrid%deta1,ngrid%deta2,ngrid%eta1,             &
+           ngrid%eta2,ngrid%pt,ngrid%pdtop,                &
+           grid%pint,grid%t,grid%pd,grid%q,       &
+           cims, cime, cjms, cjme, ckms, ckme,             &
+           ngrid%pint,ngrid%t,ngrid%pd,ngrid%q,&
+           ngrid%iinfo,ngrid%winfo,ngrid%imask_nostag, &
+           nids, nide, njds, njde, nkds, nkde,             &
+           nims, nime, njms, njme, nkms, nkme,             &
+           nips, nipe, njps, njpe, nkps, nkpe)
+
 #include "nest_interpdown_interp.inc"
 
 !#define COPY_OUT
@@ -3748,7 +4302,90 @@ END
 
 !------------------------------------------------------------------
 
-   SUBROUTINE force_domain_nmm_part1 ( grid, intermediate_grid, config_flags    &
+   SUBROUTINE force_domain_nmm_part1 ( grid, intermediate_grid, ngrid, config_flags    &
+!
+#include "dummy_new_args.inc"
+!
+                 )
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
+      USE module_timing
+      IMPLICIT NONE
+!
+      TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
+      TYPE(domain), POINTER :: intermediate_grid
+      TYPE(domain), POINTER :: ngrid
+#include <dummy_new_decl.inc>
+      INTEGER nlev, msize
+      INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
+      INTEGER iparstrt,jparstrt,sw
+      TYPE (grid_config_rec_type)            :: config_flags
+      REAL xv(500)
+      INTEGER       ::          cids, cide, cjds, cjde, ckds, ckde,    &
+                                cims, cime, cjms, cjme, ckms, ckme,    &
+                                cips, cipe, cjps, cjpe, ckps, ckpe
+      INTEGER       ::          iids, iide, ijds, ijde, ikds, ikde,    &
+                                iims, iime, ijms, ijme, ikms, ikme,    &
+                                iips, iipe, ijps, ijpe, ikps, ikpe
+      INTEGER       ::          nids, nide, njds, njde, nkds, nkde,    &
+                                nims, nime, njms, njme, nkms, nkme,    &
+                                nips, nipe, njps, njpe, nkps, nkpe
+
+      INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
+      LOGICAL feedback_flag, feedback_flag_v
+      INTEGER icoord, jcoord, idim_cd, jdim_cd, pgr
+      INTEGER local_comm, myproc, nproc
+      INTEGER thisdomain_max_halo_width
+      LOGICAL interp_mp
+      interp_mp=grid%interp_mp .or. ngrid%interp_mp
+
+      CALL wrf_get_dm_communicator ( local_comm )
+      CALL wrf_get_myproc( myproc )
+      CALL wrf_get_nproc( nproc )
+
+!#define COPY_IN
+!#include <scalar_derefs.inc>
+
+      CALL get_ijk_from_grid (  grid ,                   &
+                                cids, cide, cjds, cjde, ckds, ckde,    &
+                                cims, cime, cjms, cjme, ckms, ckme,    &
+                                cips, cipe, cjps, cjpe, ckps, ckpe    )
+      CALL get_ijk_from_grid (  intermediate_grid ,              &
+                                iids, iide, ijds, ijde, ikds, ikde,    &
+                                iims, iime, ijms, ijme, ikms, ikme,    &
+                                iips, iipe, ijps, ijpe, ikps, ikpe    )
+      CALL get_ijk_from_grid (  ngrid ,              &
+                                nids, nide, njds, njde, nkds, nkde,    &
+                                nims, nime, njms, njme, nkms, nkme,    &
+                                nips, nipe, njps, njpe, nkps, nkpe    )
+
+      CALL nl_get_parent_grid_ratio ( ngrid%id, pgr )
+      CALL nl_get_i_parent_start ( intermediate_grid%id, iparstrt )
+      CALL nl_get_j_parent_start ( intermediate_grid%id, jparstrt )
+      CALL nl_get_shw            ( intermediate_grid%id, sw )
+      icoord =    iparstrt - sw
+      jcoord =    jparstrt - sw
+      idim_cd = iide - iids + 1
+      jdim_cd = ijde - ijds + 1
+
+      nlev  = ckde - ckds + 1
+
+      CALL get_dm_max_halo_width ( ngrid%id , thisdomain_max_halo_width )
+#include "nest_forcedown_pack.inc"
+
+      CALL rsl_lite_bcast_msgs( myproc, nproc, local_comm )
+
+!#define COPY_OUT
+!#include <scalar_derefs.inc>
+      RETURN
+      END SUBROUTINE force_domain_nmm_part1
+
+!------------------------------------------------------------------
+
+   SUBROUTINE old_force_domain_nmm_part1 ( grid, intermediate_grid, config_flags    &
 !
 #include "dummy_new_args.inc"
 !
@@ -3773,7 +4410,8 @@ END
       INTEGER       ::          nids, nide, njds, njde, nkds, nkde,    &
                                 nims, nime, njms, njme, nkms, nkme,    &
                                 nips, nipe, njps, njpe, nkps, nkpe
-
+      LOGICAL feedback_flag, feedback_flag_v
+      LOGICAL interp_mp
       INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
 
 !#define COPY_IN
@@ -3798,7 +4436,7 @@ END
 !#define COPY_OUT
 !#include <scalar_derefs.inc>
       RETURN
-   END SUBROUTINE force_domain_nmm_part1
+      END SUBROUTINE old_force_domain_nmm_part1
 
 !==============================================================================================
 
@@ -3812,15 +4450,14 @@ END
       USE module_configure, ONLY : grid_config_rec_type
       USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
                             ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
-#ifdef HWRF
-      USE module_comm_dm, ONLY : HALO_NMM_FORCE_DOWN1_sub, HALO_NMM_FORCE_DOWN_SST_sub
-#else
-      USE module_comm_dm, ONLY : HALO_NMM_FORCE_DOWN1_sub
+#if (NMM_NEST == 1)
+      USE module_comm_dm, ONLY : HALO_NMM_FORCE_DOWN1_sub, HALO_NMM_FORCE_DOWN1M_sub, &
+           HALO_NMM_FORCE_DOWN_SST_sub, HALO_NMM_INTERP_INFO_sub
 #endif
       IMPLICIT NONE
 !
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
-      TYPE(domain), POINTER :: ngrid
+      TYPE(domain), POINTER :: ngrid,cgrid
 #include <dummy_new_decl.inc>
       INTEGER nlev, msize
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
@@ -3838,8 +4475,12 @@ END
 
       INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
       REAL  dummy_xs, dummy_xe, dummy_ys, dummy_ye
+      LOGICAL feedback_flag, feedback_flag_v
 
 integer myproc
+
+      LOGICAL interp_mp
+      integer, parameter :: EConst=0, ECopy=1, EExtrap=2 ! MUST match module_interp_nmm
 
 !#ifdef DEREF_KLUDGE
 !!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
@@ -3848,6 +4489,7 @@ integer myproc
 !   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
 !#endif
 #include "deref_kludge.h"
+      interp_mp=grid%interp_mp .or. ngrid%interp_mp
 
 !#define COPY_IN
 !#include <scalar_derefs.inc>
@@ -3861,9 +4503,10 @@ integer myproc
                                 nims, nime, njms, njme, nkms, nkme,    &
                                 nips, nipe, njps, njpe, nkps, nkpe    )
 
+      cgrid=>grid
       nlev  = ckde - ckds + 1
 
-#include "nest_interpdown_unpack.inc"
+#include "nest_forcedown_unpack.inc"
 
       CALL get_ijk_from_grid (  grid ,              &
                                 ids, ide, jds, jde, kds, kde,    &
@@ -3877,6 +4520,46 @@ integer myproc
 #endif
 
 #include "HALO_NMM_FORCE_DOWN1.inc"
+      if(interp_mp .eqv. .true.) then
+#include "HALO_NMM_FORCE_DOWN1M.inc"
+      endif
+
+      call store_interp_info(ngrid,grid)
+      call ext_c2b_fulldom(ngrid%IIH,ngrid%JJH,ngrid%HBWGT1, &
+           ngrid%HBWGT2,ngrid%HBWGT3,ngrid%HBWGT4,         &
+           ngrid%deta1,ngrid%deta2,ngrid%eta1,             &
+           ngrid%eta2,ngrid%pt,ngrid%pdtop,                &
+           grid%pint,grid%t,grid%pd,grid%q,                &
+           cims, cime, cjms, cjme, ckms, ckme,             &
+           nids, nide, njds, njde, nkds, nkde,             &
+           nims, nime, njms, njme, nkms, nkme,             &
+           nips, nipe, njps, njpe, nkps, nkpe,             &
+           ngrid%iinfo_bxs, ngrid%iinfo_bxe,               &
+           ngrid%iinfo_bys, ngrid%iinfo_bye,               &
+           ngrid%winfo_bxs, ngrid%winfo_bxe,               &
+           ngrid%winfo_bys, ngrid%winfo_bye,               &
+           ngrid%pd_bxs, ngrid%pd_bxe,             &
+           ngrid%pd_bys, ngrid%pd_bye,             &
+           ngrid%t_bxs, ngrid%t_bxe,               &
+           ngrid%t_bys, ngrid%t_bye,               &
+           ngrid%q_bxs, ngrid%q_bxe,               &
+           ngrid%q_bys, ngrid%q_bye)
+
+      ! Need a halo for interpolation information due to how V grid
+      ! interpolation works:
+grid=>ngrid
+      CALL get_ijk_from_grid (  grid ,              &
+                                ids, ide, jds, jde, kds, kde,    &
+                                ims, ime, jms, jme, kms, kme,    &
+                                ips, ipe, jps, jpe, kps, kpe    )
+#include "HALO_NMM_INTERP_INFO.inc"
+
+grid=>cgrid
+      CALL get_ijk_from_grid (  grid ,              &
+                                ids, ide, jds, jde, kds, kde,    &
+                                ims, ime, jms, jme, kms, kme,    &
+                                ips, ipe, jps, jpe, kps, kpe    )
+
 
       ! code here to interpolate the data into the nested domain
 #include "nest_forcedown_interp.inc"
@@ -3909,6 +4592,8 @@ integer myproc
       USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
                             ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
       USE module_comm_dm, ONLY : HALO_NMM_WEIGHTS_sub
+      USE module_comm_nesting_dm, ONLY : HALO_INTERP_UP_sub
+
       IMPLICIT NONE
 !
       TYPE(domain), TARGET :: grid          ! name of the grid being dereferenced (must be "grid")
@@ -3943,6 +4628,7 @@ integer myproc
                                 ips, ipe, jps, jpe, kps, kpe    )
 
 #ifdef DM_PARALLEL
+#include "HALO_INTERP_UP.inc"
 #include "HALO_NMM_WEIGHTS.inc"
 #endif
 
@@ -3952,6 +4638,91 @@ integer myproc
    END SUBROUTINE feedback_nest_prep_nmm
 
 !------------------------------------------------------------------
+
+
+!==============================================================================================
+
+   SUBROUTINE force_intermediate_nmm ( grid, ngrid, config_flags    &
+!
+#include "dummy_new_args.inc"
+!
+                 )
+      USE module_state_description
+      USE module_domain, ONLY : domain, get_ijk_from_grid
+      USE module_configure, ONLY : grid_config_rec_type
+      USE module_dm, ONLY : ntasks, ntasks_x, ntasks_y, itrace, local_communicator, mytask, &
+                            ipe_save, jpe_save, ips_save, jps_save, get_dm_max_halo_width
+#if ( NMM_NEST == 1 )
+      USE module_comm_dm, ONLY : HALO_NMM_FORCE_DOWN1_sub, HALO_NMM_FORCE_DOWN1M_sub, &
+           HALO_NMM_INTERP_INFO_sub,HALO_NMM_FORCE_DOWN_SST_sub
+#endif
+      IMPLICIT NONE
+!
+      TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
+      TYPE(domain), POINTER :: cgrid
+      TYPE(domain), POINTER :: ngrid
+#include <dummy_new_decl.inc>
+      INTEGER nlev, msize
+      INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
+      TYPE (grid_config_rec_type)            :: config_flags
+      REAL xv(500)
+      INTEGER       ::          cids, cide, cjds, cjde, ckds, ckde,    &
+                                cims, cime, cjms, cjme, ckms, ckme,    &
+                                cips, cipe, cjps, cjpe, ckps, ckpe
+      INTEGER       ::          nids, nide, njds, njde, nkds, nkde,    &
+                                nims, nime, njms, njme, nkms, nkme,    &
+                                nips, nipe, njps, njpe, nkps, nkpe
+      INTEGER       ::          ids, ide, jds, jde, kds, kde,    &
+                                ims, ime, jms, jme, kms, kme,    &
+                                ips, ipe, jps, jpe, kps, kpe
+
+      INTEGER idim1,idim2,idim3,idim4,idim5,idim6,idim7
+      REAL  dummy_xs, dummy_xe, dummy_ys, dummy_ye
+      LOGICAL feedback_flag, feedback_flag_v
+
+integer myproc
+      LOGICAL interp_mp
+
+!#ifdef DEREF_KLUDGE
+!!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
+!   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
+!   INTEGER     :: sm31x, em31x, sm32x, em32x, sm33x, em33x
+!   INTEGER     :: sm31y, em31y, sm32y, em32y, sm33y, em33y
+!#endif
+#include "deref_kludge.h"
+
+      interp_mp=grid%interp_mp .or. ngrid%interp_mp
+
+!#define COPY_IN
+!#include <scalar_derefs.inc>
+      CALL get_ijk_from_grid (  grid ,                   &
+                                cids, cide, cjds, cjde, ckds, ckde,    &
+                                cims, cime, cjms, cjme, ckms, ckme,    &
+                                cips, cipe, cjps, cjpe, ckps, ckpe    )
+      CALL get_ijk_from_grid (  ngrid ,              &
+                                nids, nide, njds, njde, nkds, nkde,    &
+                                nims, nime, njms, njme, nkms, nkme,    &
+                                nips, nipe, njps, njpe, nkps, nkpe    )
+
+      cgrid=>grid
+      nlev  = ckde - ckds + 1 
+
+#include "nest_interpdown_unpack.inc"
+
+      CALL get_ijk_from_grid (  grid ,              &
+                                ids, ide, jds, jde, kds, kde,    &
+                                ims, ime, jms, jme, kms, kme,    &
+                                ips, ipe, jps, jpe, kps, kpe    )
+
+#include "HALO_NMM_FORCE_DOWN1.inc"
+if(interp_mp .eqv. .true.) then
+#include "HALO_NMM_FORCE_DOWN1M.inc"
+endif
+
+      RETURN
+    END SUBROUTINE force_intermediate_nmm
+
+! ----------------------------------------------------------------------
 
    SUBROUTINE feedback_domain_nmm_part1 ( grid, ngrid, config_flags    &
 !
@@ -3968,7 +4739,7 @@ integer myproc
       TYPE(domain), POINTER :: grid          ! name of the grid being dereferenced (must be "grid")
       TYPE(domain), POINTER :: ngrid
 #include <dummy_new_decl.inc>
-      INTEGER nlev, msize
+      INTEGER nlev, msize, i_parent_start, j_parent_start
       INTEGER i,j,pig,pjg,cm,cn,nig,njg,retval,k
       TYPE(domain), POINTER :: xgrid
       TYPE (grid_config_rec_type)            :: config_flags, nconfig_flags
@@ -3984,6 +4755,9 @@ integer myproc
 
       INTEGER local_comm, myproc, nproc, idum1, idum2
 
+      integer, parameter :: EConst=0, ECopy=1, EExtrap=2 ! MUST match module_interp_nmm
+
+      LOGICAL interp_mp
 !#ifdef DEREF_KLUDGE
 !!  see http://www.mmm.ucar.edu/wrf/WG2/topics/deref_kludge.htm
 !   INTEGER     :: sm31 , em31 , sm32 , em32 , sm33 , em33
@@ -4010,6 +4784,7 @@ integer myproc
 !#define COPY_IN
 !#include <scalar_derefs.inc>
 
+      interp_mp=grid%interp_mp .or. ngrid%interp_mp
       CALL wrf_get_dm_communicator ( local_comm )
       CALL wrf_get_myproc( myproc )
       CALL wrf_get_nproc( nproc )
@@ -4031,8 +4806,8 @@ integer myproc
 
       ips_save = ngrid%i_parent_start  ! +1 not used in ipe_save & jpe_save
       jps_save = ngrid%j_parent_start  !  because of one extra namelist point
-      ipe_save = ngrid%i_parent_start + (nide-nids) / ngrid%parent_grid_ratio
-      jpe_save = ngrid%j_parent_start + (njde-njds) / ngrid%parent_grid_ratio
+      ipe_save = ngrid%i_parent_start + (nide-nids) / ngrid%parent_grid_ratio - 1
+      jpe_save = ngrid%j_parent_start + (njde-njds) / ngrid%parent_grid_ratio - 1
 
 ! feedback_nest_prep invokes a halo exchange on the ngrid. It is done this way
 ! in a separate routine because the HALOs need the data to be dereference from the
@@ -4059,6 +4834,27 @@ integer myproc
 
 ! "interp" (basically copy) ngrid onto intermediate grid
 
+      ! Generate interpolation information and interpolate Q, T and
+      ! possibly PD while we're at it:
+ 
+      call store_interp_info(ngrid,grid)
+      call ext_n2c_fulldom(&
+           ngrid%deta1,ngrid%deta2,ngrid%eta1,             &
+           ngrid%eta2,ngrid%pt,ngrid%pdtop,                &
+           grid%pint,grid%t,grid%pd,grid%q,                &
+           cids, cide, cjds, cjde, ckds, ckde,             &
+           cims, cime, cjms, cjme, ckms, ckme,             &
+           cips, cipe, cjps, cjpe, ckps, ckpe,             &
+           ngrid%pint,ngrid%t,                             &
+           ngrid%pd,ngrid%q,                               &
+           ngrid%i_parent_start, ngrid%j_parent_start,     &
+           grid%iinfo,grid%winfo,                          &
+           nids, nide, njds, njde, nkds, nkde,             &
+           nims, nime, njms, njme, nkms, nkme,             &
+           nips, nipe, njps, njpe, nkps, nkpe)
+
+
+      ! "interp" ngrid onto intermediate grid
 #include "nest_feedbackup_interp.inc"
 
 !#define COPY_OUT
@@ -4114,9 +4910,11 @@ integer myproc
       integer ierr
 
       REAL    nest_influence
+      LOGICAL feedback_flag, feedback_flag_v
       LOGICAL, EXTERNAL  :: cd_feedback_mask
       LOGICAL, EXTERNAL  :: cd_feedback_mask_v
 
+      LOGICAL interp_mp
 !#define COPY_IN
 !#include <scalar_derefs.inc>
 
@@ -4134,6 +4932,7 @@ integer myproc
 ! sign that says "DIP" than fix the dip,  at this point it was easier just to write this comment. JM
 !
 
+      interp_mp=grid%interp_mp .or. ngrid%interp_mp
       nest_influence = 0.5
 #define NEST_INFLUENCE(A,B) A = nest_influence*(B) + (1.0-nest_influence)*(A)
 

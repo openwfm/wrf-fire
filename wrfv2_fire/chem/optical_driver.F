@@ -41,6 +41,7 @@
    USE module_data_mosaic_therm, only: nbin_a
    USE module_data_rrtmgaeropt, only: nswbands,nlwbands 
    USE module_peg_util, only:  peg_error_fatal, peg_message
+   use infnan,                 only: inf
    IMPLICIT NONE
    INTEGER,      INTENT(IN   ) :: id,                                  &
                                   ids,ide, jds,jde, kds,kde,           &
@@ -110,13 +111,16 @@
    select case (config_flags%chem_opt)
    case ( RADM2SORG,           RADM2SORG_KPP,      RADM2SORG_AQ, RADM2SORG_AQCHEM, &
           GOCART_SIMPLE,       RACMSORG_KPP,       RACMSORG_AQ,  RACMSORG_AQCHEM, &
+          RACM_SOA_VBS_KPP,                                      &
           GOCARTRACM_KPP,      GOCARTRADM2_KPP,    GOCARTRADM2,  &
           RACM_ESRLSORG_KPP,   MOZCART_KPP,                      &
           CBMZ_MOSAIC_4BIN,    CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_KPP,   &
           CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, CBMZSORG, CBMZSORG_AQ, &
           CBMZ_MOSAIC_DMS_4BIN,    CBMZ_MOSAIC_DMS_8BIN,   &
           CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &    
-          SAPRC99_MOSAIC_4BIN_VBS2_KPP,MOZART_MOSAIC_4BIN_VBS0_KPP )
+          CBMZ_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP,MOZART_MOSAIC_4BIN_VBS0_KPP , &
+          CBMZ_CAM_MAM3_NOAQ,CBMZ_CAM_MAM7_NOAQ,  CBMZ_CAM_MAM3_AQ,  &
+          CBMZ_CAM_MAM7_AQ)
       processingAerosols = .true.
       call wrf_debug(15,'optical driver: process aerosols true')
    case default
@@ -135,13 +139,15 @@
    case ( RADM2SORG, RACM_ESRLSORG_KPP, RADM2SORG_KPP, RADM2SORG_AQ, RADM2SORG_AQCHEM, &
           GOCARTRACM_KPP,      GOCARTRADM2_KPP,    GOCARTRADM2,      &
           GOCART_SIMPLE,       RACMSORG_KPP,       RACMSORG_AQ,      RACMSORG_AQCHEM, &
-          CBMZSORG,            CBMZSORG_AQ,        MOZCART_KPP       )
+          RACM_SOA_VBS_KPP,                                          &
+          CBMZSORG,            CBMZSORG_AQ,        MOZCART_KPP,       &
+          CBMZ_CAM_MAM3_NOAQ,  CBMZ_CAM_MAM7_NOAQ,  CBMZ_CAM_MAM3_AQ,  CBMZ_CAM_MAM7_AQ)
      nbin_o = 8
    case (CBMZ_MOSAIC_4BIN,    CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_KPP,  &
          CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
          CBMZ_MOSAIC_DMS_4BIN,    CBMZ_MOSAIC_DMS_8BIN,   &
          CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &    
-         SAPRC99_MOSAIC_4BIN_VBS2_KPP, MOZART_MOSAIC_4BIN_VBS0_KPP )
+         CBMZ_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP, MOZART_MOSAIC_4BIN_VBS0_KPP )
      nbin_o = nbin_a
    end select
 !
@@ -182,6 +188,17 @@
 !        write( msg, '(a, 6i4)' )	&
 !                 'jdf ', its, ite, jts, jte, kts, kte
 !                 call peg_message( lunerr, msg )
+
+        !BSINGH(PNNL)- The followingvariables had an undefined behavior at the boundaries.
+        tauaersw(:,:,:,:) = inf 
+        extaersw(:,:,:,:) = inf
+        gaersw(:,:,:,:)   = inf
+        waersw(:,:,:,:)   = inf
+        bscoefsw(:,:,:,:) = inf
+        !long wave
+        extaerlw(:,:,:,:) = inf
+        tauaerlw(:,:,:,:) = inf
+
         call optical_averaging(id,curr_secs,dtstep,config_flags,     &
              nbin_o,haveaer,option_method,option_mie,chem,dz8w,alt,  &
              relhum,h2oai,h2oaj,                                     &

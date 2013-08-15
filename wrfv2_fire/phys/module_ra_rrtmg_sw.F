@@ -2366,6 +2366,7 @@
       real(kind=rb) :: zrk, zrk2, zrkg, zrm1, zrp, zrp1, zrpp
       real(kind=rb) :: zsr3, zt1, zt2, zt3, zt4, zt5, zto1
       real(kind=rb) :: zw, zwcrit, zwo
+      real(kind=rb) :: denom
 
       real(kind=rb), parameter :: eps = 1.e-08_rb
 
@@ -2409,8 +2410,9 @@
             zgamma4= 1._rb - zgamma3
     
 ! Recompute original s.s.a. to test for conservative solution
-
-            zwo= zw / (1._rb - (1._rb - zw) * (zg / (1._rb - zg))**2)
+            !Balwinder.Singh@pnnl.gov: Code added to avoid 'divide by zero' error in zwo computation
+            denom = max((1._rb - (1._rb - zw) * (zg / (1._rb - zg))**2),1.0E-30_rb)
+            zwo= zw / denom
 
             if (zwo >= zwcrit) then
 ! Conservative scattering
@@ -8251,6 +8253,7 @@
                zomcc(jk) = ztaur(ikl,iw) * 1.0_rb + ptaua(ikl,ibm) * pomga(ikl,ibm)
                zgcc(jk) = pasya(ikl,ibm) * pomga(ikl,ibm) * ptaua(ikl,ibm) / zomcc(jk)
                zomcc(jk) = zomcc(jk) / ztauc(jk)
+!endif
 
 ! Pre-delta-scaling clear and cloudy direct beam transmittance (must use 'orig', unscaled cloud OD)       
 !   \/\/\/ This block of code is only needed for direct beam calculation
@@ -8544,7 +8547,7 @@
              taucmcl ,ssacmcl ,asmcmcl ,fsfcmcl , &
              ciwpmcl ,clwpmcl ,reicmcl ,relqmcl , &
              tauaer  ,ssaaer  ,asmaer  ,ecaer   , &
-             swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc,  &
+             swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc, aer_opt,  &
 ! --------- Add the following four compenants for ssib shortwave down radiation ---!
 ! -------------------      by Zhenxin 2011-06-20      --------------------------------!
              sibvisdir, sibvisdif, sibnirdir, sibnirdif          &
@@ -8765,6 +8768,7 @@
                                                       !    Dimensions: (ncol,nlay+1)
       real(kind=rb), intent(out) :: swhrc(:,:)        ! Clear sky shortwave radiative heating rate (K/d)
                                                       !    Dimensions: (ncol,nlay)
+      integer, intent(in)        :: aer_opt
 
 ! ----- Local -----
 
@@ -8931,6 +8935,7 @@
 
 ! Initializations
 
+      iout = 0 !BSINGH(PNNL) initializing iout to zero(Might be wrong!) as this variable is never initialized but used in spcvmc_sw
       zepsec = 1.e-06_rb
       zepzen = 1.e-10_rb
       oneminus = 1.0_rb - zepsec
@@ -8964,7 +8969,11 @@
 !           input aerosol optical depth at 0.55 microns for each aerosol type (ecaer)
 ! iaer = 10, input total aerosol optical depth, single scattering albedo 
 !            and asymmetry parameter (tauaer, ssaaer, asmaer) directly
+      if ( aer_opt .eq. 0 ) then
       iaer = 10
+      else if ( aer_opt .eq. 1 ) then
+      iaer = 6
+      endif
 
 ! Call model and data initialization, compute lookup tables, perform
 ! reduction of g-points from 224 to 112 for input absorption
@@ -9084,7 +9093,7 @@
                do ib = 1, nbndsw
                   ztaua(i,ib) = 0._rb
                   zasya(i,ib) = 0._rb
-                  zomga(i,ib) = 1._rb
+                  zomga(i,ib) = 0._rb
                   do ia = 1, naerec
                      ztaua(i,ib) = ztaua(i,ib) + rsrtaua(ib,ia) * ecaer(iplon,i,ia)
                      zomga(i,ib) = zomga(i,ib) + rsrtaua(ib,ia) * ecaer(iplon,i,ia) * &
@@ -9588,7 +9597,6 @@ CONTAINS
                        rthratensw,                                &
                        swupt, swuptc, swdnt, swdntc,              &
                        swupb, swupbc, swdnb, swdnbc,              &
-!                      swupflx, swupflxc, swdnflx, swdnflxc,      &
                        swcf, gsw,                                 &
                        xtime, gmt, xlat, xlong,                   &
                        radt, degrad, declin,                      &
@@ -9601,6 +9609,8 @@ CONTAINS
                        xland, xice, snow,                         &
                        qv3d, qc3d, qr3d,                          &
                        qi3d, qs3d, qg3d,                          &
+                       o3input, o33d,                             &
+                       aer_opt, aerod, no_src,                    &
                        alswvisdir, alswvisdif,                    &  !Zhenxin ssib alb comp (06/20/2011)
                        alswnirdir, alswnirdif,                    &  !Zhenxin ssib alb comp (06/20/2011)
                        swvisdir, swvisdif,                        &  !Zhenxin ssib swr comp (06/20/2011)
@@ -9662,12 +9672,14 @@ CONTAINS
 !
 !!! -------------------  Zhenxin (2011-06/20) ------------------
    REAL, DIMENSION( ims:ime, jms:jme )                         , &
+         OPTIONAL                                               , &
          INTENT(IN)     ::                            ALSWVISDIR, &     ! ssib albedo of sw and lw
                                                       ALSWVISDIF, &
                                                       ALSWNIRDIR, &
                                                       ALSWNIRDIF
 
    REAL, DIMENSION( ims:ime, jms:jme )                         , &
+         OPTIONAL                                               , &
          INTENT(OUT)    ::                              SWVISDIR, &
                                                         SWVISDIF, &
                                                         SWNIRDIR, &
@@ -9712,6 +9724,17 @@ CONTAINS
    INTEGER,    INTENT(IN  ), OPTIONAL   ::       aer_ra_feedback
 !jdfcz   INTEGER,    INTENT(IN  ), OPTIONAL   ::       progn,prescribe
    INTEGER,    INTENT(IN  ), OPTIONAL   ::       progn
+!  Ozone
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
+         OPTIONAL                                               , &
+         INTENT(IN   ) :: O33D
+   INTEGER, OPTIONAL, INTENT(IN ) :: o3input
+!  EC aerosol: no_src = naerec = 6
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, 1:no_src )       , &
+         OPTIONAL                                               , &
+         INTENT(IN   ) :: aerod
+   INTEGER, OPTIONAL, INTENT(IN ) :: aer_opt
+   INTEGER,           INTENT(IN ) :: no_src
 
       !wavelength corresponding to wavenum1 and wavenum2 (cm-1)
       real, save :: wavemin(nbndsw) ! Min wavelength (um) of 14 intervals
@@ -9753,6 +9776,7 @@ CONTAINS
                                                             QI1D, &
                                                             QS1D, &
                                                             QG1D, &
+                                                            O31D, &
                                                           qndrop1d 
 
 ! Added local arrays for RRTMG
@@ -9968,6 +9992,9 @@ CONTAINS
          DO K=kts,kte
             QV1D(K)=QV3D(I,K,J)
             QV1D(K)=max(0.,QV1D(K))
+            IF ( PRESENT( O33D ) ) THEN
+            O31D(K)=O33D(I,K,J)
+            ENDIF
          ENDDO
 
          DO K=kts,kte
@@ -10153,6 +10180,17 @@ CONTAINS
 
          do k = kts, kte+1
             o3vmr(ncol,k) = o3mmr(k) * amdo
+            IF ( PRESENT( O33D ) ) THEN
+            if(o3input .eq. 2)then
+               if(k.le.kte)then
+                 o3vmr(ncol,k) = o31d(k)
+               else
+! apply shifted climatology profile above model top
+                 o3vmr(ncol,k) = o31d(kte) - o3mmr(kte)*amdo + o3mmr(k)*amdo
+                 if(o3vmr(ncol,k) .le. 0.)o3vmr(ncol,k) = o3mmr(k)*amdo
+               endif
+            endif
+            ENDIF
          enddo
 
 ! Set surface albedo for direct and diffuse radiation in UV/visible and
@@ -10447,7 +10485,6 @@ CONTAINS
       endif  ! aer_ra_feedback
 #endif
 
-
 ! Zero array for input of aerosol optical thickness for use with
 ! ECMWF aerosol types (not used)
          do na = 1, naerec
@@ -10455,6 +10492,25 @@ CONTAINS
                ecaer(ncol,k,na) = 0.
             enddo
          enddo
+
+      IF ( PRESENT( aerod ) ) THEN
+      if ( aer_opt .eq. 0 ) then
+         do na = 1, naerec
+            do k = kts, kte+1
+               ecaer(ncol,k,na) = 0.
+            enddo
+         enddo
+      else if ( aer_opt .eq. 1 ) then
+         do na = 1, naerec
+            do k = kts, kte
+               ecaer(ncol,k,na) = aerod(i,k,j,na)
+            enddo
+! assuming 0 or same value at the top?
+!           ecaer(ncol,kte+1,na) = ecaer(ncol,kte,na)
+            ecaer(ncol,kte+1,na) = 0.
+         enddo
+      endif
+      ENDIF
 
 ! Call RRTMG shortwave radiation model
 
@@ -10468,7 +10524,7 @@ CONTAINS
              taucmcl ,ssacmcl ,asmcmcl ,fsfcmcl , &
              ciwpmcl ,clwpmcl ,reicmcl ,relqmcl , &
              tauaer  ,ssaaer  ,asmaer  ,ecaer   , &
-             swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc, &
+             swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc, aer_opt, &
 ! -----          Zhenxin added for ssib coupiling 2011-06-20 --------!
              sibvisdir, sibvisdif, sibnirdir, sibnirdif          &
                                                         )
