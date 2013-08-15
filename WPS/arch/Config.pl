@@ -77,27 +77,6 @@ if($ENV{JASPERLIB} && $ENV{JASPERINC})
 else
 {
 
- if ( $ENV{GEOTIFF} && $ENV{LIBTIFF} )
-   {
-   printf "Configuring to use GeoTIFF library to build GeoTIFF I/O...\n" ;
-   printf("   \$GEOTIFF = %s\n",$ENV{GEOTIFF});
-   printf("   \$LIBTIFF = %s\n",$ENV{LIBTIFF});
-   if (-e "$ENV{GEOTIFF}/include/geotiff.h") {
-     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
-   } elsif ( -e "$ENV{GEOTIFF}/include/geotiff/geotiff.h") {
-     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include/geotiff";
-   } else {
-     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
-     printf("WARNING: Could not find geotiff headers");
-   }
-   $sw_geotiff_lib = "-L$ENV{GEOTIFF}/lib -lgeotiff";
-   $sw_libtiff_inc = "-I$ENV{LIBTIFF}/include";
-   $sw_libtiff_lib = "-L$ENV{LIBTIFF}/lib -ltiff";
-   }
- else
-   {
-   printf "\$GEOTIFF or \$LIBTIFF not found in environment, configuring to build without GeoTIFF I/O...\n" ;
-   }
    
     $tmp1 = '/usr/local/jasper';
     if (-e $tmp1) {
@@ -120,6 +99,28 @@ else
     }
 
 }
+
+ if ( $ENV{GEOTIFF} && $ENV{LIBTIFF} )
+   {
+   printf "Configuring to use GeoTIFF library to build GeoTIFF I/O...\n" ;
+   printf("   \$GEOTIFF = %s\n",$ENV{GEOTIFF});
+   printf("   \$LIBTIFF = %s\n",$ENV{LIBTIFF});
+   if (-e "$ENV{GEOTIFF}/include/geotiff.h") {
+     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
+   } elsif ( -e "$ENV{GEOTIFF}/include/geotiff/geotiff.h") {
+     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include/geotiff";
+   } else {
+     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
+     printf("WARNING: Could not find geotiff headers");
+   }
+   $sw_geotiff_lib = "-L$ENV{GEOTIFF}/lib -lgeotiff";
+   $sw_libtiff_inc = "-I$ENV{LIBTIFF}/include";
+   $sw_libtiff_lib = "-L$ENV{LIBTIFF}/lib -ltiff";
+   }
+ else
+   {
+   printf "\$GEOTIFF or \$LIBTIFF not found in environment, configuring to build without GeoTIFF I/O...\n" ;
+   }
 
 $validresponse = 0 ;
 # added this from the WRF Config.pl by John M.
@@ -318,8 +319,11 @@ open CONFIGURE_WRF, "> configure.wps" || die "cannot Open for writing... configu
     while (<ARCH_PREAMBLE>)
     {
         if($sw_os eq "CYGWIN_NT")
-
-    if ( $sw_geotiff_inc && $sw_geotiff_lib && $sw_libtiff_inc && $sw_libtiff_lib )
+        {
+            $_ =~ s/^WRF_DIR.*$/COMPILING_ON_CYGWIN_NT = yes/;  # will get from environment
+        }
+    
+	if ( $sw_geotiff_inc && $sw_geotiff_lib && $sw_libtiff_inc && $sw_libtiff_lib )
     { $_ =~ s/GEOTIFF_LIB/$sw_geotiff_lib/g ;
       $_ =~ s/GEOTIFF_INC/$sw_geotiff_inc/g ;
       $_ =~ s/LIBTIFF_LIB/$sw_libtiff_lib/g ;
@@ -333,10 +337,6 @@ open CONFIGURE_WRF, "> configure.wps" || die "cannot Open for writing... configu
       $_ =~ s/LIBTIFF_INC//g ;
       $_ =~ s/GEOTIFF_CPP_DEF//g ;
     }
-
-        {
-            $_ =~ s/^WRF_DIR.*$/COMPILING_ON_CYGWIN_NT = yes/;  # will get from environment
-        }
 
         $_ =~ s:CONFIGURE_NETCDFF_LIB:$sw_netcdff_lib:g; 
         @preamble = ( @preamble, $_ ) ;
