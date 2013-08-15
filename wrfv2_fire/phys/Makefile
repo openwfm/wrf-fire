@@ -193,17 +193,6 @@ clean:
 	@ echo 'use the clean script'
 
 # DEPENDENCIES : only dependencies after this line (don't remove the word DEPENDENCIES)
-get_sfire_id.inc:
-		chmod +x commit_hash
-		./commit_hash > sfire_id.inc
-		cat sfire_id.inc
-
-
-		get_sfire_id.inc \
-		module_fr_sfire_atm.o \
-                module_fr_sfire_phys.o \
-
-#module_fr_sfire_util.o:
 # DO NOT DELETE
 
 include ../main/depend.common
