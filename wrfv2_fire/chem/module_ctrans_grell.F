@@ -22,7 +22,7 @@ CONTAINS
    SUBROUTINE GRELLDRVCT(DT,itimestep,DX,                           &
               rho_phy,RAINCV,chem,                                  &
               U,V,t_phy,moist,dz8w,p_phy,                           &
-              XLV,CP,G,r_v,z,cu_co_ten,ktop_out,                    &
+              XLV,CP,G,r_v,z,cu_co_ten,                             &
               wd_no3,wd_so4,                                        &
               k22_shallow,kbcon_shallow,ktop_shallow,xmb_shallow,   &
               ishallow,num_moist,numgas,num_chem,chemopt,scalaropt, &
@@ -65,8 +65,6 @@ CONTAINS
           INTENT(INOUT   ) ::                                   &
                                                     cu_co_ten
 
-   INTEGER,  DIMENSION( ims:ime , jms:jme  ) , INTENT(  OUT) :: ktop_out
-
 !
    REAL, INTENT(IN   ) :: DT, DX
 !
@@ -106,6 +104,7 @@ CONTAINS
      integer, dimension (its:ite)            ::                    &
         ktop,k23,kbcon3,ktop3
 
+   INTEGER :: ishallow_gf = 0
    INTEGER :: nv,i,j,k,ICLDCK,ipr,jpr,npr
    REAL    :: tcrit,dp,dq,epsilc
    INTEGER :: itf,jtf,ktf,iopt
@@ -151,6 +150,13 @@ CONTAINS
          ktop3(i)=ktop_shallow(i,j)
          k23(i)=k22_shallow(i,j)
          kbcon3(i)=kbcon_shallow(i,j)
+     ENDDO
+     else
+     DO I=ITS,ITF
+         xmb3(i)=0.
+         ktop3(i)=0
+         k23(i)=0
+         kbcon3(i)=0
      ENDDO
      endif
      DO K=kts,ktf
@@ -240,10 +246,10 @@ CONTAINS
        ENDDO
 
     wetdep_2d(its:ite,j,:) = wetdep_1d(its:ite,:)
-      ktop_out(its:itf,J) = ktop(its:itf)
 
  100    continue
 
+   if(chemopt > 0) then  ! skip for tracers (chemopt=0)
    ! Calculate the wet deposition over the time step:
    
    wdi_no3(:,:) = 0.0
@@ -264,6 +270,7 @@ CONTAINS
    
    wd_no3(its:ite,jts:jte) = wd_no3(its:ite,jts:jte) + wdi_no3(its:ite,jts:jte) ! mmol/m2
    wd_so4(its:ite,jts:jte) = wd_so4(its:ite,jts:jte) + wdi_so4(its:ite,jts:jte) ! mmol/m2
+   endif
    
    END SUBROUTINE GRELLDRVCT
 
@@ -492,7 +499,7 @@ CONTAINS
         IERR(i)=0
         IERR5(i)=0
         if(ktop3(i).lt.2)ierr5(i)=20
-        if(xmb3(i).eq.0)ierr5(i)=21
+        if(xmb3(i).eq.0.)ierr5(i)=21
  7    CONTINUE
       do i=its,itf
           cap_max(i)=cap_maxs
@@ -819,7 +826,7 @@ CONTAINS
 
        call cup_dd_tracer(ierr,z_cup,qrcd,tracer,tre_cup,tr_up,tr_dd, &
                     tr_pw,tr_pwd,jmin,cdd,mentrd_rate,zd,pwdper,wetdep,xmb,k22, &
-                    numgas,ids,ide, jds,jde, kds,kde, &
+                    numgas,num_chem,ids,ide, jds,jde, kds,kde, &
                     ims,ime, jms,jme, kms,kme, &
                     its,ite, jts,jte, kts,kte)
        if(j.eq.jpr)print *,'called dd_tracer'
@@ -1501,10 +1508,6 @@ END subroutine cup_env_clev_tr
             if (nv.eq.p_seas_3 .or. nv.eq.p_seas_4) aq_gas_ratio=1.
             if (nv.eq.p_bc2 .or. nv.eq.p_oc2) aq_gas_ratio=0.8
             
-            ! Assume that all non-gas species (aerosol mass and number)
-            ! partion completely into the liquid phase:
-            
-            
             if (aq_gas_ratio > 0.0) then
               tr_c(i,k,nv)  = aq_gas_ratio*tr_up(i,k,nv) ! Amount of species cloud + rain water
               trch          = tr_up(i,k,nv)-tr_c(i,k,nv) ! Amount of species remaining in gas phase
@@ -1525,11 +1528,10 @@ END subroutine cup_up_tracer
 
   SUBROUTINE  cup_dd_tracer(ierr,z_cup,qrcd,tracer,tre_cup,tr_up,tr_dd, &
                           tr_pw,tr_pwd,jmin,cdd,entr,zd,pwdper,wetdep,xmb,k22, &
-                          numgas,ids,ide, jds,jde, kds,kde, &
+                          numgas,num_chem,ids,ide, jds,jde, kds,kde, &
                           ims,ime, jms,jme, kms,kme, &
                           its,ite, jts,jte, kts,kte)
-  USE module_configure
-  USE module_state_description
+
   USE module_model_constants, only: mwdry
 
         implicit none
@@ -1541,7 +1543,8 @@ END subroutine cup_up_tracer
 
      integer                                                           &
         ,intent (in   )                   ::                           &
-                               numgas,ids,ide, jds,jde, kds,kde,       &
+                               numgas,num_chem,                        &
+                                  ids,ide, jds,jde, kds,kde,           &
                                   ims,ime, jms,jme, kms,kme,           &
                                   its,ite, jts,jte, kts,kte
      real,    dimension (its:ite,kts:kte)                              &
@@ -1676,11 +1679,17 @@ END subroutine cup_up_tracer
       do nv=1,num_chem
         if (nv <= numgas) then
           do i=its,itf
+           if(ierr(I).eq.0)then
             wetdep(i,nv)=wetdep(i,nv)*xmb(i)/mwdry ! mmol/m2/s for gas phase species
+            wetdep(i,nv) = max(0.0,wetdep(i,nv))
+           endif
           enddo
         else
           do i=its,itf
+           if(ierr(I).eq.0)then
             wetdep(i,nv)=wetdep(i,nv)*xmb(i) ! ug/m2/s for aerosol mass, #/m2/s for aerosol number
+            wetdep(i,nv) = max(0.0,wetdep(i,nv))
+           endif
           enddo
         endif
       enddo

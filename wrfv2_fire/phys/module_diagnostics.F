@@ -27,6 +27,18 @@ CONTAINS
                      ,bucket_mm, bucket_J                             &
                      ,prec_acc_c, prec_acc_nc, snow_acc_nc            &
                      ,snowncv, prec_acc_dt, curr_secs                 &
+                     ,nwp_diagnostics, diagflag                       &
+                     ,history_interval                                &
+                     ,itimestep                                       &
+                     ,u10,v10,w                                       &
+                     ,wspd10max                                       &
+                     ,up_heli_max                                     &
+                     ,w_up_max,w_dn_max                               &
+                     ,znw,w_colmean                                   &
+                     ,numcolpts,w_mean                                &
+                     ,grpl_max,grpl_colint,refd_max,refl_10cm         &
+                     ,qg_curr                                         &
+                     ,rho,ph,phb,g                                    &
                                                                       )
 !----------------------------------------------------------------------
 
@@ -58,6 +70,19 @@ CONTAINS
 !-- SNOW_ACC_NC   accumulated explicit snow precip over accumulation time prec_acc_dt
 !-- PREC_ACC_DT   precip accumulation time, default is 60 min
 !-- CURR_SECS     model time in seconds
+!-- NWP_DIAGNOSTICS  = 1, compute hourly maximum fields
+!-- DIAGFLAG      logical flag to indicate if this is a history output time
+!-- U10, V10      10 m wind components
+!-- WSPD10MAX     10 m max wind speed
+!-- UP_HELI_MAX   max updraft helicity
+!-- W_UP_MAX      max updraft vertical velocity
+!-- W_DN_MAX      max downdraft vertical velocity
+!-- W_COLMEAN     column mean vertical velocity
+!-- NUMCOLPTS     no of column points
+!-- GRPL_MAX      max column-integrated graupel
+!-- GRPL_COLINT   column-integrated graupel
+!-- REF_MAX       max derived radar reflectivity
+!-- REFL_10CM     model computed 3D reflectivity
 !
 !-- ids           start index for i in domain
 !-- ide           end index for i in domain
@@ -97,6 +122,8 @@ CONTAINS
 
    INTEGER,      INTENT(IN   )    ::   diag_print
    REAL,      INTENT(IN   )    ::   bucket_mm, bucket_J
+   INTEGER,   INTENT(IN   )    ::   nwp_diagnostics
+   LOGICAL,   INTENT(IN   )    ::   diagflag
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                 &
          INTENT(IN ) ::                                       u  &
@@ -153,6 +180,38 @@ CONTAINS
    LOGICAL, EXTERNAL :: wrf_dm_on_monitor
    CHARACTER*256     :: outstring
    CHARACTER*6       :: grid_str
+
+   INTEGER, INTENT(IN) ::                                        &
+                                     history_interval,itimestep
+
+   REAL, DIMENSION( kms:kme ), INTENT(IN) ::                     &
+                                                            znw
+
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(IN) ::   &
+                                                              w  &
+                                                       ,qg_curr  &
+                                                           ,rho  &
+                                                     ,refl_10cm  &
+                                                        ,ph,phb
+
+   REAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) ::            &
+                                                            u10  &
+                                                           ,v10
+
+   REAL, INTENT(IN) :: g
+
+   REAL, DIMENSION( ims:ime , jms:jme ), INTENT(INOUT) ::        &
+                                                      wspd10max  &
+                                                   ,up_heli_max  &
+                                             ,w_up_max,w_dn_max  &
+                                    ,w_colmean,numcolpts,w_mean  &
+                                          ,grpl_max,grpl_colint  &
+                                                      ,refd_max
+
+   INTEGER :: idump
+
+   REAL :: wind_vel
+   REAL :: depth
 
 !-----------------------------------------------------------------
 ! Handle accumulations with buckets to prevent round-off truncation in long runs
@@ -325,6 +384,146 @@ CONTAINS
 
 !  !$OMP END PARALLEL DO
    ENDIF
+
+! NSSL
+
+   IF ( nwp_diagnostics .EQ. 1 ) THEN
+
+     idump = (history_interval * 60.) / dt
+
+!   print *,' history_interval = ', history_interval
+!   print *,' itimestep        = ', itimestep
+!   print *,' idump            = ', idump
+!   print *,' xtime            = ', xtime
+
+! IF ( MOD(itimestep, idump) .eq. 0 ) THEN
+!    WRITE(outstring,*) 'Computing PH0 for this domain with curr_secs = ', curr_secs
+!    CALL wrf_message ( TRIM(outstring) )
+
+   IF ( MOD((itimestep - 1), idump) .eq. 0 ) THEN
+     WRITE(outstring,*) 'NSSL Diagnostics: Resetting max arrays for domain with dt = ', dt
+     CALL wrf_debug ( 10,TRIM(outstring) )
+
+!  !$OMP PARALLEL DO   &
+!  !$OMP PRIVATE ( ij )
+     DO ij = 1 , num_tiles
+       DO j=j_start(ij),j_end(ij)
+       DO i=i_start(ij),i_end(ij)
+         wspd10max(i,j)   = 0.
+         up_heli_max(i,j) = 0.
+         w_up_max(i,j)    = 0.
+         w_dn_max(i,j)    = 0.
+         w_mean(i,j)      = 0.
+         grpl_max(i,j)    = 0.
+         refd_max(i,j)    = 0.
+       ENDDO
+       ENDDO
+     ENDDO
+!  !$OMP END PARALLEL DO
+   ENDIF
+
+!  !$OMP PARALLEL DO   &
+!  !$OMP PRIVATE ( ij )
+   DO ij = 1 , num_tiles
+     DO j=j_start(ij),j_end(ij)
+     DO i=i_start(ij),i_end(ij)
+
+! Zero some accounting arrays that will be used below
+
+       w_colmean(i,j)   = 0.
+       numcolpts(i,j)   = 0.
+       grpl_colint(i,j) = 0.
+     ENDDO
+     ENDDO
+   ENDDO
+!  !$OMP END PARALLEL DO
+
+!  !$OMP PARALLEL DO   &
+!  !$OMP PRIVATE ( ij )
+   DO ij = 1 , num_tiles
+     DO j=j_start(ij),j_end(ij)
+     DO k=kms,kme
+     DO i=i_start(ij),i_end(ij)
+
+! Find vertical velocity max (up and down) below 400 mb
+
+       IF ( p8w(i,k,j) .GT. 40000. .AND. w(i,k,j) .GT. w_up_max(i,j) ) THEN
+         w_up_max(i,j) = w(i,k,j)
+       ENDIF
+
+       IF ( p8w(i,k,j) .GT. 40000. .AND. w(i,k,j) .LT. w_dn_max(i,j) ) THEN
+         w_dn_max(i,j) = w(i,k,j)
+       ENDIF
+
+! For the column mean vertical velocity calculation, first
+! total the vertical velocity between sigma levels 0.5 and 0.8
+
+       IF ( znw(k) .GE. 0.5 .AND. znw(k) .LE. 0.8 ) THEN
+         w_colmean(i,j) = w_colmean(i,j) + w(i,k,j)
+         numcolpts(i,j) = numcolpts(i,j) + 1
+       ENDIF
+     ENDDO
+     ENDDO
+     ENDDO
+   ENDDO
+!  !$OMP END PARALLEL DO
+
+!  !$OMP PARALLEL DO   &
+!  !$OMP PRIVATE ( ij )
+   DO ij = 1 , num_tiles
+     DO j=j_start(ij),j_end(ij)
+     DO k=kms,kme-1
+     DO i=i_start(ij),i_end(ij)
+
+! Calculate the column integrated graupel
+
+       depth = ( ( ph(i,k+1,j) + phb(i,k+1,j) ) / g ) - \
+               ( ( ph(i,k  ,j) + phb(i,k  ,j) ) / g )
+       grpl_colint(i,j) = grpl_colint(i,j) + qg_curr(i,k,j) * depth * rho(i,k,j)
+     ENDDO
+     ENDDO
+     ENDDO
+   ENDDO
+!  !$OMP END PARALLEL DO
+
+!  !$OMP PARALLEL DO   &
+!  !$OMP PRIVATE ( ij )
+   DO ij = 1 , num_tiles
+     DO j=j_start(ij),j_end(ij)
+     DO i=i_start(ij),i_end(ij)
+
+! Calculate the max 10 m wind speed between output times
+
+       wind_vel = sqrt ( u10(i,j)*u10(i,j) + v10(i,j)*v10(i,j) )
+       IF ( wind_vel .GT. wspd10max(i,j) ) THEN
+         wspd10max(i,j) = wind_vel
+       ENDIF
+
+! Calculate the column mean vertical velocity between output times
+
+       w_mean(i,j) = w_mean(i,j) + w_colmean(i,j) / numcolpts(i,j)
+
+       IF ( MOD(itimestep, idump) .eq. 0 ) THEN
+         w_mean(i,j) = w_mean(i,j) / idump
+       ENDIF
+
+! Calculate the max column integrated graupel between output times
+
+       IF ( grpl_colint(i,j) .gt. grpl_max(i,j) ) THEN
+          grpl_max(i,j) = grpl_colint(i,j)
+       ENDIF
+
+! Calculate the max radar reflectivity between output times
+
+       IF ( refl_10cm(i,kms,j) .GT. refd_max(i,j) ) THEN
+         refd_max(i,j) = refl_10cm(i,kms,j)
+       ENDIF
+     ENDDO
+     ENDDO
+   ENDDO
+!  !$OMP END PARALLEL DO
+   ENDIF
+! NSSL
 
    if (diag_print .eq. 0 ) return
 
@@ -695,7 +894,7 @@ CONTAINS
 !  !$OMP PRIVATE ( ij )
 
 !  IF ( MOD(NINT(XTIME), clwrfH) == 0 ) THEN
-  IF (( MOD(NINT(XTIME*60./dt),NINT(clwrfH*60./dt)) == 0) .AND. (.NOT.is_restart)) THEN
+  IF (( MOD(NINT(XTIME/dt*60.),NINT(clwrfH/dt*60.)) == 0) .AND. (.NOT.is_restart)) THEN
     DO ij = 1 , num_tiles
       IF  ( wrf_dm_on_monitor() ) THEN
         WRITE(message, *)'CLWRFdiag - T2; tile: ',ij,' T2clmin:',           & 
@@ -963,6 +1162,190 @@ varmean=varmean+var
 varstd=varstd+var**2
 
 END SUBROUTINE varstatistics
+
+SUBROUTINE pld ( u,v,w,t,qv,zp,zb,pp,pb,p,pw,                    &
+                 msfux,msfuy,msfvx,msfvy,msftx,msfty,            &
+                 f,e,                                            &
+                 use_tot_or_hyd_p,missing,                       &
+                 num_press_levels,max_press_levels,press_levels, &
+                 p_pl,u_pl,v_pl,t_pl,rh_pl,ght_pl,s_pl,td_pl,    &
+                 ids,ide, jds,jde, kds,kde,                      &
+                 ims,ime, jms,jme, kms,kme,                      &
+                 its,ite, jts,jte, kts,kte                       )
+
+   USE module_model_constants
+
+   IMPLICIT NONE
+
+
+   !  Input variables
+
+   INTEGER, INTENT(IN   )                                          :: ids,ide, jds,jde, kds,kde, &
+                                                                      ims,ime, jms,jme, kms,kme, &
+                                                                      its,ite, jts,jte, kts,kte
+   REAL   , INTENT(IN   ) , DIMENSION(ims:ime , jms:jme)           :: msfux,msfuy,msfvx,msfvy,msftx,msfty, &
+                                                                      f,e
+   INTEGER, INTENT(IN   )                                          :: use_tot_or_hyd_p
+   REAL   , INTENT(IN   )                                          :: missing
+   REAL   , INTENT(IN   ) , DIMENSION(ims:ime , kms:kme , jms:jme) :: u,v,w,t,qv,zp,zb,pp,pb,p,pw
+   INTEGER, INTENT(IN   )                                          :: num_press_levels, max_press_levels
+   REAL   , INTENT(IN   ) , DIMENSION(max_press_levels)            :: press_levels
+
+   !  Output variables
+
+   REAL   , INTENT(  OUT) ,  DIMENSION(num_press_levels)                     :: p_pl
+   REAL   , INTENT(  OUT) ,  DIMENSION(ims:ime , num_press_levels , jms:jme) :: u_pl,v_pl,t_pl,rh_pl,ght_pl,s_pl,td_pl
+
+   !  Local variables
+
+   REAL, PARAMETER :: eps = 0.622, t_kelvin = svpt0 , s1 = 243.5, s2 = svp2 , s3 = svp1*10., s4 = 611.0, s5 = 5418.12
+
+   INTEGER :: i, j, ke, kp, ke_h, ke_f
+   REAL    :: pu, pd, pm , &
+              tu, td     , &
+              su, sd     , &
+              uu, ud     , &
+              vu, vd     , &
+              zu, zd     , &
+              qu, qd, qm , &
+              eu, ed, em , &
+              du, dd
+   REAL    :: es, qs
+
+   !  Silly, but transfer the small namelist.input array into the grid structure for output purposes.
+
+   DO kp = 1 , num_press_levels
+      p_pl(kp) = press_levels(kp)
+   END DO
+
+   !  Initialize pressure level data to un-initialized
+
+   DO j = jts , jte
+      DO kp = 1 , num_press_levels
+         DO i = its , ite
+            u_pl  (i,kp,j) = missing
+            v_pl  (i,kp,j) = missing
+            t_pl  (i,kp,j) = missing
+            rh_pl (i,kp,j) = missing
+            ght_pl(i,kp,j) = missing
+            s_pl  (i,kp,j) = missing
+            td_pl (i,kp,j) = missing
+         END DO
+      END DO
+   END DO
+
+   !  Loop over each i,j location
+
+   j_loop : DO j = jts , MIN(jte,jde-1)
+      i_loop : DO i = its , MIN(ite,ide-1)
+
+         !  For each i,j location, loop over the selected pressure levels to find
+
+         ke_h = kts
+         ke_f = kts
+         kp_loop : DO kp = 1 , num_press_levels
+
+            !  For this particular i,j and pressure level, find the eta levels that surround this point
+            !  on half-levels.
+
+            ke_loop_half : DO ke = ke_h , kte-2
+
+               IF      ( use_tot_or_hyd_p .EQ. 1 ) THEN     !  total pressure
+                  pu = pp(i,ke+1,j)+pb(i,ke+1,j)
+                  pd = pp(i,ke  ,j)+pb(i,ke  ,j)
+               ELSE IF ( use_tot_or_hyd_p .EQ. 2 ) THEN     !  hydrostatic pressure
+                  pu = p(i,ke+1,j)
+                  pd = p(i,ke  ,j)
+               END IF
+               pm = p_pl(kp)
+
+               IF ( ( pd .GE. pm ) .AND. &
+                    ( pu .LT. pm ) ) THEN
+
+                  !  Found trapping pressure: up, middle, down.  We are doing first order interpolation.  
+                  !  Now we just put in a list of diagnostics for this level.
+
+                  !  1. Temperature (K)
+
+                  tu = (t(i,ke+1,j)+t0)*(pu/p1000mb)**rcp
+                  td = (t(i,ke  ,j)+t0)*(pd/p1000mb)**rcp
+                  t_pl(i,kp,j) = ( tu * (pm-pd) + td * (pu-pm) ) / (pu-pd)
+
+                  !  2. Speed (m s-1)
+
+                  su = 0.5 * SQRT ( ( u(i,ke+1,j)+u(i+1,ke+1,j) )**2 + ( v(i,ke+1,j)+v(i,ke+1,j+1) )**2 ) 
+                  sd = 0.5 * SQRT ( ( u(i,ke  ,j)+u(i+1,ke  ,j) )**2 + ( v(i,ke  ,j)+v(i,ke  ,j+1) )**2 ) 
+                  s_pl(i,kp,j) = ( su * (pm-pd) + sd * (pu-pm) ) / (pu-pd)
+
+                  !  3. U and V (m s-1)
+
+                  uu = 0.5 *        ( u(i,ke+1,j)+u(i+1,ke+1,j) )
+                  ud = 0.5 *        ( u(i,ke  ,j)+u(i+1,ke  ,j) )
+                  u_pl(i,kp,j) = ( uu * (pm-pd) + ud * (pu-pm) ) / (pu-pd)
+
+                  vu = 0.5 *                                           ( v(i,ke+1,j)+v(i,ke+1,j+1) )
+                  vd = 0.5 *                                           ( v(i,ke  ,j)+v(i,ke  ,j+1) )
+                  v_pl(i,kp,j) = ( vu * (pm-pd) + vd * (pu-pm) ) / (pu-pd)
+
+                  !  4. Dewpoint (K) - Use Bolton's approximation
+
+                  qu = MAX(qv(i,ke+1,j),0.)
+                  qd = MAX(qv(i,ke  ,j),0.)
+                  eu = qu * pu * 0.01 / ( eps + qu )       ! water vapor pressure in mb.
+                  ed = qd * pd * 0.01 / ( eps + qd )       ! water vapor pressure in mb.
+                  eu = max(eu, 0.001)
+                  ed = max(ed, 0.001)
+
+                  du = t_kelvin + ( s1 / ((s2 / log(eu/s3)) - 1.0) )
+                  dd = t_kelvin + ( s1 / ((s2 / log(ed/s3)) - 1.0) )
+                  td_pl(i,kp,j) = ( du * (pm-pd) + dd * (pu-pm) ) / (pu-pd)
+
+                  !  5. Relative humidity (%)
+
+                  qm = ( qu * (pm-pd) + qd * (pu-pm) ) / (pu-pd)                           ! qvapor at the pressure level.
+                  es = s4 * exp(s5 * (1.0 / 273.0 - 1.0 / t_pl(i,kp,j)))
+                  qs = eps * es / (pm - es)
+                  rh_pl(i,kp,j)   = qm / qs * 100.
+
+                  !em = qm * pm * 0.01 / ( eps + qm )                                       ! water vapor pressure at the level.
+                  !es = s3 * exp( s2 * (t_pl(i,kp,j) - t_kelvin)/(t_pl(i,kp,j) - s4) )      ! sat vapor pressure over liquid water in mb.
+                  !rh_pl(i,kp,j) = 100. * em * ( pm * 0.01 - es ) / ( es * ( pm * 0.01 - em ) )
+
+                  ke_h = ke
+                  EXIT ke_loop_half
+               END IF
+            END DO ke_loop_half
+
+            ke_loop_full : DO ke = ke_f , kte-1
+               IF ( ( pw(i,ke  ,j) .GE. p_pl(kp) ) .AND. &
+                    ( pw(i,ke+1,j) .LT. p_pl(kp) ) ) THEN
+
+                  !  Found trapping pressure: up, middle, down.  We are doing first order interpolation.
+
+                  pu = LOG(pw(i,ke+1,j))
+                  pm = LOG(p_pl(kp))
+                  pd = LOG(pw(i,ke  ,j))
+
+                  !  Now we just put in a list of diagnostics for this level.
+
+                  !  1. Geopotential height (m)
+
+                  zu = ( zp(i,ke+1,j)+zb(i,ke+1,j) ) / g
+                  zd = ( zp(i,ke  ,j)+zb(i,ke  ,j) ) / g
+                  ght_pl(i,kp,j) = ( zu * (pm-pd) + zd * (pu-pm) ) / (pu-pd)
+
+                  ke_f = ke
+                  EXIT ke_loop_full
+               END IF
+            END DO ke_loop_full
+
+         END DO kp_loop
+      END DO i_loop
+   END DO j_loop
+
+   
+
+END SUBROUTINE pld
 
 
 END MODULE module_diagnostics

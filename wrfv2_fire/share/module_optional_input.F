@@ -4,7 +4,7 @@ MODULE module_optional_input
               flag_snow     , flag_snowh    , flag_tsk      , flag_pinterp
 
    INTEGER :: flag_qv       , flag_qc       , flag_qr       , flag_qi       , flag_qs       , &
-              flag_qg       , flag_qh       , flag_qni      , flag_sh
+              flag_qg       , flag_qh       , flag_qni      , flag_qnr      , flag_sh
 
    INTEGER :: flag_soil_levels, flag_soil_layers
 
@@ -21,7 +21,7 @@ MODULE module_optional_input
 
    INTEGER :: flag_sst      , flag_toposoil
 
-   INTEGER :: flag_icedepth , flag_icefrac
+   INTEGER :: flag_icedepth , flag_icefrac  , flag_albsi , flag_snowsi
 
    INTEGER :: flag_ptheta
 
@@ -189,6 +189,9 @@ CONTAINS
                                  its, ite, jts, jte, kts, kte  )
 
       CALL optional_ice        ( grid , fid , &
+                                 config_flags%seaice_albedo_opt , &
+                                 config_flags%seaice_snowdepth_opt , &
+                                 config_flags%seaice_thickness_opt , &
                                  ids, ide, jds, jde, kds, kde, &
                                  ims, ime, jms, jme, kms, kme, &
                                  its, ite, jts, jte, kts, kte  )
@@ -243,6 +246,7 @@ CONTAINS
             ( model_config_rec%sf_surface_physics(grid%id) .EQ. 2 ) .OR. &
             ( model_config_rec%sf_surface_physics(grid%id) .EQ. 3 ) .OR. &
             ( model_config_rec%sf_surface_physics(grid%id) .EQ. 4 ) .OR. &
+            ( model_config_rec%sf_surface_physics(grid%id) .EQ. 5 ) .OR. &
             ( model_config_rec%sf_surface_physics(grid%id) .EQ. 7 ) .OR. &
             ( model_config_rec%sf_surface_physics(grid%id) .EQ. 8 ) .OR. & !fds 
             ( model_config_rec%sf_surface_physics(grid%id) .EQ. 88 ) ) THEN
@@ -289,6 +293,7 @@ USE module_io_domain
       flag_qg       = 0
       flag_qh       = 0
       flag_qni      = 0
+      flag_qnr      = 0
       flag_sh       = 0
 
       flag_name(1:8) = 'QV      '
@@ -330,6 +335,11 @@ USE module_io_domain
       CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr )
       IF ( ierr .EQ. 0 ) THEN
          flag_qni       = itmp
+      END IF
+      flag_name(1:8) = 'QNR      '
+      CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr )
+      IF ( ierr .EQ. 0 ) THEN
+         flag_qnr       = itmp
       END IF
       flag_name(1:8) = 'SH      '
       CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr ) 
@@ -603,6 +613,9 @@ USE module_io_domain
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
    SUBROUTINE optional_ice ( grid , fid , &
+                             seaice_albedo_opt , &
+                             seaice_snowdepth_opt , &
+                             seaice_thickness_opt , &
                              ids, ide, jds, jde, kds, kde, &
                              ims, ime, jms, jme, kms, kme, &
                              its, ite, jts, jte, kts, kte  )
@@ -616,17 +629,28 @@ USE module_io_domain
 
       TYPE ( domain ) :: grid
       INTEGER , INTENT(IN) :: fid
+      INTEGER , INTENT(IN) :: seaice_albedo_opt
+      INTEGER , INTENT(IN) :: seaice_snowdepth_opt
+      INTEGER , INTENT(IN) :: seaice_thickness_opt
 
       INTEGER :: ids, ide, jds, jde, kds, kde, &
                  ims, ime, jms, jme, kms, kme, &
                  its, ite, jts, jte, kts, kte
 
-      INTEGER :: itmp , icnt , ierr
+      INTEGER :: itmp , icnt , ierr, i, j
 
       flag_name = '                                                                                '
 
       flag_icedepth = 0 
       flag_icefrac  = 0 
+      flag_albsi    = 0
+      flag_snowsi   = 0
+
+      flag_name(1:8) = 'ICEFRAC '
+      CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr ) 
+      IF ( ierr .EQ. 0 ) THEN
+         flag_icefrac  = itmp
+      END IF
 
       flag_name(1:8) = 'ICEDEPTH'
       CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr ) 
@@ -634,12 +658,60 @@ USE module_io_domain
          flag_icedepth = itmp
       END IF
 
-      flag_name(1:8) = 'ICEFRAC '
+      flag_name(1:8) = 'ALBSI   '
       CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr ) 
       IF ( ierr .EQ. 0 ) THEN
-         flag_icefrac  = itmp
+         flag_albsi  = itmp
       END IF
     
+      flag_name(1:8) = 'SNOWSI  '
+      CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr ) 
+      IF ( ierr .EQ. 0 ) THEN
+         flag_snowsi  = itmp
+      END IF
+
+      !
+      !  Check that ICEDEPTH field is available for SEAICE_THICKNESS_OPT == 1
+      !
+      IF ( flag_icedepth == 0 ) THEN
+          IF ( seaice_thickness_opt == 1 ) THEN
+             call wrf_error_fatal("Field ICEDEPTH not found in input.  Field ICEDEPTH is required if SEAICE_THICKNESS_OPT=1")
+             ! DO j = jts , MIN(jde-1,jte)
+             !     DO i = its , MIN(ide-1,ite)
+             !         grid%icedepth(i,j) = -1.E8
+             !     ENDDO
+             ! ENDDO
+          ENDIF
+      ENDIF
+    
+      !
+      !  Check that ALBSI field is available for SEAICE_ALBEDO_OPT == 2
+      !
+      IF ( flag_albsi == 0 ) THEN
+          IF ( seaice_albedo_opt == 2 ) THEN
+             call wrf_error_fatal("Field ALBSI not found in input.  Field ALBSI is required if SEAICE_ALBEDO_OPT=2")
+             ! DO j = jts , MIN(jde-1,jte)
+             !     DO i = its , MIN(ide-1,ite)
+             !         grid%albsi(i,j) = -1.E8
+             !     ENDDO
+             ! ENDDO
+          ENDIF
+      ENDIF
+
+      !
+      !  Check that SNOWSI field is available for SEAICE_SNOWDEPTH_OPT == 1
+      !
+      IF ( flag_snowsi == 0 ) THEN
+          IF ( seaice_snowdepth_opt == 1 ) THEN
+             call wrf_error_fatal("Field SNOWSI not found in input.  Field SNOWSI is required if SEAICE_SNOWDEPTH_OPT=1")
+             ! DO j = jts , MIN(jde-1,jte)
+             !     DO i = its , MIN(ide-1,ite)
+             !         grid%snowsi(i,j) = -1.E8
+             !     ENDDO
+             ! ENDDO
+          ENDIF
+      ENDIF
+
    END SUBROUTINE optional_ice
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

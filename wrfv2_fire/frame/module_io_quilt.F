@@ -69,8 +69,8 @@ MODULE module_wrf_quilt
 
   INTEGER, PARAMETER :: int_num_handles = 99
   INTEGER, PARAMETER :: max_servers = int_num_handles+1  ! why +1?
-  LOGICAL, DIMENSION(int_num_handles) :: okay_to_write, int_handle_in_use, okay_to_commit
-  INTEGER, DIMENSION(int_num_handles) :: int_num_bytes_to_write, io_form
+  LOGICAL, DIMENSION(0:int_num_handles) :: okay_to_write, int_handle_in_use, okay_to_commit
+  INTEGER, DIMENSION(0:int_num_handles) :: int_num_bytes_to_write, io_form
   REAL, POINTER,SAVE :: int_local_output_buffer(:)
   INTEGER,      SAVE :: int_local_output_cursor
   LOGICAL          :: quilting_enabled
@@ -515,10 +515,12 @@ MODULE module_wrf_quilt
 !</DESCRIPTION>
       USE module_state_description
       USE module_quilt_outbuf_ops
+      USE module_configure, only : grid_config_rec_type, model_config_rec, model_to_grid_config_rec
       IMPLICIT NONE
       INCLUDE 'mpif.h'
 #include "intio_tags.h"
 #include "wrf_io_flags.h"
+      TYPE (grid_config_rec_type)  :: config_flags
       INTEGER itag, ninbuf, ntasks_io_group, ntasks_local_group, mytask_local, ierr
       INTEGER istat
       INTEGER mytask_io_group
@@ -538,11 +540,14 @@ MODULE module_wrf_quilt
       CHARACTER (len=256) :: DateStr , Element, VarName, MemoryOrder , Stagger , DimNames(3), FileName, SysDepInfo, mess
       INTEGER, EXTERNAL :: use_package
       LOGICAL           :: stored_write_record, retval
-      INTEGER iii, jjj, vid, CC, DD
+      INTEGER iii, jjj, vid, CC, DD, dom_id
       LOGICAL           :: call_server_ready
 
 logical okay_to_w
 character*120 sysline
+
+      dom_id = 1 ! always a valid assumption for domain id for this netcdf setting
+      CALL model_to_grid_config_rec ( dom_id , model_config_rec , config_flags )
 
 ! If we've been built with PNETCDF_QUILT defined then we use parallel I/O
 ! within the group of I/O servers rather than gathering the data onto the
@@ -558,7 +563,9 @@ character*120 sysline
 ! Call ext_pkg_ioinit() routines to initialize I/O packages.  
       SysDepInfo = " "
 #ifdef NETCDF
-      CALL ext_ncd_ioinit( SysDepInfo, ierr)
+      if ( config_flags%use_netcdf_classic ) SysDepInfo="use_netcdf_classic"
+      CALL ext_ncd_ioinit( SysDepInfo, ierr )
+      SysDepInfo = " "
 #endif
 #ifdef INTIO
       CALL ext_int_ioinit( SysDepInfo, ierr )
@@ -916,6 +923,8 @@ okay_to_w = .false.
 ! other servers in this I/O server group.
           IF ( mytask_local .EQ. ntasks_local_group-1 ) THEN
             ALLOCATE( bigbuf( (bigbufsize+1)/itypesize ) )
+         else
+            ALLOCATE( bigbuf(1) )
           ENDIF
 
 ! Collect buffers and fields from all I/O servers in this I/O server group
@@ -1464,7 +1473,7 @@ okay_to_w = .false.
           DEALLOCATE( bigbuf )
         ENDIF
 #endif
-
+        if(allocated(bigbuf)) deallocate(bigbuf)
 ! Retrieve header and all patches for the next field from the internal 
 ! buffers.  
         CALL retrieve_pieces_of_field ( obuf , VarName, obufsize, sz, retval )
@@ -2537,6 +2546,7 @@ okay_to_w = .false.
 #endif
 
     SUBROUTINE init_module_wrf_quilt
+      USE module_wrf_error, only: init_module_wrf_error
 !<DESCRIPTION>
 ! Both client (compute) and server tasks call this routine to initialize the 
 ! module.  Routine setup_quilt_servers() is called from this routine to 
@@ -2631,6 +2641,8 @@ okay_to_w = .false.
                                 mpi_comm_here,        &
                                 mpi_comm_local,       &
                                 mpi_comm_io_groups)
+
+      call init_module_wrf_error(on_io_server=.true.)
 
        ! provide the communicator for the integration tasks to RSL
        IF ( compute_node ) THEN
@@ -5016,8 +5028,10 @@ subroutine wrf_quilt_server_ready()
   implicit none
   INCLUDE 'mpif.h'
   integer :: ierr
+  character*255 :: message
 
-  write(0,*) 'Entering wrf_quilt_server_ready.'
+  write(message,*) 'Entering wrf_quilt_server_ready.'
+  call wrf_debug(1,message)
 
   call mpi_barrier(mpi_comm_local,ierr)
   if(ierr/=0) then
@@ -5025,7 +5039,8 @@ subroutine wrf_quilt_server_ready()
   endif
 
   if(in_avail) then
-     write(0,'("mpi_ssend ioserver=",I0," in wrf_quilt_server_ready")') availrank
+     write(message,'("mpi_ssend ioserver=",I0," in wrf_quilt_server_ready")') availrank
+     call wrf_debug(1,message)
      call mpi_ssend(availrank,1,MPI_INTEGER,0,0,mpi_comm_avail,ierr)
      if(ierr/=0) then
         call wrf_error_fatal('mpi_ssend failed in wrf_quilt_server_ready')
@@ -5037,7 +5052,8 @@ subroutine wrf_quilt_server_ready()
      call wrf_error_fatal('mpi_barrier failed in wrf_quilt_server_ready')
   endif
 
-  write(0,*) 'Leaving wrf_quilt_server_ready.'
+  write(message,*) 'Leaving wrf_quilt_server_ready.'
+  call wrf_debug(1,message)
 #endif
 
 end subroutine wrf_quilt_server_ready

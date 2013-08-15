@@ -39,6 +39,7 @@
              ! coupling timestep using the
              call wrf_message('Guessing coupling timestep from d01 settings because there is no d02...')
              call model_to_grid_config_rec(1,model_config_rec,config_flags)
+             dt=config_flags%dt
           endif
           nphs=config_flags%nphs
           movemin=config_flags%movemin
@@ -61,6 +62,7 @@
      &           )
 !----------------------------------------------------------------------
 !
+      USE MODULE_STATS_FOR_MOVE, only: vorttrak_init
       USE MODULE_TIMING
 #ifdef HWRF
       USE MODULE_HIFREQ, only : hifreq_open
@@ -86,7 +88,6 @@
       USE MODULE_ADVECTION,    ONLY: ADVE, VAD2, HAD2
       USE MODULE_NONHY_DYNAM,  ONLY: VADZ, HADZ
       USE MODULE_DIFFUSION_NMM,ONLY: HDIFF
-      USE MODULE_BNDRY_COND,   ONLY: BOCOH, BOCOV
       USE MODULE_PHYSICS_INIT
       USE MODULE_GWD
 !     USE MODULE_RA_GFDLETA
@@ -221,6 +222,7 @@
       LOGICAL :: START_OF_SIMULATION
       LOGICAL :: LRESTART
       LOGICAL :: ETAMP_Regional, ICE1_indx, ICE2_indx
+      LOGICAL :: IS_CAMMGMP_USED=.FALSE.
 
 
       integer :: jam,retval
@@ -233,12 +235,17 @@
       integer :: i_v=49,j_v=475,n_v=07
       integer :: num_ozmixm, num_aerosolc
       real :: cen_lat,cen_lon,dtphs   ! GWD
-      integer :: num_urban_layers
+      integer :: num_urban_layers,num_urban_hi
 !Rogers GMT
       INTEGER :: hr, mn, sec, ms, rc
       TYPE(WRFU_Time) :: currentTime
 
       INTEGER :: interval_seconds, restart_interval
+
+#ifdef HWRF
+      REAL :: xshift,xfar,yfar,dfar,close2edge
+      REAL :: fedge,fmid,fdiff
+#endif
 
 ! z0base new
  
@@ -296,6 +303,11 @@
 !zhang's doing ends
 #endif
 
+#ifdef HWRF
+! Sam's doing for hour 0 & 6 nest movement safeguards
+        grid%nomove_freq_hr=config_flags%nomove_freq
+#endif
+
 #if 1
       IF(IME>NMM_MAX_DIM )THEN
         WRITE(wrf_err_message,*)                                       &
@@ -342,6 +354,12 @@
          CALL WRF_ERROR_FATAL(wrf_err_message)
       END IF
 
+#if (HWRF==1)
+      if(grid%vortex_tracker<1 .or. grid%vortex_tracker>3) then
+         write(wrf_err_message,*)' domain ',grid%id,' has an invalid value ',grid%vortex_tracker,' for grid%vortex_tracker.  It must be 1, 2 or 3.'
+      endif
+#endif
+      
 #if (HWRF==1)
       if(grid%vortex_tracker<1 .or. grid%vortex_tracker>3) then
          write(wrf_err_message,*)' domain ',grid%id,' has an invalid value ',grid%vortex_tracker,' for grid%vortex_tracker.  It must be 1, 2 or 3.'
@@ -609,7 +627,14 @@
       endif
 ! end of high-freq output
 #endif
-!
+#ifdef HWRF
+! Begin Sam Trahan's doing for vortex_tracker=4 option
+         call VORTTRAK_INIT(grid,config_flags,       &
+                            IDS,IDE,JDS,JDE,KDS,KDE, &
+                            IMS,IME,JMS,JME,KMS,KME, &
+                            ITS,ITE,JTS,JTE,KTS,KTE)
+! End Sam Trahan's doing for vortex_tracker=4 option
+#endif
 #ifdef HWRF
 !zhang's doing
   IF((.NOT.RESTRT .AND. .NOT.ANAL) .OR. .NOT.allowed_to_read)THEN
@@ -1958,10 +1983,11 @@
      &             ,grid%xlat,grid%xlong,grid%albedo,grid%albbck                            &
      &             ,GRID%GMT,GRID%JULYR,GRID%JULDAY                     &
      &             ,GRID%LEVSIZ, NUM_OZMIXM, NUM_AEROSOLC, GRID%PAERLEV &
+     &             ,grid%alevsiz, grid%no_src_types                     &
      &             ,TMN,grid%xland,grid%znt,grid%z0,grid%ustar,grid%mol,grid%pblh,grid%tke_pbl             &
      &             ,grid%exch_h,THC,SNOWC,grid%mavail,HFX,QFX,RAINBL              &
      &             ,grid%stc,grid%sldpth,grid%DZSoil,GRID%NUM_SOIL_LAYERS,WARM_RAIN           &
-     &             ,ADV_MOIST_COND                                      &
+     &             ,ADV_MOIST_COND,IS_CAMMGMP_USED                      &
      &             ,grid%apr_gr,grid%apr_w,grid%apr_mc,grid%apr_st,grid%apr_as                   &
      &             ,grid%apr_capma,grid%apr_capme,grid%apr_capmi                       &
      &             ,grid%xice,grid%xice,grid%vegfra,grid%snow,grid%canwat,grid%smstav                 &
@@ -1976,7 +2002,7 @@
      &             ,IDS, IDE, JDS, JDE, KDS, KDE                        &
      &             ,IMS, IME, JMS, JME, KMS, KME                        &
      &             ,ITS, ITE, JTS, JTE, KTS, KTE                        &
-     &             ,NUM_URBAN_LAYERS                                    &
+     &             ,NUM_URBAN_LAYERS,NUM_URBAN_HI                       &
      &             ,GRID%RAINCV_A,GRID%RAINCV_B                         &
      &               ,ISNOWXY=grid%ISNOWXY, ZSNSOXY=grid%ZSNSOXY, TSNOXY=grid%TSNOXY,    & ! Optional Noah-MP
      &                SNICEXY=grid%SNICEXY, SNLIQXY=grid%SNLIQXY, TVXY=grid%TVXY,        & ! Optional Noah-MP
@@ -1991,6 +2017,7 @@
      &                STBLCPXY=grid%STBLCPXY, FASTCPXY=grid%FASTCPXY,                    & ! Optional Noah-MP
      &                XSAIXY=grid%XSAIXY,                                                & ! Optional Noah-MP
      &                T2MVXY=grid%T2MVXY, T2MBXY=grid%T2MBXY, CHSTARXY=grid%CHSTARXY     & ! Optional Noah-MP
+     &                ,MAXPATCH=1 & ! CLM
      &                )
 
 #ifdef HWRF
@@ -2000,6 +2027,15 @@
       grid%gmt_rst=grid%gmt_rst
 !end of zhang's doing
 #endif
+
+!
+! computes ct and ct2 for topo_wind=1 or topo_wind=2
+! NOTE: not yet implemented for NMM: =1.0 will have no effect
+!
+       grid%ctopo=1.
+       grid%ctopo2=1.
+!
+
 !-----------------------------------------------------------------------
 !---- Initialization for gravity wave drag (GWD) & mountain blocking (MB)
 !
@@ -2050,9 +2086,9 @@
 #ifdef HWRF
       IF (.NOT. RESTRT .and. ALLOWED_TO_READ) THEN   !zhang
         moist = 0.0
-        grid%f_ice = grid%f_ice_phy
-        grid%f_rimef = grid%f_rimef_phy
-        grid%f_rain = grid%f_rain_phy
+        if(size(grid%f_ice)>1) grid%f_ice = grid%f_ice_phy
+        if(size(grid%f_rimef)>1) grid%f_rimef = grid%f_rimef_phy
+        if(size(grid%f_rain)>1) grid%f_rain = grid%f_rain_phy
       ENDIF                  !zhang
 #endif
 
@@ -2100,22 +2136,29 @@
                IF (i_m==P_qi .or. i_m==P_qg ) ICE1_indx=.TRUE.
                ICE2_indx=ICE1_indx
                IF (i_m==P_qs) ICE2_indx=.TRUE.
+              IF (ETAMP_Regional .AND. ICE1_indx) THEN
             DO J=JFS,JFE
             DO K=KPS,KPE
             DO I=IFS,IFE
-              IF (ETAMP_Regional .AND. ICE1_indx) THEN
                  moist(I,J,K,p_qs)=moist(I,J,K,p_qs)+moist(I,J,K,i_m)
                  moist(I,J,K,i_m) =0.
+            enddo
+            enddo
+            enddo
+            if(size(grid%f_ice)>1) then
+               DO J=JFS,JFE
+                  DO K=KPS,KPE
+                     DO I=IFS,IFE
+                        grid%f_ice(I,K,J) = grid%f_ice(I,K,J) + moist(I,J,K,i_m)
+                     enddo
+                  enddo
+               enddo
+            endif
               ENDIF
-              IF ( moist(I,J,K,i_m)>EPSQ .AND. ICE2_indx) THEN
-                 grid%f_ice(I,K,J) = grid%f_ice(I,K,J) + moist(I,J,K,i_m)
-              ENDIF
-            enddo
-            enddo
-            enddo
             enddo
             CALL wrf_message(' computing f_rain')
 !
+            if(size(grid%f_ice)>1 .and. size(grid%f_rain)>1) then
             DO J=JFS,JFE
             DO K=KPS,KPE
             DO I=IFS,IFE
@@ -2135,39 +2178,46 @@
             enddo
             enddo
             enddo
+         endif
           ENDIF
         ENDIF
 ! End addition by Greg Thompson
 
-        IF (maxval(grid%f_ice) .gt. 0.) THEN
-         do J=JMS,JME
-         do K=KMS,KME
-         do I=IMS,IME
-          grid%f_ice_phy(I,K,J)=grid%f_ice(I,K,J)
-         enddo
-         enddo
-         enddo
-        ENDIF
+        if(size(grid%f_ice)>1) then
+           IF (maxval(grid%f_ice) .gt. 0.) THEN
+              do J=JMS,JME
+                 do K=KMS,KME
+                    do I=IMS,IME
+                       grid%f_ice_phy(I,K,J)=grid%f_ice(I,K,J)
+                    enddo
+                 enddo
+              enddo
+           ENDIF
+        endif
 
-        IF (maxval(grid%f_rain) .gt. 0.) THEN
-         do J=JMS,JME
-         do K=KMS,KME
-         do I=IMS,IME
-          grid%f_rain_phy(I,K,J)=grid%f_rain(I,K,J)
-         enddo
-         enddo
-         enddo
-        ENDIF
+        if(size(grid%f_rain)>1) then
+           IF (maxval(grid%f_rain) .gt. 0.) THEN
+              do J=JMS,JME
+                 do K=KMS,KME
+                    do I=IMS,IME
+                       grid%f_rain_phy(I,K,J)=grid%f_rain(I,K,J)
+                    enddo
+                 enddo
+              enddo
+           ENDIF
+        endif
 
-        IF (maxval(grid%f_rimef) .gt. 0.) THEN
-          do J=JMS,JME
-          do K=KMS,KME
-          do I=IMS,IME
-            grid%f_rimef_phy(I,K,J)=grid%f_rimef(I,K,J)
-          enddo
-          enddo
-          enddo
-        ENDIF
+        if(size(grid%f_rimef)>1) then
+           IF (maxval(grid%f_rimef) .gt. 0.) THEN
+              do J=JMS,JME
+                 do K=KMS,KME
+                    do I=IMS,IME
+                       grid%f_rimef_phy(I,K,J)=grid%f_rimef(I,K,J)
+                    enddo
+                 enddo
+              enddo
+           ENDIF
+        endif
       ENDIF
 !
       IF (.NOT. RESTRT) THEN
@@ -2265,7 +2315,8 @@
                 IMS,IME, JMS,JME, KMS,KME,                                  &
                 ITS,ITE, JTS,JTE, KTS,KTE-1                                 )
              
-        CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ)
+        CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
+             CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ)
            CALL SUM_PM_MOSAIC (                                             &
                 RRI, CHEM,                                            &
                 PM2_5_DRY, PM2_5_WATER, PM2_5_DRY_EC, PM10,                 &

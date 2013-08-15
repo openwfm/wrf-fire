@@ -35,11 +35,13 @@
                                              ,VAD2_SCAL,HAD2_SCAL
       USE MODULE_NONHY_DYNAM,           ONLY: EPS,VADZ,HADZ
       USE MODULE_DIFFUSION_NMM,         ONLY: HDIFF
-      USE MODULE_BNDRY_COND,            ONLY: BOCOH,BOCOV
+      USE MODULE_BNDRY_COND,            ONLY: &
+           BOCOV, MASS_BOUNDARY, MP_BULK_BOUNDARY, MP_SPECIES_BDY
       USE MODULE_PHYSICS_CALLS
       USE MODULE_EXT_INTERNAL
       USE MODULE_PRECIP_ADJUST
       USE MODULE_NEST_UTIL     ! USEs module_MPP (contains MYPE,NPES,MPI_COMM_COMP)
+      USE MODULE_STATS_FOR_MOVE,        ONLY: STATS_FOR_MOVE
 #ifdef WRF_CHEM
       USE MODULE_INPUT_CHEM_DATA,       ONLY: GET_LAST_GAS
 #endif
@@ -341,7 +343,10 @@
   NUMGAS          = GET_LAST_GAS(CONFIG_FLAGS%CHEM_OPT)
 #endif
 !
-      IF(CONFIG_FLAGS%CU_PHYSICS==GDSCHEME)THEN
+        IF(CONFIG_FLAGS%CU_PHYSICS==GDSCHEME.OR.                        &
+     &  CONFIG_FLAGS%CU_PHYSICS==TIEDTKESCHEME.OR.                      &
+     &  CONFIG_FLAGS%CU_PHYSICS==KFETASCHEME)THEN
+
         DO J=JMS,JME
         DO K=KMS,KME
         DO I=IMS,IME
@@ -477,26 +482,11 @@
       call blockf(loadimbal_tim)
 #endif
       btimx=timef()
-#ifdef DM_PARALLEL
-#    include "HALO_NMM_ZZ.inc"
-#endif
+!#ifdef DM_PARALLEL
+!#    include "HALO_NMM_ZZ.inc"
+!#endif
 
       IF(GRID%ID/=1)THEN
-!
-        CALL NESTBC_PATCH (grid%PD_BXS,grid%PD_BXE,grid%PD_BYS,grid%PD_BYE,grid%T_BXS,grid%T_BXE,grid%T_BYS,grid%T_BYE,grid%Q_BXS,grid%Q_BXE         &
-                          ,grid%Q_BYS,grid%Q_BYE,grid%U_BXS,grid%U_BXE,grid%U_BYS,grid%U_BYE,grid%V_BXS,grid%V_BXE,grid%V_BYS,grid%V_BYE             &
-                          ,grid%Q2_BXS,grid%Q2_BXE,grid%Q2_BYS,grid%Q2_BYE,grid%CWM_BXS,grid%CWM_BXE,grid%CWM_BYS,grid%CWM_BYE             &
-                          ,grid%PD_BTXS,grid%PD_BTXE,grid%PD_BTYS,grid%PD_BTYE,grid%T_BTXS,grid%T_BTXE,grid%T_BTYS,grid%T_BTYE             &
-                          ,grid%Q_BTXS,grid%Q_BTXE,grid%Q_BTYS,grid%Q_BTYE,grid%U_BTXS,grid%U_BTXE,grid%U_BTYS,grid%U_BTYE                 &
-                          ,grid%V_BTXS,grid%V_BTXE,grid%V_BTYS,grid%V_BTYE,grid%Q2_BTXS,grid%Q2_BTXE,grid%Q2_BTYS,grid%Q2_BTYE             &
-                          ,grid%CWM_BTXS,grid%CWM_BTXE,grid%CWM_BTYS,grid%CWM_BTYE,grid%pdnest_b,grid%tnest_b,grid%qnest_b,grid%unest_b    &
-                          ,grid%vnest_b,grid%q2nest_b,grid%cwmnest_b,grid%pdnest_bt,grid%tnest_bt,grid%qnest_bt                  &
-                          ,grid%unest_bt,grid%vnest_bt,grid%q2nest_bt,grid%cwmnest_bt                                  &
-                          ,GRID%SPEC_BDY_WIDTH                                                     &
-                          ,IDS,IDF,JDS,JDF,KDS,KDE                                                 &
-                          ,IMS,IME,JMS,JME,KMS,KME                                                 &
-                          ,ITS,ITE,JTS,JTE,KTS,KTE                                                 )
-
 !
 #ifdef MOVE_NESTS
 
@@ -559,7 +549,8 @@
 
             imid=(its+ite)/2   ;   jmid=(jts+jte)/2
 
-            write(0,'(A,": random(",I0,",",I0,") = ",E15.10)') 'before call',imid,jmid,grid%random(imid,jmid)
+            write(message,'(A,": random(",I0,",",I0,") = ",E15.10)') 'before call',imid,jmid,grid%random(imid,jmid)
+            call wrf_debug(3,message)
 
             call rand_grid_r4(grid%randstate1,grid%randstate2, &
                               grid%randstate3,grid%randstate4, &
@@ -568,7 +559,8 @@
                               IMS,IME,JMS,JME,one,one, &
                               ITS,ITE,JTS,JTE,one,one)
 
-            write(0,'(A,": random(",I0,",",I0,") = ",E15.10)') 'after call',imid,jmid,grid%random(imid,jmid)
+            write(message,'(A,": random(",I0,",",I0,") = ",E15.10)') 'after call',imid,jmid,grid%random(imid,jmid)
+            call wrf_debug(3,message)
 
             call end_timing('Updating random numbers')
          ENDIF    ! for IF(IDT.EQ.0 .OR. NTSD .EQ. 0)
@@ -1139,9 +1131,6 @@
       btimx=timef()
 !
       CALL VTOA(                                                        &
-#ifdef DM_PARALLEL
-     &          GRID,                                                   &
-#endif
      &          grid%ntsd,GRID%DT,grid%pt,grid%eta2                                    &
      &         ,grid%hbm2,grid%ef4t                                               &
      &         ,grid%t,grid%dwdt,grid%rtop,grid%omgalf                                      &
@@ -1646,6 +1635,7 @@
      &            ,grid%ivgtyp,grid%isltyp,grid%vegfrc,grid%shdmin,grid%shdmax,grid%grnflx           &
      &            ,grid%snotime                                             &
      &            ,grid%sfcexc,grid%acsnow,grid%acsnom,grid%snopcx,grid%sice,grid%tg,grid%soiltb          &
+     &            ,grid%albsi,grid%icedepth,grid%snowsi                                                   &
      &            ,grid%albase,grid%mxsnal,grid%albedo,grid%sh2o,grid%si,grid%epsr,grid%embck             &
      &            ,grid%u10,grid%v10,grid%th10,grid%q10,grid%tshltr,grid%qshltr,grid%pshltr               &
      &            ,grid%t2,grid%qsg,grid%qvg,grid%qcg,grid%soilt1,grid%tsnav,grid%smfr3d,grid%keepfr3dflag     &
@@ -1670,9 +1660,10 @@
      &            ,grid%dew                                            & ! RUC LSM
      &            ,grid%rc_mf                                          & ! QNSE
      &            ,GRID,CONFIG_FLAGS                                   &
-     &            ,grid%ihe,grid%ihw,grid%ive,grid%ivw                                     &
-     &            ,GRID%DISHEAT                                             &
+     &            ,grid%ihe,grid%ihw,grid%ive,grid%ivw                 &
+     &            ,GRID%DISHEAT                                        &
      &            ,GRID%HPBL2D, GRID%EVAP2D, GRID%HEAT2D               &  !S&P Kwon
+     &            ,GRID%SFCHEADRT,GRID%INFXSRT,GRID%SOLDRAIN           &  !Hydrology, no-op right now
      &            ,IDS,IDF,JDS,JDF,KDS,KDE                             &
      &            ,IMS,IME,JMS,JME,KMS,KME                             &
      &            ,ITS,ITE,JTS,JTE,KTS,KTE)
@@ -1818,7 +1809,9 @@
 !
 !***  GET TENDENCIES FOR GD SCHEME.
 !    
-        IF(CONFIG_FLAGS%CU_PHYSICS==GDSCHEME)THEN
+        IF(CONFIG_FLAGS%CU_PHYSICS==GDSCHEME.OR.                        &
+     &  CONFIG_FLAGS%CU_PHYSICS==TIEDTKESCHEME.OR.                      &
+     &  CONFIG_FLAGS%CU_PHYSICS==KFETASCHEME)THEN
           DT_INV=1./GRID%DT
           DO J=JMS,JME
           DO K=KMS,KME
@@ -1856,7 +1849,7 @@
      &             ,grid%apr_capme,grid%apr_capmi                                &
      &             ,grid%mass_flux,grid%xf_ens                                   &
      &             ,grid%pr_ens,grid%gsw                                         &
-     &             ,grid%GD_CLOUD,grid%GD_CLOUD2                                 &
+     &             ,grid%GD_CLOUD,grid%GD_CLOUD2,grid%ktop_deep                  &
 #ifdef WRF_CHEM
      &             ,RAINCV                          &
 #endif
@@ -2086,17 +2079,16 @@
 !
       btimx=timef()
 !
-      CALL BOCOH(GRID%ID,grid%ntsd,GRID%DT,NEST,NUNIT_NBC,NBOCO,LAST_TIME,TSPH &
+      CALL MASS_BOUNDARY(GRID%ID,grid%ntsd,GRID%DT,NEST,NUNIT_NBC,NBOCO,LAST_TIME,TSPH &
      &          ,LB,grid%eta1,grid%eta2,grid%pdtop,grid%pt,grid%res                              &
      &          ,grid%PD_BXS,grid%PD_BXE,grid%PD_BYS,grid%PD_BYE,grid%T_BXS,grid%T_BXE,grid%T_BYS,grid%T_BYE    &
      &          ,grid%Q_BXS,grid%Q_BXE,grid%Q_BYS,grid%Q_BYE,grid%U_BXS,grid%U_BXE,grid%U_BYS,grid%U_BYE,grid%V_BXS  &
-     &          ,grid%V_BXE,grid%V_BYS,grid%V_BYE,grid%Q2_BXS,grid%Q2_BXE,grid%Q2_BYS,grid%Q2_BYE,grid%CWM_BXS  &
-     &          ,grid%CWM_BXE,grid%CWM_BYS,grid%CWM_BYE,grid%PD_BTXS,grid%PD_BTXE,grid%PD_BTYS        &
+     &          ,grid%V_BXE,grid%V_BYS,grid%V_BYE,grid%Q2_BXS,grid%Q2_BXE,grid%Q2_BYS,grid%Q2_BYE  &
+     &          ,grid%PD_BTXS,grid%PD_BTXE,grid%PD_BTYS        &
      &          ,grid%PD_BTYE,grid%T_BTXS,grid%T_BTXE,grid%T_BTYS,grid%T_BTYE,grid%Q_BTXS,grid%Q_BTXE      &
      &          ,grid%Q_BTYS,grid%Q_BTYE,grid%U_BTXS,grid%U_BTXE,grid%U_BTYS,grid%U_BTYE,grid%V_BTXS       &
      &          ,grid%V_BTXE,grid%V_BTYS,grid%V_BTYE,grid%Q2_BTXS,grid%Q2_BTXE,grid%Q2_BTYS,grid%Q2_BTYE   &
-     &          ,grid%CWM_BTXS,grid%CWM_BTXE,grid%CWM_BTYS,grid%CWM_BTYE,grid%pd,grid%t,grid%q,grid%q2,grid%cwm,grid%pint &
-     &          ,MOIST,N_MOIST,SCALAR,NUM_SCALAR                        &
+     &          ,grid%pd,grid%t,grid%q,grid%q2,grid%pint &
 #ifdef WRF_CHEM
      &          ,CHEM,NUMGAS,CONFIG_FLAGS                               &
 #endif
@@ -2105,8 +2097,35 @@
      &          ,IDS,IDF,JDS,JDF,KDS,KDE                                &
      &          ,IMS,IME,JMS,JME,KMS,KME                                &
      &          ,ITS,ITE,JTS,JTE,KTS,KTE)
-
- 
+#if (NMM_NEST==1)
+      if(ETAMP_PHYSICS) then
+#endif
+!         write(0,*) 'MP_BULK_BOUNDARY'
+      CALL MP_BULK_BOUNDARY(GRID%ID,grid%ntsd,GRID%DT &
+     &          ,LB,grid%eta1,grid%eta2,grid%pdtop,grid%pt              &
+     &          ,grid%CWM_BXS,grid%CWM_BXE,grid%CWM_BYS,grid%CWM_BYE    &
+     &          ,grid%CWM_BTXS,grid%CWM_BTXE,grid%CWM_BTYS,grid%CWM_BTYE&
+     &          ,grid%q,grid%cwm                                        &
+     &          ,MOIST,N_MOIST,SCALAR,NUM_SCALAR                        &
+     &          ,GRID%SPEC_BDY_WIDTH                                    &
+     &          ,IDS,IDF,JDS,JDF,KDS,KDE                                &
+     &          ,IMS,IME,JMS,JME,KMS,KME                                &
+     &          ,ITS,ITE,JTS,JTE,KTS,KTE)
+#if (NMM_NEST==1)
+      else
+         CALL MP_SPECIES_BDY(grid%id,1,grid%dt,               &
+              grid%CWM,grid%Q,                                &
+              MOIST,N_MOIST,                                  &
+              MOIST_bxs,MOIST_bxe,MOIST_bys,MOIST_bye,        &
+              MOIST_btxs,MOIST_btxe,MOIST_btys,MOIST_btye,    &
+              SCALAR,NUM_SCALAR,                              &
+              SCALAR_bxs,SCALAR_bxe,SCALAR_bys,SCALAR_bye,    &
+              SCALAR_btxs,SCALAR_btxe,SCALAR_btys,SCALAR_btye,&
+              ids,idf,jds,jdf,kds,kde,                        &
+              ims,ime,jms,jme,kms,kme,                        &
+              its,ite,jts,jte,kts,kte)
+      endif
+#endif
 !
       bocoh_tim=bocoh_tim+timef()-btimx
 !     if(mod(grid%ntsd,n_print_time)==0)then
@@ -2190,11 +2209,12 @@
 !
       btimx=timef()
 !
-      CALL DDAMP(grid%ntsd,GRID%DT,grid%deta1,grid%deta2,grid%pdsl,grid%pdtop,grid%div,grid%hbm2          &
-     &          ,grid%t,grid%u,grid%v,grid%ddmpu,grid%ddmpv                                     &
-     &          ,grid%ihe,grid%ihw,grid%ive,grid%ivw                                       &
-     &          ,IDS,IDF,JDS,JDF,KDS,KDE                               &
-     &          ,IMS,IME,JMS,JME,KMS,KME                               &
+      CALL DDAMP(grid%ntsd,GRID%DT,grid%deta1,grid%deta2,grid%pdsl      &
+     &          ,grid%pdtop,grid%div,grid%hbm2                          &
+     &          ,grid%t,grid%u,grid%v,grid%ddmpu,grid%ddmpv             &
+     &          ,grid%ihe,grid%ihw,grid%ive,grid%ivw                    &
+     &          ,IDS,IDF,JDS,JDF,KDS,KDE                                &
+     &          ,IMS,IME,JMS,JME,KMS,KME                                &
      &          ,ITS,ITE,JTS,JTE,KTS,KTE)
 !
       ddamp_tim=ddamp_tim+timef()-btimx
@@ -2383,20 +2403,15 @@
 #endif
 !-----------------
 
-   CALL STATS_FOR_MOVE (grid%XLOC_2,grid%YLOC_2,grid%PDYN,grid%MSLP,grid%SQWS                   &
-                      ,grid%pint,grid%t,grid%q,grid%u,grid%v                                   &
-                      ,grid%fis,grid%pd,grid%sm,grid%pdtop,grid%pt                             &
-                      ,grid%deta1,grid%deta2                                    &
-#ifdef HWRF
-                      ,GRID%RESTART,grid%NTIME0                            & ! zhang's doing
-                      ,GRID%MOVED,grid%MVNEST,grid%ntsd,GRID%NPHS,GRID%MOVEMIN  & ! MOVEMIN*DT*NPHS=540s
-#else
-                      ,GRID%MOVED,grid%MVNEST,grid%ntsd,GRID%NPHS     &
-#endif
-                      ,GRID%VORTEX_TRACKER                            &
-                      ,IDS,IDF,JDS,JDF,KDS,KDE                        & ! MOVEMIN is defined in
-                      ,IMS,IME,JMS,JME,KMS,KME                        & ! Registry
-                      ,ITS,ITE,JTS,JTE,KTS,KTE              )           ! FOR NEST:DT=18,NPHS=3
+      call start_timing()
+      call stats_for_move(grid,config_flags &
+                         ,IDS,IDE,JDS,JDE,KDS,KDE &
+                         ,IMS,IME,JMS,JME,KMS,KME &
+                         ,IPS,IPE,JPS,JPE,KPS,KPE &
+                         ,ITS,ITE,JTS,JTE,KTS,KTE)
+3303  format('stats_for_move on domain ',I0)
+      write(message,3303) grid%id
+      call end_timing(message)
    CALL wrf_debug ( 100 , 'nmm stats_for_move: after advection' )
    ENDIF
 #endif
@@ -2407,7 +2422,7 @@
 !    This is gopal's doing
 
      IF(grid%id .EQ. 1 .AND. MOD(grid%NTSD,n_print_time)==0)THEN
-      WRITE(0,*)'COMPUTING MSLP OVER THE PARENT DOMAIN'
+      call wrf_debug(1,'COMPUTING MSLP OVER THE PARENT DOMAIN')
 
       CALL MSLP_DIAG (grid%MSLP,grid%PINT,grid%T,grid%Q                &
                      ,grid%FIS,grid%PD,grid%DETA1,grid%DETA2,grid%PDTOP     &
@@ -2832,132 +2847,6 @@
 !----------------------------------------------------------------------
 !
       END SUBROUTINE VWR
-!----------------------------------------------------------------------
-!**********************************************************************
-!----------------------------------------------------------------------
-      SUBROUTINE EXIT(NAME,pint,t,q,u,v,q2,w                           &
-     &               ,ntsd,MYPE,MPI_COMM_COMP                          &
-     &               ,IDS,IDE,JDS,JDE,KDS,KDE                          &
-     &               ,IMS,IME,JMS,JME,KMS,KME                          &
-     &               ,ITS,ITE,JTS,JTE,KTS,KTE)
-!----------------------------------------------------------------------
-!**********************************************************************
-      USE MODULE_EXT_INTERNAL
-!
-!----------------------------------------------------------------------
-      IMPLICIT NONE
-!----------------------------------------------------------------------
-#if defined(DM_PARALLEL) && !defined(STUBMPI)
-      INCLUDE "mpif.h"
-#endif
-!----------------------------------------------------------------------
-      INTEGER,INTENT(IN) :: IDS,IDE,JDS,JDE,KDS,KDE                    &
-     &                     ,IMS,IME,JMS,JME,KMS,KME                    &
-     &                     ,ITS,ITE,JTS,JTE,KTS,KTE                    &
-     &                     ,MYPE,MPI_COMM_COMP,ntsd
-!
-      REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(IN) :: pint,t,q   &
-                                                           ,u,v,q2,w
-      CHARACTER(*),INTENT(IN) :: NAME
-!
-      INTEGER :: I,J,K,IEND,IERR,IRET
-      CHARACTER(256) :: ERRMESS
-      LOGICAL :: E_BDY,S_BDY
-!----------------------------------------------------------------------
-      IRET=0
-  100 FORMAT(' EXIT ',A,' AT ntsd=',I5)
-      IEND=ITE
-      S_BDY=(JTS==JDS)
-      E_BDY=(ITE==IDE-1)
-!
-      DO K=KTS,KTE
-      DO J=JTS,JTE
-      IEND=ITE
-      IF(E_BDY.AND.MOD(J,2)==0)IEND=ITE-1
-!
-      DO I=ITS,IEND
-        IF(t(I,J,K)>330..OR.t(I,J,K)<180..OR.t(I,J,K)/=t(I,J,K))THEN
-          WRITE(errmess,100)NAME,ntsd
-          CALL wrf_message(trim(errmess))
-          WRITE(errmess,200)I,J,K,t(I,J,K),MYPE,ntsd
-          CALL wrf_message(trim(errmess))
-  200     FORMAT(' BAD VALUE I=',I3,' J=',I3,' K=',I2,' t=',E12.5      &
-     &,          ' MYPE=',I3,' ntsd=',I5)
-          IRET=666
-          return
-!         WRITE(ERRMESS,205)NAME,t(I,J,K),I,J,K,MYPE
-  205     FORMAT(' EXIT ',A,' TEMPERATURE=',E12.5                      &
-     &,          ' AT (',I3,',',I2,',',I3,')',' MYPE=',I3)
-!         CALL WRF_ERROR_FATAL(ERRMESS)
-!         CALL MPI_ABORT(MPI_COMM_WORLD,1,IERR)
-        ELSEIF(q(I,J,K)<-1.E-4.OR.q(I,J,K)>30.E-3                      &
-     &         .OR.q(I,J,K)/=q(I,J,K))THEN
-          WRITE(errmess,100)NAME,ntsd
-          CALL wrf_message(trim(errmess))
-          WRITE(errmess,300)I,J,K,q(I,J,K),MYPE,ntsd
-          CALL wrf_message(trim(errmess))
-  300     FORMAT(' BAD VALUE I=',I3,' J=',I3,' K=',I2,' q=',E12.5      &
-     &,          ' MYPE=',I3,' ntsd=',I5)
-          IRET=666
-          return
-!         WRITE(ERRMESS,305)NAME,q(I,J,K),I,J,K,MYPE
-  305     FORMAT(' EXIT ',A,' SPEC HUMIDITY=',E12.5                    &
-     &,          ' AT (',I3,',',I2,',',I3,')',' MYPE=',I3)
-!         CALL WRF_ERROR_FATAL(ERRMESS)
-!         CALL MPI_ABORT(MPI_COMM_WORLD,1,IERR)
-        ELSEIF(pint(I,J,K)<0..OR.pint(I,J,K)/=pint(I,J,K))THEN
-          WRITE(errmess,100)NAME,ntsd
-          CALL wrf_message(trim(errmess))
-          WRITE(errmess,315)I,J,K,pint(I,J,K),MYPE,ntsd
-          CALL wrf_message(trim(errmess))
-  315     FORMAT(' BAD VALUE I=',I3,' J=',I3,' K=',I2,' pint=',E12.5      &
-     &,          ' MYPE=',I3,' ntsd=',I5)
-          IRET=666
-          return
-!         CALL WRF_ERROR_FATAL(ERRMESS)
-!         CALL MPI_ABORT(MPI_COMM_WORLD,1,IERR)
-        ELSEIF(w(I,J,K)/=w(I,J,K))THEN
-          WRITE(errmess,100)NAME,ntsd
-          CALL wrf_message(trim(errmess))
-          WRITE(errmess,325)I,J,K,w(I,J,K),MYPE,ntsd
-          CALL wrf_message(trim(errmess))
-  325     FORMAT(' BAD VALUE I=',I3,' J=',I3,' K=',I2,' w=',E12.5      &
-     &,          ' MYPE=',I3,' ntsd=',I5)
-          IRET=666
-          return
-!         CALL WRF_ERROR_FATAL(ERRMESS)
-!         CALL MPI_ABORT(MPI_COMM_WORLD,1,IERR)
-        ENDIF
-      ENDDO
-      ENDDO
-      ENDDO
-!
-      DO K=KTS,KTE
-      DO J=JTS,JTE
-      IEND=ITE
-      IF(E_BDY.AND.MOD(J,2)==1)IEND=ITE-1
-      DO I=ITS,IEND
-        IF(ABS(u(I,J,K))>125..OR.ABS(v(I,J,K))>125.                    &
-     &         .OR.u(I,J,K)/=u(I,J,K).OR.v(I,J,K)/=v(I,J,K))THEN
-          WRITE(errmess,100)NAME,ntsd
-          CALL wrf_message(trim(errmess))
-          WRITE(errmess,400)I,J,K,u(I,J,K),v(I,J,K),MYPE,ntsd
-          CALL wrf_message(trim(errmess))
-  400     FORMAT(' BAD VALUE I=',I3,' J=',I3,' K=',I2,' u=',E12.5      &
-     &,          ' v=',E12.5,' MYPE=',I3,' ntsd=',I5)
-          IRET=666
-          return
-!         WRITE(ERRMESS,405)NAME,u(I,J,K),v(I,J,K),I,J,K,MYPE
-  405     FORMAT(' EXIT ',A,' u=',E12.5,' v=',E12.5                    &
-     &,          ' AT (',I3,',',I2,',',I3,')',' MYPE=',I3)
-!         CALL WRF_ERROR_FATAL(ERRMESS)
-!         CALL MPI_ABORT(MPI_COMM_WORLD,1,IERR)
-        ENDIF
-      ENDDO
-      ENDDO
-      ENDDO
-!----------------------------------------------------------------------
-      END SUBROUTINE EXIT
 !----------------------------------------------------------------------
 !**********************************************************************
 !----------------------------------------------------------------------

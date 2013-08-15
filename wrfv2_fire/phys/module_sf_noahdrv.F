@@ -1,10 +1,20 @@
 MODULE module_sf_noahdrv
 
 !-------------------------------
-  USE module_sf_noahlsm
-  USE module_sf_urban
-  USE module_sf_bep
-  USE module_sf_bep_bem
+  USE module_sf_noahlsm,  only: SFLX, XLF, XLV, CP, R_D, RHOWATER, NATURAL, SHDTBL, LUTYPE, SLTYPE, STBOLT, &
+      &                         KARMAN, LUCATS, NROTBL, RSTBL, RGLTBL, HSTBL, SNUPTBL, MAXALB, LAIMINTBL,   &
+      &                         LAIMAXTBL, Z0MINTBL, Z0MAXTBL, ALBEDOMINTBL, ALBEDOMAXTBL, EMISSMINTBL,     &
+      &                         EMISSMAXTBL, TOPT_DATA, CMCMAX_DATA, CFACTR_DATA, RSMAX_DATA, BARE, NLUS,   &
+      &                         SLCATS, BB, DRYSMC, F11, MAXSMC, REFSMC, SATPSI, SATDK, SATDW, WLTSMC, QTZ, &
+      &                         NSLTYPE, SLPCATS, SLOPE_DATA, SBETA_DATA, FXEXP_DATA, CSOIL_DATA,           &
+      &                         SALP_DATA, REFDK_DATA, REFKDT_DATA, FRZK_DATA, ZBOT_DATA, CZIL_DATA,        &
+      &                         SMLOW_DATA, SMHIGH_DATA, LVCOEF_DATA, NSLOPE, &
+      &                         FRH2O,ZTOPVTBL,ZBOTVTBL
+
+  USE module_sf_urban,    only: urban
+  USE module_sf_noahlsm_glacial_only, only: sflx_glacial
+  USE module_sf_bep,      only: bep
+  USE module_sf_bep_bem,  only: bep_bem
 #ifdef WRF_CHEM
   USE module_data_gocart_dust
 #endif
@@ -37,6 +47,8 @@ CONTAINS
                   RDLAI2D,USEMONALB,                            &
                   RIB,                                          & !?
                   NOAHRES,                                      &
+! Noah UA changes
+                  ua_phys,flx4_2d,fvb_2d,fbur_2d,fgsn_2d,       &
                   ids,ide, jds,jde, kds,kde,                    &
                   ims,ime, jms,jme, kms,kme,                    &
                   its,ite, jts,jte, kts,kte,                    &
@@ -57,6 +69,7 @@ CONTAINS
                   num_road_layers, DZR, DZB, DZG,               & !I urban
                   FRC_URB2D,UTYPE_URB2D,                        & !O
                   num_urban_layers,                             & !I multi-layer urban
+                  num_urban_hi,                                 & !I multi-layer urban
                   trb_urb4d,tw1_urb4d,tw2_urb4d,tgb_urb4d,      & !H multi-layer urban
                   tlev_urb3d,qlev_urb3d,                        & !H multi-layer urban
                   tw1lev_urb3d,tw2lev_urb3d,                    & !H multi-layer urban
@@ -65,12 +78,14 @@ CONTAINS
                   sfvent_urb3d,lfvent_urb3d,                    & !H multi-layer urban
                   sfwin1_urb3d,sfwin2_urb3d,                    & !H multi-layer urban
                   sfw1_urb3d,sfw2_urb3d,sfr_urb3d,sfg_urb3d,    & !H multi-layer urban
+                  lp_urb2d,hi_urb2d,lb_urb2d,hgt_urb2d,         & !H multi-layer urban
+                  mh_urb2d,stdh_urb2d,lf_urb2d,                 & !SLUCM
                   th_phy,rho,p_phy,ust,                         & !I multi-layer urban
                   gmt,julday,xlong,xlat,                        & !I multi-layer urban
                   a_u_bep,a_v_bep,a_t_bep,a_q_bep,              & !O multi-layer urban
                   a_e_bep,b_u_bep,b_v_bep,                      & !O multi-layer urban
                   b_t_bep,b_q_bep,b_e_bep,dlg_bep,              & !O multi-layer urban
-                  dl_u_bep,sf_bep,vl_bep                         )   !O multi-layer urban         
+                  dl_u_bep,sf_bep,vl_bep,sfcheadrt,INFXSRT, soldrain      )   !O multi-layer urban         
 
 !----------------------------------------------------------------
     IMPLICIT NONE
@@ -159,7 +174,7 @@ CONTAINS
 !-- ACSNOM      snow melt (mm) (water equivalent)
 !-- ACSNOW      accumulated snow fall (mm) (water equivalent)
 !-- SNOPCX      snow phase change heat flux (W/m^2)
-!-- POTEVP      accumulated potential evaporation (W/m^2)
+!-- POTEVP      accumulated potential evaporation (m)
 !-- RIB         Documentation needed!!!
 ! ----------------------------------------------------------------------
 !-- RUNOFF1     surface runoff (m s-1), not infiltrating the surface
@@ -215,6 +230,14 @@ CONTAINS
    INTEGER,  INTENT(IN   )   ::  sf_urban_physics               !urban
    INTEGER,  INTENT(IN   )   ::  isurban
    INTEGER,  INTENT(IN   )   ::  isice
+
+!added by Wei Yu  for routing
+    REAL,    DIMENSION( ims:ime, jms:jme )                     , &
+             INTENT(INOUT)  :: sfcheadrt,INFXSRT,soldrain 
+    real :: etpnd1
+!end added
+
+
 
    REAL,    DIMENSION( ims:ime, jms:jme )                     , &
             INTENT(IN   )    ::                            TMN, &
@@ -294,6 +317,11 @@ CONTAINS
                                                            ZNT
    REAL,    DIMENSION( ims:ime, jms:jme )                     , &
             INTENT(OUT)      ::                         NOAHRES
+
+! Noah UA changes
+   LOGICAL,                                INTENT(IN)  :: UA_PHYS
+   REAL,    DIMENSION( ims:ime, jms:jme ), INTENT(OUT) :: FLX4_2D,FVB_2D,FBUR_2D,FGSN_2D
+   REAL                                                :: FLX4,FVB,FBUR,FGSN
 
    REAL,    DIMENSION( ims:ime, jms:jme )                     , &
                INTENT(OUT)    ::                        CHKLOWQ
@@ -484,11 +512,18 @@ CONTAINS
      REAL :: CHS_URB
      REAL :: CHS2_URB
      REAL :: UST_URB
+! NUDAPT Parameters urban --> lam
+     REAL :: mh_urb
+     REAL :: stdh_urb
+     REAL :: lp_urb
+     REAL :: hgt_urb
+     REAL, DIMENSION(4) :: lf_urb
 ! Variables for multi-layer UCM (Martilli et al. 2002)
    REAL, OPTIONAL, INTENT(IN  )   ::                                   GMT 
    INTEGER, OPTIONAL, INTENT(IN  ) ::                               JULDAY
    REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN   )        ::XLAT, XLONG
    INTEGER, INTENT(IN  ) ::                               NUM_URBAN_LAYERS
+   INTEGER, INTENT(IN  ) ::                               NUM_URBAN_HI
    REAL, OPTIONAL, DIMENSION( ims:ime, 1:num_urban_layers, jms:jme ), INTENT(INOUT) :: trb_urb4d
    REAL, OPTIONAL, DIMENSION( ims:ime, 1:num_urban_layers, jms:jme ), INTENT(INOUT) :: tw1_urb4d
    REAL, OPTIONAL, DIMENSION( ims:ime, 1:num_urban_layers, jms:jme ), INTENT(INOUT) :: tw2_urb4d
@@ -510,6 +545,13 @@ CONTAINS
    REAL, OPTIONAL, DIMENSION( ims:ime, 1:num_urban_layers, jms:jme ), INTENT(INOUT) :: sfw2_urb3d
    REAL, OPTIONAL, DIMENSION( ims:ime, 1:num_urban_layers, jms:jme ), INTENT(INOUT) :: sfr_urb3d
    REAL, OPTIONAL, DIMENSION( ims:ime, 1:num_urban_layers, jms:jme ), INTENT(INOUT) :: sfg_urb3d
+   REAL, OPTIONAL, DIMENSION( ims:ime, 1:num_urban_hi, jms:jme ), INTENT(IN) :: hi_urb2d
+   REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: lp_urb2d
+   REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: lb_urb2d
+   REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: hgt_urb2d
+   REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: mh_urb2d
+   REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: stdh_urb2d
+   REAL, OPTIONAL, DIMENSION( ims:ime, 4, jms:jme ), INTENT(IN) :: lf_urb2d
    REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) ::a_u_bep   !Implicit momemtum component X-direction
    REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) ::a_v_bep   !Implicit momemtum component Y-direction
    REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) ::a_t_bep   !Implicit component pot. temperature
@@ -526,21 +568,22 @@ CONTAINS
    REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(INOUT) ::dl_u_bep  !Length scale
 
 ! Local variables for multi-layer UCM (Martilli et al. 2002)
-   REAL,    DIMENSION( ims:ime, jms:jme ) :: HFX_RURAL,LH_RURAL,GRDFLX_RURAL,RN_RURAL
-   REAL,    DIMENSION( ims:ime, jms:jme ) :: QFX_RURAL,QSFC_RURAL,UMOM_RURAL,VMOM_RURAL
-   REAL,    DIMENSION( ims:ime, jms:jme ) :: ALB_RURAL,EMISS_RURAL,UST_RURAL,TSK_RURAL
-!   REAL,    DIMENSION( ims:ime, jms:jme ) :: GRDFLX_URB
-!   REAL,    DIMENSION( ims:ime, jms:jme ) :: QFX_URB,QSFC_URB,UMOM_URB,VMOM_URB
-   REAL,    DIMENSION( ims:ime, jms:jme ) :: HFX_URB,UMOM_URB,VMOM_URB
-   REAL,    DIMENSION( ims:ime, jms:jme ) :: QFX_URB
+   REAL,    DIMENSION( its:ite, jts:jte ) :: HFX_RURAL,LH_RURAL,GRDFLX_RURAL ! ,RN_RURAL
+   REAL,    DIMENSION( its:ite, jts:jte ) :: QFX_RURAL ! ,QSFC_RURAL,UMOM_RURAL,VMOM_RURAL
+   REAL,    DIMENSION( its:ite, jts:jte ) :: ALB_RURAL,EMISS_RURAL,TSK_RURAL ! ,UST_RURAL
+!   REAL,    DIMENSION( ims:ime, jms:jme ) :: QSFC_URB
+   REAL,    DIMENSION( its:ite, jts:jte ) :: HFX_URB,UMOM_URB,VMOM_URB
+   REAL,    DIMENSION( its:ite, jts:jte ) :: QFX_URB
 !   REAL,    DIMENSION( ims:ime, jms:jme ) :: ALBEDO_URB,EMISS_URB,UMOM,VMOM,UST
-   REAL, DIMENSION(ims:ime,jms:jme) ::EMISS_URB
-   REAL, DIMENSION(ims:ime,jms:jme) :: RL_UP_URB
-   REAL, DIMENSION(ims:ime,jms:jme) ::RS_ABS_URB
-   REAL, DIMENSION(ims:ime,jms:jme) ::GRDFLX_URB
+   REAL, DIMENSION(its:ite,jts:jte) ::EMISS_URB
+   REAL, DIMENSION(its:ite,jts:jte) :: RL_UP_URB
+   REAL, DIMENSION(its:ite,jts:jte) ::RS_ABS_URB
+   REAL, DIMENSION(its:ite,jts:jte) ::GRDFLX_URB
    REAL :: SIGMA_SB,RL_UP_RURAL,RL_UP_TOT,RS_ABS_TOT,UMOM,VMOM
    REAL :: r1,r2,r3
    REAL :: CMR_URB, CHR_URB, CMC_URB, CHC_URB
+   REAL :: frc_urb,lb_urb
+   REAL :: check 
 ! ----------------------------------------------------------------------
 ! DECLARATIONS END - urban
 ! ----------------------------------------------------------------------
@@ -719,13 +762,9 @@ CONTAINS
             IF(T1 .GT. 273. .AND. SNOWC(I,J) .GT. 0.)DQSDT2=DQSDT2*(1.-SNOWC(I,J))
           ENDIF
 
-          IF(ICE.EQ.1)THEN
-             ! Sea-ice point has deep-level temperature of -2 C
-             TBOT=271.16
-          ELSE
-             ! Land-ice or land points have the usual deep-soil temperature.
-             TBOT=TMN(I,J)
-          ENDIF
+          ! Land-ice or land points use the usual deep-soil temperature.
+          TBOT=TMN(I,J)
+
           IF(VEGTYP.EQ.25) SHDFAC=0.0000
           IF(VEGTYP.EQ.26) SHDFAC=0.0000
           IF(VEGTYP.EQ.27) SHDFAC=0.0000
@@ -829,7 +868,7 @@ CONTAINS
              xlai = lai(i,j)
           endif
 
-    IF ( XICE(I,J) >= XICE_THRESHOLD ) THEN
+    IF ( ICE == 1 ) THEN
 
        ! Sea-ice case
 
@@ -840,11 +879,11 @@ CONTAINS
 
        CYCLE ILOOP
 
-    ELSE
+    ELSEIF (ICE == 0) THEN
 
-       ! Land and glacial land.
+       ! Non-glacial land
 
-       CALL SFLX (I,J,ICE,FFROZP, ISURBAN, DT,ZLVL,NSOIL,SLDPTH,  &    !C
+       CALL SFLX (I,J,FFROZP, ISURBAN, DT,ZLVL,NSOIL,SLDPTH,      &    !C
                  LOCAL,                                           &    !L
                  LUTYPE, SLTYPE,                                  &    !CL
                  LWDN,SOLDN,SOLNET,SFCPRS,PRCP,SFCTMP,Q2K,DUMMY,         &    !F
@@ -857,6 +896,7 @@ CONTAINS
                  EC,EDIR,ET,ETT,ESNOW,DRIP,DEW,                   &    !O
                  BETA,ETP,SSOIL,                                  &    !O
                  FLX1,FLX2,FLX3,                                  &    !O
+		 FLX4,FVB,FBUR,FGSN,UA_PHYS,                      &    !UA 
                  SNOMLT,SNCOVR,                                   &    !O
                  RUNOFF1,RUNOFF2,RUNOFF3,                         &    !O
                  RC,PC,RSMIN,XLAI,RCS,RCT,RCQ,RCSOIL,             &    !O
@@ -864,7 +904,44 @@ CONTAINS
                  RDLAI2D,USEMONALB,                               &
                  SNOTIME1,                                        &
                  RIBB,                                            &
-                 SMCWLT,SMCDRY,SMCREF,SMCMAX,NROOT)
+                 SMCWLT,SMCDRY,SMCREF,SMCMAX,NROOT,               &
+                 sfcheadrt(i,j),                                   &    !I
+                 INFXSRT(i,j),ETPND1                          &    !O
+                 )
+
+#ifdef WRF_HYDRO
+                 soldrain(i,j) = RUNOFF2*DT*1000.0
+#endif
+    ELSEIF (ICE == -1) THEN
+
+       !
+       ! Set values that the LSM is expected to update,
+       ! but don't get updated for glacial points.
+       !
+       SOILM = 0.0 !BSINGH(PNNL)- SOILM is undefined for this case, it is used for diagnostics so setting it to zero
+       XLAI = 0.01 ! KWM Should this be Zero over land ice?  Does this value matter?
+       RUNOFF2 = 0.0
+       RUNOFF3 = 0.0
+       DO NS = 1, NSOIL
+          SWC(NS) = 1.0
+          SMC(NS) = 1.0
+          SMAV(NS) = 1.0
+       ENDDO
+       CALL SFLX_GLACIAL(I,J,ISICE,FFROZP,DT,ZLVL,NSOIL,SLDPTH,   &    !C
+            &    LWDN,SOLNET,SFCPRS,PRCP,SFCTMP,Q2K,              &    !F
+            &    TH2,Q2SAT,DQSDT2,                                &    !I
+            &    ALBBRD, SNOALB1,TBOT, Z0BRD, Z0K, EMISSI, EMBRD, &    !S
+            &    T1,STC(1:NSOIL),SNOWHK,SNEQV,ALBEDOK,CHK,        &    !H
+            &    ETA,SHEAT,ETA_KINEMATIC,FDOWN,                   &    !O
+            &    ESNOW,DEW,                                       &    !O
+            &    ETP,SSOIL,                                       &    !O
+            &    FLX1,FLX2,FLX3,                                  &    !O
+            &    SNOMLT,SNCOVR,                                   &    !O
+            &    RUNOFF1,                                         &    !O
+            &    Q1,                                              &    !D
+            &    SNOTIME1,                                        &
+            &    RIBB)
+
     ENDIF
 
        lai(i,j) = xlai
@@ -916,6 +993,15 @@ CONTAINS
         POTEVP(I,J)=POTEVP(I,J)+ETP*FDTW
           QFX(I,J)=ETA_KINEMATIC
           QFX_RURAL(I,J)=ETA_KINEMATIC
+
+#ifdef WRF_HYDRO
+!added by Wei Yu
+!         QFX(I,J) = QFX(I,J) + ETPND1
+!         ETA = ETA + ETPND1/2.501E6*dt
+!end added by Wei Yu
+#endif
+
+
           LH(I,J)=ETA
           LH_RURAL(I,J)=ETA
           GRDFLX(I,J)=SSOIL
@@ -933,7 +1019,7 @@ CONTAINS
 ! Convert QSFC back to mixing ratio
            QSFC(I,J)= Q1/(1.0-Q1)
 !
-           QSFC_RURAL(I,J)= Q1/(1.0-Q1)
+           ! QSFC_RURAL(I,J)= Q1/(1.0-Q1)
 ! Calculate momentum flux from rural surface for use with multi-layer UCM (Martilli et al. 2002)
 
           DO 80 NS=1,NSOIL
@@ -943,10 +1029,23 @@ CONTAINS
    80     CONTINUE
 !       ENDIF
 
+        FLX4_2D(I,J)  = FLX4
+	FVB_2D(I,J)   = FVB
+	FBUR_2D(I,J)  = FBUR
+	FGSN_2D(I,J)  = FGSN
+
      !
      ! Residual of surface energy balance equation terms
      !
-     noahres(i,j) =     ( solnet + lwdn ) - sheat + ssoil - eta - ( emissi * STBOLT * (t1**4) ) - flx1 - flx2 - flx3
+
+     IF ( UA_PHYS ) THEN
+         noahres(i,j) = ( solnet + lwdn ) - sheat + ssoil - eta &
+              - ( emissi * STBOLT * (t1**4) ) - flx1 - flx2 - flx3 - flx4
+
+     ELSE
+         noahres(i,j) = ( solnet + lwdn ) - sheat + ssoil - eta &
+              - ( emissi * STBOLT * (t1**4) ) - flx1 - flx2 - flx3
+     ENDIF
 
 
         IF (SF_URBAN_PHYSICS == 1 ) THEN                                              ! Beginning of UCM CALL if block
@@ -1027,6 +1126,22 @@ CONTAINS
                CMC_URB = CMC_SFCDIF(I,J)
                CHC_URB = CHC_SFCDIF(I,J)
             ENDIF
+
+! NUDAPT for SLUCM
+            mh_urb = mh_urb2d(I,J)
+            stdh_urb = stdh_urb2d(I,J)
+            lp_urb = lp_urb2d(I,J)
+            hgt_urb = hgt_urb2d(I,J)
+            lf_urb = 0.0
+            DO K = 1,4
+              lf_urb(K)=lf_urb2d(I,K,J)
+            ENDDO
+            frc_urb = frc_urb2d(I,J)
+            lb_urb = lb_urb2d(I,J)
+            check = 0
+            if (I.eq.73.and.J.eq.125)THEN
+               check = 1
+            end if
 !
 ! Call urban
 
@@ -1046,7 +1161,8 @@ CONTAINS
                        GZ1OZ0_URB,                                      & !O
                        CMR_URB, CHR_URB, CMC_URB, CHC_URB,              &
                        U10_URB, V10_URB, TH2_URB, Q2_URB,               & ! O
-                       UST_URB)                                           !O
+                       UST_URB,mh_urb, stdh_urb, lf_urb, lp_urb,        & ! 0
+                       hgt_urb,frc_urb,lb_urb, check)                            !O
 
 #if 0
           IF(IPRINT) THEN
@@ -1162,6 +1278,8 @@ CONTAINS
           DO NS=1,NSOIL
           SMCREL(I,NS,J)=SMAV(NS)
           ENDDO
+
+
 !         Convert the water unit into mm
           SFCRUNOFF(I,J)=SFCRUNOFF(I,J)+RUNOFF1*DT*1000.0
           UDRUNOFF(I,J)=UDRUNOFF(I,J)+RUNOFF2*DT*1000.0
@@ -1195,12 +1313,13 @@ CONTAINS
        CALL BEP(frc_urb2d,utype_urb2d,itimestep,dz8w,dt,u_phy,v_phy,   &
                 th_phy,rho,p_phy,swdown,glw,                           &
                 gmt,julday,xlong,xlat,declin_urb,cosz_urb2d,omg_urb2d, &
-                num_urban_layers,                                      &
+                num_urban_layers,num_urban_hi,                         &
                 trb_urb4d,tw1_urb4d,tw2_urb4d,tgb_urb4d,               &
                 sfw1_urb3d,sfw2_urb3d,sfr_urb3d,sfg_urb3d,             &
+                lp_urb2d,hi_urb2d,lb_urb2d,hgt_urb2d,                  &
                 a_u_bep,a_v_bep,a_t_bep,                               &
                 a_e_bep,b_u_bep,b_v_bep,                               &
-                b_t_bep,b_e_bep,dlg_bep,                               &
+                b_t_bep,b_e_bep,b_q_bep,dlg_bep,                       &
                 dl_u_bep,sf_bep,vl_bep,                                &
                 rl_up_urb,rs_abs_urb,emiss_urb,grdflx_urb,             &
                 ids,ide, jds,jde, kds,kde,                             &
@@ -1222,17 +1341,19 @@ CONTAINS
             b_q_bep(i,kts:kte,j)=0.
          end do
          end do
-          
+        
+
        CALL BEP_BEM(frc_urb2d,utype_urb2d,itimestep,dz8w,dt,u_phy,v_phy, &
                 th_phy,rho,p_phy,swdown,glw,                           &
                 gmt,julday,xlong,xlat,declin_urb,cosz_urb2d,omg_urb2d, &
-                num_urban_layers,                                      &
+                num_urban_layers,num_urban_hi,                         &
                 trb_urb4d,tw1_urb4d,tw2_urb4d,tgb_urb4d,               &
                 tlev_urb3d,qlev_urb3d,tw1lev_urb3d,tw2lev_urb3d,       &
                 tglev_urb3d,tflev_urb3d,sf_ac_urb3d,lf_ac_urb3d,       &
                 cm_ac_urb3d,sfvent_urb3d,lfvent_urb3d,                 &
                 sfwin1_urb3d,sfwin2_urb3d,                             &
                 sfw1_urb3d,sfw2_urb3d,sfr_urb3d,sfg_urb3d,             &
+                lp_urb2d,hi_urb2d,lb_urb2d,hgt_urb2d,                  &
                 a_u_bep,a_v_bep,a_t_bep,                               &
                 a_e_bep,b_u_bep,b_v_bep,                               &
                 b_t_bep,b_e_bep,b_q_bep,dlg_bep,                       &
@@ -1414,6 +1535,7 @@ CONTAINS
    REAL, PARAMETER           :: BLIM = 5.5, HLICE = 3.335E5,    &
                                 GRAV = 9.81, T0 = 273.15
    INTEGER                   :: errflag
+   CHARACTER(LEN=80)         :: err_message
 
    character*256 :: MMINSL
         MMINSL='STAS'
@@ -1621,6 +1743,8 @@ CONTAINS
              SIZE(Z0MAXTBL)     < LUCATS .OR. &
              SIZE(ALBEDOMINTBL) < LUCATS .OR. &
              SIZE(ALBEDOMAXTBL) < LUCATS .OR. &
+             SIZE(ZTOPVTBL) < LUCATS .OR. &
+             SIZE(ZBOTVTBL) < LUCATS .OR. &
              SIZE(EMISSMINTBL ) < LUCATS .OR. &
              SIZE(EMISSMAXTBL ) < LUCATS ) THEN
            CALL wrf_error_fatal('Table sizes too small for value of LUCATS in module_sf_noahdrv.F')
@@ -1633,7 +1757,8 @@ CONTAINS
                         SNUPTBL(LC),MAXALB(LC), LAIMINTBL(LC),     &
                         LAIMAXTBL(LC),EMISSMINTBL(LC),             &
                         EMISSMAXTBL(LC), ALBEDOMINTBL(LC),         &
-                        ALBEDOMAXTBL(LC), Z0MINTBL(LC), Z0MAXTBL(LC)
+                        ALBEDOMAXTBL(LC), Z0MINTBL(LC), Z0MAXTBL(LC),&
+			ZTOPVTBL(LC), ZBOTVTBL(LC)
           ENDDO
 !
           READ (19,*)
@@ -1676,6 +1801,8 @@ CONTAINS
       CALL wrf_dm_bcast_real    ( EMISSMAXTBL  , NLUS )
       CALL wrf_dm_bcast_real    ( ALBEDOMINTBL , NLUS )
       CALL wrf_dm_bcast_real    ( ALBEDOMAXTBL , NLUS )
+      CALL wrf_dm_bcast_real    ( ZTOPVTBL , NLUS )
+      CALL wrf_dm_bcast_real    ( ZBOTVTBL , NLUS )
       CALL wrf_dm_bcast_real    ( MAXALB  , NLUS )
       CALL wrf_dm_bcast_real    ( TOPT_DATA    , 1 )
       CALL wrf_dm_bcast_real    ( CMCMAX_DATA  , 1 )

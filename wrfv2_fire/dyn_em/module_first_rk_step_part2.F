@@ -44,13 +44,13 @@ CONTAINS
             ,halo_em_phys_pbl_sub,halo_em_phys_shcu_sub &
             ,halo_em_fdda_sub,halo_em_phys_diffusion_sub,halo_em_tke_3_sub &
             ,halo_em_tke_5_sub,halo_obs_nudge_sub,period_bdy_em_a1_sub,period_bdy_em_phy_bc_sub &
-            ,period_bdy_em_fdda_bc_sub,period_bdy_em_chem_sub,halo_em_phys_cu_sub
+            ,period_bdy_em_fdda_bc_sub,period_bdy_em_chem_sub,halo_em_phys_cu_sub,halo_em_helicity_sub
 #endif
 
     USE module_driver_constants
     USE module_diffusion_em, ONLY : phy_bc, cal_deform_and_div, compute_diff_metrics, &
                                     vertical_diffusion_2, horizontal_diffusion_2, calculate_km_kh, &
-                                    tke_rhs
+                                    tke_rhs, cal_helicity
     USE module_em, ONLY : calculate_phy_tend
     USE module_fddaobs_driver, ONLY : fddaobs_driver
     USE module_bc, ONLY : set_physical_bc3d, set_physical_bc2d
@@ -162,6 +162,7 @@ CONTAINS
           CALL UPDATE_STOCH(grid%SPSTREAMFORCS,grid%SPSTREAMFORCC,           &
                          grid%SPTFORCS,grid%SPTFORCC,                        &
                          grid%SPT_AMP,grid%SPSTREAM_AMP,                     &
+                         grid%itimestep,ij,                                  & 
                          ids, ide, jds, jde, kds, kde,                       &
                          ims, ime, jms, jme, kms, kme,                       &
                          grid%i_start(ij), grid%i_end(ij), grid%j_start(ij), &
@@ -455,6 +456,40 @@ BENCH_START(deform_div_tim)
          !$OMP END PARALLEL DO
 BENCH_END(deform_div_tim)
 
+! Updraft helicity between output times
+
+#ifdef DM_PARALLEL
+#     include "HALO_EM_HELICITY.inc"
+#endif
+
+       IF (config_flags%nwp_diagnostics .eq. 1) THEN
+BENCH_START(helicity_tim)
+
+       !$OMP PARALLEL DO   &
+       !$OMP PRIVATE ( ij )
+
+       DO ij = 1 , grid%num_tiles
+
+          CALL wrf_debug ( 200 , ' call cal_helicity' )
+          CALL cal_helicity ( config_flags,grid%u_2,grid%v_2,grid%w_2,  &
+                              grid%uh,                             &
+                              grid%up_heli_max,                    &
+                              grid%ph_2,grid%phb,                  &
+                              grid%msfux,grid%msfuy,               &
+                              grid%msfvx,grid%msfvy,               &
+                              grid%ht,                             &
+                              grid%rdx, grid%rdy, grid%dn, grid%dnw, grid%rdz, grid%rdzw,   &
+                              grid%fnm,grid%fnp,grid%cf1,grid%cf2,grid%cf3,grid%zx,grid%zy, &
+                              ids, ide, jds, jde, kds, kde,        &
+                              ims, ime, jms, jme, kms, kme,        &
+                              grid%i_start(ij), grid%i_end(ij),    &
+                              grid%j_start(ij), grid%j_end(ij),    &
+                              k_start    , k_end                  )
+       ENDDO
+       !$OMP END PARALLEL DO
+BENCH_END(helicity_tim)
+       ENDIF
+
 #ifdef DM_PARALLEL
 #     include "HALO_EM_TKE_D.inc"
 #endif
@@ -626,12 +661,12 @@ BENCH_START(update_phy_ten_tim)
            i_end   = min( grid%i_end(ij),ide-1 )
            j_start = grid%j_start(ij)
            j_end   = min( grid%j_end(ij),jde-1 )
-           if (config_flags%dfi_radar == 1 .and. grid%dfi_stage == DFI_FWD ) &
+           if (grid%dfi_stage == DFI_FWD ) &
                  CALL wrf_debug ( 200 , ' Zero out cu_physics' )
            DO j = j_start, j_end
            DO k = k_start, min( k_end,kde-1 ) - 1
            DO i = i_start, i_end
-             if (config_flags%dfi_radar == 1 .and. grid%dfi_stage ==DFI_FWD  &
+             if (grid%dfi_stage ==DFI_FWD  &
              .and. grid%dfi_tten_rad(i,k,j) >= 1.0e-7 .and.  &
                    grid%dfi_tten_rad(i,k,j) <= 10.) then
 ! zero out cu-param temp tendency
@@ -648,10 +683,13 @@ BENCH_START(update_phy_ten_tim)
                            grid%rublten,grid%rucuten,grid%rushten,          &
                            grid%rvblten,grid%rvcuten,grid%rvshten,          &
                            grid%rqvblten,grid%rqcblten,grid%rqiblten,       &
+                           grid%rqniblten,                                  & !CAMUWPBL scheme
                            grid%rqvcuten,grid%rqccuten,grid%rqrcuten,       &
                            grid%rqicuten,grid%rqscuten,                     &
+                           grid%rqcncuten,grid%rqincuten,                   & !BSINGH - Added two CU tends
                            grid%rqvshten,grid%rqcshten,grid%rqrshten,       &
                            grid%rqishten,grid%rqsshten,grid%rqgshten,       &
+                           grid%rqcnshten,grid%rqinshten,                   &!BSINGH - Added two SHCU tends
                            grid%RUNDGDTEN,                                  &
                            grid%RVNDGDTEN,grid%RTHNDGDTEN,grid%RPHNDGDTEN,  &
                            grid%RQVNDGDTEN,grid%RMUNDGDTEN,                 &
@@ -799,7 +837,7 @@ BENCH_START(hor_diff_tim)
 BENCH_END(hor_diff_tim)
        ENDIF
 
-       IF ( grid%obs_nudge_opt .EQ. 1 ) THEN
+       IF ( grid%obs_nudge_opt .EQ. 1 .AND. grid%xtime <= grid%fdda_end ) THEN
 # ifdef DM_PARALLEL
 #       include "HALO_OBS_NUDGE.inc"
 #endif
