@@ -5,9 +5,10 @@
 ! This file contains parts copied and/or adapted from earlier codes by 
 ! Terry Clark, Janice Coen, Don Latham, and Net Patton.
 
+module module_fr_sfire_phys
 
 use module_model_constants, only: cp,xlv
-use module_fr_fire_util
+use module_fr_sfire_util
 
 implicit none
 PRIVATE
@@ -1063,9 +1064,9 @@ do j=jfts,jfte
         ! endif
    
         if(k.lt.1.or.k.gt.nfuelcats)then
-!$OMP CRITICAL(FIRE_PHYS_CRIT)
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
             write(msg,'(3(a,i5))')'nfuel_cat(', i ,',',j,')=',k
-!$OMP END CRITICAL(FIRE_PHYS_CRIT)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
             call message(msg)
             if(k.eq.0)then
                 call message('Possibly nfuel_cat is uninitialized on input')
@@ -1162,9 +1163,9 @@ do j=jfts,jfte
 enddo
 
 if(nerr.gt.1)then
-!$OMP CRITICAL(FIRE_PHYS_CRIT)
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,'(a,i6,a)')'set_fire_params: WARNING: fuel category 0 replaced in',nerr,' cells'
-!$OMP END CRITICAL(FIRE_PHYS_CRIT)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 endif
 
@@ -1245,16 +1246,16 @@ integer:: i,j,iu1
 real:: t1
 character(len=128)msg
 
-!$OMP CRITICAL(FIRE_PHYS_CRIT)
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,'(a,i3)')'set_nfuel_cat: ifuelread=',ifuelread 
-!$OMP END CRITICAL(FIRE_PHYS_CRIT)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
 
 if (ifuelread .eq. -1 .or. ifuelread .eq. 2) then
-!$OMP CRITICAL(FIRE_PHYS_CRIT)
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     call message('set_nfuel_cat: assuming nfuel_cat initialized already') 
     call message(msg)
-!$OMP END CRITICAL(FIRE_PHYS_CRIT)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
 else if (ifuelread .eq. 0) then
 !
     do j=jfts,jfte
@@ -1262,9 +1263,9 @@ else if (ifuelread .eq. 0) then
             nfuel_cat(i,j)=real(nfuel_cat0)
         enddo
     enddo
-!$OMP CRITICAL(FIRE_PHYS_CRIT)
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
     write(msg,'(a,i3)')'set_nfuel_cat: fuel initialized with category',nfuel_cat0
-!$OMP END CRITICAL(FIRE_PHYS_CRIT)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     call message(msg)
          
 else if (ifuelread .eq. 1) then
@@ -1355,7 +1356,7 @@ real::cor_wind,cor_slope,nvx,nvy,scale
 scale=1.
 nvx=propx/scale
 nvy=propy/scale
-if (fire_advection.ne.0) then ! from flags in module_fr_fire_util
+if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
     ! wind speed is total speed 
     speed =  sqrt(fp%vx(i,j)*fp%vx(i,j)+ fp%vy(i,j)*fp%vy(i,j))+tiny(speed)
     ! slope is total slope
@@ -1675,4 +1676,4 @@ end subroutine fire_intensity
 
 !*** executable
 
-end module module_fr_fire_phys
+end module module_fr_sfire_phys

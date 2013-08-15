@@ -1,17 +1,17 @@
 !
 #define DEBUG_OUT
 
-module module_fr_fire_model
+module module_fr_sfire_model
 
-use module_fr_fire_core
-use module_fr_fire_util
-use module_fr_fire_phys
+use module_fr_sfire_core
+use module_fr_sfire_util
+use module_fr_sfire_phys
 
 implicit none
 
 contains
 
-subroutine fire_model (                    &
+subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
     restart,                                & ! use existing state
@@ -59,7 +59,7 @@ subroutine fire_model (                    &
 !   start parallel loop over tiles
 !       if ifun=1, set z and fuel data
 !       if ifun=3, set the wind arrays
-!       call fire_model(....)
+!       call sfire_model(....)
 !   end parallel loop over tiles
 !
 !   
@@ -180,9 +180,9 @@ elseif(ifun.eq.2)then
                 maxgrad=max(maxgrad,grad)
             enddo
         enddo
-!$OMP CRITICAL(FIRE_MODEL_CRIT)
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
         write(msg,*)'max gradient ',maxgrad,' max error against zsf',err
-!$OMP END CRITICAL(FIRE_MODEL_CRIT)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
         call message(msg)
 
         call set_nfuel_cat(      &       ! also on restart
@@ -263,7 +263,7 @@ elseif (ifun.eq.4) then  ! do the timestep
 
     ! advance the model from time_start to time_start+dt
     ! return the fuel fraction burnt this call in each fire cell
-    ! will call module_fr_fire_speed::normal_spread for propagation speed
+    ! will call module_fr_sfire_speed::normal_spread for propagation speed
     ! We cannot simply compute the spread rate here because that will change with the
     ! angle of the wind and the direction of propagation, thus it is done in subroutine
     ! normal_spread at each fire time step. Instead, we pass arguments that 
@@ -291,6 +291,7 @@ elseif (ifun.eq.4) then  ! do the timestep
         enddo
       endif
     else
+        call message('sfire_model: EXPERIMENTAL: skipping fireline propagation')
 
     endif
 
@@ -336,7 +337,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
     endif
             
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, &
-                   lfn,'fire_model: lfn out')
+                   lfn,'sfire_model: lfn out')
 
 elseif (ifun.eq.6) then ! timestep postprocessing
     ! have halo on lfn now
@@ -496,9 +497,9 @@ elseif (ifun.eq.6) then ! timestep postprocessing
                    fgrnhfx,'model: heat flux(J/m^2/s)')
 
 else
-        write(msg,'(a,2e12.3,a)')'fire_model: EXPERIMENTAL output constant heat flux', &
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
     write(msg,*)'sfire_model: bad ifun=',ifun
-!$OMP END CRITICAL(FIRE_MODEL_CRIT)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
     call crash(msg)
 endif
 
@@ -593,8 +594,10 @@ end subroutine sfire_model
                  enddo
              enddo
 
+!$OMP CRITICAL(SFIRE_MODEL_CRIT)
              write(msg,*)'Number of cells in fire area in this tile ',nfa,' ',(100.*nfa)/ncells,' %'
              call message(msg)
+!$OMP END CRITICAL(SFIRE_MODEL_CRIT)
 
          endif
       enddo
@@ -626,4 +629,4 @@ end function safe_prop
 !*****************
 !
             
-end module module_fr_fire_model
+end module module_fr_sfire_model

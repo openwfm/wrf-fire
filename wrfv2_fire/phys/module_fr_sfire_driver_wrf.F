@@ -6,22 +6,22 @@
 
 #define DEBUG_OUT
 
-module module_fr_fire_driver_wrf
+module module_fr_sfire_driver_wrf
 ! wrf-specific driver
 
-use module_fr_fire_driver
-use module_fr_fire_atm
+use module_fr_sfire_driver
+use module_fr_sfire_atm
 USE module_utility, only: WRFU_TimeInterval,WRFU_TimeIntervalGet, WRFU_SUCCESS
 implicit none
 
 contains
 
-subroutine fire_driver_em_init (grid , config_flags               & 
+subroutine sfire_driver_em_init (grid , config_flags               & 
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe)
 
-    ! stub to call fire_driver_em with irun=0 and omit last 3 args
+    ! stub to call sfire_driver_em with irun=0 and omit last 3 args
 
     USE module_domain , only: domain , get_ijk_from_subgrid , &
                               domain_get_time_since_sim_start , &
@@ -44,7 +44,7 @@ subroutine fire_driver_em_init (grid , config_flags               &
     real::time_step_start, dt ! dummies, avoid uninitialized
     ! dummies
 
-    call message('fire_driver_em_init: FIRE initialization start')
+    call message('sfire_driver_em_init: SFIRE initialization start')
 
     ! get fire mesh dimensions
     CALL get_ijk_from_subgrid (  grid ,                   &
@@ -56,6 +56,7 @@ subroutine fire_driver_em_init (grid , config_flags               &
     time_step_start=TimeInterval2Sec(domain_get_time_since_sim_start(grid)) 
     dt=TimeInterval2Sec(domain_get_time_step(grid))
 
+    call sfire_driver_em ( grid , config_flags               & 
             ,time_step_start,dt                                 &
             ,ifun_beg,ifun_step-1,0                        & ! ifun start, end, test steps
             ,ids,ide, kds,kde, jds,jde                              &
@@ -66,27 +67,27 @@ subroutine fire_driver_em_init (grid , config_flags               &
             ,ifps,ifpe, jfps,jfpe                                   &
             ) 
 
-    call message('fire_driver_em_init: FIRE initialization complete')
+    call message('sfire_driver_em_init: SFIRE initialization complete')
 
-end subroutine fire_driver_em_init
+end subroutine sfire_driver_em_init
 
 !
 !***
 !
 
-subroutine fire_driver_em_step (grid , config_flags               & 
+subroutine sfire_driver_em_step (grid , config_flags               & 
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,rho,z_at_w,dz8w ) 
 
-    ! stub to call fire_driver_em 
+    ! stub to call sfire_driver_em 
 
     USE module_domain, only: domain , get_ijk_from_subgrid , &
                               domain_get_time_since_sim_start , &
                               domain_get_time_step 
     USE module_configure , only : grid_config_rec_type
-    USE module_fr_fire_util, only : fire_test_steps
+    USE module_fr_sfire_util, only : fire_test_steps
     USE module_state_description, only: num_tracer
 #ifdef WRF_CHEM
     USE module_state_description, only: num_chem
@@ -118,7 +119,7 @@ subroutine fire_driver_em_step (grid , config_flags               &
 
     ! executable
 
-    call message('fire_driver_em_step: FIRE step start')
+    call message('sfire_driver_em_step: SFIRE step start')
     
     ! times in seconds
 
@@ -154,6 +155,7 @@ subroutine fire_driver_em_step (grid , config_flags               &
     ! fire time step loop
     do itime_step = 1,fire_time_step_ratio
 
+    call sfire_driver_em ( grid , config_flags               & 
             ,time_step_start,dt                                 &
             ,ifun_step,ifun_end,fire_test_steps                     &
             ,ids,ide, kds,kde, jds,jde                              &
@@ -199,7 +201,7 @@ subroutine fire_driver_em_step (grid , config_flags               &
 
     ! --- add heat and moisture fluxes to tendency variables by postulated decay
     do ij=1,grid%num_tiles
-       ! FIRE works on domain by 1 smaller, in last row&col winds are not set properly
+       ! SFIRE works on domain by 1 smaller, in last row&col winds are not set properly
        its = grid%i_start(ij)             ! start atmospheric tile in i
        ite = min(grid%i_end(ij),ide-1)    ! end atmospheric tile in i
        jts = grid%j_start(ij)             ! start atmospheric tile in j
@@ -254,9 +256,9 @@ subroutine fire_driver_em_step (grid , config_flags               &
        call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,grid%rthfrten,'fire_driver_phys:rthfrten')
        call print_3d_stats(its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme,grid%rqvfrten,'fire_driver_phys:rqvfrten')
 
-    call message('fire_driver_em_step: FIRE step complete')
+    call message('sfire_driver_em_step: SFIRE step complete')
             
-end subroutine fire_driver_em_step
+end subroutine sfire_driver_em_step
 
 double precision function TimeInterval2Sec(time)
 ! convert ESMF_Timeinterval type to seconds
@@ -276,5 +278,5 @@ double precision function TimeInterval2Sec(time)
     endif
 end function TimeInterval2Sec
 
-end module module_fr_fire_driver_wrf
+end module module_fr_sfire_driver_wrf
 
