@@ -124,9 +124,7 @@ halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub
 halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
 #endif
 
-#ifdef WRF_CHEM
-use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
-#endif
+use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
 
     implicit none
@@ -363,10 +361,11 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
-#ifdef WRF_CHEM
-        ! need reading fuel categories first
-        call read_emissions_table(grid%chem_opt)
-#endif
+
+            if(grid%chem_opt>0 .or. grid%tracer_opt > 0)then
+                ! need reading fuel categories first
+                call read_emissions_table(grid%chem_opt,grid%tracer_opt)
+            endif
         
 
         elseif(fire_ifun.eq.3)then
@@ -466,14 +465,13 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
           endif
 #endif
 
-#ifdef WRF_CHEM
      if(fire_ifun.eq.6)then
-         if(grid%chem_opt>0)then
+         if(grid%chem_opt>0 .or. grid%tracer_opt>0)then
              if(.not.(present(rho).and.present(dz8w)))then
-                 call crash('sfire_driver_em: must have rho and dz8w')
+                 call crash('sfire_driver_em: must have rho and dz8w to call add_fire_emissions')
              endif
-             call add_fire_emissions_to_chem( &
-                 grid%chem_opt,dt,grid%dx,grid%dy,      &
+             call add_fire_emissions( &
+                 grid%chem_opt,grid%tracer_opt,dt,grid%dx,grid%dy,      &
                  ifms,ifme,jfms,jfme,    &
                  ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
                  ids,ide,kds,kde,jds,jde,          &
@@ -484,7 +482,6 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions_to_chem
                  grid%chem,grid%tracer)              ! update/output
           endif
      endif
-#endif 
                 
 
       enddo
