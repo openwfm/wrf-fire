@@ -68,11 +68,12 @@
       integer :: iplvl
       character (len=9) :: my_field
       character (len=8) :: tmp8
-      ! For subroutine outout
+      ! For subroutine output
       integer , parameter :: maxlvl = 100
       real , dimension(maxlvl) :: plvl
       integer :: nlvl
       integer , dimension(maxlvl) :: level_array
+      real :: glevel1, glevel2
       logical :: first = .true.
 
 C - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -177,6 +178,8 @@ C  SET ARGUMENTS
 
            n=1
            call gf_getfld(cgrib,lengrib,n,.FALSE.,expand,gfld,ierr)
+
+
            year  =gfld%idsect(6)     !(FOUR-DIGIT) YEAR OF THE DATA
            month =gfld%idsect(7)     ! MONTH OF THE DATA
            day   =gfld%idsect(8)     ! DAY OF THE DATA
@@ -186,19 +189,35 @@ C  SET ARGUMENTS
 
            fcst = 0
 
-           ! Extract forecast time.
-           if ( gfld%ipdtmpl(8) .eq. 1 ) then       ! time units are hours
-             fcst = gfld%ipdtmpl(9)
-           else if ( gfld%ipdtmpl(8) .eq. 0 ) then  ! minutes
-             fcst = gfld%ipdtmpl(9) / 60.
-           else if ( gfld%ipdtmpl(8) .eq. 2 ) then  ! days
-             fcst = gfld%ipdtmpl(9) * 24.
-           else
-             call mprintf(.true.,ERROR,
+! Extract forecast time. Assume the first field's valid time is true for all fields.
+! This doesn't have to be true, but ungrib is designed to decode one time-level at
+! a time.
+
+           if ( gfld%ipdtnum .ne. 8 ) then
+	     if ( gfld%ipdtmpl(8) .eq. 1 ) then       ! time units are hours
+	       fcst = gfld%ipdtmpl(9)
+	     else if ( gfld%ipdtmpl(8) .eq. 0 ) then  ! minutes
+	       fcst = gfld%ipdtmpl(9) / 60.
+	     else if ( gfld%ipdtmpl(8) .eq. 2 ) then  ! days
+	       fcst = gfld%ipdtmpl(9) * 24.
+	     else
+               call mprintf(.true.,ERROR,
      &           "Time unit in ipdtmpl(8), %i is not suported",
      &            newline=.true.,i1=gfld%ipdtmpl(8))
-           endif
+	     endif
+	   else
+!  pdt 4.8 data are time-averaged, accumulated, or min/max fields with the 
+!  ending (valid) time provided. 
+	     year  =gfld%ipdtmpl(16) 
+	     month =gfld%ipdtmpl(17)
+	     day   =gfld%ipdtmpl(18)
+	     hour  =gfld%ipdtmpl(19)
+	     minute=gfld%ipdtmpl(20) 
+	     second=gfld%ipdtmpl(21) 
+	     fcst = 0.
+	   endif
 
+           if ( gfld%idsect(6) .eq. 2 ) fcst = 0.
            ! Compute valid time.
 
            !print *, 'ymd',gfld%idsect(6),gfld%idsect(7),gfld%idsect(8)
@@ -273,10 +292,13 @@ C  SET ARGUMENTS
            else if ( icenter .eq. 58 ) then
              map%source = 'US Navy FNOC'
            else if (icenter .eq. 59) then
-             if (iprocess.eq.120) then
+             if (iprocess .eq. 125) then
                map%source = 'NOAA GSD Rapid Refresh'
-             else
+             else if (iprocess .eq. 105) then
                map%source = 'NOAA GSD'
+             else 
+               print *,'Unknown GSD source'
+               stop
              endif
            else if (icenter .eq. 60) then
              map%source = 'NCAR'
@@ -361,6 +383,22 @@ C  SET ARGUMENTS
 !               write(6,*) 'Resetting map%dy for iprocess = ',iprocess
 !             endif
 
+           elseif (gfld%igdtnum.eq.10) then ! Mercator Grid.
+              map%igrid = 1
+              map%nx = gfld%igdtmpl(8)
+              map%ny = gfld%igdtmpl(9)
+              map%lov = 0.
+              map%truelat1 = gfld%igdtmpl(13) / scale_factor
+              map%truelat2 = 0.
+              map%dx = gfld%igdtmpl(18) / scale_factor
+              map%dy = gfld%igdtmpl(19) / scale_factor
+              map%lat1 = gfld%igdtmpl(10) / scale_factor
+              map%lon1 = gfld%igdtmpl(11) / scale_factor
+              write(tmp8,'(b8.8)') gfld%igdtmpl(12)
+              if (tmp8(5:5) .eq. '0') map%grid_wind = .false.
+              map%r_earth = earth_radius (gfld%igdtmpl(1),
+     &                       gfld%igdtmpl(2),gfld%igdtmpl(3))
+
            elseif (gfld%igdtnum.eq.20) then ! Polar-Stereographic Grid.
               map%igrid = 5
               map%nx = gfld%igdtmpl(8)
@@ -432,14 +470,16 @@ C  SET ARGUMENTS
               call mprintf(.true.,STDOUT,"GRIB2 Unknown Projection: %i",
      &          newline=.true.,i1=gfld%igdtnum)
               call mprintf(.true.,STDOUT,
-     &          "see Code Table 3.1: Grid Definition Template Number", 
+     &          "ungrib understands projections 0, 20, 30, and 40", 
      &          newline=.true.)
               call mprintf(.true.,LOGFILE,
      &          "GRIB2 Unknown Projection: %i",
      &          newline=.true.,i1=gfld%igdtnum)
               call mprintf(.true.,LOGFILE,
-     &          "see Code Table 3.1: Grid Definition Template Number",
+     &          "ungrib understands projections 0, 10, 20, 30, and 40", 
      &          newline=.true.)
+       ! If the projection is not known, then it can't be processed by metgrid/plotfmt
+                stop 'Stop in rd_grib2'
            endif
 
            call mprintf(.true.,DEBUG,"G2 igrid = %i ,  dx = %f ,  dy = %
@@ -451,12 +491,14 @@ C  SET ARGUMENTS
 
            ! Deallocate arrays decoding GRIB2 record.
            call gf_free(gfld)
-         endif
+
+         endif   ! "first" if-block
 
          ! ----
 
          ! Continue to unpack GRIB2 field.
-         do n=1,numfields ! e.g. U and V would =2, otherwise its usually =1
+         NUM_FIELDS: do n = 1, numfields 
+	   ! e.g. U and V would =2, otherwise its usually =1
            call gf_getfld(cgrib,lengrib,n,.FALSE.,expand,gfld,ierr)
            if (ierr.ne.0) then
              write(*,*) ' ERROR extracting field gf_getfld = ',ierr
@@ -563,9 +605,11 @@ C  SET ARGUMENTS
 !MGD     &       gfld%ipdtmpl(2),gfld%ipdtmpl(10)
 !MGD          endif
            call mprintf(.true.,DEBUG,"G2 Searching the g2code array (Vta
-     &ble) for this grib field %i %i %i %i ", newline=.true., 
-     & i1 = gfld%discipline, i2 = gfld%ipdtmpl(1), 
-     & i3 = gfld%ipdtmpl(2), i4 = gfld%ipdtmpl(10) )
+     &ble) for this grib field %i %i %i %i %i %i ", newline=.true.,
+     & i1 = gfld%discipline, i2 = gfld%ipdtmpl(1),
+     & i3 = gfld%ipdtmpl(2), i4 = gfld%ipdtmpl(10),
+     & i5 = gfld%ipdtmpl(12), i6 = gfld%ipdtnum )
+
 
          ! Test this data record against list of desired variables 
          ! found in Vtable.
@@ -596,12 +640,18 @@ C  SET ARGUMENTS
 ! need to match up soil levels with those requested.
 ! For the Vtable levels, -88 = all levels, -99 = missing. The units
 ! vary depending on the level code (e.g. 106 = cm, 103 = m).
+! The grib2 standard allows scaling of the units, so make sure the soil level
+! units are in cm (as used in the Vtable).
               if ( gfld%ipdtmpl(10) .eq. 106 ) then
+                glevel1 = 100. * gfld%ipdtmpl(12)*
+     &                      (10.**(-1.*gfld%ipdtmpl(11)))
+                glevel2 = 100. * gfld%ipdtmpl(15)*
+     &                      (10.**(-1.*gfld%ipdtmpl(14)))
                 TMP8LOOP: do j = 1, maxvar
                   if ((g2code(4,j) .eq. 106) .and.
      &               (gfld%ipdtmpl(2) .eq. g2code(3,j)) .and.
-     &               (gfld%ipdtmpl(12) .eq. level1(j)) .and.
-     &               ((gfld%ipdtmpl(15) .eq. level2(j)) .or. 
+     &               (glevel1 .eq. level1(j)) .and.
+     &               ((glevel2 .eq. level2(j)) .or.
      &                                   (level2(j) .le. -88))) then
                     my_field = namvar(j)
                     exit TMP8LOOP
@@ -630,6 +680,20 @@ C  SET ARGUMENTS
               elseif(gfld%ipdtmpl(10).eq.101) then
                  ! MSL
                  level=201300.
+              elseif(gfld%ipdtmpl(10).eq.103) then
+	         ! Height above ground (m)
+		 if (gfld%ipdtmpl(12) .eq. 2. .or. 
+     &               gfld%ipdtmpl(12) .eq. 10. ) then
+                   level=200100.
+		 else
+                   cycle MATCH_LOOP
+		 endif
+              elseif((gfld%ipdtmpl(10).ge.222 .and.
+     &               gfld%ipdtmpl(10).le.234) .or.
+     &              (gfld%ipdtmpl(10).ge.206 .and.     
+     &               gfld%ipdtmpl(10).le.215)) then
+                 ! NCEP cloud layers used for plotting
+                   level=200100.
               elseif(gfld%ipdtmpl(10).eq.106.or.
      &               gfld%ipdtmpl(10).eq.1) then
                  ! Misc near ground/surface levels
@@ -641,8 +705,13 @@ C  SET ARGUMENTS
                  ! Tropopause
                  level=7.    ! .07 mb should never be used by anyone
               else
-                 ! Misc near ground/surface levels
-                 level=200100.
+                 ! If we are here then the Vtable contains a level code
+                 ! which we cannot handle. Write an info message and skip it.
+                 call mprintf(.true.,INFORM,"Rd_grib2 does not know abou
+     &t level code %i (field = %s). Skipping this field. If you want thi
+     &s level, rd_grib2.F must be modified", i1 = gfld%ipdtmpl(10),
+     & s1 =  my_field )
+                 cycle MATCH_LOOP
               endif
               iplvl = int(level)
 
@@ -664,6 +733,10 @@ C  SET ARGUMENTS
 
               !print *,'call put_storage',iplvl,my_field,hold_array(55),ith
               !e.g. call put_storage(200100, 'RH', my_field, 1, ith)
+!             call mprintf(.true.,DEBUG,"Calling put_storage for
+!    &level = %i , field = %s , g2level = %i ", newline=.true.,
+!    & i1 = iplvl, s1 = my_field, i2 = gfld%ipdtmpl(12) )
+
               call put_storage(iplvl,my_field,
      &           reshape(hold_array(1:map%nx*map%ny),
      &           (/map%nx, map%ny/)), map%nx,map%ny)
@@ -691,7 +764,7 @@ C  SET ARGUMENTS
          ! Deallocate arrays decoding GRIB2 record.
          call gf_free(gfld)
 
-         enddo ! 1,numfields
+         enddo NUM_FIELDS
 
 
       enddo VERSION ! skgb
@@ -836,7 +909,7 @@ C  SET ARGUMENTS
          iofst=iofst+8
          call gbyte(cgrib,grib_edition,iofst,8)   ! GRIB edition number
 
-         print *, 'ungrib - grib edition num',  grib_edition
+!        print *, 'ungrib - grib edition num',  grib_edition
          CALL BACLOSE(junit,IOS)
          ireaderr=1
       else if (ios .eq. -4) then
@@ -882,7 +955,9 @@ C  SET ARGUMENTS
 
       subroutine ncep_grid_num (pnum)
 !
+!  Find the grib number for descriptive  labelling.
 !  Grib2 doesn't have a grid-number entry, so we have to figure it out
+!  from the parameters. 
 !
       use gridinfo       ! Included to define map%
       integer :: pnum
@@ -892,7 +967,7 @@ C  SET ARGUMENTS
 !     write(6,*) 'begin ncep_grid_num'
 !     write(6,*) 'dx = ',map%dx,' pnum = ',pnum,' nx = ',map%nx
       tmp8 = '        '
-      if (pnum .eq. 30) then
+      if (pnum .eq. 30) then            ! lambert conformal
         if ( abs(map%dx - 12.19058) .lt. eps .and. map%nx .eq. 614) then
           write(tmp8,'("GRID 218")') 
         else if (abs(map%dx - 40.63525) .lt. eps 
@@ -910,12 +985,15 @@ C  SET ARGUMENTS
         else if (abs(map%dx - 20.317625) .lt. eps 
      &     .and. map%nx .eq. 301) then
           write(tmp8,'("GRID 252")') 
+        else if (abs(map%dx - 13.545087) .lt. eps 
+     &     .and. map%nx .eq. 451) then
+          write(tmp8,'("GRID 130")') 
         endif
-      else if (pnum .eq. 20) then
+      else if (pnum .eq. 20) then     ! polar stereographic
         if (abs(map%dx - 15.0) .lt. eps) then
           write(tmp8,'("GRID  88")') 
         endif
-      else if (pnum .eq. 0) then
+      else if (pnum .eq. 0) then      ! lat/lon
         if (abs(map%dx - 1.) .lt. eps .and. map%nx .eq. 360) then
           write(tmp8,'("GRID   3")') 
         else if (abs(map%dx - 0.5) .lt. eps .and. map%nx .eq. 720) then
