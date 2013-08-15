@@ -25,7 +25,7 @@
 
    USE module_physics_init
    USE module_lightning_driver, ONLY : lightning_init
-   USE module_fr_fire_driver_wrf, ONLY : fire_driver_em_init
+   USE module_fr_sfire_driver_wrf, ONLY : sfire_driver_em_init
    USE module_stoch, ONLY : SETUP_STOCH, update_stoch
 #ifdef WRF_CHEM
    USE module_aerosols_sorgam, ONLY: sum_pm_sorgam
@@ -1561,12 +1561,12 @@
 !  FIRE
 if(config_flags%ifire.eq.2)then
 
-   call fire_driver_em_init ( grid , config_flags    &
+   call sfire_driver_em_init ( grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                &
             ,ims,ime, kms,kme, jms,jme                &
             ,ips,ipe, kps,kpe, jps,jpe ) 
 
-   CALL wrf_debug ( 100 , 'start_domain_em: After call to fire_driver_em_init' )
+   CALL wrf_debug ( 100 , 'start_domain_em: After call to sfire_driver_em_init' )
 endif
 
 
