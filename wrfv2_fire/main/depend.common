@@ -710,13 +710,6 @@ module_fr_sfire_phys.o: \
 		../share/module_model_constants.o  \
 		module_fr_sfire_util.o 
 
-#module_fr_sfire_util.o:
-
-module_fire_debug_output.o: \
-	        ../frame/module_domain.o \
-	        ../frame/module_configure.o \
-	        ../share/mediation_integrate.o
-
 module_fdda_spnudging.o :\
 		../frame/module_dm.o \
 		../frame/module_state_description.o \
