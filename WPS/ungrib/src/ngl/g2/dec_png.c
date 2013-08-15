@@ -3,6 +3,7 @@
 #include <string.h>
 #ifdef USE_PNG
 #include <png.h>
+#include <zlib.h>
 #endif /* USE_PNG */
 
 #ifdef __64BIT__
@@ -99,7 +100,7 @@ int dec_png(unsigned char *pngbuf,g2int *width,g2int *height,char *cout)
 
 /*    Set new custom read function    */
 
-    png_set_read_fn(png_ptr,(voidp)&read_io_ptr,(png_rw_ptr)user_read_data);
+    png_set_read_fn(png_ptr,(png_voidp)&read_io_ptr,(png_rw_ptr)user_read_data);
 /*     png_init_io(png_ptr, fptr);   */
 
 /*     Read and decode PNG stream   */
