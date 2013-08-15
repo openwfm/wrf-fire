@@ -5,10 +5,11 @@
 
 ! Routines dealing with the atmosphere
 
-module module_fr_fire_atm
+module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
 use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
+use module_fr_sfire_util
 #ifdef DM_PARALLEL
     USE module_dm , only : wrf_dm_sum_reals
 #endif
@@ -977,7 +978,7 @@ SUBROUTINE fire_tendency( &
     rthfrten,rqvfrten)             ! theta and Qv tendencies 
 
 ! This routine is atmospheric physics 
-! it does NOT go into module_fr_fire_phys because it is not related to fire physical processes
+! it does NOT go into module_fr_sfire_phys because it is not fire physics
 
 ! taken from the code by Ned Patton, only order of arguments change to the convention here
 ! --- this routine takes fire generated heat and moisture fluxes and
@@ -2151,4 +2152,4 @@ end subroutine fire_emission
 !#endif
 
 
-end module module_fr_fire_atm
+end module module_fr_sfire_atm

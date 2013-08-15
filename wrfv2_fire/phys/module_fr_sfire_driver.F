@@ -65,7 +65,7 @@
 ! http://www.openwfm.org/wiki/WRF-Fire_development_notes
 ! 
 
-module module_fr_fire_driver
+module module_fr_sfire_driver
 ! use this module for standalone call, you only need to provide some mock-up wrf modules  
 
 use module_fr_sfire_model, only: sfire_model
@@ -74,6 +74,7 @@ use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
    fire_rate_of_spread
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
    interpolate_z2fire,setup_wind_log_interpolation
+use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 
 ! WRF dependencies
@@ -101,6 +102,7 @@ contains
 ! to write debugging information
 #define DEBUG_OUT
 
+subroutine sfire_driver_em ( grid , config_flags                    & 
             ,time_step_start,dt                                     &
             ,fire_ifun_start,fire_ifun_end,tsteps                   &
             ,ids,ide, kds,kde, jds,jde                              &
@@ -176,7 +178,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     grid%unit_fxlat = ignition%unit_fxlat
 
 
-    ! copy configuration flags to fire internal structures
+    ! copy configuration flags to sfire internal structures
     call set_flags(config_flags)
 
 !   see what we got from wrf
@@ -323,10 +325,10 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
             run_fuel_moisture=.true.
     endif
 
-!$OMP CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(a,i1,a,i1,a,l1)') &
        'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end,' restart=',restart
-!$OMP END CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
     call message(msg)
 
     do istep=0,tsteps ! istep >0 is for testing only, exit after the first call
@@ -391,7 +393,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 #endif
         ! print *,'dt: ',dt,grid%dt,' diff ', dt-grid%dt
         ! need domain by 1 smaller, in last row.col winds are not set properly
-        call fire_driver_phys ( &
+        call sfire_driver_phys ( &
             fire_ifun,                  &
             ids,ide-1, kds,kde, jds,jde-1,                          &
             ims,ime, kms,kme, jms,jme,                          &
@@ -485,9 +487,10 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
       enddo
     enddo
 
+    if(tsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
     call time_end('sfire')
 
-end subroutine fire_driver_em
+end subroutine sfire_driver_em
 
 !
 !*******************
@@ -664,7 +667,7 @@ dxf=dx/ir
 dyf=dy/jr
 
 
-!$OMP CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
 write(msg,'(a,i5)')'sfire_driver_phys stage ',ifun
 call message(msg)
 write(msg,'(a,2f15.6)')'atmosphere mesh step:',dx,dy
@@ -683,7 +686,7 @@ write(msg,7001)'fire memory     ','ifms',ifms,ifme,jfms,jfme
 call message(msg)                    
 write(msg,7001)'fire patch      ','ifps',ifps,ifpe,jfps,jfpe
 call message(msg)                    
-!$OMP END CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
 ! check mesh dimensions
 call check_fmesh(ids,ide,ifds,ifde,ir,'id')           ! check if atm and fire grids line up
@@ -743,14 +746,14 @@ do ij=1,num_tiles
     ite1=ifval(ite.eq.ide,ite+1,ite)
     jte1=ifval(jte.eq.jde,jte+1,jte)
 
-!$OMP CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(a,i3,1x,a,i7,1x,a,i3)')'tile=',ij,' id=',id,' ifun=',ifun
     call message(msg)
     write(msg,7001)'atm tile   ','its',its,ite,jts,jte
     call message(msg)                   
     write(msg,7001)'fire tile  ','ifts',ifts,ifte,jfts,jfte
     call message(msg)                    
-!$OMP END CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
     ! check the tiles
     call check_mesh_2dim(its,ite,jts,jte,ips,ipe,jps,jpe)                 ! check if atm tile fits in atm patch
@@ -758,12 +761,12 @@ do ij=1,num_tiles
     call check_mesh_2dim(ifts-2,ifte+2,jfts-2,jfte+2,ifms,ifme,jfms,jfme)! check if fire node tile fits in memory
 
 
-!$OMP CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
     write(msg,'(a,i6,a,2(f15.6,a))')'time step',itimestep,' at',time_start,' duration',dt,'s'
     call message(msg)
     7001 format(a,' dimensions ',a4,':',i6,' to ',i6,' by ',i6,' to ',i6)
     write(msg,'(a,2i9)')'refinement ratio:',ir,jr
-!$OMP END CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 
     if(run_advance_moisture)then
       if(ifun.eq.3)then 
@@ -815,9 +818,9 @@ do ij=1,num_tiles
 !                zs,                                       & ! atm grid arrays in
 !                fp%zsf)                                      ! fire grid arrays out
 !        else
-!!$OMP CRITICAL(FIRE_DRIVER_CRIT)
+!!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
 !           write(msg,'(a,i3,a)')'fire_topo_from_atm=',fire_topo_from_atm,' assuming ZSF set, interpolation skipped'
-!!$OMP END CRITICAL(FIRE_DRIVER_CRIT)
+!!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 !        endif
 
         if(ignition%longlat .eq.0)then
@@ -1037,9 +1040,9 @@ do ij=1,num_tiles
             its,ite,jts,jte,      &
             grnqfx)
 
-!$OMP CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
           write(msg,'(a,f6.3)')'fire-atmosphere feedback scaling ',fire_atm_feedback
-!$OMP end CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP end CRITICAL(SFIRE_DRIVER_CRIT)
 	  call message(msg)
           s = 1./(ir*jr)
           do j=jts,jte
@@ -1127,7 +1130,7 @@ if(ifun.eq.6)then
 #endif
 endif
 
-end subroutine fire_driver_phys
+end subroutine sfire_driver_phys
 
 !
 !***
@@ -1291,7 +1294,7 @@ subroutine fire_ignition_convert (config_flags,ignition)
     endif
 
     if(fire_print_msg.ge.2)then
-!$OMP CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
        if(lines%longlat .eq. 0)then
          write(msg,1)'start x','start y','end x','end y','start t','end t',value_name,'radius'
        else
@@ -1328,7 +1331,7 @@ subroutine fire_ignition_convert (config_flags,ignition)
               call crash('start time may not be after end time')
          endif
        enddo
-!$OMP END CRITICAL(FIRE_DRIVER_CRIT)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
      endif
 end subroutine postprocess_lines
 
@@ -1388,8 +1391,8 @@ subroutine set_flags(config_flags)
 USE module_configure
 implicit none
 TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
-! copy flags from wrf to module_fr_fire_util
-! for instructions how to add a flag see the top of module_fr_fire_util.F
+! copy flags from wrf to module_fr_sfire_util
+! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
 fire_perimeter_time     = config_flags%fire_perimeter_time
 fire_print_msg          = config_flags%fire_print_msg
@@ -1453,4 +1456,4 @@ msg=id
 call message(msg,level=1)
 end subroutine print_id
 
-end module module_fr_fire_driver
+end module module_fr_sfire_driver
