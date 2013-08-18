@@ -15,10 +15,12 @@ use module_fr_sfire_util
 #endif
 
 
-#ifdef WRF_CHEM
 use module_fr_sfire_phys, only:  mfuelcats, nfuelcats    ! for emissions
-USE module_state_description, only: num_chem,num_tracer
+USE module_state_description, only: num_tracer
 use module_fr_sfire_phys, only: fuel_name
+
+#ifdef WRF_CHEM
+USE module_state_description, only: num_chem
 USE module_configure, only: &
 p_co,  &
 p_ch4, &
@@ -65,14 +67,27 @@ p_glyald, &
 p_isopr, &
 p_macr, &
 p_mek, &
-p_mvk
+p_mvk, &
+p_smoke   ! tracer smoke exists only with CHEM
 #endif
+
+USE module_configure, only: &
+p_tr17_1, &
+p_tr17_2, &
+p_tr17_3, &
+p_tr17_4, &
+p_tr17_5, &
+p_tr17_6, &
+p_tr17_7, &
+p_tr17_8
 
 implicit none
 
-logical, save :: have_wind_log_interpolation = .false.  ! status
+#ifndef WRF_CHEM
+integer, parameter, private:: num_chem=0
+#endif
 
-#ifdef WRF_CHEM
+logical, save :: have_wind_log_interpolation = .false.  ! status
 
 ! emission tables
 REAL, dimension(mfuelcats), save:: &
@@ -121,7 +136,16 @@ glyald=0., &
 isopr=0., &
 macr=0., &
 mek=0., &
-mvk=0.
+mvk=0., &
+smoke=0., &
+tr17_1=0., &
+tr17_2=0., &
+tr17_3=0., &
+tr17_4=0., &
+tr17_5=0., &
+tr17_6=0., &
+tr17_7=0., &
+tr17_8=0.
 
 real, parameter:: & ! reciprocal molecular weights  (mol/g)
              imw_co    = 1./28.010,&
@@ -135,22 +159,22 @@ real, parameter:: & ! reciprocal molecular weights  (mol/g)
 real, parameter:: mw_air=28.97   ! molecular weight of air g/mol
 
 ! should be declared in the registry and stored in the state in future because of restarts
+
 real, pointer, save, dimension(:)::c_chem
 real, pointer, save, dimension(:)::c_fuel
+real, pointer, save, dimension(:)::c_tracer
 logical, save:: emis_read = .false.
 integer, save:: msglevel =1,printsums=0 ! when to print sums
-
-#endif
+integer, parameter:: line=8 ! number of species, emissions, etc. per line
 
 contains
 
-#ifdef WRF_CHEM
 ! chem arrays are chem tracer
 ! indices p_species are generated in inc/scalar_indices.inc and included in frame/module_configure.F
 
-subroutine read_emissions_table(chem_opt)
+subroutine read_emissions_table(chem_opt,tracer_opt)
    implicit none
-   integer, intent(in)::chem_opt
+   integer, intent(in)::chem_opt,tracer_opt
    logical, external:: wrf_dm_on_monitor
    external::wrf_dm_bcast_integer , wrf_dm_bcast_real
    integer, dimension(10)::compatible_chem_opt
@@ -202,7 +226,16 @@ glyald, &
 isopr, &
 macr, &
 mek, &
-mvk
+mvk, &
+smoke, &
+tr17_1, &
+tr17_2, &
+tr17_3, &
+tr17_4, &
+tr17_5, &
+tr17_6, &
+tr17_7, &
+tr17_8
 
 !$  if (OMP_GET_THREAD_NUM() .ne. 0)then
 !$     call crash('read_emissions_table: must be called from master thread')
@@ -212,7 +245,7 @@ IF ( wrf_dm_on_monitor() ) THEN
     ! we are the master task
 
     iounit=open_text_file('namelist.fire_emissions','read')
-    compatible_chem_opt=-99
+    compatible_chem_opt=0
     read(iounit,emissions,iostat=ierr)
     if(ierr.ne.0)call crash('read_emissions_table: error reading namelist emissions in file namelist.fire_emissions')
     CLOSE(iounit)
@@ -256,13 +289,45 @@ call wrf_dm_bcast_real(oli, nfuelcats)
 call wrf_dm_bcast_real(ora2,nfuelcats)
 call wrf_dm_bcast_real(tol, nfuelcats)
 call wrf_dm_bcast_real(xyl, nfuelcats)
+call wrf_dm_bcast_real(bigalk, nfuelcats)
+call wrf_dm_bcast_real(bigene, nfuelcats)
+call wrf_dm_bcast_real(c10h16, nfuelcats)
+call wrf_dm_bcast_real(c2h4, nfuelcats)
+call wrf_dm_bcast_real(c2h5oh, nfuelcats)
+call wrf_dm_bcast_real(c2h6, nfuelcats)
+call wrf_dm_bcast_real(c3h6, nfuelcats)
+call wrf_dm_bcast_real(c3h8, nfuelcats)
+call wrf_dm_bcast_real(ch3cooh, nfuelcats)
+call wrf_dm_bcast_real(ch3oh, nfuelcats)
+call wrf_dm_bcast_real(cres, nfuelcats)
+call wrf_dm_bcast_real(glyald, nfuelcats)
+! call wrf_dm_bcast_real(hyac, nfuelcats)
+call wrf_dm_bcast_real(isopr, nfuelcats)
+call wrf_dm_bcast_real(macr, nfuelcats)
+call wrf_dm_bcast_real(mek, nfuelcats)
+call wrf_dm_bcast_real(mvk, nfuelcats)
+call wrf_dm_bcast_real(smoke, nfuelcats)
+call wrf_dm_bcast_real(tr17_1, nfuelcats)
+call wrf_dm_bcast_real(tr17_2, nfuelcats)
+call wrf_dm_bcast_real(tr17_3, nfuelcats)
+call wrf_dm_bcast_real(tr17_4, nfuelcats)
+call wrf_dm_bcast_real(tr17_5, nfuelcats)
+call wrf_dm_bcast_real(tr17_6, nfuelcats)
+call wrf_dm_bcast_real(tr17_7, nfuelcats)
+call wrf_dm_bcast_real(tr17_8, nfuelcats)
 
 if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
    ! should be stored in the registry future because of restarts
-   write(msg,'(a,i3,a,i3)')'allocating c_chem size',num_chem,' c_fuel size',nfuelcats
+   write(msg,'(3(a,i3,1x))')'allocating c_chem size',num_chem,'c_tracer size',num_tracer,'c_fuel size',nfuelcats
    call message(msg,level=2)
-   allocate(c_chem(num_chem))
-   c_chem=0.  ! cumulative burnt
+   if(num_chem>0)then
+      allocate(c_chem(num_chem))
+      c_chem=0.  ! cumulative burnt
+   endif
+   if(num_tracer>0)then
+      allocate(c_tracer(num_tracer))
+      c_tracer=0.  ! cumulative burnt
+   endif
    allocate(c_fuel(nfuelcats))
    c_fuel=0.  ! total per timestep, rate burnt, cumulative burnt
    write(msg,'(a,i3,a,i3)')'allocated c_chem size',size(c_chem),' c_fuel size',size(c_fuel)
@@ -273,7 +338,7 @@ emis_read=.true.
 
 end subroutine read_emissions_table
 
-subroutine add_fire_emissions_to_chem(chem_opt,dt,dx,dy,      &
+subroutine add_fire_emissions(chem_opt,tracer_opt,dt,dx,dy,      &
        ifms,ifme,jfms,jfme,    &
        ifts,ifte,jtfs,jfte,    &
        ids,ide,kds,kde,jds,jde,          &
@@ -293,7 +358,7 @@ implicit none
 ! the dimensions are in cells, not nodes!
 
 ! input
-integer, intent(in)::chem_opt
+integer, intent(in)::chem_opt,tracer_opt
 real, intent(in):: dt,dx,dy                                           ! time step & mesh spacing
 integer, intent(in)::its,ite,kts,kte,jts,jte,ims,ime,kms,kme,jms,jme &! atm grid dims
        ,ids,ide,kds,kde,jds,jde          
@@ -312,11 +377,17 @@ real::fuel_burnt,vol,air,conv, avgw,emis
 character(len=128)msg
 
 real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
+#ifdef WRF_CHEM
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
+integer, parameter:: chem_np=46
+integer:: chem_pointers(chem_np)
+character(len=8)::chem_names(chem_np)
+#endif
+real, dimension(num_tracer) ::s_tracer,t_tracer,r_tracer  ! total per timestep, rate burnt
 
-integer, parameter:: np=45,line=8
-integer:: pointers(np)
-character(len=8)::names(np)
+integer, parameter:: tracer_np=8
+integer:: tracer_pointers(tracer_np)
+character(len=8)::tracer_names(tracer_np)
 
 !*** executable
 
@@ -324,11 +395,12 @@ character(len=8)::names(np)
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
 
-if(.not.emis_read)call crash('add_fire_emissions_to_chem: read_emissions_table must be called first') 
-write(msg,'(a,i3,a,i3)')'add_fire_emissions_to_chem: chem_opt=',chem_opt,' species ',num_chem
+if(.not.emis_read)call crash('add_fire_emissions: read_emissions_table must be called first') 
+write(msg,'(a,i3,a,i3,a,i3)')'add_fire_emissions: chem_opt=',chem_opt,' species ',num_chem,' tracers',num_tracer
 call message(msg)
 
-pointers= (/ &
+#ifdef WRF_CHEM
+chem_pointers= (/ &
 p_co,  &
 p_ch4, &
 p_h2, &
@@ -374,10 +446,10 @@ p_glyald, &
 p_isopr, &
 p_macr, &
 p_mek, &
-p_mvk &
-/)
+p_mvk, &
+p_smoke /)
 
-names= (/ &
+chem_names= (/ &
 'co      ',  &
 'ch4     ', &
 'h2      ', &
@@ -423,31 +495,33 @@ names= (/ &
 'isopr   ', &
 'macr    ', &
 'mek     ', &
-'mvk     '  &
-/)
+'mvk     ', &
+'smoke   ' /)
 
+call check_pointers('chem',chem,chem_names,chem_pointers)
+#endif
 
-993 format(a,4(1x,i3,':',i3))
-write(msg,993)'array chem has dimension ',&
-         lbound(chem,1),ubound(chem,1), &
-         lbound(chem,2),ubound(chem,2), &
-         lbound(chem,3),ubound(chem,3), &
-         lbound(chem,4),ubound(chem,4)
-call message(msg)
+tracer_pointers= (/ &
+p_tr17_1, &
+p_tr17_2, &
+p_tr17_3, &
+p_tr17_4, &
+p_tr17_5, &
+p_tr17_6, &
+p_tr17_7, &
+p_tr17_8  /)
 
-do i=1,np,line
-   m=min(i+line-1,np)
-   write(msg,'(a,8(1x,a8))')'Species',(trim(names(j)),j=i,m)
-   call message(msg)
-   write(msg,'(a,8i9)')     'Pointer',(pointers(j),j=i,m)
-   call message(msg)
-   call message(' ')
-enddo
+tracer_names= (/ &
+'tr17_1  ', &
+'tr17_2  ', &
+'tr17_3  ', &
+'tr17_4  ', &
+'tr17_5  ', &
+'tr17_6  ', &
+'tr17_7  ', &
+'tr17_8  ' /)
 
-if(maxval(pointers) > ubound(chem,4) .or. minval(pointers) < lbound(chem,4))then 
-    call crash('add_fire_emissions_to_chem: a chem pointer is out of bounds')
-endif
-
+call check_pointers('tracer',tracer,tracer_names,tracer_pointers)
 
 ! compute mesh sizes
 isz1 = ite-its+1
@@ -474,8 +548,13 @@ endif
 avgw = 1.0/(ir*jr)     ! averaging weight = 1/number of fire cells per atm cell
 
 ! initialize emissions statistics per timestep
+#ifdef WRF_CHEM
 t_chem = 0.
+#endif
 t_fuel = 0.
+do i=1,num_tracer
+   t_tracer(i)=0.
+enddo
 
 ! conversion fuel_burnt kg/m^2 ->  chem_X 1e6*mol/mol
 ! emis_X(g/kg)*fuel_burnt(kg/m^2)/mw_X(g/mol) = emissions (mol/m^2)
@@ -496,6 +575,7 @@ do j=jts,jte
            do ioff=0,ir-1
                i_f=ioff+ibase
 
+
                !*** fire cell (i_f,j_f) contributes to atmosphere cell (i,j) at ground level
 
                fuel_burnt = fgip(i_f,j_f) * fuel_frac_burnt(i_f,j_f) ! kg/m^2 
@@ -503,10 +583,13 @@ do j=jts,jte
 
                if(cat.ne.no_fuel_cat)t_fuel(cat)=t_fuel(cat) + fuel_burnt
 
+
                !*** chem compounds emissions given in g/kg
 
                ! fuel_burnt kg/m^2 *  table g/kg ->  ppmv = 1e6*mol/mol in 1st layer
                conv = avgw*1e6*mw_air/(rho(i,k1,j)*dz8w(i,k1,j))
+
+#ifdef WRF_CHEM
 
                emis=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
                t_chem(p_co) = t_chem(p_co) + emis                           ! add to total
@@ -701,45 +784,104 @@ do j=jts,jte
                emis=bc2  (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_bc2 ) = t_chem(p_bc2 ) + emis                         ! add to total
                chem(i,k1,j,p_bc2  )=chem(i,k1,j,p_bc2  )+emis*conv
+#endif
+               if (num_tracer >0)then
+
+                     ! treat tracers exactly the same as aerosols, emissions g/kg fuel burned, tracer concentration ug/kg dry air
+                     conv = avgw*1e6/(rho(i,k1,j)*dz8w(i,k1,j))
+
+                     emis=tr17_1 (cat)*fuel_burnt                                    ! emission from fire cell
+                     t_tracer(p_tr17_1) = t_tracer(p_tr17_1) + emis                         ! add to total
+                     tracer(i,k1,j,p_tr17_1 )=tracer(i,k1,j,p_tr17_1 )+emis*conv
+
+                     emis=tr17_2 (cat)*fuel_burnt                                    ! emission from fire cell
+                     t_tracer(p_tr17_2) = t_tracer(p_tr17_2) + emis                         ! add to total
+                     tracer(i,k1,j,p_tr17_2 )=tracer(i,k1,j,p_tr17_2 )+emis*conv
+
+                     emis=tr17_3 (cat)*fuel_burnt                                    ! emission from fire cell
+                     t_tracer(p_tr17_3) = t_tracer(p_tr17_3) + emis                         ! add to total
+                     tracer(i,k1,j,p_tr17_3 )=tracer(i,k1,j,p_tr17_3 )+emis*conv
+
+                     emis=tr17_4 (cat)*fuel_burnt                                    ! emission from fire cell
+                     t_tracer(p_tr17_4) = t_tracer(p_tr17_4) + emis                         ! add to total
+                     tracer(i,k1,j,p_tr17_4 )=tracer(i,k1,j,p_tr17_4 )+emis*conv
+
+                     emis=tr17_5 (cat)*fuel_burnt                                    ! emission from fire cell
+                     t_tracer(p_tr17_5) = t_tracer(p_tr17_5) + emis                         ! add to total
+                     tracer(i,k1,j,p_tr17_5 )=tracer(i,k1,j,p_tr17_5 )+emis*conv
+
+                     emis=tr17_6 (cat)*fuel_burnt                                    ! emission from fire cell
+                     t_tracer(p_tr17_6) = t_tracer(p_tr17_6) + emis                         ! add to total
+                     tracer(i,k1,j,p_tr17_6 )=tracer(i,k1,j,p_tr17_6 )+emis*conv
+
+                     emis=tr17_7 (cat)*fuel_burnt                                    ! emission from fire cell
+                     t_tracer(p_tr17_7) = t_tracer(p_tr17_7) + emis                         ! add to total
+                     tracer(i,k1,j,p_tr17_7 )=tracer(i,k1,j,p_tr17_7 )+emis*conv
+
+                     emis=tr17_8 (cat)*fuel_burnt                                    ! emission from fire cell
+                     t_tracer(p_tr17_8) = t_tracer(p_tr17_8) + emis                         ! add to total
+                     tracer(i,k1,j,p_tr17_8 )=tracer(i,k1,j,p_tr17_8 )+emis*conv
+                endif
            enddo
        enddo
     enddo
 enddo
 
 if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
-    ! sum over processes
-    call wrf_dm_sum_reals(t_chem,s_chem)
+    ! sum over processes and add to cumulative sums
+
+    ! fuel burned
     call wrf_dm_sum_reals(t_fuel,s_fuel)
-    
     ! scale
-    s_chem = s_chem*dx*dy 
     s_fuel = s_fuel*dx*dy 
-    
     ! get rates
-    r_chem = s_chem/dt 
     r_fuel = s_fuel/dt 
-    
     ! add to cumulative totals
-    if(size(c_chem).ne.num_chem)call crash('add_fire_emissions_to_chem: bad size c_chem')
-    if(size(c_fuel).ne.nfuelcats)then
-        write(msg,*)'size(c_fuel)=',size(c_fuel),' nfuelcats=',nfuelcats
-        call message(msg,0)
-        call crash('add_fire_emissions_to_chem: bad size c_fuel')
-    endif
-    c_chem = c_chem + s_chem
+    if(size(c_fuel).ne.nfuelcats)call crash('add_fire_emissions: bad size c_fuel')
     c_fuel = c_fuel + s_fuel
 
+#ifdef WRF_CHEM
+    ! chem
+    call wrf_dm_sum_reals(t_chem,s_chem)
+    s_chem = s_chem*dx*dy 
+    r_chem = s_chem/dt 
+    if(size(c_chem).ne.num_chem)call crash('add_fire_emissions: bad size c_chem')
+    c_chem = c_chem + s_chem
+
     call message('Total emissions in g or mol per the table',level=msglevel)
-    do i=1,np,line
-        m=min(i+line-1,np)
-        write(msg,80)'Emissions ',(trim(names(j)),j=i,m)
+    do i=1,chem_np,line
+        m=min(i+line-1,chem_np)
+        write(msg,80)'Emissions ',(trim(chem_names(j)),j=i,m)
         call message(msg,level=msglevel)
-        write(msg,81)'Cumulative',(c_chem(pointers(j)),j=i,m)
+        write(msg,81)'Cumulative',(c_chem(chem_pointers(j)),j=i,m)
         call message(msg,level=msglevel)
-        write(msg,81)'Rate per s',(r_chem(pointers(j)),j=i,m)
+        write(msg,81)'Rate per s',(r_chem(chem_pointers(j)),j=i,m)
         call message(msg,level=msglevel)
         call message(' ',level=msglevel)
     enddo
+#endif
+
+    if(num_tracer >0)then
+        ! tracer
+        call wrf_dm_sum_reals(t_tracer,s_tracer)
+        s_tracer = s_tracer*dx*dy 
+        r_tracer = s_tracer/dt 
+        if(size(c_tracer).ne.num_tracer)call crash('add_fire_emissions: bad size c_tracer')
+        c_tracer = c_tracer + s_tracer
+    
+        call message('Total emissions in g',level=msglevel)
+        do i=1,tracer_np,line
+            m=min(i+line-1,tracer_np)
+            write(msg,80)'Emissions ',(trim(tracer_names(j)),j=i,m)
+            call message(msg,level=msglevel)
+            write(msg,81)'Cumulative',(c_tracer(tracer_pointers(j)),j=i,m)
+            call message(msg,level=msglevel)
+            write(msg,81)'Rate per s',(r_tracer(tracer_pointers(j)),j=i,m)
+            call message(msg,level=msglevel)
+            call message(' ',level=msglevel)
+        enddo
+    endif
+
 
     do cat=1,nfuelcats
         if(c_fuel(cat) > 0.)then 
@@ -758,7 +900,7 @@ endif
 return
 
 9 continue
-!$OMP CRITICAL(SFIRE_UTIL_CRIT)
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
 write(msg,91)ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme
 call message(msg,level=0)
 write(msg,91)its,ite,jts,jte,ims,ime,jms,jme
@@ -769,25 +911,62 @@ call message(msg,level=0)
 write(msg,92)'output mesh size:',isz1,jsz1
 call message(msg,level=0)
 92 format(a,2i8)
-!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
-call crash('add_fire_emissions_to_chem: bad mesh sizes')
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+call crash('add_fire_emissions: bad mesh sizes')
 
-contains
+end subroutine add_fire_emissions
 
-subroutine add_e(chc,p_chc,imw_chc)
-real, intent(in):: chc(mfuelcats)
-integer, intent(in)::p_chc
-real, intent(in):: imw_chc
-integer:: e
-     e=chc  (cat)*fuel_burnt                                    ! emission from fire cell 
-     t_chem(p_chc) = t_chem(p_chc) + e                           ! add to total
-     chem(i,k1,j,p_chc  )=chem(i,k1,j,p_chc  ) + e*conv*imw_chc   ! add to chem
-end subroutine add_e
+!
+!***
+!
+
+subroutine check_pointers(array_name,array,pointer_names,pointers)
+implicit none
+
+!*** arguments
+character(len=*)::array_name
+real, dimension(:,:,:,:)::array
+character(len=*), dimension(:)::pointer_names
+integer, dimension(:)::pointers
+
+!*** local
+integer::np,i,m,j
+character(len=256)::msg
+
+!** executable
+np=ubound(pointers,1)
 
 
-end subroutine add_fire_emissions_to_chem
+993 format(3a,4(1x,i3,':',i3))
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+write(msg,993)'array ',array_name,' has dimensions ',&
+         lbound(array,1),ubound(array,1), &
+         lbound(array,2),ubound(array,2), &
+         lbound(array,3),ubound(array,3), &
+         lbound(array,4),ubound(array,4)
+call message(msg)
 
-#endif
+do i=1,np,line
+   m=min(i+line-1,np)
+   write(msg,'(a,8(1x,a8))')'Species',(trim(pointer_names(j)),j=i,m)
+   call message(msg)
+   write(msg,'(a,8i9)')     'Pointer',(pointers(j),j=i,m)
+   call message(msg)
+   call message(' ')
+enddo
+
+if(maxval(pointers) > ubound(array,4) .or. minval(pointers) < lbound(array,4))then 
+    write(msg,'(3a)')'add_fire_emissions: a ',array_name,' pointer is out of bounds'
+    call crash(msg)
+endif
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+end subroutine check_pointers
+
+
+!
+!***
+!
+
 
 SUBROUTINE fire_tendency( &
     ids,ide, kds,kde, jds,jde,   & ! dimensions
