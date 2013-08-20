@@ -5,6 +5,7 @@ tign=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count
 end
 
 
+% dead code
 function result=perimeter_in_2(long,lat,ros,time_now,bound,wrfout,interval,count)
 
 % Volodymyr Kondratenko           December 8 2012	
@@ -160,6 +161,9 @@ if changed~=0,
    end
 end
 
+
+% this actually runs
+
 function result=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count)
 
 % Volodymyr Kondratenko           July 19 2013	
@@ -208,6 +212,7 @@ for istep=1:max(size(tign_in)),
         if (time-count)>0
             'getting new ros'
             A=[];
+            % D is actually zero?
             [A(:,1),A(:,2)]=find(D>0);
             sprintf('size of A- %i',size(A,1))
             D=zeros(n+2,m+2);
@@ -271,9 +276,18 @@ A=[];
 end
 
 function distance=get_distances(long,lat)
+% computing 4d array of distances between a point and its 8 neighbors
+% 
+% input:
+%   long(i,j), lat(i,j) geographical coordinates of node [i,j], i=1:m, j=1:n, [m,n]=size(long)=size(lat)
+%
+% output
+%   distance(i+1,j+1,a+2,b+2) = geographical distance between node [i,j] and [i+a,j+b] , a,b=-1:1
     
     distance=zeros(size(long,1)+2,size(long,2)+2,3,3);
     
+% add zero borders to long and lat 
+
     long2=zeros(size(long,1)+2,size(long,2)+2);
     long2(2:size(long,1)+1,2:size(long,2)+1)=long;
     long=long2;
@@ -283,27 +297,40 @@ function distance=get_distances(long,lat)
     lat=lat2;
 
     for i=2:size(long,1)-1
-    for j=2:size(long,2)-1
+      for j=2:size(long,2)-1
         for a=-1:1
             for b=-1:1
+                % distance between node [i,j] and [i+a,j+b]
                 distance(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
                           (lat(i+a,j+b,1)-lat(i,j,1))^2);
             end
         end
- 
+      end
     end
+    % note that distance(i,i,...) makes no sense if i=2,m+1 or j=2,n+1 in the direction to the outside
 
-end
+    % some ideas to look at
+    % maybe use mirroring?
+    % maybe keep numbering [i,j] always same as original outside of routines?
+    % now need to remember which array is shifted and bordered by zeros and which one is not
+    % if I was doing it: keep distance size (m,n,3,3) but not compute distance(1,1,...) etc
+    % and keep it zero, same with delta_tign, etc.
 
     
 end
+
+% maybe get_delta_tign ?
 
 function delta_tign=delta_tign_calculation(distance,ros)
-    %Extend the boundaries to speed up the algorithm, the values of the
-    %extended boundaries would be set to zeros and are never used in the
-    %code
-	delta_tign=zeros(size(distance));
-    
+% input:
+%    distance(i+1,j+1,a+2,b+2)  geographical distance between nodes [i,j] and [i+a,j+b]
+%                           from get_distances
+%    ros(i,j,a+2,b+2)   rate of spread at node [i,j] in the direction towards [i+a,j+b]
+%
+% output:
+%    delta_tign(i,j,a+2,b+2) time the fire takes to propagate from [i,j] to [i+a,j+b]
+
+delta_tign=zeros(size(distance));
   
 for i=2:size(delta_tign,1)-1
     for j=2:size(delta_tign,2)-1
@@ -312,9 +339,8 @@ for i=2:size(delta_tign,1)-1
                 delta_tign(i,j,a+2,b+2)=distance(i,j,a+2,b+2)/ros(i-1,j-1,a+2,b+2);
             end
         end
- 
     end
-
 end
+
 end
 
