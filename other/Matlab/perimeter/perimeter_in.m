@@ -1,170 +1,4 @@
-function tign=perimeter_in(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count);
-
-tign=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count);
-
-end
-
-
-% dead code
-function result=perimeter_in_2(long,lat,ros,time_now,bound,wrfout,interval,count)
-
-% Volodymyr Kondratenko           December 8 2012	
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
- 
-% The function creates the initial matrix of times of ignitions
-%			given the perimeter and time of ignition at the points of the perimeter and
-%			is using wind and terrain gradient in its calculations
-% Input: We get it after reading the data using function read_file_perimeter.m 
-%        
-%        long			FXLONG*UNIT_FXLONG, longtitude coordinates of the mesh converted into meters
-%        lat			FXLAT*UNIT_FXLAT, latitude coordinates of the mesh converted into meters 
-%        uf,vf			horizontal wind velocity vectors of the points of the mesh 
-%        dzdxf,dzdyf	terrain gradient of the points of the mesh
-%        time_now		time of ignition on the fireline (fire perimeter)
-%        bound			set of ordered points of the fire perimeter 1st=last 
-%						bound(i,1)-horisontal; bound(i,1)-vertical coordinate
-%
-% Output:   Matrix of time of ignition
-%
-% Code:
-
-%addpath('../../other/Matlab/util1_jan');
-%addpath('../../other/Matlab/netcdf');
-tic
-fuels % This function is needed to create fuel variable, that contains all the characteristics 
-      % types of fuel, this function lies in the same folder where you run the main_function.m
-	  % (where is it originally located/can be created?)
-
-format long
-
-bnd_size=size(bound);
-n=size(long,1);
-m=size(long,2);
-
-%tign=zeros(n,m);      % "time of ignition matrix" of the nodes 
-%A=zeros(n,m);         % flag matrix of the nodes, A(i,j)=1 if the time of ignition of the 
-                      % point (i,j) was updated at least once 
-
-'started' 
-%  IN - matrix, that shows, whether the point is inside (IN(x,y)>0) the burning region
-%  or outside (IN(x,y)<0)
-%  ON - matrix that, shows whether the point is on the boundary or not
-%  Both matrices evaluated using "polygon", coefficients are multiplied by
-%  10^6, because the function looses acuracy when it deals with decimals
-
-xv=bound(:,1);
-yv=bound(:,2);
-xv=xv*100000;
-yv=yv*100000;
-lat1=lat*100000;
-long1=long*100000;
-[IN,ON] = inpolygon(long1,lat1,xv,yv);
-
-% Code 
-
-[delta_tign]=delta_tign_calculation(long,lat,ros);
-
-% Calculates needed variables for rate of fire spread calculation
-
-%%%%%%% First part %%%%%%%
-% Set everything inside to time_now and update the tign of the points outside
-
-% Initializing flag matrix A and time of ignition (tign)
-% Extending the boundaries, in order to speed up the algorythm
-%A=[];
-%C=zeros(n+2,m+2);
-% A contains coordinates of the points that were updated during the last
-% step
-
-IN_ext=(2)*ones(n+2,m+2);
-IN_ext(2:n+1,2:m+1)=IN(:,:,1);
-
-
-% Set all the points outside to time_now and update the points inside
-
-% Initializing flag matrix A and time of ignition (tign)
-% Extending the boundaries, in order to speed up the algorythm
-A=[];
-C=zeros(n+2,m+2);
-for i=2:n+1
-    for j=2:m+1
-        if IN_ext(i,j)==0
-            if sum(sum(IN_ext(i-1:i+1,j-1:j+1)))>0
-            A=[A;[i,j]];
-            end
-       end
-    end
-end
-
-tign_in=zeros(n+2,m+2);
-tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
-changed=1;
-
-time_old=time_now;
-% The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
-% % reaches the max(size()) of the mesh
-count
-interval
-count*interval
-for istep=1:max(size(tign_in)),
-    if changed==0, 
-		% The matrix of tign converged
-		'printed'
-		break
-    end
-    
-    tign_last=tign_in;
-    time_toc=toc;
-    str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
-   
-    
-    if ((time_old-max(max(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
-    'getting new ros'
-      sprintf('time_old= %f',time_old)  
-      sprintf('tign_in(A(1,1),A(1,2))= %f',tign_in(A(1,1),A(1,2)))
-      sprintf('min(min(tign_in(A(:,1),A(:,2))))= %f',min(min(tign_in(A(:,1),A(:,2)))))
-      sprintf('max(max(tign_in(A(:,1),A(:,2))))= %f',max(max(tign_in(A(:,1),A(:,2)))))      
-      sprintf('time_old-max(max(tign_in(A(:,1),A(:,2)))= %f',time_old-max(max(tign_in(A(:,1),A(:,2)))))
-        
-        count1=mod(time_old-max(max(tign_in(A(:,1),A(:,2)))),count*interval)
-        time_old=time_old-count1*interval
-        time=time-count1
-       ros=read_data_from_wrfout(wrfout,size(long,1),size(long,2),time);
-       delta_tign=delta_tign_calculation(long,lat,ros);
-    end
-
-    
-    % tign_update - updates the tign of the points
-    [tign_in,A,C]=tign_update(tign_in,A,IN_ext,delta_tign,time_now);
-  % when it is outside the last parameter is 0, inside 1  
-    changed=sum(tign_in(:)~=tign_last(:));
-%    if (changed<=5)
-%       for i=1:size(A,1)
-%           A(i,:)
-%        end
-%    end 
-
-    sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
-   sprintf('size of A- %i',size(A,1))   
-end
-final_tign=tign_in;
-%final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
-result=final_tign(2:n+1,2:m+1);
-
-fid = fopen('output_tign.txt', 'w');
-    dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
-    fclose(fid);
-    
-if changed~=0,
-    'did not find fixed point inside'
-   end
-end
-
-
-% this actually runs
-
-function result=perimeter_in_tign(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count)
+function result=perimeter_in(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count)
 
 % Volodymyr Kondratenko           July 19 2013	
 
@@ -343,4 +177,167 @@ for i=2:size(delta_tign,1)-1
 end
 
 end
+
+
+
+
+% dead code
+function result=perimeter_in_2(long,lat,ros,time_now,bound,wrfout,interval,count)
+
+% Volodymyr Kondratenko           December 8 2012	
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+% The function creates the initial matrix of times of ignitions
+%			given the perimeter and time of ignition at the points of the perimeter and
+%			is using wind and terrain gradient in its calculations
+% Input: We get it after reading the data using function read_file_perimeter.m 
+%        
+%        long			FXLONG*UNIT_FXLONG, longtitude coordinates of the mesh converted into meters
+%        lat			FXLAT*UNIT_FXLAT, latitude coordinates of the mesh converted into meters 
+%        uf,vf			horizontal wind velocity vectors of the points of the mesh 
+%        dzdxf,dzdyf	terrain gradient of the points of the mesh
+%        time_now		time of ignition on the fireline (fire perimeter)
+%        bound			set of ordered points of the fire perimeter 1st=last 
+%						bound(i,1)-horisontal; bound(i,1)-vertical coordinate
+%
+% Output:   Matrix of time of ignition
+%
+% Code:
+
+%addpath('../../other/Matlab/util1_jan');
+%addpath('../../other/Matlab/netcdf');
+tic
+fuels % This function is needed to create fuel variable, that contains all the characteristics 
+      % types of fuel, this function lies in the same folder where you run the main_function.m
+	  % (where is it originally located/can be created?)
+
+format long
+
+bnd_size=size(bound);
+n=size(long,1);
+m=size(long,2);
+
+%tign=zeros(n,m);      % "time of ignition matrix" of the nodes 
+%A=zeros(n,m);         % flag matrix of the nodes, A(i,j)=1 if the time of ignition of the 
+                      % point (i,j) was updated at least once 
+
+'started' 
+%  IN - matrix, that shows, whether the point is inside (IN(x,y)>0) the burning region
+%  or outside (IN(x,y)<0)
+%  ON - matrix that, shows whether the point is on the boundary or not
+%  Both matrices evaluated using "polygon", coefficients are multiplied by
+%  10^6, because the function looses acuracy when it deals with decimals
+
+xv=bound(:,1);
+yv=bound(:,2);
+xv=xv*100000;
+yv=yv*100000;
+lat1=lat*100000;
+long1=long*100000;
+[IN,ON] = inpolygon(long1,lat1,xv,yv);
+
+% Code 
+
+[delta_tign]=delta_tign_calculation(long,lat,ros);
+
+% Calculates needed variables for rate of fire spread calculation
+
+%%%%%%% First part %%%%%%%
+% Set everything inside to time_now and update the tign of the points outside
+
+% Initializing flag matrix A and time of ignition (tign)
+% Extending the boundaries, in order to speed up the algorythm
+%A=[];
+%C=zeros(n+2,m+2);
+% A contains coordinates of the points that were updated during the last
+% step
+
+IN_ext=(2)*ones(n+2,m+2);
+IN_ext(2:n+1,2:m+1)=IN(:,:,1);
+
+
+% Set all the points outside to time_now and update the points inside
+
+% Initializing flag matrix A and time of ignition (tign)
+% Extending the boundaries, in order to speed up the algorythm
+A=[];
+C=zeros(n+2,m+2);
+for i=2:n+1
+    for j=2:m+1
+        if IN_ext(i,j)==0
+            if sum(sum(IN_ext(i-1:i+1,j-1:j+1)))>0
+            A=[A;[i,j]];
+            end
+       end
+    end
+end
+
+tign_in=zeros(n+2,m+2);
+tign_in(2:n+1,2:m+1)=(1-IN(:,:,1)).*time_now;
+changed=1;
+
+time_old=time_now;
+% The algorithm stops when the matrix converges (tign_old-tign==0) or if the amount of iterations
+% % reaches the max(size()) of the mesh
+count
+interval
+count*interval
+for istep=1:max(size(tign_in)),
+    if changed==0, 
+		% The matrix of tign converged
+		'printed'
+		break
+    end
+    
+    tign_last=tign_in;
+    time_toc=toc;
+    str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
+   
+    
+    if ((time_old-max(max(tign_in(A(:,1),A(:,2)))))>=(count*interval))&&((time-count)>0)
+    'getting new ros'
+      sprintf('time_old= %f',time_old)  
+      sprintf('tign_in(A(1,1),A(1,2))= %f',tign_in(A(1,1),A(1,2)))
+      sprintf('min(min(tign_in(A(:,1),A(:,2))))= %f',min(min(tign_in(A(:,1),A(:,2)))))
+      sprintf('max(max(tign_in(A(:,1),A(:,2))))= %f',max(max(tign_in(A(:,1),A(:,2)))))      
+      sprintf('time_old-max(max(tign_in(A(:,1),A(:,2)))= %f',time_old-max(max(tign_in(A(:,1),A(:,2)))))
+        
+        count1=mod(time_old-max(max(tign_in(A(:,1),A(:,2)))),count*interval)
+        time_old=time_old-count1*interval
+        time=time-count1
+       ros=read_data_from_wrfout(wrfout,size(long,1),size(long,2),time);
+       delta_tign=delta_tign_calculation(long,lat,ros);
+    end
+
+    
+    % tign_update - updates the tign of the points
+    [tign_in,A,C]=tign_update(tign_in,A,IN_ext,delta_tign,time_now);
+  % when it is outside the last parameter is 0, inside 1  
+    changed=sum(tign_in(:)~=tign_last(:));
+%    if (changed<=5)
+%       for i=1:size(A,1)
+%           A(i,:)
+%        end
+%    end 
+
+    sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
+   sprintf('size of A- %i',size(A,1))   
+end
+final_tign=tign_in;
+%final_tign(2:n+1,2:m+1)=(IN(:,:,1)>0).*tign_in(2:n+1,2:m+1)+(IN(:,:,1)==0).*tign(2:n+1,2:m+1);
+result=final_tign(2:n+1,2:m+1);
+
+fid = fopen('output_tign.txt', 'w');
+    dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
+    fclose(fid);
+    
+if changed~=0,
+    'did not find fixed point inside'
+   end
+end
+
+
+
+
 
