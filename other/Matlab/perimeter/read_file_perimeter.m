@@ -1,4 +1,4 @@
-function [fxlong,fxlat,ros,A,tign_g]=read_file_perimeter(data,wrfout,time)
+function [fxlong,fxlat,tign_g,A]=read_file_perimeter(wrfout,time)
 % Volodymyr Kondratenko           April 3 2012
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -37,14 +37,11 @@ p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT','TIGN_G'},{},tim
 fxlong=p.fxlong*p.unit_fxlong;
 fxlat=p.fxlat*p.unit_fxlat;
 tign_g=p.tign_g;
-ros=read_data_from_wrfout(wrfout,time);
-
-A=read_perim_from_tign(tign_g);
+A=get_perim_from_tign(tign_g);
 
 end
 
-% please name it something else than read_
-function A=read_perim_from_tign(tign);
+function A=get_perim_from_tign(tign);
 % in:
 %    tign         ignition time
 % out: 

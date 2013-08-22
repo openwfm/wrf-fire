@@ -1,5 +1,6 @@
 %data='data_perim.txt';
 data='';            % contained the coordinates of the fire perimeter from the shapefile
+% Not using data at the moment
 wrfout='wrfout_d01_0001-01-01_00:00:00_fuel3';
 %wrfout='wrfout_d05_2012-09-12_21:15:01';
 %wrfout='wrfout_d05_2012-09-09_00:00:00'; - for the earlies Baker's fire
@@ -18,7 +19,11 @@ format long
 % read burning/not burning man from wrfout, should not set A or tign_g
 % can be replaced by any other data acquisition routine
 
-[long,lat,ros,A,tign_g]=read_file_perimeter(data,wrfout,time);
+[long,lat,tign_g,A]=read_file_perimeter(wrfout,time);
+
+ros=read_data_from_wrfout(wrfout,time);
+
+
 
 % read long, lat from wrfout
 % interpolate/resample to the wrf fire grid
