@@ -1,13 +1,15 @@
 wrfout='wrfout_d01_0001-01-01_00:00:00_fuel3';
 interval=10;      % time step in wrfout in seconds
-count=1;          % we will be updating the wind every hour 4*15;
-time=31;          % index corresponding time_now in 'Times' array in wrfout
-time_now=300.25;  % time when the fire perimeter ws taken
+count=1;          % update the wind every count time steps
+time=31;          % the number of the time step in wrfout closest to the perimeter time from above
+time_now=300.25;  % the perimeter time (s)
 
 format long
 
-% read burning/not burning man from wrfout, should not set A or tign_g
+% read burning/not burning map from wrfout, should not set A or tign_g
 % can be replaced by any other data acquisition routine
+
+% read the fire map at perimeter time
 
 [long,lat,tign_g]=read_file_perimeter(wrfout,time);
 
