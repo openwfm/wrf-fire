@@ -1,24 +1,53 @@
-function result=perimeter_in(long,lat,ros,time_now,A,tign_g,wrfout,time,interval,count)
+function result=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count);
 
 % Volodymyr Kondratenko           July 19 2013	
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-n=size(long,1);
-m=size(long,2);
+
+% Input:    
+%    long,lat      longtitude and latitude converted to meters
+%    tign_g        time of ignitions, that was read from wrfout 
+%    wrfout        name of the wrfout file, that is being used to read ros
+%    time_now      time when the fire perimeter ws taken
+%    time          index corresponding time_now in 'Times' array in wrfout
+%    interval      time step in wrfout in seconds
+%    count         we will be updating the ros every interval*count seconds
+% 
+% Output: 
+%    Final Matrix of times of ignition will be printed to 'output_tign.txt'
+%
+%
+[n,m]=size(long);
+
 
 'perimeter_in_tign'
 
+% Reading Rate of spread
+ros=read_data_from_wrfout(wrfout,time);
+
+% Getting matrix A from the initial tign_g, where
+% A contains rows [i,j] of indices of nodes not burning that have at least 
+%   one burning neighbor
+A=get_perim_from__initial_tign(tign_g);
+
+% Computing 4d array of distances between a point and its 8 neighbors
 distance=get_distances(long,lat);
+
+% Computing 4d array of differences of tign (delta_tign) between a point 
+% and its 8 neighbors
 [delta_tign]=get_delta_tign(distance,ros);
 
+% Initializing tign
+% Everything outside of the burning area is set to time_now, 
+% inside is set to 0
 tign_in=zeros(n,m);
 tign_in=(tign_g(:,:)==time_now).*time_now;
+
+% D - if D[i,j]=1, then the neighbors of the point [i,j]
+% will be updated only in the next timestep (only after we update ros)
 D=zeros(n,m);
+
 changed=1;
-count_new=0;
-count
-interval
-count*interval
 tic
     sprintf('size of A- %i',size(A,1))
 for istep=1:max(size(tign_in)),
@@ -39,14 +68,10 @@ for istep=1:max(size(tign_in)),
 
     sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
     sprintf('size of A- %i',size(A,1))
-    [row,col]=find(D>0);
-    sprintf('size of D- %i',size(row,1))
-    
     if (size(A,1)==0)
         if (time-count)>0
             'getting new ros'
             A=[];
-            % D is actually zero?
             [A(:,1),A(:,2)]=find(D>0);
             sprintf('size of A- %i',size(A,1))
             D=zeros(n,m);
@@ -76,12 +101,11 @@ end
 
 function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,interval,ros)
 % A - set of points whose neighbors will be updated
-% C - set of points that will be updated next step
-% D - same as B, but in a matrix form and is being updated every step
-% separately
+% C - if C[i,j]=1, then the neighbors of the point [i,j]
+% will be updated in the next iteration within the same timestep
+% D - if D[i,j]=1, then the neighbors of the point [i,j]
+% will be updated only in the next timestep (only after we update ros)
 
-% Does one iteration of the algorythm and updates the tign of the points of
-% the mesh that are next to the previously updated neighbors
 C=zeros(size(tign));
 for i=1:size(A,1)
     for dx=-1:1   
@@ -145,6 +169,7 @@ end
 % maybe get_delta_tign ?
 
 function delta_tign=get_delta_tign(distance,ros)
+% computing 4d array of differences of tign (delta_tign) between a point and its 8 neighbors
 % input:
 %    distance(i+1,j+1,a+2,b+2)  geographical distance between nodes [i,j] and [i+a,j+b]
 %                           from get_distances
@@ -167,8 +192,49 @@ end
 
 end
 
+function A=get_perim_from__initial_tign(tign);
+% in:
+%    tign         ignition time
+% out: 
+%    A            rows [i,j] of indices of nodes not burning that have at least one
+%                 burning neighbor
+A=[];
+format long
+max_tign=max(tign(:))
+tign_copy=max_tign*ones(size(tign,1)+2,size(tign,2)+2);
+tign_copy(2:size(tign,1)+1,2:size(tign,2)+1)=tign;
+tign=tign_copy;
+for i=2:size(tign,1)-1
+    for j=2:size(tign,2)-1
+        % if (i,j) is not burning
+        if (tign(i,j)==max_tign) 
+            % if any neighbor is not burning
+            if (any(any(tign(i-1:i+1,j-1:j+1)<max_tign))==1)
+            % add [i,j] to A
+            A=[A;[i,j]];
+            end
+       end
+    end
+end
+end
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % dead code
 function result=perimeter_in_2(long,lat,ros,time_now,bound,wrfout,interval,count)

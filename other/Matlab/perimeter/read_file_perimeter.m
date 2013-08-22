@@ -1,4 +1,4 @@
-function [fxlong,fxlat,tign_g,A]=read_file_perimeter(wrfout,time)
+function [fxlong,fxlat,tign_g]=read_file_perimeter(wrfout,time)
 % Volodymyr Kondratenko           April 3 2012
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -37,35 +37,9 @@ p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT','TIGN_G'},{},tim
 fxlong=p.fxlong*p.unit_fxlong;
 fxlat=p.fxlat*p.unit_fxlat;
 tign_g=p.tign_g;
-A=get_perim_from_tign(tign_g);
 
 end
 
-function A=get_perim_from_tign(tign);
-% in:
-%    tign         ignition time
-% out: 
-%    A            rows [i,j] of indices of nodes not burning that have at least one
-%                 burning neighbor
-A=[];
-format long
-max_tign=max(tign(:))
-tign_copy=max_tign*ones(size(tign,1)+2,size(tign,2)+2);
-tign_copy(2:size(tign,1)+1,2:size(tign,2)+1)=tign;
-tign=tign_copy;
-for i=2:size(tign,1)-1
-    for j=2:size(tign,2)-1
-        % if (i,j) is not burning
-        if (tign(i,j)==max_tign) 
-            % if any neighbor is not burning
-            if (any(any(tign(i-1:i+1,j-1:j+1)<max_tign))==1)
-            % add [i,j] to A
-            A=[A;[i,j]];
-            end
-       end
-    end
-end
-end
 
 function bound=read_perim_from_file(data,unit_long,unit_lat);
 fid = fopen(data);
