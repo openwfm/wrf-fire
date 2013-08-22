@@ -13,7 +13,15 @@ module module_model_constants
 end module module_model_constants
 
 module module_state_description
-   integer, parameter:: num_tracer=1, p_tr17_1=1
+   integer, parameter:: num_tracer=1
+   integer ::             p_tr17_1=1
+   integer ::             p_tr17_2=1
+   integer ::             p_tr17_3=1
+   integer ::             p_tr17_4=1
+   integer ::             p_tr17_5=1
+   integer ::             p_tr17_6=1
+   integer ::             p_tr17_7=1
+   integer ::             p_tr17_8=1
 end module module_state_description
 
 !
@@ -114,6 +122,12 @@ integer::val
 integer::idex,jdex
 call wrf_error_fatal('wrf_dm_maxval_integer:not implemented')
 end subroutine wrf_dm_maxval_integer
+
+subroutine wrf_dm_sum_reals(t,s)
+real, intent(in)::t(:)
+real, intent(out)::s(:)
+s=t
+end subroutine wrf_dm_sum_reals
 
 end module module_dm
 
