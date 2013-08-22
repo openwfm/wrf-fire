@@ -8,10 +8,11 @@ function result=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count
 %    long,lat      longtitude and latitude converted to meters
 %    tign_g        time of ignitions, that was read from wrfout  % JM replace by a 0,1 array
 %    wrfout        name of the wrfout file, that is being used to read ros
-%    time_now      time when the fire perimeter ws taken % JM update from main_function
+%    time_now      time when the fire perimeter ws taken % JM update from main_function % call it perimeter_time or something
 %    time          index corresponding time_now in 'Times' array in wrfout % JM update from main_function
 %    interval      time step in wrfout in seconds % JM update from main_function
 %    count         we will be updating the ros every interval*count seconds % JM update from main_function
+%  JM NEVER CHANGE INPUT VARIABLES
 % 
 % Output: 
 %    Final Matrix of times of ignition will be printed to 'output_tign.txt' % JM use save tign instead, create tign.mat
@@ -22,16 +23,20 @@ function result=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count
 
 'perimeter_in'
 
+% JM algorithm state is stored in arrays A D C
+%
+% A contains rows [i,j] of indices of nodes not burning that have at least one burning neighbor
+%   and time of ignition > time_now 
+
 % Reading Rate of spread
 ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
 
 % Getting matrix A from the initial tign_g, where
-% A contains rows [i,j] of indices of nodes not burning that have at least 
-%   one burning neighbor
 A=get_perim_from__initial_tign(tign_g); % JM we are getting A from fire map, not tign_g itself
 
 % Computing 4d array of distances between a point and its 8 neighbors
 distance=get_distances(long,lat);
+% JM do not change this later, use adjustment array instead if you must
 
 % Computing 4d array of differences of tign (delta_tign) between a point 
 % and its 8 neighbors
@@ -41,7 +46,7 @@ distance=get_distances(long,lat);
 % Everything outside of the burning area is set to time_now, 
 % inside is set to 0
 tign_in=zeros(n,m);
-tign_in=(tign_g(:,:)==time_now).*time_now;
+tign_in=(tign_g(:,:)==time_now).*time_now;  % JM do not use tign_g; never test reals on equality
 
 % D - if D[i,j]=1, then the neighbors of the point [i,j]
 % will be updated only in the next timestep (only after we update ros)
