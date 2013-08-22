@@ -9,11 +9,11 @@ m=size(long,2);
 'perimeter_in_tign'
 
 distance=get_distances(long,lat);
-[delta_tign]=delta_tign_calculation(distance,ros);
+[delta_tign]=get_delta_tign(distance,ros);
 
-tign_in=zeros(n+2,m+2);
-tign_in(2:n+1,2:m+1)=(tign_g(:,:)==time_now).*time_now;
-D=zeros(n+2,m+2);
+tign_in=zeros(n,m);
+tign_in=(tign_g(:,:)==time_now).*time_now;
+D=zeros(n,m);
 changed=1;
 count_new=0;
 count
@@ -49,11 +49,11 @@ for istep=1:max(size(tign_in)),
             % D is actually zero?
             [A(:,1),A(:,2)]=find(D>0);
             sprintf('size of A- %i',size(A,1))
-            D=zeros(n+2,m+2);
+            D=zeros(n,m);
             time_now=time_now-count*interval
             time=time-1;
             ros=read_data_from_wrfout(wrfout,time);
-            delta_tign=delta_tign_calculation(distance,ros);
+            delta_tign=get_delta_tign(distance,ros);
     
         elseif (time-count)<0
         
@@ -63,8 +63,7 @@ for istep=1:max(size(tign_in)),
        
 end
 
-final_tign=tign_in;
-result=final_tign(2:n+1,2:m+1);
+result=final_in;
 
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
@@ -83,7 +82,7 @@ function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,i
 
 % Does one iteration of the algorythm and updates the tign of the points of
 % the mesh that are next to the previously updated neighbors
-C=zeros(size(tign,1),size(tign,2));
+C=zeros(size(tign));
 for i=1:size(A,1)
     for dx=-1:1   
         for dy=-1:1  
@@ -118,18 +117,8 @@ function distance=get_distances(long,lat)
 % output
 %   distance(i+1,j+1,a+2,b+2) = geographical distance between node [i,j] and [i+a,j+b] , a,b=-1:1
     
-    distance=zeros(size(long,1)+2,size(long,2)+2,3,3);
+    distance=zeros(size(long,1),size(long,2),3,3);
     
-% add zero borders to long and lat 
-
-    long2=zeros(size(long,1)+2,size(long,2)+2);
-    long2(2:size(long,1)+1,2:size(long,2)+1)=long;
-    long=long2;
-    
-    lat2=zeros(size(lat,1)+2,size(lat,2)+2);
-    lat2(2:size(lat,1)+1,2:size(lat,2)+1)=lat;
-    lat=lat2;
-
     for i=2:size(long,1)-1
       for j=2:size(long,2)-1
         for a=-1:1
@@ -155,7 +144,7 @@ end
 
 % maybe get_delta_tign ?
 
-function delta_tign=delta_tign_calculation(distance,ros)
+function delta_tign=get_delta_tign(distance,ros)
 % input:
 %    distance(i+1,j+1,a+2,b+2)  geographical distance between nodes [i,j] and [i+a,j+b]
 %                           from get_distances
