@@ -6,29 +6,29 @@ function result=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count
 
 % Input:    
 %    long,lat      longtitude and latitude converted to meters
-%    tign_g        time of ignitions, that was read from wrfout 
+%    tign_g        time of ignitions, that was read from wrfout  % JM replace by a 0,1 array
 %    wrfout        name of the wrfout file, that is being used to read ros
-%    time_now      time when the fire perimeter ws taken
-%    time          index corresponding time_now in 'Times' array in wrfout
-%    interval      time step in wrfout in seconds
-%    count         we will be updating the ros every interval*count seconds
+%    time_now      time when the fire perimeter ws taken % JM update from main_function
+%    time          index corresponding time_now in 'Times' array in wrfout % JM update from main_function
+%    interval      time step in wrfout in seconds % JM update from main_function
+%    count         we will be updating the ros every interval*count seconds % JM update from main_function
 % 
 % Output: 
-%    Final Matrix of times of ignition will be printed to 'output_tign.txt'
+%    Final Matrix of times of ignition will be printed to 'output_tign.txt' % JM use save tign instead, create tign.mat
 %
 %
 [n,m]=size(long);
 
 
-'perimeter_in_tign'
+'perimeter_in'
 
 % Reading Rate of spread
-ros=read_data_from_wrfout(wrfout,time);
+ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
 
 % Getting matrix A from the initial tign_g, where
 % A contains rows [i,j] of indices of nodes not burning that have at least 
 %   one burning neighbor
-A=get_perim_from__initial_tign(tign_g);
+A=get_perim_from__initial_tign(tign_g); % JM we are getting A from fire map, not tign_g itself
 
 % Computing 4d array of distances between a point and its 8 neighbors
 distance=get_distances(long,lat);

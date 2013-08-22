@@ -11,6 +11,8 @@ format long
 
 % read the fire map at perimeter time
 
+% JM read fire_area instead of tign_g
+% JM we are pretending we  are getting data here
 [long,lat,tign_g]=read_file_perimeter(wrfout,time);
 
 % Can I call an inside function from another script
@@ -19,6 +21,8 @@ format long
 
 % now have data: long, lat, fire_area - burning or not burning (between 0 and 1, 0-1 OK)
 % wrfout - has ros
+
+% JM should not take tign_g as input, only tign_g <= time_now,
 
 tign=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count);
 
