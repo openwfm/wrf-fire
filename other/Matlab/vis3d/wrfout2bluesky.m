@@ -54,6 +54,7 @@ w=nc2struct(in{1},{'FIRE_AREA'},{},1); % the first fire area
 a_old=w.fire_area;
 fire_id=0;
 for ifile=1:length(in),
+    fprintf('reading file %s\n',in{ifile});
     w=nc2struct(in{ifile},{'Times'},{}); % read netcdf file
     t=char(w.times');  % convert times to character matrix one string per row
     s=size(t,1);
@@ -63,25 +64,30 @@ for ifile=1:length(in),
         a=w.fire_area;
         ta=sum(a(:))*fdx*fdy;
         fprintf('timestep %i/%i %s total fire area %g m^2\n',istep,s,t(istep,:),ta)
-        a_diff = a - a_old;
-        if any(a_diff(:)< - eps(single(1)))
-            warning('fire area can only increase')
-            a_diff = max(a_diff,0);
-        end 
-        if(ta>0),
-            cc=bwconncomp(a>0); % find connected components,  image processing toolbox
-            for id=1:length(cc.PixelIdxList)
-                fire_id = fire_id+1;
-                fire_ctr_lon=mean(lon(cc.PixelIdxList{id}));  % center longitude of the fire area 
-                fire_ctr_lat=mean(lat(cc.PixelIdxList{id}));  % center latitude of the fire area 
-                fire_acres=fdx*fdy*sum(a_diff(cc.PixelIdxList{id}))/4046.86; % newly burning acres
-                d=datenum(t(istep,:),'yyyy-mm-dd_HH:MM:SS'); % convert ESMF time string to double
-                tim=[datestr(d,'yyyymmddHHMM'),'L'];         % convert to bluesky time format
-                fprintf(fid,'%i, %g, %g, %g, %s\n',fire_id,fire_ctr_lon,fire_ctr_lat,fire_acres,tim);
-                fprintf('%i, %g, %g, %g, %s\n',fire_id,fire_ctr_lon,fire_ctr_lat,fire_acres,tim);
+        d=datenum(t(istep,:),'yyyy-mm-dd_HH:MM:SS'); % convert ESMF time string to double
+        tim=[datestr(d,'yyyymmddHHMM'),'L'];         % convert to bluesky time format
+        v = datevec(d);
+        if(v(5)==0 & v(6) == 0) % whole hour
+            a_diff = a - a_old;
+            if any(a_diff(:)< - eps(single(1)))
+                warning('fire area can only increase')
+                a_diff = max(a_diff,0);
+            end 
+            if(ta>0),
+                cc=bwconncomp(a>0); % find connected components,  image processing toolbox
+                for id=1:length(cc.PixelIdxList)
+                    fire_id = fire_id+1;
+                    fire_ctr_lon=mean(lon(cc.PixelIdxList{id}));  % center longitude of the fire area 
+                    fire_ctr_lat=mean(lat(cc.PixelIdxList{id}));  % center latitude of the fire area 
+                    fire_acres=fdx*fdy*sum(a_diff(cc.PixelIdxList{id}))/4046.86; % newly burning acres
+                    fprintf(fid,'%i, %g, %g, %g, %s\n',fire_id,fire_ctr_lon,fire_ctr_lat,fire_acres,tim);
+                    fprintf('%i, %g, %g, %g, %s\n',fire_id,fire_ctr_lon,fire_ctr_lat,fire_acres,tim);
+                end
             end
+            a_old=a;
+        else
+            fprintf('not on the hour, skipping %s\n',tim)
         end
-        a_old=a;
     end
 end
 fclose(fid);
