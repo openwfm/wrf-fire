@@ -1,4 +1,4 @@
-wrfout='wrfout_d01_0001-01-01_00:00:00_fuel3';
+wrfout='wrfout_d01_0001-01-01_00:00:00';
 interval=10;      % time step in wrfout in seconds
 count=1;          % update the wind every count time steps
 time=31;          % the number of the time step in wrfout closest to the perimeter time from above
