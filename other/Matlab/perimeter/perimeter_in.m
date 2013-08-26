@@ -6,12 +6,13 @@ function result=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval,co
 
 % Input:    
 %    long,lat      longtitude and latitude converted to meters
-%    tign_g        time of ignitions, that was read from wrfout  % JM replace by a 0,1 array
+%    fire_area     fire map,[0,1] array, where 0- not
+%                  burning area, >0 burning area, 1 - area that was burnt
 %    wrfout        name of the wrfout file, that is being used to read ros
-%    time_now      time when the fire perimeter ws taken % JM update from main_function % call it perimeter_time or something
-%    time          index corresponding time_now in 'Times' array in wrfout % JM update from main_function
-%    interval      time step in wrfout in seconds % JM update from main_function
-%    count         we will be updating the ros every interval*count seconds % JM update from main_function
+%    time_now      the perimeter time (s)
+%    time          update the wind every count time steps
+%    interval      time step in wrfout in seconds
+%    count         update the wind every count time steps
 %  JM NEVER CHANGE INPUT VARIABLES
 % 
 % Output: 
@@ -32,8 +33,7 @@ function result=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval,co
 ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
 
 % Getting matrix A from the initial tign_g, where
-A=get_perim_from_initial_tign(fire_area); % JM we are getting A from fire map, not tign_g itself
-
+A=get_perim_from_initial_tign(fire_area); 
 % Computing 4d array of distances between a point and its 8 neighbors
 distance=get_distances(long,lat);
 % JM do not change this later, use adjustment array instead if you must
@@ -46,7 +46,7 @@ distance=get_distances(long,lat);
 % Everything outside of the burning area is set to time_now, 
 % inside is set to 0
 tign_in=zeros(n,m);
-tign_in=(fire_area(:,:)==0).*time_now;  % JM do not use tign_g; never test reals on equality
+tign_in=(fire_area(:,:)==0).*time_now;  %Should I use |a-b|<eps ? %JM never test reals on equality
 
 % D - if D[i,j]=1, then the neighbors of the point [i,j]
 % will be updated only in the next timestep (only after we update ros)
@@ -66,31 +66,32 @@ for istep=1:max(size(tign_in)),
     tign_last=tign_in;
     contour(tign_in(2:end-1,2:end-1));drawnow
     [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval,ros);
-
+%%%    [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval,ros);
+    [row,col]=find(D>0)
     contour(tign_in(2:end-1,2:end-1));title(sprintf('step %i',istep)),drawnow
 
     changed=sum(tign_in(:)~=tign_last(:));
 
     sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
     sprintf('size of A- %i',size(A,1))
-    if (size(A,1)==0)
-        if (time-count)>0
-            'getting new ros'
-            A=[];
-            [A(:,1),A(:,2)]=find(D>0);
-            sprintf('size of A- %i',size(A,1))
-            D=zeros(n,m);
-            time_now=time_now-count*interval
-            time=time-1;
-            ros=read_data_from_wrfout(wrfout,time);
-            delta_tign=get_delta_tign(distance,ros);
-    
-        elseif (time-count)<0
-        
-        'time-count<0'
-        end
-    end
-       
+% % %     if (size(A,1)==0)
+% % %         if (time-count)>0
+% % %             'getting new ros'
+% % %             A=[];
+% % %             [A(:,1),A(:,2)]=find(D>0);
+% % %             sprintf('size of A- %i',size(A,1))
+% % %             D=zeros(n,m);
+% % %             time_now=time_now-count*interval
+% % %             time=time-1;
+% % %             ros=read_data_from_wrfout(wrfout,time);
+% % %             delta_tign=get_delta_tign(distance,ros);
+% % %     
+% % %         elseif (time-count)<0
+% % %         
+% % %         'time-count<0'
+% % %         end
+% % %     end
+% % %        
 end
 
 result=tign_in;
@@ -104,7 +105,9 @@ if changed~=0,
    end
 end
 
+%%% function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,interval,ros)
 function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,interval,ros)
+
 % A - set of points whose neighbors will be updated
 % C - if C[i,j]=1, then the neighbors of the point [i,j]
 % will be updated in the next iteration within the same timestep
@@ -112,20 +115,34 @@ function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,i
 % will be updated only in the next timestep (only after we update ros)
 
 C=zeros(size(tign));
+
 for i=1:size(A,1)
     for dx=-1:1   
         for dy=-1:1  
                 if (tign(A(i,1)+dx,A(i,2)+dy)<time_now)==1
                     tign_new=tign(A(i,1),A(i,2))-0.5*(delta_tign(A(i,1)+dx,A(i,2)+dy,-dx+2,-dy+2)+delta_tign(A(i,1),A(i,2),2-dx,2-dy));
                     if (tign(A(i,1)+dx,A(i,2)+dy)<tign_new)&&(tign_new<=time_now)
-                        if (time_now-tign_new<interval)
-                            tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
+                           tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
                             C(A(i,1)+dx,A(i,2)+dy)=1;
-                        else
-                            distance(A(i,1),A(i,2),2-dx,2-dy)=distance(A(i,1),A(i,2),2-dx,2-dy)-interval*ros(A(i,1),A(i,2),2-dx,2-dy);
-                            distance(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy)=distance(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy)-interval*ros(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy);
-                            D(A(i,1),A(i,2))=1;
-                        end
+
+                            if (time_now-tign_new>interval)
+                                D(A(i,1),A(i,2))=1;
+                            end
+%                             
+%                         if (time_now-tign_new<interval)
+%                             
+%                         else
+%                             D(A(i,1),A(i,2))=1;
+%                         end
+
+% % %                         if (time_now-tign_new<interval)
+% % %                             tign(A(i,1)+dx,A(i,2)+dy)=tign_new;
+% % %                             C(A(i,1)+dx,A(i,2)+dy)=1;
+% % %                         else
+% % %                             distance(A(i,1),A(i,2),2-dx,2-dy)=distance(A(i,1),A(i,2),2-dx,2-dy)-interval*ros(A(i,1),A(i,2),2-dx,2-dy);
+% % %                             distance(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy)=distance(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy)-interval*ros(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy);
+% % %                             D(A(i,1)+dx,A(i,2)+dy)=1;
+% % %                         end
                         
                     end
             

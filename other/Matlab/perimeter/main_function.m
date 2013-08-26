@@ -11,12 +11,9 @@ format long
 
 % read the fire map at perimeter time
 
-% JM read fire_area instead of tign_g
-% JM we are pretending we  are getting data here
 [long,lat,fire_area]=read_file_perimeter(wrfout,time);
 
-% Can I call an inside function from another script
-% read long, lat from wrfout
+% read long, fire_area, lat from wrfout
 % interpolate/resample to the wrf fire grid
 
 % now have data: long, lat, fire_area - burning or not burning (between 0 and 1, 0-1 OK)
