@@ -13,7 +13,7 @@ format long
 
 % JM read fire_area instead of tign_g
 % JM we are pretending we  are getting data here
-[long,lat,tign_g]=read_file_perimeter(wrfout,time);
+[long,lat,fire_area]=read_file_perimeter(wrfout,time);
 
 % Can I call an inside function from another script
 % read long, lat from wrfout
@@ -24,7 +24,7 @@ format long
 
 % JM should not take tign_g as input, only tign_g <= time_now,
 
-tign=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count);
+tign=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval,count);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The information below is not beig used for the current problem

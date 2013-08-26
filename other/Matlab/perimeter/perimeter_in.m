@@ -1,4 +1,4 @@
-function result=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count);
+function result=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval,count);
 
 % Volodymyr Kondratenko           July 19 2013	
 
@@ -32,7 +32,7 @@ function result=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count
 ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
 
 % Getting matrix A from the initial tign_g, where
-A=get_perim_from__initial_tign(tign_g); % JM we are getting A from fire map, not tign_g itself
+A=get_perim_from_initial_tign(fire_area); % JM we are getting A from fire map, not tign_g itself
 
 % Computing 4d array of distances between a point and its 8 neighbors
 distance=get_distances(long,lat);
@@ -46,7 +46,7 @@ distance=get_distances(long,lat);
 % Everything outside of the burning area is set to time_now, 
 % inside is set to 0
 tign_in=zeros(n,m);
-tign_in=(tign_g(:,:)==time_now).*time_now;  % JM do not use tign_g; never test reals on equality
+tign_in=(fire_area(:,:)==0).*time_now;  % JM do not use tign_g; never test reals on equality
 
 % D - if D[i,j]=1, then the neighbors of the point [i,j]
 % will be updated only in the next timestep (only after we update ros)
@@ -93,7 +93,7 @@ for istep=1:max(size(tign_in)),
        
 end
 
-result=final_in;
+result=tign_in;
 
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
@@ -197,7 +197,7 @@ end
 
 end
 
-function A=get_perim_from__initial_tign(tign);
+function A=get_perim_from_initial_tign(fire_area);
 % in:
 %    tign         ignition time
 % out: 
@@ -205,16 +205,12 @@ function A=get_perim_from__initial_tign(tign);
 %                 burning neighbor
 A=[];
 format long
-max_tign=max(tign(:))
-tign_copy=max_tign*ones(size(tign,1)+2,size(tign,2)+2);
-tign_copy(2:size(tign,1)+1,2:size(tign,2)+1)=tign;
-tign=tign_copy;
-for i=2:size(tign,1)-1
-    for j=2:size(tign,2)-1
+for i=2:size(fire_area,1)-1
+    for j=2:size(fire_area,2)-1
         % if (i,j) is not burning
-        if (tign(i,j)==max_tign) 
+        if (fire_area(i,j)==0) 
             % if any neighbor is not burning
-            if (any(any(tign(i-1:i+1,j-1:j+1)<max_tign))==1)
+            if (any(any(fire_area(i-1:i+1,j-1:j+1)>0))==1)
             % add [i,j] to A
             A=[A;[i,j]];
             end
