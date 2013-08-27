@@ -1,4 +1,4 @@
-function result=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval,count);
+function tign=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval);
 
 % Volodymyr Kondratenko           July 19 2013	
 
@@ -12,17 +12,12 @@ function result=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval,co
 %    time_now      the perimeter time (s)
 %    time          update the wind every count time steps
 %    interval      time step in wrfout in seconds
-%    count         update the wind every count time steps
 %  JM NEVER CHANGE INPUT VARIABLES
 % 
 % Output: 
 %    Final Matrix of times of ignition will be printed to 'output_tign.txt' % JM use save tign instead, create tign.mat
 %
 %
-[n,m]=size(long);
-
-
-'perimeter_in'
 
 % JM algorithm state is stored in arrays A D C
 %
@@ -32,81 +27,76 @@ function result=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval,co
 % Reading Rate of spread
 ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
 
-% Getting matrix A from the initial tign_g, where
-A=get_perim_from_initial_tign(fire_area); 
 % Computing 4d array of distances between a point and its 8 neighbors
 distance=get_distances(long,lat);
-% JM do not change this later, use adjustment array instead if you must
 
-% Computing 4d array of differences of tign (delta_tign) between a point 
-% and its 8 neighbors
-[delta_tign]=get_delta_tign(distance,ros);
-
-% Initializing tign
-% Everything outside of the burning area is set to time_now, 
-% inside is set to 0
-tign_in=zeros(n,m);
-tign_in=(fire_area(:,:)==0).*time_now;  %Should I use |a-b|<eps ? %JM never test reals on equality
-
-% D - if D[i,j]=1, then the neighbors of the point [i,j]
-% will be updated only in the next timestep (only after we update ros)
-D=zeros(n,m);
-
-changed=1;
-tic
-    sprintf('size of A- %i',size(A,1))
-for istep=1:max(size(tign_in)),
-    if size(A,1)==0, 
-		'printed'
-		break
-    end
-    
-    time_toc=toc;
-    str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
-    tign_last=tign_in;
-    contour(tign_in(2:end-1,2:end-1));drawnow
-    [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval,ros);
-%%%    [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval,ros);
-    [row,col]=find(D>0)
-    contour(tign_in(2:end-1,2:end-1));title(sprintf('step %i',istep)),drawnow
-
-    changed=sum(tign_in(:)~=tign_last(:));
-
-    sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
-    sprintf('size of A- %i',size(A,1))
-% % %     if (size(A,1)==0)
-% % %         if (time-count)>0
-% % %             'getting new ros'
-% % %             A=[];
-% % %             [A(:,1),A(:,2)]=find(D>0);
-% % %             sprintf('size of A- %i',size(A,1))
-% % %             D=zeros(n,m);
-% % %             time_now=time_now-count*interval
-% % %             time=time-1;
-% % %             ros=read_data_from_wrfout(wrfout,time);
-% % %             delta_tign=get_delta_tign(distance,ros);
-% % %     
-% % %         elseif (time-count)<0
-% % %         
-% % %         'time-count<0'
-% % %         end
-% % %     end
-% % %        
-end
-
-result=tign_in;
+tign=get_tign_from_dif_eq(ros,fire_area,distance,interval)
 
 fid = fopen('output_tign.txt', 'w');
-    dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
+    dlmwrite('output_tign.txt', tign, 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
     
-if changed~=0,
-    'did not find fixed point inside'
-   end
 end
 
+
+function [tign]=get_tign_from_dif_eq(ros,fire_area,distance,interval)
+
+% ros(i,j,a,b,t) - ros in all directions taken over all time steps (t)   
+% distance
+% interval
+
+time=size(ros,5); % time step in wrfout corresponding to the time when the 
+                  % perimeter was taken, time*interval=perimeter time (s)
+time_now=time*interval; % perimeter time
+
+A=[];             % List of all points that are has not burnt yet and whose
+[A(:,1),A(:,2)]=find(fire_area>0);  % tign needs to be found
+% We initialize A by putting all the points inside the perimeter in A
+% We do not update the elements on the boundary
+I=zeros(size(distance));            % Matrix of distances
+tign=zeros(size(distance,1),size(distance,2)); % Final matrix of differences
+
+for i=time:-1:2
+    if size(A,1)==0
+        exit;
+        'finished at the time '
+        i
+    else
+        for j=1:size(A,1)
+            for dx=-1:1
+                for dy=-1:1
+                    % C=0.5*(0.5*(r(t1)+r(t2))*(t2-t1){to point A}+0.5*(r(t1)+r(t2))*(t2-t1){from point A})
+                    C=0.25*interval*(ros(A(j,1),A(j,2),2+dx,2+dy,i)+ros(A(j,1),A(j,2),2+dx,2+dy,i-1) + ...
+                      ros(A(j,1)+dx,A(j,2)+dy,2+dx,2+dy,i)+ros(A(j,1)+dx,A(j,2)+dy,2+dx,2+dy,i-1)); 
+                    I(A(j,1),A(j,2),2+dx,2+dy)=C+I(A(j,1),A(j,2),2+dx,2+dy);
+                    if (I(A(j,1),A(j,2),2+dx,2+dy)>distance(A(j,1),A(j,2),2+dx,2+dy))
+                        % Interpolating
+                       tign(A(j,1),A(j,2))=(distance(A(j,1),A(j,2),2+dx,2+dy)/I(A(j,1),A(j,2),2+dx,2+dy))*(i-1)*interval;
+                    end
+                    
+                end
+                
+            end
+            
+        end
+        
+    end
+        A=[];
+        [A(:,1),A(:,2)]=find(tign(2:end-1,2:end-1)==0);
+        A(:,1)=A(:,1)+1;
+        A(:,2)=A(:,2)+1;
+end
+'reached the last time_step'
+end
+                                  
+function tign_of_cell=interpolate(D_new,D_old,time,interval)
+tign_of_cell=(D_old/D_new)*(time*interval);
+end
+
+
+
 %%% function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,interval,ros)
-function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,interval,ros)
+function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,interval)
 
 % A - set of points whose neighbors will be updated
 % C - if C[i,j]=1, then the neighbors of the point [i,j]
@@ -141,7 +131,7 @@ for i=1:size(A,1)
 % % %                         else
 % % %                             distance(A(i,1),A(i,2),2-dx,2-dy)=distance(A(i,1),A(i,2),2-dx,2-dy)-interval*ros(A(i,1),A(i,2),2-dx,2-dy);
 % % %                             distance(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy)=distance(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy)-interval*ros(A(i,1)+dx,A(i,2)+dy,2-dx,2-dy);
-% % %                             D(A(i,1)+dx,A(i,2)+dy)=1;
+% % %                             D(A(i,1),A(i,2))=1;
 % % %                         end
                         
                     end
@@ -253,6 +243,112 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function result=perimeter_in_const_ros(long,lat,fire_area,wrfout,time_now,time,interval);
+
+% Volodymyr Kondratenko           July 19 2013	
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Input:    
+%    long,lat      longtitude and latitude converted to meters
+%    fire_area     fire map,[0,1] array, where 0- not
+%                  burning area, >0 burning area, 1 - area that was burnt
+%    wrfout        name of the wrfout file, that is being used to read ros
+%    time_now      the perimeter time (s)
+%    time          update the wind every count time steps
+%    interval      time step in wrfout in seconds
+%  JM NEVER CHANGE INPUT VARIABLES
+% 
+% Output: 
+%    Final Matrix of times of ignition will be printed to 'output_tign.txt' % JM use save tign instead, create tign.mat
+%
+%
+[n,m]=size(long);
+
+
+'perimeter_in'
+
+% JM algorithm state is stored in arrays A D C
+%
+% A contains rows [i,j] of indices of nodes not burning that have at least one burning neighbor
+%   and time of ignition > time_now 
+
+% Reading Rate of spread
+ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
+
+% Getting matrix A from the initial tign_g, where
+A=get_perim_from_initial_tign(fire_area); 
+% Computing 4d array of distances between a point and its 8 neighbors
+distance=get_distances(long,lat);
+% JM do not change this later, use adjustment array instead if you must
+
+% Computing 4d array of differences of tign (delta_tign) between a point 
+% and its 8 neighbors
+[delta_tign]=get_delta_tign(distance,ros);
+
+% Initializing tign
+% Everything outside of the burning area is set to time_now, 
+% inside is set to 0
+tign_in=zeros(n,m);
+tign_in=(fire_area(:,:)==0).*time_now;  %Should I use |a-b|<eps ? %JM never test reals on equality
+
+% D - if D[i,j]=1, then the neighbors of the point [i,j]
+% will be updated only in the next timestep (only after we update ros)
+D=zeros(n,m);
+
+changed=1;
+tic
+    sprintf('size of A- %i',size(A,1))
+for istep=1:max(size(tign_in)),
+    if size(A,1)==0, 
+		'printed'
+		break
+    end
+    
+    time_toc=toc;
+    str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
+    tign_last=tign_in;
+    contour(tign_in(2:end-1,2:end-1));drawnow
+    [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval);
+%%%    [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval,ros);
+    contour(tign_in(2:end-1,2:end-1));title(sprintf('step %i',istep)),drawnow
+
+    changed=sum(tign_in(:)~=tign_last(:));
+
+    sprintf('%s \n step %i inside tign changed at %i points \n %f -- norm of the difference',str,istep,changed,norm(tign_in-tign_last))
+    sprintf('size of A- %i',size(A,1))
+% % %     if (size(A,1)==0)
+% % %         if (time-count)>0
+% % %             'getting new ros'
+% % %             A=[];
+% % %             [A(:,1),A(:,2)]=find(D>0);
+% % %             sprintf('size of A- %i',size(A,1))
+% % %             D=zeros(n,m);
+% % %             time_now=time_now-count*interval
+% % %             time=time-1;
+% % %             ros=read_data_from_wrfout(wrfout,time);
+% % %             delta_tign=get_delta_tign(distance,ros);
+% % %     
+% % %         elseif (time-count)<0
+% % %         
+% % %         'time-count<0'
+% % %         end
+% % %     end
+% % %        
+end
+
+result=tign_in;
+
+fid = fopen('output_tign.txt', 'w');
+    dlmwrite('output_tign.txt', result, 'delimiter', '\t','precision', '%.4f');
+    fclose(fid);
+    
+if changed~=0,
+    'did not find fixed point inside'
+   end
+end
+
 
 % dead code
 function result=perimeter_in_2(long,lat,ros,time_now,bound,wrfout,interval,count)

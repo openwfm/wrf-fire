@@ -1,6 +1,46 @@
 
 function ros=read_data_from_wrfout(wrfout,time)
 
+format long
+
+f_ros11=ncread(wrfout,'F_ROS11');
+
+f_ros12=ncread(wrfout,'F_ROS12');
+
+f_ros13=ncread(wrfout,'F_ROS13');
+
+f_ros21=ncread(wrfout,'F_ROS21');
+
+f_ros23=ncread(wrfout,'F_ROS23');
+
+f_ros31=ncread(wrfout,'F_ROS31');
+
+f_ros32=ncread(wrfout,'F_ROS32');
+
+f_ros33=ncread(wrfout,'F_ROS33');
+
+ros=zeros(size(f_ros11,1),size(f_ros11,2),3,3,size(f_ros11,3));
+
+ros(:,:,1,1,:)=f_ros11;
+
+ros(:,:,1,2,:)=f_ros12;
+
+ros(:,:,1,3,:)=f_ros13;
+
+ros(:,:,3,1,:)=f_ros31;
+
+ros(:,:,3,2,:)=f_ros32;
+
+ros(:,:,3,3,:)=f_ros33;
+
+ros(:,:,2,1,:)=f_ros21;
+
+ros(:,:,2,3,:)=f_ros23;
+end
+
+
+function ros=read_data_from_wrfout_onetime(wrfout,time)
+
 % for witch its 3100 2600
 
 format long
