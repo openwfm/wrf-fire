@@ -1,4 +1,4 @@
-wrfout='wrfout_d01_0001-01-01_00:00:00_fuel3';
+wrfout='wrfout_d01_0001-01-01_00:00:00';
 interval=10;      % time step in wrfout in seconds
 count=1;          % update the wind every count time steps
 time=31;          % the number of the time step in wrfout closest to the perimeter time from above
@@ -11,12 +11,9 @@ format long
 
 % read the fire map at perimeter time
 
-% JM read fire_area instead of tign_g
-% JM we are pretending we  are getting data here
-[long,lat,tign_g]=read_file_perimeter(wrfout,time);
+[long,lat,fire_area]=read_file_perimeter(wrfout,time);
 
-% Can I call an inside function from another script
-% read long, lat from wrfout
+% read long, fire_area, lat from wrfout
 % interpolate/resample to the wrf fire grid
 
 % now have data: long, lat, fire_area - burning or not burning (between 0 and 1, 0-1 OK)
@@ -24,7 +21,7 @@ format long
 
 % JM should not take tign_g as input, only tign_g <= time_now,
 
-tign=perimeter_in(long,lat,tign_g,wrfout,time_now,time,interval,count);
+tign=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval,count);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The information below is not beig used for the current problem

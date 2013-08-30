@@ -1,4 +1,4 @@
-function [fxlong,fxlat,tign_g]=read_file_perimeter(wrfout,time)
+function [fxlong,fxlat,fire_area]=read_file_perimeter(wrfout,time)
 % Volodymyr Kondratenko           April 3 2012
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -32,11 +32,11 @@ function [fxlong,fxlat,tign_g]=read_file_perimeter(wrfout,time)
 
 
 
-p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT','TIGN_G'},{},time)
+p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT','FIRE_AREA'},{},time)
 
 fxlong=p.fxlong*p.unit_fxlong;
 fxlat=p.fxlat*p.unit_fxlat;
-tign_g=p.tign_g;
+fire_area=p.fire_area;
 
 end
 
