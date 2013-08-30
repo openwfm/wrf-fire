@@ -1,9 +1,17 @@
 function val=parse(str,sep1,sep2)
+% val=parse(str,sep1,sep2)
+% A simple string parser. 
+%
+% Search the string str for the pair sep1 ... sep2 and return the substring
+% in between.
+%   
+%
+
     len1=length(sep1);
     len2=length(sep2);
     p1=strfind(str,sep1);
     if length(p1) ~= 1,
-s        error(['beging string ',sep1,' must occur exactly once'])
+        error(['beginning string ',sep1,' must occur exactly once'])
     end
     p1 = p1 + length(sep1);
     p2=strfind(str,sep2);

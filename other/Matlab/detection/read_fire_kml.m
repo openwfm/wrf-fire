@@ -1,4 +1,14 @@
 function v=read_fire_kml(filename)
+% v=read_fire_kml(filename)
+% Read fire detection kml file from FireMapper
+%
+% Input:  filename    first gunzip the kmz file to get kml
+%        
+% Output:
+%         v.lon       longitude
+%         v.lat       latitude
+%         v.tim       detection time (days, use datestr to convert to a string)
+
 fid=fopen(filename);
 if fid < 0
     error(['could not find file ',filename])
