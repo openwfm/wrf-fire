@@ -4,19 +4,29 @@ function wrfout2bluesky(in,out)
 % arguments
 %   in  wrfout file name, or cell array of file names
 %   out bluesky csv file name
+% see http://plone.airfire.org/bluesky/framework/comma-separated-value-csv-files 
 
-% Jan Mandel, July 2013
+% Jan Mandel, July/August 2013
 
 if ~exist('in','var')
+    default_in={'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'};
+    disp('default wrfout input:')
+    for i=1:length(default_in)
+        disp(default_in{i})
+    end
     in=input('enter wrfout file name: ','s');
+    if isempty(in),
+        in=default_in;
+    end
 end
 if ~iscell(in),
     in = {in};
 end
 if ~exist('out','var')
-    out=input('enter bluesky csv file name: ','s');
+    default_out='~/fire_locations.csv'
+    out=input('enter output file name for bluesky: ','s');
     if isempty(out),
-        out='bluesky.csv'; % default
+        out=default_out;
     end
 end
 fprintf('reading file %s\n',in{1});
@@ -48,6 +58,8 @@ fid=fopen(out,'w');
 if fid < 0,
     error(['Cannot open output file ',out])
 end
+% header
+fprintf(fid,'id, latitude, longitude, date_time, area\r\n');
 lat=w.fxlat(:,:,1);
 lon=w.fxlong(:,:,1);
 w=nc2struct(in{1},{'FIRE_AREA'},{},1); % the first fire area
@@ -80,8 +92,8 @@ for ifile=1:length(in),
                     fire_ctr_lon=mean(lon(cc.PixelIdxList{id}));  % center longitude of the fire area 
                     fire_ctr_lat=mean(lat(cc.PixelIdxList{id}));  % center latitude of the fire area 
                     fire_acres=fdx*fdy*sum(a_diff(cc.PixelIdxList{id}))/4046.86; % newly burning acres
-                    fprintf(fid,'%i, %g, %g, %g, %s\n',fire_id,fire_ctr_lon,fire_ctr_lat,fire_acres,tim);
-                    fprintf('%i, %g, %g, %g, %s\n',fire_id,fire_ctr_lon,fire_ctr_lat,fire_acres,tim);
+                    fprintf(fid,'%i, %10.5f, %10.5f, %s, %g\r\n',fire_id,fire_ctr_lat,fire_ctr_lon,tim,fire_acres);
+                    fprintf(    '%i, %10.5f, %10.5f, %s, %g\n',  fire_id,fire_ctr_lat,fire_ctr_lon,tim,fire_acres);
                 end
             end
             a_old=a;
