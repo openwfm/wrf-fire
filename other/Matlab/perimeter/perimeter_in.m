@@ -30,7 +30,7 @@ ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
 % Computing 4d array of distances between a point and its 8 neighbors
 distance=get_distances(long,lat);
 
-tign=get_tign_from_dif_eq(ros,fire_area,distance,interval)
+tign=get_tign_from_dif_eq(ros,fire_area,distance,interval);
 
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', tign, 'delimiter', '\t','precision', '%.4f');
@@ -50,41 +50,54 @@ time=size(ros,5); % time step in wrfout corresponding to the time when the
 time_now=time*interval; % perimeter time
 
 A=[];             % List of all points that are has not burnt yet and whose
-[A(:,1),A(:,2)]=find(fire_area>0);  % tign needs to be found
-% We initialize A by putting all the points inside the perimeter in A
-% We do not update the elements on the boundary
+
+% Getting matrix A from the initial tign_g, where
+[A,C]=get_perim_from_initial_tign(fire_area); 
+
 I=zeros(size(distance));            % Matrix of distances
 tign=zeros(size(distance,1),size(distance,2)); % Final matrix of differences
 
+contour(C);title(sprintf('Original perimeter')); drawnow 
+C_old=C;
 for i=time:-1:2
     if size(A,1)==0
-        exit;
+        
         'finished at the time '
         i
+        break;
     else
         for j=1:size(A,1)
             for dx=-1:1
                 for dy=-1:1
-                    % C=0.5*(0.5*(r(t1)+r(t2))*(t2-t1){to point A}+0.5*(r(t1)+r(t2))*(t2-t1){from point A})
-                    C=0.25*interval*(ros(A(j,1),A(j,2),2+dx,2+dy,i)+ros(A(j,1),A(j,2),2+dx,2+dy,i-1) + ...
-                      ros(A(j,1)+dx,A(j,2)+dy,2+dx,2+dy,i)+ros(A(j,1)+dx,A(j,2)+dy,2+dx,2+dy,i-1)); 
-                    I(A(j,1),A(j,2),2+dx,2+dy)=C+I(A(j,1),A(j,2),2+dx,2+dy);
-                    if (I(A(j,1),A(j,2),2+dx,2+dy)>distance(A(j,1),A(j,2),2+dx,2+dy))
-                        % Interpolating
-                       tign(A(j,1),A(j,2))=(distance(A(j,1),A(j,2),2+dx,2+dy)/I(A(j,1),A(j,2),2+dx,2+dy))*(i-1)*interval;
-                    end
-                    
+                   if (C(A(i,1)+dx,A(i,2)+dy)==0) 
+                       % C=0.5*(0.5*(r(t1)+r(t2))*(t2-t1){to point A}+0.5*(r(t1)+r(t2))*(t2-t1){from point A})
+                       F=0.25*interval*(ros(A(j,1),A(j,2),2-dx,2-dy,i)+ros(A(j,1),A(j,2),2-dx,2-dy,i-1) + ...
+                       ros(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy,i)+ros(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy,i-1)); 
+                       I(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy)=F+I(A(j,1),A(j,2),2-dx,2-dy);
+                       if (I(A(j,1),A(j,2),2-dx,2-dy)>distance(A(j,1),A(j,2),2-dx,2-dy))
+                           % Interpolating
+                           tign(A(j,1)+dx,A(j,2)+dy)=(i-1)*interval+(distance(A(j,1),A(j,2),2-dx,2-dy)/I(A(j,1),A(j,2),2-dx,2-dy))*interval;
+                           C(A(i,1)+dx,A(i,2)+dy)=1;
+                       end
+                   end
                 end
                 
             end
-            
+                if ~any(any(C(A(i,1)-1:A(i,1)+1,A(i,1)-1:A(i,1)+1)>0))
+                C(A(i,1),A(i,2))=2;
+                end
         end
         
     end
         A=[];
-        [A(:,1),A(:,2)]=find(tign(2:end-1,2:end-1)==0);
+        [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
         A(:,1)=A(:,1)+1;
         A(:,2)=A(:,2)+1;
+ figure(1); contour(tign);title(sprintf('step %i, tign',i)); drawnow 
+ figure(2); contour(C);title(sprintf('step %i, Matrix C',i)); drawnow 
+ changed=sum(C(:)~=C_old(:))
+% [row,col]=find(C(:,:)~=C_old(:,:));
+ C_old=C;
 end
 'reached the last time_step'
 end
@@ -204,13 +217,14 @@ end
 
 end
 
-function A=get_perim_from_initial_tign(fire_area);
+function [A,C]=get_perim_from_initial_tign(fire_area);
 % in:
 %    tign         ignition time
 % out: 
 %    A            rows [i,j] of indices of nodes not burning that have at least one
 %                 burning neighbor
 A=[];
+C=2*(fire_area==0);
 format long
 for i=2:size(fire_area,1)-1
     for j=2:size(fire_area,2)-1
@@ -220,6 +234,7 @@ for i=2:size(fire_area,1)-1
             if (any(any(fire_area(i-1:i+1,j-1:j+1)>0))==1)
             % add [i,j] to A
             A=[A;[i,j]];
+            C(i,j)=1;
             end
        end
     end

@@ -19,23 +19,22 @@ f_ros32=ncread(wrfout,'F_ROS32');
 
 f_ros33=ncread(wrfout,'F_ROS33');
 
-ros=zeros(size(f_ros11,1),size(f_ros11,2),3,3,size(f_ros11,3));
+ros=zeros(size(f_ros11,1),size(f_ros11,2),3,3,time);
+ros(:,:,1,1,:)=f_ros11(:,:,1:time);
 
-ros(:,:,1,1,:)=f_ros11;
+ros(:,:,1,2,:)=f_ros12(:,:,1:time);
 
-ros(:,:,1,2,:)=f_ros12;
+ros(:,:,1,3,:)=f_ros13(:,:,1:time);
 
-ros(:,:,1,3,:)=f_ros13;
+ros(:,:,3,1,:)=f_ros31(:,:,1:time);
 
-ros(:,:,3,1,:)=f_ros31;
+ros(:,:,3,2,:)=f_ros32(:,:,1:time);
 
-ros(:,:,3,2,:)=f_ros32;
+ros(:,:,3,3,:)=f_ros33(:,:,1:time);
 
-ros(:,:,3,3,:)=f_ros33;
+ros(:,:,2,1,:)=f_ros21(:,:,1:time);
 
-ros(:,:,2,1,:)=f_ros21;
-
-ros(:,:,2,3,:)=f_ros23;
+ros(:,:,2,3,:)=f_ros23(:,:,1:time);
 end
 
 
