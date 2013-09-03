@@ -73,11 +73,12 @@ for i=time:-1:2
                        % C=0.5*(0.5*(r(t1)+r(t2))*(t2-t1){to point A}+0.5*(r(t1)+r(t2))*(t2-t1){from point A})
                        F=0.25*interval*(ros(A(j,1),A(j,2),2-dx,2-dy,i)+ros(A(j,1),A(j,2),2-dx,2-dy,i-1) + ...
                        ros(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy,i)+ros(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy,i-1)); 
-                       I(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy)=F+I(A(j,1),A(j,2),2-dx,2-dy);
-                       if (I(A(j,1),A(j,2),2-dx,2-dy)>distance(A(j,1),A(j,2),2-dx,2-dy))
+                       if (I(A(j,1),A(j,2),2-dx,2-dy)+F>distance(A(j,1),A(j,2),2-dx,2-dy))
                            % Interpolating
-                           tign(A(j,1)+dx,A(j,2)+dy)=(i-1)*interval+(distance(A(j,1),A(j,2),2-dx,2-dy)/I(A(j,1),A(j,2),2-dx,2-dy))*interval;
+                           tign(A(j,1)+dx,A(j,2)+dy)=(i-1)*interval+((distance(A(j,1),A(j,2),2-dx,2-dy)-I(A(j,1),A(j,2),2-dx,2-dy))/F)*interval;
                            C(A(i,1)+dx,A(i,2)+dy)=1;
+                       else
+                           I(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy)=F+I(A(j,1),A(j,2),2-dx,2-dy);
                        end
                    end
                 end
