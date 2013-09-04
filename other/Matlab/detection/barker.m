@@ -7,17 +7,16 @@
 % w=nc2struct('wrfout_d05_2012-09-15_00:00:00',{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','Times'},{});
 % save ~/w.mat w    
 %
-% to create h.mat:
-% h=ncreadandcat({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'GRNHFX','Times'}); 
-% x=nc2struct('wrfout_d05_2012-09-09_00:00:00',{'XLONG','XLAT'},{},1) 
-% save ~/h.mat h x
-
+% to create s.mat:
+% s=read_wrfout_sel({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'FGRNHFX','Times'}); 
+% save ~/s.mat s 
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
-v=read_fire_kml('conus_viirs.kml');
-load w
-load h
+%v=read_fire_kml('conus_viirs.kml');
+%load w
+%load s
+
 % establish boundaries
 
 %min_lat=48+4/60+1/360
@@ -49,8 +48,8 @@ tign = (w.tign_g - max_tign_g)/(24*60*60);
 
 figure(1),clf
 % plot3(lon,lat,tim,'ko'),
-m=800;
-n=800;
+m=500;
+n=500;
 
 % interpolate observation time from detection points
 
@@ -65,6 +64,7 @@ mi=1:ceil((mm+1)/m):mm;
 ni=1:ceil((nn+1)/n):nn;
 mesh_fxlong=w.fxlong(mi,ni);
 mesh_fxlat=w.fxlat(mi,ni);
+mesh_fgrnhfx=s.fgrnhfx(mi,ni,:);
 
 mesh_lon = mesh_fxlong;
 mesh_lat = mesh_fxlat;
@@ -76,7 +76,7 @@ mesh_lat = mesh_fxlat;
 % plot black patches as detection circles
 
 hold on
-mesh_tim2 = NaN*zeros(size(mesh_tim));
+mesh_tim2 = NaN*zeros(size(mesh_lon));
 for i=1:length(bi)
     dist=sqrt(((mesh_lon-lon(i))*w.unit_fxlong).^2 + ((mesh_lat-lat(i))*w.unit_fxlat).^2); % distance in m from measurement i
     mask=dist <= res(i)/2;
@@ -89,7 +89,7 @@ for i=1:length(bi)
     surface(mesh_lon(ii,jj),mesh_lat(ii,jj),mesh_tim2(ii,jj))% mesh_tim2(idx)=mesh_tim(idx);
     if mod(i,10)==0, drawnow,end
 end
-drawnow
+grid,drawnow
 
 % hold on, surface(mesh_lon,mesh_lat,mesh_tim2),grid on
 title('Barker Canyon fire VIIRS fire detection')
@@ -101,20 +101,27 @@ xlabel('longitude')
 
 mesh_tign=tign(mi,ni);
 mesh_tign(mesh_tign(:)==max(mesh_tign(:)))=NaN;
-surf(mesh_fxlong,mesh_fxlat,mesh_tign,'EdgeAlpha',0,'FaceAlpha',0.1)
+% surf(mesh_fxlong,mesh_fxlat,mesh_tign,'EdgeAlpha',0,'FaceAlpha',0.1)
 
-h.tim=datenum(char(h.times'))'-last_time;
-nsteps = length(h.tim);
-planes=6;
-maxh=max(h.grnhfx(:));
+stim=datenum(char(s.times'))'-last_time;
+maxh=max(mesh_fgrnhfx(:));
 caxis([0 maxh*0.2]);
-for i=[nsteps:-ceil(nsteps/planes):1]
-    c=h.grnhfx(:,:,i);
-    c(c<maxh*0.00001)=NaN;
-    surf(x.xlong,x.xlat,h.tim(i)*ones(size(c)),c,'EdgeAlpha',0,'FaceAlpha',0.8)
+for i=1:size(mesh_fgrnhfx,3)
+    %c=mesh_fgrnhfx(:,:,i);
+    %t=stim(i)*ones(size(c));
+    %surf(mesh_lon,mesh_lat,t,c,'EdgeAlpha',0,'FaceAlpha',0.1)
+    %c(c<maxh*1e-5)=NaN;
+    %t(c<maxh*1e-5)=NaN;
+    %surf(mesh_lon,mesh_lat,t,c,'EdgeAlpha',0,'FaceAlpha',0.8)
+    c=s.fgrnhfx(:,:,i);
+    t=stim(i)*ones(size(c));
+    c(c<maxh*1e-5)=NaN;
+    t(c<maxh*1e-5)=NaN;
+    surf(w.fxlong,w.fxlat,t,c,'EdgeAlpha',0,'FaceAlpha',0.8)
+
     drawnow
 end
-grid
+colorbar,grid
 
 hold off
 
