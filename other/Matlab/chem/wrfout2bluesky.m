@@ -59,11 +59,13 @@ if fid < 0,
     error(['Cannot open output file ',out])
 end
 % header
-fprintf(fid,'id, latitude, longitude, date_time, area\r\n');
+fprintf(fid,'id, latitude, longitude, date_time, area, mass\r\n');
 lat=w.fxlat(:,:,1);
 lon=w.fxlong(:,:,1);
 w=nc2struct(in{1},{'FIRE_AREA'},{},1); % the first fire area
+if any(w.fire_area(:)), error('must start from no fire state'),end
 a_old=w.fire_area;
+m_old=a_old;
 fire_id=0;
 for ifile=1:length(in),
     fprintf('reading file %s\n',in{ifile});
@@ -72,33 +74,44 @@ for ifile=1:length(in),
     s=size(t,1);
     fprintf('timesteps %i meshstep %g %g\n',s,dx,dy);
     for istep=1:s
-        w=nc2struct(in{ifile},{'FIRE_AREA'},{},istep); % read step istep
-        a=w.fire_area;
-        ta=sum(a(:))*fdx*fdy;
-        fprintf('timestep %i/%i %s total fire area %g m^2\n',istep,s,t(istep,:),ta)
         d=datenum(t(istep,:),'yyyy-mm-dd_HH:MM:SS'); % convert ESMF time string to double
         tim=[datestr(d,'yyyymmddHHMM'),'L'];         % convert to bluesky time format
         v = datevec(d);
-        if(v(5)==0 & v(6) == 0) % whole hour
+        % if(v(5)==0 & v(6) == 0) % whole hour
+        if(v(6) == 0) % whole minute
+            w=nc2struct(in{ifile},{'FIRE_AREA','FGIP','FUEL_FRAC'},{},istep); % read step istep
+            a=w.fire_area*fdx*fdy;               % fire area (m^2)
+            ta=sum(a(:));
+            m=w.fgip.*(1-w.fuel_frac)*fdx*fdy;   % fuel mass burned
+            fprintf('timestep %i/%i %s total fire area %g m^2 fuel mass burned %g kg\n',...
+                istep,s,t(istep,:),ta,sum(m(:)))
             a_diff = a - a_old;
+            m_diff = m - m_old;
             if any(a_diff(:)< - eps(single(1)))
                 warning('fire area can only increase')
                 a_diff = max(a_diff,0);
             end 
             if(ta>0),
                 cc=bwconncomp(a>0); % find connected components,  image processing toolbox
+                % cc.PixelIdxList{1}=1:length(lon(:)); % just take all
                 for id=1:length(cc.PixelIdxList)
+                    sub=cc.PixelIdxList{id};      % subset index list
                     fire_id = fire_id+1;
-                    fire_ctr_lon=mean(lon(cc.PixelIdxList{id}));  % center longitude of the fire area 
-                    fire_ctr_lat=mean(lat(cc.PixelIdxList{id}));  % center latitude of the fire area 
-                    fire_acres=fdx*fdy*sum(a_diff(cc.PixelIdxList{id}))/4046.86; % newly burning acres
-                    fprintf(fid,'%i, %10.5f, %10.5f, %s, %g\r\n',fire_id,fire_ctr_lat,fire_ctr_lon,tim,fire_acres);
-                    fprintf(    '%i, %10.5f, %10.5f, %s, %g\n',  fire_id,fire_ctr_lat,fire_ctr_lon,tim,fire_acres);
+                    fire_ctr_lon=mean(lon(sub));  % center longitude of the fire area 
+                    fire_ctr_lat=mean(lat(sub));  % center latitude of the fire area 
+                    a_diff_acres=sum(a_diff(sub))/4046.86; % newly burning area (acres)
+                    m_diff_tons=sum(m_diff(sub))/907.185;  % newly burned fuel mass (tons)
+                    h_diff_btus=sum(m_diff(sub))*17.433e+06 * 4.30e-04; % newly generated heat (BTUs)
+                    fmt='%i, %10.5f, %10.5f, %s, %g, %g, %g';
+                    fprintf(fid,[fmt,'\r\n'],fire_id,fire_ctr_lat,fire_ctr_lon,tim,...
+                        a_diff_acres,m_diff_tons,h_diff_btus);
+                    fprintf(    [fmt,'\n'],  fire_id,fire_ctr_lat,fire_ctr_lon,tim,...
+                        a_diff_acres,m_diff_tons,h_diff_btus);
                 end
             end
             a_old=a;
         else
-            fprintf('not on the hour, skipping %s\n',tim)
+            fprintf('skipping %s\n',t(istep,:))
         end
     end
 end
