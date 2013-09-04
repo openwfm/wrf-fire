@@ -56,46 +56,60 @@ A=[];             % List of all points that are has not burnt yet and whose
 
 I=zeros(size(distance));            % Matrix of distances
 tign=zeros(size(distance,1),size(distance,2)); % Final matrix of differences
-
+D=zeros(size(distance,1),size(distance,2));
 contour(C);title(sprintf('Original perimeter')); drawnow 
 C_old=C;
-for i=time:-1:2
+for ii=time:-1:2
     if size(A,1)==0
         
         'finished at the time '
-        i
+        ii
         break;
     else
-        for j=1:size(A,1)
+            ii
+        for jj=1:size(A,1)
             for dx=-1:1
                 for dy=-1:1
-                   if (C(A(i,1)+dx,A(i,2)+dy)==0) 
+                   if (C(A(jj,1)+dx,A(jj,2)+dy)==0) 
                        % C=0.5*(0.5*(r(t1)+r(t2))*(t2-t1){to point A}+0.5*(r(t1)+r(t2))*(t2-t1){from point A})
-                       F=0.25*interval*(ros(A(j,1),A(j,2),2-dx,2-dy,i)+ros(A(j,1),A(j,2),2-dx,2-dy,i-1) + ...
-                       ros(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy,i)+ros(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy,i-1)); 
-                       if (I(A(j,1),A(j,2),2-dx,2-dy)+F>distance(A(j,1),A(j,2),2-dx,2-dy))
+                       F=0.25*interval*(ros(A(jj,1),A(jj,2),2-dx,2-dy,ii)+ros(A(jj,1),A(jj,2),2-dx,2-dy,ii-1) + ...
+                       ros(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy,ii)+ros(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy,ii-1)); 
+                       if (I(A(jj,1),A(jj,2),2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
                            % Interpolating
-                           tign(A(j,1)+dx,A(j,2)+dy)=(i-1)*interval+((distance(A(j,1),A(j,2),2-dx,2-dy)-I(A(j,1),A(j,2),2-dx,2-dy))/F)*interval;
-                           C(A(i,1)+dx,A(i,2)+dy)=1;
+                           if (A(jj,1)+dx==128)&&(A(jj,2)+dy==64)
+                               'boom'
+                               
+                           end
+                           tign(A(jj,1)+dx,A(jj,2)+dy)=(ii-1)*interval+((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1),A(jj,2),2-dx,2-dy))/F)*interval;
+                           C(A(jj,1)+dx,A(jj,2)+dy)=1;
+                           D(A(jj,1)+dx,A(jj,2)+dy)=ii*interval-tign(A(jj,1)+dx,A(jj,2)+dy);
+                           if tign(A(jj,1)+dx,A(jj,2)+dy)<100
+                           'ERROR'
+                           A(jj,1)
+                           A(jj,2)
+                           dx
+                           dy
+                           end
                        else
-                           I(A(j,1)+dx,A(j,2)+dy,2-dx,2-dy)=F+I(A(j,1),A(j,2),2-dx,2-dy);
+                           I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1),A(jj,2),2-dx,2-dy);
                        end
                    end
                 end
-                
             end
-                if ~any(any(C(A(i,1)-1:A(i,1)+1,A(i,1)-1:A(i,1)+1)>0))
-                C(A(i,1),A(i,2))=2;
-                end
         end
-        
+            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
+            [tign,C,I]=get_tign_one_timestep(tign,ros,C,D,I,distance,interval,ii);
+            D=zeros(size(distance,1),size(distance,2)); % it has to become 0 anyway, but I need to check later
+            if ~any(any(C(A(jj,1)-1:A(jj,1)+1,A(jj,1)-1:A(jj,1)+1)>0))
+                C(A(jj,1),A(jj,2))=2;
+            end  
     end
         A=[];
         [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
         A(:,1)=A(:,1)+1;
         A(:,2)=A(:,2)+1;
- figure(1); contour(tign);title(sprintf('step %i, tign',i)); drawnow 
- figure(2); contour(C);title(sprintf('step %i, Matrix C',i)); drawnow 
+ figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
+ figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
  changed=sum(C(:)~=C_old(:))
 % [row,col]=find(C(:,:)~=C_old(:,:));
  C_old=C;
@@ -103,10 +117,52 @@ end
 'reached the last time_step'
 end
                                   
-function tign_of_cell=interpolate(D_new,D_old,time,interval)
-tign_of_cell=(D_old/D_new)*(time*interval);
-end
 
+function [tign,C,I]=get_tign_one_timestep(tign,ros,C,D,I,distance,interval,iii)
+
+B=[];
+step=1;
+while any(any(D>0))
+    B=[];
+    [B(:,1),B(:,2)]=find(D(2:end-1,2:end-1)>0);
+    B(:,1)=B(:,1)+1;
+    B(:,2)=B(:,2)+1;
+     for jjj=1:size(B,1)
+            for dx=-1:1
+                for dy=-1:1
+                   if (C(B(jjj,1)+dx,B(jjj,2)+dy)==0) 
+                   % Is it right to decrease the interval in this
+                   % situation? think about it later
+                       F=0.25*D(B(jjj,1),B(jjj,2))*(ros(B(jjj,1),B(jjj,2),2-dx,2-dy,iii)+ros(B(jjj,1),B(jjj,2),2-dx,2-dy,iii-1) + ...
+                       ros(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy,iii)+ros(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy,iii-1)); 
+                       if (I(B(jjj,1),B(jjj,2),2-dx,2-dy)+F>distance(B(jjj,1),B(jjj,2),2-dx,2-dy))
+                           % Interpolating
+                           tign(B(jjj,1)+dx,B(jjj,2)+dy)=tign(B(jjj,1),B(jjj,2))+ ...
+                           ((distance(B(jjj,1),B(jjj,2),2-dx,2-dy)-I(B(jjj,1),B(jjj,2),2-dx,2-dy))/F)* ...
+                           (D(B(jjj,1),B(jjj,2)));
+                           C(B(jjj,1)+dx,B(jjj,2)+dy)=1;
+                           D(B(jjj,1)+dx,B(jjj,2)+dy)=iii*interval-tign(B(jjj,1)+dx,B(jjj,2)+dy);
+                           if D(B(jjj,1)+dx,B(jjj,2)+dy)>D(B(jjj,1),B(jjj,2))
+                           'ERROR 2'
+                           B(jjj,1)
+                           B(jjj,2)
+                           dx
+                           dy
+                           end
+                       else
+                           I(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)=F+I(B(jjj,1),B(jjj,2),2-dx,2-dy);
+                       end
+                   end
+                end
+            end
+                D(B(jjj,1),B(jjj,2))=0;
+     end
+         
+        figure(2); contour(C);title(sprintf('step %i, Matrix C in subfunction substep %i',iii,step)); drawnow 
+        step=step+1;
+end
+end
+           
 
 
 %%% function [tign,distance,A,D]=tign_update(tign,A,D,delta_tign,time_now,distance,interval,ros)
