@@ -7,7 +7,7 @@ if ~exist('file','var'),
     file='namelist.fire_emissions';
 end
 command = ['grep "[a-zA-Z0-9]=" ',file,...
-    ' | sed "s/=/=[/" | sed "s/$/];/" | grep -v "^!" | grep -v printsums | sed "s/^/e./" | grep -v compatible'];
+    ' | sed ''s/=/=[/'' | sed ''s/$/];/'' | grep -v ''^\!'' | grep -v printsums | sed ''s/^/e./'' | grep -v compatible'];
 [status,result]=system(command);
 if status,
     disp(command)

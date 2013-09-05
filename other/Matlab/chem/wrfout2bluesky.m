@@ -81,7 +81,7 @@ fprintf(    '\r\n');
 
 % initialize loop over frames
 if any(w.fire_area(:)), error('must start from no fire state'),end
-a_old=w.fire_area;
+a_old=zeros(size(w.fire_area));
 m_old=a_old;
 fire_id=0;
 for ifile=1:length(in),
@@ -98,16 +98,16 @@ for ifile=1:length(in),
         % if(v(6) == 0) % whole minute
             w=nc2struct(in{ifile},{'FIRE_AREA','FUEL_FRAC'},{},istep); % read step istep
             a=w.fire_area*fdx*fdy;               % fire area (m^2)
+            if any(a(:)< a_old(:) - fdx*fdy*eps(single(1)))
+                warning('fire area can only increase')
+            end 
+            a = max(a,a_old);
             ta=sum(a(:));
             m=fgip.*(1-w.fuel_frac)*fdx*fdy;   % fuel mass burned
             fprintf('timestep %i/%i %s total fire area %g m^2 fuel mass burned %g kg\n',...
                 istep,s,t(istep,:),ta,sum(m(:)))
             a_diff = a - a_old;
             m_diff = m - m_old;
-            if any(a_diff(:)< - eps(single(1)))
-                warning('fire area can only increase')
-                a_diff = max(a_diff,0);
-            end 
             if(ta>0),
                 cc=bwconncomp(a>0); % find connected components, requires image processing toolbox
                 % cc.PixelIdxList{1}=1:length(lon(:)); % just take all
@@ -126,13 +126,15 @@ for ifile=1:length(in),
                     fprintf(    fmt,args{:});
                     nfuel_cat_sub=nfuel_cat(sub);
                     for i=1:nspecies
-                        emiss_diff=m_diff(sub).*emission_factors.(species{i})(nfuel_cat_sub); % emissions = mass burned * emission factor (fuel category), on the subset
+                        factors=emission_factors.(species{i})';
+                        emiss_diff=m_diff(sub).*factors(nfuel_cat_sub); % emissions = mass burned * emission factor (fuel category), on the subset
                         emiss_diff_tons = sum(emiss_diff) /  907.185e3; % total emission of this species in tons, in the subset
                         fprintf(fid,', %g',emiss_diff_tons);
                         fprintf(    ', %g',emiss_diff_tons);
                     end
                     fprintf(fid,'\r\n');
                     fprintf(    '\n');
+                end
             end
             a_old=a;
         else
