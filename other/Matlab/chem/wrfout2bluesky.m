@@ -31,7 +31,8 @@ if ~exist('out','var')
 end
 fprintf('reading file %s\n',in{1});
 fprintf('writing file %s\n',out);
-w=nc2struct(in{1},{'XLONG','XLAT','FXLONG','FXLAT'},{'DX','DY'},1); % get what does not change from the first netcdf file
+w=nc2struct(in{1},{'XLONG','XLAT','FXLONG','FXLAT','NFUEL_CAT','FGIP','FIRE_AREA'},...
+    {'DX','DY'},1); % get what does not change from the first netcdf file
 dx=w.dx;
 dy=w.dy;
 [m,n]=size(w.xlong);
@@ -54,15 +55,31 @@ lon_ctr=mean(lon);
 lat_ctr=mean(lat);
 fprintf('coordinates %g to %g by %g to %g\n',min_x,max_x,min_y,max_y);
 fprintf('the center of the domain is at coordinates %g %g\n',lon_ctr,lat_ctr)
+emission_factors=read_namelist_fire_emissions('namelist.fire_emissions_bluesky') % emissions factors table
+species=fields(emission_factors);
+nspecies=length(species);
+lat=w.fxlat(:,:,1);
+lon=w.fxlong(:,:,1);
+fgip=w.fgip;
+nfuel_cat=w.nfuel_cat;
+
 fid=fopen(out,'w');
 if fid < 0,
     error(['Cannot open output file ',out])
 end
+
 % header
-fprintf(fid,'id, latitude, longitude, date_time, area, mass\r\n');
-lat=w.fxlat(:,:,1);
-lon=w.fxlong(:,:,1);
-w=nc2struct(in{1},{'FIRE_AREA'},{},1); % the first fire area
+header='id, latitude, longitude, date_time, area, mass, heat';
+fprintf(fid,header);
+fprintf(    header);
+for i=1:nspecies
+    fprintf(fid,', %s',species{i});
+    fprintf(    ', %s',species{i});
+end
+fprintf(fid,'\r\n');
+fprintf(    '\r\n');
+
+% initialize loop over frames
 if any(w.fire_area(:)), error('must start from no fire state'),end
 a_old=w.fire_area;
 m_old=a_old;
@@ -77,12 +94,12 @@ for ifile=1:length(in),
         d=datenum(t(istep,:),'yyyy-mm-dd_HH:MM:SS'); % convert ESMF time string to double
         tim=[datestr(d,'yyyymmddHHMM'),'L'];         % convert to bluesky time format
         v = datevec(d);
-        % if(v(5)==0 & v(6) == 0) % whole hour
-        if(v(6) == 0) % whole minute
-            w=nc2struct(in{ifile},{'FIRE_AREA','FGIP','FUEL_FRAC'},{},istep); % read step istep
+        if(v(5)==0 & v(6) == 0) % whole hour
+        % if(v(6) == 0) % whole minute
+            w=nc2struct(in{ifile},{'FIRE_AREA','FUEL_FRAC'},{},istep); % read step istep
             a=w.fire_area*fdx*fdy;               % fire area (m^2)
             ta=sum(a(:));
-            m=w.fgip.*(1-w.fuel_frac)*fdx*fdy;   % fuel mass burned
+            m=fgip.*(1-w.fuel_frac)*fdx*fdy;   % fuel mass burned
             fprintf('timestep %i/%i %s total fire area %g m^2 fuel mass burned %g kg\n',...
                 istep,s,t(istep,:),ta,sum(m(:)))
             a_diff = a - a_old;
@@ -92,7 +109,7 @@ for ifile=1:length(in),
                 a_diff = max(a_diff,0);
             end 
             if(ta>0),
-                cc=bwconncomp(a>0); % find connected components,  image processing toolbox
+                cc=bwconncomp(a>0); % find connected components, requires image processing toolbox
                 % cc.PixelIdxList{1}=1:length(lon(:)); % just take all
                 for id=1:length(cc.PixelIdxList)
                     sub=cc.PixelIdxList{id};      % subset index list
@@ -101,13 +118,21 @@ for ifile=1:length(in),
                     fire_ctr_lat=mean(lat(sub));  % center latitude of the fire area 
                     a_diff_acres=sum(a_diff(sub))/4046.86; % newly burning area (acres)
                     m_diff_tons=sum(m_diff(sub))/907.185;  % newly burned fuel mass (tons)
-                    h_diff_btus=sum(m_diff(sub))*17.433e+06 * 4.30e-04; % newly generated heat (BTUs)
-                    fmt='%i, %10.5f, %10.5f, %s, %g, %g, %g';
-                    fprintf(fid,[fmt,'\r\n'],fire_id,fire_ctr_lat,fire_ctr_lon,tim,...
-                        a_diff_acres,m_diff_tons,h_diff_btus);
-                    fprintf(    [fmt,'\n'],  fire_id,fire_ctr_lat,fire_ctr_lon,tim,...
-                        a_diff_acres,m_diff_tons,h_diff_btus);
-                end
+                    h_diff_btus=sum(m_diff(sub))*17.433e+06*4.30e-04; % newly generated heat (BTUs)
+                    fmt='%i,%10.5f,%10.5f, %s, %g, %g, %g';
+                    args={fire_id,fire_ctr_lat,fire_ctr_lon,tim,...
+                        a_diff_acres,m_diff_tons,h_diff_btus};
+                    fprintf(fid,fmt,args{:});
+                    fprintf(    fmt,args{:});
+                    nfuel_cat_sub=nfuel_cat(sub);
+                    for i=1:nspecies
+                        emiss_diff=m_diff(sub).*emission_factors.(species{i})(nfuel_cat_sub); % emissions = mass burned * emission factor (fuel category), on the subset
+                        emiss_diff_tons = sum(emiss_diff) /  907.185e3; % total emission of this species in tons, in the subset
+                        fprintf(fid,', %g',emiss_diff_tons);
+                        fprintf(    ', %g',emiss_diff_tons);
+                    end
+                    fprintf(fid,'\r\n');
+                    fprintf(    '\n');
             end
             a_old=a;
         else
