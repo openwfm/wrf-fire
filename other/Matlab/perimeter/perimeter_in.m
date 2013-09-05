@@ -67,7 +67,10 @@ for ii=time:-1:2
         break;
     else
             ii
-        for jj=1:size(A,1)
+if ii==22
+    'hello'
+end
+            for jj=1:size(A,1)
             for dx=-1:1
                 for dy=-1:1
                    if (C(A(jj,1)+dx,A(jj,2)+dy)==0) 
@@ -76,33 +79,23 @@ for ii=time:-1:2
                        ros(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy,ii)+ros(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy,ii-1)); 
                        if (I(A(jj,1),A(jj,2),2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
                            % Interpolating
-                           if (A(jj,1)+dx==128)&&(A(jj,2)+dy==64)
-                               'boom'
-                               
-                           end
                            tign(A(jj,1)+dx,A(jj,2)+dy)=(ii-1)*interval+((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1),A(jj,2),2-dx,2-dy))/F)*interval;
                            C(A(jj,1)+dx,A(jj,2)+dy)=1;
                            D(A(jj,1)+dx,A(jj,2)+dy)=ii*interval-tign(A(jj,1)+dx,A(jj,2)+dy);
-                           if tign(A(jj,1)+dx,A(jj,2)+dy)<100
-                           'ERROR'
-                           A(jj,1)
-                           A(jj,2)
-                           dx
-                           dy
-                           end
                        else
                            I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1),A(jj,2),2-dx,2-dy);
                        end
                    end
                 end
             end
+            if ~any(any(C(A(jj,1)-1:A(jj,1)+1,A(jj,2)-1:A(jj,2)+1)==0))
+                C(A(jj,1),A(jj,2))=2;
+            end
         end
             figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
             [tign,C,I]=get_tign_one_timestep(tign,ros,C,D,I,distance,interval,ii);
             D=zeros(size(distance,1),size(distance,2)); % it has to become 0 anyway, but I need to check later
-            if ~any(any(C(A(jj,1)-1:A(jj,1)+1,A(jj,1)-1:A(jj,1)+1)>0))
-                C(A(jj,1),A(jj,2))=2;
-            end  
+              
     end
         A=[];
         [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
@@ -111,7 +104,6 @@ for ii=time:-1:2
  figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
  figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
  changed=sum(C(:)~=C_old(:))
-% [row,col]=find(C(:,:)~=C_old(:,:));
  C_old=C;
 end
 'reached the last time_step'
@@ -142,13 +134,6 @@ while any(any(D>0))
                            (D(B(jjj,1),B(jjj,2)));
                            C(B(jjj,1)+dx,B(jjj,2)+dy)=1;
                            D(B(jjj,1)+dx,B(jjj,2)+dy)=iii*interval-tign(B(jjj,1)+dx,B(jjj,2)+dy);
-                           if D(B(jjj,1)+dx,B(jjj,2)+dy)>D(B(jjj,1),B(jjj,2))
-                           'ERROR 2'
-                           B(jjj,1)
-                           B(jjj,2)
-                           dx
-                           dy
-                           end
                        else
                            I(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)=F+I(B(jjj,1),B(jjj,2),2-dx,2-dy);
                        end
@@ -156,6 +141,9 @@ while any(any(D>0))
                 end
             end
                 D(B(jjj,1),B(jjj,2))=0;
+            if ~any(any(C(B(jjj,1)-1:B(jjj,1)+1,B(jjj,2)-1:B(jjj,2)+1)==0))
+                C(B(jjj,1),B(jjj,2))=2;
+            end
      end
          
         figure(2); contour(C);title(sprintf('step %i, Matrix C in subfunction substep %i',iii,step)); drawnow 
