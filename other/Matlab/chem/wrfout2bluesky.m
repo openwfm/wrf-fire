@@ -57,7 +57,7 @@ nfuel_cat=w.nfuel_cat;
 
 
 loc=open_out('fire_locations.csv');
-hou=open_out('fire_hourly.csv')
+hou=open_out('fire_hourly.csv');
 
 % header
 header_loc='id,hour,latitude,longitude,date_time,area,heat,type,moisture_1hr,moisture_10hr,moisture_100hr,moisture_1000hr,moisture_live';
@@ -85,8 +85,8 @@ for ifile=1:length(in),
         d=datenum(t(istep,:),'yyyy-mm-dd_HH:MM:SS'); % convert ESMF time string to double
         tim=[datestr(d,'yyyymmddHHMM'),'L'];         % convert to bluesky time format
         v = datevec(d);
-        % if(v(5)==0 & v(6) == 0) % whole hour
-        if(v(6) == 0) % whole minute
+        if(v(5)==0 & v(6) == 0) % whole hour
+        % if(v(6) == 0) % whole minute
             w=nc2struct(in{ifile},{'FIRE_AREA','FUEL_FRAC','FMC_GC'},{},istep); % read step istep
             area=w.fire_area*fdx*fdy;               % fire area (m^2)
             if any(area(:)< area_old(:) - fdx*fdy*eps(single(1)))
@@ -100,8 +100,8 @@ for ifile=1:length(in),
             area_diff = area - area_old;
             mass_diff = mass - mass_old;
             if(ta>0),
-                % cc=bwconncomp(a>0); % find connected components, requires image processing toolbox
-                 cc.PixelIdxList{1}=[1:length(lon(:))]'; % just take all
+                 cc=bwconncomp(area>0); % find connected components, requires image processing toolbox
+                 % cc.PixelIdxList{1}=[1:length(lon(:))]'; % just take all
                 for id=1:length(cc.PixelIdxList)
                     sub=cc.PixelIdxList{id};      % subset index list
                     fire_id = fire_id+1;
@@ -115,8 +115,8 @@ for ifile=1:length(in),
                         fmc=w.fmc_gc(:,:,m_class);
                         m_mean(m_class)=mean(fmc(sub_coarse))*100;
                     end
-                    fmt_loc='%i,%08g,%08g,%s,%g,%g,RX,%g,%g,%g,%g,%g';
-                    arg_loc={fire_id,fire_ctr_lat,fire_ctr_lon,tim,...
+                    fmt_loc='%i,%g,%08g,%08g,%s,%g,%g,RX,%g,%g,%g,%g,%g';
+                    arg_loc={fire_id,0,fire_ctr_lat,fire_ctr_lon,tim,...
                         a_diff_acres,h_diff_btus,m_mean};
                     fprintf(loc,fmt_loc,arg_loc{:});
                     fmt_hou='%i,%i,%s,%g,%g,%g,%g';
