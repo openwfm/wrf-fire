@@ -24,12 +24,12 @@ function tign=perimeter_in(long,lat,fire_area,wrfout,time,interval)
 %   and time of ignition > time_now 
 
 % Reading Rate of spread
-ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
+ % JM should be read_ros_from_wrfout
 
 % Computing 4d array of distances between a point and its 8 neighbors
 distance=get_distances(long,lat);
 
-tign=get_tign_from_dif_eq(ros,fire_area,distance,interval);
+tign=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval);
 
 fid = fopen('output_tign.txt', 'w');
     dlmwrite('output_tign.txt', tign, 'delimiter', '\t','precision', '%.4f');
@@ -38,15 +38,15 @@ fid = fopen('output_tign.txt', 'w');
 end
 
 
-function [tign]=get_tign_from_dif_eq(ros,fire_area,distance,interval)
+function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval)
 
 % ros(i,j,a,b,t) - ros in all directions taken over all time steps (t)   
 % distance
 % interval
 
-time=size(ros,5); % time step in wrfout corresponding to the time when the 
+% time step in wrfout corresponding to the time when the 
                   % perimeter was taken, time*interval=perimeter time (s)
-time_now=time*interval; % perimeter time
+% time_now=time*interval; % perimeter time
 
 A=[];             % List of all points that are has not burnt yet and whose
 
@@ -56,8 +56,10 @@ A=[];             % List of all points that are has not burnt yet and whose
 I=zeros(size(distance));            % Matrix of distances
 tign=zeros(size(distance,1),size(distance,2)); % Final matrix of differences
 D=zeros(size(distance,1),size(distance,2));
-contour(C);title(sprintf('Original perimeter')); drawnow 
+%contour(C);title(sprintf('Original perimeter')); drawnow 
 C_old=C;
+
+ros_old=read_data_from_wrfout(wrfout,time);
 for ii=time:-1:2
     if size(A,1)==0
         
@@ -66,16 +68,14 @@ for ii=time:-1:2
         break;
     else
             ii
-if ii==22
-    'hello'
-end
+            ros_new=read_data_from_wrfout(wrfout,ii-1);
             for jj=1:size(A,1)
             for dx=-1:1
                 for dy=-1:1
                    if (C(A(jj,1)+dx,A(jj,2)+dy)==0) 
                        % C=0.5*(0.5*(r(t1)+r(t2))*(t2-t1){to point A}+0.5*(r(t1)+r(t2))*(t2-t1){from point A})
-                       F=0.25*interval*(ros(A(jj,1),A(jj,2),2-dx,2-dy,ii)+ros(A(jj,1),A(jj,2),2-dx,2-dy,ii-1) + ...
-                       ros(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy,ii)+ros(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy,ii-1)); 
+                       F=0.25*interval*(ros_old(A(jj,1),A(jj,2),2-dx,2-dy)+ros_new(A(jj,1),A(jj,2),2-dx,2-dy) + ...
+                       ros_old(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+ros_new(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)); 
                        if (I(A(jj,1),A(jj,2),2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
                            % Interpolating
                            tign(A(jj,1)+dx,A(jj,2)+dy)=(ii-1)*interval+((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1),A(jj,2),2-dx,2-dy))/F)*interval;
@@ -91,8 +91,8 @@ end
                 C(A(jj,1),A(jj,2))=2;
             end
         end
-            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
-            [tign,C,I]=get_tign_one_timestep(tign,ros,C,D,I,distance,interval,ii);
+%            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
+            [tign,C,I]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,interval,ii);
             D=zeros(size(distance,1),size(distance,2)); % it has to become 0 anyway, but I need to check later
               
     end
@@ -100,16 +100,17 @@ end
         [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
         A(:,1)=A(:,1)+1;
         A(:,2)=A(:,2)+1;
- figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
- figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
+% figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
+% figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
  changed=sum(C(:)~=C_old(:))
  C_old=C;
+ ros_old=ros_new;
 end
 'reached the last time_step'
 end
                                   
 
-function [tign,C,I]=get_tign_one_timestep(tign,ros,C,D,I,distance,interval,iii)
+function [tign,C,I]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,interval,iii)
 
 B=[];
 step=1;
@@ -124,8 +125,8 @@ while any(any(D>0))
                    if (C(B(jjj,1)+dx,B(jjj,2)+dy)==0) 
                    % Is it right to decrease the interval in this
                    % situation? think about it later
-                       F=0.25*D(B(jjj,1),B(jjj,2))*(ros(B(jjj,1),B(jjj,2),2-dx,2-dy,iii)+ros(B(jjj,1),B(jjj,2),2-dx,2-dy,iii-1) + ...
-                       ros(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy,iii)+ros(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy,iii-1)); 
+                       F=0.25*D(B(jjj,1),B(jjj,2))*(ros_old(B(jjj,1),B(jjj,2),2-dx,2-dy)+ros_new(B(jjj,1),B(jjj,2),2-dx,2-dy) + ...
+                       ros_old(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)+ros_new(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)); 
                        if (I(B(jjj,1),B(jjj,2),2-dx,2-dy)+F>distance(B(jjj,1),B(jjj,2),2-dx,2-dy))
                            % Interpolating
                            tign(B(jjj,1)+dx,B(jjj,2)+dy)=tign(B(jjj,1),B(jjj,2))+ ...
@@ -145,7 +146,7 @@ while any(any(D>0))
             end
      end
          
-        figure(2); contour(C);title(sprintf('step %i, Matrix C in subfunction substep %i',iii,step)); drawnow 
+%        figure(2); contour(C);title(sprintf('step %i, Matrix C in subfunction substep %i',iii,step)); drawnow 
         step=step+1;
 end
 end
