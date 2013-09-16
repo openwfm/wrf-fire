@@ -1,4 +1,4 @@
-function tign=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval);
+function tign=perimeter_in(long,lat,fire_area,wrfout,time,interval)
 
 % Volodymyr Kondratenko           July 19 2013	
 
@@ -12,7 +12,6 @@ function tign=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval);
 %    time_now      the perimeter time (s)
 %    time          update the wind every count time steps
 %    interval      time step in wrfout in seconds
-%  JM NEVER CHANGE INPUT VARIABLES
 % 
 % Output: 
 %    Final Matrix of times of ignition will be printed to 'output_tign.txt' % JM use save tign instead, create tign.mat
@@ -275,7 +274,7 @@ for i=2:size(fire_area,1)-1
     for j=2:size(fire_area,2)-1
         % if (i,j) is not burning
         if (fire_area(i,j)==0) 
-            % if any neighbor is not burning
+            % if any neighbor is burning
             if (any(any(fire_area(i-1:i+1,j-1:j+1)>0))==1)
             % add [i,j] to A
             A=[A;[i,j]];

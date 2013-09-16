@@ -8,22 +8,13 @@ time_now=300.25;  % the perimeter time (s)
 
 format long
 
-% read burning/not burning map from wrfout, should not set A or tign_g
-% can be replaced by any other data acquisition routine
-
 % read the fire map at perimeter time
 
 [long,lat,fire_area]=read_file_perimeter(wrfout,time);
 
-% read long, fire_area, lat from wrfout
-% interpolate/resample to the wrf fire grid
-
 % now have data: long, lat, fire_area - burning or not burning (between 0 and 1, 0-1 OK)
-% wrfout - has ros
 
-% JM should not take tign_g as input, only tign_g <= time_now,
-
-tign=perimeter_in(long,lat,fire_area,wrfout,time_now,time,interval);
+tign=perimeter_in(long,lat,fire_area,wrfout,time,interval);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The information below is not beig used for the current problem
