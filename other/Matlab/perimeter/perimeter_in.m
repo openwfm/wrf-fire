@@ -60,6 +60,14 @@ D=zeros(size(distance,1),size(distance,2));
 C_old=C;
 
 ros_old=read_data_from_wrfout(wrfout,time);
+'Distance around point 100 100'
+distance(1000,1000,:,:)
+'ros around 1000 1000'
+ros_old(1000,1000,:,:)
+fid = fopen('first_ros_11.txt', 'w');
+    dlmwrite('first_ros_11.txt', ros_old(:,:,1,1), 'delimiter', '\t','precision', '%.4f');
+    fclose(fid);
+
 for ii=time:-1:2
     if size(A,1)==0
         
@@ -67,8 +75,16 @@ for ii=time:-1:2
         ii
         break;
     else
+           'first element of A'
+             A(100,:)
+        'Distance around point A(:,3)'
+distance(A(100,1),A(100,2),1:2,1:2)
+'ros around A(:,1)'
+ros_old(A(100,1),A(100,2),1:2,1:2)
             ii
             ros_new=read_data_from_wrfout(wrfout,ii-1);
+'ros_new'
+ros_new(A(100,1),A(100,2),1:2,1:2)
             for jj=1:size(A,1)
             for dx=-1:1
                 for dy=-1:1
@@ -117,6 +133,12 @@ step=1;
 while any(any(D>0))
     B=[];
     [B(:,1),B(:,2)]=find(D(2:end-1,2:end-1)>0);
+      'step'
+     iii
+    'substep' 
+     step
+    'points whose neighbors are being updated'
+     size(B,1)
     B(:,1)=B(:,1)+1;
     B(:,2)=B(:,2)+1;
      for jjj=1:size(B,1)
