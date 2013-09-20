@@ -18,7 +18,7 @@ function tign=perimeter_in(long,lat,fire_area,wrfout,time,interval)
 %
 %
 
-% JM algorithm state is stored in arrays A D C
+% Algorithm state is stored in arrays A D C
 %
 % A contains rows [i,j] of indices of nodes not burning that have at least one burning neighbor
 %   and time of ignition > time_now 
@@ -59,7 +59,8 @@ D=zeros(size(distance,1),size(distance,2));
 %contour(C);title(sprintf('Original perimeter')); drawnow 
 C_old=C;
 
-ros_old=read_data_from_wrfout(wrfout,time);
+% Temporary prints
+ros_old=read_ros_from_wrfout(wrfout,time);
 'Distance around point 1000 1000'
 distance(1000,1000,:,:)
 'ros around 1000 1000'
@@ -88,7 +89,7 @@ for ii=time:-1:2
 % 'ros around A(:,1)'
 % ros_old(A(100,1),A(100,2),1:2,1:2)
 %             ii
-            ros_new=read_data_from_wrfout(wrfout,ii-1);
+            ros_new=read_ros_from_wrfout(wrfout,ii-1);
 'ros_new around 1000 1000'
 ros_new(1000,1000,:,:)
 'taken at step'
@@ -397,7 +398,7 @@ function result=perimeter_in_const_ros(long,lat,fire_area,wrfout,time_now,time,i
 %   and time of ignition > time_now 
 
 % Reading Rate of spread
-ros=read_data_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
+ros=read_ros_from_wrfout(wrfout,time); % JM should be read_ros_from_wrfout
 
 % Getting matrix A from the initial tign_g, where
 A=get_perim_from_initial_tign(fire_area); 
@@ -449,7 +450,7 @@ for istep=1:max(size(tign_in)),
 % % %             D=zeros(n,m);
 % % %             time_now=time_now-count*interval
 % % %             time=time-1;
-% % %             ros=read_data_from_wrfout(wrfout,time);
+% % %             ros=read_ros_from_wrfout(wrfout,time);
 % % %             delta_tign=get_delta_tign(distance,ros);
 % % %     
 % % %         elseif (time-count)<0
@@ -597,7 +598,7 @@ for istep=1:max(size(tign_in)),
         count1=mod(time_old-max(max(tign_in(A(:,1),A(:,2)))),count*interval)
         time_old=time_old-count1*interval
         time=time-count1
-       ros=read_data_from_wrfout(wrfout,size(long,1),size(long,2),time);
+       ros=read_ros_from_wrfout(wrfout,size(long,1),size(long,2),time);
        delta_tign=delta_tign_calculation(long,lat,ros);
     end
 

@@ -1,10 +1,10 @@
-function ros=read_data_from_wrfout(wrfout,time)
+function ros=read_ros_from_wrfout(wrfout,time)
 
 % for witch its 3100 2600
 
 format long
 
-p=nc2struct(wrfout,{'F_ROS11','F_ROS12','F_ROS13','F_ROS11','F_ROS21','F_ROS23','F_ROS31','F_ROS32','F_ROS33'},{},time);
+p=nc2struct(wrfout,{'F_ROS11','F_ROS12','F_ROS13','F_ROS21','F_ROS23','F_ROS31','F_ROS32','F_ROS33'},{},time);
 
 ros=zeros(size(p.f_ros11,1),size(p.f_ros11,2),3,3);
 
