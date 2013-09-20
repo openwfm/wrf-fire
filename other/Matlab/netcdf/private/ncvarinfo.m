@@ -21,9 +21,15 @@ for idim=v.ndims:-1:1
         v.dimlength(idim)=dimlength;
     else  % fix fire grid variables
         stagname=[regexprep(dimname,'_subgrid$',''),'_stag'];
-        stagid=netcdf.inqDimID(ncid,stagname);
-        [tmp,staglen]=netcdf.inqDim(ncid,stagid);
-        v.dimlength(idim)=dimlength-dimlength/staglen;
+        try
+            stagid=netcdf.inqDimID(ncid,stagname);
+            [tmp,staglen]=netcdf.inqDim(ncid,stagid);
+            v.dimlength(idim)=dimlength-dimlength/staglen;
+            % idim,dimlength,staglen,fprintf('fixing dimlength=%g\n',v.dimlength(idim))
+        catch STAG
+            warning(['dimension ',stagname,' not found, cannot fix fire variable size'])
+            v.dimlength(idim)=dimlength;
+        end
     end
 end
 
