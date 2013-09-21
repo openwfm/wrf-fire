@@ -85,7 +85,28 @@ character(len=nf90_max_name)::                        &
                               desc_flineint='Byram fireline intensity',         &
                               var_flineint2='FLINEINT2',        & 
                               unit_flineint2='J/m/s^2',         & 
-                              desc_flineint2='New fireline intensity' 
+                              desc_flineint2='New fireline intensity' , &
+                              var_f_ros0='F_ROS0',          &
+                              unit_f_ros0='m/s',            &
+                              desc_f_ros0='base rate of spread in all directions',  &
+                              var_f_rosx='F_ROSX',          &
+                              unit_f_rosx='m/s',            &
+                              desc_f_rosx='potential rate of spread in direction X',  &
+                              var_f_rosy='F_ROSY',          &
+                              unit_f_rosy='m/s',            &
+                              desc_f_rosy='potential rate of spread in direction Y',  &
+                              var_f_ros='F_ROS',          &
+                              unit_f_ros='m/s',            &
+                              desc_f_ros='potential fire max spread rate in any direction',  &
+                              var_f_int='F_INT',          &
+                              unit_f_int='J/m^2/s',            &
+                              desc_f_int='potential fire reaction intensity for risk rating',  &
+                              var_f_lineint='F_LINEINT',          &
+                              unit_f_lineint='J/m/s',            &
+                              desc_f_lineint='potential Byram fireline intensity for risk rating',  &
+                              var_f_lineint2='F_LINEINT2',          &
+                              unit_f_lineint2='J/m/s^2',            &
+                              desc_f_lineint2='potential alternative fireline intensity for risk rating'
 
 character(len=nf90_max_name),parameter::var_times='Times' 
 
@@ -229,6 +250,13 @@ call define_var(filename,info,var_flineint,3,dim_fire,unit_flineint,desc_flinein
 call define_var(filename,info,var_flineint2,3,dim_fire,unit_flineint2,desc_flineint2)
 call define_var(filename,info,var_ros,3,dim_fire,unit_ros,desc_ros)
 call define_var(filename,info,var_r_0,3,dim_fire,unit_r_0,desc_r_0)
+call define_var(filename,info,var_f_ros0,3,dim_fire,unit_f_ros0,desc_f_ros0)
+call define_var(filename,info,var_f_rosx,3,dim_fire,unit_f_rosx,desc_f_rosx)
+call define_var(filename,info,var_f_rosy,3,dim_fire,unit_f_rosy,desc_f_rosy)
+call define_var(filename,info,var_f_ros,3,dim_fire,unit_f_ros,desc_f_ros)
+call define_var(filename,info,var_f_int,3,dim_fire,unit_f_int,desc_f_int)
+call define_var(filename,info,var_f_lineint,3,dim_fire,unit_f_lineint,desc_f_lineint)
+call define_var(filename,info,var_f_lineint2,3,dim_fire,unit_f_lineint2,desc_f_lineint2)
 
 end subroutine create_output_file
 
@@ -341,6 +369,13 @@ call write_fire_var(ncid,info,iframe,var_flineint,grid%flineint)
 call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
 call write_fire_var(ncid,info,iframe,var_uf,grid%uf)
 call write_fire_var(ncid,info,iframe,var_vf,grid%vf)
+call write_fire_var(ncid,info,iframe,var_f_ros0,grid%f_ros0)
+call write_fire_var(ncid,info,iframe,var_f_rosx,grid%f_rosx)
+call write_fire_var(ncid,info,iframe,var_f_rosy,grid%f_rosy)
+call write_fire_var(ncid,info,iframe,var_f_ros,grid%f_ros)
+call write_fire_var(ncid,info,iframe,var_f_int,grid%f_int)
+call write_fire_var(ncid,info,iframe,var_f_lineint,grid%f_lineint)
+call write_fire_var(ncid,info,iframe,var_f_lineint2,grid%f_lineint2)
 
 ! close file
 call latch

@@ -181,8 +181,11 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     ! copy configuration flags to sfire internal structures
     call set_flags(config_flags)
 
+#ifndef SFIRE_STANDALONE
+
 !   see what we got from wrf
 !! need to replace ipe by min(ide-1,ipe) and similarly jpe
+
     if(fire_print_msg.ge.2 .and. fire_ifun_start .gt. 1)then
 
       ipe1=min(ide-1,ipe)
@@ -253,6 +256,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
 
     endif
+#endif
 
 
     ! refinement r
@@ -362,9 +366,9 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
 
-            if(grid%chem_opt>0 .or. grid%tracer_opt > 0)then
+            if(config_flags%chem_opt>0 .or. config_flags%tracer_opt > 0)then
                 ! need reading fuel categories first
-                call read_emissions_table(grid%chem_opt,grid%tracer_opt)
+                call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
             endif
         
 
@@ -466,12 +470,12 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 #endif
 
      if(fire_ifun.eq.6)then
-         if(grid%chem_opt>0 .or. grid%tracer_opt>0)then
+         if(config_flags%chem_opt>0 .or. config_flags%tracer_opt>0)then
              if(.not.(present(rho).and.present(dz8w)))then
                  call crash('sfire_driver_em: must have rho and dz8w to call add_fire_emissions')
              endif
              call add_fire_emissions( &
-                 grid%chem_opt,grid%tracer_opt,dt,grid%dx,grid%dy,      &
+                 config_flags%chem_opt,config_flags%tracer_opt,dt,grid%dx,grid%dy,      &
                  ifms,ifme,jfms,jfme,    &
                  ifps,ifpe,jfps,jfpe,    &               ! use patch instead of tile
                  ids,ide,kds,kde,jds,jde,          &

@@ -28,6 +28,7 @@ module module_domain
       real, pointer, dimension(:,:)::fuel_time => null()       ! fuel coefficient  
       real, pointer, dimension(:,:)::u_2 => null()
       real, pointer, dimension(:,:)::v_2 => null()
+      real, pointer, dimension(:,:)::w_2 => null()             ! vertical wind, not used
       real, pointer, dimension(:,:)::ph_2 => null()
       real, pointer, dimension(:,:)::phb => null()
       real, pointer, dimension(:,:)::z0 => null()
@@ -54,6 +55,8 @@ module module_domain
       real, pointer, dimension(:,:,:)::fmc_gc => null()
       real, pointer, dimension(:,:,:)::fmc_equi => null()
       real, pointer, dimension(:,:,:)::fmc_lag => null()
+      real, pointer, dimension(:,:,:,:)::chem => null()
+      real, pointer, dimension(:,:,:,:)::tracer => null()
 
       ! mesh and housekeeping
 
@@ -100,6 +103,14 @@ module module_domain
       real, pointer, dimension(:,:)::f_rosx  => null()         ! 
       real, pointer, dimension(:,:)::f_rosy  => null()         ! 
       real, pointer, dimension(:,:)::fire_hfx  => null()       ! 
+      real, pointer, dimension(:,:)::f_ros11  => null()            ! rate of spread - for diagnostics only
+      real, pointer, dimension(:,:)::f_ros12  => null()            ! rate of spread - for diagnostics only
+      real, pointer, dimension(:,:)::f_ros13  => null()            ! rate of spread - for diagnostics only
+      real, pointer, dimension(:,:)::f_ros21  => null()            ! rate of spread - for diagnostics only
+      real, pointer, dimension(:,:)::f_ros23  => null()            ! rate of spread - for diagnostics only
+      real, pointer, dimension(:,:)::f_ros31  => null()            ! rate of spread - for diagnostics only
+      real, pointer, dimension(:,:)::f_ros32  => null()            ! rate of spread - for diagnostics only
+      real, pointer, dimension(:,:)::f_ros33  => null()            ! rate of spread - for diagnostics only
 
 
    end type domain

@@ -10,9 +10,7 @@ module module_fr_sfire_atm
 use module_model_constants, only: cp,xlv,g
 use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,windrf
 use module_fr_sfire_util
-#ifdef DM_PARALLEL
-    USE module_dm , only : wrf_dm_sum_reals
-#endif
+USE module_dm , only : wrf_dm_sum_reals
 
 
 use module_fr_sfire_phys, only:  mfuelcats, nfuelcats    ! for emissions
@@ -71,7 +69,7 @@ p_mvk, &
 p_smoke   ! tracer smoke exists only with CHEM
 #endif
 
-USE module_configure, only: &
+USE module_state_description, only: &
 p_tr17_1, &
 p_tr17_2, &
 p_tr17_3, &
