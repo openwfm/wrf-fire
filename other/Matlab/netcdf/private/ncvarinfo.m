@@ -26,7 +26,7 @@ for idim=v.ndims:-1:1
             stagid=netcdf.inqDimID(ncid,stagname);
             [tmp,staglen]=netcdf.inqDim(ncid,stagid);
         catch STAG
-            warning(['dimension ',stagname,' not found'])
+            % warning(['dimension ',stagname,' not found'])
             staglen=0;
         end
         atmname=dimname(1:end-8);
@@ -34,7 +34,7 @@ for idim=v.ndims:-1:1
             atmid=netcdf.inqDimID(ncid,atmname);
             [tmp,atmlen]=netcdf.inqDim(ncid,atmid);
         catch ATM
-            warning(['dimension ',atmname,' not found'])
+            % warning(['dimension ',atmname,' not found'])
             atmlen=0;
         end
         if atmlen & staglen,
