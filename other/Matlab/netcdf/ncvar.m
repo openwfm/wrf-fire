@@ -18,7 +18,12 @@ if exist('start','var')
 end
       
 % fprintf('ncdump/ncvar: open %s\n',filename)
-ncid = netcdf.open(filename,'NC_NOWRITE');
+try
+   ncid = netcdf.open(filename,'NC_NOWRITE');
+catch ERR 
+   disp(['cannot open NetCDF file ',filename])
+   rethrow(ERR);
+end
 %fprintf('reading variable %s\n',varname)
 varid = netcdf.inqVarID(ncid,char(varname));
 v=ncvarinfo(ncid,varid); % find out all about this variable
