@@ -83,7 +83,7 @@ for ifile=1:length(in),
     fprintf('timesteps %i meshstep %g %g\n',s,dx,dy);
     for istep=1:s
         d=datenum(t(istep,:),'yyyy-mm-dd_HH:MM:SS'); % convert ESMF time string to double
-        tim=[datestr(d,'yyyymmddHHMM'),'L'];         % convert to bluesky time format
+        tim=[datestr(d,'yyyymmddHHMM'),'Z'];         % convert to bluesky time format
         v = datevec(d);
         if(v(5)==0 & v(6) == 0) % whole hour
         % if(v(6) == 0) % whole minute
