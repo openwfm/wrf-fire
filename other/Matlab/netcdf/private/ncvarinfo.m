@@ -20,10 +20,35 @@ for idim=v.ndims:-1:1
     if isempty(regexp(dimname,'_subgrid$','ONCE'))
         v.dimlength(idim)=dimlength;
     else  % fix fire grid variables
+        v.dimlength(idim)=0;  % default
         stagname=[regexprep(dimname,'_subgrid$',''),'_stag'];
-        stagid=netcdf.inqDimID(ncid,stagname);
-        [tmp,staglen]=netcdf.inqDim(ncid,stagid);
-        v.dimlength(idim)=dimlength-dimlength/staglen;
+        try
+            stagid=netcdf.inqDimID(ncid,stagname);
+            [tmp,staglen]=netcdf.inqDim(ncid,stagid);
+        catch STAG
+            % warning(['dimension ',stagname,' not found'])
+            staglen=0;
+        end
+        atmname=dimname(1:end-8);
+        try
+            atmid=netcdf.inqDimID(ncid,atmname);
+            [tmp,atmlen]=netcdf.inqDim(ncid,atmid);
+        catch ATM
+            % warning(['dimension ',atmname,' not found'])
+            atmlen=0;
+        end
+        if atmlen & staglen,
+            if atmlen +1 ~= staglen,
+                error(['inconsistent',atmname,' and ',stagname])
+            end
+        end
+        if atmlen==0 & staglen==0,
+            warning(['dimensions ',stagname,' or ',atmname,' not found, cannot fix fire variable size'])
+            v.dimlength(idim)=dimlength;
+        else
+            ratio=dimlength/max(staglen,atmlen+1);
+            v.dimlength(idim)=dimlength-ratio;
+        end
     end
 end
 
