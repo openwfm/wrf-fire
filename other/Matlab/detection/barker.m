@@ -13,6 +13,8 @@
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
+v=read_fire_kml('conus_viirs.kml');
+
 %v=read_fire_kml('conus_viirs.kml');
 %load w
 %load s
@@ -71,6 +73,11 @@ mesh_lat = mesh_fxlat;
 
 % mesh_tim=f(mesh_lon,mesh_lat);
 
+mesh_tign=tign(mi,ni);
+mesh_tign(mesh_tign(:)==max(mesh_tign(:)))=NaN;
+surf(mesh_fxlong,mesh_fxlat,mesh_tign,'EdgeAlpha',0,'FaceAlpha',0.5)
+grid
+
 % replacing tim by NaN where too far from the detection point
 
 % plot black patches as detection circles
@@ -99,10 +106,8 @@ xlabel('longitude')
 
 % remove the max time level from the picture and plot simulated times
 
-mesh_tign=tign(mi,ni);
-mesh_tign(mesh_tign(:)==max(mesh_tign(:)))=NaN;
-% surf(mesh_fxlong,mesh_fxlat,mesh_tign,'EdgeAlpha',0,'FaceAlpha',0.1)
-
+print_heat_flux=0; % not working well
+if print_heat_flux,
 stim=datenum(char(s.times'))'-last_time;
 maxh=max(mesh_fgrnhfx(:));
 caxis([0 maxh*0.2]);
@@ -122,6 +127,7 @@ for i=1:size(mesh_fgrnhfx,3)
     drawnow
 end
 colorbar,grid
+end
 
 hold off
 
