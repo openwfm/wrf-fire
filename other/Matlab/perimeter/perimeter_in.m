@@ -60,20 +60,21 @@ D=zeros(size(distance,1),size(distance,2));
 C_old=C;
 
 % Temporary prints
+'A contains rows [i,j] of indices of nodes not burning that have at least one burning neighbor'
+  ' and time of ignition > time_now'
 ros_old=read_ros_from_wrfout(wrfout,time);
-'Distance around point 1000 1000'
-distance(1000,1000,:,:)
-'ros around 1000 1000'
-ros_old(1000,1000,:,:)
-'taken at step 41'
-'fire_area around (1000,1000)'
-fire_area(999:1001,999:1001)
-'C around the 1000,1000'
-C(999:1001,999:1001)
+'ROS around point A(1,:), whose neighbors tign will be updated'
+'taken at step '
+time
+ros_old(A(1,1),A(1,2),:,:)
+'fire_area around A(1,:)'
+fire_area(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+'C around the A(1,:)'
+C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
 
-fid = fopen('first_ros_11.txt', 'w');
-    dlmwrite('first_ros_11.txt', ros_old(:,:,1,1), 'delimiter', '\t','precision', '%.4f');
-    fclose(fid);
+%fid = fopen('first_ros_11.txt', 'w');
+%    dlmwrite('first_ros_11.txt', ros_old(:,:,1,1), 'delimiter', '\t','precision', '%.4f');
+%    fclose(fid);
 
 for ii=time:-1:2
     if size(A,1)==0
@@ -90,8 +91,14 @@ for ii=time:-1:2
 % ros_old(A(100,1),A(100,2),1:2,1:2)
 %             ii
             ros_new=read_ros_from_wrfout(wrfout,ii-1);
-'ros_new around 1000 1000'
-ros_new(1000,1000,:,:)
+'A(1,:)='
+A(1,:)
+'C around A(1,:)'
+C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+'tign around A(1,:)'
+tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+'ros_new around A(1,:) '
+ros_new(A(1,1),A(1,2),:,:)
 'taken at step'
 ii-1
 
@@ -120,14 +127,14 @@ ii-1
             end
             end
 'Main cycle is over'            
-'tign around 1000,1000'
-tign(999:1001,999:1001)
-'D around 1000,1000'
-D(999:1001,999:1001)
-'C around 1000,1000'
-C(999:1001,999:1001)
-'I around 1000 1000'
-I(1000,1000,:,:)
+'tign around A(1,:)'
+tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+'D around A(1.:)'
+D(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+'C around A(1,:)'
+C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+'I in all directions around A(1,:)'
+I(A(1,1),A(1,2),:,:)
 
 
 %            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
@@ -152,6 +159,8 @@ I(1000,1000,:,:)
 % figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
 % figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
  changed=sum(C(:)~=C_old(:))
+ 'After a cycle and subsycle tign changed in .. points'
+changed 
  C_old=C;
  ros_old=ros_new;
 end
@@ -162,11 +171,11 @@ function [tign,C,I]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,in
 
 B=[];
 step=1;
+'subcycle in step'
+iii
 while any(any(D>0))
     B=[];
     [B(:,1),B(:,2)]=find(D(2:end-1,2:end-1)>0);
-      'step'
-     iii
     'substep' 
      step
     'points whose neighbors are being updated'

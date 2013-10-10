@@ -1,9 +1,9 @@
 addpath ../netcdf
 addpath ../util1jan
 
-wrfout='wrfout_d01_0001-01-01_00:00:00';
-interval=10;      % time step in wrfout in seconds
-time=30;          % the number of the time step in wrfout closest to the perimeter time from below
+wrfout='wrfout_d05_2012-09-09_00:00:00';
+interval=900;      % time step in wrfout in seconds
+time=97;          % the number of the time step in wrfout closest to the perimeter time from below
 time_now=300.25;  % the perimeter time (s)
 
 format long

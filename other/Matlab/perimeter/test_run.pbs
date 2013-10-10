@@ -9,4 +9,4 @@
 cd $PBS_O_WORKDIR
 pwd
 cd ../../../wrfv2_fire/test/em_fire/
-matlab -nodesktop < run1.m
+matlab -nodesktop < run2.m
