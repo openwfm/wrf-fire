@@ -1,10 +1,14 @@
 addpath ../netcdf
-addpath ../util1jan
+addpath ../util1_jan
 
-wrfout='wrfout_d05_2012-09-09_00:00:00';
-interval=900;      % time step in wrfout in seconds
-time=97;          % the number of the time step in wrfout closest to the perimeter time from below
-time_now=300.25;  % the perimeter time (s)
+wrfout='wrfout_d05_2012-09-09_00:00:00_VK_75_to_97';
+% Here the netcdf is shortened for the period from timestep 75 till 97
+% So time=23 which is 97-74, otherwise it should be 97
+%
+
+interval=900;      % time step in wrfout in seconds (every 20 min)
+time=23;           % the number of the time step in wrfout closest to the perimeter time from below
+%time_now=300.25;  % the perimeter time (s)
 
 format long
 
