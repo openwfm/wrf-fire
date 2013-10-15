@@ -91,8 +91,8 @@ A(1,:)
 C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
 'tign around A(1,:)'
 tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'ros_new around A(1,:) '
-ros_new(A(1,1),A(1,2),:,:)
+'ros_new around A(1,:) skipped'
+%ros_new(A(1,1),A(1,2),:,:)
 'taken at step'
 ii-1
 
@@ -107,9 +107,9 @@ ii-1
                        ros_old(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+ros_new(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)); 
                        if (I(A(jj,1),A(jj,2),2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
                            % Interpolating
-                           tign(A(jj,1)+dx,A(jj,2)+dy)=(ii-1)*interval+((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1),A(jj,2),2-dx,2-dy))/F)*interval;
+                           tign(A(jj,1)+dx,A(jj,2)+dy)=(ii)*interval-((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy))/F)*interval;
                            C(A(jj,1)+dx,A(jj,2)+dy)=1;
-                           D(A(jj,1)+dx,A(jj,2)+dy)=ii*interval-tign(A(jj,1)+dx,A(jj,2)+dy);
+                           D(A(jj,1)+dx,A(jj,2)+dy)=tign(A(jj,1)+dx,A(jj,2)+dy)-(ii-1)*interval;
                        else
                            I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1),A(jj,2),2-dx,2-dy);
                        end
@@ -128,7 +128,8 @@ D(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
 'C around A(1,:)'
 C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
 'I in all directions around A(1,:)'
-I(A(1,1),A(1,2),:,:)
+%I(A(1,1),A(1,2),:,:)
+I(A(1,1),A(1,2))
 
 
 %            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
@@ -187,15 +188,15 @@ while any(any(D>0))
                    % situation? think about it later
                        F=0.25*D(B(jjj,1),B(jjj,2))*(ros_old(B(jjj,1),B(jjj,2),2-dx,2-dy)+ros_new(B(jjj,1),B(jjj,2),2-dx,2-dy) + ...
                        ros_old(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)+ros_new(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)); 
-                       if (I(B(jjj,1),B(jjj,2),2-dx,2-dy)+F>distance(B(jjj,1),B(jjj,2),2-dx,2-dy))
+                       if (F>distance(B(jjj,1),B(jjj,2),2-dx,2-dy))
                            % Interpolating
-                           tign(B(jjj,1)+dx,B(jjj,2)+dy)=tign(B(jjj,1),B(jjj,2))+ ...
-                           ((distance(B(jjj,1),B(jjj,2),2-dx,2-dy)-I(B(jjj,1),B(jjj,2),2-dx,2-dy))/F)* ...
+                           tign(B(jjj,1)+dx,B(jjj,2)+dy)=tign(B(jjj,1),B(jjj,2))- ...
+                           ((distance(B(jjj,1),B(jjj,2),2-dx,2-dy))/F)* ...
                            (D(B(jjj,1),B(jjj,2)));
                            C(B(jjj,1)+dx,B(jjj,2)+dy)=1;
-                           D(B(jjj,1)+dx,B(jjj,2)+dy)=iii*interval-tign(B(jjj,1)+dx,B(jjj,2)+dy);
+                           D(B(jjj,1)+dx,B(jjj,2)+dy)=tign(B(jjj,1)+dx,B(jjj,2)+dy)-(iii-1)*interval;
                        else
-                           I(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)=F+I(B(jjj,1),B(jjj,2),2-dx,2-dy);
+                           I(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)=F;
                        end
                    end
                 end
