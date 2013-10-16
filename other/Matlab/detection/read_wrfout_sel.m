@@ -13,7 +13,11 @@ for i=1:length(files)
     n(i)=dims.times(2);
 end
 ntot=sum(n);
-step = floor((ntot+nsamples-1)/nsamples)
+if ~exist('nsamples','var') | nsamples == 0,
+    step=1;
+else
+    step = floor((ntot+nsamples-1)/nsamples)
+end
 start=[1,cumsum(n)+1]
 for j=mod(ntot-1,step)+1:step:ntot
     k=find(j>=start);k=k(end);
