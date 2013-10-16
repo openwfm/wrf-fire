@@ -4,20 +4,21 @@
 % 
 % to create w.mat:
 % run Adam's simulation, then in Matlab
-% w=nc2struct('wrfout_d05_2012-09-15_00:00:00',{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','Times'},{});
+% f='wrfout_d05_2012-09-15_00:00:00'; 
+% t=nc2struct(f,{'Times'},{});  n=size(t.times,2);  w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG'},{},n);
 % save ~/w.mat w    
 %
 % to create s.mat:
-% s=read_wrfout_sel({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'FGRNHFX','Times'}); 
+% s=read_wrfout_sel({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'FGRNHFX'}); 
 % save ~/s.mat s 
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
 v=read_fire_kml('conus_viirs.kml');
 
-%v=read_fire_kml('conus_viirs.kml');
-%load w
-%load s
+% v=read_fire_kml('conus_modis.kml');
+load w
+load s
 
 % establish boundaries
 
