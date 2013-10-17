@@ -85,16 +85,16 @@ for ii=time:-1:2
 % ros_old(A(100,1),A(100,2),1:2,1:2)
 %             ii
             ros_new=read_ros_from_wrfout(wrfout,ii-1);
-'A(1,:)='
-A(1,:)
-'C around A(1,:)'
-C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'tign around A(1,:)'
-tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'ros_new around A(1,:) skipped'
-%ros_new(A(1,1),A(1,2),:,:)
-'taken at step'
-ii-1
+% 'A(1,:)='
+% A(1,:)
+% 'C around A(1,:)'
+% C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+% 'tign around A(1,:)'
+% tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+% 'ros_new around A(1,:) skipped'
+% %ros_new(A(1,1),A(1,2),:,:)
+% 'taken at step'
+% ii-1
 
             % 'ros_new'
 % ros_new(A(100,1),A(100,2),1:2,1:2)
@@ -105,11 +105,14 @@ ii-1
                        % C=0.5*(0.5*(r(t1)+r(t2))*(t2-t1){to point A}+0.5*(r(t1)+r(t2))*(t2-t1){from point A})
                        F=0.25*interval*(ros_old(A(jj,1),A(jj,2),2-dx,2-dy)+ros_new(A(jj,1),A(jj,2),2-dx,2-dy) + ...
                        ros_old(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+ros_new(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)); 
-                       if (I(A(jj,1),A(jj,2),2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
+                       if (I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
                            % Interpolating
                            tign(A(jj,1)+dx,A(jj,2)+dy)=(ii)*interval-((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy))/F)*interval;
                            C(A(jj,1)+dx,A(jj,2)+dy)=1;
                            D(A(jj,1)+dx,A(jj,2)+dy)=tign(A(jj,1)+dx,A(jj,2)+dy)-(ii-1)*interval;
+                           if (D(A(jj,1)+dx,A(jj,2)+dy)<0)
+                           'D happens to be less than 0'
+                           end
                        else
                            I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1),A(jj,2),2-dx,2-dy);
                        end
@@ -120,31 +123,30 @@ ii-1
                 C(A(jj,1),A(jj,2))=2;
             end
             end
-'Main cycle is over'            
-'tign around A(1,:)'
-tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'D around A(1.:)'
-D(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'C around A(1,:)'
-C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'I in all directions around A(1,:)'
-%I(A(1,1),A(1,2),:,:)
-I(A(1,1),A(1,2))
+% 'Main cycle is over'            
+% 'tign around A(1,:)'
+% tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+% 'D around A(1.:)'
+% D(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+% 'C around A(1,:)'
+% C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+% %'I in all directions around A(1,:)'
+% %I(A(1,1),A(1,2),:,:)
 
 
 %            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
             [tign,C,I]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,interval,ii);
 'Subcycle is over'            
-'A(1,:)'
-A(1,:)
-'tign around A(1,:)'
-tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'D around A(1.:)'
-D(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'C around A(1,:)'
-C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
-'I in all directions around A(1,:)'
-I(A(1,1),A(1,2),:,:)
+% 'A(1,:)'
+% A(1,:)
+% 'tign around A(1,:)'
+% tign(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+% 'D around A(1.:)'
+% D(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+% 'C around A(1,:)'
+% C(A(1,1)-1:A(1,1)+1,A(1,2)-1:A(1,2)+1)
+% %'I in all directions around A(1,:)'
+% %I(A(1,1),A(1,2),:,:)
 
 
             D=zeros(size(distance,1),size(distance,2)); % it has to become 0 anyway, but I need to check later
@@ -154,14 +156,16 @@ I(A(1,1),A(1,2),:,:)
         [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
         A(:,1)=A(:,1)+1;
         A(:,2)=A(:,2)+1;
-% figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
-% figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
+ %figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
+ %figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
  changed=sum(C(:)~=C_old(:))
  'After a cycle and subsycle tign changed in .. points'
 changed 
  C_old=C;
  ros_old=ros_new;
 end
+[row,col]=find(C==0);
+size(row)
 end
                                   
 
@@ -180,9 +184,14 @@ while any(any(D>0))
      size(B,1)
     B(:,1)=B(:,1)+1;
     B(:,2)=B(:,2)+1;
+    D_old=D;
      for jjj=1:size(B,1)
+         
             for dx=-1:1
                 for dy=-1:1
+                    if (B(jjj,1)+dx==2015)&&(B(jjj,2)+dy==1841)
+             'That is where error is happening'
+                    end
                    if (C(B(jjj,1)+dx,B(jjj,2)+dy)==0) 
                    % Is it right to decrease the interval in this
                    % situation? think about it later
@@ -195,6 +204,9 @@ while any(any(D>0))
                            (D(B(jjj,1),B(jjj,2)));
                            C(B(jjj,1)+dx,B(jjj,2)+dy)=1;
                            D(B(jjj,1)+dx,B(jjj,2)+dy)=tign(B(jjj,1)+dx,B(jjj,2)+dy)-(iii-1)*interval;
+                           if (D(B(jjj,1)+dx,B(jjj,2)+dy)<0)
+                           'D happens to be less than 0'
+                           end
                        else
                            I(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)=F;
                        end
@@ -207,8 +219,14 @@ while any(any(D>0))
             end
      end
          
-%        figure(2); contour(C);title(sprintf('step %i, Matrix C in subfunction substep %i',iii,step)); drawnow 
+    %    figure(3); contour(C);title(sprintf('step %i, Matrix C in subfunction substep %i',iii,step)); drawnow 
         step=step+1;
+        [row,col]=find((D_old==D)&(D_old~=0));
+        'find((D_old==D_new)&(D_old~=0))- it has to be 0'
+        if (size(row,1)~=0)
+        size(row)
+        D(row(1),col(1))
+        end
 end
 end
 
@@ -439,10 +457,10 @@ for istep=1:max(size(tign_in)),
     time_toc=toc;
     str= sprintf('%f -- How long does it take to run step %i',time_toc,istep-1);
     tign_last=tign_in;
-    contour(tign_in(2:end-1,2:end-1));drawnow
+    %contour(tign_in(2:end-1,2:end-1));drawnow
     [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval);
 %%%    [tign_in,distance,A,D]=tign_update(tign_in,A,D,delta_tign,time_now,distance,interval,ros);
-    contour(tign_in(2:end-1,2:end-1));title(sprintf('step %i',istep)),drawnow
+    %contour(tign_in(2:end-1,2:end-1));title(sprintf('step %i',istep)),drawnow
 
     changed=sum(tign_in(:)~=tign_last(:));
 

@@ -1,3 +1,5 @@
+clear
+clc
 addpath ../netcdf
 addpath ../util1_jan
 
