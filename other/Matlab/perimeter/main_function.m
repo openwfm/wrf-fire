@@ -15,9 +15,7 @@ time=23;           % the number of the time step in wrfout closest to the perime
 format long
 
 % read the fire map at perimeter time
-
 [long,lat,fire_area]=read_file_perimeter(wrfout,time);
-
 % now have data: long, lat, fire_area - burning or not burning (between 0 and 1, 0-1 OK)
 
 tign=perimeter_in(long,lat,fire_area,wrfout,time,interval);
