@@ -101,6 +101,13 @@ for ii=time:-1:2
             for jj=1:size(A,1)
             for dx=-1:1
                 for dy=-1:1
+                    % Change to this later
+%                     [row,col]=find(C(A(jj,1)-1:A(jj,1)+1,A(jj,2)-1:A(jj,2)+1)==0);
+% +                % If it is faster keep it, that makes life easier while
+% +                % debugging
+% +                for index=1:size(row,1)
+% +                    dx=row(index)-2;
+% +                    dy=col(index)-2;
                    if (C(A(jj,1)+dx,A(jj,2)+dy)==0) 
                        % C=0.5*(0.5*(r(t1)+r(t2))*(t2-t1){to point A}+0.5*(r(t1)+r(t2))*(t2-t1){from point A})
                        F=0.25*interval*(ros_old(A(jj,1),A(jj,2),2-dx,2-dy)+ros_new(A(jj,1),A(jj,2),2-dx,2-dy) + ...
@@ -114,8 +121,10 @@ for ii=time:-1:2
                            'D happens to be less than 0'
                            end
                        else
-                           I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1),A(jj,2),2-dx,2-dy);
+                           I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy);
                        end
+                       % Add this later
+ %                      +                   elseif (C(A(jj,1)+dx,A(jj,2)+dy)==1)
                    end
                 end
             end
@@ -230,6 +239,67 @@ while any(any(D>0))
 end
 end
 
+function distance=get_distances(long,lat)
+% computing 4d array of distances between a point and its 8 neighbors
+% 
+% input:
+%   long(i,j), lat(i,j) geographical coordinates of node [i,j], i=1:m, j=1:n, [m,n]=size(long)=size(lat)
+%
+% output
+%   distance(i+1,j+1,a+2,b+2) = geographical distance between node [i,j] and [i+a,j+b] , a,b=-1:1
+    
+    distance=zeros(size(long,1),size(long,2),3,3);
+    
+    for i=2:size(long,1)-1
+      for j=2:size(long,2)-1
+        for a=-1:1
+            for b=-1:1
+                % distance between node [i,j] and [i+a,j+b]
+                distance(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
+                          (lat(i+a,j+b,1)-lat(i,j,1))^2);
+            end
+        end
+      end
+    end
+    % note that distance(i,i,...) makes no sense if i=2,m+1 or j=2,n+1 in the direction to the outside
+
+    % some ideas to look at
+    % maybe use mirroring?
+    % maybe keep numbering [i,j] always same as original outside of routines?
+    % now need to remember which array is shifted and bordered by zeros and which one is not
+    % if I was doing it: keep distance size (m,n,3,3) but not compute distance(1,1,...) etc
+    % and keep it zero, same with delta_tign, etc.
+
+    
+end
+
+function [A,C]=get_perim_from_initial_tign(fire_area);
+
+% Do I need to do C- 1,2,3?
+
+% in:
+%    tign         ignition time
+% out: 
+%    A            rows [i,j] of indices of nodes not burning that have at least one
+%                 burning neighbor
+A=[];
+C=2*(fire_area==0);
+format long
+for i=2:size(fire_area,1)-1
+    for j=2:size(fire_area,2)-1
+        % if (i,j) is not burning
+        if (fire_area(i,j)==0) 
+            % if any neighbor is burning
+            if (any(any(fire_area(i-1:i+1,j-1:j+1)>0))==1)
+            % add [i,j] to A
+            A=[A;[i,j]];
+            C(i,j)=1;
+            end
+       end
+    end
+end
+end
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -290,39 +360,7 @@ A=[];
 [A(:,1),A(:,2)]=find(C>0);
 end
 
-function distance=get_distances(long,lat)
-% computing 4d array of distances between a point and its 8 neighbors
-% 
-% input:
-%   long(i,j), lat(i,j) geographical coordinates of node [i,j], i=1:m, j=1:n, [m,n]=size(long)=size(lat)
-%
-% output
-%   distance(i+1,j+1,a+2,b+2) = geographical distance between node [i,j] and [i+a,j+b] , a,b=-1:1
-    
-    distance=zeros(size(long,1),size(long,2),3,3);
-    
-    for i=2:size(long,1)-1
-      for j=2:size(long,2)-1
-        for a=-1:1
-            for b=-1:1
-                % distance between node [i,j] and [i+a,j+b]
-                distance(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+    ...
-                          (lat(i+a,j+b,1)-lat(i,j,1))^2);
-            end
-        end
-      end
-    end
-    % note that distance(i,i,...) makes no sense if i=2,m+1 or j=2,n+1 in the direction to the outside
 
-    % some ideas to look at
-    % maybe use mirroring?
-    % maybe keep numbering [i,j] always same as original outside of routines?
-    % now need to remember which array is shifted and bordered by zeros and which one is not
-    % if I was doing it: keep distance size (m,n,3,3) but not compute distance(1,1,...) etc
-    % and keep it zero, same with delta_tign, etc.
-
-    
-end
 
 % maybe get_delta_tign ?
 
@@ -350,29 +388,7 @@ end
 
 end
 
-function [A,C]=get_perim_from_initial_tign(fire_area);
-% in:
-%    tign         ignition time
-% out: 
-%    A            rows [i,j] of indices of nodes not burning that have at least one
-%                 burning neighbor
-A=[];
-C=2*(fire_area==0);
-format long
-for i=2:size(fire_area,1)-1
-    for j=2:size(fire_area,2)-1
-        % if (i,j) is not burning
-        if (fire_area(i,j)==0) 
-            % if any neighbor is burning
-            if (any(any(fire_area(i-1:i+1,j-1:j+1)>0))==1)
-            % add [i,j] to A
-            A=[A;[i,j]];
-            C(i,j)=1;
-            end
-       end
-    end
-end
-end
+
 
 
 
