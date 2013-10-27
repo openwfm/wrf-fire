@@ -92,11 +92,11 @@ data_steps=sprintf('%s \n %s',data_steps,mat2str(A(1,:)));
 % ros_old(A(100,1),A(100,2),1:2,1:2)
 data_steps=sprintf('%s \n C around A(1,:)',data_steps);
 for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,1)-1:A(1,1)+1)));
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,2)-1:A(1,2)+1)));
 end
 data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
 for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,1)-1:A(1,1)+1)));
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,2)-1:A(1,2)+1)));
 end
 
             ros_new=read_ros_from_wrfout(wrfout,ii-1);
@@ -144,15 +144,15 @@ end
 data_steps=sprintf('%s \n Main cycle is over',data_steps);
 data_steps=sprintf('%s \n C around A(1,:)',data_steps);
 for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,1)-1:A(1,1)+1)));
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,2)-1:A(1,2)+1)));
 end
 data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
 for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,1)-1:A(1,1)+1)));
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,2)-1:A(1,2)+1)));
 end
 data_steps=sprintf('%s \n D around A(1,:)',data_steps);
 for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(D(index,A(1,1)-1:A(1,1)+1)));
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(D(index,A(1,2)-1:A(1,2)+1)));
 end
 
 %            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
@@ -162,15 +162,15 @@ data_steps=sprintf('%s \n first element of A',data_steps);
 data_steps=sprintf('%s \n %s',data_steps,mat2str(A(1,:)));
 data_steps=sprintf('%s \n C around A(1,:)',data_steps);
 for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,1)-1:A(1,1)+1)));
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,2)-1:A(1,2)+1)));
 end
 data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
 for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,1)-1:A(1,1)+1)));
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,2)-1:A(1,2)+1)));
 end
 data_steps=sprintf('%s \n D around A(1,:)',data_steps);
 for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(D(index,A(1,1)-1:A(1,1)+1)));
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(D(index,A(1,2)-1:A(1,2)+1)));
 end
  if any(any(D~=0))
  data_steps=sprintf('%s \n Error: D needs to be=0',data_steps);
