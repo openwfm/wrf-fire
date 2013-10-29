@@ -29,9 +29,6 @@ function tign=perimeter_in(long,lat,fire_area,wrfout,time,interval)
 % Computing 4d array of distances between a point and its 8 neighbors
 % do profile on, to see whjat works slow
 data_steps='started perimeter_in';
-fid = fopen('data_out_steps_new.txt', 'w');
-fprintf(fid,'%s',data_steps); 
-fclose(fid);
 
 distance=get_distances(long,lat);
 
@@ -58,6 +55,9 @@ function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,dat
 % time_now=time*interval; % perimeter time
 
 A=[];             % List of all points that are has not burnt yet and whose
+pnt_a=1062;
+pnt_b=2469;    %Point around which I print Big_matrix
+myfile = ['data_out_' num2str(pnt_a) '_' num2str(pnt_b) '.dat'];
 
 % Getting matrix A from the initial tign_g, where
 [A,C]=get_perim_from_initial_tign(fire_area); 
@@ -71,41 +71,27 @@ C_old=C;
 % Temporary prints
 ros_old=read_ros_from_wrfout(wrfout,time);
 
-%fid = fopen('first_ros_11.txt', 'w');
-%    dlmwrite('first_ros_11.txt', ros_old(:,:,1,1), 'delimiter', '\t','precision', '%.4f');
-%    fclose(fid);
-
 for ii=time:-1:2
     if size(A,1)==0
         data_steps=sprintf('%s\n finished at the time %i',data_steps,ii);
-        fid = fopen('data_out_steps_new.txt', 'w');
+        fid = fopen(myfile, 'w');
         fprintf(fid,'%s',data_steps);   
         fclose(fid);
         break;
     else
-        
+% *****%        
+data_steps=sprintf('%s \n Step %i',data_steps,ii);
 data_steps=sprintf('%s \n first element of A',data_steps);
 data_steps=sprintf('%s \n %s',data_steps,mat2str(A(1,:)));
-%         'Distance around point A(:,3)'
-% distance(A(100,1),A(100,2),1:2,1:2)
-% 'ros around A(:,1)'
-% ros_old(A(100,1),A(100,2),1:2,1:2)
-data_steps=sprintf('%s \n C around A(1,:)',data_steps);
-for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,2)-1:A(1,2)+1)));
-end
-data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
-for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,2)-1:A(1,2)+1)));
-end
+data_steps=sprintf('%s \n C around [%i %i]',data_steps,pnt_a,pnt_b);
+data_steps=print_big_mat(data_steps,pnt_a,pnt_b,C);
+data_steps=sprintf('%s \n tign around [%i %i]',data_steps,pnt_a,pnt_b);
+data_steps=print_big_mat(data_steps,pnt_a,pnt_b,tign);
 
-            ros_new=read_ros_from_wrfout(wrfout,ii-1);
-% 'ros_new around A(1,:) skipped'
-% %ros_new(A(1,1),A(1,2),:,:)
-% 'taken at step'
-% ii-1
 
-            for jj=1:size(A,1)
+ros_new=read_ros_from_wrfout(wrfout,ii-1);
+
+        for jj=1:size(A,1)
             for dx=-1:1
                 for dy=-1:1
                     % Change to this later
@@ -125,14 +111,31 @@ end
                            C(A(jj,1)+dx,A(jj,2)+dy)=1;
                            D(A(jj,1)+dx,A(jj,2)+dy)=tign(A(jj,1)+dx,A(jj,2)+dy)-(ii-1)*interval;
                            if (D(A(jj,1)+dx,A(jj,2)+dy)<0)
-                           data_steps=sprintf('%s\n D happens to be less than 0',data_steps);
+                           data_steps=sprintf('%s\n Error: D happens to be less than 0',data_steps);
                                %warning('D happens to be less than 0');
                            end
                        else
                            I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy);
-                       end
-                       % Add this later
- %                      +                   elseif (C(A(jj,1)+dx,A(jj,2)+dy)==1)
+                       end                       
+%                    elseif (C(A(jj,1)+dx,A(jj,2)+dy)==1)
+%                        F=0.25*interval*(ros_old(A(jj,1),A(jj,2),2-dx,2-dy)+ros_new(A(jj,1),A(jj,2),2-dx,2-dy) + ...
+%                        ros_old(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+ros_new(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)); 
+%                        if (I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
+%                            % Interpolating
+%                            tign_new=(ii)*interval-((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy))/F)*interval;
+%                            if tign_new>tign(A(jj,1)+dx,A(jj,2)+dy)
+%                                tign(A(jj,1)+dx,A(jj,2)+dy)=tign_new;
+%                            C(A(jj,1)+dx,A(jj,2)+dy)=1;
+%                            D(A(jj,1)+dx,A(jj,2)+dy)=tign(A(jj,1)+dx,A(jj,2)+dy)-(ii-1)*interval;
+%                            if (D(A(jj,1)+dx,A(jj,2)+dy)<0)
+%                            data_steps=sprintf('%s\n Error: D happens to be less than 0',data_steps);
+%                                %warning('D happens to be less than 0');
+%                            end
+%                            end
+%                        else
+%                            I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy);
+%                        end
+                       
                    end
                 end
             end
@@ -142,36 +145,43 @@ end
             end
 
 data_steps=sprintf('%s \n Main cycle is over',data_steps);
-data_steps=sprintf('%s \n C around A(1,:)',data_steps);
-for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,2)-1:A(1,2)+1)));
-end
-data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
-for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,2)-1:A(1,2)+1)));
-end
-data_steps=sprintf('%s \n D around A(1,:)',data_steps);
-for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(D(index,A(1,2)-1:A(1,2)+1)));
-end
+data_steps=sprintf('%s \n C around [%i %i]',data_steps,pnt_a,pnt_b);
+data_steps=print_big_mat(data_steps,pnt_a,pnt_b,C);
+data_steps=sprintf('%s \n tign around [%i %i]',data_steps,pnt_a,pnt_b);
+data_steps=print_big_mat(data_steps,pnt_a,pnt_b,tign);
+data_steps=sprintf('%s \n D around [%i %i]',data_steps,pnt_a,pnt_b);
+data_steps=print_big_mat(data_steps,pnt_a,pnt_b,D);
+% check on I,ros during the debug
+
+
+% data_steps=sprintf('%s \n C around A(1,:)',data_steps);
+% data_steps=print_mat(data_steps,A(1,1),A(1,2),C);
+% data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
+% data_steps=print_mat(data_steps,A(1,1),A(1,2),tign);
+% data_steps=sprintf('%s \n D around A(1,:)',data_steps);
+% data_steps=print_mat(data_steps,A(1,1),A(1,2),D);
 
 %            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
-            [tign,C,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,interval,ii,data_steps);
+
+[tign,C,D,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,interval,ii,data_steps);
+
+
 data_steps=sprintf('%s\n Subcycle is over',data_steps);
-data_steps=sprintf('%s \n first element of A',data_steps);
-data_steps=sprintf('%s \n %s',data_steps,mat2str(A(1,:)));
-data_steps=sprintf('%s \n C around A(1,:)',data_steps);
-for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A(1,2)-1:A(1,2)+1)));
-end
-data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
-for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(tign(index,A(1,2)-1:A(1,2)+1)));
-end
-data_steps=sprintf('%s \n D around A(1,:)',data_steps);
-for index = A(1,1)-1:A(1,1)+1
-    data_steps=sprintf('%s \n %s',data_steps,mat2str(D(index,A(1,2)-1:A(1,2)+1)));
-end
+data_steps=sprintf('%s \n C around [%i %i]',data_steps,pnt_a,pnt_b);
+data_steps=print_big_mat(data_steps,pnt_a,pnt_b,C);
+data_steps=sprintf('%s \n tign around [%i %i]',data_steps,pnt_a,pnt_b);
+data_steps=print_big_mat(data_steps,pnt_a,pnt_b,tign);
+data_steps=sprintf('%s \n D around [%i %i]',data_steps,pnt_a,pnt_b);
+data_steps=print_big_mat(data_steps,pnt_a,pnt_b,D);
+%check on I during the debug
+% data_steps=sprintf('%s \n first element of A',data_steps);
+% data_steps=sprintf('%s \n %s',data_steps,mat2str(A(1,:)));
+% data_steps=sprintf('%s \n C around A(1,:)',data_steps);
+% data_steps=print_mat(data_steps,A(1,1),A(1,2),C);
+% data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
+% data_steps=print_mat(data_steps,A(1,1),A(1,2),tign);
+% data_steps=sprintf('%s \n D around A(1,:)',data_steps);
+% data_steps=print_mat(data_steps,A(1,1),A(1,2),D);
  if any(any(D~=0))
  data_steps=sprintf('%s \n Error: D needs to be=0',data_steps);
  end
@@ -186,7 +196,7 @@ end
  %figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
  changed=sum(C(:)~=C_old(:));
  data_steps=sprintf('%s\n After a cycle and subsycle tign changed in %i points',data_steps,changed);
- fid = fopen('data_out_steps_new.txt', 'w');
+ fid = fopen(my_file, 'w');
 fprintf(fid,'%s',data_steps); 
 fclose(fid);
 
@@ -195,13 +205,13 @@ fclose(fid);
 end
 [row,col]=find(C==0);
 data_steps=sprintf('%s\n All the steps are done, but there are still %i points, that were not updated yet',data_steps,size(row,1));
-fid = fopen('data_out_steps_new.txt', 'w');
+fid = fopen(myfile, 'w');
 fprintf(fid,'%s',data_steps); 
 fclose(fid);
 end
                                   
 
-function [tign,C,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,interval,iii,data_steps)
+function [tign,C,D,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,interval,iii,data_steps)
 
 B=[];
 step=1;
@@ -219,9 +229,7 @@ while any(any(D>0))
          
             for dx=-1:1
                 for dy=-1:1
-%                    if (B(jjj,1)+dx==2015)&&(B(jjj,2)+dy==1841)
-%             'That is where error is happening'
-%                    end
+
                    if (C(B(jjj,1)+dx,B(jjj,2)+dy)==0) 
                    % Is it right to decrease the interval in this
                    % situation? think about it later
@@ -253,9 +261,21 @@ while any(any(D>0))
         step=step+1;
         [row,col]=find((D_old==D)&(D_old~=0));
         if (size(row,1)~=0)
-        data_steps=sprintf('%s\n find((D_old==D_new)&(D_old~=0)) is not equal, D(row(1),col(1))= %f',data_steps,D(row(1),col(1)));
+        data_steps=sprintf('%s\n Error find((D_old==D_new)&(D_old~=0)) is not equal, D(row(1),col(1))= %f',data_steps,D(row(1),col(1)));
        
         end
+end
+end
+
+function data_steps=print_mat(data_steps,A11,A12,C)
+for index = A11-1:A11+1
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A12-1:A12+1)));
+end
+end
+
+function data_steps=print_big_mat(data_steps,A11,A12,C)
+for index = A11-3:A11+3
+    data_steps=sprintf('%s \n %s',data_steps,mat2str(C(index,A12-3:A12+3)));
 end
 end
 
