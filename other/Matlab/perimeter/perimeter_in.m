@@ -334,17 +334,24 @@ function distance=get_distances(long,lat)
     
 end
 
-function [A,C]=get_perim_from_initial_tign(fire_area);
-
-% Do I need to do C- 1,2,3?
+function [A,C]=get_perim_from_initial_tign(fire_area)
 
 % in:
-%    tign         ignition time
-% out: 
-%    A            rows [i,j] of indices of nodes not burning that have at least one
-%                 burning neighbor
+% tign    ignition time
+% out:
+% C = 3 - area outside of the fire perimeter;
+%     2 - area that whose tign was already computed and it was used to
+%         compute the tign of its neighbors + not burning points that lie  
+%         on the perimeter;
+%     1 - area whose tign was computed, but may still updated from
+%         neighbors. This area will be used to compute the neighbors either
+%         next time step or during the subcycle;
+%     0 - area inside the fire perimeter, that needs to be computed;
+% A       rows [i,j] of indices of nodes not burning that have at least one
+%         burning neighbor. (equal to area where to C=2, but only in the 
+%         first time step)
 A=[];
-C=2*(fire_area==0);
+C=3*(fire_area==0);
 format long
 for i=2:size(fire_area,1)-1
     for j=2:size(fire_area,2)-1
@@ -354,7 +361,7 @@ for i=2:size(fire_area,1)-1
             if (any(any(fire_area(i-1:i+1,j-1:j+1)>0))==1)
             % add [i,j] to A
             A=[A;[i,j]];
-            C(i,j)=1;
+            C(i,j)=2;
             end
        end
     end
