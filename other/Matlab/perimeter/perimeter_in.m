@@ -57,7 +57,7 @@ function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,dat
 A=[];             % List of all points that are has not burnt yet and whose
 pnt_a=1062;
 pnt_b=2469;    %Point around which I print Big_matrix
-myfile = ['data_out_' num2str(pnt_a) '_' num2str(pnt_b) '.dat'];
+myfile = ['data_out_' num2str(pnt_a) '_' num2str(pnt_b) '.txt'];
 
 % Getting matrix A from the initial tign_g, where
 [A,C]=get_perim_from_initial_tign(fire_area); 
@@ -117,24 +117,23 @@ ros_new=read_ros_from_wrfout(wrfout,ii-1);
                        else
                            I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy);
                        end                       
-%                    elseif (C(A(jj,1)+dx,A(jj,2)+dy)==1)
-%                        F=0.25*interval*(ros_old(A(jj,1),A(jj,2),2-dx,2-dy)+ros_new(A(jj,1),A(jj,2),2-dx,2-dy) + ...
-%                        ros_old(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+ros_new(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)); 
-%                        if (I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
-%                            % Interpolating
-%                            tign_new=(ii)*interval-((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy))/F)*interval;
-%                            if tign_new>tign(A(jj,1)+dx,A(jj,2)+dy)
-%                                tign(A(jj,1)+dx,A(jj,2)+dy)=tign_new;
-%                            C(A(jj,1)+dx,A(jj,2)+dy)=1;
-%                            D(A(jj,1)+dx,A(jj,2)+dy)=tign(A(jj,1)+dx,A(jj,2)+dy)-(ii-1)*interval;
-%                            if (D(A(jj,1)+dx,A(jj,2)+dy)<0)
-%                            data_steps=sprintf('%s\n Error: D happens to be less than 0',data_steps);
-%                                %warning('D happens to be less than 0');
-%                            end
-%                            end
-%                        else
-%                            I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy);
-%                        end
+                   elseif (C(A(jj,1)+dx,A(jj,2)+dy)==1)
+                       F=0.25*interval*(ros_old(A(jj,1),A(jj,2),2-dx,2-dy)+ros_new(A(jj,1),A(jj,2),2-dx,2-dy) + ...
+                       ros_old(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+ros_new(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)); 
+                       if (I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)+F>distance(A(jj,1),A(jj,2),2-dx,2-dy))
+                           % Interpolating
+                           tign_new=(ii)*interval-((distance(A(jj,1),A(jj,2),2-dx,2-dy)-I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy))/F)*interval;
+                           if tign_new>tign(A(jj,1)+dx,A(jj,2)+dy)
+                               tign(A(jj,1)+dx,A(jj,2)+dy)=tign_new;
+                               D(A(jj,1)+dx,A(jj,2)+dy)=tign(A(jj,1)+dx,A(jj,2)+dy)-(ii-1)*interval;
+                           if (D(A(jj,1)+dx,A(jj,2)+dy)<0)
+                           data_steps=sprintf('%s\n Error(2): D happens to be less than 0',data_steps);
+                               %warning('D happens to be less than 0');
+                           end
+                           end
+                       else
+                           I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy);
+                       end
                        
                    end
                 end
@@ -196,7 +195,7 @@ data_steps=print_big_mat(data_steps,pnt_a,pnt_b,D);
  %figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
  changed=sum(C(:)~=C_old(:));
  data_steps=sprintf('%s\n After a cycle and subsycle tign changed in %i points',data_steps,changed);
- fid = fopen(my_file, 'w');
+ fid = fopen(myfile, 'w');
 fprintf(fid,'%s',data_steps); 
 fclose(fid);
 
@@ -243,11 +242,33 @@ while any(any(D>0))
                            C(B(jjj,1)+dx,B(jjj,2)+dy)=1;
                            D(B(jjj,1)+dx,B(jjj,2)+dy)=tign(B(jjj,1)+dx,B(jjj,2)+dy)-(iii-1)*interval;
                            if (D(B(jjj,1)+dx,B(jjj,2)+dy)<0)
-                           data_steps=sprintf('%s\n D happens to be less than 0',data_steps);
+                           data_steps=sprintf('%s\n Error(3) D happens to be less than 0',data_steps);
                            end
                        else
                            I(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)=F;
                        end
+                   elseif (C(B(jjj,1)+dx,B(jjj,2)+dy)==1)
+                       F=0.25*D(B(jjj,1),B(jjj,2))*(ros_old(B(jjj,1),B(jjj,2),2-dx,2-dy)+ros_new(B(jjj,1),B(jjj,2),2-dx,2-dy) + ...
+                       ros_old(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)+ros_new(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)); 
+                       
+                       if (F>distance(B(jjj,1),B(jjj,2),2-dx,2-dy))
+                           % Interpolating
+                           tign_new=tign(B(jjj,1),B(jjj,2))- ...
+                           ((distance(B(jjj,1),B(jjj,2),2-dx,2-dy))/F)* ...
+                           (D(B(jjj,1),B(jjj,2)));
+                           if tign_new>tign(B(jjj,1)+dx,B(jjj,2)+dy)
+                               tign(B(jjj,1)+dx,B(jjj,2)+dy)=tign_new;
+                               D(B(jjj,1)+dx,B(jjj,2)+dy)=tign(B(jjj,1)+dx,B(jjj,2)+dy)-(iii-1)*interval;
+                           if (D(B(jjj,1)+dx,B(jjj,2)+dy)<0)
+                           data_steps=sprintf('%s\n Error(4): D happens to be less than 0',data_steps);
+                              
+                           end
+                           end
+                       else
+                           I(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy)=F+I(B(jjj,1)+dx,B(jjj,2)+dy,2-dx,2-dy);
+                       end
+                       
+                       
                    end
                 end
             end
