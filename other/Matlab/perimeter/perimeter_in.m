@@ -67,8 +67,6 @@ tign=zeros(size(distance,1),size(distance,2)); % Final matrix of differences
 D=zeros(size(distance,1),size(distance,2));
 %contour(C);title(sprintf('Original perimeter')); drawnow 
 C_old=C;
-
-% Temporary prints
 ros_old=read_ros_from_wrfout(wrfout,time);
 
 for ii=time:-1:2
@@ -79,7 +77,6 @@ for ii=time:-1:2
         fclose(fid);
         break;
     else
-% *****%        
 data_steps=sprintf('%s \n Step %i',data_steps,ii);
 data_steps=sprintf('%s \n first element of A',data_steps);
 data_steps=sprintf('%s \n %s',data_steps,mat2str(A(1,:)));
@@ -87,7 +84,6 @@ data_steps=sprintf('%s \n C around [%i %i]',data_steps,pnt_a,pnt_b);
 data_steps=print_big_mat(data_steps,pnt_a,pnt_b,C);
 data_steps=sprintf('%s \n tign around [%i %i]',data_steps,pnt_a,pnt_b);
 data_steps=print_big_mat(data_steps,pnt_a,pnt_b,tign);
-
 
 ros_new=read_ros_from_wrfout(wrfout,ii-1);
 
@@ -112,7 +108,6 @@ ros_new=read_ros_from_wrfout(wrfout,ii-1);
                            D(A(jj,1)+dx,A(jj,2)+dy)=tign(A(jj,1)+dx,A(jj,2)+dy)-(ii-1)*interval;
                            if (D(A(jj,1)+dx,A(jj,2)+dy)<0)
                            data_steps=sprintf('%s\n Error: D happens to be less than 0',data_steps);
-                               %warning('D happens to be less than 0');
                            end
                        else
                            I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy)=F+I(A(jj,1)+dx,A(jj,2)+dy,2-dx,2-dy);
@@ -137,11 +132,13 @@ ros_new=read_ros_from_wrfout(wrfout,ii-1);
                        
                    end
                 end
-            end
-            if ~any(any(C(A(jj,1)-1:A(jj,1)+1,A(jj,2)-1:A(jj,2)+1)==0))
+            end            
+        end
+        for jj=1:size(A,1)    
+        if ~any(any(C(A(jj,1)-1:A(jj,1)+1,A(jj,2)-1:A(jj,2)+1)==0))
                 C(A(jj,1),A(jj,2))=2;
-            end
-            end
+        end
+        end
 
 data_steps=sprintf('%s \n Main cycle is over',data_steps);
 data_steps=sprintf('%s \n C around [%i %i]',data_steps,pnt_a,pnt_b);
@@ -152,18 +149,9 @@ data_steps=sprintf('%s \n D around [%i %i]',data_steps,pnt_a,pnt_b);
 data_steps=print_big_mat(data_steps,pnt_a,pnt_b,D);
 % check on I,ros during the debug
 
-
-% data_steps=sprintf('%s \n C around A(1,:)',data_steps);
-% data_steps=print_mat(data_steps,A(1,1),A(1,2),C);
-% data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
-% data_steps=print_mat(data_steps,A(1,1),A(1,2),tign);
-% data_steps=sprintf('%s \n D around A(1,:)',data_steps);
-% data_steps=print_mat(data_steps,A(1,1),A(1,2),D);
-
-%            figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
+% figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ii)); drawnow 
 
 [tign,C,D,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,C,D,I,distance,interval,ii,data_steps);
-
 
 data_steps=sprintf('%s\n Subcycle is over',data_steps);
 data_steps=sprintf('%s \n C around [%i %i]',data_steps,pnt_a,pnt_b);
@@ -172,27 +160,20 @@ data_steps=sprintf('%s \n tign around [%i %i]',data_steps,pnt_a,pnt_b);
 data_steps=print_big_mat(data_steps,pnt_a,pnt_b,tign);
 data_steps=sprintf('%s \n D around [%i %i]',data_steps,pnt_a,pnt_b);
 data_steps=print_big_mat(data_steps,pnt_a,pnt_b,D);
-%check on I during the debug
-% data_steps=sprintf('%s \n first element of A',data_steps);
-% data_steps=sprintf('%s \n %s',data_steps,mat2str(A(1,:)));
-% data_steps=sprintf('%s \n C around A(1,:)',data_steps);
-% data_steps=print_mat(data_steps,A(1,1),A(1,2),C);
-% data_steps=sprintf('%s \n tign around A(1,:)',data_steps);
-% data_steps=print_mat(data_steps,A(1,1),A(1,2),tign);
-% data_steps=sprintf('%s \n D around A(1,:)',data_steps);
-% data_steps=print_mat(data_steps,A(1,1),A(1,2),D);
- if any(any(D~=0))
+% check on I during the debug
+
+if any(any(D~=0))
  data_steps=sprintf('%s \n Error: D needs to be=0',data_steps);
- end
+end
            
               
-    end
+end
         A=[];
         [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
         A(:,1)=A(:,1)+1;
         A(:,2)=A(:,2)+1;
- %figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
- %figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
+%figure(1); contour(tign);title(sprintf('step %i, tign',ii)); drawnow 
+%figure(2); contour(C);title(sprintf('step %i, Matrix C',ii)); drawnow 
  changed=sum(C(:)~=C_old(:));
  data_steps=sprintf('%s\n After a cycle and subsycle tign changed in %i points',data_steps,changed);
  fid = fopen(myfile, 'w');
@@ -272,11 +253,8 @@ while any(any(D>0))
                    end
                 end
             end
-                D(B(jjj,1),B(jjj,2))=0;
-            if ~any(any(C(B(jjj,1)-1:B(jjj,1)+1,B(jjj,2)-1:B(jjj,2)+1)==0))
-                C(B(jjj,1),B(jjj,2))=2;
-            end
-     end
+                D(B(jjj,1),B(jjj,2))=0;            
+     end     
          
     %    figure(3); contour(C);title(sprintf('step %i, Matrix C in subfunction substep %i',iii,step)); drawnow 
         step=step+1;
@@ -286,6 +264,13 @@ while any(any(D>0))
        
         end
 end
+[row,col]=find(C==1);
+for jjj=1:size(row,1)
+        if ~any(any(C(row(jjj)-1:row(jjj)+1,col(jjj)-1:col(jjj)+1)==0))
+                C(row(jjj),col(jjj))=2;
+        end
+end
+'hello'     
 end
 
 function data_steps=print_mat(data_steps,A11,A12,C)
