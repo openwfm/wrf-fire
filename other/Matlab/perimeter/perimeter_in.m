@@ -47,8 +47,8 @@ end
 
 function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,data_steps)
 
-pnt_a=1062;
-pnt_b=2469;    %Point around which I print Big_matrix
+pnt_a=1198;
+pnt_b=2569;    %Point around which I print Big_matrix
 myfile = ['data_out_' num2str(pnt_a) '_' num2str(pnt_b) '.txt'];
 
 % Getting matrix A from the initial tign_g, where
@@ -60,6 +60,9 @@ I=zeros(size(distance));            % Matrix of distances
 C_old=C;
 ros_old=read_ros_from_wrfout(wrfout,time);
 for ts=time:-1:2 % ts -time step
+    if ts==8
+       'substep 8'
+    end
    if (ts<time) % At the first step we initialize A and D from get_perim_from_initial_tign
       A=[];
       [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
@@ -141,7 +144,7 @@ while any(any(D>0))
                      data_steps=sprintf('%s\n Error(3) D happens to be less than 0',data_steps);
                   end
                else
-                  I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)=F;
+                  I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)=I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+F;
                end
             elseif (C(B(j,1)+dx,B(j,2)+dy)==1)&&(step>1)
                 I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)=0;
