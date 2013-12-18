@@ -135,7 +135,7 @@ while any(any(D>0))
              if (I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)>0)&&(step>1)
                   data_steps=sprintf('%s\n Error(5): I happens to be more than 0',data_steps);
              end                     
-               if (I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+F>distance(B(j,1),B(j,2),2-dx,2-dy))
+               if (I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+F>=distance(B(j,1),B(j,2),2-dx,2-dy))
                   tign(B(j,1)+dx,B(j,2)+dy)=tign(B(j,1),B(j,2))- ...
                     ((distance(B(j,1),B(j,2),2-dx,2-dy)-I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy))/F)*(D(B(j,1),B(j,2)));
                   C(B(j,1)+dx,B(j,2)+dy)=1;
@@ -153,7 +153,7 @@ while any(any(D>0))
                 %old I is irrelevant
                 F=0.25*D(B(j,1),B(j,2))*(ros_old(B(j,1),B(j,2),2-dx,2-dy)+ros_new(B(j,1),B(j,2),2-dx,2-dy) + ...
                  ros_old(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+ros_new(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy));                                                  
-               if (F>distance(B(j,1),B(j,2),2-dx,2-dy))
+               if (F>=distance(B(j,1),B(j,2),2-dx,2-dy))
                   tign_new=tign(B(j,1),B(j,2))-(distance(B(j,1),B(j,2),2-dx,2-dy)/F)*(D(B(j,1),B(j,2)));
                   if tign_new>tign(B(j,1)+dx,B(j,2)+dy)
                      tign(B(j,1)+dx,B(j,2)+dy)=tign_new;
