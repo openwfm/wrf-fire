@@ -57,11 +57,12 @@ myfile = ['data_out_' num2str(pnt_a) '_' num2str(pnt_b) '.txt'];
 clear fire_area
 
 I=zeros(size(distance));            % Matrix of distances
+P=A; %Points on the perimeter, who has at least one neighbor, that was not updated yet.
 C_old=C;
 ros_old=read_ros_from_wrfout(wrfout,time);
 for ts=time:-1:2 % ts -time step
     if ts==8
-       'substep 8'
+       'substep 8';
     end
    if (ts<time) % At the first step we initialize A and D from get_perim_from_initial_tign
       A=[];
@@ -71,6 +72,18 @@ for ts=time:-1:2 % ts -time step
       for k=1:size(A,1)
          D(A(k,1),A(k,2))=interval;
       end
+      if ~isempty(P)
+          P_new=[];
+        for l=1:size(P,1)
+           if (any(any(C(P(l,1)-1:P(l,1)+1,P(l,2)-1:P(l,2)+1)==0))==1)
+             P_new=[P_new; P(l,:)];  
+             D(P(l,1),P(l,2))=interval;
+           end         
+        end
+        P=P_new;
+        A=[A;P];
+      end
+
    end 
    if size(A,1)==0
       data_steps=sprintf('%s\n finished at the time %i',data_steps,ts);
@@ -126,7 +139,7 @@ while any(any(D>0))
       for dx=-1:1
          for dy=-1:1
              if (B(j,1)+dx==1969)&&(B(j,2)+dy==1849)
-             y=3;
+             'Aloha';
              end
             if (C(B(j,1)+dx,B(j,2)+dy)==0) 
                F=0.25*D(B(j,1),B(j,2))*(ros_old(B(j,1),B(j,2),2-dx,2-dy)+ros_new(B(j,1),B(j,2),2-dx,2-dy) + ...
@@ -239,7 +252,7 @@ function [A,C,D,tign]=get_perim_from_initial_tign(fire_area,interval,time)
 % A       rows [i,j] of indices of nodes not burning that have at least one
 %         burning neighbor. (equal to area where to C=2, but only in the 
 %         first time step)
-C=3*(fire_area==0);
+C=4*(fire_area==0);
 D=zeros(size(fire_area));
 tign=zeros(size(fire_area));
 format long
@@ -250,14 +263,14 @@ for i=2:size(fire_area,1)-1
          % if any neighbor is burning
          if (any(any(fire_area(i-1:i+1,j-1:j+1)>0))==1)
             % add [i,j] to A
-            C(i,j)=2;
+            C(i,j)=3;
             D(i,j)=interval;
             tign(i,j)=interval*time;
          end
       end
    end
 end
-[row,col]=find(C==2);
+[row,col]=find(C==3);
 A=[row,col];
 end
 
