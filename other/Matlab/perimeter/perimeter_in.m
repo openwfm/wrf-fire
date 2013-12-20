@@ -149,7 +149,7 @@ while any(any(D>0))
                   data_steps=sprintf('%s\n Error(5): I happens to be more than 0',data_steps);
              end                     
                if (I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+F>=distance(B(j,1),B(j,2),2-dx,2-dy))
-                  tign(B(j,1)+dx,B(j,2)+dy)=tign(B(j,1),B(j,2))- ...
+                  tign(B(j,1)+dx,B(j,2)+dy)=min(tign(B(j,1),B(j,2)),ts*interval)- ...
                     ((distance(B(j,1),B(j,2),2-dx,2-dy)-I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy))/F)*(D(B(j,1),B(j,2)));
                   C(B(j,1)+dx,B(j,2)+dy)=1;
                   D(B(j,1)+dx,B(j,2)+dy)=tign(B(j,1)+dx,B(j,2)+dy)-(ts-1)*interval;
