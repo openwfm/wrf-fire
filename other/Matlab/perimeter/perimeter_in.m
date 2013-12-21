@@ -159,16 +159,14 @@ while any(any(D>0))
                else
                   I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)=I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+F;
                end
-            elseif (C(B(j,1)+dx,B(j,2)+dy)==1)&&(step>1)
-                I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)=0;
-                %I can be nonzero, if B(j,:) tryed to update B(j,:)+dx, but
-                %then git updated and now tryes to do that again, so the
-                %old I is irrelevant
-                F=0.25*D(B(j,1),B(j,2))*(ros_old(B(j,1),B(j,2),2-dx,2-dy)+ros_new(B(j,1),B(j,2),2-dx,2-dy) + ...
+            elseif (C(B(j,1)+dx,B(j,2)+dy)==1)
+              F=0.25*D(B(j,1),B(j,2))*(ros_old(B(j,1),B(j,2),2-dx,2-dy)+ros_new(B(j,1),B(j,2),2-dx,2-dy) + ...
                  ros_old(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+ros_new(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy));                                                  
-               if (F>=distance(B(j,1),B(j,2),2-dx,2-dy))
-                  tign_new=tign(B(j,1),B(j,2))-(distance(B(j,1),B(j,2),2-dx,2-dy)/F)*(D(B(j,1),B(j,2)));
-                  if tign_new>tign(B(j,1)+dx,B(j,2)+dy)
+               if (I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+F>=distance(B(j,1),B(j,2),2-dx,2-dy))
+                  tign_new=min(tign(B(j,1),B(j,2)),ts*interval)- ...
+                    ((distance(B(j,1),B(j,2),2-dx,2-dy)-I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy))/F)*(D(B(j,1),B(j,2)));
+                  I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)=0;                    
+                if tign_new>tign(B(j,1)+dx,B(j,2)+dy)
                      tign(B(j,1)+dx,B(j,2)+dy)=tign_new;
                      D(B(j,1)+dx,B(j,2)+dy)=tign(B(j,1)+dx,B(j,2)+dy)-(ts-1)*interval;
                      if (D(B(j,1)+dx,B(j,2)+dy)<0)
