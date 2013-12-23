@@ -19,6 +19,7 @@ v=read_fire_kml('conus_viirs.kml');
 % v=read_fire_kml('conus_modis.kml');
 load w
 load s
+for i=1:size(s.times,2),d=char(s.times(:,i))';s.tim(i)=datenum(d);end
 
 % establish boundaries
 
