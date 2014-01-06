@@ -1,4 +1,5 @@
 function t1=sfire_simple(r,dx,dy,t_init,mask,tol,rangex,rangey)
+% t1=sfire_simple(t11,t11.dx,t11.dy,t11.tign_g,t11.mask,1e-5);
 % in:
 % r             structure with 2d fields f_ros11,...,f_ros33 (m/s)
 % dx,dy         mesh spacing (m)
