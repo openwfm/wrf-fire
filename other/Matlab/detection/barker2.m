@@ -10,9 +10,14 @@
 % t=nc2struct(f,{'Times'},{});  n=size(t.times,2);  w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG'},{},n);
 % save ~/w.mat w    
 %
+% to create c.mat
+% c=nc2struct(f,{'NFUEL_CAT'},{},1);
+% save ~/c.mat c
+%
 % to create s.mat:
 % s=read_wrfout_sel({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'FGRNHFX'}); 
 % save ~/s.mat s 
+% 
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
@@ -21,25 +26,37 @@ v=read_fire_kml('conus_viirs.kml');
 % v=read_fire_kml('conus_modis.kml');
 load w
 load s
+load c
+fuels
 
 % establish boundaries
 
-%min_lat=48+4/60+1/360
-%max_lat= 48+10/60+51/3600
-%min_lon= - (119+24/60+50/3600)
-%max_lon= - (119+0/60+35/3600)
 min_lat = min(w.fxlat(:))
 max_lat = max(w.fxlat(:))
 min_lon = min(w.fxlong(:))
 max_lon = max(w.fxlong(:))
 
-% select fire detection within the domain
-bi=find(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
+% select fire detection within the domain and time
+bi=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
+u = unique(v.tim(bi));
+tim_ref = u(1);
+bi = bi & v.tim == tim_ref;
 lon=v.lon(bi);
 lat=v.lat(bi);
-tim=v.tim(bi);
 res=v.res(bi);
+tim=v.tim(bi);
 
+% plot satellite detection points
+
+% plot3(lon,lat,tim,'ko'),
+% m=500; n=500;
+[m,n]=size(w.fxlong);
+for j=1:length(fuel), W(j)=fuel(j).weight;end
+for j=length(fuel)+1:max(c.nfuel_cat(:)),W(j)=NaN;end
+T = zeros(m,n);
+for j=1:n, for i=1:m
+        T(i,j)=W(c.nfuel_cat(i,j));
+end,end
 
 % rebase time on the largest tign_g = the time of the last frame
 
@@ -47,90 +64,83 @@ last_time=datenum(char(w.times)');
 max_tign_g=max(w.tign_g(:));
 
 tim = tim - last_time;
+tim_ref = tim_ref - last_time;
 tign = (w.tign_g - max_tign_g)/(24*60*60);
+tign(tign==0)=NaN;
 
-% plot satellite detection points
+while 1
+tscale = 1000; % multiply fuel.weight by this to get detection time scale 
+a=input('enter [tscale dir add1p add1m add2p add2m] (1,rad,s/m,s/m)\n');
+tscale=a(1)
+if tscale<=0, break, end
+dir=a(2)
+add1p=a(3)
+add1m=a(4)
+add2p=a(5)
+add2m=a(6)
 
-figure(1),clf
-% plot3(lon,lat,tim,'ko'),
-m=500;
-n=500;
+v1=[cos(dir),sin(dir)]; % main direction
+v2=[cos(dir+pi/2),sin(dir+pi/2)]; % secondary direction
 
-% interpolate observation time from detection points
+% find ignition point
+[i_ign,j_ign]=find(w.tign_g == min(w.tign_g(:)));
+    
+% vector field (x,y) - (x_ign,y_ign) 
+VDx=(w.fxlong-w.fxlong(i_ign,j_ign))*w.unit_fxlong;
+VDy=(w.fxlat-w.fxlat(i_ign,j_ign))*w.unit_fxlat;
+    
+p1 = VDx*v1(1)+VDy*v1(2); % projections on main direction
+p2 = VDx*v2(1)+VDy*v2(2); % projections on secondary direction
+[theta,rho]=cart2pol(p1,p2); % in polar coordinates, theta between [-pi,pi]
+thetas=pi*[-3/2,-1,-1/2,0,1/2,1,3/2];
+deltas=[add2p add1m add2m add1p add2p add1m add2m];
+delta = interp1(thetas,deltas,theta,'pchip').*rho;
 
-%mesh_lon=min_lon+[0:m]*(max_lon-min_lon)/m;
-%mesh_lat=min_lat+[0:n]*(max_lat-min_lat)/n;
-%[mesh_lon,mesh_lat]=ndgrid(mesh_lon,mesh_lat);
+tign_mod = tign + delta;
 
-% f=scatteredInterpolant(lon,lat,tim,'natural');
+
+pmap = p_map(tscale*T/(24*60*60),tign_mod-tim_ref);
 
 [mm,nn]=size(w.fxlong);
-mi=1:ceil((mm+1)/m):mm;
-ni=1:ceil((nn+1)/n):nn;
+mi=1:ceil(mm/m):mm;
+ni=1:ceil(nn/n):nn;
 mesh_fxlong=w.fxlong(mi,ni);
 mesh_fxlat=w.fxlat(mi,ni);
 mesh_fgrnhfx=s.fgrnhfx(mi,ni,:);
+mesh_pmap = pmap(mi,ni); 
+mesh_lon = mesh_fxlong(mi,ni);
+mesh_lat = mesh_fxlat(mi,ni);
+mesh_tign= tign(mi,ni); 
 
-mesh_lon = mesh_fxlong;
-mesh_lat = mesh_fxlat;
+% draw the fireline
+figure(1)
+hold off, clf
+%contour(mesh_fxlong,mesh_fxlat,mesh_tign,[tim_ref,tim_ref]);
 
-% mesh_tim=f(mesh_lon,mesh_lat);
+% add the detection probability map
+%hold on
+h=pcolor(mesh_fxlong,mesh_fxlat,pmap);
+set(h,'EdgeAlpha',0,'FaceAlpha',0.5);
+colorbar
+cc=colormap; cc(1,:)=1; colormap(cc);
+hold off
 
-mesh_tign=tign(mi,ni);
-mesh_tign(mesh_tign(:)==max(mesh_tign(:)))=NaN;
-surf(mesh_fxlong,mesh_fxlat,mesh_tign,'EdgeAlpha',0,'FaceAlpha',0.5)
-grid
+% plot detection squares
 
-% replacing tim by NaN where too far from the detection point
-
-% plot black patches as detection circles
-
+C=0.5*ones(1,length(res));
+rlon=0.5*res/w.unit_fxlong;
+rlat=0.5*res/w.unit_fxlat;
+X=[lon-rlon,lon+rlon,lon+rlon,lon-rlon]';
+Y=[lat-rlat,lat-rlat,lat+rlat,lat+rlat]';
 hold on
-mesh_tim2 = NaN*zeros(size(mesh_lon));
-for i=1:length(bi)
-    dist=sqrt(((mesh_lon-lon(i))*w.unit_fxlong).^2 + ((mesh_lat-lat(i))*w.unit_fxlat).^2); % distance in m from measurement i
-    mask=dist <= res(i)/2;
-    [ix,jx,dummy]=find(mask);
-    ii=min(ix):max(ix);
-    jj=min(jx):max(jx);
-    mesh_tim2(ii,jj)=NaN;
-    idx = find(mask);
-    mesh_tim2(idx)=tim(i);
-    surface(mesh_lon(ii,jj),mesh_lat(ii,jj),mesh_tim2(ii,jj))% mesh_tim2(idx)=mesh_tim(idx);
-    if mod(i,10)==0, drawnow,end
-end
+hh=fill(X,Y,C);
+hold off
+
 grid,drawnow
 
-% hold on, surface(mesh_lon,mesh_lat,mesh_tim2),grid on
+% hold on, (mesh_lon,mesh_lat,mesh_tim2),grid on
 title('Barker Canyon fire VIIRS fire detection')
-zlabel('days')
 ylabel('latitude')
 xlabel('longitude')
 
-% remove the max time level from the picture and plot simulated times
-
-print_heat_flux=0; % not working well
-if print_heat_flux,
-stim=datenum(char(s.times'))'-last_time;
-maxh=max(mesh_fgrnhfx(:));
-caxis([0 maxh*0.2]);
-for i=1:size(mesh_fgrnhfx,3)
-    %c=mesh_fgrnhfx(:,:,i);
-    %t=stim(i)*ones(size(c));
-    %surf(mesh_lon,mesh_lat,t,c,'EdgeAlpha',0,'FaceAlpha',0.1)
-    %c(c<maxh*1e-5)=NaN;
-    %t(c<maxh*1e-5)=NaN;
-    %surf(mesh_lon,mesh_lat,t,c,'EdgeAlpha',0,'FaceAlpha',0.8)
-    c=s.fgrnhfx(:,:,i);
-    t=stim(i)*ones(size(c));
-    c(c<maxh*1e-5)=NaN;
-    t(c<maxh*1e-5)=NaN;
-    surf(w.fxlong,w.fxlat,t,c,'EdgeAlpha',0,'FaceAlpha',0.8)
-
-    drawnow
 end
-colorbar,grid
-end
-
-hold off
-
