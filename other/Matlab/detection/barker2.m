@@ -143,4 +143,16 @@ title('Barker Canyon fire VIIRS fire detection')
 ylabel('latitude')
 xlabel('longitude')
 
+% evaluate likelihood
+ndetect=length(res);
+likelihood=zeros(1,ndetect);
+mask=cell(1,ndetect);
+for i=1:ndetect
+    mask{i}=lon(i)-rlon(i) <= w.fxlong & w.fxlong <= lon(i)+rlon(i) & ...
+            lat(i)-rlat(i) <= w.fxlat  & w.fxlat  <= lat(i)+rlat(i);
+    likelihood(i)=ssum(pmap(mask{i}))/ssum(mask{i});
+end
+likelihood,
+total_likelihood=sum(likelihood) % should be really a product if they are independeny
+                                 % but the sum seems to work little better
 end
