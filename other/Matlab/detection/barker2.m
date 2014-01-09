@@ -21,30 +21,68 @@
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
-v=read_fire_kml('conus_viirs.kml');
-
-% v=read_fire_kml('conus_modis.kml');
+conus = input('enter 0 for viirs, 1 for modis> ');
+if conus==0, 
+        v=read_fire_kml('conus_viirs.kml');
+        detection='VIIRS';
+elseif conus==1,
+        v=read_fire_kml('conus_modis.kml');
+        detection='MODIS';
+else
+        error('need kml file')
+end
+    
 load w
 load s
 load c
 fuels
 
-% establish boundaries
+% establish boundaries from simulations
 
 min_lat = min(w.fxlat(:))
 max_lat = max(w.fxlat(:))
 min_lon = min(w.fxlong(:))
 max_lon = max(w.fxlong(:))
+min_tign= min(w.tign_g(:))
+
+% rebase time on the largest tign_g = the time of the last frame, in days
+
+last_time=datenum(char(w.times)'); 
+max_tign_g=max(w.tign_g(:));
+
+tim_all = v.tim - last_time;
+tign= (w.tign_g - max_tign_g)/(24*60*60);
+min_tign= min(tign(:)); % initial ignition time
+tign(tign==0)=NaN;
 
 % select fire detection within the domain and time
-bi=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
-u = unique(v.tim(bi));
-tim_ref = u(1);
-bi = bi & v.tim == tim_ref;
+bii=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
+
+tim_in = tim_all(bii);
+u_in = unique(tim_in);
+fprintf('detection times from first ignition\n')
+for i=1:length(u_in)
+    fprintf('%8.5f days %3i times\n',u_in(i)-min_tign,sum(tim_in==u_in(i)));
+end
+detection_bounds=input('enter detection bounds as [upper,lower]: ')
+tim_ref = detection_bounds + min_tign;
+bi = bii & tim_ref(1) <= tim_all  & tim_all <= tim_ref(2);
+% detection selected in time and space
 lon=v.lon(bi);
 lat=v.lat(bi);
 res=v.res(bi);
-tim=v.tim(bi);
+tim=tim_all(bi); 
+
+fprintf('%i detections selected\n',sum(bi)),
+fprintf('days from ignition  min %8.5f max %8.5f\n',min(tim)-min_tign,max(tim)-min_tign);
+fprintf('longitude           min %8.5f max %8.5f\n',min(lon),max(lon));
+fprintf('latitude            min %8.5f max %8.5f\n',min(lat),max(lat));
+
+% detection selected in time and space
+lon=v.lon(bi);
+lat=v.lat(bi);
+res=v.res(bi);
+tim=tim_all(bi); 
 
 % plot satellite detection points
 
@@ -58,19 +96,10 @@ for j=1:n, for i=1:m
         T(i,j)=W(c.nfuel_cat(i,j));
 end,end
 
-% rebase time on the largest tign_g = the time of the last frame
-
-last_time=datenum(char(w.times)');
-max_tign_g=max(w.tign_g(:));
-
-tim = tim - last_time;
-tim_ref = tim_ref - last_time;
-tign = (w.tign_g - max_tign_g)/(24*60*60);
-tign(tign==0)=NaN;
-
 while 1
 tscale = 1000; % multiply fuel.weight by this to get detection time scale 
 a=input('enter [tscale dir add1p add1m add2p add2m] (1,rad,s/m,s/m)\n');
+% magic match to u(1) and viirs seems [1000 3*pi/4 -0.0002  -0.0001 0 0.00005]
 tscale=a(1)
 if tscale<=0, break, end
 dir=a(2)
@@ -98,8 +127,8 @@ delta = interp1(thetas,deltas,theta,'pchip').*rho;
 
 tign_mod = tign + delta;
 
-
-pmap = p_map(tscale*T/(24*60*60),tign_mod-tim_ref);
+% probability of detection, assuming selected times are close
+pmap = p_map(tscale*T/(24*60*60),tign_mod - mean(tim_ref));
 
 [mm,nn]=size(w.fxlong);
 mi=1:ceil(mm/m):mm;
@@ -123,7 +152,10 @@ h=pcolor(mesh_fxlong,mesh_fxlat,pmap);
 set(h,'EdgeAlpha',0,'FaceAlpha',0.5);
 colorbar
 cc=colormap; cc(1,:)=1; colormap(cc);
-hold off
+
+hold on
+plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xk')
+fprintf('first ignition at %g %g, marked by black x\n',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
 
 % plot detection squares
 
@@ -139,7 +171,7 @@ hold off
 grid,drawnow
 
 % hold on, (mesh_lon,mesh_lat,mesh_tim2),grid on
-title('Barker Canyon fire VIIRS fire detection')
+title(sprintf('Barker Canyon fire %s assimlation',detection))
 ylabel('latitude')
 xlabel('longitude')
 

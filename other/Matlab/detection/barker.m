@@ -16,9 +16,17 @@
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
-v=read_fire_kml('conus_viirs.kml');
+conus = input('enter 0 for viirs, 1 for modis> ')
+if conus==0, 
+        v=read_fire_kml('conus_viirs.kml');
+        detection='VIIRS';
+elseif conus==1,
+        v=read_fire_kml('conus_modis.kml');
+        detection='MODIS';
+else
+        error('need kml file')
+end
 
-% v=read_fire_kml('conus_modis.kml');
 load w
 load s
 
@@ -102,7 +110,7 @@ end
 grid,drawnow
 
 % hold on, surface(mesh_lon,mesh_lat,mesh_tim2),grid on
-title('Barker Canyon fire VIIRS fire detection')
+title(sprintf('Barker Canyon fire %s fire detection',detection))
 zlabel('days')
 ylabel('latitude')
 xlabel('longitude')
