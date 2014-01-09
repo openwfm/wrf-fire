@@ -99,6 +99,8 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
      $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
    } elsif ( -e "$ENV{GEOTIFF}/include/geotiff/geotiff.h") {
      $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include/geotiff";
+   } elsif ( -e "$ENV{GEOTIFF}/include/libgeotiff/geotiff.h") {
+     $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include/libgeotiff";
    } else {
      $sw_geotiff_inc = "-I$ENV{GEOTIFF}/include";
      printf("WARNING: Could not find geotiff headers");
