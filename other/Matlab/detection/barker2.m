@@ -18,6 +18,7 @@
 % s=read_wrfout_sel({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'FGRNHFX'}); 
 % save ~/s.mat s 
 % 
+% fuels.m is created by WRF-SFIRE at the beginning of the run
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
@@ -45,6 +46,28 @@ min_lon = min(w.fxlong(:))
 max_lon = max(w.fxlong(:))
 min_tign= min(w.tign_g(:))
 
+default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
+default_bounds{2}=[-119.5, -119.0, 47.95, 48.15];
+for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
+
+bounds=input('enter bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above> ');
+if length(bounds)==1, bounds=default_bounds{bounds}; end
+[ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
+ispan=min(ii):max(ii);
+jspan=min(jj):max(jj);
+
+% restrict data
+w.fxlat=w.fxlat(ispan,jspan);
+w.fxlong=w.fxlong(ispan,jspan);
+w.tign_g=w.tign_g(ispan,jspan);
+c.nfuel_cat=c.nfuel_cat(ispan,jspan);
+
+min_lat = min(w.fxlat(:))
+max_lat = max(w.fxlat(:))
+min_lon = min(w.fxlong(:))
+max_lon = max(w.fxlong(:))
+min_tign= min(w.tign_g(:))
+
 % rebase time on the largest tign_g = the time of the last frame, in days
 
 last_time=datenum(char(w.times)'); 
@@ -62,18 +85,22 @@ tim_in = tim_all(bii);
 u_in = unique(tim_in);
 fprintf('detection times from first ignition\n')
 for i=1:length(u_in)
-    fprintf('%8.5f days %3i times\n',u_in(i)-min_tign,sum(tim_in==u_in(i)));
+    fprintf('%8.5f days %s UTC %3i %s detections\n',u_in(i)-min_tign,...
+    datestr(u_in(i)+last_time),sum(tim_in==u_in(i)),detection);
 end
 detection_bounds=input('enter detection bounds as [upper,lower]: ')
-tim_ref = detection_bounds + min_tign;
-bi = bii & tim_ref(1) <= tim_all  & tim_all <= tim_ref(2);
-% detection selected in time and space
+bi = bii & detection_bounds(1)  + min_tign <= tim_all ... 
+         & tim_all <= detection_bounds(2)  + min_tign;
+% now detection selected in time and space
 lon=v.lon(bi);
 lat=v.lat(bi);
 res=v.res(bi);
 tim=tim_all(bi); 
+tim_ref = mean(tim);
 
 fprintf('%i detections selected\n',sum(bi)),
+fprintf('mean detection time %g days from ignition %s UTC\n',...
+    tim_ref-min_tign,datestr(tim_ref+last_time));
 fprintf('days from ignition  min %8.5f max %8.5f\n',min(tim)-min_tign,max(tim)-min_tign);
 fprintf('longitude           min %8.5f max %8.5f\n',min(lon),max(lon));
 fprintf('latitude            min %8.5f max %8.5f\n',min(lat),max(lat));
@@ -128,7 +155,7 @@ delta = interp1(thetas,deltas,theta,'pchip').*rho;
 tign_mod = tign + delta;
 
 % probability of detection, assuming selected times are close
-pmap = p_map(tscale*T/(24*60*60),tign_mod - mean(tim_ref));
+pmap = p_map(tscale*T/(24*60*60),tign_mod - tim_ref);
 
 [mm,nn]=size(w.fxlong);
 mi=1:ceil(mm/m):mm;
@@ -156,6 +183,8 @@ cc=colormap; cc(1,:)=1; colormap(cc);
 hold on
 plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xk')
 fprintf('first ignition at %g %g, marked by black x\n',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
+drawnow
+pause(1)
 
 % plot detection squares
 
@@ -171,9 +200,13 @@ hold off
 grid,drawnow
 
 % hold on, (mesh_lon,mesh_lat,mesh_tim2),grid on
-title(sprintf('Barker Canyon fire %s assimlation',detection))
+assim_string='';if any(delta(:)),assim_string='assimilation',end
+daspect([w.unit_fxlat,w.unit_fxlong,1])                % axis aspect ratio length to length
+title(sprintf('Barker Canyon fire %s %s %s UTC',...
+    assim_string, detection, datestr(tim_ref+last_time)))
 ylabel('latitude')
 xlabel('longitude')
+drawnow
 
 % evaluate likelihood
 ndetect=length(res);
