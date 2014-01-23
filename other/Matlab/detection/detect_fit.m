@@ -109,9 +109,11 @@ disp('subset and process inputs')
     tim=tim_all(bi); 
     tim_ref = mean(tim);
     
-    fprintf('%i detections selected\n',sum(bi)),
+    fprintf('%i detections selected\n',sum(bi))
+    detection_days_from_ignition=tim_ref-min_tign;
+    detection_datestr=datestr(tim_ref+last_time);
     fprintf('mean detection time %g days from ignition %s UTC\n',...
-        tim_ref-min_tign,datestr(tim_ref+last_time));
+        detection_days_from_ignition,detection_datestr);
     fprintf('days from ignition  min %8.5f max %8.5f\n',min(tim)-min_tign,max(tim)-min_tign);
     fprintf('longitude           min %8.5f max %8.5f\n',min(lon),max(lon));
     fprintf('latitude            min %8.5f max %8.5f\n',min(lat),max(lat));
@@ -122,18 +124,71 @@ disp('subset and process inputs')
     res=v.res(bi);
     tim=tim_all(bi); 
 
-    % plot3(lon,lat,tim,'ko'),
-    % m=500; n=500;
+    % set up reduced resolution plots
     [m,n]=size(w.fxlong);
-    for j=1:length(fuel), W(j)=fuel(j).weight;end
-    for j=length(fuel)+1:max(c.nfuel_cat(:)),W(j)=NaN;end
-    T = zeros(m,n);
+    m_plot=m; n_plot=n;
+    mi=1:ceil(m/m_plot):m; % reduced index vectors
+    ni=1:ceil(n/n_plot):n;
+    mesh_fxlong=w.fxlong(mi,ni);
+    mesh_fxlat=w.fxlat(mi,ni);
+    [mesh_m,mesh_n]=size(mesh_fxlat);
+
+    disp('Fuel weight map')
+    
+    fuelweight(length(fuel)+1:max(c.nfuel_cat(:)))=NaN;
+    for j=1:length(fuel), 
+        fuelweight(j)=fuel(j).weight;
+    end
+    W = zeros(m,n);
     for j=1:n, for i=1:m
-            T(i,j)=W(c.nfuel_cat(i,j));
+           W(i,j)=fuelweight(c.nfuel_cat(i,j));
     end,end
 
+    figure(1)
+    h=pcolor(mesh_fxlong,mesh_fxlat,W(mi,ni));
+    set(h,'EdgeAlpha',0,'FaceAlpha',1);
+    colormap('default'),colorbar
+    title('Fuel weight')
+
+    disp('detection squares')
+
+    % find ignition point
+    [i_ign,j_ign]=find(w.tign_g == min(w.tign_g(:)));
+    
+    % resolution diameter in longitude/latitude units
+    rlon=0.5*res/w.unit_fxlong;
+    rlat=0.5*res/w.unit_fxlat;
+
+    detection_mask=zeros(m,n);
+    detection_time=tim_ref*ones(m,n);
+    lon1=lon-rlon;
+    lon2=lon+rlon;
+    lat1=lat-rlat;
+    lat2=lat+rlat;
+    for i=1:length(lon),
+        square = w.fxlong>=lon1(i) & w.fxlong<=lon2(i) & ...
+                 w.fxlat >=lat1(i) & w.fxlat <=lat2(i);
+        detection_mask(square)=1;
+    end
+   
+    figure(2)
+    h=pcolor(mesh_fxlong,mesh_fxlat,detection_mask(mi,ni));
+    set(h,'EdgeAlpha',0,'FaceAlpha',1);
+    colormap('default'),colorbar
+    C=0.5*ones(1,length(res));
+    X=[lon-rlon,lon+rlon,lon+rlon,lon-rlon]';
+    Y=[lat-rlat,lat-rlat,lat+rlat,lat+rlat]';
+    hold on
+    hh=fill(X,Y,C);
+    title(['Fire detection at ',detection_datestr])
+    plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xw')
+    % legend('first ignition at %g %g',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
+    hold off
+    drawnow
+
 disp('optimization loop')
-while 1
+h =zeros(m,n); % initial increment
+for istep=1:5
     tscale = 1000; % multiply fuel.weight by this to get detection time scale 
     a=input_num('[tscale dir add1p add1m add2p add2m] (1,rad,s/m,s/m)\n',[1000 3*pi/4 -0.0002  -0.0001 0 0.00005]);
     % magic match to u(1) and viirs seems to be [1000 3*pi/4 -0.0002  -0.0001 0 0.00005]
@@ -148,9 +203,7 @@ while 1
     v1=[cos(dir),sin(dir)]; % main direction
     v2=[cos(dir+pi/2),sin(dir+pi/2)]; % secondary direction
     
-    % find ignition point
-    [i_ign,j_ign]=find(w.tign_g == min(w.tign_g(:)));
-        
+       
     % vector field (x,y) - (x_ign,y_ign) 
     VDx=(w.fxlong-w.fxlong(i_ign,j_ign))*w.unit_fxlong;
     VDy=(w.fxlat-w.fxlat(i_ign,j_ign))*w.unit_fxlat;
@@ -167,15 +220,9 @@ while 1
     % probability of detection, assuming selected times are close
     pmap = p_map(tscale*T/(24*60*60),tign_mod - tim_ref);
     
-    [mm,nn]=size(w.fxlong);
-    mi=1:ceil(mm/m):mm;
-    ni=1:ceil(nn/n):nn;
-    mesh_fxlong=w.fxlong(mi,ni);
-    mesh_fxlat=w.fxlat(mi,ni);
+        
     mesh_fgrnhfx=s.fgrnhfx(mi,ni,:);
     mesh_pmap = pmap(mi,ni); 
-    mesh_lon = mesh_fxlong(mi,ni);
-    mesh_lat = mesh_fxlat(mi,ni);
     mesh_tign= tign(mi,ni); 
     
     % draw the fireline
@@ -191,23 +238,6 @@ while 1
     cc=colormap; cc(1,:)=1; colormap(cc);
     
     hold on
-    plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xk')
-    fprintf('first ignition at %g %g, marked by black x\n',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
-    drawnow
-    pause(1)
-    
-    % plot detection squares
-    
-    C=0.5*ones(1,length(res));
-    rlon=0.5*res/w.unit_fxlong;
-    rlat=0.5*res/w.unit_fxlat;
-    X=[lon-rlon,lon+rlon,lon+rlon,lon-rlon]';
-    Y=[lat-rlat,lat-rlat,lat+rlat,lat+rlat]';
-    hold on
-    hh=fill(X,Y,C);
-    hold off
-    
-    grid,drawnow
     
     % hold on, (mesh_lon,mesh_lat,mesh_tim2),grid on
     assim_string='';if any(delta(:)),assim_string='assimilation',end
