@@ -199,24 +199,23 @@ h =zeros(m,n); % initial increment
 for istep=1:5
     
     % can change the objective function here
-    alpha=input_num('penalty coefficient alpha',10);
+    alpha=input_num('penalty coefficient alpha',1e-2);
     stretch=input_num('time stretch [Peak Wpos Wneg]',[0.5,5,10]);
     Peak=stretch(1);Wpos=stretch(2);Wneg=stretch(3);
-    nodetw=input_num('no fire detection weight',0.1);
-    power=input_num('negative laplacian power',1);
+    nodetw=input_num('no fire detection weight',0.5);
+    power=input_num('negative laplacian power',0.75);
     
     psi = detection_mask + nodetw*(1-detection_mask);
 
-    [Js(1),search]=objective(tign,h); 
+    [Js,search]=objective(tign,h); 
     search = -search/big(search); % initial search direction
     plotmap(3,mesh_fxlong,mesh_fxlat,search,'Search direction');
     h=zeros(m,n); % initial increment
     stepsize=0;
     % initial estimate of stepsize
-    last_stepsize = 1;
-    Js=0;
+    last_stepsize = 2;
     for i=2:100 % crude manual line search
-        s=input_num('step size, or <0 to break',last_stepsize/2);
+        s=input_num('step size',last_stepsize/2);
         stepsize(i)=s;
         last_stepsize=s;
         [Js(i),delta]=objective(tign,h+last_stepsize*search);
