@@ -1,6 +1,6 @@
 function U = poisson_fft2(F,h,power)
 % U = poisson_fft2(F,h,power)
-% multiply grid function on a rectangle by power of minus Laplacian
+% multiply grid function on a rectangle by power of Laplacian
 % with zero boundary conditions, using the sine Fourier series
 % input:
 %    F        matrix, values of the function on rectangle
@@ -17,7 +17,7 @@ Y=poisson_1d_eig(n(2),h(2));
 U=dst2(F);
 for j=1:n(2)
     for i=1:n(1)
-        U(i,j)=U(i,j)/((X(i)+Y(j))^power);
+        U(i,j)=U(i,j)*((X(i)+Y(j))^power);
     end
 end
 U=dst2(U)*4/((n(1)+1)*(n(2)+1)); % scale for nonunitary DST2
