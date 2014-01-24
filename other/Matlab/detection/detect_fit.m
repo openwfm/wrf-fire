@@ -38,9 +38,16 @@ disp('input data')
             error('need kml file')
     end
         
-    load w
-    load s
-    load c
+    a=load('w');w=a.w;
+    if ~isfield('dx',w),
+        w.dx=444.44;
+        w.dy=444.44;
+        warning('fixing up w for old w.mat file from Barker fire')
+    end
+    
+    a=load('s');s=a.s;
+    a=load('c');c=a.c;
+    fuel.weight=0; % just to let Matlab know what fuel is going to be at compile time
     fuels
 
 
@@ -188,9 +195,11 @@ disp('subset and process inputs')
 disp('optimization loop')
 TC = W/(900*24); % time constant = fuel gone in one hour 
 h =zeros(m,n); % initial increment
+
 for istep=1:5
     
-    alpha=input_num('penalty coefficient alpha',1000);
+    % can change the objective function here
+    alpha=input_num('penalty coefficient alpha',10);
     stretch=input_num('time stretch [Peak Wpos Wneg]',[0.5,5,10]);
     Peak=stretch(1);Wpos=stretch(2);Wneg=stretch(3);
     nodetw=input_num('no fire detection weight',0.1);
@@ -198,26 +207,52 @@ for istep=1:5
     
     psi = detection_mask + nodetw*(1-detection_mask);
 
-    % for most fuels W5 =900 means 40% of fuel is gone in 9 min
-    % likelihood and derivative
-    [f0,f1]=like1(detection_time-tign-h,TC*Peak,TC*Wpos,TC*Wneg);
-    plotmap(3,mesh_fxlong,mesh_fxlat,f0(mi,ni),'Detection likelihood')
-    plotmap(4,mesh_fxlong,mesh_fxlat,f1(mi,ni),'Detection likelihood derivative')
+    [Js(1),search]=objective(tign,h); 
+    search = -search/big(search); % initial search direction
+    plotmap(3,mesh_fxlong,mesh_fxlat,search,'Search direction');
+    h=zeros(m,n); % initial increment
+    stepsize=0;
+    % initial estimate of stepsize
+    last_stepsize = 1;
+    Js=0;
+    for i=2:100 % crude manual line search
+        s=input_num('step size, or <0 to break',last_stepsize/2);
+        stepsize(i)=s;
+        last_stepsize=s;
+        [Js(i),delta]=objective(tign,h+last_stepsize*search);
+        figure(4)
+        plot(stepsize,Js-Js(1),'*');
+        disp(stepsize)
+        disp(Js-Js(1))
+        xlabel('step size'),ylabel('J'),title('line search')
+        c=input_num('continue: 0/1',1)
+        if c==0, break, end
+    end
+    h = h + last_stepsize*search;
+end
+
+    function [J,delta]=objective(tign,h)
+    % compute objective function and ascent direction
+    T=tign+h;
+    plotmap(5,mesh_fxlong,mesh_fxlat,T(mi,ni),'Modified ignition time');
+    hold on;
+    contour(mesh_fxlong,mesh_fxlat,T(mi,ni),[detection_time(1) detection_time(1)],'-k')
+    hold off
+    [f0,f1]=like1(detection_time-T,TC*Peak,TC*Wpos,TC*Wneg);
+    plotmap(6,mesh_fxlong,mesh_fxlat,f0(mi,ni),'Detection likelihood')
+    plotmap(7,mesh_fxlong,mesh_fxlat,f1(mi,ni),'Detection likelihood derivative')
     % objective function and preconditioned gradient
     Ah = poisson_fft2(h,[w.dx,w.dy],1);
     J = alpha*0.5*(h(:)'*Ah(:)) + ssum(psi.*f0)/(m*n);
     F = psi.*f1;             % forcing
-    plotmap(5,mesh_fxlong,mesh_fxlat,F(mi,ni),'Forcing') 
+    plotmap(8,mesh_fxlong,mesh_fxlat,F(mi,ni),'Forcing'); 
     gradJ = alpha*Ah + F;
-    plotmap(6,mesh_fxlong,mesh_fxlat,gradJ(mi,ni),'gradient of J') 
+    plotmap(9,mesh_fxlong,mesh_fxlat,gradJ(mi,ni),'gradient of J');
     delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[w.dx,w.dy],-power)/alpha);
-    plotmap(7,mesh_fxlong,mesh_fxlat,delta(mi,ni),'delta') 
+    plotmap(10,mesh_fxlong,mesh_fxlat,delta(mi,ni),'delta');
     fprintf('Objective function J=%g norm(grad(J))=%g norm(delta)=%g\n',...
         J,norm(gradJ,'fro'),norm(delta,'fro'))
-    keyboard
-                                     % but the sum seems to work little better
-end
-
+    end
 
 end % detect_fit
 
