@@ -63,9 +63,10 @@ disp('subset and process inputs')
     
     default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
     default_bounds{2}=[-119.5, -119.0, 47.95, 48.15];
+    display_bounds=default_bounds{2};
     for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
     
-    bounds=input_num('bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above',2);
+    bounds=input_num('bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above',1);
     if length(bounds)==1, bounds=default_bounds{bounds}; end
     [ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
     ispan=min(ii):max(ii);
@@ -81,6 +82,11 @@ disp('subset and process inputs')
     max_lat = max(w.fxlat(:))
     min_lon = min(w.fxlong(:))
     max_lon = max(w.fxlong(:))
+    min_lon = display_bounds(1);
+    max_lon = display_bounds(2);
+    min_lat = display_bounds(3);
+    max_lat = display_bounds(4);
+    
     min_tign= min(w.tign_g(:))
     
     % rebase time on the largest tign_g = the time of the last frame, in days
@@ -136,13 +142,47 @@ disp('subset and process inputs')
     % set up reduced resolution plots
     [m,n]=size(w.fxlong);
     m_plot=m; n_plot=n;
-    mi=1:ceil(m/m_plot):m; % reduced index vectors
-    ni=1:ceil(n/n_plot):n;
+    
+    m1=map_index(display_bounds(1),bounds(1),bounds(2),m);
+    m2=map_index(display_bounds(2),bounds(1),bounds(2),m);
+    n1=map_index(display_bounds(3),bounds(3),bounds(4),n);
+    n2=map_index(display_bounds(4),bounds(3),bounds(4),n);    
+    mi=m1:ceil((m2-m1+1)/m_plot):m2; % reduced index vectors
+    ni=n1:ceil((n2-n1+1)/n_plot):n2;
     mesh_fxlong=w.fxlong(mi,ni);
     mesh_fxlat=w.fxlat(mi,ni);
     [mesh_m,mesh_n]=size(mesh_fxlat);
 
-    disp('Fuel weight map')
+    % find ignition point
+    [i_ign,j_ign]=find(w.tign_g == min(w.tign_g(:)));
+    if length(i_ign)~=1,error('assuming single ignition point here'),end
+    
+    % set up constraint on ignition point being the same
+    Constr_ign = zeros(m,n); Constr_ign(i_ign,j_ign)=1;
+
+    detection_mask=zeros(m,n);
+    detection_time=tim_ref*ones(m,n);
+
+    % resolution diameter in longitude/latitude units
+    rlon=0.5*res/w.unit_fxlong;
+    rlat=0.5*res/w.unit_fxlat;
+
+    lon1=lon-rlon;
+    lon2=lon+rlon;
+    lat1=lat-rlat;
+    lat2=lat+rlat;
+    for i=1:length(lon),
+        square = w.fxlong>=lon1(i) & w.fxlong<=lon2(i) & ...
+                 w.fxlat >=lat1(i) & w.fxlat <=lat2(i);
+        detection_mask(square)=1;
+    end
+    C=0.5*ones(1,length(res));
+    X=[lon-rlon,lon+rlon,lon+rlon,lon-rlon]';
+    Y=[lat-rlat,lat-rlat,lat+rlat,lat+rlat]';
+    plotstate(1,detection_mask,['Fire detection at ',detection_datestr],0.5)
+    % add ignition point
+    hold on, plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xw'); hold off
+    % legend('first ignition at %g %g',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
     
     fuelweight(length(fuel)+1:max(c.nfuel_cat(:)))=NaN;
     for j=1:length(fuel), 
@@ -153,48 +193,13 @@ disp('subset and process inputs')
            W(i,j)=fuelweight(c.nfuel_cat(i,j));
     end,end
  
-    plotmap(1,mesh_fxlong,mesh_fxlat,W(mi,ni),'Fuel weight')
-    
-    % find ignition point
-    [i_ign,j_ign]=find(w.tign_g == min(w.tign_g(:)));
-    if length(i_ign)~=1,error('assuming single ignition point here'),end
-    
-    % set up constraint on ignition point being the same
-    Constr_ign = zeros(m,n); Constr_ign(i_ign,j_ign)=1;
-    
-    disp('detection squares')
-
-    % resolution diameter in longitude/latitude units
-    rlon=0.5*res/w.unit_fxlong;
-    rlat=0.5*res/w.unit_fxlat;
-
-    detection_mask=zeros(m,n);
-    detection_time=tim_ref*ones(m,n);
-    lon1=lon-rlon;
-    lon2=lon+rlon;
-    lat1=lat-rlat;
-    lat2=lat+rlat;
-    for i=1:length(lon),
-        square = w.fxlong>=lon1(i) & w.fxlong<=lon2(i) & ...
-                 w.fxlat >=lat1(i) & w.fxlat <=lat2(i);
-        detection_mask(square)=1;
-    end
-   
-    plotmap(2,mesh_fxlong,mesh_fxlat,detection_mask(mi,ni),'Detection mask');
-    C=0.5*ones(1,length(res));
-    X=[lon-rlon,lon+rlon,lon+rlon,lon-rlon]';
-    Y=[lat-rlat,lat-rlat,lat+rlat,lat+rlat]';
-    hold on
-    hh=fill(X,Y,C);
-    title(['Fire detection at ',detection_datestr])
-    plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xw')
-    % legend('first ignition at %g %g',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
-    hold off
-    drawnow
-    
+    plotstate(2,W,'Fuel weight',900)
+        
 disp('optimization loop')
 TC = W/(900*24); % time constant = fuel gone in one hour 
 h =zeros(m,n); % initial increment
+
+    hold on,hh=fill(X,Y,C,'EdgeAlpha',1,'FaceAlpha',0);hold off
 
 for istep=1:5
     
@@ -208,8 +213,11 @@ for istep=1:5
     psi = detection_mask + nodetw*(1-detection_mask);
 
     [Js,search]=objective(tign,h); 
+    
+    plotstate(3,tign,'Forecast fire arrival time',detection_time(1));
+
     search = -search/big(search); % initial search direction
-    plotmap(3,mesh_fxlong,mesh_fxlat,search,'Search direction');
+    plotstate(4,search,'Search direction',0);
     h=zeros(m,n); % initial increment
     stepsize=0;
     % initial estimate of stepsize
@@ -219,7 +227,8 @@ for istep=1:5
         stepsize(i)=s;
         last_stepsize=s;
         [Js(i),delta]=objective(tign,h+last_stepsize*search);
-        figure(4)
+        plotstate(5,tign+h+last_stepsize*search,'Optimized',0);
+        figure(6)
         plot(stepsize,Js-Js(1),'*');
         disp(stepsize)
         disp(Js-Js(1))
@@ -233,25 +242,41 @@ end
     function [J,delta]=objective(tign,h)
     % compute objective function and ascent direction
     T=tign+h;
-    plotmap(5,mesh_fxlong,mesh_fxlat,T(mi,ni),'Modified ignition time');
-    hold on;
-    contour(mesh_fxlong,mesh_fxlat,T(mi,ni),[detection_time(1) detection_time(1)],'-k')
-    hold off
     [f0,f1]=like1(detection_time-T,TC*Peak,TC*Wpos,TC*Wneg);
-    plotmap(6,mesh_fxlong,mesh_fxlat,f0(mi,ni),'Detection likelihood')
-    plotmap(7,mesh_fxlong,mesh_fxlat,f1(mi,ni),'Detection likelihood derivative')
+    plotstate(7,f0,'Detection likelihood',0.5);
+    plotstate(8,f1,'Detection likelihood derivative',0);
+    F = psi.*f1;             % forcing
+    plotstate(9,F,'Forcing',0); 
     % objective function and preconditioned gradient
     Ah = poisson_fft2(h,[w.dx,w.dy],1);
     J = alpha*0.5*(h(:)'*Ah(:)) + ssum(psi.*f0)/(m*n);
-    F = psi.*f1;             % forcing
-    plotmap(8,mesh_fxlong,mesh_fxlat,F(mi,ni),'Forcing'); 
     gradJ = alpha*Ah + F;
-    plotmap(9,mesh_fxlong,mesh_fxlat,gradJ(mi,ni),'gradient of J');
+    plotstate(10,gradJ,'gradient of J',0);
     delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[w.dx,w.dy],-power)/alpha);
-    plotmap(10,mesh_fxlong,mesh_fxlat,delta(mi,ni),'delta');
+    plotstate(11,delta,'Preconditioned gradient',0);
     fprintf('Objective function J=%g norm(grad(J))=%g norm(delta)=%g\n',...
         J,norm(gradJ,'fro'),norm(delta,'fro'))
     end
 
+    function plotstate(fig,T,s,c)
+            fprintf('Figure %i %s\n',fig,s)
+            t=sprintf('%s, contour=%g',s,c)
+            plotmap(fig,mesh_fxlong,mesh_fxlat,T(mi,ni),t);
+            hold on
+            hh=fill(X,Y,C,'EdgeAlpha',1,'FaceAlpha',0);
+            contour(mesh_fxlong,mesh_fxlat,T(mi,ni),[c c],'-k')            
+            hold off
+            ratio=[w.unit_fxlat,w.unit_fxlong];
+            ratio=[ratio/norm(ratio),1];
+            daspect(ratio)
+            axis tight
+            drawnow
+    end
+
 end % detect_fit
 
+function i=map_index(x,a,b,n)
+% find image of x under linear map [a,b] -> [1,m]
+% and round to integer
+i=round(1+(n-1)*(x-a)/(b-a));
+end

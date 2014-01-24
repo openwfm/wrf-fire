@@ -1,6 +1,6 @@
 function h=plotmap(fig,x,y,z,s)
 if fig~=0,
-    figure(fig);
+    figure(fig);clf
 end
 h=pcolor(x,y,z);
 set(h,'EdgeAlpha',0,'FaceAlpha',1);
