@@ -179,7 +179,7 @@ disp('subset and process inputs')
     C=0.5*ones(1,length(res));
     X=[lon-rlon,lon+rlon,lon+rlon,lon-rlon]';
     Y=[lat-rlat,lat-rlat,lat+rlat,lat+rlat]';
-    plotstate(1,detection_mask,['Fire detection at ',detection_datestr],0.5)
+    plotstate(1,detection_mask,['Fire detection at ',detection_datestr],[])
     % add ignition point
     hold on, plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xw'); hold off
     % legend('first ignition at %g %g',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
@@ -193,30 +193,27 @@ disp('subset and process inputs')
            W(i,j)=fuelweight(c.nfuel_cat(i,j));
     end,end
  
-    plotstate(2,W,'Fuel weight',900)
+    plotstate(2,W,'Fuel weight',[])
         
 disp('optimization loop')
 TC = W/(900*24); % time constant = fuel gone in one hour 
 h =zeros(m,n); % initial increment
-
-    hold on,hh=fill(X,Y,C,'EdgeAlpha',1,'FaceAlpha',0);hold off
-
+plotstate(3,tign,'Forecast fire arrival time',detection_time(1));
 for istep=1:5
     
     % can change the objective function here
-    alpha=input_num('penalty coefficient alpha',1e-2);
-    stretch=input_num('time stretch [Peak Wpos Wneg]',[0.5,5,10]);
+    alpha=input_num('penalty coefficient alpha, <0 to end',1e-2);
+    if alpha<0, break, end
+    stretch=input_num('detection time constants (h) [Peak Wpos Wneg]',[0.5,10,10]);
     Peak=stretch(1);Wpos=stretch(2);Wneg=stretch(3);
-    nodetw=input_num('no fire detection weight',0.5);
-    power=input_num('negative laplacian power',0.75);
+    nodetw=input_num('no fire detection weight',0.01);
+    power=input_num('negative laplacian power',0.51);
     
-    psi = detection_mask + nodetw*(1-detection_mask);
+    psi = detection_mask - nodetw*(1-detection_mask);
 
     [Js,search]=objective(tign,h); 
-    
-    plotstate(3,tign,'Forecast fire arrival time',detection_time(1));
-
     search = -search/big(search); % initial search direction
+
     plotstate(4,search,'Search direction',0);
     h=zeros(m,n); % initial increment
     stepsize=0;
@@ -226,8 +223,8 @@ for istep=1:5
         s=input_num('step size',last_stepsize/2);
         stepsize(i)=s;
         last_stepsize=s;
+        plotstate(5,tign+h+last_stepsize*search,'Line search',detection_time(1));
         [Js(i),delta]=objective(tign,h+last_stepsize*search);
-        plotstate(5,tign+h+last_stepsize*search,'Optimized',0);
         figure(6)
         plot(stepsize,Js-Js(1),'*');
         disp(stepsize)
@@ -237,34 +234,39 @@ for istep=1:5
         if c==0, break, end
     end
     h = h + last_stepsize*search;
+    plotstate(6,tign,sprintf('Analysis descent iteration %i',i),detection_time(1));
 end
 
     function [J,delta]=objective(tign,h)
-    % compute objective function and ascent direction
+    % compute objective function and optionally ascent direction
     T=tign+h;
     [f0,f1]=like1(detection_time-T,TC*Peak,TC*Wpos,TC*Wneg);
-    plotstate(7,f0,'Detection likelihood',0.5);
-    plotstate(8,f1,'Detection likelihood derivative',0);
     F = psi.*f1;             % forcing
-    plotstate(9,F,'Forcing',0); 
     % objective function and preconditioned gradient
     Ah = poisson_fft2(h,[w.dx,w.dy],1);
     J = alpha*0.5*(h(:)'*Ah(:)) + ssum(psi.*f0)/(m*n);
+    fprintf('Objective function J=%g\n',J);
+    plotstate(7,f0,'Detection likelihood',0.5);colormap(flipud(jet));
+    plotstate(8,f1,'Detection likelihood derivative',0);
+    plotstate(9,F,'Forcing',0); 
     gradJ = alpha*Ah + F;
     plotstate(10,gradJ,'gradient of J',0);
     delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[w.dx,w.dy],-power)/alpha);
     plotstate(11,delta,'Preconditioned gradient',0);
-    fprintf('Objective function J=%g norm(grad(J))=%g norm(delta)=%g\n',...
-        J,norm(gradJ,'fro'),norm(delta,'fro'))
+    fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
     end
 
     function plotstate(fig,T,s,c)
             fprintf('Figure %i %s\n',fig,s)
-            t=sprintf('%s, contour=%g',s,c)
-            plotmap(fig,mesh_fxlong,mesh_fxlat,T(mi,ni),t);
+            plotmap(fig,mesh_fxlong,mesh_fxlat,T(mi,ni),' ');
             hold on
             hh=fill(X,Y,C,'EdgeAlpha',1,'FaceAlpha',0);
-            contour(mesh_fxlong,mesh_fxlat,T(mi,ni),[c c],'-k')            
+            if ~exist('c','var') || isempty(c) || isnan(c),
+                title(s);
+            else
+                title(sprintf('%s, contour=%g',s,c))
+                contour(mesh_fxlong,mesh_fxlat,T(mi,ni),[c c],'-k')            
+            end
             hold off
             ratio=[w.unit_fxlat,w.unit_fxlong];
             ratio=[ratio/norm(ratio),1];
