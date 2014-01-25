@@ -11,12 +11,12 @@ a=5;
 g0 = @(x) 4*(a*x+1)./(a*x+2).^2;
 % g1 = @(x) -(4*a^2*x)./(a*x + 2).^3;
 % replace g' by a function f(0)=0  f(1)=-0.5 f(large)=-1 for T>Peak
-g1 = @(x) -x./(1+x);
+g1 = @(x) -x.*x./(1+x.*x);
 
 
-Tpos=max(0,(T-Peak)./Wpos);  % max to avoid division by zero in g by chance
+Tpos=max(0,(T-Peak-Wpos)./Wpos);  % max to avoid division by zero in g by chance
 % Tneg=max(0,(Peak-T)./Wneg);  % burning already
-Tneg=max(0,(Peak-Wneg-T)./Wneg);  % constant in [Peak-Wneg,Peak]
+Tneg=max(0,(Peak-T)./Wneg);  % constant in [Peak-Wneg,Peak]
 
 v0 = g0(Tpos).*(T>Peak) + g0(Tneg).*(T<=Peak);
 v1 = g1(Tpos).*(T>Peak) - g1(Tneg).*(T<=Peak);

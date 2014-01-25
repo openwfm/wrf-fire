@@ -1,4 +1,4 @@
-function detect_fit
+function analysis=detect_fit
 % from a copy of barker2
 
 disp('input data')
@@ -196,7 +196,6 @@ disp('subset and process inputs')
     plotstate(2,W,'Fuel weight',[])
         
 disp('optimization loop')
-TC = W/(900*24); % time constant = fuel gone in one hour 
 h =zeros(m,n); % initial increment
 plotstate(3,tign,'Forecast fire arrival time',detection_time(1));
 for istep=1:5
@@ -204,7 +203,9 @@ for istep=1:5
     % can change the objective function here
     alpha=input_num('penalty coefficient alpha, <0 to end',1e-2);
     if alpha<0, break, end
-    stretch=input_num('detection time constants (h) [Peak Wpos Wneg]',[0.5,10,30]);
+    % TC = W/(900*24); % time constant = fuel gone in one hour
+    TC = 1/24;  % detection time constants in hours
+    stretch=input_num('Detection (h) [Peak After Before] fire arrival',[0.5,15,10]);
     Peak=stretch(1);Wpos=stretch(2);Wneg=stretch(3);
     nodetw=input_num('no fire detection weight',0.01);
     power=input_num('negative laplacian power',0.51);
@@ -218,9 +219,9 @@ for istep=1:5
     h=zeros(m,n); % initial increment
     stepsize=0;
     % initial estimate of stepsize
-    last_stepsize = 2;
+    last_stepsize = 3;
     for i=2:100 % crude manual line search
-        s=input_num('step size',last_stepsize/2);
+        s=input_num('step size',last_stepsize);
         stepsize(i)=s;
         last_stepsize=s;
         plotstate(5,tign+h+last_stepsize*search,'Line search',detection_time(1));
@@ -236,8 +237,11 @@ for istep=1:5
         if c==0, break, end
     end
     h = h + last_stepsize*search;
-    plotstate(6,tign,sprintf('Analysis descent iteration %i',i),detection_time(1));
+    plotstate(6,tign+h,sprintf('Analysis descent iteration %i',i-1),detection_time(1));
 end
+disp('converting analysis fire arrival time from days with zero at the end of the fire to original scale')
+analysis=max_tign_g+(24*60*60)*(tign+h); 
+disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection time')
 
     function [J,delta]=objective(tign,h)
     % compute objective function and optionally ascent direction
