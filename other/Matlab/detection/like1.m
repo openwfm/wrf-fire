@@ -11,7 +11,7 @@ a=5;
 g0 = @(x) 4*(a*x+1)./(a*x+2).^2;
 % g1 = @(x) -(4*a^2*x)./(a*x + 2).^3;
 % replace g' by a function f(0)=0  f(1)=-0.5 f(large)=-1 for T>Peak
-g1 = @(x) -0.1*x./(1+x);
+g1 = @(x) -x./(1+x);
 
 
 Tpos=max(0,(T-Peak)./Wpos);  % max to avoid division by zero in g by chance

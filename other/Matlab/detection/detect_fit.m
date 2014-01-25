@@ -248,17 +248,17 @@ end
     Ah = poisson_fft2(h,[w.dx,w.dy],1);
     J = alpha*0.5*(h(:)'*Ah(:)) + ssum(psi.*f0)/(m*n);
     fprintf('Objective function J=%g\n',J);
-    plotstate(7,f0,'Detection likelihood',0.5);colormap(flipud(jet));
+    plotstate(7,f0,'Detection likelihood',0.5,'-w');
     plotstate(8,f1,'Detection likelihood derivative',0);
     plotstate(9,F,'Forcing',0); 
     gradJ = alpha*Ah + F;
     plotstate(10,gradJ,'gradient of J',0);
     delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[w.dx,w.dy],-power)/alpha);
-    plotstate(11,delta,'Preconditioned gradient',0);
+    % plotstate(11,delta,'Preconditioned gradient',0);
     fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
     end
 
-    function plotstate(fig,T,s,c)
+    function plotstate(fig,T,s,c,linespec)
             fprintf('Figure %i %s\n',fig,s)
             plotmap(fig,mesh_fxlong,mesh_fxlat,T(mi,ni),' ');
             hold on
@@ -266,8 +266,11 @@ end
             if ~exist('c','var') || isempty(c) || isnan(c),
                 title(s);
             else
-                title(sprintf('%s, contour=%g',s,c))
-                contour(mesh_fxlong,mesh_fxlat,T(mi,ni),[c c],'-k')            
+                title(sprintf('%s, contour=%g',s,c(1)))
+                if ~exist('linespec','var'),
+                    linespec='-k';
+                end
+                contour(mesh_fxlong,mesh_fxlat,T(mi,ni),[c c],linespec)            
             end
             hold off
             ratio=[w.unit_fxlat,w.unit_fxlong];
