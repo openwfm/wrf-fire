@@ -204,7 +204,7 @@ for istep=1:5
     % can change the objective function here
     alpha=input_num('penalty coefficient alpha, <0 to end',1e-2);
     if alpha<0, break, end
-    stretch=input_num('detection time constants (h) [Peak Wpos Wneg]',[0.5,10,10]);
+    stretch=input_num('detection time constants (h) [Peak Wpos Wneg]',[0.5,10,30]);
     Peak=stretch(1);Wpos=stretch(2);Wneg=stretch(3);
     nodetw=input_num('no fire detection weight',0.01);
     power=input_num('negative laplacian power',0.51);
@@ -224,12 +224,14 @@ for istep=1:5
         stepsize(i)=s;
         last_stepsize=s;
         plotstate(5,tign+h+last_stepsize*search,'Line search',detection_time(1));
+        if 0,
         [Js(i),delta]=objective(tign,h+last_stepsize*search);
         figure(6)
         plot(stepsize,Js-Js(1),'*');
         disp(stepsize)
         disp(Js-Js(1))
         xlabel('step size'),ylabel('J'),title('line search')
+        end
         c=input_num('continue: 0/1',1)
         if c==0, break, end
     end
