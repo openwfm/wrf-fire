@@ -38,17 +38,17 @@ clear lat
 
 tign=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,data_steps);
 
-%fid = fopen('output_tign.txt', 'w');
-%    dlmwrite('output_tign.txt', tign, 'delimiter', '\t','precision', '%.4f');
-%    fclose(fid);
+fid = fopen('output_tign_smallhill.txt', 'w');
+    dlmwrite('output_tign_smallhill.txt', tign, 'delimiter', '\t','precision', '%.4f');
+    fclose(fid);
     
 end
 
 
 function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,data_steps)
 
-pnt_a=1198;
-pnt_b=2569;    %Point around which I print Big_matrix
+pnt_a=100;
+pnt_b=100;    %Point around which I print Big_matrix
 myfile = ['data_out_' num2str(pnt_a) '_' num2str(pnt_b) '.txt'];
 
 % Getting matrix A from the initial tign_g, where
@@ -61,9 +61,7 @@ P=A; %Points on the perimeter, who has at least one neighbor, that was not updat
 C_old=C;
 ros_old=read_ros_from_wrfout(wrfout,time);
 for ts=time:-1:2 % ts -time step
-    if ts==8
-       'substep 8';
-    end
+
    if (ts<time) % At the first step we initialize A and D from get_perim_from_initial_tign
       A=[];
       [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
@@ -263,7 +261,7 @@ for i=2:size(fire_area,1)-1
             % add [i,j] to A
             C(i,j)=3;
             D(i,j)=interval;
-            tign(i,j)=interval*time;
+            tign(i,j)=interval*(time-1); % I do that because time starts with 00:00
          end
       end
    end
