@@ -207,7 +207,7 @@ for istep=1:5
     TC = 1/24;  % detection time constants in hours
     stretch=input_num('Detection (h) [Peak After Before] fire arrival',[0.5,15,10]);
     Peak=stretch(1);Wpos=stretch(2);Wneg=stretch(3);
-    nodetw=input_num('no fire detection weight',0.01);
+    nodetw=input_num('no fire detection weight',0.1);
     power=input_num('negative laplacian power',0.51);
     
     psi = detection_mask - nodetw*(1-detection_mask);
@@ -225,38 +225,33 @@ for istep=1:5
         stepsize(i)=s;
         last_stepsize=s;
         plotstate(5,tign+h+last_stepsize*search,'Line search',detection_time(1));
-        if 0,
-        [Js(i),delta]=objective(tign,h+last_stepsize*search);
-        figure(6)
-        plot(stepsize,Js-Js(1),'*');
-        disp(stepsize)
-        disp(Js-Js(1))
-        xlabel('step size'),ylabel('J'),title('line search')
-        end
-        c=input_num('continue: 0/1',1)
+        [Js(i),delta]=objective(tign,h+last_stepsize*search,'noplot');
+        c=input_num('try another step size: 0/1',1)
         if c==0, break, end
     end
     h = h + last_stepsize*search;
-    plotstate(6,tign+h,sprintf('Analysis descent iteration %i',i-1),detection_time(1));
+    plotstate(6,tign+h,sprintf('Analysis descent iteration %i',istep),detection_time(1));
 end
 disp('converting analysis fire arrival time from days with zero at the end of the fire to original scale')
 analysis=max_tign_g+(24*60*60)*(tign+h); 
 disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection time')
 
-    function [J,delta]=objective(tign,h)
+    function [J,delta]=objective(tign,h,noplot)
     % compute objective function and optionally ascent direction
     T=tign+h;
-    [f0,f1]=like1(detection_time-T,TC*Peak,TC*Wpos,TC*Wneg);
-    F = psi.*f1;             % forcing
+    [f0,f1]=like1(psi,detection_time-T,TC*Peak,TC*Wpos,TC*Wneg);
+    F = f1;             % forcing
     % objective function and preconditioned gradient
     Ah = poisson_fft2(h,[w.dx,w.dy],1);
     J = alpha*0.5*(h(:)'*Ah(:)) + ssum(psi.*f0)/(m*n);
     fprintf('Objective function J=%g\n',J);
-    plotstate(7,f0,'Detection likelihood',0.5,'-w');
-    plotstate(8,f1,'Detection likelihood derivative',0);
-    plotstate(9,F,'Forcing',0); 
     gradJ = alpha*Ah + F;
-    plotstate(10,gradJ,'gradient of J',0);
+    if ~exist('noplot','var'),
+        plotstate(7,f0,'Detection likelihood',0.5,'-w');
+        plotstate(8,f1,'Detection likelihood derivative',0);
+        plotstate(9,F,'Forcing',0); 
+        plotstate(10,gradJ,'gradient of J',0);
+    end
     delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[w.dx,w.dy],-power)/alpha);
     % plotstate(11,delta,'Preconditioned gradient',0);
     fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
@@ -278,6 +273,8 @@ disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection
             end
             hold off
             ratio=[w.unit_fxlat,w.unit_fxlong];
+            xlabel longtitude
+            ylabel latitude
             ratio=[ratio/norm(ratio),1];
             daspect(ratio)
             axis tight
