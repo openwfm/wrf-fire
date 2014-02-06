@@ -136,9 +136,6 @@ while any(any(D>0))
    for j=1:size(B,1)         
       for dx=-1:1
          for dy=-1:1
-             if (B(j,1)+dx==1969)&&(B(j,2)+dy==1849)
-             'Aloha';
-             end
             if (C(B(j,1)+dx,B(j,2)+dy)==0) 
                F=0.25*D(B(j,1),B(j,2))*(ros_old(B(j,1),B(j,2),2-dx,2-dy)+ros_new(B(j,1),B(j,2),2-dx,2-dy) + ...
                  ros_old(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+ros_new(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)); 

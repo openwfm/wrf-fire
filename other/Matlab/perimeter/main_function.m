@@ -3,13 +3,10 @@ clc
 addpath ../netcdf
 addpath ../util1_jan
 
-wrfout='wrfout_d05_2012-09-09_00:00:00_VK_75_to_97';
-% Here the netcdf is shortened for the period from timestep 75 till 97
-% So time=23 which is 97-74, otherwise it should be 97
-%
+wrfout='wrfout_d01_0001-01-01_00:00:00_smallhill';
 
-interval=900;      % time step in wrfout in seconds (every 20 min)
-time=23;           % the number of the time step in wrfout closest to the perimeter time from below
+interval=60;      % time step in wrfout in seconds (every 1 min)
+time=6;           % the number of the time step in wrfout closest to the perimeter time from below
 %time_now=300.25;  % the perimeter time (s)
 
 format long
@@ -21,7 +18,7 @@ format long
 tign=perimeter_in(long,lat,fire_area,wrfout,time,interval);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% The information below is not beig used for the current problem
+% The information below is not being used for the current problem
 %data='data_perim.txt';
 %data='';            % contained the coordinates of the fire perimeter from the shapefile
 %wrfout='wrfout_d05_2012-09-12_21:15:01';
