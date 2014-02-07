@@ -38,8 +38,8 @@ clear lat
 
 tign=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,data_steps);
 
-fid = fopen('output_tign_smallhill.txt', 'w');
-    dlmwrite('output_tign_smallhill.txt', tign, 'delimiter', '\t','precision', '%.4f');
+fid = fopen('output_tign.txt', 'w');
+    dlmwrite('output_tign.txt', tign, 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
     
 end
