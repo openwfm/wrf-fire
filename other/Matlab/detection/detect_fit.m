@@ -205,8 +205,7 @@ for istep=1:5
     if alpha<0, break, end
     % TC = W/(900*24); % time constant = fuel gone in one hour
     TC = 1/24;  % detection time constants in hours
-    stretch=input_num('Detection (h) [Peak After Before] fire arrival',[0.5,15,10]);
-    Peak=stretch(1);Wpos=stretch(2);Wneg=stretch(3);
+    stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
     nodetw=input_num('no fire detection weight',0.1);
     power=input_num('negative laplacian power',0.51);
     
@@ -239,7 +238,7 @@ disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection
     function [J,delta]=objective(tign,h,noplot)
     % compute objective function and optionally ascent direction
     T=tign+h;
-    [f0,f1]=like1(psi,detection_time-T,TC*Peak,TC*Wpos,TC*Wneg);
+    [f0,f1]=like1(psi,detection_time-T,TC*stretch);
     F = f1;             % forcing
     % objective function and preconditioned gradient
     Ah = poisson_fft2(h,[w.dx,w.dy],1);
