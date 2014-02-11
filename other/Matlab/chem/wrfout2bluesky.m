@@ -65,7 +65,7 @@ for ifile=1:length(in),
         ta=sum(a(:))*fdx*fdy;
         fprintf('timestep %i/%i %s total fire area %g m^2\n',istep,s,t(istep,:),ta)
         d=datenum(t(istep,:),'yyyy-mm-dd_HH:MM:SS'); % convert ESMF time string to double
-        tim=[datestr(d,'yyyymmddHHMM'),'L'];         % convert to bluesky time format
+        tim=[datestr(d,'yyyymmddHHMM'),'Z'];         % convert to bluesky time format
         v = datevec(d);
         if(v(5)==0 & v(6) == 0) % whole hour
             a_diff = a - a_old;

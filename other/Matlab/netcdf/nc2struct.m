@@ -1,4 +1,4 @@
-function p=nc2struct(filename,varnames,gattnames,timestep,p)
+function [p,dims]=nc2struct(filename,varnames,gattnames,timestep,p)
 % p=ncread2str(filename,varnames,gattnames,timestep,p)
 % read from netcdf file to structure
 %
@@ -53,6 +53,7 @@ for i=1:length({varnames{:}}),
         end
         v = ncvar(filename,varname,start, count); 
         p.(lower(varname))=double(v.var_value);
+        dims.(lower(varname))=v.dimlength;
     else 
         p.(lower(varname))=[];;
     end
