@@ -3,19 +3,24 @@ clc
 addpath ../netcdf
 addpath ../util1_jan
 
-wrfout='wrfout_d01_0001-01-01_00:00:00_smallhill';
+wrfout{1}='wrfout_d01_0001-01-01_00:00:00_smallhill';
+wrfout{2}='';
+wrfout{3}='';
+wrfout{4}='';
+wrfout{5}='';
 
+num_wrf=1;  %The total number of wrfouts that are being used
+time_step=6;     % The amount of time_steps in each wrfout
 interval=60;      % time step in wrfout in seconds (every 1 min)
-time=6;           % the number of the time step in wrfout closest to the perimeter time from below
-%time_now=300.25;  % the perimeter time (s)
-
+time=6;           % the number of the time step in the latest wrfout 
+                  %  closest to the perimeter time from below
 format long
 
 % read the fire map at perimeter time
-[long,lat,fire_area]=read_file_perimeter(wrfout,time);
+[long,lat,fire_area]=read_file_perimeter(wrfout{num_wrf},time);
 % now have data: long, lat, fire_area - burning or not burning (between 0 and 1, 0-1 OK)
 
-tign=perimeter_in(long,lat,fire_area,wrfout,time,interval);
+tign=perimeter_in(long,lat,fire_area,wrfout,time,interval,time_step,num_wrf);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The information below is not being used for the current problem

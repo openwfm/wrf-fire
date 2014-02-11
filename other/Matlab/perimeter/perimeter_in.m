@@ -1,4 +1,4 @@
-function tign=perimeter_in(long,lat,fire_area,wrfout,time,interval)
+function tign=perimeter_in(long,lat,fire_area,wrfout,time,interval,time_step,num_wrf)
 
 % Volodymyr Kondratenko           July 19 2013	
 % Ideas line 261
@@ -36,31 +36,31 @@ distance=get_distances(long,lat);
 clear long
 clear lat
 
-tign=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,data_steps);
+tign=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,data_steps);
 
-fid = fopen('output_tign.txt', 'w');
-    dlmwrite('output_tign.txt', tign, 'delimiter', '\t','precision', '%.4f');
+fid = fopen('output_tign_test.txt', 'w');
+    dlmwrite('output_tign_test.txt', tign, 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
     
 end
 
 
-function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,data_steps)
+function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,data_steps)
 
 pnt_a=100;
 pnt_b=100;    %Point around which I print Big_matrix
 myfile = ['data_out_' num2str(pnt_a) '_' num2str(pnt_b) '.txt'];
 
 % Getting matrix A from the initial tign_g, where
-[A,C,D,tign]=get_perim_from_initial_tign(fire_area,interval,time); 
+[A,C,D,tign]=get_perim_from_initial_tign(fire_area,time,interval,time_step,num_wrf); 
 %contour(C);title(sprintf('Original perimeter')); drawnow 
 clear fire_area
 
 I=zeros(size(distance));            % Matrix of distances
 P=A; %Points on the perimeter, who has at least one neighbor, that was not updated yet.
 C_old=C;
-ros_old=read_ros_from_wrfout(wrfout,time);
-for ts=time:-1:2 % ts -time step
+ros_old=read_ros_from_wrfout(wrfout{num_wrf},time);
+for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
 
    if (ts<time) % At the first step we initialize A and D from get_perim_from_initial_tign
       A=[];
@@ -98,7 +98,15 @@ for ts=time:-1:2 % ts -time step
    data_steps=sprintf('%s \n tign around [%i %i]',data_steps,pnt_a,pnt_b);
    data_steps=print_big_mat(data_steps,pnt_a,pnt_b,tign);
    
-   ros_new=read_ros_from_wrfout(wrfout,ts-1);
+   cur_num_wrf=ceil((ts-1)/time_step);
+   cur_ts=mod((ts-1),time_step);
+   if (cur_ts==0) 
+       cur_ts=time_step;
+   end
+   ts-1
+   cur_num_wrf
+   cur_ts
+   ros_new=read_ros_from_wrfout(wrfout{cur_num_wrf},cur_ts);
    
    [tign,C,D,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,A,C,D,I,distance,interval,ts,data_steps);
       
@@ -161,7 +169,7 @@ while any(any(D>0))
                   tign_new=min(tign(B(j,1),B(j,2)),ts*interval)- ...
                     ((distance(B(j,1),B(j,2),2-dx,2-dy)-I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy))/F)*(D(B(j,1),B(j,2)));
                   I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)=0;                    
-                if tign_new>tign(B(j,1)+dx,B(j,2)+dy)
+                  if tign_new>tign(B(j,1)+dx,B(j,2)+dy)
                      tign(B(j,1)+dx,B(j,2)+dy)=tign_new;
                      D(B(j,1)+dx,B(j,2)+dy)=tign(B(j,1)+dx,B(j,2)+dy)-(ts-1)*interval;
                      if (D(B(j,1)+dx,B(j,2)+dy)<0)
@@ -229,7 +237,7 @@ end
 % and keep it zero, same with delta_tign, etc.    
 end
 
-function [A,C,D,tign]=get_perim_from_initial_tign(fire_area,interval,time)
+function [A,C,D,tign]=get_perim_from_initial_tign(fire_area,time,interval,time_step,num_wrf)
 
 % in:
 % tign    ignition time
@@ -258,7 +266,7 @@ for i=2:size(fire_area,1)-1
             % add [i,j] to A
             C(i,j)=3;
             D(i,j)=interval;
-            tign(i,j)=interval*(time-1); % I do that because time starts with 00:00
+            tign(i,j)=interval*(time_step*(num_wrf-1)+time-1); % I do that because time starts with 00:00
          end
       end
    end
