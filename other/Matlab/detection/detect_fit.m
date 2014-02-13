@@ -242,7 +242,7 @@ disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection
     F = f1;             % forcing
     % objective function and preconditioned gradient
     Ah = poisson_fft2(h,[w.dx,w.dy],1);
-    J = alpha*0.5*(h(:)'*Ah(:)) + ssum(psi.*f0)/(m*n);
+    J = alpha*0.5*(h(:)'*Ah(:)) - ssum(psi.*f0)/(m*n);
     fprintf('Objective function J=%g\n',J);
     gradJ = alpha*Ah + F;
     if ~exist('noplot','var'),
