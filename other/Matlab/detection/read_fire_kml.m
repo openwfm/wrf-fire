@@ -28,6 +28,7 @@ while 1
         break
     end % end of file
     f=strfind(fline,'Fire Detection Centroid ');
+    
     if ~isempty(f)
         dline = fgetl(fid);
         if ~ischar(dline),
@@ -41,7 +42,9 @@ while 1
         sensor=parse(dline,'<b>Sensor: </b>','<br/>');
         v.lat(k)=str2num(flat);
         v.lon(k)=str2num(flon);
-        v.tim(k)=datenum([fdate,' ',ftime],'dd mmm yyyy HH:MM');
+        timestr=[fdate,' ',ftime];
+        v.time(k,:)=timestr;
+        v.tim(k)=datenum(timestr,'dd mmm yyyy HH:MM');
         switch sensor
             case 'NPP VIIRS'
                 v.res(k)= 750;
