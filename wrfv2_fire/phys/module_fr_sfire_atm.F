@@ -585,8 +585,10 @@ do j=jts,jte
                !*** chem compounds emissions given in g/kg
 
                ! fuel_burnt kg/m^2 *  table g/kg ->  ppmv = 1e6*mol/mol in 1st layer
-               conv = avgw*1e6*mw_air/(rho(i,k1,j)*dz8w(i,k1,j))
-
+!AK rho is in kg/m3 so the conversion factor must be scaled by a 1000 to match
+!emissions in grams
+!                conv = avgw*1e6*mw_air/(rho(i,k1,j)*dz8w(i,k1,j))
+                 conv = avgw*1e3*mw_air/(rho(i,k1,j)*dz8w(i,k1,j))
 #ifdef WRF_CHEM
 
                emis=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
