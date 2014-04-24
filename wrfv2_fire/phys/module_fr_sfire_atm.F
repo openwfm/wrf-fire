@@ -163,7 +163,7 @@ real, pointer, save, dimension(:)::c_fuel
 real, pointer, save, dimension(:)::c_tracer
 logical, save:: emis_read = .false.
 integer, save:: msglevel =1,printsums=0 ! when to print sums
-integer, parameter:: line=8 ! number of species, emissions, etc. per line
+integer, parameter:: line=5 ! number of species, emissions, etc. per line
 
 contains
 
@@ -370,13 +370,14 @@ real, intent(in), dimension(ifms:ifme,jfms:jfme):: fgip, &            ! initial 
 real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:kme,jms:jme,num_tracer)
 
 !*** local
-integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw,m
+integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw,m,k,k_p
 real::fuel_burnt,vol,air,conv, avgw,emis 
 character(len=128)msg
 
 real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
 #ifdef WRF_CHEM
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
+real, dimension(num_chem) ::a_chem,g_chem  ! concentration in ground level 1 
 integer, parameter:: chem_np=46
 integer:: chem_pointers(chem_np)
 character(len=8)::chem_names(chem_np)
@@ -841,6 +842,20 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     c_fuel = c_fuel + s_fuel
 
 #ifdef WRF_CHEM
+    ! sum ground concentrations
+    a_chem=0.0
+    g_chem=0.0
+    do j=jts,jte
+       do k=1,chem_np
+          k_p=chem_pointers(k)
+          do i=its,ite
+             if(isnan(chem(i,k1,j,k_p ))) call crash('chem is nan')
+             a_chem(k_p)=a_chem(k_p)+chem(i,k1,j,k_p )
+          enddo
+       enddo
+    enddo
+    call wrf_dm_sum_reals(a_chem,g_chem)
+    g_chem = g_chem*dx*dy 
     ! chem
     call wrf_dm_sum_reals(t_chem,s_chem)
     s_chem = s_chem*dx*dy 
@@ -856,6 +871,8 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
         write(msg,81)'Cumulative',(c_chem(chem_pointers(j)),j=i,m)
         call message(msg,level=msglevel)
         write(msg,81)'Rate per s',(r_chem(chem_pointers(j)),j=i,m)
+        call message(msg,level=msglevel)
+        write(msg,81)'Layer1 sum',(g_chem(chem_pointers(j)),j=i,m)
         call message(msg,level=msglevel)
         call message(' ',level=msglevel)
     enddo
@@ -949,9 +966,9 @@ call message(msg)
 do i=1,np,line
    m=min(i+line-1,np)
    write(msg,'(a,8(1x,a8))')'Species',(trim(pointer_names(j)),j=i,m)
-   call message(msg)
+   call message(msg,level=msglevel)
    write(msg,'(a,8i9)')     'Pointer',(pointers(j),j=i,m)
-   call message(msg)
+   call message(msg,level=msglevel)
    call message(' ')
 enddo
 
