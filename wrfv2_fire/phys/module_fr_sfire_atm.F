@@ -560,7 +560,19 @@ enddo
 ! rho(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
 
 k1 = kts 
-write(msg,'(a,i3)')'Fire missions insterted into atmpsphere level',k1
+write(msg,'(a,i3)')'Fire missions insterted into atmosphere level',k1
+
+    do j=jts,jte
+       do k=1,chem_np
+          k_p=chem_pointers(k)
+          do i=its,ite
+             if(isnan(chem(i,k1,j,k_p )))then
+                 write(msg,79)i,k1,j,k_p 
+                 call crash(msg)
+             endif
+          enddo
+       enddo
+    enddo
 
 do j=jts,jte
     jbase=jtfs+jr*(j-jts)                   ! indexing
@@ -845,11 +857,15 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     ! sum ground concentrations
     a_chem=0.0
     g_chem=0.0
+79  format('chem(',4i6,')=NaN')
     do j=jts,jte
        do k=1,chem_np
           k_p=chem_pointers(k)
           do i=its,ite
-             if(isnan(chem(i,k1,j,k_p ))) call crash('chem is nan')
+             if(isnan(chem(i,k1,j,k_p )))then
+                 write(msg,79)i,k1,j,k_p 
+                 call crash(msg)
+             endif
              a_chem(k_p)=a_chem(k_p)+chem(i,k1,j,k_p )
           enddo
        enddo
