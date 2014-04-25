@@ -370,7 +370,7 @@ real, intent(in), dimension(ifms:ifme,jfms:jfme):: fgip, &            ! initial 
 real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:kme,jms:jme,num_tracer)
 
 !*** local
-integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw,m,k,k_p
+integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw,m,k,k_p,errors
 real::fuel_burnt,vol,air,conv, avgw,emis 
 character(len=128)msg
 
@@ -560,23 +560,30 @@ enddo
 ! rho(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
 
 k1 = kts 
-write(msg,'(a,i3)')'Fire missions insterted into atmosphere level',k1
+write(msg,'(a,i3)')'Fire emissions inserted into atmosphere level',k1
+call message(msg,level=msglevel)
 
+#ifdef DEBUG
+    errors=0
     do j=jts,jte
        do k=1,chem_np
           k_p=chem_pointers(k)
           do i=its,ite
              if(isnan(chem(i,k1,j,k_p )))then
                  write(msg,79)i,k1,j,k_p 
-                 call crash(msg)
+                 call message(msg)
+                 errors=errors+1
              endif
           enddo
        enddo
     enddo
+    if(errors>0)call crash('NaN in chem array passed from WRF')
+    call message('initial check for chem=NaN ok',level=msglevel)
+#endif
 
-do j=jts,jte
+do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
     jbase=jtfs+jr*(j-jts)                   ! indexing
-    do i=its,ite
+    do i=max(ids+1,its),min(ite,ide-1)
        ibase=ifts+ir*(i-its)                ! indexing
        !air = 1e6*mw_air/rho(i,kds,j)    ! 1e6*mw_air/air density 
        !vol = avgw/dz8w(i,kds,j)             ! averaging volume factor / 1st layer depth
@@ -606,7 +613,9 @@ do j=jts,jte
 
                emis=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
                t_chem(p_co) = t_chem(p_co) + emis                           ! add to total
+               ! if(isnan(chem(i,k1,j,p_co  )))call crash('NaN before')
                chem(i,k1,j,p_co  )=chem(i,k1,j,p_co  ) + emis*conv*imw_co   ! add to chem
+               ! if(isnan(chem(i,k1,j,p_co  )))call crash('NaN after')
 
                emis=ch4  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
                t_chem(p_ch4) = t_chem(p_ch4) + emis                           ! add to total
@@ -858,18 +867,21 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     a_chem=0.0
     g_chem=0.0
 79  format('chem(',4i6,')=NaN')
+    errors=0
     do j=jts,jte
        do k=1,chem_np
           k_p=chem_pointers(k)
           do i=its,ite
-             if(isnan(chem(i,k1,j,k_p )))then
-                 write(msg,79)i,k1,j,k_p 
-                 call crash(msg)
-             endif
+             if(isnan(chem(i,k1,j,k_p )))errors=errors+1
+             !if(isnan(chem(i,k1,j,k_p )))then
+             !    write(msg,79)i,k1,j,k_p 
+             !    call crash(msg)
+             !endif
              a_chem(k_p)=a_chem(k_p)+chem(i,k1,j,k_p )
           enddo
        enddo
     enddo
+    if(errors>0)call crash('NaN after chem update')
     call wrf_dm_sum_reals(a_chem,g_chem)
     g_chem = g_chem*dx*dy 
     ! chem
