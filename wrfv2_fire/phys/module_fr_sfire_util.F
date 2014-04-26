@@ -93,6 +93,12 @@ contains
 !*****************************
 !
 
+logical function isnan(a) 
+real a 
+isnan= (a.ne.a) 
+return 
+end 
+
 subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
     istrip,                              & ! width of strip to extrapolate to around domain
     ids,ide, jds,jde,                    & ! atm grid dimensions
