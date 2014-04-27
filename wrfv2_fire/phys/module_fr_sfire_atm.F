@@ -563,22 +563,33 @@ k1 = kts
 write(msg,'(a,i3)')'Fire emissions inserted into atmosphere level',k1
 call message(msg,level=msglevel)
 
-#ifdef DEBUG
+#ifdef WRF_CHEM
+if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
+    ! sum ground concentrations and check for nans
+    a_chem=0.0
+    g_chem=0.0
     errors=0
     do j=jts,jte
        do k=1,chem_np
           k_p=chem_pointers(k)
           do i=its,ite
-             if(isnan(chem(i,k1,j,k_p )))then
-                 write(msg,79)i,k1,j,k_p 
-                 call message(msg)
-                 errors=errors+1
-             endif
+             if(chem(i,k1,j,k_p ).ne.chem(i,k1,j,k_p ))errors=errors+1
+             a_chem(k_p)=a_chem(k_p)+chem(i,k1,j,k_p )
           enddo
        enddo
     enddo
-    if(errors>0)call crash('NaN in chem array passed from WRF')
-    call message('initial check for chem=NaN ok',level=msglevel)
+    if(errors>0)call crash('NaN before chem update')
+    call wrf_dm_sum_reals(a_chem,g_chem)
+    call message('Layer1 raw sums before adding fire emissions',level=msglevel)
+    do i=1,chem_np,line
+        m=min(i+line-1,chem_np)
+        write(msg,80)'Emissions ',(trim(chem_names(j)),j=i,m)
+        call message(msg,level=msglevel)
+        write(msg,81)'Layer1 beg',(g_chem(chem_pointers(j)),j=i,m)
+        call message(msg,level=msglevel)
+        call message(' ',level=msglevel)
+    enddo
+endif
 #endif
 
 do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
@@ -849,6 +860,35 @@ do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
     enddo
 enddo
 
+#ifdef WRF_CHEM
+if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
+    ! sum ground concentrations and check for nans
+    a_chem=0.0
+    g_chem=0.0
+    errors=0
+    do j=jts,jte
+       do k=1,chem_np
+          k_p=chem_pointers(k)
+          do i=its,ite
+             if(chem(i,k1,j,k_p ).ne.chem(i,k1,j,k_p ))errors=errors+1
+             a_chem(k_p)=a_chem(k_p)+chem(i,k1,j,k_p )
+          enddo
+       enddo
+    enddo
+    if(errors>0)call crash('NaN after chem update')
+    call wrf_dm_sum_reals(a_chem,g_chem)
+    call message('Layer1 raw sums after adding fire emissions',level=msglevel)
+    do i=1,chem_np,line
+        m=min(i+line-1,chem_np)
+        write(msg,80)'Emissions ',(trim(chem_names(j)),j=i,m)
+        call message(msg,level=msglevel)
+        write(msg,81)'Layer1 end',(g_chem(chem_pointers(j)),j=i,m)
+        call message(msg,level=msglevel)
+        call message(' ',level=msglevel)
+    enddo
+endif
+#endif
+
 if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     ! sum over processes and add to cumulative sums
 
@@ -863,27 +903,7 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     c_fuel = c_fuel + s_fuel
 
 #ifdef WRF_CHEM
-    ! sum ground concentrations
-    a_chem=0.0
-    g_chem=0.0
-79  format('chem(',4i6,')=NaN')
-    errors=0
-    do j=jts,jte
-       do k=1,chem_np
-          k_p=chem_pointers(k)
-          do i=its,ite
-             if(isnan(chem(i,k1,j,k_p )))errors=errors+1
-             !if(isnan(chem(i,k1,j,k_p )))then
-             !    write(msg,79)i,k1,j,k_p 
-             !    call crash(msg)
-             !endif
-             a_chem(k_p)=a_chem(k_p)+chem(i,k1,j,k_p )
-          enddo
-       enddo
-    enddo
-    if(errors>0)call crash('NaN after chem update')
     call wrf_dm_sum_reals(a_chem,g_chem)
-    g_chem = g_chem*dx*dy 
     ! chem
     call wrf_dm_sum_reals(t_chem,s_chem)
     s_chem = s_chem*dx*dy 
@@ -899,8 +919,6 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
         write(msg,81)'Cumulative',(c_chem(chem_pointers(j)),j=i,m)
         call message(msg,level=msglevel)
         write(msg,81)'Rate per s',(r_chem(chem_pointers(j)),j=i,m)
-        call message(msg,level=msglevel)
-        write(msg,81)'Layer1 sum',(g_chem(chem_pointers(j)),j=i,m)
         call message(msg,level=msglevel)
         call message(' ',level=msglevel)
     enddo
