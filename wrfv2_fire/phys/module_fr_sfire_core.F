@@ -1824,15 +1824,15 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
             endif
         enddo
     enddo
-!$OMP CRITICAL(SFIRE_CORE_CRIT)
-    write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
-        (100.*nfirenodes)/((ite1-its1+1)*(jte1-jts1+1)),'% next to fireline',nfireline
-!$OMP END CRITICAL(SFIRE_CORE_CRIT)
-    call message(msg)
-    if(nfireline>0)then
-        call print_stat_line('speed error',its1,ite1,jts1,jte1,min_err,max_err,sum_err/nfireline)
-        call print_stat_line('abs(speed error)',its1,ite1,jts1,jte1,min_aerr,max_aerr,sum_aerr/nfireline)
-    endif
+!!$OMP CRITICAL(SFIRE_CORE_CRIT)
+!    write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
+!      (100.*nfirenodes)/((ite1-its1+1)*(jte1-jts1+1)),'% next to fireline',nfireline
+!!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+!   call message(msg)
+!    if(nfireline>0)then
+!        call print_stat_line('speed error',its1,ite1,jts1,jte1,min_err,max_err,sum_err/nfireline)
+!        call print_stat_line('abs(speed error)',its1,ite1,jts1,jte1,min_aerr,max_aerr,sum_aerr/nfireline)
+!    endif
 
     ! check if the fire did not get to the domain boundary
     do k=-1,1,2
