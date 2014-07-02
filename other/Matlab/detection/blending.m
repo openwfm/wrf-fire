@@ -5,7 +5,7 @@ function T=blending(Tf,Ta,T0,T1)
 if all(Tf>=T0),
     T=Ta;
 else
-    p=2;
+    p=1.1;
     f=max(Tf-T0,0).^p;
     a=max(T1-Ta,0).^p;
     T=(f.*Ta+a.*Tf)./(a+f);
