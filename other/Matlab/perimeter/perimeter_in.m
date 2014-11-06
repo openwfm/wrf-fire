@@ -243,7 +243,7 @@ function [A,C,D,tign]=get_perim_from_initial_tign(fire_area,time,interval,time_s
 % tign    ignition time
 % out:
 % C = 3 - area outside of the fire perimeter;
-%     2 - area that whose tign was already computed and it was used to
+%     2 - area whose tign was already computed and it was used to
 %         compute the tign of its neighbors + not burning points that lie  
 %         on the perimeter;
 %     1 - area whose tign was computed, but may still updated from
