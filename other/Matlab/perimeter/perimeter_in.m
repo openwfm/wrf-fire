@@ -47,8 +47,8 @@ end
 
 function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,data_steps)
 
-pnt_a=100;
-pnt_b=100;    %Point around which I print Big_matrix
+pnt_a=1000;
+pnt_b=1000;    %Point around which I print Big_matrix
 myfile = ['data_out_' num2str(pnt_a) '_' num2str(pnt_b) '.txt'];
 
 % Getting matrix A from the initial tign_g, where
@@ -158,6 +158,9 @@ while any(any(D>0))
                   D(B(j,1)+dx,B(j,2)+dy)=tign(B(j,1)+dx,B(j,2)+dy)-(ts-1)*interval;
                   if (D(B(j,1)+dx,B(j,2)+dy)<0)
                      data_steps=sprintf('%s\n Error(3) D happens to be less than 0',data_steps);
+                     data_steps=sprintf('%s\n At point (i,j)%d%d',data_steps,i,j);
+                     data_steps=sprintf('%s\n B(j,1),B(j,2), B(j,1)+dx,B(j,2)+dy %d%d%d%d',data_steps,B(j,1),B(j,2), B(j,1)+dx,B(j,2)+dy);
+                     data_steps=sprintf('%s\n D(B(j,1)+dx,B(j,2)+dy %d)',data_steps,D(B(j,1)+dx,B(j,2)+dy));
                   end
                else
                   I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)=I(B(j,1)+dx,B(j,2)+dy,2-dx,2-dy)+F;

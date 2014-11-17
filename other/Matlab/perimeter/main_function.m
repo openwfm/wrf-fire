@@ -1,21 +1,26 @@
 clear
 clc
-addpath ../netcdf
-addpath ../util1_jan
+addpath /home/vkondrat/projects/wrffire1/wrf-fire/other/Matlab/netcdf
+addpath /home/vkondrat/projects/wrffire1/wrf-fire/other/Matlab/util1_jan
+addpath ..
+addpath Output
 
-wrfout{1}='wrfout_d01_0001-01-01_00:00:00';
-wrfout{2}='wrfout_d01_0001-01-01_00:01:00';
-wrfout{3}='wrfout_d01_0001-01-01_00:02:00';
-wrfout{4}='wrfout_d01_0001-01-01_00:03:00';
-wrfout{5}='';
+wrfout{1}='VK_wrfout_2013-08-11_00_00_00.nc';
+wrfout{2}='VK_wrfout_2013-08-11_12_00_00.nc';
+wrfout{3}='VK_wrfout_2013-08-13_00_00_00.nc';
+wrfout{4}='VK_wrfout_2013-08-12_12_00_00.nc';
+wrfout{5}='VK_wrfout_2013-08-13_00_00_00.nc';
+wrfout{6}='VK_wrfout_2013-08-13_12_00_00.nc';
 
-input_type=1;     % Type of the input, 1- data file; 0 - wrfout file;
-input_file='input_data.dat';    % File that contains perimeter data
+input_type=2;     % Type of the input, 1- data file; 0 - wrfout file; 2- fire_area - is given in input_file;
+input_file='output_fire_area.txt';
+%input_file='Input_data_Patch_Springs_8-12-2013_2123.dat';    
+% File that contains perimeter data
                   % It is being used only when input_type=1;;  
-num_wrf=4;        % The total number of wrfouts that are being used
-time_step=6;      % The amount of time_steps in each wrfout
-interval=10;      % time step in wrfout in seconds (every 1 min)
-time=1;           % the number of the time step in the latest wrfout 
+num_wrf=6;        % The total number of wrfouts that are being used
+time_step=44;      % The amount of time_steps in each wrfout
+interval=900;      % time step in wrfout in seconds (every 15 min=900 sec)
+time=38;           % the number of the time step in the latest wrfout 
                   %  closest to the perimeter time from below
 format long
 
