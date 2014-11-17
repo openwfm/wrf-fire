@@ -269,7 +269,9 @@ for i=2:size(fire_area,1)-1
             % add [i,j] to A
             C(i,j)=3;
             D(i,j)=interval;
-            tign(i,j)=interval*(time_step*(num_wrf-1)+time-1); % I do that because time starts with 00:00
+          % why?  tign(i,j)=interval*(time_step*(num_wrf-1)+time-1); % I do that because time starts with 00:00
+          % Why did I have above line before
+            tign(i,j)=interval*(time_step*(num_wrf-1)+time); % I do that because time starts with 00:00
          end
       end
    end
