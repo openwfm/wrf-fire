@@ -60,6 +60,9 @@ I=zeros(size(distance));            % Matrix of distances
 P=A; %Points on the perimeter, who has at least one neighbor, that was not updated yet.
 C_old=C;
 ros_old=read_ros_from_wrfout(wrfout{num_wrf},time);
+wrfout{num_wrf}
+'time_step='
+time
 for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
 
    if (ts<time) % At the first step we initialize A and D from get_perim_from_initial_tign
@@ -107,7 +110,9 @@ for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
    cur_num_wrf
    cur_ts
    ros_new=read_ros_from_wrfout(wrfout{cur_num_wrf},cur_ts);
-   
+    wrfout{num_wrf}
+    'time_step='
+    time
    [tign,C,D,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,A,C,D,I,distance,interval,ts,data_steps);
       
    data_steps=sprintf('%s \n Main cycle for step %i is over',data_steps,ts);
