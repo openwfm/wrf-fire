@@ -7,18 +7,18 @@ addpath Output
 
 wrfout{1}='VK_wrfout_2013-08-11_00_00_00.nc';
 wrfout{2}='VK_wrfout_2013-08-11_12_00_00.nc';
-wrfout{3}='VK_wrfout_2013-08-13_00_00_00.nc';
+wrfout{3}='VK_wrfout_2013-08-12_00_00_00.nc';
 wrfout{4}='VK_wrfout_2013-08-12_12_00_00.nc';
-wrfout{5}='VK_wrfout_2013-08-13_00_00_00.nc';
-wrfout{6}='VK_wrfout_2013-08-13_12_00_00.nc';
+%wrfout{5}='VK_wrfout_2013-08-13_00_00_00.nc';
+%wrfout{6}='VK_wrfout_2013-08-13_12_00_00.nc';
 
 input_type=2;     % Type of the input, 1- data file; 0 - wrfout file; 2- fire_area - is given in input_file;
 input_file='output_fire_area.txt';
 %input_file='Input_data_Patch_Springs_8-12-2013_2123.dat';    
 % File that contains perimeter data
                   % It is being used only when input_type=1;;  
-num_wrf=6;        % The total number of wrfouts that are being used
-time_step=44;      % The amount of time_steps in each wrfout
+num_wrf=4;        % The total number of wrfouts that are being used
+time_step=48;      % The amount of time_steps in each wrfout
 interval=900;      % time step in wrfout in seconds (every 15 min=900 sec)
 time=38;           % the number of the time step in the latest wrfout 
                   %  closest to the perimeter time from below

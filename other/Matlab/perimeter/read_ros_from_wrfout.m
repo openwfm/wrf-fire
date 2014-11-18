@@ -23,6 +23,8 @@ ros(:,:,3,3)=p.f_ros33;
 ros(:,:,2,1)=p.f_ros21;
 
 ros(:,:,2,3)=p.f_ros23;
+wrfout
+'time_step=' time
 end
 
 
