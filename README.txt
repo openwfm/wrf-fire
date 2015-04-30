@@ -3,15 +3,17 @@
 !*** Jan Mandel August 2007 - March 2011 
 !*** email: Jan.Mandel@gmail.com
 
-! For support please subscribe to the wrf-fire mailing list at NCAR at
-! http://mailman.ucar.edu/mailman/listinfo/wrf-fire
-! or go to http://www.openwfm.org/wiki/WRF-Fire_user_support 
+! For support please go to 
+! http://www.openwfm.org/wiki/WRF-Fire_user_support 
 
-! Current drafts of the technical documentation and
-! user's guide can be found at
+! Current user's guide can be found at
+! http://www.openwfm.org/wiki/Users_guide 
 
-! http://www.openwfm.org/wiki/WRF-Fire_documentation
+! For reference publications see
 ! http://www.openwfm.org/wiki/WRF-Fire_publications
+
+! A limited version from 2010 is included in WRF release. We no longer 
+! support that version.
 
 ! This module is the only entry point from WRF-ARW to the wildland 
 ! fire model. The call to sfire_driver advances the fire model by 

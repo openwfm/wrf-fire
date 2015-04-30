@@ -215,6 +215,8 @@
  gas_drydep_opt                      = 0,          1, 
  aer_drydep_opt                      = 0,          1, 
  bio_emiss_opt                       = 0,          0,
+ emiss_inpt_opt                      = 0,           ! we do not input anything?
+ mozcart_lbc_set_onoff               = 0,           ! prevent resetting h2 and ch4 in layer1
  dust_opt                            = 0,
  dmsemis_opt                         = 0,
  seas_opt                            = 0,
