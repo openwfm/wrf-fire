@@ -3,7 +3,9 @@
 % and gunzip 
 % 
 % to create w.mat:
-% run Adam's simulation, then in Matlab
+% run Adam's simulation, currently results in
+% /home/akochans/NASA_WSU/wrf-fire/WRFV3/test/em_barker_moist/wrfoutputfiles_live_0.25
+% then in Matlab
 % f='wrfout_d05_2012-09-15_00:00:00'; 
 % t=nc2struct(f,{'Times'},{});  n=size(t.times,2);  w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG'},{},n);
 % save ~/w.mat w    
@@ -14,9 +16,17 @@
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
-v=read_fire_kml('conus_viirs.kml');
+conus = input('enter 0 for viirs, 1 for modis> ')
+if conus==0, 
+        v=read_fire_kml('conus_viirs.kml');
+        detection='VIIRS';
+elseif conus==1,
+        v=read_fire_kml('conus_modis.kml');
+        detection='MODIS';
+else
+        error('need kml file')
+end
 
-% v=read_fire_kml('conus_modis.kml');
 load w
 load s
 for i=1:size(s.times,2),d=char(s.times(:,i))';s.tim(i)=datenum(d);end
@@ -101,7 +111,7 @@ end
 grid,drawnow
 
 % hold on, surface(mesh_lon,mesh_lat,mesh_tim2),grid on
-title('Barker Canyon fire VIIRS fire detection')
+title(sprintf('Barker Canyon fire %s fire detection',detection))
 zlabel('days')
 ylabel('latitude')
 xlabel('longitude')
