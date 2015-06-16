@@ -1419,7 +1419,7 @@ mi=ite-its+1
 mj=jte-jts+1
 write(msg,2)'reading array size ',mi,mj,' from file ',trim(filename)
 2 format(a,2i6,2a)
-call message(msg)
+call message(msg,level=1)
 
 ! check array index overflow
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
@@ -1445,6 +1445,10 @@ do i=its,ite
    read(iu,*,err=10)(a(i,j),j=jts,jte)
 enddo
 close(iu,err=11)
+call print_2d_stats(its,ite,jts,jte, &
+                         ims,ime,jms,jme, &
+                         a,filename)
+write(6,*)its,jts,a(its,jts),loc(a(its,jts))
 return
 
 9  msg='Error opening file '//trim(filename)
@@ -1454,6 +1458,7 @@ call crash(msg)
 11 msg='Error closing file '//trim(filename)
 call crash(msg)
 end subroutine read_array_2d_real
+
 !
 !***
 !

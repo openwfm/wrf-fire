@@ -28,7 +28,8 @@ MODULE module_initialize_ideal
    USE module_dm
 #endif
    USE module_fr_sfire_util, ONLY: continue_at_boundary,crash,read_array_2d_real, &
-     interpolate_2d,set_ideal_coord 
+     interpolate_2d,set_ideal_coord,print_2d_stats
+   USE module_fr_sfire_driver, ONLY: set_flags
 
 CONTAINS
 
@@ -241,11 +242,12 @@ CONTAINS
       END DO
     END DO     
 
-      if(config_flags%fire_fmc_read.eq.2) &
-          call read_array_2d_real   ('input_fmc_g',grid%fmc_g,    ids,ide,jds,jde,ims,ime,jms,jme) 
+! ***** fire
+      write(6,*) '*************************************'
+
+      call set_flags(config_flags)
 
 !AK/ak surface initialization latitude, longitude, landuse index from from LANDUSE.TBL skin temperature and soil temperature
-write(6,*) '*************************************'
    IF (sfc_init) THEN
     DO j = jts, jte
       DO i = its, ite
@@ -447,6 +449,12 @@ IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
     grid%ht(i,j) = 0.
   ENDDO
   ENDDO
+
+  if(config_flags%fire_fmc_read.eq.2) then
+          write(6,*)'Reading fuel moisture from file input_fmc_g'
+          call read_array_2d_real   ('input_fmc_g',grid%fmc_g,    ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
+  endif
+
 
   if(config_flags%fire_fuel_read.eq.2) then
       write(6,*)'Reading fuel map from file input_fc'
