@@ -1394,15 +1394,10 @@ else
 
             s3=ah*s3                                                
             out=out+s1+s2+s3
-            if(out<0 .or. out>1) then                                  
-             print *,'WARNING::fuel_fraction is out of bounds, should be between 0 and 1'
-                !print *, 'eps= ', eps
-                !print *, 'xt1= ', xt1, 'xt2= ', xt2
-                !print *,'ae= ',ae,'ce= ',ce,'ah= ',ah,'ch= ',ch
-                !print *,'a0= ', a0,'a1= ', a1,'a2= ', a2
-                !print *,'s1= ', s1,'s2= ', s2,'s3= ', s3
-                print *,'fuel_fraction =',out
+            if(out<0. .or. out>1.) then                                  
+             write(msg,'(a,g14.4,a)')'WARNING::fuel_fraction ',out,' should be between 0 and 1'
             end if!print
+            if(out.ne.out.or..not.out.le.huge(out).or..not.out.ge.-huge(out)) call crash('fuel_fraction out is not a valid number')
                 
         end if
     end do ! k     
@@ -1413,6 +1408,8 @@ end if ! if case0, elseif case4 ,else case123
 900 continue 
 fuel_frac_left = out
 fire_frac_area= area
+if(isnotfinite(fuel_frac_left)) call crash('fuel_frac_left is not a valid number')
+if(isnotfinite(fire_frac_area)) call crash('fire_frac_area is not a valid number')
 end subroutine fuel_left_cell_2
 
 

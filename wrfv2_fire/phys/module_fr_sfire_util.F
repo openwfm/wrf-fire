@@ -94,10 +94,16 @@ contains
 !
 
 logical function isnan(a) 
-real a 
+real, intent(in):: a 
 isnan= (a.ne.a) 
 return 
 end function isnan
+
+logical function isnotfinite(aa)
+real, intent(in)::aa
+isnotfinite=(aa.ne.aa.or..not.aa.le.huge(aa).or..not.aa.ge.-huge(aa))
+end function isnotfinite
+
 
 subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
     istrip,                              & ! width of strip to extrapolate to around domain
