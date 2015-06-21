@@ -1093,6 +1093,8 @@ DREAL:: alg_err
 
 !*** executable
 
+call crash('fuel_left_method=2 not working, please use fuel_left_method=1')
+
 ! check consistency
 call check_lfn_tign_ij(0,0,'fuel_left_cell_2',time_now,lfn00,tign00) 
 call check_lfn_tign_ij(0,1,'fuel_left_cell_2',time_now,lfn01,tign01) 
