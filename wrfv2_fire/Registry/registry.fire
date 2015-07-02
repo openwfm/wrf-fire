@@ -53,6 +53,7 @@ state    real     fgrnhfx   *i*j      fire        1         z    hr    "FGRNHFX"
 state    real     fgrnqfx   *i*j      fire        1         z    hr    "FGRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     fcanhfx   *i*j      fire        1         z    hr    "FCANHFX"   "heat flux from crown fire" "W/m^2"
 state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"   "moisture flux from crown fire" "W/m^2"
+state    real     fndwi     *i*j      fire        1         z    hr    "NDWI"    "Normalized Difference Water Index on fire grid" "1"
 
 # fuel moisture model section
 dimspec  num_fmc    -   namelist=nfmc              z      fuel_moisture_classes 
@@ -73,6 +74,7 @@ rconfig logical   fmoist_run        namelist,fire  max_domains   .false.       h
 rconfig logical   fmoist_interp     namelist,fire  max_domains   .false.       hr   "interpolate moisture from the model or the input to fuels on the fire grid"
 rconfig logical   fmoist_only       namelist,fire  max_domains   .false.       hr   "only run moisture model, skip fire"
 rconfig integer   fmoist_freq       namelist,fire  max_domains    0       hr   "fmoist_freq"    "frequency to run moisture model 0: use fmoist_dt, k>0: every k timesteps" "1"
+rconfig  integer  kfmc_ndwi         namelist,fire 1              0 hr  "KFMC_NDWI number of moisture class to update from NDWI, or zero"
 rconfig real      fmoist_dt         namelist,fire  max_domains    600     hr   "fmoist_dt  "    "moisture model time step" "s"
 rconfig real      fmep_decay_tlag   namelist,fire  1              0.01    hr   "fmep_decay_tlag" "time constant of assimilated adjustments of equilibria decay" "1"
 halo      HALO_FIRE_MFG dyn_em 24:fmc_g

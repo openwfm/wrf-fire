@@ -1428,6 +1428,7 @@ fire_advection          = config_flags%fire_advection
 fire_wind_log_interp    = config_flags%fire_wind_log_interp
 fire_use_windrf         = config_flags%fire_use_windrf
 fire_fmc_read           = config_flags%fire_fmc_read
+kfmc_ndwi               = config_flags%kfmc_ndwi
 
 end subroutine set_flags
 
