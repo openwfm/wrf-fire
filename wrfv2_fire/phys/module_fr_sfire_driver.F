@@ -362,7 +362,9 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 ! base geopotential and roughness
 #include "HALO_FIRE_PHB.inc"
 #include "HALO_FIRE_Z0.inc"
+        if(kfmc_ndwi > 0 .and. fndwi_from_ndwi .eq.1)then
 #include "HALO_FIRE_NDWI.inc"
+        endif
 
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
@@ -820,7 +822,7 @@ do ij=1,num_tiles
           call message('restart - interpolation skipped')
 
       else
-        if(kfmc_ndwi > 0 .and. fire_ndwi_from_atm.eq.1)then
+        if(kfmc_ndwi > 0 .and. fndwi_from_ndwi .eq.1)then
             call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,fndwi,'driver:ndwi')
             call interpolate_z2fire(id,0,                 & ! for debug output, <= 0 no output, extend strip
                 ids,ide,  jds,jde,                    & ! atm grid dimensions
@@ -1449,7 +1451,7 @@ fire_wind_log_interp    = config_flags%fire_wind_log_interp
 fire_use_windrf         = config_flags%fire_use_windrf
 fire_fmc_read           = config_flags%fire_fmc_read
 kfmc_ndwi               = config_flags%kfmc_ndwi
-fire_ndwi_from_atm      = config_flags%fire_ndwi_from_atm
+fndwi_from_ndwi         = config_flags%fndwi_from_ndwi 
 
 end subroutine set_flags
 
