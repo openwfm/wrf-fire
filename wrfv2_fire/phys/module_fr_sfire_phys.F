@@ -874,6 +874,16 @@ do i=1,nfuelcats,j
             call message(msg)
         enddo
     endif
+    if(kfmc_ndwi>0)then
+        write(msg,8)'fmc_gl_stdev     ',(fmc_gl_stdev(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'fmc_gl_ndwi_0    ',(fmc_gl_ndwi_0(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'fmc_gl_ndwi_rate ',(fmc_gl_ndwi_rate(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'fmc_gl_ndwi_stdev',(fmc_gl_ndwi_stdev(ii),ii=i,k)
+        call message(msg)
+    endif
 enddo
 call message(' ')
 call message('**********************************************************')
