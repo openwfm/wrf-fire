@@ -61,8 +61,16 @@ no_fuel_cat = 14                   ! extra category for no fuel
           1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
   adjrs = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
           1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
-  fmc_gw01 = 12*0.5 ,
-  fmc_gw05 = 12*0.5 ,
+  fmc_gw01 = 12*0.2 ,
+  fmc_gw02 = 12*0.3 ,
+  fmc_gw03 = 12*0.0 ,
+  fmc_gw04 = 12*0.0 ,
+  fmc_gw05 = 12*0.5 ,      ! fuel is consists of 0.5 live fuel
+  fmc_gl_stdev = 12*0.1,   ! live fuel moisture prior has error +- 0.1
+  ! observation:  FMC = 0.1 + 0.6 * NDWI +- 0.2
+  fmc_gl_ndwi_0 = 12*0.1,
+  fmc_gl_ndwi_rate = 10*0.6,
+  fmc_gl_ndwi_stdev = 0.2,
  /
 
 &moisture

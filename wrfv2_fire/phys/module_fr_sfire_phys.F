@@ -275,7 +275,8 @@ real, dimension(ifts:ifte,jfts:jfte):: fmc_f,  &   ! interpolation of fmc_gc(:,k
                                        nwdi_f      ! inerpolation of nwdi to the fire grid
 integer::i,j,k,n
 integer::ibs,ibe,jbs,jbe
-real::f1,w1,w2,f2
+real::f1,w1,w2,f2,fa,fc
+
 character(len=128)::msg
 
 call check_mesh_2dim(ifts,ifte,jfts,jfte,ifds,ifde,jfds,jfde) ! check if fire tile fits into domain
@@ -332,16 +333,20 @@ do k=1,moisture_classes
         do i=ifts,ifte
             n = nfuel_cat(i,j)
             if(n > 0)then
-                f1=fmc_f(i,j)
-                if(k .eq. kfmc_ndwi)then  ! if live moisture, assimilate ndwi
+                if(k .ne. kfmc_ndwi)then 
+                   fmc_g(i,j)=fmc_g(i,j)+fmc_gw(n,k)*fmc_f(i,j)      ! add to sum over classes
+                else                                                    ! if live moisture, assimilate ndwi
+                   f1=fmc_f(i,j)
                    w1 = fmc_gl_stdev(n)                            
                    w1 = 1./(w1*w1)                                      ! weight of forecast
                    w2 = fmc_gl_ndwi_stdev(n)
                    w2 = 1./(w2*w2)                                      ! weight of update
                    f2 = fmc_gl_ndwi_0(n) + fmc_gl_ndwi_rate(n) * fndwi(i,j)   ! from regression
-                   f1 = (w1*f1 + w2*f2) / (w1 + w2)                     ! updated value
+                   fa = (w1*f1 + w2*f2) / (w1 + w2)                     ! updated value
+                   fc = fmc_gw(n,k)*fa                                  ! times proportion of live fuel
+                   fmc_g(i,j)=fmc_g(i,j)+fc      ! add to sum over classes
+                   ! write(*,*)'NDWI:',i,j,f1,f2,w1,w2,f1,fa,fmc_gw(n,k),fc,fmc_g(i,j)
                 endif
-                fmc_g(i,j)=fmc_g(i,j)+fmc_gw(n,k)*f1      ! add to sum over classes
             endif
         enddo
     enddo
