@@ -353,7 +353,7 @@ do k=1,moisture_classes
 
 enddo
 
-! call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'fuel_moisture: fmc_g')
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'fuel_moisture: fmc_g')
 
 
 end subroutine fuel_moisture
@@ -759,6 +759,10 @@ call wrf_dm_bcast_real(ffw,       nfuelcats)
 call wrf_dm_bcast_real(adjr0,     nfuelcats)
 call wrf_dm_bcast_real(adjrw,     nfuelcats)
 call wrf_dm_bcast_real(adjrs,     nfuelcats)
+call wrf_dm_bcast_real(fmc_gl_ndwi_0,    nfuelcats)
+call wrf_dm_bcast_real(fmc_gl_ndwi_rate, nfuelcats)
+call wrf_dm_bcast_real(fmc_gl_ndwi_stdev,nfuelcats)
+call wrf_dm_bcast_real(fmc_gl_stdev,     nfuelcats)
 ! broadcast moisture tables
 call wrf_dm_bcast_integer(moisture_classes,1)
 call wrf_dm_bcast_real(drying_lag,     max_moisture_classes)
