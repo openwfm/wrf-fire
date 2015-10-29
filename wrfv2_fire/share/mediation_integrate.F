@@ -85,6 +85,28 @@ SUBROUTINE med_before_solve_io ( grid , config_flags )
    DO ialarm = first_auxhist, last_auxhist
      IF ( .FALSE.) THEN
        rc = 1  ! dummy statement
+#ifdef WRF_CHEM
+     ELSE IF ( ialarm .EQ. AUXHIST7_ALARM .and. config_flags%chem_opt > 0 .and. &
+             config_flags%ifire .eq. 2 ) then
+        IF( WRFU_AlarmIsRinging( grid%alarms( ialarm ), rc=rc ) .and. currTime .NE. startTime) THEN
+          !Need to name file according to interval start time
+          CALL WRFU_TimeIntervalGet( grid%io_intervals( ialarm ), S=auxinput_step, rc=rc )
+          CALL domain_clock_set( grid, time_step_seconds=-1*auxinput_step )
+          grid%domain_clock%clockint%CurrTime = ESMF_TimeInc (grid%domain_clock%clockint%CurrTime, &
+                                grid%domain_clock%clockint%TimeStep )
+
+          CALL med_hist_out ( grid , ialarm, config_flags )
+
+          !Reset clock and time step to original values
+          CALL domain_clock_set( grid, time_step_seconds=auxinput_step )
+          grid%domain_clock%clockint%CurrTime = ESMF_TimeInc (grid%domain_clock%clockint%CurrTime, &
+                             grid%domain_clock%clockint%TimeStep )
+          CALL domain_clock_set( grid, time_step_seconds=-1*model_config_rec%time_step )
+
+          CALL WRFU_AlarmRingerOff( grid%alarms( ialarm ), rc=rc )
+          grid%ebu_in(:,:,:,:) = 0.D0
+        ENDIF
+#endif
      ELSE IF( WRFU_AlarmIsRinging( grid%alarms( ialarm ), rc=rc ) ) THEN
        CALL med_hist_out ( grid , ialarm, config_flags )
        CALL WRFU_AlarmRingerOff( grid%alarms( ialarm ), rc=rc )

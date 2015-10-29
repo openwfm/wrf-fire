@@ -18,7 +18,7 @@ USE module_state_description, only: num_tracer
 use module_fr_sfire_phys, only: fuel_name
 
 #ifdef WRF_CHEM
-USE module_state_description, only: num_chem
+USE module_state_description, only: num_chem, num_ebu_in
 USE module_configure, only: &
 p_co,  &
 p_ch4, &
@@ -67,6 +67,51 @@ p_macr, &
 p_mek, &
 p_mvk, &
 p_smoke   ! tracer smoke exists only with CHEM
+
+USE module_configure, only: &
+p_ebu_in_co,  &
+p_ebu_in_ch4, &
+p_ebu_in_h2, &
+p_ebu_in_no,  &
+p_ebu_in_no2,  &
+p_ebu_in_so2,  &
+p_ebu_in_nh3,  &
+p_ebu_in_p25,  &
+p_ebu_in_p25i, &
+p_ebu_in_p25j, &
+p_ebu_in_oc1,  &
+p_ebu_in_oc2,  &
+p_ebu_in_bc1,  &
+p_ebu_in_bc2,  &
+p_ebu_in_ald,  &
+p_ebu_in_csl,  &
+p_ebu_in_eth,  &
+p_ebu_in_hc3,  &
+p_ebu_in_hc5,  &
+p_ebu_in_hcho,  &
+p_ebu_in_iso,  &
+p_ebu_in_ket,  &
+p_ebu_in_olt, &
+p_ebu_in_oli, &
+p_ebu_in_ora2,&
+p_ebu_in_tol, &
+p_ebu_in_xyl, &
+p_ebu_in_bigalk, &
+p_ebu_in_bigene, &
+p_ebu_in_c10h16, &
+p_ebu_in_c2h4, &
+p_ebu_in_c2h5oh, &
+p_ebu_in_c2h6, &
+p_ebu_in_c3h6, &
+p_ebu_in_c3h8, &
+p_ebu_in_ch3oh, &
+p_ebu_in_cres, &
+p_ebu_in_glyald, &
+p_ebu_in_isopr, &
+p_ebu_in_macr, &
+p_ebu_in_mek, &
+p_ebu_in_mvk
+
 #endif
 
 USE module_state_description, only: &
@@ -344,7 +389,8 @@ subroutine add_fire_emissions(chem_opt,tracer_opt,dt,dx,dy,      &
        its,ite,kts,kte,jts,jte,          &
        rho,dz8w,                         & ! input on atmosphere mesh 
        fgip, fuel_frac_burnt, nfuel_cat, & ! input on fire mesh
-       chem,tracer)                        ! output
+       chem,tracer,                      &  ! output
+       ebu_in, fr_emiss_interval)        & ! emission output
 
 
 implicit none
@@ -368,6 +414,9 @@ real, intent(in), dimension(ifms:ifme,jfms:jfme):: fgip, &            ! initial 
                                             nfuel_cat                 ! fuel category (Anderson= 1 to 13)
 ! update
 real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:kme,jms:jme,num_tracer)
+
+real, intent(inout)::ebu_in(ims:ime,1,jms:jme,num_ebu_in)
+integer, intent(in)::fr_emiss_interval !fire emission interval (sec)
 
 !*** local
 integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw,m,k,k_p,errors
@@ -817,6 +866,125 @@ do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
                emis=bc2  (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_bc2 ) = t_chem(p_bc2 ) + emis                         ! add to total
                chem(i,k1,j,p_bc2  )=chem(i,k1,j,p_bc2  )+emis*conv
+
+               if (fr_emiss_interval .gt. 0.0 ) then
+
+                  ! gas phase emissions for either RADM2/RACM or MOZART (some
+                  ! species tables missing, e.g., acetol, acet, gly; some species tables
+                  ! unused, e.g., mgly, ol2, ch3cooh)
+                  ! mol/km^2/hr = kg/m^2 fuel * table g/kg  * 1.e6m^2/km^2 / (g/mol XX) * 3600sec/hr / sec per emission
+                  conv = avgw * 1.e6 * 3600.0 / fr_emiss_interval !mole/km^2/hr
+
+                  ebu_in(i,k1,j,p_ebu_in_co) = ebu_in(i,k1,j,p_ebu_in_co)  + &
+                     co(cat) * fuel_burnt * imw_co * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_ch4) = ebu_in(i,k1,j,p_ebu_in_ch4)  + &
+                     ch4(cat) * fuel_burnt * imw_ch4 * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_h2) = ebu_in(i,k1,j,p_ebu_in_h2)  + &
+                     h2(cat) * fuel_burnt * imw_h2 * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_no) = ebu_in(i,k1,j,p_ebu_in_no)  + &
+                     no(cat) * fuel_burnt * imw_no * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_no2) = ebu_in(i,k1,j,p_ebu_in_no2)  + &
+                     no2(cat) * fuel_burnt * imw_no2 * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_so2) = ebu_in(i,k1,j,p_ebu_in_so2)  + &
+                     so2(cat) * fuel_burnt * imw_so2 * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_nh3) = ebu_in(i,k1,j,p_ebu_in_nh3)  + &
+                     nh3(cat) * fuel_burnt * imw_nh3 * conv !mole/km^2/hr
+
+                  !*** other emissions already given in mol/kg
+                  ! fuel_burnt kg/m^2 *  table mol/kg -> ppmv = 1e6*mol/mol in 1st
+                  ! layer dry air in 1st layer  
+
+                  ! same conversion factor but we will not divide by the molecular
+                  ! weight of the compound
+
+                  ebu_in(i,k1,j,p_ebu_in_ald) = ebu_in(i,k1,j,p_ebu_in_ald)  + &
+                     ald(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_csl) = ebu_in(i,k1,j,p_ebu_in_csl)  + &
+                     csl(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_eth) = ebu_in(i,k1,j,p_ebu_in_eth)  + &
+                     eth(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_hc3) = ebu_in(i,k1,j,p_ebu_in_hc3)  + &
+                     hc3(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_hc5) = ebu_in(i,k1,j,p_ebu_in_hc5)  + &
+                     hc5(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_hcho) = ebu_in(i,k1,j,p_ebu_in_hcho)  + &
+                     hcho(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_iso) = ebu_in(i,k1,j,p_ebu_in_iso)  + &
+                     iso(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_isop) = ebu_in(i,k1,j,p_ebu_in_isop)  + &
+                     isopr(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_ket) = ebu_in(i,k1,j,p_ebu_in_ket)  + &
+                     ket(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_olt) = ebu_in(i,k1,j,p_ebu_in_olt)  + &
+                     olt(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_oli) = ebu_in(i,k1,j,p_ebu_in_oli)  + &
+                     oli(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_ora2) = ebu_in(i,k1,j,p_ebu_in_ora2)  + &
+                     ora2(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_tol) = ebu_in(i,k1,j,p_ebu_in_tol)  + &
+                     tol(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_xyl) = ebu_in(i,k1,j,p_ebu_in_xyl)  + &
+                     xyl(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_bigalk) = ebu_in(i,k1,j,p_ebu_in_bigalk)  + &
+                     bigalk(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_bigene) = ebu_in(i,k1,j,p_ebu_in_bigene)  + &
+                     bigene(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_c10h16) = ebu_in(i,k1,j,p_ebu_in_c10h16)  + &
+                     c10h16(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_c2h4) = ebu_in(i,k1,j,p_ebu_in_c2h4)  + &
+                     c2h4(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_c2h5oh) = ebu_in(i,k1,j,p_ebu_in_c2h5oh)  + &
+                     c2h5oh(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_c2h6) = ebu_in(i,k1,j,p_ebu_in_c2h6)  + &
+                     c2h6(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_c3h6) = ebu_in(i,k1,j,p_ebu_in_c3h6)  + &
+                     c3h6(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_c3h8) = ebu_in(i,k1,j,p_ebu_in_c3h8)  + &
+                     c3h8(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_ch3oh) = ebu_in(i,k1,j,p_ebu_in_ch3oh)  + &
+                     ch3oh(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_cres) = ebu_in(i,k1,j,p_ebu_in_cres)  + &
+                     cres(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_glyald) = ebu_in(i,k1,j,p_ebu_in_glyald)  + &
+                     glyald(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_macr) = ebu_in(i,k1,j,p_ebu_in_macr)  + &
+                     macr(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_mek) = ebu_in(i,k1,j,p_ebu_in_mek)  + &
+                     mek(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_mvk) = ebu_in(i,k1,j,p_ebu_in_mvk)  + &
+                     mvk(cat) * fuel_burnt * conv !mole/km^2/hr
+
+                  ebu_in(i,k1,j,p_ebu_in_XX) = ebu_in(i,k1,j,p_ebu_in_XX)  + &
+                     XX(cat) * fuel_burnt * conv !mole/km^2/hr
+                  ebu_in(i,k1,j,p_ebu_in_XX) = ebu_in(i,k1,j,p_ebu_in_XX)  + &
+                     XX(cat) * fuel_burnt * conv !mole/km^2/hr
+
+
+                  ! aerosols
+                  ! convert to ug/m^2/s = kg/m^2 fuel * table g/kg * 1.e6 ug/g / sec per emission
+                  conv = avgw*1.e6/fr_emiss_interval
+                  ebu_in(i,k1,j,p_ebu_in_p25) = ebu_in(i,k1,j,p_ebu_in_p25) + &
+                     p25(cat) * fuel_burnt * conv ! ug/m^2/s
+
+                  ebu_in(i,k1,j,p_ebu_in_p10) = ebu_in(i,k1,j,p_ebu_in_p10) + &
+                     p10(cat) * fuel_burnt * conv ! ug/m^2/s
+
+!                  ebu_in(i,k1,j,p_ebu_in_oc) = ebu_in(i,k1,j,p_ebu_in_oc) + &
+!                     (oc1(cat) + oc2(cat) ) * fuel_burnt * conv ! ug/m^2/s
+                  ebu_in(i,k1,j,p_ebu_in_oc1) = ebu_in(i,k1,j,p_ebu_in_oc1) + &
+                     oc1(cat) * fuel_burnt * conv ! ug/m^2/s
+                  ebu_in(i,k1,j,p_ebu_in_oc2) = ebu_in(i,k1,j,p_ebu_in_oc2) + &
+                     oc2(cat) * fuel_burnt * conv ! ug/m^2/s
+
+!                  ebu_in(i,k1,j,p_ebu_in_bc) = ebu_in(i,k1,j,p_ebu_in_bc) + &
+!                     (bc1(cat) + bc2(cat) ) * fuel_burnt * conv ! ug/m^2/s
+
+                  ebu_in(i,k1,j,p_ebu_in_bc1) = ebu_in(i,k1,j,p_ebu_in_bc1) + &
+                     bc1(cat) * fuel_burnt * conv ! ug/m^2/s
+                  ebu_in(i,k1,j,p_ebu_in_bc2) = ebu_in(i,k1,j,p_ebu_in_bc2) + &
+                     bc2(cat) * fuel_burnt * conv ! ug/m^2/s
+
+               end if
 #endif
                if (num_tracer >0)then
 

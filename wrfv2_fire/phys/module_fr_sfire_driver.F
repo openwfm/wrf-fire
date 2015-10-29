@@ -156,7 +156,6 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     real::    dt_moisture
 
 
-
 !*** executable
 
     call sfire_debug_hook(config_flags%fire_debug_hook_sec)
@@ -476,6 +475,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
              if(.not.(present(rho).and.present(dz8w)))then
                  call crash('sfire_driver_em: must have rho and dz8w to call add_fire_emissions')
              endif
+
              call add_fire_emissions( &
                  config_flags%chem_opt,config_flags%tracer_opt,dt,grid%dx,grid%dy,      &
                  ifms,ifme,jfms,jfme,    &
@@ -485,7 +485,9 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
                  ips,ipe,kps,kpe,jps,jpe,          &
                  rho,dz8w,                         & ! from atmosphere state
                  grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
-                 grid%chem,grid%tracer)              ! update/output
+                 grid%chem,grid%tracer,            & ! update/output
+                 grid%ebu_in, config_flags%fr_emiss_interval)              ! update/output emissions
+
           endif
      endif
                 
