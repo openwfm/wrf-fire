@@ -367,7 +367,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
             if(config_flags%chem_opt>0 .or. config_flags%tracer_opt > 0)then
                 ! need reading fuel categories first
-                call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
+                call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt,config_flags%fr_emiss_opt)
             endif
         
 
@@ -471,7 +471,8 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 #endif
 
      if(fire_ifun.eq.6)then
-         if(config_flags%chem_opt>0 .or. config_flags%tracer_opt>0)then
+         if(config_flags%chem_opt>0 .or. config_flags%tracer_opt>0 &
+            .or. config_flags%fr_emiss_opt > 0)then
              if(.not.(present(rho).and.present(dz8w)))then
                  call crash('sfire_driver_em: must have rho and dz8w to call add_fire_emissions')
              endif
@@ -486,7 +487,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
                  rho,dz8w,                         & ! from atmosphere state
                  grid%fgip, grid%fuel_frac_burnt, grid%nfuel_cat, & ! from fire state
                  grid%chem,grid%tracer,            & ! update/output
-                 grid%ebu_in, config_flags%fr_emiss_interval)              ! update/output emissions
+                 grid%ebu_out, config_flags%fr_emiss_interval, config_flags%fr_emiss_opt) ! update/output emissions
 
           endif
      endif

@@ -115,8 +115,6 @@
    integer :: i,j,k,l,numgas,ixhour,n,ndystep,kk,nv
    real, DIMENSION (1,1) :: sza,cosszax
    real :: xtime,xhour,xmin,gmtp,xlonn,rlat
-   integer :: time_interval,dummy_interval
-   CHARACTER*256 :: fr_outname
 
 #include "version_decl"
 #ifdef CHEM_DBG_I
@@ -1027,47 +1025,6 @@ ENDIF ghg_block
                             ids,ide, jds,jde, kds,kde,       &
                             ims,ime, jms,jme, kms,kme,       &
                             its,ite, jts,jte, kts,kte        )
-    end if
-
-!
-!-- initialize wrf-sfire emission interval
-!
-    if ( config_flags%ifire .eq. 2 ) then
-       !years
-       call nl_get_auxhist7_interval_y(id, dummy_interval)
-       !Assuming 365 day year, because interval is probably less than a year anyway
-       time_interval = 3600 * 24 * 365 * dummy_interval 
-
-       !days
-       call nl_get_auxhist7_interval_d(id, dummy_interval)
-       time_interval = time_interval + 3600 * 24 * dummy_interval 
-
-       !hours
-       call nl_get_auxhist7_interval_h(id, dummy_interval)
-       time_interval = time_interval + 3600 * dummy_interval 
-
-       !minutes
-       call nl_get_auxhist7_interval_m(id, dummy_interval)
-       if (dummy_interval .eq. 0) then
-          call nl_get_auxhist7_interval(id, dummy_interval)
-       end if
-       time_interval = time_interval + 60 * dummy_interval 
-
-       !seconds    
-       call nl_get_auxhist7_interval_s(id, dummy_interval)
-       time_interval = time_interval + dummy_interval 
-
-       call nl_set_fr_emiss_interval ( id, time_interval )
-       if ( time_interval .gt. 0 .and. config_flags%fr_ten_interval .eq. 0 ) then
-          call nl_set_fr_ten_interval ( id, time_interval )
-       end if
-
-       call nl_get_fireemi_outname(1, fr_outname)
-       call nl_set_auxhist7_outname(1, fr_outname)
-
-       grid%ebu_in(:,:,:,:) = 0.D0
-       gird%rthfrten_out(:,:,:,:) = 0.D0
-       gird%rqvfrten_out(:,:,:,:) = 0.D0
     end if
 
     END SUBROUTINE chem_init

@@ -29,13 +29,6 @@ state    real     ndvi      ij      fire        1         z   i012hr    "NDVI"  
 state    real     rthfrten  ikj      fire        1         z     hr   "RTHFRTEN" "temperature tendency" "K/s"
 state    real     rqvfrten  ikj      fire        1         z     hr   "RQVFRTEN" "humidity tendency" 
 
-## additional arrays for th and qv tendency output to emission files
-#state    real  rthfrten_out         ikj{??}      misc      1         -        h7      "rthfrten_out"        "TEHTA tendency output"          "Pa K/s"
-#state    real  rqvfrten_out         ikj{??}      misc      1         -        h7      "rqvfrten_out"        "Q_V tendency output"          "Pa kg kg-1 s-1"
-rconfig   integer    fr_emiss_interval     namelist,fire        max_domains    0       h7       "fr_emiss_interval"      "wrf-sfire emission interval, automatically set from auxhist7 intervals"  "sec."
-rconfig   integer    fr_ten_interval       namelist,fire        max_domains    0       h7       "fr_ten_interval"        "wrf-sfire th and qv tendency interval, must be a factor of fr_emiss_interval and multiple of time step"  "sec."
-
-
 # diagnostics and preserved intermediate calculations 
 state    real     avg_fuel_frac ij   fire        1         z     hr   "AVG_FUEL_FRAC" "fuel remaining averaged to atmospheric grid" "1"
 state    real     grnhfx    ij       fire        1         z     hr   "GRNHFX"   "heat flux from ground fire" "W/m^2"
@@ -60,6 +53,96 @@ state    real     fgrnhfx   *i*j      fire        1         z    hr    "FGRNHFX"
 state    real     fgrnqfx   *i*j      fire        1         z    hr    "FGRNQFX"   "moisture flux from ground fire" "W/m^2"
 state    real     fcanhfx   *i*j      fire        1         z    hr    "FCANHFX"   "heat flux from crown fire" "W/m^2"
 state    real     fcanqfx   *i*j      fire        1         z    hr    "FCANQFX"   "moisture flux from crown fire" "W/m^2"
+
+# additional arrays needed for biomass burning emissions output
+state    real     -               ivjf      ebu_out      -         -        -         -                    "Biomass burnung output "         ""
+state    real  ebu_out_no          ivjf      ebu_out      1         -        h7         "ebu_in_no"             "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_co          ivjf      ebu_out      1         -        h7         "ebu_in_co"             "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_co2         ivjf      ebu_out      1         -        h7         "ebu_in_co2"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_eth         ivjf      ebu_out      1         -        h7         "ebu_in_eth"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_hc3         ivjf      ebu_out      1         -        h7         "ebu_in_hc3"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_hc5         ivjf      ebu_out      1         -        h7         "ebu_in_hc5"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_hc8         ivjf      ebu_out      1         -        h7         "ebu_in_hc8"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ete         ivjf      ebu_out      1         -        h7         "ebu_in_ete"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_olt         ivjf      ebu_out      1         -        h7         "ebu_in_olt"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_oli         ivjf      ebu_out      1         -        h7         "ebu_in_oli"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_pm25        ivjf      ebu_out      1         -        h7         "ebu_in_pm25"           "EMISSIONS"          "ug m^-2 s^-1"
+state    real  ebu_out_pm10        ivjf      ebu_out      1         -        h7         "ebu_in_pm10"           "EMISSIONS"          "ug m^-2 s^-1"
+state    real  ebu_out_dien        ivjf      ebu_out      1         -        h7         "ebu_in_dien"           "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_iso         ivjf      ebu_out      1         -        h7         "ebu_in_iso"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_api         ivjf      ebu_out      1         -        h7         "ebu_in_api"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_lim         ivjf      ebu_out      1         -        h7         "ebu_in_lim"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_tol         ivjf      ebu_out      1         -        h7         "ebu_in_tol"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_xyl         ivjf      ebu_out      1         -        h7         "ebu_in_xyl"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_csl         ivjf      ebu_out      1         -        h7         "ebu_in_csl"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_hcho        ivjf      ebu_out      1         -        h7         "ebu_in_hcho"           "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ald         ivjf      ebu_out      1         -        h7         "ebu_in_ald"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ket         ivjf      ebu_out      1         -        h7         "ebu_in_ket"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_macr        ivjf      ebu_out      1         -        h7         "ebu_in_macr"           "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ora1        ivjf      ebu_out      1         -        h7         "ebu_in_ora1"           "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ora2        ivjf      ebu_out      1         -        h7         "ebu_in_ora2"           "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_nh3         ivjf      ebu_out      1         -        h7         "ebu_in_nh3"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_so2         ivjf      ebu_out      1         -        h7         "ebu_in_so2"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_dms         ivjf      ebu_out      1         -        h7         "ebu_in_dms"            "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_oc          ivjf      ebu_out      1         -        h7         "ebu_in_oc"             "EMISSIONS"          "ug m^-2 s^-1"
+state    real  ebu_out_oc1         ivjf      ebu_out      1         -        h7         "ebu_in_oc1"            "EMISSIONS"          "ug m^-2 s^-1"
+state    real  ebu_out_oc2         ivjf      ebu_out      1         -        h7         "ebu_in_oc2"            "EMISSIONS"          "ug m^-2 s^-1"
+state    real  ebu_out_bc          ivjf      ebu_out      1         -        h7         "ebu_in_bc"             "EMISSIONS"          "ug m^-2 s^-1"
+state    real  ebu_out_bc1         ivjf      ebu_out      1         -        h7         "ebu_in_bc1"            "EMISSIONS"          "ug m^-2 s^-1"
+state    real  ebu_out_bc2         ivjf      ebu_out      1         -        h7         "ebu_in_bc2"            "EMISSIONS"          "ug m^-2 s^-1"
+state    real  ebu_out_sulf        ivjf      ebu_out      1         -        h7         "ebu_in_sulf"           "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ash         ivjf      ebu_out      1         -        h7         "ebu_in_ash"            "EMISSIONS"          "mol km^-2 hr^-1"
+# additional arrays for mozcart biomass burning
+state    real  ebu_out_bigalk      ivjf      ebu_out      1         -        h7         "ebu_in_bigalk"     "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_bigene      ivjf      ebu_out      1         -        h7         "ebu_in_bigene"     "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_c2h4        ivjf      ebu_out      1         -        h7         "ebu_in_c2h4"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_c2h5oh      ivjf      ebu_out      1         -        h7         "ebu_in_c2h5oh"     "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_c2h6        ivjf      ebu_out      1         -        h7         "ebu_in_c2h6"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_c3h6        ivjf      ebu_out      1         -        h7         "ebu_in_c3h6"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_c3h8        ivjf      ebu_out      1         -        h7         "ebu_in_c3h8"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ch2o        ivjf      ebu_out      1         -        h7         "ebu_in_ch2o"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ch3cho      ivjf      ebu_out      1         -        h7         "ebu_in_ch3cho"     "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ch3coch3    ivjf      ebu_out      1         -        h7         "ebu_in_ch3coch3"   "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ch3oh       ivjf      ebu_out      1         -        h7         "ebu_in_ch3oh"      "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_mek         ivjf      ebu_out      1         -        h7         "ebu_in_mek"        "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_toluene     ivjf      ebu_out      1         -        h7         "ebu_in_toluene"    "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_no2         ivjf      ebu_out      1         -        h7         "ebu_in_no2"        "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_open        ivjf      ebu_out      1         -        h7         "ebu_in_open"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_c10h16      ivjf      ebu_out      1         -        h7         "ebu_in_c10h16"     "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_mgly        ivjf      ebu_out      1         -        h7         "ebu_in_mgly"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_ch3cooh     ivjf      ebu_out      1         -        h7         "ebu_in_ch3cooh"    "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_cres        ivjf      ebu_out      1         -        h7         "ebu_in_cres"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_glyald      ivjf      ebu_out      1         -        h7         "ebu_in_glyald"     "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_gly         ivjf      ebu_out      1         -        h7         "ebu_in_gly"        "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_acetol      ivjf      ebu_out      1         -        h7         "ebu_in_acetol"     "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_isop        ivjf      ebu_out      1         -        h7         "ebu_in_isop"       "EMISSIONS"          "mol km^-2 hr^-1"
+state    real  ebu_out_mvk         ivjf      ebu_out      1         -        h7         "ebu_in_mvk"        "EMISSIONS"          "mol km^-2 hr^-1"
+
+# additional array for ch4 bbm emission
+state    real  ebu_out_ch4         ivjf      ebu_out      1         -        h7         "ebu_in_ch4"        "EMISSIONS"          "mol km^-2 hr^-1"
+#
+
+#state    real  ebu_out_smoke       ivjf      ebu_out      1         -        h7         "ebu_in_smoke"      "EMISSIONS"          "?"
+
+## additional arrays for th and qv tendency output to emission files
+#state    real  rthfrten_out         ikj{??}      misc      1         -        h7      "rthfrten_out"        "TEHTA tendency output"          "Pa K/s"
+#state    real  rqvfrten_out         ikj{??}      misc      1         -        h7      "rqvfrten_out"        "Q_V tendency output"          "Pa kg kg-1 s-1"
+rconfig   integer    fr_emiss_interval     namelist,fire        max_domains    0       h7       "fr_emiss_interval"      "wrf-sfire emission interval, automatically set from auxhist7 intervals"  "sec."
+rconfig   integer    fr_emiss_opt          namelist,fire        max_domains    0       h7       "fr_emiss_opt"     ""  ""
+rconfig   character  fr_outname            namelist,fire        1       "wrffirechemi_out_d<domain>_<date>"   -     "name of wrf-sfire emissions outfile" ""    ""
+
+#rconfig   integer    fr_ten_interval       namelist,fire        max_domains    0       h7       "fr_ten_interval"        "wrf-sfire th and qv tendency interval, must be a factor of fr_emiss_interval and multiple of time step"  "sec."
+
+
+#Emission writing packages
+package   fr_none      fr_emiss_opt==0             -          -
+#package   fr_racm      fr_emiss_opt==1             -          state:mean_fct_agtf,mean_fct_agef,mean_fct_agsv,mean_fct_aggr,firesize_agtf,firesize_agef,firesize_agsv,firesize_aggr;ebu_out:ebu_out_no,ebu_out_co,ebu_out_co2,ebu_out_eth,ebu_out_hc3,ebu_out_hc5,ebu_out_hc8,ebu_out_ete,ebu_out_olt,ebu_out_oli,ebu_out_pm25,ebu_out_pm10,ebu_out_dien,ebu_out_iso,ebu_out_api,ebu_out_lim,ebu_out_tol,ebu_out_csl,ebu_out_hcho,ebu_out_ald,ebu_out_xyl,ebu_out_ket,ebu_out_macr,ebu_out_ora1,ebu_out_ora2,ebu_out_so2,ebu_out_nh3,ebu_out_oc1,ebu_out_oc2,ebu_out_bc1,ebu_out_bc2,ebu_out_sulf,ebu_out_dms,ebu_out_ash
+#package   fr_mozc      fr_emiss_opt==2             -          state:mean_fct_agtf,mean_fct_agef,mean_fct_agsv,mean_fct_aggr,firesize_agtf,firesize_agef,firesize_agsv,firesize_aggr;ebu_out:ebu_out_co,ebu_out_no,ebu_out_bigalk,ebu_out_bigene,ebu_out_c2h4,ebu_out_c2h5oh,ebu_out_c2h6,ebu_out_c3h6,ebu_out_c3h8,ebu_out_ch2o,ebu_out_ch3cho,ebu_out_ch3coch3,ebu_out_ch3oh,ebu_out_mek,ebu_out_so2,ebu_out_toluene,ebu_out_nh3,ebu_out_no2,ebu_out_open,ebu_out_c10h16,ebu_out_mgly,ebu_out_ch3cooh,ebu_out_cres,ebu_out_glyald,ebu_out_gly,ebu_out_acetol,ebu_out_isop,ebu_out_macr,ebu_out_mvk,ebu_out_pm25,ebu_out_pm10,ebu_out_oc1,ebu_out_oc2,ebu_out_bc1,ebu_out_bc2
+
+package   fr_racm      fr_emiss_opt==1             -          ebu_out:ebu_out_no,ebu_out_co,ebu_out_co2,ebu_out_eth,ebu_out_hc3,ebu_out_hc5,ebu_out_hc8,ebu_out_ete,ebu_out_olt,ebu_out_oli,ebu_out_pm25,ebu_out_pm10,ebu_out_dien,ebu_out_iso,ebu_out_api,ebu_out_lim,ebu_out_tol,ebu_out_csl,ebu_out_hcho,ebu_out_ald,ebu_out_xyl,ebu_out_ket,ebu_out_macr,ebu_out_ora1,ebu_out_ora2,ebu_out_so2,ebu_out_nh3,ebu_out_oc1,ebu_out_oc2,ebu_out_bc1,ebu_out_bc2,ebu_out_sulf,ebu_out_dms,ebu_out_ash
+
+package   fr_mozc      fr_emiss_opt==2             -          ebu_out:ebu_out_co,ebu_out_no,ebu_out_bigalk,ebu_out_bigene,ebu_out_c2h4,ebu_out_c2h5oh,ebu_out_c2h6,ebu_out_c3h6,ebu_out_c3h8,ebu_out_ch2o,ebu_out_ch3cho,ebu_out_ch3coch3,ebu_out_ch3oh,ebu_out_mek,ebu_out_so2,ebu_out_toluene,ebu_out_nh3,ebu_out_no2,ebu_out_open,ebu_out_c10h16,ebu_out_mgly,ebu_out_ch3cooh,ebu_out_cres,ebu_out_glyald,ebu_out_gly,ebu_out_acetol,ebu_out_isop,ebu_out_macr,ebu_out_mvk,ebu_out_pm25,ebu_out_pm10,ebu_out_oc1,ebu_out_oc2,ebu_out_bc1,ebu_out_bc2
+
 
 # fuel moisture model section
 dimspec  num_fmc    -   namelist=nfmc              z      fuel_moisture_classes 

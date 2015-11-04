@@ -29,11 +29,12 @@ END SUBROUTINE med_calc_model_time
 SUBROUTINE med_before_solve_io ( grid , config_flags )
   ! Driver layer
    USE module_state_description
-   USE module_domain	, ONLY : domain, domain_clock_get
-   USE module_configure	, ONLY : grid_config_rec_type
+   USE module_domain	, ONLY : domain, domain_clock_get, domain_clock_set
+   USE module_configure	, ONLY : grid_config_rec_type, model_config_rec
    USE module_streams
   ! Model layer
    USE module_utility
+   USE esmf_timemod, ONLY : ESMF_TimeInc
 
    IMPLICIT NONE
 
@@ -43,6 +44,8 @@ SUBROUTINE med_before_solve_io ( grid , config_flags )
   ! Local
    INTEGER                                    :: ialarm
    INTEGER                                    :: rc
+   INTEGER :: auxhist7_step
+   TYPE(WRFU_TimeInterval) :: tmpTimeInterval
    TYPE(WRFU_Time) :: currTime, startTime
 #ifdef HWRF
 !zhang's doing
@@ -85,31 +88,48 @@ SUBROUTINE med_before_solve_io ( grid , config_flags )
    DO ialarm = first_auxhist, last_auxhist
      IF ( .FALSE.) THEN
        rc = 1  ! dummy statement
-#ifdef WRF_CHEM
-     ELSE IF ( ialarm .EQ. AUXHIST7_ALARM .and. config_flags%chem_opt > 0 .and. &
-             config_flags%ifire .eq. 2 ) then
-        IF( WRFU_AlarmIsRinging( grid%alarms( ialarm ), rc=rc ) .and. currTime .NE. startTime) THEN
-          !Need to name file according to interval start time
-          CALL WRFU_TimeIntervalGet( grid%io_intervals( ialarm ), S=auxinput_step, rc=rc )
-          CALL domain_clock_set( grid, time_step_seconds=-1*auxinput_step )
-          grid%domain_clock%clockint%CurrTime = ESMF_TimeInc (grid%domain_clock%clockint%CurrTime, &
-                                grid%domain_clock%clockint%TimeStep )
-
-          CALL med_hist_out ( grid , ialarm, config_flags )
-
-          !Reset clock and time step to original values
-          CALL domain_clock_set( grid, time_step_seconds=auxinput_step )
-          grid%domain_clock%clockint%CurrTime = ESMF_TimeInc (grid%domain_clock%clockint%CurrTime, &
-                             grid%domain_clock%clockint%TimeStep )
-          CALL domain_clock_set( grid, time_step_seconds=-1*model_config_rec%time_step )
-
-          CALL WRFU_AlarmRingerOff( grid%alarms( ialarm ), rc=rc )
-          grid%ebu_in(:,:,:,:) = 0.D0
-        ENDIF
-#endif
      ELSE IF( WRFU_AlarmIsRinging( grid%alarms( ialarm ), rc=rc ) ) THEN
-       CALL med_hist_out ( grid , ialarm, config_flags )
+       IF ( ialarm .EQ. AUXHIST7_ALARM .and. config_flags%fr_emiss_opt > 0 .and. &
+             config_flags%ifire .eq. 2 ) then
+          IF( currTime .NE. startTime) THEN
+             !Need to name file according to interval start time
+             CALL WRFU_TimeIntervalGet( grid%io_intervals( ialarm ), S=auxhist7_step, rc=rc )
+             CALL WRFU_ClockGet( grid%domain_clock, timeStep=tmpTimeInterval, &
+                            rc=rc )
+             IF ( rc /= WRFU_SUCCESS ) THEN
+               CALL wrf_error_fatal ( &
+                 'fr_emiss write for auxhist7:  WRFU_ClockGet failed' )
+             ENDIF
+             CALL domain_clock_set( grid, time_step_seconds=-1*auxhist7_step )
+             grid%domain_clock%clockint%CurrTime = ESMF_TimeInc (grid%domain_clock%clockint%CurrTime, &
+                                   grid%domain_clock%clockint%TimeStep )
+
+             CALL med_hist_out ( grid , ialarm, config_flags )
+
+             !Reset clock and time step to original values
+             CALL domain_clock_set( grid, time_step_seconds=auxhist7_step )
+             grid%domain_clock%clockint%CurrTime = ESMF_TimeInc (grid%domain_clock%clockint%CurrTime, &
+                                grid%domain_clock%clockint%TimeStep )
+! Only works for integer time steps (sec.)
+!             CALL domain_clock_set( grid, time_step_seconds=model_config_rec%time_step )
+
+! Will work for non-integer time step
+!             CALL WRFU_TimeIntervalSet( tmpTimeInterval, &
+!                                        S=model_config_rec%time_step, &
+!                                        Sn=model_config_rec%time_step_fract_num, &
+!                                        Sd=model_config_rec%time_step_fract_den, rc=rc )
+!             IF ( rc /= WRFU_SUCCESS ) THEN
+!               CALL wrf_error_fatal ( &
+!                 'auxhist7 fr_emiss output:  WRFU_TimeIntervalSet failed' )
+!             ENDIF
+             CALL WRFU_ClockSet ( grid%domain_clock, timeStep=tmpTimeInterval, &
+                                  rc=rc )
+          ENDIF
+       ELSE
+          CALL med_hist_out ( grid , ialarm, config_flags )
+       ENDIF
        CALL WRFU_AlarmRingerOff( grid%alarms( ialarm ), rc=rc )
+
      ENDIF
    ENDDO
 

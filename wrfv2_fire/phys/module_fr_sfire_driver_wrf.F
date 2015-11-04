@@ -27,6 +27,8 @@ subroutine sfire_driver_em_init (grid , config_flags               &
                               domain_get_time_since_sim_start , &
                               domain_get_time_step 
     USE module_configure , only : grid_config_rec_type
+    USE module_state_description, only: FR_RACM, FR_MOZC
+
     implicit none
 
     TYPE(domain) , TARGET          :: grid   ! data
@@ -43,6 +45,9 @@ subroutine sfire_driver_em_init (grid , config_flags               &
              ifps,ifpe, kfps,kfpe, jfps,jfpe                              
     real::time_step_start, dt ! dummies, avoid uninitialized
     ! dummies
+    integer :: time_interval,dummy_interval
+!    integer :: its,ite,jts,jte, i, j            ! atm tile
+    CHARACTER*256 :: fr_outname
 
     call message('sfire_driver_em_init: SFIRE initialization start')
 
@@ -67,6 +72,66 @@ subroutine sfire_driver_em_init (grid , config_flags               &
             ,ifps,ifpe, jfps,jfpe                                   &
             ) 
 
+!
+!-- initialize wrf-sfire emission variables
+!
+    if ( config_flags%fr_emiss_opt .eq. FR_RACM .OR. &
+         config_flags%fr_emiss_opt .eq. FR_MOZC ) then
+
+       CALL message('initializing biomass burning emission writing from WRF-SFIRE')
+
+       !years
+       call nl_get_auxhist7_interval_y(grid%id, dummy_interval)
+       !Assuming 365 day year, because interval is probably less than a year anyway
+       time_interval = 3600 * 24 * 365 * dummy_interval 
+
+       !days
+       call nl_get_auxhist7_interval_d(grid%id, dummy_interval)
+       time_interval = time_interval + 3600 * 24 * dummy_interval 
+
+       !hours
+       call nl_get_auxhist7_interval_h(grid%id, dummy_interval)
+       time_interval = time_interval + 3600 * dummy_interval 
+
+       !minutes
+       call nl_get_auxhist7_interval_m(grid%id, dummy_interval)
+       if (dummy_interval .eq. 0) then
+          call nl_get_auxhist7_interval(grid%id, dummy_interval)
+       end if
+       time_interval = time_interval + 60 * dummy_interval 
+
+       !seconds    
+       call nl_get_auxhist7_interval_s(grid%id, dummy_interval)
+       time_interval = time_interval + dummy_interval 
+
+       call nl_set_fr_emiss_interval ( grid%id, time_interval )
+!       if ( time_interval .gt. 0 .and. config_flags%fr_ten_interval .eq. 0 ) then
+!          call nl_set_fr_ten_interval ( id, time_interval )
+!       end if
+
+       call nl_get_fr_outname(1, fr_outname)
+       call nl_set_auxhist7_outname(1, fr_outname)
+
+       grid%ebu_out = 0.E0
+
+!       do ij=1,grid%num_tiles
+!          its = grid%i_start(ij)             ! start atmospheric tile in i
+!          ite = min(grid%i_end(ij),ide-1)    ! end atmospheric tile in i
+!          jts = grid%j_start(ij)             ! start atmospheric tile in j
+!          jte = min(grid%j_end(ij),jde-1)    ! end atmospheric tile in j
+!
+!          do i = its, ite
+!          do j = jts, jte
+!             grid%ebu_out(i,1,j,:) = 0.E0
+!          end do
+!          end do
+!       end do
+
+!       grid%rthfrten_out(ims:ime,:,jms:jme,:) = 0.D0
+!       grid%rqvfrten_out(ims:ime,:,jms:jme,:) = 0.D0
+    end if
+
+
     call message('sfire_driver_em_init: SFIRE initialization complete')
 
 end subroutine sfire_driver_em_init
@@ -88,10 +153,11 @@ subroutine sfire_driver_em_step (grid , config_flags               &
                               domain_get_time_step 
     USE module_configure , only : grid_config_rec_type
     USE module_fr_sfire_util, only : fire_test_steps
-    USE module_state_description, only: num_tracer
+    USE module_state_description, only: num_tracer, FR_RACM, FR_MOZC!, num_ebu_out
 #ifdef WRF_CHEM
     USE module_state_description, only: num_chem
 #endif
+
     implicit none
 
     TYPE(domain) , TARGET          :: grid   ! data
@@ -117,6 +183,8 @@ subroutine sfire_driver_em_step (grid , config_flags               &
                                            canhfx_save, canqfx_save
     character(len=128)::msg
 
+!    integer :: i, j, iemis
+
     ! executable
 
     call message('sfire_driver_em_step: SFIRE step start')
@@ -132,6 +200,33 @@ subroutine sfire_driver_em_step (grid , config_flags               &
 
     time_step_start=TimeInterval2Sec(domain_get_time_since_sim_start(grid)) 
     dt=TimeInterval2Sec(domain_get_time_step(grid))/fire_time_step_ratio
+
+    ! Reset emission output periodically
+    if ( config_flags%fr_emiss_interval .GT. 0 .AND. &
+        (config_flags%fr_emiss_opt .eq. FR_RACM .OR. config_flags%fr_emiss_opt .eq. FR_MOZC) .AND. &
+         mod(time_step_start,REAL(config_flags%fr_emiss_interval)) .EQ. 0 ) then
+
+       write(msg,'("Resetting ebu_out after ",F15.2," sec. of simulation.")') &
+                  time_step_start
+       call wrf_debug(1,msg)
+       grid%ebu_out = 0.E0
+
+!       do ij=1,grid%num_tiles
+!          its = grid%i_start(ij)             ! start atmospheric tile in i
+!          ite = min(grid%i_end(ij),ide-1)    ! end atmospheric tile in i
+!          jts = grid%j_start(ij)             ! start atmospheric tile in j
+!          jte = min(grid%j_end(ij),jde-1)    ! end atmospheric tile in j
+!
+!          do i = its, ite
+!          do j = jts, jte
+!          do iemis = 1, num_ebu_out
+!             grid%ebu_out(i,1,j,iemis) = 0.E0
+!          end do
+!          end do
+!          end do
+!       end do
+
+    end if 
 
 
     ! get fire mesh dimensions
