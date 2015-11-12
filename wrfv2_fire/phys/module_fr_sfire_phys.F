@@ -161,7 +161,8 @@ PUBLIC:: mfuelcats
                                             fueldepthm,fueldens,fuelmce,   &
                                             fcwh,fcz0, ffw, &
                                             savr,st,se,adjr0,adjrw,adjrs, &
-                                            fmc_gw(mfuelcats,max_moisture_classes)
+                                            fmc_gl_stdev,fmc_gl_ndwi_0,fmc_gl_ndwi_rate,fmc_gl_ndwi_stdev
+   REAL   , DIMENSION( mfuelcats , max_moisture_classes), save :: fmc_gw
 ! =============================================================================
 ! Standard 13 fire behavior fuel models (for surface fires), along with some
 !          estimated canopy properties (for crown fire).
@@ -217,6 +218,10 @@ PUBLIC:: mfuelcats
    !DATA fcz0 /0.3, 0.3, 0.75, 18.,  0.6,  0.75, 0.75, &
    !           0.06, 0.06, 0.3, 0.3, 0.69, 0.9, 0.9, zf*0 /  ! fuel roughness height, added jm 2/23/11
    DATA ffw /nf* 0.9, zf*0/
+   DATA fmc_gl_ndwi_0 /nf*0.1, zf*0./
+   DATA fmc_gl_ndwi_rate /nf*0.6, zf*0./
+   DATA fmc_gl_ndwi_stdev /nf*0.2, zf*0./
+   DATA fmc_gl_stdev /nf*0.2, zf*0./
    DATA adjr0 /mfuelcats*1./
    DATA adjrw /mfuelcats*1./
    DATA adjrs /mfuelcats*1./
@@ -239,6 +244,7 @@ subroutine fuel_moisture(                &
     ifts,ifte,jfts,jfte,                 &
     ir,jr,                               & ! atm/fire grid ratio
     nfuel_cat,                           & ! fuel data
+    fndwi,                                & ! satellite sensing on fire grid
     fmc_gc,                              & ! moisture contents by class on atmospheric grid
     fmc_g                                & ! weighted fuel moisture contents on fire grid
     )
@@ -258,15 +264,19 @@ integer, intent(in)::                    &
     ir,jr                                  ! atm/fire grid ratio
 
 
-real,intent(in),dimension(ifms:ifme,jfms:jfme):: nfuel_cat ! fuel data
+real,intent(in),dimension(ifms:ifme,jfms:jfme):: nfuel_cat, & ! fuel data
+                                       fndwi                  ! satellite sensing interpolated to fire grid
 real,intent(inout),dimension(ims:ime,nfmc,jms:jme):: fmc_gc
 real,intent(out),dimension(ifms:ifme,jfms:jfme):: fmc_g ! fuel data
 
 !**** local
 real, dimension(its-1:ite+1,jts-1:jte+1):: fmc_k  ! copy of fmc_gc(:,k,:) 
-real, dimension(ifts:ifte,jfts:jfte):: fmc_f      ! interpolation of fmc_gc(:,k,:) to the fire grid 
+real, dimension(ifts:ifte,jfts:jfte):: fmc_f,  &   ! interpolation of fmc_gc(:,k,:) to the fire grid 
+                                       nwdi_f      ! inerpolation of nwdi to the fire grid
 integer::i,j,k,n
 integer::ibs,ibe,jbs,jbe
+real::f1,w1,w2,f2,fa,fc
+
 character(len=128)::msg
 
 call check_mesh_2dim(ifts,ifte,jfts,jfte,ifds,ifde,jfds,jfde) ! check if fire tile fits into domain
@@ -312,19 +322,38 @@ do k=1,moisture_classes
 
     call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fmc_f,'fuel_moisture: fmc_f')
 
+    if(k .eq. kfmc_ndwi)then  ! if live moisture, assimilate ndwi
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fndwi,'fuel_moisture: fndwi')
+        write(msg,'(a,i4)')'Assimilating NDWI in fuel moisture class ',k
+        call message(msg)
+    endif
+
     ! add moisture contents for class k to the fuel moisture
     do j=jfts,jfte
         do i=ifts,ifte
             n = nfuel_cat(i,j)
             if(n > 0)then
-                fmc_g(i,j)=fmc_g(i,j)+fmc_gw(n,k)*fmc_f(i,j)      ! add to sum over classes
+                if(k .ne. kfmc_ndwi)then 
+                   fmc_g(i,j)=fmc_g(i,j)+fmc_gw(n,k)*fmc_f(i,j)      ! add to sum over classes
+                else                                                    ! if live moisture, assimilate ndwi
+                   f1=fmc_f(i,j)
+                   w1 = fmc_gl_stdev(n)                            
+                   w1 = 1./(w1*w1)                                      ! weight of forecast
+                   w2 = fmc_gl_ndwi_stdev(n)
+                   w2 = 1./(w2*w2)                                      ! weight of update
+                   f2 = fmc_gl_ndwi_0(n) + fmc_gl_ndwi_rate(n) * fndwi(i,j)   ! from regression
+                   fa = (w1*f1 + w2*f2) / (w1 + w2)                     ! updated value
+                   fc = fmc_gw(n,k)*fa                                  ! times proportion of live fuel
+                   fmc_g(i,j)=fmc_g(i,j)+fc      ! add to sum over classes
+                   ! write(*,*)'NDWI:',i,j,f1,f2,w1,w2,f1,fa,fmc_gw(n,k),fc,fmc_g(i,j)
+                endif
             endif
         enddo
     enddo
 
-    ! call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'fuel_moisture: fmc_g')
-
 enddo
+
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'fuel_moisture: fmc_g')
 
 
 end subroutine fuel_moisture
@@ -654,7 +683,9 @@ REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw,adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw, &
+    fmc_gl_ndwi_0,fmc_gl_ndwi_rate,fmc_gl_ndwi_stdev, fmc_gl_stdev, &
+    adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
 
 namelist /moisture/ moisture_classes,drying_lag,wetting_lag,saturation_moisture,saturation_rain,rain_threshold, &
     drying_model,wetting_model, moisture_class_name,fmc_gc_initialization
@@ -728,6 +759,10 @@ call wrf_dm_bcast_real(ffw,       nfuelcats)
 call wrf_dm_bcast_real(adjr0,     nfuelcats)
 call wrf_dm_bcast_real(adjrw,     nfuelcats)
 call wrf_dm_bcast_real(adjrs,     nfuelcats)
+call wrf_dm_bcast_real(fmc_gl_ndwi_0,    nfuelcats)
+call wrf_dm_bcast_real(fmc_gl_ndwi_rate, nfuelcats)
+call wrf_dm_bcast_real(fmc_gl_ndwi_stdev,nfuelcats)
+call wrf_dm_bcast_real(fmc_gl_stdev,     nfuelcats)
 ! broadcast moisture tables
 call wrf_dm_bcast_integer(moisture_classes,1)
 call wrf_dm_bcast_real(drying_lag,     max_moisture_classes)
@@ -842,6 +877,16 @@ do i=1,nfuelcats,j
             write(msg,10)'fmc_gw',kk,(fmc_gw(ii,kk),ii=i,k)
             call message(msg)
         enddo
+    endif
+    if(kfmc_ndwi>0)then
+        write(msg,8)'fmc_gl_stdev     ',(fmc_gl_stdev(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'fmc_gl_ndwi_0    ',(fmc_gl_ndwi_0(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'fmc_gl_ndwi_rate ',(fmc_gl_ndwi_rate(ii),ii=i,k)
+        call message(msg)
+        write(msg,8)'fmc_gl_ndwi_stdev',(fmc_gl_ndwi_stdev(ii),ii=i,k)
+        call message(msg)
     endif
 enddo
 call message(' ')

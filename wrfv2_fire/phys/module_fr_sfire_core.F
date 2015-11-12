@@ -143,6 +143,7 @@ real:: end_x,end_y              ! end of ignition line, or zero
 real:: radius                   ! all within the radius of the line will ignite
 real:: start_time,end_time      ! the ignition time for the start and the end of the line
 real:: ros,tos                  ! ignition rate and time of spread
+integer:: msglevel=4            ! print at this level
 
 !*** executable
 
@@ -195,14 +196,16 @@ axmin=coord_xf(ifts,jfts)
 aymin=coord_yf(ifts,jfts)
 axmax=coord_xf(ifte,jfte)
 aymax=coord_yf(ifte,jfte)
+if(fire_print_msg.ge.msglevel)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2f11.6,a,2f11.6)')'IGN from ',sx,sy,' to ',ex,ey
-call message(msg)
+call message(msg,level=msglevel)
 write(msg,'(a,2f10.2,a,2f10.2,a)')'IGN timestep [',start_ts,end_ts,'] in [',start_time,end_time,']'
-call message(msg)
+call message(msg,level=msglevel)
 write(msg,'(a,2g13.6,a,2g13.6)')'IGN tile coord from  ',axmin,aymin,' to ',axmax,aymax
-call message(msg)
+call message(msg,level=0)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
+endif
 ignited=0
 dmax=0
 dmin=huge(dmax)
@@ -238,12 +241,12 @@ do j=jfts,jfte
         !lfn_new=lfn_new_chk
         !tign_new=tign_new_chk
         
-        if(fire_print_msg.ge.3)then
+        if(fire_print_msg.ge.msglevel)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
             write(msg,*)'IGN1 i,j=',i,j,' lfn(i,j)=',lfn(i,j),' tign(i,j)=',tign(i,j)
-            call message(msg)
+            call message(msg,level=0)
             write(msg,*)'IGN2 i,j=',i,j,' lfn_new= ',lfn_new, ' time_ign= ',time_ign,' d=',d
-            call message(msg)
+            call message(msg,level=msglevel)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
         if(.not.lfn_new>0.) then
@@ -251,13 +254,13 @@ do j=jfts,jfte
         endif
         if(.not. lfn(i,j)<0. .and. lfn_new < 0.) then
             tign(i,j)=tign_new  ! newly ignited now
-            if(fire_print_msg.ge.3)then
+            if(fire_print_msg.ge.msglevel)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
                 write(msg,'(a,2i6,a,2g13.6,a,f10.2,a,2f10.2,a)')'IGN ignited cell ',i,j,' at',ax,ay, &
                     ' time',tign(i,j),' in [',start_ts,end_ts,']'
-                call message(msg)
+                call message(msg,level=0)
                 write(msg,'(a,g10.3,a,f10.2,a,2f10.2,a)')'IGN distance',d,' from ignition line at',time_ign,' in [',st,et,']'
-                call message(msg)
+                call message(msg,level=msglevel)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
             endif
             if(tign(i,j) < start_ts .or. tign(i,j) > end_ts )then
@@ -270,10 +273,10 @@ do j=jfts,jfte
             endif
         endif
         lfn(i,j)=min(lfn(i,j),lfn_new)  ! update the level set function
-        if(fire_print_msg.ge.3)then
+        if(fire_print_msg.ge.msglevel)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
             write(msg,*)'IGN3 i,j=',i,j,' lfn(i,j)=',lfn(i,j),' tign(i,j)=',tign(i,j)
-            call message(msg)
+            call message(msg,level=msglevel)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
         endif
         call check_lfn_tign_ij(i,j,'ignite_fire end',end_ts,lfn(i,j),tign(i,j))
@@ -282,12 +285,12 @@ enddo
 ! write(msg,*)'ignite_fire: max error ',tmperr
 ! call message(msg)
 call check_lfn_tign("ignite_fire end:",end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
-if(fire_print_msg .ge. 2)then
+if(fire_print_msg .ge. msglevel)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
-call message(msg)
+call message(msg,level=msglevel)
 write(msg,'(a,f6.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
-call message(msg)
+call message(msg,level=msglevel)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
 end subroutine ignite_fire
@@ -376,6 +379,7 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
 !***    local
         real:: mx,my,dam2,dames,am_es,cos2,dmc2,mcrel,mid_t,dif_t,des2,cx,cy
         character(len=128):: msg
+        integer::msglevel=4
 !***    executable
 
 11      format('IGN ',6(a,g17.7,1x))
@@ -406,18 +410,18 @@ SUBROUTINE nearest(d,t,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
 	cy = (ey + sy)*0.5 + mcrel*(ey - sy)*0.5     ! interpolate to c by going from m
         d=sqrt((ax-cx)*(ax-cx)*cx2+(ay-cy)*(ay-cy)*cy2) ! |a-c|^2
 	t = (et + st)*0.5 + mcrel*(et - st)*0.5     ! interpolate to c by going from m
-        if(fire_print_msg.ge.3)then
+        if(fire_print_msg.ge.msglevel)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
             write(msg,12)'find nearest to [',ax,ay,'] from [',sx,sy,'] [',ex,ey,']' ! DEB
-            call message(msg)
+            call message(msg,level=msglevel)
             write(msg,12)'end times',st,et,' scale squared',cx2,cy2 ! DEB
-            call message(msg)
+            call message(msg,level=msglevel)
             write(msg,11)'nearest at mcrel=',mcrel,'from the midpoint, t=',t ! DEB
-            call message(msg)
+            call message(msg,level=msglevel)
             write(msg,12)'nearest is [',cx,cy,'] d=',d ! DEB
-            call message(msg)
+            call message(msg,level=msglevel)
             write(msg,11)'dam2=',dam2,'des2=',des2,'dames=',dames
-            call message(msg)
+            call message(msg,level=msglevel)
             write(msg,11)'am_es=',am_es,'cos2=',cos2,'dmc2=',dmc2 ! DEB
             call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
