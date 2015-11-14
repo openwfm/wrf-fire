@@ -40,6 +40,7 @@ integer,save::          &
  fire_wind_log_interp=4,&  ! kind of vertical log layer wind interpolation, see driver
  fire_use_windrf=0,     &  ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
  fire_fmc_read=1,       &  ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
+ fire_ignition_clamp=0, &  ! if 1, clamp ignition to grid points
  fire_hfx_given=0,      &  ! "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 4=by parameters" ""
  fire_hfx_num_lines=1        ! number of heatflux parameter sets defining the heaflux lines (must be 1) 
  
