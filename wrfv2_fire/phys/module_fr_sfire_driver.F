@@ -87,7 +87,7 @@ implicit none
 
 
 private
-public sfire_driver_em,use_atm_vars,set_flags,fire_ignition_convert, &
+public sfire_driver_em,use_atm_vars,set_flags, &
        set_fp_from_grid
 public ifun_beg, ifun_step, ifun_end
 
