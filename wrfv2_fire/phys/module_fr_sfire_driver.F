@@ -118,7 +118,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
 ! Driver layer modules
 #ifdef DM_PARALLEL
-    USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
+    USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks,wrf_dm_sum_reals
     USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
 halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
 halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
@@ -144,13 +144,16 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
 !*** local
     TYPE(lines_type):: ignition, hfx
-    integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1
+    integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1,j
     logical::restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
     character(len=128)msg
     type(fire_params)::fp
     real:: moisture_time
+    real:: corner_longlat(2,2,2), corner_longlat_2(8)
+    real, dimension(2,2):: corner_long,corner_lat ! coordinates of fire mesh corner cells
+
 
     logical:: run_advance_moisture,run_fuel_moisture, moisture_initializing
     real::    dt_moisture
@@ -168,7 +171,43 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
     call set_fp_from_grid(grid,fp)
 
+! copy configuration flags to sfire internal structures
+    call set_flags(config_flags)
+
     ! **** THE FOLLOWING REALLY SHOULD BE DONE ONCE NOT EVERY TIMESTEP
+!   get the coordinates of the corner cells
+    corner_longlat=0.
+    if(ifds.eq.ifps.and.jfds.eq.jfps)then     
+        corner_longlat(1,1,1)=grid%fxlong(ifps,jfps)
+        corner_longlat(1,1,2)=grid%fxlat(ifps,jfps)
+    endif
+    if(ifds.eq.ifps.and.jfde.eq.jfpe)then 
+        corner_longlat(1,2,1)=grid%fxlong(ifps,jfpe)
+        corner_longlat(1,2,2)=grid%fxlat(ifps,jfpe)
+    endif
+    if(ifde.eq.ifpe.and.jfds.eq.jfps)then 
+        corner_longlat(2,1,1)=grid%fxlong(ifpe,jfps)
+        corner_longlat(2,1,2)=grid%fxlat(ifpe,jfps)
+    endif
+    if(ifde.eq.ifpe.and.jfde.eq.jfpe)then 
+        corner_longlat(2,2,1)=grid%fxlong(ifpe,jfpe)
+        corner_longlat(2,2,2)=grid%fxlat(ifpe,jfpe)
+    endif
+#ifdef DM_PARALLEL
+    call wrf_dm_sum_reals(reshape(corner_longlat,(/8/)),corner_longlat_2)
+#endif
+    corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
+    corner_long=corner_longlat(1:2,1:2,1)
+    corner_lat=corner_longlat(1:2,1:2,2)
+    if(fire_print_msg.ge.2)then
+        do i=1,2
+            do j=1,2
+                 write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
+                 call message(msg)
+            enddo
+        enddo
+    endif
+        
     ! get ignition data 
     call fire_ignition_convert (config_flags,ignition)
     call fire_hfx_convert (config_flags,hfx)
@@ -177,9 +216,6 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     grid%unit_fxlong = ignition%unit_fxlong
     grid%unit_fxlat = ignition%unit_fxlat
 
-
-    ! copy configuration flags to sfire internal structures
-    call set_flags(config_flags)
 
 #ifndef SFIRE_STANDALONE
 
@@ -269,6 +305,8 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     endif
     itimestep=grid%itimestep
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
+
+    
     
     ! **** moisture model
 
