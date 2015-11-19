@@ -167,6 +167,8 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
 
+! **** THE FOLLOWING REALLY SHOULD BE DONE ONCE NOT EVERY TIMESTEP
+
 ! populate our structures from wrf
 
     call set_fp_from_grid(grid,fp)
@@ -174,42 +176,47 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 ! copy configuration flags to sfire internal structures
     call set_flags(config_flags)
 
-    ! **** THE FOLLOWING REALLY SHOULD BE DONE ONCE NOT EVERY TIMESTEP
-!   get the coordinates of the corner cells
-    corner_longlat=0.
-    if(ifds.eq.ifps.and.jfds.eq.jfps)then     
-        corner_longlat(1,1,1)=grid%fxlong(ifps,jfps)
-        corner_longlat(1,1,2)=grid%fxlat(ifps,jfps)
-    endif
-    if(ifds.eq.ifps.and.jfde.eq.jfpe)then 
-        corner_longlat(1,2,1)=grid%fxlong(ifps,jfpe)
-        corner_longlat(1,2,2)=grid%fxlat(ifps,jfpe)
-    endif
-    if(ifde.eq.ifpe.and.jfds.eq.jfps)then 
-        corner_longlat(2,1,1)=grid%fxlong(ifpe,jfps)
-        corner_longlat(2,1,2)=grid%fxlat(ifpe,jfps)
-    endif
-    if(ifde.eq.ifpe.and.jfde.eq.jfpe)then 
-        corner_longlat(2,2,1)=grid%fxlong(ifpe,jfpe)
-        corner_longlat(2,2,2)=grid%fxlat(ifpe,jfpe)
-    endif
+    if(fire_ignition_clamp > 0)then
+!       get the coordinates of the corner cells
+        corner_longlat=0.
+        if(ifds.eq.ifps.and.jfds.eq.jfps)then     
+            corner_longlat(1,1,1)=grid%fxlong(ifps,jfps)
+            corner_longlat(1,1,2)=grid%fxlat(ifps,jfps)
+        endif
+        if(ifds.eq.ifps.and.jfde.eq.jfpe)then 
+            corner_longlat(1,2,1)=grid%fxlong(ifps,jfpe)
+            corner_longlat(1,2,2)=grid%fxlat(ifps,jfpe)
+        endif
+        if(ifde.eq.ifpe.and.jfds.eq.jfps)then 
+            corner_longlat(2,1,1)=grid%fxlong(ifpe,jfps)
+            corner_longlat(2,1,2)=grid%fxlat(ifpe,jfps)
+        endif
+        if(ifde.eq.ifpe.and.jfde.eq.jfpe)then 
+            corner_longlat(2,2,1)=grid%fxlong(ifpe,jfpe)
+            corner_longlat(2,2,2)=grid%fxlat(ifpe,jfpe)
+        endif
 #ifdef DM_PARALLEL
-    call wrf_dm_sum_reals(reshape(corner_longlat,(/8/)),corner_longlat_2)
+        call wrf_dm_sum_reals(reshape(corner_longlat,(/8/)),corner_longlat_2)
 #endif
-    corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
-    corner_long=corner_longlat(1:2,1:2,1)
-    corner_lat=corner_longlat(1:2,1:2,2)
-    if(fire_print_msg.ge.2)then
-        do i=1,2
-            do j=1,2
-                 write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
-                 call message(msg)
+        corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
+        corner_long=corner_longlat(1:2,1:2,1)
+        corner_lat=corner_longlat(1:2,1:2,2)
+        if(fire_print_msg.ge.2)then
+            do i=1,2
+                do j=1,2
+                     write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
+                     call message(msg)
+                enddo
             enddo
-        enddo
+        endif
     endif
         
     ! get ignition data 
-    call fire_ignition_convert (config_flags,ignition)
+    call fire_ignition_convert (config_flags,ignition,               &
+             grid%fxlong, grid%fxlat,                                &
+             ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe )
     call fire_hfx_convert (config_flags,hfx)
 
 ! store computed mesh units  
@@ -1205,12 +1212,20 @@ endif
 end subroutine check_fmesh
 
 
-subroutine fire_ignition_convert (config_flags,ignition)
+subroutine fire_ignition_convert (config_flags,ignition,             &
+             fxlong, fxlat,                                          &
+             ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe )
     implicit none
 ! create ignition arrays from scalar flags
 !*** arguments
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
     TYPE (lines_type), INTENT(OUT):: ignition ! any values from input discarded 
+    integer::ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe 
+    real, dimension(ifms:ifme,jfms:jfme):: fxlong,fxlat
 !*** local
     integer::i
     logical:: real,ideal
