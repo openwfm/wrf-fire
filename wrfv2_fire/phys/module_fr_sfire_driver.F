@@ -151,9 +151,6 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     character(len=128)msg
     type(fire_params)::fp
     real:: moisture_time
-    real:: corner_longlat(2,2,2), corner_longlat_2(8)
-    real, dimension(2,2):: corner_long,corner_lat ! coordinates of fire mesh corner cells
-
 
     logical:: run_advance_moisture,run_fuel_moisture, moisture_initializing
     real::    dt_moisture
@@ -176,40 +173,6 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 ! copy configuration flags to sfire internal structures
     call set_flags(config_flags)
 
-    if(fire_ignition_clamp > 0)then
-!       get the coordinates of the corner cells
-        corner_longlat=0.
-        if(ifds.eq.ifps.and.jfds.eq.jfps)then     
-            corner_longlat(1,1,1)=grid%fxlong(ifps,jfps)
-            corner_longlat(1,1,2)=grid%fxlat(ifps,jfps)
-        endif
-        if(ifds.eq.ifps.and.jfde.eq.jfpe)then 
-            corner_longlat(1,2,1)=grid%fxlong(ifps,jfpe)
-            corner_longlat(1,2,2)=grid%fxlat(ifps,jfpe)
-        endif
-        if(ifde.eq.ifpe.and.jfds.eq.jfps)then 
-            corner_longlat(2,1,1)=grid%fxlong(ifpe,jfps)
-            corner_longlat(2,1,2)=grid%fxlat(ifpe,jfps)
-        endif
-        if(ifde.eq.ifpe.and.jfde.eq.jfpe)then 
-            corner_longlat(2,2,1)=grid%fxlong(ifpe,jfpe)
-            corner_longlat(2,2,2)=grid%fxlat(ifpe,jfpe)
-        endif
-#ifdef DM_PARALLEL
-        call wrf_dm_sum_reals(reshape(corner_longlat,(/8/)),corner_longlat_2)
-#endif
-        corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
-        corner_long=corner_longlat(1:2,1:2,1)
-        corner_lat=corner_longlat(1:2,1:2,2)
-        if(fire_print_msg.ge.2)then
-            do i=1,2
-                do j=1,2
-                     write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
-                     call message(msg)
-                enddo
-            enddo
-        endif
-    endif
         
     ! get ignition data 
     call fire_ignition_convert (config_flags,ignition,               &
@@ -1211,7 +1174,6 @@ if ((ide-ids+1)*ir.ne.(ifde-ifds+1))then
 endif
 end subroutine check_fmesh
 
-
 subroutine fire_ignition_convert (config_flags,ignition,             &
              fxlong, fxlat,                                          &
              ifds,ifde, jfds,jfde,                                   &
@@ -1227,10 +1189,48 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
              ifps,ifpe, jfps,jfpe 
     real, dimension(ifms:ifme,jfms:jfme):: fxlong,fxlat
 !*** local
-    integer::i
+    integer::i,j
     logical:: real,ideal
     character(len=128)msg
+    real:: corner_longlat(2,2,2), corner_longlat_2(8)
+    real, dimension(2,2):: corner_long,corner_lat ! coordinates of fire mesh corner cells
+
 !*** executable
+
+    if(fire_ignition_clamp > 0)then
+!       get the coordinates of the corner cells
+        corner_longlat=0.
+        if(ifds.eq.ifps.and.jfds.eq.jfps)then     
+            corner_longlat(1,1,1)=fxlong(ifps,jfps)
+            corner_longlat(1,1,2)=fxlat(ifps,jfps)
+        endif
+        if(ifds.eq.ifps.and.jfde.eq.jfpe)then 
+            corner_longlat(1,2,1)=fxlong(ifps,jfpe)
+            corner_longlat(1,2,2)=fxlat(ifps,jfpe)
+        endif
+        if(ifde.eq.ifpe.and.jfds.eq.jfps)then 
+            corner_longlat(2,1,1)=fxlong(ifpe,jfps)
+            corner_longlat(2,1,2)=fxlat(ifpe,jfps)
+        endif
+        if(ifde.eq.ifpe.and.jfde.eq.jfpe)then 
+            corner_longlat(2,2,1)=fxlong(ifpe,jfpe)
+            corner_longlat(2,2,2)=fxlat(ifpe,jfpe)
+        endif
+#ifdef DM_PARALLEL
+        call wrf_dm_sum_reals(reshape(corner_longlat,(/8/)),corner_longlat_2)
+#endif
+        corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
+        corner_long=corner_longlat(1:2,1:2,1)
+        corner_lat=corner_longlat(1:2,1:2,2)
+        if(fire_print_msg.ge.2)then
+            do i=1,2
+                do j=1,2
+                     write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
+                     call message(msg)
+                enddo
+            enddo
+        endif
+    endif
 
     ignition%max_lines=5 ! number of lines that have entries in the namelist
     ignition%num_lines=config_flags%fire_num_ignitions
