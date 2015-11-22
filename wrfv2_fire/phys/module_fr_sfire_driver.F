@@ -1214,7 +1214,7 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
     integer::i,j
     logical:: real,ideal
     character(len=128)msg
-    real:: corner_longlat(2,2,2), corner_longlat_2(8),lon(2),lat(2)
+    real:: corner_longlat(2,2,2), corner_longlat_1(8), corner_longlat_2(8),lon(2),lat(2)
     real, dimension(2,2):: corner_long,corner_lat ! coordinates of fire mesh corner cells
 
 !*** executable
@@ -1325,8 +1325,11 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
             corner_longlat(2,2,1)=fxlong(ifpe,jfpe)
             corner_longlat(2,2,2)=fxlat(ifpe,jfpe)
         endif
+        corner_longlat_1=reshape(corner_longlat,(/8/))
 #ifdef DM_PARALLEL
-        call wrf_dm_sum_reals(reshape(corner_longlat,(/8/)),corner_longlat_2)
+        call wrf_dm_sum_reals(corner_longlat_1,corner_longlat_2)
+#else
+        corner_longlat_2=corner_longlat_1
 #endif
         corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
         corner_long=corner_longlat(1:2,1:2,1)
