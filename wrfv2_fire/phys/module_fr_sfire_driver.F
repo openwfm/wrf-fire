@@ -76,6 +76,14 @@ use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpo
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
+! Driver layer modules
+#ifdef DM_PARALLEL
+    USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks,wrf_dm_sum_reals
+    USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
+halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
+halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
+#endif
+
 
 ! WRF dependencies
 USE module_domain, only: domain
@@ -115,14 +123,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 )
 
 !*** purpose: driver from grid structure
-
-! Driver layer modules
-#ifdef DM_PARALLEL
-    USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks,wrf_dm_sum_reals
-    USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
-halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
-halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
-#endif
 
 use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
@@ -1192,45 +1192,11 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
     integer::i,j
     logical:: real,ideal
     character(len=128)msg
-    real:: corner_longlat(2,2,2), corner_longlat_2(8)
+    real:: corner_longlat(2,2,2), corner_longlat_2(8),lon(2),lat(2)
     real, dimension(2,2):: corner_long,corner_lat ! coordinates of fire mesh corner cells
 
 !*** executable
 
-    if(fire_ignition_clamp > 0)then
-!       get the coordinates of the corner cells
-        corner_longlat=0.
-        if(ifds.eq.ifps.and.jfds.eq.jfps)then     
-            corner_longlat(1,1,1)=fxlong(ifps,jfps)
-            corner_longlat(1,1,2)=fxlat(ifps,jfps)
-        endif
-        if(ifds.eq.ifps.and.jfde.eq.jfpe)then 
-            corner_longlat(1,2,1)=fxlong(ifps,jfpe)
-            corner_longlat(1,2,2)=fxlat(ifps,jfpe)
-        endif
-        if(ifde.eq.ifpe.and.jfds.eq.jfps)then 
-            corner_longlat(2,1,1)=fxlong(ifpe,jfps)
-            corner_longlat(2,1,2)=fxlat(ifpe,jfps)
-        endif
-        if(ifde.eq.ifpe.and.jfde.eq.jfpe)then 
-            corner_longlat(2,2,1)=fxlong(ifpe,jfpe)
-            corner_longlat(2,2,2)=fxlat(ifpe,jfpe)
-        endif
-#ifdef DM_PARALLEL
-        call wrf_dm_sum_reals(reshape(corner_longlat,(/8/)),corner_longlat_2)
-#endif
-        corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
-        corner_long=corner_longlat(1:2,1:2,1)
-        corner_lat=corner_longlat(1:2,1:2,2)
-        if(fire_print_msg.ge.2)then
-            do i=1,2
-                do j=1,2
-                     write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
-                     call message(msg)
-                enddo
-            enddo
-        endif
-    endif
 
     ignition%max_lines=5 ! number of lines that have entries in the namelist
     ignition%num_lines=config_flags%fire_num_ignitions
@@ -1318,8 +1284,82 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
 
        call postprocess_lines(ignition,'ros',config_flags)
 
-     end subroutine fire_ignition_convert
+    if(fire_ignition_clamp > 0)then
+!       get the coordinates of the corner cells
+        corner_longlat=0.
+        if(ifds.eq.ifps.and.jfds.eq.jfps)then     
+            corner_longlat(1,1,1)=fxlong(ifps,jfps)
+            corner_longlat(1,1,2)=fxlat(ifps,jfps)
+        endif
+        if(ifds.eq.ifps.and.jfde.eq.jfpe)then 
+            corner_longlat(1,2,1)=fxlong(ifps,jfpe)
+            corner_longlat(1,2,2)=fxlat(ifps,jfpe)
+        endif
+        if(ifde.eq.ifpe.and.jfds.eq.jfps)then 
+            corner_longlat(2,1,1)=fxlong(ifpe,jfps)
+            corner_longlat(2,1,2)=fxlat(ifpe,jfps)
+        endif
+        if(ifde.eq.ifpe.and.jfde.eq.jfpe)then 
+            corner_longlat(2,2,1)=fxlong(ifpe,jfpe)
+            corner_longlat(2,2,2)=fxlat(ifpe,jfpe)
+        endif
+#ifdef DM_PARALLEL
+        call wrf_dm_sum_reals(reshape(corner_longlat,(/8/)),corner_longlat_2)
+#endif
+        corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
+        corner_long=corner_longlat(1:2,1:2,1)
+        corner_lat=corner_longlat(1:2,1:2,2)
+        if(fire_print_msg.ge.2)then
+            do i=1,2
+                do j=1,2
+                     write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
+                     call message(msg)
+                enddo
+            enddo
+        endif
+	lon(1)=(corner_long(1,1)+corner_long(1,2))/2.
+	lon(2)=(corner_long(2,1)+corner_long(2,2))/2.
+	lat(1)=(corner_lat(1,1)+corner_lat(2,1))/2.
+	lat(2)=(corner_lat(1,2)+corner_lat(2,2))/2.
+        if(fire_print_msg.ge.2)then
+            write(msg,'(4(a,f14.8))')' coordinates ',lon(1),':',lon(2),',',lat(1),':',lat(2)
+            call message(msg)
+        endif
+       do i=1,ignition%num_lines
+           call clamp_to_grid(ignition%line(i)%start_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%start_x,j)
+           call clamp_to_grid(ignition%line(i)%end_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%end_x,j)
+           call clamp_to_grid(ignition%line(i)%start_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%start_y,j)
+           call clamp_to_grid(ignition%line(i)%end_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%end_y,j)
+       enddo
 
+    endif
+    end subroutine fire_ignition_convert
+
+     subroutine clamp_to_grid(x,x1,x2,i1,i2,xout,iout)
+!***	round point on uniform mesh to a mesh node
+!***	arguments
+        real, intent(in)::x,x1,x2
+        integer, intent(in)::i1,i2
+        real, intent(out)::xout
+        integer, intent(out)::iout
+!***	local
+        character(len=128)::msg
+        integer:: i
+        real::r,dx,xr
+!***    executable
+        dx=(x2-x1)/(i2-i1)
+        r=i1+(x-x1)/dx
+        iout=nint(r)
+        xr=x1+(iout-i1)*dx
+        if(fire_print_msg.ge.2)then
+            write(msg,'(a,f14.8,a,f14.8)')'coordinate ',x,' clamped to ',xr
+            call message(msg)
+        endif
+        xout=xr
+    end subroutine clamp_to_grid
+!
+!***
+!
      subroutine postprocess_lines(lines,value_name,config_flags)
 !      count lines, fill endpoints, print stats
 !***   arguments
