@@ -121,7 +121,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
     USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
 halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
-halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub
+halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub, &
+halo_fire_ndwi_sub
 #endif
 
 use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
@@ -361,6 +362,9 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 ! base geopotential and roughness
 #include "HALO_FIRE_PHB.inc"
 #include "HALO_FIRE_Z0.inc"
+        if(kfmc_ndwi > 0 .and. fndwi_from_ndwi .eq.1)then
+#include "HALO_FIRE_NDWI.inc"
+        endif
 
         elseif(fire_ifun.eq.2)then
 !           halo exchange on zsf width 2
@@ -440,15 +444,19 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
             fp,                                    & ! structure with pointers passed to spread rate calculation
             config_flags%nfmc,         & ! moisture model variables start
             run_advance_moisture,run_fuel_moisture,dt_moisture,     &    ! moisture model control
+            config_flags%fmep_decay_tlag,                               & ! moisture extended model assim. diffs decay time lag
             grid%rainc, grid%rainnc,                       & ! accumulated rain from different sources
             grid%t2, grid%q2, grid%psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
             grid%rain_old,                   & ! previous value of accumulated rain
             grid%t2_old, grid%q2_old, grid%psfc_old,   & ! previous values of the atmospheric state at surface
             grid%rh_fire,                    & ! relative humidity, diagnostics
             grid%fmc_gc,                      & ! fuel moisture fields updated, by class, assumed set to something reasonable
+            grid%fmep,                      & ! fuel moisture extended model parameters
             grid%fmc_equi,                      & ! fuel moisture fields updated, by class, equilibrium diagnostic 
             grid%fmc_lag,                      & ! fuel moisture fields updated, by class, tendency diagnostic
-            fp%fmc_g )                             !  write-only alias. need to exit before using fp again
+            fp%fmc_g, &                             !  write-only alias. need to exit before using fp again
+            grid%ndwi, &
+            grid%fndwi)
  
 
 #ifdef DM_PARALLEL
@@ -539,16 +547,20 @@ subroutine sfire_driver_phys (ifun,    &
     fp,                                           & ! fire params
     nfmc,                                     & ! number of fuel moisture classes
     run_advance_moisture,run_fuel_moisture,dt_moisture,& ! moisture model control
-    rainc,rainnc,              & ! accumulated rain from different sources
+    fmep_decay_tlag,                              & ! moist. extended model assim. diffs time lag
+    rainc,rainnc,               & ! accumulated rain from different sources
     t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
     rain_old,                   & ! previous value of accumulated rain
     t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
     rh_fire,                    & ! relative humidity, diagnostics
-    fmc_gc,                    &  ! fuel moisture fields updated, by class, assumed set to something reasonable
-    fmc_equi,                    &  ! fuel moisture fields updated, by class equilibrium diagnostic
+    fmc_gc,                     &  ! fuel moisture fields updated, by class, assumed set to something reasonable
+    fmep,                       &  ! fuel moisture extended model parameters
+    fmc_equi,                   &  ! fuel moisture fields updated, by class equilibrium diagnostic
     fmc_lag,                    &  ! fuel moisture fields updated, by class tendency diagnostic
-    fmc_g)                          ! fuel moisture, alias of fp%fmc_g
-    
+    fmc_g,                      &  ! fuel moisture, alias of fp%fmc_g
+    ndwi,                       &
+    fndwi)                         ! ndwi on fire grid
+
 
 implicit none
 
@@ -596,11 +608,11 @@ real,intent(out),dimension(ims:ime,jms:jme)::&
     uah,                                           & ! atm wind at fire_wind_height, diagnostics
     vah                                              ! atm wind at fire_wind_height, diagnostics
 
-real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat ! inout because of extension at bdry
+real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat, ndwi ! inout because of extension at bdry
     
 real, intent(inout), dimension(ifms:ifme,jfms:jfme):: & ! fuel data; can be also set inside (cell based, fire grid)
     fz0,fwh,                                          &  
-    nfuel_cat                                      
+    nfuel_cat,fndwi                                      
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
     lfn,tign,fuel_frac,                        &     ! state: level function, ign time, fuel left
@@ -632,10 +644,12 @@ real, intent(out), dimension(ifms:ifme, jfms:jfme):: &  ! redundant arrays, for 
 ! moisture model arguments
 logical, intent(in)::run_advance_moisture,run_fuel_moisture
 real, intent(in)::dt_moisture
+real, intent(in)::fmep_decay_tlag
 real, intent(in), dimension(ims:ime,jms:jme):: t2, q2, psfc, rainc, rainnc
 real, intent(inout), dimension(ims:ime,jms:jme):: t2_old, q2_old, psfc_old, rain_old 
 real, intent(out),dimension(ims:ime,jms:jme):: rh_fire
 real, intent(inout), dimension(ims:ime,nfmc,jms:jme):: fmc_gc
+real, intent(inout), dimension(ims:ime,2,jms:jme):: fmep
 real, intent(out), dimension(ims:ime,nfmc,jms:jme):: fmc_equi,fmc_lag
 real, intent(inout), dimension(ifms:ifme,jfms:jfme):: fmc_g
 
@@ -706,6 +720,7 @@ pid=0
 if(fire_print_file.gt.0)then
     if(itimestep.le.fire_print_file.or.mod(itimestep,fire_print_file).eq.0)pid=itimestep ! print 1-fire_print_file then every fire_print_file-th
 endif
+
 
 if(ifun.eq.1)then
          call init_fuel_cats(fmoist_run .or. fmoist_interp) ! properties of fuel categories and moisture classes from namelist.fire
@@ -783,14 +798,16 @@ do ij=1,num_tiles
               its,ite,  jts,jte,          & ! tile dimensions
               nfmc,                       & ! number of moisture fields
               dt_moisture,                & ! moisture model time step
+              fmep_decay_tlag,            & ! moisture extended model assim. diffs decay tlag
               rainc, rainnc,              & ! accumulated rain 
               t2, q2, psfc,               & ! temperature (K), vapor contents (kg/kg), pressure (Pa) at the surface
               rain_old,                   & ! previous value of accumulated rain
               t2_old, q2_old, psfc_old,   & ! previous values of the atmospheric state at surface
               rh_fire,                    & ! relative humidity, diagnostics
               fmc_gc,                     & ! fuel moisture fields updated, by class, assumed set to something reasonable
-              fmc_equi,                   &  ! fuel moisture fields updated, by class equilibrium diagnostic
-              fmc_lag                    &  ! fuel moisture fields updated, by class tendency diagnostic
+              fmep,                       & ! fuel moisture extended model parameters
+              fmc_equi,                   & ! fuel moisture fields updated, by class equilibrium diagnostic
+              fmc_lag                     & ! fuel moisture fields updated, by class tendency diagnostic
           )
           call message('advance_moisture end')
       endif
@@ -798,13 +815,28 @@ do ij=1,num_tiles
         
     if(fire_run)then
 
-     if(ifun.eq.1)then   ! set terrain
+     if(ifun.eq.2)then   ! interpolate
 
       if(restart)then
           
-          call message('restart - topo initialization skipped')
+          call message('restart - interpolation skipped')
 
       else
+        if(kfmc_ndwi > 0 .and. fndwi_from_ndwi .eq.1)then
+            call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,fndwi,'driver:ndwi')
+            call interpolate_z2fire(id,0,                 & ! for debug output, <= 0 no output, extend strip
+                ids,ide,  jds,jde,                    & ! atm grid dimensions
+                ims,ime,  jms,jme,                    &
+                ips,ipe,jps,jpe,                              &
+                its,ite,jts,jte,                              &
+                ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+                ifms, ifme, jfms, jfme,                       &
+                ifts,ifte,jfts,jfte,                          &
+                ir,jr,                                        & ! atm/fire grid ratio
+                ndwi,                                       & ! atm grid arrays in
+                fndwi)                                      ! fire grid arrays out
+            call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fndwi,'driver:fndwi')
+         endif
 !
 !        call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,zs,'driver:zs')
 !    
@@ -848,16 +880,13 @@ do ij=1,num_tiles
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlat,'xlat',id)
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlong,'xlong',id)
 #endif
-        endif
 
-     endif
-
-    elseif(ifun.eq.2)then  
-               
         ! after the loop where zsf created exited and all synced
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
  
         ! cannot initialize moisture model because T2 Q2 PSFC are not set yet
+        endif
+     endif
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
  
@@ -940,6 +969,7 @@ do ij=1,num_tiles
         ifts,ifte,jfts,jfte,                 &
         ir,jr,                                   & ! atm/fire grid ratio
         nfuel_cat,                         & ! fuel data
+        fndwi,                             & ! satellite sensing interpolated on fire grid
         fmc_gc,                             & ! moisture contents by class on atmospheric grid
         fmc_g                                & ! weighted fuel moisture contents on fire grid
         )
@@ -1420,6 +1450,8 @@ fire_advection          = config_flags%fire_advection
 fire_wind_log_interp    = config_flags%fire_wind_log_interp
 fire_use_windrf         = config_flags%fire_use_windrf
 fire_fmc_read           = config_flags%fire_fmc_read
+kfmc_ndwi               = config_flags%kfmc_ndwi
+fndwi_from_ndwi         = config_flags%fndwi_from_ndwi 
 
 end subroutine set_flags
 

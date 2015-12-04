@@ -1,7 +1,7 @@
  &time_control
  run_days                            = 0,
  run_hours                           = 0,
- run_minutes                         = 15,
+ run_minutes                         = 5,
  run_seconds                         = 0,
  start_year                          = 0001, 0001, 0001,
  start_month                         = 01,   01,   01,
@@ -13,17 +13,17 @@
  end_month                           = 01,   01,   01,
  end_day                             = 01,   01,   01,
  end_hour                            = 00,   00,   00,
- end_minute                          = 60,   60,   60,
+ end_minute                          = 600,   600,   600,
  end_second                          = 00,   00,   00,
  history_interval_s                  = 5,   30,   30,
- frames_per_outfile                  = 2000, 1000, 1000,
+ frames_per_outfile                  = 2, 1000, 1000,
  restart                             = .false.,
  restart_interval_s                  = 10
  io_form_history                     = 2
  io_form_restart                     = 2
  io_form_input                       = 2
  io_form_boundary                    = 2
- debug_level                         = 1
+ debug_level                         = 1 
  cycling                             = F
  /
 
@@ -59,7 +59,7 @@
  ra_lw_physics                       = 0,     0,     0,
  ra_sw_physics                       = 0,     0,     0,
  radt                                = 30,    30,    30,
- sf_sfclay_physics                   = 1,     0,     0,
+ sf_sfclay_physics                   = 0,     0,     0,
  sf_surface_physics                  = 0,     0,     0,
  bl_pbl_physics                      = 0,     0,     0,
  bldt                                = 0,     0,     0,
@@ -96,7 +96,6 @@
  time_step_sound                     = 20,     20,     20,
  moist_adv_opt                       = 1,      1,      1,
  scalar_adv_opt                      = 1,      1,      1,
- tracer_opt                          = 1,
  /
 
  &bdy_control
@@ -125,7 +124,6 @@
  ifire              = 2,    ! integer, = 0: no fire, 2=turn on fire model
  fire_fuel_read     = 0,    ! integer, -1: from WPS, 0= use fire_fuel_cat, 1= by altitude
  fire_fuel_cat      = 3,    ! integer, if specified which fuel category?
- sfc_full_init =.true.,
 ! ignition 
  fire_num_ignitions = 2,         ! integer, only the first fire_num_ignition used, up to 5 allowed
  fire_ignition_ros1 = 0.1,      ! ignition rate of spread, m/s
@@ -153,18 +151,19 @@
  !fire_ignition_start_time3 = 4,  ! sec for ignition from the start! end ignition for sfire
  !fire_ignition_end_time3  =  4,  ! sec for ignition from the start! end ignition for sfire
 ! moisture model
- fmoist_run = .false.,        ! run the moisture model
- fmoist_interp = .true.,     ! interpolate moisture to fuels
- fmoist_freq = 0,            ! frequency of run or 0 to run using the specified fmost_dt
- fmoist_dt = 10,             ! moisture model time step (s)
+ fmoist_run = .false.,        ! run moisture model
+ fmoist_interp = .true.,     ! interpolate from moisture classes
+ fmoist_freq = 0,            ! use specified dt
+ fmoist_dt = 10,             ! moisture model time step
+ fire_fmc_read = 0,          ! initialize fuel moisture classes
 !
 ! verbosity
- fire_print_msg     = 1,        ! 1 print fire summary messages 2=tracing
+ fire_print_msg     = 3,        ! 1 print fire debugging messages
  fire_print_file    = 0,        ! 1 write files for matlab
 !
 ! experiments
 !
- 
+ kfmc_ndwi=5, 
  fire_const_time = -1.,         ! (s) if >0, time from start to stop fire evolution and keep heat output constant
  fire_const_grnhfx = -1,        ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
  fire_const_grnqfx = -1,        ! (W/s) if both >=0, use this flux (meant to be used when fire_const_time=ignition time) 
@@ -185,7 +184,6 @@
 !
 ! method switches for developers only, do not change!
 !
- fire_debug_hook_sec= 0,        ! if >0, seconds to sleep in spin in debug hook and wait for debugger to attach to the process
  fire_use_windrf=0,             ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh, 3=adjust fwh for z0
  fire_wind_log_interp = 1,      ! 1 = from fuel categores, 2=constant from atm, 3=bilinear from atm, 4=interpolation and wind reduction per Behave
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
@@ -200,41 +198,3 @@
  fire_lfn_ext_up=1.0,           ! 0.=extend level set function at boundary by reflection, 1.=always up
  fire_advection=0,              ! 0 = cawfe, 1 = use abs speed/slope in spread rate, then project on normal to fireline
 /
-
-&chem
- kemit                               = 19,
- !chem_opt                            = 2,
- chem_opt                            = 112,
- bioemdt                             = 1,
- photdt                              = 1,
- chemdt                              = .1,
- io_style_emissions                  = 0,  
- emiss_opt                           = 3,          3,
- chem_in_opt                         = 1,          0,
- phot_opt                            = 2,          0,
- gas_drydep_opt                      = 0,          1, 
- aer_drydep_opt                      = 0,          1, 
- bio_emiss_opt                       = 0,          0,
- emiss_inpt_opt                      = 0,           ! we do not input anything?
- mozcart_lbc_set_onoff               = 0,           ! prevent resetting h2 and ch4 in layer1
- dust_opt                            = 0,
- dmsemis_opt                         = 0,
- seas_opt                            = 0,
- gas_bc_opt                          = 1,          0,
- gas_ic_opt                          = 1,          0,
- aer_bc_opt                          = 1,          0,
- aer_ic_opt                          = 1,          0,
- gaschem_onoff                       = 1,          0,
- aerchem_onoff                       = 1,          0,
- wetscav_onoff                       = 0,          0,
- cldchem_onoff                       = 0,          0,
- vertmix_onoff                       = 1,          0,
- chem_conv_tr                        = 0,          0,
- biomass_burn_opt                    = 0,          0,
- plumerisefire_frq                   = 30,         0,
- have_bcs_chem                       = .false., .false., .false.,
- aer_ra_feedback                     = 0,
- aer_op_opt                          = 0,
- opt_pars_out                        = 0,
- diagnostic_chem                     = 0,
- /

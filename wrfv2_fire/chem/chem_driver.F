@@ -882,9 +882,11 @@
               if( config_flags%chem_opt == MOZART_KPP .or. &
                   config_flags%chem_opt == MOZCART_KPP .or. &
                   config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
-                 call mozcart_lbc_set( chem, num_chem, grid%id, &
+                  if(config_flags%mozcart_lbc_set_onoff > 0) then  ! jm
+                      call mozcart_lbc_set( chem, num_chem, grid%id, &
                                        ims, ime, jms, jme, kms, kme,    &                  
                                        its, ite, jts, jte, kts )                           
+                  end if
               end if
 
 #if (defined(CHEM_DBG_I) && defined(CHEM_DBG_J) && defined(CHEM_DBG_K))
@@ -1047,9 +1049,11 @@
             if( config_flags%chem_opt == MOZART_KPP .or. &
                 config_flags%chem_opt == MOZCART_KPP .or. &
                 config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
-               call mozcart_lbc_set( chem, num_chem, grid%id, &
+                if(config_flags%mozcart_lbc_set_onoff > 0) then ! jm
+                    call mozcart_lbc_set( chem, num_chem, grid%id, &
                                      ims, ime, jms, jme, kms, kme,    & 
                                      its, ite, jts, jte, kts )
+                end if
             end if
 
          end if
@@ -1121,9 +1125,11 @@
              if( config_flags%chem_opt == MOZART_KPP .or. &
                  config_flags%chem_opt == MOZCART_KPP .or. &
                  config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+                 if(config_flags%mozcart_lbc_set_onoff > 0) then
                      call mozcart_lbc_set( chem, num_chem, grid%id, &
                                  ims, ime, jms, jme, kms, kme,    &
                                  its, ite, jts, jte, kts )
+                 endif
              end if
         ! accumulate convective tendencies
 #if (EM_CORE == 1)
@@ -1251,9 +1257,11 @@ CALL kpp_mechanism_driver (chem,                                                
           if( config_flags%chem_opt == MOZART_KPP .or. &
               config_flags%chem_opt == MOZCART_KPP .or. &
               config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
-             call mozcart_lbc_set( chem, num_chem, grid%id, &
+              if(config_flags%mozcart_lbc_set_onoff > 0) then ! jm
+                  call mozcart_lbc_set( chem, num_chem, grid%id, &
                                    ims, ime, jms, jme, kms, kme,    &
                                     its, ite, jts, jte, kts )
+              end if
           end if
     if(config_flags%chem_opt == 301 ) then
        chem(its:ite,kts:kte,jts:jte,p_sulf)=vcsulf_old(its:ite,kts:kte,jts:jte)

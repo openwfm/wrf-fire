@@ -163,7 +163,7 @@ real, pointer, save, dimension(:)::c_fuel
 real, pointer, save, dimension(:)::c_tracer
 logical, save:: emis_read = .false.
 integer, save:: msglevel =1,printsums=0 ! when to print sums
-integer, parameter:: line=8 ! number of species, emissions, etc. per line
+integer, parameter:: line=5 ! number of species, emissions, etc. per line
 
 contains
 
@@ -370,13 +370,14 @@ real, intent(in), dimension(ifms:ifme,jfms:jfme):: fgip, &            ! initial 
 real, intent(inout)::chem(ims:ime,kms:kme,jms:jme,num_chem),tracer(ims:ime,kms:kme,jms:jme,num_tracer)
 
 !*** local
-integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw,m
+integer:: i,i_f,j,j_f,ir,jr,isz1,isz2,jsz1,jsz2,ioff,joff,ibase,jbase,cat,k1,areaw,m,k,k_p,errors
 real::fuel_burnt,vol,air,conv, avgw,emis 
 character(len=128)msg
 
 real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate burnt
 #ifdef WRF_CHEM
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
+real, dimension(num_chem) ::a_chem,g_chem  ! concentration in ground level 1 
 integer, parameter:: chem_np=46
 integer:: chem_pointers(chem_np)
 character(len=8)::chem_names(chem_np)
@@ -559,11 +560,41 @@ enddo
 ! rho(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
 
 k1 = kts 
-write(msg,'(a,i3)')'Fire missions insterted into atmpsphere level',k1
+write(msg,'(a,i3)')'Fire emissions inserted into atmosphere level',k1
+call message(msg,level=msglevel)
 
-do j=jts,jte
+#ifdef WRF_CHEM
+if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
+    ! sum ground concentrations and check for nans
+    a_chem=0.0
+    g_chem=0.0
+    errors=0
+    do j=jts,jte
+       do k=1,chem_np
+          k_p=chem_pointers(k)
+          do i=its,ite
+             if(chem(i,k1,j,k_p ).ne.chem(i,k1,j,k_p ))errors=errors+1
+             a_chem(k_p)=a_chem(k_p)+chem(i,k1,j,k_p )
+          enddo
+       enddo
+    enddo
+    if(errors>0)call crash('NaN before chem update')
+    call wrf_dm_sum_reals(a_chem,g_chem)
+    call message('Layer1 raw sums before adding fire emissions',level=msglevel)
+    do i=1,chem_np,line
+        m=min(i+line-1,chem_np)
+        write(msg,80)'Emissions ',(trim(chem_names(j)),j=i,m)
+        call message(msg,level=msglevel)
+        write(msg,81)'Layer1 beg',(g_chem(chem_pointers(j)),j=i,m)
+        call message(msg,level=msglevel)
+        call message(' ',level=msglevel)
+    enddo
+endif
+#endif
+
+do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
     jbase=jtfs+jr*(j-jts)                   ! indexing
-    do i=its,ite
+    do i=max(ids+1,its),min(ite,ide-1)
        ibase=ifts+ir*(i-its)                ! indexing
        !air = 1e6*mw_air/rho(i,kds,j)    ! 1e6*mw_air/air density 
        !vol = avgw/dz8w(i,kds,j)             ! averaging volume factor / 1st layer depth
@@ -585,13 +616,17 @@ do j=jts,jte
                !*** chem compounds emissions given in g/kg
 
                ! fuel_burnt kg/m^2 *  table g/kg ->  ppmv = 1e6*mol/mol in 1st layer
-               conv = avgw*1e6*mw_air/(rho(i,k1,j)*dz8w(i,k1,j))
-
+!AK rho is in kg/m3 so the conversion factor must be scaled by a 1000 to match
+!emissions in grams
+!                conv = avgw*1e6*mw_air/(rho(i,k1,j)*dz8w(i,k1,j))
+                 conv = avgw*1e3*mw_air/(rho(i,k1,j)*dz8w(i,k1,j))
 #ifdef WRF_CHEM
 
                emis=co  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
                t_chem(p_co) = t_chem(p_co) + emis                           ! add to total
+               ! if(isnan(chem(i,k1,j,p_co  )))call crash('NaN before')
                chem(i,k1,j,p_co  )=chem(i,k1,j,p_co  ) + emis*conv*imw_co   ! add to chem
+               ! if(isnan(chem(i,k1,j,p_co  )))call crash('NaN after')
 
                emis=ch4  (cat)*fuel_burnt                                    ! emission from fire cell in g/m^2
                t_chem(p_ch4) = t_chem(p_ch4) + emis                           ! add to total
@@ -825,6 +860,35 @@ do j=jts,jte
     enddo
 enddo
 
+#ifdef WRF_CHEM
+if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
+    ! sum ground concentrations and check for nans
+    a_chem=0.0
+    g_chem=0.0
+    errors=0
+    do j=jts,jte
+       do k=1,chem_np
+          k_p=chem_pointers(k)
+          do i=its,ite
+             if(chem(i,k1,j,k_p ).ne.chem(i,k1,j,k_p ))errors=errors+1
+             a_chem(k_p)=a_chem(k_p)+chem(i,k1,j,k_p )
+          enddo
+       enddo
+    enddo
+    if(errors>0)call crash('NaN after chem update')
+    call wrf_dm_sum_reals(a_chem,g_chem)
+    call message('Layer1 raw sums after adding fire emissions',level=msglevel)
+    do i=1,chem_np,line
+        m=min(i+line-1,chem_np)
+        write(msg,80)'Emissions ',(trim(chem_names(j)),j=i,m)
+        call message(msg,level=msglevel)
+        write(msg,81)'Layer1 end',(g_chem(chem_pointers(j)),j=i,m)
+        call message(msg,level=msglevel)
+        call message(' ',level=msglevel)
+    enddo
+endif
+#endif
+
 if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     ! sum over processes and add to cumulative sums
 
@@ -839,6 +903,7 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
     c_fuel = c_fuel + s_fuel
 
 #ifdef WRF_CHEM
+    call wrf_dm_sum_reals(a_chem,g_chem)
     ! chem
     call wrf_dm_sum_reals(t_chem,s_chem)
     s_chem = s_chem*dx*dy 
@@ -947,9 +1012,9 @@ call message(msg)
 do i=1,np,line
    m=min(i+line-1,np)
    write(msg,'(a,8(1x,a8))')'Species',(trim(pointer_names(j)),j=i,m)
-   call message(msg)
+   call message(msg,level=msglevel)
    write(msg,'(a,8i9)')     'Pointer',(pointers(j),j=i,m)
-   call message(msg)
+   call message(msg,level=msglevel)
    call message(' ')
 enddo
 

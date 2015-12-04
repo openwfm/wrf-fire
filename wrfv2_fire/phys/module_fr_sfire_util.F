@@ -41,7 +41,9 @@ integer,save::          &
  fire_use_windrf=0,     &  ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
  fire_fmc_read=1,       &  ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
  fire_hfx_given=0,      &  ! "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 4=by parameters" ""
- fire_hfx_num_lines=1        ! number of heatflux parameter sets defining the heaflux lines (must be 1) 
+ fire_hfx_num_lines=1,  &     ! number of heatflux parameter sets defining the heaflux lines (must be 1) 
+ fndwi_from_ndwi=1,     &  ! interpolate ndwi from atmosphere resolution
+ kfmc_ndwi=0               ! if>0 , number of the fuel moisture class to update from ndwi
  
 
 real, save::            &
@@ -92,6 +94,18 @@ contains
 !
 !*****************************
 !
+
+logical function isnan(a) 
+real, intent(in):: a 
+isnan= (a.ne.a) 
+return 
+end function isnan
+
+logical function isnotfinite(aa)
+real, intent(in)::aa
+isnotfinite=(aa.ne.aa.or..not.aa.le.huge(aa).or..not.aa.ge.-huge(aa))
+end function isnotfinite
+
 
 subroutine interpolate_z2fire(id,                 & ! for debug output, <= 0 no output
     istrip,                              & ! width of strip to extrapolate to around domain
@@ -1413,7 +1427,7 @@ mi=ite-its+1
 mj=jte-jts+1
 write(msg,2)'reading array size ',mi,mj,' from file ',trim(filename)
 2 format(a,2i6,2a)
-call message(msg)
+call message(msg,level=1)
 
 ! check array index overflow
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
@@ -1439,6 +1453,10 @@ do i=its,ite
    read(iu,*,err=10)(a(i,j),j=jts,jte)
 enddo
 close(iu,err=11)
+call print_2d_stats(its,ite,jts,jte, &
+                         ims,ime,jms,jme, &
+                         a,filename)
+write(6,*)its,jts,a(its,jts),loc(a(its,jts))
 return
 
 9  msg='Error opening file '//trim(filename)
@@ -1448,6 +1466,7 @@ call crash(msg)
 11 msg='Error closing file '//trim(filename)
 call crash(msg)
 end subroutine read_array_2d_real
+
 !
 !***
 !
