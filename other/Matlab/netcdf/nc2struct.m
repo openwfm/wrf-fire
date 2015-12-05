@@ -1,5 +1,5 @@
 function [p,dims]=nc2struct(filename,varnames,gattnames,timestep,p)
-% p=ncread2str(filename,varnames,gattnames,timestep,p)
+% p=nc2struct(filename,varnames,gattnames,timestep,p)
 % read from netcdf file to structure
 %
 % arguments
@@ -7,7 +7,7 @@ function [p,dims]=nc2struct(filename,varnames,gattnames,timestep,p)
 %   filename        string, name of file to read
 %   varnames        cell array of strings, names of variable to read
 %   gattnames       cell array of strings, names of global attributes to read
-%   times           (optional) matrix of indices in the last dimension to extract
+%   times           (optional) matrix of indices in the last dimension to extract (timestep in WRF)
 %   p               (optional) the structure to add to
 % output
 %   p               matlab structure with the specifed variables and attributes as fields
@@ -15,7 +15,7 @@ function [p,dims]=nc2struct(filename,varnames,gattnames,timestep,p)
 %                   are not squeezed
 %
 % example
-%   p=ncread2struct('wrfinput_d01',{'U','V'},{'DX','DY'})
+%   p=nc2struct('wrfinput_d01',{'U','V'},{'DX','DY'})
 % will read variables U,V into p.u, p.v and global attributes DX DY into
 % p.dx p.dy, respectively
 
