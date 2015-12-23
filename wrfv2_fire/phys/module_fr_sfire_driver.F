@@ -76,6 +76,16 @@ use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpo
    interpolate_z2fire,setup_wind_log_interpolation
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
+! Driver layer modules
+#ifdef DM_PARALLEL
+    USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks,wrf_dm_sum_reals
+    USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
+halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
+halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub, &
+halo_fire_ndwi_sub
+#endif
+use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
+
 
 ! WRF dependencies
 USE module_domain, only: domain
@@ -87,7 +97,7 @@ implicit none
 
 
 private
-public sfire_driver_em,use_atm_vars,set_flags,fire_ignition_convert, &
+public sfire_driver_em,use_atm_vars,set_flags, &
        set_fp_from_grid
 public ifun_beg, ifun_step, ifun_end
 
@@ -116,16 +126,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
 !*** purpose: driver from grid structure
 
-! Driver layer modules
-#ifdef DM_PARALLEL
-    USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
-    USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
-halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
-halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub, &
-halo_fire_ndwi_sub
-#endif
-
-use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
 
     implicit none
@@ -145,7 +145,7 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
 !*** local
     TYPE(lines_type):: ignition, hfx
-    integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1
+    integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1,j
     logical::restart
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
@@ -165,22 +165,28 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
 
+! **** THE FOLLOWING REALLY SHOULD BE DONE ONCE NOT EVERY TIMESTEP
+
 ! populate our structures from wrf
 
     call set_fp_from_grid(grid,fp)
 
-    ! **** THE FOLLOWING REALLY SHOULD BE DONE ONCE NOT EVERY TIMESTEP
+! copy configuration flags to sfire internal structures
+    call set_flags(config_flags)
+
+        
     ! get ignition data 
-    call fire_ignition_convert (config_flags,ignition)
+    call fire_ignition_convert (config_flags,ignition,               &
+             grid%fxlong, grid%fxlat,                                &
+             ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe )
     call fire_hfx_convert (config_flags,hfx)
 
 ! store computed mesh units  
     grid%unit_fxlong = ignition%unit_fxlong
     grid%unit_fxlat = ignition%unit_fxlat
 
-
-    ! copy configuration flags to sfire internal structures
-    call set_flags(config_flags)
 
 #ifndef SFIRE_STANDALONE
 
@@ -270,6 +276,8 @@ use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
     endif
     itimestep=grid%itimestep
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
+
+    
     
     ! **** moisture model
 
@@ -1188,18 +1196,29 @@ if ((ide-ids+1)*ir.ne.(ifde-ifds+1))then
 endif
 end subroutine check_fmesh
 
-
-subroutine fire_ignition_convert (config_flags,ignition)
+subroutine fire_ignition_convert (config_flags,ignition,             &
+             fxlong, fxlat,                                          &
+             ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe )
     implicit none
 ! create ignition arrays from scalar flags
 !*** arguments
     TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
     TYPE (lines_type), INTENT(OUT):: ignition ! any values from input discarded 
+    integer::ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe 
+    real, dimension(ifms:ifme,jfms:jfme):: fxlong,fxlat
 !*** local
-    integer::i
+    integer::i,j
     logical:: real,ideal
     character(len=128)msg
+    real:: corner_longlat(2,2,2), corner_longlat_1(8), corner_longlat_2(8),lon(2),lat(2)
+    real, dimension(2,2):: corner_long,corner_lat ! coordinates of fire mesh corner cells
+
 !*** executable
+
 
     ignition%max_lines=5 ! number of lines that have entries in the namelist
     ignition%num_lines=config_flags%fire_num_ignitions
@@ -1287,8 +1306,85 @@ subroutine fire_ignition_convert (config_flags,ignition)
 
        call postprocess_lines(ignition,'ros',config_flags)
 
-     end subroutine fire_ignition_convert
+    if(fire_ignition_clamp > 0)then
+!       get the coordinates of the corner cells
+        corner_longlat=0.
+        if(ifds.eq.ifps.and.jfds.eq.jfps)then     
+            corner_longlat(1,1,1)=fxlong(ifps,jfps)
+            corner_longlat(1,1,2)=fxlat(ifps,jfps)
+        endif
+        if(ifds.eq.ifps.and.jfde.eq.jfpe)then 
+            corner_longlat(1,2,1)=fxlong(ifps,jfpe)
+            corner_longlat(1,2,2)=fxlat(ifps,jfpe)
+        endif
+        if(ifde.eq.ifpe.and.jfds.eq.jfps)then 
+            corner_longlat(2,1,1)=fxlong(ifpe,jfps)
+            corner_longlat(2,1,2)=fxlat(ifpe,jfps)
+        endif
+        if(ifde.eq.ifpe.and.jfde.eq.jfpe)then 
+            corner_longlat(2,2,1)=fxlong(ifpe,jfpe)
+            corner_longlat(2,2,2)=fxlat(ifpe,jfpe)
+        endif
+        corner_longlat_1=reshape(corner_longlat,(/8/))
+#ifdef DM_PARALLEL
+        call wrf_dm_sum_reals(corner_longlat_1,corner_longlat_2)
+#else
+        corner_longlat_2=corner_longlat_1
+#endif
+        corner_longlat=reshape(corner_longlat_2,(/2,2,2/))
+        corner_long=corner_longlat(1:2,1:2,1)
+        corner_lat=corner_longlat(1:2,1:2,2)
+        if(fire_print_msg.ge.2)then
+            do i=1,2
+                do j=1,2
+                     write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
+                     call message(msg)
+                enddo
+            enddo
+        endif
+	lon(1)=(corner_long(1,1)+corner_long(1,2))/2.
+	lon(2)=(corner_long(2,1)+corner_long(2,2))/2.
+	lat(1)=(corner_lat(1,1)+corner_lat(2,1))/2.
+	lat(2)=(corner_lat(1,2)+corner_lat(2,2))/2.
+        if(fire_print_msg.ge.2)then
+            write(msg,'(4(a,f14.8))')' coordinates ',lon(1),':',lon(2),',',lat(1),':',lat(2)
+            call message(msg)
+        endif
+       do i=1,ignition%num_lines
+           call clamp_to_grid(ignition%line(i)%start_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%start_x,j)
+           call clamp_to_grid(ignition%line(i)%end_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%end_x,j)
+           call clamp_to_grid(ignition%line(i)%start_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%start_y,j)
+           call clamp_to_grid(ignition%line(i)%end_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%end_y,j)
+       enddo
 
+    endif
+    end subroutine fire_ignition_convert
+
+     subroutine clamp_to_grid(x,x1,x2,i1,i2,xout,iout)
+!***	round point on uniform mesh to a mesh node
+!***	arguments
+        real, intent(in)::x,x1,x2
+        integer, intent(in)::i1,i2
+        real, intent(out)::xout
+        integer, intent(out)::iout
+!***	local
+        character(len=128)::msg
+        integer:: i
+        real::r,dx,xr
+!***    executable
+        dx=(x2-x1)/(i2-i1)
+        r=i1+(x-x1)/dx
+        iout=nint(r)
+        xr=x1+(iout-i1)*dx
+        if(fire_print_msg.ge.2)then
+            write(msg,'(a,f14.8,a,f14.8)')'coordinate ',x,' clamped to ',xr
+            call message(msg)
+        endif
+        xout=xr
+    end subroutine clamp_to_grid
+!
+!***
+!
      subroutine postprocess_lines(lines,value_name,config_flags)
 !      count lines, fill endpoints, print stats
 !***   arguments
@@ -1450,6 +1546,7 @@ fire_advection          = config_flags%fire_advection
 fire_wind_log_interp    = config_flags%fire_wind_log_interp
 fire_use_windrf         = config_flags%fire_use_windrf
 fire_fmc_read           = config_flags%fire_fmc_read
+fire_ignition_clamp     = config_flags%fire_ignition_clamp
 kfmc_ndwi               = config_flags%kfmc_ndwi
 fndwi_from_ndwi         = config_flags%fndwi_from_ndwi 
 
