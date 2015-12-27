@@ -47,7 +47,7 @@ all lib archive linked_lib clean depend clean_depend clean_lib:
 		fi ; \
 		if [ ! -d "$$d" ]; then \
 			echo "        Error: subdir $$d is NOT a directory!"; \
-			contiuue ;\
+			continue ;\
 		fi ; \
 		if [ ! -r "$$d/Makefile" ]; then\
 			echo "        Error: subdir $$d does NOT contain a Makefile!"; \
