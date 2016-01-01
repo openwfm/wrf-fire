@@ -3,12 +3,12 @@ function analysis=detect_fit_linesearch(prefix)
 
 disp('input data')
     % to create conus.kml:
-    % download http://firemapper.sc.egov.usda.gov/data_viirs/kml/conus_hist/conus_20120914.kmz
+    % download http://firemapper.sc.egov.usda.gov/data_viirs/kml/conus_hist/2012/conus_20120914.kmz
     % and gunzip 
     % 
     % to create w.mat:
     % run Adam's simulation, currently results in
-    % /home/akochans/NASA_WSU/wrf-fire/WRFV3/test/em_barker_moist/wrfoutputfiles_live_0.25
+    % /share_home/akochans/NASA_WSU/wrf-fire/WRFV3/test/em_barker_moist/wrfoutputfiles_live_0.25
     % then in Matlab
     % f='wrfout_d05_2012-09-15_00:00:00'; 
     % t=nc2struct(f,{'Times'},{'DX','DY'});  n=size(t.times,2);  w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG'},{},n);
