@@ -1,10 +1,10 @@
 function h=read_wrfout_sel(files,vars,nsamples)
-% h=readsel_wfout(files,vars)
+% h=read_wrfout_sel(files,vars,nsamples)
 % read selected time levels from wrfouts
 % in 
 %     files     cell array of file names
 %     files     cell array of variable names
-%     nsamples  number of samples to read 
+%     nsamples  number of timestep samples to read, if missing read all 
 % out
 %     h         structure with the selected variables
 
@@ -19,19 +19,34 @@ else
     step = floor((ntot+nsamples-1)/nsamples)
 end
 start=[1,cumsum(n)+1]
-for j=mod(ntot-1,step)+1:step:ntot
+idx=mod(ntot-1,step)+1:step:ntot;
+nidx=length(idx);
+for jx=1:nidx
+    j=idx(jx);
     k=find(j>=start);k=k(end);
     loc=j-start(k)+1;
-    fprintf('reading step %i as %i from file %i\n',j,loc,k)
+    fprintf('reading step %i as %i from file %i into %i\n',j,loc,k,jx)
     if loc <=0 | k > length(files), error('bad index'), end
     [f,dims]=nc2struct(files{k},vars,{},loc);
     if ~exist('h','var'),
-        h=f;
-    else
-        for j=1:length(vars)
-            field=lower(vars{j});
-            n=length(dims.(field));
-            h.(field)=cat(n,h.(field),f.(field));
+        for jj=1:length(vars)
+            field=lower(vars{jj});
+            d=dims.(field);
+            h.(field)=zeros([d(1:end-1),ntot]);
+        end
+    end
+    for j=1:length(vars)
+        field=lower(vars{j});
+        n=length(dims.(field));
+        switch n
+            case 2
+                h.(field)(:,jx)=f.(field);
+            case 3
+                h.(field)(:,:,jx)=f.(field);
+            case 4
+                h.(field)(:,:,:,jx)=f.(field);
+            otherwise
+                error(['unsupported number of dimensions ',num2str(n)]);
         end
     end
 end
