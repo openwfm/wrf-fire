@@ -11,8 +11,8 @@ disp('input data')
     % /share_home/akochans/NASA_WSU/wrf-fire/WRFV3/test/em_barker_moist/wrfoutputfiles_live_0.25
     % then in Matlab
     % f='wrfout_d05_2012-09-15_00:00:00'; 
-    % t=nc2struct(f,{'Times'},{'DX','DY'});  n=size(t.times,2);  w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG'},{},n);
-    % save ~/w.mat t    
+    % t=nc2struct(f,{'Times'},{});  n=size(t.times,2);  w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','Times'},{'DX','DY'},n);
+    % save ~/w.mat w    
     %
     % to create c.mat
     % c=nc2struct(f,{'NFUEL_CAT'},{},1);
@@ -29,15 +29,18 @@ disp('input data')
     
     v=read_fire_kml('conus_viirs.kml');
     detection='VIIRS';        
+    if ~exist('prefix','var'),
+        prefix='viirs';
+    end
     
     a=load('w');w=a.w;
-    if ~isfield('dx',w),
+    if ~isfield(w,'dx'),
         w.dx=444.44;
         w.dy=444.44;
         warning('fixing up w for old w.mat file from Barker fire')
     end
     
-    a=load('s');s=a.s;
+   % a=load('s');s=a.s;
     a=load('c');c=a.c;
     fuel.weight=0; % just to let Matlab know what fuel is going to be at compile time
     fuels
