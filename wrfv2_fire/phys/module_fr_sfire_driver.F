@@ -1306,7 +1306,6 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
 
        call postprocess_lines(ignition,'ros',config_flags)
 
-    if(fire_ignition_clamp > 0)then
 !       get the coordinates of the corner cells
         corner_longlat=0.
         if(ifds.eq.ifps.and.jfds.eq.jfps)then     
@@ -1347,31 +1346,36 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
 	lat(1)=(corner_lat(1,1)+corner_lat(2,1))/2.
 	lat(2)=(corner_lat(1,2)+corner_lat(2,2))/2.
         if(fire_print_msg.ge.2)then
-            write(msg,'(4(a,f14.8))')' coordinates ',lon(1),':',lon(2),',',lat(1),':',lat(2)
+            write(msg,'(4(a,f14.8))')'coordinates ',lon(1),':',lon(2),',',lat(1),':',lat(2)
             call message(msg)
         endif
-       do i=1,ignition%num_lines
-           call clamp_to_grid(ignition%line(i)%start_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%start_x,j)
-           call clamp_to_grid(ignition%line(i)%end_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%end_x,j)
-           call clamp_to_grid(ignition%line(i)%start_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%start_y,j)
-           call clamp_to_grid(ignition%line(i)%end_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%end_y,j)
-       enddo
 
-    endif
+       do i=1,ignition%num_lines
+           call clamp_to_grid(ignition%line(i)%start_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%start_x,j,fire_ignition_clamp)
+           call clamp_to_grid(ignition%line(i)%start_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%start_y,j,fire_ignition_clamp)
+           call clamp_to_grid(ignition%line(i)%end_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%end_x,j,fire_ignition_clamp)
+           call clamp_to_grid(ignition%line(i)%end_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%end_y,j,fire_ignition_clamp)
+       enddo
     end subroutine fire_ignition_convert
 
-     subroutine clamp_to_grid(x,x1,x2,i1,i2,xout,iout)
+     subroutine clamp_to_grid(x,x1,x2,i1,i2,xout,iout,fire_ignition_clamp)
 !***	round point on uniform mesh to a mesh node
 !***	arguments
         real, intent(in)::x,x1,x2
         integer, intent(in)::i1,i2
         real, intent(out)::xout
         integer, intent(out)::iout
+        integer, intent(in)::fire_ignition_clamp
 !***	local
         character(len=128)::msg
         integer:: i
         real::r,dx,xr
 !***    executable
+        if (.not.(x>x1 .and. x<x2))then
+            write(msg,'(a,f10.4,a,2f10.4)')'ignition point coordinate',x,' must be inside the bounds',x1,x2
+            call crash(msg)
+        endif
+        if(fire_ignition_clamp.eq.0)return
         dx=(x2-x1)/(i2-i1)
         r=i1+(x-x1)/dx
         iout=nint(r)
