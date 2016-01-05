@@ -1211,7 +1211,7 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
              ifps,ifpe, jfps,jfpe 
     real, dimension(ifms:ifme,jfms:jfme):: fxlong,fxlat
 !*** local
-    integer::i,j
+    integer::i,j,ii,jj
     logical:: real,ideal
     character(len=128)msg
     real:: corner_longlat(2,2,2), corner_longlat_1(8), corner_longlat_2(8),lon(2),lat(2)
@@ -1351,37 +1351,61 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
         endif
 
        do i=1,ignition%num_lines
-           call clamp_to_grid(ignition%line(i)%start_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%start_x,j,fire_ignition_clamp)
-           call clamp_to_grid(ignition%line(i)%start_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%start_y,j,fire_ignition_clamp)
-           call clamp_to_grid(ignition%line(i)%end_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%end_x,j,fire_ignition_clamp)
-           call clamp_to_grid(ignition%line(i)%end_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%end_y,j,fire_ignition_clamp)
+           call check_ignition_coordinate(ignition%line(i)%start_x,lon(1),lon(2))
+           call check_ignition_coordinate(ignition%line(i)%start_y,lat(1),lat(2))
+           call check_ignition_coordinate(ignition%line(i)%end_x,lon(1),lon(2))
+           call check_ignition_coordinate(ignition%line(i)%end_y,lat(1),lat(2))
        enddo
+
+       if (fire_ignition_clamp>0) then
+       do i=1,ignition%num_lines
+           call clamp_to_grid(ignition%line(i)%start_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%start_x,ii)
+           call clamp_to_grid(ignition%line(i)%start_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%start_y,jj)
+           call display_clamp
+           call clamp_to_grid(ignition%line(i)%end_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%end_x,ii)
+           call clamp_to_grid(ignition%line(i)%end_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%end_y,jj)
+           call display_clamp
+           ! for now, ii jj ignored. In future replace by fxlong(ii,jj), fxlat(ii,jj) to guard against rounding
+       enddo
+       endif
+       contains
+       subroutine display_clamp
+        character(len=128)::msg
+           if(ii>=ifps.and.ii<=ifpe.and.jj>=jfps.and.jj<=jfpe)then
+               write(msg,'(a,2f14.8,a,2i6)')'grid node ',fxlong(ii,jj),fxlat(ii,jj),' index',ii,jj
+               call message(msg)
+           endif
+       end subroutine display_clamp
     end subroutine fire_ignition_convert
 
-     subroutine clamp_to_grid(x,x1,x2,i1,i2,xout,iout,fire_ignition_clamp)
+     subroutine check_ignition_coordinate(x,x1,x2)
+!***	arguments
+        real, intent(in)::x,x1,x2
+        character(len=128)::msg
+        if (.not.(x>x1 .and. x<x2))then
+            write(msg,'(a,f14.8,a,2f14.8)')'ignition point coordinate',x,' must be inside the bounds',x1,x2
+            call crash(msg)
+        endif
+     end subroutine check_ignition_coordinate
+
+     subroutine clamp_to_grid(x,x1,x2,i1,i2,xout,iout)
 !***	round point on uniform mesh to a mesh node
 !***	arguments
         real, intent(in)::x,x1,x2
         integer, intent(in)::i1,i2
         real, intent(out)::xout
         integer, intent(out)::iout
-        integer, intent(in)::fire_ignition_clamp
 !***	local
         character(len=128)::msg
         integer:: i
         real::r,dx,xr
 !***    executable
-        if (.not.(x>x1 .and. x<x2))then
-            write(msg,'(a,f10.4,a,2f10.4)')'ignition point coordinate',x,' must be inside the bounds',x1,x2
-            call crash(msg)
-        endif
-        if(fire_ignition_clamp.eq.0)return
         dx=(x2-x1)/(i2-i1)
         r=i1+(x-x1)/dx
         iout=nint(r)
         xr=x1+(iout-i1)*dx
         if(fire_print_msg.ge.2)then
-            write(msg,'(a,f14.8,a,f14.8)')'coordinate ',x,' clamped to ',xr
+            write(msg,'(a,f14.8,a,f14.8,a,i6)')'coordinate ',x,' clamped to ',xr,' index',iout
             call message(msg)
         endif
         xout=xr
