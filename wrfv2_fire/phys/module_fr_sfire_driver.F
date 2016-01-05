@@ -102,6 +102,7 @@ public sfire_driver_em,use_atm_vars,set_flags, &
 public ifun_beg, ifun_step, ifun_end
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
+logical:: interpolate_long_lat=.true. ! get fxlong fxlat by interpolation
 
 logical:: fmoist_run, fmoist_interp, fire_run  ! which kind of model to run overall
 
@@ -888,6 +889,33 @@ do ij=1,num_tiles
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlat,'xlat',id)
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlong,'xlong',id)
 #endif
+ 
+        if (interpolate_long_lat)then
+         call message('Intepolating node longitude and latitude to fire mesh')
+         call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            xlat,                                       & ! atm grid arrays in
+            fxlat)                                      ! fire grid arrays out
+
+        call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            xlong,                                       & ! atm grid arrays in
+            fxlong)                                      ! fire grid arrays out
+        endif
 
         ! after the loop where zsf created exited and all synced
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
@@ -1371,6 +1399,7 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
        contains
        subroutine display_clamp
         character(len=128)::msg
+        real::d1,d2
            if(ii>=ifps.and.ii<=ifpe.and.jj>=jfps.and.jj<=jfpe)then
                write(msg,'(a,2f14.8,a,2i6)')'grid node ',fxlong(ii,jj),fxlat(ii,jj),' index',ii,jj
                call message(msg)
