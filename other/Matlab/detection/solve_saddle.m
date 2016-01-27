@@ -2,7 +2,7 @@ function delta=solve_saddle(C,H,F,invA)
 % 
 % solve the saddle point problem
 %
-%  A*delta   + C*lambda = A*H + Fedit
+%  A*delta   + C*lambda = A*H + F
 %  C'*delta             = 0 
 %
 % input: 

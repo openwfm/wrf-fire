@@ -213,7 +213,7 @@ nodetw=input_num('no fire detection weight',0.5);
 power=input_num('negative laplacian power',1.02);
 
 % storage for h maps
-maxiter = 5;
+maxiter = 2;
 h_stor = zeros(m,n,maxiter);
 
 for istep=1:maxiter
