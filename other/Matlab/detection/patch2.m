@@ -15,24 +15,14 @@
 % save ~/c.mat c
 %
 % to create s.mat:
-% s=read_wrfout_sel({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'FGRNHFX'}); 
+% a=dir('wrfout_d01*');
+% s=read_wrfout_sel({a.name},{'FGRNHFX'}); 
 % save ~/s.mat s 
 % 
 % fuels.m is created by WRF-SFIRE at the beginning of the run
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
-conus = input('enter 0 for viirs, 1 for modis> ');
-if conus==0, 
-        v=read_fire_kml('conus_viirs.kml');
-        detection='VIIRS';
-elseif conus==1,
-        v=read_fire_kml('conus_modis.kml');
-        detection='MODIS';
-else
-        error('need kml file')
-end
-    
 load w
 load s
 load c
@@ -50,7 +40,8 @@ default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
 default_bounds{2}=[-119.5, -119.0, 47.95, 48.15];
 for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
 
-bounds=input('enter bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above> ');
+bounds=input('enter bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above (1)> ');
+if isempty(bounds),bounds=1;end
 if length(bounds)==1, bounds=default_bounds{bounds}; end
 [ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
 ispan=min(ii):max(ii);
@@ -66,17 +57,20 @@ min_lat = min(w.fxlat(:))
 max_lat = max(w.fxlat(:))
 min_lon = min(w.fxlong(:))
 max_lon = max(w.fxlong(:))
-min_tign= min(w.tign_g(:))
 
-% rebase time on the largest tign_g = the time of the last frame, in days
-
+% rebase tign on the largest tign_g = the time of the last frame, in days
 last_time=datenum(char(w.times)'); 
-max_tign_g=max(w.tign_g(:));
+tign=(w.tign_g - max(w.tign_g(:)))/(24*60*60) + last_time;
+min_tign=min(tign(:));
+max_tign=max(tign(:));
 
-tim_all = v.tim - last_time;
-tign= (w.tign_g - max_tign_g)/(24*60*60);
-min_tign= min(tign(:)); % initial ignition time
-tign(tign==0)=NaN;
+tign(find(tign==max_tign))=NaN; % squash the top
+h=surf(w.fxlong,w.fxlat,tign-min_tign); 
+xlabel('longitude'),ylabel('latitude'),zlabel('days')
+set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
+
+file_search='TIFs/NPP*.tif.mat';      % the level2 files processed by geotiff2mat.py
+d=dir(file_search);d={d.name};
 
 % select fire detection within the domain and time
 bii=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
