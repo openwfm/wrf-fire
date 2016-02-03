@@ -69,9 +69,19 @@ h=surf(w.fxlong,w.fxlat,tign-min_tign);
 xlabel('longitude'),ylabel('latitude'),zlabel('days')
 set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
 
-file_search='TIFs/NPP*.tif.mat';      % the level2 files processed by geotiff2mat.py
+prefix='TIFs';
+file_search=[prefix,'/NPP*.tif.mat'];      % the level2 files processed by geotiff2mat.py
 d=dir(file_search);d={d.name};
 
+for i=1:length(d)
+    file=d{i};
+    t=rsac2time(file);
+    f=load(file);
+    geo=f.geotransform;
+    [rows,cols]=size(f.data);
+    lon = geo(1)+[0:rows-1]*geo(2);
+    lat = geo(4)+[cols-1:-1:0]*geo(6);
+end
 % select fire detection within the domain and time
 bii=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
 

@@ -8,10 +8,7 @@ end
 files=dir(search);
 for i=1:length(files),
     file=files(i).name;
-    parse=regexp(file,'\.','split');
-    load(file)
-    s=file;
-    showmod14(data,geotransform,s)
+    showmod14(file)
     pause(2)
 end
     
