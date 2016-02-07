@@ -65,25 +65,50 @@ min_tign=min(tign(:));
 max_tign=max(tign(:));
 
 tign(find(tign==max_tign))=NaN; % squash the top
+clf,hold off
 h=surf(w.fxlong,w.fxlat,tign-min_tign); 
 xlabel('longitude'),ylabel('latitude'),zlabel('days')
+
 set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
+drawnow
 
-prefix='TIFs';
-file_search=[prefix,'/NPP*.tif.mat'];      % the level2 files processed by geotiff2mat.py
+prefix='TIFs/';
+file_search=[prefix,'*.tif.mat'];      % the level2 files processed by geotiff2mat.py
 d=dir(file_search);d={d.name};
+if(isempty(d)), error(['No files found for ',file_search]),end
 
+cmap=cmapmod14;
+cmap2=cmap;
+cmap2(1:7,:)=NaN;
+plot_all_level2=false;
 for i=1:length(d)
     file=d{i};
-    t=rsac2time(file);
-    f=load(file);
-    geo=f.geotransform;
-    [rows,cols]=size(f.data);
-    lon = geo(1)+[0:rows-1]*geo(2);
-    lat = geo(4)+[cols-1:-1:0]*geo(6);
+    v=readmod14([prefix,file]);
+    % select fire detection within the domain
+    xj=find(v.lon > min_lon & v.lon < max_lon);
+    xi=find(v.lat > min_lat & v.lat < max_lat);
+    if ~isempty(xi) & ~isempty(xj) 
+        x.data=v.data(xi,xj);    % subset data
+        count = sum(find(x.data(:)>=7)); % cound pixels with detection
+        fprintf('%s fire pixels in simulation area %g\n',file,count)
+        [x.lon,x.lat]=meshgrid(v.lon(xj),v.lat(xi));
+        hold on
+        if (plot_all_level2),
+            x.C=cmap(x.data+1,:);          % translate data to RGB colormap
+            x.C=reshape(x.C,[size(x.data),size(cmap,2)]);
+            h1=surf(x.lon,x.lat,(v.time-min_tign)*ones(size(x.data)),x.C);
+            set(h1,'EdgeAlpha',0,'FaceAlpha',0.1); % show faces only, transparent
+        end
+        if any(x.data(:)>7),
+            x.C2=cmap2(x.data+1,:); % translate data to RGB colormap, NaN=no detection
+            x.C2=reshape(x.C2,[size(x.data),size(cmap2,2)]);
+            h2=surf(x.lon,x.lat,(v.time-min_tign)*ones(size(x.data)),x.C2);
+            set(h2,'EdgeAlpha',0,'FaceAlpha',1); % show faces only
+            drawnow
+        end
+        hold off
+    end
 end
-% select fire detection within the domain and time
-bii=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
 
 tim_in = tim_all(bii);
 u_in = unique(tim_in);
