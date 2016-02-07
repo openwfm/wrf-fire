@@ -3,16 +3,19 @@ function v=readmod14(file)
 % read modis data and return v.lon v.lat v.data
 
 v=load(file);
+v.file=file;
 v.time=rsac2time(file);
+[rows,cols]=size(v.data);
+geo=v.geotransform;
+Xpixel=[0:cols-1]+0.5;
+Ypixel=[0:rows-1]+0.5;
+v.lon = geo(1)+Xpixel*geo(2);
+v.lat = geo(4)+Ypixel*geo(6);
+
 if any(v.data(:)<0 | v.data(:)>9), 
     warning('Value out of range 0 to 9 for MODIS14 data')
 end
-[rows,cols]=size(v.data);
-geo=v.geotransform;
-v.lon = geo(1)+[0:rows-1]*geo(2);
-v.lat = geo(4)+[cols-1:-1:0]*geo(6);
-
-for i=1:10,
+for i=0:9,
     count(i+1)=sum(v.data(:)==i);
 end
 

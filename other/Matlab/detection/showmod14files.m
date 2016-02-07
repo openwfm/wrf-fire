@@ -8,7 +8,8 @@ end
 files=dir(search);
 for i=1:length(files),
     file=files(i).name;
-    showmod14(file)
+    v=readmod14(file);
+    showmod14(v)
     pause(2)
 end
     
