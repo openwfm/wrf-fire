@@ -23,6 +23,10 @@
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
+% figures
+figmap=2;
+fig3d=1;
+
 load w
 load s
 load c
@@ -30,14 +34,25 @@ fuels
 
 % establish boundaries from simulations
 
-min_lat = min(w.fxlat(:))
-max_lat = max(w.fxlat(:))
-min_lon = min(w.fxlong(:))
-max_lon = max(w.fxlong(:))
-min_tign= min(w.tign_g(:))
+sim.min_lat = min(w.fxlat(:))
+sim.max_lat = max(w.fxlat(:));
+sim.min_lon = min(w.fxlong(:));
+sim.max_lon = max(w.fxlong(:));
+sim.min_tign= min(w.tign_g(:));
+max_tign= max(w.tign_g(:));
+act.x=find(w.tign_g(:)<max_tign);
+act.min_lat = min(w.fxlat(act.x));
+act.max_lat = max(w.fxlat(act.x));
+act.min_lon = min(w.fxlong(act.x));
+act.max_lon = max(w.fxlong(act.x));
+margin=0.5;
+min_lon=max(sim.min_lon,act.min_lon-margin*(act.max_lon-act.min_lon));
+min_lat=max(sim.min_lat,act.min_lat-margin*(act.max_lat-act.min_lat));
+max_lon=min(sim.max_lon,act.max_lon+margin*(act.max_lon-act.min_lon));
+max_lat=min(sim.max_lat,act.max_lat+margin*(act.max_lat-act.min_lat));
 
 default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
-default_bounds{2}=[-119.5, -119.0, 47.95, 48.15];
+default_bounds{2}=[sim.min_lon,sim.max_lon,sim.min_lat,sim.max_lat];
 for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
 
 bounds=input('enter bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above (1)> ');
@@ -46,29 +61,31 @@ if length(bounds)==1, bounds=default_bounds{bounds}; end
 [ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
 ispan=min(ii):max(ii);
 jspan=min(jj):max(jj);
+if isempty(ispan) | isempty(jspan), error('selection empty'),end
 
-% restrict data
-w.fxlat=w.fxlat(ispan,jspan);
-w.fxlong=w.fxlong(ispan,jspan);
-w.tign_g=w.tign_g(ispan,jspan);
-c.nfuel_cat=c.nfuel_cat(ispan,jspan);
+% restrict data for display
+red.fxlat=w.fxlat(ispan,jspan);
+red.fxlong=w.fxlong(ispan,jspan);
+red.tign_g=w.tign_g(ispan,jspan);
+red.nfuel_cat=c.nfuel_cat(ispan,jspan);
 
-min_lat = min(w.fxlat(:))
-max_lat = max(w.fxlat(:))
-min_lon = min(w.fxlong(:))
-max_lon = max(w.fxlong(:))
+red.min_lat = min(red.fxlat(:))
+red.max_lat = max(red.fxlat(:))
+red.min_lon = min(red.fxlong(:))
+red.max_lon = max(red.fxlong(:))
 
-% rebase tign on the largest tign_g = the time of the last frame, in days
+% convert tign_g to datenum 
 last_time=datenum(char(w.times)'); 
-tign=(w.tign_g - max(w.tign_g(:)))/(24*60*60) + last_time;
-min_tign=min(tign(:));
-max_tign=max(tign(:));
+red.tign=(red.tign_g - max(red.tign_g(:)))/(24*60*60) + last_time;
+min_tign=min(red.tign(:));
+max_tign=max(red.tign(:));
 
-tign(find(tign==max_tign))=NaN; % squash the top
-clf,hold off
-h=surf(w.fxlong,w.fxlat,tign-min_tign); 
+
+red.tign(find(red.tign==max_tign))=NaN; % squash the top
+figure(fig3d); clf
+hold off
+h=surf(red.fxlong,red.fxlat,red.tign-min_tign); 
 xlabel('longitude'),ylabel('latitude'),zlabel('days')
-
 set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
 drawnow
 
@@ -80,35 +97,55 @@ if(isempty(d)), error(['No files found for ',file_search]),end
 cmap=cmapmod14;
 cmap2=cmap;
 cmap2(1:7,:)=NaN;
-plot_all_level2=false;
-for i=1:length(d)
+plot_all_level2=true;
+
+% order the files in time
+nfiles=length(d);
+t=zeros(1,nfiles);
+for i=1:nfiles
+    t(i)=rsac2time(d{i});
+end
+[t,i]=sort(t);
+d={d{i}};
+figure(figmap);clf
+for i=1:nfiles,
     file=d{i};
     v=readmod14([prefix,file]);
+    v.file=file;
     % select fire detection within the domain
-    xj=find(v.lon > min_lon & v.lon < max_lon);
-    xi=find(v.lat > min_lat & v.lat < max_lat);
-    if ~isempty(xi) & ~isempty(xj) 
+    xj=find(v.lon > red.min_lon & v.lon < red.max_lon);
+    xi=find(v.lat > red.min_lat & v.lat < red.max_lat);
+    ax=[red.min_lon red.max_lon red.min_lat red.max_lat];
+    if ~isempty(xi) & ~isempty(xj)
+        x=[];x.file=v.file; x.time=v.time;
         x.data=v.data(xi,xj);    % subset data
-        count = sum(find(x.data(:)>=7)); % cound pixels with detection
-        fprintf('%s fire pixels in simulation area %g\n',file,count)
-        [x.lon,x.lat]=meshgrid(v.lon(xj),v.lat(xi));
-        hold on
-        if (plot_all_level2),
-            x.C=cmap(x.data+1,:);          % translate data to RGB colormap
-            x.C=reshape(x.C,[size(x.data),size(cmap,2)]);
-            h1=surf(x.lon,x.lat,(v.time-min_tign)*ones(size(x.data)),x.C);
-            set(h1,'EdgeAlpha',0,'FaceAlpha',0.1); % show faces only, transparent
+        x.lon=v.lon(xj);
+        x.lat=v.lat(xi);
+        [x.xlon,x.xlat]=meshgrid(x.lon,x.lat);
+        if any(x.data(:)>6), % some data present - not all absent, water, or cloud
+            figure(figmap);clf
+            showmod14(x)
+            hold on
+            contour(red.fxlong,red.fxlat,red.tign,[v.time v.time],'-r');
+            hold off
+            axis(ax)
+            drawnow
+            print(figmap,'-dpng',['fig',v.timestr]); 
         end
         if any(x.data(:)>7),
+            figure(fig3d)
             x.C2=cmap2(x.data+1,:); % translate data to RGB colormap, NaN=no detection
             x.C2=reshape(x.C2,[size(x.data),size(cmap2,2)]);
-            h2=surf(x.lon,x.lat,(v.time-min_tign)*ones(size(x.data)),x.C2);
+            hold on
+            h2=surf(x.xlon,x.xlat,(v.time-min_tign)*ones(size(x.data)),x.C2);
             set(h2,'EdgeAlpha',0,'FaceAlpha',1); % show faces only
+            hold off
             drawnow
         end
-        hold off
     end
 end
+
+return
 
 tim_in = tim_all(bii);
 u_in = unique(tim_in);

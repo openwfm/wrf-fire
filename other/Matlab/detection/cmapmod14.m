@@ -12,8 +12,8 @@ cmap= [ ...
     0   0   0    %1 not used, black
     0   0   0    %2 not processed (other reason)
     0   0   0.2    %3 water, dark blue
-    0.1 0.2 0.2    %4 cloud, purple gray
-    0   0.2   0    %5 non-fire clear land, green
+    0.2 0.4 0.4    %4 cloud, purple gray
+    0   0.3   0    %5 non-fire clear land, green
     0   0   0    %6 unknown
     0.6 0.4 0.4    %7 low-confidence fire
     0.8 0.5  0.5    %8 nominal-confidence fire
