@@ -4,7 +4,7 @@ function v=readmod14(file)
 
 v=load(file);
 v.file=file;
-v.time=rsac2time(file);
+[v.time,v.timestr]=rsac2time(file);
 [rows,cols]=size(v.data);
 geo=v.geotransform;
 Xpixel=[0:cols-1]+0.5;
