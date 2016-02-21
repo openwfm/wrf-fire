@@ -4,20 +4,26 @@
 % 
 % to create w.mat:
 % run Adam's simulation, currently results in
-% /home/akochans/NASA_WSU/wrf-fire/WRFV3/test/em_barker_moist/wrfoutputfiles_live_0.25
+%
+% /share_home/akochans/WRF341F/wrf-fire/WRFV3/test/em_utfire_1d_med_4km_200m
 % then in Matlab
-% f='wrfout_d05_2012-09-15_00:00:00'; 
-% t=nc2struct(f,{'Times'},{});  n=size(t.times,2);  w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG'},{},n);
+% arrays needed only once
+% f='wrfout_d01_2013-08-20_00:00:00'; 
+% t=nc2struct(f,{'Times'},{});  n=size(t.times,2)  
+% w=nc2struct(f,{'Times','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','XLONG','XLAT','NFUEL_CAT'},{},n);
 % save ~/w.mat w    
 %
-% to create c.mat
-% c=nc2struct(f,{'NFUEL_CAT'},{},1);
-% save ~/c.mat c
-%
+% array at fire resolution every saved timestep
 % to create s.mat:
 % a=dir('wrfout_d01*');
-% s=read_wrfout_sel({a.name},{'FGRNHFX'}); 
+% s=read_wrfout_sel({a.name},{'FGRNHFX',Times}); 
 % save ~/s.mat s 
+% 
+% arrays at atm resolution every saved timestep
+% to create ss.mat
+% a=dir('wrfout_d01*')
+% s=read_wrfout_sel({a.name},{'Times','UAH','VAH'})
+% save ss s
 % 
 % fuels.m is created by WRF-SFIRE at the beginning of the run
 
@@ -28,6 +34,20 @@ figmap=2;
 fig3d=1;
 
 load w
+
+% wind
+ss=load('ss');ss=ss.s;
+ss.steps=size(ss.times,2);
+ss.time=zeros(1,ss.steps);
+for i=1:ss.steps,
+    ss.time(i)=datenum(char(ss.times(:,i)'));
+end
+ss.num=1:ss.steps;
+ss.min_time=min(ss.time);
+ss.max_time=max(ss.time);
+% interpolate surface wind to center of the grid
+ss.uh=0.5*(ss.uah(1:end-1,:,:)+ss.uah(2:end,:,:));
+ss.vh=0.5*(ss.vah(:,1:end-1,:)+ss.vah(:,2:end,:));
 load s
 load c
 fuels
@@ -64,6 +84,7 @@ jspan=min(jj):max(jj);
 if isempty(ispan) | isempty(jspan), error('selection empty'),end
 
 % restrict data for display
+
 red.fxlat=w.fxlat(ispan,jspan);
 red.fxlong=w.fxlong(ispan,jspan);
 red.tign_g=w.tign_g(ispan,jspan);
@@ -75,8 +96,8 @@ red.min_lon = min(red.fxlong(:))
 red.max_lon = max(red.fxlong(:))
 
 % convert tign_g to datenum 
-last_time=datenum(char(w.times)'); 
-red.tign=(red.tign_g - max(red.tign_g(:)))/(24*60*60) + last_time;
+w.time=datenum(char(w.times)');
+red.tign=(red.tign_g - max(red.tign_g(:)))/(24*60*60) + w.time;
 min_tign=min(red.tign(:));
 max_tign=max(red.tign(:));
 
@@ -117,7 +138,10 @@ for i=1:nfiles,
     xi=find(v.lat > red.min_lat & v.lat < red.max_lat);
     ax=[red.min_lon red.max_lon red.min_lat red.max_lat];
     if ~isempty(xi) & ~isempty(xj)
-        x=[];x.file=v.file; x.time=v.time;
+        x=[];
+        x.axis=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
+        x.file=v.file; 
+        x.time=v.time;
         x.data=v.data(xi,xj);    % subset data
         x.lon=v.lon(xj);
         x.lat=v.lat(xi);
@@ -127,6 +151,28 @@ for i=1:nfiles,
             showmod14(x)
             hold on
             contour(red.fxlong,red.fxlat,red.tign,[v.time v.time],'-r');
+            fprintf('image time            %s\n',datestr(x.time));
+            fprintf('min wind field time   %s\n',datestr(ss.min_time));
+            fprintf('max wind field time   %s\n',datestr(ss.max_time));
+            if x.time>=ss.min_time && x.time <= ss.max_time,
+                step=interp1(ss.time,ss.num,x.time);
+                step0=floor(step);
+                if step0 < ss.steps,
+                    step1 = step0+1;
+                else
+                    step1=step0;
+                    step0=step1-1;
+                end
+                w0=step1-step;
+                w1=step-step0;
+                uu=w0*ss.uh(:,:,step0)+w1*ss.uh(:,:,step1);
+                vv=w0*ss.vh(:,:,step0)+w1*ss.vh(:,:,step1);
+                fprintf('wind interpolated to %s from\n',datestr(x.time))
+                fprintf('step %i %s weight %8.3f\n',step0,datestr(ss.time(step0)),w0)
+                fprintf('step %i %s weight %8.3f\n',step1,datestr(ss.time(step1)),w1)
+                fprintf('wind interpolated to %s from\n',datestr(x.time))
+                sc=0.01;quiver(w.xlong,w.xlat,sc*uu,sc*vv,0);
+            end
             hold off
             axis(ax)
             drawnow
@@ -152,7 +198,7 @@ u_in = unique(tim_in);
 fprintf('detection times from first ignition\n')
 for i=1:length(u_in)
     fprintf('%8.5f days %s UTC %3i %s detections\n',u_in(i)-min_tign,...
-    datestr(u_in(i)+last_time),sum(tim_in==u_in(i)),detection);
+    datestr(u_in(i)+w.time),sum(tim_in==u_in(i)),detection);
 end
 detection_bounds=input('enter detection bounds as [upper,lower]: ')
 bi = bii & detection_bounds(1)  + min_tign <= tim_all ... 
@@ -166,7 +212,7 @@ tim_ref = mean(tim);
 
 fprintf('%i detections selected\n',sum(bi)),
 fprintf('mean detection time %g days from ignition %s UTC\n',...
-    tim_ref-min_tign,datestr(tim_ref+last_time));
+    tim_ref-min_tign,datestr(tim_ref+w.time));
 fprintf('days from ignition  min %8.5f max %8.5f\n',min(tim)-min_tign,max(tim)-min_tign);
 fprintf('longitude           min %8.5f max %8.5f\n',min(lon),max(lon));
 fprintf('latitude            min %8.5f max %8.5f\n',min(lat),max(lat));
@@ -269,7 +315,7 @@ grid,drawnow
 assim_string='';if any(delta(:)),assim_string='assimilation',end
 daspect([w.unit_fxlat,w.unit_fxlong,1])                % axis aspect ratio length to length
 title(sprintf('Barker Canyon fire %s %s %s UTC',...
-    assim_string, detection, datestr(tim_ref+last_time)))
+    assim_string, detection, datestr(tim_ref+w.time)))
 ylabel('latitude')
 xlabel('longitude')
 drawnow

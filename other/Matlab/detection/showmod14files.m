@@ -9,7 +9,9 @@ files=dir(search);
 for i=1:length(files),
     file=files(i).name;
     v=readmod14(file);
-    showmod14(v)
-    pause(2)
+    v.axis=[-130,-70,15,60];
+    showmod14(v), drawnow
+    pause(1)
+    % hold on
 end
-    
+hold off
