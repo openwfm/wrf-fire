@@ -7,7 +7,7 @@ function showmod14(v)
 %   v.file    optional title string
 %   v.axis    min, max longgitude. latitude
 
-newplot
+% newplot
 cmap=cmapmod14;
 alphadata=zeros(size(v.data));
 alphamap=any(cmap,2);
@@ -24,7 +24,7 @@ title(t,'Interpreter','none')
 if isfield(v,'axis'),
     axis(v.axis);
 end
-grid on
+% grid on
 % show fire pixels
 % hold on, [i,j,c]=find(data > 6); plot(lat(j),lon(i),'+r'), hold off
 end
