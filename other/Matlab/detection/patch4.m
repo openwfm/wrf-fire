@@ -47,29 +47,46 @@ cmap2(1:7,:)=NaN;
 figure(figmap);clf
 lastdet=1;
 for step=2:length(ss.time)  % over WRF frames
-    figure(figmap);clf;hold off
-    axis(red.axis)       % set frame size
-    
+  figure(figmap);clf;hold off
+  for ipass=1:2,    
     det=find(r.time <= ss.time(step));
     ndet=length(det);
     % detections to now
-    for i=ndet:-1:1,
-        x=r.x{det(i)}; % load fire detection image 
-        age=t-r.time(i); % age of detection in days
+    for idet=1:ndet,
+        x=r.x{det(idet)}; % load fire detection image 
+        age=t-r.time(idet); % age of detection in days
         offset = min(imax,floor(4*age)); % offset in colormap for detection age
         dd=x.data(:)>6;  % indices of detected
         x.data(dd)=x.data(dd)+3*offset;   % transition to yellow
-        if i<ndet, % all but the last
-            d0=x.data(:)<=6;
-            x.data(d0)=0;
+        fprintf('step %i pass %i granule %i detections %i\n',step,ipass,idet,sum(dd))
+%        if idet<ndet, % all but the last
+%            if any(dd),
+%                fprintf(' %i fire detections, rest transparent\n',nnz(dd));
+%                d0=find(x.data(:)<=6);
+%                x.data(d0)=0;
+%                showmod14(x)
+%                hold on
+%            else
+%                fprintf(' all transparent, skipping\n')
+%            end
+%        else
+%            fprintf(' %i fire detections, displaying granule\n',nnz(dd))
+%            showmod14(x)
+%            hold on
+%        end
+        if ipass==1, % build background
+               showmod14(x)
+        elseif any(dd), % all except fire transparent
+               x.data(~dd)=0;
+               showmod14(x)
         end
-        showmod14(x)
         hold on
+      end
     end
     u=ss.uh(:,:,step);
     v=ss.vh(:,:,step);
     maxw=max(sqrt(u(:).*u(:)+v(:).*v(:)));
-    fprintf('step %i max windspeed %g\n',step,maxw)
+    fprintf('step %i max windspeed %g granules %i\n',step,maxw,ndet)
     sc=0.006;quiver(w.xlong,w.xlat,sc*u,sc*v,0); % wind
     hold on
     t=ss.time(step);
