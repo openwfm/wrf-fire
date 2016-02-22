@@ -25,6 +25,8 @@ title(t,'Interpreter','none')
 if isfield(v,'axis'),
     axis(v.axis);
 end
+daspect([1,cos(mean(v.lat(:))*pi/180),1]);
+
 % grid on
 % show fire pixels
 % hold on, [i,j,c]=find(data > 6); plot(lat(j),lon(i),'+r'), hold off

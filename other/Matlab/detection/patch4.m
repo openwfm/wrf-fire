@@ -33,6 +33,9 @@
 
 % figures
 figmap=1;
+printing=0;
+historical='all';
+% historical='previous';
 
 % convert tign_g to datenum 
 w.time=datenum(char(w.times)');
@@ -43,46 +46,57 @@ max_tign=max(red.tign(:));
 cmap2=cmap;
 cmap2(1:7,:)=NaN;
 [cmap,imax]=cmapmod14;
-
+granules{2}=[];
 figure(figmap);clf
-lastdet=1;
+clear M
 for step=2:length(ss.time)  % over WRF frames
-  figure(figmap);clf;hold off
-  for ipass=1:2,    
-    det=find(r.time <= ss.time(step));
-    ndet=length(det);
-    % detections to now
-    for idet=1:ndet,
-        x=r.x{det(idet)}; % load fire detection image 
-        age=t-r.time(idet); % age of detection in days
-        offset = min(imax,floor(4*age)); % offset in colormap for detection age
-        dd=x.data(:)>6;  % indices of detected
-        x.data(dd)=x.data(dd)+3*offset;   % transition to yellow
-        fprintf('step %i pass %i granule %i detections %i\n',step,ipass,idet,sum(dd))
-%        if idet<ndet, % all but the last
-%            if any(dd),
-%                fprintf(' %i fire detections, rest transparent\n',nnz(dd));
-%                d0=find(x.data(:)<=6);
-%                x.data(d0)=0;
-%                showmod14(x)
-%                hold on
-%            else
-%                fprintf(' all transparent, skipping\n')
-%            end
-%        else
-%            fprintf(' %i fire detections, displaying granule\n',nnz(dd))
-%            showmod14(x)
-%            hold on
-%        end
-        if ipass==1, % build background
+    figure(figmap);clf;hold off
+    granules{1}=find(r.time <= ss.time(step));
+    switch historical
+        case 'all' 
+            % take all satellite overpasses from the beginning of time
+            granules{2}=granules{1};
+        case 'last'
+            % last time step only
+            granules{2}=find(r.time <= ss.time(step) & r.time > ss.time(step-1));
+        case 'previous'
+            % the previous granules persist until replaced
+            new_det=find(r.time <= ss.time(step) & r.time > ss.time(step-1));
+            if new_det,
+                granules{2}=new_det;
+            end
+        otherwise
+            historical
+            error('unknown parameter historical')
+    end
+    for ipass=1:2,
+        det=granules{ipass};
+        ndet=length(det);
+        if printing>1,
+            if det, fprintf('pass %i using satellite granules ',ipass),disp(granules{1}), end
+            for idet=1:ndet
+                fprintf('%i %s\n',det(idet),datestr(r.time(det(idet))))
+            end
+        end
+        % detections to now
+        for idet=1:ndet,
+            x=r.x{det(idet)}; % load fire detection image 
+            age=t-r.time(idet); % age of detection in days
+            offset = min(imax,floor(4*age)); % offset in colormap for detection age
+            dd=x.data(:)>6;  % indices of detected
+            x.data(dd)=x.data(dd)+3*offset;   % transition to yellow
+            if printing>1,
+                fprintf('step %i pass %i granule %i detections %i\n',step,ipass,idet,sum(dd))
+            end
+            if ipass==1, % build background
                showmod14(x)
-        elseif any(dd), % all except fire transparent
+            elseif any(dd), % all except fire transparent
                x.data(~dd)=0;
                showmod14(x)
-        end
-        hold on
-      end
-    end
+            end
+            hold on
+        end % idet
+    end % ipass
     u=ss.uh(:,:,step);
     v=ss.vh(:,:,step);
     maxw=max(sqrt(u(:).*u(:)+v(:).*v(:)));
@@ -93,12 +107,13 @@ for step=2:length(ss.time)  % over WRF frames
     contour(red.fxlong,red.fxlat,red.tign,[t t],'-k'); % fireline
     title(datestr(t));   
     axis(red.axis)
+    avg_lat=0.5*(red.min_lat+red.max_lat);
+    daspect([1,cos(avg_lat*pi/180),1]);
     hold off
     drawnow
     pause(0.1)
-    M(step)=getframe(gcf);
-    
+    M(step-1)=getframe(gcf);
     title(datestr(t));
-end
+end % step
 
-mov2avi(M,'Mw')
+mov2mpeg(M,'M')
