@@ -8,11 +8,10 @@ end
 files=dir(search);
 for i=1:length(files),
     file=files(i).name;
-    parse=regexp(file,'\.','split');
-    ti
-    load(file)
-    s=file;
-    showmod14(data,geotransform,s)
-    pause(2)
+    v=readmod14(file);
+    v.axis=[-130,-70,15,60];
+    showmod14(v), drawnow
+    pause(1)
+    % hold on
 end
-    
+hold off

@@ -102,6 +102,7 @@ public sfire_driver_em,use_atm_vars,set_flags, &
 public ifun_beg, ifun_step, ifun_end
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
+logical:: interpolate_long_lat=.true. ! get fxlong fxlat by interpolation
 
 logical:: fmoist_run, fmoist_interp, fire_run  ! which kind of model to run overall
 
@@ -888,6 +889,33 @@ do ij=1,num_tiles
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlat,'xlat',id)
          call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,xlong,'xlong',id)
 #endif
+ 
+        if (interpolate_long_lat)then
+         call message('Intepolating node longitude and latitude to fire mesh')
+         call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            xlat,                                       & ! atm grid arrays in
+            fxlat)                                      ! fire grid arrays out
+
+        call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
+            ids,ide,  jds,jde,                    & ! atm grid dimensions
+            ims,ime,  jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            xlong,                                       & ! atm grid arrays in
+            fxlong)                                      ! fire grid arrays out
+        endif
 
         ! after the loop where zsf created exited and all synced
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
@@ -1211,7 +1239,7 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
              ifps,ifpe, jfps,jfpe 
     real, dimension(ifms:ifme,jfms:jfme):: fxlong,fxlat
 !*** local
-    integer::i,j
+    integer::i,j,ii,jj
     logical:: real,ideal
     character(len=128)msg
     real:: corner_longlat(2,2,2), corner_longlat_1(8), corner_longlat_2(8),lon(2),lat(2)
@@ -1306,7 +1334,6 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
 
        call postprocess_lines(ignition,'ros',config_flags)
 
-    if(fire_ignition_clamp > 0)then
 !       get the coordinates of the corner cells
         corner_longlat=0.
         if(ifds.eq.ifps.and.jfds.eq.jfps)then     
@@ -1347,18 +1374,48 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
 	lat(1)=(corner_lat(1,1)+corner_lat(2,1))/2.
 	lat(2)=(corner_lat(1,2)+corner_lat(2,2))/2.
         if(fire_print_msg.ge.2)then
-            write(msg,'(4(a,f14.8))')' coordinates ',lon(1),':',lon(2),',',lat(1),':',lat(2)
+            write(msg,'(4(a,f14.8))')'coordinates ',lon(1),':',lon(2),',',lat(1),':',lat(2)
             call message(msg)
         endif
+
        do i=1,ignition%num_lines
-           call clamp_to_grid(ignition%line(i)%start_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%start_x,j)
-           call clamp_to_grid(ignition%line(i)%end_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%end_x,j)
-           call clamp_to_grid(ignition%line(i)%start_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%start_y,j)
-           call clamp_to_grid(ignition%line(i)%end_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%end_y,j)
+           call check_ignition_coordinate(ignition%line(i)%start_x,lon(1),lon(2))
+           call check_ignition_coordinate(ignition%line(i)%start_y,lat(1),lat(2))
+           call check_ignition_coordinate(ignition%line(i)%end_x,lon(1),lon(2))
+           call check_ignition_coordinate(ignition%line(i)%end_y,lat(1),lat(2))
        enddo
 
-    endif
+       if (fire_ignition_clamp>0) then
+       do i=1,ignition%num_lines
+           call clamp_to_grid(ignition%line(i)%start_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%start_x,ii)
+           call clamp_to_grid(ignition%line(i)%start_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%start_y,jj)
+           call display_clamp
+           call clamp_to_grid(ignition%line(i)%end_x,lon(1),lon(2),ifds,ifde,ignition%line(i)%end_x,ii)
+           call clamp_to_grid(ignition%line(i)%end_y,lat(1),lat(2),jfds,jfde,ignition%line(i)%end_y,jj)
+           call display_clamp
+           ! for now, ii jj ignored. In future replace by fxlong(ii,jj), fxlat(ii,jj) to guard against rounding
+       enddo
+       endif
+       contains
+       subroutine display_clamp
+        character(len=128)::msg
+        real::d1,d2
+           if(ii>=ifps.and.ii<=ifpe.and.jj>=jfps.and.jj<=jfpe)then
+               write(msg,'(a,2f14.8,a,2i6)')'grid node ',fxlong(ii,jj),fxlat(ii,jj),' index',ii,jj
+               call message(msg)
+           endif
+       end subroutine display_clamp
     end subroutine fire_ignition_convert
+
+     subroutine check_ignition_coordinate(x,x1,x2)
+!***	arguments
+        real, intent(in)::x,x1,x2
+        character(len=128)::msg
+        if (.not.(x>x1 .and. x<x2))then
+            write(msg,'(a,f14.8,a,2f14.8)')'ignition point coordinate',x,' must be inside the bounds',x1,x2
+            call crash(msg)
+        endif
+     end subroutine check_ignition_coordinate
 
      subroutine clamp_to_grid(x,x1,x2,i1,i2,xout,iout)
 !***	round point on uniform mesh to a mesh node
@@ -1377,7 +1434,7 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
         iout=nint(r)
         xr=x1+(iout-i1)*dx
         if(fire_print_msg.ge.2)then
-            write(msg,'(a,f14.8,a,f14.8)')'coordinate ',x,' clamped to ',xr
+            write(msg,'(a,f14.8,a,f14.8,a,i6)')'coordinate ',x,' clamped to ',xr,' index',iout
             call message(msg)
         endif
         xout=xr

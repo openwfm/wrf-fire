@@ -143,7 +143,8 @@ real:: end_x,end_y              ! end of ignition line, or zero
 real:: radius                   ! all within the radius of the line will ignite
 real:: start_time,end_time      ! the ignition time for the start and the end of the line
 real:: ros,tos                  ! ignition rate and time of spread
-integer:: msglevel=4            ! print at this level
+integer:: msglevel=4,smsg=2     ! print at this level
+real:: lfn_min
 
 !*** executable
 
@@ -196,14 +197,14 @@ axmin=coord_xf(ifts,jfts)
 aymin=coord_yf(ifts,jfts)
 axmax=coord_xf(ifte,jfte)
 aymax=coord_yf(ifte,jfte)
-if(fire_print_msg.ge.msglevel)then
+if(fire_print_msg.ge.smsg)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2f11.6,a,2f11.6)')'IGN from ',sx,sy,' to ',ex,ey
-call message(msg,level=msglevel)
+call message(msg,level=smsg)
 write(msg,'(a,2f10.2,a,2f10.2,a)')'IGN timestep [',start_ts,end_ts,'] in [',start_time,end_time,']'
-call message(msg,level=msglevel)
+call message(msg,level=smsg)
 write(msg,'(a,2g13.6,a,2g13.6)')'IGN tile coord from  ',axmin,aymin,' to ',axmax,aymax
-call message(msg,level=0)
+call message(msg,level=smsg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
 ignited=0
@@ -285,12 +286,19 @@ enddo
 ! write(msg,*)'ignite_fire: max error ',tmperr
 ! call message(msg)
 call check_lfn_tign("ignite_fire end:",end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
-if(fire_print_msg .ge. msglevel)then
+if(fire_print_msg .ge. smsg)then
+lfn_min=huge(lfn_min)
+do j=jfts,jfte   
+    do i=ifts,ifte
+        lfn_min=min(lfn_min,lfn(i,j))
+    enddo
+enddo
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
-call message(msg,level=msglevel)
-write(msg,'(a,f6.1,a,f8.1,a,i10)')'IGN radius ',radius,' time of spread',tos,' ignited nodes',ignited
-call message(msg,level=msglevel)
+call message(msg,level=smsg)
+write(msg,'(a,f6.1,a,f8.1,a,i10,a,g10.2)')'IGN radius ',radius,' time of spread',tos, &
+   ' ignited nodes',ignited,' lfn min',lfn_min
+call message(msg,level=smsg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
 end subroutine ignite_fire

@@ -18,7 +18,7 @@ disp('input data')
     % c=nc2struct(f,{'NFUEL_CAT'},{},1);
     % save ~/c.mat c
     %
-    % to create s.mat:
+    % to create s.mat: DO NOT NEED THIS - and fgrnhfx is a 60GB array
     % s=read_wrfout_sel({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'FGRNHFX'}); 
     % save ~/s.mat s 
     % 
@@ -213,7 +213,7 @@ nodetw=input_num('no fire detection weight',0.5);
 power=input_num('negative laplacian power',1.02);
 
 % storage for h maps
-maxiter = 5;
+maxiter = 2;
 h_stor = zeros(m,n,maxiter);
 
 for istep=1:maxiter
@@ -236,7 +236,7 @@ for istep=1:maxiter
         break;
     end
     h = h + best_stepsize*search;
-    plotstate(6,tign+h,sprintf('Analysis descent iteration %i [Js=%g]',istep,Jsbest),detection_time(1));
+    plotstate(10+istep,tign+h,sprintf('Analysis iteration %i [Js=%g]',istep,Jsbest),detection_time(1));
     print('-dpng',sprintf('%s_descent_iter_%d.png', prefix, istep));
     h_stor(:,:,istep) = h;
 end
@@ -244,7 +244,7 @@ disp('converting analysis fire arrival time from days with zero at the end of th
 analysis=max_tign_g+(24*60*60)*(tign+h); 
 disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection time')
 
-figure(23);
+figure(9);
 col = 'rgbck';
 fill(X,Y,C,'EdgeAlpha',1,'FaceAlpha',0);
 for j=1:maxiter
@@ -338,7 +338,7 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
                 Jsls(i) = objective_only(tign,h+step_sizes(i)*search);
             end
             
-            figure(22);
+            figure(8);
             plot(step_sizes,Jsls,'+-');
             title(sprintf('Objective function Js vs. step size, iter=%d,depth=%d',istep,d), 'fontsize', 16);
             xlabel('step\_size [-]','fontsize',14);
