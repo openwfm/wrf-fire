@@ -31,7 +31,7 @@
 
 % figures
 figmap=2;
-fig3d=1;
+fig3d=0;
 
 load w
 
@@ -103,12 +103,14 @@ max_tign=max(red.tign(:));
 
 
 red.tign(find(red.tign==max_tign))=NaN; % squash the top
-figure(fig3d); clf
-hold off
-h=surf(red.fxlong,red.fxlat,red.tign-min_tign); 
-xlabel('longitude'),ylabel('latitude'),zlabel('days')
-set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
-drawnow
+if fig3d>0,
+    figure(fig3d); clf
+    hold off
+    h=surf(red.fxlong,red.fxlat,red.tign-min_tign); 
+    xlabel('longitude'),ylabel('latitude'),zlabel('days')
+    set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
+    drawnow
+end
 
 prefix='TIFs/';
 file_search=[prefix,'*.tif.mat'];      % the level2 files processed by geotiff2mat.py
@@ -129,6 +131,7 @@ end
 [t,i]=sort(t);
 d={d{i}};
 figure(figmap);clf
+iframe=1;
 for i=1:nfiles,
     file=d{i};
     v=readmod14([prefix,file]);
@@ -171,14 +174,16 @@ for i=1:nfiles,
                 fprintf('step %i %s weight %8.3f\n',step0,datestr(ss.time(step0)),w0)
                 fprintf('step %i %s weight %8.3f\n',step1,datestr(ss.time(step1)),w1)
                 fprintf('wind interpolated to %s from\n',datestr(x.time))
-                sc=0.01;quiver(w.xlong,w.xlat,sc*uu,sc*vv,0);
+                sc=0.006;quiver(w.xlong,w.xlat,sc*uu,sc*vv,0);
             end
             hold off
             axis(ax)
             drawnow
+            M(iframe)=getframe(gcf);
+            iframe=iframe+1;
             print(figmap,'-dpng',['fig',v.timestr]); 
         end
-        if any(x.data(:)>7),
+        if any(x.data(:)>7) && fig3d>0,
             figure(fig3d)
             x.C2=cmap2(x.data+1,:); % translate data to RGB colormap, NaN=no detection
             x.C2=reshape(x.C2,[size(x.data),size(cmap2,2)]);
