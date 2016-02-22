@@ -1,4 +1,7 @@
 function r=readmod14files(file_search,ax)
+% r=readmod14files(file_search,ax)
+%   file_search   search string
+%   ax            bounds [min_lon, max_lon, min_lat, max_lat]
 
 % find the files
 d=dir(file_search);d={d.name};
