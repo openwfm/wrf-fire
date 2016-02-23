@@ -35,7 +35,7 @@
 figmap=1;
 printing=0;
 historical='all';
-% historical='previous';
+%historical='previous';
 
 % convert tign_g to datenum 
 w.time=datenum(char(w.times)');
@@ -88,7 +88,7 @@ for step=2:length(ss.time)  % over WRF frames
             if printing>1,
                 fprintf('step %i pass %i granule %i detections %i\n',step,ipass,idet,sum(dd))
             end
-            if ipass==1, % build background
+            if ipass==1, % build up the background
                showmod14(x)
             elseif any(dd), % all except fire transparent
                x.data(~dd)=0;

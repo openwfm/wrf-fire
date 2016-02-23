@@ -11,6 +11,7 @@ function showmod14(v)
 cmap=cmapmod14;
 alphadata=zeros(size(v.data));
 alphamap=any(cmap,2);
+% alphamap=ones(size(alphamap));
 a=alphamap(v.data+1);
 image('Xdata',[v.lon(1),v.lon(end)],'Ydata',[v.lat(1),v.lat(end)],...
     'Cdata',v.data,'Alphadata',a);
