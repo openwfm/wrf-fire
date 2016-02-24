@@ -66,7 +66,12 @@ call read_info(inputfile,info)             ! get dimensions
 call create_output_file(outputfile,info)
 
 ! get ignition data
-call fire_ignition_convert (config_flags,ignition)
+call fire_ignition_convert (config_flags,ignition,                   &
+             grid%fxlong, grid%fxlat,                                &
+             ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe )
+
 
 ! set dimensions
 ifds=1

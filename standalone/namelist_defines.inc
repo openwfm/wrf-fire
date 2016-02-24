@@ -1663,10 +1663,14 @@ logical , DIMENSION(max_domains) :: fmoist_run
 logical , DIMENSION(max_domains) :: fmoist_interp
 logical , DIMENSION(max_domains) :: fmoist_only
 integer , DIMENSION(max_domains) :: fmoist_freq
+integer :: kfmc_ndwi
+integer :: fndwi_from_ndwi
 real , DIMENSION(max_domains) :: fmoist_dt
+real :: fmep_decay_tlag
 integer , DIMENSION(max_domains) :: ifire
 integer , DIMENSION(max_domains) :: fire_boundary_guard
 integer , DIMENSION(max_domains) :: fire_num_ignitions
+integer , DIMENSION(max_domains) :: fire_ignition_clamp
 real , DIMENSION(max_domains) :: fire_ignition_ros1
 real , DIMENSION(max_domains) :: fire_ignition_start_lon1
 real , DIMENSION(max_domains) :: fire_ignition_start_lat1
