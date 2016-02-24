@@ -665,6 +665,8 @@ if(debug_print)write(*,'(2a)')'reading variable ',trim(varname)
 call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
 call check(nf90_get_var(ncid,varid,v(1:nx,1:ny),start=(/1,1,iframe/),count=(/nx,ny,1/)), &
      'error reading '//trim(varname))
+if(debug_print)write(*,'(a,2i5,a,1x,e15.5,a,e15.5)')'dimensions',nx,ny, &
+     'min',minval(v(1:nx,1:ny)),'max',maxval(v(1:nx,1:ny))
 
 end subroutine read_fire_var
 
