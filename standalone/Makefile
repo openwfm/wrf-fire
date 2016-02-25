@@ -2,9 +2,9 @@
 include make.inc
 DEFS =
 WRF = ../wrfv2_fire
-FPFLAGS= -I$(NETCDF)/include -I.
-#LDFLAGS = -L$(NETCDF)/lib -lnetcdff -lnetcdf
-LDFLAGS = `$(NETCDF)/bin/nc-config --flibs`
+FPFLAGS= -I$(NETCDF)/include -I. -I $(INCLUDE_MOD)
+LDFLAGS = -L$(NETCDF)/lib -lnetcdff -lnetcdf
+#LDFLAGS = `$(NETCDF)/bin/nc-config --flibs`
 FFLAGS=$(FPFLAGS) $(FCFLAGS) $(FFREE)
 INC = $(WRF)/inc
 
@@ -12,11 +12,11 @@ INC = $(WRF)/inc
 MAKEFILE=Makefile
 
 %.o: $(WRF)/phys/%.F 
-	$(FP) $(FFLAGS) $(DEFS) -E $(WRF)/phys/$*.F > $*.f90
+	$(FP) $(FFLAGS) $(DEFS) -E $(WRF)/phys/$*.F | sed 's/^#.*//' > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
 %.o: %.F 
-	$(FP) $(FFLAGS) $(DEFS) -E $*.F > $*.f90
+	$(FP) $(FFLAGS) $(DEFS) -E $*.F | sed 's/^#.*//' > $*.f90
 	$(FC) -c $(FFLAGS) $*.f90
 
 ATM_OBJ = \

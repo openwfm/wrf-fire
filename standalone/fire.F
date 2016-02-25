@@ -200,6 +200,13 @@ else
   fmc_g1=grid%fmc_g
 endif
 
+print *,'fxlat  lower bounds:',lbound(grid%fxlat)
+print *,'fxlat  upper bounds:',ubound(grid%fxlat)
+print *,'fxlong lower bounds:',lbound(grid%fxlong)
+print *,'fxlong upper bounds:',ubound(grid%fxlong)
+call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,grid%fxlong,'fire:fxlong')
+call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,grid%fxlat,'fire:fxlat')
+
 ! get ignition data - should have fxlong fxlat now
 call fire_ignition_convert (config_flags,ignition,                   &
              grid%fxlong, grid%fxlat,                                &
