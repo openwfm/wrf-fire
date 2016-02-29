@@ -5,6 +5,8 @@ function v=readmod14(file)
 v=load(file);
 v.file=file;
 [v.time,v.timestr]=rsac2time(file);
+fprintf('file name             %s\n',file);
+fprintf('image time            %s\n',datestr(v.time));
 [rows,cols]=size(v.data);
 geo=v.geotransform;
 Xpixel=[0:cols-1]+0.5;
