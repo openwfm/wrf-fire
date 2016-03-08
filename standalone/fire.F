@@ -202,8 +202,10 @@ endif
 
 print *,'fxlat  lower bounds:',lbound(grid%fxlat)
 print *,'fxlat  upper bounds:',ubound(grid%fxlat)
+print *,'fxlat(1,1)=',grid%fxlat(1,1),' fxlat(',ifpe,',',jfpe,')=',grid%fxlat(ifpe,jfpe)
 print *,'fxlong lower bounds:',lbound(grid%fxlong)
 print *,'fxlong upper bounds:',ubound(grid%fxlong)
+print *,'fxlong(1,1)=',grid%fxlong(1,1),' fxlong(',ifpe,',',jfpe,')=',grid%fxlong(ifpe,jfpe)
 call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,grid%fxlong,'fire:fxlong')
 call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,grid%fxlat,'fire:fxlat')
 
