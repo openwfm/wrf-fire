@@ -29,12 +29,12 @@
 
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
-% run patch3_load first
+% run patch_load first
 
 % figures
 figmap=2;
 fig3d=0;
-1
+
 % convert tign_g to datenum 
 w.time=datenum(char(w.times)');
 red.tign=(red.tign_g - max(red.tign_g(:)))/(24*60*60) + w.time;
