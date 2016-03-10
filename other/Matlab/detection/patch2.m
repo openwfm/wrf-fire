@@ -114,22 +114,13 @@ end
 
 prefix='TIFs/';
 file_search=[prefix,'*.tif.mat'];      % the level2 files processed by geotiff2mat.py
-d=dir(file_search);d={d.name};
-if(isempty(d)), error(['No files found for ',file_search]),end
+d=sort_rsac_files(file_search);
 
 cmap=cmapmod14;
 cmap2=cmap;
 cmap2(1:7,:)=NaN;
 plot_all_level2=true;
 
-% order the files in time
-nfiles=length(d);
-t=zeros(1,nfiles);
-for i=1:nfiles
-    t(i)=rsac2time(d{i});
-end
-[t,i]=sort(t);
-d={d{i}};
 figure(figmap);clf
 iframe=1;
 for i=1:nfiles,
@@ -153,7 +144,7 @@ for i=1:nfiles,
             figure(figmap);clf
             showmod14(x)
             hold on
-            contour(red.fxlong,red.fxlat,red.tign,[v.time v.time],'-r');
+            contour(red.fxlong,red.fxlat,red.tign,[v.time v.time],'-k');
             fprintf('image time            %s\n',datestr(x.time));
             fprintf('min wind field time   %s\n',datestr(ss.min_time));
             fprintf('max wind field time   %s\n',datestr(ss.max_time));
