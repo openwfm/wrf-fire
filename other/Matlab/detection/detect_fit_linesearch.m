@@ -11,16 +11,9 @@ disp('input data')
     % /share_home/akochans/NASA_WSU/wrf-fire/WRFV3/test/em_barker_moist/wrfoutputfiles_live_0.25
     % then in Matlab
     % f='wrfout_d05_2012-09-15_00:00:00'; 
-    % t=nc2struct(f,{'Times'},{});  n=size(t.times,2);  w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','Times'},{'DX','DY'},n);
+    % t=nc2struct(f,{'Times'},{});  n=size(t.times,2);  
+    % w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','Times',NFUEL_CAT'},{'DX','DY'},n);
     % save ~/w.mat w    
-    %
-    % to create c.mat
-    % c=nc2struct(f,{'NFUEL_CAT'},{},1);
-    % save ~/c.mat c
-    %
-    % to create s.mat: DO NOT NEED THIS - and fgrnhfx is a 60GB array
-    % s=read_wrfout_sel({'wrfout_d05_2012-09-09_00:00:00','wrfout_d05_2012-09-12_00:00:00','wrfout_d05_2012-09-15_00:00:00'},{'FGRNHFX'}); 
-    % save ~/s.mat s 
     % 
     % fuels.m is created by WRF-SFIRE at the beginning of the run
     
@@ -40,8 +33,6 @@ disp('input data')
         warning('fixing up w for old w.mat file from Barker fire')
     end
     
-   % a=load('s');s=a.s;
-    a=load('c');c=a.c;
     fuel.weight=0; % just to let Matlab know what fuel is going to be at compile time
     fuels
 
@@ -72,7 +63,7 @@ disp('subset and process inputs')
     w.fxlat=w.fxlat(ispan,jspan);
     w.fxlong=w.fxlong(ispan,jspan);
     w.tign_g=w.tign_g(ispan,jspan);
-    c.nfuel_cat=c.nfuel_cat(ispan,jspan);
+    w.nfuel_cat=w.nfuel_cat(ispan,jspan);
     
     min_lat = min(w.fxlat(:))
     max_lat = max(w.fxlat(:))
@@ -181,13 +172,13 @@ disp('subset and process inputs')
 %    hold on, plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xw'); hold off
     % legend('first ignition at %g %g',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
     
-    fuelweight(length(fuel)+1:max(c.nfuel_cat(:)))=NaN;
+    fuelweight(length(fuel)+1:max(w.nfuel_cat(:)))=NaN;
     for j=1:length(fuel), 
         fuelweight(j)=fuel(j).weight;
     end
     W = zeros(m,n);
     for j=1:n, for i=1:m
-           W(i,j)=fuelweight(c.nfuel_cat(i,j));
+           W(i,j)=fuelweight(w.nfuel_cat(i,j));
     end,end
  
 %    plotstate(2,W,'Fuel weight',[])

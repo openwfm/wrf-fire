@@ -10,7 +10,7 @@
 % arrays needed only once
 % f='wrfout_d01_2013-08-20_00:00:00'; 
 % t=nc2struct(f,{'Times'},{});  n=size(t.times,2)  
-% w=nc2struct(f,{'Times','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','XLONG','XLAT','NFUEL_CAT'},{},n);
+% w=nc2struct(f,{'Times','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','XLONG','XLAT','NFUEL_CAT'},{'DX','DY'},n);
 % save ~/w.mat w    
 %
 % array at fire resolution every saved timestep
@@ -49,7 +49,7 @@ ss.max_time=max(ss.time);
 ss.uh=0.5*(ss.uah(1:end-1,:,:)+ss.uah(2:end,:,:));
 ss.vh=0.5*(ss.vah(:,1:end-1,:)+ss.vah(:,2:end,:));
 load s
-load c
+% load c
 fuels
 
 % establish boundaries from simulations
@@ -123,7 +123,7 @@ plot_all_level2=true;
 
 figure(figmap);clf
 iframe=1;
-for i=1:nfiles,
+for i=1:length(d),
     file=d{i};
     v=readmod14([prefix,file]);
     v.file=file;
