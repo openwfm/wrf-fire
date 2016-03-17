@@ -281,7 +281,7 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
         [f0,f1]=like1(psi,detection_time-T,TC*stretch);
         F = f1;             % forcing
         % objective function and preconditioned gradient
-        Ah = poisson_fft2(h,[w.dx,w.dy],1);
+        Ah = poisson_fft2(h,[w.dx,w.dy],power);
         % compute both parts of the objective function and compare
         J1 = 0.5*(h(:)'*Ah(:));
         J2 = -ssum(psi.*f0)/(m*n);
@@ -309,7 +309,7 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
         [f0,~]=like1(psi,detection_time-T,TC*stretch);
 %        F = f1;             % forcing
         % objective function and preconditioned gradient
-        Ah = poisson_fft2(h,[w.dx,w.dy],1);
+        Ah = poisson_fft2(h,[w.dx,w.dy],power);
         J1 = 0.5*(h(:)'*Ah(:));
         J2 = -ssum(psi.*f0)/(m*n);
         J = alpha*J1 + J2;
