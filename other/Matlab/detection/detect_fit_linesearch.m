@@ -78,9 +78,8 @@ disp('subset and process inputs')
     if length(bounds)==1, 
         bounds=default_bounds{bounds};
     end
-    bounds=default_bounds{2};
+    fprintf('using bounds %8.5f %8.5f %8.5f %8.5f\n',bounds)
     display_bounds=bounds;
-    
     
     [ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
     ispan=min(ii):max(ii);
@@ -232,11 +231,12 @@ power=input_num('negative laplacian power',1.02);
 
 % storage for h maps
 maxiter = 2;
+maxdepth=2;
 h_stor = zeros(m,n,maxiter);
 
 for istep=1:maxiter
     
-    fprintf('********** Iteration %g/%g **************\n', istep, 5);
+    fprintf('********** Iteration %g/%g **************\n', istep, maxiter);
     
     psi = detection_mask - nodetw*(1-detection_mask);
 
@@ -246,7 +246,7 @@ for istep=1:maxiter
 
     plotstate(4,search,'Search direction',0);
     print('-dpng', sprintf('%s_search_dir_%d.png', prefix, istep));
-    [Jsbest,best_stepsize] = linesearch(4.0,Js,tign,h,search,4,2);
+    [Jsbest,best_stepsize] = linesearch(4.0,Js,tign,h,search,4,maxdepth);
 %    plotstate(21,tign+h+3*search,'Line search (magic step_size=3)',detection_time(1));
     fprintf('Iteration %d: best step size %g\n', istep, best_stepsize);
     if(best_stepsize == 0)
