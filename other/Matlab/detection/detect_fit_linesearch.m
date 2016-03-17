@@ -46,15 +46,42 @@ disp('subset and process inputs')
     min_lon = min(w.fxlong(:))
     max_lon = max(w.fxlong(:))
     min_tign= min(w.tign_g(:))
+    max_tign= max(w.tign_g(:));
     
+    % active
+    act.x=find(w.tign_g(:)<max_tign);
+    act.min_lat = min(w.fxlat(act.x));
+    act.max_lat = max(w.fxlat(act.x));
+    act.min_lon = min(w.fxlong(act.x));
+    act.max_lon = max(w.fxlong(act.x));
+    
+    % domain bounds
+    margin=0.3;
+    fprintf('enter relative margin around the fire (%g)',margin);
+    in=input(' > ');
+    if ~isempty(in),margin=in;end
+    dis.min_lon=max(min_lon,act.min_lon-margin*(act.max_lon-act.min_lon));
+    dis.min_lat=max(min_lat,act.min_lat-margin*(act.max_lat-act.min_lat));
+    dis.max_lon=min(max_lon,act.max_lon+margin*(act.max_lon-act.min_lon));
+    dis.max_lat=min(max_lat,act.max_lat+margin*(act.max_lat-act.min_lat));
+
     default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
-    default_bounds{2}=[-119.5, -119.0, 47.95, 48.15];
-    display_bounds=default_bounds{2};
-%     for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
-    
-%    bounds=input_num('bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above',1);
-%    if length(bounds)==1, bounds=default_bounds{bounds}; end
+    descr{1}='fire domain';
+    default_bounds{2}=[dis.min_lon,dis.max_lon,dis.min_lat,dis.max_lat];
+    descr{2}='around fire';
+    default_bounds{3}=[-119.5, -119.0, 47.95, 48.15];
+    descr{3}='Barker fire';
+    for i=1:length(default_bounds),
+        fprintf('%i: %s %8.5f %8.5f %8.5f %8.5f\n',i,descr{i},default_bounds{i});
+    end
+    bounds=input_num('bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above',2);
+    if length(bounds)==1, 
+        bounds=default_bounds{bounds};
+    end
     bounds=default_bounds{2};
+    display_bounds=bounds;
+    
+    
     [ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
     ispan=min(ii):max(ii);
     jspan=min(jj):max(jj);
