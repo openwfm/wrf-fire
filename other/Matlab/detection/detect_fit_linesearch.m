@@ -32,6 +32,8 @@ disp('input data')
         w.dy=444.44;
         warning('fixing up w for old w.mat file from Barker fire')
     end
+    dx=w.dx;
+    dy=w.dy;
     
     fuel.weight=0; % just to let Matlab know what fuel is going to be at compile time
     fuels
@@ -241,7 +243,7 @@ for istep=1:maxiter
     psi = detection_mask - nodetw*(1-detection_mask);
 
     % initial search direction, normed so that max(abs(search(:))) = 1.0
-    [Js,search]=objective_with_gradient(tign,h,'noplot'); 
+    [Js,search]=objective(tign,h); 
     search = -search/big(search); 
 
     plotstate(4,search,'Search direction',0);
@@ -275,47 +277,37 @@ ylabel('Latitude');
 print('-dpng',sprintf( '%s_contours.png', prefix));
 
 
-    function [J,delta]=objective_with_gradient(tign,h,noplot)
-        % compute objective function and optionally ascent direction
+    function varargout=objective(tign,h,doplot)
+        % [J,delta]=objective(tign,h,doplot)
+        % J=objective(tign,h,doplot)
+        % compute objective function and optionally gradient delta direction
         T=tign+h;
         [f0,f1]=like1(psi,detection_time-T,TC*stretch);
         F = f1;             % forcing
         % objective function and preconditioned gradient
-        Ah = poisson_fft2(h,[w.dx,w.dy],power);
+        Ah = poisson_fft2(h,[dx,dy],power);
         % compute both parts of the objective function and compare
         J1 = 0.5*(h(:)'*Ah(:));
         J2 = -ssum(psi.*f0)/(m*n);
         J = alpha*J1 + J2;
         fprintf('Objective function J=%g (J1=%g, J2=%g)\n',J,J1,J2);
+        if nargout==1,
+            varargout={J};
+            return
+        end
         gradJ = alpha*Ah + F;
         fprintf('Gradient: norm Ah %g norm F %g\n', norm(Ah,2), norm(F,2));
-        if ~exist('noplot','var'),
+        if exist('doplot','var'),
             plotstate(7,f0,'Detection likelihood',0.5,'-w');
             plotstate(8,f1,'Detection likelihood derivative',0);
             plotstate(9,F,'Forcing',0); 
             plotstate(10,gradJ,'gradient of J',0);
         end
         delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[w.dx,w.dy],-power)/alpha);
+        varargout=[{J},{delta}];
         % plotstate(11,delta,'Preconditioned gradient',0);
         %fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
     end
-
-
-    %NOTE: this function is called only when step size is determined
-    %      we are not allowed to modify the objective function here
-    %      as this would invalidate the gradient
-    function J=objective_only(tign,h)
-        T=tign+h;
-        [f0,~]=like1(psi,detection_time-T,TC*stretch);
-%        F = f1;             % forcing
-        % objective function and preconditioned gradient
-        Ah = poisson_fft2(h,[w.dx,w.dy],power);
-        J1 = 0.5*(h(:)'*Ah(:));
-        J2 = -ssum(psi.*f0)/(m*n);
-        J = alpha*J1 + J2;
-        fprintf('Objective function J=%g (J1=%g, J2=%g), alpha=%g\n',J,J1,J2,alpha);
-    end
-
 
     function plotstate(fig,T,s,c,linespec)
         fprintf('Figure %i %s\n',fig,s)
@@ -346,14 +338,14 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
         step_low = 0;
         Jslow = Js0;
         step_high = max_step;
-        Jshigh = objective_only(tign,h+max_step*search);
+        Jshigh = objective(tign,h+max_step*search);
         for d=1:max_depth
             step_sizes = linspace(step_low,step_high,nmesh+2);
             Jsls = zeros(nmesh+2,1);
             Jsls(1) = Jslow;
             Jsls(nmesh+2) = Jshigh;
             for i=2:nmesh+1
-                Jsls(i) = objective_only(tign,h+step_sizes(i)*search);
+                Jsls(i) = objective(tign,h+step_sizes(i)*search);
             end
             
             figure(8);
