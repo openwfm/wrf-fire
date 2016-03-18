@@ -1,4 +1,4 @@
-function analysis=detect_fit_linesearch(prefix)
+function p=detect_fit_linesearch(prefix)
 % from a copy of barker2
 
 disp('input data')
@@ -102,13 +102,14 @@ disp('subset and process inputs')
     min_lat = display_bounds(3);
     max_lat = display_bounds(4);
     
-    % convert tign_g to datenum as tign
+    % convert tign_g to datenum as tign, based zero at the end
     % assuming there is some place not on fire yet where tign_g = w.times
-    w.time=datenum(char(w.times)');
-    % make tign 
-    max_sim_time=max(w.tign_g(:));
-    tign=(w.tign_g - max_sim_time)/(24*60*60) + w.time;
-    % w.tign_g = max_sim_time + (24*60*60)*(tign - w.time)
+    % 
+    w.time_datenum=datenum(char(w.times)'); % the timestep of the wrfout, in days
+    max_sim_time=max(w.tign_g(:));          % max time in the simulation, in sec
+    tign=(w.tign_g - max_sim_time)/(24*60*60) + w.time_datenum; % assume same
+    
+    % w.tign_g = max_sim_time + (24*60*60)*(tign - w.time_datenum)
     min_tign=min(tign(:));
     max_tign=max(tign(:));
     
@@ -117,6 +118,9 @@ disp('subset and process inputs')
         
     tim_all = v.tim - base_time;
     tign= tign - base_time; 
+    
+    % tign_datenum = tign + base_time
+    
     tign_disp=tign;
     tign_disp(tign==max(tign(:)))=NaN;      % for display
     
@@ -135,9 +139,8 @@ disp('subset and process inputs')
     [max_freq,i]=max(detection_freq);
 %    detection_bounds=input_num('detection bounds as [upper,lower]',...
 %        [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol]);
-    detection_bounds = [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol];
-    bi = bii & detection_bounds(1)  + min_tign <= tim_all ... 
-             & tim_all <= detection_bounds(2)  + min_tign;
+    detection_bounds = [u_in(i)-tol,u_in(i)+tol];
+    bi = bii & detection_bounds(1) <= tim_all & tim_all <= detection_bounds(2);
     % now detection selected in time and space
     lon=v.lon(bi);
     lat=v.lat(bi);
@@ -146,10 +149,11 @@ disp('subset and process inputs')
     tim_ref = mean(tim);
     
     fprintf('%i detections selected\n',sum(bi))
-    detection_days_from_ignition=tim_ref;
+    detection_time=tim_ref;
+    detection_datenum=tim_ref+base_time;
     detection_datestr=datestr(tim_ref+base_time);
     fprintf('mean detection time %g days from ignition %s UTC\n',...
-        detection_days_from_ignition,detection_datestr);
+        detection_time,detection_datestr);
     fprintf('days from ignition  min %8.5f max %8.5f\n',min(tim)-min_tign,max(tim)-min_tign);
     fprintf('longitude           min %8.5f max %8.5f\n',min(lon),max(lon));
     fprintf('latitude            min %8.5f max %8.5f\n',min(lat),max(lat));
@@ -267,9 +271,16 @@ for istep=1:maxiter
 end
 % rebase the analysis to the original simulation time
 analysis=tign+h; 
-% w.tign_g = max_sim_time + (24*60*60)*(tign - w.time)
+% w.tign_g = max_sim_time + (24*60*60)*(tign - w.time_datenum)
 
-analysis = max_sim_time + (24*60*60)*(tign+h + base_time - w.time);
+analysis = max_sim_time + (24*60*60)*(tign+h + base_time - w.time_datenum);
+[p.tign_sim,p.tign_datenum] = rebase_time_back(tign+h);
+err=big(p.tign_sim-analysis)
+[p.detection_sim,p.detection_datenum] = rebase_time_back(detection_bounds(2));
+p.time_detection_str=datestr(p.detection_datenum);
+
+% max_sim_time + (24*60*60)*(tign+h + base_time - w.time_datenum);
+
 disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection time')
 
 figure(9);
@@ -284,6 +295,10 @@ xlabel('Longitude');
 ylabel('Latitude');
 print('-dpng',sprintf( '%s_contours.png', prefix));
 
+    function [time_sim,time_datenum]=rebase_time_back(time_in)
+        time_datenum = time_in + base_time;
+        time_sim = max_sim_time + (24*60*60)*(time_datenum - w.time_datenum);
+    end
 
     function varargout=objective(tign,h,doplot)
         % [J,delta]=objective(tign,h,doplot)
