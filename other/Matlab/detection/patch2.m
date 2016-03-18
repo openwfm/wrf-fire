@@ -88,7 +88,7 @@ if isempty(ispan) | isempty(jspan), error('selection empty'),end
 red.fxlat=w.fxlat(ispan,jspan);
 red.fxlong=w.fxlong(ispan,jspan);
 red.tign_g=w.tign_g(ispan,jspan);
-red.nfuel_cat=c.nfuel_cat(ispan,jspan);
+red.nfuel_cat=w.nfuel_cat(ispan,jspan);
 
 red.min_lat = min(red.fxlat(:))
 red.max_lat = max(red.fxlat(:))
