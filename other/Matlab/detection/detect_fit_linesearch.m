@@ -102,32 +102,37 @@ disp('subset and process inputs')
     min_lat = display_bounds(3);
     max_lat = display_bounds(4);
     
-    min_tign= min(w.tign_g(:))
+    % convert tign_g to datenum as tign
+    % assuming there is some place not on fire yet where tign_g = w.times
+    w.time=datenum(char(w.times)');
+    % make tign 
+    max_sim_time=max(w.tign_g(:));
+    tign=(w.tign_g - max_sim_time)/(24*60*60) + w.time;
+    % w.tign_g = max_sim_time + (24*60*60)*(tign - w.time)
+    min_tign=min(tign(:));
+    max_tign=max(tign(:));
     
-    % rebase time on the largest tign_g = the time of the last frame, in days
-    
-    last_time=datenum(char(w.times)'); 
-    max_tign_g=max(w.tign_g(:));
-    
-    tim_all = v.tim - last_time;
-    tign= (w.tign_g - max_tign_g)/(24*60*60);  % now tign is in days
-    min_tign= min(tign(:)); % initial ignition time
+    % rebase time on the largest tign_g = the time of the first frame with fire, in days
+    base_time=min_tign;
+        
+    tim_all = v.tim - base_time;
+    tign= tign - base_time; 
     tign_disp=tign;
-    tign_disp(tign==0)=NaN;      % for display
+    tign_disp(tign==max(tign(:)))=NaN;      % for display
     
     % select fire detection within the domain and time
     bii=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
     
+    tol=0.01;
     tim_in = tim_all(bii);
     u_in = unique(tim_in);
-    fprintf('detection times from first ignition\n')
+    fprintf('detection times from ignition\n')
     for i=1:length(u_in)
-        detection_freq(i)=sum(tim_in==u_in(i));
-        fprintf('%8.5f days %s UTC %3i %s detections\n',u_in(i)-min_tign,...
-        datestr(u_in(i)+last_time),detection_freq(i),detection);
+        detection_freq(i)=sum(tim_in>u_in(i)-tol & tim_in<u_in(i)+tol);
+        fprintf('%8.5f days %s UTC %3i %s detections\n',u_in(i),...
+        datestr(u_in(i)+base_time),detection_freq(i),detection);
     end
     [max_freq,i]=max(detection_freq);
-    tol=0.01;
 %    detection_bounds=input_num('detection bounds as [upper,lower]',...
 %        [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol]);
     detection_bounds = [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol];
@@ -141,8 +146,8 @@ disp('subset and process inputs')
     tim_ref = mean(tim);
     
     fprintf('%i detections selected\n',sum(bi))
-    detection_days_from_ignition=tim_ref-min_tign;
-    detection_datestr=datestr(tim_ref+last_time);
+    detection_days_from_ignition=tim_ref;
+    detection_datestr=datestr(tim_ref+base_time);
     fprintf('mean detection time %g days from ignition %s UTC\n',...
         detection_days_from_ignition,detection_datestr);
     fprintf('days from ignition  min %8.5f max %8.5f\n',min(tim)-min_tign,max(tim)-min_tign);
@@ -260,8 +265,11 @@ for istep=1:maxiter
     print('-dpng',sprintf('%s_descent_iter_%d.png', prefix, istep));
     h_stor(:,:,istep) = h;
 end
-disp('converting analysis fire arrival time from days with zero at the end of the fire to original scale')
-analysis=max_tign_g+(24*60*60)*(tign+h); 
+% rebase the analysis to the original simulation time
+analysis=tign+h; 
+% w.tign_g = max_sim_time + (24*60*60)*(tign - w.time)
+
+analysis = max_sim_time + (24*60*60)*(tign+h + base_time - w.time);
 disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection time')
 
 figure(9);
