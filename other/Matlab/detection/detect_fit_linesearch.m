@@ -32,6 +32,8 @@ disp('input data')
         w.dy=444.44;
         warning('fixing up w for old w.mat file from Barker fire')
     end
+    dx=w.dx;
+    dy=w.dy;
     
     fuel.weight=0; % just to let Matlab know what fuel is going to be at compile time
     fuels
@@ -46,15 +48,41 @@ disp('subset and process inputs')
     min_lon = min(w.fxlong(:))
     max_lon = max(w.fxlong(:))
     min_tign= min(w.tign_g(:))
+    max_tign= max(w.tign_g(:));
     
+    % active
+    act.x=find(w.tign_g(:)<max_tign);
+    act.min_lat = min(w.fxlat(act.x));
+    act.max_lat = max(w.fxlat(act.x));
+    act.min_lon = min(w.fxlong(act.x));
+    act.max_lon = max(w.fxlong(act.x));
+    
+    % domain bounds
+    margin=0.3;
+    fprintf('enter relative margin around the fire (%g)',margin);
+    in=input(' > ');
+    if ~isempty(in),margin=in;end
+    dis.min_lon=max(min_lon,act.min_lon-margin*(act.max_lon-act.min_lon));
+    dis.min_lat=max(min_lat,act.min_lat-margin*(act.max_lat-act.min_lat));
+    dis.max_lon=min(max_lon,act.max_lon+margin*(act.max_lon-act.min_lon));
+    dis.max_lat=min(max_lat,act.max_lat+margin*(act.max_lat-act.min_lat));
+
     default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
-    default_bounds{2}=[-119.5, -119.0, 47.95, 48.15];
-    display_bounds=default_bounds{2};
-%     for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
+    descr{1}='fire domain';
+    default_bounds{2}=[dis.min_lon,dis.max_lon,dis.min_lat,dis.max_lat];
+    descr{2}='around fire';
+    default_bounds{3}=[-119.5, -119.0, 47.95, 48.15];
+    descr{3}='Barker fire';
+    for i=1:length(default_bounds),
+        fprintf('%i: %s %8.5f %8.5f %8.5f %8.5f\n',i,descr{i},default_bounds{i});
+    end
+    bounds=input_num('bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above',2);
+    if length(bounds)==1, 
+        bounds=default_bounds{bounds};
+    end
+    fprintf('using bounds %8.5f %8.5f %8.5f %8.5f\n',bounds)
+    display_bounds=bounds;
     
-%    bounds=input_num('bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above',1);
-%    if length(bounds)==1, bounds=default_bounds{bounds}; end
-    bounds=default_bounds{2};
     [ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
     ispan=min(ii):max(ii);
     jspan=min(jj):max(jj);
@@ -102,7 +130,7 @@ disp('subset and process inputs')
     tol=0.01;
 %    detection_bounds=input_num('detection bounds as [upper,lower]',...
 %        [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol]);
-    detection_bounds = [u_in(1)-min_tign-tol,u_in(1)-min_tign+tol];
+    detection_bounds = [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol];
     bi = bii & detection_bounds(1)  + min_tign <= tim_all ... 
              & tim_all <= detection_bounds(2)  + min_tign;
     % now detection selected in time and space
@@ -192,7 +220,7 @@ print('-dpng','tign_forecast.png');
 fprintf('********** Starting iterations **************\n');
 
 % can change the objective function here
-alpha=input_num('penalty coefficient alpha',1000);
+alpha=input_num('penalty coefficient alpha',1/1000);
 if(alpha < 0)
     error('Alpha is not allowed to be negative.')
 end
@@ -205,21 +233,22 @@ power=input_num('negative laplacian power',1.02);
 
 % storage for h maps
 maxiter = 2;
+maxdepth=2;
 h_stor = zeros(m,n,maxiter);
 
 for istep=1:maxiter
     
-    fprintf('********** Iteration %g/%g **************\n', istep, 5);
+    fprintf('********** Iteration %g/%g **************\n', istep, maxiter);
     
     psi = detection_mask - nodetw*(1-detection_mask);
 
     % initial search direction, normed so that max(abs(search(:))) = 1.0
-    [Js,search]=objective_with_gradient(tign,h,'noplot'); 
+    [Js,search]=objective(tign,h); 
     search = -search/big(search); 
 
     plotstate(4,search,'Search direction',0);
     print('-dpng', sprintf('%s_search_dir_%d.png', prefix, istep));
-    [Jsbest,best_stepsize] = linesearch(4.0,Js,tign,h,search,4,2);
+    [Jsbest,best_stepsize] = linesearch(4.0,Js,tign,h,search,4,maxdepth);
 %    plotstate(21,tign+h+3*search,'Line search (magic step_size=3)',detection_time(1));
     fprintf('Iteration %d: best step size %g\n', istep, best_stepsize);
     if(best_stepsize == 0)
@@ -248,47 +277,37 @@ ylabel('Latitude');
 print('-dpng',sprintf( '%s_contours.png', prefix));
 
 
-    function [J,delta]=objective_with_gradient(tign,h,noplot)
-        % compute objective function and optionally ascent direction
+    function varargout=objective(tign,h,doplot)
+        % [J,delta]=objective(tign,h,doplot)
+        % J=objective(tign,h,doplot)
+        % compute objective function and optionally gradient delta direction
         T=tign+h;
         [f0,f1]=like1(psi,detection_time-T,TC*stretch);
         F = f1;             % forcing
         % objective function and preconditioned gradient
-        Ah = poisson_fft2(h,[w.dx,w.dy],1);
+        Ah = poisson_fft2(h,[dx,dy],power);
         % compute both parts of the objective function and compare
         J1 = 0.5*(h(:)'*Ah(:));
-        J2 = -ssum(psi.*f0)/(m*n);
+        J2 = -ssum(psi.*f0);
         J = alpha*J1 + J2;
         fprintf('Objective function J=%g (J1=%g, J2=%g)\n',J,J1,J2);
+        if nargout==1,
+            varargout={J};
+            return
+        end
         gradJ = alpha*Ah + F;
         fprintf('Gradient: norm Ah %g norm F %g\n', norm(Ah,2), norm(F,2));
-        if ~exist('noplot','var'),
+        if exist('doplot','var'),
             plotstate(7,f0,'Detection likelihood',0.5,'-w');
             plotstate(8,f1,'Detection likelihood derivative',0);
             plotstate(9,F,'Forcing',0); 
             plotstate(10,gradJ,'gradient of J',0);
         end
-        delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[w.dx,w.dy],-power)/alpha);
+        delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[dx,dy],-power)/alpha);
+        varargout=[{J},{delta}];
         % plotstate(11,delta,'Preconditioned gradient',0);
         %fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
     end
-
-
-    %NOTE: this function is called only when step size is determined
-    %      we are not allowed to modify the objective function here
-    %      as this would invalidate the gradient
-    function J=objective_only(tign,h)
-        T=tign+h;
-        [f0,~]=like1(psi,detection_time-T,TC*stretch);
-%        F = f1;             % forcing
-        % objective function and preconditioned gradient
-        Ah = poisson_fft2(h,[w.dx,w.dy],1);
-        J1 = 0.5*(h(:)'*Ah(:));
-        J2 = -ssum(psi.*f0)/(m*n);
-        J = alpha*J1 + J2;
-        fprintf('Objective function J=%g (J1=%g, J2=%g), alpha=%g\n',J,J1,J2,alpha);
-    end
-
 
     function plotstate(fig,T,s,c,linespec)
         fprintf('Figure %i %s\n',fig,s)
@@ -319,14 +338,14 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
         step_low = 0;
         Jslow = Js0;
         step_high = max_step;
-        Jshigh = objective_only(tign,h+max_step*search);
+        Jshigh = objective(tign,h+max_step*search);
         for d=1:max_depth
             step_sizes = linspace(step_low,step_high,nmesh+2);
             Jsls = zeros(nmesh+2,1);
             Jsls(1) = Jslow;
             Jsls(nmesh+2) = Jshigh;
             for i=2:nmesh+1
-                Jsls(i) = objective_only(tign,h+step_sizes(i)*search);
+                Jsls(i) = objective(tign,h+step_sizes(i)*search);
             end
             
             figure(8);
