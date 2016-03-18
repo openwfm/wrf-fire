@@ -130,7 +130,7 @@ disp('subset and process inputs')
     tol=0.01;
 %    detection_bounds=input_num('detection bounds as [upper,lower]',...
 %        [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol]);
-    detection_bounds = [u_in(1)-min_tign-tol,u_in(1)-min_tign+tol];
+    detection_bounds = [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol];
     bi = bii & detection_bounds(1)  + min_tign <= tim_all ... 
              & tim_all <= detection_bounds(2)  + min_tign;
     % now detection selected in time and space
@@ -303,7 +303,7 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
             plotstate(9,F,'Forcing',0); 
             plotstate(10,gradJ,'gradient of J',0);
         end
-        delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[w.dx,w.dy],-power)/alpha);
+        delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[dx,dy],-power)/alpha);
         varargout=[{J},{delta}];
         % plotstate(11,delta,'Preconditioned gradient',0);
         %fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
