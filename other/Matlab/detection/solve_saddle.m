@@ -6,9 +6,9 @@ function delta=solve_saddle(C,H,F,invA)
 %  C'*delta             = 0 
 %
 % input: 
-%  C    column vector
-%  H    column vector
-%  F    column vector
+%  C    column vector, may be given as matrix
+%  H    column vector, may be given as matrix
+%  F    column vector, may be given as matrix
 %  invA function to multiply by the inverse of square matrix A
 %  if the inputs are not column vectors they are reshaped into columns
 %  for computations and the output reshaped back
@@ -25,3 +25,9 @@ R = H+invA_F;
 S=C(:)'*invA_C(:);
 lambda = S \ (C(:)'*R(:));
 delta = R - invA_C*lambda;
+err_C=big(C(:)'*delta(:))/(big(C)*big(delta));
+tol=100*eps*sqrt(prod(size(C)));
+if err_C > tol,
+    warning(['Large relative error ',num2str(err_C),'  in the constraint'])
+end
+end
