@@ -88,15 +88,15 @@ disp('subset and process inputs')
     jspan=min(jj):max(jj);
     
     % restrict data
-    w.fxlat=w.fxlat(ispan,jspan);
-    w.fxlong=w.fxlong(ispan,jspan);
-    w.tign_g=w.tign_g(ispan,jspan);
-    w.nfuel_cat=w.nfuel_cat(ispan,jspan);
+    fxlat=w.fxlat(ispan,jspan);
+    fxlong=w.fxlong(ispan,jspan);
+    tign_g=w.tign_g(ispan,jspan);
+    nfuel_cat=w.nfuel_cat(ispan,jspan);
     
-    min_lat = min(w.fxlat(:))
-    max_lat = max(w.fxlat(:))
-    min_lon = min(w.fxlong(:))
-    max_lon = max(w.fxlong(:))
+    min_lat = min(fxlat(:))
+    max_lat = max(fxlat(:))
+    min_lon = min(fxlong(:))
+    max_lon = max(fxlong(:))
     min_lon = display_bounds(1);
     max_lon = display_bounds(2);
     min_lat = display_bounds(3);
@@ -105,11 +105,11 @@ disp('subset and process inputs')
     % convert tign_g to datenum as tign, based zero at the end
     % assuming there is some place not on fire yet where tign_g = w.times
     % 
-    w.time_datenum=datenum(char(w.times)'); % the timestep of the wrfout, in days
-    max_sim_time=max(w.tign_g(:));          % max time in the simulation, in sec
-    tign=(w.tign_g - max_sim_time)/(24*60*60) + w.time_datenum; % assume same
+    w_time_datenum=datenum(char(w.times)'); % the timestep of the wrfout, in days
+    max_sim_time=max(tign_g(:));          % max time in the simulation, in sec
+    tign=(tign_g - max_sim_time)/(24*60*60) + w_time_datenum; % assume same
     
-    % w.tign_g = max_sim_time + (24*60*60)*(tign - w.time_datenum)
+    % tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
     min_tign=min(tign(:));
     max_tign=max(tign(:));
     
@@ -165,7 +165,7 @@ disp('subset and process inputs')
     tim=tim_all(bi); 
 
     % set up reduced resolution plots
-    [m,n]=size(w.fxlong);
+    [m,n]=size(fxlong);
     m_plot=m; n_plot=n;
     
     m1=map_index(display_bounds(1),bounds(1),bounds(2),m);
@@ -174,12 +174,12 @@ disp('subset and process inputs')
     n2=map_index(display_bounds(4),bounds(3),bounds(4),n);    
     mi=m1:ceil((m2-m1+1)/m_plot):m2; % reduced index vectors
     ni=n1:ceil((n2-n1+1)/n_plot):n2;
-    mesh_fxlong=w.fxlong(mi,ni);
-    mesh_fxlat=w.fxlat(mi,ni);
+    mesh_fxlong=fxlong(mi,ni);
+    mesh_fxlat=fxlat(mi,ni);
     [mesh_m,mesh_n]=size(mesh_fxlat);
 
     % find ignition point
-    [i_ign,j_ign]=find(w.tign_g == min(w.tign_g(:)));
+    [i_ign,j_ign]=find(tign == min(tign(:)));
     if length(i_ign)~=1,error('assuming single ignition point here'),end
     
     % set up constraint on ignition point being the same
@@ -197,8 +197,8 @@ disp('subset and process inputs')
     lat1=lat-rlat;
     lat2=lat+rlat;
     for i=1:length(lon),
-        square = w.fxlong>=lon1(i) & w.fxlong<=lon2(i) & ...
-                 w.fxlat >=lat1(i) & w.fxlat <=lat2(i);
+        square = fxlong>=lon1(i) & fxlong<=lon2(i) & ...
+                 fxlat >=lat1(i) & fxlat <=lat2(i);
         detection_mask(square)=1;
     end
     C=0.5*ones(1,length(res));
@@ -209,13 +209,13 @@ disp('subset and process inputs')
 %    hold on, plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xw'); hold off
     % legend('first ignition at %g %g',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
     
-    fuelweight(length(fuel)+1:max(w.nfuel_cat(:)))=NaN;
+    fuelweight(length(fuel)+1:max(nfuel_cat(:)))=NaN;
     for j=1:length(fuel), 
         fuelweight(j)=fuel(j).weight;
     end
     W = zeros(m,n);
     for j=1:n, for i=1:m
-           W(i,j)=fuelweight(w.nfuel_cat(i,j));
+           W(i,j)=fuelweight(nfuel_cat(i,j));
     end,end
  
 %    plotstate(2,W,'Fuel weight',[])
@@ -271,15 +271,17 @@ for istep=1:maxiter
 end
 % rebase the analysis to the original simulation time
 analysis=tign+h; 
-% w.tign_g = max_sim_time + (24*60*60)*(tign - w.time_datenum)
+% w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
 
-analysis = max_sim_time + (24*60*60)*(tign+h + base_time - w.time_datenum);
-[p.tign_sim,p.tign_datenum] = rebase_time_back(tign+h);
-err=big(p.tign_sim-analysis)
-[p.detection_sim,p.detection_datenum] = rebase_time_back(detection_bounds(2));
-p.time_detection_str=datestr(p.detection_datenum);
+[p.red.tign,p.red.tign_datenum] = rebase_time_back(tign+h);
+% analysis = max_sim_time + (24*60*60)*(tign+h + base_time - w_time_datenum);
+% err=big(p.tign_sim-analysis)
+[p.time.sfire,p.time.datenum] = rebase_time_back(detection_bounds);
+p.time.datestr=datestr(p.time.datenum);
+p.tign_g=w.tign_g;
+p.tign_g(ispan,jspan)=p.red.tign;
 
-% max_sim_time + (24*60*60)*(tign+h + base_time - w.time_datenum);
+% max_sim_time + (24*60*60)*(tign+h + base_time - w_time_datenum);
 
 disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection time')
 
@@ -297,7 +299,7 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
 
     function [time_sim,time_datenum]=rebase_time_back(time_in)
         time_datenum = time_in + base_time;
-        time_sim = max_sim_time + (24*60*60)*(time_datenum - w.time_datenum);
+        time_sim = max_sim_time + (24*60*60)*(time_datenum - w_time_datenum);
     end
 
     function varargout=objective(tign,h,doplot)
