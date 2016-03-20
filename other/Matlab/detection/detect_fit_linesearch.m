@@ -116,7 +116,7 @@ disp('subset and process inputs')
     % rebase time on the largest tign_g = the time of the first frame with fire, in days
     base_time=min_tign;
         
-    tim_all = v.tim - base_time;
+    v.tim = v.tim - base_time;
     tign= tign - base_time; 
     
     % tign_datenum = tign + base_time
@@ -128,7 +128,7 @@ disp('subset and process inputs')
     bii=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
     
     tol=0.01;
-    tim_in = tim_all(bii);
+    tim_in = v.tim(bii);
     u_in = unique(tim_in);
     fprintf('detection times from ignition\n')
     for i=1:length(u_in)
@@ -140,12 +140,12 @@ disp('subset and process inputs')
 %    detection_bounds=input_num('detection bounds as [upper,lower]',...
 %        [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol]);
     detection_bounds = [u_in(i)-tol,u_in(i)+tol];
-    bi = bii & detection_bounds(1) <= tim_all & tim_all <= detection_bounds(2);
+    bi = bii & detection_bounds(1) <= v.tim & v.tim <= detection_bounds(2);
     % now detection selected in time and space
     lon=v.lon(bi);
     lat=v.lat(bi);
     res=v.res(bi);
-    tim=tim_all(bi); 
+    tim=v.tim(bi); 
     tim_ref = mean(tim);
     
     fprintf('%i detections selected\n',sum(bi))
@@ -162,7 +162,7 @@ disp('subset and process inputs')
     lon=v.lon(bi);
     lat=v.lat(bi);
     res=v.res(bi);
-    tim=tim_all(bi); 
+    tim=v.tim(bi); 
 
     % set up reduced resolution plots
     [m,n]=size(fxlong);
@@ -225,6 +225,7 @@ h =zeros(m,n); % initial increment
 plotstate(3,tign,'Forecast fire arrival time',detection_time(1));
 print('-dpng','tign_forecast.png');
 
+mesh_tign_detect(4,fxlong,fxlat,tign,v,'Forecast fire arrival time')
 
 fprintf('********** Starting iterations **************\n');
 
@@ -255,7 +256,7 @@ for istep=1:maxiter
     [Js,search]=objective(tign,h); 
     search = -search/big(search); 
 
-    plotstate(4,search,'Search direction',0);
+    plotstate(5,search,'Search direction',0);
     print('-dpng', sprintf('%s_search_dir_%d.png', prefix, istep));
     [Jsbest,best_stepsize] = linesearch(4.0,Js,tign,h,search,4,maxdepth);
 %    plotstate(21,tign+h+3*search,'Line search (magic step_size=3)',detection_time(1));
@@ -272,6 +273,9 @@ end
 % rebase the analysis to the original simulation time
 analysis=tign+h; 
 % w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
+
+mesh_tign_detect(6,fxlong,fxlat,analysis,v,'Analysis fire arrival time')
+
 
 [p.red.tign,p.red.tign_datenum] = rebase_time_back(tign+h);
 % analysis = max_sim_time + (24*60*60)*(tign+h + base_time - w_time_datenum);
