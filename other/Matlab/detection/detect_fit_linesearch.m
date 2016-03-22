@@ -225,7 +225,8 @@ h =zeros(m,n); % initial increment
 plotstate(3,tign,'Forecast fire arrival time',detection_time(1));
 print('-dpng','tign_forecast.png');
 
-mesh_tign_detect(4,fxlong,fxlat,tign,v,'Forecast fire arrival time')
+forecast=tign;
+mesh_tign_detect(4,fxlong,fxlat,forecast,v,'Forecast fire arrival time')
 
 fprintf('********** Starting iterations **************\n');
 
@@ -275,7 +276,7 @@ analysis=tign+h;
 % w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
 
 mesh_tign_detect(6,fxlong,fxlat,analysis,v,'Analysis fire arrival time')
-
+mesh_tign_detect(7,fxlong,fxlat,analysis-forecast,[],'Analysis - forecast difference')
 
 [p.red.tign,p.red.tign_datenum] = rebase_time_back(tign+h);
 % analysis = max_sim_time + (24*60*60)*(tign+h + base_time - w_time_datenum);

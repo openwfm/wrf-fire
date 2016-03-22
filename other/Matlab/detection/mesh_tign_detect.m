@@ -27,7 +27,7 @@ unit_fxlat = eradius*2*pi/360;
 lon_ctr=mean(fxlong(:));
 unit_fxlong = unit_fxlat*cos(lon_ctr*2*pi/360);
 % plot black patches as detection squares as patches
-if exist('v','var'),
+if ~isempty(v),
     c=cmapmod14;
     min_fxlon=min(fxlong(:));
     max_fxlon=max(fxlong(:));
