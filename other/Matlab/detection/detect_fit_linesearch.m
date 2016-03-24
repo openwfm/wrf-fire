@@ -115,11 +115,6 @@ disp('subset and process inputs')
     v.tim = v.tim - base_time;
     tign= tign - base_time; 
     
-    % tign_datenum = tign + base_time
-    
-    tign_disp=tign;
-    tign_disp(tign==max(tign(:)))=NaN;      % for display
-    
     % select fire detection within the domain and time
     bii=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
     

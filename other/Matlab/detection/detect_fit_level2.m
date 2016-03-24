@@ -1,157 +1,300 @@
-function p=detect_fit_linesearch(prefix)
-% from a copy of barker2
+function p=detect_fit_level2(prefix)
 
-disp('input data')
-    % to create conus.kml:
-    % download http://firemapper.sc.egov.usda.gov/data_viirs/kml/conus_hist/2012/conus_20120914.kmz
-    % and gunzip 
-    % 
-    % to create w.mat:
-    % run Adam's simulation, currently results in
-    % /share_home/akochans/NASA_WSU/wrf-fire/WRFV3/test/em_barker_moist/wrfoutputfiles_live_0.25
-    % then in Matlab
-    % f='wrfout_d05_2012-09-15_00:00:00'; 
-    % t=nc2struct(f,{'Times'},{});  n=size(t.times,2);  
-    % w=nc2struct(f,{'TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','Times',NFUEL_CAT'},{'DX','DY'},n);
-    % save ~/w.mat w    
-    % 
-    % fuels.m is created by WRF-SFIRE at the beginning of the run
-    
-    % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
-    
-    
-    v=read_fire_kml('conus_viirs.kml');
-    detection='VIIRS';        
-    if ~exist('prefix','var'),
-        prefix='viirs';
-    end
-    
-    a=load('w');w=a.w;
-    if ~isfield(w,'dx'),
-        w.dx=444.44;
-        w.dy=444.44;
-        warning('fixing up w for old w.mat file from Barker fire')
-    end
-    dx=w.dx;
-    dy=w.dy;
-    
-    fuel.weight=0; % just to let Matlab know what fuel is going to be at compile time
-    fuels
+% to create w.mat:
 
+% run Adam's simulation, currently results in
+% /share_home/akochans/WRF341F/wrf-fire/WRFV3/test/em_utfire_1d_med_4km_200m
+% then in Matlab
+% arrays needed only once
+% f='wrfout_d01_2013-08-20_00:00:00'; 
+% t=nc2struct(f,{'Times'},{});  n=size(t.times,2)  
+% w=nc2struct(f,{'Times','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','XLONG','XLAT','NFUEL_CAT'},{'DX','DY'},n);
+% save ~/w.mat w    
 
-disp('subset and process inputs')
+% fuels.m is created by WRF-SFIRE at the beginning of the run
     
-    % establish boundaries from simulations
-    
-    sim.min_lat = min(w.fxlat(:))
-    sim.max_lat = max(w.fxlat(:))
-    sim.min_lon = min(w.fxlong(:))
-    sim.max_lon = max(w.fxlong(:))
-    sim.min_tign= min(w.tign_g(:))
-    sim.max_tign= max(w.tign_g(:));
-    
-    % active
-    act.x=find(w.tign_g(:)<sim.max_tign);
-    act.min_lat = min(w.fxlat(act.x));
-    act.max_lat = max(w.fxlat(act.x));
-    act.min_lon = min(w.fxlong(act.x));
-    act.max_lon = max(w.fxlong(act.x));
-    
-    % domain bounds
-    margin=0.3;
-    fprintf('enter relative margin around the fire (%g)',margin);
-    in=input(' > ');
-    if ~isempty(in),margin=in;end
-    dis.min_lon=max(sim.min_lon,act.min_lon-margin*(act.max_lon-act.min_lon));
-    dis.min_lat=max(sim.min_lat,act.min_lat-margin*(act.max_lat-act.min_lat));
-    dis.max_lon=min(sim.max_lon,act.max_lon+margin*(act.max_lon-act.min_lon));
-    dis.max_lat=min(sim.max_lat,act.max_lat+margin*(act.max_lat-act.min_lat));
+% ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
-    default_bounds{1}=[sim.min_lon,sim.max_lon,sim.min_lat,sim.max_lat];
-    descr{1}='fire domain';
-    default_bounds{2}=[dis.min_lon,dis.max_lon,dis.min_lat,dis.max_lat];
-    descr{2}='around fire';
-    default_bounds{3}=[-119.5, -119.0, 47.95, 48.15];
-    descr{3}='Barker fire';
-    for i=1:length(default_bounds),
-        fprintf('%i: %s %8.5f %8.5f %8.5f %8.5f\n',i,descr{i},default_bounds{i});
+% figures
+figmap=2;
+fig3d=0;
+fig3d=1;
+plot_also_wind=0;
+plot_detections=1;
+timefmt='dd-mmm-yyyy HH:MM:SS';
+
+disp('Loading simulation')
+
+load w
+
+if plot_also_wind,
+    % wind
+    ss=load('ss');ss=ss.s;
+    ss.steps=size(ss.times,2);
+    ss.time=zeros(1,ss.steps);
+    for i=1:ss.steps,
+        ss.time(i)=datenum(char(ss.times(:,i)'));
     end
-    bounds=input_num('bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above',2);
-    if length(bounds)==1, 
-        bounds=default_bounds{bounds};
+    ss.num=1:ss.steps;
+    ss.min_time=min(ss.time);
+    ss.max_time=max(ss.time);
+    % interpolate surface wind to center of the grid
+    ss.uh=0.5*(ss.uah(1:end-1,:,:)+ss.uah(2:end,:,:));
+    ss.vh=0.5*(ss.vah(:,1:end-1,:)+ss.vah(:,2:end,:));
+    fprintf('min wind field time   %s\n',datestr(ss.min_time));
+    fprintf('max wind field time   %s\n',datestr(ss.max_time));
+
+end
+
+fuel=[]; fuels
+
+disp('Subset space from simulation')
+
+sim.min_lat = min(w.fxlat(:));
+sim.max_lat = max(w.fxlat(:));
+sim.min_lon = min(w.fxlong(:));
+sim.max_lon = max(w.fxlong(:));
+sim.min_tign= min(w.tign_g(:));
+sim.max_tign= max(w.tign_g(:));
+act.x=find(w.tign_g(:)<sim.max_tign);
+act.min_lat = min(w.fxlat(act.x));
+act.max_lat = max(w.fxlat(act.x));
+act.min_lon = min(w.fxlong(act.x));
+act.max_lon = max(w.fxlong(act.x));
+margin=0.5;
+fprintf('enter relative margin around the fire (%g)',margin);
+in=input(' > ');
+if ~isempty(in),margin=in;end
+min_lon=max(sim.min_lon,act.min_lon-margin*(act.max_lon-act.min_lon));
+min_lat=max(sim.min_lat,act.min_lat-margin*(act.max_lat-act.min_lat));
+max_lon=min(sim.max_lon,act.max_lon+margin*(act.max_lon-act.min_lon));
+max_lat=min(sim.max_lat,act.max_lat+margin*(act.max_lat-act.min_lat));
+
+default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
+default_bounds{2}=[sim.min_lon,sim.max_lon,sim.min_lat,sim.max_lat];
+for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
+
+bounds=input('enter bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above (1)> ');
+if isempty(bounds),bounds=1;end
+if length(bounds)==1,
+    bounds=default_bounds{bounds};
+end
+[ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
+ispan=min(ii):max(ii);
+jspan=min(jj):max(jj);
+if isempty(ispan) | isempty(jspan), error('selection empty'),end
+
+% restrict simulation
+
+red.fxlat=w.fxlat(ispan,jspan);
+red.fxlong=w.fxlong(ispan,jspan);
+red.tign_g=w.tign_g(ispan,jspan);
+red.nfuel_cat=w.nfuel_cat(ispan,jspan);
+
+red.min_lat = min(red.fxlat(:));
+red.max_lat = max(red.fxlat(:));
+red.min_lon = min(red.fxlong(:));
+red.max_lon = max(red.fxlong(:));
+
+% convert tign_g to datenum 
+w.time=datenum(char(w.times)');
+red.tign=(red.tign_g - max(red.tign_g(:)))/(24*60*60) + w.time;
+min_tign=min(red.tign(:));
+max_tign=max(red.tign(:));
+base_time=min_tign;
+
+disp('Subsetting detection time')
+    
+prefix='TIFs/';
+% the level2 files processed by geotiff2mat.py
+p=sort_rsac_files(prefix); 
+min_det_time=p.time(1);
+max_det_time=p.time(end);
+    
+function str=stime(t)
+    if ~isscalar(t) | ~isnumeric(t),
+        error('t must be a number')
     end
-    fprintf('using bounds %8.5f %8.5f %8.5f %8.5f\n',bounds)
-    display_bounds=bounds;
-    
-    [ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
-    ispan=min(ii):max(ii);
-    jspan=min(jj):max(jj);
-    
-    % restrict data
-    fxlat=w.fxlat(ispan,jspan);
-    fxlong=w.fxlong(ispan,jspan);
-    tign_g=w.tign_g(ispan,jspan);
-    nfuel_cat=w.nfuel_cat(ispan,jspan);
-    
-    min_lon = display_bounds(1);
-    max_lon = display_bounds(2);
-    min_lat = display_bounds(3);
-    max_lat = display_bounds(4);
-    
-    % convert tign_g to datenum as tign, based zero at the end
-    % assuming there is some place not on fire yet where tign_g = w.times
-    % 
-    w_time_datenum=datenum(char(w.times)'); % the timestep of the wrfout, in days
-    max_sim_time=max(tign_g(:));          % max time in the simulation, in sec
-    tign=(tign_g - max_sim_time)/(24*60*60) + w_time_datenum; % assume same
-    
-    % tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
-    min_tign=min(tign(:));
-    max_tign=max(tign(:));
-    
-    % rebase time on the largest tign_g = the time of the first frame with fire, in days
-    base_time=min_tign;
-        
-    v.tim = v.tim - base_time;
-    tign= tign - base_time; 
-    
-    % tign_datenum = tign + base_time
-    
-    tign_disp=tign;
-    tign_disp(tign==max(tign(:)))=NaN;      % for display
-    
-    % select fire detection within the domain and time
-    bii=(v.lon > min_lon & v.lon < max_lon & v.lat > min_lat & v.lat < max_lat);
-    
-    tol=0.01;
-    tim_in = v.tim(bii);
-    u_in = unique(tim_in);
-    fprintf('detection times from ignition\n')
-    for i=1:length(u_in)
-        detection_freq(i)=sum(tim_in>u_in(i)-tol & tim_in<u_in(i)+tol);
-        fprintf('%8.5f days %s UTC %3i %s detections\n',u_in(i),...
-        datestr(u_in(i)+base_time),detection_freq(i),detection);
+    str=sprintf('%s day %g',datestr(t,timefmt),t-base_time);
+end
+  
+function print_time_bounds(str,time1,time2)
+    fprintf('%-10s from %s to %s\n',str,stime(time1),stime(time2))
+end
+  
+% choose time bounds
+print_time_bounds('Simulation',min_tign,max_tign)
+print_time_bounds('Detections',min_det_time,max_det_time)
+b1=max(min_tign,min_det_time);
+b2=min(max_tign,max_det_time);
+ba=0.5*(b1+b2);
+bd=b2-b1;
+default_time_bounds{1}=[b1,b2];
+default_time_bounds{2}=[b1,b1+0.3*bd];
+default_time_bounds{3}=[b1,b1+0.5*bd];
+default_time_bounds{4}=[ba-0.2*bd,ba+0.2*bd];
+for i=1:length(default_time_bounds)
+    str=sprintf('bounds %i',i);
+    print_time_bounds(str,default_time_bounds{i}(1),default_time_bounds{i}(2)) 
+end
+time_bounds=input_num('bounds [min_time max_time] or number of bounds above',2);
+if length(time_bounds)==1, 
+    time_bounds=default_time_bounds{time_bounds};
+else
+    time_bounds=time_bounds+base_time;
+end
+min_time=time_bounds(1);
+max_time=time_bounds(2);
+print_time_bounds('Using bounds',min_time,max_time)
+
+% prepare for plots
+cmap=cmapmod14;
+cmap2=cmap;
+cmap2(1:7,:)=NaN;
+plot_all_level2=true;
+red.tign_disp=red.tign;
+red.tign_disp(find(red.tign==max_tign))=NaN; % squash the top
+
+if fig3d>0,
+    fire_tign3d(fig3d,red)
+end
+if plot_detections,
+    figure(figmap);clf
+end
+
+% getting the list of active fires detection files
+prefix='TIFs/';    % the level2 files processed by geotiff2mat.py
+p=sort_rsac_files(prefix);  % file list sorted by time
+itime=find(p.time>=min_time & p.time<=max_time);
+d=p.file(itime);      % files within the specified time
+t=p.time(itime);
+fprintf('Selected %i files in the given time bounds, from %i total.\n',...
+    length(d),length(p.time))
+
+k=0;
+for i=1:length(d),
+    file=d{i};
+    fprintf('%s file %s ',stime(t(i)),file);
+    v=readmod14(prefix,file,'silent');
+    % select fire detection within the domain
+    xj=find(v.lon > red.min_lon & v.lon < red.max_lon);
+    xi=find(v.lat > red.min_lat & v.lat < red.max_lat);
+    ax=[red.min_lon red.max_lon red.min_lat red.max_lat];
+    if isempty(xi) | isempty(xj)
+        fprintf('outside of the domain\n');
+    else
+        x=[];
+        x.axis=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
+        x.file=v.file; 
+        x.time=v.time;
+        x.data=v.data(xi,xj);    % subset data
+        x.lon=v.lon(xj);
+        x.lat=v.lat(xi);
+        [x.xlon,x.xlat]=meshgrid(x.lon,x.lat);
+        det(1)=sum(x.data(:)==3 | x.data(:)==5);  % water or land
+        det(2)=sum((x.data(:)==7)); % low confidence fire
+        det(3)=sum((x.data(:)==8)); % medium confidence fire
+        det(4)=sum((x.data(:)==9)); % high confidence fire
+        if ~any(det) 
+            fprintf(' no data in the domain\n')
+        else
+            k=k+1;
+            fprintf('water/land %i fire low %i med %i high %i\n',det)
+            g(k)=x;   % store the data structure
+            if plot_detections,
+                figure(figmap);clf
+                showmod14(x)
+                hold on
+                contour(red.fxlong,red.fxlat,red.tign,[v.time v.time],'-k');
+                %fprintf('image time            %s\n',datestr(x.time));
+                if plot_also_wind, 
+                    if x.time >= ss.min_time && x.time <= ss.max_time,
+                        step=interp1(ss.time,ss.num,x.time);
+                        step0=floor(step);
+                        if step0 < ss.steps,
+                            step1 = step0+1;
+                        else
+                            step1=step0;
+                            step0=step1-1;
+                        end
+                        w0=step1-step;
+                        w1=step-step0;
+                        uu=w0*ss.uh(:,:,step0)+w1*ss.uh(:,:,step1);
+                        vv=w0*ss.vh(:,:,step0)+w1*ss.vh(:,:,step1);
+                        fprintf('wind interpolated to %s from\n',datestr(x.time))
+                        fprintf('step %i %s weight %8.3f\n',step0,datestr(ss.time(step0)),w0)
+                        fprintf('step %i %s weight %8.3f\n',step1,datestr(ss.time(step1)),w1)
+                        fprintf('wind interpolated to %s from\n',datestr(x.time))
+                        sc=0.006;quiver(w.xlong,w.xlat,sc*uu,sc*vv,0);
+                    end
+                end
+                hold off
+                axis(ax)
+                drawnow
+                % M(k)=getframe(gcf);
+                % print(figmap,'-dpng',['fig',v.timestr]);
+            end
+            if fig3d,
+                hold on; fire_pixels_3d(fig3d,x)
+            end
+        end
     end
-    [max_freq,i]=max(detection_freq);
-%    detection_bounds=input_num('detection bounds as [upper,lower]',...
-%        [u_in(i)-min_tign-tol,u_in(i)-min_tign+tol]);
-    detection_bounds = [u_in(i)-tol,u_in(i)+tol];
-    bi = bii & detection_bounds(1) <= v.tim & v.tim <= detection_bounds(2);
-    % now detection selected in time and space
-    lon=v.lon(bi);
-    lat=v.lat(bi);
-    res=v.res(bi);
-    tim=v.tim(bi); 
-    tim_ref = mean(tim);
+end
+
+function fire_tign3d(fig,red)
+    figure(fig); hold off
+    tign=red.tign;
+    tign(tign(:)==max(tign(:)))=NaN;
+    h=surf(red.fxlong,red.fxlat,tign-base_time); 
+    xlabel('Longitude'),ylabel('Latitude'),zlabel('Days')
+    set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
+    drawnow
+end
+
+function fire_pixels_3d(fig,x)
+kk=find(x.data(:)>=7);
+if ~isempty(kk),
+    rlon=0.5*abs(x.lon(end)-x.lon(1))/(length(x.lon)-1);
+    rlat=0.5*abs(x.lat(end)-x.lat(1))/(length(x.lat)-1);
+    lon1=x.xlon(kk)-rlon;
+    lon2=x.xlon(kk)+rlon;
+    lat1=x.xlat(kk)-rlat;
+    lat2=x.xlat(kk)+rlat;
+    X=[lon1,lon2,lon2,lon1]';
+    Y=[lat1,lat1,lat2,lat2]';
+    Z=ones(size(X))*(x.time-base_time);
+    cmap=cmapmod14;
+    C=cmap(x.data(kk)',:);
+    C=reshape(C,length(kk),1,3);
+    figure(fig);
+    patch(X,Y,Z,C);
+end
+end
+
+fprintf('%i detections selected\n',k)
+
+% preprocess/interpolate the data to the simulation mesh
+for i=1:k
     
-    fprintf('%i detections selected\n',sum(bi))
+end
+        if any(x.data(:)>7) && fig3d>0,
+            figure(fig3d)
+            x.C2=cmap2(x.data+1,:); % translate data to RGB colormap, NaN=no detection
+            x.C2=reshape(x.C2,[size(x.data),size(cmap2,2)]);
+            hold on
+            h2=surf(x.xlon,x.xlat,(v.time-min_tign)*ones(size(x.data)),x.C2);
+            set(h2,'EdgeAlpha',0,'FaceAlpha',1); % show faces only
+            hold off
+            drawnow
+        end
+       
     detection_time=tim_ref;
     detection_datenum=tim_ref+base_time;
     detection_datestr=datestr(tim_ref+base_time);
     fprintf('mean detection time %g days from ignition %s UTC\n',...
         detection_time,detection_datestr);
     fprintf('days from ignition  min %8.5f max %8.5f\n',min(tim)-min_tign,max(tim)-min_tign);
-    fprintf('longitude           min %8.5f max %8.5f\n',min(lon),max(lon));
+    fprintf('longitue           min %8.5f max %8.5f\n',min(lon),max(lon));
     fprintf('latitude            min %8.5f max %8.5f\n',min(lat),max(lat)); 
 
     % set up reduced resolution plots
@@ -185,7 +328,6 @@ disp('subset and process inputs')
     rlon=0.5*res/w.unit_fxlong;
     rlat=0.5*res/w.unit_fxlat;
 
-    
     lon1=lon-rlon;
     lon2=lon+rlon;
     lat1=lat-rlat;
@@ -205,13 +347,9 @@ disp('subset and process inputs')
 %    hold on, plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xw'); hold off
     % legend('first ignition at %g %g',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
     
-    fuelweight(length(fuel)+1:max(nfuel_cat(:)))=NaN;
-    for j=1:length(fuel), 
-        fuelweight(j)=fuel(j).weight;
-    end
     W = zeros(m,n);
     for j=1:n, for i=1:m
-           W(i,j)=fuelweight(nfuel_cat(i,j));
+           W(i,j)=fuel(nfuel_cat(i,j)).weight;
     end,end
  
 %    plotstate(2,W,'Fuel weight',[])

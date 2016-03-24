@@ -1,8 +1,4 @@
 function patch2
-% to create conus.kml:
-% download http://firemapper.sc.egov.usda.gov/data_viirs/kml/conus_hist/conus_20120914.kmz
-% and gunzip 
-% 
 % to create w.mat:
 % run Adam's simulation, currently results in
 %
@@ -49,7 +45,7 @@ ss.max_time=max(ss.time);
 % interpolate surface wind to center of the grid
 ss.uh=0.5*(ss.uah(1:end-1,:,:)+ss.uah(2:end,:,:));
 ss.vh=0.5*(ss.vah(:,1:end-1,:)+ss.vah(:,2:end,:));
-load s
+% load s
 % load c
 fuels
 
@@ -115,9 +111,9 @@ if fig3d>0,
     drawnow
 end
 
-prefix='TIFs/';
-file_search=[prefix,'*.tif.mat'];      % the level2 files processed by geotiff2mat.py
-d=sort_rsac_files(file_search);
+prefix='TIFs/';    % the level2 files processed by geotiff2mat.py
+p=sort_rsac_files(prefix);
+d=p.file;
 
 cmap=cmapmod14;
 cmap2=cmap;
@@ -128,8 +124,7 @@ figure(figmap);clf
 iframe=1;
 for i=1:length(d),
     file=d{i};
-    v=readmod14([prefix,file]);
-    v.file=file;
+    v=readmod14(prefix,file);
     % select fire detection within the domain
     xj=find(v.lon > red.min_lon & v.lon < red.max_lon);
     xi=find(v.lat > red.min_lat & v.lat < red.max_lat);
