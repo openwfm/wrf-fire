@@ -16,11 +16,13 @@ function p=detect_fit_level2(prefix)
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
 % figures
-figmap=2;
-fig3d=0;
-fig3d=1;
+fig_map=0;
+fig_3d=0;
+fig_3d=0;
+fig_interp=0;
+
 plot_also_wind=0;
-plot_detections=1;
+
 timefmt='dd-mmm-yyyy HH:MM:SS';
 
 disp('Loading simulation')
@@ -155,11 +157,11 @@ plot_all_level2=true;
 red.tign_disp=red.tign;
 red.tign_disp(find(red.tign==max_tign))=NaN; % squash the top
 
-if fig3d>0,
-    fire_tign3d(fig3d,red)
+if fig_3d>0,
+    fire_tign3d(fig_3d,red,base_time)
 end
-if plot_detections,
-    figure(figmap);clf
+if fig_map,
+    figure(fig_map);clf
 end
 
 % getting the list of active fires detection files
@@ -184,13 +186,7 @@ for i=1:length(d),
         fprintf('outside of the domain\n');
     else
         x=[];
-        x.axis=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
-        x.file=v.file; 
-        x.time=v.time;
         x.data=v.data(xi,xj);    % subset data
-        x.lon=v.lon(xj);
-        x.lat=v.lat(xi);
-        [x.xlon,x.xlat]=meshgrid(x.lon,x.lat);
         det(1)=sum(x.data(:)==3 | x.data(:)==5);  % water or land
         det(2)=sum((x.data(:)==7)); % low confidence fire
         det(3)=sum((x.data(:)==8)); % medium confidence fire
@@ -200,9 +196,23 @@ for i=1:length(d),
         else
             k=k+1;
             fprintf('water/land %i fire low %i med %i high %i\n',det)
+            x.axis=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
+            x.file=v.file; 
+            x.time=v.time;
+            x.lon=v.lon(xj);
+            x.lat=v.lat(xi);
+            [x.xlon,x.xlat]=meshgrid(x.lon,x.lat);
+            x.fxdata=interp2(v.lon,v.lat,v.data,red.fxlong,red.fxlat,'nearest');
+            if fig_interp,  % map interpolated data to reduced domain
+                figure(fig_interp)
+                cmap=cmapmod14;
+                c=reshape(cmap(x.fxdata+1,:),[size(x.fxdata),3]);
+                surf(red.fxlong,red.fxlat,zeros(size(red.fxlat)),c,'EdgeAlpha',0.2);
+                title(['Detection interpolated to fire mesh ',stime(x.time)])
+            end
             g(k)=x;   % store the data structure
-            if plot_detections,
-                figure(figmap);clf
+            if fig_map,
+                figure(fig_map);clf
                 showmod14(x)
                 hold on
                 contour(red.fxlong,red.fxlat,red.tign,[v.time v.time],'-k');
@@ -232,135 +242,32 @@ for i=1:length(d),
                 axis(ax)
                 drawnow
                 % M(k)=getframe(gcf);
-                % print(figmap,'-dpng',['fig',v.timestr]);
+                % print(fig_map,'-dpng',['fig',v.timestr]);
             end
-            if fig3d,
-                hold on; fire_pixels_3d(fig3d,x)
+            if fig_3d,
+                hold on; fire_pixels_3d(fig_3d,x,base_time)
             end
         end
     end
 end
-
-function fire_tign3d(fig,red)
-    figure(fig); hold off
-    tign=red.tign;
-    tign(tign(:)==max(tign(:)))=NaN;
-    h=surf(red.fxlong,red.fxlat,tign-base_time); 
-    xlabel('Longitude'),ylabel('Latitude'),zlabel('Days')
-    set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
-    drawnow
-end
-
-function fire_pixels_3d(fig,x)
-kk=find(x.data(:)>=7);
-if ~isempty(kk),
-    rlon=0.5*abs(x.lon(end)-x.lon(1))/(length(x.lon)-1);
-    rlat=0.5*abs(x.lat(end)-x.lat(1))/(length(x.lat)-1);
-    lon1=x.xlon(kk)-rlon;
-    lon2=x.xlon(kk)+rlon;
-    lat1=x.xlat(kk)-rlat;
-    lat2=x.xlat(kk)+rlat;
-    X=[lon1,lon2,lon2,lon1]';
-    Y=[lat1,lat1,lat2,lat2]';
-    Z=ones(size(X))*(x.time-base_time);
-    cmap=cmapmod14;
-    C=cmap(x.data(kk)',:);
-    C=reshape(C,length(kk),1,3);
-    figure(fig);
-    patch(X,Y,Z,C);
-end
-end
-
-fprintf('%i detections selected\n',k)
-
-% preprocess/interpolate the data to the simulation mesh
-for i=1:k
-    
-end
-        if any(x.data(:)>7) && fig3d>0,
-            figure(fig3d)
-            x.C2=cmap2(x.data+1,:); % translate data to RGB colormap, NaN=no detection
-            x.C2=reshape(x.C2,[size(x.data),size(cmap2,2)]);
-            hold on
-            h2=surf(x.xlon,x.xlat,(v.time-min_tign)*ones(size(x.data)),x.C2);
-            set(h2,'EdgeAlpha',0,'FaceAlpha',1); % show faces only
-            hold off
-            drawnow
-        end
+fprintf('%i detections selected\n',length(g))
        
-    detection_time=tim_ref;
-    detection_datenum=tim_ref+base_time;
-    detection_datestr=datestr(tim_ref+base_time);
-    fprintf('mean detection time %g days from ignition %s UTC\n',...
-        detection_time,detection_datestr);
-    fprintf('days from ignition  min %8.5f max %8.5f\n',min(tim)-min_tign,max(tim)-min_tign);
-    fprintf('longitue           min %8.5f max %8.5f\n',min(lon),max(lon));
-    fprintf('latitude            min %8.5f max %8.5f\n',min(lat),max(lat)); 
-
-    % set up reduced resolution plots
-    [m,n]=size(fxlong);
-    m_plot=m; n_plot=n;
+    [m,n]=size(red.fxlong);
     
-    m1=map_index(display_bounds(1),bounds(1),bounds(2),m);
-    m2=map_index(display_bounds(2),bounds(1),bounds(2),m);
-    n1=map_index(display_bounds(3),bounds(3),bounds(4),n);
-    n2=map_index(display_bounds(4),bounds(3),bounds(4),n);    
-    mi=m1:ceil((m2-m1+1)/m_plot):m2; % reduced index vectors
-    ni=n1:ceil((n2-n1+1)/n_plot):n2;
-    mesh_fxlong=fxlong(mi,ni);
-    mesh_fxlat=fxlat(mi,ni);
-    [mesh_m,mesh_n]=size(mesh_fxlat);
-
     % find ignition point
+    tign=red.tign;
     [i_ign,j_ign]=find(tign == min(tign(:)));
     if length(i_ign)~=1,error('assuming single ignition point here'),end
     
     % set up constraint on ignition point being the same
     Constr_ign = zeros(m,n); Constr_ign(i_ign,j_ign)=1;
-
-    %
-    % *** create detection mask for data likelihood ***
-    %
-    detection_mask=zeros(m,n);
-    detection_time=tim_ref*ones(m,n);
-
-    % resolution diameter in longitude/latitude units
-    rlon=0.5*res/w.unit_fxlong;
-    rlat=0.5*res/w.unit_fxlat;
-
-    lon1=lon-rlon;
-    lon2=lon+rlon;
-    lat1=lat-rlat;
-    lat2=lat+rlat;
-    for i=1:length(lon),
-        square = fxlong>=lon1(i) & fxlong<=lon2(i) & ...
-                 fxlat >=lat1(i) & fxlat <=lat2(i);
-        detection_mask(square)=1;
-    end
-    
-    % for display in plotstate
-    C=0.5*ones(1,length(res));
-    X=[lon1,lon2,lon2,lon1]';
-    Y=[lat1,lat1,lat2,lat2]';
-%    plotstate(1,detection_mask,['Fire detection at ',detection_datestr],[])
-    % add ignition point
-%    hold on, plot(w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign),'xw'); hold off
-    % legend('first ignition at %g %g',w.fxlong(i_ign,j_ign),w.fxlat(i_ign,j_ign))
-    
-    W = zeros(m,n);
-    for j=1:n, for i=1:m
-           W(i,j)=fuel(nfuel_cat(i,j)).weight;
-    end,end
- 
-%    plotstate(2,W,'Fuel weight',[])
         
 disp('optimization loop')
 h =zeros(m,n); % initial increment
-plotstate(3,tign,'Forecast fire arrival time',detection_time(1));
+plotstate(3,tign,'Forecast fire arrival time',g);
 print('-dpng','tign_forecast.png');
 
 forecast=tign;
-mesh_tign_detect(4,fxlong,fxlat,forecast,v,'Forecast fire arrival time')
 
 fprintf('********** Starting iterations **************\n');
 
@@ -473,27 +380,17 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
         %fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
     end
 
-    function plotstate(fig,T,s,c,linespec)
+    function plotstate(fig,T,s,obs)
         fprintf('Figure %i %s\n',fig,s)
-        plotmap(fig,mesh_fxlong,mesh_fxlat,T(mi,ni),' ');
-        hold on
-        hh=fill(X,Y,C,'EdgeAlpha',1,'FaceAlpha',0);
-        if ~exist('c','var') || isempty(c) || isnan(c),
-            title(s);
-        else
-            title(sprintf('%s, contour=%g',s,c(1)))
-            if ~exist('linespec','var'),
-                linespec='-k';
-            end
-            contour(mesh_fxlong,mesh_fxlat,T(mi,ni),[c c],linespec)            
+        arg=red;
+        arg.tign=T;
+        fire_tign3d(fig,arg,base_time)
+        if exist('s') && ~empty(s)
+            hold on
+            fire_pixels_3d(fig,obs,base_time)
+            hold off
         end
-        hold off
-        ratio=[w.unit_fxlat,w.unit_fxlong];
-        xlabel longtitude
-        ylabel latitude
-        ratio=[ratio/norm(ratio),1];
-        daspect(ratio)
-        axis tight
+        title(s)
         drawnow
     end
 
@@ -539,3 +436,42 @@ function i=map_index(x,a,b,n)
 % and round to integer
 i=round(1+(n-1)*(x-a)/(b-a));
 end
+
+
+
+function fire_tign3d(fig,red,base_time)
+    figure(fig); hold off
+    tign=red.tign;
+    tign(tign(:)==max(tign(:)))=NaN;
+    h=surf(red.fxlong,red.fxlat,tign-base_time); 
+    xlabel('Longitude'),ylabel('Latitude'),zlabel('Days')
+    set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
+    drawnow
+end
+
+function fire_pixels_3d(fig,x,base_time)
+if length(x)>1,
+    for i=1:length(x),
+        fire_pixels_3d(fig,x(i),base_time)
+    end
+    return
+end
+kk=find(x.data(:)>=7);
+if ~isempty(kk),
+    rlon=0.5*abs(x.lon(end)-x.lon(1))/(length(x.lon)-1);
+    rlat=0.5*abs(x.lat(end)-x.lat(1))/(length(x.lat)-1);
+    lon1=x.xlon(kk)-rlon;
+    lon2=x.xlon(kk)+rlon;
+    lat1=x.xlat(kk)-rlat;
+    lat2=x.xlat(kk)+rlat;
+    X=[lon1,lon2,lon2,lon1]';
+    Y=[lat1,lat1,lat2,lat2]';
+    Z=ones(size(X))*(x.time-base_time);
+    cmap=cmapmod14;
+    C=cmap(x.data(kk)'+1,:);
+    C=reshape(C,length(kk),1,3);
+    figure(fig);
+    patch(X,Y,Z,C);
+end
+end
+
