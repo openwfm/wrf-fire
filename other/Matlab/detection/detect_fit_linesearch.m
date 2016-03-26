@@ -43,11 +43,11 @@ disp('subset and process inputs')
     
     % establish boundaries from simulations
     
-    sim.min_lat = min(w.fxlat(:))
-    sim.max_lat = max(w.fxlat(:))
-    sim.min_lon = min(w.fxlong(:))
-    sim.max_lon = max(w.fxlong(:))
-    sim.min_tign= min(w.tign_g(:))
+    sim.min_lat = min(w.fxlat(:));
+    sim.max_lat = max(w.fxlat(:));
+    sim.min_lon = min(w.fxlong(:));
+    sim.max_lon = max(w.fxlong(:));
+    sim.min_tign= min(w.tign_g(:));
     sim.max_tign= max(w.tign_g(:));
     
     % active
@@ -309,7 +309,7 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
         Ah = poisson_fft2(h,[dx,dy],power);
         % compute both parts of the objective function and compare
         J1 = 0.5*(h(:)'*Ah(:));
-        J2 = -ssum(psi.*f0);
+        J2 = -ssum(f0);
         J = alpha*J1 + J2;
         fprintf('Objective function J=%g (J1=%g, J2=%g)\n',J,J1,J2);
         if nargout==1,
