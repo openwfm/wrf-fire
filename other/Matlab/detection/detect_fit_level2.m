@@ -281,8 +281,8 @@ alpha=input_num('penalty coefficient alpha',1/1000);
 % TC = W/(900*24); % time constant = fuel gone in one hour
 TC = 1/24;  % detection time constants in hours
 stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
-weight=input_num('water,land,low,nominal,high confidence fire',[-0.5,-0.1,0.2,0.6,1]);
-power=input_num('correction smoothness',1.2);
+weight=input_num('water,land,low,nominal,high confidence fire',[-1,-1,0.2,0.6,1]);
+power=input_num('correction smoothness',1.02);
 
 % storage for h maps
 maxiter =2;
@@ -316,6 +316,8 @@ end
 analysis=tign+h; 
 % w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
 
+plotstate(6,analysis,'Analysis',g)
+
 plotstate(7,analysis-forecast,'Analysis - forecast difference',[])
 
 p.red.tign_g = red.max_tign_g + (24*60*60)*(analysis - w.time);
@@ -343,7 +345,7 @@ disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection
                 + weight(3)*(g(k).fxdata==7)...
                 + weight(4)*(g(k).fxdata==8)...
                 + weight(5)*(g(k).fxdata==9); 
-            [f0k,f1k]=like1(psi,g(k).time-T,TC*stretch);
+            [f0k,f1k]=like2(psi,g(k).time-T,TC*stretch);
             detections=sum(psi(:)>0);
             f0=f0+f0k;
             f1=f1+f1k;
@@ -360,7 +362,7 @@ disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection
         Ah = poisson_fft2(h,[dx,dy],power);
         % compute both parts of the objective function and compare
         J1 = 0.5*(h(:)'*Ah(:));
-        J2 = -ssum(psi.*f0);
+        J2 = -ssum(f0);
         J = alpha*J1 + J2;
         fprintf('Objective function J=%g (J1=%g, J2=%g)\n',J,J1,J2);
         if nargout==1,
