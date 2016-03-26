@@ -15,6 +15,9 @@ function p=detect_fit_level2(prefix)
     
 % ****** REQUIRES Matlab 2013a - will not run in earlier versions *******
 
+dx=444;
+dy=444;
+
 % figures
 fig_map=0;
 fig_3d=0;
@@ -100,7 +103,8 @@ red.max_lon = max(red.fxlong(:));
 
 % convert tign_g to datenum 
 w.time=datenum(char(w.times)');
-red.tign=(red.tign_g - max(red.tign_g(:)))/(24*60*60) + w.time;
+red.max_tign_g=max(red.tign_g(:));
+red.tign=(red.tign_g - red.max_tign_g)/(24*60*60) + w.time;
 min_tign=min(red.tign(:));
 max_tign=max(red.tign(:));
 base_time=min_tign;
@@ -139,7 +143,7 @@ for i=1:length(default_time_bounds)
     str=sprintf('bounds %i',i);
     print_time_bounds(str,default_time_bounds{i}(1),default_time_bounds{i}(2)) 
 end
-time_bounds=input_num('bounds [min_time max_time] or number of bounds above',2);
+time_bounds=input_num('bounds [min_time max_time] or number of bounds above',3);
 if length(time_bounds)==1, 
     time_bounds=default_time_bounds{time_bounds};
 else
@@ -187,15 +191,16 @@ for i=1:length(d),
     else
         x=[];
         x.data=v.data(xi,xj);    % subset data
-        det(1)=sum(x.data(:)==3 | x.data(:)==5);  % water or land
-        det(2)=sum((x.data(:)==7)); % low confidence fire
-        det(3)=sum((x.data(:)==8)); % medium confidence fire
-        det(4)=sum((x.data(:)==9)); % high confidence fire
-        if ~any(det) 
+        x.det(1)=sum(x.data(:)==3); % water 
+        x.det(2)=sum(x.data(:)==5);  % land
+        x.det(3)=sum((x.data(:)==7)); % low confidence fire
+        x.det(4)=sum((x.data(:)==8)); % medium confidence fire
+        x.det(5)=sum((x.data(:)==9)); % high confidence fire
+        if ~any(x.det) 
             fprintf(' no data in the domain\n')
         else
             k=k+1;
-            fprintf('water/land %i fire low %i med %i high %i\n',det)
+            fprintf('water %i land %i fire low %i med %i high %i\n',x.det)
             x.axis=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
             x.file=v.file; 
             x.time=v.time;
@@ -273,27 +278,21 @@ fprintf('********** Starting iterations **************\n');
 
 % can change the objective function here
 alpha=input_num('penalty coefficient alpha',1/1000);
-if(alpha < 0)
-    error('Alpha is not allowed to be negative.')
-end
-
 % TC = W/(900*24); % time constant = fuel gone in one hour
 TC = 1/24;  % detection time constants in hours
 stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
-nodetw=input_num('no fire detection weight',0.5);
-power=input_num('negative laplacian power',1.02);
+weight=input_num('water,land,low,nominal,high confidence fire',[-0.5,-0.1,0.2,0.6,1]);
+power=input_num('correction smoothness',1.2);
 
 % storage for h maps
-maxiter = 2;
-maxdepth=2;
+maxiter =2;
+maxdepth=3;
 h_stor = zeros(m,n,maxiter);
 
 for istep=1:maxiter
     
     fprintf('********** Iteration %g/%g **************\n', istep, maxiter);
     
-    psi = detection_mask - nodetw*(1-detection_mask);
-
     % initial search direction, normed so that max(abs(search(:))) = 1.0
     [Js,search]=objective(tign,h); 
     search = -search/big(search); 
@@ -308,7 +307,8 @@ for istep=1:maxiter
         break;
     end
     h = h + best_stepsize*search;
-    plotstate(10+istep,tign+h,sprintf('Analysis iteration %i [Js=%g]',istep,Jsbest),detection_time(1));
+    plotstate(10+istep,tign+h,...
+        sprintf('Analysis iteration %i [Js=%g]',istep,Jsbest),g);
     print('-dpng',sprintf('%s_descent_iter_%d.png', prefix, istep));
     h_stor(:,:,istep) = h;
 end
@@ -316,45 +316,46 @@ end
 analysis=tign+h; 
 % w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
 
-mesh_tign_detect(6,fxlong,fxlat,analysis,v,'Analysis fire arrival time')
-mesh_tign_detect(7,fxlong,fxlat,analysis-forecast,[],'Analysis - forecast difference')
+plotstate(7,analysis-forecast,'Analysis - forecast difference',[])
 
-[p.red.tign,p.red.tign_datenum] = rebase_time_back(tign+h);
-% analysis = max_sim_time + (24*60*60)*(tign+h + base_time - w_time_datenum);
-% err=big(p.tign_sim-analysis)
-[p.time.sfire,p.time.datenum] = rebase_time_back(detection_bounds);
-p.time.datestr=datestr(p.time.datenum);
+p.red.tign_g = red.max_tign_g + (24*60*60)*(analysis - w.time);
+
+% analysis = max_sim_time + (24*60*60)*(tign+h
 p.tign_g=w.tign_g;
-p.tign_g(ispan,jspan)=p.red.tign;
+p.tign_g(ispan,jspan)=p.red.tign_g;
 
 % max_sim_time + (24*60*60)*(tign+h + base_time - w_time_datenum);
 
 disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection time')
 
-figure(9);
-col = 'rgbck';
-fill(X,Y,C,'EdgeAlpha',1,'FaceAlpha',0);
-for j=1:maxiter
-    contour(mesh_fxlong,mesh_fxlat,tign+h_stor(:,:,j),[detection_time(1),detection_time(1)],['-',col(j)]); hold on
-end
-hold off
-title('Contour changes vs. step');
-xlabel('Longitude');
-ylabel('Latitude');
-print('-dpng',sprintf( '%s_contours.png', prefix));
-
-    function [time_sim,time_datenum]=rebase_time_back(time_in)
-        time_datenum = time_in + base_time;
-        time_sim = max_sim_time + (24*60*60)*(time_datenum - w_time_datenum);
-    end
 
     function varargout=objective(tign,h,doplot)
         % [J,delta]=objective(tign,h,doplot)
         % J=objective(tign,h,doplot)
         % compute objective function and optionally gradient delta direction
         T=tign+h;
-        [f0,f1]=like1(psi,detection_time-T,TC*stretch);
-        F = f1;             % forcing
+        f0=0;
+        f1=0;
+        for k=1:length(g)
+            psi = ...
+                + weight(1)*(g(k).fxdata==3)... 
+                + weight(2)*(g(k).fxdata==5)...
+                + weight(3)*(g(k).fxdata==7)...
+                + weight(4)*(g(k).fxdata==8)...
+                + weight(5)*(g(k).fxdata==9); 
+            [f0k,f1k]=like1(psi,g(k).time-T,TC*stretch);
+            detections=sum(psi(:)>0);
+            f0=f0+f0k;
+            f1=f1+f1k;
+            % figure(14);mesh(red.fxlong,red.fxlat,psi),title('psi')
+            % figure(15);mesh(red.fxlong,red.fxlat,f0k),title('likelihood')
+            % figure(16);mesh(red.fxlong,red.fxlat,f1k),title('gradient')
+            % drawnow
+        end
+        %figure(15);mesh(red.fxlong,red.fxlat,f0k),title('likelihood')
+        %figure(16);mesh(red.fxlong,red.fxlat,f1k),title('gradient')
+        drawnow
+        F=f1;
         % objective function and preconditioned gradient
         Ah = poisson_fft2(h,[dx,dy],power);
         % compute both parts of the objective function and compare
@@ -369,52 +370,43 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
         gradJ = alpha*Ah + F;
         fprintf('Gradient: norm Ah %g norm F %g\n', norm(Ah,2), norm(F,2));
         if exist('doplot','var'),
-            plotstate(7,f0,'Detection likelihood',0.5,'-w');
-            plotstate(8,f1,'Detection likelihood derivative',0);
-            plotstate(9,F,'Forcing',0); 
+            plotstate(7,f0,'Detection likelihood',0);
+            plotstate(8,F,'Detection likelihood derivative',0);
             plotstate(10,gradJ,'gradient of J',0);
         end
         delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[dx,dy],-power)/alpha);
         varargout=[{J},{delta}];
+        % figure(17);mesh(red.fxlong,red.fxlat,delta),title('delta')
         % plotstate(11,delta,'Preconditioned gradient',0);
         %fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
     end
-
-    function plotstate(fig,T,s,obs)
-        fprintf('Figure %i %s\n',fig,s)
-        arg=red;
-        arg.tign=T;
-        fire_tign3d(fig,arg,base_time)
-        if exist('s') && ~empty(s)
-            hold on
-            fire_pixels_3d(fig,obs,base_time)
-            hold off
-        end
-        title(s)
-        drawnow
-    end
-
 
     function [Jsmin,best_stepsize] = linesearch(max_step,Js0,tign,h,search,nmesh,max_depth)
         step_low = 0;
         Jslow = Js0;
         step_high = max_step;
-        Jshigh = objective(tign,h+max_step*search);
+        % Jshigh = objective(tign,h+max_step*search);
         for d=1:max_depth
             step_sizes = linspace(step_low,step_high,nmesh+2);
             Jsls = zeros(nmesh+2,1);
             Jsls(1) = Jslow;
-            Jsls(nmesh+2) = Jshigh;
-            for i=2:nmesh+1
+            % Jsls(nmesh+2) = Jshigh;
+            for i=2:nmesh+2
                 Jsls(i) = objective(tign,h+step_sizes(i)*search);
+            end
+            Jshigh=Jsls(nmesh+2);
+            for i=1:nmesh+2
+                str=sprintf('step=%g objective function=%g',step_sizes(i),Jsls(i)); 
+                plotstate(20+i,tign+h+step_sizes(i)*search,str,g);
+                drawnow
             end
             
             figure(8);
             plot(step_sizes,Jsls,'+-');
             title(sprintf('Objective function Js vs. step size, iter=%d,depth=%d',istep,d), 'fontsize', 16);
-            xlabel('step\_size [-]','fontsize',14);
-            ylabel('Js [-]','fontsize',14);
-            print('-dpng',sprintf('%s_linesearch_iter_%d_depth_%d.png',prefix,istep,d));
+            xlabel('step\_size [-]');
+            ylabel('Js [-]');
+            % print('-dpng',sprintf('%s_linesearch_iter_%d_depth_%d.png',prefix,istep,d));
             
             [Jsmin,ndx] = min(Jsls);
             
@@ -424,9 +416,30 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
             Jshigh = Jsls(high);
             step_low = step_sizes(low);
             step_high = step_sizes(high);
+            if high<nmesh+2,
+                step_high = step_sizes(high);
+            else
+                step_high = step_sizes(high)*2;
+            end
         end
                 
         best_stepsize = step_sizes(ndx);
+    end
+
+    function plotstate(fig,T,s,obs)
+        fprintf('Figure %i %s\n',fig,s)
+        arg=red;
+        arg.tign=T;
+        if exist('obs') && isstruct(obs)
+            fire_tign3d(fig,arg,base_time)
+            hold on
+            fire_pixels_3d(fig,obs,base_time)
+            hold off
+        else
+            fire_tign3d(fig,arg,0)
+        end
+        title(s)
+        drawnow
     end
 
 end % detect_fit
@@ -437,12 +450,11 @@ function i=map_index(x,a,b,n)
 i=round(1+(n-1)*(x-a)/(b-a));
 end
 
-
-
 function fire_tign3d(fig,red,base_time)
     figure(fig); hold off
     tign=red.tign;
-    tign(tign(:)==max(tign(:)))=NaN;
+    tol=0.1;
+    tign(tign(:)>max(tign(:))-tol)=NaN;
     h=surf(red.fxlong,red.fxlat,tign-base_time); 
     xlabel('Longitude'),ylabel('Latitude'),zlabel('Days')
     set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
