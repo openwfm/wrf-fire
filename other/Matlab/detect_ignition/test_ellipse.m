@@ -1,3 +1,4 @@
+% tests ellipse_3d function on a set of random data
 clear
 
 % s = [2 2];
@@ -12,4 +13,4 @@ y2 = a*rand(20,1);
 data = [y1 y2];
 ci = 1.74;
 
-ellipse_3d(data,ci)
+ellipse_3d(data,ci,1)
