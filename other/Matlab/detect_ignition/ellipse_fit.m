@@ -10,7 +10,7 @@ covariance = cov(data);
 largest_eigenvec = eigenvec(:, largest_eigenvec_ind_c);
 
 % Get the largest eigenvalue
-largest_eigenval = max(max(eigenval));
+largest_eigenval = max(max(eigenval))
 
 % Get the smallest eigenvector and eigenvalue
 if(largest_eigenvec_ind_c == 1)
@@ -18,8 +18,9 @@ if(largest_eigenvec_ind_c == 1)
     smallest_eigenvec = eigenvec(:,2);
 else
     smallest_eigenval = max(eigenval(:,1))
-    smallest_eigenvec = eigenvec(1,:);
+    smallest_eigenvec = eigenvec(1,:)
 end
+
 
 % Calculate the angle between the x-axis and the largest eigenvector
 angle = atan2(largest_eigenvec(2), largest_eigenvec(1));
@@ -70,8 +71,17 @@ hold on;
 % Plot the eigenvectors
 quiver(X0, Y0, largest_eigenvec(1)*sqrt(largest_eigenval), largest_eigenvec(2)*sqrt(largest_eigenval), '-m', 'LineWidth',2);
 quiver(X0, Y0, smallest_eigenvec(1)*sqrt(smallest_eigenval), smallest_eigenvec(2)*sqrt(smallest_eigenval), '-g', 'LineWidth',2);
-hold on;
 
+
+%plot location of focus of ellipse
+f = sqrt(a^2-b^2);
+focus_x = X0+f*cos(phi);
+focus_y = Y0+f*sin(phi);
+plot(focus_x,focus_y,'*')
+
+hold on
+
+axis equal
 % Set the axis labels
 hXLabel = xlabel('x');
 hYLabel = ylabel('y');
