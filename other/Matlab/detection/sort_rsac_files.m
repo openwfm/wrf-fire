@@ -4,7 +4,7 @@ function p=sort_rsac_files(prefix)
 % file_search    directory search string
 % d              cell array of file names ordered by time
 
-d=dir([prefix,'/*.tif.mat']);d={d.name};
+d=dir(prefix);d={d.name};
 if(isempty(d)), error(['No files found for ',file_search]),end
 
 % order the files in time

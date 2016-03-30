@@ -1,7 +1,7 @@
 function [v0,v1]=like2(dw,t,stretch)
 
 one=ones(size(t));
-max_like=0.95;
+max_like=0.90;
 
 % likelihood for dw=1 and dw=-1
 [p0,p1]=like1(one,t,stretch);

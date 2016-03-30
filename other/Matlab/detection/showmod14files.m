@@ -7,12 +7,13 @@ if ~exist('search','var'),
 end
 
 d=sort_rsac_files(search);
+d=d.file;
 
 lonlat=[-130 -70 20 60];
 for i=1:length(d),
     file=d{i};
     hold off
-    v=readmod14(file);
+    v=readmod14('',file);
     v.axis=lonlat;
     newplot
     showmod14(v)
