@@ -1,9 +1,9 @@
 function M=showmod14files(search)
 % display one or more MOD14 Matlab files
 % input:
-%   search  file name, or search string, default '*.mat'
+%   search  file name, or search string
 if ~exist('search','var'),
-    search='*.tif.mat';
+    search='';
 end
 
 d=sort_rsac_files(search);

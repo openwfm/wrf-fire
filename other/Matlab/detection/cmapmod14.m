@@ -30,9 +30,9 @@ atten=5;
 for i=0:imax
     w=exp(-atten*i/imax)-exp(-atten);
     col=(1-w)*yellow+w*red;
-    cmap(8+3*i  ,:)=col;
-    cmap(8+3*i+1,:)=0.8*col;
-    cmap(8+3*i+2,:)=0.6*col;
+    cmap(8+3*i  ,:)=0.4*col;
+    cmap(8+3*i+1,:)=0.7*col;
+    cmap(8+3*i+2,:)=1*col;
 end
 if size(cmap,1)>256,
     error('imax too large')
