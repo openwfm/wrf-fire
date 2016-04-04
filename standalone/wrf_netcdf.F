@@ -606,14 +606,16 @@ integer, intent(in)::ncid             ! id of netcdf file open in data mode
 type(grid_info),intent(in)::info      ! dimensions
 integer, intent(in):: iframe          ! number of frame in the file
 character(len=*),intent(in)::varname  ! the variable name
-real, intent(in):: v(:,:)            ! values
+real, pointer, intent(in):: v(:,:)            ! values
 !*** local
 integer::varid,nx,ny,i,j
-real::v2(info%nfirex,info%nfirey),vmin,vmax,err
+real,pointer::v2(:,:)
+real::vmin,vmax,err
 logical::read_check=.false.
 !*** executable
 nx=info%nfirex
 ny=info%nfirey
+allocate(v2(nx,ny))
 
 vmin=huge(vmin)
 vmax=-huge(vmax)
@@ -654,7 +656,7 @@ integer, intent(in)::ncid             ! id of netcdf file open in data mode
 type(grid_info),intent(in)::info      ! dimensions
 integer, intent(in):: iframe          ! number of frame in the file
 character(len=*),intent(in)::varname  ! the variable name
-real, intent(out):: v(:,:)            ! values
+real, pointer :: v(:,:)            ! values
 !*** local
 integer::varid,nx,ny,it,start(3),count(3)
 !*** executable
@@ -662,9 +664,13 @@ nx=info%nfirex
 ny=info%nfirey
 
 if(debug_print)write(*,'(2a)')'reading variable ',trim(varname)
+if(debug_print)write(*,'(a,4i10)')'lower bounds',lbound(v)
+if(debug_print)write(*,'(a,4i10)')'upper bounds',ubound(v)
 call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
 call check(nf90_get_var(ncid,varid,v(1:nx,1:ny),start=(/1,1,iframe/),count=(/nx,ny,1/)), &
      'error reading '//trim(varname))
+if(debug_print)write(*,'(a,2i5,a,1x,e15.5,3(1x,a,e15.5))')'dimensions',nx,ny, &
+     'min',minval(v(1:nx,1:ny)),'max',maxval(v(1:nx,1:ny)),'(1,1)=',v(1,1),'end=',v(nx,ny)
 
 end subroutine read_fire_var
 

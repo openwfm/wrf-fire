@@ -1672,10 +1672,14 @@
  DEST_RECORD fmoist_interp              = SOURCE_RECORD fmoist_interp SOURCE_REC_DEX
  DEST_RECORD fmoist_only                = SOURCE_RECORD fmoist_only SOURCE_REC_DEX
  DEST_RECORD fmoist_freq                = SOURCE_RECORD fmoist_freq SOURCE_REC_DEX
+ DEST_RECORD kfmc_ndwi                  = SOURCE_RECORD kfmc_ndwi 
+ DEST_RECORD fndwi_from_ndwi            = SOURCE_RECORD fndwi_from_ndwi 
  DEST_RECORD fmoist_dt                  = SOURCE_RECORD fmoist_dt SOURCE_REC_DEX
+ DEST_RECORD fmep_decay_tlag            = SOURCE_RECORD fmep_decay_tlag 
  DEST_RECORD ifire                      = SOURCE_RECORD ifire SOURCE_REC_DEX
  DEST_RECORD fire_boundary_guard        = SOURCE_RECORD fire_boundary_guard SOURCE_REC_DEX
  DEST_RECORD fire_num_ignitions         = SOURCE_RECORD fire_num_ignitions SOURCE_REC_DEX
+ DEST_RECORD fire_ignition_clamp        = SOURCE_RECORD fire_ignition_clamp SOURCE_REC_DEX
  DEST_RECORD fire_ignition_ros1         = SOURCE_RECORD fire_ignition_ros1 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lon1   = SOURCE_RECORD fire_ignition_start_lon1 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_start_lat1   = SOURCE_RECORD fire_ignition_start_lat1 SOURCE_REC_DEX

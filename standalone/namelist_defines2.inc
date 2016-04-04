@@ -1663,10 +1663,14 @@ logical :: fmoist_run
 logical :: fmoist_interp
 logical :: fmoist_only
 integer :: fmoist_freq
+integer :: kfmc_ndwi
+integer :: fndwi_from_ndwi
 real :: fmoist_dt
+real :: fmep_decay_tlag
 integer :: ifire
 integer :: fire_boundary_guard
 integer :: fire_num_ignitions
+integer :: fire_ignition_clamp
 real :: fire_ignition_ros1
 real :: fire_ignition_start_lon1
 real :: fire_ignition_start_lat1
