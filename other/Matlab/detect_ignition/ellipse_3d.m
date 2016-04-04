@@ -1,6 +1,9 @@
-function [ ] = ellipse_fit( data,ci ,test_flag)
+function [ ] = ellipse_fit( data,ci ,rate_vector,test_flag)
 % function takes in a matrix of points (data) and a confidence interval
-% (ci)and plots a 3d cone of the fire test_flag =1 tells function you are
+% (ci)and plots a 3d cone of the fire. rate_vector is best guess as what
+% direction in which the fire spreads most rapidly
+
+%test_flag =1 tells function you are
 % using random data. Used to scale figure window 
 
 % fitting of ellipse based on code from 
@@ -74,10 +77,21 @@ r_ellipse = [ellipse_x_r;ellipse_y_r]' * R;
 plot(r_ellipse(:,1) + X0,r_ellipse(:,2) + Y0,'-')
 hold on;
 
+%find dot product between rate_vector and axis of ellipse
+largest_eigenvec
+axis_dot = dot(largest_eigenvec,rate_vector)
+
 %find location of focus of ellipse
 f = sqrt(a^2-b^2);
-f_x = X0-f*cos(phi);
-f_y = Y0-f*sin(phi);
+%if axis_dot >=0
+if (axis_dot >= 0)
+   f_x = X0-f*cos(phi);
+   f_y = Y0-f*sin(phi);
+%if axis_dot <0
+else
+   f_x = X0+f*cos(phi);
+   f_y = Y0+f*sin(phi);
+end %if   
 format long g
 disp('Coordinates of focus: ')
 fprintf('Lon: %d  Lat: %d  \n',f_x,f_y)
@@ -85,8 +99,14 @@ fprintf('Lon: %d  Lat: %d  \n',f_x,f_y)
 plot(f_x,f_y,'*');
 
 %generate surface for unrotated system
-x_s =  (f*t + a*cos(u).*t);
-y_s =  b*sin(u).*t;
+
+if (axis_dot >= 0)
+   x_s =  (f*t + a*cos(u).*t);
+   y_s =  b*sin(u).*t;
+else
+   x_s =  -(f*t + a*cos(u).*t);
+   y_s =  -b*sin(u).*t;
+end %if
 z_s = t;
 
 %Define a rotation matrix
@@ -110,8 +130,6 @@ hold on
 % Draw the error ellipse
 plot(r_ellipse(:,1) + X0,r_ellipse(:,2) + Y0,'-')
 hold on;
-
-
 
 % Plot the original data
 plot(data(:,1), data(:,2), '.');
