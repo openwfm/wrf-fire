@@ -65,8 +65,7 @@ call read_info(inputfile,info)             ! get dimensions
 ! start empty NetCDF file with the dimensions
 call create_output_file(outputfile,info)
 
-! get ignition data
-call fire_ignition_convert (config_flags,ignition)
+
 
 ! set dimensions
 ifds=1
@@ -200,6 +199,23 @@ else
   vf1=grid%vf
   fmc_g1=grid%fmc_g
 endif
+
+print *,'fxlat  lower bounds:',lbound(grid%fxlat)
+print *,'fxlat  upper bounds:',ubound(grid%fxlat)
+print *,'fxlat(1,1)=',grid%fxlat(1,1),' fxlat(',ifpe,',',jfpe,')=',grid%fxlat(ifpe,jfpe)
+print *,'fxlong lower bounds:',lbound(grid%fxlong)
+print *,'fxlong upper bounds:',ubound(grid%fxlong)
+print *,'fxlong(1,1)=',grid%fxlong(1,1),' fxlong(',ifpe,',',jfpe,')=',grid%fxlong(ifpe,jfpe)
+call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,grid%fxlong,'fire:fxlong')
+call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,grid%fxlat,'fire:fxlat')
+
+! get ignition data - should have fxlong fxlat now
+call fire_ignition_convert (config_flags,ignition,                   &
+             grid%fxlong, grid%fxlat,                                &
+             ifds,ifde, jfds,jfde,                                   &
+             ifms,ifme, jfms,jfme,                                   &
+             ifps,ifpe, jfps,jfpe )
+
 itimestep = 0
 ifun_start=1
 do iframe=iframe_start,iframe_end ! interval ending with iframe

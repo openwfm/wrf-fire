@@ -20,6 +20,7 @@ v0n =  v0n2 + v0n3 + v0n4 ;
 v0 = -dw.*(dw<0).*v0n + dw.*(dw>0).*v0y;
 
 v1y = -2.*tneg.*(t<Tmin)-2.*tpos.*(t>Tmax);
+
 g1 = @(x) -1.5*x.*x+1.5;
 v1n = - g1(-tneg-1).*(Tmin-2*Tneg<=t & t<=Tmin) ...
     + g1(tpos-1).*(Tmax <= t & t <= Tmax+2*Tpos);

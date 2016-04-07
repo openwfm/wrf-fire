@@ -1617,10 +1617,14 @@ NAMELIST /fire/ fmoist_run
 NAMELIST /fire/ fmoist_interp
 NAMELIST /fire/ fmoist_only
 NAMELIST /fire/ fmoist_freq
+NAMELIST /fire/ kfmc_ndwi
+NAMELIST /fire/ fndwi_from_ndwi
 NAMELIST /fire/ fmoist_dt
+NAMELIST /fire/ fmep_decay_tlag
 NAMELIST /fire/ ifire
 NAMELIST /fire/ fire_boundary_guard
 NAMELIST /fire/ fire_num_ignitions
+NAMELIST /fire/ fire_ignition_clamp
 NAMELIST /fire/ fire_ignition_ros1
 NAMELIST /fire/ fire_ignition_start_lon1
 NAMELIST /fire/ fire_ignition_start_lat1

@@ -98,7 +98,7 @@ implicit none
 
 private
 public sfire_driver_em,use_atm_vars,set_flags, &
-       set_fp_from_grid
+       set_fp_from_grid, fire_ignition_convert
 public ifun_beg, ifun_step, ifun_end
 
 logical:: use_atm_vars=.true.   !  interpolate wind from atm mesh and average output fluxes back
