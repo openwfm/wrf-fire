@@ -15,7 +15,7 @@ rate(3,3) = sum(sum(ros.f_ros33));
 
 % avegare the values in the ros matrices
 [m,n] = size(ros.f_ros11);
-rate = rate*(1/m/n);
+rate = rate*(1/m/n)
 
 %scale so the largest value is normalized
 l = max(max(rate));
