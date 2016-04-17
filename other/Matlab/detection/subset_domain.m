@@ -1,4 +1,26 @@
 function red=subset_domain(w)
+% red=subset_domain(w)
+% find rectangular domain around fire with some user guidance
+% and convert fire arrival time to datenum
+%
+% input: w structure with fields
+%    fxlat, fxlong - latitude, longitude
+%    tign_g        - fire arrival time
+%    nfuel_cat     - fuel categories
+%    times         - time at simulation end as string
+%
+% ouput: red structure with fields
+%    ispan,jspan   - list i,j indices selected
+%    fxlat,fxlong  - coordinates on submesh
+%    tign_g        - fire arrival time on submesh
+%    min_lon,max_lon,min_lat,max_lat - selected box
+%    time          - times as datenum
+%    max_tign_g    - max fire arrival time in w, corresponds to times
+%    tign          - tign_g as datenum
+%    min_tign      - min
+%    max_tign      - max 
+%    base_time     - base time for displays
+
 
 sim.min_lat = min(w.fxlat(:));
 sim.max_lat = max(w.fxlat(:));
@@ -49,5 +71,13 @@ red.min_lat = min(red.fxlat(:));
 red.max_lat = max(red.fxlat(:));
 red.min_lon = min(red.fxlong(:));
 red.max_lon = max(red.fxlong(:));
+
+% convert tign_g to datenum 
+red.time=datenum(char(w.times)');
+red.max_tign_g=max(w.tign_g(:));
+red.tign=(red.tign_g - red.max_tign_g)/(24*60*60) + red.time;
+red.min_tign=min(red.tign(:));
+red.max_tign=max(red.tign(:));
+red.base_time=red.min_tign;
 
 end

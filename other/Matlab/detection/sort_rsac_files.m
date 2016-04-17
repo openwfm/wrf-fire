@@ -11,6 +11,7 @@ if(isempty(d)), error(['No files found for ',file_search]),end
 nfiles=length(d);
 t=zeros(1,nfiles);
 for i=1:nfiles
+    f{i}=[prefix,d{i}];
     t(i)=rsac2time(d{i});
 end
 [t,i]=sort(t);

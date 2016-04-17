@@ -1,4 +1,4 @@
-function patch2
+function M=patch2
 % to create w.mat:
 % run Adam's simulation, currently results in
 %
