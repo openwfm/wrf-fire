@@ -55,7 +55,7 @@ disp('Subset simulation domain and convert time')
 
 red=subset_domain(w);
 
-disp('Subsetting detection time')
+disp('Loading and subsetting detections')
     
 prefix='TIFs/';
 % the level2 file names processed by geotiff2mat.py
