@@ -8,7 +8,7 @@ function [] = fire_ellipse( x )
 
 [rows cols] = find(x.data > 6 );
 detects = [x.lon(cols) ; x.lat(rows)]';
-rate_vector = [-1 1];
+rate_vector = [1 -1];
 ellipse_3d(detects,1.9,rate_vector,0)
 
 end

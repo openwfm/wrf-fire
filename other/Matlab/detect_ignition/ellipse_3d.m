@@ -78,8 +78,8 @@ plot(r_ellipse(:,1) + X0,r_ellipse(:,2) + Y0,'-')
 hold on;
 
 %find dot product between rate_vector and axis of ellipse
-largest_eigenvec
-axis_dot = dot(largest_eigenvec,rate_vector)
+%largest_eigenvec 
+axis_dot = dot(largest_eigenvec,rate_vector);
 
 %find location of focus of ellipse
 f = sqrt(a^2-b^2);
