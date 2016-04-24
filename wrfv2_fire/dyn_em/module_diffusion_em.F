@@ -1955,7 +1955,7 @@ SUBROUTINE smag2d_km( config_flags,xkmh,xkmv,xkhh,xkhv,                        &
 
    INTEGER :: i_start, i_end, j_start, j_end, ktf, i, j, k
    REAL    :: deltas, tmp, pr, mlen_h, c_s
-   REAL    :: dxm, dym, tmpzx, tmpzy, alpha
+   REAL    :: dxm, dym, tmpzx, tmpzy, alpha, def_limit
 
    REAL, DIMENSION( its:ite , kts:kte , jts:jte )                 ::     def2
 
@@ -2006,14 +2006,20 @@ SUBROUTINE smag2d_km( config_flags,xkmh,xkmv,xkhh,xkhv,                        &
          xkhh(i,k,j)=xkmh(i,k,j)/pr
          xkhv(i,k,j)=0.
          IF(config_flags%diff_opt .EQ. 2)THEN
-! jd: slope reduce by slope factor
+! jd: reduce diffusion coefficient by slope factor (modified by JB August 2014)
             dxm=dx/msftx(i,j)
             dym=dy/msfty(i,j)
-            tmpzx = abs(0.25*( zx(i,k,j)+ zx(i+1,k,j  ) + zx(i,k+1,j)+ zx(i+1,k+1,j  ))*rdzw(i,k,j)*dxm)
-            tmpzy = abs(0.25*( zy(i,k,j)+ zy(i  ,k,j+1) + zy(i,k+1,j)+ zy(i  ,k+1,j+1))*rdzw(i,k,j)*dym)
+            tmpzx = (0.25*( abs(zx(i,k,j))+ abs(zx(i+1,k,j  )) + abs(zx(i,k+1,j))+ abs(zx(i+1,k+1,j  )))*rdzw(i,k,j)*dxm)
+            tmpzy = (0.25*( abs(zy(i,k,j))+ abs(zy(i  ,k,j+1)) + abs(zy(i,k+1,j))+ abs(zy(i  ,k+1,j+1)))*rdzw(i,k,j)*dym)
             alpha = max(sqrt(tmpzx*tmpzx+tmpzy*tmpzy),1.0)
-            xkmh(i,k,j)=xkmh(i,k,j)/alpha
-            xkhh(i,k,j)=xkhh(i,k,j)/alpha
+! If deformation is large, further reduce the diffusion coefficient
+            def_limit = max(10./mlen_h,1.e-3)
+           if ( tmp .gt. def_limit ) then
+             xkmh(i,k,j)=xkmh(i,k,j)/(alpha*alpha)
+           else
+             xkmh(i,k,j)=xkmh(i,k,j)/(alpha)
+           endif
+           xkhh(i,k,j)=xkmh(i,k,j)/pr
          ENDIF
       ENDDO
       ENDDO
@@ -2121,7 +2127,7 @@ END SUBROUTINE smag2d_km
     DO j = j_start, j_end
     DO k = kts+1, ktf-1
     DO i = i_start, i_end
-      tmpdz         = 1.0 / ( rdz(i,k+1,j) + rdz(i,k,j) )
+      tmpdz         = 1.0 / rdz(i,k+1,j) + 1.0 / rdz(i,k,j) 
       dthrdn(i,k,j) = ( theta(i,k+1,j) - theta(i,k-1,j) ) / tmpdz
     END DO
     END DO
@@ -2130,7 +2136,7 @@ END SUBROUTINE smag2d_km
     k = kts
     DO j = j_start, j_end
     DO i = i_start, i_end
-      tmpdz         = 1.0 / ( rdzw(i,k+1,j) + rdzw(i,k,j) )
+      tmpdz         = 1.0 / rdzw(i,k+1,j) + 1.0 / rdzw(i,k,j) 
       thetasfc      = T8w(i,kts,j) / ( p8w(i,k,j) / p1000mb )**( R_d / Cp )
       dthrdn(i,k,j) = ( theta(i,k+1,j) - thetasfc ) / tmpdz
     END DO
@@ -3564,9 +3570,11 @@ SUBROUTINE vertical_diffusion_2   ( ru_tendf, rv_tendf, rw_tendf, rt_tendf,   &
        tao_xz=cd0*V0_u*u_2(i,kts,j)
        ru_tendf(i,kts,j)=ru_tendf(i,kts,j)            &
                          -0.25*(mu(i,j)+mu(i-1,j))*tao_xz*(rdzw(i,kts,j)+rdzw(i-1,kts,j))
+       IF ( (config_flags%m_opt .EQ. 1) .OR. (config_flags%sfs_opt .GT. 0) ) THEN
+          nba_mij(i,kts,j,P_m13) = -tao_xz
+       ENDIF   
     ENDDO
     ENDDO
- 
 !
     DO j = j_start, jte
     DO i = i_start, i_end
@@ -3580,6 +3588,9 @@ SUBROUTINE vertical_diffusion_2   ( ru_tendf, rv_tendf, rw_tendf, rt_tendf,   &
        tao_yz=cd0*V0_v*v_2(i,kts,j)
        rv_tendf(i,kts,j)=rv_tendf(i,kts,j)            &
                          -0.25*(mu(i,j)+mu(i,j-1))*tao_yz*(rdzw(i,kts,j)+rdzw(i,kts,j-1))
+       IF ( (config_flags%m_opt .EQ. 1) .OR. (config_flags%sfs_opt .GT. 0) ) THEN
+          nba_mij(i,kts,j,P_m23) = -tao_yz
+       ENDIF
     ENDDO
     ENDDO
 
@@ -3597,6 +3608,9 @@ SUBROUTINE vertical_diffusion_2   ( ru_tendf, rv_tendf, rw_tendf, rt_tendf,   &
        tao_xz=ustar*ustar*u_2(i,kts,j)/V0_u
        ru_tendf(i,kts,j)=ru_tendf(i,kts,j)            &
                          -0.25*(mu(i,j)+mu(i-1,j))*tao_xz*(rdzw(i,kts,j)+rdzw(i-1,kts,j))
+       IF ( (config_flags%m_opt .EQ. 1) .OR. (config_flags%sfs_opt .GT. 0) ) THEN
+          nba_mij(i,kts,j,P_m13) = -tao_xz
+       ENDIF
     ENDDO
     ENDDO
  
@@ -3613,6 +3627,9 @@ SUBROUTINE vertical_diffusion_2   ( ru_tendf, rv_tendf, rw_tendf, rt_tendf,   &
        tao_yz=ustar*ustar*v_2(i,kts,j)/V0_v
        rv_tendf(i,kts,j)=rv_tendf(i,kts,j)            &
                          -0.25*(mu(i,j)+mu(i,j-1))*tao_yz*(rdzw(i,kts,j)+rdzw(i,kts,j-1))
+       IF ( (config_flags%m_opt .EQ. 1) .OR. (config_flags%sfs_opt .GT. 0) ) THEN
+          nba_mij(i,kts,j,P_m23) = -tao_yz
+       ENDIF
     ENDDO
     ENDDO
 
@@ -5981,28 +5998,28 @@ END SUBROUTINE phy_bc
     ELSE
 
       IF ( jte == jde ) THEN
-        DO j=j_start, j_end
         DO k=1, ktf
+        DO i =i_start, i_end
           zy(i,k,jde) = rdy * ( phb(i,k,jde) - phb(i,k,jde-1) ) / g
         END DO
         END DO
 
-        DO j = j_start, j_end
         DO k = 1, ktf
+        DO i =i_start, i_end
           zy(i,k,jde) = zy(i,k,jde) + rdy * ( ph(i,k,jde) - ph(i,k,jde-1) ) / g
         END DO
         END DO
       END IF
 
       IF ( jts == jds ) THEN
-        DO j = j_start, j_end
         DO k = 1, ktf
+        DO i =i_start, i_end
           zy(i,k,jds) = rdy * ( phb(i,k,jds) - phb(i,k,jds-1) ) / g
         END DO
         END DO
 
-        DO j = j_start, j_end
         DO k = 1, ktf
+        DO i =i_start, i_end
           zy(i,k,jds) = zy(i,k,jds) + rdy * ( ph(i,k,jds) - ph(i,k,jds-1) ) / g
         END DO
         END DO

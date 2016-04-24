@@ -9,9 +9,9 @@
 !-----------------------------------------------------------------------------
 !     data for inter2, inter3 and interi
 !-----------------------------------------------------------------------------
-      integer, private :: nintervals
-      integer, private, allocatable :: xi(:), xcnt(:)
-      real(dp), private, allocatable :: xfrac(:,:)
+      integer, private, save :: nintervals
+      integer, private, allocatable, save :: xi(:), xcnt(:)
+      real(dp), private, allocatable, save :: xfrac(:,:)
 
       real(dp), private, parameter :: km2cm = 1.e5_dp
 
@@ -32,11 +32,11 @@
       real(dp), private, parameter :: t_del = 5._dp/(tdim_real-1._dp)!BSINGH(PNNL)-redefined t_del and t_fac
       real(dp), private, parameter :: t_fac = (tdim_real-1._dp)/5._dp
 
-      integer, private  :: ii, jj
-      real(dp), private :: d_table(0:tdim,ngast-1)
-      real(dp), private :: x_table(0:tdim,ngast-1)
-      real(dp), private :: o2_table(tdim)
-      real(dp), private, dimension(12,ngast-1) :: a_schu, b_schu
+      integer, private :: ii, jj
+      real(dp), private, save :: d_table(0:tdim,ngast-1)
+      real(dp), private, save :: x_table(0:tdim,ngast-1)
+      real(dp), private, save :: o2_table(tdim)
+      real(dp), private, dimension(12,ngast-1), save :: a_schu, b_schu
 !-----------------------------------------------------------------------------
 ! a_schu(16,12) coefficients for rj(m) (table 1 in kockarts 1994)
 ! b_schu(16,12) rj(o2)(table 2 in kockarts 1994)
@@ -147,10 +147,10 @@
 !-----------------------------------------------------------------------------
       integer, public,  parameter :: nwint = 105
 
-      real(dp), public  :: wlint(nwint)
-      real(dp), private :: xso2int(nwint)
-      real(dp), private :: wlla(nla)
-      real(dp), private :: wlgast(ngast)
+      real(dp), public, save  :: wlint(nwint)
+      real(dp), private, save :: xso2int(nwint)
+      real(dp), private, save :: wlla(nla)
+      real(dp), private, save :: wlgast(ngast)
 
 !-----------------------------------------------------------------------------
 ! o2 parameters
@@ -1514,9 +1514,7 @@ WAVE_LENGTH_LOOP : &
       tt = tlev(1)/281._dp
       do m = 1,tuv_jmax
          adjin = 1._dp
-!acd_sw_bugfix 20131205
          if( m == 2 ) then
-!acd_sw_bugfix 20131205
 !----------------------------------------------------------------------
 ! ... temperature modification
 ! t0.9 (1.05) t0.95(1.025) t1.0(1.0) t1.15(1.02) t1.1(1.04)
@@ -1621,23 +1619,20 @@ WAVE_LENGTH_LOOP : &
 
       o3den(1:nz) = o3(1:nz)*airlev(1:nz)
       cz(1:nz-1)  = 0.5_dp*(o3den(2:nz) + o3den(1:nz-1))*km2cm*(z(2:nz) - z(1:nz-1))
-!acd_sw_bugfix 20131205
-      cz(nz-1)    = cz(nz-1) + o3top
-!acd_sw_bugfix 20131205
 
       to3(nz)  = o3top
       do k = nz-1,1,-1
          to3(k) = to3(k+1) + cz(k)
       end do
 
+! Do not double count o3top
+      cz(nz-1)    = cz(nz-1) + o3top
 !-----------------------------------------------------------------------------
 ! ... scale o3 using toms data
 !-----------------------------------------------------------------------------
       if( o3toms > 0.0_dp ) then
         scale = o3toms/(to3(1)/2.687e16_dp)
-!acd_sw_bugfix 20131205
         cz(1:nz)  = cz(1:nz)*scale
-!acd_sw_bugfix 20131205
         to3(1:nz) = to3(1:nz)*scale
       endif
 !-----------------------------------------------------------------------------
@@ -2650,7 +2645,8 @@ level_loop : &
 
       subroutine pchem( chem_opt, nz, tlev, airlev )
 
-      use module_state_description, only : MOZART_KPP, MOZCART_KPP, MOZART_MOSAIC_4BIN_VBS0_KPP
+      use module_state_description, only : MOZART_KPP, MOZCART_KPP, &
+                                           MOZART_MOSAIC_4BIN_KPP, MOZART_MOSAIC_4BIN_AQ_KPP
       use module_wave_data, only : r01, r04, r44, r08, r06, r10,  &
                                    r11, r14, r15, r17, r18,       &
                                    xs_mvk, xs_macr, xs_hyac, xs_glyald, nj
@@ -2800,7 +2796,8 @@ level_loop : &
 !-----------------------------------------------------------------------------
 is_mozart : &
       if( chem_opt == MOZART_KPP .or. chem_opt == MOZCART_KPP .or. &
-          chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+          chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+          chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP) then
         call xs_mvk( nz, tlev, airlev )
         call xs_macr( nz, tlev, airlev )
         call xs_hyac( nz, tlev, airlev )
@@ -2949,11 +2946,23 @@ is_mozart : &
       j = j + 1
       jlabel(j)='cf2brcl (halon-1211) + hv -> products '
 !-----------------------------------------------------------------------------
-! (56) cl2 + hc -> cl + cl
+! (56) cl2 + hv -> cl + cl
 !-----------------------------------------------------------------------------
       j = j + 1
-      jlabel(j)='cl2 + hc -> cl + cl '
+      jlabel(j)='cl2 + hv -> cl + cl '
+!-----------------------------------------------------------------------------
+! (57) hocl + hv -> oh + cl
+!-----------------------------------------------------------------------------
+      j = j + 1
+      jlabel(j)='hocl + hv -> oh + cl'
+!-----------------------------------------------------------------------------
+! (58) fmcl + hv -> cl + co + ho2
+!-----------------------------------------------------------------------------
+      j = j + 1
+      jlabel(j)='fmcl + hv -> cl + co + ho2'
+
       end if is_mozart
+
 
       end subroutine pchem
 

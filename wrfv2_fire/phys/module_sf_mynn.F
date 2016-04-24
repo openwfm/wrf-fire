@@ -231,7 +231,9 @@ CONTAINS
                                                         TH2,T2,Q2
 
       REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme )              , &
-                INTENT(OUT)     ::              ck,cka,cd,cda,ustm
+                INTENT(OUT)     ::                  ck,cka,cd,cda
+      REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme )              , &
+                INTENT(INOUT)   ::                           ustm
 !
       REAL,     DIMENSION( ims:ime, jms:jme )                    , &
                 INTENT(INOUT)               ::             REGIME, &
@@ -433,7 +435,9 @@ CONTAINS
                                                         TH2,T2,Q2
 
       REAL, OPTIONAL, DIMENSION( ims:ime )                       , &
-                INTENT(OUT)     ::              ck,cka,cd,cda,ustm
+                INTENT(OUT)     ::                  ck,cka,cd,cda
+      REAL, OPTIONAL, DIMENSION( ims:ime )                       , &
+                INTENT(INOUT)   ::                           ustm
 !--------------------------------------------
 !JOE-additinal output
       REAL,     DIMENSION( ims:ime ) ::    zratio,BRi,wstar,qstar, &
@@ -1091,12 +1095,12 @@ CONTAINS
       !----------------------------------
       IF(XLAND(I)-1.5.GT.0.)THEN      !WATER                                           
          HFX(I)=FLHC(I)*(THGB(I)-TH1D(I))                                
-         IF ( PRESENT(ISFTCFLX) ) THEN
-            IF ( ISFTCFLX.NE.0 ) THEN
-               ! AHW: add dissipative heating term
-               HFX(I)=HFX(I)+RHO1D(I)*USTM(I)*USTM(I)*WSPDI(I)
-            ENDIF
-         ENDIF
+!        IF ( PRESENT(ISFTCFLX) ) THEN
+!           IF ( ISFTCFLX.NE.0 ) THEN
+!              ! AHW: add dissipative heating term (commented out in 3.6.1
+!              HFX(I)=HFX(I)+RHO1D(I)*USTM(I)*USTM(I)*WSPDI(I)
+!           ENDIF
+!        ENDIF
       ELSEIF(XLAND(I)-1.5.LT.0.)THEN  !LAND                               
          HFX(I)=FLHC(I)*(THGB(I)-TH1D(I))                                
          HFX(I)=MAX(HFX(I),-250.)                                       

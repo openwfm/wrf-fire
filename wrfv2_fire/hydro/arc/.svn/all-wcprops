@@ -1,0 +1,65 @@
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc
+END
+macros.mpp.gfort
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/macros.mpp.gfort
+END
+macros.mpp.ifort
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/macros.mpp.ifort
+END
+macros.seq.IBM.xlf90_r
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/macros.seq.IBM.xlf90_r
+END
+Makefile.seq
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/Makefile.seq
+END
+macros.mpp.IBM.xlf90_r
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/macros.mpp.IBM.xlf90_r
+END
+Makefile.mpp
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/Makefile.mpp
+END
+macros.seq.linux
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/macros.seq.linux
+END
+macros.seq.gfort
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/macros.seq.gfort
+END
+macros.mpp.linux
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/macros.mpp.linux
+END
+macros.seq.ifort
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/arc/macros.seq.ifort
+END

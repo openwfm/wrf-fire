@@ -1,0 +1,47 @@
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/Data_Rec
+END
+rt_include.inc
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/Data_Rec/rt_include.inc
+END
+module_GW_baseflow_data.F
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/Data_Rec/module_GW_baseflow_data.F
+END
+namelist.inc
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/Data_Rec/namelist.inc
+END
+module_namelist.F
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/Data_Rec/module_namelist.F
+END
+module_RT_data.F
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/Data_Rec/module_RT_data.F
+END
+gw_field_include.inc
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/Data_Rec/gw_field_include.inc
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/Data_Rec/Makefile
+END

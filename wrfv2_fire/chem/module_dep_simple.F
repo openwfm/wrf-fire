@@ -167,7 +167,8 @@ SUBROUTINE wesely_driver( id, ktau, dtstep, config_flags, current_month,  &
 
       if( config_flags%chem_opt /= MOZART_KPP .and. &
           config_flags%chem_opt /= MOZCART_KPP .and. &
-          config_flags%chem_opt /= MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+          config_flags%chem_opt /= MOZART_MOSAIC_4BIN_KPP .and. &
+          config_flags%chem_opt /= MOZART_MOSAIC_4BIN_AQ_KPP) then
          if( julday < 90 .or. julday > 270 ) then
             iseason = 2
             CALL wrf_debug(15,'setting iseason to 2')
@@ -188,7 +189,8 @@ tile_lon_loop : &
 
             if( config_flags%chem_opt == MOZART_KPP .or. &
                 config_flags%chem_opt == MOZCART_KPP .or. &
-          config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+                config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+                config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP) then
                if( snowh(i,j) < .01 ) then 
                   iseason = seasonal_pft(id)%seasonal_wes(i,j,iland,current_month)
                else
@@ -234,7 +236,8 @@ tile_lon_loop : &
                      iprt, moist(i,kts,j,p_qv), p8w(i,kts,j), config_flags%chem_opt )
             if( config_flags%chem_opt /= MOZART_KPP .and. &
                 config_flags%chem_opt /= MOZCART_KPP .and. &
-          config_flags%chem_opt /= MOZART_MOSAIC_4BIN_VBS0_KPP)  then
+                config_flags%chem_opt /= MOZART_MOSAIC_4BIN_KPP .and. &
+                config_flags%chem_opt /= MOZART_MOSAIC_4BIN_AQ_KPP)  then
                srfres(1:numgas-2) = rcx(1:numgas-2)
                srfres(numgas-1:numgas) = 0.
             else
@@ -270,7 +273,6 @@ tile_lon_loop : &
            (config_flags%chem_opt == CBMZ_BB       ) .or.          &
            (config_flags%chem_opt == CBMZ_BB_KPP   ) .or.          &
            (config_flags%chem_opt == CBMZ_MOSAIC_KPP   ) .or.      &
-           (config_flags%chem_opt == CBMZ_MOSAIC_4BIN_VBS2_KPP).or.&
            (config_flags%chem_opt == CBMZ_MOSAIC_4BIN_AQ) .or.     &
            (config_flags%chem_opt == CBMZ_MOSAIC_8BIN_AQ) .or.     &
            (config_flags%chem_opt == CBMZ_MOSAIC_4BIN) .or.        &
@@ -392,7 +394,6 @@ tile_lon_loop : &
 ! For gocartracm,radm
 !-----------------------------------------------------------
       if  ((config_flags%chem_opt == GOCARTRACM_KPP)  .OR.     &
-           (config_flags%chem_opt == GOCARTRADM2_KPP) .OR.     &
            (config_flags%chem_opt == GOCARTRADM2))   then
          do j=jts,jte
             do i=its,ite
@@ -422,7 +423,8 @@ tile_lon_loop : &
 !-----------------------------------------------------------
       if( config_flags%chem_opt == MOZART_KPP .or. &
           config_flags%chem_opt == MOZCART_KPP .or. &
-          config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP )   then
+          config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+          config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP )   then
          do j=jts,jte
             do i=its,ite
                ddvel(i,j,p_mpan)    = ddvel(i,j,p_mpan)/3.
@@ -445,7 +447,8 @@ tile_lon_loop : &
                ddvel(i,j,p_c3h6)    = 0.
                ddvel(i,j,p_c3h8)    = 0.
                ddvel(i,j,p_aco3)    = 0.
-               ddvel(i,j,p_gly)     = 0.
+               ddvel(i,j,p_gly)     = 0.2 / 100. ! from Washenfelder et al., 2011
+               ddvel(i,j,p_mgly)    = 0. !
                ddvel(i,j,p_macr)    = 0.
                ddvel(i,j,p_mek)     = 0.
                ddvel(i,j,p_eto2)    = 0.
@@ -471,12 +474,46 @@ tile_lon_loop : &
                ddvel(i,j,p_meko2)   = 0.
 !              ddvel(i,j,p_sulf)    = 0.
                ddvel(i,j,p_dms)     = 0.
-            if ( config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
-               ddvel(i,j,p_voca)     = 0.
-               ddvel(i,j,p_vocbb)     = 0.
-               ddvel(i,j,p_smpa)        = 0
-               ddvel(i,j,p_smpbb)        = 0 
-            end if
+               IF ( config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .OR. &
+                    config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP) THEN
+               ddvel(i,j,p_benzene)  = 0.
+               ddvel(i,j,p_phen)     = 0.
+               ddvel(i,j,p_bepomuc)  = 0.
+               ddvel(i,j,p_benzo2)   = 0.
+               ddvel(i,j,p_pheno2)   = 0.
+               ddvel(i,j,p_pheno)    = 0.
+               ddvel(i,j,p_phenooh)  = ddvel(i,j,p_h2o2)
+               ddvel(i,j,p_c6h5o2)   = 0.
+               ddvel(i,j,p_c6h5ooh)  = ddvel(i,j,p_h2o2)
+               ddvel(i,j,p_benzooh)  = ddvel(i,j,p_h2o2)
+               ddvel(i,j,p_bigald1)  = 0.
+               ddvel(i,j,p_bigald2)  = 0.
+               ddvel(i,j,p_bigald3)  = 0.
+               ddvel(i,j,p_bigald4)  = 0.
+               ddvel(i,j,p_malo2)    = 0.
+               ddvel(i,j,p_pbznit)   = 0.
+               ddvel(i,j,p_tepomuc)  = 0.
+               ddvel(i,j,p_bzoo)     = 0.
+               ddvel(i,j,p_bzooh)    = ddvel(i,j,p_h2o2)
+               ddvel(i,j,p_bald)     = 0.
+               ddvel(i,j,p_acbzo2)   = 0.
+               ddvel(i,j,p_dicarbo2) = 0.
+               ddvel(i,j,p_mdialo2)  = 0.
+               ddvel(i,j,p_xyl)      = 0.
+               ddvel(i,j,p_xylol)    = 0.
+               ddvel(i,j,p_xylolo2)  = 0.
+               ddvel(i,j,p_xylolooh) = ddvel(i,j,p_h2o2)
+               ddvel(i,j,p_xyleno2)  = 0.
+               ddvel(i,j,p_xylenooh) = ddvel(i,j,p_h2o2)
+
+               IF ( config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP) THEN
+                 ddvel(i,j,p_voca)     = 0.
+                 ddvel(i,j,p_vocbb)     = 0.
+                 ddvel(i,j,p_smpa)        = 0.
+                 ddvel(i,j,p_smpbb)        = 0.
+               ENDIF
+
+              ENDIF
             end do
             if ( config_flags%chem_opt == MOZCART_KPP ) then
                ddvel(its:ite,j,p_sulf) = 0.
@@ -615,6 +652,165 @@ tile_lon_loop : &
          end do
       end if
 
+!-----------------------------------------------------------
+! For cb05
+!-----------------------------------------------------------
+!
+! For the additional CB05 species, assign similar RADM counter parts for
+! now. Short lived species get a zero velocity since dry dep should be
+! unimportant.  **ALSO**, treat p_sulf as h2so4 vapor, not aerosol sulfate
+!
+      if ( (config_flags%chem_opt == CB05_SORG_AQ_KPP) ) then
+         do j=jts,jte
+            do i=its,ite
+               ddvel(i,j,p_sulf)        = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_hcl)         = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_meo2)        = 0.
+               ddvel(i,j,p_meoh)        = ddvel(i,j,p_form)
+               ddvel(i,j,p_etoh)        = ddvel(i,j,p_form)
+               ddvel(i,j,p_to2)         = 0.
+               ddvel(i,j,p_cro)         = 0.
+               ddvel(i,j,p_open)        = ddvel(i,j,p_xyl)
+               ddvel(i,j,p_c2o3)        = 0.
+               ddvel(i,j,p_xo2n)        = 0.
+               ddvel(i,j,p_xo2)         = 0.
+               ddvel(i,j,p_ispd)        = 0.
+               ddvel(i,j,p_o1d)         = 0.
+               ddvel(i,j,p_o)           = 0.
+               ddvel(i,j,p_terp)        = ddvel(i,j,p_isop)
+               ddvel(i,j,p_terpaer)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_hum)         = ddvel(i,j,p_isop)
+               ddvel(i,j,p_humaer)      = ddvel(i,j,p_isop)
+               ddvel(i,j,p_lim)         = ddvel(i,j,p_isop)
+               ddvel(i,j,p_limaer1)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_limaer2)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_oci)         = ddvel(i,j,p_isop)
+               ddvel(i,j,p_ociaer1)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_ociaer2)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apin)        = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apinaer1)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apinaer2)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apinaer3)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apinaer4)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpin)        = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer1)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer2)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer3)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer4)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer5)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_ter)         = ddvel(i,j,p_isop)
+               ddvel(i,j,p_teraer1)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_teraer2)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_tolaer1)     = ddvel(i,j,p_tol)
+               ddvel(i,j,p_tolaer2)     = ddvel(i,j,p_tol)
+               ddvel(i,j,p_cslaer)      = ddvel(i,j,p_cres)
+               ddvel(i,j,p_xylaer1)     = ddvel(i,j,p_xyl)
+               ddvel(i,j,p_xylaer2)     = ddvel(i,j,p_xyl)
+               ddvel(i,j,p_isoaer1)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_isoaer2)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_sulaer)      = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_panx)        = ddvel(i,j,p_pan)
+               ddvel(i,j,p_hco3)        = 0.
+               ddvel(i,j,p_ror)         = 0.
+               ddvel(i,j,p_alkh)        = ddvel(i,j,p_par)
+               ddvel(i,j,p_alkhaer1)    = ddvel(i,j,p_par)
+               ddvel(i,j,p_pah)         = 0.
+               ddvel(i,j,p_pahaer1)     = 0.
+               ddvel(i,j,p_pahaer2)     = 0.
+               ddvel(i,j,p_cl2)         = 0.
+               ddvel(i,j,p_cl)          = 0.
+               ddvel(i,j,p_hocl)        = 0.
+               ddvel(i,j,p_clo)         = 0.
+               ddvel(i,j,p_fmcl)        = 0.
+               if (ivgtyp(i,j).eq.iswater_temp) then
+                  ddvel(i,j,p_hg0)      = 0.00e-2
+               else
+                  ddvel(i,j,p_hg0)      = 0.01e-2
+               end if
+               ddvel(i,j,p_hg2)         = 0.50e-2
+               end do
+         end do
+      else if ( (config_flags%chem_opt == CB05_SORG_VBS_AQ_KPP) ) then
+         do j=jts,jte
+            do i=its,ite
+               ddvel(i,j,p_sulf)        = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_hcl)         = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_meo2)        = 0.
+               ddvel(i,j,p_meoh)        = ddvel(i,j,p_form)
+               ddvel(i,j,p_etoh)        = ddvel(i,j,p_form)
+               ddvel(i,j,p_to2)         = 0.
+               ddvel(i,j,p_cro)         = 0.
+               ddvel(i,j,p_open)        = ddvel(i,j,p_xyl)
+               ddvel(i,j,p_c2o3)        = 0.
+               ddvel(i,j,p_xo2n)        = 0.
+               ddvel(i,j,p_xo2)         = 0.
+               ddvel(i,j,p_ispd)        = 0.
+               ddvel(i,j,p_o1d)         = 0.
+               ddvel(i,j,p_o)           = 0.
+               ddvel(i,j,p_terp)        = ddvel(i,j,p_isop)
+               ddvel(i,j,p_terpaer)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_hum)         = ddvel(i,j,p_isop)
+               ddvel(i,j,p_humaer)      = ddvel(i,j,p_isop)
+               ddvel(i,j,p_lim)         = ddvel(i,j,p_isop)
+               ddvel(i,j,p_limaer1)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_limaer2)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_oci)         = ddvel(i,j,p_isop)
+               ddvel(i,j,p_ociaer1)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_ociaer2)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apin)        = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apinaer1)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apinaer2)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apinaer3)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_apinaer4)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpin)        = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer1)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer2)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer3)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer4)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_bpinaer5)    = ddvel(i,j,p_isop)
+               ddvel(i,j,p_ter)         = ddvel(i,j,p_isop)
+               ddvel(i,j,p_teraer1)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_teraer2)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_tolaer1)     = ddvel(i,j,p_tol)
+               ddvel(i,j,p_tolaer2)     = ddvel(i,j,p_tol)
+               ddvel(i,j,p_cslaer)      = ddvel(i,j,p_cres)
+               ddvel(i,j,p_xylaer1)     = ddvel(i,j,p_xyl)
+               ddvel(i,j,p_xylaer2)     = ddvel(i,j,p_xyl)
+               ddvel(i,j,p_isoaer1)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_isoaer2)     = ddvel(i,j,p_isop)
+               ddvel(i,j,p_sulaer)      = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_panx)        = ddvel(i,j,p_pan)
+               ddvel(i,j,p_hco3)        = 0.
+               ddvel(i,j,p_ror)         = 0.
+               ddvel(i,j,p_alkh)        = ddvel(i,j,p_par)
+               ddvel(i,j,p_alkhaer1)    = ddvel(i,j,p_par)
+               ddvel(i,j,p_pah)         = 0.
+               ddvel(i,j,p_pahaer1)     = 0.
+               ddvel(i,j,p_pahaer2)     = 0.
+               ddvel(i,j,p_cl2)         = 0.
+               ddvel(i,j,p_cl)          = 0.
+               ddvel(i,j,p_hocl)        = 0.
+               ddvel(i,j,p_clo)         = 0.
+               ddvel(i,j,p_fmcl)        = 0.
+               if (ivgtyp(i,j).eq.iswater_temp) then
+                  ddvel(i,j,p_hg0)      = 0.00e-2
+               else
+                  ddvel(i,j,p_hg0)      = 0.01e-2
+               end if
+               ddvel(i,j,p_hg2)         = 0.50e-2
+               ddvel(i,j,p_cvasoa1) = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_cvasoa2) = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_cvasoa3) = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_cvasoa4) = ddvel(i,j,p_hno3)
+
+               ddvel(i,j,p_cvbsoa1) = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_cvbsoa2) = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_cvbsoa3) = ddvel(i,j,p_hno3)
+               ddvel(i,j,p_cvbsoa4) = ddvel(i,j,p_hno3)
+               end do
+         end do
+      end if
+
 
 END SUBROUTINE wesely_driver
 
@@ -704,7 +900,10 @@ END SUBROUTINE wesely_driver
 !----------------------------------------------------------------------
 !     SPECIAL TREATMENT FOR HNO3, HNO4, H2O2, PAA
 !----------------------------------------------------------------------
-is_mozart :  if( chem_opt == MOZART_KPP .or. chem_opt == MOZCART_KPP ) then 
+is_mozart :  if( chem_opt == MOZART_KPP .or. &
+                 chem_opt == MOZCART_KPP .or. &
+                 chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+                 chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
                  if( n == p_hno3 ) then
                     hstary(n) = 2.6e6*exp( 8700.*wrk )*1.e5
                  else if( n == p_hno4 ) then
@@ -717,7 +916,10 @@ is_mozart :  if( chem_opt == MOZART_KPP .or. chem_opt == MOZCART_KPP ) then
              endif is_mozart
              rmx = 1./(hstary(n)/3000. + 100.*f0(n))
              rsmx = rs*dratio(n) + rmx
-             if( (chem_opt == MOZART_KPP .or. chem_opt == MOZCART_KPP .or. chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) .and. &
+             if( (chem_opt == MOZART_KPP .or. &
+                  chem_opt == MOZCART_KPP .or. &
+                  chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+                  chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) .and. &
                  iseason /= 4 .and. p_pan > 1 ) then
                 if( iland /= iswater_temp .and. n == p_pan ) then
 !-------------------------------------------------------------------------------------
@@ -1403,7 +1605,10 @@ is_nh3: if( p_nh3 > 1 ) then
 include 'netcdf.inc'
 
 #else
-      if( config_flags%chem_opt == MOZART_KPP .or. config_flags%chem_opt == MOZCART_KPP .or. config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+      if( config_flags%chem_opt == MOZART_KPP .or. &
+          config_flags%chem_opt == MOZCART_KPP .or. &
+          config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+          config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
          call wrf_message( 'dep_init: mozart,mozcart chem option requires netcdf' )
          call wrf_abort
       end if
@@ -1688,7 +1893,7 @@ include 'netcdf.inc'
         if( allocated (luse2usgs) ) deallocate (luse2usgs)
         allocate( luse2usgs(config_flags%num_land_cat),stat=astat )
         if( astat /= 0 ) then
-           CALL wrf_message( 'ftuv_init: failed to allocate luse2usgs array' )
+           CALL wrf_message( 'dep_init: failed to allocate luse2usgs array' )
            CALL wrf_abort
         end if
         if( trim(mminlu_loc) == 'USGS' ) then
@@ -1708,10 +1913,13 @@ include 'netcdf.inc'
 !--------------------------------------------------
 is_cbm4_kpp : &
 
-        if (config_flags%chem_opt /= CBM4_KPP) then
+        if (config_flags%chem_opt /= CBM4_KPP .or. &
+             config_flags%chem_opt /= CB05_SORG_AQ_KPP .or. &
+             config_flags%chem_opt /= CB05_SORG_VBS_AQ_KPP) then
            if( config_flags%chem_opt == MOZART_KPP .or. &
                config_flags%chem_opt == MOZCART_KPP .or. &
-               config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+               config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+               config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
               hstar(p_o3)      = 1.15E-2
               hstar(p_co)      = 1.e-3
               hstar(p_h2o2)    = 8.33E+4
@@ -1737,6 +1945,23 @@ is_cbm4_kpp : &
               hstar(p_mekooh)  = 311.
               hstar(p_tolooh)  = 311.
               hstar(p_terpooh) = 311.
+
+           if( config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+               config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+              hstar(p_sulf) = 2.600E+06
+           end if
+              if ( config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+               hstar(p_cvasoaX) = 0.0
+               hstar(p_cvasoa1) = 1.06E+08
+               hstar(p_cvasoa2) = 1.84E+07
+               hstar(p_cvasoa3) = 3.18E+06
+               hstar(p_cvasoa4) = 5.50E+05
+               hstar(p_cvbsoaX) = 0.0
+               hstar(p_cvbsoa1) = 5.25E+09
+               hstar(p_cvbsoa2) = 7.00E+08
+               hstar(p_cvbsoa3) = 9.33E+07
+               hstar(p_cvbsoa4) = 1.24E+07
+              endif
               
      else if( config_flags%chem_opt == crimech_kpp .or. &
           config_flags%chem_opt == cri_mosaic_8bin_aq_kpp .or. &
@@ -1956,7 +2181,8 @@ is_cbm4_kpp : &
 !--------------------------------------------------
         if( config_flags%chem_opt == MOZART_KPP .or. &
             config_flags%chem_opt == MOZCART_KPP .or. &
-            config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+            config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+            config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
            dhr(p_o3)      = 2560.
            dhr(p_h2o2)    = 7379.
            dhr(p_hcho)    = 6425.
@@ -1981,7 +2207,25 @@ is_cbm4_kpp : &
            dhr(p_mekooh)  = 5241.
            dhr(p_tolooh)  = 5241.
            dhr(p_terpooh) = 5241.
-           
+
+           if( config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+             config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+             dhr(p_sulf) = 0.000E+00
+          end if
+
+           if (config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+             dhr(p_cvasoaX) = 0.
+             dhr(p_cvasoa1) = 6014.
+             dhr(p_cvasoa2) = 6014.
+             dhr(p_cvasoa3) = 6014.
+             dhr(p_cvasoa4) = 6014.
+             dhr(p_cvbsoaX) = 0.
+             dhr(p_cvbsoa1) = 6014.
+             dhr(p_cvbsoa2) = 6014.
+             dhr(p_cvbsoa3) = 6014.
+             dhr(p_cvbsoa4) = 6014.
+           endif
+
      	else if( config_flags%chem_opt == crimech_kpp .or. &
           config_flags%chem_opt == cri_mosaic_8bin_aq_kpp .or. &
           config_flags%chem_opt == cri_mosaic_4bin_aq_kpp )   then
@@ -2155,7 +2399,8 @@ is_cbm4_kpp : &
 !--------------------------------------------------
         if( config_flags%chem_opt == MOZART_KPP .or. &
             config_flags%chem_opt == MOZCART_KPP .or. &
-            config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+            config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+            config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
            f0(p_hcho)    = small_value
            f0(p_ch3ooh)  = .1
            f0(p_ch3oh)   = small_value
@@ -2176,6 +2421,24 @@ is_cbm4_kpp : &
            f0(p_mekooh)  = .1
            f0(p_tolooh)  = .1
            f0(p_terpooh) = .1
+
+            if( config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+              config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+             f0(p_sulf) = 0.
+            end if
+           
+           if (config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+             f0(p_cvasoaX) = 0.
+             f0(p_cvasoa1) = 0.
+             f0(p_cvasoa2) = 0.
+             f0(p_cvasoa3) = 0.
+             f0(p_cvasoa4) = 0.
+             f0(p_cvbsoaX) = 0.
+             f0(p_cvbsoa1) = 0.
+             f0(p_cvbsoa2) = 0.
+             f0(p_cvbsoa3) = 0.
+             f0(p_cvbsoa4) = 0.
+           endif
 
      	else if( config_flags%chem_opt == crimech_kpp .or. &
           config_flags%chem_opt == cri_mosaic_8bin_aq_kpp .or. &
@@ -2349,7 +2612,8 @@ is_cbm4_kpp : &
 !--------------------------------------------------
         if( config_flags%chem_opt == MOZART_KPP .or. &
             config_flags%chem_opt == MOZCART_KPP .or. &
-            config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+            config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+            config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
            dvj(p_o3)      = 0.144
            dvj(p_h2o2)    = 0.1715
            dvj(p_hcho)    = 0.1825
@@ -2373,6 +2637,24 @@ is_cbm4_kpp : &
            dvj(p_mekooh)  = 0.098
            dvj(p_tolooh)  = 0.084
            dvj(p_terpooh) = 0.073
+
+           if( config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+               config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+             dvj(p_sulf) = 1.200E-01
+           end if
+
+           if (config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+             dvj(p_cvasoaX) = 0.120 ! ??
+             dvj(p_cvasoa1) = 0.120 ! ??
+             dvj(p_cvasoa2) = 0.120 ! ??
+             dvj(p_cvasoa3) = 0.120 ! ??
+             dvj(p_cvasoa4) = 0.120 ! ??
+             dvj(p_cvbsoaX) = 0.120 ! ??
+             dvj(p_cvbsoa1) = 0.120 ! ??
+             dvj(p_cvbsoa2) = 0.120 ! ??
+             dvj(p_cvbsoa3) = 0.120 ! ??
+             dvj(p_cvbsoa4) = 0.120 ! ??
+           endif
 
      else if( config_flags%chem_opt == crimech_kpp .or. &
           config_flags%chem_opt == cri_mosaic_8bin_aq_kpp .or. &
@@ -3097,6 +3379,307 @@ is_cbm4_kpp : &
           scpr23(l) = (sc/0.72)**(2./3.)               ! (Schmidt # / Prandtl #)**
         END DO
 
+! start of addition
+        else if ( (config_flags%chem_opt == CB05_SORG_AQ_KPP) ) then
+
+        hstar(p_no2) = 6.40E-3
+        hstar(p_no) = 1.90E-3
+        hstar(p_pan) = 2.97E+0
+        hstar(p_o3) = 1.13E-2
+        hstar(p_form) = 2.97E+3
+        hstar(p_cxo3) = 1.14E+1
+        hstar(p_hono) = 3.47E+5
+        hstar(p_no3) = 1.50E+1
+        hstar(p_pna) = 2.00E+13
+        hstar(p_h2o2) = 7.45E+4
+        hstar(p_co) = 8.20E-3
+        hstar(p_ald2) = 1.14E+1
+        hstar(p_aldx) = 1.14E+1
+        hstar(p_mepx) = 2.21E+2
+        hstar(p_rooh) = 1.68E+6
+        hstar(p_pacd) = 4.73E+2
+        hstar(p_mgly) = 3.71E+3
+        hstar(p_ntr) = 1.13E+0
+        hstar(p_so2) = 2.53E+5
+        hstar(p_etha) = 2.00E-3
+        hstar(p_ole) = 4.76E-3
+        hstar(p_iole) = 1.35E-3
+        hstar(p_tol) = 1.51E-1
+        hstar(p_cres) = 4.00E+5
+        hstar(p_xyl) = 1.45E-1
+        hstar(p_isop) = 4.76E-3
+        hstar(p_hno3) = 2.69E+13
+        hstar(p_facd) = 9.85E+6
+        hstar(p_aacd) = 9.63E+5
+        hstar(p_nh3) = 1.04E+4
+        hstar(p_n2o5) = 1.00E+10
+        hstar(p_eth) = 4.67E-3
+        hstar(p_par) = 1.13E-3  !wig, 1-May-2007: for CB05
+
+        dhr(p_no2) = 2500.
+        dhr(p_no) = 1480.
+        dhr(p_pan) = 5760.
+        dhr(p_o3) = 2300.
+        dhr(p_form) = 7190.
+        dhr(p_cxo3) = 6266.
+        dhr(p_hono) = 3775.
+        dhr(p_no3) = 0.
+        dhr(p_pna) = 0.
+        dhr(p_h2o2) = 6615.
+        dhr(p_co) = 0.
+        dhr(p_ald2) = 6266.
+        dhr(p_aldx) = 6266.
+        dhr(p_mepx) = 5607.
+        dhr(p_rooh) = 10240.
+        dhr(p_pacd) = 6170.
+        dhr(p_mgly) = 7541.
+        dhr(p_ntr) = 5487.
+        dhr(p_so2) = 5816.
+        dhr(p_etha) = 0.
+        dhr(p_ole) = 0.
+        dhr(p_iole) = 0.
+        dhr(p_tol) = 0.
+        dhr(p_cres) = 0.
+        dhr(p_xyl) = 0.
+        dhr(p_isop) = 0.
+        dhr(p_hno3) = 8684.
+        dhr(p_facd) = 5716.
+        dhr(p_aacd) = 8374.
+        dhr(p_nh3) = 3660.
+        dhr(p_n2o5) = 0.
+        dhr(p_eth) = 0.
+        dhr(p_par) = 0.   !wig, 1-May-2007: for CB05
+
+        f0(p_no2) = 0.1
+        f0(p_no) = 0.
+        f0(p_pan) = 0.1
+        f0(p_o3) = 1.
+        f0(p_form) = 0.
+        f0(p_cxo3) = 1.
+        f0(p_hono) = 0.1
+        f0(p_no3) = 1.
+        f0(p_pna) = 0.1
+        f0(p_h2o2) = 1.
+        f0(p_co) = 0.
+        f0(p_ald2) = 0.
+        f0(p_aldx) = 0.
+        f0(p_mepx) = 0.1
+        f0(p_rooh) = 0.1
+        f0(p_pacd) = 0.1
+        f0(p_mgly) = 0.
+        f0(p_ntr) = 0.
+        f0(p_so2) = 0.
+        f0(p_etha) = 0.
+        f0(p_ole) = 0.
+        f0(p_iole) = 0.
+        f0(p_tol) = 0.
+        f0(p_cres) = 0.
+        f0(p_xyl) = 0.
+        f0(p_isop) = 0.
+        f0(p_hno3) = 0.
+        f0(p_facd) = 0.
+        f0(p_aacd) = 0.
+        f0(p_nh3) = 0.
+        f0(p_n2o5) = 1.
+        f0(p_eth) = 0.
+        f0(p_par) = 0.   !wig, 1-May-2007: for CB05
+        dvj(p_no2) = 0.147
+        dvj(p_no) = 0.183
+        dvj(p_pan) = 0.091
+        dvj(p_o3)   = 0.175
+        dvj(p_form) = 0.183
+        dvj(p_cxo3) = 0.115
+        dvj(p_hono) = 0.153
+        dvj(p_no3) = 0.127
+        dvj(p_pna) = 0.113
+        dvj(p_h2o2) = 0.171
+        dvj(p_co) = 0.189
+        dvj(p_ald2) = 0.151
+        dvj(p_aldx) = 0.151
+        dvj(p_mepx) = 0.144
+        dvj(p_rooh) = 0.127
+        dvj(p_pacd) = 0.115
+        dvj(p_mgly) = 0.118
+        dvj(p_ntr) = 0.092
+        dvj(p_so2) = 0.126
+        dvj(p_etha) = 0.183
+        dvj(p_ole) = 0.154
+        dvj(p_iole) = 0.121
+        dvj(p_tol) = 0.104
+        dvj(p_cres) = 0.096
+        dvj(p_xyl) = 0.097
+        dvj(p_isop) = 0.121
+        dvj(p_hno3) = 0.126
+        dvj(p_facd) = 0.153
+        dvj(p_aacd) = 0.124
+        dvj(p_nh3) = 0.227
+        dvj(p_n2o5) = 0.110
+        dvj(p_ho) = 0.243
+        dvj(p_ho2) = 0.174
+        dvj(p_eth) = 0.189
+        dvj(p_par) = 0.118   !wig, 1-May-2007: for CB05
+
+        DO l = 1, numgas
+          hstar4(l) = hstar(l) ! preliminary
+! Correction of diff. coeff
+          dvj(l) = dvj(l)*(293.15/298.15)**1.75
+          sc = 0.15/dvj(l) ! Schmidt Number at 20degC
+          dratio(l) = 0.242/dvj(l) !                                            ! of water vapor and gas at
+! Ratio of diffusion coeffi
+          scpr23(l) = (sc/0.72)**(2./3.) ! (Schmidt # / Prandtl #)**
+        END DO
+
+        else if ( (config_flags%chem_opt == CB05_SORG_VBS_AQ_KPP) ) then
+
+        hstar(p_no2) = 6.40E-3
+        hstar(p_no) = 1.90E-3
+        hstar(p_pan) = 2.97E+0
+        hstar(p_o3) = 1.13E-2
+        hstar(p_form) = 2.97E+3
+        hstar(p_cxo3) = 1.14E+1
+        hstar(p_hono) = 3.47E+5
+        hstar(p_no3) = 1.50E+1
+        hstar(p_pna) = 2.00E+13
+        hstar(p_h2o2) = 7.45E+4
+        hstar(p_co) = 8.20E-3
+        hstar(p_ald2) = 1.14E+1
+        hstar(p_aldx) = 1.14E+1
+        hstar(p_mepx) = 2.21E+2
+        hstar(p_rooh) = 1.68E+6
+        hstar(p_pacd) = 4.73E+2
+        hstar(p_mgly) = 3.71E+3
+        hstar(p_ntr) = 1.13E+0
+        hstar(p_so2) = 2.53E+5
+        hstar(p_etha) = 2.00E-3
+        hstar(p_ole) = 4.76E-3
+        hstar(p_iole) = 1.35E-3
+        hstar(p_tol) = 1.51E-1
+        hstar(p_cres) = 4.00E+5
+        hstar(p_xyl) = 1.45E-1
+        hstar(p_isop) = 4.76E-3
+        hstar(p_hno3) = 2.69E+13
+        hstar(p_facd) = 9.85E+6
+        hstar(p_aacd) = 9.63E+5
+        hstar(p_nh3) = 1.04E+4
+        hstar(p_n2o5) = 1.00E+10
+        hstar(p_eth) = 4.67E-3
+        hstar(p_par) = 1.13E-3  !wig, 1-May-2007: for CB05
+
+        dhr(p_no2) = 2500.
+        dhr(p_no) = 1480.
+        dhr(p_pan) = 5760.
+        dhr(p_o3) = 2300.
+        dhr(p_form) = 7190.
+        dhr(p_cxo3) = 6266.
+        dhr(p_hono) = 3775.
+        dhr(p_no3) = 0.
+        dhr(p_pna) = 0.
+        dhr(p_h2o2) = 6615.
+        dhr(p_co) = 0.
+        dhr(p_ald2) = 6266.
+        dhr(p_aldx) = 6266.
+        dhr(p_mepx) = 5607.
+        dhr(p_rooh) = 10240.
+        dhr(p_pacd) = 6170.
+        dhr(p_mgly) = 7541.
+        dhr(p_ntr) = 5487.
+        dhr(p_so2) = 5816.
+        dhr(p_etha) = 0.
+        dhr(p_ole) = 0.
+        dhr(p_iole) = 0.
+        dhr(p_tol) = 0.
+        dhr(p_cres) = 0.
+        dhr(p_xyl) = 0.
+        dhr(p_isop) = 0.
+        dhr(p_hno3) = 8684.
+        dhr(p_facd) = 5716.
+        dhr(p_aacd) = 8374.
+        dhr(p_nh3) = 3660.
+        dhr(p_n2o5) = 0.
+        dhr(p_eth) = 0.
+        dhr(p_par) = 0.   !wig, 1-May-2007: for CB05
+
+        f0(p_no2) = 0.1
+        f0(p_no) = 0.
+        f0(p_pan) = 0.1
+        f0(p_o3) = 1.
+        f0(p_form) = 0.
+        f0(p_cxo3) = 1.
+        f0(p_hono) = 0.1
+        f0(p_no3) = 1.
+        f0(p_pna) = 0.1
+        f0(p_h2o2) = 1.
+        f0(p_co) = 0.
+        f0(p_ald2) = 0.
+        f0(p_aldx) = 0.
+        f0(p_mepx) = 0.1
+        f0(p_rooh) = 0.1
+        f0(p_pacd) = 0.1
+        f0(p_mgly) = 0.
+        f0(p_ntr) = 0.
+        f0(p_so2) = 0.
+        f0(p_etha) = 0.
+        f0(p_ole) = 0.
+        f0(p_iole) = 0.
+        f0(p_tol) = 0.
+        f0(p_cres) = 0.
+        f0(p_xyl) = 0.
+        f0(p_isop) = 0.
+        f0(p_hno3) = 0.
+        f0(p_facd) = 0.
+        f0(p_aacd) = 0.
+        f0(p_nh3) = 0.
+        f0(p_n2o5) = 1.
+        f0(p_eth) = 0.
+        f0(p_par) = 0.   !wig, 1-May-2007: for CB05
+        dvj(p_no2) = 0.147
+        dvj(p_no) = 0.183
+        dvj(p_pan) = 0.091
+        dvj(p_o3)   = 0.175
+        dvj(p_form) = 0.183
+        dvj(p_cxo3) = 0.115
+        dvj(p_hono) = 0.153
+        dvj(p_no3) = 0.127
+        dvj(p_pna) = 0.113
+        dvj(p_h2o2) = 0.171
+        dvj(p_co) = 0.189
+        dvj(p_ald2) = 0.151
+        dvj(p_aldx) = 0.151
+        dvj(p_mepx) = 0.144
+        dvj(p_rooh) = 0.127
+        dvj(p_pacd) = 0.115
+        dvj(p_mgly) = 0.118
+        dvj(p_ntr) = 0.092
+        dvj(p_so2) = 0.126
+        dvj(p_etha) = 0.183
+        dvj(p_ole) = 0.154
+        dvj(p_iole) = 0.121
+        dvj(p_tol) = 0.104
+        dvj(p_cres) = 0.096
+        dvj(p_xyl) = 0.097
+        dvj(p_isop) = 0.121
+        dvj(p_hno3) = 0.126
+        dvj(p_facd) = 0.153
+        dvj(p_aacd) = 0.124
+        dvj(p_nh3) = 0.227
+        dvj(p_n2o5) = 0.110
+        dvj(p_ho) = 0.243
+        dvj(p_ho2) = 0.174
+        dvj(p_eth) = 0.189
+        dvj(p_par) = 0.118   !wig, 1-May-2007: for CB05
+
+        DO l = 1, numgas
+          hstar4(l) = hstar(l) ! preliminary
+! Correction of diff. coeff
+          dvj(l) = dvj(l)*(293.15/298.15)**1.75
+          sc = 0.15/dvj(l) ! Schmidt Number at 20degC
+          dratio(l) = 0.242/dvj(l) !                                            ! of water vapor and gas at
+! Ratio of diffusion coeffi
+          scpr23(l) = (sc/0.72)**(2./3.) ! (Schmidt # / Prandtl #)**
+        END DO
+
+! end of addition
+
         else is_cbm4_kpp
 
         hstar(p_no2)   = 6.40E-3
@@ -3400,7 +3983,8 @@ is_cbm4_kpp : &
 is_mozart : &
       if( config_flags%chem_opt == MOZART_KPP .or. &
           config_flags%chem_opt == MOZCART_KPP .or. &
-          config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
+          config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
+          config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
 !---------------------------------------------------------------------
 !	... allocate column_density type
 !---------------------------------------------------------------------

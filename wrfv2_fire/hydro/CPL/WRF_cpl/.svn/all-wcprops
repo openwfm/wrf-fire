@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/CPL/WRF_cpl
+END
+wrf_drv_HYDRO.F
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/CPL/WRF_cpl/wrf_drv_HYDRO.F
+END
+Makefile.cpl
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/CPL/WRF_cpl/Makefile.cpl
+END
+module_wrf_HYDRO.F
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/CPL/WRF_cpl/module_wrf_HYDRO.F
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/CPL/WRF_cpl/Makefile
+END

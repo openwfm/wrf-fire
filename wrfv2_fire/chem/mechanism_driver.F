@@ -104,7 +104,7 @@
 ! select chemical mechanism
 !
    chem_select: SELECT CASE(config_flags%chem_opt)
-     CASE (GOCART_SIMPLE,GOCARTRACM_KPP,GOCARTRADM2_KPP,GOCARTRADM2)
+     CASE (GOCART_SIMPLE,GOCARTRACM_KPP,GOCARTRADM2)
        CALL wrf_debug(15,'calling gocart chem from mechanism_driver')
        call gocart_chem_driver(curr_secs,dtstepc,config_flags,        &
          gmt,julday,t_phy,moist,                                      &
@@ -146,7 +146,6 @@
                  CBMZ_MOSAIC_4BIN_AQ,     CBMZ_MOSAIC_8BIN_AQ,     &
                  CBMZ_MOSAIC_DMS_4BIN,    CBMZ_MOSAIC_DMS_8BIN,    &
                  CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
-                 CBMZ_MOSAIC_4BIN_VBS2_KPP,                        &
                  CBMZSORG, CBMZSORG_AQ, CBMZ_CAM_MAM3_NOAQ,        &
                  CBMZ_CAM_MAM3_AQ,CBMZ_CAM_MAM7_NOAQ,              &
                  CBMZ_CAM_MAM7_AQ)
@@ -164,6 +163,32 @@
                ids,ide, jds,jde, kds,kde,                              &
                ims,ime, jms,jme, kms,kme,                              &
                its,ite, jts,jte, kts,kte                               )
+
+     CASE (CB05_SORG_AQ_KPP)
+       chem(its:ite,kts:kte,jts:jte,p_apin) = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.248
+       chem(its:ite,kts:kte,jts:jte,p_bpin) = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.294
+       chem(its:ite,kts:kte,jts:jte,p_lim)  = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.164
+       chem(its:ite,kts:kte,jts:jte,p_ter)  = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.006
+       chem(its:ite,kts:kte,jts:jte,p_oci)  = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.213
+       chem(its:ite,kts:kte,jts:jte,p_hum)  = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.074
+       chem(its:ite,kts:kte,jts:jte,p_ch4) = 1.7
+       chem(its:ite,kts:kte,jts:jte,p_h2) = 0.5
+
+       vcsulf_old(its:ite,kts:kte,jts:jte) = &
+          max(chem(its:ite,kts:kte,jts:jte,p_sulf),epsilc)
+
+     CASE (CB05_SORG_VBS_AQ_KPP)
+       chem(its:ite,kts:kte,jts:jte,p_apin) = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.248
+       chem(its:ite,kts:kte,jts:jte,p_bpin) = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.294
+       chem(its:ite,kts:kte,jts:jte,p_lim)  = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.164
+       chem(its:ite,kts:kte,jts:jte,p_ter)  = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.006
+       chem(its:ite,kts:kte,jts:jte,p_oci)  = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.213
+       chem(its:ite,kts:kte,jts:jte,p_hum)  = chem(its:ite,kts:kte,jts:jte,p_terp) * 0.074
+       chem(its:ite,kts:kte,jts:jte,p_ch4) = 1.7
+       chem(its:ite,kts:kte,jts:jte,p_h2) = 0.5
+
+       vcsulf_old(its:ite,kts:kte,jts:jte) = &
+          max(chem(its:ite,kts:kte,jts:jte,p_sulf),epsilc)
 
      CASE DEFAULT
                                                      

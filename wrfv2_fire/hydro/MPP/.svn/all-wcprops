@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/MPP
+END
+CPL_WRF.F
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/MPP/CPL_WRF.F
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/MPP/Makefile
+END
+mpp_land.F
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/!svn/ver/8351/tags/trunk_20150420_3-7_RELEASE/hydro/MPP/mpp_land.F
+END

@@ -15,7 +15,9 @@ CONTAINS
          bioemdt,stepbioe,                                                 &
          config_flags,gmt,julday,alt,t_phy,moist,p8w,t8w,u_phy,            &
          v_phy,vvel,e_bio,p_phy,chem,rho_phy,dz8w,ne_area,emis_ant,        &
-         emis_vol,tsk,erod,g,emis_seas,emis_dust,tracer,                   &
+         emis_vol,tsk,erod,erod_dri,lai_vegmask,                           &
+         g,emis_seas,emis_dust,tracer,                                     &
+         emis_seas2,                                                       &
          ebu, ebu_in,mean_fct_agtf,mean_fct_agef,                          &
          mean_fct_agsv,mean_fct_aggr,firesize_agtf,firesize_agef,          &
          firesize_agsv,firesize_aggr,                                      &
@@ -30,7 +32,7 @@ CONTAINS
          ebio_iso,ebio_oli,ebio_api,ebio_lim,ebio_xyl,                     &
          ebio_hc3,ebio_ete,ebio_olt,ebio_ket,ebio_ald,                     &
          ebio_hcho,ebio_eth,ebio_ora2,ebio_co,ebio_nr,ebio_no,             &
-         ebio_sesq, ebio_mbo,                                              & 
+         ebio_sesq, ebio_mbo,ebio_bpi,ebio_myrc,                           &
          ebio_c10h16,ebio_tol,ebio_bigalk,ebio_ch3oh,ebio_acet,            &
          ebio_nh3,ebio_no2,ebio_c2h5oh,ebio_ch3cooh,ebio_mek,              &
          ebio_bigene,ebio_c2h6,ebio_c2h4,ebio_c3h6,ebio_c3h8,ebio_so2,     &
@@ -39,8 +41,9 @@ CONTAINS
          ebio_aro1, ebio_aro2, ebio_ccho, ebio_meoh,                       &    
          ebio_ethene, ebio_hcooh, ebio_terp, ebio_bald,                    &    
          ebio_cco_oh, ebio_rco_oh,                                         &    
-         clayfrac,sandfrac,dust_alpha,dust_gamma,dust_smtune,              &
-         snowh,zs,                                                         &
+         clayfrac,sandfrac,dust_alpha,dust_gamma,dust_smtune,dust_ustune,  &
+         clayfrac_nga,sandfrac_nga,                                        &
+         snowh,zs,afwa_dustloft,tot_dust,tot_edust,vis_dust,               &
          soil_top_cat, ust_t, rough_cor, smois_cor,                        & 
          ebio_c5h8,ebio_apinene,ebio_bpinene,ebio_toluene,                 &
          ebio_ch3cho,ebio_ch3co2h,ebio_tbut2ene,ebio_c2h5cho,              &
@@ -67,7 +70,7 @@ CONTAINS
          vprm_in,rad_vprm,lambda_vprm,alpha_vprm,resp_vprm,               &
          xtime,tslb,wet_in,rainc,rainnc,potevp,sfcevp,lu_index,            &
          biomt_par,emit_par,ebio_co2oce,eghg_bio,                          &
-
+         dust_flux, seas_flux,                                             &
          ids,ide, jds,jde, kds,kde,                                        &
          ims,ime, jms,jme, kms,kme,                                        &
          its,ite, jts,jte, kts,kte                                         )
@@ -83,6 +86,7 @@ CONTAINS
   USE module_bioemi_megan2
   USE module_aerosols_sorgam, only: sorgam_addemiss
   USE module_cbmz_addemiss
+  USE module_cb05_addemiss
   USE gocart_dust
   USE gocart_dust_afwa
   USE gocart_seasalt
@@ -92,6 +96,7 @@ CONTAINS
   USE module_add_emis_cptec
   USE module_add_emiss_burn
   USE module_plumerise1
+  USE module_aerosols_sorgam_vbs, only: sorgam_vbs_addemiss
   USE module_aerosols_soa_vbs, only: soa_vbs_addemiss
   USE module_ghg_fluxes
   USE module_lightning_nox_driver
@@ -130,7 +135,10 @@ CONTAINS
          dms_0,tsk,erup_beg,erup_end
    REAL, DIMENSION( ims:ime, jms:jme,3),&
          INTENT(IN ) ::                                                 &
-         erod
+         erod, erod_dri
+   REAL, DIMENSION( ims:ime, jms:jme), &
+         INTENT(IN ) ::                                                    &
+         lai_vegmask
    REAL, DIMENSION( ims:ime, jms:jme,5),&
          INTENT(INOUT ) ::                                                 &
          dustin,seasin
@@ -141,7 +149,10 @@ CONTAINS
          OPTIONAL,                                                         &
          INTENT(INOUT ) ::                                                 &
          emis_seas
-
+   REAL, DIMENSION( ims:ime, 1, jms:jme,num_emis_seas2),   &
+         OPTIONAL,                                                         &
+         INTENT(INOUT ) ::                                                 &
+         emis_seas2
    REAL, DIMENSION( ims:ime,  jms:jme ),                                   &
          OPTIONAL,                                                         &
          INTENT(IN ) ::                                                    &
@@ -189,12 +200,26 @@ CONTAINS
          INTENT(IN   ) ::                                                  &
                                                      clayfrac,             &
                                                      sandfrac,             &
+                                                     clayfrac_nga,         &
+                                                     sandfrac_nga,         &
                                                      snowh
    REAL, INTENT(IN   ) ::                            dust_alpha,           &
                                                      dust_gamma,           &
-                                                     dust_smtune
+                                                     dust_smtune,          &
+                                                     dust_ustune
+
   REAL, DIMENSION( config_flags%num_soil_layers ) ,                        &
       INTENT(IN   ) ::                               zs
+  REAL, DIMENSION( ims:ime , jms:jme )                   ,                 &
+         OPTIONAL,                                                         &
+         INTENT(  OUT) ::                                                  &
+                                                     tot_edust,            &
+                                                     afwa_dustloft
+   REAL, DIMENSION( ims:ime , kms:kme , jms:jme )        ,                 &
+         OPTIONAL,                                                         &
+         INTENT(  OUT) ::                                                  &
+                                                     tot_dust,             &
+                                                     vis_dust
   REAL, DIMENSION( ims:ime, config_flags%num_soil_layers, jms:jme ) ,      &
       INTENT(INOUT ) ::                             smois, tslb    
 
@@ -209,7 +234,7 @@ CONTAINS
                ebio_iso,ebio_oli,ebio_api,ebio_lim,ebio_xyl,           &
                ebio_hc3,ebio_ete,ebio_olt,ebio_ket,ebio_ald,           &
                ebio_hcho,ebio_eth,ebio_ora2,ebio_co,ebio_nr,ebio_no,   &
-               ebio_sesq,ebio_mbo,                                     & 
+               ebio_sesq,ebio_mbo,ebio_bpi,ebio_myrc,                  &
                ebio_c10h16,ebio_tol,ebio_bigalk, ebio_ch3oh,ebio_acet, &
                ebio_nh3,ebio_no2,ebio_c2h5oh,ebio_ch3cooh,ebio_mek,    &
                ebio_bigene,ebio_c2h6,ebio_c2h4,ebio_c3h6,ebio_c3h8,    &
@@ -292,6 +317,8 @@ CONTAINS
 
       REAL, DIMENSION(ims:ime, 8, jms:jme, num_vprm_in), INTENT(IN)     ::  vprm_in
       REAL, DIMENSION(ims:ime, 1,jms:jme, num_eghg_bio), INTENT(INOUT ) ::  eghg_bio
+
+      REAL, DIMENSION(ims:ime, jms:jme), INTENT(OUT)   :: dust_flux, seas_flux
 ! CO2
       REAL, DIMENSION(8) :: rad_vprm,lambda_vprm,alpha_vprm,resp_vprm
 ! CH4
@@ -501,7 +528,7 @@ CONTAINS
          endif ! julday.ge.begday .and. julday.le.endday
 
       volc_select:  SELECT CASE(config_flags%chem_opt)
-      CASE (GOCART_SIMPLE,MOZCART_KPP,GOCARTRADM2,GOCARTRACM_KPP,GOCARTRADM2_KPP)
+      CASE (GOCART_SIMPLE,MOZCART_KPP,GOCARTRADM2,GOCARTRACM_KPP)
         CALL wrf_debug(15,'Adding volcanic emissions')
                   do k=kts,kte
                     conv = 4.828e-4/rho_phy(i,k,j)*dtstep/(dz8w(i,k,j)*60.)
@@ -696,9 +723,10 @@ CONTAINS
       CASE (DUSTGOCARTAFWA)
         CALL wrf_debug(15,'AFWA modified Gocart dust emissions')
         call gocart_dust_afwa_driver(ktau,dtstep,config_flags,julday,alt,t_phy,moist,u_phy,  &
-         v_phy,chem,rho_phy,dz8w,smois,u10,v10,p8w,erod,dustin,snowh,zs,   &
-         ivgtyp,isltyp,vegfra,xland,xlat,xlong,gsw,dx,g,emis_dust,         &
-         ust,znt,clayfrac,sandfrac,dust_alpha,dust_gamma,dust_smtune,      &
+         v_phy,chem,rho_phy,dz8w,smois,u10,v10,p8w,erod,erod_dri,dustin,snowh,zs,   &
+         ivgtyp,isltyp,vegfra,lai_vegmask,xland,xlat,xlong,gsw,dx,g,emis_dust,      &
+         ust,znt,clayfrac,sandfrac,clayfrac_nga,sandfrac_nga,afwa_dustloft,         &!EDH
+         tot_dust,tot_edust,vis_dust,dust_alpha,dust_gamma,dust_smtune,dust_ustune, &
          ids,ide, jds,jde, kds,kde,                                        &
          ims,ime, jms,jme, kms,kme,                                        &
          its,ite, jts,jte, kts,kte                                         )
@@ -792,7 +820,7 @@ CONTAINS
             CASE (RADM2, RADM2_KPP, RADM2SORG, RADM2SORG_AQ, RADM2SORG_AQCHEM, RADM2SORG_KPP, &
                   RACM_KPP, RACMPM_KPP, RACM_MIM_KPP, RACMSORG_AQ,RACMSORG_AQCHEM_KPP,        &
                   RACM_ESRLSORG_AQCHEM_KPP, RACMSORG_KPP,RACM_ESRLSORG_KPP, RACM_SOA_VBS_KPP, &
-                  CBM4_KPP, NMHC9_KPP, GOCARTRACM_KPP,GOCARTRADM2,GOCARTRADM2_KPP)
+                  CBM4_KPP, NMHC9_KPP, GOCARTRACM_KPP,GOCARTRADM2)
             CASE DEFAULT 
                CALL wrf_error_fatal( &
                   "emissions_driver: beis3.1.4 biogenic emis. implemented for RADM2 & RACM only")
@@ -839,7 +867,7 @@ CONTAINS
                ebio_c5h8,ebio_apinene,ebio_bpinene,ebio_toluene,       &
                ebio_ch3cho,ebio_ch3co2h,ebio_tbut2ene,ebio_c2h5cho,    &
                ebio_nc4h10, &
-               ebio_sesq, ebio_mbo,                                            &
+               ebio_sesq, ebio_mbo,ebio_bpi,ebio_myrc,                 &
                ebio_alk3, ebio_alk4, ebio_alk5, ebio_ole1, ebio_ole2,    &    
                ebio_aro1, ebio_aro2, ebio_ccho, ebio_meoh,               &    
                ebio_ethene, ebio_hcooh, ebio_terp, ebio_bald,            &    
@@ -863,8 +891,9 @@ CONTAINS
     gas_addemiss_select: SELECT CASE(config_flags%chem_opt)
     CASE (RADM2, RADM2_KPP, RADM2SORG, RADM2SORG_AQ, RADM2SORG_AQCHEM, RADM2SORG_KPP, &
           RACM_KPP, RACMPM_KPP, RACM_MIM_KPP, RACMSORG_AQ, RACMSORG_AQCHEM_KPP, RACM_ESRLSORG_AQCHEM_KPP, RACMSORG_KPP, &
-          RACM_SOA_VBS_KPP, RACM_ESRLSORG_KPP, MOZART_KPP, MOZCART_KPP, MOZART_MOSAIC_4BIN_VBS0_KPP, CRIMECH_KPP, &
-          CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP )
+          RACM_SOA_VBS_KPP, RACM_ESRLSORG_KPP, &
+          MOZART_KPP, MOZCART_KPP, MOZART_MOSAIC_4BIN_KPP, MOZART_MOSAIC_4BIN_AQ_KPP, &
+          CRIMECH_KPP, CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP )
        IF(config_flags%emiss_inpt_opt /= 3 ) then
        IF(config_flags%kemit .GT. kte-ksub) THEN
          k=config_flags%kemit
@@ -878,8 +907,6 @@ CONTAINS
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
        call wrf_debug(15,'emissions_driver calling add_biogenics')
-       ! Do NOT call add_biogenics if using MEGAN v2.04 biogenic emissions
-       ! module
        call add_biogenics(id,dtstep,dz8w,config_flags, rho_phy,chem,    &
             e_bio,ne_area,                                              &
             ebio_iso,ebio_oli,ebio_api,ebio_lim,ebio_xyl,               &
@@ -889,41 +916,9 @@ CONTAINS
             ids,ide, jds,jde, kds,kde,                                  &
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
-!      IF(config_flags%emiss_inpt_opt == EMISS_INPT_MOZCEM ) then
-!        do j=jts,jte  
-!          do i=its,ite  
-!             do k=kts,min(config_flags%kemit,kte-ksub)
-!               conv = alt(i,k,j)*dtstep/dz8w(i,k,j)
-!               chem(i,k,j,p_p10) = chem(i,k,j,p_p10) + emis_ant(i,k,j,p_e_pm_10)*conv
-!               chem(i,k,j,p_p25) = chem(i,k,j,p_p25) + emis_ant(i,k,j,p_e_pm_25)*conv
-!               chem(i,k,j,p_bc1) = chem(i,k,j,p_bc1) + emis_ant(i,k,j,p_e_bc)*conv
-!               chem(i,k,j,p_oc1) = chem(i,k,j,p_oc1) + emis_ant(i,k,j,p_e_oc)*conv
-!               chem(i,k,j,p_sulf) = chem(i,k,j,p_sulf) + emis_ant(i,k,j,p_e_sulf)*conv*mwdry/mw_so4_aer*1.e-3
-!            end do
-!          end do
-!        end do
-!      end if 
 
        end if ! emiss_inpt_opt /= 3
 
-! 20130725 acd_ck_bugfix start
-! > double counting - already added in add_anthropogenics (module_emissions_anthropogenic.F)
-!    IF(config_flags%emiss_opt == 10 ) then
-!       do j=jts,jte
-!          do i=its,ite
-!             do k=kts,min(config_flags%kemit,kte-ksub)
-!                conv = 4.828e-4/rho_phy(i,k,j)*dtstep/(dz8w(i,k,j)*60.)
-!
-!                chem(i,k,j,p_voca)  = chem(i,k,j,p_voca)                       &
-!                     +emis_ant(i,k,j,p_e_co_a)*conv*0.08*28./250.
-!                chem(i,k,j,p_vocbb)  = chem(i,k,j,p_vocbb)                       &
-!                     +emis_ant(i,k,j,p_e_co_bb)*conv*0.08*28./250.
-!
-!             end do
-!          end do
-!       end do
-!     endif
-! 20130725 acd_ck_bugfix end
 
 !For SAPRC99 need to define SAPRC99_addemiss_anthro and SAPRC99_addemiss_bio
 !so did not add saprcnov packages here
@@ -944,10 +939,6 @@ CONTAINS
             ims,ime, jms,jme, kms,kme,                                   &
             its,ite, jts,jte, kts,kte                                    )
        call wrf_debug(15,'emissions_driver calling cbmz_addemiss_bio')
-       !**BSINGH- Should I delete this comment??
-       ! Do NOT call add_biogenics if using MEGAN v2.04 biogenic emissions
-       ! module
-
        !BSINGH: 03/13/2013
        !Commented out (or delete??) the following call to "cbmz_addemiss_bio"and
        !replaced with an "add_biogenic" call to make it consistent 
@@ -967,6 +958,28 @@ CONTAINS
             ids,ide, jds,jde, kds,kde,                                  &
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
+
+    CASE (CB05_SORG_AQ_KPP, CB05_SORG_VBS_AQ_KPP)
+       IF(config_flags%kemit .GT. kte-ksub) THEN
+         message = ' EMISSIONS_DRIVER: KEMIT > KME '
+         CALL WRF_ERROR_FATAL (message)
+       ENDIF
+       call wrf_debug(15,'emissions_driver calling cb05_addemiss_anthro')
+       call cb05_addemiss_anthro( id, dtstep, dz8w, config_flags,        &
+            rho_phy, chem,                                               &
+            emis_ant,ids,ide, jds,jde, kds,kde,                                   &
+            ims,ime, jms,jme, kms,kme,                                   &
+            its,ite, jts,jte, kts,kte                                    )
+       call wrf_debug(15,'emissions_driver calling cb05_addemiss_bio')
+       ! Do NOT call add_biogenics if using MEGAN v2.04 biogenic emissions
+       ! module
+       if ( config_flags%bio_emiss_opt .ne. megan2 ) then
+         call cb05_addemiss_bio( id, dtstep, dz8w, config_flags,         &
+              rho_phy, chem, e_bio, ne_area, emis_ant(ims,kms,jms,p_e_iso),&
+              ids,ide, jds,jde, kds,kde,                                 &
+              ims,ime, jms,jme, kms,kme,                                 &
+              its,ite, jts,jte, kts,kte                                  )
+       endif
 
     CASE (CHEM_TRACER)
        do j=jts,jte  
@@ -1159,79 +1172,6 @@ CONTAINS
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
       
-                  
-    CASE (CBMZ_MOSAIC_4BIN_VBS2_KPP) !FIX FOR SAPRC07A
-     if(config_flags%emiss_opt == 3 ) then
-       IF(config_flags%kemit .GT. kte-ksub) THEN
-          message = ' EMISSIONS_DRIVER: KEMIT > KME '
-          CALL WRF_ERROR_FATAL (message)
-       ENDIF
-       call wrf_debug(15,'emissions_driver calling cbmz_addemiss_anthro')
-       call cbmz_addemiss_anthro( id, dtstep, dz8w, config_flags,        &
-            rho_phy, chem,                                               &
-            emis_ant,alt,ids,ide, jds,jde, kds,kde,                      &
-            ims,ime, jms,jme, kms,kme,                                   &
-            its,ite, jts,jte, kts,kte                                    )
-       call wrf_debug(15,'emissions_driver calling cbmz_addemiss_bio')
-
-       !**BSINGH- Should I delete this comment??
-       ! Do NOT call add_biogenics if using MEGAN v2.04 biogenic emissions
-       ! module
-       if ( config_flags%bio_emiss_opt .ne. megan2 ) then 
-          !BSINGH: 03/13/2013
-          !Commented out (or delete??) the following call to "cbmz_addemiss_bio"and
-          !replaced with an "add_biogenic" call to make it consistent 
-          !with other packages
-          !call cbmz_addemiss_bio( id, dtstep, dz8w, config_flags,         &
-          !    rho_phy, chem, e_bio, ne_area, emis_ant(ims,kms,jms,p_e_iso),&
-          !    ids,ide, jds,jde, kds,kde,                                 &
-          !    ims,ime, jms,jme, kms,kme,                                 &
-          !    its,ite, jts,jte, kts,kte                                  )
-       
-          call add_biogenics(id,dtstep,dz8w,config_flags, rho_phy,chem,    &
-               e_bio,ne_area,                                              &
-               ebio_iso,ebio_oli,ebio_api,ebio_lim,ebio_xyl,               &
-               ebio_hc3,ebio_ete,ebio_olt,ebio_ket,ebio_ald,               &
-               ebio_hcho,ebio_eth,ebio_ora2,ebio_co,ebio_nr,ebio_no,       &
-               ebio_sesq,ebio_mbo,                                         & 
-               ids,ide, jds,jde, kds,kde,                                  &
-               ims,ime, jms,jme, kms,kme,                                  &
-               its,ite, jts,jte, kts,kte                                   )
-       endif
-       do j=jts,jte
-          do i=its,ite
-             do k=kts,min(config_flags%kemit,kte-ksub)
-                conv = 4.828e-4/rho_phy(i,k,j)*dtstep/(dz8w(i,k,j)*60.)
-                conv3 = (dtstep/dz8w(i,k,j))*alt(i,k,j)*28/250*1e-3! Molecular weight of C(15)H(27)N(0.3)O(4.5)
-                conv4= (dtstep/dz8w(i,k,j))*alt(i,k,j)*28/226*1e-3  ! Molecular weight of C(15)H(27)N(0.3)O(0.9)
-                oconv3= (dtstep/dz8w(i,k,j))*alt(i,k,j)*28/283*1e-3*4.5 !For biomass there are 4.5 moles of ) /mole of C15H27N0.3
-                oconv4=(dtstep/dz8w(i,k,j))*alt(i,k,j)*28/226*1e-3*0.9  !For fossil there are 0.9 moles of O per mole of C15H27N0.3
-
-!Use OM/OC of 1.25 for fossil and OM:OC of 1.57 for biomass
-! O:C=0.06,H:C=1.8, N:C=0.02 for fossil : OM/OC=(16*0.06+12+14*0.02+12)/12=1.25
-!O:C=0.3 H:C=1.8, N:C=0.02 for biomass, OM/OC=1.57 for biomass
-
-        chem(i,k,j,p_pcg1_b_c)  =  chem(i,k,j,p_pcg1_b_c)                        &
-        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*1.17
-        chem(i,k,j,p_pcg2_b_c)  =  chem(i,k,j,p_pcg2_b_c)                        &
-        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*7.605
-        chem(i,k,j,p_pcg1_f_c)  =  chem(i,k,j,p_pcg1_f_c)                        &
-        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*1.17
-        chem(i,k,j,p_pcg2_f_c)  =  chem(i,k,j,p_pcg2_f_c)                        &
-        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*7.605
-        chem(i,k,j,p_pcg1_b_o)  =  chem(i,k,j,p_pcg1_b_o)                        &
-        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*0.40
-        chem(i,k,j,p_pcg2_b_o)  =  chem(i,k,j,p_pcg2_b_o)                        &
-        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*2.60
-        chem(i,k,j,p_pcg1_f_o)  =  chem(i,k,j,p_pcg1_f_o)                        &
-        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*0.08
-        chem(i,k,j,p_pcg2_f_o)  =  chem(i,k,j,p_pcg2_f_o)                        &
-        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*0.52
-
-             end do
-          end do
-       end do
-     endif
     CASE (SAPRC99_MOSAIC_4BIN_VBS2_KPP) !FIX FOR SAPRC07A
      if(config_flags%emiss_opt == 13 ) then
        do j=jts,jte
@@ -1376,7 +1316,7 @@ CONTAINS
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
 
-    CASE (GOCARTRACM_KPP,GOCARTRADM2,GOCARTRADM2_KPP)
+    CASE (GOCARTRACM_KPP,GOCARTRADM2)
        IF(config_flags%emiss_inpt_opt /= 3 ) then
        IF(config_flags%kemit .GT. kte-ksub) THEN
          k=config_flags%kemit
@@ -1506,7 +1446,8 @@ CONTAINS
     aer_addemiss_select: SELECT CASE(config_flags%chem_opt)
 
     CASE (RADM2SORG,RADM2SORG_AQ,RADM2SORG_AQCHEM,RADM2SORG_KPP, &
-          RACMSORG_AQ,RACMSORG_AQCHEM_KPP,RACM_ESRLSORG_AQCHEM_KPP,RACMSORG_KPP,RACM_ESRLSORG_KPP,CBMZSORG,CBMZSORG_AQ)
+          RACMSORG_AQ,RACMSORG_AQCHEM_KPP,RACM_ESRLSORG_AQCHEM_KPP,RACMSORG_KPP,RACM_ESRLSORG_KPP,CBMZSORG,CBMZSORG_AQ, &
+          CB05_SORG_AQ_KPP)
        call wrf_debug(15,'emissions_driver calling sorgam_addemiss')
        call sorgam_addemiss( id, dtstep, u10, v10, alt, dz8w, xland, chem,  &
             ebu,                                                        &
@@ -1515,13 +1456,28 @@ CONTAINS
             seasalt_emiss_active,config_flags%kemit,                    &
             config_flags%biomass_burn_opt,                              &
             config_flags%num_soil_layers,config_flags%emiss_opt,        &
-!jdf
             config_flags%dust_opt,                                      &
             ktau,p8w,u_phy,v_phy,rho_phy,g,dx,erod,                     &
-!jdf
             ids,ide, jds,jde, kds,kde,                                  &
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
+
+    CASE (CB05_SORG_VBS_AQ_KPP)
+       call wrf_debug(15,'emissions_driver calling sorgam_vbs_addemiss')
+       call sorgam_vbs_addemiss( id, dtstep, u10, v10, alt, dz8w, xland, chem,  &
+            ebu,                                                        &
+            slai,ust,smois,ivgtyp,isltyp,                               &
+            emis_ant,dust_emiss_active,                                 &
+            seasalt_emiss_active,config_flags%kemit,                    &
+            config_flags%biomass_burn_opt,                              &
+            config_flags%num_soil_layers,config_flags%emiss_opt,        &
+            config_flags%dust_opt,                                      &
+            ktau,p8w,u_phy,v_phy,rho_phy,g,dx,erod,                     &
+            emis_seas2,                                                 &
+            ids,ide, jds,jde, kds,kde,                                  &
+            ims,ime, jms,jme, kms,kme,                                  &
+            its,ite, jts,jte, kts,kte                                   )
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     CASE (RACM_SOA_VBS_KPP)
        call wrf_debug(15,'emissions_driver calling soa_vbs_addemiss')
@@ -1544,17 +1500,16 @@ CONTAINS
           CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
           CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, & 
           CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ,SAPRC99_MOSAIC_4BIN_VBS2_KPP,&
-          CBMZ_MOSAIC_4BIN_VBS2_KPP,MOZART_MOSAIC_4BIN_VBS0_KPP, &
-          CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP   )
+          MOZART_MOSAIC_4BIN_KPP, MOZART_MOSAIC_4BIN_AQ_KPP, &
+          CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP   )
        call wrf_debug(15,'emissions_driver calling mosaic_addemiss')
        call mosaic_addemiss( id, dtstep, u10, v10, alt, dz8w, xland,     &
             config_flags, chem, slai, ust, smois, ivgtyp, isltyp,        &
-!jdf
             emis_ant,ebu,config_flags%biomass_burn_opt,                  &
             config_flags%dust_opt,                                       &
             ktau,p8w,u_phy,v_phy,rho_phy,g,dx,erod,                      &
-!jdf
             dust_emiss_active, seasalt_emiss_active,                     &
+            dust_flux, seas_flux,                                        &
             ids,ide, jds,jde, kds,kde,                                   &
             ims,ime, jms,jme, kms,kme,                                   &
             its,ite, jts,jte, kts,kte                                    )

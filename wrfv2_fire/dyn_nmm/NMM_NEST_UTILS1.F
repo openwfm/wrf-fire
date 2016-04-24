@@ -80,9 +80,13 @@ SUBROUTINE med_nest_egrid_configure ( parent , nest )
     if (parent%parent_id == 0 ) then        ! Dusan's doing
        parent%wbd0 = -(IDE-2)*parent%dx     ! WBD0: in degrees;factor 2 takes care of dummy last column
        parent%sbd0 = -((JDE-1)/2)*parent%dy ! SBD0: in degrees; note that JDE-1 should be odd  
+       parent%wbd0var = parent%wbd0
+       parent%sbd0var = parent%sbd0
     end if
     nest%wbd0   = parent%wbd0 + (nest%i_parent_start-1)*2.*parent%dx + mod(nest%j_parent_start+1,2)*parent%dx
     nest%sbd0   = parent%sbd0 + (nest%j_parent_start-1)*parent%dy
+    nest%wbd0var = nest%wbd0
+    nest%sbd0var = nest%sbd0
     nest%dx     = parent%dx/nest%parent_grid_ratio
     nest%dy     = parent%dy/nest%parent_grid_ratio
 
@@ -415,6 +419,7 @@ SUBROUTINE EARTH_LATLON ( HLAT,HLON,VLAT,VLON,     & !Earth lat,lon at H and V p
 
 ! local
 
+
  INTEGER,PARAMETER                           :: KNUM=SELECTED_REAL_KIND(13) 
  INTEGER                                     :: I,J
  REAL(KIND=KNUM)                             :: WB,SB,DLM,DPH,TPH0,STPH0,CTPH0
@@ -422,21 +427,28 @@ SUBROUTINE EARTH_LATLON ( HLAT,HLON,VLAT,VLON,     & !Earth lat,lon at H and V p
  REAL(KIND=KNUM)                             :: STPH,CTPH,STPV,CTPV,PI_2
  REAL(KIND=KNUM)                             :: SPHH,CLMH,FACTH,SPHV,CLMV,FACTV
  REAL(KIND=KNUM), DIMENSION(IMS:IME,JMS:JME) :: GLATH,GLONH,GLATV,GLONV
+ REAL(KIND=KNUM) :: DLMD8,DPHD8,WBD8,SBD8,CLAT8,CLON8
+ REAL(KIND=KNUM) :: CPHH, CPHV
 !-------------------------------------------------------------------------
-
+ DLMD8=DLMD1
+ DPHD8=DPHD1
+ WBD8=WBD1
+ SBD8=SBD1
+ CLAT8=CENTRAL_LAT
+ CLON8=CENTRAL_LON
 !
       PI_2 = ACOS(0.)
       DTR  = PI_2/90.
-      WB   = WBD1 * DTR                 ! WB:   western boundary in radians
-      SB   = SBD1 * DTR                 ! SB:   southern boundary in radians
-      DLM  = DLMD1 * DTR                ! DLM:  dlamda in radians 
-      DPH  = DPHD1 * DTR                ! DPH:  dphi   in radians
+      WB   = WBD8 * DTR                 ! WB:   western boundary in radians
+      SB   = SBD8 * DTR                 ! SB:   southern boundary in radians
+      DLM  = DLMD8 * DTR                ! DLM:  dlamda in radians 
+      DPH  = DPHD8 * DTR                ! DPH:  dphi   in radians
       TDLM = DLM + DLM                  ! TDLM: 2.0*dlamda 
       TDPH = DPH + DPH                  ! TDPH: 2.0*DPH 
 
 !     For earth lat lon only
 
-      TPH0  = CENTRAL_LAT*DTR                ! TPH0: central lat in radians 
+      TPH0  = CLAT8*DTR                ! TPH0: central lat in radians 
       STPH0 = SIN(TPH0)
       CTPH0 = COS(TPH0)
 
@@ -451,34 +463,37 @@ SUBROUTINE EARTH_LATLON ( HLAT,HLON,VLAT,VLON,     & !Earth lat,lon at H and V p
          CTPH = COS(TPHH)
          STPV = SIN(TPHV)
          CTPV = COS(TPHV)
-
                                                               !   .H
          DO I = ITS,MIN(ITE,IDE-1)                            !  / 
            TLMH = TLMH0 + I*TDLM                              !  \.H   .U   .H 
 !                                                             !H./ ----><----
            SPHH = CTPH0 * STPH + STPH0 * CTPH * COS(TLMH)     !     DLM + DLM
+           CPHH = sqrt(1-SPHH**2)
            GLATH(I,J)=ASIN(SPHH)                              ! GLATH: Earth Lat in radians 
-           CLMH = CTPH*COS(TLMH)/(COS(GLATH(I,J))*CTPH0) &
-                - TAN(GLATH(I,J))*TAN(TPH0)
+           !CLMH = CTPH*COS(TLMH)/(COS(GLATH(I,J))*CTPH0) &
+           !     - TAN(GLATH(I,J))*TAN(TPH0)
+           CLMH = (CTPH*COS(TLMH)-SPHH*STPH0) / (CPHH*CTPH0)
            IF(CLMH .GT. 1.) CLMH = 1.0
            IF(CLMH .LT. -1.) CLMH = -1.0
            FACTH = 1.
            IF(TLMH .GT. 0.) FACTH = -1.
-           GLONH(I,J) = -CENTRAL_LON*DTR + FACTH*ACOS(CLMH)
+           GLONH(I,J) = -CLON8*DTR + FACTH*ACOS(CLMH)
 
          ENDDO                                    
 
          DO I = ITS,MIN(ITE,IDE-1)
            TLMV = TLMV0 + I*TDLM
            SPHV = CTPH0 * STPV + STPH0 * CTPV * COS(TLMV)
+           CPHV = sqrt(1-SPHV**2)
            GLATV(I,J) = ASIN(SPHV)
-           CLMV = CTPV*COS(TLMV)/(COS(GLATV(I,J))*CTPH0) &
-                - TAN(GLATV(I,J))*TAN(TPH0)
+           !CLMV = CTPV*COS(TLMV)/(COS(GLATV(I,J))*CTPH0) &
+           !     - TAN(GLATV(I,J))*TAN(TPH0)
+           CLMV = (CTPV*COS(TLMV)-SPHV*STPH0) / (CPHV*CTPH0)
            IF(CLMV .GT. 1.) CLMV = 1.
            IF(CLMV .LT. -1.) CLMV = -1.
            FACTV = 1.
            IF(TLMV .GT. 0.) FACTV = -1.
-           GLONV(I,J) = -CENTRAL_LON*DTR + FACTV*ACOS(CLMV)
+           GLONV(I,J) = -CLON8*DTR + FACTV*ACOS(CLMV)
 
          ENDDO
 
@@ -2767,7 +2782,7 @@ SUBROUTINE NEST_TERRAIN ( nest, config_flags )
 
  integer, parameter :: IO_BIN=1, IO_NET=2
 
- integer :: io_form_input
+ integer :: io_form_auxinput2
  integer :: itsok,iteok,jtsok,jteok
 
  CHARACTER(LEN=512) :: message
@@ -2777,12 +2792,15 @@ SUBROUTINE NEST_TERRAIN ( nest, config_flags )
 
  call START_TIMING()
 
- write(message,*)"in NEST_TERRAIN config_flags%io_form_input = ", config_flags%io_form_input
+ write(message,*)"in NEST_TERRAIN config_flags%io_form_auxinput2 = ", config_flags%io_form_auxinput2
  CALL wrf_debug(2,trim(message))
- write(message,*)"in NEST_TERRAIN config_flags%auxinput1_inname = ", config_flags%auxinput1_inname
+ write(message,*)"in NEST_TERRAIN config_flags%auxinput2_inname = ", config_flags%auxinput2_inname
  CALL wrf_debug(2,trim(message))
 
- io_form_input = config_flags%io_form_input
+ io_form_auxinput2 = config_flags%io_form_auxinput2
+ ! NOTE: input_type (WRFSI vs. WPS) triggers based on auxinput1
+ ! (metgrid) because that is the only way we have of differentiating
+ ! between WRFSI and WPS
  if (config_flags%auxinput1_inname(1:7) == "met_nmm") then
     input_type = 2
  else
@@ -2870,6 +2888,10 @@ SUBROUTINE NEST_TERRAIN ( nest, config_flags )
      write(message,'("Nest d",I0," nest_terrain")') nest%id
      call END_TIMING(trim(message))
 
+#ifdef IDEAL_NMM_TC
+           return ! move return after end_timing to prevent cnmax KWON
+#endif
+
 CONTAINS
 #ifdef DM_PARALLEL
   SUBROUTINE SLAVE(IDS,IDE,JDS,JDE)
@@ -2901,7 +2923,7 @@ CONTAINS
     avc_nest = 0.0
     lnd_nest = 0.0
     
-    tr=>terrain_for(level,input_type,io_form_input)
+    tr=>terrain_for(level,input_type,io_form_auxinput2)
 
     ! select subdomain from big fine grid
     i_add = mod(j_start+1,2) 

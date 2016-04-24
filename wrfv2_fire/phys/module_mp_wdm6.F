@@ -14,7 +14,7 @@ MODULE module_mp_wdm6
 !
    REAL, PARAMETER, PRIVATE :: dtcldcr     = 120. ! maximum time step for minor loops
    REAL, PARAMETER, PRIVATE :: n0r = 8.e6         ! intercept parameter rain
-   REAL, PARAMETER, PRIVATE :: n0g = 4.e6         ! intercept parameter graupel
+!   REAL, PARAMETER, PRIVATE :: n0g = 4.e6         ! intercept parameter graupel ! RAS - now set in subroutine based on namelist option
    REAL, PARAMETER, PRIVATE :: avtr = 841.9       ! a constant for terminal velocity of rain
    REAL, PARAMETER, PRIVATE :: bvtr = 0.8         ! a constant for terminal velocity of rain
    REAL, PARAMETER, PRIVATE :: r0 = .8e-5         ! 8 microm  in contrast to 10 micro m
@@ -23,16 +23,16 @@ MODULE module_mp_wdm6
    REAL, PARAMETER, PRIVATE :: xmyu = 1.718e-5    ! the dynamic viscosity kgm-1s-1
    REAL, PARAMETER, PRIVATE :: avts = 11.72       ! a constant for terminal velocity of snow
    REAL, PARAMETER, PRIVATE :: bvts = .41         ! a constant for terminal velocity of snow 
-   REAL, PARAMETER, PRIVATE :: avtg = 330.        ! a constant for terminal velocity of graupel 
-   REAL, PARAMETER, PRIVATE :: bvtg = 0.8         ! a constant for terminal velocity of graupel
-   REAL, PARAMETER, PRIVATE :: deng = 500.        ! density of graupel
+!   REAL, PARAMETER, PRIVATE :: avtg = 330.        ! a constant for terminal velocity of graupel ! RAS - now set in subroutine based on namelist option
+!   REAL, PARAMETER, PRIVATE :: bvtg = 0.8         ! a constant for terminal velocity of graupel ! RAS - now set in subroutine based on namelist option
+!   REAL, PARAMETER, PRIVATE :: deng = 500.        ! density of graupel !RAS13.1 - now set in subroutine based on namelist option
    REAL, PARAMETER, PRIVATE :: n0smax =  1.e11    ! maximum n0s (t=-90C unlimited)
    REAL, PARAMETER, PRIVATE :: lamdacmax = 5.0e5  ! limited maximum value for slope parameter of cloud water
    REAL, PARAMETER, PRIVATE :: lamdacmin = 2.0e4  ! limited minimum value for slope parameter of cloud water
    REAL, PARAMETER, PRIVATE :: lamdarmax = 5.0e4  ! limited maximum value for slope parameter of rain
    REAL, PARAMETER, PRIVATE :: lamdarmin = 2.0e3  ! limited minimum value for slope parameter of rain
    REAL, PARAMETER, PRIVATE :: lamdasmax = 1.e5   ! limited maximum value for slope parameter of snow
-   REAL, PARAMETER, PRIVATE :: lamdagmax = 6.e4   ! limited maximum value for slope parameter of graupel
+!   REAL, PARAMETER, PRIVATE :: lamdagmax = 6.e4   ! limited maximum value for slope parameter of graupel - now set in subroutine based on namelist option
    REAL, PARAMETER, PRIVATE :: dicon = 11.9       ! constant for the cloud-ice diamter
    REAL, PARAMETER, PRIVATE :: dimax = 500.e-6    ! limited maximum value for the cloud-ice diamter
    REAL, PARAMETER, PRIVATE :: n0s = 2.e6         ! temperature dependent intercept parameter snow 
@@ -68,6 +68,7 @@ MODULE module_mp_wdm6
              bvts3,bvts4,g1pbs,g3pbs,g4pbs,g5pbso2,        &
              pvts,pacrs,precs1,precs2,pidn0s,xlv1,pacrc,   &
              bvtg1,bvtg2,bvtg3,bvtg4,g1pbg,g3pbg,g4pbg,    &
+             n0g,avtg,bvtg,deng,lamdagmax,                 & !RAS13.3 - set these in wdm6init
              g5pbgo2,pvtg,pacrg,precg1,precg2,pidn0g,      &
              rslopecmax,rslopec2max,rslopec3max,           &
              rslopermax,rslopesmax,rslopegmax,             &
@@ -90,6 +91,8 @@ CONTAINS
                     refl_10cm, diagflag, do_radar_ref,     &
                     graupel, graupelncv,                   &
                     itimestep,                             &
+                    has_reqc, has_reqi, has_reqs,          &  ! for radiation
+                    re_cloud, re_ice,   re_snow,           &  ! for radiation     
                     ids,ide, jds,jde, kds,kde,             &
                     ims,ime, jms,jme, kms,kme,             &
                     its,ite, jts,jte, kts,kte              &
@@ -115,6 +118,16 @@ CONTAINS
 !  Coded by Kyo-Sun Lim and Song-You Hong (Yonsei Univ.) Fall 2008
 !
 !  Implemented by Kyo-Sun Lim and Jimy Dudhia (NCAR) Winter 2008
+!
+!  further modifications :
+!        semi-lagrangian sedimentation (JH,2010),hong, aug 2009
+!        ==> higher accuracy and efficient at lower resolutions
+!        reflectivity computation from greg thompson, lim, jun 2011
+!        ==> only diagnostic, but with removal of too large drops
+!        add hail option from afwa, aug 2014
+!        ==> switch graupel or hail by changing no, den, fall vel.
+!        effective radius of hydrometeors, bae from kiaps, jan 2015
+!        ==> consistency in solar insolation of rrtmg radiation
 !
 !  Reference) Lim and Hong (LH, 2010) Mon. Wea. Rev. 
 !             Juang and Hong (JH, 2010) Mon. Wea. Rev.
@@ -173,6 +186,16 @@ CONTAINS
         INTENT(INOUT) ::                                    rain, &
                                                          rainncv, &
                                                               sr
+! for radiation connecting
+  INTEGER, INTENT(IN)::                                           &
+                                                        has_reqc, &
+                                                        has_reqi, &
+                                                        has_reqs
+  REAL, DIMENSION(ims:ime, kms:kme, jms:jme),                     &
+        INTENT(INOUT)::                                           &
+                                                        re_cloud, &
+                                                          re_ice, &
+                                                         re_snow   
 
 !+---+-----------------------------------------------------------------+
   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), INTENT(INOUT)::     &  ! GT
@@ -185,6 +208,7 @@ CONTAINS
   REAL, DIMENSION( ims:ime , jms:jme ), OPTIONAL,                 &
         INTENT(INOUT) ::                                 graupel, &
                                                         graupelncv
+   
 ! LOCAL VAR
   REAL, DIMENSION( its:ite , kts:kte ) ::   t
   REAL, DIMENSION( its:ite , kts:kte, 2 ) ::   qci
@@ -196,6 +220,10 @@ CONTAINS
       LOGICAL, OPTIONAL, INTENT(IN) :: diagflag
       INTEGER, OPTIONAL, INTENT(IN) :: do_radar_ref
 !+---+-----------------------------------------------------------------+
+! to calculate effective radius for radiation
+  REAL, DIMENSION( kts:kte ) :: qc1d, nc1d, den1d
+  REAL, DIMENSION( kts:kte ) :: qi1d
+  REAL, DIMENSION( kts:kte ) :: re_qc, re_qi, re_qs
 
       IF (itimestep .eq. 1) THEN 
         DO j=jms,jme
@@ -274,9 +302,35 @@ CONTAINS
             ENDDO
          endif
          ENDIF
-!+---+-----------------------------------------------------------------+
 
+! calculate effective radius of cloud, ice, and snow 
+         IF (has_reqc.ne.0 .and. has_reqi.ne.0 .and. has_reqs.ne.0) THEN
+           DO i=its,ite
+             DO k=kts,kte
+               re_qc(k) = 2.51E-6
+               re_qi(k) = 10.01E-6
+               re_qs(k) = 25.E-6
+
+               t1d(k)  = th(i,k,j)*pii(i,k,j)
+               den1d(k)= den(i,k,j)
+               qc1d(k) = qc(i,k,j)
+               qi1d(k) = qi(i,k,j)
+               qs1d(k) = qs(i,k,j)
+               nc1d(k) = nc(i,k,j)
+             ENDDO
+             call effectRad_wdm6(t1d, qc1d, nc1d, qi1d, qs1d, den1d,   &
+                                 qmin, t0c, re_qc, re_qi, re_qs,       &
+                                 kts, kte, i, j)
+             DO k=kts,kte
+               re_cloud(i,k,j) = max(2.51E-6,  min(re_qc(k),  50.E-6))
+               re_ice(i,k,j)   = max(10.01E-6, min(re_qi(k), 125.E-6))
+               re_snow(i,k,j)  = max(25.E-6,   min(re_qs(k), 999.E-6))
+             ENDDO
+           ENDDO
+         ENDIF
+           
       ENDDO
+ 
   END SUBROUTINE wdm6
 !===================================================================
 !
@@ -378,9 +432,9 @@ CONTAINS
         nsacw, ngacw, niacr, nsacr, ngacr, naacw,                 &
         nseml, ngeml, ncact 
   REAL, DIMENSION( its:ite , kts:kte ) ::                         &
-        pigen, pidep, pcond, xl, cpm, work2, psmlt, psevp,        &
-        denfac, xni, pgevp,n0sfac, qsum,                          &
-        denqrs1, denqr1, denqrs2, denqrs3, denncr3, denqci  
+        pigen, pidep, pcond, pgevp, psmlt, psevp,                 &
+        xl, cpm, work2, denfac, n0sfac, qsum,                     &
+        denqrs1, denqr1, denqrs2, denqrs3, denncr3, denqci, xni 
   REAL, DIMENSION( its:ite ) ::                                   &
         delqrs1, delqrs2, delqrs3, delncr3, delqi
   REAL, DIMENSION( its:ite ) :: tstepsnow, tstepgraup
@@ -1851,7 +1905,7 @@ CONTAINS
       INTEGER :: i
       if(x.eq.1.)then
         rgmma=0.
-          else
+      else
         rgmma=x*exp(euler*x)
         do i=1,10000
           y=float(i)
@@ -1886,13 +1940,30 @@ CONTAINS
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       END FUNCTION fpvs
 !-------------------------------------------------------------------
-  SUBROUTINE wdm6init(den0,denr,dens,cl,cpv, ccn0, allowed_to_read)
+  SUBROUTINE wdm6init(den0,denr,dens,cl,cpv, ccn0, hail_opt, allowed_to_read) ! RAS
 !-------------------------------------------------------------------
   IMPLICIT NONE
 !-------------------------------------------------------------------
 !.... constants which may not be tunable
    REAL, INTENT(IN) :: den0,denr,dens,cl,cpv,ccn0
+   INTEGER, INTENT(IN) :: hail_opt  ! RAS
    LOGICAL, INTENT(IN) :: allowed_to_read
+ 
+! RAS13.1 define graupel parameters as graupel-like or hail-like,
+!         depending on namelist option
+      IF (hail_opt .eq. 1) THEN !Hail!
+         n0g       = 4.e4
+         deng      = 700.
+         avtg      = 285.0
+         bvtg      = 0.8
+         lamdagmax = 2.e4
+      ELSE !Graupel!
+         n0g       = 4.e6
+         deng      = 500
+         avtg      = 330.0
+         bvtg      = 0.8
+         lamdagmax = 6.e4
+      ENDIF
 !
    pi = 4.*atan(1.)
    xlv1 = cl-cpv
@@ -1993,7 +2064,6 @@ CONTAINS
 
    call radar_init
 !+---+-----------------------------------------------------------------+
-
 !
   END SUBROUTINE wdm6init
 !------------------------------------------------------------------------------
@@ -2917,5 +2987,108 @@ CONTAINS
 
       end subroutine refl10cm_wdm6
 !+---+-----------------------------------------------------------------+
+
+!-----------------------------------------------------------------------
+     subroutine effectRad_wdm6 (t, qc, nc, qi, qs, rho, qmin, t0c,        &
+                                re_qc, re_qi, re_qs, kts, kte, ii, jj)
+
+!-----------------------------------------------------------------------
+!  Compute radiation effective radii of cloud water, ice, and snow for 
+!  double-moment microphysics..
+!  These are entirely consistent with microphysics assumptions, not
+!  constant or otherwise ad hoc as is internal to most radiation
+!  schemes.  
+!  Coded and implemented by Soo Ya Bae, KIAPS, January 2015.
+!-----------------------------------------------------------------------
+
+      implicit none
+
+!..Sub arguments
+      integer, intent(in) :: kts, kte, ii, jj
+      real, intent(in) :: qmin
+      real, intent(in) :: t0c
+      real, dimension( kts:kte ), intent(in)::  t
+      real, dimension( kts:kte ), intent(in)::  qc
+      real, dimension( kts:kte ), intent(in)::  nc
+      real, dimension( kts:kte ), intent(in)::  qi
+      real, dimension( kts:kte ), intent(in)::  qs
+      real, dimension( kts:kte ), intent(in)::  rho
+      real, dimension( kts:kte ), intent(inout):: re_qc
+      real, dimension( kts:kte ), intent(inout):: re_qi
+      real, dimension( kts:kte ), intent(inout):: re_qs
+!..Local variables
+      integer:: i,k
+      integer :: inu_c
+      real, dimension( kts:kte ):: ni
+      real, dimension( kts:kte ):: rqc
+      real, dimension( kts:kte ):: rnc
+      real, dimension( kts:kte ):: rqi
+      real, dimension( kts:kte ):: rni
+      real, dimension( kts:kte ):: rqs
+      real :: cdm2
+      real :: temp
+      real :: supcol, n0sfac, lamdas
+      real :: diai      ! diameter of ice in m
+      double precision :: lamc
+      logical :: has_qc, has_qi, has_qs
+!..Minimum microphys values
+      real, parameter :: R1 = 1.E-12
+      real, parameter :: R2 = 1.E-6
+      real, parameter :: pi = 3.1415926536
+      real, parameter :: bm_r = 3.0
+      real, parameter :: obmr = 1.0/bm_r
+      real, parameter :: cdm  = 5./3.
+!-----------------------------------------------------------------------
+      has_qc = .false.
+      has_qi = .false.
+      has_qs = .false.
+
+      cdm2 = rgmma(cdm)
+
+      do k=kts,kte
+        ! for cloud
+        rqc(k) = max(R1, qc(k)*rho(k))
+        rnc(k) = max(R2, nc(k)*rho(k))
+        if (rqc(k).gt.R1 .and. rnc(k).gt.R2) has_qc = .true.
+        ! for ice
+        rqi(k) = max(R1, qi(k)*rho(k))
+        temp = (rho(k)*max(qi(k),qmin))
+        temp = sqrt(sqrt(temp*temp*temp))
+        ni(k) = min(max(5.38e7*temp,1.e3),1.e6)
+        rni(k)= max(R2, ni(k)*rho(k))
+        if (rqi(k).gt.R1 .and. rni(k).gt.R2) has_qi = .true.
+        ! for snow
+        rqs(k) = max(R1, qs(k)*rho(k))
+        if (rqs(k).gt.R1) has_qs = .true.
+      enddo
+
+      if (has_qc) then
+        do k=kts,kte
+          if (rqc(k).le.R1 .or. rnc(k).le.R2) CYCLE
+          lamc = 2.*cdm2*(pidnc*nc(k)/rqc(k))**obmr
+          re_qc(k) =  max(2.51e-6,min(sngl(1.0d0/lamc),50.e-6))
+        enddo
+      endif
+
+      if (has_qi) then
+        do k=kts,kte
+          if (rqi(k).le.R1 .or. rni(k).le.R2) CYCLE
+          diai = 11.9*sqrt(rqi(k)/ni(k))
+          re_qi(k) = max(10.01e-6,min(0.75*0.163*diai,125.e-6))
+        enddo
+      endif
+
+      if (has_qs) then
+        do k=kts,kte
+          if (rqs(k).le.R1) CYCLE
+          supcol = t0c-t(k)
+          n0sfac = max(min(exp(alpha*supcol),n0smax/n0s),1.)
+          lamdas = sqrt(sqrt(pidn0s*n0sfac/rqs(k))) 
+          re_qs(k) = max(25.e-6,min(0.5*(1./lamdas),999.e-6))
+        enddo
+      endif
+
+      end subroutine effectRad_wdm6
+!-----------------------------------------------------------------------
 
 END MODULE module_mp_wdm6

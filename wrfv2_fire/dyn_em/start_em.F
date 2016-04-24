@@ -26,8 +26,8 @@
    USE module_physics_init
    USE module_lightning_driver, ONLY : lightning_init
    USE module_fr_fire_driver_wrf, ONLY : fire_driver_em_init
-   USE module_stoch, ONLY : SETUP_STOCH_SPPT,SETUP_STOCH_SKEBS,rand_seed, update_stoch
-#ifdef WRF_CHEM
+   USE module_stoch, ONLY : setup_rand_perturb, rand_seed, update_stoch
+#if (WRF_CHEM == 1)
    USE module_aerosols_sorgam, ONLY: sum_pm_sorgam
    USE module_gocart_aerosols, ONLY: sum_pm_gocart
    USE module_mosaic_driver, ONLY: sum_pm_mosaic
@@ -69,8 +69,9 @@
 
    INTEGER     :: i_m
 
-   REAL        :: p00, t00, a, tiso, p_surf, pd_surf, temp, tiso_tmp
-#ifdef WRF_CHEM
+   REAL        :: p_top_test, p00, t00, a, tiso, p_surf, pd_surf, temp, tiso_tmp
+   REAL        :: p_strat, a_strat
+#if (WRF_CHEM == 1)
    REAL        RGASUNIV ! universal gas constant [ J/mol-K ]
    PARAMETER ( RGASUNIV = 8.314510 )
       REAL,DIMENSION(grid%sm31:grid%em31,grid%sm32:grid%em32,grid%sm33:grid%em33) :: &
@@ -85,7 +86,7 @@
    LOGICAL :: first_trip_for_this_domain, start_of_simulation, fill_w_flag
    LOGICAL, EXTERNAL :: wrf_dm_on_monitor
 
-#ifndef WRF_CHEM
+#if (WRF_CHEM != 1)
       REAL,ALLOCATABLE,DIMENSION(:,:,:) :: cldfra_old
 #endif
 
@@ -106,6 +107,12 @@
 !  
 ! Define variables local (topo_wind local vars)
    REAL    :: alpha, vfac
+   INTEGER :: j_save
+
+   !  For a global domain
+
+   INTEGER :: alloc_status
+   CHARACTER (LEN=256) :: alloc_err_message
 
 !..Need to fill special height var for setting up initial condition.  G. Thompson
    REAL, ALLOCATABLE, DIMENSION(:,:,:) :: z_at_q
@@ -122,7 +129,7 @@
    kts = kps ; kte = kpe     ! note that tile is entire patch
    its = ips ; ite = ipe     ! note that tile is entire patch
    jts = jps ; jte = jpe    ! note that tile is entire patch
-#ifndef WRF_CHEM
+#if (WRF_CHEM != 1)
          ALLOCATE(CLDFRA_OLD(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; CLDFRA_OLD = 0.
 #endif
    ALLOCATE(z_at_q(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; z_at_q = 0.
@@ -144,7 +151,19 @@
 
 #ifdef DM_PARALLEL
 ! WARNING:  this might present scaling issues on very large numbers of processors
-     ALLOCATE( clat_glob(ids:ide,jds:jde) )
+     alloc_err_message = ' '
+     alloc_err_message(1:12) = 'NO PROBLEMOS'
+#if 0
+     ALLOCATE( clat_glob(ids:ide,jds:jde), STAT=alloc_status, ERRMSG=alloc_err_message )
+#else
+     ALLOCATE( clat_glob(ids:ide,jds:jde), STAT=alloc_status)
+     alloc_err_message = 'Allocation of space for a global field failed.' 
+#endif
+
+     IF ( alloc_status .NE. 0 ) THEN
+        CALL wrf_message ( TRIM(alloc_err_message) )
+        CALL wrf_error_fatal ( 'Error allocating entire domain size of 2d array CLAT for global domain' )
+     END IF
 
      CALL wrf_patch_to_global_real ( grid%clat, clat_glob, grid%domdesc, 'xy', 'xy', &
                                      ids, ide, jds, jde, 1, 1, &
@@ -154,6 +173,24 @@
      CALL wrf_dm_bcast_real ( clat_glob , (ide-ids+1)*(jde-jds+1) )
 
      grid%clat_xxx(ipsx:ipex,jpsx:jpex) = clat_glob(ipsx:ipex,jpsx:jpex)
+
+     find_j_index_of_fft_filter : DO j = jds , jde-1
+        IF ( ABS(clat_glob(ids,j)) .LE. config_flags%fft_filter_lat ) THEN
+           j_save = j
+           EXIT find_j_index_of_fft_filter
+        END IF
+     END DO find_j_index_of_fft_filter
+
+     CALL wrf_patch_to_global_real ( grid%msft, clat_glob, grid%domdesc, 'xy', 'xy', &
+                                     ids, ide, jds, jde, 1, 1, &
+                                     ims, ime, jms, jme, 1, 1, &
+                                     its, ite, jts, jte, 1, 1 )
+
+     CALL wrf_dm_bcast_real ( clat_glob , (ide-ids+1)*(jde-jds+1) )
+
+     grid%mf_fft = clat_glob(ids,j_save)
+
+     grid%mf_xxx(ipsx:ipex,jpsx:jpex) = clat_glob(ipsx:ipex,jpsx:jpex)
 
      DEALLOCATE( clat_glob )
 #endif
@@ -178,7 +215,7 @@
        grid%itimestep=0
    ENDIF
 
-   IF ( config_flags%restart .or. grid%moved ) THEN
+   IF ( config_flags%restart .or. grid%moved .or. config_flags%cycling) THEN
        first_trip_for_this_domain = .TRUE.
    ENDIF
 
@@ -188,65 +225,103 @@
      grid%did_stoch = .FALSE.
    END IF
 
-   IF ( ( grid%id == 1 ) .AND. &
-        ( grid%stoch_force_global_opt == 1 ) .AND. &
-        ( .NOT. grid%did_stoch ) ) THEN
+   IF ((( grid%id == 1) .AND. (.NOT. grid%did_stoch)) .AND. &
+       (( grid%skebs_on== 1) .OR.( grid%sppt_on== 1) .OR. ( grid%rand_perturb_on== 1))) THEN
 
      grid%did_stoch = .TRUE.
-     IF ( wrf_dm_on_monitor () ) THEN
-       CALL rand_seed ( config_flags, grid%SEED1, grid%SEED2, grid%NENS )
-     ENDIF
-#ifdef DM_PARALLEL
-     CALL wrf_dm_bcast_bytes ( grid%SEED1, IWORDSIZE )
-     CALL wrf_dm_bcast_bytes ( grid%SEED2, IWORDSIZE )
-#endif
 
-     IF (grid%stoch_force_opt==1) then
-     grid%SPTFORCC=0.0
-     grid%SPTFORCS=0.0
-     call SETUP_STOCH_SKEBS(grid%VERTSTRUCC,grid%VERTSTRUCS,                   &
-                      grid%SPT_AMP,grid%SPSTREAM_AMP,                    &
-                      grid%VERTAMPT,grid%VERTAMPUV,                      &
-                      grid%stoch_vertstruc_opt,                          &
-                      grid%SEED1,grid%SEED2,grid%time_step,              &
-                      grid%DX,grid%DY,                                   &
-                      grid%TOT_BACKSCAT_PSI,grid%TOT_BACKSCAT_T,         &
-                      grid%ZTAU_PSI,grid%ZTAU_T,grid%REXPONENT_PSI,grid%REXPONENT_T,               &
-                      grid%KMINFORC,grid%KMAXFORC,grid%LMINFORC,grid%LMAXFORC,     &
-                      grid%KMINFORCT,grid%KMAXFORCT,grid%LMINFORCT,grid%LMAXFORCT, &
-                      grid%KMAXFORCH,grid%LMAXFORCH,grid%KMAXFORCTH,grid%LMAXFORCTH, &
-                      grid%ZSIGMA2_EPS,grid%ZSIGMA2_ETA,                          &
-                      ids, ide, jds, jde, kds, kde,                      &
-                      ims, ime, jms, jme, kms, kme,                      &
-                      its, ite, jts, jte, kts, kte                       )
-     END IF
-     IF (grid%stoch_force_opt==2) then
+     IF (grid%skebs_on==1) then
 
-        call SETUP_STOCH_SPPT(grid%VERTSTRUCC,grid%VERTSTRUCS,            &
-                       grid%SPT_AMP,                                      &
-                       grid%SPTFORCC,grid%SPTFORCS,                       &
-                       grid%VERTAMPT,grid%VERTAMPUV,                      &
-                       grid%stoch_vertstruc_opt,                          &
-                       grid%SEED1,grid%SEED2,grid%time_step,              &
-                       grid%DX,grid%DY,                                   &
-                       grid%gridpointvariance,grid%l_sppt,grid%tau_sppt,  &
-                       grid%KMINFORCT,grid%KMAXFORCT,grid%LMINFORCT,grid%LMAXFORCT, &
-                       grid%KMAXFORCTH,grid%LMAXFORCTH, &
+! Initialize SKEBS
+!    Initialize streamfunction (1)
+     if (.not.config_flags%restart) then 
+         call rand_seed (config_flags, grid%ISEED_SKEBS, grid%iseedarr_skebs , kms, kme)
+     endif
+     call SETUP_RAND_PERTURB('W',                                         &
+                       grid%skebs_vertstruc,config_flags%restart,         &
+                       grid%SPSTREAM_AMP,                                 &
+                       grid%SPSTREAMFORCS,grid%SPSTREAMFORCC,grid%ALPH_PSI,&
+                       grid%VERTSTRUCC,grid%VERTSTRUCS,grid%VERTAMPUV,     &
+                       grid%KMINFORCT,grid%KMAXFORCT,                     &
+                       grid%LMINFORCT,grid%LMAXFORCT,                     &
+                       grid%KMAXFORCTH,grid%LMAXFORCTH,                   &
+                       grid%time_step,grid%DX,grid%DY,                    &
+                       grid%gridpt_stddev_sppt,                           &
+                       grid%lengthscale_sppt,                             &
+                       grid%timescale_sppt,                               &
+                       grid%TOT_BACKSCAT_PSI,grid%ZTAU_PSI,               &
+                       grid%REXPONENT_PSI,                                &
                        ids, ide, jds, jde, kds, kde,                      &
                        ims, ime, jms, jme, kms, kme,                      &
                        its, ite, jts, jte, kts, kte                       )
-     ENDIF 
-     do i=1,600
-     CALL UPDATE_STOCH(grid%SPSTREAMFORCS,grid%SPSTREAMFORCC,           &
-                      grid%SPTFORCS,grid%SPTFORCC,                        &
-                      grid%SPT_AMP,grid%SPSTREAM_AMP,                     &
-                      ids, ide, jds, jde, kds, kde,                       &
-                      ims, ime, jms, jme, kms, kme,                       &
-                      its, ite, jts, jte, kts, kte                       )
-     enddo
+!    Initialize potential temperature (2)
+     call SETUP_RAND_PERTURB('T',                                         &
+                       grid%skebs_vertstruc,config_flags%restart,     &
+                       grid%SPT_AMP,                                      &
+                       grid%SPTFORCS,grid%SPTFORCC,grid%ALPH_T,           &
+                       grid%VERTSTRUCC,grid%VERTSTRUCS,grid%VERTAMPT,     &
+                       grid%KMINFORCT,grid%KMAXFORCT,                     &
+                       grid%LMINFORCT,grid%LMAXFORCT,                     &
+                       grid%KMAXFORCTH,grid%LMAXFORCTH,                   &
+                       grid%time_step,grid%DX,grid%DY,                    &
+                       grid%gridpt_stddev_sppt,                           &
+                       grid%lengthscale_sppt,                             &
+                       grid%timescale_sppt,                               &
+                       grid%TOT_BACKSCAT_T,grid%ZTAU_T,                   &
+                       grid%REXPONENT_T,                                  &
+                       ids, ide, jds, jde, kds, kde,                      &
+                       ims, ime, jms, jme, kms, kme,                      &
+                       its, ite, jts, jte, kts, kte                       )
+     ENDIF
 
+IF (grid%sppt_on==1) then
+! Initialize SPPT (3)
+     if (.not.config_flags%restart) then ! set random number seed (else  iseedarray is read in from restart files)
+         call rand_seed (config_flags, grid%ISEED_SPPT, grid%iseedarr_sppt  , kms, kme)
+     endif
+     call SETUP_RAND_PERTURB('P',                                         &
+                       grid%sppt_vertstruc,config_flags%restart,          &
+                       grid%SPPT_AMP,                                     &
+                       grid%SPPTFORCC,grid%SPPTFORCS,grid%ALPH_SPPT,      &
+                       grid%VERTSTRUCC,grid%VERTSTRUCS,grid%VERTAMPT,     &
+                       grid%KMINFORCT,grid%KMAXFORCT,                     &
+                       grid%LMINFORCT,grid%LMAXFORCT,                     &
+                       grid%KMAXFORCTH,grid%LMAXFORCTH,                   &
+                       grid%time_step,grid%DX,grid%DY,                    &
+                       grid%gridpt_stddev_sppt,                           &
+                       grid%lengthscale_sppt,                             &
+                       grid%timescale_sppt,                               &
+                       grid%TOT_BACKSCAT_PSI,grid%ZTAU_PSI,               &
+                       grid%REXPONENT_PSI,                                &
+                       ids, ide, jds, jde, kds, kde,                      &
+                       ims, ime, jms, jme, kms, kme,                      &
+                       its, ite, jts, jte, kts, kte                       )
+     ENDIF
 
-    END IF
+! Initialize RAND_PERTURB (4)
+     IF (grid%rand_perturb_on==1) then
+     if (.not.config_flags%restart) then ! set random number seed (else  iseedarray is read in from restart files)
+         call rand_seed (config_flags, grid%ISEED_RAND_PERT, grid%iseedarr_rand_pert  , kms, kme)
+     endif
+     call SETUP_RAND_PERTURB('R',                                         &
+                       grid%rand_pert_vertstruc,config_flags%restart,     &
+                       grid%SP_AMP,                                       &
+                       grid%SPFORCC,grid%SPFORCS,grid%ALPH_RAND,          &
+                       grid%VERTSTRUCC,grid%VERTSTRUCS,grid%VERTAMPT,     &
+                       grid%KMINFORCT,grid%KMAXFORCT,                     &
+                       grid%LMINFORCT,grid%LMAXFORCT,                     &
+                       grid%KMAXFORCTH,grid%LMAXFORCTH,                   &
+                       grid%time_step,grid%DX,grid%DY,                    &
+                       grid%gridpt_stddev_rand_pert,                      &
+                       grid%lengthscale_rand_pert,                        &
+                       grid%timescale_rand_pert,                          &
+                       grid%TOT_BACKSCAT_PSI,grid%ZTAU_PSI,               &
+                       grid%REXPONENT_PSI,                                &
+                       ids, ide, jds, jde, kds, kde,                      &
+                       ims, ime, jms, jme, kms, kme,                      &
+                       its, ite, jts, jte, kts, kte                       )
+     ENDIF
+     ENDIF ! skebs or sppt or rand_perturb
 !   --- END SETUP STOCHASTIC PERTURBATION SCHEMES ----------
 
 
@@ -412,11 +487,23 @@
       END IF
    END IF
 
+   !  Make sure that the base-state vales have not changed between what is in the input file
+   !  and the namelist file.
+
+   IF ( .NOT. grid%this_is_an_ideal_run ) THEN
+      CALL nl_get_p_top_requested  ( 1 , p_top_test )
+      IF ( grid%p_top .NE. p_top_test ) THEN
+         CALL wrf_error_fatal ( 'start_em: p_top from the namelist does not match p_top from the input file.' )
+      END IF
+   END IF
+
    IF ( config_flags%use_baseparam_fr_nml ) then
-      CALL nl_get_base_pres  ( 1 , p00 )
-      CALL nl_get_base_temp  ( 1 , t00 )
-      CALL nl_get_base_lapse ( 1 , a   )
-      CALL nl_get_iso_temp   ( 1 , tiso )
+      CALL nl_get_base_pres        ( 1 , p00        )
+      CALL nl_get_base_temp        ( 1 , t00        )
+      CALL nl_get_base_lapse       ( 1 , a          )
+      CALL nl_get_iso_temp         ( 1 , tiso       )
+      CALL nl_get_base_lapse_strat ( 1 , a_strat    )
+      CALL nl_get_base_pres_strat  ( 1 , p_strat    )
       IF ( ( t00 .LT. 100. .or. p00 .LT. 10000.) .AND. ( .NOT. grid%this_is_an_ideal_run ) ) THEN
          WRITE(wrf_err_message,*) 'start_em: BAD BASE STATE for T00 or P00 in namelist.input file'
          CALL wrf_error_fatal(TRIM(wrf_err_message))
@@ -425,10 +512,12 @@
    ELSE
    ! get these constants from model data
 
-      t00  = grid%t00
-      p00  = grid%p00
-      a    = grid%tlp
-      tiso = grid%tiso
+      t00     = grid%t00
+      p00     = grid%p00
+      a       = grid%tlp
+      tiso    = grid%tiso
+      a_strat = grid%tlp_strat
+      p_strat = grid%p_strat
       IF ( ( t00 .LT. 100. .or. p00 .LT. 10000.) .AND. ( .NOT. grid%this_is_an_ideal_run ) ) THEN
          WRITE(wrf_err_message,*)&
          'start_em: did not find base state parameters in wrfinput. Add use_baseparam_fr_nml = .t. in &dynamics and rerun'
@@ -462,13 +551,19 @@
 
             !  Base state pressure is a function of eta level and terrain, only, plus
             !  the hand full of constants: p00 (sea level pressure, Pa), t00 (sea level
-            !  temperature, K), and A (temperature difference, from 1000 mb to 300 mb, K).
+            !  temperature, K), A (temperature difference, from 1000 mb to 300 mb, K),
+            !  tiso (isothermal temperature at tropopause/lower stratosphere), 
+            !  p_strat (pressure at top of isothermal layer), A_strat (lapse rate in 
+            !  stratosphere above isothermal layer)
 
             p_surf = p00 * EXP ( -t00/a + ( (t00/a)**2 - 2.*g*grid%ht(i,j)/a/r_d ) **0.5 )
 
             DO k = 1, kte-1
                grid%pb(i,k,j) = grid%znu(k)*(p_surf - grid%p_top) + grid%p_top
                temp = MAX ( tiso, t00 + A*LOG(grid%pb(i,k,j)/p00) )
+               IF ( grid%pb(i,k,j) .LT. p_strat ) THEN
+                  temp = tiso + A_strat * LOG ( grid%pb(i,k,j)/p_strat )
+               ENDIF
                grid%t_init(i,k,j) = temp*(p00/grid%pb(i,k,j))**(r_d/cp) - t0
 !              grid%t_init(i,k,j) = (t00 + A*LOG(grid%pb(i,k,j)/p00))*(p00/grid%pb(i,k,j))**(r_d/cp) - t0
                grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*(grid%pb(i,k,j)/p1000mb)**cvpm
@@ -560,6 +655,9 @@
           IF ( grid%imask_nostag(i,j) .EQ. 1 ) THEN
             grid%pb(i,k,j) = grid%znu(k)*grid%mub(i,j)+grid%p_top
             temp = MAX ( tiso, t00 + A*LOG(grid%pb(i,k,j)/p00) )
+            IF ( grid%pb(i,k,j) .LT. p_strat ) THEN
+               temp = tiso + A_strat * LOG ( grid%pb(i,k,j)/p_strat )
+            ENDIF
             grid%t_init(i,k,j) = temp*(p00/grid%pb(i,k,j))**(r_d/cp) - t0
             grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*(grid%pb(i,k,j)/p1000mb)**cvpm
           ENDIF
@@ -582,6 +680,25 @@
     ENDIF
 
 ! Use equations from calc_p_rho_phi to derive p and al from ph: linear in log p
+!-----------------------------------------------------------------------------
+!tgs - rebalance if the model is cycled but does not run DFI
+! For HRRR application
+! Rebalance recomputes 1/rho, p, ph_2, ph0, p_hyd
+
+  IF ( ( grid%dfi_opt .EQ. DFI_NODFI ) .and. config_flags%cycling ) then
+      call rebalance_driver_cycl (grid )
+
+       DO j = jts,min(jte,jde-1)
+       DO k = kts,kte
+       DO i = its, min(ite,ide-1)
+          grid%ph_1(i,k,j)=grid%ph_2(i,k,j)
+       ENDDO
+       ENDDO
+       ENDDO
+
+!  ENDIF
+  ELSE
+!------------------------------------------------------------------------------
 
     IF ( config_flags%hypsometric_opt .EQ. 1 ) THEN
        DO j=jts,min(jte,jde-1)
@@ -617,6 +734,8 @@
     ENDDO
     ENDDO
     ENDDO
+ ENDIF ! rebalance
+!-------------------------------------------------------------------------------------
 
     IF ( .NOT. grid%this_is_an_ideal_run ) THEN
        DO j=jts,min(jte,jde-1)
@@ -679,9 +798,12 @@
    MPDT = 0.
 
 !tgs
-   IF(config_flags%cycling) start_of_simulation = .true.
+   IF(config_flags%cycling) THEN
+       start_of_simulation = .true.
 !  print *,'cycling, start_of_simulation -->',config_flags%cycling, start_of_simulation
-
+       grid%xtime=0.
+!   print *,'xtime=',grid%xtime
+   ENDIF
 !-----------------------------------------------------------------------------
 ! Adaptive time step: Added by T. Hutchinson, WSI  11/6/07
 !
@@ -777,6 +899,11 @@ endif
                       grid%rublten,grid%rvblten,grid%rthblten,               &
                       grid%rqvblten,grid%rqcblten,grid%rqiblten,             &
                       grid%rthraten,grid%rthratenlw,grid%rthratensw,         &
+                      !BSINGH - For WRFCuP scheme(11/12/2013)
+                      grid%cupflag,grid%cldfra_cup,grid%cldfratend_cup,      & !wig, 18-Sep-2006
+                      grid%shall,                                            & !wig, 18-Sep-2006
+                      grid%tcloud_cup,                                       & !rce, 18-apr-2012
+                      !BSINGH - ENDS
                       grid%stepbl,grid%stepra,grid%stepcu,                   &
                       grid%w0avg, grid%rainnc, grid%rainc, grid%raincv, grid%rainncv,  &
                       grid%snownc, grid%snowncv, grid%graupelnc, grid%graupelncv,  &
@@ -788,10 +915,9 @@ endif
                       grid%mass_flux,                              &
                       grid%rthften, grid%rqvften,                       &
                       grid%cldfra,                                      &
-#ifdef WRF_CHEM
+#if (WRF_CHEM == 1)
                       grid%cldfra_old,                                  &
-#endif
-#ifndef WRF_CHEM
+#else
                       cldfra_old,                                  &
 #endif
                       grid%glw,grid%gsw,grid%emiss,grid%embck,            &
@@ -840,7 +966,7 @@ endif
                       grid%CHXY, grid%FWETXY, grid%SNEQVOXY, grid%ALBOLDXY, grid%QSNOWXY,       &   ! Optional Noah-MP
                       grid%WSLAKEXY, grid%ZWTXY, grid%WAXY, grid%WTXY, grid%LFMASSXY, grid%RTMASSXY, & ! Optional Noah-MP
                       grid%STMASSXY, grid%WOODXY, grid%STBLCPXY, grid%FASTCPXY,                 &   ! Optional Noah-MP
-                      grid%XSAIXY,                                                              &   ! Optional Noah-MP
+                      grid%XSAIXY,grid%LAI,                                                     &   ! Optional Noah-MP
                       grid%T2MVXY, grid%T2MBXY, grid%CHSTARXY,                                  &   ! Optional Noah-MP
                       grid%SMOISEQ  ,grid%SMCWTDXY ,grid%RECHXY, grid%DEEPRECHXY, grid%AREAXY,  & ! Optional Noah-MP
                       config_flags%wtddt ,grid%stepwtd ,grid%QRFSXY ,grid%QSPRINGSXY ,grid%QSLATXY, & ! Optional Noah-MP
@@ -853,6 +979,9 @@ endif
                       grid%TRL_URB3D, grid%TBL_URB3D, grid%TGL_URB3D,        & !Optional urban
                       grid%SH_URB2D, grid%LH_URB2D, grid%G_URB2D, grid%RN_URB2D,  & !Optional urban
                       grid%TS_URB2D, grid%FRC_URB2D, grid%UTYPE_URB2D,      & !Optional urban
+                      grid%CMCR_URB2D,grid%TGR_URB2D,grid%TGRL_URB3D,grid%SMR_URB3D, & !Optional urban   
+                      grid%DRELR_URB2D,grid%DRELB_URB2D,grid%DRELG_URB2D,    & !Optional urban
+                      grid%FLXHUMR_URB2D,grid%FLXHUMB_URB2D,grid%FLXHUMG_URB2D,   & !Optional urban
                       grid%TRB_URB4D,grid%TW1_URB4D,grid%TW2_URB4D,grid%TGB_URB4D,grid%TLEV_URB3D,  & !multi-layer urban
                       grid%QLEV_URB3D,grid%TW1LEV_URB3D,grid%TW2LEV_URB3D,        & !multi-layer urban
                       grid%TGLEV_URB3D,grid%TFLEV_URB3D,grid%SF_AC_URB3D,         & !multi-layer urban 
@@ -946,6 +1075,7 @@ endif
                       ,grid%massflux_EDKF, grid%entr_EDKF, grid%detr_EDKF                & 
                       ,grid%thl_up,grid%thv_up,grid%rt_up                                &
                       ,grid%rv_up,grid%rc_up,grid%u_up,grid%v_up,grid%frac_up            &
+                      ,grid%ccn_conc                                          & ! RAS
                       ,grid%QKE                                               &!JOE-for mynn
                       ,grid%landusef,grid%landusef2,grid%mosaic_cat_index                            & ! danli mosaic 
                       ,grid%TSK_mosaic,grid%TSLB_mosaic,grid%SMOIS_mosaic,grid%SH2O_mosaic           & ! danli mosaic
@@ -1009,7 +1139,7 @@ endif
                     ! IC and CG flash rates and accumulated flash count
                         ,ic_flashcount=grid%ic_flashcount, ic_flashrate=grid%ic_flashrate        &
                         ,cg_flashcount=grid%cg_flashcount, cg_flashrate=grid%cg_flashrate        &
-#ifdef WRF_CHEM
+#if (WRF_CHEM == 1)
                         ,lnox_opt=config_flags%lnox_opt           &
                         ,lnox_passive=config_flags%lnox_passive   &
                         ,lnox_total=tracer(:,:,:,p_lnox_total)    &
@@ -1417,7 +1547,7 @@ endif
    ENDIF
 
 
-#ifdef WRF_CHEM
+#if (WRF_CHEM == 1)
         if(config_flags%tracer_opt > 0 )then
            call initialize_tracer (tracer,config_flags%chem_in_opt, &
                                config_flags%tracer_opt,num_tracer,  &
@@ -1464,6 +1594,7 @@ endif
                          grid%dgnum4d, grid%dgnumwet4d, grid%dgnum_a1, grid%dgnum_a2,           & 
                          grid%dgnum_a3, grid%dgnumwet_a1, grid%dgnumwet_a2, grid%dgnumwet_a3,   &
                          grid%pm2_5_dry,grid%pm2_5_water,grid%pm2_5_dry_ec,                &
+                         grid%tsoa,grid%asoa,grid%bsoa,                                    &
                          grid%last_chem_time_year,grid%last_chem_time_month,               &
                          grid%last_chem_time_day,grid%last_chem_time_hour,                 &
                          grid%last_chem_time_minute,grid%last_chem_time_second,            &
@@ -1477,7 +1608,7 @@ endif
 !
 !       print *,'calculating initial pm'
         select case (config_flags%chem_opt)
-        case (GOCART_SIMPLE,GOCARTRACM_KPP,GOCARTRADM2,GOCARTRADM2_KPP)
+        case (GOCART_SIMPLE,GOCARTRACM_KPP,GOCARTRADM2)
            call sum_pm_gocart (                                             &
                 grid%alt, chem, grid%pm2_5_dry, grid%pm2_5_dry_ec,grid%pm10,&
                 ids,ide, jds,jde, kds,kde,                                  &
@@ -1517,6 +1648,7 @@ endif
                     grid%pm2_5_water(i,k,j)  = 0.
                     grid%pm2_5_dry_ec(i,k,j) = 0.
                     grid%pm10(i,k,j)         = 0.
+                    grid%tsoa(i,k,j)         = 0.
                  enddo
               enddo
            enddo
@@ -1599,7 +1731,7 @@ endif
                          its , ite , jts , jte , &
                          its , ite , jts , jte   )
 
-#ifndef WRF_CHEM
+#if (WRF_CHEM != 1)
       DEALLOCATE(CLDFRA_OLD)
 #endif
 #ifdef DM_PARALLEL
@@ -1643,6 +1775,7 @@ DEALLOCATE(z_at_q)
                  ,e=grid%e                      &
                  !  Namelist info
                  ,use_tot_or_hyd_p=config_flags%use_tot_or_hyd_p &
+                 ,extrap_below_grnd=config_flags%extrap_below_grnd &
                  ,missing=config_flags%p_lev_missing &
                  !  The diagnostics, mostly output variables
                  ,num_press_levels=config_flags%num_press_levels &
@@ -1656,6 +1789,7 @@ DEALLOCATE(z_at_q)
                  ,ght_pl= grid%ght_pl           &
                  ,s_pl  = grid%s_pl             &  
                  ,td_pl = grid%td_pl            &
+                 ,q_pl = grid%q_pl              &
                  !  Dimension arguments
                  ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde    &
                  ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme    &
@@ -1681,3 +1815,290 @@ endif
 
    END SUBROUTINE start_domain_em
 
+!-------------------------------------------------------------------
+
+   SUBROUTINE rebalance_driver_cycl ( grid )
+
+      USE module_domain, ONLY : domain
+      IMPLICIT NONE
+
+      TYPE (domain)          :: grid
+
+      CALL rebalance_cycl( grid &
+!
+#include "actual_new_args.inc"
+!
+      )
+
+   END SUBROUTINE rebalance_driver_cycl
+
+!---------------------------------------------------------------------
+
+   SUBROUTINE rebalance_cycl ( grid  &
+!
+#include "dummy_new_args.inc"
+!
+                        )
+      USE module_domain, ONLY : domain
+      USE module_configure, ONLY : grid_config_rec_type, model_config_rec
+      USE module_model_constants
+      USE module_state_description
+      USE module_driver_constants, ONLY: DATA_ORDER_XYZ, DATA_ORDER_YXZ, DATA_ORDER_ZXY, &
+                                         DATA_ORDER_ZYX, DATA_ORDER_XZY, DATA_ORDER_YZX, &
+                                         DATA_ORDER_XY, DATA_ORDER_YX, model_data_order
+
+#ifdef DM_PARALLEL
+      USE module_comm_dm, ONLY : &
+                           HALO_EM_INIT_1_sub   &
+                          ,HALO_EM_INIT_2_sub   &
+                          ,HALO_EM_INIT_3_sub   &
+                          ,HALO_EM_INIT_4_sub   &
+                          ,HALO_EM_INIT_5_sub   &
+                          ,HALO_EM_VINTERP_UV_1_sub
+#endif
+#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
+   USE module_dm, ONLY : ntasks_x, ntasks_y, ntasks, mytask, local_communicator
+#endif
+
+      IMPLICIT NONE
+
+      TYPE (domain)          :: grid
+
+#include "dummy_new_decl.inc"
+
+      TYPE (grid_config_rec_type)              :: config_flags
+
+      REAL :: p_surf ,  pd_surf, p_surf_int , pb_int , ht_hold
+      REAL :: qvf , qvf1 , qvf2, qtot
+      REAL :: pfu, pfd, phm
+
+      !  Local domain indices and counters.
+
+      INTEGER :: n_moist
+
+      INTEGER                             ::                       &
+                                     ids, ide, jds, jde, kds, kde, &
+                                     ims, ime, jms, jme, kms, kme, &
+                                     its, ite, jts, jte, kts, kte, &
+                                     ips, ipe, jps, jpe, kps, kpe, &
+                                     i, j, k, ispe, ktf
+
+      SELECT CASE ( model_data_order )
+         CASE ( DATA_ORDER_ZXY )
+            kds = grid%sd31 ; kde = grid%ed31 ;
+            ids = grid%sd32 ; ide = grid%ed32 ;
+            jds = grid%sd33 ; jde = grid%ed33 ;
+
+            kms = grid%sm31 ; kme = grid%em31 ;
+            ims = grid%sm32 ; ime = grid%em32 ;
+            jms = grid%sm33 ; jme = grid%em33 ;
+
+            kts = grid%sp31 ; kte = grid%ep31 ;   ! note that tile is entire patch
+            its = grid%sp32 ; ite = grid%ep32 ;   ! note that tile is entire patch
+            jts = grid%sp33 ; jte = grid%ep33 ;   ! note that tile is entire patch
+
+         CASE ( DATA_ORDER_XYZ )
+            ids = grid%sd31 ; ide = grid%ed31 ;
+            jds = grid%sd32 ; jde = grid%ed32 ;
+            kds = grid%sd33 ; kde = grid%ed33 ;
+
+            ims = grid%sm31 ; ime = grid%em31 ;
+            jms = grid%sm32 ; jme = grid%em32 ;
+            kms = grid%sm33 ; kme = grid%em33 ;
+
+            its = grid%sp31 ; ite = grid%ep31 ;   ! note that tile is entire patch
+            jts = grid%sp32 ; jte = grid%ep32 ;   ! note that tile is entire patch
+            kts = grid%sp33 ; kte = grid%ep33 ;   ! note that tile is entire patch
+
+         CASE ( DATA_ORDER_XZY )
+            ids = grid%sd31 ; ide = grid%ed31 ;
+            kds = grid%sd32 ; kde = grid%ed32 ;
+            jds = grid%sd33 ; jde = grid%ed33 ;
+
+            ims = grid%sm31 ; ime = grid%em31 ;
+            kms = grid%sm32 ; kme = grid%em32 ;
+            jms = grid%sm33 ; jme = grid%em33 ;
+
+            its = grid%sp31 ; ite = grid%ep31 ;   ! note that tile is entire patch
+            kts = grid%sp32 ; kte = grid%ep32 ;   ! note that tile is entire patch
+            jts = grid%sp33 ; jte = grid%ep33 ;   ! note that tile is entire patch
+
+      END SELECT
+
+            ktf=MIN(kte,kde-1)
+
+      DO j=jts,jte
+         DO i=its,ite
+            grid%ph_2(i,1,j) = 0.
+         END DO
+      END DO
+
+      !  Base state potential temperature and inverse density (alpha = 1/rho) from
+      !  the half eta levels and the base-profile surface pressure.  Compute 1/rho
+      !  from equation of state.  The potential temperature is a perturbation from t0.
+
+         n_moist = num_moist
+
+      print *,'n_moist,PARAM_FIRST_SCALAR',n_moist,PARAM_FIRST_SCALAR
+
+       DO j = jts, MIN(jte,jde-1)
+         DO i = its, MIN(ite,ide-1)
+
+       IF (n_moist >= PARAM_FIRST_SCALAR ) THEN
+               !  Integrate the hydrostatic equation (from the RHS of the bigstep vertical momentum
+               !  equation) down from the top to get the pressure perturbation.  First get the pressure
+               !  perturbation, moisture, and inverse density (total and perturbation) at the top-most level.
+
+               k = kte - 1
+
+               qtot = 0.
+               DO ispe=PARAM_FIRST_SCALAR,n_moist
+                 qtot = qtot + 0.5*(moist(i,k,j,ispe)+moist(i,k,j,ispe))
+               ENDDO
+               qvf2 = 1./(1.+qtot)
+               qvf1 = qtot*qvf2
+
+               grid%p(i,k,j) = - 0.5*(grid%mu_2(i,j)+qvf1*grid%mub(i,j))/grid%rdnw(k)/qvf2
+               qvf = 1.+rvovrd*moist(i,k,j,P_QV)
+               grid%alt(i,k,j) = (r_d/p1000mb)*(grid%t_2(i,k,j)+t0)*qvf*         &
+                      (((grid%p(i,k,j)+grid%pb(i,k,j))/p1000mb)**cvpm)
+               grid%al(i,k,j) = grid%alt(i,k,j) - grid%alb(i,k,j)
+               grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
+
+
+               !  Now, integrate down the column to compute the pressure perturbation, and diagnose the two
+               !  inverse density fields (total and perturbation).
+
+        DO k=kte-2,kts,-1
+
+            qtot = 0.
+             DO ispe=PARAM_FIRST_SCALAR,n_moist
+               qtot = qtot + 0.5*(  moist(i,k  ,j,ispe) + moist(i,k+1,j,ispe) )
+             ENDDO
+               qvf2 = 1./(1.+qtot)
+               qvf1 = qtot*qvf2
+               grid%p(i,k,j) = grid%p(i,k+1,j) - (grid%mu_2(i,j) +       &
+                               qvf1*grid%mub(i,j))/qvf2/grid%rdn(k+1)
+               qvf = 1. + rvovrd*moist(i,k,j,P_QV)
+               grid%alt(i,k,j) = (r_d/p1000mb)*(grid%t_2(i,k,j)+t0)*qvf* &
+                           (((grid%p(i,k,j)+grid%pb(i,k,j))/p1000mb)**cvpm)
+               grid%al(i,k,j) = grid%alt(i,k,j) - grid%alb(i,k,j)
+               grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
+        ENDDO
+
+               !  This is the hydrostatic equation used in the model after the
+               !  small timesteps.  In
+               !  the model, grid%al (inverse density) is computed from the
+               !  geopotential.
+
+            IF (grid%hypsometric_opt == 1) THEN
+                  DO k  = 2,kte
+                     grid%ph_2(i,k,j) = grid%ph_2(i,k-1,j) - &
+                                   grid%dnw(k-1) * ( (grid%mub(i,j)+grid%mu_2(i,j))*grid%al(i,k-1,j) &
+                                 + grid%mu_2(i,j)*grid%alb(i,k-1,j) )
+                     grid%ph0(i,k,j) = grid%ph_2(i,k,j) + grid%phb(i,k,j)
+                  END DO
+            ELSE IF (grid%hypsometric_opt == 2) THEN
+                ! Alternative hydrostatic eq.: dZ = -al*p*dLOG(p), where p is
+                ! dry pressure.
+                ! Note that al*p approximates Rd*T and dLOG(p) does z.
+                ! Here T varies mostly linear with z, the first-order
+                ! integration produces better result.
+
+                  grid%ph_2(i,1,j) = grid%phb(i,1,j)
+                  DO k = 2,kte
+                     pfu = ( grid%mub(i,j)+grid%mu_2(i,j))*grid%znw(k)   + grid%p_top
+                     pfd = ( grid%mub(i,j)+grid%mu_2(i,j))*grid%znw(k-1) + grid%p_top
+                     phm = ( grid%mub(i,j)+grid%mu_2(i,j))*grid%znu(k-1) + grid%p_top
+                     grid%ph_2(i,k,j) = grid%ph_2(i,k-1,j) + grid%alt(i,k-1,j)*phm*LOG(pfd/pfu)
+                  END DO
+
+                  DO k = 1,kte
+                     grid%ph_2(i,k,j) = grid%ph_2(i,k,j) - grid%phb(i,k,j)
+                  END DO
+
+               DO k = 1,kte
+                  grid%ph0(i,k,j) = grid%ph_2(i,k,j) + grid%phb(i,k,j)
+               END DO
+            END IF ! hypsometric option
+
+       ELSE  ! n_moist
+
+         k = kte - 1
+
+               qvf1 = 0.5*(moist(i,k,j,P_QV)+moist(i,k,j,P_QV))
+               qvf2 = 1./(1.+qvf1)
+               qvf1 = qvf1*qvf2
+
+               grid%p(i,k,j) = - 0.5*(grid%mu_2(i,j)+qvf1*grid%mub(i,j))/grid%rdnw(k)/qvf2
+               qvf = 1. + rvovrd*moist(i,k,j,P_QV)
+               grid%alt(i,k,j) = (r_d/p1000mb)*(grid%t_2(i,k,j)+t0)*qvf    &
+                           *(((grid%p(i,k,j)+grid%pb(i,k,j))/p1000mb)**cvpm)
+               grid%al(i,k,j) = grid%alt(i,k,j) - grid%alb(i,k,j)
+               grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
+
+            !  Now, integrate down the column to compute the pressure perturbation, and diagnose the two
+            !  inverse density fields (total and perturbation).
+
+           DO k=kte-2,kts,-1
+               qvf1 = 0.5*(moist(i,k,j,P_QV)+moist(i,k+1,j,P_QV))
+               qvf2 = 1./(1.+qvf1)
+               qvf1 = qvf1*qvf2
+               grid%p(i,k,j) = grid%p(i,k+1,j) - (grid%mu_2(i,j) + qvf1*grid%mub(i,j))/qvf2/grid%rdn(k+1)
+               qvf = 1. + rvovrd*moist(i,k,j,P_QV)
+               grid%alt(i,k,j) = (r_d/p1000mb)*(grid%t_2(i,k,j)+t0)*qvf* &
+                           (((grid%p(i,k,j)+grid%pb(i,k,j))/p1000mb)**cvpm)
+               grid%al(i,k,j) = grid%alt(i,k,j) - grid%alb(i,k,j)
+               grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
+           ENDDO
+               !  This is the hydrostatic equation used in the model after the small timesteps.  In
+               !  the model, grid%al (inverse density) is computed from the geopotential.
+
+            IF (grid%hypsometric_opt == 1) THEN
+               DO k  = 2,kte
+                  grid%ph_2(i,k,j) = grid%ph_2(i,k-1,j) - &
+                                grid%dnw(k-1) * ( (grid%mub(i,j)+grid%mu_2(i,j))*grid%al(i,k-1,j) &
+                              + grid%mu_2(i,j)*grid%alb(i,k-1,j) )
+                  grid%ph0(i,k,j) = grid%ph_2(i,k,j) + grid%phb(i,k,j)
+               END DO
+            ELSE IF (grid%hypsometric_opt == 2) THEN
+
+             ! Alternative hydrostatic eq.: dZ = -al*p*dLOG(p), where p is dry
+             ! pressure.
+             ! Note that al*p approximates Rd*T and dLOG(p) does z.
+             ! Here T varies mostly linear with z, the first-order integration
+             ! produces better result.
+
+               grid%ph_2(i,1,j) = grid%phb(i,1,j)
+               DO k = 2,kte
+                  pfu = ( grid%mub(i,j)+grid%mu_2(i,j))*grid%znw(k)   + grid%p_top
+                  pfd = ( grid%mub(i,j)+grid%mu_2(i,j))*grid%znw(k-1) + grid%p_top
+                  phm = ( grid%mub(i,j)+grid%mu_2(i,j))*grid%znu(k-1) + grid%p_top
+                  grid%ph_2(i,k,j) = grid%ph_2(i,k-1,j) + grid%alt(i,k-1,j)*phm*LOG(pfd/pfu)
+               END DO
+
+               DO k = 1,kte
+                  grid%ph_2(i,k,j) = grid%ph_2(i,k,j) - grid%phb(i,k,j)
+               END DO
+
+               DO k = 1,kte
+                  grid%ph0(i,k,j) = grid%ph_2(i,k,j) + grid%phb(i,k,j)
+               END DO
+
+            END IF ! hypsometric
+       ENDIF ! nmoist
+
+         END DO !i
+        ENDDO !j
+
+      ips = its ; ipe = ite ; jps = jts ; jpe = jte ; kps = kts ; kpe = kte
+#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
+#   include "HALO_EM_INIT_1.inc"
+#   include "HALO_EM_INIT_2.inc"
+#   include "HALO_EM_INIT_3.inc"
+#   include "HALO_EM_INIT_4.inc"
+#   include "HALO_EM_INIT_5.inc"
+#endif
+   END SUBROUTINE rebalance_cycl
+
+!---------------------------------------------------------------------

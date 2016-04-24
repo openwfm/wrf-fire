@@ -1728,7 +1728,9 @@ MODULE module_ra_rrtm
 CONTAINS
 
 !------------------------------------------------------------------
-   SUBROUTINE RRTMLWRAD(rthraten,glw,olr,emiss                    &
+   SUBROUTINE RRTMLWRAD(                                          &
+                        p_top                                     &
+                       ,rthraten,glw,olr,emiss                    &
                        ,p8w,p3d,pi3d                              &
                        ,dz8w,tsk,t3d,t8w,rho3d,r,g                &
                        ,icloud, warm_rain                         &
@@ -1826,7 +1828,22 @@ CONTAINS
     LOGICAL, EXTERNAL :: wrf_dm_on_monitor
     CHARACTER(LEN=256) :: message
 
+! p_top for vertical nesting
+    REAL, INTENT(IN   ) :: p_top
+
 !------------------------------------------------------------------
+
+    IF ( p_top .GT. 0 ) THEN ! flag value for NMM = -1
+!            NLAYERS is recalculated
+!            every time the radiation scheme is called. This is
+!            necessary if e_vert parent .NE. e_vert nest since
+!            NLAYERS could then be different for each domain.
+       CALL rrtminit(                               &
+                      p_top, .FALSE. ,              &
+                      ids, ide, jds, jde, kds, kde, &
+                      ims, ime, jms, jme, kms, kme, &
+                      its, ite, jts, jte, kts, kte  )
+    END IF
 
 !----- Calculate the trace gas concentrations from file.
 !ccc
@@ -1845,9 +1862,9 @@ CONTAINS
  
   IF ( wrf_dm_on_monitor() ) THEN
      WRITE(message,*)'CAM-CLWRF interpolated values______ year:',yr,' julian day:',julian
-     call wrf_debug( 1, message)
+     call wrf_debug( 100, message)
      WRITE(message,*)'  CAM-CLWRF co2vmr: ',co2vmr,' n2ovmr:',n2ovmr,' ch4vmr:',ch4vmr
-     call wrf_debug( 1, message)
+     call wrf_debug( 100, message)
    ENDIF
 
 
@@ -6447,23 +6464,18 @@ CONTAINS
             RADLD(IPR) = RADLD(IPR) + (BBD - RADLD(IPR)) *     & 
                          ABSS(INDEX)                                             
             DRAD = DRAD + RADLD(IPR)                                             
- 2100    CONTINUE                                                                
 !     Set clear sky stream to total sky stream as long as layers                 
 !     remain clear.  Streams diverge when a cloud is reached.                    
             IF (ICLDDN.EQ.1) THEN                                                
-         DO 2200 IPR = 1, NGPT                                                   
                RADCLRD(IPR) = RADCLRD(IPR) + (BBD - RADCLRD(IPR)) *   & 
                               ABSS(INDEX)                                        
                CLRDRAD = CLRDRAD + RADCLRD(IPR)                                  
- 2200    CONTINUE                                                                
             ELSE                                                                 
-         DO 2300 IPR = 1, NGPT                                                   
                RADCLRD(IPR) = RADLD(IPR)                                         
                CLRDRAD = DRAD                                                    
- 2300    CONTINUE                                                                
             ENDIF                                                                
                                                                                  
-! 2100    CONTINUE                                                               
+ 2100    CONTINUE                                                               
                                                                                  
          ENDIF                                                                   
                                                                                  
