@@ -605,6 +605,16 @@
 	else
 	    gas(inh3_g) = 0.0
 	end if
+	if (kn2o5 .ge. p1st) then
+	    gas(in2o5_g)   = rsub(kn2o5,k,m)*conv1a
+	else
+	    gas(in2o5_g) = 0.0
+	end if
+	if (kclno2 .ge. p1st) then
+	    gas(iclno2_g)   = rsub(kclno2,k,m)*conv1a
+	else
+	    gas(iclno2_g) = 0.0
+	end if
 
 ! soa gas-phase species -- currently deactivated
         if (kpcg1_b_c .ge. p1st) then
@@ -1721,6 +1731,10 @@
 	    rsub(khcl,k,m)   = gas(ihcl_g)*conv1b
 	if (knh3 .ge. p1st)   &
 	    rsub(knh3,k,m)   = gas(inh3_g)*conv1b
+	if (kn2o5 .ge. p1st)   &
+	    rsub(kn2o5,k,m)   = gas(in2o5_g)*conv1b
+	if (kclno2 .ge. p1st)   &
+	    rsub(kclno2,k,m)   = gas(iclno2_g)*conv1b
 
 ! soa gas-phase species -- currently deactivated
         if (kpcg1_b_c .ge. p1st)   &
@@ -2641,7 +2655,7 @@
       ah2o = rh_pc*0.01
       ah2o_a(ibin) = ah2o
       kelvin(ibin) = 1.0
-      do iv = 1, ngas_volatile
+      do iv = 1, ngas_volatile+ngas_het
         kel(iv,ibin) = 1.0
       enddo
 
@@ -2714,7 +2728,7 @@
       if(jaerosolstate(ibin) .eq. all_liquid)jhyst_leg(ibin) = jhyst_up
 
 ! now compute kelvin effect terms for condensing species (nh3, hno3, and hcl)
-      do iv = 1,  ngas_volatile
+      do iv = 1,  ngas_volatile+ngas_het
         term = 4.*sigma_soln(ibin)*partial_molar_vol(iv)/  &
                        (8.3144e7*T_K*DpmV(ibin))
         kel(iv,ibin) = 1. + term*(1. + 0.5*term*(1. + term/3.))
@@ -4658,7 +4672,9 @@
       integer ibin
       real(kind=8) dumdum
       integer vbs_nbin(1)
-
+! 20130807 acd_alma_bugfix start
+      integer start_svoc, Nsoa
+! 20130807 acd_alma_bugfix end
 !      logical first
 !      save first
 !      data first/.true./
@@ -4714,18 +4730,42 @@
       call ASTEM_non_volatiles(dtchem)	! analytical solution
       if (istat_mosaic_fe1 .lt. 0) return
 
+! DL - 20/11/2012 - recalculate the mass balance to take account of 
+!                   NO3- and Cl- changes from N2O5 het reactions
+	  call overall_massbal_in ! save input mass over all bins
+
+
 ! condense inorganic semi-volatile gases hno3, hcl, nh3, and co2
       call ASTEM_semi_volatiles(dtchem)	! semi-implicit + explicit euler
       if (istat_mosaic_fe1 .lt. 0) return
 
 ! condense secondary organic gases (8 sorgam species)
       if (istat_mosaic_fe1 .lt. 0) return
-!BSINGH (PNNL)- Following 3 lines are commented due to array out of bound error in equilibrium_smp
-      !if (vbs_nbin.eq.0) then
-      !call equilibrium_smp
-      !else
-      call equilibrium
-      !Bend if
+
+! 20130807 acd_alma_bugfix start
+      start_svoc = 1
+      Nsoa       = 0
+      ! simple version, Hodzic and Jimenez, GMD, 2011
+      if (vbs_nbin(1).eq.0) then
+        start_svoc = ismpa_g
+        Nsoa = ngas_volatile-start_svoc
+      ! 9-bin version
+      else
+        start_svoc = ipcg1_b_c_g
+        Nsoa = ngas_volatile-start_svoc
+      end if
+
+      call equilibrium(start_svoc,Nsoa)
+
+!!BSINGH (PNNL)- Following 3 lines are commented due to array out of bound error in equilibrium_smp
+!      !if (vbs_nbin.eq.0) then
+!      !call equilibrium_smp
+!      !else
+!      call equilibrium
+!      !Bend if
+!
+! 20130807 acd_alma_bugfix end
+
 ! template for error status checking
 !        if (iprint_mosaic_fe1 .gt. 0) then
 !          write(6,*)'error in computing dtmax for soa'
@@ -4830,8 +4870,14 @@
 
 
 ! Calculates the equilibrium gas-particle partitioning for SOA species
-        subroutine  equilibrium
+! 20130807 acd_alma_bugfix start
+        subroutine  equilibrium(start_ind,N)
+!        subroutine  equilibrium
+! 20130807 acd_alma_bugfix end
 ! This routine was implemented by Manish Shrivastava on 12/24/2009 to do gas-particle partitioning of SOA assuming thermodynamic equilibrium.
+! 20130807 acd_alma_bugfix start
+! Modified by Alma Hodzic 12/2012 to implement the partitioning for mozart-mosaic species (based on the initial code implemented by Manish Shrivastava and originated from CAMx) 
+! 20130807 acd_alma_bugfix end
 ! This would give MOSAIC cpabilities of running both dynamic and equilibrium gas-particle partitioning
 ! Calls the subroutine soap. Subroutine soap calls subroutine spfcn
 !        use module_data_mosaic_main
@@ -4839,7 +4885,10 @@
 
         implicit none
         real(kind=8), parameter :: tinys=1.0d-15
-        integer, parameter :: N=ngas_soa !Total number of soa species
+! 20130807 acd_alma_bugfix start
+        integer, intent(in) :: start_ind, N
+!        integer, parameter :: N=ngas_soa !Total number of soa species
+! 20130807 acd_alma_bugfix end
         integer, parameter :: itermax=2000
         integer idxfresh(N),idxaged(N)   !counter for fresh and aged soa species
         real(kind=8) :: dq,frqfresh(nbin_a),frqaged(nbin_a)
@@ -4884,9 +4933,26 @@
 ! Initialize flagsoap
           do i=1,N
              flagsoap(i)=1
+! 20130807 acd_alma_bugfix start
+             Ctot(i) = 0.0
+             Ctotaged(i) = 0.0
+             Ctotfresh(i) = 0.0
+             Caer(i) = 0.0
+             Caeraged(i) = 0.0
+             Caerfresh(i) = 0.0
+             Cgas(i) = 0.0
+             Cgasaged(i) = 0.0
+             Cgasfresh(i) = 0.0
+             Csat(i) = 0.0
+             Csataged(i) = 0.0
+             Csatfresh(i) = 0.0
+! 20130807 acd_alma_bugfix end
           enddo
+! 20130807 acd_alma_bugfix start
 ! Calculate Ctot and Paer
-              do iv = ipcg1_b_c_g, ngas_volatile
+!              do iv = ipcg1_b_c_g, ngas_volatile
+              do iv = start_ind, ngas_ioa + ngas_soa
+! 20130807 acd_alma_bugfix end
         total_species(iv) = gas(iv)
         do ibin = 1, nbin_a
           total_species(iv) = total_species(iv) + aer(iv,jtotal,ibin)
@@ -4897,13 +4963,14 @@
         do ibin=1,nbin_a
         cpxaged= cpxaged+aer(ioc_a,jp,ibin)
          enddo
-!remove ioc_a to check equlibrium calculations by Manish Shrivastava on 02/04/2010
-!  Maps arrays starting from ipcg1_b_c_g on to corresponding arrays starting from 1 for just soa species
+
+! 20130807 acd_alma_bugfix start
+!  Maps arrays starting from start_ind or ipcg1_b_c_g on to corresponding arrays starting from 1 for just soa species
         do i=1,N
-           Ctot(i)=total_species(ipcg1_b_c_g+i-1)
-           Caer(i)=Paer(ipcg1_b_c_g+i-1)
-           Csat(i)=sat_soa(ipcg1_b_c_g+i-1)
-           Cgas(i)=gas(ipcg1_b_c_g+i-1)
+           Ctot(i)=total_species(start_ind+i-1)
+           Caer(i)=Paer(start_ind+i-1)
+           Csat(i)=sat_soa(start_ind+i-1)
+           Cgas(i)=gas(start_ind+i-1)
          enddo
 
 ! Initialize mapping array indices
@@ -4914,35 +4981,40 @@
 !     Seperate the fresh and aged species and treat them as 2 different solutions. Note this approach differes from PMCAMx
 !     In PMCAMx if flagsoap(i) was set to zero those species were not considered solution forming.
 
+! 20130807 acd_alma_bugfix start
+         do i=1,N
+            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+         enddo
 
-         do i=1,9
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
-          enddo
-         do i=10,18
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
-          enddo
-        do i=19,26
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
-          enddo
-        do i=27,34
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
-          enddo
-        do i=35,43
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
-          enddo
-         do i=44,52
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
-          enddo
-        do i=53,60
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
-          enddo
-      do i=61,68
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
-          enddo
-        do i=69,84
-            flagsoap(i)=1 !Oxidized fossil oxygen
-        enddo
 
+!         do i=1,9
+!            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+!          enddo
+!         do i=10,18
+!            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+!          enddo
+!        do i=19,26
+!            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+!          enddo
+!        do i=27,34
+!            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+!          enddo
+!        do i=35,43
+!            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+!          enddo
+!         do i=44,52
+!            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+!          enddo
+!        do i=53,60
+!            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+!          enddo
+!      do i=61,68
+!            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+!          enddo
+!        do i=69,84
+!            flagsoap(i)=1 !Oxidized fossil oxygen
+!        enddo
+! 20130807 acd_alma_bugfix end
 
       do i=1,N
          if (flagsoap(i).eq.2) then ! fresh primary species forming 1 solution
@@ -5006,15 +5078,27 @@
            xsumfresh(ibin)=0.0
            xsumaged(ibin)=0.0
               xsumaged(ibin)= xsumaged(ibin)+aer(ioc_a,jp,ibin)!Caluclate pre-existing primary in each bin for aged aerosol
-         do iv = ipcg1_b_c_g, ngas_volatile
-           if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+! 20130807 acd_alma_bugfix start
+         do iv = start_ind, ngas_ioa + ngas_soa
+           if (flagsoap(iv-start_ind+1).eq.2) then
                xsumfresh(ibin)= xsumfresh(ibin)+aer(iv,jtotal,ibin)
-           elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+           elseif (flagsoap(iv-start_ind+1).eq.1) then
               xsumaged(ibin)= xsumaged(ibin)+aer(iv,jtotal,ibin)
-                elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.0) then
-                 print *, 'Error in mapping flagsoap to ipcg1_b_c_g'
+                elseif (flagsoap(iv-start_ind+1).eq.0) then
+                 print *, 'Error in mapping flagsoap to start_ind'
            endif
          enddo
+!         do iv = ipcg1_b_c_g, ngas_volatile
+!           if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+!               xsumfresh(ibin)= xsumfresh(ibin)+aer(iv,jtotal,ibin)
+!           elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+!              xsumaged(ibin)= xsumaged(ibin)+aer(iv,jtotal,ibin)
+!                elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.0) then
+!                 print *, 'Error in mapping flagsoap to ipcg1_b_c_g'
+!           endif
+!         enddo
+! 20130807 acd_alma_bugfix end
+
 ! Give a small non-zero value to xsum if it is zero in the section
           if (xsumfresh(ibin).eq.0.0) xsumfresh(ibin)=tinys
           if (xsumaged(ibin).eq.0.0) xsumaged(ibin)=tinys
@@ -5023,9 +5107,14 @@
 
 ! Calculate dq as (gas concentration) G(t)-G(t+h):
 ! Caluclate driving force at previous time step (Cgas,i-XiCsati) for both fresh and aged solutions
-          do iv = ipcg1_b_c_g, ngas_volatile
-           if (Ctot(iv-ipcg1_b_c_g+1).lt.1d-10) goto 120 ! If a given species concentration is too low skip
-            dq=gas(iv)-Cgas(iv-ipcg1_b_c_g+1) !Since both fresh and aged species have been remapped to an array going from 1 to N
+! 20130807 acd_alma_bugfix start
+          do iv = start_ind, ngas_ioa + ngas_soa
+           if (Ctot(iv-start_ind+1).lt.1d-10) goto 120 ! If a given species concentration is too low skip
+            dq=gas(iv)-Cgas(iv-start_ind+1) !Since both fresh and aged species have been remapped to an array going from 1 to N
+!          do iv = ipcg1_b_c_g, ngas_volatile
+!           if (Ctot(iv-ipcg1_b_c_g+1).lt.1d-10) goto 120 ! If a given species concentration is too low skip
+!            dq=gas(iv)-Cgas(iv-ipcg1_b_c_g+1) !Since both fresh and aged species have been remapped to an array going from 1 to N
+! 20130807 acd_alma_bugfix end
            frqtotfresh=0.0d0
            frqtotaged=0.0d0
            mnkfresh=0.0d0
@@ -5036,26 +5125,42 @@
 ! fraceq(iv,ibin) is calculated as the rate of mass transfer
 ! The weighting fractions frqfresh(ibin) amd frqaged(ibin) are caluclated assuming mole fractions from previous time step
 ! This assumtion could be relaxed by iterativetely solving this equation
-           if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+! 20130807 acd_alma_bugfix start
+           if (flagsoap(iv-start_ind+1).eq.2) then
               frqfresh(ibin)= kg(iv,ibin)*(gas(iv) & ! replaced fraceq(iv,ibin) by kg(iv,ibin) on 01/19/10
               -(aer(iv,jtotal,ibin))/xsumfresh(ibin) &
-              *Csat(iv-ipcg1_b_c_g+1))
+              *Csat(iv-start_ind+1))
           endif
 
-           if (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+           if (flagsoap(iv-start_ind+1).eq.1) then
               frqaged(ibin)= kg(iv,ibin)*(gas(iv) & ! replaced fraceq(iv,ibin) by kg(iv,ibin) on 01/19/10
              -(aer(iv,jtotal,ibin))/xsumaged(ibin) &
-              *Csat(iv-ipcg1_b_c_g+1))
+              *Csat(iv-start_ind+1))
           endif
 
+!           if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+!              frqfresh(ibin)= kg(iv,ibin)*(gas(iv) & ! replaced fraceq(iv,ibin) by kg(iv,ibin) on 01/19/10
+!              -(aer(iv,jtotal,ibin))/xsumfresh(ibin) &
+!              *Csat(iv-ipcg1_b_c_g+1))
+!          endif
+!
+!           if (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+!              frqaged(ibin)= kg(iv,ibin)*(gas(iv) & ! replaced fraceq(iv,ibin) by kg(iv,ibin) on 01/19/10
+!             -(aer(iv,jtotal,ibin))/xsumaged(ibin) &
+!              *Csat(iv-ipcg1_b_c_g+1))
+!          endif
+! 20130807 acd_alma_bugfix end
             mnkfresh=min(mnkfresh,frqfresh(ibin))
             mnkaged=min(mnkaged,frqaged(ibin))
 
             mxkfresh=max(mxkfresh,frqfresh(ibin))
             mxkaged=max(mxkaged,frqaged(ibin))
           enddo ! for ibin
+! 20130807 acd_alma_bugfix start
 !          Repeat code from this point on for aged aerosol species
-            if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+            if (flagsoap(iv-start_ind+1).eq.2) then
+!            if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+! 20130807 acd_alma_bugfix end
 ! Condensation is favored in the next time step in this bin
           if(dq.gt.0.and.mnkfresh.lt.0.and.mxkfresh.gt.0) then
              do ibin=1,nbin_a
@@ -5077,8 +5182,11 @@
           do ibin=1,nbin_a
            frqfresh(ibin)=frqfresh(ibin)/frqtotfresh
            enddo
-            
-            elseif(flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+ 
+! 20130807 acd_alma_bugfix start    
+            elseif(flagsoap(iv-start_ind+1).eq.1) then
+!            elseif(flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+! 20130807 acd_alma_bugfix end
           if(dq.gt.0.and.mnkaged.lt.0.and.mxkaged.gt.0) then
              do ibin=1,nbin_a
                frqaged(ibin)=max(frqaged(ibin)-mnkaged,0.0d0)
@@ -5100,29 +5208,48 @@
            endif ! for flagsoap
 !     Condense all condensing species
            if(dq.gt.0.0d0) then
-            !  Map the species back into the original MOSAIC arrays
 
+! 20130807 acd_alma_bugfix start
+            !  Map the species back into the original MOSAIC arrays
              do ibin=1,nbin_a
-                 if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+                 if (flagsoap(iv-start_ind+1).eq.2) then
                  aer(iv,jtotal,ibin)= aer(iv,jtotal,ibin)+dq*frqfresh(ibin)
                  endif
-                if (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+                if (flagsoap(iv-start_ind+1).eq.1) then
                 aer(iv,jtotal,ibin)= aer(iv,jtotal,ibin)+dq*frqaged(ibin)
                 endif
              enddo
 ! Set the gas phase species to equilibrium value
-                gas(iv)=Cgas(iv-ipcg1_b_c_g+1)
+                gas(iv)=Cgas(iv-start_ind+1)
+
+!             do ibin=1,nbin_a
+!                 if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+!                 aer(iv,jtotal,ibin)= aer(iv,jtotal,ibin)+dq*frqfresh(ibin)
+!                 endif
+!                if (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+!                aer(iv,jtotal,ibin)= aer(iv,jtotal,ibin)+dq*frqaged(ibin)
+!                endif
+!             enddo
+!! Set the gas phase species to equilibrium value
+!                gas(iv)=Cgas(iv-ipcg1_b_c_g+1)
+! 20130807 acd_alma_bugfix end
 
 !     Evaporate all evaporating species
          elseif(dq.lt.0.0d0) then
             iter=0
 100         frt=1.0d0
                do ibin=1,nbin_a
-                   if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+! 20130807 acd_alma_bugfix start
+                   if (flagsoap(iv-start_ind+1).eq.2) then
+!                   if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+! 20130807 acd_alma_bugfix end
 ! Cannot evaporate more than whats in the bin ie ratio (aer(iv,jtotal,ibin)/dq*frqfresh(ibin)) should be less than equal to 1
                  if(frqfresh(ibin).gt.0.0d0) &
          frt=MAX(MIN(aer(iv,jtotal,ibin)/abs(-dq*frqfresh(ibin)),frt),0.0d0)
-                  elseif(flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+! 20130807 acd_alma_bugfix start
+!                  elseif(flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+                  elseif(flagsoap(iv-start_ind+1).eq.1) then
+! 20130807 acd_alma_bugfix end
                if(frqaged(ibin).gt.0.0d0) &
          frt=MAX(MIN(aer(iv,jtotal,ibin)/abs(-dq*frqaged(ibin)),frt),0.0d0)
                   endif ! for flagsoap
@@ -5134,13 +5261,19 @@
          frqtotaged=0.0d0
 
              do ibin=1,nbin_a
-        if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+! 20130807 acd_alma_bugfix start
+        if (flagsoap(iv-start_ind+1).eq.2) then
+!        if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+! 20130807 acd_alma_bugfix end
                aer(iv,jtotal,ibin)= &
 ! Since dq is negative this is evaporating aerosols
                MAX(aer(iv,jtotal,ibin)+frt*dq*frqfresh(ibin),0.0d0)
          if(aer(iv,jtotal,ibin).lt.tinys) frqfresh(ibin)=0.0d0
               frqtotfresh=frqtotfresh+frqfresh(ibin)
-        elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+! 20130807 acd_alma_bugfix start
+!        elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+        elseif (flagsoap(iv-start_ind+1).eq.1) then
+! 20130807 acd_alma_bugfix end
                aer(iv,jtotal,ibin)= &
                MAX(aer(iv,jtotal,ibin)+frt*dq*frqaged(ibin),0.0d0)
          if(aer(iv,jtotal,ibin).lt.tinys) frqaged(ibin)=0.0d0
@@ -5150,7 +5283,10 @@
 
 ! Check if we should evaporate more
           dq=(1.0d0-frt)*dq
-         if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+! 20130807 acd_alma_bugfix start
+!         if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+         if (flagsoap(iv-start_ind+1).eq.2) then
+! 20130807 acd_alma_bugfix end
            if(dq.lt.-1.d-8) then ! check if d-8 is better
              if(frqtotfresh.gt.tinys) then ! we have sections which are not empty
               if(iter.le.itermax) then ! check infinite loop
@@ -5162,7 +5298,10 @@
             endif ! for iter
           endif ! frqtotfresh.gt.tinys
            endif ! dq.lt.-1.d-7
-          elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+! 20130807 acd_alma_bugfix start
+!          elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+          elseif (flagsoap(iv-start_ind+1).eq.1) then
+! 20130807 acd_alma_bugfix end
            if(dq.lt.-1.d-8) then
              if(frqtotaged.gt.tinys) then ! we have sections which are not empty
               if(iter.le.itermax) then ! check infinite loop
@@ -5181,14 +5320,17 @@
            endif ! for flagsoap
 
 ! now set the gas species concentration conservatively
-           gas(iv)=Ctot(iv-ipcg1_b_c_g+1)
+! 20130807 acd_alma_bugfix start
+!           gas(iv)=Ctot(iv-ipcg1_b_c_g+1)
+           gas(iv)=Ctot(iv-start_ind+1)
+! 20130807 acd_alma_bugfix end
              do ibin=1,nbin_a
                gas(iv)=gas(iv)-aer(iv,jtotal,ibin)
              enddo
         endif ! if dq.gt.0
 
 120       continue
-           enddo ! for iv=ipcg1_b_c_g
+           enddo ! for iv=start_ind
 
        end subroutine equilibrium
 
@@ -5197,350 +5339,11 @@
 ! Calculates the equilibrium gas-particle partitioning for SOA species when MOZART_MOSAIC_4BIN_VBS0_KPP is used
 ! This routine was modified by Alma Hodzic based on the initial code implemented by Manish Shrivastava and originated from CAMx 
 
-        subroutine  equilibrium_smp
-
-        implicit none
-        real(kind=8), parameter :: tinys=1.0d-15
-        integer, parameter :: N=ngas_soa !Total number of soa species
-        integer, parameter :: itermax=2000
-        integer idxfresh(N),idxaged(N)   !counter for fresh and aged soa species
-        real(kind=8) :: dq,frqfresh(nbin_a),frqaged(nbin_a)
-        real(kind=8) :: frqtotfresh,frqtotaged,frt
-        real(kind=8) :: xsumfresh(nbin_a),xsumaged(nbin_a)
-        real(kind=8) :: mnkfresh,mxkfresh,mnkaged,mxkaged
-        real betak
-        real(kind=8) ::  Csatfresh(N), Ctotfresh(N)
-        real(kind=8) ::  Cgasfresh(N),Caerfresh(N) ! Csat: Saturation conc., Ctot: Total organic mass
-        real(kind=8) ::    Csataged(N), Ctotaged(N)
-        real(kind=8) ::  Cgasaged(N),Caeraged(N)
-        integer nsolfresh,nsolaged,ntrack,icontfresh,icontaged ! counters corresponding to fresh and aged species for mapping
-        real(kind=8) :: cpxfresh,cpxaged !Moles of pre-existing fresh and aged particle phase organic mass
-        integer ibin,iter ! Bin nos.
-! local variables
-        integer iv, jp
-         real(kind=8) :: dum, sum_dum, sum_soa, small_oc
-
-        real(kind=8) :: cpx !pre-existing OA umol/m3^M
-        real(kind=8) :: Ctot(N),Caer(N),Cgas(N),Csat(N)
-        real(kind=8) :: Paer(ngas_volatile)
-        integer :: i
-!       LOGICAL check
-        jp=jtotal
-        iter=0
-         cpxaged=0.0
-        cpxfresh=0.0 ! Assume no pres-existing OA forms a solution
-        nsolfresh=0
-         nsolaged=0
-         icontfresh=0
-         icontaged=0
-         dq=0.0
-! Paer holds the organic aerosol values in each volatility bin (sum of all size bins)
-          do iv=1,ngas_volatile
-           Paer(iv)=0.0
-          enddo
-! Initialize flagsoap
-          do i=1,N
-             flagsoap(i)=1
-          enddo
-! Calculate Ctot and Paer
-        do iv = ismpa_g, ngas_volatile
-          total_species(iv) = gas(iv)
-          do ibin = 1, nbin_a
-            total_species(iv) = total_species(iv) + aer(iv,jtotal,ibin)
-            Paer(iv)=Paer(iv)+aer(iv,jtotal,ibin)
-          enddo
-        enddo
-! Calculate pre-existing moles of OA (cpx) as sum of all size bins
-        do ibin=1,nbin_a
-        cpxaged= cpxaged+aer(ioc_a,jp,ibin)
-         enddo
-         if(cpxaged .eq. 0.0 )then
-         print*,"No OA mass available for partitioning - " , &
-                "make sure that OA is included in IC/BC"
-         stop
-         endif
-
-!remove ioc_a to check equlibrium calculations by Manish Shrivastava on 02/04/2010
-!  Maps arrays starting from ismpa_g on to corresponding arrays starting from 1 for just soa species
-        do i=1,N
-           Ctot(i)=total_species(ismpa_g+i-1)
-           Caer(i)=Paer(ismpa_g+i-1)
-           Csat(i)=sat_soa(ismpa_g+i-1)
-           Cgas(i)=gas(ismpa_g+i-1)
-         enddo
-
-! Initialize mapping array indices
-          do i=1,N
-            idxfresh(i)=0
-            idxaged(i)=0
-          enddo
-!     Seperate the fresh and aged species and treat them as 2 different solutions. Note this approach differes from PMCAMx
-!     In PMCAMx if flagsoap(i) was set to zero those species were not considered solution forming.
-
-
-        do i=1,2
-            flagsoap(i)=1 ! alma: for smpa and smpbb - set to 1- contribute to the partitionning mass.. - but double counting with the other SOA. It is ok if the VBS is taken out
-        enddo
-        do i=3,18
-            flagsoap(i)=1 !Oxidized fossil oxygen
-        enddo
-
-      do i=1,N
-         if (flagsoap(i).eq.2) then ! fresh primary species forming 1 solution
-           icontfresh=icontfresh+1  ! count the number of fresh species
-            idxfresh(icontfresh) = i  !Map the species
-            Csatfresh(icontfresh)=Csat(i)
-            Ctotfresh(icontfresh)=Ctot(i)
-            Caerfresh(icontfresh)=Caer(i)
-            Cgasfresh(icontfresh)=Cgas(i)
-            nsolfresh=nsolfresh+1
-         elseif (flagsoap(i).eq.1) then                       ! Aged SOA species forming another solution
-            icontaged=icontaged+1
-            idxaged(icontaged) = i
-            Csataged(icontaged)=Csat(i)
-            Ctotaged(icontaged)=Ctot(i)
-            Caeraged(icontaged)=Caer(i)
-            Cgasaged(icontaged)=Cgas(i)
-            nsolaged=nsolaged+1
-         endif
-      enddo
-
-!      Caluclate the initial equilibrium partitioning by the bisection method (CMU PMCAMx approach)
-!       If all fresh abd aged species form a solution
-!         call soap(ngas_soa,Ctot,Csat,Caer,Cgas,cpx)
-
-!       if fresh and aged species form seperate solutions
-      if (nsolfresh.gt.0)  call soap(nsolfresh,Ctotfresh, &
-                    Csatfresh,Caerfresh,Cgasfresh,cpxfresh)
-      if (nsolaged.gt.0)  call soap(nsolaged,Ctotaged, &
-                  Csataged,Caeraged,Cgasaged,cpxaged)
-
-
-!     Map the fresh and aged species back into original arrays
-!     Now assign the equilibrium gas-particle partitioning arrays
-        ntrack=0
-       do i=1,N ! Map the fresh and aged species back into array from 1 to N after calculating equilibrium
-         if (idxfresh(i).gt.0) then
-         Caer(idxfresh(i))= Caerfresh(i)
-         Cgas(idxfresh(i))= Cgasfresh(i)
-         Ctot(idxfresh(i))= Ctotfresh(i)
-         ntrack=ntrack+1
-         endif
-         if (idxaged(i).gt.0) then
-         Caer(idxaged(i))= Caeraged(i)
-         Cgas(idxaged(i))= Cgasaged(i)
-         Ctot(idxaged(i))= Ctotaged(i)
-         ntrack=ntrack+1
-         endif
-       enddo
-!       Check for total number of species
-        if (ntrack.ne.N) then
-        print *, 'Error in mapping fresh and primary species arrays'
-        print *, ntrack,N,ngas_soa
-        stop
-        endif
-! From here on distribute the organic aerosol in size bins following Koo et al. 2003 " Integrated approaches to modeling
-! the organic and inorganic atmospheric aerosol components"
-! The original code from PMCAMx was modified to include 2 solutions for fresh and primary species
-! by Manish Shrivastava on 01/11/2010
-! Calculate total organic aerosol OA(in nmoles/m3) in each bin for either of fresh and aged aerosols
-
-         do ibin=1,nbin_a
-           xsumfresh(ibin)=0.0
-           xsumaged(ibin)=0.0
-              xsumaged(ibin)= xsumaged(ibin)+aer(ioc_a,jp,ibin)!Caluclate pre-existing primary in each bin for aged aerosol
-         do iv = ismpa_g, ngas_volatile
-           if (flagsoap(iv-ismpa_g+1).eq.2) then
-               xsumfresh(ibin)= xsumfresh(ibin)+aer(iv,jtotal,ibin)
-           elseif (flagsoap(iv-ismpa_g+1).eq.1) then
-              xsumaged(ibin)= xsumaged(ibin)+aer(iv,jtotal,ibin)
-                elseif (flagsoap(iv-ismpa_g+1).eq.0) then
-                 print *, 'Error in mapping flagsoap to ismpa_g'
-           endif
-         enddo
-
-! Give a small non-zero value to xsum if it is zero in the section
-          if (xsumfresh(ibin).eq.0.0) xsumfresh(ibin)=tinys
-          if (xsumaged(ibin).eq.0.0) xsumaged(ibin)=tinys
-        enddo
-
-
-! Calculate dq as (gas concentration) G(t)-G(t+h):
-! Caluclate driving force at previous time step (Cgas,i-XiCsati) for both fresh and aged solutions
-          do iv = ismpa_g, ngas_volatile
-           if (Ctot(iv-ismpa_g+1).lt.1d-10) goto 120 ! If a given species concentration is too low skip
-            dq=gas(iv)-Cgas(iv-ismpa_g+1) !Since both fresh and aged species have been remapped to an array going from 1 to N
-           frqtotfresh=0.0d0
-           frqtotaged=0.0d0
-           mnkfresh=0.0d0
-           mnkaged=0.0d0
-           mxkfresh=0.0d0
-           mxkaged=0.0d0
-             do ibin=1,nbin_a
-! fraceq(iv,ibin) is calculated as the rate of mass transfer
-! The weighting fractions frqfresh(ibin) amd frqaged(ibin) are caluclated assuming mole fractions from previous time step
-! This assumtion could be relaxed by iterativetely solving this equation
-           if (flagsoap(iv-ismpa_g+1).eq.2) then
-              frqfresh(ibin)= kg(iv,ibin)*(gas(iv) & ! replaced fraceq(iv,ibin) by kg(iv,ibin) on 01/19/10
-              -(aer(iv,jtotal,ibin))/xsumfresh(ibin) &
-              *Csat(iv-ismpa_g+1))
-          endif
-
-           if (flagsoap(iv-ismpa_g+1).eq.1) then
-              frqaged(ibin)= kg(iv,ibin)*(gas(iv) & ! replaced fraceq(iv,ibin) by kg(iv,ibin) on 01/19/10
-             -(aer(iv,jtotal,ibin))/xsumaged(ibin) &
-              *Csat(iv-ismpa_g+1))
-          endif
-
-            mnkfresh=min(mnkfresh,frqfresh(ibin))
-            mnkaged=min(mnkaged,frqaged(ibin))
-
-            mxkfresh=max(mxkfresh,frqfresh(ibin))
-            mxkaged=max(mxkaged,frqaged(ibin))
-          enddo ! for ibin
-!          Repeat code from this point on for aged aerosol species
-            if (flagsoap(iv-ismpa_g+1).eq.2) then
-! Condensation is favored in the next time step in this bin
-          if(dq.gt.0.and.mnkfresh.lt.0.and.mxkfresh.gt.0) then
-             do ibin=1,nbin_a
-               frqfresh(ibin)=max(frqfresh(ibin)-mnkfresh,0.0d0)
-              enddo
-! evaporation is favored in the next time step in this bin
-          elseif(dq.lt.0.and.mxkfresh.gt.0.and.mnkfresh.lt.0) then
-              do ibin=1,nbin_a
-              frqfresh(ibin)=min(frqfresh(ibin)-mxkfresh,0.0d0)
-              enddo
-           endif
-           do ibin=1,nbin_a
-            frqtotfresh=frqtotfresh+frqfresh(ibin)
-           enddo
-! Re-normalize frqfresh(ibin)
-! Additional code to check for frqtotfresh and frqtotaged
-! Added by Manish Shrivastava on 02/19/2010
-
-          do ibin=1,nbin_a
-           frqfresh(ibin)=frqfresh(ibin)/frqtotfresh
-           enddo
-
-            elseif(flagsoap(iv-ismpa_g+1).eq.1) then
-          if(dq.gt.0.and.mnkaged.lt.0.and.mxkaged.gt.0) then
-             do ibin=1,nbin_a
-               frqaged(ibin)=max(frqaged(ibin)-mnkaged,0.0d0)
-              enddo
-          elseif(dq.lt.0.and.mxkaged.gt.0.and.mnkaged.lt.0) then
-              do ibin=1,nbin_a
-              frqaged(ibin)=min(frqaged(ibin)-mxkaged,0.0d0)
-              enddo
-           endif
-
-           do ibin=1,nbin_a
-            frqtotaged=frqtotaged+frqaged(ibin)
-           enddo
-
-           do ibin=1,nbin_a
-           frqaged(ibin)=frqaged(ibin)/frqtotaged
-           enddo
-
-           endif ! for flagsoap
-!     Condense all condensing species
-           if(dq.gt.0.0d0) then
-            !  Map the species back into the original MOSAIC arrays
-
-             do ibin=1,nbin_a
-                 if (flagsoap(iv-ismpa_g+1).eq.2) then
-                 aer(iv,jtotal,ibin)= aer(iv,jtotal,ibin)+dq*frqfresh(ibin)
-                 endif
-                if (flagsoap(iv-ismpa_g+1).eq.1) then
-                aer(iv,jtotal,ibin)= aer(iv,jtotal,ibin)+dq*frqaged(ibin)
-                endif
-             enddo
-! Set the gas phase species to equilibrium value
-                gas(iv)=Cgas(iv-ismpa_g+1)
-
-!     Evaporate all evaporating species
-         elseif(dq.lt.0.0d0) then
-            iter=0
-100         frt=1.0d0
-               do ibin=1,nbin_a
-                   if (flagsoap(iv-ismpa_g+1).eq.2) then
-! Cannot evaporate more than whats in the bin ie ratio (aer(iv,jtotal,ibin)/dq*frqfresh(ibin)) should be less than equal to 1
-                 if(frqfresh(ibin).gt.0.0d0) &
-         frt=MAX(MIN(aer(iv,jtotal,ibin)/abs(-dq*frqfresh(ibin)),frt),0.0d0)
-                  elseif(flagsoap(iv-ismpa_g+1).eq.1) then
-               if(frqaged(ibin).gt.0.0d0) &
-         frt=MAX(MIN(aer(iv,jtotal,ibin)/abs(-dq*frqaged(ibin)),frt),0.0d0)
-                  endif ! for flagsoap
-               enddo ! for ibin
-
-
-
-         frqtotfresh=0.0d0
-         frqtotaged=0.0d0
-
-             do ibin=1,nbin_a
-        if (flagsoap(iv-ismpa_g+1).eq.2) then
-               aer(iv,jtotal,ibin)= &
-
-! Since dq is negative this is evaporating aerosols
-               MAX(aer(iv,jtotal,ibin)+frt*dq*frqfresh(ibin),0.0d0)
-         if(aer(iv,jtotal,ibin).lt.tinys) frqfresh(ibin)=0.0d0
-              frqtotfresh=frqtotfresh+frqfresh(ibin)
-        elseif (flagsoap(iv-ismpa_g+1).eq.1) then
-               aer(iv,jtotal,ibin)= &
-               MAX(aer(iv,jtotal,ibin)+frt*dq*frqaged(ibin),0.0d0)
-         if(aer(iv,jtotal,ibin).lt.tinys) frqaged(ibin)=0.0d0
-              frqtotaged=frqtotaged+frqaged(ibin)
-         endif ! for flagsoap
-             enddo ! for ibin
-
-! Check if we should evaporate more
-          dq=(1.0d0-frt)*dq
-         if (flagsoap(iv-ismpa_g+1).eq.2) then
-           if(dq.lt.-1.d-8) then ! check if d-8 is better
-             if(frqtotfresh.gt.tinys) then ! we have sections which are not empty
-              if(iter.le.itermax) then ! check infinite loop
-                iter = iter + 1
-                do ibin = 1,nbin_a
-                  frqfresh(ibin) = frqfresh(ibin) / frqtotfresh
-                enddo ! for ibin
-             goto 100
-            endif ! for iter
-          endif ! frqtotfresh.gt.tinys
-           endif ! dq.lt.-1.d-7
-          elseif (flagsoap(iv-ismpa_g+1).eq.1) then
-           if(dq.lt.-1.d-8) then
-             if(frqtotaged.gt.tinys) then ! we have sections which are not empty
-              if(iter.le.itermax) then ! check infinite loop
-                iter = iter + 1
-                do ibin = 1,nbin_a
-                  frqaged(ibin) = frqaged(ibin) / frqtotaged
-                enddo
-               goto 100
-          endif
-            endif
-            endif
-
-            ! we need to evaporate more to achieve equilibrium
-            ! but we completely evaporated the species in all sections
-            ! or exceeded itermax
-           endif ! for flagsoap
-
-
-! now set the gas species concentration conservatively
-           gas(iv)=Ctot(iv-ismpa_g+1)
-             do ibin=1,nbin_a
-               gas(iv)=gas(iv)-aer(iv,jtotal,ibin)
-             enddo
-        endif ! if dq.gt.0
-
-120       continue
-           enddo ! for iv=ismpa_g
-
-       end subroutine equilibrium_smp
-
-
-
-! ----
+!++ alma - removed the subroutine  equilibrium_smp
+!        subroutine  equilibrium_smp
+!..
+!       end subroutine equilibrium_smp
+!--
 
 !    This subroutine spfcn calculates the objective function fval to solve gas-particle partitioning of SOA
 !    Subroutine spfcn is called from within the subroutine soap
@@ -7942,6 +7745,11 @@
            delta_h2so4, delta_tmsa, delta_nh3, delta_hno3, delta_hcl, &
            delta_so4(nbin_a), delta_msa(nbin_a), &
            delta_nh4(nbin_a)
+		! DL (10/7/2012) - move N2O5 het uptake into non-volatile subroutine, so that 
+		! 			NH3 uptake to balance acid uptake takes place too 
+      real(kind=8) :: decay_n2o5,   &
+           delta_n2o5, delta_clno2, &
+           delta_no3_rct1(nbin_a), delta_no3_rct2(nbin_a)
       real(kind=8) XT
     
 
@@ -7958,6 +7766,11 @@
         sumkg_nh3   = sumkg_nh3   + kg(inh3_g,ibin)
         sumkg_hno3  = sumkg_hno3  + kg(ihno3_g,ibin)
         sumkg_hcl   = sumkg_hcl   + kg(ihcl_g,ibin)
+      enddo
+		! DL (10/7/2012)
+      sumkg_n2o5  = 0.0
+      do ibin = 1, nbin_a
+        sumkg_n2o5 = sumkg_n2o5 + kg(in2o5_g,ibin)
       enddo
 
 
@@ -8024,6 +7837,71 @@
 
 
 
+	if(n2o5_flag .gt. 0) then
+		! DL (10/7/2012) moved from separate subroutine into involatile subroutine
+		!--------------------------------------
+		! N2O5 uptake, if there is enough gas, and uptake is non-zero
+		!  (currently we only calculate uptake for aqueous particles,
+		!    so in some circumstances we could have aerosol but no reaction)
+		if(gas(in2o5_g) .gt. 1.e-14 .and. sumkg_n2o5 .gt. 0.0)then
+
+			! integrate n2o5 condensation analytically
+			decay_n2o5   = exp(-sumkg_n2o5*dtchem)
+			delta_n2o5   = gas(in2o5_g)*(1.0 - decay_n2o5)
+			gas(in2o5_g) = gas(in2o5_g)*decay_n2o5
+
+
+			! now distribute delta_n2o5 to each bin and conform the particle (may degas by massbal)
+			do ibin = 1, nbin_a
+				if(jaerosolstate(ibin) .ne. no_aerosol)then
+					delta_no3_rct1(ibin) = delta_n2o5*frac_n2o5_h2o(ibin)*kg(in2o5_g,ibin)/sumkg_n2o5
+					delta_no3_rct2(ibin) = delta_n2o5*(1.0-frac_n2o5_h2o(ibin))*kg(in2o5_g,ibin)/sumkg_n2o5
+
+					aer(ino3_a,jtotal,ibin) = aer(ino3_a,jtotal,ibin) + &
+										  (2.0*delta_no3_rct1(ibin)+delta_no3_rct2(ibin))
+					! check to ensure we don't get negative Cl- concentrations
+					! - if this will occur then branch the remaining N2O5 to reaction 1
+					if(aer(icl_a,jtotal,ibin).ge.delta_no3_rct2(ibin))then
+						aer(icl_a,jtotal,ibin)  = aer(icl_a,jtotal,ibin) - &
+												  delta_no3_rct2(ibin)
+						gas(iclno2_g)           = gas(iclno2_g) + &
+												  delta_no3_rct2(ibin)
+					else
+						aer(ino3_a,jtotal,ibin) = aer(ino3_a,jtotal,ibin) + &
+												  (delta_no3_rct2(ibin)-aer(icl_a,jtotal,ibin))
+						gas(iclno2_g)           = gas(iclno2_g) + &
+												  aer(icl_a,jtotal,ibin)
+
+						! record the amount of remaining N2O5 which branches to reaction 1 (this is
+						! for the purposes of determining NH3 uptake later)
+						delta_no3_rct1(ibin) = delta_no3_rct1(ibin) + (delta_no3_rct2(ibin)-aer(icl_a,jtotal,ibin))
+						delta_no3_rct2(ibin) = aer(icl_a,jtotal,ibin)
+
+						aer(icl_a,jtotal,ibin)  = 0.0
+					endif
+				endif
+			enddo
+
+		else
+
+			delta_n2o5 = 0.0
+			do ibin = 1, nbin_a
+				delta_no3_rct1(ibin) = 0.0
+				delta_no3_rct2(ibin) = 0.0
+			enddo
+
+		endif
+	else
+		delta_n2o5 = 0.0	! if we're not using the N2O5 het scheme then set these to zero for ion balance calculations below
+		do ibin = 1, nbin_a
+			delta_no3_rct1(ibin) = 0.0
+			delta_no3_rct2(ibin) = 0.0
+		enddo
+	endif
+
+
+
+
 ! compute max allowable nh3, hno3, and hcl condensation
       delta_nh3 = gas(inh3_g) *(1.0 - exp(-sumkg_nh3*dtchem))
       delta_hno3= gas(ihno3_g)*(1.0 - exp(-sumkg_hno3*dtchem))
@@ -8039,7 +7917,7 @@
       enddo
 
 
-      if(delta_h2so4 .eq. 0.0 .and. delta_tmsa .eq. 0.0)then
+      if(delta_h2so4 .eq. 0.0 .and. delta_tmsa .eq. 0.0 .and. delta_n2o5 .eq. 0.0)then
         iupdate_phase_state = mNO
         goto 100
       endif
@@ -8055,7 +7933,7 @@
            epercent(jcaco3,jtotal,ibin) .eq. 0.0 .and. &
            jaerosolstate(ibin) .ne. no_aerosol)then
         
-          delta_nh4(ibin)=min( (2.*delta_so4(ibin)+delta_msa(ibin)), &
+          delta_nh4(ibin)=min( (2.*delta_so4(ibin)+delta_msa(ibin)+2.*delta_no3_rct1(ibin)+delta_no3_rct2(ibin)), &
                                 delta_nh3_max(ibin) )
      
           aer(inh4_a,jtotal,ibin) = aer(inh4_a,jtotal,ibin) +        &	! update aer-phase
@@ -8109,6 +7987,9 @@
 !     include 'mosaic.h'
 ! local variables
       integer nghq,vbs_nbin(1)
+! 20130618 acd_ck_vbsmoz start
+      integer start_ind
+! 20130618 acd_ck_vbsmoz end
       parameter (nghq = 2)		! gauss-hermite quadrature order
       integer ibin, iq, iv
       real(kind=8) tworootpi, root2, beta
@@ -8116,9 +7997,9 @@
       real(kind=8) cdum, dp, dp_avg, fkn, kn, lnsg, lndpgn, lndp, speed,   &
            sumghq
       real(kind=8) xghq(nghq), wghq(nghq)			! quadrature abscissae and weights
-      real(kind=8) mw_vol(ngas_volatile), v_molar(ngas_volatile), 		     &  ! mw and molar vols of volatile species
-           freepath(ngas_volatile), accom(ngas_volatile),   &
-           dg(ngas_volatile) 				! keep local
+      real(kind=8) mw_vol(ngas_volatile+ngas_het), v_molar(ngas_volatile+ngas_het), 		     &  ! mw and molar vols of volatile species
+           freepath(ngas_volatile+ngas_het), accom(ngas_volatile+ngas_het),   &
+           dg(ngas_volatile+ngas_het) 				! keep local
 !     real(kind=8) fuchs_sutugin				! mosaic func
 !     real(kind=8) gas_diffusivity				! mosaic func
 !     real(kind=8) mean_molecular_speed				! mosaic func
@@ -8132,6 +8013,8 @@
       mw_vol(ihno3_g)  = 63.0
       mw_vol(ihcl_g)   = 36.5
       mw_vol(inh3_g)   = 17.0
+      mw_vol(in2o5_g)  = 108.0
+      mw_vol(iclno2_g) = 81.5
       mw_vol(imsa_g)   = 96.0
       mw_vol(ipcg1_b_c_g) =250.0
       mw_vol(ipcg2_b_c_g) =250.0
@@ -8229,12 +8112,16 @@
       v_molar(ihcl_g)  = 21.48
       v_molar(inh3_g)  = 14.90
       v_molar(imsa_g)  = 58.00
+      v_molar(in2o5_g) = 60.40
+      v_molar(iclno2_g)= 52.70
 
 ! mass accommodation coefficients
       accom(ih2so4_g)  = 0.1
       accom(ihno3_g)   = 0.1
       accom(ihcl_g)    = 0.1
       accom(inh3_g)    = 0.1
+      accom(in2o5_g)   = 0.1  ! dummy variable - will recalc later..
+      accom(iclno2_g)  = 0.1  ! dummy - for convenience of calcs
       accom(imsa_g)    = 0.1
       accom(ipcg1_b_c_g) =0.1
       accom(ipcg2_b_c_g) =0.1
@@ -8343,19 +8230,27 @@
       enddo
 
 ! soa
+! 20130618 acd_ck_vbsmoz start
+      start_ind = 1
       if(vbs_nbin(1) .eq. 0) then
-      do iv = ismpa_g, ngas_volatile
-        speed = mean_molecular_speed(t_k,mw_vol(iv))    ! cm/s
-        dg(iv) = 0.1                                    ! cm^2/s (increased from 0.2 to 0.035 by Manish Shrivastava)
-        freepath(iv) = 3.*dg(iv)/speed
-      enddo
+        start_ind = ismpa_g
       else
-      do iv = ipcg1_b_c_g, ngas_volatile
+        start_ind = ipcg1_b_c_g
+      end if
+
+      do iv = start_ind, ngas_ioa + ngas_soa
         speed = mean_molecular_speed(t_k,mw_vol(iv))    ! cm/s
         dg(iv) = 0.1                                    ! cm^2/s (increased from 0.2 to 0.035 by Manish Shrivastava)
         freepath(iv) = 3.*dg(iv)/speed
       enddo
-      end if
+! 20130618 acd_ck_vbsmoz end
+
+! het-rct gases   ! DL 9/9/2011
+      do iv = (ngas_volatile+1), (ngas_volatile+ngas_het)
+        speed = mean_molecular_speed(t_k,mw_vol(iv))	! cm/s
+		dg(iv) = gas_diffusivity(t_k,p_atm,mw_vol(iv),v_molar(iv)) ! cm^2/s
+		freepath(iv) = 3.*dg(iv)/speed			! cm
+      enddo
 
 
 ! calc mass transfer coefficients for gases over various aerosol bins
@@ -8375,7 +8270,20 @@
         cdum   = tworootpi*num_a(ibin)*   &
                  exp(beta*lndpgn + 0.5*(beta*lnsg)**2)
 
-        do 20 iv = 1, ngas_volatile
+        do 20 iv = 1, ngas_volatile + ngas_het
+
+		  if(iv.eq.in2o5_g)then	! recalculate accom coeff for N2O5
+		  						! for each different aerosol composition
+		  						! (use total aerosol composition for now)
+		  	if(n2o5_flag.gt.0)then
+		  		accom(iv) = acc_n2o5_bert_thorn(water_a(ibin),&
+		  							aer(ino3_a,jtotal,ibin),&
+		  							aer(icl_a,jtotal,ibin),&
+		  							vol_wet_a(ibin))
+		  	else
+		  		accom(iv) = 0.0
+		  	endif
+		  end if
 
           sumghq = 0.0
           do 30 iq = 1, nghq	! sum over gauss-hermite quadrature points
@@ -8388,6 +8296,17 @@
 
         kg(iv,ibin) = cdum*dg(iv)*sumghq		! 1/s
 20      continue
+		
+		if(n2o5_flag.gt.0)then
+			! calculate the reaction path splitting for
+	  		! heterogeneous N2O5 reactions
+	  		frac_n2o5_h2o(ibin) = split_n2o5_bert_thorn(water_a(ibin),&
+		  							aer(icl_a,jtotal,ibin),&
+		  							vol_wet_a(ibin))
+		else
+			frac_n2o5_h2o(ibin) = 0.0
+		endif
+			
 10    continue
 
       elseif(msize_framework .eq. msection)then
@@ -8402,13 +8321,34 @@
         dp_avg = dp_wet_a(ibin)
         cdum  = 6.283185*dp_avg*num_a(ibin)
 
-        do 21 iv = 1, ngas_volatile
+        do 21 iv = 1, ngas_volatile+ngas_het
+		  if(iv.eq.in2o5_g)then	! recalculate accom coeff for N2O5
+		  						! for each different aerosol composition
+		  						! (use total aerosol composition for now)
+		  	if(n2o5_flag.gt.0)then
+		  		accom(iv) = acc_n2o5_bert_thorn(water_a(ibin),&
+		  							aer(ino3_a,jtotal,ibin),&
+		  							aer(icl_a,jtotal,ibin),&
+		  							vol_wet_a(ibin))
+		  	else
+		  		accom(iv) = 0.0
+		  	end if
+		  end if
           kn = 2.*freepath(iv)/dp_avg
           fkn = fuchs_sutugin(kn,accom(iv))
           kg(iv,ibin) = cdum*dg(iv)*fkn		! 1/s!Increased by a factor of 10000 by Manish Shrivastava to force to equilibrium
 !           fraceq(iv,ibin)=num_a(ibin)*dp_wet_a(ibin)/(kn/accom(iv)+1)
 21      continue
-
+		if(n2o5_flag.gt.0)then
+			! calculate the reaction path splitting for
+	  		! heterogeneous N2O5 reactions
+	  		frac_n2o5_h2o(ibin) = split_n2o5_bert_thorn(water_a(ibin),&
+		  							aer(icl_a,jtotal,ibin),&
+		  							vol_wet_a(ibin))	
+		else
+			frac_n2o5_h2o(ibin) = 0.0
+		end if
+		
 11    continue
 
       else
@@ -11710,7 +11650,8 @@
       ibiog2_o_g =89
       ibiog3_o_g =90
       ibiog4_o_g =91
-
+      in2o5_g    =92  ! ioa --> NO3-
+      iclno2_g   =93  ! ioa N2O5+Cl- -->
 
 
 !      ico2_g	= 14	! currently not used
@@ -12143,6 +12084,8 @@
       gas_name(ibiog2_o_g)="biog2_o"
       gas_name(ibiog3_o_g)="biog3_o"
       gas_name(ibiog4_o_g)="biog4_o"
+      gas_name(in2o5_g) = "n2o5 "
+      gas_name(iclno2_g)= "clno2"
       
 ! names of electrolytes
       ename(jnh4so4) = 'amso4'
@@ -12762,6 +12705,8 @@
       partial_molar_vol(ibiog2_o_g)=250.0
       partial_molar_vol(ibiog3_o_g)=250.0
       partial_molar_vol(ibiog4_o_g)=250.0
+      partial_molar_vol(in2o5_g)  = 200.0	! assumed...
+      partial_molar_vol(iclno2_g) = 200.0	! assumed...
 
 ! refractive index
       ref_index_a(jnh4so4) = cmplx(1.52,0.)
@@ -15246,6 +15191,9 @@
 !     include 'mosaic.h'
 ! local variables
       integer iv, j_index, ibin, je,vbs_nbin(1)
+! 20130816 acd_ck_vbsmoz start
+      integer start_ind
+! 20130816 acd_ck_vbsmoz end
       real(kind=8) :: tr, rt, term
       real(kind=8) :: gam_nh4no3_0, gam_nh4cl_0, m_nh4no3_0, m_nh4cl_0  ! raz update 6/25/2008
 ! function
@@ -15294,15 +15242,18 @@
       keq_sl(jcano3)  = fn_keq(4.31d5, 7.83d0,42.01d0, t_k)*1.e5  ! ca(no3)2(s) = ca++ + 2no3-
       keq_sl(jcamsa2) = 1.e15				 ! CaMSA2(s)= Ca+ + 2MSA-
 
+! 20130816 acd_ck_vbsmoz start
+      start_ind = 1
       if (vbs_nbin(1).eq.0) then
-      do iv = ismpa_g, ngas_volatile
-        sat_soa(iv) = 0.0       ! [nmol/m^3(air)]
-      enddo
+        start_ind = ismpa_g
       else
-      do iv = ipcg1_b_c_g, ngas_volatile
+        start_ind = ipcg1_b_c_g
+      endif
+      
+      do iv = start_ind, ngas_ioa + ngas_soa
         sat_soa(iv) = 0.0       ! [nmol/m^3(air)]
       enddo
-      end if
+! 20130816 acd_ck_vbsmoz end
 
        if (vbs_nbin(1).eq.9) then
 ! vapor pressures of soa species
@@ -15418,15 +15369,19 @@
         po_soa(ibiog1_o_g) = fn_po(9.91d-6, 83.0d0, T_K) ! [Pascal]
       endif
 
+! 20130716 acd_ck_vbsmoz start
+      start_ind = 1
       if (vbs_nbin(1).eq.0) then
-      do iv = ismpa_g, ngas_volatile
-        sat_soa(iv) = 1.e9*po_soa(iv)/(8.314*t_k)       ! [nmol/m^3(air)]
-      enddo
+        start_ind = ismpa_g
       else
-      do iv = ipcg1_b_c_g, ngas_volatile
+        start_ind = ipcg1_b_c_g
+      end if
+
+      do iv = start_ind, ngas_ioa + ngas_soa
         sat_soa(iv) = 1.e9*po_soa(iv)/(8.314*t_k)	! [nmol/m^3(air)]
       enddo
-      endif 
+! 20130716 acd_ck_vbsmoz end
+
 ! water surface tension
       term = (647.15 - t_k)/647.15
       sigma_water = 0.2358*term**1.256 * (1. - 0.625*term) ! surface tension of pure water in n/m
@@ -15819,6 +15774,139 @@
       return
       end function fuchs_sutugin
 !----------------------------------------------------------
+
+
+
+!----------------------------------------------------------
+    real(kind=8) function acc_n2o5_bert_thorn(mass_h2o,mol_no3,mol_cl,vol)
+	! Composition dependent mass accommodation coefficient. 
+	! After Bertram and Thornton, ACP, 2009
+	!
+	! acc_N2O5 = A*(b-b*exp(-d*[H2O(l)]))
+	!			* (1-1/(1+(k3'*[H2O(l)]/[NO3-])+(k4'*[Cl-]/[NO3-])))
+	! where:
+	! acc_N2O5 = accommodation coefficient of N2O5 on the aerosol
+	! A = factor for experimental conditions = 3.2e-8 s
+	! b = 1.15e6 s^-1
+	! d = 1.3e-1 M^-1
+	! [H2O(l)] = H2O Molarity
+	! k3' (=k3/k2b) = 6.0e-2
+	! k4' (=k4/k2b) = 29e0
+	! [Cl-] = Cl- Molarity
+	! [NO3-] = NO3- Molarity
+
+	! define set factors for scheme
+	real(kind=8), parameter :: A_bt  = 3.2e-8
+	real(kind=8), parameter :: b_bt  = 1.15e6
+	real(kind=8), parameter :: d_bt  = 1.3e-1
+	real(kind=8), parameter :: k3_bt = 6.0e-2
+	real(kind=8), parameter :: k4_bt = 29e0
+
+	! internal conversion factors
+	real(kind=8), parameter :: nmol_mol = 1e-9	! convert nmol->mol
+	real(kind=8), parameter :: m3_litre = 1e3	! convert m3->litre
+	real(kind=8), parameter :: mm_h2o   = 18e-3	! molar mass (kg/mol)
+
+	! input variables
+	real(kind=8) :: mass_h2o	! kg(water)/m^3(air)
+	real(kind=8) :: mol_no3		! nmol/m^3(air?)
+	real(kind=8) :: mol_cl		! nmol/m^3(air?)
+	real(kind=8) :: vol			! cc/cc(air) - wet volume
+
+	! internal variables
+	real(kind=8) :: part_step
+	real(kind=8) :: aer_h2o, aer_no3, aer_cl	! molarity - mol/litre(solution)
+
+
+	! extract and convert aerosol data from inputs to Moles/litre(solution)
+	aer_h2o = mass_h2o / (mm_h2o*vol*m3_litre) 
+	aer_no3 = mol_no3*nmol_mol / (vol*m3_litre)
+	aer_cl  = mol_cl*nmol_mol / (vol*m3_litre)
+	
+	if(n2o5_flag.eq.1)then ! switch off Cl pathway
+		aer_cl = 0.0
+	end if
+	
+	if(aer_h2o .ne. 0.0)then
+		part_step =  b_bt - b_bt * exp(-d_bt*aer_h2o)
+		if(aer_no3 .ne. 0.0)then
+			acc_n2o5_bert_thorn = A_bt * part_step *  &		
+					(1.0 - 1.0 / (                    &
+						1.0 +                         &
+						(k3_bt*aer_h2o/aer_no3) +     &
+						(k4_bt*aer_cl/aer_no3)        &
+					))
+		else
+			acc_n2o5_bert_thorn = A_bt * part_step
+		endif
+	else ! if no aerosol water then don't take up N2O5
+		acc_n2o5_bert_thorn = 0.0
+	endif
+
+	return
+	end function acc_n2o5_bert_thorn
+!-------------------------------------------------------------
+
+
+!-------------------------------------------------------------
+	real(kind=8) function split_n2o5_bert_thorn(mass_h2o,mol_cl,vol)
+	! Hetereogeneous reaction of N2O5 with H2O(l) and Cl-(aq)
+	! after Bertram and Thornton, ACP, 2009
+	! Subroutine for splitting reaction pathways
+	!
+	! R3f = 1 / (1+(k4'[Cl-])/(k3'[H2O(l)])) (H2O pathway)
+	! R4f = 1 / (1+(k3'[H2O(l)])/(k4'[Cl-])) (Cl- pathway)
+	! where:
+	! R3f = fraction of N2O5 that reacts with H2O
+	! R4f = fraction of N2O5 that reacts with Cl-
+	! [H2O(l)] = H2O Molarity
+	! [Cl-] = Cl- Molarity
+	! k3' (=k3/k2b) = 6.0e-2
+	! k4' (=k4/k2b) = 29e0
+	!
+	! This function outputs the fraction of N2O5 which reacts
+	! with H2O
+
+	! define parameters for the scheme
+	real(kind=8), parameter :: k3_bt = 6.0e-2
+	real(kind=8), parameter :: k4_bt = 29e0
+
+	! internal conversion factors
+	real(kind=8), parameter :: nmol_mol = 1e-9	! convert nmol->mol
+	real(kind=8), parameter :: m3_litre = 1e3	! convert m3->litre
+	real(kind=8), parameter :: mm_h2o   = 18e-3	! molar mass (kg/mol)
+
+	! input variables
+	real(kind=8) :: mass_h2o	! kg(water)/m^3(air)
+	real(kind=8) :: mol_cl		! nmol/m^3(air?)
+	real(kind=8) :: vol			! cc/cc(air) - wet volume
+
+	! internal variables
+	real(kind=8) :: part_step
+	real(kind=8) :: aer_h2o, aer_cl	! molarity - mol/litre(solution)
+
+
+	! extract and convert aerosol data from inputs to Moles/litre(solution)
+	aer_h2o = mass_h2o / (mm_h2o*vol*m3_litre) 
+	aer_cl  = mol_cl*nmol_mol / (vol*m3_litre)
+
+	if(n2o5_flag.eq.1)then ! switch off Cl pathway
+		aer_cl = 0.0
+	end if
+
+	if(aer_h2o .ne. 0.0)then
+		split_n2o5_bert_thorn = 1e0 / &
+					( 1e0 + (k4_bt*aer_cl)/(k3_bt*aer_h2o) )	
+	else
+		split_n2o5_bert_thorn = 0.0
+	endif
+
+
+
+	return
+	end function split_n2o5_bert_thorn
+!-------------------------------------------------------------
+
 
 
 

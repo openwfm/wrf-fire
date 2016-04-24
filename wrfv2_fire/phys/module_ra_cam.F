@@ -224,12 +224,13 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
                      doabsems,                                     &
                      ids,ide, jds,jde, kds,kde,                    &
                      ims,ime, jms,jme, kms,kme,                    &
-                     its,ite, jts,jte, kts,kte                     )
+                     its,ite, jts,jte, kts,kte,                    &
+                     coszen                                        )
 
 !ccc To use CLWRF time-varying trace gases
    USE MODULE_RA_CLWRF_SUPPORT, ONLY : read_CAMgases
    USE module_wrf_error
-   USE module_state_description, ONLY : SSIBSCHEME              !ssib
+   USE module_state_description, ONLY : SSIBSCHEME, CLMSCHEME          !ssib & clm
 
 !------------------------------------------------------------------
    IMPLICIT NONE
@@ -360,6 +361,7 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
                                                           F_ICE_PHY, &
                                                          F_RAIN_PHY
 
+  real, dimension(ims:ime,jms:jme), optional, intent(in) :: coszen
 
 ! LOCAL VARIABLES
  
@@ -531,19 +533,27 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
 
 !  call zenith (calday, clat, clon, coszrs, ncol)
 
-      do i = its,ite
-      ii = i - its + 1
-      ! XT24 is the fractional part of simulation days plus half of RADT expressed in 
-      ! units of minutes
-      ! JULIAN is in days
-      ! RADT is in minutes
-      XT24=MOD(XTIME+RADT*0.5,1440.)
-      TLOCTM=GMT+XT24/60.+XLONG(I,J)/15.
-      HRANG=15.*(TLOCTM-12.)*DEGRAD
-      XXLAT=XLAT(I,J)*DEGRAD
-      clat(ii)=xxlat
-      coszrs(II)=SIN(XXLAT)*SIN(DECLIN)+COS(XXLAT)*COS(DECLIN)*COS(HRANG)
-      enddo
+      if (present(coszen)) then
+         do i=its,ite
+            ii=i-its+1
+            clat(ii)=XLAT(I,J)*DEGRAD
+            coszrs(ii)=coszen(i,j)
+         enddo
+      else
+         do i = its,ite
+            ii = i - its + 1
+            ! XT24 is the fractional part of simulation days plus half of RADT expressed in 
+            ! units of minutes
+            ! JULIAN is in days
+            ! RADT is in minutes
+            XT24=MOD(XTIME+RADT*0.5,1440.)
+            TLOCTM=GMT+XT24/60.+XLONG(I,J)/15.
+            HRANG=15.*(TLOCTM-12.)*DEGRAD
+            XXLAT=XLAT(I,J)*DEGRAD
+            clat(ii)=xxlat
+            coszrs(II)=SIN(XXLAT)*SIN(DECLIN)+COS(XXLAT)*COS(DECLIN)*COS(HRANG)
+         enddo
+      end if
 
 ! moist variables
 
@@ -696,6 +706,32 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
          aldif(ii) = albedo(i,j)
       enddo
    endif
+   CASE (CLMSCHEME)
+   if (xtime .gt. 1.0) then
+      do i = its,ite
+         ii = i - its + 1
+         if (xland(i,j).lt.1.5) then   !land points only
+           asdir(ii) = ALSWVISDIR(i,j) ! CLM visdir albedo
+           asdif(ii) = ALSWVISDIF(i,j) ! CLM visdif albedo
+           aldir(ii) = ALSWNIRDIR(i,j) ! CLM nirdir albedo
+           aldif(ii) = ALSWNIRDIF(i,j) ! CLM nirdif albedo
+         else
+           asdir(ii) = albedo(i,j)
+           asdif(ii) = albedo(i,j)
+           aldir(ii) = albedo(i,j)
+           aldif(ii) = albedo(i,j)
+         endif
+      enddo
+   else
+      do i = its,ite
+         ii = i - its + 1
+         asdir(ii) = albedo(i,j)
+         asdif(ii) = albedo(i,j)
+         aldir(ii) = albedo(i,j)
+         aldif(ii) = albedo(i,j)
+      enddo
+   endif
+
    CASE DEFAULT
       do i = its,ite
       ii = i - its + 1
@@ -855,6 +891,17 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
         SWNIRDIF(I,J) = solld(ii) !SSiB 
       enddo
       endif
+  CASE (CLMSCHEME)
+      if(dosw)then
+      do i = its,ite
+        ii = i - its + 1
+        SWVISDIR(I,J) = sols(ii)  !CLM
+        SWVISDIF(I,J) = solsd(ii) !CLM
+        SWNIRDIR(I,J) = soll(ii)  !CLM
+        SWNIRDIF(I,J) = solld(ii) !CLM
+      enddo
+      endif
+
    END SELECT
 !-----------------------------
 

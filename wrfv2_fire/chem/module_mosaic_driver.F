@@ -2687,7 +2687,8 @@
        p_smpa,p_smpbb, &
        p_ant1_c,p_ant2_c,p_ant3_c,p_ant4_c,p_ant1_o,p_ant2_o,p_ant3_o,p_ant4_o,&
        p_biog1_c,p_biog2_c,p_biog3_c,p_biog4_c,p_biog1_o, &
-       p_biog2_o,p_biog3_o,p_biog4_o
+       p_biog2_o,p_biog3_o,p_biog4_o, &
+       p_n2o5, p_clno2
 
 	use module_state_description, only:  param_first_scalar
 	use module_data_mosaic_asect
@@ -3057,6 +3058,10 @@
 		rsub(khcl,k1:k2,1)   = chem(it,kt1:kt2,jt,p_hcl)/factgas
 	    if (p_nh3 .ge. p1st)   &
 		rsub(knh3,k1:k2,1)   = chem(it,kt1:kt2,jt,p_nh3)/factgas
+	    if (p_n2o5 .ge. p1st)   &
+		rsub(kn2o5,k1:k2,1)   = chem(it,kt1:kt2,jt,p_n2o5)/factgas
+	    if (p_clno2 .ge. p1st)   &
+		rsub(kclno2,k1:k2,1)   = chem(it,kt1:kt2,jt,p_clno2)/factgas
 
 !   rce 2005-apr-12 - added following species for cldchem, here and below:
 !   ko3, kso2, kh2o2, khcho, khcooh, koh, kho2, 
@@ -3654,6 +3659,7 @@
 		if (aboxtest_gases_fixed .eq. 10) then
 		    if ((l .eq. kh2so4  ) .or. (l .eq. khno3  ) .or.   &
 		        (l .eq. khcl    ) .or. (l .eq. knh3   ) .or.   &
+		        (l .eq. kclno2  ) .or. (l .eq. kn2o5  ) .or.   &
 		        (l .eq. ko3     ) .or.                         &
 		        (l .eq. kso2    ) .or. (l .eq. kh2o2  ) .or.   &
 		        (l .eq. khcho   )  .or.   &
@@ -3727,6 +3733,10 @@
 		chem(it,kt1:kt2,jt,p_hcl)   = rsub(khcl,k1:k2,1)*factgas
 	    if (p_nh3 .ge. p1st)   &
 		chem(it,kt1:kt2,jt,p_nh3)  = rsub(knh3,k1:k2,1)*factgas
+	    if (p_n2o5 .ge. p1st)   &
+		chem(it,kt1:kt2,jt,p_n2o5)  = rsub(kn2o5,k1:k2,1)*factgas
+	    if (p_clno2 .ge. p1st)   &
+		chem(it,kt1:kt2,jt,p_clno2)  = rsub(kclno2,k1:k2,1)*factgas
 
 	    if (p_o3 .ge. p1st)   &
 		chem(it,kt1:kt2,jt,p_o3)  = rsub(ko3,k1:k2,1)*factgas
@@ -4243,7 +4253,7 @@
 
 !-----------------------------------------------------------------------
 ! *** note - eventually is_aerosol will be a subr argument
-	subroutine init_data_mosaic_asect( is_aerosol )
+	subroutine init_data_mosaic_asect( n2o5_hetchem, is_aerosol )
 !	subroutine init_data_mosaic_asect( )
 
 	use module_data_mosaic_asect
@@ -4252,7 +4262,7 @@
 		aboxtest_rh_method, aboxtest_map_method,   &
 		aboxtest_gases_fixed, aboxtest_min_temp,   &
 		aboxtest_min_relhum, aboxtest_max_relhum
-	use module_data_mosaic_therm, only:  nbin_a, nbin_a_maxd
+	use module_data_mosaic_therm, only:  nbin_a, nbin_a_maxd, n2o5_flag
 	use module_mosaic_csuesat, only:  init_csuesat
 	use module_mosaic_movesect, only:  move_sections, test_move_sections
 	use module_peg_util, only:  peg_error_fatal
@@ -4287,6 +4297,8 @@
 
 ! *** note - eventually is_aerosol will be a subr argument
 	logical, intent(out) :: is_aerosol(num_chem)
+!   control flag for N2O5 het chem scheme
+	integer, intent(in) :: n2o5_hetchem
 
 !   local variables
 	integer idum, itype, l, ldum, n, nhi, nsize_aer_dum
@@ -4385,6 +4397,8 @@
 ! ***  end  of "box testing" code section ***
 #endif
 
+! copy over N2O5 control flag (DL 9/6/2013)
+n2o5_flag = n2o5_hetchem
 
 !
 !   set master aerosol chemical types
@@ -5143,7 +5157,8 @@
                 kant1_c,kant2_c,kant3_c,kant4_c,kant1_o,kant2_o, &
                 kant3_o,kant4_o,                            &
                 kbiog1_c,kbiog2_c,kbiog3_c,kbiog4_c,kbiog1_o,kbiog2_o, &
-                kbiog3_o,kbiog4_o                            
+                kbiog3_o,kbiog4_o, &
+                kn2o5, kclno2                            
 
 	use module_peg_util, only:  peg_error_fatal, peg_message
 	use module_mosaic_wetscav, only: initwet
@@ -7193,7 +7208,11 @@
 
 
 	do ll = 1, ncomp_plustracer_aer(itype)
-	    write(msg,9350) 'massptr_aer(), ll',   &
+! 20130116 acd_ck_bugfix start
+! added writeout of name_aer to understand which mastercomps are used
+!	    write(msg,9350) 'massptr_aer(), ll',   &
+	    write(msg,9350) name_aer(ll,itype),   &
+! 20130116 acd_ck_bugfix end
 		(massptr_aer(ll,n,itype,iphase), n=1,nsize_aer(itype)), ll
 	    call peg_message( lunout, msg )
 	end do
@@ -7303,6 +7322,10 @@
         y_biog2_o=0
         y_biog3_o=0
         y_biog4_o=0
+! 20130807 acd_alma_bugfix start
+        y_smpa=0
+        y_smpbb=0
+! 20130807 acd_alma_bugfix end
 
     
 
@@ -7405,6 +7428,10 @@
             if (lptr_biog2_o_aer(n,itype,iphase) .ge. p1st) y_biog2_o = y_biog2_o + 1
             if (lptr_biog3_o_aer(n,itype,iphase) .ge. p1st) y_biog3_o = y_biog3_o + 1
             if (lptr_biog4_o_aer(n,itype,iphase) .ge. p1st) y_biog4_o = y_biog4_o + 1
+! 20130807 acd_alma_bugfix start
+            if (lptr_smpa_aer(n,itype,iphase) .ge. p1st) y_smpa = y_smpa + 1
+            if (lptr_smpbb_aer(n,itype,iphase) .ge. p1st) y_smpbb = y_smpbb + 1
+! 20130807 acd_alma_bugfix end
 
 	end do
 
@@ -8322,6 +8349,18 @@
 !	    msg = '*** subr init_data_mosaic_ptr - ptr error for nh3'
 !	    call peg_error_fatal( lunerr, msg )
 	end if
+	if (p_n2o5 .ge. p1st) then
+	    kn2o5 = p_n2o5
+!	else
+!	    msg = '*** subr init_data_mosaic_ptr - ptr error for n2o5'
+!	    call peg_error_fatal( lunerr, msg )
+	end if
+	if (p_clno2 .ge. p1st) then
+	    kclno2 = p_clno2
+!	else
+!	    msg = '*** subr init_data_mosaic_ptr - ptr error for clno2'
+!	    call peg_error_fatal( lunerr, msg )
+	end if
 	if (p_o3 .ge. p1st) then
 	    ko3 = p_o3
 !	else
@@ -8352,6 +8391,8 @@
 	ltot = max( ltot, khno3 )
 	ltot = max( ltot, khcl )
 	ltot = max( ltot, knh3 )
+	ltot = max( ltot, kn2o5 )
+	ltot = max( ltot, kclno2 )
 	ltot = max( ltot, ko3 )
 	ltot = max( ltot, kso2    )
 	ltot = max( ltot, kh2o2   )
@@ -8576,6 +8617,8 @@
         if (p_biog4_o   .ge. p1st) name(kbiog4_o  ) = 'biog4_o'
 	if (p_hcl    .ge. p1st) name(khcl   ) = 'hcl'
 	if (p_nh3    .ge. p1st) name(knh3   ) = 'nh3'
+	if (p_n2o5   .ge. p1st) name(kn2o5  ) = 'n2o5'
+	if (p_clno2  .ge. p1st) name(kclno2 ) = 'clno2'
 	if (p_o3     .ge. p1st) name(ko3    ) = 'o3'
 	if (p_so2    .ge. p1st) name(kso2   ) = 'so2'
 	if (p_h2o2   .ge. p1st) name(kh2o2  ) = 'h2o2'

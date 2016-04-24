@@ -1181,7 +1181,7 @@ END subroutine cup_env_clev_tr
 ! USE module_configure
   USE module_state_description, only: RADM2SORG,RADM2SORG_AQ,RACMSORG_AQ,RACMSORG_KPP,   &
                                       RADM2SORG_KPP,RACM_ESRLSORG_KPP,RACM_SOA_VBS_KPP,  &
-                                      RADM2SORG_AQCHEM,RACMSORG_AQCHEM
+                                      RADM2SORG_AQCHEM,RACMSORG_AQCHEM_KPP,RACM_ESRLSORG_AQCHEM_KPP
   USE module_ctrans_aqchem
   USE module_input_chem_data, only: get_last_gas
         implicit none
@@ -1380,8 +1380,10 @@ END subroutine cup_env_clev_tr
       ! Aqueous chemistry
       !
       
-      if ((chemopt .EQ. RADM2SORG .OR. chemopt .EQ. RADM2SORG_AQ .OR. chemopt .EQ. RACMSORG_AQ .OR. chemopt .EQ. RACMSORG_KPP .OR. chemopt .EQ. RADM2SORG_KPP .OR. & 
-           chemopt .EQ. RACM_ESRLSORG_KPP .OR. chemopt .EQ. RACM_SOA_VBS_KPP .OR. chemopt .EQ. RADM2SORG_AQCHEM .OR. chemopt .EQ. RACMSORG_AQCHEM)                 &
+      if ((chemopt .EQ. RADM2SORG .OR. chemopt .EQ. RADM2SORG_AQ .OR. chemopt .EQ. RACMSORG_AQ .OR. & 
+           chemopt .EQ. RACMSORG_KPP .OR. chemopt .EQ. RADM2SORG_KPP .OR. chemopt .EQ. RACM_ESRLSORG_KPP .OR. & 
+           chemopt .EQ. RACM_SOA_VBS_KPP .OR. chemopt .EQ. RADM2SORG_AQCHEM .OR. chemopt .EQ. RACMSORG_AQCHEM_KPP .OR. &
+           chemopt .EQ. RACM_ESRLSORG_AQCHEM_KPP) &
            .and. (conv_tr_aqchem == 1)) then
         
         !
@@ -1600,7 +1602,7 @@ END subroutine cup_up_tracer
       ! Calculate wet deposition with re-evaporation (based on wet scavenging in cup_up_tracer);
       ! assume no gas takeup by rain during fall for now
       
-      do i=its,ite
+      do i=its,itf
         
         IF(ierr(I).eq.0)then
             
@@ -1639,12 +1641,12 @@ END subroutine cup_up_tracer
       
       ! In downdraft, do only transport of tracers
       
-      do i=its,ite
+      do i=its,itf
         
         IF(ierr(I).eq.0)then
           
           do nv=1,num_chem
-            tr_dd(i,jmin(i),nv)=tre_cup(i,jmin(i),nv) ! Tracer amount in downdraft
+            tr_dd(i,jmin(i):ktf,nv)=tre_cup(i,jmin(i):ktf,nv) ! Tracer amount in downdraft
           enddo
           
           do ki=jmin(i)-1,1,-1
@@ -1663,7 +1665,7 @@ END subroutine cup_up_tracer
       
       ! Add evaporation from rain water:
       
-      do i=its,ite
+      do i=its,itf
         IF(ierr(I).eq.0)then
           do nv=1,num_chem
             do k=kts,ktf

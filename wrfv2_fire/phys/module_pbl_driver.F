@@ -10,20 +10,24 @@ CONTAINS
                  ,bldt,curr_secs,adapt_step_flag                   &
                  ,bldtacttime                                      & 
                  ,rublten,rvblten,rthblten                         &
-                 ,tsk,xland,znt,ht                                 &
+                 ,tsk,xland,znt                                    &
+#if (HWRF==1)
+                 ,mznt                                             &
+#endif
+                 ,ht                                               &   
                  ,ust,pblh,hfx,qfx,grdflx                          &
                  ,u_phy,v_phy,th_phy,rho                           &
                  ,p_phy,pi_phy,p8w,t_phy,dz8w,z                    &
                  ,exch_h,exch_m,akhs,akms                          &
                  ,thz0,qz0,uz0,vz0,qsfc,f                          &
-                 ,lowlyr,u10,v10,t2                                &
+                 ,lowlyr,u10,v10,uoce,voce,t2                      &
                  ,psim,psih,fm,fhh,gz1oz0, wspd,br,chklowq         &
                  ,bl_pbl_physics, ra_lw_physics, dx                &
                  ,stepbl,warm_rain                                 &
                  ,kpbl,mixht,ct,lh,snow,xice                       &
                  ,znu, znw, mut, p_top                             &
 ! paj
-                 ,ctopo,ctopo2                                   &
+                 ,ctopo,ctopo2,windfarm_opt,power                  &
               ! OPTIONAL for TEMF scheme
                  ,te_temf,km_temf,kh_temf                     &
                  ,shf_temf,qf_temf,uw_temf,vw_temf                &
@@ -32,18 +36,22 @@ CONTAINS
                  ,exch_temf,cf3d_temf,cfm_temf                    &
                  ,flhc,flqc                                        &
               ! MYNN
-                 ,qke                                              &
-!ACF for QKE advection
-                 ,qke_adv,bl_mynn_tkeadvect                        &
-!ACF-end
-                 ,tsq,qsq,cov,rmol,ch,qcg,grav_settling,el_mynn    &
-                 ,dqke,qWT,qSHEAR,qBUOY,qDISS,bl_mynn_tkebudget    &
+                 ,qke,Sh3d                                         &
+                 ,qke_adv,bl_mynn_tkeadvect                        & !ACF for QKE advection
+                 ,tsq,qsq,cov,rmol,ch,qcg,grav_settling            & 
+                 ,dqke,qWT,qSHEAR,qBUOY,qDISS,bl_mynn_tkebudget    & ! JOE - MYNN TKE budget
+                 ,bl_mynn_cloudpdf                                 & ! JOE - cloud PDF tests
+                 ,vdfg                                             & ! Katata- fog deposition
 #if (NMM_CORE==1)
                  ,DISHEAT                                          &
-                 ,HPBL2D, EVAP2D, HEAT2D                           &   !Kwon FOR SHAL. CON.
+                 ,HPBL2D, EVAP2D, HEAT2D, RC2D                     &   !Kwon FOR SHAL. CON.
+#ifdef HWRF
+                 ,VAR_RIC                                          &   !Kwon for Variable Ric
+#endif
+                 ,DKU3D,DKT3D                                      &
 #endif
 #if (HWRF==1)
-                 ,gfs_alpha                                        &
+                 ,coef_ric_l,coef_ric_s,gfs_alpha                  &
 #endif
                  ,ids,ide, jds,jde, kds,kde                        &
                  ,ims,ime, jms,jme, kms,kme                        &
@@ -90,8 +98,15 @@ CONTAINS
 ! variables required for camuwpbl scheme (optional)               
                ,qnc_curr,f_qnc,qni_curr,f_qni,rqniblten              &
                ,IS_CAMMGMP_USED                                      &
-! for grims shallow convection with ysupbl
-               , wstar,delta                                       &
+! for grims shallow convection with ysupbl/MYNN
+               , wstar,delta                                         &
+! for pbl mixing of scalars and tracers
+     &        ,scalar,scalar_tend,num_scalar                         &
+     &        ,tracer,tracer_tend,num_tracer                         &
+     &        ,scalar_pblmix,tracer_pblmix                           &
+#if (WRF_CHEM == 1)
+               ,chem,vd,nchem,kdvel,ndvel,num_vert_mix             &
+#endif
                                                                      )       
 !------------------------------------------------------------------
 #if (EM_CORE==1)
@@ -99,15 +114,16 @@ CONTAINS
                    YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME,&
                    QNSEPBLSCHEME,MYNNPBLSCHEME2,MYNNPBLSCHEME3,BOULACSCHEME,&
                    CAMUWPBLSCHEME,BEPSCHEME,BEP_BEMSCHEME,MYJSFCSCHEME, &
+                   FITCHSCHEME,                                      &
                    TEMFPBLSCHEME,QNSEPBL09SCHEME,GBMPBLSCHEME,  &
                    CAMMGMPSCHEME,p_qi,p_qni,p_qnc,param_first_scalar  !CAMMGMPSCHEME, p_qni,p_qnc is used for camuwpbl scheme
-   USE module_wind_generic, ONLY : windspec
 #else
    USE module_state_description, ONLY :                            &
                    YSUSCHEME,MRFSCHEME,GFSSCHEME,MYJPBLSCHEME,ACMPBLSCHEME &
                    , QNSEPBLSCHEME, p_qi,param_first_scalar &
                    , TEMFPBLSCHEME, GFS2011SCHEME,QNSEPBL09SCHEME         &
                    , CAMUWPBLSCHEME                                       &
+                   , FITCHSCHEME                                       &
                    , GBMPBLSCHEME, MYJSFCSCHEME
 #endif
 
@@ -132,6 +148,7 @@ CONTAINS
    USE module_bl_gbmpbl
 #if (EM_CORE==1)
    USE module_bl_mynn
+   USE module_bl_fogdes
    USE module_wind_fitch
 #endif
 
@@ -215,7 +232,8 @@ CONTAINS
 !-- TSK           surface temperature (K)
 !-- TMN           soil temperature at lower boundary (K)
 !-- XLAND         land mask (1 for land, 2 for water)
-!-- ZNT           roughness length (m)
+!-- ZNT           thermal roughness length (m)
+!-- MZNT          momentum roughness length (m)
 !-- MAVAIL        surface moisture availability (between 0 and 1)
 !-- UST           u* in similarity theory (m/s)
 !-- MOL           T* (similarity theory) (K)
@@ -260,6 +278,8 @@ CONTAINS
 !-- uz0           u wind component at roughness length (m/s)
 !-- vz0           v wind component at roughness length (m/s)
 !-- qsfc          specific humidity at lower boundary (kg/kg)
+!-- UOCE          sea surface zonal currents (m s-1)
+!-- VOCE          sea surface meridional currents (m s-1)
 !-- th2           diagnostic 2-m theta from surface layer and lsm
 !-- t2            diagnostic 2-m temperature from surface layer and lsm
 !-- q2            diagnostic 2-m mixing ratio from surface layer and lsm
@@ -326,11 +346,13 @@ CONTAINS
 !
 
 
-   INTEGER,    INTENT(IN   )    ::     bl_pbl_physics, ra_lw_physics,sf_sfclay_physics,sf_urban_physics
+   INTEGER,    INTENT(IN   )    ::     bl_pbl_physics, ra_lw_physics,sf_sfclay_physics,sf_urban_physics,windfarm_opt
+   INTEGER,    OPTIONAL,  INTENT(IN   )    ::     scalar_pblmix, tracer_pblmix
 
    INTEGER,    INTENT(IN   )    ::     ids,ide, jds,jde, kds,kde, &
                                        ims,ime, jms,jme, kms,kme, &
                                        kts,kte, num_tiles
+   INTEGER,    INTENT(IN   )    ::     num_scalar, num_tracer
 
    INTEGER, DIMENSION(num_tiles), INTENT(IN) ::                   &
   &                                    i_start,i_end,j_start,j_end
@@ -344,11 +366,17 @@ CONTAINS
 #if (NMM_CORE==1)
    LOGICAL,      INTENT(IN   )    ::   DISHEAT ! (for HWRF)
    REAL, DIMENSION( ims:ime , jms:jme ),                         &
-                    INTENT(OUT) ::  HPBL2D, EVAP2D, HEAT2D                 !Kwon for Shallow Convection
-#endif
+                   INTENT(OUT) ::  HPBL2D, EVAP2D, HEAT2D, RC2D      !Kwon for Shallow Convection
 
+   REAL, DIMENSION( ims:ime , jms:jme , kms:kme ),                         &
+                   INTENT(OUT) ::  DKU3D,DKT3D                      !Kwon duffusivity
+#endif
+#ifdef HWRF
+   REAL,       INTENT(IN)         ::   VAR_RIC                       !Kwon for variable Ric
+
+#endif
 #if defined(HWRF)
-   REAL,       INTENT(IN)         ::   gfs_alpha
+   REAL,       INTENT(IN)         ::   gfs_alpha,coef_ric_l,coef_ric_s
 #endif
 
 
@@ -432,6 +460,9 @@ CONTAINS
                                                              HFX, &
                                                              QFX, &
                                                              ZNT, &
+#if (HWRF==1)
+                                                            MZNT, &  ! KWON FOR MOMENTUM Z0
+#endif
                                                             QSFC, &
                                                             AKHS, &
                                                             AKMS, &
@@ -444,7 +475,10 @@ CONTAINS
                                                           GRDFLX, &
                                                              U10, &
                                                              V10, &
+                                                            UOCE, &
+                                                            VOCE, &
                                                               T2, &
+                                                           POWER, &
                                                             WSPD
 
 !
@@ -463,15 +497,20 @@ CONTAINS
 !MYNN
    REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ),     &
           INTENT(INOUT) ::        tsq,qsq,cov, & !,k_m,k_h,k_q &
-                                  qke,el_mynn,                 &
+                                  qke,Sh3d,                    &
                                   dqke,qWT,qSHEAR,qBUOY,qDISS 
    INTEGER, OPTIONAL, INTENT(IN)  :: bl_mynn_tkebudget,        &
-                                     grav_settling
+                                     grav_settling,            &
+                                     bl_mynn_cloudpdf
 !ACF-QKE advection start
    REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), &
         & INTENT(INOUT) :: qke_adv
    LOGICAL, OPTIONAL, INTENT(IN) :: bl_mynn_tkeadvect
 !ACF-QKE advection end
+! Katata-added -                                                                                                                                                                             
+   REAL, DIMENSION( ims:ime , jms:jme ), OPTIONAL,              &
+        &    INTENT(INOUT)::                               vdfg
+! Katata-end
 
    REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme ), &
         & INTENT(INOUT) ::  exch_tke      ! for GBM PBL scheme
@@ -609,6 +648,18 @@ CONTAINS
                                      ,thl_up, thv_up, rt_up       &
                                      ,rv_up, rc_up, u_up, v_up    &
                                      ,frac_up,rc_mf  
+
+    REAL , OPTIONAL   ,DIMENSION(ims:ime,kms:kme,jms:jme,num_tracer),INTENT(INOUT)   :: tracer
+    REAL , OPTIONAL   ,DIMENSION(ims:ime,kms:kme,jms:jme,num_tracer),INTENT(INOUT)   :: tracer_tend
+    REAL , OPTIONAL   ,DIMENSION(ims:ime,kms:kme,jms:jme,num_scalar),INTENT(INOUT)   :: scalar
+    REAL , OPTIONAL   ,DIMENSION(ims:ime,kms:kme,jms:jme,num_scalar),INTENT(INOUT)   :: scalar_tend
+
+#if (WRF_CHEM == 1)
+!   ACM Chem
+    INTEGER, INTENT(IN) :: nchem, kdvel,ndvel,num_vert_mix
+    REAL, INTENT(INOUT),  DIMENSION( ims:ime, kms:kme, jms:jme,nchem ) :: CHEM
+    REAL, INTENT(IN)   ,  DIMENSION( ims:ime, kdvel, jms:jme, ndvel )  :: VD
+#endif
 
 !  LOCAL  VAR
 
@@ -1048,6 +1099,7 @@ CONTAINS
               ,PSIM=fm,PSIH=fhh,XLAND=xland                         &
               ,HFX=hfx,QFX=qfx                                      &
               ,U10=u10,V10=v10                                      &
+              ,UOCE=uoce,VOCE=voce                                  &
 ! paj
               ,CTOPO=ctopo,CTOPO2=ctopo2                &
 !
@@ -1155,6 +1207,10 @@ CONTAINS
 #if defined(HWRF)
               ,ALPHA=gfs_alpha                                      &
               ,HPBL2D=HPBL2D, EVAP2D=EVAP2D, HEAT2D=HEAT2D          &   !Kwon add FOR SHAL. CON.
+              ,VAR_RIC=VAR_RIC                                      &   !Kwon for variable Ric
+              ,U10=U10,V10=V10,ZNT=ZNT,MZNT=MZNT,RC2D=RC2D          &   !Kwon for variable Ric
+              ,DKU3D=DKU3D,DKT3D=DKT3D                              &
+              ,coef_ric_l=coef_ric_l,coef_ric_s=coef_ric_s,xland=xland    &
 #endif
               ,P_QI=p_qi,P_FIRST_SCALAR=param_first_scalar          &
               ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde      &
@@ -1417,9 +1473,13 @@ CONTAINS
                XTIME=itimestep, DTPBL=dtbl, ZNW=znw, SIGMAH=znu               &
               ,U3D=u_phytmp, V3D=v_phytmp, PP3D=p_phy, DZ8W=dz8w, TH3D=th_phy, T3D=t_phy            &
               ,QV3D=qv_curr, QC3D=qc_curr, QI3D=qi_curr, RR3D=rho                &
+#if (WRF_CHEM == 1)
+              ,CHEM3D=CHEM,   VD3D=VD,  NCHEM=nchem, KDVEL=kdvel              &
+              ,NDVEL=ndvel, NUM_VERT_MIX=num_vert_mix                         &
+#endif
               ,UST=UST, HFX=HFX, QFX=QFX, TSK=tsk                               &
               ,PSFC=PSFC, EP1=EP_1, G=g, ROVCP=rcp,RD=r_D,CPD=cp                 &
-              ,PBLH=pblh, KPBL2D=kpbl, REGIME=regime                            &
+              ,PBLH=pblh, KPBL2D=kpbl, EXCH_H=exch_h, REGIME=regime              &
               ,GZ1OZ0=gz1oz0,WSPD=wspd,PSIM=psim, MUT=mut                        &
               ,RUBLTEN=rublten,RVBLTEN=rvblten,RTHBLTEN=rthblten                 &
               ,RQVBLTEN=rqvblten,RQCBLTEN=rqcblten,RQIBLTEN=rqiblten             &
@@ -1448,18 +1508,19 @@ CONTAINS
 
            IF ( PRESENT( qv_curr )  .AND. PRESENT( qc_curr )  .AND. &
                 PRESENT( rqvblten ) .AND. PRESENT( rqcblten ) .AND. &
+                PRESENT( qi_curr ) .AND. PRESENT( rqiblten ) .AND.  &
+                PRESENT( rqniblten ) .AND. & !PRESENT( rqncblten ) .AND. &
+                PRESENT( qni_curr ) .AND. & !PRESENT( qnc_curr ) .AND. &
                 PRESENT(qke) .AND. PRESENT(tsq) .AND.               &
                 PRESENT(qsq) .AND. PRESENT(cov) .AND.               &
-                PRESENT(rmol) .AND. PRESENT(el_mynn).AND.           &
+                PRESENT(rmol) .AND.                                 &
                 PRESENT(qcg) .AND. PRESENT(ch) .AND.                &
-                PRESENT(grav_settling) .AND. PRESENT(dqke) .AND.    &
-                PRESENT(qWT) .AND. PRESENT(qSHEAR) .AND.            & 
-                PRESENT(qBUOY) .AND. PRESENT(qDISS) .AND.           &
+                PRESENT(grav_settling) .AND.                        &
                 PRESENT(bl_mynn_tkebudget) .AND.                    &
 !ACF,JOE-QKE advection
-                PRESENT(qke_adv) .AND. PRESENT(bl_mynn_tkeadvect) &
+                PRESENT(qke_adv) .AND. PRESENT(bl_mynn_tkeadvect) .AND.&
 !ACF,JOE-end
-                & ) THEN
+                PRESENT(vdfg) ) THEN
 
               CALL wrf_debug(100,'in MYNNPBL')
 
@@ -1475,76 +1536,50 @@ CONTAINS
                    &delt=dtbl,&
                    &dz=dz8w,&
                    &u=u_phy,v=v_phy,th=th_phy,qv=qv_curr,qc=qc_curr,&
+                   &qi=qi_curr,qni=qni_curr,& !qnc=qnc_curr,&
                    &p=p_phy,exner=pi_phy,rho=rho,&
                    &xland=xland,ts=tsk,qsfc=qsfc,qcg=qcg,ps=psfc,&
                    &ust=ust,ch=ch,hfx=hfx,qfx=qfx,rmol=rmol,wspd=wspd,&
-                   &Qke=qke,&
+                   &uoce=uoce,voce=voce,&           !Ocean currents
+                   &vdfg=vdfg,&                     !Katata -added 
+                   &Qke=qke,TKE_PBL=tke_pbl,&       !JOE-for CAMUW shcu
+                   &Sh3d=Sh3d,&
 !ACF for QKE advection
                    &qke_adv=qke_adv,bl_mynn_tkeadvect=bl_mynn_tkeadvect,&
 !ACF-end
                    &Tsq=tsq,Qsq=qsq,Cov=cov,&
                    &Du=rublten,Dv=rvblten,Dth=rthblten,&
-                   &Dqv=rqvblten,Dqc=rqcblten,&
+                   &Dqv=rqvblten,Dqc=rqcblten,Dqi=rqiblten,&
+                   !&Dqnc=rqncblten,&
+                   &Dqni=rqniblten,&
                    &k_h=exch_h,k_m=exch_m,&
-                   &pblh=pblh&
-                   &,el_mynn=el_mynn                                     &
+                   &pblh=pblh,KPBL=KPBL&
+                   &,el_pbl=el_pbl                                       &
                    &,dqke=dqke                                           &
                    &,qWT=qWT,qSHEAR=qSHEAR,qBUOY=qBUOY,qDISS=qDISS       &
+! for grims shallow convection                                            
+                   &,WSTAR=wstar,DELTA=delta                             &
                    &,bl_mynn_tkebudget=bl_mynn_tkebudget                 &
+                   &,bl_mynn_cloudpdf=bl_mynn_cloudpdf                   &
+                   &,FLAG_QI=flag_qi,FLAG_QNI=flag_qni                   &
+                   &,FLAG_QC=flag_qc,FLAG_QNC=flag_qnc                   &
                    ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde      &
                    ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme      &
                    ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte      &
                    )
-
-               IF (windspec.GT.0) THEN
-
-                  IF (PRESENT(id) .AND.                                  &
-                     PRESENT(phb) .AND.                                  &
-                     PRESENT(xlat_u).AND.PRESENT(xlong_u) .AND.          &
-                     PRESENT(xlat_v).AND.PRESENT(xlong_v) ) THEN
-
-                     CALL wrf_debug(100,'in phys/module_wind_fitch.F')
-                     CALL turbine_drag(                                  &
-                     & ID=id                                             &
-                     &,PHB=phb,u=u_phy,v=v_phy                           &
-                     &,XLAT_U=xlat_u,XLONG_U=xlong_u                     &
-                     &,XLAT_V=xlat_v,XLONG_V=xlong_v                     &
-                     &,DX=dx,DZ=dz8w,DT=dt                               &
-                     &,QKE=qke                                           &
-!ACF for QKE advection
-                     &,qke_adv=qke_adv,bl_mynn_tkeadvect=bl_mynn_tkeadvect  &
-!ACF-end
-                     &,DU=rublten,DV=rvblten                             &
-                     &,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde   &
-                     &,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme   &
-                     &,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte   &
-                     &)
-                  ELSE
-                     WRITE ( message , FMT = '(A,6(L1,1X))' )           &
-                     'present: '//                                      &
-                     'ID, '//                                           &
-                     'phb, '//                                          &
-                     'xlat_u, '//                                       &
-                     'xlong_u, '//                                      &
-                     'xlat_v, '//                                       &
-                     'xlong_v = ' ,                                     &
-                      PRESENT( id ) ,                                   &
-                      PRESENT( phb ) ,                                  &
-                      PRESENT( xlat_u  ) ,                              &
-                      PRESENT( xlong_u ) ,                              &
-                      PRESENT( xlat_v  ) ,                              &
-                      PRESENT( xlong_v )
-                     CALL wrf_debug(0,message)
-                     CALL wrf_error_fatal('Lack arguments to call turbine_drag')
-                  ENDIF
-               ENDIF
            ELSE
                WRITE ( message , FMT = '(A,20(L1,1X))' )            &
                  'present: '//                                      &
                  'qv_curr, '//                                      &
                  'qc_curr, '//                                      &
+                 'qi_curr, '//                                      &
+!                 'qnc_curr, '//                                     &
+                 'qni_curr, '//                                     &
                  'rqvblten, '//                                     &
                  'rqcblten, '//                                     &
+                 'rqiblten, '//                                     &
+!                 'rqncblten, '//                                    &
+                 'rqniblten, '//                                    &
                  'qke, '//                                          &
                  'tsq, '//                                          &
                  'qsq, '//                                          &
@@ -1553,18 +1588,20 @@ CONTAINS
                  'qcg, '//                                          &
                  'ch, '//                                           &
                  'grav_settling, '//                                &
-                 'dqke, '//                                         &
-                 'qWT, '//                                          &
-                 'qSHEAR, '//                                       &
-                 'qBUOY, '//                                        &
-                 'qDISS, '//                                        &
                  'bl_mynn_tkebudget, '//                            &
                  'qke_adv, '//                                      &
-                 'bl_mynn_tkeadvect = ' ,                           &
+                 'bl_mynn_tkeadvect, '//                            &
+                 'vdfg = ' ,                                        &
                   PRESENT( qv_curr ) ,                              &
                   PRESENT( qc_curr ) ,                              &
+                  PRESENT( qi_curr ) ,                              &
+!                  PRESENT( qnc_curr ) ,                             &
+                  PRESENT( qni_curr ) ,                             &
                   PRESENT( rqvblten ) ,                             &
                   PRESENT( rqcblten ) ,                             &
+                  PRESENT( rqiblten ) ,                             &
+!                  PRESENT( rqncblten ) ,                            &
+                  PRESENT( rqniblten ) ,                            &
                   PRESENT( qke      ) ,                             &
                   PRESENT( tsq      ) ,                             &
                   PRESENT( qsq      ) ,                             &
@@ -1573,14 +1610,10 @@ CONTAINS
                   PRESENT( qcg      ) ,                             &
                   PRESENT( ch       ) ,                             &
                   PRESENT( grav_settling),                          &
-                  PRESENT( dqke     ) ,                             &
-                  PRESENT( qWT      ) ,                             &
-                  PRESENT( qSHEAR   ) ,                             &
-                  PRESENT( qBUOY    ) ,                             &
-                  PRESENT( qSHEAR   ) ,                             &
                   PRESENT( bl_mynn_tkebudget) ,                     &
                   PRESENT( qke_adv  ) ,                             &
-                  PRESENT( bl_mynn_tkeadvect)
+                  PRESENT( bl_mynn_tkeadvect) ,                     &
+                  PRESENT( vdfg )
                CALL wrf_debug(0,message)
               CALL wrf_error_fatal('Lack arguments to call MYNN pbl')
            ENDIF
@@ -1703,6 +1736,49 @@ CONTAINS
        CALL wrf_error_fatal ( message )
 
    END SELECT pbl_select
+
+#if (EM_CORE==1)
+!
+! ... paj: wind farm ...
+!
+    windfarm_select: SELECT CASE(windfarm_opt)
+
+      CASE (fitchscheme)
+
+                  IF (PRESENT(id) .AND.                                  &
+                     PRESENT(z_at_w) ) THEN
+!
+                     CALL wrf_debug(100,'in phys/module_wind_fitch.F')
+                     CALL dragforce(                                  &
+                     & ID=id                                             &
+                     &,Z_AT_W=z_at_w,u=u_phy,v=v_phy                     &
+                     &,DX=dx,DZ=dz8w,DT=dt                               &
+                     &,QKE=qke                                           &
+                     &,DU=rublten,DV=rvblten                             &
+                     &,WINDFARM_OPT=windfarm_opt,POWER=power             &
+                     &,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde   &
+                     &,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme   &
+                     &,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte   &
+                     &)
+                  ELSE
+                     WRITE ( message , FMT = '(A,6(L1,1X))' )           &
+                     'present: '//                                      &
+                     'ID, '//                                           &
+                     'z_at_w, '//                                       &
+                     'xlat_u, '//                                       &
+                     'xlong_u, '//                                      &
+                     'xlat_v, '//                                       &
+                     'xlong_v = ' ,                                     &
+                      PRESENT( id ) ,                                   &
+                      PRESENT( z_at_w ) 
+                     CALL wrf_debug(0,message)
+                     CALL wrf_error_fatal('Lack arguments to call turbine_drag')
+                  ENDIF
+
+   END SELECT windfarm_select
+#endif
+
+
    
    IF (PRESENT(dtaux3d)) THEN
        IF(gwd_opt .EQ. 1)THEN
@@ -1726,6 +1802,25 @@ CONTAINS
        ENDIF
    ENDIF
 
+#if (EM_CORE==1)                                                                                                                                                                             
+!JOE-added - fog (cloud) water deposition calculation
+   IF (grav_settling .GE. 1) THEN
+      IF ( PRESENT(vdfg) .AND. PRESENT(qc_curr)) THEN
+         !NOTE 1: vdfg is calculated in the surface driver.
+         !NOTE 2: as of now, only qc_curr settles, not # conc.
+
+          CALL bl_fogdes(                                        &
+               vdfg,qc_curr,dtbl,rho,dz8w,grav_settling,RQCBLTEN,&
+               ids,ide, jds,jde, kds,kde,                        &
+               ims,ime, jms,jme, kms,kme,                        &
+               i_start(ij),i_end(ij),                            &
+               j_start(ij),j_end(ij),kts,kte                     )
+      ELSE
+          CALL wrf_error_fatal('Missing args for bl_fogdes in pbl driver')
+      ENDIF
+   ENDIF
+!JOE-END
+#endif
 
 #if (NMM_CORE != 1)
 
@@ -1765,8 +1860,29 @@ CONTAINS
           DEALLOCATE (b_q)       ! Explicit component for the water vapor
           DEALLOCATE (sf )       ! surfaces
           DEALLOCATE (vl )       ! volumes
-      
      ENDIF       !idiff
+      
+          IF(scalar_pblmix .GT. 0)THEN
+            CALL diff4d  (DT=dtbl,DZ=dz8w, SCALAR=scalar, is_scalar=.true.  &
+              ,RHO=rho,EXCH_H=exch_h        &
+              ,EXCH_M=exch_m                &
+              ,SCALAR_TEND=scalar_tend      &
+              ,NUM_SCALAR=num_scalar, PARAM_FIRST_SCALAR=param_first_scalar &
+              ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde        &
+              ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme        &
+              ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte)
+          ENDIF
+          IF(tracer_pblmix .GT. 0)THEN
+            CALL diff4d  (DT=dtbl,DZ=dz8w, SCALAR=tracer, is_scalar=.false.  &
+              ,RHO=rho,EXCH_H=exch_h        &
+              ,EXCH_M=exch_m                &
+              ,SCALAR_TEND=tracer_tend      &
+              ,NUM_SCALAR=num_tracer, PARAM_FIRST_SCALAR=param_first_scalar &
+              ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde        &
+              ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme        &
+              ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte)
+          ENDIF
+
 #endif
       
    ENDDO
@@ -1979,8 +2095,139 @@ CONTAINS
 
         
       END SUBROUTINE diff3d
+#if (EM_CORE==1)
 ! ===6=8===============================================================72
+          SUBROUTINE diff4d(DT,DZ,SCALAR,IS_SCALAR,RHO              &
+              ,EXCH_H,EXCH_M  &  
+              ,SCALAR_TEND    &
+              ,NUM_SCALAR, PARAM_FIRST_SCALAR     &
+              ,IDS,IDE,JDS,JDE,KDS,KDE      &
+              ,IMS,IME,JMS,JME,KMS,KME      &
+              ,ITS,ITE,JTS,JTE,KTS,KTE      &
+                                                                    )
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!    Based on subroutine written by Alberto Martilli, CIEMAT, Spain,
+!    e-mail:alberto_martilli@ciemat.es
+!    August 2008.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! ALberto
+! This routine solves the vertical diffusion 
+! + other source/sink terms (surface fluxes, building drag, non local terms, etc.)
+! for U,V, potential temperature and moisture. The equation should be written 
+! as follow, for a generic variable M:
+! 
+!      dM      1     d      dM
+!     ---- =----  ---(rho*K----)+AM+B
+!      dt     rho    dz     dz  
+! where A and B are the implict and explcit coefficients of the source/sink terms
+! (at the lowest level the surface fluxes should go in these terms)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!-----------------------------------------------------------------------
+      USE module_state_description, ONLY: &
+                  P_QNS, P_QNR, P_QNG, P_QT, P_QNH, P_QVOLG, P_QKE_ADV
+
+
+      IMPLICIT NONE
+!
+!----------------------------------------------------------------------
+      INTEGER,INTENT(IN) :: NUM_SCALAR, PARAM_FIRST_SCALAR
+      INTEGER,INTENT(IN) :: IDS,IDE,JDS,JDE,KDS,KDE                    &
+     &                     ,IMS,IME,JMS,JME,KMS,KME                    &
+     &                     ,ITS,ITE,JTS,JTE,KTS,KTE
+
+! inputs
+      REAL, INTENT(IN)   :: DT
+      LOGICAL,INTENT(IN) :: IS_SCALAR
+      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(IN) :: DZ ! Depth of vertical levels
+      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME,NUM_SCALAR),INTENT(IN) :: SCALAR ! 4d scalar mixing ratio
+      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(IN) :: RHO ! Air Density
+      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(IN) :: EXCH_H ! Turbulent coefficient for heat
+      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(IN) :: EXCH_M ! Turbulent coefficient for momentum 
+      
+! outputs
+      REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME,NUM_SCALAR),INTENT(INOUT) :: SCALAR_TEND ! 4d scalar mixing ratio tendency
+! locals (same meaning as above, but 1D)
+
+      real s1d(kms:kme),exch_h1d(kms:kme)
+      real exch_m1d(kms:kme)
+      real dz1d(kms:kme),rho1d(kms:kme),rhoz1d(kms:kme)
+      real sf1d(kms:kme),vl1d(kms:kme)   
+      real a_s1d(kms:kme),b_s1d(kms:kme)
+      real ws1d(kms:kme)
+!
+      integer i,k,j,im  
+!----------------------------------------------------------------------
+      s1d=0.
+      exch_h1d=0.
+      exch_m1d=0.
+      rho1d=0.
+      rhoz1d=0.
+      sf1d=0.
+      vl1d=0.
+      a_s1d=0.
+      b_s1d=0.
+       
+      DO im=PARAM_FIRST_SCALAR,NUM_SCALAR
+! need to avoid mixing scalars associated with precipitating species (e.g. Nr)
+        IF((IS_SCALAR .AND. im.NE.P_QNS .AND. im.NE.P_QNR .AND. im.NE.P_QNG &
+          .AND. im.NE.P_QNH .AND. im.NE.P_QT .AND. im.NE.P_QVOLG .AND. im.NE.P_QKE_ADV) &
+          .OR. (.not. IS_SCALAR)) THEN
+        do j=jts,jte
+        do i=its,ite
+
+! put three D variables in temporary 1D variables
+
+       do k=kts,kte
+        s1d(k)=SCALAR(i,k,j,im)
+        dz1d(k)=dz(i,k,j)
+        rho1d(k)=rho(i,k,j) 
+!        a_s1d(k)=a_s(i,k,j)   ! implicit source
+!        b_s1d(k)=b_s(i,k,j)   ! explicit source
+        vl1d(k)=1.
+        sf1d(k)=1.
+       enddo
+       sf1d(kte+1)=1. 
+       do k=kts,kte    
+        exch_h1d(k)=exch_h(i,k,j)
+        exch_m1d(k)=exch_m(i,k,j)
+       enddo
+       exch_h1d(kts)=0.
+!       exch_h1d(kte+1)=0  
+       exch_m1d(kts)=0.
+!       exch_m1d(kte+1)=0
+        rhoz1d(kts)=rho1d(kts)
+        do k=kts+1,kte
+         rhoz1d(k)=(rho1d(k)*dz1d(k-1)+rho1d(k-1)*dz1d(k))/       &
+     &                      (dz1d(k-1)+dz1d(k))
+        enddo
+        rhoz1d(kte+1)=rho1d(kte)
+
+
+! solve the diffusion for scalar
+          
+       call diff(kms,kme,kts,kte,dt,s1d,rho1d,rhoz1d,exch_h1d,a_s1d,b_s1d,sf1d, &
+     &            vl1d,dz1d,ws1d) 
+
+!     
+! compute the tendencies
+
+        do k=kts,kte
+          scalar_tend(i,k,j,im)=(s1d(k)-scalar(i,k,j,im))/dt
+!          ws(i,k,j)=ws1d(k)   ! output fluxes
+        enddo
+        enddo
+        enddo 
+      ELSE
+!      print *,'scalar skipped im=',im, is_scalar
+      ENDIF
+      
+      ENDDO ! im loop
+!!!!!!!!!!!!
+
+        
+      END SUBROUTINE diff4d
 ! ===6=8===============================================================72
+#endif
 
        subroutine diff(kms,kme,kts,kte,dt,co,da,daz,cd,aa,bb,sf,vl,dz,fc)
 

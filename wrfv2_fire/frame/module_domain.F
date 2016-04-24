@@ -682,6 +682,7 @@ CONTAINS
 
       ALLOCATE ( new_grid )
       ALLOCATE( new_grid%head_statevars )
+      new_grid%head_statevars%Ndim = 0
       NULLIFY( new_grid%head_statevars%next)
       new_grid%tail_statevars => new_grid%head_statevars 
 
@@ -1093,7 +1094,7 @@ CONTAINS
                     CALL get_fieldstr(fieldno,',',fieldlst,t1,256,noerr)
                     CALL change_to_lower_case(t1,lookee)
                     DO WHILE ( noerr )    ! linear search, blargh...
-                      p => grid%head_statevars
+                      p => grid%head_statevars%next
                       found = .FALSE.
                       count_em = count_em + 1
                       DO WHILE ( ASSOCIATED( p ) )
@@ -1170,7 +1171,7 @@ CONTAINS
 
 #ifdef DM_PARALLEL
 ! broadcast the new masks to the other tasks
-      p => grid%head_statevars
+      p => grid%head_statevars%next
       DO WHILE ( ASSOCIATED( p ) )
         IF ( p%Ndim .EQ. 4 .AND. p%scalar_array ) THEN
 
@@ -1680,7 +1681,6 @@ CONTAINS
       INTEGER kid
       IF ( .NOT. ASSOCIATED( grid ) ) RETURN
       myid = grid%id
-      write(0,*)'show_nest_subtree ',myid
       DO kid = 1, max_nests
         IF ( ASSOCIATED( grid%nests(kid)%ptr ) ) THEN
           IF ( grid%nests(kid)%ptr%id .EQ. myid ) THEN
@@ -2592,6 +2592,62 @@ CONTAINS
       END FUNCTION Is_alarm_tstep
 
 
+#if (NMM_CORE==1)
+!******************************************************************************
+! Function to determine if the next NPHS time step is an alarm-timestep for
+! a certain grid:
+! NMM-only -- modify to check whether the next alarm coincides with the next
+! NPHS time step!
+!******************************************************************************
+
+      LOGICAL FUNCTION Is_alarm_tstep_nphs( grid_clock, alarm, nphs )
+
+        IMPLICIT NONE
+
+        TYPE (WRFU_Clock), INTENT(in)  :: grid_clock
+        TYPE (WRFU_Alarm), INTENT(in)  :: alarm
+
+        LOGICAL :: pred1, pred2, pred3
+        INTEGER :: nphs
+
+        Is_alarm_tstep_nphs = .FALSE.
+
+        IF ( ASSOCIATED( alarm%alarmint ) ) THEN
+          IF ( alarm%alarmint%Enabled ) THEN
+            IF ( alarm%alarmint%RingIntervalSet ) THEN
+              pred1 = .FALSE. ; pred2 = .FALSE. ; pred3 = .FALSE.
+              IF ( alarm%alarmint%StopTimeSet ) THEN
+                 PRED1 = ( grid_clock%clockint%CurrTime + grid_clock%clockint%TimeStep*nphs > &
+                      alarm%alarmint%StopTime )
+              ENDIF
+              IF ( alarm%alarmint%RingTimeSet ) THEN
+                 PRED2 = ( ( alarm%alarmint%RingTime - &
+                      grid_clock%clockint%TimeStep <= &
+                      grid_clock%clockint%CurrTime )     &
+                      .AND. ( grid_clock%clockint%CurrTime < alarm%alarmint%RingTime ) )
+              ENDIF
+              IF ( alarm%alarmint%RingIntervalSet ) THEN
+                 PRED3 = ( alarm%alarmint%PrevRingTime + &
+                      alarm%alarmint%RingInterval <= &
+                      grid_clock%clockint%CurrTime + grid_clock%clockint%TimeStep*nphs )
+              ENDIF
+              IF ( ( .NOT. ( pred1 ) ) .AND. &
+                   ( ( pred2 ) .OR. ( pred3 ) ) ) THEN
+                 Is_alarm_tstep_nphs = .TRUE.
+              ENDIF
+            ELSE IF ( alarm%alarmint%RingTimeSet ) THEN
+              IF ( alarm%alarmint%RingTime -&
+                   grid_clock%clockint%TimeStep*nphs <= &
+                   grid_clock%clockint%CurrTime ) THEN
+                 Is_alarm_tstep_nphs = .TRUE.
+              ENDIF
+            ENDIF
+          ENDIF
+        ENDIF
+
+      END FUNCTION Is_alarm_tstep_nphs
+#endif
+
 
 !******************************************************************************
 ! BEGIN TEST SECTION
@@ -3045,9 +3101,7 @@ END SUBROUTINE get_current_grid_name
      IMPLICIT NONE
      INTEGER, INTENT(IN) :: id
      TYPE(domain), POINTER :: grid
-!write(0,*)'modify_io_masks head_grid ',id,ASSOCIATED(head_grid)
      CALL find_grid_by_id( id, head_grid, grid )
-!write(0,*)'modify_io_masks grid ',id,ASSOCIATED(grid)
      IF ( ASSOCIATED( grid ) ) CALL modify_io_masks1( grid, id ) 
      RETURN 
    END SUBROUTINE modify_io_masks

@@ -46,7 +46,7 @@
 !logical first
 
      INTEGER ci, cj, ck, ni, nj, nk, ip, jp, ioff, joff, nioff, njoff
-#ifdef MM5_SINT
+#if (( DA_CORE == 1 ) || ( defined( MM5_SINT ) ) )
      INTEGER nfx, ior
      PARAMETER (ior=2)
      INTEGER nf
@@ -59,7 +59,7 @@
      ! Iterate over the ND tile and compute the values
      ! from the CD tile. 
 
-#ifdef MM5_SINT
+#if ( ( DA_CORE == 1 ) || ( defined( MM5_SINT ) ) )
 
      ioff  = 0 ; joff  = 0
      nioff = 0 ; njoff = 0
@@ -393,32 +393,44 @@
 
               IF      ( ( .NOT. xstag ) .AND. ( .NOT. ystag ) ) THEN
                  cprs(:) =   cpb(ci  ,:,cj  )
-                 cfld_ll = v_interp_col ( cfld(ci  ,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj  , cfld_max_p(ci  ,cj  ) , cmax_p(ci  ,cj  ) , cfld_min_p(ci  ,cj  ) , cmin_p(ci  ,cj  ) )
+                 cfld_ll = v_interp_col ( cfld(ci  ,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj  , &
+                                          cfld_max_p(ci  ,cj  ) , cmax_p(ci  ,cj  ) , cfld_min_p(ci  ,cj  ) , cmin_p(ci  ,cj  ) )
                  cprs(:) =   cpb(ci+1,:,cj  )
-                 cfld_lr = v_interp_col ( cfld(ci+1,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj  , cfld_max_p(ci+1,cj  ) , cmax_p(ci+1,cj  ) , cfld_min_p(ci+1,cj  ) , cmin_p(ci+1,cj  ) )
+                 cfld_lr = v_interp_col ( cfld(ci+1,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj  , &
+                                          cfld_max_p(ci+1,cj  ) , cmax_p(ci+1,cj  ) , cfld_min_p(ci+1,cj  ) , cmin_p(ci+1,cj  ) )
                  cprs(:) =   cpb(ci  ,:,cj+1)
-                 cfld_ul = v_interp_col ( cfld(ci  ,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj+1, cfld_max_p(ci  ,cj+1) , cmax_p(ci  ,cj+1) , cfld_min_p(ci  ,cj+1) , cmin_p(ci  ,cj+1) )
+                 cfld_ul = v_interp_col ( cfld(ci  ,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj+1, &
+                                          cfld_max_p(ci  ,cj+1) , cmax_p(ci  ,cj+1) , cfld_min_p(ci  ,cj+1) , cmin_p(ci  ,cj+1) )
                  cprs(:) =   cpb(ci+1,:,cj+1)
-                 cfld_ur = v_interp_col ( cfld(ci+1,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj+1, cfld_max_p(ci+1,cj+1) , cmax_p(ci+1,cj+1) , cfld_min_p(ci+1,cj+1) , cmin_p(ci+1,cj+1) )
+                 cfld_ur = v_interp_col ( cfld(ci+1,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj+1, &
+                                          cfld_max_p(ci+1,cj+1) , cmax_p(ci+1,cj+1) , cfld_min_p(ci+1,cj+1) , cmin_p(ci+1,cj+1) )
 
               ELSE IF ( xstag ) THEN
                  cprs(:) = ( cpb(ci  ,:,cj  ) + cpb(ci-1,:,cj  ) )*0.5 
-                 cfld_ll = v_interp_col ( cfld(ci  ,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj  , cfld_max_p(ci  ,cj  ) , cmax_p(ci  ,cj  ) , cfld_min_p(ci  ,cj  ) , cmin_p(ci  ,cj  ) )
+                 cfld_ll = v_interp_col ( cfld(ci  ,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj  , &
+                                          cfld_max_p(ci  ,cj  ) , cmax_p(ci  ,cj  ) , cfld_min_p(ci  ,cj  ) , cmin_p(ci  ,cj  ) )
                  cprs(:) = ( cpb(ci+1,:,cj  ) + cpb(ci  ,:,cj  ) )*0.5
-                 cfld_lr = v_interp_col ( cfld(ci+1,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj  , cfld_max_p(ci+1,cj  ) , cmax_p(ci+1,cj  ) , cfld_min_p(ci+1,cj  ) , cmin_p(ci+1,cj  ) )
+                 cfld_lr = v_interp_col ( cfld(ci+1,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj  , &
+                                          cfld_max_p(ci+1,cj  ) , cmax_p(ci+1,cj  ) , cfld_min_p(ci+1,cj  ) , cmin_p(ci+1,cj  ) )
                  cprs(:) = ( cpb(ci  ,:,cj+1) + cpb(ci-1,:,cj+1) )*0.5
-                 cfld_ul = v_interp_col ( cfld(ci  ,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj+1, cfld_max_p(ci  ,cj+1) , cmax_p(ci  ,cj+1) , cfld_min_p(ci  ,cj+1) , cmin_p(ci  ,cj+1) )
+                 cfld_ul = v_interp_col ( cfld(ci  ,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj+1, &
+                                          cfld_max_p(ci  ,cj+1) , cmax_p(ci  ,cj+1) , cfld_min_p(ci  ,cj+1) , cmin_p(ci  ,cj+1) )
                  cprs(:) = ( cpb(ci+1,:,cj+1) + cpb(ci  ,:,cj+1) )*0.5
-                 cfld_ur = v_interp_col ( cfld(ci+1,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj+1, cfld_max_p(ci+1,cj+1) , cmax_p(ci+1,cj+1) , cfld_min_p(ci+1,cj+1) , cmin_p(ci+1,cj+1) )
+                 cfld_ur = v_interp_col ( cfld(ci+1,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj+1, &
+                                          cfld_max_p(ci+1,cj+1) , cmax_p(ci+1,cj+1) , cfld_min_p(ci+1,cj+1) , cmin_p(ci+1,cj+1) )
               ELSE IF ( ystag ) THEN
                  cprs(:) = ( cpb(ci  ,:,cj  ) + cpb(ci  ,:,cj-1) )*0.5
-                 cfld_ll = v_interp_col ( cfld(ci  ,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj  , cfld_max_p(ci  ,cj  ) , cmax_p(ci  ,cj  ) , cfld_min_p(ci  ,cj  ) , cmin_p(ci  ,cj  ) )
+                 cfld_ll = v_interp_col ( cfld(ci  ,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj  , &
+                                          cfld_max_p(ci  ,cj  ) , cmax_p(ci  ,cj  ) , cfld_min_p(ci  ,cj  ) , cmin_p(ci  ,cj  ) )
                  cprs(:) = ( cpb(ci+1,:,cj  ) + cpb(ci+1,:,cj-1) )*0.5
-                 cfld_lr = v_interp_col ( cfld(ci+1,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj  , cfld_max_p(ci+1,cj  ) , cmax_p(ci+1,cj  ) , cfld_min_p(ci+1,cj  ) , cmin_p(ci+1,cj  ) )
+                 cfld_lr = v_interp_col ( cfld(ci+1,:,cj  ) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj  , &
+                                          cfld_max_p(ci+1,cj  ) , cmax_p(ci+1,cj  ) , cfld_min_p(ci+1,cj  ) , cmin_p(ci+1,cj  ) )
                  cprs(:) = ( cpb(ci  ,:,cj+1) + cpb(ci  ,:,cj  ) )*0.5
-                 cfld_ul = v_interp_col ( cfld(ci  ,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj+1, cfld_max_p(ci  ,cj+1) , cmax_p(ci  ,cj+1) , cfld_min_p(ci  ,cj+1) , cmin_p(ci  ,cj+1) )
+                 cfld_ul = v_interp_col ( cfld(ci  ,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci  , cj+1, &
+                                          cfld_max_p(ci  ,cj+1) , cmax_p(ci  ,cj+1) , cfld_min_p(ci  ,cj+1) , cmin_p(ci  ,cj+1) )
                  cprs(:) = ( cpb(ci+1,:,cj+1) + cpb(ci+1,:,cj  ) )*0.5
-                 cfld_ur = v_interp_col ( cfld(ci+1,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj+1, cfld_max_p(ci+1,cj+1) , cmax_p(ci+1,cj+1) , cfld_min_p(ci+1,cj+1) , cmin_p(ci+1,cj+1) )
+                 cfld_ur = v_interp_col ( cfld(ci+1,:,cj+1) , cprs(:) , ckms , ckme , ckte, nprs, ni, nj, nk, ci+1, cj+1, &
+                                          cfld_max_p(ci+1,cj+1) , cmax_p(ci+1,cj+1) , cfld_min_p(ci+1,cj+1) , cmin_p(ci+1,cj+1) )
               END IF
 
               !  Bilinear interpolation in horizontal with vertically corrected CG field values.
@@ -444,7 +456,8 @@
 
 !==================================
 
-   FUNCTION v_interp_col ( cfld_orig , cprs_orig , ckms , ckme , ckte , nprs, ni, nj, nk, ci, cj, cfld_max_p , cmax_p , cfld_min_p , cmin_p ) RESULT ( cfld_interp )
+   FUNCTION v_interp_col ( cfld_orig , cprs_orig , ckms , ckme , ckte , nprs, ni, nj, nk, ci, cj, &
+                           cfld_max_p , cmax_p , cfld_min_p , cmin_p ) RESULT ( cfld_interp )
 
       IMPLICIT NONE
 
@@ -1299,10 +1312,10 @@ print *,'column of cg pres = ',cprs
 
      ioff  = 0 ; joff  = 0
      IF ( xstag ) THEN 
-       ioff = (nri-1)/2
+       ioff = MAX((nri-1)/2,1)
      ENDIF
      IF ( ystag ) THEN
-       joff = (nrj-1)/2
+       joff = MAX((nrj-1)/2,1)
      ENDIF
 
      ! Iterate over the ND tile and compute the values
@@ -1473,6 +1486,7 @@ print *,'column of cg pres = ',cprs
         DO nk = nkts, nkte
            ck = nk
            DO ni = nits, nite
+              if ( imask(ni,nj) .NE. 1 ) cycle
               ci = ipos + (ni-1) / nri      ! j coord of CD point 
               ip = mod ( ni , nri )  ! coord of ND w/i CD point
               ! This is a trivial implementation of the interp_fcn; just copies
@@ -1547,6 +1561,213 @@ print *,'column of cg pres = ',cprs
 
    END SUBROUTINE interp_fcnm
 
+   SUBROUTINE interp_fcnm_lu( cfld,                              &  ! CD field
+                           cids, cide, ckds, ckde, cjds, cjde,   &
+                           cims, cime, ckms, ckme, cjms, cjme,   &
+                           cits, cite, ckts, ckte, cjts, cjte,   &
+                           nfld,                                 &  ! ND field
+                           nids, nide, nkds, nkde, njds, njde,   &
+                           nims, nime, nkms, nkme, njms, njme,   &
+                           nits, nite, nkts, nkte, njts, njte,   &
+                           shw,                                  &  ! stencil half width
+                           imask,                                &  ! interpolation mask
+                           xstag, ystag,                         &  ! staggering of field
+                           ipos, jpos,                           &  ! Position of lower left of nest in CD
+                           nri, nrj,                             &  ! nest ratios
+                           cxlat,    nxlat,                      &
+                           cxlong,   nxlong,                     &
+                           cdx, ndx,                             &
+                           cid, nid                            ) 
+     USE module_configure
+
+     IMPLICIT NONE
+
+
+     INTEGER, INTENT(IN) :: cids, cide, ckds, ckde, cjds, cjde,   &
+                            cims, cime, ckms, ckme, cjms, cjme,   &
+                            cits, cite, ckts, ckte, cjts, cjte,   &
+                            nids, nide, nkds, nkde, njds, njde,   &
+                            nims, nime, nkms, nkme, njms, njme,   &
+                            nits, nite, nkts, nkte, njts, njte,   &
+                            shw,                                  &
+                            ipos, jpos,                           &
+                            nri, nrj,                             &
+                            cid, nid
+     LOGICAL, INTENT(IN) :: xstag, ystag 
+
+     REAL,    INTENT(IN) :: cdx, ndx
+
+     REAL,    INTENT(IN),  DIMENSION ( cims:cime, cjms:cjme ) :: cxlat, cxlong
+     REAL,    INTENT(IN),  DIMENSION ( nims:nime, njms:njme ) :: nxlat, nxlong
+
+
+     REAL, DIMENSION ( cims:cime, ckms:ckme, cjms:cjme ) :: cfld
+     REAL, DIMENSION ( nims:nime, nkms:nkme, njms:njme ) :: nfld
+     INTEGER, DIMENSION ( nims:nime, njms:njme ) :: imask
+
+     ! Local
+
+     INTEGER i, ci, cj, ck, ni, nj, nk, ip, jp, ierr
+
+#ifdef TERRAIN_AND_LANDUSE
+     INTEGER, DIMENSION(256) :: ipath  ! array for integer coded ascii for passing path down to get_landuse
+
+     REAL , ALLOCATABLE, DIMENSION(:,:) :: xlat_g, xlon_g, landuse_g
+     CHARACTER*256 :: message 
+     CHARACTER*256 :: rsmas_data_path
+
+     LOGICAL :: input_from_hires, input_from_file
+
+     INTEGER, EXTERNAL :: get_landuse
+     LOGICAL, EXTERNAL :: wrf_dm_on_monitor
+
+     CALL nl_get_input_from_hires( nid , input_from_hires)
+     CALL nl_get_input_from_file ( nid , input_from_file )
+
+     IF ( input_from_file .AND. input_from_hires ) THEN
+       Write(message, '(a,i3,a)') & 
+          "Warning : input_from_file turned on for domain ", nid, ", input_from_hires disabled"
+       CALL wrf_message(message)
+     END IF
+
+     IF ( .NOT. input_from_file .AND. input_from_hires ) THEN
+
+       allocate(xlat_g(nids:nide,njds:njde))
+       allocate(xlon_g(nids:nide,njds:njde))
+       allocate(landuse_g(nids:nide,njds:njde))
+
+       CALL nl_get_rsmas_data_path(1,rsmas_data_path)
+
+       DO i = 1, LEN(TRIM(rsmas_data_path))
+          ipath(i) = ICHAR(rsmas_data_path(i:i))
+       ENDDO
+
+#if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
+       CALL wrf_patch_to_global_real ( nxlat, xlat_g , nid, ' ' , 'xy' ,   &
+                                       nids, nide-1 , njds , njde-1 , 1 , 1 ,             &
+                                       nims, nime   , njms , njme   , 1 , 1 ,             &
+                                       nits, nite   , njts , njte   , 1 , 1   )
+       CALL wrf_patch_to_global_real ( nxlong, xlon_g, nid, ' ' , 'xy' ,   &
+                                       nids, nide-1 , njds , njde-1 , 1 , 1 ,             &
+                                       nims, nime   , njms , njme   , 1 , 1 ,             &
+                                       nits, nite   , njts , njte   , 1 , 1   )
+       IF ( wrf_dm_on_monitor() ) THEN
+         ierr = get_landuse ( ndx/1000., xlat_g, xlon_g, &
+                              landuse_g,                                        &
+                              nide-nids+1,njde-njds+1,nide-nids+1,njde-njds+1,  &
+                              ipath, LEN(TRIM(rsmas_data_path)) )
+         IF ( ierr == 1 ) THEN
+            WRITE(message,fmt='(a)') 'get_landuse : aborted!'
+            CALL wrf_error_fatal(TRIM(message))
+         ENDIF
+       ENDIF
+
+       CALL wrf_global_to_patch_real ( landuse_g , nfld(:,1,:), nid, ' ' , 'xy' ,  &
+                                      nids, nide-1 , njds , njde-1 , 1 , 1 ,    &
+                                      nims, nime   , njms , njme   , 1 , 1 ,    &
+                                      nits, nite   , njts , njte   , 1 , 1   )
+
+#else
+       ierr = get_landuse ( ndx/1000., nxlat(nids:nide,njds:njde), nxlong(nids:nide,njds:njde),  &
+                            nfld(nids:nide,1,njds:njde),                                         &
+                            nide-nids+1,njde-njds+1,nide-nids+1,njde-njds+1,                     &
+                            ipath, LEN(TRIM(rsmas_data_path)) )
+#endif
+       deallocate(xlat_g)
+       deallocate(xlon_g)
+       deallocate(landuse_g)
+     ELSE
+#endif
+   ! Iterate over the ND tile and compute the values
+   ! from the CD tile.
+     DO nj = njts, njte
+        cj = jpos + (nj-1) / nrj     ! j coord of CD point
+        jp = mod ( nj , nrj )  ! coord of ND w/i CD point
+        DO nk = nkts, nkte
+           ck = nk
+           DO ni = nits, nite
+              ci = ipos + (ni-1) / nri      ! j coord of CD point
+              ip = mod ( ni , nri )  ! coord of ND w/i CD point
+              ! This is a trivial implementation of the interp_fcn; just copies
+              ! the values from the CD into the ND
+              if ( imask(ni,nj) .eq. 1 ) then
+               nfld( ni, nk, nj ) = cfld( ci , ck , cj )
+              endif
+           ENDDO
+        ENDDO
+     ENDDO
+#ifdef TERRAIN_AND_LANDUSE
+     END IF
+#endif
+     RETURN
+
+   END SUBROUTINE interp_fcnm_lu
+
+
+   SUBROUTINE interp_fcnm_imask( cfld,                           &  ! CD field
+                           cids, cide, ckds, ckde, cjds, cjde,   &
+                           cims, cime, ckms, ckme, cjms, cjme,   &
+                           cits, cite, ckts, ckte, cjts, cjte,   &
+                           nfld,                                 &  ! ND field
+                           nids, nide, nkds, nkde, njds, njde,   &
+                           nims, nime, nkms, nkme, njms, njme,   &
+                           nits, nite, nkts, nkte, njts, njte,   &
+                           shw,                                  &  ! stencil half width
+                           imask,                                &  ! interpolation mask
+                           xstag, ystag,                         &  ! staggering of field
+                           ipos, jpos,                           &  ! Position of lower left of nest in CD
+                           nri, nrj                             )   ! nest ratios
+     USE module_configure
+     IMPLICIT NONE
+
+
+     INTEGER, INTENT(IN) :: cids, cide, ckds, ckde, cjds, cjde,   &
+                            cims, cime, ckms, ckme, cjms, cjme,   &
+                            cits, cite, ckts, ckte, cjts, cjte,   &
+                            nids, nide, nkds, nkde, njds, njde,   &
+                            nims, nime, nkms, nkme, njms, njme,   &
+                            nits, nite, nkts, nkte, njts, njte,   &
+                            shw,                                  &
+                            ipos, jpos,                           &
+                            nri, nrj
+     LOGICAL, INTENT(IN) :: xstag, ystag
+
+     REAL, DIMENSION ( cims:cime, ckms:ckme, cjms:cjme ) :: cfld
+     REAL, DIMENSION ( nims:nime, nkms:nkme, njms:njme ) :: nfld
+     INTEGER, DIMENSION ( nims:nime, njms:njme ) :: imask
+
+     ! Local
+
+     INTEGER ci, cj, ck, ni, nj, nk, ip, jp
+
+     ! Iterate over the ND tile and compute the values
+     ! from the CD tile. 
+
+!write(0,'("mask cits:cite, ckts:ckte, cjts:cjte ",6i4)')cits,cite, ckts,ckte,cjts,cjte
+!write(0,'("mask nits:nite, nkts:nkte, njts:njte ",6i4)')nits,nite, nkts,nkte,njts,njte
+
+     DO nj = njts, njte
+        cj = jpos + (nj-1) / nrj     ! j coord of CD point 
+        jp = mod ( nj , nrj )  ! coord of ND w/i CD point
+        DO nk = nkts, nkte
+           ck = nk
+           DO ni = nits, nite
+              ci = ipos + (ni-1) / nri      ! j coord of CD point 
+              ip = mod ( ni , nri )  ! coord of ND w/i CD point
+              ! This is a trivial implementation of the interp_fcn; just copies
+              ! the values from the CD into the ND
+              if ( imask(ni,nj) .eq. 1 ) then
+               nfld( ni, nk, nj ) = cfld( ci , ck , cj )
+              endif
+           ENDDO
+        ENDDO
+     ENDDO
+
+     RETURN
+
+   END SUBROUTINE interp_fcnm_imask
+
+
    SUBROUTINE interp_mask_land_field ( enable,                   &  ! says whether to allow interpolation or just the bcasts
                                        cfld,                     &  ! CD field
                            cids, cide, ckds, ckde, cjds, cjde,   &
@@ -1565,6 +1786,7 @@ print *,'column of cg pres = ',cprs
 
       USE module_configure
       USE module_wrf_error
+      USE module_dm, only : wrf_dm_sum_reals, wrf_dm_sum_integers
 
       IMPLICIT NONE
    
@@ -1591,10 +1813,12 @@ print *,'column of cg pres = ',cprs
       ! Local
    
       INTEGER ci, cj, ck, ni, nj, nk, ip, jp
-      INTEGER :: icount , ii , jj , ist , ien , jst , jen , iswater
+      INTEGER :: icount , ii , jj , ist , ien , jst , jen , iswater, ierr
       REAL :: avg , sum , dx , dy
       INTEGER , PARAMETER :: max_search = 5
-      CHARACTER*120 message
+      CHARACTER(LEN=255) :: message
+      INTEGER :: icount_n(nkts:nkte), idummy(nkts:nkte)
+      REAL :: avg_n(nkts:nkte), sum_n(nkts:nkte), dummy(nkts:nkte)
    
       !  Find out what the water value is.
    
@@ -1617,6 +1841,7 @@ print *,'column of cg pres = ',cprs
             DO nk = nkts, nkte
                ck = nk
                DO ni = nits, nite
+                  IF ( imask(ni, nj) .NE. 1 ) cycle
                   IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
                      ci = ( ni + (nri/2)-1 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
                   ELSE
@@ -1712,27 +1937,33 @@ print *,'column of cg pres = ',cprs
 
          !  Get an average of the whole domain for problem locations.
 
-         sum = 0
-         icount = 0 
+         sum_n     = 0
+         icount_n  = 0
          DO nj = njts, njte
             DO nk = nkts, nkte
                DO ni = nits, nite
                   IF ( nfld(ni,nk,nj) .NE. -1 ) THEN
-                     icount = icount + 1
-                     sum = sum + nfld(ni,nk,nj)
+                     IF ( NINT(nlu(ni,nj)) .NE. iswater ) THEN
+                       icount_n(nk)  = icount_n(nk) + 1
+                       sum_n(nk) = sum_n(nk) + nfld(ni,nk,nj)
+                     END IF
                   END IF
                END DO
             END DO
          END DO
-       ELSE
-         sum = 0.
-         icount = 0
+
+         CALL wrf_dm_sum_reals(      sum_n(nkts:nkte),  dummy(nkts:nkte))
+         sum_n    = dummy
+         CALL wrf_dm_sum_integers(icount_n(nkts:nkte), idummy(nkts:nkte))
+         icount_n = idummy
+         DO nk = nkts, nkte
+            IF ( icount_n(nk) .GT. 0 )  &
+              avg_n(nk)  = sum_n(nk) / icount_n(nk)
+         END DO
        ENDIF
-       CALL wrf_dm_bcast_real( sum, 1 )
-       CALL wrf_dm_bcast_integer( icount, 1 )
+
        IF ( enable ) THEN
-         IF ( icount .GT. 0 ) THEN
-           avg = sum / REAL ( icount ) 
+         IF ( ANY(nfld .EQ. -1) ) THEN
 
          !  OK, if there were any of those island situations, we try to search a bit broader
          !  of an area in the coarse grid.
@@ -1740,6 +1971,7 @@ print *,'column of cg pres = ',cprs
            DO nj = njts, njte
               DO nk = nkts, nkte
                  DO ni = nits, nite
+                    IF ( imask(ni, nj) .NE. 1 ) cycle
                     IF ( nfld(ni,nk,nj) .EQ. -1 ) THEN
                        IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
                           cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
@@ -1768,10 +2000,10 @@ print *,'column of cg pres = ',cprs
                        IF ( icount .GT. 0 ) THEN
                           nfld(ni,nk,nj) = sum / REAL ( icount ) 
                        ELSE
-!                         CALL wrf_error_fatal ( "horizontal interp error - island" )
-                          write(message,*) 'horizontal interp error - island, using average ', avg
+                          Write(message,fmt='(a,i4,a,i4,a,f10.4)') &
+                            'horizontal interp error - island (', ni, ',', nj, '), using average ', avg_n(nk)
                           CALL wrf_message ( message )
-                          nfld(ni,nk,nj) = avg
+                          nfld(ni,nk,nj) = avg_n(nk)
                        END IF        
                     END IF
                  END DO
@@ -1803,6 +2035,7 @@ print *,'column of cg pres = ',cprs
 
       USE module_configure
       USE module_wrf_error
+      USE module_dm, only : wrf_dm_sum_reals, wrf_dm_sum_integers
 
       IMPLICIT NONE
    
@@ -1829,9 +2062,12 @@ print *,'column of cg pres = ',cprs
       ! Local
    
       INTEGER ci, cj, ck, ni, nj, nk, ip, jp
-      INTEGER :: icount , ii , jj , ist , ien , jst , jen
+      INTEGER :: icount , ii , jj , ist , ien , jst , jen, ierr
       REAL :: avg , sum , dx , dy
       INTEGER , PARAMETER :: max_search = 5
+      INTEGER :: icount_n(nkts:nkte), idummy(nkts:nkte)
+      REAL :: avg_n(nkts:nkte), sum_n(nkts:nkte), dummy(nkts:nkte)
+      CHARACTER(LEN=255) :: message
 
       !  Right now, only mass point locations permitted.
    
@@ -1849,6 +2085,7 @@ print *,'column of cg pres = ',cprs
             DO nk = nkts, nkte
                ck = nk
                DO ni = nits, nite
+!dave             IF ( imask(ni, nj) .NE. 1 ) cycle
                   IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
                      ci = ( ni + (nri/2)-1 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
                   ELSE
@@ -1943,28 +2180,33 @@ print *,'column of cg pres = ',cprs
 
          !  Get an average of the whole domain for problem locations.
 
-         sum = 0
-         icount = 0 
+         sum_n     = 0
+         icount_n  = 0
          DO nj = njts, njte
             DO nk = nkts, nkte
                DO ni = nits, nite
                   IF ( nfld(ni,nk,nj) .NE. -1 ) THEN
-                     icount = icount + 1
-                     sum = sum + nfld(ni,nk,nj)
+                     IF ( NINT(nlu(ni,nj)) .EQ. nflag ) THEN
+                       icount_n(nk)  = icount_n(nk) + 1
+                       sum_n(nk) = sum_n(nk) + nfld(ni,nk,nj)
+                     END IF
                   END IF
                END DO
             END DO
          END DO
-       ELSE
-         sum = 0.
-         icount = 0
-       ENDIF
-       CALL wrf_dm_bcast_real( sum, 1 )
-       CALL wrf_dm_bcast_integer( icount, 1 )
-       IF ( enable ) THEN
-         IF ( icount .NE. 0 ) THEN
-           avg = sum / REAL ( icount ) 
 
+         CALL wrf_dm_sum_reals(      sum_n(nkts:nkte),  dummy(nkts:nkte))
+         sum_n    = dummy
+         CALL wrf_dm_sum_integers(icount_n(nkts:nkte), idummy(nkts:nkte))
+         icount_n = idummy
+         DO nk = nkts, nkte
+            IF ( icount_n(nk) .GT. 0 )  &
+              avg_n(nk)  = sum_n(nk) / icount_n(nk)
+         END DO
+       ENDIF
+
+       IF ( enable ) THEN
+         IF ( ANY(nfld .EQ. -1) ) THEN
 
            !  OK, if there were any of those lake situations, we try to search a bit broader
            !  of an area in the coarse grid.
@@ -1972,6 +2214,7 @@ print *,'column of cg pres = ',cprs
            DO nj = njts, njte
               DO nk = nkts, nkte
                  DO ni = nits, nite
+!dave               IF ( imask(ni, nj) .NE. 1 ) cycle
                     IF ( nfld(ni,nk,nj) .EQ. -1 ) THEN
                        IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
                           cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
@@ -2000,9 +2243,10 @@ print *,'column of cg pres = ',cprs
                        IF ( icount .GT. 0 ) THEN
                           nfld(ni,nk,nj) = sum / REAL ( icount ) 
                        ELSE
-  !                       CALL wrf_error_fatal ( "horizontal interp error - lake" )
-                          print *,'horizontal interp error - lake, using average ',avg
-                          nfld(ni,nk,nj) = avg
+                         Write(message,fmt='(a,i4,a,i4,a,f10.4)') &
+                            'horizontal interp error - lake (', ni, ',', nj, '), using average ', avg_n(nk)
+                         CALL wrf_message ( message )                         
+                          nfld(ni,nk,nj) = avg_n(nk)
                        END IF        
                     END IF
                  END DO
@@ -2543,6 +2787,7 @@ print *,'column of cg pres = ',cprs
    REAL                                                       :: dlnpdz,tvout,pmo
    REAL,DIMENSION(nims:nime,njms:njme)                        :: ZS,DUM2d
    REAL,DIMENSION(JTB)                                        :: PIN,ZIN,Y2,PIO,ZOUT,DUM1,DUM2
+   CHARACTER (LEN=256) :: a_message
 !-----------------------------------------------------------------------------------------------------
 !
 !*** CHECK DOMAIN BOUNDS BEFORE INTERPOLATION
@@ -2637,7 +2882,8 @@ print *,'column of cg pres = ',cprs
             ENDDO
           ENDIF
           IF(ZS(I,J) .GE. Z3d(I,J,KZMAX))THEN
-             WRITE(0,*)'I=',I,'J=',J,'K=',KZMAX,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+             WRITE(a_message,*)'I=',I,'J=',J,'K=',KZMAX,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+             CALL wrf_message ( a_message )                
              CALL wrf_error_fatal3 ( "interp_fcn.b" , 176 , "MOUNTAIN TOO HIGH TO FIT THE MODEL DEPTH")
           ENDIF
 !       
@@ -2750,6 +2996,7 @@ print *,'column of cg pres = ',cprs
   INTEGER,PARAMETER                                                :: JTB=134
   INTEGER                                                          :: ii,jj
   REAL, DIMENSION (nims:nime,njms:njme)                            :: CWK1,CWK2,CWK3,CWK4
+  CHARACTER (LEN=256) :: a_message
 
      nijds = min(nids, njds)
      nijde = max(nide, njde)
@@ -2803,7 +3050,8 @@ print *,'column of cg pres = ',cprs
               ENDDO
             ENDIF
             IF(ZS(I,J) .GE. Z3d(I,J,KZMAX))THEN
-               WRITE(0,*)'I=',I,'J=',J,'K=',K,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+               WRITE(a_message,*)'I=',I,'J=',J,'K=',K,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+               CALL wrf_message ( a_message )              
                CALL wrf_error_fatal("BC:MOUNTAIN TOO HIGH TO FIT THE MODEL DEPTH")
             ENDIF
           ELSE
@@ -2858,7 +3106,8 @@ print *,'column of cg pres = ',cprs
               ENDDO
             ENDIF
             IF(ZS(I,J) .GE. Z3d(I,J,KZMAX))THEN
-               WRITE(0,*)'I=',I,'J=',J,'K=',K,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+               WRITE(a_message,*)'I=',I,'J=',J,'K=',K,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+               CALL wrf_message ( a_message )              
                CALL wrf_error_fatal("BC:MOUNTAIN TOO HIGH TO FIT THE MODEL DEPTH")
             ENDIF
           ELSE
@@ -2910,7 +3159,8 @@ print *,'column of cg pres = ',cprs
               ENDDO
           ENDIF
           IF(ZS(I,J) .GE. Z3d(I,J,KZMAX))THEN
-             WRITE(0,*)'I=',I,'J=',J,'K=',K,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+             WRITE(a_message,*)'I=',I,'J=',J,'K=',K,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+             CALL wrf_message ( a_message )                
              CALL wrf_error_fatal("BC:MOUNTAIN TOO HIGH TO FIT THE MODEL DEPTH")
           ENDIF
         ENDDO
@@ -2960,7 +3210,8 @@ print *,'column of cg pres = ',cprs
               ENDDO
           ENDIF
           IF(ZS(I,J) .GE. Z3d(I,J,KZMAX))THEN
-             WRITE(0,*)'I=',I,'J=',J,'K=',K,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+             WRITE(a_message,*)'I=',I,'J=',J,'K=',K,'TERRAIN HEIGHT',ZS(I,J),'Z3d',Z3d(I,J,KZMAX)
+             CALL wrf_message ( a_message )                
              CALL wrf_error_fatal("BC:MOUNTAIN TOO HIGH TO FIT THE MODEL DEPTH")
           ENDIF
         ENDDO
@@ -3052,6 +3303,7 @@ print *,'column of cg pres = ',cprs
    INTEGER,PARAMETER                                         :: JTB=134
    INTEGER                                                   :: I,J,K
    REAL,DIMENSION(JTB)                                       :: PIN,CIN,Y2,PIO,PTMP,COUT,DUM1,DUM2
+   CHARACTER (LEN=256) :: a_message
 
 !-----------------------------------------------------------------------------------------------------
 !
@@ -3131,8 +3383,10 @@ print *,'column of cg pres = ',cprs
 
          IF(PTMP(1) .GE. PSTD(1))THEN           ! if lower boundary is higher than PMSL(1) re-set lower boundary
            PIN(NKDE-1) = PIO(1)                 ! be consistent with target. This may not happen at all
-           WRITE(0,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
-           WRITE(0,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           WRITE(a_message,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
+           CALL wrf_message ( a_message )                  
+           WRITE(a_message,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           CALL wrf_message ( a_message )                  
          ENDIF
 
          CALL SPLINE2(I,J,JTB,NKDE-1,PIN,CIN,Y2,NKDE-1,PIO,COUT,DUM1,DUM2)  ! interpolate
@@ -3233,6 +3487,7 @@ print *,'column of cg pres = ',cprs
    INTEGER                                                 :: I,J,K,II,JJ
    REAL,DIMENSION(JTB)                                     :: PIN,CIN,Y2,PIO,PTMP,COUT,DUM1,DUM2
    REAL, DIMENSION (nims:nime,njms:njme,nkms:nkme)         :: CWK1,CWK2,CWK3,CWK4
+   CHARACTER (LEN=256) :: a_message
 !-----------------------------------------------------------------------------------------------------
 !
 !
@@ -3279,8 +3534,10 @@ print *,'column of cg pres = ',cprs
          ENDDO
          IF(PTMP(1) .GE. PSTD(1))THEN           ! if lower boundary is higher than PMSL(1) re-set lower boundary
            PIN(NKDE-1) = PIO(1)                 ! be consistent with target. This may not happen at all
-           WRITE(0,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
-           WRITE(0,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           WRITE(a_message,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
+           CALL wrf_message ( a_message )                  
+           WRITE(a_message,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           CALL wrf_message ( a_message )                  
          ENDIF
 
          CALL SPLINE2(I,J,JTB,NKDE-1,PIN,CIN,Y2,NKDE-1,PIO,COUT,DUM1,DUM2)  ! interpolate
@@ -3343,8 +3600,10 @@ print *,'column of cg pres = ',cprs
          ENDDO
          IF(PTMP(1) .GE. PSTD(1))THEN           ! if lower boundary is higher than PMSL(1) re-set lower boundary
            PIN(NKDE-1) = PIO(1)                 ! be consistent with target. This may not happen at all
-           WRITE(0,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
-           WRITE(0,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           WRITE(a_message,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
+           CALL wrf_message ( a_message )                  
+           WRITE(a_message,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           CALL wrf_message ( a_message )                  
          ENDIF
 
          CALL SPLINE2(I,J,JTB,NKDE-1,PIN,CIN,Y2,NKDE-1,PIO,COUT,DUM1,DUM2)  ! interpolate
@@ -3406,8 +3665,10 @@ print *,'column of cg pres = ',cprs
          ENDDO
          IF(PTMP(1) .GE. PSTD(1))THEN           ! if lower boundary is higher than PMSL(1) re-set lower boundary
            PIN(NKDE-1) = PIO(1)                 ! be consistent with target. This may not happen at all
-           WRITE(0,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
-           WRITE(0,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           WRITE(a_message,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
+           CALL wrf_message ( a_message )                  
+           WRITE(a_message,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           CALL wrf_message ( a_message )                  
          ENDIF
 
          CALL SPLINE2(I,J,JTB,NKDE-1,PIN,CIN,Y2,NKDE-1,PIO,COUT,DUM1,DUM2)  ! interpolate
@@ -3464,8 +3725,10 @@ print *,'column of cg pres = ',cprs
          ENDDO
          IF(PTMP(1) .GE. PSTD(1))THEN           ! if lower boundary is higher than PMSL(1) re-set lower boundary
            PIN(NKDE-1) = PIO(1)                 ! be consistent with target. This may not happen at all
-           WRITE(0,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
-           WRITE(0,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           WRITE(a_message,*)'WARNING: NESTED DOMAIN PRESSURE AT LOWEST LEVEL HIGHER THAN PSTD'
+           CALL wrf_message ( a_message )                  
+           WRITE(a_message,*)'I,J,PIO(1),PSTD(1)',I,J,PIO(1),PSTD(1)
+           CALL wrf_message ( a_message )                  
          ENDIF
 
          CALL SPLINE2(I,J,JTB,NKDE-1,PIN,CIN,Y2,NKDE-1,PIO,COUT,DUM1,DUM2)  ! interpolate
@@ -3523,6 +3786,7 @@ print *,'column of cg pres = ',cprs
       INTEGER :: II,JJ,K,K1,K2,KOLD,NOLDM1
       REAL :: AK,BK,CK,DEN,DX,DXC,DXL,DXR,DYDXL,DYDXR                 &
              ,RDX,RTDXC,X,XK,XSQ,Y2K,Y2KP1
+      CHARACTER (LEN=256) :: a_message
 !---------------------------------------------------------------------
 
 !     debug
@@ -3530,11 +3794,13 @@ print *,'column of cg pres = ',cprs
       II=9999
       JJ=9999
       IF(I.eq.II.and.J.eq.JJ)THEN
-        WRITE(0,*)'DEBUG in SPLINE2: I,J',I,J
-        WRITE(0,*)'DEBUG in SPLINE2:HSO= ',xnew(1:nold)
+        WRITE(a_message,*)'DEBUG in SPLINE2: I,J',I,J
+        CALL wrf_message ( a_message )                     
+        WRITE(a_message,*)'DEBUG in SPLINE2:HSO= ',xnew(1:nold)
+        CALL wrf_message ( a_message )                     
         DO K=1,NOLD
-         WRITE(0,*)'DEBUG in SPLINE2:L,ZETAI,PINTI= ' &
-                        ,K,YOLD(K),XOLD(K)
+         WRITE(a_message,*)'DEBUG in SPLINE2:L,ZETAI,PINTI= ',K,YOLD(K),XOLD(K)
+         CALL wrf_message ( a_message )                    
         ENDDO
       ENDIF
 !
@@ -3611,7 +3877,8 @@ print *,'column of cg pres = ',cprs
 !  debug
 
       IF(I.eq.II.and.J.eq.JJ)THEN
-        WRITE(0,*) 'DEBUG:: k1,xnew(k1),ynew(k1): ', K1,XNEW(k1),YNEW(k1)
+        WRITE(a_message,*) 'DEBUG:: k1,xnew(k1),ynew(k1): ', K1,XNEW(k1),YNEW(k1)
+        CALL wrf_message ( a_message )                     
       ENDIF 
 
 !
@@ -4743,6 +5010,7 @@ print *,'column of cg pres = ',cprs
      INTEGER i,j,k
      REAL,PARAMETER                                :: error=0.0001,error1=1.0
      REAL                                          :: diff
+     CHARACTER (LEN=256) :: a_message
 !
 !*** CHECK DOMAIN BOUNDS BEFORE INTERPOLATION
 !
@@ -4779,10 +5047,12 @@ print *,'column of cg pres = ',cprs
              DIFF=ABS(NFLD(I,J,K)-CFLD(IIH(I,J),JJH(I,J),K))
              IF(DIFF .GT. ERROR)THEN
               CALL wrf_debug(1,"dyn_nmm: NON-COINCIDENT, NESTED MASS POINT") 
-              WRITE(0,*)I,IIH(I,J),J,JJH(I,J),HBWGT1(I,J),NFLD(I,J,K),CFLD(IIH(I,J),JJH(I,J),K),DIFF 
+              WRITE(a_message,*)I,IIH(I,J),J,JJH(I,J),HBWGT1(I,J),NFLD(I,J,K),CFLD(IIH(I,J),JJH(I,J),K),DIFF 
+              CALL wrf_message ( a_message )               
              ENDIF
              IF(DIFF .GT. ERROR1)THEN
-              WRITE(0,*)I,IIH(I,J),J,JJH(I,J),HBWGT1(I,J),NFLD(I,J,K),CFLD(IIH(I,J),JJH(I,J),K),DIFF
+              WRITE(a_message,*)I,IIH(I,J),J,JJH(I,J),HBWGT1(I,J),NFLD(I,J,K),CFLD(IIH(I,J),JJH(I,J),K),DIFF
+              CALL wrf_message ( a_message )               
               CALL wrf_error_fatal ('dyn_nmm: NON-COINCIDENT, NESTED MASS POINT')
              ENDIF
           ENDIF
@@ -5034,6 +5304,7 @@ print *,'column of cg pres = ',cprs
       INTEGER :: ci, cj, ck
       INTEGER :: is, npass
       REAL    :: AVGH
+      CHARACTER (LEN=256) :: a_message
 
       RETURN
       !  If there is no feedback, there can be no smoothing.
@@ -5041,7 +5312,8 @@ print *,'column of cg pres = ',cprs
       CALL nl_get_feedback       ( 1, feedback  )
       IF ( feedback == 0 ) RETURN
 
-      WRITE(0,*)'SIMPLE SMOOTHER IS SWITCHED ON FOR HEIGHT'
+      WRITE(a_message,*)'SIMPLE SMOOTHER IS SWITCHED ON FOR HEIGHT'
+      CALL wrf_message ( a_message )                       
 
       DO npass = 1, smooth_passes
 
@@ -5117,6 +5389,7 @@ print *,'column of cg pres = ',cprs
       INTEGER :: ci, cj, ck
       INTEGER :: is, npass
       REAL    :: AVGV
+      CHARACTER (LEN=256) :: a_message
 
       RETURN
       !  If there is no feedback, there can be no smoothing.
@@ -5124,7 +5397,8 @@ print *,'column of cg pres = ',cprs
       CALL nl_get_feedback       ( 1, feedback  )
       IF ( feedback == 0 ) RETURN
 
-      WRITE(0,*)'SIMPLE SMOOTHER IS SWITCHED ON FOR VELOCITY'
+      WRITE(a_message,*)'SIMPLE SMOOTHER IS SWITCHED ON FOR VELOCITY'
+      CALL wrf_message ( a_message )                       
 
       DO npass = 1, smooth_passes
 
@@ -5208,6 +5482,62 @@ print *,'column of cg pres = ',cprs
      REAL,DIMENSION(nims:nime,njms:njme,nkms:nkme),   INTENT(IN)           :: NFLD,npint,nt,nq
 
    end subroutine NoInterpMany
+
+   subroutine DownAged2D(junk,                &
+        cids, cide, ckds, ckde, cjds, cjde,   &
+        cims, cime, ckms, ckme, cjms, cjme,   &
+        cits, cite, ckts, ckte, cjts, cjte,   &
+        nfld,                                 &  ! ND field
+        nids, nide, nkds, nkde, njds, njde,   &
+        nims, nime, nkms, nkme, njms, njme,   &
+        nits, nite, nkts, nkte, njts, njte,   &
+        shw,                                  &  ! stencil half width for interp
+        imask,                                &  ! interpolation mask
+        xstag, ystag,                         &  ! staggering of field
+        ipos, jpos,                           &  ! Position of lower left of nest in CD
+        nri, nrj, &
+        c_age,n_age, cfld)
+
+     use module_interp_nmm, only: c2n_copy2d_nomask
+     use module_interp_store
+     implicit none
+     LOGICAL,INTENT(IN) :: xstag, ystag
+     INTEGER,INTENT(IN) :: cids, cide, ckds, ckde, cjds, cjde,   &
+          cims, cime, ckms, ckme, cjms, cjme,   &
+          cits, cite, ckts, ckte, cjts, cjte,   &
+          nids, nide, nkds, nkde, njds, njde,   &
+          nims, nime, nkms, nkme, njms, njme,   &
+          nits, nite, nkts, nkte, njts, njte,   &
+          shw,ipos,jpos,nri,nrj
+
+     integer, intent(in) :: c_age
+     integer, intent(inout) :: n_age
+
+     INTEGER,DIMENSION(nims:nime,njms:njme),          INTENT(IN)           :: IMASK
+     REAL,DIMENSION(cims:cime,cjms:cjme),   INTENT(IN)           :: CFLD,junk
+     REAL,DIMENSION(nims:nime,njms:njme),   INTENT(INOUT)        :: nfld
+
+     logical bad
+     integer i,j
+     ! Skip if the nest is up-to-date with the parent.  Special age
+     ! of 0 means the values are invalid (parent just moved, nest
+     ! just moved or one was initialized).
+     if(n_age==c_age .and. n_age/=0 .and. c_age/=0) then
+        !write(0,*) 'Grid ',grid_id,' not storing pdyn in DownAged2D'
+        !write(0,*) '  reason: n_age=',n_age,' c_age=',c_age
+        return
+     end if
+     n_age=c_age
+     !write(0,*) 'Storing grid ',parent_grid_id,' pdyn_smooth in grid ',grid_id,' pdyn_parent'
+
+     call c2n_copy2d_nomask(IIH,JJH,HBWGT1,HBWGT2,HBWGT3,HBWGT4,  &
+          cfld,nfld,                &
+          cims, cime, cjms, cjme,   &
+          nids, nide, njds, njde,   &
+          nims, nime, njms, njme,   &
+          nits, nite, njts, njte, .true.)
+
+   end subroutine DownAged2D
 
    subroutine ForceNearSST   (cfld,                                 &  ! CD field
         cids, cide, ckds, ckde, cjds, cjde,   &
@@ -6238,3 +6568,411 @@ print *,'column of cg pres = ',cprs
 !--------------------------------------------------------------------------------------
 
 #endif
+
+
+   SUBROUTINE interp_mask_field ( enable,                  &  ! says whether to allow interpolation or just the bcasts
+                                       cfld,                     &  ! CD field
+                           cids, cide, ckds, ckde, cjds, cjde,   &
+                           cims, cime, ckms, ckme, cjms, cjme,   &
+                           cits, cite, ckts, ckte, cjts, cjte,   &
+                           nfld,                                 &  ! ND field
+                           nids, nide, nkds, nkde, njds, njde,   &
+                           nims, nime, nkms, nkme, njms, njme,   &
+                           nits, nite, nkts, nkte, njts, njte,   &
+                           shw,                                  &  ! stencil half width
+                           imask,                                &  ! interpolation mask
+                           xstag, ystag,                         &  ! staggering of field
+                           ipos, jpos,                           &  ! Position of lower left of nest in CD
+                           nri, nrj,                             &  ! nest ratios
+                           clu, nlu, cflag, nflag ) 
+
+      USE module_configure
+      USE module_wrf_error
+      USE module_dm , only :  wrf_dm_sum_reals, wrf_dm_sum_integers
+
+      IMPLICIT NONE
+
+
+      LOGICAL, INTENT(IN) :: enable
+      INTEGER, INTENT(IN) :: cids, cide, ckds, ckde, cjds, cjde,   &
+                             cims, cime, ckms, ckme, cjms, cjme,   &
+                             cits, cite, ckts, ckte, cjts, cjte,   &
+                             nids, nide, nkds, nkde, njds, njde,   &
+                             nims, nime, nkms, nkme, njms, njme,   &
+                             nits, nite, nkts, nkte, njts, njte,   &
+                             shw,                                  &  ! stencil half width
+                             ipos, jpos,                           &
+                             nri, nrj, cflag, nflag
+      LOGICAL, INTENT(IN) :: xstag, ystag
+
+      REAL, DIMENSION ( cims:cime, ckms:ckme, cjms:cjme ) :: cfld
+      REAL, DIMENSION ( nims:nime, nkms:nkme, njms:njme ) :: nfld
+      INTEGER, DIMENSION ( nims:nime, njms:njme ) :: imask
+
+      REAL, DIMENSION ( cims:cime, cjms:cjme ) :: clu
+      REAL, DIMENSION ( nims:nime, njms:njme ) :: nlu
+
+      ! Local
+
+      INTEGER ci, cj, ck, ni, nj, nk, ip, jp
+      INTEGER :: icount, ii , jj , ist , ien , jst , jen , iswater, ierr
+      REAL :: avg, sum, dx , dy
+      INTEGER :: icount_water(nkts:nkte), icount_land(nkts:nkte), idummy(nkts:nkte)
+      REAL :: avg_water(nkts:nkte), avg_land(nkts:nkte), sum_water(nkts:nkte), sum_land(nkts:nkte), dummy(nkts:nkte)
+      CHARACTER (len=256) :: message
+      CHARACTER (len=256) :: a_mess
+
+      !  Find out what the water value is.
+
+      !CALL nl_get_iswater(1,iswater)
+      iswater = nflag
+
+      !  Right now, only mass point locations permitted.
+
+      IF ( ( .NOT. xstag) .AND. ( .NOT. ystag ) ) THEN
+
+        !  Loop over each i,k,j in the nested domain.
+
+        IF ( enable ) THEN
+          DO nj = njts, njte
+            ! first coarse position equal to or below nest point
+            IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
+               cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1
+            ELSE
+               cj = ( nj + (nrj-1)/2 ) / nrj + jpos -1
+            END IF
+            DO nk = nkts, nkte
+               ck = nk
+               DO ni = nits, nite
+                  IF ( imask(ni, nj) .NE. 1 ) cycle
+                  ! first coarse position equal to or to the left of nest point
+                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
+                     ci = ( ni + (nri/2)-1 ) / nri + ipos -1
+                  ELSE
+                     ci = ( ni + (nri-1)/2 ) / nri + ipos -1
+                  END IF
+
+                  !
+                  !                    (ci,cj+1)     (ci+1,cj+1)
+                  !               -        -------------
+                  !         1-dy  |        |           |
+                  !               |        |           |
+                  !               -        |  *        |
+                  !          dy   |        | (ni,nj)   |
+                  !               |        |           |
+                  !               -        -------------
+                  !                    (ci,cj)       (ci+1,cj)
+                  !
+                  !                        |--|--------|
+                  !                         dx  1-dx
+
+                  !  For odd ratios, at (nri+1)/2, we are on the coarse grid point, so dx = 0
+
+                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
+                     dx = ( REAL ( MOD ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri )
+                  ELSE
+                     dx =   REAL ( MOD ( ni+(nri-1)/2 , nri ) )         / REAL ( nri )
+                  END IF
+                  IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
+                     dy = ( REAL ( MOD ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj )
+                  ELSE
+                     dy =   REAL ( MOD ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj )
+                  END IF
+
+                  ! Nested cell is a water cell.
+                  IF ( ( NINT(nlu(ni, nj)) .EQ. iswater ) ) THEN
+
+                     ! If the surrounding coarse values are all WATER points,
+                     ! i.e. open water, this is a simple 4-pt interpolation. 
+                     ! If the surrounding coarse values are all LAND points,
+                     ! i.e. this is a 1-cell lake, we have no better way to 
+                     ! come up with the value than to do a simple 4-pt interpolation.
+
+                     IF ( ALL( clu(ci:ci+1,cj:cj+1) == iswater ) .OR. &
+                          ALL( clu(ci:ci+1,cj:cj+1) /= iswater ) ) THEN
+
+                       nfld(ni,nk,nj) = ( 1. - dx ) * ( ( 1. - dy ) * cfld(ci  ,ck,cj  )   + &
+                                                               dy   * cfld(ci  ,ck,cj+1) ) + &
+                                               dx   * ( ( 1. - dy ) * cfld(ci+1,ck,cj  )   + &
+                                                               dy   * cfld(ci+1,ck,cj+1) )
+
+                     !  If there are some land points and some water points, take an average.
+                     ELSE
+                       icount = 0
+                       sum = 0
+                       IF ( NINT(clu(ci  ,cj  )) .EQ. iswater ) THEN
+                          icount = icount + 1
+                          sum = sum + cfld(ci  ,ck,cj  )
+                       END IF
+                       IF ( NINT(clu(ci+1,cj  )) .EQ. iswater ) THEN
+                          icount = icount + 1
+                          sum = sum + cfld(ci+1,ck,cj  )
+                       END IF
+                       IF ( NINT(clu(ci  ,cj+1)) .EQ. iswater ) THEN
+                          icount = icount + 1
+                          sum = sum + cfld(ci  ,ck,cj+1)
+                       END IF
+                       IF ( NINT(clu(ci+1,cj+1)) .EQ. iswater ) THEN
+                          icount = icount + 1
+                          sum = sum + cfld(ci+1,ck,cj+1)
+                       END IF
+                       nfld(ni,nk,nj) = sum / REAL ( icount )
+                     END IF
+
+                  ! Nested cell is a land cell.
+                   ELSE IF ( ( NINT(nlu(ni, nj)) .NE. iswater ) ) THEN
+
+                     ! If the surrounding coarse values are all LAND points,
+                     ! this is a simple 4-pt interpolation. 
+                     ! If the surrounding coarse values are all WATER points,
+                     ! i.e. this is a 1-cell island, we have no better way to 
+                     ! come up with the value than to do a simple 4-pt interpolation.
+
+                     IF ( ALL( clu(ci:ci+1,cj:cj+1) == iswater ) .OR. &
+                          ALL( clu(ci:ci+1,cj:cj+1) /= iswater ) ) THEN
+
+                       nfld(ni,nk,nj) = ( 1. - dx ) * ( ( 1. - dy ) * cfld(ci  ,ck,cj  )   + &
+                                                               dy   * cfld(ci  ,ck,cj+1) ) + &
+                                               dx   * ( ( 1. - dy ) * cfld(ci+1,ck,cj  )   + &
+                                                               dy   * cfld(ci+1,ck,cj+1) )
+
+                    !  If there are some water points and some land points, take an average.                  
+                    ELSE
+                      icount = 0
+                      sum = 0
+                      IF ( NINT(clu(ci  ,cj  )) .NE. iswater ) THEN
+                         icount = icount + 1
+                         sum = sum + cfld(ci  ,ck,cj  )
+                      END IF
+                      IF ( NINT(clu(ci+1,cj  )) .NE. iswater ) THEN
+                         icount = icount + 1
+                         sum = sum + cfld(ci+1,ck,cj  )
+                      END IF
+                      IF ( NINT(clu(ci  ,cj+1)) .NE. iswater ) THEN
+                         icount = icount + 1
+                         sum = sum + cfld(ci  ,ck,cj+1)
+                      END IF
+                      IF ( NINT(clu(ci+1,cj+1)) .NE. iswater ) THEN
+                         icount = icount + 1
+                         sum = sum + cfld(ci+1,ck,cj+1)
+                      END IF
+                      nfld(ni,nk,nj) = sum / REAL ( icount )
+
+                    END IF
+                  END IF
+
+               END DO
+            END DO
+          END DO
+
+        END IF
+      ELSE
+         CALL wrf_error_fatal ( "only unstaggered fields right now" )
+      END IF
+
+   END SUBROUTINE interp_mask_field
+
+
+   SUBROUTINE interp_mask_soil ( enable,                  &  ! says whether to allow interpolation or just the bcasts
+                                       cfld,                     &  ! CD field
+                           cids, cide, ckds, ckde, cjds, cjde,   &
+                           cims, cime, ckms, ckme, cjms, cjme,   &
+                           cits, cite, ckts, ckte, cjts, cjte,   &
+                           nfld,                                 &  ! ND field
+                           nids, nide, nkds, nkde, njds, njde,   &
+                           nims, nime, nkms, nkme, njms, njme,   &
+                           nits, nite, nkts, nkte, njts, njte,   &
+                           shw,                                  &  ! stencil half width
+                           imask,                                &  ! interpolation mask
+                           xstag, ystag,                         &  ! staggering of field
+                           ipos, jpos,                           &  ! Position of lower left of nest in CD
+                           nri, nrj,                             &  ! nest ratios
+                           clu, nlu )
+
+      USE module_configure
+      USE module_wrf_error
+      USE module_dm , only : wrf_dm_sum_real, wrf_dm_sum_integer
+
+      IMPLICIT NONE
+
+
+      LOGICAL, INTENT(IN) :: enable
+      INTEGER, INTENT(IN) :: cids, cide, ckds, ckde, cjds, cjde,   &
+                             cims, cime, ckms, ckme, cjms, cjme,   &
+                             cits, cite, ckts, ckte, cjts, cjte,   &
+                             nids, nide, nkds, nkde, njds, njde,   &
+                             nims, nime, nkms, nkme, njms, njme,   &
+                             nits, nite, nkts, nkte, njts, njte,   &
+                             shw,                                  &  ! stencil half width
+                             ipos, jpos,                           &
+                             nri, nrj
+      LOGICAL, INTENT(IN) :: xstag, ystag
+
+      INTEGER, DIMENSION ( cims:cime, ckms:ckme, cjms:cjme ) :: cfld
+      INTEGER, DIMENSION ( nims:nime, nkms:nkme, njms:njme ) :: nfld
+      INTEGER, DIMENSION ( nims:nime, njms:njme ) :: imask
+
+      REAL, DIMENSION ( cims:cime, cjms:cjme ) :: clu
+      REAL, DIMENSION ( nims:nime, njms:njme ) :: nlu
+
+      ! Local
+
+      INTEGER ci, cj, ck, ni, nj, nk, ip, jp
+      INTEGER :: icount, ii , jj , ist , ien , jst , jen , iswater, num_soil_cat, ierr
+      REAL :: avg, sum, dx , dy
+      INTEGER , ALLOCATABLE :: icount_water(:,: ), icount_land(:,:)
+      INTEGER , PARAMETER :: max_search = 5
+      CHARACTER*120 message
+      INTEGER, PARAMETER :: isoilwater = 14
+
+      CALL nl_get_iswater(1,iswater)
+      CALL nl_get_num_soil_cat(1,num_soil_cat)
+
+      allocate (icount_water(nkms:nkme,1:num_soil_cat))
+      allocate ( icount_land(nkms:nkme,1:num_soil_cat))
+
+      !  Right now, only mass point locations permitted.
+
+      IF ( ( .NOT. xstag) .AND. ( .NOT. ystag ) ) THEN
+
+        !  Loop over each i,k,j in the nested domain.
+
+        IF ( enable ) THEN
+
+          DO nj = njts, njte
+             cj = jpos + (nj-1) / nrj     ! j coord of CD point 
+            DO nk = nkts, nkte
+               ck = nk
+               DO ni = nits, nite
+                  ci = ipos + (ni-1) / nri      ! j coord of CD point 
+
+                  IF ( imask(ni, nj) .NE. 1 ) cycle
+
+                  IF ( ( NINT(nlu(ni, nj)) .EQ. iswater ) ) then
+
+                     IF ( ( NINT(clu(ci  ,cj  )) .EQ. iswater ) ) then 
+                       nfld(ni,nk,nj) = cfld(ci,ck,cj)
+                     ELSE 
+                       nfld(ni,nk,nj) = -1
+                     ENDIF
+
+                  ELSE IF ( ( NINT(nlu(ni, nj)) .NE. iswater ) ) THEN
+
+                      IF ( ( NINT(clu(ci  ,cj  )) .NE. iswater ) ) THEN 
+                         nfld(ni,nk,nj) = cfld(ci,ck,cj)
+                      ELSE 
+                         nfld(ni,nk,nj) = -1
+                      ENDIF
+
+                  END IF
+               END DO
+            END DO
+          END DO
+
+          DO nj = njts, njte
+             DO nk = nkts, nkte
+                DO ni = nits, nite
+                  IF ( imask(ni, nj) .NE. 1 ) cycle
+                  IF ( nfld(ni,nk,nj) .EQ. -1 ) THEN
+                     IF ( NINT(nlu(ni,nj)) .EQ. iswater ) THEN 
+                        nfld(ni,nk,nj) = isoilwater
+                     END IF
+                  END IF
+               END DO
+             END DO
+          END DO
+#if 0
+          IF ( ANY(nfld .EQ. -1) ) THEN
+
+            !  Get an average of the whole domain for problem locations.
+
+            sum_water    = 0
+            icount_water = 0
+            sum_land     = 0
+            icount_land  = 0
+            avg_water    = 0
+            avg_land     = 0
+           
+            DO nj = njts, njte
+               cj = jpos + (nj-1) / nrj     ! j coord of CD point 
+               DO nk = nkts, nkte
+                  DO ni = nits, nite
+                     ci = ipos + (ni-1) / nri      ! j coord of CD point 
+                     IF ( imask(ni, nj) .NE. 1 ) cycle
+                     IF ( nfld(ni,nk,nj) .EQ. -1 ) THEN
+                        ist = MAX (ci-max_search,cits)
+                        ien = MIN (ci+max_search,cite,cide-1)
+                        jst = MAX (cj-max_search,cjts)
+                        jen = MIN (cj+max_search,cjte,cjde-1)
+                        DO jj = jst,jen
+                           DO ii = ist,ien
+                              IF ( NINT(clu(ii,jj)) .NE. iswater ) THEN
+                                 icount_land(nk,cfld(ii,nk,jj)) = icount_land(nk,cfld(ii,nk,jj)) +1
+                              END IF
+                           END DO
+                        END DO
+                        IF ( maxval(icount_land(nk,:)) .GT. 0 .and. maxloc(icount_land(nk,:)) .ne. isoilwater ) then
+                            nfld(ni,nk,nj) = maxloc(icount_land(nk,:))
+                        END IF
+                     END IF
+                  END DO
+               END DO
+            END DO
+
+          END IF ! nfld = -1
+
+
+          IF ( ANY(nfld .EQ. -1) ) THEN
+            sum_water    = 0
+            icount_water = 0
+            sum_land     = 0
+            icount_land  = 0
+            avg_water    = 0
+            avg_land     = 0
+
+            DO nj = njts, njte
+               DO nk = nkts, nkte
+                  DO ni = nits, nite
+                     IF ( nlu(ni,nj ) .NE. iswater ) THEN
+                        icount_land(nk,nfld(ni,nk,nj)) = icount_land(nk,nfld(ni,nk,nj)) +1
+                     END IF
+                  ENDDO
+               ENDDO
+            ENDDO
+
+            DO nj = njts, njte
+               DO nk = nkts, nkte
+                  DO ni = nits, nite
+                     IF ( imask(ni, nj) .NE. 1 ) cycle
+                     IF ( nfld(ni,nk,nj) .EQ. -1 .and. maxloc(icount_land(nk,:)) .ne. isoilwater) THEN
+                        nfld(ni,nk,nj) = MAXLOC(icount_land(nk,:))
+                     END IF
+                  ENDDO
+               ENDDO
+            ENDDO
+          END IF ! nfld = -1
+#endif
+
+          IF ( ANY(nfld .EQ. -1) ) THEN
+            DO nj = njts, njte
+               DO nk = nkts, nkte
+                  DO ni = nits, nite
+                     IF ( imask(ni, nj) .NE. 1 ) cycle
+                     IF ( nfld(ni,nk,nj) .EQ. -1 ) THEN
+                        nfld(ni,nk,nj) = 8
+                     END IF
+                  ENDDO
+               ENDDO
+            ENDDO
+          END IF ! nfld = -1
+
+        END IF  ! enable
+      ELSE
+         CALL wrf_error_fatal ( "only unstaggered fields right now" )
+      END IF
+
+
+      deallocate (icount_water)
+      deallocate (icount_land)
+
+   END SUBROUTINE interp_mask_soil

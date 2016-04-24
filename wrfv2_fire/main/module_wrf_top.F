@@ -24,6 +24,8 @@ MODULE module_wrf_top
    USE module_dm, ONLY : wrf_dm_initialize
 #endif
 
+   USE module_cpl, ONLY : coupler_on, cpl_finalize, cpl_defdomain
+
    IMPLICIT NONE
 
    REAL    :: time
@@ -52,6 +54,7 @@ MODULE module_wrf_top
 
    CHARACTER (LEN=80)      :: rstname
    CHARACTER (LEN=80)      :: message
+   CHARACTER (LEN=256) , PRIVATE :: a_message
 
    INTERFACE 
      SUBROUTINE Setup_Timekeeping( grid )
@@ -236,7 +239,10 @@ CONTAINS
    ALLOCATE( hostids(nproc) )
    ALLOCATE( budds(nproc) )
    CALL mpi_allgather( hostid, 1, MPI_INTEGER, hostids, 1, MPI_INTEGER, loccomm, ierr )
-   if ( ierr .NE. 0 ) write(0,*)__FILE__,__LINE__,'error in mpi_allgather ',ierr
+   IF ( ierr .NE. 0 ) THEN
+      write(a_message,*)__FILE__,__LINE__,'error in mpi_allgather ',ierr
+      CALL wrf_message ( a_message ) 
+   END IF
    budds = -1
    buddcounter = 0 
    ! mark the ones i am on the same node with
@@ -388,6 +394,7 @@ CONTAINS
    END IF
 #endif
 
+   IF (coupler_on) CALL cpl_defdomain( head_grid ) 
 
    END SUBROUTINE wrf_init
 
@@ -447,8 +454,12 @@ CONTAINS
    ! for DM parallel runs).  
    IF ( .NOT. PRESENT( no_shutdown ) ) THEN
      ! Finalize time manager
-     CALL WRFU_Finalize
-     CALL wrf_shutdown
+      IF (coupler_on) THEN 
+         CALL cpl_finalize() 
+      ELSE
+         CALL WRFU_Finalize
+         CALL wrf_shutdown
+      ENDIF
    ENDIF
 
    END SUBROUTINE wrf_finalize

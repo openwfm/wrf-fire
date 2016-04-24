@@ -251,6 +251,8 @@ contains
   REAL                                           :: BEG_WB !beginning water for error check
   REAL                                           :: ZBOT = -8.0 
 
+  CHARACTER*256 message
+
 ! --------------------------------------------------------------------------------------------------
 ! re-process atmospheric forcing
 
@@ -297,11 +299,21 @@ contains
                          DZSNSO ,SH2O   ,SICE   ,PONDING,ZSNSO  ,         & !inout
                          RUNSRF ,RUNSUB ,QSNOW  ,PONDING1       ,PONDING2,QSNBOT,FPICE)  !out
 
+     IF(MAXVAL(SICE) < 0.0001) THEN
+       WRITE(message,*) "GLACIER HAS MELTED AT:",ILOC,JLOC," ARE YOU SURE THIS SHOULD BE A GLACIER POINT?"
+       CALL wrf_debug(10,TRIM(message))
+     END IF
+     
 ! water and energy balance check
 
      CALL ERROR_GLACIER (ILOC   ,JLOC   ,SWDOWN ,FSA    ,FSR    ,FIRA   , &
                          FSH    ,FGEV   ,SSOIL  ,SAG    ,PRCP   ,EDIR   , &
 		         RUNSRF ,RUNSUB ,SNEQV  ,DT     ,BEG_WB )
+
+    IF(SNOWH <= 1.E-6 .OR. SNEQV <= 1.E-3) THEN
+     SNOWH = 0.0
+     SNEQV = 0.0
+    END IF
 
     IF(SWDOWN.NE.0.) THEN
       ALBEDO = FSR / SWDOWN
@@ -345,7 +357,8 @@ contains
 
        PAIR   = SFCPRS                   ! atm bottom level pressure (pa)
        THAIR  = SFCTMP * (SFCPRS/PAIR)**(RAIR/CPAIR) 
-       QAIR   = Q2 / (1.0+Q2)           ! mixing ratio to specific humidity [kg/kg]
+!       QAIR   = Q2 / (1.0+Q2)           ! mixing ratio to specific humidity [kg/kg]
+       QAIR   = Q2                       ! In WRF, driver converts to specific humidity
 
        EAIR   = QAIR*SFCPRS / (0.622+0.378*QAIR)
        RHOAIR = (SFCPRS-0.378*EAIR) / (RAIR*SFCTMP)
@@ -495,19 +508,15 @@ contains
 
 ! set psychrometric constant
 
-     IF (SFCTMP .GT. TFRZ) THEN
-        LATHEA = HVAP
-     ELSE
-        LATHEA = HSUB
-     END IF
+     LATHEA = HSUB
      GAMMA = CPAIR*SFCPRS/(0.622*LATHEA)
 
 ! Surface temperatures of the ground and energy fluxes
 
     CALL GLACIER_FLUX (NSOIL   ,NSNOW   ,EMG     ,ISNOW   ,DF      ,DZSNSO  ,Z0MG    , & !in
                        ZLVL    ,ZPD     ,QAIR    ,SFCTMP  ,RHOAIR  ,SFCPRS  , & !in
-		       UR      ,GAMMA   ,RSURF   ,LWDN    ,RHSUR   , & !in
-		       EAIR    ,STC     ,SAG     ,SNOWH   ,LATHEA  , & !in
+		       UR      ,GAMMA   ,RSURF   ,LWDN    ,RHSUR   ,SMC     , & !in
+		       EAIR    ,STC     ,SAG     ,SNOWH   ,LATHEA  ,SH2O    , & !in
 		       CM      ,CH      ,TG      ,QSFC    ,          & !inout
 		       FIRA    ,FSH     ,FGEV    ,SSOIL   ,          & !out
 		       T2M     ,Q2E     ,CH2B)                         !out 
@@ -601,7 +610,7 @@ contains
        DO IZ2 = 1, IZ-1
          ZMID = ZMID + DZSNSO(IZ2)
        END DO
-       HCPCT(IZ) = 1.E6 * ( 0.8194 - 0.1309*ZMID )
+       HCPCT(IZ) = 1.E6 * ( 0.8194 + 0.1309*ZMID )
        DF(IZ)    = 0.32333 + ( 0.10073 * ZMID )
     END DO
        
@@ -805,7 +814,7 @@ contains
    ELSE IF (SNEQV.GT.800.) THEN
           TAUSS = 0.
    ELSE
-          TAUSS = 0.
+!          TAUSS = 0.
           DELA0 = 1.E-6*DT
           ARG   = 5.E3*(1./TFRZ-1./TG)
           AGE1  = EXP(ARG)
@@ -919,8 +928,8 @@ contains
 ! ==================================================================================================
   SUBROUTINE GLACIER_FLUX (NSOIL   ,NSNOW   ,EMG     ,ISNOW   ,DF      ,DZSNSO  ,Z0M     , & !in
                            ZLVL    ,ZPD     ,QAIR    ,SFCTMP  ,RHOAIR  ,SFCPRS  , & !in
-			   UR      ,GAMMA   ,RSURF   ,LWDN    ,RHSUR   , & !in
-			   EAIR    ,STC     ,SAG     ,SNOWH   ,LATHEA  , & !in
+			   UR      ,GAMMA   ,RSURF   ,LWDN    ,RHSUR   ,SMC     , & !in
+			   EAIR    ,STC     ,SAG     ,SNOWH   ,LATHEA  ,SH2O    , & !in
                            CM      ,CH      ,TGB     ,QSFC    ,          & !inout
                            IRB     ,SHB     ,EVB     ,GHB     ,          & !out
                            T2MB    ,Q2B     ,EHB2)                         !out 
@@ -957,6 +966,8 @@ contains
   REAL,                            INTENT(IN) :: RHSUR  !raltive humidity in surface soil/snow air space (-)
   REAL,                            INTENT(IN) :: EAIR   !vapor pressure air at height (pa)
   REAL, DIMENSION(-NSNOW+1:NSOIL), INTENT(IN) :: STC    !soil/snow temperature (k)
+  REAL, DIMENSION(       1:NSOIL), INTENT(IN) :: SMC    !soil moisture
+  REAL, DIMENSION(       1:NSOIL), INTENT(IN) :: SH2O   !soil liquid water
   REAL,                            INTENT(IN) :: SAG    !solar radiation absorbed by ground (w/m2)
   REAL,                            INTENT(IN) :: SNOWH  !actual snow depth [m]
   REAL,                            INTENT(IN) :: LATHEA !latent heat of vaporization/subli (j/kg)
@@ -984,6 +995,9 @@ contains
   REAL    :: DTG        !change in tg, last iteration (k)
   INTEGER :: MOZSGN  !number of times MOZ changes sign
   REAL    :: MOZOLD     !Monin-Obukhov stability parameter from prior iteration
+  REAL    :: FM2          !Monin-Obukhov momentum adjustment at 2m
+  REAL    :: FH2          !Monin-Obukhov heat adjustment at 2m
+  REAL    :: CH2          !Surface exchange at 2m
   REAL    :: H          !temporary sensible heat flux (w/m2)
   REAL    :: FV         !friction velocity (m/s)
   REAL    :: CIR        !coefficients for ir as function of ts**4
@@ -1008,6 +1022,7 @@ contains
   REAL    :: A          !temporary calculation
   REAL    :: B          !temporary calculation
   REAL    :: T, TDC     !Kelvin to degree Celsius with limit -50 to +50
+  REAL, DIMENSION(       1:NSOIL) :: SICE   !soil ice
 
   TDC(T)   = MIN( 50., MAX(-50.,(T-TFRZ)) )
 
@@ -1034,8 +1049,8 @@ contains
 
         CALL SFCDIF1_GLACIER(ITER   ,ZLVL   ,ZPD    ,Z0H    ,Z0M    , & !in
                      QAIR   ,SFCTMP ,H      ,RHOAIR ,MPE    ,UR     , & !in
-       &             MOZ    ,MOZSGN ,FM     ,FH     ,                 & !inout
-       &             FV     ,CM     ,CH     )                           !out
+       &             MOZ    ,MOZSGN ,FM     ,FH     ,FM2    ,FH2    , & !inout
+       &             FV     ,CM     ,CH     ,CH2)                       !out
 
         RAMB = MAX(1.,1./(CM*UR))
         RAHB = MAX(1.,1./(CH*UR))
@@ -1092,8 +1107,9 @@ contains
 
 ! if snow on ground and TG > TFRZ: reset TG = TFRZ. reevaluate ground fluxes.
 
+     SICE = SMC - SH2O
      IF(OPT_STC == 1) THEN
-     IF (SNOWH > 0.05 .AND. TGB > TFRZ) THEN
+     IF ((MAXVAL(SICE) > 0.0 .OR. SNOWH > 0.0) .AND. TGB > TFRZ) THEN
           TGB = TFRZ
           IRB = CIR * TGB**4 - EMG*LWDN
           SHB = CSH * (TGB        - SFCTMP)
@@ -1103,13 +1119,13 @@ contains
      END IF
 
 ! 2m air temperature
-     EHB2  = FV*VKC/LOG((2.+Z0H)/Z0H)
+     EHB2  = FV*VKC/(LOG((2.+Z0H)/Z0H)-FH2)
      CQ2B  = EHB2
      IF (EHB2.lt.1.E-5 ) THEN
        T2MB  = TGB
        Q2B   = QSFC
      ELSE
-       T2MB  = TGB - SHB/(RHOAIR*CPAIR*FV) * 1./VKC * LOG((2.+Z0H)/Z0H)
+       T2MB  = TGB - SHB/(RHOAIR*CPAIR) * 1./EHB2
        Q2B   = QSFC - EVB/(LATHEA*RHOAIR)*(1./CQ2B + RSURF)
      ENDIF
 
@@ -1172,8 +1188,8 @@ contains
 
   SUBROUTINE SFCDIF1_GLACIER(ITER   ,ZLVL   ,ZPD    ,Z0H    ,Z0M    , & !in
                      QAIR   ,SFCTMP ,H      ,RHOAIR ,MPE    ,UR     , & !in
-       &             MOZ    ,MOZSGN ,FM     ,FH     ,                 & !inout
-       &             FV     ,CM     ,CH     )                           !out
+       &             MOZ    ,MOZSGN ,FM     ,FH     ,FM2    ,FH2    , & !inout
+       &             FV     ,CM     ,CH     ,CH2     )                  !out
 ! -------------------------------------------------------------------------------------------------
 ! computing surface drag coefficient CM for momentum and CH for heat
 ! -------------------------------------------------------------------------------------------------
@@ -1197,11 +1213,14 @@ contains
     INTEGER,           INTENT(INOUT) :: MOZSGN !number of times moz changes sign
     REAL,              INTENT(INOUT) :: FM     !momentum stability correction, weighted by prior iters
     REAL,              INTENT(INOUT) :: FH     !sen heat stability correction, weighted by prior iters
+    REAL,              INTENT(INOUT) :: FM2    !sen heat stability correction, weighted by prior iters
+    REAL,              INTENT(INOUT) :: FH2    !sen heat stability correction, weighted by prior iters
 
 ! outputs
     REAL,                INTENT(OUT) :: FV     !friction velocity (m/s)
     REAL,                INTENT(OUT) :: CM     !drag coefficient for momentum
     REAL,                INTENT(OUT) :: CH     !drag coefficient for heat
+    REAL,                INTENT(OUT) :: CH2    !drag coefficient for heat
 
 ! locals
     REAL    :: MOZOLD                   !Monin-Obukhov stability parameter from prior iteration
@@ -1212,7 +1231,14 @@ contains
     REAL    :: TMP1,TMP2,TMP3           !temporary calculation
     REAL    :: FMNEW                    !stability correction factor, momentum, for current moz
     REAL    :: FHNEW                    !stability correction factor, sen heat, for current moz
-    REAL    :: CMFM, CHFH
+    REAL    :: MOZ2                     !2/L
+    REAL    :: TMPCM2                   !temporary calculation for CM2
+    REAL    :: TMPCH2                   !temporary calculation for CH2
+    REAL    :: FM2NEW                   !stability correction factor, momentum, for current moz
+    REAL    :: FH2NEW                   !stability correction factor, sen heat, for current moz
+    REAL    :: TMP12,TMP22,TMP32        !temporary calculation
+
+    REAL    :: CMFM, CHFH, CM2FM2, CH2FH2
 
 
 ! -------------------------------------------------------------------------------------------------
@@ -1221,23 +1247,27 @@ contains
     MOZOLD = MOZ
   
     IF(ZLVL <= ZPD) THEN
-       write(*,*) 'critical problem: ZLVL <= ZPD; model stops'
-       call wrf_error_fatal("STOP in Noah-MP")
+       write(*,*) 'critical glacier problem: ZLVL <= ZPD; model stops', zlvl, zpd
+       call wrf_error_fatal("STOP in Noah-MP glacier")
     ENDIF
 
     TMPCM = LOG((ZLVL-ZPD) / Z0M)
     TMPCH = LOG((ZLVL-ZPD) / Z0H)
+    TMPCM2 = LOG((2.0 + Z0M) / Z0M)
+    TMPCH2 = LOG((2.0 + Z0H) / Z0H)
 
     IF(ITER == 1) THEN
        FV   = 0.0
        MOZ  = 0.0
        MOL  = 0.0
+       MOZ2 = 0.0
     ELSE
        TVIR = (1. + 0.61*QAIR) * SFCTMP
        TMP1 = VKC * (GRAV/TVIR) * H/(RHOAIR*CPAIR)
        IF (ABS(TMP1) .LE. MPE) TMP1 = MPE
        MOL  = -1. * FV**3 / TMP1
        MOZ  = MIN( (ZLVL-ZPD)/MOL, 1.)
+       MOZ2  = MIN( (2.0 + Z0H)/MOL, 1.)
     ENDIF
 
 ! accumulate number of times moz changes sign.
@@ -1247,6 +1277,9 @@ contains
        MOZ = 0.
        FM = 0.
        FH = 0.
+       MOZ2 = 0.
+       FM2 = 0.
+       FH2 = 0.
     ENDIF
 
 ! evaluate stability-dependent variables using moz from prior iteration
@@ -1256,9 +1289,18 @@ contains
        TMP3 = LOG((1.+TMP1)/2.)
        FMNEW = 2.*TMP3 + TMP2 - 2.*ATAN(TMP1) + 1.5707963
        FHNEW = 2*TMP2
+
+! 2-meter
+       TMP12 = (1. - 16.*MOZ2)**0.25
+       TMP22 = LOG((1.+TMP12*TMP12)/2.)
+       TMP32 = LOG((1.+TMP12)/2.)
+       FM2NEW = 2.*TMP32 + TMP22 - 2.*ATAN(TMP12) + 1.5707963
+       FH2NEW = 2*TMP22
     ELSE
        FMNEW = -5.*MOZ
        FHNEW = FMNEW
+       FM2NEW = -5.*MOZ2
+       FH2NEW = FM2NEW
     ENDIF
 
 ! except for first iteration, weight stability factors for previous
@@ -1267,23 +1309,38 @@ contains
     IF (ITER == 1) THEN
        FM = FMNEW
        FH = FHNEW
+       FM2 = FM2NEW
+       FH2 = FH2NEW
     ELSE
        FM = 0.5 * (FM+FMNEW)
        FH = 0.5 * (FH+FHNEW)
+       FM2 = 0.5 * (FM2+FM2NEW)
+       FH2 = 0.5 * (FH2+FH2NEW)
     ENDIF
 
 ! exchange coefficients
 
+    FH = MIN(FH,0.9*TMPCH)
+    FM = MIN(FM,0.9*TMPCM)
+    FH2 = MIN(FH2,0.9*TMPCH2)
+    FM2 = MIN(FM2,0.9*TMPCM2)
+
     CMFM = TMPCM-FM
     CHFH = TMPCH-FH
+    CM2FM2 = TMPCM2-FM2
+    CH2FH2 = TMPCH2-FH2
     IF(ABS(CMFM) <= MPE) CMFM = MPE
     IF(ABS(CHFH) <= MPE) CHFH = MPE
+    IF(ABS(CM2FM2) <= MPE) CM2FM2 = MPE
+    IF(ABS(CH2FH2) <= MPE) CH2FH2 = MPE
     CM  = VKC*VKC/(CMFM*CMFM)
     CH  = VKC*VKC/(CMFM*CHFH)
+    CH2  = VKC*VKC/(CM2FM2*CH2FH2)
         
 ! friction velocity
 
     FV = UR * SQRT(CM)
+    CH2  = VKC*FV/CH2FH2
 
   END SUBROUTINE SFCDIF1_GLACIER
 ! ==================================================================================================
@@ -1598,7 +1655,7 @@ contains
 
 ! local
 
-  INTEGER                         :: J         !do loop index
+  INTEGER                         :: J,K         !do loop index
   REAL, DIMENSION(-NSNOW+1:NSOIL) :: HM        !energy residual [w/m2]
   REAL, DIMENSION(-NSNOW+1:NSOIL) :: XM        !melting or freezing water [kg/m2]
   REAL, DIMENSION(-NSNOW+1:NSOIL) :: WMASS0
@@ -1606,7 +1663,7 @@ contains
   REAL, DIMENSION(-NSNOW+1:NSOIL) :: WLIQ0 
   REAL, DIMENSION(-NSNOW+1:NSOIL) :: MICE      !soil/snow ice mass [mm]
   REAL, DIMENSION(-NSNOW+1:NSOIL) :: MLIQ      !soil/snow liquid water mass [mm]
-  REAL                            :: HEATR     !energy residual or loss after melting/freezing
+  REAL, DIMENSION(-NSNOW+1:NSOIL) :: HEATR     !energy residual or loss after melting/freezing
   REAL                            :: TEMP1     !temporary variables [kg/m2]
   REAL                            :: PROPOR
   REAL                            :: XMF       !total latent heat of phase change
@@ -1636,8 +1693,7 @@ contains
          WLIQ0(J)    = MLIQ(J)
          WMASS0(J)   = MICE(J) + MLIQ(J)
     ENDDO
-
-
+    
     DO J = ISNOW+1,NSOIL
          IF (MICE(J) > 0. .AND. STC(J) >= TFRZ) THEN  ! melting 
              IMELT(J) = 1
@@ -1680,13 +1736,15 @@ contains
         SNEQV  = MAX(0.,TEMP1-XM(1))  
         PROPOR = SNEQV/TEMP1
         SNOWH  = MAX(0.,PROPOR * SNOWH)
-        HEATR  = HM(1) - HFUS*(TEMP1-SNEQV)/DT  
-        IF (HEATR > 0.) THEN
-              XM(1) = HEATR*DT/HFUS             
-              HM(1) = HEATR                    
+        HEATR(1)  = HM(1) - HFUS*(TEMP1-SNEQV)/DT  
+        IF (HEATR(1) > 0.) THEN
+              XM(1) = HEATR(1)*DT/HFUS             
+              HM(1) = HEATR(1) 
+	      IMELT(1) = 1                   
         ELSE
               XM(1) = 0.
               HM(1) = 0.
+	      IMELT(1) = 0                   
         ENDIF
         QMELT   = MAX(0.,(TEMP1-SNEQV))/DT
         XMF     = HFUS*QMELT
@@ -1698,31 +1756,143 @@ contains
     DO J = ISNOW+1,NSOIL
       IF (IMELT(J) > 0 .AND. ABS(HM(J)) > 0.) THEN
 
-         HEATR = 0.
+         HEATR(J) = 0.
          IF (XM(J) > 0.) THEN                            
             MICE(J) = MAX(0., WICE0(J)-XM(J))
-            HEATR = HM(J) - HFUS*(WICE0(J)-MICE(J))/DT
+            HEATR(J) = HM(J) - HFUS*(WICE0(J)-MICE(J))/DT
          ELSE IF (XM(J) < 0.) THEN                      
             MICE(J) = MIN(WMASS0(J), WICE0(J)-XM(J))  
-            HEATR = HM(J) - HFUS*(WICE0(J)-MICE(J))/DT
+            HEATR(J) = HM(J) - HFUS*(WICE0(J)-MICE(J))/DT
          ENDIF
 
          MLIQ(J) = MAX(0.,WMASS0(J)-MICE(J))
 
-         IF (ABS(HEATR) > 0.) THEN
-            STC(J) = STC(J) + FACT(J)*HEATR
+         IF (ABS(HEATR(J)) > 0.) THEN
+            STC(J) = STC(J) + FACT(J)*HEATR(J)
             IF (J <= 0) THEN                             ! snow
                IF (MLIQ(J)*MICE(J)>0.) STC(J) = TFRZ
             END IF
          ENDIF
 
-         XMF = XMF + HFUS * (WICE0(J)-MICE(J))/DT
+         IF (J > 0) XMF = XMF + HFUS * (WICE0(J)-MICE(J))/DT
 
          IF (J < 1) THEN
             QMELT = QMELT + MAX(0.,(WICE0(J)-MICE(J)))/DT
          ENDIF
       ENDIF
     ENDDO
+    HEATR = 0.0
+    XM = 0.0
+
+! Deal with residuals in ice/soil
+
+! FIRST REMOVE EXCESS HEAT BY REDUCING TEMPERATURE OF LAYERS
+
+    IF (ANY(STC(1:4) > TFRZ) .AND. ANY(STC(1:4) < TFRZ)) THEN
+      DO J = 1,NSOIL
+        IF ( STC(J) > TFRZ ) THEN                                       
+	  HEATR(J) = (STC(J)-TFRZ)/FACT(J)
+          DO K = 1,NSOIL
+	    IF (J .NE. K .AND. STC(K) < TFRZ .AND. HEATR(J) > 0.1) THEN
+	      HEATR(K) = (STC(K)-TFRZ)/FACT(K)
+	      IF (ABS(HEATR(K)) > HEATR(J)) THEN  ! LAYER ABSORBS ALL
+	        HEATR(K) = HEATR(K) + HEATR(J)
+		STC(K) = TFRZ + HEATR(K)*FACT(K)
+		HEATR(J) = 0.0
+              ELSE
+	        HEATR(J) = HEATR(J) + HEATR(K)
+		HEATR(K) = 0.0
+		STC(K) = TFRZ
+              END IF
+	    END IF
+	  END DO
+          STC(J) = TFRZ + HEATR(J)*FACT(J)
+        END IF
+      END DO
+    END IF
+
+! NOW REMOVE EXCESS COLD BY INCREASING TEMPERATURE OF LAYERS (MAY NOT BE NECESSARY WITH ABOVE LOOP)
+
+    IF (ANY(STC(1:4) > TFRZ) .AND. ANY(STC(1:4) < TFRZ)) THEN
+      DO J = 1,NSOIL
+        IF ( STC(J) < TFRZ ) THEN                                       
+	  HEATR(J) = (STC(J)-TFRZ)/FACT(J)
+          DO K = 1,NSOIL
+	    IF (J .NE. K .AND. STC(K) > TFRZ .AND. HEATR(J) < -0.1) THEN
+	      HEATR(K) = (STC(K)-TFRZ)/FACT(K)
+	      IF (HEATR(K) > ABS(HEATR(J))) THEN  ! LAYER ABSORBS ALL
+	        HEATR(K) = HEATR(K) + HEATR(J)
+		STC(K) = TFRZ + HEATR(K)*FACT(K)
+		HEATR(J) = 0.0
+              ELSE
+	        HEATR(J) = HEATR(J) + HEATR(K)
+		HEATR(K) = 0.0
+		STC(K) = TFRZ
+              END IF
+	    END IF
+	  END DO
+          STC(J) = TFRZ + HEATR(J)*FACT(J)
+        END IF
+      END DO
+    END IF
+
+! NOW REMOVE EXCESS HEAT BY MELTING ICE
+
+    IF (ANY(STC(1:4) > TFRZ) .AND. ANY(MICE(1:4) > 0.)) THEN
+      DO J = 1,NSOIL
+        IF ( STC(J) > TFRZ ) THEN                                       
+	  HEATR(J) = (STC(J)-TFRZ)/FACT(J)
+          XM(J) = HEATR(J)*DT/HFUS                           
+          DO K = 1,NSOIL
+	    IF (J .NE. K .AND. MICE(K) > 0. .AND. XM(J) > 0.1) THEN
+	      IF (MICE(K) > XM(J)) THEN  ! LAYER ABSORBS ALL
+	        MICE(K) = MICE(K) - XM(J)
+		XMF = XMF + HFUS * XM(J)/DT
+		STC(K) = TFRZ
+		XM(J) = 0.0
+              ELSE
+	        XM(J) = XM(J) - MICE(K)
+		XMF = XMF + HFUS * MICE(K)/DT
+		MICE(K) = 0.0
+		STC(K) = TFRZ
+              END IF
+              MLIQ(K) = MAX(0.,WMASS0(K)-MICE(K))
+	    END IF
+	  END DO
+	  HEATR(J) = XM(J)*HFUS/DT
+          STC(J) = TFRZ + HEATR(J)*FACT(J)
+        END IF
+      END DO
+    END IF
+
+! NOW REMOVE EXCESS COLD BY FREEZING LIQUID OF LAYERS (MAY NOT BE NECESSARY WITH ABOVE LOOP)
+
+    IF (ANY(STC(1:4) < TFRZ) .AND. ANY(MLIQ(1:4) > 0.)) THEN
+      DO J = 1,NSOIL
+        IF ( STC(J) < TFRZ ) THEN                                       
+	  HEATR(J) = (STC(J)-TFRZ)/FACT(J)
+          XM(J) = HEATR(J)*DT/HFUS                           
+          DO K = 1,NSOIL
+	    IF (J .NE. K .AND. MLIQ(K) > 0. .AND. XM(J) < -0.1) THEN
+	      IF (MLIQ(K) > ABS(XM(J))) THEN  ! LAYER ABSORBS ALL
+	        MICE(K) = MICE(K) - XM(J)
+		XMF = XMF + HFUS * XM(J)/DT
+		STC(K) = TFRZ
+		XM(J) = 0.0
+              ELSE
+	        XM(J) = XM(J) + MLIQ(K)
+		XMF = XMF - HFUS * MLIQ(K)/DT
+		MICE(K) = WMASS0(K)
+		STC(K) = TFRZ
+              END IF
+              MLIQ(K) = MAX(0.,WMASS0(K)-MICE(K))
+	    END IF
+	  END DO
+	  HEATR(J) = XM(J)*HFUS/DT
+          STC(J) = TFRZ + HEATR(J)*FACT(J)
+        END IF
+      END DO
+    END IF
 
     DO J = ISNOW+1,0             ! snow
        SNLIQ(J) = MLIQ(J)
@@ -1731,7 +1901,9 @@ contains
 
     DO J = 1, NSOIL              ! soil
        SH2O(J) =  MLIQ(J)            / (1000. * DZSNSO(J))
-       SMC(J)  = (MLIQ(J) + MICE(J)) / (1000. * DZSNSO(J))
+       SH2O(J) =  MAX(0.0,MIN(1.0,SH2O(J)))
+!       SMC(J)  = (MLIQ(J) + MICE(J)) / (1000. * DZSNSO(J))
+       SMC(J)  = 1.0 
     END DO
    
   END SUBROUTINE PHASECHANGE_GLACIER
@@ -1790,6 +1962,10 @@ contains
   REAL                                           :: SNOWHIN !snow depth increasing rate (m/s)
   REAL                                           :: SNOFLOW !glacier flow [mm/s]
   REAL                                           :: BDFALL  !density of new snow (mm water/m snow)
+  REAL                                           :: REPLACE !replacement water due to sublimation of glacier
+  REAL, DIMENSION(       1:NSOIL)                :: SICE_SAVE  !soil ice content [m3/m3]
+  REAL, DIMENSION(       1:NSOIL)                :: SH2O_SAVE  !soil liquid water content [m3/m3]
+  INTEGER :: ILEV
 
 ! ----------------------------------------------------------------------
 ! initialize
@@ -1797,6 +1973,8 @@ contains
    SNOFLOW         = 0.
    RUNSUB          = 0.
    RUNSRF          = 0.
+   SICE_SAVE       = SICE
+   SH2O_SAVE       = SH2O
 
 ! --------------------------------------------------------------------
 ! partition precipitation into rain and snow (from CANWATER)
@@ -1837,7 +2015,7 @@ contains
 ! Hedstrom NR and JW Pomeroy (1998), Hydrol. Processes, 12, 1611-1625
 ! fresh snow density
 
-     BDFALL = MAX(120.,67.92+51.25*EXP((SFCTMP-TFRZ)/2.59))
+     BDFALL = MIN(120.,67.92+51.25*EXP((SFCTMP-TFRZ)/2.59))
 
      QRAIN   = PRCP * (1.-FPICE)
      QSNOW   = PRCP * FPICE
@@ -1846,42 +2024,61 @@ contains
 
 ! sublimation, frost, evaporation, and dew
 
-     QSNSUB = 0.
-     IF (SNEQV > 0.) THEN
-       QSNSUB = MIN(QVAP, SNEQV/DT)
-     ENDIF
-     QSEVA = QVAP-QSNSUB
+!     QSNSUB = 0.
+!     IF (SNEQV > 0.) THEN
+!       QSNSUB = MIN(QVAP, SNEQV/DT)
+!     ENDIF
+!     QSEVA = QVAP-QSNSUB
 
-     QSNFRO = 0.
-     IF (SNEQV > 0.) THEN
-        QSNFRO = QDEW
-     ENDIF
-     QSDEW = QDEW - QSNFRO
+!     QSNFRO = 0.
+!     IF (SNEQV > 0.) THEN
+!        QSNFRO = QDEW
+!     ENDIF
+!     QSDEW = QDEW - QSNFRO
+
+     QSNSUB = QVAP  ! send total sublimation/frost to SNOWWATER and deal with it there
+     QSNFRO = QDEW
+
 !     print *, 'qvap',qvap,qvap*dt
 !     print *, 'qsnsub',qsnsub,qsnsub*dt
 !     print *, 'qseva',qseva,qseva*dt
 !     print *, 'qsnfro',qsnfro,qsnfro*dt
 !     print *, 'qdew',qdew,qdew*dt
 !     print *, 'qsdew',qsdew,qsdew*dt
-
+!print *, 'before snowwater', sneqv,snowh,snice,snliq,sh2o,sice
      CALL SNOWWATER_GLACIER (NSNOW  ,NSOIL  ,IMELT  ,DT     ,SFCTMP , & !in
                              SNOWHIN,QSNOW  ,QSNFRO ,QSNSUB ,QRAIN  , & !in
                              FICEOLD,ZSOIL  ,                         & !in
                              ISNOW  ,SNOWH  ,SNEQV  ,SNICE  ,SNLIQ  , & !inout
                              SH2O   ,SICE   ,STC    ,DZSNSO ,ZSNSO  , & !inout
                              QSNBOT ,SNOFLOW,PONDING1       ,PONDING2)  !out
+!print *, 'after snowwater', sneqv,snowh,snice,snliq,sh2o,sice
+!print *, 'ponding', PONDING,PONDING1,PONDING2
 
     !PONDING: melting water from snow when there is no layer
     
     RUNSRF = (PONDING+PONDING1+PONDING2)/DT
 
     IF(ISNOW == 0) THEN
-      RUNSRF = RUNSRF+(QSNBOT + QSDEW + QRAIN)
+      RUNSRF = RUNSRF + QSNBOT + QRAIN
     ELSE
-      RUNSRF = RUNSRF+(QSNBOT + QSDEW)
+      RUNSRF = RUNSRF + QSNBOT
     ENDIF
+    
+    REPLACE = 0.0
+    DO ILEV = 1,NSOIL
+       REPLACE = REPLACE + DZSNSO(ILEV)*(SICE(ILEV) - SICE_SAVE(ILEV) + SH2O(ILEV) - SH2O_SAVE(ILEV))
+    END DO
+    REPLACE = REPLACE * 1000.0 / DT     ! convert to [mm/s]
+    
+    SICE = MIN(1.0,SICE_SAVE)
+    SH2O = 1.0 - SICE
+!print *, 'replace', replace
+    
+    ! use RUNSUB as a water balancer, SNOFLOW is snow that disappears, REPLACE is
+    !   water from below that replaces glacier loss
 
-    RUNSUB       = SNOFLOW   !mm/s allow excess snow to disappear as runsub
+    RUNSUB       = SNOFLOW + REPLACE
 
   END SUBROUTINE WATER_GLACIER
 ! ==================================================================================================
@@ -2212,6 +2409,7 @@ contains
     REAL    :: ZWLIQ                 ! total liquid water in snow
     REAL    :: DZMIN(3)              ! minimum of top snow layer
     DATA DZMIN /0.045, 0.05, 0.2/
+!    DATA DZMIN /0.025, 0.025, 0.1/  ! MB: change limit
 !-----------------------------------------------------------------------
 
        ISNOW_OLD = ISNOW
@@ -2257,6 +2455,8 @@ contains
           SICE(1) = 0.
        END IF
 
+       IF(ISNOW ==0) RETURN   ! MB: get out if no longer multi-layer
+
        SNEQV  = 0.
        SNOWH  = 0.
        ZWICE  = 0.
@@ -2272,6 +2472,7 @@ contains
 ! check the snow depth - all snow gone
 ! the liquid water assumes ponding on soil surface.
 
+!       IF (SNOWH < 0.025 .AND. ISNOW < 0 ) THEN ! MB: change limit
        IF (SNOWH < 0.05 .AND. ISNOW < 0 ) THEN
           ISNOW  = 0
           SNEQV = ZWICE
@@ -2468,6 +2669,7 @@ contains
                   ZWLIQ, ZWICE, TSNO(1))
 
              ! subdivide a new layer
+!             IF (MSNO <= 2 .AND. DZ(2) > 0.20) THEN  ! MB: change limit
              IF (MSNO <= 2 .AND. DZ(2) > 0.10) THEN
                 MSNO = 3
                 DTDZ = (TSNO(1) - TSNO(2))/((DZ(1)+DZ(2))/2.)
@@ -2573,7 +2775,7 @@ contains
 !for the case when SNEQV becomes '0' after 'COMBINE'
 
    IF(SNEQV == 0.) THEN
-      SH2O(1) =  SH2O(1) + (QSNFRO-QSNSUB)*DT/(DZSNSO(1)*1000.)
+      SICE(1) =  SICE(1) + (QSNFRO-QSNSUB)*DT/(DZSNSO(1)*1000.)
    END IF
 
 ! for shallow snow without a layer
@@ -2590,6 +2792,7 @@ contains
       IF(SNEQV < 0.) THEN
          SICE(1) = SICE(1) + SNEQV/(DZSNSO(1)*1000.)
          SNEQV   = 0.
+         SNOWH   = 0.
       END IF
       IF(SICE(1) < 0.) THEN
          SH2O(1) = SH2O(1) + SICE(1)
@@ -2597,8 +2800,10 @@ contains
       END IF
    END IF
 
-   IF(SNOWH <= 1.E-8) SNOWH = 0.0
-   IF(SNEQV <= 1.E-6) SNEQV = 0.0
+   IF(SNOWH <= 1.E-8 .OR. SNEQV <= 1.E-6) THEN
+     SNOWH = 0.0
+     SNEQV = 0.0
+   END IF
 
 ! for deep snow
 
