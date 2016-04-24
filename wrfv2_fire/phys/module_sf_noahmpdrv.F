@@ -1,8 +1,6 @@
 MODULE module_sf_noahmpdrv
 
 !-------------------------------
-  USE module_sf_noahmplsm
-  USE module_sf_noahmp_glacier
 #if ( WRF_CHEM == 1 )
   USE module_data_gocart_dust
 #endif
@@ -17,7 +15,7 @@ CONTAINS
 		 XLAND,     XICE,XICE_THRES,                                & ! IN : Vegetation/Soil characteristics
                  IDVEG, IOPT_CRS,  IOPT_BTR, IOPT_RUN, IOPT_SFC, IOPT_FRZ,  & ! IN : User options
               IOPT_INF, IOPT_RAD,  IOPT_ALB, IOPT_SNF,IOPT_TBOT, IOPT_STC,  & ! IN : User options
-               IZ0TLND,                                                     & ! IN : User options
+              IOPT_GLA, IOPT_RSF,   IZ0TLND,                                & ! IN : User options
                    T3D,     QV3D,     U_PHY,    V_PHY,   SWDOWN,      GLW,  & ! IN : Forcing
 		 P8W3D,PRECIP_IN,        SR,                                & ! IN : Forcing
                    TSK,      HFX,      QFX,        LH,   GRDFLX,    SMSTAV, & ! IN/OUT LSM eqv
@@ -30,7 +28,7 @@ CONTAINS
                QSNOWXY, WSLAKEXY,    ZWTXY,      WAXY,     WTXY,    TSNOXY, & ! IN/OUT Noah MP only
 	       ZSNSOXY,  SNICEXY,  SNLIQXY,  LFMASSXY, RTMASSXY,  STMASSXY, & ! IN/OUT Noah MP only
 	        WOODXY, STBLCPXY, FASTCPXY,    XLAIXY,   XSAIXY,   TAUSSXY, & ! IN/OUT Noah MP only
-	       SMOISEQ, SMCWTDXY,DEEPRECHXY,   RECHXY,                      & ! IN/OUT Noah MP only
+	       SMOISEQ, SMCWTDXY,DEEPRECHXY,   RECHXY,  GRAINXY,    GDDXY,  & ! IN/OUT Noah MP only
 	        T2MVXY,   T2MBXY,    Q2MVXY,   Q2MBXY,                      & ! OUT Noah MP only
 	        TRADXY,    NEEXY,    GPPXY,     NPPXY,   FVEGXY,   RUNSFXY, & ! OUT Noah MP only
 	       RUNSBXY,   ECANXY,   EDIRXY,   ETRANXY,    FSAXY,    FIRAXY, & ! OUT Noah MP only
@@ -39,6 +37,9 @@ CONTAINS
 		 SHGXY,    SHCXY,    SHBXY,     EVGXY,    EVBXY,     GHVXY, & ! OUT Noah MP only
 		 GHBXY,    IRGXY,    IRCXY,     IRBXY,     TRXY,     EVCXY, & ! OUT Noah MP only
               CHLEAFXY,   CHUCXY,   CHV2XY,    CHB2XY,                      & ! OUT Noah MP only
+!                 BEXP_3D,SMCDRY_3D,SMCWLT_3D,SMCREF_3D,SMCMAX_3D,          & ! placeholders to activate 3D soil
+!		 DKSAT_3D,DWSAT_3D,PSISAT_3D,QUARTZ_3D,                     &
+!		 REFDK_2D,REFKDT_2D,                                        &
 #ifdef WRF_HYDRO
                sfcheadrt,INFXSRT,soldrain,                                  &
 #endif
@@ -47,7 +48,10 @@ CONTAINS
                its,ite,  jts,jte,  kts,kte,                    &
                MP_RAINC, MP_RAINNC, MP_SHCV, MP_SNOW, MP_GRAUP, MP_HAIL     )
 !----------------------------------------------------------------
-    USE NOAHMP_PARAMETERS, ONLY: TRANSFER_MP_PARAMETERS, CO2, O2, ISICE
+    USE MODULE_SF_NOAHMPLSM
+!    USE MODULE_SF_NOAHMPLSM, only: noahmp_options, NOAHMP_SFLX, noahmp_parameters
+    USE module_sf_noahmp_glacier
+    USE NOAHMP_TABLES, ONLY: ISICE_TABLE, CO2_TABLE, O2_TABLE
 !----------------------------------------------------------------
     IMPLICIT NONE
 !----------------------------------------------------------------
@@ -84,6 +88,8 @@ CONTAINS
     INTEGER,                                         INTENT(IN   ) ::  IOPT_SNF  ! rainfall & snowfall (1-Jordan91; 2->BATS; 3->Noah)
     INTEGER,                                         INTENT(IN   ) ::  IOPT_TBOT ! lower boundary of soil temperature (1->zero-flux; 2->Noah)
     INTEGER,                                         INTENT(IN   ) ::  IOPT_STC  ! snow/soil temperature time scheme
+    INTEGER,                                         INTENT(IN   ) ::  IOPT_GLA  ! glacier option (1->phase change; 2->simple)
+    INTEGER,                                         INTENT(IN   ) ::  IOPT_RSF  ! surface resistance (1->Sakaguchi/Zeng; 2->Seller; 3->mod Sellers; 4->1+snow)
     INTEGER,                                         INTENT(IN   ) ::  IZ0TLND   ! option of Chen adjustment of Czil (not used)
     REAL,    DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(IN   ) ::  T3D       ! 3D atmospheric temperature valid at mid-levels [K]
     REAL,    DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(IN   ) ::  QV3D      ! 3D water vapor mixing ratio [kg/kg_dry]
@@ -105,6 +111,18 @@ CONTAINS
 #ifdef WRF_HYDRO
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  sfcheadrt,INFXSRT,soldrain   ! for WRF-Hydro
 #endif
+! placeholders for 3D soil
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  BEXP_3D   ! C-H B exponent
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  SMCDRY_3D ! Soil Moisture Limit: Dry
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  SMCWLT_3D ! Soil Moisture Limit: Wilt
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  SMCREF_3D ! Soil Moisture Limit: Reference
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  SMCMAX_3D ! Soil Moisture Limit: Max
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  DKSAT_3D  ! Saturated Soil Conductivity
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  DWSAT_3D  ! Saturated Soil Diffusivity
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  PSISAT_3D ! Saturated Matric Potential
+!    REAL,    DIMENSION( ims:ime, 1:nsoil, jms:jme ), INTENT(IN) ::  QUARTZ_3D ! Soil quartz content
+!    REAL,    DIMENSION( ims:ime, jms:jme ), INTENT(IN)          ::  REFDK_2D  ! Reference Soil Conductivity
+!    REAL,    DIMENSION( ims:ime, jms:jme ), INTENT(IN)          ::  REFKDT_2D ! Soil Infiltration Parameter
 
 ! INOUT (with generic LSM equivalent)
 
@@ -159,6 +177,8 @@ CONTAINS
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  RTMASSXY  ! mass of fine roots [g/m2]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  STMASSXY  ! stem mass [g/m2]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  WOODXY    ! mass of wood (incl. woody roots) [g/m2]
+    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  GRAINXY   ! mass of grain XING [g/m2]
+    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  GDDXY     ! growing degree days XING (based on 10C) 
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  STBLCPXY  ! stable carbon in deep soil [g/m2]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  FASTCPXY  ! short-lived carbon, shallow soil [g/m2]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  XLAIXY    ! leaf area index
@@ -293,6 +313,8 @@ CONTAINS
     REAL                                :: RTMASS       ! mass of fine roots [g/m2]
     REAL                                :: STMASS       ! stem mass [g/m2]
     REAL                                :: WOOD         ! mass of wood (incl. woody roots) [g/m2]
+    REAL                                :: GRAIN        ! mass of grain XING [g/m2]
+    REAL                                :: GDD        ! mass of grain XING[g/m2]
     REAL                                :: STBLCP       ! stable carbon in deep soil [g/m2]
     REAL                                :: FASTCP       ! short-lived carbon, shallow soil [g/m2]
     REAL                                :: PLAI         ! leaf area index
@@ -388,12 +410,15 @@ CONTAINS
 
     INTEGER, PARAMETER                  :: NSNOW = 3    ! number of snow layers fixed to 3
     REAL, PARAMETER                     :: undefined_value = -1.E36
+    
+    type(noahmp_parameters) :: parameters
 
 
 ! ----------------------------------------------------------------------
 
     CALL NOAHMP_OPTIONS(IDVEG  ,IOPT_CRS  ,IOPT_BTR  ,IOPT_RUN  ,IOPT_SFC  ,IOPT_FRZ , &
-                     IOPT_INF  ,IOPT_RAD  ,IOPT_ALB  ,IOPT_SNF  ,IOPT_TBOT, IOPT_STC )
+                     IOPT_INF  ,IOPT_RAD  ,IOPT_ALB  ,IOPT_SNF  ,IOPT_TBOT, IOPT_STC , &
+		     IOPT_RSF )
 
     IPRINT    =  .false.                     ! debug printout
 
@@ -535,6 +560,8 @@ CONTAINS
        RTMASS                = RTMASSXY(I,J)                ! root mass
        STMASS                = STMASSXY(I,J)                ! stem mass
        WOOD                  = WOODXY  (I,J)                ! mass of wood (incl. woody roots) [g/m2]
+       GRAIN                 = GRAINXY (I,J)                ! mass of grain XING [g/m2]
+       GDD                   = GDDXY (I,J)                  ! growing degree days XING
        STBLCP                = STBLCPXY(I,J)                ! stable carbon pool
        FASTCP                = FASTCPXY(I,J)                ! fast carbon pool
        PLAI                  = XLAIXY  (I,J)                ! leaf area index [-] (no snow effects)
@@ -555,15 +582,27 @@ CONTAINS
           SOILTYP = 7
        ENDIF
 
-       CALL TRANSFER_MP_PARAMETERS(VEGTYP,SOILTYP,SLOPETYP,SOILCOLOR)
+! placeholders for 3D soil
+!       parameters%bexp   = BEXP_3D  (I,1:NSOIL,J) ! C-H B exponent
+!       parameters%smcdry = SMCDRY_3D(I,1:NSOIL,J) ! Soil Moisture Limit: Dry
+!       parameters%smcwlt = SMCWLT_3D(I,1:NSOIL,J) ! Soil Moisture Limit: Wilt
+!       parameters%smcref = SMCREF_3D(I,1:NSOIL,J) ! Soil Moisture Limit: Reference
+!       parameters%smcmax = SMCMAX_3D(I,1:NSOIL,J) ! Soil Moisture Limit: Max
+!       parameters%dksat  = DKSAT_3D (I,1:NSOIL,J) ! Saturated Soil Conductivity
+!       parameters%dwsat  = DWSAT_3D (I,1:NSOIL,J) ! Saturated Soil Diffusivity
+!       parameters%psisat = PSISAT_3D(I,1:NSOIL,J) ! Saturated Matric Potential
+!       parameters%quartz = QUARTZ_3D(I,1:NSOIL,J) ! Soil quartz content
+!       parameters%refdk  = REFDK_2D (I,J)         ! Reference Soil Conductivity
+!       parameters%refkdt = REFKDT_2D(I,J)         ! Soil Infiltration Parameter
 
+       CALL TRANSFER_MP_PARAMETERS(VEGTYP,SOILTYP,SLOPETYP,SOILCOLOR,parameters)
 ! Initialized local
 
        FICEOLD = 0.0
        FICEOLD(ISNOW+1:0) = SNICEXY(I,ISNOW+1:0,J) &  ! snow ice fraction  
            /(SNICEXY(I,ISNOW+1:0,J)+SNLIQXY(I,ISNOW+1:0,J))
-       CO2PP  = CO2 * P_ML                            ! partial pressure co2 [Pa]
-       O2PP   = O2  * P_ML                            ! partial pressure  o2 [Pa]
+       CO2PP  = CO2_TABLE * P_ML                      ! partial pressure co2 [Pa]
+       O2PP   = O2_TABLE  * P_ML                      ! partial pressure  o2 [Pa]
        FOLN   = 1.0                                   ! for now, set to nitrogen saturation
        QC     = undefined_value                       ! test dummy value
        PBLH   = undefined_value                       ! test dummy value ! PBL height
@@ -576,10 +615,9 @@ CONTAINS
        IF(VEGTYP == 27) FVEG = 0.0
        IF(VEGTYP == 27) PLAI = 0.0
 
-       IF ( VEGTYP == ISICE ) THEN
+       IF ( VEGTYP == ISICE_TABLE ) THEN
          ICE = -1                           ! Land-ice point
-         CALL NOAHMP_OPTIONS_GLACIER(IDVEG  ,IOPT_CRS  ,IOPT_BTR  ,IOPT_RUN  ,IOPT_SFC  ,IOPT_FRZ , &
-                      IOPT_INF  ,IOPT_RAD  ,IOPT_ALB  ,IOPT_SNF  ,IOPT_TBOT, IOPT_STC )
+         CALL NOAHMP_OPTIONS_GLACIER(IOPT_ALB  ,IOPT_SNF  ,IOPT_TBOT, IOPT_STC, IOPT_GLA )
       
          TBOT = MIN(TBOT,263.15)                      ! set deep temp to at most -10C
          CALL NOAHMP_GLACIER(     I,       J,    COSZ,   NSNOW,   NSOIL,      DT, & ! IN : Time/Space/Model-related
@@ -613,6 +651,8 @@ CONTAINS
          RTMASS = undefined_value 
          STMASS = undefined_value 
          WOOD   = undefined_value 
+         GRAIN  = undefined_value
+         GDD    = undefined_value
          STBLCP = undefined_value 
          FASTCP = undefined_value 
          PLAI   = undefined_value 
@@ -659,7 +699,7 @@ CONTAINS
 
     ELSE
          ICE=0                              ! Neither sea ice or land ice.
-         CALL NOAHMP_SFLX (&
+         CALL NOAHMP_SFLX (parameters, &
             I       , J       , LAT     , YEARLEN , JULIAN  , COSZ    , & ! IN : Time/Space-related
             DT      , DX      , DZ8W1D  , NSOIL   , ZSOIL   , NSNOW   , & ! IN : Model configuration 
             FVEG    , FVGMAX  , VEGTYP  , ICE     , IST     ,           & ! IN : Vegetation/Soil characteristics
@@ -675,6 +715,7 @@ CONTAINS
             ZWT     , WA      , WT      , WSLAKE  , LFMASS  , RTMASS  , & ! IN/OUT : 
             STMASS  , WOOD    , STBLCP  , FASTCP  , PLAI    , PSAI    , & ! IN/OUT : 
             CM      , CH      , TAUSS   ,                               & ! IN/OUT : 
+            GRAIN   , GDD     ,                                         & ! IN/OUT 
             SMCWTD  ,DEEPRECH , RECH    ,                               & ! IN/OUT :
             Z0WRF   ,                                                   &
             FSA     , FSR     , FIRA    , FSH     , SSOIL   , FCEV    , & ! OUT : 
@@ -725,7 +766,7 @@ CONTAINS
              SNOW     (I,J)                = SWE
              SNOWH    (I,J)                = SNDPTH
              CANWAT   (I,J)                = CANLIQ + CANICE
-             ACSNOW   (I,J)                = ACSNOW(I,J) + PRCP * FPICE
+             ACSNOW   (I,J)                = ACSNOW(I,J) +  PRECIP_IN(I,J) * FPICE
              ACSNOM   (I,J)                = ACSNOM(I,J) + QSNBOT*DT + PONDING + PONDING1 + PONDING2
              EMISS    (I,J)                = EMISSI
              QSFC     (I,J)                = QSFC1D
@@ -755,6 +796,8 @@ CONTAINS
              RTMASSXY (I,J)                = RTMASS
              STMASSXY (I,J)                = STMASS
              WOODXY   (I,J)                = WOOD
+             GRAINXY  (I,J)                = GRAIN !GRAIN XING
+             GDDXY    (I,J)                = GDD   !XING 
              STBLCPXY (I,J)                = STBLCP
              FASTCPXY (I,J)                = FASTCP
              XLAIXY   (I,J)                = PLAI
@@ -822,6 +865,208 @@ CONTAINS
   END SUBROUTINE noahmplsm
 !------------------------------------------------------
 
+SUBROUTINE TRANSFER_MP_PARAMETERS(VEGTYPE,SOILTYPE,SLOPETYPE,SOILCOLOR,parameters)
+
+  USE NOAHMP_TABLES
+  USE MODULE_SF_NOAHMPLSM
+
+  implicit none
+
+  INTEGER, INTENT(IN)    :: VEGTYPE
+  INTEGER, INTENT(IN)    :: SOILTYPE
+  INTEGER, INTENT(IN)    :: SLOPETYPE
+  INTEGER, INTENT(IN)    :: SOILCOLOR
+    
+  type (noahmp_parameters), intent(inout) :: parameters
+    
+  REAL    :: REFDK
+  REAL    :: REFKDT
+  REAL    :: FRZK
+  REAL    :: FRZFACT
+
+  parameters%ISWATER   =   ISWATER_TABLE
+  parameters%ISBARREN  =  ISBARREN_TABLE
+  parameters%ISICE     =     ISICE_TABLE
+  parameters%EBLFOREST = EBLFOREST_TABLE
+
+  parameters%URBAN_FLAG = .FALSE.
+  IF( VEGTYPE == ISURBAN_TABLE                  .or. VEGTYPE == LOW_DENSITY_RESIDENTIAL_TABLE  .or. &
+      VEGTYPE == HIGH_DENSITY_RESIDENTIAL_TABLE .or. VEGTYPE == HIGH_INTENSITY_INDUSTRIAL_TABLE ) THEN
+     parameters%URBAN_FLAG = .TRUE.
+  ENDIF
+
+!------------------------------------------------------------------------------------------!
+! Transfer veg parameters
+!------------------------------------------------------------------------------------------!
+
+  parameters%CH2OP  =  CH2OP_TABLE(VEGTYPE)       !maximum intercepted h2o per unit lai+sai (mm)
+  parameters%DLEAF  =  DLEAF_TABLE(VEGTYPE)       !characteristic leaf dimension (m)
+  parameters%Z0MVT  =  Z0MVT_TABLE(VEGTYPE)       !momentum roughness length (m)
+  parameters%HVT    =    HVT_TABLE(VEGTYPE)       !top of canopy (m)
+  parameters%HVB    =    HVB_TABLE(VEGTYPE)       !bottom of canopy (m)
+  parameters%DEN    =    DEN_TABLE(VEGTYPE)       !tree density (no. of trunks per m2)
+  parameters%RC     =     RC_TABLE(VEGTYPE)       !tree crown radius (m)
+  parameters%MFSNO  =  MFSNO_TABLE(VEGTYPE)       !snowmelt m parameter ()
+  parameters%SAIM   =   SAIM_TABLE(VEGTYPE,:)     !monthly stem area index, one-sided
+  parameters%LAIM   =   LAIM_TABLE(VEGTYPE,:)     !monthly leaf area index, one-sided
+  parameters%SLA    =    SLA_TABLE(VEGTYPE)       !single-side leaf area per Kg [m2/kg]
+  parameters%DILEFC = DILEFC_TABLE(VEGTYPE)       !coeficient for leaf stress death [1/s]
+  parameters%DILEFW = DILEFW_TABLE(VEGTYPE)       !coeficient for leaf stress death [1/s]
+  parameters%FRAGR  =  FRAGR_TABLE(VEGTYPE)       !fraction of growth respiration  !original was 0.3 
+  parameters%LTOVRC = LTOVRC_TABLE(VEGTYPE)       !leaf turnover [1/s]
+
+  parameters%C3PSN  =  C3PSN_TABLE(VEGTYPE)       !photosynthetic pathway: 0. = c4, 1. = c3
+  parameters%KC25   =   KC25_TABLE(VEGTYPE)       !co2 michaelis-menten constant at 25c (pa)
+  parameters%AKC    =    AKC_TABLE(VEGTYPE)       !q10 for kc25
+  parameters%KO25   =   KO25_TABLE(VEGTYPE)       !o2 michaelis-menten constant at 25c (pa)
+  parameters%AKO    =    AKO_TABLE(VEGTYPE)       !q10 for ko25
+  parameters%VCMX25 = VCMX25_TABLE(VEGTYPE)       !maximum rate of carboxylation at 25c (umol co2/m**2/s)
+  parameters%AVCMX  =  AVCMX_TABLE(VEGTYPE)       !q10 for vcmx25
+  parameters%BP     =     BP_TABLE(VEGTYPE)       !minimum leaf conductance (umol/m**2/s)
+  parameters%MP     =     MP_TABLE(VEGTYPE)       !slope of conductance-to-photosynthesis relationship
+  parameters%QE25   =   QE25_TABLE(VEGTYPE)       !quantum efficiency at 25c (umol co2 / umol photon)
+  parameters%AQE    =    AQE_TABLE(VEGTYPE)       !q10 for qe25
+  parameters%RMF25  =  RMF25_TABLE(VEGTYPE)       !leaf maintenance respiration at 25c (umol co2/m**2/s)
+  parameters%RMS25  =  RMS25_TABLE(VEGTYPE)       !stem maintenance respiration at 25c (umol co2/kg bio/s)
+  parameters%RMR25  =  RMR25_TABLE(VEGTYPE)       !root maintenance respiration at 25c (umol co2/kg bio/s)
+  parameters%ARM    =    ARM_TABLE(VEGTYPE)       !q10 for maintenance respiration
+  parameters%FOLNMX = FOLNMX_TABLE(VEGTYPE)       !foliage nitrogen concentration when f(n)=1 (%)
+  parameters%TMIN   =   TMIN_TABLE(VEGTYPE)       !minimum temperature for photosynthesis (k)
+
+  parameters%XL     =     XL_TABLE(VEGTYPE)       !leaf/stem orientation index
+  parameters%RHOL   =   RHOL_TABLE(VEGTYPE,:)     !leaf reflectance: 1=vis, 2=nir
+  parameters%RHOS   =   RHOS_TABLE(VEGTYPE,:)     !stem reflectance: 1=vis, 2=nir
+  parameters%TAUL   =   TAUL_TABLE(VEGTYPE,:)     !leaf transmittance: 1=vis, 2=nir
+  parameters%TAUS   =   TAUS_TABLE(VEGTYPE,:)     !stem transmittance: 1=vis, 2=nir
+
+  parameters%MRP    =    MRP_TABLE(VEGTYPE)       !microbial respiration parameter (umol co2 /kg c/ s)
+  parameters%CWPVT  =  CWPVT_TABLE(VEGTYPE)       !empirical canopy wind parameter
+
+  parameters%WRRAT  =  WRRAT_TABLE(VEGTYPE)       !wood to non-wood ratio
+  parameters%WDPOOL = WDPOOL_TABLE(VEGTYPE)       !wood pool (switch 1 or 0) depending on woody or not [-]
+  parameters%TDLEF  =  TDLEF_TABLE(VEGTYPE)       !characteristic T for leaf freezing [K]
+
+  parameters%NROOT  =  NROOT_TABLE(VEGTYPE)       !number of soil layers with root present
+  parameters%RGL    =    RGL_TABLE(VEGTYPE)       !Parameter used in radiation stress function
+  parameters%RSMIN  =     RS_TABLE(VEGTYPE)       !Minimum stomatal resistance [s m-1]
+  parameters%HS     =     HS_TABLE(VEGTYPE)       !Parameter used in vapor pressure deficit function
+  parameters%TOPT   =   TOPT_TABLE(VEGTYPE)       !Optimum transpiration air temperature [K]
+  parameters%RSMAX  =  RSMAX_TABLE(VEGTYPE)       !Maximal stomatal resistance [s m-1]
+
+!------------------------------------------------------------------------------------------!
+! Transfer rad parameters
+!------------------------------------------------------------------------------------------!
+
+   parameters%ALBSAT    = ALBSAT_TABLE(SOILCOLOR,:)
+   parameters%ALBDRY    = ALBDRY_TABLE(SOILCOLOR,:)
+   parameters%ALBICE    = ALBICE_TABLE
+   parameters%ALBLAK    = ALBLAK_TABLE               
+   parameters%OMEGAS    = OMEGAS_TABLE
+   parameters%BETADS    = BETADS_TABLE
+   parameters%BETAIS    = BETAIS_TABLE
+   parameters%EG        = EG_TABLE
+
+!------------------------------------------------------------------------------------------!
+! Transfer crop parameters
+!------------------------------------------------------------------------------------------!
+
+   parameters%PLTDAY    =    PLTDAY_TABLE(1)    ! Planting date
+   parameters%HSDAY     =     HSDAY_TABLE(1)    ! Harvest date
+   parameters%PLANTPOP  =  PLANTPOP_TABLE(1)    ! Plant density [per ha] - used?
+   parameters%IRRI      =      IRRI_TABLE(1)    ! Irrigation strategy 0= non-irrigation 1=irrigation (no water-stress)
+   parameters%GDDTBASE  =  GDDTBASE_TABLE(1)    ! Base temperature for GDD accumulation [C]
+   parameters%GDDTCUT   =   GDDTCUT_TABLE(1)    ! Upper temperature for GDD accumulation [C]
+   parameters%GDDS1     =     GDDS1_TABLE(1)    ! GDD from seeding to emergence
+   parameters%GDDS2     =     GDDS2_TABLE(1)    ! GDD from seeding to initial vegetative 
+   parameters%GDDS3     =     GDDS3_TABLE(1)    ! GDD from seeding to post vegetative 
+   parameters%GDDS4     =     GDDS4_TABLE(1)    ! GDD from seeding to intial reproductive
+   parameters%GDDS5     =     GDDS5_TABLE(1)    ! GDD from seeding to pysical maturity 
+   parameters%C3C4      =      C3C4_TABLE(1)    ! photosynthetic pathway:  1. = c3 2. = c4
+   parameters%AREF      =      AREF_TABLE(1)    ! reference maximum CO2 assimulation rate 
+   parameters%PSNRF     =     PSNRF_TABLE(1)    ! CO2 assimulation reduction factor(0-1) (caused by non-modeling part,e.g.pest,weeds)
+   parameters%I2PAR     =     I2PAR_TABLE(1)    ! Fraction of incoming solar radiation to photosynthetically active radiation
+   parameters%TASSIM0   =   TASSIM0_TABLE(1)    ! Minimum temperature for CO2 assimulation [C]
+   parameters%TASSIM1   =   TASSIM1_TABLE(1)    ! CO2 assimulation linearly increasing until temperature reaches T1 [C]
+   parameters%TASSIM2   =   TASSIM2_TABLE(1)    ! CO2 assmilation rate remain at Aref until temperature reaches T2 [C]
+   parameters%K         =         K_TABLE(1)    ! light extinction coefficient
+   parameters%EPSI      =      EPSI_TABLE(1)    ! initial light use efficiency
+   parameters%Q10MR     =     Q10MR_TABLE(1)    ! q10 for maintainance respiration
+   parameters%FOLN_MX   =   FOLN_MX_TABLE(1)    ! foliage nitrogen concentration when f(n)=1 (%)
+   parameters%LEFREEZ   =   LEFREEZ_TABLE(1)    ! characteristic T for leaf freezing [K]
+   parameters%DILE_FC   =   DILE_FC_TABLE(1,:)  ! coeficient for temperature leaf stress death [1/s]
+   parameters%DILE_FW   =   DILE_FW_TABLE(1,:)  ! coeficient for water leaf stress death [1/s]
+   parameters%FRA_GR    =    FRA_GR_TABLE(1)    ! fraction of growth respiration
+   parameters%LF_OVRC   =   LF_OVRC_TABLE(1,:)  ! fraction of leaf turnover  [1/s]
+   parameters%ST_OVRC   =   ST_OVRC_TABLE(1,:)  ! fraction of stem turnover  [1/s]
+   parameters%RT_OVRC   =   RT_OVRC_TABLE(1,:)  ! fraction of root tunrover  [1/s]
+   parameters%LFMR25    =    LFMR25_TABLE(1)    ! leaf maintenance respiration at 25C [umol CO2/m**2  /s]
+   parameters%STMR25    =    STMR25_TABLE(1)    ! stem maintenance respiration at 25C [umol CO2/kg bio/s]
+   parameters%RTMR25    =    RTMR25_TABLE(1)    ! root maintenance respiration at 25C [umol CO2/kg bio/s]
+   parameters%GRAINMR25 = GRAINMR25_TABLE(1)    ! grain maintenance respiration at 25C [umol CO2/kg bio/s]
+   parameters%LFPT      =      LFPT_TABLE(1,:)  ! fraction of carbohydrate flux to leaf
+   parameters%STPT      =      STPT_TABLE(1,:)  ! fraction of carbohydrate flux to stem
+   parameters%RTPT      =      RTPT_TABLE(1,:)  ! fraction of carbohydrate flux to root
+   parameters%GRAINPT   =   GRAINPT_TABLE(1,:)  ! fraction of carbohydrate flux to grain
+   parameters%BIO2LAI   =   BIO2LAI_TABLE(1)    ! leaf are per living leaf biomass [m^2/kg]
+
+!------------------------------------------------------------------------------------------!
+! Transfer global parameters
+!------------------------------------------------------------------------------------------!
+
+   parameters%CO2        =         CO2_TABLE
+   parameters%O2         =          O2_TABLE
+   parameters%TIMEAN     =      TIMEAN_TABLE
+   parameters%FSATMX     =      FSATMX_TABLE
+   parameters%Z0SNO      =       Z0SNO_TABLE
+   parameters%SSI        =         SSI_TABLE
+   parameters%SWEMX      =       SWEMX_TABLE
+   parameters%RSURF_SNOW =  RSURF_SNOW_TABLE
+
+! ----------------------------------------------------------------------
+!  Transfer soil parameters
+! ----------------------------------------------------------------------
+
+    parameters%BEXP   = BEXP_TABLE   (SOILTYPE)
+    parameters%DKSAT  = DKSAT_TABLE  (SOILTYPE)
+    parameters%DWSAT  = DWSAT_TABLE  (SOILTYPE)
+    parameters%F1     = F1_TABLE     (SOILTYPE)
+    parameters%PSISAT = PSISAT_TABLE (SOILTYPE)
+    parameters%QUARTZ = QUARTZ_TABLE (SOILTYPE)
+    parameters%SMCDRY = SMCDRY_TABLE (SOILTYPE)
+    parameters%SMCMAX = SMCMAX_TABLE (SOILTYPE)
+    parameters%SMCREF = SMCREF_TABLE (SOILTYPE)
+    parameters%SMCWLT = SMCWLT_TABLE (SOILTYPE)
+    parameters%REFDK  = REFDK_TABLE
+    parameters%REFKDT = REFKDT_TABLE
+
+! ----------------------------------------------------------------------
+! Transfer GENPARM parameters
+! ----------------------------------------------------------------------
+    parameters%CSOIL  = CSOIL_TABLE
+    parameters%ZBOT   = ZBOT_TABLE
+    parameters%CZIL   = CZIL_TABLE
+
+    FRZK   = FRZK_TABLE
+    parameters%KDT    = parameters%REFKDT * parameters%DKSAT(1) / parameters%REFDK
+    parameters%SLOPE  = SLOPE_TABLE(SLOPETYPE)
+
+    IF(parameters%URBAN_FLAG)THEN  ! Hardcoding some urban parameters for soil
+       parameters%SMCMAX = 0.45 
+       parameters%SMCREF = 0.42 
+       parameters%SMCWLT = 0.40 
+       parameters%SMCDRY = 0.40 
+       parameters%CSOIL  = 3.E6
+    ENDIF
+
+! adjust FRZK parameter to actual soil type: FRZK * FRZFACT
+
+    IF(SOILTYPE /= 14) then
+      FRZFACT = (parameters%SMCMAX(1) / parameters%SMCREF(1)) * (0.412 / 0.468)
+      parameters%FRZX = FRZK * FRZFACT
+    END IF
+
+ END SUBROUTINE TRANSFER_MP_PARAMETERS
+
   SUBROUTINE NOAHMP_INIT ( MMINLU, SNOW , SNOWH , CANWAT , ISLTYP ,   IVGTYP, &
        TSLB , SMOIS , SH2O , DZS , FNDSOILW , FNDSNOWH ,             &
        TSK, isnowxy , tvxy     ,tgxy     ,canicexy ,         TMN,     XICE,   &
@@ -829,6 +1074,7 @@ CONTAINS
        fwetxy   ,sneqvoxy ,alboldxy ,qsnowxy  ,wslakexy ,zwtxy    ,waxy     , &
        wtxy     ,tsnoxy   ,zsnsoxy  ,snicexy  ,snliqxy  ,lfmassxy ,rtmassxy , &
        stmassxy ,woodxy   ,stblcpxy ,fastcpxy ,xsaixy   ,lai      ,           &
+       grainxy  ,gddxy    ,                                                   &
 !jref:start
        t2mvxy   ,t2mbxy   ,chstarxy,            &
 !jref:end       
@@ -841,9 +1087,7 @@ CONTAINS
        wtddt    ,stepwtd  ,dt       ,qrfsxy     ,qspringsxy  , qslatxy    ,  &      ! Optional groundwater
        fdepthxy ,ht     ,riverbedxy ,eqzwt     ,rivercondxy ,pexpxy            )    ! Optional groundwater
 
-  USE NOAHMP_VEG_PARAMETERS
-  USE NOAHMP_SOIL_PARAMETERS
-  USE NOAHMP_RAD_PARAMETERS
+  USE NOAHMP_TABLES
 
   IMPLICIT NONE
 
@@ -907,6 +1151,8 @@ CONTAINS
     REAL, DIMENSION(ims:ime,jms:jme), INTENT(INOUT) :: rtmassxy    !mass of fine roots [g/m2]
     REAL, DIMENSION(ims:ime,jms:jme), INTENT(INOUT) :: stmassxy    !stem mass [g/m2]
     REAL, DIMENSION(ims:ime,jms:jme), INTENT(INOUT) :: woodxy      !mass of wood (incl. woody roots) [g/m2]
+    REAL, DIMENSION(ims:ime,jms:jme), INTENT(INOUT) :: grainxy     !mass of grain [g/m2] !XING
+    REAL, DIMENSION(ims:ime,jms:jme), INTENT(INOUT) :: gddxy       !growing degree days !XING
     REAL, DIMENSION(ims:ime,jms:jme), INTENT(INOUT) :: stblcpxy    !stable carbon in deep soil [g/m2]
     REAL, DIMENSION(ims:ime,jms:jme), INTENT(INOUT) :: fastcpxy    !short-lived carbon, shallow soil [g/m2]
     REAL, DIMENSION(ims:ime,jms:jme), INTENT(INOUT) :: xsaixy      !stem area index
@@ -952,7 +1198,7 @@ CONTAINS
 
     INTEGER                   :: errflag, i,j,itf,jtf,ns
 
-    character(len=80) :: err_message
+    character(len=240) :: err_message
     character(len=4)  :: MMINSL
     character(len=*), intent(in) :: MMINLU
     MMINSL='STAS'
@@ -960,6 +1206,7 @@ CONTAINS
     call read_mp_veg_parameters(trim(MMINLU))
     call read_mp_soil_parameters()
     call read_mp_rad_parameters()
+    call read_mp_global_parameters()
 
     IF( .NOT. restart ) THEN
 
@@ -978,6 +1225,23 @@ CONTAINS
              ENDDO
           ENDDO
        ENDIF
+
+
+       ! Check if snow/snowh are consistent and cap SWE at 2000mm;
+       !  the Noah-MP code does it internally but if we don't do it here, problems ensue
+       DO J = jts,jtf
+          DO I = its,itf
+             IF ( SNOW(i,j) > 0. .AND. SNOWH(i,j) == 0. .OR. SNOWH(i,j) > 0. .AND. SNOW(i,j) == 0.) THEN
+               WRITE(err_message,*)"problem with initial snow fields: snow/snowh>0 while snowh/snow=0 at i,j" &
+                                     ,i,j,snow(i,j),snowh(i,j)
+               CALL wrf_message(err_message)
+             ENDIF
+             IF ( SNOW( i,j ) > 2000. ) THEN
+               SNOWH(I,J) = SNOWH(I,J) * 2000. / SNOW(I,J)      ! SNOW in mm and SNOWH in m
+               SNOW (I,J) = 2000.                               ! cap SNOW at 2000, maintain density
+             ENDIF
+          ENDDO
+       ENDDO
 
        errflag = 0
        DO j = jts,jtf
@@ -1112,6 +1376,8 @@ CONTAINS
              woodxy     (I,J) = 500.0                          ! in the table or read from initialization
              stblcpxy   (I,J) = 1000.0                         !
              fastcpxy   (I,J) = 1000.0                         !
+             grainxy    (I,J) = 1E-10         ! add by XING
+             gddxy      (I,J) = 0          ! add by XING
 
 	   END IF
 
@@ -1160,7 +1426,7 @@ CONTAINS
              STEPWTD = max(STEPWTD,1)
 
               CALL groundwater_init ( & 
-      &       nsoil, zsoil , dzs  ,isltyp, ivgtyp, isurban_TABLE, isice_TABLE ,iswater_TABLE ,wtddt , &
+      &       nsoil, zsoil , dzs  ,isltyp, ivgtyp,wtddt , &
       &       fdepthxy, ht, riverbedxy, eqzwt, rivercondxy, pexpxy , areaxy, zwtxy,   &
       &       smois,sh2o, smoiseq, smcwtdxy, deeprechxy, rechxy, qslatxy, qrfsxy, qspringsxy, &
       &       ids,ide, jds,jde, kds,kde,                    &
@@ -1282,7 +1548,7 @@ CONTAINS
 ! ==================================================================================================
 ! ----------------------------------------------------------------------
     SUBROUTINE GROUNDWATER_INIT (   &
-            &            NSOIL , ZSOIL , DZS, ISLTYP, IVGTYP, ISURBAN, ISICE ,ISWATER , WTDDT , &
+            &            NSOIL , ZSOIL , DZS, ISLTYP, IVGTYP, WTDDT , &
             &            FDEPTH, TOPO, RIVERBED, EQWTD, RIVERCOND, PEXP , AREA ,WTD ,  &
             &            SMOIS,SH2O, SMOISEQ, SMCWTDXY, DEEPRECHXY, RECHXY ,  &
             &            QSLATXY, QRFSXY, QSPRINGSXY,                  &
@@ -1291,7 +1557,8 @@ CONTAINS
             &            its,ite, jts,jte, kts,kte                     )
 
 
-  USE NOAHMP_SOIL_PARAMETERS, ONLY : BEXP_TABLE,SMCMAX_TABLE,PSISAT_TABLE,SMCWLT_TABLE,DWSAT_TABLE,DKSAT_TABLE
+  USE NOAHMP_TABLES, ONLY : BEXP_TABLE,SMCMAX_TABLE,PSISAT_TABLE,SMCWLT_TABLE,DWSAT_TABLE,DKSAT_TABLE, &
+                                ISURBAN_TABLE, ISICE_TABLE ,ISWATER_TABLE
   USE module_sf_noahmp_groundwater, ONLY : LATERALFLOW
 
 ! ----------------------------------------------------------------------
@@ -1301,7 +1568,7 @@ CONTAINS
     INTEGER,  INTENT(IN   )   ::     ids,ide, jds,jde, kds,kde,  &
          &                           ims,ime, jms,jme, kms,kme,  &
          &                           its,ite, jts,jte, kts,kte
-    INTEGER, INTENT(IN)                              :: NSOIL, ISURBAN, ISWATER ,ISICE
+    INTEGER, INTENT(IN)                              :: NSOIL
     REAL,   INTENT(IN)                               ::     WTDDT
     REAL,    INTENT(IN), DIMENSION(1:NSOIL)          :: ZSOIL,DZS
     INTEGER, INTENT(IN), DIMENSION(ims:ime, jms:jme) :: ISLTYP, IVGTYP
@@ -1336,7 +1603,7 @@ CONTAINS
 
     DELTAT = WTDDT * 60. !timestep in seconds for this calculation
 
-    WHERE(IVGTYP.NE.ISWATER.AND.IVGTYP.NE.ISICE)
+    WHERE(IVGTYP.NE.ISWATER_TABLE.AND.IVGTYP.NE.ISICE_TABLE)
          LANDMASK=1
     ELSEWHERE
          LANDMASK=-1
@@ -1377,7 +1644,7 @@ CALL LATERALFLOW(ISLTYP,WTD,QLAT,FDEPTH,TOPO,LANDMASK,DELTAT,AREA       &
              BEXP   =   BEXP_TABLE(ISLTYP(I,J))
              SMCMAX = SMCMAX_TABLE(ISLTYP(I,J))
              SMCWLT = SMCWLT_TABLE(ISLTYP(I,J))
-             IF(IVGTYP(I,J)==ISURBAN)THEN
+             IF(IVGTYP(I,J)==ISURBAN_TABLE)THEN
                  SMCMAX = 0.45         
                  SMCWLT = 0.40         
              ENDIF 

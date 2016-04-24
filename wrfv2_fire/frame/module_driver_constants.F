@@ -18,7 +18,7 @@ MODULE module_driver_constants
    INTEGER , PARAMETER :: DATA_ORDER_YX = DATA_ORDER_YXZ
 
 
-#include <model_data_order.inc>
+#include "model_data_order.inc"
 
    !  1. Following are constants for use in defining maximal values for array
    !     definitions.  
@@ -61,6 +61,10 @@ MODULE module_driver_constants
    !  The maximum number of pressure levels to interpolate to, for diagnostics
 
    INTEGER , PARAMETER :: max_plevs       =   100
+
+   !  The maximum number of height levels to interpolate to, for diagnostics
+
+   INTEGER , PARAMETER :: max_zlevs       =   100
 
    !  The maximum number of trackchem
 

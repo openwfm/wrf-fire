@@ -469,7 +469,8 @@ CONTAINS
            SNOWH,ZSOIL,TBOT,                               &
            SNOMLT,DEW,FLX1,FLX2,FLX3,ESNOW,EMISSI,RIBB,    &
            SEAICE_ALBEDO_OPT)
-      ETA_KINEMATIC =  ESNOW
+!     ETA_KINEMATIC =  ESNOW
+      ETA_KINEMATIC =  ETP
 
       IF ( SEAICE_SNOWDEPTH_OPT == 0 ) THEN
 
@@ -953,7 +954,7 @@ CONTAINS
 ! ABOVE FREEZING BLOCK
 ! ----------------------------------------------------------------------
     ELSE
-       T1 = TFREEZ * SNCOVR ** SNOEXP + T12 * (1.0- SNCOVR ** SNOEXP)
+       T1 = TFREEZ 
        SSOIL = DF1 * (T1- STC (1)) / DTOT
 
 ! ----------------------------------------------------------------------

@@ -9913,6 +9913,8 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
 
       public :: rrtmg_sw,  earth_sun
 
+      INTEGER, PARAMETER :: debug_level_swf=100
+
       contains
     
       subroutine rrtmg_sw &
@@ -10078,6 +10080,7 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
                                                !    Dimensions: (ncol,nlay+1) jararias, 2013/08/10
 
       integer :: npart, pncol, ns
+      CHARACTER(LEN=256) :: message
 
 ! mji - time
       real :: t1, t2
@@ -10139,10 +10142,13 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
           
       end if
 
-      print *, "RRTMG_SWF: Number of columns is               ", ncol
-      print *, "RRTMG_SWF: Number of columns per partition is ", pncol
+      WRITE(message,*)'RRTMG_SWF: Number of columns is               ',ncol
+      call wrf_debug( debug_level_swf, message)
+      WRITE(message,*)'RRTMG_SWF: Number of columns per partition is ',pncol
+      call wrf_debug( debug_level_swf, message)
       ns = ceiling( real(ncol) / real(pncol) )
-      print *, "RRTMG_SWF: Number of partitions is            ", ns
+      WRITE(message,*)'RRTMG_SWF: Number of partitions is            ',ns
+      call wrf_debug( debug_level_swf, message)
 
       call cpu_time(t1)
                                                       
@@ -10161,10 +10167,12 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
              swdkdir  , swdkdif                                  & ! jararias, 2013/08/10
                                 )
       call cpu_time(t2)
-      print *, "------------------------------------------------"
-      print *, "TOTAL RRTMG_SWF RUN TIME IS   ", t2-t1
-      print *, "------------------------------------------------"
-
+      WRITE(message,*)'------------------------------------------------'
+      call wrf_debug( debug_level_swf, message)
+      WRITE(message,*)'TOTAL RRTMG_SWF RUN TIME IS   ', t2-t1
+      call wrf_debug( debug_level_swf, message)
+      WRITE(message,*)'------------------------------------------------'
+      call wrf_debug( debug_level_swf, message)
                                                       
       end subroutine rrtmg_sw                                                     
 
@@ -11298,10 +11306,7 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
          julian      ! julian day (1-366)
    real, dimension(ims:ime,jms:jme), optional, intent(in) :: &
          xcoszen     ! cosine of the solar zenith angle
-   real, dimension(ims:ime,kms:kme,jms:jme,nbndsw), optional,     &
-        intent(in)                                :: tauaer3d_sw, &
-                                                     ssaaer3d_sw, &
-                                                     asyaer3d_sw
+   real, dimension(:,:,:,:), pointer :: tauaer3d_sw,ssaaer3d_sw,asyaer3d_sw
 ! ------------------------ jararias end snippet -----------------
 
 
@@ -11848,14 +11853,14 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
                inflgsw  = 4
                iceflgsw = 4
                DO K=kts,kte
-                  reice1D(icol,K) = MAX(10., re_ice(I,K,J)*1.E6)
-                  if (reice1D(icol,K).LE.10..AND.cldfra3d(i,k,j).gt.0.) then
+                  reice1D(icol,K) = MAX(5., re_ice(I,K,J)*1.E6)
+                  if (reice1D(icol,K).LE.5..AND.cldfra3d(i,k,j).gt.0.) then
                      idx_rei = int(t3d(i,k,j)-179.)
                      idx_rei = min(max(idx_rei,1),75)
                      corr = t3d(i,k,j) - int(t3d(i,k,j))
                      reice1D(icol,K) = retab(idx_rei)*(1.-corr) +      &
      &                                 retab(idx_rei+1)*corr
-                     reice1D(icol,K) = MAX(reice1D(icol,K), 10.0)
+                     reice1D(icol,K) = MAX(reice1D(icol,K), 5.0)
                   endif
                ENDDO
             ELSE
@@ -12233,9 +12238,8 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
       end do
       end do
 
-      if ( present (tauaer3d_sw) ) then
+      if ( associated (tauaer3d_sw) ) then
 ! ---- jararias 11/2012
-         if ( aer_opt .eq. 2) then
             do nb=1,nbndsw
                do k=kts,kte
                   tauaer(icol,k,nb)=tauaer3d_sw(i,k,j,nb)
@@ -12243,7 +12247,6 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
                   asmaer(icol,k,nb)=asyaer3d_sw(i,k,j,nb)
                end do
             end do
-         end if
       end if
 
 #if ( WRF_CHEM == 1 )
@@ -12344,7 +12347,7 @@ write(0,*)'pfu ',shape( pfu)          ! upwelling flux (W/m2)
       enddo
 
       IF ( PRESENT( aerod ) ) THEN
-      if ( aer_opt .eq. 0 .or. aer_opt .eq. 2 ) then
+      if ( aer_opt .eq. 0 .or. aer_opt .eq. 2 .or. aer_opt .eq. 3 ) then
          iaer = 10
          do na = 1, naerec
             do k = kts, kte+1

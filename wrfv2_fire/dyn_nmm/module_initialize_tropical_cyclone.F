@@ -49,7 +49,7 @@ CONTAINS
 
         CALL init_domain_nmm (grid &
 !
-#include <actual_new_args.inc>
+#include "actual_new_args.inc"
 !
       )
 
@@ -59,7 +59,7 @@ CONTAINS
 !---------------------------------------------------------------------
    SUBROUTINE init_domain_nmm ( grid &
 !
-# include <dummy_new_args.inc>
+# include "dummy_new_args.inc"
 !
    )
 
@@ -71,7 +71,7 @@ CONTAINS
 !     TYPE (domain), POINTER :: grid
       TYPE (domain)          :: grid
 
-# include <dummy_new_decl.inc>
+# include "dummy_new_decl.inc"
 
 
 real      ,DIMENSION(grid%sm31:grid%em31,grid%sm32:grid%em32,1:grid%num_metgrid_levels)           :: ght_out
@@ -176,7 +176,7 @@ real      ,DIMENSION(grid%sm31:grid%em31,grid%sm32:grid%em32,1:grid%num_soil_cat
 
         REAL, PARAMETER:: DTR=0.01745329
         REAL, PARAMETER:: W_NMM=0.08
-#if defined(HWRF)
+#if ( HWRF == 1 )
         REAL, PARAMETER:: DDFC=1.0
 #else
         REAL, PARAMETER:: DDFC=8.0
@@ -201,7 +201,7 @@ real      ,DIMENSION(grid%sm31:grid%em31,grid%sm32:grid%em32,1:grid%num_soil_cat
         REAL, PARAMETER:: TG0=258.16
         REAL, PARAMETER:: TGA=30.0
     integer :: numzero,numexamined
-#ifdef HWRF
+#if ( HWRF == 1 )
 !============================================================================
 !   gopal's doing for ocean coupling
 !============================================================================
@@ -222,9 +222,9 @@ real      ,DIMENSION(grid%sm31:grid%em31,grid%sm32:grid%em32,1:grid%num_soil_cat
         if (ALLOCATED(TG_ALT)) DEALLOCATE(TG_ALT)
 
 !#define COPY_IN
-!#include <scalar_derefs.inc>
+!#include "scalar_derefs.inc"
 #ifdef DM_PARALLEL
-#    include <data_calls.inc>
+#    include "data_calls.inc"
 #endif
 
       SELECT CASE ( model_data_order )
@@ -463,7 +463,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
      &,                            IMS,IME,JMS,JME,KMS,KME        &
      &,                            ITS,ITE,JTS,JTE,KTS,KTE )
 
-#if defined(HWRF)
+#if ( HWRF == 1 )
           if(.not. grid%use_prep_hybrid) then
 #endif
 
@@ -492,7 +492,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
      &,                            IMS,IME,JMS,JME,KMS,KME        &
      &,                            ITS,ITE,JTS,JTE,KTS,KTE )
 
-#if defined(HWRF)
+#if ( HWRF == 1 )
           endif
 #endif
 
@@ -542,7 +542,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
         if (grid%tsk_gc(I,J) .gt. 0.) then
            grid%nmm_tsk(I,J)=grid%tsk_gc(I,J)
         else
-#if defined(HWRF)
+#if ( HWRF == 1 )
                 if(grid%use_prep_hybrid) then
                    if(grid%t(I,J,1)<100) then
                       write(message,*) 'NO VALID SURFACE TEMPERATURE: I,J,TSK_GC(I,J),T(I,J,1) = ', &
@@ -554,7 +554,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
                 else
 #endif
            grid%nmm_tsk(I,J)=grid%t_gc(I,J,1) ! stopgap measure
-#if defined(HWRF)
+#if ( HWRF == 1 )
                 endif
 #endif
         endif
@@ -576,7 +576,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
         if (internal_time_loop .eq. 1) then
 
         if (eta_levels(1) .ne. 1.0) then
-#if defined(HWRF)
+#if ( HWRF == 1 )
              if(grid%use_prep_hybrid) then
                 call wrf_error_fatal('PREP_HYBRID ERROR: eta_levels is not specified, but use_prep_hybrid=.true.')
              end if
@@ -660,7 +660,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
        enddo
        write(message,*) 'TOTAL NEAR-ZERO FIS POINTS: ',numzero,' OF ',numexamined
        call wrf_debug(10,message)
-#if defined(HWRF)
+#if ( HWRF == 1 )
        interp_notph: if(.not. grid%use_prep_hybrid) then
 #endif
       if (.NOT. allocated(PDVP))     allocate(PDVP(IMS:IME,JMS:JME))
@@ -820,7 +820,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
 
       IF (ALLOCATED(QTMP)) DEALLOCATE(QTMP)
       IF (ALLOCATED(QTMP)) DEALLOCATE(QTMP2)
-#if defined(HWRF)
+#if ( HWRF == 1 )
        else ! we are using prep_hybrid
           ! Compute surface pressure:
           grid%psfc_out=grid%pdtop+grid%pd
@@ -884,12 +884,12 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
 
          endif
 
-#if defined(HWRF)
+#if ( HWRF == 1 )
        if(.not.grid%use_prep_hybrid) then
 #endif
 !  new deallocs
         DEALLOCATE(p3d_out,p3dv_out,p3dv_in)
-#if defined(HWRF)
+#if ( HWRF == 1 )
        end if
 #endif
 
@@ -1084,7 +1084,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
      &,                                ITS,ITE,JTS,JTE,1,1 )
 
         IF (WRF_DM_ON_MONITOR()) THEN
-#if defined(HWRF)
+#if ( HWRF == 1 )
           ! SM_G is still needed for the high-res grid
 #else
           DEALLOCATE(SM_G)
@@ -2075,7 +2075,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
        write(message,*)'STUFF MOVED TO REGISTRY:',grid%IDTAD,          &
      & grid%NSOIL,grid%NRADL,grid%NRADS,grid%NPHS,grid%NCNVC,grid%sigma
        CALL wrf_message( TRIM(message) )
-#ifdef HWRF
+#if ( HWRF == 1 )
 !=========================================================================================
 !   gopal's doing for ocean coupling. Produce a high resolution grid for the entire domain
 !=========================================================================================
@@ -2169,7 +2169,7 @@ ips=its ; ipe=ite ;  jps=jts ; jpe=jte ; kps=kts ; kpe=kte
 #endif
 
 !#define COPY_OUT
-!#include <scalar_derefs.inc>
+!#include "scalar_derefs.inc"
       RETURN
 
    END SUBROUTINE init_domain_nmm
@@ -5707,6 +5707,10 @@ INTEGER, INTENT(IN):: ids,ide,jds,jde,kds,kde, &
       do 20 j=2,lq-1
   20  tem(j,i)=wk(j,i)
 !
+      !Gopal's doing on June 17th, 2015. The line below was erroneously removed from the code.
+      if(anorm.gt.err) goto 2
+      write(6,*) nt,anorm,err
+!
       do i=1,lp
       do j=1,lq
       xx(j,i)=tem(j,i)
@@ -6045,7 +6049,7 @@ INTEGER, INTENT(IN):: ids,ide,jds,jde,kds,kde, &
 
 
 
-#ifdef HWRF
+#if ( HWRF == 1 )
 ! compute earth lat-lons for before interpolations. This is gopal's doing for ocean coupling
 !============================================================================================
 

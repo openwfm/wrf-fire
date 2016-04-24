@@ -15,6 +15,9 @@
 #ifdef _WIN32
 #include <Winsock2.h>
 #endif
+#ifdef NCEP_DEBUG_MULTIDIR
+// #  include <errno.h>
+#endif
 
 #define STANDARD_ERROR 2
 
@@ -27,7 +30,7 @@
 
 #define F_PACK
 
-RSL_LITE_ERROR_DUP1 ( int *me )
+void RSL_LITE_ERROR_DUP1 ( int *me )
 {
     int newfd,rc ;
     char filename[256] ;
@@ -219,6 +222,25 @@ BYTE_BCAST ( char * buf, int * size, int * Fcomm )
     }
 # else
     MPI_Bcast ( buf, *size, MPI_BYTE, 0, *comm ) ;
+# endif
+#endif
+}
+
+BYTE_BCAST_FROM_ROOT ( char * buf, int * size, int *root , int * Fcomm )
+{
+#ifndef STUBMPI
+    MPI_Comm *comm, dummy_comm ;
+
+    comm = &dummy_comm ;
+    *comm = MPI_Comm_f2c( *Fcomm ) ;
+# ifdef crayx1
+    if (*size % sizeof(int) == 0) {
+       MPI_Bcast ( buf, *size/sizeof(int), MPI_INT, *root, *comm ) ;
+    } else {
+       MPI_Bcast ( buf, *size, MPI_BYTE, *root, *comm ) ;
+    }
+# else
+    MPI_Bcast ( buf, *size, MPI_BYTE, *root, *comm ) ;
 # endif
 #endif
 }
