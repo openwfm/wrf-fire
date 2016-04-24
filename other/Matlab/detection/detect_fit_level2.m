@@ -216,14 +216,14 @@ end
 function fire_tign3d(fig,red,base_time)
     figure(fig); hold off
     tign=red.tign;
-    tol=0.1;
+    tol=1;
     tign(tign(:)>max(tign(:))-tol)=NaN;
     h=surf(red.fxlong,red.fxlat,tign-base_time); 
-    %a=[red.min_lat,red.max_lat,red.min_lon,red.max_lon,-1,red.max_tign/(24*60*60)];
-    %axis manual
-    %axis(a)
-    xlabel('Longitude'),ylabel('Latitude'),zlabel('Days')
     set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
+    a=[red.min_lon,red.max_lon,red.min_lat,red.max_lat,-1,red.max_tign/(24*60*60)];
+    axis manual
+    axis(a)
+    xlabel('Longitude'),ylabel('Latitude'),zlabel('Days')
     drawnow
 end
 
