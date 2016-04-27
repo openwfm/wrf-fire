@@ -212,6 +212,22 @@ elseif(ifun.eq.2)then
             
         endif
 
+        if(restart .and. .not. time_start+dt > fire_perimeter_time) then    
+        ! when starting replay, recompute lfn and fuel_frac
+          call message('replay, recomputing fuel fraction',level=1)
+          do j=jfts,jfte
+            do i=ifts,ifte
+              lfn(i,j) = tign(i,j) - time_start ! <0 if burning at the end of the time step
+            enddo
+          enddo
+          call fuel_left( &
+            ifds,ifde,jfds,jfde, &
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            ifms,ifme,jfms,jfme, &
+            lfn,tign,fuel_time,time_start,fuel_frac,fire_area) !fuel_frac is global
+        endif
+
 elseif(ifun.eq.3)then   ! ignition if so specified
 
     
