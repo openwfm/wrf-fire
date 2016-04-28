@@ -21,6 +21,8 @@ function [p,dims]=nc2struct(filename,varnames,gattnames,timestep,p)
 
 fprintf('nc2struct: reading from file %s',filename)
 
+p.filename{1}=filename;
+
 % reading values
 
 if ~exist('timestep','var'),

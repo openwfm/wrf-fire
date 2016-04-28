@@ -6,6 +6,7 @@ function h=ncreadandcat(files,vars)
 %
 % out 
 %      h          h.vars{i} contains the variable, concatenated along the last dimension 
+
 for i=1:length(files)
     [f,dims]=nc2struct(files{i},vars,{});
     if ~exist('h','var'),
@@ -18,4 +19,5 @@ for i=1:length(files)
         end
     end
 end
+h.filename=files;
      
