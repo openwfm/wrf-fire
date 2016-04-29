@@ -538,7 +538,6 @@ do icl=its1,ite1
     helpsum1=0
     helpsum2=0
 
-
     call tign_lfn_interpolation(time_now,icl,jcl,ims,ime,jms,jme, &
                                   tign,lfn,tff,lff)
 
@@ -611,6 +610,7 @@ enddo
 write(msg,'(a,4i6,a,e15.7)')'fuel_left: tile',its,ite,jts,jte,' max fuel burnt/area',fmax 
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
+
 return
 
 

@@ -147,7 +147,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 !*** local
     TYPE(lines_type):: ignition, hfx
     integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1,j
-    logical::restart
+    logical::restart,replay
     real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
     character(len=128)msg
@@ -277,6 +277,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     endif
     itimestep=grid%itimestep
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
+    replay= time_step_start+dt .le.  config_flags%fire_perimeter_time
 
     
     
@@ -340,8 +341,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     endif
 
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-    write(msg,'(a,i1,a,i1,a,l1)') &
-       'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end,' restart=',restart
+    write(msg,'(a,i1,a,i1,a,l1,a,l1)') &
+       'sfire_driver_em: ifun from ',fire_ifun_start,' to ',fire_ifun_end, &
+           ' restart=',restart,' replay=',replay
 !$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
     call message(msg)
 
@@ -379,11 +381,15 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 !           halo exchange on zsf width 2
 #include "HALO_FIRE_ZSF.inc"
 
+            if(replay)then
+                call message('replay, halo exchange on lfn and tign')
+#include "HALO_FIRE_LFN.inc"
+#include "HALO_FIRE_TIGN.inc"
+            endif
             if(config_flags%chem_opt>0 .or. config_flags%tracer_opt > 0)then
                 ! need reading fuel categories first
                 call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
             endif
-        
 
         elseif(fire_ifun.eq.3)then
 !           halo exchange on atm winds and geopotential, width 1 for interpolation
@@ -401,8 +407,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
         elseif(fire_ifun.eq.6)then
 !           computing fuel_left needs ignition time from neighbors
+            call message('halo exchange on lfn width 2 and tign')
 #include "HALO_FIRE_TIGN.inc"
-            call message('halo exchange on lfn width 2')
 #include "HALO_FIRE_LFN.inc"
 
         endif
@@ -422,7 +428,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%num_tiles,                             & ! atm grid tiling
             grid%i_start,min(grid%i_end,ide-1),                    &
             grid%j_start,min(grid%j_end,jde-1),                    &                 
-            itimestep,restart,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
+            itimestep,restart,replay,config_flags%fire_fuel_read,config_flags%fire_fuel_cat, &  ! in scalars
             time_step_start,dt,grid%dx,grid%dy,                    &
             grid%u_frame,grid%v_frame,                  &
             config_flags%fire_ext_grnd,config_flags%fire_ext_crwn,config_flags%fire_crwn_hgt, &
@@ -526,7 +532,7 @@ subroutine sfire_driver_phys (ifun,    &
     ifps, ifpe, jfps, jfpe,                       & ! fire patch in - will use smaller
     ir,jr,                                        & ! atm/fire grid ratio
     num_tiles,i_start,i_end,j_start,j_end,        & ! atm grid tiling
-    itimestep,restart,ifuelread,nfuel_cat0,       & ! in scalars
+    itimestep,restart,replay,ifuelread,nfuel_cat0,       & ! in scalars
     time_step_start,dt,dx,dy,                     & ! in scalars
     u_frame,v_frame,                              &
     fire_ext_grnd,fire_ext_crwn,fire_crwn_hgt,    &
@@ -593,7 +599,7 @@ integer, intent(in)::ifun,                        &
     nfuel_cat0,                                   & ! fuel category to initialize everything to
     num_tiles                                       ! number of tiles
 
-logical, intent(in)::restart
+logical, intent(in)::restart,replay
     
 integer,dimension(num_tiles),intent(in) :: i_start,i_end,j_start,j_end  ! atm grid tiling
 
@@ -1017,7 +1023,7 @@ do ij=1,num_tiles
 
       
 
-    call sfire_model (id,ifun,restart,  &
+    call sfire_model (id,ifun,restart,replay,  &
         run_fuel_moisture,                      & ! if fuel moisture needs to be updated
         ifuelread,nfuel_cat0,                   & ! initialize fuel categories
         ifds,ifde,jfds,jfde,                    & ! fire domain dims

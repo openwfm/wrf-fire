@@ -14,7 +14,7 @@ contains
 subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
-    restart,                                & ! use existing state
+    restart,replay,                         & ! use existing state, prescribe spread
     run_fuel_moisture,                      & ! if need update fuel moisture in pass 4
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
@@ -85,6 +85,7 @@ integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
                                             ! 5 = copy timestep output to input
                                             ! 6 = compute output fluxes
 logical, intent(in):: restart               ! if true, use existing state
+logical, intent(in):: replay                ! if true, use tign_g for level set
 logical, intent(in)::run_fuel_moisture      ! 
 ! scalar data
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
@@ -153,6 +154,16 @@ if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 !! done in driver now
 !   call init_fuel_cats  ! initialize fuel subsystem
 ! !$OMP END SINGLE
+        if(replay) then    
+        ! when starting replay, recompute lfn and fuel_frac
+          call message('replay, setting the level set function',level=1)
+          do j=jfts,jfte
+            do i=ifts,ifte
+              lfn(i,j) = tign(i,j) - time_start ! <0 if burning at the end of the time step
+            enddo
+          enddo
+        endif
+        call check_lfn_tign('starting replay',time_start,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,tign)
 elseif(ifun.eq.2)then   
         ! initialize all arrays that the model will not change later
 
@@ -212,14 +223,9 @@ elseif(ifun.eq.2)then
             
         endif
 
-        if(restart .and. .not. time_start+dt > fire_perimeter_time) then    
-        ! when starting replay, recompute lfn and fuel_frac
-          call message('replay, recomputing fuel fraction',level=1)
-          do j=jfts,jfte
-            do i=ifts,ifte
-              lfn(i,j) = tign(i,j) - time_start ! <0 if burning at the end of the time step
-            enddo
-          enddo
+        if(replay) then
+          call message('replay, recomputing fuel fraction')
+          call check_lfn_tign('recomputing fuel fraction',time_start,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,tign)
           call fuel_left( &
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
@@ -290,7 +296,7 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   lfn does not change, tign has no halos
 
     if(.not. freeze_fire)then
-      if(time_start+dt > fire_perimeter_time) then    
+      if(.not.replay) then    
         call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
