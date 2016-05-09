@@ -6,7 +6,7 @@ format long
 
 disp(['read_ros_from_wrfout time=',num2str(time)])
 
-datafile=sprintf('data_ros%i',time);
+datafile=sprintf('data_ros_%s_%i',wrfout,time);
 global saved_data  % 0 = read from original files and store in matlab files, 1=read saved data
 disp(['read_file_perimeter time=',num2str(time)])
 
