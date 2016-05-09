@@ -54,7 +54,7 @@ elseif (input_type==2)
     if saved_data
 	disp(['loading from ',datafile])
         w=load(datafile);
-        p=w.p; fire_area_big=w.fire_area_big;
+        p=w.p; 
     else
         p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
 	disp(['storing to ',datafile])
