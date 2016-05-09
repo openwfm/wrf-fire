@@ -8,13 +8,15 @@ disp(['read_ros_from_wrfout time=',num2str(time)])
 
 datafile=sprintf('data_ros%i',time);
 global saved_data  % 0 = read from original files and store in matlab files, 1=read saved data
-disp(['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)])
+disp(['read_file_perimeter time=',num2str(time)])
 
 if saved_data
+    disp(['loading from ',datafile])
     w=load(datafile);
     p=w.p;
 else
     p=nc2struct(wrfout,{'F_ROS11','F_ROS12','F_ROS13','F_ROS21','F_ROS23','F_ROS31','F_ROS32','F_ROS33'},{},time);
+    disp(['storing to ',datafile])
     save datafile p
 end
 

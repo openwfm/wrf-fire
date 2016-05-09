@@ -52,14 +52,16 @@ elseif (input_type==1)
     fclose(fid);
 elseif (input_type==2)
     if saved_data
+	disp(['loading from ',datafile])
         w=load(datafile);
         p=w.p; fire_area_big=w.fire_area_big;
     else
         p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
-        disp(['reading fire_area_big from ',input_file])
-        fire_area_big=dlmread(input_file);
-        save datafile p fire_area_big
+	disp(['storing to ',datafile])
+        save datafile p
     end
+    disp(['reading fire_area_big from ',input_file])
+    fire_area_big=dlmread(input_file);
     fxlong=p.fxlong*p.unit_fxlong;
     fxlat=p.fxlat*p.unit_fxlat;
     fire_area=zeros(size(fire_area_big(:,1:2)));
