@@ -4,6 +4,11 @@ addpath ../netcdf
 addpath ../util1_jan
 addpath ..
 %addpath Output
+if ~exist('saved_data','var'),
+     global saved_data
+     saved_data=0;
+end
+
 
 %wrfout{1}='/share_home/akochans/WRF341F/wrf-fire/WRFV3/test/em_utfire_1d_med_4km_nofire/wrfout_d01_2013-08-11_00:00:00';
 % wrfout{2}='/share_home/akochans/WRF341F/wrf-fire/WRFV3/test/em_utfire_1d_med_4km_nofire/wrfout_d01_2013-08-12_00:00:00';

@@ -18,16 +18,30 @@ function [fxlong,fxlat,fire_area]=read_file_perimeter(wrfout,wrfout_fire,time,in
 %                  of the boundary 1st=last;
 %                  bound(i,1)-horisontal; bound(i,1)-vertical coordinate
 
+datafile=sprintf('data_%i_%i',time,input_type);
+global saved_data  % 0 = read from original files and store in matlab files, 1=read saved data 
 disp(['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)])
 
 if (input_type==0)
-    p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
-    q=nc2struct(wrfout_fire,{'FIRE_AREA'},{},time);    
+    if saved_data
+        w=load(datafile);
+        p=w.p; q=w.q;
+    else
+        p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
+        q=nc2struct(wrfout_fire,{'FIRE_AREA'},{},time);    
+        save datafile p q
+    end
     fire_area=q.fire_area;
     fxlong=p.fxlong*p.unit_fxlong;
     fxlat=p.fxlat*p.unit_fxlat;
 elseif (input_type==1)
-    p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
+    if saved_data
+        w=load(datafile);
+        p=w.p; 
+    else
+        p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
+        save datafile p
+    end
     fxlong=p.fxlong*p.unit_fxlong;
     fxlat=p.fxlat*p.unit_fxlat;
     fire_area=read_perim_from_file(input_file,fxlong,fxlat,p.unit_fxlong,p.unit_fxlat);
@@ -37,10 +51,17 @@ elseif (input_type==1)
     dlmwrite('output_fire_area.txt', fire_area, 'delimiter', '\t','precision', '%.4f');
     fclose(fid);
 elseif (input_type==2)
-    p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
+    if saved_data
+        w=load(datafile);
+        p=w.p; fire_area_big=w.fire_area_big;
+    else
+        p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
+        disp('reading fire_area_big from ',input_file)
+        fire_area_big=dlmread(input_file);
+        save datafile p fire_area_big
+    end
     fxlong=p.fxlong*p.unit_fxlong;
     fxlat=p.fxlat*p.unit_fxlat;
-    fire_area_big=dlmread(input_file);
     fire_area=zeros(size(fire_area_big(:,1:2)));
     fire_area(:,1)=fire_area_big(:,1)*p.unit_fxlong;
     fire_area(:,2)=fire_area_big(:,2)*p.unit_fxlat;
