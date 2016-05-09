@@ -17,7 +17,7 @@ if saved_data
 else
     p=nc2struct(wrfout,{'F_ROS11','F_ROS12','F_ROS13','F_ROS21','F_ROS23','F_ROS31','F_ROS32','F_ROS33'},{},time);
     disp(['storing to ',datafile])
-    save datafile p
+    save(datafile,'p')
 end
 
 ros=zeros(size(p.f_ros11,1),size(p.f_ros11,2),3,3);

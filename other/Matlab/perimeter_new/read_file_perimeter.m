@@ -18,7 +18,7 @@ function [fxlong,fxlat,fire_area]=read_file_perimeter(wrfout,wrfout_fire,time,in
 %                  of the boundary 1st=last;
 %                  bound(i,1)-horisontal; bound(i,1)-vertical coordinate
 
-datafile=sprintf('data_%i_%i',time,input_type);
+datafile=sprintf('data_%s_%i_%i',wrfout,time,input_type);
 global saved_data  % 0 = read from original files and store in matlab files, 1=read saved data 
 disp(['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)]);
 
@@ -29,7 +29,7 @@ if (input_type==0)
     else
         p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
         q=nc2struct(wrfout_fire,{'FIRE_AREA'},{},time);    
-        save datafile p q
+        save(datafile,'p','q')
     end
     fire_area=q.fire_area;
     fxlong=p.fxlong*p.unit_fxlong;
@@ -40,7 +40,7 @@ elseif (input_type==1)
         p=w.p; 
     else
         p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
-        save datafile p
+        save(datafile,'p')
     end
     fxlong=p.fxlong*p.unit_fxlong;
     fxlat=p.fxlat*p.unit_fxlat;
@@ -58,7 +58,7 @@ elseif (input_type==2)
     else
         p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
 	disp(['storing to ',datafile])
-        save datafile p
+        save(datafile,'p')
     end
     disp(['reading fire_area_big from ',input_file])
     fire_area_big=dlmread(input_file);
