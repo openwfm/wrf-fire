@@ -20,8 +20,7 @@ function [fxlong,fxlat,fire_area]=read_file_perimeter(wrfout,wrfout_fire,time,in
 
 datafile=sprintf('data_%i_%i',time,input_type);
 global saved_data  % 0 = read from original files and store in matlab files, 1=read saved data 
-msg=['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)];
-disp(msg)
+disp(['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)]);
 
 if (input_type==0)
     if saved_data
@@ -57,7 +56,7 @@ elseif (input_type==2)
         p=w.p; fire_area_big=w.fire_area_big;
     else
         p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
-        disp('reading fire_area_big from ',input_file)
+        disp(['reading fire_area_big from ',input_file])
         fire_area_big=dlmread(input_file);
         save datafile p fire_area_big
     end
