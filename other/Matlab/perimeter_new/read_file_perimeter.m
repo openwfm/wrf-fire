@@ -20,7 +20,8 @@ function [fxlong,fxlat,fire_area]=read_file_perimeter(wrfout,wrfout_fire,time,in
 
 datafile=sprintf('data_%i_%i',time,input_type);
 global saved_data  % 0 = read from original files and store in matlab files, 1=read saved data 
-disp(['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)])
+msg=['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)];
+disp(msg)
 
 if (input_type==0)
     if saved_data
