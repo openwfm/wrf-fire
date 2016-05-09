@@ -18,7 +18,7 @@ function [fxlong,fxlat,fire_area]=read_file_perimeter(wrfout,wrfout_fire,time,in
 %                  of the boundary 1st=last;
 %                  bound(i,1)-horisontal; bound(i,1)-vertical coordinate
 
-
+disp(['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)])
 
 if (input_type==0)
     p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
