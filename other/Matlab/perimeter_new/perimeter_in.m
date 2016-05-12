@@ -70,7 +70,6 @@ P=A; %Points on the perimeter, who has at least one neighbor, that was not updat
 C_old=C;
 ros_old=read_ros_from_wrfout(wrfout{num_wrf},time);
 for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
-
    if (ts<time) % At the first step we initialize A and D from get_perim_from_initial_tign
       A=[];
       [A(:,1),A(:,2)]=find(C(2:end-1,2:end-1)==1);
@@ -113,7 +112,10 @@ for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
        cur_ts=time_step;
    end
    ros_new=read_ros_from_wrfout(wrfout{cur_num_wrf},cur_ts);
+   tign_old=tign;
    [tign,C,D,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,A,C,D,I,distance,interval,ts,data_steps);
+   t=tign;t(t==0)=NaN;figure(1); mesh(t);title(sprintf('step %i, tign',ts)); colorbar; drawnow
+   figure(2);tt=tign;tt(tign==tign_old)=NaN;mesh(tt);title(sprintf('step %i, tign diff',ts)); colorbar; drawnow
       
    data_steps=sprintf('%s \n Main cycle for step %i is over',data_steps,ts);
    % figure(2); contour(C);title(sprintf('step %i, Matrix C, before subfunction',ts)); drawnow       
@@ -128,7 +130,9 @@ for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
 %   fid = fopen(myfile, 'w');
 %   fprintf(fid,'%s',data_steps); 
 %   fclose(fid);
-   C_old=C;
+   if changed>0,
+        C_old=C;
+   end
 end
 index=find(C==0);
 data_steps=sprintf('%s\n All the steps are done, but there are still %i points, that were not updated yet',data_steps,size(index));
@@ -143,6 +147,7 @@ function [tign,C,D,I,data_steps]=get_tign_one_timestep(tign,ros_old,ros_new,B,C,
 step=1;
 data_steps=sprintf('%s\n subcycle in step %i',data_steps,ts);
 while any(any(D>0))
+   tign_old=tign;
    data_steps=sprintf('%s\n substep %i',data_steps,step);
    data_steps=sprintf('%s\n points whose neighbors are being updated (size(B,1)=) %i',data_steps,size(B,1));
    D_old=D;
@@ -201,6 +206,9 @@ while any(any(D>0))
    [B(:,1),B(:,2)]=find(D(2:end-1,2:end-1)>0);
    B(:,1)=B(:,1)+1;
    B(:,2)=B(:,2)+1;   
+   if any(tign(:)~=tign_old(:)),
+        figure(3);tt=tign;tt(tign==tign_old)=NaN;mesh(tt);title(sprintf('step %i, tign new only')); colorbar; drawnow
+   end
 end
 [row,col]=find(C==1);
 for b=1:size(row,1)
