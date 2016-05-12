@@ -226,14 +226,16 @@ function distance=get_distances(long,lat)
 %   distance(i+1,j+1,a+2,b+2) = geographical distance between node [i,j] and [i+a,j+b] , a,b=-1:1
     
 distance=zeros(size(long,1),size(long,2),3,3);    
-for i=2:size(long,1)-1
-   for j=2:size(long,2)-1
-      for a=-1:1
-         for b=-1:1
-            % distance between node [i,j] and [i+a,j+b]
-            distance(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1))^2+(lat(i+a,j+b,1)-lat(i,j,1))^2);
-         end
-      end
+i=2:size(long,1)-1;
+j=2:size(long,2)-1;
+for a=-1:1
+   for b=-1:1
+      %for j=2:size(long,2)-1
+      %   for i=2:size(long,1)-1
+      %      % distance between node [i,j] and [i+a,j+b]
+            distance(i,j,a+2,b+2)=sqrt((long(i+a,j+b,1)-long(i,j,1)).^2+(lat(i+a,j+b,1)-lat(i,j,1)).^2);
+      %   end
+      %end
    end
 end    
 %IDEAS
