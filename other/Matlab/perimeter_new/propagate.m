@@ -20,7 +20,7 @@ if ~exist('print','var'),
     print=0;
 end
 active=squeeze(dir*(time_end-t(:,:,2,2))>0);
-for step=1:2*max(m,n),
+for step=1:10*max(m,n),
     t_old=t;
     for i=1:m, for j=1:n,
         if active(i,j) & fire_mask(i,j),
@@ -53,10 +53,10 @@ for step=1:2*max(m,n),
             end, end, end
         end
     end, end
-    if print>0,step,end
+    change=norm(t(:)-t_old(:),1);
+    if print>0,fprintf('step %i tign change %g\n',step,change),figure(4),mesh(t(:,:,2,2)),drawnow,end
     if print>1,tign=t(:,:,2,2),end
-    done=~any(t(:)-t_old(:));
-    if done,
+    if change<eps,
         break
     end
 end

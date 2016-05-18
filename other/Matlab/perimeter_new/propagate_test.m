@@ -13,7 +13,7 @@ end
 fire_area=ones(m,n);
 fire_mask=ones(m,n);
 fire_area(2:5,6:9)=0;
-time_end=30;
+time_end=20;
 [t,d]=propagate_init(tign,distance);
 [t,d]=propagate(t,d,1,fire_area,fire_mask,distance,ros,time_end,0);
 tign1=t(:,:,2,2)
