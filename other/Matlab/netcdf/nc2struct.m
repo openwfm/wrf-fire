@@ -21,6 +21,14 @@ function [p,dims]=nc2struct(filename,varnames,gattnames,timestep,p)
 
 fprintf('nc2struct: reading from file %s',filename)
 
+try
+   ncid = netcdf.open(filename,'NC_NOWRITE');
+catch ERR 
+   disp(['cannot open NetCDF file ',filename])
+   rethrow(ERR);
+end
+netcdf.close(ncid);
+
 p.filename{1}=filename;
 
 % reading values
