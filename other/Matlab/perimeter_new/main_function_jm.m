@@ -50,6 +50,9 @@ format long
 %             (input_type=1)- set of ordered points of the boundary 1st=last;
 %                  bound(i,1)-horisontal; bound(i,1)-vertical coordinate
 tign=perimeter_in_jm(long,lat,fire_area,wrfout,time,interval,time_step,num_wrf, input_type);
+figure(3);mesh(long,lat,tign)
+xlabel('long (m)')
+ylabel('lat (m)')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The information below is not being used for the current problem
@@ -60,7 +63,6 @@ tign=perimeter_in_jm(long,lat,fire_area,wrfout,time,interval,time_step,num_wrf, 
 %time=281;
 % time =49 for Witch fire;
 % time=100; for Baker's fire;
-
 
 
 

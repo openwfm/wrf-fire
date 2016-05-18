@@ -13,13 +13,14 @@ function [t,d]=propagate(t,d,dir,fire_area,fire_mask,distance,ros,time_end,print
 %   print  1 for tracing steps, 2 for detailed
 
 if abs(dir) ~= 1, error('dir must be +-1'),end 
-if print>0,step=0,tign=t(:,:,2,2),end
+if print>0,step=0,end
+if print>1,,tign=t(:,:,2,2),end
 m=size(t,1);n=size(t,2);
 if ~exist('print','var'),
     print=0;
 end
 active=squeeze(dir*(time_end-t(:,:,2,2))>0);
-for step=1:100,
+for step=1:2*max(m,n),
     t_old=t;
     for i=1:m, for j=1:n,
         if active(i,j) & fire_mask(i,j),
@@ -52,7 +53,8 @@ for step=1:100,
             end, end, end
         end
     end, end
-    if print>0,step,tign=t(:,:,2,2),end
+    if print>0,step,end
+    if print>1,tign=t(:,:,2,2),end
     done=~any(t(:)-t_old(:));
     if done,
         break

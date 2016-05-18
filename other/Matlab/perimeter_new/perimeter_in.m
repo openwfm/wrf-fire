@@ -46,9 +46,6 @@ if (input_type==2)
 end
 
 
-clear long
-clear lat
-
 tign=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,data_steps);
 
 fid = fopen('output_tign_test.txt', 'w');
