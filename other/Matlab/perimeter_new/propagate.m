@@ -1,4 +1,11 @@
-%function propagate
+function tign=propagate(tign,dir,mask,dist,t_now)
+% arguments:
+%   tign - ignition time, matrix size (m,n)
+%   dir  - 1 forward, -1 backward
+%   mask - 1 what can burn, 0 what not
+%   dist(m,n,3,3) - distance
+%   t_now - the latest time to propagate to (earliest if dir=-1)
+
 % state encoding
 %   t(i,j,a,b)  fire arrival time at a point connecting (i,j) and (i+a-1,j+b-1)
 %   d(i,j,a,b)  distance remaining to (i+a-1,j+b-1), scaled between 0 and 1
@@ -10,9 +17,13 @@
 % to start: 
 %   t(i,j,:,:)=fire arrival time already burning
 %   
+m=size(tign,1);n=size(tign,2);
+t=zeros(m,n,3,3);
+for i=1:m, for j=1:m
+        t(i,j,:,:)=tign(i,j);
+end,end
 
-d_orig=d;
-m=size(t,1);n=size(t,2);
+d=dist;
 active=squeeze(t(:,:,2,2)<t_now);
 for step=1:100,
     t_old=t;
@@ -35,9 +46,9 @@ for step=1:100,
                         if ii>=1 & ii<=m,if jj>=1 & jj<=n,
                             val=min(t(ii,jj,2,2),t_end);
                             fprintf('setting %i %i from %g to %g',ii,jj,t(ii,jj,2,2),val);
-                            t(ii,jj,:,:)=val;    % reinitialize the point ii, jj
-                            d(ii,jj,:,:)=d_orig(ii,jj,:,:);
-                            active(ii,jj)=true;
+                            t(ii,jj,:,:)=val;               % reinitialize the point ii, jj
+                            d(ii,jj,:,:)=dist(ii,jj,:,:); % no distance traveled 
+                            active(ii,jj)=true;             % can propagate from this
                         end, end
                         t(i,j,a,b)=t_end;
                         d(i,j,a,b)=0;
