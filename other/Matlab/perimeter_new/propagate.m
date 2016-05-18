@@ -1,11 +1,12 @@
-function [t,d]=propagate(t,d,dir,fire_area,distance,ros,time_end,print)
-% [t,d]=propagate(t,d,dir,fire_area,distance,ros,time_end,print)
+function [t,d]=propagate(t,d,dir,fire_area,fire_mask,distance,ros,time_end,print)
+% [t,d]=propagate(t,d,dir,fire_area,fire_mask,distance,ros,time_end,print)
 %   t(i,j,2,2)  fire arrival time location (i,j)
 %   t(i,j,a,b)  fire arrival time at a point on the line connecting (i,j) and (i+a-1,j+b-1)
 %   t(i,j,:,:) =fire arrival time given at (i,j) at start
 %   d(i,j,a,b)  distance remaining to (i+a-1,j+b-1), in proper units
 %   dir  - 1 time forward, -1 backward
 %   fire_area - 1 what can burn, 0 what not
+%   fire_mask - 1 can propagate from there, 0 -ignore
 %   distance(m,n,a,b) - distance on (i,j) and (i+a-1,j+b-1)
 %   ros(m,n,a,b) - rate of spread 
 %   time_end - the latest time to propagate to (earliest if dir=-1)
@@ -21,7 +22,7 @@ active=squeeze(dir*(time_end-t(:,:,2,2))>0);
 for step=1:100,
     t_old=t;
     for i=1:m, for j=1:n,
-        if active(i,j),
+        if active(i,j) & fire_mask(i,j),
             for a=1:3, for b=1:3, if a ~=2 | b~=2,
                 if print>1,fprintf('step %i point %i %i direction %i %i time %g ',step,i,j,a-2,b-2,t(i,j,a,b));end
                 dt = max(dir*(time_end-t(i,j,a,b)),0);    % time available to propagate
