@@ -1,49 +1,34 @@
-function tign=propagate(tign,dir,fire_area,distance,ros,time_now,print)
-% input:
-%   tign - ignition time, matrix size (m,n).
-%          Points not burning should be > t_now (dir=1) or < t_now (dir=-1)
-%   dir  - 1 forward, -1 backward
+function [t,d]=propagate(t,d,dir,fire_area,distance,ros,time_end,print)
+% [t,d]=propagate(t,d,dir,fire_area,distance,ros,time_end,print)
+%   t(i,j,2,2)  fire arrival time location (i,j)
+%   t(i,j,a,b)  fire arrival time at a point on the line connecting (i,j) and (i+a-1,j+b-1)
+%   t(i,j,:,:) =fire arrival time given at (i,j) at start
+%   d(i,j,a,b)  distance remaining to (i+a-1,j+b-1), in proper units
+%   dir  - 1 time forward, -1 backward
 %   fire_area - 1 what can burn, 0 what not
-%   distance(m,n,3,3) - distance
-%   time_now - the latest time to propagate to (earliest if dir=-1)
-%   print  1 for tracing
-% output:
-%   tign - fire arrival time up to t_now
-
-% state encoding
-%   t(i,j,a,b)  fire arrival time at a point connecting (i,j) and (i+a-1,j+b-1)
-%   d(i,j,a,b)  distance remaining to (i+a-1,j+b-1), scaled between 0 and 1
-% data
-%   r(i,j,a,b)  rate of spread along the line connecting (i,j) and (i+a-1,j+b-1)
-
-% start: fireline all at tnow, progressing to tnow
-
-% to start: 
-%   t(i,j,:,:)=fire arrival time already burning
-%   
+%   distance(m,n,a,b) - distance on (i,j) and (i+a-1,j+b-1)
+%   ros(m,n,a,b) - rate of spread 
+%   time_end - the latest time to propagate to (earliest if dir=-1)
+%   print  1 for tracing steps, 2 for detailed
 
 if abs(dir) ~= 1, error('dir must be +-1'),end 
-m=size(tign,1);n=size(tign,2);
-t=zeros(m,n,3,3);
-for i=1:m, for j=1:n
-        t(i,j,:,:)=tign(i,j);
-end,end
+if print>0,step=0,tign=t(:,:,2,2),end
+m=size(t,1);n=size(t,2);
 if ~exist('print','var'),
     print=0;
 end
-d=distance;
-active=squeeze(dir*(time_now-t(:,:,2,2))>0);
+active=squeeze(dir*(time_end-t(:,:,2,2))>0);
 for step=1:100,
     t_old=t;
     for i=1:m, for j=1:n,
-        if active(i,j) & fire_area(i,j)
+        if active(i,j),
             for a=1:3, for b=1:3, if a ~=2 | b~=2,
                 if print>1,fprintf('step %i point %i %i direction %i %i time %g ',step,i,j,a-2,b-2,t(i,j,a,b));end
-                dt = max(dir*(time_now-t(i,j,a,b)),0);    % time available to propagate
+                dt = max(dir*(time_end-t(i,j,a,b)),0);    % time available to propagate
                 if dt>0,
                     dd = dt.*ros(i,j,a,b);        % distance traveled to tnow
                     if d(i,j,a,b)> dd,              % positive distance remains
-                        t(i,j,a,b)=time_now;
+                        t(i,j,a,b)=time_end;        % the end of the segment traveled is at time_now
                         d(i,j,a,b)= d(i,j,a,b)-dd;  % decrease the distances remaining
                         if print>1,fprintf('distance remaining %g time %g',d(i,j,a,b),t(i,j,a,b));end
                     elseif d(i,j,a,b)>0,
