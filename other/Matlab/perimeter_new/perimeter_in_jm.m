@@ -45,7 +45,7 @@ if (input_type==2)
  fire_area = IN(:,:,1);
 end
 
-tign=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,data_steps);
+tign=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,long,lat);
 
 fid = fopen('output_tign_test.txt', 'w');
     dlmwrite('output_tign_test.txt', tign, 'delimiter', '\t','precision', '%.4f');
@@ -54,19 +54,20 @@ fid = fopen('output_tign_test.txt', 'w');
 end
 
 
-function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,data_steps)
+function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,long,lat)
 
 time_now=interval*(time_step*(num_wrf-1)+time); % because time starts with 00:00
 time_end=time_now;  % how long will propagate
 
 [tign,fire_mask_out,fire_mask_in]=initial_tign(fire_area,time_now,time_end);
 ros_old=read_ros_from_wrfout(wrfout{num_wrf},time);
+figure(2);plot_ros(long,lat,ros_old);
 time_max=max(tign(:));
 fprintf('propagating in from perimeter time %g to %g\n',time_now,time_max)
 [t,d]=propagate_init(tign,distance);
 [t,d]=propagate(t,d,1,~fire_area,fire_mask_out,distance,ros_old,time_max,1);
 tign=t(:,:,2,2);
-figure(1);mesh(tign);drawnow
+figure(1);mesh(log,lat,tign);drawnow
 [t,d]=propagate_init(tign,distance);
 
 for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
@@ -80,7 +81,9 @@ for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
     fprintf('propagating back in time to %g\n',cur_time_beg)
     [t,d]=propagate(t,d,-1,fire_area,fire_mask_in,distance,ros_new,cur_time_beg,0);
     tign=t(:,:,2,2);
-    figure(2);mesh(tign);title(num2str(cur_time_beg));drawnow
+    figure(1);mesh(long,lat,tign);title(num2str(cur_time_beg));
+    figure(2);plot_ros(long,lat,ros_new);
+    drawnow
 end
 end
 
