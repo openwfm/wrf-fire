@@ -1,9 +1,11 @@
 %clear
 clc
-addpath ../netcdf
-addpath ../util1_jan
-addpath ..
+%addpath ../netcdf
+%addpath ../util1_jan
+%addpath ..
 %addpath Output
+disp('If you get missing netcdf functions please run startup.m in this directory, other/Matlab/perimeter_new.')
+disp('Note: you need to cd to the directory first and then run startup.')
 if ~exist('saved_data','var'),
      global saved_data
      saved_data=0;
