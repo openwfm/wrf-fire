@@ -67,7 +67,7 @@ fprintf('propagating in from perimeter time %g to %g\n',time_now,time_max)
 [t,d]=propagate_init(tign,distance);
 [t,d]=propagate(t,d,1,~fire_area,fire_mask_out,distance,ros_old,time_max,1);
 tign=t(:,:,2,2);
-figure(1);mesh(log,lat,tign);drawnow
+figure(1);mesh(long,lat,tign);drawnow
 [t,d]=propagate_init(tign,distance);
 
 for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
