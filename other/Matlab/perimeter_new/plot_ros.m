@@ -46,9 +46,9 @@ for i=1:m_r
 end
 
 % scale
-dx=long_r(2:end,:)-long_r(1:end-1,:);dx=mean(dx(:))
-dy=lat_r (2:end,:)-lat_r (1:end-1,:);dy=mean(dy(:))
-maxros=max(sqrt((u_r(:).^2+v_r(:).^2)))
+dx=long_r(2:end,:)-long_r(1:end-1,:);dx=mean(dx(:));
+dy=lat_r (:,2:end)-lat_r (:,1:end-1);dy=mean(dy(:));
+maxros=max(sqrt((u_r(:).^2+v_r(:).^2)));
 scaleros=min(dx,dy)/6;
 
 % plot

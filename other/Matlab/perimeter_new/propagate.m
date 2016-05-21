@@ -13,7 +13,6 @@ function [t,d]=propagate(t,d,dir,fire_area,fire_mask,distance,ros,time_end,print
 %   print  1 for tracing steps, 2 for detailed
 
 if abs(dir) ~= 1, error('dir must be +-1'),end 
-if print>0,step=0,end
 if print>1,,tign=t(:,:,2,2),end
 m=size(t,1);n=size(t,2);
 if ~exist('print','var'),
@@ -54,11 +53,12 @@ for step=1:10*max(m,n),
         end
     end, end
     change=norm(t(:)-t_old(:),1);
-    if print>0,fprintf('step %i tign change %g\n',step,change),figure(4),mesh(t(:,:,2,2)),drawnow,end
-    if print>1,tign=t(:,:,2,2),end
+    tign=t(:,:,2,2);
+    tt=tign;tt( tt==max(tt(:)) | tt==min(tt(:)) )=NaN;
+    if print>0,fprintf('step %i tign change %g\n',step,change),figure(4),mesh(tt),drawnow,end
+    if print>1,tign,end
     if change<eps,
         break
     end
 end
-tign=t(:,:,2,2);
-
+end
