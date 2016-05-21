@@ -81,7 +81,7 @@ for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
     ros_new=read_ros_from_wrfout(wrfout{cur_num_wrf},cur_ts);
     cur_time_beg=interval*(time_step*(cur_num_wrf-1)+cur_ts);
     fprintf('propagating back in time to %g\n',cur_time_beg)
-    [t,d]=propagate(t,d,-1,fire_area,fire_mask_in,distance,ros_new,cur_time_beg,0);
+    [t,d]=propagate(t,d,-1,fire_area,fire_mask_in,distance,ros_new,cur_time_beg,1);
     tign=t(:,:,2,2);
     err=big(tign(perimeter_mask)-time_now); fprintf('tign change on the perimeter %g\n',err)
     figure(1);mesh(long,lat,tign);title(num2str(cur_time_beg));

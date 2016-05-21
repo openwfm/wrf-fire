@@ -21,37 +21,53 @@ end
 active=squeeze(dir*(time_end-t(:,:,2,2))>0);
 for step=1:10*max(m,n),
     t_old=t;
-    for i=1:m, for j=1:n,
-        if active(i,j) & fire_mask(i,j),
-            for a=1:3, for b=1:3, if a ~=2 | b~=2,
-                if print>1,fprintf('step %i point %i %i direction %i %i time %g ',step,i,j,a-2,b-2,t(i,j,a,b));end
-                dt = max(dir*(time_end-t(i,j,a,b)),0);    % time available to propagate
-                if dt>0,
-                    dd = dt.*ros(i,j,a,b);        % distance traveled to tnow
-                    if d(i,j,a,b)> dd,              % positive distance remains
-                        t(i,j,a,b)=time_end;        % the end of the segment traveled is at time_now
-                        d(i,j,a,b)= d(i,j,a,b)-dd;  % decrease the distances remaining
-                        if print>1,fprintf('distance remaining %g time %g',d(i,j,a,b),t(i,j,a,b));end
-                    elseif d(i,j,a,b)>0,
-                        t_end=t(i,j,a,b)+dir*d(i,j,a,b)./ros(i,j,a,b); % time at the end point
-                        if print>1,fprintf('time at end %g ',t_end);end
-                        ii=i+a-2; % the grid point this end point coincides with 
-                        jj=j+b-2;
-                        if ii>=1 & ii<=m,if jj>=1 & jj<=n & fire_area(ii,jj)
-                            val=dir*min(dir*t(ii,jj,2,2),dir*t_end);
-                            if print>1,fprintf('setting %i %i from %g to %g',ii,jj,t(ii,jj,2,2),val);end
-                            t(ii,jj,:,:)=val;               % reinitialize the point ii, jj
-                            d(ii,jj,:,:)=distance(ii,jj,:,:); % no distance traveled 
-                            active(ii,jj)=true;             % can propagate from this
-                        end, end
-                        t(i,j,a,b)=t_end;
-                        d(i,j,a,b)=0;
+    for i=1:m,
+        for j=1:n,
+            if active(i,j) & fire_mask(i,j),
+                for a=1:3,
+                    for b=1:3, 
+                        if a ~=2 | b~=2,
+                            if print>1,
+                                fprintf('step %i point %i %i direction %i %i time %g ',step,i,j,a-2,b-2,t(i,j,a,b));
+                            end
+                            dt = max(dir*(time_end-t(i,j,a,b)),0);    % time available to propagate
+                            if dt>0,
+                                dd = dt.*ros(i,j,a,b);        % distance traveled to tnow
+                                if d(i,j,a,b)> dd,              % positive distance remains
+                                    t(i,j,a,b)=time_end;        % the end of the segment traveled is at time_now
+                                    d(i,j,a,b)= d(i,j,a,b)-dd;  % decrease the distances remaining
+                                    if print>1,
+                                        fprintf('distance remaining %g time %g',d(i,j,a,b),t(i,j,a,b));
+                                    end
+                                elseif d(i,j,a,b)>0,
+                                    t_end=t(i,j,a,b)+dir*d(i,j,a,b)./ros(i,j,a,b); % time at the end point
+                                    if print>1,
+                                        fprintf('time at end %g ',t_end);
+                                    end
+                                    ii=i+a-2; % the grid point this end point coincides with 
+                                    jj=j+b-2;
+                                    if ii>=1 & ii<=m & jj>=1 & jj<=n & fire_area(ii,jj)
+                                        val=dir*min(dir*t(ii,jj,2,2),dir*t_end);
+                                        if print>1,
+                                            fprintf('setting %i %i from %g to %g',ii,jj,t(ii,jj,2,2),val);
+                                        end
+                                        t(ii,jj,:,:)=val;               % reinitialize the point ii, jj
+                                        d(ii,jj,:,:)=distance(ii,jj,:,:); % no distance traveled 
+                                        active(ii,jj)=true;             % can propagate from this
+                                    end
+                                    t(i,j,a,b)=t_end;
+                                    d(i,j,a,b)=0;
+                                end
+                            end
+                            if print>1,
+                                fprintf('\n');
+                            end
+                        end
                     end
                 end
-                if print>1,fprintf('\n');end
-            end, end, end
+            end
         end
-    end, end
+    end
     change=norm(t(:)-t_old(:),1);
     tign=t(:,:,2,2);
     tt=tign;tt( tt==max(tt(:)) | tt==min(tt(:)) )=NaN;
