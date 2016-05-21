@@ -18,7 +18,7 @@ m=size(t,1);n=size(t,2);
 if ~exist('print','var'),
     print=0;
 end
-active=squeeze(dir*(time_end-t(:,:,2,2))>0);
+active=dir*(time_end-t(:,:,2,2))>0;
 for step=1:10*max(m,n),
     t_old=t;
     for i=1:m,
@@ -30,9 +30,9 @@ for step=1:10*max(m,n),
                             if print>1,
                                 fprintf('step %i point %i %i direction %i %i time %g ',step,i,j,a-2,b-2,t(i,j,a,b));
                             end
-                            dt = max(dir*(time_end-t(i,j,a,b)),0);    % time available to propagate
+                            dt = max(dir*(time_end-t(i,j,a,b)),0);    % time available to time)end
                             if dt>0,
-                                dd = dt.*ros(i,j,a,b);        % distance traveled to tnow
+                                dd = dt.*ros(i,j,a,b);          % distance to travel until time_end
                                 if d(i,j,a,b)> dd,              % positive distance remains
                                     t(i,j,a,b)=time_end;        % the end of the segment traveled is at time_now
                                     d(i,j,a,b)= d(i,j,a,b)-dd;  % decrease the distances remaining
@@ -40,14 +40,18 @@ for step=1:10*max(m,n),
                                         fprintf('distance remaining %g time %g',d(i,j,a,b),t(i,j,a,b));
                                     end
                                 elseif d(i,j,a,b)>0,
-                                    t_end=t(i,j,a,b)+dir*d(i,j,a,b)./ros(i,j,a,b); % time at the end point
+                                    t_end=t(i,j,a,b)+dir*d(i,j,a,b)./ros(i,j,a,b); % time at the segment end                                  if print>1,
                                     if print>1,
                                         fprintf('time at end %g ',t_end);
                                     end
                                     ii=i+a-2; % the grid point this end point coincides with 
                                     jj=j+b-2;
                                     if ii>=1 & ii<=m & jj>=1 & jj<=n & fire_area(ii,jj)
-                                        val=dir*min(dir*t(ii,jj,2,2),dir*t_end);
+                                        if dir>0,
+                                            val=min(t(ii,jj,2,2),t_end);
+                                        else
+                                            val=max(t(ii,jj,2,2),t_end);
+                                        end
                                         if print>1,
                                             fprintf('setting %i %i from %g to %g',ii,jj,t(ii,jj,2,2),val);
                                         end
@@ -57,6 +61,7 @@ for step=1:10*max(m,n),
                                     end
                                     t(i,j,a,b)=t_end;
                                     d(i,j,a,b)=0;
+                                else 
                                 end
                             end
                             if print>1,
@@ -70,8 +75,14 @@ for step=1:10*max(m,n),
     end
     change=norm(t(:)-t_old(:),1);
     tign=t(:,:,2,2);
-    tt=tign;tt( tt==max(tt(:)) | tt==min(tt(:)) )=NaN;
-    if print>0,fprintf('step %i tign change %g\n',step,change),figure(4),mesh(tt),drawnow,end
+    if print>0,
+        tt=tign;
+        maxt=max(tt(:));
+        mint=min(tt(:));
+        tt( tt==maxt | tt==mint )=NaN;
+        fprintf('step %i tign min %g max %g change %g\n',step,mint,maxt,change)
+        figure(4),mesh(tt),drawnow
+    end
     if print>1,tign,end
     if change<eps,
         break
