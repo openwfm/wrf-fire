@@ -1,9 +1,9 @@
-function p=detect_fit_level2(prefix)
+function a=detect_fit_level2(prefix)
 
 % to create w.mat:
 
 % run Adam's simulation, currently results in
-% /share_home/akochans/WRF341F/wrf-fire/WRFV3/test/em_utfire_1d_med_4km_200m
+% /share_home/akochans/WRF341F/wrf-fire/WRFV3/test/cd em_utfire_1d_med_4km_200m
 % then in Matlab: 
 % set up paths by running setup.m in wrf-fire/WRFV3/test/em_fire
 % f='wrfout_d01_2013-08-20_00:00:00'; 
@@ -134,15 +134,73 @@ plotstate(6,analysis,'Analysis',g)
 
 plotstate(7,analysis-forecast,'Analysis - forecast difference',[])
 
-p.red.tign_g = red.max_tign_g + (24*60*60)*(analysis - red.time);
+% spinup - combine analysis and forecast in the strip between
+% forecast fire area at restart time and outside of analysis fire area at perimeter time
 
-% analysis = max_sim_time + (24*60*60)*(tign+h
-p.tign_g=w.tign_g;
-p.tign_g(red.ispan,red.jspan)=p.red.tign_g;
+restart_time=time_bounds(3);
+perimeter_time=time_bounds(4);
+wf = max(forecast - restart_time,0); % 0 in forecast fire area at restart time, >0 outside 
+wa = max(perimeter_time-analysis,0); % 0 outside of analysis fire area at perimeter time, >0 inside
 
-% max_sim_time + (24*60*60)*(tign+h + base_time - w_time_datenum);
+% check if we have inclusion so the strip exist 
+shrink=nnz(wa + wf==0);  
+if shrink,
+    fprintf('Cannot spin up, fire area shrinking in analysis at %g points\n',shrink)
+    error('Try an earlier restart time');
+end
 
-disp('input the analysis as tign in WRF-SFIRE with fire_perimeter_time=detection time')
+% map the weights so that 0 ->1, 0->1, 
+vf=1-wf./(wf+wa);  % 1  in forecast fire area at restart time, ADDING UP TO 1 
+va=1-wa./(wf+wa); %  1  outside of analysis fire area at restart time, ADDING UP TO 1
+
+% combine the forecast and analysis
+spinup = vf.*forecast + va.*analysis; 
+
+plotstate(8,spinup,'Spinup',g)
+plotstate(9,spinup-forecast,'Spinup - forecast difference',0)
+plotstate(10,analysis-spinup,'Analysis - spinup difference',0)
+
+
+% convert all time from datenum to seconds since run and insert in full
+% field
+
+% insert analysis on reduced domain to the whole thing
+a.forecast=w.tign_g;
+a.analysis=w.tign_g;
+a.analysis(red.ispan,red.jspan)=datenum2time(analysis,red);;
+a.spinup=w.tign_g;
+a.spinup(red.ispan,red.jspan)=datenum2time(spinup,red);;
+
+% copy time bounds to output structure
+
+% as datenum - native
+a.observations_start_datenum=time_bounds(1);
+a.observations_end_datenum=time_bounds(2);
+a.restart_datenum=time_bounds(3);
+a.fire_perimeter_datenum=time_bounds(4);
+
+% as seconds since start
+a.observations_start_time=datenum2time(time_bounds(1),red);
+a.observations_end_time=datenum2time(time_bounds(2),red);
+a.restart_time=datenum2time(time_bounds(3),red);
+a.fire_perimeter_time=datenum2time(time_bounds(4),red);
+
+% as date strings
+a.observations_start_Times=stime(time_bounds(1),red);
+a.observations_end_Times=stime(time_bounds(2),red);
+a.restart_Times=stime(time_bounds(3),red);
+a.fire_perimeter_Times=stime(time_bounds(4),red);
+
+% as days since start
+a.observations_start_days=a.observations_start_time/(24*3600);
+a.observations_end_days=a.observations_end_time/(24*3600);
+a.restart_days=a.restart_time/(24*3600);
+a.fire_perimeter_days=a.fire_perimeter_time/(24*3600);
+
+fprintf('Input the spinup as TIGN_G and restart\nfrom %s with fire_perimeter_time=%g\n',...
+    a.restart_Times,a.fire_perimeter_time)
+
+return
 
     function [Jsmin,best_stepsize] = linesearch(max_step,Js0,tign,h,search,nmesh,max_depth)
         step_low = 0;
