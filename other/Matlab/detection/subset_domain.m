@@ -1,4 +1,4 @@
-function red=subset_domain(w)
+function red=subset_domain(w,red)
 % red=subset_domain(w)
 % find rectangular domain around fire with some user guidance
 % and convert fire arrival time to datenum
@@ -75,7 +75,8 @@ red.max_lon = max(red.fxlong(:));
 % convert tign_g to datenum 
 red.time=datenum(char(w.times)');
 red.max_tign_g=max(w.tign_g(:));
-red.tign=(red.tign_g - red.max_tign_g)/(24*60*60) + red.time;
+%red.tign=(red.tign_g - red.max_tign_g)/(24*60*60) + red.time;
+red.tign=time2datenum(red.tign_g,red);
 red.min_tign=min(red.tign(:));
 red.max_tign=max(red.tign(:));
 red.base_time=red.min_tign;
