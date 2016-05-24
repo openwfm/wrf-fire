@@ -85,4 +85,8 @@ for i=1:length(d),
         end
     end
 end
+if ~exist('g','var'),
+    fprintf('No files found.')
+    g=struct([]);
+end
 fprintf('%i detections selected\n',length(g))

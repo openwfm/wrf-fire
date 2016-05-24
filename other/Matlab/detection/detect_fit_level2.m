@@ -90,7 +90,7 @@ params.dy=444;
 
 disp('optimization loop')
 h =zeros(m,n); % initial increment
-plotstate(3,tign,'Forecast fire arrival time',g);
+plot_state(3,red,'Forecast fire arrival time',tign,g,time_bounds(1:2));
 print('-dpng','tign_forecast.png');
 
 forecast=tign;
@@ -111,18 +111,17 @@ for istep=1:maxiter
     [Js,search]=detection_objective(tign,h,g,params); 
     search = -search/big(search); 
 
-    plotstate(5,search,'Search direction',0);
     print('-dpng', sprintf('%s_search_dir_%d.png', prefix, istep));
     [Jsbest,best_stepsize] = linesearch(4.0,Js,tign,h,search,4,maxdepth);
-%    plotstate(21,tign+h+3*search,'Line search (magic step_size=3)',detection_time(1));
+    plot_state(21,red,'Line search (magic step_size=3)',tign+h+3*search,g,time_bounds(1:3));
     fprintf('Iteration %d: best step size %g\n', istep, best_stepsize);
     if(best_stepsize == 0)
         disp('Cannot improve in this search direction anymore, exiting now.');
         break;
     end
     h = h + best_stepsize*search;
-    plotstate(10+istep,tign+h,...
-        sprintf('Analysis iteration %i [Js=%g]',istep,Jsbest),g);
+    plot_state(10+istep,red,sprintf('Analysis iteration %i [Js=%g]',istep,Jsbest),...
+        tign+h,g,time_bounds(1:2));
     print('-dpng',sprintf('%s_descent_iter_%d.png', prefix, istep));
     h_stor(:,:,istep) = h;
 end
@@ -130,9 +129,7 @@ end
 analysis=tign+h; 
 % w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
 
-plotstate(6,analysis,'Analysis',g)
-
-plotstate(7,analysis-forecast,'Analysis - forecast difference',[])
+plot_state(6,red,'Analysis',analysis,g,time_bounds(1:2))
 
 % spinup - combine analysis and forecast in the strip between
 % forecast fire area at restart time and outside of analysis fire area at perimeter time
@@ -156,9 +153,9 @@ va=1-wa./(wf+wa); %  1  outside of analysis fire area at restart time, ADDING UP
 % combine the forecast and analysis
 spinup = vf.*forecast + va.*analysis; 
 
-plotstate(8,spinup,'Spinup',g)
-plotstate(9,spinup-forecast,'Spinup - forecast difference',0)
-plotstate(10,analysis-spinup,'Analysis - spinup difference',0)
+plot_state(8,red,'Spinup',spinup,g,time_bounds(3:4))
+plot_state(9,red,'Forecast for spinup',forecast,g,time_bounds(3:4))
+plot_state(10,red,'Analysis for spinup',analysis,g,time_bounds(3:4))
 
 
 % convert all time from datenum to seconds since run and insert in full
@@ -218,8 +215,7 @@ return
             Jshigh=Jsls(nmesh+2);
             for i=1:nmesh+2
                 str=sprintf('step=%g objective function=%g',step_sizes(i),Jsls(i)); 
-                plotstate(20+i,tign+h+step_sizes(i)*search,str,g);
-                drawnow
+                plot_state(20+i,red,str,tign+h+step_sizes(i)*search,g,time_bounds(1:2));
             end
             
             figure(8);
@@ -247,21 +243,6 @@ return
         best_stepsize = step_sizes(ndx);
     end
 
-    function plotstate(fig,T,s,obs)
-        fprintf('Figure %i %s\n',fig,s)
-        arg=red;
-        arg.tign=T;
-        if exist('obs') && isstruct(obs)
-            fire_tign3d(fig,arg,red.base_time)
-            hold on
-            fire_pixels_3d(fig,obs,red.base_time)
-            hold off
-        else
-            fire_tign3d(fig,arg,0)
-        end
-        title(s)
-        drawnow
-    end
 
 end % detect_fit_level2
 
@@ -269,44 +250,4 @@ function i=map_index(x,a,b,n)
 % find image of x under linear map [a,b] -> [1,m]
 % and round to integer
 i=round(1+(n-1)*(x-a)/(b-a));
-end
-
-function fire_tign3d(fig,red,base_time)
-    figure(fig); hold off
-    tign=red.tign;
-    tol=1;
-    tign(tign(:)>max(tign(:))-tol)=NaN;
-    h=surf(red.fxlong,red.fxlat,tign-base_time); 
-    set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces only
-    a=[red.min_lon,red.max_lon,red.min_lat,red.max_lat,-1,red.max_tign/(24*60*60)];
-    axis manual
-    axis(a)
-    xlabel('Longitude'),ylabel('Latitude'),zlabel('Days')
-    drawnow
-end
-
-function fire_pixels_3d(fig,x,base_time)
-if length(x)>1,
-    for i=1:length(x),
-        fire_pixels_3d(fig,x(i),base_time)
-    end
-    return
-end
-kk=find(x.data(:)>=7);
-if ~isempty(kk),
-    rlon=0.5*abs(x.lon(end)-x.lon(1))/(length(x.lon)-1);
-    rlat=0.5*abs(x.lat(end)-x.lat(1))/(length(x.lat)-1);
-    lon1=x.xlon(kk)-rlon;
-    lon2=x.xlon(kk)+rlon;
-    lat1=x.xlat(kk)-rlat;
-    lat2=x.xlat(kk)+rlat;
-    X=[lon1,lon2,lon2,lon1]';
-    Y=[lat1,lat1,lat2,lat2]';
-    Z=ones(size(X))*(x.time-base_time);
-    cmap=cmapmod14;
-    C=cmap(x.data(kk)'+1,:);
-    C=reshape(C,length(kk),1,3);
-    figure(fig);
-    patch(X,Y,Z,C);
-end
 end
