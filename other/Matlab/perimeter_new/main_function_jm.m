@@ -46,13 +46,13 @@ time=48;           % the number of the time step in the latest wrfout
 format long
 
 % read the fire map at perimeter time
-    [fxlong,fxlat,fire_perimeter,timestep_end]=read_file_perimeter(wrfout{num_wrf},wrfout{num_wrf}, time,input_type,input_file);
+    [long,lat,fire_perimeter,timestep_end]=read_file_perimeter(wrfout{num_wrf},wrfout{num_wrf}, time,input_type,input_file);
 
 % now have data: long, lat, 
 % fire_area - (input_type=0)- burning or not burning (between 0 and 1, 0-1 OK)
 %             (input_type=1)- set of ordered points of the boundary 1st=last;
 %                  bound(i,1)-horisontal; bound(i,1)-vertical coordinate
-tign=perimeter_in_jm(long,lat,fire_area,wrfout,time,interval,time_step,num_wrf, input_type);
+tign=perimeter_in_jm(long,lat,fire_perimeter,wrfout,time,interval,time_step,num_wrf, input_type);
 figure(3);mesh(long,lat,tign)
 xlabel('long (m)')
 ylabel('lat (m)')
