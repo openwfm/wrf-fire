@@ -21,8 +21,6 @@ end
 time_bounds=input_num('bounds [min_time max_time] as datenum, or number of bounds above',3);
 if length(time_bounds)==1, 
     time_bounds=default_time_bounds{time_bounds};
-else
-    time_bounds=time_bounds+red.min_tign;
 end
 print_time_bounds('Using bounds',time_bounds(1),time_bounds(2))
 
@@ -33,7 +31,8 @@ time_bounds(3)=input_num('restart time ',rounddatenum2hours(time_bounds(4)-aa/24
 print_time_bounds('Spinup from restart to perimeter time',time_bounds(3),time_bounds(4))
 
     function print_time_bounds(str,time1,time2)
-        fprintf('%-10s\n from %s to %s\n',str,stime(time1,red),stime(time2,red))
+        fprintf('%-10s datenum from %20.13g to %20.13g\n from %s to %s\n',...
+            str,time1,time2,stime(time1,red),stime(time2,red))
     end
 
     function r=rounddatenum2hours(t)
