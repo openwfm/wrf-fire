@@ -1,7 +1,5 @@
-cwd__=pwd
-cd ../../../wrfv2_fire/test/em_fire
+cwd=pwd
+cd ~/wrf-fire/wrfv2_fire/test/em_fire
 startup
-cd(cwd__)
-addpath(cwd__)
-clear cwd__
-
+cd(cwd)
+clear cwd
