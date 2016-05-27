@@ -38,21 +38,21 @@ input_file='perimeter.txt';
 %input_file='Input_data_Patch_Springs_8-12-2013_2123.dat';    
 % File that contains perimeter data
                   % It is being used only when input_type=1;;  
-num_wrf=9;        % The total number of wrfouts that are being used
-time_step=48;      % The amount of time_steps in each wrfout
-interval=1800;      % time step in wrfout in seconds (every 15 min=900 sec)
-time=48;           % the number of the time step in the latest wrfout 
+num_wrf=3;        % The total number of wrfouts that are being used
+frames=48;      % The amount of frames in each wrfout
+frame_interval=1800;  % frame interval in wrfout in seconds (every 15 min=900 sec)
+last_frame=27;           % the number of the frame in the latest wrfout 
                   %  closest to the perimeter time from below
 format long
 
 % read the fire map at perimeter time
-    [long,lat,fire_perimeter,timestep_end]=read_file_perimeter(wrfout{num_wrf},wrfout{num_wrf}, time,input_type,input_file);
+    [long,lat,fire_perimeter,timestep_end]=read_file_perimeter(wrfout{num_wrf},wrfout{num_wrf}, last_frame,input_type,input_file);
 
 % now have data: long, lat, 
 % fire_area - (input_type=0)- burning or not burning (between 0 and 1, 0-1 OK)
-%             (input_type=1)- set of ordered points of the boundary 1st=last;
+%             (input_type=1)- 2set of ordered points of the boundary 1st=last;
 %                  bound(i,1)-horisontal; bound(i,1)-vertical coordinate
-tign=perimeter_in_jm(long,lat,fire_perimeter,wrfout,time,interval,time_step,num_wrf, input_type);
+tign=perimeter_in_jm(long,lat,fire_perimeter,wrfout,last_frame,frame_interval,frames,num_wrf, input_type);
 figure(3);mesh(long,lat,tign)
 xlabel('long (m)')
 ylabel('lat (m)')
