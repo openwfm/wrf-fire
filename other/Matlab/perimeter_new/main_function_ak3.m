@@ -44,7 +44,7 @@ time=48;           % the number of the time step in the latest wrfout
 format long
 
 % read the fire map at perimeter time
-[long,lat,fire_area,timestep_end]=read_file_perimeter(wrfout{num_wrf},wrfout{num_wrf}, time,input_type,input_file);
+[long,lat,fire_area]=read_file_perimeter(wrfout{num_wrf},wrfout{num_wrf}, time,input_type,input_file);
 % now have data: long, lat, 
 % fire_area - (input_type=0)- burning or not burning (between 0 and 1, 0-1 OK)
 %             (input_type=1)- set of ordered points of the boundary 1st=last;

@@ -1,4 +1,4 @@
-function [fxlong,fxlat,fire_area]=read_file_perimeter(wrfout,wrfout_fire,time,input_type,input_file)
+function [fxlong,fxlat,fire_perimeter,timestep_end]=read_file_perimeter(wrfout,wrfout_fire,time,input_type,input_file)
 % Volodymyr Kondratenko           April 3 2012
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -7,9 +7,10 @@ function [fxlong,fxlat,fire_area]=read_file_perimeter(wrfout,wrfout_fire,time,in
 %                  It is needed for reading the latitude and longtitude
 %                  coordinates of the mesh and also UNIT_FXLONG and
 %                  UNIT_FXLAT variables
-%        time    : coordinate in the wrfout array, that needs to be computed
+%        time    : time step index in the wrfout (last index)
 %                  example FXLAT(:,:,time)  
 % Output: 
+%        p 	structure with various fiels
 %        long = FXLONG, longtitude coordinates of the mesh converted to (m)
 %        lat = FXLAT, latitude coordinates of the mesh converted to (m)
 %        fire_area = fire map,[0,1] array, where 0- not
@@ -23,18 +24,20 @@ global saved_data  % 0 = read from original files and store in matlab files, 1=r
 disp(['read_file_perimeter time=',num2str(time),' input_type=',num2str(input_type)]);
 
 if (input_type==0)
+    error('not supported')
     if saved_data
         w=load(datafile);
         p=w.p; q=w.q;
     else
-        p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
+        p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT','Times','ITIMESTEP'},{'DT'},time);
         q=nc2struct(wrfout_fire,{'FIRE_AREA'},{},time);    
         save(datafile,'p','q')
     end
     fire_area=q.fire_area;
     fxlong=p.fxlong*p.unit_fxlong;
     fxlat=p.fxlat*p.unit_fxlat;
-elseif (input_type==1)
+elseif (input_type==1) 
+    error('not supported')
     if saved_data
         w=load(datafile);
         p=w.p; 
@@ -56,17 +59,18 @@ elseif (input_type==2)
         w=load(datafile);
         p=w.p; 
     else
-        p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT'},{},time);
+        p=nc2struct(wrfout,{'UNIT_FXLONG','UNIT_FXLAT','FXLONG','FXLAT','ITIMESTEP'},{'DT','DX','DY'},time);
 	disp(['storing to ',datafile])
         save(datafile,'p')
     end
-    disp(['reading fire_area_big from ',input_file])
-    fire_area_big=dlmread(input_file);
+    disp(['reading fire_perimeter_big from ',input_file,' frame ',num2str(time)])
+    fire_perimeter_big=dlmread(input_file);
     fxlong=p.fxlong*p.unit_fxlong;
     fxlat=p.fxlat*p.unit_fxlat;
-    fire_area=zeros(size(fire_area_big(:,1:2)));
-    fire_area(:,1)=fire_area_big(:,1)*p.unit_fxlong;
-    fire_area(:,2)=fire_area_big(:,2)*p.unit_fxlat;
+    fire_area=zeros(size(fire_perimeter_big(:,1:2)));
+    fire_perimeter(:,1)=fire_perimeter_big(:,1)*p.unit_fxlong;
+    fire_perimeter(:,2)=fire_perimeter_big(:,2)*p.unit_fxlat;
+    timestep_end=p.itimestep*p.dt;
     %fire_area=fire_area_big(:,1:2);
 end
 

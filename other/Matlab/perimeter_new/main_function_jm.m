@@ -46,7 +46,7 @@ last_frame=27;           % the number of the frame in the latest wrfout
 format long
 
 % read the fire map at perimeter time
-    [long,lat,fire_perimeter,timestep_end]=read_file_perimeter(wrfout{num_wrf},wrfout{num_wrf}, last_frame,input_type,input_file);
+    [long,lat,fire_perimeter,timestep_end]=read_file_perimeter_jm(wrfout{num_wrf},wrfout{num_wrf}, last_frame,input_type,input_file);
 
 % now have data: long, lat, 
 % fire_area - (input_type=0)- burning or not burning (between 0 and 1, 0-1 OK)
