@@ -1,11 +1,11 @@
-function ros=read_ros_from_wrfout(wrfout,time)
+function ros=read_ros_from_wrfout(wrfout,frame)
 
 % for witch its 3100 2600
 
 format long
 
-disp(['read_ros_from_wrfout time=',num2str(time)])
-datafile=sprintf('data_ros_%s_%i',wrfout,time);
+fprintf('read_ros_from_wrfout %s frame %i\n',wrfout,frame);
+datafile=sprintf('data_ros_%s_%i',wrfout,frame);
 global saved_data  % 0 = read from original files and store in matlab files, 1=read saved data
 
 if saved_data
@@ -13,10 +13,12 @@ if saved_data
     w=load(datafile);
     p=w.p;
 else
-    p=nc2struct(wrfout,{'F_ROS11','F_ROS12','F_ROS13','F_ROS21','F_ROS23','F_ROS31','F_ROS32','F_ROS33'},{},time);
+    p=nc2struct(wrfout,{'ITIMESTEP','F_ROS11','F_ROS12','F_ROS13','F_ROS21','F_ROS23','F_ROS31','F_ROS32','F_ROS33','Times'},{'DT'},frame);
     disp(['storing to ',datafile])
     save(datafile,'p')
 end
+
+fprintf('%s %gs from simulation start\n',char(p.times),p.dt*p.itimestep)
 
 ros=zeros(size(p.f_ros11,1),size(p.f_ros11,2),3,3);
 
