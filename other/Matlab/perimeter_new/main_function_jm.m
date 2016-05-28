@@ -42,8 +42,7 @@ num_wrf=3;        % The total number of wrfouts that are being used
 frames=48;      % The amount of frames in each wrfout
 frame_interval=1800;  % frame interval in wrfout in seconds (every 15 min=900 sec)
 last_frame=27;           % the number of the frame in the latest wrfout 
-                  %  closest to the perimeter time from below
-format long
+last_frame_time=(frames*(num_wrf-1)+last_frame)*frame_interval
 
 % read the fire map at perimeter time
     [long,lat,fire_perimeter,timestep_end]=read_file_perimeter_jm(wrfout{num_wrf},wrfout{num_wrf}, last_frame,input_type,input_file);

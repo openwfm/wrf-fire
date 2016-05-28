@@ -74,16 +74,12 @@ for step=1:10*max(m,n),
         end
     end
     change=norm(t(:)-t_old(:),1);
-    tign=t(:,:,2,2);
     if print>0,
-        tt=tign;
-        maxt=max(tt(:));
-        mint=min(tt(:));
-        tt( tt==maxt | tt==mint )=NaN;
+        maxt=max(t(:));
+        mint=min(t(:));
         fprintf('step %i tign min %g max %g change %g\n',step,mint,maxt,change)
-        figure(4),mesh(tt),drawnow
     end
-    if print>1,tign,end
+    if print>1,tign=t(:,:,2,2),end
     if change<eps,
         break
     end
