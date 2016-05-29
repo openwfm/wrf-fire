@@ -52,7 +52,7 @@ last_frame_time=(frames*(num_wrf-1)+last_frame)*frame_interval
 %             (input_type=1)- 2set of ordered points of the boundary 1st=last;
 %                  bound(i,1)-horisontal; bound(i,1)-vertical coordinate
 tign=perimeter_in_jm(long,lat,fire_perimeter,wrfout,last_frame,frame_interval,frames,num_wrf, input_type);
-figure(3);mesh(long,lat,tign)
+figure(4);mesh(long,lat,tign)
 xlabel('long (m)')
 ylabel('lat (m)')
 

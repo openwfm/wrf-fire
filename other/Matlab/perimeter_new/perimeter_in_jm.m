@@ -56,7 +56,7 @@ end
 
 function [tign]=get_tign_from_dif_eq(wrfout,fire_area,distance,time,interval,time_step,num_wrf,long,lat)
 
-time_now=interval*(time_step*(num_wrf-1)+time); % because time starts with 00:00
+time_now=interval*(time_step*(num_wrf-1)+time) % because time starts with 00:00
 time_perimeter=time_now;
 time_end=time_now;  % how long will propagate
 
@@ -86,10 +86,10 @@ for ts=(time_step*(num_wrf-1)+time):-1:2 % ts -time step
     tign=t(:,:,2,2);
     err=big(tign(perimeter_mask)-time_now); fprintf('tign change on the perimeter %g\n',err)
     tt=tign;
-    tt( tt==max(tt(:)) |tt==min(tt(:)))=NaN;
-    figure(1);mesh(long,lat,tt);title(num2str(cur_time_beg));
-    hold on; countour3(long,lat,rr,[time_perimeter,time_perimeter]),hold on
-    figure(2);plot_ros(long,lat,ros_new);
+    tt( tt > time_perimeter | tt==0)=NaN;
+    figure(3);mesh(long,lat,tt);title(num2str(cur_time_beg));
+    hold on; contour3(long,lat,tt,[time_perimeter,time_perimeter]),hold off
+    figure(1);plot_ros(long,lat,ros_new);
     drawnow
 end
 end
