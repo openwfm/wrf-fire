@@ -1,9 +1,26 @@
-function a=detect_fit_level2(prefix)
+function a=detect_fit_level2(varargin)
+% a=detect_fit_level2
+% a=detect_fit_level2(cycle,time_bounds,w)
+if nargin>=1,
+    cycle=varargin{1};
+else
+    cycle=[];
+end
+if nargin>=2,
+    time_bounds=varargin{2};
+else
+    time_bounds=[];
+end
+if nargin>=3,
+    w=varargin{3};
+else
+    w=[];
+end
 
 % to create w.mat:
 
 % run Adam's simulation, currently results in
-% /share_home/akochans/WRF341F/wrf-fire/WRFV3/test/cd em_utfire_1d_med_4km_200m
+% /share_home/akochans/WRF341F/wrf-fire/WRFV3/test/em_utfire_1d_med_4km_200m
 % then in Matlab: 
 % set up paths by running setup.m in wrf-fire/WRFV3/test/em_fire
 % f='wrfout_d01_2013-08-20_00:00:00'; 
@@ -28,7 +45,9 @@ plot_also_wind=0;
 
 disp('Loading simulation')
 
-w=load('w');w=w.w;
+if isempty(w),
+    w=load('w');w=w.w;
+end
 
 if plot_also_wind,
     % wind
@@ -61,7 +80,9 @@ prefix='TIFs/';
 % the level2 file names processed by geotiff2mat.py
 p=sort_rsac_files(prefix); 
 
-time_bounds=subset_detection_time(red,p);
+if isempty(time_bounds),
+    time_bounds=subset_detection_time(red,p);
+end
 
 g = load_subset_detections(prefix,p,red,time_bounds,fig);
        
@@ -90,8 +111,8 @@ params.dy=444;
 
 disp('optimization loop')
 h =zeros(m,n); % initial increment
-plot_state(3,red,'Forecast fire arrival time',tign,g,time_bounds(1:2));
-print('-dpng','tign_forecast.png');
+plot_state(3,red,'Forecast',tign,g,time_bounds(1:2));
+savefig('forecast',cycle)
 
 forecast=tign;
 
@@ -113,7 +134,7 @@ for istep=1:maxiter
 
     print('-dpng', sprintf('%s_search_dir_%d.png', prefix, istep));
     [Jsbest,best_stepsize] = linesearch(4.0,Js,tign,h,search,4,maxdepth);
-    plot_state(21,red,'Line search (magic step_size=3)',tign+h+3*search,g,time_bounds(1:3));
+    plot_state(21,red,'Line search',tign+h+3*search,g,time_bounds(1:3));
     fprintf('Iteration %d: best step size %g\n', istep, best_stepsize);
     if(best_stepsize == 0)
         disp('Cannot improve in this search direction anymore, exiting now.');
@@ -130,6 +151,7 @@ analysis=tign+h;
 % w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
 
 plot_state(6,red,'Analysis',analysis,g,time_bounds(1:2))
+savefig('analysis',cycle)
 
 % spinup - combine analysis and forecast in the strip between
 % forecast fire area at restart time and outside of analysis fire area at perimeter time
@@ -154,6 +176,7 @@ va=1-wa./(wf+wa); %  1  outside of analysis fire area at restart time, ADDING UP
 spinup = vf.*forecast + va.*analysis; 
 
 plot_state(8,red,'Spinup',spinup,g,time_bounds(3:4))
+savefig('spinup',cycle)
 plot_state(9,red,'Forecast for spinup',forecast,g,time_bounds(3:4))
 plot_state(10,red,'Analysis for spinup',analysis,g,time_bounds(3:4))
 
@@ -250,4 +273,14 @@ function i=map_index(x,a,b,n)
 % find image of x under linear map [a,b] -> [1,m]
 % and round to integer
 i=round(1+(n-1)*(x-a)/(b-a));
+end
+
+function savefig(file,cycle)
+    if isempty(cycle),
+        filename=file;
+    else
+        filename=sprintf('%s_%i',file,cycle);
+    end
+    print('-dpng',[filename,'.png'])
+    saveas(gcf,[filename,'.fig'],'fig')
 end
