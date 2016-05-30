@@ -7,18 +7,20 @@ heads={'Observations from              ',...
        'Next cycle restart at          ',...
        'Next cycle replay until        ',...
        'Next cycle continue  until     '};
-for i=1:num_cycles
+start_cycle=input_num('starting cycle',1)
+for i=start_cycle:num_cycles
     start=base+i-1;
     restart=start+1-spinup_time(i);
     time_bounds(i,:)=[start,start+1-4e-6,restart,start+1,start+3];
     for j=1:5,
         fprintf('Cycle %i %s %s\n',i,heads{j},datestr(time_bounds(i,j),'dd-mmm-yyyy HH:MM:SS'))
     end
-    wrfout{i}=['wrfout_',datestr(start+2,'yyyy-mm-dd_HH:MM:SS')];
-    wrfrst{i}=['wrfrst_',datestr(restart,'yyyy-mm-dd_HH:MM:SS')];
+    wrfout{i}=['wrfout_d01_',datestr(start+2,'yyyy-mm-dd_HH:MM:SS')];
+    wrfrst{i}=['wrfrst_d01_',datestr(restart,'yyyy-mm-dd_HH:MM:SS')];
 end
 for i=1:num_cycles
-    % w=read_wrfout_tign(wrfout{i});
+    savefile(wrfout{i})
+    w=read_wrfout_tign(wrfout{i});
     % start, end observations; restart time, perimeter time
     fprintf('%s %s\n','Reading fire arrival time from ',wrfout{i})
     fprintf('%s %s\n','Writing modified time into     ',wrfrst{i})
@@ -27,11 +29,12 @@ for i=1:num_cycles
     end
     
     p=detect_fit_level2(1,time_bounds(i,:),w)
+    savefile(wrfrst{i})
     ncreplace(wrfrst{i},'TIGN_G',p.spinup)
     for j=3:5,
         fprintf('Cycle %i %s %s\n',i,heads{j},datestr(time_bounds(i,j),'dd-mmm-yyyy HH:MM:SS'))
     end
-    command=sprintf('ln -s namelist.input_%i namelist.input',cycle);
+    command=sprintf('ln -s namelist.input_%i namelist.input',i);
     disp(command)
     if system(command),
         warning('command failed')
