@@ -4,7 +4,7 @@ min_det_time=p.time(1);
 max_det_time=p.time(end);
       
 % choose time bounds
-print_time_bounds('Simulation',red.min_tign,red.max_tign)
+print_time_bounds('Simulation',red.start_datenum,red.end_datenum)
 print_time_bounds('Detections',min_det_time,max_det_time)
 b1=max(red.min_tign,min_det_time);
 b2=min(red.max_tign,max_det_time);
