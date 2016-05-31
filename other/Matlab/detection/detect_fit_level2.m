@@ -24,8 +24,7 @@ end
 % then in Matlab: 
 % set up paths by running setup.m in wrf-fire/WRFV3/test/em_fire
 % f='wrfout_d01_2013-08-20_00:00:00'; 
-% t=nc2struct(f,{'Times'},{});  n=size(t.times,2)  
-% w=nc2struct(f,{'Times','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','XLONG','XLAT','NFUEL_CAT'},{'DX','DY'},n);
+% w=read_wrfout_tign(f);
 % save ~/w.mat w    
 % fuels.m is created by WRF-SFIRE at the beginning of the run
 % copy w.mat and fuel.m to your machine where this fuction will run
