@@ -216,6 +216,8 @@ a.observations_end_days=a.observations_end_time/(24*3600);
 a.restart_days=a.restart_time/(24*3600);
 a.fire_perimeter_days=a.fire_perimeter_time/(24*3600);
 
+a.cycle=cycle;
+
 fprintf('Input the spinup as TIGN_G and restart\nfrom %s with fire_perimeter_time=%g\n',...
     a.restart_Times,a.fire_perimeter_time)
 
@@ -280,6 +282,8 @@ function savefig(file,cycle)
     else
         filename=sprintf('%s_%i',file,cycle);
     end
+    h=gcf;
+    fprintf('Saving figure %i as %s\n',h.Number,filename)
     print('-dpng',[filename,'.png'])
     saveas(gcf,[filename,'.fig'],'fig')
 end

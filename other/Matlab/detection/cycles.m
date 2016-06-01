@@ -1,49 +1,59 @@
+function cycles
 base=datenum('2013-08-11 00:00:00');
 num_cycles=5;
-spinup_time=0.5*ones(1,num_cycles);
-spinup_time(1)=23/24;
-heads={'Observations from              ',...
-       'Observations to                ',...
-       'Next cycle restart at          ',...
-       'Next cycle replay until        ',...
-       'Next cycle end time            '};
-start_cycle=input_num('starting cycle',1)
-for i=start_cycle:num_cycles
-    start=base+i-1;
-    restart=start+1-spinup_time(i);
-    time_bounds(i,:)=[start,start+1-4e-6,restart,start+1,start+3];
-    for j=1:5,
-        fprintf('Cycle %i %s %s\n',i,heads{j},datestr(time_bounds(i,j),'dd-mmm-yyyy HH:MM:SS'))
-    end
-    wrfout{i}=['wrfout_d01_',datestr(start+2,'yyyy-mm-dd_HH:MM:SS')];
-    wrfrst{i}=['wrfrst_d01_',datestr(restart,'yyyy-mm-dd_HH:MM:SS')];
-    perimeter_time(i)=(time_bounds(i,4)-base)*24*3600;
-    fprintf('perimeter_time=%10.3f\n',perimeter_time(i))
+spinup_time=ones(1,num_cycles);
+cycle_length=ones(1,num_cycles);
+cycle_start =[0,2,3,4,5,6]
+spinup_time =[2,1,1,1,1,1]
+for i=1:num_cycles
+    forecast_time(i)=cycle_start(i+1)+1;
+    obs_start(i)=cycle_start(i);
+    obs_end(i)=cycle_start(i+1)-1e-6;
+    replay_start(i)=cycle_start(i);
+    replay_end(i)=cycle_start(i+1);
+    run_end(i)=cycle_start(i+1)+2;
+    print_times(i)
+    wrfout{i}=['wrfout_d01_',datestr(base+forecast_time(i),'yyyy-mm-dd_HH:MM:SS')];
+    wrfrst{i}=['wrfrst_d01_',datestr(base+replay_start(i),'yyyy-mm-dd_HH:MM:SS')];
+    perimeter_time(i)=replay_end(i)*24*3600;
 end
-for i=start_cycle:num_cycles
-    %savefile(wrfout{i})
-    w=read_wrfout_tign(wrfout{i});
-    % start, end observations; restart time, perimeter time
+   i=input_num('cycle number',1);
+    print_times(i)
     fprintf('%s %s\n','Reading fire arrival time from ',wrfout{i})
-    fprintf('%s %s\n','Writing modified time into     ',wrfrst{i})
-    for j=1:4,
-        fprintf('Cycle %i %s %s\n',i,heads{j},datestr(time_bounds(i,j),'dd-mmm-yyyy HH:MM:SS'))
+    if replay_start(i)==0;
+       rewrite='wrfinput_d01';
+       restart='.false.';
+    else
+       rewrite=wrfrst{i};
+       restart='.true.';
     end
-    fprintf('perimeter_time=%10.3f\n',perimeter_time(i))
-    p=detect_fit_level2(1,time_bounds(i,:),w)
-    %savefile(wrfrst{i})
-    for j=3:5,
-        fprintf('Cycle %i %s %s\n',i,heads{j},datestr(time_bounds(i,j),'dd-mmm-yyyy HH:MM:SS'))
-    end
-    fprintf('perimeter_time=%10.3f\n',perimeter_time(i))
+    fprintf('%s %s\n','Will write modified time into     ',rewrite)
+    w=read_wrfout_tign(wrfout{i});
+    time_bounds=[obs_start(i),obs_end(i),replay_start(i),replay_end(i)]+base;
+    p=detect_fit_level2(i,time_bounds,w)
+    print_times(i)
+    fprintf('perimeter_time=%10.3f\nrestart=%s\n',perimeter_time(i),restart)
+    
     command=sprintf('rm -f namelist.input; ln -s namelist.input_%i namelist.input',i);
-    q=sprintf('replace TIGN_G in %s and run\n %s 0/1',wrfrst{i},command);
-    y=input_num(q,1);
-    if y
-        ncreplace(wrfrst{i},'TIGN_G',p.spinup)
+    q=sprintf('replace TIGN_G in %s and run\n %s\n [0/1]',rewrite,command);
+    if input_num(q,1)
+        ncreplace(rewrite,'TIGN_G',p.spinup)
         if system(command),
-            warning('command failed')
+             error('command failed')
         end
     end
     input('Run WRF-SFIRE and continue when done\n')
+
+function print_times(ii)
+ptime(ii,'Forecast until    ',forecast_time(ii))  
+ptime(ii,'Observations start',obs_start(ii))
+ptime(ii,'Observations end  ',obs_end(ii))
+ptime(ii,'Replay start      ',replay_start(ii))
+ptime(ii,'Replay end        ',replay_end(ii))
+ptime(ii,'Run end           ',run_end(ii))
+end
+function ptime(ii,s,t)
+        fprintf('Cycle %i %s%7.3f days %s\n',ii,s,t,datestr(t+base,'dd-mmm-yyyy HH:MM:SS'))
+end
+	
 end
