@@ -20,7 +20,7 @@ tign1=t(:,:,2,2)
 [t,d]=propagate_init(tign,distance);
 mx=10;
 for i=1:mx,
-    time_end_part=time_end*i/mx
+    time_end_part=time_end*i/mx;
     [t,d]=propagate(t,d,1,fire_area,fire_mask,distance,ros,time_end_part,0);
 end
 tign2=t(:,:,2,2)
@@ -38,7 +38,7 @@ tign1=t(:,:,2,2)
 [t,d]=propagate_init(tign,distance);
 mx=10;
 for i=1:mx,
-    time_end_part=time_end*i/mx
+    time_end_part=time_end*i/mx;
     [t,d]=propagate(t,d,dir,fire_area,fire_mask,distance,ros,time_end_part,0);
 end
 tign2=t(:,:,2,2)
@@ -52,7 +52,7 @@ time_end=30
 [tign,fire_mask_out,fire_mask_in]=initial_tign(fire_area,time_now,time_end)
 disp('out')
 [t,d]=propagate_init(tign,distance);
-[t,d]=propagate(t,d,1,~fire_area,fire_mask_out,distance,ros,max(tign(:)),2);
+[t,d]=propagate(t,d,1,~fire_area,fire_mask_out,distance,ros,max(tign(:)),0);
 tign=t(:,:,2,2)
 disp('in')
 [t,d]=propagate_init(tign,distance);
