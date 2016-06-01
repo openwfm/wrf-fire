@@ -12,11 +12,13 @@ for i=1:num_cycles
     t(i).replay_start=cycle_start(i);
     t(i).replay_end=cycle_start(i+1);
     t(i).run_end=cycle_start(i+1)+2;
+    t(i).perimeter_time=t(i).replay_end*24*3600;
     print_times(i)
     wrfout{i}=['wrfout_d01_',datestr(base+t(i).forecast_time,'yyyy-mm-dd_HH:MM:SS')];
     wrfrst{i}=['wrfrst_d01_',datestr(base+t(i).replay_start,'yyyy-mm-dd_HH:MM:SS')];
-    t(i).perimeter_time=t(i).replay_end*24*3600;
 end
+print_times_table
+
    i=input_num('cycle number',1);
     cycle=i; 
     print_times(i)
@@ -49,13 +51,26 @@ end
     input('Run WRF-SFIRE and continue when done\n')
 
 function print_times(ii)
-ptime(ii,'Forecast until    ',t(ii).forecast_time)  
+ptime(ii,'Forecast used     ',t(ii).forecast_time)  
 ptime(ii,'Observations start',t(ii).obs_start)
 ptime(ii,'Observations end  ',t(ii).obs_end)
 ptime(ii,'Replay start      ',t(ii).replay_start)
 ptime(ii,'Replay end        ',t(ii).replay_end)
 ptime(ii,'Run end           ',t(ii).run_end)
+fprintf('perimeter_time=%10.3f\n',t(ii).perimeter_time)
 end
+
+function print_times_table
+fmt='  %g %g %g %g %g\n';
+fprintf(['Cycle             ',fmt],1:length(t))
+fprintf(['Forecast used     ',fmt],t(:).forecast_time)  
+fprintf(['Observations start',fmt],t(:).obs_start)
+fprintf(['Observations end  ',fmt],t(:).obs_end)
+fprintf(['Replay start      ',fmt],t(:).replay_start)
+fprintf(['Replay end        ',fmt],t(:).replay_end)
+fprintf(['Run end           ',fmt],t(:).run_end)
+end
+
 function ptime(ii,s,t)
         fprintf('Cycle %i %s%7.3f days %s\n',ii,s,t,datestr(t+base,'dd-mmm-yyyy HH:MM:SS'))
 end
