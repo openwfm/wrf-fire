@@ -22,14 +22,10 @@
             fprintf(' contour at %s',num2str(c))
             contour3(red.fxlong,red.fxlat,T-base_time,c-base_time,'k');
             hold on
-    end
-        if exist('obs') && ~isempty(obs)
-            for i=1:length(obs),
-                fire_pixels_3d(obs(i))
-                hold on
-            end
         end
-        hold off
+        if exist('obs') && ~isempty(obs)
+            fire_pixels(obs,base_time,3)
+        end
         a=[red.min_lon,red.max_lon,red.min_lat,red.max_lat,...
             red.min_tign-base_time-1,red.max_tign-base_time];
         axis manual
@@ -39,24 +35,5 @@
         grid on
         drawnow
         fprintf('\n')
-  
-
-    function fire_pixels_3d(x)
-        kk=find(x.data(:)>=7);
-        if ~isempty(kk),
-        rlon=0.5*abs(x.lon(end)-x.lon(1))/(length(x.lon)-1);
-        rlat=0.5*abs(x.lat(end)-x.lat(1))/(length(x.lat)-1);
-        lon1=x.xlon(kk)-rlon;
-        lon2=x.xlon(kk)+rlon;
-        lat1=x.xlat(kk)-rlat;
-        lat2=x.xlat(kk)+rlat;
-        X=[lon1,lon2,lon2,lon1]';
-        Y=[lat1,lat1,lat2,lat2]';
-        Z=ones(size(X))*(x.time-base_time);
-        cmap=cmapmod14;
-        C=cmap(x.data(kk)'+1,:);
-        C=reshape(C,length(kk),1,3);
-        patch(X,Y,Z,C);
-    end
 end
-    end
+  
