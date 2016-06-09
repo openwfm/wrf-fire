@@ -1,9 +1,9 @@
-function fire_pixels(obs,base_time,varargin)
+function fire_pixels(obs,base_time)
 % fire_pixels(obs,base_time)
 % fire_pixels(obs,base_time,dim)
-if length(varargin)>0,
-    dim=varargin{1};
-end
+% in
+%   obs         structure array of observations
+%   base_time   the start of simulations
 for i=1:length(obs)
     x=obs(i);
     kk=find(x.data(:)>=7);
@@ -15,17 +15,12 @@ for i=1:length(obs)
         lat1=x.xlat(kk)-rlat;
         lat2=x.xlat(kk)+rlat;
         X=[lon1,lon2,lon2,lon1]';
-        switch dim
-        case 3 
-            Y=[lat1,lat1,lat2,lat2]';
-            Z=ones(size(X))*(x.time-base_time);
-            cmap=cmapmod14;
-            C=cmap(x.data(kk)'+1,:);
-            C=reshape(C,length(kk),1,3);
-            patch(X,Y,Z,C);
-        otherwise
-            error('unknown argument dim')
-        end
+        Y=[lat1,lat1,lat2,lat2]';
+        Z=ones(size(X))*(x.time-base_time);
+        cmap=cmapmod14;
+        C=cmap(x.data(kk)'+1,:);
+        C=reshape(C,length(kk),1,3);
+        patch(X,Y,Z,C);
         hold on
     end
 end

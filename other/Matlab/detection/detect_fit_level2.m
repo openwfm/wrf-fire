@@ -107,13 +107,15 @@ params.doplot=0;
 params.dx=444;
 params.dy=444;
 
+forecast=tign;
 
 disp('optimization loop')
 h =zeros(m,n); % initial increment
-plot_state(3,red,'Forecast',tign,g,time_bounds(1:2));
+plot_state(3,red,'Forecast',forecast,g,time_bounds(1:2));
 savefig('forecast',cycle)
+plot_state_2d(4,red,'Forecast',forecast,g,time_bounds(2));
+savefig('forecast2d',cycle)
 
-forecast=tign;
 
 fprintf('********** Starting iterations **************\n');
 
@@ -151,6 +153,10 @@ analysis=tign+h;
 
 plot_state(6,red,'Analysis',analysis,g,time_bounds(1:2))
 savefig('analysis',cycle)
+plot_state_2d(5,red,'Analysis',analysis,g,time_bounds(2));
+savefig('analysis2d',cycle)
+plot_state_2d(7,red,'Analysis',{forecast,analysis},g,time_bounds(2));
+savefig('forecast_analysis2d',cycle)
 
 % spinup - combine analysis and forecast in the strip between
 % forecast fire area at restart time and outside of analysis fire area at perimeter time
