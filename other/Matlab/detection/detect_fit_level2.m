@@ -1,21 +1,18 @@
 function a=detect_fit_level2(varargin)
 % a=detect_fit_level2
-% a=detect_fit_level2(cycle,time_bounds,w)
-if nargin>=1,
-    cycle=varargin{1};
-else
-    cycle=[];
-end
-if nargin>=2,
-    time_bounds=varargin{2};
-else
-    time_bounds=[];
-end
-if nargin>=3,
-    w=varargin{3};
-else
-    w=[];
-end
+% a=detect_fit_level2(cycle,time_bounds,disp_bounds,w)
+% arguments
+%   cycle       cycle number, for display and output file names
+%   time_bounds [observation start, end, spinup start, end] (datenum)
+%   disp_bounds [longitude min, max, latitude min,max] (degrees)
+%   w           the data structure if not to read from w.mat
+
+% arguments
+cycle=[];       if nargin>=1,cycle=varargin{1};end
+time_bounds=[]; if nargin>=2,time_bounds=varargin{2};end
+disp_bounds=[]; if nargin>=3,disp_bounds=varargin{3};end
+w=[];           if nargin>=4,w=varargin{4};end
+if nargin>=5, error('too many arguments'),end
 
 % to create w.mat:
 
@@ -72,6 +69,12 @@ fuel=[]; fuels
 disp('Subset simulation domain and convert time')
 
 red=subset_domain(w);
+if ~isempty(disp_bounds)
+    red.disp_bounds=disp_bounds;
+else
+    red.disp_bounds=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
+end
+fprintf('display bounds %g %g %g %g\n',red.disp_bounds);
 
 disp('Loading and subsetting detections')
     
@@ -101,7 +104,7 @@ params.alpha=input_num('penalty coefficient alpha',1/1000);
 % TC = W/(900*24); % time constant = fuel gone in one hour
 params.TC = 1/24;  % detection time constants in hours
 params.stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
-params.weight=input_num('water,land,low,nominal,high confidence fire',[-1,-1,0.2,0.6,1]);
+params.weight=input_num('water,land,low,nominal,high confidence fire',[1,1,0.2,0.6,1]); % -1 ???
 params.power=input_num('correction smoothness',1.02);
 params.doplot=0;
 params.dx=444;
@@ -147,15 +150,15 @@ for istep=1:maxiter
     print('-dpng',sprintf('%s_descent_iter_%d.png', prefix, istep));
     h_stor(:,:,istep) = h;
 end
-% rebase the analysis to the original simulation time
-analysis=tign+h; 
+
+analysis=tign+h;
 % w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
 
 plot_state(6,red,'Analysis',analysis,g,time_bounds(1:2))
 savefig('analysis',cycle)
 plot_state_2d(5,red,'Analysis',analysis,g,time_bounds(2));
 savefig('analysis2d',cycle)
-plot_state_2d(7,red,'Analysis',{forecast,analysis},g,time_bounds(2));
+plot_state_2d(7,red,{'Forecast','Analysis'},{forecast,analysis},g,time_bounds(2));
 savefig('forecast_analysis2d',cycle)
 
 % spinup - combine analysis and forecast in the strip between
@@ -192,9 +195,12 @@ plot_state(10,red,'Analysis for spinup',analysis,g,time_bounds(3:4))
 % insert analysis on reduced domain to the whole thing
 a.forecast=w.tign_g;
 a.analysis=w.tign_g;
-a.analysis(red.ispan,red.jspan)=datenum2time(analysis,red);;
+a.analysis(red.ispan,red.jspan)=datenum2time(analysis,red);
 a.spinup=w.tign_g;
-a.spinup(red.ispan,red.jspan)=datenum2time(spinup,red);;
+a.spinup(red.ispan,red.jspan)=datenum2time(spinup,red);
+
+% display bounds
+a.disp_bounds=red.disp_bounds;
 
 % copy time bounds to output structure
 

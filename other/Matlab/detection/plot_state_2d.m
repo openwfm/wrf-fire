@@ -1,4 +1,4 @@
-function plot_detect(fig,red,s,tign,obs,time_now)
+function plot_state_2d(fig,red,s,tign,obs,time_now)
 figure(fig),clf
 for i=1:length(obs)
     x=obs(i);
@@ -14,14 +14,20 @@ end
 if ~iscell(tign),
     tign={tign};
 end
-color={'--k','r','b'};
+if ~iscell(s),
+    s={s};
+end
+
+color={'k','b','-.r'};
 for i=1:length(tign)
     [c,h]=contour(red.fxlong,red.fxlat,tign{i},[time_now,time_now],color{i});
     set(h,'linewidth',2)
 end
+h_legend=legend(s{:});
+set(h_legend,'FontSize',16);
 a=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
 axis manual
 axis(a)
+grid on
 hold off
-title(s)
 end

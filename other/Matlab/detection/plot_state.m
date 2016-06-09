@@ -26,8 +26,8 @@
         if exist('obs') && ~isempty(obs)
             fire_pixels3d(obs,base_time)
         end
-        a=[red.min_lon,red.max_lon,red.min_lat,red.max_lat,...
-            red.min_tign-base_time-1,red.max_tign-base_time];
+        disp_bounds=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
+        a=[disp_bounds,red.min_tign-base_time-1,red.max_tign-base_time];
         axis manual
         axis(a)
         xlabel('Longitude'),ylabel('Latitude'),zlabel('Days')
