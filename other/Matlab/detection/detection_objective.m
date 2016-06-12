@@ -3,16 +3,21 @@
     % [J,delta]=detection_objective(tign,h,g,params)
     % J=detection_objective(tign,h,g,params)
     % compute objective function and optionally gradient delta direction
-    % to compute data likelihood only, set h=0 and params.alpha=0
     %
     % input:
     %     tign   prior state
     %     h      increment
     %     g      detection structure from load_subset_detections
     %     params parameters set in detect_fit_level2
+    %
+    % The objective function is
+    % J = h'*A*h - log likelihood of tign+h
+    % to compute data likelihood only, set h=0 and params.alpha=0
+    %
     % output
     %     J      objective function
-    %     delta  search direction
+    %     delta  search direction, grad J(tign+h)
+
         T=tign+h;
         f0=0;
         f1=0;
