@@ -27,7 +27,7 @@ p0=p0+log(max_like);
 % exp(p0) + exp(n0)=1
 n0=log(1-exp(p0));
 % d(n0)/dt = d(log(1-exp(p0)))/dt  
-n1=-p1.*exp(p0)./(1-exp(p0)).^2;
+n1=-p1.*exp(p0)./(1-exp(p0));
 
 v0 = dw.*p0.*(dw>0) - dw.*n0.*(dw<0);
 v1 = dw.*p1.*(dw>0) - dw.*n1.*(dw<0);
