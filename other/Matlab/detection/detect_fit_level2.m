@@ -85,6 +85,9 @@ p=sort_rsac_files(prefix);
 if isempty(time_bounds),
     time_bounds=subset_detection_time(red,p);
 end
+print_time_bounds(red,'Simulation',red.start_datenum,red.end_datenum)
+print_time_bounds(red,'Detections',time_bounds(1),time_bounds(2))
+print_time_bounds(red,'Spinup    ',time_bounds(3),time_bounds(4))
 
 g = load_subset_detections(prefix,p,red,time_bounds,fig);
        

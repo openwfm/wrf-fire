@@ -12,5 +12,5 @@ function str=stime(t,red)
         error('t must be a number')
     end
     str=sprintf('%s %g days from start',datestr(t,timefmt),...
-        t-red.start_datenum)
+        t-red.start_datenum);
 end
