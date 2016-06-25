@@ -88,6 +88,7 @@ end
 print_time_bounds(red,'Simulation',red.start_datenum,red.end_datenum)
 print_time_bounds(red,'Detections',time_bounds(1),time_bounds(2))
 print_time_bounds(red,'Spinup    ',time_bounds(3),time_bounds(4))
+red.time_bounds=time_bounds;
 
 g = load_subset_detections(prefix,p,red,time_bounds,fig);
        
@@ -107,7 +108,7 @@ params.alpha=input_num('penalty coefficient alpha',1/1000);
 % TC = W/(900*24); % time constant = fuel gone in one hour
 params.TC = 1/24;  % detection time constants in hours
 params.stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
-params.weight=input_num('water,land,low,nominal,high confidence fire',[-1,-1,0.2,0.6,1]); % -1 ???
+params.weight=input_num('water,land,low,nominal,high confidence fire',[-10,-10,0.2,0.6,1]); % -1 ???
 params.power=input_num('correction smoothness',1.02);
 params.doplot=0;
 params.dx=444;
@@ -136,7 +137,7 @@ for istep=1:maxiter
     fprintf('********** Iteration %g/%g **************\n', istep, maxiter);
     
     % initial search direction, normed so that max(abs(search(:))) = 1.0
-    [Js,search]=detection_objective(tign,h,g,params); 
+    [Js,search]=detection_objective(tign,h,g,params,red); 
     search = -search/big(search); 
 
     print('-dpng', sprintf('%s_search_dir_%d.png', prefix, istep));
@@ -242,14 +243,14 @@ return
         step_low = 0;
         Jslow = Js0;
         step_high = max_step;
-        % Jshigh = detection_objective(tign,h+max_step*search);
+        % Jshigh = detection_objective(tign,h+max_step*search,red);
         for d=1:max_depth
             step_sizes = linspace(step_low,step_high,nmesh+2);
             Jsls = zeros(nmesh+2,1);
             Jsls(1) = Jslow;
             % Jsls(nmesh+2) = Jshigh;
             for i=2:nmesh+2
-                Jsls(i) = detection_objective(tign,h+step_sizes(i)*search,g,params);
+                Jsls(i) = detection_objective(tign,h+step_sizes(i)*search,g,params,red);
             end
             Jshigh=Jsls(nmesh+2);
             for i=1:nmesh+2
