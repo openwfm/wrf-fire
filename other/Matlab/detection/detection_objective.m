@@ -1,6 +1,8 @@
 
     function varargout=detection_objective(tign,h,g,params,red)
-    % [J,delta,f0,f1]=detection_objective(tign,h,g,params)
+    % J              =detection_objective(tign,h,g,params,red)
+    % [J,delta]      =detection_objective(tign,h,g,params,red)
+    % [J,delta,f0,f1]=detection_objective(tign,h,g,params,red)
     % compute objective function and optionally gradient delta direction
     %
     % input:
@@ -36,7 +38,7 @@
             detections=sum(psi(:)>0);
             f0=f0+f0k;
             f1=f1+f1k;
-            if like_plots,
+            if like_plots>1,
                 plot_loglike(4,f0k,'Data likelihood',red)
                 plot_loglike(5,f1k,'Data likelihood derivative',red)
                 plot_loglike(6,psi,'psi',red)
@@ -46,9 +48,11 @@
                 drawnow
             end
         end
-        plot_loglike(2,f0,'Data likelihood',red)
-        plot_loglike(3,f1,'Data likelihood derivative',red)
+        if like_plots>0,
+            plot_loglike(2,f0,'Data likelihood',red)
+            plot_loglike(3,f1,'Data likelihood derivative',red)
         drawnow
+        end
         F=f1;
         % objective function and preconditioned gradient
         Ah = poisson_fft2(h,[params.dx,params.dy],params.power);
