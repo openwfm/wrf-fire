@@ -36,7 +36,8 @@ print_times_table
     savew=sprintf('w_%i',cycle);
     fprintf('saving to %s\n',savew)
     save(savew,'w','cycle','time_bounds','t')
-    p=detect_fit_level2(i,time_bounds,w)
+    disp_bounds=[];
+    p=detect_fit_level2(i,time_bounds,disp_bounds,w)
     print_times(i)
     fprintf('perimeter_time=%10.3f\nrestart=%s\n',t(i).perimeter_time,restart)
     
