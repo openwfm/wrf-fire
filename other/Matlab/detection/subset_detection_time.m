@@ -17,12 +17,17 @@ default_time_bounds{1}=[b1,b2];
 default_time_bounds{2}=[b1,b1+0.3*bd];
 default_time_bounds{3}=[b1,b1+0.5*bd];
 default_time_bounds{4}=[ba-0.2*bd,ba+0.2*bd];
+% default 5, based on namelist start time = 25200
+default_time_bounds{5} = [735457.364874381,735459.979398148];
+% to get ~19 detections from coarse grid runs
+default_time_bounds{6} = [735457.4049189,735458.6921585];
 for i=1:length(default_time_bounds)
     str=sprintf('bounds %i',i);
     print_time_bounds(red,str,default_time_bounds{i}(1),default_time_bounds{i}(2)) 
 end
 %time_bounds=input_num('bounds [min_time max_time] as datenum, or number of bounds above',3);
-time_bounds=3;
+% set bounds 1
+time_bounds=6;
 if length(time_bounds)==1, 
     time_bounds=default_time_bounds{time_bounds};
 end
