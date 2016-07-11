@@ -7,6 +7,9 @@ function J=detection_log_likelihood(prefix,w)
 % out
 %    J      log likelhood
 
+% changes %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% lines 32,33,35 : remove input num and take default values
+
 % figures switch
 fig.fig_state=1;
 fig.fig_map=0;
@@ -29,10 +32,13 @@ g = load_subset_detections(prefix,p,red,time_bounds,fig);
 % TC = W/(900*24); % time constant = fuel gone in one hour
 params.alpha=0;
 params.TC = 1/24;  % detection time constants in hours
-params.stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
-params.weight=input_num('water,land,low,nominal,high confidence fire',...
-    [-10,-10,0.2,0.6,1]);
-params.power=input_num('correction smoothness',1.02);
+%params.stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
+params.stretch=[0.5,10,5,10];
+%params.weight=input_num('water,land,low,nominal,high confidence fire',...
+%    [-10,-10,0.2,0.6,1]);
+params.weight=[-10,-10,0.2,0.6,1];
+%params.power=input_num('correction smoothness',1.02);
+params.power=1.02;
 params.doplot=0;
 params.dx=444;
 params.dy=444;

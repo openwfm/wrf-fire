@@ -1,4 +1,4 @@
-function red=subset_domain(w,red)
+function red=subset_domain(varargin)
 % red=subset_domain(w)
 % find rectangular domain around fire with some user guidance
 % and convert fire arrival time to datenum
@@ -20,6 +20,18 @@ function red=subset_domain(w,red)
 %    min_tign      - min
 %    max_tign      - max 
 %    base_time     - base time for displays
+%
+% Changes made %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% original had red=subset_domain(w,red)
+% changed to red=subset_domain(varargin)
+% 
+% comment out margin
+% comment out bounds, take default_bounds{2}
+% 
+
+% arguments
+w = [];  if nargin >=1, w = varargin{1}; end
+
 
 
 sim.min_lat = min(w.fxlat(:));
@@ -34,9 +46,11 @@ act.max_lat = max(w.fxlat(act.x));
 act.min_lon = min(w.fxlong(act.x));
 act.max_lon = max(w.fxlong(act.x));
 margin=0.5;
-fprintf('enter relative margin around the fire (%g)',margin);
-in=input(' > ');
-if ~isempty(in),margin=in;end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%commenting out this input
+%fprintf('enter relative margin around the fire (%g)',margin);
+%in=input(' > ');
+%if ~isempty(in),margin=in;end
 min_lon=max(sim.min_lon,act.min_lon-margin*(act.max_lon-act.min_lon));
 min_lat=max(sim.min_lat,act.min_lat-margin*(act.max_lat-act.min_lat));
 max_lon=min(sim.max_lon,act.max_lon+margin*(act.max_lon-act.min_lon));
@@ -45,12 +59,15 @@ max_lat=min(sim.max_lat,act.max_lat+margin*(act.max_lat-act.min_lat));
 default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
 default_bounds{2}=[sim.min_lon,sim.max_lon,sim.min_lat,sim.max_lat];
 for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
-
-bounds=input('enter bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above (1)> ');
-if isempty(bounds),bounds=1;end
-if length(bounds)==1,
-    bounds=default_bounds{bounds};
-end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%commenting out input
+%bounds=input('enter bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above (1)> ');
+%if isempty(bounds),bounds=1;end
+%if length(bounds)==1,
+%    bounds=default_bounds{bounds};
+%end
+%take the second default_bounds
+bounds = default_bounds{2};
 [ii,jj]=find(w.fxlong>=bounds(1) & w.fxlong<=bounds(2) & w.fxlat >=bounds(3) & w.fxlat <=bounds(4));
 ispan=min(ii):max(ii);
 jspan=min(jj):max(jj);
