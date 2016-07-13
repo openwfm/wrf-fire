@@ -12,10 +12,10 @@
             mint=min(T(:));
             maxt=max(T(:));
             fprintf(' tign min %g max %g',mint,maxt)
-            tol=1;
-            T(T(:)>max(T(:))-tol)=NaN;      
-            h=surf(red.fxlong,red.fxlat,T-base_time);
-            set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces onl   
+            hours=[mint:1/24:maxt];
+            % T(T(:)>max(T(:))-tol)=NaN;      
+            h=contour3(red.fxlong,red.fxlat,T-base_time,hours-base_time);
+            % set(h,'EdgeAlpha',0,'FaceAlpha',0.5); % show faces onl   
             hold on
         end
         if exist('c') && ~isempty(c),

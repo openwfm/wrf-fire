@@ -108,7 +108,7 @@ params.alpha=input_num('penalty coefficient alpha',1/1000);
 % TC = W/(900*24); % time constant = fuel gone in one hour
 params.TC = 1/24;  % detection time constants in hours
 params.stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
-params.weight=input_num('water,land,low,nominal,high confidence fire',[-10,-10,0.2,0.6,1]); % -1 ???
+params.weight=input_num('water,land,low,nominal,high confidence fire',[-1,-1,0.2,0.6,1]); % -1 ???
 params.power=input_num('correction smoothness',1.02);
 params.doplot=0;
 params.dx=444;

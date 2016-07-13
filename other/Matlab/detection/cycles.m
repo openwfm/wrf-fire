@@ -1,4 +1,4 @@
-function cycles
+function cycles(varargin)
 base_datestr='2013-08-11 00:00:00';
 base=datenum(base_datestr);
 num_cycles=5;
@@ -26,18 +26,24 @@ for i=1:num_cycles
 end
 print_times_table
 
-i=input_num('cycle number',1);
+if nargin,
+    i=varargin{1};
+    force=1;
+else
+    i=input_num('cycle number',1);
+    force=0;
+end
 link_namelist_command=sprintf('rm -f namelist.input; ln -s namelist.input_%i namelist.input',i);
 if i==0,
     fprintf('Initial simulation from %s to at least %s\n',base_datestr,forecast_times{1})
     fprintf('Execute %s now?\n',link_namelist_command);
     q=sprintf('0/1');
-    if input_num(q,1)
+    if input_num(q,1,force)
         if system(link_namelist_command),
              error('failed')
         end
     end
-    input('Run WRF-SFIRE and continue when done\n')
+    disp('Run WRF-SFIRE and continue when done\n')
     
 else
     print_times(i)
@@ -56,18 +62,17 @@ else
     fprintf('saving to %s\n',savew)
     cycle=i;
     save(savew,'w','cycle','time_bounds','t')
-    disp_bounds=[];
-    p=detect_fit_level2(i,time_bounds,disp_bounds,w)
+    p=detect_fit_level2(cycle,time_bounds,[],w)
     print_times(i)
     fprintf('perimeter_time=%10.3f\nrestart=%s\n',t(i).perimeter_time,restart)
     q=sprintf('replace TIGN_G in %s and run\n %s\n [0/1]',rewrite,link_namelist_command);
-    if input_num(q,1)
+    if input_num(q,1,force)
         ncreplace(rewrite,'TIGN_G',p.spinup)
         if system(link_namelist_command),
              error('link failed')
         end
     end
-    input('Run WRF-SFIRE and continue when done\n')
+    disp('Run WRF-SFIRE and continue when done\n')
 end
 
 function print_times(ii)
