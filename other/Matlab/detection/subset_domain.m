@@ -1,5 +1,6 @@
-function red=subset_domain(w,red)
+function red=subset_domain(w,varargin)
 % red=subset_domain(w)
+% red=subset_domain(w,force)
 % find rectangular domain around fire with some user guidance
 % and convert fire arrival time to datenum
 %
@@ -8,6 +9,8 @@ function red=subset_domain(w,red)
 %    tign_g        - fire arrival time
 %    nfuel_cat     - fuel categories
 %    times         - time at simulation end as string
+%        red reduced structure
+%        force (optional) force defaults to no ask
 %
 % ouput: red structure with fields
 %    ispan,jspan   - list i,j indices selected
@@ -22,6 +25,12 @@ function red=subset_domain(w,red)
 %    base_time     - base time for displays
 
 
+if nargin>=2,
+    force=varargin{1};
+else
+    force=0;
+end
+
 sim.min_lat = min(w.fxlat(:));
 sim.max_lat = max(w.fxlat(:));
 sim.min_lon = min(w.fxlong(:));
@@ -33,10 +42,7 @@ act.min_lat = min(w.fxlat(act.x));
 act.max_lat = max(w.fxlat(act.x));
 act.min_lon = min(w.fxlong(act.x));
 act.max_lon = max(w.fxlong(act.x));
-margin=0.5;
-fprintf('enter relative margin around the fire (%g)',margin);
-in=input(' > ');
-if ~isempty(in),margin=in;end
+margin=input_num('relative margin around the fire',0.5,force);
 min_lon=max(sim.min_lon,act.min_lon-margin*(act.max_lon-act.min_lon));
 min_lat=max(sim.min_lat,act.min_lat-margin*(act.max_lat-act.min_lat));
 max_lon=min(sim.max_lon,act.max_lon+margin*(act.max_lon-act.min_lon));
@@ -46,8 +52,7 @@ default_bounds{1}=[min_lon,max_lon,min_lat,max_lat];
 default_bounds{2}=[sim.min_lon,sim.max_lon,sim.min_lat,sim.max_lat];
 for i=1:length(default_bounds),fprintf('default bounds %i: %8.5f %8.5f %8.5f %8.5f\n',i,default_bounds{i});end
 
-bounds=input('enter bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above (1)> ');
-if isempty(bounds),bounds=1;end
+bounds=input_num('bounds [min_lon,max_lon,min_lat,max_lat] or number of bounds above (1)> ',1,force);
 if length(bounds)==1,
     bounds=default_bounds{bounds};
 end

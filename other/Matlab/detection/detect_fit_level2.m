@@ -1,18 +1,20 @@
 function a=detect_fit_level2(varargin)
 % a=detect_fit_level2
-% a=detect_fit_level2(cycle,time_bounds,disp_bounds,w)
+% a=detect_fit_level2(cycle,time_bounds,disp_bounds,w,force)
 % arguments
 %   cycle       cycle number, for display and output file names
 %   time_bounds [observation start, end, spinup start, end] (datenum)
 %   disp_bounds [longitude min, max, latitude min,max] (degrees)
 %   w           the data structure if not to read from w.mat
+%   force       use defaults
 
 % arguments
 cycle=[];       if nargin>=1,cycle=varargin{1};end
 time_bounds=[]; if nargin>=2,time_bounds=varargin{2};end
 disp_bounds=[]; if nargin>=3,disp_bounds=varargin{3};end
 w=[];           if nargin>=4,w=varargin{4};end
-if nargin>=5, error('too many arguments'),end
+force=0;;       if nargin>=5,force=varargin{5};end
+if nargin>5, error('too many arguments'),end
 
 % to create w.mat:
 
@@ -68,7 +70,7 @@ fuel=[]; fuels
 
 disp('Subset simulation domain and convert time')
 
-red=subset_domain(w);
+red=subset_domain(w,force);
 if ~isempty(disp_bounds)
     red.disp_bounds=disp_bounds;
 else
@@ -104,12 +106,12 @@ params.Constr_ign = zeros(m,n); params.Constr_ign(i_ign,j_ign)=1;
 
 
 % Parameters of the objective function
-params.alpha=input_num('penalty coefficient alpha',1/1000);
+params.alpha=input_num('penalty coefficient alpha',1/1000,force);
 % TC = W/(900*24); % time constant = fuel gone in one hour
 params.TC = 1/24;  % detection time constants in hours
-params.stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10]);
-params.weight=input_num('water,land,low,nominal,high confidence fire',[-1,-1,0.2,0.6,1]); % -1 ???
-params.power=input_num('correction smoothness',1.02);
+params.stretch=input_num('Tmin,Tmax,Tneg,Tpos',[0.5,10,5,10],force);
+params.weight=input_num('water,land,low,nominal,high confidence fire',[-1,-1,0.2,0.6,1],force);
+params.power=input_num('correction smoothness',1.02,force);
 params.doplot=0;
 params.dx=444;
 params.dy=444;
@@ -149,8 +151,7 @@ for istep=1:maxiter
         break;
     end
     h = h + best_stepsize*search;
-    plot_state(10+istep,red,sprintf('Analysis iteration %i [Js=%g]',istep,Jsbest),...
-        tign+h,g,time_bounds(1:2));
+    plot_state(10+istep,red,sprintf('Analysis iteration %i [Js=%g]',istep,Jsbest),tign+h,g,time_bounds(1:2));
     print('-dpng',sprintf('%s_descent_iter_%d.png', prefix, istep));
     h_stor(:,:,istep) = h;
 end

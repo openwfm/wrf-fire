@@ -37,8 +37,7 @@ link_namelist_command=sprintf('rm -f namelist.input; ln -s namelist.input_%i nam
 if i==0,
     fprintf('Initial simulation from %s to at least %s\n',base_datestr,forecast_times{1})
     fprintf('Execute %s now?\n',link_namelist_command);
-    q=sprintf('0/1');
-    if input_num(q,1,force)
+    if input_num('0/1',1,force)
         if system(link_namelist_command),
              error('failed')
         end
@@ -62,7 +61,7 @@ else
     fprintf('saving to %s\n',savew)
     cycle=i;
     save(savew,'w','cycle','time_bounds','t')
-    p=detect_fit_level2(cycle,time_bounds,[],w)
+    p=detect_fit_level2(cycle,time_bounds,[],w,force)
     print_times(i)
     fprintf('perimeter_time=%10.3f\nrestart=%s\n',t(i).perimeter_time,restart)
     q=sprintf('replace TIGN_G in %s and run\n %s\n [0/1]',rewrite,link_namelist_command);
