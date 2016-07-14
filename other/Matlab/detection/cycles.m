@@ -1,4 +1,5 @@
 function cycles(varargin)
+! date
 base_datestr='2013-08-11 00:00:00';
 base=datenum(base_datestr);
 num_cycles=5;
@@ -16,13 +17,6 @@ for i=1:num_cycles
     t(i).run_end=cycle_start(i+1)+2;
     t(i).perimeter_time=t(i).replay_end*24*3600;
     print_times(i)
-    forecast_times{i}=datestr(base+t(i).forecast_time,times_format);
-    wrfout_time = base+t(i).forecast_time;
-    if i>1,
-        wrfout_time = wrfout_time - 23.5/24;  % no wrfout produced on restart => written 30 min later
-    end
-    wrfout{i}=['wrfout_d01_',datestr(wrfout_time,times_format)];
-    wrfrst{i}=['wrfrst_d01_',datestr(base+t(i).replay_start,times_format)];
 end
 print_times_table
 
@@ -46,6 +40,16 @@ if i==0,
     
 else
     print_times(i)
+    system('ls -l wrfout*')
+    forecast_times{i}=datestr(base+t(i).forecast_time,times_format);
+    wrfout_time = base+t(i).forecast_time;
+    wrfout{i}=['wrfout_d01_',datestr(wrfout_time,times_format)];
+    if ~exist(wrfout{i},'file')
+        fprintf('file %s does not exist\n',wrfout{i})
+        wrfout_time = wrfout_time - 23.5/24;  % no wrfout produced on restart => written 30 min later
+        wrfout{i}=['wrfout_d01_',datestr(wrfout_time,times_format)];
+    end
+    wrfrst{i}=['wrfrst_d01_',datestr(base+t(i).replay_start,times_format)];
     fprintf('%s %s %s %s\n','Reading fire arrival time at',forecast_times{i},' from ',wrfout{i})
     if t(i).replay_start==0;
        rewrite='wrfinput_d01';
@@ -55,7 +59,19 @@ else
        restart='.true.';
     end
     fprintf('%s %s\n','Will write modified time into     ',rewrite)
+    rewrite_bak=[rewrite,'.bak'];
+    q=input_num(['1 to copy ',rewrite,' to ',rewrite_bak],1,force);
+    if q,
+       if system(['cp ',rewrite,' ',rewrite_bak]),
+           warning('copy failed')
+       end
+    end
     w=read_wrfout_tign(wrfout{i},forecast_times{i});
+    wrfout_bak=[wrfout{i},'.bak'];
+    q=input_num(['1 to move ',wrfout{i},' to ',wrfout_bak],1,force);
+    if q,
+       movefile(wrfout{i},wrfout_bak);
+    end
     time_bounds=[t(i).obs_start,t(i).obs_end,t(i).replay_start,t(i).replay_end]+base;
     savew=sprintf('w_%i',i);
     fprintf('saving to %s\n',savew)
