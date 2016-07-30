@@ -16,6 +16,7 @@ for i=1:num_cycles
     t(i).replay_end=cycle_start(i+1);
     t(i).run_end=cycle_start(i+1)+2;
     t(i).perimeter_time=t(i).replay_end*24*3600;
+    forecast_times{i}=datestr(base+t(i).forecast_time,times_format);
     print_times(i)
 end
 print_times_table
@@ -41,7 +42,6 @@ if i==0,
 else
     print_times(i)
     system('ls -l wrfout*')
-    forecast_times{i}=datestr(base+t(i).forecast_time,times_format);
     wrfout_time = base+t(i).forecast_time;
     wrfout{i}=['wrfout_d01_',datestr(wrfout_time,times_format)];
     if ~exist(wrfout{i},'file')
