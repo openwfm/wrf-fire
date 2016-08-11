@@ -1,6 +1,16 @@
 function [out_struct] = makeLayers(grid_nfo)
 % makes layers to work with
-%load grid_nfo.mat
+% load grid_nfo.mat
+% grid_nfo = 
+%
+%           pts: [49x2 double]
+%      lat_done: [40.358 40.366 40.374 40.382]   % unneeded
+%      lon_done: [-112.66 -112.65 -112.64 -112.63] % unneeded
+%    lon_square: [7x7 double]
+%    lat_square: [7x7 double]
+%         names: {245x1 cell}
+%         times: [5x1 double]
+%          logs: [245x1 double]
 
 
 name_spec = 'time = %d';
