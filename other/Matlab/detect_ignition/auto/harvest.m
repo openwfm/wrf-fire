@@ -1,15 +1,26 @@
 %harvest data script
+% run this in the remote wwrf-fire/wrfv2_fire/test/ where 
+% the make_grid function did its work 
+
+% grid_nfo = 
+%
+%           pts: [49x2 double]
+%      lat_done: [40.358 40.366 40.374 40.382]   % unneeded
+%      lon_done: [-112.66 -112.65 -112.64 -112.63] % unneeded
+%    lon_square: [7x7 double]
+%    lat_square: [7x7 double]
+%         names: {245x1 cell}
+%         times: [5x1 double]
+%          logs: [245x1 double]
 
 %load information about the grid
 load grid_nfo.mat
 
+%start of logging commands - *****unfinished******
 %fprintf(fileID,
 %create report file
 %fileID = fopen('report.txt','w');
 
-
-%load information about the grid
-load grid_nfo.mat
 
 fold_spec1 = 'Folder %s does not exist \n';
 mkdir_spec1 = 'mkdir ../g_run_data/%s';
