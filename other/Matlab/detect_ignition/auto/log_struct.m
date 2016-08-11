@@ -1,6 +1,8 @@
 function [ out_struct ] = log_struct( in_struct )
 %out_struct = log_struct(in_struct)
 %Outputs a structure array for use in plotting data with countour3
+% Use the make_layers.m function to split big variable 'layers' into
+% individual ignition times
 %
 % Inputs - in_struct
 %     structure array with the following fields
