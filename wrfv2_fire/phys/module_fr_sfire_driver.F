@@ -1594,6 +1594,7 @@ fuel_left_method        = config_flags%fire_fuel_left_method
 fuel_left_irl           = config_flags%fire_fuel_left_irl
 fuel_left_jrl           = config_flags%fire_fuel_left_jrl
 fire_atm_feedback       = config_flags%fire_atm_feedback
+fire_ignite_from_tign   = config_flags%fire_ignite_from_tign 
 fire_hfx_given          = config_flags%fire_hfx_given
 fire_hfx_num_lines      = config_flags%fire_hfx_num_lines
 fire_hfx_latent_part    = config_flags%fire_hfx_latent_part
