@@ -1256,6 +1256,9 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
 
     ignition%max_lines=5 ! number of lines that have entries in the namelist
     ignition%num_lines=config_flags%fire_num_ignitions
+    if (ignition%num_lines>0 .and. fire_ignite_from_tign > 0)then
+       call crash('namelist error: ignition from lines and from given tign not compatible')
+    endif
 
     ! this is only until I figure out how to input arrays through the namelist...
     if(fire_max_lines.lt.ignition%max_lines)call crash('fire_max_lines too small')

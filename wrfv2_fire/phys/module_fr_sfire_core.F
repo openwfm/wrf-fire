@@ -56,7 +56,14 @@ time_now = time_start+dt
 time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 
-if(fire_perimeter_time > 0.) then
+ if(fire_perimeter_time > 0.)then
+   call message('init_no_fire: using given ignition time as history',level=1)
+ endif
+ if(fire_ignite_from_tign.eq.1)then
+   call message('init_no_fire: using given ignition time as the initial fire arrival time',level=1)
+ endif
+
+if(fire_perimeter_time > 0. .or. fire_ignite_from_tign.eq.1) then
 
   do j=jfts,jfte
      do i=ifts,ifte
@@ -70,7 +77,7 @@ if(fire_perimeter_time > 0.) then
         endif
      enddo
   enddo
-  call message('init_no_fire: using given ignition time as history',level=1)
+
  
 else
 

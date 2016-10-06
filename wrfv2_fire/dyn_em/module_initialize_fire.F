@@ -655,9 +655,10 @@ IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
     write(6, *)' Max terrain gradient on the fire mesh     ',grad_max
 
 ! JM read ignition time from file if we are replaying fire history up to the specified time
-   ! write(6,*)'fire_perimeter_time=',config_flags%fire_perimeter_time
-   if(config_flags%fire_perimeter_time > 0.) then 
-       write(6,*)'Reading ignition times from file input_tign_g to replay fire until perimeter at ',config_flags%fire_perimeter_time
+   write(6,*)'fire_perimeter_time=  ',config_flags%fire_perimeter_time
+   write(6,*)'fire_ignite_from_tign=',config_flags%fire_ignite_from_tign
+   if(config_flags%fire_perimeter_time > 0. .or. config_flags%fire_ignite_from_tign.eq.1) then 
+       write(6,*)'Reading ignition times from file input_tign_g'
        call read_array_2d_real('input_tign_g',grid%tign_g,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
        tign_max = -huge(tign_max)
        tign_min = huge(tign_min)
