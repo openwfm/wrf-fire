@@ -93,6 +93,8 @@ else
 endif
 
 call check_lfn_tign('init_no_fire',time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire: tign')
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire: lfn')
 
 end subroutine init_no_fire
 
@@ -107,7 +109,7 @@ subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain 
                         ignition_line,                            &
                         start_ts,end_ts,                    &
                         coord_xf,coord_yf,                &     
-                        unit_xf,unit_yf,                  &
+                        unitxf,unit_yf,                  &
                         lfn,tign,ignited)
 implicit none
 
@@ -1680,8 +1682,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
 
     ! check array dimensions
     call check_mesh_2dim(ihs2,ihe2,jhs2,jhe2,ims,ime,jms,jme)
-    call print_2d_stats(ihs2,ihe2,jhs2,jhe2,ims,ime,jms,jme, &
-                   lfn_in,'prop_ls: lfn in')
+    call print_2d_stats(ihs2,ihe2,jhs2,jhe2,ims,ime,jms,jme,lfn_in,'prop_ls: lfn in')
     
     ! NOTE: tend_ls will extrapolate to one node strip at domain boundaries
     ! so that it can compute gradient at domain boundaries.
@@ -1716,8 +1717,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
         enddo
     enddo
     
-    call print_2d_stats(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE, &
-                   lfn1,'prop_ls: lfn1')
+    call print_2d_stats(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,lfn1,'prop_ls: lfn1')
     ! tend = F(lfn1) on the tile (not beyond)
 
     if(id1.ne.0)id1=id1+1000
@@ -1883,8 +1883,8 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     call crash('prop_ls: increase the fire region')
 10  continue
 
-    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
-                   lfn_out,'prop_ls: lfn out')
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, lfn_out,'prop_ls: lfn out')
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, tign,'prop_ls: tign out')
 
     call check_lfn_tign('prop_ls end',ts+dt,its,ite,jts,jte,ims,ime,jms,jme,lfn_out, tign)
 end subroutine prop_ls
