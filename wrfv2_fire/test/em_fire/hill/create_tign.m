@@ -4,6 +4,7 @@ function tign=create_tign
 tign=sqrt(2*(ii-200).^2+(jj-171).^2)+1;
 % mesh(tign)
 write_array_2d('input_tign_g',tign)
+write_array_2d('input_tign_in',tign)
 end
 function write_array_2d(filename,a)
 % write_array_2d(filename,a)

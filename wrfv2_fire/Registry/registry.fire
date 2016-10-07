@@ -42,6 +42,7 @@ state    real     vah       ij       fire        1         Y     hr   "VAH"     
 # (also using inputs: zs,z_at_w,dz8w,nfuel_cat,zsf)
 #
 state    real     tign_g    *i*j      fire        1         z   i102hr "TIGN_G"    "ignition time on ground" "s"
+state    real     tign_in   *i*j      fire        1         z    ihr   "TIGN_IN"   "given minimal ignition time on ground as input" "s"
 state    real     lfn       *i*j      fire        1         z   i102hr "LFN"       "level function" "1"
 state    real     fuel_frac *i*j      fire        1         z   i102hr "FUEL_FRAC" "fuel remaining" "1"
 state    real     fmc_g     *i*j      fire        1         z   i102hr "FMC_G"     "fuel moisture contents" "1"
@@ -189,8 +190,8 @@ rconfig   real    fire_ignition_start_x5  namelist,fire        max_domains      
 rconfig   real    fire_ignition_start_y5  namelist,fire        max_domains           0.      -      "fire_ignition_start_y5" "y coord of start of ignition line" "m"
 rconfig   real    fire_ignition_end_x5    namelist,fire        max_domains           0.      -      "fire_ignition_end_x5"   "x coord of end of ignition line" "m"
 rconfig   real    fire_ignition_end_y5    namelist,fire        max_domains           0.      -      "fire_ignition_end_y5"   "y coord of end of ignition line" "m"
-rconfig   real    fire_perimeter_time     namelist,fire        max_domains           0.      -      "fire_perimeter_time"        "if >0, replay history or ignite from given tign array until this time" "s"
-rconfig   integer fire_ignite_from_tign   namelist,fire        max_domains           0       -      "fire_ignite_from_tign"   "if >0 use the given tign_g array as the initial fire arrival time" ""
+rconfig   real    fire_perimeter_time     namelist,fire        max_domains           0.      -      "fire_perimeter_time"        "if >0, replay history from tign_g array until this time" "s"
+rconfig   real    fire_tign_in_time       namelist,fire        max_domains           0.      -      "fire_tign_in_time"        "if >0,  ignite from tign_in array until this time" "s"
 # variables from old cawfe code
 rconfig   real    fire_lat_init          namelist,fire         max_domains           0.      -      "fire_lat_init"    "latitude to start fire"           "degrees"
 rconfig   real    fire_lon_init          namelist,fire         max_domains           0.      -      "fire_lon_init"    "longitude to start fire"          "degrees"

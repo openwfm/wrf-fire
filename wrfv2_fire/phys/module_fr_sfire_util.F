@@ -41,7 +41,6 @@ integer,save::          &
  fire_use_windrf=0,     &  ! if fire_wind_log_interp.ne.4: 0=ignore wind reduction factors, 1=multiply, 2=use to set fwh
  fire_fmc_read=1,       &  ! fuel moisture: 0 from wrfinput, 1 from namelist.fire, 2 read from file in ideal 
  fire_ignition_clamp=0, &  ! if 1, clamp ignition to grid points
- fire_ignite_from_tign=0,& ! if 1 use the given tign_g array as the initial fire arrival time 
  fire_hfx_given=0,      &  ! "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 4=by parameters" ""
  fire_hfx_num_lines=1,  &     ! number of heatflux parameter sets defining the heaflux lines (must be 1) 
  fndwi_from_ndwi=1,     &  ! interpolate ndwi from atmosphere resolution
@@ -49,7 +48,8 @@ integer,save::          &
  
 
 real, save::            &
- fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign in ideal
+ fire_perimeter_time=0.,&  ! if >0, set lfn from tign until this time, and read tign_g in ideal
+ fire_tign_in_time=0.,  &  ! if >0, set ignition time from tign_in until this time, and read tign_in in ideal
  fire_atm_feedback=1. , &  ! 1 = normal, 0. = one way coupling atmosphere -> fire only
  fire_back_weight=0.5,  &  ! RK parameter, 0 = Euler method, 0.5 = Heun, 1 = fake backward Euler
  fire_viscosity=0.4,    &  ! artificial viscosity
