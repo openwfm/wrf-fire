@@ -13,7 +13,7 @@
             maxt=max(T(:));
             fprintf(' tign min %g max %g',mint,maxt)
             num_hours=(maxt-mint)*24;
-            step_hours=max(1,round(num_hours/100));
+            step_hours=max(6,round(num_hours/100));
             hours=[mint:step_hours/24:maxt];
             % T(T(:)>max(T(:))-tol)=NaN;      
             h=contour3(red.fxlong,red.fxlat,T-base_time,hours-base_time);

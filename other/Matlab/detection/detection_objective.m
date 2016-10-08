@@ -1,4 +1,3 @@
-
     function varargout=detection_objective(tign,h,g,params,red)
     % J              =detection_objective(tign,h,g,params,red)
     % [J,delta]      =detection_objective(tign,h,g,params,red)
