@@ -381,8 +381,6 @@ do j=jfts,jfte
     enddo
 enddo
 
-print *,lfn(171,200),tign(171,200)
-
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,f9.2,1x,a)')'check_lfn_tign OK',time_now,s
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
