@@ -31,7 +31,8 @@ subroutine init_no_fire(&
     ifms,ifme,jfms,jfme, &
     ifts,ifte,jfts,jfte, &
     fdx,fdy,time_start,dt,  & ! scalars in
-    fuel_frac,fire_area,lfn,tign)    ! arrays out            
+    fuel_frac,fire_area,lfn,tign_in, & !arrays out 
+    tign)    ! arrays inout            
 implicit none
              
 !*** purpose: initialize model to no fire
@@ -42,7 +43,10 @@ integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 real, intent(in) :: fdx,fdy,time_start,dt   ! mesh spacing, time
 real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
-                   fuel_frac,fire_area,lfn,tign       ! model state
+                   fuel_frac,fire_area,lfn,           &  !  model state
+                   tign_in       
+real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
+                   tign       ! model state, on input values tign_in
 
 !*** calls
 intrinsic epsilon
@@ -76,6 +80,9 @@ else
 
   do j=jfts,jfte
      do i=ifts,ifte
+        if(fire_tign_in_time > 0.)then
+             tign_in(i,j)=tign(i,j)
+        endif
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
         tign(i,j) = time_init      ! ignition in future

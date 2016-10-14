@@ -655,9 +655,9 @@ IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
     write(6, *)' Max terrain gradient on the fire mesh     ',grad_max
 
 ! JM read ignition time from file if we are replaying fire history up to the specified time
-   write(6,*)'fire_perimeter_time=  ',config_flags%fire_perimeter_time
-   if(config_flags%fire_perimeter_time > 0.)then 
-       write(6,*)'Reading ignition times for replay from file input_tign_g'
+   write(6,*)'fire_perimeter_time= ',config_flags%fire_perimeter_time,' fire_tign_in_time=',config_flags%fire_tign_in_time
+   if(config_flags%fire_perimeter_time > 0. .or. config_flags%fire_tign_in_time > 0.)then 
+       write(6,*)'Reading ignition times from file input_tign_g'
        call read_array_2d_real('input_tign_g',grid%tign_g,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
        tign_max = -huge(tign_max)
        tign_min = huge(tign_min)
@@ -670,28 +670,10 @@ IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
           enddo
        enddo
        write(6,*)'min max ignition time given ',tign_min,tign_max
-       write(6,*)k,real(k)/((ifde-ifds+1)*(jfde-jfds+1)),'% cells ignited at time ',config_flags%fire_perimeter_time
+       write(6,*)k,real(k)/((ifde-ifds+1)*(jfde-jfds+1)),'% cells ignited at time ', & 
+          max(config_flags%fire_perimeter_time,config_flags%fire_tign_in_time)
    endif
-   write(6,*)'fire_tign_in_time=',config_flags%fire_tign_in_time
-   if(config_flags%fire_tign_in_time > 0.)then 
-       write(6,*)'Reading ignition times from file input_tign_g'
-       call read_array_2d_real('input_tign_in',grid%tign_in,ifds,ifde,jfds,jfde,ifms,ifme,jfms,jfme) 
-       tign_max = -huge(tign_max)
-       tign_min = huge(tign_min)
-       k=0
-       do j=jfds,jfde
-          do i=ifds,ifde
-             tign_max=max(tign_max,grid%tign_in(i,j))
-             tign_min=min(tign_min,grid%tign_in(i,j))
-             if(grid%tign_in(i,j) < config_flags%fire_tign_in_time) k=k+1
-          enddo
-       enddo
-       write(6,*)'min max ignition time given ',tign_min,tign_max
-       write(6,*)k,real(k)/((ifde-ifds+1)*(jfde-jfds+1)),'% cells ignited at time ',config_flags%fire_tign_in_time
-   endif
-   
-
-  write (6,*)' ******** SFIRE ideal initialization complete ********'
+   write (6,*)' ******** SFIRE ideal initialization complete ********'
 else
   write (6,*)' ******** SFIRE ideal initialization skipped ********'
 endif

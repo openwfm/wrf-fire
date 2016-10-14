@@ -631,8 +631,8 @@ real, intent(inout), dimension(ifms:ifme,jfms:jfme):: & ! fuel data; can be also
     fz0,fwh,                                          &  
     nfuel_cat,fndwi                                      
 
-real, intent(in), dimension(ifms:ifme, jfms:jfme)::    tign_in 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
+    tign_in,                                   &
     lfn,tign,fuel_frac,                        &     ! state: level function, ign time, fuel left
     lfn_out                                    ! fire wind velocities
 

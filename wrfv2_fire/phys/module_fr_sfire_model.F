@@ -103,7 +103,7 @@ real, dimension(ifms:ifme, jfms:jfme), intent(in):: &
 real, dimension(ifms:ifme, jfms:jfme), intent(inout):: & 
     fire_hfx                                ! given heat flux
     
-real, dimension(ifms:ifme, jfms:jfme), intent(in):: tign_in ! given ignition times
+real, dimension(ifms:ifme, jfms:jfme), intent(inout):: tign_in ! given ignition times
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
     lfn   , &                               ! level function: fire is where lfn<0 (node)
@@ -222,7 +222,7 @@ elseif(ifun.eq.2)then
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             fdx,fdy,time_start,dt,  &
-            fuel_frac,fire_area,lfn,tign)
+            fuel_frac,fire_area,lfn,tign,tign_in)
             
         endif
 
