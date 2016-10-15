@@ -45,7 +45,7 @@ real, intent(in) :: fdx,fdy,time_start,dt   ! mesh spacing, time
 real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
                    fuel_frac,fire_area,lfn,           &  !  model state
                    tign_in       
-real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
+real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
                    tign       ! model state, on input values tign_in
 
 !*** calls
@@ -60,41 +60,57 @@ time_now = time_start+dt
 time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire start: tign')
+
+if (fire_perimeter_time > 0. .and. fire_tign_in_time > 0.)then
+   call crash('fire_perimeter_time > 0 and fire_tign_in_time > 0')
+endif
+
 if(fire_perimeter_time > 0.)then
-  call message('init_no_fire: using given ignition time as history',level=1)
+  call message('init_no_fire: using given ignition time to replay history',level=1)
   do j=jfts,jfte
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
         lfn(i,j) = tign(i,j)-time_now       ! use specified ignition time as level set function 
-        if(.not.lfn(i,j) > 0.)then
-           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' <= time_now =',time_now
-           call message(msg,level=0)
-           call crash('init_no_fire: ignition time must be after the end of the time step')
-        endif
      enddo
   enddo
-
- 
-else
-
+elseif(fire_tign_in_time > 0.)then
+  call message('init_no_fire: using ignition from given max fire arrival time',level=1)
   do j=jfts,jfte
      do i=ifts,ifte
-        if(fire_tign_in_time > 0.)then
-             tign_in(i,j)=tign(i,j)
-        endif
+        tign_in(i,j)=tign(i,j)
+        fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
+        fire_area(i,j)=0.          ! nothing burning
+        lfn(i,j) = tign_in(i,j)-time_now    ! use specified ignition time as level set function 
+     enddo
+  enddo
+  call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign_in,'init_no_fire: tign_in')
+else
+  call message('init_no_fire: setting state to no fire',level=1)
+  do j=jfts,jfte
+     do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
         tign(i,j) = time_init      ! ignition in future
         lfn(i,j) = lfn_init        ! no fire 
      enddo
   enddo
-  call message('init_no_fire: state set to no fire',level=1)
 endif
 
 call check_lfn_tign('init_no_fire',time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire: tign')
 call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire: lfn')
+
+do j=jfts,jfte
+   do i=ifts,ifte
+      if(.not.lfn(i,j) > 0.)then
+         write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' <= time_now =',time_now
+         call message(msg,level=0)
+         call crash('init_no_fire: ignition time must be after the end of the first time step')
+      endif
+   enddo
+enddo
 
 end subroutine init_no_fire
 
