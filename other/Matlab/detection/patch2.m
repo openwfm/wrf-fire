@@ -1,4 +1,4 @@
-function patch2
+function M=patch2
 % to create w.mat:
 % run Adam's simulation, currently results in
 %
@@ -170,7 +170,7 @@ for i=1:length(d),
             drawnow
             M(iframe)=getframe(gcf);
             iframe=iframe+1;
-            print(figmap,'-dpng',['fig',v.timestr]); 
+            print(figmap,'-dpng',['fig',v.timestr],'-r1600'); 
         end
         if any(x.data(:)>7) && fig3d>0,
             figure(fig3d)

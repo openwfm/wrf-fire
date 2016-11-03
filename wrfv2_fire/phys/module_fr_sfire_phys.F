@@ -35,7 +35,7 @@ fire_rate_of_spread
 public:: fire_params
 
 ! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,windrf,moisture_classes
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,no_fuel_cat2,windrf,moisture_classes
 PUBLIC:: mfuelcats
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
@@ -153,7 +153,8 @@ PUBLIC:: mfuelcats
    INTEGER, PARAMETER :: nf=14              ! fuel cats in data stmts, for fillers only`
    INTEGER, SAVE      :: nfuelcats = 13     ! number of fuel categories, can be reset from namelist.fire
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
-   INTEGER, SAVE      :: no_fuel_cat = 14   ! special category outside of 1:nfuelcats
+   INTEGER, SAVE      :: no_fuel_cat = 14   ! special no fuel category outside of 1:nfuelcats
+   INTEGER, SAVE      :: no_fuel_cat2 = 14  ! all categories between no_fuel_cat and no_fuel_cat2 are no fuel
    INTEGER, SAVE      :: ibeh=1             ! type of spread formula
    CHARACTER (len=80), DIMENSION(mfuelcats ), save :: fuel_name
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
@@ -681,7 +682,7 @@ REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 !*** executable
 
 ! read 
-namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,fire_wind_height,ibeh
+namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,no_fuel_cat2,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
     fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw, &
     fmc_gl_ndwi_0,fmc_gl_ndwi_rate,fmc_gl_ndwi_stdev, fmc_gl_stdev, &
@@ -726,8 +727,12 @@ IF ( wrf_dm_on_monitor() ) THEN
         write(msg,*)'nfuelcats=',nfuelcats,' too large, increase mfuelcats'
         call crash(msg)
     endif
-        if (no_fuel_cat >= 1 .and. no_fuel_cat <= nfuelcats)then
+    if (no_fuel_cat >= 1 .and. no_fuel_cat <= nfuelcats)then
         write(msg,*)'no_fuel_cat=',no_fuel_cat,' may not be between 1 and nfuelcats=',nfuelcats
+        call crash(msg)
+    endif
+    if (no_fuel_cat > no_fuel_cat2)then
+        write(msg,*)'no_fuel_cat=',no_fuel_cat,' must not be larger than no_fuel_cat2=',no_fuel_cat2
         call crash(msg)
     endif
 ENDIF
@@ -740,6 +745,7 @@ call wrf_dm_bcast_real(fuelmc_c,1)
 call wrf_dm_bcast_real(fire_wind_height,1)
 call wrf_dm_bcast_integer(nfuelcats,1)
 call wrf_dm_bcast_integer(no_fuel_cat,1)
+call wrf_dm_bcast_integer(no_fuel_cat2,1)
 call wrf_dm_bcast_integer(ibeh,1)
 call wrf_dm_bcast_real(windrf,    nfuelcats)
 call wrf_dm_bcast_real(fgi,       nfuelcats)
@@ -814,6 +820,8 @@ call message(msg)
 write(msg,7)'nfuelcats  ',nfuelcats
 call message(msg)
 write(msg,7)'no_fuel_cat',no_fuel_cat
+call message(msg)
+write(msg,7)'no_fuel_cat2',no_fuel_cat2
 call message(msg)
 if(init_fuel_moisture)then
     write(msg,7)'moisture_classes',moisture_classes
@@ -1116,7 +1124,7 @@ do j=jfts,jfte
    do i=ifts,ifte
      ! fuel category 
      k=int( nfuel_cat(i,j) )
-     if(k.eq.no_fuel_cat)then   ! no fuel 
+     if(k.ge.no_fuel_cat.and.k.le.no_fuel_cat2)then   ! no fuel 
         fp%fgip(i,j)=0.            ! no mass 
         fp%ischap(i,j)=0.
         fp%phisc(i,j)=0.          ! 

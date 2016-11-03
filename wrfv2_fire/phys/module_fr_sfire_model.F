@@ -14,7 +14,7 @@ contains
 subroutine sfire_model (                    &
     id,                                     & ! unique number for prints and debug
     ifun,                                   & ! what to do see below
-    restart,                                & ! use existing state
+    restart,replay,                         & ! use existing state, prescribe spread
     run_fuel_moisture,                      & ! if need update fuel moisture in pass 4
     ifuelread,nfuel_cat0,                   & ! initialize fuel categories
     ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
@@ -26,6 +26,7 @@ subroutine sfire_model (                    &
     ignition,hfx,                           & ! small array of ignition line descriptions
     coord_xf,coord_yf,                      & ! fire mesh coordinates
     fire_hfx,                               & ! input: given heat flux, or set inside
+    tign_in,                                & ! ignition time, if given
     lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     fuel_frac_burnt,                        & ! output: fuel fraction burnt in this timestep
     fgrnhfx,fgrnqfx,                          & ! output: heat fluxes
@@ -85,6 +86,7 @@ integer, intent(in) :: ifun                 ! 1 = initialize run pass 1
                                             ! 5 = copy timestep output to input
                                             ! 6 = compute output fluxes
 logical, intent(in):: restart               ! if true, use existing state
+logical, intent(in):: replay                ! if true, use tign_g for level set
 logical, intent(in)::run_fuel_moisture      ! 
 ! scalar data
 integer, intent(in) :: ifuelread,nfuel_cat0 ! for set_fire_params
@@ -101,6 +103,7 @@ real, dimension(ifms:ifme, jfms:jfme), intent(in):: &
 real, dimension(ifms:ifme, jfms:jfme), intent(inout):: & 
     fire_hfx                                ! given heat flux
     
+real, dimension(ifms:ifme, jfms:jfme), intent(inout):: tign_in ! given ignition times
 ! state
 REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
     lfn   , &                               ! level function: fire is where lfn<0 (node)
@@ -148,11 +151,22 @@ xjfme=jfme
 ! init flags
 freeze_fire = fire_hfx_given .ne.  0
 
+
 if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
 ! !$OMP SINGLE
 !! done in driver now
 !   call init_fuel_cats  ! initialize fuel subsystem
 ! !$OMP END SINGLE
+        if(replay) then    
+        ! when starting replay, recompute lfn and fuel_frac
+          call message('replay, setting the level set function',level=1)
+          do j=jfts,jfte
+            do i=ifts,ifte
+              lfn(i,j) = tign(i,j) - time_start ! <0 if burning at the end of the time step
+            enddo
+          enddo
+        endif
+        call check_lfn_tign('starting replay',time_start,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,tign)
 elseif(ifun.eq.2)then   
         ! initialize all arrays that the model will not change later
 
@@ -201,15 +215,26 @@ elseif(ifun.eq.2)then
             nfuel_cat,fuel_time, &
             fp) 
 
-        ! initialize model state to no fire
+        ! initialize model state to no fire / set tign_in
         if(.not.restart)then
             call init_no_fire  ( &
             ifds,ifde,jfds,jfde, &
             ifms,ifme,jfms,jfme, &
             ifts,ifte,jfts,jfte, &
             fdx,fdy,time_start,dt,  &
-            fuel_frac,fire_area,lfn,tign)
+            fuel_frac,fire_area,lfn,tign_in,tign)
             
+        endif
+
+        if(replay) then
+          call message('replay, recomputing fuel fraction')
+          call check_lfn_tign('recomputing fuel fraction',time_start,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,tign)
+          call fuel_left( &
+            ifds,ifde,jfds,jfde, &
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            ifms,ifme,jfms,jfme, &
+            lfn,tign,fuel_time,time_start,fuel_frac,fire_area) !fuel_frac is global
         endif
 
 elseif(ifun.eq.3)then   ! ignition if so specified
@@ -217,6 +242,7 @@ elseif(ifun.eq.3)then   ! ignition if so specified
     
 elseif (ifun.eq.4) then  ! do the timestep
      
+    call check_lfn_tign('time step start',time_start,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
     if(run_fuel_moisture)then
         ! uses nfuel_cat to set the other fuel data arrays
         ! needs zsf on halo width 1 to compute the terrain gradient
@@ -274,7 +300,7 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   lfn does not change, tign has no halos
 
     if(.not. freeze_fire)then
-      if(time_start+dt > fire_perimeter_time) then    
+      if(.not.replay) then    
         call prop_ls(id,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
@@ -295,6 +321,7 @@ elseif (ifun.eq.4) then  ! do the timestep
 
     endif
 
+    call check_lfn_tign('time step end',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn_out, tign)
 
 elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! this cannot be done in the time step itself because of race condition
@@ -309,8 +336,24 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
         enddo
     enddo
 
+    call check_lfn_tign('before ignition',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
     ! check for ignitions
+    if( fire_tign_in_time > 0.) then
+         if (ignition%num_lines >  0) then
+              call crash('ignition from lines and from tign_in are not compatible')
+         endif
+         call ignite_from_tign_in(                                   &
+                        ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
+                        ifms,ifme,jfms,jfme,                      &
+                        ifts,ifte,jfts,jfte,                      &
+                        time_start,time_start+dt,                 &
+                        tign_in,                                  &
+                        lfn,tign,ignited)
+         call check_lfn_tign('after ignite_from_tign_in',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+    endif
+    
+
     do ig = 1,ignition%num_lines
     
 !  for now, check for ignition every time step...
@@ -338,6 +381,8 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, &
                    lfn,'sfire_model: lfn out')
+
+    call check_lfn_tign('after ignition',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
 elseif (ifun.eq.6) then ! timestep postprocessing
     ! have halo on lfn now
@@ -387,6 +432,8 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     call message(msg)
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'model: lfn')
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign,'model: tign')
+    call check_lfn_tign('before fuel_left',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_time,'model: fuel_time')
     call fuel_left(&
         ifds,ifde,jfds,jfde, &

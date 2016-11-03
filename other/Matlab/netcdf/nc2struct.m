@@ -21,6 +21,16 @@ function [p,dims]=nc2struct(filename,varnames,gattnames,timestep,p)
 
 fprintf('nc2struct: reading from file %s',filename)
 
+try
+   ncid = netcdf.open(filename,'NC_NOWRITE');
+catch ERR 
+   disp(['cannot open NetCDF file ',filename])
+   rethrow(ERR);
+end
+netcdf.close(ncid);
+
+p.filename{1}=filename;
+
 % reading values
 
 if ~exist('timestep','var'),
@@ -48,14 +58,14 @@ for i=1:length({varnames{:}}),
             if(v.dimids(ndims)~=0),
                  warning('id of the last dimension is not 0, is it timestep?')
             end
-	    start(ndims)=t;
+            start(ndims)=t;
             count(ndims)=1;
         end
         v = ncvar(filename,varname,start, count); 
         p.(lower(varname))=double(v.var_value);
         dims.(lower(varname))=v.dimlength;
     else 
-        p.(lower(varname))=[];;
+        p.(lower(varname))=[];
     end
 end
 

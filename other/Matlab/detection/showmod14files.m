@@ -20,6 +20,10 @@ for i=1:length(d),
     axis(v.axis)
     daspect([1,cos(0.5*sum(lonlat(3:4))*pi/180),1]);
     drawnow
+    s=sprintf('fig%03i.png',i);
+    fprintf('printing %s',s)
+    print(s,'-dpng','-r1600');
+    fprintf(' done\n')
     M(i)=getframe(gcf);
     % pause(1)
     % hold on

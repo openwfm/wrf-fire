@@ -17,6 +17,7 @@ function p=ncread2struct(filename,varnames,gattnames,p)
 % will read variables U,V into p.U, p.V and global attributes DX DY into
 % p.DX p.DY, respectively
 
+p.filename{1}=filename;
 
 for i=1:length({varnames{:}}),
     varname=varnames{i};
