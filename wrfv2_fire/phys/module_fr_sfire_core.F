@@ -31,7 +31,8 @@ subroutine init_no_fire(&
     ifms,ifme,jfms,jfme, &
     ifts,ifte,jfts,jfte, &
     fdx,fdy,time_start,dt,  & ! scalars in
-    fuel_frac,fire_area,lfn,tign)    ! arrays out            
+    fuel_frac,fire_area,lfn,tign_in, & !arrays out 
+    tign)    ! arrays inout            
 implicit none
              
 !*** purpose: initialize model to no fire
@@ -42,7 +43,10 @@ integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 real, intent(in) :: fdx,fdy,time_start,dt   ! mesh spacing, time
 real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
-                   fuel_frac,fire_area,lfn,tign       ! model state
+                   fuel_frac,fire_area,lfn,           &  !  model state
+                   tign_in       
+real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
+                   tign       ! model state, on input values tign_in
 
 !*** calls
 intrinsic epsilon
@@ -56,24 +60,34 @@ time_now = time_start+dt
 time_init = time_start+2*dt  ! could be time_start+dt if not for rounding errors
 lfn_init = 2*max((ifde-ifds+1)*fdx,(jfde-jfds+1)*fdy)      ! more than domain diameter
 
-if(fire_perimeter_time > 0.) then
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire start: tign')
 
+if (fire_perimeter_time > 0. .and. fire_tign_in_time > 0.)then
+   call crash('fire_perimeter_time > 0 and fire_tign_in_time > 0')
+endif
+
+if(fire_perimeter_time > 0.)then
+  call message('init_no_fire: using given ignition time to replay history',level=1)
   do j=jfts,jfte
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
         lfn(i,j) = tign(i,j)-time_now       ! use specified ignition time as level set function 
-        if(.not.lfn(i,j) > 0.)then
-           write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' <= time_now =',time_now
-           call message(msg,level=0)
-           call crash('init_no_fire: ignition time must be after the end of the time step')
-        endif
      enddo
   enddo
-  call message('init_no_fire: using given ignition time as history',level=1)
- 
+elseif(fire_tign_in_time > 0.)then
+  call message('init_no_fire: using ignition from given max fire arrival time',level=1)
+  do j=jfts,jfte
+     do i=ifts,ifte
+        tign_in(i,j)=tign(i,j)
+        fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
+        fire_area(i,j)=0.          ! nothing burning
+        lfn(i,j) = tign_in(i,j)-time_now    ! use specified ignition time as level set function 
+     enddo
+  enddo
+  call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign_in,'init_no_fire: tign_in')
 else
-
+  call message('init_no_fire: setting state to no fire',level=1)
   do j=jfts,jfte
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
@@ -82,16 +96,77 @@ else
         lfn(i,j) = lfn_init        ! no fire 
      enddo
   enddo
-  call message('init_no_fire: state set to no fire',level=1)
 endif
 
 call check_lfn_tign('init_no_fire',time_now,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire: tign')
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire: lfn')
+
+do j=jfts,jfte
+   do i=ifts,ifte
+      if(.not.lfn(i,j) > 0.)then
+         write(msg,*)'i,j=',i,j,' tign=',tign(i,j),' <= time_now =',time_now
+         call message(msg,level=0)
+         call crash('init_no_fire: ignition time must be after the end of the first time step')
+      endif
+   enddo
+enddo
 
 end subroutine init_no_fire
 
 !
 !******************
 !
+
+subroutine ignite_from_tign_in(                                   &
+                        ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
+                        ifms,ifme,jfms,jfme,                      &
+                        ifts,ifte,jfts,jfte,                      &
+                        start_ts,end_ts,                          &
+                        tign_in,                                  &
+                        lfn,tign,ignited)
+implicit none
+!*** purpose: ignite from given gridded ignition times
+!*** arguments
+integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+real, intent(in):: start_ts,end_ts          ! the time step start and end 
+real, intent(in), dimension (ifms:ifme,jfms:jfme) :: tign_in     ! the given ignition time 
+real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
+                   lfn, tign                ! level function, ignition time (state)
+integer, intent(out)::ignited
+!*** global
+! fire_tign_in_time 
+!*** local
+integer:: i,j
+real:: lfn_old
+
+!*** executable
+ignited=0
+if(.not. start_ts < fire_tign_in_time)return   ! too late, nothing to do
+
+call check_lfn_tign('ignite_from_tign_in start',end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+
+do j=jfts,jfte   
+    do i=ifts,ifte
+       if (.not. tign_in(i,j)>end_ts )then
+          lfn_old = lfn(i,j) 
+          tign(i,j)=min(tign(i,j), tign_in(i,j))
+          lfn(i,j)=min(lfn(i,j),tign(i,j)-end_ts)
+          call check_lfn_tign_ij(i,j,'ignite_from_tign_in',end_ts,lfn(i,j),tign(i,j))
+          if(lfn_old > 0 .and. .not. lfn(i,j) > 0.) ignited = ignited + 1
+       endif
+    enddo
+enddo 
+
+
+call check_lfn_tign('ignite_from_tign_in end',end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire: tign')
+call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire: lfn')
+
+end subroutine ignite_from_tign_in
+
  
 
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
@@ -165,6 +240,7 @@ tos        = radius/ros            ! time of spread to the given radius
 st         = start_time            ! the start time of ignition considered in this time step
 et         = min(end_ts,end_time)  ! the end time of the ignition segment in this time step
 
+ignited = 0
 ! this should be called whenever (start_ts, end_ts) \subset (start_time, end_time + tos) 
 if(start_ts>et+tos .or. end_ts<st)return   ! too late or too early, nothing to do
 
@@ -319,6 +395,7 @@ real, intent(in), dimension (ifms:ifme,jfms:jfme) :: &
                    lfn, tign                ! level function, ignition time (state)
 !*** local
 integer:: i,j
+character(len=128)::msg
 !***    executable
 
 do j=jfts,jfte   
@@ -326,6 +403,11 @@ do j=jfts,jfte
        call check_lfn_tign_ij(i,j,s,time_now,lfn(i,j),tign(i,j))
     enddo
 enddo
+
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+write(msg,'(a,f9.2,1x,a)')'check_lfn_tign OK',time_now,s
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+call message(msg)
 
 end subroutine check_lfn_tign 
 
@@ -1673,8 +1755,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
 
     ! check array dimensions
     call check_mesh_2dim(ihs2,ihe2,jhs2,jhe2,ims,ime,jms,jme)
-    call print_2d_stats(ihs2,ihe2,jhs2,jhe2,ims,ime,jms,jme, &
-                   lfn_in,'prop_ls: lfn in')
+    call print_2d_stats(ihs2,ihe2,jhs2,jhe2,ims,ime,jms,jme,lfn_in,'prop_ls: lfn in')
     
     ! NOTE: tend_ls will extrapolate to one node strip at domain boundaries
     ! so that it can compute gradient at domain boundaries.
@@ -1709,8 +1790,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
         enddo
     enddo
     
-    call print_2d_stats(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE, &
-                   lfn1,'prop_ls: lfn1')
+    call print_2d_stats(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,lfn1,'prop_ls: lfn1')
     ! tend = F(lfn1) on the tile (not beyond)
 
     if(id1.ne.0)id1=id1+1000
@@ -1835,11 +1915,11 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
             endif
         enddo
     enddo
-!!$OMP CRITICAL(SFIRE_CORE_CRIT)
-!    write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
-!      (100.*nfirenodes)/((ite1-its1+1)*(jte1-jts1+1)),'% next to fireline',nfireline
-!!$OMP END CRITICAL(SFIRE_CORE_CRIT)
-!   call message(msg)
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+    write(msg,'(2(a,i6,f8.4))')'prop_ls: nodes burning',nfirenodes, &
+      (100.*nfirenodes)/((ite1-its1+1)*(jte1-jts1+1)),'% next to fireline',nfireline
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+   call message(msg)
 !    if(nfireline>0)then
 !        call print_stat_line('speed error',its1,ite1,jts1,jte1,min_err,max_err,sum_err/nfireline)
 !        call print_stat_line('abs(speed error)',its1,ite1,jts1,jte1,min_aerr,max_aerr,sum_aerr/nfireline)
@@ -1876,8 +1956,8 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     call crash('prop_ls: increase the fire region')
 10  continue
 
-    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, &
-                   lfn_out,'prop_ls: lfn out')
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, lfn_out,'prop_ls: lfn out')
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, tign,'prop_ls: tign out')
 
     call check_lfn_tign('prop_ls end',ts+dt,its,ite,jts,jte,ims,ime,jms,jme,lfn_out, tign)
 end subroutine prop_ls

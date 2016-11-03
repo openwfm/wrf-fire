@@ -438,6 +438,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%z0,                        & ! roughness height
             grid%ht,                        &                         ! terrain height
             grid%xlong,grid%xlat,                         & ! coordinates of atm grid centers, for ignition location           
+            grid%tign_in,                                 &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             grid%fuel_frac_burnt,                         &
@@ -541,6 +542,7 @@ subroutine sfire_driver_phys (ifun,    &
     ph,phb,                                       &
     z0,zs,                                        & 
     xlong,xlat,                                   &
+    tign_in,                                      &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
     fuel_frac_burnt,                              & 
@@ -630,6 +632,7 @@ real, intent(inout), dimension(ifms:ifme,jfms:jfme):: & ! fuel data; can be also
     nfuel_cat,fndwi                                      
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
+    tign_in,                                   &
     lfn,tign,fuel_frac,                        &     ! state: level function, ign time, fuel left
     lfn_out                                    ! fire wind velocities
 
@@ -1035,6 +1038,7 @@ do ij=1,num_tiles
         ignition,hfx,                           & ! description of ignition lines
         fxlong,fxlat,                           & ! fire mesh coordinates
         fire_hfx,                               & ! given heat flux
+        tign_in,                                & ! given igntion time
         lfn,lfn_out,tign,fuel_frac,             & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fuel_frac_burnt,                        & ! output: fuel fraction burned in this step
@@ -1588,6 +1592,7 @@ TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
 ! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
 fire_perimeter_time     = config_flags%fire_perimeter_time
+fire_tign_in_time       = config_flags%fire_tign_in_time
 fire_print_msg          = config_flags%fire_print_msg
 fire_print_file         = config_flags%fire_print_file
 fuel_left_method        = config_flags%fire_fuel_left_method
