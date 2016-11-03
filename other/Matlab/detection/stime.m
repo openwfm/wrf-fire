@@ -1,6 +1,6 @@
 function str=stime(t,red)
 % str=stime(t,red)
-% convert time given as datenum to string and day from base_time
+% convert time given as datenum to string and day from start
 % in:
 %   t    time as datenum
 %   red  struct with field base_time
@@ -11,5 +11,6 @@ function str=stime(t,red)
     if ~isscalar(t) | ~isnumeric(t),
         error('t must be a number')
     end
-    str=sprintf('%s %g days from ignition',datestr(t,timefmt),t-red.base_time);
+    str=sprintf('%s %g days from start',datestr(t,timefmt),...
+        t-red.start_datenum);
 end

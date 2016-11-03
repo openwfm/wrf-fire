@@ -5,5 +5,5 @@ function d=time2datenum(t,red)
 %       red.max_tign_g    a reference time as  seconds since sim start
 %       red.time          the same time as datenum
 % d     time as datenum
-d=(t - red.max_tign_g)/(24*60*60) + red.time;
+d= t/(24*3600) + red.start_datenum;
 end
