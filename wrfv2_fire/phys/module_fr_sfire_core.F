@@ -1865,6 +1865,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                tign(i,j)=time_future
             endif
             call check_lfn_tign_ij(i,j,'prop_ls after',time_now,lfn_out(i,j),tign(i,j))
+            lfn_out(i,j) = max(lfn_out(i,j),-100.0)  ! stability fix
         enddo
     enddo
     ! write(msg,*)'prop_ls: tign err',tmp

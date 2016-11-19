@@ -1068,6 +1068,7 @@ do ij=1,num_tiles
     
     elseif(ifun.eq.6)then 
 
+
     ! populate the rate of spread in the 8 directions
     do j=jfts,jfte
        do i=ifts,ifte
@@ -1092,8 +1093,9 @@ do ij=1,num_tiles
     
     ! heat fluxes into the atmosphere    
 
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fire_driver:fgrnhfx')
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,ros,'sfire_driver:ros')        
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'sfire_driver:fgrnhfx')
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'sfire_driver:fgrnqfx')
     
         ! sum the fluxes over atm cells
         if(use_atm_vars)then                                  
