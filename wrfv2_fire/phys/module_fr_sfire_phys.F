@@ -951,6 +951,8 @@ type(fire_params)::fp
 real, dimension(1:3,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap,fmc_g,wind,nfuel_cat
 real, dimension(1:3,1:nsteps)::fuel_time,ros,fwh,fz0
 real::ros_back,ros_wind,ros_slope,propx,propy,r
+integer::ierrx
+character(len=128)::msg
 
 if(.not.have_fuel_cats)call crash('write_fuels_m: fuel categories not yet set')
 
@@ -1046,7 +1048,7 @@ do k=1,nfuelcats
     do j=1,nsteps
        do i=1,3
           call fire_ros(ros_back,ros_wind,ros_slope, &
-             propx,propy,i,j,fp)
+             propx,propy,i,j,fp,ierrx,msg)
           ros(i,j)=ros_back+ros_wind+ros_slope
        enddo
        write(iounit,13)k,'wind',j,wind(1,j),'wind speed at 6.1m'
@@ -1392,14 +1394,17 @@ implicit none
 real, intent(in)::propx, propy! direction, need not be normalized
 integer, intent(in)::i,j         ! node mesh coordinates
 type(fire_params),intent(in)::fp
+
 !*** local
 real:: ros_back,ros_wind,ros_slope,nvx,nvy,scale,rr
+integer::ierrx     ! number of errors
+character(len=128)::msg ! error message
 !*** executable
 scale=sqrt(propx*propx+propy*propy)
 if (.not. scale > 0.) scale =1.
 nvx=propx/scale
 nvy=propy/scale
-call fire_ros(ros_back,ros_wind,ros_slope, nvx,nvy,i,j,fp)
+call fire_ros(ros_back,ros_wind,ros_slope, nvx,nvy,i,j,fp,ierrx,msg)
 rr = ros_back+ros_wind+ros_slope
 if(fire_grows_only.gt.0)rr=max(rr,0.)
 fire_rate_of_spread = rr
@@ -1409,7 +1414,7 @@ end function fire_rate_of_spread
 
 
 subroutine fire_ros(ros_back,ros_wind,ros_slope, &
-propx,propy,i,j,fp)
+propx,propy,i,j,fp,ierrx,msg)
 
 implicit none
 
@@ -1420,6 +1425,8 @@ real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to
 real, intent(in)::propx,propy
 integer, intent(in)::i,j         ! node mesh coordinates
 type(fire_params),intent(in)::fp
+integer, intent(out)::ierrx
+character(len=*), intent(out)::msg
 
 !*** local
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
@@ -1451,7 +1458,7 @@ else
 endif
 
 call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
-speed,tanphi,cor_wind,cor_slope,i,j,fp)
+speed,tanphi,cor_wind,cor_slope,i,j,fp,ierrx,msg)
 
 end subroutine fire_ros
 
@@ -1460,7 +1467,7 @@ end subroutine fire_ros
 !
 
 subroutine fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
-speed,tanphi,cor_wind,cor_slope,i,j,fp)
+speed,tanphi,cor_wind,cor_slope,i,j,fp,ierrx,msg)
 
 implicit none
 
@@ -1492,14 +1499,17 @@ real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to
 real, intent(in)::speed,tanphi,cor_wind,cor_slope
 integer, intent(in)::i,j         ! node mesh coordinates
 type(fire_params),intent(in)::fp
+integer, intent(out)::ierrx
+character(len=*), intent(out)::msg
 
 !*** local
 real:: umid, phis, phiw, spdms, umidm, excess, tanphim,ros
 real, parameter::ros_max=6.
-character(len=128)msg
 integer::k
 
 !*** executable
+
+ierrx = 0
 
 if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test for .eq. 0 for speed
     if (ibeh .eq. 1) then                ! use Rothermel formula
@@ -1539,9 +1549,10 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
     ros=ros_back+ros_wind+ros_slope
     if(ros > 1e-6 .and. fp%fmc_g(i,j) > fuelmce(k))then
 !$OMP CRITICAL(SFIRE_PHYS_CRIT)
-          write(msg,'(a,2i6,3(a,e13.5))') 'WARNING: fire_ros_cawfe: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
+          write(msg,'(a,2i6,3(a,e13.5))') 'fire_ros_cawfe: at ',i,j,' rate of spread',ros,' moisture ',fp%fmc_g(i,j),'> extinction =',fuelmce(k)
 !$OMP END CRITICAL(SFIRE_PHYS_CRIT)
-          call warning(msg)
+          ! call warning(msg)
+          ierrx = 1
     endif
 !
 else   ! chaparral model from Clark et al 2004
@@ -1610,9 +1621,10 @@ real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
         f_int,f_lineint,f_lineint2                   ! fire intensities for danger rating
 
 !*** local
-integer:: i,j,k
+integer:: i,j,k, ierrx
 real:: cor_wind=1.,cor_slope=1.,dt_fake=1.
 real:: ros_back,ros_wind,ros_slope,speed,tanphi,front_speed,ros_x,ros_y
+character(len=128)::msg
 
 !*** executable
 
@@ -1626,7 +1638,7 @@ do j=jfts,jfte
     tanphi = sqrt(fp%dzdxf(i,j)*fp%dzdxf(i,j) + fp%dzdyf(i,j)*fp%dzdyf(i,j))+tiny(tanphi)
 
     call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
-      speed,tanphi,cor_wind,cor_slope,i,j,fp)
+      speed,tanphi,cor_wind,cor_slope,i,j,fp, ierrx, msg)
 
     ros_x = ros_wind * fp%vx(i,j)/speed + ros_slope * fp%dzdxf(i,j)/tanphi ! x direction component
     ros_y = ros_wind * fp%vy(i,j)/speed + ros_slope * fp%dzdyf(i,j)/tanphi ! y direction component

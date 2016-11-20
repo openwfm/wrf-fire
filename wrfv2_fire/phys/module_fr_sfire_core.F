@@ -1712,7 +1712,7 @@ integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)::msg
-integer::nfirenodes,nfireline
+integer::nfirenodes,nfireline,ierrx
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
 
 ! constants
@@ -1901,7 +1901,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                    grady=(lfn_out(i,j+1)-lfn_out(i,j-1))/(2.0*dy)
                    grad2=sqrt(gradx*gradx+grady*grady)
                    aspeed = (lfn_in(i,j)-lfn_out(i,j))/(dt*max(grad2,rmin))                   
-                    rr = speed_func(gradx,grady,dx,dy,i,j,fp)
+                   rr = speed_func(gradx,grady,dx,dy,i,j,fp,ierrx,msg)
                    err=aspeed-rr
                    sum_err=sum_err+err
                    min_err=min(min_err,err)
@@ -2003,8 +2003,8 @@ type(fire_params),intent(in)::fp
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
    ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed
-integer::i,j,itso,iteo,jtso,jteo
-character(len=128)msg
+integer::i,j,itso,iteo,jtso,jteo,ierrx,nerr
+character(len=128)msg,msg2
 
 ! constants
 real, parameter:: eps=epsilon(0.0)
@@ -2038,6 +2038,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
     call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)
 #endif
     
+    nerr=0
     tbound=0    
     do j=jnts,jnte
         do i=ints,inte
@@ -2084,7 +2085,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            nvx,nvy,i,j,fp)
+            nvx,nvy,i,j,fp,ierrx,msg2)
 
             rr=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)rr=max(rr,0.)
@@ -2106,6 +2107,14 @@ intrinsic max,min,sqrt,nint,tiny,huge
             tend(i,j)=te
         enddo
     enddo        
+
+    if(nerr>0)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+        write(msg,'(a,i6,1x,a)')'tend_ls:',nerr,'messages in rate of spread computations. Last message:'
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+        call warning(msg)
+        call warning(msg2)
+    endif
 
     call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, ros,'tend_ls: ros')
     call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
@@ -2197,7 +2206,7 @@ end function select_eno
 !**************************
 !
 
-real function speed_func(diffCx,diffCy,dx,dy,i,j,fp)
+real function speed_func(diffCx,diffCy,dx,dy,i,j,fp,ierrx,msg)
 !*** purpose
 !    the level set method speed function
 implicit none
@@ -2206,6 +2215,8 @@ real, intent(in)::diffCx,diffCy  ! x and y coordinates of the direction of propa
 real, intent(in)::dx,dy  ! x and y coordinates of the direction of propagation
 integer, intent(in)::i,j         ! indices of the node to compute the speed at
 type(fire_params),intent(in)::fp
+integer, intent(out)::ierrx
+character(len=*), intent(out)::msg
 !*** local
 real::scale,nvx,nvy,r
 real::ros_back , ros_wind , ros_slope
@@ -2219,7 +2230,7 @@ real, parameter:: eps=epsilon(0.0)
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            nvx,nvy,i,j,fp)
+            nvx,nvy,i,j,fp,ierrx,msg)
 
             r=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)r=max(r,0.)
