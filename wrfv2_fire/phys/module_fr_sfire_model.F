@@ -136,7 +136,7 @@ integer::ignited,ig,i,j,itso,iteo,jtso,jteo
 real::tbound,err,erri,errj,maxgrad,grad,tfa,thf,mhf,tqf,mqf,aw,mw,t
 character(len=128)::msg
 logical:: freeze_fire
-real::fireline_mask=-1.
+real::fireline_mask=0.
 
 !*** executable
 
@@ -322,6 +322,7 @@ elseif (ifun.eq.4) then  ! do the timestep
     endif
 
     call check_lfn_tign('time step end',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn_out, tign)
+    call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, ros,'model: ros')
 
 elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! this cannot be done in the time step itself because of race condition

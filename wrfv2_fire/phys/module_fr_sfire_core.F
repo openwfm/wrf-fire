@@ -1813,6 +1813,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     call write_array_m(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'tend2',id)
 #endif
 
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, ros,'prop_ls: ros')
     call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls: tend2')
         
     tbound=min(tbound,tbound2)
@@ -1865,7 +1866,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                tign(i,j)=time_future
             endif
             call check_lfn_tign_ij(i,j,'prop_ls after',time_now,lfn_out(i,j),tign(i,j))
-            lfn_out(i,j) = max(lfn_out(i,j),-100.0)  ! stability fix
+            ! lfn_out(i,j) = max(lfn_out(i,j),-100.0)  ! stability fix
         enddo
     enddo
     ! write(msg,*)'prop_ls: tign err',tmp
@@ -2106,6 +2107,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
         enddo
     enddo        
 
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, ros,'tend_ls: ros')
     call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
                    tend,'tend_ls: tend out')
 
@@ -2166,6 +2168,13 @@ real, intent(in):: diffLx, diffRx
 real diff2x
 
 ! 1st order ENO scheme
+
+! diffLx <= 0 and diffRx <= 0: diffRx
+! diffLx >= 0 and diffRx >= 0: diffLx
+! diffLx >= 0 and diffRx <= 0:
+!        diffRx + diffLx <= 0: diffRx
+!        diffRx + diffLx >  0: diffLx
+
 
 if    (.not.diffLx>0 .and. .not.diffRx>0)then
     diff2x=diffRx
