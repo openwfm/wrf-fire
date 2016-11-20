@@ -2086,6 +2086,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
             nvx,nvy,i,j,fp,ierrx,msg2)
+            nerr = nerr + ierrx
 
             rr=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)rr=max(rr,0.)
