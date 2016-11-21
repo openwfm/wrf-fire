@@ -769,7 +769,7 @@ jpe1=ifval(jpe.eq.jde,jpe+1,jpe)
 !$OMP SCHEDULE(STATIC)
 do ij=1,num_tiles
 
-    id = ifval(pid.ne.0,pid+ij*10000,0) ! for print
+    id = ifval(pid.ne.0,pid+(ij-1)*10000,0) ! for print
 
     ! set up tile bounds    
     its = i_start(ij)  ! start atmospheric tile in i
