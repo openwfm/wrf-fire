@@ -636,11 +636,11 @@ integer, parameter :: BDR_WIDTH = 3
                  u_idx, bdr_wdth
       integer :: nmet_flags
       integer :: num_metgrid_soil_levs
-      integer, pointer, dimension(:) :: soil_levels
+      integer, pointer, dimension(:) :: soil_levels=>NULL()
       real :: rx, ry
       real :: threshold
       logical :: do_gcell_interp
-      integer, pointer, dimension(:) :: u_levels, v_levels
+      integer, pointer, dimension(:) :: u_levels=>NULL(), v_levels=>NULL()
       real, pointer, dimension(:,:) :: halo_slab
       real, pointer, dimension(:,:,:) :: real_array
       character (len=19) :: output_date
@@ -1823,7 +1823,7 @@ integer, parameter :: BDR_WIDTH = 3
 
       ! Local variables
       integer :: i, j
-      integer, pointer, dimension(:) :: field_levels
+      integer, pointer, dimension(:) :: field_levels=>NULL()
       character (len=32) :: z_dim
       type (fg_input), pointer, dimension(:) :: headers
       type (list) :: temp_levels
@@ -1892,7 +1892,7 @@ integer, parameter :: BDR_WIDTH = 3
    
       ! Local variables
       integer :: i, ii, j, ix, jx, k, lower, upper, temp, istatus
-      integer, pointer, dimension(:) :: union_levels, field_levels
+      integer, pointer, dimension(:) :: union_levels, field_levels=>NULL()
       real, pointer, dimension(:) :: r_union_levels
       character (len=128) :: clevel
       type (fg_input) :: lower_field, upper_field, new_field, search_field
@@ -2175,7 +2175,7 @@ integer, parameter :: BDR_WIDTH = 3
 
       ! Local variables
       integer :: i, j, istatus, isrclevel
-      integer, pointer, dimension(:) :: all_list
+      integer, pointer, dimension(:) :: all_list=>NULL()
       real :: rfillconst, rlevel, rsrclevel
       type (fg_input) :: query_field
       type (list_item), pointer, dimension(:) :: keys
