@@ -1713,6 +1713,7 @@ real::gradx,grady,aspeed,err,aerr,time_future,time_now
 real::tmp,t0,t1,t2
 integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
+integer::itso,iteo,jtso,jteo
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)::msg
 integer::nfirenodes,nfireline,ierrx
@@ -1846,42 +1847,38 @@ if (ipart==1)then
         enddo
     enddo     
 
+elseif(ipart==2)then
+
+    call continue_at_boundary(1,1,zero, &   !ext 
+    ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                    ! domain - nodes where lfn defined
+    ips,ipe,jps,jpe, &                    ! patch - nodes owned by this process 
+    its,ite,jts,jte, &                ! tile - nodes update by this thread
+    itso,iteo,jtso,jteo, &                ! where set now
+    lfn_out )                                  ! array
+
+    ! copy to use consistently old values
     do j=jts,jte
         do i=its,ite
-            t0=min(lfn_in(i+1,j)-lfn_in(i,j),lfn_in(i-1,j)-lfn_in(i,j), &
-                   lfn_in(i,j+1)-lfn_in(i,j),lfn_in(i,j-1)-lfn_in(i,j))
-            t1=min(lfn1(i+1,j)-lfn1(i,j),lfn1(i-1,j)-lfn1(i,j), &
-                   lfn1(i,j+1)-lfn1(i,j),lfn1(i,j-1)-lfn1(i,j))
-            if(t0>0. .or. t1>0.)then
+           lfn1(i,j)=lfn_out(i,j)
+        enddo
+    enddo
+
+    !fix up lfn_out - no new local minima
+    do j=jts,jte
+        do i=its,ite
+            t0=min(lfn_in(i+1,j),lfn_in(i-1,j),lfn_in(i,j+1),lfn_in(i,j-1))
+            t1=min(lfn1(i+1,j),lfn1(i-1,j),lfn1(i,j+1),lfn1(i,j-1))
+            if(.not.t0>lfn_in(i,j) .and. t1>lfn_out(i,j))then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
                 write(msg,'(a,2i6,(1x,a,g13.5))') &
-                   'prop_ls:',i,j,'lfn_in',lfn_in(i,j),'localmin',t0, &
-                   'lfn1diff',lfn1(i,j)-lfn_in(i,j),'localmin',t1,'tend',tend(i,j), &
-                   'lfn_outdiff',lfn_out(i,j)-lfn_in(i,j)
+                   'prop_ls: new local min',i,j,'by',lfn_out(i,j)-t1,'fixed to',t1,'new incr',t1-lfn_in(i,j)
+                lfn_out(i,j)=t1
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
                call message(msg)
             endif
         enddo
     enddo
-               
-
-    write(*,100)(j,j=max(700,jts),min(706,jte))
-    do i=max(2677,its),min(2683,ite)
-        write(*,'(a,i5,1x,10f8.4)')'*tend',i,(tend(i,j),j=max(700,jts),min(706,jte))
-    enddo      
-    write(*,100)(j,j=max(700,jts),min(706,jte))
-    do i=max(2677,its),min(2683,ite)
-        write(*,'(a,i5,1x,10f8.4)')'*ros ',i,(ros(i,j),j=max(700,jts),min(706,jte))
-    enddo      
-    write(*,100)(j,j=max(700,jts),min(706,jte))
-    do i=max(2677,its),min(2683,ite)
-        write(*,'(a,i5,1x,10f8.4)')'*lfn ',i,(1e-4*lfn_out(i,j),j=max(700,jts),min(706,jte))
-    enddo      
-100 format(11x,10i8)
-    !#call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,lfn_out,'lfn',id)
-    !call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,ros,'ros',id)
-
-elseif(ipart==2)then
 
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
