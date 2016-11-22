@@ -81,8 +81,8 @@ use module_fr_sfire_util
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks,wrf_dm_sum_reals
     USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
 halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
-halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub, &
-halo_fire_ndwi_sub
+halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_LFN_OUT_sub, &
+HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub, halo_fire_ndwi_sub
 #endif
 use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
@@ -148,7 +148,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     TYPE(lines_type):: ignition, hfx
     integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1,j
     logical::restart,replay
-    real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
     character(len=128)msg
     type(fire_params)::fp
@@ -404,6 +403,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             ! have interpolated to the fire grid
 #include "HALO_FIRE_MFG.inc"
             endif
+ 
+        elseif(fire_ifun.eq.5)then
+#include "HALO_FIRE_LFN_OUT.inc"
 
         elseif(fire_ifun.eq.6)then
 !           computing fuel_left needs ignition time from neighbors
@@ -442,7 +444,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             grid%fuel_frac_burnt,                         &
-            lfn_out,                                      & ! work - one timestep    
+            grid%lfn_out,                                 & ! work - one timestep    
             grid%avg_fuel_frac,                           & ! out redundant arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%uah,grid%vah,                            &

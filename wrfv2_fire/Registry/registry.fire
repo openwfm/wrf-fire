@@ -8,7 +8,7 @@
 #<key>   <package       <associated               <package        <associated 4d scalars>
 #         name>          namelist choice>          state vars>
 # 
-package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,unit_fxlong,unit_fxlat,ndwi,ndvi,fmc_g,fmc_gc,fndwi
+package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,lfn_out,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,unit_fxlong,unit_fxlat,ndwi,ndvi,fmc_g,fmc_gc,fndwi
 
 # fire input variables on fire grid
 #
@@ -44,6 +44,7 @@ state    real     vah       ij       fire        1         Y     hr   "VAH"     
 state    real     tign_g    *i*j      fire        1         z   i102hr "TIGN_G"    "ignition time on ground" "s"
 state    real     tign_in   *i*j      fire        1         z    hr   "TIGN_IN"    "minimal ignition time on ground" "s"
 state    real     lfn       *i*j      fire        1         z   i102hr "LFN"       "level function" "1"
+state    real     lfn_out   *i*j      fire        1         z    r "LFN_OUT"       "level function at time step end, for halo" "1"
 state    real     fuel_frac *i*j      fire        1         z   i102hr "FUEL_FRAC" "fuel remaining" "1"
 state    real     fmc_g     *i*j      fire        1         z   i102hr "FMC_G"     "fuel moisture contents" "1"
 state    real     fire_area *i*j      fire        1         z    hr    "FIRE_AREA" "fraction of cell area on fire" "1"
@@ -289,6 +290,7 @@ rconfig   integer sfc_isltyp             namelist,fire         max_domains      
 # Fire halo descriptions
 #
 halo      HALO_FIRE_LFN dyn_em 24:lfn
+halo      HALO_FIRE_LFN_OUT dyn_em 8:lfn_out
 halo      HALO_FIRE_TIGN dyn_em 8:tign_g
 halo      HALO_FIRE_HT dyn_em 8:ht
 halo      HALO_FIRE_PHB dyn_em 8:phb
