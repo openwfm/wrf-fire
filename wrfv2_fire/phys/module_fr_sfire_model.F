@@ -301,7 +301,7 @@ elseif (ifun.eq.4) then  ! do the timestep
 
     if(.not. freeze_fire)then
       if(.not.replay) then    
-        call prop_ls(id,     &
+        call prop_ls(id,1,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
         ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
@@ -321,12 +321,27 @@ elseif (ifun.eq.4) then  ! do the timestep
 
     endif
 
-    call check_lfn_tign('time step end',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn_out, tign)
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, ros,'model: ros')
 
 elseif (ifun.eq.5) then ! copy the result of timestep back to input
     ! this cannot be done in the time step itself because of race condition
     ! some thread may still be using lfn as input in their tile halo
+
+    ! fix lfn_out if needed and compute tign
+    if(.not. freeze_fire)then
+      if(.not.replay) then    
+        call prop_ls(id,2,     &
+        ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
+        ifms,ifme,jfms,jfme,                      &
+        ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
+        ifts,ifte,jfts,jfte,                      &
+        time_start,dt,fdx,fdy,tbound,  &
+        lfn,lfn_out,tign,ros, fp &
+        ) 
+      endif
+    endif
+
+    call check_lfn_tign('time step end',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn_out, tign)
 
     if(.not. freeze_fire)then
     do j=jfts,jfte

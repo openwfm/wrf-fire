@@ -1611,6 +1611,7 @@ end subroutine
 !
 
 subroutine prop_ls( id, &                                ! for debug
+                ipart,  &                                ! 1:compute lfn_out 2:tign & speedcheck
                 ids,ide,jds,jde, &                       ! domain dims
                 ims,ime,jms,jme, &                       ! memory dims
                 ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
@@ -1658,6 +1659,8 @@ implicit none
 !*** arguments 
 
 ! id                in    unique identification for prints and dumps
+! ipart             in    1:compute lfn_out 2:tign & speedcheck 
+!                         *** must call halo on lfn_out between part 1 and part 2***
 ! ids,ide,jds,jde   in    domain dimensions
 ! ims,ime,jms,jme   in    memory dimensions
 ! its,ite,jts,jte   in    tile dimensions
@@ -1689,7 +1692,7 @@ implicit none
 ! tend_ls
 !
 
-integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe 
+integer,intent(in)::id,ipart,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe 
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out,ros
 real,intent(in)::dx,dy,ts,dt
@@ -1727,11 +1730,14 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 !*** executable
 
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':',jte
+write(msg,'(a,i6,a,i2,4(a,i5))')'prop_ls:',id,' part',ipart,' tile',its,':',ite,',',jts,':',jte
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 
-call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,tign)
+if (ipart==1)then
+!   lfn_in -> lfn_out
+
+    call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,tign)
 
     a=fire_back_weight ! from module_fr_sfire_util
     a1=1. - a
@@ -1839,6 +1845,8 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
             lfn_out(i,j) = min(lfn_out(i,j),lfn_in(i,j)) ! fire area can only increase
         enddo
     enddo      
+
+elseif(ipart==2)then
 
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
@@ -1962,6 +1970,10 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, tign,'prop_ls: tign out')
 
     call check_lfn_tign('prop_ls end',ts+dt,its,ite,jts,jte,ims,ime,jms,jme,lfn_out, tign)
+
+else
+    call crash('prop_ls: ipart must be 1 or 2')
+endif
 end subroutine prop_ls
 
 !
