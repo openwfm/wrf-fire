@@ -451,22 +451,38 @@ elseif (ifun.eq.6) then ! timestep postprocessing
     call check_lfn_tign('before fuel_left',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_time,'model: fuel_time')
-    call fuel_left(&
-        ifds,ifde,jfds,jfde, &
-        ifms,ifme,jfms,jfme, &
-        ifts,ifte,jfts,jfte, &
-        ifts,ifte,jfts,jfte, &
-        lfn,tign,fuel_time,time_start+dt,fuel_frac_end,fire_area) !fuel_frac_end is private and tile based
 
-    call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_end,'model: fuel_frac end')
+    if(fire_update_fuel_frac.eq.1)then
+        ! run model the normal way
+        call fuel_left(&
+            ifds,ifde,jfds,jfde, &
+            ifms,ifme,jfms,jfme, &
+            ifts,ifte,jfts,jfte, &
+            ifts,ifte,jfts,jfte, &
+            lfn,tign,fuel_time,time_start+dt,fuel_frac_end,fire_area) !fuel_frac_end is private and tile based
     
-    do j=jfts,jfte
-        do i=ifts,ifte
-            t = min(fuel_frac(i,j),fuel_frac_end(i,j)) ! do not allow fuel fraction to increase, in case of approximation error 
-            fuel_frac_burnt(i,j)=fuel_frac(i,j)-t ! fuel lost this timestep
-            fuel_frac(i,j)=t ! copy new value to state array
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifts,ifte,jfts,jfte,fuel_frac_end,'model: fuel_frac end')
+        
+        do j=jfts,jfte
+            do i=ifts,ifte
+                t = min(fuel_frac(i,j),fuel_frac_end(i,j)) ! do not allow fuel fraction to increase, in case of approximation error 
+                fuel_frac_burnt(i,j)=fuel_frac(i,j)-t ! fuel lost this timestep
+                fuel_frac(i,j)=t ! copy new value to state array
+            enddo
         enddo
-    enddo
+    elseif(fire_update_fuel_frac.eq.2)then
+        do j=jfts,jfte
+            do i=ifts,ifte
+                if(lfn(i,j)<0.)then
+                    fuel_frac_burnt(i,j) = dt / fuel_time(i,j)
+                else
+                    fuel_frac_burnt(i,j) = 0.
+                endif
+            enddo
+        enddo
+    else
+        call crash('fire_update_fuel_frac value not supported')
+    endif
 
     call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fuel_frac_burnt,'model: fuel_frac burned')
         

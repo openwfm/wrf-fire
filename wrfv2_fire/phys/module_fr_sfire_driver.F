@@ -1606,6 +1606,7 @@ fire_atm_feedback       = config_flags%fire_atm_feedback
 fire_hfx_given          = config_flags%fire_hfx_given
 fire_hfx_num_lines      = config_flags%fire_hfx_num_lines
 fire_hfx_latent_part    = config_flags%fire_hfx_latent_part
+fire_update_fuel_frac   = config_flags%fire_update_fuel_frac
 boundary_guard          = config_flags%fire_boundary_guard
 fire_back_weight        = config_flags%fire_back_weight
 fire_grows_only         = config_flags%fire_grows_only

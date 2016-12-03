@@ -43,6 +43,7 @@ integer,save::          &
  fire_ignition_clamp=0, &  ! if 1, clamp ignition to grid points
  fire_hfx_given=0,      &  ! "0=no, run normally, 1=from wrfinput, 2=from file input_hfx in ideal, 4=by parameters" ""
  fire_hfx_num_lines=1,  &     ! number of heatflux parameter sets defining the heaflux lines (must be 1) 
+ fire_update_fuel_frac=1,& ! 1 normal, 2 burner
  fndwi_from_ndwi=1,     &  ! interpolate ndwi from atmosphere resolution
  kfmc_ndwi=0               ! if>0 , number of the fuel moisture class to update from ndwi
  
