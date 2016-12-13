@@ -31,7 +31,7 @@ burner_tign(burner_mask(:)==0) = burner_end_s;
 burner_tign(burner_mask(:) >0) = burner_start_s;
 
 file = 'input_tign_g';
-write_array_2d(file,burner_tign)
+write_array_2d(file,burner_tign')
 fprintf('Burner ignition written to file %s for ideal.exe\n',file)
 % ncreplace('wrfinput_d01','TIGN_G',burner_tign)
 

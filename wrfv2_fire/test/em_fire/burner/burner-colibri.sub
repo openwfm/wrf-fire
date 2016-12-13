@@ -1,5 +1,5 @@
 #!/bin/bash
-#$ -pe orte 144
+#$ -pe orte 160
 #$ -cwd
 #$ -j y
 #$ -S /bin/bash
