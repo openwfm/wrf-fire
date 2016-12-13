@@ -30,7 +30,7 @@
  &domains
  time_step                           = 0,
  ! time_step                           = 1,
- time_step_fract_num                 = 10,
+ time_step_fract_num                 = 5,
  time_step_fract_den                 = 100,
  max_dom                             = 1,
  s_we                                = 1,     1,     1,
