@@ -20,13 +20,13 @@ burner_dist_cells = [(domain_size_cells(1)-burner_size_cells(1))/2,...
 burner_start_cells = burner_dist_cells+1;
 burner_end_cells   = burner_dist_cells+burner_size_cells;
 
-burner_mask = zeros(domain_size_cells);
+burner_mask = zeros(domain_size_cells+1);
 burner_mask(burner_start_cells(1):burner_end_cells(1),...
             burner_start_cells(2):burner_end_cells(2)) = 1;
 spy(burner_mask)
 fprintf('burner cells %i from %i\n',nnz(burner_mask),prod(domain_size_cells))
 
-burner_tign = zeros(domain_size_cells);
+burner_tign = zeros(domain_size_cells+1);
 burner_tign(burner_mask(:)==0) = burner_end_s;
 burner_tign(burner_mask(:) >0) = burner_start_s;
 
