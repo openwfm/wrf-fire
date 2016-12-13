@@ -1668,7 +1668,7 @@ else
   call crash('fun_real: bad fun')
 endif
 
-if(lsum.ne.lsum)call crash('fun_real: NaN detected')
+if(lsum.ne.lsum)call message('fun_real: WARNING: NaN detected')
 
 dosum=fun.eq.REAL_SUM.or.fun.eq.RNRM_SUM
 domax=fun.eq.REAL_MAX.or.fun.eq.REAL_AMAX.or.fun.eq.RNRM_MAX
@@ -1701,7 +1701,7 @@ if(domin)psum=min(psum,lsum)
 #else
     gsum = psum
 #endif
-if(gsum.ne.gsum)call crash('fun_real: NaN detected')
+if(gsum.ne.gsum)call message('fun_real: WARNING: NaN detected') 
 !$OMP END SINGLE
 
 !$OMP BARRIER
