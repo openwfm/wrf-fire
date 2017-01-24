@@ -430,7 +430,7 @@ if(.not. lfnij<0. .and. tignij<time_now)then
    write(msg,*)' tign-time_now=',tignij-time_now
    call message(msg,level=0)
    msg=s//': inconsistent state: lfn>=0 and tign<time_now'
-   call crash(msg)
+   call warning(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
 
