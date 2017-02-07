@@ -3,10 +3,11 @@ The burner.m script generates input_tign_g text file, that defines the
 heart source. This file is used by ideal.exe which processes the data and 
 put them into the wrfinput_d01 file. The burner script creates a linear burner
 placed along Y axis (N-S) direction, 25m thick and 750m long located 400m from the
-western domain boundary. The simulation is set for 20 minutes, in 25m resolution 
-domain covering an area of 3000x6000m. 
+western domain boundary, with the heat relaese of 1800KW/m2
+The simulation is set for 20 minutes, in 25m resolution domain covering an area of 3000x6000m.
+240x120x120 grid point in x,y, and z direction. Fuel type is set to category 3 (tall grass). 
 
-The follwing basic setup is included in the burner.m:
+The follwing setup is included in the burner.m:
 burner_size_m     = [750,25]    % burner is 25m thick and 750m long 
 domain_size_m     = [3000,6000] % that is the size of the domain in m
 mesh_step_m       = [25,25]     % that is the fire mesh resolution
