@@ -4,9 +4,9 @@ function input_tign_g
 % edit these numbers as needed
 burner_size_m     = [750,25]   %
 domain_size_m     = [3000,6000]
-mesh_step_m       = [12.5,12.5]
-burner_dist_m     = 200
-burner_start_s    = 1
+mesh_step_m       = [25,25]
+burner_dist_m     = 400
+burner_start_s    = 10
 burner_end_s      = 1e6
 
 % do not edit under this line
@@ -20,13 +20,13 @@ burner_dist_cells = [(domain_size_cells(1)-burner_size_cells(1))/2,...
 burner_start_cells = burner_dist_cells+1;
 burner_end_cells   = burner_dist_cells+burner_size_cells;
 
-burner_mask = zeros(domain_size_cells+1);
+burner_mask = zeros(domain_size_cells);
 burner_mask(burner_start_cells(1):burner_end_cells(1),...
             burner_start_cells(2):burner_end_cells(2)) = 1;
 spy(burner_mask)
 fprintf('burner cells %i from %i\n',nnz(burner_mask),prod(domain_size_cells))
 
-burner_tign = zeros(domain_size_cells+1);
+burner_tign = zeros(domain_size_cells);
 burner_tign(burner_mask(:)==0) = burner_end_s;
 burner_tign(burner_mask(:) >0) = burner_start_s;
 
