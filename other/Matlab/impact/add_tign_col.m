@@ -33,7 +33,11 @@ tign_g_interp = scatteredInterpolant(t.fxlat(:),t.fxlong(:),t.tign_g(:));
 for i=2:m
     burn_seconds=tign_g_interp(raw{i,1},raw{i,2});
     burn_datenum = start_datenum + burn_seconds/(24*60*60);
-    burn_datestr = datestr(burn_datenum,'yyyy-mm-dd HH:MM:SS');
+    if isnan(burn_datenum)
+        burn_datestr=''
+    else 
+        burn_datestr = datestr(burn_datenum,'yyyy-mm-dd HH:MM:SS');
+    end
     out(i,insert_col_pos)={burn_datestr};
     disp(out(i,:))
 end
