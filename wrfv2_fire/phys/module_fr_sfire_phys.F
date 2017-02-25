@@ -1275,12 +1275,15 @@ real, intent(out),dimension(ifms:ifme,jfms:jfme),optional:: grnqft
 
 !*** local
 integer::i,j
-real:: dmass,bmst
+real:: dmass,bmst,tot_flux,tot_burn
 logical::latent
+character(len=128)::msg
 
 
 !*** executable        
 latent = present(grnqft)
+tot_flux=0.
+tot_burn=0.
 do j=jfts,jfte
     do i=ifts,ifte
          dmass =                     &     ! ground fuel dry mass burnt this call (kg/m^2)
@@ -1292,8 +1295,16 @@ do j=jfts,jfte
          ! bmst = relative water contents; 0.56 = est. ratio of water from burning
          ! xlv = nominal specific latent heat of water J/kg (dependence on temperature ignored)
          ! xlv is  defined in module_model_constants 
+         tot_flux = tot_flux + grnhft(i,j)
+         tot_burn = tot_burn + fuel_frac_burnt(i,j) 
     enddo
 enddo
+if (fire_print_msg >1)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+    write(msg,'(a,4i15,2(a,e13.4))')'heat_fluxes:',ifts,ifte,jfts,jfte,' burn ',tot_burn,' flux ',tot_flux
+    call message(msg)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+endif
 
 end subroutine heat_fluxes
 
