@@ -8,12 +8,18 @@ function out=add_tign_col(raw,t)
 %    t      structure created from wrfout as follows:
 %           t=read_wrfout_tign('wrfout...')
 %           save t, copy t.mat to another computer if needed, load t
-%           load t
+% Output:
 %    out    cell array ready to be written to csh file by
 %           cell2csv(out,'filename.csv')
 %           One column is added with the fire arrival time.
 %           Load the csv file into excel and change the format of the
 %           column to "Time"
+%
+% Usage:
+%    load t
+%    [num,txt,raw]=xlsread('AssetsDB-20170216.xls');
+%    out=add_tign_col(raw,t);
+%    cell2csv(out,'AssetsDB.csv')
 
 
 insert_col_pos=5; % number of the column to add 
@@ -29,15 +35,18 @@ out(:,insert_col_pos+1:end)=raw(:,insert_col_pos:end);
 out(1,insert_col_pos)={'Time burned'};
 lats=cell2mat(raw(2:end,1));
 lons=cell2mat(raw(2:end,2));
-tign_g_interp = scatteredInterpolant(t.fxlat(:),t.fxlong(:),t.tign_g(:));
-for i=2:m
-    burn_seconds=tign_g_interp(raw{i,1},raw{i,2});
-    burn_datenum = start_datenum + burn_seconds/(24*60*60);
-    if isnan(burn_datenum)
-        burn_datestr=''
-    else 
-        burn_datestr = datestr(burn_datenum,'yyyy-mm-dd HH:MM:SS');
+tign=gridinterp(t.fxlat,t.fxlong,t.tign_g,lats,lons);
+%clf,h=mesh(t.fxlat,t.fxlong,t.tign_g);alpha=0.1;set(h,'EdgeAlpha',alpha,'FaceAlpha',alpha);hold on
+burn_datenum = start_datenum + tign/(24*60*60);
+for i=1:length(lats)
+    fprintf('lat=%8.4f long=%8.4f tign=%g\n',lats(i),lons(i),tign(i))
+    %plot3(lats(i),lons(i),tign(i),'k*'),drawnow
+    if isnan(burn_datenum(i)) | burn_datenum(i) >= end_datenum,
+        burn_datestr{i}=''
+    else
+        burn_datestr{i} = datestr(burn_datenum(i),'yyyy-mm-dd HH:MM:SS');
     end
-    out(i,insert_col_pos)={burn_datestr};
-    disp(out(i,:))
 end
+out(2:end,insert_col_pos)=burn_datestr;
+    % disp(out(i+1,:))
+hold off
