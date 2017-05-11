@@ -1,0 +1,18 @@
+1. check loaded modeules, you will need:
+  1) ncarenv/1.1    3) ncarcompilers/0.4.1   5) netcdf/4.4.1.1
+  2) intel/16.0.3   4) mpt/2.15f
+
+2. run ./configure and select option 7.
+  7.  Linux x86_64 i486 i586 i686, ifort compiler with icc  (dmpar)
+
+3. modify configure.wrf lines 146, 147, adding -cpp flag:
+	FORMAT_FIXED    =       -FI -cpp
+	FORMAT_FREE     =       -FR -cpp
+or use one copied from /glade/u/home/kochansk/WRF-SFIRE/wrf-fire_cheyenne/wrfv2_fire/configure.wrf 
+
+4. compile wrf: ./compile em_real >& compile_01.log
+
+5. submit job (sample scripts for running ideal and wrf are in: 
+	qsub runwrf_cheyenne.pbs
+
+ 
