@@ -50,6 +50,7 @@ plot3(lats,lons,tign,'k*')
 hold off
 drawnow
 end
+
 burn_datenum = start_datenum + tign/(24*60*60);
 for i=1:length(lats)
     fprintf('lat=%8.4f long=%8.4f tign=%g\n',lats(i),lons(i),tign(i))
