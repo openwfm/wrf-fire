@@ -24,13 +24,14 @@ end_datenum = datenum(end_times); % in days from some instant in the past
 end_minutes=t.xtime(end); % from simulation start
 start_datenum=end_datenum-end_minutes/(24*60);
 burn_datenum=datenum(burn_time);
+burn_datestr=datestr(burn_datenum,'dd-mmm-yyyy HH:MM');
 burn_seconds=(burn_datenum-start_datenum)*24*60*60;
 da=t.dx*t.dy/prod(size(t.fxlong)./size(t.xlong));
 acre=4046.872609874252; % convert from m^2 to ac
 
 fprintf('Simulation start %s\n',datestr(start_datenum));
 fprintf('Simulation end   %s\n',datestr(end_datenum));
-fprintf('Burn cut off     %s = %20g from sim start\n',datestr(burn_datenum));
+fprintf('Burn cut off     %s = %20g from sim start\n',burn_datestr, burn_seconds);
 fprintf('Fire mesh cell %g m^2\n',da);
 
 cats = t.nfuel_cat .* (t.tign_g <= burn_seconds);
@@ -39,5 +40,17 @@ num_cats=max(t.nfuel_cat(:));
 for i=1:num_cats
     count(i)=sum(cats(:)==i);
 end
+
 area = count*da;
+
+% pic
+cats(cats==0)=NaN;
+clf,hold off
+mesh(t.fxlong,t.fxlat,cats);
+view(2)
+colorbar
+title(['Area burned by ',burn_datestr,' UTC by fuel category'])
+xlabel('Longitude')
+ylabel('Latitude')
+
 end
