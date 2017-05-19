@@ -44,7 +44,7 @@ end
 area = count*da;
 
 % pic
-cats(cats==0)=NaN;
+cats(cats==0|cats==14)=NaN;
 clf,hold off
 mesh(t.fxlong,t.fxlat,cats);
 view(2)
