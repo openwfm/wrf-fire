@@ -324,7 +324,7 @@ print('-dpng',sprintf( '%s_contours.png', prefix));
             plotstate(9,F,'Forcing',0); 
             plotstate(10,gradJ,'gradient of J',0);
         end
-        delta = solve_saddle(Constr_ign,h,F,@(u) poisson_fft2(u,[dx,dy],-power)/alpha);
+        delta = solve_saddle(Constr_ign,h,F,0,@(u) poisson_fft2(u,[dx,dy],-power)/alpha);
         varargout=[{J},{delta}];
         % plotstate(11,delta,'Preconditioned gradient',0);
         %fprintf('norm(grad(J))=%g norm(delta)=%g\n',norm(gradJ,'fro'),norm(delta,'fro'))
