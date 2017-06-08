@@ -24,7 +24,7 @@ function out=add_tign_col(raw,t)
 graphics=0;
 
 insert_col_pos=5; % number of the column to add 
-end_times=char(t.times(:,end)');
+end_times=t.times(end,:);
 end_datenum = datenum(end_times); % in days from some instant in the past
 end_minutes=t.xtime(end); % from simulation start
 start_datenum=end_datenum-end_minutes/(24*60);

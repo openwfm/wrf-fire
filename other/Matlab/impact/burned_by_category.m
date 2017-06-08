@@ -19,7 +19,7 @@ function area=burned_by_category(t,burn_time)
 %    area=burned_by_category(t,'2011-06-29_00:00:00')
 
 
-end_times=char(t.times(:,end)');
+end_times=t.times;
 end_datenum = datenum(end_times); % in days from some instant in the past
 end_minutes=t.xtime(end); % from simulation start
 start_datenum=end_datenum-end_minutes/(24*60);
