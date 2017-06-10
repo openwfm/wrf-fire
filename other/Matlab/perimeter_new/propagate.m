@@ -21,8 +21,8 @@ end
 active=dir*(time_end-t(:,:,2,2))>0;
 for step=1:10*max(m,n),
     t_old=t;
-    for i=1:m,
-        for j=1:n,
+    for i=[1:m,m:-1:1],
+        for j=[1:n,n:-1:1]
             if active(i,j) & fire_mask(i,j),
                 for a=1:3,
                     for b=1:3, 
