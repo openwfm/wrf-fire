@@ -19,7 +19,19 @@ function [p,dims]=nc2struct(filename,varnames,gattnames,timestep,p)
 % will read variables U,V into p.u, p.v and global attributes DX DY into
 % p.dx p.dy, respectively
 
-fprintf('nc2struct: reading from file %s',filename)
+if ~exist('timestep','var'),
+    timestep=0;
+    t=-1;
+    fprintf('nc2struct: reading all timesteps\n')
+elseif isscalar(timestep) & isnumeric(timestep),
+    fprintf('nc2struct: reading timestep %i only\n',timestep)
+    t=timestep-1; % netcdf dimensions start from 0
+else
+    error('timestep must be numeric scalar')
+end
+p.timestep=timestep;
+
+fprintf('nc2struct: reading from file %s\n',filename)
 
 try
    ncid = netcdf.open(filename,'NC_NOWRITE');
@@ -33,17 +45,6 @@ p.filename{1}=filename;
 
 % reading values
 
-if ~exist('timestep','var'),
-    timestep=0;
-    t=-1;
-    fprintf(' all timesteps\n')
-elseif isscalar(timestep) & isnumeric(timestep),
-    fprintf(' timestep %i only\n',timestep)
-    t=timestep-1; % netcdf dimensions start from 0
-else
-    error('timestep must be numeric scalar')
-end
-p.timestep=timestep;
 
 for i=1:length({varnames{:}}),
     varname=varnames{i};
