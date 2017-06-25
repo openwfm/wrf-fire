@@ -34,6 +34,7 @@ p.filename{1}=filename;
 % reading values
 
 if ~exist('timestep','var'),
+    timestep=0;
     t=-1;
     fprintf(' all timesteps\n')
 elseif isscalar(timestep) & isnumeric(timestep),
@@ -42,6 +43,8 @@ elseif isscalar(timestep) & isnumeric(timestep),
 else
     error('timestep must be numeric scalar')
 end
+p.timestep=timestep;
+
 for i=1:length({varnames{:}}),
     varname=varnames{i};
     try
