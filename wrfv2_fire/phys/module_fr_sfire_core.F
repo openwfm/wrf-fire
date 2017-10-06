@@ -167,7 +167,167 @@ call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign,'init_no_fire:
 
 end subroutine ignite_from_tign_in
 
- 
+subroutine make_tign_in( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+                        ifms,ifme,jfms,jfme,                      &
+                        ifts,ifte,jfts,jfte,                      &
+			ignition_line,                            &
+                        coord_xf,coord_yf,                &
+                        unit_xf,unit_yf,                  &
+                        tign_in)
+
+
+implicit none
+
+!*** purpose: ignite a circular/line fire 
+
+!*** description
+! ignite fire in the region within radius r from the line (sx,sy) to (ex,ey).
+! the coordinates of nodes are given as the arrays coord_xf and coord_yf
+! r is given in m
+! one unit of coord_xf is unit_xf m 
+! one unit of coord_yf is unit_yf m 
+! so a node (i,j) will be ignited iff for some (x,y) on the line
+! || ( (coord_xf(i,j) - x)*unit_xf , (coord_yf(i,j) - y)*unit_yf ) || <= r 
+
+
+!*** arguments
+integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
+integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
+integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
+type(line_type), intent(in):: ignition_line    ! description of the ignition line
+real, intent(in):: start_ts,end_ts          ! the time step start and end 
+real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
+    coord_xf,coord_yf                       !  node coordinates  
+real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
+real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
+                   tign_in                  ! level function, ignition time (state)
+                        
+!*** local
+integer:: i,j
+real::lfn_new,tign_new,time_ign,ax,ay,rels,rele,d
+! real:: lfn_new_chk,tign_new_chk,tmperr
+real:: sx,sy                    ! start of ignition line, from lower left corner
+real:: ex,ey                    ! end of ignition line, or zero
+real:: st,et                    ! start and end of time of the ignition line
+character(len=128):: msg
+real::cx2,cy2,dmax,axmin,axmax,aymin,aymax,dmin
+real:: start_x,start_y          ! start of ignition line, from lower left corner
+real:: end_x,end_y              ! end of ignition line, or zero
+real:: radius                   ! all within the radius of the line will ignite
+real:: start_time,end_time      ! the ignition time for the start and the end of the line
+real:: ros,tos                  ! ignition rate and time of spread
+integer:: msglevel=4,smsg=2     ! print at this level
+real:: lfn_min
+
+!*** executable
+
+call check_lfn_tign('ignite_fire start',end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
+
+! copy ignition line fields to local variables
+start_x    = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
+start_y    = ignition_line%start_y ! y coordinate of the ignition line start point
+end_x      = ignition_line%end_x   ! x coordinate of the ignition line end point
+end_y      = ignition_line%end_y   ! y coordinate of the ignition line end point
+start_time = ignition_line%start_time ! ignition time for the start point from simulation start (s)
+end_time   = ignition_line%end_time! ignition time for the end poin from simulation start (s)
+radius     = ignition_line%radius  ! all within this radius ignites immediately
+ros        = ignition_line%ros     ! rate of spread
+
+
+tos        = radius/ros            ! time of spread to the given radius
+st         = start_time            ! the start time of ignition considered in this time step
+et         = min(end_ts,end_time)  ! the end time of the ignition segment in this time step
+
+! this should be called whenever (start_ts, end_ts) \subset (start_time, end_time + tos) 
+if(start_ts>et+tos .or. end_ts<st)return   ! too late or too early, nothing to do
+
+if(start_time < end_time)then  ! we really want to test start_time .ne. end_time, but avoiding test of floats on equality
+        ! segment of nonzero length
+        !rels =  (st - start_time) / (end_time - start_time)  ! relative position of st in the segment (start,end)
+	!sx = start_x + rels * (end_x - start_x)
+	!sy = start_y + rels * (end_y - start_y)
+        rels = 0.
+        sx = start_x
+        sy = start_y
+        rele =  (et - start_time) / (end_time - start_time)    ! relative position of et in the segment (start,end)
+	ex = start_x + rele * (end_x - start_x)
+	ey = start_y + rele * (end_y - start_y)
+else
+        ! just a point
+        rels = 0.
+        rele = 1.
+	sx = start_x
+	sy = start_y
+	ex = end_x
+	ey = end_y
+endif
+
+
+cx2=unit_xf*unit_xf
+cy2=unit_yf*unit_yf
+
+axmin=coord_xf(ifts,jfts)
+aymin=coord_yf(ifts,jfts)
+axmax=coord_xf(ifte,jfte)
+aymax=coord_yf(ifte,jfte)
+if(fire_print_msg.ge.smsg)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+write(msg,'(a,2f11.6,a,2f11.6)')'IGN from ',sx,sy,' to ',ex,ey
+call message(msg,level=smsg)
+write(msg,'(a,2f10.2,a,2f10.2,a)')'IGN timestep [',start_ts,end_ts,'] in [',start_time,end_time,']'
+call message(msg,level=smsg)
+write(msg,'(a,2g13.6,a,2g13.6)')'IGN tile coord from  ',axmin,aymin,' to ',axmax,aymax
+call message(msg,level=smsg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+endif
+ignited=0
+dmax=0
+dmin=huge(dmax)
+11      format('IGN ',6(a,g17.7,1x)) 
+12      format('IGN ',4(a,2g13.7,1x))
+! tmperr=0.
+do j=jfts,jfte   
+    do i=ifts,ifte
+	ax=coord_xf(i,j)
+        ay=coord_yf(i,j)
+
+        ! get d= distance from the nearest point on the ignition segment
+        ! and time_ign = the ignition time there
+        call nearest(d,time_ign,ax,ay,sx,sy,st,ex,ey,et,cx2,cy2)
+
+
+        ! collect statistics
+        dmax=max(d,dmax)
+        dmin=min(d,dmin)
+        
+	if(d < radius)then
+            tign_in(i,j)= time_ign + d/ros
+            if(fire_print_msg.ge.msglevel)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            	 write(msg,'(a,2i6,a,2g13.6,a,g13.6,a,g13.6)')'IGN ignited cell ',i,j,' at',ax,ay,' time_ign=',time_ign,' d=',d
+            	 call message(msg,level=0)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+            endif
+        endif
+        
+        if(fire_print_msg.gt.msglevel)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            write(msg,*)'IGN1 i,j=',i,j,' tign_in(i,j)=',tign_in(i,j),' time_ign=',time_ign,' d=',d
+            call message(msg,level=msglevel)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+	endif
+enddo
+if(fire_print_msg.ge.smsg)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
+call message(msg,level=smsg)
+write(msg,'(a,f6.1,a,f8.1,a,i10,a,g10.2)')'IGN radius ',radius,' time of spread',tos, &
+   ' ignited nodes',ignited,' lfn min',lfn_min
+call message(msg,level=smsg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+endif
+
+end subroutine make_tign_in 
 
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
