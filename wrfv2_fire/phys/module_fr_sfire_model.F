@@ -377,6 +377,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
             call ignite_fire(                             &
                 ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                 ifms,ifme,jfms,jfme,                      &
+                ifps,ifpe,jfps,jfpe,                      &
                 ifts,ifte,jfts,jfte,                      &
                 ignition%line(ig),                        &
                 time_start,time_start+dt,                 &

@@ -171,6 +171,7 @@ end subroutine ignite_from_tign_in
 
 subroutine ignite_fire( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
+                        ifps,ifpe,jfps,jfpe,                      &
                         ifts,ifte,jfts,jfte,                      &
                         ignition_line,                            &
                         start_ts,end_ts,                    &
@@ -193,6 +194,7 @@ implicit none
 
 !*** arguments
 integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
+integer, intent(in):: ifps,ifpe,jfps,jfpe   ! fire patch bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 type(line_type), intent(in):: ignition_line    ! description of the ignition line
@@ -206,6 +208,7 @@ integer, intent(out):: ignited              ! number of nodes newly ignited
                         
 !*** local
 integer:: i,j
+integer:: ifts1,ifte1,jfts1,jfte1 ! boundaries of updated area
 real::lfn_new,tign_new,time_ign,ax,ay,rels,rele,d
 ! real:: lfn_new_chk,tign_new_chk,tmperr
 real:: sx,sy                    ! start of ignition line, from lower left corner
@@ -289,8 +292,12 @@ dmin=huge(dmax)
 11      format('IGN ',6(a,g17.7,1x)) 
 12      format('IGN ',4(a,2g13.7,1x))
 ! tmperr=0.
-do j=jfts,jfte   
-    do i=ifts,ifte
+ifts1 = max(ifds,snode(ifts,ifps,-2))
+ifte1 = min(ifde,snode(ifte,ifpe,+2))
+jfts1 = max(jfds,snode(jfts,jfps,-2))
+jfte1 = min(jfde,snode(jfte,jfpe,+2))
+do j=jfts1,jfte1   
+    do i=ifts1,ifte1
         call check_lfn_tign_ij(i,j,'ignite_fire start',end_ts,lfn(i,j),tign(i,j))
         ax=coord_xf(i,j)
         ay=coord_yf(i,j)
@@ -301,8 +308,10 @@ do j=jfts,jfte
 
 
         ! collect statistics
-        dmax=max(d,dmax)
-        dmin=min(d,dmin)
+        if(j.ge.jfts .and. j.le.jfte .and. i.ge.ifts .and. i.le.ifte) then
+		dmax=max(d,dmax)
+        	dmin=min(d,dmin)
+	endif
 
         ! tentative new level set function and time of ignition
         ! lfn_new_chk=d - min( radius, ros*(end_ts - time_ign) )  ! lft at end_ts
