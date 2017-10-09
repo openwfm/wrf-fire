@@ -171,6 +171,7 @@ subroutine make_tign_in( ifds,ifde,jfds,jfde,                    & ! fire domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
 			ignition_line,                            &
+			start_ts,end_ts,				  &
                         coord_xf,coord_yf,                &
                         unit_xf,unit_yf,                  &
                         tign_in)
