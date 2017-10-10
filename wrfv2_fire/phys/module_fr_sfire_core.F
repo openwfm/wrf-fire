@@ -205,8 +205,7 @@ real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: &
                         
 !*** local
 integer:: i,j
-real::lfn_new,tign_new,time_ign,ax,ay,rels,rele,d
-! real:: lfn_new_chk,tign_new_chk,tmperr
+real::time_ign,ax,ay,rels,rele,d
 real:: sx,sy                    ! start of ignition line, from lower left corner
 real:: ex,ey                    ! end of ignition line, or zero
 real:: st,et                    ! start and end of time of the ignition line
@@ -218,11 +217,8 @@ real:: radius                   ! all within the radius of the line will ignite
 real:: start_time,end_time      ! the ignition time for the start and the end of the line
 real:: ros,tos                  ! ignition rate and time of spread
 integer:: msglevel=4,smsg=2     ! print at this level
-real:: lfn_min
 
 !*** executable
-
-call check_lfn_tign('ignite_fire start',end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
 ! copy ignition line fields to local variables
 start_x    = ignition_line%start_x ! x coordinate of the ignition line start point (m, or long/lat)
@@ -281,7 +277,6 @@ write(msg,'(a,2g13.6,a,2g13.6)')'IGN tile coord from  ',axmin,aymin,' to ',axmax
 call message(msg,level=smsg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
-ignited=0
 dmax=0
 dmin=huge(dmax)
 11      format('IGN ',6(a,g17.7,1x)) 
@@ -317,13 +312,13 @@ do j=jfts,jfte
             call message(msg,level=msglevel)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 	endif
+     enddo
 enddo
 if(fire_print_msg.ge.smsg)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2g13.2,a,g10.2,a,g10.2)')'IGN units ',unit_xf,unit_yf,' m max dist ',dmax,' min',dmin
 call message(msg,level=smsg)
-write(msg,'(a,f6.1,a,f8.1,a,i10,a,g10.2)')'IGN radius ',radius,' time of spread',tos, &
-   ' ignited nodes',ignited,' lfn min',lfn_min
+write(msg,'(a,f6.1,a,f8.1)')'IGN radius ',radius,' time of spread',tos
 call message(msg,level=smsg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
