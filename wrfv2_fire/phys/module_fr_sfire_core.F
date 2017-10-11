@@ -72,7 +72,8 @@ if(fire_perimeter_time > 0.)then
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
-        lfn(i,j) = tign(i,j)-time_now       ! use specified ignition time as level set function 
+       	lfn(i,j) = lfn_init
+	!lfn(i,j) = tign(i,j)-time_now       ! use specified ignition time as level set function 
      enddo
   enddo
 elseif(fire_tign_in_time > 0.)then
@@ -82,7 +83,8 @@ elseif(fire_tign_in_time > 0.)then
         tign_in(i,j)=tign(i,j)
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
         fire_area(i,j)=0.          ! nothing burning
-        lfn(i,j) = tign_in(i,j)-time_now    ! use specified ignition time as level set function 
+        lfn(i,j) = lfn_init
+	!lfn(i,j) = tign_in(i,j)-time_now    ! use specified ignition time as level set function 
      enddo
   enddo
   call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign_in,'init_no_fire: tign_in')
