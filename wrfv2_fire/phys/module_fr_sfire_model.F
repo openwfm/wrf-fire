@@ -215,15 +215,21 @@ elseif(ifun.eq.2)then
             nfuel_cat,fuel_time, &
             fp) 
 	
-	do ig = 1,ignition%num_lines
 	! make_tign_in: Initialize tign_in
-        call make_tign_in( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+        do j=jfts,jfte
+            do i=ifts,ifte
+                tign_in(i,j)=huge(tign(i,j))
+            enddo
+        enddo
+	do ig = 1,ignition%num_lines
+            call make_tign_in( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
                         ignition%line(ig),                        &
                         coord_xf,coord_yf,                &
                         ignition%unit_fxlong,ignition%unit_fxlat,                  &
                         tign_in)
+         ! this will result in the same tign_in on restart
 
 #ifdef DEBUG_OUT
             call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign_in,'tign_in_ig',id)
@@ -232,7 +238,7 @@ elseif(ifun.eq.2)then
 #endif	
 	enddo
 
-        ! initialize model state to no fire / set tign_in
+        ! initialize model state to no fire / set tign_in from tign if needed
         if(.not.restart)then
             call init_no_fire  ( &
             ifds,ifde,jfds,jfde, &
@@ -371,11 +377,11 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 
     call check_lfn_tign('before ignition',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
-    ! check for ignitions
-    if( fire_tign_in_time > 0.) then
-         if (ignition%num_lines >  0) then
-              call crash('ignition from lines and from tign_in are not compatible')
-         endif
+!    ! check for ignitions
+!    if( fire_tign_in_time > 0.) then
+!         if (ignition%num_lines >  0) then
+!              call crash('ignition from lines and from tign_in are not compatible')
+!         endif
          call ignite_from_tign_in(                                   &
                         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
                         ifms,ifme,jfms,jfme,                      &
@@ -384,29 +390,29 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
                         tign_in,                                  &
                         lfn,tign,ignited)
          call check_lfn_tign('after ignite_from_tign_in',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
-    endif
+!    endif
    
-    do ig = 1,ignition%num_lines
-    
+!    do ig = 1,ignition%num_lines
+!    
 !  for now, check for ignition every time step...
 !        if(ignition%line(ig)%end_time>=time_start.and.ignition%line(ig)%start_time<time_start+dt)then 
-            call ignite_fire(                             &
-                ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
-                ifms,ifme,jfms,jfme,                      &
-                ifts,ifte,jfts,jfte,                      &
-                ignition%line(ig),                        &
-                time_start,time_start+dt,                 &
-                coord_xf,coord_yf,ignition%unit_fxlong,ignition%unit_fxlat,        & 
-                lfn,tign,ignited)
-                
-#ifdef DEBUG_OUT    
-            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
-            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_xf,'coord_xf_ig',id)
-            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_yf,'coord_yf_ig',id)
-#endif
+!            call ignite_fire(                             &
+!                ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
+!                ifms,ifme,jfms,jfme,                      &
+!                ifts,ifte,jfts,jfte,                      &
+!                ignition%line(ig),                        &
+!                time_start,time_start+dt,                 &
+!                coord_xf,coord_yf,ignition%unit_fxlong,ignition%unit_fxlat,        & 
+!                lfn,tign,ignited)
+!                
+!#ifdef DEBUG_OUT    
+!            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,'lfn_ig',id)
+!            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_xf,'coord_xf_ig',id)
+!            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_yf,'coord_yf_ig',id)
+!#endif
 !        endif
-        
-    enddo
+!        
+!    enddo
     else
         call message('sfire_model: EXPERIMENTAL: skipping ignition')
     endif

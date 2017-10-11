@@ -43,10 +43,10 @@ integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 real, intent(in) :: fdx,fdy,time_start,dt   ! mesh spacing, time
 real, intent(out), dimension (ifms:ifme,jfms:jfme) :: & 
-                   fuel_frac,fire_area,lfn,           &  !  model state
-                   tign_in       
+                   fuel_frac,fire_area,lfn             !  model state
 real, intent(inout), dimension (ifms:ifme,jfms:jfme) :: & 
-                   tign       ! model state, on input values tign_in
+                   tign,          &        ! model state, on input values tign_in if fire_tign_in_time > 0
+                   tign_in                 ! given fire arrival time from ignition
 
 !*** calls
 intrinsic epsilon
@@ -68,6 +68,7 @@ endif
 
 if(fire_perimeter_time > 0.)then
   call message('init_no_fire: using given ignition time to replay history',level=1)
+  ! fixed fire arrival time given in tign
   do j=jfts,jfte
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
@@ -78,6 +79,7 @@ if(fire_perimeter_time > 0.)then
   enddo
 elseif(fire_tign_in_time > 0.)then
   call message('init_no_fire: using ignition from given max fire arrival time',level=1)
+  ! ignition = max fire arrival time given in tign
   do j=jfts,jfte
      do i=ifts,ifte
         tign_in(i,j)=tign(i,j)
@@ -90,6 +92,7 @@ elseif(fire_tign_in_time > 0.)then
   call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme, tign_in,'init_no_fire: tign_in')
 else
   call message('init_no_fire: setting state to no fire',level=1)
+  ! ignition = max fire arrival time given in tign_in
   do j=jfts,jfte
      do i=ifts,ifte
         fuel_frac(i,j)=1.          ! fuel at start is 1 by definition
