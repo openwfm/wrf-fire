@@ -173,7 +173,7 @@ subroutine make_tign_in( ifds,ifde,jfds,jfde,                    & ! fire domain
                         ifms,ifme,jfms,jfme,                      &
                         ifts,ifte,jfts,jfte,                      &
 			ignition_line,                            &
-			start_ts,end_ts,				  &
+			!start_ts,end_ts,				  &
                         coord_xf,coord_yf,                &
                         unit_xf,unit_yf,                  &
                         tign_in)
@@ -198,7 +198,7 @@ integer, intent(in):: ifds,ifde,jfds,jfde   ! fire domain bounds
 integer, intent(in):: ifts,ifte,jfts,jfte   ! fire tile bounds
 integer, intent(in):: ifms,ifme,jfms,jfme   ! array bounds
 type(line_type), intent(in):: ignition_line    ! description of the ignition line
-real, intent(in):: start_ts,end_ts          ! the time step start and end 
+!real, intent(in):: start_ts,end_ts          ! the time step start and end 
 real, dimension(ifms:ifme, jfms:jfme), intent(in):: & 
     coord_xf,coord_yf                       !  node coordinates  
 real, intent(in):: unit_xf,unit_yf          !  coordinate units in m
@@ -235,31 +235,31 @@ ros        = ignition_line%ros     ! rate of spread
 
 tos        = radius/ros            ! time of spread to the given radius
 st         = start_time            ! the start time of ignition considered in this time step
-et         = min(end_ts,end_time)  ! the end time of the ignition segment in this time step
+!et         = min(end_ts,end_time)  ! the end time of the ignition segment in this time step
+et         = end_time		   ! the end time of the ignition segment in this time step
 
 ! this should be called whenever (start_ts, end_ts) \subset (start_time, end_time + tos) 
-if(start_ts>et+tos .or. end_ts<st)return   ! too late or too early, nothing to do
+!if(start_ts>et+tos .or. end_ts<st)return   ! too late or too early, nothing to do
 
-if(start_time < end_time)then  ! we really want to test start_time .ne. end_time, but avoiding test of floats on equality
-        ! segment of nonzero length
-        !rels =  (st - start_time) / (end_time - start_time)  ! relative position of st in the segment (start,end)
-	!sx = start_x + rels * (end_x - start_x)
-	!sy = start_y + rels * (end_y - start_y)
-        rels = 0.
-        sx = start_x
-        sy = start_y
-        rele =  (et - start_time) / (end_time - start_time)    ! relative position of et in the segment (start,end)
-	ex = start_x + rele * (end_x - start_x)
-	ey = start_y + rele * (end_y - start_y)
-else
-        ! just a point
+!if(start_time < end_time)then  ! we really want to test start_time .ne. end_time, but avoiding test of floats on equality
+!        ! segment of nonzero length
+!        !rels =  (st - start_time) / (end_time - start_time)  ! relative position of st in the segment (start,end)
+!	!sx = start_x + rels * (end_x - start_x)
+!	!sy = start_y + rels * (end_y - start_y)
+!        rels = 0.
+!        sx = start_x
+!        sy = start_y
+!        rele =  (et - start_time) / (end_time - start_time)    ! relative position of et in the segment (start,end)
+!	ex = start_x + rele * (end_x - start_x)
+!	ey = start_y + rele * (end_y - start_y)
+!else
         rels = 0.
         rele = 1.
 	sx = start_x
 	sy = start_y
 	ex = end_x
 	ey = end_y
-endif
+!endif
 
 
 cx2=unit_xf*unit_xf
@@ -273,7 +273,7 @@ if(fire_print_msg.ge.smsg)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
 write(msg,'(a,2f11.6,a,2f11.6)')'IGN from ',sx,sy,' to ',ex,ey
 call message(msg,level=smsg)
-write(msg,'(a,2f10.2,a,2f10.2,a)')'IGN timestep [',start_ts,end_ts,'] in [',start_time,end_time,']'
+write(msg,'(a,2f10.2,a)')'IGN [',start_time,end_time,']'
 call message(msg,level=smsg)
 write(msg,'(a,2g13.6,a,2g13.6)')'IGN tile coord from  ',axmin,aymin,' to ',axmax,aymax
 call message(msg,level=smsg)
