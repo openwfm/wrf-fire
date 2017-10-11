@@ -215,6 +215,8 @@ elseif(ifun.eq.2)then
             nfuel_cat,fuel_time, &
             fp) 
 
+	! make_tign_in: Initialize tign_in
+
         ! initialize model state to no fire / set tign_in
         if(.not.restart)then
             call init_no_fire  ( &
@@ -354,6 +356,27 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
 
     call check_lfn_tign('before ignition',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
+    do ig = 1,ignition%num_lines
+
+!        if(ignition%line(ig)%end_time>=time_start.and.ignition%line(ig)%start_time<time_start+dt)then
+            call make_tign_in( ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
+                        ifms,ifme,jfms,jfme,                      &
+                        ifts,ifte,jfts,jfte,                      &
+                        ignition%line(ig),                            &
+                        time_start,time_start+dt,                                  &
+                        coord_xf,coord_yf,                &
+                        ignition%unit_fxlong,ignition%unit_fxlat,                  &
+                        tign_in)
+
+#ifdef DEBUG_OUT
+            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,tign_in,'tign_in_ig',id)
+            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_xf,'coord_xf_ig',id)
+            call write_array_m(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,coord_yf,'coord_yf_ig',id)
+#endif
+!        endif
+
+    enddo
+
     ! check for ignitions
     if( fire_tign_in_time > 0.) then
          if (ignition%num_lines >  0) then
@@ -368,8 +391,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
                         lfn,tign,ignited)
          call check_lfn_tign('after ignite_from_tign_in',time_start+dt,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
     endif
-    
-
+   
     do ig = 1,ignition%num_lines
     
 !  for now, check for ignition every time step...
