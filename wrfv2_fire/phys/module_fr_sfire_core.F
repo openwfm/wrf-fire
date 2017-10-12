@@ -149,7 +149,7 @@ real:: lfn_old
 
 !*** executable
 ignited=0
-if(.not. start_ts < fire_tign_in_time)return   ! too late, nothing to do
+!we will fix later! if(.not. start_ts < fire_tign_in_time)return   ! too late, nothing to do
 
 call check_lfn_tign('ignite_from_tign_in start',end_ts,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn, tign)
 
