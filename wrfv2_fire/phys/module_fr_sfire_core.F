@@ -2274,6 +2274,14 @@ intrinsic max,min,sqrt,nint,tiny,huge
             case(4) ! Sethian - twice stronger pushdown of bumps
                 grad=sqrt(max(diffLx,0.)**2+min(diffRx,0.)**2   &
                         + max(diffLy,0.)**2+min(diffRy,0.)**2)
+            case(6) ! minmod
+                diff2x=select_minmod(diffLx,diffRx)
+                diff2y=select_minmod(diffLy,diffRy)
+                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
+            case(7) ! Superbee
+                diff2x=select_superbee(diffLx,diffRx)
+                diff2y=select_superbee(diffLy,diffRy)
+                grad=sqrt(diff2x*diff2x + diff2y*diff2y)
             case default
                 grad=0.
             end select
@@ -2300,7 +2308,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
             if(i.ge.its.and.i.le.ite.and.j.ge.jts.and.j.le.jte)ros(i,j)=rr
 
             ! get rate of spread
-            te = -rr*grad   ! normal term 
+            te = -rr*grad   ! normal term !!! grad/2?
 
             ! cfl condition
             if (grad > 0.) then
@@ -2408,6 +2416,42 @@ endif
 select_eno=diff2x
 end function select_eno
       
+!
+!**************************
+!
+
+real function select_minmod(diffLx,diffRx)
+implicit none
+real, intent(in):: diffLx,diffRx
+real diff2x
+
+! Mindmod
+! B(r)=max(0,min(1,r))
+
+r=diffLx/diffRx
+diff2x=max(0,min(1,r))*(diffLx+diffRx)
+
+select_minmod=diff2x
+end function select_minmod
+
+!
+!**************************
+!
+
+real function select_superbee(diffLx,diffRx)
+implicit none
+real, intent(in):: diffLx,diffRx
+real diff2x
+
+! Superbee
+! B(r)=max(0,min(2r,1),min(r,2))
+
+r=diffLx/diffRx
+diff2x=max(0,min(2*r,1),min(r,2))*(diffLx+diffRx)
+
+select_superbee=diff2x
+end function select_superbee
+
 !
 !**************************
 !
