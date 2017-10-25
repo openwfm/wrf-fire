@@ -2207,7 +2207,8 @@ type(fire_params),intent(in)::fp
 !*** local 
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
-   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed
+   ros_back,ros_wind,ros_slope,advx,advy, &
+   scale,nvx,nvy,speed,Ux,Uy
 integer::i,j,itso,iteo,jtso,jteo,ierrx,nerr
 character(len=128)msg,msg2
 
@@ -2254,7 +2255,31 @@ intrinsic max,min,sqrt,nint,tiny,huge
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
             diffCx = diffLx+diffRx   ! 	TWICE CENTRAL DIFFERENCE
             diffCy = diffLy+diffRy
-    
+                
+            ! normal direction, from central differences
+            scale=sqrt(diffCx*diffCx+diffCy*diffCy+eps)
+            nvx=diffCx/scale
+            nvy=diffCy/scale
+
+            ! wind speed in direction of spread
+            ! speed =  vx(i,j)*nvx + vy(i,j)*nvy
+
+            ! get rate of spread from wind speed and slope
+
+            call fire_ros(ros_back,ros_wind,ros_slope, &
+            nvx,nvy,i,j,fp,ierrx,msg2)
+            nerr = nerr + ierrx
+
+            rr=ros_back + ros_wind + ros_slope
+            if(fire_grows_only.gt.0)rr=max(rr,0.)
+
+            ! set ros for output
+            if(i.ge.its.and.i.le.ite.and.j.ge.jts.and.j.le.jte)ros(i,j)=rr
+            
+            ! set the front velocity
+            Ux=rr*nvx
+            Uy=rr*nvy  
+
             !upwinding - select right or left derivative
             select case(fire_upwinding)
             case(0)  ! none
@@ -2275,37 +2300,16 @@ intrinsic max,min,sqrt,nint,tiny,huge
                 grad=sqrt(max(diffLx,0.)**2+min(diffRx,0.)**2   &
                         + max(diffLy,0.)**2+min(diffRy,0.)**2)
             case(5) ! minmod
-                diff2x=select_minmod(diffLx,diffRx)
-                diff2y=select_minmod(diffLy,diffRy)
+                diff2x=select_minmod(diffLx,diffRx,Ux)
+                diff2y=select_minmod(diffLy,diffRy,Uy)
                 grad=sqrt(diff2x*diff2x + diff2y*diff2y)
             case(6) ! Superbee
-                diff2x=select_superbee(diffLx,diffRx)
-                diff2y=select_superbee(diffLy,diffRy)
+                diff2x=select_superbee(diffLx,diffRx,Ux)
+                diff2y=select_superbee(diffLy,diffRy,Uy)
                 grad=sqrt(diff2x*diff2x + diff2y*diff2y)
             case default
                 grad=0.
-            end select
-  
-            ! normal direction, from central differences
-            scale=sqrt(diffCx*diffCx+diffCy*diffCy+eps) 
-            nvx=diffCx/scale
-            nvy=diffCy/scale
-                      
-            ! wind speed in direction of spread
-            ! speed =  vx(i,j)*nvx + vy(i,j)*nvy
-        
-    
-            ! get rate of spread from wind speed and slope
-
-            call fire_ros(ros_back,ros_wind,ros_slope, &
-            nvx,nvy,i,j,fp,ierrx,msg2)
-            nerr = nerr + ierrx
-
-            rr=ros_back + ros_wind + ros_slope
-            if(fire_grows_only.gt.0)rr=max(rr,0.)
-
-            ! set ros for output
-            if(i.ge.its.and.i.le.ite.and.j.ge.jts.and.j.le.jte)ros(i,j)=rr
+            end select 
 
             ! get rate of spread
             te = -rr*grad   ! normal term !!! grad/2?
@@ -2420,16 +2424,29 @@ end function select_eno
 !**************************
 !
 
-real function select_minmod(diffLx,diffRx)
+real function select_minmod(diffLx,diffRx,Ux)
 implicit none
-real, intent(in):: diffLx,diffRx
+real, intent(in):: diffLx,diffRx,Ux
 real diff2x, r
 
 ! Mindmod
 ! B(r)=max(0,min(1,r))
 
-r=diffLx/diffRx
-diff2x=max(0.,min(1.,r))*(diffLx+diffRx)
+if (Ux>0)then
+    if (.not.diffRx<0 .and. .not.diffRx>0)then
+        r=0;
+    else
+        r=diffLx/diffRx;
+    endif
+    diff2x=2*diffLx+max(0.,min(1.,r))*(diffRx-diffLx);
+else
+    if (.not.diffLx<0 .and. .not.diffLx>0)then
+        r=0;
+    else
+        r=diffRx/diffLx;
+    endif
+    diff2x=2*diffRx+max(0.,min(1.,r))*(diffLx-diffRx);
+endif
 
 select_minmod=diff2x
 end function select_minmod
@@ -2438,18 +2455,31 @@ end function select_minmod
 !**************************
 !
 
-real function select_superbee(diffLx,diffRx)
+real function select_superbee(diffLx,diffRx,Ux)
 implicit none
-real, intent(in):: diffLx,diffRx
-real diff2x, r
+real, intent(in):: diffLx,diffRx,Ux
+real diffx, r
 
 ! Superbee
 ! B(r)=max(0,min(2r,1),min(r,2))
 
-r=diffLx/diffRx
-diff2x=max(0.,min(2*r,1.),min(r,2.))*(diffLx+diffRx)
+if (Ux>0)then
+    if (.not.diffRx<0 .and. .not.diffRx>0)then
+        r=0;
+    else
+        r=diffLx/diffRx;
+    endif
+    diffx=diffLx+(max(0.,min(2*r,1.),min(r,2.))/2)*(diffRx-diffLx);
+else
+    if (.not.diffLx<0 .and. .not.diffLx>0)then
+        r=0;
+    else
+        r=diffRx/diffLx;
+    endif
+    diffx=diffRx+(max(0.,min(2*r,1.),min(r,2.))/2)*(diffLx-diffRx);
+endif
 
-select_superbee=diff2x
+select_superbee=diffx
 end function select_superbee
 
 !
