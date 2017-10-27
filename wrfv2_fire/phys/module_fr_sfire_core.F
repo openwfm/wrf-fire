@@ -2050,6 +2050,7 @@ real:: te,diffLx,diffLy,diffRx,diffRy, &
    scale,nvx,nvy,speed,Ux,Uy
 integer::i,j,itso,iteo,jtso,jteo,ierrx,nerr
 character(len=128)msg,msg2
+logical :: exist
 
 ! constants
 real, parameter:: eps=epsilon(0.0)
@@ -2149,6 +2150,20 @@ intrinsic max,min,sqrt,nint,tiny,huge
             case default
                 grad=0.
             end select 
+                
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            inquire(file="results.txt", exist=exist)
+            if (exist) then
+                open(999,file="results.txt",action="write",status="old",position="append")
+            else
+                open(999,file="results.txt",action="write",status="new")
+            end if
+            write(999,'(a,2i8,9(a,f7.2))')'-> Region: ',i,j,' - Ux=',Ux,' - diffLx=',diffLx, &
+                        ' - diffRx=',diffRx,' - diff2x=',diff2x,' - Uy=',Uy, &
+                        ' - diffLy=',diffLy,' - diffRy=',diffRy,' - diff2y=',diff2y, &
+                        ' - grad=',grad
+            close(999)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)      
 
             ! get rate of spread
             te = -rr*grad   ! normal term !!! grad/2?
