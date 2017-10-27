@@ -49,7 +49,7 @@ real:: time_start,dt,t
 logical::do_ouput
 TYPE(lines_type) :: ignition, hfx
 type(fire_params)::fp
-logical::restart=.false.,uniform=.false.
+logical::restart=.false.,replay=.false.,uniform=.false.
 integer::iframe_start,iframe_end
 logical::run_fuel_moisture=.false.
 
@@ -251,7 +251,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
       call sfire_model (                    &
         id,                                     & ! unique number for prints and debug
         ifun,                                   & ! what to do see below
-        restart,                                & ! use existing state
+        restart,replay,                         & ! use existing state; prescribe fire arrival time
         run_fuel_moisture,                      & ! run the moisture model
         config_flags%fire_fuel_read,config_flags%fire_fuel_cat,   & ! legacy initial constant fuel category
         ifds,ifde,jfds,jfde,                    & ! fire domain dims - the whole domain
@@ -263,6 +263,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
         ignition,hfx,                               & ! small array of ignition line descriptions
         grid%fxlong,grid%fxlat,                      & ! fire mesh coordinates
         grid%fire_hfx,                          & ! given heat flux (experimental)
+        grid%tign_in,                           & ! ignition time, if given
         grid%lfn,grid%lfn_out,grid%tign_g,grid%fuel_frac,grid%fire_area,   & ! state: level function, ign time, fuel left, area burning
         grid%fuel_frac_burnt,                   &
         grid%fgrnhfx,grid%fgrnqfx,                          & ! output: heat fluxes
@@ -362,7 +363,7 @@ character(len=*),intent(in)::s
 integer::err
 !*** executable
 if(debug_print)write(6,1) ims,ime,jms,jme,trim(s)
-if(associated(p))call crash('already allocated')
+if(associated(p))call crash(trim(s) // ' already allocated')
 1 format('allocate2d',2(1x,i6,' :',i6),1x,a)
 allocate(p(ims:ime,jms:jme),stat=err)
 if(err.ne.0)then

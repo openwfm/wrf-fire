@@ -1741,6 +1741,7 @@
  DEST_RECORD fire_ignition_end_x5       = SOURCE_RECORD fire_ignition_end_x5 SOURCE_REC_DEX
  DEST_RECORD fire_ignition_end_y5       = SOURCE_RECORD fire_ignition_end_y5 SOURCE_REC_DEX
  DEST_RECORD fire_perimeter_time        = SOURCE_RECORD fire_perimeter_time SOURCE_REC_DEX
+ DEST_RECORD fire_tign_in_time          = SOURCE_RECORD fire_tign_in_time SOURCE_REC_DEX
  DEST_RECORD fire_lat_init              = SOURCE_RECORD fire_lat_init SOURCE_REC_DEX
  DEST_RECORD fire_lon_init              = SOURCE_RECORD fire_lon_init SOURCE_REC_DEX
  DEST_RECORD fire_ign_time              = SOURCE_RECORD fire_ign_time SOURCE_REC_DEX
@@ -1760,6 +1761,7 @@
  DEST_RECORD fire_time_step_ratio       = SOURCE_RECORD fire_time_step_ratio SOURCE_REC_DEX
  DEST_RECORD fire_debug_hook_sec        = SOURCE_RECORD fire_debug_hook_sec SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_method      = SOURCE_RECORD fire_fuel_left_method SOURCE_REC_DEX
+ DEST_RECORD fire_update_fuel_frac      = SOURCE_RECORD fire_update_fuel_frac SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_irl         = SOURCE_RECORD fire_fuel_left_irl SOURCE_REC_DEX
  DEST_RECORD fire_fuel_left_jrl         = SOURCE_RECORD fire_fuel_left_jrl SOURCE_REC_DEX
  DEST_RECORD fire_back_weight           = SOURCE_RECORD fire_back_weight SOURCE_REC_DEX
