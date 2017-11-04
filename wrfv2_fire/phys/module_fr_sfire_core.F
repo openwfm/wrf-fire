@@ -1870,12 +1870,16 @@ elseif(ipart==2)then
             t0=min(lfn_in(i+1,j),lfn_in(i-1,j),lfn_in(i,j+1),lfn_in(i,j-1))
             t1=min(lfn1(i+1,j),lfn1(i-1,j),lfn1(i,j+1),lfn1(i,j-1))
             if(.not.t0>lfn_in(i,j) .and. t1>lfn_out(i,j))then
+                if(fire_print_msg>2)then
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-                write(msg,'(a,2i6,(1x,a,g13.5))') &
-                   'prop_ls: new local min',i,j,'by',lfn_out(i,j)-t1,'fixed to',t1,'new incr',t1-lfn_in(i,j)
-                lfn_out(i,j)=t1
+                    write(msg,'(a,2i6)')'prop_ls: new local min',i,j
+                    call message(msg)
+                    write(msg,'((a,g13.5,1x))') &
+                       'prop_ls: new local min',lfn_out(i,j),'fixed to',t1,'incr',t1-lfn_in(i,j)
+                    call message(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
-               call message(msg)
+                endif
+                lfn_out(i,j)=t1
             endif
         enddo
     enddo
