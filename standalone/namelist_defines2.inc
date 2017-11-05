@@ -1732,6 +1732,7 @@ real :: fire_ignition_start_y5
 real :: fire_ignition_end_x5
 real :: fire_ignition_end_y5
 real :: fire_perimeter_time
+real :: fire_tign_in_time
 real :: fire_lat_init
 real :: fire_lon_init
 real :: fire_ign_time
@@ -1751,6 +1752,7 @@ logical :: fire_restart
 integer :: fire_time_step_ratio
 integer :: fire_debug_hook_sec
 integer :: fire_fuel_left_method
+integer :: fire_update_fuel_frac
 integer :: fire_fuel_left_irl
 integer :: fire_fuel_left_jrl
 real :: fire_back_weight
