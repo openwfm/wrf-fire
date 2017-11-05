@@ -2158,10 +2158,10 @@ intrinsic max,min,sqrt,nint,tiny,huge
             else
                 open(999,file="results.txt",action="write",status="new")
             end if
-            write(999,'(a,f7.2,a,2i4,9(a,f7.2))')'-> t=',t,' - domain=',i,j,' - Ux=',Ux,' - diffLx=',diffLx, &
-                        ' - diffRx=',diffRx,' - diff2x=',diff2x,' - Uy=',Uy, &
-                        ' - diffLy=',diffLy,' - diffRy=',diffRy,' - diff2y=',diff2y, &
-                        ' - grad=',grad
+            write(999,'(a,f7.2,a,2i4,9(a,f7.2))')'-> t= ',t,' - domain= ',i,j,' - Ux= ',Ux,' - diffLx= ',diffLx, &
+                        ' - diffRx= ',diffRx,' - diff2x= ',diff2x,' - Uy= ',Uy, &
+                        ' - diffLy= ',diffLy,' - diffRy= ',diffRy,' - diff2y= ',diff2y, &
+                        ' - grad= ',grad
             close(999)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)      
 
