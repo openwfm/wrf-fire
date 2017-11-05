@@ -1686,6 +1686,7 @@ NAMELIST /fire/ fire_ignition_start_y5
 NAMELIST /fire/ fire_ignition_end_x5
 NAMELIST /fire/ fire_ignition_end_y5
 NAMELIST /fire/ fire_perimeter_time
+NAMELIST /fire/ fire_tign_in_time
 NAMELIST /fire/ fire_lat_init
 NAMELIST /fire/ fire_lon_init
 NAMELIST /fire/ fire_ign_time
@@ -1705,6 +1706,7 @@ NAMELIST /fire/ fire_restart
 NAMELIST /fire/ fire_time_step_ratio
 NAMELIST /fire/ fire_debug_hook_sec
 NAMELIST /fire/ fire_fuel_left_method
+NAMELIST /fire/ fire_update_fuel_frac
 NAMELIST /fire/ fire_fuel_left_irl
 NAMELIST /fire/ fire_fuel_left_jrl
 NAMELIST /fire/ fire_back_weight
