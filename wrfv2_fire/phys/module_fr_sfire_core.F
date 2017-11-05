@@ -1849,36 +1849,36 @@ if (ipart==1)then
 
 elseif(ipart==2)then
 
-!    call continue_at_boundary(1,1,zero, &   !ext 
-!    ims,ime,jms,jme, &                ! memory dims
-!    ids,ide,jds,jde, &                    ! domain - nodes where lfn defined
-!    ips,ipe,jps,jpe, &                    ! patch - nodes owned by this process 
-!    its,ite,jts,jte, &                ! tile - nodes update by this thread
-!    itso,iteo,jtso,jteo, &                ! where set now
-!    lfn_out )                                  ! array
-!
-!    ! copy to use consistently old values
-!    do j=jts,jte
-!        do i=its,ite
-!           lfn1(i,j)=lfn_out(i,j)
-!        enddo
-!    enddo
-!
-!    !fix up lfn_out - no new local minima
-!    do j=jts,jte
-!        do i=its,ite
-!            t0=min(lfn_in(i+1,j),lfn_in(i-1,j),lfn_in(i,j+1),lfn_in(i,j-1))
-!            t1=min(lfn1(i+1,j),lfn1(i-1,j),lfn1(i,j+1),lfn1(i,j-1))
-!            if(.not.t0>lfn_in(i,j) .and. t1>lfn_out(i,j))then
-!!$OMP CRITICAL(SFIRE_CORE_CRIT)
-!                write(msg,'(a,2i6,(1x,a,g13.5))') &
-!                   'prop_ls: new local min',i,j,'by',lfn_out(i,j)-t1,'fixed to',t1,'new incr',t1-lfn_in(i,j)
-!                lfn_out(i,j)=t1
-!!$OMP END CRITICAL(SFIRE_CORE_CRIT)
-!               call message(msg)
-!            endif
-!        enddo
-!    enddo
+    call continue_at_boundary(1,1,zero, &   !ext 
+    ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                    ! domain - nodes where lfn defined
+    ips,ipe,jps,jpe, &                    ! patch - nodes owned by this process 
+    its,ite,jts,jte, &                ! tile - nodes update by this thread
+    itso,iteo,jtso,jteo, &                ! where set now
+    lfn_out )                                  ! array
+
+    ! copy to use consistently old values
+    do j=jts,jte
+        do i=its,ite
+           lfn1(i,j)=lfn_out(i,j)
+        enddo
+    enddo
+
+    !fix up lfn_out - no new local minima
+    do j=jts,jte
+        do i=its,ite
+            t0=min(lfn_in(i+1,j),lfn_in(i-1,j),lfn_in(i,j+1),lfn_in(i,j-1))
+            t1=min(lfn1(i+1,j),lfn1(i-1,j),lfn1(i,j+1),lfn1(i,j-1))
+            if(.not.t0>lfn_in(i,j) .and. t1>lfn_out(i,j))then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+                write(msg,'(a,2i6,(1x,a,g13.5))') &
+                   'prop_ls: new local min',i,j,'by',lfn_out(i,j)-t1,'fixed to',t1,'new incr',t1-lfn_in(i,j)
+                lfn_out(i,j)=t1
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+               call message(msg)
+            endif
+        enddo
+    enddo
 
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
