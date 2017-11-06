@@ -103,6 +103,7 @@ call allocate2d(grid%fxlong,ifms,ifme,jfms,jfme,'fxlong')          !
 call allocate2d(grid%fxlat,ifms,ifme,jfms,jfme,'fxlat')           !
 call allocate2d(grid%nfuel_cat,ifms,ifme,jfms,jfme,'nfuel_cat')          ! 
 call allocate2d(grid%fmc_g,ifms,ifme,jfms,jfme,'fmc_g')          ! 
+call allocate2d(grid%tign_in,ifms,ifme,jfms,jfme,'tign_in') 
 
 ! state
 call allocate2d(grid%bbb,ifms,ifme,jfms,jfme,'bbb')             ! spread formula coeff
