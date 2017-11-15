@@ -44,6 +44,9 @@ character(len=nf90_max_name)::                        &
                               var_tign_g='TIGN_G',              &
                               unit_tign_g='',                   &
                               desc_tign_g='',                   &
+                              var_tign_in='TIGN_IN',            &
+                              unit_tign_in='',                  &
+                              desc_tign_in='',                  &
                               var_fmc_g='FMC_G',                &
                               unit_fmc_g='',                    &
                               desc_fmc_g='',                    &
@@ -240,6 +243,7 @@ call define_var(filename,info,var_vf,3,dim_fire,unit_vf,desc_vf)
 call define_var(filename,info,var_fmc_g,3,dim_fire,unit_fmc_g,desc_fmc_g)
 call define_var(filename,info,var_lfn,3,dim_fire,unit_lfn,desc_lfn)
 call define_var(filename,info,var_tign_g,3,dim_fire,unit_tign_g,desc_tign_g)
+call define_var(filename,info,var_tign_in,3,dim_fire,unit_tign_in,desc_tign_in)
 call define_var(filename,info,var_fxlong,3,dim_fire,unit_fxlong,desc_fxlong)
 call define_var(filename,info,var_fxlat,3,dim_fire,unit_fxlat,desc_fxlat)
 call define_var(filename,info,var_fgrnhfx,3,dim_fire,unit_fgrnhfx,desc_fgrnhfx)
