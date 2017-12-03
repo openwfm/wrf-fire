@@ -21,6 +21,7 @@ $sw_opt_level="";
 $sw_rwordsize="\$\(NATIVE_RWORDSIZE\)";
 $sw_rttov_flag = "" ;
 $sw_rttov_inc = "" ;
+$sw_rttov_path = "" ;
 $sw_crtm_flag = "" ;
 $sw_cloudcv_flag = "" ;
 $sw_4dvar_flag = "" ;
@@ -50,6 +51,9 @@ $sw_gpfs_lib  = "-lgpfs";
 $sw_curl_path = "";
 $sw_curl_lib  = "-lcurl";
 $sw_terrain_and_landuse = "";
+$sw_tfl = "" ;
+$sw_cfl = "" ;
+$sw_config_line = "" ;
 while ( substr( $ARGV[0], 0, 1 ) eq "-" )
  {
   if ( substr( $ARGV[0], 1, 5 ) eq "perl=" )
@@ -205,6 +209,18 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
   {
     $sw_ompparallel=substr( $ARGV[0], 13 ) ;
   }
+  if ( substr( $ARGV[0], 1, 4 ) eq "tfl=" )
+  {
+    $sw_tfl=substr( $ARGV[0], 5 ) ;
+  }
+  if ( substr( $ARGV[0], 1, 4 ) eq "cfl=" )
+  {
+    $sw_cfl=substr( $ARGV[0], 5 ) ;
+  }
+  if ( substr( $ARGV[0], 1, 12 ) eq "config_line=" )
+  {
+    $sw_config_line=substr( $ARGV[0], 13 ) ;
+  }
   shift @ARGV ;
  }
 
@@ -258,14 +274,24 @@ while ( substr( $ARGV[0], 0, 1 ) eq "-" )
  if ( $ENV{WRF_DA_CORE} eq "1" || $sw_da_core eq "-DDA_CORE=1" )
    {
      $sw_rwordsize = "8";  
-     if ( $ENV{CRTM} )
+     if(defined $ENV{'CRTM'})
        {
-       $sw_crtm_flag = "-DCRTM";
+       if ( $ENV{CRTM} ne "0" )
+         {
+         $sw_crtm_flag = "-DCRTM";
+         }
+       } 
+     else 
+       {
+         {
+         $sw_crtm_flag = "-DCRTM";
+         }
        }
      if ( $ENV{RTTOV} )
        {
        $sw_rttov_flag = "-DRTTOV";
        $sw_rttov_inc = "-I$ENV{RTTOV}/include -I$ENV{RTTOV}/mod";
+       $sw_rttov_path= $ENV{RTTOV};
        }
      if ( $ENV{CLOUD_CV} )
        {
@@ -390,6 +416,8 @@ until ( $validresponse ) {
   { $validresponse = 1 ; }
   else
   { printf("\nInvalid response (%d)\n",$response);}
+  $response_opt = $response ; 
+  chop $response_opt ;
 }
 printf "------------------------------------------------------------------------\n" ;
 
@@ -434,11 +462,14 @@ while ( <CONFIGURE_DEFAULTS> )
     $_ =~ s/CONFIGURE_DMPARALLEL/$sw_dmparallelflag/g ;
     $_ =~ s/CONFIGURE_STUBMPI/$sw_stubmpi/g ;
     $_ =~ s/CONFIGURE_NESTOPT/$sw_nest_opt/g ;
+    $_ =~ s/CONFIGURE_TRADFLAG/$sw_tfl/g ;
+    $_ =~ s/CONFIGURE_CPPFLAGS/$sw_cfl/g ;
     $_ =~ s/CONFIGURE_4DVAR_FLAG/$sw_4dvar_flag/g ;
     $_ =~ s/CONFIGURE_WRFPLUS_PATH/$sw_wrfplus_path/g ;
     $_ =~ s/CONFIGURE_CRTM_FLAG/$sw_crtm_flag/g ;
     $_ =~ s/CONFIGURE_RTTOV_FLAG/$sw_rttov_flag/g ;
     $_ =~ s/CONFIGURE_RTTOV_INC/$sw_rttov_inc/g ;
+    $_ =~ s/CONFIGURE_RTTOV_PATH/$sw_rttov_path/g ;
     $_ =~ s/CONFIGURE_CLOUDCV_FLAG/$sw_cloudcv_flag/g ;
     $_ =~ s/CONFIGURE_WAVELET_FLAG/$sw_wavelet_flag/g ;
     if ( $sw_ifort_r8 ) {
@@ -651,6 +682,7 @@ while ( <CONFIGURE_DEFAULTS> )
         if ( $response == 0 ) {
           if ( ! ( $paropt eq 'serial' || $paropt eq 'smpar' ) ) { $response = 1 ; }
         } 
+        $response_nesting = $response ;
         if ( ( $response == 1 ) || ( $response == 2 ) || ( $response == 3 ) ) {
           if ( ( $paropt eq 'serial' || $paropt eq 'smpar' ) ) {   # nesting without MPI
             $sw_stubmpi = "-DSTUBMPI" ;
@@ -760,6 +792,9 @@ while ( <ARCH_PREAMBLE> )
   $_ =~ s:CONFIGURE_NMM_CORE:$sw_nmm_core:g ;
   $_ =~ s:CONFIGURE_COAMPS_CORE:$sw_coamps_core:g ;
   $_ =~ s:CONFIGURE_EXP_CORE:$sw_exp_core:g ;
+  $_ =~ s/CONFIGURE_CONFIG_LINE/$sw_config_line/g ;
+  $_ =~ s/CONFIGURE_CONFIG_NUM/Compiler choice: $response_opt/g ;
+  $_ =~ s/CONFIGURE_CONFIG_NEST/Nesting option: $response_nesting/g ;
 
   $_ =~ s/CONFIGURE_DEP_LIB_PATH/$sw_dep_lib_path/g ;
 
