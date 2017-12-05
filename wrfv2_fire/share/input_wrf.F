@@ -95,6 +95,8 @@
     LOGICAL :: this_is_an_ideal_run
     INTEGER :: loop, hypsometric_opt
 
+    CHARACTER (LEN=256) :: a_message
+
 
 !<DESCRIPTION>
 !
@@ -156,13 +158,11 @@
       END IF
 #endif
 
-! simulation start time is a Singleton maintained by head_grid
-    IF ( ( switch .EQ.     input_only  ) .OR. &
-         ( switch .EQ.          restart_only ) ) THEN
-
       ! INPUT ONLY (KK)
+
       IF ( switch .EQ. restart_only ) THEN
-        ! recover the restart alarms from input if avialable
+
+        ! recover the restart alarms from input if available
  
         CALL wrf_get_dom_ti_integer( fid , 'MAX_WRF_ALARMS', max_wrf_alarms_compare, 1, icnt, ierr )
         IF ( max_wrf_alarms_compare .NE. MAX_WRF_ALARMS ) THEN
@@ -184,6 +184,17 @@
                 ! Get and set interval so that we are sure to have both the
                 ! interval and first ring time set correctly
                 CALL WRFU_AlarmGet( grid%alarms(i), ringinterval=interval2 )
+
+                IF (config_flags%override_restart_timers) THEN
+                   IF (i .EQ. restart_only) THEN
+                      seconds = grid%restart_interval_d * 86400 + &
+                                grid%restart_interval_h *  3600 + &
+                                grid%restart_interval_m *    60 + &
+                                grid%restart_interval   *    60 + &
+                                grid%restart_interval_s
+                   ENDIF
+                ENDIF
+
                 CALL WRFU_TimeIntervalSet(interval,S=seconds)
                 ringTime = curtime + interval
                 CALL WRFU_AlarmSet( grid%alarms(i), RingInterval=interval2, RingTime=ringTime )
@@ -199,11 +210,12 @@
           ENDDO
         ENDIF
 
-      ENDIF
      
      !OUTPUT ONLY (KK)
+
       IF ( switch .EQ. restart_only .AND. .NOT. config_flags%override_restart_timers ) THEN
-        ! recover the restart alarms from input if avialable
+
+        ! recover the restart alarms from input if available
  
         CALL wrf_get_dom_ti_integer( fid , 'MAX_WRF_ALARMS', max_wrf_alarms_compare, 1, icnt, ierr )
         IF ( max_wrf_alarms_compare .NE. MAX_WRF_ALARMS ) THEN
@@ -225,9 +237,20 @@
                 ! Get and set interval so that we are sure to have both the
                 ! interval and first ring time set correctly
                 CALL WRFU_AlarmGet( grid%alarms(i), ringinterval=interval2 )
+
+                IF (config_flags%override_restart_timers) THEN
+                   IF (i .EQ. history_only) THEN
+                      seconds = grid%history_interval_d * 86400 + &
+                                grid%history_interval_h *  3600 + &
+                                grid%history_interval_m *    60 + &
+                                grid%history_interval   *    60 + &
+                                grid%history_interval_s
+                   ENDIF
+                ENDIF
+
                 CALL WRFU_TimeIntervalSet(interval,S=seconds)
                 ringTime = curtime + interval
-                CALL WRFU_AlarmSet( grid%alarms(i), RingInterval=interval2, RingTime=ringTime )
+                CALL WRFU_AlarmSet( grid%alarms(i), RingInterval=interval, RingTime=ringTime )
 
               ENDIF
 
@@ -375,9 +398,16 @@
     END IF
 
 #if (EM_CORE == 1)
-    IF ( switch .EQ. auxinput2_only ) THEN
+    IF ( ( switch .EQ. input_only ) .OR. ( switch .EQ. auxinput2_only ) .OR. ( switch .EQ. auxinput1_only ) ) THEN
        ierr = 0
-       CALL wrf_get_dom_ti_integer ( fid , 'I_PARENT_START' ,    itmp , 1 , icnt , ierr3 )
+       IF      ( ( switch .EQ. input_only ) .OR. ( switch .EQ. auxinput2_only ) ) THEN
+          CALL wrf_get_dom_ti_integer ( fid , 'I_PARENT_START' ,    itmp , 1 , icnt , ierr3 )
+       ELSE IF ( ( switch .EQ. auxinput1_only ) .AND. ( grid%id .GE. 2 ) ) THEN
+          CALL wrf_get_dom_ti_integer ( fid , 'i_parent_start' ,    itmp , 1 , icnt , ierr3 )
+       ELSE IF ( ( switch .EQ. auxinput1_only ) .AND. ( grid%id .EQ. 1 ) ) THEN
+          itmp  = config_flags%i_parent_start
+          ierr3 = 0 
+       END IF
        ierr = max( ierr, ierr3 )
        IF ( itmp .NE. config_flags%i_parent_start ) THEN
           ierr = 1
@@ -386,7 +416,14 @@
           WRITE(wrf_err_message,*)'i_parent_start from gridded input file  = ',itmp
           CALL wrf_message(wrf_err_message)
        END IF
-       CALL wrf_get_dom_ti_integer ( fid , 'J_PARENT_START' ,    itmp , 1 , icnt , ierr3 )
+       IF      ( ( switch .EQ. input_only ) .OR. ( switch .EQ. auxinput2_only ) ) THEN
+          CALL wrf_get_dom_ti_integer ( fid , 'J_PARENT_START' ,    itmp , 1 , icnt , ierr3 )
+       ELSE IF ( ( switch .EQ. auxinput1_only ) .AND. ( grid%id .GE. 2 ) ) THEN
+          CALL wrf_get_dom_ti_integer ( fid , 'j_parent_start' ,    itmp , 1 , icnt , ierr3 )
+       ELSE IF ( ( switch .EQ. auxinput1_only ) .AND. ( grid%id .EQ. 1 ) ) THEN
+          itmp  = config_flags%j_parent_start
+          ierr3 = 0 
+       END IF
        ierr = max( ierr, ierr3 )
        IF ( itmp .NE. config_flags%j_parent_start ) THEN
           ierr = 1
@@ -865,7 +902,10 @@
         CALL wrf_atotime( next_datestr(1:19), grid%next_bdy_time )
 #if (DA_CORE != 1)
         IF( currentTime .GE. grid%next_bdy_time ) THEN
-          IF ( wrf_dm_on_monitor() ) write(0,*) 'THIS TIME ',this_datestr(1:19),'NEXT TIME ',next_datestr(1:19)
+          IF ( wrf_dm_on_monitor() ) THEN
+             write(a_message,*) 'THIS TIME ',this_datestr(1:19),'NEXT TIME ',next_datestr(1:19)
+             CALL wrf_message ( a_message ) 
+          END IF
           RETURN
         ENDIF
 #endif

@@ -144,7 +144,7 @@ SUBROUTINE med_force_domain ( parent_grid , nested_grid )
    CALL model_to_grid_config_rec ( nested_grid%id , model_config_rec , config_flags )
 
    grid => nested_grid%intermediate_grid
-#  if defined(MOVE_NESTS) || (!defined(SGIALTIX))
+#  if (defined(MOVE_NESTS) || (!defined(SGIALTIX) && (!defined(FUJITSU_FX10))))
    CALL alloc_space_field ( grid, grid%id , 1 , 2 ,  .TRUE. ,    &
                             grid%sd31, grid%ed31, grid%sd32, grid%ed32, grid%sd33, grid%ed33, &
                             grid%sm31,  grid%em31,  grid%sm32,  grid%em32,  grid%sm33,  grid%em33, &
@@ -223,7 +223,7 @@ SUBROUTINE med_force_domain ( parent_grid , nested_grid )
    nested_grid%dtbc = 0.
 !
    grid => nested_grid%intermediate_grid
-#  if defined(MOVE_NESTS) || (!defined(SGIALTIX))
+#  if (defined(MOVE_NESTS) || (!defined(SGIALTIX) && (!defined(FUJITSU_FX10))))
    CALL dealloc_space_field ( grid )
 #  endif
 # endif
@@ -244,7 +244,7 @@ SUBROUTINE med_force_domain ( parent_grid , nested_grid )
 
    grid => nested_grid%intermediate_grid
 !dusan orig    CALL alloc_space_field ( grid, grid%id , 1 , 2 ,  .TRUE. ,    &
-#if defined(MOVE_NESTS) || (!defined(SGIALTIX))
+#  if (defined(MOVE_NESTS) || (!defined(SGIALTIX) && (!defined(FUJITSU_FX10))))
    CALL ensure_space_field &
                           ( grid, grid%id , 1 , 3 ,  .FALSE. ,    &
                             grid%sd31, grid%ed31, grid%sd32, grid%ed32, grid%sd33, grid%ed33, &
@@ -257,6 +257,10 @@ SUBROUTINE med_force_domain ( parent_grid , nested_grid )
       )
 #endif
    nested_grid%intermediate_grid%interp_mp=parent_grid%interp_mp .or. nested_grid%interp_mp
+#if (HWRF == 1)
+  nested_grid%intermediate_grid%pdyn_parent_age=parent_grid%pdyn_parent_age
+  nested_grid%intermediate_grid%pdyn_smooth_age=parent_grid%pdyn_smooth_age
+#endif
 
 
     ! couple parent domain

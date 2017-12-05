@@ -61,7 +61,6 @@ CONTAINS
       IF ( MINM .LT. PROCMIN_M .OR. MINN .LT. PROCMIN_N ) THEN
         WRITE( wrf_err_message , * )'MPASPECT: UNABLE TO GENERATE PROCESSOR MESH.  STOPPING.'
         CALL wrf_message ( TRIM ( wrf_err_message ) )
-        WRITE(0,*)' PROCMIN_M ', PROCMIN_M
         WRITE( wrf_err_message , * )' PROCMIN_M ', PROCMIN_M
         CALL wrf_message ( TRIM ( wrf_err_message ) )
         WRITE( wrf_err_message , * )' PROCMIN_N ', PROCMIN_N
@@ -1133,6 +1132,19 @@ CONTAINS
       wrf_dm_sum_integer = inval
 #endif
    END FUNCTION wrf_dm_sum_integer
+
+   SUBROUTINE wrf_dm_sum_integers (inval, retval)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN)  :: inval(:)
+      INTEGER, INTENT(OUT) :: retval(:)
+#ifndef STUBMPI
+      INCLUDE 'mpif.h'
+      INTEGER ierr
+      CALL mpi_allreduce ( inval, retval, SIZE(inval), MPI_INTEGER, MPI_SUM, local_communicator, ierr )
+#else
+      retval = inval
+#endif
+   END SUBROUTINE wrf_dm_sum_integers
 
 #ifdef HWRF
    SUBROUTINE wrf_dm_minloc_real ( val, lat, lon, z, idex, jdex )

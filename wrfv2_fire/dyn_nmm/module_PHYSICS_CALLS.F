@@ -49,6 +49,8 @@
      &                    ,Z,SICE,NUM_AEROSOLC,NUM_OZMIXM               &
      &                    ,GRID,CONFIG_FLAGS                            &
      &                    ,RTHRATEN                                     &
+     &                    ,re_cloud,re_ice,re_snow                      & ! G. Thompson
+     &                    ,has_reqc,has_reqi,has_reqs                   & ! G. Thompson
 #ifdef WRF_CHEM
      &                    ,PM2_5_DRY, PM2_5_WATER, PM2_5_DRY_EC         &
      &                    ,TAUAER1, TAUAER2, TAUAER3, TAUAER4           &
@@ -151,6 +153,10 @@
 !
       REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(INOUT) :: CLDFRA
 !
+!..Additions for coupling cloud physics effective radii and radiation.  G. Thompson
+      REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(IN):: re_cloud, re_ice, re_snow
+      INTEGER, INTENT(IN):: has_reqc, has_reqi, has_reqs
+!
       LOGICAL,INTENT(IN) :: RESTRT
 !
       TYPE(DOMAIN),TARGET :: GRID
@@ -177,7 +183,7 @@
      &                                  ,SWCF, LWCF                     &
      &                                  ,PDSL,REXNSFC,SWNETDN           &
      &                                  ,TOT,TOTLWDN,TOTSWDN,TOTSWDNC   &
-     &                                  ,TSFC,XLAND,XLAT,XLON
+     &                                  ,TSFC,XLAND,XLAT,XLON, HT
 !
 !
       REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME) :: CLFR,DZ                &   !<--- Used only with physics (IKJ)
@@ -230,6 +236,7 @@
         T8W(I,KTS,J)=TSFC(I,J)
         P8W(I,KTS,J)=ETA1(KTS)*PDTOP+ETA2(KTS)*PDSL(I,J)+PT
         Z_PHY(I,KTS,J)=Z(I,J,KTS)
+        HT(I,J)=Z(I,J,KTS)
       ENDDO
       ENDDO
 !
@@ -353,6 +360,15 @@
      &                 ,ITIMESTEP=NTSD,DT=DT                            &
      &                 ,CU_RAD_FEEDBACK=config_flags%cu_rad_feedback    &
      &                 ,QC_ADJUST=GD_CLOUD,QI_ADJUST=GD_CLOUD2          &
+! WRF-Solar variables
+                       ,swint_opt=config_flags%swint_opt                &   
+     &       ,SWDDIR=grid%swddir,SWDDNI=grid%swddni,SWDDIF=grid%swddif     & ! jararias
+     &       ,Gx=grid%Gx,Bx=grid%Bx,gg=grid%gg,bb=grid%bb                  & ! for sza-interpolation
+     &       ,swdown_ref=grid%swdown_ref,swddir_ref=grid%swddir_ref        & !
+     &       ,coszen_ref=grid%coszen_ref                                   & 
+     &       ,coszen=grid%coszen                                   & 
+     &       ,hrang=grid%hrang                                   & 
+     &       ,ht=ht                                   & 
 #ifdef WRF_CHEM
      &                 ,AER_RA_FEEDBACK=config_flags%aer_ra_feedback    &
      &                 ,PM2_5_DRY=pm2_5_dry,PM2_5_WATER=pm2_5_water     &
@@ -388,6 +404,12 @@
      &                 ,STEPRA=NRAD,ICLOUD=ICLOUD                       &
      &                 ,WARM_RAIN=WARM_RAIN                             &
      &                 ,SWDOWNC=TOTSWDNC,CLDFRA=CLFR                    &
+     &                 ,re_cloud=grid%re_cloud                          & ! G. Thompson
+     &                 ,re_ice=grid%re_ice                              & ! G. Thompson
+     &                 ,re_snow=grid%re_snow                            & ! G. Thompson
+     &                 ,has_reqc=has_reqc                               & ! G. Thompson
+     &                 ,has_reqi=has_reqi                               & ! G. Thompson
+     &                 ,has_reqs=has_reqs                               & ! G. Thompson
      &                 ,RSWTOA=RSWTOA,RLWTOA=RLWTOA                     &
      &                 ,CZMEAN=CZMEAN,CFRACL=CFRACL                     &
      &                 ,CFRACM=CFRACM,CFRACH=CFRACH                     &
@@ -650,7 +672,7 @@
 !- RLWIN/RSWIN - downward longwave/shortwave at the surface (also TOTLWDN/TOTSWDN in RADIATION)
      &                ,PD,RES,PINT,T,Q,CWM,F_ICE,F_RAIN,SR              &
      &                ,Q2,U,V,THS,TSFC,SST,PREC,SNO                     &
-     &                ,FIS,Z0,Z0BASE,USTAR,MIXHT,PBLH,LPBL,EL_MYJ       &
+     &                ,FIS,Z0,MZ0,Z0BASE,USTAR,MIXHT,PBLH,LPBL,EL_MYJ   &   !MZ0: MOMENTUM Z0 (KWON)
      &                ,MOIST,RMOL,MOL                                   &
      &                ,EXCH_H,EXCH_M,F,AKHS,AKMS,AKHS_OUT,AKMS_OUT      &
      &                ,THZ0,QZ0,UZ0,VZ0,QS,MAVAIL                       &
@@ -677,8 +699,8 @@
      &                ,RC_MF                                            & ! QNSE
      &                ,GRID,CONFIG_FLAGS                                &
      &                ,IHE,IHW,IVE,IVW                                  &
-     &                ,DISHEAT                                          &
-     &                ,HPBL2D, EVAP2D, HEAT2D                           &  !Kwon S&P
+     &                ,DISHEAT,DKU3D,DKT3D                              &
+     &                ,HPBL2D, EVAP2D, HEAT2D,RC2D                      &  !Kwon S&P
      &                ,SFCHEADRT,INFXSRT,SOLDRAIN                       &  !Hydrology, no-op right now
      &                ,IDS,IDE,JDS,JDE,KDS,KDE                          &
      &                ,IMS,IME,JMS,JME,KMS,KME                          &
@@ -733,7 +755,7 @@
 !
       INTEGER,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: ISLTYP,IVGTYP
 !
-      REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) ::  HPBL2D, EVAP2D, HEAT2D   !Kwon S&P
+      REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) ::  HPBL2D, EVAP2D, HEAT2D , RC2D   !Kwon S&P
 !
       INTEGER,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: LPBL
 !
@@ -796,7 +818,7 @@
      &                                                ,USTAR,UZ0,UZ0H   &
      &                                                ,VZ0,VZ0H         &
      &                                                ,DEW              & !RUC LSM
-     &                                                ,Z0,Z0BASE
+     &                                                ,Z0,MZ0,Z0BASE      !MZ0 (KWON)
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: AKHS_OUT,AKMS_OUT  &
      &                                              ,ALWIN,ALWOUT       &
@@ -830,6 +852,7 @@
      &                                                      ,EXCH_H     &
      &                                                      ,EXCH_M
 !
+      REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(OUT) :: DKU3D,DKT3D   ! KWON
       REAL,DIMENSION(IMS:IME,NSOIL,JMS:JME),INTENT(INOUT) :: KEEPFR3DFLAG & !<--- Used only in physics (IKJ)
      &                                                      ,SH2O,SMC     &
      &                                                      ,SMFR3D,STC
@@ -920,7 +943,9 @@
       LOGICAL :: FQ_I, ETAMP_PHYSICS,ETAMP_Regional            !BSF
 
       CHARACTER(len=255) :: message
+#if HWRF==1
 !dbg integer :: kpblmin,kpblmax,lpblmin,lpblmax    !dbg
+#endif
 !
 !
     TYPE(WRFU_Time)                :: currentTime
@@ -929,6 +954,7 @@
 
     INTEGER  :: isurban
     CHARACTER(len=256) :: MMINLU
+    REAL :: VAR_RIC,coef_ric_s,coef_ric_l                             !KWON for variable Ric (=1)
 !-----------------------------------------------------------------------
 !***********************************************************************
 !-----------------------------------------------------------------------
@@ -1304,7 +1330,11 @@
      &          ,WARM_RAIN=WARM_RAIN,WSPD=WSPD,XICE=SICE,XICEM=SICE     &
      &          ,ALBSI=albsi,ICEDEPTH=icedepth,SNOWSI=snowsi            &
      &          ,ISICE=GRID%LANDUSE_ISICE,ISWATER=GRID%ISWATER          &
-     &          ,XLAND=XLAND,Z=Z,ZNT=Z0,ZS=SLDPTH,CT=CT,TKE_PBL=TKE,SFENTH=SFENTH     &
+     &          ,XLAND=XLAND,Z=Z,ZNT=Z0                                 &
+#ifdef HWRF
+     &          ,MZNT=MZ0                                               &
+#endif
+     &          ,ZS=SLDPTH,CT=CT,TKE_PBL=TKE,SFENTH=SFENTH              &   !KWON
      &          ,ALBBCK=ALBASE,LH=ELFLX,SH2O=SH2O,SHDMAX=SHDMAX         &
      &          ,SHDMIN=SHDMIN,Z0=Z0BASE,FLQC=FLQC,FLHC=FLHC            &
      &          ,FM=FM,FHH=FH                                           &
@@ -1445,6 +1475,12 @@
          FQ_I=F_QI
          PQ_I=P_QI
       ENDIF
+#if HWRF==1
+      CALL nl_get_var_ric(1, var_ric)
+      CALL nl_get_coef_ric_s(1, coef_ric_s)
+      CALL nl_get_coef_ric_l(1, coef_ric_l)
+!      write(0,*) 'var_ric & coef_ric_s l from namelist Kwon  ',var_ric,coef_ric_s,coef_ric_l
+#endif
 !
       CALL PBL_DRIVER(                                                &
      &                ITIMESTEP=NTSD,DT=DT                            &
@@ -1454,7 +1490,11 @@
      &               ,RQCBLTEN=RQCBLTEN,RQIBLTEN=RQIBLTEN             & !BSF
 !BSF &               ,RQRBLTEN=RQRBLTEN,RQSBLTEN=RQSBLTEN             & !BSF
 !BSF &               ,RQGBLTEN=RQGBLTEN                               & !BSF
-     &               ,TSK=TSFC,XLAND=XLAND,ZNT=Z0,HT=SFCZ             &
+     &               ,TSK=TSFC,XLAND=XLAND,ZNT=Z0                     &
+#ifdef HWRF
+     &               ,MZNT=MZ0                                        &
+#endif
+     &               ,HT=SFCZ                                         &   !KWON
      &               ,UST=USTAR,MIXHT=MIXHT,PBLH=PBLH                 &
      &               ,HFX=TWBS,QFX=QWBS,GRDFLX=GRNFLX                 &
      &               ,U_PHY=U_PHY,V_PHY=V_PHY,TH_PHY=TH_PHY,RHO=RR    &
@@ -1487,6 +1527,14 @@
      &               ,GFS_ALPHA=GRID%GFS_ALPHA                        &
 #endif
      &               ,HPBL2D=HPBL2D, EVAP2D=EVAP2D, HEAT2D=HEAT2D     &    !Kwon S&P
+     &               ,RC2D=RC2D                                       &    !KWON
+#if HWRF==1
+     &               ,VAR_RIC=VAR_RIC                                 &    !Kwon Ric
+#endif
+     &               ,DKU3D=DKU3D,DKT3D=DKT3D 
+#if HWRF==1
+     &               ,coef_ric_l=coef_ric_l,coef_ric_s=coef_ric_s     &    !Kwon for Ric
+#endif
      &               ,QV_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QV),F_QV=F_QV &
      &               ,QC_CURR=MOIST_TRANS(IMS,KMS,JMS,P_QC),F_QC=F_QC &
      &               ,QI_CURR=MOIST_TRANS(IMS,KMS,JMS,PQ_I),F_QI=FQ_I &
@@ -1687,7 +1735,7 @@
      &               ,HANGL=HANGL,HANIS=HANIS,HSLOP=HSLOP,HZMAX=HZMAX   &
      &               ,CROT=CROT,SROT=SROT                               &
      &               ,DUDT=DUDT_GWD,DVDT=DVDT_GWD                       &
-     &               ,UGWDsfc=UGWDsfc,VGWDsfc=VGWDsfc                   &
+     &               ,UGWDsfc=UGWDsfc,VGWDsfc=VGWDsfc,XLAND=XLAND       &    !ADDED BY KWON FOR OCEAN
      &               ,IDS=IDS,IDE=IDE,JDS=JDS,JDE=JDE,KDS=KDS,KDE=KDE   &
      &               ,IMS=IMS,IME=IME,JMS=JMS,JME=JME,KMS=KMS,KME=KME   &
      &               ,ITS=IGS,ITE=IGE,JTS=JGS,JTE=JGE,KTS=KTS,KTE=KTE )
@@ -2257,10 +2305,12 @@
      &   CONFIG_FLAGS%CU_PHYSICS==NSASSCHEME)RETURN
       IF(MOD(NTSD,NCNVC)/=0.AND.                                      &
      &   CONFIG_FLAGS%CU_PHYSICS==TIEDTKESCHEME)RETURN
-      IF(MOD(NTSD,NCNVC)/=0.AND. &
+      IF(MOD(NTSD,NCNVC)/=0.AND.                                      &
      &   CONFIG_FLAGS%CU_PHYSICS==OSASSCHEME)RETURN
       IF(MOD(NTSD,NCNVC)/=0.AND.                                      &
      &   CONFIG_FLAGS%CU_PHYSICS==SASSCHEME)RETURN
+      IF(MOD(NTSD,NCNVC)/=0.AND.                                      &
+     &   CONFIG_FLAGS%CU_PHYSICS==MESO_SAS)RETURN             !Kwon
       
 !-----------------------------------------------------------------------
       NSTEP_CNV=NCNVC
@@ -2679,7 +2729,7 @@
 !
           cps_select: SELECT CASE(config_flags%cu_physics)
 !
-          CASE (KFSCHEME,KFETASCHEME,GDSCHEME,SASSCHEME,OSASSCHEME,NSASSCHEME,TIEDTKESCHEME)
+          CASE (KFSCHEME,KFETASCHEME,GDSCHEME,SASSCHEME,MESO_SAS,OSASSCHEME,NSASSCHEME,TIEDTKESCHEME)
             IF (ETAMP_Regional) THEN
               MOIST_TRANS(I,K,J,P_QS)=MAX(0.,MOIST_TRANS(I,K,J,P_QS)+RQICUTEN(I,K,J)*DTCNVC+RQSCUTEN(I,K,J)*DTCNVC)
             ELSE
@@ -2737,6 +2787,8 @@
      &                   ,TBPVS_STATE                                   &
      &                   ,TBPVS0_STATE                                  &
      &                   ,GRID,CONFIG_FLAGS                             &
+     &                   ,re_cloud,re_ice,re_snow                       & ! G. Thompson
+     &                   ,has_reqc,has_reqi,has_reqs                    & ! G. Thompson
      &                   ,IDS,IDE,JDS,JDE,KDS,KDE                       &
      &                   ,IMS,IME,JMS,JME,KMS,KME                       &
      &                   ,ITS,ITE,JTS,JTE,KTS,KTE)
@@ -2802,6 +2854,10 @@
      &                                  ,TBPVS_STATE,TBPVS0_STATE
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: SR
+!
+!..Additions for coupling cloud physics effective radii and radiation.  G. Thompson
+      REAL,DIMENSION(IMS:IME,JMS:JME,KMS:KME),INTENT(INOUT):: re_cloud, re_ice, re_snow
+      INTEGER, INTENT(IN):: has_reqc, has_reqi, has_reqs
 !
       TYPE(DOMAIN),TARGET :: GRID
 !
@@ -2980,6 +3036,12 @@
      &                 ,J_START=GRID%J_START,J_END=GRID%J_END           &
      &                 ,KTS=KTS,KTE=KTE,NUM_TILES=GRID%NUM_TILES        &
      &                 ,ID=grid%id                                      &
+     &                 ,re_cloud=grid%re_cloud                          & ! G. Thompson
+     &                 ,re_ice=grid%re_ice                              & ! G. Thompson
+     &                 ,re_snow=grid%re_snow                            & ! G. Thompson
+     &                 ,has_reqc=has_reqc                               & ! G. Thompson
+     &                 ,has_reqi=has_reqi                               & ! G. Thompson
+     &                 ,has_reqs=has_reqs                               & ! G. Thompson
                                                                         )
 
 !$omp parallel do                                                       &
