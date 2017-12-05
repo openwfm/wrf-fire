@@ -157,9 +157,11 @@ integer::oops1,oops2
       REAL :: t_start , t_end
       REAL , ALLOCATABLE , DIMENSION(:,:) :: clat_glob
 
-      !DJW 140626 added for multiple specified sets of eta_levels
+      ! multiple specified sets of eta_levels
       INTEGER :: ks, ke, id
-      LOGICAL :: vnest !DJW 140722 T if using vertical nesting, otherwise F
+      LOGICAL :: vnest ! T if using vertical nesting, otherwise F
+
+      INTEGER :: j_save
 
       !  Dimension information stored in grid data structure.
 
@@ -636,7 +638,33 @@ integer::oops1,oops2
 
      grid%clat_xxx(ipsx:ipex,jpsx:jpex) = clat_glob(ipsx:ipex,jpsx:jpex)
 
+     find_j_index_of_fft_filter : DO j = jds , jde-1
+        IF ( ABS(clat_glob(ids,j)) .LE. config_flags%fft_filter_lat ) THEN
+           j_save = j
+           EXIT find_j_index_of_fft_filter
+        END IF
+     END DO find_j_index_of_fft_filter
+
+     CALL wrf_patch_to_global_real ( grid%msft, clat_glob, grid%domdesc, 'xy', 'xy', &
+                                     ids, ide, jds, jde, 1, 1, &
+                                     ims, ime, jms, jme, 1, 1, &
+                                     its, ite, jts, jte, 1, 1 )
+
+     CALL wrf_dm_bcast_real ( clat_glob , (ide-ids+1)*(jde-jds+1) )
+
+     grid%mf_fft = clat_glob(ids,j_save)
+
+     grid%mf_xxx(ipsx:ipex,jpsx:jpex) = clat_glob(ipsx:ipex,jpsx:jpex)
+
      DEALLOCATE( clat_glob )
+#else
+     find_j_index_of_fft_filter : DO j = jds , jde-1
+        IF ( ABS(grid%clat(ids,j)) .LE. config_flags%fft_filter_lat ) THEN
+           j_save = j
+           EXIT find_j_index_of_fft_filter
+        END IF
+     END DO find_j_index_of_fft_filter
+     grid%mf_fft = grid%msft(ids,j_save)
 #endif
 
          CALL pxft ( grid=grid                                              &
@@ -652,7 +680,9 @@ integer::oops1,oops2
                ,flag_chem          = 0                                      &
                ,flag_tracer        = 0                                      &
                ,flag_scalar        = 0                                      &
-               ,actual_distance_average  = .FALSE.                          &
+               ,actual_distance_average  = .TRUE.                           &
+               ,pos_def            = .FALSE.                                &
+               ,swap_pole_with_next_j = .FALSE.                             &
                ,moist=moist,chem=chem,tracer=tracer,scalar=scalar           &
                ,fft_filter_lat = config_flags%fft_filter_lat                &
                ,dclat = dclat                                               &
@@ -709,6 +739,7 @@ integer::oops1,oops2
 
             CALL filter_topo ( grid%ht_xxx , grid%clat_xxx , grid%mf_xxx , &
                                grid%fft_filter_lat , grid%mf_fft , &
+                               .FALSE. , .FALSE. , &
                                ids, ide, jds, jde, 1 , 1 , &
                                imsx, imex, jmsx, jmex, 1, 1, &
                                ipsx, ipex, jpsx, jpex, 1, 1 )
@@ -734,6 +765,7 @@ integer::oops1,oops2
 #else
             CALL filter_topo ( grid%ht , grid%clat , grid%msftx , &
                                grid%fft_filter_lat , grid%mf_fft , &
+                               .FALSE. , .FALSE. , &
                                ids, ide, jds, jde, 1,1,           &
                                ims, ime, jms, jme, 1,1,           &
                                its, ite, jts, jte, 1,1 )
@@ -1110,12 +1142,10 @@ integer::oops1,oops2
                                        ims , ime , jms , jme , kms , kme , &
                                        its , ite , jts , jte , kts , kte )
 
-         IF ( config_flags%rdlai2d ) THEN
          CALL monthly_interp_to_date ( grid%lai12m , current_date , grid%lai , &
                                        ids , ide , jds , jde , kds , kde , &
                                        ims , ime , jms , jme , kms , kme , &
                                        its , ite , jts , jte , kts , kte )
-         ENDIF
 
 #if ( WRF_CHEM == 1 )
          ! Chose the appropriate LAI veg mask for this date (used in the AFWA dust model)
@@ -1163,6 +1193,8 @@ integer::oops1,oops2
          !  Interpolate monthly aerosol climatology data to specific date/time.
          !  Since data are 3D, do over a loop of vertical levels using temporary array space.
 
+  if( .not. config_flags%use_rap_aero_icbc) then
+! for models initialized from GFS
          IF (config_flags%mp_physics.eq.THOMPSONAERO .and. P_QNWFA.gt.1 .and. config_flags%use_aero_icbc) then
          CALL wrf_debug ( 0 , 'Using Thompson_aerosol_aware so using QNWFA monthly climo arrays to create QNWFA_now')
          DO k = 1, num_metgrid_levels
@@ -1233,6 +1265,7 @@ integer::oops1,oops2
             ENDDO
          ENDDO
          ENDIF
+  endif                                    
 
          !  Two ways to get the surface pressure.  1) If we have the low-res input surface
          !  pressure and the low-res topography, then we can do a simple hydrostatic
@@ -1340,13 +1373,15 @@ integer::oops1,oops2
              ENDIF
            ENDDO
            IF (vnest) THEN
-            !DJW 140627 Added code for specifying multiple domains' eta_levels.
+
+            !Added code for specifying multiple domains' eta_levels.
             !First check to make sure that we've not specified more
             !eta_levels than the dimensionality of eta_levels can handle! This
             !issue will most likely cause a break sometime before we real this
             !check, however it doesn't hurt to include it. To increase max_eta,
             !go to frame/module_driver_constants.F.
-             write(*,'(A)') "DJW[module_initialize_real]: using vertical nesting, reading in eta_levels specified in namelist.input"
+
+            CALL wrf_debug ( 0, "using vertical nesting, reading in eta_levels specified in namelist.input" )
             ks = 0
             DO id=1,grid%id
               ks = ks+model_config_rec%e_vert(id)
@@ -1385,16 +1420,12 @@ integer::oops1,oops2
                 CALL wrf_error_fatal("eta_levels are not uniformly decreasing from 1.0 to 0.0")
               ENDIF
             ENDDO
-             !DJW print out eta_levels for debugging purposes
              DO k=1,kde
-               write(*,'(A,I3,A,F5.3)') "DJW[module_initialize_real]: eta_levels(",k,")=",eta_levels(k)
+               write(a_message,'(A,I3,A,F5.3)') "eta_levels(",k,")=",eta_levels(k)
+               CALL wrf_message ( a_message )
              ENDDO
-            !DJW 140627 End of added code for specifying eta_levels
            ELSE !We're not using vertical nesting
-            !DJW start of original code to set eta_levels
-             write(*,'(A)') "DJW[module_initialize_real]: vertical nesting is not enabled but eta_levels are set in namelist.input"
              eta_levels(1:kde) = model_config_rec%eta_levels(1:kde)
-            !DJW end of original code to set eta_levels
            ENDIF
 
             max_dz            = model_config_rec%max_dz
@@ -1813,6 +1844,22 @@ integer::oops1,oops2
             DO im = PARAM_FIRST_SCALAR, num_3d_s
                IF ( im .EQ. P_QNWFA ) THEN
                   CALL wrf_debug ( 0 , 'Using Thompson_aerosol_aware so vertically-interpolating QNWFA monthly climo arrays to fill scalar')
+                if(config_flags%use_rap_aero_icbc) then
+!HRRR - aerosol input from WPS
+                  CALL vert_interp ( grid%qnwfa_gc , grid%pd_gc , scalar(:,:,:,P_QNWFA) , grid%pb , &
+                                     grid%hgtmaxw , grid%hgttrop , grid%pmaxw , grid%ptrop , &
+                                     0 , 0 , &
+                                     config_flags%maxw_horiz_pres_diff , config_flags%trop_horiz_pres_diff , &
+                                     config_flags%maxw_above_this_level , &
+                                     num_metgrid_levels , 'Q' , &
+                                     interp_type , lagrange_order , extrap_type , &
+                                     lowest_lev_from_sfc , use_levels_below_ground , use_surface , &
+                                     zap_close_levels , force_sfc_in_vinterp , &
+                                     ids , ide , jds , jde , kds , kde , &
+                                     ims , ime , jms , jme , kms , kme , &
+                                     its , ite , jts , jte , kts , kte )
+
+                else
                   CALL vert_interp ( grid%QNWFA_now , grid%pd_gc , scalar(:,:,:,P_QNWFA) , grid%pb , &
                                      grid%hgtmaxw , grid%hgttrop , grid%pmaxw , grid%ptrop , &
                                      0 , 0 , &
@@ -1825,6 +1872,7 @@ integer::oops1,oops2
                                      ids , ide , jds , jde , kds , kde , &
                                      ims , ime , jms , jme , kms , kme , &
                                      its , ite , jts , jte , kts , kte )
+                endif
                END IF
             END DO
          ELSEIF ( flag_qnwfa .EQ. 1 .and. (.NOT. config_flags%use_aero_icbc)) THEN
@@ -1845,6 +1893,22 @@ integer::oops1,oops2
          IF ( flag_qnifa .EQ. 1 .and. config_flags%use_aero_icbc) THEN
             DO im = PARAM_FIRST_SCALAR, num_3d_s
                IF ( im .EQ. P_QNIFA ) THEN
+                if(config_flags%use_rap_aero_icbc) then
+! HRRR - aerosol input from WPS
+                  CALL vert_interp ( grid%qnifa_gc , grid%pd_gc , scalar(:,:,:,P_QNIFA) , grid%pb , &
+                                     grid%hgtmaxw , grid%hgttrop , grid%pmaxw , grid%ptrop , &
+                                     0 , 0 , &
+                                     config_flags%maxw_horiz_pres_diff , config_flags%trop_horiz_pres_diff , &
+                                     config_flags%maxw_above_this_level , &
+                                     num_metgrid_levels , 'Q' , &
+                                     interp_type , lagrange_order , extrap_type , &
+                                     lowest_lev_from_sfc , use_levels_below_ground , use_surface , &
+                                     zap_close_levels , force_sfc_in_vinterp , &
+                                     ids , ide , jds , jde , kds , kde , &
+                                     ims , ime , jms , jme , kms , kme , &
+                                     its , ite , jts , jte , kts , kte )
+
+                else
                   CALL vert_interp ( grid%QNIFA_now , grid%pd_gc , scalar(:,:,:,P_QNIFA) , grid%pb , &
                                      grid%hgtmaxw , grid%hgttrop , grid%pmaxw , grid%ptrop , &
                                      0 , 0 , &
@@ -1857,6 +1921,7 @@ integer::oops1,oops2
                                      ids , ide , jds , jde , kds , kde , &
                                      ims , ime , jms , jme , kms , kme , &
                                      its , ite , jts , jte , kts , kte )
+                endif
                END IF
             END DO
          ELSEIF ( flag_qnifa .EQ. 1 .and. (.NOT. config_flags%use_aero_icbc)) THEN
@@ -2107,6 +2172,9 @@ integer::oops1,oops2
          CASE (SSIBSCHEME)
             IF ( num_st_levels_input .LT. 2 ) THEN
                CALL wrf_error_fatal ( 'Not enough soil temperature data for SSIB LSM scheme.')
+            END IF
+            IF ( eta_levels(2) .GT. 0.982 ) THEN
+               CALL wrf_error_fatal ( 'The first two eta levels are too shallow for SSIB LSM scheme.')
             END IF
 !--------------------------------------------------------
 
@@ -3086,6 +3154,34 @@ endif
                END DO
 #endif
 
+               !  Recompute density, simlar to what the model does.
+
+               IF (grid%hypsometric_opt == 1) THEN
+               DO k=kts,kte-1
+                  grid%al(i,k,j)=-1./(grid%mub(i,j)+grid%mu_2(i,j))*(grid%alb(i,k,j)*grid%mu_2(i,j)  &
+                                 +grid%rdnw(k)*(grid%ph_2(i,k+1,j)-grid%ph_2(i,k,j)))
+               ENDDO
+               ELSE IF (grid%hypsometric_opt == 2) THEN
+               DO k=kts,kte-1
+                  pfu = (grid%mub(i,j)+grid%mu_2(i,j))*grid%znw(k+1)+grid%p_top
+                  pfd = (grid%mub(i,j)+grid%mu_2(i,j))*grid%znw(k)  +grid%p_top
+                  phm = (grid%mub(i,j)+grid%mu_2(i,j))*grid%znu(k)  +grid%p_top
+                  grid%al(i,k,j) = (grid%ph_2(i,k+1,j)-grid%ph_2(i,k,j)+grid%phb(i,k+1,j)-grid%phb(i,k,j)) &
+                                    /phm/LOG(pfd/pfu)-grid%alb(i,k,j)
+               ENDDO     
+               END IF
+     
+               !  Compute pressure similarly to how computed within model.
+
+               DO k=kts,kte-1
+                  qvf = 1.+rvovrd*moist(i,k,j,P_QV)
+                  grid%p(i,k,j)=p1000mb*( (r_d*(t0+grid%t_2(i,k,j))*qvf)/                     &
+                               (p1000mb*(grid%al(i,k,j)+grid%alb(i,k,j))) )**cpovcv  &
+                               -grid%pb(i,k,j)
+                  grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
+                  grid%alt(i,k,j) = grid%al(i,k,j) + grid%alb(i,k,j)
+               ENDDO
+
                !  Adjust the column pressure so that the computed 500 mb height is close to the
                !  input value (of course, not when we are doing hybrid input).
 
@@ -3187,6 +3283,20 @@ endif
                            ims , ime , jms , jme , kms , kme ,                    &
                            its , ite , jts , jte , kts , kte-1 )
       END IF
+     
+      !  Compute pressure similarly to how computed within model, with final Qv.
+
+      DO j = jts, min(jde-1,jte)
+         DO k=kts,kte-1
+            DO i = its, min(ide,ite)
+               qvf = 1.+rvovrd*moist(i,k,j,P_QV)
+               grid%p(i,k,j)=p1000mb*( (r_d*(t0+grid%t_2(i,k,j))*qvf)/                     &
+                            (p1000mb*(grid%al(i,k,j)+grid%alb(i,k,j))) )**cpovcv  &
+                            -grid%pb(i,k,j)
+               grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
+            ENDDO
+         ENDDO
+      ENDDO
 
       !  If this is data from the SI, then we probably do not have the original
       !  surface data laying around.  Note that these are all the lowest levels
@@ -3261,7 +3371,6 @@ endif
       IF (config_flags%tracer_opt .eq. 2) THEN
           DO j = (jde + jds)/2 - 4, (jde + jds)/2 + 4, 1
             DO i = (ide + ids)/2 - 4, (ide + ids)/2 + 4, 1
-               tracer(i, 1, j, im) = 1.
                IF ( its .LE. i .and. ite .GE. i .and. jts .LE. j .and. jte .GE. j ) THEN
                  tracer(i, 1, j, P_tr17_1) = 1.
                  tracer(i, 1, j, P_tr17_2) = 1.
@@ -4666,13 +4775,13 @@ end subroutine fillitup
                CALL lagrange_setup ( var_type , interp_type , &
                     ordered_porig(kinterp_start:kinterp_end) , &
                     ordered_forig(kinterp_start:kinterp_end) , &
-                    count , lagrange_order , extrap_type , &
+                    kinterp_end-kinterp_start+1 , lagrange_order , extrap_type , &
                     ordered_pnew(kstart:kend)  , ordered_fnew  , kend-kstart+1 ,i,j)
             ELSE
                CALL lagrange_setup ( var_type , interp_type , &
                 LOG(ordered_porig(kinterp_start:kinterp_end)) , &
                     ordered_forig(kinterp_start:kinterp_end) , &
-                    count , lagrange_order , extrap_type , &
+                    kinterp_end-kinterp_start+1 , lagrange_order , extrap_type , &
                 LOG(ordered_pnew(kstart:kend)) , ordered_fnew  , kend-kstart+1 ,i,j)
             END IF
 
@@ -5251,9 +5360,8 @@ print *,'p target= ',target_x
          !  an odd order interpolator.  For the even guys, we'll do it twice
          !  and shift the range one index, then get an average.
 
-! cubic spline
          IF ( n .EQ. 9 ) THEN
-            CALL cubic_spline (all_dim-1, all_x, all_y, P2)
+            CALL cubic_spline (all_dim, all_x, all_y, P2)
 !
 ! Find the value of function f(x)
 !
@@ -5268,9 +5376,6 @@ print *,'p target= ',target_x
                                   *(target_x(target_loop)-all_x(loc_center_right)) &
                      +GAMMA*(target_x(target_loop)-all_x(loc_center_left)) &
                      +ETA*(target_x(target_loop)-all_x(loc_center_right))
-
-!        IF      ( MOD(n,2) .NE. 0 ) THEN
-!  end cubic spline block
 
          ELSE IF ( MOD(n,2) .NE. 0 ) THEN
             IF ( ( loc_center_left -(((n+1)/2)-1) .GE.       1 ) .AND. &
@@ -5341,10 +5446,15 @@ print *,'p target= ',target_x
 !
 ! Assign the intervals and function differences
 !
-  DO I = 1, N
+  DO I = 1, N-1
     H(I) = XI(I+1) - XI(I)
     G(I) = FI(I+1) - FI(I)
   END DO
+!
+! The top vertical derivative is zero
+!
+  H(N) = H(N-1)
+  G(N) = 0
 !
 ! Evaluate the coefficient matrix elements
   DO I = 1, N-1
@@ -5357,7 +5467,6 @@ print *,'p target= ',target_x
 !
   CALL TRIDIAGONAL_LINEAR_EQ (N-1, D, C, C, B, G)
   P2(1) = 0
-  P2(N+1) = 0
   DO I = 2, N
     P2(I) = G(I-1)
   END DO
@@ -6342,6 +6451,7 @@ end program foo
       REAL(KIND=8) , DIMENSION(prac_levels) :: znw_prac , znu_prac , dnw_prac
       REAL(KIND=8) , DIMENSION(MAX(prac_levels,kde)) :: alb , phb
       REAL(KIND=8) :: alb_max, t_init_max, pb_max, phb_max
+      REAL(KIND=8) :: p00_r8, t00_r8, a_r8, tiso_r8
 
       CHARACTER(LEN=256) :: message
 
@@ -6407,9 +6517,13 @@ end program foo
             dnw_prac(k) = znw_prac(k+1) - znw_prac(k)
          END DO
 
+         tiso_r8    = tiso
+         t00_r8     = t00
+         a_r8       = a
+         p00_r8     = p00
          DO k = 1, prac_levels-1
             pb = znu_prac(k)*(p_surf - p_top) + p_top
-            temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+            temp = MAX ( tiso_r8, t00_r8 + A_r8*LOG(pb/p00_r8) )
             IF ( pb .LT. p_strat ) THEN
                 temp = tiso + A_strat*LOG(pb/p_strat)
             END IF
@@ -6465,7 +6579,7 @@ end program foo
 
             pb = 0.5*(eta_levels(k)+znw_prac(kk)) * (p_surf - p_top) + p_top
 
-            temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+            temp = MAX ( tiso_r8, t00_r8 + A_r8*LOG(pb/p00_r8) )
             IF ( pb .LT. p_strat ) THEN
                temp = tiso + A_strat * LOG ( pb/p_strat )
             END IF
@@ -6475,7 +6589,7 @@ end program foo
             eta_levels(k+1) = eta_levels(k) - dz*g / ( mub*alb(k) )
             pb = 0.5*(eta_levels(k)+eta_levels(k+1)) * (p_surf - p_top) + p_top
 
-            temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+            temp = MAX ( tiso_r8, t00_r8 + A_r8*LOG(pb/p00_r8) )
             IF ( pb .LT. p_strat ) THEN
                temp = tiso + A_strat * LOG ( pb/p_strat )
             END IF
@@ -6508,7 +6622,7 @@ end program foo
             DO loop = 1 , 10
                DO k = 8, kte-1-2-1
                   pb = (znw(k)+znw(k+1))*0.5 * (p_surf - p_top) + p_top
-                  temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+                  temp = MAX ( tiso_r8, t00_r8 + A_r8*LOG(pb/p00_r8) )
                   IF ( pb .LT. p_strat ) THEN
                      temp = tiso + A_strat * LOG ( pb/p_strat )
                   END IF
@@ -6530,7 +6644,7 @@ end program foo
 
             DO k = 1, kde-1-2
                pb = (znw(k)+znw(k+1))*0.5 * (p_surf - p_top) + p_top
-               temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+               temp = MAX ( tiso_r8, t00_r8 + A_r8*LOG(pb/p00_r8) )
                IF ( pb .LT. p_strat ) THEN
                   temp = tiso + A_strat * LOG ( pb/p_strat )
                END IF
@@ -6584,7 +6698,7 @@ print *,'namelist p_top (Pa) = ',p_top
 
          DO k = 8, kte-1
             pb = (znw(k)+znw(k+1))*0.5 * (p_surf - p_top) + p_top
-            temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+            temp = MAX ( tiso_r8, t00_r8 + A_r8*LOG(pb/p00_r8) )
             IF ( pb .LT. p_strat ) THEN
                temp = tiso + A_strat * LOG ( pb/p_strat )
             END IF
@@ -7238,6 +7352,7 @@ end do
 
    SUBROUTINE filter_topo ( ht_in , xlat , msftx , &
                             fft_filter_lat , mf_fft , &
+                            pos_def , swap_pole_with_next_j , &
                             ids , ide , jds , jde , kds , kde , &
                             ims , ime , jms , jme , kms , kme , &
                             its , ite , jts , jte , kts , kte )
@@ -7251,7 +7366,7 @@ end do
       REAL , INTENT(IN) :: fft_filter_lat , mf_fft
       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: ht_in
       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(IN) :: xlat , msftx
-
+      LOGICAL :: pos_def , swap_pole_with_next_j
 
       !  Local vars
 
@@ -7260,6 +7375,7 @@ end do
       INTEGER :: i_left , i_right , ii
       REAL :: length_scale , sum
       REAL , DIMENSION(its:ite,jts:jte) :: ht_out
+      CHARACTER (LEN=256) :: message
 
       !  The filtering is a simple average on a latitude loop.  Possibly a LONG list of
       !  numbers.  We assume that ALL of the 2d arrays have been transposed so that
@@ -7276,10 +7392,10 @@ end do
 
       j_lat_neg = 0
       j_lat_pos = jde + 1
-      loop_neg : DO j = jts , MIN(jde-1,jte)
+      loop_neg : DO j = MIN(jde-1,jte) , jts , -1
          IF ( xlat(its,j) .LT. 0.0 ) THEN
-            IF ( ABS(xlat(its,j)) .LT. fft_filter_lat ) THEN
-               j_lat_neg = j - 1
+            IF ( ABS(xlat(its,j)) .GE. fft_filter_lat ) THEN
+               j_lat_neg = j 
                EXIT loop_neg
             END IF
          END IF
@@ -7305,9 +7421,10 @@ end do
       !  Filter the topo at the negative lats.
 
       DO j = MIN(j_lat_neg,jte) , jts , -1
-         i_kicker = MIN( MAX ( NINT(msftx(its,j)/2) , 1 ) , (ide - ids) / 2 )
-!        i_kicker = MIN( MAX ( NINT(msftx(its,j)/mf_fft/2) , 1 ) , (ide - ids) / 2 )
-!        print *,'SOUTH j = ' , j, ', kicker = ',i_kicker
+!        i_kicker = MIN( MAX ( NINT(msftx(its,j)/2) , 1 ) , (ide - ids) / 2 )
+         i_kicker = MIN( MAX ( NINT(msftx(its,j)/mf_fft/2) , 1 ) , (ide - ids) / 2 )
+         WRITE (message,*) 'SOUTH j = ' , j, ', kicker = ',i_kicker,xlat(its,j),msftx(its,j)
+         CALL wrf_debug(10,TRIM(message))
          DO i = its , MIN(ide-1,ite)
             sum = 0.
             DO ik = 1 , i_kicker
@@ -7332,9 +7449,10 @@ end do
       !  Filter the topo at the positive lats.
 
       DO j = MAX(j_lat_pos,jts) , MIN(jde-1,jte)
-         i_kicker = MIN( MAX ( NINT(msftx(its,j)/2) , 1 ) , (ide - ids) / 2 )
-!        i_kicker = MIN( MAX ( NINT(msftx(its,j)/mf_fft/2) , 1 ) , (ide - ids) / 2 )
-!        print *,'NORTH j = ' , j, ', kicker = ',i_kicker
+!        i_kicker = MIN( MAX ( NINT(msftx(its,j)/2) , 1 ) , (ide - ids) / 2 )
+         i_kicker = MIN( MAX ( NINT(msftx(its,j)/mf_fft/2) , 1 ) , (ide - ids) / 2 )
+         WRITE (message,*) 'NORTH j = ' , j, ', kicker = ',i_kicker,xlat(its,j),msftx(its,j)
+         CALL wrf_debug(10,TRIM(message))
          DO i = its , MIN(ide-1,ite)
             sum = 0.
             DO ik = 1 , i_kicker
