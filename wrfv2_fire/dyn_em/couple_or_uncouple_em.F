@@ -33,7 +33,7 @@ SUBROUTINE couple_or_uncouple_em ( grid , config_flags , couple &
    TYPE(domain) , TARGET         :: grid
 
    !  Definitions of dummy arguments to solve
-#include <dummy_new_decl.inc>
+#include "dummy_new_decl.inc"
 
    !  WRF state bcs
    TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
@@ -54,6 +54,7 @@ SUBROUTINE couple_or_uncouple_em ( grid , config_flags , couple &
    REAL, DIMENSION(grid%sm31:grid%em31,grid%sm33:grid%em33) :: mut_2, muut_2, muvt_2, muwt_2
 
 !  De-reference dimension information stored in the grid data structure.
+   IF ( .NOT. grid%active_this_task ) RETURN
 
    CALL get_ijk_from_grid (  grid ,                   &
                              ids, ide, jds, jde, kds, kde,    &

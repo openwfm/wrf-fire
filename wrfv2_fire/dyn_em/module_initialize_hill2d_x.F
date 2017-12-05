@@ -57,7 +57,7 @@ CONTAINS
 
      CALL init_domain_rk( grid &
 !
-#include <actual_new_args.inc>
+#include "actual_new_args.inc"
 !
                         )
 
@@ -67,7 +67,7 @@ CONTAINS
 
    SUBROUTINE init_domain_rk ( grid &
 !
-# include <dummy_new_args.inc>
+# include "dummy_new_args.inc"
 !
 )
    IMPLICIT NONE
@@ -75,7 +75,7 @@ CONTAINS
    !  Input data.
    TYPE (domain), POINTER :: grid
 
-# include <dummy_new_decl.inc>
+# include "dummy_new_decl.inc"
 
    TYPE (grid_config_rec_type)              :: config_flags
 
@@ -397,7 +397,7 @@ CONTAINS
 
     grid%ph_1(i,1,j) = 0.
     DO k  = 2,kte
-      grid%ph_1(i,k,j) = grid%ph_1(i,k-1,j) - (1./grid%rdnw(k-1))*(       &
+      grid%ph_1(i,k,j) = grid%ph_1(i,k-1,j) - (grid%dnw(k-1))*(       &
                    (grid%mub(i,j)+grid%mu_1(i,j))*grid%al(i,k-1,j)+ &
                     grid%mu_1(i,j)*grid%alb(i,k-1,j)  )
                                                    

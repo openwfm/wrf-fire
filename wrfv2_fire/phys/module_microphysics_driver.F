@@ -59,7 +59,7 @@ SUBROUTINE microphysics_driver(                                          &
                       ,f_qic_effr,f_qip_effr,f_qid_effr                  &                 
                       ,qrcuten, qscuten, qicuten, mu                     &
                       ,qt_curr,f_qt                                      &
-                      ,mp_restart_state,tbpvs_state,tbpvs0_state         & ! for etampnew or etamp_hr
+                      ,mp_restart_state,tbpvs_state,tbpvs0_state         & ! for etampnew or fer_mp_hires
                       ,hail,ice2                                         & ! for mp_gsfcgce
 !                     ,ccntype                                           & ! for mp_milbrandt2mom
                       ,u,v,w,z                                          &   
@@ -90,22 +90,22 @@ SUBROUTINE microphysics_driver(                                          &
                       ,TH_OLD                                            &
                       ,QV_OLD                                            &
                       ,xlat,xlong,ivgtyp                                 &
-
+                      ,qrimef_curr,f_qrimef                              &
                                                    )
 ! Framework
 #if(NMM_CORE==1)
    USE module_state_description, ONLY :                                  &
                      KESSLERSCHEME, LINSCHEME, SBU_YLINSCHEME, WSM3SCHEME, WSM5SCHEME    &
-                    ,WSM6SCHEME, ETAMPNEW, ETAMP_HR, etamp_HWRF,THOMPSON, THOMPSONAERO, MORR_TWO_MOMENT     &
+                    ,WSM6SCHEME, ETAMPNEW, FER_MP_HIRES, etamp_HWRF,THOMPSON, THOMPSONAERO, MORR_TWO_MOMENT     &
                     ,GSFCGCESCHEME, WDM5SCHEME, WDM6SCHEME, NSSL_2MOM, NSSL_2MOMCCN, NSSL_2MOMG  &
-                    ,NSSL_1MOM,NSSL_1MOMLFO &
+                    ,NSSL_1MOM,NSSL_1MOMLFO, FER_MP_HIRES_ADVECT &
                     ,MILBRANDT2MOM !,MILBRANDT3MOM 
 #else
    USE module_state_description, ONLY :                                  &
                      KESSLERSCHEME, LINSCHEME, SBU_YLINSCHEME, WSM3SCHEME, WSM5SCHEME    &
-                    ,WSM6SCHEME, ETAMPNEW, ETAMP_HR, THOMPSON, THOMPSONAERO, FAST_KHAIN_LYNN, MORR_TWO_MOMENT     &
+                    ,WSM6SCHEME, ETAMPNEW, FER_MP_HIRES, THOMPSON, THOMPSONAERO, FAST_KHAIN_LYNN, MORR_TWO_MOMENT     &
                     ,GSFCGCESCHEME, WDM5SCHEME, WDM6SCHEME, NSSL_2MOM, NSSL_2MOMCCN, NSSL_2MOMG  &
-                    ,NSSL_1MOM,NSSL_1MOMLFO & ! ,NSSL_3MOM       &
+                    ,NSSL_1MOM,NSSL_1MOMLFO, FER_MP_HIRES_ADVECT & ! ,NSSL_3MOM       &
                     ,MILBRANDT2MOM , CAMMGMPSCHEME,FULL_KHAIN_LYNN  !,MILBRANDT3MOM
 #endif
 
@@ -133,6 +133,7 @@ SUBROUTINE microphysics_driver(                                          &
    USE module_mp_wsm5
    USE module_mp_wsm6
    USE module_mp_etanew
+   USE module_mp_fer_hires
    USE module_mp_thompson
    USE module_mp_full_sbm
    USE module_mp_fast_sbm
@@ -145,9 +146,7 @@ SUBROUTINE microphysics_driver(                                          &
    USE module_mp_cammgmp_driver, ONLY: CAMMGMP ! CAM5's microphysics driver
 # endif
 !  USE module_mp_milbrandt3mom
-#if (EM_CORE==1)
    USE module_mp_nssl_2mom
-#endif
 
    USE module_mp_HWRF
    USE module_mixactivate, only: prescribe_aerosol_mixactivate
@@ -469,7 +468,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                  ,kext_ft_qic,kext_ft_qip,kext_ft_qid &
                  ,kext_ft_qs,kext_ft_qg                           &
                  ,qnwfa_curr,qnifa_curr                           & ! Added by G. Thompson
-                 ,qvolg_curr,qvolh_curr
+                 ,qvolg_curr,qvolh_curr, qrimef_curr
 
 
 
@@ -525,6 +524,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                       ,f_qic,f_qip,f_qid &
                       ,f_qnic,f_qnip,f_qnid                                  &
                        ,f_qzi,f_qzs,f_qzg,f_qzh,f_qvolg,f_qvolh              &
+                       ,f_qrimef                                             &
                        ,f_qnwfa, f_qnifa                         ! Added by G. Thompson
 
 
@@ -933,7 +933,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
          PRESENT (MU) .AND. PRESENT (QSCUTEN).AND. &
          PRESENT (QRCUTEN) .AND. PRESENT (QICUTEN).AND. &
          PRESENT (RAINNC ) .AND. PRESENT (RAINNCV) .AND. &
-         PRESENT (Z      ) .AND.PRESENT ( W      )  ) THEN
+         PRESENT ( W      )  ) THEN
          CALL mp_morr_two_moment(                            &
                      ITIMESTEP=itimestep,                &  !*
                      TH=th,                              &  !*
@@ -997,7 +997,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
              PRESENT (SNOWNC ) .AND. PRESENT (SNOWNCV)   .AND. &
              PRESENT (HAILNC ) .AND. PRESENT (HAILNCV)   .AND. &
              PRESENT (GRAUPELNC).AND.PRESENT (GRAUPELNCV).AND. &
-             PRESENT (Z      ) .AND. PRESENT ( W      )  ) THEN
+             PRESENT ( W      )  ) THEN
 !            PRESENT (ccntype)                                 &
 
          CALL mp_milbrandt2mom_driver(                   &
@@ -1052,7 +1052,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
 !              PRESENT (QG_CURR) .AND. PRESENT (QNG_CURR) .AND. PRESENT (QZG_CURR) .AND.  &
 !              PRESENT (QH_CURR) .AND. PRESENT (QNH_CURR) .AND. PRESENT (QZH_CURR) .AND.  &
 !              PRESENT (RAINNC ) .AND. PRESENT (RAINNCV)  .AND. &
-!              PRESENT (Z      ) .AND. PRESENT ( W      )  ) THEN
+!              PRESENT ( W      )  ) THEN
 !          CALL mp_milbrandt3mom_driver(                   &
 !                      ITIMESTEP=itimestep,                &  !*
 !                      TH=th,                              &  !*
@@ -1090,7 +1090,6 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
 !            Call wrf_error_fatal( 'arguments not present for calling milbrandt3mom')
 !         ENDIF
 
-#if (EM_CORE==1)
     CASE (NSSL_1MOM)
          CALL wrf_debug(100, 'microphysics_driver: calling nssl1mom')
          IF (PRESENT (QV_CURR) .AND.                           &
@@ -1101,10 +1100,12 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
              PRESENT (QG_CURR) .AND.  &
              PRESENT (QH_CURR) .AND.  &
              PRESENT (RAINNC ) .AND. PRESENT (RAINNCV)   .AND. &
+#if (EM_CORE==1)
              PRESENT (SNOWNC ) .AND. PRESENT (SNOWNCV)   .AND. &
              PRESENT (HAILNC ) .AND. PRESENT (HAILNCV)   .AND. &
              PRESENT (GRAUPELNC).AND.PRESENT (GRAUPELNCV).AND. &
-             PRESENT (Z      ) .AND. PRESENT ( W      )  .AND. &
+#endif
+             PRESENT ( W      )  .AND. &
              PRESENT (QVOLG_CURR) ) THEN
              
 
@@ -1147,7 +1148,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                   ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte  &
                                                                     )
         ELSE
-           Call wrf_error_fatal( 'arguments not present for calling nssl_2mom')
+           Call wrf_error_fatal( 'arguments not present for calling nssl_1mom')
         ENDIF
 
 
@@ -1160,9 +1161,11 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
              PRESENT (QS_CURR) .AND.  &
              PRESENT (QG_CURR) .AND.  &
              PRESENT (RAINNC ) .AND. PRESENT (RAINNCV)   .AND. &
+#if (EM_CORE==1)
              PRESENT (SNOWNC ) .AND. PRESENT (SNOWNCV)   .AND. &
              PRESENT (GRAUPELNC).AND.PRESENT (GRAUPELNCV).AND. &
-             PRESENT (Z      ) .AND. PRESENT ( W      )  ) THEN
+#endif
+             PRESENT ( W      )  ) THEN
              
 
          CALL nssl_2mom_driver(                          &
@@ -1194,7 +1197,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                   ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte  &
                                                                     )
         ELSE
-           Call wrf_error_fatal( 'arguments not present for calling nssl_2mom')
+           Call wrf_error_fatal( 'arguments not present for calling nssl_1momlfo')
         ENDIF
 
     CASE (NSSL_2MOM)
@@ -1207,10 +1210,12 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
              PRESENT (QG_CURR) .AND. PRESENT (QNG_CURR)  .AND. &
              PRESENT (QH_CURR) .AND. PRESENT (QNH_CURR)  .AND. &
              PRESENT (RAINNC ) .AND. PRESENT (RAINNCV)   .AND. &
+#if (EM_CORE==1)
              PRESENT (SNOWNC ) .AND. PRESENT (SNOWNCV)   .AND. &
              PRESENT (HAILNC ) .AND. PRESENT (HAILNCV)   .AND. &
              PRESENT (GRAUPELNC).AND.PRESENT (GRAUPELNCV).AND. &
-             PRESENT (Z      ) .AND. PRESENT ( W      )  .AND. &
+#endif
+             PRESENT ( W      )  .AND. &
              PRESENT (QVOLG_CURR) .AND. F_QVOLG  .AND.         &
              PRESENT (QVOLH_CURR) .AND. F_QVOLH ) THEN
              
@@ -1279,10 +1284,12 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
              PRESENT (QS_CURR) .AND. PRESENT (QNS_CURR)  .AND. &
              PRESENT (QG_CURR) .AND. PRESENT (QNG_CURR)  .AND. &
              PRESENT (RAINNC ) .AND. PRESENT (RAINNCV)   .AND. &
+#if (EM_CORE==1)
              PRESENT (SNOWNC ) .AND. PRESENT (SNOWNCV)   .AND. &
              PRESENT (HAILNC ) .AND. PRESENT (HAILNCV)   .AND. &
              PRESENT (GRAUPELNC).AND.PRESENT (GRAUPELNCV).AND. &
-             PRESENT (Z      ) .AND. PRESENT ( W      )  .AND. &
+#endif
+             PRESENT ( W      )  .AND. &
              PRESENT (QVOLG_CURR) .AND. F_QVOLG  ) THEN
              
 
@@ -1335,7 +1342,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                                                                     )
 
         ELSE
-           Call wrf_error_fatal( 'arguments not present for calling nssl_2mom')
+           Call wrf_error_fatal( 'arguments not present for calling nssl_2momg')
         ENDIF
 
     CASE (NSSL_2MOMCCN)
@@ -1348,10 +1355,12 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
              PRESENT (QG_CURR) .AND. PRESENT (QNG_CURR)  .AND. &
              PRESENT (QH_CURR) .AND. PRESENT (QNH_CURR)  .AND. &
              PRESENT (RAINNC ) .AND. PRESENT (RAINNCV)   .AND. &
+#if (EM_CORE==1)
              PRESENT (SNOWNC ) .AND. PRESENT (SNOWNCV)   .AND. &
              PRESENT (HAILNC ) .AND. PRESENT (HAILNCV)   .AND. &
              PRESENT (GRAUPELNC).AND.PRESENT (GRAUPELNCV).AND. &
-             PRESENT (Z      ) .AND. PRESENT ( W      )  .AND. &
+#endif
+             PRESENT ( W      )  .AND. &
              PRESENT (QVOLG_CURR) .AND. F_QVOLG  .AND.         &
              PRESENT (QVOLH_CURR) .AND. F_QVOLH  .AND.         &
              PRESENT( QNN_CURR )                          ) THEN
@@ -1411,7 +1420,6 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
         ELSE
            Call wrf_error_fatal( 'arguments not present for calling nssl_2momccn')
         ENDIF
-#endif
 !
         CASE (GSFCGCESCHEME)
              CALL wrf_debug ( 100 , 'microphysics_driver: calling GSFCGCE' )
@@ -1810,6 +1818,71 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
              ELSE
                 CALL wrf_error_fatal ( 'arguments not present for calling etampnew' )
              ENDIF
+        CASE (FER_MP_HIRES)    !-- Operational Ferrier-Aligo High-Resolution Window(HRW) version
+                            !   (2014/2 version) added by Weiguo Wang on
+                            !   2014-11-19
+             CALL wrf_debug ( 100 , 'microphysics_driver: calling etampnew')
+
+             IF ( PRESENT( qv_curr ) .AND. PRESENT( qt_curr ) .AND. &
+                  PRESENT( RAINNC  ) .AND. PRESENT ( RAINNCV ) .AND.  &
+                  PRESENT( mp_restart_state )                  .AND. &
+                  PRESENT( tbpvs_state )                      .AND. &
+                  PRESENT( tbpvs0_state )                       ) THEN
+
+             !  write(0,*)',f_qv,f_qc,f_qr,f_qi,f_qs,f_qg',f_qv,f_qc,f_qr,f_qi,f_qs,f_qg
+             !  write(0,*)'max qi=',maxval(qi_curr(its:ite,kts:kte,jts:jte))
+             !  write(0,*)'max qs=',maxval(qs_curr(its:ite,kts:kte,jts:jte))
+
+                CALL FER_HIRES(                                      &
+                   ITIMESTEP=itimestep,DT=dt,DX=dx,DY=dy, GID=id &
+                  ,RAINNC=rainnc,RAINNCV=rainncv                     &
+                  ,DZ8W=dz8w,RHO_PHY=rho,P_PHY=p,PI_PHY=pi_phy,TH_PHY=th &
+                  ,QV=qv_curr                                        &
+                  ,QT=qt_curr                                        &
+                  ,LOWLYR=LOWLYR,SR=SR                               &
+                  ,F_ICE_PHY=F_ICE_PHY,F_RAIN_PHY=F_RAIN_PHY         &
+                  ,F_RIMEF_PHY=F_RIMEF_PHY                           &
+                  ,QC=qc_curr,QR=Qr_curr,QI=Qi_curr                  &
+                  ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde &
+                  ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme &
+                  ,ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte &
+                                                                     )
+             ELSE
+                CALL wrf_error_fatal ( 'arguments not present for calling fer_hires' )
+             ENDIF
+
+        CASE (FER_MP_HIRES_ADVECT)    !-- Operational Ferrier-Aligo High-Resolution Window(HRW) version
+                            !   (2014/2 version) added by Weiguo Wang on
+                            !   2014-11-19
+                            !   Modified for advection, Sam Trahan, August 2015
+             CALL wrf_debug ( 100 , 'microphysics_driver: calling etampnew')
+
+             IF ( PRESENT( qv_curr ) .AND. PRESENT( qi_curr ) .AND. &
+                  PRESENT( qc_curr ) .and. PRESENT(qrimef_curr) .AND.  &
+                  PRESENT( RAINNC  ) .AND. PRESENT ( RAINNCV ) .AND.  &
+                  PRESENT( mp_restart_state )                  .AND. &
+                  PRESENT( tbpvs_state )                      .AND. &
+                  PRESENT( tbpvs0_state )                       ) THEN
+
+             !  write(0,*)',f_qv,f_qc,f_qr,f_qi,f_qs,f_qg',f_qv,f_qc,f_qr,f_qi,f_qs,f_qg
+             !  write(0,*)'max qi=',maxval(qi_curr(its:ite,kts:kte,jts:jte))
+             !  write(0,*)'max qs=',maxval(qs_curr(its:ite,kts:kte,jts:jte))
+
+                CALL FER_HIRES_ADVECT(                               &
+                   ITIMESTEP=itimestep,DT=dt,DX=dx,DY=dy, GID=id &
+                  ,RAINNC=rainnc,RAINNCV=rainncv                     &
+                  ,DZ8W=dz8w,RHO_PHY=rho,P_PHY=p,PI_PHY=pi_phy,TH_PHY=th &
+                  ,QV=qv_curr                                        &
+                  ,LOWLYR=LOWLYR,SR=SR                               &
+                  ,QC=qc_curr,QR=Qr_curr,QI=Qi_curr,QRIMEF=qrimef_curr    &
+                  ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde &
+                  ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme &
+                  ,ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte &
+                                                                     )
+             ELSE
+                CALL wrf_error_fatal ( 'arguments not present for calling fer_hires' )
+             ENDIF
+
 #if(EM_CORE==1)
           CASE (CAMMGMPSCHEME)
              CALL wrf_debug ( 100 , 'microphysics_driver: calling CAMMGMPSCHEME')
