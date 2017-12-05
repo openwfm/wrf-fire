@@ -4,7 +4,7 @@ MODULE module_optional_input
               flag_snow     , flag_snowh    , flag_tsk      , flag_pinterp
 
    INTEGER :: flag_qv       , flag_qc       , flag_qr       , flag_qi       , flag_qs       , &
-              flag_qg       , flag_qh       , flag_qni      , flag_qnr      , flag_sh
+              flag_qg       , flag_qh       , flag_qni      , flag_qnr      , flag_qnwfa    , flag_qnifa    , flag_sh
 
    INTEGER :: flag_soil_levels, flag_soil_layers
 
@@ -24,6 +24,8 @@ MODULE module_optional_input
    INTEGER :: flag_icedepth , flag_icefrac  , flag_albsi , flag_snowsi
 
    INTEGER :: flag_ptheta
+
+   INTEGER :: flag_lake_depth
 
    INTEGER :: flag_excluded_middle
 
@@ -195,6 +197,10 @@ CONTAINS
                                  ids, ide, jds, jde, kds, kde, &
                                  ims, ime, jms, jme, kms, kme, &
                                  its, ite, jts, jte, kts, kte  )
+      CALL optional_lake       ( grid , fid , &
+                                 ids, ide, jds, jde, kds, kde, &
+                                 ims, ime, jms, jme, kms, kme, &
+                                 its, ite, jts, jte, kts, kte  )
 
       CALL optional_ptheta     ( grid , fid , &
                                  ids, ide, jds, jde, kds, kde, &
@@ -294,6 +300,8 @@ USE module_io_domain
       flag_qh       = 0
       flag_qni      = 0
       flag_qnr      = 0
+      flag_qnwfa    = 0
+      flag_qnifa    = 0
       flag_sh       = 0
 
       flag_name(1:8) = 'QV      '
@@ -340,6 +348,16 @@ USE module_io_domain
       CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr )
       IF ( ierr .EQ. 0 ) THEN
          flag_qnr       = itmp
+      END IF
+      flag_name(1:8) = 'QNWFA    '
+      CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr )
+      IF ( ierr .EQ. 0 ) THEN
+         flag_qnwfa     = itmp
+      END IF
+      flag_name(1:8) = 'QNIFA    '
+      CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr )
+      IF ( ierr .EQ. 0 ) THEN
+         flag_qnifa     = itmp
       END IF
       flag_name(1:8) = 'SH      '
       CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr ) 
@@ -436,6 +454,41 @@ USE module_io_domain
       END IF
     
    END SUBROUTINE optional_sst
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+   SUBROUTINE optional_lake ( grid , fid , &
+                             ids, ide, jds, jde, kds, kde, &
+                             ims, ime, jms, jme, kms, kme, &
+                             its, ite, jts, jte, kts, kte  )
+
+      USE module_io_wrf
+      USE module_domain	, ONLY : domain
+USE module_configure , ONLY : grid_config_rec_type
+USE module_io_domain
+
+      IMPLICIT NONE 
+
+      TYPE ( domain ) :: grid
+      INTEGER , INTENT(IN) :: fid
+
+      INTEGER :: ids, ide, jds, jde, kds, kde, &
+                 ims, ime, jms, jme, kms, kme, &
+                 its, ite, jts, jte, kts, kte
+
+      INTEGER :: itmp , icnt , ierr
+
+      flag_name = '                                                                                '
+
+      flag_lake_depth      = 0 
+
+      flag_name(1:10) = 'LAKE_DEPTH'
+      CALL wrf_get_dom_ti_integer ( fid, 'FLAG_' // flag_name, itmp, 1, icnt, ierr ) 
+      IF ( ierr .EQ. 0 ) THEN
+         flag_lake_depth      = itmp
+      END IF
+    
+   END SUBROUTINE optional_lake
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

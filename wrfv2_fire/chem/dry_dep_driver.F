@@ -21,8 +21,14 @@ CONTAINS
                anh3,cvaro1,cvaro2,   &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,dep_vel_o3,      &
                emis_ant,ebu_in,                                           &
-               sf_urban_physics,numgas,current_month,dvel,                &
-               snowh,is_CAMMGMP_used,                                     & !BSINGH:01/31/2013: Added is_CAMMGMP_used for MAM drydep
+               sf_urban_physics,numgas,current_month,dvel,snowh,          & 
+               dustdrydep_1,dustdrydep_2,dustdrydep_3,                    &
+               dustdrydep_4,dustdrydep_5,                                 &
+               depvelocity,                                               &               
+               dustgraset_1,dustgraset_2,dustgraset_3,                    &
+               dustgraset_4,dustgraset_5,                                 &
+               setvel_1,setvel_2,setvel_3,setvel_4,setvel_5, imod,        &         
+               is_CAMMGMP_used,                                           & !BSINGH:01/31/2013: Added is_CAMMGMP_used for MAM drydep
                dep_vel,num_vert_mix,                                      &
                ids,ide, jds,jde, kds,kde,                                 &
                ims,ime, jms,jme, kms,kme,                                 &
@@ -134,6 +140,16 @@ CONTAINS
                              dtstep,gmt,dx
 
       INTEGER,  INTENT(INOUT) :: num_vert_mix
+      
+   REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) ::        &
+                dustdrydep_1, dustdrydep_2, dustdrydep_3,       &
+                dustdrydep_4, dustdrydep_5, depvelocity
+   REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) ::        &
+               dustgraset_1,dustgraset_2,dustgraset_3,          &
+               dustgraset_4,dustgraset_5,                       &
+               setvel_1,setvel_2,setvel_3,setvel_4,setvel_5   
+   INTEGER, INTENT(IN)  ::     imod
+   
 !--- deposition and emissions stuff
 ! .. Parameters ..
 ! ..
@@ -254,6 +270,9 @@ CONTAINS
                   t_phy, moist, p8w, t8w, rmol,aer_res_def,               &
                   p_phy, chem, rho_phy, dz8w, ddvel, xland, hfx,          &
                   ivgtyp, tsk, vegfra, pbl, ust, znt, xlat, xlong,        &
+                  dustdrydep_1,dustdrydep_2,dustdrydep_3,                 &
+                  dustdrydep_4,dustdrydep_5,                              &
+                  depvelocity,                                            &                       
                   ids,ide, jds,jde, kds,kde,                              &
                   ims,ime, jms,jme, kms,kme,                              &
                   its,ite, jts,jte, kts,kte )
@@ -279,6 +298,9 @@ CONTAINS
                   dvel(its:ite,1,j,p_dvel_ch3cooh) = m2cm*ddvel(its:ite,j,p_ch3cooh)
                   dvel(its:ite,1,j,p_dvel_acet) = m2cm*ddvel(its:ite,j,p_acet)
                   dvel(its:ite,1,j,p_dvel_mgly) = m2cm*ddvel(its:ite,j,p_mgly)
+! 20120820 acd_ck_bugfix start
+                  dvel(its:ite,1,j,p_dvel_gly) = m2cm*ddvel(its:ite,j,p_gly)
+! 20120820 acd_ck_bugfix end
                   dvel(its:ite,1,j,p_dvel_paa) = m2cm*ddvel(its:ite,j,p_paa)
                   dvel(its:ite,1,j,p_dvel_pooh) = m2cm*ddvel(its:ite,j,p_c3h6ooh)
                   dvel(its:ite,1,j,p_dvel_mpan) = m2cm*ddvel(its:ite,j,p_mpan)
@@ -322,6 +344,9 @@ CONTAINS
                t_phy,moist,p8w,t8w,rmol,aer_res_def,                      &
                p_phy,chem,rho_phy,dz8w,ddvel,xland,hfx,                   &
                ivgtyp,tsk,vegfra,pbl,ust,znt,xlat,xlong,                  &
+               dustdrydep_1,dustdrydep_2,dustdrydep_3,                    &
+               dustdrydep_4,dustdrydep_5,                                 &
+               depvelocity,                                               &                    
                ids,ide, jds,jde, kds,kde,                                 &
                ims,ime, jms,jme, kms,kme,                                 &
                its,ite, jts,jte, kts,kte                                  )
@@ -334,6 +359,9 @@ CONTAINS
                t_phy,moist,p8w,t8w,rmol,aer_res_def,                      &
                p_phy,chem,rho_phy,dz8w,ddvel,xland,hfx,                   &
                ivgtyp,tsk,vegfra,pbl,ust,znt,xlat,xlong,                  &
+               dustdrydep_1,dustdrydep_2,dustdrydep_3,                    &
+               dustdrydep_4,dustdrydep_5,                                 &
+               depvelocity,                                               &                    
                ids,ide, jds,jde, kds,kde,                                 &
                ims,ime, jms,jme, kms,kme,                                 &
                its,ite, jts,jte, kts,kte                                  )
@@ -357,6 +385,9 @@ CONTAINS
                t_phy,moist,p8w,t8w,rmol,aer_res_def,                      &
                p_phy,chem,rho_phy,dz8w,ddvel,xland,hfx,                   &
                ivgtyp,tsk,vegfra,pbl,ust,znt,xlat,xlong,                  &
+               dustdrydep_1,dustdrydep_2,dustdrydep_3,                    &
+               dustdrydep_4,dustdrydep_5,                                 &
+               depvelocity,                                               &                    
                ids,ide, jds,jde, kds,kde,                                 &
                ims,ime, jms,jme, kms,kme,                                 &
                its,ite, jts,jte, kts,kte                                  )
@@ -640,7 +671,7 @@ CONTAINS
          enddo
         enddo
        CASE DEFAULT
-       CALL wrf_debug(15,'NOT YET DEFINED')
+!        CALL wrf_debug(15,'NOT YET DEFINED')
        END SELECT tracer_select
 
 100   continue
@@ -690,6 +721,9 @@ CONTAINS
          call gocart_settling_driver(dtstep,config_flags,t_phy,moist,  &
          chem,rho_phy,dz8w,p8w,p_phy,         &
          dustin,seasin,dx,g, &
+         dustgraset_1,dustgraset_2,dustgraset_3,                           &
+         dustgraset_4,dustgraset_5,                                        &
+         setvel_1,setvel_2,setvel_3,setvel_4,setvel_5, imod,               &              
          ids,ide, jds,jde, kds,kde,                                        &
          ims,ime, jms,jme, kms,kme,                                        &
          its,ite, jts,jte, kts,kte                                         )

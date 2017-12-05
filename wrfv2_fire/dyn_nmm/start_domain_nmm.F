@@ -70,6 +70,7 @@
       USE MODULE_HIFREQ, only : hifreq_open
 #endif
       USE MODULE_DOMAIN
+      USE MODULE_STATE_DESCRIPTION
       USE MODULE_RANDOM, only : srand_grid, rand_grid_r4
       USE MODULE_DRIVER_CONSTANTS
       USE module_model_constants
@@ -171,6 +172,7 @@
 !!!   REAL :: BLDT,CWML,EXNSFC,G_INV,PLYR,PSFC,ROG,SFCZ,THSIJ,TL
       REAL :: CWML,EXNSFC,G_INV,PLYR,PSURF,ROG,SFCZ,THSIJ,TL,ZOQING
       REAL :: TEND
+      REAL :: TEMPDX, TEMPDY
 #ifdef HWRF
 !zhang's doing 
       REAL :: TSTART
@@ -215,9 +217,13 @@
       REAL,ALLOCATABLE,DIMENSION(:,:,:) :: ZINT,RRI,CONVFAC,ZMID
       REAL,ALLOCATABLE,DIMENSION(:,:,:) :: T_TRANS,PINT_TRANS
       REAL,ALLOCATABLE,DIMENSION(:,:,:) :: CLDFRA_TRANS
+      REAL,DIMENSION(:,:,:,:),ALLOCATABLE :: SCALAR_TRANS
 #ifndef WRF_CHEM
       REAL,ALLOCATABLE,DIMENSION(:,:,:) :: CLDFRA_OLD
 #endif
+!..Need to fill special height var for setting up initial condition.  G. Thompson
+      REAL,ALLOCATABLE,DIMENSION(:,:,:) :: z_at_q
+
 #if 0
       REAL,ALLOCATABLE,DIMENSION(:,:,:) :: w0avg
 #endif
@@ -311,6 +317,53 @@
 ! Sam's doing for hour 0 & 6 nest movement safeguards
         grid%nomove_freq_hr=config_flags%nomove_freq
 #endif
+
+      ! Recalculate grid bounds, regardless of reason for
+      ! start_domain_nmm call, or version of NMM:
+      has_parent: if(grid%id /= 1) then ! NOTE REQUIREMENT: MOAD IS GRID 1!!
+         ! Nest gets dx & dy from parent and grid ratio.
+3302     format('Grid ',I0,' calculating west/south bounds relative to parent grid ',I0)
+         write(message,3302) grid%id, grid%parents(1)%ptr%id
+         call wrf_debug(2,message)
+         tempdx=grid%parents(1)%ptr%dx/grid%parent_grid_ratio
+         tempdy=grid%parents(1)%ptr%dy/grid%parent_grid_ratio
+         grid%wbd0var = grid%parents(1)%ptr%wbd0var + (grid%i_parent_start-1)*2.*grid%parents(1)%ptr%dx + mod(grid%j_parent_start+1,2)*grid%parents(1)%ptr%dx
+         grid%sbd0var = grid%parents(1)%ptr%sbd0var + (grid%j_parent_start-1)*grid%parents(1)%ptr%dy
+3303     format('Parent wbd0=',F0.3,' sbd0=',F0.3,' i_parent_start=',I0,' j_parent_start=',I0)
+         write(message,3303) grid%parents(1)%ptr%wbd0var, &
+              grid%parents(1)%ptr%sbd0var, grid%i_parent_start,grid%j_parent_start
+         call wrf_debug(2,message)
+      else
+         ! MOAD gets dx & dy from namelist.
+3305     format('Grid ',I0,' calculating west/south bounds as MOAD')
+         write(message,3305) grid%id
+         call wrf_debug(2,message)
+         call nl_get_dx(grid%id,tempdx)
+         call nl_get_dy(grid%id,tempdy)
+         grid%wbd0var = -(IDE-2)*tempdx
+         grid%sbd0var = -((JDE-1)/2)*tempdy
+#if ! ( NMM_NEST == 1 )
+         ! When NMM is compiled without nesting support, we need to
+         ! update the bound metadata here:
+         grid%wbd0 = grid%wbd0var
+         grid%sbd0 = grid%sbd0var
+#endif
+      endif has_parent
+      if(tempdx<1e-5 .or. tempdy<1e-5) then
+         ! Should never reach here unless someone adds a bug to NMM.
+         ! The meaning of grid%dx varies during nest initialization
+         ! (sometimes it is MOAD dx, sometimes nest dx), so this check
+         ! is here just in case someone screws up the code later on.
+         write(message,1045) tempdx,tempdy
+         call wrf_message('WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING ')
+         call wrf_message('Warning: dx or dy are invalid after parent calculation or namelist check.')
+         call wrf_message(message)
+         call wrf_message('WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING ')
+1045     format('Must be >1e-5.  dx=',F0.7,' dy=',F0.7,'.  Grid bounds will be wrong.')
+      endif
+      write(message,3011) grid%id,tempdx,tempdy,grid%wbd0var,grid%sbd0var
+      call wrf_debug(2,message)
+3011  format('Grid ',I0,': dx=',F0.3,' dy=',F0.3,' wbd0=',F0.3,' sbd0=',F0.3)
 
 #if 1
       IF(IME>NMM_MAX_DIM )THEN
@@ -1787,15 +1840,17 @@
       ALLOCATE(RTHRATEN(IMS:IME,KMS:KME,JMS:JME),STAT=I)    ; RTHRATEN  = 0.
       ALLOCATE(RTHRATENLW(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; RTHRATENLW = 0.
       ALLOCATE(RTHRATENSW(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; RTHRATENSW = 0.
-      ALLOCATE(ZINT(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; ZINT = 0.
-      ALLOCATE(CONVFAC(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; CONVFAC = 0.
+      ALLOCATE(ZINT(IMS:IME,KMS:KME,JMS:JME),STAT=I)        ; ZINT = 0.
+      ALLOCATE(CONVFAC(IMS:IME,KMS:KME,JMS:JME),STAT=I)     ; CONVFAC = 0.
       ALLOCATE(PINT_TRANS(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; PINT_TRANS = 0.
-      ALLOCATE(T_TRANS(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ;  T_TRANS = 0.
-      ALLOCATE(RRI(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ;  RRI = 0.
-      ALLOCATE(CLDFRA_TRANS(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; CLDFRA_TRANS = 0.
+      ALLOCATE(T_TRANS(IMS:IME,KMS:KME,JMS:JME),STAT=I)     ;  T_TRANS = 0.
+      ALLOCATE(RRI(IMS:IME,KMS:KME,JMS:JME),STAT=I)         ;  RRI = 0.
+      ALLOCATE(CLDFRA_TRANS(IMS:IME,KMS:KME,JMS:JME),STAT=I); CLDFRA_TRANS = 0.
+      ALLOCATE(SCALAR_TRANS(IMS:IME,KMS:KME,JMS:JME,NUM_SCALAR),STAT=I)
 #ifndef WRF_CHEM      
       ALLOCATE(CLDFRA_OLD(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; CLDFRA_OLD = 0.
 #endif
+      ALLOCATE(Z_AT_Q(IMS:IME,KMS:KME,JMS:JME),STAT=I)      ; z_at_q = 0.
 #if 0
       ALLOCATE(w0avg(IMS:IME,KMS:KME,JMS:JME),STAT=I)       ; w0avg = 0.
 #endif
@@ -1807,6 +1862,19 @@
       GRID%BLDT=GRID%NPHS*GRID%DT/60.
       GRID%CUDT=GRID%NCNVC*GRID%DT/60.
       GRID%GSMDT=GRID%NPHS*GRID%DT/60.
+!
+! translate scalar(i,j,k,n) to scalar_trans(i,k,j,n)
+        DO N=1,NUM_SCALAR
+!$omp parallel do                                                       &
+!$omp& private(i,j,k)
+          DO K=KMS,KME
+          DO J=JMS,JME
+          DO I=IMS,IME
+            SCALAR_TRANS(I,K,J,N)=SCALAR(I,J,K,N)
+          ENDDO
+          ENDDO
+          ENDDO
+        ENDDO
 !
       DO J=MYJS,MYJE
       DO I=MYIS,MYIE
@@ -1934,6 +2002,9 @@
 ! includes these as dummy arguments or declares them.  Access them from 
 ! GRID.  JM 20050819
 #ifndef WRF_NMM_NEST
+    ! NOTE: we always get here for all NMM configurations because the
+    !       #if condition is wrong.  Leaving this as is, just in case
+    !       there was a good reason for it.
       grid%moved = .FALSE.
 #endif
 
@@ -1961,6 +2032,8 @@
      &             ,STEPBL,STEPRA,STEPCU                                &
      &             ,grid%w0avg, RAINNC, RAINC, grid%raincv, RAINNCV               &
      &             ,SNOWNC, SNOWNCV, GRAUPELNC, GRAUPELNCV              &
+     &             ,z_at_q, grid%qnwfa2d                                &
+     &             ,scalar_trans(ims,kms,jms,1),num_scalar              &
      &             ,grid%re_cloud, grid%re_ice, grid%re_snow            & ! G. Thompson
      &             ,grid%has_reqc,grid%has_reqi,grid%has_reqs           & ! G. Thompson
      &             ,NCA,GRID%SWRAD_SCAT                                 &
@@ -1971,7 +2044,8 @@
      &             ,GRID%LANDUSE_ISICE, GRID%LANDUSE_LUCATS             &
      &             ,GRID%LANDUSE_LUSEAS, GRID%LANDUSE_ISN               &
      &             ,GRID%LU_STATE                                       &
-     &             ,grid%xlat,grid%xlong,grid%albedo,grid%albbck                            &
+     &             ,grid%xlat,grid%xlong,grid%glat,grid%glon&
+     &             ,grid%albedo,grid%albbck                             &
      &             ,GRID%GMT,GRID%JULYR,GRID%JULDAY                     &
      &             ,GRID%LEVSIZ, NUM_OZMIXM, NUM_AEROSOLC, GRID%PAERLEV &
      &             ,grid%alevsiz, grid%no_src_types                     &
@@ -2007,8 +2081,19 @@
      &                STMASSXY=grid%STMASSXY, WOODXY=grid%WOODXY,                        & ! Optional Noah-MP
      &                STBLCPXY=grid%STBLCPXY, FASTCPXY=grid%FASTCPXY,                    & ! Optional Noah-MP
      &                XSAIXY=grid%XSAIXY,                                                & ! Optional Noah-MP
-     &                T2MVXY=grid%T2MVXY, T2MBXY=grid%T2MBXY, CHSTARXY=grid%CHSTARXY     & ! Optional Noah-MP
-     &                ,MAXPATCH=1 & ! CLM
+     &                T2MVXY=grid%T2MVXY, T2MBXY=grid%T2MBXY, CHSTARXY=grid%CHSTARXY,    & ! Optional Noah-MP
+     &                smoiseq=grid%smoiseq, smcwtdxy=grid%smcwtdxy, rechxy=grid%rechxy,   &
+     &                deeprechxy=grid%deeprechxy,                                         &
+     &                lakedepth2d=grid%lakedepth2d,  savedtke12d=grid%savedtke12d,  snowdp2d=grid%snowdp2d,   h2osno2d=grid%h2osno2d,               & !lake
+     &                snl2d= grid%snl2d, t_grnd2d=grid%t_grnd2d, t_lake3d=grid%t_lake3d, lake_icefrac3d=grid%lake_icefrac3d,                        & !lake
+     &                z_lake3d=grid%z_lake3d, dz_lake3d=grid%dz_lake3d, t_soisno3d=grid%t_soisno3d, h2osoi_ice3d=grid%h2osoi_ice3d,                 & !lake
+     &                h2osoi_liq3d=grid%h2osoi_liq3d, h2osoi_vol3d=grid%h2osoi_vol3d, z3d=grid%z3d, dz3d=grid%dz3d,                                 & !lake
+     &                zi3d=grid%zi3d, watsat3d=grid%watsat3d, csol3d=grid%csol3d, tkmg3d=grid%tkmg3d,                                               & !lake
+     &                tkdry3d=grid%tkdry3d, tksatu3d=grid%tksatu3d, lake2d=grid%lake2d,                                                             & !lake
+     &                lakedepth_default=config_flags%lakedepth_default, lake_min_elev=config_flags%lake_min_elev, lake_depth=grid%lake_depth,               & !lake
+     &                lake_depth_flag=grid%LAKE_DEPTH_FLAG, use_lakedepth=grid%use_lakedepth,                                                      & !lake
+     &                sf_surface_mosaic=config_flags%sf_surface_mosaic, mosaic_cat=config_flags%mosaic_cat, nlcat=1,     & ! Noah tiling
+     &                MAXPATCH=1 & ! CLM
      &                )
 
 #ifdef HWRF
@@ -2030,14 +2115,20 @@
 !-----------------------------------------------------------------------
 !---- Initialization for gravity wave drag (GWD) & mountain blocking (MB)
 !
-      CALL nl_get_cen_lat(GRID%ID, CEN_LAT)    !-- CEN_LAT in deg
-      CALL nl_get_cen_lon(GRID%ID, CEN_LON)    !-- CEN_LON in deg
-      DTPHS=grid%dt*grid%nphs
-      CALL GWD_init(DTPHS,GRID%DX,GRID%DY,CEN_LAT,CEN_LON,RESTRT        &
+#if (HWRF == 1)
+   IF(grid%gwd_opt .eq. 2 .AND. grid%id .eq. 1 .AND. allowed_to_read) THEN
+#else
+   IF(grid%gwd_opt .eq. 2 ) THEN
+#endif
+        CALL nl_get_cen_lat(GRID%ID, CEN_LAT)    !-- CEN_LAT in deg
+        CALL nl_get_cen_lon(GRID%ID, CEN_LON)    !-- CEN_LON in deg
+        DTPHS=grid%dt*grid%nphs
+        CALL GWD_init(DTPHS,GRID%DX,GRID%DY,CEN_LAT,CEN_LON,RESTRT        &
      &              ,grid%glat,grid%glon,grid%crot,grid%srot,grid%hangl                          &
      &              ,IDS,IDE,JDS,JDE,KDS,KDE                            &
      &              ,IMS,IME,JMS,JME,KMS,KME                            &
      &              ,ITS,ITE,JTS,JTE,KTS,KTE )
+      ENDIF
       IF(.NOT.RESTRT)THEN
         DO J=MYJS,MYJE
         DO I=MYIS,MYIE
@@ -2272,7 +2363,7 @@
                grid%ttday,grid%tcosz,grid%julday,grid%gmt,                         &
                GD_CLOUD,GD_CLOUD2,raincv_a,raincv_b,           &
                GD_CLOUD_a,GD_CLOUD2_a,            &
-               GD_CLOUD_B,GD_CLOUD2_B,            &
+               QC_CU,QI_CU,                       &
                TAUAER1,TAUAER2,TAUAER3,TAUAER4,                      &
                GAER1,GAER2,GAER3,GAER4,                              &
                WAER1,WAER2,WAER3,WAER4,                              &
@@ -2383,6 +2474,7 @@
 #ifndef WRF_CHEM
       DEALLOCATE(CLDFRA_OLD)
 #endif
+      DEALLOCATE(Z_AT_Q)
 #if 0
       DEALLOCATE(w0avg)
 #endif
