@@ -1,0 +1,9 @@
+#!/bin/sh
+rm -rf WRFV3 chem 
+tar xfz WRFV$1.TAR.gz
+tar xfz WRFV3-Chem-$1.TAR.gz
+mv chem WRFV3
+#rm -rf wrfv2_fire
+git checkout -f
+git diff
+diff -r WRFV3 wrfv2_fire

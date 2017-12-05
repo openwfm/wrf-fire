@@ -1,0 +1,14 @@
+#!/bin/sh
+rm -rf WRFV3 chem 
+tar xfz WRFV$1.TAR.gz
+tar xfz WRFV3-Chem-$1.TAR.gz
+mv chem WRFV3
+#diff -r WRFV3 wrfv2_fire
+rm -rf wrfv2_fire
+mv WRFV3 wrfv2_fire
+find wrfv2_fire -type d -name .svn -exec rm -rf {} \;
+find wrfv2_fire -type d -empty -exec touch {}/.empty \;
+git add wrfv2_fire
+git commit -m WRFV$1
+(git tag -d WRFV$1)
+git tag WRFV$1
