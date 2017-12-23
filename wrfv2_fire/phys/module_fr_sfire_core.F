@@ -1709,6 +1709,7 @@ real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 ! scalars
 real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
+real,dimension(ims:ime,jms:jme)::ros_tmp
 real::gradx,grady,aspeed,err,aerr,time_future,time_now
 real::tmp,t0,t1,t2
 integer::ihs,ihe,jhs,jhe
@@ -1812,7 +1813,7 @@ if (ipart==1)then
     ts+dt,dt,dx,dy,      &                   ! scalars in
     lfn1, &                                  ! arrays in
     tbound2, &                               ! scalars out 
-    tend,ros, &                               ! arrays out        
+    tend,ros_tmp, &                               ! arrays out        
     fp &
 )
 

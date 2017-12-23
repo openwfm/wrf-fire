@@ -444,6 +444,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             grid%fuel_frac_burnt,                         &
+            grid%lfn_old,                                 &
+            grid%tign_g_old,                              &
             grid%lfn_out,                                 & ! work - one timestep    
             grid%avg_fuel_frac,                           & ! out redundant arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
@@ -548,6 +550,8 @@ subroutine sfire_driver_phys (ifun,    &
     lfn,tign,fuel_frac,                           & ! state arrays, fire grid
     fire_area,                                    & ! redundant state, fire grid
     fuel_frac_burnt,                              & 
+    lfn_old,                                      & ! level set function beginning of time step    
+    tign_g_old,                                   & ! tign at the beginning of time step    
     lfn_out,                                      & ! out level set function    
     avg_fuel_frac,                                &
     grnhfx,grnqfx,canhfx,canqfx,                  & ! out redundant arrays, atm grid  
@@ -640,7 +644,9 @@ real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
 
 real, intent(out), dimension(ifms:ifme, jfms:jfme)::  &
     fire_area, &                               ! fraction of each cell burning
-    fuel_frac_burnt
+    fuel_frac_burnt, &
+    lfn_old, &
+    tign_g_old                         
 
 real, intent(out), dimension(ims:ime, jms:jme):: &  ! redundant arrays, for display purposes only (atm grid)
     avg_fuel_frac,                               &  ! average fuel fraction
@@ -935,8 +941,7 @@ do ij=1,num_tiles
         endif
      endif
 
-    elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
- 
+    elseif(ifun.eq.3)then 
       if(use_atm_vars)then                                  
      
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,z0,'z0',id)
@@ -945,6 +950,7 @@ do ij=1,num_tiles
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,ph,'ph_2',id)
         call write_array_m3(its,ite,kts,kde,jts,jte,ims,ime,kms,kme,jms,jme,phb,'phb',id)
         
+ ! interpolate winds to the fire grid
         if(fire_wind_log_interp.eq.4)then
           call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,z0,'driver_phys:z0')
           call interpolate_atm2fire(id,                     & ! flag for debug output
@@ -1027,6 +1033,12 @@ do ij=1,num_tiles
     endif
 
       
+    do j=jds,jde
+        do i=ids,ide
+              lfn_old(i,j)=lfn(i,j)
+              tign_g_old(i,j)=tign(i,j)
+        enddo
+    enddo
 
     call sfire_model (id,ifun,restart,replay,  &
         run_fuel_moisture,                      & ! if fuel moisture needs to be updated
