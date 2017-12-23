@@ -1033,8 +1033,8 @@ do ij=1,num_tiles
     endif
 
       
-    do j=jds,jde
-        do i=ids,ide
+    do j=jfts,jfte
+        do i=ifts,ifte
               lfn_old(i,j)=lfn(i,j)
               tign_g_old(i,j)=tign(i,j)
         enddo
