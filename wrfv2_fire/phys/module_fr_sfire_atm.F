@@ -896,6 +896,59 @@ do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
                emis=bc2  (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_bc2 ) = t_chem(p_bc2 ) + emis                         ! add to total
                chem(i,k1,j,p_bc2  )=chem(i,k1,j,p_bc2  )+emis*conv
+
+               emis=sulf  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_sulf ) = t_chem(p_sulf ) + emis                         ! add to total
+               chem(i,k1,j,p_sulf  )=chem(i,k1,j,p_sulf  )+emis*conv
+
+               emis=dms  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dms ) = t_chem(p_dms ) + emis                         ! add to total
+               chem(i,k1,j,p_dms  )=chem(i,k1,j,p_dms  )+emis*conv
+
+               emis=msa  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_msa ) = t_chem(p_msa ) + emis                         ! add to total
+               chem(i,k1,j,p_msa  )=chem(i,k1,j,p_msa  )+emis*conv
+
+               emis=dust_1  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_1 ) = t_chem(p_dust_1 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_1  )=chem(i,k1,j,p_dust_1  )+emis*conv
+
+               emis=dust_2  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_2 ) = t_chem(p_dust_2 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_2  )=chem(i,k1,j,p_dust_2  )+emis*conv
+
+               emis=dust_3  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_3 ) = t_chem(p_dust_3 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_3  )=chem(i,k1,j,p_dust_3  )+emis*conv
+
+               emis=dust_4 (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_4 ) = t_chem(p_dust_4 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_4  )=chem(i,k1,j,p_dust_4  )+emis*conv
+
+               emis=dust_5  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_5 ) = t_chem(p_dust_5 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_5  )=chem(i,k1,j,p_dust_5  )+emis*conv
+
+               emis=seas_1  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_seas_1 ) = t_chem(p_seas_1 ) + emis                         ! add to total
+               chem(i,k1,j,p_seas_1  )=chem(i,k1,j,p_seas_1  )+emis*conv
+
+               emis=seas_2  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_seas_2 ) = t_chem(p_seas_2 ) + emis                         ! add to total
+               chem(i,k1,j,p_seas_2  )=chem(i,k1,j,p_seas_2  )+emis*conv
+
+               emis=seas_3  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_seas_3 ) = t_chem(p_seas_3 ) + emis                         ! add to total
+               chem(i,k1,j,p_seas_3  )=chem(i,k1,j,p_seas_3  )+emis*conv
+
+               emis=seas_4  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_seas_4 ) = t_chem(p_seas_4 ) + emis                         ! add to total
+               chem(i,k1,j,p_seas_4  )=chem(i,k1,j,p_seas_4  )+emis*conv
+
+               emis=p10  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_p10 ) = t_chem(p_p10 ) + emis                         ! add to total
+               chem(i,k1,j,p_p10  )=chem(i,k1,j,p_p10  )+emis*conv
+
 #endif
                if (num_tracer >0)then
 
