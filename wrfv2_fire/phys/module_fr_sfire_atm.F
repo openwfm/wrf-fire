@@ -66,7 +66,20 @@ p_isopr, &
 p_macr, &
 p_mek, &
 p_mvk, &
-p_smoke   ! tracer smoke exists only with CHEM
+p_smoke, &   ! tracer smoke exists only with CHEM
+p_sulf, &
+p_dms, &
+p_msa, &
+p_dust_1, &
+p_dust_2, &
+p_dust_3, &
+p_dust_4, &
+p_dust_5, &
+p_seas_1, &
+p_seas_2, &
+p_seas_3, &
+p_seas_4, &
+p_p10 
 #endif
 
 USE module_state_description, only: &
@@ -136,6 +149,19 @@ macr=0., &
 mek=0., &
 mvk=0., &
 smoke=0., &
+sulf=0., &
+dms=0., &
+msa=0., &
+dust_1=0., &
+dust_2=0., &
+dust_3=0., &
+dust_4=0., &
+dust_5=0., &
+seas_1=0., &
+seas_2=0., &
+seas_3=0., &
+seas_4=0., &
+p10=0., &
 tr17_1=0., &
 tr17_2=0., &
 tr17_3=0., &
@@ -226,6 +252,19 @@ macr, &
 mek, &
 mvk, &
 smoke, &
+sulf, &
+dms, &
+msa, &
+dust_1, &
+dust_2, &
+dust_3, &
+dust_4, &
+dust_5, &
+seas_1, &
+seas_2, &
+seas_3, &
+seas_4, &
+p10, &
 tr17_1, &
 tr17_2, &
 tr17_3, &
@@ -305,6 +344,19 @@ call wrf_dm_bcast_real(macr, nfuelcats)
 call wrf_dm_bcast_real(mek, nfuelcats)
 call wrf_dm_bcast_real(mvk, nfuelcats)
 call wrf_dm_bcast_real(smoke, nfuelcats)
+call wrf_dm_bcast_real(sulf, nfuelcats)
+call wrf_dm_bcast_real(dms, nfuelcats)
+call wrf_dm_bcast_real(msa, nfuelcats)
+call wrf_dm_bcast_real(dust_1, nfuelcats)
+call wrf_dm_bcast_real(dust_2, nfuelcats)
+call wrf_dm_bcast_real(dust_3, nfuelcats)
+call wrf_dm_bcast_real(dust_4, nfuelcats)
+call wrf_dm_bcast_real(dust_5, nfuelcats)
+call wrf_dm_bcast_real(seas_1, nfuelcats)
+call wrf_dm_bcast_real(seas_2, nfuelcats)
+call wrf_dm_bcast_real(seas_3, nfuelcats)
+call wrf_dm_bcast_real(seas_4, nfuelcats)
+call wrf_dm_bcast_real(p10, nfuelcats) 
 call wrf_dm_bcast_real(tr17_1, nfuelcats)
 call wrf_dm_bcast_real(tr17_2, nfuelcats)
 call wrf_dm_bcast_real(tr17_3, nfuelcats)
@@ -378,7 +430,7 @@ real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate bur
 #ifdef WRF_CHEM
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
 real, dimension(num_chem) ::a_chem,g_chem  ! concentration in ground level 1 
-integer, parameter:: chem_np=46
+integer, parameter:: chem_np=59
 integer:: chem_pointers(chem_np)
 character(len=8)::chem_names(chem_np)
 #endif
@@ -446,7 +498,20 @@ p_isopr, &
 p_macr, &
 p_mek, &
 p_mvk, &
-p_smoke /)
+p_smoke, &
+p_sulf, &
+p_dms, &
+p_msa, &
+p_dust_1, &
+p_dust_2, &
+p_dust_3, &
+p_dust_4, &
+p_dust_5, &
+p_seas_1, &
+p_seas_2, &
+p_seas_3, &
+p_seas_4, &
+p_p10 /)
 
 chem_names= (/ &
 'co      ',  &
@@ -495,7 +560,21 @@ chem_names= (/ &
 'macr    ', &
 'mek     ', &
 'mvk     ', &
-'smoke   ' /)
+'smoke   ', &
+'sulf    ', &
+'dms     ', &
+'msa     ', &
+'dust_1  ', &
+'dust_2  ', &
+'dust_3  ', &
+'dust_4  ', &
+'dust_5  ', &
+'seas_1  ', &
+'seas_2  ', &
+'seas_3  ', &
+'seas_4  ', &
+'p10     ' /)
+
 
 call check_pointers('chem',chem,chem_names,chem_pointers)
 #endif
