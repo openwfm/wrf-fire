@@ -385,13 +385,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 #include "HALO_FIRE_LFN.inc"
 #include "HALO_FIRE_TIGN.inc"
             endif
-            write(msg,'(a,i4,a,i4)') 'chem_opt=', config_flags%chem_opt, &
-               ' tracer_opt=',config_flags%tracer_opt
-            call message(msg)
-            if(config_flags%chem_opt>0 .or. config_flags%tracer_opt > 0)then
-                ! need reading fuel categories first
-                call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
-            endif
 
         elseif(fire_ifun.eq.3)then
 !           halo exchange on atm winds and geopotential, width 1 for interpolation
@@ -419,6 +412,17 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         endif
        endif
 #endif
+
+        if(fire_ifun.eq.2)then
+            write(msg,'(a,i4,a,i4)') 'chem_opt=', config_flags%chem_opt, &
+               ' tracer_opt=',config_flags%tracer_opt
+            call message(msg)
+            if(config_flags%chem_opt>0 .or. config_flags%tracer_opt > 0)then
+                ! need reading fuel categories first
+                call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
+            endif
+        endif
+
         ! print *,'dt: ',dt,grid%dt,' diff ', dt-grid%dt
         ! need domain by 1 smaller, in last row.col winds are not set properly
         call sfire_driver_phys ( &
