@@ -385,6 +385,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 #include "HALO_FIRE_LFN.inc"
 #include "HALO_FIRE_TIGN.inc"
             endif
+            write(msg,'(a,i4,a,i4)') 'chem_opt=', config_flags%chem_opt, &
+               ' tracer_opt=',config_flags%tracer_opt
+            call message(msg)
             if(config_flags%chem_opt>0 .or. config_flags%tracer_opt > 0)then
                 ! need reading fuel categories first
                 call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
