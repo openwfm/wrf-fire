@@ -2152,19 +2152,19 @@ intrinsic max,min,sqrt,nint,tiny,huge
                 grad=0.
             end select 
                 
-!$OMP CRITICAL(SFIRE_CORE_CRIT)
-            inquire(file="results.txt", exist=exist)
-            if (exist) then
-                open(999,file="results.txt",action="write",status="old",position="append")
-            else
-                open(999,file="results.txt",action="write",status="new")
-            end if
-            write(999,'(a,f7.2,a,2i4,9(a,f7.2))')'-> t= ',t,' - domain= ',i,j,' - Ux= ',Ux,' - diffLx= ',diffLx, &
-                        ' - diffRx= ',diffRx,' - diff2x= ',diff2x,' - Uy= ',Uy, &
-                        ' - diffLy= ',diffLy,' - diffRy= ',diffRy,' - diff2y= ',diff2y, &
-                        ' - grad= ',grad
-            close(999)
-!$OMP END CRITICAL(SFIRE_CORE_CRIT)      
+!!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            !inquire(file="results.txt", exist=exist)
+            !if (exist) then
+            !    open(999,file="results.txt",action="write",status="old",position="append")
+            !else
+            !    open(999,file="results.txt",action="write",status="new")
+            !end if
+            !write(999,'(a,f7.2,a,2i4,9(a,f7.2))')'-> t= ',t,' - domain= ',i,j,' - Ux= ',Ux,' - diffLx= ',diffLx, &
+            !            ' - diffRx= ',diffRx,' - diff2x= ',diff2x,' - Uy= ',Uy, &
+            !            ' - diffLy= ',diffLy,' - diffRy= ',diffRy,' - diff2y= ',diff2y, &
+            !            ' - grad= ',grad
+            !close(999)
+!!$OMP END CRITICAL(SFIRE_CORE_CRIT)      
 
             ! get rate of spread
             te = -rr*grad   ! normal term !!! grad/2?

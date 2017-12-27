@@ -942,7 +942,15 @@ do ij=1,num_tiles
      endif
 
     elseif(ifun.eq.3)then 
-      if(use_atm_vars)then                                  
+      
+    do j=jfts,jfte
+        do i=ifts,ifte
+              lfn_old(i,j)=lfn(i,j)
+              tign_g_old(i,j)=tign(i,j)
+        enddo
+    enddo
+
+        if(use_atm_vars)then                                  
      
         call write_array_m(its,ite,jts,jte,ims,ime,jms,jme,z0,'z0',id)
         call write_array_m3(its,ite1,kts,kde-1,jts,jte,ims,ime,kms,kme,jms,jme,u,'u_2',id)
@@ -1030,15 +1038,7 @@ do ij=1,num_tiles
       endif
 
       call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fmc_g,'driver_phys:fmc_g')        
-    endif
-
-      
-    do j=jfts,jfte
-        do i=ifts,ifte
-              lfn_old(i,j)=lfn(i,j)
-              tign_g_old(i,j)=tign(i,j)
-        enddo
-    enddo
+    endif 
 
     call sfire_model (id,ifun,restart,replay,  &
         run_fuel_moisture,                      & ! if fuel moisture needs to be updated
