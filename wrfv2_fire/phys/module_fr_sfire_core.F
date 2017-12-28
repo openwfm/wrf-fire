@@ -2154,13 +2154,13 @@ intrinsic max,min,sqrt,nint,tiny,huge
             
             if ((i.eq.167) .and. (j.eq.89)) then 
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-            inquire(file="results.txt", exist=exist)
-            if (exist) then
-                open(999,file="results.txt",action="write",status="old",position="append")
-            else
-                open(999,file="results.txt",action="write",status="new")
-            end if
-            write(999,'(a,f7.2,9(a,f7.2))')'-> t= ',t,' - diffLx= ',diffLx, &
+            !inquire(file="results.txt", exist=exist)
+            !if (exist) then
+            !    open(999,file="results.txt",action="write",status="old",position="append")
+            !else
+            !    open(999,file="results.txt",action="write",status="new")
+            !end if
+            write(6,'(a,f7.2,20(a,f10.5))')'-> t= ',t,' - diffLx= ',diffLx, &
                 ' - diffRx= ',diffRx,' - diffLy= ',diffLy,' - diffRy= ',diffRy, &
                 ' - nvx= ',nvx,' - nvy= ',nvy,' - r_0= ',ros_back, &
                 ' - uf= ',fp%vx(i,j),' - vf=',fp%vy(i,j),' - r_w= ',ros_wind, &
@@ -2170,7 +2170,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
             !            ' - diffRx= ',diffRx,' - diff2x= ',diff2x,' - Uy= ',Uy, &
             !            ' - diffLy= ',diffLy,' - diffRy= ',diffRy,' - diff2y= ',diff2y, &
             !            ' - grad= ',grad
-            close(999)
+            !close(999)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)      
             endif
 
