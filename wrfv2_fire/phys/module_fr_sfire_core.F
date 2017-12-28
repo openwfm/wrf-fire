@@ -2108,7 +2108,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
             ! get rate of spread from wind speed and slope
                 
             if ((i.eq.167) .and. (j.eq.89)) then                
-                write(6,'(a,f7.2)')'-> Before calling fire_ros in timestep t= ',t
+                write(6,'(a,f7.2)')'-> tend_ls: Before calling fire_ros in timestep t= ',t
             endif
             call fire_ros(ros_back,ros_wind,ros_slope, &
             nvx,nvy,i,j,fp,ierrx,msg2)
