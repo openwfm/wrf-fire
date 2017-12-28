@@ -1772,6 +1772,9 @@ if (ipart==1)then
     ! outside of the tile are needed.
     id1 = id  ! for debug prints
     if(id1.ne.0)id1=id1+1000
+
+    write(6,'(a,f7.2)')'-> prop_ls: Before calling tend_ls in timestep t= ',ts
+
     call  tend_ls( id1, &
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
     IMTS,IMTE,JMTS,JMTE, &                   ! memory dims for tend 
@@ -2107,9 +2110,6 @@ intrinsic max,min,sqrt,nint,tiny,huge
 
             ! get rate of spread from wind speed and slope
                 
-            if ((i.eq.167) .and. (j.eq.89)) then                
-                write(6,'(a,f7.2)')'-> tend_ls: Before calling fire_ros in timestep t= ',t
-            endif
             call fire_ros(ros_back,ros_wind,ros_slope, &
             nvx,nvy,i,j,fp,ierrx,msg2)
             nerr = nerr + ierrx

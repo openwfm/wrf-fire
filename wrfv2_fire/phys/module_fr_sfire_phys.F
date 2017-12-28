@@ -1586,7 +1586,7 @@ if (excess > 0.)then
 endif
 
 if ((i.eq.167) .and. (j.eq.89)) then
-write(6,'(20(a,f10.5))')'-> speed= ',speed,' - tanphi= ',tanphi,' - r_0= ',ros_back, &
+write(6,'(2(a,i4),20(a,f10.5))')'-> fire_ros_cawfe: i=',i,' j=',j,' speed= ',speed,' - tanphi= ',tanphi,' - r_0= ',ros_back, &
                 ' - uf= ',fp%vx(i,j),' - vf=',fp%vy(i,j),' - r_w= ',ros_wind, &
                 ' - dzdx= ',fp%dzdxf(i,j),' - dzdy= ',fp%dzdyf(i,j), &
                 ' - r_s= ',ros_slope,' - r= ',ros
