@@ -2151,20 +2151,28 @@ intrinsic max,min,sqrt,nint,tiny,huge
             case default
                 grad=0.
             end select 
-                
-!!$OMP CRITICAL(SFIRE_CORE_CRIT)
-            !inquire(file="results.txt", exist=exist)
-            !if (exist) then
-            !    open(999,file="results.txt",action="write",status="old",position="append")
-            !else
-            !    open(999,file="results.txt",action="write",status="new")
-            !end if
+            
+            if ((i.eq.167) .and. (j.eq.89)) then 
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+            inquire(file="results.txt", exist=exist)
+            if (exist) then
+                open(999,file="results.txt",action="write",status="old",position="append")
+            else
+                open(999,file="results.txt",action="write",status="new")
+            end if
+            write(999,'(a,f7.2,9(a,f7.2))')'-> t= ',t,' - diffLx= ',diffLx, &
+                ' - diffRx= ',diffRx,' - diffLy= ',diffLy,' - diffRy= ',diffRy, &
+                ' - nvx= ',nvx,' - nvy= ',nvy,' - r_0= ',ros_back, &
+                ' - uf= ',fp%vx(i,j),' - vf=',fp%vy(i,j),' - r_w= ',ros_wind, &
+                ' - dzdx= ',fp%dzdxf(i,j),' - dzdy= ',fp%dzdyf(i,j), &
+                ' - r_s= ',ros_slope,' - r= ',ros
             !write(999,'(a,f7.2,a,2i4,9(a,f7.2))')'-> t= ',t,' - domain= ',i,j,' - Ux= ',Ux,' - diffLx= ',diffLx, &
             !            ' - diffRx= ',diffRx,' - diff2x= ',diff2x,' - Uy= ',Uy, &
             !            ' - diffLy= ',diffLy,' - diffRy= ',diffRy,' - diff2y= ',diff2y, &
             !            ' - grad= ',grad
-            !close(999)
-!!$OMP END CRITICAL(SFIRE_CORE_CRIT)      
+            close(999)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)      
+            endif
 
             ! get rate of spread
             te = -rr*grad   ! normal term !!! grad/2?
