@@ -2106,7 +2106,10 @@ intrinsic max,min,sqrt,nint,tiny,huge
             ! speed =  vx(i,j)*nvx + vy(i,j)*nvy
 
             ! get rate of spread from wind speed and slope
-
+                
+            if ((i.eq.167) .and. (j.eq.89)) then                
+                write(6,'(a,f7.2)')'-> Before calling fire_ros in timestep t= ',t
+            endif
             call fire_ros(ros_back,ros_wind,ros_slope, &
             nvx,nvy,i,j,fp,ierrx,msg2)
             nerr = nerr + ierrx
@@ -2152,7 +2155,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
                 grad=0.
             end select 
             
-            if ((i.eq.167) .and. (j.eq.89)) then 
+            !if ((i.eq.167) .and. (j.eq.89)) then 
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
             !inquire(file="results.txt", exist=exist)
             !if (exist) then
@@ -2160,19 +2163,20 @@ intrinsic max,min,sqrt,nint,tiny,huge
             !else
             !    open(999,file="results.txt",action="write",status="new")
             !end if
-            write(6,'(a,f7.2,20(a,f10.5))')'-> t= ',t,' - diffLx= ',diffLx, &
-                ' - diffRx= ',diffRx,' - diffLy= ',diffLy,' - diffRy= ',diffRy, &
-                ' - nvx= ',nvx,' - nvy= ',nvy,' - r_0= ',ros_back, &
-                ' - uf= ',fp%vx(i,j),' - vf=',fp%vy(i,j),' - r_w= ',ros_wind, &
-                ' - dzdx= ',fp%dzdxf(i,j),' - dzdy= ',fp%dzdyf(i,j), &
-                ' - r_s= ',ros_slope,' - r= ',ros
+            !write(6,'(a,f7.2)')'-> t= ',t
+            !write(6,'(a,f7.2,20(a,f10.5))')'-> t= ',t,' - diffLx= ',diffLx, &
+            !    ' - diffRx= ',diffRx,' - diffLy= ',diffLy,' - diffRy= ',diffRy, &
+            !    ' - nvx= ',nvx,' - nvy= ',nvy,' - r_0= ',ros_back, &
+            !    ' - uf= ',fp%vx(i,j),' - vf=',fp%vy(i,j),' - r_w= ',ros_wind, &
+            !    ' - dzdx= ',fp%dzdxf(i,j),' - dzdy= ',fp%dzdyf(i,j), &
+            !    ' - r_s= ',ros_slope,' - r= ',ros
             !write(999,'(a,f7.2,a,2i4,9(a,f7.2))')'-> t= ',t,' - domain= ',i,j,' - Ux= ',Ux,' - diffLx= ',diffLx, &
             !            ' - diffRx= ',diffRx,' - diff2x= ',diff2x,' - Uy= ',Uy, &
             !            ' - diffLy= ',diffLy,' - diffRy= ',diffRy,' - diff2y= ',diff2y, &
             !            ' - grad= ',grad
             !close(999)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)      
-            endif
+            !endif
 
             ! get rate of spread
             te = -rr*grad   ! normal term !!! grad/2?

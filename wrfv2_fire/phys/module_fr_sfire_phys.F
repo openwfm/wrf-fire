@@ -1585,6 +1585,12 @@ if (excess > 0.)then
     ros_slope = ros_slope - excess*ros_slope/(ros_wind+ros_slope)
 endif
 
+if ((i.eq.167) .and. (j.eq.89)) then
+write(6,'(20(a,f10.5))')'-> speed= ',speed,' - tanphi= ',tanphi,' - r_0= ',ros_back, &
+                ' - uf= ',fp%vx(i,j),' - vf=',fp%vy(i,j),' - r_w= ',ros_wind, &
+                ' - dzdx= ',fp%dzdxf(i,j),' - dzdy= ',fp%dzdyf(i,j), &
+                ' - r_s= ',ros_slope,' - r= ',ros
+endif
 
 !     ... to rescale to veloc. carried by model, mult x (svel*snorm(1,3))= .1
 !jm: huh ???
