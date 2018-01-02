@@ -1460,6 +1460,16 @@ endif
 call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
 speed,tanphi,cor_wind,cor_slope,i,j,fp,ierrx,msg)
 
+if ((i.eq.167) .and. (j.eq.89)) then
+        write(6,'(2(a,i4),20(a,f10.5))')'-> fire_ros: i=',i,' j=',j, &
+                ' - nvx= ',nvx,' - nvy= ',nvy, &
+                ' - uf= ',fp%vx(i,j),' - vf=',fp%vy(i,j), &
+                ' - speed= ',speed,' - r_w= ',ros_wind, &
+                ' - dzdx= ',fp%dzdxf(i,j),' - dzdy= ',fp%dzdyf(i,j), &
+                ' - tanphi= ',tanphi,' - r_s= ',ros_slope, &
+                ' - r_0= ',ros_back
+endif
+
 end subroutine fire_ros
 
 !

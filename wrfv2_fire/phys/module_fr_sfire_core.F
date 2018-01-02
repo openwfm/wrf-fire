@@ -2156,7 +2156,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
             end select 
             
             !if ((i.eq.167) .and. (j.eq.89)) then 
-!$OMP CRITICAL(SFIRE_CORE_CRIT)
+!!$OMP CRITICAL(SFIRE_CORE_CRIT)
             !inquire(file="results.txt", exist=exist)
             !if (exist) then
             !    open(999,file="results.txt",action="write",status="old",position="append")
@@ -2175,7 +2175,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
             !            ' - diffLy= ',diffLy,' - diffRy= ',diffRy,' - diff2y= ',diff2y, &
             !            ' - grad= ',grad
             !close(999)
-!$OMP END CRITICAL(SFIRE_CORE_CRIT)      
+!!$OMP END CRITICAL(SFIRE_CORE_CRIT)      
             !endif
 
             ! get rate of spread

@@ -943,12 +943,12 @@ do ij=1,num_tiles
 
     elseif(ifun.eq.3)then 
       
-    do j=jfts,jfte
-        do i=ifts,ifte
-              lfn_old(i,j)=lfn(i,j)
-              tign_g_old(i,j)=tign(i,j)
-        enddo
-    enddo
+    !do j=jfts,jfte
+    !    do i=ifts,ifte
+    !          lfn_old(i,j)=lfn(i,j)
+    !          tign_g_old(i,j)=tign(i,j)
+    !    enddo
+    !enddo
 
         if(use_atm_vars)then                                  
      
@@ -1053,7 +1053,7 @@ do ij=1,num_tiles
         fxlong,fxlat,                           & ! fire mesh coordinates
         fire_hfx,                               & ! given heat flux
         tign_in,                                & ! given igntion time
-        lfn,lfn_out,tign,fuel_frac,             & ! state: level function, ign time, fuel left
+        lfn,lfn_out,lfn_old,tign,tign_g_old,fuel_frac,   & ! state: level function, ign time, fuel left
         fire_area,                              & ! output: fraction of cell burning
         fuel_frac_burnt,                        & ! output: fuel fraction burned in this step
         fgrnhfx,fgrnqfx,                        & ! output: heat fluxes

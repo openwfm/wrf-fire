@@ -27,7 +27,7 @@ subroutine sfire_model (                    &
     coord_xf,coord_yf,                      & ! fire mesh coordinates
     fire_hfx,                               & ! input: given heat flux, or set inside
     tign_in,                                & ! ignition time, if given
-    lfn,lfn_out,tign,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
+    lfn,lfn_out,lfn_old,tign,tign_g_old,fuel_frac,fire_area,   & ! state: level function, ign time, fuel left, area burning
     fuel_frac_burnt,                        & ! output: fuel fraction burnt in this timestep
     fgrnhfx,fgrnqfx,                          & ! output: heat fluxes
     ros,flineint,flineint2,                 & ! diagnostic variables
@@ -112,8 +112,10 @@ REAL, INTENT(inout), dimension(ifms:ifme,jfms:jfme):: &
 
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     fire_area, &                            ! fraction of each cell burning
-    fuel_frac_burnt                         ! fuel fraction burned in this timestep
-    
+    fuel_frac_burnt, &                      ! fuel fraction burned in this timestep
+    lfn_old, &
+    tign_g_old    
+
 ! output
 REAL, INTENT(out), dimension(ifms:ifme,jfms:jfme):: &
     lfn_out, &                              !                              
@@ -300,7 +302,13 @@ elseif (ifun.eq.4) then  ! do the timestep
 !   lfn does not change, tign has no halos
 
     if(.not. freeze_fire)then
-      if(.not.replay) then    
+      if(.not.replay) then
+        do j=jfts,jfte
+             do i=ifts,ifte
+                  lfn_old(i,j)=lfn(i,j)
+                  tign_g_old(i,j)=tign(i,j)
+             enddo
+        enddo    
         call prop_ls(id,1,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
