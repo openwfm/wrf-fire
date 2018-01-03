@@ -303,12 +303,12 @@ elseif (ifun.eq.4) then  ! do the timestep
 
     if(.not. freeze_fire)then
       if(.not.replay) then
-        do j=jfts,jfte
-             do i=ifts,ifte
-                  lfn_old(i,j)=lfn(i,j)
-                  tign_g_old(i,j)=tign(i,j)
-             enddo
-        enddo    
+        !do j=jfts,jfte
+        !     do i=ifts,ifte
+        !          lfn_old(i,j)=lfn(i,j)
+        !          tign_g_old(i,j)=tign(i,j)
+        !     enddo
+        !enddo    
         call prop_ls(id,1,     &
         ifds,ifde,jfds,jfde,                      & ! fire domain dims - the whole domain
         ifms,ifme,jfms,jfme,                      &
@@ -317,6 +317,12 @@ elseif (ifun.eq.4) then  ! do the timestep
         time_start,dt,fdx,fdy,tbound,  &
         lfn,lfn_out,tign,ros, fp &
         ) 
+        do j=jfts,jfte
+             do i=ifts,ifte
+                  lfn_old(i,j)=lfn(i,j)
+                  tign_g_old(i,j)=tign(i,j)
+             enddo
+        enddo    
       else
         do j=jfts,jfte
           do i=ifts,ifte
