@@ -2058,15 +2058,16 @@ type(fire_params),intent(in)::fp
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
    ros_back,ros_wind,ros_slope,advx,advy, &
-   scale,nvx,nvy,speed,Ux,Uy
+   scale,nvx,nvy,speed,Ux,Uy,lfnm
 integer::i,j,itso,iteo,jtso,jteo,ierrx,nerr
 character(len=128)msg,msg2
 logical :: exist
 
 ! constants
 real, parameter:: eps=epsilon(0.0)
+real, parameter:: tol=sqrt(eps)
 !intrinsic epsilon
-real, parameter:: zero=0.,one=1.,tol=100*eps, &
+real, parameter:: zero=0.,one=1.,&
     safe=2.,rmin=safe*tiny(zero),rmax=huge(zero)/safe
 
 
@@ -2112,6 +2113,14 @@ intrinsic max,min,sqrt,nint,tiny,huge
 
             ! normal direction, from central differences
             scale=sqrt(diffCx*diffCx+diffCy*diffCy+eps)
+            if(.not. lfn(i,j) < 0.)then ! diff small relative to lfn, but ignore if in fire area already
+                lfnm=max(abs(lfn(i+1,j)),abs(lfn(i-1,j)),abs(lfn(i,j-1)),abs(lfn(i,j+1)))
+                if(scale<lfnm*tol)then
+!                   write(msg,     ) warning about loss of acuracy, normal direction not meaningful
+!                    call message(msg,level=3)
+                endif
+            endif
+
             nvx=diffCx/scale
             nvy=diffCy/scale
             
@@ -2227,7 +2236,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
                    tend,'tend_ls: tend out')
 
     ! the final CFL bound
-    tbound = 1/(tbound+tol)
+    tbound = 1/(tbound+rmin)
 
 end subroutine tend_ls
 
