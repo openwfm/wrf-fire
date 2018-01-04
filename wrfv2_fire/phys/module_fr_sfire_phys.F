@@ -1462,6 +1462,7 @@ speed,tanphi,cor_wind,cor_slope,i,j,fp,ierrx,msg)
 
 if ((i.eq.167) .and. (j.eq.89)) then
         write(6,'(2(a,i4),20(a,f10.5))')'-> fire_ros: i=',i,' j=',j, &
+                ' - propx= ',propx,' - propy= ',propy, &
                 ' - nvx= ',nvx,' - nvy= ',nvy, &
                 ' - uf= ',fp%vx(i,j),' - vf=',fp%vy(i,j), &
                 ' - speed= ',speed,' - r_w= ',ros_wind, &

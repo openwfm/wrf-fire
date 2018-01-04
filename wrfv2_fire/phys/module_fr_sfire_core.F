@@ -1618,7 +1618,7 @@ subroutine prop_ls( id, &                                ! for debug
                 its,ite,jts,jte, &                       ! tile dims
                 ts,dt,dx,dy,     &                       ! scalars in
                 tbound,          &                       ! scalars out
-                lfn_in,lfn_out,tign,ros,  &              ! arrays inout          
+                lfn_in,lfn_out,lfn_old,tign,tign_g_old,ros,  &              ! arrays inout          
                 fp               &
                    )
 implicit none
@@ -1694,7 +1694,7 @@ implicit none
 
 integer,intent(in)::id,ipart,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe 
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
-real,dimension(ims:ime,jms:jme),intent(out)::lfn_out,ros
+real,dimension(ims:ime,jms:jme),intent(out)::lfn_out,lfn_old,tign_g_old,ros
 real,intent(in)::dx,dy,ts,dt
 real,intent(out)::tbound
 type(fire_params),intent(in)::fp
@@ -1773,7 +1773,7 @@ if (ipart==1)then
     id1 = id  ! for debug prints
     if(id1.ne.0)id1=id1+1000
 
-    write(6,'(a,f7.2)')'-> prop_ls: Before calling tend_ls in timestep t= ',ts
+    write(6,'(a,f7.2,a,f15.7)')'-> prop_ls: Before calling tend_ls in timestep t= ',ts,' - lfn_in(167,89)=',lfn_in(167,89)
 
     call  tend_ls( id1, &
     ims,ime,jms,jme, &                       ! memory dims for lfn_in
@@ -1788,7 +1788,14 @@ if (ipart==1)then
     tbound, &                                ! scalars out 
     tend, ros, &                              ! arrays out        
     fp         &                             ! params
-)
+    )
+
+    do j=jms,jme
+        do i=ims,ime
+             lfn_old(i,j)=lfn_in(i,j)
+             tign_g_old(i,j)=tign(i,j)
+        enddo
+    enddo
 
 #ifdef DEBUG_OUT    
     call write_array_m(ihs,ihe,jhs,jhe,IMTS,IMTE,JMTS,JMTE,tend,'tend1',id)
@@ -2088,6 +2095,9 @@ intrinsic max,min,sqrt,nint,tiny,huge
     call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)
 #endif
     
+    write(6,'(10(a,f10.5))')'-> tend_ls: lfn(167,89)= ',lfn(167,89), &
+        ' - lfn(166,89)= ',lfn(166,89),' - lfn(168,89)=',lfn(168,89), &
+        ' - lfn(167,88)=',lfn(167,88),' - lfn(167,90)=',lfn(167,90)
     nerr=0
     tbound=0    
     do j=jnts,jnte
@@ -2099,11 +2109,22 @@ intrinsic max,min,sqrt,nint,tiny,huge
             diffLy = (lfn(i,j)-lfn(i,j-1))/dy
             diffCx = diffLx+diffRx   ! 	TWICE CENTRAL DIFFERENCE
             diffCy = diffLy+diffRy
-                
+
             ! normal direction, from central differences
             scale=sqrt(diffCx*diffCx+diffCy*diffCy+eps)
             nvx=diffCx/scale
             nvy=diffCy/scale
+            
+            if(i.eq.167.and.j.eq.89) then
+                 write(6,'(20(a,f20.10))')'-> tend_ls: lfn(167,89)= ',lfn(i,j), &
+                        ' - lfn(166,89)= ',lfn(i-1,j),' - lfn(168,89)=',lfn(i+1,j), &
+                        ' - lfn(167,88)=',lfn(i,j-1),' - lfn(167,90)=',lfn(i,j+1), &
+                        ' - diffRx(167,89)=',diffRx,' - diffLx(167,89)=',diffLx, &
+                        ' - diffRy(167,89)=',diffRy,' - diffLy(167,89)=',diffLy, &
+                        ' - diffCx(167,89)=',diffCx,' - diffCy(167,89)=',diffCy, &
+                        ' - scale(167,89)=',scale,' - nvx(167,89)=',nvx, &
+                        ' - nvy(167,89)=',nvy
+            endif               
 
             ! wind speed in direction of spread
             ! speed =  vx(i,j)*nvx + vy(i,j)*nvy

@@ -315,14 +315,14 @@ elseif (ifun.eq.4) then  ! do the timestep
         ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
         ifts,ifte,jfts,jfte,                      &
         time_start,dt,fdx,fdy,tbound,  &
-        lfn,lfn_out,tign,ros, fp &
+        lfn,lfn_out,lfn_old,tign,tign_g_old,ros, fp &
         ) 
-        do j=jfts,jfte
-             do i=ifts,ifte
-                  lfn_old(i,j)=lfn(i,j)
-                  tign_g_old(i,j)=tign(i,j)
-             enddo
-        enddo    
+        !do j=jfts,jfte
+        !     do i=ifts,ifte
+        !          lfn_old(i,j)=lfn(i,j)
+        !          tign_g_old(i,j)=tign(i,j)
+        !     enddo
+        !enddo    
       else
         do j=jfts,jfte
           do i=ifts,ifte
@@ -350,7 +350,7 @@ elseif (ifun.eq.5) then ! copy the result of timestep back to input
         ifps,ifpe,jfps,jfpe, &                ! patch - nodes owned by this process
         ifts,ifte,jfts,jfte,                      &
         time_start,dt,fdx,fdy,tbound,  &
-        lfn,lfn_out,tign,ros, fp &
+        lfn,lfn_out,lfn_old,tign,tign_g_old,ros, fp &
         ) 
       endif
     endif
