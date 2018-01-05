@@ -2116,24 +2116,24 @@ intrinsic max,min,sqrt,nint,tiny,huge
             if(.not. lfn(i,j) < 0.)then ! diff small relative to lfn, but ignore if in fire area already
                 lfnm=max(abs(lfn(i+1,j)),abs(lfn(i-1,j)),abs(lfn(i,j-1)),abs(lfn(i,j+1)))
                 if(scale<lfnm*tol)then
-!                   write(msg,     ) warning about loss of acuracy, normal direction not meaningful
-!                    call message(msg,level=3)
+                        write(msg,'(a)')'tend_ls: warning about loss of acuracy, normal direction not meaningful.'
+                        call warning(msg)
                 endif
             endif
 
             nvx=diffCx/scale
             nvy=diffCy/scale
             
-            if(i.eq.167.and.j.eq.89) then
-                 write(6,'(20(a,f20.10))')'-> tend_ls: lfn(167,89)= ',lfn(i,j), &
-                        ' - lfn(166,89)= ',lfn(i-1,j),' - lfn(168,89)=',lfn(i+1,j), &
-                        ' - lfn(167,88)=',lfn(i,j-1),' - lfn(167,90)=',lfn(i,j+1), &
-                        ' - diffRx(167,89)=',diffRx,' - diffLx(167,89)=',diffLx, &
-                        ' - diffRy(167,89)=',diffRy,' - diffLy(167,89)=',diffLy, &
-                        ' - diffCx(167,89)=',diffCx,' - diffCy(167,89)=',diffCy, &
-                        ' - scale(167,89)=',scale,' - nvx(167,89)=',nvx, &
-                        ' - nvy(167,89)=',nvy
-            endif               
+            !if(i.eq.167.and.j.eq.89) then
+            !     write(6,'(20(a,f20.10))')'-> tend_ls: lfn(167,89)= ',lfn(i,j), &
+            !            ' - lfn(166,89)= ',lfn(i-1,j),' - lfn(168,89)=',lfn(i+1,j), &
+            !            ' - lfn(167,88)=',lfn(i,j-1),' - lfn(167,90)=',lfn(i,j+1), &
+            !            ' - diffRx(167,89)=',diffRx,' - diffLx(167,89)=',diffLx, &
+            !            ' - diffRy(167,89)=',diffRy,' - diffLy(167,89)=',diffLy, &
+            !            ' - diffCx(167,89)=',diffCx,' - diffCy(167,89)=',diffCy, &
+            !            ' - scale(167,89)=',scale,' - nvx(167,89)=',nvx, &
+            !            ' - nvy(167,89)=',nvy
+            !endif               
 
             ! wind speed in direction of spread
             ! speed =  vx(i,j)*nvx + vy(i,j)*nvy
