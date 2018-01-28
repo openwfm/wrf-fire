@@ -269,7 +269,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     ! refinement r
     ir=grid%sr_x ! refinement ratio
     jr=grid%sr_y
-    write(msg,'(a,2i4)')'fire mesh refinement ratios', ir,jr
+    write(msg,981)'fire mesh refinement ratios', ir,jr
+981 format(a,2i4)
     call message(msg)
     if(ir.le.0.or.jr.le.0)then
         call crash('fire mesh refinement ratio must be positive')
