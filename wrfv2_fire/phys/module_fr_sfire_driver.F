@@ -359,6 +359,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         ! 5 = copy timestep output to input
         ! 6 = compute output fluxes
 
+        write(msg,'(a,i5,a)')'sfire_driver_em stage ',fire_ifun,' start'
+        call message(msg)
+
 #ifdef DM_PARALLEL
 
        if(fire_run)then
@@ -522,8 +525,11 @@ subroutine sfire_driver_em ( grid , config_flags                    &
      endif
                 
 
-      enddo
-    enddo
+    write(msg,'(a,i5,a)')'sfire_driver_em stage ',fire_ifun,' end'
+    call message(msg)
+
+    enddo  ! fire_ifun
+enddo    ! istep
 
     if(tsteps>0)call crash('sfire_driver_em: test run of uncoupled fire model completed')
     call time_end('sfire')
@@ -714,7 +720,7 @@ dyf=dy/jr
 
 
 !$OMP CRITICAL(SFIRE_DRIVER_CRIT)
-write(msg,'(a,i5)')'sfire_driver_phys stage ',ifun
+write(msg,'(a,i5,a)')'sfire_driver_phys stage ',ifun,' start'
 call message(msg)
 write(msg,'(a,2f15.6)')'atmosphere mesh step:',dx,dy
 call message(msg)
@@ -1221,6 +1227,9 @@ if(ifun.eq.6)then
     endif
 #endif
 endif
+
+write(msg,'(a,i5,a)')'sfire_driver_phys stage ',ifun,' end'
+call message(msg)
 
 end subroutine sfire_driver_phys
 

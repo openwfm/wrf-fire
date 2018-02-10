@@ -442,6 +442,8 @@ character(len=8)::tracer_names(tracer_np)
 
 !*** executable
 
+call message('add_fire_emissions start')
+
 !check mesh dimensions and domain dimensions
 call check_mesh_2dim(its,ite,jts,jte,ims,ime,jms,jme)
 call check_mesh_2dim(ifts,ifte,jtfs,jfte,ifms,ifme,jfms,jfme)
@@ -1091,6 +1093,8 @@ endif
 80 format(a,8a11)
 81 format(a,8e11.3)
 83 format(a30,a,g14.4,a,g14.4,a,a)
+
+call message('add_fire_emissions end')
 
 return
 
