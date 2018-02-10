@@ -1,0 +1,15 @@
+#!/bin/bash
+# Jan Mandel February 10 2018
+# put this file in the remore repository as hooks/update
+
+protected_branch='master'
+allowed_user='jmandel'
+user=$USER
+current_branch=`echo $1 | sed  's/^.*\///g'`
+
+if [ "$protected_branch" == "$current_branch" ] && [ $user != $allowed_user ]; then
+   echo $user push $current_branch not allowed
+   exit 1 # push will execute
+fi
+echo $user push $current_branch OK
+exit 0 # push will execute
