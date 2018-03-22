@@ -42,7 +42,9 @@ CONTAINS
     USE module_cumulus_driver, ONLY : cumulus_driver
     USE module_shallowcu_driver, ONLY : shallowcu_driver
     USE module_pbl_driver, ONLY : pbl_driver
-    USE module_fr_fire_driver_wrf, ONLY : fire_driver_em_step
+    ! TMG: Replace with SFIRE module & subr
+    ! SFIRE: Subr for advancing the SFIRE model 
+    USE module_fr_sfire_driver_wrf, ONLY : sfire_driver_em_step
     USE module_fddagd_driver, ONLY : fddagd_driver
     USE module_em, ONLY : init_zero_tendency
     USE module_force_scm
@@ -1012,28 +1014,20 @@ BENCH_START(pbl_driver_tim)
 BENCH_END(pbl_driver_tim)
 
 !*****
-! fire 
-
+! SFIRE 
 ! Jan Mandel's call to SFIRE
 
       IF ((grid%sr_x > 0 .OR. grid%sr_y > 0) .AND. config_flags%ifire == 2) THEN
 
 BENCH_START(fire_driver_tim)
         if(config_flags%ifire.eq.2)then 
-            ! initialization moved to start_em:start_domain_em
-!            if(grid%initestep.eq.1) &
-!            call fire_driver_em_init (  grid , config_flags    &
-!            ,ids,ide, kds,kde, jds,jde                              &
-!            ,ims,ime, kms,kme, jms,jme                              &
-!            ,ips,ipe, kps,kpe, jps,jpe  )
-            ! one timestep of the fire model
-            call fire_driver_em_step (  grid , config_flags    &
+            call sfire_driver_em_step (  grid , config_flags    &
             ,ids,ide, kds,kde, jds,jde                              &
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,grid%rho,grid%z_at_w,dz8w)
         endif
-
+        
 BENCH_END(fire_driver_tim)
        ENDIF
 
