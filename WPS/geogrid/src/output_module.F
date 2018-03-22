@@ -90,7 +90,7 @@ module output_module
 #ifdef _GEOGRID
       character (len=128) :: output_flag
 #endif
-  
+      !print*, 'before init_output_fields'
       call init_output_fields(nest_number, grid_type, &
                               start_dom_1, end_dom_1, start_dom_2, end_dom_2, &
                               start_patch_1, end_patch_1, start_patch_2, end_patch_2, &
@@ -273,21 +273,19 @@ module output_module
 #endif
             call mprintf((istatus /= 0), ERROR, 'Error in ext_pkg_open_for_write_begin.')
          end if
-   
+
          do i=1,NUM_FIELDS
    
             allocate(fields(i)%rdata_arr(fields(i)%mem_start(1):fields(i)%mem_end(1), &
                                          fields(i)%mem_start(2):fields(i)%mem_end(2), &
                                          fields(i)%mem_start(3):fields(i)%mem_end(3)))
-     
+             
             call write_field(fields(i)%mem_start(1), fields(i)%mem_end(1), fields(i)%mem_start(2), &
                              fields(i)%mem_end(2), fields(i)%mem_start(3), fields(i)%mem_end(3), &
                              trim(fields(i)%fieldname), datestr, fields(i)%rdata_arr, is_training=.true.)
-     
             deallocate(fields(i)%rdata_arr)
     
          end do
-   
          if (my_proc_id == IO_NODE .or. do_tiled_output) then
             istatus = 0
 #ifdef IO_BINARY
@@ -399,7 +397,6 @@ module output_module
                               parent_grid_ratio(nest_number),                                            &
                               subgrid_ratio_x(nest_number), subgrid_ratio_y(nest_number),                &
                               corner_lats, corner_lons, flags=geo_flags, nflags=ngeo_flags)
-
       do i=1,NUM_FIELDS
          call get_output_flag(trim(fields(i)%fieldname), output_flag, istatus)
          if (istatus == 0) then
@@ -434,6 +431,8 @@ module output_module
       use storage_module
 #endif
       use parallel_module
+      !TMG: SFIRE modifications
+      use gridinfo_module, only : subgrid_ratio_x, subgrid_ratio_y
   
       implicit none
   
@@ -459,6 +458,8 @@ module output_module
       character (len=128) :: memorder, units, description
       character (len=128), dimension(3) :: dimnames 
       integer :: sr_x, sr_y
+      !TMG: SFIRE modifications
+      integer :: sgr_x, sgr_y
   
       !
       ! First find out how many fields there are
@@ -493,7 +494,19 @@ module output_module
 #endif
   
 #ifdef _GEOGRID
-      if (grid_type == 'C') NUM_AUTOMATIC_FIELDS = 28
+      !TMG: SFIRE modifications
+      ! Get nest's subgrid ratio
+      sgr_x=subgrid_ratio_x(nest_num)
+      sgr_y=subgrid_ratio_y(nest_num)
+      
+      ! Increase number of fields by 2 to include FXLAT, FLXLONG
+      ! Do this only if we have a subgrid
+      if ( sgr_x > 1 .or. sgr_y > 1 ) then 
+        if (grid_type == 'C') NUM_AUTOMATIC_FIELDS = 30
+      else
+        if (grid_type == 'C') NUM_AUTOMATIC_FIELDS = 28
+      end if
+     
       if (grid_type == 'E') NUM_AUTOMATIC_FIELDS = 7
   
       NUM_FIELDS = nfields+NUM_AUTOMATIC_FIELDS
@@ -502,7 +515,7 @@ module output_module
       ! Automatic fields will always be on the non-refined grid
       sr_x=1
       sr_y=1
-
+      
       !
       ! There are some fields that will always be computed
       !   Initialize those fields first, followed by all user-specified fields
@@ -619,6 +632,18 @@ module output_module
          fields(28)%fieldname = 'COSALPHA_V'
          fields(28)%units = 'none'
          fields(28)%descr = 'Cosine of rotation angle on V grid'
+         
+         !TMG: SFIRE modifications
+         ! Define SFIRE subgrid coordinates
+         if ( sgr_x > 1 .or. sgr_y > 1 ) then 
+           fields(29)%fieldname = 'FXLONG'
+           fields(29)%units = 'degrees longitude'
+           fields(29)%descr = 'Longitude on refined grid'
+           
+           fields(30)%fieldname = 'FXLAT'
+           fields(30)%units = 'degrees latitude'
+           fields(30)%descr = 'Latitude on refined grid'  
+         end if
    
       else if (grid_type == 'E') then
          fields(1)%fieldname = 'XLAT_M'
@@ -677,17 +702,26 @@ module output_module
          fields(i)%dimnames(3) = ' '
          fields(i)%mem_order = 'XY'
          fields(i)%stagger = 'M'
+         !TMG: SFIRE modifications
+         ! Adjust for SFIRE subgrid coordinates
+         if (fields(i)%fieldname .eq. 'FXLAT' .or. & 
+             fields(i)%fieldname .eq. 'FXLONG') then 
+           fields(i)%sr_x = sgr_x
+           fields(i)%sr_y = sgr_y
+         else
          fields(i)%sr_x = 1
          fields(i)%sr_y = 1
+         end if
          if (grid_type == 'C') then
             fields(i)%istagger = M
          else if (grid_type == 'E') then
             fields(i)%istagger = HH
          end if
          fields(i)%dimnames(1) = 'west_east'
-         fields(i)%dimnames(2) = 'south_north'
+         fields(i)%dimnames(2) = 'south_north'         
+   
       end do
-  
+      
       !
       ! Perform adjustments to metadata for non-mass-staggered "always computed" fields
       !
@@ -899,6 +933,50 @@ module output_module
          fields(28)%dimnames(2) = 'south_north_stag'
          fields(28)%stagger = 'V'
          fields(28)%istagger = V
+         
+        !TMG: SFIRE modifications
+        ! Adust parameters for SFIRE subgrid
+        if ( sgr_x > 1 .or. sgr_y > 1 ) then 
+          ! West-east
+          fields(29)%dom_start(1) = (fields(29)%dom_start(1) - 1)*sgr_x + 1
+          fields(29)%mem_start(1) = (fields(29)%mem_start(1) - 1)*sgr_x + 1
+          fields(29)%patch_start(1) = (fields(29)%patch_start(1) - 1)*sgr_x + 1
+          
+          fields(29)%dom_end(1) = (fields(29)%dom_end(1) + 1)*sgr_x
+          fields(29)%mem_end(1) = (fields(29)%mem_end(1) + 1)*sgr_x
+          fields(29)%patch_end(1) = (fields(29)%patch_end(1) + 1)*sgr_x          
+          
+          fields(30)%dom_start(1) = (fields(30)%dom_start(1) - 1)*sgr_x + 1
+          fields(30)%mem_start(1) = (fields(30)%mem_start(1) - 1)*sgr_x + 1
+          fields(30)%patch_start(1) = (fields(30)%patch_start(1) - 1)*sgr_x + 1
+          
+          fields(30)%dom_end(1) = (fields(30)%dom_end(1) + 1)*sgr_x
+          fields(30)%mem_end(1) = (fields(30)%mem_end(1) + 1)*sgr_x
+          fields(30)%patch_end(1) = (fields(30)%patch_end(1) + 1)*sgr_x
+          
+          ! South-north
+          fields(29)%dom_start(2) = (fields(29)%dom_start(2) - 1)*sgr_y + 1
+          fields(29)%mem_start(2) = (fields(29)%mem_start(2) - 1)*sgr_y + 1
+          fields(29)%patch_start(2) = (fields(29)%patch_start(2) - 1)*sgr_y + 1
+          
+          fields(29)%dom_end(2) = (fields(29)%dom_end(2) + 1)*sgr_y
+          fields(29)%mem_end(2) = (fields(29)%mem_end(2) + 1)*sgr_y
+          fields(29)%patch_end(2) = (fields(29)%patch_end(2) + 1)*sgr_y          
+          
+          fields(30)%dom_start(2) = (fields(30)%dom_start(2) - 1)*sgr_y + 1
+          fields(30)%mem_start(2) = (fields(30)%mem_start(2) - 1)*sgr_y + 1
+          fields(30)%patch_start(2) = (fields(30)%patch_start(2) - 1)*sgr_y + 1
+          
+          fields(30)%dom_end(2) = (fields(30)%dom_end(2) + 1)*sgr_y
+          fields(30)%mem_end(2) = (fields(30)%mem_end(2) + 1)*sgr_y
+          fields(30)%patch_end(2) = (fields(30)%patch_end(2) + 1)*sgr_y
+          
+          fields(29)%dimnames(1) = 'west_east_subgrid' 
+          fields(29)%dimnames(2) = 'south_north_subgrid'
+          fields(30)%dimnames(1) = 'west_east_subgrid'
+          fields(30)%dimnames(2) = 'south_north_subgrid'
+       
+        end if
    
       else if (grid_type == 'E') then
          ! Lat V
@@ -1046,7 +1124,6 @@ module output_module
          end if  ! the next field given by get_next_fieldname() is valid }
     
       end do  ! for each user-specified field }
-  
    end subroutine init_output_fields
  
  
@@ -1081,10 +1158,11 @@ module output_module
       logical :: allocated_real_locally
   
       allocated_real_locally = .false.
-  
+      
       ! If we are running distributed memory and need to gather all tiles onto a single processor for output
       if (nprocs > 1 .and. .not. do_tiled_output) then
          do i=1,NUM_FIELDS
+         
             if ( (index(cname, trim(fields(i)%fieldname) ) /= 0) .and. &
                   (len_trim(cname) == len_trim(fields(i)%fieldname)) ) then
                istatus = 0
@@ -1121,7 +1199,7 @@ module output_module
             end if 
          end do
       end if
-  
+
       ! Now a write call is only done if each processor writes its own file, or if we are the IO_NODE
       if (my_proc_id == IO_NODE .or. do_tiled_output) then
          comm_1 = 1
