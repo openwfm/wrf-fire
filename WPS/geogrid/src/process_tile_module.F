@@ -32,7 +32,9 @@ module process_tile_module
       use output_module
       use smooth_module
       use source_data_module
-    
+      !TMG: SFIRE modifications
+      use gridinfo_module, only : subgrid_ratio_x, subgrid_ratio_y
+          
       implicit none
 
       ! Arguments
@@ -65,6 +67,13 @@ module process_tile_module
                                        mapfac_array_m_y, mapfac_array_u_y, mapfac_array_v_y, &
                                        mapfac_array_x_subgrid, mapfac_array_y_subgrid,       &
                                        sina_array, cosa_array
+      !TMG: SFIRE modifications
+      ! To avoid conflicts, we define new pointer arrays for storing SFIRE subgrid 
+      ! coordinates
+      real, pointer, dimension(:,:) :: xlat_array_sfire, xlon_array_sfire
+      integer :: start_mem_sub_i, end_mem_sub_i, start_mem_sub_j, end_mem_sub_j
+      integer :: sgr_x, sgr_y
+      
       real, pointer, dimension(:,:) :: xlat_ptr, xlon_ptr, mapfac_ptr_x, mapfac_ptr_y, landmask, dominant_field
       real, pointer, dimension(:,:,:) :: field, slp_field
       logical :: is_water_mask, only_save_dominant, halt_on_missing
@@ -110,7 +119,10 @@ module process_tile_module
       nullify(dominant_field)
       nullify(field)
       nullify(slp_field)
-   
+      !TMG: SFIRE modifications
+      nullify(xlat_array_sfire)
+      nullify(xlon_array_sfire)
+
       datestr = '0000-00-00_00:00:00'
       field_count = 0
       mass_flag=1.0
@@ -173,7 +185,28 @@ module process_tile_module
          end_dom_j      = dummy_end_dom_j
          end_dom_stag_j = dummy_end_dom_j
       end if
-    
+      
+      !TMG: SFIRE modifications
+      ! Adjust for SFIRE subgrid coordinates
+      sgr_x=subgrid_ratio_x(which_domain)
+      sgr_y=subgrid_ratio_y(which_domain)
+      
+      if ( sgr_x > 1 .or. sgr_y > 1 ) then 
+        start_mem_sub_i = (start_mem_i - 1) * sgr_x + 1
+        if (extra_col) then 
+          end_mem_sub_i = (end_mem_i + 1) * sgr_x
+        else
+          end_mem_sub_i = (end_mem_i    ) * sgr_x        
+        end if
+        
+        start_mem_sub_j = (start_mem_j - 1) * sgr_y + 1
+          if (extra_row) then
+            end_mem_sub_j = (end_mem_j + 1) * sgr_y
+          else 
+            end_mem_sub_j = (end_mem_j    ) * sgr_y          
+          end if
+      end if
+ 
       ! Allocate arrays to hold all lat/lon fields; these will persist for the duration of
       !   the process_tile routine
       ! For C grid, we have M, U, and V points
@@ -189,7 +222,15 @@ module process_tile_module
          allocate(clon_array(start_mem_i:end_mem_i, start_mem_j:end_mem_j))
          allocate(xlat_array_corner(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_stag_j))
          allocate(xlon_array_corner(start_mem_i:end_mem_stag_i, start_mem_j:end_mem_stag_j))
+         !TMG: SFIRE modifications
+         ! Allocate SFIRE coordinate arrays
+         if ( sgr_x > 1 .or. sgr_y > 1 ) then 
+           allocate(xlat_array_sfire(start_mem_sub_i:end_mem_sub_i, start_mem_sub_j:end_mem_sub_j))
+           allocate(xlon_array_sfire(start_mem_sub_i:end_mem_sub_i, start_mem_sub_j:end_mem_sub_j))
+         end if
+         
       end if
+      
       nullify(xlat_array_subgrid)
       nullify(xlon_array_subgrid)
       nullify(mapfac_array_x_subgrid)
@@ -215,7 +256,7 @@ module process_tile_module
                                start_mem_j, end_mem_stag_i, end_mem_stag_j, CORNER)
          call get_lat_lon_fields(clat_array, clon_array, start_mem_i, &
                                start_mem_j, end_mem_i, end_mem_j, M, comp_ll=.true.)
-
+        
          corner_lats(1) = xlat_array(start_patch_i,start_patch_j)
          corner_lats(2) = xlat_array(start_patch_i,end_patch_j)
          corner_lats(3) = xlat_array(end_patch_i,end_patch_j)
@@ -298,15 +339,24 @@ module process_tile_module
          corner_lons(16) = 0.0
     
       end if
+      
+      !TMG: SFIRE modifications
+      ! Compute SFIRE subgrid coordinates
+      if ( sgr_x > 1 .or. sgr_y > 1 ) then 
+        call mprintf(.true.,STDOUT,'  Processing FXLAT and FXLONG')
+        call get_lat_lon_fields(xlat_array_sfire, xlon_array_sfire, &
+             start_mem_sub_i, start_mem_sub_j, end_mem_sub_i, end_mem_sub_j, &
+             M, sub_x=sgr_x, sub_y=sgr_y)
+      end if
 
       ! Initialize the output module now that we have the corner point lats/lons
-      call output_init(which_domain, 'OUTPUT FROM GEOGRID V3.9.1', '0000-00-00_00:00:00', grid_type, dynopt, &
+      call output_init(which_domain, 'OUTPUT FROM GEOGRID V3.9.0.1', '0000-00-00_00:00:00', grid_type, dynopt, &
                        corner_lats, corner_lons, &
                        start_dom_i,   end_dom_i,   start_dom_j,   end_dom_j, &
                        start_patch_i, end_patch_i, start_patch_j, end_patch_j, &
                        start_mem_i,   end_mem_i,   start_mem_j,   end_mem_j, &
                        extra_col, extra_row)
-    
+                       
       call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, &
                        'XLAT_M', datestr, real_array = xlat_array)
       call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_j, 1, 1, &
@@ -315,6 +365,15 @@ module process_tile_module
                        'XLAT_V', datestr, real_array = xlat_array_v)
       call write_field(start_mem_i, end_mem_i, start_mem_j, end_mem_stag_j, 1, 1, &
                        'XLONG_V', datestr, real_array = xlon_array_v)
+      !TMG: SFIRE modifications
+      ! Write out SFIRE subgrid coordinates
+      if ( sgr_x > 1 .or. sgr_y > 1 ) then
+        call write_field(start_mem_sub_i, end_mem_sub_i, start_mem_sub_j, end_mem_sub_j, 1, 1, &
+             'FXLAT', datestr, real_array = xlat_array_sfire)
+        call write_field(start_mem_sub_i, end_mem_sub_i, start_mem_sub_j, end_mem_sub_j, 1, 1, &
+              'FXLONG', datestr, real_array = xlon_array_sfire)
+      end if
+      
       if (grid_type == 'C') then
          call write_field(start_mem_i, end_mem_stag_i, start_mem_j, end_mem_j, 1, 1, &
                         'XLAT_U', datestr, real_array = xlat_array_u)
@@ -826,10 +885,10 @@ module process_tile_module
 !BUG: This should probably be moved up to where other lat/lon fields are calculated, and we should
 !     just determine whether we will have any subgrids or not at that point
                if ((sub_x > 1) .or. (sub_y > 1)) then
-!                  if (associated(xlat_array_subgrid))     deallocate(xlat_array_subgrid)
-!                  if (associated(xlon_array_subgrid))     deallocate(xlon_array_subgrid)
-!                  if (associated(mapfac_array_x_subgrid)) deallocate(mapfac_array_x_subgrid)
-!                  if (associated(mapfac_array_y_subgrid)) deallocate(mapfac_array_y_subgrid)
+                  if (associated(xlat_array_subgrid))     deallocate(xlat_array_subgrid)
+                  if (associated(xlon_array_subgrid))     deallocate(xlon_array_subgrid)
+                  if (associated(mapfac_array_x_subgrid)) deallocate(mapfac_array_x_subgrid)
+                  if (associated(mapfac_array_y_subgrid)) deallocate(mapfac_array_y_subgrid)
                   allocate(xlat_array_subgrid(sm1:em1,sm2:em2))
                   allocate(xlon_array_subgrid(sm1:em1,sm2:em2))
                   allocate(mapfac_array_x_subgrid(sm1:em1,sm2:em2))
