@@ -45,7 +45,9 @@
    USE module_llxy, ONLY : proj_cassini
    USE module_physics_init
    USE module_lightning_driver, ONLY : lightning_init
-   USE module_fr_fire_driver_wrf, ONLY : fire_driver_em_init
+   ! TMG: Replace with SFIRE module & subr
+   ! SFIRE: Subr for initializing the SFIRE model
+   USE module_fr_sfire_driver_wrf, ONLY : sfire_driver_em_init
    USE module_stoch, ONLY : setup_rand_perturb, rand_seed, update_stoch, initialize_stoch
    USE module_trajectory, ONLY : trajectory_init
 #if (WRF_CHEM == 1)
@@ -2057,15 +2059,17 @@ DEALLOCATE(z_at_q)
    ENDIF
  
 
-!  FIRE
-if(config_flags%ifire.eq.2)then
+! TMG: Replace with SFIRE subr 
+! SFIRE: Call initialization subr
+if ( config_flags%ifire.eq.2 ) then
 
-   call fire_driver_em_init ( grid , config_flags    &
-            ,ids,ide, kds,kde, jds,jde                &
-            ,ims,ime, kms,kme, jms,jme                &
-            ,ips,ipe, kps,kpe, jps,jpe ) 
+  CALL sfire_driver_em_init ( grid , config_flags       &
+                            ,ids,ide, kds,kde, jds,jde &
+                            ,ims,ime, kms,kme, jms,jme &
+                            ,ips,ipe, kps,kpe, jps,jpe ) 
+                            
+  CALL wrf_debug ( 0 , 'start_domain_em: After call to sfire_driver_em_init' )
 
-   CALL wrf_debug ( 100 , 'start_domain_em: After call to fire_driver_em_init' )
 endif
 
 if( grid%traj_opt /= no_trajectory ) then
