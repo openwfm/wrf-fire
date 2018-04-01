@@ -639,7 +639,9 @@ enddo
 ! rho(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
 
 k1 = kts 
-write(msg,'(a,i3)')'Fire emissions inserted into atmosphere level',k1
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+write(msg,'(a,i3)')'Fire tracers into atmosphere level',k1
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
 call message(msg,level=msglevel)
 
 #ifdef WRF_CHEM
@@ -671,6 +673,7 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
 endif
 #endif
 
+call message("Inserting chemical species",level=msglevel)
 do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
     jbase=jtfs+jr*(j-jts)                   ! indexing
     do i=max(ids+1,its),min(ite,ide-1)
@@ -1022,6 +1025,7 @@ endif
 #endif
 
 if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
+    call message("Computing totals over all processes",level=msglevel)
     ! sum over processes and add to cumulative sums
 
     ! fuel burned
@@ -1057,6 +1061,7 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
 #endif
 
     if(num_tracer >0)then
+        call message("Computing totals of tracers over all processes",level=msglevel)
         ! tracer
         call wrf_dm_sum_reals(t_tracer,s_tracer)
         s_tracer = s_tracer*dx*dy 
