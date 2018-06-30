@@ -178,6 +178,7 @@ write(*,'(a,f10.3,a,i6,a,f10.3,a)')'frame ',frame_s,'s ',nsteps,' time steps at 
 ! set the scalars in grid type
 grid%dt = dt
 grid%itimestep=0
+grid%xtime=0.
 grid%u_frame=0.
 grid%v_frame=0.
 
@@ -229,6 +230,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
   do istep=1,nsteps
     itimestep=info%ntimes * (iframe - 1) + istep
     grid%itimestep = itimestep
+    grid%xtime = itimestep * grid%dt / 60.
     id=itimestep
     ifun_end=6
     ! interpolate time

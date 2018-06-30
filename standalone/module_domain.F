@@ -67,6 +67,7 @@ module module_domain
 
       real:: sr_x, sr_y                                        ! atmosphere/fire refinement ratio
       integer::itimestep                                       ! time step number
+      real:: xtime                                             ! minutes since simulation start
       integer:: num_tiles                                      ! parallel execution tiles info
       integer, dimension(max_tiles):: i_start,i_end,j_start,j_end
       real:: dt,dx,dy                                          ! time and space stepsizes (atmosphere scale)

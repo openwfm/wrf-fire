@@ -28,6 +28,9 @@ integer, parameter:: mdims=4
 
 ! variable names
 character(len=nf90_max_name)::                        &
+                              var_xtime='XTIME',        &
+                              unit_xtime='min',                &
+                              desc_xtime='minutes since simulation start',                &
                               var_itimestep='ITIMESTEP',        &
                               unit_itimestep='',                &
                               desc_itimestep='',                &
@@ -243,6 +246,7 @@ call check(nf90_def_var(ncid,var_times,nf90_char,(/strlenid,timeid/),varid))
 ! define scalar variables
 call check(nf90_def_var(ncid,var_unit_fxlong,nf90_float,(/timeid/),varid))
 call check(nf90_def_var(ncid,var_unit_fxlat,nf90_float,(/timeid/),varid))
+call check(nf90_def_var(ncid,var_xtime,nf90_float,(/timeid/),varid))
 call check(nf90_def_var(ncid,var_itimestep,nf90_int,(/timeid/),varid))
 call check(nf90_enddef(ncid))
 call check(nf90_close(ncid))
@@ -374,6 +378,7 @@ call check(nf90_put_var(ncid,varid,info%times,start=(/1,iframe/), &
      count=(/info%len_time_string,1/)), 'error writing '//trim(var_times))
 
 call write_integer(ncid,iframe,var_itimestep,grid%itimestep)
+call write_real(ncid,iframe,var_xtime,grid%xtime)
 call write_fire_var(ncid,info,iframe,var_lfn,grid%lfn)
 call write_fire_var(ncid,info,iframe,var_tign_g,grid%tign_g)
 call write_fire_var(ncid,info,iframe,var_fxlong,grid%fxlong)
