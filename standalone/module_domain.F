@@ -70,8 +70,10 @@ module module_domain
       integer, dimension(max_tiles):: i_start,i_end,j_start,j_end
       real:: dt,dx,dy                                          ! time and space stepsizes (atmosphere scale)
       real:: u_frame,v_frame                                   ! must be zero, for compatibility
-      real:: unit_fxlong,unit_fxlat
       real:: fmoist_nexttime,fmoist_lasttime
+
+      real, pointer, dimension(:,:)::unit_fxlat => null()
+      real, pointer, dimension(:,:)::unit_fxlong => null()
 
       ! fire model state arrays 
        
