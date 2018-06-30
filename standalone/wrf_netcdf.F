@@ -15,8 +15,10 @@ character(len=*),parameter::outputfile='fire_output.nc'
 ! the same (incorrect) sizes that wrf outputs and same dimension names 
 ! 
 logical::compat_fire_grid=.true.
-logical::debug_print=.true.
-!logical::debug_print=.false.
+!logical::debug_print=.true.
+logical::debug_print=.false.
+
+logical::read_check=.false.
 
 ! output variable type
 integer,parameter::vartype=nf90_float,field_type=104
@@ -631,7 +633,6 @@ real, pointer, intent(in):: v(:,:)            ! values
 integer::varid,nx,ny,i,j
 real,pointer::v2(:,:)
 real::vmin,vmax,err
-logical::read_check=.false.
 !*** executable
 nx=info%nfirex
 ny=info%nfirey
@@ -678,7 +679,6 @@ character(len=*),intent(in)::varname  ! the variable name
 integer, intent(in):: iv                  ! values
 !*** local
 integer::iv2,ierr
-logical::read_check=.true.
 integer::varid
 !*** executable
 
@@ -706,7 +706,6 @@ character(len=*),intent(in)::varname  ! the variable name
 real, intent(in):: v                  ! values
 !*** local
 real::v2,val(1),err
-logical::read_check=.true.
 integer::varid
 !*** executable
 
