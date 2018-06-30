@@ -430,7 +430,7 @@ if(.not. lfnij<0. .and. tignij<time_now)then
    write(msg,*)' tign-time_now=',tignij-time_now
    call message(msg,level=0)
    msg=s//': inconsistent state: lfn>=0 and tign<time_now'
-   call crash(msg)
+   call warning(msg)
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 endif
 
@@ -1611,6 +1611,7 @@ end subroutine
 !
 
 subroutine prop_ls( id, &                                ! for debug
+                ipart,  &                                ! 1:compute lfn_out 2:tign & speedcheck
                 ids,ide,jds,jde, &                       ! domain dims
                 ims,ime,jms,jme, &                       ! memory dims
                 ips,ipe,jps,jpe, &                ! patch - nodes owned by this process 
@@ -1658,6 +1659,8 @@ implicit none
 !*** arguments 
 
 ! id                in    unique identification for prints and dumps
+! ipart             in    1:compute lfn_out 2:tign & speedcheck 
+!                         *** must call halo on lfn_out between part 1 and part 2***
 ! ids,ide,jds,jde   in    domain dimensions
 ! ims,ime,jms,jme   in    memory dimensions
 ! its,ite,jts,jte   in    tile dimensions
@@ -1689,7 +1692,7 @@ implicit none
 ! tend_ls
 !
 
-integer,intent(in)::id,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe 
+integer,intent(in)::id,ipart,ims,ime,jms,jme,ids,ide,jds,jde,its,ite,jts,jte,ips,ipe,jps,jpe 
 real,dimension(ims:ime,jms:jme),intent(inout)::lfn_in,tign
 real,dimension(ims:ime,jms:jme),intent(out)::lfn_out,ros
 real,intent(in)::dx,dy,ts,dt
@@ -1707,12 +1710,13 @@ real,dimension(IMTS:IMTE,JMTS:JMTE):: tend, lfn1 ! region-sized with halo
 real::grad2,rr,tbound2,a,a1 ! a=0 euler, a=0.5 heun
 
 real::gradx,grady,aspeed,err,aerr,time_future,time_now
-real::tmp
+real::tmp,t0,t1,t2
 integer::ihs,ihe,jhs,jhe
 integer::ihs2,ihe2,jhs2,jhe2
+integer::itso,iteo,jtso,jteo
 integer::i,j,its1,ite1,jts1,jte1,k,kk,id1
 character(len=128)::msg
-integer::nfirenodes,nfireline
+integer::nfirenodes,nfireline,ierrx
 real::sum_err,min_err,max_err,sum_aerr,min_aerr,max_aerr   
 
 ! constants
@@ -1727,11 +1731,14 @@ intrinsic max,min,sqrt,nint,epsilon,tiny,huge
 !*** executable
 
 !$OMP CRITICAL(SFIRE_CORE_CRIT)
-write(msg,'(a8,i5,a6,i5,3(a1,i5))')'prop_ls:',id,' tile ',its,':',ite,',',jts,':',jte
+write(msg,'(a,i6,a,i2,4(a,i5))')'prop_ls:',id,' part',ipart,' tile',its,':',ite,',',jts,':',jte
 !$OMP END CRITICAL(SFIRE_CORE_CRIT)
 call message(msg)
 
-call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,tign)
+if (ipart==1)then
+!   lfn_in -> lfn_out
+
+    call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,tign)
 
     a=fire_back_weight ! from module_fr_sfire_util
     a1=1. - a
@@ -1813,6 +1820,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     call write_array_m(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'tend2',id)
 #endif
 
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, ros,'prop_ls: ros')
     call print_2d_stats(its,ite,jts,jte,IMTS,IMTE,JMTS,JMTE,tend,'prop_ls: tend2')
         
     tbound=min(tbound,tbound2)
@@ -1837,7 +1845,44 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
             lfn_out(i,j) = a1*lfn1(i,j) + a*(lfn_in(i,j) + dt*tend(i,j))
             lfn_out(i,j) = min(lfn_out(i,j),lfn_in(i,j)) ! fire area can only increase
         enddo
-    enddo      
+    enddo     
+
+elseif(ipart==2)then
+
+    call continue_at_boundary(1,1,zero, &   !ext 
+    ims,ime,jms,jme, &                ! memory dims
+    ids,ide,jds,jde, &                    ! domain - nodes where lfn defined
+    ips,ipe,jps,jpe, &                    ! patch - nodes owned by this process 
+    its,ite,jts,jte, &                ! tile - nodes update by this thread
+    itso,iteo,jtso,jteo, &                ! where set now
+    lfn_out )                                  ! array
+
+    ! copy to use consistently old values
+    do j=jts,jte
+        do i=its,ite
+           lfn1(i,j)=lfn_out(i,j)
+        enddo
+    enddo
+
+    !fix up lfn_out - no new local minima
+    do j=jts,jte
+        do i=its,ite
+            t0=min(lfn_in(i+1,j),lfn_in(i-1,j),lfn_in(i,j+1),lfn_in(i,j-1))
+            t1=min(lfn1(i+1,j),lfn1(i-1,j),lfn1(i,j+1),lfn1(i,j-1))
+            if(.not.t0>lfn_in(i,j) .and. t1>lfn_out(i,j))then
+                if(fire_print_msg>2)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+                    write(msg,'(a,2i6)')'prop_ls: new local min',i,j
+                    call message(msg)
+                    write(msg,'((a,g13.5,1x))') &
+                       'prop_ls: new local min',lfn_out(i,j),'fixed to',t1,'incr',t1-lfn_in(i,j)
+                    call message(msg)
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+                endif
+                lfn_out(i,j)=t1
+            endif
+        enddo
+    enddo
 
     ! compute ignition time by interpolation
     ! the node was not burning at start but it is burning at end
@@ -1865,6 +1910,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                tign(i,j)=time_future
             endif
             call check_lfn_tign_ij(i,j,'prop_ls after',time_now,lfn_out(i,j),tign(i,j))
+            ! lfn_out(i,j) = max(lfn_out(i,j),-100.0)  ! stability fix
         enddo
     enddo
     ! write(msg,*)'prop_ls: tign err',tmp
@@ -1899,7 +1945,7 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
                    grady=(lfn_out(i,j+1)-lfn_out(i,j-1))/(2.0*dy)
                    grad2=sqrt(gradx*gradx+grady*grady)
                    aspeed = (lfn_in(i,j)-lfn_out(i,j))/(dt*max(grad2,rmin))                   
-                    rr = speed_func(gradx,grady,dx,dy,i,j,fp)
+                   rr = speed_func(gradx,grady,dx,dy,i,j,fp,ierrx,msg)
                    err=aspeed-rr
                    sum_err=sum_err+err
                    min_err=min(min_err,err)
@@ -1960,6 +2006,10 @@ call check_lfn_tign('prop_ls start',ts,its,ite,jts,jte,ims,ime,jms,jme,lfn_in,ti
     call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, tign,'prop_ls: tign out')
 
     call check_lfn_tign('prop_ls end',ts+dt,its,ite,jts,jte,ims,ime,jms,jme,lfn_out, tign)
+
+else
+    call crash('prop_ls: ipart must be 1 or 2')
+endif
 end subroutine prop_ls
 
 !
@@ -2001,8 +2051,8 @@ type(fire_params),intent(in)::fp
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
    ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed
-integer::i,j,itso,iteo,jtso,jteo
-character(len=128)msg
+integer::i,j,itso,iteo,jtso,jteo,ierrx,nerr
+character(len=128)msg,msg2
 
 ! constants
 real, parameter:: eps=epsilon(0.0)
@@ -2036,6 +2086,7 @@ intrinsic max,min,sqrt,nint,tiny,huge
     call write_array_m(ints-1,inte+1,jnts-1,jnte+1,lims,lime,ljms,ljme,lfn,'tend_lfn_in',id)
 #endif
     
+    nerr=0
     tbound=0    
     do j=jnts,jnte
         do i=ints,inte
@@ -2082,7 +2133,8 @@ intrinsic max,min,sqrt,nint,tiny,huge
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            nvx,nvy,i,j,fp)
+            nvx,nvy,i,j,fp,ierrx,msg2)
+            nerr = nerr + ierrx
 
             rr=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)rr=max(rr,0.)
@@ -2105,6 +2157,15 @@ intrinsic max,min,sqrt,nint,tiny,huge
         enddo
     enddo        
 
+    if(nerr>0)then
+!$OMP CRITICAL(SFIRE_CORE_CRIT)
+        write(msg,'(a,i6,1x,a)')'tend_ls:',nerr,'messages in rate of spread computations. Last message:'
+!$OMP END CRITICAL(SFIRE_CORE_CRIT)
+        call warning(msg)
+        call warning(msg2)
+    endif
+
+    call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme, ros,'tend_ls: ros')
     call print_2d_stats(ints,inte,jnts,jnte,tims,time,tjms,tjme, &
                    tend,'tend_ls: tend out')
 
@@ -2166,6 +2227,13 @@ real diff2x
 
 ! 1st order ENO scheme
 
+! diffLx <= 0 and diffRx <= 0: diffRx
+! diffLx >= 0 and diffRx >= 0: diffLx
+! diffLx >= 0 and diffRx <= 0:
+!        diffRx + diffLx <= 0: diffRx
+!        diffRx + diffLx >  0: diffLx
+
+
 if    (.not.diffLx>0 .and. .not.diffRx>0)then
     diff2x=diffRx
 elseif(.not.diffLx<0 .and. .not.diffRx<0)then
@@ -2187,7 +2255,7 @@ end function select_eno
 !**************************
 !
 
-real function speed_func(diffCx,diffCy,dx,dy,i,j,fp)
+real function speed_func(diffCx,diffCy,dx,dy,i,j,fp,ierrx,msg)
 !*** purpose
 !    the level set method speed function
 implicit none
@@ -2196,6 +2264,8 @@ real, intent(in)::diffCx,diffCy  ! x and y coordinates of the direction of propa
 real, intent(in)::dx,dy  ! x and y coordinates of the direction of propagation
 integer, intent(in)::i,j         ! indices of the node to compute the speed at
 type(fire_params),intent(in)::fp
+integer, intent(out)::ierrx
+character(len=*), intent(out)::msg
 !*** local
 real::scale,nvx,nvy,r
 real::ros_back , ros_wind , ros_slope
@@ -2209,7 +2279,7 @@ real, parameter:: eps=epsilon(0.0)
             ! get rate of spread from wind speed and slope
 
             call fire_ros(ros_back,ros_wind,ros_slope, &
-            nvx,nvy,i,j,fp)
+            nvx,nvy,i,j,fp,ierrx,msg)
 
             r=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)r=max(r,0.)

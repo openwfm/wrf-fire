@@ -1732,6 +1732,7 @@ real , DIMENSION(max_domains) :: fire_ignition_start_y5
 real , DIMENSION(max_domains) :: fire_ignition_end_x5
 real , DIMENSION(max_domains) :: fire_ignition_end_y5
 real , DIMENSION(max_domains) :: fire_perimeter_time
+real , DIMENSION(max_domains) :: fire_tign_in_time
 real , DIMENSION(max_domains) :: fire_lat_init
 real , DIMENSION(max_domains) :: fire_lon_init
 real , DIMENSION(max_domains) :: fire_ign_time
@@ -1751,6 +1752,7 @@ logical , DIMENSION(max_domains) :: fire_restart
 integer , DIMENSION(max_domains) :: fire_time_step_ratio
 integer , DIMENSION(max_domains) :: fire_debug_hook_sec
 integer , DIMENSION(max_domains) :: fire_fuel_left_method
+integer , DIMENSION(max_domains) :: fire_update_fuel_frac
 integer , DIMENSION(max_domains) :: fire_fuel_left_irl
 integer , DIMENSION(max_domains) :: fire_fuel_left_jrl
 real , DIMENSION(max_domains) :: fire_back_weight

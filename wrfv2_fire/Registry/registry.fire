@@ -8,7 +8,7 @@
 #<key>   <package       <associated               <package        <associated 4d scalars>
 #         name>          namelist choice>          state vars>
 # 
-package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,unit_fxlong,unit_fxlat,ndwi,ndvi,fmc_g,fmc_gc,fndwi
+package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,lfn_out,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,unit_fxlong,unit_fxlat,ndwi,ndvi,fmc_g,fmc_gc,fndwi
 
 # fire input variables on fire grid
 #
@@ -44,6 +44,7 @@ state    real     vah       ij       fire        1         Y     hr   "VAH"     
 state    real     tign_g    *i*j      fire        1         z   i102hr "TIGN_G"    "ignition time on ground" "s"
 state    real     tign_in   *i*j      fire        1         z    hr   "TIGN_IN"    "minimal ignition time on ground" "s"
 state    real     lfn       *i*j      fire        1         z   i102hr "LFN"       "level function" "1"
+state    real     lfn_out   *i*j      fire        1         z    r "LFN_OUT"       "level function at time step end, for halo" "1"
 state    real     fuel_frac *i*j      fire        1         z   i102hr "FUEL_FRAC" "fuel remaining" "1"
 state    real     fmc_g     *i*j      fire        1         z   i102hr "FMC_G"     "fuel moisture contents" "1"
 state    real     fire_area *i*j      fire        1         z    hr    "FIRE_AREA" "fraction of cell area on fire" "1"
@@ -75,7 +76,7 @@ rconfig logical   fmoist_run        namelist,fire  max_domains   .false.       h
 rconfig logical   fmoist_interp     namelist,fire  max_domains   .false.       hr   "interpolate moisture from the model or the input to fuels on the fire grid"
 rconfig logical   fmoist_only       namelist,fire  max_domains   .false.       hr   "only run moisture model, skip fire"
 rconfig integer   fmoist_freq       namelist,fire  max_domains    0       hr   "fmoist_freq"    "frequency to run moisture model 0: use fmoist_dt, k>0: every k timesteps" "1"
-rconfig  integer  kfmc_ndwi         namelist,fire 1              0 hr  "KFMC_NDWI" number of moisture class to update from NDWI, or zero"
+rconfig  integer  kfmc_ndwi         namelist,fire 1              0 hr  "KFMC_NDWI" "number of moisture class to update from NDWI, or zero"
 rconfig  integer  fndwi_from_ndwi   namelist,fire 1              1 hr  "FNDWI_FROM_NDWI" "number of moisture class to update from NDWI, or zero"
 rconfig real      fmoist_dt         namelist,fire  max_domains    600     hr   "fmoist_dt  "    "moisture model time step" "s"
 rconfig real      fmep_decay_tlag   namelist,fire  1              0.01    hr   "fmep_decay_tlag" "time constant of assimilated adjustments of equilibria decay" "1"
@@ -215,6 +216,7 @@ rconfig   integer fire_debug_hook_sec    namelist,fire         max_domains      
 
 # method selection
 rconfig   integer fire_fuel_left_method  namelist,fire         max_domains           1       -      "fire_fuel_left_method"   "1 or 2, compute fuel_left" ""
+rconfig   integer fire_update_fuel_frac  namelist,fire         max_domains           1       -      "fire_update_fuel_frac"   "1 normal, 2 burner" ""
 rconfig   integer fire_fuel_left_irl     namelist,fire         max_domains           2       -      "fire_fuel_left_irl"   "submesh to compute fuel lwft, even, at least 2" ""
 rconfig   integer fire_fuel_left_jrl     namelist,fire         max_domains           2       -      "fire_fuel_left_jrl"   "submesh to compute fuel lwft, even, at least 2" ""
 rconfig   real    fire_back_weight       namelist,fire         max_domains           0.5     -      "fire_back_weight"   "RK timestepping coefficient, 0=forward, 0.5=Heun" "1"
@@ -289,6 +291,7 @@ rconfig   integer sfc_isltyp             namelist,fire         max_domains      
 # Fire halo descriptions
 #
 halo      HALO_FIRE_LFN dyn_em 24:lfn
+halo      HALO_FIRE_LFN_OUT dyn_em 8:lfn_out
 halo      HALO_FIRE_TIGN dyn_em 8:tign_g
 halo      HALO_FIRE_HT dyn_em 8:ht
 halo      HALO_FIRE_PHB dyn_em 8:phb

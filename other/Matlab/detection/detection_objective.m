@@ -7,7 +7,7 @@
     % input:
     %     tign   prior state
     %     h      increment
-    %     g      detection structure from load_subset_detections
+    %     g      detection structur?e from load_subset_detections
     %     params parameters set in detect_fit_level2
     %
     % The objective function is
@@ -72,7 +72,7 @@
             plotstate(10,gradJ,'gradient of J',0);
         end
         if params.alpha>0,
-            delta = solve_saddle(params.Constr_ign,h,F,...
+            delta = solve_saddle(params.Constr_ign,h,F,0,...
                 @(u) poisson_fft2(u,[params.dx,params.dy],-params.power)/params.alpha);
             varargout{2}=delta;
         end

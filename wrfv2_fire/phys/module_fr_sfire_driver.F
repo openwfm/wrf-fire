@@ -81,8 +81,8 @@ use module_fr_sfire_util
     USE module_dm        , ONLY : ntasks_x,ntasks_y,local_communicator,mytask,ntasks,wrf_dm_sum_reals
     USE module_comm_dm , ONLY : halo_fire_fuel_sub, halo_fire_tign_sub, halo_fire_wind_f_sub, &
 halo_fire_wind_a_sub, halo_fire_ph_sub, halo_fire_zsf_sub, halo_fire_longlat_sub, &
-halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub, &
-halo_fire_ndwi_sub
+halo_fire_phb_sub, halo_fire_z0_sub, halo_fire_lfn_sub, HALO_FIRE_LFN_OUT_sub, &
+HALO_FIRE_MAG_sub, HALO_FIRE_MFG_sub, halo_fire_ndwi_sub
 #endif
 use module_fr_sfire_atm, only: read_emissions_table, add_fire_emissions
 
@@ -148,7 +148,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     TYPE(lines_type):: ignition, hfx
     integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1,j
     logical::restart,replay
-    real, dimension(ifms:ifme, jfms:jfme)::lfn_out  
     real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
     character(len=128)msg
     type(fire_params)::fp
@@ -386,10 +385,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 #include "HALO_FIRE_LFN.inc"
 #include "HALO_FIRE_TIGN.inc"
             endif
-            if(config_flags%chem_opt>0 .or. config_flags%tracer_opt > 0)then
-                ! need reading fuel categories first
-                call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
-            endif
 
         elseif(fire_ifun.eq.3)then
 !           halo exchange on atm winds and geopotential, width 1 for interpolation
@@ -404,6 +399,9 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             ! have interpolated to the fire grid
 #include "HALO_FIRE_MFG.inc"
             endif
+ 
+        elseif(fire_ifun.eq.5)then
+#include "HALO_FIRE_LFN_OUT.inc"
 
         elseif(fire_ifun.eq.6)then
 !           computing fuel_left needs ignition time from neighbors
@@ -414,6 +412,17 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         endif
        endif
 #endif
+
+        if(fire_ifun.eq.2)then
+            write(msg,'(a,i4,a,i4)') 'chem_opt=', config_flags%chem_opt, &
+               ' tracer_opt=',config_flags%tracer_opt
+            call message(msg)
+            if(config_flags%chem_opt>0 .or. config_flags%tracer_opt > 0)then
+                ! need reading fuel categories first
+                call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
+            endif
+        endif
+
         ! print *,'dt: ',dt,grid%dt,' diff ', dt-grid%dt
         ! need domain by 1 smaller, in last row.col winds are not set properly
         call sfire_driver_phys ( &
@@ -442,7 +451,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%lfn,grid%tign_g,grid%fuel_frac,          & ! state arrays, fire grid
             grid%fire_area,                               & ! redundant, for display, fire grid
             grid%fuel_frac_burnt,                         &
-            lfn_out,                                      & ! work - one timestep    
+            grid%lfn_out,                                 & ! work - one timestep    
             grid%avg_fuel_frac,                           & ! out redundant arrays, atm grid
             grid%grnhfx,grid%grnqfx,grid%canhfx,grid%canqfx, & ! out redundant arrays, atm grid
             grid%uah,grid%vah,                            &
@@ -767,7 +776,7 @@ jpe1=ifval(jpe.eq.jde,jpe+1,jpe)
 !$OMP SCHEDULE(STATIC)
 do ij=1,num_tiles
 
-    id = ifval(pid.ne.0,pid+ij*10000,0) ! for print
+    id = ifval(pid.ne.0,pid+(ij-1)*10000,0) ! for print
 
     ! set up tile bounds    
     its = i_start(ij)  ! start atmospheric tile in i
@@ -1068,6 +1077,7 @@ do ij=1,num_tiles
     
     elseif(ifun.eq.6)then 
 
+
     ! populate the rate of spread in the 8 directions
     do j=jfts,jfte
        do i=ifts,ifte
@@ -1092,8 +1102,9 @@ do ij=1,num_tiles
     
     ! heat fluxes into the atmosphere    
 
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'fire_driver:fgrnhfx')
-        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'fire_driver:fgrnqfx')
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,ros,'sfire_driver:ros')        
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnhfx,'sfire_driver:fgrnhfx')
+        call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fgrnqfx,'sfire_driver:fgrnqfx')
     
         ! sum the fluxes over atm cells
         if(use_atm_vars)then                                  
@@ -1602,6 +1613,7 @@ fire_atm_feedback       = config_flags%fire_atm_feedback
 fire_hfx_given          = config_flags%fire_hfx_given
 fire_hfx_num_lines      = config_flags%fire_hfx_num_lines
 fire_hfx_latent_part    = config_flags%fire_hfx_latent_part
+fire_update_fuel_frac   = config_flags%fire_update_fuel_frac
 boundary_guard          = config_flags%fire_boundary_guard
 fire_back_weight        = config_flags%fire_back_weight
 fire_grows_only         = config_flags%fire_grows_only

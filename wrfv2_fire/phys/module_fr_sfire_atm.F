@@ -66,7 +66,20 @@ p_isopr, &
 p_macr, &
 p_mek, &
 p_mvk, &
-p_smoke   ! tracer smoke exists only with CHEM
+p_smoke, &   ! tracer smoke exists only with CHEM
+p_sulf, &
+p_dms, &
+p_msa, &
+p_dust_1, &
+p_dust_2, &
+p_dust_3, &
+p_dust_4, &
+p_dust_5, &
+p_seas_1, &
+p_seas_2, &
+p_seas_3, &
+p_seas_4, &
+p_p10 
 #endif
 
 USE module_state_description, only: &
@@ -136,6 +149,19 @@ macr=0., &
 mek=0., &
 mvk=0., &
 smoke=0., &
+sulf=0., &
+dms=0., &
+msa=0., &
+dust_1=0., &
+dust_2=0., &
+dust_3=0., &
+dust_4=0., &
+dust_5=0., &
+seas_1=0., &
+seas_2=0., &
+seas_3=0., &
+seas_4=0., &
+p10=0., &
 tr17_1=0., &
 tr17_2=0., &
 tr17_3=0., &
@@ -226,6 +252,19 @@ macr, &
 mek, &
 mvk, &
 smoke, &
+sulf, &
+dms, &
+msa, &
+dust_1, &
+dust_2, &
+dust_3, &
+dust_4, &
+dust_5, &
+seas_1, &
+seas_2, &
+seas_3, &
+seas_4, &
+p10, &
 tr17_1, &
 tr17_2, &
 tr17_3, &
@@ -305,6 +344,19 @@ call wrf_dm_bcast_real(macr, nfuelcats)
 call wrf_dm_bcast_real(mek, nfuelcats)
 call wrf_dm_bcast_real(mvk, nfuelcats)
 call wrf_dm_bcast_real(smoke, nfuelcats)
+call wrf_dm_bcast_real(sulf, nfuelcats)
+call wrf_dm_bcast_real(dms, nfuelcats)
+call wrf_dm_bcast_real(msa, nfuelcats)
+call wrf_dm_bcast_real(dust_1, nfuelcats)
+call wrf_dm_bcast_real(dust_2, nfuelcats)
+call wrf_dm_bcast_real(dust_3, nfuelcats)
+call wrf_dm_bcast_real(dust_4, nfuelcats)
+call wrf_dm_bcast_real(dust_5, nfuelcats)
+call wrf_dm_bcast_real(seas_1, nfuelcats)
+call wrf_dm_bcast_real(seas_2, nfuelcats)
+call wrf_dm_bcast_real(seas_3, nfuelcats)
+call wrf_dm_bcast_real(seas_4, nfuelcats)
+call wrf_dm_bcast_real(p10, nfuelcats) 
 call wrf_dm_bcast_real(tr17_1, nfuelcats)
 call wrf_dm_bcast_real(tr17_2, nfuelcats)
 call wrf_dm_bcast_real(tr17_3, nfuelcats)
@@ -378,7 +430,7 @@ real, dimension(mfuelcats)::s_fuel,t_fuel,r_fuel  ! total per timestep, rate bur
 #ifdef WRF_CHEM
 real, dimension(num_chem) ::s_chem,t_chem,r_chem  ! total per timestep, rate burnt
 real, dimension(num_chem) ::a_chem,g_chem  ! concentration in ground level 1 
-integer, parameter:: chem_np=46
+integer, parameter:: chem_np=59
 integer:: chem_pointers(chem_np)
 character(len=8)::chem_names(chem_np)
 #endif
@@ -446,7 +498,20 @@ p_isopr, &
 p_macr, &
 p_mek, &
 p_mvk, &
-p_smoke /)
+p_smoke, &
+p_sulf, &
+p_dms, &
+p_msa, &
+p_dust_1, &
+p_dust_2, &
+p_dust_3, &
+p_dust_4, &
+p_dust_5, &
+p_seas_1, &
+p_seas_2, &
+p_seas_3, &
+p_seas_4, &
+p_p10 /)
 
 chem_names= (/ &
 'co      ',  &
@@ -495,7 +560,21 @@ chem_names= (/ &
 'macr    ', &
 'mek     ', &
 'mvk     ', &
-'smoke   ' /)
+'smoke   ', &
+'sulf    ', &
+'dms     ', &
+'msa     ', &
+'dust_1  ', &
+'dust_2  ', &
+'dust_3  ', &
+'dust_4  ', &
+'dust_5  ', &
+'seas_1  ', &
+'seas_2  ', &
+'seas_3  ', &
+'seas_4  ', &
+'p10     ' /)
+
 
 call check_pointers('chem',chem,chem_names,chem_pointers)
 #endif
@@ -560,7 +639,9 @@ enddo
 ! rho(kg/m^3)*dz8w(m))/mw_air(28.97e-3 kg/mol) = dry air in the 1st layer (mol/m^2)
 
 k1 = kts 
-write(msg,'(a,i3)')'Fire emissions inserted into atmosphere level',k1
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+write(msg,'(a,i3)')'Fire tracers into atmosphere level',k1
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
 call message(msg,level=msglevel)
 
 #ifdef WRF_CHEM
@@ -592,6 +673,7 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
 endif
 #endif
 
+call message("Inserting chemical species",level=msglevel)
 do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
     jbase=jtfs+jr*(j-jts)                   ! indexing
     do i=max(ids+1,its),min(ite,ide-1)
@@ -817,6 +899,59 @@ do j=max(jds+1,jts),min(jte,jde-1)          ! safe distance from domain boundary
                emis=bc2  (cat)*fuel_burnt                                    ! emission from fire cell
                t_chem(p_bc2 ) = t_chem(p_bc2 ) + emis                         ! add to total
                chem(i,k1,j,p_bc2  )=chem(i,k1,j,p_bc2  )+emis*conv
+
+               emis=sulf  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_sulf ) = t_chem(p_sulf ) + emis                         ! add to total
+               chem(i,k1,j,p_sulf  )=chem(i,k1,j,p_sulf  )+emis*conv
+
+               emis=dms  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dms ) = t_chem(p_dms ) + emis                         ! add to total
+               chem(i,k1,j,p_dms  )=chem(i,k1,j,p_dms  )+emis*conv
+
+               emis=msa  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_msa ) = t_chem(p_msa ) + emis                         ! add to total
+               chem(i,k1,j,p_msa  )=chem(i,k1,j,p_msa  )+emis*conv
+
+               emis=dust_1  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_1 ) = t_chem(p_dust_1 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_1  )=chem(i,k1,j,p_dust_1  )+emis*conv
+
+               emis=dust_2  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_2 ) = t_chem(p_dust_2 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_2  )=chem(i,k1,j,p_dust_2  )+emis*conv
+
+               emis=dust_3  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_3 ) = t_chem(p_dust_3 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_3  )=chem(i,k1,j,p_dust_3  )+emis*conv
+
+               emis=dust_4 (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_4 ) = t_chem(p_dust_4 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_4  )=chem(i,k1,j,p_dust_4  )+emis*conv
+
+               emis=dust_5  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_dust_5 ) = t_chem(p_dust_5 ) + emis                         ! add to total
+               chem(i,k1,j,p_dust_5  )=chem(i,k1,j,p_dust_5  )+emis*conv
+
+               emis=seas_1  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_seas_1 ) = t_chem(p_seas_1 ) + emis                         ! add to total
+               chem(i,k1,j,p_seas_1  )=chem(i,k1,j,p_seas_1  )+emis*conv
+
+               emis=seas_2  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_seas_2 ) = t_chem(p_seas_2 ) + emis                         ! add to total
+               chem(i,k1,j,p_seas_2  )=chem(i,k1,j,p_seas_2  )+emis*conv
+
+               emis=seas_3  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_seas_3 ) = t_chem(p_seas_3 ) + emis                         ! add to total
+               chem(i,k1,j,p_seas_3  )=chem(i,k1,j,p_seas_3  )+emis*conv
+
+               emis=seas_4  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_seas_4 ) = t_chem(p_seas_4 ) + emis                         ! add to total
+               chem(i,k1,j,p_seas_4  )=chem(i,k1,j,p_seas_4  )+emis*conv
+
+               emis=p10  (cat)*fuel_burnt                                    ! emission from fire cell
+               t_chem(p_p10 ) = t_chem(p_p10 ) + emis                         ! add to total
+               chem(i,k1,j,p_p10  )=chem(i,k1,j,p_p10  )+emis*conv
+
 #endif
                if (num_tracer >0)then
 
@@ -890,6 +1025,7 @@ endif
 #endif
 
 if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
+    call message("Computing totals over all processes",level=msglevel)
     ! sum over processes and add to cumulative sums
 
     ! fuel burned
@@ -925,6 +1061,7 @@ if(fire_print_msg .ge. msglevel .and.printsums .gt. 0)then
 #endif
 
     if(num_tracer >0)then
+        call message("Computing totals of tracers over all processes",level=msglevel)
         ! tracer
         call wrf_dm_sum_reals(t_tracer,s_tracer)
         s_tracer = s_tracer*dx*dy 
@@ -2151,68 +2288,5 @@ subroutine coarse(ix,nr,ia,ic,w)
 end subroutine coarse
 
 end subroutine interpolate_wind2fire_height
-
-!#ifdef WRF_CHEM
-subroutine fire_emission(                    &
-             tracer_opt,                     &
-             ids,ide, kds,kde, jds,jde,      & ! domain dimensions
-             ims,ime, kms,kme, jms,jme,      &
-             its,ite, kts,kte, jts,jte,      &
-             rho,dz8w,                       &
-             grnhfx,                         & ! input variables from fire model
-             tracer                          ) ! output emissions array
-use module_state_description , only: num_tracer, p_tr17_1
-#ifdef WRF_CHEM
-use module_state_description , only: p_smoke
-#endif
-    integer, intent(in)::tracer_opt
-    INTEGER , INTENT(in) :: ids,ide, kds,kde, jds,jde, &
-                            ims,ime, kms,kme, jms,jme, &
-                            its,ite, kts,kte, jts,jte
-
-    real,intent(in),dimension( ims:ime,jms:jme ) :: grnhfx
-    real,intent(inout),dimension( ims:ime,kms:kme,jms:jme,num_tracer ) :: tracer
-    real,intent(in),dimension( ims:ime,kms:kme,jms:jme ) :: rho,dz8w
-    
-    integer::i,j,k,l
-    character(len=128)::msg
-    real::t,s
-    
-    ! just a dumb placeholder
-    k=kds      ! dump into surface layer
-
-    select case(tracer_opt)
-    case(0)
-       return ! no tracers
-    case(1)
-#ifdef WRF_CHEM
-        l=p_smoke 
-#else
-        call crash('fire_emission: tracer_opt=1 requires WRF-Chem')
-#endif
-    case(2)
-        l=p_tr17_1 
-    case default 
-        call crash('fire_emission: tracer_opt not supported')
-    end select
-
-    if(num_tracer<l)call crash('fire_emission: num_tracer too small')
-    s=0
-    do j=jts,jte
-        do i=its,ite
-            t = grnhfx(i,j)/(rho(i,k,j)*dz8w(i,k,j))
-            tracer(i,k,j,l) = tracer(i,k,j,l) + t
-            s = s + t
-        enddo
-    enddo
-!$OMP CRITICAL(SFIRE_ATM_CRIT)
-    if(fire_print_msg >= 1)then
-        write(msg,'(a,4i6,a,e13.4,a,i4)')'Tile ',its,ite,jts,jte,' added ',s,' total to tracer',l
-        call message(msg,level=0)
-    endif
-!$OMP END CRITICAL(SFIRE_ATM_CRIT)
-end subroutine fire_emission
-!#endif
-
 
 end module module_fr_sfire_atm
