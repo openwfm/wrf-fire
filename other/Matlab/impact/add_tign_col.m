@@ -14,6 +14,7 @@ function out=add_tign_col(raw,t)
 %           One column is added with the fire arrival time.
 %           Load the csv file into excel and change the format of the
 %           column to "Time"
+%           Copy the other columns from the original file if needed.
 %
 % Usage:
 %    load t
@@ -23,12 +24,13 @@ function out=add_tign_col(raw,t)
 
 graphics=0;
 
-insert_col_pos=5; % number of the column to add 
+insert_col_pos=3; % number of the column to add 
 end_times=t.times(end,:);
 end_datenum = datenum(end_times); % in days from some instant in the past
 end_minutes=t.xtime(end); % from simulation start
 start_datenum=end_datenum-end_minutes/(24*60);
-fprintf('Simulation start %s\n',datestr(start_datenum));
+fprintf('Simulation start %s UTC\n',datestr(start_datenum,0));
+fprintf('Simulation end   %s UTC\n',datestr(end_datenum,0));
 [m,n]=size(raw);
 out=cell(m,n+1);
 out(:,1:insert_col_pos-1)=raw(:,1:insert_col_pos-1);
@@ -48,21 +50,21 @@ h=contour3(t.fxlat,t.fxlong,t.tign_g,[0:4*3600:max(tign)],'b');
 hold on 
 plot3(lats,lons,tign,'k*')
 hold off
+grid on
 drawnow
 end
 
 burn_datenum = start_datenum + tign/(24*60*60);
 for i=1:length(lats)
-    fprintf('lat=%8.4f long=%8.4f tign=%g\n',lats(i),lons(i),tign(i))
+    fprintf('lat=%8.4f long=%8.4f tign=%g',lats(i),lons(i),tign(i))
     %plot(lats(i),lons(i),'k*'),drawnow
     if isnan(burn_datenum(i)) | burn_datenum(i) >= end_datenum-1/100,
         burn_datestr{i}='';
     else
         burn_datestr{i} = datestr(burn_datenum(i),'yyyy-mm-dd HH:MM:SS');
     end
+    fprintf(' %s\n',burn_datestr{i})
 end
 out(2:end,insert_col_pos)=burn_datestr;
     % disp(out(i+1,:))
-hold off
-grid on
 end
