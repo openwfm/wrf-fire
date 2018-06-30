@@ -26,6 +26,6 @@ function w=read_wrfout_tign(f,ts)
     else
         frame=nframes;
     end
-    w=nc2struct(f,{'Times','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG',...
+    w=nc2struct(f,{'Times','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','LFN','UF','VF',...
         'XLONG','XLAT','NFUEL_CAT','ITIMESTEP'},{'DX','DY','DT'},frame);
 end
