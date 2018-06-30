@@ -59,6 +59,7 @@ call read_namelist(config_flags)           ! read flags from namelist.input
 call set_flags(config_flags)               ! copy configuration flags to sfire internal structures
 
 debug_print = config_flags%fire_print_msg.ge.2 ! if we write a lot
+debug_print = config_flags%fire_print_msg.ge.1 ! if we write a lot
 
 call read_info(inputfile,info)             ! get dimensions
 

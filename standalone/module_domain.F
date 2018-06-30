@@ -62,6 +62,7 @@ module module_domain
       real, pointer, dimension(:,:,:,:)::chem => null()
       real, pointer, dimension(:,:,:,:)::tracer => null()
 
+      ! scalars
       ! mesh and housekeeping
 
       real:: sr_x, sr_y                                        ! atmosphere/fire refinement ratio
