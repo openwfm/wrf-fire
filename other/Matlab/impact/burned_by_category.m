@@ -1,5 +1,5 @@
 function area=burned_by_category(t,burn_time)
-% out=burned_by_category(fuel,t,utc)
+% out=burned_by_category(t,burn_time)
 % Input:
 %    t          structure created from wrfout as follows:
 %               t=read_wrfout_tign('wrfout file name')
