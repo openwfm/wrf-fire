@@ -26,16 +26,14 @@ function w=read_wrfout_tign(f,ts)
     else
         frame=nframes;
     end
-<<<<<<< HEAD
+
     w=nc2struct(f,{'Times','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG','LFN','UF','VF',...
         'XLONG','XLAT','NFUEL_CAT','ITIMESTEP'},{'DX','DY','DT'},frame);
-=======
-    w=nc2struct(f,{'Times','XTIME','TIGN_G','FXLONG','FXLAT','UNIT_FXLAT','UNIT_FXLONG',...
-        'XLONG','XLAT','NFUEL_CAT','ITIMESTEP','FIRE_AREA'},{'DX','DY','DT'},frame);
+
     w.times=char(w.times');
     w.cwd=pwd;
     w.datestr=datestr(clock);
     s=ls('-l',f);w.ls=s(1:end-1);
     s=ls('-lL',f);w.lsL=s(1:end-1);
->>>>>>> master
+
 end
