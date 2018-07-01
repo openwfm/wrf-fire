@@ -90,7 +90,7 @@ red.min_lon = min(red.fxlong(:));
 red.max_lon = max(red.fxlong(:));
 
 % convert tign_g to datenum 
-red.end_datenum=datenum(char(w.times)'); % this time step end
+red.end_datenum=datenum(char(w.times(:))'); % this time step end
 red.end_time=w.dt*w.itimestep; % time from simulation start in seconds
 red.start_time=0;
 red.start_datenum=red.end_datenum-red.end_time/(24*3600);
