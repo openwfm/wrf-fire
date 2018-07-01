@@ -15,8 +15,10 @@ character(len=*),parameter::outputfile='fire_output.nc'
 ! the same (incorrect) sizes that wrf outputs and same dimension names 
 ! 
 logical::compat_fire_grid=.true.
-logical::debug_print=.true.
-!logical::debug_print=.false.
+!logical::debug_print=.true.
+logical::debug_print=.false.
+
+logical::read_check=.false.
 
 ! output variable type
 integer,parameter::vartype=nf90_float,field_type=104
@@ -26,6 +28,12 @@ integer, parameter:: mdims=4
 
 ! variable names
 character(len=nf90_max_name)::                        &
+                              var_xtime='XTIME',        &
+                              unit_xtime='min',                &
+                              desc_xtime='minutes since simulation start',                &
+                              var_itimestep='ITIMESTEP',        &
+                              unit_itimestep='',                &
+                              desc_itimestep='',                &
                               var_nfuel_cat='NFUEL_CAT',        &
                               unit_nfuel_cat='',                &
                               desc_nfuel_cat='',                &
@@ -59,6 +67,12 @@ character(len=nf90_max_name)::                        &
                               var_fxlat='FXLAT',                &
                               unit_fxlat='',                    &
                               desc_fxlat='',                    &
+                              var_unit_fxlong='UNIT_FXLONG',    &
+                              unit_unit_fxlong='',              &
+                              desc_unit_fxlong='',              &
+                              var_unit_fxlat='UNIT_FXLAT',      &
+                              unit_unit_fxlat='',               &
+                              desc_unit_fxlat='',               &
                               var_uf='UF',                      &
                               unit_uf='',                       &
                               desc_uf='',                       &
@@ -226,9 +240,14 @@ call ncopen(filename,nf90_write,ncid)
 call check(nf90_inq_dimid(ncid,info%dim_time_string,strlenid))
 call check(nf90_inq_dimid(ncid,info%dim_time,timeid))
 
-! define a timekeeping variable
 call check(nf90_redef(ncid))
+! define a timekeeping variable
 call check(nf90_def_var(ncid,var_times,nf90_char,(/strlenid,timeid/),varid))
+! define scalar variables
+call check(nf90_def_var(ncid,var_unit_fxlong,nf90_float,(/timeid/),varid))
+call check(nf90_def_var(ncid,var_unit_fxlat,nf90_float,(/timeid/),varid))
+call check(nf90_def_var(ncid,var_xtime,nf90_float,(/timeid/),varid))
+call check(nf90_def_var(ncid,var_itimestep,nf90_int,(/timeid/),varid))
 call check(nf90_enddef(ncid))
 call check(nf90_close(ncid))
 
@@ -358,6 +377,8 @@ call check(nf90_inq_varid(ncid,var_times,varid),'cannot find '//trim(var_times))
 call check(nf90_put_var(ncid,varid,info%times,start=(/1,iframe/), &
      count=(/info%len_time_string,1/)), 'error writing '//trim(var_times))
 
+call write_integer(ncid,iframe,var_itimestep,grid%itimestep)
+call write_real(ncid,iframe,var_xtime,grid%xtime)
 call write_fire_var(ncid,info,iframe,var_lfn,grid%lfn)
 call write_fire_var(ncid,info,iframe,var_tign_g,grid%tign_g)
 call write_fire_var(ncid,info,iframe,var_fxlong,grid%fxlong)
@@ -371,6 +392,8 @@ call write_fire_var(ncid,info,iframe,var_ros,grid%ros)
 call write_fire_var(ncid,info,iframe,var_r_0,grid%r_0)
 call write_fire_var(ncid,info,iframe,var_flineint,grid%flineint)
 call write_fire_var(ncid,info,iframe,var_flineint2,grid%flineint2)
+call write_real(ncid,iframe,var_unit_fxlong,grid%unit_fxlong)
+call write_real(ncid,iframe,var_unit_fxlat,grid%unit_fxlat)
 call write_fire_var(ncid,info,iframe,var_uf,grid%uf)
 call write_fire_var(ncid,info,iframe,var_vf,grid%vf)
 call write_fire_var(ncid,info,iframe,var_f_ros0,grid%f_ros0)
@@ -615,7 +638,6 @@ real, pointer, intent(in):: v(:,:)            ! values
 integer::varid,nx,ny,i,j
 real,pointer::v2(:,:)
 real::vmin,vmax,err
-logical::read_check=.false.
 !*** executable
 nx=info%nfirex
 ny=info%nfirey
@@ -653,6 +675,62 @@ end subroutine write_fire_var
 !***
 !
 
+subroutine write_integer(ncid,iframe,varname,iv)
+implicit none
+!*** arguments
+integer, intent(in)::ncid             ! id of netcdf file open in data mode
+integer, intent(in):: iframe          ! number of frame in the file
+character(len=*),intent(in)::varname  ! the variable name
+integer, intent(in):: iv                  ! values
+!*** local
+integer::iv2,ierr
+integer::varid
+!*** executable
+
+if(debug_print)write(*,'(3a,i5,a,i10)')'writing int ',trim(varname),'(',iframe,')=',iv
+call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
+call check(nf90_put_var(ncid,varid,iv,start=(/iframe/)), &
+     'error writing '//trim(varname))
+if(read_check)then
+  call read_integer(ncid,iframe,varname,iv2) ! read back to check
+  ierr=iv2-iv
+  write(*,'(a,i6)')'write-read error',ierr
+endif
+
+end subroutine write_integer
+!
+!***
+!
+
+subroutine write_real(ncid,iframe,varname,v)
+implicit none
+!*** arguments
+integer, intent(in)::ncid             ! id of netcdf file open in data mode
+integer, intent(in):: iframe          ! number of frame in the file
+character(len=*),intent(in)::varname  ! the variable name
+real, intent(in):: v                  ! values
+!*** local
+real::v2,val(1),err
+integer::varid
+!*** executable
+
+if(debug_print)write(*,'(3a,i5,a,g19.6)')'writing real ',trim(varname),'(',iframe,')=',v
+call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
+val(1)=v
+call check(nf90_put_var(ncid,varid,val,start=(/iframe/),count=(/1/)), &
+     'error writing '//trim(varname))
+if(read_check)then
+  call read_real(ncid,iframe,varname,v2) ! read back to check
+  err=v2-v
+  write(*,'(a,g19.6)')'write-read error',err
+endif
+
+end subroutine write_real
+
+!
+!***
+!
+
 subroutine read_fire_var(ncid,info,iframe,varname,v)
 implicit none
 !*** arguments
@@ -662,7 +740,7 @@ integer, intent(in):: iframe          ! number of frame in the file
 character(len=*),intent(in)::varname  ! the variable name
 real, pointer :: v(:,:)            ! values
 !*** local
-integer::varid,nx,ny,it,start(3),count(3)
+integer::varid,nx,ny,start(3),count(3)
 !*** executable
 nx=info%nfirex
 ny=info%nfirey
@@ -677,6 +755,56 @@ if(debug_print)write(*,'(a,2i5,a,1x,e15.5,3(1x,a,e15.5))')'dimensions',nx,ny, &
      'min',minval(v(1:nx,1:ny)),'max',maxval(v(1:nx,1:ny)),'(1,1)=',v(1,1),'end=',v(nx,ny)
 
 end subroutine read_fire_var
+
+!
+!***
+!
+
+subroutine read_integer(ncid,iframe,varname,iv)
+implicit none
+!*** arguments
+integer, intent(in)::ncid             ! id of netcdf file open in data mode
+integer, intent(in):: iframe          ! number of frame in the file
+character(len=*),intent(in)::varname  ! the variable name
+integer :: iv                ! value
+!*** local
+integer::varid
+
+!*** executable
+
+if(debug_print)write(*,'(3a,i5)')'reading integer',trim(varname),' timestep ',iframe
+call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
+call check(nf90_get_var(ncid,varid,iv,start=(/iframe/)), &
+    'error reading '//trim(varname))
+if(debug_print)write(*,'(2a,i5,a,i8)')trim(varname),'(',iframe,')=',iv
+
+end subroutine read_integer
+
+!
+!***
+!
+
+subroutine read_real(ncid,iframe,varname,v)
+implicit none
+!*** arguments
+integer, intent(in)::ncid             ! id of netcdf file open in data mode
+integer, intent(in):: iframe          ! number of frame in the file
+character(len=*),intent(in)::varname  ! the variable name
+real :: v                ! value
+!*** local
+integer::varid
+real:: val(1)
+
+!*** executable
+
+if(debug_print)write(*,'(3a,i5)')'reading real ',trim(varname),' timestep ',iframe
+call check(nf90_inq_varid(ncid,varname,varid),'cannot find '//trim(varname))
+call check(nf90_get_var(ncid,varid,val,start=(/iframe/),count=(/1/)), &
+    'error reading '//trim(varname))
+v=val(1)
+if(debug_print)write(*,'(2a,i5,a,g18.8)')trim(varname),'(',iframe,')=',v
+
+end subroutine read_real
 
 !
 !***
@@ -705,6 +833,8 @@ call check(nf90_get_var(ncid,varid,info%times,start=(/1,iframe/),count=(/info%le
      'error reading '//trim(var_times))
 if(debug_print)write(*,'(2a)')'Time ',info%times
 
+call read_real(ncid,iframe,var_unit_fxlong,grid%unit_fxlong)
+call read_real(ncid,iframe,var_unit_fxlat,grid%unit_fxlat)
 call read_fire_var(ncid,info,iframe,var_nfuel_cat,grid%nfuel_cat) 
 call read_fire_var(ncid,info,iframe,var_dzdxf,grid%dzdxf) 
 call read_fire_var(ncid,info,iframe,var_dzdyf,grid%dzdyf) 
@@ -712,6 +842,8 @@ call read_fire_var(ncid,info,iframe,var_zsf,grid%zsf)
 call read_fire_var(ncid,info,iframe,var_fxlong,grid%fxlong) 
 call read_fire_var(ncid,info,iframe,var_fxlat,grid%fxlat) 
 call read_fire_var(ncid,info,iframe,var_fmc_g,grid%fmc_g) 
+!call read_fire_var(ncid,info,iframe,var_unit_fxlong,grid%unit_fxlong) 
+!call read_fire_var(ncid,info,iframe,var_unit_fxlat,grid%unit_fxlat) 
 call read_fire_var(ncid,info,iframe,var_uf,grid%uf) 
 call read_fire_var(ncid,info,iframe,var_vf,grid%vf) 
 

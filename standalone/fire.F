@@ -59,6 +59,7 @@ call read_namelist(config_flags)           ! read flags from namelist.input
 call set_flags(config_flags)               ! copy configuration flags to sfire internal structures
 
 debug_print = config_flags%fire_print_msg.ge.2 ! if we write a lot
+debug_print = config_flags%fire_print_msg.ge.1 ! if we write a lot
 
 call read_info(inputfile,info)             ! get dimensions
 
@@ -178,6 +179,7 @@ write(*,'(a,f10.3,a,i6,a,f10.3,a)')'fire.exe: frame ',frame_s,'s ',nsteps,' time
 ! set the scalars in grid type
 grid%dt = dt
 grid%itimestep=0
+grid%xtime=0.
 grid%u_frame=0.
 grid%v_frame=0.
 info%dt = dt     ! dt may be different than it was in the input file
@@ -230,6 +232,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
   do istep=1,nsteps
     itimestep=info%ntimes * (iframe - 1) + istep
     grid%itimestep = itimestep
+    grid%xtime = itimestep * grid%dt / 60.
     id=itimestep
     ifun_end=6
     ! interpolate time
