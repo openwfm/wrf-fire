@@ -165,8 +165,8 @@ if(ifun.eq.1)then       ! do nothing, init pass 1 is outside only
               lfn(i,j) = tign(i,j) - time_start ! <0 if burning at the end of the time step
             enddo
           enddo
+          call check_lfn_tign('starting replay',time_start,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,tign)
         endif
-        call check_lfn_tign('starting replay',time_start,ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,lfn,tign)
 elseif(ifun.eq.2)then   
         ! initialize all arrays that the model will not change later
 
