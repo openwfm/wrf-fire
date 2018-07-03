@@ -17,6 +17,9 @@ disp('Subset simulation domain and convert time')
 
 
 red=subset_domain(w);
+%load red.mat;
+red.tign_g = w.tign_g;
+
 
 disp('Loading and subsetting detections')
 
@@ -24,6 +27,9 @@ p=sort_rsac_files(prefix);
 time_bounds=subset_detection_time(red,p);
 red.time_bounds=time_bounds;
 g = load_subset_detections(prefix,p,red,time_bounds,fig);
+
+%bypass the above line and load computed g
+%load g.mat
 
 % Parameters of the objective function
 % params.alpha=input_num('penalty coefficient alpha',1/1000);
@@ -48,7 +54,7 @@ params.dy=444;
 % objective function is penalty minus log likelihood -> min
 J=-detection_objective(red.tign,0,g,params,red);
 % new likelihood stand-in
-%J = new_objective(w,red,g);
+J = new_objective(w,red,g);
 
 s=sprintf('Data log likelihood %18.11e',J);
 plot_state(fig.fig_state,red,s,red.tign,g,time_bounds(1:2));

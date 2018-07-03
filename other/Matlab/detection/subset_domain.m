@@ -32,7 +32,7 @@ function red=subset_domain(varargin)
 % arguments
 w = [];  if nargin >=1, w = varargin{1}; end
 
-
+load red.mat
 
 sim.min_lat = min(w.fxlat(:));
 sim.max_lat = max(w.fxlat(:));
@@ -75,30 +75,34 @@ if isempty(ispan) | isempty(jspan), error('selection empty'),end
 
 % restrict simulation
 
-red.max_tign=sim.max_tign;
-red.ispan=ispan;
-red.jspan=jspan;
-red.fxlat=w.fxlat(ispan,jspan);
-red.fxlong=w.fxlong(ispan,jspan);
+%commenting out next 5 lines
+% red.max_tign=sim.max_tign;
+% red.ispan=ispan;
+% red.jspan=jspan;
+% red.fxlat=w.fxlat(ispan,jspan);
+% red.fxlong=w.fxlong(ispan,jspan);
 red.tign_g=w.tign_g(ispan,jspan);
 if isfield(w,'nfuel_cat')
     red.nfuel_cat=w.nfuel_cat(ispan,jspan);
 
-red.min_lat = min(red.fxlat(:));
-red.max_lat = max(red.fxlat(:));
-red.min_lon = min(red.fxlong(:));
-red.max_lon = max(red.fxlong(:));
+    %commenting out next 4 lines
+% red.min_lat = min(red.fxlat(:));
+% red.max_lat = max(red.fxlat(:));
+% red.min_lon = min(red.fxlong(:));
+% red.max_lon = max(red.fxlong(:));
 
 % convert tign_g to datenum 
-red.end_datenum=datenum(char(w.times(:))'); % this time step end
-red.end_time=w.dt*w.itimestep; % time from simulation start in seconds
-red.start_time=0;
-red.start_datenum=red.end_datenum-red.end_time/(24*3600);
-fprintf('simulation start seems to be %s\n',datestr(red.start_datenum,'dd-mmm-yyyy HH:MM:SS'));
 
-red.max_tign_g=max(w.tign_g(:));
-%red.tign=(red.tign_g - red.max_tign_g)/(24*60*60) + red.time;
-red.tign=time2datenum(red.tign_g,red);  % the tign array, in datenum
-red.min_tign=min(red.tign(:));
-red.max_tign=max(red.tign(:));
+%comment out here to the end
+% red.end_datenum=datenum(char(w.times(:))'); % this time step end
+% red.end_time=w.dt*w.itimestep; % time from simulation start in seconds
+% red.start_time=0;
+% red.start_datenum=red.end_datenum-red.end_time/(24*3600);
+% fprintf('simulation start seems to be %s\n',datestr(red.start_datenum,'dd-mmm-yyyy HH:MM:SS'));
+% 
+% red.max_tign_g=max(w.tign_g(:));
+% %red.tign=(red.tign_g - red.max_tign_g)/(24*60*60) + red.time;
+% red.tign=time2datenum(red.tign_g,red);  % the tign array, in datenum
+% red.min_tign=min(red.tign(:));
+% red.max_tign=max(red.tign(:));
 end

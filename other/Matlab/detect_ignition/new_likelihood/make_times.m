@@ -9,8 +9,5 @@ for i=1:domain_size
         tign(i,j) = sqrt((i-ig_x)^2+(j-ig_y)^2) + ig_time;
     end
 end
-
-        
-
 end
 
