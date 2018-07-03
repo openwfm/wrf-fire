@@ -50,7 +50,7 @@
         ageo = @(T)arrayfun(pgeo,T);            % same for array argument
         %********************************
         figure(4);fplot(@(T) log(ageo(-T)),[-c,10*c]);
-        xlabel('time since fire arrival (h)');ylabel('probability of detection');
+        xlabel('time since fire arrival (h)');ylabel('log probability of detection');
         %********************************
         %********************************
         
