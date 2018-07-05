@@ -8,8 +8,8 @@ function [ detect_prob ] = detection_probability(pixel_heat)
 %   detect_prob : proability of satellite detection at that pixel
 
 % constants 
-a = 20;  %controls shape of curve
-b = 2.2; %controls false positive rate
+a = 30;  %controls shape of curve  20 for patch
+b = 2.2; %controls false positive rate  2.2 for patch
 
 detect_prob = (1 + exp(-a*pixel_heat + b))^(-1);
 

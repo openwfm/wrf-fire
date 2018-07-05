@@ -11,14 +11,15 @@ function [ heat_map ] = make_heats( tign , t_now )
 [m n] = size(tign);
 heat_map = zeros(m,n);
 
-%decay const
-T_0 = 20;
+%const
+T_0 = 1;
+decay = 10;   %set to10 for patch  ,0.02 for hill2 test
 for ii = 1:m
     for jj = 1:n
         if tign(ii,jj) > t_now
             heat_map(ii,jj) = 0;
         else
-            heat_map(ii,jj) = exp((tign(ii,jj)-t_now)/T_0);
+            heat_map(ii,jj) = T_0*exp((tign(ii,jj)-t_now)*decay);
         end
     end
 end
