@@ -111,6 +111,7 @@ R_b = min (s * e * beta_t/pi , 1) * (beta/beta_t)^2 * (B*T_f^4)/(beta * rho * q)
 R_1st_guess = fire_ros(fuel,speed,tanphi,fmc_g);
 R = R_1st_guess
 
+for i=1:15
 % compute rate of spread due to flame radiation (eq. 11)
 R_f = A * R * (1 + sin(gamma) - cos(gamma)) / (1 + R * cos(gamma) / (s * r_00))
 
@@ -119,6 +120,7 @@ R_c = b * (tan(alpha) + 2*U/u_0 * exp (-K * R))
 
 % compute the total rate of spread
 R = R_b + R_f + R_c
+end
 
 ros=R;
 end
