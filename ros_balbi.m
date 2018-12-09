@@ -70,6 +70,9 @@ alpha = atan(tanphi)           % Slope angle [rad]
 U = speed;                      % winds speed normal to the fire front line (m/s)
 simple_radiation = 1;
 
+tol_R = 1e-5;                   % tolerance to compute R
+maxit_R = 20;                   % max iterations to compute R
+
 gamma = NaN ;                   % initialize to avoid Matlab getting confused
 
 % compute drag force coefficient (eq. 7)
@@ -110,18 +113,28 @@ R_b = min (s * e * beta_t/pi , 1) * (beta/beta_t)^2 * (B*T_f^4)/(beta * rho * q)
 % as a first guess take Rothermell ROS
 R_1st_guess = fire_ros(fuel,speed,tanphi,fmc_g);
 R = R_1st_guess
+R_old = R;
 
-for i=1:15
-% compute rate of spread due to flame radiation (eq. 11)
-R_f = A * R * (1 + sin(gamma) - cos(gamma)) / (1 + R * cos(gamma) / (s * r_00))
+for i=1:maxit_R
+    % compute rate of spread due to flame radiation (eq. 11)
+    R_f = A * R * (1 + sin(gamma) - cos(gamma)) / (1 + R * cos(gamma) / (s * r_00))
 
-% compute rate of spread due to convection
-R_c = b * (tan(alpha) + 2*U/u_0 * exp (-K * R))
+    % compute rate of spread due to convection
+    R_c = b * (tan(alpha) + 2*U/u_0 * exp (-K * R))
 
-% compute the total rate of spread
-R = R_b + R_f + R_c
+    % compute the total rate of spread
+    R = R_b + R_f + R_c
+    
+    fprintf('iteration %i R=%g change=%g\n', i, R, R-R_old)
+    if abs(R-R_old) < tol_R
+        break
+    end
+    
+    R_old = R;
 end
-
+if abs(R-R_old) > tol_R
+    warning('iterations to compute R did not converge to given tolerance')
+end
 ros=R;
 end
 
