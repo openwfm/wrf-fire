@@ -70,6 +70,8 @@ alpha = atan(tanphi)           % Slope angle [rad]
 U = speed;                      % winds speed normal to the fire front line (m/s)
 simple_radiation = 1;
 
+gamma = NaN ;                   % initialize to avoid Matlab getting confused
+
 % compute drag force coefficient (eq. 7)
 K = K1 * beta_t * min(e/lv,1);
 
@@ -92,11 +94,11 @@ T_f = T_a + DeltaH * (1-Chi) / ((st+1) * C_pa)
 % compute upward gas velocity (eq. 19)
 u_0 = 2*nu * ((st+1)/tau_0) * (rho/rho_a)  * (T_f/T_a)
 
-% compute flame height (eq. 17)
-H_f = (u_0)*(u_0) / (g * (T_f/T_a -1) * (cos(alpha))^2)
-
 % compute flame tilt angle (eq. 15)
 gamma = atan(tan(alpha) + U / u_0)
+
+% compute flame height (eq. 17)
+H_f = (u_0)*(u_0) / (g * (T_f/T_a -1) * (cos(alpha))^2)
 
 % compute convective coefficient (eq. 8)
 b = 1 / (q * tau_0 * u_0 * beta_t) * deltah * nu * min( st/30,1)
@@ -106,7 +108,7 @@ b = 1 / (q * tau_0 * u_0 * beta_t) * deltah * nu * min( st/30,1)
 R_b = min (s * e * beta_t/pi , 1) * (beta/beta_t)^2 * (B*T_f^4)/(beta * rho * q)
 
 % as a first guess take Rothermell ROS
-[R_1st_guess,irm] = fire_ros(fuel,speed,tanphi,fmc_g);
+R_1st_guess = fire_ros(fuel,speed,tanphi,fmc_g);
 R = R_1st_guess
 
 % compute rate of spread due to flame radiation (eq. 11)
