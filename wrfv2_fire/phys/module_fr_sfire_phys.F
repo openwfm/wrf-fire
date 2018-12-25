@@ -1511,6 +1511,10 @@ integer::k
 
 ierrx = 0
 
+if(ibeh.eq.2)then
+        call crash('fire_ros_cawfe: ibeh=2 Balbi not supported here')
+endif
+
 if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test for .eq. 0 for speed
     if (ibeh .eq. 1) then                ! use Rothermel formula
 !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
@@ -1525,11 +1529,11 @@ if (.not. fp%ischap(i,j) > 0.) then            ! if not chaparral, do not test f
         ros_slope = fp%phisc(i,j) *tanphim**2   ! slope factor
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
         ros_back = fp%r_0(i,j)
-    elseif(ibeh.eq.2)then ! for testing only, spread rate = wind but not < 0
+    elseif(ibeh.eq.98)then ! for testing only, spread rate = wind but not < 0
         ros_back = 0.
         ros_wind = max(speed,0.)
         ros_slope= 0.
-    elseif(ibeh.eq.3)then ! for testing only, spread rate = wind but not < 0
+    elseif(ibeh.eq.99)then ! for testing only, spread rate = wind speed, no mask <0
         ros_back = 0.
         ros_wind = speed
         ros_slope= 0.
