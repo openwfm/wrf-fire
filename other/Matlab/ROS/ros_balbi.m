@@ -83,7 +83,7 @@ q = C_p * (T_i - T_a) + m * deltah;
 A = min (s/(2*pi), beta/beta_t) * Chi_0 * DeltaH / (4 * q);
 
 % as a first guess take Rothermell ROS
-R_1st_guess = fire_ros(fuel,speed,tanphi,fmc_g);
+R_1st_guess = ros_rothermel(fuel,speed,tanphi,fmc_g);
 R = R_1st_guess
 R_old = R;
 gamma = alpha         % first guess no extra tilt

@@ -12,9 +12,21 @@ function plot_fuel(f,units,scale)
 % from fuels.m produced by wrf-fire
 % example: fuels; plot_fuel(fuel(3))
 
-name=['Fuel model ',f.fuel_name];
+switch f.ibeh 
+    case 1
+        spread_model='Rothermel';
+        fire_ros=@ros_rothermel
+    case 2
+        spread_model='Balbi';
+        fire_ros=@ros_balbi
+    otherwise
+        error(sprintf('spread model %g not known',f.ibeh))
+end
 
-disp(f.fuel_name)
+name=['Fuel model ',f.fuel_name,' Spread model ',spread_model];
+
+disp(name)
+
 fprintf('%s fgi = %g\n',f.fgi_descr,f.fgi)
 fprintf('%s fuelmc_g = %g\n',f.fuelmc_g_descr,f.fuelmc_g)
 fprintf('%s cmbcnst = %g\n',f.cmbcnst_descr,f.cmbcnst)
@@ -80,7 +92,7 @@ end
 
 figure(1) % wind dependence
 for i=1:length(f.wind),
-    ros_wind(i) = fire_ros(f,f.wind(i),0);
+    ros_wind(i) = fire_ros(f,f.wind(i),0,f.fuelmc_g);
 end
 err_wind=big(ros_wind-f.ros_wind)
 if logscale,
@@ -88,6 +100,7 @@ if logscale,
 else
     plot(f.wind*wind_conv,ros_wind*ros_conv,'r',f.wind*wind_conv,f.ros_wind*ros_conv,'b')
 end
+legend('Matlab','WRF-SFIRE')
 xlabel(['wind speed at ',wind_unit,')'])
 ylabel(['rate of spread (',ros_unit,')'])
 title(name)
@@ -95,7 +108,7 @@ grid
 
 figure(2) % slope dependence
 for i=1:length(f.slope),
-    ros_slope(i) = fire_ros(f,0,f.slope(i));
+    ros_slope(i) = fire_ros(f,0,f.slope(i),f.fuelmc_g);
 end
 err_slope=big(ros_slope-f.ros_slope)
 if logscale
@@ -103,9 +116,9 @@ if logscale
 else
     plot(f.slope,ros_slope*ros_conv,'r',f.slope,f.ros_slope*ros_conv,'b')
 end
+legend('Matlab','WRF-SFIRE')
 xlabel('slope (1)')
 ylabel(['rate of spread (',ros_unit,')'])
-name=['Fuel model ',f.fuel_name];
 title(name)
 grid
 
@@ -126,18 +139,18 @@ if(isfield(f,'fmc_g')),
 else
     plot(fmc_g,ros_fmc_g*ros_conv,'b')
 end
+legend('Matlab','WRF-SFIRE')
 xlabel('ground fuel moisture content (1)')
 ylabel(['rate of spread (',ros_unit,')'])
-name=['Fuel model ',f.fuel_name];
 title(name)
 grid
 
-fprintf('\nzero wind rate of spread %g %s\n',fire_ros(f,0,0)*ros_conv,ros_unit')
+fprintf('\nzero wind rate of spread %g %s\n',fire_ros(f,0,0,f.fuelmc_g)*ros_conv,ros_unit')
 
 
-fprintf('\nzero wind rate of spread %g %s\n',fire_ros(f,0,0)*ros_conv,ros_unit')
+fprintf('\nzero wind rate of spread %g %s\n',fire_ros(f,0,0,f.fuelmc_g)*ros_conv,ros_unit')
 
 
 
 err=big(check_ros(f));
-fprintf('\nmax rel err in rate of spread between WRF-Fire and fire_ros.m %g\n',err)
+fprintf('\nmax rel err in rate of spread between WRF-SFIRE and fire_ros.m %g\n',err)
