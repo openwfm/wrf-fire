@@ -39,7 +39,7 @@ Chi_0 = 0.3;                     % Radiative factor
 st = 17;                         % Stochiometric coefficient
 Chi_0 = 0.3;                     % Thin Flame Radiant Fraction - ?Balbi 2009?
 B = 5.67e-8;                     % Stefan-Boltzman [W/m2/K4)
-deltah = 2.257e6;                % Water Evap Enthalpy [J/kg]
+deltah_w = 2.257e6;              % Water Evap Enthalpy [J/kg]
 tau_0 = 75591;                   % Anderson's residence time coefficient
 T_a = 293.15;                    % air temperature [K]
 T_i = 600;                       % ignition temperature [K]
@@ -62,7 +62,7 @@ LAI = (s * e * beta) / 2;            % Leaf area index for dead fuel (eq. 3)
 LAI_t= (s * e * beta_t) / 2;         % Total fuel leaf area index (eq. 4)
 nu = min(2*LAI,2*pi*beta/beta_t);            % Absorption coeffcient (eq. 5) 
 lv =   e;                                    % fuel length (m)
-%Model paramters
+%Model parameters
 K1 = 100;                                    % 100 for field, 1400 for the lab
 r_00 = 2.5e-5;                               % Model parameter
 
@@ -74,27 +74,29 @@ tol_R = 1e-5;                   % tolerance to compute R
 maxit_R = 20;                   % max iterations to compute R
 
 % compute drag force coefficient (eq. 7)
-K = K1 * beta_t * min(e/lv,1);
+K_drag = K1 * beta_t * min(e/lv,1)
 
 % compute activation energy (eq. 14)
-q = C_p * (T_i - T_a) + m * deltah;
+q = C_p * (T_i - T_a) + m * deltah_w
 
 % compute radiant coeffcient (eq. 13)
-A = min (s/(2*pi), beta/beta_t) * Chi_0 * DeltaH / (4 * q);
+A = min (s/(2*pi), beta/beta_t) * Chi_0 * DeltaH / (4 * q)
 
 % as a first guess take Rothermell ROS
-R_1st_guess = ros_rothermel(fuel,speed,tanphi,fmc_g);
+R_1st_guess = ros_rothermel(fuel,speed,tanphi,fmc_g)
 R = R_1st_guess
 R_old = R;
 gamma = alpha         % first guess no extra tilt
 
 for i=1:maxit_R
-
+    
+    i  % iteration
+    
     % compute radiative fraction (eq. 20)
     if (simple_radiation) == 1
-        Chi = Chi_0; % start from the initial guess
+        Chi = Chi_0 % start from the initial guess
     else
-        Chi = Chi_0/(1 + R * cos(gamma) / (s * r_00)); % compute radiative fraction from rate of spread and gamma which are unkown...
+        Chi = Chi_0/(1 + R * cos(gamma) / (s * r_00)) % compute radiative fraction from rate of spread and gamma which are unkown...
     end
 
     % compute flame temperature (eq. 16)
@@ -110,7 +112,7 @@ for i=1:maxit_R
     H_f = (u_0)*(u_0) / (g * (T_f/T_a -1) * (cos(alpha))^2)
 
     % compute convective coefficient (eq. 8)
-    b = 1 / (q * tau_0 * u_0 * beta_t) * deltah * nu * min( st/30,1)
+    b = 1 / (q * tau_0 * u_0 * beta_t) * deltah_w * nu * min( st/30,1)
 
     % compute rate of spread 
     % rate of spread from base radiation
@@ -120,7 +122,7 @@ for i=1:maxit_R
     R_f = A * R * (1 + sin(gamma) - cos(gamma)) / (1 + R * cos(gamma) / (s * r_00))
 
     % compute rate of spread due to convection
-    R_c = b * (tan(alpha) + 2*U/u_0 * exp (-K * R))
+    R_c = b * (tan(alpha) + 2*U/u_0 * exp (-K_drag * R))
 
     % compute the total rate of spread
     R = R_b + R_f + R_c
