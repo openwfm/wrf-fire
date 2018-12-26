@@ -1541,7 +1541,7 @@ xifr     = exp( (0.792 + 0.681*savr(k)**0.5) &
 !        ... r_0 is the spread rate for a fire on flat ground with no wind.
 r_0      = ir*xifr/(rhob * epsilon *qig)  ! default spread rate in ft/min
 
-if (ichap(k)>0.)then
+if (.not.ichap(k)>0.)then
     !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
     spdms = max(speed,0.)
     umidm = min(spdms,30.)                    ! max input wind spd is 30 m/s   !param!
