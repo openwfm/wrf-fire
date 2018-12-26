@@ -948,7 +948,7 @@ integer:: iounit,k,j,i,isave
 type(fire_params)::fp
 real, dimension(1:3,1:nsteps), target::vx,vy,zsf,dzdxf,dzdyf,bbb,phisc,phiwc,r_0,fgip,ischap,fmc_g,wind,nfuel_cat
 real, dimension(1:3,1:nsteps)::fuel_time,ros,fwh,fz0
-real::ros_back,ros_wind,ros_slope,propx,propy,r
+real::ros_back,ros_wind,ros_slope,propx,propy,r,speed,tanphi
 integer::ierrx
 character(len=128)::msg
 
@@ -1045,9 +1045,17 @@ do k=1,nfuelcats
     enddo
     do j=1,nsteps
        do i=1,3
-          call fire_ros(ros_back,ros_wind,ros_slope, &
-             propx,propy,i,j,fp,ierrx,msg)
-          ros(i,j)=ros_back+ros_wind+ros_slope
+          if (ibeh.eq.2)then
+              ! wind speed in spread direction
+              speed =  fp%vx(i,j)*propx + fp%vy(i,j)*propy
+              ! slope in spread direction
+              tanphi = fp%dzdxf(i,j)*propx + fp%dzdyf(i,j)*propy
+              call fire_ros_balbi(ros(i,j),fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
+          else
+              call fire_ros(ros_back,ros_wind,ros_slope, &
+                 propx,propy,i,j,fp,ierrx,msg)
+              ros(i,j)=ros_back+ros_wind+ros_slope
+          endif
        enddo
        write(iounit,13)k,'wind',j,wind(1,j),'wind speed at 6.1m'
        write(iounit,13)k,'ros_wind',j,ros(1,j),'rate of spread for the wind speed at 6.1m'
@@ -1414,8 +1422,8 @@ else
     call fire_ros(ros_back,ros_wind,ros_slope, nvx,nvy,i,j,fp,ierrx,msg)
     rr = ros_back+ros_wind+ros_slope
     call fire_ros_rothermel(ros,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
-    write(msg,'(2(a,i6),3(a,f8.4))')'i=',i,' j=',j,  &
-        ' fire_ros:',rr,' fire_ros_rothermel:',ros,' diff:',ros-rr
+    write(msg,'(2(a,i6),2(a,f10.6),a,g15.4)')'i=',i,' j=',j,  &
+        ' fire_ros:',rr,' rothermel:',ros,' diff:',ros-rr
     call message(msg)
 endif
 if(fire_grows_only.gt.0)rr=max(rr,0.)
@@ -1684,7 +1692,7 @@ do i=1,maxit_R
     R = R_b + R_f + R_c
     change = R-R_old
     if (msglevel .ge. 2)then 
-        write(msg,'(i4,2(a,f6.3))')'fire_ros_balbi: iteration', i, ' R=',R,' change=', change 
+        write(msg,'(a,i4,2(a,f6.3))')'fire_ros_balbi: iteration', i, ' R=',R,' change=', change 
         call message(msg)
     endif
     if (abs( change) < tol_R)then
