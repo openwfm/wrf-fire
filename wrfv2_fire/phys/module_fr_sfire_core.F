@@ -2050,7 +2050,7 @@ type(fire_params),intent(in)::fp
 !*** local 
 real:: te,diffLx,diffLy,diffRx,diffRy, & 
    diffCx,diffCy,diff2x,diff2y,grad,rr, &
-   ros_back,ros_wind,ros_slope,advx,advy,scale,nvx,nvy,speed
+   advx,advy,scale,nvx,nvy,speed
 integer::i,j,itso,iteo,jtso,jteo,ierrx,nerr
 character(len=128)msg,msg2
 
@@ -2132,11 +2132,10 @@ intrinsic max,min,sqrt,nint,tiny,huge
     
             ! get rate of spread from wind speed and slope
 
-            call fire_ros(ros_back,ros_wind,ros_slope, &
+            call fire_ros(rr, &
             nvx,nvy,i,j,fp,ierrx,msg2)
             nerr = nerr + ierrx
 
-            rr=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)rr=max(rr,0.)
 
             ! set ros for output
@@ -2268,7 +2267,6 @@ integer, intent(out)::ierrx
 character(len=*), intent(out)::msg
 !*** local
 real::scale,nvx,nvy,r
-real::ros_back , ros_wind , ros_slope
 real, parameter:: eps=epsilon(0.0)
 !*** executable
             ! normal direction, from central differences
@@ -2278,10 +2276,9 @@ real, parameter:: eps=epsilon(0.0)
                       
             ! get rate of spread from wind speed and slope
 
-            call fire_ros(ros_back,ros_wind,ros_slope, &
+            call fire_ros(r, &
             nvx,nvy,i,j,fp,ierrx,msg)
 
-            r=ros_back + ros_wind + ros_slope
             if(fire_grows_only.gt.0)r=max(r,0.)
             speed_func=r
 

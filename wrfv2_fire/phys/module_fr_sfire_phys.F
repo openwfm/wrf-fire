@@ -1052,9 +1052,8 @@ do k=1,nfuelcats
               tanphi = fp%dzdxf(i,j)*propx + fp%dzdyf(i,j)*propy
               call fire_ros_balbi(ros(i,j),fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
           else
-              call fire_ros(ros_back,ros_wind,ros_slope, &
+              call fire_ros(ros(i,j), &
                  propx,propy,i,j,fp,ierrx,msg)
-              ros(i,j)=ros_back+ros_wind+ros_slope
           endif
        enddo
        write(iounit,13)k,'wind',j,wind(1,j),'wind speed at 6.1m'
@@ -1419,8 +1418,7 @@ tanphi = fp%dzdxf(i,j)*nvx + fp%dzdyf(i,j)*nvy
 if (ibeh .eq. 2) then
     call fire_ros_balbi(rr,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
 else
-    call fire_ros(ros_back,ros_wind,ros_slope, nvx,nvy,i,j,fp,ierrx,msg)
-    rr = ros_back+ros_wind+ros_slope
+    call fire_ros(rr, nvx,nvy,i,j,fp,ierrx,msg)
     call fire_ros_rothermel(ros,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
     write(msg,'(2(a,i6),2(a,f10.6),a,g15.4)')'i=',i,' j=',j,  &
         ' fire_ros:',rr,' rothermel:',ros,' diff:',ros-rr
@@ -1433,7 +1431,7 @@ end function fire_rate_of_spread
 
 
 
-subroutine fire_ros(ros_back,ros_wind,ros_slope, &
+subroutine fire_ros(ros, &
 propx,propy,i,j,fp,ierrx,msg)
 
 implicit none
@@ -1441,7 +1439,7 @@ implicit none
 ! compute the wind speed and slope normal to the fireline and call fire_ros_cawfe
 
 !*** arguments
-real, intent(out)::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
+real, intent(out)::ros ! rate of spread: backing, due to wind, due to slope
 real, intent(in)::propx,propy
 integer, intent(in)::i,j         ! node mesh coordinates
 type(fire_params),intent(in)::fp
@@ -1449,6 +1447,7 @@ integer, intent(out)::ierrx
 character(len=*), intent(out)::msg
 
 !*** local
+real::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
 real::cor_wind,cor_slope,nvx,nvy,scale
 
@@ -1479,6 +1478,8 @@ endif
 
 call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
 speed,tanphi,cor_wind,cor_slope,i,j,fp,ierrx,msg)
+
+ros = ros_back+ros_wind+ros_slope
 
 end subroutine fire_ros
 
