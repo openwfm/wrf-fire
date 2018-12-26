@@ -1,5 +1,3 @@
-!
-
 !*** Jan Mandel August-October 2007 email: jmandel@ucar.edu or Jan.Mandel@gmail.com
 !
 ! This file contains parts copied and/or adapted from earlier codes by 
@@ -1399,13 +1397,27 @@ type(fire_params),intent(in)::fp
 real:: ros_back,ros_wind,ros_slope,nvx,nvy,scale,rr
 integer::ierrx     ! number of errors
 character(len=128)::msg ! error message
+real:: speed, tanphi, ros
+
 !*** executable
 scale=sqrt(propx*propx+propy*propy)
 if (.not. scale > 0.) scale =1.
 nvx=propx/scale
 nvy=propy/scale
-call fire_ros(ros_back,ros_wind,ros_slope, nvx,nvy,i,j,fp,ierrx,msg)
-rr = ros_back+ros_wind+ros_slope
+! wind speed in spread direction
+speed =  fp%vx(i,j)*nvx + fp%vy(i,j)*nvy
+! slope in spread direction
+tanphi = fp%dzdxf(i,j)*nvx + fp%dzdyf(i,j)*nvy
+if (ibeh .eq. 2) then
+    call fire_ros_balbi(rr,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
+else
+    call fire_ros(ros_back,ros_wind,ros_slope, nvx,nvy,i,j,fp,ierrx,msg)
+    rr = ros_back+ros_wind+ros_slope
+    call fire_ros_rothermel(ros,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
+    write(msg,'(2(a,i6),3(a,f8.4))')'i=',i,' j=',j,  &
+        ' fire_ros:',rr,' fire_ros_rothermel:',ros,' diff:',ros-rr
+    call message(msg)
+endif
 if(fire_grows_only.gt.0)rr=max(rr,0.)
 fire_rate_of_spread = rr
 
@@ -1465,38 +1477,34 @@ end subroutine fire_ros
 !
 !***
 !
-subroutine fire_ros_rothermel(ros,ifuel,speed,tanphi,fmc_g)
+subroutine fire_ros_rothermel(ros,nfuel,speed,tanphi,fmc_g)
 ! in
-!       ifuel   number of fuel description
+!       nfuel   number of fuel description
 !       speed   wind speed
 !       tanphi  slope
-!       fmc_g   if > 0. overrides fuelmc_g from the fuel description
+!       fmc_g   fuel moisture content (0 to 1)
 ! out
 !       ros     rate of spread
 
+implicit none
 !*** arguments
 
-implicit none
-integer, intent(in):: ifuel
-real, intent(in):: speed,tanphi,fmc_g
+real, intent(in):: nfuel, speed,tanphi,fmc_g
+real, intent(out):: ros
+
+!*** local
+real:: m, bmst, fuelheat, fuelloadm, fuelload, fueldepth, betafl, betaop, qig, epsilon, &
+rhob, c, bbb, e, phiwc, rtemp2, gammax, a, ratio, gamma, wn, rtemp1, etam, etas, &
+ir, irm, xifr, r_0,  spdms, umidm, umid, phiw, phis
+integer::k
 
 !*** executable
 
-k = ifuel                        ! fuel index
+k = nfuel                        ! fuel index
 
-if fmc_g > 0. then
-    m = fmc_g                   ! FUEL PARTICLE MOISTURE CONTENT as fraction (0 - 1) [-]
-else
-    m = fuelmc_g(k)                   ! FUEL PARTICLE MOISTURE CONTENT as fraction (0 - 1) [-]
-endif
 
-real:: m, bmst, fuelheat, fuelloadm, fuelload, betafl, betaop, qig, epsilon, &
-rhob, c, bbb, e, phiwc, rtemp2, gammax, a, ratio, gamma, wn, rtemp1, etam, etas, &
-ir, irm, xifr, r_0,  spdms, umidm, umid, phiw, phis
-
-bmst     = m/(1+m)          ! jm: 1 
+bmst     = fmc_g/(1+fmc_g)          ! jm: 1 
 fuelheat = cmbcnst * 4.30e-04             ! convert J/kg to BTU/lb
-! fci      = (1.+fuelmc_c)*fci_d
 fuelloadm= (1.-bmst) * fgi(k)                ! fuelload without moisture
                                            ! jm: 1.-bmst = 1/(1+fuelmc_g) so fgi includes moisture? 
 fuelload = fuelloadm * (.3048)**2 * 2.205  ! to lb/ft**2
@@ -1516,10 +1524,10 @@ gammax   = rtemp2/(495. + 0.0594*rtemp2)  ! maximum rxn vel, 1/min
 a        = 1./(4.774 * savr(k)**0.1 - 7.27)   ! coef for optimum rxn vel
 ratio    = betafl/betaop   
 gamma    = gammax*(ratio**a)*exp(a*(1.-ratio)) ! optimum rxn vel, 1/min
-wn       = fuelload/(1 + st)              ! net fuel loading, lb/ft**2
-rtemp1   = fuelmc_g/fuelmce
+wn       = fuelload/(1 + st(k))              ! net fuel loading, lb/ft**2
+rtemp1   = fmc_g/fuelmce(k)
 etam     = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  ! moist damp coef
-etas     = 0.174* se**(-0.19)              ! mineral damping coef
+etas     = 0.174* se(k)**(-0.19)              ! mineral damping coef
 ir       = gamma * wn * fuelheat * etam * etas ! rxn intensity,btu/ft**2 min
 irm      = ir * 1055./( 0.3048**2 * 60.) * 1.e-6! for mw/m**2 (set but not used)
 xifr     = exp( (0.792 + 0.681*savr(k)**0.5) &
@@ -1527,14 +1535,14 @@ xifr     = exp( (0.792 + 0.681*savr(k)**0.5) &
 !        ... r_0 is the spread rate for a fire on flat ground with no wind.
 r_0      = ir*xifr/(rhob * epsilon *qig)  ! default spread rate in ft/min
 
-if ~ichap,
+if (ichap(k)>0.)then
     !       ... if wind is 0 or into fireline, phiw = 0, &this reduces to backing ros.
     spdms = max(speed,0.)
     umidm = min(spdms,30.)                    ! max input wind spd is 30 m/s   !param!
     umid = umidm * 196.850                    ! m/s to ft/min
     !  eqn.: phiw = c * umid**bbb * (betafl/betaop)**(-e) ! wind coef
     phiw = umid**bbb * phiwc                   ! wind coef
-    phis = 5.275 * betafl**(-0.3) *max(0,tanphi)**2   ! slope factor
+    phis = 5.275 * betafl**(-0.3) *max(0.,tanphi)**2   ! slope factor
     ros = r_0*(1. + phiw + phis)  * .00508 ! spread rate, m/s
 else  ! chapparal
     !        .... spread rate has no dependency on fuel character, only windspeed.
@@ -1542,7 +1550,7 @@ else  ! chapparal
     ros = max(.03333,1.2974 * spdms**1.41)       ! spread rate, m/s
 endif
 
-ros=min(ros,6);
+ros=min(ros,6.);
 
 end subroutine fire_ros_rothermel
 
@@ -1551,31 +1559,29 @@ end subroutine fire_ros_rothermel
 !
 
 
-subroutine fire_ros_balbi(ros,ifuel,speed,tanphi,fmc_g)
+subroutine fire_ros_balbi(ros,nfuel,speed,tanphi,fmc_g)
 ! in
-!       ifuel   number of fuel description
+!       nfuel   number of fuel description
 !       speed   wind speed
 !       tanphi  slope
-!       fmc_g   if > 0. overrides fuelmc_g from the fuel description
+!       fmc_g   fuel moisture content
 ! out
 !       ros     rate of spread
 
 !*** arguments
 
 implicit none
-integer, intent(in):: ifuel
-real, intent(in):: speed,tanphi,fmc_g
-real, intent(ou):: ros
+real, intent(in):: nfuel,speed,tanphi,fmc_g
+real, intent(out):: ros
 
 !*** constants
 
 ! Universal constants
 real, parameter:: g = 9.81                        ! Gravitational acceleration [m/s2]
-real, parameter:: Chi_0 = 0.3                     ! Radiative factor
 real, parameter:: st = 17                         ! Stochiometric coefficient
 real, parameter:: Chi_0 = 0.3                     ! Thin Flame Radiant Fraction - ?Balbi 2009?
 real, parameter:: B = 5.67e-8                     ! Stefan-Boltzman [W/m2/K4)
-real, parameter:: deltah = 2.257e6                ! Water Evap Enthalpy [J/kg]
+!! real, parameter:: DeltaH = 2.257e6                ! Water Evap Enthalpy [J/kg]
 real, parameter:: tau_0 = 75591                   ! Anderson's residence time coefficient
 real, parameter:: T_a = 293.15                    ! air temperature [K]
 real, parameter:: T_i = 600                       ! ignition temperature [K]
@@ -1586,30 +1592,31 @@ real, parameter:: C_pa = 1150                    ! Specific heat of air [J/Kg/K]
 !Model parameters
 real, parameter:: K1 = 100                                    ! 100 for field, 1400 for the lab
 real, parameter:: r_00 = 2.5e-5                               ! Model parameter
-logical, parameter:: simple_radiation = false 
+logical, parameter:: simple_radiation = .false.
 real, parameter:: tol_R = 1e-5                   ! tolerance to compute R
 integer, parameter:: maxit_R = 20                   ! max iterations to compute R
 real, parameter:: rho = 1500                      ! Fuel density [kg/m3]
 real, parameter:: rho_a = 1.125                  ! Air density [kg/m3]
 real, parameter:: rho_flame = 0.25                            ! Gas Flame Density [kg/m^3]
+real, parameter:: pi=3.141592653589793
+
+integer::msglevel=2
 
 !*** local
-real:: m, rho_v, e, DeltaH, sigma, sigma_t, beta, beta_t, s, LAI, LAI_t, nu, lv, alpha, U, K, q, &
-   A, R_1st_guess, R, gamma, T_f, H_f, b, R_b, R_f, R_c, R
+real:: m, rho_v, e, DeltaH, sigma, sigma_t, beta, beta_t, s, LAI, LAI_t, nu, lv, alpha, U, K_drag, q, &
+   A, R_1st_guess, R, gamma, Chi, T_f, u_0, H_f, b0, R_b, R_f, R_c, R_old, change
+character(len=128)::msg
+integer::k,i
 
 
 !*** executable
 
-k = ifuel                        ! fuel index
+k = nfuel                        ! fuel index
 
-if fmc_g > 0. then
-    m = fmc_g                   ! FUEL PARTICLE MOISTURE CONTENT as fraction (0 - 1) [-]
-else
-    m = fuelmc_g(k)                   ! FUEL PARTICLE MOISTURE CONTENT as fraction (0 - 1) [-]
-endif
+m = fmc_g                   ! FUEL PARTICLE MOISTURE CONTENT as fraction (0 - 1) [-]
 rho_v = fueldens(k)*16.0185       ! FUEL Particle Density [Kg/m^3]
 e = fueldepthm(k)                  ! Fuel thickness (depth) (m)
-DeltaH = cmbcnst(k)               ! Combustion Enthalpy [J/kg]
+DeltaH = cmbcnst               ! Combustion Enthalpy [J/kg]
 sigma = fgi(k)                    ! Dead fuel load [kg/m2]
 sigma_t = fgi(k)                  ! Total fuel load [kg/m2]
 beta    = sigma/(e * rho)                   ! packing ratio of the dead fuel (eq. 1)
@@ -1625,7 +1632,7 @@ U = speed                      ! winds speed normal to the fire front line (m/s)
 
 
 ! compute drag force coefficient (eq. 7)
-K = K1 * beta_t * min(e/lv,1)
+K_drag = K1 * beta_t * min(e/lv,1.)
 
 ! compute activation energy (eq. 14)
 q = C_p * (T_i - T_a) + m * deltah
@@ -1634,7 +1641,7 @@ q = C_p * (T_i - T_a) + m * deltah
 A = min (s/(2*pi), beta/beta_t) * Chi_0 * DeltaH / (4 * q)
 
 ! as a first guess take Rothermell ROS
-call fire_ros_rothermel(R_1st_guess,ifuel,speed,tanphi,fmc_g)
+call fire_ros_rothermel(R_1st_guess,nfuel,speed,tanphi,fmc_g)
 R = R_1st_guess
 R_old = R
 gamma = alpha         ! first guess no extra tilt
@@ -1642,7 +1649,7 @@ gamma = alpha         ! first guess no extra tilt
 do i=1,maxit_R
 
     ! compute radiative fraction (eq. 20)
-    if simple_radiation then
+    if (simple_radiation) then
         Chi = Chi_0 ! start from the initial guess
     else
         Chi = Chi_0/(1 + R * cos(gamma) / (s * r_00)) ! compute radiative fraction from rate of spread and gamma which are unkown...
@@ -1658,35 +1665,41 @@ do i=1,maxit_R
     gamma = atan(tan(alpha) + U / u_0)
 
     ! compute flame height (eq. 17)
-    H_f = (u_0)*(u_0) / (g * (T_f/T_a -1) * (cos(alpha))^2)
+    H_f = (u_0)*(u_0) / (g * (T_f/T_a -1) * (cos(alpha))**2)
 
     ! compute convective coefficient (eq. 8)
-    b = 1 / (q * tau_0 * u_0 * beta_t) * deltah * nu * min( st/30,1)
+    b0 = 1 / (q * tau_0 * u_0 * beta_t) * deltah * nu * min( st/30.,1.)
 
     ! compute rate of spread 
     ! rate of spread from base radiation
-    R_b = min (s * e *  beta_t/pi , 1) * (beta/beta_t)^2 * (B*T_f^4)/(beta * rho * q)
+    R_b = min (s * e *  beta_t/pi , 1.) * (beta/beta_t)**2 * (B*T_f**4)/(beta * rho * q)
 
     ! compute rate of spread due to flame radiation (eq. 11)
     R_f = A * R * (1 + sin(gamma) - cos(gamma)) / (1 + R * cos(gamma) / (s * r_00))
 
     ! compute rate of spread due to convection
-    R_c = b * (tan(alpha) + 2*U/u_0 * exp (-K * R))
+    R_c = b0 * (tan(alpha) + 2*U/u_0 * exp (-K_drag * R))
 
     ! compute the total rate of spread
     R = R_b + R_f + R_c
-    
-    fprintf('iteration !i R=%g change=%g\n', i, R, R-R_old)
-    if abs(R-R_old) < tol_R
-        break
+    change = R-R_old
+    if (msglevel .ge. 2)then 
+        write(msg,'(i4,2(a,f6.3))')'fire_ros_balbi: iteration', i, ' R=',R,' change=', change 
+        call message(msg)
     endif
-    
+    if (abs( change) < tol_R)then
+        exit
+    endif
     R_old = R;
 enddo
-if abs(R-R_old) > tol_R
-    call message('iterations to compute R did not converge to given tolerance')
+if (.not.(abs(change) <tol_R)) then
+    if (msglevel .ge. 1)then 
+        write(msg,'(i4,2(a,f6.3))')'fire_ros_balbi: iteration', maxit_R, ' R=',R,' change=', change 
+        call message(msg)
+        call warning('fire_ros_balbi: iterations to compute R did not converge to given tolerance')
+    endif
 endif
-ros=R;
+ros=R
 end subroutine fire_ros_balbi
 
 !
