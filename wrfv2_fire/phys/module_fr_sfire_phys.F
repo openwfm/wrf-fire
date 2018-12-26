@@ -153,7 +153,7 @@ PUBLIC:: mfuelcats
    INTEGER, PARAMETER :: zf = mfuelcats-nf  ! number of zero fillers in data stmt 
    INTEGER, SAVE      :: no_fuel_cat = 14   ! special no fuel category outside of 1:nfuelcats
    INTEGER, SAVE      :: no_fuel_cat2 = 14  ! all categories between no_fuel_cat and no_fuel_cat2 are no fuel
-   INTEGER, SAVE      :: ibeh=1             ! type of spread formula
+   INTEGER, SAVE      :: ibeh=1             ! spread formula 0 = MacArthur, 1 = Rothermel, 2 = Balbi
    CHARACTER (len=80), DIMENSION(mfuelcats ), save :: fuel_name
    INTEGER, DIMENSION( mfuelcats ), save :: ichap
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
@@ -969,9 +969,11 @@ fp%nfuel_cat=>nfuel_cat
 
 iounit = open_text_file('fuels.m','write')
 
+
 10 format('fuel(',i3,').',a,'=',"'",a,"'",';% ',a)
 do k=1,nfuelcats
     write(iounit,10)k,'fuel_name',trim(fuel_name(k)),'FUEL MODEL NAME'
+    call write_var(k,'ibeh',1.*ibeh,'Model: 0 = MacArthur, 1 = Rothermel, 2 = Balbi' )
     call write_var(k,'windrf',windrf(k),'WIND REDUCTION FACTOR FROM FCWH TO MIDFLAME HEIGHT' )
     call write_var(k,'fwh',fcwh(k),'WIND HEIGHT TO INTERPOLATE VERTICALLY TO (M)' )
     call write_var(k,'fz0',fcz0(k),'ROUGHNESS LENGTH FOR VERTICAL WIND LOG INTERPOLATION (M)' )
@@ -1499,7 +1501,7 @@ real, intent(in):: nfuel, speed,tanphi,fmc_g
 real, intent(out):: ros
 
 !*** local
-real:: m, bmst, fuelheat, fuelloadm, fuelload, fueldepth, betafl, betaop, qig, epsilon, &
+real:: bmst, fuelheat, fuelloadm, fuelload, fueldepth, betafl, betaop, qig, epsilon, &
 rhob, c, bbb, e, phiwc, rtemp2, gammax, a, ratio, gamma, wn, rtemp1, etam, etas, &
 ir, irm, xifr, r_0,  spdms, umidm, umid, phiw, phis
 integer::k
@@ -1517,7 +1519,7 @@ fuelload = fuelloadm * (.3048)**2 * 2.205  ! to lb/ft**2
 fueldepth= fueldepthm(k)/0.3048              ! to ft
 betafl   = fuelload/(fueldepth * fueldens(k))! packing ratio  jm: lb/ft**2/(ft * lb*ft**3) = 1
 betaop   = 3.348 * savr(k)**(-0.8189)         ! optimum packing ratio jm: units??  
-qig      = 250. + 1116.*m          ! heat of preignition, btu/lb
+qig      = 250. + 1116.*fmc_g          ! heat of preignition, btu/lb
 epsilon  = exp(-138./savr(k) )               ! effective heating number
 rhob     = fuelload/fueldepth             ! ovendry bulk density, lb/ft**3
 c        = 7.47 * exp(-0.133 * savr(k)**0.55) ! const in wind coef
@@ -1587,17 +1589,17 @@ character(len=*), intent(out)::msg
 !*** constants
 
 ! Universal constants
-real, parameter:: g = 9.81                        ! Gravitational acceleration [m/s2]
-real, parameter:: st = 17                         ! Stochiometric coefficient
-real, parameter:: Chi_0 = 0.3                     ! Thin Flame Radiant Fraction - ?Balbi 2009?
-real, parameter:: B = 5.67e-8                     ! Stefan-Boltzman [W/m2/K4)
-!! real, parameter:: DeltaH = 2.257e6                ! Water Evap Enthalpy [J/kg]
-real, parameter:: tau_0 = 75591                   ! Anderson's residence time coefficient
-real, parameter:: T_a = 293.15                    ! air temperature [K]
-real, parameter:: T_i = 600                       ! ignition temperature [K]
+real:: g = 9.81                        ! Gravitational acceleration [m/s2]
+real:: st = 17                         ! Stochiometric coefficient
+real:: Chi_0 = 0.3                     ! Thin Flame Radiant Fraction - ?Balbi 2009?
+real:: B = 5.67e-8                     ! Stefan-Boltzman [W/m2/K4)
+real:: deltah_w = 2.257e6                ! Water Evap Enthalpy [J/kg]
+real:: tau_0 = 75591                   ! Anderson's residence time coefficient
+real:: T_a = 293.15                    ! air temperature [K]
+real:: T_i = 600                       ! ignition temperature [K]
 ! Fuel Constants
-real, parameter:: C_p = 2e3                      ! Specific heat of fuel [J/kg/K] - Balbi 2009
-real, parameter:: C_pa = 1150                    ! Specific heat of air [J/Kg/K]
+real:: C_p = 2e3                      ! Specific heat of fuel [J/kg/K] - Balbi 2009
+real:: C_pa = 1150                    ! Specific heat of air [J/Kg/K]
 
 !Model parameters
 real, parameter:: K1 = 100                                    ! 100 for field, 1400 for the lab
@@ -1619,6 +1621,8 @@ integer::k,i
 
 
 !*** executable
+
+!print *,'nfuel ',nfuel,' speed ',speed,' tanphi ',tanphi,' fmc_g ',fmc_g
 
 k = nfuel                        ! fuel index
 
@@ -1644,7 +1648,7 @@ U = max(speed,0.)              ! winds speed normal to the fire front line (m/s)
 K_drag = K1 * beta_t * min(e/lv,1.)
 
 ! compute activation energy (eq. 14)
-q = C_p * (T_i - T_a) + m * deltah
+q = C_p * (T_i - T_a) + m * deltah_w
 
 ! compute radiant coeffcient (eq. 13)
 A = min (s/(2*pi), beta/beta_t) * Chi_0 * DeltaH / (4 * q)
@@ -1656,6 +1660,7 @@ R_old = R
 gamma = alpha         ! first guess no extra tilt
 
 do i=1,maxit_R
+    !print *,'i',i
 
     ! compute radiative fraction (eq. 20)
     if (simple_radiation) then
@@ -1663,21 +1668,25 @@ do i=1,maxit_R
     else
         Chi = Chi_0/(1 + R * cos(gamma) / (s * r_00)) ! compute radiative fraction from rate of spread and gamma which are unkown...
     endif
+    !print *,'Chi',Chi
 
     ! compute flame temperature (eq. 16)
     T_f = T_a + DeltaH * (1-Chi) / ((st+1) * C_pa)
+    !print *,'T_f',T_f
 
     ! compute upward gas velocity (eq. 19)
     u_0 = 2*nu * ((st+1)/tau_0) * (rho/rho_a)  * (T_f/T_a)
 
     ! compute flame tilt angle (eq. 15)
     gamma = atan(tan(alpha) + U / u_0)
+    !print *,'gamma',gamma
 
     ! compute flame height (eq. 17)
     H_f = (u_0)*(u_0) / (g * (T_f/T_a -1) * (cos(alpha))**2)
+    !print *,'H_f',H_f
 
     ! compute convective coefficient (eq. 8)
-    b0 = 1 / (q * tau_0 * u_0 * beta_t) * deltah * nu * min( st/30.,1.)
+    b0 = 1 / (q * tau_0 * u_0 * beta_t) * deltah_w * nu * min( st/30.,1.)
 
     ! compute rate of spread 
     ! rate of spread from base radiation
