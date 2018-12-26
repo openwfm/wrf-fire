@@ -1045,16 +1045,8 @@ do k=1,nfuelcats
     enddo
     do j=1,nsteps
        do i=1,3
-          if (ibeh.eq.2)then
-              ! wind speed in spread direction
-              speed =  fp%vx(i,j)*propx + fp%vy(i,j)*propy
-              ! slope in spread direction
-              tanphi = fp%dzdxf(i,j)*propx + fp%dzdyf(i,j)*propy
-              call fire_ros_balbi(ros(i,j),fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
-          else
-              call fire_ros(ros(i,j), &
+          call fire_ros(ros(i,j), &
                  propx,propy,i,j,fp,ierrx,msg)
-          endif
        enddo
        write(iounit,13)k,'wind',j,wind(1,j),'wind speed at 6.1m'
        write(iounit,13)k,'ros_wind',j,ros(1,j),'rate of spread for the wind speed at 6.1m'
@@ -1411,20 +1403,7 @@ scale=sqrt(propx*propx+propy*propy)
 if (.not. scale > 0.) scale =1.
 nvx=propx/scale
 nvy=propy/scale
-! wind speed in spread direction
-speed =  fp%vx(i,j)*nvx + fp%vy(i,j)*nvy
-! slope in spread direction
-tanphi = fp%dzdxf(i,j)*nvx + fp%dzdyf(i,j)*nvy
-if (ibeh .eq. 2) then
-    call fire_ros_balbi(rr,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
-else
-    call fire_ros(rr, nvx,nvy,i,j,fp,ierrx,msg)
-    call fire_ros_rothermel(ros,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
-    write(msg,'(2(a,i6),2(a,f10.6),a,g15.4)')'i=',i,' j=',j,  &
-        ' fire_ros:',rr,' rothermel:',ros,' diff:',ros-rr
-    call message(msg)
-endif
-if(fire_grows_only.gt.0)rr=max(rr,0.)
+call fire_ros(rr, nvx,nvy,i,j,fp,ierrx,msg)
 fire_rate_of_spread = rr
 
 end function fire_rate_of_spread
@@ -1447,7 +1426,7 @@ integer, intent(out)::ierrx
 character(len=*), intent(out)::msg
 
 !*** local
-real::ros_back,ros_wind,ros_slope ! rate of spread: backing, due to wind, due to slope
+real::ros_back,ros_wind,ros_slope, rr ! rate of spread: backing, due to wind, due to slope
 real:: speed, tanphi ! windspeed and slope in the directino normal to the fireline
 real::cor_wind,cor_slope,nvx,nvy,scale
 
@@ -1459,6 +1438,7 @@ scale=1.
 nvx=propx/scale
 nvy=propy/scale
 if (fire_advection.ne.0) then ! from flags in module_fr_sfire_util
+    call crash('fire_advection no longer supported')
     ! wind speed is total speed 
     speed =  sqrt(fp%vx(i,j)*fp%vx(i,j)+ fp%vy(i,j)*fp%vy(i,j))+tiny(speed)
     ! slope is total slope
@@ -1476,10 +1456,27 @@ else
     cor_slope=1.
 endif
 
-call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
-speed,tanphi,cor_wind,cor_slope,i,j,fp,ierrx,msg)
-
-ros = ros_back+ros_wind+ros_slope
+ierrx=0
+if (ibeh .eq. 2) then
+    call fire_ros_balbi(ros,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j),ierrx,msg)
+    if (ierrx.ne.0)then
+        call warning(msg)
+    endif
+else
+    call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
+    speed,tanphi,cor_wind,cor_slope,i,j,fp,ierrx,msg)
+    if (ierrx.ne.0)then
+        call warning(msg)
+    endif
+    ros = ros_back+ros_wind+ros_slope
+    call fire_ros_rothermel(rr,fp%nfuel_cat(i,j),speed,tanphi,fp%fmc_g(i,j))
+    if (abs(ros-rr)>1e-4)then
+        write(msg,'(2(a,i6),2(a,f10.6),a,g15.4)')'i=',i,' j=',j,  &
+        ' fire_ros_cawfe:',ros,' rothermel:',rr,' diff:',ros-rr
+        call warning(msg)
+    endif
+endif
+if(fire_grows_only.gt.0)ros=max(ros,0.)
 
 end subroutine fire_ros
 
@@ -1568,7 +1565,7 @@ end subroutine fire_ros_rothermel
 !
 
 
-subroutine fire_ros_balbi(ros,nfuel,speed,tanphi,fmc_g)
+subroutine fire_ros_balbi(ros,nfuel,speed,tanphi,fmc_g,ierrx,msg)
 ! in
 !       nfuel   number of fuel description
 !       speed   wind speed
@@ -1576,12 +1573,16 @@ subroutine fire_ros_balbi(ros,nfuel,speed,tanphi,fmc_g)
 !       fmc_g   fuel moisture content
 ! out
 !       ros     rate of spread
+!       ierrx   error code
+!       msg     message
 
 !*** arguments
 
 implicit none
 real, intent(in):: nfuel,speed,tanphi,fmc_g
 real, intent(out):: ros
+integer, intent(out)::ierrx 
+character(len=*), intent(out)::msg
 
 !*** constants
 
@@ -1614,7 +1615,6 @@ integer::msglevel=2
 !*** local
 real:: m, rho_v, e, DeltaH, sigma, sigma_t, beta, beta_t, s, LAI, LAI_t, nu, lv, alpha, U, K_drag, q, &
    A, R_1st_guess, R, gamma, Chi, T_f, u_0, H_f, b0, R_b, R_f, R_c, R_old, change
-character(len=128)::msg
 integer::k,i
 
 
@@ -1637,7 +1637,7 @@ nu = min(2*LAI,2*pi*beta/beta_t)            ! Absorption coeffcient (eq. 5)
 lv =   e                                    ! fuel length (m)
 
 alpha = atan(tanphi)           ! Slope angle [rad]
-U = speed                      ! winds speed normal to the fire front line (m/s)
+U = max(speed,0.)              ! winds speed normal to the fire front line (m/s), >=0 ONLY
 
 
 ! compute drag force coefficient (eq. 7)
@@ -1691,22 +1691,46 @@ do i=1,maxit_R
 
     ! compute the total rate of spread
     R = R_b + R_f + R_c
-    change = R-R_old
-    if (msglevel .ge. 2)then 
-        write(msg,'(a,i4,2(a,f6.3))')'fire_ros_balbi: iteration', i, ' R=',R,' change=', change 
+
+    if (R<0.)then
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+        write(msg,1)i,R,change
         call message(msg)
+        write(msg,'(3(a,f8.3,1x))') 'R_b=',R_b,'R_f=',R_f,'R_c=',R_c
+        call message(msg)
+        call warning('not allowing R<0')
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+        R=0.
+    endif
+    change = R-R_old
+    if (msglevel .ge. 4)then 
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+        write(msg,1)i,R,change
+        call message(msg)
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     endif
     if (abs( change) < tol_R)then
         exit
     endif
     R_old = R;
 enddo
-if (.not.(abs(change) <tol_R)) then
-    if (msglevel .ge. 1)then 
-        write(msg,'(i4,2(a,f6.3))')'fire_ros_balbi: iteration', maxit_R, ' R=',R,' change=', change 
+1 format('fire_ros_balbi: iteration',i3,' R=',f6.3,' diff=',g12.3,a)
+if (abs(change) <tol_R) then
+    if (msglevel .ge. 3)then 
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+        write(msg,1)i,R,change,' converged'
         call message(msg)
-        call warning('fire_ros_balbi: iterations to compute R did not converge to given tolerance')
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
     endif
+    ierrx = 0
+else
+!$OMP CRITICAL(SFIRE_PHYS_CRIT)
+    write(msg,1)i,R,change,' did not converge'
+    if (msglevel .ge. 2)then 
+        call warning(msg)
+    endif
+!$OMP END CRITICAL(SFIRE_PHYS_CRIT)
+    ierrx=1
 endif
 ros=R
 end subroutine fire_ros_balbi
@@ -1875,9 +1899,12 @@ real, intent(out), dimension(ifms:ifme,jfms:jfme) :: &
 
 !*** local
 integer:: i,j,k, ierrx
-real:: cor_wind=1.,cor_slope=1.,dt_fake=1.
-real:: ros_back,ros_wind,ros_slope,speed,tanphi,front_speed,ros_x,ros_y
+real::r
 character(len=128)::msg
+real,parameter::s=1.41421356237,o=1.,z=0.
+integer,parameter::nv=8
+real, dimension(nv)::nvx=(/o,s,z,-s,-o,-s,z,s/),  &
+                     nvy=(/z,s,o,s,z,-s,-o,-s/)
 
 !*** executable
 
@@ -1885,24 +1912,15 @@ do j=jfts,jfte
   do i=ifts,ifte
 !   compute the fire spread rate and vector
 
-    ! wind speed is total speed 
-    speed =  sqrt(fp%vx(i,j)*fp%vx(i,j)+ fp%vy(i,j)*fp%vy(i,j))+tiny(speed)
-    ! slope is total slope
-    tanphi = sqrt(fp%dzdxf(i,j)*fp%dzdxf(i,j) + fp%dzdyf(i,j)*fp%dzdyf(i,j))+tiny(tanphi)
+    f_ros0(i,j) = 0.      ! direction-less spread rate component
 
-    call fire_ros_cawfe(ros_back,ros_wind,ros_slope, &
-      speed,tanphi,cor_wind,cor_slope,i,j,fp, ierrx, msg)
-
-    ros_x = ros_wind * fp%vx(i,j)/speed + ros_slope * fp%dzdxf(i,j)/tanphi ! x direction component
-    ros_y = ros_wind * fp%vy(i,j)/speed + ros_slope * fp%dzdyf(i,j)/tanphi ! y direction component
-   
-!   store to out
-    f_ros0(i,j) = ros_back      ! direction-less spread rate component
-    f_rosx(i,j) = ros_x
-    f_rosy(i,j) = ros_y
-
+    r = 0.
+    do k=1,nv 
+       r = max(r,fire_rate_of_spread(nvx(k),nvy(k),i,j,fp))
+    enddo
+    
     ! max fire front speed in this location (m/s)
-    f_ros(i,j) = ros_back + sqrt(ros_x*ros_x + ros_y*ros_y)
+    f_ros(i,j) = r 
 
   enddo
 enddo
