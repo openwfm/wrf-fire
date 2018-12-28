@@ -1,7 +1,7 @@
 function err=check_ros(fuel)
 % err=check_ros(fuel)
 % check relative error between fortran and matlab
-% example: fuels; big(check_ros(fuel)) should return of order 1e-5
+% example: fuels; check_ros(fuel) should return of order 1e-5
 nfuels=length(fuel);
 for k=1:nfuels
     switch fuel(k).ibeh 
@@ -33,5 +33,5 @@ for k=1:nfuels
         ros=fire_ros(fuel(k),0,0,fmc_g);
         err(k,j,3)=(fuel(k).ros_fmc_g(j)-ros)/(ros+eps);
     end
-
 end
+err=big(err);
