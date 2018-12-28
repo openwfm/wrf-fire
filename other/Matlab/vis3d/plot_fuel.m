@@ -92,7 +92,7 @@ end
 
 figure(1) % wind dependence
 for i=1:length(f.wind),
-    ros_wind(i) = fire_ros(f,f.wind(i),0,f.fuelmc_g);
+    ros_wind(i) = fire_ros(f,f.wind(i)*f.windrf,0,f.fuelmc_g);
 end
 err_wind=big(ros_wind-f.ros_wind)
 if logscale,
