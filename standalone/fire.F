@@ -169,7 +169,7 @@ nsteps = nint( frame_s / dt_double ) ! number of time steps for the duration
 dt_double = frame_s / nsteps
 dt = dt_double
 
-write(*,'(a,f10.3,a,i6,a,f10.3,a)')'frame ',frame_s,'s ',nsteps,' time steps at ',dt_double,'s'
+write(*,*)'history_interval=',frame_s,' time_step=',dt_double,'s nsteps ',nsteps
 
 ! divide up for shared memory parallel execution
 !!call set_tiles(1,1,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
@@ -183,8 +183,8 @@ grid%v_frame=0.
 ! start output file
 !! call create_output_file(outputfile,info)
 
+
 if(info%ntimes.lt.3)then
-  !write(*,'(a,i5)')'ntimes=',info%ntimes
   !call crash('need at least 3 steps')
   uniform=.true.
   call read_vars(inputfile,info,1,grid)
@@ -199,6 +199,10 @@ else
   vf1=grid%vf
   fmc_g1=grid%fmc_g
 endif
+
+write(*,'(a,i5)')'ntimes=',info%ntimes
+write(*,'(a,i5)')'iframe_start=',iframe_start
+write(*,'(a,i5)')'iframe_end=',iframe_end
 
 print *,'fxlat  lower bounds:',lbound(grid%fxlat)
 print *,'fxlat  upper bounds:',ubound(grid%fxlat)
