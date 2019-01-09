@@ -59,11 +59,13 @@ call read_namelist(config_flags)           ! read flags from namelist.input
 call set_flags(config_flags)               ! copy configuration flags to sfire internal structures
 
 debug_print = config_flags%fire_print_msg.ge.2 ! if we write a lot
+debug_print = config_flags%fire_print_msg.ge.1 ! if we write a lot
 
 call read_info(inputfile,info)             ! get dimensions
 
 ! start empty NetCDF file with the dimensions
-call create_output_file(outputfile,info)
+! not here, may want to overwrite something
+! call create_output_file(outputfile,info)
 
 
 
@@ -180,11 +182,13 @@ write(*,'(a,f10.2,a,f8.4,a,i6)')'adjusted: ',frame_s,' time_step=',dt,'s time st
 ! set the scalars in grid type
 grid%dt = dt
 grid%itimestep=0
+grid%xtime=0.
 grid%u_frame=0.
 grid%v_frame=0.
+info%dt = dt     ! dt may be different than it was in the input file
 
 ! start output file
-!! call create_output_file(outputfile,info)
+call create_output_file(outputfile,info)
 
 
 if(info%ntimes.lt.3)then
@@ -236,6 +240,7 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
   do istep=1,nsteps
     itimestep=info%ntimes * (iframe - 1) + istep
     grid%itimestep = itimestep
+    grid%xtime = itimestep * grid%dt / 60.
     id=itimestep
     ifun_end=6
     ! interpolate time
