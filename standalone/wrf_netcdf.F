@@ -16,6 +16,7 @@ character(len=*),parameter::outputfile='fire_output.nc'
 ! 
 logical::compat_fire_grid=.true.
 logical::debug_print=.true.
+logical::debug_print_f=.true.
 !logical::debug_print=.false.
 
 ! output variable type
@@ -350,7 +351,7 @@ integer::ncid,dimid,varid
 call print_var_info(filename,var_lfn)
 call ncopen(filename,nf90_write,ncid)
 
-if(debug_print)write(*,'(3a,i4,2a)')'writing file ',trim(filename), &
+if(debug_print_f)write(*,'(3a,i4,2a)')'write_vars: writing file ',trim(filename), &
    ' frame ',iframe,' time ',info%times 
 
 ! write out the current simulation time
@@ -697,13 +698,13 @@ integer::ncid,varid,ierr
 integer,dimension(4)::s,c
 
 !*** executable
-if(debug_print)write(*,'(3a,i4)')'reading file ',trim(filename),' frame ',iframe 
+if(debug_print_f)write(*,'(3a,i4)')'read_vars: reading file ',trim(filename),' frame ',iframe 
 call ncopen(filename,nf90_nowrite,ncid)
 
 call check(nf90_inq_varid(ncid,var_times,varid),'cannot find '//trim(var_times))
 call check(nf90_get_var(ncid,varid,info%times,start=(/1,iframe/),count=(/info%len_time_string,1/)), &
      'error reading '//trim(var_times))
-if(debug_print)write(*,'(2a)')'Time ',info%times
+if(debug_print_f)write(*,'(2a)')'Time ',info%times
 
 call read_fire_var(ncid,info,iframe,var_nfuel_cat,grid%nfuel_cat) 
 call read_fire_var(ncid,info,iframe,var_dzdxf,grid%dzdxf) 

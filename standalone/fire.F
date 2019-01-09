@@ -44,7 +44,7 @@ type(grid_info)::info                    ! dimensions, grid controls
 ! scalars
 integer:: nsteps,itimestep,ifun_start,ifun_end,id,ifun,iframe,istep
 integer::nhalo=5
-double precision:: dt_double,duration_s,frame_s  ! may need more accurate time computation to get the number of timesteps right
+double precision:: dt_double,dt_config,duration_s,frame_s  ! may need more accurate time computation to get the number of timesteps right
 real:: time_start,dt,t
 logical::do_ouput
 TYPE(lines_type) :: ignition, hfx
@@ -150,9 +150,9 @@ call init_fuel_cats(.true.)
 
 ! time control
 ! NOTE: dt in the netcdf input file as returned in info%dt is WRONG !!
-dt_double=config_flags%time_step
+dt_config=config_flags%time_step
 if(config_flags%time_step_fract_den.ne.0)then
-  dt_double=dt_double+dble(config_flags%time_step_fract_num)/dble(config_flags%time_step_fract_den)
+  dt_config=dt_config+dble(config_flags%time_step_fract_num)/dble(config_flags%time_step_fract_den)
 endif
 duration_s = config_flags%run_seconds           &
            + 60d0*(config_flags%run_minutes     &
@@ -165,11 +165,14 @@ frame_s = config_flags%history_interval_s           &
            + 60d0*(config_flags%history_interval_h       &
            + 24d0*(config_flags%history_interval_d)))       
 
-nsteps = nint( frame_s / dt_double ) ! number of time steps for the duration
+write(*,'(a,f10.2,a,f10.6,a,f10.6)')'from namelist.input: history_interval=',frame_s, &
+     ' time_step=',dt_config,'s time steps in history frame ', frame_s / dt_config 
+
+nsteps = nint( frame_s / dt_config ) ! number of time steps for the duration
 dt_double = frame_s / nsteps
 dt = dt_double
 
-write(*,*)'history_interval=',frame_s,' time_step=',dt_double,'s nsteps ',nsteps
+write(*,'(a,f10.2,a,f8.4,a,i6)')'adjusted: ',frame_s,' time_step=',dt,'s time steps in history frame ',nsteps
 
 ! divide up for shared memory parallel execution
 !!call set_tiles(1,1,ips,ipe,jps,jpe,grid%num_tiles,grid%i_start,grid%i_end,grid%j_start,grid%j_end)
@@ -194,16 +197,14 @@ else
   uniform=.false.
   call read_vars(inputfile,info,2,grid)
   iframe_start=3
+  write(*,'(a)')'starting from frame 3 because need to interpolate between frames and frame 1 may be invalid'
   iframe_end=info%ntimes
   uf1=grid%uf
   vf1=grid%vf
   fmc_g1=grid%fmc_g
 endif
 
-write(*,'(a,i5)')'ntimes=',info%ntimes
-write(*,'(a,i5)')'iframe_start=',iframe_start
-write(*,'(a,i5)')'iframe_end=',iframe_end
-
+print *,'Fire mesh:'
 print *,'fxlat  lower bounds:',lbound(grid%fxlat)
 print *,'fxlat  upper bounds:',ubound(grid%fxlat)
 print *,'fxlat(1,1)=',grid%fxlat(1,1),' fxlat(',ifpe,',',jfpe,')=',grid%fxlat(ifpe,jfpe)
@@ -219,6 +220,9 @@ call fire_ignition_convert (config_flags,ignition,                   &
              ifds,ifde, jfds,jfde,                                   &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe )
+
+write(*,'(a,i5)')'number of frames in the file: ntimes=',info%ntimes
+write(*,'(2(a,i5))')'using frames from',iframe_start,' to',iframe_end
 
 itimestep = 0
 ifun_start=1
@@ -239,8 +243,9 @@ do iframe=iframe_start,iframe_end ! interval ending with iframe
     ! interpolate wind
     if(.not.uniform)then
       t = (istep - 1.)/real(nsteps)
-      write(*,'(a,i4,a,i3,a,i8,a,f10.3,a,f10.3)')'frame',iframe,' step',istep,' id',id, &
-         ' start at ',time_start,'s t=',t
+      write(*,'(a,i4,a,i3,a,i8,a,f10.3,a,f10.3)')'frame',iframe,' istep',istep, &
+         ' itimestep',itimestep, &
+         ' start at ',time_start,'s weight ',t
       grid%uf = (1. - t)*uf1 + t*uf2
       grid%vf = (1. - t)*vf1 + t*vf2
       grid%fmc_g = (1. - t)*fmc_g1 + t*fmc_g2
