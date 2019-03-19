@@ -28,6 +28,7 @@ else
     i=input_num('cycle number',1);
     force=0;
 end
+force = 1;
 link_namelist_command=sprintf('rm -f namelist.input; ln -s namelist.input_%i namelist.input',i);
 if i==0,
     fprintf('Initial simulation from %s to at least %s\n',base_datestr,forecast_times{1})

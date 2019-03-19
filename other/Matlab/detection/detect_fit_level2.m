@@ -80,7 +80,7 @@ fprintf('display bounds %g %g %g %g\n',red.disp_bounds);
 
 disp('Loading and subsetting detections')
     
-prefix='TIFs/';
+prefix='../TIFs/';
 % the level2 file names processed by geotiff2mat.py
 p=sort_rsac_files(prefix); 
 
