@@ -200,8 +200,10 @@ void geotiff_header(
   *truelat2=tmpdble;
 
   if(!GTIFKeyGet(gtifh,ProjCenterLongGeoKey,&tmpdble,0,1)) {
-    tmpdble=F_INVALID;
-    *status=1;
+    if(!GTIFKeyGet(gtifh,ProjNatOriginLongGeoKey,&tmpdble,0,1)) {
+         tmpdble=F_INVALID;
+         *status=1;
+    }
   }
   *stdlon=tmpdble;
 
