@@ -9,9 +9,11 @@ fprintf('Selected %i files in the given time bounds, from %i total.\n',...
 
 k=0;
 for i=1:length(d),
+    
     file=d{i};
     fprintf('%s file %s ',stime(t(i),red),file);
-    v=readmod14(prefix,file,'silent');
+    %v=readmod14(prefix,file,'silent'); original line
+    v=readmod14(prefix,file);
     % select fire detection within the domain
     xj=find(v.lon > red.min_lon & v.lon < red.max_lon);
     xi=find(v.lat > red.min_lat & v.lat < red.max_lat);

@@ -16,7 +16,7 @@ geo=v.geotransform;
 Xpixel=[0:cols-1]+0.5;
 Ypixel=[0:rows-1]+0.5;
 v.lon = geo(1)+Xpixel*geo(2);
-v.lat = geo(4)+Ypixel*geo(6);
+v.lat = geo(4)+Ypixel*geo(6); %subtraction for camp
 
 if any(v.data(:)<0 | v.data(:)>9), 
     warning('Value out of range 0 to 9 for MODIS14 data')
