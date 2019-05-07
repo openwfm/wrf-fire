@@ -158,6 +158,12 @@ for istep=1:maxiter
 end
 
 analysis=tign+h;
+
+% cutting the top off of the "lid"
+corner_time = analysis(1,1);
+mask = analysis >= corner_time;
+analysis(mask) = corner_time;
+
 % w.tign_g = max_sim_time + (24*60*60)*(tign - w_time_datenum)
 
 plot_state(6,red,'Analysis',analysis,g,time_bounds(1:2))
