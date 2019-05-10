@@ -176,6 +176,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     call set_flags(config_flags)
 
         
+    print *,'itimestep=',itimestep
+    print *,'fire_print_msg=',fire_print_msg
     ! get ignition data 
     if (itimestep >0 ) then
         call fire_ignition_convert (config_flags,ignition,               &
