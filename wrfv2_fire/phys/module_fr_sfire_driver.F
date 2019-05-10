@@ -164,6 +164,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     call time_start
     if(fire_ifun_start.le.1)call print_id  ! print id only once, during initialization
 
+    itimestep=grid%itimestep
 
 ! **** THE FOLLOWING REALLY SHOULD BE DONE ONCE NOT EVERY TIMESTEP
 
@@ -176,12 +177,14 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 
         
     ! get ignition data 
-    call fire_ignition_convert (config_flags,ignition,               &
+    if (itimestep >0 ) then
+        call fire_ignition_convert (config_flags,ignition,               &
              grid%fxlong, grid%fxlat,                                &
              ifds,ifde, jfds,jfde,                                   &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe )
-    call fire_hfx_convert (config_flags,hfx)
+        call fire_hfx_convert (config_flags,hfx)
+    endif
 
 ! store computed mesh units  
     grid%unit_fxlong = ignition%unit_fxlong
@@ -274,7 +277,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     if(ir.le.0.or.jr.le.0)then
         call crash('fire mesh refinement ratio must be positive')
     endif
-    itimestep=grid%itimestep
     restart=config_flags%restart .or. config_flags%cycling .or. config_flags%fire_restart ! skip state initialization
     replay= time_step_start+dt .le.  config_flags%fire_perimeter_time
 
