@@ -201,6 +201,7 @@ character(len=128)msg
 msg='crash: '//s
 call message(msg,level=0)
 !$OMP CRITICAL(SFIRE_MESSAGE_CRIT)
+call  TRACEBACKQQ('crash called',-1)
 call wrf_error_fatal(msg)
 !$OMP END CRITICAL(SFIRE_MESSAGE_CRIT)
 end subroutine crash
