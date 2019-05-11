@@ -174,20 +174,6 @@ subroutine sfire_driver_em ( grid , config_flags                    &
 ! copy configuration flags to sfire internal structures
     call set_flags(config_flags)
 
-        
-    ! get ignition data 
-    call fire_ignition_convert (config_flags,ignition,               &
-             grid%fxlong, grid%fxlat,                                &
-             ifds,ifde, jfds,jfde,                                   &
-             ifms,ifme, jfms,jfme,                                   &
-             ifps,ifpe, jfps,jfpe )
-    call fire_hfx_convert (config_flags,hfx)
-
-! store computed mesh units  
-    grid%unit_fxlong = ignition%unit_fxlong
-    grid%unit_fxlat = ignition%unit_fxlat
-
-
 #ifndef SFIRE_STANDALONE
 
 !   see what we got from wrf
@@ -358,6 +344,11 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         ! 5 = copy timestep output to input
         ! 6 = compute output fluxes
 
+!$OMP CRITICAL(SFIRE_DRIVER_CRIT)
+        write(msg,'(a,i5)')'sfire_driver_em stage ',fire_ifun
+        call message(msg)
+!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
+
 #ifdef DM_PARALLEL
 
        if(fire_run)then
@@ -422,6 +413,26 @@ subroutine sfire_driver_em ( grid , config_flags                    &
                 call read_emissions_table(config_flags%chem_opt,config_flags%tracer_opt)
             endif
         endif
+        
+!       we are not supposed to have "save" variables so we set the ignition
+!       structure every time step
+ 
+        if(fire_ifun.eq.3)then
+            ! need fxlong fxlat, which were interpolated in sfire_driver_phys at fire_ifun=2 
+            ! store ignition data 
+            call fire_ignition_convert (config_flags,ignition,               &
+                     grid%fxlong, grid%fxlat,                                &
+                     ifds,ifde, jfds,jfde,                                   &
+                     ifms,ifme, jfms,jfme,                                   &
+                     ifps,ifpe, jfps,jfpe )
+            call fire_hfx_convert (config_flags,hfx)
+
+!           store computed mesh units  
+            grid%unit_fxlong = ignition%unit_fxlong
+            grid%unit_fxlat = ignition%unit_fxlat
+        endif
+
+
 
         ! print *,'dt: ',dt,grid%dt,' diff ', dt-grid%dt
         ! need domain by 1 smaller, in last row.col winds are not set properly
@@ -849,6 +860,7 @@ do ij=1,num_tiles
           call message('restart - interpolation skipped')
 
       else
+        call message('interpolating to fire mesh')
         if(kfmc_ndwi > 0 .and. fndwi_from_ndwi .eq.1)then
             call print_2d_stats(ips,ipe,jps,jpe,ims,ime,jms,jme,fndwi,'driver:ndwi')
             call interpolate_z2fire(id,0,                 & ! for debug output, <= 0 no output, extend strip
@@ -886,7 +898,7 @@ do ij=1,num_tiles
 !!$OMP END CRITICAL(SFIRE_DRIVER_CRIT)
 !        endif
 
-        if(ignition%longlat .eq.0)then
+        !if(ignition%longlat .eq.0)then
             ! set ideal fire mesh coordinates - used for ignition only
             ! do not forget to set unit_fxlong, unit_fxlat outside of parallel loop
             !call set_ideal_coord( dxf,dyf, &
@@ -899,7 +911,7 @@ do ij=1,num_tiles
             !    ims,ime,jms,jme,  &
             !    its,ite,jts,jte,  &
             !    xlong,xlat          )
-        elseif(use_atm_vars)then
+        !elseif(use_atm_vars)then
             ! assume halo xlong xlat
             ! interpolate nodal coordinates
 
@@ -909,7 +921,9 @@ do ij=1,num_tiles
 #endif
  
         if (interpolate_long_lat)then
-         call message('Intepolating node longitude and latitude to fire mesh')
+         call message('Interpolating node longitude and latitude to fire mesh')
+         call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,xlat, 'driver_phys:xlat ')        
+         call print_2d_stats(its,ite,jts,jte,ims,ime,jms,jme,xlong,'driver_phys:xlong')        
          call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
@@ -922,7 +936,7 @@ do ij=1,num_tiles
             xlat,                                       & ! atm grid arrays in
             fxlat)                                      ! fire grid arrays out
 
-        call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
+         call interpolate_z2fire(id,1,                 & ! for debug output, <= 0 no output
             ids,ide,  jds,jde,                    & ! atm grid dimensions
             ims,ime,  jms,jme,                    &
             ips,ipe,jps,jpe,                              &
@@ -933,14 +947,16 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             xlong,                                       & ! atm grid arrays in
             fxlong)                                      ! fire grid arrays out
+
+         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fxlat, 'driver_phys:fxlat ')        
+         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fxlong,'driver_phys:fxlong')        
         endif
 
         ! after the loop where zsf created exited and all synced
         call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fp%zsf,'driver_phys:zsf')        
  
         ! cannot initialize moisture model because T2 Q2 PSFC are not set yet
-        endif
-     endif
+      endif
 
     elseif(ifun.eq.3)then  ! interpolate winds to the fire grid
  
@@ -1268,6 +1284,8 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
 
 !*** executable
 
+    call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fxlat, 'convert:fxlat ')        
+    call print_2d_stats(ifps,ifpe,jfps,jfpe,ifms,ifme,jfms,jfme,fxlong,'convert:fxlong')        
 
     ignition%max_lines=5 ! number of lines that have entries in the namelist
     ignition%num_lines=config_flags%fire_num_ignitions
@@ -1357,6 +1375,15 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
 
 !       get the coordinates of the corner cells
         corner_longlat=0.
+99      format('fire_ignition_convert: corner',4i6,2f12.4)
+        write(msg,99)ifds,ifps,jfds,jfps,fxlong(ifps,jfps),fxlat(ifps,jfps)
+        call message(msg)
+        write(msg,99)ifds,ifps,jfde,jfpe,fxlong(ifps,jfpe),fxlat(ifps,jfpe)
+        call message(msg)
+        write(msg,99)ifde,ifpe,jfds,jfps,fxlong(ifpe,jfps),fxlat(ifpe,jfps)
+        call message(msg)
+        write(msg,99)ifde,ifpe,jfde,jfpe,fxlong(ifpe,jfpe),fxlat(ifpe,jfpe)
+        call message(msg)
         if(ifds.eq.ifps.and.jfds.eq.jfps)then     
             corner_longlat(1,1,1)=fxlong(ifps,jfps)
             corner_longlat(1,1,2)=fxlat(ifps,jfps)
@@ -1374,6 +1401,19 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
             corner_longlat(2,2,2)=fxlat(ifpe,jfpe)
         endif
         corner_longlat_1=reshape(corner_longlat,(/8/))
+! debug print start
+        corner_longlat=reshape(corner_longlat_1,(/2,2,2/))
+        corner_long=corner_longlat(1:2,1:2,1)
+        corner_lat=corner_longlat(1:2,1:2,2)
+        if(fire_print_msg.ge.2)then
+            do i=1,2
+                do j=1,2
+                     write(msg,'(a,2i2,a,2f14.8)')'sending corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
+                     call message(msg)
+                enddo
+            enddo
+        endif
+! debug print end
 #ifdef DM_PARALLEL
         call wrf_dm_sum_reals(corner_longlat_1,corner_longlat_2)
 #else
@@ -1385,7 +1425,7 @@ subroutine fire_ignition_convert (config_flags,ignition,             &
         if(fire_print_msg.ge.2)then
             do i=1,2
                 do j=1,2
-                     write(msg,'(a,2i2,a,2f14.8)')'corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
+                     write(msg,'(a,2i2,a,2f14.8)')'received corner',i,j,' coordinates ',corner_long(i,j),corner_lat(i,j)
                      call message(msg)
                 enddo
             enddo
@@ -1599,6 +1639,7 @@ subroutine set_flags(config_flags)
 USE module_configure
 implicit none
 TYPE (grid_config_rec_type) , INTENT(IN)          :: config_flags
+character(len=128)msg
 ! copy flags from wrf to module_fr_sfire_util
 ! for instructions how to add a flag see the top of module_fr_sfire_util.F
 
@@ -1629,6 +1670,10 @@ fire_fmc_read           = config_flags%fire_fmc_read
 fire_ignition_clamp     = config_flags%fire_ignition_clamp
 kfmc_ndwi               = config_flags%kfmc_ndwi
 fndwi_from_ndwi         = config_flags%fndwi_from_ndwi 
+
+!write(msg,'(a,i3)')'set_flags: fire_print_msg=',fire_print_msg
+!call message(msg,0)
+
 
 end subroutine set_flags
 

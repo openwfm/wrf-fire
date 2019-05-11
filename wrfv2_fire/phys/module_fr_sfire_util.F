@@ -1159,7 +1159,7 @@ endif
 if(fire_print_msg.eq.0)return
 id=name
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
-write(msg,'(a,4i4,3g11.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
+write(msg,'(a,4i4,3g12.3)')id,ips,ipe,jps,jpe,min_a,max_a,avg_a
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 call message(msg,level=2)
 end subroutine print_stat_line
@@ -1252,13 +1252,21 @@ implicit none
 integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
-!!character(len=128)::msg
+character(len=128)::msg
 !if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &
                          a,name)
 !!write(msg,'(2a,z16)')name,' address =',loc(a)
 !!call message(msg)
+if(fire_print_msg.ge.2)then
+!$OMP CRITICAL(SFIRE_UTIL_CRIT)
+    write(msg,'(a,1x,a,4g11.5)')name,'corner val',a(ips,jps),a(ips,jpe),a(ipe,jps),a(ipe,jpe)
+    call message(msg,level=2)
+    write(msg,'(a,1x,a,4i11  )')name,'corner idx',ips,ipe,jps,jpe
+    call message(msg,level=2)
+!$OMP END CRITICAL(SFIRE_UTIL_CRIT)
+endif
 end subroutine print_2d_stats
 
 real pure function avg_2darray( its,ite,jts,jte,               &
