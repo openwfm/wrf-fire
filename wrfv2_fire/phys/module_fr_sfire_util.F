@@ -1253,6 +1253,7 @@ integer, intent(in)::ips,ipe,jps,jpe,ims,ime,jms,jme
 real, intent(in)::a(ims:ime,jms:jme)
 character(len=*),intent(in)::name
 character(len=128)::msg
+character(len=60)::s
 !if(fire_print_msg.eq.0)return
 call print_3d_stats(ips,ipe,1,1,jps,jpe, &
                          ims,ime,1,1,jms,jme, &
@@ -1260,10 +1261,11 @@ call print_3d_stats(ips,ipe,1,1,jps,jpe, &
 !!write(msg,'(2a,z16)')name,' address =',loc(a)
 !!call message(msg)
 if(fire_print_msg.ge.2)then
+s= trim(name) // ' corners'
 !$OMP CRITICAL(SFIRE_UTIL_CRIT)
-    write(msg,'(a,1x,a,4g11.5)')name,'corner val',a(ips,jps),a(ips,jpe),a(ipe,jps),a(ipe,jpe)
+    write(msg,'(a,4g11.5)')trim(s),a(ips,jps),a(ips,jpe),a(ipe,jps),a(ipe,jpe)
     call message(msg,level=2)
-    write(msg,'(a,1x,a,4i11  )')name,'corner idx',ips,ipe,jps,jpe
+    write(msg,'(a,4i6 )'  )trim(s),ips,ipe,jps,jpe
     call message(msg,level=2)
 !$OMP END CRITICAL(SFIRE_UTIL_CRIT)
 endif
