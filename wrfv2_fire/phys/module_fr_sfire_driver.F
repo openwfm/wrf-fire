@@ -1,4 +1,3 @@
-
 ! SFIRE - Spread fire model in WRF-Fire
 !
 !*** Jan Mandel August 2007 - March 2011 
@@ -143,10 +142,10 @@ subroutine sfire_driver_em ( grid , config_flags                    &
              ifms,ifme, jfms,jfme,                                   &
              ifps,ifpe, jfps,jfpe 
     real,dimension(ims:ime, kms:kme, jms:jme),intent(in), optional::rho,z_at_w,dz8w
-
 !*** local
     TYPE(lines_type):: ignition, hfx
     integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1,j
+    integer::ifde1,jfde1,ifpe1,jfpe1
     logical::restart,replay
     real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
     character(len=128)msg
@@ -416,15 +415,20 @@ subroutine sfire_driver_em ( grid , config_flags                    &
         
 !       we are not supposed to have "save" variables so we set the ignition
 !       structure every time step
+
+        ifde1 = ifde-ir
+        jfde1 = jfde-ir
+        ifpe1 = min(ifpe,ifde-ir)
+        jfpe1 = min(jfpe,jfde-ir)
  
         if(fire_ifun.eq.3)then
             ! need fxlong fxlat, which were interpolated in sfire_driver_phys at fire_ifun=2 
             ! store ignition data 
             call fire_ignition_convert (config_flags,ignition,               &
                      grid%fxlong, grid%fxlat,                                &
-                     ifds,ifde, jfds,jfde,                                   &
+                     ifds,ifde1, jfds,jfde1,                                   &
                      ifms,ifme, jfms,jfme,                                   &
-                     ifps,ifpe, jfps,jfpe )
+                     ifps,ifpe1, jfps,jfpe1 )
             call fire_hfx_convert (config_flags,hfx)
 
 !           store computed mesh units  
