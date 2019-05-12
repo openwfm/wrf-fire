@@ -1566,6 +1566,7 @@ psum=ieor(psum,lsum)
 !$OMP END CRITICAL(CHSUM)
 !$OMP BARRIER
 
+!$OMP MASTER
 ! get global sum over all processes
 if(thread.eq.0)then
 #ifdef DM_PARALLEL
@@ -1573,6 +1574,8 @@ if(thread.eq.0)then
 #else
     gsum = psum
 #endif
+!$OMP END MASTER
+!$OMP BARRIER
     write(msg,1)id,name,ids,ide+is,kds,kde+ks,jds,jde+js,gsum
 1   format(i6,1x,a10,' dims',6i5,' chsum ',z8.8)
     call message(msg)
