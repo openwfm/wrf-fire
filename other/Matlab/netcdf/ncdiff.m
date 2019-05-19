@@ -10,7 +10,12 @@ if ~exist('var','var'),
     v=ncdump(file1,'-q');
     for i=1:length(v),
         var=v(i).varname;
-        [relerr(i),ssq(i),names{i}]=ncdiff(file1,file2,var);
+        try
+            [relerr(i),ssq(i),names{i}]=ncdiff(file1,file2,var);
+        catch exc
+            disp(exc)
+            relerr(i)=inf;
+        end
     end
     return
 end
