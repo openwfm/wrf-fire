@@ -26,7 +26,20 @@
         T=tign+h;
         f0=0;
         f1=0;
+        %%% altered weighting of the different data sources, store params
+        %%% first
+        params_bak = params;
+        
+        
         for k=1:length(g)
+            % load params in case it has been changed
+            modis_weight = 0.1
+            params = params_bak;
+            if strcmp(g(k).file(1:3),'MOD') | strcmp(g(k).file(1:3),'MYD')
+            %if g(k).file(1:3) == 'MOD' | g(k).file(1:3) == 'MYD'
+                fprintf('Changing detection weights for MODIS data \n');
+                params.weight(3:5) = modis_weight*params.weight(3:5);
+            end
             psi = ...
                 + params.weight(1)*(g(k).fxdata==3)... 
                 + params.weight(2)*(g(k).fxdata==5)...
@@ -74,7 +87,23 @@
         if params.alpha>0,
             delta = solve_saddle(params.Constr_ign,h,F,0,...
                 @(u) poisson_fft2(u,[params.dx,params.dy],-params.power)/params.alpha);
-            varargout{2}=delta;
+            bump_remove = 0;
+            if bump_remove
+                % change search to keep bump from forming here
+                temp_h = -delta/big(delta);
+                temp_analysis = tign+temp_h;
+                %figure,mesh(temp_analysis)
+                corner_time = min([temp_analysis(1,1),temp_analysis(1,end),...
+                    temp_analysis(end,1),temp_analysis(end,end)]);
+                if max(temp_analysis(:)) > corner_time
+                    fprintf('Bump forming, inside the detection_objective function \n');
+                    %figure,mesh(temp_analysis);
+                    mask_h = temp_analysis >= corner_time;
+                    delta(mask_h) = 0;
+                    %figure,mesh(delta);
+                end
+            end %bump removal
+            varargout{2}=delta; %search in detect_fit_level2
         end
         if nargout >= 3,
             varargout{3}=f0;
