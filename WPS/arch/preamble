@@ -15,6 +15,10 @@
 
 SHELL           	=       /bin/sh
 
+
+COMPRESSION_LIBS        =       -L${JASPERLIB} -ljasper -lpng12 -lpng -lz
+COMPRESSION_INC         =       -I${JASPERINC}
+
 #COMPRESSION_LIBS	=	-L/data3a/mp/gill/WPS_LIBS/local/lib \
 #				-ljasper -lpng12 -lpng -lz
 
