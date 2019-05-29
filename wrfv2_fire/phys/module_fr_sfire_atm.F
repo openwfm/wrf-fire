@@ -5,6 +5,7 @@
 
 ! Routines dealing with the atmosphere
 
+
 module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
@@ -1985,6 +1986,28 @@ real::r
       else
        call message('setup_wind_log_interpolation: not using wind reduction factors')
       endif
+
+     case(4)
+      call message('setup_wind_log_interpolation: resetting wind interpolation height from wind reduction factors (DVM NEW)')
+      do j=jfts,jfte
+         do i=ifts,ifte
+           k = int(nfuel_cat(i,j))
+           if(k.ne.no_fuel_cat)then 
+               fwh(i,j) = fz0(i,j) ** (1.-windrf(k)) * fire_wind_height ** windrf(k) ! GMD paper eq. (26)
+
+               if (.not. fz0(i,j) > 0. .or. .not. fwh(i,j) > fz0(i,j))then
+!$OMP CRITICAL(SFIRE_ATM_CRIT)
+                 write(msg,*)'category ',k,'windrf=',windrf(k),' fire_wind_height=',fire_wind_height
+                 call message(msg,level=-1)
+                 write(msg,*)'i=',i,' j=',j,' fz0(i,j)=',fz0(i,j),' fwh(i,j)=',fwh(i,j)
+                 call message(msg,level=-1)
+!$OMP END CRITICAL(SFIRE_ATM_CRIT)
+                 call crash('setup_wind_log_interpolation: must have fwh > fz0 > 0')
+               endif
+
+           endif
+         enddo
+      enddo
 
      case default
         !$OMP CRITICAL(SFIRE_ATM_CRIT)
