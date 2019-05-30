@@ -1000,6 +1000,19 @@ do ij=1,num_tiles
             nfuel_cat,fp%vx,fp%vy)
           endif
 
+
+          !If we are deploying the Massman parameterization, we need to interpolate our winds
+          !down to the canopy height instead of the FWH. Here we will need to call the interpolate_wind
+          !subroutine again, for our specified canopy height assigned in the namelist (not yet implemented, 
+          !this is just going to be hard coded for now). Once this is done, we can use the massman 
+          !parameterication to scale the winds down to the FWH.
+
+          if(fire_use_windrf.eq.4)then
+          
+            write(*,*)'fire_use_windrf option 4 has been selected....!'
+        
+          endif
+
         endif
 
 
