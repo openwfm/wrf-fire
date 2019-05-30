@@ -465,7 +465,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%fire_hfx,                                & !
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,                      & 
-            grid%fz0, grid%fwh,                    &
+            grid%fz0, grid%fwh,grid%can_top,                    &
             fp,                                    & ! structure with pointers passed to spread rate calculation
             config_flags%nfmc,         & ! moisture model variables start
             run_advance_moisture,run_fuel_moisture,dt_moisture,     &    ! moisture model control
@@ -569,7 +569,7 @@ subroutine sfire_driver_phys (ifun,    &
     fire_hfx,                                     & ! 
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,                                & ! save constant internal data, fire grid
-    fz0,fwh,                                      &
+    fz0,fwh,can_top,                                      &
     fp,                                           & ! fire params
     nfmc,                                     & ! number of fuel moisture classes
     run_advance_moisture,run_fuel_moisture,dt_moisture,& ! moisture model control
@@ -637,7 +637,7 @@ real,intent(out),dimension(ims:ime,jms:jme)::&
 real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat, ndwi ! inout because of extension at bdry
     
 real, intent(inout), dimension(ifms:ifme,jfms:jfme):: & ! fuel data; can be also set inside (cell based, fire grid)
-    fz0,fwh,                                          &  
+    fz0,fwh,can_top,                                           &  
     nfuel_cat,fndwi                                      
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &

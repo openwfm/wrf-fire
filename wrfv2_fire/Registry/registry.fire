@@ -8,7 +8,7 @@
 #<key>   <package       <associated               <package        <associated 4d scalars>
 #         name>          namelist choice>          state vars>
 # 
-package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,lfn_out,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,unit_fxlong,unit_fxlat,ndwi,ndvi,fmc_g,fmc_gc,fndwi
+package   fire_sfire    ifire==2                    -             state:nfuel_cat,zsf,tign_g,rthfrten,rqvfrten,grnhfx,grnqfx,canhfx,canqfx,lfn,lfn_out,fuel_frac,fire_area,uf,vf,fgrnhfx,fgrnqfx,fcanhfx,fcanhfx,fcanqfx,ros,fxlong,fxlat,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,fz0,fwh,can_top,unit_fxlong,unit_fxlat,ndwi,ndvi,fmc_g,fmc_gc,fndwi
 
 # fire input variables on fire grid
 #
@@ -119,6 +119,7 @@ state    real     r_0       *i*j      fire        1         z    hr    "R_0"    
 state    real     fgip      *i*j      fire        1         z    hr    "FGIP"      "fuel"
 state    real     fz0       *i*j      fire        1         z    hr    "FZ0"       "fuel roughness height"
 state    real     fwh       *i*j      fire        1         z    hr    "FWH"       "fuel fire wind height"
+state    real     can_top   *i*j      fire        1         z    hr    "CAN_TOP"   "Height of tree canopy"
 state    real     ischap    *i*j      fire        1         z    hr    "ISCHAP"    "fuel"
 
 
@@ -301,7 +302,7 @@ halo      HALO_FIRE_WIND_F dyn_em 12:uf,vf
 halo      HALO_FIRE_LONGLAT dyn_em 24:xlong,xlat
 halo      HALO_FIRE_WIND_A dyn_em 8:u_2,v_2
 halo      HALO_FIRE_ZSF dyn_em 24:zsf
-halo      HALO_FIRE_FUEL dyn_em 8:fuel_frac,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,nfuel_cat,dzdxf,dzdyf,fz0,fwh
+halo      HALO_FIRE_FUEL dyn_em 8:fuel_frac,fuel_time,bbb,phiwc,phisc,r_0,fgip,ischap,nfuel_cat,dzdxf,dzdyf,fz0,fwh,can_top
 #
 # ----------------------------------------
 #  end fire variables and configuration
