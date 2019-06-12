@@ -2187,7 +2187,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       endif
       kmin=min(k,kmin)
       kmax=max(k,kmax)
-      ! found layer k, ht_last < wh <= ht
+      ! found layer k, ht_last < wh <= ht 
       logz0 = log(z0)
       logwh= log(wh)
       loght_last = log(ht_last)
