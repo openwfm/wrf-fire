@@ -1818,7 +1818,7 @@ subroutine setup_wind_log_interpolation(          &
             ir,jr,                                        & ! atm/fire grid ratio
             z0,                                           & ! atm grid arrays in
             nfuel_cat,                                    & ! fire array in
-            fz0,fwh)                                        ! fire arrays out
+            fz0,fwh,wz0)                                    ! fire arrays out
 !*** arguments 
 integer, intent(in)::                    &
     ids,ide, jds,jde,                    & ! atm domain bounds
@@ -1832,7 +1832,8 @@ integer, intent(in)::                    &
 real,intent(in),dimension(ims:ime,jms:jme)::z0    ! landuse roughness length
 real,intent(in),dimension(ifms:ifme,jfms:jfme)::nfuel_cat   ! fuel category
 real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
-    fz0,                                          & ! roughness height
+    fz0,                                          & ! roughness height (fire)
+    wz0,                                          & ! roughness height (from WRF)
     fwh                                             ! height to read the wind from
 !*** local
 integer::i,j,ii,jj,k,id=0
@@ -1864,7 +1865,15 @@ real::r
             endif
           enddo
        enddo
-
+       do j=jts,jte
+         do i=its,ite
+            do jj=(j-1)*jr+1,(j-1)*jr+jr
+               do ii=(i-1)*ir+1,(i-1)*ir+ir
+                  wz0(ii,jj)=z0(i,j)
+               enddo
+            enddo
+         enddo
+       enddo
      case(2)
         call message('fire_wind_log_interp=2: log interpolation on fire mesh' // &
           'piecewise constant roughness from landuse, constant fire_wind_height')
@@ -1873,10 +1882,11 @@ real::r
               do jj=(j-1)*jr+1,(j-1)*jr+jr
                  do ii=(i-1)*ir+1,(i-1)*ir+ir
                      fz0(ii,jj)=z0(i,j)
+                     wz0(ii,jj)=z0(i,j)
                  enddo
               enddo
            enddo
-       enddo
+        enddo
        do j=jfts,jfte
           do i=ifts,ifte
             k = int(nfuel_cat(i,j))
@@ -1912,6 +1922,7 @@ real::r
                 fz0(i,j)=-1.
                 fwh(i,j)=-1.
             endif
+            wz0(i,j) = 0      ! Not using WRF roughness length here so set to 0.
           enddo
        enddo
 

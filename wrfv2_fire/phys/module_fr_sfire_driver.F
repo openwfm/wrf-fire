@@ -465,7 +465,8 @@ subroutine sfire_driver_em ( grid , config_flags                    &
             grid%fire_hfx,                                & !
             grid%nfuel_cat,                               & ! input, or internal for safekeeping
             grid%fuel_time,                      & 
-            grid%fz0, grid%fwh,grid%can_top,                    &
+            grid%wz0,                            &          !wrf roughness length on fire mesh
+            grid%fz0, grid%fwh,grid%can_top,grid%cuf,grid%cvf, &
             fp,                                    & ! structure with pointers passed to spread rate calculation
             config_flags%nfmc,         & ! moisture model variables start
             run_advance_moisture,run_fuel_moisture,dt_moisture,     &    ! moisture model control
@@ -569,7 +570,7 @@ subroutine sfire_driver_phys (ifun,    &
     fire_hfx,                                     & ! 
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
     fuel_time,                                & ! save constant internal data, fire grid
-    fz0,fwh,can_top,                                      &
+    fz0,fwh,can_top,cuf,cvf,wz0,                  &
     fp,                                           & ! fire params
     nfmc,                                     & ! number of fuel moisture classes
     run_advance_moisture,run_fuel_moisture,dt_moisture,& ! moisture model control
@@ -637,7 +638,7 @@ real,intent(out),dimension(ims:ime,jms:jme)::&
 real, dimension(ims:ime, jms:jme), intent(inout)::xlong, xlat, ndwi ! inout because of extension at bdry
     
 real, intent(inout), dimension(ifms:ifme,jfms:jfme):: & ! fuel data; can be also set inside (cell based, fire grid)
-    fz0,fwh,can_top,                                           &  
+    fz0,fwh,can_top,cuf,cvf,wz0,                            &  
     nfuel_cat,fndwi                                      
 
 real, intent(inout), dimension(ifms:ifme, jfms:jfme)::     &
@@ -976,6 +977,8 @@ do ij=1,num_tiles
             ifts,ifte,jfts,jfte,                    &
             nfuel_cat,fp%vx,fp%vy)
 
+            wz0 = 0             !Set WRF roughness length to 0 since we dont use this for option 4.
+
         else
           call print_2d_stats(ifts,ifte,jfts,jfte,ifms,ifme,jfms,jfme,fz0,'driver_phys:fz0')        
           call interpolate_wind2fire_height(id,       & ! to identify debugging prints and files if needed
@@ -1010,7 +1013,28 @@ do ij=1,num_tiles
           if(fire_use_windrf.eq.4)then
           
             write(*,*)'fire_use_windrf option 4 has been selected....!'
-        
+            can_top = 35
+
+
+            !Compute canopy top winds. Save this variable to cuf and cvf, which is like
+            !vf and uf in terms of dimensionality, except that its canopy top winds.
+
+            call interpolate_wind2fire_height(id,       & ! to identify debugging prints and files if needed
+            ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+            ims,ime, kms,kme, jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            u_frame, v_frame,                             & ! velocity frame correction
+            u,v,ph,phb,                                   & ! input atmospheric arrays
+            wz0,can_top,                                  & ! input fire arrays
+            cuf,cvf)                                        ! output fire arrays
+
+
           endif
 
         endif
@@ -1085,7 +1109,7 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             z0,                                           & ! atm grid arrays in
             nfuel_cat,                              & ! fuel data per point 
-            fz0,fwh)                                  ! fire arrays out
+            fz0,fwh,wz0)                                  ! fire arrays out
 
     
     elseif(ifun.eq.6)then 
