@@ -2323,4 +2323,201 @@ end subroutine coarse
 
 end subroutine interpolate_wind2fire_height
 
+
+subroutine massman_fwh(id,       & ! to identify debugging prints and files if needed
+    ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+    ims,ime, kms,kme, jms,jme,                    &
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              &
+    ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+    ifms, ifme, jfms, jfme,                       &
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+    ifts,ifte,jfts,jfte,                          &
+    ir,jr,                                        & ! atm/fire grid ratio
+    cuf,cvf,                                      & ! canopy top winds (input)
+    nfuel_cat,                                    & ! fire fuel category (input)
+    can_top,fwh,                                  & ! canopy top and FWH heights (input)
+    uf,vf)                                          ! fwh winds (input and output)
+
+    implicit none
+
+    !*** arguments
+    integer, intent(in):: id,                     & ! debug identification
+    ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
+    ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
+    ips,ipe,jps,jpe,                              &
+    its,ite,jts,jte,                              & ! atm tile bounds
+    ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+    ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+    ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+    ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+    ir,jr                                         
+
+    real,intent(in),dimension(ifms:ifme,jfms:jfme)::&
+    cuf,cvf,                                       & ! canopy winds on fire mesh
+    nfuel_cat,                                     & ! fuel categories on fire mesh
+    can_top,fwh                                      ! cantop top and fire wind heights on fire mesh       
+    
+    real,intent(inout),dimension(ifms:ifme,jfms:jfme)::uf,vf
+
+    !*** local variables
+
+    real :: xi_og, k, c1, c3, c2
+    real :: ha, z_og, drag_index, cantop_frac, C_surf, N, cd, zeta_sum, u_scale
+    real, dimension(8) :: xi_max, sigma_u, sigma_l, PAI, big_cd, z_max, d1
+    real, dimension(20) :: z_agl, xi, fa, zeta, Ub, Ut, u
+    integer :: iveg, i, j, z, znum
+
+
+    !---------------------------------------------------------------------------------------!
+    !   Fortran code for the Massman et al. 2017 parameterzation for within-canopy winds.   !
+    !   This parameterization was specifically greared toward downscaling winds above the   !
+    !   canopy displacement height to the fire flame height. However, this parameterization !
+    !   could be applied for other applications involving canopy winds and forested areas.  !
+    !                                                                                       !
+    !   Written by DVM on 5/3/2019                                                          !
+    !   W.J. Massman, J.M. Forthofer, and M.A. Finney, 2017 : An improved canopy wind       !
+    !   model for predicting wind. Can. J. For. Res. 47: 594–603.                           !                     
+    !---------------------------------------------------------------------------------------!
+
+
+    iveg = 5
+
+    !Model constants used by the Massman canopy parameterization 
+
+    xi_og = 0.0025          !"Ground" roughness length (in xi coordinates) [unitless]
+    k = 0.40                !Von Karman constant
+    c1 = 0.38               !used to compute ratio beteen u* and u at canopy top height [Wang 2012]
+    c3 = 15                 !used to compute ratio beteen u* and u at canopy top height [Wang 2012]
+    c2 = c1+k/log(xi_og)    !used to compute ratio beteen u* and u at canopy top height [Wang 2012]
+
+    znum = 20               !Number of vertical levels for our canopy model? (20 is the default)
+
+
+    !Computations for an arbituary function for 0 < xi < 1 that describes the 'desired mathematical 
+    !mathematical shape of the plant surface distribution'. The assigned values below corresponds 
+    !too: 
+    !        Aspen, Scots Pine, Jack Pine, Loblolly Pine, Hardwood, Spruce, Corn and Rice.
+
+    xi_max  = (/0.36,0.60,0.58,0.60,0.84,0.60,0.94,0.62/)
+    sigma_u = (/0.60,0.30,0.20,0.10,0.13,0.38,0.03,0.50/)
+    sigma_l = (/0.20,0.10,0.20,0.27,0.30,0.16,0.60,0.45/)
+    PAI     = (/3.28,2.41,2.14,3.78,4.93,5.73,2.94,3.10/)
+    big_cd  = (/0.20,0.25,0.27,0.20,0.09,0.20,0.30,0.30/)
+    z_max   = (/10.,20.,15.,24.,22.5,10.,2.2,0.73/)
+    d1      = (/0.,0.,-0.7,0.,2.,0.,0.,0./)
+
+
+    !Loop through each i j point within our patch
+    do j = jfts,jfte
+      do i = ifts,ifte
+
+
+        !Compute the heights for our vertical coordinate based on the vegetation 
+        !height (z_max) that was assigned. Heights are in mAGL. In addition, 
+        !compute a unitless height coordinate (xi).
+
+        do z = 1, znum
+          if(z>1) then
+              z_agl(z) = z_agl(z-1) + z_max(iveg)/(znum-1)
+          else
+              z_agl(z) = 0
+          end if 
+        end do 
+
+        xi = z_agl/z_max(iveg)
+      
+
+        !Let compute fa, from equation 2 of the Massman paper.
+
+        do z = 1, znum
+          if(xi(z)>=xi_max(iveg)) then
+              fa(z) = exp((-(xi(z)-xi_max(iveg))**2)/(sigma_u(iveg)**2))
+          else
+              fa(z) = exp((-(xi_max(iveg)-xi(z))**2)/(sigma_l(iveg)**2))
+          end if   
+        end do 
+      
+      
+        !Equation 1 of Massman et al. [2017] for 'nondimensional plant surface distribution
+      
+        ha = sum((fa/sum(fa))*PAI(iveg))
+      
+      
+        !"Ground" roughness length (in height coordinates) [mAGL], according to Massman et al. [2017]
+      
+        z_og = xi_og*z_max(iveg)   
+      
+      
+        !Drag area index, which simplifies down to the drag coefficient (Cd) x the plant area index 
+        !(PAI) Massman et al. [2017]. This is needed to compute the ratio between u* and u 
+        !(cantop_frac, eqn. 10), N (variables from Massman, 1997). 
+      
+        drag_index = big_cd(iveg)*PAI(iveg)
+      
+        cantop_frac = c1 - c2*exp(-c3*drag_index)
+      
+        C_surf = (cantop_frac**2)*2
+      
+        N = drag_index/C_surf
+      
+      
+        !cd represents the 'bulk drag coefficient' at a given height. Since d1 and p1 are set zero
+        !, equation 3 in Massman et al. 2017 simplifies down to cd(xi) = Cd... easy peasy!
+      
+        cd = big_cd(iveg)
+      
+      
+        !Lastly, we need to compute the cumulative drag area as zeta which is a function of xi
+      
+        zeta_sum = 0
+      
+        do z = 1, znum
+          zeta(z) = cd*(fa(z)/sum(fa))*PAI(iveg)+zeta_sum
+          zeta_sum = zeta(z)
+        end do 
+      
+      
+        !Canopy wind and stress profiles (computed from eqn 6 and 7 Massman et al [2017])
+      
+        do z = 1, znum
+          if(xi(z)>=xi_og) then
+            Ub(z) = log(xi(z)/xi_og)/log(1/xi_og)
+          else
+            Ub(z) = 0
+          end if   
+        end do 
+      
+        Ut  = cosh((N*zeta)/drag_index)/cosh(N)
+      
+      
+        !Compute the non-dimensional wind profile (u(z)/u(h)) in eqn. 11 Massman et al [2017])
+      
+        u = Ut*Ub      
+
+
+        !Finally, find the nearest two vertical levels to our FWH, and interpolate our
+        !wind to the FWH using a simple interpolation scheme. 
+
+        do z = 1, znum
+          if(z_agl(z)>=fwh(i,j)) then
+              u_scale = (((z_agl(z-1)-fwh(i,j))*(u(z-1)-u(z)))/(z_agl(z)-z_agl(z-1)))+u(z-1)
+              EXIT
+          end if 
+        end do 
+      
+        !Scale our u and v winds at the FWH using our non-dimensional wind 
+        !profile, which was interpolated to the FWH. 
+
+        uf(i,j) = uf(i,j)*u_scale
+        vf(i,j) = uf(i,j)*u_scale
+
+
+      enddo
+    enddo
+
+
+end subroutine massman_fwh
+
+
 end module module_fr_sfire_atm
