@@ -73,7 +73,7 @@ use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
    advance_moisture, moisture_classes, &
    fire_rate_of_spread
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
-   interpolate_z2fire,setup_wind_log_interpolation
+   interpolate_z2fire,setup_wind_log_interpolation,massman_fwh
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 ! Driver layer modules
@@ -1013,7 +1013,7 @@ do ij=1,num_tiles
           if(fire_use_windrf.eq.4)then
           
             write(*,*)'fire_use_windrf option 4 has been selected....!'
-            can_top = 35
+            can_top = 22.5
 
 
             !Compute canopy top winds. Save this variable to cuf and cvf, which is like
@@ -1035,11 +1035,28 @@ do ij=1,num_tiles
             cuf,cvf)                                        ! output fire arrays
 
 
+            !Lets call our massman parameterization and scale winds winds within 'forests'
+            !within 'forests' using this scheme. uf and vf values that fall within 
+            !forests are modifed accordingly, which will change the fire ROS.
+
+            call massman_fwh(id,                          & ! to identify debugging prints and files if needed   
+            ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+            ims,ime, kms,kme, jms,jme,                    &
+            ips,ipe,jps,jpe,                              &
+            its,ite,jts,jte,                              &
+            ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+            ifms, ifme, jfms, jfme,                       &
+            ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+            ifts,ifte,jfts,jfte,                          &
+            ir,jr,                                        & ! atm/fire grid ratio
+            cuf,cvf,                                      & ! canopy top winds (input)
+            nfuel_cat,                                    & ! fire fuel category (input)
+            can_top,fwh,                                  & ! canopy top and FWH heights (input)
+            fp%vx,fp%vy)
+
+
           endif
-
         endif
-
-
       endif
 
     elseif(ifun.eq.4)then
