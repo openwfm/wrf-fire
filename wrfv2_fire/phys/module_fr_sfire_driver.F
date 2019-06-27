@@ -73,7 +73,7 @@ use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
    advance_moisture, moisture_classes, &
    fire_rate_of_spread
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
-   interpolate_z2fire,setup_wind_log_interpolation,massman_fwh
+   interpolate_z2fire,setup_wind_log_interpolation,interpolate_wind2can_height,massman_fwh
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 ! Driver layer modules
@@ -569,8 +569,9 @@ subroutine sfire_driver_phys (ifun,    &
     fxlong,fxlat,                                 & !  
     fire_hfx,                                     & ! 
     nfuel_cat,                                    & ! in array, data, fire grid, or constant internal
-    fuel_time,                                & ! save constant internal data, fire grid
-    fz0,fwh,can_top,cuf,cvf,wz0,                  &
+    fuel_time,                                    & ! save constant internal data, fire grid
+    wz0,                                          &
+    fz0,fwh,can_top,cuf,cvf,                  &
     fp,                                           & ! fire params
     nfmc,                                     & ! number of fuel moisture classes
     run_advance_moisture,run_fuel_moisture,dt_moisture,& ! moisture model control
@@ -1005,10 +1006,10 @@ do ij=1,num_tiles
 
 
           !If we are deploying the Massman parameterization, we need to interpolate our winds
-          !down to the canopy height instead of the FWH. Here we will need to call the interpolate_wind
-          !subroutine again, for our specified canopy height assigned in the namelist (not yet implemented, 
+          !down to the canopy height instead of the FWH. Here we will need to call the interpolate_wind2can
+          !subroutine, for our specified canopy height assigned in the namelist (not yet implemented, 
           !this is just going to be hard coded for now). Once this is done, we can use the massman 
-          !parameterication to scale the winds down to the FWH.
+          !parameterization to scale the winds down to the FWH.
 
           if(fire_use_windrf.eq.4)then
           
@@ -1019,7 +1020,7 @@ do ij=1,num_tiles
             !Compute canopy top winds. Save this variable to cuf and cvf, which is like
             !vf and uf in terms of dimensionality, except that its canopy top winds.
 
-            call interpolate_wind2fire_height(id,       & ! to identify debugging prints and files if needed
+            call interpolate_wind2can_height(id,       & ! to identify debugging prints and files if needed
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
             ips,ipe,jps,jpe,                              &
@@ -1125,8 +1126,8 @@ do ij=1,num_tiles
             ifts,ifte,jfts,jfte,                          &
             ir,jr,                                        & ! atm/fire grid ratio
             z0,                                           & ! atm grid arrays in
-            nfuel_cat,                              & ! fuel data per point 
-            fz0,fwh,wz0)                                  ! fire arrays out
+            nfuel_cat,                                    & ! fuel data per point 
+            fz0,fwh,wz0)                                    ! fire arrays out
 
     
     elseif(ifun.eq.6)then 
