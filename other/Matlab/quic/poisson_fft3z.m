@@ -1,6 +1,9 @@
-function U = poisson_fftn(F,h)
+function U = poisson_fft3z(F,h)
 % solve poisson equation in nD, n up to 3 supported
 d = length(h);
+if d~=3 & d~=2,
+    error('poisson_fft3z: only 2 or 3 dimensions supported')
+end
 n = ones(1,3);
 n(1:ndims(F)) = size(F);
 U = F;
@@ -9,10 +12,10 @@ for i=1:d
     X{i}=poisson_1d_eig(n(i),h(i));
     U=dstn(U,i);
 end
-if 1
-    u1=zeros(n(1),1,1);u1(:,1,1)=X{1};
-    u2=zeros(1,n(2),1);u2(1,:,1)=X{2};
-    u3=zeros(1,1,n(3));u3(1,1,:)=X{3};
+if 1  % faster
+    u1=zeros(n(1),1,1); u1(:,1,1)=X{1};
+    u2=zeros(1,n(2),1); u2(1,:,1)=X{2};
+    u3=zeros(1,1,n(3)); u3(1,1,:)=X{3};
     U=U./(repmat(u1,1,n(2),n(3))+repmat(u2,n(1),1,n(3))+repmat(u3,n(1),n(2),1));
 else
     for i3=1:n(3)
