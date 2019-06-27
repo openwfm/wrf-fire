@@ -9,10 +9,17 @@ for i=1:d
     X{i}=poisson_1d_eig(n(i),h(i));
     U=dstn(U,i);
 end
-for i3=1:n(3)
-    for i2=1:n(2)
-        for i1=1:n(1)
-            U(i1,i2,i3)=U(i1,i2,i3)/(X{1}(i1)+X{2}(i2)+X{3}(i3));
+if 1
+    u1=zeros(n(1),1,1);u1(:,1,1)=X{1};
+    u2=zeros(1,n(2),1);u2(1,:,1)=X{2};
+    u3=zeros(1,1,n(3));u3(1,1,:)=X{3};
+    U=U./(repmat(u1,1,n(2),n(3))+repmat(u2,n(1),1,n(3))+repmat(u3,n(1),n(2),1));
+else
+    for i3=1:n(3)
+        for i2=1:n(2)
+            for i1=1:n(1)
+                U(i1,i2,i3)=U(i1,i2,i3)/(X{1}(i1)+X{2}(i2)+X{3}(i3));
+            end
         end
     end
 end

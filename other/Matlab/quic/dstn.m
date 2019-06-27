@@ -11,8 +11,9 @@ Y = permute(X,p);
 m = size(Y);
 mm = prod(m)/m(1);
 Y = reshape(Y,m(1),mm);
-Y = [zeros(1,mm);Y;zeros(m(1)+1,mm)];
-Y = imag( fft(Y,[],1) );
+W = zeros(2*m(1)+2,mm);
+W(2:m(1)+1,:)=Y;
+Y = imag( fft(W,[],1) );
 % pick transform between pads and uncollapse
 Y = reshape(Y(2:m(1)+1,:),m);
 % permute dimensions N <-> 1 back
