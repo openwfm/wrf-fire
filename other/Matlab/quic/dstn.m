@@ -7,7 +7,7 @@ n = size(X);
 p = 1:length(n);
 p(N)=1; p(1)=N;
 Y = permute(X,p);
-% pad dim 1 by zeros and collapse the othres
+% pad dim 1 by zeros and collapse the others
 m = size(Y);
 mm = prod(m)/m(1);
 Y = reshape(Y,m(1),mm);
