@@ -1,15 +1,15 @@
 function adj_test
 % desting if grad3z and div3 are adjoint
-h=ones(1,3);
-n=[2,2,2];
+h=rand(1,3);
+n=[20,7,2];
 lambda = rand(n);
 g = grad3z(lambda,h);
 for i=1:length(g)
-    u{i}=ones(size(g{i}));
+    u{i}=rand(size(g{i}));
 end
 div3u = div3(u,h);
 l3z = grad3z(lambda,h);
-err_adj = aprod(lambda,div3u) - aprod3(l3z,u)
+err_adj = aprod(lambda,div3u) + aprod3(l3z,u)
 end
 
 function a=aprod(x,y)
