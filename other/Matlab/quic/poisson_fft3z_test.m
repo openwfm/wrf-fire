@@ -6,11 +6,18 @@ F=rand(n);
 u2=poisson_fft2(F,h,-1);
 u3=poisson_fft3z(F,h);
 fprintf('err=%s\n',norm(u3-u2,inf));
-n=[1000,1000,24];
+n=[500,500,24];
 fprintf('3D Poisson equation size %d %d %d: ',n)
+% params
 h=rand(1,3);
 u=rand(n);
-f=-mlap3z(u,h);
-v=poisson_fft3z(f,h);
+d=rand(1,3);
+% test
+g=grad3z(u,h);
+for i=1:3
+    g{i}=g{i}*d(i);
+end
+f=-div3(g,h);
+v=poisson_fft3z(f,h,d);
 fprintf('err=%s\n',big(u-v));
 end

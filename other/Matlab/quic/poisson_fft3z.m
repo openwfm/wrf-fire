@@ -1,15 +1,20 @@
-function U = poisson_fft3z(F,h)
+function U = poisson_fft3z(F,h,w)
 % solve poisson equation in nD, n up to 3 supported
-d = length(h);
-if d~=3 & d~=2,
+% - div D grad U = F
+% D is diag(d(1)I, d(2)I, d(3)I)
+if ~exist('w','var'),
+    w=[1,1,1];
+end
+p = length(h);
+if p~=3 & p~=2,
     error('poisson_fft3z: only 2 or 3 dimensions supported')
 end
 n = ones(1,3);
 n(1:ndims(F)) = size(F);
 U = F;
 X={0,0,0};
-for i=1:d
-    X{i}=poisson_1d_eig(n(i),h(i));
+for i=1:p
+    X{i}=w(i)*poisson_1d_eig(n(i),h(i));
     U=dstn(U,i);
 end
 if 1  % faster
@@ -26,10 +31,10 @@ else
         end
     end
 end
-for i=1:d
+for i=1:p
     U=dstn(U,i);
 end
-U=U*(2^d)/prod(n(1:d)+1); % scale for nonunitary DST
+U=U*(2^p)/prod(n(1:p)+1); % scale for nonunitary DST
 
 
 
