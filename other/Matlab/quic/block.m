@@ -1,0 +1,9 @@
+n=[500,500,50];
+h=[2,2,1];
+w=[1,1,1];
+u0=grad3z(zeros(n),h);  % staggered mesh wind arrays
+u0{3}(:,:,1)=0;       % zero vertical speed on the ground
+u0{1}(:,:,:)=1;       % unit homogeneous speed in direction 1
+u0{1}(200:300,200:300,1:20)=0; % except zero in a block
+u0{2}(:,:,:)=0;
+u = mass_cons_int(u0,h,w,'check');

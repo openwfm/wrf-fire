@@ -23,10 +23,12 @@ function u=mass_cons_int(u0,h,w,check)
 if ~exist('check','var')
     check = false;
 end
+tstart=tic;
 % divergence of u0
 f = div3(u0,h); 
 % reflect the right hand side abound the bottom in 3rd coordinate
 n = size(f);
+fprintf('mass_cons_int mesh size %i %i %i\n',n)
 r = zeros(n(1),n(2),2*n(3));
 r(:,:,1:n(3))=f(:,:,n(3):-1:1);
 r(:,:,n(3)+1:2*n(3))=f;
@@ -46,4 +48,5 @@ end
 if check, err_div = big(div3(u,h)), end
 % check no correction in vertical speed at the bottom
 if check, err__corr_z_bottom = big(u{3}(:,:,1)-u0{3}(:,:,1)), end
+fprintf('mass_cons_int %g seconds\n',toc(tstart))
 end
