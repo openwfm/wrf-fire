@@ -47,6 +47,6 @@ end
 % check divergence
 if check, err_div = big(div3(u,h)), end
 % check no correction in vertical speed at the bottom
-if check, err__corr_z_bottom = big(u{3}(:,:,1)-u0{3}(:,:,1)), end
+if check, err_corr_w_bottom = big(u{3}(:,:,1)-u0{3}(:,:,1)), end
 fprintf('mass_cons_int %g seconds\n',toc(tstart))
 end
