@@ -35,7 +35,7 @@ fire_rate_of_spread
 public:: fire_params
 
 ! variables
-PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,no_fuel_cat2,windrf,moisture_classes
+PUBLIC:: fire_wind_height,fcz0,fcwh,have_fuel_cats,nfuelcats,no_fuel_cat,no_fuel_cat2,windrf,moisture_classes,itree
 PUBLIC:: mfuelcats
 ! NOTE: fcwh and fcz0 are called fwh and fz0 in read/write statements
 
@@ -127,6 +127,11 @@ PUBLIC:: mfuelcats
 !       FCI_D          INITIAL DRY MASS OF CANOPY FUEL
 !       FCT            BURN OUT TIME FOR CANOPY FUEL, AFTER DRY (S)
 !       ichap          1 if chaparral, 0 if not
+!       itree          Tree type index, manually set, which corresposponds to Massman et al. 2017 
+!                      tree profiles where 1 is Aspen, (2) Scots Pine, (3) Jack Pine, 
+!                      (4) Loblolly Pine, (5) Hardwood, (6) Spruce, (7)Corn and (8) Rice. Fuel 
+!                      categories not associated with trees (i.e tall grass) are set to zero.
+!                      Added by DVM 6/30/2019. 
 !D      FCI            INITIAL TOTAL MASS OF CANOPY FUEL
 !D      FCBR           FUEL CANOPY BURN RATE (KG/M**2/S) 
 
@@ -157,7 +162,7 @@ PUBLIC:: mfuelcats
    INTEGER, SAVE      :: no_fuel_cat2 = 14  ! all categories between no_fuel_cat and no_fuel_cat2 are no fuel
    INTEGER, SAVE      :: ibeh=1             ! type of spread formula
    CHARACTER (len=80), DIMENSION(mfuelcats ), save :: fuel_name
-   INTEGER, DIMENSION( mfuelcats ), save :: ichap
+   INTEGER, DIMENSION( mfuelcats ), save :: ichap,itree 
    REAL   , DIMENSION( mfuelcats ), save :: windrf,weight,fgi,fci,fci_d,fct,fcbr, &
                                             fueldepthm,fueldens,fuelmce,   &
                                             fcwh,fcz0, ffw, &
@@ -207,7 +212,8 @@ PUBLIC:: mfuelcats
             1.121, 1.121, 1.121, 1.121, 1.121, 1.121, 0., zf*0./
    DATA fct / 60., 60., 60., 60., 60., 60., 60.,  &
             60., 120., 180., 180., 180., 180. , 60. , zf*0.   /
-   DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , zf*0/ 
+   DATA ichap / 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , zf*0/
+   DATA itree / 0, 5, 0, 0, 0, 5, 5, 5, 5, 5, 0, 0, 0, 0 , zf*0/  
    DATA fcwh  / 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, &
          6.096, 6.096, 6.096, 6.096, 6.096, 6.096, 6.096, zf*0. / ! consistent with BEHAVE
 ! roughness length 0.13*fueldepthm except cat 3 fz0=0.1 for consistency with landuse
@@ -684,7 +690,7 @@ REAL   , DIMENSION( mfuelcats ) :: fwh, fz0
 ! read 
 namelist /fuel_scalars/ cmbcnst,hfgl,fuelmc_g,fuelmc_c,nfuelcats,no_fuel_cat,no_fuel_cat2,fire_wind_height,ibeh
 namelist /fuel_categories/ fuel_name,windrf,fgi,fueldepthm,savr, &
-    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,fwh,fz0,ffw, &
+    fuelmce,fueldens,st,se,weight,fci_d,fct,ichap,itree,fwh,fz0,ffw, &
     fmc_gl_ndwi_0,fmc_gl_ndwi_rate,fmc_gl_ndwi_stdev, fmc_gl_stdev, &
     adjr0,adjrw,adjrs,fmc_gw01,fmc_gw02,fmc_gw03,fmc_gw04,fmc_gw05
 
@@ -759,6 +765,7 @@ call wrf_dm_bcast_real(weight,    nfuelcats)
 call wrf_dm_bcast_real(fci_d,     nfuelcats)
 call wrf_dm_bcast_real(fct,       nfuelcats)
 call wrf_dm_bcast_integer(ichap,  nfuelcats)
+call wrf_dm_bcast_integer(itree,  nfuelcats)
 call wrf_dm_bcast_real(fcwh,      nfuelcats)
 call wrf_dm_bcast_real(fcz0,      nfuelcats)
 call wrf_dm_bcast_real(ffw,       nfuelcats)
@@ -867,6 +874,8 @@ do i=1,nfuelcats,j
     write(msg,8)'fct       ',(fct(ii),ii=i,k)
     call message(msg)
     write(msg,7)'ichap     ',(ichap(ii),ii=i,k)
+    call message(msg)
+    write(msg,7)'itree     ',(itree(ii),ii=i,k)
     call message(msg)
     write(msg,8)'fci       ',(fci(ii),ii=i,k)
     call message(msg)

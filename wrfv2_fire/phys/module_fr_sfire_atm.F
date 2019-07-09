@@ -9,7 +9,7 @@
 module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
-use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,no_fuel_cat2,windrf
+use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,no_fuel_cat2,windrf,itree
 use module_fr_sfire_util
 USE module_dm , only : wrf_dm_sum_reals
 
