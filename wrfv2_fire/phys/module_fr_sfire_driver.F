@@ -149,7 +149,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1,j
     logical::restart,replay
     real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
-    character(len=128)msg
+    character(len=128)msg, msg2
     type(fire_params)::fp
     real:: moisture_time
 
@@ -1014,6 +1014,8 @@ do ij=1,num_tiles
           if(fire_use_windrf.eq.4)then
           
             write(*,*)'fire_use_windrf option 4 has been selected....!'
+            write(msg, '(A20,I1)') 'fire_can_top_read = ', fire_can_top_read
+            write(*,*) msg
             can_top = 22.5
 
 
@@ -1684,7 +1686,7 @@ fire_fmc_read           = config_flags%fire_fmc_read
 fire_ignition_clamp     = config_flags%fire_ignition_clamp
 kfmc_ndwi               = config_flags%kfmc_ndwi
 fndwi_from_ndwi         = config_flags%fndwi_from_ndwi 
-
+fire_can_top_read       = config_flags%fire_can_top_read
 end subroutine set_flags
 
 !
