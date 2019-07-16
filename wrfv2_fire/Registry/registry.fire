@@ -120,7 +120,7 @@ state    real     fgip      *i*j      fire        1         z    hr    "FGIP"   
 state    real     fz0       *i*j      fire        1         z    hr    "FZ0"       "fuel roughness height"
 state    real     wz0       *i*j      fire        1         z    hr    "WZ0"       "WRF roughness length"
 state    real     fwh       *i*j      fire        1         z    hr    "FWH"       "fuel fire wind height"
-state    real     can_top   *i*j      fire        1         z    hr    "CAN_TOP"   "Height of tree canopy"
+state    real     can_top   *i*j      fire        1         z   i012hr   "CAN_TOP"   "Height of tree canopy"
 state    real     cuf       *i*j      fire        1         z    hr    "CUF"       "U-wind at canopy top" "m/s"
 state    real     cvf       *i*j      fire        1         z    hr    "CVF"       "V-wind at canopy top" "m/s"
 state    real     ischap    *i*j      fire        1         z    hr    "ISCHAP"    "fuel"
@@ -230,7 +230,8 @@ rconfig   real    fire_viscosity         namelist,fire         max_domains      
 rconfig   real    fire_lfn_ext_up        namelist,fire         max_domains           1.0     -      "fire_lfn_ext_up"   "0.=extend level set function at boundary by reflection, 1.=always up" "1"
 rconfig   integer fire_topo_from_atm     namelist,fire         max_domains            1      -      "fire_topo_from_atm" "0 = do nothing, 1 = populate ZSF by interpolating from atmosphere" "1"
 rconfig   integer fire_advection         namelist,fire         max_domains            1      -      "fire_advection" "0 = fire spread computed from normal wind speed/slope, 1 = fireline particle speed projected on normal" "0"
-
+# canopy paramterization switches
+rconfig   integer fire_can_top_read      namelist,fire         max_domains            1      -      "fire_can_top_read"    "canopy top height: 0 use wrfinput, 1 from namelist.fire"   ""
 # experiments
 # testing the fire model alone
 rconfig   integer fire_test_steps        namelist,fire         max_domains            0      -      "fire_test_steps" ">0 = on first call, do specified number of steps and terminate (testing only)" "1"
