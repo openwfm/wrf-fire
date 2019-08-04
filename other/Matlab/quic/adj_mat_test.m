@@ -1,4 +1,4 @@
-disp('creating matrix representation of din and grad')
+disp('creating matrix representation of div3 and grad3')
 n=[2,2,2];
 h=rand(1,3);
 g=@(u)cell2vec(grad3z(u,h));
