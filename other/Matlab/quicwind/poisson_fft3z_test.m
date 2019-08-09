@@ -1,4 +1,5 @@
 function poisson_fft3z_test
+disp('poisson_fft3z_test')
 fprintf('against poisson_fft2: ')
 n=[10,15];
 h=rand(1,2);

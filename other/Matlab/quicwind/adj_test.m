@@ -1,5 +1,6 @@
 function adj_test
-% desting if grad3z and div3 are adjoint
+disp('adj_test')
+disp('testing if grad3z and div3 are adjoint')
 h=rand(1,3);
 n=[20,7,2];
 lambda = rand(n);

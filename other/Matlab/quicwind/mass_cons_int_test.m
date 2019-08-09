@@ -1,4 +1,5 @@
 function mass_cons_int_test
+disp('mass_cons_int_test - testing mass consistent approximation')
 n=[20,30,5];
 h = rand(1,3);
 w = rand(1,3);
