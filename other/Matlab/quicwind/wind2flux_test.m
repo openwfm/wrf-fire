@@ -1,4 +1,4 @@
-% function wind2flux_test
+function wind2flux_test
 nx=5; ny=3; nz=4;
 h=[rand,rand,1];
 hh=rand(1,3);
@@ -9,32 +9,76 @@ hh=rand(1,3);
 X = {x,y,z};
 % test field
 % gradient for sizing
-U = grad3z(xm,h,1);
-fl=wind2flux(U,X);
-% divergence just if it goes through
-lapU=div3(fl,h);
+Usize = grad3z(xm,h,1);
 
-
-c=[rand,rand,0];
-for i=1:3,
-    U{i} = 0*U{i}+c(i);
-end
-fl=wind2flux(U,X);
-disp('constant horizontal wind, divergence should be zero')
-d=div3(fl);
-err=big(d)
-
+disp('constant wind')
 c=[rand,rand,rand];
 for i=1:3,
-    U{i} = 0*U{i}+c(i);
+    Uconst{i} = 0*Usize{i}+c(i);
 end
-fl=wind2flux(U,X);
-disp('constant wind, divergence zero except at the bottom')
-d=div3(fl);
-err=big(d(:,:,2:end))
 
+testing_wind(Uconst)
 
+function testing_wind(U)
+        
+    fl=wind2flux(U,X);
+    d=div3(fl);
+    disp('divergence zero except at the bottom')
+    err=big(d(:,:,2:end))
 
+    disp('terrain slope in x direction')
+    disp('divergence zero except at the bottom')
+    thx = 0.1*hh(1)*[0:nx]'*ones(1,ny+1);
+    test_terrain(thx)
+
+    disp('terrain slope in y direction')
+    disp('divergence zero except at the bottom')
+    thy = 0.1*hh(2)*ones(nx+1,1)*[0:ny]; 
+    test_terrain(thy)
+
+    disp('terrain slope in random constant direction')
+    thxy = rand*thx + rand*thy;
+    test_terrain(thxy)
+
+    disp('roof slope in x direction')
+    half = floor(nx/2);
+    xs=hh(1)*[0:half,half-1:-1:2*half-nx];
+    ys=ones(1,ny+1);
+    th = 0.1*xs'*ys;
+    test_terrain(th)
+
+    disp('roof slope in y direction')
+    half = floor(ny/2);
+    xs=ones(1,nx+1);
+    ys=hh(2)*[0:half,half-1:-1:2*half-ny];
+    th = 0.1*xs'*ys;
+    test_terrain(th)
+
+    disp('pyramid roof slope')
+    half = floor(ny/2);
+     xs=[0:nx]; ys=[0:ny];
+    [ii,jj]=ndgrid(xs,ys);
+    th = nx+ny-abs(ii-nx/2)-abs(jj-ny/2);
+    test_terrain(th)
+
+    disp('random terrain')
+    th = min(hh)*0.1*rand(size(X{1}(:,:,1)));
+    test_terrain(th)
+
+    function test_terrain(t)
+        XX=X;
+        for k=1:size(X{1},3)
+            XX{3}(:,:,k)=X{3}(:,:,k)+t;
+        end
+        fl=wind2flux(U,XX);
+        d=div3(fl);
+        disp('divergence zero except at the bottom')
+        err=big(d(:,:,2:end))
+    end
+
+end
+
+end
 
 
 
