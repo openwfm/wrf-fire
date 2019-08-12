@@ -83,7 +83,7 @@ for k=1:nz
     for j=1:ny+1
         for i=1:nx
             dzv(i,j,k) = 0.5*(z(i,j,k+1)-z(i,j,k)+z(i+1,j,k+1)-z(i+1,j,k));
-            dxv        = 0.5*(x(i+1,j,k)-y(i,j,k)+x(i+1,j,k+1)-y(i,j,k+1));
+            dxv        = 0.5*(x(i+1,j,k)-x(i,j,k)+x(i+1,j,k+1)-x(i,j,k+1));
             f_v(i,j,k) = v(i,j,k)*dxv*dzv(i,j,k);
         end
     end

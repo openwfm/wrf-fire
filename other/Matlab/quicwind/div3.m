@@ -7,6 +7,9 @@ function d=div3(f,h,s)
 %    s{1},s{2}  terrain gradient at mesh cell midpoints 
 % output: 
 %    u = df{1}/x1 + df{2}/dx2 + df{3}/dx3
+if ~exist('h','var'),
+    h=[1,1,1];
+end
 u=f{1};
 v=f{2};
 w=f{3};
