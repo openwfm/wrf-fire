@@ -1,5 +1,5 @@
 function wind2flux_test
-nx=5; ny=3; nz=4;
+nx=50; ny=30; nz=10;
 h=[rand,rand,1];
 hh=rand(1,3);
 % corner nodes
@@ -17,7 +17,9 @@ for i=1:3,
     Uconst{i} = 0*Usize{i}+c(i);
 end
 
+errmax=0
 testing_wind(Uconst)
+fprintf('mesh size %g %g %g max error %g\n',nx,ny,nz,errmax)
 
 function testing_wind(U)
         
@@ -66,14 +68,28 @@ function testing_wind(U)
     test_terrain(th)
 
     function test_terrain(t)
+        kmax=size(X{1},3);
+        disp('shifting mesh by terrain vertically')
         XX=X;
-        for k=1:size(X{1},3)
+        for k=1:kmax
             XX{3}(:,:,k)=X{3}(:,:,k)+t;
         end
-        fl=wind2flux(U,XX);
-        d=div3(fl);
-        disp('divergence zero except at the bottom')
-        err=big(d(:,:,2:end))
+        test_divergence
+        disp('compressing mesh keeping top unchanged')
+        XX=X;
+        for k=1:kmax
+            XX{3}(:,:,k)=X{3}(:,:,k)+t*(kmax-k)/(kmax-1);
+        end
+        test_divergence        
+        
+        function test_divergence
+            fl=wind2flux(U,XX);
+            d=div3(fl);
+            disp('divergence zero except at the bottom')
+            err=big(d(:,:,2:end));
+            fprintf('err=%g\n',err)
+            errmax=max(errmax,err)
+        end
     end
 
 end
