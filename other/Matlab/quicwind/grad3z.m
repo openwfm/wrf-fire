@@ -3,10 +3,10 @@ function g=grad3z(f,h,b)
 % compute gradient in 3d assuming zero boundary conditions
 % u=grad3z(f,h,b) 
 % in 3rd coordinate use reflection at bottom instead of zero
-% arguments:
+% input:
 %    f       3d array
 %    h(1:3)  stepsize
-%    b       zero boundary conditiom on output at the bottom
+%    b       use zero boundary condition on output at the bottom
 
 if ~exist('b','var')
     b = false;

@@ -4,7 +4,8 @@ function F=wind2flux(U,X)
 % assuming all sides in the y direction are straight vertical
 % while horizontal sides may be slanted
 % in:
-%     U{l}(i,j,k) wind component l at lower side midpoint of cell (i,j,k)
+%     U{l}(i,j,k) flow component l at lower side midpoint of cell (i,j,k)
+%                 such as output from grad3z
 %     X{l}(i,j,k) coordinate l of node (i,j,k), if l=1,2 does not depend on k
 % out:
 %     F{l}(i,j,k) flux in normal direction through lower side midpoint of cell (i,j,k)
@@ -76,8 +77,8 @@ for k=1:nz
     end
 end
 % flux through vertical sides front to back (v,y,j direction)
-f_v = zeros(nx,ny+1,nz+1);
-dzv = zeros(nx,ny+1,nz+1);
+f_v = zeros(nx,ny+1,nz);
+dzv = zeros(nx,ny+1,nz);
 for k=1:nz
     for j=1:ny+1
         for i=1:nx
@@ -119,16 +120,17 @@ for k=2:nz+1   % zero normal flux on the ground, k=1
             dxw = 0.5*(x(i+1,j,k)-x(i,j,k)+x(i+1,j,k)-x(i,j+1,k));
             dyw = 0.5*(y(i,j+1,k)-y(i,j,k)+y(i+1,j+1,k)-y(i+1,j,k));
             % u, v averaged from above and below
-            u_at_k = 0.5*( (u(i,j,k)+u(i+1,j,k))*dzu(i,j,k) ...
-                         + (u(i,j,k-1)+u(i+1,j,k-1))*dzu(i,j,k-1) ...
+            u_at_k = 0.5*( (u(i,j,k)   + u(i+1,j,k))  *dzu(i,j,k) ...
+                         + (u(i,j,k-1) + u(i+1,j,k-1))*dzu(i,j,k-1) ...
                          )/ (dzu(i,j,k) + dzu(i,j,k-1));
-            v_at_k = 0.5*( (v(i,j,k)+v(i,j+1,k))*dzv(i,j,k) ...
-                         + (v(i,j,k-1)+v(i,j+1,k-1))*dzv(i,j,k-1) ...
+            v_at_k = 0.5*( (v(i,j,k)   +v(i,j+1,k))   *dzv(i,j,k) ...
+                         + (v(i,j,k-1) +v(i,j+1,k-1)) *dzv(i,j,k-1) ...
                          )/ (dzv(i,j,k) + dzv(i,j,k-1));
             % average slope at midpoints from two sides
-            dzdx_at_k = 0.5*(dzdx(i,j,k)+dzdx(i,j+1,k));
-            dzdya_at_k = 0.5*(dzdy(i,j,k)+dzdy(i+1,j,k));
-            f_w(i,j,k)=dxw*dyw*(w - dzdx_at_k*u_at_k - dzdy_at_k*v_at_k);
+            dzdx_at_k = 0.5*(dzdx(i,j,k) + dzdx(i,j+1,k));
+            dzdy_at_k = 0.5*(dzdy(i,j,k) + dzdy(i+1,j,k));
+            f_w(i,j,k)=dxw*dyw*(w(i,j,k) - ...
+                dzdx_at_k * u_at_k - dzdy_at_k * v_at_k);
         end
     end
 end
