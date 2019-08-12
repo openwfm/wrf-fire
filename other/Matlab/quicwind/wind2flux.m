@@ -38,7 +38,7 @@ if ~all(all((y(:,2:end,:)>y(:,1:end-1,:)))),
     error('wind2flux: z increments in array z must be positive')
 end
 err=false;
-for k=2:nx+1
+for k=2:nz+1
     if any(x(:,:,k)~=x(:,:,1))|any(y(:,:,k)~=y(:,:,1))
         x(:,:,k)=x(:,:,1);
         y(:,:,k)=y(:,:,1);

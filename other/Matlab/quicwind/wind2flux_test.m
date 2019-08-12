@@ -1,5 +1,5 @@
 % function wind2flux_test
-nx=2; ny=2; nz=2;
+nx=5; ny=3; nz=4;
 h=[rand,rand,1];
 hh=rand(1,3);
 % corner nodes
@@ -15,7 +15,7 @@ fl=wind2flux(U,X);
 lapU=div3(fl,h);
 
 
-c=[0,1,0];
+c=[rand,rand,0];
 for i=1:3,
     U{i} = 0*U{i}+c(i);
 end
@@ -24,6 +24,14 @@ disp('constant horizontal wind, divergence should be zero')
 d=div3(fl);
 err=big(d)
 
+c=[rand,rand,rand];
+for i=1:3,
+    U{i} = 0*U{i}+c(i);
+end
+fl=wind2flux(U,X);
+disp('constant wind, divergence zero except at the bottom')
+d=div3(fl);
+err=big(d(:,:,2:end))
 
 
 
