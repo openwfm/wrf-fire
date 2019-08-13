@@ -1,4 +1,4 @@
-function fun2mat_test
+function err=fun2mat_test
 disp('fun2mat_test')
 h=rand(1,3);
 n=[2,2,3];

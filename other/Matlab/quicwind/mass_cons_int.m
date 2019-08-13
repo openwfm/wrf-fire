@@ -1,4 +1,4 @@
-function u=mass_cons_int(u0,h,w,check)
+function [u,varargout]=mass_cons_int(u0,h,w,check)
 % mass consistent approximation
 % given
 %   u0  3 wind vectors on staggered grids
@@ -44,9 +44,13 @@ g = grad3z(lambda,h,true);
 for i=1:3
     u{i} = u0{i} + (1/w(i))*g{i};
 end
-% check divergence
-if check, err_div = big(div3(u,h)), end
-% check no correction in vertical speed at the bottom
-if check, err_corr_w_bottom = big(u{3}(:,:,1)-u0{3}(:,:,1)), end
+if check, 
+    % check divergence
+    err_div = big(div3(u,h))
+    % check no correction in vertical speed at the bottom
+    err_corr_w_bottom = big(u{3}(:,:,1)-u0{3}(:,:,1)) 
+    varargout={max(err_div,err_corr_w_bottom)};
+end
+
 fprintf('mass_cons_int %g seconds\n',toc(tstart))
 end

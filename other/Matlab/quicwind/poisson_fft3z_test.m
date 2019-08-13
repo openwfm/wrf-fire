@@ -1,4 +1,4 @@
-function poisson_fft3z_test
+function err=poisson_fft3z_test
 disp('poisson_fft3z_test')
 fprintf('against poisson_fft2: ')
 n=[10,15];
@@ -20,5 +20,5 @@ for i=1:3
 end
 f=-div3(g,h);
 v=poisson_fft3z(f,h,d);
-fprintf('err=%s\n',big(u-v));
+err=big(u-v)
 end

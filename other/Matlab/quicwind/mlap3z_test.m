@@ -1,4 +1,4 @@
-function mlap3z_test
+function err=mlap3z_test
 disp('mlap3z_test')
 disp('testing mlap3z = div3 grad3z')
 n=[5,4,10];

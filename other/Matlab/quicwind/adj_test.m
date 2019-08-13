@@ -1,4 +1,4 @@
-function adj_test
+function err=adj_test
 disp('adj_test')
 disp('testing if grad3z and div3 are adjoint')
 h=rand(1,3);
@@ -10,7 +10,7 @@ for i=1:length(g)
 end
 div3u = div3(u,h);
 l3z = grad3z(lambda,h);
-err_adj = aprod(lambda,div3u) + aprod3(l3z,u)
+err = aprod(lambda,div3u) + aprod3(l3z,u)
 end
 
 function a=aprod(x,y)

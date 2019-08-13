@@ -1,4 +1,4 @@
-function adj_mat_test
+function err=adj_mat_test
 disp('adj_mat_test')
 % disp('creating matrix representation of div3 and grad3')
 n=[2,2,2];

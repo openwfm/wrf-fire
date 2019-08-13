@@ -1,4 +1,4 @@
-function wind2flux_test
+function errmax=wind2flux_test
 nx=50; ny=30; nz=10;
 h=[rand,rand,1];
 hh=rand(1,3);
