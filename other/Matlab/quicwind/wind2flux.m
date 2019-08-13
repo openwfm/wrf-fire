@@ -26,6 +26,8 @@ if any(size(u)~=[nx1,ny,nz])|any(size(v)~=[nx,ny1,nz])|any(size(w)~=[nx,ny,nz1])
     error('wind2flux: arrays u v w must be staggered dimensioned with x y z')
 end
 
+check_mesh(X)
+
 err=false;
 for k=2:nz+1
     if any(x(:,:,k)~=x(:,:,1))|any(y(:,:,k)~=y(:,:,1))

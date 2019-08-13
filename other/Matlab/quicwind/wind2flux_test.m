@@ -68,19 +68,10 @@ function testing_wind(U)
     test_terrain(th)
 
     function test_terrain(t)
-        kmax=size(X{1},3);
-        disp('shifting mesh by terrain vertically')
-        XX=X;
-        for k=1:kmax
-            XX{3}(:,:,k)=X{3}(:,:,k)+t;
-        end
+        XX=add_terrain_to_mesh(X, t, 'shift');
         test_divergence
-        disp('compressing mesh keeping top unchanged')
-        XX=X;
-        for k=1:kmax
-            XX{3}(:,:,k)=X{3}(:,:,k)+t*(kmax-k)/(kmax-1);
-        end
-        test_divergence        
+        XX=add_terrain_to_mesh(X, t, 'compress');
+        test_divergence
         
         function test_divergence
             fl=wind2flux(U,XX);

@@ -7,20 +7,23 @@ function u=mass_cons_flux(U0,X,w)
 % output:
 %   U   cell array, wind vectors u v w 
 %
-% using
+% using:
 %   D = divergence of flux on cell sides
 %   M = transformation of wind to flux through cell sides with
 %       zero flux boundary condition at the bottom (the terrain)
 %   A = weights of the wind vector components, U'*A*U approx ||U||_L2^2
 %    
-% compute  
+% compute:  
+%
 %    min 1/2 (U - U0)'*A*(U - U0) s.t. D*M*U = 0
 %
 %    <=>    A*(U - U0) + M'*D'*Lambda = 0
+%
 %           D*M*U                     = 0
 %
+%
 %    <=>    U = U0 - inv(A)*M'*D'*Lambda
-%           where        
+%
 %           D*M*inv(A)*M'*D'*Lambda = D*M*U0 
 
 
@@ -29,7 +32,7 @@ if ~exist('check','var')
 end
 tstart=tic;
 % divergence of u0
-f = div3(U0,h); 
+f = div3(wind2flux(U0,X));
 % reflect the right hand side abound the bottom in 3rd coordinate
 n = size(f);
 fprintf('mass_cons_int mesh size %i %i %i\n',n)
