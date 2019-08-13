@@ -22,21 +22,10 @@ nx = nx1-1; ny = ny1-1; nz = nz1-1;
 if ndims(u)~=3|ndims(v)~=3|ndims(w)~=3|ndims(x)~=3|ndims(y)~=3|ndims(z)~=3,
     error('wind2flux: all input arrays must be 3D')
 end
-if any(size(y)~=[nx1,ny1,nz1])|any(size(z)~=[nx1,ny1,nz1]),
-    error('wind2flux: arrays x y z must be the same size')
-end
 if any(size(u)~=[nx1,ny,nz])|any(size(v)~=[nx,ny1,nz])|any(size(w)~=[nx,ny,nz1])
     error('wind2flux: arrays u v w must be staggered dimensioned with x y z')
 end
-if ~all(all((x(2:end,:,:)>x(1:end-1,:,:)))),
-    error('wind2flux: x increments in array x must be positive')
-end
-if ~all(all((y(:,2:end,:)>y(:,1:end-1,:)))),
-    error('wind2flux: y increments in array y must be positive')
-end
-if ~all(all((y(:,2:end,:)>y(:,1:end-1,:)))),
-    error('wind2flux: z increments in array z must be positive')
-end
+
 err=false;
 for k=2:nz+1
     if any(x(:,:,k)~=x(:,:,1))|any(y(:,:,k)~=y(:,:,1))
@@ -46,8 +35,10 @@ for k=2:nz+1
     end
 end
 if err,
-    warning('wind2flux: arrays x and y must be constant in 3rd dimension, fixed')
+    error('wind2flux: arrays x and y must be constant in 3rd dimension')
 end
+
+
 %                                             ^ z,w,k
 %     (i,j+1,k+1)---------(i+1,j+1,k+1        |
 %     /  |               / |                  |    /
@@ -64,30 +55,15 @@ end
 %  | /                |/
 %(i,j,k)----------(i+1,j,k)
 
+
+s = cell_sizes(X); 
+
 % flux through vertical sides left to rigth (u,x,i direction)
-f_u = zeros(nx+1,ny,nz);
-dzu = zeros(nx+1,ny,nz);  % dz for u etc.
-for k=1:nz
-    for j=1:ny
-        for i=1:nx+1
-            dzu(i,j,k) = 0.5*(z(i,j,k+1)-z(i,j,k)+z(i,j+1,k+1)-z(i,j+1,k));
-            dyu        = 0.5*(y(i,j+1,k)-y(i,j,k)+y(i,j+1,k+1)-y(i,j,k+1));
-            f_u(i,j,k) = u(i,j,k)*dyu*dzu(i,j,k);
-        end
-    end
-end
+f_u = u .* s.area_u;
+
 % flux through vertical sides front to back (v,y,j direction)
-f_v = zeros(nx,ny+1,nz);
-dzv = zeros(nx,ny+1,nz);
-for k=1:nz
-    for j=1:ny+1
-        for i=1:nx
-            dzv(i,j,k) = 0.5*(z(i,j,k+1)-z(i,j,k)+z(i+1,j,k+1)-z(i+1,j,k));
-            dxv        = 0.5*(x(i+1,j,k)-x(i,j,k)+x(i+1,j,k+1)-x(i,j,k+1));
-            f_v(i,j,k) = v(i,j,k)*dxv*dzv(i,j,k);
-        end
-    end
-end
+f_v = v .* s.area_v;
+
 % slope in x direction
 dzdx = zeros(nx,ny+1,nz+1);
 for k=1:nz+1
@@ -97,6 +73,7 @@ for k=1:nz+1
         end
     end
 end
+
 % slope in y direction
 dzdy = zeros(nx+1,ny,nz+1);
 for k=1:nz+1
@@ -111,25 +88,23 @@ f_w = zeros(nx,ny,nz+1);
 % continue one layer up
 u(:,:,nz+1)=u(:,:,nz);
 v(:,:,nz+1)=v(:,:,nz);
-dzu(:,:,nz+1)=dzu(:,:,nz);
-dzv(:,:,nz+1)=dzv(:,:,nz);
+s.dz_at_u(:,:,nz+1)=s.dz_at_u(:,:,nz);
+s.dz_at_v(:,:,nz+1)=s.dz_at_v(:,:,nz);
 for k=2:nz+1   % zero normal flux on the ground, k=1
     for j=1:ny
         for i=1:nx
             % mesh horizontal mesh cell sizes of layer k
-            dxw = 0.5*(x(i+1,j,k)-x(i,j,k)+x(i+1,j,k)-x(i,j+1,k));
-            dyw = 0.5*(y(i,j+1,k)-y(i,j,k)+y(i+1,j+1,k)-y(i+1,j,k));
             % u, v averaged from above and below
-            u_at_k = 0.5*( (u(i,j,k)   + u(i+1,j,k))  *dzu(i,j,k) ...
-                         + (u(i,j,k-1) + u(i+1,j,k-1))*dzu(i,j,k-1) ...
-                         )/ (dzu(i,j,k) + dzu(i,j,k-1));
-            v_at_k = 0.5*( (v(i,j,k)   +v(i,j+1,k))   *dzv(i,j,k) ...
-                         + (v(i,j,k-1) +v(i,j+1,k-1)) *dzv(i,j,k-1) ...
-                         )/ (dzv(i,j,k) + dzv(i,j,k-1));
+            u_at_k = 0.5*( (u(i,j,k)   + u(i+1,j,k))  *s.dz_at_u(i,j,k) ...
+                         + (u(i,j,k-1) + u(i+1,j,k-1))*s.dz_at_u(i,j,k-1) ...
+                         )/ (s.dz_at_u(i,j,k) + s.dz_at_u(i,j,k-1));
+            v_at_k = 0.5*( (v(i,j,k)   +v(i,j+1,k))   *s.dz_at_v(i,j,k) ...
+                         + (v(i,j,k-1) +v(i,j+1,k-1)) *s.dz_at_v(i,j,k-1) ...
+                         )/ (s.dz_at_v(i,j,k) + s.dz_at_v(i,j,k-1));
             % average slope at midpoints from two sides
             dzdx_at_k = 0.5*(dzdx(i,j,k) + dzdx(i,j+1,k));
             dzdy_at_k = 0.5*(dzdy(i,j,k) + dzdy(i+1,j,k));
-            f_w(i,j,k)=dxw*dyw*(w(i,j,k) - ...
+            f_w(i,j,k)=s.area_w(i,j,k)*(w(i,j,k) - ...
                 dzdx_at_k * u_at_k - dzdy_at_k * v_at_k);
         end
     end
