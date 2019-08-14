@@ -115,7 +115,7 @@ for k=1:nz
             s.weight_u(i,j,k)=0.5*s.depth_x(i,j,k)*(s.area_u(i+1,j,k)+s.area_u(i,j,k));
         end
         i=nx+1;
-        s.weight_u(i,j,k)=s.depth_x(i-1,j,k)+s.area_u(i,j,k);
+        s.weight_u(i,j,k)=s.depth_x(i-1,j,k)*s.area_u(i,j,k);
     end
 end
 for k=1:nz   
@@ -124,7 +124,7 @@ for k=1:nz
             s.weight_v(i,j,k)=0.5*s.depth_y(i,j,k)*(s.area_v(i,j+1,k)+s.area_v(i,j,k));
         end
         j=ny+1;
-        s.weight_v(i,j,k)=s.depth_y(i,j-1,k)+s.area_v(i,j,k);
+        s.weight_v(i,j,k)=s.depth_y(i,j-1,k)*s.area_v(i,j,k);
     end
 end
 for i=1:nx
@@ -133,7 +133,7 @@ for i=1:nx
             s.weight_w(i,j,k)=0.5*s.depth_z(i,j,k)*(s.area_w(i,j,k+1)+s.area_w(i,j,k));
        end
        k=nz+1;
-       s.weight_z(i,j,k)=0.5*s.depth_z(i,j,k-1)+s.area_w(i,j,k);
+       s.weight_w(i,j,k)=s.depth_z(i,j,k-1)*s.area_w(i,j,k);
    end
 end
 
