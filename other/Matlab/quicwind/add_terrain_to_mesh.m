@@ -29,7 +29,7 @@ switch how
         for k=1:kmax
             XX{3}(:,:,k)=X{3}(:,:,k)+t;
         end
-    case {'compress','c'}
+    case {'compress','c','squash'}
         disp('compressing mesh keeping top unchanged')
         XX=X;
         for k=1:kmax
