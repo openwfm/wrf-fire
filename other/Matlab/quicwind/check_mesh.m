@@ -7,15 +7,15 @@ end
 
 [nx1,ny1,nz1] = size(x);
 if any(size(y)~=[nx1,ny1,nz1])|any(size(z)~=[nx1,ny1,nz1]),
-    error('cell_sizes: arrays x y z must be the same size')
+    error('check_mesh: arrays x y z must be the same size')
 end
 if ~all(all((x(2:end,:,:)>x(1:end-1,:,:)))),
-    error('cell_sizes: x increments in array x must be positive')
+    error('check_mesh: x increments in array x must be positive')
 end
 if ~all(all((y(:,2:end,:)>y(:,1:end-1,:)))),
-    error('cell_sizes: y increments in array y must be positive')
+    error('check_mesh: y increments in array y must be positive')
 end
 if ~all(all((y(:,2:end,:)>y(:,1:end-1,:)))),
-    error('cell_sizes: z increments in array z must be positive')
+    error('check_mesh: z increments in array z must be positive')
 end
 
