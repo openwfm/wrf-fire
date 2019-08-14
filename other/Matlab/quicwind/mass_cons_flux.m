@@ -31,6 +31,9 @@ if ~exist('check','var')
     check = false;
 end
 tstart=tic;
+switch method
+    case direct
+        DM = 
 % divergence of u0
 f = div3(wind2flux(U0,X));
 % reflect the right hand side abound the bottom in 3rd coordinate

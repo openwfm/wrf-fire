@@ -3,13 +3,9 @@ nx=50; ny=30; nz=10;
 h=[rand,rand,1];
 hh=rand(1,3);
 % corner nodes
-[x,y,z]   =ndgrid(hh(1)*[0:nx],hh(2)*[0:ny],hh(3)*[0:nz]);
-% midpoints
-[xm,ym,zm]=ndgrid(h(1)*([1:nx]-0.5),h(2)*([1:ny]-0.5),h(3)*([1:nz]-0.5));
-X = {x,y,z};
-% test field
+X = uniform_mesh([nx,ny,nz],hh);
 % gradient for sizing
-Usize = grad3z(xm,h,1);
+Usize = grad3z(zeros(size(X{1})-1),h,1);
 
 disp('constant wind')
 c=[rand,rand,rand];

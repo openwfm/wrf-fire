@@ -7,6 +7,8 @@ hh=rand(1,3);
 X={x,y,z};
 X=add_terrain_to_mesh(X,'hill','shift')
 
+disp('direct method'0
+
 lambda0=zeros(n);
 u0= grad3z(rand(n),'zero at bottom');
 warning('not ready')
