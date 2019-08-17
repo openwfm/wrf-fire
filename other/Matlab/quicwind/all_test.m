@@ -12,3 +12,4 @@ err=[adj_mat_test,...
 max_err=max(err)
 if max_err < 1e-9, disp('all tests OK'), end
 plot_mesh_test
+block_example
