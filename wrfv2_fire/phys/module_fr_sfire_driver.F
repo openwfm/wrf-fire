@@ -149,7 +149,7 @@ subroutine sfire_driver_em ( grid , config_flags                    &
     integer::fire_ifun,ir,jr,istep,itimestep,i,ipe1,kpe1,jpe1,j
     logical::restart,replay
     real:: corner_ll,corner_ul,corner_ur,corner_lr, max_u, max_v, max_w, max_rho, min_rho
-    character(len=128)msg
+    character(len=128)msg, msg2
     type(fire_params)::fp
     real:: moisture_time
 
@@ -1019,7 +1019,7 @@ do ij=1,num_tiles
             !Lets set the canopy height, using either a look up table, or just explictly setting it 
             !using WRF input data from LANDFIRE.
 
-            !if(fire_can_top_read == 0)then
+            if(fire_can_top_read == 0)then
 
                 can_top = 0                             ! Initialize canopy top array on fire mesh 
 
@@ -1035,11 +1035,15 @@ do ij=1,num_tiles
                 ir,jr,                                        & ! atm/fire grid ratio
                 can_top, nfuel_cat)                             ! tree canopy height info 
             
-            !else if(fire_can_top_read == 1)
+            else if(fire_can_top_read == 1)
 
+                write(msg, '(A20,I1)') 'fire_can_top_read = ', fire_can_top_read
+                write(*,*) msg
+    
                 !can_top = readinheights
 
-            !end if 
+            end if 
+
 
 
             !Compute canopy top winds. Save this variable to cuf and cvf, which is like
@@ -1709,7 +1713,7 @@ fire_fmc_read           = config_flags%fire_fmc_read
 fire_ignition_clamp     = config_flags%fire_ignition_clamp
 kfmc_ndwi               = config_flags%kfmc_ndwi
 fndwi_from_ndwi         = config_flags%fndwi_from_ndwi 
-
+fire_can_top_read       = config_flags%fire_can_top_read
 end subroutine set_flags
 
 !
