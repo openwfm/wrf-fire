@@ -73,7 +73,7 @@ use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
    advance_moisture, moisture_classes, &
    fire_rate_of_spread
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
-   interpolate_z2fire,setup_wind_log_interpolation,interpolate_wind2can_height,massman_fwh
+   interpolate_z2fire,setup_wind_log_interpolation,interpolate_wind2can_height,find_trees_fmesh,massman_fwh
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 ! Driver layer modules
@@ -1014,7 +1014,32 @@ do ij=1,num_tiles
           if(fire_use_windrf.eq.4)then
           
             write(*,*)'fire_use_windrf option 4 has been selected....!'
-            can_top = 22.5
+            
+
+            !Lets set the canopy height, using either a look up table, or just explictly setting it 
+            !using WRF input data from LANDFIRE.
+
+            !if(fire_can_top_read == 0)then
+
+                can_top = 0                             ! Initialize canopy top array on fire mesh 
+
+                call find_trees_fmesh(id,             & ! to identify debugging prints and files if needed
+                ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+                ims,ime, kms,kme, jms,jme,                    &
+                ips,ipe,jps,jpe,                              &
+                its,ite,jts,jte,                              &
+                ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+                ifms, ifme, jfms, jfme,                       &
+                ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+                ifts,ifte,jfts,jfte,                          &
+                ir,jr,                                        & ! atm/fire grid ratio
+                can_top, nfuel_cat)                             ! tree canopy height info 
+            
+            !else if(fire_can_top_read == 1)
+
+                !can_top = readinheights
+
+            !end if 
 
 
             !Compute canopy top winds. Save this variable to cuf and cvf, which is like

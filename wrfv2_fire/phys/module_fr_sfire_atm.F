@@ -2504,6 +2504,16 @@ subroutine interpolate_wind2can_height(id,      & ! to identify debugging prints
             vk1=0.
           endif
 
+          !If wind height = 0, we are not dealing with a fuel type with trees
+          !so just set the canopy height winds cuf and cvf as 0.
+
+          if(wh == 0) then 
+            cuf(i,j) = 0.
+            cvf(i,j) = 0.
+            cycle
+          end if 
+        
+
           ! log interpolate the wind to wh
           cuf(i,j)= uk1 + (uk - uk1) * ( logwh - loght_last) / (loght - loght_last)
           cvf(i,j)= vk1 + (vk - vk1) * ( logwh - loght_last) / (loght - loght_last)
@@ -2597,6 +2607,79 @@ subroutine interpolate_wind2can_height(id,      & ! to identify debugging prints
 end subroutine interpolate_wind2can_height
 
 
+subroutine find_trees_fmesh(id,       & ! to identify debugging prints and files if needed
+  ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
+  ims,ime, kms,kme, jms,jme,                    &
+  ips,ipe,jps,jpe,                              &
+  its,ite,jts,jte,                              &
+  ifds, ifde, jfds, jfde,                       & ! fire grid dimensions
+  ifms, ifme, jfms, jfme,                       &
+  ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+  ifts,ifte,jfts,jfte,                          &
+  ir,jr,                                        & ! atm/fire grid ratio
+  can_top,nfuel_cat)                              ! canopy top and fuel cat (input)
+
+
+  implicit none
+
+  !*** arguments
+  integer, intent(in):: id,                     & ! debug identification
+  ids,ide, kds,kde, jds,jde,                    & ! atm domain bounds
+  ims,ime, kms,kme, jms,jme,                    & ! atm memory bounds 
+  ips,ipe,jps,jpe,                              &
+  its,ite,jts,jte,                              & ! atm tile bounds
+  ifds, ifde, jfds, jfde,                       & ! fire domain bounds
+  ifms, ifme, jfms, jfme,                       & ! fire memory bounds
+  ifps, ifpe, jfps, jfpe,                       & ! fire patch bounds
+  ifts,ifte,jfts,jfte,                          & ! fire tile bounds
+  ir,jr                                         
+
+  real,intent(in),dimension(ifms:ifme,jfms:jfme)::nfuel_cat
+  real,intent(inout),dimension(ifms:ifme,jfms:jfme)::can_top
+
+
+  !*** local variables
+  
+  integer :: i, j, iveg, tree_type
+  real, dimension(8) :: z_max
+  
+
+  !Canopy height lookup table
+
+  z_max   = (/10.,20.,15.,24.,22.5,10.,2.2,0.73/)
+
+
+  !Loop through each i j point within our patch and relate our nfuel category # to a 
+  !canopy height, which we specify in our fire namelist file. 
+
+  do j = jfts,jfte
+    do i = ifts,ifte
+
+      iveg = nfuel_cat(i,j)
+      tree_type = itree(iveg)
+
+      !If the nfuel category is associated with a fuel type that is not associated with a
+      !tree (designated as a '0' within the fire.namelist file), set the canopy top height 
+      !as 0.
+
+      if(tree_type /= 0) then
+        
+        !write(*,*) z_max(tree_type)
+        can_top(i,j) = z_max(tree_type)
+
+      else 
+
+        can_top(i,j) = 0 
+
+      end if 
+
+    enddo
+  enddo
+
+
+end subroutine find_trees_fmesh
+
+
 subroutine massman_fwh(id,       & ! to identify debugging prints and files if needed
     ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
     ims,ime, kms,kme, jms,jme,                    &
@@ -2636,7 +2719,7 @@ subroutine massman_fwh(id,       & ! to identify debugging prints and files if n
     !*** local variables
 
     real :: xi_og, k, c1, c3, c2
-    real :: ha, z_og, drag_index, cantop_frac, C_surf, N, cd, zeta_sum, u_scale
+    real :: ha, z_og, drag_index, cantop_frac, C_surf, N, cd, zeta_sum, u_scale,z_top
     real, dimension(8) :: xi_max, sigma_u, sigma_l, PAI, big_cd, z_max, d1
     real, dimension(20) :: z_agl, xi, fa, zeta, Ub, Ut, u
     integer :: iveg, i, j, z, znum
@@ -2654,7 +2737,8 @@ subroutine massman_fwh(id,       & ! to identify debugging prints and files if n
     !---------------------------------------------------------------------------------------!
 
 
-    iveg = 5
+    !iveg = 5               !Hardcoded value for trouble shooting
+
 
     !Model constants used by the Massman canopy parameterization 
 
@@ -2686,19 +2770,36 @@ subroutine massman_fwh(id,       & ! to identify debugging prints and files if n
       do i = ifts,ifte
 
 
+        !What is the height of the tree canopy for the gridcell we are working on?
+        !If z_top equals 0, we are not working with a gridcell with trees, thus 
+        !we don't want to modify our u and v winds on the fire mesh so cycle to 
+        !the next iteration.  
+        
+        z_top = can_top(i,j)
+
+        if(z_top == 0) then 
+          cycle
+        end if 
+        
+
+        !Determine tree type based on whats prescribed in the namelist.fire file. 
+        
+        iveg = itree(nfuel_cat(i,j))
+
+
         !Compute the heights for our vertical coordinate based on the vegetation 
         !height (z_max) that was assigned. Heights are in mAGL. In addition, 
         !compute a unitless height coordinate (xi).
 
         do z = 1, znum
           if(z>1) then
-              z_agl(z) = z_agl(z-1) + z_max(iveg)/(znum-1)
+              z_agl(z) = z_agl(z-1) + z_top/(znum-1)
           else
               z_agl(z) = 0
           end if 
         end do 
 
-        xi = z_agl/z_max(iveg)
+        xi = z_agl/z_top
       
 
         !Let compute fa, from equation 2 of the Massman paper.
@@ -2719,7 +2820,7 @@ subroutine massman_fwh(id,       & ! to identify debugging prints and files if n
       
         !"Ground" roughness length (in height coordinates) [mAGL], according to Massman et al. [2017]
       
-        z_og = xi_og*z_max(iveg)   
+        z_og = xi_og*z_top  
       
       
         !Drag area index, which simplifies down to the drag coefficient (Cd) x the plant area index 
