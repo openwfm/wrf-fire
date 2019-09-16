@@ -7,7 +7,7 @@ function d=div3(f,h,s)
 %    s{1},s{2}  terrain gradient at mesh cell midpoints 
 % output: 
 %    u = df{1}/x1 + df{2}/dx2 + df{3}/dx3
-if ~exist('h','var'),
+if ~exist('h','var')
     h=[1,1,1];
 end
 u=f{1};
@@ -17,7 +17,8 @@ dudx = (u(2:end,:,:)-u(1:end-1,:,:))/h(1);
 dvdy = (v(:,2:end,:)-v(:,1:end-1,:))/h(2);
 dwdz = (w(:,:,2:end)-w(:,:,1:end-1))/h(3);
 d = dudx + dvdy + dwdz;
-if exist('s','var'),
+if exist('s','var')
+    error('slant not supported');
     %
     dudz = (u(1:end-1,:,3:end)+u(2:end,:,3:end)...
           -u(1:end-1,:,1:end-2)-u(2:end,:,1:end-2))/(4*h(3));

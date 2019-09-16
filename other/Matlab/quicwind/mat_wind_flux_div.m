@@ -13,5 +13,4 @@ Mmat=fun2mat(Mfun,[n,1,1]);
 Dfun=@(u)div3(vec2cell(u,wind_template));
 Dmat=fun2mat(Dfun,[n,1,1]);
 DM = Dmat * Mmat;
-DM=Dmat*Mmat;
 end
