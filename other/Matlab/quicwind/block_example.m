@@ -1,3 +1,4 @@
+function block_example
 disp('A simple block example: input wind speed is zero inside, uniform outside')
 n=[500,500,50];
 h=[2,2,1];
@@ -18,3 +19,4 @@ disp('note positive and zero at ground level')
 disp('vertical velocity component about the middle of the trailing edge of the block')
 squeeze(u{3}(297:303,250,25:-1:1))'
 disp('note negative and zero at ground level')
+end
