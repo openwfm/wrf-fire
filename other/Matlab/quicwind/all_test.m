@@ -1,3 +1,5 @@
+plot_mesh_test
+block_example
 disp('running all tests')
 err=[
     adj_mat_test,...
@@ -8,10 +10,12 @@ err=[
     poisson_fft3z_test,...
     wind2flux_test,...
     mat_wind_flux_div_test,...
-    mat_gen_wind_flux_div_test(5),...
+    mat_gen_wind_flux_div_test,...
     mass_cons_flux_test
     ];
 max_err=max(err)
-if max_err < 1e-9, disp('all tests OK'), end
-plot_mesh_test
-block_example
+if max_err < 1e-9, 
+    disp('all tests OK'),
+else
+    warning('error too large')
+end

@@ -1,4 +1,15 @@
 function XX=add_terrain_to_mesh(X, kind, how, val)
+% add_terrain_to_mesh 
+% modify 3D mesh by adding terrain
+% in:
+%      kind  'hill'  add hill
+%            numeric uniform shift up
+%      how   'shift' move up each column the same
+%            'squash' keep top flat
+%      val   relative height of the hill
+% out:
+%      XX    modified mesh
+
 check_mesh(X);
 
 x = X{1}(:,:,1); y=X{2}(:,:,1);z=X{3};
