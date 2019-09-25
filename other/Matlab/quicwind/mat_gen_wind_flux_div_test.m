@@ -4,15 +4,14 @@ function err = mat_gen_wind_flux_div_test
 % set
 %    mesh_len   vector size 3 of mesh dimensions
 %    h          vector size 3 of mesh steps
-mesh_len=[10,13,3];
-%h=[0.1,0.2,0.05];
+mesh_len=[10,13,8];
 h=rand(1,3);
 disp('mat_wind_flux_div_test')
 % test mesh with a hill terrain (unit vectors for now)
-X = uniform_mesh(mesh_len,h);
-%X = uniform_mesh([mesh_len,mesh_len,mesh_len],[0.1,0.1,0.1]);
-%X = add_terrain_to_mesh(X,'hill','shift',0.4);
-X = add_terrain_to_mesh(X,'hill','squash',0.4);
+
+X = regular_mesh(mesh_len,h,1.2);
+X = add_terrain_to_mesh(X,'hill','shift',0.4);
+%X = add_terrain_to_mesh(X,'hill','squash',0.1);
 % matrix of wind flux divergence
 disp('Time for new matrix generation:')
 tic
