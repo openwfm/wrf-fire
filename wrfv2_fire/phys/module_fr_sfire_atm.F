@@ -9,7 +9,7 @@
 module module_fr_sfire_atm
 
 use module_model_constants, only: cp,xlv,g
-use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,no_fuel_cat2,windrf,itree
+use module_fr_sfire_phys, only: fire_wind_height,have_fuel_cats,fcz0,fcwh,nfuelcats,no_fuel_cat,no_fuel_cat2,windrf,itree,fueldepthm
 use module_fr_sfire_util
 USE module_dm , only : wrf_dm_sum_reals
 
@@ -2380,7 +2380,7 @@ subroutine interpolate_wind2can_height(id,      & ! to identify debugging prints
 
     !This script is nearly identical to the subroutine 'interpolate_wind2fire_height', except 
     !that it has been repurposed to interpolate winds at the canopy top. A seperate script was
-    !necessary to prevent key variables like FWH from being overwritten since this is needed 
+    !necessary to prevent key variables from being overwritten since this is needed 
     !for the massman parameterization. DVM 6/26/2019
 
     !*** executable
@@ -2692,7 +2692,7 @@ subroutine massman_fwh(id,       & ! to identify debugging prints and files if n
     ir,jr,                                        & ! atm/fire grid ratio
     cuf,cvf,                                      & ! canopy top winds (input)
     nfuel_cat,                                    & ! fire fuel category (input)
-    can_top,fwh,                                  & ! canopy top and FWH heights (input)
+    can_top,                                      & ! canopy top and FWH heights (input)
     uf,vf)                                          ! fwh winds (input and output)
 
     implicit none
@@ -2712,13 +2712,13 @@ subroutine massman_fwh(id,       & ! to identify debugging prints and files if n
     real,intent(in),dimension(ifms:ifme,jfms:jfme)::&
     cuf,cvf,                                       & ! canopy winds on fire mesh
     nfuel_cat,                                     & ! fuel categories on fire mesh
-    can_top,fwh                                      ! cantop top and fire wind heights on fire mesh       
+    can_top                                          ! cantop top and fire wind heights on fire mesh       
     
     real,intent(inout),dimension(ifms:ifme,jfms:jfme)::uf,vf
 
     !*** local variables
 
-    real :: xi_og, k, c1, c3, c2
+    real :: xi_og, k, c1, c3, c2, mid_fh
     real :: ha, z_og, drag_index, cantop_frac, C_surf, N, cd, zeta_sum, u_scale,z_top
     real, dimension(8) :: xi_max, sigma_u, sigma_l, PAI, big_cd, z_max, d1
     real, dimension(20) :: z_agl, xi, fa, zeta, Ub, Ut, u
@@ -2870,18 +2870,26 @@ subroutine massman_fwh(id,       & ! to identify debugging prints and files if n
         u = Ut*Ub      
 
 
-        !Finally, find the nearest two vertical levels to our FWH, and interpolate our
-        !wind to the FWH using a simple interpolation scheme. 
+        !What is the mid-flame height? We assume that the flame height is fuel depthx2,
+        !thus the mid-flame height is set as the fuel depth. See Andrews et al. 2012.
+        !Fuel depth is a namelist.fire parameter, which can be obtained by the fuel
+        !category of the gridcell of interest.
+
+        mid_fh = fueldepthm(nfuel_cat(i,j))
+
+
+        !Finally, find the nearest two vertical levels to our mid-flame height, and interpolate our
+        !wind to the mid-flame height using a simple interpolation scheme. 
 
         do z = 1, znum
-          if(z_agl(z)>=fwh(i,j)) then
-              u_scale = (((z_agl(z-1)-fwh(i,j))*(u(z-1)-u(z)))/(z_agl(z)-z_agl(z-1)))+u(z-1)
+          if(z_agl(z)>=mid_fh) then
+              u_scale = (((z_agl(z-1)-mid_fh)*(u(z-1)-u(z)))/(z_agl(z)-z_agl(z-1)))+u(z-1)
               EXIT
           end if 
         end do 
       
-        !Scale our u and v winds at the FWH using our non-dimensional wind 
-        !profile, which was interpolated to the FWH. 
+        !Scale our u and v winds at the mid-flame height using our non-dimensional wind 
+        !profile, which was interpolated to the mid-flame height. 
 
         uf(i,j) = cuf(i,j)*u_scale
         vf(i,j) = cvf(i,j)*u_scale

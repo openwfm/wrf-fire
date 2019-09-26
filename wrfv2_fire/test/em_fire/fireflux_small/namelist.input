@@ -195,7 +195,7 @@ fire_read_lu = .true.,          ! read land use data from input_lu file
  fire_boundary_guard = -1,      ! integer, number of cells to stop when fire close to the domain boundary, -1 turn off
  fire_fuel_left_irl=2,          ! refinement to integrate fuel_left, must be even
  fire_fuel_left_jrl=2,          ! refinement to integrate fuel_left, must be even
- fire_atm_feedback=1.0,         ! real, multiplier for heat fluxes, 1.=normal, 0.=turn off two-way coupling 
+ fire_atm_feedback=0,         ! real, multiplier for heat fluxes, 1.=normal, 0.=turn off two-way coupling 
  fire_back_weight=0.5,          ! RK timestepping coefficient, 0=forward, 0.5=Heun
  fire_grows_only=1,             ! if >0 level set function cannot increase = fire can only grow
  fire_viscosity=0.4,              ! artificial viscosity in level set method (max 1, needed with fire_upwinding=0)

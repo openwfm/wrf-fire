@@ -1014,7 +1014,8 @@ do ij=1,num_tiles
           if(fire_use_windrf.eq.4)then
           
             write(*,*)'fire_use_windrf option 4 has been selected....!'
-            
+            write(msg, '(A20,I1)') 'fire_can_top_read = ', fire_can_top_read
+            write(*,*) msg
 
             !Lets set the canopy height, using either a look up table, or just explictly setting it 
             !using WRF input data from LANDFIRE.
@@ -1035,15 +1036,7 @@ do ij=1,num_tiles
                 ir,jr,                                        & ! atm/fire grid ratio
                 can_top, nfuel_cat)                             ! tree canopy height info 
             
-            else if(fire_can_top_read == 1)
-
-                write(msg, '(A20,I1)') 'fire_can_top_read = ', fire_can_top_read
-                write(*,*) msg
-    
-                !can_top = readinheights
-
             end if 
-
 
 
             !Compute canopy top winds. Save this variable to cuf and cvf, which is like
@@ -1081,9 +1074,8 @@ do ij=1,num_tiles
             ir,jr,                                        & ! atm/fire grid ratio
             cuf,cvf,                                      & ! canopy top winds (input)
             nfuel_cat,                                    & ! fire fuel category (input)
-            can_top,fwh,                                  & ! canopy top and FWH heights (input)
+            can_top,                                      & ! canopy top (input)
             fp%vx,fp%vy)
-
 
           endif
         endif
