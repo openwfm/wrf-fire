@@ -82,6 +82,7 @@ disp('Loading and subsetting detections')
     
 %prefix='../campTIFs/';
 prefix='../TIFs/';
+%prefix='../TIFpoint/';
 %prefix='../perimTIFs/';
 % the level2 file names processed by geotiff2mat.py
 p=sort_rsac_files(prefix); 
@@ -101,7 +102,9 @@ save g.mat g;
     
 % find ignition point
 tign=red.tign;
-[i_ign,j_ign]=find(tign == min(tign(:)));
+%%%% remove this
+%tign(478,383)=tign(478,383)-1e4;
+[i_ign,j_ign]=find(tign ==min(tign(:)));
 if length(i_ign)~=1,error('assuming single ignition point here'),end
     
 % set up constraint on ignition point being the same
@@ -156,7 +159,7 @@ for istep=1:maxiter
     h = h + best_stepsize*search;
     
     %%   %dealing with the bump here
-    bump_remove = 0;
+    bump_remove = 1;
     temp_analysis = tign+h;
     if bump_remove
         %figure,mesh(temp_analysis)

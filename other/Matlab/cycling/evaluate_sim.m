@@ -21,9 +21,7 @@ function score = evaluate_sim( wrfout_s, wrfout_c, perim )
 
 close all
 
-
-
-
+spinup_compare = input_num('Compare spinup?',1,0);
 
 %read wrfout section
 w_c =read_wrfout_tign(wrfout_c)
@@ -44,17 +42,17 @@ fig.fig_interp=0;
 
 
 
-%read kml section
-%a = kml2struct(perim);
+%read kml section, *.kml file
+a = kml2struct(perim);
 % or
-a = shape2struct(perim);
+%a = shape2struct(perim);
 
 %find perimeters from perim file
 p_count = 0;
 
 %%%%%%% start 13 for special point %%%%%%%%
-% size of grid to use
-n = 50;
+%n gives  size of grid to use
+n = 100;
 for i = 1:length(a)
     %i, a(i)
     if strcmp(a(i).Geometry,'Polygon')
@@ -76,7 +74,7 @@ for i = 1:length(a)
         
         %set decimate to an  postive integer to use just a subset of points
         %  in perimeter
-        decimate = 10;
+        decimate = 1;
         lats = a(i).Lat(1:decimate:end);
         lons = a(i).Lon(1:decimate:end);
         
@@ -257,16 +255,28 @@ for i = 1:p_count
         scatter(scatter_lon,scatter_lat,'m','*');        alpha(1.0);
         plot(sim_x_s,sim_y_s,'b');
         plot(perim_x ,perim_y,'r');
-        legend({'Satellite Fire Detections','Forecast without cycling','Infrared perimeter'});
+        if spinup_compare ~= 1
+            title_str = ('Perimeter observation and Forecast without cycling');
+            legend({'Satellite Fire Detections','Forecast without cycling','Infrared perimeter'});
+        else
+            title_str = ('Perimeter observation and Forecast without spinup');
+            legend({'Satellite Fire Detections','Forecast without spinup','Infrared perimeter'});
+        end
+        
         %legend({'Forecast without cycling','Infrared perimeter'});
         xlabel('Lon')
         ylabel('Lat')
         xlim([min_lon max_lon])
         ylim([min_lat max_lat])
-        title_str = ('Perimeter observation and Forecast without cycling');
+        
         score_str = sprintf('Score = %f',score_s(i));
         title({title_str,p_struct(i).Name,score_str});
-        save_str = [p_struct(i).file '_s'];
+        if spinup_compare ~= 1
+            save_str = [p_struct(i).file '_s'];
+        else
+            save_str = [p_struct(i).file '_No_spinup']
+        end
+        
         savefig(save_str);
         saveas(gcf,[save_str '.png']);
         ax(i,1) = gca;
@@ -280,14 +290,25 @@ for i = 1:p_count
         alpha(1.0);
         plot(sim_x_c,sim_y_c,'b');
         plot(perim_x ,perim_y,'r');
-        legend({'Satellite Fire Detections','Forecast without cycling','Infrared perimeter'});
+        if spinup_compare ~=1
+            legend({'Satellite Fire Detections','Forecast with cycling','Infrared perimeter'});
+            title_str = ('Perimeter observation and Forecast with cycling');
+        else
+            legend({'Satellite Fire Detections','Forecast using spinup','Infrared perimeter'});
+            title_str = ('Perimeter observation and Forecast using spinup');
+        end
+        
         %legend({'Forecast with cycling','Infrared perimeter'});
         xlabel('Lon')
         ylabel('Lat')
         xlim([min_lon max_lon])
         ylim([min_lat max_lat])
-        title_str = ('Perimeter observation and Forecast with cycling');
-        save_str = [p_struct(i).file '_c'];
+        if spinup_compare ~= 1
+            save_str = [p_struct(i).file '_c'];
+        else
+            save_str = [p_struct(i).file '_with_spinup'];
+        end
+            
         score_str = sprintf('Score = %f',score_c(i));
         title({title_str,p_struct(i).Name,score_str});
         savefig(save_str);

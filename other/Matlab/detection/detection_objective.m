@@ -30,16 +30,41 @@
         %%% first
         params_bak = params;
         
+        %% different weighting scheme if perimter data present
+        perims_present = 0;
+        for k = 1:length(g)
+            if strcmp(g(k).file(1:3),'PER')
+                fprintf('Perimeter data present \n');
+                perims_present = 1;
+% tis needs to be moved outside of the function so it doesn't get called so
+% often
+%                 if ~perims_present
+%                     fprintf('Perimeter data present \n');
+%                     perims_present = input_num('1 to adjust satellite weights ', 1);
+%                 end
+            end
+        end
+        
         
         for k=1:length(g)
-            % load params in case it has been changed
-            modis_weight = 0.1
-            params = params_bak;
-            if strcmp(g(k).file(1:3),'MOD') | strcmp(g(k).file(1:3),'MYD')
-            %if g(k).file(1:3) == 'MOD' | g(k).file(1:3) == 'MYD'
-                fprintf('Changing detection weights for MODIS data \n');
-                params.weight(3:5) = modis_weight*params.weight(3:5);
-            end
+            
+            
+            % routine for weighting modis and virrs less when [perimeter data present
+            non_perim_weight = 1.0;
+            if ~strcmp(g(k).file(1:3),'PER') && perims_present
+                fprintf('%s : Changing weight of satellite detection \n',g(k).file);
+                params.weight(3:5) = non_perim_weight*params.weight(3:5);
+            end 
+% routine for changing modis weights
+%             end
+%             % load params in case it has been changed
+%             modis_weight = 0.1;
+%             params = params_bak;
+%             if strcmp(g(k).file(1:3),'MOD') | strcmp(g(k).file(1:3),'MYD')
+%             %if g(k).file(1:3) == 'MOD' | g(k).file(1:3) == 'MYD'
+%                 fprintf('Changing detection weights for MODIS data \n');
+%                 params.weight(3:5) = modis_weight*params.weight(3:5);
+%             end
             psi = ...
                 + params.weight(1)*(g(k).fxdata==3)... 
                 + params.weight(2)*(g(k).fxdata==5)...
@@ -87,7 +112,7 @@
         if params.alpha>0,
             delta = solve_saddle(params.Constr_ign,h,F,0,...
                 @(u) poisson_fft2(u,[params.dx,params.dy],-params.power)/params.alpha);
-            bump_remove = 0;
+            bump_remove = 1;
             if bump_remove
                 % change search to keep bump from forming here
                 temp_h = -delta/big(delta);
