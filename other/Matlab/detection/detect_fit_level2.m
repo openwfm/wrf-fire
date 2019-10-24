@@ -159,7 +159,7 @@ for istep=1:maxiter
     h = h + best_stepsize*search;
     
     %%   %dealing with the bump here
-    bump_remove = 1;
+    bump_remove = 0;
     temp_analysis = tign+h;
     if bump_remove
         %figure,mesh(temp_analysis)

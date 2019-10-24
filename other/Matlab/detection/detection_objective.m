@@ -113,6 +113,11 @@
             delta = solve_saddle(params.Constr_ign,h,F,0,...
                 @(u) poisson_fft2(u,[params.dx,params.dy],-params.power)/params.alpha);
             bump_remove = 1;
+            if bump_remove == 0
+                db = delta;
+                save search_bump.mat db
+            end
+            
             if bump_remove
                 % change search to keep bump from forming here
                 temp_h = -delta/big(delta);
@@ -127,6 +132,11 @@
                     delta(mask_h) = 0;
                     %figure,mesh(delta);
                 end
+                dnb = delta;
+                save search_no_bump.mat dnb
+                %%%%%%% New method  -  just modify the "delta"
+%                 mask_delta = delta < 0;
+%                 delta(mask_delta) = 0;
             end %bump removal
             varargout{2}=delta; %search in detect_fit_level2
         end

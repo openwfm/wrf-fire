@@ -5,7 +5,7 @@ function [ ] = quick_mesh(varargin)
 if nargin == 1
     matrix = varargin{1};
     figure;
-    mesh(matrix(1:10:end,1:10:end));
+    mesh(matrix(1:5:end,1:5:end));
     return
 end
 
@@ -43,7 +43,9 @@ if nargin == 3
     ylabel('Lat (degrees)')
 %    figure
     hold on
-    contour3(lons,lats,small_z,30)
+    z_level = [1.7279e+05 1.7279e+05];
+    contour3(lons,lats,small_z,z_level,'k')
+    hold off
 %     xlabel('Lon (degrees)')
 %     ylabel('Lat (degrees)')
     

@@ -17,7 +17,7 @@ y_lim = [min(y(:)) max(y(:))];
 
 
 figure(1), xlim(x_lim), ylim(y_lim)
-figure(1), xlim(x_lim), ylim(y_lim)
+figure(2), xlim(x_lim), ylim(y_lim)
 
 end
 
