@@ -112,7 +112,8 @@
         if params.alpha>0,
             delta = solve_saddle(params.Constr_ign,h,F,0,...
                 @(u) poisson_fft2(u,[params.dx,params.dy],-params.power)/params.alpha);
-            bump_remove = 1;
+            
+            bump_remove = input_num('Remove bump? Yes = 1, default',1);
             if bump_remove == 0
                 db = delta;
                 save search_bump.mat db
