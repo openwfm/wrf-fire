@@ -13,10 +13,11 @@ heat_map = zeros(m,n);
 
 %const
 T_0 = 1;
-decay = 10;   %set to10 for patch  ,0.02 for hill2 test
+%decay = -0.3 --> 1.1% of heat output at 15 hours
+decay = -0.3; % ?? -->  %set to10 for patch  ,0.02 for hill2 test
 for ii = 1:m
     for jj = 1:n
-        if tign(ii,jj) > t_now
+        if tign(ii,jj) < t_now
             heat_map(ii,jj) = 0;
         else
             heat_map(ii,jj) = T_0*exp((tign(ii,jj)-t_now)*decay);

@@ -15,10 +15,13 @@ function [ pix_prob ] = compute_pixel_probability(pixel_x,pixel_y,heats,sig, wei
 
 %since gaussian decays fast, no need to integrate over the whole domain.
 %compute how much we need to look at here
-radius = round(sig*sqrt(32*log(10)))+1;
+%radius = round(sig*sqrt(32*log(10)))+1;
 %const = 1/(2*pi*sig^2); % not needed for discrete
-
+radius = sig;
 total = 0;
+
+ros = 1; % m/s
+
 
 for iii = pixel_x-radius+1:pixel_x+radius % this can fail if detections too close to the domain boundary, fix it
     for jjj = pixel_y-radius+1:pixel_y+radius

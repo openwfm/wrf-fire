@@ -4,14 +4,39 @@ function [ detect_prob ] = detection_probability(pixel_heat)
 %   studies
 %inputs
 %   pixel_heat : estimated heat from a pixel
+%        changing this to time in hours since fire arrival
 %outputs
 %   detect_prob : proability of satellite detection at that pixel
+detect_prob = zeros(size(pixel_heat));
+
+
+%needed for computing with time instead of heat
+heat = zeros(size(pixel_heat));
+m1 = pixel_heat < 0;
+m2 = pixel_heat >= 0;
+heat(m2) = exp(-0.3*pixel_heat(m2));
+%figure,mesh(heat)
+
 
 % constants 
-a = 30;  %controls shape of curve  20 for patch
-b = 2.2; %controls false positive rate  2.2 for patch
+a = 100;  %controls shape of curve  20 for patch
+%b = 2.2; %controls false positive rate  2.2 for patch
 
-detect_prob = (1 + exp(-a*pixel_heat + b))^(-1);
+%can comput false pos rate as 
+false_rate = 0.01;
+b = log(false_rate/(1-false_rate));
+
+%can compute a as
+p = 0.95; % 95% detection prob at time t
+t = 10; %fifteen hours since fire arrival
+h_t = exp(-0.3*t);
+a = (log(p/(1-p))-b)/h_t;
+
+m1 = pixel_heat < 0;
+m2 = pixel_heat >= 0;
+
+detect_prob(m1) = 1./(1 + exp(-b));
+detect_prob(m2) = 1./(1 + exp(-a*heat(m2) - b));
 
 
 end
