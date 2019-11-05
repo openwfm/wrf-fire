@@ -13,7 +13,16 @@ for i=1:length(d),
     file=d{i};
     fprintf('%s file %s ',stime(t(i),red),file);
     %v=readmod14(prefix,file,'silent'); original line
-    v=readmod14(prefix,file);
+    if file(end) == 't'
+        v=readmod14(prefix,file);
+    % reading l2 data instead of tifs
+    else
+        % take only as matched pairs
+        if mod(i,2) == 1
+            file2 = d{i+1};
+            v = readl2data(prefix,file,file2);
+        end
+    end
     % select fire detection within the domain
     xj=find(v.lon > red.min_lon & v.lon < red.max_lon);
     xi=find(v.lat > red.min_lat & v.lat < red.max_lat);
