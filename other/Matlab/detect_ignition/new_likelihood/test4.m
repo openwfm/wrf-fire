@@ -5,7 +5,7 @@ mask = zeros(domain_size,domain_size);
 %strip = ones(domain_size,1);
 mask(:,domain_size/2) = 1;
 
-time_start = -10; time_end = 40
+time_start = -12; time_end = 48;
 time_strip = linspace(time_start,time_end,domain_size);
 ts2 = linspace(0,1,domain_size);
 [x,y] = meshgrid(time_strip,ts2);
@@ -19,10 +19,11 @@ d_strip = dp(domain_size/2,:);
 figure,plot(time_strip,d_strip),title('detection probability'),
 xlabel('time since fire arrival')
 ylabel('probability of detection')
+ylim([0 1]);
 
-figure,plot(time_strip,log(d_strip)),title('log detection probability'),
-xlabel('time since fire arrival')
-ylabel('log probability of detection')
+% figure,plot(time_strip,log(d_strip)),title('log detection probability'),
+% xlabel('time since fire arrival')
+% ylabel('log probability of detection')
 
 % sig = 2.2778;
 % gauss_strip = 1/(2*pi*sig^2)*exp(-time_strip.^2/(2*sig^2));
@@ -43,9 +44,9 @@ ylabel('log probability of detection')
 
 
 like = [];
-radius = 40;
+radius = 60;
 weight = gauss_weight(radius);
-dx = 300; %in meters, this is grid spacing, dy = dx also
+dx = 30; %in meters, this is grid spacing, dy = dx also
 
 % make distance matrix one time and then pass into the gaussin computation
 d_squared = zeros(radius*2+1,radius*2+1);
@@ -70,7 +71,7 @@ for i=radius+1:domain_size-radius
 %     counter
     temp_prob = dp(domain_size/2-radius:domain_size/2+radius,i-radius:i+radius);
     %l =  compute_pixel_probability(500,i,heat,radius, weight, detection_probs );
-    gauss = exp(-d_squared/(2*pi*sig^2));
+    gauss = exp(-d_squared/(2*sig^2));
     prob = gauss.*temp_prob;
     l = log(sum(prob(:))/(2*pi*sig^2));
     like(counter) = l;
@@ -81,5 +82,17 @@ end
 short_time = time_strip(1,radius+1:end-radius);
 l2 = like-max(like(:));
 figure,plot(short_time,l2),title('pixel log likelihood')
-
+xlabel('Hours since fire arrival')
+ylabel('Log likelihood of detection')
+%xlim([(round(min(short_time))-1) (round(max(short_time))+1)])
 %figure,plot(like)
+
+% compute derivative
+l2_prime = zeros(1,length(short_time));
+h = short_time(2) - short_time(1);
+for i = 2:length(short_time)-1
+    l2_prime(i) = (l2(i-1)-l2(i+1))/(2*h);
+end
+l2_prime(1) = l2_prime(2);
+l2_prime(end)=l2_prime(end-1);
+figure,plot(short_time,l2_prime),title('Derviative')
