@@ -11,10 +11,12 @@ detect_prob = zeros(size(pixel_heat));
 
 
 %needed for computing with time instead of heat
+decay = 0.3;
 heat = zeros(size(pixel_heat));
 m1 = pixel_heat < 0;
 m2 = pixel_heat >= 0;
-heat(m2) = exp(-0.3*pixel_heat(m2));
+heat(m1) = exp(10*decay*pixel_heat(m1));
+heat(m2) = exp(-decay*pixel_heat(m2));
 %figure,mesh(heat)
 
 
@@ -32,11 +34,20 @@ t = 10; %fifteen hours since fire arrival
 h_t = exp(-0.3*t);
 a = (log(p/(1-p))-b)/h_t;
 
-m1 = pixel_heat < 0;
-m2 = pixel_heat >= 0;
+heat_up = 1;
 
-detect_prob(m1) = 1./(1 + exp(-b));
-detect_prob(m2) = 1./(1 + exp(-a*heat(m2) - b));
+if heat_up == 1
+    % for exponential heat-up...
+    detect_prob = 1./(1+exp(-a*heat-b));
+else
+    %without exponential heat-up
+    m1 = pixel_heat < 0;
+    m2 = pixel_heat >= 0;
+    detect_prob(m1) = 1./(1 + exp(-b));
+    detect_prob(m2) = 1./(1 + exp(-a*heat(m2) - b));
+end
+
+
 
 
 end
