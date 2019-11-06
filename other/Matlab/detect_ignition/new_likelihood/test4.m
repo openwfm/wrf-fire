@@ -45,7 +45,7 @@ ylabel('log probability of detection')
 like = [];
 radius = 40;
 weight = gauss_weight(radius);
-dx = 100; %100 meter grid spacing, dy = dx also
+dx = 300; %in meters, this is grid spacing, dy = dx also
 
 % make distance matrix one time and then pass into the gaussin computation
 d_squared = zeros(radius*2+1,radius*2+1);

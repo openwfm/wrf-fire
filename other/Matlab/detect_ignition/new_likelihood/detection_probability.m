@@ -29,9 +29,9 @@ false_rate = 0.01;
 b = log(false_rate/(1-false_rate));
 
 %can compute a as
-p = 0.95; % 95% detection prob at time t
-t = 10; %fifteen hours since fire arrival
-h_t = exp(-0.3*t);
+p = 0.90; % percent detection prob at time t
+t = 15; % hours since fire arrival
+h_t = exp(-decay*t);
 a = (log(p/(1-p))-b)/h_t;
 
 heat_up = 1;
