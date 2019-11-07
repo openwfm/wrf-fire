@@ -5,7 +5,7 @@ mask = zeros(domain_size,domain_size);
 %strip = ones(domain_size,1);
 mask(:,domain_size/2) = 1;
 
-time_start = -12; time_end = 48;
+time_start = -30; time_end = 72;
 time_strip = linspace(time_start,time_end,domain_size);
 ts2 = linspace(0,1,domain_size);
 [x,y] = meshgrid(time_strip,ts2);
@@ -78,9 +78,9 @@ for i=radius+1:domain_size-radius
     counter = counter +1;
 end
 
-
 short_time = time_strip(1,radius+1:end-radius);
-l2 = like-max(like(:));
+%l2 = like;
+l2 = like-max(like(:))+max(like(:))/1000;
 figure,plot(short_time,l2),title('pixel log likelihood')
 xlabel('Hours since fire arrival')
 ylabel('Log likelihood of detection')
