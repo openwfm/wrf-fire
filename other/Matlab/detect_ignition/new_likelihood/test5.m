@@ -2,13 +2,14 @@ function rs = test5(test,like_spline)
 
 %test5
 close all
-fire_cone = @(x,y) 10*sqrt(( x.^2 + y.^2));
+cone_slope = 10;
+fire_cone = @(x,y) cone_slope*sqrt(( x.^2 + y.^2));
 
 % if ~exist('like_spline')
 %     load spline_data.mat;
 %     [like_spline,fit1] = createFit(t,log_like);
 % end
-g = 200;
+g = 100;
 grid_size =2*g+1;
 position = linspace(-10,10,grid_size);
 [x,y]= meshgrid(position,position);
@@ -19,19 +20,27 @@ fire_top = z > 100;
 z(fire_top) = 100;
 mesh(x,y,z);
 hold on
-contour3(x,y,z,[49 49],'k')
-%scatter3(7,0,49,'r*');
+
+
 xlabel('x');
-hold off
+
 
 slice_time = [47 49 51];
 fires = zeros(size(x));
 
-%fires(171,100) = 9;
-%fires(30:40,30:40) = 5;
+
 
 %test #1
 if test == 1
+    fire_z = 49;
+    fire_y = 0;
+    fire_x = fire_z/10;
+    b = -10*(g+1)/g;
+    x_dex = (fire_z-b)/cone_slope;
+    scatter3(fire_x,fire_y,fire_z,'r*');
+    
+    fires(171,g) = 9;
+    fires(30:40,30:40) = 5;
     tot = 0;
     for i = 1:3
         tot = 0;
@@ -43,12 +52,14 @@ if test == 1
         tot = tot + sum(temp)
     end
 end %test 1
+
+
 % test 2
 % move fire pixel across
 if test == 2
     input_time = slice_time(2) - z;
     tots = zeros(1,grid_size);
-    for i = 1:201
+    for i = 1:grid_size
         scatter3(x(g,i),y(g,i),slice_time(2),'r*');
         t_mask = fires;
         t_mask(g,i) = 9;
@@ -63,6 +74,7 @@ if test == 2
 end %test 2
 
 if test == 3
+    contour3(x,y,z,[49 49],'k')
     fires = 5*ones(size(x));
     num_pts = 1000;
     x_coords = 1+round(2*g*rand(1,num_pts));
@@ -81,11 +93,11 @@ if test == 3
         u = x(x_coords(i),y_coords(i));
         v = y(x_coords(i),y_coords(i));
         zt = norm([u v]);
-        if abs(zt - radius) < 1 && zt < radius%49
+        if abs(zt - radius) < 1 && zt < radius+0.25%49
             fires(x_coords(i),y_coords(i)) = 9;
             scatter(u,v,'r*');
         else
-            if rand < 0.99
+            if rand < 0.96
                 fires(x_coords(i),y_coords(i)) = 0;
                 scatter(u,v,'b');
             else
