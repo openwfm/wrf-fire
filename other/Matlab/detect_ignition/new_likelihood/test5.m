@@ -7,7 +7,7 @@ fire_cone = @(x,y) cone_slope*sqrt(( x.^2 + y.^2));
 
 % if ~exist('like_spline')
 %     load spline_data.mat;
-%     [like_spline,fit1] = createFit(t,log_like);
+%     [ls,fit1] = createFit(t,log_like);
 % end
 g = 100;
 grid_size =2*g+1;
@@ -93,11 +93,11 @@ if test == 3
         u = x(x_coords(i),y_coords(i));
         v = y(x_coords(i),y_coords(i));
         zt = norm([u v]);
-        if abs(zt - radius) < 1 && zt < radius+0.25%49
+        if abs(zt - radius) < 2 && zt < radius%49
             fires(x_coords(i),y_coords(i)) = 9;
             scatter(u,v,'r*');
         else
-            if rand < 0.96
+            if rand < 0.98
                 fires(x_coords(i),y_coords(i)) = 0;
                 scatter(u,v,'b');
             else
@@ -108,9 +108,9 @@ if test == 3
         end
     end
     
-    num_slices = 21;
+    num_slices = 41;
     %times = linspace(min(z(:))+1,max(z(:))-1,num_slices);
-    times = linspace(40,70,num_slices);
+    times = linspace(20,70,num_slices);
     tots = zeros(size(times));
     for i = 1:num_slices
         input_time = times(i) - z;

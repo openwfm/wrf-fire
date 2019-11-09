@@ -1,19 +1,28 @@
-% test 4
+function [like_spline,deriv_spline] = make_spline(time_bounds,num_pts)
+%[like_spline,deriv_spline] = make_spline(time_bounds,num_pts)
+% Function returns a spline for the log-likelihood an its derivative
+% requires curve fitting toolbox
+% inputs:
+%   time_bounds - hours before and after fire arrival time
+%   num pts - number of pts to use in creating the splines, should be an
+%   even number
+% outputs:
+%   like_spline - spline which gives the log-likehood of detection as a
+%      function of seconds since fire arrival time
+%   deriv_spline - the derivative of like_spline, computed by center
+%      difference approximation
+%
 
-domain_size = 2000;
-mask = zeros(domain_size,domain_size);
-%strip = ones(domain_size,1);
-mask(:,domain_size/2) = 1;
-
-time_start = -72; time_end = 72;
-time_strip = linspace(time_start,time_end,domain_size);
+domain_size = num_pts;
+time_start = -time_bounds; time_end = 1.5*time_bounds;
+time_strip = linspace(time_start,time_end,num_pts);
 ts2 = linspace(0,1,domain_size); %dummy dimension
 [x,y] = meshgrid(time_strip,ts2);
 times = zeros(domain_size);
 for i = 1:domain_size
     times(i,:) = time_strip;
 end
-
+%figure,quick_mesh(times)
 dp = detection_probability(times);
 d_strip = dp(domain_size/2,:);
 figure,plot(time_strip,d_strip),title('detection probability'),
@@ -21,33 +30,11 @@ xlabel('time since fire arrival')
 ylabel('probability of detection')
 ylim([0 1]);
 
-% figure,plot(time_strip,log(d_strip)),title('log detection probability'),
-% xlabel('time since fire arrival')
-% ylabel('log probability of detection')
-
-% sig = 2.2778;
-% gauss_strip = 1/(2*pi*sig^2)*exp(-time_strip.^2/(2*sig^2));
-%gauss_strip = exp(-time_strip.^2/(2*sig^2));
-
-% figure,plot(time_strip,gauss_strip),title('geolocation stuff');
-% xlabel('time since fire arrival')
-% ylabel('gaussian')
-
-% log_g = log(gauss_strip);
-% figure,plot(time_strip,log_g),title('log geolocation stuff');
-% xlabel('time since fire arrival')
-% ylabel('log gaussian')
-
-% new = log(gauss_strip)+log(d_strip);
-% figure,plot(time_strip,new),title('new')
-
-
-
 like = [];
-radius = 60;
-weight = gauss_weight(radius);
-dx = 30; %in meters, this is grid spacing, dy = dx also
-
+radius = 60; %size over which to "integrate"
+%weight = gauss_weight(radius); %not needed, we shift the curve up
+dx = 30; %in meters, this is grid spacing, dy = dx also, maybe compute this by passing 
+         % in some tign data
 % make distance matrix one time and then pass into the gaussin computation
 d_squared = zeros(radius*2+1,radius*2+1);
 [m,n] = size(d_squared);
@@ -63,7 +50,6 @@ end
 d_squared = d_squared+d_squared';
 d_squared = dx^2*d_squared;
 sig = 1000/3; %1000 meters at sig 3 
-%figure,mesh(exp(-d_squared/(2*pi*sig^2)));
 
 counter = 1;
 for i=radius+1:domain_size-radius
@@ -82,8 +68,6 @@ l2 = like-max(like(:))+max(like(:))/1000;
 figure,plot(short_time,l2),title('pixel log likelihood')
 xlabel('Hours since fire arrival')
 ylabel('Log likelihood of detection')
-%xlim([(round(min(short_time))-1) (round(max(short_time))+1)])
-%figure,plot(like)
 
 % compute derivative
 l2_prime = zeros(1,length(short_time));
@@ -94,3 +78,12 @@ end
 l2_prime(1) = l2_prime(2);
 l2_prime(end)=l2_prime(end-1);
 figure,plot(short_time,l2_prime),title('Derviative')
+
+%make spline from the data short_time, l2, l2_prime, converting to seconds
+[like_spline, fit1] = createFit(3600*short_time, l2);
+[deriv_spline, fit2] = createFit(3600*short_time, l2_prime);
+
+
+
+end
+

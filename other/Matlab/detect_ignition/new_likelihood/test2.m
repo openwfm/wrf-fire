@@ -4,10 +4,11 @@
 domain_size = 1000;
 
 
+
 %create fire mask
 mask = zeros(domain_size,domain_size);
 strip = ones(domain_size,1);
-mask(:,500) = strip;
+mask(:,round(domain_size/2)) = strip;
 
 %make heat map
 heat = zeros(domain_size,domain_size);
@@ -29,7 +30,7 @@ for i = 1:domain_size
         detection_probs(i,j) = detection_probability(heat(i,j));
     end
 end
-figure,plot(detection_probs(500,:)),title('Detection probability')
+figure,plot(detection_probs(round(domain_size/2),:)),title('Detection probability')
 
     
 
@@ -45,7 +46,7 @@ counter = 1;
 for i=radius+1:domain_size-radius
     
 %     counter
-    l =  compute_pixel_probability(500,i,heat,radius, weight, detection_probs );
+    l =  compute_pixel_probability(round(domain_size/2),i,heat,radius, weight, detection_probs );
     like(counter) = log(l);
     counter = counter +1;
 end
@@ -63,7 +64,7 @@ figure,plot(like)
 % y = g(x,center,sig);
 % figure,plot(y),title('gaussian');
 % yg = log(y(1,1:940));
-% log_prob = log(detection_probs(500,1:940));
+% log_prob = log(detection_probs(round(domain_size/2),1:940));
 % liker = yg+log_prob;
 % 
 % figure,plot(yp),title('prob');
