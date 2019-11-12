@@ -31,10 +31,10 @@ end
 %figure,quick_mesh(times)
 dp = detection_probability(times);
 d_strip = dp(domain_size/2,:);
-figure,plot(time_strip,d_strip),title('detection probability'),
-xlabel('time since fire arrival')
-ylabel('probability of detection')
-ylim([0 1]);
+% figure,plot(time_strip,d_strip),title('detection probability'),
+% xlabel('time since fire arrival')
+% ylabel('probability of detection')
+% ylim([0 1]);
 
 like = [];
 radius = 60; %size over which to "integrate"
