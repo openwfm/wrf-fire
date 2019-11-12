@@ -1,6 +1,6 @@
-function [like,deriv]= temp_liker(psi,t,p_like_spline,p_deriv_spline,n_deriv_spline)
+function [like,deriv]= evaluate_likes(psi,t,p_like_spline,p_deriv_spline,n_deriv_spline)
 
-tic
+%tic
 %convert to seconds
 t = 3600*t;
 [m,n] = size(psi);
@@ -28,7 +28,7 @@ deriv = d3;
 deriv(m1) = d1(m1);
 deriv(m2) = d2(m2);
 
-toc 
+%toc 
 
 end
 
