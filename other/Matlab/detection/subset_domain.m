@@ -30,8 +30,8 @@ function red=subset_domain(w,varargin)
 % 
 
 % arguments
-if nargin >=2, 
-    force =nargin{1},
+if nargin >=2
+    force = varargin{1},
 else
     force = 0;
 end
