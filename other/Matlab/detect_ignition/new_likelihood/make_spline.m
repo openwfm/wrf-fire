@@ -70,7 +70,10 @@ for i=radius+1:domain_size-radius
 end
 
 short_time = time_strip(1,radius+1:end-radius);
+%move close to zero
 l2 = like-max(like(:))+max(like(:))/1000;
+l2 = like-0.9999*max(like(:))
+
 
 %negative dections likelihood
 n_l2 = log(1-exp(l2));
@@ -104,8 +107,13 @@ end
 %make spline from the data short_time, l2, l2_prime, converting to seconds
 [p_like_spline, fit1] = createFit(3600*short_time, l2);
 [p_deriv_spline, fit2] = createFit(3600*short_time, l2_prime);
-[n_like_spline, fit3] = createFit(3600*short_time, n_l2);
+%[n_like_spline, fit3] = createFit(3600*short_time, n_l2);
 [n_deriv_spline, fit4] = createFit(3600*short_time, n_l2_prime);
+
+% [p_like_spline, fit1] = createFit(short_time, l2);
+% [p_deriv_spline, fit2] = createFit(short_time, l2_prime);
+% [n_like_spline, fit3] = createFit(short_time, n_l2);
+% [n_deriv_spline, fit4] = createFit(short_time, n_l2_prime);
 
 
 
