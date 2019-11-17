@@ -1,4 +1,15 @@
 function XX=add_terrain_to_mesh(X, kind, how, val)
+% add_terrain_to_mesh 
+% modify 3D mesh by adding terrain
+% in:
+%      kind  'hill'  add hill
+%            numeric uniform shift up
+%      how   'shift' move up each column the same
+%            'squash' keep top flat
+%      val   relative height of the hill
+% out:
+%      XX    modified mesh
+
 check_mesh(X);
 
 x = X{1}(:,:,1); y=X{2}(:,:,1);z=X{3};
@@ -12,7 +23,7 @@ if ischar(kind),
             rx = mean(abs((x(:)-cx)));
             ry = mean(abs((y(:)-cy)));
             a = ((x-cx)./rx).^2 + ((y-cy)./ry).^2 ;
-            t = hz*exp(-a*2)*val;;
+            t = hz*exp(-a*2)*val;
         otherwise
             error('add_terrain_to_mesh: unknown kind')
     end
@@ -21,7 +32,6 @@ elseif isnumeric(kind),
 else
     error('kind must be string or numeric')
 end
-
 switch how
     case {'shift','s'}
         disp('shifting mesh by terrain vertically')
@@ -33,7 +43,7 @@ switch how
         disp('compressing mesh keeping top unchanged')
         XX=X;
         for k=1:kmax
-            XX{3}(:,:,k)=X{3}(:,:,k)+t*(kmax-k)/(kmax-1);
+            XX{3}(:,:,k)=X{3}(:,:,k)+t*(XX{3}(1,1,kmax) - XX{3}(1,1,k)) / XX{3}(1,1,kmax);
         end
     otherwise
         error('add_terrain_to_mesh: unknown how')

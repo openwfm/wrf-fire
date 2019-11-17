@@ -13,9 +13,11 @@ end
 % Mesh computations
 x = X{1}; y = X{2}; z = X{3};
 % Q: this assumes that we are working on a cube based on the X direction?
+% A: no, the size of all X{i} should be the same, error check
 [nx1, ny1, nz1] = size(x);
 nx = nx1 - 1; ny = ny1 - 1; nz = nz1 - 1;
 % TODO: error check to make sure we are only working in 3 dimensions?
+% A: yes
 n = nx * ny * nz1 + nx * ny1 * nz + nx1 * ny * nz; 
 
 % Compute number of nonzeros

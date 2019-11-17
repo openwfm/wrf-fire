@@ -111,12 +111,12 @@ for ux=1:numel(X)
                         if not(is_first_row)
                             M(M_entry) = -s.area_w(ix - 1, jx, kx) * ...
                                 0.5 * (dzdx(ix - 1, jx, kx) + dzdx(ix - 1, jx + 1, kx)) * ...
-                                (0.5 * s.dz_at_u(ix - 1, jx, kx) / (s.dz_at_u(ix - 1, jx, kx) + s.dz_at_u(ix - 1, jx, kx - 1)));
+                                0.5 * s.dz_at_u(ix - 1, jx, kx) / (s.dz_at_u(ix - 1, jx, kx) + s.dz_at_u(ix - 1, jx, kx - 1));
                             I(M_entry) = row_offset + (ix - 1) + (jx - 1) * nx + (kx - 1) * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
-                            M(M_entry) = -s.area_w(ix - 1, jx, kx) * ...
-                                0.25 * (dzdx(ix - 1, jx, kx) + dzdx(ix - 1, jx + 1, kx));
+                            M(M_entry) = -s.area_w(ix - 1, jx, kx + 1) * ...
+                                0.25 * (dzdx(ix - 1, jx, kx + 1) + dzdx(ix - 1, jx + 1, kx + 1));
                             I(M_entry) = row_offset + (ix - 1) + (jx - 1) * nx + kx * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
@@ -128,8 +128,8 @@ for ux=1:numel(X)
                             I(M_entry) = row_offset + ix + (jx - 1) * nx + (kx - 1) * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
-                            M(M_entry) = -s.area_w(ix, jx, kx) * ...
-                                0.25 * (dzdx(ix, jx, kx) + dzdx(ix, jx + 1, kx));
+                            M(M_entry) = -s.area_w(ix, jx, kx + 1) * ...
+                                0.25 * (dzdx(ix, jx, kx + 1) + dzdx(ix, jx + 1, kx + 1));
                             I(M_entry) = row_offset + ix + (jx - 1) * nx + kx * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
@@ -152,7 +152,7 @@ for ux=1:numel(X)
                         if not(is_first_row)
                             M(M_entry) = -s.area_w(ix, jx - 1, kx + 1) * ...
                                 0.5 * (dzdy(ix, jx - 1, kx + 1) + dzdy(ix + 1, jx - 1, kx + 1)) * ...
-                                (0.5 * s.dz_at_v(ix, jx - 1, kx) / (s.dz_at_v(ix, jx - 1, kx + 1) + s.dz_at_v(ix, jx - 1, kx)));
+                                0.5 * s.dz_at_v(ix, jx - 1, kx) / (s.dz_at_v(ix, jx - 1, kx + 1) + s.dz_at_v(ix, jx - 1, kx));
                             I(M_entry) = row_offset + ix + (jx - 2) * nx + kx * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
@@ -160,7 +160,7 @@ for ux=1:numel(X)
                         if not(is_last_row)
                             M(M_entry) = -s.area_w(ix, jx, kx + 1) * ...
                                 0.5 * (dzdy(ix, jx, kx + 1) + dzdy(ix + 1, jx, kx + 1)) * ...
-                                (0.5 * s.dz_at_v(ix, jx, kx) / (s.dz_at_v(ix, jx, kx + 1) + s.dz_at_v(ix, jx, kx)));
+                                0.5 * s.dz_at_v(ix, jx, kx) / (s.dz_at_v(ix, jx, kx + 1) + s.dz_at_v(ix, jx, kx));
                             I(M_entry) = row_offset + ix + (jx - 1) * nx + kx * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
@@ -170,7 +170,7 @@ for ux=1:numel(X)
                             if not(is_first_row)
                                 M(M_entry) = -s.area_w(ix, jx - 1, kx) * ...
                                     0.5 * (dzdy(ix, jx - 1, kx) + dzdy(ix + 1, jx - 1, kx)) * ...
-                                    (0.5 * s.dz_at_v(ix, jx - 1, kx) / (s.dz_at_v(ix, jx - 1, kx - 1) + s.dz_at_v(ix, jx - 1, kx)));
+                                    0.5 * s.dz_at_v(ix, jx - 1, kx) / (s.dz_at_v(ix, jx - 1, kx - 1) + s.dz_at_v(ix, jx - 1, kx));
                                 I(M_entry) = row_offset + ix + (jx - 2) * nx + (kx - 1) * nx * ny;
                                 J(M_entry) = M_col;
                                 M_entry = M_entry + 1;
@@ -178,7 +178,7 @@ for ux=1:numel(X)
                             if not(is_last_row)
                                 M(M_entry) = -s.area_w(ix, jx, kx) * ...
                                     0.5 * (dzdy(ix, jx, kx) + dzdy(ix + 1, jx, kx)) * ...
-                                    (0.5 * s.dz_at_v(ix, jx, kx) / (s.dz_at_v(ix, jx, kx - 1) + s.dz_at_v(ix, jx, kx)));
+                                    0.5 * s.dz_at_v(ix, jx, kx) / (s.dz_at_v(ix, jx, kx - 1) + s.dz_at_v(ix, jx, kx));
                                 I(M_entry) = row_offset + ix + (jx - 1) * nx + (kx - 1) * nx * ny;
                                 J(M_entry) = M_col;
                                 M_entry = M_entry + 1;
@@ -188,13 +188,13 @@ for ux=1:numel(X)
                         if not(is_first_row)
                             M(M_entry) = -s.area_w(ix, jx - 1, kx) * ...
                                 0.5 * (dzdy(ix, jx - 1, kx) + dzdy(ix + 1, jx - 1, kx)) * ...
-                                (0.5 * s.dz_at_v(ix, jx - 1, kx) / (s.dz_at_u(ix, jx - 1, kx) + s.dz_at_u(ix, jx - 1, kx - 1)));
+                                0.5 * s.dz_at_v(ix, jx - 1, kx) / (s.dz_at_v(ix, jx - 1, kx) + s.dz_at_v(ix, jx - 1, kx - 1));
                             I(M_entry) = row_offset + ix + (jx - 2) * nx + (kx - 1) * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
                             
-                            M(M_entry) = -s.area_w(ix, jx - 1, kx) * ...
-                                0.25 * (dzdy(ix, jx - 1, kx) + dzdy(ix + 1, jx - 1, kx));
+                            M(M_entry) = -s.area_w(ix, jx - 1, kx + 1) * ...
+                                0.25 * (dzdy(ix, jx - 1, kx + 1) + dzdy(ix + 1, jx - 1, kx + 1));
                             I(M_entry) = row_offset + ix + (jx - 2) * nx + kx * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
@@ -207,8 +207,8 @@ for ux=1:numel(X)
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;
                             
-                            M(M_entry) = -s.area_w(ix, jx, kx) * ...
-                                0.25 * (dzdy(ix, jx, kx) + dzdy(ix + 1, jx, kx));
+                            M(M_entry) = -s.area_w(ix, jx, kx + 1) * ...
+                                0.25 * (dzdy(ix, jx, kx + 1) + dzdy(ix + 1, jx, kx + 1));
                             I(M_entry) = row_offset + ix + (jx - 1) * nx + kx * nx * ny;
                             J(M_entry) = M_col;
                             M_entry = M_entry + 1;

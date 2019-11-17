@@ -16,9 +16,9 @@ properties={'FaceColor', 'b', 'FaceAlpha', 0.05, 'EdgeColor','k','EdgeAlpha',1};
 for ivar=1:3
     ivar
     for i=1:nx+(ivar==1)
-        i
+        %i
         for j=1:ny+(ivar==2)
-            j
+            %j
             for k=1:nz+(ivar==3)
                 xx = vpatch3(x,i,j,k,ivar);
                 yy = vpatch3(y,i,j,k,ivar);

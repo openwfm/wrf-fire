@@ -6,7 +6,7 @@ hh=rand(1,3);
 hh=[1,1,1];
 [x,y,z]   = ndgrid(hh(1)*[0:nx],hh(2)*[0:ny],hh(3)*[0:nz]);
 X={x,y,z};
-X=add_terrain_to_mesh(X,'hill','shift',0.3)
+X=add_terrain_to_mesh(X,'hill','shift',0.3);
 
 U0 = grad3z(ones(size(x)-1),[1 1 1]);
 U0{1}=ones(size(U0{1}));

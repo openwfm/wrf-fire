@@ -1,5 +1,5 @@
 function DM=mat_wind_flux_div(X)
-% get matrix of flux divergencen
+% get matrix of flux divergence by probing its action
 % input:
 %     X   mesh
 % output:
