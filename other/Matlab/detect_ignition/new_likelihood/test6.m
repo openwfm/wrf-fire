@@ -6,7 +6,7 @@ close all
 %make splines
 fprintf('Making splines \n');
 
-[p_like_spline,p_deriv_spline,n_deriv_spline] = make_spline(48,2000);
+[p_like_spline,p_deriv_spline,n_deriv_spline] = make_spline(72,2000);
 save splines.mat p_like_spline p_deriv_spline n_deriv_spline
 
 %make fire data
@@ -62,12 +62,12 @@ for i = 1:num_pts
     end
 end
 
-%make all fire detections
-%fires = 9*ones(grid_size,grid_size);
+%make all fire detections / ground
+fires = ones(grid_size,grid_size);
 
 % evaluate and plot likelihoods
 t = slice_time(2) - z;
-[like,deriv]= temp_liker(fires,t,p_like_spline,p_deriv_spline,n_deriv_spline);
+[like,deriv]= evaluate_likes(fires,t,p_like_spline,p_deriv_spline,n_deriv_spline);
 
 fprintf('paused for plotting, etc... \n');
 figure,mesh(like),title('like')

@@ -72,7 +72,7 @@ end
 short_time = time_strip(1,radius+1:end-radius);
 %move close to zero
 l2 = like-max(like(:))+max(like(:))/1000;
-l2 = like-0.9999*max(like(:))
+l2 = like-0.9999*max(like(:));
 
 
 %negative dections likelihood
