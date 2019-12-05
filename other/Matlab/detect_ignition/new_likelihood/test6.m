@@ -3,11 +3,14 @@ function [] = test6()
 
 close all
 
-%make splines
-fprintf('Making splines \n');
+new_like = input_num('Use new likelihood?',1);
 
-[p_like_spline,p_deriv_spline,n_deriv_spline] = make_spline(48,2000);
-save splines.mat p_like_spline p_deriv_spline n_deriv_spline
+%make splines
+if new_like
+    fprintf('Making splines \n');
+    [p_like_spline,p_deriv_spline,n_deriv_spline] = make_spline(100,2000);
+    save splines.mat p_like_spline p_deriv_spline n_deriv_spline
+end
 
 %make fire data
 cone_slope = 10;
@@ -32,7 +35,9 @@ fires = -1*ones(size(x));
 contour3(x,y,z,[49 49],'k')
 fires = 5*ones(size(x));
 num_pts = 1000;
+rng(1);
 x_coords = 1+round(2*g*rand(1,num_pts));
+rng(2);
 y_coords = 1+round(2*g*rand(1,num_pts));
 %figure,scatter(x_coords,y_coords);
 %make fire mask
@@ -56,18 +61,34 @@ for i = 1:num_pts
             fires(x_coords(i),y_coords(i)) = -1;
             scatter(u,v,'b');
         else
-            fires(x_coords(i),y_coords(i)) = 9;
+            fires(x_coords(i),y_coords(i)) = 1;
             scatter(u,v,'r*');
         end
     end
 end
+hold off
 
 %make all fire detections
-%fires = 9*ones(grid_size,grid_size);
+%fires = ones(grid_size,grid_size);
+
+
+%plot cone and detections
+% hold off
+% figure, mesh(x,y,z);
+% xlabel('x'),ylabel('y'),zlabel('time')
+% hold on
+% scatter3(x(1:20:end),y(1:20:end),-49*fires(1:20:end),'og');
 
 % evaluate and plot likelihoods
 t = slice_time(2) - z;
-[like,deriv]= temp_liker(fires,t,p_like_spline,p_deriv_spline,n_deriv_spline);
+%new likelihood
+if new_like
+    [like,deriv]= temp_liker(fires,t,p_like_spline,p_deriv_spline,n_deriv_spline);
+else
+    %old likelihood
+    params.stretch = [0.5,10,5,10];
+    [like,deriv] = like2(fires,t,params.stretch);
+end
 
 fprintf('paused for plotting, etc... \n');
 figure,mesh(like),title('like')
