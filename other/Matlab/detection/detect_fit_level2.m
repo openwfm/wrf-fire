@@ -140,12 +140,24 @@ maxiter =2;
 maxdepth=3;
 h_stor = zeros(m,n,maxiter);
 
+new_like = input_num('Use new likelihood? Yes == 1 ',1);
 for istep=1:maxiter
     
     fprintf('********** Iteration %g/%g **************\n', istep, maxiter);
     
+    if new_like
+        fprintf('Using new likelihood function\n')
+        [p_like_spline,p_deriv_spline,n_deriv_spline] = make_spline(100,1000);
+        %load splines.mat
+        [Js,search]=detection_objective(tign,h,g,params,red,p_like_spline,p_deriv_spline,n_deriv_spline);
+    else
+        [Js,search]=detection_objective(tign,h,g,params,red);
+    end
+        
+
+    
     % initial search direction, normed so that max(abs(search(:))) = 1.0
-    [Js,search]=detection_objective(tign,h,g,params,red); 
+    %[Js,search]=detection_objective(tign,h,g,params,red); 
     search = -search/big(search); 
 
     print('-dpng', sprintf('%s_search_dir_%d.png', prefix, istep));

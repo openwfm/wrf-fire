@@ -10,7 +10,7 @@ fprintf('Making splines \n');
 save splines.mat p_like_spline p_deriv_spline n_deriv_spline
 
 %make fire data
-cone_slope = 10;
+cone_slope = 20;
 fire_cone = @(x,y) cone_slope*sqrt(( x.^2 + y.^2));
 g = 100;
 grid_size =2*g+1;
@@ -49,26 +49,33 @@ for i = 1:num_pts
     v = y(x_coords(i),y_coords(i));
     zt = norm([u v]);
     if abs(zt - radius) < 2  && zt < radius %49
-        fires(x_coords(i),y_coords(i)) = 9;
+        fires(x_coords(i),y_coords(i)) = 1;
         scatter(u,v,'r*');
     else
         if rand < 0.98
             fires(x_coords(i),y_coords(i)) = -1;
             scatter(u,v,'b');
         else
-            fires(x_coords(i),y_coords(i)) = 9;
+            fires(x_coords(i),y_coords(i)) = 1;
             scatter(u,v,'r*');
         end
     end
 end
 
 %make all fire detections / ground
-fires = ones(grid_size,grid_size);
+fires = -ones(grid_size,grid_size);
 
 % evaluate and plot likelihoods
 t = slice_time(2) - z;
-[like,deriv]= evaluate_likes(fires,t,p_like_spline,p_deriv_spline,n_deriv_spline);
 
+new_like = input_num('Use new like? yes = 1',1);
+if new_like == 1
+    [like,deriv]= evaluate_likes(fires,t,p_like_spline,p_deriv_spline,n_deriv_spline);
+    %using old likelihood
+else
+    stretch = [0.5,10,5,10];
+    [like,deriv] = like2(fires,t,stretch);
+end
 fprintf('paused for plotting, etc... \n');
 figure,mesh(like),title('like')
 figure,mesh(deriv),title('deriv')

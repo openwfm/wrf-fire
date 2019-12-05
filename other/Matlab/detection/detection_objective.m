@@ -71,7 +71,7 @@
             end
               
             %weight by time
-            time_weight = 1;
+            time_weight = 0;
             if time_weight
                 pwr = 2;
                 %multiplier = exp((g(k).time-g(length(g)).time))^pwr;
