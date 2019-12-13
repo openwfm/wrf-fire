@@ -8,6 +8,7 @@ Location: wrf-fire/other/Matlab/quic
 File            Description
 
 startup         Run this first to set up the environment.
+all_test        Run all tests.
 block_example   A simple example with block obstacle in the middle.
 
 Given wind field u0, the code minimizes ||u-u0|| subject to div u=0 with 
