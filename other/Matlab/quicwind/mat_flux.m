@@ -37,8 +37,6 @@ for k=1:nz+1
     end
 end
 
-% TODO: need a better estimate here...?
-%   (maybe... if no terrain, then it should just be n)
 nnz_est = n;
 I = zeros(nnz_est,1);
 J = zeros(nnz_est,1);

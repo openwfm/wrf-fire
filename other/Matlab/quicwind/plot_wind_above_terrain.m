@@ -14,7 +14,7 @@ clf, hold off
 mesh(X{3}(:,:,1)); % terrain
 
 [nx1,ny1,nz1]=size(X{1}); % mesh size
-nx=nx1-1; ny=ny1-1; nz=nz1-1; 
+nx=nx1-1; ny=ny1-1; nz=nz1-1;
 
 [ix,jx,kx]=meshgrid(1:nx1,1:ny1,1:nz1);           % grid indices of corners xy z
 [iu,ju,ku]=meshgrid(1:nx1,0.5+[1:ny],0.5+[1:nz]); % grid indices of u
@@ -25,6 +25,7 @@ nx=nx1-1; ny=ny1-1; nz=nz1-1;
 iq=iq(:);
 jq=jq(:);
 kq=kq(:);
+
 
 % interpolate coordinates and vectors to query points
 p=[2 1 3];
