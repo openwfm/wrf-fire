@@ -4,7 +4,7 @@ function err = mat_gen_wind_flux_div_test
 % set
 %    mesh_len   vector size 3 of mesh dimensions
 %    h          vector size 3 of mesh steps
-mesh_len=[10,13,8];
+mesh_len=[2,2,2];
 h=rand(1,3);
 disp('mat_wind_flux_div_test')
 % test mesh with a hill terrain (unit vectors for now)
@@ -16,6 +16,7 @@ X = add_terrain_to_mesh(X,'hill','shift',0.4);
 disp('Time for new matrix generation:')
 tic
 DM = mat_gen_wind_flux_div(X);
+size(DM)
 toc
 disp('Time for old matrix generation:')
 tic
