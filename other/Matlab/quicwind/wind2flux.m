@@ -113,3 +113,9 @@ for k=2:nz+1   % zero normal flux on the ground, k=1
 end
 F = {f_u, f_v, f_w};
 end
+
+
+
+
+
+

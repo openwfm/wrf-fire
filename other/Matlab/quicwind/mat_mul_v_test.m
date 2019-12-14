@@ -3,7 +3,7 @@ function err = mat_mul_v_test
 
 disp('mat_mul_v_test')
 
-mesh_len=[2,3,4];
+mesh_len=[3,3,3];
 h=rand(1,3);
 nx = mesh_len(1);
 ny = mesh_len(2);
