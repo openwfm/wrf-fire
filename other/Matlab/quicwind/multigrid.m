@@ -1,4 +1,4 @@
-function x=multigrid(A,b,x0,M,P,R,p)
+function [x,myrelres]=multigrid(A,b,x0,M,P,R,p)
 % x=multigrid(A,b,P,R)
 % solve A{1}*x = b by multigrid method 
 % In:

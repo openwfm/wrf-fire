@@ -15,6 +15,7 @@ err=[
     check(@mat_gen_wind_flux_div_test),...
     check(@mass_cons_flux_test),...
     check(@mat_mul_v_test)
+    check(@multigrid_2d_test)
     ];
 max_err=max(err)
 if max_err > tol, 

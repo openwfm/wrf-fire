@@ -1,4 +1,4 @@
-function multigrid_test
+function relres=multigrid_2d_test
 N=10;
 nc=[4,3];   % the coarsest grid points
 a=[1,3];    % domain size 
@@ -34,7 +34,7 @@ p.maxsm2=7;       % max post-smoothing iterations
 p.maxcr=20;       % max coarse solve iterations
 p.ncoarse=1;      % number of coarse solves 1=V-cycle, 2=W-cycle
 
-x=multigrid(A,f(:),[],M,P,R,p);
+[x,relres]=multigrid(A,f(:),[],M,P,R,p);
 x = reshape(x,n{1});
 mesh(x)
 
