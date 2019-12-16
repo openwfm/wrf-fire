@@ -21,7 +21,7 @@ U0{3}=0*ones(size(U0{3}));
 
 [U,Lambda_d] = mass_cons_flux(U0,X,'direct','check'); 
 plot_wind_above_terrain(U,X,mesh_len)
-[V,Lambda_pcg] = mass_cons_flux(U0,X,'pcg','check'); 
+[V,Lambda_pcg,err] = mass_cons_flux(U0,X,'pcg','check');
 plot_wind_above_terrain(V,X,mesh_len)
 direct_vs_pcg = big(cell2vec(U)-cell2vec(V))
 lambda_diff = big(Lambda_d-Lambda_pcg)
