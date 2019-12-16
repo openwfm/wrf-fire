@@ -1,5 +1,5 @@
 function multigrid_test
-N=5;
+N=10;
 nc=[4,3];   % the coarsest grid points
 a=[1,3];    % domain size 
 % solve Dirichlet problem with vertex nodes
