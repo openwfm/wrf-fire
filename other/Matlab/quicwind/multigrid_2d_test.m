@@ -24,7 +24,7 @@ f=zeros(n{1});
 c=round(n{1}/2);
 f(c(1),c(2))=1;
 % set params
-p.tol=1e-6;       % relative residual tolerance
+p.tol=1e-9;       % relative residual tolerance
 p.maxit=7;        % maximum number of multigrid iterations 
 p.tolsm1=p.tol;    % tolerance in pre-smoothing, 
 p.tolsm2=p.tol;    % tolerance in pre-smoothing
