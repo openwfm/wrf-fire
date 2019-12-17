@@ -6,7 +6,7 @@ nx=10; ny=10; nz=10;
 % hh=[1,1,1];
 % [x,y,z]   = ndgrid(hh(1)*[0:nx],hh(2)*[0:ny],hh(3)*[0:nz]);
 % X={x,y,z};
-mesh_len=[8,8,8];
+mesh_len=[16,16,80];
 h=rand(1,3);
 X = regular_mesh(mesh_len,h,1.2);
 X=add_terrain_to_mesh(X,'hill','shift',0.3)
@@ -19,8 +19,12 @@ U0{1}=ones(size(U0{1}));
 U0{2}=0*ones(size(U0{2}));
 U0{3}=0*ones(size(U0{3}));
 
-err=0;
-[U,err] = mass_cons_flux(U0,X,'check'); 
+[U,Lambda_d] = mass_cons_flux(U0,X,'direct','check'); 
 plot_wind_above_terrain(U,X,mesh_len)
+[V,Lambda_pcg,err] = mass_cons_flux(U0,X,'pcg','check');
+plot_wind_above_terrain(V,X,mesh_len)
+direct_vs_pcg = big(cell2vec(U)-cell2vec(V))
+lambda_diff = big(Lambda_d-Lambda_pcg)
+
 % plot_wind_above_terrain(U,X,[1 1 1])
 end
