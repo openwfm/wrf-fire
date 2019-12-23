@@ -1,5 +1,6 @@
 function res = Mmul_v(X,trans,v)
-% multiplies the flux matrix (or its transpose) and a vector
+% multiplies the transformation of variable flux matrix
+% (or its transpose) and a vector
 % the operation is res = op(M) * v, where op(M) = M or M^T
 % set:
 %    X   mesh
