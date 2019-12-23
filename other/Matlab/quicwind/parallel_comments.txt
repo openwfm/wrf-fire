@@ -1,0 +1,20 @@
+
+    PATCH 1       PATCH 2
+   _ _ _ _     _ _ _ _  _ _ _ _ 
+% |        |  |        |        |
+% |    * --------> *   |    *   |
+% |_ _ _ _ |  |_ _ _ _ |_ _ _ _ |
+% |        |
+% |    *   |
+% |_ _ _ _ |
+% |        |
+% |    *   |
+% |_ _ _ _ |
+
+- Halo call will put values into halo regions
+- For coarser grids, on each, we declare the coarse grids as local
+- Pack all coarse grid boundary values into 1 additional halo layer
+  (works for power of 2 grids)
+- For not power of 2 grids, we do some coarsening (on boundary) by a
+  factor of 3 (to ensure it fits)
+- Looking ahead for parallelism, first step is to make it work on a single processor
