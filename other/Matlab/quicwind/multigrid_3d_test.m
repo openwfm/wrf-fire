@@ -12,7 +12,7 @@ a=[1,3,2];    % domain size
 for l=N:-1:1
     n{l} = (nc+1)*2^(N-l)-1;                % mesh points
     h{l}=[a./(n{l}+1)];                     % mesh step  
-    A{l}=@(x)flat(@mlap_3d,x,n{l},h{l});    % matrix vector multiply
+    A{l}=@(x)flat(@mlap3z,x,n{l},h{l});    % matrix vector multiply
     M{l}=@(x)x;                             % identity preconditioner
     if l<N
           P{l}=@(x)flat(@prolongation_3d,x,n{l+1});
