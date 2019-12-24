@@ -1,6 +1,6 @@
 function XX=add_terrain_to_mesh(X, kind, how, val)
-% add_terrain_to_mesh 
-% modify 3D mesh by adding terrain
+% XX=add_terrain_to_mesh(X, kind, how, val) 
+% Modify 3D mesh vertically to follow terrain
 % in:
 %      kind  'hill'  add hill
 %            numeric uniform shift up

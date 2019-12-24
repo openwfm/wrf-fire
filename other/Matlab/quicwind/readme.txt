@@ -28,21 +28,20 @@ wind u0 inside obstacles as in block_example.m.
 
 File            Description
 
-startup         Run this first to set up the environment.
-all_test        Run all tests.
-block_example   A simple example with block obstacle in the middle.
+startup         
+all_test        
+block_example   
 
+Function                    Purpose                                                         Test
 
-Amul_v.m
-Dmul_v.m
-Mmul_v.m
-add_terrain_to_mesh.m
-adj_mat_flux_test.m
-adj_mat_sym_test.m
-adj_mat_test.m
-adj_test.m
-all_test.m
-block_example.m
+Amul_v                      Multiply 3d field by a diagonal vector using 1d indexing        mat_mul_v_test
+Dmul_v                      Divergence (or transpose) of 3d field using 1d indexing         mat_mul_v_test
+Mmul_v                      Multiply wind field to flux matrix and 3d field, 1d indexing    mat_mul_v_test
+add_terrain_to_mesh         Modify 3D mesh vertically to follow terrain                     plot_mesh_test
+adj_mat_test                Test that the matrices of div3 and grad3z are adjoint            
+adj_test.m                  Test if grad3z and div3 are adjoint, without matrices
+all_test.m                  Run all tests
+block_example.m             Flow with block obstacle, by FFT
 cell2vec.m
 cell_sizes.m
 check_mesh.m
@@ -84,7 +83,7 @@ regular_mesh.m
 restriction_2d.m
 restriction_3d.m
 skew.m
-startup.m
+startup.m                       Run this first to set up the environment.
 uniform_mesh.m
 vec2cell.m
 wind2flux.m
