@@ -39,10 +39,10 @@ Dmul_v                      Divergence (or transpose) of 3d field using 1d index
 Mmul_v                      Multiply wind field to flux matrix and 3d field, 1d indexing    mat_mul_v_test
 add_terrain_to_mesh         Modify 3D mesh vertically to follow terrain                     plot_mesh_test
 adj_mat_test                Test that the matrices of div3 and grad3z are adjoint            
-adj_test.m                  Test if grad3z and div3 are adjoint, without matrices
-all_test.m                  Run all tests
-block_example.m             Flow with block obstacle, by FFT
-cell2vec.m
+adj_test                    Test if grad3z and div3 are adjoint, without matrices
+all_test                    Run all tests
+block_example               Compute flow with block obstacle using FFT
+cell2vec                    Flatten cell matrix of matrices to a vector
 cell_sizes.m
 check_mesh.m
 div3.m
@@ -52,10 +52,10 @@ fun2mat.m
 fun2mat_sym.m
 fun2mat_test.m
 grad3z.m
-mass_cons_flux.m
-mass_cons_flux_test.m
-mass_cons_int.m
-mass_cons_int_test.m
+mass_cons_flux              Mass consistent flux, uniform shifted mesh, direct or pcg        mass_cons_flux_test 
+mass_cons_flux_test         Testing mass_cons_flux, uniform terrain shifted mesh, compare direcrt and pcg
+mass_cons_int.m             Mass consistent approximation by FFT
+mass_cons_int_test          Testing mass consistent approximation by FFT
 masscons.m
 mat_div3.m
 mat_flux.m
@@ -66,9 +66,9 @@ mat_wind_flux_div.m
 mat_wind_flux_div_test.m
 mlap3z.m
 mlap3z_test.m
-multigrid.m
-multigrid_2d_test.m
-multigrid_3d_test.m
+multigrid                   Abstract multigrid method with smoothing by pcg                 multigrid_2d_test, multigrid_3d_test       
+multigrid_2d_test.m         Test of multigrid on 2d Laplace with zero boundary conditions
+multigrid_3d_test.m         Test of multigrid on 3d Laplace with zero boundary conditions
 plot_mesh.m
 plot_mesh_test.m
 plot_wind.m

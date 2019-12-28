@@ -1,4 +1,7 @@
 function v=cell2vec(c)
+% v=cell2vec(c)
+% Flatten a cell array of matrices to a vector
+
 [m,n]=size(c);
 v=[];
 t=sum(sum(cellfun(@numel,c)));
