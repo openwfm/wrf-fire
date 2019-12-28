@@ -11,6 +11,7 @@ function [x,myrelres]=multigrid(A,b,x0,M,P,R,p)
 %   p   structure with parameters
 
 N=length(A);
+r=cell(1,N+1);
 r{1}=b(:);
 if isempty(x0),
     u{1}=zeros(size(r{1}));
