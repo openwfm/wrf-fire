@@ -3,17 +3,14 @@ function [] = test6()
 
 close all
 
-new_like = input_num('Use new likelihood?',1);
-
 %make splines
-if new_like
-    fprintf('Making splines \n');
-    [p_like_spline,p_deriv_spline,n_deriv_spline] = make_spline(100,2000);
-    save splines.mat p_like_spline p_deriv_spline n_deriv_spline
-end
+fprintf('Making splines \n');
+
+[p_like_spline,p_deriv_spline,n_deriv_spline] = make_spline(72,2000);
+save splines.mat p_like_spline p_deriv_spline n_deriv_spline
 
 %make fire data
-cone_slope = 10;
+cone_slope = 20;
 fire_cone = @(x,y) cone_slope*sqrt(( x.^2 + y.^2));
 g = 100;
 grid_size =2*g+1;
@@ -35,9 +32,7 @@ fires = -1*ones(size(x));
 contour3(x,y,z,[49 49],'k')
 fires = 5*ones(size(x));
 num_pts = 1000;
-rng(1);
 x_coords = 1+round(2*g*rand(1,num_pts));
-rng(2);
 y_coords = 1+round(2*g*rand(1,num_pts));
 %figure,scatter(x_coords,y_coords);
 %make fire mask
@@ -54,7 +49,7 @@ for i = 1:num_pts
     v = y(x_coords(i),y_coords(i));
     zt = norm([u v]);
     if abs(zt - radius) < 2  && zt < radius %49
-        fires(x_coords(i),y_coords(i)) = 9;
+        fires(x_coords(i),y_coords(i)) = 1;
         scatter(u,v,'r*');
     else
         if rand < 0.98
@@ -66,30 +61,21 @@ for i = 1:num_pts
         end
     end
 end
-hold off
 
-%make all fire detections
-%fires = ones(grid_size,grid_size);
-
-
-%plot cone and detections
-% hold off
-% figure, mesh(x,y,z);
-% xlabel('x'),ylabel('y'),zlabel('time')
-% hold on
-% scatter3(x(1:20:end),y(1:20:end),-49*fires(1:20:end),'og');
+%make all fire detections / ground
+fires = -ones(grid_size,grid_size);
 
 % evaluate and plot likelihoods
 t = slice_time(2) - z;
-%new likelihood
-if new_like
-    [like,deriv]= temp_liker(fires,t,p_like_spline,p_deriv_spline,n_deriv_spline);
-else
-    %old likelihood
-    params.stretch = [0.5,10,5,10];
-    [like,deriv] = like2(fires,t,params.stretch);
-end
 
+new_like = input_num('Use new like? yes = 1',1);
+if new_like == 1
+    [like,deriv]= evaluate_likes(fires,t,p_like_spline,p_deriv_spline,n_deriv_spline);
+    %using old likelihood
+else
+    stretch = [0.5,10,5,10];
+    [like,deriv] = like2(fires,t,stretch);
+end
 fprintf('paused for plotting, etc... \n');
 figure,mesh(like),title('like')
 figure,mesh(deriv),title('deriv')
