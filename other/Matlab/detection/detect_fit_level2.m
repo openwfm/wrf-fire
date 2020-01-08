@@ -140,7 +140,7 @@ maxiter =2;
 maxdepth=3;
 h_stor = zeros(m,n,maxiter);
 
-new_like = input_num('Use new likelihood? Yes == 1 ',1);
+new_like = input_num('Use new likelihood? No == 0 ',0);
 for istep=1:maxiter
     
     fprintf('********** Iteration %g/%g **************\n', istep, maxiter);
