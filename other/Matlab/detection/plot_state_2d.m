@@ -1,4 +1,16 @@
 function plot_state_2d(fig,red,s,tign,obs,time_now)
+
+if obs(1).file(end) ~= 't'
+    fprintf('L2 data, conflict with plot_state_2d.m \n')
+    hold on
+    for i=1;length(obs)
+        mask = obs(i).data > 6;
+        scatter(obs(i).lon(mask),obs(i).lat(mask),'r*')
+    end
+    hold off    
+    return
+end
+
 figure(fig),clf
 for i=1:length(obs)
     x=obs(i);
