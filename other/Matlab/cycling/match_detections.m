@@ -3,7 +3,8 @@ function [ score ] = match_detections( wrfout )
 %Function evaluates a simulation by finding how well it was able to predict
 %where satellites detections would indicate a fire was burning
 %Inputs:
-%  wrfout: wrfout file containing the fire arrivak time variable tign
+%  wrfout: string with path to wrfout file containing the fire arrival
+%      time variable tign
 %Output:
 %  score: evaluation of the goodness of the fit
 
