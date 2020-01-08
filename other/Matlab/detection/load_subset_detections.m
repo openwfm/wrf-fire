@@ -15,9 +15,13 @@ for i=1:length(d),
     %v=readmod14(prefix,file,'silent'); original line
     if file(end) == 't'
         v=readmod14(prefix,file);
+        l2 = 0;
+        %[v.lon,v.lat] = meshgrid(v.lon,v.lat);
+        
     % reading l2 data instead of tifs
     else
         % take only as matched pairs
+        l2 = 1;
         if mod(i,2) == 1
             file2 = d{i+1};
             v = readl2data(prefix,file,file2);
@@ -26,12 +30,17 @@ for i=1:length(d),
     % select fire detection within the domain
     xj=find(v.lon > red.min_lon & v.lon < red.max_lon);
     xi=find(v.lat > red.min_lat & v.lat < red.max_lat);
+    idx = intersect(xi,xj);
     ax=[red.min_lon red.max_lon red.min_lat red.max_lat];
     if isempty(xi) | isempty(xj)
         fprintf('outside of the domain\n');
     else
         x=[];
-        x.data=v.data(xi,xj);    % subset data
+        if l2 == 0
+            x.data=v.data(xi,xj);    % subset data
+        else
+            x.data=v.data(idx);
+        end
         x.det(1)=sum(x.data(:)==3); % water 
         x.det(2)=sum(x.data(:)==5);  % land
         x.det(3)=sum((x.data(:)==7)); % low confidence fire
@@ -40,15 +49,38 @@ for i=1:length(d),
         if ~any(x.det) 
             fprintf(' no data in the domain\n')
         else
-            k=k+1;
+            if l2 == 0
+                k=k+1;
+            else
+                if mod(i,2) == 1
+                    k = k+1;
+                end
+            end
+            
             fprintf('water %i land %i fire low %i med %i high %i\n',x.det)
             x.axis=[red.min_lon,red.max_lon,red.min_lat,red.max_lat];
             x.file=v.file; 
             x.time=v.time;
-            x.lon=v.lon(xj);
-            x.lat=v.lat(xi);
-            [x.xlon,x.xlat]=meshgrid(x.lon,x.lat);
-            x.fxdata=interp2(v.lon,v.lat,v.data,red.fxlong,red.fxlat,'nearest');
+            if l2 == 0
+                x.lon=v.lon(xj);
+                x.lat=v.lat(xi);
+            else
+                x.lon = v.lon(idx);
+                x.lat = v.lat(idx);
+            end
+            
+            if l2 == 0
+                [x.xlon,x.xlat]=meshgrid(x.lon,x.lat);
+                %use scatter interpolation instead, seems to make no
+                %difference but need to check
+                x.fxdata=griddata(double(x.xlon(:)),double(x.xlat(:)),double(x.data(:)),red.fxlong,red.fxlat,'nearest');
+                %x.fxdata=interp2(v.lon,v.lat,v.data,red.fxlong,red.fxlat,'nearest');
+            else
+                %this next line breaks the plotting of detections
+                %downstream in fire_pixels3d.m
+                %[x.xlon,x.xlat]=meshgrid(x.lon,x.lat);
+                x.fxdata=griddata(double(x.lon(:)),double(x.lat(:)),double(x.data(:)),red.fxlong,red.fxlat,'nearest');
+            end
             if fig.fig_interp,  % map interpolated data to reduced domain
                 figure(fig.fig_interp)
                 cmap=cmapmod14;
