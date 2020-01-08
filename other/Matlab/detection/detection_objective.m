@@ -71,9 +71,9 @@
             end
               
             %weight by time
-            time_weight = 0;
+            time_weight = 1;
             if time_weight
-                pwr = 2;
+                pwr = 0.5;
                 %multiplier = exp((g(k).time-g(length(g)).time))^pwr;
                 multiplier = ((g(k).time-min(tign(:)))/(g(length(g)).time-min(tign(:))))^pwr;
                 params.weight = multiplier*params.weight;
