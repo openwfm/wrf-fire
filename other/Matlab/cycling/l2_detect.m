@@ -1,4 +1,8 @@
-prefix = '/home/jhaley/JPSSdata/';
+
+%local machine
+%prefix = '/home/jhaley/JPSSdata/';
+%colibri
+prefix = '/bigdisk/james.haley/wrfcycling/wrf-fire/wrfv2_fire/test/TIFs/';
 
 
 %Longitude = hdfread('/home/jhaley/JPSSdata/MOD03.A2013222.0545.006.2013222112442.hdf', 'MODIS_Swath_Type_GEO', 'Fields', 'Longitude');
@@ -35,7 +39,8 @@ for k = 1:nfiles
         dets = v.data >= 7;
         v
         if sum(v.pixels.fire) > 0
-            fires = [fires; v.lons(dets) v.lats(dets)];
+            fires = [fires; v.lon(dets) v.lat(dets)];
+            %fires = [fires; v.lons(dets) v.lats(dets)];
         end
         
     end
