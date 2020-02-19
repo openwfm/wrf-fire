@@ -6,6 +6,8 @@ function ros = ros_balbi(fuel,speed,tanphi,fmc_g)
 %       fmc_g   optional, overrides fuelmc_g from the fuel description
 % out
 %       ros     rate of spread
+% 
+% example: fuels; ros_balbi(fuel(3),3,0,0.1)
 
 % given fuel params
 
