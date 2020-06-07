@@ -73,7 +73,7 @@ use module_fr_sfire_phys, only: fire_params, init_fuel_cats, fuel_moisture, &
    advance_moisture, moisture_classes, &
    fire_rate_of_spread
 use module_fr_sfire_atm, only: apply_windrf,interpolate_wind2fire_height,interpolate_atm2fire, &
-   interpolate_z2fire,setup_wind_log_interpolation,interpolate_wind2can_height,find_trees_fmesh,massman_fwh
+   interpolate_z2fire,setup_wind_log_interpolation,find_trees_fmesh,massman_fwh
 use module_fr_sfire_util
 !use module_fr_sfire_util, only: lines_type,fire_max_lines
 ! Driver layer modules
@@ -1042,7 +1042,7 @@ do ij=1,num_tiles
             !Compute canopy top winds. Save this variable to cuf and cvf, which is like
             !vf and uf in terms of dimensionality, except that its canopy top winds.
 
-            call interpolate_wind2can_height(id,       & ! to identify debugging prints and files if needed
+            call interpolate_wind2fire_height(id,         & ! to identify debugging prints and files if needed
             ids,ide, kds,kde, jds,jde,                    & ! atm grid dimensions
             ims,ime, kms,kme, jms,jme,                    &
             ips,ipe,jps,jpe,                              &
