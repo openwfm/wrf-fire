@@ -2176,22 +2176,16 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       z0 = fz0(i,j)                    ! roughness length 
       wh = fwh(i,j)                    ! wind height
 
-
-      !print *,'i=',i,' j=',j,' icb=',icb,' jcb=',jcb,' z0=',z0,' wh=',wh
-
-
       if( wh > z0 .and. z0 > 0)then
 
       ht_last=z0                     ! initialize starting height of this layer
       loop_k: do k=kds,kdmax         ! search for layer k such that ht(k-1)<=wh<ht(k), ht(0)=z0
         ! interpolate height from atmospheric cell midpoints
         ht=interpolate_h(its-1,ite+1,kds,kde,jts-1,jts+1,icm,k,jcm,wicm,wjcm,z)
-        
-        ! print *,'i=',i,' j=',j,'k=',k,' ht=',ht
-
         if(.not. ht < wh) exit loop_k ! found layer k this point is in
         ht_last = ht
       enddo loop_k
+
       if(k .gt. kdmax) then
           goto 91  ! run out of vertical levels, this must be wrong
       endif
@@ -2205,25 +2199,14 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
 
       ! interpolate u at level k from staggered coarse grid: boundary in i, midpoints in j
       uk=interpolate_h(ims,ime,kms,kme,jms,jme,icb,k,jcm,wicb,wjcm,u) - u_frame
-
-      ! print *,'i=',i,' j=',j,' uk=',uk
-
       ! interpolate v at level k from staggered coarse grid: midpoints in i, boundary in j
       vk=interpolate_h(ims,ime,kms,kme,jms,jme,icm,k,jcb,wicm,wjcb,v) - v_frame
-
-      ! print *,'i=',i,' j=',j,' vk=',vk
 
       if(k.gt.kds)then           ! interpolate u,v horizontaly at the previous layer,  k-1
         ! interpolate u at level k-1 from staggered coarse grid: boundary in i, midpoints in j
         uk1=interpolate_h(ims,ime,kms,kme,jms,jme,icb,k-1,jcm,wicb,wjcm,u)
-        
-        ! print *,'i=',i,' j=',j,' uk1=',uk1
-
         ! interpolate v at level k-1 from staggered coarse grid: midpoints in i, boundary in j
         vk1=interpolate_h(ims,ime,kms,kme,jms,jme,icm,k-1,jcb,wicm,wjcb,v)
-        
-        ! print *,'i=',i,' j=',j,' uk1=',uk1
-
       else ! there is no previous layer, wind at roughness is assumed 0
         uk1=0. 
         vk1=0.
@@ -2232,14 +2215,11 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       ! log interpolate the wind to wh
       uf(i,j)= uk1 + (uk - uk1) * ( logwh - loght_last) / (loght - loght_last)
       vf(i,j)= vk1 + (vk - vk1) * ( logwh - loght_last) / (loght - loght_last)
-        
-      ! print *,'i=',i,' j=',j,' uk=',uk,' vk=',vk,' uk1=',uk1,' vk1=',vk1,' uf=',uf(i,j),' vf=',vf(i,j)
 
     else
-      ! no fuel, no wind 
+      ! below roughness or roughness zero, no wind 
       uf(i,j) = 0.
       vf(i,j) = 0.
-
     endif
 
     enddo loop_i
