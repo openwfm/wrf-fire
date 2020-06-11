@@ -2107,7 +2107,7 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   integer::itst,itet,jtst,jtet
   integer::iftst,iftet,jftst,jftet
   real:: wjcb,wjcm,wicb,wicm,ht,i_g,loght,zr,ht_last,logwh,wh,loght_last,uk,vk,uk1,vk1,z0,logz0
-  real, dimension (its-1:ite+1,kds:kde,jts-1:jte+1):: z
+  real, dimension (its-1:ite+1,kds:kde,jts-1:jte+1)::z,zw
   character(len=128)::msg
 
 !*** executable
@@ -2134,15 +2134,12 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
   do j = jtst,jtet
     do k=kds,kdmax+1
       do i = itst,itet       
-        z(i,k,j) = (ph(i,k,j)+phb(i,k,j))*i_g      ! altitude of the bottom w-point 
-
-        ! print *,'i,k,j=',i,k,j,'ph, phb, z=',ph(i,k,j),phb(i,k,j),z(i,k,j)
-
+        zw(i,k,j) = (ph(i,k,j)+phb(i,k,j))*i_g      ! altitude of the bottom w-point 
       enddo
     enddo
     do k=kds,kdmax
       do i = itst,itet       
-        z(i,k,j) = (z(i,k,j)+z(i,k+1,j))*0.5 - z(i,kds,j)   ! height of the cell center 
+        z(i,k,j) = (zw(i,k,j)+zw(i,k+1,j))*0.5 - zw(i,kds,j) ! height of the cell center above the bottom
       enddo
     enddo
   enddo
