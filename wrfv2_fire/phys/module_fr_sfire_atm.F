@@ -2152,10 +2152,14 @@ real,intent(out),dimension(ifms:ifme,jfms:jfme)::&
       ht_last=z0                     ! initialize starting height of this layer
       loop_k: do k=kds,kdmax         ! search for layer k such that ht(k-1)<=wh<ht(k), ht(0)=z0
         ! interpolate height from atmospheric cell midpoints
+<<<<<<< HEAD
         ht=interpolate_h(its-1,ite+1,kds,kde,jts-1,jts+1,icm,k,jcm,wicm,wjcm,z)
         
         ! print *,'i=',i,' j=',j,'k=',k,' ht=',ht
 
+=======
+        ht=interpolate_h(its-1,ite+1,kds,kde,jts-1,jte+1,icm,k,jcm,wicm,wjcm,z)
+>>>>>>> afb4f26a... indexing typo in phys/module_fr_sfire_atm.F/interpolate_wind2fire_height/interpolate_h
         if(.not. ht < wh) exit loop_k ! found layer k this point is in
         ht_last = ht
       enddo loop_k
