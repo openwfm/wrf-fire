@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8">
+<title>StdNorm:Wetherbee</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style type="text/css">img{ max-width:100%;height:auto;}</style>
+
+<script type="text/javascript">
+window.addEventListener('load',eventWindowLoaded,false);
+function eventWindowLoaded() {
+	canvasApp();
+}
+
+function canvasApp(){
+	var theCanvas = document.getElementById("canvas");
+	var context = theCanvas.getContext("2d");
+
+	var formCalc = document.getElementById("calc1");
+	formCalc.addEventListener('click',drawScreen1, false);
+
+	drawOutline();
+
+// functions -------------------------------
+
+	function drawScreen1(){
+		var left = parseFloat(document.getElementById("left").value);
+		var right = parseFloat(document.getElementById("right").value);
+		var area = 0.0;
+		area = calcArea(left,right);
+		document.getElementById("area").value = (area).toFixed(4);
+		drawArea(left,right,"#FF0000");
+	}
+
+	var formCalc = document.getElementById("calc2");
+	formCalc.addEventListener('click',drawScreen2, false);
+
+	function drawScreen2(){
+		var bott = parseFloat(document.getElementById("bott").value);
+		var area = 0.0;
+		area = calcArea(bott, 5.0);
+		document.getElementById("area").value = (area).toFixed(4);
+		drawArea(bott,3.2,"#00FF00");
+	}
+
+	var formCalc = document.getElementById("calc3");
+	formCalc.addEventListener('click',drawScreen3, false);
+
+	function drawScreen3(){
+		var topp = parseFloat(document.getElementById("topp").value);
+		var area = 0.0;
+		area = calcArea(-5.0, topp);
+		document.getElementById("area").value = (area).toFixed(4);
+		drawArea(-3.2,topp,"#0000FF");
+	}
+
+	function drawArea(xa,xb,color){
+		context.clearRect (0,0,160,160);
+		drawOutline();
+		if(xa > xb){return;}
+		if(xa < -3.2){ xa = -3.2;}
+		if(xb > 3.2){ xb = 3.2;}
+		var a = Math.floor(xa*25.0);
+		var b = Math.floor(xb*25.0);
+		var x0 = 0.0;
+		var y0 = 0.0;
+		var iy = 0;
+		for(var i=a; i<=b; i++){
+			x0 = 1.0*i/25.0;
+			y0 = .3989422 * Math.exp(-x0*x0/2.0);		
+			iy = Math.floor( 375 * y0);	
+			context.beginPath();
+			context.strokeStyle = color;
+			context.lineWidth = 1;
+			context.moveTo(80+i,160);
+			context.lineTo(80+i,160-iy);
+			context.stroke();
+			context.closePath();
+		}
+	}
+
+	function drawOutline(){
+		var iy = 0;
+		var x0 = 0.0;
+		var y0 = 0.0;
+		context.beginPath();
+		context.strokeStyle = "#000000";
+		context.lineWidth = 1;
+		context.moveTo(0,160);
+		for(var i=-79; i<=80; i++){
+			x0 = 1.0*i/25.0;
+			y0 = .3989422 * Math.exp(-x0*x0/2.0);	
+			iy = Math.floor( 375 * y0);
+			context.lineTo(80+i,160-iy);
+		}
+		context.lineTo(0,160);
+		context.stroke();
+		context.closePath();
+	}
+
+	function calcArea(xa,xb){
+		if(xa >= xb){ return 0.0;}
+		if(xa < -5.0){ xa = -5.0;}
+		if(xb > 5.0){xb = 5.0;}
+		var N = 2*Math.floor(1 + (xb - xa)/.1 );
+		var h = 1.0*(xb - xa)/N;
+		var area = 0.0;
+		var i = 0;
+		while(i < N){
+			x0 = xa + i*h;
+			x1 = xa + (i+1)*h;
+			x2 = xa + (i+2)*h;
+			y0 = .3989422 * Math.exp(-x0*x0/2.0);
+			y1 = .3989422 * Math.exp(-x1*x1/2.0);
+			y2 = .3989422 * Math.exp(-x2*x2/2.0);
+			area += y0 + 4.0*y1 + y2;
+			i += 2;	
+		}
+		area *= h/3.0;
+		return area;
+	}
+
+}
+</script>
+
+</head><body>
+<font size=2>
+   <a href="StatCalc1Var.html">StatCalc1Var</a> :  
+   <a href="StatCalc2Var.html">StatCalc2Var</a> :
+   StdNorm : 
+   <a href="ProbCalc.html">ProbCalc</a> : 
+   <a href="ProbCalcBinomial.html">ProbCalcBinomial</a>
+</font>
+<br>
+<font size=5 color='maroon'>FDLTCC:StdNorm</font><br>
+
+<canvas id="canvas" width="160" height="160">
+your browser does not support HTML5 Canvas.
+</canvas>
+
+<form>
+Area = 
+<input type=TEXT id='area' name=area value=1.0 style="width:80px"> 
+</form>
+<hr>
+<form>
+<input type=TEXT id='left' name=left value=-1.23 style="width:60px"> 
+ < Z <
+<input type=TEXT id='right' name=right value=2.41 style="width:60px">
+<input type="button" id="calc1" value="CALC" style="color:Red;width:80px">
+</form>
+
+<form>
+<input type=TEXT id='bott' name=bott value=0.34 style="width:60px"> 
+ < Z
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<input type="button" id="calc2" value="CALC" style="color:Green;width:80px">
+</form>
+
+<form>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Z < 
+<input type=TEXT id='topp' name=topp value=-1.23.0 style="width:60px"> 
+<input type="button" id="calc3" value="CALC" style="color:Blue;width:80px">
+</form
+
+
+</body></html>	

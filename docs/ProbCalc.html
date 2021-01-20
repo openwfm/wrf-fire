@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>ProbCalc:Wetherbee</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<script type="text/javascript">
+window.addEventListener('load',eventWindowLoaded,false);
+function eventWindowLoaded() {
+	ProbApp();
+}
+
+function ProbApp(){
+
+	var formCalc = document.getElementById("callnpr");
+	formCalc.addEventListener('click',do_npr, false);
+	
+	function do_npr(){
+		var n = parseInt(document.getElementById("n").value);
+		var r = parseInt(document.getElementById("r").value);
+		var result = calc_npr(n,r);
+		document.getElementById("nprval").value = result;
+	}
+	
+    var formCalc = document.getElementById("callncr");
+	formCalc.addEventListener('click',do_ncr, false);
+	
+	function do_ncr(){
+		var cn = parseInt(document.getElementById("cn").value);
+		var cr = parseInt(document.getElementById("cr").value);
+		var result = calc_ncr(cn,cr);
+		document.getElementById("ncrval").value = result;
+	}
+	
+    var formCalc = document.getElementById("callfact");
+	formCalc.addEventListener('click',do_fact, false);
+	
+	function do_fact(){
+		var fn = parseInt(document.getElementById("fn").value);
+		var result = fact(fn);
+		document.getElementById("factval").value = result;
+	}
+	
+	function fact(n){
+	   var k = 1;
+	   for(var i=2; i<= n; i++){
+	      k *= i;
+       }
+       return k;
+    }
+    
+    function calc_npr(n,r){
+       var result = fact(n) / fact(n-r);
+       return result;
+    }
+    
+    function calc_ncr(n,r){
+       var result = calc_npr(n,r) / fact(r);
+       return result;
+    }
+    
+    var formCalc = document.getElementById("ev_ex");
+        formCalc.addEventListener('click',do_ev, false);
+        
+   function do_ev(){
+            var ex = document.getElementById("ex").value;
+            var result = eval(ex)
+            document.getElementById("ev_res").value = result.toPrecision(6);
+   }
+}
+</script>
+
+</head><body>
+<font size=2>
+   <a href="StatCalc1Var.html">StatCalc1Var</a> :  
+   <a href="StatCalc2Var.html">StatCalc2Var</a> :
+   <a href="StdNorm.html">StdNorm</a> : 
+   ProbCalc : 
+   <a href="ProbCalcBinomial.html">ProbCalcBinomial</a>
+</font>
+<br>
+<font size=5 color='maroon'>FDLTCC:ProbCalc</font><br>
+<form name="stat">
+<input type=TEXT id='n' name=n value=5 style="width:20px"> nPr
+<input type=TEXT id='r' name=r value=2 style="width:20px"> 
+<input type="button" id='callnpr' value="=" OnClick="npr()">
+<input type=TEXT id='nprval' name=nprvaL value=20 style="width:120px"> 
+<br>
+<input type=TEXT id='cn' name=cn value=4 style="width:20px"> nCr
+<input type=TEXT id='cr' name=cr value=2 style="width:20px"> 
+<input type="button" id='callncr' value="=" OnClick="ncr()">
+<input type=TEXT id='ncrval' name=ncrvaL value=6 style="width:120px"> 
+<br>
+<input type=TEXT id='fn' name=fn value=5 style="width:20px"> !
+<input type="button" id='callfact' value="=" OnClick="fact()">
+<input type=TEXT id='factval' name=factval value=120 style="width:120px"> 
+
+<hr>
+<font size=4 color='maroon'>Simple Calculator</font><br>
+<textarea id='ex' name=ex  rows="5" cols="40" wrap="on">7/Math.sqrt(16+7) + 11.5</textarea><br>
+<input type="button" id='ev_ex' value="=" OnClick="ev_ex()">
+<input type=TEXT id='ev_res' name=ev_res value=' ' style="width:120px"> 
+<br>
+Use: Math.sqrt(5) for sqrt(5)<br>
+Use: Math.pow(5,3) for 5^3
+
+</form>
+<div id="outputter"></div>
+
+</body></html>
+
+

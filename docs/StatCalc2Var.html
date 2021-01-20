@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>StatCalc2Var:Wetherbee</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head><body>
+<font size=2>
+   <a href="StatCalc1Var.html">StatCalc1Var</a> :  
+   StatCalc2Var :
+   <a href="StdNorm.html">StdNorm</a> : 
+   <a href="ProbCalc.html">ProbCalc</a> :
+   <a href="ProbCalcBinomial.html">ProbCalcBinomial</a>
+</font>
+<br>
+<font size=5 color='maroon'>FDLTCC:StatCalc2Var</font><br>
+Enter x,y pairs of numbers separated by spaces,<br>
+like: <b>2,3 4,6 10,14 23.2,57.5</b> 
+</font>
+<form name="stat">
+<textarea name="data" rows="5" cols="40" wrap="off"></textarea><br>
+<input type="button" value="Calculate" OnClick="calc()">
+<input type="button" value="Clear All" OnClick="clear_all()">
+</form>
+<canvas id="canvas" width="160" height="160">
+your browser does not support HTML5 Canvas.
+</canvas>
+<div id="outputter"></div>
+
+
+</body></html>
+
+<SCRIPT><!--
+// Wetherbee May 29, 2020
+function clear_all(){
+	document.stat.data.value = "";
+	document.getElementById("outputter").innerHTML = "";
+	var theCanvas = document.getElementById("canvas");
+        var context = theCanvas.getContext("2d");
+        context.clearRect (0,0,160,160);
+}
+
+function calc(){
+	var xy = new Array();
+	var xy = document.stat.data.value.match(/\S+/g);
+	if(xy.length < 2){
+		document.getElementById("outputter").innerHTML = "<font color='red'>Too simple.  Use more than 1 x,y pair. </font>";
+		return;
+	}
+	
+	var x = new Array();
+	var y = new Array();
+	for( var i=0; i<xy.length; i++){
+	      xy_pair = xy[i].split(",");
+          x.push(Number(xy_pair[0]));
+          y.push(Number(xy_pair[1]));
+    }
+	
+	var sumx = 0.0;
+	var sumy = 0.0
+	var sumx2 = 0.0;
+	var sumy2 = 0.0;
+	var sumxy = 0.0;
+	var n = x.length;
+	for( var i=0; i < n; i++){
+		sumx += 1.0*x[i];
+		sumx2 += 1.0*x[i]*x[i];
+        sumy += 1.0*y[i];
+		sumy2 += 1.0*y[i]*y[i];
+        sumxy += 1.0*x[i]*y[i];
+	}
+	var meanx = sumx/n;
+	var sdx2 = (sumx2 - sumx*sumx/(1.0*n))/(n-1.0);
+	var sdx = Math.pow(sdx2,.5);
+    var sigmax2 = (sumx2 - sumx*sumx/(1.0*n))/(n*1.0);
+	var sigmax = Math.pow(sigmax2,.5);
+	var meany = sumy/n;
+	var sdy2 = (sumy2 - sumy*sumy/(1.0*n))/(n-1.0);
+	var sdy = Math.pow(sdy2,.5);
+    var sigmay2 = (sumy2 - sumy*sumy/(1.0*n))/(n*1.0);
+	var sigmay = Math.pow(sigmay2,.5);
+	
+	var ss_xx = sumx2 - sumx*sumx/n;
+	var ss_yy = sumy2 - sumy*sumy/n;
+	var ss_xy = sumxy - sumx*sumy/n
+	var r = ss_xy / Math.sqrt(ss_xx*ss_yy);
+	
+	var m = ss_xy / ss_xx;
+	var b = meany - m*meanx;
+	
+	var xx = x.slice();
+	xx.sort((a,b)=>a-b);
+	var xmax = Number(xx[n-1]); var xmin = Number(xx[0]); var spanx = xmax-xmin;
+	var yy = y.slice();
+	yy.sort((a,b)=>a-b);
+	var ymax = Number(yy[n-1]); var ymin = Number(yy[0]); var spany = ymax-ymin;
+	
+	var theCanvas = document.getElementById("canvas");
+	var context = theCanvas.getContext("2d");
+	
+    context.clearRect (0,0,160,160);
+    context.beginPath();
+    context.strokeStyle = "#CCCCFF";
+    context.rect(0,0,160,160);
+    context.stroke();
+    context.closePath();
+	
+    var y0 = Math.floor(5 + 150*((m*xmin + b)-ymin)/spany);
+    var x0 = Math.floor(5);
+    var y1 = Math.floor(5 + 150*((m*xmax + b)-ymin)/spany);
+    var x1 = Math.floor(155);
+    context.beginPath();
+    context.strokeStyle = "#ff0000";
+    context.lineWidth = 1;
+    context.moveTo(x0,160-y0);
+    context.lineTo(x1,160-y1);
+    context.stroke();
+    context.closePath();
+    
+    //context.fillstyle = "#000000";
+	for(var i=0; i<n; i++){
+	   ii = Math.floor(5 + 150*(Number(x[i])-xmin)/spanx);
+	   jj = Math.floor(5 + 150*(Number(y[i])-ymin)/spany);
+	   context.fillRect(ii-1,160-(jj-1),2,2);
+    }
+    
+	var out_text = "<font color='blue'>";
+	out_text += "x:["+xmin+","+xmax+"] y:["+ymin+","+ymax+"]<br><br>";
+	out_text += "Correlation r = " + r.toPrecision(6) + "<br>";
+	out_text += "Least squares fit: y = " + m.toPrecision(6) + "x + " + b.toPrecision(6) + "<br><br>";
+	
+	out_text += "n = " + n + "<br>";
+	out_text += "x: &mu; = " + meanx.toPrecision(6) + "<br>";
+	out_text += "x: s = " + sdx.toPrecision(6) + "<br>";
+	out_text += "x: s<sup>2</sup> = " + sdx2.toPrecision(6) + "<br>";
+	out_text += "x: &sigma; = " + sigmax.toPrecision(6) + "<br>";
+	out_text += "x: &sigma;<sup>2</sup> = " + sigmax2.toPrecision(6) + "<br>";
+	
+	out_text += "y: &mu; = " + meany.toPrecision(6) + "<br>";
+	out_text += "y: s = " + sdy.toPrecision(6) + "<br>";
+	out_text += "y: s<sup>2</sup> = " + sdy2.toPrecision(6) + "<br>";
+	out_text += "y: &sigma; = " + sigmay.toPrecision(6) + "<br>";
+	out_text += "y: &sigma;<sup>2</sup> = " + sigmay2.toPrecision(6) + "<br>";
+	
+	out_text += "x:  &Sigma;x = " + sumx.toPrecision(6) + "<br>";
+	out_text += "x:  &Sigma;x<sup>2</sup> = " + sumx2.toPrecision(6) + "<br>"; 
+	out_text += "y:  &Sigma;y = " + sumy.toPrecision(6) + "<br>";
+	out_text += "y:  &Sigma;y<sup>2</sup> = " + sumy2.toPrecision(6) + "<br>";
+	out_text += "xy: &Sigma;xy = " + sumxy.toPrecision(6) + "<br>";
+	
+    out_text += "</font>";
+	
+	
+	document.getElementById("outputter").innerHTML = out_text;
+	return;
+}
+// --></SCRIPT>
+
